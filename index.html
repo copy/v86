@@ -1,0 +1,62 @@
+<!doctype html>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+<title>Virtual x86</title>
+
+<script src="v86_all.js"></script>
+<link rel="stylesheet" href="v86.css">
+
+<textarea readonly id="log"></textarea>
+
+<div>
+    <div id="boot_options">
+        CD image: <input type="file" id="cd_image"><br>
+        <br>
+        Floppy disk image: <input type="file" id="floppy_image"><br>
+        <br>
+        Hard drive disk image: <input type="file" id="hd_image"><br>
+        <br>
+        - OR -
+        <br>
+        <br>
+        <input type="button" value="KolibriOS (1.4 MB)" id="start_koli"> - Graphical OS, takes about 60 seconds to boot<br>
+        <input type="button" value="Linux 2.6 (4.9 MB)" id="start_linux"> - With busybox and lua interpreter, takes about 20 seconds to boot<br>
+        <input type="button" value="Windows 1.01 (1.4 MB)" id="start_win101"> - Takes 1 second to boot<br>
+        <input type="button" value="FreeDOS (0.7 MB)" id="start_freedos"> - With nasm, vim, debug.com, some games and demos, takes 1 second to boot<br>
+        <input type="button" value="OpenBSD (1.4 MB)" id="start_bsd"> - Random boot floppy, takes very long to boot<br>
+    </div>
+    <div id="runtime_options" style="display: none">
+        <input type="button" value="Pause" id="run">
+        <input type="button" value="Reset" id="reset">
+        <input type="button" value="Send Ctrl-Alt-Del" id="ctrlaltdel">
+        <input type="button" value="Get modified floppy image" id="get_floppy">
+        <input type="button" value="Lock mouse" id="lock_mouse">
+        <input type="button" value="Go fullscreen" id="fullscreen">
+
+        Scale: 
+        <input type="number" min="0.25" step="0.25" value="1.0" id="scale" style="width: 50px">
+
+        <div id="info">
+            <div>running <span id="running_time"></span>s</div>
+            <div>speed <span id="speed"></span>kIPS</div>
+        </div>
+
+    </div>
+    <pre style="display: none" id="loading"></pre>
+    <br>
+    <br>
+</div>
+
+
+<div id="screen_container">
+    <div id="screen"></div>
+    <canvas id="vga"></canvas>
+</div>
+
+<br style="clear: both">
+<input type="text" class="phone_keyboard" style="display: none">
+<br>
+
+<b>News:</b> Source Code now available: <a href="https://github.com/copy/iwbtc">Github</a>, <a href="v86-latest.tar.gz">tarball</a>.</li>
+
+

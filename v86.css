@@ -1,0 +1,60 @@
+#log {
+    font-family: DejaVu Sans Mono;
+    font-size: 13px;
+    height: 350px;
+    float: right;
+    width: 400px;
+    border: 0 none;
+    background-color: #111;
+    color: #fff;
+}
+#screen {
+    white-space: pre;
+    position: relative;
+    font-family: Liberation Mono, DejaVu Sans Mono, Courier New, monospace;
+    font-weight: bold;
+    font-size: 15px;
+    line-height: 1;
+    float: left;
+}
+#screen, #vga {
+    border: 1px solid #555;
+    border-width: 2px 1px;
+    display: none;
+    -webkit-transform-origin: top left;
+    -moz-transform-origin: top left;
+}
+#vga {
+    image-rendering: -moz-crisp-edges;          // FF 6.0+
+    image-rendering: -webkit-optimize-contrast; // Webkit
+                                                //  (Safari now, Chrome soon)
+    image-rendering: -o-crisp-edges;            // OS X & Windows Opera (12.02+)
+    image-rendering: optimize-contrast;         // Possible future browsers.
+    -ms-interpolation-mode: nearest-neighbor;   // IE
+}
+#screen > div > span {
+    height: 15px;
+}
+#cursor {
+    position: absolute;
+    background-color: #ccc;
+    width: 7px;
+    display: inline-block;
+}
+body {
+    background-color: #111;
+    color: #fff;
+    line-height: 1.5;
+}
+#info {
+    font-size: 80%;
+}
+a {
+    color: wheat;
+}
+.phone_keyboard {
+    background-color: #111;
+    border: 1px solid #555;
+    width: 100px;
+    height: 100px;
+}
