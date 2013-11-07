@@ -59,7 +59,7 @@ v86_node.js: src/*.js src/node/*.js
 
 
 pack:
-	rm -f v86-latest.tar.gz 
+	rm -f ../v86-latest.tar.gz 
 		# Not sure if legally necessary
 		#--exclude "qemu"
 	tar -zcvf ../v86-latest.tar.gz ../v86/ \
