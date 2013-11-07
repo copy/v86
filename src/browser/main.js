@@ -76,10 +76,16 @@ function dump_file(ab, name)
 
         http.onload = function(e)
         {
-            //if(http.readyState === 4 && http.status === 200)
-            if(http.response)
+            if(http.readyState === 4)
             {
-                done(http.response);
+                if(http.status !== 200)
+                {
+                    log("Loading the image failed");
+                }
+                else if(http.response)
+                {
+                    done(http.response);
+                }
             }
         };
 
