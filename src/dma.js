@@ -88,7 +88,7 @@ function DMA(dev)
     // read data, write to memory
     this.do_read = function(buffer, start, len, channel, fn)
     {
-        var read_count = channels[channel].count,
+        var read_count = channels[channel].count + 1,
             addr = channels[channel].address;
 
         dbg_log("DMA write channel " + channel, LOG_DMA);
@@ -99,9 +99,9 @@ function DMA(dev)
             dbg_log("DMA should read more than provided: " + h(len) + " " + h(read_count), LOG_DMA);
         }
 
-        channels[channel].address += len;
+        channels[channel].address += read_count;
 
-        buffer.get(start, len, function(data)
+        buffer.get(start, read_count, function(data)
         {
             memory.write_blob(data, addr);
             fn();

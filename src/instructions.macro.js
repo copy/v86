@@ -1532,9 +1532,7 @@ opm(0x01, {
                 gdtr_offset &= 0xFFFFFF;
             }
 
-            dbg_log("eax " + h(reg32[reg_eax]), LOG_CPU);
-            dbg_log("gdt loaded from " + h(addr), LOG_CPU);
-            dbg_log("gdt at " + h(gdtr_offset) + ", " + gdtr_size + " bytes", LOG_CPU);
+            //dbg_log("gdt at " + h(gdtr_offset) + ", " + gdtr_size + " bytes", LOG_CPU);
             //dump_gdt_ldt();
             break;
         case 3:
