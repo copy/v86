@@ -2066,7 +2066,6 @@ function dump_regs()
                 String.pads(opcodes[i + 1], 20) + h(opcodes[i + 2], 2) + "\n";
         }
     }
-    //dbg_log(out.substr(0, out.length - 1));
     log(out.substr(0, out.length - 1));
     ops.clear();
     dbg_log("----- DUMP (ip = 0x" + h(instruction_pointer >>> 0) + ") ----------")
@@ -2079,11 +2078,6 @@ function dump_regs()
     for(i in s)
     {
         dbg_log(i + "  =  0x" + h(sreg[s[i]], 4));
-        //var infos = segment_cache[ s[i] - registers_start >> 1 ];
-        /*if(infos)
-        {
-            dbg_log(infos);
-        }*/
     }
     out = "";
     var flg = { "cf": getcf, "pf": getpf, "zf": getzf, "sf": getsf,
@@ -2262,7 +2256,6 @@ function dump_page_directory()
         if(entry.accessed)
             flags += 'A ';
         dbg_log("=== " + h(entry.address >>> 0, 8) + " | " + flags);
-        //dbg_log("=========================")
         if(entry.size)
         {
             continue;
