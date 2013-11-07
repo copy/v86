@@ -4481,7 +4481,7 @@ function FPU(io)
             {
                 tag_word |= 1 << (i << 1);
             }
-            else if(isNaN(value) || value === Infinity || value === -Infinity)
+            else if(!isFinite(value))
             {
                 tag_word |= 2 << (i << 1);
             }
@@ -5194,28 +5194,28 @@ function FPU(io)
             case 2:
                 // fist
                 var st0 = get_st0();
-                if(isNaN(st0) || st0 > 0x7FFFFFFF || st0 < -0x80000000)
-                {
-                    invalid_arithmatic();
-                    safe_write32(addr, 0x80000000);
-                }
-                else
+                if(st0 <= 0x7FFFFFFF && st0 >= -0x80000000)
                 {
                     // TODO: Invalid operation
                     safe_write32(addr, integer_round(st0));
+                }
+                else
+                {
+                    invalid_arithmatic();
+                    safe_write32(addr, 0x80000000);
                 }
                 break;
             case 3:
                 // fistp
                 var st0 = get_st0();
-                if(isNaN(st0) || st0 > 0x7FFFFFFF || st0 < -0x80000000)
+                if(st0 <= 0x7FFFFFFF && st0 >= -0x80000000)
                 {
-                    invalid_arithmatic();
-                    safe_write32(addr, 0x80000000);
+                    safe_write32(addr, integer_round(st0));
                 }
                 else
                 {
-                    safe_write32(addr, integer_round(st0));
+                    invalid_arithmatic();
+                    safe_write32(addr, 0x80000000);
                 }
                 pop();
                 break;
@@ -5550,27 +5550,27 @@ function FPU(io)
             case 2:
                 // fist
                 var st0 = get_st0();
-                if(isNaN(st0) || st0 > 0x7FFF || st0 < -0x8000)
+                if(st0 <= 0x7FFF || st0 >= -0x8000)
                 {
-                    invalid_arithmatic();
-                    safe_write16(addr, 0x8000);
+                    safe_write16(addr, integer_round(st0));
                 }
                 else
                 {
-                    safe_write16(addr, integer_round(st0));
+                    invalid_arithmatic();
+                    safe_write16(addr, 0x8000);
                 }
                 break;
             case 3:
                 // fistp
                 var st0 = get_st0();
-                if(isNaN(st0) || st0 > 0x7FFF || st0 < -0x8000)
+                if(st0 <= 0x7FFF || st0 >= -0x8000)
                 {
-                    invalid_arithmatic();
-                    safe_write16(addr, 0x8000);
+                    safe_write16(addr, integer_round(st0));
                 }
                 else
                 {
-                    safe_write16(addr, integer_round(st0));
+                    invalid_arithmatic();
+                    safe_write16(addr, 0x8000);
                 }
                 pop();
                 break;
@@ -5588,7 +5588,7 @@ function FPU(io)
             case 7:
                 // fistp
                 var st0 = integer_round(get_st0());
-                if(isNaN(st0) || st0 > 0x7FFFFFFFFFFFFFFF || st0 < -0x8000000000000000)
+                if(!(st0 <= 0x7FFFFFFFFFFFFFFF && st0 >= -0x8000000000000000))
                 {
                     st0 = 0x8000000000000000;
                     invalid_arithmatic();
