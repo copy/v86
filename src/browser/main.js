@@ -7,7 +7,7 @@ var next_tick, set_tick;
 (function()
 {
     var fn,
-        host = location.protocol + "//" + location.hostname;
+        host = location.protocol + "//" + location.host;
 
     set_tick = function(f)
     {
