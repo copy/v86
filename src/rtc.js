@@ -140,7 +140,8 @@ function RTC(dev, diskette_type)
             case 0x38:
                 // used by seabios to determine the boot order
                 // bootflag 1, high nibble, lowest priority
-                return 0x30; // hd
+                // Low nibble: Disable floppy signature check (1)
+                return 0x31; // hd
             case 0x3D:
                 // bootflag 2, both nibbles, high and middle priority
                 return 0x21; // floppy first, cd second
