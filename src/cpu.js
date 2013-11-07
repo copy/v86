@@ -5550,7 +5550,7 @@ function FPU(io)
             case 2:
                 // fist
                 var st0 = get_st0();
-                if(st0 <= 0x7FFF || st0 >= -0x8000)
+                if(st0 <= 0x7FFF && st0 >= -0x8000)
                 {
                     safe_write16(addr, integer_round(st0));
                 }
@@ -5563,7 +5563,7 @@ function FPU(io)
             case 3:
                 // fistp
                 var st0 = get_st0();
-                if(st0 <= 0x7FFF || st0 >= -0x8000)
+                if(st0 <= 0x7FFF && st0 >= -0x8000)
                 {
                     safe_write16(addr, integer_round(st0));
                 }

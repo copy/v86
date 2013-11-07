@@ -1633,7 +1633,7 @@ function FPU(io)
                 // fistp
                 var st0 = integer_round(get_st0());
 
-                if(!(st0 <= 0x7FFFFFFFFFFFFFFF || st0 >= -0x8000000000000000))
+                if(!(st0 <= 0x7FFFFFFFFFFFFFFF && st0 >= -0x8000000000000000))
                 {
                     st0 = 0x8000000000000000;
                     invalid_arithmatic();

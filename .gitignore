@@ -1,4 +1,4 @@
 images/*
 v86_all.js
-cpu.js
+src/cpu.js
 
