@@ -17,11 +17,10 @@ function FloppyController(dev, floppy_image)
         response_index = 0,
         response_length = 0,
 
-        /** @const */
-        byte_per_sector = 512,
+        floppy_size,
 
         /** @const */
-        number_of_heads = 2;
+        byte_per_sector = 512;
 
     this.buffer = floppy_image;
 
@@ -31,52 +30,34 @@ function FloppyController(dev, floppy_image)
         return;
     }
 
-    var number_of_cylinders,
-        number_of_sectors,
-        sectors_per_track;
+    floppy_size = floppy_image.byteLength;
 
-    if(floppy_image.byteLength === 1024 * 360)
+    var floppy_types = {
+        160  : { type: 1, tracks: 40, sectors: 8 , heads: 1 },
+        180  : { type: 1, tracks: 40, sectors: 9 , heads: 1 },
+        200  : { type: 1, tracks: 40, sectors: 10, heads: 1 },
+        320  : { type: 1, tracks: 40, sectors: 8 , heads: 2 },
+        360  : { type: 1, tracks: 40, sectors: 9 , heads: 2 },
+        400  : { type: 1, tracks: 40, sectors: 10, heads: 2 },
+        720  : { type: 3, tracks: 80, sectors: 9 , heads: 2 },
+        1200 : { type: 2, tracks: 80, sectors: 15, heads: 2 },
+        1440 : { type: 4, tracks: 80, sectors: 18, heads: 2 },
+        1722 : { type: 5, tracks: 82, sectors: 21, heads: 2 },
+        2880 : { type: 5, tracks: 80, sectors: 36, heads: 2 },
+    };
+
+    var number_of_cylinders,
+        sectors_per_track,
+        number_of_heads,
+        floppy_type = floppy_types[floppy_size >> 10];
+
+    if(floppy_type && (floppy_size & 0x3FF) === 0)
     {
-        this.type = 1;
-        number_of_cylinders = 40;
-        number_of_sectors = 2880;
-        sectors_per_track = 9;
-    }
-    if(floppy_image.byteLength === 1024 * 1200)
-    {
-        this.type = 2;
-        number_of_cylinders = 80;
-        number_of_sectors = 2400;
-        sectors_per_track = 15;
-    }
-    else if(floppy_image.byteLength === 1024 * 720)
-    {
-        this.type = 3;
-        number_of_cylinders = 80;
-        number_of_sectors = 2880;
-        sectors_per_track = 9;
-    }
-    else if(floppy_image.byteLength === 1024 * 1440)
-    {
-        this.type = 4;
-        number_of_cylinders = 80;
-        number_of_sectors = 2880;
-        sectors_per_track = 18;
-    }
-    else if(floppy_image.byteLength === 1024 * 2880)
-    {
-        this.type = 5;
-        number_of_cylinders = 80;
-        number_of_sectors = 5760;
-        sectors_per_track = 36;
-    }
-    else if(floppy_image.byteLength === 1024 * 1722)
-    {
-        // type is wrong, but only this works for seabios
-        this.type = 5;
-        number_of_cylinders = 82;
-        number_of_sectors = 3444;
-        sectors_per_track = 21;
+        this.type = floppy_type.type;
+
+        sectors_per_track = floppy_type.sectors;
+        number_of_heads = floppy_type.heads;
+        number_of_cylinders = floppy_type.tracks;
     }
     else
     {
@@ -338,7 +319,7 @@ function FloppyController(dev, floppy_image)
                 sector = 1;
                 head++;
 
-                if(head > 1)
+                if(head >= number_of_heads)
                 {
                     head = 0;
                     cylinder++;
