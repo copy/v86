@@ -25,12 +25,12 @@
     -moz-transform-origin: top left;
 }
 #vga {
-    image-rendering: -moz-crisp-edges;          // FF 6.0+
-    image-rendering: -webkit-optimize-contrast; // Webkit
-                                                //  (Safari now, Chrome soon)
-    image-rendering: -o-crisp-edges;            // OS X & Windows Opera (12.02+)
-    image-rendering: optimize-contrast;         // Possible future browsers.
-    -ms-interpolation-mode: nearest-neighbor;   // IE
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-optimize-contrast;
+
+    image-rendering: -o-crisp-edges;
+    image-rendering: optimize-contrast;
+    -ms-interpolation-mode: nearest-neighbor;
 }
 #screen > div > span {
     height: 15px;
