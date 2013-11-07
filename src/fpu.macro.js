@@ -1172,6 +1172,11 @@ function FPU(io)
                     // fsetpm
                     // treat as nop
                 }
+                else if(imm8 === 0xE1)
+                {
+                    // fdisi
+                    // also treat as nop
+                }
                 else
                 {
                     fpu_unimpl();
