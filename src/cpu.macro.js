@@ -539,6 +539,18 @@ function cpu_init(settings)
             }
         }
 
+        // seabios expects the bios to be mapped to 0xFFF00000 also
+        memory.mmap_register(0xFFF00000, 0x100000, false,
+            function(addr)
+            {
+                return memory.mem8[addr];
+            },
+            function(addr, value)
+            {
+                memory.mem8[addr] = value;
+            });
+
+
         // ip initial value
         instruction_pointer = 0xFFFF0;
 
