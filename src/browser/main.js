@@ -35,6 +35,7 @@ function log(data)
 {
     var log_element = document.getElementById("log");
 
+    log_elemnt.style.display = "block";
     log_element.textContent += data + "\n";
     log_element.scrollTop = 1e9;
 }
