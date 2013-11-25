@@ -920,32 +920,25 @@ function VGAScreen(dev, adapter)
     // Bochs VBE Extensions
     // http://wiki.osdev.org/Bochs_VBE_Extensions
     var dispi_index = -1,
-        dispi_value = -1,
-        read_index = true;
+        dispi_value = -1;
 
     function port1CE_write(value)
     {
         dispi_index = value;
-        read_index = true;
     }
     io.register_write(0x1CE, port1CE_write);
 
-    function port1CF_write(value)
+    function port1CF_write(value, low_port)
     {
-        if(read_index)
+        if(low_port === 0x1CE)
         {
-            dispi_index |= value << 8;
-            read_index = false
-            return;
+            dispi_index = dispi_index & 0xFF | value << 8;
         }
-
-        read_index = true;
-
-        dispi_value = value;
-        switch(dispi_index)
+        else
         {
-            default:
-                dbg_log("1CF / dispi write low " + h(dispi_index) + ": " + h(value), LOG_VGA);
+            dispi_value = value;
+
+            dbg_log("1CF / dispi write low " + h(dispi_index) + ": " + h(value), LOG_VGA);
         }
     }
     io.register_write(0x1CF, port1CF_write);
@@ -953,7 +946,7 @@ function VGAScreen(dev, adapter)
     function port1D0_write(value)
     {
         dbg_log("1D0 / dispi write high " + h(dispi_index) + ": " + h(value), LOG_VGA);
-        dispi_value |= value << 8;
+        dispi_value = dispi_value & 0xFF | value << 8;
 
         switch(dispi_index)
         {
