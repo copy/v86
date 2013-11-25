@@ -209,73 +209,84 @@ function scasd()
 
 function insb()
 {
+    test_privileges_for_io();
+
     var port = reg16[reg_dx];
 
     string_instruction(8, false, true, false, 
         {
-            safe_write8(dest, in8(port));
+            safe_write8(dest, io.port_read8(port));
         }, {
         });
 }
 
 function insw()
 {
+    test_privileges_for_io();
+
     var port = reg16[reg_dx];
 
-    string_instruction(8, false, true, false, 
+    string_instruction(16, false, true, false, 
         {
-            safe_write16(dest, in16(port));
+            safe_write16(dest, io.port_read16(port));
         }, {
             var phys_dest = translate_address_write(dest);
-            memory.write_aligned16(phys_dest, in16(port));
+            memory.write_aligned16(phys_dest, io.port_read16(port));
         });
 }
 
 function insd()
 {
+    test_privileges_for_io();
+
     var port = reg16[reg_dx];
 
     string_instruction(32, false, true, false, 
         {
-            safe_write32(dest, in32(port));
+            safe_write32(dest, io.port_read32(port));
         }, {
             var phys_dest = translate_address_write(dest);
-            memory.write_aligned32(phys_dest, in32(port));
+            memory.write_aligned32(phys_dest, io.port_read32(port));
         });
 }
 
 function outsb()
 {
+    test_privileges_for_io();
+
     var port = reg16[reg_dx];
 
     string_instruction(8, false, false, true, 
         {
-            out8(port, safe_read8(src));
+            io.port_write8(port, safe_read8(src));
         }, {
-            out8(port, safe_read8(src));
         });
 }
 
 function outsw()
 {
+    test_privileges_for_io();
+
     var port = reg16[reg_dx];
 
     string_instruction(16, false, false, true, 
         {
-            out16(port, safe_read16(src));
+            io.port_write16(port, safe_read16(src));
         }, {
-            out16(port, safe_read16(src));
+            io.port_write16(port, safe_read16(src));
         });
 }
 
 function outsd()
 {
+    test_privileges_for_io();
+
     var port = reg16[reg_dx];
 
     string_instruction(32, false, false, true, 
         {
-            out32(port, safe_read32s(src));
+            io.port_write32(port, safe_read32s(src));
         }, {
-            out32(port, safe_read32s(src));
+            io.port_write32(port, safe_read32s(src));
         });
 }
