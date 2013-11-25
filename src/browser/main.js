@@ -329,6 +329,7 @@ function dump_file(ab, name)
             }, show_progress);
 
             $("start_freedos").blur();
+            $("boot_options").style.display = "none";
         };
 
         $("start_win101").onclick = function()
@@ -340,6 +341,7 @@ function dump_file(ab, name)
             }, show_progress);
 
             $("start_win101").blur();
+            $("boot_options").style.display = "none";
         };
 
 
@@ -352,6 +354,7 @@ function dump_file(ab, name)
             }, show_progress);
 
             $("start_linux").blur();
+            $("boot_options").style.display = "none";
         };
 
         $("start_koli").onclick = function()
@@ -363,6 +366,7 @@ function dump_file(ab, name)
             }, show_progress);
 
             $("start_koli").blur();
+            $("boot_options").style.display = "none";
         };
 
         $("start_bsd").onclick = function()
@@ -374,6 +378,7 @@ function dump_file(ab, name)
             }, show_progress);
 
             $("start_bsd").blur();
+            $("boot_options").style.display = "none";
         };
 
         if(DEBUG)
