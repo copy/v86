@@ -175,10 +175,13 @@ function Memory(buffer, memory_size)
 
     this.mmap_register(memory_size, 0x100000000 - memory_size, 
         function(addr) {
+            // read outside of the memory size
             addr += memory_size;
             dbg_log("Read from unmapped memory space, addr=" + h(addr, 8), LOG_IO);
+            return 0;
         },
         function(addr, value) {
+            // write outside of the memory size
             addr += memory_size;
             dbg_log("Write to unmapped memory space, addr=" + h(addr, 8) + " value=" + h(value, 2), LOG_IO);
         });
