@@ -116,9 +116,9 @@ function VGAScreen(dev, adapter)
         screen.set_size_text(80, 25);
         screen.update_cursor_scanline();
 
-        memory.mmap_register(0xA0000, 0x20000, false, vga_memory_read, vga_memory_write);
+        memory.mmap_register(0xA0000, 0x20000, vga_memory_read, vga_memory_write);
 
-        memory.mmap_register(0xE0000000, SVGA_MEMORY_SIZE, false, svga_memory_read, svga_memory_write);
+        memory.mmap_register(0xE0000000, SVGA_MEMORY_SIZE, svga_memory_read, svga_memory_write);
     }
 
     function vga_memory_read(addr)
