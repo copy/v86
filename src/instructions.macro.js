@@ -1103,10 +1103,28 @@ op(0xE1, { loope(); });
 op(0xE2, { loop(); });
 op(0xE3, { jcxz(); });
 
-op(0xE4, { reg8[reg_al] = in8(read_imm8()); });
-op2(0xE5, { reg16[reg_ax] = in16(read_imm8()); }, { reg32[reg_eax] = in32(read_imm8()); });
-op(0xE6, { out8(read_imm8(), reg8[reg_al]); });
-op2(0xE7, { out16(read_imm8(), reg16[reg_ax]); }, { out32(read_imm8(), reg32s[reg_eax]); });
+op(0xE4, { 
+    test_privileges_for_io();
+    reg8[reg_al] = io.port_read8(read_imm8()); 
+});
+op2(0xE5, { 
+    test_privileges_for_io();
+    reg16[reg_ax] = io.port_read16(read_imm8()); 
+}, { 
+    test_privileges_for_io();
+    reg32[reg_eax] = io.port_read32(read_imm8()); 
+});
+op(0xE6, { 
+    test_privileges_for_io();
+    io.port_write8(read_imm8(), reg8[reg_al]); 
+});
+op2(0xE7, { 
+    test_privileges_for_io();
+    io.port_write16(read_imm8(), reg16[reg_ax]); 
+}, { 
+    test_privileges_for_io();
+    io.port_write32(read_imm8(), reg32s[reg_eax]); 
+});
 
 op2(0xE8, {
     // call
@@ -1149,10 +1167,28 @@ op(0xEB, {
     instruction_pointer = instruction_pointer + imm8 | 0;
 });
 
-op(0xEC, { reg8[reg_al] = in8(reg16[reg_dx]); });
-op2(0xED, { reg16[reg_ax] = in16(reg16[reg_dx]); }, { reg32[reg_eax] = in32(reg16[reg_dx]); });
-op(0xEE, { out8(reg16[reg_dx], reg8[reg_al]); });
-op2(0xEF, { out16(reg16[reg_dx], reg16[reg_ax]); }, { out32(reg16[reg_dx], reg32s[reg_eax]); });
+op(0xEC, { 
+    test_privileges_for_io();
+    reg8[reg_al] = io.port_read8(reg16[reg_dx]); 
+});
+op2(0xED, { 
+    test_privileges_for_io();
+    reg16[reg_ax] = io.port_read16(reg16[reg_dx]); 
+}, { 
+    test_privileges_for_io();
+    reg32[reg_eax] = io.port_read32(reg16[reg_dx]); 
+});
+op(0xEE, { 
+    test_privileges_for_io();
+    io.port_write8(reg16[reg_dx], reg8[reg_al]); 
+});
+op2(0xEF, { 
+    test_privileges_for_io();
+    io.port_write16(reg16[reg_dx], reg16[reg_ax]); 
+}, { 
+    test_privileges_for_io();
+    io.port_write32(reg16[reg_dx], reg32s[reg_eax]); 
+});
 
 op(0xF0, {
     // lock
@@ -1264,27 +1300,15 @@ op(0xF9, {
 op(0xFA, {
     // cli
     //dbg_log("interrupts off");
-    if(!privileges_for_io())
-    {
-        trigger_gp(0);
-    }
-    else
-    {
-        flags &= ~flag_interrupt;
-    }
+    test_privileges_for_io();
+    flags &= ~flag_interrupt;
 });
 op(0xFB, {
     // sti
     //dbg_log("interrupts on");
-    if(!privileges_for_io())
-    {
-        trigger_gp(0);
-    }
-    else
-    {
-        flags |= flag_interrupt;
-        handle_irqs();
-    }
+    test_privileges_for_io();
+    flags |= flag_interrupt;
+    handle_irqs();
 
 });
 

@@ -164,15 +164,103 @@ function IO()
         });
     }
 
-    this.port_write = function(port_addr, out_byte)
+
+    // any two consecutive 8-bit ports can be treated as a 16-bit port;
+    // and four consecutive 8-bit ports can be treated as a 32-bit port
+    //
+    // http://css.csail.mit.edu/6.858/2012/readings/i386/s08_01.htm
+    //
+    // This info seems to be incorrect, at least some multibyte ports are next
+    // to each other, such as 1CE and 1CF (VBE dispi) or the 170 (ATA data port).
+    //
+    // As a workaround, we pass the original port to the callback as the last argument.
+
+
+    this.port_write8 = function(port_addr, out_byte)
     {
-        write_callbacks[port_addr](out_byte);
+        write_callbacks[port_addr](out_byte, port_addr);
+    };
+
+    this.port_write16 = function(port_addr, out_byte)
+    {
+        dbg_log(
+            "write port16 #" + h(port_addr, 3) + " <- " + h(out_byte, 2) + get_port_description(port_addr),
+            LOG_IO
+        );
+
+        if(port_addr <= 0xFFFE)
+        {
+            write_callbacks[port_addr](out_byte & 0xFF, port_addr);
+            write_callbacks[port_addr + 1](out_byte >> 8, port_addr);
+        }
+        else
+        {
+            dbg_log("Ignored 2 byte write to port " + h(port_addr), LOG_IO);
+        }
+    };
+
+    this.port_write32 = function(port_addr, out_byte)
+    {
+        dbg_log(
+            "write port32 #" + h(port_addr, 3) + " <- " + h(out_byte, 2) + get_port_description(port_addr),
+            LOG_IO
+        );
+
+        if(port_addr <= 0xFFFC)
+        {
+            write_callbacks[port_addr](out_byte & 0xFF, port_addr);
+            write_callbacks[port_addr + 1](out_byte >> 8 & 0xFF, port_addr);
+            write_callbacks[port_addr + 2](out_byte >> 16 & 0xFF, port_addr);
+            write_callbacks[port_addr + 3](out_byte >>> 24, port_addr);
+        }
+        else
+        {
+            dbg_log("Ignored 4 byte write to port " + h(port_addr), LOG_IO);
+        }
     };
 
     // read byte from port
-    this.port_read = function(port_addr)
+    this.port_read8 = function(port_addr)
     {
-        return read_callbacks[port_addr]();
+        return read_callbacks[port_addr](port_addr);
+    };
+
+    this.port_read16 = function(port_addr)
+    {
+        dbg_log(
+            "read port16  #" + h(port_addr, 3) + get_port_description(port_addr),
+            LOG_IO
+        );
+
+        if(port_addr <= 0xFFFE)
+        {
+            return read_callbacks[port_addr](port_addr) | 
+                        read_callbacks[port_addr + 1](port_addr) << 8;
+        }
+        else
+        {
+            dbg_log("Ignored 2 byte read from port " + h(port_addr), LOG_IO);
+        }
+    };
+
+    this.port_read32 = function(port_addr)
+    {
+        dbg_log(
+            "read port32  #" + h(port_addr, 3) + get_port_description(port_addr),
+            LOG_IO
+        );
+
+        if(port_addr <= 0xFFFC)
+        {
+            return read_callbacks[port_addr](port_addr) | 
+                        read_callbacks[port_addr + 1](port_addr) << 8 | 
+                        read_callbacks[port_addr + 2](port_addr) << 16 | 
+                        read_callbacks[port_addr + 3](port_addr) << 24;
+        }
+        else
+        {
+            dbg_log("Ignored 4 byte read from port " + h(port_addr), LOG_IO);
+        }
     };
 }
 

@@ -1560,92 +1560,6 @@ function handle_irqs()
     }
 }
 
-// any two consecutive 8-bit ports can be treated as a 16-bit port;
-// and four consecutive 8-bit ports can be treated as a 32-bit port
-//
-// http://css.csail.mit.edu/6.858/2012/readings/i386/s08_01.htm
-
-function out8(port_addr, out_byte)
-{
-    if(privileges_for_io())
-    {
-        io.port_write(port_addr, out_byte);
-    }
-    else
-    {
-        trigger_gp(0);
-    }
-}
-
-function out16(port_addr, out_word)
-{
-    if(privileges_for_io())
-    {
-        io.port_write(port_addr, out_word & 0xFF);
-        io.port_write(port_addr + 1, out_word >> 8 & 0xFF);
-    }
-    else
-    {
-        trigger_gp(0);
-    }
-}
-
-function out32(port_addr, out_dword)
-{
-    if(privileges_for_io())
-    {
-        io.port_write(port_addr, out_dword & 0xFF);
-        io.port_write(port_addr + 1, out_dword >> 8 & 0xFF);
-        io.port_write(port_addr + 2, out_dword >> 16 & 0xFF);
-        io.port_write(port_addr + 3, out_dword >> 24 & 0xFF);
-    }
-    else
-    {
-        trigger_gp(0);
-    }
-}
-
-function in8(port_addr)
-{
-    if(privileges_for_io())
-    {
-        return io.port_read(port_addr);
-    }
-    else
-    {
-        trigger_gp(0);
-    }
-}
-
-function in16(port_addr)
-{
-    if(privileges_for_io())
-    {
-        return io.port_read(port_addr) | 
-                io.port_read(port_addr + 1) << 8;
-    }
-    else
-    {
-        trigger_gp(0);
-    }
-}
-
-function in32(port_addr)
-{
-    if(privileges_for_io())
-    {
-        return io.port_read(port_addr) |
-                io.port_read(port_addr + 1) << 8 | 
-                io.port_read(port_addr + 2) << 16 |
-                io.port_read(port_addr + 3) << 24;
-    }
-    else
-    {
-        trigger_gp(0);
-    }
-}
-
-
 /**
  * returns the current iopl from the eflags register
  */
@@ -1654,9 +1568,12 @@ function getiopl()
     return flags >> 12 & 3;
 }
 
-function privileges_for_io()
+function test_privileges_for_io()
 {
-    return !protected_mode || cpl <= getiopl();
+    if(protected_mode && cpl > getiopl())
+    {
+        trigger_gp(0);
+    }
 }
 
 function cpuid()
