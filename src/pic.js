@@ -67,8 +67,10 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
                 return false;
             }
 
+            var irq_number = log2_table[irq];
+            irq = 1 << irq_number;
+
             irr &= ~irq;
-            isr |= irq;
 
             if(irq === 4)
             {
@@ -76,7 +78,12 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
                 return slave.handle_irqs();
             }
 
-            call_interrupt_vector(irq_map + log2_table[irq], false, false);
+            if(!auto_eoi)
+            {
+                isr |= irq;
+            }
+
+            call_interrupt_vector(irq_map | irq_number, false, false);
 
             return true;
         };
@@ -101,15 +108,23 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
                 return false;
             }
 
+            var irq_number = log2_table[irq];
+            irq = 1 << irq_number;
+
             irr &= ~irq;
             isr |= irq;
 
-            call_interrupt_vector(irq_map + log2_table[irq], false, false);
+            call_interrupt_vector(irq_map | irq_number, false, false);
 
             if(irr)
             {
                 // tell the master we have one more
                 master.push_irq(2);
+            }
+
+            if(!auto_eoi)
+            {
+                isr &= ~irq;
             }
 
             return true;
@@ -172,14 +187,14 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
         {
             // ocw2
             // end of interrupt
-            //dbg_log("ocw2: " + h(data_byte), LOG_PIC);
+            //dbg_log("eoi: " + h(data_byte), LOG_PIC);
 
             var eoi_type = data_byte >> 5;
 
             if(eoi_type === 1)
             {
                 // non-specific eoi
-                isr = 0;
+                isr &= isr - 1;
             }
             else if(eoi_type === 3)
             {
