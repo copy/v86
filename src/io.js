@@ -107,8 +107,8 @@ function IO()
     {
     }
 
-    var read_callbacks = [],
-        write_callbacks = [];
+    var read_callbacks = Array(0x10000),
+        write_callbacks = Array(0x10000);
 
     for(var i = 0; i < 0x10000; i++)
     {
@@ -116,8 +116,8 @@ function IO()
 
         if(DEBUG)
         {
-            read_callbacks[i] = empty_port_read_debug.bind(0, i);
-            write_callbacks[i] = empty_port_write_debug.bind(0, i);
+            read_callbacks[i] = empty_port_read_debug;
+            write_callbacks[i] = empty_port_write_debug;
         }
         else
         {
@@ -156,10 +156,13 @@ function IO()
         a20_byte = out_byte;
     });
 
-    // use by linux for timing
-    this.register_write(0x80, function(out_byte)
+    if(DEBUG)
     {
-    });
+        // use by linux for timing
+        this.register_write(0x80, function(out_byte)
+        {
+        });
+    }
 
     this.port_write = function(port_addr, out_byte)
     {
