@@ -81,7 +81,7 @@ function dump_file(ab, name)
             {
                 if(http.status !== 200)
                 {
-                    log("Loading the image failed");
+                    log("Loading the image `" + filename + "` failed");
                 }
                 else if(http.response)
                 {
