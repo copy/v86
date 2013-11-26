@@ -264,7 +264,18 @@ function dump_file(ab, name)
             $("lock_mouse").blur();
         };
 
-        load_file("bios/seabios.bin", function(img)
+        var biosfile;
+
+        if(DEBUG)
+        {
+            biosfile = "seabios-debug.bin";
+        }
+        else
+        {
+            biosfile = "seabios.bin";
+        }
+
+        load_file("bios/" + biosfile, function(img)
         {
             settings.bios = img;
         });
