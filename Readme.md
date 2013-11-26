@@ -26,9 +26,8 @@ v86 emulates an x86-compatible CPU and hardware. Here's a list of emulated hardw
 - A CMOS Real Time Clock (RTC).
 - A VGA controller with SVGA support and Bochs VBE Extensions. This includes
   support for large resolutions.
-- A PCI bus. This one is mostly incomplete and not used by every device.
-- An AT disk controller with some ATAPI and some SCSI commands. This is quite
-  incomplete and possibly buggy, too.
+- A PCI bus. This one is partly incomplete and not used by every device.
+- An IDE disk controller.
 
 
 How to build, run and embed?

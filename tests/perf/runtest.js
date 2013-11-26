@@ -6,7 +6,6 @@ load(path + "const.js");
 load(path + "io.js");
 load(path + "cpu.js");
 load(path + "main.js");
-load(path + "disk.js");
 load(path + "pci.js");
 load(path + "test_helpers.js");
 load(path + "memory.js");

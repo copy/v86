@@ -219,17 +219,17 @@ var
     pci,
 
     /**
-     * @type {CDRom}
+     * @type {IDEDevice}
      */
     cdrom,
 
     /**
-     * @type {HDD}
+     * @type {IDEDevice}
      */
     hda,
 
     /**
-     * @type {HDD}
+     * @type {IDEDevice}
      */
     hdb,
 
@@ -634,17 +634,17 @@ function cpu_init(settings)
 
         if(settings.cdrom_disk)
         {
-            cpu.dev.cdrom = cdrom = new CDRom(devapi, settings.cdrom_disk);
+            cpu.dev.cdrom = cdrom = new IDEDevice(devapi, settings.cdrom_disk, true, 0);
         }
 
         if(settings.hda_disk)
         {
-            cpu.dev.hda = hda = new HDD(devapi, settings.hda_disk, 0);
+            cpu.dev.hda = hda = new IDEDevice(devapi, settings.hda_disk, false, 1);
         }
-        if(settings.hdb_disk)
-        {
-            cpu.dev.hdb = hdb = new HDD(devapi, settings.hdb_disk, 1);
-        }
+        //if(settings.hdb_disk)
+        //{
+        //    cpu.dev.hdb = hdb = new IDEDevice(devapi, settings.hdb_disk, false, 1);
+        //}
 
         timer = new PIT(devapi);
         rtc = new RTC(devapi, fdc.type);

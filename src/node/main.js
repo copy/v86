@@ -49,7 +49,7 @@ include(path + "floppy.js");
 include(path + "memory.js");
 include(path + "io.js");
 include(path + "pci.js");
-include(path + "disk.js");
+include(path + "ide.js");
 include(path + "dma.js");
 include(path + "pit.js");
 include(path + "vga.js");
