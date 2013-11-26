@@ -90,7 +90,7 @@ function IO()
         return 0xFF;
     }
 
-    function empty_port_write_debug(port_addr, out_byte)
+    function empty_port_write_debug(out_byte, port_addr)
     {
         dbg_log(
             "write port #" + h(port_addr, 3) + " <- " + h(out_byte, 2) + get_port_description(port_addr),
@@ -183,11 +183,6 @@ function IO()
 
     this.port_write16 = function(port_addr, out_byte)
     {
-        dbg_log(
-            "write port16 #" + h(port_addr, 3) + " <- " + h(out_byte, 2) + get_port_description(port_addr),
-            LOG_IO
-        );
-
         if(port_addr <= 0xFFFE)
         {
             write_callbacks[port_addr](out_byte & 0xFF, port_addr);
@@ -201,11 +196,6 @@ function IO()
 
     this.port_write32 = function(port_addr, out_byte)
     {
-        dbg_log(
-            "write port32 #" + h(port_addr, 3) + " <- " + h(out_byte, 2) + get_port_description(port_addr),
-            LOG_IO
-        );
-
         if(port_addr <= 0xFFFC)
         {
             write_callbacks[port_addr](out_byte & 0xFF, port_addr);
@@ -227,11 +217,6 @@ function IO()
 
     this.port_read16 = function(port_addr)
     {
-        dbg_log(
-            "read port16  #" + h(port_addr, 3) + get_port_description(port_addr),
-            LOG_IO
-        );
-
         if(port_addr <= 0xFFFE)
         {
             return read_callbacks[port_addr](port_addr) | 
@@ -245,11 +230,6 @@ function IO()
 
     this.port_read32 = function(port_addr)
     {
-        dbg_log(
-            "read port32  #" + h(port_addr, 3) + get_port_description(port_addr),
-            LOG_IO
-        );
-
         if(port_addr <= 0xFFFC)
         {
             return read_callbacks[port_addr](port_addr) | 
