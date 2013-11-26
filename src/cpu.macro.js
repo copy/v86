@@ -19,7 +19,7 @@ this.run = function()
 {
     if(!running)
     {
-        cpu_run();
+        setTimeout(cpu_run, 0);
     }
 }
 
@@ -523,20 +523,13 @@ function cpu_init(settings)
         var data = new Uint8Array(settings.bios),
             start = 0x100000 - settings.bios.byteLength;
 
-        for(var i = 0; i < settings.bios.byteLength; i++)
-        {
-            memory.mem8[start + i] = data[i];
-        }
+        memory.mem8.set(data, start);
 
         if(settings.vga_bios)
         {
             // load vga bios
             data = new Uint8Array(settings.vga_bios);
-
-            for(var i = 0; i < settings.vga_bios.byteLength; i++)
-            {
-                memory.mem8[0xC0000 + i] = data[i];
-            }
+            memory.mem8.set(data, 0xC0000);
         }
 
         // seabios expects the bios to be mapped to 0xFFF00000 also
