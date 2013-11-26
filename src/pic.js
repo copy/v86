@@ -56,7 +56,7 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
 
             if(!enabled_irr)
             {
-                return false
+                return slave.handle_irqs();
             }
 
             var irq = enabled_irr & -enabled_irr;
