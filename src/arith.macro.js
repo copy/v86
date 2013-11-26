@@ -569,7 +569,7 @@ function div8(source_operand)
     var target_operand = reg16[reg_ax],
         result = target_operand / source_operand | 0;
 
-    if(result > 0xFF || source_operand === 0)
+    if(result >= 0x100 || source_operand === 0)
     {
         trigger_de();
     }
@@ -587,7 +587,7 @@ function idiv8(source_operand)
     var target_operand = reg16s[reg_ax],
         result = target_operand / source_operand | 0;
 
-    if(result > 0x7F || result < -0x80 || source_operand === 0)
+    if(result >= 0x80 || result <= -0x81 || source_operand === 0)
     {
         trigger_de();
     }
@@ -606,7 +606,7 @@ function div16(source_operand)
         target_operand = (reg16[reg_ax] | reg16[reg_dx] << 16) >>> 0,
         result = target_operand / source_operand | 0;
 
-    if(result > 0xFFFF || source_operand === 0)
+    if(result >= 0x10000 || result < 0 || source_operand === 0)
     {
         trigger_de();
     }
@@ -624,7 +624,7 @@ function idiv16(source_operand)
     var target_operand = reg16[reg_ax] | (reg16[reg_dx] << 16),
         result = target_operand / source_operand | 0;
     
-    if(result > 0x7FFF || result < -0x8000 || source_operand === 0)
+    if(result >= 0x8000 || result <= -0x8001 || source_operand === 0)
     {
         trigger_de();
     }
@@ -647,8 +647,9 @@ function div32(source_operand)
         mod = (0x100000000 * dest_operand_high % source_operand + dest_operand_low % source_operand) % source_operand,
         result = dest_operand_low / source_operand + dest_operand_high * 0x100000000 / source_operand;
 
-    if(result > 0xFFFFFFFF || source_operand === 0)
+    if(result >= 0x100000000 || source_operand === 0)
     {
+        dbg_log("div32 #DE: " + h(dest_operand_high, 8) + ":" + h(dest_operand_low, 8) + " div " + h(source_operand, 8));
         trigger_de();
     }
     else
@@ -671,8 +672,9 @@ function idiv32(source_operand)
         mod = (0x100000000 * dest_operand_high % source_operand + dest_operand_low % source_operand) % source_operand,
         result = dest_operand_low / source_operand + dest_operand_high * 0x100000000 / source_operand;
 
-    if(result > 0x7FFFFFFF || result < -0x80000000 || source_operand === 0)
+    if(result >= 0x80000000 || result <= -0x80000001 || source_operand === 0)
     {
+        dbg_log("div32 #DE: " + h(dest_operand_high, 8) + ":" + h(dest_operand_low, 8) + " div " + h(source_operand, 8));
         trigger_de();
     }
     else
