@@ -232,11 +232,15 @@ function SyncBuffer(buffer)
     // warning: fn may be called synchronously or asynchronously
     this.get = function(start, len, fn)
     {
+        dbg_assert(start + len <= buffer.byteLength);
+
         fn(new Uint8Array(buffer, start, len));
     };
 
     this.set = function(start, slice, fn)
     {
+        dbg_assert(start + slice.length <= buffer.byteLength);
+
         new Uint8Array(buffer, start, slice.byteLength).set(slice);
         fn();
     };

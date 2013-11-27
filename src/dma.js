@@ -99,13 +99,21 @@ function DMA(dev)
             dbg_log("DMA should read more than provided: " + h(len) + " " + h(read_count), LOG_DMA);
         }
 
-        channels[channel].address += read_count;
-
-        buffer.get(start, read_count, function(data)
+        if(start + read_count > buffer.byteCount)
         {
-            memory.write_blob(data, addr);
-            fn();
-        });
+            dbg_log("DMA read outside of buffer", LOG_DMA);
+            fn(true);
+        }
+        else
+        {
+            channels[channel].address += read_count;
+
+            buffer.get(start, read_count, function(data)
+            {
+                memory.write_blob(data, addr);
+                fn(false);
+            });
+        }
     };
 
     // write data, read memory
@@ -116,19 +124,30 @@ function DMA(dev)
 
         dbg_log("DMA write channel " + channel, LOG_DMA);
         dbg_log("to " + h(addr) + " len " + h(read_count), LOG_DMA);
-        dbg_log(channels[channel], LOG_DMA);
+        //dbg_log(channels[channel], LOG_DMA);
 
         if(len < read_count)
         {
             dbg_log("DMA should read more than provided", LOG_DMA);
         }
 
-        buffer.set(start,
-                new Uint8Array(memory.buffer, addr, read_count + 1),
-                function() {
-                    fn();
-                }
-            );
+
+        if(start + read_count > buffer.byteCount)
+        {
+            dbg_log("DMA write outside of buffer", LOG_DMA);
+            fn(true);
+        }
+        else
+        {
+            channels[channel].address += read_count;
+
+            buffer.set(start,
+                    new Uint8Array(memory.buffer, addr, read_count + 1),
+                    function() {
+                        fn(false);
+                    }
+                );
+        }
     }
 
     function flipflop_get(old_dword, new_byte)

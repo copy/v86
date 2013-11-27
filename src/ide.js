@@ -145,27 +145,36 @@ function IDEDevice(dev, buffer, is_cd, nr)
             count = cmd[7] << 8 | cmd[8], 
             flags = cmd[1],
             bytecount = count * me.sector_size,
-            transfered_ata_blocks = Math.min(bytecount / 512, cylinder_low << 8 | cylinder_high);
-
-        //bytecount = count;
+            transfered_ata_blocks = Math.min(bytecount / 512, cylinder_low << 8 | cylinder_high),
+            byte_count = count * me.sector_size,
+            start = lba * me.sector_size;
 
         dbg_log("CD read lba=" + h(lba) + 
                 " lbacount=" + h(count) +
-                " bytecount=" + h(count * me.sector_size) +
+                " bytecount=" + h(byte_count) +
                 " flags=" + h(flags), LOG_CD);
 
 
         cylinder_low = transfered_ata_blocks >> 8;
         cylinder_high = transfered_ata_blocks;
 
-        me.buffer.get(lba * me.sector_size, count * me.sector_size, function(data)
+        if(start + byte_count > buffer.byteLength)
         {
-            //memory.write_blob(data, dest);
-            pio_data = data;
-            status = 0x58;
-            data_pointer = 0;
+            dbg_log("CD read: Outside of disk", LOG_DISK);
+
+            status = 0xFF;
             push_irq();
-        });
+        }
+        else
+        {
+            me.buffer.get(start, byte_count, function(data)
+            {
+                pio_data = data;
+                status = 0x58;
+                data_pointer = 0;
+                push_irq();
+            });
+        }
     }
 
     function read_data_port(port_addr)
@@ -539,7 +548,8 @@ function IDEDevice(dev, buffer, is_cd, nr)
             // 0x24 read sectors ext
             var count = bytecount,
                 lba = (cylinder_high << 16 | cylinder_low) >>> 0,
-                byte_count = count * me.sector_size;
+                byte_count = count * me.sector_size,
+                start = lba * me.sector_size;
 
             dbg_log("ATA read lba=" + h(lba) + 
                     " lbacount=" + h(count) +
@@ -547,15 +557,24 @@ function IDEDevice(dev, buffer, is_cd, nr)
 
             cylinder_low += count;
 
-            me.buffer.get(lba * me.sector_size, byte_count, function(data)
+            if(start + byte_count > buffer.byteLength)
             {
-                pio_data = data;
-                status = 0x58;
-                data_pointer = 0;
+                dbg_log("ATA read: Outside of disk", LOG_DISK);
 
+                status = 0xFF;
                 push_irq();
-            });
+            }
+            else
+            {
+                me.buffer.get(start, byte_count, function(data)
+                {
+                    pio_data = data;
+                    status = 0x58;
+                    data_pointer = 0;
 
+                    push_irq();
+                });
+            }
         }
         else if(cmd === 0xEA)
         {

@@ -287,7 +287,7 @@ function FloppyController(dev, floppy_image)
         var head = args[2],
             cylinder = args[1],
             sector = args[3],
-            sector_size = 128 * (1 << args[4]),
+            sector_size = 128 << args[4],
             read_count = args[5] - args[3] + 1,
 
             read_offset = ((head + number_of_heads * cylinder) * sectors_per_track + sector - 1) * sector_size;
@@ -310,8 +310,14 @@ function FloppyController(dev, floppy_image)
             dma.do_read(floppy_image, read_offset, read_count * sector_size, 2, done);
         }
 
-        function done()
+        function done(error)
         {
+            if(error)
+            {
+                // TODO: Set appropriate bits
+                return;
+            }
+
             sector++;
 
             if(sector > sectors_per_track)
