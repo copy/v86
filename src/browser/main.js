@@ -209,6 +209,39 @@ function dump_file(ab, name)
         };
     }
 
+    /**
+     * Asynchronous access to File, loading blocks from the input type=file
+     *
+     * @constructor
+     */
+    function AsyncFileBuffer(file)
+    {
+        this.byteLength = file.size;
+
+        var filereader = new FileReader;
+
+        // warning: fn may be called synchronously or asynchronously
+        this.get = function(start, len, fn)
+        {
+            filereader.onload = function(e)
+            {
+                fn(new Uint8Array(e.target.result));
+            };
+
+            filereader.readAsArrayBuffer(file.slice(start, start + len));
+        };
+
+        this.get_buffer = function(fn)
+        {
+        };
+
+        this.set = function(start, slice, fn)
+        {
+            // Discard (we can't write to the server)
+            // TODO: Put data into cache
+        };
+    }
+
     function lock_mouse(elem)
     {
         var fn = elem["requestPointerLock"] ||
@@ -289,6 +322,23 @@ function dump_file(ab, name)
         {
             if(me.files.length)
             {
+                var file = new AsyncFileBuffer(me.files[0]);
+
+                switch(type)
+                {
+                case "floppy": 
+                   settings.floppy_disk = file;
+                   break;
+                case "hd": 
+                   settings.hda_disk = file;
+                   break;
+                case "cdrom": 
+                   settings.cdrom_disk = file;
+                   break;
+                }
+                init(settings);
+                return;
+
                 var reader = new FileReader();
                 
                 reader.onload = function(e)
@@ -458,7 +508,7 @@ function dump_file(ab, name)
         var cpu = new v86(),
             screen_adapter = new ScreenAdapter();
 
-        $("boot_options").parentNode.removeChild($("boot_options"));
+        $("boot_options").style.display = "none";
         $("loading").style.display = "none";
         $("runtime_options").style.display = "block";
         document.getElementsByClassName("phone_keyboard")[0].style.display = "block";
