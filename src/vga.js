@@ -4,17 +4,17 @@
 /**
  * @constructor
  */
-function VGAScreen(dev, adapter)
+function VGAScreen(dev, adapter, vga_memory_size)
 {
     var
         io = dev.io,
         memory = dev.memory,
 
         /** 
-         * TODO: Make this configurable
+         * Always 64k
          * @const 
          */
-        SVGA_MEMORY_SIZE = 128 * 64 * 1024,
+        VGA_BANK_SIZE = 64 * 1024,
 
         /** @const */
         MAX_XRES = 1280,
@@ -82,15 +82,6 @@ function VGAScreen(dev, adapter)
          */
         vga256_palette = new Int32Array(256),
 
-        // 4 times 64k
-        // Could be shared with SVGA memory
-        vga_memory = new Uint8Array(4 * 64 * 1024),
-
-        plane0 = new Uint8Array(vga_memory.buffer, 0 * 64 * 1024, 64 * 1024),
-        plane1 = new Uint8Array(vga_memory.buffer, 1 * 64 * 1024, 64 * 1024),
-        plane2 = new Uint8Array(vga_memory.buffer, 2 * 64 * 1024, 64 * 1024),
-        plane3 = new Uint8Array(vga_memory.buffer, 3 * 64 * 1024, 64 * 1024),
-
         // VGA latches
         latch0 = 0,
         latch1 = 0,
@@ -98,7 +89,7 @@ function VGAScreen(dev, adapter)
         latch3 = 0,
 
         
-        svga_memory = new Uint8Array(SVGA_MEMORY_SIZE),
+        svga_memory,
         svga_enabled = false,
 
         /** @type {number} */
@@ -108,7 +99,17 @@ function VGAScreen(dev, adapter)
         svga_height = 0,
 
         /** @type {number} */
-        svga_bpp = 0;
+        svga_bpp = 0,
+
+        // 4 times 64k
+        vga_memory,
+
+        plane0,
+        plane1,
+        plane2,
+        plane3;
+
+
 
     // Experimental, could probably need some changes
     // 01:00.0 VGA compatible controller: NVIDIA Corporation GT216 [GeForce GT 220] (rev a2)
@@ -122,12 +123,32 @@ function VGAScreen(dev, adapter)
 
     function init()
     {
+        if(vga_memory_size < 4 * VGA_BANK_SIZE)
+        {
+            vga_memory_size = 4 * VGA_BANK_SIZE;
+            dbg_log("vga memory size rounded up to " + vga_memory_size, LOG_VGA);
+        }
+        else if(vga_memory_size & (VGA_BANK_SIZE - 1))
+        {
+            // round up to next 64k
+            vga_memory_size |= VGA_BANK_SIZE - 1;
+            vga_memory_size++;
+        }
+
+        svga_memory = new Uint8Array(vga_memory_size);
+
+        vga_memory = new Uint8Array(svga_memory.buffer, 0, 4 * VGA_BANK_SIZE);
+
+        plane0 = new Uint8Array(svga_memory.buffer, 0 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+        plane1 = new Uint8Array(svga_memory.buffer, 1 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+        plane2 = new Uint8Array(svga_memory.buffer, 2 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+        plane3 = new Uint8Array(svga_memory.buffer, 3 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+
         screen.set_size_text(80, 25);
         screen.update_cursor_scanline();
 
         memory.mmap_register(0xA0000, 0x20000, vga_memory_read, vga_memory_write);
-
-        memory.mmap_register(0xE0000000, SVGA_MEMORY_SIZE, svga_memory_read, svga_memory_write);
+        memory.mmap_register(0xE0000000, vga_memory_size, svga_memory_read, svga_memory_write);
     }
 
     function vga_memory_read(addr)
@@ -992,7 +1013,7 @@ function VGAScreen(dev, adapter)
                 return MAX_BPP;
             case 0x0A:
                 // memory size in 64 kilobyte banks
-                return SVGA_MEMORY_SIZE / 64 / 1024;
+                return vga_memory_size / VGA_BANK_SIZE | 0;
             default:
         }
         dbg_log("1CF / dispi read low " + h(dispi_index), LOG_VGA);
@@ -1013,7 +1034,7 @@ function VGAScreen(dev, adapter)
             case 3:
                 return MAX_BPP >> 8;
             case 0x0A:
-                return SVGA_MEMORY_SIZE / 64 / 1024 >> 8;
+                return vga_memory_size / VGA_BANK_SIZE >> 8;
             default:
         }
         dbg_log("1D0 / dispi read high " + h(dispi_index), LOG_VGA);
