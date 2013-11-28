@@ -646,7 +646,7 @@ function VGAScreen(dev, adapter, vga_memory_size)
             offset = dac_color_index % 3,
             color = vga256_palette[index];
 
-        color_byte = color_byte << 2 & 0xFF | 3;
+        color_byte = color_byte * 255 / 63 & 0xFF; 
 
         if(offset === 0)
         {
