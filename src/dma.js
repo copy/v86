@@ -99,7 +99,7 @@ function DMA(dev)
             dbg_log("DMA should read more than provided: " + h(len) + " " + h(read_count), LOG_DMA);
         }
 
-        if(start + read_count > buffer.byteCount)
+        if(start + read_count > buffer.byteLength)
         {
             dbg_log("DMA read outside of buffer", LOG_DMA);
             fn(true);
@@ -132,7 +132,7 @@ function DMA(dev)
         }
 
 
-        if(start + read_count > buffer.byteCount)
+        if(start + read_count > buffer.byteLength)
         {
             dbg_log("DMA write outside of buffer", LOG_DMA);
             fn(true);
