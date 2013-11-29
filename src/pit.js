@@ -256,13 +256,13 @@ function PIT(dev)
 
         if(read_mode === 1)
         {
-            // lsb
-            counter_next_low[i] = 1;
+            // msb
+            counter_next_low[i] = 0;
         }
         else if(read_mode === 2)
         {
-            // msb
-            counter_next_low[i] = 0;
+            // lsb
+            counter_next_low[i] = 1;
         }
         else
         {
