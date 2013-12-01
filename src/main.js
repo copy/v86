@@ -32,6 +32,9 @@ var dbg_names = Object.fromList([
     [LOG_CD, "CD"],
     [LOG_SERIAL, "SERI"],
     [LOG_RTC, "RTC"],
+    [LOG_HPET, "HPET"],
+    [LOG_ACPI, "ACPI"],
+    [LOG_APIC, "APIC"],
 ]);
 
 

@@ -6,6 +6,12 @@ var DEBUG = true;
 var
 
 /** 
+ * TODO: Make this configurable
+ * @const 
+ */
+VGA_MEMORY_SIZE = 128 * 64 * 1024,
+
+/** 
  * @const 
  * @type {number}
  */
@@ -33,6 +39,9 @@ var
 /** @const */ LOG_SERIAL = 0x04000,
 /** @const */ LOG_DISK =   0x08000,
 /** @const */ LOG_RTC =    0x10000,
+/** @const */ LOG_HPET =   0x20000,
+/** @const */ LOG_ACPI =   0x40000,
+/** @const */ LOG_APIC =   0x80000,
 
 
 
@@ -43,8 +52,8 @@ var
 ///** @const */ LOG_LEVEL = LOG_VGA | LOG_IO | LOG_BIOS | LOG_OTHER;
 ///** @const */ LOG_LEVEL = LOG_FPU | LOG_OTHER;
 ///** @const */ LOG_LEVEL = LOG_DMA | LOG_DISK | LOG_IO | LOG_PCI;
-///** @const */ LOG_LEVEL = LOG_DMA | LOG_DISK | LOG_PCI | LOG_CD | LOG_BIOS;
-/** @const */ LOG_LEVEL = LOG_ALL & ~LOG_DISK & ~LOG_DMA & ~LOG_VGA & ~LOG_PS2 & ~LOG_FPU;
+//** @const */ LOG_LEVEL = LOG_DMA | LOG_DISK | LOG_PCI | LOG_CD | LOG_BIOS;
+/** @const */ LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_PS2 & ~LOG_DISK & ~LOG_CD & ~LOG_BIOS;
 ///** @const */ LOG_LEVEL = LOG_SERIAL | LOG_IO;
 ///** @const */ LOG_LEVEL = LOG_PIT | LOG_RTC;
 ///** @const */ LOG_LEVEL = 0;
@@ -72,21 +81,28 @@ var
 /** @const */ flag_overflow = 2048,
 /** @const */ flag_iopl = 1 << 12 | 1 << 13,
 /** @const */ flag_nt = 1 << 14,
+/** @const */ flag_rf = 1 << 16,
 /** @const */ flag_vm = 1 << 17,
+/** @const */ flag_ac = 1 << 18,
+/** @const */ flag_vif = 1 << 19,
+/** @const */ flag_vip = 1 << 20,
+/** @const */ flag_id = 1 << 21,
 
 /** 
- * default values of unused flags bits
+ * default values of reserved flags bits
  * @const
  */
 flags_default = 1 << 1,
 
 /** 
- * bitmask to select used flags bits
+ * bitmask to select non-reserved flags bits
  * @const
  */
-flags_mask = 1 << 0 | 1 << 2 | 1 << 4 | 1 << 6 | 1 << 7 | 1 << 8 | 1 << 9
-                        | 1 << 10 | 1 << 11 | 1 << 12 | 1 << 13 | 1 << 14 | 
-                        1 << 16 | 1 << 17 | 1 << 18 | 1 << 19 | 1 << 20 | 1 << 21,
+flags_mask = 
+    flag_carry | flag_parity | flag_adjust | flag_zero | flag_sign | flag_trap | flag_interrupt |
+    flag_direction | flag_overflow | flag_iopl | flag_nt | flag_rf | flag_vm | flag_ac |
+    flag_vif | flag_vip | flag_id,
+
 
 /**
  * all arithmetic flags
@@ -148,7 +164,7 @@ PSE_ENABLED = 128,
 
 
 
-/** @const */ LOOP_COUNTER = 20001,
+/** @const */ LOOP_COUNTER = 2001,
 /** @const */ TIME_PER_FRAME = 33;
 
 
