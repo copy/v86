@@ -14,9 +14,6 @@ function IDEDevice(dev, buffer, is_cd, nr)
     var pic = dev.pic,
         me = this;
 
-    // the lower one is a bit buggy now
-    nr = 1;
-
     if(nr === 0)
     {
         this.ata_port = 0x1F0;
@@ -438,7 +435,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
         {
             dbg_log("ATA identify packet device", LOG_DISK);
 
-            if(me.atapi)
+            if(me.is_atapi)
             {
                 data_pointer = 0;
                 pio_data = new Uint8Array(512);
@@ -667,7 +664,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
         }
         else if(cmd === 0xA0)
         {
-            if(me.atapi)
+            if(me.is_atapi)
             {
                 // ATA_CMD_PACKET
                 status = 0x58;
