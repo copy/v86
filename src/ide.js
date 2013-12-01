@@ -72,12 +72,16 @@ function IDEDevice(dev, buffer, is_cd, nr)
         //0x81, 0x84, 0x00, 0x00, 0x01, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43, 0x10, 0xd4, 0x82,
         //0x00, 0x00, 0x00, 0x00, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x02, 0x00, 0x00,
     dev.pci.register_device([
-        0x86, 0x80, 0x20, 0x3a, 0x05, 0x00, 0xb0, 0x02, 0x00, 0x8f, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
+        0x86, 0x80, 0x20, 0x3a, 0x05, 0x00, 0xa0, 0x02, 0x00, 0x8f, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
         this.ata_port & 0xFF | 1, this.ata_port >> 8, 0x00, 0x00, 
         this.ata_port_high & 0xFF | 1, this.ata_port_high >> 8, 0x00, 0x00, 
-        0x81, 0x88, 0x00, 0x00, 0x01, 0x88, 0x00, 0x00,
-        0x81, 0x84, 0x00, 0x00, 0x01, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43, 0x10, 0xd4, 0x82,
-        0x00, 0x00, 0x00, 0x00, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, this.irq, 0x02, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 
+        0x00, 0x00, 0x00, 0x00, 
+        0x00, 0x00, 0x00, 0x00, 
+        0x43, 0x10, 0xd4, 0x82,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, this.irq, 0x02, 0x00, 0x00,
     ], 0x1f << 3);
 
     // status
@@ -363,17 +367,17 @@ function IDEDevice(dev, buffer, is_cd, nr)
         }
         else if(port_addr === (me.ata_port | 1))
         {
-            dbg_log("lba_count: " + data, LOG_DISK);
+            dbg_log("1f1/lba_count: " + h(data), LOG_DISK);
             lba_count = (lba_count << 8 | data) & 0xFFFF;
         }
         else if(port_addr === (me.ata_port | 2))
         {
-            dbg_log("bytecount: " + data, LOG_DISK);
+            dbg_log("1f2/bytecount: " + h(data), LOG_DISK);
             bytecount = (bytecount << 8 | data) & 0xFFFF;
         }
         else if(port_addr === (me.ata_port | 3))
         {
-            dbg_log("sector: " + data, LOG_DISK);
+            dbg_log("1f3/sector: " + h(data), LOG_DISK);
             sector = (sector << 8 | data) & 0xFFFF;
         }
     }
@@ -434,14 +438,22 @@ function IDEDevice(dev, buffer, is_cd, nr)
         {
             dbg_log("ATA identify packet device", LOG_DISK);
 
-            data_pointer = 0;
-            pio_data = new Uint8Array(512);
-            
-            pio_data[0] = 0x40;
-            pio_data[1] = 0x05 | me.is_atapi << 7;
-            status = 0x58;
+            if(me.atapi)
+            {
+                data_pointer = 0;
+                pio_data = new Uint8Array(512);
+                
+                pio_data[0] = 0x40;
+                pio_data[1] = 0x05 | me.is_atapi << 7;
+                status = 0x58;
 
-            push_irq();
+                push_irq();
+            }
+            else
+            {
+                status = 0x50;
+                push_irq();
+            }
         }
         else if(cmd === 0xEC)
         {
@@ -544,14 +556,27 @@ function IDEDevice(dev, buffer, is_cd, nr)
 
             push_irq();
         }
-        else if(cmd === 0x29 || cmd === 0x24)
+        else if(cmd === 0x20 || cmd === 0x29 || cmd === 0x24)
         {
-            // 0x29 read multiple ext
+            // 0x20 read sectors
             // 0x24 read sectors ext
-            var count = bytecount,
-                lba = (cylinder_high << 16 | cylinder_low) >>> 0,
+            // 0x29 read multiple ext
+
+            if(cmd === 0x20)
+            {
+                var count = bytecount & 0xff,
+                    lba = (cylinder_high << 16 & 0xff0000 | cylinder_low << 8 & 0xff00 | sector & 0xff) >>> 0;
+            }
+            else
+            {
+                var count = bytecount,
+                    lba = (cylinder_high << 16 | cylinder_low) >>> 0;
+            }
+
+            var
                 byte_count = count * me.sector_size,
                 start = lba * me.sector_size;
+
 
             dbg_log("ATA read lba=" + h(lba) + 
                     " lbacount=" + h(count) +
@@ -642,11 +667,14 @@ function IDEDevice(dev, buffer, is_cd, nr)
         }
         else if(cmd === 0xA0)
         {
-            // ATA_CMD_PACKET
-            status = 0x58;
-            atapi_command = [];
-            bytecount = 1;
-            push_irq();
+            if(me.atapi)
+            {
+                // ATA_CMD_PACKET
+                status = 0x58;
+                atapi_command = [];
+                bytecount = 1;
+                push_irq();
+            }
         }
         else
         {
