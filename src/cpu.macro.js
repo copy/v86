@@ -374,10 +374,12 @@ function cpu_run()
             operand_size_32 = is_32;
             update_operand_size();
 
-            cpu_run();
+            next_tick();
         }
         else
         {
+            console.log(e);
+            console.log(e.stack);
             throw e;
         }
     }
@@ -615,7 +617,7 @@ function cpu_init(settings)
         devapi.dma = dma = new DMA(devapi);
  
 
-        cpu.dev.vga = vga = new VGAScreen(devapi, settings.screen_adapter)
+        cpu.dev.vga = vga = new VGAScreen(devapi, settings.screen_adapter, VGA_MEMORY_SIZE)
         cpu.dev.ps2 = ps2 = new PS2(devapi, settings.keyboard_adapter, settings.mouse_adapter);
         
         //fpu = new NoFPU();
@@ -627,12 +629,12 @@ function cpu_init(settings)
 
         if(settings.cdrom_disk)
         {
-            cpu.dev.cdrom = cdrom = new IDEDevice(devapi, settings.cdrom_disk, true, 0);
+            cpu.dev.cdrom = cdrom = new IDEDevice(devapi, settings.cdrom_disk, true, 1);
         }
 
         if(settings.hda_disk)
         {
-            cpu.dev.hda = hda = new IDEDevice(devapi, settings.hda_disk, false, 1);
+            cpu.dev.hda = hda = new IDEDevice(devapi, settings.hda_disk, false, 0);
         }
         //if(settings.hdb_disk)
         //{
@@ -698,8 +700,8 @@ function do_run()
         {
             previous_ip = instruction_pointer;
 
-            cycle();
             cpu_timestamp_counter++;
+            cycle();
         }
 
         now = Date.now();
@@ -738,7 +740,7 @@ function cycle()
 {
     var opcode = read_imm8();
 
-    logop(instruction_pointer - 1, opcode);
+    logop(instruction_pointer - 1 >>> 0, opcode);
 
     // call the instruction
     table[opcode]();
@@ -1178,10 +1180,10 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
     //}
 
 
-    if(interrupt_nr === 14)
-    {
-        dbg_log("int14 error_code=" + error_code + " cr2=" + h(cr2) + " prev=" + h(previous_ip) + " cpl=" + cpl, LOG_CPU);
-    }
+    //if(interrupt_nr === 14)
+    //{
+    //    dbg_log("int14 error_code=" + error_code + " cr2=" + h(cr2) + " prev=" + h(previous_ip) + " cpl=" + cpl, LOG_CPU);
+    //}
 
 
     if(in_hlt)
@@ -1563,8 +1565,9 @@ function getiopl()
 
 function test_privileges_for_io()
 {
-    if(protected_mode && cpl > getiopl())
+    if(protected_mode && (cpl > getiopl() || (flags & flag_vm)))
     {
+        // TODO: IO bit fields
         trigger_gp(0);
     }
 }
@@ -1627,25 +1630,49 @@ function cpuid()
  */
 function update_flags(new_flags)
 {
-    if(cpl === 0 || !protected_mode)
+    var oldflags = flags;
+
+    if(flags & flag_vm)
     {
-        // can update all flags
-        flags = new_flags;
+        if(getiopl() === 3)
+        {
+            // cannot update iopl, vip, vif
+            flags = (new_flags & ~flag_iopl & ~flag_vip & ~flag_vif) | (flags & (flag_iopl | flag_vip | flag_vif));
+        }
+        else
+        {
+            trigger_gp(0);
+        }
     }
-    else if(cpl <= getiopl())
+    else 
     {
-        // cpl != 0 and iopl <= cpl
-        // can update interrupt flag but not iopl
-        flags = (new_flags & ~flag_iopl) | (flags & flag_iopl);
-    }
-    else
-    {
-        // cannot update interrupt flag or iopl
-        flags = (new_flags & ~flag_iopl & ~flag_interrupt) | (flags & (flag_iopl | flag_interrupt));
+        if(cpl === 0 || !protected_mode)
+        {
+            // can update all flags
+            flags = new_flags;
+        }
+        else if(cpl <= getiopl())
+        {
+            // cpl != 0 and iopl <= cpl
+            // can update interrupt flag but not iopl
+            flags = (new_flags & ~flag_iopl) | (flags & flag_iopl);
+        }
+        else
+        {
+            // cannot update interrupt flag or iopl
+            flags = (new_flags & ~flag_iopl & ~flag_interrupt) | (flags & (flag_iopl | flag_interrupt));
+        }
+
+        // vip and vif are cleared
+        flags &= ~flag_vip & ~flag_vif;
     }
 
+    // cannot modify rf or vm here
+    flags = (flags & ~flag_vm & ~flag_rf) | (oldflags & (flag_vm | flag_rf));
+
+    flags = (flags & flags_mask) | flags_default;
+
     flags_changed = 0;
-    //flags = (flags & flags_mask) | flags_default;
 }
 
 function update_operand_size()
@@ -2031,7 +2058,7 @@ function full_clear_tlb()
 function invlpg(addr)
 {
     var page = addr >>> 12;
-    dbg_log("invlpg: " + h(page), LOG_CPU);
+    //dbg_log("invlpg: " + h(page), LOG_CPU);
 
     tlb_info[page] = 0;
     tlb_info_global[page] = 0;
@@ -2125,7 +2152,7 @@ function do_page_translation(addr, for_writing, user)
         // - set cr2 = addr (which caused the page fault)
         // - call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)
         // - prevent execution of the function that triggered this call
-        dbg_log("#PF not present", LOG_CPU);
+        //dbg_log("#PF not present", LOG_CPU);
 
         cr2 = addr;
         trigger_pagefault(for_writing, user, 0);
@@ -2153,7 +2180,7 @@ function do_page_translation(addr, for_writing, user)
         if(user)
         {
             // "Page Fault: page table accessed by non-supervisor";
-            dbg_log("#PF supervisor", LOG_CPU);
+            //dbg_log("#PF supervisor", LOG_CPU);
             cr2 = addr;
             trigger_pagefault(for_writing, user, 1);
             dbg_assert(false);
@@ -2183,7 +2210,7 @@ function do_page_translation(addr, for_writing, user)
 
         if(!(page_table_entry & 1))
         {
-            dbg_log("#PF not present table", LOG_CPU);
+            //dbg_log("#PF not present table", LOG_CPU);
             cr2 = addr;
             trigger_pagefault(for_writing, user, 0);
             dbg_assert(false);
@@ -2195,7 +2222,7 @@ function do_page_translation(addr, for_writing, user)
 
             if(for_writing)
             {
-                dbg_log("#PF not writable page", LOG_CPU);
+                //dbg_log("#PF not writable page", LOG_CPU);
                 cr2 = addr;
                 trigger_pagefault(for_writing, user, 1);
                 dbg_assert(false);
@@ -2208,7 +2235,7 @@ function do_page_translation(addr, for_writing, user)
 
             if(user)
             {
-                dbg_log("#PF not supervisor page", LOG_CPU);
+                //dbg_log("#PF not supervisor page", LOG_CPU);
                 cr2 = addr;
                 trigger_pagefault(for_writing, user, 1);
                 dbg_assert(false);
@@ -2270,7 +2297,7 @@ function trigger_pagefault(write, user, present)
 {
     if(LOG_LEVEL & LOG_CPU)
     {
-        dbg_trace();
+        //dbg_trace();
     }
 
     if(page_fault)
