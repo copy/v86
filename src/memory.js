@@ -137,18 +137,19 @@ function Memory(buffer, memory_size)
      * @param size {number}
      *
      */
-    this.mmap_register = function(addr, size, read_func, write_func)
+    this.mmap_register = function(addr, size, fn_size, read_func, write_func)
     {
-        dbg_log("mmap_register addr=" + h(addr, 8) + ": size=" + h(size, 8), LOG_IO);
+        dbg_log("mmap_register addr=" + h(addr >>> 0, 8) + " size=" + h(size, 8) + " fn_size=" + fn_size, LOG_IO);
 
         dbg_assert((addr & MMAP_BLOCK_SIZE - 1) === 0);
         dbg_assert(size && (size & MMAP_BLOCK_SIZE - 1) === 0);
+        dbg_assert(fn_size === 1 || fn_size === 4);
 
         var aligned_addr = addr >>> MMAP_BLOCK_BITS;
 
         for(; size > 0; aligned_addr++)
         {
-            memory_map_registered[aligned_addr] = 1;
+            memory_map_registered[aligned_addr] = fn_size;
 
             memory_map_read[aligned_addr] = do_read;
             memory_map_write[aligned_addr] = do_write;
@@ -173,59 +174,61 @@ function Memory(buffer, memory_size)
         memory_map_read[i] = memory_map_write[i] = undefined;
     }
 
-    this.mmap_register(memory_size, 0x100000000 - memory_size, 
+    this.mmap_register(memory_size, 0x100000000 - memory_size, 1,
         function(addr) {
             // read outside of the memory size
             addr += memory_size;
-            dbg_log("Read from unmapped memory space, addr=" + h(addr, 8), LOG_IO);
-            return 0;
+            dbg_log("Read from unmapped memory space, addr=" + h(addr >>> 0, 8), LOG_IO);
+            return 0xFF;
         },
         function(addr, value) {
             // write outside of the memory size
             addr += memory_size;
-            dbg_log("Write to unmapped memory space, addr=" + h(addr, 8) + " value=" + h(value, 2), LOG_IO);
+            dbg_log("Write to unmapped memory space, addr=" + h(addr >>> 0, 8) + " value=" + h(value, 2), LOG_IO);
         });
 
     function mmap_read8(addr)
     {
         return memory_map_read[addr >>> MMAP_BLOCK_BITS](addr);
-    };
+    }
 
     function mmap_write8(addr, value)
     {
         memory_map_write[addr >>> MMAP_BLOCK_BITS](addr, value);
-    };
+    }
 
     function mmap_read32(addr)
     {
-        return mmap_read8(addr) | mmap_read8(addr + 1) << 8 |
-            mmap_read8(addr + 2) << 16 | mmap_read8(addr + 3) << 24;
-    };
+        var aligned_addr = addr >>> MMAP_BLOCK_BITS,
+            fn = memory_map_read[aligned_addr];
 
-    function mmap_write32(addr, value)
-    {
-        mmap_write8(addr, value & 0xFF);
-        mmap_write8(addr + 1, value >> 8 & 0xFF);
-        mmap_write8(addr + 2, value >> 16 & 0xFF);
-        mmap_write8(addr + 3, value >>> 24);
-    };
-    
-    /**
-     * @param addr {number}
-     */
-    this.read8s = function(addr)
-    {
-        debug_read(addr, 1);
-
-        if(memory_map_registered[addr >>> MMAP_BLOCK_BITS])
+        if(memory_map_registered[aligned_addr] === 4)
         {
-            return mmap_read8(addr) << 24 >> 24;
+            return fn(addr);
         }
         else
         {
-            return int8sarray[addr];
+            return fn(addr) | fn(addr + 1) << 8 | fn(addr + 2) << 16 | fn(addr + 3) << 24;
         }
-    };
+    }
+
+    function mmap_write32(addr, value)
+    {
+        var aligned_addr = addr >>> MMAP_BLOCK_BITS,
+            fn = memory_map_write[aligned_addr];
+
+        if(memory_map_registered[aligned_addr] === 4)
+        {
+            fn(addr, value);
+        }
+        else
+        {
+            fn(addr, value & 0xFF);
+            fn(addr + 1, value >> 8 & 0xFF);
+            fn(addr + 2, value >> 16 & 0xFF);
+            fn(addr + 3, value >>> 24);
+        }
+    }
     
     /**
      * @param addr {number}
@@ -268,8 +271,9 @@ function Memory(buffer, memory_size)
     {
         debug_read(addr, 2);
 
-        if(memory_map_registered[addr >>> MMAP_BLOCK_BITS])
+        if(memory_map_registered[addr >>> MMAP_BLOCK_BITS - 1])
         {
+            addr <<= 1;
             return mmap_read8(addr) | mmap_read8(addr + 1) << 8;
         }
         else
@@ -287,7 +291,7 @@ function Memory(buffer, memory_size)
 
         if(memory_map_registered[addr >>> MMAP_BLOCK_BITS])
         {
-            return mmap_read32(addr) | 0;
+            return mmap_read32(addr);
         }
         else
         {
@@ -303,13 +307,13 @@ function Memory(buffer, memory_size)
     {
         debug_read(addr, 4);
 
-        if(memory_map_registered[addr >>> MMAP_BLOCK_BITS])
+        if(memory_map_registered[addr >>> MMAP_BLOCK_BITS - 2])
         {
-            return mmap_read32(addr) | 0;
+            return mmap_read32(addr << 2);
         }
         else
         {
-            return int32sarray[addr >> 2];
+            return int32sarray[addr];
         }
     };
     
@@ -359,14 +363,15 @@ function Memory(buffer, memory_size)
     {
         debug_write(addr, 2, value);
 
-        if(memory_map_registered[addr >>> MMAP_BLOCK_BITS])
+        if(memory_map_registered[addr >>> MMAP_BLOCK_BITS - 1])
         {
+            addr <<= 1;
             mmap_write8(addr, value & 0xff);
             mmap_write8(addr + 1, value >> 8 & 0xff);
         }
         else
         {
-            int16array[addr >> 1] = value;
+            int16array[addr] = value;
         }
     };
     
@@ -393,13 +398,13 @@ function Memory(buffer, memory_size)
 
     this.write_aligned32 = function(addr, value)
     {
-        if(memory_map_registered[addr >>> MMAP_BLOCK_BITS])
+        if(memory_map_registered[addr >>> MMAP_BLOCK_BITS - 2])
         {
-            mmap_write32(addr, value);
+            mmap_write32(addr << 2, value);
         }
         else
         {
-            int32sarray[addr >> 2] = value;
+            int32sarray[addr] = value;
         }
     };
 
