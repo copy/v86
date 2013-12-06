@@ -126,7 +126,7 @@ function movsd()
             count = regv[reg_vcx];
 
         if(paging ? !(dest & 0xFFF) && !(src & 0xFFF)
-                : !(dest & 3) && !(src & 3) && dest + count < memory_size)
+                : !(dest & 3) && !(src & 3))
         {
             var cont = false;
 
@@ -142,29 +142,33 @@ function movsd()
                 }
             }
 
-            dest >>= 2;
-            src >>= 2;
-
-            if(flags & flag_direction)
+            if((dest >>> 0) + (count << 2) <= memory_size &&
+                    (src >>> 0) + (count << 2) <= memory_size)
             {
-                dest -= count - 1;
-                src -= count - 1;
+                dest >>= 2;
+                src >>= 2;
+
+                if(flags & flag_direction)
+                {
+                    dest -= count - 1;
+                    src -= count - 1;
+                }
+
+                var diff = flags & flag_direction ? -count << 2 : count << 2;
+
+                regv[reg_vcx] -= count;
+                regv[reg_vdi] += diff;
+                regv[reg_vsi] += diff;
+
+                memory.mem32s.set(memory.mem32s.subarray(src, src + count), dest);
+
+                if(cont) 
+                {
+                    instruction_pointer = previous_ip;
+                }
+
+                return;
             }
-
-            var diff = flags & flag_direction ? -count << 2 : count << 2;
-
-            regv[reg_vcx] -= count;
-            regv[reg_vdi] += diff;
-            regv[reg_vsi] += diff;
-
-            memory.mem32s.set(memory.mem32s.subarray(src, src + count), dest);
-
-            if(cont) 
-            {
-                instruction_pointer = previous_ip;
-            }
-
-            return;
         }
     }
 
