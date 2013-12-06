@@ -1745,7 +1745,7 @@ opm(0x22, {
         trigger_gp(0);
     }
 
-    var data = reg_e32;
+    var data = reg_e32s;
     //dbg_log("cr" + mod + " written: " + h(reg32[reg]), LOG_CPU);
 
     // mov cr, addr
@@ -1753,13 +1753,13 @@ opm(0x22, {
     switch(modrm_byte >> 3 & 7)
     {
         case 0:
-            if((data & 0x80000001) === (0x80000000 | 0))
+            if((data & (0x80000001|0)) === (0x80000000 | 0))
             {
                 // cannot load PG without PE
                 throw unimpl("#GP handler");
             }
 
-            if((cr0 & 0x80000000) && !(data & 0x80000000))
+            if((cr0 & 1<<31) && !(data & 1<<31))
             {
                 full_clear_tlb();
             }
@@ -1768,13 +1768,17 @@ opm(0x22, {
             cr0_changed();
             //dbg_log("cr1 = " + bits(memory.read32s(addr)), LOG_CPU);
             break;
+        case 2:
+            cr2 = data;
+            dbg_log("cr2 <- " + h(data >>> 0), LOG_CPU);
+            break;
         case 3: 
             cr3 = data;
             dbg_assert((cr3 & 0xFFF) === 0);
             clear_tlb();
 
             //dump_page_directory();
-            //dbg_log("page directory loaded at " + h(cr3, 8), LOG_CPU);
+            //dbg_log("page directory loaded at " + h(cr3 >>> 0, 8), LOG_CPU);
             break;
         case 4:
             if((cr4 ^ data) & 0x80)
@@ -1784,7 +1788,7 @@ opm(0x22, {
 
             cr4 = data;
             page_size_extensions = (cr4 & 16) ? PSE_ENABLED : 0;
-            //dbg_log("cr4 set to " + h(cr4), LOG_CPU);
+            //dbg_log("cr4 set to " + h(cr4 >>> 0), LOG_CPU);
                 
             break;
         default:
@@ -1959,7 +1963,7 @@ opm(0xA3, {
         }
         else
         {
-            bt_reg(reg_e32, reg_g32 & 31);
+            bt_reg(reg_e32s, reg_g32 & 31);
         }
     }
     else
@@ -2156,7 +2160,7 @@ opm(0xBA, {
                 }
                 else
                 {
-                    bt_reg(reg_e32, read_imm8() & 31);
+                    bt_reg(reg_e32s, read_imm8() & 31);
                 }
             }
             else
