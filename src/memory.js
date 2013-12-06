@@ -269,7 +269,7 @@ function Memory(buffer, memory_size)
      */
     this.read_aligned16 = function(addr)
     {
-        debug_read(addr, 2);
+        debug_read(addr << 1, 2);
 
         if(memory_map_registered[addr >>> MMAP_BLOCK_BITS - 1])
         {
@@ -278,7 +278,7 @@ function Memory(buffer, memory_size)
         }
         else
         {
-            return int16array[addr >> 1];
+            return int16array[addr];
         }
     };
     
@@ -305,7 +305,7 @@ function Memory(buffer, memory_size)
      */
     this.read_aligned32 = function(addr)
     {
-        debug_read(addr, 4);
+        debug_read(addr << 2, 4);
 
         if(memory_map_registered[addr >>> MMAP_BLOCK_BITS - 2])
         {
@@ -361,7 +361,7 @@ function Memory(buffer, memory_size)
      */
     this.write_aligned16 = function(addr, value)
     {
-        debug_write(addr, 2, value);
+        debug_write(addr << 1, 2, value);
 
         if(memory_map_registered[addr >>> MMAP_BLOCK_BITS - 1])
         {
@@ -398,6 +398,8 @@ function Memory(buffer, memory_size)
 
     this.write_aligned32 = function(addr, value)
     {
+        debug_write(addr << 2, 4, value);
+
         if(memory_map_registered[addr >>> MMAP_BLOCK_BITS - 2])
         {
             mmap_write32(addr << 2, value);
