@@ -114,10 +114,7 @@ function movsw()
 
 function movsd()
 {
-    // TODO: paging
-    // For now use standard method
-    
-    if(repeat_string_prefix && !paging)
+    if(repeat_string_prefix)
     {
         // often used by memcpy, well worth optimizing
         //   using memory.mem32s.set
@@ -128,8 +125,23 @@ function movsd()
             dest = es + regv[reg_vdi],
             count = regv[reg_vcx];
 
-        if(!(dest & 3) && !(src & 3) && dest + count < memory_size)
+        if(paging ? !(dest & 0xFFF) && !(src & 0xFFF)
+                : !(dest & 3) && !(src & 3) && dest + count < memory_size)
         {
+            var cont = false;
+
+            if(paging)
+            {
+                src = translate_address_read(src);
+                dest = translate_address_write(dest);
+
+                if(count > 0x400)
+                {
+                    count = 0x400;
+                    cont = true;
+                }
+            }
+
             dest >>= 2;
             src >>= 2;
 
@@ -139,19 +151,20 @@ function movsd()
                 src -= count - 1;
             }
 
-            if(paging)
+            var diff = flags & flag_direction ? -count << 2 : count << 2;
+
+            regv[reg_vcx] -= count;
+            regv[reg_vdi] += diff;
+            regv[reg_vsi] += diff;
+
+            memory.mem32s.set(memory.mem32s.subarray(src, src + count), dest);
+
+            if(cont) 
             {
-                // TODO
+                instruction_pointer = previous_ip;
             }
-            else
-            {
-                var diff = flags & flag_direction ? -count << 2 : count << 2;
-                regv[reg_vcx] = 0;
-                regv[reg_vdi] += diff;
-                regv[reg_vsi] += diff;
-                memory.mem32s.set(memory.mem32s.subarray(src, src + count), dest);
-                return;
-            }
+
+            return;
         }
     }
 
