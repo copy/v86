@@ -66,6 +66,10 @@ function dump_file(ab, name)
 
 (function()
 {
+    function set_title(text)
+    {
+        document.title = text + " - Virtual x86" +  (DEBUG ? " - debug" : "");
+    }
 
     /** @param {?=} progress */
     function load_file(filename, done, progress)
@@ -336,6 +340,7 @@ function dump_file(ab, name)
                    settings.cdrom_disk = file;
                    break;
                 }
+                set_title(me.files[0].name);
                 init(settings);
                 return;
 
@@ -386,6 +391,7 @@ function dump_file(ab, name)
             load_file("images/freedos722.img", function(buffer)
             {
                 settings.floppy_disk = new SyncBuffer(buffer);
+                set_title("FreeDOS");
                 init(settings);
             }, show_progress);
 
@@ -398,6 +404,7 @@ function dump_file(ab, name)
             load_file("images/windows101.img", function(buffer)
             {
                 settings.floppy_disk = new SyncBuffer(buffer);
+                set_title("Windows");
                 init(settings);
             }, show_progress);
 
@@ -411,6 +418,7 @@ function dump_file(ab, name)
             load_file("images/linux.iso", function(buffer)
             {
                 settings.cdrom_disk = new SyncBuffer(buffer);
+                set_title("Linux");
                 init(settings);
             }, show_progress);
 
@@ -423,6 +431,7 @@ function dump_file(ab, name)
             load_file("images/kolibri.img", function(buffer)
             {
                 settings.floppy_disk = new SyncBuffer(buffer);
+                set_title("KolibriOS");
                 init(settings);
             }, show_progress);
 
@@ -435,6 +444,7 @@ function dump_file(ab, name)
             load_file("images/openbsd.img", function(buffer)
             {
                 settings.floppy_disk = new SyncBuffer(buffer);
+                set_title("OpenBSD");
                 init(settings);
             }, show_progress);
 
