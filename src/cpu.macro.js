@@ -3,6 +3,7 @@
 #define read_imm16s() (read_imm16() << 16 >> 16)
 #define read_imm32() (read_imm32s() >>> 0)
 
+#define safe_read8s(addr) (safe_read8(addr) << 24 >> 24)
 #define safe_read16s(addr) (safe_read16(addr) << 16 >> 16)
 #define safe_read32(addr) (safe_read32s(addr) >>> 0)
 
@@ -201,6 +202,10 @@ var
     /** @type {(FPU|NoFPU)} */
     fpu,
 
+    /**
+     * @type {HPET}
+     */
+    hpet,
 
     /**
      * Programmable interrupt controller
@@ -326,7 +331,6 @@ var
     read_imm32s,
 
     safe_read8,
-    safe_read8s,
     safe_read16,
     safe_read32s,
 
@@ -535,7 +539,7 @@ function cpu_init(settings)
         }
 
         // seabios expects the bios to be mapped to 0xFFF00000 also
-        memory.mmap_register(0xFFF00000, 0x100000, 
+        memory.mmap_register(0xFFF00000, 0x100000, 1,
             function(addr)
             {
                 return memory.mem8[addr];
@@ -609,6 +613,7 @@ function cpu_init(settings)
         var devapi = {
             memory: memory,   
             reboot: cpu_reboot_internal,
+            time: function() { return performance.now(); },
         };
 
         devapi.io = cpu.dev.io = io = new IO();
@@ -641,8 +646,13 @@ function cpu_init(settings)
         //    cpu.dev.hdb = hdb = new IDEDevice(devapi, settings.hdb_disk, false, 1);
         //}
 
-        timer = new PIT(devapi);
-        rtc = new RTC(devapi, fdc.type);
+        devapi.pit = timer = new PIT(devapi);
+        devapi.rtc = rtc = new RTC(devapi, fdc.type);
+
+        if(ENABLE_HPET)
+        {
+            hpet = new HPET(devapi);
+        }
     }
 
     if(DEBUG)
@@ -685,8 +695,8 @@ function do_run()
         /** 
          * @type {number}
          */
-        now, 
-        start = Date.now();
+        start = Date.now(),
+        now;
 
     vga.timer(start);
 
@@ -694,6 +704,20 @@ function do_run()
     // runs cycles + timers
     for(var j = loop_counter; j--;)
     {
+        now = Date.now();
+
+        if(ENABLE_HPET)
+        {
+            timer.timer(now, hpet.legacy_mode);
+            rtc.timer(now, hpet.legacy_mode);
+            hpet.timer(now);
+        }
+        else
+        {
+            timer.timer(now, false);
+            rtc.timer(now, false);
+        }
+
         // inner loop:
         // runs only cycles
         for(var k = LOOP_COUNTER; k--;)
@@ -704,16 +728,16 @@ function do_run()
             cycle();
         }
 
-        now = Date.now();
-        timer.timer(now);
-        rtc.timer(now);
     }
 
     cpu.instr_counter += loop_counter * LOOP_COUNTER;
 
     if(now - start > TIME_PER_FRAME)
     {
-        loop_counter--;
+        if(loop_counter > 1)
+        {
+            loop_counter--;
+        }
     }
     else
     {
@@ -791,7 +815,6 @@ function paging_changed()
     read_imm32s = table.read_imm32s;
     
     safe_read8 = table.safe_read8;
-    safe_read8s = table.safe_read8s;
     safe_read16 = table.safe_read16;
     safe_read32s = table.safe_read32s;
 
@@ -856,7 +879,6 @@ var npe_functions = {
     },
 
     safe_read8 : function(addr) { return memory.read8(addr) },
-    safe_read8s : function(addr) { return memory.read8s(addr); },
     safe_read16 : function(addr) { return memory.read16(addr); },
     safe_read32s : function(addr) { return memory.read32s(addr); },
 };
@@ -923,7 +945,6 @@ var pe_functions =
     },
 
     safe_read8 : do_safe_read8,
-    safe_read8s : do_safe_read8s,
     safe_read16 : do_safe_read16,
     safe_read32s : do_safe_read32s,
 };
@@ -1018,11 +1039,6 @@ function virt_boundary_write32(low, high, value)
 function do_safe_read8(addr)
 {
     return memory.read8(translate_address_read(addr));
-}
-
-function do_safe_read8s(addr)
-{
-    return memory.read8s(translate_address_read(addr));
 }
 
 function do_safe_read16(addr)
@@ -1568,6 +1584,7 @@ function test_privileges_for_io()
     if(protected_mode && (cpl > getiopl() || (flags & flag_vm)))
     {
         // TODO: IO bit fields
+        dbg_log("#GP for port io", LOG_CPU);
         trigger_gp(0);
     }
 }
@@ -1598,7 +1615,7 @@ function cpuid()
         reg32[reg_eax] = 0x513;
         reg32[reg_ebx] = 0;
         reg32[reg_ecx] = 0;
-        reg32[reg_edx] = fpu.is_fpu | 1 << 3 | 1 << 4 | 1 << 8| 1 << 13 | 1 << 15;
+        reg32[reg_edx] = fpu.is_fpu | 1 << 3 | 1 << 4 | 1 << 8 | 1 << 13 | 1 << 15;
     }
     else if(id === 2)
     {
