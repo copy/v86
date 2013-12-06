@@ -1,1 +1,2 @@
 var console = {};
+var performance = {};

@@ -2,7 +2,6 @@
 /** @define {boolean} */            
 var DEBUG = true;
 
-
 var
 
 /** 
@@ -65,6 +64,9 @@ var
 /** @const */ TLB_USER_READ = 4,
 /** @const */ TLB_USER_WRITE = 8;
 
+
+/** @const */
+var ENABLE_HPET = false;
 
 var 
 

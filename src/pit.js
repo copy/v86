@@ -62,8 +62,7 @@ function PIT(dev)
         return parity | counter2_out << 5;
     });
 
-
-    this.timer = function(time)
+    this.timer = function(time, no_irq)
     {
         var current,
             mode,
@@ -78,7 +77,7 @@ function PIT(dev)
         next_tick += steps / OSCILLATOR_FREQ;
 
         // counter 0 produces interrupts
-        if(counter_enabled[0])
+        if(!no_irq && counter_enabled[0])
         {
             current = counter_current[0] -= steps;
 
