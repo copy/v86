@@ -114,11 +114,11 @@ function VGAScreen(dev, adapter, vga_memory_size)
     // Experimental, could probably need some changes
     // 01:00.0 VGA compatible controller: NVIDIA Corporation GT216 [GeForce GT 220] (rev a2)
     dev.pci.register_device([
-        0xde, 0x10, 0x20, 0x0a, 0x07, 0x00, 0x10, 0x00, 0xa2, 0x00, 0x00, 0x03, 0x00, 0x00, 0x80, 0x00,
+        0xde, 0x10, 0x20, 0x0a, 0x07, 0x00, 0x00, 0x00, 0xa2, 0x00, 0x00, 0x03, 0x00, 0x00, 0x80, 0x00,
         0x08, 0x00, 0x00, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00, 0x00,
-    ], 0x01 << 8);
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00, 0x00,
+    ], 0x12 << 3);
 
 
     function init()
@@ -147,8 +147,8 @@ function VGAScreen(dev, adapter, vga_memory_size)
         screen.set_size_text(80, 25);
         screen.update_cursor_scanline();
 
-        memory.mmap_register(0xA0000, 0x20000, vga_memory_read, vga_memory_write);
-        memory.mmap_register(0xE0000000, vga_memory_size, svga_memory_read, svga_memory_write);
+        memory.mmap_register(0xA0000, 0x20000, 1, vga_memory_read, vga_memory_write);
+        memory.mmap_register(0xE0000000, vga_memory_size, 1, svga_memory_read, svga_memory_write);
     }
 
     function vga_memory_read(addr)
@@ -670,6 +670,8 @@ function VGAScreen(dev, adapter, vga_memory_size)
     }
     io.register_write(0x3C9, port3C9_write);
 
+    var max_scan_line = 0;
+
     function port3D4_write(register)
     {
         index_crtc = register;
@@ -680,8 +682,16 @@ function VGAScreen(dev, adapter, vga_memory_size)
     {
         switch(index_crtc)
         {
-            case 0x2:
-                screen.set_size_text(value, 25);
+            case 0x9:
+                max_scan_line = value;
+                if((value & 0x1F) === 7)
+                {
+                    screen.set_size_text(80, 50);
+                }
+                else
+                {
+                    screen.set_size_text(80, 25);
+                }
                 break;
             case 0xA:
                 cursor_scanline_start = value;
@@ -717,6 +727,10 @@ function VGAScreen(dev, adapter, vga_memory_size)
 
     function port3D5_read()
     {
+        if(index_crtc === 0x9)
+        {
+            return max_scan_line;
+        }
         if(index_crtc === 0xA)
         {
             return cursor_scanline_start;
@@ -973,9 +987,19 @@ function VGAScreen(dev, adapter, vga_memory_size)
         {
             case 1:
                 svga_width = dispi_value;
+                if(svga_width > MAX_XRES)
+                {
+                    dbg_log("svga_width reduced from " + svga_width + " to " + MAX_XRES, LOG_VGA);
+                    svga_width = MAX_XRES;
+                }
                 break;
             case 2:
                 svga_height = dispi_value;
+                if(svga_height > MAX_YRES)
+                {
+                    dbg_log("svga_height reduced from " + svga_height + " to " + MAX_YRES, LOG_VGA);
+                    svga_height = MAX_YRES;
+                }
                 break;
             case 3:
                 svga_bpp = dispi_value;
@@ -985,6 +1009,12 @@ function VGAScreen(dev, adapter, vga_memory_size)
                 svga_enabled = (dispi_value & 1) === 1;
                 break;
             default:
+        }
+
+        if(svga_enabled && (!svga_width || !svga_width))
+        {
+            dbg_log("SVGA: disabled because of invalid width/height: " + svga_width + "x" + svga_height, LOG_VGA);
+            svga_enabled = false;
         }
 
         dbg_log("SVGA: enabled=" + svga_enabled + ", " + svga_width + "x" + svga_height + "x" + svga_bpp, LOG_VGA);
