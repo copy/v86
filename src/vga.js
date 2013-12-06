@@ -1047,6 +1047,7 @@ function VGAScreen(dev, adapter, vga_memory_size)
             default:
         }
         dbg_log("1CF / dispi read low " + h(dispi_index), LOG_VGA);
+        return 0xFF;
     }
     io.register_read(0x1CF, port1CF_read);
 
@@ -1068,6 +1069,7 @@ function VGAScreen(dev, adapter, vga_memory_size)
             default:
         }
         dbg_log("1D0 / dispi read high " + h(dispi_index), LOG_VGA);
+        return 0xFF;
     }
     io.register_read(0x1D0, port1D0_read);
 
