@@ -107,10 +107,16 @@ function IO()
     {
     }
 
-    var read_callbacks = Array(0x10000),
-        write_callbacks = Array(0x10000);
+    // Why 0x10003 if there are only 0x10000 ports:
+    //   Reading/Writing from port 0xFFFF could make the number
+    //   go outside of the valid range and cause an exception otherwise
+    /** @const */
+    var NUM_PORTS = 0x10003;
 
-    for(var i = 0; i < 0x10000; i++)
+    var read_callbacks = Array(NUM_PORTS),
+        write_callbacks = Array(NUM_PORTS);
+
+    for(var i = 0; i < NUM_PORTS; i++)
     {
         // avoid sparse arrays
 
@@ -143,7 +149,6 @@ function IO()
     {
         write_callbacks[port_addr] = callback;
     };
-
 
     // should maybe be somewhere else?
     this.register_read(0x92, function()
@@ -183,30 +188,16 @@ function IO()
 
     this.port_write16 = function(port_addr, out_byte)
     {
-        if(port_addr <= 0xFFFE)
-        {
-            write_callbacks[port_addr](out_byte & 0xFF, port_addr);
-            write_callbacks[port_addr + 1](out_byte >> 8, port_addr);
-        }
-        else
-        {
-            dbg_log("Ignored 2 byte write to port " + h(port_addr), LOG_IO);
-        }
+        write_callbacks[port_addr](out_byte & 0xFF, port_addr);
+        write_callbacks[port_addr + 1](out_byte >> 8, port_addr);
     };
 
     this.port_write32 = function(port_addr, out_byte)
     {
-        if(port_addr <= 0xFFFC)
-        {
-            write_callbacks[port_addr](out_byte & 0xFF, port_addr);
-            write_callbacks[port_addr + 1](out_byte >> 8 & 0xFF, port_addr);
-            write_callbacks[port_addr + 2](out_byte >> 16 & 0xFF, port_addr);
-            write_callbacks[port_addr + 3](out_byte >>> 24, port_addr);
-        }
-        else
-        {
-            dbg_log("Ignored 4 byte write to port " + h(port_addr), LOG_IO);
-        }
+        write_callbacks[port_addr](out_byte & 0xFF, port_addr);
+        write_callbacks[port_addr + 1](out_byte >> 8 & 0xFF, port_addr);
+        write_callbacks[port_addr + 2](out_byte >> 16 & 0xFF, port_addr);
+        write_callbacks[port_addr + 3](out_byte >>> 24, port_addr);
     };
 
     // read byte from port
@@ -217,30 +208,16 @@ function IO()
 
     this.port_read16 = function(port_addr)
     {
-        if(port_addr <= 0xFFFE)
-        {
-            return read_callbacks[port_addr](port_addr) | 
-                        read_callbacks[port_addr + 1](port_addr) << 8;
-        }
-        else
-        {
-            dbg_log("Ignored 2 byte read from port " + h(port_addr), LOG_IO);
-        }
+        return read_callbacks[port_addr](port_addr) | 
+                    read_callbacks[port_addr + 1](port_addr) << 8;
     };
 
     this.port_read32 = function(port_addr)
     {
-        if(port_addr <= 0xFFFC)
-        {
-            return read_callbacks[port_addr](port_addr) | 
-                        read_callbacks[port_addr + 1](port_addr) << 8 | 
-                        read_callbacks[port_addr + 2](port_addr) << 16 | 
-                        read_callbacks[port_addr + 3](port_addr) << 24;
-        }
-        else
-        {
-            dbg_log("Ignored 4 byte read from port " + h(port_addr), LOG_IO);
-        }
+        return read_callbacks[port_addr](port_addr) | 
+                    read_callbacks[port_addr + 1](port_addr) << 8 | 
+                    read_callbacks[port_addr + 2](port_addr) << 16 | 
+                    read_callbacks[port_addr + 3](port_addr) << 24;
     };
 }
 
