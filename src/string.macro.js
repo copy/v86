@@ -16,15 +16,12 @@
 #define loop(s, fn)\
     do {\
         fn;\
-        if(use_di) dest += size;\
-        if(use_si) src += size;\
-        cont = --count && (!use_cmp || (data_src === data_dest) === repeat_string_type);\
+        if(use_di) dest += size, regv[reg_vdi] += size;\
+        if(use_si) src += size, regv[reg_vsi] += size;\
+        cont = --regv[reg_vcx] && (!use_cmp || (data_src === data_dest) === repeat_string_type);\
     } while(cont && next_cycle--)
 
 #define aligned_loop(s, fn)\
-    var single_size = size >> 31 | 1;\
-    if(s === 32) { if(use_di) phys_dest >>>= 2; if(use_si) phys_src >>>= 2; }\
-    else if(s === 16) { if(use_di) phys_dest >>>= 1; if(use_si) phys_src >>>= 1; }\
     do {\
         fn;\
         if(use_di) phys_dest += single_size;\
@@ -48,29 +45,32 @@
         var aligned = s === 8 ||\
             ((!use_di || !(dest & (s >> 3) - 1)) && (!use_si || !(src & (s >> 3) - 1)));\
         if(aligned) {\
+            var single_size = size >> 31 | 1;\
             if(paging) {\
-                if(use_di) {\
-                    next_cycle = ~dest & 0xFFF;\
-                    phys_dest = use_cmp ? translate_address_read(dest) : translate_address_write(dest);\
-                }\
                 if(use_si) {\
-                    next_cycle = Math.min(next_cycle, ~src & 0xFFF);\
+                    next_cycle = (single_size >> 1 ^ ~src) & 0xFFF;\
                     phys_src = translate_address_read(src);\
+                }\
+                if(use_di) {\
+                    next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF);\
+                    phys_dest = use_cmp ? translate_address_read(dest) : translate_address_write(dest);\
                 }\
                 if(s === 32) next_cycle >>= 2;\
                 else if(s === 16) next_cycle >>= 1;\
-            } else { \
+            } else {\
                 if(use_di) phys_dest = dest;\
                 if(use_si) phys_src = src;\
             }\
+            if(s === 32) { if(use_di) phys_dest >>>= 2; if(use_si) phys_src >>>= 2; }\
+            else if(s === 16) { if(use_di) phys_dest >>>= 1; if(use_si) phys_src >>>= 1; }\
             aligned_loop(s, aligned_fn);\
+            var diff = size * (start_count - count) | 0;\
+            if(use_di) regv[reg_vdi] += diff;\
+            if(use_si) regv[reg_vsi] += diff;\
+            regv[reg_vcx] = count;\
         } else { \
             loop(s, fn);\
         }\
-        var diff = size * (start_count - count) | 0;\
-        if(use_di) regv[reg_vdi] += diff;\
-        if(use_si) regv[reg_vsi] += diff;\
-        regv[reg_vcx] = count;\
     } else {\
         if(s === 8) { \
             if(use_si) phys_src = translate_address_read(src);\
