@@ -626,18 +626,34 @@ op(0x9B, {
 });
 op2(0x9C, {
     // pushf
-    load_flags();
-    push16(flags);
+    if((flags & flag_vm) && getiopl() < 3)
+    {
+        trigger_gp(0);
+    }
+    else
+    {
+        load_flags();
+        push16(flags);
+    }
 }, {
     // pushf
-    load_flags();
-    push32(flags);
+    if((flags & flag_vm) && getiopl() < 3)
+    {
+        // trap to virtual 8086 monitor
+        trigger_gp(0);
+    }
+    else
+    {
+        load_flags();
+        // vm and rf flag are cleared in image stored on the stack
+        push32(flags & ~flag_vm & ~flag_rf);
+    }
 });
 op2(0x9D, {
     // popf
     var tmp;
     safe_pop16(tmp);
-    update_flags(tmp);
+    update_flags((flags & 0xFFFF0000) | tmp);
 
     handle_irqs();
 }, {
@@ -914,9 +930,10 @@ op2(0xCF, {
 
     var new_flags = pop32s();
 
-    if(new_flags & flag_vm)
+    if(cpl === 0 && (new_flags & flag_vm))
     {
-        if(DEBUG) throw "unimplemented";
+        // return to virtual 8086 mode
+        if(DEBUG) throw "unimplemented vm";
     }
 
     // protected mode return
@@ -1300,15 +1317,31 @@ op(0xF9, {
 op(0xFA, {
     // cli
     //dbg_log("interrupts off");
-    test_privileges_for_io();
-    flags &= ~flag_interrupt;
+
+    if(!protected_mode || (flags & flag_vm ? 
+            getiopl() === 3 : getiopl() >= cpl))
+    {
+        flags &= ~flag_interrupt;
+    }
+    else
+    {
+        trigger_gp(0);
+    }
 });
 op(0xFB, {
     // sti
     //dbg_log("interrupts on");
-    test_privileges_for_io();
-    flags |= flag_interrupt;
-    handle_irqs();
+
+    if(!protected_mode || (flags & flag_vm ? 
+            getiopl() === 3 : getiopl() >= cpl))
+    {
+        flags |= flag_interrupt;
+        handle_irqs();
+    }
+    else
+    {
+        trigger_gp(0);
+    }
 
 });
 
@@ -1744,14 +1777,14 @@ opm(0x22, {
             //dbg_log("page directory loaded at " + h(cr3, 8), LOG_CPU);
             break;
         case 4:
-            if((cr4 ^ data) & 128)
+            if((cr4 ^ data) & 0x80)
             {
                 full_clear_tlb();
             }
 
             cr4 = data;
             page_size_extensions = (cr4 & 16) ? PSE_ENABLED : 0;
-            dbg_log("cr4 set to " + h(cr4), LOG_CPU);
+            //dbg_log("cr4 set to " + h(cr4), LOG_CPU);
                 
             break;
         default:
@@ -1793,8 +1826,15 @@ op(0x31, {
     //reg32[reg_eax] = cycles;
     //reg32[reg_edx] = cycles / 0x100000000;
 
-    reg32[reg_eax] = cpu_timestamp_counter;
-    reg32[reg_edx] = cpu_timestamp_counter / 0x100000000;
+    if(!protected_mode || !cpl || !(cr4 & 4))
+    {
+        reg32[reg_eax] = cpu_timestamp_counter;
+        reg32[reg_edx] = cpu_timestamp_counter / 0x100000000;
+    }
+    else
+    {
+        trigger_gp(0);
+    }
 });
 
 // rdmsr
@@ -2017,6 +2057,7 @@ opm(0xB1, {
         if(modrm_byte < 0xC0)
         {
             var virt_addr = modrm_resolve(modrm_byte);
+            translate_address_write(virt_addr);
             var data = safe_read32(virt_addr);
         }
         else
@@ -2041,6 +2082,7 @@ opm(0xB1, {
         if(modrm_byte < 0xC0)
         {
             var virt_addr = modrm_resolve(modrm_byte);
+            translate_address_write(virt_addr);
             var data = safe_read16(virt_addr);
         }
         else
