@@ -378,6 +378,8 @@ function cpu_run()
             operand_size_32 = is_32;
             update_operand_size();
 
+            cpu.instr_counter = cpu_timestamp_counter;
+
             next_tick();
         }
         else
@@ -730,7 +732,7 @@ function do_run()
 
     }
 
-    cpu.instr_counter += loop_counter * LOOP_COUNTER;
+    cpu.instr_counter = cpu_timestamp_counter;
 
     if(now - start > TIME_PER_FRAME)
     {
