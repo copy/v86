@@ -363,33 +363,38 @@ function cpu_run()
     }
     catch(e)
     {
-        if(e === 0xDEADBEE)
-        {
-            // A legit CPU exception (for instance, a page fault happened)
-            // call_interrupt_vector has already been called at this point,
-            // so we just need to reset some state
-
-            page_fault = false;
-            repeat_string_prefix = false;
-            segment_prefix = -1;
-            
-            address_size_32 = is_32;
-            update_address_size();
-            operand_size_32 = is_32;
-            update_operand_size();
-
-            cpu.instr_counter = cpu_timestamp_counter;
-
-            next_tick();
-        }
-        else
-        {
-            console.log(e);
-            console.log(e.stack);
-            throw e;
-        }
+        exception_cleanup(e);
     }
-};
+}
+
+function exception_cleanup(e)
+{
+    if(e === 0xDEADBEE)
+    {
+        // A legit CPU exception (for instance, a page fault happened)
+        // call_interrupt_vector has already been called at this point,
+        // so we just need to reset some state
+
+        page_fault = false;
+        repeat_string_prefix = false;
+        segment_prefix = -1;
+        
+        address_size_32 = is_32;
+        update_address_size();
+        operand_size_32 = is_32;
+        update_operand_size();
+
+        cpu.instr_counter = cpu_timestamp_counter;
+
+        next_tick();
+    }
+    else
+    {
+        console.log(e);
+        console.log(e.stack);
+        throw e;
+    }
+}
 
 function cpu_stop()
 {
@@ -754,7 +759,8 @@ function do_run()
 // This trick is a bit ugly, but it works without further complication.
 if(typeof window !== "undefined")
 {
-    window.__no_inline = do_run;
+    window.__no_inline1 = do_run;
+    window.__no_inline2 = exception_cleanup;
 }
 
 
@@ -1200,7 +1206,7 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
 
     //if(interrupt_nr === 14)
     //{
-    //    dbg_log("int14 error_code=" + error_code + " cr2=" + h(cr2) + " prev=" + h(previous_ip) + " cpl=" + cpl, LOG_CPU);
+    //    dbg_log("int14 error_code=" + error_code + " cr2=" + h(cr2 >>> 0) + " prev=" + h(previous_ip >>> 0) + " cpl=" + cpl, LOG_CPU);
     //}
 
 
