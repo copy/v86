@@ -349,9 +349,8 @@ function scasd()
 #define use_di true
 function insb()
 {
-    test_privileges_for_io();
-
     var port = reg16[reg_dx];
+    test_privileges_for_io(port, 1);
 
     string_instruction(8,
         {
@@ -362,9 +361,8 @@ function insb()
 
 function insw()
 {
-    test_privileges_for_io();
-
     var port = reg16[reg_dx];
+    test_privileges_for_io(port, 2);
 
     string_instruction(16,
         {
@@ -376,9 +374,8 @@ function insw()
 
 function insd()
 {
-    test_privileges_for_io();
-
     var port = reg16[reg_dx];
+    test_privileges_for_io(port, 4);
 
     string_instruction(32,
         {
@@ -397,9 +394,8 @@ function insd()
 #define use_di false
 function outsb()
 {
-    test_privileges_for_io();
-
     var port = reg16[reg_dx];
+    test_privileges_for_io(port, 1);
 
     string_instruction(8,
         {
@@ -410,9 +406,8 @@ function outsb()
 
 function outsw()
 {
-    test_privileges_for_io();
-
     var port = reg16[reg_dx];
+    test_privileges_for_io(port, 2);
 
     string_instruction(16,
         {
@@ -424,9 +419,8 @@ function outsw()
 
 function outsd()
 {
-    test_privileges_for_io();
-
     var port = reg16[reg_dx];
+    test_privileges_for_io(port, 4);
 
     string_instruction(32,
         {

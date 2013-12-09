@@ -1,5 +1,7 @@
 "use strict";
 
+#define vm86_mode (!!(flags & flag_vm))
+
 #define read_imm16s() (read_imm16() << 16 >> 16)
 #define read_imm32() (read_imm32s() >>> 0)
 
@@ -1219,6 +1221,11 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
 
     if(protected_mode)
     {
+        if(vm86_mode && is_software_int && getiopl() < 3)
+        {
+            trigger_gp(0);
+        }
+
         if((interrupt_nr << 3 | 7) > idtr_size)
         {
             dbg_log(interrupt_nr, LOG_CPU);
@@ -1305,16 +1312,14 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
             dbg_log("not present");
             throw unimpl("#NP handler");
         }
-
-        if(flags & flag_vm)
-        {
-            throw unimpl("VM flag");
-        }
-            
+        
+        load_flags();
+        var old_flags = flags;
 
         if(!info.dc_bit && info.dpl < cpl)
         {
             // inter privilege level interrupt
+            // interrupt from vm86 mode
 
             var tss_stack_addr = (info.dpl << 3) + 4;
 
@@ -1363,24 +1368,43 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
 
             cpl_changed();
 
+            if(flags & flag_vm)
+            {
+                flags &= ~flag_vm & ~flag_rf;
+
+                push32(sreg[reg_gs]);
+                push32(sreg[reg_fs]);
+                push32(sreg[reg_ds]);
+                push32(sreg[reg_es]);
+            }
+
             push32(old_ss);
             push32(old_esp);
         }
         else if(info.dc_bit || info.dpl === cpl)
         {
+            if(flags & flag_vm)
+            {
+                trigger_gp(selector & ~3);
+            }
             // intra privilege level interrupt
 
             //dbg_log("int" + h(interrupt_nr, 2) +" from=" + h(instruction_pointer, 8), LOG_CPU);
         }
 
-
-        load_flags();
-        push32(flags);
+        push32(old_flags);
 
         push32(sreg[reg_cs]);
         push32(get_real_ip());
         //dbg_log("pushed eip to " + h(reg32[reg_esp], 8), LOG_CPU);
 
+        if(old_flags & flag_vm)
+        {
+            switch_seg(reg_gs, 0);
+            switch_seg(reg_fs, 0);
+            switch_seg(reg_ds, 0);
+            switch_seg(reg_es, 0);
+        }
 
         if(error_code !== false)
         {
@@ -1392,6 +1416,13 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
         // TODO
         sreg[reg_cs] = selector;
         //switch_seg(reg_cs);
+        is_32 = operand_size_32 = address_size_32 = info.size;
+
+        update_operand_size();
+        update_address_size();
+
+        segment_limits[reg_cs] = info.real_limit;
+        segment_offsets[reg_cs] = info.base;
 
         //dbg_log("current esp: " + h(reg32[reg_esp]), LOG_CPU);
         //dbg_log("call int " + h(interrupt_nr) + " from " + h(instruction_pointer) + " to " + h(base) + " with error_code=" + error_code, LOG_CPU);
@@ -1587,12 +1618,29 @@ function getiopl()
     return flags >> 12 & 3;
 }
 
-function test_privileges_for_io()
+function test_privileges_for_io(port, size)
 {
     if(protected_mode && (cpl > getiopl() || (flags & flag_vm)))
     {
-        // TODO: IO bit fields
-        dbg_log("#GP for port io", LOG_CPU);
+        if(tsr_size >= 0x67)
+        {
+            var iomap_base = safe_read16(tsr_offset + 0x64 + 2),
+                high_port = port + size - 1;
+
+            if(tsr_size >= iomap_base + (high_port >> 3))
+            {
+                var mask = ((1 << size) - 1) << (port & 7),
+                    port_info = (mask & 0xFF00) ? 
+                        safe_read16(port >> 3) : safe_read8(port >> 3);
+
+                if(!(port_info & mask))
+                {
+                    return;
+                }
+            }
+        }
+
+        dbg_log("#GP for port io  port=" + h(port) + " size=" + size, LOG_CPU);
         trigger_gp(0);
     }
 }
@@ -1836,7 +1884,7 @@ function switch_seg(reg, selector)
         protected_mode = (cr0 & 1) === 1;
     }
 
-    if(!protected_mode)
+    if(!protected_mode || vm86_mode)
     {
         sreg[reg] = selector;
         segment_is_null[reg] = 0;

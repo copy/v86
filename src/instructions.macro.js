@@ -8,6 +8,7 @@ var table16 = [],
     table0F_32 = [];
 
 
+
 #define do_op() table[read_imm8()]()
 
 #define unimplemented_sse(num) op(num, {\
@@ -587,7 +588,7 @@ op2(0x99,
 op2(0x9A, {
     // callf
 
-    if(protected_mode)
+    if(protected_mode && !vm86_mode)
     {
         throw unimpl("16 bit callf in protected mode");
     }
@@ -603,7 +604,7 @@ op2(0x9A, {
         instruction_pointer = get_seg(reg_cs) + new_ip | 0;
     }
 }, {
-    if(protected_mode)
+    if(protected_mode && !vm86_mode)
     {
         throw unimpl("callf");
     }
@@ -808,21 +809,28 @@ op2(0xC9, {
 });
 op2(0xCA, {
     // retf
-    if(protected_mode)
+    if(!protected_mode || vm86_mode)
+    {
+        var imm16 = read_imm16();
+        var ip = pop16();
+
+        switch_seg(reg_cs, pop16());
+        instruction_pointer = get_seg(reg_cs) + ip | 0;
+        reg16[reg_sp] += imm16;
+    }
+    else
     {
         throw unimpl("16 bit retf in protected mode");
     }
-    var imm16 = read_imm16();
-    var ip = pop16();
-
-    switch_seg(reg_cs, pop16());
-    instruction_pointer = get_seg(reg_cs) + ip | 0;
-    reg16[reg_sp] += imm16;
 }, {
     // retf 
     var imm16 = read_imm16();
 
-    if(protected_mode)
+    if(!protected_mode || vm86_mode)
+    {
+        throw unimpl("32 bit retf in real/vm86 mode");
+    }
+    else
     {
         //dbg_log("retf");
         var ip = pop32s();
@@ -832,14 +840,10 @@ op2(0xCA, {
 
         stack_reg[reg_vsp] += imm16;
     }
-    else
-    {
-        throw unimpl("32 bit retf in real mode");
-    }
 });
 op2(0xCB, {
     // retf
-    if(protected_mode)
+    if(protected_mode && !vm86_mode)
     {
         throw unimpl("16 bit retf in protected mode");
     }
@@ -852,7 +856,7 @@ op2(0xCB, {
 }, {
     // retf 
 
-    if(protected_mode)
+    if(protected_mode && !vm86_mode)
     {
         var ip = pop32s();
 
@@ -888,38 +892,57 @@ op(0xCE, {
 
 op2(0xCF, {
     // iret
-    if(protected_mode)
+    if(!protected_mode || (vm86_mode && getiopl() === 3))
     {
-        throw unimpl("16 bit iret in protected mode");
-    }
-    var ip = pop16();
+        var ip = pop16();
 
-    switch_seg(reg_cs, pop16());
-    var new_flags = pop16();
+        switch_seg(reg_cs, pop16());
+        var new_flags = pop16();
 
-    instruction_pointer = ip + get_seg(reg_cs) | 0;
-    flags = new_flags;
-    flags_changed = 0;
+        instruction_pointer = ip + get_seg(reg_cs) | 0;
+        update_flags(new_flags);
 
-    handle_irqs();
-}, {
-    // iret
-    if(!protected_mode)
-    {
-        throw unimpl("32 bit iret in real mode");
-    }
+        handle_irqs();
+    } 
     else
     {
-        if(flags & flag_nt)
+        if(vm86_mode) 
         {
-            if(DEBUG) throw "unimplemented nt";
-        }
-        if(flags & flag_vm)
-        {
-            if(DEBUG) throw "unimplemented vm";
+            // vm86 mode, iopl != 3
+            trigger_gp(0);
         }
 
+        throw unimpl("16 bit iret in protected mode");
     }
+}, {
+    // iret
+    if(!protected_mode || (vm86_mode && getiopl() === 3))
+    {
+        if(vm86_mode) dbg_log("iret in vm86 mode  iopl=3", LOG_CPU);
+
+        var ip = pop32s();
+
+        switch_seg(reg_cs, pop32s() & 0xFFFF);
+        var new_flags = pop32s();
+
+        instruction_pointer = ip + get_seg(reg_cs) | 0;
+        update_flags(new_flags);
+
+        handle_irqs();
+        return;
+    }
+
+    if(vm86_mode) 
+    {
+        // vm86 mode, iopl != 3
+        trigger_gp(0);
+    }
+
+    if(flags & flag_nt)
+    {
+        if(DEBUG) throw "unimplemented nt";
+    }
+
     //dbg_log("pop eip from " + h(reg32[reg_esp], 8));
     instruction_pointer = pop32s();
     //dbg_log("IRET | from " + h(previous_ip) + " to " + h(instruction_pointer));
@@ -930,10 +953,46 @@ op2(0xCF, {
 
     var new_flags = pop32s();
 
-    if(cpl === 0 && (new_flags & flag_vm))
+    if(new_flags & flag_vm)
     {
-        // return to virtual 8086 mode
-        if(DEBUG) throw "unimplemented vm";
+        if(cpl === 0)
+        {
+            // return to virtual 8086 mode
+
+            update_flags(new_flags);
+            flags |= flag_vm;
+
+            dbg_log("in vm86 mode now " + 
+                    " cs:eip=" + h(sreg[reg_cs]) + ":" + h(instruction_pointer >>> 0) +
+                    " iopl=" + getiopl(), LOG_CPU);
+
+            switch_seg(reg_cs, sreg[reg_cs]);
+            instruction_pointer = instruction_pointer + get_seg(reg_cs) | 0;
+
+            var temp_esp = pop32s();
+            var temp_ss = pop32s();
+
+            switch_seg(reg_es, pop32s() & 0xFFFF);
+            switch_seg(reg_ds, pop32s() & 0xFFFF);
+            switch_seg(reg_fs, pop32s() & 0xFFFF);
+            switch_seg(reg_gs, pop32s() & 0xFFFF);
+
+            reg32[reg_esp] = temp_esp;
+            switch_seg(reg_ss, temp_ss & 0xFFFF);
+
+            cpl = 3;
+
+            is_32 = operand_size_32 = address_size_32 = false;
+            update_operand_size();
+            update_address_size();
+
+            return;
+        }
+        else
+        {
+            // ignored if not cpl=0
+            new_flags &= ~flag_vm;
+        }
     }
 
     // protected mode return
@@ -1121,26 +1180,32 @@ op(0xE2, { loop(); });
 op(0xE3, { jcxz(); });
 
 op(0xE4, { 
-    test_privileges_for_io();
-    reg8[reg_al] = io.port_read8(read_imm8()); 
+    var port = read_imm8();
+    test_privileges_for_io(port, 1);
+    reg8[reg_al] = io.port_read8(port); 
 });
 op2(0xE5, { 
-    test_privileges_for_io();
-    reg16[reg_ax] = io.port_read16(read_imm8()); 
+    var port = read_imm8();
+    test_privileges_for_io(port, 2);
+    reg16[reg_ax] = io.port_read16(port); 
 }, { 
-    test_privileges_for_io();
-    reg32[reg_eax] = io.port_read32(read_imm8()); 
+    var port = read_imm8();
+    test_privileges_for_io(port, 4);
+    reg32[reg_eax] = io.port_read32(port); 
 });
 op(0xE6, { 
-    test_privileges_for_io();
-    io.port_write8(read_imm8(), reg8[reg_al]); 
+    var port = read_imm8();
+    test_privileges_for_io(port, 1);
+    io.port_write8(port, reg8[reg_al]); 
 });
 op2(0xE7, { 
-    test_privileges_for_io();
-    io.port_write16(read_imm8(), reg16[reg_ax]); 
+    var port = read_imm8();
+    test_privileges_for_io(port, 2);
+    io.port_write16(port, reg16[reg_ax]); 
 }, { 
-    test_privileges_for_io();
-    io.port_write32(read_imm8(), reg32s[reg_eax]); 
+    var port = read_imm8();
+    test_privileges_for_io(port, 4);
+    io.port_write32(port, reg32s[reg_eax]); 
 });
 
 op2(0xE8, {
@@ -1185,26 +1250,32 @@ op(0xEB, {
 });
 
 op(0xEC, { 
-    test_privileges_for_io();
-    reg8[reg_al] = io.port_read8(reg16[reg_dx]); 
+    var port = reg16[reg_dx];
+    test_privileges_for_io(port, 1);
+    reg8[reg_al] = io.port_read8(port); 
 });
 op2(0xED, { 
-    test_privileges_for_io();
-    reg16[reg_ax] = io.port_read16(reg16[reg_dx]); 
+    var port = reg16[reg_dx];
+    test_privileges_for_io(port, 2);
+    reg16[reg_ax] = io.port_read16(port); 
 }, { 
-    test_privileges_for_io();
-    reg32[reg_eax] = io.port_read32(reg16[reg_dx]); 
+    var port = reg16[reg_dx];
+    test_privileges_for_io(port, 4);
+    reg32[reg_eax] = io.port_read32(port); 
 });
 op(0xEE, { 
-    test_privileges_for_io();
-    io.port_write8(reg16[reg_dx], reg8[reg_al]); 
+    var port = reg16[reg_dx];
+    test_privileges_for_io(port, 1);
+    io.port_write8(port, reg8[reg_al]); 
 });
 op2(0xEF, { 
-    test_privileges_for_io();
-    io.port_write16(reg16[reg_dx], reg16[reg_ax]); 
+    var port = reg16[reg_dx];
+    test_privileges_for_io(port, 2);
+    io.port_write16(port, reg16[reg_ax]); 
 }, { 
-    test_privileges_for_io();
-    io.port_write32(reg16[reg_dx], reg32s[reg_eax]); 
+    var port = reg16[reg_dx];
+    test_privileges_for_io(port, 4);
+    io.port_write32(port, reg32s[reg_eax]); 
 });
 
 op(0xF0, {
@@ -1318,7 +1389,7 @@ op(0xFA, {
     // cli
     //dbg_log("interrupts off");
 
-    if(!protected_mode || (flags & flag_vm ? 
+    if(!protected_mode || (vm86_mode ? 
             getiopl() === 3 : getiopl() >= cpl))
     {
         flags &= ~flag_interrupt;
@@ -1332,7 +1403,7 @@ op(0xFB, {
     // sti
     //dbg_log("interrupts on");
 
-    if(!protected_mode || (flags & flag_vm ? 
+    if(!protected_mode || (vm86_mode ? 
             getiopl() === 3 : getiopl() >= cpl))
     {
         flags |= flag_interrupt;
@@ -1500,7 +1571,7 @@ opm(0x00, {
 
     if(!protected_mode)
     {
-        // No GP, UD is correct
+        // No GP, UD is correct here
         trigger_ud();
     }
 
