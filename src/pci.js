@@ -31,8 +31,7 @@ function PCI(dev)
         pci_status32 = new Int32Array(pci_status.buffer),
         pci = this;
 
-    // TODO: Change the format of this
-    this.devices = {};
+    this.devices = Array(0x10000);
 
     /*
     io.register_write(0xCF9, function(value)
@@ -45,6 +44,37 @@ function PCI(dev)
             cpu_restart();
         }
     });*/
+    
+    function pci_write_byte(byte_pos, byte)
+    {
+        var bdf = pci_data[2] << 8 | pci_data[1],
+            addr = pci_data[0] & 0xFC;
+
+        //if(bdf === (7 << 3))
+        //{
+        //    var device = me.devices[bdf];
+
+        //    (new Uint8Array(device.buffer))[addr] = byte;
+        //}
+    }
+
+    io.register_write(PCI_CONFIG_DATA, function(out_byte)
+    {
+        dbg_log("PCI data0: " + h(out_byte, 2) + " addr=" + h(pci_data32[0] >>> 0), LOG_PCI);
+
+    });
+    io.register_write(PCI_CONFIG_DATA | 1, function(out_byte)
+    {
+        dbg_log("PCI data1: " + h(out_byte, 2)+ " addr=" + h(pci_data32[0] >>> 0), LOG_PCI);
+    });
+    io.register_write(PCI_CONFIG_DATA | 2, function(out_byte)
+    {
+        dbg_log("PCI data2: " + h(out_byte, 2)+ " addr=" + h(pci_data32[0] >>> 0), LOG_PCI);
+    });
+    io.register_write(PCI_CONFIG_DATA | 3, function(out_byte)
+    {
+        dbg_log("PCI data3: " + h(out_byte, 2)+ " addr=" + h(pci_data32[0] >>> 0), LOG_PCI);
+    });
 
     io.register_read(PCI_CONFIG_DATA, function()
     {
@@ -118,14 +148,24 @@ function PCI(dev)
         dbg_line += " bdf=" + h(bdf, 4);
         dbg_line += " addr=" + h(addr, 2);
 
-        dbg_log(dbg_line + " " + h(pci_data32[0] >>> 0, 8), LOG_PCI);
+        //dbg_log(dbg_line + " " + h(pci_data32[0] >>> 0, 8), LOG_PCI);
 
         var device = pci.devices[bdf];
 
         if(device !== undefined)
         {
+            dbg_log(dbg_line + " " + h(pci_data32[0] >>> 0, 8), LOG_PCI);
+
             pci_status32[0] = 0x80000000 | 0;
-            pci_response32[0] = device[addr >> 2];
+
+            if(addr < device.byteLength)
+            {
+                pci_response32[0] = device[addr >> 2];
+            }
+            else
+            {
+                pci_response32[0] = 0;
+            }
         }
         else
         {
@@ -136,6 +176,8 @@ function PCI(dev)
 
     this.register_device = function(device, device_id)
     {
+        dbg_log("PCI register bdf=" + h(device_id), LOG_PCI);
+
         dbg_assert(!pci.devices[device_id]);
         dbg_assert(device.length === 64);
 
@@ -154,11 +196,11 @@ function PCI(dev)
     ], 0);
 
     // 00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev 90)
-    this.register_device([
-        0x86, 0x80, 0x4e, 0x24, 0x07, 0x01, 0x10, 0x00, 0x90, 0x01, 0x04, 0x06, 0x00, 0x00, 0x01, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x05, 0x20, 0xe0, 0xe0, 0x80, 0x22,
-        0xb0, 0xfe, 0xb0, 0xfe, 0xf1, 0xff, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x02, 0x00,
-    ], 0x1e << 3);
+    //this.register_device([
+    //    0x86, 0x80, 0x4e, 0x24, 0x07, 0x01, 0x10, 0x00, 0x90, 0x01, 0x04, 0x06, 0x00, 0x00, 0x01, 0x00,
+    //    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x05, 0x20, 0xe0, 0xe0, 0x80, 0x22,
+    //    0xb0, 0xfe, 0xb0, 0xfe, 0xf1, 0xff, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    //    0x00, 0x00, 0x00, 0x00, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x02, 0x00,
+    //], 0x1e << 3);
 
 }
