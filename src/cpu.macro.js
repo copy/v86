@@ -658,9 +658,65 @@ function cpu_init(settings)
         devapi.pit = timer = new PIT(devapi);
         devapi.rtc = rtc = new RTC(devapi, fdc.type);
 
-        if(ENABLE_HPET)
+        if(ENABLE_ACPI)
         {
-            hpet = new HPET(devapi);
+            if(ENABLE_HPET)
+            {
+                hpet = new HPET(devapi);
+            }
+
+            // 00:07.0 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 08)
+            this.register_device([
+                0x86, 0x80, 0x13, 0x71, 0x07, 0x00, 0x80, 0x02, 0x08, 0x00, 0x80, 0x06, 0x00, 0x00, 0x80, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09, 0x01, 0x00, 0x00,
+            ], 0x07 << 3);
+
+
+
+            var elcr = 0;
+
+            // ACPI, ELCR register
+            dev.io.register_write(0x4d0, function(data)
+            {
+                elcr = elcr & 0xFF00 | data;
+            });
+            dev.io.register_write(0x4d1, function(data)
+            {
+                elcr = elcr & 0xFF | data << 8;
+            });
+
+
+            // ACPI, pmtimer
+            dev.io.register_read(0xb008, function(data)
+            {
+                return 0;
+            });
+            dev.io.register_read(0xb009, function(data)
+            {
+                return 0;
+            });
+            dev.io.register_read(0xb00a, function(data)
+            {
+                return 0;
+            });
+            dev.io.register_read(0xb00b, function(data)
+            {
+                return 0;
+            });
+
+            // ACPI status
+            dev.io.register_read(0xb004, function(data)
+            {
+                dbg_log("b004 read");
+                return 1;
+            });
+            dev.io.register_read(0xb005, function(data)
+            {
+                dbg_log("b005 read");
+                return 0;
+            });
         }
     }
 

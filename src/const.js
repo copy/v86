@@ -66,7 +66,8 @@ var
 
 
 /** @const */
-var ENABLE_HPET = false;
+var ENABLE_HPET = false,
+    ENABLE_ACPI = false;
 
 var 
 
