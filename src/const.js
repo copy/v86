@@ -52,7 +52,7 @@ var
 ///** @const */ LOG_LEVEL = LOG_FPU | LOG_OTHER;
 ///** @const */ LOG_LEVEL = LOG_DMA | LOG_DISK | LOG_IO | LOG_PCI;
 //** @const */ LOG_LEVEL = LOG_DMA | LOG_DISK | LOG_PCI | LOG_CD | LOG_BIOS;
-/** @const */ LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_PS2 & ~LOG_DISK & ~LOG_CD & ~LOG_BIOS;
+/** @const */ LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_PS2 & ~LOG_PIT;
 ///** @const */ LOG_LEVEL = LOG_SERIAL | LOG_IO;
 ///** @const */ LOG_LEVEL = LOG_PIT | LOG_RTC;
 ///** @const */ LOG_LEVEL = 0;
@@ -170,5 +170,16 @@ PSE_ENABLED = 128,
 /** @const */ LOOP_COUNTER = 2001,
 /** @const */ TIME_PER_FRAME = 33;
 
+
+var 
+    /** 
+     * The minimum number of bytes that can be memory-mapped
+     * by one device. 
+     *
+     * @const 
+     */ 
+    MMAP_BLOCK_BITS = 14,
+    /** @const */
+    MMAP_BLOCK_SIZE = 1 << MMAP_BLOCK_BITS;
 
 

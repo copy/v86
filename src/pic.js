@@ -236,7 +236,7 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
             {
                 // ocw1
                 irq_mask = ~data_byte;
-                //dbg_log("interrupt mask: " + (irq_mask & 0xFFFF).toString(2) + " / map " + h(irq_map), LOG_PIC);
+                //dbg_log("interrupt mask: " + (irq_mask & 0xFF).toString(2), LOG_PIC);
             }
         }
         else if(state === 1)
@@ -257,8 +257,8 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
 
     function port21_read()
     {
-        //dbg_log("21h read (" + h(irq_map) + ")", LOG_PIC);
-        return ~irq_mask;
+        //dbg_log("21h read " + h(~irq_mask & 0xff), LOG_PIC);
+        return ~irq_mask & 0xFF;
     };
 
     if(is_master)

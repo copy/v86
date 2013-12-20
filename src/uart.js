@@ -23,4 +23,10 @@ function UART(dev)
             line += String.fromCharCode(out_byte);
         }
     });
+
+    io.register_read(0x3FD, function(out_byte) 
+    {
+        // TODO
+        return 0xFF;
+    });
 }

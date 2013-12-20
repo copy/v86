@@ -1,7 +1,7 @@
 "use strict";
 
 /** @const */
-var FPU_LOG_OP = true;
+var FPU_LOG_OP = false;
 
 
 /** 
@@ -739,12 +739,12 @@ function FPU(io)
         if(imm8 >= 0xC0)
         {
             dbg_log(h(op, 2) + " " + h(imm8, 2) + "/" + (imm8 >> 3 & 7) + "/" + (imm8 & 7) +
-                    " @" + h(instruction_pointer, 8) + " sp=" + stack_ptr + " st=" + h(stack_empty, 2), LOG_FPU);
+                    " @" + h(instruction_pointer >>> 0, 8) + " sp=" + stack_ptr + " st=" + h(stack_empty, 2), LOG_FPU);
         }
         else
         {
             dbg_log(h(op, 2) + " /" + (imm8 >> 3 & 7) + 
-                    "     @" + h(instruction_pointer, 8) + " sp=" + stack_ptr + " st=" + h(stack_empty, 2), LOG_FPU);
+                    "     @" + h(instruction_pointer >>> 0, 8) + " sp=" + stack_ptr + " st=" + h(stack_empty, 2), LOG_FPU);
         }
     }
 
@@ -1177,8 +1177,14 @@ function FPU(io)
                     // fdisi
                     // also treat as nop
                 }
+                else if(imm8 === 0xE2)
+                {
+                    // fclex
+                    status_word = 0;
+                }
                 else
                 {
+                    dbg_log(h(imm8));
                     fpu_unimpl();
                 }
                 break;

@@ -650,6 +650,7 @@ function div32(source_operand)
     if(result >= 0x100000000 || source_operand === 0)
     {
         dbg_log("div32 #DE: " + h(dest_operand_high, 8) + ":" + h(dest_operand_low, 8) + " div " + h(source_operand, 8));
+
         trigger_de();
     }
     else

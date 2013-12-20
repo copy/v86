@@ -138,8 +138,8 @@ function dump_regs_short()
         line2 += r32_names[i+4] + "="  + h(reg32[r32[r32_names[i+4]]], 8) + " ";
     }
 
-    line1 += " eip=" + h(get_real_ip(), 8);
-    line2 += " flg=" + h(get_flags());
+    line1 += " eip=" + h(get_real_ip() >>> 0, 8);
+    line2 += " flg=" + h(get_flags(), 8);
 
     line1 += "  ds=" + h(sreg[reg_ds], 4) + " es=" + h(sreg[reg_es], 4) + "  fs=" + h(sreg[reg_fs], 4);
     line2 += "  gs=" + h(sreg[reg_gs], 4) + " cs=" + h(sreg[reg_cs], 4) + "  ss=" + h(sreg[reg_ss], 4);
@@ -165,7 +165,7 @@ function dump_regs()
     {
         if(opcodes[i])
         {
-            out += h(opcodes[i], 6)  + ":        " + 
+            out += h(opcodes[i], 8)  + ":        " + 
                 String.pads(opcodes[i + 1], 20) + h(opcodes[i + 2], 2) + "\n";
         }
     }
@@ -180,7 +180,7 @@ function dump_regs()
     {
         dbg_log(i + " =  0x" + h(reg32[r32[i]], 8));
     }
-    dbg_log("eip =  0x" + h(get_real_ip(), 8));
+    dbg_log("eip =  0x" + h(get_real_ip() >>> 0, 8));
     
     for(i in s)
     {
