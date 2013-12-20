@@ -38,6 +38,9 @@ var dbg_names = Object.fromList([
 ]);
 
 
+var log_last_message = "",
+    log_message_repetitions = 0;
+
 /** 
  * @param {number=} level
  */
@@ -49,11 +52,38 @@ function dbg_log(stuff, level)
 
     if(level & LOG_LEVEL)
     {
-        var level_name = dbg_names[level] || "";
+        var level_name = dbg_names[level] || "",
+            message = "[" + String.pads(level_name, 4) + "] " + stuff;
 
-        console.log("[" + String.pads(level_name, 4) + "] " + stuff);
+        if(message === log_last_message)
+        {
+            log_message_repetitions++;
+
+            if(log_message_repetitions < 2048)
+            {
+                return;
+            }
+        }
+
+        if(log_message_repetitions)
+        {
+            if(log_message_repetitions === 1)
+            {
+                console.log(log_last_message);
+            }
+            else 
+            {
+                console.log("Previous message repeated " + log_message_repetitions + " times");;
+            }
+
+            log_message_repetitions = 0;
+        }
+
+        console.log(message);
+
+        log_last_message = message;
     }
-};
+}
 
 function dbg_trace()
 {
