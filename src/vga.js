@@ -110,15 +110,22 @@ function VGAScreen(dev, adapter, vga_memory_size)
         plane3;
 
 
-
     // Experimental, could probably need some changes
     // 01:00.0 VGA compatible controller: NVIDIA Corporation GT216 [GeForce GT 220] (rev a2)
-    dev.pci.register_device([
+    this.pci_space = [
         0xde, 0x10, 0x20, 0x0a, 0x07, 0x00, 0x00, 0x00, 0xa2, 0x00, 0x00, 0x03, 0x00, 0x00, 0x80, 0x00,
         0x08, 0x00, 0x00, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00, 0x00,
-    ], 0x12 << 3);
+    ];
+    this.pci_id = 0x12 << 3;
+    this.pci_bars = [
+        {
+            size: vga_memory_size,
+        },
+    ];
+
+    dev.pci.register_device(this);
 
 
     function init()
@@ -147,8 +154,8 @@ function VGAScreen(dev, adapter, vga_memory_size)
         screen.set_size_text(80, 25);
         screen.update_cursor_scanline();
 
-        memory.mmap_register(0xA0000, 0x20000, 1, vga_memory_read, vga_memory_write);
-        memory.mmap_register(0xE0000000, vga_memory_size, 1, svga_memory_read, svga_memory_write);
+        io.mmap_register(0xA0000, 0x20000, 1, vga_memory_read, vga_memory_write);
+        io.mmap_register(0xE0000000, vga_memory_size, 1, svga_memory_read, svga_memory_write);
     }
 
     function vga_memory_read(addr)

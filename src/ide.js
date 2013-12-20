@@ -21,7 +21,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
     }
     else
     {
-        this.ata_port = 0x170;
+        this.ata_port = 0x1F0;
         this.irq = 15;
     }
 
@@ -63,12 +63,8 @@ function IDEDevice(dev, buffer, is_cd, nr)
         }
     }
 
-    // 00:1f.2 IDE interface: Intel Corporation 82801JI (ICH10 Family) 4 port SATA IDE Controller #1
-        //0x86, 0x80, 0x20, 0x3a, 0x05, 0x00, 0xb0, 0x02, 0x00, 0x8f, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
-        //0x01, 0x90, 0x00, 0x00, 0x01, 0x8c, 0x00, 0x00, 0x81, 0x88, 0x00, 0x00, 0x01, 0x88, 0x00, 0x00,
-        //0x81, 0x84, 0x00, 0x00, 0x01, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43, 0x10, 0xd4, 0x82,
-        //0x00, 0x00, 0x00, 0x00, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x02, 0x00, 0x00,
-    dev.pci.register_device([
+    this.pci_id = 0x1F << 3;
+    this.pci_space = [
         0x86, 0x80, 0x20, 0x3a, 0x05, 0x00, 0xa0, 0x02, 0x00, 0x8f, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
         this.ata_port & 0xFF | 1, this.ata_port >> 8, 0x00, 0x00, 
         this.ata_port_high & 0xFF | 1, this.ata_port_high >> 8, 0x00, 0x00, 
@@ -78,8 +74,23 @@ function IDEDevice(dev, buffer, is_cd, nr)
         0x00, 0x00, 0x00, 0x00, 
         0x00, 0x00, 0x00, 0x00, 
         0x43, 0x10, 0xd4, 0x82,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, this.irq, 0x02, 0x00, 0x00,
-    ], 0x1f << 3);
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, this.irq, 0x00, 0x00, 0x00,
+    ];
+    this.pci_bars = [
+        {
+            size: 8,
+        },
+        {
+            size: 4,
+        },
+    ];
+
+    // 00:1f.2 IDE interface: Intel Corporation 82801JI (ICH10 Family) 4 port SATA IDE Controller #1
+        //0x86, 0x80, 0x20, 0x3a, 0x05, 0x00, 0xb0, 0x02, 0x00, 0x8f, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
+        //0x01, 0x90, 0x00, 0x00, 0x01, 0x8c, 0x00, 0x00, 0x81, 0x88, 0x00, 0x00, 0x01, 0x88, 0x00, 0x00,
+        //0x81, 0x84, 0x00, 0x00, 0x01, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43, 0x10, 0xd4, 0x82,
+        //0x00, 0x00, 0x00, 0x00, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x02, 0x00, 0x00,
+    dev.pci.register_device(this);
 
     // status
     this.io.register_read(this.ata_port | 7, read_status);
@@ -159,15 +170,16 @@ function IDEDevice(dev, buffer, is_cd, nr)
         cylinder_low = transfered_ata_blocks >> 8;
         cylinder_high = transfered_ata_blocks;
 
-        if(start + byte_count > buffer.byteLength)
+        if(start >= buffer.byteLength)
         {
-            dbg_log("CD read: Outside of disk", LOG_DISK);
+            dbg_log("CD read: Outside of disk  end=" + h(start + byte_count) + " size=" + h(buffer.byteLength), LOG_DISK);
 
             status = 0xFF;
             push_irq();
         }
         else
         {
+            byte_count = Math.min(byte_count, buffer.byteLength - start);
             status = 0xFF;
 
             me.buffer.get(start, byte_count, function(data)
@@ -189,14 +201,14 @@ function IDEDevice(dev, buffer, is_cd, nr)
                 if((data_pointer + 1)  % (sectors_per_drq * 512) === 0 || 
                     data_pointer + 1 === pio_data.length)
                 {
-                    if(data_pointer + 1 === pio_data.length)
-                    {
-                        status = 0x50;
-                        bytecount = 3;
-                    }
-
                     dbg_log("ATA IRQ", LOG_DISK);
-                    push_irq();
+                    //push_irq();
+                }
+
+                if(data_pointer + 1 >= pio_data.length)
+                {
+                    status = 0x50;
+                    bytecount = 3;
                 }
 
                 if((data_pointer + 1 & 255) === 0)
@@ -310,7 +322,11 @@ function IDEDevice(dev, buffer, is_cd, nr)
                         break;
                     case 0x43:
                         // read header
-                        pio_data = new Uint8Array(Math.min(atapi_command[8], 4));
+                        pio_data = new Uint8Array(2048);
+                        pio_data[0] = 0;
+                        pio_data[1] = 10;
+                        pio_data[2] = 1;
+                        pio_data[3] = 1;
                         status = 0x58;
                         data_pointer = 0;
                         bytecount = 2;

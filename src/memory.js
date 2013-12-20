@@ -111,81 +111,18 @@ function Memory(buffer, memory_size)
         }
     };
 
-
-    var 
-        /** 
-         * Arbritary value, the minimum number of bytes that can be mapped
-         * by one device. This might be spec'd somewhere ...
-         *
-         * @const 
-         */ 
-        MMAP_BLOCK_BITS = 14,
-        /** @const */
-        MMAP_BLOCK_SIZE = 1 << MMAP_BLOCK_BITS,
         
-        // this only supports a 32 bit address space
-        memory_map_registered = new Int8Array(1 << (32 - MMAP_BLOCK_BITS)),
-
+    // this only supports a 32 bit address space
+    var memory_map_registered = new Uint8Array(1 << (32 - MMAP_BLOCK_BITS)),
         memory_map_read = [],
         memory_map_write = [];
 
+    // managed by IO() in io.js
+    this.memory_map_registered = memory_map_registered;
+    this.memory_map_read = memory_map_read;
+    this.memory_map_write = memory_map_write;
 
     dbg_assert((memory_size & MMAP_BLOCK_SIZE - 1) === 0);
-
-    /**
-     * @param addr {number}
-     * @param size {number}
-     *
-     */
-    this.mmap_register = function(addr, size, fn_size, read_func, write_func)
-    {
-        dbg_log("mmap_register addr=" + h(addr >>> 0, 8) + " size=" + h(size, 8) + " fn_size=" + fn_size, LOG_IO);
-
-        dbg_assert((addr & MMAP_BLOCK_SIZE - 1) === 0);
-        dbg_assert(size && (size & MMAP_BLOCK_SIZE - 1) === 0);
-        dbg_assert(fn_size === 1 || fn_size === 4);
-
-        var aligned_addr = addr >>> MMAP_BLOCK_BITS;
-
-        for(; size > 0; aligned_addr++)
-        {
-            memory_map_registered[aligned_addr] = fn_size;
-
-            memory_map_read[aligned_addr] = do_read;
-            memory_map_write[aligned_addr] = do_write;
-
-            size -= MMAP_BLOCK_SIZE;
-        }
-
-        function do_read(read_addr)
-        {
-            return read_func(read_addr - addr | 0);
-        }
-
-        function do_write(write_addr, value)
-        {
-            write_func(write_addr - addr | 0, value);
-        }
-    };
-
-    for(var i = 0; (i << MMAP_BLOCK_BITS) < memory_size; i++)
-    {
-        // avoid sparse arrays
-        memory_map_read[i] = memory_map_write[i] = undefined;
-    }
-
-    this.mmap_register(memory_size, 0x100000000 - memory_size, 1,
-        function(addr) {
-            // read outside of the memory size
-            addr += memory_size;
-            dbg_log("Read from unmapped memory space, addr=" + h(addr >>> 0, 8), LOG_IO);
-            return 0xFF;
-        },
-        function(addr, value) {
-            // write outside of the memory size
-            addr += memory_size;
-            dbg_log("Write to unmapped memory space, addr=" + h(addr >>> 0, 8) + " value=" + h(value, 2), LOG_IO);
-        });
 
     function mmap_read8(addr)
     {
@@ -200,24 +137,27 @@ function Memory(buffer, memory_size)
     function mmap_read32(addr)
     {
         var aligned_addr = addr >>> MMAP_BLOCK_BITS,
+            size = memory_map_registered[aligned_addr],
             fn = memory_map_read[aligned_addr];
 
-        if(memory_map_registered[aligned_addr] === 4)
+        if(size & 4)
         {
             return fn(addr);
         }
         else
         {
-            return fn(addr) | fn(addr + 1) << 8 | fn(addr + 2) << 16 | fn(addr + 3) << 24;
+            return fn(addr) | fn(addr + 1) << 8 | 
+                    fn(addr + 2) << 16 | fn(addr + 3) << 24;
         }
     }
 
     function mmap_write32(addr, value)
     {
         var aligned_addr = addr >>> MMAP_BLOCK_BITS,
+            size = memory_map_registered[aligned_addr],
             fn = memory_map_write[aligned_addr];
 
-        if(memory_map_registered[aligned_addr] === 4)
+        if(size & 4)
         {
             fn(addr, value);
         }

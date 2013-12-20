@@ -313,6 +313,7 @@ var
     reg8s,
 
     sreg,
+    dreg,
 
     
     // sp or esp, depending on stack size attribute
@@ -473,6 +474,7 @@ function cpu_init(settings)
     reg8  = new Uint8Array(reg32.buffer);
     reg8s  = new Int8Array(reg32.buffer);
     sreg = new Uint16Array(8);
+    dreg = new Int32Array(8);
     protected_mode = false;
 
     idtr_size = 0;
@@ -531,6 +533,15 @@ function cpu_init(settings)
     last_op_size = 0;
 
 
+    var devapi = {
+        memory: memory,   
+        reboot: cpu_reboot_internal,
+        time: function() { return performance.now(); },
+    };
+
+    cpu.dev = {};
+
+    devapi.io = cpu.dev.io = io = new IO(memory);
 
     if(settings.bios)
     {
@@ -548,7 +559,7 @@ function cpu_init(settings)
         }
 
         // seabios expects the bios to be mapped to 0xFFF00000 also
-        memory.mmap_register(0xFFF00000, 0x100000, 1,
+        io.mmap_register(0xFFF00000, 0x100000, 1,
             function(addr)
             {
                 return memory.mem8[addr];
@@ -615,17 +626,31 @@ function cpu_init(settings)
     }
 
 
-    cpu.dev = {};
+    var a20_byte = 0;
 
+    io.register_read(0x92, function()
+    {
+        return a20_byte;
+    });
+
+    io.register_write(0x92, function(out_byte)
+    {
+        a20_byte = out_byte;
+    });
+
+    if(DEBUG)
+    {
+        // Use by linux for port-IO delay
+        // Avoid generating tons of debug messages
+        io.register_write(0x80, function(out_byte)
+        {
+        });
+    }
+
+
+    // TODO: Make this more configurable
     if(settings.load_devices)
     {
-        var devapi = {
-            memory: memory,   
-            reboot: cpu_reboot_internal,
-            time: function() { return performance.now(); },
-        };
-
-        devapi.io = cpu.dev.io = io = new IO();
         devapi.pic = pic = new PIC(devapi, call_interrupt_vector, handle_irqs);
         devapi.pci = pci = new PCI(devapi);
         devapi.dma = dma = new DMA(devapi);
@@ -665,54 +690,58 @@ function cpu_init(settings)
                 hpet = new HPET(devapi);
             }
 
+            var acpi = {
+                pci_id: 0x07 << 3,
+                pci_space: [
+                    0x86, 0x80, 0x13, 0x71, 0x07, 0x00, 0x80, 0x02, 0x08, 0x00, 0x80, 0x06, 0x00, 0x00, 0x80, 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09, 0x01, 0x00, 0x00,
+                ],
+                pci_bars: [],
+            };
+
             // 00:07.0 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 08)
-            this.register_device([
-                0x86, 0x80, 0x13, 0x71, 0x07, 0x00, 0x80, 0x02, 0x08, 0x00, 0x80, 0x06, 0x00, 0x00, 0x80, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09, 0x01, 0x00, 0x00,
-            ], 0x07 << 3);
-
-
+            io.register_device(acpi);
 
             var elcr = 0;
 
             // ACPI, ELCR register
-            dev.io.register_write(0x4d0, function(data)
+            io.register_write(0x4d0, function(data)
             {
                 elcr = elcr & 0xFF00 | data;
             });
-            dev.io.register_write(0x4d1, function(data)
+            io.register_write(0x4d1, function(data)
             {
                 elcr = elcr & 0xFF | data << 8;
             });
 
 
             // ACPI, pmtimer
-            dev.io.register_read(0xb008, function(data)
+            io.register_read(0xb008, function(data)
             {
                 return 0;
             });
-            dev.io.register_read(0xb009, function(data)
+            io.register_read(0xb009, function(data)
             {
                 return 0;
             });
-            dev.io.register_read(0xb00a, function(data)
+            io.register_read(0xb00a, function(data)
             {
                 return 0;
             });
-            dev.io.register_read(0xb00b, function(data)
+            io.register_read(0xb00b, function(data)
             {
                 return 0;
             });
 
             // ACPI status
-            dev.io.register_read(0xb004, function(data)
+            io.register_read(0xb004, function(data)
             {
                 dbg_log("b004 read");
                 return 1;
             });
-            dev.io.register_read(0xb005, function(data)
+            io.register_read(0xb005, function(data)
             {
                 dbg_log("b005 read");
                 return 0;
@@ -922,12 +951,12 @@ var npe_functions = {
 
     read_imm8: function()
     {
-        return memory.mem8[instruction_pointer++];
+        return memory.read8(instruction_pointer++);
     },
 
     read_imm8s: function()
     {
-        return memory.mem8s[instruction_pointer++];
+        return memory.read8(instruction_pointer++) << 24 >> 24;
     },
 
     read_imm16 : function()
@@ -1262,10 +1291,10 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
     //}
 
 
-    //if(interrupt_nr === 14)
-    //{
-    //    dbg_log("int14 error_code=" + error_code + " cr2=" + h(cr2 >>> 0) + " prev=" + h(previous_ip >>> 0) + " cpl=" + cpl, LOG_CPU);
-    //}
+    if(interrupt_nr === 14)
+    {
+        dbg_log("int14 error_code=" + error_code + " cr2=" + h(cr2 >>> 0) + " prev=" + h(previous_ip >>> 0) + " cpl=" + cpl, LOG_CPU);
+    }
 
 
     if(in_hlt)
@@ -1426,6 +1455,7 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
 
             if(flags & flag_vm)
             {
+                dbg_log("return from vm86 mode", LOG_CPU);
                 flags &= ~flag_vm & ~flag_rf;
 
                 push32(sreg[reg_gs]);
@@ -1680,14 +1710,15 @@ function test_privileges_for_io(port, size)
     {
         if(tsr_size >= 0x67)
         {
-            var iomap_base = safe_read16(tsr_offset + 0x64 + 2),
+            var iomap_base = memory.read16(translate_address_system_read(tsr_offset + 0x64 + 2)),
                 high_port = port + size - 1;
 
             if(tsr_size >= iomap_base + (high_port >> 3))
             {
                 var mask = ((1 << size) - 1) << (port & 7),
+                    addr = translate_address_system_read(tsr_offset + iomap_base + (port >> 3)),
                     port_info = (mask & 0xFF00) ? 
-                        safe_read16(port >> 3) : safe_read8(port >> 3);
+                        memory.read16(addr) : memory.read8(addr);
 
                 if(!(port_info & mask))
                 {
@@ -1750,7 +1781,7 @@ function cpuid()
     }
     else
     {
-        if(DEBUG) throw "cpuid: unimplemented eax: " + h(id);
+        //if(DEBUG) throw "cpuid: unimplemented eax: " + h(id);
     }
 }
 
@@ -2019,7 +2050,7 @@ function switch_seg(reg, selector)
 
         if(!info.dc_bit && info.dpl < cpl)
         {
-            throw unimpl("inter privilege interrupt");
+            throw unimpl("inter privilege call");
         }
         else
         {
@@ -2426,7 +2457,9 @@ function trigger_pagefault(write, user, present)
 {
     if(LOG_LEVEL & LOG_CPU)
     {
-        //dbg_trace();
+        //dbg_log("page fault", LOG_CPU);
+        dbg_trace();
+        //throw "stop";
     }
 
     if(page_fault)

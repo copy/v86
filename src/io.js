@@ -6,10 +6,9 @@
  *
  * @constructor
  */
-function IO()
+function IO(memory)
 {
-    var a20_byte = 0,
-        me = this;
+    var me = this;
 
     function get_port_description(addr)
     {
@@ -150,24 +149,60 @@ function IO()
         write_callbacks[port_addr] = callback;
     };
 
-    // should maybe be somewhere else?
-    this.register_read(0x92, function()
+    /**
+     * @param addr {number}
+     * @param size {number}
+     *
+     */
+    this.mmap_register = function(addr, size, fn_size, read_func, write_func)
     {
-        return a20_byte;
-    });
+        dbg_log("mmap_register addr=" + h(addr >>> 0, 8) + " size=" + h(size, 8) + " fn_size=" + fn_size, LOG_IO);
 
-    this.register_write(0x92, function(out_byte)
-    {
-        a20_byte = out_byte;
-    });
+        dbg_assert((addr & MMAP_BLOCK_SIZE - 1) === 0);
+        dbg_assert(size && (size & MMAP_BLOCK_SIZE - 1) === 0);
+        dbg_assert(fn_size === 1 || fn_size === 4);
 
-    if(DEBUG)
-    {
-        // use by linux for timing
-        this.register_write(0x80, function(out_byte)
+        var aligned_addr = addr >>> MMAP_BLOCK_BITS;
+
+        for(; size > 0; aligned_addr++)
         {
-        });
+            memory.memory_map_registered[aligned_addr] = fn_size;
+
+            memory.memory_map_read[aligned_addr] = do_read;
+            memory.memory_map_write[aligned_addr] = do_write;
+
+            size -= MMAP_BLOCK_SIZE;
+        }
+
+        function do_read(read_addr)
+        {
+            return read_func(read_addr - addr | 0);
+        }
+
+        function do_write(write_addr, value)
+        {
+            write_func(write_addr - addr | 0, value);
+        }
+    };
+
+    for(var i = 0; (i << MMAP_BLOCK_BITS) < memory_size; i++)
+    {
+        // avoid sparse arrays
+        memory.memory_map_read[i] = memory.memory_map_write[i] = undefined;
     }
+
+    this.mmap_register(memory_size, 0x100000000 - memory_size, 1,
+        function(addr) {
+            // read outside of the memory size
+            addr += memory_size;
+            dbg_log("Read from unmapped memory space, addr=" + h(addr >>> 0, 8), LOG_IO);
+            return 0xFF;
+        },
+        function(addr, value) {
+            // write outside of the memory size
+            addr += memory_size;
+            dbg_log("Write to unmapped memory space, addr=" + h(addr >>> 0, 8) + " value=" + h(value, 2), LOG_IO);
+        });
 
 
     // any two consecutive 8-bit ports can be treated as a 16-bit port;

@@ -22,16 +22,17 @@ function PCI(dev)
 {
     var
         io = dev.io,
-        pci_data = new Uint8Array(4),
+        pci_addr = new Uint8Array(4),
         pci_response = new Uint8Array(4),
         pci_status = new Uint8Array(4),
 
-        pci_data32 = new Int32Array(pci_data.buffer),
+        pci_addr32 = new Int32Array(pci_addr.buffer),
         pci_response32 = new Int32Array(pci_response.buffer),
         pci_status32 = new Int32Array(pci_status.buffer),
         pci = this;
 
-    this.devices = Array(0x10000);
+    var device_spaces = Array(0x10000),
+        devices = Array(0x10000);
 
     /*
     io.register_write(0xCF9, function(value)
@@ -45,35 +46,26 @@ function PCI(dev)
         }
     });*/
     
-    function pci_write_byte(byte_pos, byte)
-    {
-        var bdf = pci_data[2] << 8 | pci_data[1],
-            addr = pci_data[0] & 0xFC;
-
-        //if(bdf === (7 << 3))
-        //{
-        //    var device = me.devices[bdf];
-
-        //    (new Uint8Array(device.buffer))[addr] = byte;
-        //}
-    }
-
     io.register_write(PCI_CONFIG_DATA, function(out_byte)
     {
-        dbg_log("PCI data0: " + h(out_byte, 2) + " addr=" + h(pci_data32[0] >>> 0), LOG_PCI);
-
+        dbg_log("PCI data0: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
+        pci_write_byte(0, out_byte);
     });
     io.register_write(PCI_CONFIG_DATA | 1, function(out_byte)
     {
-        dbg_log("PCI data1: " + h(out_byte, 2)+ " addr=" + h(pci_data32[0] >>> 0), LOG_PCI);
+        dbg_log("PCI data1: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
+        pci_write_byte(1, out_byte);
     });
     io.register_write(PCI_CONFIG_DATA | 2, function(out_byte)
     {
-        dbg_log("PCI data2: " + h(out_byte, 2)+ " addr=" + h(pci_data32[0] >>> 0), LOG_PCI);
+        dbg_log("PCI data2: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
+        pci_write_byte(2, out_byte);
     });
     io.register_write(PCI_CONFIG_DATA | 3, function(out_byte)
     {
-        dbg_log("PCI data3: " + h(out_byte, 2)+ " addr=" + h(pci_data32[0] >>> 0), LOG_PCI);
+        dbg_log("PCI data3: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
+
+        pci_write_byte(3, out_byte);
     });
 
     io.register_read(PCI_CONFIG_DATA, function()
@@ -112,19 +104,19 @@ function PCI(dev)
 
     io.register_write(PCI_CONFIG_ADDRESS, function(out_byte)
     {
-        pci_data[0] = out_byte;
+        pci_addr[0] = out_byte;
     });
     io.register_write(PCI_CONFIG_ADDRESS | 1, function(out_byte)
     {
-        pci_data[1] = out_byte;
+        pci_addr[1] = out_byte;
     });
     io.register_write(PCI_CONFIG_ADDRESS | 2, function(out_byte)
     {
-        pci_data[2] = out_byte;
+        pci_addr[2] = out_byte;
     });
     io.register_write(PCI_CONFIG_ADDRESS | 3, function(out_byte)
     {
-        pci_data[3] = out_byte;
+        pci_addr[3] = out_byte;
 
         pci_query();
     });
@@ -136,25 +128,25 @@ function PCI(dev)
         // Bit | .31                     .0
         // Fmt | EBBBBBBBBDDDDDFFFRRRRRR00
 
-        var bdf = pci_data[2] << 8 | pci_data[1],
-            addr = pci_data[0] & 0xFC,
+        var bdf = pci_addr[2] << 8 | pci_addr[1],
+            addr = pci_addr[0] & 0xFC,
             devfn = bdf & 0xFF,
             bus = bdf >> 8,
             dev = bdf >> 3 & 0x1F,
             fn = bdf & 7,
-            enabled = pci_data[3] >> 7;
+            enabled = pci_addr[3] >> 7;
 
         dbg_line += " enabled=" + (enabled);
         dbg_line += " bdf=" + h(bdf, 4);
         dbg_line += " addr=" + h(addr, 2);
 
-        //dbg_log(dbg_line + " " + h(pci_data32[0] >>> 0, 8), LOG_PCI);
+        //dbg_log(dbg_line + " " + h(pci_addr32[0] >>> 0, 8), LOG_PCI);
 
-        var device = pci.devices[bdf];
+        var device = device_spaces[bdf];
 
         if(device !== undefined)
         {
-            dbg_log(dbg_line + " " + h(pci_data32[0] >>> 0, 8), LOG_PCI);
+            dbg_log(dbg_line + " " + h(pci_addr32[0] >>> 0, 8), LOG_PCI);
 
             pci_status32[0] = 0x80000000 | 0;
 
@@ -174,26 +166,97 @@ function PCI(dev)
         }
     }
 
-    this.register_device = function(device, device_id)
+    function pci_write_byte(byte_pos, byte)
     {
+        var bdf = pci_addr[2] << 8 | pci_addr[1],
+            addr = pci_addr[0] & 0xFC;
+
+        var space = device_spaces[bdf],
+            device = devices[bdf];
+
+        if(space)
+        {
+            (new Uint8Array(space.buffer))[addr | byte_pos] = byte;
+
+            if(byte_pos === 3 && addr >= 0x10 && addr < 0x28)
+            {
+                var bar_nr = addr - 0x10 >> 2,
+                    bar = device.pci_bars[bar_nr],
+                    value = space[addr >> 2];
+
+                dbg_log("BAR" + bar_nr + " changed to " + h(space[addr >> 2] >>> 0) + " dev=" + h(bdf, 2), LOG_PCI);
+
+                if(bar)
+                {
+                    dbg_assert(!(bar.size & bar.size - 1));
+                    space[addr >> 2] = value & ~(bar.size - 1) | 3;
+                }
+                else
+                {
+                    space[addr >> 2] = 0;
+                }
+            }
+        }
+    }
+
+
+    this.register_device = function(device)
+    {
+        dbg_assert(device.pci_id !== undefined);
+        dbg_assert(device.pci_space !== undefined);
+        dbg_assert(device.pci_bars !== undefined);
+
+        var device_id = device.pci_id;
+
         dbg_log("PCI register bdf=" + h(device_id), LOG_PCI);
 
-        dbg_assert(!pci.devices[device_id]);
-        dbg_assert(device.length === 64);
+        dbg_assert(!devices[device_id]);
+        dbg_assert(device.pci_space.length === 64);
 
         // convert bytewise notation from lspci to double words
-        pci.devices[device_id] = new Int32Array(new Uint8Array(device).buffer);
+        device_spaces[device_id] = new Int32Array(new Uint8Array(device.pci_space).buffer);
+        devices[device_id] = device;
     };
 
     // Some experimental PCI devices taken from my PC:
 
     // 00:00.0 Host bridge: Intel Corporation 4 Series Chipset DRAM Controller (rev 02)
-    this.register_device([
-        0x86, 0x80, 0x20, 0x2e, 0x06, 0x00, 0x90, 0x20, 0x02, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43, 0x10, 0xd3, 0x82,
-        0x00, 0x00, 0x00, 0x00, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ], 0);
+    //var host_bridge = {
+    //    pci_id: 0,
+    //    pci_space: [
+    //        0x86, 0x80, 0x20, 0x2e, 0x06, 0x00, 0x90, 0x20, 0x02, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00,
+    //        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    //        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43, 0x10, 0xd3, 0x82,
+    //        0x00, 0x00, 0x00, 0x00, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    //    ],
+    //    pci_bars: [],
+    //};
+    
+    var host_bridge = {
+        pci_id: 0,
+        pci_space: [
+            // 00:00.0 Host bridge: Intel Corporation 440FX - 82441FX PMC [Natoma] (rev 02)
+            0x86, 0x80, 0x37, 0x12, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+        pci_bars: [],
+    };
+    this.register_device(host_bridge);
+
+    var isa_bridge = {
+        pci_id: 1 << 3,
+        pci_space: [
+            // 00:01.0 ISA bridge: Intel Corporation 82371SB PIIX3 ISA [Natoma/Triton II]
+            0x86, 0x80, 0x00, 0x70, 0x07, 0x00, 0x00, 0x02, 0x00, 0x00, 0x01, 0x06, 0x00, 0x00, 0x80, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+        pci_bars: [],
+    };
+    this.register_device(isa_bridge);
 
     // 00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev 90)
     //this.register_device([
