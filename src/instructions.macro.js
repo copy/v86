@@ -588,37 +588,23 @@ op2(0x99,
 op2(0x9A, {
     // callf
 
-    if(protected_mode && !vm86_mode)
-    {
-        throw unimpl("16 bit callf in protected mode");
-    }
-    else
-    {
-        var new_ip = read_imm16();
-        var new_cs = read_imm16();
+    var new_ip = read_imm16();
+    var new_cs = read_imm16();
 
-        push16(sreg[reg_cs]);
-        push16(get_real_ip());
+    push16(sreg[reg_cs]);
+    push16(get_real_ip());
 
-        switch_seg(reg_cs, new_cs);
-        instruction_pointer = get_seg(reg_cs) + new_ip | 0;
-    }
+    switch_seg(reg_cs, new_cs);
+    instruction_pointer = get_seg(reg_cs) + new_ip | 0;
 }, {
-    if(protected_mode && !vm86_mode)
-    {
-        throw unimpl("callf");
-    }
-    else
-    {
-        var new_ip = read_imm32s();
-        var new_cs = read_imm16();
+    var new_ip = read_imm32s();
+    var new_cs = read_imm16();
 
-        push32(sreg[reg_cs]);
-        push32(get_real_ip());
+    push32(sreg[reg_cs]);
+    push32(get_real_ip());
 
-        switch_seg(reg_cs, new_cs);
-        instruction_pointer = get_seg(reg_cs) + new_ip | 0;
-    }
+    switch_seg(reg_cs, new_cs);
+    instruction_pointer = get_seg(reg_cs) + new_ip | 0;
 });
 
 op(0x9B, {
@@ -809,67 +795,34 @@ op2(0xC9, {
 });
 op2(0xCA, {
     // retf
-    if(!protected_mode || vm86_mode)
-    {
-        var imm16 = read_imm16();
-        var ip = pop16();
+    var imm16 = read_imm16();
+    var ip = pop16();
 
-        switch_seg(reg_cs, pop16());
-        instruction_pointer = get_seg(reg_cs) + ip | 0;
-        reg16[reg_sp] += imm16;
-    }
-    else
-    {
-        throw unimpl("16 bit retf in protected mode");
-    }
+    switch_seg(reg_cs, pop16());
+    instruction_pointer = get_seg(reg_cs) + ip | 0;
+    reg16[reg_sp] += imm16;
 }, {
     // retf 
     var imm16 = read_imm16();
+    var ip = pop32s();
 
-    if(!protected_mode || vm86_mode)
-    {
-        throw unimpl("32 bit retf in real/vm86 mode");
-    }
-    else
-    {
-        //dbg_log("retf");
-        var ip = pop32s();
+    switch_seg(reg_cs, pop32s() & 0xFFFF);
+    instruction_pointer = get_seg(reg_cs) + ip | 0;
 
-        switch_seg(reg_cs, pop32s() & 0xFFFF);
-        instruction_pointer = get_seg(reg_cs) + ip | 0;
-
-        stack_reg[reg_vsp] += imm16;
-    }
+    stack_reg[reg_vsp] += imm16;
 });
 op2(0xCB, {
     // retf
-    if(protected_mode && !vm86_mode)
-    {
-        throw unimpl("16 bit retf in protected mode");
-    }
-    else
-    {
-        var ip = pop16();
-        switch_seg(reg_cs, pop16());
-        instruction_pointer = get_seg(reg_cs) + ip | 0;
-    }
+    var ip = pop16();
+    switch_seg(reg_cs, pop16());
+    instruction_pointer = get_seg(reg_cs) + ip | 0;
 }, {
     // retf 
 
-    if(protected_mode && !vm86_mode)
-    {
-        var ip = pop32s();
+    var ip = pop32s();
 
-        switch_seg(reg_cs, pop32s() & 0xFFFF);
-        instruction_pointer = get_seg(reg_cs) + ip | 0;
-    }
-    else
-    {
-        var ip = pop32s();
-
-        switch_seg(reg_cs, pop32s() & 0xFFFF);
-        instruction_pointer = get_seg(reg_cs) + ip | 0;
-    }
+    switch_seg(reg_cs, pop32s() & 0xFFFF);
+    instruction_pointer = get_seg(reg_cs) + ip | 0;
 });
 
 op(0xCC, {
@@ -1731,6 +1684,7 @@ op(0x09, {
 
 undefined_instruction(0x0A);
 op(0x0B, {
+    // UD2
     trigger_ud();
 });
 undefined_instruction(0x0C);
@@ -1807,6 +1761,10 @@ opm(0x21, {
 
     // TODO: mov from debug register
     dbg_assert(modrm_byte >= 0xC0);
+
+    reg32s[modrm_byte & 7] = dreg[modrm_byte >> 3 & 7];
+
+    //dbg_log("read dr" + (modrm_byte >> 3 & 7) + ": " + h(reg32[modrm_byte & 7]), LOG_CPU);
 });
 
 opm(0x22, {
@@ -1875,6 +1833,9 @@ opm(0x23, {
 
     // TODO: mov to debug register
     dbg_assert(modrm_byte >= 0xC0);
+    //dbg_log("write dr" + (modrm_byte >> 3 & 7) + ": " + h(reg32[modrm_byte & 7]), LOG_CPU);
+
+    dreg[modrm_byte >> 3 & 7] = reg32s[modrm_byte & 7];
 });
 
 undefined_instruction(0x24);
