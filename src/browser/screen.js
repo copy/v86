@@ -44,6 +44,7 @@ function ScreenAdapter()
         changed_rows,
 
         did_redraw = true,
+        did_change = false,
 
         // Index 0: ASCII code
         // Index 1: Background color
@@ -140,12 +141,16 @@ function ScreenAdapter()
         graphic_buffer[offset] = color >> 16 & 0xFF;
         graphic_buffer[offset + 1] = color >> 8 & 0xFF;
         graphic_buffer[offset + 2] = color & 0xFF;
+
+        did_change = true;
     };
 
     this.put_pixel_linear = function(index, color)
     {
         // (addr ^ 3) - 1: Change BGR (svga) order to RGB (canvas)
         graphic_buffer[(index ^ 3) - 1] = color;
+
+        did_change = true;
     };
 
     this.timer_graphical = function()
@@ -159,7 +164,12 @@ function ScreenAdapter()
         requestAnimationFrame(function()
         {
             did_redraw = true;
-            graphic_context.putImageData(graphic_image_data, 0, 0);
+
+            if(did_change)
+            {
+                did_change = false;
+                graphic_context.putImageData(graphic_image_data, 0, 0);
+            }
         });
     };
 
