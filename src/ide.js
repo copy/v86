@@ -186,6 +186,10 @@ function IDEDevice(dev, buffer, is_cd, nr)
             {
                 pio_data = data;
                 status = 0x58;
+
+                cylinder_low = 0;
+                cylinder_high = 8;
+
                 data_pointer = 0;
                 push_irq();
             });
@@ -202,7 +206,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
                     data_pointer + 1 === pio_data.length)
                 {
                     dbg_log("ATA IRQ", LOG_DISK);
-                    //push_irq();
+                    push_irq();
                 }
 
                 if(data_pointer + 1 >= pio_data.length)
