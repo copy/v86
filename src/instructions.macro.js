@@ -2066,6 +2066,7 @@ opm(0xB0, {
     if(modrm_byte < 0xC0)
     {
         var virt_addr = modrm_resolve(modrm_byte);
+        translate_address_write(virt_addr);
         var data = safe_read8(virt_addr);
     }
     else
@@ -2276,6 +2277,7 @@ unimplemented_sse(0xC6);
 opm(0xC7, {
     // cmpxchg8b
     var addr = modrm_resolve(modrm_byte);
+    translate_address_write(addr);
     
     var m64_low = safe_read32(addr);
     var m64_high = safe_read32(addr + 4);
