@@ -99,6 +99,14 @@ function ScreenAdapter()
 
     graphic_screen.style.display = "none";
 
+    this.make_screenshot = function()
+    {
+        try {
+            window.open(graphic_screen.toDataURL());
+        }
+        catch(e) {}
+    };
+
     this.put_char = function(row, col, chr, bg_color, fg_color)
     {
         changed_rows[row] = 1;

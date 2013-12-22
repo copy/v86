@@ -661,6 +661,11 @@ function dump_file(ab, name)
             lock_mouse(elem);
         };
 
+        $("take_screenshot").onclick = function()
+        {
+            screen_adapter.make_screenshot();
+        };
+
         settings.screen_adapter = screen_adapter;
         settings.keyboard_adapter = new KeyboardAdapter();
         settings.mouse_adapter = new MouseAdapter();
