@@ -85,11 +85,11 @@ function dbg_log(stuff, level)
     }
 }
 
-function dbg_trace()
+function dbg_trace(level)
 {
     if(!DEBUG) return;
 
-    dbg_log(Error().stack);
+    dbg_log(Error().stack, level);
 }
 
 /** 
