@@ -146,8 +146,6 @@ function PCI(dev)
 
         if(device !== undefined)
         {
-            dbg_log(dbg_line + " " + h(pci_addr32[0] >>> 0, 8), LOG_PCI);
-
             pci_status32[0] = 0x80000000 | 0;
 
             if(addr < device.byteLength)
@@ -158,10 +156,12 @@ function PCI(dev)
             {
                 pci_response32[0] = 0;
             }
+
+            dbg_log(dbg_line + " " + h(pci_addr32[0] >>> 0, 8) + "  " + h(pci_response32[0] >>> 0, 8), LOG_PCI);
         }
         else
         {
-            pci_response32[0] = 0;
+            pci_response32[0] = -1;
             pci_status32[0] = 0;
         }
     }
