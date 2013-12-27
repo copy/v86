@@ -107,7 +107,7 @@ else
 
 // just a prototype of a loader
 
-if(argv && argv.length === 4 && (argv[2] === "cdrom" || argv[2] === "fda"))
+if(argv && argv.length === 4 && (argv[2] === "cdrom" || argv[2] === "fda" || argv[2] === "hda"))
 {
     var disk = new SyncBuffer(read_array_buffer(argv[3]));
 
@@ -118,6 +118,10 @@ if(argv && argv.length === 4 && (argv[2] === "cdrom" || argv[2] === "fda"))
     else if(argv[2] === "fda")
     {
         settings.floppy_disk = disk;
+    }
+    else if(argv[2] === "hda")
+    {
+        settings.hda_disk = disk;
     }
 
 
@@ -133,7 +137,7 @@ if(argv && argv.length === 4 && (argv[2] === "cdrom" || argv[2] === "fda"))
 }
 else
 {
-    console.log("Usage: node main.js [cdrom|fda] disk.img");
+    console.log("Usage: node main.js [cdrom|fda|hda] disk.img");
 
     process.exit();
 }
