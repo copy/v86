@@ -939,6 +939,11 @@ function FPU(io)
                         // fprem
                         st[stack_ptr] = get_st0() % get_sti(1);
                         break;
+                    case 1:
+                        // fyl2xp1: y * log2(x+1) and pop
+                        st[stack_ptr + 1 & 7] = get_sti(1) * Math.log(get_st0() + 1) / Math.LN2;
+                        pop();
+                        break;
                     case 2:
                         st[stack_ptr] = Math.sqrt(get_st0());
                         break;
