@@ -15,6 +15,8 @@ function NodeScreenSDL(sdl, font_file)
 
         current_cursor_address,
 
+        is_graphical = false,
+
         graphic_buffer,
         graphic_buffer8,
         graphic_buffer32;
@@ -78,6 +80,7 @@ function NodeScreenSDL(sdl, font_file)
     this.set_mode = function(graphical)
     {
         // switch between graphical and text mode
+        is_graphical = graphical;
     };
 
     this.clear_screen = function()
@@ -87,7 +90,10 @@ function NodeScreenSDL(sdl, font_file)
 
     this.set_size_text = function(cols, rows)
     {
-        screen = sdl.setVideoMode(CHAR_WIDTH * cols, ROW_HEIGHT * rows, 32, 0);
+        if(!is_graphical)
+        {
+            screen = sdl.setVideoMode(CHAR_WIDTH * cols, ROW_HEIGHT * rows, 32, 0);
+        }
 
         //dbg_log(screen, LOG_VGA);
         //dbg_log(screen.pixels, LOG_VGA);
