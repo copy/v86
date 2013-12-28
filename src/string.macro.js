@@ -125,6 +125,11 @@ function movsd()
             dest = es + regv[reg_vdi],
             count = regv[reg_vcx];
 
+        if(!count)
+        {
+            return;
+        }
+
         if(paging ? !(dest & 0xFFF) && !(src & 0xFFF)
                 : !(dest & 3) && !(src & 3))
         {
