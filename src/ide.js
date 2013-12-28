@@ -853,18 +853,18 @@ function IDEDevice(dev, buffer, is_cd, nr)
 
 
                 do {
-                    var addr = memory.read32s(prdt_start),
-                        count = memory.read16(prdt_start + 4),
+                    var prd_addr = memory.read32s(prdt_start),
+                        prd_count = memory.read16(prdt_start + 4),
                         end = memory.read8(prdt_start + 7) & 0x80;
 
-                    if(!count)
+                    if(!prd_count)
                     {
-                        count = 0x10000;
+                        prd_count = 0x10000;
                     }
 
-                    dbg_log("dma write dest=" + h(addr) + " count=" + h(count), LOG_DISK);
+                    dbg_log("dma write dest=" + h(prd_addr) + " prd_count=" + h(prd_count), LOG_DISK);
 
-                    me.buffer.set(start + offset, memory.mem8.subarray(addr, addr + count), function()
+                    me.buffer.set(start + offset, memory.mem8.subarray(prd_addr, prd_addr + prd_count), function()
                     {
                         prdt_write_count++;
 
@@ -878,7 +878,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
                         }
                     });
 
-                    offset += count;
+                    offset += prd_count;
                     prdt_start += 8;
                     prdt_count++;
                 }
@@ -982,7 +982,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
         return cylinder_high << 16 & 0x0F0000 | cylinder_low << 8 & 0xFF00 | sector & 0xFF;
     }
 
-    function create_identify_packet(buffer)
+    function create_identify_packet()
     {
         // http://bochs.sourceforge.net/cgi-bin/lxr/source/iodev/harddrv.cc#L2821
 

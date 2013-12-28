@@ -221,8 +221,7 @@ function dump_file(ab, name)
      */
     function SyncFileBuffer(file)
     {
-        var filereader = new FileReader,
-            PART_SIZE = 4 << 20,
+        var PART_SIZE = 4 << 20,
             ready = false,
             me = this;
 

@@ -31,7 +31,7 @@
 
 
 #define string_instruction(s, fn, aligned_fn)\
-    var src, dest, data_src, data_dest, phys_dest, phys_src;\
+    var src, dest, data_src, data_dest = 0, phys_dest, phys_src;\
     var size = flags & flag_direction ? -(s >> 3) : s >> 3;\
     var cont = false;\
     if(use_cmp && !use_si) data_src = s === 32 ? reg32s[reg_eax] : reg ## s[reg_al];\

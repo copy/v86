@@ -14,7 +14,7 @@ VGA_MEMORY_SIZE = 128 * 64 * 1024,
  * @const 
  * @type {number}
  */
-memory_size = 1024 * 1024 * 128;
+memory_size = 1024 * 1024 * 64;
 
 var 
 
@@ -65,8 +65,11 @@ var
 /** @const */ TLB_USER_WRITE = 8;
 
 
-/** @const */
-var ENABLE_HPET = false,
+var 
+    /** @const */
+    ENABLE_HPET = false,
+
+    /** @const */
     ENABLE_ACPI = false;
 
 var 
