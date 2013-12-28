@@ -79,6 +79,11 @@ function MouseAdapter()
         delta_x = Math.roundInfinity(delta_x * SPEED_FACTOR);
         delta_y = Math.roundInfinity(delta_y * SPEED_FACTOR);
 
+        if(Math.abs(delta_x) > 100 || Math.abs(delta_y) > 100)
+        {
+            dbg_log("Large mouse delta: x=" + delta_x + " y=" + delta_y + " (drop?)");
+        }
+
         send_delta(delta_x, -delta_y);
 
     }
