@@ -83,6 +83,8 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
                 isr |= irq;
             }
 
+            //dbg_log("master handling irq " + irq_number, LOG_PIC);
+            //dbg_trace(LOG_PIC);
             call_interrupt_vector(irq_map | irq_number, false, false);
 
             return true;
@@ -114,6 +116,7 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
             irr &= ~irq;
             isr |= irq;
 
+            //dbg_log("slave handling irq " + irq_number, LOG_PIC);
             call_interrupt_vector(irq_map | irq_number, false, false);
 
             if(irr)

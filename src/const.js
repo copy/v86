@@ -14,7 +14,7 @@ VGA_MEMORY_SIZE = 128 * 64 * 1024,
  * @const 
  * @type {number}
  */
-memory_size = 1024 * 1024 * 64;
+memory_size = 1024 * 1024 * 128;
 
 var 
 
@@ -52,7 +52,7 @@ var
 ///** @const */ LOG_LEVEL = LOG_FPU | LOG_OTHER;
 ///** @const */ LOG_LEVEL = LOG_DMA | LOG_DISK | LOG_IO | LOG_PCI;
 //** @const */ LOG_LEVEL = LOG_DMA | LOG_DISK | LOG_PCI | LOG_CD | LOG_BIOS;
-/** @const */ LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_PS2 & ~LOG_PIT;
+/** @const */ LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_PS2 & ~LOG_DISK & ~LOG_PIT;
 ///** @const */ LOG_LEVEL = LOG_SERIAL | LOG_IO;
 ///** @const */ LOG_LEVEL = LOG_PIT | LOG_RTC;
 ///** @const */ LOG_LEVEL = 0;

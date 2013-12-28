@@ -702,7 +702,7 @@ function cpu_init(settings)
             };
 
             // 00:07.0 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 08)
-            io.register_device(acpi);
+            pci.register_device(acpi);
 
             var elcr = 0;
 
@@ -716,21 +716,25 @@ function cpu_init(settings)
                 elcr = elcr & 0xFF | data << 8;
             });
 
+            io.register_read(0xb3, function()
+            {
+                return 0;
+            });
 
             // ACPI, pmtimer
-            io.register_read(0xb008, function(data)
+            io.register_read(0xb008, function()
             {
                 return 0;
             });
-            io.register_read(0xb009, function(data)
+            io.register_read(0xb009, function()
             {
                 return 0;
             });
-            io.register_read(0xb00a, function(data)
+            io.register_read(0xb00a, function()
             {
                 return 0;
             });
-            io.register_read(0xb00b, function(data)
+            io.register_read(0xb00b, function()
             {
                 return 0;
             });
@@ -800,6 +804,8 @@ function do_run()
     {
         now = Date.now();
 
+        previous_ip = instruction_pointer;
+
         if(ENABLE_HPET)
         {
             timer.timer(now, hpet.legacy_mode);
@@ -838,6 +844,7 @@ function do_run()
         loop_counter++;
     }
 
+    previous_ip = instruction_pointer;
     next_tick();
 }
 
@@ -1222,11 +1229,11 @@ function get_esp_npe(mod)
 {
     if(stack_size_32)
     {
-        return get_seg(reg_ss) + stack_reg[reg_vsp] + mod;
+        return get_seg(reg_ss) + stack_reg[reg_vsp] + mod | 0;
     }
     else
     {
-        return get_seg(reg_ss) + (stack_reg[reg_vsp] + mod & 0xFFFF);
+        return get_seg(reg_ss) + (stack_reg[reg_vsp] + mod & 0xFFFF) | 0;
     }
 }
 
@@ -1235,12 +1242,12 @@ function get_esp_pe_read(mod)
     // UNSAFE: stack_reg[reg_vsp]+mod needs to be masked in 16 bit mode 
     //   (only if paging is enabled and in 16 bit mode)
 
-    return translate_address_read(get_seg(reg_ss) + stack_reg[reg_vsp] + mod);
+    return get_seg(reg_ss) + stack_reg[reg_vsp] + mod | 0;
 }
 
 function get_esp_pe_write(mod)
 {
-    return translate_address_write(get_seg(reg_ss) + stack_reg[reg_vsp] + mod);
+    return get_seg(reg_ss) + stack_reg[reg_vsp] + mod | 0;
 }
 
 
@@ -1257,7 +1264,7 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
 {
     if(DEBUG)
     {
-        ops.add(instruction_pointer);
+        ops.add(instruction_pointer >>> 0);
         ops.add("-- INT " + h(interrupt_nr));
         ops.add(1);
     }
@@ -1269,15 +1276,12 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
     //    dbg_log("=> ", h(memory.read16(es) * 16 + memory.read16(bx)));
     //}
 
-
     //if(interrupt_nr == 0x10)
     //{
     //    dbg_log("int10 ax=" + h(reg16[reg_ax], 4) + " '" + String.fromCharCode(reg8[reg_al]) + "'"); 
     //    dump_regs_short();
     //    if(reg8[reg_ah] == 0xe) vga.tt_write(reg8[reg_al]);
     //}
-
-    //dbg_log("int " + h(interrupt_nr));
 
     //if(interrupt_nr === 0x13)
     //{
@@ -1314,7 +1318,7 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
         if((interrupt_nr << 3 | 7) > idtr_size)
         {
             dbg_log(interrupt_nr, LOG_CPU);
-            dbg_trace();
+            dbg_trace(LOG_CPU);
             throw unimpl("#GP handler");
         }
 
@@ -1369,7 +1373,7 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
         else
         {
             // invalid type
-            dbg_trace();
+            dbg_trace(LOG_CPU);
             dbg_log("invalid type: " + h(type));
             dbg_log(h(addr) + " " + h(base) + " " + h(selector));
             throw unimpl("#GP handler");
@@ -1444,19 +1448,25 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
             var old_esp = reg32s[reg_esp],
                 old_ss = sreg[reg_ss];
 
-            reg32[reg_esp] = new_esp;
-            sreg[reg_ss] = new_ss;
 
             cpl = info.dpl;
-            //dbg_log("int" + h(interrupt_nr, 2) +" from=" + h(instruction_pointer, 8) 
-            //        + " cpl=" + cpl + " old ss:esp=" + h(old_ss,4) + ":" + h(old_esp,8), LOG_CPU);
+            //dbg_log("int" + h(interrupt_nr, 2) +" from=" + h(instruction_pointer >>> 0, 8) 
+            //        + " cpl=" + cpl + " old ss:esp=" + h(old_ss, 4) + ":" + h(old_esp >>> 0, 8), LOG_CPU);
 
             cpl_changed();
 
-            if(flags & flag_vm)
+            is_32 = operand_size_32 = address_size_32 = info.size;
+            flags &= ~flag_vm & ~flag_rf;
+
+            update_operand_size();
+            update_address_size();
+
+            reg32[reg_esp] = new_esp;
+            switch_seg(reg_ss, new_ss);
+
+            if(old_flags & flag_vm)
             {
                 dbg_log("return from vm86 mode", LOG_CPU);
-                flags &= ~flag_vm & ~flag_rf;
 
                 push32(sreg[reg_gs]);
                 push32(sreg[reg_fs]);
@@ -1476,6 +1486,10 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
             // intra privilege level interrupt
 
             //dbg_log("int" + h(interrupt_nr, 2) +" from=" + h(instruction_pointer, 8), LOG_CPU);
+        }
+        else
+        {
+            dbg_assert(false);
         }
 
         push32(old_flags);
@@ -1511,7 +1525,11 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
         segment_offsets[reg_cs] = info.base;
 
         //dbg_log("current esp: " + h(reg32[reg_esp]), LOG_CPU);
-        //dbg_log("call int " + h(interrupt_nr) + " from " + h(instruction_pointer) + " to " + h(base) + " with error_code=" + error_code, LOG_CPU);
+        //dbg_log("call int " + h(interrupt_nr >>> 0, 8) + 
+        //        " from " + h(instruction_pointer >>> 0, 8) + 
+        //        " to " + h(base >>> 0) + 
+        //        " if=" + +!!(is_trap && flags & flag_interrupt) + 
+        //        " error_code=" + error_code, LOG_CPU);
 
         instruction_pointer = get_seg(reg_cs) + base | 0;
         
@@ -1554,7 +1572,7 @@ function raise_exception(interrupt_nr)
     {
         // warn about error
         dbg_log("Exception " + h(interrupt_nr), LOG_CPU);
-        dbg_trace();
+        dbg_trace(LOG_CPU);
         //throw "exception: " + interrupt_nr;
     }
 
@@ -1570,7 +1588,7 @@ function raise_exception_with_code(interrupt_nr, error_code)
     if(DEBUG)
     {
         dbg_log("Exception " + h(interrupt_nr) + " err=" + h(error_code), LOG_CPU);
-        dbg_trace();
+        dbg_trace(LOG_CPU);
         //throw "exception: " + interrupt_nr;
     }
 
@@ -1689,6 +1707,8 @@ function handle_irqs()
 {
     if(pic)
     {
+        dbg_assert(!page_fault);
+
         if((flags & flag_interrupt) && !page_fault)
         {
             pic.handle_irqs();
@@ -2457,14 +2477,21 @@ function trigger_pagefault(write, user, present)
 {
     if(LOG_LEVEL & LOG_CPU)
     {
-        //dbg_log("page fault", LOG_CPU);
-        dbg_trace();
-        //throw "stop";
+        dbg_log("page fault w=" + write + " u=" + user + " p=" + present + 
+                " eip=" + h(previous_ip >>> 0, 8) +
+                " cr2=" + h(cr2 >>> 0, 8), LOG_CPU);
+        dbg_trace(LOG_CPU);
     }
+
+    // likely invalid pointer reference 
+    //if((cr2 >>> 0) < 0x100)
+    //{
+    //    throw "stop";
+    //}
 
     if(page_fault)
     {
-        dbg_trace();
+        dbg_trace(LOG_CPU);
         throw unimpl("Double fault");
     }
 

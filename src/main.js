@@ -85,6 +85,9 @@ function dbg_log(stuff, level)
     }
 }
 
+/** 
+ * @param {number=} level
+ */
 function dbg_trace(level)
 {
     if(!DEBUG) return;
@@ -95,8 +98,9 @@ function dbg_trace(level)
 /** 
  * console.assert is fucking slow
  * @param {string=} msg
+ * @param {number=} level
  */
-function dbg_assert(cond, msg) 
+function dbg_assert(cond, msg, level) 
 { 
     if(!DEBUG) return;
 

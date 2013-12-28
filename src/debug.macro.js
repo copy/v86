@@ -88,7 +88,7 @@ function logop(_ip, op)
     }
     if(!step_mode)
     {
-        //return;
+        return;
     }
     
 

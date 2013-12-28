@@ -222,32 +222,34 @@ function push16(imm16)
 {
     var sp = get_esp_write(-2);
 
+    safe_write16(sp, imm16);
     stack_reg[reg_vsp] -= 2;
-    memory.write16(sp, imm16);
 }
 
 function push32(imm32)
 {
     var sp = get_esp_write(-4);
 
+    safe_write32(sp, imm32);
     stack_reg[reg_vsp] -= 4;
-    memory.write32(sp, imm32);
 }
 
 function pop16()
 {
-    var sp = get_esp_read(0);
+    var sp = get_esp_read(0),
+        result = safe_read16(sp);
 
     stack_reg[reg_vsp] += 2;
-    return memory.read16(sp);
+    return result;
 }
 
 function pop32s()
 {
-    var sp = get_esp_read(0);
+    var sp = get_esp_read(0),
+        result = safe_read32s(sp);
 
     stack_reg[reg_vsp] += 4;
-    return memory.read32s(sp);
+    return result;
 }
 
 function pusha16()
