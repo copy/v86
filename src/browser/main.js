@@ -214,19 +214,128 @@ function dump_file(ab, name)
     }
 
     /**
+     * Synchronous access to File, loading blocks from the input type=file
+     * The whole file is loaded into memory during initialisation
+     *
+     * @constructor
+     */
+    function SyncFileBuffer(file)
+    {
+        var filereader = new FileReader,
+            PART_SIZE = 4 << 20,
+            ready = false,
+            me = this;
+
+        this.byteLength = file.size;
+
+        if(file.size > (1 << 30))
+        {
+            dbg_log("Warning: Allocating buffer of " + (file.size >> 20) + " MB ...");
+        }
+
+        var buffer = new ArrayBuffer(file.size),
+            pointer = 0,
+            filereader = new FileReader();
+
+        // Here: Read all parts sequentially
+        // Other option: Read all parts in parallel
+        filereader.onload = function(e)
+        {
+            new Uint8Array(buffer, pointer).set(new Uint8Array(e.target.result));
+            pointer += PART_SIZE;
+            //dbg_log(PART_SIZE + " bytes of file read");
+            next();
+        };
+
+        function next()
+        {
+            if(me.onprogress)
+            {
+                me.onprogress({
+                    loaded: pointer,   
+                    total: file.size,
+                    lengthComputable: true,
+                });
+            }
+
+            if(pointer < file.size)
+            {
+                filereader.readAsArrayBuffer(file.slice(pointer, Math.min(pointer + PART_SIZE, file.size)));
+            }
+            else
+            {
+                ready = true;
+
+                if(me.onload)
+                {
+                    me.onload({
+                        
+                    });
+                }
+            }
+        }
+        next();
+
+        this.get = function(start, len, fn)
+        {
+            if(ready)
+            {
+                dbg_assert(start + len <= buffer.byteLength);
+
+                fn(new Uint8Array(buffer, start, len));
+            }
+            else
+            {
+                throw "SyncFileBuffer: Wait for ready";
+            }
+        };
+
+        this.get_buffer = function(fn)
+        {
+            if(ready)
+            {
+                fn(buffer);
+            }
+            else
+            {
+                throw "SyncFileBuffer: Wait for ready";
+            }
+        };
+
+        this.set = function(start, slice, fn)
+        {
+            if(ready)
+            {
+                dbg_assert(start + slice.length <= buffer.byteLength);
+
+                new Uint8Array(buffer, start, slice.byteLength).set(slice);
+                fn();
+            }
+            else
+            {
+                throw "SyncFileBuffer: Wait for ready";
+            }
+        };
+    }
+
+    /**
      * Asynchronous access to File, loading blocks from the input type=file
      *
      * @constructor
      */
     function AsyncFileBuffer(file)
     {
-        this.byteLength = file.size;
+        var filereader = new FileReader,
+            BLOCK_SIZE = 512;
 
-        var filereader = new FileReader;
+        this.byteLength = file.size;
 
         // warning: fn may be called synchronously or asynchronously
         this.get = function(start, len, fn)
         {
+            dbg_assert(!(start % BLOCK_SIZE));
+            dbg_assert(!(len % BLOCK_SIZE));
+
             filereader.onload = function(e)
             {
                 fn(new Uint8Array(e.target.result));
@@ -241,8 +350,6 @@ function dump_file(ab, name)
 
         this.set = function(start, slice, fn)
         {
-            // Discard (we can't write to the server)
-            // TODO: Put data into cache
         };
     }
 
@@ -258,18 +365,20 @@ function dump_file(ab, name)
         }
     }
 
-    function show_progress(e)
+    function show_progress(msg, e)
     {
         var el = $("loading");
         el.style.display = "block";
 
         if(e.lengthComputable)
         {
-            var per50 = e.loaded / e.total * 50 | 0;
+            var per100 = e.loaded / e.total * 100 | 0;
 
-            el.textContent = "Loading: " + 2 * per50 + "% [" + 
-                String.chr_repeat("#", per50) + 
-                String.chr_repeat(" ", 50 - per50) + "]";
+            per100 = Math.min(100, Math.max(0, per100));
+
+            el.textContent = msg + " " + per100 + "% [" + 
+                String.chr_repeat("#", per100 >> 1) + 
+                String.chr_repeat(" ", 50 - (per100 >> 1)) + "]";
         }
         else
         {
@@ -326,48 +435,39 @@ function dump_file(ab, name)
         {
             if(me.files.length)
             {
-                var file = new AsyncFileBuffer(me.files[0]);
-
-                switch(type)
-                {
-                case "floppy": 
-                   settings.floppy_disk = file;
-                   break;
-                case "hd": 
-                   settings.hda_disk = file;
-                   break;
-                case "cdrom": 
-                   settings.cdrom_disk = file;
-                   break;
-                }
                 set_title(me.files[0].name);
-                init(settings);
-                return;
 
-                var reader = new FileReader();
-                
-                reader.onload = function(e)
+                // SyncFileBuffer:
+                // - loads the whole disk image into memory, impossible for large files (more than 1GB)
+                // - can later serve get/set operations fast and synchronously 
+                // - takes some time for first load, neglectable for small files (up to 100Mb)
+                //
+                // AsyncFileBuffer:
+                // - loads slices of the file asynchronously as requested
+                // - slower get/set
+                // - doesn't support writing yet
+                var file = new SyncFileBuffer(me.files[0]);
+
+                file.onprogress = show_progress.bind(this, "Loading disk image into memory");
+
+                file.onload = function()
                 {
-                    var buffer = new SyncBuffer(e.target.result);
-
                     switch(type)
                     {
                     case "floppy": 
-                       settings.floppy_disk = buffer;
+                       settings.floppy_disk = file;
                        break;
                     case "hd": 
-                       settings.hda_disk = buffer;
+                       settings.hda_disk = file;
                        break;
                     case "cdrom": 
-                       settings.cdrom_disk = buffer;
+                       settings.cdrom_disk = file;
                        break;
                     }
-
                     init(settings);
-                };
-                
-                //reader.readAsBinaryString($("file").files[0]);
-                reader.readAsArrayBuffer(me.files[0]);
+                }
+
+                $("boot_options").style.display = "none";
             }
         };
 
@@ -393,7 +493,7 @@ function dump_file(ab, name)
                 settings.floppy_disk = new SyncBuffer(buffer);
                 set_title("FreeDOS");
                 init(settings);
-            }, show_progress);
+            }, show_progress.bind(this, "Downloading image"));
 
             $("start_freedos").blur();
             $("boot_options").style.display = "none";
@@ -406,7 +506,7 @@ function dump_file(ab, name)
                 settings.floppy_disk = new SyncBuffer(buffer);
                 set_title("Windows");
                 init(settings);
-            }, show_progress);
+            }, show_progress.bind(this, "Downloading image"));
 
             $("start_win101").blur();
             $("boot_options").style.display = "none";
@@ -420,7 +520,7 @@ function dump_file(ab, name)
                 settings.cdrom_disk = new SyncBuffer(buffer);
                 set_title("Linux");
                 init(settings);
-            }, show_progress);
+            }, show_progress.bind(this, "Downloading image"));
 
             $("start_linux").blur();
             $("boot_options").style.display = "none";
@@ -433,7 +533,7 @@ function dump_file(ab, name)
                 settings.floppy_disk = new SyncBuffer(buffer);
                 set_title("KolibriOS");
                 init(settings);
-            }, show_progress);
+            }, show_progress.bind(this, "Downloading image"));
 
             $("start_koli").blur();
             $("boot_options").style.display = "none";
@@ -446,7 +546,7 @@ function dump_file(ab, name)
                 settings.floppy_disk = new SyncBuffer(buffer);
                 set_title("OpenBSD");
                 init(settings);
-            }, show_progress);
+            }, show_progress.bind(this, "Downloading image"));
 
             $("start_bsd").blur();
             $("boot_options").style.display = "none";
@@ -664,6 +764,8 @@ function dump_file(ab, name)
         $("take_screenshot").onclick = function()
         {
             screen_adapter.make_screenshot();
+
+            $("take_screenshot").blur();
         };
 
         settings.screen_adapter = screen_adapter;
