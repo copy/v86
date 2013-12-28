@@ -38,6 +38,8 @@ function PS2(dev, keyboard, mouse)
         /** @type {boolean} */
         next_read_led = false,
 
+        next_read_resolution = false,
+
         /** 
          * @type {Array.<number>} 
          */
@@ -45,6 +47,9 @@ function PS2(dev, keyboard, mouse)
 
         /** @type {number} */
         sample_rate = 100,
+
+        /** @type {number} */
+        resolution = 1,
 
         /** @type {number} */
         last_mouse_packet = -1,
@@ -129,6 +134,12 @@ function PS2(dev, keyboard, mouse)
 
     function send_mouse_packet()
     {
+        if(!mouse_delta_x && !mouse_delta_y && !mouse_clicks)
+        {
+            // Move along, nothing to see here
+            return;
+        }
+
         var info_byte = 
                 (mouse_delta_y < 0) << 5 |
                 (mouse_delta_x < 0) << 4 |
@@ -146,6 +157,9 @@ function PS2(dev, keyboard, mouse)
             var off = mouse_buffer.length % 3;
             mouse_buffer = mouse_buffer.slice(0, off).concat(mouse_buffer.slice(off + 3));
         }
+
+        //debugger;
+        dbg_log("adding mouse packets:" + [info_byte, mouse_delta_x, mouse_delta_y], LOG_PS2);
 
         mouse_delta_x = 0;
         mouse_delta_y = 0;
@@ -233,7 +247,6 @@ function PS2(dev, keyboard, mouse)
     function port64_read()
     {
         // status port 
-        //dbg_log("port 64 read", LOG_PS2);
 
         var status_byte = 0x10;
 
@@ -245,6 +258,7 @@ function PS2(dev, keyboard, mouse)
         {
             status_byte |= 0x20;
         }
+        dbg_log("port 64 read: " + h(status_byte), LOG_PS2);
 
         return status_byte;
     };
@@ -270,6 +284,23 @@ function PS2(dev, keyboard, mouse)
             mouse_buffer = [0xFA];
 
             sample_rate = write_byte;
+            dbg_log("mouse sample rate: " + h(write_byte), LOG_PS2);
+            mouse_irq();
+        }
+        else if(next_read_resolution)
+        {
+            next_read_resolution = false;
+            mouse_buffer = [0xFA];
+
+            if(write_byte > 3)
+            {
+                dbg_log("invalid resolution, resetting to 1", LOG_PS2);
+            }
+            else
+            {
+                resolution = 1 << write_byte;
+                dbg_log("resolution: " + resolution, LOG_PS2);
+            }
             mouse_irq();
         }
         else if(next_read_led)
@@ -292,7 +323,7 @@ function PS2(dev, keyboard, mouse)
             if(write_byte === 0xFF)
             {
                 // reset, send completion code
-                mouse_buffer.push(0xAA, 0x00);
+                mouse_buffer = [0xFA, 0xAA, 0x00];
 
                 enable_mouse = true;
                 mouse.enabled = true;
@@ -329,10 +360,15 @@ function PS2(dev, keyboard, mouse)
 
                 // ... resolution, scaling
             }
+            else if(write_byte === 0xE8)
+            {
+                // set mouse resolution
+                next_read_resolution = true;
+            }
             else if(write_byte === 0xEB)
             {
                 // request single packet
-                dbg_log("unimplemented request single packet");
+                dbg_log("unimplemented request single packet", LOG_PS2);
             }
             else 
             {
@@ -350,7 +386,8 @@ function PS2(dev, keyboard, mouse)
 
             if(write_byte === 0xFF)
             {
-                kbd_buffer.push(0xAA, 0x00);
+                //kbd_buffer.push(0xAA, 0x00);
+                kbd_buffer = [0xFA, 0xAA];
             }
             else if(write_byte === 0xF2)
             {
@@ -360,14 +397,20 @@ function PS2(dev, keyboard, mouse)
             else if(write_byte === 0xF4)
             {
                 // enable scanning
+                dbg_log("kbd enable scanning", LOG_PS2);
             }
             else if(write_byte === 0xF5)
             {
                 // disable scanning
+                dbg_log("kbd disable scanning", LOG_PS2);
             }
             else if(write_byte === 0xED)
             {
                 next_read_led = true;
+            }
+            else 
+            {
+                dbg_log("new kbd command: " + h(write_byte), LOG_PS2);
             }
             
             kbd_irq();
@@ -416,11 +459,10 @@ function PS2(dev, keyboard, mouse)
             kbd_buffer = [0];
             kbd_irq();
         }
-        /*else if(write_byte === 0xAE)
+        else if(write_byte === 0xAE)
         {
-            // not sure if right ...
-            kbd_buffer =[];
-        }*/
+            // Enable Keyboard
+        }
         else
         {
             dbg_log("port 64: New command byte: " + h(write_byte), LOG_PS2);
