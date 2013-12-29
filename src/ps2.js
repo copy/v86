@@ -43,7 +43,7 @@ function PS2(dev, keyboard, mouse)
         /** 
          * @type {Array.<number>} 
          */
-        kbd_buffer = [],
+        kbd_buffer = new Queue(32),
 
         /** @type {number} */
         sample_rate = 100,
@@ -57,7 +57,7 @@ function PS2(dev, keyboard, mouse)
         /** 
          * @type {Array.<number>} 
          */
-        mouse_buffer = [];
+        mouse_buffer = new Queue(32);
 
 
     if(keyboard)
@@ -73,6 +73,70 @@ function PS2(dev, keyboard, mouse)
 
         // TODO: Mouse Wheel
         // http://www.computer-engineering.org/ps2mouse/
+    }
+
+    function Queue(size)
+    {
+        var data = new Uint8Array(size),
+            start,
+            end;
+
+        dbg_assert((size & size - 1) === 0);
+
+        this.length = 0;
+
+        this.push = function(item)
+        {
+            if(this.length === size)
+            {
+                dbg_log("Queue full", LOG_PS2);
+            }
+
+            this.length++;
+
+            data[end] = item;
+            end = end + 1 & size - 1;
+        };
+
+        this.shift = function()
+        {
+            if(!this.length)
+            {
+                dbg_log("Queue empty", LOG_PS2);
+                return 0;
+            }
+            else
+            {
+                var item = data[start];
+
+                start = start + 1 & size - 1
+                this.length--;
+
+                return item;
+            }
+        };
+
+        this.peek = function()
+        {
+            if(!this.length)
+            {
+                dbg_log("Queue empty", LOG_PS2);
+                return 0;
+            }
+            else
+            {
+                return data[start];
+            }
+        };
+
+        this.clear = function()
+        {
+            start = 0;
+            end = 0;
+            this.length = 0;
+        };
+
+        this.clear();
     }
 
 
@@ -146,19 +210,10 @@ function PS2(dev, keyboard, mouse)
                 1 << 3 | 
                 mouse_clicks;
 
-        mouse_buffer.push(
-            info_byte, 
-            mouse_delta_x & 0xFF,
-            mouse_delta_y & 0xFF
-        );
+        mouse_buffer.push(info_byte);
+        mouse_buffer.push(mouse_delta_x);
+        mouse_buffer.push(mouse_delta_y);
 
-        if(mouse_buffer.length > 15)
-        {
-            var off = mouse_buffer.length % 3;
-            mouse_buffer = mouse_buffer.slice(0, off).concat(mouse_buffer.slice(off + 3));
-        }
-
-        //debugger;
         dbg_log("adding mouse packets:" + [info_byte, mouse_delta_x, mouse_delta_y], LOG_PS2);
 
         mouse_delta_x = 0;
@@ -222,7 +277,7 @@ function PS2(dev, keyboard, mouse)
 
         if(do_mouse_buffer)
         {
-            dbg_log("Port 60 read (mouse): " + h(mouse_buffer[0]), LOG_PS2);
+            dbg_log("Port 60 read (mouse): " + h(mouse_buffer.peek()), LOG_PS2);
 
             if(mouse_buffer.length > 1)
             {
@@ -233,7 +288,7 @@ function PS2(dev, keyboard, mouse)
         }
         else
         {
-            dbg_log("Port 60 read (kbd)  : " + h(kbd_buffer[0]), LOG_PS2);
+            dbg_log("Port 60 read (kbd)  : " + h(kbd_buffer.peek()), LOG_PS2);
 
             if(kbd_buffer.length > 1)
             {
@@ -275,13 +330,15 @@ function PS2(dev, keyboard, mouse)
         else if(read_output_register)
         {
             read_output_register = false;
-            mouse_buffer = [write_byte];
+            mouse_buffer.clear();
+            mouse_buffer.push(write_byte);
             mouse_irq();
         }
         else if(next_read_sample)
         {
             next_read_sample = false;
-            mouse_buffer = [0xFA];
+            mouse_buffer.clear();
+            mouse_buffer.push(0xFA);
 
             sample_rate = write_byte;
             dbg_log("mouse sample rate: " + h(write_byte), LOG_PS2);
@@ -290,7 +347,8 @@ function PS2(dev, keyboard, mouse)
         else if(next_read_resolution)
         {
             next_read_resolution = false;
-            mouse_buffer = [0xFA];
+            mouse_buffer.clear();
+            mouse_buffer.push(0xFA);
 
             if(write_byte > 3)
             {
@@ -318,12 +376,14 @@ function PS2(dev, keyboard, mouse)
             }
 
             // send ack
-            mouse_buffer = [0xFA];
+            mouse_buffer.clear();
+            mouse_buffer.push(0xFA);
 
             if(write_byte === 0xFF)
             {
                 // reset, send completion code
-                mouse_buffer = [0xFA, 0xAA, 0x00];
+                mouse_buffer.push(0xAA);
+                mouse_buffer.push(0);
 
                 enable_mouse = true;
                 mouse.enabled = true;
@@ -331,7 +391,8 @@ function PS2(dev, keyboard, mouse)
             else if(write_byte === 0xF2)
             {
                 //  MouseID Byte
-                mouse_buffer.push(0, 0);
+                mouse_buffer.push(0);
+                mouse_buffer.push(0);
             }
             else if(write_byte === 0xF3)
             {
@@ -387,7 +448,9 @@ function PS2(dev, keyboard, mouse)
             if(write_byte === 0xFF)
             {
                 //kbd_buffer.push(0xAA, 0x00);
-                kbd_buffer = [0xFA, 0xAA];
+                kbd_buffer.clear();
+                kbd_buffer.push(0xFA);
+                kbd_buffer.push(0xAA);
             }
             else if(write_byte === 0xF2)
             {
@@ -446,17 +509,20 @@ function PS2(dev, keyboard, mouse)
         else if(write_byte === 0xA9)
         {
             // test second ps/2 port
-            kbd_buffer = [0];
+            kbd_buffer.clear();
+            kbd_buffer.push(0);
             kbd_irq();
         }
         else if(write_byte === 0xAA)
         {
-            kbd_buffer = [0x55];
+            kbd_buffer.clear();
+            kbd_buffer.push(0x55);
             kbd_irq();
         }
         else if(write_byte === 0xAB)
         {
-            kbd_buffer = [0];
+            kbd_buffer.clear();
+            kbd_buffer.push(0);
             kbd_irq();
         }
         else if(write_byte === 0xAE)
