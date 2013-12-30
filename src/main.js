@@ -292,10 +292,9 @@ function SyncBuffer(buffer)
  * Simple circular queue for logs
  *
  * @param {number} size
- * @param {?=} Proto
  * @constructor
  */
-function CircularQueue(size, Proto)
+function CircularQueue(size)
 {
     var data,
         index;
@@ -314,14 +313,7 @@ function CircularQueue(size, Proto)
 
     this.clear = function()
     {
-        if(Proto)
-        {
-            data = new Proto(size);
-        }
-        else
-        {
-            data = [];
-        }
+        data = [];
 
         index = 0;
     };
