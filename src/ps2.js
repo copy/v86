@@ -41,7 +41,7 @@ function PS2(dev, keyboard, mouse)
         next_read_resolution = false,
 
         /** 
-         * @type {Array.<number>} 
+         * @type {Queue} 
          */
         kbd_buffer = new Queue(32),
 
@@ -55,7 +55,7 @@ function PS2(dev, keyboard, mouse)
         last_mouse_packet = -1,
 
         /** 
-         * @type {Array.<number>} 
+         * @type {Queue} 
          */
         mouse_buffer = new Queue(32);
 
@@ -75,6 +75,7 @@ function PS2(dev, keyboard, mouse)
         // http://www.computer-engineering.org/ps2mouse/
     }
 
+    /** @constructor */
     function Queue(size)
     {
         var data = new Uint8Array(size),
@@ -313,6 +314,12 @@ function PS2(dev, keyboard, mouse)
         {
             status_byte |= 0x20;
         }
+
+        if(next_read_led)
+        {
+            status_byte |= 1;
+        }
+
         dbg_log("port 64 read: " + h(status_byte), LOG_PS2);
 
         return status_byte;
@@ -320,10 +327,13 @@ function PS2(dev, keyboard, mouse)
 
     function port60_write(write_byte)
     {
+        dbg_log("port 60 write: " + h(write_byte), LOG_PS2);
+        
         if(read_command_register)
         {
             command_register = write_byte;
             read_command_register = false;
+            kbd_buffer.push(0xFA);
 
             dbg_log("Keyboard command register = " + h(command_register), LOG_PS2);
         }
@@ -365,6 +375,7 @@ function PS2(dev, keyboard, mouse)
         {
             // nope
             next_read_led = false;
+            kbd_buffer.push(0xFA);
         }
         else if(next_is_mouse_command)
         {
@@ -455,7 +466,8 @@ function PS2(dev, keyboard, mouse)
             else if(write_byte === 0xF2)
             {
                 // identify
-                kbd_buffer.push(0xAB, 83);
+                kbd_buffer.push(0xAB);
+                kbd_buffer.push(83);
             }
             else if(write_byte === 0xF4)
             {
