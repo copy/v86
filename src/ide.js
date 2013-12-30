@@ -114,7 +114,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
     var device_control = 2,
         last_drive = 0xFF,
         data_pointer = 0,
-        pio_data = [],
+        pio_data = new Uint8Array(0),
         is_lba = 0,
         slave = 0,
         bytecount = 0,
@@ -487,7 +487,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
                                 " cnt=" + h(pio_data.length), LOG_DISK);
                 }
 
-                return pio_data[data_pointer++] & 0xFF;
+                return pio_data[data_pointer++];
             }
             else
             {
@@ -618,7 +618,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
         {
             dbg_log("ATA device reset", LOG_DISK);
             data_pointer = 0;
-            pio_data = [];
+            pio_data = new Uint8Array(0);
             status = 0x50;
 
             push_irq();
@@ -940,7 +940,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
             // https://en.wikipedia.org/wiki/Host_protected_area
             dbg_log("ATA cmd 27", LOG_DISK);
             push_irq();
-            pio_data = [
+            pio_data = new Uint8Array([
                 0, 0, // error
                 0, 0, // count
 
@@ -952,7 +952,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
                 0, 0,
 
                 0, 0, //
-            ];
+            ]);
             status = 0x58;
         }
         else if(cmd === 0xA0)
