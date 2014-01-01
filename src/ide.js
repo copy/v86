@@ -190,7 +190,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
                 break;
             case 0x43:
                 // read header
-                pio_data = new Uint8Array(2048);
+                pio_data = new Uint8Array(12);
                 pio_data[0] = 0;
                 pio_data[1] = 10;
                 pio_data[2] = 1;
