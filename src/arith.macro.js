@@ -316,23 +316,8 @@ function dec32(dest_operand)
 
 
 /*
- * neg and not
+ * neg
  */
-
-function not8(dest_operand)
-{
-    return ~dest_operand;
-}
-
-function not16(dest_operand)
-{
-    return ~dest_operand;
-}
-
-function not32(dest_operand)
-{
-    return ~dest_operand;
-}
 
 function neg8(dest_operand)
 {
