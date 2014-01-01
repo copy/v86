@@ -92,8 +92,10 @@ function PS2(dev, keyboard, mouse)
             {
                 dbg_log("Queue full", LOG_PS2);
             }
-
-            this.length++;
+            else
+            {
+                this.length++;
+            }
 
             data[end] = item;
             end = end + 1 & size - 1;
@@ -315,11 +317,6 @@ function PS2(dev, keyboard, mouse)
             status_byte |= 0x20;
         }
 
-        if(next_read_led)
-        {
-            status_byte |= 1;
-        }
-
         dbg_log("port 64 read: " + h(status_byte), LOG_PS2);
 
         return status_byte;
@@ -336,10 +333,12 @@ function PS2(dev, keyboard, mouse)
             kbd_buffer.push(0xFA);
 
             dbg_log("Keyboard command register = " + h(command_register), LOG_PS2);
+            kbd_irq();
         }
         else if(read_output_register)
         {
             read_output_register = false;
+
             mouse_buffer.clear();
             mouse_buffer.push(write_byte);
             mouse_irq();
@@ -376,6 +375,7 @@ function PS2(dev, keyboard, mouse)
             // nope
             next_read_led = false;
             kbd_buffer.push(0xFA);
+            kbd_irq();
         }
         else if(next_is_mouse_command)
         {
@@ -504,7 +504,6 @@ function PS2(dev, keyboard, mouse)
         else if(write_byte === 0x20)
         {
             kbd_buffer.push(command_register);
-            kbd_irq();
         }
         else if(write_byte === 0x60)
         {
@@ -523,23 +522,27 @@ function PS2(dev, keyboard, mouse)
             // test second ps/2 port
             kbd_buffer.clear();
             kbd_buffer.push(0);
-            kbd_irq();
         }
         else if(write_byte === 0xAA)
         {
             kbd_buffer.clear();
             kbd_buffer.push(0x55);
-            kbd_irq();
         }
         else if(write_byte === 0xAB)
         {
+            // Test first PS/2 port 
             kbd_buffer.clear();
             kbd_buffer.push(0);
-            kbd_irq();
         }
         else if(write_byte === 0xAE)
         {
             // Enable Keyboard
+            dbg_log("Enable Keyboard", LOG_PS2);
+        }
+        else if(write_byte === 0xA7)
+        {
+            // Disable second port
+            dbg_log("Disable second port", LOG_PS2);
         }
         else
         {
