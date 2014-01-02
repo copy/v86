@@ -3,7 +3,7 @@
 start:
 mov ebx, 100000h
 
-%if 0
+%if 1
 
 add al, [4*ebx+100h]
 add eax, ecx
@@ -138,6 +138,8 @@ rcl dh, 0
 
 %endif
 
+%if 0
+
 mov eax, -1
 mov ax, -1
 mov al, -1
@@ -194,6 +196,8 @@ pushf
 popf
 pushfd
 popfd
+
+%endif
 
 
 jmp start
