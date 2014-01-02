@@ -30,7 +30,6 @@ function IDEDevice(dev, buffer, is_cd, nr)
     // alternate status, starting at 3f4/374
     this.ata_port_high = this.ata_port | 0x204;
     
-
     this.master_port = 0xC000;
 
     this.io = dev.io;
@@ -138,34 +137,42 @@ function IDEDevice(dev, buffer, is_cd, nr)
     function atapi_handle()
     {
         dbg_log("ATAPI Command: " + h(data_port_buffer[0]), LOG_DISK);
-        //dbg_log(data_port_buffer.join(","), LOG_DISK);
 
         bytecount = 2;
         
         switch(data_port_buffer[0])
         {
-            case 0:
+            case 0x00:
                 status = 0x50;
                 //pio_data = new Uint8Array(512);
                 //data_pointer = 0;
                 push_irq();
                 break;
-            case 0x28:
-                // read
-                if(lba_count & 1)
-                {
-                    atapi_read_dma(data_port_buffer);
-                }
-                else
-                {
-                    atapi_read(data_port_buffer);
-                }
-                break;
-            case 0x5A:
-                // mode sense
+
+            case 0x12:
+                // inquiry
+                pio_data = new Uint8Array(Math.min(data_port_buffer[4], 35));
+                status = 0x58;
+
+                pio_data[0] = 5;
+                pio_data[1] = 0x80;
+                pio_data[3] = 1;
+                pio_data[4] = 0x31;
+
+                data_pointer = 0;
+                bytecount = 2;
                 push_irq();
-                status = 0x50;
                 break;
+
+            case 0x1E:
+                // prevent/allow medium removal
+                pio_data = new Uint8Array(0);
+                status = 0x50;
+                data_pointer = 0;
+                bytecount = 2;
+                push_irq();
+                break;
+
             case 0x25:
                 // read capacity
                 pio_data = new Uint8Array([
@@ -188,9 +195,22 @@ function IDEDevice(dev, buffer, is_cd, nr)
 
                 push_irq();
                 break;
+
+            case 0x28:
+                // read
+                if(lba_count & 1)
+                {
+                    atapi_read_dma(data_port_buffer);
+                }
+                else
+                {
+                    atapi_read(data_port_buffer);
+                }
+                break;
+
             case 0x43:
                 // read header
-                pio_data = new Uint8Array(12);
+                pio_data = new Uint8Array(2048);
                 pio_data[0] = 0;
                 pio_data[1] = 10;
                 pio_data[2] = 1;
@@ -202,6 +222,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
                 cylinder_low = 0;
                 push_irq();
                 break;
+
             case 0x46:
                 // get configuration
                 pio_data = new Uint8Array(data_port_buffer[8] | data_port_buffer[7] << 8);
@@ -210,14 +231,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
                 bytecount = 2;
                 push_irq();
                 break;
-            case 0x46:
-                // prevent/allow medium removal
-                pio_data = [];
-                status = 0x50;
-                data_pointer = 0;
-                bytecount = 2;
-                push_irq();
-                break;
+
             case 0x51:
                 // read disk information
                 pio_data = new Uint8Array(0);
@@ -226,20 +240,13 @@ function IDEDevice(dev, buffer, is_cd, nr)
                 bytecount = 2;
                 push_irq();
                 break;
-            case 0x12:
-                // inquiry
-                pio_data = new Uint8Array(Math.min(data_port_buffer[4], 35));
-                status = 0x58;
 
-                pio_data[0] = 5;
-                pio_data[1] = 0x80;
-                pio_data[3] = 1;
-                pio_data[4] = 0x31;
-
-                data_pointer = 0;
-                bytecount = 2;
+            case 0x5A:
+                // mode sense
                 push_irq();
+                status = 0x50;
                 break;
+
             default:
                 status = 0x50;
                 dbg_log("Unimplemented ATAPI command: " + h(data_port_buffer[0]), LOG_DISK);
@@ -338,15 +345,10 @@ function IDEDevice(dev, buffer, is_cd, nr)
         cylinder_low = transfered_ata_blocks & 0xFF;
         cylinder_high = transfered_ata_blocks >> 8 & 0xFF;
 
-        if(!cylinder_high)
-        {
-            //cylinder_high = 0xFF;
-            //cylinder_low = 0xFF;
-        }
-
         if(start >= buffer.byteLength)
         {
-            dbg_log("CD read: Outside of disk  end=" + h(start + byte_count) + " size=" + h(buffer.byteLength), LOG_DISK);
+            dbg_log("CD read: Outside of disk  end=" + h(start + byte_count) + 
+                    " size=" + h(buffer.byteLength), LOG_DISK);
 
             status = 0xFF;
             push_irq();
@@ -387,7 +389,8 @@ function IDEDevice(dev, buffer, is_cd, nr)
 
         if(start >= buffer.byteLength)
         {
-            dbg_log("CD read: Outside of disk  end=" + h(start + byte_count) + " size=" + h(buffer.byteLength), LOG_DISK);
+            dbg_log("CD read: Outside of disk  end=" + h(start + byte_count) + 
+                    " size=" + h(buffer.byteLength), LOG_DISK);
 
             status = 0xFF;
             push_irq();
@@ -434,70 +437,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
     {
         if(port_addr === me.ata_port)
         {
-            if(data_pointer < pio_data.length)
-            {
-                if((data_pointer + 1)  % (sectors_per_drq * 512) === 0 || 
-                    data_pointer + 1 === pio_data.length)
-                {
-                    dbg_log("ATA IRQ", LOG_DISK);
-                    push_irq();
-                }
-
-                if(cylinder_low)
-                {
-                    cylinder_low--;
-                }
-                else
-                {
-                    if(cylinder_high)
-                    {
-                        cylinder_high--;
-                        cylinder_low = 0xFF;
-                    }
-                }
-
-                if(!cylinder_low && !cylinder_high)
-                {
-                    var remaining = pio_data.length - data_pointer - 1;
-                    dbg_log("reset to " + h(remaining), LOG_CD);
-
-                    if(remaining >= 0x10000)
-                    {
-                        cylinder_high = 0xF0;
-                        cylinder_low = 0;
-                    }
-                    else
-                    {
-                        cylinder_high = remaining >> 8;
-                        cylinder_low = remaining;
-                    }
-
-                }
-
-                if(data_pointer + 1 >= pio_data.length)
-                {
-                    status = 0x50;
-                    //bytecount = 3;
-                }
-
-                if((data_pointer + 1 & 255) === 0)
-                {
-                    dbg_log("Read 1F0: " + h(pio_data[data_pointer], 2) + 
-                                " cur=" + h(data_pointer) +
-                                " cnt=" + h(pio_data.length), LOG_DISK);
-                }
-
-                return pio_data[data_pointer++];
-            }
-            else
-            {
-                //if((data_pointer + 1 & 255) === 0)
-                {
-                    dbg_log("Read 1F0: empty", LOG_DISK);
-                }
-                data_pointer++;
-                return 0;
-            }
+            return read_data();
         }
         else if(port_addr === (me.ata_port | 1))
         {
@@ -515,6 +455,73 @@ function IDEDevice(dev, buffer, is_cd, nr)
             return sector & 0xFF;
         }
     }
+
+    function read_data()
+    {
+        if(data_pointer < pio_data.length)
+        {
+            if((data_pointer + 1)  % (sectors_per_drq * 512) === 0 || 
+                data_pointer + 1 === pio_data.length)
+            {
+                dbg_log("ATA IRQ", LOG_DISK);
+                push_irq();
+            }
+
+            if(cylinder_low)
+            {
+                cylinder_low--;
+            }
+            else
+            {
+                if(cylinder_high)
+                {
+                    cylinder_high--;
+                    cylinder_low = 0xFF;
+                }
+            }
+
+            if(!cylinder_low && !cylinder_high)
+            {
+                var remaining = pio_data.length - data_pointer - 1;
+                dbg_log("reset to " + h(remaining), LOG_DISK);
+
+                if(remaining >= 0x10000)
+                {
+                    cylinder_high = 0xF0;
+                    cylinder_low = 0;
+                }
+                else
+                {
+                    cylinder_high = remaining >> 8;
+                    cylinder_low = remaining;
+                }
+
+            }
+
+            if(data_pointer + 1 >= pio_data.length)
+            {
+                status = 0x50;
+                //bytecount = 3;
+            }
+
+            if((data_pointer + 1 & 255) === 0)
+            {
+                dbg_log("Read 1F0: " + h(pio_data[data_pointer], 2) + 
+                            " cur=" + h(data_pointer) +
+                            " cnt=" + h(pio_data.length), LOG_DISK);
+            }
+
+            return pio_data[data_pointer++];
+        }
+        else
+        {
+            dbg_log("Read 1F0: empty", LOG_DISK);
+
+            data_pointer++;
+            return 0;
+        }
+    }
+
     this.io.register_read(me.ata_port | 0, read_data_port);
     this.io.register_read(me.ata_port | 1, read_data_port);
     this.io.register_read(me.ata_port | 2, read_data_port);
@@ -614,276 +621,359 @@ function IDEDevice(dev, buffer, is_cd, nr)
     {
         dbg_log("ATA Command: " + h(cmd), LOG_DISK);
 
-        if(cmd === 0x08)
+        switch(cmd)
         {
-            dbg_log("ATA device reset", LOG_DISK);
-            data_pointer = 0;
-            pio_data = new Uint8Array(0);
-            status = 0x50;
+            case 0x08:
+                dbg_log("ATA device reset", LOG_DISK);
+                data_pointer = 0;
+                pio_data = new Uint8Array(0);
+                status = 0x50;
 
-            push_irq();
-        }
-        else if(cmd === 0xE1)
-        {
-            dbg_log("ATA idle immediate", LOG_DISK);
-            push_irq();
-        }
-        else if(cmd === 0xA1)
-        {
-            dbg_log("ATA identify packet device", LOG_DISK);
+                push_irq();
+                break;
 
-            if(me.is_atapi)
-            {
+            case 0x10:
+                // obsolete
+                dbg_log("ATA cmd 10", LOG_DISK);
+                push_irq();
+                break;
+
+            case 0x27:
+                // READ NATIVE MAX ADDRESS EXT - read the actual size of the HD
+                // https://en.wikipedia.org/wiki/Host_protected_area
+                dbg_log("ATA cmd 27", LOG_DISK);
+                push_irq();
+                pio_data = new Uint8Array([
+                    0, 0, // error
+                    0, 0, // count
+
+                    // result
+                    me.buffer.byteLength & 0xff,
+                    me.buffer.byteLength >> 8 & 0xff,
+                    me.buffer.byteLength >> 16 & 0xff,
+                    me.buffer.byteLength >> 24 & 0xff,
+                    0, 0,
+
+                    0, 0, 
+                ]);
+                status = 0x58;
+                break;
+
+            case 0x20:
+            case 0x29:
+            case 0x24:
+                // 0x20 read sectors
+                // 0x24 read sectors ext
+                // 0x29 read multiple ext
+                ata_read_sectors(cmd);
+                break;
+
+            case 0x30:
+                // 0x30 write sectors
+                ata_write(cmd);
+                break;
+
+            case 0x91:
+                // INITIALIZE DEVICE PARAMETERS
+                dbg_log("ATA cmd 91", LOG_DISK);
+                push_irq();
+                break;
+
+            case 0xA0:
+                if(me.is_atapi)
+                {
+                    // ATA_CMD_PACKET
+                    status = 0x58;
+                    allocate_in_buffer(12);
+                    data_port_callback = atapi_handle;
+
+                    bytecount = 1;
+                    push_irq();
+                }
+                break;
+
+            case 0xA1:
+                dbg_log("ATA identify packet device", LOG_DISK);
+
+                if(me.is_atapi)
+                {
+                    create_identify_packet();
+                    
+                    status = 0x58;
+
+                    push_irq();
+                }
+                else
+                {
+                    status = 0x50;
+                    push_irq();
+                }
+                break;
+
+            case 0xC6:
+                // SET MULTIPLE MODE
+                dbg_log("ATA cmd C6", LOG_DISK);
+
+                // Logical sectors per DRQ Block in word 1
+                dbg_log("Logical sectors per DRQ Block: " + h(bytecount), LOG_DISK);
+                sectors_per_drq = bytecount;
+
+                push_irq();
+                break;
+
+            case 0xC8:
+                // 0xC8 read dma
+                ata_read_sectors_dma(cmd);
+                break;
+
+            case 0xCA:
+                // write dma
+                ata_write_dma(cmd);
+                break;
+
+            case 0xE1:
+                dbg_log("ATA idle immediate", LOG_DISK);
+                push_irq();
+                break;
+
+            case 0xEC:
+                dbg_log("ATA identify device", LOG_DISK);
+                // identify device
+
+                if(me.is_atapi)
+                {
+                    return;
+                }
+
                 create_identify_packet();
-                
+
                 status = 0x58;
 
                 push_irq();
-            }
-            else
-            {
-                status = 0x50;
+                break;
+
+            case 0xEA:
+                //  FLUSH CACHE EXT
+                dbg_log("ATA cmd EA", LOG_DISK);
                 push_irq();
-            }
+                break;
+
+            case 0xEF:
+                // SET FEATURES
+                dbg_log("ATA cmd EF", LOG_DISK);
+
+                push_irq();
+                break;
+
+            default:
+                dbg_log("New ATA cmd on 1F7: " + h(cmd), LOG_DISK);
+
+                // abort bit set
+                lba_count = 4;
         }
-        else if(cmd === 0xEC)
+    });
+
+
+    function ata_read_sectors(cmd)
+    {
+        if(cmd === 0x20)
         {
-            dbg_log("ATA identify device", LOG_DISK);
-            // identify device
+            var count = bytecount & 0xff,
+                lba = get_lba28();
+        }
+        else
+        {
+            var count = bytecount,
+                lba = (cylinder_high << 16 | cylinder_low) >>> 0;
+        }
 
-            if(me.is_atapi)
-            {
-                return;
-            }
+        var
+            byte_count = count * me.sector_size,
+            start = lba * me.sector_size;
 
-            create_identify_packet();
 
-            status = 0x58;
+        dbg_log("ATA read lba=" + h(lba) + 
+                " lbacount=" + h(count) +
+                " bytecount=" + h(byte_count), LOG_DISK);
 
+        cylinder_low += count;
+
+        if(start + byte_count > buffer.byteLength)
+        {
+            dbg_log("ATA read: Outside of disk", LOG_DISK);
+
+            status = 0xFF;
             push_irq();
         }
-        else if(cmd === 0x20 || cmd === 0x29 || cmd === 0x24)
+        else
         {
-            // 0x20 read sectors
-            // 0x24 read sectors ext
-            // 0x29 read multiple ext
+            //status = 0xFF & ~8;
+            status = 0x80;
 
-            if(cmd === 0x20)
+            me.buffer.get(start, byte_count, function(data)
             {
-                var count = bytecount & 0xff,
-                    lba = get_lba28();
-            }
-            else
-            {
-                var count = bytecount,
-                    lba = (cylinder_high << 16 | cylinder_low) >>> 0;
-            }
+                pio_data = data;
+                status = 0x58;
+                data_pointer = 0;
 
-            var
-                byte_count = count * me.sector_size,
-                start = lba * me.sector_size;
-
-
-            dbg_log("ATA read lba=" + h(lba) + 
-                    " lbacount=" + h(count) +
-                    " bytecount=" + h(byte_count), LOG_DISK);
-
-            cylinder_low += count;
-
-            if(start + byte_count > buffer.byteLength)
-            {
-                dbg_log("ATA read: Outside of disk", LOG_DISK);
-
-                status = 0xFF;
                 push_irq();
-            }
-            else
-            {
-                //status = 0xFF & ~8;
-                status = 0x80;
+            });
+        }
+    }
 
-                me.buffer.get(start, byte_count, function(data)
+    function ata_read_sectors_dma(cmd)
+    {
+        var count = bytecount & 0xff,
+            lba = get_lba28();
+
+        var byte_count = count * me.sector_size,
+            start = lba * me.sector_size;
+
+        dbg_log("ATA DMA read lba=" + h(lba) + 
+                " lbacount=" + h(count) +
+                " bytecount=" + h(byte_count), LOG_DISK);
+
+        cylinder_low += count;
+
+        if(start + byte_count > buffer.byteLength)
+        {
+            dbg_log("ATA read: Outside of disk", LOG_DISK);
+
+            status = 0xFF;
+            push_irq();
+            return;
+        }
+
+        //status = 0xFF & ~8;
+        status = 0x80;
+        dma_status |= 1;
+
+        me.buffer.get(start, byte_count, function(data)
+        {
+            var prdt_start = prdt_addr,
+                offset = 0;
+
+            do {
+                var addr = memory.read32s(prdt_start),
+                    count = memory.read16(prdt_start + 4),
+                    end = memory.read8(prdt_start + 7) & 0x80;
+
+                if(!count)
                 {
-                    pio_data = data;
-                    status = 0x58;
-                    data_pointer = 0;
-
-                    push_irq();
-                });
-            }
-        }
-        else if(cmd === 0xC8)
-        {
-            // 0xC8 read dma
-
-            var count = bytecount & 0xff,
-                lba = get_lba28();
-
-            var byte_count = count * me.sector_size,
-                start = lba * me.sector_size;
-
-            dbg_log("ATA DMA read lba=" + h(lba) + 
-                    " lbacount=" + h(count) +
-                    " bytecount=" + h(byte_count), LOG_DISK);
-
-            cylinder_low += count;
-
-            if(start + byte_count > buffer.byteLength)
-            {
-                dbg_log("ATA read: Outside of disk", LOG_DISK);
-
-                status = 0xFF;
-                push_irq();
-            }
-            else
-            {
-                //status = 0xFF & ~8;
-                status = 0x80;
-                dma_status |= 1;
-
-                me.buffer.get(start, byte_count, function(data)
-                {
-                    var prdt_start = prdt_addr,
-                        offset = 0;
-
-                    do {
-                        var addr = memory.read32s(prdt_start),
-                            count = memory.read16(prdt_start + 4),
-                            end = memory.read8(prdt_start + 7) & 0x80;
-
-                        if(!count)
-                        {
-                            count = 0x10000;
-                        }
-
-                        dbg_log("dma read dest=" + h(addr) + " count=" + h(count), LOG_DISK);
-
-                        memory.mem8.set(data.subarray(offset, offset + count), addr);
-
-                        offset += count;
-                        prdt_start += 8;
-                    }
-                    while(!end);
-
-                    status = 0x50;
-                    dma_status &= ~2 & ~1;
-                    dma_status |= 4;
-
-                    push_irq();
-                });
-            }
-        }
-        else if(cmd === 0x30)
-        {
-            // 0x30 write sectors
-
-            if(cmd === 0x30)
-            {
-                var count = bytecount & 0xff,
-                    lba = get_lba28();
-            }
-            else
-            {
-                // TODO: write multiple, etc 
-            }
-
-            var byte_count = count * me.sector_size,
-                start = lba * me.sector_size;
-
-
-            dbg_log("ATA write lba=" + h(lba) + 
-                    " lbacount=" + h(count) +
-                    " bytecount=" + h(byte_count), LOG_DISK);
-
-            cylinder_low += count;
-
-            if(start + byte_count > buffer.byteLength)
-            {
-                dbg_log("ATA write: Outside of disk", LOG_DISK);
-
-                status = 0xFF;
-                push_irq();
-            }
-            else
-            {
-                status = 0x50;
-                next_status = 0x58;
-
-                allocate_in_buffer(byte_count);
-
-                write_dest = start;
-                data_port_callback = do_write;
-
-                //bytecount = 1;
-                push_irq();
-            }
-        }
-        else if(cmd === 0xCA)
-        {
-            // write dma
-            var count = bytecount & 0xff,
-                lba = get_lba28();
-
-            var byte_count = count * me.sector_size,
-                start = lba * me.sector_size;
-
-            dbg_log("ATA DMA write lba=" + h(lba) + 
-                    " lbacount=" + h(count) +
-                    " bytecount=" + h(byte_count), LOG_DISK);
-
-            cylinder_low += count;
-
-            if(start + byte_count > buffer.byteLength)
-            {
-                dbg_log("ATA DMA write: Outside of disk", LOG_DISK);
-
-                status = 0xFF;
-                push_irq();
-            }
-            else
-            {
-                //status = 0xFF & ~8;
-                status = 0x80;
-                dma_status |= 1;
-
-                var prdt_start = prdt_addr,
-                    prdt_count = 0,
-                    prdt_write_count = 0,
-                    offset = 0;
-
-
-                do {
-                    var prd_addr = memory.read32s(prdt_start),
-                        prd_count = memory.read16(prdt_start + 4),
-                        end = memory.read8(prdt_start + 7) & 0x80;
-
-                    if(!prd_count)
-                    {
-                        prd_count = 0x10000;
-                    }
-
-                    dbg_log("dma write dest=" + h(prd_addr) + " prd_count=" + h(prd_count), LOG_DISK);
-
-                    me.buffer.set(start + offset, memory.mem8.subarray(prd_addr, prd_addr + prd_count), function()
-                    {
-                        prdt_write_count++;
-
-                        if(prdt_write_count === prdt_count)
-                        {
-                            dbg_log("dma write completed", LOG_DISK);
-                            status = 0x50;
-                            push_irq();
-                            dma_status &= ~2 & ~1;
-                            dma_status |= 4;
-                        }
-                    });
-
-                    offset += prd_count;
-                    prdt_start += 8;
-                    prdt_count++;
+                    count = 0x10000;
                 }
-                while(!end);
 
+                dbg_log("dma read dest=" + h(addr) + " count=" + h(count), LOG_DISK);
+
+                memory.mem8.set(data.subarray(offset, offset + count), addr);
+
+                offset += count;
+                prdt_start += 8;
+            }
+            while(!end);
+
+            status = 0x50;
+            dma_status &= ~2 & ~1;
+            dma_status |= 4;
+
+            push_irq();
+        });
+    }
+
+    function ata_write(cmd)
+    {
+        if(cmd === 0x30)
+        {
+            var count = bytecount & 0xff,
+                lba = get_lba28();
+        }
+        else
+        {
+            // TODO: write multiple, etc 
+        }
+
+        var byte_count = count * me.sector_size,
+            start = lba * me.sector_size;
+
+
+        dbg_log("ATA write lba=" + h(lba) + 
+                " lbacount=" + h(count) +
+                " bytecount=" + h(byte_count), LOG_DISK);
+
+        cylinder_low += count;
+
+        if(start + byte_count > buffer.byteLength)
+        {
+            dbg_log("ATA write: Outside of disk", LOG_DISK);
+
+            status = 0xFF;
+            push_irq();
+        }
+        else
+        {
+            status = 0x50;
+            next_status = 0x58;
+
+            allocate_in_buffer(byte_count);
+
+            write_dest = start;
+            data_port_callback = do_write;
+
+            //bytecount = 1;
+            push_irq();
+        }
+    }
+
+    function ata_write_dma(cmd)
+    {
+        var count = bytecount & 0xff,
+            lba = get_lba28();
+
+        var byte_count = count * me.sector_size,
+            start = lba * me.sector_size;
+
+        dbg_log("ATA DMA write lba=" + h(lba) + 
+                " lbacount=" + h(count) +
+                " bytecount=" + h(byte_count), LOG_DISK);
+
+        cylinder_low += count;
+
+        if(start + byte_count > buffer.byteLength)
+        {
+            dbg_log("ATA DMA write: Outside of disk", LOG_DISK);
+
+            status = 0xFF;
+            push_irq();
+            return;
+        }
+
+        //status = 0xFF & ~8;
+        status = 0x80;
+        dma_status |= 1;
+
+        var prdt_start = prdt_addr,
+            prdt_count = 0,
+            prdt_write_count = 0,
+            offset = 0;
+
+
+        do {
+            var prd_addr = memory.read32s(prdt_start),
+                prd_count = memory.read16(prdt_start + 4),
+                end = memory.read8(prdt_start + 7) & 0x80;
+
+            if(!prd_count)
+            {
+                prd_count = 0x10000;
+            }
+
+            dbg_log("dma write dest=" + h(prd_addr) + " prd_count=" + h(prd_count), LOG_DISK);
+
+            var slice = memory.mem8.subarray(prd_addr, prd_addr + prd_count);
+
+            me.buffer.set(start + offset, slice, function()
+            {
+                prdt_write_count++;
 
                 if(prdt_write_count === prdt_count)
                 {
@@ -893,89 +983,24 @@ function IDEDevice(dev, buffer, is_cd, nr)
                     dma_status &= ~2 & ~1;
                     dma_status |= 4;
                 }
-            }
-        }
-        else if(cmd === 0xEA)
-        {
-            //  FLUSH CACHE EXT
-            dbg_log("ATA cmd EA", LOG_DISK);
+            });
 
+            offset += prd_count;
+            prdt_start += 8;
+            prdt_count++;
+        }
+        while(!end);
+
+
+        if(prdt_write_count === prdt_count)
+        {
+            dbg_log("dma write completed", LOG_DISK);
+            status = 0x50;
             push_irq();
+            dma_status &= ~2 & ~1;
+            dma_status |= 4;
         }
-        else if(cmd === 0x91)
-        {
-            // INITIALIZE DEVICE PARAMETERS
-            dbg_log("ATA cmd 91", LOG_DISK);
-
-            push_irq();
-        }
-        else if(cmd === 0x10)
-        {
-            // obsolete
-            dbg_log("ATA cmd 10", LOG_DISK);
-
-            push_irq();
-        }
-        else if(cmd === 0xC6)
-        {
-            // SET MULTIPLE MODE
-            dbg_log("ATA cmd C6", LOG_DISK);
-
-            // Logical sectors per DRQ Block in word 1
-            dbg_log("Logical sectors per DRQ Block: " + h(bytecount), LOG_DISK);
-            sectors_per_drq = bytecount;
-
-            push_irq();
-        }
-        else if(cmd === 0xEF)
-        {
-            // SET FEATURES
-            dbg_log("ATA cmd EF", LOG_DISK);
-
-            push_irq();
-        }
-        else if(cmd === 0x27)
-        {
-            // READ NATIVE MAX ADDRESS EXT - read the actual size of the HD
-            // https://en.wikipedia.org/wiki/Host_protected_area
-            dbg_log("ATA cmd 27", LOG_DISK);
-            push_irq();
-            pio_data = new Uint8Array([
-                0, 0, // error
-                0, 0, // count
-
-                // result
-                me.buffer.byteLength & 0xff,
-                me.buffer.byteLength >> 8 & 0xff,
-                me.buffer.byteLength >> 16 & 0xff,
-                me.buffer.byteLength >> 24 & 0xff,
-                0, 0,
-
-                0, 0, //
-            ]);
-            status = 0x58;
-        }
-        else if(cmd === 0xA0)
-        {
-            if(me.is_atapi)
-            {
-                // ATA_CMD_PACKET
-                status = 0x58;
-                allocate_in_buffer(12);
-                data_port_callback = atapi_handle;
-
-                bytecount = 1;
-                push_irq();
-            }
-        }
-        else
-        {
-            dbg_log("New ATA cmd on 1F7: " + h(cmd), LOG_DISK);
-
-            // abort bit set
-            lba_count = 4;
-        }
-    });
+    }
 
     function get_lba28()
     {
@@ -1122,7 +1147,6 @@ function IDEDevice(dev, buffer, is_cd, nr)
     {
         prdt_addr = prdt_addr & 0xFFFFFF | data << 24;
         dbg_log("Set PRDT addr: " + h(prdt_addr), LOG_DISK);
-        //memory.dump(prdt_addr);
     }
 
     this.io.register_read(this.master_port | 2, dma_read_status);
