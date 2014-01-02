@@ -149,6 +149,9 @@ function IO(memory)
         write_callbacks[port_addr] = callback;
     };
 
+    // remember registrations in the RAM area, used by in_mmap_range
+    var low_memory_registered = new Uint8Array(memory_size >> MMAP_BLOCK_BITS);
+
     /**
      * @param addr {number}
      * @param size {number}
@@ -170,6 +173,11 @@ function IO(memory)
 
             memory.memory_map_read[aligned_addr] = do_read;
             memory.memory_map_write[aligned_addr] = do_write;
+
+            if((aligned_addr << MMAP_BLOCK_BITS) < memory_size)
+            {
+                low_memory_registered[aligned_addr] = fn_size;
+            }
 
             size -= MMAP_BLOCK_SIZE;
         }
@@ -204,6 +212,30 @@ function IO(memory)
             dbg_log("Write to unmapped memory space, addr=" + h(addr >>> 0, 8) + " value=" + h(value, 2), LOG_IO);
         });
 
+    
+    this.in_mmap_range = function(start, count)
+    {
+        var end = start + count;
+
+        if(end >= memory_size)
+        {
+            return true;
+        }
+
+        start &= ~(MMAP_BLOCK_SIZE - 1);
+
+        while(start < end)
+        {
+            if(low_memory_registered[start >> MMAP_BLOCK_BITS])
+            {
+                return true;
+            }
+
+            start += MMAP_BLOCK_SIZE;
+        }
+
+        return false;
+    };
 
     // any two consecutive 8-bit ports can be treated as a 16-bit port;
     // and four consecutive 8-bit ports can be treated as a 32-bit port

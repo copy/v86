@@ -130,8 +130,14 @@ function movsd()
             return;
         }
 
-        if(paging ? !(dest & 0xFFF) && !(src & 0xFFF)
-                : !(dest & 3) && !(src & 3))
+        // must be page-aligned if paging is enabled
+        // and dword-aligned in general
+        var align_mask = paging ? 0xFFF : 3;
+
+        if(!(dest & align_mask) && 
+            !(src & align_mask)  && 
+            !io.in_mmap_range(src, count) && 
+            !io.in_mmap_range(dest, count))
         {
             var cont = false;
 
