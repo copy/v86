@@ -154,7 +154,7 @@ function PCI(dev)
             }
             else
             {
-                pci_response32[0] = 0;
+                pci_response32[0] = -1;
             }
 
             dbg_log(dbg_line + " " + h(pci_addr32[0] >>> 0, 8) + "  " + h(pci_response32[0] >>> 0, 8), LOG_PCI);
