@@ -145,18 +145,22 @@ function PS2(dev, keyboard, mouse)
 
     function mouse_irq()
     {
-        pic.push_irq(12);
+        if(command_register & 2)
+        {
+            pic.push_irq(12);
+        }
     }
 
     function kbd_irq()
     {
-        pic.push_irq(1);
+        if(command_register & 1)
+        {
+            pic.push_irq(1);
+        }
     }
-
 
     function kbd_send_code(code)
     {
-        //console.log(h(code));
         kbd_buffer.push(code);
         kbd_irq();
     }
@@ -239,7 +243,7 @@ function PS2(dev, keyboard, mouse)
     };
         
 
-    var command_register = 0,
+    var command_register = 1 | 4,
         read_output_register = false,
         read_command_register = false;
 
