@@ -1,5 +1,6 @@
 "use strict";
 
+
 #define vm86_mode (!!(flags & flag_vm))
 
 #define read_imm16s() (read_imm16() << 16 >> 16)
@@ -562,11 +563,12 @@ function cpu_init(settings)
         io.mmap_register(0xFFF00000, 0x100000, 1,
             function(addr)
             {
-                return memory.mem8[addr];
+                return data[start + addr];
             },
             function(addr, value)
             {
-                memory.mem8[addr] = value;
+                data[start + addr] = value;
+                //memory.mem8[addr] = value;
             });
 
 
@@ -750,6 +752,18 @@ function cpu_init(settings)
                 dbg_log("b005 read");
                 return 0;
             });
+
+
+            io.mmap_register(0xFEE00000, 0x100000, 1,
+                function(addr)
+                {
+                    dbg_log("APIC read " + h(addr), LOG_CPU);
+                    return 0;
+                },
+                function(addr, value)
+                {
+                    dbg_log("APIC write " + h(addr), LOG_CPU);
+                });
         }
     }
 
@@ -1140,6 +1154,7 @@ function virt_boundary_write32(low, high, value)
 
 function do_safe_read8(addr)
 {
+    dbg_assert(addr < 0x80000000);
     return memory.read8(translate_address_read(addr));
 }
 
@@ -1169,6 +1184,7 @@ function do_safe_read32s(addr)
 
 function safe_write8(addr, value)
 {
+    dbg_assert(addr < 0x80000000);
     memory.write8(translate_address_write(addr), value);
 }
 
@@ -1205,11 +1221,11 @@ function read_moffs()
 {
     if(address_size_32)
     {
-        return get_seg_prefix(reg_ds) + read_imm32s();
+        return get_seg_prefix(reg_ds) + read_imm32s() | 0;
     }
     else
     {
-        return get_seg_prefix(reg_ds) + read_imm16();
+        return get_seg_prefix(reg_ds) + read_imm16() | 0;
     }
 }
 
@@ -1288,6 +1304,16 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
     //    dump_regs_short();
     //}
 
+    //if(interrupt_nr === 6)
+    //{
+    //    instruction_pointer += 2;
+    //    dbg_log("BUG()", LOG_CPU);
+    //    dbg_log("line=" + read_imm16() + " " + 
+    //            "file=" + memory.read_string(translate_address_read(read_imm32s())), LOG_CPU);
+    //    instruction_pointer -= 8;
+    //    dump_regs_short();
+    //}
+
     //if(interrupt_nr === 0x80)
     //{
     //    dbg_log("linux syscall");
@@ -1295,10 +1321,10 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
     //}
 
 
-    if(interrupt_nr === 14)
-    {
-        dbg_log("int14 error_code=" + error_code + " cr2=" + h(cr2 >>> 0) + " prev=" + h(previous_ip >>> 0) + " cpl=" + cpl, LOG_CPU);
-    }
+    //if(interrupt_nr === 14)
+    //{
+    //    dbg_log("int14 error_code=" + error_code + " cr2=" + h(cr2 >>> 0) + " prev=" + h(previous_ip >>> 0) + " cpl=" + cpl, LOG_CPU);
+    //}
 
 
     if(in_hlt)
@@ -1448,6 +1474,12 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
             var old_esp = reg32s[reg_esp],
                 old_ss = sreg[reg_ss];
 
+            if(old_flags & flag_vm)
+            {
+                dbg_log("return from vm86 mode");
+                dump_regs_short();
+            }
+
 
             cpl = info.dpl;
             //dbg_log("int" + h(interrupt_nr, 2) +" from=" + h(instruction_pointer >>> 0, 8) 
@@ -1466,8 +1498,6 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
 
             if(old_flags & flag_vm)
             {
-                dbg_log("return from vm86 mode", LOG_CPU);
-
                 push32(sreg[reg_gs]);
                 push32(sreg[reg_fs]);
                 push32(sreg[reg_ds]);
@@ -2480,7 +2510,7 @@ function trigger_pagefault(write, user, present)
         dbg_log("page fault w=" + write + " u=" + user + " p=" + present + 
                 " eip=" + h(previous_ip >>> 0, 8) +
                 " cr2=" + h(cr2 >>> 0, 8), LOG_CPU);
-        dbg_trace(LOG_CPU);
+        //dbg_trace(LOG_CPU);
     }
 
     // likely invalid pointer reference 
@@ -2494,6 +2524,12 @@ function trigger_pagefault(write, user, present)
         dbg_trace(LOG_CPU);
         throw unimpl("Double fault");
     }
+
+    // invalidate tlb entry
+    var page = cr2 >>> 12;
+
+    tlb_info[page] = 0;
+    tlb_info_global[page] = 0;
 
     instruction_pointer = previous_ip;
     page_fault = true;
