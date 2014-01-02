@@ -165,7 +165,6 @@ function VGAScreen(dev, adapter, vga_memory_size)
             return vga_memory[addr];
         }
 
-
         // planar mode
         addr &= 0xFFFF;
 
@@ -510,6 +509,15 @@ function VGAScreen(dev, adapter, vga_memory_size)
 
                     adapter.put_pixel_linear((addr << 1) + 2, red);
                 }
+                break;
+
+            case 8:
+                var color = vga256_palette[value],
+                    offset = addr << 2;
+
+                adapter.put_pixel_linear(offset, color >> 16 & 0xFF);
+                adapter.put_pixel_linear(offset | 1, color >> 8 & 0xFF);
+                adapter.put_pixel_linear(offset | 2, color & 0xFF);
                 break;
 
             default:
