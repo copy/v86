@@ -782,13 +782,13 @@ op2(0xC2, {
 
     instruction_pointer = get_seg(reg_cs) + pop16() | 0;
     // TODO regv
-    reg32[reg_esp] += imm16;
+    reg32s[reg_esp] += imm16;
 }, {
     // retn
     var imm16 = read_imm16();
 
     instruction_pointer = get_seg(reg_cs) + pop32s() | 0;
-    reg32[reg_esp] += imm16;
+    reg32s[reg_esp] += imm16;
 });
 op2(0xC3, {
     // retn
@@ -926,8 +926,6 @@ op2(0xCF, {
 
     sreg[reg_cs] = pop32s();
 
-    //instruction_pointer += get_seg(reg_cs);
-
     var new_flags = pop32s();
 
     if(new_flags & flag_vm)
@@ -962,6 +960,8 @@ op2(0xCF, {
             is_32 = operand_size_32 = address_size_32 = false;
             update_operand_size();
             update_address_size();
+
+            dump_regs_short();
 
             return;
         }
@@ -1025,6 +1025,17 @@ op2(0xCF, {
         //dbg_log(h(new_flags) + " " + h(flags));
         //dbg_log("iret to " + h(instruction_pointer));
     }
+
+    is_32 = operand_size_32 = address_size_32 = info.size;
+
+    update_operand_size();
+    update_address_size();
+
+    segment_limits[reg_cs] = info.real_limit;
+    segment_offsets[reg_cs] = info.base;
+
+    instruction_pointer = instruction_pointer + get_seg(reg_cs) | 0;
+
 
     //dbg_log("iret if=" + (flags & flag_interrupt) + " cpl=" + cpl + " eip=" + h(instruction_pointer >>> 0, 8), LOG_CPU);
     dbg_assert(!page_fault);
@@ -1333,7 +1344,7 @@ opm(0xF6, {
     sub_op(
         { read_e8; test8(data, read_imm8()); },
         { read_e8; test8(data, read_imm8()); },
-        { write_e8(not8(data)); },
+        { write_e8(~(data)); },
         { write_e8(neg8(data)); },
         { read_e8; mul8(data); },
         { read_e8s; imul8(data); },
@@ -1346,7 +1357,7 @@ opm2(0xF7, {
     sub_op (
         { read_e16; test16(data, read_imm16()); },
         { read_e16; test16(data, read_imm16()); },
-        { write_ev16(not16(data)); },
+        { write_ev16(~(data)); },
         { write_ev16(neg16(data)); },
         { read_e16; mul16(data); },
         { read_e16s; imul16(data); },
@@ -1357,7 +1368,7 @@ opm2(0xF7, {
     sub_op (
         { read_e32s; test32(data, read_imm32s()); },
         { read_e32s; test32(data, read_imm32s()); },
-        { write_ev32(not32(data)); },
+        { write_ev32s(~(data)); },
         { write_ev32(neg32(data)); },
         { read_e32; mul32(data); },
         { read_e32s; imul32(data); },
@@ -1399,7 +1410,9 @@ op(0xFB, {
             getiopl() === 3 : getiopl() >= cpl))
     {
         flags |= flag_interrupt;
+
         table[read_imm8()]();
+
         handle_irqs();
     }
     else
