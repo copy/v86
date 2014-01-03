@@ -624,11 +624,27 @@ op2(0x9A, {
 
 op(0x9B, {
     // fwait: check for pending fpu exceptions
-    fpu.fwait();
+    if((cr0 & 9) === 9)
+    {
+        // task switched and MP bit is set
+        trigger_nm();
+    }
+    else
+    {
+        if(fpu)
+        {
+            fpu.fwait();
+        }
+        else
+        {
+            // EM bit isn't checked
+            // If there's no FPU, do nothing
+        }
+    }
 });
 op2(0x9C, {
     // pushf
-    if((flags & flag_vm) && getiopl() < 3)
+    if(vm86_mode && getiopl() < 3)
     {
         trigger_gp(0);
     }
@@ -639,7 +655,7 @@ op2(0x9C, {
     }
 }, {
     // pushf
-    if((flags & flag_vm) && getiopl() < 3)
+    if(vm86_mode && getiopl() < 3)
     {
         // trap to virtual 8086 monitor
         trigger_gp(0);
@@ -653,15 +669,21 @@ op2(0x9C, {
 });
 op2(0x9D, {
     // popf
-    var tmp;
-    safe_pop16(tmp);
-    update_flags((flags & 0xFFFF0000) | tmp);
+    if(vm86_mode && getiopl() < 3)
+    {
+        trigger_gp(0);
+    }
 
+    update_flags((flags & ~0xFFFF) | pop16());
     handle_irqs();
 }, {
     // popf
-    update_flags(pop32s());
+    if(vm86_mode && getiopl() < 3)
+    {
+        trigger_gp(0);
+    }
 
+    update_flags(pop32s());
     handle_irqs();
 });
 op(0x9E, {
@@ -1161,6 +1183,9 @@ op(0xD7, {
 // fpu instructions
 #define fpu_op(n, op)\
     opm(n, { \
+        if(cr0 & 0xC)\
+            /* task switch or emulation */\
+            trigger_nm();\
         if(modrm_byte < 0xC0)\
             fpu.op_ ## op ## _mem(modrm_byte, modrm_resolve(modrm_byte));\
         else\
@@ -1320,7 +1345,7 @@ op(0xF4, {
     // hlt
     if((flags & flag_interrupt) === 0)
     {
-        log("cpu halted");
+        envapi.log("cpu halted");
         stopped = true;
         if(DEBUG) dump_regs();
         throw "HALT";
@@ -1399,7 +1424,16 @@ op(0xFA, {
     }
     else
     {
-        trigger_gp(0);
+        if(getiopl() < 3 && (vm86_mode ? 
+            (cr4 & 1) :
+            (cpl === 3 && (cr4 & 2))))
+        {
+            flags &= ~flag_vif;
+        }
+        else
+        {
+            trigger_gp(0);
+        }
     }
 });
 op(0xFB, {
@@ -1417,7 +1451,16 @@ op(0xFB, {
     }
     else
     {
-        trigger_gp(0);
+        if(getiopl() < 3 && (flags & flag_vip) === 0 && (vm86_mode ? 
+            (cr4 & 1) :
+            (cpl === 3 && (cr4 & 2))))
+        {
+            flags |= flag_vif;
+        }
+        else
+        {
+            trigger_gp(0);
+        }
     }
 
 });
@@ -1620,6 +1663,14 @@ opm(0x01, {
         read_e16;
 
         cr0 = (cr0 & ~0xF) | (data & 0xF);
+
+        if(protected_mode)
+        {
+            // lmsw cannot be used to switch back
+            cr0 |= 1;
+        }
+
+        //dbg_log("cr0=" + h(data >>> 0), LOG_CPU);
         cr0_changed();
         return;
     }
@@ -1848,12 +1899,14 @@ opm(0x22, {
 
             cr0 = data;
             cr0_changed();
-            //dbg_log("cr1 = " + bits(memory.read32s(addr)), LOG_CPU);
+            //dbg_log("cr0=" + h(data >>> 0), LOG_CPU);
             break;
+
         case 2:
             cr2 = data;
-            dbg_log("cr2 <- " + h(data >>> 0), LOG_CPU);
+            //dbg_log("cr2=" + h(data >>> 0), LOG_CPU);
             break;
+
         case 3: 
             cr3 = data;
             dbg_assert((cr3 & 0xFFF) === 0);
@@ -1862,7 +1915,13 @@ opm(0x22, {
             //dump_page_directory();
             //dbg_log("page directory loaded at " + h(cr3 >>> 0, 8), LOG_CPU);
             break;
+
         case 4:
+            if(data & (1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19 | 0xFFC00000))
+            {
+                trigger_gp(0);
+            }
+
             if((cr4 ^ data) & 0x80)
             {
                 full_clear_tlb();
@@ -1870,9 +1929,15 @@ opm(0x22, {
 
             cr4 = data;
             page_size_extensions = (cr4 & 16) ? PSE_ENABLED : 0;
-            //dbg_log("cr4 set to " + h(cr4 >>> 0), LOG_CPU);
-                
+
+            if(cr4 & 0x20)
+            {
+                throw unimpl("PAE");
+            }
+
+            dbg_log("cr4=" + h(cr4 >>> 0), LOG_CPU);
             break;
+
         default:
             dbg_log(modrm_byte >> 3 & 7);
             todo();

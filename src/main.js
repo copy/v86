@@ -109,6 +109,7 @@ function dbg_assert(cond, msg, level)
         //dump_regs();
         console.log(Error().stack);
         console.trace();
+
         if(msg)
         {
             throw "Assert failed: " + msg;
@@ -238,7 +239,7 @@ Math.bcd_pack = function(n)
 
 /** 
  * @param {string=} msg
- * */
+ */
 function unimpl(msg)
 {
     var s = "Unimplemented" + (msg ? ": " + msg : "");

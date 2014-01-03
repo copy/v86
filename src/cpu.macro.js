@@ -10,11 +10,13 @@
 #define safe_read16s(addr) (safe_read16(addr) << 16 >> 16)
 #define safe_read32(addr) (safe_read32s(addr) >>> 0)
 
+#define getiopl() (flags >> 12 & 3)
+
 var debug = {};
 
 
 /** @constructor */
-function v86()
+function v86(envapi)
 {
 
 var cpu = this;
@@ -34,6 +36,21 @@ this.restart = cpu_restart;
 this.dev = {};
 
 this.instr_counter = 0;
+
+var next_tick;
+
+if(envapi.next_tick !== undefined)
+{
+    next_tick = envapi.next_tick;
+}
+else
+{
+    next_tick = function()
+    {
+        setTimeout(cpu_run, 0);
+    };
+}
+
 
 
 var
@@ -202,7 +219,7 @@ var
     /** @type {Memory} */
     memory,
 
-    /** @type {(FPU|NoFPU)} */
+    /** @type {FPU} */
     fpu,
 
     /**
@@ -444,9 +461,9 @@ function cpu_reboot_internal()
 function cpu_init(settings)
 {
     // see browser/main.js or node/main.js
-    if(typeof set_tick !== "undefined")
+    if(typeof envapi.set_tick !== "undefined")
     {
-        set_tick(cpu_run);
+        envapi.set_tick(cpu_run);
     }
 
     current_settings = settings;
@@ -491,10 +508,12 @@ function cpu_init(settings)
     tsr_offset = 0;
 
     page_fault = false;
-    cr0 = 0;
+    cr0 = 1 << 30 | 1 << 29 | 1 << 4;
     cr2 = 0;
     cr3 = 0;
     cr4 = 0;
+    dreg[6] = 0xFFFF0FF0;
+    dreg[7] = 0x400;
     cpl = 0;
     paging = false;
     page_size_extensions = 0;
@@ -540,7 +559,8 @@ function cpu_init(settings)
         time: function() { return performance.now(); },
     };
 
-    cpu.dev = {};
+    cpu.dev = {
+    };
 
     devapi.io = cpu.dev.io = io = new IO(memory);
 
@@ -563,12 +583,13 @@ function cpu_init(settings)
         io.mmap_register(0xFFF00000, 0x100000, 1,
             function(addr)
             {
-                return data[start + addr];
+                return memory.mem8[addr];
+                //return data[start + addr];
             },
             function(addr, value)
             {
-                data[start + addr] = value;
-                //memory.mem8[addr] = value;
+                memory.mem8[addr] = value;
+                //data[start + addr] = value;
             });
 
 
@@ -661,25 +682,24 @@ function cpu_init(settings)
         cpu.dev.vga = vga = new VGAScreen(devapi, settings.screen_adapter, VGA_MEMORY_SIZE)
         cpu.dev.ps2 = ps2 = new PS2(devapi, settings.keyboard_adapter, settings.mouse_adapter);
         
-        //fpu = new NoFPU();
         fpu = new FPU(devapi);
 
-        uart = new UART(devapi);
+        uart = new UART(devapi, { send_line: envapi.log });
 
-        cpu.dev.fdc = fdc = new FloppyController(devapi, settings.floppy_disk);
+        cpu.dev.fdc = fdc = new FloppyController(devapi, settings.fda, settings.fdb);
 
-        if(settings.cdrom_disk)
+        if(settings.cdrom)
         {
-            cpu.dev.cdrom = cdrom = new IDEDevice(devapi, settings.cdrom_disk, true, 1);
+            cpu.dev.cdrom = cdrom = new IDEDevice(devapi, settings.cdrom, true, 1);
         }
 
-        if(settings.hda_disk)
+        if(settings.hda)
         {
-            cpu.dev.hda = hda = new IDEDevice(devapi, settings.hda_disk, false, 0);
+            cpu.dev.hda = hda = new IDEDevice(devapi, settings.hda, false, 0);
         }
-        //if(settings.hdb_disk)
+        //if(settings.hdb)
         //{
-        //    cpu.dev.hdb = hdb = new IDEDevice(devapi, settings.hdb_disk, false, 1);
+        //    cpu.dev.hdb = hdb = new IDEDevice(devapi, settings.hdb, false, 1);
         //}
 
         devapi.pit = timer = new PIT(devapi);
@@ -902,16 +922,14 @@ function cr0_changed()
     //protected_mode = (cr0 & 1) === 1;
     //dbg_log("cr0 = " + h(cr0));
 
-    var new_paging = (cr0 & 0x80000000) !== 0;
+    var new_paging = (cr0 & (1 << 31)) !== 0;
 
-    if(fpu.is_fpu)
+    if(fpu === undefined)
     {
-        cr0 &= ~4;
-    }
-    else
-    {
+        // if there's no FPU, keep emulation set
         cr0 |= 4;
     }
+    cr0 |= 0x10;
 
     if(new_paging !== paging)
     {
@@ -1012,10 +1030,12 @@ var pe_functions =
             eip_phys = translate_address_read(instruction_pointer) ^ instruction_pointer;
             last_virt_eip = instruction_pointer & ~0xFFF;
         }
+        var data8 = memory.mem8[eip_phys ^ instruction_pointer];
+        instruction_pointer = instruction_pointer + 1 | 0;
 
         // memory.read8 inlined under the assumption that code never runs in 
         // memory-mapped io
-        return memory.mem8[eip_phys ^ instruction_pointer++];
+        return data8;
     },
 
     read_imm8s : function()
@@ -1026,7 +1046,10 @@ var pe_functions =
             last_virt_eip = instruction_pointer & ~0xFFF;
         }
 
-        return memory.mem8s[eip_phys ^ instruction_pointer++];
+        var data8 = memory.mem8s[eip_phys ^ instruction_pointer];
+        instruction_pointer = instruction_pointer + 1 | 0;
+
+        return data8;
     },
 
     read_imm16 : function()
@@ -1273,7 +1296,7 @@ function get_esp_pe_write(mod)
  */
 function get_real_ip()
 {
-    return instruction_pointer - get_seg(reg_cs);
+    return instruction_pointer - get_seg(reg_cs) | 0;
 }
 
 function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
@@ -1323,19 +1346,27 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
 
     //if(interrupt_nr === 14)
     //{
-    //    dbg_log("int14 error_code=" + error_code + " cr2=" + h(cr2 >>> 0) + " prev=" + h(previous_ip >>> 0) + " cpl=" + cpl, LOG_CPU);
+    //    dbg_log("int14 error_code=" + error_code + 
+    //            " cr2=" + h(cr2 >>> 0) + 
+    //            " prev=" + h(previous_ip >>> 0) + 
+    //            " cpl=" + cpl, LOG_CPU);
     //}
 
 
     if(in_hlt)
     {
         // return to the instruction following the hlt
-        instruction_pointer++;
+        instruction_pointer = instruction_pointer + 1 | 0;
         in_hlt = false;
     }
 
     if(protected_mode)
     {
+        if(vm86_mode && (cr4 & 1))
+        {
+            throw unimpl("VME");
+        }
+
         if(vm86_mode && is_software_int && getiopl() < 3)
         {
             trigger_gp(0);
@@ -1580,7 +1611,8 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
         // call 4 byte cs:ip interrupt vector from ivt at memory 0
         
         //logop(instruction_pointer, "callu " + h(interrupt_nr) + "." + h(memory.read8(ah)));
-        //dbg_log("callu " + h(interrupt_nr) + "." + h(memory.read8(ah)) + " at " + h(instruction_pointer, 8), LOG_CPU, LOG_CPU);
+        //dbg_log("callu " + h(interrupt_nr) + "." + 
+        //        h(memory.read8(ah)) + " at " + h(instruction_pointer, 8), LOG_CPU, LOG_CPU);
 
         // push flags, cs:ip
         load_flags();
@@ -1638,6 +1670,12 @@ function trigger_ud()
     raise_exception(6);
 }
 
+function trigger_nm()
+{
+    instruction_pointer = previous_ip;
+    raise_exception(7);
+}
+
 function trigger_gp(code)
 {
     instruction_pointer = previous_ip;
@@ -1655,7 +1693,6 @@ function trigger_ss(code)
     instruction_pointer = previous_ip;
     raise_exception_with_code(12, code);
 }
-
 
 /**
  * @param {number} seg
@@ -1746,14 +1783,6 @@ function handle_irqs()
     }
 }
 
-/**
- * returns the current iopl from the eflags register
- */
-function getiopl()
-{
-    return flags >> 12 & 3;
-}
-
 function test_privileges_for_io(port, size)
 {
     if(protected_mode && (cpl > getiopl() || (flags & flag_vm)))
@@ -1797,9 +1826,9 @@ function cpuid()
 
         if(id === 0)
         {
-            reg32[reg_ebx] = 0x756E6547; // Genu
-            reg32[reg_edx] = 0x49656E69; // ineI
-            reg32[reg_ecx] = 0x6C65746E; // ntel
+            reg32[reg_ebx] = 0x756E6547|0; // Genu
+            reg32[reg_edx] = 0x49656E69|0; // ineI
+            reg32[reg_ecx] = 0x6C65746E|0; // ntel
         }
     }
     else if(id === 1)
@@ -1808,12 +1837,12 @@ function cpuid()
         reg32[reg_eax] = 0x513;
         reg32[reg_ebx] = 0;
         reg32[reg_ecx] = 0;
-        reg32[reg_edx] = fpu.is_fpu | 1 << 3 | 1 << 4 | 1 << 8 | 1 << 13 | 1 << 15;
+        reg32[reg_edx] = fpu !== undefined | 1 << 3 | 1 << 4 | 1 << 8 | 1 << 13 | 1 << 15;
     }
     else if(id === 2)
     {
         // Taken from http://siyobik.info.gf/main/reference/instruction/CPUID
-        reg32[reg_eax] = 0x665B5001;
+        reg32[reg_eax] = 0x665B5001|0;
         reg32[reg_ebx] = 0;
         reg32[reg_ecx] = 0;
         reg32[reg_edx] = 0x007A7000;
@@ -1825,7 +1854,7 @@ function cpuid()
         reg32[reg_ecx] = 0;
         reg32[reg_edx] = 0;
     }
-    else if((id & 0xF0000000) === ~~0x40000000)
+    else if((id & (0xF0000000|0)) === 0x40000000)
     {
         // Invalid
     }
@@ -1840,47 +1869,39 @@ function cpuid()
  */
 function update_flags(new_flags)
 {
-    var oldflags = flags;
+    var mask = flag_rf | flag_vm | flag_vip | flag_vif,
+        clear = ~flag_vip & ~flag_vif & flags_mask;
 
     if(flags & flag_vm)
     {
-        if(getiopl() === 3)
-        {
-            // cannot update iopl, vip, vif
-            flags = (new_flags & ~flag_iopl & ~flag_vip & ~flag_vif) | (flags & (flag_iopl | flag_vip | flag_vif));
-        }
-        else
-        {
-            trigger_gp(0);
-        }
+        // other case needs to be handled in popf or iret
+        dbg_assert(getiopl() === 3);
+
+        mask |= flag_iopl;
+
+        // vip and vif are preserved
+        clear |= flag_vip | flag_vif;
     }
     else 
     {
-        if(cpl === 0 || !protected_mode)
-        {
-            // can update all flags
-            flags = new_flags;
-        }
-        else if(cpl <= getiopl())
-        {
-            // cpl != 0 and iopl <= cpl
-            // can update interrupt flag but not iopl
-            flags = (new_flags & ~flag_iopl) | (flags & flag_iopl);
-        }
-        else
-        {
-            // cannot update interrupt flag or iopl
-            flags = (new_flags & ~flag_iopl & ~flag_interrupt) | (flags & (flag_iopl | flag_interrupt));
-        }
+        if(!protected_mode) dbg_assert(cpl === 0);
 
-        // vip and vif are cleared
-        flags &= ~flag_vip & ~flag_vif;
+        if(cpl)
+        {
+            // cpl > 0
+            // cannot update iopl
+            mask |= flag_iopl;
+
+            if(cpl > getiopl())
+            {
+                // cpl > iopl
+                // can update interrupt flag but not iopl
+                mask |= flag_interrupt;
+            }
+        }
     }
 
-    // cannot modify rf or vm here
-    flags = (flags & ~flag_vm & ~flag_rf) | (oldflags & (flag_vm | flag_rf));
-
-    flags = (flags & flags_mask) | flags_default;
+    flags = (new_flags ^ ((flags ^ new_flags) & mask)) & clear | flags_default;
 
     flags_changed = 0;
 }
@@ -2505,13 +2526,10 @@ function do_page_translation(addr, for_writing, user)
 
 function trigger_pagefault(write, user, present)
 {
-    if(LOG_LEVEL & LOG_CPU)
-    {
-        dbg_log("page fault w=" + write + " u=" + user + " p=" + present + 
-                " eip=" + h(previous_ip >>> 0, 8) +
-                " cr2=" + h(cr2 >>> 0, 8), LOG_CPU);
-        //dbg_trace(LOG_CPU);
-    }
+    //dbg_log("page fault w=" + write + " u=" + user + " p=" + present + 
+    //        " eip=" + h(previous_ip >>> 0, 8) +
+    //        " cr2=" + h(cr2 >>> 0, 8), LOG_CPU);
+    //dbg_trace(LOG_CPU);
 
     // likely invalid pointer reference 
     //if((cr2 >>> 0) < 0x100)
@@ -2539,9 +2557,8 @@ function trigger_pagefault(write, user, present)
 }
 
 
-// it looks pointless to have these two here, but 
+// it looks pointless to have this here, but 
 // Closure Compiler is able to remove unused functions
-//#include "test_helpers.js"
 #include "debug.macro.js"
 
 
