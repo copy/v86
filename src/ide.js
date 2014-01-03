@@ -669,7 +669,11 @@ function IDEDevice(dev, buffer, is_cd, nr)
                 break;
 
             case 0x30:
+            case 0x34:
+            case 0x39:
                 // 0x30 write sectors
+                // 0x34 write sectors ext
+                // 0x39 write multiple ext
                 ata_write(cmd);
                 break;
 
@@ -781,11 +785,19 @@ function IDEDevice(dev, buffer, is_cd, nr)
             var count = bytecount & 0xff,
                 lba = get_lba28();
         }
+        else if(cmd === 0x29)
+        {
+            var count = bytecount,
+                lba = get_lba28();
+        }
         else
         {
             var count = bytecount,
                 lba = (cylinder_high << 16 | cylinder_low) >>> 0;
         }
+
+        if(!count)
+            count = 0x10000;
 
         var
             byte_count = count * me.sector_size,
@@ -887,9 +899,15 @@ function IDEDevice(dev, buffer, is_cd, nr)
             var count = bytecount & 0xff,
                 lba = get_lba28();
         }
+        else if(cmd === 0x39)
+        {
+            var count = bytecount,
+                lba = get_lba28();
+        }
         else
         {
-            // TODO: write multiple, etc 
+            var count = bytecount,
+                lba = (cylinder_high << 16 | cylinder_low) >>> 0;
         }
 
         var byte_count = count * me.sector_size,
