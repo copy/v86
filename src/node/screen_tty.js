@@ -1,7 +1,8 @@
 "use strict";
 
-/*
+/**
  * Very simple prototype, mostly incomplete
+ * @constructor
  */
 function NodeScreenTTY()
 {

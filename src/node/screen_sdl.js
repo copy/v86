@@ -1,5 +1,8 @@
 "use strict";
 
+/**
+ * @constructor
+ */
 function NodeScreenSDL(sdl, font_file)
 {
     var ROW_HEIGHT = 16,

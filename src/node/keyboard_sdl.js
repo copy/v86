@@ -1,5 +1,8 @@
 "use strict";
 
+/**
+ * @constructor
+ */
 function NodeKeyboardSDL(sdl)
 {
     var send_code;

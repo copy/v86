@@ -32,7 +32,7 @@ CLOSURE_FLAGS=\
 
 CORE_FILES=const.js io.js cpu.js main.js ide.js pci.js floppy.js memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js
 BROWSER_FILES=browser/main.js browser/screen.js browser/keyboard.js browser/mouse.js 
-NODE_FILES=node/main.js node/keyboard.js node/screen.js 
+NODE_FILES=node/main.js node/keyboard_sdl.js node/screen_sdl.js node/keyboard_tty.js node/screen_tty.js
 
 v86_all.js: src/*.js src/browser/*.js src/cpu.js
 	-ls -lh v86_all.js
@@ -49,13 +49,16 @@ v86_all.js: src/*.js src/browser/*.js src/cpu.js
 	ls -lh v86_all.js
 
 
-v86_node.js: src/*.js src/node/*.js
+src/node/v86_node.js: src/*.js src/node/*.js
 	cd src &&\
 	java -jar $(CLOSURE) \
-		--js_output_file "../v86_node.js"\
+		--js_output_file "node/v86_node.js"\
 		--define=DEBUG=false\
+		--define=IN_CLOSURE=true\
 		$(CLOSURE_FLAGS)\
-		--js $(CORE_FILES) $(NODE_FILES)
+		$(CLOSURE_READABLE)\
+		--js $(CORE_FILES) \
+		--js $(NODE_FILES)
 
 
 pack:

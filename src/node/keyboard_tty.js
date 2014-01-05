@@ -1,5 +1,8 @@
 "use strict";
 
+/**
+ * @constructor
+ */
 function NodeKeyboardTTY()
 {
     var stdin = process.stdin;

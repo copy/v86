@@ -1,45 +1,63 @@
 "use strict";
 
-
+/** @define {boolean} */
+var IN_CLOSURE = false;
 
 var path = __dirname + "/../",
     bios_path = path + "../bios/",
     image_path = path + "../images/";
 
+function local_require(file) 
+{
+    if(IN_CLOSURE)
+    {
+        // handled by closure compiler
+    }
+    else
+    {
+        require(file);
+    }
+}
 
 // otherwise tty ouput is used
 var USE_SDL = true,
     FONT_FILE = path + "node/ascii.ttf";
 
+var envapi = {};
+
 (function()
 {
     var tick_fn;
 
-    global.set_tick = function(fn)
+    envapi.set_tick = function(fn)
     {
         tick_fn = fn;   
     };
 
-    global.next_tick = function()
+    envapi.next_tick = function()
     {
         setImmediate(tick_fn);
     };
 })();
 
-
-global.log = function(str)
+function log(str)
 {
     console.log(str);
-};
- 
+}
+
+global.log = log;
+
 var fs = require('fs'),
     vm = require('vm'),
     
     include = function(path) 
     {
-        // ugh ...
-        var code = fs.readFileSync(path);
-        vm.runInThisContext(code, path);
+        if(!IN_CLOSURE)
+        {
+            // ugh ...
+            var code = fs.readFileSync(path);
+            vm.runInThisContext(code, path);
+        }
     }.bind(this);
 
 include(path + "const.js");
@@ -58,8 +76,6 @@ include(path + "pic.js");
 include(path + "uart.js");
 include(path + "rtc.js");
 
-
-DEBUG = true;
 
 
 function read_array_buffer(file)
@@ -113,15 +129,15 @@ if(argv && argv.length === 4 && (argv[2] === "cdrom" || argv[2] === "fda" || arg
 
     if(argv[2] === "cdrom")
     {
-        settings.cdrom_disk = disk;
+        settings.cdrom = disk;
     }
     else if(argv[2] === "fda")
     {
-        settings.floppy_disk = disk;
+        settings.floppy = disk;
     }
     else if(argv[2] === "hda")
     {
-        settings.hda_disk = disk;
+        settings.hda = disk;
     }
 
 
@@ -130,7 +146,7 @@ if(argv && argv.length === 4 && (argv[2] === "cdrom" || argv[2] === "fda" || arg
 
     settings.screen_adapter
 
-    var cpu = new v86();
+    var cpu = new v86(envapi);
 
     cpu.init(settings);
     cpu.run();
