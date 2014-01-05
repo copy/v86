@@ -426,7 +426,7 @@ function PS2(dev, keyboard, mouse)
             else if(write_byte === 0xF5)
             {
                 // disable streaming
-                enable_mouse_stream = true;
+                enable_mouse_stream = false;
             }
             else if(write_byte === 0xF6)
             {
