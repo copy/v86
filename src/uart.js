@@ -4,18 +4,18 @@
  *
  * @constructor 
  */
-function UART(dev)
+function UART(dev, adapter)
 {
-    var 
-        io = dev.io,
+    var io = dev.io,
         line = "";
 
     io.register_write(0x3F8, function(out_byte) 
     {
         if(out_byte === 0x0A)
         {
-            log(line);
+            adapter.send_line(line);
             dbg_log(line, LOG_SERIAL);
+
             line = "";
         }
         else

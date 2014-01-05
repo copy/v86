@@ -17,10 +17,10 @@ function VGAScreen(dev, adapter, vga_memory_size)
         VGA_BANK_SIZE = 64 * 1024,
 
         /** @const */
-        MAX_XRES = 1280,
+        MAX_XRES = 1920,
 
         /** @const */
-        MAX_YRES = 1024,
+        MAX_YRES = 1080,
 
         /** @const */
         MAX_BPP = 32,
@@ -127,6 +127,12 @@ function VGAScreen(dev, adapter, vga_memory_size)
 
     dev.pci.register_device(this);
 
+    this.stats = {
+        is_graphical: false,
+        res_x: 0,
+        res_y: 0,
+        bpp: 0,
+    };
 
     function init()
     {
@@ -598,21 +604,18 @@ function VGAScreen(dev, adapter, vga_memory_size)
                 this.set_size_text(80, 25);
                 break;
             case 0x10:
-                this.set_size_graphical(640, 350);
                 screen_width = 640;
                 screen_height = 350;
                 is_graphical = true;
                 graphical_mode_is_linear = false;
                 break;
             case 0x12:
-                this.set_size_graphical(640, 480);
                 screen_width = 640;
                 screen_height = 480;
                 is_graphical = true;
                 graphical_mode_is_linear = false;
                 break;
             case 0x13:
-                this.set_size_graphical(320, 200);
                 screen_width = 320;
                 screen_height = 200;
                 is_graphical = true;
@@ -622,6 +625,15 @@ function VGAScreen(dev, adapter, vga_memory_size)
         }
 
         adapter.set_mode(is_graphical);
+        this.stats.is_graphical = is_graphical;
+
+        if(is_graphical)
+        {
+            this.set_size_graphical(screen_width, screen_height);
+            this.stats.res_x = screen_width;
+            this.stats.res_y = screen_height;
+            this.stats.bpp = 8;
+        }
 
         graphical_mode = is_graphical;
 
@@ -1038,6 +1050,11 @@ function VGAScreen(dev, adapter, vga_memory_size)
         {
             screen.set_size_graphical(svga_width, svga_height);
             adapter.set_mode(true);
+
+            screen.stats.bpp = svga_bpp;
+            screen.stats.is_graphical = true;
+            screen.stats.res_x = svga_width;
+            screen.stats.res_y = svga_height;
         }
     }
     io.register_write(0x1D0, port1D0_write);

@@ -1,7 +1,7 @@
 "use strict";
 
 /** @constructor */
-function FloppyController(dev, floppy_image)
+function FloppyController(dev, fda_image, fdb_image)
 {
     var 
         io = dev.io,
@@ -22,15 +22,15 @@ function FloppyController(dev, floppy_image)
         /** @const */
         byte_per_sector = 512;
 
-    this.buffer = floppy_image;
+    this.buffer = fda_image;
 
-    if(!floppy_image)
+    if(!fda_image)
     {
         this.type = 0;
         return;
     }
 
-    floppy_size = floppy_image.byteLength;
+    floppy_size = fda_image.byteLength;
 
     var floppy_types = {
         160  : { type: 1, tracks: 40, sectors: 8 , heads: 1 },
@@ -61,7 +61,7 @@ function FloppyController(dev, floppy_image)
     }
     else
     {
-        throw unimpl("Unknown floppy size: " + h(floppy_image.byteLength));
+        throw unimpl("Unknown floppy size: " + h(fda_image.byteLength));
     }
 
     var status_reg0 = 0,
@@ -303,11 +303,11 @@ function FloppyController(dev, floppy_image)
 
         if(is_write)
         {
-            dma.do_write(floppy_image, read_offset, read_count * sector_size, 2, done);
+            dma.do_write(fda_image, read_offset, read_count * sector_size, 2, done);
         }
         else
         {
-            dma.do_read(floppy_image, read_offset, read_count * sector_size, 2, done);
+            dma.do_read(fda_image, read_offset, read_count * sector_size, 2, done);
         }
 
         function done(error)

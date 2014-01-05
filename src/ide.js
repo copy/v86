@@ -58,6 +58,13 @@ function IDEDevice(dev, buffer, is_cd, nr)
 
     dbg_assert(this.cylinder_count === (this.cylinder_count | 0));
 
+    this.stats = {
+        sectors_read: 0,
+        sectors_written: 0,
+        bytes_read: 0,
+        bytes_written: 0,
+    };
+
     function push_irq()
     {
         if((device_control & 2) === 0)
@@ -261,6 +268,9 @@ function IDEDevice(dev, buffer, is_cd, nr)
         {
             push_irq();
         });
+
+        me.stats.sectors_written += data_port_buffer.length / me.sector_size | 0;
+        me.stats.bytes_written += data_port_buffer.length;
     }
 
     var next_status = -1;
@@ -368,6 +378,9 @@ function IDEDevice(dev, buffer, is_cd, nr)
 
                 data_pointer = 0;
                 push_irq();
+
+                me.stats.sectors_read += byte_count / me.sector_size | 0;
+                me.stats.bytes_read += byte_count;
             });
         }
     }
@@ -429,6 +442,9 @@ function IDEDevice(dev, buffer, is_cd, nr)
                 dma_status |= 4;
 
                 push_irq();
+                
+                me.stats.sectors_read += byte_count / me.sector_size | 0;
+                me.stats.bytes_read += byte_count;
             });
         }
     }
@@ -829,6 +845,9 @@ function IDEDevice(dev, buffer, is_cd, nr)
                 data_pointer = 0;
 
                 push_irq();
+
+                me.stats.sectors_read += byte_count / me.sector_size | 0;
+                me.stats.bytes_read += byte_count;
             });
         }
     }
@@ -889,6 +908,9 @@ function IDEDevice(dev, buffer, is_cd, nr)
             dma_status |= 4;
 
             push_irq();
+
+            me.stats.sectors_read += byte_count / me.sector_size | 0;
+            me.stats.bytes_read += byte_count;
         });
     }
 
@@ -1018,6 +1040,9 @@ function IDEDevice(dev, buffer, is_cd, nr)
             dma_status &= ~2 & ~1;
             dma_status |= 4;
         }
+
+        me.stats.sectors_written += byte_count / me.sector_size | 0;
+        me.stats.bytes_written += byte_count;
     }
 
     function get_lba28()
