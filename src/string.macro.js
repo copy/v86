@@ -81,8 +81,7 @@
         if(use_si) regv[reg_vsi] += size;\
     }\
     if(use_cmp) {\
-        if(s === 32) cmp32(data_src >>> 0, data_dest >>> 0);\
-        else cmp ## s(data_src, data_dest);\
+        cmp ## s(data_src, data_dest);\
     }\
     if(cont) {\
         instruction_pointer = previous_ip;\
@@ -309,9 +308,9 @@ function lodsd()
 {
     string_instruction(32,
         {
-            reg32[reg_eax] = safe_read32s(src);
+            reg32s[reg_eax] = safe_read32s(src);
         }, {
-            reg32[reg_eax] = memory.read_aligned32(phys_src);
+            reg32s[reg_eax] = memory.read_aligned32(phys_src);
         });
 }
 

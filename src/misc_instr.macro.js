@@ -35,7 +35,7 @@ function jmpcc16(condition)
     }
     else
     {
-        instruction_pointer += 2;
+        instruction_pointer = instruction_pointer + 2 | 0;
     }
 }
 
@@ -132,18 +132,7 @@ function getcf()
 {
     if(flags_changed & 1)
     {
-        if(last_op_size === OPSIZE_32)
-        {
-            // cannot bit test above 2^32-1
-            return last_result > 0xffffffff | last_result < 0;
-            //return ((last_op1 ^ last_result) & (last_op2 ^ last_result)) >>> 31;
-        }
-        else
-        {
-            return last_result >> last_op_size & 1;
-        }
-
-        //return last_result >= (1 << last_op_size) | last_result < 0;
+        return !!((last_op1 ^ (last_op1 ^ last_op2) & (last_op2 ^ last_add_result)) & last_op_size);
     }
     else
     {
@@ -170,7 +159,7 @@ function getaf()
 {
     if(flags_changed & flag_adjust)
     {
-        return (last_op1 ^ last_op2 ^ last_result ^ (last_op2 < 0) << 4) & flag_adjust;
+        return (last_op1 ^ last_op2 ^ last_add_result) & flag_adjust;
     }
     else
     {
@@ -183,7 +172,7 @@ function getzf()
 {
     if(flags_changed & flag_zero)
     {
-        return (~last_result & last_result - 1) >> last_op_size - 7 & flag_zero;
+        return (~last_result & last_result - 1) & last_op_size;
     }
     else
     {
@@ -196,7 +185,7 @@ function getsf()
 {
     if(flags_changed & flag_sign)
     {
-        return last_result >> last_op_size - 8 & flag_sign;
+        return last_result & last_op_size;
     }
     else
     {
@@ -209,7 +198,7 @@ function getof()
 {
     if(flags_changed & flag_overflow)
     {
-        return (((last_op1 ^ last_result) & (last_op2 ^ last_result)) >> last_op_size - 1) << 11 & flag_overflow;
+        return ((last_op1 ^ last_add_result) & (last_op2 ^ last_add_result)) & last_op_size;
     }
     else
     {
@@ -346,7 +335,7 @@ function xchg32(memory_data, modrm_byte)
     var mod = modrm_byte >> 3 & 7,
         tmp = reg32s[mod];
 
-    reg32[mod] = memory_data;
+    reg32s[mod] = memory_data;
 
     return tmp;
 }
@@ -354,8 +343,8 @@ function xchg32(memory_data, modrm_byte)
 function xchg32r(operand)
 {
     var temp = reg32s[reg_eax];
-    reg32[reg_eax] = reg32s[operand];
-    reg32[operand] = temp;
+    reg32s[reg_eax] = reg32s[operand];
+    reg32s[operand] = temp;
 }
 
 function lss16(seg, addr, mod)
@@ -375,7 +364,7 @@ function lss32(seg, addr, mod)
 
     switch_seg(seg, new_seg);
 
-    reg32[mod] = new_reg;
+    reg32s[mod] = new_reg;
 }
 
 function lea16()
@@ -398,7 +387,7 @@ function lea32()
 
     segment_prefix = reg_noseg; 
 
-    reg32[mod] = modrm_resolve(modrm_byte);
+    reg32s[mod] = modrm_resolve(modrm_byte);
 
     segment_prefix = -1;
 }
@@ -440,13 +429,13 @@ function enter32()
     {
         for(var i = 1; i < nesting_level; i++)
         {
-            reg32[reg_ebp] -= 4;
+            reg32s[reg_ebp] -= 4;
             push32(reg32s[reg_ebp]);
         }
         push32(frame_temp);
     }
-    reg32[reg_ebp] = frame_temp;
-    reg32[reg_esp] -= size;
+    reg32s[reg_ebp] = frame_temp;
+    reg32s[reg_esp] -= size;
 
     dbg_assert(!page_fault);
 }

@@ -96,7 +96,7 @@ var table16 = [],
         if(modrm_byte < 0xC0) {\
             op ## _mem(modrm_resolve(modrm_byte), arg32);\
         } else {\
-            reg_e32 = op ## _reg(reg_e32s, arg32 & 31);\
+            reg_e32s = op ## _reg(reg_e32s, arg32 & 31);\
         }\
     } else {\
         if(modrm_byte < 0xC0) {\
@@ -238,29 +238,6 @@ var table16 = [],
     }
 
 
-#define write_ev32(op)\
-    var data;\
-    var virt_addr;\
-    var phys_addr;\
-    var phys_addr_high;\
-    if(modrm_byte < 0xC0) {\
-        virt_addr = modrm_resolve(modrm_byte);\
-        phys_addr = translate_address_write(virt_addr);\
-        if(paging && (virt_addr & 0xFFF) >= 0xFFD) {\
-            phys_addr_high = translate_address_write(virt_addr + 3);\
-            data = virt_boundary_read32s(phys_addr, phys_addr_high) >>> 0;\
-            virt_boundary_write32(phys_addr, phys_addr_high, op);\
-        } else {\
-            data = memory.read32s(phys_addr) >>> 0;\
-            memory.write32(phys_addr, op);\
-        }\
-    } else {\
-        data = reg_e32;\
-        reg_e32s = op;\
-    }
-
-
-
 #define write_ev32s(op)\
     var data;\
     var virt_addr;\
@@ -299,19 +276,19 @@ var table16 = [],
     table32[n] = function() { var modrm_byte = read_imm8(); code32 };\
 
 
-#define arith_group(n, instr, sign)\
+#define arith_group(n, instr)\
     opm(n, { write_e8(instr ## 8(data, reg_g8)) })\
-    opm2(n | 1, { write_ev16(instr ## 16(data, reg_g16)) }, { write_ev32 ## sign(instr ## 32(data, reg_g32 ## sign)) })\
+    opm2(n | 1, { write_ev16(instr ## 16(data, reg_g16)) }, { write_ev32s(instr ## 32(data, reg_g32s)) })\
     opm(n | 2, { read_e8; reg_g8 = instr ## 8(reg_g8, data); })\
-    opm2(n | 3, { read_e16; reg_g16 = instr ## 16(reg_g16, data); }, { read_e32 ## sign; reg_g32s = instr ## 32(reg_g32 ## sign, data); })\
+    opm2(n | 3, { read_e16; reg_g16 = instr ## 16(reg_g16, data); }, { read_e32s; reg_g32s = instr ## 32(reg_g32s, data); })\
     op(n | 4, { reg8[reg_al] = instr ## 8(reg8[reg_al], read_imm8()); })\
-    op2(n | 5, { reg16[reg_ax] = instr ## 16(reg16[reg_ax], read_imm16()); }, { reg32[reg_eax] = instr ## 32(reg32 ## sign[reg_eax], read_imm32 ## sign()); })\
+    op2(n | 5, { reg16[reg_ax] = instr ## 16(reg16[reg_ax], read_imm16()); }, { reg32s[reg_eax] = instr ## 32(reg32s[reg_eax], read_imm32s()); })\
     
 
 
 // instructions start here
 
-arith_group(0x00, add, );
+arith_group(0x00, add);
 
 op2(0x06, { push16(sreg[reg_es]); }, { push32(sreg[reg_es]); });
 pop_sreg_op(0x07, reg_es);
@@ -319,12 +296,12 @@ pop_sreg_op(0x07, reg_es);
 //    { safe_pop16(sreg[reg_es]); switch_seg(reg_es, memory.read16(get_esp_read(0))); }, 
 //    { safe_pop32s(sreg[reg_es]); switch_seg(reg_es); });
 
-arith_group(0x08, or, s);
+arith_group(0x08, or);
 
 op2(0x0E, { push16(sreg[reg_cs]); }, { push32(sreg[reg_cs]); });
 op(0x0F, { table0F[read_imm8()](); });
 
-arith_group(0x10, adc, );
+arith_group(0x10, adc);
 
 op2(0x16, { push16(sreg[reg_ss]); }, { push32(sreg[reg_ss]); });
 pop_sreg_op(0x17, reg_ss);
@@ -332,7 +309,7 @@ pop_sreg_op(0x17, reg_ss);
 //    { safe_pop16(sreg[reg_ss]); switch_seg(reg_ss); }, 
 //    { safe_pop32s(sreg[reg_ss]); switch_seg(reg_ss); });
 
-arith_group(0x18, sbb, );
+arith_group(0x18, sbb);
 
 op2(0x1E, { push16(sreg[reg_ds]); }, { push32(sreg[reg_ds]); });
 pop_sreg_op(0x1F, reg_ds);
@@ -340,39 +317,39 @@ pop_sreg_op(0x1F, reg_ds);
 //    { safe_pop16(sreg[reg_ds]); switch_seg(reg_ds); }, 
 //    { safe_pop32s(sreg[reg_ds]); switch_seg(reg_ds); });
 
-arith_group(0x20, and, s);
+arith_group(0x20, and);
 
 op(0x26, { seg_prefix(reg_es); });
 op(0x27, { bcd_daa(); });
 
-arith_group(0x28, sub, );
+arith_group(0x28, sub);
 
 op(0x2E, { seg_prefix(reg_cs); });
 op(0x2F, { bcd_das(); });
 
-arith_group(0x30, xor, s);
+arith_group(0x30, xor);
 
 op(0x36, { seg_prefix(reg_ss); });
 op(0x37, { bcd_aaa(); });
 
 opm(0x38, { read_e8; cmp8(data, reg_g8); })
-opm2(0x39, { read_e16; cmp16(data, reg_g16); }, { read_e32; cmp32(data, reg_g32); })
+opm2(0x39, { read_e16; cmp16(data, reg_g16); }, { read_e32s; cmp32(data, reg_g32s); })
 opm(0x3A, { read_e8; cmp8(reg_g8, data); })
-opm2(0x3B, { read_e16; cmp16(reg_g16, data); }, { read_e32; cmp32(reg_g32, data); })
+opm2(0x3B, { read_e16; cmp16(reg_g16, data); }, { read_e32s; cmp32(reg_g32s, data); })
 op(0x3C, { cmp8(reg8[reg_al], read_imm8()); })
-op2(0x3D, { cmp16(reg16[reg_ax], read_imm16()); }, { cmp32(reg32[reg_eax], read_imm32()); })
+op2(0x3D, { cmp16(reg16[reg_ax], read_imm16()); }, { cmp32(reg32s[reg_eax], read_imm32s()); })
 
 op(0x3E, { seg_prefix(reg_ds); });
 op(0x3F, { bcd_aas(); });
 
 
 #define group40(n, r16, r32)\
-    op2(0x40 | n, { reg16[r16] = inc16(reg16[r16]); }, { reg32[r32] = inc32(reg32[r32]); });
+    op2(0x40 | n, { reg16[r16] = inc16(reg16[r16]); }, { reg32s[r32] = inc32(reg32s[r32]); });
 each_reg(group40);
 
 
 #define group48(n, r16, r32)\
-    op2(0x48 | n, { reg16[r16] = dec16(reg16[r16]); }, { reg32[r32] = dec32(reg32[r32]); });
+    op2(0x48 | n, { reg16[r16] = dec16(reg16[r16]); }, { reg32s[r32] = dec32(reg32s[r32]); });
 each_reg(group48);
 
 
@@ -381,7 +358,7 @@ each_reg(group48);
 each_reg(group50);
 
 #define group58(n, r16, r32)\
-    op2(0x58 | n, { safe_pop16(reg16[r16]); }, { safe_pop32s(reg32[r32]); })
+    op2(0x58 | n, { safe_pop16(reg16[r16]); }, { safe_pop32s(reg32s[r32]); })
 each_reg(group58);
 
 
@@ -430,7 +407,7 @@ opm2(0x69, {
     reg_g16 = imul_reg16(read_imm16s(), data);
 }, {
     read_e32s;
-    reg_g32 = imul_reg32(read_imm32s(), data);
+    reg_g32s = imul_reg32(read_imm32s(), data);
 });
 
 op2(0x6A, { push16(read_imm8s()); }, { push32(read_imm8s()); });
@@ -440,7 +417,7 @@ opm2(0x6B, {
     reg_g16 = imul_reg16(read_imm8s(), data);
 }, {
     read_e32s;
-    reg_g32 = imul_reg32(read_imm8s(), data);
+    reg_g32s = imul_reg32(read_imm8s(), data);
 });
 
 op(0x6C, { insb(); });
@@ -485,14 +462,14 @@ opm2(0x81, {
     )
 }, {
     sub_op(
-        { write_ev32(add32(data, read_imm32())); },
+        { write_ev32s(add32(data, read_imm32s())); },
         { write_ev32s( or32(data, read_imm32s())); },
-        { write_ev32(adc32(data, read_imm32())); },
-        { write_ev32(sbb32(data, read_imm32())); },
+        { write_ev32s(adc32(data, read_imm32s())); },
+        { write_ev32s(sbb32(data, read_imm32s())); },
         { write_ev32s(and32(data, read_imm32s())); },
-        { write_ev32(sub32(data, read_imm32())); },
+        { write_ev32s(sub32(data, read_imm32s())); },
         { write_ev32s(xor32(data, read_imm32s())); },
-        { read_e32;  cmp32(data, read_imm32()); }
+        { read_e32s;  cmp32(data, read_imm32s()); }
     )
 });
 op(0x82, { 
@@ -500,25 +477,25 @@ op(0x82, {
 });
 opm2(0x83, {
     sub_op(
-        { write_ev16(add16(data, read_imm8s() & 0xFFFF)); },
+        { write_ev16(add16(data, read_imm8s())); },
         { write_ev16( or16(data, read_imm8s())); },
-        { write_ev16(adc16(data, read_imm8s() & 0xFFFF)); },
-        { write_ev16(sbb16(data, read_imm8s() & 0xFFFF)); },
+        { write_ev16(adc16(data, read_imm8s())); },
+        { write_ev16(sbb16(data, read_imm8s())); },
         { write_ev16(and16(data, read_imm8s())); },
-        { write_ev16(sub16(data, read_imm8s() & 0xFFFF)); },
+        { write_ev16(sub16(data, read_imm8s())); },
         { write_ev16(xor16(data, read_imm8s())); },
-        { read_e16;  cmp16(data, read_imm8s() & 0xFFFF); }
+        { read_e16;  cmp16(data, read_imm8s()); }
     )
 }, {
     sub_op(
-        { write_ev32(add32(data, read_imm8s() >>> 0)); },
+        { write_ev32s(add32(data, read_imm8s())); },
         { write_ev32s( or32(data, read_imm8s())); },
-        { write_ev32(adc32(data, read_imm8s() >>> 0)); },
-        { write_ev32(sbb32(data, read_imm8s() >>> 0)); },
+        { write_ev32s(adc32(data, read_imm8s())); },
+        { write_ev32s(sbb32(data, read_imm8s())); },
         { write_ev32s(and32(data, read_imm8s())); },
-        { write_ev32(sub32(data, read_imm8s() >>> 0)); },
+        { write_ev32s(sub32(data, read_imm8s())); },
         { write_ev32s(xor32(data, read_imm8s())); },
-        { read_e32;  cmp32(data, read_imm8s() >>> 0); }
+        { read_e32s;  cmp32(data, read_imm8s()); }
     )
 });
 
@@ -530,7 +507,7 @@ opm(0x86, { write_e8(xchg8(data, modrm_byte)); });
 opm2(0x87, { 
     write_ev16(xchg16(data, modrm_byte)); 
 }, {
-    write_ev32(xchg32(data, modrm_byte)); 
+    write_ev32s(xchg32(data, modrm_byte)); 
 });
 
 opm(0x88, { set_eb(reg_g8); })
@@ -566,24 +543,18 @@ opm(0x8E, {
     }
 });
 
-opm(0x8F, {
+opm2(0x8F, {
     // pop
-    if(operand_size_32)
-    {
-        // change esp first, then resolve modrm address
-        var sp = safe_read32s(get_esp_read(0));
-        // TODO unsafe
+    var sp = safe_read16(get_esp_read(0));
 
-        stack_reg[reg_vsp] += 4;
-        set_ev32(sp);
-    }
-    else
-    {
-        var sp = safe_read16(get_esp_read(0));
+    stack_reg[reg_vsp] += 2;
+    set_ev16(sp);
+}, {
+    // change esp first, then resolve modrm address
+    var sp = safe_read32s(get_esp_read(0));
 
-        stack_reg[reg_vsp] += 2;
-        set_ev16(sp);
-    }
+    stack_reg[reg_vsp] += 4;
+    set_ev32(sp);
 });
 
 #define group90(n, r16, r32) op2(0x90 | n, { xchg16r(r16) }, { xchg32r(r32) })
@@ -594,11 +565,11 @@ op(0x90,  /* nop */ );
 
 op2(0x98, 
     { /* cbw */ reg16[reg_ax] = reg8s[reg_al]; },
-    { /* cwde */ reg32[reg_eax] = reg16s[reg_ax]; });
+    { /* cwde */ reg32s[reg_eax] = reg16s[reg_ax]; });
 
 op2(0x99, 
     { /* cwd */ reg16[reg_dx] = reg16s[reg_ax] >> 15; },
-    { /* cdq */ reg32[reg_edx] = reg32s[reg_eax] >> 31; });
+    { /* cdq */ reg32s[reg_edx] = reg32s[reg_eax] >> 31; });
     
 op2(0x9A, {
     // callf
@@ -709,7 +680,7 @@ op2(0xA1, {
     reg16[reg_ax] = data;
 }, {
     var data = safe_read32s(read_moffs());
-    reg32[reg_eax] = data;
+    reg32s[reg_eax] = data;
 });
 op(0xA2, {
     // mov
@@ -783,7 +754,7 @@ opm2(0xC1, {
         (data, read_imm8() & 31)
     )
 }, {
-    write_ev32(
+    write_ev32s(
         sub_op_expr(
             rol32,
             ror32,
@@ -837,7 +808,7 @@ op2(0xC9, {
     reg16[reg_bp] = pop16();
 }, {
     stack_reg[reg_vsp] = stack_reg[reg_vbp];
-    reg32[reg_ebp] = pop32s();
+    reg32s[reg_ebp] = pop32s();
 });
 op2(0xCA, {
     // retf
@@ -974,7 +945,7 @@ op2(0xCF, {
             switch_seg(reg_fs, pop32s() & 0xFFFF);
             switch_seg(reg_gs, pop32s() & 0xFFFF);
 
-            reg32[reg_esp] = temp_esp;
+            reg32s[reg_esp] = temp_esp;
             switch_seg(reg_ss, temp_ss & 0xFFFF);
 
             cpl = 3;
@@ -1026,7 +997,7 @@ op2(0xCF, {
         var temp_ss = pop32s();
 
 
-        reg32[reg_esp] = temp_esp;
+        reg32s[reg_esp] = temp_esp;
 
         update_flags(new_flags);
 
@@ -1096,7 +1067,7 @@ opm2(0xD1, {
         (data, 1)
     )
 }, {
-    write_ev32(
+    write_ev32s(
         sub_op_expr(
             rol32,
             ror32,
@@ -1141,7 +1112,7 @@ opm2(0xD3, {
         (data, reg8[reg_cl] & 31)
     )
 }, {
-    write_ev32(
+    write_ev32s(
         sub_op_expr(
             rol32,
             ror32,
@@ -1219,7 +1190,7 @@ op2(0xE5, {
 }, { 
     var port = read_imm8();
     test_privileges_for_io(port, 4);
-    reg32[reg_eax] = io.port_read32(port); 
+    reg32s[reg_eax] = io.port_read32(port); 
 });
 op(0xE6, { 
     var port = read_imm8();
@@ -1289,7 +1260,7 @@ op2(0xED, {
 }, { 
     var port = reg16[reg_dx];
     test_privileges_for_io(port, 4);
-    reg32[reg_eax] = io.port_read32(port); 
+    reg32s[reg_eax] = io.port_read32(port); 
 });
 op(0xEE, { 
     var port = reg16[reg_dx];
@@ -1394,7 +1365,7 @@ opm2(0xF7, {
         { read_e32s; test32(data, read_imm32s()); },
         { read_e32s; test32(data, read_imm32s()); },
         { write_ev32s(~(data)); },
-        { write_ev32(neg32(data)); },
+        { write_ev32s(neg32(data)); },
         { read_e32; mul32(data); },
         { read_e32s; imul32(data); },
         { read_e32; div32(data); },
@@ -1550,8 +1521,8 @@ opm2(0xFF, {
 }, {
     sub_op(
 
-        { write_ev32(inc32(data)); },
-        { write_ev32(dec32(data)); },
+        { write_ev32s(inc32(data)); },
+        { write_ev32s(dec32(data)); },
         { 
             // 2, call near
             read_e32s;
@@ -1839,17 +1810,17 @@ opm(0x20, {
     switch(modrm_byte >> 3 & 7)
     {
         case 0:
-            reg_e32 = cr0;
+            reg_e32s = cr0;
             break;
         case 2:
-            reg_e32 = cr2;
+            reg_e32s = cr2;
             break;
         case 3:
             //dbg_log("read cr3 (" + h(cr3, 8) + ")", LOG_CPU);
-            reg_e32 = cr3;
+            reg_e32s = cr3;
             break;
         case 4:
-            reg_e32 = cr4;
+            reg_e32s = cr4;
             break;
         default:
             dbg_log(modrm_byte >> 3 & 7);
@@ -1975,15 +1946,11 @@ todo_op(0x30);
 
 op(0x31, {
     // rdtsc - read timestamp counter
-    
-    //var cycles = (Date.now() - emulation_start) / 1000 * 3000000;
-    //reg32[reg_eax] = cycles;
-    //reg32[reg_edx] = cycles / 0x100000000;
 
     if(!protected_mode || !cpl || !(cr4 & 4))
     {
-        reg32[reg_eax] = cpu_timestamp_counter;
-        reg32[reg_edx] = cpu_timestamp_counter / 0x100000000;
+        reg32s[reg_eax] = cpu_timestamp_counter;
+        reg32s[reg_edx] = cpu_timestamp_counter / 0x100000000;
     }
     else
     {
@@ -2113,7 +2080,7 @@ opm(0xA3, {
         }
         else
         {
-            bt_reg(reg_e32s, reg_g32 & 31);
+            bt_reg(reg_e32s, reg_g32s & 31);
         }
     }
     else
@@ -2132,12 +2099,12 @@ opm(0xA3, {
 opm2(0xA4, {
     write_ev16(shld16(data, reg_g16, read_imm8() & 31));
 }, {
-    write_ev32(shld32(data, reg_g32, read_imm8() & 31));
+    write_ev32s(shld32(data, reg_g32s, read_imm8() & 31));
 });
 opm2(0xA5, {
     write_ev16(shld16(data, reg_g16, reg8[reg_cl] & 31));
 }, {
-    write_ev32(shld32(data, reg_g32, reg8[reg_cl] & 31));
+    write_ev32s(shld32(data, reg_g32s, reg8[reg_cl] & 31));
 });
 
 undefined_instruction(0xA6);
@@ -2160,12 +2127,12 @@ opm(0xAB, {
 opm2(0xAC, {
     write_ev16(shrd16(data, reg_g16, read_imm8() & 31));
 }, {
-    write_ev32(shrd32(data, reg_g32, read_imm8() & 31));
+    write_ev32s(shrd32(data, reg_g32s, read_imm8() & 31));
 });
 opm2(0xAD, {
     write_ev16(shrd16(data, reg_g16, reg8[reg_cl] & 31));
 }, {
-    write_ev32(shrd32(data, reg_g32, reg8[reg_cl] & 31));
+    write_ev32s(shrd32(data, reg_g32s, reg8[reg_cl] & 31));
 });
 
 todo_op(0xAE);
@@ -2175,7 +2142,7 @@ opm2(0xAF, {
     reg_g16 = imul_reg16(reg_g16s, data);
 }, {
     read_e32s;
-    reg_g32 = imul_reg32(reg_g32s, data);
+    reg_g32s = imul_reg32(reg_g32s, data);
 });
 
 
@@ -2205,59 +2172,54 @@ opm(0xB0, {
         reg8[reg_al] = data;
     }
 });
-opm(0xB1, {
+opm2(0xB1, {
     // cmpxchg16/32
-    if(operand_size_32)
+    if(modrm_byte < 0xC0)
+    {
+        var virt_addr = modrm_resolve(modrm_byte);
+        translate_address_write(virt_addr);
+        var data = safe_read16(virt_addr);
+    }
+    else
+        data = reg_e16;
+    
+    cmp16(data, reg16[reg_ax]);
+
+    if(getzf())
     {
         if(modrm_byte < 0xC0)
-        {
-            var virt_addr = modrm_resolve(modrm_byte);
-            translate_address_write(virt_addr);
-            var data = safe_read32(virt_addr);
-        }
+            safe_write16(virt_addr, reg_g16);
         else
-        {
-            data = reg_e32;
-        }
-
-        cmp32(data, reg32[reg_eax]);
-
-        if(getzf())
-        {
-            if(modrm_byte < 0xC0)
-                safe_write32(virt_addr, reg_g32);
-            else
-                reg_e32 = reg_g32;
-        }
-        else
-        {
-            reg32[reg_eax] = data;
-        }
+            reg_e16 = reg_g16;
     }
     else
     {
-        if(modrm_byte < 0xC0)
-        {
-            var virt_addr = modrm_resolve(modrm_byte);
-            translate_address_write(virt_addr);
-            var data = safe_read16(virt_addr);
-        }
-        else
-            data = reg_e16;
-        
-        cmp16(data, reg16[reg_ax]);
+        reg16[reg_ax] = data;
+    }
+}, {
+    if(modrm_byte < 0xC0)
+    {
+        var virt_addr = modrm_resolve(modrm_byte);
+        translate_address_write(virt_addr);
+        var data = safe_read32s(virt_addr);
+    }
+    else
+    {
+        data = reg_e32s;
+    }
 
-        if(getzf())
-        {
-            if(modrm_byte < 0xC0)
-                safe_write16(virt_addr, reg_g16);
-            else
-                reg_e16 = reg_g16;
-        }
+    cmp32(data, reg32s[reg_eax]);
+
+    if(getzf())
+    {
+        if(modrm_byte < 0xC0)
+            safe_write32(virt_addr, reg_g32s);
         else
-        {
-            reg16[reg_ax] = data;
-        }
+            reg_e32s = reg_g32s;
+    }
+    else
+    {
+        reg32s[reg_eax] = data;
     }
 });
 
@@ -2284,13 +2246,13 @@ opm2(0xB6, {
     reg_g16 = data;
 }, {
     read_e8;
-    reg_g32 = data;
+    reg_g32s = data;
 });
 
 opm(0xB7, {
     // movzx
     read_e16;
-    reg_g32 = data;
+    reg_g32s = data;
 });
 
 // popcnt
@@ -2351,7 +2313,7 @@ opm2(0xBC, {
     reg_g16 = bsf16(reg_g16, data);
 }, {
     read_e32s;
-    reg_g32 = bsf32(reg_g32, data);
+    reg_g32s = bsf32(reg_g32s, data);
 });
 
 opm2(0xBD, {
@@ -2359,7 +2321,7 @@ opm2(0xBD, {
     reg_g16 = bsr16(reg_g16, data);
 }, {
     read_e32s;
-    reg_g32 = bsr32(reg_g32, data);
+    reg_g32s = bsr32(reg_g32s, data);
 });
 
 opm2(0xBE, {
@@ -2384,7 +2346,7 @@ opm(0xC0, {
 opm2(0xC1, {
     write_ev16(xadd16(data, modrm_byte >> 2 & 14));
 }, {
-    write_ev32(xadd32(data, modrm_byte >> 3 & 7));
+    write_ev32s(xadd32(data, modrm_byte >> 3 & 7));
 });
 
 
@@ -2398,24 +2360,25 @@ opm(0xC7, {
     // cmpxchg8b
     var addr = modrm_resolve(modrm_byte);
     translate_address_write(addr);
+    translate_address_write(addr + 7);
     
-    var m64_low = safe_read32(addr);
-    var m64_high = safe_read32(addr + 4);
+    var m64_low = safe_read32s(addr);
+    var m64_high = safe_read32s(addr + 4);
 
-    if(reg32[reg_eax] === m64_low &&
-            reg32[reg_edx] === m64_high)
+    if(reg32s[reg_eax] === m64_low &&
+            reg32s[reg_edx] === m64_high)
     {
         flags |= flag_zero;
 
-        safe_write32(addr, reg32[reg_ebx]);
-        safe_write32(addr + 4, reg32[reg_ecx]);
+        safe_write32(addr, reg32s[reg_ebx]);
+        safe_write32(addr + 4, reg32s[reg_ecx]);
     }
     else
     {
         flags &= ~flag_zero;
 
-        reg32[reg_eax] = m64_low;
-        reg32[reg_edx] = m64_high;
+        reg32s[reg_eax] = m64_low;
+        reg32s[reg_edx] = m64_high;
     }
 
     flags_changed &= ~flag_zero;

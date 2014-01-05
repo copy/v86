@@ -22,22 +22,6 @@
 */
 "use strict";
 
-/**
- * Helper function for multiplying 2 32 bit numbers
- * Returns the low 32 bit (which would normally get cut off)
- *
- * @param {number} n1
- * @param {number} n2
- */
-function multiply_low(n1, n2)
-{
-    var low1 = n1 & 0xFFFF,
-        low2 = n2 & 0xFFFF,
-        high1 = n1 & ~0xFFFF,
-        high2 = n2 & ~0xFFFF;
-    
-    return low1 * low2 + low1 * high2 + high1 * low2;
-}
 
 
 function add8(dest_operand, source_operand)
@@ -51,7 +35,7 @@ function add8(dest_operand, source_operand)
 
     last_op1 = dest_operand;
     last_op2 = source_operand;
-    last_result = last_op1 + source_operand | 0;
+    last_add_result = last_result = last_op1 + source_operand | 0;
     
     last_op_size = OPSIZE_8;
     flags_changed = flags_all;
@@ -63,7 +47,7 @@ function add16(dest_operand, source_operand)
 {
     last_op1 = dest_operand;
     last_op2 = source_operand;
-    last_result = last_op1 + source_operand | 0;
+    last_add_result = last_result = last_op1 + source_operand | 0;
     
     last_op_size = OPSIZE_16;
     flags_changed = flags_all;
@@ -75,7 +59,7 @@ function add32(dest_operand, source_operand)
 {
     last_op1 = dest_operand;
     last_op2 = source_operand;
-    last_result = last_op1 + source_operand;
+    last_add_result = last_result = last_op1 + source_operand | 0;
     
     last_op_size = OPSIZE_32;
     flags_changed = flags_all;
@@ -85,9 +69,10 @@ function add32(dest_operand, source_operand)
 
 function adc8(dest_operand, source_operand)
 {
+    var cf = getcf();
     last_op1 = dest_operand;
     last_op2 = source_operand;
-    last_result = last_op1 + last_op2 + getcf() | 0;
+    last_add_result = last_result = last_op1 + last_op2 + cf | 0;
     
     last_op_size = OPSIZE_8;
     flags_changed = flags_all;
@@ -97,9 +82,10 @@ function adc8(dest_operand, source_operand)
 
 function adc16(dest_operand, source_operand)
 {
+    var cf = getcf();
     last_op1 = dest_operand;
     last_op2 = source_operand;
-    last_result = last_op1 + last_op2 + getcf() | 0;
+    last_add_result = last_result = last_op1 + last_op2 + cf | 0;
 
     last_op_size = OPSIZE_16;
     flags_changed = flags_all;
@@ -109,9 +95,10 @@ function adc16(dest_operand, source_operand)
 
 function adc32(dest_operand, source_operand)
 {
+    var cf = getcf();
     last_op1 = dest_operand;
     last_op2 = source_operand;
-    last_result = last_op1 + last_op2 + getcf();
+    last_add_result = last_result = last_op1 + last_op2 + cf | 0;
 
     last_op_size = OPSIZE_32;
     flags_changed = flags_all;
@@ -121,12 +108,9 @@ function adc32(dest_operand, source_operand)
 
 function cmp8(dest_operand, source_operand)
 {
-    dbg_assert(source_operand >= 0 && source_operand < 0x100);
-    dbg_assert(dest_operand >= 0 && dest_operand < 0x100);
-
-    last_op1 = dest_operand;
-    last_op2 = ~source_operand;
-    last_result = last_op1 - source_operand;
+    last_add_result = dest_operand;
+    last_op2 = source_operand;
+    last_op1 = last_result = dest_operand - source_operand | 0;
 
     last_op_size = OPSIZE_8;
     flags_changed = flags_all;
@@ -134,12 +118,9 @@ function cmp8(dest_operand, source_operand)
 
 function cmp16(dest_operand, source_operand)
 {
-    dbg_assert(source_operand >= 0 && source_operand < 0x10000);
-    dbg_assert(dest_operand >= 0 && dest_operand < 0x10000);
-
-    last_op1 = dest_operand;
-    last_op2 = ~source_operand;
-    last_result = last_op1 - source_operand;
+    last_add_result = dest_operand;
+    last_op2 = source_operand;
+    last_op1 = last_result = dest_operand - source_operand | 0;
     
     last_op_size = OPSIZE_16;
     flags_changed = flags_all;
@@ -147,12 +128,9 @@ function cmp16(dest_operand, source_operand)
 
 function cmp32(dest_operand, source_operand)
 {
-    dbg_assert(source_operand >= 0 && source_operand < 0x100000000);
-    dbg_assert(dest_operand >= 0 && dest_operand < 0x100000000);
-
-    last_op1 = dest_operand;
-    last_op2 = -source_operand - 1;
-    last_result = last_op1 - source_operand;
+    last_add_result = dest_operand;
+    last_op2 = source_operand;
+    last_op1 = last_result = dest_operand - source_operand | 0;
 
     last_op_size = OPSIZE_32;
     flags_changed = flags_all;
@@ -160,9 +138,9 @@ function cmp32(dest_operand, source_operand)
 
 function sub8(dest_operand, source_operand)
 {
-    last_op1 = dest_operand;
-    last_op2 = ~source_operand;
-    last_result = last_op1 - source_operand | 0;
+    last_add_result = dest_operand;
+    last_op2 = source_operand;
+    last_op1 = last_result = dest_operand - source_operand | 0;
     
     last_op_size = OPSIZE_8;
     flags_changed = flags_all;
@@ -172,9 +150,9 @@ function sub8(dest_operand, source_operand)
 
 function sub16(dest_operand, source_operand)
 {
-    last_op1 = dest_operand;
-    last_op2 = ~source_operand;
-    last_result = last_op1 - source_operand | 0;
+    last_add_result = dest_operand;
+    last_op2 = source_operand;
+    last_op1 = last_result = dest_operand - source_operand | 0;
 
     last_op_size = OPSIZE_16;
     flags_changed = flags_all;
@@ -184,9 +162,9 @@ function sub16(dest_operand, source_operand)
 
 function sub32(dest_operand, source_operand)
 {
-    last_op1 = dest_operand;
-    last_op2 = -source_operand - 1;
-    last_result = last_op1 - source_operand;
+    last_add_result = dest_operand;
+    last_op2 = source_operand;
+    last_op1 = last_result = dest_operand - source_operand | 0;
 
     last_op_size = OPSIZE_32;
     flags_changed = flags_all;
@@ -196,9 +174,10 @@ function sub32(dest_operand, source_operand)
 
 function sbb8(dest_operand, source_operand)
 {
-    last_op1 = dest_operand;
-    last_op2 = ~source_operand;
-    last_result = last_op1 - source_operand - getcf() | 0;
+    var cf = getcf();
+    last_add_result = dest_operand;
+    last_op2 = source_operand;
+    last_op1 = last_result = last_add_result - source_operand - cf | 0;
     
     last_op_size = OPSIZE_8;
     flags_changed = flags_all;
@@ -208,9 +187,10 @@ function sbb8(dest_operand, source_operand)
 
 function sbb16(dest_operand, source_operand)
 {
-    last_op1 = dest_operand;
-    last_op2 = ~source_operand;
-    last_result = last_op1 - source_operand - getcf() | 0;
+    var cf = getcf();
+    last_add_result = dest_operand;
+    last_op2 = source_operand;
+    last_op1 = last_result = last_add_result - source_operand - cf | 0;
     
     last_op_size = OPSIZE_16;
     flags_changed = flags_all;
@@ -220,9 +200,10 @@ function sbb16(dest_operand, source_operand)
 
 function sbb32(dest_operand, source_operand)
 {
-    last_op1 = dest_operand;
-    last_op2 = -source_operand - 1;
-    last_result = last_op1 - source_operand - getcf();
+    var cf = getcf();
+    last_add_result = dest_operand;
+    last_op2 = source_operand;
+    last_op1 = last_result = last_add_result - source_operand - cf | 0;
     
     last_op_size = OPSIZE_32;
     flags_changed = flags_all;
@@ -239,7 +220,7 @@ function inc8(dest_operand)
     flags = (flags & ~1) | getcf();
     last_op1 = dest_operand;
     last_op2 = 1;
-    last_result = last_op1 + 1 | 0;
+    last_add_result = last_result = last_op1 + 1 | 0;
     
     last_op_size = OPSIZE_8;
     flags_changed = flags_all & ~flag_carry;
@@ -252,7 +233,7 @@ function inc16(dest_operand)
     flags = (flags & ~1) | getcf();
     last_op1 = dest_operand;
     last_op2 = 1;
-    last_result = last_op1 + 1 | 0;
+    last_add_result = last_result = last_op1 + 1 | 0;
     
     last_op_size = OPSIZE_16;
     flags_changed = flags_all & ~flag_carry;
@@ -265,7 +246,7 @@ function inc32(dest_operand)
     flags = (flags & ~1) | getcf();
     last_op1 = dest_operand;
     last_op2 = 1;
-    last_result = last_op1 + 1;
+    last_add_result = last_result = last_op1 + 1 | 0;
     
     last_op_size = OPSIZE_32;
     flags_changed = flags_all & ~flag_carry;
@@ -278,9 +259,9 @@ function inc32(dest_operand)
 function dec8(dest_operand)
 {
     flags = (flags & ~1) | getcf();
-    last_op1 = dest_operand;
-    last_op2 = -1;
-    last_result = last_op1 - 1 | 0;
+    last_add_result = dest_operand;
+    last_op2 = 1;
+    last_op1 = last_result = dest_operand - 1 | 0;
     
     last_op_size = OPSIZE_8;
     flags_changed = flags_all & ~flag_carry;
@@ -291,9 +272,9 @@ function dec8(dest_operand)
 function dec16(dest_operand)
 {
     flags = (flags & ~1) | getcf();
-    last_op1 = dest_operand;
-    last_op2 = -1;
-    last_result = last_op1 - 1 | 0;
+    last_add_result = dest_operand;
+    last_op2 = 1;
+    last_op1 = last_result = dest_operand - 1 | 0;
 
     last_op_size = OPSIZE_16;
     flags_changed = flags_all & ~flag_carry;
@@ -304,9 +285,9 @@ function dec16(dest_operand)
 function dec32(dest_operand)
 {
     flags = (flags & ~1) | getcf();
-    last_op1 = dest_operand;
-    last_op2 = -1;
-    last_result = last_op1 - 1;
+    last_add_result = dest_operand;
+    last_op2 = 1;
+    last_op1 = last_result = dest_operand - 1 | 0;
 
     last_op_size = OPSIZE_32;
     flags_changed = flags_all & ~flag_carry;
@@ -321,39 +302,42 @@ function dec32(dest_operand)
 
 function neg8(dest_operand)
 {
-    last_result = -dest_operand;
+    last_op1 = last_result = -dest_operand | 0;
     
     flags_changed = flags_all;
     last_op_size = OPSIZE_8;
-    last_op1 = 0;
-    last_op2 = last_result - 1;
+    last_add_result = 0;
+    last_op2 = dest_operand;
 
     return last_result;
 }
 
 function neg16(dest_operand)
 {
-    last_result = -dest_operand;
+    last_op1 = last_result = -dest_operand | 0;
     
     flags_changed = flags_all;
     last_op_size = OPSIZE_16;
-    last_op1 = 0;
-    last_op2 = last_result - 1;
+    last_add_result = 0;
+    last_op2 = dest_operand;
 
     return last_result;
 }
 
 function neg32(dest_operand)
 {
-    last_result = -dest_operand;
+    last_op1 = last_result = -dest_operand | 0;
     
     flags_changed = flags_all;
     last_op_size = OPSIZE_32;
-    last_op1 = 0;
-    last_op2 = last_result - 1;
+    last_add_result = 0;
+    last_op2 = dest_operand;
 
     return last_result;
 }
+
+
+
 
 /*
  * mul, imul, div, idiv
@@ -362,6 +346,32 @@ function neg32(dest_operand)
  *       while other functions only allow
  *       ax * modrm
  */
+
+#define do_mul32(a, b)\
+    var a00 = a & 0xFFFF, \
+        a16 = a >>> 16, \
+        b00 = b & 0xFFFF, \
+        b16 = b >>> 16, \
+        c00 = a00 * b00 | 0, \
+        c16 = (c00 >>> 16) + a16 * b00 + a00 * b16 | 0, \
+        low_result = (c16 << 16) | c00 & 0xFFFF, \
+        high_result = (c16 >>> 16) + a16 * b16 | 0; 
+
+#define do_imul32(a, b)\
+    var is_neg = false; \
+    if(a < 0) { \
+        is_neg = true; \
+        a = -a | 0; \
+    } \
+    if(b < 0) { \
+        is_neg = !is_neg; \
+        b = -b | 0; \
+    } \
+    do_mul32(a, b); \
+    if(is_neg) { \
+        low_result = -low_result | 0; \
+        high_result = ~high_result + !low_result | 0; \
+    }
 
 function mul8(source_operand)
 {
@@ -467,10 +477,11 @@ function imul_reg16(operand1, operand2)
 
 function mul32(source_operand)
 {
-    var dest_operand = reg32[reg_eax],
-        high_result = source_operand * dest_operand / 0x100000000 | 0;
+    var dest_operand = reg32s[reg_eax];
 
-    reg32[reg_eax] = multiply_low(source_operand, dest_operand);
+    do_mul32(dest_operand, source_operand);
+
+    reg32[reg_eax] = low_result;
     reg32[reg_edx] = high_result;
 
     if(high_result === 0)
@@ -491,19 +502,14 @@ function imul32(source_operand)
 {
     dbg_assert(source_operand < 0x80000000 && source_operand >= -0x80000000);
 
-    var dest_operand = reg32s[reg_eax],
-        high_result = source_operand * dest_operand / 0x100000000 | 0,
-        low_result = multiply_low(source_operand, dest_operand);
+    var dest_operand = reg32s[reg_eax];
 
-    if(high_result === 0 && low_result < 0)
-    {
-        high_result = -1;
-    }
+    do_imul32(dest_operand, source_operand);
     
-    reg32[reg_eax] = low_result;
-    reg32[reg_edx] = high_result;
+    reg32s[reg_eax] = low_result;
+    reg32s[reg_edx] = high_result;
 
-    if(high_result === (reg32[reg_eax] < 0x80000000 ? 0 : -1))
+    if(high_result === (low_result >> 31))
     {
         flags &= ~1 & ~flag_overflow;
     }
@@ -512,7 +518,6 @@ function imul32(source_operand)
         flags |= 1 | flag_overflow;
     }
     flags_changed = 0;
-
 
     //console.log(target_operand + " * " + source_operand);
     //console.log("= " + h(reg32[reg_edx]) + " " + h(reg32[reg_eax]));
@@ -528,10 +533,9 @@ function imul_reg32(operand1, operand2)
     dbg_assert(operand1 < 0x80000000 && operand1 >= -0x80000000);
     dbg_assert(operand2 < 0x80000000 && operand2 >= -0x80000000);
 
-    var result = multiply_low(operand1, operand2),
-        high_result = operand1 * operand2 / 0x100000000 | 0;
+    do_imul32(operand1, operand2);
 
-    if(high_result === 0)
+    if(high_result === (low_result >> 31))
     {
         flags &= ~1 & ~flag_overflow;
     }
@@ -541,7 +545,7 @@ function imul_reg32(operand1, operand2)
     }
     flags_changed = 0;
 
-    return result;
+    return low_result;
 
     //console.log(operand + " * " + source_operand);
     //console.log("= " + reg32[reg]);
@@ -696,9 +700,9 @@ function xadd16(source_operand, reg)
 
 function xadd32(source_operand, reg)
 {
-    var tmp = reg32[reg];
+    var tmp = reg32s[reg];
 
-    reg32[reg] = source_operand;
+    reg32s[reg] = source_operand;
 
     return add32(source_operand, tmp);
 }
@@ -1632,3 +1636,5 @@ function bsr32(old, bit_base)
 }
 
 
+#undef do_mul32
+#undef do_imul32

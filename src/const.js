@@ -44,17 +44,8 @@ var
 
 
 
-///** @const */ LOG_LEVEL = LOG_OTHER | LOG_PS2 | LOG_BIOS;
-///** @const */ LOG_LEVEL = LOG_PS2 | LOG_OTHER | LOG_IO;
-///** @const */ LOG_LEVEL = LOG_PS2;
-///** @const */ LOG_LEVEL = LOG_OTHER | LOG_CPU | LOG_BIOS;
-///** @const */ LOG_LEVEL = LOG_VGA | LOG_IO | LOG_BIOS | LOG_OTHER;
-///** @const */ LOG_LEVEL = LOG_FPU | LOG_OTHER;
-///** @const */ LOG_LEVEL = LOG_DMA | LOG_DISK | LOG_IO | LOG_PCI;
-//** @const */ LOG_LEVEL = LOG_DMA | LOG_DISK | LOG_PCI | LOG_CD | LOG_BIOS;
 /** @const */ LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_PS2 & ~LOG_DISK & ~LOG_PIT;
-///** @const */ LOG_LEVEL = LOG_SERIAL | LOG_IO;
-///** @const */ LOG_LEVEL = LOG_PIT | LOG_RTC;
+///** @const */ LOG_LEVEL = LOG_OTHER | LOG_PS2;
 ///** @const */ LOG_LEVEL = 0;
 
 
@@ -117,17 +108,16 @@ flags_mask =
 flags_all = flag_carry | flag_parity | flag_adjust | flag_zero | flag_sign | flag_overflow,
 
 
-
 /**
  * opsizes used by get flag functions
  *
  * @const
  */
-OPSIZE_8 = 8,
+OPSIZE_8 = 0x80,
 /** @const */
-OPSIZE_16 = 16,
+OPSIZE_16 = 0x8000,
 /** @const */
-OPSIZE_32 = 32,
+OPSIZE_32 = -0x80000000,
 
 /** @const */
 PSE_ENABLED = 128,
@@ -171,7 +161,7 @@ PSE_ENABLED = 128,
 
 
 /** @const */ LOOP_COUNTER = 2001,
-/** @const */ TIME_PER_FRAME = 33;
+/** @const */ TIME_PER_FRAME = 20;
 
 
 var 

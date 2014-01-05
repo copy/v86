@@ -299,9 +299,6 @@ var
     repeat_string_type,
 
     /** @type {number} */
-    last_result,
-
-    /** @type {number} */
     flags,
 
     /** 
@@ -320,6 +317,12 @@ var
     last_op2,
     /** @type {number} */
     last_op_size,
+
+    /** @type {number} */
+    last_add_result,
+
+    /** @type {number} */
+    last_result,
 
 
     // registers
@@ -546,6 +549,7 @@ function cpu_init(settings)
     segment_prefix = -1;
     repeat_string_prefix = false;
     last_result = 0;
+    last_add_result = 0;
     flags = flags_default;
     flags_changed = 0;
     last_op1 = 0;
@@ -1254,7 +1258,7 @@ function read_moffs()
 
 function get_flags()
 {
-    return (flags & ~flags_all) | getcf() | getpf() | getaf() | getzf() | getsf() | getof();
+    return (flags & ~flags_all) | !!getcf() | !!getpf() << 2 | !!getaf() << 4 | !!getzf() << 6 | !!getsf() << 7 | !!getof() << 11;
 }
 
 function load_flags()
@@ -1441,11 +1445,6 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
         if(info.is_null)
         {
             dbg_log("is null");
-            throw unimpl("#GP handler");
-        }
-        if(info === -1)
-        {
-            dbg_log("is -1");
             throw unimpl("#GP handler");
         }
         if(!info.is_executable || info.dpl > cpl)
@@ -2375,6 +2374,8 @@ function do_page_translation(addr, for_writing, user)
         global,
         cachable = true,
         allow_user = true;
+
+    dbg_assert(addr < 0x80000000);
 
     if(!(page_dir_entry & 1))
     {
