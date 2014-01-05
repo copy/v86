@@ -8,6 +8,10 @@ debug.dump_page_directory = dump_page_directory;
 debug.dump_gdt_ldt = dump_gdt_ldt;
 debug.dump_idt = dump_idt;
 
+debug.get_memory_dump = get_memory_dump;
+debug.memory_hex_dump = memory_hex_dump;
+debug.used_memory_dump = used_memory_dump;
+
 debug.step = step;
 debug.run_until = run_until;
 
@@ -88,7 +92,7 @@ function logop(_ip, op)
     }
     if(!step_mode)
     {
-        return;
+        //return;
     }
     
 
@@ -170,7 +174,7 @@ function dump_regs()
         }
     }
 
-    log(out.substr(0, out.length - 1));
+    envapi.log(out.substr(0, out.length - 1));
     ops.clear();
     
     dbg_log("----- DUMP (ip = 0x" + h(instruction_pointer >>> 0) + ") ----------")
@@ -397,7 +401,7 @@ function dump_page_directory()
         if(entry.accessed)
             flags += 'A ';
 
-        dbg_log("=== " + h(entry.address >>> 0, 8) + " | " + flags);
+        dbg_log("=== " + h((i << 22) >>> 0, 8) + " | " + flags);
         
         if(entry.size)
         {
@@ -441,5 +445,81 @@ function dump_page_directory()
         }
     }
 }
+
+
+function get_memory_dump(start, count)
+{
+    if(start === undefined)
+    {
+        start = 0;
+        count = memory_size;
+    }
+    else if(count === undefined)
+    {
+        count = start;
+        start = 0;
+    }
+
+    // textarea method: (slow)
+    //var result_string = "";
+    //for(var i = start; i < start + end; i++)
+    //{
+    //    result_string += String.fromCharCode(int8array[i]);
+    //}
+    //dump_text(btoa(result_string));
+
+    return memory.buffer.slice(start, start + count);
+}
+    
+
+function memory_hex_dump(addr, length)
+{
+    length = length || 4 * 0x10;
+    var line, byt;
+    
+    for(var i = 0; i < length >> 4; i++)
+    {
+        line = h(addr + (i << 4), 5) + "   ";
+
+        for(var j = 0; j < 0x10; j++)
+        {
+            byt = memory.read8(addr + (i << 4) + j);
+            line += h(byt, 2) + " ";
+        }
+
+        line += "  ";
+
+        for(j = 0; j < 0x10; j++)
+        {
+            byt = memory.read8(addr + (i << 4) + j);
+            line += (byt < 33 || byt > 126) ? "." : String.fromCharCode(byt);
+        }
+
+        dbg_log(line);
+    }
+}
+
+function used_memory_dump()
+{
+    var width = 0x80,
+        height = 0x10,
+        block_size = memory_size / width / height | 0,
+        row;
+
+    for(var i = 0; i < height; i++)
+    {
+        row = "0x" + h(i * width * block_size, 8) + " | ";
+
+        for(var j = 0; j < width; j++)
+        {
+            var used = memory.mem32s[(i * width + j) * block_size] > 0;
+
+            row += used ? "X" : " ";
+        }
+
+        dbg_log(row);
+    }
+};
+
 
 
