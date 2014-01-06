@@ -2358,6 +2358,11 @@ unimplemented_sse(0xC6);
 
 opm(0xC7, {
     // cmpxchg8b
+    if(modrm_byte >= 0xC0)
+    {
+        trigger_ud();
+    }
+
     var addr = modrm_resolve(modrm_byte);
     translate_address_write(addr);
     translate_address_write(addr + 7);
