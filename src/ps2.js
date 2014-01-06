@@ -43,7 +43,7 @@ function PS2(dev, keyboard, mouse)
         /** 
          * @type {Queue} 
          */
-        kbd_buffer = new Queue(32),
+        kbd_buffer = new ByteQueue(32),
 
         /** @type {number} */
         sample_rate = 100,
@@ -57,7 +57,7 @@ function PS2(dev, keyboard, mouse)
         /** 
          * @type {Queue} 
          */
-        mouse_buffer = new Queue(32);
+        mouse_buffer = new ByteQueue(32);
 
 
     if(keyboard)
@@ -74,74 +74,6 @@ function PS2(dev, keyboard, mouse)
         // TODO: Mouse Wheel
         // http://www.computer-engineering.org/ps2mouse/
     }
-
-    /** @constructor */
-    function Queue(size)
-    {
-        var data = new Uint8Array(size),
-            start,
-            end;
-
-        dbg_assert((size & size - 1) === 0);
-
-        this.length = 0;
-
-        this.push = function(item)
-        {
-            if(this.length === size)
-            {
-                dbg_log("Queue full", LOG_PS2);
-            }
-            else
-            {
-                this.length++;
-            }
-
-            data[end] = item;
-            end = end + 1 & size - 1;
-        };
-
-        this.shift = function()
-        {
-            if(!this.length)
-            {
-                dbg_log("Queue empty", LOG_PS2);
-                return 0;
-            }
-            else
-            {
-                var item = data[start];
-
-                start = start + 1 & size - 1
-                this.length--;
-
-                return item;
-            }
-        };
-
-        this.peek = function()
-        {
-            if(!this.length)
-            {
-                dbg_log("Queue empty", LOG_PS2);
-                return 0;
-            }
-            else
-            {
-                return data[start];
-            }
-        };
-
-        this.clear = function()
-        {
-            start = 0;
-            end = 0;
-            this.length = 0;
-        };
-
-        this.clear();
-    }
-
 
     function mouse_irq()
     {

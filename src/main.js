@@ -371,3 +371,74 @@ Math.roundInfinity = function(x)
     return x > 0 ? Math.ceil(x) : Math.floor(x);
 };
 
+
+/** 
+ * @constructor 
+ *
+ * Queue wrapper around Uint8Array
+ * Used by devices such as the PS2 controller
+ */
+function ByteQueue(size)
+{
+    var data = new Uint8Array(size),
+        start,
+        end;
+
+    dbg_assert((size & size - 1) === 0);
+
+    this.length = 0;
+
+    this.push = function(item)
+    {
+        if(this.length === size)
+        {
+            // intentional overwrite
+        }
+        else
+        {
+            this.length++;
+        }
+
+        data[end] = item;
+        end = end + 1 & size - 1;
+    };
+
+    this.shift = function()
+    {
+        if(!this.length)
+        {
+            return -1;
+        }
+        else
+        {
+            var item = data[start];
+
+            start = start + 1 & size - 1;
+            this.length--;
+
+            return item;
+        }
+    };
+
+    this.peek = function()
+    {
+        if(!this.length)
+        {
+            return -1;
+        }
+        else
+        {
+            return data[start];
+        }
+    };
+
+    this.clear = function()
+    {
+        start = 0;
+        end = 0;
+        this.length = 0;
+    };
+
+    this.clear();
+}
+
