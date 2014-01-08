@@ -54,6 +54,10 @@ else
 
 
 var
+    /** @type {number } */
+    memory_size = 0,
+
+
     segment_is_null,
     segment_offsets,
     segment_limits,
@@ -471,6 +475,8 @@ function cpu_init(settings)
 
     current_settings = settings;
 
+    memory_size = settings.memory_size || 1024 * 1024 * 64;
+
     cpu.memory = memory = new Memory(new ArrayBuffer(memory_size), memory_size); 
 
     segment_is_null = new Uint8Array(8);
@@ -683,12 +689,23 @@ function cpu_init(settings)
         devapi.dma = dma = new DMA(devapi);
  
 
-        cpu.dev.vga = vga = new VGAScreen(devapi, settings.screen_adapter, VGA_MEMORY_SIZE)
+        cpu.dev.vga = vga = new VGAScreen(devapi, 
+                settings.screen_adapter, settings.vga_memory_size || 8 * 1024 * 1024);
         cpu.dev.ps2 = ps2 = new PS2(devapi, settings.keyboard_adapter, settings.mouse_adapter);
         
         fpu = new FPU(devapi);
 
-        uart = new UART(devapi, { send_line: envapi.log });
+        if(settings.serial_adapter)
+        {
+            uart = new UART(devapi, 0x3F8, settings.serial_adapter);
+        }
+        else
+        {
+            uart = new UART(devapi, 0x3F8, { 
+                put_line: envapi.log,
+                init: function(fn) {  },
+            });
+        }
 
         cpu.dev.fdc = fdc = new FloppyController(devapi, settings.fda, settings.fdb);
 
@@ -707,7 +724,7 @@ function cpu_init(settings)
         //}
 
         devapi.pit = timer = new PIT(devapi);
-        devapi.rtc = rtc = new RTC(devapi, fdc.type);
+        devapi.rtc = rtc = new RTC(devapi, fdc.type, settings.boot_order || 0x213);
 
         if(ENABLE_ACPI)
         {
@@ -1816,8 +1833,10 @@ function cpuid()
     // TODO: Fill in with less bogus values
     
     // http://lxr.linux.no/linux+%2a/arch/x86/include/asm/cpufeature.h
+    // http://www.sandpile.org/x86/cpuid.htm
     
-    var id = reg32s[reg_eax];
+    var id = reg32s[reg_eax],
+        extended = reg32s[reg_eax] >>> 31;
     
     if((id & 0x7FFFFFFF) === 0)
     {
@@ -1833,10 +1852,11 @@ function cpuid()
     else if(id === 1)
     {
         // pentium
-        reg32[reg_eax] = 0x513;
+        reg32[reg_eax] = 3 | 6 << 4 | 15 << 8;
         reg32[reg_ebx] = 0;
         reg32[reg_ecx] = 0;
-        reg32[reg_edx] = fpu !== undefined | 1 << 3 | 1 << 4 | 1 << 8 | 1 << 13 | 1 << 15;
+        reg32[reg_edx] = fpu !== undefined | 1 << 1 | 1 << 3 | 1 << 4 | 1 << 5 | 
+                            1 << 8 | 1 << 13 | 1 << 15;
     }
     else if(id === 2)
     {
@@ -1848,18 +1868,23 @@ function cpuid()
     }
     else if(id === (0x80860000 | 0))
     {
+        // Transmeta level
         reg32[reg_eax] = 0;
         reg32[reg_ebx] = 0;
         reg32[reg_ecx] = 0;
         reg32[reg_edx] = 0;
     }
-    else if((id & (0xF0000000|0)) === 0x40000000)
+    else if((id & (0xC0000000|0)) === 0x40000000)
     {
-        // Invalid
+        // Not sure
+        reg32[reg_eax] = 0;
+        reg32[reg_ebx] = 0;
+        reg32[reg_ecx] = 0;
+        reg32[reg_edx] = 0;
     }
     else
     {
-        //if(DEBUG) throw "cpuid: unimplemented eax: " + h(id);
+        if(DEBUG) throw "cpuid: unimplemented eax: " + h(id);
     }
 }
 
@@ -1957,6 +1982,23 @@ function lookup_segment_selector(selector)
         from_gdt: is_gdt,
         is_null: false,
         is_valid: true,
+
+        base: 0,
+        access: 0,
+        flags: 0,
+        limit: 0,
+        type: 0,
+        dpl: 0,
+        is_system: false,
+        is_present: false,
+        is_executable: false,
+        rw_bit: false,
+        dc_bit: false,
+        size: false,
+        granularity: false,
+        real_limit: false,
+        is_writable: false,
+        is_readable: false,
     };
 
     if(is_gdt)
