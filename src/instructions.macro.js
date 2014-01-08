@@ -1943,6 +1943,10 @@ unimplemented_sse(0x2F);
 
 // wrmsr
 todo_op(0x30);
+op(0x30, {
+    // wrmsr - write maschine specific register
+    dbg_log("wrmsr ecx=" + h(reg32[reg_ecx], 8), LOG_CPU);
+});
 
 op(0x31, {
     // rdtsc - read timestamp counter
@@ -1951,6 +1955,8 @@ op(0x31, {
     {
         reg32s[reg_eax] = cpu_timestamp_counter;
         reg32s[reg_edx] = cpu_timestamp_counter / 0x100000000;
+
+        //dbg_log("rtdsc  edx:eax=" + h(reg32[reg_edx], 8) + ":" + h(reg32[reg_eax], 8), LOG_CPU);
     }
     else
     {
@@ -1958,8 +1964,10 @@ op(0x31, {
     }
 });
 
-// rdmsr
-todo_op(0x32);
+op(0x32, {
+    // rdmsr - read maschine specific register
+    dbg_log("rdmsr ecx=" + h(reg32[reg_ecx], 8), LOG_CPU);
+});
 // rdpmc
 todo_op(0x33);
 // sysenter
