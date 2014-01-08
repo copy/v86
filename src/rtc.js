@@ -2,11 +2,13 @@
  * RTC (real time clock) and CMOS
  * @constructor
  */
-function RTC(dev, diskette_type)
+function RTC(dev, diskette_type, boot_order)
 {
     var 
         io = dev.io,
         pic = dev.pic,
+
+        memory_size = dev.memory.size,
 
         cmos_index = 0,
         me = this,
@@ -78,7 +80,7 @@ function RTC(dev, diskette_type)
     {
         var index = cmos_index;
 
-        cmos_index = 0xD;
+        //cmos_index = 0xD;
 
         switch(index)
         {
@@ -137,14 +139,20 @@ function RTC(dev, diskette_type)
             case 0x35:
                 return (memory_size - 16 * 1024 * 1024) >> 24 & 0xff;
 
+
             case 0x38:
                 // used by seabios to determine the boot order
+                //   Nibble
+                //   1: FloppyPrio 
+                //   2: HDPrio 
+                //   3: CDPrio 
+                //   4: BEVPrio 
                 // bootflag 1, high nibble, lowest priority
                 // Low nibble: Disable floppy signature check (1)
-                return 0x31; // hd
+                return 1 | boot_order >> 4 & 0xF0;
             case 0x3D:
                 // bootflag 2, both nibbles, high and middle priority
-                return 0x21; // floppy first, cd second
+                return boot_order & 0xFF; 
 
             case 0x5B:
             case 0x5C:
