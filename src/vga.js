@@ -476,6 +476,11 @@ function VGAScreen(dev, adapter, vga_memory_size)
     {
         svga_memory[addr] = value;
 
+        if(!svga_enabled)
+        {
+            return;
+        }
+
         switch(svga_bpp)
         {
             case 32:
