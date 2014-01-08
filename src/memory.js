@@ -16,6 +16,8 @@ function Memory(buffer, memory_size)
 
     this.buffer = buffer;
 
+    this.size = memory_size;
+
     // debug function called by all memory reads and writes
 
     function debug_write(addr, size, value)

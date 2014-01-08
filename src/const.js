@@ -2,20 +2,6 @@
 /** @define {boolean} */            
 var DEBUG = true;
 
-var
-
-/** 
- * TODO: Make this configurable
- * @const 
- */
-VGA_MEMORY_SIZE = 128 * 64 * 1024,
-
-/** 
- * @const 
- * @type {number}
- */
-memory_size = 1024 * 1024 * 64;
-
 var 
 
 /** @const */ LOG_ALL = -1,
@@ -160,7 +146,7 @@ PSE_ENABLED = 128,
 
 
 
-/** @const */ LOOP_COUNTER = 2001,
+/** @const */ LOOP_COUNTER = 4001,
 /** @const */ TIME_PER_FRAME = 20;
 
 
