@@ -41,7 +41,7 @@ function PS2(dev, keyboard, mouse)
         next_read_resolution = false,
 
         /** 
-         * @type {Queue} 
+         * @type {ByteQueue} 
          */
         kbd_buffer = new ByteQueue(32),
 
@@ -55,7 +55,7 @@ function PS2(dev, keyboard, mouse)
         last_mouse_packet = -1,
 
         /** 
-         * @type {Queue} 
+         * @type {ByteQueue} 
          */
         mouse_buffer = new ByteQueue(32);
 
@@ -117,7 +117,10 @@ function PS2(dev, keyboard, mouse)
 
                 last_mouse_packet = now;
 
-                send_mouse_packet();
+                if(mouse_delta_x && mouse_delta_y)
+                {
+                    send_mouse_packet();
+                }
             }
         }
     }
@@ -137,12 +140,6 @@ function PS2(dev, keyboard, mouse)
 
     function send_mouse_packet()
     {
-        if(!mouse_delta_x && !mouse_delta_y && !mouse_clicks)
-        {
-            // Move along, nothing to see here
-            return;
-        }
-
         var info_byte = 
                 (mouse_delta_y < 0) << 5 |
                 (mouse_delta_x < 0) << 4 |
