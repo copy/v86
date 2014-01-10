@@ -718,6 +718,10 @@ function cpu_init(settings)
         {
             cpu.dev.hda = hda = new IDEDevice(devapi, settings.hda, false, 0);
         }
+        else
+        {
+            //cpu.dev.hda = hda = new IDEDevice(devapi, undefined, false, 0);
+        }
         //if(settings.hdb)
         //{
         //    cpu.dev.hdb = hdb = new IDEDevice(devapi, settings.hdb, false, 1);
@@ -1125,31 +1129,28 @@ function virt_boundary_read32s(low, high)
     dbg_assert((low & 0xFFF) >= 0xFFD);
     dbg_assert((high - 3 & 0xFFF) === (low & 0xFFF));
 
-    var result = memory.read8(low) | memory.read8(high) << 24;
+    var mid;
 
     if(low & 1)
     {
         if(low & 2)
         {
             // 0xFFF
-            result |= memory.read8(high - 2) << 8 | 
-                        memory.read8(high - 1) << 16;
+            mid = memory.read_aligned16(high - 2 >> 1);
         }
         else
         {
             // 0xFFD
-            result |= memory.read8(low + 1) << 8 | 
-                        memory.read8(low + 2) << 16;
+            mid = memory.read_aligned16(low + 1 >> 1);
         }
     }
     else
     {
         // 0xFFE
-        result |= memory.read8(low + 1) << 8 | 
-                    memory.read8(high - 1) << 16;
+        mid = virt_boundary_read16(low + 1, high - 1); 
     }
 
-    return result;
+    return memory.read8(low) | mid << 8 | memory.read8(high) << 24;;
 }
 
 function virt_boundary_write16(low, high, value)
