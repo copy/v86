@@ -27,7 +27,6 @@
     font-weight: bold;
     font-size: 15px;
     line-height: 1;
-    float: left;
 }
 #screen, #vga {
     border: 1px solid #555;
