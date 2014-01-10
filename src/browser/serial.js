@@ -39,7 +39,11 @@ function SerialAdapter(element)
         else
         {
             element.textContent += str;
-            element.scrollTop = 1e9;
+
+            if(str === "\n")
+            {
+                element.scrollTop = 1e9;
+            }
         }
     }
 
