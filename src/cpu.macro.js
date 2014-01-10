@@ -893,14 +893,14 @@ function do_run()
 
     if(now - start > TIME_PER_FRAME)
     {
-        if(loop_counter > 1)
+        if(loop_counter > 3)
         {
-            loop_counter--;
+            loop_counter -= 3;
         }
     }
     else
     {
-        loop_counter++;
+        loop_counter += 2;
     }
 
     previous_ip = instruction_pointer;
