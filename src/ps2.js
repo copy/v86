@@ -38,6 +38,10 @@ function PS2(dev, keyboard, mouse)
         /** @type {boolean} */
         next_read_led = false,
 
+        /** @type {boolean} */
+        next_read_rate = false,
+
+        /** @type {boolean} */
         next_read_resolution = false,
 
         /** 
@@ -115,8 +119,6 @@ function PS2(dev, keyboard, mouse)
                     return;
                 }
 
-                last_mouse_packet = now;
-
                 if(mouse_delta_x && mouse_delta_y)
                 {
                     send_mouse_packet();
@@ -145,6 +147,8 @@ function PS2(dev, keyboard, mouse)
                 (mouse_delta_x < 0) << 4 |
                 1 << 3 | 
                 mouse_clicks;
+
+        last_mouse_packet = Date.now();
 
         mouse_buffer.push(info_byte);
         mouse_buffer.push(mouse_delta_x);
@@ -310,6 +314,13 @@ function PS2(dev, keyboard, mouse)
             kbd_buffer.push(0xFA);
             kbd_irq();
         }
+        else if(next_read_rate)
+        {
+            // nope
+            next_read_rate = false;
+            kbd_buffer.push(0xFA);
+            kbd_irq();
+        }
         else if(next_is_mouse_command)
         {
             dbg_log("Port 60 data register write: " + h(write_byte), LOG_PS2); 
@@ -323,61 +334,62 @@ function PS2(dev, keyboard, mouse)
             mouse_buffer.clear();
             mouse_buffer.push(0xFA);
 
-            if(write_byte === 0xFF)
+            switch(write_byte)
             {
+            case 0xE6:
+                  // set scaling to 1:1
+                break;
+            case 0xE7:
+                  // set scaling to 2:1
+                break;
+            case 0xE8:
+                // set mouse resolution
+                next_read_resolution = true;
+                break;
+            case 0xE9:
+                  // status request - send one packet
+                send_mouse_packet();
+                break;
+            case 0xEB:
+                // request single packet
+                dbg_log("unimplemented request single packet", LOG_PS2);
+                break;
+            case 0xF2:
+                  //  MouseID Byte
+                mouse_buffer.push(0);
+                mouse_buffer.push(0);
+                break;
+            case 0xF3:
+                // sample rate
+                next_read_sample = true;
+                break;
+            case 0xF4:
+                // enable streaming
+                enable_mouse_stream = true;
+                enable_mouse = true;
+                mouse.enabled = true;
+                break;
+            case 0xF5:
+                // disable streaming
+                enable_mouse_stream = false;
+                break;
+            case 0xF6:
+                // reset defaults 
+                enable_mouse_stream = false;
+                sample_rate = 100;
+                // ... resolution, scaling
+                break;
+            case 0xFF:
                 // reset, send completion code
                 mouse_buffer.push(0xAA);
                 mouse_buffer.push(0);
 
                 enable_mouse = true;
                 mouse.enabled = true;
-            }
-            else if(write_byte === 0xF2)
-            {
-                //  MouseID Byte
-                mouse_buffer.push(0);
-                mouse_buffer.push(0);
-            }
-            else if(write_byte === 0xF3)
-            {
-                // sample rate
-                next_read_sample = true;
-            }
-            else if(write_byte === 0xF4)
-            {
-                // enable streaming
+                break;
 
-                enable_mouse_stream = true;
-                enable_mouse = true;
-
-                mouse.enabled = true;
-            }
-            else if(write_byte === 0xF5)
-            {
-                // disable streaming
-                enable_mouse_stream = false;
-            }
-            else if(write_byte === 0xF6)
-            {
-                // reset defaults 
-                enable_mouse_stream = false;
-                sample_rate = 100;
-
-                // ... resolution, scaling
-            }
-            else if(write_byte === 0xE8)
-            {
-                // set mouse resolution
-                next_read_resolution = true;
-            }
-            else if(write_byte === 0xEB)
-            {
-                // request single packet
-                dbg_log("unimplemented request single packet", LOG_PS2);
-            }
-            else 
-            {
-                dbg_log("new mouse command: " + h(write_byte), LOG_PS2);
+            default:
+                dbg_log("Unimplemented mouse command: " + h(write_byte), LOG_PS2);
             }
 
             mouse_irq();
@@ -389,36 +401,35 @@ function PS2(dev, keyboard, mouse)
             // send ack
             kbd_buffer.push(0xFA);
 
-            if(write_byte === 0xFF)
+            switch(write_byte)
             {
-                //kbd_buffer.push(0xAA, 0x00);
-                kbd_buffer.clear();
-                kbd_buffer.push(0xFA);
-                kbd_buffer.push(0xAA);
-            }
-            else if(write_byte === 0xF2)
-            {
+            case 0xED:
+                next_read_led = true;
+                break;
+            case 0xF2:
                 // identify
                 kbd_buffer.push(0xAB);
                 kbd_buffer.push(83);
-            }
-            else if(write_byte === 0xF4)
-            {
+                break;
+            case 0xF3:
+                //  Set typematic rate and delay 
+                next_read_rate = true;
+                break;
+            case 0xF4:
                 // enable scanning
                 dbg_log("kbd enable scanning", LOG_PS2);
-            }
-            else if(write_byte === 0xF5)
-            {
+                break;
+            case 0xF5:
                 // disable scanning
                 dbg_log("kbd disable scanning", LOG_PS2);
-            }
-            else if(write_byte === 0xED)
-            {
-                next_read_led = true;
-            }
-            else 
-            {
-                dbg_log("new kbd command: " + h(write_byte), LOG_PS2);
+                break;
+            case 0xFF:
+                kbd_buffer.clear();
+                kbd_buffer.push(0xFA);
+                kbd_buffer.push(0xAA);
+                break;
+            default:
+                dbg_log("Unimplemented keyboard command: " + h(write_byte), LOG_PS2);
             }
             
             kbd_irq();
@@ -429,57 +440,60 @@ function PS2(dev, keyboard, mouse)
     {
         dbg_log("port 64 write: " + h(write_byte), LOG_PS2);
 
-        if(write_byte === 0xFE)
+        switch(write_byte)
         {
-            dbg_log("CPU reboot via PS2");
-            dev.reboot();
-        }
-        else if(write_byte === 0x20)
-        {
+        case 0x20:
             kbd_buffer.push(command_register);
-        }
-        else if(write_byte === 0x60)
-        {
+            break;
+        case 0x60:
             read_command_register = true;
-        }
-        else if(write_byte === 0xD3)
-        {
+            break;
+        case 0xD3:
             read_output_register = true;
-        }
-        else if(write_byte === 0xD4)
-        {
+            break;
+        case 0xD4:
             next_is_mouse_command = true;
-        }
-        else if(write_byte === 0xA9)
-        {
+            break;
+        case 0xA7:
+            // Disable second port
+            dbg_log("Disable second port", LOG_PS2);
+            command_register |= 0x20;
+            break;
+        case 0xA8:
+            // Enable second port
+            dbg_log("Enable second port", LOG_PS2);
+            command_register &= ~0x20;
+            break;
+        case 0xA9:
             // test second ps/2 port
             kbd_buffer.clear();
             kbd_buffer.push(0);
-        }
-        else if(write_byte === 0xAA)
-        {
+            break;
+        case 0xAA:
             kbd_buffer.clear();
             kbd_buffer.push(0x55);
-        }
-        else if(write_byte === 0xAB)
-        {
+            break;
+        case 0xAB:
             // Test first PS/2 port 
             kbd_buffer.clear();
             kbd_buffer.push(0);
-        }
-        else if(write_byte === 0xAE)
-        {
+            break;
+        case 0xAD:
+            // Disable Keyboard
+            dbg_log("Disable Keyboard", LOG_PS2);
+            command_register |= 0x10;
+            break;
+        case 0xAE:
             // Enable Keyboard
             dbg_log("Enable Keyboard", LOG_PS2);
-        }
-        else if(write_byte === 0xA7)
-        {
-            // Disable second port
-            dbg_log("Disable second port", LOG_PS2);
-        }
-        else
-        {
-            dbg_log("port 64: New command byte: " + h(write_byte), LOG_PS2);
+            command_register &= ~0x10;
+            break;
+        case 0xFE:
+            dbg_log("CPU reboot via PS2");
+            dev.reboot();
+            break;
+        default:
+            dbg_log("port 64: Unimplemented command byte: " + h(write_byte), LOG_PS2);
         }
     };
 }
