@@ -20,6 +20,28 @@ debug.debugger = function()
     debugger;
 }
 
+/** 
+ * @param {string=} msg
+ */
+function unimpl(msg)
+{
+    var s = "Unimplemented" + (msg ? ": " + msg : "");
+
+    envapi.log(s);
+
+    if(DEBUG)
+    {
+        console.trace();
+        return s;
+    }
+    else
+    {
+        envapi.log("Execution stopped");
+        return s;
+    }
+    //this.name = "Unimplemented";
+}
+
 function step()
 {
     step_mode = true;
@@ -92,7 +114,7 @@ function logop(_ip, op)
     }
     if(!step_mode)
     {
-        //return;
+        return;
     }
     
 

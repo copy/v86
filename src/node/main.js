@@ -23,7 +23,14 @@ function local_require(file)
 var USE_SDL = true,
     FONT_FILE = path + "node/ascii.ttf";
 
-var envapi = {};
+function log(str)
+{
+    console.log(str);
+}
+
+var envapi = {
+    log: log,
+};
 
 (function()
 {
@@ -39,13 +46,6 @@ var envapi = {};
         setImmediate(tick_fn);
     };
 })();
-
-function log(str)
-{
-    console.log(str);
-}
-
-global.log = log;
 
 var fs = require('fs'),
     vm = require('vm'),

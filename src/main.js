@@ -238,28 +238,6 @@ Math.bcd_pack = function(n)
 }
 
 /** 
- * @param {string=} msg
- */
-function unimpl(msg)
-{
-    var s = "Unimplemented" + (msg ? ": " + msg : "");
-
-    log(s);
-
-    if(DEBUG)
-    {
-        console.trace();
-        return s;
-    }
-    else
-    {
-        log("Execution stopped");
-        return s;
-    }
-    //this.name = "Unimplemented";
-}
-
-/** 
  * Synchronous access to ArrayBuffer
  * @constructor
  */

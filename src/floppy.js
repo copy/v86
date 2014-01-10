@@ -61,7 +61,7 @@ function FloppyController(dev, fda_image, fdb_image)
     }
     else
     {
-        throw unimpl("Unknown floppy size: " + h(fda_image.byteLength));
+        throw "Unknown floppy size: " + h(fda_image.byteLength);
     }
 
     var status_reg0 = 0,
