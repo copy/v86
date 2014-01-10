@@ -188,7 +188,7 @@ function dump_regs()
     dbg_log("----- DUMP (ip = 0x" + h(instruction_pointer >>> 0) + ") ----------")
     dbg_log("protected mode: " + protected_mode);
     
-    for(i in r32)
+    for(var i in r32)
     {
         dbg_log(i + " =  0x" + h(reg32[r32[i]], 8));
     }
