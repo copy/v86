@@ -132,7 +132,7 @@ function getcf()
 {
     if(flags_changed & 1)
     {
-        return !!((last_op1 ^ (last_op1 ^ last_op2) & (last_op2 ^ last_add_result)) & last_op_size);
+        return +!!((last_op1 ^ (last_op1 ^ last_op2) & (last_op2 ^ last_add_result)) & last_op_size);
     }
     else
     {
@@ -247,7 +247,7 @@ function pusha16()
 
     // make sure we don't get a pagefault after having 
     // pushed several registers already
-    translate_address_write(temp - 15);
+    translate_address_write(get_seg(reg_ss) + temp - 15);
 
     push16(reg16[reg_ax]);
     push16(reg16[reg_cx]);
@@ -263,7 +263,7 @@ function pusha32()
 {
     var temp = reg32s[reg_esp];
 
-    translate_address_write(temp - 31);
+    translate_address_write(get_seg(reg_ss) + temp - 31);
 
     push32(reg32s[reg_eax]);
     push32(reg32s[reg_ecx]);
@@ -277,7 +277,7 @@ function pusha32()
 
 function popa16()
 {
-    translate_address_read(stack_reg[reg_vsp] + 15);
+    translate_address_read(get_seg(reg_ss) + stack_reg[reg_vsp] + 15);
 
     reg16[reg_di] = pop16();
     reg16[reg_si] = pop16();
@@ -291,7 +291,7 @@ function popa16()
 
 function popa32()
 {
-    translate_address_read(stack_reg[reg_vsp] + 31);
+    translate_address_read(get_seg(reg_ss) + stack_reg[reg_vsp] + 31);
 
     reg32[reg_edi] = pop32s();
     reg32[reg_esi] = pop32s();

@@ -1,4 +1,3 @@
-
 /** @define {boolean} */            
 var DEBUG = true;
 
@@ -30,7 +29,7 @@ var
 
 
 
-/** @const */ LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_PS2 & ~LOG_DISK & ~LOG_PIT;
+/** @const */ LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_DISK & ~LOG_PIT;
 ///** @const */ LOG_LEVEL = LOG_OTHER | LOG_PS2;
 ///** @const */ LOG_LEVEL = 0;
 
@@ -47,7 +46,7 @@ var
     ENABLE_HPET = false,
 
     /** @const */
-    ENABLE_ACPI = false;
+    ENABLE_ACPI = true;
 
 var 
 
@@ -146,8 +145,8 @@ PSE_ENABLED = 128,
 
 
 
-/** @const */ LOOP_COUNTER = 4001,
-/** @const */ TIME_PER_FRAME = 20;
+/** @const */ LOOP_COUNTER = 11001,
+/** @const */ TIME_PER_FRAME = 33;
 
 
 var 

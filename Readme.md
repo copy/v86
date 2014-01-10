@@ -38,7 +38,7 @@ How to build, run and embed?
 - If you want a compressed and fast (ie, with debug code removed) version, you
   need Closure Compiler. 
   Set the path to `compiler.jar` in the Makefile and run `make v86_all.js`.
-- ROM and disk images are loaded via AJAX, so if you want to try out `index.html`
+- ROM and disk images are loaded via XHR, so if you want to try out `index.html`
   locally, make sure to serve it from a local webserver.
 - For more details on how to customize the behaviour and interface, see [docs/adapters.md](docs/adapters.md).
 
@@ -54,13 +54,32 @@ there might be some actual uses.
 If you build something interesting, let me know. However, keep in mind that the project
 is not very stable at the moment.
 
+Compatibility
+-
+
+Here's an overview of the operating systems supported in v86:
+
+- Linux works pretty well. Graphical boots fails in many versions, but you
+  mostly get a shell. The mouse is never detected automatically.
+  - Damn Small Linux (2.4 Kernel): Run with `lowram` and choose PS2 mouse in
+    xsetup. Takes circa 10 minutes to boot.
+  - Tinycore, Nanolinux (3.0 kernel): `udev` and `X` fail, but you get a
+    terminal.
+- FreeDOS and Windows 1.01 run pretty good. A few applications cause the OS to
+  freeze. Some BIOS problems.
+- KolibriOS works.
+- Haiku boots after 30 minutes. r1alpha4 immediately reboots, the newest version
+  compiled from source works.
+
+
+
 
 How can I contribute?
 -
 
-- Someone who could work on hardware devices, such as a modem or the AT
-  controller.  I'll write an overview for that at a later point, if people are
-  interested. 
+- Someone who could work on new hardware devices, such as a modem. I'll write
+  an overview for that at a later point, if people are interested. Also, help
+  on the interface would be appreciated.
 - Donate. Since Bitcoin is the new cool thing, here's my address:
   `14KBXSoewGzbQY8VoznJ5MZXGxoia8RxC9`
 

@@ -41,6 +41,9 @@ var modrm_table16 = Array(0xC0),
     modrm_table16[n] = function() { return offset | 0; };
 
 
+#define getsib(mod)\
+    sib_table[read_imm8()](mod)
+
 entry16(0, ds, reg16[reg_bx] + reg16[reg_si])
 entry16(1, ds, reg16[reg_bx] + reg16[reg_di])
 entry16(2, ss, reg16[reg_bp] + reg16[reg_si])
@@ -138,15 +141,6 @@ modrm_resolve16 = function(modrm_byte)
 modrm_resolve32 = function(modrm_byte)
 {
     return modrm_table32[modrm_byte]();
-}
-
-/**
- * @param {boolean} mod
- * @return {number}
- */
-function getsib(mod)
-{
-    return sib_table[read_imm8()](mod);
 }
 
 #undef ds 

@@ -20,11 +20,15 @@ function IDEDevice(dev, buffer, is_cd, nr)
     {
         this.ata_port = 0x1F0;
         this.irq = 14;
+
+        this.pci_id = 0x1E << 3;
     }
     else
     {
         this.ata_port = 0x1F0;
-        this.irq = 15;
+        this.irq = 14;
+
+        this.pci_id = 0x1F << 3;
     }
 
     // alternate status, starting at 3f4/374
@@ -40,23 +44,35 @@ function IDEDevice(dev, buffer, is_cd, nr)
     this.buffer = buffer;
     this.is_atapi = is_cd;
 
-    this.sector_count = me.buffer.byteLength / this.sector_size;
-
-    if(is_cd)
+    if(buffer)
     {
-        this.head_count = 1;
-        this.sectors_per_track = 0;
+        this.sector_count = me.buffer.byteLength / this.sector_size;
+
+        if(is_cd)
+        {
+            this.head_count = 1;
+            this.sectors_per_track = 0;
+        }
+        else
+        {
+            this.head_count = 1;
+            this.sectors_per_track = 63;
+        }
+
+        this.cylinder_count = me.buffer.byteLength / 
+            this.head_count / (this.sectors_per_track + 1) / this.sector_size;
+
+        dbg_assert(this.cylinder_count === (this.cylinder_count | 0));
     }
     else
     {
-        this.head_count = 1;
-        this.sectors_per_track = 63;
+        this.sector_count = 0;
+
+        this.head_count = 0;
+        this.sectors_per_track = 0;
+
+        this.cylinder_count = 0;
     }
-
-    this.cylinder_count = me.buffer.byteLength / 
-        this.head_count / (this.sectors_per_track + 1) / this.sector_size;
-
-    dbg_assert(this.cylinder_count === (this.cylinder_count | 0));
 
     this.stats = {
         sectors_read: 0,
@@ -76,7 +92,6 @@ function IDEDevice(dev, buffer, is_cd, nr)
         }
     }
 
-    this.pci_id = 0x1F << 3;
     this.pci_space = [
         0x86, 0x80, 0x20, 0x3a, 0x05, 0x00, 0xa0, 0x02, 0x00, 0x8f, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
         this.ata_port & 0xFF | 1,      this.ata_port >> 8, 0x00, 0x00, 

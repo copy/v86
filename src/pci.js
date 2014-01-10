@@ -176,7 +176,7 @@ function PCI(dev)
 
         if(space)
         {
-            (new Uint8Array(space.buffer))[addr | byte_pos] = byte;
+            //(new Uint8Array(space.buffer))[addr | byte_pos] = byte;
 
             if(byte_pos === 3 && addr >= 0x10 && addr < 0x28)
             {
@@ -189,7 +189,7 @@ function PCI(dev)
                 if(bar)
                 {
                     dbg_assert(!(bar.size & bar.size - 1));
-                    space[addr >> 2] = value & ~(bar.size - 1) | 3;
+                    //space[addr >> 2] = value & ~(bar.size - 1) | 3;
                 }
                 else
                 {
