@@ -1,74 +1,142 @@
 "use strict";
 
 
-// setImmediate for the browser
-var next_tick, set_tick;
-
 (function()
 {
-    var fn,
-        host = location.protocol + "//" + location.host;
-
-    set_tick = function(f)
+    function log(data)
     {
-        fn = f;
+        var log_element = document.getElementById("log");
 
-        window.removeEventListener("message", tick_handler, false);
-        window.addEventListener("message", tick_handler, false);
-    };
-
-    next_tick = function()
-    {
-        window.postMessage(null, host);
-    };
-
-    function tick_handler(e)
-    {
-        if(e.origin === host)
-        {
-            fn();
-        }
+        log_element.style.display = "block";
+        log_element.textContent += data + "\n";
+        log_element.scrollTop = 1e9;
     }
-})();
 
-function log(data)
-{
-    var log_element = document.getElementById("log");
 
-    log_element.style.display = "block";
-    log_element.textContent += data + "\n";
-    log_element.scrollTop = 1e9;
-}
+    // setImmediate shim for the browser
+    var next_tick, set_tick;
 
-function dump_text(text)
-{
-    var box = document.createElement("textarea");
+    (function()
+    {
+        var fn,
+            host = location.protocol + "//" + location.host;
 
-    box.appendChild(document.createTextNode(text));
-    document.body.appendChild(box);
-}
+        set_tick = function(f)
+        {
+            fn = f;
 
-function dump_file(ab, name)
-{
-    var blob = new Blob([ab]),
-        a;
+            window.removeEventListener("message", tick_handler, false);
+            window.addEventListener("message", tick_handler, false);
+        };
 
-    a = document.createElement("a");
-    a["download"] = name;
-    a.href = window.URL.createObjectURL(blob),
-    a.textContent = "Download " + name;
-    a.onclick = function() { a.parentNode.removeChild(a); };
+        next_tick = function()
+        {
+            window.postMessage(null, host);
+        };
 
-    a.dataset["downloadurl"] = ["application/octet-stream", a["download"], a.href].join(":");
+        function tick_handler(e)
+        {
+            if(e.origin === host)
+            {
+                fn();
+            }
+        }
+    })();
 
-    document.body.appendChild(a);
-}
 
-(function()
-{
+    function dump_text(text)
+    {
+        var box = document.createElement("textarea");
+
+        box.appendChild(document.createTextNode(text));
+        document.body.appendChild(box);
+    }
+
+    function dump_file(ab, name)
+    {
+        var blob = new Blob([ab]),
+            a;
+
+        a = document.createElement("a");
+        a["download"] = name;
+        a.href = window.URL.createObjectURL(blob),
+        a.textContent = "Download " + name;
+        a.onclick = function() { a.parentNode.removeChild(a); };
+
+        a.dataset["downloadurl"] = ["application/octet-stream", a["download"], a.href].join(":");
+
+        document.body.appendChild(a);
+    }
     function set_title(text)
     {
         document.title = text + " - Virtual x86" +  (DEBUG ? " - debug" : "");
+    }
+
+    function time2str(time)
+    {
+        if(time < 60)
+        {
+            return time + "s";
+        }
+        else if(time < 3600)
+        {
+            return (time / 60 | 0) + "m " + String.pad0(time % 60, 2) + "s";
+        }
+        else
+        {
+            return (time / 3600 | 0) + "h " + 
+                String.pad0((time / 60 | 0) % 60, 2) + "m " + 
+                String.pad0(time % 60, 2) + "s";
+        }
+    }
+
+    function make_dom(obj)
+    {
+        var result;
+
+        if(typeof obj === "string")
+        {
+            // create text node from string
+            result = document.createTextNode(obj);
+        }
+        else if(typeof obj.length === "number")
+        {
+            // create list of elements
+            result = document.createDocumentFragment();
+
+            for(var i = 0; i < obj.length; i++)
+            {
+                result.appendChild(make_dom(obj[i]));
+            }
+        }
+        else if(typeof obj === "object")
+        {
+            // create single element
+            if(obj.tag === undefined)
+            {
+                throw "`tag` property required";
+            }
+
+            result = document.createElement(obj.tag);
+
+            for(var property in obj)
+            {
+                switch(property)
+                {
+                    case "children":
+                        result.appendChild(make_dom(obj.children));
+                        break;
+                    default:
+                        result[property] = obj[property];
+                }
+            }
+        }
+        else
+        {
+            throw "Invalid type: " + typeof obj;
+        }
+
+        return result;
     }
 
     /** @param {?=} progress */
@@ -387,8 +455,13 @@ function dump_file(ab, name)
 
     function $(id)
     {
+        if(!document.getElementById(id))
+            console.log("Element with id `" + id + "` not found");
+
         return document.getElementById(id);
     }
+
+
 
     window.onload = function()
     {
@@ -402,6 +475,40 @@ function dump_file(ab, name)
             load_devices: true
         };
 
+        function load_local(file, type, cont)
+        {
+            set_title(file.name);
+
+            // SyncFileBuffer:
+            // - loads the whole disk image into memory, impossible for large files (more than 1GB)
+            // - can later serve get/set operations fast and synchronously 
+            // - takes some time for first load, neglectable for small files (up to 100Mb)
+            //
+            // AsyncFileBuffer:
+            // - loads slices of the file asynchronously as requested
+            // - slower get/set
+            // - doesn't support writing yet
+            var loader = new SyncFileBuffer(file);
+
+            loader.onprogress = show_progress.bind(this, "Loading disk image into memory");
+
+            loader.onload = function()
+            {
+                switch(type)
+                {
+                case "floppy": 
+                   settings.fda = loader;
+                   break;
+                case "hd": 
+                   settings.hda = loader;
+                   break;
+                case "cdrom": 
+                   settings.cdrom = loader;
+                   break;
+                }
+                cont();
+            }
+        }
 
         $("lock_mouse").onclick = function()
         {
@@ -430,66 +537,11 @@ function dump_file(ab, name)
             settings.vga_bios = img;
         });
 
-        function load_local(me, type)
-        {
-            if(me.files.length)
-            {
-                set_title(me.files[0].name);
-
-                // SyncFileBuffer:
-                // - loads the whole disk image into memory, impossible for large files (more than 1GB)
-                // - can later serve get/set operations fast and synchronously 
-                // - takes some time for first load, neglectable for small files (up to 100Mb)
-                //
-                // AsyncFileBuffer:
-                // - loads slices of the file asynchronously as requested
-                // - slower get/set
-                // - doesn't support writing yet
-                var file = new SyncFileBuffer(me.files[0]);
-
-                file.onprogress = show_progress.bind(this, "Loading disk image into memory");
-
-                file.onload = function()
-                {
-                    switch(type)
-                    {
-                    case "floppy": 
-                       settings.floppy_disk = file;
-                       break;
-                    case "hd": 
-                       settings.hda_disk = file;
-                       break;
-                    case "cdrom": 
-                       settings.cdrom_disk = file;
-                       break;
-                    }
-                    init(settings);
-                }
-
-                $("boot_options").style.display = "none";
-            }
-        };
-
-        $("floppy_image").onchange = function() 
-        {
-            load_local(this, "floppy"); 
-        };
-
-        $("cd_image").onchange = function() 
-        {
-            load_local(this, "cdrom");
-        };
-
-        $("hd_image").onchange = function() 
-        {
-            load_local(this, "hd");
-        };
-
         $("start_freedos").onclick = function()
         {
             load_file("images/freedos722.img", function(buffer)
             {
-                settings.floppy_disk = new SyncBuffer(buffer);
+                settings.fda = new SyncBuffer(buffer);
                 set_title("FreeDOS");
                 init(settings);
             }, show_progress.bind(this, "Downloading image"));
@@ -502,7 +554,7 @@ function dump_file(ab, name)
         {
             load_file("images/windows101.img", function(buffer)
             {
-                settings.floppy_disk = new SyncBuffer(buffer);
+                settings.fda = new SyncBuffer(buffer);
                 set_title("Windows");
                 init(settings);
             }, show_progress.bind(this, "Downloading image"));
@@ -516,7 +568,7 @@ function dump_file(ab, name)
         {
             load_file("images/linux.iso", function(buffer)
             {
-                settings.cdrom_disk = new SyncBuffer(buffer);
+                settings.cdrom = new SyncBuffer(buffer);
                 set_title("Linux");
                 init(settings);
             }, show_progress.bind(this, "Downloading image"));
@@ -529,7 +581,7 @@ function dump_file(ab, name)
         {
             load_file("images/kolibri.img", function(buffer)
             {
-                settings.floppy_disk = new SyncBuffer(buffer);
+                settings.fda = new SyncBuffer(buffer);
                 set_title("KolibriOS");
                 init(settings);
             }, show_progress.bind(this, "Downloading image"));
@@ -542,7 +594,7 @@ function dump_file(ab, name)
         {
             load_file("images/openbsd.img", function(buffer)
             {
-                settings.floppy_disk = new SyncBuffer(buffer);
+                settings.fda = new SyncBuffer(buffer);
                 set_title("OpenBSD");
                 init(settings);
             }, show_progress.bind(this, "Downloading image"));
@@ -551,11 +603,58 @@ function dump_file(ab, name)
             $("boot_options").style.display = "none";
         };
 
+        $("start_emulation").onclick = function()
+        {
+            $("boot_options").style.display = "none";
+
+            var images = [];
+
+            if($("floppy_image").files.length)
+            {
+                images.push({
+                    file: $("floppy_image").files[0],
+                    type: "floppy",
+                });
+            }
+
+            if($("cd_image").files.length)
+            {
+                images.push({
+                    file: $("cd_image").files[0],
+                    type: "cdrom",
+                });
+            }
+
+            if($("hd_image").files.length)
+            {
+                images.push({
+                    file: $("hd_image").files[0],
+                    type: "hd",
+                });
+            }
+
+            function cont()
+            {
+                if(images.length === 0)
+                {
+                    init(settings);
+                }
+                else
+                {
+                    var obj = images.pop();
+
+                    load_local(obj.file, obj.type, cont);
+                }
+            }
+
+            cont();
+        };
+
         if(DEBUG)
         {
             $("start_test").onclick = function()
             {
-                settings.floppy_disk = new AsyncXHRBuffer("images/fd/freedos.part%d.img", 512, 720 * 1024);
+                settings.fda = new AsyncXHRBuffer("images/fd/freedos.part%d.img", 512, 720 * 1024);
                 init(settings);
 
                 //settings.bios = settings.vga_bios = undefined;
@@ -577,6 +676,51 @@ function dump_file(ab, name)
                 //    });
                 //});
             }
+
+            var log_levels = document.getElementById("log_levels"),
+                count = 0,
+                mask;
+
+            for(var i in dbg_names)
+            {
+                mask = +i;
+
+                if(mask == 1)
+                    continue;
+
+                var name = dbg_names[mask].toLowerCase(),
+                    input = document.createElement("input"),
+                    label = document.createElement("label")
+
+                input.type = "checkbox";
+
+                label.htmlFor = input.id = "log_" + name;
+
+                if(LOG_LEVEL & mask)
+                {
+                    input.checked = true;
+                }
+                input.mask = mask;
+
+                label.appendChild(input);
+                label.appendChild(document.createTextNode(name + " "));
+                log_levels.appendChild(label);
+            }
+
+            log_levels.onchange = function(e)
+            {
+                var target = e.target,
+                    mask = target.mask;
+
+                if(target.checked)
+                {
+                    LOG_LEVEL |= mask;
+                }
+                else
+                {
+                    LOG_LEVEL &= ~mask;
+                }
+            };
         }
     };
 
@@ -614,13 +758,43 @@ function dump_file(ab, name)
 
     function init(settings)
     {
-        var cpu = new v86(),
+        var envapi = {
+            set_tick: set_tick,
+            next_tick: next_tick,
+            log: log,
+        };
+
+        if(typeof performance === "object" && performance.now)
+        {
+            var offset = Date.now() - performance.now();
+
+            envapi.microtime = function()
+            {
+                return offset + performance.now()
+            };
+            envapi.detailed_microtime = false;
+        }
+        else
+        {
+            envapi.microtime = Date.now;
+            envapi.detailed_microtime = false;
+        }
+
+        var have_serial = true;
+
+        var cpu = new v86(envapi),
             screen_adapter = new ScreenAdapter();
 
         $("boot_options").style.display = "none";
         $("loading").style.display = "none";
         $("runtime_options").style.display = "block";
+        $("runtime_infos").style.display = "block";
         document.getElementsByClassName("phone_keyboard")[0].style.display = "block";
+
+        if($("news")) 
+        {
+            $("news").style.display = "none";
+        }
 
         if(DEBUG)
         {
@@ -637,6 +811,36 @@ function dump_file(ab, name)
             $("debugger").onclick = function()
             {
                 debug.debugger();
+            };
+
+            $("dump_gdt").onclick = function()
+            {
+                debug.dump_gdt_ldt();
+            };
+
+            $("dump_idt").onclick = function()
+            {
+                debug.dump_idt();
+            };
+
+            $("dump_regs").onclick = function()
+            {
+                debug.dump_regs();
+            };
+
+            $("dump_pt").onclick = function()
+            {
+                debug.dump_page_directory();
+            };
+
+            $("dump_instructions").onclick = function()
+            {
+                debug.dump_instructions();
+            };
+
+            $("memory_dump").onclick = function()
+            {
+                dump_file(debug.get_memory_dump(), "memory.bin");
             };
         }
 
@@ -661,29 +865,93 @@ function dump_file(ab, name)
             $("run").blur();
         };
 
-        var time = document.getElementById("running_time"),
-            ips = document.getElementById("speed"),
+        var time = $("running_time"),
+            ips = $("speed"),
+            avg_ips = $("avg_speed"),
             last_tick = Date.now(),
             running_time = 0,
+            summed_ips = 0,
             last_instr_counter = 0;
 
         function update_info()
         {
-            if(running)
+            if(!running)
             {
-                var now = Date.now();
+                return;
+            }
 
-                running_time += now - last_tick;
-                last_tick = now;
+            var now = Date.now(),
+                last_ips = (cpu.instr_counter - last_instr_counter) / 1000 | 0;
 
-                ips.textContent = (cpu.instr_counter - last_instr_counter) / 1000 | 0;
-                time.textContent = (running_time / 1000 | 0);
+            summed_ips += last_ips
+            running_time += now - last_tick;
+            last_tick = now;
 
-                last_instr_counter = cpu.instr_counter;
+            ips.textContent = last_ips;
+            avg_ips.textContent = summed_ips / running_time * 1000 | 0;
+            time.textContent = time2str(running_time / 1000 | 0);
+
+            last_instr_counter = cpu.instr_counter;
+        }
+
+        function update_other_info()
+        {
+            if(!running)
+            {
+                return;
+            }
+
+            var vga_stats = cpu.dev.vga.stats;
+
+            if(vga_stats.is_graphical)
+            {
+                $("info_vga_mode").textContent = "graphical";
+                $("info_res").textContent = vga_stats.res_x + "x" + vga_stats.res_y;
+                $("info_bpp").textContent = vga_stats.bpp;
+            }
+            else
+            {
+                $("info_vga_mode").textContent = "text";
+                $("info_res").textContent = "-";
+                $("info_bpp").textContent = "-";
+            }
+
+            if(settings.mouse_adapter)
+            {
+                $("info_mouse_enabled").textContent = 
+                    settings.mouse_adapter.enabled ? "Yes" : "No";
+            }
+
+            if(cpu.dev.hda)
+            {
+                var hda_stats = cpu.dev.hda.stats;
+
+                $("info_hda_sectors_read").textContent = hda_stats.sectors_read;
+                $("info_hda_bytes_read").textContent = hda_stats.bytes_read;
+
+                $("info_hda_sectors_written").textContent = hda_stats.sectors_written;
+                $("info_hda_bytes_written").textContent = hda_stats.bytes_written;
+            }
+            else
+            {
+                $("info_hda").style.display = "none";
+            }
+
+            if(cpu.dev.cdrom)
+            {
+                var cdrom_stats = cpu.dev.cdrom.stats;
+
+                $("info_cdrom_sectors_read").textContent = cdrom_stats.sectors_read;
+                $("info_cdrom_bytes_read").textContent = cdrom_stats.bytes_read;
+            }
+            else
+            {
+                $("info_cdrom").style.display = "none";
             }
         }
 
         setInterval(update_info, 1000);
+        setInterval(update_other_info, 2500);
 
         $("reset").onclick = function()
         {
@@ -691,22 +959,33 @@ function dump_file(ab, name)
             $("reset").blur();
         };
 
-        $("get_floppy").onclick = function()
+        // writable image types
+        var image_types = ["hda", "hdb", "fda", "fdb"];
+
+        for(var i = 0; i < image_types.length; i++)
         {
-            var buffer = cpu.dev.fdc.buffer;
+            var elem = $("get_" + image_types[i] + "_image");
 
-            if(!buffer)
+            if(settings[image_types[i]])
             {
-                return;
+                elem.onclick = (function(type)
+                {
+                    var buffer = settings[type];
+
+                    buffer.get_buffer(function(b)
+                    {
+                        dump_file(b, type + ".img");
+                    });
+
+                    this.blur();
+
+                }).bind(elem, image_types[i]);
             }
-
-            buffer.get_buffer(function(b)
+            else
             {
-                dump_file(b, "floppy.img");
-            });
-
-            $("get_floppy").blur();
-        };
+                elem.style.display = "none";
+            }
+        }
 
         $("ctrlaltdel").onclick = function()
         {
@@ -770,6 +1049,36 @@ function dump_file(ab, name)
         settings.screen_adapter = screen_adapter;
         settings.keyboard_adapter = new KeyboardAdapter();
         settings.mouse_adapter = new MouseAdapter();
+
+        settings.boot_order = parseInt($("boot_order").value, 16);
+
+        var memory_size = parseInt($("memory_size").value, 10) * 1024 * 1024;
+        if(memory_size >= 16 * 1024 * 1024 && memory_size < 2048 * 1024 * 1024)
+        {
+            settings.memory_size = memory_size;
+        }
+        else
+        {
+            log("Invalid memory size - ignored.");
+            settings.memory_size = 32 * 1024 * 1024;
+        }
+
+        var video_memory_size = parseInt($("video_memory_size").value, 10) * 1024 * 1024;
+        if(video_memory_size > 64 * 1024 && video_memory_size < 2048 * 1024 * 1024)
+        {
+            settings.vga_memory_size = video_memory_size;
+        }
+        else
+        {
+            log("Invalid video memory size - ignored.");
+            settings.vga_memory_size = 8 * 1024 * 1024;
+        }
+
+        if(have_serial)
+        {
+            settings.serial_adapter = new SerialAdapter($("serial"));
+            $("serial").style.display = "block";
+        }
 
         cpu.init(settings);
         cpu.run();

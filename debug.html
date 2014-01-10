@@ -8,38 +8,148 @@
 
 <textarea readonly id="log" style="display:none"></textarea>
 
-<div>
-
-    <a href="/v86/">To fast version</a>
-
-    <div id="boot_options">
-        CD image: <input type="file" id="cd_image"><br>
-        <small>(Bootable El Torito)</small><br><br>
-        Floppy disk image: <input type="file" id="floppy_image"><br>
-        <small>(1.44 or 2.88)</small><br><br>
-        Hard drive disk image: <input type="file" id="hd_image"><br>
-        <small></small><br><br>
-        <hr>
-        or    <input type="button" value="Start FreeDOS" id="start_freedos">
+<div id="runtime_infos" style="display: none">
+    Running: <span id="running_time">0s</span> <br>
+    Speed: <span id="speed">0</span>kIPS<br>
+    Avg speed: <span id="avg_speed">0</span>kIPS<br>
+    <br>
+    <div id="info_hda">
+        <b>HDA</b><br>
+        Sectors read: <span id="info_hda_sectors_read"></span><br>
+        Bytes read: <span id="info_hda_bytes_read"></span><br>
+        Sectors written: <span id="info_hda_sectors_written"></span><br>
+        Bytes written: <span id="info_hda_bytes_written"></span><br>
         <br>
-        <br>
-        <input type="button" value="Start Linux" id="start_linux">
-        <input type="button" value="Start KolibriOS" id="start_koli">
-        <input type="button" value="Start Windows" id="start_win101">
-        <input type="button" value="Start OpenBSD" id="start_bsd">
-        <input type="button" value="Start Test" id="start_test">
     </div>
+    <div id="info_cdrom">
+        <b>CDROM</b><br>
+        Sectors read: <span id="info_cdrom_sectors_read"></span><br>
+        Bytes read: <span id="info_cdrom_bytes_read"></span><br>
+        <br>
+    </div>
+    <b>VGA</b><br>
+    Mode: <span id="info_vga_mode"></span><br>
+    Resolution: <span id="info_res">-</span><br>
+    BPP: <span id="info_bpp">-</span><br>
+    <br>
+    Mouse: <span id="info_mouse_enabled">-</span><br>
+    <!-- Keyboard: <span id="info_keyboard_enabled">-</span><br> -->
+</div>
+
+<div>
+    <div id="boot_options">
+        <h4>Debugger</h4>
+        <input type="button" value="KolibriOS (1.4 MB)" id="start_koli"> 
+        <input type="button" value="Linux 2.6 (4.9 MB)" id="start_linux"> 
+        <input type="button" value="Windows 1.01 (1.4 MB)" id="start_win101"> 
+        <input type="button" value="FreeDOS (0.7 MB)" id="start_freedos"> 
+        <input type="button" value="OpenBSD (1.4 MB)" id="start_bsd"> 
+        <input type="button" value="Test" id="start_test"> 
+
+        <br>
+        <hr>
+
+        <table>
+            <tr>
+                <td width="250">CD image</td>
+                <td> 
+                    <!--
+                    <select>
+                        <option>None</option>
+                        <option>Local file</option>
+                        <option>External Server</option>
+                    </select>-->
+                    <input type="file" id="cd_image">
+                </td>
+            </tr>
+
+            <tr>
+                <td>Floppy disk image</td>
+                <td> <input type="file" id="floppy_image"><br></td>
+            </tr>
+
+            <tr>
+                <td>Hard drive disk image</td>
+                <td><input type="file" id="hd_image"><br></td>
+            </tr>
+
+            <tr>
+                <td colspan="2"><hr></td>
+            </tr>
+
+            <tr>
+                <td>Memory size</td>
+                <td>
+                    <input id="memory_size" type="number" value="64" min="16" max="2048" step="16"> MB<br>
+                </td>
+            </tr>
+
+            <tr>
+                <td>Video Memory size</td>
+                <td>
+                    <input id="video_memory_size" type="number" value="8" min="1" max="16" step="1"> MB<br>
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="2"><hr></td>
+            </tr>
+
+            <!--
+            <tr>
+                <td>Execution Cap </td>
+                <td> <input type="number" value="100" min="5" max="100" step="5"> %<br> </td>
+            </tr>
+            -->
+
+            <tr>
+                <td>Boot order</td>
+                <td> 
+                    <select id="boot_order">
+                        <option value="231">Floppy / CD / Hard Disk</option>
+                        <option value="321">Floppy / Hard Disk / CD</option>
+                        <option value="213">CD / Floppy / Hard Disk</option>
+                        <option value="123">CD / Hard Disk / Floppy</option>
+                        <option value="312">Hard Disk / Floppy / CD</option>
+                        <option value="132">Hard Disk / CD / Floppy</option>
+                    </select>
+                 </td>
+            </tr>
+        </table>
+
+        <br>
+        <button id="start_emulation">Start Emulation</button>
+        <!--
+        <br>
+        <div id="setup_error">Error: Video size must be at least over 9000</div>
+        -->
+        <!--
+        <br>
+        <br>
+        Link to this configuration: <a href="" id="config_link">http://copy.sh/v24/?a=b&amp;c=d</a>
+        -->
+    </div>
+
     <div id="runtime_options" style="display: none">
         <input type="button" value="Step" id="step">
         <input type="button" value="Run until" id="run_until">
         <input type="button" value="Debugger" id="debugger">
+        <input type="button" value="Dump Instructions" id="dump_instructions">
+        <input type="button" value="Dump Registers" id="dump_regs">
+        <input type="button" value="Dump GDT/LDT" id="dump_gdt">
+        <input type="button" value="Dump IDT" id="dump_idt">
+        <input type="button" value="Dump page tables" id="dump_pt">
+        <input type="button" value="Memory Dump" id="memory_dump">
         <br>
-        <div id="log_levels"></div>
+        <div id="log_levels"><b>Log:</b></div>
 
         <input type="button" value="Pause" id="run">
         <input type="button" value="Reset" id="reset">
         <input type="button" value="Send Ctrl-Alt-Del" id="ctrlaltdel">
-        <input type="button" value="Get floppy image" id="get_floppy">
+        <input type="button" value="Get floppy image" id="get_fda_image">
+        <input type="button" value="Get floppy image" id="get_fdb_image">
+        <input type="button" value="Get HDA image" id="get_hda_image">
+        <input type="button" value="Get HDB image" id="get_hdb_image">
         <input type="button" value="Lock mouse" id="lock_mouse">
         <input type="button" value="Go fullscreen" id="fullscreen">
         <input type="button" value="Take screenshot (only graphic modes)" id="take_screenshot">
@@ -47,16 +157,10 @@
         Scale: 
         <input type="number" min="0.25" step="0.25" value="1.0" id="scale" style="width: 50px">
 
-        <div id="info">
-            <div>running <span id="running_time"></span>s</div>
-            <div>speed <span id="speed"></span>kIPS</div>
-        </div>
-
     </div>
 
     <pre style="display: none" id="loading"></pre>
 
-    <br>
     <br>
 </div>
 
@@ -65,7 +169,15 @@
     <canvas id="vga"></canvas>
 </div>
 
-<br style="clear:both">
+<textarea cols="80" rows="25" id="serial" style="display:none">
+</textarea>
 
-<input class="phone_keyboard">
+<span style="clear:both"></span>
+
+<input type="text" class="phone_keyboard" style="display: none">
+<br>
+
+
+<hr>
+<a href="/v86/">To fast version</a>
 

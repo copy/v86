@@ -1,6 +1,7 @@
 "use strict";
 
 debug.dump_regs = dump_regs;
+debug.dump_instructions = dump_instructions;
 debug.dump_regs_short = dump_regs_short;
 debug.dump_stack = dump_stack;
 
@@ -44,8 +45,6 @@ function unimpl(msg)
 
 function step()
 {
-    step_mode = true;
-
     if(!running)
     {
         cycle(); 
@@ -183,21 +182,8 @@ function dump_regs()
         s = { "cs": reg_cs, "ds": reg_ds, "es": reg_es, 
               "fs": reg_fs, "gs": reg_gs, "ss": reg_ss },
 
-        out = "";
+        out;
 
-    
-    var opcodes = ops.toArray();
-    for(var i = 0; i < opcodes.length; i += 3)
-    {
-        if(opcodes[i])
-        {
-            out += h(opcodes[i], 8)  + ":        " + 
-                String.pads(opcodes[i + 1], 20) + h(opcodes[i + 2], 2) + "\n";
-        }
-    }
-
-    envapi.log(out.substr(0, out.length - 1));
-    ops.clear();
     
     dbg_log("----- DUMP (ip = 0x" + h(instruction_pointer >>> 0) + ") ----------")
     dbg_log("protected mode: " + protected_mode);
@@ -236,6 +222,26 @@ function dump_regs()
     //dbg_log("last operation: " + h(last_op1 | 0) + ", " +  h(last_op2 | 0) + " = " +
             //h(last_result | 0) + " (" + last_op_size + " bit)")
     
+}
+
+function dump_instructions()
+{
+    var opcodes = ops.toArray(),
+        out = "";
+
+    for(var i = 0; i < opcodes.length; i += 3)
+    {
+        if(opcodes[i])
+        {
+            out += h(opcodes[i], 8)  + ":        " + 
+                String.pads(opcodes[i + 1], 20) + h(opcodes[i + 2], 2) + "\n";
+        }
+    }
+
+    envapi.log(out.substr(0, out.length - 1));
+    ops.clear();
+
+    step_mode = true;
 }
 
 function dump_gdt_ldt()

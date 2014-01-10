@@ -6,46 +6,154 @@
 <script src="v86_all.js"></script>
 <link rel="stylesheet" href="v86.css">
 
-<textarea readonly id="log" style="display:none"></textarea>
+<textarea readonly id="log" style="display: none"></textarea>
+
+
+<div id="runtime_infos" style="display: none">
+    Running: <span id="running_time">0s</span> <br>
+    Speed: <span id="speed">0</span>kIPS<br>
+    Avg speed: <span id="avg_speed">0</span>kIPS<br>
+    <br>
+    <div id="info_hda">
+        <b>HDA</b><br>
+        Sectors read: <span id="info_hda_sectors_read"></span><br>
+        Bytes read: <span id="info_hda_bytes_read"></span><br>
+        Sectors written: <span id="info_hda_sectors_written"></span><br>
+        Bytes written: <span id="info_hda_bytes_written"></span><br>
+        <br>
+    </div>
+    <div id="info_cdrom">
+        <b>CDROM</b><br>
+        Sectors read: <span id="info_cdrom_sectors_read"></span><br>
+        Bytes read: <span id="info_cdrom_bytes_read"></span><br>
+        <br>
+    </div>
+    <b>VGA</b><br>
+    Mode: <span id="info_vga_mode"></span><br>
+    Resolution: <span id="info_res">-</span><br>
+    BPP: <span id="info_bpp">-</span><br>
+    <br>
+    Mouse: <span id="info_mouse_enabled">-</span><br>
+    <!-- Keyboard: <span id="info_keyboard_enabled">-</span><br> -->
+</div>
 
 <div>
     <div id="boot_options">
-        CD image: <input type="file" id="cd_image"><br>
+        <h4>Quickstart</h4>
+        <input type="button" value="KolibriOS (1.4 MB)" id="start_koli"> 
+        - Graphical OS, takes about 60 seconds to boot<br>
+        <input type="button" value="Linux 2.6 (4.9 MB)" id="start_linux"> 
+        - With busybox and lua interpreter, takes about 20 seconds to boot<br>
+        <input type="button" value="Windows 1.01 (1.4 MB)" id="start_win101"> 
+        - Takes 1 second to boot<br>
+        <input type="button" value="FreeDOS (0.7 MB)" id="start_freedos"> 
+        - With nasm, vim, debug.com, some games and demos, takes 1 second to boot<br>
+        <input type="button" value="OpenBSD (1.4 MB)" id="start_bsd"> 
+        - Random boot floppy, takes very long to boot<br>
+
         <br>
-        Floppy disk image: <input type="file" id="floppy_image"><br>
+        <hr>
+        <h4>Setup</h4>
+        <table>
+            <tr>
+                <td width="250">CD image</td>
+                <td> 
+                    <!--
+                    <select>
+                        <option>None</option>
+                        <option>Local file</option>
+                        <option>External Server</option>
+                    </select>-->
+                    <input type="file" id="cd_image">
+                </td>
+            </tr>
+
+            <tr>
+                <td>Floppy disk image</td>
+                <td> <input type="file" id="floppy_image"><br></td>
+            </tr>
+
+            <tr>
+                <td>Hard drive disk image</td>
+                <td><input type="file" id="hd_image"><br></td>
+            </tr>
+
+            <tr>
+                <td colspan="2"><hr></td>
+            </tr>
+
+            <tr>
+                <td>Memory size</td>
+                <td>
+                    <input id="memory_size" type="number" value="64" min="16" max="2048" step="16"> MB<br>
+                </td>
+            </tr>
+
+            <tr>
+                <td>Video Memory size</td>
+                <td>
+                    <input id="video_memory_size" type="number" value="8" min="1" max="16" step="1"> MB<br>
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="2"><hr></td>
+            </tr>
+
+            <!--
+            <tr>
+                <td>Execution Cap </td>
+                <td> <input type="number" value="100" min="5" max="100" step="5"> %<br> </td>
+            </tr>
+            -->
+
+            <tr>
+                <td>Boot order</td>
+                <td> 
+                    <select id="boot_order">
+                        <option value="231">Floppy / CD / Hard Disk</option>
+                        <option value="321">Floppy / Hard Disk / CD</option>
+                        <option value="213">CD / Floppy / Hard Disk</option>
+                        <option value="123">CD / Hard Disk / Floppy</option>
+                        <option value="312">Hard Disk / Floppy / CD</option>
+                        <option value="132">Hard Disk / CD / Floppy</option>
+                    </select>
+                 </td>
+            </tr>
+        </table>
+
         <br>
-        Hard drive disk image: <input type="file" id="hd_image"><br>
+        <button id="start_emulation">Start Emulation</button>
+        <!--
         <br>
-        - OR -
+        <div id="setup_error">Error: Video size must be at least over 9000</div>
+        -->
+        <!--
         <br>
         <br>
-        <input type="button" value="KolibriOS (1.4 MB)" id="start_koli"> - Graphical OS, takes about 60 seconds to boot<br>
-        <input type="button" value="Linux 2.6 (4.9 MB)" id="start_linux"> - With busybox and lua interpreter, takes about 20 seconds to boot<br>
-        <input type="button" value="Windows 1.01 (1.4 MB)" id="start_win101"> - Takes 1 second to boot<br>
-        <input type="button" value="FreeDOS (0.7 MB)" id="start_freedos"> - With nasm, vim, debug.com, some games and demos, takes 1 second to boot<br>
-        <input type="button" value="OpenBSD (1.4 MB)" id="start_bsd"> - Random boot floppy, takes very long to boot<br>
+        Link to this configuration: <a href="" id="config_link">http://copy.sh/v24/?a=b&amp;c=d</a>
+        -->
     </div>
+
     <div id="runtime_options" style="display: none">
         <input type="button" value="Pause" id="run">
         <input type="button" value="Reset" id="reset">
         <input type="button" value="Send Ctrl-Alt-Del" id="ctrlaltdel">
-        <input type="button" value="Get modified floppy image" id="get_floppy">
+        <input type="button" value="Get floppy image" id="get_fda_image">
+        <input type="button" value="Get floppy image" id="get_fdb_image">
+        <input type="button" value="Get HDA image" id="get_hda_image">
+        <input type="button" value="Get HDB image" id="get_hdb_image">
         <input type="button" value="Lock mouse" id="lock_mouse">
         <input type="button" value="Go fullscreen" id="fullscreen">
         <input type="button" value="Take screenshot (only graphic modes)" id="take_screenshot">
 
         Scale: 
         <input type="number" min="0.25" step="0.25" value="1.0" id="scale" style="width: 50px">
-
-        <div id="info">
-            <div>running <span id="running_time"></span>s</div>
-            <div>speed <span id="speed"></span>kIPS</div>
-        </div>
+        <br>
+        <br>
 
     </div>
     <pre style="display: none" id="loading"></pre>
-    <br>
-    <br>
 </div>
 
 
@@ -54,10 +162,40 @@
     <canvas id="vga"></canvas>
 </div>
 
-<br style="clear: both">
+<textarea cols="80" rows="25" id="serial" style="display: none">This is the serial console. Whatever you type or paste here will be send to COM1.
+
+In Linux it can be accessed with `cat /dev/ttyS0`
+</textarea>
+
 <input type="text" class="phone_keyboard" style="display: none">
+
+<span style="clear:both"></span>
 <br>
 
-<b>News:</b> Source Code now available: <a href="https://github.com/copy/v86">Github</a>, <a href="v86-latest.tar.gz">tarball</a>.
+
+<div id="news">
+    <hr>
+    <h4>News</h4> 
+    <ul>
+        <li>Jan 10, 2014 &mdash; Updated interface
+        <li>Nov 05, 2013 &mdash; Source Code now available: <a href="https://github.com/copy/v86">Github</a>, <a href="v86-latest.tar.gz">tarball</a>.
+        <li>Oct 17, 2013 &mdash; First public release
+    </ul>
+</div>
+
+<br>
+<hr>
+<a href="debug.html">Enable debug</a> 
+&mdash;
+<a href="https://github.com/copy/v86/blob/master/Readme.md">Readme</a> 
+&mdash;
+<a href="https://github.com/copy/v86">Project on Github</a> 
+&mdash;
+<a href="https://github.com/copy/v86#compatibility">Compatibility</a> 
+&mdash;
+<a href="https://github.com/copy/v86#license">License</a> 
+&mdash;
+<a href="./screenshots/">Screenshots</a> 
+
 
 

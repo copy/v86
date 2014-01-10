@@ -1,11 +1,23 @@
-#log {
+#log, #runtime_infos {
     font-family: DejaVu Sans Mono;
     font-size: 13px;
-    height: 350px;
     float: right;
     width: 400px;
     border: 0 none;
-    background-color: #111;
+    background-color: #000;
+    color: #fff;
+    width: 360px;
+    margin: 3px;
+    padding: 3px;
+}
+#log {
+    height: 350px;
+}
+#serial {
+    font-family: DejaVu Sans Mono;
+    font-size: 13px;
+    border: 0 none;
+    background-color: #000;
     color: #fff;
 }
 #screen {
@@ -45,9 +57,7 @@ body {
     background-color: #111;
     color: #fff;
     line-height: 1.5;
-}
-#info {
-    font-size: 80%;
+    padding: 10px;
 }
 a {
     color: wheat;
@@ -57,4 +67,35 @@ a {
     border: 1px solid #555;
     width: 100px;
     height: 100px;
+}
+h4 {
+    margin: 0px 0px 20px 0px;
+}
+#start_emulation {
+    padding: 6px 18px;
+    font-size: 16px;
+    font-weight: bold;
+}
+#setup_error {
+    color: red;
+    font-weight: bold;
+    background-color: #222;
+    padding: 8px 18px;
+}
+#config_link {
+    font-weight: bold;
+    background-color: #222;
+    padding: 8px 18px;
+}
+#screen_container {
+    float: left;
+}
+a img {
+    margin: 10px;
+}
+.screenshots a {
+    text-decoration: none;
+}
+textarea:focus, .phone_keyboard:focus {
+    outline: 1px solid rgb(229, 151, 0);
 }

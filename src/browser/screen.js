@@ -155,8 +155,10 @@ function ScreenAdapter()
 
     this.put_pixel_linear = function(index, color)
     {
-        // (addr ^ 3) - 1: Change BGR (svga) order to RGB (canvas)
-        graphic_buffer[(index ^ 3) - 1] = color;
+        dbg_assert((index & 3) !== 3);
+
+        // (addr + 1) ^ 3: Change BGR (svga) order to RGB (canvas)
+        graphic_buffer[(index + 1) ^ 3] = color;
 
         did_change = true;
     };
