@@ -62,14 +62,14 @@ Here's an overview of the operating systems supported in v86:
 - Linux works pretty well. Graphical boots fails in many versions, but you
   mostly get a shell. The mouse is never detected automatically.
   - Damn Small Linux (2.4 Kernel): Run with `lowram` and choose PS2 mouse in
-    xsetup. Takes circa 10 minutes to boot.
+    xsetup. Takes circa 10 minutes to boot. Only works if ACPI is disabled.
   - Tinycore, Nanolinux (3.0 kernel): `udev` and `X` fail, but you get a
     terminal.
 - FreeDOS and Windows 1.01 run pretty good. A few applications cause the OS to
   freeze. Some BIOS problems.
 - KolibriOS works.
 - Haiku boots after 30 minutes. r1alpha4 immediately reboots, the newest version
-  compiled from source works.
+  compiled from source works. Requires settings the memory size to 128MB.
 
 
 
