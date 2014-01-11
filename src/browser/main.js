@@ -603,6 +603,19 @@
             $("boot_options").style.display = "none";
         };
 
+        $("start_sol").onclick = function()
+        {
+            load_file("images/os8.dsk", function(buffer)
+            {
+                settings.fda = new SyncBuffer(buffer);
+                set_title("Sol OS");
+                init(settings);
+            }, show_progress.bind(this, "Downloading image"));
+
+            $("start_sol").blur();
+            $("boot_options").style.display = "none";
+        };
+
         $("start_emulation").onclick = function()
         {
             $("boot_options").style.display = "none";

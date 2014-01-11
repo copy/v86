@@ -71,7 +71,7 @@ Here's an overview of the operating systems supported in v86:
 - Haiku boots after 30 minutes. r1alpha4 immediately reboots, the newest version
   compiled from source works. Requires settings the memory size to 128MB.
 
-
+You get some infos on the disk images here: https://github.com/copy/v86/tree/master/images
 
 
 How can I contribute?
@@ -95,6 +95,7 @@ Credits
 - Test cases via QEMU, http://wiki.qemu.org/Main_Page 
 - https://github.com/creationix/node-sdl
 - ascii.ttf (used in node) from http://www.apollosoft.de/ASCII/indexen.htm 
+- [Disk Images](images)
 
 
 More questions?
