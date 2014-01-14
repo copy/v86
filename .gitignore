@@ -1,4 +1,5 @@
 v86_all.js
 src/cpu.js
+src/cpu-ref.js
 src/v86_all.js.map
 
