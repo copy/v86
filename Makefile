@@ -6,13 +6,14 @@ all: v86_all.js
 browser: v86_all.js
 node: v86_node.js
 
-src/cpu.js: src/*.macro.js
+src/cpu-ref.js: src/*.macro.js
 	# build cpu.macro.js using cpp
-	# $(CPP) -P -undef -Wundef -std=c99 -nostdinc -Wtrigraphs -fdollars-in-identifiers \
+	$(CPP) -P -undef -Wundef -std=c99 -nostdinc -Wtrigraphs -fdollars-in-identifiers \
 		-C src/cpu.macro.js src/cpu-ref.js
+
+src/cpu.js: src/*.macro.js
+	# build cpu.macro.js using mcpp.js
 	node ./mcpp/mcpp.js -C -P -o fs/src/cpu.js fs/src/cpu.macro.js
-	# ./cpp -C -P -o src/cpu.js src/cpu.macro.js
-	# ../tcc/tcc -E src/cpu.macro.js | grep -v "^# " > src/cpu.js
 
 # Used for nodejs builds and in order to profile code.
 # `debug` gives identifiers a readable name, make sure it doesn't have any side effects. 
