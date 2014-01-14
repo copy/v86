@@ -263,51 +263,51 @@ function dump_gdt_ldt()
                 limit = (memory.read16(addr) | memory.read8(addr + 6) & 0xF) + 1,
                 access = memory.read8(addr + 5),
                 flags = memory.read8(addr + 6) >> 4,
-                flags_str = '',
+                flags_str = "",
                 dpl = access >> 5 & 3;
 
             if(!(access & 128))
             {
                 // present bit not set
                 //continue;
-                flags_str += 'NP ';
+                flags_str += "NP ";
             }
             else
             {
-                flags_str += ' P ';
+                flags_str += " P ";
             }
 
             if(access & 16)
             {
                 if(flags & 4) 
                 {
-                    flags_str += '32b ';
+                    flags_str += "32b ";
                 }
                 else
                 {
-                    flags_str += '16b ';
+                    flags_str += "16b ";
                 }
 
                 if(access & 8)
                 {
                     // executable
-                    flags_str += 'X ';
+                    flags_str += "X ";
 
                     if(access & 4)
                     {
-                        flags_str += 'C ';
+                        flags_str += "C ";
                     }
                 }
                 else
                 {
                     // data
-                    flags_str += 'R ';
+                    flags_str += "R ";
                 }
             }
             else
             {
                 // system
-                flags_str += 'sys: ' + h(access & 15);
+                flags_str += "sys: " + h(access & 15);
             }
 
             if(flags & 8)
@@ -335,31 +335,31 @@ function dump_idt()
 
         if((type & 31) === 5)
         {
-            line = 'task gate ';
+            line = "task gate ";
         }
         else if((type & 31) === 14)
         {
-            line = 'intr gate ';
+            line = "intr gate ";
         }
         else if((type & 31) === 15)
         {
-            line = 'trap gate ';
+            line = "trap gate ";
         }
         else
         {
-            line = 'invalid   ';
+            line = "invalid   ";
         }
 
 
         if(type & 128)
         {
-            line += ' P';
+            line += " P";
         }
         else
         {
             // present bit not set
             //continue;
-            line += 'NP';
+            line += "NP";
         }
 
     
@@ -412,22 +412,22 @@ function dump_page_directory()
             continue;
         }
 
-        var flags = '';
+        var flags = "";
 
         if(entry.size)
-            flags += 'S ';
+            flags += "S ";
 
         if(entry.cache)
-            flags += 'D ';
+            flags += "D ";
 
         if(entry.user)
-            flags += 'U ';
+            flags += "U ";
 
         if(entry.read_write)
-            flags += 'R ';
+            flags += "R ";
 
         if(entry.accessed)
-            flags += 'A ';
+            flags += "A ";
 
         dbg_log("=== " + h((i << 22) >>> 0, 8) + " | " + flags);
         
@@ -444,28 +444,28 @@ function dump_page_directory()
 
             if(subentry)
             {
-                flags = '';
+                flags = "";
 
                 if(subentry.size)
-                    flags += 'S ';
+                    flags += "S ";
 
                 if(subentry.cache)
-                    flags += 'D ';
+                    flags += "D ";
 
                 if(subentry.user)
-                    flags += 'U ';
+                    flags += "U ";
 
                 if(subentry.read_write)
-                    flags += 'R ';
+                    flags += "R ";
 
                 if(subentry.global)
-                    flags += 'G ';
+                    flags += "G ";
                 
                 if(subentry.accessed)
-                    flags += 'A ';
+                    flags += "A ";
 
                 if(subentry.dirty)
-                    flags += 'Di ';
+                    flags += "Di ";
 
                 dbg_log("# " + h((i << 22 | j << 12) >>> 0, 8) + " -> " +
                         h(subentry.address, 8) + " | " + flags);
