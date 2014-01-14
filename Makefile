@@ -1,4 +1,4 @@
-CLOSURE=~/closure/closure-compiler/build/compiler.jar
+CLOSURE=../closure/compiler.jar
 CPP=cpp
 
 
@@ -9,7 +9,6 @@ node: v86_node.js
 src/cpu.js: src/*.macro.js
 	# build cpu.macro.js using cpp
 	$(CPP) -P -undef -Wundef -std=c99 -nostdinc -Wtrigraphs -fdollars-in-identifiers -C src/cpu.macro.js src/cpu.js
-
 
 
 # Used for nodejs builds and in order to profile code.
