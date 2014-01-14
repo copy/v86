@@ -23,10 +23,13 @@
 #screen {
     white-space: pre;
     position: relative;
-    font-family: Liberation Mono, DejaVu Sans Mono, Courier New, monospace;
-    font-weight: bold;
-    font-size: 15px;
+    font-family: Consolas, Liberation Mono, DejaVu Sans Mono, Courier New, monospace;
+    /* font-weight: bold; */
+    font-size: 14px;
     line-height: 1;
+}
+#screen div {
+    height: 16px;
 }
 #screen, #vga {
     border: 1px solid #555;
