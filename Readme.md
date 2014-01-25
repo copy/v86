@@ -36,8 +36,9 @@ How to build, run and embed?
 - In order to build the `cpu.js` file, you need `make` and `cpp` (the C preprocessor).
   Run: `make src/cpu.js`.
 - If you want a compressed and fast (ie, with debug code removed) version, you
-  need Closure Compiler. 
-  Set the path to `compiler.jar` in the Makefile and run `make v86_all.js`.
+  need Closure Compiler. Pull the submodule using 
+
+  `git submodule update --init --recursive closure-compiler` and run `make v86_all.js`.
 - ROM and disk images are loaded via XHR, so if you want to try out `index.html`
   locally, make sure to serve it from a local webserver.
 - For more details on how to customize the behaviour and interface, see [docs/adapters.md](docs/adapters.md).
