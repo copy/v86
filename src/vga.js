@@ -90,6 +90,7 @@ function VGAScreen(dev, adapter, vga_memory_size)
 
         
         svga_memory,
+        svga_memory16,
         svga_enabled = false,
 
         /** @type {number} */
@@ -149,6 +150,7 @@ function VGAScreen(dev, adapter, vga_memory_size)
         }
 
         svga_memory = new Uint8Array(vga_memory_size);
+        svga_memory16 = new Uint16Array(svga_memory.buffer);
 
         vga_memory = new Uint8Array(svga_memory.buffer, 0, 4 * VGA_BANK_SIZE);
 
@@ -501,24 +503,20 @@ function VGAScreen(dev, adapter, vga_memory_size)
             case 16:
                 if(addr & 1)
                 {
-                    var prev = svga_memory[addr ^ 1],
-                        green = prev >> 5 & 0x07 | value << 3 & 0x38,
+                    var word = svga_memory16[addr >> 1],
+                        red = word & 0x1F,
+                        green = word >> 5 & 0x3F,
                         blue = value >> 3 & 0x1F;
 
                     blue = blue * 0xFF / 0x1F | 0;
                     green = green * 0xFF / 0x3F | 0;
+                    red = red * 0xFF / 0x1F | 0;
 
                     addr <<= 1;
 
+                    adapter.put_pixel_linear(addr, red);
                     adapter.put_pixel_linear(addr - 1, green);
                     adapter.put_pixel_linear(addr - 2, blue);
-                }
-                else
-                {
-                    var red = value & 0x1F;
-                    red = red * 0xFF / 0x1F | 0;
-
-                    adapter.put_pixel_linear((addr << 1) + 2, red);
                 }
                 break;
 
