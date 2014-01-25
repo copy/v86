@@ -1,4 +1,4 @@
-CLOSURE=~/closure/closure-compiler/build/compiler.jar
+CLOSURE=../closure-compiler/compiler.jar
 CPP=cpp
 
 
