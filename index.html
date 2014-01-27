@@ -2,6 +2,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 
 <title>Virtual x86</title>
+<meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
 
 <script src="v86_all.js"></script>
 <link rel="stylesheet" href="v86.css">
@@ -164,15 +165,16 @@
     <canvas id="vga"></canvas>
 </div>
 
+<input type="text" class="phone_keyboard" style="display: none">
+
+<br style="clear:both"><br>
+
 <textarea cols="80" rows="25" id="serial" style="display: none">This is the serial console. Whatever you type or paste here will be send to COM1.
 
 In Linux it can be accessed with `cat /dev/ttyS0`
 </textarea>
 
-<input type="text" class="phone_keyboard" style="display: none">
-
-<span style="clear:both"></span>
-<br>
+<br style="clear:both">
 
 
 <div id="news">
@@ -186,7 +188,6 @@ In Linux it can be accessed with `cat /dev/ttyS0`
 </div>
 <br style="clear:both">
 
-<br>
 <hr>
 <a href="debug.html">Enable debug</a> 
 &mdash;

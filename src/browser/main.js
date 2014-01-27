@@ -1052,6 +1052,11 @@
             lock_mouse(elem);
         };
 
+        $("screen_container").onclick = function()
+        {
+            document.getElementsByClassName("phone_keyboard")[0].focus();
+        };
+
         $("take_screenshot").onclick = function()
         {
             screen_adapter.make_screenshot();
