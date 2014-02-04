@@ -6,4 +6,4 @@
 	url = https://github.com/copy/images/
 [submodule "mcpp"]
 	path = mcpp
-	url = git@github.com:h8liu/mcpp.git
+	url = https://github.com/h8liu/v86.git
