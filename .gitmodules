@@ -3,7 +3,7 @@
 	url = https://github.com/copy/closure-compiler
 [submodule "images"]
 	path = images
-    url = https://github.com/copy/images/
+	url = https://github.com/copy/images/
 [submodule "mcpp"]
 	path = mcpp
 	url = git@github.com:h8liu/mcpp.git
