@@ -1,5 +1,5 @@
 CLOSURE=../closure-compiler/compiler.jar
-CPP=cpp
+CPP=mcpp/src/mcpp
 
 
 all: v86_all.js
@@ -7,10 +7,8 @@ browser: v86_all.js
 node: v86_node.js
 
 src/cpu.js: src/*.macro.js
-	# build cpu.macro.js using cpp
-	$(CPP) -P -undef -Wundef -std=c99 -nostdinc -Wtrigraphs -fdollars-in-identifiers -C src/cpu.macro.js src/cpu.js
-
-
+	# build cpu.macro.js using mcpp
+	mcpp/src/mcpp -a -C -P -o src/cpu.js src/cpu.macro.js
 
 # Used for nodejs builds and in order to profile code.
 # `debug` gives identifiers a readable name, make sure it doesn't have any side effects. 

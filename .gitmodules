@@ -4,3 +4,6 @@
 [submodule "images"]
 	path = images
 	url = https://github.com/copy/images/
+[submodule "mcpp"]
+	path = mcpp
+	url = https://github.com/h8liu/v86.git
