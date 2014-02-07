@@ -217,9 +217,6 @@ var
     /** @type {boolean} */
     stopped,
 
-    /** @type {number} */
-    loop_counter,
-
     /** @type {Memory} */
     memory,
 
@@ -547,7 +544,6 @@ function cpu_init(settings)
 
     running = false;
     stopped = false;
-    loop_counter = 20;
 
     translate_address_read = translate_address_disabled;
     translate_address_write = translate_address_disabled;
@@ -853,16 +849,14 @@ function do_run()
          * @type {number}
          */
         start = Date.now(),
-        now;
+        now = start;
 
-    vga.timer(start);
+    vga.timer(now);
 
     // outer loop:
     // runs cycles + timers
-    for(var j = loop_counter; j--;)
+    for(; now - start < TIME_PER_FRAME;)
     {
-        now = Date.now();
-
         previous_ip = instruction_pointer;
 
         if(ENABLE_HPET)
@@ -887,21 +881,10 @@ function do_run()
             cycle();
         }
 
+        now = Date.now();
     }
 
     cpu.instr_counter = cpu_timestamp_counter;
-
-    if(now - start > TIME_PER_FRAME)
-    {
-        if(loop_counter > 3)
-        {
-            loop_counter -= 3;
-        }
-    }
-    else
-    {
-        loop_counter += 2;
-    }
 
     previous_ip = instruction_pointer;
     next_tick();

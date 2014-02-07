@@ -62,10 +62,10 @@ a {
     color: wheat;
 }
 .phone_keyboard {
-    background-color: #111;
-    border: 1px solid #555;
-    width: 100px;
-    height: 100px;
+    width: 0;
+    height: 0;
+    resize: none;
+    border: 0;
 }
 h4 {
     margin: 0px 0px 20px 0px;
