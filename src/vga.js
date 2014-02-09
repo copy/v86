@@ -175,6 +175,9 @@ function VGAScreen(dev, adapter, vga_memory_size)
             return screen._vga_memory[addr];
         }
 
+        // TODO: "Color don't care"
+        //dbg_assert((planar_mode & 0x08)  === 0, "unimplemented");
+
         // planar mode
         addr &= 0xFFFF;
 
@@ -233,15 +236,22 @@ function VGAScreen(dev, adapter, vga_memory_size)
             plane2_byte,
             plane3_byte;
 
-        // not implemented
-        dbg_assert((planar_rotate_reg & 7) === 0);
-        dbg_assert(planar_mode < 3);
+        var write_mode = planar_mode & 3;
+
+        // not implemented:
+        // - Planar mode 3
+        // - Rotation
+        // - Shift mode
+        // - Host Odd/Even
+        dbg_assert((planar_rotate_reg & 7) === 0, "unimplemented");
+        dbg_assert(write_mode !== 3, "unimplemented");
+        dbg_assert((planar_mode & 0x70)  === 0, "unimplemented");
         
-        if(planar_mode === 0)
+        if(write_mode === 0)
         {
             plane0_byte = plane1_byte = plane2_byte = plane3_byte = value;
         }
-        else if(planar_mode === 2)
+        else if(write_mode === 2)
         {
             if(plane_write_bm & 1)
             {
@@ -265,7 +275,7 @@ function VGAScreen(dev, adapter, vga_memory_size)
             }
         }
 
-        if(planar_mode === 0 || planar_mode === 2)
+        if(write_mode === 0 || write_mode === 2)
         {
             switch(planar_rotate_reg & 0x18)
             {
@@ -306,7 +316,7 @@ function VGAScreen(dev, adapter, vga_memory_size)
                 plane3_byte = latch3 & ~planar_bitmap | plane3_byte & planar_bitmap;
             }
         }
-        else if(planar_mode === 1)
+        else if(write_mode === 1)
         {
             plane0_byte = latch0;
             plane1_byte = latch1;
@@ -400,12 +410,12 @@ function VGAScreen(dev, adapter, vga_memory_size)
         }
     }
 
-    function graphical_linear_redraw()
+    this._graphical_linear_redraw = function()
     {
         // TODO
-    }
+    };
 
-    function graphical_planar_redraw()
+    this._graphical_planar_redraw = function()
     {
         var addr = 0,
             color;
@@ -428,7 +438,7 @@ function VGAScreen(dev, adapter, vga_memory_size)
                 addr++;
             }
         }
-    }
+    };
 
     this._vga_memory_write_text_mode = function(addr, value)
     {
@@ -549,11 +559,11 @@ function VGAScreen(dev, adapter, vga_memory_size)
             {
                 if(graphical_mode_is_linear)
                 {
-                    graphical_linear_redraw();
+                    this._graphical_linear_redraw();
                 }
                 else 
                 {
-                    graphical_planar_redraw();
+                    this._graphical_planar_redraw();
                 }
             }
             else
@@ -869,6 +879,11 @@ function VGAScreen(dev, adapter, vga_memory_size)
     }
     io.register_write(0x3C4, port3C4_write);
 
+    function port3C4_read()
+    {
+        return sequencer_index;
+    }
+    io.register_read(0x3C4, port3C4_read);
 
     var 
         // bitmap of planes 0-3
@@ -899,12 +914,16 @@ function VGAScreen(dev, adapter, vga_memory_size)
     {
         switch(sequencer_index)
         {
+            case 0x02:
+                return plane_write_bm;
+            case 0x04:
+                return sequencer_memory_mode;
             case 0x06:
                 return 0x12;
-                break;
             default:
                 dbg_log("3C5 / sequencer read " + h(sequencer_index), LOG_VGA);
         }
+        return 0;
     }
     io.register_read(0x3C5, port3C5_read);
 
@@ -916,6 +935,12 @@ function VGAScreen(dev, adapter, vga_memory_size)
         graphics_index = value;
     }
     io.register_write(0x3CE, port3CE_write);
+
+    function port3CE_read()
+    {
+        return graphics_index;
+    }
+    io.register_read(0x3CE, port3CE_read);
 
     var plane_read = 0, // value 0-3, which plane to read
         planar_mode = 0,
@@ -952,6 +977,25 @@ function VGAScreen(dev, adapter, vga_memory_size)
         }
     }
     io.register_write(0x3CF, port3CF_write);
+
+    function port3CF_read()
+    {
+        switch(graphics_index)
+        {
+            case 3:
+                return planar_rotate_reg;
+            case 4:
+                return plane_read;
+            case 5:
+                return planar_mode;
+            case 8:
+                return planar_bitmap;
+            default:
+                dbg_log("3CF / graphics read " + h(graphics_index), LOG_VGA);
+        }
+        return 0;
+    }
+    io.register_read(0x3CF, port3CF_read);
 
 
     function switch_video_mode(mar)
