@@ -1521,12 +1521,6 @@ function bts_mem(virt_addr, bit_offset)
     memory.write8(phys_addr, bit_base | 1 << bit_offset);
 }
 
-var mod37_bit_position = new Uint8Array([
-    32, 0, 1, 26, 2, 23, 27, 0, 3, 16, 24, 30, 28, 11, 0, 13, 4,
-    7, 17, 0, 25, 22, 31, 15, 29, 10, 12, 6, 0, 21, 14, 9, 5,
-    20, 8, 19, 18
-]);
-
 function bsf16(old, bit_base)
 {
     flags_changed = 0;
@@ -1542,7 +1536,8 @@ function bsf16(old, bit_base)
     {
         flags &= ~flag_zero;
 
-        return mod37_bit_position[((-bit_base & bit_base) >>> 0) % 37];
+        // http://jsperf.com/lowest-bit-index
+        return Math.int_log2(-bit_base & bit_base);
     }
 }
 
@@ -1560,7 +1555,7 @@ function bsf32(old, bit_base)
     {
         flags &= ~flag_zero;
 
-        return mod37_bit_position[((-bit_base & bit_base) >>> 0) % 37];
+        return Math.int_log2((-bit_base & bit_base) >>> 0);
     }
 }
 
@@ -1577,16 +1572,7 @@ function bsr16(old, bit_base)
     {
         flags &= ~flag_zero;
 
-        var t = bit_base >>> 8;
-
-        if(t)
-        {
-            return 8 + log2_table[t];
-        }
-        else
-        {
-            return log2_table[bit_base];
-        }
+        return Math.int_log2(bit_base);
     }
 }
 
@@ -1603,35 +1589,7 @@ function bsr32(old, bit_base)
     {
         flags &= ~flag_zero;
 
-        var tt = bit_base >>> 16,
-            t;
-
-        if(tt)
-        {
-            t = tt >>> 8;
-
-            if(t)
-            {
-                return 24 + log2_table[t];
-            }
-            else
-            {
-                return 16 + log2_table[tt];
-            }
-        }
-        else
-        {
-            t = bit_base >>> 8;
-
-            if(t)
-            {
-                return 8 + log2_table[t];
-            }
-            else
-            {
-                return log2_table[bit_base];
-            }
-        }
+        return Math.int_log2(bit_base >>> 0);
     }
 }
 

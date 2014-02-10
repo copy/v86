@@ -67,7 +67,7 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
                 return false;
             }
 
-            var irq_number = log2_table[irq];
+            var irq_number = Math.int_log2(irq);
             irq = 1 << irq_number;
 
             irr &= ~irq;
@@ -110,7 +110,7 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
                 return false;
             }
 
-            var irq_number = log2_table[irq];
+            var irq_number = Math.int_log2(irq);
             irq = 1 << irq_number;
 
             irr &= ~irq;

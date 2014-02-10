@@ -323,25 +323,13 @@ Math.to_be16 = function(word)
     return word >>> 8 & 0xff | word << 8 & 0xff00;
 }
 
-
-// used in several places
-// the first entry is -1
-//   http://jsperf.com/integer-log2/2
-var log2_table = (function()
+Math.int_log2 = function(x)
 {
-    var t = new Int8Array(256);
+    dbg_assert(x > 0);
 
-    for(var i = 0, b = -2; i < 256; i++)
-    {
-        if(!(i & i - 1))
-            b++;
-
-        t[i] = b;
-    }
-
-    return t;
-})();
-
+    // well optimized in modern browsers, http://jsperf.com/integer-log2/2
+    return (Math.log(x) / Math.LN2) | 0;
+}
 
 // round away from zero, opposite of truncation
 Math.roundInfinity = function(x)
