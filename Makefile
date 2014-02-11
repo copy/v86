@@ -72,6 +72,9 @@ pack:
 		#--exclude "qemu"
 	tar -zcvf ../v86-latest.tar.gz ../v86/ \
 		--exclude "images" \
+		--exclude "mcpp" \
+		--exclude "closure-compiler" \
+		--exclude "screenshots" \
 		--exclude ".git"
 
 
