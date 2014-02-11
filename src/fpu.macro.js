@@ -5,48 +5,63 @@ var FPU_LOG_OP = false;
 
 var 
     /** @const */
-    C0 = 0x100,
+    FPU_C0 = 0x100,
     /** @const */
-    C1 = 0x200,
+    FPU_C1 = 0x200,
     /** @const */
-    C2 = 0x400,
+    FPU_C2 = 0x400,
     /** @const */
-    C3 = 0x4000,
+    FPU_C3 = 0x4000,
     /** @const */
-    RESULT_FLAGS = C0 | C1 | C2 | C3,
+    FPU_RESULT_FLAGS = FPU_C0 | FPU_C1 | FPU_C2 | FPU_C3,
     /** @const */
-    STACK_TOP = 0x3800;
+    FPU_STACK_TOP = 0x3800;
 
 var 
     // precision, round & infinity control
     /** @const */
-    PC = 3 << 8,
+    FPU_PC = 3 << 8,
     /** @const */
-    RC = 3 << 10,
+    FPU_RC = 3 << 10,
     /** @const */
-    IF = 1 << 12;
+    FPU_IF = 1 << 12;
 
 // exception bits in the status word
-var EX_SF = 1 << 6,
-    EX_P = 1 << 5,
-    EX_U = 1 << 4,
-    EX_O = 1 << 3,
-    EX_Z = 1 << 2,
-    EX_D = 1 << 1,
-    EX_I = 1 << 0;
+var 
+    /** @const */
+    FPU_EX_SF = 1 << 6,
+    /** @const */
+    FPU_EX_P = 1 << 5,
+    /** @const */
+    FPU_EX_U = 1 << 4,
+    /** @const */
+    FPU_EX_O = 1 << 3,
+    /** @const */
+    FPU_EX_Z = 1 << 2,
+    /** @const */
+    FPU_EX_D = 1 << 1,
+    /** @const */
+    FPU_EX_I = 1 << 0;
 
-/** 
- * @const
+/*
  * used for conversion
  */
-var float32 = new Float32Array(1),
+var 
+    /** @const */
+    float32 = new Float32Array(1),
+    /** @const */
     float32_byte = new Uint8Array(float32.buffer),
+    /** @const */
     float32_int = new Uint32Array(float32.buffer),
 
+    /** @const */
     float64 = new Float64Array(1),
+    /** @const */
     float64_byte = new Uint8Array(float64.buffer),
+    /** @const */
     float64_int = new Uint32Array(float64.buffer),
 
+    /** @const */
     float80_int = new Uint8Array(10);
 
 
@@ -55,7 +70,7 @@ var indefinite_nan = NaN;
 
 
 /** @const */
-var constants = new Float64Array([
+var fpu_constants = new Float64Array([
     1, Math.log(10) / Math.LN2, Math.LOG2E, Math.PI,
     Math.log(2) / Math.LN10, Math.LN2, 0
 ]);
@@ -99,34 +114,34 @@ FPU.prototype._fpu_unimpl = function()
 FPU.prototype._stack_fault = function()
 {
     // TODO: Interrupt
-    this._status_word |= EX_SF | EX_I;
+    this._status_word |= FPU_EX_SF | FPU_EX_I;
 }
 
 FPU.prototype._invalid_arithmatic = function()
 {
-    this._status_word |= EX_I;
+    this._status_word |= FPU_EX_I;
 }
 
 FPU.prototype._fcom = function(y)
 {
     var x = this._get_st0();
 
-    this._status_word &= ~RESULT_FLAGS;
+    this._status_word &= ~FPU_RESULT_FLAGS;
 
     if(x > y)
     {
     }
     else if(y > x)
     {
-        this._status_word |= C0;
+        this._status_word |= FPU_C0;
     }
     else if(x === y)
     {
-        this._status_word |= C3;
+        this._status_word |= FPU_C3;
     }
     else
     {
-        this._status_word |= C0 | C2 | C3;
+        this._status_word |= FPU_C0 | FPU_C2 | FPU_C3;
     }
 }
 
@@ -171,19 +186,19 @@ FPU.prototype._ftst = function()
 {
     var st0 = this._get_st0();
 
-    this._status_word &= ~RESULT_FLAGS;
+    this._status_word &= ~FPU_RESULT_FLAGS;
 
     if(isNaN(st0))
     {
-        this._status_word |= C3 | C2 | C0;
+        this._status_word |= FPU_C3 | FPU_C2 | FPU_C0;
     }
     else if(st0 === 0)
     {
-        this._status_word |= C3;
+        this._status_word |= FPU_C3;
     }
     else if(st0 < 0)
     {
-        this._status_word |= C0;
+        this._status_word |= FPU_C0;
     }
 
     // TODO: unordered (st0 is nan, etc)
@@ -193,28 +208,28 @@ FPU.prototype._fxam = function()
 {
     var x = this._get_st0();
 
-    this._status_word &= ~RESULT_FLAGS;
+    this._status_word &= ~FPU_RESULT_FLAGS;
     this._status_word |= this._sign(0) << 9;
 
     if(this._stack_empty >> this._stack_ptr & 1)
     {
-        this._status_word |= C3 | C0;
+        this._status_word |= FPU_C3 | FPU_C0;
     }
     else if(isNaN(x))
     {
-        this._status_word |= C0;
+        this._status_word |= FPU_C0;
     }
     else if(x === 0)
     {
-        this._status_word |= C3;
+        this._status_word |= FPU_C3;
     }
     else if(x === Infinity || x === -Infinity)
     {
-        this._status_word |= C2 | C0;
+        this._status_word |= FPU_C2 | FPU_C0;
     }
     else
     {
-        this._status_word |= C2;
+        this._status_word |= FPU_C2;
     }
     // TODO:
     // Unsupported, Denormal
@@ -395,13 +410,13 @@ FPU.prototype._push = function(x)
 
     if(this._stack_empty >> this._stack_ptr & 1)
     {
-        this._status_word &= ~C1;
+        this._status_word &= ~FPU_C1;
         this._stack_empty &= ~(1 << this._stack_ptr);
         this._st[this._stack_ptr] = x;
     }
     else
     {
-        this._status_word |= C1;
+        this._status_word |= FPU_C1;
         this._stack_fault();
         this._st[this._stack_ptr] = indefinite_nan;
     }
@@ -421,7 +436,7 @@ FPU.prototype._get_sti = function(i)
 
     if(this._stack_empty >> i & 1)
     {
-        this._status_word &= ~C1;
+        this._status_word &= ~FPU_C1;
         this._stack_fault();
         return indefinite_nan;
     }
@@ -435,7 +450,7 @@ FPU.prototype._get_st0 = function()
 {
     if(this._stack_empty >> this._stack_ptr & 1)
     {
-        this._status_word &= ~C1;
+        this._status_word &= ~FPU_C1;
         this._stack_fault();
         return indefinite_nan;
     }
@@ -449,7 +464,7 @@ FPU.prototype._assert_not_empty = function(i)
 {
     if(this._stack_empty >> (i + this._stack_ptr & 7) & 1)
     {
-        this._status_word &= ~C1;
+        this._status_word &= ~FPU_C1;
     }
     else
     {
@@ -763,7 +778,7 @@ FPU.prototype.op_D9_reg = function(imm8)
             }
             break;
         case 5:
-            this._push(constants[low]);
+            this._push(fpu_constants[low]);
             break;
         case 6:
             switch(low)
