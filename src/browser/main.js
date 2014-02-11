@@ -965,6 +965,7 @@
 
         setInterval(update_info, 1000);
         setInterval(update_other_info, 2500);
+        setTimeout(update_other_info, 100);
 
         $("reset").onclick = function()
         {
@@ -1063,6 +1064,9 @@
 
             $("take_screenshot").blur();
         };
+
+        // avoid warnings
+        settings.fdb = undefined;
 
         settings.screen_adapter = screen_adapter;
         settings.keyboard_adapter = new KeyboardAdapter();

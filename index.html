@@ -7,37 +7,6 @@
 <script src="v86_all.js"></script>
 <link rel="stylesheet" href="v86.css">
 
-<textarea readonly id="log" style="display: none"></textarea>
-
-
-<div id="runtime_infos" style="display: none">
-    Running: <span id="running_time">0s</span> <br>
-    Speed: <span id="speed">0</span>kIPS<br>
-    Avg speed: <span id="avg_speed">0</span>kIPS<br>
-    <br>
-    <div id="info_hda">
-        <b>HDA</b><br>
-        Sectors read: <span id="info_hda_sectors_read"></span><br>
-        Bytes read: <span id="info_hda_bytes_read"></span><br>
-        Sectors written: <span id="info_hda_sectors_written"></span><br>
-        Bytes written: <span id="info_hda_bytes_written"></span><br>
-        <br>
-    </div>
-    <div id="info_cdrom">
-        <b>CDROM</b><br>
-        Sectors read: <span id="info_cdrom_sectors_read"></span><br>
-        Bytes read: <span id="info_cdrom_bytes_read"></span><br>
-        <br>
-    </div>
-    <b>VGA</b><br>
-    Mode: <span id="info_vga_mode"></span><br>
-    Resolution: <span id="info_res">-</span><br>
-    BPP: <span id="info_bpp">-</span><br>
-    <br>
-    Mouse: <span id="info_mouse_enabled">-</span><br>
-    <!-- Keyboard: <span id="info_keyboard_enabled">-</span><br> -->
-</div>
-
 <div>
     <div id="boot_options">
         <h4>Quickstart</h4>
@@ -165,17 +134,44 @@
     <canvas id="vga"></canvas>
 </div>
 
+<div id="runtime_infos" style="display: none">
+    Running: <span id="running_time">0s</span> <br>
+    Speed: <span id="speed">0</span>kIPS<br>
+    Avg speed: <span id="avg_speed">0</span>kIPS<br>
+    <br>
+    <div id="info_hda">
+        <b>HDA</b><br>
+        Sectors read: <span id="info_hda_sectors_read"></span><br>
+        Bytes read: <span id="info_hda_bytes_read"></span><br>
+        Sectors written: <span id="info_hda_sectors_written"></span><br>
+        Bytes written: <span id="info_hda_bytes_written"></span><br>
+        <br>
+    </div>
+    <div id="info_cdrom">
+        <b>CDROM</b><br>
+        Sectors read: <span id="info_cdrom_sectors_read"></span><br>
+        Bytes read: <span id="info_cdrom_bytes_read"></span><br>
+        <br>
+    </div>
+    <b>VGA</b><br>
+    Mode: <span id="info_vga_mode"></span><br>
+    Resolution: <span id="info_res">-</span><br>
+    BPP: <span id="info_bpp">-</span><br>
+    <br>
+    Mouse: <span id="info_mouse_enabled">-</span><br>
+    <!-- Keyboard: <span id="info_keyboard_enabled">-</span><br> -->
+</div>
+
 <input type="text" class="phone_keyboard" style="display: none">
 
 <br style="clear:both"><br>
+
+<textarea readonly id="log" style="display: none"></textarea>
 
 <textarea cols="80" rows="25" id="serial" style="display: none">This is the serial console. Whatever you type or paste here will be send to COM1.
 
 In Linux it can be accessed with `cat /dev/ttyS0`
 </textarea>
-
-<br style="clear:both">
-
 
 <div id="news">
     <hr>

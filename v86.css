@@ -1,24 +1,25 @@
-#log, #runtime_infos {
+#runtime_infos {
+    float: left;
+    width: 400px;
+    width: 360px;
+}
+#log, #runtime_infos, #serial {
     font-family: DejaVu Sans Mono;
     font-size: 13px;
-    float: right;
-    width: 400px;
-    border: 0 none;
+    border: 1px solid #333;
     background-color: #000;
+    padding: 4px;
     color: #fff;
-    width: 360px;
-    margin: 3px;
-    padding: 3px;
 }
 #log {
-    height: 350px;
+    max-height: 350px;
+    width: 350px;
 }
 #serial {
-    font-family: DejaVu Sans Mono;
-    font-size: 13px;
-    border: 0 none;
-    background-color: #000;
-    color: #fff;
+    margin: 0px;
+}
+#serial:focus {
+    outline: 1px solid rgb(229, 151, 0);
 }
 #screen {
     white-space: pre;
@@ -66,6 +67,7 @@ a {
     height: 0;
     resize: none;
     border: 0;
+    padding: 0;
 }
 h4 {
     margin: 0px 0px 20px 0px;
@@ -88,13 +90,12 @@ h4 {
 }
 #screen_container {
     float: left;
+    margin-right: 10px;
+    margin-bottom: 10px;
 }
 a img {
     margin: 10px;
 }
 .screenshots a {
     text-decoration: none;
-}
-textarea:focus, .phone_keyboard:focus {
-    outline: 1px solid rgb(229, 151, 0);
 }
