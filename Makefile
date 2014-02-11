@@ -2,7 +2,7 @@ CLOSURE=../closure-compiler/compiler.jar
 
 CPP_VERSION := $(shell cpp --version 2>/dev/null)
 
-ifndef CPP_VERSION
+ifdef CPP_VERSION
 	CPP=cpp -P -undef -Wundef -std=c99 -nostdinc -Wtrigraphs -fdollars-in-identifiers -C
 else
 	CPP=mcpp/src/mcpp -a -C -P 
