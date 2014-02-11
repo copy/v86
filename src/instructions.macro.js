@@ -86,7 +86,7 @@ var table16 = [],
 
 // very special, should be somewhere else?
 #define lss_op(sreg)\
-    if(modrm_byte >= 0xC0) { raise_exception(6); return; }\
+    if(modrm_byte >= 0xC0) { trigger_ud(); }\
     if(operand_size_32) { lss32(sreg, modrm_resolve(modrm_byte), modrm_byte >> 3 & 7); }\
     else { lss16(sreg, modrm_resolve(modrm_byte), modrm_byte >> 2 & 14); }
 
