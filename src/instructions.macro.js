@@ -1587,8 +1587,6 @@ opm2(0xFF, {
 
 
 opm(0x00, {
-    read_e16;
-
     if(!protected_mode)
     {
         // No GP, UD is correct here
@@ -1600,12 +1598,23 @@ opm(0x00, {
         trigger_gp(0);
     }
 
+
     switch(modrm_byte >> 3 & 7)
     {
+        case 0:
+            // sldt
+            set_ev16(ldtr_selector);
+            break;
+        case 1:
+            // str
+            set_ev16(tsr_selector);
+            break;
         case 2:
+            read_e16;
             load_ldt(data);
             break;
         case 3:
+            read_e16;
             load_tr(data);
             break;
         default:

@@ -115,6 +115,8 @@ var
     ldtr_size,
     /** @type {number} */
     ldtr_offset,
+    /** @type {number} */
+    ldtr_selector,
 
     /**
      * task register 
@@ -123,6 +125,8 @@ var
     tsr_size,
     /** @type {number} */
     tsr_offset,
+    /** @type {number} */
+    tsr_selector,
 
     /*
      * whether or not a page fault occured
@@ -509,9 +513,11 @@ function cpu_init(settings)
 
     ldtr_size = 0;
     ldtr_offset = 0;
+    ldtr_selector = 0;
 
     tsr_size = 0;
     tsr_offset = 0;
+    tsr_selector = 0;
 
     page_fault = false;
     cr0 = 1 << 30 | 1 << 29 | 1 << 4;
@@ -1635,11 +1641,8 @@ function raise_exception(interrupt_nr)
         // warn about error
         dbg_log("Exception " + h(interrupt_nr), LOG_CPU);
         dbg_trace(LOG_CPU);
-        //throw "exception: " + interrupt_nr;
+        debug.dump_regs_short();
     }
-
-
-    // TODO
 
     call_interrupt_vector(interrupt_nr, false, false);
     throw 0xDEADBEE;
@@ -1651,7 +1654,7 @@ function raise_exception_with_code(interrupt_nr, error_code)
     {
         dbg_log("Exception " + h(interrupt_nr) + " err=" + h(error_code), LOG_CPU);
         dbg_trace(LOG_CPU);
-        //throw "exception: " + interrupt_nr;
+        debug.dump_regs_short();
     }
 
     call_interrupt_vector(interrupt_nr, false, error_code);
@@ -1983,6 +1986,7 @@ function lookup_segment_selector(selector)
         real_limit: false,
         is_writable: false,
         is_readable: false,
+        table_offset: 0,
     };
 
     if(is_gdt)
@@ -2015,6 +2019,7 @@ function lookup_segment_selector(selector)
     {
         table_offset = translate_address_system_read(table_offset);
     }
+    info.table_offset = table_offset;
 
     info.base = memory.read16(table_offset + 2) | memory.read8(table_offset + 4) << 16 | 
             memory.read8(table_offset + 7) << 24,
@@ -2244,6 +2249,10 @@ function load_tr(selector)
 
     tsr_size = info.limit;
     tsr_offset = info.base;
+    tsr_selector = selector;
+
+    // mark task as busy
+    memory.write8(info.table_offset + 5, memory.read8(info.table_offset + 5) | 2);
 
     //dbg_log("tsr at " + h(tsr_offset) + "; (" + tsr_size + " bytes)");
 }
@@ -2285,6 +2294,7 @@ function load_ldt(selector)
 
     ldtr_size = info.limit;
     ldtr_offset = info.base;
+    ldtr_selector = selector;
 
     //dbg_log("ldt at " + h(ldtr_offset) + "; (" + ldtr_size + " bytes)");
 }
