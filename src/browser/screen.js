@@ -230,6 +230,11 @@ function ScreenAdapter()
         {
             text_screen.appendChild(document.createElement("div"));
         }
+
+        for(var i = 0; i < rows; i++)
+        {
+            this.text_update_row(i);
+        }
     };
 
     this.set_size_graphical = function(width, height)
