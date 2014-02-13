@@ -1211,13 +1211,13 @@ function shld32(dest_operand, source_operand, count)
 function bt_reg(bit_base, bit_offset)
 {
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 }
 
 function btc_reg(bit_base, bit_offset)
 {
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 
     return bit_base ^ 1 << bit_offset;
 }
@@ -1225,7 +1225,7 @@ function btc_reg(bit_base, bit_offset)
 function bts_reg(bit_base, bit_offset)
 {
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 
     return bit_base | 1 << bit_offset;
 }
@@ -1233,7 +1233,7 @@ function bts_reg(bit_base, bit_offset)
 function btr_reg(bit_base, bit_offset)
 {
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 
     return bit_base & ~(1 << bit_offset);
 }
@@ -1244,7 +1244,7 @@ function bt_mem(virt_addr, bit_offset)
     bit_offset &= 7;
 
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 }
 
 function btc_mem(virt_addr, bit_offset)
@@ -1255,7 +1255,7 @@ function btc_mem(virt_addr, bit_offset)
     bit_offset &= 7;
 
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 
     memory.write8(phys_addr, bit_base ^ 1 << bit_offset);
 }
@@ -1268,7 +1268,7 @@ function btr_mem(virt_addr, bit_offset)
     bit_offset &= 7;
 
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 
     memory.write8(phys_addr, bit_base & ~(1 << bit_offset));
 }
@@ -1281,7 +1281,7 @@ function bts_mem(virt_addr, bit_offset)
     bit_offset &= 7;
 
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 
     memory.write8(phys_addr, bit_base | 1 << bit_offset);
 }

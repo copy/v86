@@ -85,25 +85,28 @@ var table16 = [],
 
 
 // very special, should be somewhere else?
-#define lss_op(sreg)\
+#define lss_op16(sreg)\
     if(modrm_byte >= 0xC0) { trigger_ud(); }\
-    if(operand_size_32) { lss32(sreg, modrm_resolve(modrm_byte), modrm_byte >> 3 & 7); }\
-    else { lss16(sreg, modrm_resolve(modrm_byte), modrm_byte >> 2 & 14); }
+    lss16(sreg, modrm_resolve(modrm_byte), modrm_byte >> 2 & 14);
 
 
-#define bt_op(op, arg16, arg32)\
-    if(operand_size_32) {\
-        if(modrm_byte < 0xC0) {\
-            op ## _mem(modrm_resolve(modrm_byte), arg32);\
-        } else {\
-            reg_e32s = op ## _reg(reg_e32s, arg32 & 31);\
-        }\
+#define lss_op32(sreg)\
+    if(modrm_byte >= 0xC0) { trigger_ud(); }\
+    lss32(sreg, modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+
+
+#define bt_op16(op, arg16)\
+    if(modrm_byte < 0xC0) {\
+        op ## _mem(modrm_resolve(modrm_byte), arg16);\
     } else {\
-        if(modrm_byte < 0xC0) {\
-            op ## _mem(modrm_resolve(modrm_byte), arg16);\
-        } else {\
-            reg_e16 = op ## _reg(reg_e16, arg16 & 15);\
-        }\
+        reg_e16 = op ## _reg(reg_e16, arg16 & 15);\
+    }
+
+#define bt_op32(op, arg32)\
+    if(modrm_byte < 0xC0) {\
+        op ## _mem(modrm_resolve(modrm_byte), arg32);\
+    } else {\
+        reg_e32s = op ## _reg(reg_e32s, arg32 & 31);\
     }
 
 
@@ -785,17 +788,21 @@ op2(0xC2, {
 });
 op2(0xC3, {
     // retn
-    instruction_pointer = get_seg(reg_cs) + pop16() | 0;;
+    instruction_pointer = get_seg(reg_cs) + pop16() | 0;
 }, {
     // retn
-    instruction_pointer = get_seg(reg_cs) + pop32s() | 0;;
+    instruction_pointer = get_seg(reg_cs) + pop32s() | 0;
 });
 
-opm(0xC4, {
-    lss_op(reg_es);
+opm2(0xC4, {
+    lss_op16(reg_es);
+}, {
+    lss_op32(reg_es);
 });
-opm(0xC5, {
-    lss_op(reg_ds);
+opm2(0xC5, {
+    lss_op16(reg_ds);
+}, {
+    lss_op32(reg_ds);
 });
 
 opm(0xC6, { set_eb(read_imm8()); })
@@ -2088,28 +2095,23 @@ pop_sreg_op(0xA1, reg_fs);
 
 op(0xA2, { cpuid(); });
 
-opm(0xA3, {
-    if(operand_size_32)
+opm2(0xA3, {
+    if(modrm_byte < 0xC0)
     {
-        if(modrm_byte < 0xC0)
-        {
-            bt_mem(modrm_resolve(modrm_byte), reg_g32s);
-        }
-        else
-        {
-            bt_reg(reg_e32s, reg_g32s & 31);
-        }
+        bt_mem(modrm_resolve(modrm_byte), reg_g16s);
     }
     else
     {
-        if(modrm_byte < 0xC0)
-        {
-            bt_mem(modrm_resolve(modrm_byte), reg_g16s);
-        }
-        else
-        {
-            bt_reg(reg_e16, reg_g16 & 15);
-        }
+        bt_reg(reg_e16, reg_g16 & 15);
+    }
+}, {
+    if(modrm_byte < 0xC0)
+    {
+        bt_mem(modrm_resolve(modrm_byte), reg_g32s);
+    }
+    else
+    {
+        bt_reg(reg_e32s, reg_g32s & 31);
     }
 });
 
@@ -2136,8 +2138,10 @@ pop_sreg_op(0xA9, reg_gs);
 // rsm
 todo_op(0xAA);
 
-opm(0xAB, {
-    bt_op(bts, reg_g16s, reg_g32s);
+opm2(0xAB, {
+    bt_op16(bts, reg_g16s);
+}, {
+    bt_op32(bts, reg_g32s);
 });
 
 
@@ -2241,20 +2245,28 @@ opm2(0xB1, {
 });
 
 // lss
-opm(0xB2, { 
-    lss_op(reg_ss);
+opm2(0xB2, {
+    lss_op16(reg_ss);
+}, {
+    lss_op32(reg_ss);
 });
 
-opm(0xB3, {
-    bt_op(btr, reg_g16s, reg_g32s);
+opm2(0xB3, {
+    bt_op16(btr, reg_g16s);
+}, {
+    bt_op32(btr, reg_g32s);
 });
 
 // lfs, lgs
-opm(0xB4, { 
-    lss_op(reg_fs);
+opm2(0xB4, {
+    lss_op16(reg_fs);
+}, {
+    lss_op32(reg_fs);
 });
-opm(0xB5, {
-    lss_op(reg_gs);
+opm2(0xB5, {
+    lss_op16(reg_gs);
+}, {
+    lss_op32(reg_gs);
 });
 
 opm2(0xB6, {
@@ -2278,51 +2290,68 @@ todo_op(0xB8);
 // UD
 todo_op(0xB9);
 
-opm(0xBA, {
+opm2(0xBA, {
     //dbg_log("BA " + mod + " " + imm8);
 
     switch(modrm_byte >> 3 & 7)
     {
         case 4:
-            if(operand_size_32)
+            if(modrm_byte < 0xC0)
             {
-                if(modrm_byte < 0xC0)
-                {
-                    bt_mem(modrm_resolve(modrm_byte), read_imm8() & 31);
-                }
-                else
-                {
-                    bt_reg(reg_e32s, read_imm8() & 31);
-                }
+                bt_mem(modrm_resolve(modrm_byte), read_imm8() & 15);
             }
             else
             {
-                if(modrm_byte < 0xC0)
-                {
-                    bt_mem(modrm_resolve(modrm_byte), read_imm8() & 31);
-                }
-                else
-                {
-                    bt_reg(reg_e16, read_imm8() & 15);
-                }
+                bt_reg(reg_e16, read_imm8() & 15);
             }
             break;
         case 5:
-            bt_op(bts, read_imm8() & 31, read_imm8() & 31);
+            bt_op16(bts, read_imm8());
             break;
         case 6:
-            bt_op(btr, read_imm8() & 31, read_imm8() & 31);
+            bt_op16(btr, read_imm8());
             break;
         case 7:
-            bt_op(btc, read_imm8() & 31, read_imm8() & 31);
+            bt_op16(btc, read_imm8());
+            break;
+        default:
+            dbg_log(modrm_byte >> 3 & 7);
+            todo();
+    }
+}, {
+    //dbg_log("BA " + mod + " " + imm8);
+
+    switch(modrm_byte >> 3 & 7)
+    {
+        case 4:
+            if(modrm_byte < 0xC0)
+            {
+                bt_mem(modrm_resolve(modrm_byte), read_imm8() & 31);
+            }
+            else
+            {
+                bt_reg(reg_e32s, read_imm8() & 31);
+            }
+            break;
+        case 5:
+            bt_op32(bts, read_imm8());
+            break;
+        case 6:
+            bt_op32(btr, read_imm8());
+            break;
+        case 7:
+            bt_op32(btc, read_imm8());
             break;
         default:
             dbg_log(modrm_byte >> 3 & 7);
             todo();
     }
 });
-opm(0xBB, {
-    bt_op(btc, reg_g16s, reg_g32s);
+
+opm2(0xBB, {
+    bt_op16(btc, reg_g16s);
+}, {
+    bt_op32(btc, reg_g32s);
 });
 
 opm2(0xBC, {
