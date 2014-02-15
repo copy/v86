@@ -48,6 +48,12 @@ function IDEDevice(dev, buffer, is_cd, nr)
     {
         this.sector_count = me.buffer.byteLength / this.sector_size;
 
+        if(this.sector_size !== (this.sector_size | 0))
+        {
+            dbg_log("Warning: Disk size not aligned with sector size", LOG_DISK);
+            this.sector_count = Math.ceil(this.sector_count);
+        }
+
         if(is_cd)
         {
             this.head_count = 1;
@@ -62,7 +68,11 @@ function IDEDevice(dev, buffer, is_cd, nr)
         this.cylinder_count = me.buffer.byteLength / 
             this.head_count / (this.sectors_per_track + 1) / this.sector_size;
 
-        dbg_assert(this.cylinder_count === (this.cylinder_count | 0));
+        if(this.cylinder_count !== (this.cylinder_count | 0))
+        {
+            dbg_log("Warning: Rounding up cylinder count. Choose different sector per track", LOG_DISK);
+            this.cylinder_count = Math.ceil(this.cylinder_count);
+        }
     }
     else
     {
