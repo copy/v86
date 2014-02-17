@@ -10,6 +10,18 @@
 var modrm_resolve16,
     modrm_resolve32;
 
+function modrm_skip(modrm_byte)
+{
+    // advance the instruction pointer depending on modrm byte
+    // but don't actually do address arithmatic
+    
+    if(modrm_byte <= 0xC0)
+    {
+        // TODO
+        modrm_resolve(modrm_byte);
+    }
+}
+
 (function() {
 
 var modrm_table16 = Array(0xC0),

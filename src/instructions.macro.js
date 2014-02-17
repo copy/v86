@@ -1796,12 +1796,7 @@ unimplemented_sse(0x17);
 opm(0x18, {
     // prefetch
     // nop for us 
-    if(operand_size_32) {
-        read_e32s;
-    }
-    else {
-        read_e16;
-    }
+    modrm_skip(modrm_byte);
 });
 
 unimplemented_sse(0x19);
@@ -2011,14 +2006,14 @@ unimplemented_sse(0x3F);
         if(test) {\
             read_e16;\
             reg_g16 = data;\
-        } else if(modrm_byte < 0xC0)\
-            modrm_resolve(modrm_byte)\
+        } else \
+            modrm_skip(modrm_byte)\
     }, {\
         if(test) {\
             read_e32s;\
             reg_g32s = data;\
-        } else if(modrm_byte < 0xC0)\
-            modrm_resolve(modrm_byte)\
+        } else \
+            modrm_skip(modrm_byte)\
     });
 
 each_jcc(group0F40);
