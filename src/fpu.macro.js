@@ -1526,22 +1526,30 @@ FPU.prototype.op_DF_mem = function(imm8, addr)
             break;
         case 7:
             // fistp
-            var st0 = this._integer_round(this._get_st0());
+            var st0 = this._integer_round(this._get_st0()),
+                st0_low,
+                st0_high;
 
             if(!(st0 <= 0x7FFFFFFFFFFFFFFF && st0 >= -0x8000000000000000))
             {
-                st0 = 0x8000000000000000;
+                // write 0x8000000000000000
+                st0_low  = 0;
+                st0_high = 0x80000000;
                 this._invalid_arithmatic();
             }
+            else
+            {
+                st0_low = st0 | 0;
+                st0_high = st0 / 0x100000000 | 0;
+
+                if(st0_high === 0 && st0 < 0)
+                    st0_high = -1;
+            }
+
+            safe_write32(addr, st0_low);
+            safe_write32(addr + 4, st0_high);
+
             this._pop();
-            safe_write32(addr, st0);
-
-            st0 /= 0x100000000;
-
-            if(st0 < 0 && st0 > -1)
-                st0 = -1;
-
-            safe_write32(addr + 4, st0);
             break;
         default:
             dbg_log(mod); 
