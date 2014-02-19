@@ -107,10 +107,12 @@ function PS2(dev, keyboard, mouse)
 
     function mouse_send_delta(delta_x, delta_y)
     {
+        // note: delta_x or delta_y can be floating point numbers
+        
         if(have_mouse && enable_mouse)
         {
-            mouse_delta_x += delta_x * resolution / 4 | 0;
-            mouse_delta_y += delta_y * resolution / 4 | 0;
+            mouse_delta_x += Math.roundInfinity(delta_x * resolution);
+            mouse_delta_y += Math.roundInfinity(delta_y * resolution);
 
             if(enable_mouse_stream)
             {
