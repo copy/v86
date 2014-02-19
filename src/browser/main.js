@@ -65,7 +65,7 @@
 
         a.dataset["downloadurl"] = ["application/octet-stream", a["download"], a.href].join(":");
 
-        document.body.appendChild(a);
+        $("runtime_infos").appendChild(a);
     }
     function set_title(text)
     {
