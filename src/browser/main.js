@@ -777,6 +777,12 @@
             log: log,
         };
 
+        if(!settings.bios || !settings.vga_bios)
+        {
+            log("The BIOS has not been loaded - reload the page to try again.");
+            return;
+        }
+
         if(typeof performance === "object" && performance.now)
         {
             var offset = Date.now() - performance.now();
