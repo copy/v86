@@ -53,7 +53,10 @@ function PS2(dev, keyboard, mouse)
         sample_rate = 100,
 
         /** @type {number} */
-        resolution = 1,
+        resolution = 4,
+
+        /** @type {boolean} */
+        scaling2 = false,
 
         /** @type {number} */
         last_mouse_packet = -1,
@@ -106,8 +109,8 @@ function PS2(dev, keyboard, mouse)
     {
         if(have_mouse && enable_mouse)
         {
-            mouse_delta_x += delta_x;
-            mouse_delta_y += delta_y;
+            mouse_delta_x += delta_x * resolution / 4 | 0;
+            mouse_delta_y += delta_y * resolution / 4 | 0;
 
             if(enable_mouse_stream)
             {
@@ -146,13 +149,22 @@ function PS2(dev, keyboard, mouse)
                 (mouse_delta_y < 0) << 5 |
                 (mouse_delta_x < 0) << 4 |
                 1 << 3 | 
-                mouse_clicks;
+                mouse_clicks,
+            delta_x = mouse_delta_x,
+            delta_y = mouse_delta_y;
 
         last_mouse_packet = Date.now();
 
+        if(scaling2)
+        {
+            // only in automatic packets, not 0xEB requests
+            delta_x = apply_scaling2(delta_x);
+            delta_y = apply_scaling2(delta_y);
+        }
+
         mouse_buffer.push(info_byte);
-        mouse_buffer.push(mouse_delta_x);
-        mouse_buffer.push(mouse_delta_y);
+        mouse_buffer.push(delta_x);
+        mouse_buffer.push(delta_y);
 
         dbg_log("adding mouse packets:" + [info_byte, mouse_delta_x, mouse_delta_y], LOG_PS2);
 
@@ -160,6 +172,29 @@ function PS2(dev, keyboard, mouse)
         mouse_delta_y = 0;
 
         mouse_irq();
+    }
+
+    function apply_scaling2(n)
+    {
+        // http://www.computer-engineering.org/ps2mouse/#Inputs.2C_Resolution.2C_and_Scaling
+        var abs = Math.abs(n),
+            sign = n >> 31;
+
+        switch(abs)
+        {
+            case 0:
+            case 1:
+            case 3:
+                return n;
+            case 2:
+                return sign;
+            case 4: 
+                return 6 * sign;
+            case 5:
+                return 9 * sign;
+            default:
+                return n << 1;
+        }
     }
 
     this.destroy = function()
@@ -298,7 +333,8 @@ function PS2(dev, keyboard, mouse)
 
             if(write_byte > 3)
             {
-                dbg_log("invalid resolution, resetting to 1", LOG_PS2);
+                resolution = 4;
+                dbg_log("invalid resolution, resetting to 4", LOG_PS2);
             }
             else
             {
@@ -337,17 +373,21 @@ function PS2(dev, keyboard, mouse)
             switch(write_byte)
             {
             case 0xE6:
-                  // set scaling to 1:1
+                // set scaling to 1:1
+                dbg_log("Scaling 1:1", LOG_PS2);
+                scaling2 = false;
                 break;
             case 0xE7:
-                  // set scaling to 2:1
+                // set scaling to 2:1
+                dbg_log("Scaling 2:1", LOG_PS2);
+                scaling2 = true;
                 break;
             case 0xE8:
                 // set mouse resolution
                 next_read_resolution = true;
                 break;
             case 0xE9:
-                  // status request - send one packet
+                // status request - send one packet
                 send_mouse_packet();
                 break;
             case 0xEB:
@@ -355,7 +395,7 @@ function PS2(dev, keyboard, mouse)
                 dbg_log("unimplemented request single packet", LOG_PS2);
                 break;
             case 0xF2:
-                  //  MouseID Byte
+                //  MouseID Byte
                 mouse_buffer.push(0);
                 mouse_buffer.push(0);
                 break;
@@ -377,7 +417,8 @@ function PS2(dev, keyboard, mouse)
                 // reset defaults 
                 enable_mouse_stream = false;
                 sample_rate = 100;
-                // ... resolution, scaling
+                scaling2 = false;
+                resolution = 4;
                 break;
             case 0xFF:
                 // reset, send completion code
