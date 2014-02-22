@@ -2558,7 +2558,35 @@ function do_page_translation(addr, for_writing, user)
         }
     }
 
-    return high ;
+    return high;
+}
+
+function writable_or_pagefault(addr, size)
+{
+    dbg_assert(size < 0x1000, "not supported yet");
+    dbg_assert(size > 0);
+
+    if(!paging)
+    {
+        return;
+    }
+
+    var user = cpl ? 1 : 0,
+        mask = cpl ? TLB_USER_WRITE : TLB_SYSTEM_WRITE,
+        base = addr >>> 12;
+
+    if((addr & 0xFFF) + size - 1 >= 0x1000)
+    {
+        if((tlb_info[base + 1] & mask) === 0)
+        {
+            do_page_translation(addr + size - 1, 1, user);
+        }
+    }
+
+    if((tlb_info[base] & mask) === 0)
+    {
+        do_page_translation(addr, 1, user);
+    }
 }
 
 function trigger_pagefault(write, user, present)

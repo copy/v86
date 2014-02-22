@@ -79,7 +79,6 @@ var table16 = [],
     macro(6, xor)
 
 
-
 #define safe_pop32s(dest) dest = pop32s();
 #define safe_pop16(dest) dest = pop16();
 
@@ -295,9 +294,6 @@ arith_group(0x00, add);
 
 op2(0x06, { push16(sreg[reg_es]); }, { push32(sreg[reg_es]); });
 pop_sreg_op(0x07, reg_es);
-//op2(0x07, 
-//    { safe_pop16(sreg[reg_es]); switch_seg(reg_es, memory.read16(get_esp_read(0))); }, 
-//    { safe_pop32s(sreg[reg_es]); switch_seg(reg_es); });
 
 arith_group(0x08, or);
 
@@ -308,17 +304,11 @@ arith_group(0x10, adc);
 
 op2(0x16, { push16(sreg[reg_ss]); }, { push32(sreg[reg_ss]); });
 pop_sreg_op(0x17, reg_ss);
-//op2(0x17, 
-//    { safe_pop16(sreg[reg_ss]); switch_seg(reg_ss); }, 
-//    { safe_pop32s(sreg[reg_ss]); switch_seg(reg_ss); });
 
 arith_group(0x18, sbb);
 
 op2(0x1E, { push16(sreg[reg_ds]); }, { push32(sreg[reg_ds]); });
 pop_sreg_op(0x1F, reg_ds);
-//op2(0x1F, 
-//    { safe_pop16(sreg[reg_ds]); switch_seg(reg_ds); }, 
-//    { safe_pop32s(sreg[reg_ds]); switch_seg(reg_ds); });
 
 arith_group(0x20, and);
 
@@ -1038,7 +1028,6 @@ op2(0xCF, {
 
 
     //dbg_log("iret if=" + (flags & flag_interrupt) + " cpl=" + cpl + " eip=" + h(instruction_pointer >>> 0, 8), LOG_CPU);
-    dbg_assert(!page_fault);
 
     handle_irqs();
 
@@ -1488,13 +1477,14 @@ opm2(0xFF, {
             }
 
             var virt_addr = modrm_resolve(modrm_byte);
+            var new_cs = safe_read16(virt_addr + 2);
+            var new_ip = safe_read16(virt_addr);
 
             push16(sreg[reg_cs]);
             push16(get_real_ip());
 
-            switch_seg(reg_cs, safe_read16(virt_addr + 2));
-            instruction_pointer = get_seg(reg_cs) + safe_read16(virt_addr) | 0;
-            dbg_assert(!page_fault);
+            switch_seg(reg_cs, new_cs);
+            instruction_pointer = get_seg(reg_cs) + new_ip | 0;
         },
         {
             // 4, jmp near
@@ -1510,11 +1500,11 @@ opm2(0xFF, {
             }
 
             var virt_addr = modrm_resolve(modrm_byte);
+            var new_cs = safe_read16(virt_addr + 2);
+            var new_ip = safe_read16(virt_addr);
 
-            switch_seg(reg_cs, safe_read16(virt_addr + 2));
-            instruction_pointer = get_seg(reg_cs) + safe_read16(virt_addr) | 0;
-
-            // TODO safe read
+            switch_seg(reg_cs, new_cs);
+            instruction_pointer = get_seg(reg_cs) + new_ip | 0;
         },
         {
             // 6, push
@@ -1548,7 +1538,6 @@ opm2(0xFF, {
             var virt_addr = modrm_resolve(modrm_byte);
             var new_cs = safe_read16(virt_addr + 4);
             var new_ip = safe_read32s(virt_addr);
-
 
             push32(sreg[reg_cs]);
             push32(get_real_ip());
@@ -1683,11 +1672,13 @@ opm(0x01, {
     {
         case 0:
             // sgdt
+            writable_or_pagefault(addr, 6);
             safe_write16(addr, gdtr_size);
             safe_write32(addr + 2, gdtr_offset);
             break;
         case 1:
             // sidt
+            writable_or_pagefault(addr, 6);
             safe_write16(addr, idtr_size);
             safe_write32(addr + 2, idtr_offset);
             break;
@@ -2084,9 +2075,6 @@ each_jcc(group0F90);
 
 op2(0xA0, { push16(sreg[reg_fs]); }, { push32(sreg[reg_fs]); });
 pop_sreg_op(0xA1, reg_fs);
-//op2(0xA1, 
-//    { safe_pop16(sreg[reg_fs]); switch_seg(reg_fs); }, 
-//    { safe_pop32s(sreg[reg_fs]); switch_seg(reg_fs); });
 
 op(0xA2, { cpuid(); });
 
@@ -2126,9 +2114,6 @@ undefined_instruction(0xA7);
 
 op2(0xA8, { push16(sreg[reg_gs]); }, { push32(sreg[reg_gs]); });
 pop_sreg_op(0xA9, reg_gs);
-//op2(0xA9, 
-//    { safe_pop16(sreg[reg_gs]); switch_seg(reg_gs); }, 
-//    { safe_pop32s(sreg[reg_gs]); switch_seg(reg_gs); });
 
 // rsm
 todo_op(0xAA);
@@ -2167,7 +2152,8 @@ opm(0xB0, {
     if(modrm_byte < 0xC0)
     {
         var virt_addr = modrm_resolve(modrm_byte);
-        translate_address_write(virt_addr);
+        writable_or_pagefault(virt_addr, 1);
+
         var data = safe_read8(virt_addr);
     }
     else
@@ -2193,7 +2179,8 @@ opm2(0xB1, {
     if(modrm_byte < 0xC0)
     {
         var virt_addr = modrm_resolve(modrm_byte);
-        translate_address_write(virt_addr);
+        writable_or_pagefault(virt_addr, 2);
+
         var data = safe_read16(virt_addr);
     }
     else
@@ -2216,7 +2203,8 @@ opm2(0xB1, {
     if(modrm_byte < 0xC0)
     {
         var virt_addr = modrm_resolve(modrm_byte);
-        translate_address_write(virt_addr);
+        writable_or_pagefault(virt_addr, 4);
+
         var data = safe_read32s(virt_addr);
     }
     else
@@ -2405,8 +2393,7 @@ opm(0xC7, {
     }
 
     var addr = modrm_resolve(modrm_byte);
-    translate_address_write(addr);
-    translate_address_write(addr + 7);
+    writable_or_pagefault(addr, 8);
     
     var m64_low = safe_read32s(addr);
     var m64_high = safe_read32s(addr + 4);
