@@ -286,8 +286,8 @@ function ScreenAdapter()
         {
             cursor_element.style.display = "inline";
 
-            cursor_element.style.height = (end - start) + "px";
-            cursor_element.style.marginTop = start + "px";
+            cursor_element.style.height = Math.min(15, end - start) + "px";
+            cursor_element.style.marginTop = Math.min(15, start) + "px";
         }
     };
 
