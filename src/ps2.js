@@ -123,22 +123,28 @@ function PS2(dev, keyboard, mouse)
 
         // note: delta_x or delta_y can be floating point numbers
 
-        mouse_delta_x += Math.roundInfinity(delta_x * resolution);
-        mouse_delta_y += Math.roundInfinity(delta_y * resolution);
+        mouse_delta_x += delta_x * resolution;
+        mouse_delta_y += delta_y * resolution;
 
         if(enable_mouse_stream)
         {
-            var now = Date.now();
+            var change_x = Math.ceil(mouse_delta_x),
+                change_y = Math.ceil(mouse_delta_y);
 
-            if(now - last_mouse_packet < 1000 / sample_rate)
+            if(change_x || change_y)
             {
-                // TODO: set timeout
-                return;
-            }
+                var now = Date.now();
 
-            if(mouse_delta_x && mouse_delta_y)
-            {
-                send_mouse_packet();
+                if(now - last_mouse_packet < 1000 / sample_rate)
+                {
+                    // TODO: set timeout
+                    return;
+                }
+
+                mouse_delta_x -= change_x;
+                mouse_delta_y -= change_y;
+
+                send_mouse_packet(change_x, change_y);
             }
         }
     }
@@ -154,19 +160,19 @@ function PS2(dev, keyboard, mouse)
 
         if(enable_mouse_stream)
         {
-            send_mouse_packet();
+            send_mouse_packet(0, 0);
         }
     }
 
-    function send_mouse_packet()
+    function send_mouse_packet(dx, dy)
     {
         var info_byte = 
-                (mouse_delta_y < 0) << 5 |
-                (mouse_delta_x < 0) << 4 |
+                (dy < 0) << 5 |
+                (dx < 0) << 4 |
                 1 << 3 | 
                 mouse_clicks,
-            delta_x = mouse_delta_x,
-            delta_y = mouse_delta_y;
+            delta_x = dx,
+            delta_y = dy;
 
         last_mouse_packet = Date.now();
 
@@ -181,10 +187,7 @@ function PS2(dev, keyboard, mouse)
         mouse_buffer.push(delta_x);
         mouse_buffer.push(delta_y);
 
-        dbg_log("adding mouse packets:" + [info_byte, mouse_delta_x, mouse_delta_y], LOG_PS2);
-
-        mouse_delta_x = 0;
-        mouse_delta_y = 0;
+        dbg_log("adding mouse packets:" + [info_byte, dx, dy], LOG_PS2);
 
         mouse_irq();
     }
@@ -421,7 +424,7 @@ function PS2(dev, keyboard, mouse)
                 break;
             case 0xE9:
                 // status request - send one packet
-                send_mouse_packet();
+                send_mouse_packet(0, 0);
                 break;
             case 0xEB:
                 // request single packet
