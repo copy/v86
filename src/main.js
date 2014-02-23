@@ -210,7 +210,7 @@ String.chr_repeat = function(chr, count)
 {
     var result = "";
 
-    while(count--)
+    while(count-- > 0)
     {
         result += chr;
     }
