@@ -1,3 +1,4 @@
+"use strict";
 
 /** @constructor */
 function MouseAdapter()
