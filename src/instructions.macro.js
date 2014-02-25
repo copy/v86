@@ -1132,7 +1132,7 @@ op(0xD5, {
 
 op(0xD6, {
     // salc
-    throw unimpl("salc instruction");
+    reg8[reg_al] = -getcf();
 });
 op(0xD7, {
     // xlat
