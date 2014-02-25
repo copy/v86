@@ -601,7 +601,7 @@ FPU.prototype._store_m32 = function(addr, i)
     safe_write32(addr, float32_int[0]);
 };
 
-// this._sign of a number on the stack
+// sign of a number on the stack
 FPU.prototype._sign = function(i)
 {
     return this._st8[(this._stack_ptr + i & 7) << 3 | 7] >> 7;
@@ -618,12 +618,12 @@ FPU.prototype._dbg_log_fpu_op = function(op, imm8)
     if(imm8 >= 0xC0)
     {
         dbg_log(h(op, 2) + " " + h(imm8, 2) + "/" + (imm8 >> 3 & 7) + "/" + (imm8 & 7) +
-                " @" + h(instruction_pointer >>> 0, 8) + " sp=" + this._stack_ptr + " this._st=" + h(this._stack_empty, 2), LOG_FPU);
+                " @" + h(instruction_pointer >>> 0, 8) + " sp=" + this._stack_ptr + " st=" + h(this._stack_empty, 2), LOG_FPU);
     }
     else
     {
         dbg_log(h(op, 2) + " /" + (imm8 >> 3 & 7) + 
-                "     @" + h(instruction_pointer >>> 0, 8) + " sp=" + this._stack_ptr + " this._st=" + h(this._stack_empty, 2), LOG_FPU);
+                "     @" + h(instruction_pointer >>> 0, 8) + " sp=" + this._stack_ptr + " st=" + h(this._stack_empty, 2), LOG_FPU);
     }
 }
 
@@ -755,6 +755,16 @@ FPU.prototype.op_D9_reg = function(imm8)
 
             this._st[this._stack_ptr + low & 7] = this._get_st0();
             this._st[this._stack_ptr] = sti;
+            break;
+        case 2:
+            switch(low)
+            {
+                case 0:
+                    // fnop
+                    break;
+                default:
+                    dbg_log(low); this._fpu_unimpl();
+            }
             break;
         case 4:
             switch(low)
