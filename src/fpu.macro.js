@@ -43,37 +43,11 @@ var
     /** @const */
     FPU_EX_I = 1 << 0;
 
-/*
- * used for conversion
- */
 var 
     /** @const */
-    float32 = new Float32Array(1),
+    TWO_POW_63 =  0x8000000000000000,
     /** @const */
-    float32_byte = new Uint8Array(float32.buffer),
-    /** @const */
-    float32_int = new Uint32Array(float32.buffer),
-
-    /** @const */
-    float64 = new Float64Array(1),
-    /** @const */
-    float64_byte = new Uint8Array(float64.buffer),
-    /** @const */
-    float64_int = new Uint32Array(float64.buffer),
-
-    /** @const */
-    float80_int = new Uint8Array(10);
-
-
-/** @const */
-var indefinite_nan = NaN;
-
-
-/** @const */
-var fpu_constants = new Float64Array([
-    1, Math.log(10) / Math.LN2, Math.LOG2E, Math.PI,
-    Math.log(2) / Math.LN10, Math.LN2, 0
-]);
+    TWO_POW_64 = 0x10000000000000000;
 
 /**
  * @constructor
@@ -88,7 +62,7 @@ function FPU(io)
     // Why no Float80Array :-(
     this._st = new Float64Array(8);
     this._st8 = new Uint8Array(this._st.buffer);
-    this._st32 = new Uint32Array(this._st.buffer);
+    this._st32 = new Int32Array(this._st.buffer);
 
     // bitmap of which stack registers are empty
     this._stack_empty = 0xff;
@@ -101,6 +75,36 @@ function FPU(io)
     this._fpu_opcode = 0;
     this._fpu_dp = 0;
     this._fpu_dp_selector = 0;
+
+    /*
+     * used for conversion
+     */
+    /** @const */
+    this.float32 = new Float32Array(1);
+    /** @const */
+    this.float32_byte = new Uint8Array(this.float32.buffer);
+    /** @const */
+    this.float32_int = new Int32Array(this.float32.buffer);
+
+    /** @const */
+    this.float64 = new Float64Array(1);
+    /** @const */
+    this.float64_byte = new Uint8Array(this.float64.buffer);
+    /** @const */
+    this.float64_int = new Int32Array(this.float64.buffer);
+
+    /** @const */
+    this.float80_byte = new Uint8Array(10);
+
+
+    /** @const */
+    this.indefinite_nan = NaN;
+
+    /** @const */
+    this.constants = new Float64Array([
+        1, Math.log(10) / Math.LN2, Math.LOG2E, Math.PI,
+        Math.log(2) / Math.LN10, Math.LN2, 0
+    ]);
 
 }
 
@@ -182,32 +186,28 @@ FPU.prototype._fucomi = function(y)
     this._fcomi(y);
 }
 
-FPU.prototype._ftst = function()
+FPU.prototype._ftst = function(x)
 {
-    var st0 = this._get_st0();
-
     this._status_word &= ~FPU_RESULT_FLAGS;
 
-    if(isNaN(st0))
+    if(isNaN(x))
     {
         this._status_word |= FPU_C3 | FPU_C2 | FPU_C0;
     }
-    else if(st0 === 0)
+    else if(x === 0)
     {
         this._status_word |= FPU_C3;
     }
-    else if(st0 < 0)
+    else if(x < 0)
     {
         this._status_word |= FPU_C0;
     }
 
-    // TODO: unordered (st0 is nan, etc)
+    // TODO: unordered (x is nan, etc)
 }
 
-FPU.prototype._fxam = function()
+FPU.prototype._fxam = function(x)
 {
-    var x = this._get_st0();
-
     this._status_word &= ~FPU_RESULT_FLAGS;
     this._status_word |= this._sign(0) << 9;
 
@@ -302,6 +302,8 @@ FPU.prototype._fstenv = function(addr)
 {
     if(operand_size_32)
     {
+        writable_or_pagefault(addr, 26);
+
         safe_write16(addr, this._control_word);
 
         safe_write16(addr + 4, this._load_status_word());
@@ -328,10 +330,10 @@ FPU.prototype._fldenv = function(addr)
         this._safe_status_word(safe_read16(addr + 4));
         this._safe_tag_word(safe_read16(addr + 8));
         
-        this._fpu_ip = safe_read32(addr + 12);
+        this._fpu_ip = safe_read32s(addr + 12);
         this._fpu_ip_selector = safe_read16(addr + 16);
         this._fpu_opcode = safe_read16(addr + 18);
-        this._fpu_dp = safe_read32(addr + 20);
+        this._fpu_dp = safe_read32s(addr + 20);
         this._fpu_dp_selector = safe_read16(addr + 24);
     }
     else
@@ -342,6 +344,8 @@ FPU.prototype._fldenv = function(addr)
 
 FPU.prototype._fsave = function(addr)
 {
+    writable_or_pagefault(addr, 108);
+
     this._fstenv(addr);
     addr += 28;
 
@@ -379,7 +383,7 @@ FPU.prototype._integer_round = function(f)
         // Round to nearest, or even if equidistant
         var rounded = Math.round(f);
 
-        if(rounded - f === 0.5 && (rounded & 1))
+        if(rounded - f === 0.5 && (rounded % 2))
         {
             // Special case: Math.round rounds to positive infinity
             // if equidistant
@@ -388,7 +392,7 @@ FPU.prototype._integer_round = function(f)
 
         return rounded;
     }
-        // rc=3 is this._truncate -> floor for positive numbers
+        // rc=3 is truncate -> floor for positive numbers
     else if(rc === 1 || (rc === 3 && f > 0))
     {
         return Math.floor(f);
@@ -418,7 +422,7 @@ FPU.prototype._push = function(x)
     {
         this._status_word |= FPU_C1;
         this._stack_fault();
-        this._st[this._stack_ptr] = indefinite_nan;
+        this._st[this._stack_ptr] = this.indefinite_nan;
     }
 }
 
@@ -438,7 +442,7 @@ FPU.prototype._get_sti = function(i)
     {
         this._status_word &= ~FPU_C1;
         this._stack_fault();
-        return indefinite_nan;
+        return this.indefinite_nan;
     }
     else
     {
@@ -452,7 +456,7 @@ FPU.prototype._get_st0 = function()
     {
         this._status_word &= ~FPU_C1;
         this._stack_fault();
-        return indefinite_nan;
+        return this.indefinite_nan;
     }
     else
     {
@@ -460,22 +464,10 @@ FPU.prototype._get_st0 = function()
     }
 }
 
-FPU.prototype._assert_not_empty = function(i)
-{
-    if(this._stack_empty >> (i + this._stack_ptr & 7) & 1)
-    {
-        this._status_word &= ~FPU_C1;
-    }
-    else
-    {
-    }
-}
-
 FPU.prototype._load_m80 = function(addr)
 {
     var exponent = safe_read16(addr + 8),
         sign,
-
         low = safe_read32(addr), 
         high = safe_read32(addr + 4);
 
@@ -496,15 +488,15 @@ FPU.prototype._load_m80 = function(addr)
     {
         // TODO: NaN, Infinity
         //dbg_log("Load m80 TODO", LOG_FPU);
-        float64_byte[7] = 0x7F | sign << 7;
-        float64_byte[6] = 0xF0 | high >> 30 << 3 & 0x08;
+        this.float64_byte[7] = 0x7F | sign << 7;
+        this.float64_byte[6] = 0xF0 | high >> 30 << 3 & 0x08;
 
-        float64_byte[5] = 0;
-        float64_byte[4] = 0;
+        this.float64_byte[5] = 0;
+        this.float64_byte[4] = 0;
 
-        float64_int[0] = 0;
+        this.float64_int[0] = 0;
 
-        return float64[0];
+        return this.float64[0];
     }
 
     // Note: some bits might be lost at this point
@@ -521,7 +513,7 @@ FPU.prototype._load_m80 = function(addr)
     //console.log("f: " + mantissa * Math.pow(2, exponent - 63));
 
     // Simply compute the 64 bit floating point number.
-    // An alternative write the mantissa, this._sign and exponent in the
+    // An alternative write the mantissa, sign and exponent in the
     // float64_byte and return float64[0]
 
     return mantissa * Math.pow(2, exponent - 63);
@@ -529,10 +521,10 @@ FPU.prototype._load_m80 = function(addr)
 
 FPU.prototype._store_m80 = function(addr, i)
 {
-    float64[0] = this._st[this._stack_ptr + i & 7];
+    this.float64[0] = this._st[this._stack_ptr + i & 7];
 
-    var sign = float64_byte[7] & 0x80,
-        exponent = (float64_byte[7] & 0x7f) << 4 | float64_byte[6] >> 4,
+    var sign = this.float64_byte[7] & 0x80,
+        exponent = (this.float64_byte[7] & 0x7f) << 4 | this.float64_byte[6] >> 4,
         low,
         high;
 
@@ -541,7 +533,7 @@ FPU.prototype._store_m80 = function(addr, i)
         // all bits set (NaN and infinity)
         exponent = 0x7FFF;
         low = 0;
-        high = 0x80000000 | (float64_int[1] & 0x80000) << 11;
+        high = 0x80000000 | (this.float64_int[1] & 0x80000) << 11;
     }
     else if(exponent === 0)
     {
@@ -555,8 +547,8 @@ FPU.prototype._store_m80 = function(addr, i)
         exponent += 0x3FFF - 0x3FF;
 
         // does the mantissa need to be adjusted?
-        low = float64_int[0] << 11;
-        high = 0x80000000 | (float64_int[1] & 0xFFFFF) << 11 | (float64_int[0] >>> 21);
+        low = this.float64_int[0] << 11;
+        high = 0x80000000 | (this.float64_int[1] & 0xFFFFF) << 11 | (this.float64_int[0] >>> 21);
     }
 
     dbg_assert(exponent >= 0 && exponent < 0x8000);
@@ -569,36 +561,37 @@ FPU.prototype._store_m80 = function(addr, i)
 
 FPU.prototype._load_m64 = function(addr)
 {
-    float64_int[0] = safe_read32s(addr);
-    float64_int[1] = safe_read32s(addr + 4);
+    var low = safe_read32s(addr),
+        high = safe_read32s(addr + 4);
 
-    return float64[0];
+    this.float64_int[0] = low;
+    this.float64_int[1] = high;
+
+    return this.float64[0];
 };
 
 FPU.prototype._store_m64 = function(addr, i)
 {
-    // protect against writing only a single dword
-    // and then page-faulting
-    translate_address_write(addr + 7);
+    writable_or_pagefault(addr, 8);
 
-    float64[0] = this._get_sti(i);
+    this.float64[0] = this._get_sti(i);
 
-    safe_write32(addr, float64_int[0]);
-    safe_write32(addr + 4, float64_int[1]);
+    safe_write32(addr, this.float64_int[0]);
+    safe_write32(addr + 4, this.float64_int[1]);
 };
 
 FPU.prototype._load_m32 = function(addr)
 {
-    float32_int[0] = safe_read32s(addr);
+    this.float32_int[0] = safe_read32s(addr);
 
-    return float32[0];
+    return this.float32[0];
 };
 
-FPU.prototype._store_m32 = function(addr, i)
+FPU.prototype._store_m32 = function(addr, x)
 {
-    float32[0] = this._get_sti(i);
+    this.float32[0] = x;
 
-    safe_write32(addr, float32_int[0]);
+    safe_write32(addr, this.float32_int[0]);
 };
 
 // sign of a number on the stack
@@ -680,8 +673,7 @@ FPU.prototype.op_D8_reg = function(imm8)
             this._st[this._stack_ptr] = sti / st0;
             break;
         default:
-            dbg_log(mod); 
-            this._fpu_unimpl();
+            dbg_assert(false);
     }
 };
 
@@ -730,8 +722,7 @@ FPU.prototype.op_D8_mem = function(imm8, addr)
             this._st[this._stack_ptr] = m32 / st0;
             break;
         default:
-            dbg_log(mod); 
-            this._fpu_unimpl();
+            dbg_assert(false);
     }
 };
 
@@ -763,106 +754,126 @@ FPU.prototype.op_D9_reg = function(imm8)
                     // fnop
                     break;
                 default:
-                    dbg_log(low); this._fpu_unimpl();
+                    dbg_log(low); 
+                    this._fpu_unimpl();
             }
             break;
+        case 3:
+            // fstp1
+            this._fpu_unimpl();
+            break;
         case 4:
+            var st0 = this._get_st0();
+
             switch(low)
             {
                 case 0:
                     // fchs
-                    this._st[this._stack_ptr] = -this._get_st0();
+                    this._st[this._stack_ptr] = -st0;
                     break;
                 case 1:
                     // fabs
-                    this._st[this._stack_ptr] = Math.abs(this._get_st0());
+                    this._st[this._stack_ptr] = Math.abs(st0);
                     break;
                 case 4:
-                    this._ftst();
+                    this._ftst(st0);
                     break;
                 case 5:
-                    this._fxam();
+                    this._fxam(st0);
                     break;
                 default:
-                    dbg_log(low); this._fpu_unimpl();
+                    dbg_log(low); 
+                    this._fpu_unimpl();
             }
             break;
         case 5:
-            this._push(fpu_constants[low]);
+            this._push(this.constants[low]);
             break;
         case 6:
+            var st0 = this._get_st0();
+
             switch(low)
             {
                 case 0:
                     // f2xm1
-                    this._st[this._stack_ptr] = Math.pow(2, this._get_st0()) - 1;
+                    this._st[this._stack_ptr] = Math.pow(2, st0) - 1;
                     break;
                 case 1:
                     // fyl2x
-                    this._st[this._stack_ptr + 1 & 7] = this._get_sti(1) * Math.log(this._get_st0()) / Math.LN2;
+                    this._st[this._stack_ptr + 1 & 7] = this._get_sti(1) * Math.log(st0) / Math.LN2;
                     this._pop();
                     break;
                 case 2:
                     // fptan
-                    this._st[this._stack_ptr] = Math.tan(this._get_st0());
-                    this._push(1); // no bug: this._push constant 1
+                    this._st[this._stack_ptr] = Math.tan(st0);
+                    this._push(1); // no bug: push constant 1
                     break;
                 case 3:
                     // fpatan
-                    //this._st[this._stack_ptr + 1 & 7] = Math.atan(this._get_sti(1) / this._get_st0());
-                    this._st[this._stack_ptr + 1 & 7] = Math.atan2(this._get_sti(1), this._get_st0());
+                    this._st[this._stack_ptr + 1 & 7] = Math.atan2(this._get_sti(1), st0);
                     this._pop();
+                    break;
+                case 4:
+                    // fxtract
+                    this._fpu_unimpl();
                     break;
                 case 5:
                     // fprem1
-                    this._st[this._stack_ptr] = this._get_st0() % this._get_sti(1);
+                    this._st[this._stack_ptr] = st0 % this._get_sti(1);
+                    break;
+                case 6:
+                    // fdecstp
+                    this._fpu_unimpl();
+                    break;
+                case 7:
+                    // fincstp
+                    this._fpu_unimpl();
                     break;
                 default:
-                    dbg_log(low); this._fpu_unimpl();
+                    dbg_assert(false);
             }
             break;
         case 7:
+            var st0 = this._get_st0();
+
             switch(low)
             {
                 case 0:
                     // fprem
-                    this._st[this._stack_ptr] = this._get_st0() % this._get_sti(1);
+                    this._st[this._stack_ptr] = st0 % this._get_sti(1);
                     break;
                 case 1:
-                    // fyl2xp1: y * log2(x+1) and this._pop
-                    this._st[this._stack_ptr + 1 & 7] = this._get_sti(1) * Math.log(this._get_st0() + 1) / Math.LN2;
+                    // fyl2xp1: y * log2(x+1) and pop
+                    this._st[this._stack_ptr + 1 & 7] = this._get_sti(1) * Math.log(st0 + 1) / Math.LN2;
                     this._pop();
                     break;
                 case 2:
-                    this._st[this._stack_ptr] = Math.sqrt(this._get_st0());
+                    this._st[this._stack_ptr] = Math.sqrt(st0);
                     break;
                 case 3:
-                    var st0 = this._get_st0();
-
                     this._st[this._stack_ptr] = Math.sin(st0);
                     this._push(Math.cos(st0));
                     break;
                 case 4:
                     // frndint
-                    this._st[this._stack_ptr] = this._integer_round(this._get_st0());
+                    this._st[this._stack_ptr] = this._integer_round(st0);
                     break;
                 case 5:
                     // fscale
-                    this._st[this._stack_ptr] = this._get_st0() * Math.pow(2, this._truncate(this._get_sti(1)));
+                    this._st[this._stack_ptr] = st0 * Math.pow(2, this._truncate(this._get_sti(1)));
                     break;
                 case 6:
-                    this._st[this._stack_ptr] = Math.sin(this._get_st0());
+                    this._st[this._stack_ptr] = Math.sin(st0);
                     break;
                 case 7:
-                    this._st[this._stack_ptr] = Math.cos(this._get_st0());
+                    this._st[this._stack_ptr] = Math.cos(st0);
                     break;
                 default:
-                    dbg_log(low); this._fpu_unimpl();
+                    dbg_assert(false);
             }
             break;
         default:
-            dbg_log(mod); 
-            this._fpu_unimpl();
+            dbg_assert(false);
     }
 };
 
@@ -875,21 +886,28 @@ FPU.prototype.op_D9_mem = function(imm8, addr)
     switch(mod)
     {
         case 0:
+            // fld
             var data = this._load_m32(addr);
-
             this._push(data);
             break;
+        case 1:
+            // not defined
+            this._fpu_unimpl();
+            break;
         case 2:
-            this._store_m32(addr, 0);
+            // fst
+            this._store_m32(addr, this._get_st0());
             break;
         case 3:
-            this._store_m32(addr, 0);
+            // fstp
+            this._store_m32(addr, this._get_st0());
             this._pop();
             break;
         case 4:
             this._fldenv(addr);
             break;
         case 5:
+            // fldcw
             var word = safe_read16(addr);
             this._control_word = word;
             break;
@@ -897,11 +915,11 @@ FPU.prototype.op_D9_mem = function(imm8, addr)
             this._fstenv(addr);
             break;
         case 7:
+            // fstcw
             safe_write16(addr, this._control_word);
             break;
         default:
-            dbg_log(mod); 
-            this._fpu_unimpl();
+            dbg_assert(false);
     }
 };
 
@@ -985,7 +1003,7 @@ FPU.prototype.op_DA_mem = function(imm8, addr)
             this._st[this._stack_ptr] = st0 * m32;
             break;
         case 2:
-            // this._fcom
+            // fcom
             this._fcom(m32);
             break;
         case 3:
@@ -1010,8 +1028,7 @@ FPU.prototype.op_DA_mem = function(imm8, addr)
             this._st[this._stack_ptr] = m32 / st0;
             break;
         default:
-            dbg_log(mod); 
-            this._fpu_unimpl();
+            dbg_assert(false);
     }
 };
 
@@ -1109,11 +1126,11 @@ FPU.prototype.op_DB_mem = function(imm8, addr)
             break;
         case 2:
             // fist
-            var st0 = this._get_st0();
+            var st0 = this._integer_round(this._get_st0());
             if(st0 <= 0x7FFFFFFF && st0 >= -0x80000000)
             {
                 // TODO: Invalid operation
-                safe_write32(addr, this._integer_round(st0));
+                safe_write32(addr, st0);
             }
             else
             {
@@ -1123,10 +1140,10 @@ FPU.prototype.op_DB_mem = function(imm8, addr)
             break;
         case 3:
             // fistp
-            var st0 = this._get_st0();
+            var st0 = this._integer_round(this._get_st0());
             if(st0 <= 0x7FFFFFFF && st0 >= -0x80000000)
             {
-                safe_write32(addr, this._integer_round(st0));
+                safe_write32(addr, st0);
             }
             else
             {
@@ -1141,6 +1158,7 @@ FPU.prototype.op_DB_mem = function(imm8, addr)
             break;
         case 7:
             // fstp
+            writable_or_pagefault(addr, 10);
             this._store_m80(addr, 0);
             this._pop();
             break;
@@ -1171,7 +1189,7 @@ FPU.prototype.op_DC_reg = function(imm8)
             this._st[low_ptr] = sti * st0;
             break;
         case 2:
-            // this._fcom
+            // fcom
             this._fcom(sti);
             break;
         case 3:
@@ -1196,8 +1214,7 @@ FPU.prototype.op_DC_reg = function(imm8)
             this._st[low_ptr] = sti / st0;
             break;
         default:
-            dbg_log(mod); 
-            this._fpu_unimpl();
+            dbg_assert(false);
     }
 };
 
@@ -1222,7 +1239,7 @@ FPU.prototype.op_DC_mem = function(imm8, addr)
             this._st[this._stack_ptr] = st0 * m64;
             break;
         case 2:
-            // this._fcom
+            // fcom
             this._fcom(m64);
             break;
         case 3:
@@ -1247,8 +1264,7 @@ FPU.prototype.op_DC_mem = function(imm8, addr)
             this._st[this._stack_ptr] = m64 / st0;
             break;
         default:
-            dbg_log(mod); 
-            this._fpu_unimpl();
+            dbg_assert(false);
     }
 };
 
@@ -1308,6 +1324,10 @@ FPU.prototype.op_DD_mem = function(imm8, addr)
             var data = this._load_m64(addr);
             this._push(data);
             break;
+        case 1:
+            // fisttp
+            this._fpu_unimpl();
+            break;
         case 2:
             // fst
             this._store_m64(addr, 0);
@@ -1320,8 +1340,12 @@ FPU.prototype.op_DD_mem = function(imm8, addr)
         case 4:
             this._frstor(addr);
             break;
+        case 5:
+            // nothing
+            this._fpu_unimpl();
+            break;
         case 6:
-            // this._fsave
+            // fsave
             this._fsave(addr);
             break;
         case 7:
@@ -1329,8 +1353,7 @@ FPU.prototype.op_DD_mem = function(imm8, addr)
             safe_write16(addr, this._load_status_word());
             break;
         default:
-            dbg_log(mod); 
-            this._fpu_unimpl();
+            dbg_assert(false);
     }
 };
 
@@ -1390,8 +1413,7 @@ FPU.prototype.op_DE_reg = function(imm8)
             this._st[low_ptr] = sti / st0;
             break;
         default:
-            dbg_log(mod); 
-            this._fpu_unimpl();
+            dbg_assert(false);
     }
 
     this._pop();
@@ -1442,8 +1464,7 @@ FPU.prototype.op_DE_mem = function(imm8, addr)
             this._st[this._stack_ptr] = m16 / st0;
             break;
         default:
-            dbg_log(mod); 
-            this._fpu_unimpl();
+            dbg_assert(false);
     }
 };
 
@@ -1492,12 +1513,16 @@ FPU.prototype.op_DF_mem = function(imm8, addr)
 
             this._push(m16);
             break;
+        case 1:
+            // fisttp
+            this._fpu_unimpl();
+            break;
         case 2:
             // fist
-            var st0 = this._get_st0();
+            var st0 = this._integer_round(this._get_st0());
             if(st0 <= 0x7FFF && st0 >= -0x8000)
             {
-                safe_write16(addr, this._integer_round(st0));
+                safe_write16(addr, st0);
             }
             else
             {
@@ -1507,10 +1532,10 @@ FPU.prototype.op_DF_mem = function(imm8, addr)
             break;
         case 3:
             // fistp
-            var st0 = this._get_st0();
+            var st0 = this._integer_round(this._get_st0());
             if(st0 <= 0x7FFF && st0 >= -0x8000)
             {
-                safe_write16(addr, this._integer_round(st0));
+                safe_write16(addr, st0);
             }
             else
             {
@@ -1519,41 +1544,50 @@ FPU.prototype.op_DF_mem = function(imm8, addr)
             }
             this._pop();
             break;
+        case 4:
+            // fbld
+            this._fpu_unimpl();
+            break;
         case 5:
             // fild
-            var low = safe_read32(addr);
-
-            var high = safe_read32(addr + 4);
+            var low = safe_read32(addr),
+                high = safe_read32(addr + 4);
 
             var m64 = low + 0x100000000 * high;
 
             if(high >> 31)
             {
-                m64 -= 0x10000000000000000;
+                m64 -= TWO_POW_64;
             }
 
             this._push(m64);
             break;
+        case 6:
+            // fbstp
+            this._fpu_unimpl();
+            break;
         case 7:
+            writable_or_pagefault(addr, 8);
+
             // fistp
             var st0 = this._integer_round(this._get_st0()),
                 st0_low,
                 st0_high;
 
-            if(!(st0 <= 0x7FFFFFFFFFFFFFFF && st0 >= -0x8000000000000000))
-            {
-                // write 0x8000000000000000
-                st0_low  = 0;
-                st0_high = 0x80000000;
-                this._invalid_arithmatic();
-            }
-            else
+            if(st0 < TWO_POW_63 && st0 >= -TWO_POW_63)
             {
                 st0_low = st0 | 0;
                 st0_high = st0 / 0x100000000 | 0;
 
                 if(st0_high === 0 && st0 < 0)
                     st0_high = -1;
+            }
+            else
+            {
+                // write 0x8000000000000000
+                st0_low  = 0;
+                st0_high = 0x80000000 | 0;
+                this._invalid_arithmatic();
             }
 
             safe_write32(addr, st0_low);
@@ -1562,7 +1596,6 @@ FPU.prototype.op_DF_mem = function(imm8, addr)
             this._pop();
             break;
         default:
-            dbg_log(mod); 
-            this._fpu_unimpl();
+            dbg_assert(false);
     }
 };
