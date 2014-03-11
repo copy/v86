@@ -264,6 +264,15 @@ function IDEDevice(dev, buffer, is_cd, nr)
                 push_irq();
                 break;
 
+            case 0x4A:
+                // get event status notification
+                pio_data = new Uint8Array(data_port_buffer[8] | data_port_buffer[7] << 8);
+                status = 0x58;
+                data_pointer = 0;
+                bytecount = 2;
+                push_irq();
+                break;
+
             case 0x51:
                 // read disk information
                 pio_data = new Uint8Array(0);
