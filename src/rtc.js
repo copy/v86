@@ -59,6 +59,24 @@ function RTC(dev, diskette_type, boot_order)
     io.register_write(0x71, cmos_write);
     io.register_read(0x71, cmos_read);
 
+    function bcd_pack(n)
+    { 
+        var i = 0, 
+            result = 0,
+            digit;
+        
+        while(n)
+        {
+            digit = n % 10; 
+            
+            result |= digit << (4 * i); 
+            i++; 
+            n = (n - digit) / 10;
+        } 
+        
+        return result;
+    }
+
     function encode_time(t)
     {
         if(cmos_b & 4)
@@ -68,7 +86,7 @@ function RTC(dev, diskette_type, boot_order)
         }
         else
         {
-            return Math.bcd_pack(t);
+            return bcd_pack(t);
         }
     }
     
