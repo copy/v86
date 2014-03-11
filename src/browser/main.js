@@ -432,6 +432,19 @@
         }
     }
 
+    function chr_repeat(chr, count)
+    {
+        var result = "";
+
+        while(count-- > 0)
+        {
+            result += chr;
+        }
+
+        return result;
+    }
+
+
     function show_progress(info, e)
     {
         var el = $("loading");
@@ -444,15 +457,15 @@
             per100 = Math.min(100, Math.max(0, per100));
 
             el.textContent = info.msg + " " + per100 + "% [" + 
-                String.chr_repeat("#", per100 >> 1) + 
-                String.chr_repeat(" ", 50 - (per100 >> 1)) + "]";
+                chr_repeat("#", per100 >> 1) + 
+                chr_repeat(" ", 50 - (per100 >> 1)) + "]";
         }
         else
         {
             if(!info.ticks)
                 info.ticks = 0;
 
-            el.textContent = info.msg + " " + String.chr_repeat(".", info.ticks++ % 50);
+            el.textContent = info.msg + " " + chr_repeat(".", info.ticks++ % 50);
         }
     }
 
