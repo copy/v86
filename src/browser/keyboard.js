@@ -35,7 +35,7 @@ function KeyboardAdapter()
         0, 0, 0, 0x01, 0, 0, 0, 0,
 
         // 0x20: spacebar, page down/up, end, home, arrow keys, ins, del
-        0x39, 0xE049, 0xE051, 0x4F, 0x47, 0x4B, 0x48, 0x4D,
+        0x39, 0xE049, 0xE051, 0xE04F, 0xE047, 0xE04B, 0xE048, 0xE04D,
         0x50, 0, 0, 0, 0, 0x52, 0x53, 0,
 
         // 0x30: numbers
@@ -64,8 +64,8 @@ function KeyboardAdapter()
         0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0,
 
-        // 0x90
-        0, 0, 0, 0, 0, 0, 0, 0,
+        // 0x90: Numlock
+        0x45, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0,
 
         // 0xA0: - (firefox only)
