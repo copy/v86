@@ -173,6 +173,7 @@ modrm_resolve32 = function(modrm_byte)
 
 #undef entry16
 #undef entry16_
+#undef entry32
 #undef entry32_
 
 #undef entry_sib

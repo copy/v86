@@ -445,4 +445,5 @@ function outsd()
 #undef use_di
 
 #undef loop
+#undef aligned_loop
 #undef string_instruction

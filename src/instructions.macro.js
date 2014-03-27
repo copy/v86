@@ -907,6 +907,7 @@ op2(0xCF, {
 
     if(flags & flag_nt)
     {
+        dbg_log(h(flags));
         if(DEBUG) throw "unimplemented nt";
     }
 

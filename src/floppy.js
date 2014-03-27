@@ -117,7 +117,7 @@ function FloppyController(dev, fda_image, fdb_image)
     {
         if(response_index < response_length)
         {
-            dbg_log("3F5 read: " + response_data[response_index], LOG_DISK);
+            dbg_log("3F5 read: " + h(response_data[response_index]), LOG_DISK);
             return response_data[response_index++];
         }
         else

@@ -153,6 +153,7 @@ function ScreenAdapter()
         did_change = true;
     };
 
+    // put a single color component
     this.put_pixel_linear = function(index, color)
     {
         dbg_assert((index & 3) !== 3);
