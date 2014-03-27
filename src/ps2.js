@@ -403,6 +403,7 @@ function PS2(dev, keyboard, mouse)
             }
 
             // send ack
+            kbd_buffer.clear();
             mouse_buffer.clear();
             mouse_buffer.push(0xFA);
 
@@ -434,6 +435,8 @@ function PS2(dev, keyboard, mouse)
                 //  MouseID Byte
                 mouse_buffer.push(0);
                 mouse_buffer.push(0);
+
+                mouse_clicks = mouse_delta_x = mouse_delta_y = 0;
                 break;
             case 0xF3:
                 // sample rate
@@ -444,13 +447,15 @@ function PS2(dev, keyboard, mouse)
                 enable_mouse_stream = true;
                 enable_mouse = true;
                 mouse.enabled = true;
+
+                mouse_clicks = mouse_delta_x = mouse_delta_y = 0;
                 break;
             case 0xF5:
                 // disable streaming
                 enable_mouse_stream = false;
                 break;
             case 0xF6:
-                // reset defaults 
+                // set defaults 
                 enable_mouse_stream = false;
                 sample_rate = 100;
                 scaling2 = false;
@@ -461,8 +466,14 @@ function PS2(dev, keyboard, mouse)
                 mouse_buffer.push(0xAA);
                 mouse_buffer.push(0);
 
-                enable_mouse = true;
-                mouse.enabled = true;
+                //enable_mouse = true;
+                //mouse.enabled = true;
+                enable_mouse_stream = false;
+                sample_rate = 100;
+                scaling2 = false;
+                resolution = 4;
+
+                mouse_clicks = mouse_delta_x = mouse_delta_y = 0;
                 break;
 
             default:
@@ -476,6 +487,8 @@ function PS2(dev, keyboard, mouse)
             dbg_log("Port 60 data register write: " + h(write_byte), LOG_PS2); 
 
             // send ack
+            mouse_buffer.clear();
+            kbd_buffer.clear();
             kbd_buffer.push(0xFA);
 
             switch(write_byte)
