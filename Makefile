@@ -1,4 +1,5 @@
 CLOSURE=../closure-compiler/compiler.jar
+BROWSER=chromium
 
 CPP_VERSION := $(shell cpp --version 2>/dev/null)
 
@@ -47,6 +48,9 @@ v86_all.js: src/*.js src/browser/*.js src/cpu.js
 		--define=DEBUG=false\
 		$(CLOSURE_SOURCE_MAP) v86_all.js.map\
 		$(CLOSURE_FLAGS)\
+		--define=IN_NODE=false\
+		--define=IN_BROWSER=true\
+		--define=IN_WORKER=false\
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)
 
@@ -59,7 +63,9 @@ src/node/v86_node.js: src/*.js src/node/*.js
 	java -jar $(CLOSURE) \
 		--js_output_file "node/v86_node.js"\
 		--define=DEBUG=false\
-		--define=IN_CLOSURE=true\
+		--define=IN_NODE=true\
+		--define=IN_BROWSER=false\
+		--define=IN_WORKER=false\
 		$(CLOSURE_FLAGS)\
 		$(CLOSURE_READABLE)\
 		--js $(CORE_FILES) \
@@ -81,3 +87,8 @@ pack:
 
 clean:
 	rm -f v86-latest.tar.gz v86_all.js src/v86_all.js.map src/cpu.js
+
+run:
+	python2 -m SimpleHTTPServer 2> /dev/null &
+	sleep 1
+	$(BROWSER) http://localhost:8000/
