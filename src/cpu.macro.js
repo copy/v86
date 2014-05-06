@@ -1,6 +1,5 @@
 "use strict";
 
-
 #define vm86_mode (!!(flags & flag_vm))
 
 #define read_imm16s() (read_imm16() << 16 >> 16)
@@ -398,7 +397,7 @@ function cpu_run()
 
 function exception_cleanup(e)
 {
-    if(e === 0xDEADBEE)
+    if(e === MAGIC_CPU_EXCEPTION)
     {
         // A legit CPU exception (for instance, a page fault happened)
         // call_interrupt_vector has already been called at this point,
@@ -463,7 +462,7 @@ function cpu_reboot_internal()
 
     cpu_init(current_settings);
 
-    throw 0xDEADBEE;
+    throw MAGIC_CPU_EXCEPTION;
 }
 
 function cpu_init(settings)
@@ -1645,7 +1644,7 @@ function raise_exception(interrupt_nr)
     }
 
     call_interrupt_vector(interrupt_nr, false, false);
-    throw 0xDEADBEE;
+    throw MAGIC_CPU_EXCEPTION;
 }
 
 function raise_exception_with_code(interrupt_nr, error_code)
@@ -1658,7 +1657,7 @@ function raise_exception_with_code(interrupt_nr, error_code)
     }
 
     call_interrupt_vector(interrupt_nr, false, error_code);
-    throw 0xDEADBEE;
+    throw MAGIC_CPU_EXCEPTION;
 }
 
 function trigger_de()
@@ -2618,7 +2617,7 @@ function trigger_pagefault(write, user, present)
     page_fault = true;
     call_interrupt_vector(14, false, user << 2 | write << 1 | present);
 
-    throw 0xDEADBEE;
+    throw MAGIC_CPU_EXCEPTION;
 }
 
 

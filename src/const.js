@@ -161,3 +161,6 @@ var
     MMAP_BLOCK_SIZE = 1 << MMAP_BLOCK_BITS;
 
 
+/** @const */
+var MAGIC_CPU_EXCEPTION = 0xDEADBEE;
+
