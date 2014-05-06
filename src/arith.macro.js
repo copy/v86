@@ -34,9 +34,9 @@
 #define sub16(dest, src) sub(dest, src, OPSIZE_16)
 #define sub32(dest, src) sub(dest, src, OPSIZE_32)
 
-#define cmp8(dest, src) cmp(dest, src, OPSIZE_8)
-#define cmp16(dest, src) cmp(dest, src, OPSIZE_16)
-#define cmp32(dest, src) cmp(dest, src, OPSIZE_32)
+#define cmp8(dest, src) sub(dest, src, OPSIZE_8)
+#define cmp16(dest, src) sub(dest, src, OPSIZE_16)
+#define cmp32(dest, src) sub(dest, src, OPSIZE_32)
 
 #define sbb8(dest, src) sbb(dest, src, OPSIZE_8)
 #define sbb16(dest, src) sbb(dest, src, OPSIZE_16)
@@ -46,15 +46,15 @@
 function add(dest_operand, source_operand, op_size)
 {
     // very likely to be a crash
-    if(DEBUG && memory.read32s(translate_address_read(instruction_pointer)) === 0)
-    {
-        dump_regs();
-        throw "detected jump to 00000000"; 
-    }
+    //if(DEBUG && memory.read32s(translate_address_read(instruction_pointer)) === 0)
+    //{
+    //    dump_regs();
+    //    throw "detected jump to 00000000"; 
+    //}
 
     last_op1 = dest_operand;
     last_op2 = source_operand;
-    last_add_result = last_result = last_op1 + source_operand | 0;
+    last_add_result = last_result = dest_operand + source_operand | 0;
     
     last_op_size = op_size;
     flags_changed = flags_all;
@@ -67,7 +67,7 @@ function adc(dest_operand, source_operand, op_size)
     var cf = getcf();
     last_op1 = dest_operand;
     last_op2 = source_operand;
-    last_add_result = last_result = last_op1 + last_op2 + cf | 0;
+    last_add_result = last_result = dest_operand + source_operand + cf | 0;
     
     last_op_size = op_size;
     flags_changed = flags_all;
@@ -102,7 +102,7 @@ function sbb(dest_operand, source_operand, op_size)
     var cf = getcf();
     last_add_result = dest_operand;
     last_op2 = source_operand;
-    last_op1 = last_result = last_add_result - source_operand - cf | 0;
+    last_op1 = last_result = dest_operand - source_operand - cf | 0;
     last_op_size = op_size;
     
     flags_changed = flags_all;
@@ -127,7 +127,7 @@ function inc(dest_operand, op_size)
     flags = (flags & ~1) | getcf();
     last_op1 = dest_operand;
     last_op2 = 1;
-    last_add_result = last_result = last_op1 + 1 | 0;
+    last_add_result = last_result = dest_operand + 1 | 0;
     last_op_size = op_size;
     
     flags_changed = flags_all & ~1;
@@ -138,9 +138,9 @@ function inc(dest_operand, op_size)
 function dec(dest_operand, op_size)
 {
     flags = (flags & ~1) | getcf();
-    last_op1 = dest_operand;
+    last_add_result = dest_operand;
     last_op2 = 1;
-    last_add_result = last_result = last_op1 - 1 | 0;
+    last_op1 = last_result = dest_operand - 1 | 0;
     last_op_size = op_size;
     
     flags_changed = flags_all & ~1;
@@ -613,7 +613,9 @@ function bcd_aam()
         reg8[reg_al] = temp % imm8;
 
         last_result = reg8[reg_al];
-        flags_changed = flags_all;
+
+        flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
+        flags &= ~1 & ~flag_adjust & ~flag_overflow;
     }
 }
 
@@ -625,7 +627,9 @@ function bcd_aad()
     last_result = reg8[reg_al] + reg8[reg_ah] * imm8;
     reg16[reg_ax] = last_result & 0xFF;
     last_op_size = OPSIZE_8;
-    flags_changed = flags_all;
+
+    flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
+    flags &= ~1 & ~flag_adjust & ~flag_overflow;
 }
 
 function bcd_aaa()
@@ -1207,13 +1211,13 @@ function shld32(dest_operand, source_operand, count)
 function bt_reg(bit_base, bit_offset)
 {
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 }
 
 function btc_reg(bit_base, bit_offset)
 {
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 
     return bit_base ^ 1 << bit_offset;
 }
@@ -1221,7 +1225,7 @@ function btc_reg(bit_base, bit_offset)
 function bts_reg(bit_base, bit_offset)
 {
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 
     return bit_base | 1 << bit_offset;
 }
@@ -1229,7 +1233,7 @@ function bts_reg(bit_base, bit_offset)
 function btr_reg(bit_base, bit_offset)
 {
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 
     return bit_base & ~(1 << bit_offset);
 }
@@ -1240,7 +1244,7 @@ function bt_mem(virt_addr, bit_offset)
     bit_offset &= 7;
 
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 }
 
 function btc_mem(virt_addr, bit_offset)
@@ -1251,7 +1255,7 @@ function btc_mem(virt_addr, bit_offset)
     bit_offset &= 7;
 
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 
     memory.write8(phys_addr, bit_base ^ 1 << bit_offset);
 }
@@ -1264,7 +1268,7 @@ function btr_mem(virt_addr, bit_offset)
     bit_offset &= 7;
 
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 
     memory.write8(phys_addr, bit_base & ~(1 << bit_offset));
 }
@@ -1277,7 +1281,7 @@ function bts_mem(virt_addr, bit_offset)
     bit_offset &= 7;
 
     flags = (flags & ~1) | (bit_base >> bit_offset & 1);
-    flags_changed = 0;
+    flags_changed &= ~1;
 
     memory.write8(phys_addr, bit_base | 1 << bit_offset);
 }

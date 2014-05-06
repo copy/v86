@@ -18,7 +18,9 @@ function RTC(dev, diskette_type, boot_order)
         last_update = rtc_time,
 
         // used for periodic interrupt
-        next_interrupt,
+        next_interrupt = 0,
+
+        cmos_c_was_read = true,
 
         periodic_interrupt = false,
 
@@ -27,20 +29,21 @@ function RTC(dev, diskette_type, boot_order)
 
 
     var cmos_a = 0x26,
-        cmos_b = 2;
+        cmos_b = 2,
+        cmos_c = 0;
 
     this.nmi_disabled = 0;
 
     this.timer = function(time)
     {
-        if(periodic_interrupt)
+        if(periodic_interrupt && cmos_c_was_read && next_interrupt < time)
         {
-            while(next_interrupt < time)
-            {
-                next_interrupt += periodic_interrupt_time;
+            cmos_c_was_read = false;
+            pic.push_irq(8);
+            cmos_c |= 1 << 6;
 
-                pic.push_irq(8);
-            }
+            next_interrupt += periodic_interrupt_time * 
+                    Math.ceil((time - next_interrupt) / periodic_interrupt_time);
         }
 
         rtc_time += time - last_update;
@@ -56,6 +59,24 @@ function RTC(dev, diskette_type, boot_order)
     io.register_write(0x71, cmos_write);
     io.register_read(0x71, cmos_read);
 
+    function bcd_pack(n)
+    { 
+        var i = 0, 
+            result = 0,
+            digit;
+        
+        while(n)
+        {
+            digit = n % 10; 
+            
+            result |= digit << (4 * i); 
+            i++; 
+            n = (n - digit) / 10;
+        } 
+        
+        return result;
+    }
+
     function encode_time(t)
     {
         if(cmos_b & 4)
@@ -65,7 +86,7 @@ function RTC(dev, diskette_type, boot_order)
         }
         else
         {
-            return Math.bcd_pack(t);
+            return bcd_pack(t);
         }
     }
     
@@ -108,17 +129,19 @@ function RTC(dev, diskette_type, boot_order)
                 // post info
                 return 0;
             case 0xC:
-                //dbg_log("cmos read from index " + h(index));
+                cmos_c_was_read = true;
+
                 // TODO:
                 // It is important to know that upon a IRQ 8, Status Register C
                 // will contain a bitmask telling which interrupt happened.
                 // What is important is that if register C is not read after an
                 // IRQ 8, then the interrupt will not happen again. 
 
-                //dbg_log("cmos Ch read");
-                return 0;
+                dbg_log("cmos reg C read", LOG_RTC);
                 // Missing IRQF flag
                 //return cmos_b & 0x70;
+
+                return cmos_c;
 
             case 0xF:
                 return 0;

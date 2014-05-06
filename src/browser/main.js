@@ -65,7 +65,7 @@
 
         a.dataset["downloadurl"] = ["application/octet-stream", a["download"], a.href].join(":");
 
-        document.body.appendChild(a);
+        $("runtime_infos").appendChild(a);
     }
     function set_title(text)
     {
@@ -432,24 +432,40 @@
         }
     }
 
-    function show_progress(msg, e)
+    function chr_repeat(chr, count)
+    {
+        var result = "";
+
+        while(count-- > 0)
+        {
+            result += chr;
+        }
+
+        return result;
+    }
+
+
+    function show_progress(info, e)
     {
         var el = $("loading");
         el.style.display = "block";
 
-        if(e.lengthComputable)
+        if(e.lengthComputable || (info.total && typeof e.loaded === "number"))
         {
-            var per100 = e.loaded / e.total * 100 | 0;
+            var per100 = e.loaded / (e.total || info.total) * 100 | 0;
 
             per100 = Math.min(100, Math.max(0, per100));
 
-            el.textContent = msg + " " + per100 + "% [" + 
-                String.chr_repeat("#", per100 >> 1) + 
-                String.chr_repeat(" ", 50 - (per100 >> 1)) + "]";
+            el.textContent = info.msg + " " + per100 + "% [" + 
+                chr_repeat("#", per100 >> 1) + 
+                chr_repeat(" ", 50 - (per100 >> 1)) + "]";
         }
         else
         {
-            el.textContent = "Loading ...";
+            if(!info.ticks)
+                info.ticks = 0;
+
+            el.textContent = info.msg + " " + chr_repeat(".", info.ticks++ % 50);
         }
     }
 
@@ -490,7 +506,7 @@
             // - doesn't support writing yet
             var loader = new SyncFileBuffer(file);
 
-            loader.onprogress = show_progress.bind(this, "Loading disk image into memory");
+            loader.onprogress = show_progress.bind(this, { msg: "Loading disk image into memory" });
 
             loader.onload = function()
             {
@@ -544,7 +560,7 @@
                 settings.fda = new SyncBuffer(buffer);
                 set_title("FreeDOS");
                 init(settings);
-            }, show_progress.bind(this, "Downloading image"));
+            }, show_progress.bind(this, { msg: "Downloading image", total: 737280 }));
 
             $("start_freedos").blur();
             $("boot_options").style.display = "none";
@@ -557,7 +573,7 @@
                 settings.fda = new SyncBuffer(buffer);
                 set_title("Windows");
                 init(settings);
-            }, show_progress.bind(this, "Downloading image"));
+            }, show_progress.bind(this, { msg: "Downloading image", total: 1474560 }));
 
             $("start_win101").blur();
             $("boot_options").style.display = "none";
@@ -571,7 +587,7 @@
                 settings.cdrom = new SyncBuffer(buffer);
                 set_title("Linux");
                 init(settings);
-            }, show_progress.bind(this, "Downloading image"));
+            }, show_progress.bind(this, { msg: "Downloading image", total: 5632000 }));
 
             $("start_linux").blur();
             $("boot_options").style.display = "none";
@@ -584,7 +600,7 @@
                 settings.fda = new SyncBuffer(buffer);
                 set_title("KolibriOS");
                 init(settings);
-            }, show_progress.bind(this, "Downloading image"));
+            }, show_progress.bind(this, { msg: "Downloading image", total: 1474560 }));
 
             $("start_koli").blur();
             $("boot_options").style.display = "none";
@@ -597,7 +613,7 @@
                 settings.fda = new SyncBuffer(buffer);
                 set_title("OpenBSD");
                 init(settings);
-            }, show_progress.bind(this, "Downloading image"));
+            }, show_progress.bind(this, { msg: "Downloading image", total: 1474560 }));
 
             $("start_bsd").blur();
             $("boot_options").style.display = "none";
@@ -610,7 +626,7 @@
                 settings.fda = new SyncBuffer(buffer);
                 set_title("Sol OS");
                 init(settings);
-            }, show_progress.bind(this, "Downloading image"));
+            }, show_progress.bind(this, { msg: "Downloading image", total: 1474560 }));
 
             $("start_sol").blur();
             $("boot_options").style.display = "none";
@@ -776,6 +792,12 @@
             next_tick: next_tick,
             log: log,
         };
+
+        if(!settings.bios || !settings.vga_bios)
+        {
+            log("The BIOS has not been loaded - reload the page to try again.");
+            return;
+        }
 
         if(typeof performance === "object" && performance.now)
         {

@@ -230,6 +230,11 @@ function ScreenAdapter()
         {
             text_screen.appendChild(document.createElement("div"));
         }
+
+        for(var i = 0; i < rows; i++)
+        {
+            this.text_update_row(i);
+        }
     };
 
     this.set_size_graphical = function(width, height)
@@ -281,8 +286,8 @@ function ScreenAdapter()
         {
             cursor_element.style.display = "inline";
 
-            cursor_element.style.height = (end - start) + "px";
-            cursor_element.style.marginTop = start + "px";
+            cursor_element.style.height = Math.min(15, end - start) + "px";
+            cursor_element.style.marginTop = Math.min(15, start) + "px";
         }
     };
 

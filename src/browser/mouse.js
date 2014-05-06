@@ -1,9 +1,10 @@
+"use strict";
 
 /** @constructor */
 function MouseAdapter()
 {
     /** @const */
-    var SPEED_FACTOR = .5;
+    var SPEED_FACTOR = 0.15;
 
     var left_down = false,
         right_down = false,
@@ -75,9 +76,11 @@ function MouseAdapter()
             last_y = e.clientY;
         }
 
-
-        delta_x = Math.roundInfinity(delta_x * SPEED_FACTOR);
-        delta_y = Math.roundInfinity(delta_y * SPEED_FACTOR);
+        if(SPEED_FACTOR !== 1)
+        {
+            delta_x = delta_x * SPEED_FACTOR;
+            delta_y = delta_y * SPEED_FACTOR;
+        }
 
         if(Math.abs(delta_x) > 100 || Math.abs(delta_y) > 100)
         {

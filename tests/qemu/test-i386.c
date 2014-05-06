@@ -30,7 +30,7 @@
 #include <sys/mman.h>
 
 #if !defined(__x86_64__)
-//#define TEST_VM86
+#define TEST_VM86
 #define TEST_SEGS
 #endif
 //#define LINUX_VM86_IOPL_FIX
@@ -1305,13 +1305,11 @@ void test_segs(void)
     modify_ldt(1, &ldt, sizeof(ldt)); /* write ldt entry */
 
     modify_ldt(0, &ldt_table, sizeof(ldt_table)); /* read ldt entries */
-#if 0
     {
         int i;
         for(i=0;i<3;i++)
             printf("%d: %016Lx\n", i, ldt_table[i]);
     }
-#endif
     /* do some tests with fs or gs */
     asm volatile ("movl %0, %%fs" : : "r" (MK_SEL(1)));
 
@@ -1623,7 +1621,7 @@ void test_vm86(void)
     r->es = seg;
     r->fs = seg;
     r->gs = seg;
-    r->eflags = VIF_MASK;
+    //r->eflags = VIF_MASK;
 
     /* move code to proper address. We use the same layout as a .com
        dos program. */
@@ -2754,10 +2752,10 @@ int main(int argc, char **argv)
     test_lea();
 #ifdef TEST_SEGS
     test_segs();
-    //test_code16();
+    test_code16();
 #endif
 #ifdef TEST_VM86
-    //test_vm86();
+    test_vm86();
 #endif
 #if !defined(__x86_64__)
     test_self_modifying_code();

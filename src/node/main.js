@@ -133,7 +133,7 @@ if(argv && argv.length === 4 && (argv[2] === "cdrom" || argv[2] === "fda" || arg
     }
     else if(argv[2] === "fda")
     {
-        settings.floppy = disk;
+        settings.fda = disk;
     }
     else if(argv[2] === "hda")
     {

@@ -30,6 +30,9 @@ function PS2(dev, keyboard, mouse)
         have_keyboard = false,
 
         /** @type {boolean} */
+        enable_keyboard_stream = false,
+
+        /** @type {boolean} */
         next_is_mouse_command = false,
 
         /** @type {boolean} */
@@ -37,6 +40,9 @@ function PS2(dev, keyboard, mouse)
 
         /** @type {boolean} */
         next_read_led = false,
+
+        /** @type {boolean} */
+        next_handle_scan_code_set = false,
 
         /** @type {boolean} */
         next_read_rate = false,
@@ -53,7 +59,10 @@ function PS2(dev, keyboard, mouse)
         sample_rate = 100,
 
         /** @type {number} */
-        resolution = 1,
+        resolution = 4,
+
+        /** @type {boolean} */
+        scaling2 = false,
 
         /** @type {number} */
         last_mouse_packet = -1,
@@ -97,19 +106,32 @@ function PS2(dev, keyboard, mouse)
 
     function kbd_send_code(code)
     {
-        kbd_buffer.push(code);
-        kbd_irq();
+        if(enable_keyboard_stream)
+        {
+            kbd_buffer.push(code);
+            kbd_irq();
+        }
     }
     this.kbd_send_code = kbd_send_code;
 
     function mouse_send_delta(delta_x, delta_y)
     {
-        if(have_mouse && enable_mouse)
+        if(!have_mouse || !enable_mouse)
         {
-            mouse_delta_x += delta_x;
-            mouse_delta_y += delta_y;
+            return;
+        }
 
-            if(enable_mouse_stream)
+        // note: delta_x or delta_y can be floating point numbers
+
+        mouse_delta_x += delta_x * resolution;
+        mouse_delta_y += delta_y * resolution;
+
+        if(enable_mouse_stream)
+        {
+            var change_x = Math.ceil(mouse_delta_x),
+                change_y = Math.ceil(mouse_delta_y);
+
+            if(change_x || change_y)
             {
                 var now = Date.now();
 
@@ -119,47 +141,78 @@ function PS2(dev, keyboard, mouse)
                     return;
                 }
 
-                if(mouse_delta_x && mouse_delta_y)
-                {
-                    send_mouse_packet();
-                }
+                mouse_delta_x -= change_x;
+                mouse_delta_y -= change_y;
+
+                send_mouse_packet(change_x, change_y);
             }
         }
     }
 
     function mouse_send_click(left, middle, right)
     {
-        if(have_mouse && enable_mouse)
+        if(!have_mouse || !enable_mouse)
         {
-            mouse_clicks = left | right << 1 | middle << 2;
+            return;
+        }
 
-            if(enable_mouse_stream)
-            {
-                send_mouse_packet();
-            }
+        mouse_clicks = left | right << 1 | middle << 2;
+
+        if(enable_mouse_stream)
+        {
+            send_mouse_packet(0, 0);
         }
     }
 
-    function send_mouse_packet()
+    function send_mouse_packet(dx, dy)
     {
         var info_byte = 
-                (mouse_delta_y < 0) << 5 |
-                (mouse_delta_x < 0) << 4 |
+                (dy < 0) << 5 |
+                (dx < 0) << 4 |
                 1 << 3 | 
-                mouse_clicks;
+                mouse_clicks,
+            delta_x = dx,
+            delta_y = dy;
 
         last_mouse_packet = Date.now();
 
+        if(scaling2)
+        {
+            // only in automatic packets, not 0xEB requests
+            delta_x = apply_scaling2(delta_x);
+            delta_y = apply_scaling2(delta_y);
+        }
+
         mouse_buffer.push(info_byte);
-        mouse_buffer.push(mouse_delta_x);
-        mouse_buffer.push(mouse_delta_y);
+        mouse_buffer.push(delta_x);
+        mouse_buffer.push(delta_y);
 
-        dbg_log("adding mouse packets:" + [info_byte, mouse_delta_x, mouse_delta_y], LOG_PS2);
-
-        mouse_delta_x = 0;
-        mouse_delta_y = 0;
+        dbg_log("adding mouse packets:" + [info_byte, dx, dy], LOG_PS2);
 
         mouse_irq();
+    }
+
+    function apply_scaling2(n)
+    {
+        // http://www.computer-engineering.org/ps2mouse/#Inputs.2C_Resolution.2C_and_Scaling
+        var abs = Math.abs(n),
+            sign = n >> 31;
+
+        switch(abs)
+        {
+            case 0:
+            case 1:
+            case 3:
+                return n;
+            case 2:
+                return sign;
+            case 4: 
+                return 6 * sign;
+            case 5:
+                return 9 * sign;
+            default:
+                return n << 1;
+        }
     }
 
     this.destroy = function()
@@ -204,6 +257,7 @@ function PS2(dev, keyboard, mouse)
         {
             // tough decision, let's ask the PIC
             do_mouse_buffer = (pic.get_isr() & 2) === 0;
+            //do_mouse_buffer = false;
         }
         else if(kbd_buffer.length)
         {
@@ -265,12 +319,12 @@ function PS2(dev, keyboard, mouse)
         
         if(read_command_register)
         {
+            kbd_irq();
             command_register = write_byte;
             read_command_register = false;
             kbd_buffer.push(0xFA);
 
             dbg_log("Keyboard command register = " + h(command_register), LOG_PS2);
-            kbd_irq();
         }
         else if(read_output_register)
         {
@@ -298,7 +352,8 @@ function PS2(dev, keyboard, mouse)
 
             if(write_byte > 3)
             {
-                dbg_log("invalid resolution, resetting to 1", LOG_PS2);
+                resolution = 4;
+                dbg_log("invalid resolution, resetting to 4", LOG_PS2);
             }
             else
             {
@@ -314,6 +369,22 @@ function PS2(dev, keyboard, mouse)
             kbd_buffer.push(0xFA);
             kbd_irq();
         }
+        else if(next_handle_scan_code_set)
+        {
+            next_handle_scan_code_set = false;
+
+            kbd_buffer.push(0xFA);
+            kbd_irq();
+
+            if(write_byte)
+            {
+                // set scan code set
+            }
+            else
+            {
+                kbd_buffer.push(2);
+            }
+        }
         else if(next_read_rate)
         {
             // nope
@@ -323,6 +394,7 @@ function PS2(dev, keyboard, mouse)
         }
         else if(next_is_mouse_command)
         {
+            next_is_mouse_command = false;
             dbg_log("Port 60 data register write: " + h(write_byte), LOG_PS2); 
 
             if(!have_mouse)
@@ -337,25 +409,29 @@ function PS2(dev, keyboard, mouse)
             switch(write_byte)
             {
             case 0xE6:
-                  // set scaling to 1:1
+                // set scaling to 1:1
+                dbg_log("Scaling 1:1", LOG_PS2);
+                scaling2 = false;
                 break;
             case 0xE7:
-                  // set scaling to 2:1
+                // set scaling to 2:1
+                dbg_log("Scaling 2:1", LOG_PS2);
+                scaling2 = true;
                 break;
             case 0xE8:
                 // set mouse resolution
                 next_read_resolution = true;
                 break;
             case 0xE9:
-                  // status request - send one packet
-                send_mouse_packet();
+                // status request - send one packet
+                send_mouse_packet(0, 0);
                 break;
             case 0xEB:
                 // request single packet
                 dbg_log("unimplemented request single packet", LOG_PS2);
                 break;
             case 0xF2:
-                  //  MouseID Byte
+                //  MouseID Byte
                 mouse_buffer.push(0);
                 mouse_buffer.push(0);
                 break;
@@ -377,7 +453,8 @@ function PS2(dev, keyboard, mouse)
                 // reset defaults 
                 enable_mouse_stream = false;
                 sample_rate = 100;
-                // ... resolution, scaling
+                scaling2 = false;
+                resolution = 4;
                 break;
             case 0xFF:
                 // reset, send completion code
@@ -406,6 +483,10 @@ function PS2(dev, keyboard, mouse)
             case 0xED:
                 next_read_led = true;
                 break;
+            case 0xF0:
+                // get/set scan code set
+                next_handle_scan_code_set = true;
+                break;
             case 0xF2:
                 // identify
                 kbd_buffer.push(0xAB);
@@ -418,10 +499,16 @@ function PS2(dev, keyboard, mouse)
             case 0xF4:
                 // enable scanning
                 dbg_log("kbd enable scanning", LOG_PS2);
+                enable_keyboard_stream = true;
                 break;
             case 0xF5:
                 // disable scanning
                 dbg_log("kbd disable scanning", LOG_PS2);
+                enable_keyboard_stream = false;
+                break;
+            case 0xF6:
+                // reset defaults
+                //enable_keyboard_stream = false;
                 break;
             case 0xFF:
                 kbd_buffer.clear();
@@ -443,6 +530,8 @@ function PS2(dev, keyboard, mouse)
         switch(write_byte)
         {
         case 0x20:
+            kbd_buffer.clear();
+            mouse_buffer.clear();
             kbd_buffer.push(command_register);
             break;
         case 0x60:
@@ -467,15 +556,18 @@ function PS2(dev, keyboard, mouse)
         case 0xA9:
             // test second ps/2 port
             kbd_buffer.clear();
+            mouse_buffer.clear();
             kbd_buffer.push(0);
             break;
         case 0xAA:
             kbd_buffer.clear();
+            mouse_buffer.clear();
             kbd_buffer.push(0x55);
             break;
         case 0xAB:
             // Test first PS/2 port 
             kbd_buffer.clear();
+            mouse_buffer.clear();
             kbd_buffer.push(0);
             break;
         case 0xAD:

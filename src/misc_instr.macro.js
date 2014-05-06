@@ -103,24 +103,36 @@ function jcxz()
     }
 }
 
-var test_o = getof,
-    test_b = getcf,
-    test_z = getzf,
-    test_s = getsf,
-    test_p = getpf;
+//var test_o = getof,
+//    test_b = getcf,
+//    test_z = getzf,
+//    test_s = getsf,
+//    test_p = getpf;
+
+#define test_o getof
+#define test_b getcf
+#define test_z getzf
+#define test_s getsf
+#define test_p getpf
 
 function test_be()
 {
+    // Idea:
+    //    return last_op1 <= last_op2;
     return getcf() || getzf();
 }
 
 function test_l()
 {
+    // Idea:
+    //    return last_add_result < last_op2;
     return !getsf() !== !getof();
 }
 
 function test_le()
 {
+    // Idea:
+    //    return last_add_result <= last_op2;
     return getzf() || !getsf() !== !getof();
 }
 
@@ -293,14 +305,14 @@ function popa32()
 {
     translate_address_read(get_seg(reg_ss) + stack_reg[reg_vsp] + 31);
 
-    reg32[reg_edi] = pop32s();
-    reg32[reg_esi] = pop32s();
-    reg32[reg_ebp] = pop32s();
+    reg32s[reg_edi] = pop32s();
+    reg32s[reg_esi] = pop32s();
+    reg32s[reg_ebp] = pop32s();
     stack_reg[reg_vsp] += 4;
-    reg32[reg_ebx] = pop32s();
-    reg32[reg_edx] = pop32s();
-    reg32[reg_ecx] = pop32s();
-    reg32[reg_eax] = pop32s();
+    reg32s[reg_ebx] = pop32s();
+    reg32s[reg_edx] = pop32s();
+    reg32s[reg_ecx] = pop32s();
+    reg32s[reg_eax] = pop32s();
 }
 
 function xchg8(memory_data, modrm_byte)
@@ -395,55 +407,55 @@ function lea32()
 function enter16()
 {
     var size = read_imm16(),
-        nesting_level = read_imm8(),
-        frame_temp;
+        nesting_level = read_imm8() & 31,
+        frame_temp,
+        tmp_ebp;
     
     push16(reg16[reg_bp]);
     frame_temp = reg16[reg_sp];
 
     if(nesting_level > 0)
     {
+        tmp_ebp = reg16[reg_ebp];
         for(var i = 1; i < nesting_level; i++)
         {
-            reg16[reg_bp] -= 2;
-            push16(reg16[reg_bp]);
+            tmp_ebp -= 2;
+            push16(safe_read16(get_seg(reg_ss) + tmp_ebp | 0));
         }
         push16(frame_temp);
     }
     reg16[reg_bp] = frame_temp;
-    reg16[reg_sp] = frame_temp - size;
-
-    dbg_assert(!page_fault);
+    reg16[reg_sp] -= size;
 }
 
 function enter32()
 {
     var size = read_imm16(),
         nesting_level = read_imm8() & 31,
-        frame_temp;
+        frame_temp,
+        tmp_ebp;
 
     push32(reg32s[reg_ebp]);
     frame_temp = reg32s[reg_esp];
 
     if(nesting_level > 0)
     {
+        tmp_ebp = reg32s[reg_ebp];
         for(var i = 1; i < nesting_level; i++)
         {
-            reg32s[reg_ebp] -= 4;
-            push32(reg32s[reg_ebp]);
+            tmp_ebp -= 4;
+            push32(safe_read32s(get_seg(reg_ss) + tmp_ebp | 0));
         }
         push32(frame_temp);
     }
     reg32s[reg_ebp] = frame_temp;
     reg32s[reg_esp] -= size;
-
-    dbg_assert(!page_fault);
 }
 
 function bswap(reg)
 {
     var temp = reg32s[reg];
 
-    reg32[reg] = temp >>> 24 | temp << 24 | (temp >> 8 & 0xFF00) | (temp << 8 & 0xFF0000);
+    reg32s[reg] = temp >>> 24 | temp << 24 | (temp >> 8 & 0xFF00) | (temp << 8 & 0xFF0000);
 }
 

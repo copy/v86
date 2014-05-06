@@ -12,8 +12,8 @@
     color: #fff;
 }
 #log {
-    max-height: 350px;
-    width: 350px;
+    height: 100px;
+    width: 550px;
 }
 #serial {
     margin: 0px;

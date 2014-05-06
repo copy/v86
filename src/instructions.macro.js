@@ -79,31 +79,33 @@ var table16 = [],
     macro(6, xor)
 
 
-
 #define safe_pop32s(dest) dest = pop32s();
 #define safe_pop16(dest) dest = pop16();
 
 
 // very special, should be somewhere else?
-#define lss_op(sreg)\
+#define lss_op16(sreg)\
     if(modrm_byte >= 0xC0) { trigger_ud(); }\
-    if(operand_size_32) { lss32(sreg, modrm_resolve(modrm_byte), modrm_byte >> 3 & 7); }\
-    else { lss16(sreg, modrm_resolve(modrm_byte), modrm_byte >> 2 & 14); }
+    lss16(sreg, modrm_resolve(modrm_byte), modrm_byte >> 2 & 14);
 
 
-#define bt_op(op, arg16, arg32)\
-    if(operand_size_32) {\
-        if(modrm_byte < 0xC0) {\
-            op ## _mem(modrm_resolve(modrm_byte), arg32);\
-        } else {\
-            reg_e32s = op ## _reg(reg_e32s, arg32 & 31);\
-        }\
+#define lss_op32(sreg)\
+    if(modrm_byte >= 0xC0) { trigger_ud(); }\
+    lss32(sreg, modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+
+
+#define bt_op16(op, arg16)\
+    if(modrm_byte < 0xC0) {\
+        op ## _mem(modrm_resolve(modrm_byte), arg16);\
     } else {\
-        if(modrm_byte < 0xC0) {\
-            op ## _mem(modrm_resolve(modrm_byte), arg16);\
-        } else {\
-            reg_e16 = op ## _reg(reg_e16, arg16 & 15);\
-        }\
+        reg_e16 = op ## _reg(reg_e16, arg16 & 15);\
+    }
+
+#define bt_op32(op, arg32)\
+    if(modrm_byte < 0xC0) {\
+        op ## _mem(modrm_resolve(modrm_byte), arg32);\
+    } else {\
+        reg_e32s = op ## _reg(reg_e32s, arg32 & 31);\
     }
 
 
@@ -292,9 +294,6 @@ arith_group(0x00, add);
 
 op2(0x06, { push16(sreg[reg_es]); }, { push32(sreg[reg_es]); });
 pop_sreg_op(0x07, reg_es);
-//op2(0x07, 
-//    { safe_pop16(sreg[reg_es]); switch_seg(reg_es, memory.read16(get_esp_read(0))); }, 
-//    { safe_pop32s(sreg[reg_es]); switch_seg(reg_es); });
 
 arith_group(0x08, or);
 
@@ -305,17 +304,11 @@ arith_group(0x10, adc);
 
 op2(0x16, { push16(sreg[reg_ss]); }, { push32(sreg[reg_ss]); });
 pop_sreg_op(0x17, reg_ss);
-//op2(0x17, 
-//    { safe_pop16(sreg[reg_ss]); switch_seg(reg_ss); }, 
-//    { safe_pop32s(sreg[reg_ss]); switch_seg(reg_ss); });
 
 arith_group(0x18, sbb);
 
 op2(0x1E, { push16(sreg[reg_ds]); }, { push32(sreg[reg_ds]); });
 pop_sreg_op(0x1F, reg_ds);
-//op2(0x1F, 
-//    { safe_pop16(sreg[reg_ds]); switch_seg(reg_ds); }, 
-//    { safe_pop32s(sreg[reg_ds]); switch_seg(reg_ds); });
 
 arith_group(0x20, and);
 
@@ -785,17 +778,21 @@ op2(0xC2, {
 });
 op2(0xC3, {
     // retn
-    instruction_pointer = get_seg(reg_cs) + pop16() | 0;;
+    instruction_pointer = get_seg(reg_cs) + pop16() | 0;
 }, {
     // retn
-    instruction_pointer = get_seg(reg_cs) + pop32s() | 0;;
+    instruction_pointer = get_seg(reg_cs) + pop32s() | 0;
 });
 
-opm(0xC4, {
-    lss_op(reg_es);
+opm2(0xC4, {
+    lss_op16(reg_es);
+}, {
+    lss_op32(reg_es);
 });
-opm(0xC5, {
-    lss_op(reg_ds);
+opm2(0xC5, {
+    lss_op16(reg_ds);
+}, {
+    lss_op32(reg_ds);
 });
 
 opm(0xC6, { set_eb(read_imm8()); })
@@ -1031,7 +1028,6 @@ op2(0xCF, {
 
 
     //dbg_log("iret if=" + (flags & flag_interrupt) + " cpl=" + cpl + " eip=" + h(instruction_pointer >>> 0, 8), LOG_CPU);
-    dbg_assert(!page_fault);
 
     handle_irqs();
 
@@ -1136,7 +1132,7 @@ op(0xD5, {
 
 op(0xD6, {
     // salc
-    throw unimpl("salc instruction");
+    reg8[reg_al] = -getcf();
 });
 op(0xD7, {
     // xlat
@@ -1481,13 +1477,14 @@ opm2(0xFF, {
             }
 
             var virt_addr = modrm_resolve(modrm_byte);
+            var new_cs = safe_read16(virt_addr + 2);
+            var new_ip = safe_read16(virt_addr);
 
             push16(sreg[reg_cs]);
             push16(get_real_ip());
 
-            switch_seg(reg_cs, safe_read16(virt_addr + 2));
-            instruction_pointer = get_seg(reg_cs) + safe_read16(virt_addr) | 0;
-            dbg_assert(!page_fault);
+            switch_seg(reg_cs, new_cs);
+            instruction_pointer = get_seg(reg_cs) + new_ip | 0;
         },
         {
             // 4, jmp near
@@ -1503,11 +1500,11 @@ opm2(0xFF, {
             }
 
             var virt_addr = modrm_resolve(modrm_byte);
+            var new_cs = safe_read16(virt_addr + 2);
+            var new_ip = safe_read16(virt_addr);
 
-            switch_seg(reg_cs, safe_read16(virt_addr + 2));
-            instruction_pointer = get_seg(reg_cs) + safe_read16(virt_addr) | 0;
-
-            // TODO safe read
+            switch_seg(reg_cs, new_cs);
+            instruction_pointer = get_seg(reg_cs) + new_ip | 0;
         },
         {
             // 6, push
@@ -1541,7 +1538,6 @@ opm2(0xFF, {
             var virt_addr = modrm_resolve(modrm_byte);
             var new_cs = safe_read16(virt_addr + 4);
             var new_ip = safe_read32s(virt_addr);
-
 
             push32(sreg[reg_cs]);
             push32(get_real_ip());
@@ -1676,11 +1672,13 @@ opm(0x01, {
     {
         case 0:
             // sgdt
+            writable_or_pagefault(addr, 6);
             safe_write16(addr, gdtr_size);
             safe_write32(addr + 2, gdtr_offset);
             break;
         case 1:
             // sidt
+            writable_or_pagefault(addr, 6);
             safe_write16(addr, idtr_size);
             safe_write32(addr + 2, idtr_offset);
             break;
@@ -1789,12 +1787,7 @@ unimplemented_sse(0x17);
 opm(0x18, {
     // prefetch
     // nop for us 
-    if(operand_size_32) {
-        read_e32s;
-    }
-    else {
-        read_e16;
-    }
+    modrm_skip(modrm_byte);
 });
 
 unimplemented_sse(0x19);
@@ -2004,14 +1997,14 @@ unimplemented_sse(0x3F);
         if(test) {\
             read_e16;\
             reg_g16 = data;\
-        } else if(modrm_byte < 0xC0)\
-            modrm_resolve(modrm_byte)\
+        } else \
+            modrm_skip(modrm_byte)\
     }, {\
         if(test) {\
             read_e32s;\
             reg_g32s = data;\
-        } else if(modrm_byte < 0xC0)\
-            modrm_resolve(modrm_byte)\
+        } else \
+            modrm_skip(modrm_byte)\
     });
 
 each_jcc(group0F40);
@@ -2082,34 +2075,26 @@ each_jcc(group0F90);
 
 op2(0xA0, { push16(sreg[reg_fs]); }, { push32(sreg[reg_fs]); });
 pop_sreg_op(0xA1, reg_fs);
-//op2(0xA1, 
-//    { safe_pop16(sreg[reg_fs]); switch_seg(reg_fs); }, 
-//    { safe_pop32s(sreg[reg_fs]); switch_seg(reg_fs); });
 
 op(0xA2, { cpuid(); });
 
-opm(0xA3, {
-    if(operand_size_32)
+opm2(0xA3, {
+    if(modrm_byte < 0xC0)
     {
-        if(modrm_byte < 0xC0)
-        {
-            bt_mem(modrm_resolve(modrm_byte), reg_g32s);
-        }
-        else
-        {
-            bt_reg(reg_e32s, reg_g32s & 31);
-        }
+        bt_mem(modrm_resolve(modrm_byte), reg_g16s);
     }
     else
     {
-        if(modrm_byte < 0xC0)
-        {
-            bt_mem(modrm_resolve(modrm_byte), reg_g16s);
-        }
-        else
-        {
-            bt_reg(reg_e16, reg_g16 & 15);
-        }
+        bt_reg(reg_e16, reg_g16 & 15);
+    }
+}, {
+    if(modrm_byte < 0xC0)
+    {
+        bt_mem(modrm_resolve(modrm_byte), reg_g32s);
+    }
+    else
+    {
+        bt_reg(reg_e32s, reg_g32s & 31);
     }
 });
 
@@ -2129,15 +2114,14 @@ undefined_instruction(0xA7);
 
 op2(0xA8, { push16(sreg[reg_gs]); }, { push32(sreg[reg_gs]); });
 pop_sreg_op(0xA9, reg_gs);
-//op2(0xA9, 
-//    { safe_pop16(sreg[reg_gs]); switch_seg(reg_gs); }, 
-//    { safe_pop32s(sreg[reg_gs]); switch_seg(reg_gs); });
 
 // rsm
 todo_op(0xAA);
 
-opm(0xAB, {
-    bt_op(bts, reg_g16s, reg_g32s);
+opm2(0xAB, {
+    bt_op16(bts, reg_g16s);
+}, {
+    bt_op32(bts, reg_g32s);
 });
 
 
@@ -2168,7 +2152,8 @@ opm(0xB0, {
     if(modrm_byte < 0xC0)
     {
         var virt_addr = modrm_resolve(modrm_byte);
-        translate_address_write(virt_addr);
+        writable_or_pagefault(virt_addr, 1);
+
         var data = safe_read8(virt_addr);
     }
     else
@@ -2194,7 +2179,8 @@ opm2(0xB1, {
     if(modrm_byte < 0xC0)
     {
         var virt_addr = modrm_resolve(modrm_byte);
-        translate_address_write(virt_addr);
+        writable_or_pagefault(virt_addr, 2);
+
         var data = safe_read16(virt_addr);
     }
     else
@@ -2217,7 +2203,8 @@ opm2(0xB1, {
     if(modrm_byte < 0xC0)
     {
         var virt_addr = modrm_resolve(modrm_byte);
-        translate_address_write(virt_addr);
+        writable_or_pagefault(virt_addr, 4);
+
         var data = safe_read32s(virt_addr);
     }
     else
@@ -2241,20 +2228,28 @@ opm2(0xB1, {
 });
 
 // lss
-opm(0xB2, { 
-    lss_op(reg_ss);
+opm2(0xB2, {
+    lss_op16(reg_ss);
+}, {
+    lss_op32(reg_ss);
 });
 
-opm(0xB3, {
-    bt_op(btr, reg_g16s, reg_g32s);
+opm2(0xB3, {
+    bt_op16(btr, reg_g16s);
+}, {
+    bt_op32(btr, reg_g32s);
 });
 
 // lfs, lgs
-opm(0xB4, { 
-    lss_op(reg_fs);
+opm2(0xB4, {
+    lss_op16(reg_fs);
+}, {
+    lss_op32(reg_fs);
 });
-opm(0xB5, {
-    lss_op(reg_gs);
+opm2(0xB5, {
+    lss_op16(reg_gs);
+}, {
+    lss_op32(reg_gs);
 });
 
 opm2(0xB6, {
@@ -2278,51 +2273,68 @@ todo_op(0xB8);
 // UD
 todo_op(0xB9);
 
-opm(0xBA, {
+opm2(0xBA, {
     //dbg_log("BA " + mod + " " + imm8);
 
     switch(modrm_byte >> 3 & 7)
     {
         case 4:
-            if(operand_size_32)
+            if(modrm_byte < 0xC0)
             {
-                if(modrm_byte < 0xC0)
-                {
-                    bt_mem(modrm_resolve(modrm_byte), read_imm8() & 31);
-                }
-                else
-                {
-                    bt_reg(reg_e32s, read_imm8() & 31);
-                }
+                bt_mem(modrm_resolve(modrm_byte), read_imm8() & 15);
             }
             else
             {
-                if(modrm_byte < 0xC0)
-                {
-                    bt_mem(modrm_resolve(modrm_byte), read_imm8() & 31);
-                }
-                else
-                {
-                    bt_reg(reg_e16, read_imm8() & 15);
-                }
+                bt_reg(reg_e16, read_imm8() & 15);
             }
             break;
         case 5:
-            bt_op(bts, read_imm8() & 31, read_imm8() & 31);
+            bt_op16(bts, read_imm8());
             break;
         case 6:
-            bt_op(btr, read_imm8() & 31, read_imm8() & 31);
+            bt_op16(btr, read_imm8());
             break;
         case 7:
-            bt_op(btc, read_imm8() & 31, read_imm8() & 31);
+            bt_op16(btc, read_imm8());
+            break;
+        default:
+            dbg_log(modrm_byte >> 3 & 7);
+            todo();
+    }
+}, {
+    //dbg_log("BA " + mod + " " + imm8);
+
+    switch(modrm_byte >> 3 & 7)
+    {
+        case 4:
+            if(modrm_byte < 0xC0)
+            {
+                bt_mem(modrm_resolve(modrm_byte), read_imm8() & 31);
+            }
+            else
+            {
+                bt_reg(reg_e32s, read_imm8() & 31);
+            }
+            break;
+        case 5:
+            bt_op32(bts, read_imm8());
+            break;
+        case 6:
+            bt_op32(btr, read_imm8());
+            break;
+        case 7:
+            bt_op32(btc, read_imm8());
             break;
         default:
             dbg_log(modrm_byte >> 3 & 7);
             todo();
     }
 });
-opm(0xBB, {
-    bt_op(btc, reg_g16s, reg_g32s);
+
+opm2(0xBB, {
+    bt_op16(btc, reg_g16s);
+}, {
+    bt_op32(btc, reg_g32s);
 });
 
 opm2(0xBC, {
@@ -2381,8 +2393,7 @@ opm(0xC7, {
     }
 
     var addr = modrm_resolve(modrm_byte);
-    translate_address_write(addr);
-    translate_address_write(addr + 7);
+    writable_or_pagefault(addr, 8);
     
     var m64_low = safe_read32s(addr);
     var m64_high = safe_read32s(addr + 4);

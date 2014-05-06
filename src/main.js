@@ -136,17 +136,6 @@ function dbg_assert(cond, msg, level)
 };
 
 
-Object.extend = function(target, src)
-{
-    var keys = Object.keys(src);
-
-    for(var i = 0; i < keys.length; i++)
-    {
-        target[keys[i]] = src[keys[i]];
-    }
-}
-
-
 // pad string with spaces on the right
 String.pads = function(str, len)
 {
@@ -173,18 +162,6 @@ String.pad0 = function(str, len)
     return str;
 }
 
-Array.range = function(n)
-{
-    var a = [];
-
-    for(var i = 0; i < n; i++)
-    {
-        a[i] = i;
-    }
-
-    return a;
-}
-
 /**
  * number to hex
  * @param {number=} len
@@ -203,52 +180,6 @@ function h(n, len)
     {
         return n.toString(16).toUpperCase();
     }
-}
-
-Number.bits = function(n)
-{
-    var result = [];
-
-    for(var bit = 31; bit > -1; bit--)
-    {
-        if(n & 1 << bit)
-        {
-            result.push(bit);
-        }
-    }
-
-    return result.join(', ');
-}
-
-String.chr_repeat = function(chr, count)
-{
-    var result = "";
-
-    while(count--)
-    {
-        result += chr;
-    }
-
-    return result;
-}
-
-
-Math.bcd_pack = function(n)
-{ 
-    var i = 0, 
-        result = 0,
-        digit;
-    
-    while(n)
-    {
-        digit = n % 10; 
-        
-        result |= digit << (4 * i); 
-        i++; 
-        n = (n - digit) / 10;
-    } 
-    
-    return result;
 }
 
 /** 
@@ -321,22 +252,6 @@ function CircularQueue(size)
     this.clear();
 }
 
-
-
-// switch number to big endian
-Math.to_be32 = function(dword)
-{
-    return dword >>> 24 | 
-        dword >> 8 & 0xff00 | 
-        dword << 8 & 0xff0000 | 
-        dword << 24;
-}
-
-Math.to_be16 = function(word)
-{
-    return word >>> 8 & 0xff | word << 8 & 0xff00;
-}
-
 Math.int_log2 = function(x)
 {
     dbg_assert(x > 0);
@@ -344,12 +259,6 @@ Math.int_log2 = function(x)
     // well optimized in modern browsers, http://jsperf.com/integer-log2/2
     return (Math.log(x) / Math.LN2) | 0;
 }
-
-// round away from zero, opposite of truncation
-Math.roundInfinity = function(x)
-{
-    return x > 0 ? Math.ceil(x) : Math.floor(x);
-};
 
 
 /** 
