@@ -46,11 +46,11 @@ v86_all.js: src/*.js src/browser/*.js src/cpu.js
 	java -jar $(CLOSURE) \
 		--js_output_file "../v86_all.js"\
 		--define=DEBUG=false\
-		$(CLOSURE_SOURCE_MAP) v86_all.js.map\
-		$(CLOSURE_FLAGS)\
 		--define=IN_NODE=false\
 		--define=IN_BROWSER=true\
 		--define=IN_WORKER=false\
+		$(CLOSURE_SOURCE_MAP) v86_all.js.map\
+		$(CLOSURE_FLAGS)\
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)
 

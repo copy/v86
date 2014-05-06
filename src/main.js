@@ -1,5 +1,19 @@
 "use strict";
 
+/** @define {boolean} */
+var 
+    IN_NODE = false,
+    /** @define {boolean} */
+    IN_WORKER = false,
+    /** @define {boolean} */
+    IN_BROWSER = false;
+
+
+if(IN_BROWSER + IN_NODE + IN_WORKER !== 1)
+{
+    throw "Invalid environment";
+}
+
 Object.fromList = function(xs)
 {
     var result = {};
