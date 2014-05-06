@@ -135,18 +135,30 @@ function IO(memory)
     /**
      * @param {number} port_addr
      * @param {function():number} callback
+     * @param {Object=} device
      */
-    this.register_read = function(port_addr, callback)
+    this.register_read = function(port_addr, callback, device)
     {
-        read_callbacks[port_addr] = callback;
+        if(device !== undefined)
+        {
+            callback = callback.bind(device);
+        }
+
+        read_callbacks[port_addr] = callback.bind(device);
     };
 
     /**
      * @param {number} port_addr
      * @param {function(number)} callback
+     * @param {Object=} device
      */
-    this.register_write = function(port_addr, callback)
+    this.register_write = function(port_addr, callback, device)
     {
+        if(device !== undefined)
+        {
+            callback = callback.bind(device);
+        }
+
         write_callbacks[port_addr] = callback;
     };
 
