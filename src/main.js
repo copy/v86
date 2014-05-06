@@ -6,7 +6,7 @@ var
     /** @define {boolean} */
     IN_WORKER = false,
     /** @define {boolean} */
-    IN_BROWSER = false;
+    IN_BROWSER = true;
 
 
 if(IN_BROWSER + IN_NODE + IN_WORKER !== 1)
