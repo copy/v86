@@ -91,4 +91,4 @@ clean:
 run:
 	python2 -m SimpleHTTPServer 2> /dev/null &
 	sleep 1
-	$(BROWSER) http://localhost:8000/
+	$(BROWSER) http://localhost:8000/ &
