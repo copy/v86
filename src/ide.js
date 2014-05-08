@@ -463,8 +463,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
                     }
 
                     dbg_log("dma read dest=" + h(addr) + " count=" + h(count), LOG_DISK);
-
-                    memory.mem8.set(data.subarray(offset, offset + count), addr);
+                    memory.write_blob(data.subarray(offset, offset + count), addr);
 
                     offset += count;
                     prdt_start += 8;
@@ -929,8 +928,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
                 }
 
                 dbg_log("dma read dest=" + h(addr) + " count=" + h(count), LOG_DISK);
-
-                memory.mem8.set(data.subarray(offset, offset + count), addr);
+                memory.write_blob(data.subarray(offset, offset + count), addr);
 
                 offset += count;
                 prdt_start += 8;
