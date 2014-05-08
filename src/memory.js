@@ -29,6 +29,9 @@ function Memory(buffer, memory_size)
     this.memory_map_read = memory_map_read;
     this.memory_map_write = memory_map_write;
 
+    // use by dynamic translator
+    this.mem_page_infos = new Uint8Array(1 << 20);
+
     dbg_assert((memory_size & MMAP_BLOCK_SIZE - 1) === 0);
 }
 
@@ -198,7 +201,10 @@ Memory.prototype.write8 = function(addr, value)
 {
     this.debug_write(addr, 1, value);
 
-    if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS])
+    var page = addr >>> MMAP_BLOCK_BITS;
+    this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
+
+    if(this.memory_map_registered[page])
     {
         this.mmap_write8(addr, value);
     }
@@ -216,7 +222,11 @@ Memory.prototype.write16 = function(addr, value)
 {
     this.debug_write(addr, 2, value);
 
-    if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS])
+    var page = addr >>> MMAP_BLOCK_BITS;
+    this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
+    this.mem_page_infos[addr + 1 >>> MMAP_BLOCK_BITS] |= MEM_PAGE_WRITTEN;
+
+    if(this.memory_map_registered[page])
     {
         this.mmap_write8(addr, value & 0xff);
         this.mmap_write8(addr + 1, value >> 8 & 0xff);
@@ -236,7 +246,10 @@ Memory.prototype.write_aligned16 = function(addr, value)
 {
     this.debug_write(addr << 1, 2, value);
 
-    if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS - 1])
+    var page = addr >>> MMAP_BLOCK_BITS - 1;
+    this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
+
+    if(this.memory_map_registered[page])
     {
         addr <<= 1;
         this.mmap_write8(addr, value & 0xff);
@@ -256,7 +269,11 @@ Memory.prototype.write32 = function(addr, value)
 {
     this.debug_write(addr, 4, value);
 
-    if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS])
+    var page = addr >>> MMAP_BLOCK_BITS;
+    this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
+    this.mem_page_infos[addr + 3 >>> MMAP_BLOCK_BITS] |= MEM_PAGE_WRITTEN;
+
+    if(this.memory_map_registered[page])
     {
         this.mmap_write32(addr, value);
     }
@@ -273,7 +290,10 @@ Memory.prototype.write_aligned32 = function(addr, value)
 {
     this.debug_write(addr << 2, 4, value);
 
-    if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS - 2])
+    var page = addr >>> MMAP_BLOCK_BITS - 2;
+    this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
+
+    if(this.memory_map_registered[page])
     {
         this.mmap_write32(addr << 2, value);
     }
@@ -290,7 +310,16 @@ Memory.prototype.write_aligned32 = function(addr, value)
 Memory.prototype.write_blob = function(blob, offset)
 {
     dbg_assert(blob && blob.length);
+
     this.mem8.set(blob, offset);
+
+    var page = offset >>> 12,
+        end = (offset + blob) >>> 12;
+
+    for(; page <= end; page++)
+    {
+        this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
+    }
 };
 
 /**

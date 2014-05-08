@@ -162,5 +162,9 @@ var
 
 
 /** @const */
+var MEM_PAGE_WRITTEN = 1;
+
+
+/** @const */
 var MAGIC_CPU_EXCEPTION = 0xDEADBEE;
 
