@@ -1070,7 +1070,7 @@ var pe_functions =
         // Two checks in one comparison:
         //    1. Did the high 20 bits of eip change
         // or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)
-        if((instruction_pointer ^ last_virt_eip) > 0xFFE)
+        if(((instruction_pointer ^ last_virt_eip) >>> 0) > 0xFFE)
         {
             return read_imm8() | read_imm8() << 8;
         }
@@ -1085,7 +1085,7 @@ var pe_functions =
     read_imm32s : function()
     {
         // Analogue to the above comment
-        if((instruction_pointer ^ last_virt_eip) > 0xFFC)
+        if(((instruction_pointer ^ last_virt_eip) >>> 0) > 0xFFC)
         {
             return read_imm16() | read_imm16() << 16;
         }
