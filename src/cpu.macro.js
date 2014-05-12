@@ -434,6 +434,8 @@ function cpu_stop()
 
 function cpu_restart()
 {
+    dbg_log("cpu restart", LOG_CPU);
+
     var was_running = running;
 
     stopped = true;
@@ -470,7 +472,8 @@ function cpu_init(settings)
     // see browser/main.js or node/main.js
     if(typeof envapi.set_tick !== "undefined")
     {
-        envapi.set_tick(cpu_run);
+        envapi.set_tick(cpu.run_translated);
+        //envapi.set_tick(cpu_run);
     }
 
     current_settings = settings;
@@ -880,9 +883,6 @@ function do_run()
         // runs only cycles
         for(var k = LOOP_COUNTER; k--;)
         {
-            previous_ip = instruction_pointer;
-
-            cpu_timestamp_counter++;
             cycle();
         }
 
@@ -911,12 +911,16 @@ if(typeof window !== "undefined")
  */
 function cycle()
 {
+    cpu_timestamp_counter++;
+    previous_ip = instruction_pointer;
+
     var opcode = read_imm8();
 
     logop(instruction_pointer - 1 >>> 0, opcode);
 
     // call the instruction
     table[opcode]();
+
 
     // TODO
     //if(flags & flag_trap)
@@ -930,10 +934,10 @@ cpu.cycle = function()
     table[read_imm8()]();
 }
 
-function cr0_changed()
+function cr0_changed(old_cr0)
 {
     //protected_mode = (cr0 & 1) === 1;
-    //dbg_log("cr0 = " + h(cr0));
+    //dbg_log("cr0 = " + h(cr0 >>> 0));
 
     var new_paging = (cr0 & (1 << 31)) !== 0;
 
@@ -949,6 +953,11 @@ function cr0_changed()
         paging = new_paging;
 
         paging_changed();
+    }
+
+    if((cr0 ^ old_cr0) & 1)
+    {
+        translate_clear_cache();
     }
 }
 
@@ -1523,11 +1532,11 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
 
             cpl_changed();
 
-            is_32 = operand_size_32 = address_size_32 = info.size;
+            if(is_32 !== info.size)
+            {
+                update_cs_size(info.size);
+            }
             flags &= ~flag_vm & ~flag_rf;
-
-            update_operand_size();
-            update_address_size();
 
             reg32[reg_esp] = new_esp;
             switch_seg(reg_ss, new_ss);
@@ -1582,10 +1591,10 @@ function call_interrupt_vector(interrupt_nr, is_software_int, error_code)
         // TODO
         sreg[reg_cs] = selector;
         //switch_seg(reg_cs);
-        is_32 = operand_size_32 = address_size_32 = info.size;
-
-        update_operand_size();
-        update_address_size();
+        if(is_32 !== info.size)
+        {
+            update_cs_size(info.size);
+        }
 
         segment_limits[reg_cs] = info.real_limit;
         segment_offsets[reg_cs] = info.base;
@@ -1916,6 +1925,15 @@ function update_flags(new_flags)
     flags_changed = 0;
 }
 
+function update_cs_size(new_size)
+{
+    is_32 = operand_size_32 = address_size_32 = new_size;
+
+    update_operand_size();
+    update_address_size();
+    translate_clear_cache();
+}
+
 function update_operand_size()
 {
     if(operand_size_32)
@@ -2167,10 +2185,10 @@ function switch_seg(reg, selector)
         }
 
 
-        operand_size_32 = address_size_32 = is_32 = info.size;
-
-        update_operand_size();
-        update_address_size();
+        if(info.size !== is_32)
+        {
+            update_cs_size(info.size);
+        }
     }
     else
     {
@@ -2634,6 +2652,7 @@ function trigger_pagefault(write, user, present)
 #include "fpu.macro.js"
 
 #include "instructions.macro.js"
+#include "translate.macro.js"
 
 
 }

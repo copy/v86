@@ -1016,10 +1016,10 @@ op2(0xCF, {
         //dbg_log("iret to " + h(instruction_pointer));
     }
 
-    is_32 = operand_size_32 = address_size_32 = info.size;
-
-    update_operand_size();
-    update_address_size();
+    if(info.size !== is_32)
+    {
+        update_cs_size(info.size);
+    }
 
     segment_limits[reg_cs] = info.real_limit;
     segment_offsets[reg_cs] = info.base;
@@ -1638,6 +1638,7 @@ opm(0x01, {
         // lmsw
         read_e16;
 
+        var old_cr0 = cr0;
         cr0 = (cr0 & ~0xF) | (data & 0xF);
 
         if(protected_mode)
@@ -1647,7 +1648,7 @@ opm(0x01, {
         }
 
         //dbg_log("cr0=" + h(data >>> 0), LOG_CPU);
-        cr0_changed();
+        cr0_changed(old_cr0);
         return;
     }
 
@@ -1870,8 +1871,10 @@ opm(0x22, {
                 full_clear_tlb();
             }
 
+            var old_cr0 = cr0;
             cr0 = data;
-            cr0_changed();
+
+            cr0_changed(old_cr0);
             //dbg_log("cr0=" + h(data >>> 0), LOG_CPU);
             break;
 

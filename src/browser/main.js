@@ -1125,7 +1125,8 @@
         }
 
         cpu.init(settings);
-        cpu.run();
+        //cpu.run();
+        cpu.run_translated();
     }
 
 })();

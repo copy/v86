@@ -113,7 +113,7 @@ function movsw()
 
 function movsd()
 {
-    if(repeat_string_prefix)
+    if(false && repeat_string_prefix)
     {
         // often used by memcpy, well worth optimizing
         //   using memory.mem32s.set
