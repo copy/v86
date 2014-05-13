@@ -144,8 +144,6 @@ if(argv && argv.length === 4 && (argv[2] === "cdrom" || argv[2] === "fda" || arg
     settings.bios = read_array_buffer(bios_path + "seabios.bin");
     settings.vga_bios = read_array_buffer(bios_path + "vgabios.bin");
 
-    settings.screen_adapter
-
     var cpu = new v86(envapi);
 
     cpu.init(settings);
