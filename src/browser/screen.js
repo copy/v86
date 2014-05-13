@@ -58,6 +58,14 @@ function ScreenAdapter()
         text_mode_height;
 
 
+    // 0x12345 -> "#012345"
+    function number_as_color(n)
+    {
+        n = n.toString(16);
+
+        return "#" + Array(7 - n.length).join("0") + n;
+    }
+
 
     /**
      * Charmaps that containt unicode sequences for the default dospage
@@ -322,8 +330,8 @@ function ScreenAdapter()
             bg_color = text_mode_data[offset + 1];
             fg_color = text_mode_data[offset + 2];
 
-            color_element.style.backgroundColor = "#" + h(bg_color, 6);
-            color_element.style.color = "#" + h(fg_color, 6);
+            color_element.style.backgroundColor = number_as_color(bg_color);
+            color_element.style.color = number_as_color(fg_color);
             
             text = "";
 
