@@ -14,6 +14,10 @@
 
 var debug = {};
 
+if(typeof window === "object")
+{
+    window["v86"] = v86;
+}
 
 /** @constructor */
 function v86(envapi)
@@ -21,7 +25,7 @@ function v86(envapi)
 
 var cpu = this;
 
-this.run = function() 
+cpu.run = function() 
 {
     if(!running)
     {
@@ -39,6 +43,11 @@ this.instr_counter = 0;
 
 var next_tick;
 
+if(envapi === undefined)
+{
+    envapi = {};
+}
+
 if(envapi.next_tick !== undefined)
 {
     next_tick = envapi.next_tick;
@@ -49,6 +58,7 @@ else
     {
         setTimeout(cpu_run, 0);
     };
+    envapi.set_tick = function() {};
 }
 
 
@@ -468,6 +478,42 @@ function cpu_reboot_internal()
 
 function cpu_init(settings)
 {
+    var known_settings = [
+            "load_devices",
+            "linux",
+            "vga_bios",
+            "bios",
+            "fda",
+            "fdb",
+            "cdrom",
+            "hda",
+            "hdb",
+            "screen_adapter",
+            "keyboard_adapter",
+            "mouse_adapter",
+            "boot_order",
+            "memory_size",
+            "vga_memory_size",
+            "serial_adapter",
+        ],
+        unknown_settings = [];
+
+    var keys = Object.keys(settings);
+
+
+    for(var i = 0; i < keys.length; i++)
+    {
+        if(known_settings.indexOf(keys[i]) === -1)
+        {
+            unknown_settings.push(keys[i]);
+        }
+    }
+
+    if(unknown_settings.length)
+    {
+        throw "Invalid settings passed to v86.init: " + unknown_settings.join(", ");
+    }
+
     // see browser/main.js or node/main.js
     if(typeof envapi.set_tick !== "undefined")
     {
