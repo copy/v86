@@ -653,11 +653,17 @@ void test_mul(void)
     test_idivb(0x12341678, 0x127e);
     test_idivb(0x43210123, -5);
     test_idivb(0x12340004, -1);
+    test_idivb(-20, 3);
+    test_idivb(20, -3);
+    test_idivb(-20, -3);
 
     test_idivw(0, 0x12345678, 12347);
     test_idivw(0, -23223, -45);
     test_idivw(0, 0x12348000, -1);
     test_idivw(0x12343, 0x12345678, 0x81238567);
+    test_idivw(-20, 0, 300);
+    test_idivw(20,  0, -300);
+    test_idivw(-20, 0, -300);
 
     test_idivl(0, 0x12345678, 12347);
     test_idivl(0, -233223, -45);
@@ -677,6 +683,77 @@ void test_mul(void)
     test_divl(0, -233223, -45);
     test_divl(0, 0x80000000, -1);
     test_divl(0x12343, 0x12345678, 0x81234567);
+
+    test_divl(0xfffffffe, 0xffffffff, 0xffffffff);
+    test_divl(0xffffffe, 0xffffffff, 0xfffffff);
+    test_divl(0xfffffe, 0xffffffff, 0xffffff);
+    test_divl(0xffffe, 0xffffffff, 0xfffff);
+    test_divl(0xfffe, 0xffffffff, 0xffff);
+    test_divl(0xffe, 0xffffffff, 0xfff);
+    test_divl(0xfe, 0xffffffff, 0xff);
+    test_divl(0xe, 0xffffffff, 0xf);
+
+    test_divl(0x7ffffffe, 0xffffffff, 0x7fffffff);
+    test_divl(0x7fffffe, 0xffffffff, 0x7ffffff);
+    test_divl(0x7ffffe, 0xffffffff, 0x7fffff);
+    test_divl(0x7fffe, 0xffffffff, 0x7ffff);
+    test_divl(0x7ffe, 0xffffffff, 0x7fff);
+    test_divl(0x7fe, 0xffffffff, 0x7ff);
+    test_divl(0x7e, 0xffffffff, 0x7f);
+
+    test_divl(0x3ffffffe, 0xffffffff, 0x3fffffff);
+    test_divl(0x3fffffe, 0xffffffff, 0x3ffffff);
+    test_divl(0x3ffffe, 0xffffffff, 0x3fffff);
+    test_divl(0x3fffe, 0xffffffff, 0x3ffff);
+    test_divl(0x3ffe, 0xffffffff, 0x3fff);
+    test_divl(0x3fe, 0xffffffff, 0x3ff);
+    test_divl(0x3e, 0xffffffff, 0x3f);
+
+    test_divl(0x1ffffffe, 0xffffffff, 0x1fffffff);
+    test_divl(0x1fffffe, 0xffffffff, 0x1ffffff);
+    test_divl(0x1ffffe, 0xffffffff, 0x1fffff);
+    test_divl(0x1fffe, 0xffffffff, 0x1ffff);
+    test_divl(0x1ffe, 0xffffffff, 0x1fff);
+    test_divl(0x1fe, 0xffffffff, 0x1ff);
+    test_divl(0x1e, 0xffffffff, 0x1f);
+
+    int i;
+    for(i = 0; i < 16; i++)
+    {
+        test_divl(0, 0xfffffffe, i + 1);
+        test_divl(0, 0xffffffff, i + 1);
+        test_divl(1, 0xfffffffe, i + 2);
+        test_divl(1, 0xffffffff, i + 2);
+        test_divl(2, 0xfffffffe, i + 3);
+        test_divl(2, 0xffffffff, i + 3);
+        test_divl(3, 0xfffffffe, i + 4);
+        test_divl(3, 0xffffffff, i + 4);
+        test_divl(4, 0xfffffffe, i + 5);
+        test_divl(4, 0xffffffff, i + 5);
+
+        test_divl(0xfffffffd, 0x00000000 + i, 0xfffffffe);
+        test_divl(0xfffffffd, 0xfffffff0 + i, 0xfffffffe);
+
+        test_divl(0xfffffffe, 0x00000000 + i, 0xffffffff);
+        test_divl(0xfffffffe, 0xfffffff0 + i, 0xffffffff);
+
+        test_divl(0, i, 0xfffffffa);
+        test_divl(0, i, 0xfffffffb);
+        test_divl(0, i, 0xfffffffc);
+        test_divl(0, i, 0xfffffffd);
+        test_divl(0, i, 0xfffffffe);
+        test_divl(0, i, 0xffffffff);
+
+        test_idivl(0, 1,  i + 1);
+        test_idivl(-1, -1, i + 1);
+        test_idivl(0, 1,  -(i + 1));
+        test_idivl(-1, -1, -(i + 1));
+
+        test_idivl(0,  0x7fffffff, i + 1);
+        test_idivl(-1, 0x80000001, i + 1);
+        test_idivl(0,  0x7fffffff, -(i + 1));
+        test_idivl(-1, 0x80000001, -(i + 1));
+    }
 
 #if defined(__x86_64__)
     test_imulq(0, 0x1234001d1234001d, 45);
