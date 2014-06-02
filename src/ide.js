@@ -181,6 +181,22 @@ function IDEDevice(dev, buffer, is_cd, nr)
                 push_irq();
                 break;
 
+            case 0x03:
+                // request sense
+                pio_data = new Uint8Array(Math.min(data_port_buffer[4], 15));
+                status = 0x58;
+
+                pio_data[0] = 0x80 | 0x70;
+                pio_data[7] = 8;
+
+                data_pointer = 0;
+                bytecount = 2;
+                cylinder_low = 8;
+                cylinder_high = 0;
+
+                push_irq();
+                break;
+
             case 0x12:
                 // inquiry
                 pio_data = new Uint8Array(Math.min(data_port_buffer[4], 35));
@@ -672,6 +688,12 @@ function IDEDevice(dev, buffer, is_cd, nr)
 
         switch(cmd)
         {
+            case 0x00:
+                // NOP
+                push_irq();
+                status = 0x50;
+                break;
+
             case 0x08:
                 dbg_log("ATA device reset", LOG_DISK);
                 data_pointer = 0;
@@ -724,6 +746,14 @@ function IDEDevice(dev, buffer, is_cd, nr)
                 // 0x34 write sectors ext
                 // 0x39 write multiple ext
                 ata_write(cmd);
+                break;
+
+            case 0x90:
+                // EXECUTE DEVICE DIAGNOSTIC
+                dbg_log("ATA cmd 90", LOG_DISK);
+                push_irq();
+                lba_count = 0x101;
+                status = 0x50;
                 break;
 
             case 0x91:
