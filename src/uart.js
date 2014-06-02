@@ -24,6 +24,9 @@ function UART(dev, port, adapter)
         fifo_control = 0,
         interrupt_enable = 0,
 
+        // interrupt identification register
+        iir = 1,
+
         modem_control = 0,
         modem_status = 0,
 
@@ -152,7 +155,11 @@ function UART(dev, port, adapter)
 
     io.register_read(port | 2, function()
     {
-        return fifo_control;
+        var ret = iir;
+        dbg_log("read interrupt identification: " + h(iir), LOG_SERIAL);
+        iir ^= 1;
+
+        return ret;
     });
     io.register_write(port | 2, function(out_byte)
     {
@@ -162,6 +169,7 @@ function UART(dev, port, adapter)
 
     io.register_read(port | 3, function()
     {
+        dbg_log("read line control: " + h(line_control), LOG_SERIAL);
         return line_control;
     });
     io.register_write(port | 3, function(out_byte)
@@ -190,23 +198,24 @@ function UART(dev, port, adapter)
             line_status |= 1;
         }
 
-        line_status |= 0x20;
+        line_status |= 0x20 | 0x40;
 
-        //dbg_log("read line status: " + h(line_status), LOG_SERIAL);
+        dbg_log("read line status: " + h(line_status), LOG_SERIAL);
         return line_status;
     });
     io.register_write(port | 5, function(out_byte)
     {
+        dbg_log("Factory test write", LOG_SERIAL);
     });
 
     io.register_read(port | 6, function()
     {
-        //dbg_log("read modem status: " + h(modem_status), LOG_SERIAL);
+        dbg_log("read modem status: " + h(modem_status), LOG_SERIAL);
         return modem_status;
     });
     io.register_write(port | 6, function(out_byte)
     {
-        modem_status = out_byte;
+        dbg_log("Unkown register write (base+6)", LOG_SERIAL);
     });
 
     io.register_read(port | 7, function()
