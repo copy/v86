@@ -101,6 +101,11 @@ function VGAScreen(cpu, adapter, vga_memory_size)
         plane2,
         plane3;
 
+    if(adapter === undefined)
+    {
+        adapter = new VGADummyAdapter();
+    }
+
     // 4 times 64k
     this._vga_memory = null;
     
@@ -139,7 +144,7 @@ function VGAScreen(cpu, adapter, vga_memory_size)
 
     this._init = function()
     {
-        if(vga_memory_size < 4 * VGA_BANK_SIZE)
+        if(vga_memory_size === undefined || vga_memory_size < 4 * VGA_BANK_SIZE)
         {
             vga_memory_size = 4 * VGA_BANK_SIZE;
             dbg_log("vga memory size rounded up to " + vga_memory_size, LOG_VGA);
@@ -1158,3 +1163,18 @@ function VGAScreen(cpu, adapter, vga_memory_size)
     this._init();
 }
 
+/** @constructor */
+function VGADummyAdapter()
+{
+    this.put_pixel_linear = function() {};
+    this.put_char = function() {};
+    this.put_pixel = function() {};
+    this.set_mode = function() {};
+    this.clear_screen = function() {};
+    this.update_cursor = function() {};
+    this.update_cursor_scanline = function() {};
+    this.set_size_graphical = function() {};
+    this.timer_text = function() {};
+    this.timer_graphical = function() {};
+    this.set_size_text = function() {};
+}

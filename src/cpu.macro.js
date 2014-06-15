@@ -3,12 +3,15 @@
 #define getiopl(f) (f >> 12 & 3)
 #define logop(x, y)  if(DEBUG) { this.debug.logop(x, y); }
 
+if(typeof window === "object")
+{
+    window["v86"] = v86;
+}
 
 /** @constructor */
 function v86()
 {
     var cpu = this;
-
 
     /** @type {number } */
     this.memory_size = 0;

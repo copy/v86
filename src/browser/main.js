@@ -652,6 +652,7 @@
         {
             $("start_test").onclick = function()
             {
+                return;
                 settings.fda = new AsyncXHRBuffer("images/fd/freedos.part%d.img", 512, 720 * 1024);
                 init(settings);
 

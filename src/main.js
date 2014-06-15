@@ -26,8 +26,6 @@ Object.fromList = function(xs)
     return result;
 };
 
-
-
 var dbg_names = Object.fromList([
     [1, ""],
     [LOG_CPU, "CPU"],
@@ -210,6 +208,10 @@ function SyncBuffer(buffer)
     {
         fn(buffer);
     };
+}
+if(typeof window === "object")
+{
+    window["SyncBuffer"] = SyncBuffer;
 }
 
 /**

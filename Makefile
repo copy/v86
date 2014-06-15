@@ -74,6 +74,16 @@ src/node/v86_node.js: src/*.js src/node/*.js
 		--js $(CORE_FILES) \
 		--js $(NODE_FILES)
 
+libv86.js: src/*.js 
+	cd src &&\
+	java -jar $(CLOSURE) \
+		--js_output_file "../libv86.js"\
+		--define=DEBUG=false\
+		--define=IN_CLOSURE=false\
+		$(CLOSURE_FLAGS)\
+		$(CLOSURE_READABLE)\
+		--js $(CORE_FILES)
+
 
 pack:
 	rm -f ../v86-latest.tar.gz 
