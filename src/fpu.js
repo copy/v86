@@ -52,12 +52,14 @@ var
 /**
  * @constructor
  */
-function FPU(io)
+function FPU(cpu)
 {
     // TODO:
     // - Precision Control
     // - QNaN, unordered comparison
     // - Exceptions
+
+    this.cpu = cpu;
 
     // Why no Float80Array :-(
     this._st = new Float64Array(8);
@@ -112,7 +114,7 @@ FPU.prototype._fpu_unimpl = function()
 {
     dbg_trace();
     if(DEBUG) throw "fpu: unimplemented";
-    else trigger_ud();
+    else this.cpu.trigger_ud();
 }
 
 FPU.prototype._stack_fault = function()
@@ -160,23 +162,23 @@ FPU.prototype._fcomi = function(y)
 {
     var x = this._st[this._stack_ptr];
 
-    flags_changed &= ~(1 | flag_parity | flag_zero);
-    flags &= ~(1 | flag_parity | flag_zero);
+    this.cpu.flags_changed &= ~(1 | flag_parity | flag_zero);
+    this.cpu.flags &= ~(1 | flag_parity | flag_zero);
 
     if(x > y)
     {
     }
     else if(y > x)
     {
-        flags |= 1;
+        this.cpu.flags |= 1;
     }
     else if(x === y)
     {
-        flags |= flag_zero;
+        this.cpu.flags |= flag_zero;
     }
     else
     {
-        flags |= 1 | flag_parity | flag_zero;
+        this.cpu.flags |= 1 | flag_parity | flag_zero;
     }
 }
 
@@ -300,20 +302,20 @@ FPU.prototype._safe_tag_word = function(tag_word)
 
 FPU.prototype._fstenv = function(addr)
 {
-    if(operand_size_32)
+    if(this.cpu.operand_size_32)
     {
-        writable_or_pagefault(addr, 26);
+        this.cpu.writable_or_pagefault(addr, 26);
 
-        safe_write16(addr, this._control_word);
+        this.cpu.safe_write16(addr, this._control_word);
 
-        safe_write16(addr + 4, this._load_status_word());
-        safe_write16(addr + 8, this._load_tag_word());
+        this.cpu.safe_write16(addr + 4, this._load_status_word());
+        this.cpu.safe_write16(addr + 8, this._load_tag_word());
 
-        safe_write32(addr + 12, this._fpu_ip);
-        safe_write16(addr + 16, this._fpu_ip_selector);
-        safe_write16(addr + 18, this._fpu_opcode);
-        safe_write32(addr + 20, this._fpu_dp);
-        safe_write16(addr + 24, this._fpu_dp_selector);
+        this.cpu.safe_write32(addr + 12, this._fpu_ip);
+        this.cpu.safe_write16(addr + 16, this._fpu_ip_selector);
+        this.cpu.safe_write16(addr + 18, this._fpu_opcode);
+        this.cpu.safe_write32(addr + 20, this._fpu_dp);
+        this.cpu.safe_write16(addr + 24, this._fpu_dp_selector);
     }
     else
     {
@@ -323,18 +325,18 @@ FPU.prototype._fstenv = function(addr)
 
 FPU.prototype._fldenv = function(addr)
 {
-    if(operand_size_32)
+    if(this.cpu.operand_size_32)
     {
-        this._control_word = safe_read16(addr);
+        this._control_word = this.cpu.safe_read16(addr);
 
-        this._safe_status_word(safe_read16(addr + 4));
-        this._safe_tag_word(safe_read16(addr + 8));
+        this._safe_status_word(this.cpu.safe_read16(addr + 4));
+        this._safe_tag_word(this.cpu.safe_read16(addr + 8));
         
-        this._fpu_ip = safe_read32s(addr + 12);
-        this._fpu_ip_selector = safe_read16(addr + 16);
-        this._fpu_opcode = safe_read16(addr + 18);
-        this._fpu_dp = safe_read32s(addr + 20);
-        this._fpu_dp_selector = safe_read16(addr + 24);
+        this._fpu_ip = this.cpu.safe_read32s(addr + 12);
+        this._fpu_ip_selector = this.cpu.safe_read16(addr + 16);
+        this._fpu_opcode = this.cpu.safe_read16(addr + 18);
+        this._fpu_dp = this.cpu.safe_read32s(addr + 20);
+        this._fpu_dp_selector = this.cpu.safe_read16(addr + 24);
     }
     else
     {
@@ -344,7 +346,7 @@ FPU.prototype._fldenv = function(addr)
 
 FPU.prototype._fsave = function(addr)
 {
-    writable_or_pagefault(addr, 108);
+    this.cpu.writable_or_pagefault(addr, 108);
 
     this._fstenv(addr);
     addr += 28;
@@ -466,10 +468,10 @@ FPU.prototype._get_st0 = function()
 
 FPU.prototype._load_m80 = function(addr)
 {
-    var exponent = safe_read16(addr + 8),
+    var exponent = this.cpu.safe_read16(addr + 8),
         sign,
-        low = safe_read32(addr), 
-        high = safe_read32(addr + 4);
+        low = this.cpu.safe_read32s(addr) >>> 0, 
+        high = this.cpu.safe_read32s(addr + 4) >>> 0;
 
     sign = exponent >> 15;
     exponent &= ~0x8000;
@@ -553,16 +555,16 @@ FPU.prototype._store_m80 = function(addr, i)
 
     dbg_assert(exponent >= 0 && exponent < 0x8000);
 
-    safe_write32(addr, low);
-    safe_write32(addr + 4, high);
+    this.cpu.safe_write32(addr, low);
+    this.cpu.safe_write32(addr + 4, high);
 
-    safe_write16(addr + 8, sign << 8 | exponent);
+    this.cpu.safe_write16(addr + 8, sign << 8 | exponent);
 }
 
 FPU.prototype._load_m64 = function(addr)
 {
-    var low = safe_read32s(addr),
-        high = safe_read32s(addr + 4);
+    var low = this.cpu.safe_read32s(addr),
+        high = this.cpu.safe_read32s(addr + 4);
 
     this.float64_int[0] = low;
     this.float64_int[1] = high;
@@ -572,17 +574,17 @@ FPU.prototype._load_m64 = function(addr)
 
 FPU.prototype._store_m64 = function(addr, i)
 {
-    writable_or_pagefault(addr, 8);
+    this.cpu.writable_or_pagefault(addr, 8);
 
     this.float64[0] = this._get_sti(i);
 
-    safe_write32(addr, this.float64_int[0]);
-    safe_write32(addr + 4, this.float64_int[1]);
+    this.cpu.safe_write32(addr, this.float64_int[0]);
+    this.cpu.safe_write32(addr + 4, this.float64_int[1]);
 };
 
 FPU.prototype._load_m32 = function(addr)
 {
-    this.float32_int[0] = safe_read32s(addr);
+    this.float32_int[0] = this.cpu.safe_read32s(addr);
 
     return this.float32[0];
 };
@@ -591,7 +593,7 @@ FPU.prototype._store_m32 = function(addr, x)
 {
     this.float32[0] = x;
 
-    safe_write32(addr, this.float32_int[0]);
+    this.cpu.safe_write32(addr, this.float32_int[0]);
 };
 
 // sign of a number on the stack
@@ -611,12 +613,12 @@ FPU.prototype._dbg_log_fpu_op = function(op, imm8)
     if(imm8 >= 0xC0)
     {
         dbg_log(h(op, 2) + " " + h(imm8, 2) + "/" + (imm8 >> 3 & 7) + "/" + (imm8 & 7) +
-                " @" + h(instruction_pointer >>> 0, 8) + " sp=" + this._stack_ptr + " st=" + h(this._stack_empty, 2), LOG_FPU);
+                " @" + h(this.cpu.instruction_pointer >>> 0, 8) + " sp=" + this._stack_ptr + " st=" + h(this._stack_empty, 2), LOG_FPU);
     }
     else
     {
         dbg_log(h(op, 2) + " /" + (imm8 >> 3 & 7) + 
-                "     @" + h(instruction_pointer >>> 0, 8) + " sp=" + this._stack_ptr + " st=" + h(this._stack_empty, 2), LOG_FPU);
+                "     @" + h(this.cpu.instruction_pointer >>> 0, 8) + " sp=" + this._stack_ptr + " st=" + h(this._stack_empty, 2), LOG_FPU);
     }
 }
 
@@ -908,7 +910,7 @@ FPU.prototype.op_D9_mem = function(imm8, addr)
             break;
         case 5:
             // fldcw
-            var word = safe_read16(addr);
+            var word = this.cpu.safe_read16(addr);
             this._control_word = word;
             break;
         case 6:
@@ -916,7 +918,7 @@ FPU.prototype.op_D9_mem = function(imm8, addr)
             break;
         case 7:
             // fstcw
-            safe_write16(addr, this._control_word);
+            this.cpu.safe_write16(addr, this._control_word);
             break;
         default:
             dbg_assert(false);
@@ -934,7 +936,7 @@ FPU.prototype.op_DA_reg = function(imm8)
     {
         case 0:
             // fcmovb
-            if(test_b())
+            if(this.cpu.test_b())
             {
                 this._st[this._stack_ptr] = this._get_sti(low);
                 this._stack_empty &= ~(1 << this._stack_ptr);
@@ -942,7 +944,7 @@ FPU.prototype.op_DA_reg = function(imm8)
             break;
         case 1:
             // fcmove
-            if(test_z())
+            if(this.cpu.test_z())
             {
                 this._st[this._stack_ptr] = this._get_sti(low);
                 this._stack_empty &= ~(1 << this._stack_ptr);
@@ -950,7 +952,7 @@ FPU.prototype.op_DA_reg = function(imm8)
             break;
         case 2:
             // fcmovbe
-            if(test_be())
+            if(this.cpu.test_be())
             {
                 this._st[this._stack_ptr] = this._get_sti(low);
                 this._stack_empty &= ~(1 << this._stack_ptr);
@@ -958,7 +960,7 @@ FPU.prototype.op_DA_reg = function(imm8)
             break;
         case 3:
             // fcmovu
-            if(test_p())
+            if(this.cpu.test_p())
             {
                 this._st[this._stack_ptr] = this._get_sti(low);
                 this._stack_empty &= ~(1 << this._stack_ptr);
@@ -988,7 +990,7 @@ FPU.prototype.op_DA_mem = function(imm8, addr)
     this._dbg_log_fpu_op(0xDA, imm8);
 
     var mod = imm8 >> 3 & 7,
-        m32 = safe_read32s(addr);
+        m32 = this.cpu.safe_read32s(addr);
 
     var st0 = this._get_st0();
 
@@ -1043,7 +1045,7 @@ FPU.prototype.op_DB_reg = function(imm8)
     {
         case 0:
             // fcmovnb
-            if(!test_b())
+            if(!this.cpu.test_b())
             {
                 this._st[this._stack_ptr] = this._get_sti(low);
                 this._stack_empty &= ~(1 << this._stack_ptr);
@@ -1051,7 +1053,7 @@ FPU.prototype.op_DB_reg = function(imm8)
             break;
         case 1:
             // fcmovne
-            if(!test_z())
+            if(!this.cpu.test_z())
             {
                 this._st[this._stack_ptr] = this._get_sti(low);
                 this._stack_empty &= ~(1 << this._stack_ptr);
@@ -1059,7 +1061,7 @@ FPU.prototype.op_DB_reg = function(imm8)
             break;
         case 2:
             // fcmovnbe
-            if(!test_be())
+            if(!this.cpu.test_be())
             {
                 this._st[this._stack_ptr] = this._get_sti(low);
                 this._stack_empty &= ~(1 << this._stack_ptr);
@@ -1067,7 +1069,7 @@ FPU.prototype.op_DB_reg = function(imm8)
             break;
         case 3:
             // fcmovnu
-            if(!test_p())
+            if(!this.cpu.test_p())
             {
                 this._st[this._stack_ptr] = this._get_sti(low);
                 this._stack_empty &= ~(1 << this._stack_ptr);
@@ -1121,7 +1123,7 @@ FPU.prototype.op_DB_mem = function(imm8, addr)
     {
         case 0:
             // fild
-            var int32 = safe_read32s(addr);
+            var int32 = this.cpu.safe_read32s(addr);
             this._push(int32);
             break;
         case 2:
@@ -1130,12 +1132,12 @@ FPU.prototype.op_DB_mem = function(imm8, addr)
             if(st0 <= 0x7FFFFFFF && st0 >= -0x80000000)
             {
                 // TODO: Invalid operation
-                safe_write32(addr, st0);
+                this.cpu.safe_write32(addr, st0);
             }
             else
             {
                 this._invalid_arithmatic();
-                safe_write32(addr, 0x80000000);
+                this.cpu.safe_write32(addr, 0x80000000|0);
             }
             break;
         case 3:
@@ -1143,12 +1145,12 @@ FPU.prototype.op_DB_mem = function(imm8, addr)
             var st0 = this._integer_round(this._get_st0());
             if(st0 <= 0x7FFFFFFF && st0 >= -0x80000000)
             {
-                safe_write32(addr, st0);
+                this.cpu.safe_write32(addr, st0);
             }
             else
             {
                 this._invalid_arithmatic();
-                safe_write32(addr, 0x80000000);
+                this.cpu.safe_write32(addr, 0x80000000|0);
             }
             this._pop();
             break;
@@ -1158,7 +1160,7 @@ FPU.prototype.op_DB_mem = function(imm8, addr)
             break;
         case 7:
             // fstp
-            writable_or_pagefault(addr, 10);
+            this.cpu.writable_or_pagefault(addr, 10);
             this._store_m80(addr, 0);
             this._pop();
             break;
@@ -1350,7 +1352,7 @@ FPU.prototype.op_DD_mem = function(imm8, addr)
             break;
         case 7:
             // fnstsw / store status word
-            safe_write16(addr, this._load_status_word());
+            this.cpu.safe_write16(addr, this._load_status_word());
             break;
         default:
             dbg_assert(false);
@@ -1424,7 +1426,7 @@ FPU.prototype.op_DE_mem = function(imm8, addr)
     this._dbg_log_fpu_op(0xDE, imm8);
 
     var mod = imm8 >> 3 & 7,
-        m16 = safe_read16s(addr);
+        m16 = this.cpu.safe_read16(addr) << 16 >> 16;
 
     var st0 = this._get_st0();
 
@@ -1481,7 +1483,7 @@ FPU.prototype.op_DF_reg = function(imm8)
             if(imm8 === 0xE0)
             {
                 // fnstsw
-                reg16[reg_ax] = this._load_status_word();
+                this.cpu.reg16[reg_ax] = this._load_status_word();
             }
             else
             {
@@ -1509,7 +1511,7 @@ FPU.prototype.op_DF_mem = function(imm8, addr)
     switch(mod)
     {
         case 0:
-            var m16 = safe_read16s(addr);
+            var m16 = this.cpu.safe_read16(addr) << 16 >> 16;
 
             this._push(m16);
             break;
@@ -1522,12 +1524,12 @@ FPU.prototype.op_DF_mem = function(imm8, addr)
             var st0 = this._integer_round(this._get_st0());
             if(st0 <= 0x7FFF && st0 >= -0x8000)
             {
-                safe_write16(addr, st0);
+                this.cpu.safe_write16(addr, st0);
             }
             else
             {
                 this._invalid_arithmatic();
-                safe_write16(addr, 0x8000);
+                this.cpu.safe_write16(addr, 0x8000);
             }
             break;
         case 3:
@@ -1535,12 +1537,12 @@ FPU.prototype.op_DF_mem = function(imm8, addr)
             var st0 = this._integer_round(this._get_st0());
             if(st0 <= 0x7FFF && st0 >= -0x8000)
             {
-                safe_write16(addr, st0);
+                this.cpu.safe_write16(addr, st0);
             }
             else
             {
                 this._invalid_arithmatic();
-                safe_write16(addr, 0x8000);
+                this.cpu.safe_write16(addr, 0x8000);
             }
             this._pop();
             break;
@@ -1550,8 +1552,8 @@ FPU.prototype.op_DF_mem = function(imm8, addr)
             break;
         case 5:
             // fild
-            var low = safe_read32(addr),
-                high = safe_read32(addr + 4);
+            var low = this.cpu.safe_read32s(addr) >>> 0,
+                high = this.cpu.safe_read32s(addr + 4) >>> 0;
 
             var m64 = low + 0x100000000 * high;
 
@@ -1567,7 +1569,7 @@ FPU.prototype.op_DF_mem = function(imm8, addr)
             this._fpu_unimpl();
             break;
         case 7:
-            writable_or_pagefault(addr, 8);
+            this.cpu.writable_or_pagefault(addr, 8);
 
             // fistp
             var st0 = this._integer_round(this._get_st0()),
@@ -1590,8 +1592,8 @@ FPU.prototype.op_DF_mem = function(imm8, addr)
                 this._invalid_arithmatic();
             }
 
-            safe_write32(addr, st0_low);
-            safe_write32(addr + 4, st0_high);
+            this.cpu.safe_write32(addr, st0_low);
+            this.cpu.safe_write32(addr + 4, st0_high);
 
             this._pop();
             break;

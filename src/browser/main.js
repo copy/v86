@@ -13,37 +13,6 @@
     }
 
 
-    // setImmediate shim for the browser
-    var next_tick, set_tick;
-
-    (function()
-    {
-        var fn,
-            host = location.protocol + "//" + location.host;
-
-        set_tick = function(f)
-        {
-            fn = f;
-
-            window.removeEventListener("message", tick_handler, false);
-            window.addEventListener("message", tick_handler, false);
-        };
-
-        next_tick = function()
-        {
-            window.postMessage(null, host);
-        };
-
-        function tick_handler(e)
-        {
-            if(e.origin === host)
-            {
-                fn();
-            }
-        }
-    })();
-
-
     function dump_text(text)
     {
         var box = document.createElement("textarea");
@@ -787,37 +756,15 @@
 
     function init(settings)
     {
-        var envapi = {
-            set_tick: set_tick,
-            next_tick: next_tick,
-            log: log,
-        };
-
         if(!settings.bios || !settings.vga_bios)
         {
             log("The BIOS has not been loaded - reload the page to try again.");
             return;
         }
 
-        if(typeof performance === "object" && performance.now)
-        {
-            var offset = Date.now() - performance.now();
-
-            envapi.microtime = function()
-            {
-                return offset + performance.now()
-            };
-            envapi.detailed_microtime = false;
-        }
-        else
-        {
-            envapi.microtime = Date.now;
-            envapi.detailed_microtime = false;
-        }
-
         var have_serial = true;
 
-        var cpu = new v86(envapi),
+        var cpu = new v86(),
             screen_adapter = new ScreenAdapter();
 
         $("boot_options").style.display = "none";
@@ -835,47 +782,47 @@
         {
             $("step").onclick = function()
             { 
-                debug.step();
+                cpu.debug.step();
             }
 
             $("run_until").onclick = function()
             {
-                debug.run_until();
+                cpu.debug.run_until();
             };
 
             $("debugger").onclick = function()
             {
-                debug.debugger();
+                cpu.debug.debugger();
             };
 
             $("dump_gdt").onclick = function()
             {
-                debug.dump_gdt_ldt();
+                cpu.debug.dump_gdt_ldt();
             };
 
             $("dump_idt").onclick = function()
             {
-                debug.dump_idt();
+                cpu.debug.dump_idt();
             };
 
             $("dump_regs").onclick = function()
             {
-                debug.dump_regs();
+                cpu.debug.dump_regs();
             };
 
             $("dump_pt").onclick = function()
             {
-                debug.dump_page_directory();
+                cpu.debug.dump_page_directory();
             };
 
             $("dump_instructions").onclick = function()
             {
-                debug.dump_instructions();
+                cpu.debug.dump_instructions();
             };
 
             $("memory_dump").onclick = function()
             {
-                dump_file(debug.get_memory_dump(), "memory.bin");
+                dump_file(cpu.debug.get_memory_dump(), "memory.bin");
             };
         }
 
@@ -916,7 +863,7 @@
             }
 
             var now = Date.now(),
-                last_ips = (cpu.instr_counter - last_instr_counter) / 1000 | 0;
+                last_ips = (cpu.timestamp_counter - last_instr_counter) / 1000 | 0;
 
             summed_ips += last_ips
             running_time += now - last_tick;
@@ -926,7 +873,7 @@
             avg_ips.textContent = summed_ips / running_time * 1000 | 0;
             time.textContent = time2str(running_time / 1000 | 0);
 
-            last_instr_counter = cpu.instr_counter;
+            last_instr_counter = cpu.timestamp_counter;
         }
 
         function update_other_info()
@@ -936,7 +883,7 @@
                 return;
             }
 
-            var vga_stats = cpu.dev.vga.stats;
+            var vga_stats = cpu.devices.vga.stats;
 
             if(vga_stats.is_graphical)
             {
@@ -957,9 +904,9 @@
                     settings.mouse_adapter.enabled ? "Yes" : "No";
             }
 
-            if(cpu.dev.hda)
+            if(cpu.devices.hda)
             {
-                var hda_stats = cpu.dev.hda.stats;
+                var hda_stats = cpu.devices.hda.stats;
 
                 $("info_hda_sectors_read").textContent = hda_stats.sectors_read;
                 $("info_hda_bytes_read").textContent = hda_stats.bytes_read;
@@ -972,9 +919,9 @@
                 $("info_hda").style.display = "none";
             }
 
-            if(cpu.dev.cdrom)
+            if(cpu.devices.cdrom)
             {
-                var cdrom_stats = cpu.dev.cdrom.stats;
+                var cdrom_stats = cpu.devices.cdrom.stats;
 
                 $("info_cdrom_sectors_read").textContent = cdrom_stats.sectors_read;
                 $("info_cdrom_bytes_read").textContent = cdrom_stats.bytes_read;
@@ -1025,7 +972,7 @@
 
         $("ctrlaltdel").onclick = function()
         {
-            var ps2 = cpu.dev.ps2;
+            var ps2 = cpu.devices.ps2;
 
             ps2.kbd_send_code(0x1D); // ctrl
             ps2.kbd_send_code(0x38); // alt
@@ -1125,8 +1072,7 @@
         }
 
         cpu.init(settings);
-        //cpu.run();
-        cpu.run_translated();
+        cpu.run();
     }
 
 })();

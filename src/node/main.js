@@ -20,32 +20,9 @@ function local_require(file)
 }
 
 // otherwise tty ouput is used
-var USE_SDL = true,
+var USE_SDL = false,
     FONT_FILE = path + "node/ascii.ttf";
 
-function log(str)
-{
-    console.log(str);
-}
-
-var envapi = {
-    log: log,
-};
-
-(function()
-{
-    var tick_fn;
-
-    envapi.set_tick = function(fn)
-    {
-        tick_fn = fn;   
-    };
-
-    envapi.next_tick = function()
-    {
-        setImmediate(tick_fn);
-    };
-})();
 
 var fs = require('fs'),
     vm = require('vm'),
@@ -71,6 +48,8 @@ include(path + "ide.js");
 include(path + "dma.js");
 include(path + "pit.js");
 include(path + "vga.js");
+include(path + "acpi.js");
+include(path + "fpu.js");
 include(path + "ps2.js");
 include(path + "pic.js");
 include(path + "uart.js");
@@ -146,7 +125,7 @@ if(argv && argv.length === 4 && (argv[2] === "cdrom" || argv[2] === "fda" || arg
 
     settings.screen_adapter
 
-    var cpu = new v86(envapi);
+    var cpu = new v86();
 
     cpu.init(settings);
     cpu.run();

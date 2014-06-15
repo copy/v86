@@ -3,11 +3,11 @@
 /**
  * @constructor
  */
-function PS2(dev, keyboard, mouse)
+function PS2(cpu, keyboard, mouse)
 {
     var 
-        io = dev.io,
-        pic = dev.pic,
+        io = cpu.io,
+        pic = cpu.devices.pic,
 
         me = this,
 
@@ -242,7 +242,7 @@ function PS2(dev, keyboard, mouse)
 
     function port60_read()
     {
-        //log("port 60 read: " + (buffer[0] || "(none)"));
+        //dbg_log("port 60 read: " + (buffer[0] || "(none)"));
 
         if(!kbd_buffer.length && !mouse_buffer.length)
         {
@@ -582,7 +582,7 @@ function PS2(dev, keyboard, mouse)
             break;
         case 0xFE:
             dbg_log("CPU reboot via PS2");
-            dev.reboot();
+            cpu.reboot_internal();
             break;
         default:
             dbg_log("port 64: Unimplemented command byte: " + h(write_byte), LOG_PS2);

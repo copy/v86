@@ -1,7 +1,7 @@
 "use strict";
 
-/** @define {boolean} */
 var 
+    /** @define {boolean} */
     IN_NODE = false,
     /** @define {boolean} */
     IN_WORKER = false,

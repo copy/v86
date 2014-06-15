@@ -10,10 +10,10 @@ var DLAB = 0x80;
 /** 
  * @constructor 
  */
-function UART(dev, port, adapter)
+function UART(cpu, port, adapter)
 {
-    var io = dev.io,
-        pic = dev.pic,
+    var io = cpu.io,
+        pic = cpu.devices.pic,
 
         line = "",
         baud_rate = 0,

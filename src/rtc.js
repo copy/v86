@@ -2,13 +2,13 @@
  * RTC (real time clock) and CMOS
  * @constructor
  */
-function RTC(dev, diskette_type, boot_order)
+function RTC(cpu, diskette_type, boot_order)
 {
     var 
-        io = dev.io,
-        pic = dev.pic,
+        io = cpu.io,
+        pic = cpu.devices.pic,
 
-        memory_size = dev.memory.size,
+        memory_size = cpu.memory.size,
 
         cmos_index = 0,
         me = this,

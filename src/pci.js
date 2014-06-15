@@ -18,10 +18,10 @@ var
 /** @const */ PCI_CONFIG_DATA = 0xCFC;
 
 /** @constructor */
-function PCI(dev)
+function PCI(cpu)
 {
     var
-        io = dev.io,
+        io = cpu.io,
         pci_addr = new Uint8Array(4),
         pci_response = new Uint8Array(4),
         pci_status = new Uint8Array(4),
@@ -181,7 +181,8 @@ function PCI(dev)
             if(byte_pos === 3 && addr >= 0x10 && addr < 0x28)
             {
                 var bar_nr = addr - 0x10 >> 2,
-                    bar = device.pci_bars[bar_nr],
+                    bars = device.pci_bars,
+                    bar = bar_nr < bars.length ? bars[bar_nr] : undefined,
                     value = space[addr >> 2];
 
                 dbg_log("BAR" + bar_nr + " changed to " + h(space[addr >> 2] >>> 0) + " dev=" + h(bdf, 2), LOG_PCI);

@@ -7,12 +7,12 @@ function Memory(buffer, memory_size)
 {
     var mem8 = new Uint8Array(buffer),
         mem16 = new Uint16Array(buffer),
-        mem8s = new Int8Array(buffer),
+        //mem8s = new Int8Array(buffer),
         mem32s = new Int32Array(buffer);
 
     this.mem8 = mem8;
     this.mem16 = mem16;
-    this.mem8s = mem8s;
+    //this.mem8s = mem8s;
     this.mem32s = mem32s;
 
     this.buffer = buffer;
@@ -20,14 +20,19 @@ function Memory(buffer, memory_size)
     this.size = memory_size;
 
     // this only supports a 32 bit address space
-    var memory_map_registered = new Uint8Array(1 << (32 - MMAP_BLOCK_BITS)),
-        memory_map_read = [],
-        memory_map_write = [];
+    var size = 1 << (32 - MMAP_BLOCK_BITS);
+    var memory_map_registered = new Uint8Array(size);
 
     // managed by IO() in io.js
     this.memory_map_registered = memory_map_registered;
-    this.memory_map_read = memory_map_read;
-    this.memory_map_write = memory_map_write;
+    this.memory_map_read = [];
+    this.memory_map_write = [];
+
+    for(var i = 0; i < size; i++)
+    {
+        this.memory_map_read[i] = undefined;
+        this.memory_map_write[i] = undefined;
+    }
 
     // use by dynamic translator
     this.mem_page_infos = new Uint8Array(1 << 20);

@@ -37,7 +37,7 @@ CLOSURE_FLAGS=\
 
 
 CORE_FILES=const.js io.js cpu.js main.js fpu.js ide.js pci.js floppy.js memory.js\
-		   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js 
+		   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js
 BROWSER_FILES=browser/main.js browser/screen.js\
 			  browser/keyboard.js browser/mouse.js browser/serial.js
 NODE_FILES=node/main.js node/keyboard_sdl.js\

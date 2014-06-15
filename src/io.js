@@ -67,7 +67,7 @@ function IO(memory)
             0x0511: "PORT_QEMU_CFG_DATA",
             0xb000: "PORT_ACPI_PM_BASE",
             0xb100: "PORT_SMB_BASE",
-            0x8900:  "PORT_BIOS_APM"
+            0x8900: "PORT_BIOS_APM"
         };
 
         if(ports[addr])
@@ -187,7 +187,7 @@ function IO(memory)
             memory.memory_map_read[aligned_addr] = do_read;
             memory.memory_map_write[aligned_addr] = do_write;
 
-            if((aligned_addr << MMAP_BLOCK_BITS) < memory_size)
+            if((aligned_addr << MMAP_BLOCK_BITS >>> 0) < memory_size)
             {
                 low_memory_registered[aligned_addr] = fn_size;
             }

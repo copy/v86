@@ -1,12 +1,12 @@
 "use strict";
 
 /** @constructor */
-function FloppyController(dev, fda_image, fdb_image)
+function FloppyController(cpu, fda_image, fdb_image)
 {
 
-    this.io = dev.io;
-    this.pic = dev.pic;
-    this.dma = dev.dma;
+    this.io = cpu.io;
+    this.pic = cpu.devices.pic;
+    this.dma = cpu.devices.dma;
 
     this.bytes_expecting = 0;
     this.receiving_command = new Uint8Array(10);

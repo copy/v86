@@ -15,13 +15,14 @@ var HPET_ADDR = 0xFED00000,
  *
  * @constructor 
  */
-function HPET(dev)
+function HPET(cpu)
 {
     var me = this,
-        
+        io = cpu.io,
+        dev = cpu.devices,
 
         hpet_enabled = false,
-        hpet_start = dev.time(),
+        hpet_start = Date.now(),
 
         hpet_offset_low = 0,
         hpet_offset_high = 0,
@@ -113,7 +114,7 @@ function HPET(dev)
     {
         if(hpet_enabled)
         {
-            return (dev.time() - hpet_start) * HPET_FREQ_MS + hpet_offset_low | 0;
+            return (Date.now() - hpet_start) * HPET_FREQ_MS + hpet_offset_low | 0;
         }
         else
         {
@@ -127,7 +128,7 @@ function HPET(dev)
         {
             if(hpet_enabled)
             {
-                return (dev.time() - hpet_start) * (HPET_FREQ_MS / 0x100000000) + hpet_offset_high | 0;
+                return (Date.now() - hpet_start) * (HPET_FREQ_MS / 0x100000000) + hpet_offset_high | 0;
             }
             else
             {
@@ -140,7 +141,7 @@ function HPET(dev)
         }
     }
 
-    dev.io.mmap_register(HPET_ADDR, 0x4000, 4, mmio_read, mmio_write);
+    cpu.io.mmap_register(HPET_ADDR, 0x4000, 4, mmio_read, mmio_write);
             
             
             
@@ -211,7 +212,7 @@ function HPET(dev)
                     if(data & 1)
                     {
                         // counter is enabled now, start counting now
-                        hpet_start = dev.time();
+                        hpet_start = Date.now();
                     }
                     else
                     {

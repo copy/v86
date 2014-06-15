@@ -16,9 +16,10 @@
 #define loop(s, fn)\
     do {\
         fn;\
-        if(use_di) dest += size, regv[reg_vdi] += size;\
-        if(use_si) src += size, regv[reg_vsi] += size;\
-        cont = --regv[reg_vcx] && (!use_cmp || (data_src === data_dest) === repeat_string_type);\
+        if(use_di) dest += size, cpu.regv[cpu.reg_vdi] += size;\
+        if(use_si) src += size, cpu.regv[cpu.reg_vsi] += size;\
+        cont = --cpu.regv[cpu.reg_vcx] && (!use_cmp || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z));\
+        cpu.timestamp_counter++;\
     } while(cont && next_cycle--)
 
 #define aligned_loop(s, fn)\
@@ -26,19 +27,20 @@
         fn;\
         if(use_di) phys_dest += single_size;\
         if(use_si) phys_src += single_size;\
-        cont = --count && (!use_cmp || (data_src === data_dest) === repeat_string_type);\
+        cont = --count && (!use_cmp || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z));\
+        cpu.timestamp_counter++;\
     } while(cont && next_cycle--)
 
 
 #define string_instruction(s, fn, aligned_fn)\
     var src, dest, data_src, data_dest = 0, phys_dest, phys_src;\
-    var size = flags & flag_direction ? -(s >> 3) : s >> 3;\
+    var size = cpu.flags & flag_direction ? -(s >> 3) : s >> 3;\
     var cont = false;\
-    if(use_cmp && !use_si) data_src = s === 32 ? reg32s[reg_eax] : reg ## s[reg_al];\
-    if(use_di) dest = get_seg(reg_es) + regv[reg_vdi] | 0;\
-    if(use_si) src = get_seg_prefix(reg_ds) + regv[reg_vsi] | 0;\
-    if(repeat_string_prefix) {\
-        var count = regv[reg_vcx],\
+    if(use_cmp && !use_si) data_src = s === 32 ? cpu.reg32s[reg_eax] : cpu.reg ## s[reg_al];\
+    if(use_di) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;\
+    if(use_si) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0;\
+    if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) {\
+        var count = cpu.regv[cpu.reg_vcx] >>> 0,\
             start_count = count;\
         if(count === 0) return;\
         var next_cycle = 0x4000;\
@@ -46,14 +48,14 @@
             ((!use_di || !(dest & (s >> 3) - 1)) && (!use_si || !(src & (s >> 3) - 1)));\
         if(aligned) {\
             var single_size = size >> 31 | 1;\
-            if(paging) {\
+            if(cpu.paging) {\
                 if(use_si) {\
                     next_cycle = (single_size >> 1 ^ ~src) & 0xFFF;\
-                    phys_src = translate_address_read(src);\
+                    phys_src = cpu.translate_address_read(src);\
                 }\
                 if(use_di) {\
                     next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF);\
-                    phys_dest = use_cmp ? translate_address_read(dest) : translate_address_write(dest);\
+                    phys_dest = use_cmp ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest);\
                 }\
                 if(s === 32) next_cycle >>= 2;\
                 else if(s === 16) next_cycle >>= 1;\
@@ -65,85 +67,85 @@
             else if(s === 16) { if(use_di) phys_dest >>>= 1; if(use_si) phys_src >>>= 1; }\
             aligned_loop(s, aligned_fn);\
             var diff = size * (start_count - count) | 0;\
-            if(use_di) regv[reg_vdi] += diff;\
-            if(use_si) regv[reg_vsi] += diff;\
-            regv[reg_vcx] = count;\
+            if(use_di) cpu.regv[cpu.reg_vdi] += diff;\
+            if(use_si) cpu.regv[cpu.reg_vsi] += diff;\
+            cpu.regv[cpu.reg_vcx] = count;\
         } else { \
             loop(s, fn);\
         }\
     } else {\
         if(s === 8) { \
-            if(use_si) phys_src = translate_address_read(src);\
-            if(use_di) phys_dest = use_cmp ? translate_address_read(dest) : translate_address_write(dest);\
+            if(use_si) phys_src = cpu.translate_address_read(src);\
+            if(use_di) phys_dest = use_cmp ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest);\
             aligned_fn; \
         } else { fn; }\
-        if(use_di) regv[reg_vdi] += size;\
-        if(use_si) regv[reg_vsi] += size;\
+        if(use_di) cpu.regv[cpu.reg_vdi] += size;\
+        if(use_si) cpu.regv[cpu.reg_vsi] += size;\
     }\
     if(use_cmp) {\
         cmp ## s(data_src, data_dest);\
     }\
     if(cont) {\
-        instruction_pointer = previous_ip;\
+        cpu.instruction_pointer = cpu.previous_ip;\
     }
 
 
 #define use_cmp false
 #define use_si true
 #define use_di true
-function movsb()
+function movsb(cpu)
 {
     string_instruction(8,
         {
             // no unaligned fn, bytewise is always aligned
         }, {
-            memory.write8(phys_dest, memory.read8(phys_src));
+            cpu.memory.write8(phys_dest, cpu.memory.read8(phys_src));
         });
 }
 
-function movsw()
+function movsw(cpu)
 {
     string_instruction(16,
         {
-            safe_write16(dest, safe_read16(src));
+            cpu.safe_write16(dest, cpu.safe_read16(src));
         }, {
-            memory.write_aligned16(phys_dest, memory.read_aligned16(phys_src));
+            cpu.memory.write_aligned16(phys_dest, cpu.memory.read_aligned16(phys_src));
         });
 }
 
-function movsd()
+function movsd(cpu)
 {
-    if(false && repeat_string_prefix)
+    if(false && cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         // often used by memcpy, well worth optimizing
-        //   using memory.mem32s.set
+        //   using cpu.memory.mem32s.set
         
-        var ds = get_seg_prefix(reg_ds), 
-            src = ds + regv[reg_vsi],
-            es = get_seg(reg_es), 
-            dest = es + regv[reg_vdi],
-            count = regv[reg_vcx];
+        var ds = cpu.get_seg_prefix(reg_ds), 
+            src = ds + cpu.regv[cpu.reg_vsi],
+            es = cpu.get_seg(reg_es), 
+            dest = es + cpu.regv[cpu.reg_vdi],
+            count = cpu.regv[cpu.reg_vcx] >>> 0;
 
         if(!count)
         {
             return;
         }
 
-        // must be page-aligned if paging is enabled
+        // must be page-aligned if cpu.paging is enabled
         // and dword-aligned in general
-        var align_mask = paging ? 0xFFF : 3;
+        var align_mask = cpu.paging ? 0xFFF : 3;
 
         if(!(dest & align_mask) && 
             !(src & align_mask)  && 
-            !io.in_mmap_range(src, count) && 
-            !io.in_mmap_range(dest, count))
+            !cpu.io.in_mmap_range(src, count) && 
+            !cpu.io.in_mmap_range(dest, count))
         {
             var cont = false;
 
-            if(paging)
+            if(cpu.paging)
             {
-                src = translate_address_read(src);
-                dest = translate_address_write(dest);
+                src = cpu.translate_address_read(src);
+                dest = cpu.translate_address_write(dest);
 
                 if(count > 0x400)
                 {
@@ -152,29 +154,29 @@ function movsd()
                 }
             }
 
-            if((dest >>> 0) + (count << 2) <= memory_size &&
-                    (src >>> 0) + (count << 2) <= memory_size)
+            if((dest >>> 0) + (count << 2) <= cpu.memory_size &&
+                    (src >>> 0) + (count << 2) <= cpu.memory_size)
             {
                 dest >>= 2;
                 src >>= 2;
 
-                if(flags & flag_direction)
+                if(cpu.flags & flag_direction)
                 {
                     dest -= count - 1;
                     src -= count - 1;
                 }
 
-                var diff = flags & flag_direction ? -count << 2 : count << 2;
+                var diff = cpu.flags & flag_direction ? -count << 2 : count << 2;
 
-                regv[reg_vcx] -= count;
-                regv[reg_vdi] += diff;
-                regv[reg_vsi] += diff;
+                cpu.regv[cpu.reg_vcx] -= count;
+                cpu.regv[cpu.reg_vdi] += diff;
+                cpu.regv[cpu.reg_vsi] += diff;
 
-                memory.mem32s.set(memory.mem32s.subarray(src, src + count), dest);
+                cpu.memory.mem32s.set(cpu.memory.mem32s.subarray(src, src + count), dest);
 
                 if(cont) 
                 {
-                    instruction_pointer = previous_ip;
+                    cpu.instruction_pointer = cpu.previous_ip;
                 }
 
                 return;
@@ -184,9 +186,9 @@ function movsd()
 
     string_instruction(32,
         {
-            safe_write32(dest, safe_read32s(src));
+            cpu.safe_write32(dest, cpu.safe_read32s(src));
         }, {
-            memory.write_aligned32(phys_dest, memory.read_aligned32(phys_src));
+            cpu.memory.write_aligned32(phys_dest, cpu.memory.read_aligned32(phys_src));
         });
 }
 
@@ -196,38 +198,38 @@ function movsd()
 #define use_cmp true
 #define use_si true
 #define use_di true
-function cmpsb()
+function cmpsb(cpu)
 {
     string_instruction(8,
         {
         }, {
-            data_dest = memory.read8(phys_dest);
-            data_src = memory.read8(phys_src);
+            data_dest = cpu.memory.read8(phys_dest);
+            data_src = cpu.memory.read8(phys_src);
         });
 }
 
 
-function cmpsw()
+function cmpsw(cpu)
 {
     string_instruction(16,
         {
-            data_dest = safe_read16(dest);
-            data_src = safe_read16(src);
+            data_dest = cpu.safe_read16(dest);
+            data_src = cpu.safe_read16(src);
         }, {
-            data_dest = memory.read_aligned16(phys_dest);
-            data_src = memory.read_aligned16(phys_src);
+            data_dest = cpu.memory.read_aligned16(phys_dest);
+            data_src = cpu.memory.read_aligned16(phys_src);
         });
 }
 
-function cmpsd()
+function cmpsd(cpu)
 {
     string_instruction(32,
         {
-            data_dest = safe_read32s(dest);
-            data_src = safe_read32s(src);
+            data_dest = cpu.safe_read32s(dest);
+            data_src = cpu.safe_read32s(src);
         }, {
-            data_dest = memory.read_aligned32(phys_dest);
-            data_src = memory.read_aligned32(phys_src);
+            data_dest = cpu.memory.read_aligned32(phys_dest);
+            data_src = cpu.memory.read_aligned32(phys_src);
         });
 }
 
@@ -238,41 +240,41 @@ function cmpsd()
 #define use_cmp false
 #define use_si false
 #define use_di true
-function stosb()
+function stosb(cpu)
 {
-    var data = reg8[reg_al];
+    var data = cpu.reg8[reg_al];
 
     string_instruction(8,
         {
         }, {
-            memory.write8(phys_dest, data);
+            cpu.memory.write8(phys_dest, data);
         });
 }
 
 
-function stosw()
+function stosw(cpu)
 {
-    var data = reg16[reg_ax];
+    var data = cpu.reg16[reg_ax];
 
     string_instruction(16,
         {
-            safe_write16(dest, data);
+            cpu.safe_write16(dest, data);
         }, {
-            memory.write_aligned16(phys_dest, data);
+            cpu.memory.write_aligned16(phys_dest, data);
         });
 }
 
 
-function stosd()
+function stosd(cpu)
 {
-    //dbg_log("stosd " + ((reg32[reg_edi] & 3) ? "mis" : "") + "aligned", LOG_CPU);
-    var data = reg32s[reg_eax];
+    //dbg_log("stosd " + ((cpu.reg32s[reg_edi] & 3) ? "mis" : "") + "aligned", LOG_CPU);
+    var data = cpu.reg32s[reg_eax];
 
     string_instruction(32,
         {
-            safe_write32(dest, data);
+            cpu.safe_write32(dest, data);
         }, {
-            memory.write_aligned32(phys_dest, data);
+            cpu.memory.write_aligned32(phys_dest, data);
         });
 }
 
@@ -283,34 +285,34 @@ function stosd()
 #define use_cmp false
 #define use_si true
 #define use_di false
-function lodsb()
+function lodsb(cpu)
 {
     string_instruction(8,
         {
         }, {
-            reg8[reg_al] = memory.read8(phys_src);
+            cpu.reg8[reg_al] = cpu.memory.read8(phys_src);
         });
 }
 
 
-function lodsw()
+function lodsw(cpu)
 {
     string_instruction(16,
         {
-            reg16[reg_ax] = safe_read16(src);
+            cpu.reg16[reg_ax] = cpu.safe_read16(src);
         }, {
-            reg16[reg_ax] = memory.read_aligned16(phys_src);
+            cpu.reg16[reg_ax] = cpu.memory.read_aligned16(phys_src);
         });
 }
 
 
-function lodsd()
+function lodsd(cpu)
 {
     string_instruction(32,
         {
-            reg32s[reg_eax] = safe_read32s(src);
+            cpu.reg32s[reg_eax] = cpu.safe_read32s(src);
         }, {
-            reg32s[reg_eax] = memory.read_aligned32(phys_src);
+            cpu.reg32s[reg_eax] = cpu.memory.read_aligned32(phys_src);
         });
 }
 
@@ -321,33 +323,33 @@ function lodsd()
 #define use_cmp true
 #define use_si false
 #define use_di true
-function scasb()
+function scasb(cpu)
 {
     string_instruction(8,
         {
         }, {
-            data_dest = memory.read8(phys_dest);
+            data_dest = cpu.memory.read8(phys_dest);
         });
 }
 
 
-function scasw()
+function scasw(cpu)
 {
     string_instruction(16,
         {
-            data_dest = safe_read16(dest);
+            data_dest = cpu.safe_read16(dest);
         }, {
-            data_dest = memory.read_aligned16(phys_dest);
+            data_dest = cpu.memory.read_aligned16(phys_dest);
         });
 }
 
-function scasd()
+function scasd(cpu)
 {
     string_instruction(32,
         {
-            data_dest = safe_read32s(dest);
+            data_dest = cpu.safe_read32s(dest);
         }, {
-            data_dest = memory.read_aligned32(phys_dest);
+            data_dest = cpu.memory.read_aligned32(phys_dest);
         });
 }
 
@@ -357,41 +359,41 @@ function scasd()
 #define use_cmp false
 #define use_si false
 #define use_di true
-function insb()
+function insb(cpu)
 {
-    var port = reg16[reg_dx];
-    test_privileges_for_io(port, 1);
+    var port = cpu.reg16[reg_dx];
+    cpu.test_privileges_for_io(port, 1);
 
     string_instruction(8,
         {
         }, {
-            memory.write8(phys_dest, io.port_read8(port));
+            cpu.memory.write8(phys_dest, cpu.io.port_read8(port));
         });
 }
 
-function insw()
+function insw(cpu)
 {
-    var port = reg16[reg_dx];
-    test_privileges_for_io(port, 2);
+    var port = cpu.reg16[reg_dx];
+    cpu.test_privileges_for_io(port, 2);
 
     string_instruction(16,
         {
-            safe_write16(dest, io.port_read16(port));
+            cpu.safe_write16(dest, cpu.io.port_read16(port));
         }, {
-            memory.write_aligned16(phys_dest, io.port_read16(port));
+            cpu.memory.write_aligned16(phys_dest, cpu.io.port_read16(port));
         });
 }
 
-function insd()
+function insd(cpu)
 {
-    var port = reg16[reg_dx];
-    test_privileges_for_io(port, 4);
+    var port = cpu.reg16[reg_dx];
+    cpu.test_privileges_for_io(port, 4);
 
     string_instruction(32,
         {
-            safe_write32(dest, io.port_read32(port));
+            cpu.safe_write32(dest, cpu.io.port_read32(port));
         }, {
-            memory.write_aligned32(phys_dest, io.port_read32(port));
+            cpu.memory.write_aligned32(phys_dest, cpu.io.port_read32(port));
         });
 }
 
@@ -402,41 +404,41 @@ function insd()
 #define use_cmp false
 #define use_si true
 #define use_di false
-function outsb()
+function outsb(cpu)
 {
-    var port = reg16[reg_dx];
-    test_privileges_for_io(port, 1);
+    var port = cpu.reg16[reg_dx];
+    cpu.test_privileges_for_io(port, 1);
 
     string_instruction(8,
         {
         }, {
-            io.port_write8(port, memory.read8(phys_src));
+            cpu.io.port_write8(port, cpu.memory.read8(phys_src));
         });
 }
 
-function outsw()
+function outsw(cpu)
 {
-    var port = reg16[reg_dx];
-    test_privileges_for_io(port, 2);
+    var port = cpu.reg16[reg_dx];
+    cpu.test_privileges_for_io(port, 2);
 
     string_instruction(16,
         {
-            io.port_write16(port, safe_read16(src));
+            cpu.io.port_write16(port, cpu.safe_read16(src));
         }, {
-            io.port_write16(port, memory.read_aligned16(phys_src));
+            cpu.io.port_write16(port, cpu.memory.read_aligned16(phys_src));
         });
 }
 
-function outsd()
+function outsd(cpu)
 {
-    var port = reg16[reg_dx];
-    test_privileges_for_io(port, 4);
+    var port = cpu.reg16[reg_dx];
+    cpu.test_privileges_for_io(port, 4);
 
     string_instruction(32,
         {
-            io.port_write32(port, safe_read32s(src));
+            cpu.io.port_write32(port, cpu.safe_read32s(src));
         }, {
-            io.port_write32(port, memory.read_aligned32(phys_src));
+            cpu.io.port_write32(port, cpu.memory.read_aligned32(phys_src));
         });
 }
 

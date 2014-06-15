@@ -6,11 +6,11 @@
  *
  * Programmable Interval Timer
  */
-function PIT(dev)
+function PIT(cpu)
 {
     var 
-        io = dev.io,
-        pic = dev.pic,
+        io = cpu.io,
+        pic = cpu.devices.pic,
         
         next_tick = Date.now(),
 

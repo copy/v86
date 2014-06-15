@@ -109,12 +109,17 @@ function ScreenAdapter()
 
     this.put_char = function(row, col, chr, bg_color, fg_color)
     {
-        changed_rows[row] = 1;
+        if(row < text_mode_height && col < text_mode_width)
+        {
+            var p = 3 * (row * text_mode_width + col);
+            dbg_assert(p + 2 <= text_mode_data.length);
 
-        var p = 3 * (row * text_mode_width + col);
-        text_mode_data[p] = chr;
-        text_mode_data[p + 1] = bg_color;
-        text_mode_data[p + 2] = fg_color;
+            text_mode_data[p] = chr;
+            text_mode_data[p + 1] = bg_color;
+            text_mode_data[p + 2] = fg_color;
+
+            changed_rows[row] = 1;
+        }
     };
 
     this.timer_text = function()

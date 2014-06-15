@@ -4,11 +4,12 @@
 /**
  * @constructor
  */
-function VGAScreen(dev, adapter, vga_memory_size)
+function VGAScreen(cpu, adapter, vga_memory_size)
 {
     var
-        io = dev.io,
-        memory = dev.memory,
+        dev = cpu.devices,
+        io = cpu.io,
+        memory = cpu.memory,
 
         /** 
          * Always 64k

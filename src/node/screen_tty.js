@@ -78,6 +78,7 @@ function NodeScreenTTY()
 
     this.put_char = function(row, col, chr, bg_color, fg_color)
     {
+        return;
         var str = String.fromCharCode(chr);
 
         hide_cursor();

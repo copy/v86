@@ -7,10 +7,10 @@
  * @constructor
  * @param {PIC=} master
  */
-function PIC(dev, call_interrupt_vector, handle_irqs, master)
+function PIC(cpu, master)
 {
     var 
-        io = dev.io,
+        io = cpu.io,
 
         /** 
          * all irqs off
@@ -48,15 +48,15 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
 
     if(is_master)
     {
-        slave = new PIC(dev, call_interrupt_vector, handle_irqs, this);
+        slave = new PIC(cpu, this);
 
-        this.handle_irqs = function()
+        this.check_irqs = function()
         {
             var enabled_irr = irr & irq_mask;
 
             if(!enabled_irr)
             {
-                return slave.handle_irqs();
+                return slave.check_irqs();
             }
 
             var irq = enabled_irr & -enabled_irr;
@@ -75,7 +75,7 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
             if(irq === 4)
             {
                 // this should always return true
-                return slave.handle_irqs();
+                return slave.check_irqs();
             }
 
             if(!auto_eoi)
@@ -85,7 +85,7 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
 
             //dbg_log("master handling irq " + irq_number, LOG_PIC);
             //dbg_trace(LOG_PIC);
-            call_interrupt_vector(irq_map | irq_number, false, false);
+            cpu.call_interrupt_vector(irq_map | irq_number, false, false);
 
             return true;
         };
@@ -93,7 +93,7 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
     else
     {
         // is slave
-        this.handle_irqs = function()
+        this.check_irqs = function()
         {
             var enabled_irr = irr & irq_mask;
 
@@ -117,7 +117,7 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
             isr |= irq;
 
             //dbg_log("slave handling irq " + irq_number, LOG_PIC);
-            call_interrupt_vector(irq_map | irq_number, false, false);
+            cpu.call_interrupt_vector(irq_map | irq_number, false, false);
 
             if(irr)
             {
@@ -278,7 +278,7 @@ function PIC(dev, call_interrupt_vector, handle_irqs, master)
 
             irr |= 1 << irq_number;
 
-            handle_irqs();
+            cpu.handle_irqs();
         };
     }
     else

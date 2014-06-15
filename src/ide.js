@@ -9,10 +9,10 @@ var
 
 
 /** @constructor */
-function IDEDevice(dev, buffer, is_cd, nr)
+function IDEDevice(cpu, buffer, is_cd, nr)
 {
-    var pic = dev.pic,
-        memory = dev.memory,
+    var pic = cpu.devices.pic,
+        memory = cpu.memory,
         me = this;
 
     // gets set via PCI in seabios, likely doesn't matter
@@ -36,9 +36,9 @@ function IDEDevice(dev, buffer, is_cd, nr)
     
     this.master_port = 0xC000;
 
-    this.io = dev.io;
-    this.pic = dev.pic;
-    this.pci = dev.pci;
+    this.io = cpu.io;
+    this.pic = cpu.devices.pic;
+    this.pci = cpu.devices.pci;
 
     this.sector_size = is_cd ? CDROM_SECTOR_SIZE : HD_SECTOR_SIZE;
     this.buffer = buffer;
@@ -133,7 +133,7 @@ function IDEDevice(dev, buffer, is_cd, nr)
         //0x01, 0x90, 0x00, 0x00, 0x01, 0x8c, 0x00, 0x00, 0x81, 0x88, 0x00, 0x00, 0x01, 0x88, 0x00, 0x00,
         //0x81, 0x84, 0x00, 0x00, 0x01, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x43, 0x10, 0xd4, 0x82,
         //0x00, 0x00, 0x00, 0x00, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x02, 0x00, 0x00,
-    dev.pci.register_device(this);
+    cpu.devices.pci.register_device(this);
 
     // status
     this.io.register_read(this.ata_port | 7, read_status);

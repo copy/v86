@@ -1,6 +1,7 @@
 /** @define {boolean} */            
 var DEBUG = true;
 
+
 var 
 
 /** @const */ LOG_ALL = -1,
@@ -29,8 +30,9 @@ var
 
 
 
-/** @const */ LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_DISK & ~LOG_PIT;
-///** @const */ LOG_LEVEL = LOG_OTHER | LOG_PS2;
+///** @const */ LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_DISK & ~LOG_PIT;
+/** @const */ LOG_LEVEL = LOG_CPU | LOG_OTHER;
+///** @const */ LOG_LEVEL = LOG_CPU | LOG_OTHER | LOG_DISK | LOG_IO | LOG_CD;
 ///** @const */ LOG_LEVEL = 0;
 
 
@@ -46,7 +48,7 @@ var
     ENABLE_HPET = false,
 
     /** @const */
-    ENABLE_ACPI = true;
+    ENABLE_ACPI = false;
 
 var 
 
@@ -148,6 +150,9 @@ PSE_ENABLED = 128,
 /** @const */ LOOP_COUNTER = 11001,
 /** @const */ TIME_PER_FRAME = 33;
 
+/** @const */
+var OP_TRANSLATION = false;
+
 
 var 
     /** 
@@ -168,3 +173,21 @@ var MEM_PAGE_WRITTEN = 1;
 /** @const */
 var MAGIC_CPU_EXCEPTION = 0xDEADBEE;
 
+
+var 
+    /** @const */
+    REPEAT_STRING_PREFIX_NONE = 0,
+    /** @const */
+    REPEAT_STRING_PREFIX_NZ = 1,
+    /** @const */
+    REPEAT_STRING_PREFIX_Z = 2;
+
+
+// Segment prefixes must not collide with reg_*s variables
+// _ZERO is a special zero offset segment
+var 
+    /** @const */
+    SEG_PREFIX_NONE = -1,
+
+    /** @const */
+    SEG_PREFIX_ZERO = 9;
