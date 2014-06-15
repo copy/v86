@@ -4,7 +4,7 @@
     width: 360px;
 }
 #log, #runtime_infos, #serial {
-    font-family: DejaVu Sans Mono;
+    font-family: DejaVu Sans Mono, monospace;
     font-size: 13px;
     border: 1px solid #333;
     background-color: #000;
@@ -58,6 +58,7 @@ body {
     color: #fff;
     line-height: 1.5;
     padding: 10px;
+    font-family: sans-serif;
 }
 a {
     color: wheat;
