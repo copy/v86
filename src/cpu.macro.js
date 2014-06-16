@@ -126,8 +126,6 @@ function v86()
      */
     this.in_hlt = false;
 
-    this.step_mode = false;
-
     /** @type {boolean} */
     this.running = false;
 
@@ -360,6 +358,8 @@ v86.prototype.exception_cleanup = function(e)
     }
     else
     {
+        this.running = false;
+
         console.log(e);
         console.log(e.stack);
         throw e;
@@ -515,7 +515,6 @@ v86.prototype.init = function(settings)
 
     this.timestamp_counter = 0;
     this.previous_ip = 0;
-    this.step_mode = false;
     this.in_hlt = false;
 
     this.running = false;

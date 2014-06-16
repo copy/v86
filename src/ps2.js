@@ -106,7 +106,7 @@ function PS2(cpu, keyboard, mouse)
 
     function kbd_send_code(code)
     {
-        if(enable_keyboard_stream)
+        if(cpu.running && enable_keyboard_stream)
         {
             kbd_buffer.push(code);
             kbd_irq();
@@ -116,7 +116,7 @@ function PS2(cpu, keyboard, mouse)
 
     function mouse_send_delta(delta_x, delta_y)
     {
-        if(!have_mouse || !enable_mouse)
+        if(!cpu.running || !have_mouse || !enable_mouse)
         {
             return;
         }
