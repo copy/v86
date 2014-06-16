@@ -59,7 +59,7 @@ v86.prototype.adc = function(dest_operand, source_operand, op_size)
     var cf = this.getcf();
     this.last_op1 = dest_operand;
     this.last_op2 = source_operand;
-    this.last_add_result = this.last_result = dest_operand + source_operand + cf | 0;
+    this.last_add_result = this.last_result = (dest_operand + source_operand | 0) + cf | 0;
     
     this.last_op_size = op_size;
     this.flags_changed = flags_all;

@@ -127,7 +127,7 @@ v86.prototype.getcf = function()
 {
     if(this.flags_changed & 1)
     {
-        return +!!((this.last_op1 ^ (this.last_op1 ^ this.last_op2) & (this.last_op2 ^ this.last_add_result)) & this.last_op_size);
+        return (this.last_op1 ^ (this.last_op1 ^ this.last_op2) & (this.last_op2 ^ this.last_add_result)) >>> this.last_op_size & 1;
     }
     else
     {
@@ -167,7 +167,7 @@ v86.prototype.getzf = function()
 {
     if(this.flags_changed & flag_zero)
     {
-        return (~this.last_result & this.last_result - 1) & this.last_op_size;
+        return (~this.last_result & this.last_result - 1) >>> this.last_op_size & 1;
     }
     else
     {
@@ -180,7 +180,7 @@ v86.prototype.getsf = function()
 {
     if(this.flags_changed & flag_sign)
     {
-        return this.last_result & this.last_op_size;
+        return this.last_result >>> this.last_op_size & 1;
     }
     else
     {
@@ -193,7 +193,7 @@ v86.prototype.getof = function()
 {
     if(this.flags_changed & flag_overflow)
     {
-        return ((this.last_op1 ^ this.last_add_result) & (this.last_op2 ^ this.last_add_result)) & this.last_op_size;
+        return ((this.last_op1 ^ this.last_add_result) & (this.last_op2 ^ this.last_add_result)) >>> this.last_op_size & 1;
     }
     else
     {

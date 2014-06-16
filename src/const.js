@@ -100,11 +100,11 @@ flags_all = flag_carry | flag_parity | flag_adjust | flag_zero | flag_sign | fla
  *
  * @const
  */
-OPSIZE_8 = 0x80,
+OPSIZE_8 = 7,
 /** @const */
-OPSIZE_16 = 0x8000,
+OPSIZE_16 = 15,
 /** @const */
-OPSIZE_32 = -0x80000000,
+OPSIZE_32 = 31,
 
 /** @const */
 PSE_ENABLED = 128,

@@ -269,7 +269,7 @@ function v86()
 #include "instructions.macro.js"
 #include "misc_instr.macro.js"
 
-
+#undef unimpl
 #define unimpl(x) this.debug.unimpl(x)
 #define vm86_mode() (!!(this.flags & flag_vm))
 

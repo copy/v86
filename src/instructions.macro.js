@@ -1,6 +1,5 @@
 "use strict";
 
-#undef unimpl
 #define unimpl(x) cpu.debug.unimpl(x)
 
 var 

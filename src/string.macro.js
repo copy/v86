@@ -18,7 +18,7 @@
         fn;\
         if(use_di) dest += size, cpu.regv[cpu.reg_vdi] += size;\
         if(use_si) src += size, cpu.regv[cpu.reg_vsi] += size;\
-        cont = --cpu.regv[cpu.reg_vcx] && (!use_cmp || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z));\
+        cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!use_cmp || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z));\
         cpu.timestamp_counter++;\
     } while(cont && next_cycle--)
 
@@ -27,7 +27,7 @@
         fn;\
         if(use_di) phys_dest += single_size;\
         if(use_si) phys_src += single_size;\
-        cont = --count && (!use_cmp || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z));\
+        cont = --count !== 0 && (!use_cmp || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z));\
         cpu.timestamp_counter++;\
     } while(cont && next_cycle--)
 

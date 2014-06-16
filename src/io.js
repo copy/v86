@@ -8,8 +8,7 @@
  */
 function IO(memory)
 {
-    var me = this,
-        memory_size = memory.size;
+    var memory_size = memory.size;
 
     function get_port_description(addr)
     {
