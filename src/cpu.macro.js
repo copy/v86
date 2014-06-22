@@ -292,7 +292,14 @@ v86.prototype.main_run = function()
     this.running = true;
 
     try {
-        this.do_run();
+        if(this.in_hlt)
+        {
+            this.hlt_loop();
+        }
+        else
+        {
+            this.do_run();
+        }
     }
     catch(e)
     {
@@ -769,6 +776,7 @@ if(typeof window !== "undefined")
 {
     window.__no_inline1 = v86.prototype.do_run;
     window.__no_inline2 = v86.prototype.exception_cleanup;
+    window.__no_inline3 = v86.prototype.hlt_loop;
 };
 
 /**
@@ -791,6 +799,35 @@ v86.prototype.cycle = function()
     {
         // TODO
         dbg_log("Trap flag: Ignored", LOG_CPU);
+    }
+};
+
+v86.prototype.hlt_loop = function()
+{
+    var now = Date.now();
+
+    if(ENABLE_HPET)
+    {
+        this.devices.pit.timer(now, this.devices.hpet.legacy_mode);
+        this.devices.rtc.timer(now, this.devices.hpet.legacy_mode);
+        this.devices.hpet.timer(now);
+    }
+    else
+    {
+        this.devices.pit.timer(now, false);
+        this.devices.rtc.timer(now, false);
+    }
+
+    this.devices.vga.timer(now);
+
+    if(this.in_hlt)
+    {
+        var me = this;
+        setTimeout(function() { me.hlt_loop(); }, 0);
+    }
+    else
+    {
+        this.next_tick();
     }
 };
 
@@ -1203,12 +1240,9 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
     //}
 
 
-    if(this.in_hlt)
-    {
-        // return to the instruction following the hlt
-        this.instruction_pointer = this.instruction_pointer + 1 | 0;
-        this.in_hlt = false;
-    }
+    // we have to leave hlt_loop at some point, this is a 
+    // good place to do it
+    this.in_hlt = false;
 
     // This function could be called from 1) an INT instruction
     // 2) an instruction that caused an exception 3) an external interrupt
@@ -1683,11 +1717,9 @@ v86.prototype.hlt_op = function()
     }
     else
     {
-        // infinite loop until an irq happens
-        // this is handled in call_interrupt_vector
-        this.instruction_pointer--;
+        // get out of here and into hlt_loop
         this.in_hlt = true;
-        //throw MAGIC_CPU_EXCEPTION;
+        throw MAGIC_CPU_EXCEPTION;
     }
 };
 
