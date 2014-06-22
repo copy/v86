@@ -128,8 +128,8 @@ function PS2(cpu, keyboard, mouse)
 
         if(enable_mouse_stream)
         {
-            var change_x = Math.ceil(mouse_delta_x),
-                change_y = Math.ceil(mouse_delta_y);
+            var change_x = mouse_delta_x | 0,
+                change_y = mouse_delta_y | 0;
 
             if(change_x || change_y)
             {
@@ -322,7 +322,8 @@ function PS2(cpu, keyboard, mouse)
             kbd_irq();
             command_register = write_byte;
             read_command_register = false;
-            kbd_buffer.push(0xFA);
+            // not sure, causes "spurious ack" in Linux
+            //kbd_buffer.push(0xFA); 
 
             dbg_log("Keyboard command register = " + h(command_register), LOG_PS2);
         }
