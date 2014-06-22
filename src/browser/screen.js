@@ -98,6 +98,27 @@ function ScreenAdapter()
         0x2191, 0x2193, 0x2192, 0x2190, 0x221F, 0x2194, 0x25B2, 0x25BC
     ]);
 
+    var charmap = [],
+        chr;
+
+    for(var i = 0; i < 256; i++)
+    {
+        if(i > 127)
+        {
+            chr = charmap_high[i - 0x80];
+        }
+        else if(i < 32)
+        {
+            chr = charmap_low[i];
+        }
+        else
+        {
+            chr = i;
+        }
+
+        charmap[i] = String.fromCharCode(chr);
+    }
+
     graphic_context["imageSmoothingEnabled"] = false;
     graphic_context["mozImageSmoothingEnabled"] = false;
     graphic_context["webkitImageSmoothingEnabled"] = false;
@@ -322,11 +343,20 @@ function ScreenAdapter()
         var offset = 3 * row * text_mode_width,
             row_element, 
             color_element, 
+            fragment;
+
+        var
             bg_color,
             fg_color,
             text;
 
-        row_element = document.createElement("div");
+        row_element = text_screen.childNodes[row];
+        fragment = document.createDocumentFragment();
+
+        while(row_element.firstChild)
+        {
+            row_element.removeChild(row_element.firstChild);
+        }
 
         for(var i = 0; i < text_mode_width; )
         {
@@ -345,24 +375,9 @@ function ScreenAdapter()
                     && text_mode_data[offset + 1] === bg_color
                     && text_mode_data[offset + 2] === fg_color)
             {
-                var ascii = text_mode_data[offset],
-                    chr;
+                var ascii = text_mode_data[offset];
 
-                // use of utf-8
-                if(ascii > 127)
-                {
-                    chr = String.fromCharCode(charmap_high[ascii - 0x80]);
-                }
-                else if(ascii < 32)
-                {
-                    chr = String.fromCharCode(charmap_low[ascii]);
-                }
-                else
-                {
-                    chr = String.fromCharCode(ascii);
-                }
-
-                text += chr;
+                text += charmap[ascii];
 
                 i++;
                 offset += 3;
@@ -378,16 +393,16 @@ function ScreenAdapter()
                     else if(i === cursor_col + 1)
                     {
                         // found the cursor
-                        row_element.appendChild(cursor_element);
+                        fragment.appendChild(cursor_element);
                         break;
                     }
                 }
             }
 
             color_element.textContent = text;
-            row_element.appendChild(color_element);
+            fragment.appendChild(color_element);
         }
 
-        text_screen.replaceChild(row_element, text_screen.childNodes[row]);
+        row_element.appendChild(fragment);
     };
 }
