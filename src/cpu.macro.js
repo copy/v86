@@ -361,7 +361,10 @@ v86.prototype.exception_cleanup = function(e)
         this.operand_size_32 = this.is_32;
         this.update_operand_size();
 
-        this.next_tick();
+        if(!DEBUG || !this.debug.step_mode)
+        {
+            this.next_tick();
+        }
     }
     else
     {
@@ -568,12 +571,12 @@ v86.prototype.init = function(settings)
             {
                 return this.memory.mem8[addr];
                 //return data[start + addr];
-            },
+            }.bind(this),
             function(addr, value)
             {
                 this.memory.mem8[addr] = value;
                 //data[start + addr] = value;
-            });
+            }.bind(this));
 
 
         // ip initial value
@@ -1188,7 +1191,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 {
     dbg_assert(this.instruction_pointer !== undefined);
 
-    if(DEBUG)
+    if(DEBUG && this.debug.step_mode)
     {
         this.debug.ops.add(this.instruction_pointer >>> 0);
         this.debug.ops.add("-- INT " + h(interrupt_nr));
@@ -1205,13 +1208,13 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
     //if(interrupt_nr == 0x10)
     //{
     //    dbg_log("int10 ax=" + h(this.reg16[reg_ax], 4) + " '" + String.fromCharCode(this.reg8[reg_al]) + "'"); 
-    //    dump_regs_short();
+    //    this.debug.dump_regs_short();
     //    if(this.reg8[reg_ah] == 0xe) vga.tt_write(this.reg8[reg_al]);
     //}
 
     //if(interrupt_nr === 0x13)
     //{
-    //    dump_regs_short();
+    //    this.debug.dump_regs_short();
     //}
 
     //if(interrupt_nr === 6)
@@ -1221,13 +1224,13 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
     //    dbg_log("line=" + this.read_imm16() + " " + 
     //            "file=" + this.memory.read_string(this.translate_address_read(this.read_imm32s())), LOG_CPU);
     //    this.instruction_pointer -= 8;
-    //    dump_regs_short();
+    //    this.debug.dump_regs_short();
     //}
 
     //if(interrupt_nr === 0x80)
     //{
     //    dbg_log("linux syscall");
-    //    dump_regs_short();
+    //    this.debug.dump_regs_short();
     //}
 
 
@@ -1237,6 +1240,12 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
     //            " cr2=" + h(this.cr2 >>> 0) + 
     //            " prev=" + h(this.previous_ip >>> 0) + 
     //            " cpl=" + this.cpl, LOG_CPU);
+    //}
+
+    //if(interrupt_nr === 0x40)
+    //{
+    //    dbg_log("kolibri syscall");
+    //    this.debug.dump_regs_short();
     //}
 
 
@@ -1494,7 +1503,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         }
         else
         {
-            this.handle_irqs();
+            setTimeout(function() { this.handle_irqs(); }.bind(this), 0);
         }
     }
     else
@@ -1579,7 +1588,9 @@ v86.prototype.iret32 = function()
 
     //dbg_log("pop eip from " + h(this.reg32[reg_esp], 8));
     this.instruction_pointer = this.pop32s();
-    //dbg_log("IRET | from " + h(this.previous_ip) + " to " + h(this.instruction_pointer));
+
+    //dbg_log("IRET | from " + h(this.previous_ip >>> 0) + " to " + h(this.instruction_pointer >>> 0));
+    //this.debug.dump_regs_short();
 
     this.sreg[reg_cs] = this.pop32s();
 
@@ -1852,6 +1863,9 @@ v86.prototype.get_seg = function(segment /*, offset*/)
 
 v86.prototype.handle_irqs = function()
 {
+    if(DEBUG && this.debug.step_mode)
+        return;
+
     if(this.devices.pic)
     {
         dbg_assert(!this.page_fault);

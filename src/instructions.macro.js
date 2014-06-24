@@ -1233,6 +1233,7 @@ op(0xF0, {
     // TODO
     // This triggers UD when used with
     // some instructions that don't write to memory
+    do_op();
 });
 op(0xF1, {
     // INT1

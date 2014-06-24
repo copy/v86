@@ -19,7 +19,6 @@
         if(use_di) dest += size, cpu.regv[cpu.reg_vdi] += size;\
         if(use_si) src += size, cpu.regv[cpu.reg_vsi] += size;\
         cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!use_cmp || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z));\
-        cpu.timestamp_counter++;\
     } while(cont && next_cycle--)
 
 #define aligned_loop(s, fn)\
@@ -28,7 +27,6 @@
         if(use_di) phys_dest += single_size;\
         if(use_si) phys_src += single_size;\
         cont = --count !== 0 && (!use_cmp || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z));\
-        cpu.timestamp_counter++;\
     } while(cont && next_cycle--)
 
 
@@ -70,6 +68,7 @@
             if(use_di) cpu.regv[cpu.reg_vdi] += diff;\
             if(use_si) cpu.regv[cpu.reg_vsi] += diff;\
             cpu.regv[cpu.reg_vcx] = count;\
+            cpu.timestamp_counter += start_count - count;\
         } else { \
             loop(s, fn);\
         }\

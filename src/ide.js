@@ -525,7 +525,7 @@ function IDEDevice(cpu, buffer, is_cd, nr)
     {
         if(data_pointer < pio_data.length)
         {
-            if((data_pointer + 1)  % (sectors_per_drq * 512) === 0 || 
+            if((data_pointer + 1) % (sectors_per_drq * 512) === 0 || 
                 data_pointer + 1 === pio_data.length)
             {
                 dbg_log("ATA IRQ", LOG_DISK);

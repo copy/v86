@@ -114,10 +114,17 @@
 
         if(!cpu.running)
         {
-            cpu.cycle(); 
+            try 
+            {
+                cpu.cycle(); 
+            }
+            catch(e) 
+            {
+                cpu.exception_cleanup(e);
+            }
         }
 
-        dump_regs(); 
+        dump_regs_short(); 
         var now = Date.now();
 
         cpu.devices.vga.timer(now);
@@ -125,6 +132,7 @@
         //this.rtc.timer(now);
 
         cpu.running = false;
+        dump_instructions();
     }
 
     function run_until()
@@ -133,7 +141,7 @@
 
         cpu.running = false;
         var a = parseInt(prompt("input hex", ""), 16); 
-        if(a) while(cpu.instruction_pointer != a) cpu.cycle()
+        if(a) while(cpu.instruction_pointer != a) step();
         dump_regs();
     }
 
