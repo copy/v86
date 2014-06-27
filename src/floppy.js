@@ -34,7 +34,7 @@ function FloppyController(cpu, fda_image, fdb_image)
 
     if(!fda_image)
     {
-        this.type = 0;
+        this.type = 4;
         return;
     }
 
