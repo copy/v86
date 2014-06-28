@@ -659,13 +659,32 @@ opm2(0x8F, {
     var sp = cpu.safe_read16(cpu.get_stack_pointer(0));
 
     cpu.stack_reg[cpu.reg_vsp] += 2;
-    set_ev16(sp);
+
+    if(modrm_byte < 0xC0) {
+        var addr = cpu.modrm_resolve(modrm_byte);
+        cpu.stack_reg[cpu.reg_vsp] -= 2;
+        cpu.safe_write16(addr, sp);
+        cpu.stack_reg[cpu.reg_vsp] += 2;
+    } else {
+        reg_e16 = sp;
+    }
 }, {
-    // change esp first, then resolve modrm address
     var sp = cpu.safe_read32s(cpu.get_stack_pointer(0));
 
+    // change esp first, then resolve modrm address
     cpu.stack_reg[cpu.reg_vsp] += 4;
-    set_ev32(sp);
+
+    if(modrm_byte < 0xC0) {
+        var addr = cpu.modrm_resolve(modrm_byte);
+
+        // Before attempting a write that might cause a page fault,
+        // we must set esp to the old value. Fuck Intel.
+        cpu.stack_reg[cpu.reg_vsp] -= 4;
+        cpu.safe_write32(addr, sp);
+        cpu.stack_reg[cpu.reg_vsp] += 4;
+    } else {
+        reg_e32s = sp;
+    }
 });
 
 #define group90(n, r16, r32) op2(0x90 | n, { cpu.xchg16r(r16) }, { cpu.xchg32r(r32) })
@@ -689,6 +708,7 @@ op2(0x9A, {
     var new_ip = cpu.read_imm16();
     var new_cs = cpu.read_imm16();
 
+    cpu.writable_or_pagefault(cpu.get_stack_pointer(-4), 4);
     cpu.push16(cpu.sreg[reg_cs]);
     cpu.push16(cpu.get_real_eip());
 
@@ -699,6 +719,7 @@ op2(0x9A, {
     var new_ip = cpu.read_imm32s();
     var new_cs = cpu.read_imm16();
 
+    cpu.writable_or_pagefault(cpu.get_stack_pointer(-8), 8);
     cpu.push32(cpu.sreg[reg_cs]);
     cpu.push32(cpu.get_real_eip());
 
@@ -929,6 +950,8 @@ op2(0xC9, {
 });
 op2(0xCA, {
     // retf
+    cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 4);
+
     var imm16 = cpu.read_imm16();
     var ip = cpu.pop16();
 
@@ -939,6 +962,8 @@ op2(0xCA, {
     cpu.last_instr_jump = true;
 }, {
     // retf 
+    cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 8);
+
     var imm16 = cpu.read_imm16();
     var ip = cpu.pop32s();
 
@@ -950,13 +975,15 @@ op2(0xCA, {
 });
 op2(0xCB, {
     // retf
+    cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 4);
     var ip = cpu.pop16();
+
     cpu.switch_seg(reg_cs, cpu.pop16());
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
     cpu.last_instr_jump = true;
 }, {
     // retf 
-
+    cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 8);
     var ip = cpu.pop32s();
 
     cpu.switch_seg(reg_cs, cpu.pop32s() & 0xFFFF);
@@ -1415,6 +1442,7 @@ opm2(0xFF, {
             var new_cs = cpu.safe_read16(virt_addr + 2);
             var new_ip = cpu.safe_read16(virt_addr);
 
+            cpu.writable_or_pagefault(cpu.get_stack_pointer(-4), 4);
             cpu.push16(cpu.sreg[reg_cs]);
             cpu.push16(cpu.get_real_eip());
 
@@ -1477,6 +1505,7 @@ opm2(0xFF, {
             var new_cs = cpu.safe_read16(virt_addr + 4);
             var new_ip = cpu.safe_read32s(virt_addr);
 
+            cpu.writable_or_pagefault(cpu.get_stack_pointer(-8), 8);
             cpu.push32(cpu.sreg[reg_cs]);
             cpu.push32(cpu.get_real_eip());
 
