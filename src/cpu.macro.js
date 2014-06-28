@@ -1168,14 +1168,7 @@ v86.prototype.update_eflags = function(new_flags)
 
 v86.prototype.get_stack_pointer = function(mod)
 {
-    if(this.stack_size_32)
-    {
-        return this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + mod | 0;
-    }
-    else
-    {
-        return this.get_seg(reg_ss) + (this.stack_reg[this.reg_vsp] + mod & 0xFFFF) | 0;
-    }
+    return this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + mod | 0;
 };
 
 /*
