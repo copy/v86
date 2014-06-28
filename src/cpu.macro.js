@@ -2523,7 +2523,7 @@ v86.prototype.do_page_translation = function(addr, for_writing, user)
     {
         can_write = false;
 
-        if(for_writing)
+        if(for_writing && (user || (this.cr0 & CR0_WP)))
         {
             this.cr2 = addr;
             this.trigger_pagefault(for_writing, user, 1);
@@ -2578,7 +2578,7 @@ v86.prototype.do_page_translation = function(addr, for_writing, user)
         {
             can_write = false;
 
-            if(for_writing)
+            if(for_writing && (user || (this.cr0 & CR0_WP)))
             {
                 //dbg_log("#PF not writable page", LOG_CPU);
                 this.cr2 = addr;
