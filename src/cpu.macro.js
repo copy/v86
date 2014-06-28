@@ -836,27 +836,22 @@ v86.prototype.hlt_loop = function()
 
 v86.prototype.cr0_changed = function(old_cr0)
 {
-    //this.protected_mode = (this.cr0 & 1) === 1;
-    //dbg_log("cpu.cr0 = " + h(this.cr0 >>> 0));
+    //dbg_log("cr0 = " + h(this.cr0 >>> 0), LOG_CPU);
 
-    var new_paging = (this.cr0 & (1 << 31)) !== 0;
+    var new_paging = (this.cr0 & CR0_PG) === CR0_PG;
 
     if(!this.fpu)
     {
         // if there's no FPU, keep emulation set
-        this.cr0 |= 4;
+        this.cr0 |= CR0_EM;
     }
-    this.cr0 |= 0x10;
+    this.cr0 |= CR0_ET;
 
     dbg_assert(typeof this.paging === "boolean");
     if(new_paging !== this.paging)
     {
         this.paging = new_paging;
         this.paging_changed();
-    }
-
-    if((old_cr0 & 1<<31) && !(this.cr0 & 1<<31))
-    {
         this.full_clear_tlb();
     }
 
@@ -1256,7 +1251,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
     if(this.protected_mode)
     {
-        if(vm86_mode() && (this.cr4 & 1))
+        if(vm86_mode() && (this.cr4 & CR4_VME))
         {
             throw unimpl("VME");
         }
@@ -2124,7 +2119,7 @@ v86.prototype.switch_seg = function(reg, selector)
     
     if(reg === reg_cs)
     {
-        this.protected_mode = (this.cr0 & 1) === 1;
+        this.protected_mode = (this.cr0 & CR0_PE) === CR0_PE;
     }
 
     if(!this.protected_mode || vm86_mode())
@@ -2686,10 +2681,10 @@ v86.prototype.writable_or_pagefault = function(addr, size)
 
 v86.prototype.trigger_pagefault = function(write, user, present)
 {
-    //dbg_log("page fault w=" + write + " u=" + user + " p=" + present + 
-    //        " eip=" + h(this.previous_ip >>> 0, 8) +
-    //        " cpu.cr2=" + h(this.cr2 >>> 0, 8), LOG_CPU);
-    //dbg_trace(LOG_CPU);
+    dbg_log("page fault w=" + write + " u=" + user + " p=" + present + 
+            " eip=" + h(this.previous_ip >>> 0, 8) +
+            " cr2=" + h(this.cr2 >>> 0, 8), LOG_CPU);
+    dbg_trace(LOG_CPU);
 
     // likely invalid pointer reference 
     //if((this.cr2 >>> 0) < 0x100)

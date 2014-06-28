@@ -730,7 +730,7 @@ op2(0x9A, {
 
 op(0x9B, {
     // fwait: check for pending fpu exceptions
-    if((cpu.cr0 & 9) === 9)
+    if((cpu.cr0 & (CR0_MP | CR0_TS)) === (CR0_MP | CR0_TS))
     {
         // task switched and MP bit is set
         cpu.trigger_nm();
@@ -1121,8 +1121,7 @@ op(0xD7, {
 // fpu instructions
 #define fpu_op(n, op)\
     opm(n, { \
-        if(cpu.cr0 & 0xC)\
-            /* task switch or emulation */\
+        if(cpu.cr0 & (CR0_EM | CR0_TS))\
             cpu.trigger_nm();\
         if(modrm_byte < 0xC0)\
             cpu.fpu.op_ ## op ## _mem(modrm_byte, cpu.modrm_resolve(modrm_byte));\
@@ -1353,8 +1352,8 @@ op(0xFA, {
     else
     {
         if(getiopl(cpu.flags) < 3 && ((cpu.flags & flag_vm) ? 
-            (cpu.cr4 & 1) :
-            (cpu.cpl === 3 && (cpu.cr4 & 2))))
+            (cpu.cr4 & CR4_VME) :
+            (cpu.cpl === 3 && (cpu.cr4 & CR4_PVI))))
         {
             cpu.flags &= ~flag_vif;
         }
@@ -1380,8 +1379,8 @@ op(0xFB, {
     else
     {
         if(getiopl(cpu.flags) < 3 && (cpu.flags & flag_vip) === 0 && ((cpu.flags & flag_vm) ? 
-            (cpu.cr4 & 1) :
-            (cpu.cpl === 3 && (cpu.cr4 & 2))))
+            (cpu.cr4 & CR4_VME) :
+            (cpu.cpl === 3 && (cpu.cr4 & CR4_PVI))))
         {
             cpu.flags |= flag_vif;
         }
@@ -1613,7 +1612,7 @@ opm(0x01, {
         if(cpu.protected_mode)
         {
             // lmsw cannot be used to switch back
-            cpu.cr0 |= 1;
+            cpu.cr0 |= CR0_PE;
         }
 
         //dbg_log("cr0=" + h(data >>> 0), LOG_CPU);
@@ -1716,7 +1715,7 @@ op(0x06, {
     else
     {
         //dbg_log("clts", LOG_CPU);
-        cpu.cr0 &= ~8;
+        cpu.cr0 &= ~CR0_TS;
         // do something here ?
     }
 });
@@ -1833,7 +1832,7 @@ opm(0x22, {
             var old_cr0 = cpu.cr0;
             cpu.cr0 = data;
 
-            if((cpu.cr0 & (0x80000001|0)) === (0x80000000|0))
+            if((cpu.cr0 & (CR0_PE | CR0_PG)) === CR0_PG)
             {
                 // cannot load PG without PE
                 throw unimpl("#GP handler");
@@ -1863,15 +1862,15 @@ opm(0x22, {
                 cpu.trigger_gp(0);
             }
 
-            if((cpu.cr4 ^ data) & 0x80)
+            if((cpu.cr4 ^ data) & CR4_PGE)
             {
                 cpu.full_clear_tlb();
             }
 
             cpu.cr4 = data;
-            cpu.page_size_extensions = (cpu.cr4 & 16) ? PSE_ENABLED : 0;
+            cpu.page_size_extensions = (cpu.cr4 & CR4_PSE) ? PSE_ENABLED : 0;
 
-            if(cpu.cr4 & 0x20)
+            if(cpu.cr4 & CR4_PAE)
             {
                 throw unimpl("PAE");
             }
@@ -1921,7 +1920,7 @@ op(0x30, {
 op(0x31, {
     // rdtsc - read timestamp counter
 
-    if(!cpu.protected_mode || !cpu.cpl || !(cpu.cr4 & 4))
+    if(!cpu.protected_mode || !cpu.cpl || !(cpu.cr4 & CR4_TSD))
     {
         cpu.reg32s[reg_eax] = cpu.timestamp_counter;
         cpu.reg32s[reg_edx] = cpu.timestamp_counter / 0x100000000;

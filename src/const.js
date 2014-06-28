@@ -182,6 +182,40 @@ var
     /** @const */
     REPEAT_STRING_PREFIX_Z = 2;
 
+var 
+    /** @const */
+    CR0_PE = 1,
+    /** @const */
+    CR0_MP = 1 << 1,
+    /** @const */
+    CR0_EM = 1 << 2,
+    /** @const */
+    CR0_TS = 1 << 3,
+    /** @const */
+    CR0_ET = 1 << 4,
+    /** @const */
+    CR0_WP = 1 << 16,
+    /** @const */
+    CR0_NW = 1 << 29,
+    /** @const */
+    CR0_CD = 1 << 30,
+    /** @const */
+    CR0_PG = 1 << 31;
+
+var 
+    /** @const */
+    CR4_VME = 1,
+    /** @const */
+    CR4_PVI = 1 << 1,
+    /** @const */
+    CR4_TSD = 1 << 2,
+    /** @const */
+    CR4_PSE = 1 << 4,
+    /** @const */
+    CR4_PAE = 1 << 5,
+    /** @const */
+    CR4_PGE = 1 << 7;
+
 
 // Segment prefixes must not collide with reg_*s variables
 // _ZERO is a special zero offset segment
