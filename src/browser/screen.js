@@ -39,12 +39,16 @@ function ScreenAdapter()
 
         graphical_mode_width,
 
+        diff_rect_left = 0,
+        diff_rect_top = 0,
+        diff_rect_right = 0,
+        diff_rect_bottom = 0,
+
         screen = this,
 
         changed_rows,
 
         did_redraw = true,
-        did_change = false,
 
         // Index 0: ASCII code
         // Index 1: Background color
@@ -184,18 +188,29 @@ function ScreenAdapter()
         graphic_buffer[offset + 1] = color >> 8 & 0xFF;
         graphic_buffer[offset + 2] = color & 0xFF;
 
-        did_change = true;
+        diff_rect_left = diff_rect_left < x ? diff_rect_left : x;
+        diff_rect_right = diff_rect_right > x ? diff_rect_right : x;
+        diff_rect_top = diff_rect_top < y ? diff_rect_top : y;
+        diff_rect_bottom = diff_rect_bottom > y ? diff_rect_bottom : y;
     };
 
     // put a single color component
     this.put_pixel_linear = function(index, color)
     {
         dbg_assert((index & 3) !== 3);
+        dbg_assert(index < graphic_buffer.length);
+
+        var i = index >> 2,
+            x = i % graphical_mode_width,
+            y = i / graphical_mode_width | 0;
+
+        diff_rect_left = diff_rect_left < x ? diff_rect_left : x;
+        diff_rect_right = diff_rect_right > x ? diff_rect_right : x;
+        diff_rect_top = diff_rect_top < y ? diff_rect_top : y;
+        diff_rect_bottom = diff_rect_bottom > y ? diff_rect_bottom : y;
 
         // (addr + 1) ^ 3: Change BGR (svga) order to RGB (canvas)
         graphic_buffer[(index + 1) ^ 3] = color;
-
-        did_change = true;
     };
 
     this.timer_graphical = function()
@@ -210,10 +225,20 @@ function ScreenAdapter()
         {
             did_redraw = true;
 
-            if(did_change)
+            var width = diff_rect_right - diff_rect_left + 1,
+                height = diff_rect_bottom - diff_rect_top + 1;
+
+            if(width > 0 && height > 0)
             {
-                did_change = false;
-                graphic_context.putImageData(graphic_image_data, 0, 0);
+                graphic_context.putImageData(
+                    graphic_image_data, 
+                    0, 0,
+                    diff_rect_left, diff_rect_top,
+                    width, height
+                );
+
+                diff_rect_left = diff_rect_top = 1e7;
+                diff_rect_right = diff_rect_bottom = 0;
             }
         });
     };
