@@ -169,8 +169,7 @@ function VGAScreen(cpu, adapter, vga_memory_size)
         screen.set_size_text(80, 25);
         screen.update_cursor_scanline();
 
-        var that = this;
-        io.mmap_register(0xA0000, 0x20000, 1, this._vga_memory_read, function(a, v) { that._vga_memory_write(a, v); });
+        io.mmap_register(0xA0000, 0x20000, 1, this._vga_memory_read, this._vga_memory_write);
         io.mmap_register(0xE0000000, vga_memory_size, 1, this._svga_memory_read, this._svga_memory_write);
     }
 
@@ -514,7 +513,7 @@ function VGAScreen(cpu, adapter, vga_memory_size)
                 break;
 
             case 24:
-                addr = addr * (4/3) | 0;
+                addr = (addr << 2) / 3 | 0;
                 screen._adapter.put_pixel_linear(addr, value);
                 break;
 

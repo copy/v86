@@ -248,7 +248,7 @@ v86.prototype.push32 = function(imm32)
 
 v86.prototype.pop16 = function()
 {
-    var sp = this.get_stack_pointer(0),
+    var sp = this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] | 0,
         result = this.safe_read16(sp);
 
     this.stack_reg[this.reg_vsp] += 2;
@@ -257,7 +257,7 @@ v86.prototype.pop16 = function()
 
 v86.prototype.pop32s = function()
 {
-    var sp = this.get_stack_pointer(0),
+    var sp = this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] | 0,
         result = this.safe_read32s(sp);
 
     this.stack_reg[this.reg_vsp] += 4;
@@ -270,7 +270,7 @@ v86.prototype.pusha16 = function()
 
     // make sure we don't get a pagefault after having 
     // pushed several registers already
-    this.translate_address_write(this.get_seg(reg_ss) + temp - 15);
+    this.translate_address_write(this.get_seg(reg_ss) + temp - 15 | 0);
 
     this.push16(this.reg16[reg_ax]);
     this.push16(this.reg16[reg_cx]);
@@ -286,7 +286,7 @@ v86.prototype.pusha32 = function()
 {
     var temp = this.reg32s[reg_esp];
 
-    this.translate_address_write(this.get_seg(reg_ss) + temp - 31);
+    this.translate_address_write(this.get_seg(reg_ss) + temp - 31 | 0);
 
     this.push32(this.reg32s[reg_eax]);
     this.push32(this.reg32s[reg_ecx]);
@@ -300,7 +300,7 @@ v86.prototype.pusha32 = function()
 
 v86.prototype.popa16 = function()
 {
-    this.translate_address_read(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + 15);
+    this.translate_address_read(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + 15 | 0);
 
     this.reg16[reg_di] = this.pop16();
     this.reg16[reg_si] = this.pop16();
@@ -314,7 +314,7 @@ v86.prototype.popa16 = function()
 
 v86.prototype.popa32 = function()
 {
-    this.translate_address_read(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + 31);
+    this.translate_address_read(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + 31 | 0);
 
     this.reg32s[reg_edi] = this.pop32s();
     this.reg32s[reg_esi] = this.pop32s();
@@ -373,7 +373,7 @@ v86.prototype.xchg32r = function(operand)
 v86.prototype.lss16 = function(seg, addr, mod)
 {
     var new_reg = this.safe_read16(addr),
-        new_seg = this.safe_read16(addr + 2);
+        new_seg = this.safe_read16(addr + 2 | 0);
 
     this.switch_seg(seg, new_seg);
 
@@ -383,7 +383,7 @@ v86.prototype.lss16 = function(seg, addr, mod)
 v86.prototype.lss32 = function(seg, addr, mod)
 {
     var new_reg = this.safe_read32s(addr),
-        new_seg = this.safe_read16(addr + 4);
+        new_seg = this.safe_read16(addr + 4 | 0);
 
     this.switch_seg(seg, new_seg);
 
