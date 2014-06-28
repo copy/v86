@@ -1025,7 +1025,11 @@
 
         $("screen_container").onclick = function()
         {
-            document.getElementsByClassName("phone_keyboard")[0].focus();
+            // allow text selection
+            if(window.getSelection().isCollapsed)
+            {
+                document.getElementsByClassName("phone_keyboard")[0].focus();
+            }
         };
 
         $("take_screenshot").onclick = function()
