@@ -55,6 +55,8 @@ function PS2(cpu, keyboard, mouse)
          */
         kbd_buffer = new ByteQueue(32),
 
+        last_port60_byte = 0,
+
         /** @type {number} */
         sample_rate = 100,
 
@@ -248,7 +250,7 @@ function PS2(cpu, keyboard, mouse)
         {
             // should not happen
             dbg_log("Port 60 read: Empty", LOG_PS2);
-            return 0xFF;
+            return last_port60_byte;
         }
 
         var do_mouse_buffer;
@@ -268,29 +270,28 @@ function PS2(cpu, keyboard, mouse)
             do_mouse_buffer = true;
         }
 
-
         if(do_mouse_buffer)
         {
-            dbg_log("Port 60 read (mouse): " + h(mouse_buffer.peek()), LOG_PS2);
+            last_port60_byte = mouse_buffer.shift();
+            dbg_log("Port 60 read (mouse): " + h(last_port60_byte), LOG_PS2);
 
             if(mouse_buffer.length > 1)
             {
                 mouse_irq();
             }
-
-            return mouse_buffer.shift();
         }
         else
         {
-            dbg_log("Port 60 read (kbd)  : " + h(kbd_buffer.peek()), LOG_PS2);
+            last_port60_byte = kbd_buffer.shift();
+            dbg_log("Port 60 read (kbd)  : " + h(last_port60_byte), LOG_PS2);
 
             if(kbd_buffer.length > 1)
             {
                 kbd_irq();
             }
-
-            return kbd_buffer.shift();
         }
+
+        return last_port60_byte;
     };
 
     function port64_read()
