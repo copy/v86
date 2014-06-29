@@ -143,7 +143,7 @@ function IO(memory)
             callback = callback.bind(device);
         }
 
-        read_callbacks[port_addr] = callback.bind(device);
+        read_callbacks[port_addr] = callback;
     };
 
     /**
