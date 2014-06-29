@@ -1848,6 +1848,7 @@ opm(0x22, {
             break;
 
         case 3: 
+            //dbg_log("cr3=" + h(data >>> 0), LOG_CPU);
             cpu.cr3 = data;
             dbg_assert((cpu.cr3 & 0xFFF) === 0);
             cpu.clear_tlb();

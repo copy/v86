@@ -807,6 +807,8 @@ v86.prototype.cycle = function()
 
 v86.prototype.hlt_loop = function()
 {
+    //dbg_log("In HLT loop", LOG_CPU);
+
     var now = Date.now();
 
     if(ENABLE_HPET)
@@ -1239,6 +1241,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
     // we have to leave hlt_loop at some point, this is a 
     // good place to do it
+    //this.in_hlt && dbg_log("Leave HLT loop", LOG_CPU);
     this.in_hlt = false;
 
     // This function could be called from 1) an INT instruction
@@ -2681,10 +2684,10 @@ v86.prototype.writable_or_pagefault = function(addr, size)
 
 v86.prototype.trigger_pagefault = function(write, user, present)
 {
-    dbg_log("page fault w=" + write + " u=" + user + " p=" + present + 
-            " eip=" + h(this.previous_ip >>> 0, 8) +
-            " cr2=" + h(this.cr2 >>> 0, 8), LOG_CPU);
-    dbg_trace(LOG_CPU);
+    //dbg_log("page fault w=" + write + " u=" + user + " p=" + present + 
+    //        " eip=" + h(this.previous_ip >>> 0, 8) +
+    //        " cr2=" + h(this.cr2 >>> 0, 8), LOG_CPU);
+    //dbg_trace(LOG_CPU);
 
     // likely invalid pointer reference 
     //if((this.cr2 >>> 0) < 0x100)
