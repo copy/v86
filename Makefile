@@ -57,7 +57,7 @@ v86_all.js: src/*.js src/browser/*.js src/cpu.js
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)
 
-	echo "//# sourceMappingURL=src/v86_all.js.map" >> v86_all.js
+	#echo "//# sourceMappingURL=src/v86_all.js.map" >> v86_all.js
 	ls -lh v86_all.js
 
 
