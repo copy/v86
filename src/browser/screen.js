@@ -198,7 +198,11 @@ function ScreenAdapter()
     this.put_pixel_linear = function(index, color)
     {
         dbg_assert((index & 3) !== 3);
-        dbg_assert(index < graphic_buffer.length);
+
+        if(index >= graphic_buffer.length)
+        {
+            return;
+        }
 
         var i = index >> 2,
             x = i % graphical_mode_width,
