@@ -33,12 +33,16 @@ function SerialAdapter(element)
     {
         if(str === "\x08")
         {
-            var text = element.textContent;
-            element.textContent = text.substr(0, text.length - 1);
+            var text = element.value;
+            element.value = text.substr(0, text.length - 1);
+        }
+        else if(str === "\r")
+        {
+            // do nothing 
         }
         else
         {
-            element.textContent += str;
+            element.value += str;
 
             if(str === "\n")
             {
