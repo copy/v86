@@ -107,16 +107,16 @@ function VGAScreen(cpu, adapter, vga_memory_size)
     }
 
     // 4 times 64k
-    this._vga_memory = null;
+    this.vga_memory = null;
     
-    this._svga_memory = null;
-    this._svga_enabled = false;
+    this.svga_memory = null;
+    this.svga_enabled = false;
 
-    this._adapter = adapter;
-    this._svga_memory16 = null;
+    this.adapter = adapter;
+    this.svga_memory16 = null;
 
     /** @type {number} */
-    this._svga_bpp = 0;
+    this.svga_bpp = 0;
 
     // Experimental, could probably need some changes
     // 01:00.0 VGA compatible controller: NVIDIA Corporation GT216 [GeForce GT 220] (rev a2)
@@ -142,7 +142,7 @@ function VGAScreen(cpu, adapter, vga_memory_size)
         bpp: 0,
     };
 
-    this._init = function()
+    this.init = function()
     {
         if(vga_memory_size === undefined || vga_memory_size < 4 * VGA_BANK_SIZE)
         {
@@ -156,28 +156,28 @@ function VGAScreen(cpu, adapter, vga_memory_size)
             vga_memory_size++;
         }
 
-        this._svga_memory = new Uint8Array(vga_memory_size);
-        this._svga_memory16 = new Uint16Array(this._svga_memory.buffer);
+        this.svga_memory = new Uint8Array(vga_memory_size);
+        this.svga_memory16 = new Uint16Array(this.svga_memory.buffer);
 
-        this._vga_memory = new Uint8Array(this._svga_memory.buffer, 0, 4 * VGA_BANK_SIZE);
+        this.vga_memory = new Uint8Array(this.svga_memory.buffer, 0, 4 * VGA_BANK_SIZE);
 
-        plane0 = new Uint8Array(this._svga_memory.buffer, 0 * VGA_BANK_SIZE, VGA_BANK_SIZE);
-        plane1 = new Uint8Array(this._svga_memory.buffer, 1 * VGA_BANK_SIZE, VGA_BANK_SIZE);
-        plane2 = new Uint8Array(this._svga_memory.buffer, 2 * VGA_BANK_SIZE, VGA_BANK_SIZE);
-        plane3 = new Uint8Array(this._svga_memory.buffer, 3 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+        plane0 = new Uint8Array(this.svga_memory.buffer, 0 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+        plane1 = new Uint8Array(this.svga_memory.buffer, 1 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+        plane2 = new Uint8Array(this.svga_memory.buffer, 2 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+        plane3 = new Uint8Array(this.svga_memory.buffer, 3 * VGA_BANK_SIZE, VGA_BANK_SIZE);
 
-        screen.set_size_text(80, 25);
-        screen.update_cursor_scanline();
+        this.set_size_text(80, 25);
+        this.update_cursor_scanline();
 
-        io.mmap_register(0xA0000, 0x20000, 1, this._vga_memory_read, this._vga_memory_write);
-        io.mmap_register(0xE0000000, vga_memory_size, 1, this._svga_memory_read, this._svga_memory_write);
+        io.mmap_register(0xA0000, 0x20000, 1, this.vga_memory_read, this.vga_memory_write);
+        io.mmap_register(0xE0000000, vga_memory_size, 1, this.svga_memory_read, this.svga_memory_write);
     }
 
-    this._vga_memory_read = function(addr)
+    this.vga_memory_read = function(addr)
     {
         if(!graphical_mode || graphical_mode_is_linear)
         {
-            return screen._vga_memory[addr];
+            return screen.vga_memory[addr];
         }
 
         // TODO: "Color don't care"
@@ -191,41 +191,41 @@ function VGAScreen(cpu, adapter, vga_memory_size)
         latch2 = plane2[addr];
         latch3 = plane3[addr];
 
-        return screen._vga_memory[plane_read << 16 | addr];
+        return screen.vga_memory[plane_read << 16 | addr];
     }
 
-    this._vga_memory_write = function(addr, value)
+    this.vga_memory_write = function(addr, value)
     {
         if(graphical_mode)
         {
             if(graphical_mode_is_linear)
             {
-                screen._vga_memory_write_graphical_linear(addr, value);
+                screen.vga_memory_write_graphical_linear(addr, value);
             }
             else
             {
-                screen._vga_memory_write_graphical_planar(addr, value);
+                screen.vga_memory_write_graphical_planar(addr, value);
             }
         }
         else
         {
-            screen._vga_memory_write_text_mode(addr, value);
+            screen.vga_memory_write_text_mode(addr, value);
         }
     }
 
-    this._vga_memory_write_graphical_linear = function(addr, value)
+    this.vga_memory_write_graphical_linear = function(addr, value)
     {
         var offset = addr << 2,
             color = vga256_palette[value];
 
-        this._adapter.put_pixel_linear(offset | 2, color >> 16 & 0xFF);
-        this._adapter.put_pixel_linear(offset | 1, color >> 8 & 0xFF);
-        this._adapter.put_pixel_linear(offset, color & 0xFF);
+        this.adapter.put_pixel_linear(offset | 2, color >> 16 & 0xFF);
+        this.adapter.put_pixel_linear(offset | 1, color >> 8 & 0xFF);
+        this.adapter.put_pixel_linear(offset, color & 0xFF);
 
-        this._vga_memory[addr] = value;
+        this.vga_memory[addr] = value;
     }
 
-    this._vga_memory_write_graphical_planar = function(addr, value)
+    this.vga_memory_write_graphical_planar = function(addr, value)
     {
         if(addr > 0xFFFF)
         {
@@ -386,15 +386,15 @@ function VGAScreen(cpu, adapter, vga_memory_size)
                     plane3_byte >> i & 8,
                 color = vga256_palette[dac_map[color_index]];
 
-            this._adapter.put_pixel_linear(offset | 2, color >> 16);
-            this._adapter.put_pixel_linear(offset | 1, color >> 8 & 0xFF);
-            this._adapter.put_pixel_linear(offset, color & 0xFF);
+            this.adapter.put_pixel_linear(offset | 2, color >> 16);
+            this.adapter.put_pixel_linear(offset | 1, color >> 8 & 0xFF);
+            this.adapter.put_pixel_linear(offset, color & 0xFF);
 
             offset -= 4;
         }
     }
 
-    this._text_mode_redraw = function()
+    this.text_mode_redraw = function()
     {
         var addr = 0x18000 | start_address << 1,
             chr,
@@ -404,10 +404,10 @@ function VGAScreen(cpu, adapter, vga_memory_size)
         {
             for(var col = 0; col < max_cols; col++)
             {
-                chr = this._vga_memory[addr];
-                color = this._vga_memory[addr | 1];
+                chr = this.vga_memory[addr];
+                color = this.vga_memory[addr | 1];
 
-                this._adapter.put_char(row, col, chr, 
+                this.adapter.put_char(row, col, chr, 
                     vga256_palette[color >> 4 & 0xF], vga256_palette[color & 0xF]);
 
                 addr += 2;
@@ -415,12 +415,12 @@ function VGAScreen(cpu, adapter, vga_memory_size)
         }
     }
 
-    this._graphical_linear_redraw = function()
+    this.graphical_linear_redraw = function()
     {
         // TODO
     };
 
-    this._graphical_planar_redraw = function()
+    this.graphical_planar_redraw = function()
     {
         var addr = 0,
             color;
@@ -437,7 +437,7 @@ function VGAScreen(cpu, adapter, vga_memory_size)
                         plane2[addr] >> i << 2 & 4 |
                         plane3[addr] >> i << 3 & 8;
 
-                    this._adapter.put_pixel(x + 7 - i, y, vga256_palette[dac_map[color]]);
+                    this.adapter.put_pixel(x + 7 - i, y, vga256_palette[dac_map[color]]);
                 }
 
                 addr++;
@@ -445,7 +445,7 @@ function VGAScreen(cpu, adapter, vga_memory_size)
         }
     };
 
-    this._vga_memory_write_text_mode = function(addr, value)
+    this.vga_memory_write_text_mode = function(addr, value)
     {
         if(addr < 0x18000)
         {
@@ -461,66 +461,64 @@ function VGAScreen(cpu, adapter, vga_memory_size)
         if(addr & 1)
         {
             color = value;
-            chr = this._vga_memory[addr & ~1];
+            chr = this.vga_memory[addr & ~1];
         }
         else
         {
             chr = value;
-            color = this._vga_memory[addr | 1];
+            color = this.vga_memory[addr | 1];
         }
 
-        this._adapter.put_char(row, col, chr, 
+        this.adapter.put_char(row, col, chr, 
                 vga256_palette[color >> 4 & 0xF], vga256_palette[color & 0xF]);
 
-        this._vga_memory[addr] = value;
+        this.vga_memory[addr] = value;
     }
 
-    this._update_cursor = function()
+    this.update_cursor = function()
     {
         var row = (cursor_address - start_address) / max_cols | 0,
             col = (cursor_address - start_address) % max_cols;
 
         row = Math.min(max_rows - 1, row);
 
-        this._adapter.update_cursor(row, col);
+        this.adapter.update_cursor(row, col);
     }
 
 
-    this._svga_memory_read = function(addr)
+    this.svga_memory_read = function(addr)
     {
-        return screen._svga_memory[addr];
+        return screen.svga_memory[addr];
     }
 
-    this._svga_memory_write = function(addr, value)
+    this.svga_memory_write = function(addr, value)
     {
-        screen._svga_memory[addr] = value;
+        screen.svga_memory[addr] = value;
 
-        if(!screen._svga_enabled)
+        if(!screen.svga_enabled)
         {
             return;
         }
 
-        switch(screen._svga_bpp)
+        switch(screen.svga_bpp)
         {
             case 32:
-                if((addr & 3) === 3)
+                // 4th byte is meaningless
+                if((addr & 3) !== 3)
                 {
-                    // 4th byte is meaningless
-                    return;
+                    screen.adapter.put_pixel_linear(addr, value);
                 }
-
-                screen._adapter.put_pixel_linear(addr, value);
                 break;
 
             case 24:
                 addr = (addr << 2) / 3 | 0;
-                screen._adapter.put_pixel_linear(addr, value);
+                screen.adapter.put_pixel_linear(addr, value);
                 break;
 
             case 16:
                 if(addr & 1)
                 {
-                    var word = screen._svga_memory16[addr >> 1],
+                    var word = screen.svga_memory16[addr >> 1],
                         red = word & 0x1F,
                         green = word >> 5 & 0x3F,
                         blue = value >> 3 & 0x1F;
@@ -531,9 +529,9 @@ function VGAScreen(cpu, adapter, vga_memory_size)
 
                     addr <<= 1;
 
-                    screen._adapter.put_pixel_linear(addr, red);
-                    screen._adapter.put_pixel_linear(addr - 1, green);
-                    screen._adapter.put_pixel_linear(addr - 2, blue);
+                    screen.adapter.put_pixel_linear(addr, red);
+                    screen.adapter.put_pixel_linear(addr - 1, green);
+                    screen.adapter.put_pixel_linear(addr - 2, blue);
                 }
                 break;
 
@@ -541,15 +539,15 @@ function VGAScreen(cpu, adapter, vga_memory_size)
                 var color = vga256_palette[value],
                     offset = addr << 2;
 
-                screen._adapter.put_pixel_linear(offset, color >> 16 & 0xFF);
-                screen._adapter.put_pixel_linear(offset | 1, color >> 8 & 0xFF);
-                screen._adapter.put_pixel_linear(offset | 2, color & 0xFF);
+                screen.adapter.put_pixel_linear(offset, color >> 16 & 0xFF);
+                screen.adapter.put_pixel_linear(offset | 1, color >> 8 & 0xFF);
+                screen.adapter.put_pixel_linear(offset | 2, color & 0xFF);
                 break;
 
             default:
                 if(DEBUG)
                 {
-                    throw "SVGA: Unsupported BPP: " + screen._svga_bpp;
+                    throw "SVGA: Unsupported BPP: " + screen.svga_bpp;
                 }
         }
     }
@@ -564,26 +562,26 @@ function VGAScreen(cpu, adapter, vga_memory_size)
             {
                 if(graphical_mode_is_linear)
                 {
-                    this._graphical_linear_redraw();
+                    this.graphical_linear_redraw();
                 }
                 else 
                 {
-                    this._graphical_planar_redraw();
+                    this.graphical_planar_redraw();
                 }
             }
             else
             {
-                this._text_mode_redraw();
+                this.text_mode_redraw();
             }
         }
 
-        if(graphical_mode || this._svga_enabled)
+        if(graphical_mode || this.svga_enabled)
         {
-            this._adapter.timer_graphical();
+            this.adapter.timer_graphical();
         }
         else
         {
-            this._adapter.timer_text();
+            this.adapter.timer_text();
         }
     };
 
@@ -596,22 +594,22 @@ function VGAScreen(cpu, adapter, vga_memory_size)
         max_cols = cols_count;
         max_rows = rows_count;
 
-        this._adapter.set_size_text(cols_count, rows_count);
+        this.adapter.set_size_text(cols_count, rows_count);
     };
 
     this.set_size_graphical = function(width, height)
     {
-        this._adapter.set_size_graphical(width, height);
+        this.adapter.set_size_graphical(width, height);
     }
 
     this.update_cursor_scanline = function()
     {
-        this._adapter.update_cursor_scanline(cursor_scanline_start, cursor_scanline_end);
+        this.adapter.update_cursor_scanline(cursor_scanline_start, cursor_scanline_end);
     };
 
     this.clear_screen = function()
     {
-        this._adapter.clear_screen();
+        this.adapter.clear_screen();
     };
 
     this.set_video_mode = function(mode)
@@ -644,7 +642,7 @@ function VGAScreen(cpu, adapter, vga_memory_size)
             default:
         }
 
-        this._adapter.set_mode(is_graphical);
+        this.adapter.set_mode(is_graphical);
         this.stats.is_graphical = is_graphical;
 
         if(is_graphical)
@@ -759,11 +757,11 @@ function VGAScreen(cpu, adapter, vga_memory_size)
                 break;
             case 0xE:
                 cursor_address = cursor_address & 0xFF | value << 8;
-                screen._update_cursor();
+                screen.update_cursor();
                 break;
             case 0xF:
                 cursor_address = cursor_address & 0xFF00 | value;
-                screen._update_cursor();
+                screen.update_cursor();
                 break;
             default:
                 dbg_log("3D5 / CRTC write " + h(index_crtc) + ": " + h(value), LOG_VGA);
@@ -1083,29 +1081,29 @@ function VGAScreen(cpu, adapter, vga_memory_size)
                 }
                 break;
             case 3:
-                this._svga_bpp = dispi_value;
+                this.svga_bpp = dispi_value;
                 break;
             case 4:
                 // enable, options
-                this._svga_enabled = (dispi_value & 1) === 1;
+                this.svga_enabled = (dispi_value & 1) === 1;
                 break;
             default:
         }
 
-        if(this._svga_enabled && (!svga_width || !svga_width))
+        if(this.svga_enabled && (!svga_width || !svga_width))
         {
             dbg_log("SVGA: disabled because of invalid width/height: " + svga_width + "x" + svga_height, LOG_VGA);
-            this._svga_enabled = false;
+            this.svga_enabled = false;
         }
 
-        dbg_log("SVGA: enabled=" + this._svga_enabled + ", " + svga_width + "x" + svga_height + "x" + this._svga_bpp, LOG_VGA);
+        dbg_log("SVGA: enabled=" + this.svga_enabled + ", " + svga_width + "x" + svga_height + "x" + this.svga_bpp, LOG_VGA);
 
-        if(this._svga_enabled)
+        if(this.svga_enabled)
         {
             screen.set_size_graphical(svga_width, svga_height);
-            this._adapter.set_mode(true);
+            this.adapter.set_mode(true);
 
-            screen.stats.bpp = this._svga_bpp;
+            screen.stats.bpp = this.svga_bpp;
             screen.stats.is_graphical = true;
             screen.stats.res_x = svga_width;
             screen.stats.res_y = svga_height;
@@ -1159,7 +1157,7 @@ function VGAScreen(cpu, adapter, vga_memory_size)
     }
     io.register_read(0x1D0, port1D0_read);
 
-    this._init();
+    this.init();
 }
 
 /** @constructor */
