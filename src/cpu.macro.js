@@ -67,26 +67,6 @@ function v86()
     /** @type {number} */
     this.gdtr_offset = 0;
 
-    /** 
-     * local desciptor table
-     * @type {number}
-     */
-    this.ldtr_size = 0;
-    /** @type {number} */
-    this.ldtr_offset = 0;
-    /** @type {number} */
-    this.ldtr_selector = 0;
-
-    /**
-     * task register 
-     * @type {number} 
-     */
-    this.tsr_size = 0;
-    /** @type {number} */
-    this.tsr_offset = 0;
-    /** @type {number} */
-    this.tsr_selector = 0;
-
     /*
      * whether or not a page fault occured
      */
@@ -221,7 +201,7 @@ function v86()
     this.reg8s  = new Int8Array(this.reg32s.buffer);
     this.reg8  = new Uint8Array(this.reg32s.buffer);
 
-    // segment registers
+    // segment registers, tr and ldtr
     this.sreg = new Uint16Array(8);
 
     // debug registers
@@ -361,10 +341,7 @@ v86.prototype.exception_cleanup = function(e)
         this.operand_size_32 = this.is_32;
         this.update_operand_size();
 
-        if(!DEBUG || !this.debug.step_mode)
-        {
-            this.next_tick();
-        }
+        this.next_tick();
     }
     else
     {
@@ -490,14 +467,6 @@ v86.prototype.init = function(settings)
 
     this.gdtr_size = 0;
     this.gdtr_offset = 0;
-
-    this.ldtr_size = 0;
-    this.ldtr_offset = 0;
-    this.ldtr_selector = 0;
-
-    this.tsr_size = 0;
-    this.tsr_offset = 0;
-    this.tsr_selector = 0;
 
     this.page_fault = false;
     this.cr0 = 1 << 30 | 1 << 29 | 1 << 4;
@@ -1356,12 +1325,12 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
             var tss_stack_addr = (info.dpl << 3) + 4;
 
-            if(tss_stack_addr + 5 > this.tsr_size)
+            if(tss_stack_addr + 5 > this.segment_limits[reg_tr])
             {
                 throw unimpl("#TS handler");
             }
 
-            tss_stack_addr = tss_stack_addr + this.tsr_offset | 0;
+            tss_stack_addr = tss_stack_addr + this.segment_offsets[reg_tr] | 0;
             
             if(this.paging)
             {
@@ -1854,9 +1823,6 @@ v86.prototype.get_seg = function(segment /*, offset*/)
 
 v86.prototype.handle_irqs = function()
 {
-    if(DEBUG && this.debug.step_mode)
-        return;
-
     if(this.devices.pic)
     {
         dbg_assert(!this.page_fault);
@@ -1872,15 +1838,18 @@ v86.prototype.test_privileges_for_io = function(port, size)
 {
     if(this.protected_mode && (this.cpl > getiopl(this.flags) || (this.flags & flag_vm)))
     {
-        if(this.tsr_size >= 0x67)
+        var tsr_size = this.segment_limits[reg_tr],
+            tsr_offset = this.segment_offsets[reg_tr];
+
+        if(tsr_size >= 0x67)
         {
-            var iomap_base = this.memory.read16(this.translate_address_system_read(this.tsr_offset + 0x64 + 2)),
+            var iomap_base = this.memory.read16(this.translate_address_system_read(tsr_offset + 0x64 + 2)),
                 high_port = port + size - 1;
 
-            if(this.tsr_size >= iomap_base + (high_port >> 3))
+            if(tsr_size >= iomap_base + (high_port >> 3))
             {
                 var mask = ((1 << size) - 1) << (port & 7),
-                    addr = this.translate_address_system_read(this.tsr_offset + iomap_base + (port >> 3)),
+                    addr = this.translate_address_system_read(tsr_offset + iomap_base + (port >> 3)),
                     port_info = (mask & 0xFF00) ? 
                         this.memory.read16(addr) : this.memory.read8(addr);
 
@@ -2049,8 +2018,8 @@ v86.prototype.lookup_segment_selector = function(selector)
     }
     else
     {
-        table_offset = this.ldtr_offset
-        table_limit = this.ldtr_size;
+        table_offset = this.segment_offsets[reg_ldtr];
+        table_limit = this.segment_limits[reg_ldtr];
     }
 
     if(selector_offset === 0)
@@ -2300,14 +2269,15 @@ v86.prototype.load_tr = function(selector)
         throw unimpl("#GP handler");
     }
 
-    this.tsr_size = info.limit;
-    this.tsr_offset = info.base;
-    this.tsr_selector = selector;
+
+    this.segment_offsets[reg_tr] = info.base;
+    this.segment_limits[reg_tr] = info.limit;
+    this.sreg[reg_tr] = selector;
 
     // mark task as busy
     this.memory.write8(info.table_offset + 5, this.memory.read8(info.table_offset + 5) | 2);
 
-    //dbg_log("tsr at " + h(tsr_offset) + "; (" + this.tsr_size + " bytes)");
+    //dbg_log("tsr at " + h(info.base) + "; (" + info.limit + " bytes)");
 };
 
 v86.prototype.load_ldt = function(selector)
@@ -2317,8 +2287,8 @@ v86.prototype.load_ldt = function(selector)
     if(info.is_null)
     {
         // invalid
-        this.ldtr_size = 0;
-        this.ldtr_offset = 0;
+        this.segment_offsets[reg_ldtr] = 0;
+        this.segment_limits[reg_ldtr] = 0;
         return;
     }
 
@@ -2345,11 +2315,11 @@ v86.prototype.load_ldt = function(selector)
         throw unimpl("#GP handler");
     }
 
-    this.ldtr_size = info.limit;
-    this.ldtr_offset = info.base;
-    this.ldtr_selector = selector;
+    this.segment_offsets[reg_ldtr] = info.base;
+    this.segment_limits[reg_ldtr] = info.limit;
+    this.sreg[reg_ldtr] = selector;
 
-    //dbg_log("ldt at " + h(ldtr_offset) + "; (" + this.ldtr_size + " bytes)");
+    //dbg_log("ldt at " + h(info.base) + "; (" + info.limit + " bytes)");
 };
 
 v86.prototype.arpl = function(seg, r16)

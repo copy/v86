@@ -143,7 +143,10 @@ PSE_ENABLED = 128,
 /** @const */ reg_ds = 3,
 /** @const */ reg_fs = 4,
 /** @const */ reg_gs = 5,
-/** @const */ reg_noseg = 6,
+
+
+/** @const */ reg_tr = 6, // task register
+/** @const */ reg_ldtr = 7, // local descriptor table register
 
 
 

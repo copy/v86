@@ -1567,17 +1567,19 @@ opm(0x00, {
     {
         case 0:
             // sldt
-            set_ev16(cpu.ldtr_selector);
+            set_ev16(cpu.sreg[reg_ldtr]);
             break;
         case 1:
             // str
-            set_ev16(cpu.tsr_selector);
+            set_ev16(cpu.sreg[reg_tr]);
             break;
         case 2:
+            // lldt
             read_e16;
             cpu.load_ldt(data);
             break;
         case 3:
+            // ltr
             read_e16;
             cpu.load_tr(data);
             break;

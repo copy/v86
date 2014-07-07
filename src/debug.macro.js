@@ -336,8 +336,8 @@
         dbg_log("gdt: (len = " + h(cpu.gdtr_size) + ")");
         dump_table(cpu.translate_address_read(cpu.gdtr_offset), cpu.gdtr_size);
 
-        dbg_log("\nldt: (len = " + h(cpu.ldtr_size) + ")");
-        dump_table(cpu.translate_address_read(cpu.ldtr_offset), cpu.ldtr_size);
+        dbg_log("\nldt: (len = " + h(cpu.segment_limits[reg_ldtr]) + ")");
+        dump_table(cpu.translate_address_read(cpu.segment_offsets[reg_ldtr]), cpu.segment_limits[reg_ldtr]);
 
         function dump_table(addr, size)
         {
@@ -415,7 +415,7 @@
 
         for(var i = 0; i < cpu.idtr_size; i += 8)
         {
-            var addr = cpu.do_page_translation(cpu.idtr_offset + i, 0, 0),
+            var addr = cpu.paging ? cpu.do_page_translation(cpu.idtr_offset + i, 0, 0) : cpu.idtr_offset + i,
                 base = cpu.memory.read16(addr) | cpu.memory.read16(addr + 6) << 16,
                 selector = cpu.memory.read16(addr + 2),
                 type = cpu.memory.read8(addr + 5),
