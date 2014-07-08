@@ -1496,6 +1496,11 @@ FPU.prototype.op_DF_reg = function(imm8)
             this._fucomi(this._get_sti(low));
             this._pop();
             break;
+        case 6:
+            // fcomip
+            this._fcomi(this._get_sti(low));
+            this._pop();
+            break;
         default:
             dbg_log(mod); 
             this._fpu_unimpl();
