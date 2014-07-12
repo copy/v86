@@ -25,10 +25,7 @@ function v86()
     /*
      * Translation Lookaside Buffer 
      */
-    this.tlb_user_read = [];
-    this.tlb_user_write = [];
-    this.tlb_system_read = [];
-    this.tlb_system_write = [];
+    this.tlb_data = [];
 
     /*
      * Information about which pages are cached in the tlb.
@@ -442,11 +439,7 @@ v86.prototype.init = function(settings)
     this.segment_offsets = new Int32Array(8);
 
     // 16 MB in total
-    this.tlb_user_read = new Int32Array(1 << 20);
-    this.tlb_user_write = new Int32Array(1 << 20);
-    this.tlb_system_read = new Int32Array(1 << 20);
-    this.tlb_system_write = new Int32Array(1 << 20);
-
+    this.tlb_data = new Int32Array(1 << 20);
     this.tlb_info = new Uint8Array(1 << 20);
     this.tlb_info_global = new Uint8Array(1 << 20);
 
@@ -720,6 +713,8 @@ v86.prototype.do_run = function()
             this.devices.rtc.timer(now, false);
         }
 
+        this.handle_irqs();
+
         // inner loop:
         // runs only cycles
         for(var k = LOOP_COUNTER; k--;)
@@ -822,7 +817,6 @@ v86.prototype.cr0_changed = function(old_cr0)
     if(new_paging !== this.paging)
     {
         this.paging = new_paging;
-        this.paging_changed();
         this.full_clear_tlb();
     }
 
@@ -868,6 +862,7 @@ v86.prototype.read_imm8 = function()
     // memory.read8 inlined under the assumption that code never runs in 
     // memory-mapped space
     var data8 = this.memory.mem8[this.eip_phys ^ this.instruction_pointer];
+    //var data8 = this.memory.read8(this.eip_phys ^ this.instruction_pointer);
     this.instruction_pointer = this.instruction_pointer + 1 | 0;
 
     return data8;
@@ -1697,9 +1692,9 @@ v86.prototype.hlt_op = function()
 // assumes ip to point to the byte before the next instruction
 v86.prototype.raise_exception = function(interrupt_nr)
 {
-    if(DEBUG)
+    if(DEBUG && interrupt_nr !== 7)
     {
-        // warn about error
+        // show interesting exceptions
         dbg_log("Exception " + h(interrupt_nr), LOG_CPU);
         dbg_trace(LOG_CPU);
         this.debug.dump_regs_short();
@@ -1922,7 +1917,7 @@ v86.prototype.cpuid = function()
     }
     else
     {
-        if(DEBUG) throw "cpuid: unimplemented eax: " + h(id);
+        if(DEBUG) throw unimpl("cpuid: unimplemented eax: " + h(id >>> 0));
     }
 };
 
@@ -2157,11 +2152,11 @@ v86.prototype.switch_seg = function(reg, selector)
             throw unimpl("load system segment descriptor, type = " + (info.access & 15));
         }
 
-        if(info.dc_bit && (info.dpl !== info.rpl))
-        {
-            dbg_log(info + " " + h(selector & ~3), LOG_CPU);
-            throw unimpl("#GP handler");
-        }
+        //if(info.dc_bit && (info.dpl !== info.rpl))
+        //{
+        //    dbg_log(info + " " + h(selector & ~3), LOG_CPU);
+        //    throw unimpl("#GP handler");
+        //}
 
         if(info.rpl !== this.cpl)
         {
@@ -2352,6 +2347,8 @@ v86.prototype.clear_tlb = function()
 
 v86.prototype.full_clear_tlb = function()
 {
+    dbg_log("TLB full clear", LOG_CPU);
+
     // clear tlb including global pages
     this.tlb_info_global = new Uint8Array(1 << 20);
 
@@ -2361,7 +2358,7 @@ v86.prototype.full_clear_tlb = function()
 v86.prototype.invlpg = function(addr)
 {
     var page = addr >>> 12;
-    //dbg_log("invlpg: " + h(page), LOG_CPU);
+    //dbg_log("invlpg: addr=" + h(addr >>> 0), LOG_CPU);
 
     this.tlb_info[page] = 0;
     this.tlb_info_global[page] = 0;
@@ -2377,7 +2374,7 @@ v86.prototype.translate_address_read = function(addr)
         return addr;
     }
 
-    if(this.cpl)
+    if(this.cpl === 3)
     {
         return this.translate_address_user_read(addr);
     }
@@ -2394,7 +2391,7 @@ v86.prototype.translate_address_write = function(addr)
         return addr;
     }
 
-    if(this.cpl)
+    if(this.cpl === 3)
     {
         return this.translate_address_user_write(addr);
     }
@@ -2410,7 +2407,7 @@ v86.prototype.translate_address_user_write = function(addr)
     
     if(this.tlb_info[base] & TLB_USER_WRITE)
     {
-        return this.tlb_user_write[base] ^ addr;
+        return this.tlb_data[base] ^ addr;
     }
     else
     {
@@ -2424,7 +2421,7 @@ v86.prototype.translate_address_user_read = function(addr)
     
     if(this.tlb_info[base] & TLB_USER_READ)
     {
-        return this.tlb_user_read[base] ^ addr;
+        return this.tlb_data[base] ^ addr;
     }
     else
     {
@@ -2438,7 +2435,7 @@ v86.prototype.translate_address_system_write = function(addr)
     
     if(this.tlb_info[base] & TLB_SYSTEM_WRITE)
     {
-        return this.tlb_system_write[base] ^ addr;
+        return this.tlb_data[base] ^ addr;
     }
     else
     {
@@ -2452,7 +2449,7 @@ v86.prototype.translate_address_system_read = function(addr)
     
     if(this.tlb_info[base] & TLB_SYSTEM_READ)
     {
-        return this.tlb_system_read[base] ^ addr;
+        return this.tlb_data[base] ^ addr;
     }
     else
     {
@@ -2517,11 +2514,6 @@ v86.prototype.do_page_translation = function(addr, for_writing, user)
             dbg_assert(false);
         }
     }
-    
-    if((page_dir_entry & 0x10) === 0)
-    {
-        cachable = false;
-    }
 
     if(page_dir_entry & this.page_size_extensions)
     {
@@ -2530,8 +2522,7 @@ v86.prototype.do_page_translation = function(addr, for_writing, user)
         // set the accessed and dirty bits
         this.memory.mem32s[page_dir_addr] = page_dir_entry | 0x20 | for_writing << 6;
 
-        high = (page_dir_entry & 0xFFC00000) | (page << 12 & 0x3FF000);
-
+        high = (page_dir_entry & 0xFFC00000) | (addr & 0x3FF000);
         global = page_dir_entry & 0x100;
     }
     else
@@ -2539,7 +2530,7 @@ v86.prototype.do_page_translation = function(addr, for_writing, user)
         var page_table_addr = ((page_dir_entry & 0xFFFFF000) >>> 2) + (page & 0x3FF),
             page_table_entry = this.memory.mem32s[page_table_addr];
 
-        if(!(page_table_entry & 1))
+        if((page_table_entry & 1) === 0)
         {
             //dbg_log("#PF not present table", LOG_CPU);
             this.cr2 = addr;
@@ -2572,53 +2563,48 @@ v86.prototype.do_page_translation = function(addr, for_writing, user)
                 dbg_assert(false);
             }
         }
-    
-        if((page_table_entry & 0x10) === 0)
-        {
-            cachable = false;
-        }
 
         // set the accessed and dirty bits
         this.memory.mem32s[page_dir_addr] = page_dir_entry | 0x20;
         this.memory.mem32s[page_table_addr] = page_table_entry | 0x20 | for_writing << 6;
 
         high = page_table_entry & 0xFFFFF000;
-
         global = page_table_entry & 0x100;
     }
 
-    if(cachable)
+    this.tlb_data[page] = high ^ page << 12;
+
+    var allowed_flag;
+
+    if(allow_user)
     {
-        var cache_entry = high ^ page << 12,
-            info = 0;
-
-        if(allow_user)
-        {
-            this.tlb_user_read[page] = cache_entry;
-            info |= TLB_USER_READ;
-
-            if(can_write)
-            {
-                this.tlb_user_write[page] = cache_entry;
-                info |= TLB_USER_WRITE;
-            }
-        }
-        
-        this.tlb_system_read[page] = cache_entry;
-        info |= TLB_SYSTEM_READ;
-
         if(can_write)
         {
-            this.tlb_system_write[page] = cache_entry;
-            info |= TLB_SYSTEM_WRITE;
+            allowed_flag = TLB_SYSTEM_READ | TLB_SYSTEM_WRITE | TLB_USER_READ | TLB_USER_WRITE;
         }
-
-        this.tlb_info[page] |= info;
-
-        if(global)
+        else
         {
-            this.tlb_info_global[page] = info;
+            // TODO: Consider if cr0.wp is not set
+            allowed_flag = TLB_SYSTEM_READ | TLB_USER_READ;
         }
+    }
+    else
+    {
+        if(can_write)
+        {
+            allowed_flag = TLB_SYSTEM_READ | TLB_SYSTEM_WRITE;
+        }
+        else
+        {
+            allowed_flag = TLB_SYSTEM_READ;
+        }
+    }
+    
+    this.tlb_info[page] = allowed_flag;
+
+    if(global && (this.cr4 & CR4_PGE))
+    {
+        this.tlb_info_global[page] = allowed_flag;
     }
 
     return high;
@@ -2634,21 +2620,21 @@ v86.prototype.writable_or_pagefault = function(addr, size)
         return;
     }
 
-    var user = this.cpl ? 1 : 0,
-        mask = this.cpl ? TLB_USER_WRITE : TLB_SYSTEM_WRITE,
-        base = addr >>> 12;
+    var user = this.cpl === 3 ? 1 : 0,
+        mask = user ? TLB_USER_WRITE : TLB_SYSTEM_WRITE,
+        page = addr >>> 12;
+
+    if((this.tlb_info[page] & mask) === 0)
+    {
+        this.do_page_translation(addr, 1, user);
+    }
 
     if((addr & 0xFFF) + size - 1 >= 0x1000)
     {
-        if((this.tlb_info[base + 1] & mask) === 0)
+        if((this.tlb_info[page + 1] & mask) === 0)
         {
             this.do_page_translation(addr + size - 1, 1, user);
         }
-    }
-
-    if((this.tlb_info[base] & mask) === 0)
-    {
-        this.do_page_translation(addr, 1, user);
     }
 };
 
