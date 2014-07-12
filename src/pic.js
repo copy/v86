@@ -239,7 +239,9 @@ function PIC(cpu, master)
             {
                 // ocw1
                 irq_mask = ~data_byte;
-                //dbg_log("interrupt mask: " + (irq_mask & 0xFF).toString(2), LOG_PIC);
+
+                //dbg_log("interrupt mask: " + (irq_mask & 0xFF).toString(2) +
+                //        " (" + (is_master ? "master" : "slave") + ")", LOG_PIC);
             }
         }
         else if(state === 1)

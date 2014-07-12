@@ -19,7 +19,6 @@ function FloppyController(cpu, fda_image, fdb_image)
 
     this.floppy_size = 0;
 
-    this.buffer = fda_image;
     this.fda_image = fda_image;
     this.fdb_image = fdb_image;
 

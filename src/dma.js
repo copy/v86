@@ -133,7 +133,6 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
         dbg_log("DMA should read more than provided", LOG_DMA);
     }
 
-
     if(start + read_count > buffer.byteLength)
     {
         dbg_log("DMA write outside of buffer", LOG_DMA);

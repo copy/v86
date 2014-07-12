@@ -1896,7 +1896,7 @@ opm(0x23, {
     dbg_assert(modrm_byte >= 0xC0);
     //dbg_log("write dr" + (modrm_byte >> 3 & 7) + ": " + h(cpu.reg32[modrm_byte & 7]), LOG_CPU);
 
-    cpu.dreg[modrm_byte >> 3 & 7] = cpu.reg32s[modrm_byte & 7];
+    cpu.dreg[modrm_byte >> 3 & 7] = reg_e32s;
 });
 
 undefined_instruction(0x24);
@@ -1917,7 +1917,8 @@ unimplemented_sse(0x2F);
 todo_op(0x30);
 op(0x30, {
     // wrmsr - write maschine specific register
-    dbg_log("wrmsr ecx=" + h(cpu.reg32[reg_ecx], 8), LOG_CPU);
+    dbg_log("wrmsr ecx=" + h(cpu.reg32[reg_ecx], 8) + 
+                " data=" + h(cpu.reg32[reg_edx], 8) + ":" + h(cpu.reg32[reg_eax], 8), LOG_CPU);
 });
 
 op(0x31, {
@@ -1939,6 +1940,10 @@ op(0x31, {
 op(0x32, {
     // rdmsr - read maschine specific register
     dbg_log("rdmsr ecx=" + h(cpu.reg32[reg_ecx], 8), LOG_CPU);
+
+    // TODO
+    cpu.reg32s[reg_eax] = 0;
+    cpu.reg32s[reg_edx] = 0;
 });
 // rdpmc
 todo_op(0x33);
