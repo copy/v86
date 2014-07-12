@@ -630,6 +630,21 @@ void test_mul(void)
     test_mull(0, 0x80000000, 0x80000000);
     test_mull(0, 0x10000, 0x10000);
 
+    test_mull(0, 0xffffffff, 0xffffffff);
+    test_mull(0, 0xfffffffe, 0xffffffff);
+    test_mull(0, 0xffffffff, 0xfffffffe);
+
+    test_mull(0, 0xffffffff, 0);
+    test_mull(0, 0xffffffff, 1);
+    test_mull(0, 0xffffffff, 2);
+    test_mull(0, 0xffffffff, 3);
+
+    test_mull(0, 0, 0xffffffff);
+    test_mull(0, 1, 0xffffffff);
+    test_mull(0, 2, 0xffffffff);
+    test_mull(0, 3, 0xffffffff);
+
+
     test_imulw2(0x1234001d, 45);
     test_imulw2(23, -45);
     test_imulw2(0x8000, 0x8000);
