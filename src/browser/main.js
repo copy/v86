@@ -59,68 +59,31 @@
         }
     }
 
-    function make_dom(obj)
-    {
-        var result;
-
-        if(typeof obj === "string")
-        {
-            // create text node from string
-            result = document.createTextNode(obj);
-        }
-        else if(typeof obj.length === "number")
-        {
-            // create list of elements
-            result = document.createDocumentFragment();
-
-            for(var i = 0; i < obj.length; i++)
-            {
-                result.appendChild(make_dom(obj[i]));
-            }
-        }
-        else if(typeof obj === "object")
-        {
-            // create single element
-            if(obj.tag === undefined)
-            {
-                throw "`tag` property required";
-            }
-
-            result = document.createElement(obj.tag);
-
-            for(var property in obj)
-            {
-                switch(property)
-                {
-                    case "children":
-                        result.appendChild(make_dom(obj.children));
-                        break;
-                    default:
-                        result[property] = obj[property];
-                }
-            }
-        }
-        else
-        {
-            throw "Invalid type: " + typeof obj;
-        }
-
-        return result;
-    }
-
     /** @param {?=} progress */
-    function load_file(filename, done, progress)
+    function load_file(filename, done, progress, headers)
     {
         var http = new XMLHttpRequest();
 
         http.open("get", filename, true);
         http.responseType = "arraybuffer";
 
+        if(headers)
+        {
+            var header_names = Object.keys(headers);
+
+            for(var i = 0; i < header_names.length; i++)
+            {
+                var name = header_names[i];
+
+                http.setRequestHeader(name, headers[name]);
+            }
+        }
+
         http.onload = function(e)
         {
             if(http.readyState === 4)
             {
-                if(http.status !== 200)
+                if(http.status !== 200 && http.status !== 206)
                 {
                     log("Loading the image `" + filename + "` failed");
                 }
@@ -142,6 +105,87 @@
         http.send(null);
     }
 
+    // A function set on the protoype of asynchronous buffers (such as AsyncXHRBuffer)
+    // Relies on this.load_block and this.block_size
+    // Warning: fn may be called synchronously or asynchronously
+    function async_buffer_get(offset, len, fn)
+    {
+        // TODO: Unaligned read
+        dbg_assert(offset % this.block_size === 0);
+        dbg_assert(len % this.block_size === 0);
+        dbg_assert(len);
+
+        var block_size = this.block_size,
+            blocks_to_load = len / block_size,
+            data,
+            loaded_count = 0,
+            start_block = offset / block_size;
+
+        if(blocks_to_load > 1)
+        {
+            // copy blocks in this buffer if there is more than one
+            data = new Uint8Array(len);
+        }
+
+        for(var i = start_block; i < start_block + blocks_to_load; i++)
+        {
+            this.load_block(i, block_loaded);
+        }
+
+        function block_loaded(buffer, i)
+        {
+            var block = new Uint8Array(buffer);
+            loaded_count++;
+
+            if(blocks_to_load === 1)
+            {
+                data = block;
+            }
+            else
+            {
+                data.set(block, (i - start_block) * block_size);
+            }
+
+            if(loaded_count === blocks_to_load)
+            {
+                fn(data);
+            }
+        }
+    }
+
+    // Likewise, relies on this.byteLength, this.loaded_blocks and this.block_size
+    function async_buffer_set(offset, data, fn)
+    {
+        dbg_assert(offset + data.length <= this.byteLength);
+        
+        var len = data.length;
+
+        // TODO: Unaligned write
+        dbg_assert(offset % this.block_size === 0);
+        dbg_assert(len % this.block_size === 0);
+        dbg_assert(len);
+
+        var start_block = offset / this.block_size;
+        var block_count = len / this.block_size;
+
+        for(var i = 0; i < block_count; i++)
+        {
+            var block = this.loaded_blocks[start_block + i];
+
+            if(block === undefined)
+            {
+                block = this.loaded_blocks[start_block + i] = new ArrayBuffer(this.block_size);
+            }
+
+            var data_slice = data.subarray(i * this.block_size, (i + 1) * this.block_size);
+            new Uint8Array(block).set(data_slice);
+
+            dbg_assert(block.byteLength === data_slice.length);
+        }
+
+        setTimeout(fn, 0);
+    }
+
     /**
      * Asynchronous access to ArrayBuffer, loading blocks lazily as needed.
      * This is just a prototype and partly incomplete.
@@ -152,75 +196,44 @@
      */
     function AsyncXHRBuffer(filename, block_size, size)
     {
-        var block_count = size / block_size,
-            loaded_blocks,
-            padding_width;
+        this.block_size = block_size;
+        this.block_count = size / block_size;
+        dbg_assert(this.block_count === (this.block_count | 0));
 
-        dbg_assert(block_count === (block_count | 0));
-        loaded_blocks = Array(block_count);
+        this.loaded_blocks = [];
+        for(var i = 0; i < this.block_count; i++)
+        {
+            this.loaded_blocks[i] = undefined;
+        }
         
-        padding_width = ("" + (block_count - 1)).length;
-
         this.byteLength = size;
 
-        // warning: fn may be called synchronously or asynchronously
-        this.get = function(start, len, fn)
-        {
-            // TODO: Unaligned read
-            dbg_assert(start % block_size === 0);
-            dbg_assert(len % block_size === 0);
-            dbg_assert(len);
-
-            var blocks_to_load = len / block_size,
-                data,
-                loaded_count = 0,
-                start_block = start / block_size;
-
-            if(blocks_to_load > 1)
-            {
-                // copy blocks in this buffer if there is more than one
-                data = new Uint8Array(len);
-            }
-
-            for(var i = start_block; i < start_block + blocks_to_load; i++)
-            {
-                this.load_block(i, block_loaded);
-            }
-
-            function block_loaded(buffer, i)
-            {
-                var block = new Uint8Array(buffer);
-                loaded_count++;
-
-                if(blocks_to_load === 1)
-                {
-                    data = block;
-                }
-                else
-                {
-                    data.set(block, (i - start_block) * block_size);
-                }
-
-                if(loaded_count === blocks_to_load)
-                {
-                    fn(data);
-                }
-            }
-        };
-
+        // can be called to preload a block into the cache
         this.load_block = function(i, fn)
         {
-            var cached_block = loaded_blocks[i];
+            var cached_block = this.loaded_blocks[i];
 
             if(cached_block === undefined)
             {
-                var file = filename.replace("%d", String.pad0(i, padding_width));
+                var me = this;
 
-                load_file(file, function(buffer)
-                {
-                    loaded_blocks[i] = buffer;
-                    fn(buffer, i);
-                });
+                // use Range: bytes=... to load slices of a file
+                var range_start = i * block_size,
+                    range_end = range_start + block_size - 1;
+
+                load_file(filename, 
+                    function(buffer)
+                    {
+                        dbg_assert(buffer.byteLength === block_size);
+
+                        me.loaded_blocks[i] = buffer;
+                        fn(buffer, i);
+                    }, 
+                    null,
+                    {
+                        Range: "bytes=" + range_start + "-" + range_end,
+                    }
+                );
             }
             else
             {
@@ -231,24 +244,10 @@
         this.get_buffer = function(fn)
         {
             // We must download all parts, unlikely a good idea for big files
-            if(size > 32 * 1024 * 1024)
-            {
-                dbg_log("Warning: Downloading all parts of a huge file. Will probably " + 
-                        "crash or never finish");
-            }
-
-            this.get(0, size, function(data)
-            {
-                return data.buffer;   
-            });
-        };
-
-        this.set = function(start, slice, fn)
-        {
-            // Discard (we can't write to the server)
-            // TODO: Put data into cache
         };
     }
+    AsyncXHRBuffer.prototype.get = async_buffer_get;
+    AsyncXHRBuffer.prototype.set = async_buffer_set;
 
     /**
      * Synchronous access to File, loading blocks from the input type=file
@@ -273,52 +272,56 @@
             pointer = 0,
             filereader = new FileReader();
 
-        // Here: Read all parts sequentially
-        // Other option: Read all parts in parallel
-        filereader.onload = function(e)
+        this.load = function()
         {
-            new Uint8Array(buffer, pointer).set(new Uint8Array(e.target.result));
-            pointer += PART_SIZE;
-            //dbg_log(PART_SIZE + " bytes of file read");
+            // Here: Read all parts sequentially
+            // Other option: Read all parts in parallel
+            filereader.onload = function(e)
+            {
+                new Uint8Array(buffer, pointer).set(new Uint8Array(e.target.result));
+                pointer += PART_SIZE;
+                //dbg_log(PART_SIZE + " bytes of file read");
+                next();
+            };
+
             next();
-        };
 
-        function next()
-        {
-            if(me.onprogress)
+            function next()
             {
-                me.onprogress({
-                    loaded: pointer,   
-                    total: file.size,
-                    lengthComputable: true,
-                });
-            }
-
-            if(pointer < file.size)
-            {
-                filereader.readAsArrayBuffer(file.slice(pointer, Math.min(pointer + PART_SIZE, file.size)));
-            }
-            else
-            {
-                ready = true;
-
-                if(me.onload)
+                if(me.onprogress)
                 {
-                    me.onload({
-                        
+                    me.onprogress({
+                        loaded: pointer,   
+                        total: file.size,
+                        lengthComputable: true,
                     });
+                }
+
+                if(pointer < file.size)
+                {
+                    filereader.readAsArrayBuffer(file.slice(pointer, Math.min(pointer + PART_SIZE, file.size)));
+                }
+                else
+                {
+                    ready = true;
+
+                    if(me.onload)
+                    {
+                        me.onload({
+                            
+                        });
+                    }
                 }
             }
         }
-        next();
 
-        this.get = function(start, len, fn)
+        this.get = function(offset, len, fn)
         {
             if(ready)
             {
-                dbg_assert(start + len <= buffer.byteLength);
+                dbg_assert(offset + len <= buffer.byteLength);
 
-                fn(new Uint8Array(buffer, start, len));
+                fn(new Uint8Array(buffer, offset, len));
             }
             else
             {
@@ -338,13 +341,14 @@
             }
         };
 
-        this.set = function(start, slice, fn)
+        /** @param data {Uint8Array] */
+        this.set = function(offset, data, fn)
         {
             if(ready)
             {
-                dbg_assert(start + slice.length <= buffer.byteLength);
+                dbg_assert(offset + data.byteLength <= buffer.byteLength);
 
-                new Uint8Array(buffer, start, slice.byteLength).set(slice);
+                new Uint8Array(buffer, offset, data.byteLength).set(data);
                 fn();
             }
             else
@@ -361,33 +365,56 @@
      */
     function AsyncFileBuffer(file)
     {
-        var filereader = new FileReader,
-            BLOCK_SIZE = 512;
+        var BLOCK_SHIFT = 9,
+            BLOCK_SIZE = 1 << BLOCK_SHIFT;
 
         this.byteLength = file.size;
 
-        // warning: fn may be called synchronously or asynchronously
-        this.get = function(start, len, fn)
+        this.block_count = file.size >> BLOCK_SHIFT;
+        this.block_size = BLOCK_SIZE;
+
+        this.loaded_blocks = [];
+        for(var i = 0; i < this.block_count; i++)
         {
-            dbg_assert(!(start % BLOCK_SIZE));
-            dbg_assert(!(len % BLOCK_SIZE));
+            this.loaded_blocks[i] = undefined;
+        }
 
-            filereader.onload = function(e)
+        this.load_block = function(i, fn)
+        {
+            var cached_block = this.loaded_blocks[i];
+
+            if(cached_block === undefined)
             {
-                fn(new Uint8Array(e.target.result));
-            };
+                var fr = new FileReader();
+                var me = this;
 
-            filereader.readAsArrayBuffer(file.slice(start, start + len));
+                fr.onload = function(e)
+                {
+                    var buffer = e.target.result;
+
+                    me.loaded_blocks[i] = buffer;
+                    fn(buffer, i);
+                };
+
+                fr.readAsArrayBuffer(file.slice(i * this.block_size, (i + 1) * this.block_size));
+            }
+            else
+            {
+                fn(cached_block, i);
+            }
         };
 
         this.get_buffer = function(fn)
         {
         };
 
-        this.set = function(start, slice, fn)
+        this.load = function()
         {
+            this.onload && this.onload({});
         };
     }
+    AsyncFileBuffer.prototype.get = async_buffer_get;
+    AsyncFileBuffer.prototype.set = async_buffer_set;
 
     function lock_mouse(elem)
     {
@@ -472,10 +499,17 @@
             // AsyncFileBuffer:
             // - loads slices of the file asynchronously as requested
             // - slower get/set
-            // - doesn't support writing yet
-            var loader = new SyncFileBuffer(file);
 
-            loader.onprogress = show_progress.bind(this, { msg: "Loading disk image into memory" });
+            // Heuristics: If file is smaller than 64M, use SyncFileBuffer
+            if(file.size < 64 * 1024 * 1024)
+            {
+                var loader = new SyncFileBuffer(file);
+                loader.onprogress = show_progress.bind(this, { msg: "Loading disk image into memory" });
+            }
+            else
+            {
+                var loader = new AsyncFileBuffer(file);
+            }
 
             loader.onload = function()
             {
@@ -493,6 +527,8 @@
                 }
                 cont();
             }
+
+            loader.load();
         }
 
         $("lock_mouse").onclick = function()
@@ -517,7 +553,8 @@
             settings.bios = img;
         });
 
-        load_file("bios/vgabios.bin", function(img)
+        //load_file("bios/vgabios.bin", function(img)
+        load_file("bios/bochs-vgabios-0.7a.bin", function(img)
         {
             settings.vga_bios = img;
         });
@@ -652,28 +689,11 @@
         {
             $("start_test").onclick = function()
             {
-                return;
-                settings.fda = new AsyncXHRBuffer("images/fd/freedos.part%d.img", 512, 720 * 1024);
+                //settings.cdrom = new AsyncXHRBuffer("images/linux.iso", 2048, 5632000);
+                //settings.fda = new AsyncXHRBuffer("images/kolibri.img", 512, 1440 * 1024);
+                //settings.fda = new AsyncXHRBuffer("images/freedos722.img", 512, 720 * 1024);
+                settings.hda = new AsyncXHRBuffer("images/arch.img", 512, 8589934592);
                 init(settings);
-
-                //settings.bios = settings.vga_bios = undefined;
-                //settings.linux = {};
-                ////settings.linux.cmdline = "console=ttyS0 root=/dev/hda ro init=/sbin/init notsc=1 hdb=none"
-                //settings.linux.cmdline = "root=/dev/ram0 rw init=/sbin/init notsc=1";
-
-                //load_file("images/linux/vmlinux.bin", function(buffer)
-                //{
-                //    settings.linux.vmlinux = buffer;
-                //    load_file("images/linux/linuxstart.bin", function(buffer)
-                //    {
-                //        settings.linux.linuxstart = buffer;
-                //        load_file("images/linux/root.bin", function(buffer)
-                //        {
-                //            settings.linux.root = buffer;
-                //            init(settings);
-                //        });
-                //    });
-                //});
             }
 
             var log_levels = document.getElementById("log_levels"),
