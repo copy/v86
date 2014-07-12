@@ -74,6 +74,7 @@ function read_array_buffer(file)
 
 var settings = {
         load_devices: true,
+        memory_size: 64 * 1024 * 1024,
     },
     argv = process.argv;
 
@@ -90,7 +91,8 @@ if(USE_SDL)
 }
 else
 {
-    require('tty').setRawMode(true);
+    //require('tty').setRawMode(true);
+    require("keypress")(process.stdin);
 
     include(path + "node/keyboard_tty.js");
     include(path + "node/screen_tty.js");

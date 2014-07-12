@@ -12,7 +12,7 @@ function NodeKeyboardTTY()
         // TODO: Fill this in or get it from somewhere
     ];
 
-    //stdin.setRawMode(true);
+    stdin.setRawMode(true);
     stdin.resume();
 
 
@@ -42,8 +42,9 @@ function NodeKeyboardTTY()
             str += c.charCodeAt(i);   
         }
 
-        //dbg_log(str);
-        dbg_log("2 " + JSON.stringify(arguments));
+        // Why console.error? It sends the output to the error stream
+        // and therefore doesn't block the output
+        //console.error(str);
     });
 
     stdin.on("keypress", function(c)
@@ -53,11 +54,10 @@ function NodeKeyboardTTY()
             process.exit();
         }
 
-        dbg_log("keypress: " + JSON.stringify(arguments));
+        console.error("keypress: " + JSON.stringify(arguments));
 
-        var code = charmap[c.charCodeAt(0)];
-
-        send_code(code);
+        //var code = charmap[c.charCodeAt(0)];
+        //send_code(code);
         //send_code(code | 0x80);
     });
 }

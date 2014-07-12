@@ -10,7 +10,7 @@ function NodeScreenTTY()
         cursor_row = 0,
         cursor_col = 0;
 
-    clear();
+    var need_clear = true;
 
     function clear()
     {
@@ -78,7 +78,15 @@ function NodeScreenTTY()
 
     this.put_char = function(row, col, chr, bg_color, fg_color)
     {
-        return;
+        if(chr === 0)
+            return;
+
+        if(need_clear)
+        {
+            clear();
+            need_clear = false;
+        }
+
         var str = String.fromCharCode(chr);
 
         hide_cursor();
