@@ -212,7 +212,7 @@ function PCI(cpu)
         dbg_log("PCI register bdf=" + h(device_id), LOG_PCI);
 
         dbg_assert(!devices[device_id]);
-        dbg_assert(device.pci_space.length === 64);
+        dbg_assert(device.pci_space.length >= 64);
 
         // convert bytewise notation from lspci to double words
         device_spaces[device_id] = new Int32Array(new Uint8Array(device.pci_space).buffer);

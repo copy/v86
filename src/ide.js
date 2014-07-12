@@ -61,16 +61,15 @@ function IDEDevice(cpu, buffer, is_cd, nr)
         }
         else
         {
-            this.head_count = 1;
+            this.head_count = 255;
             this.sectors_per_track = 63;
         }
 
-        this.cylinder_count = me.buffer.byteLength / 
-            this.head_count / (this.sectors_per_track + 1) / this.sector_size;
+        this.cylinder_count = this.sector_count / (this.head_count + 1) / (this.sectors_per_track + 1);
 
         if(this.cylinder_count !== (this.cylinder_count | 0))
         {
-            dbg_log("Warning: Rounding up cylinder count. Choose different sector per track", LOG_DISK);
+            dbg_log("Warning: Rounding up cylinder count. Choose different head number", LOG_DISK);
             this.cylinder_count = Math.ceil(this.cylinder_count);
         }
     }
@@ -112,7 +111,16 @@ function IDEDevice(cpu, buffer, is_cd, nr)
         0x00, 0x00, 0x00, 0x00, 
         0x00, 0x00, 0x00, 0x00, 
         0x43, 0x10, 0xd4, 0x82,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, this.irq, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, this.irq, 0x01, 0x00, 0x00,
+
+        // 0x40
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+        // 0x80
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
     ];
     this.pci_bars = [
         {
@@ -175,9 +183,10 @@ function IDEDevice(cpu, buffer, is_cd, nr)
         switch(data_port_buffer[0])
         {
             case 0x00:
-                status = 0x50;
-                //pio_data = new Uint8Array(512);
-                //data_pointer = 0;
+                // test unit ready
+                status = 0x40;
+                cylinder_low = 8;
+                cylinder_high = 0;
                 push_irq();
                 break;
 
@@ -199,13 +208,27 @@ function IDEDevice(cpu, buffer, is_cd, nr)
 
             case 0x12:
                 // inquiry
-                pio_data = new Uint8Array(Math.min(data_port_buffer[4], 35));
+                pio_data = new Uint8Array(Math.min(data_port_buffer[4], 36));
                 status = 0x58;
 
-                pio_data[0] = 5;
-                pio_data[1] = 0x80;
-                pio_data[3] = 1;
-                pio_data[4] = 0x31;
+                // http://www.t10.org/ftp/x3t9.2/document.87/87-106r0.txt
+                pio_data.set([
+                    0x05, 0x80, 0x01, 0x31,
+                    0, 0, 0, 0,
+
+                    // 8
+                    0x53, 0x4F, 0x4E, 0x59,
+                    0x20, 0x20, 0x20, 0x20,
+
+                    // 16
+                    0x43, 0x44, 0x2D, 0x52,
+                    0x4F, 0x4D, 0x20, 0x43,
+                    0x44, 0x55, 0x2D, 0x31,
+                    0x30, 0x30, 0x30, 0x20,
+
+                    // 32
+                    0x31, 0x2E, 0x31, 0x61,
+                ]);
 
                 data_pointer = 0;
                 bytecount = 2;
@@ -314,13 +337,15 @@ function IDEDevice(cpu, buffer, is_cd, nr)
     {
         status = 0x50;
 
-        me.buffer.set(write_dest, data_port_buffer, function()
+        var data = data_port_buffer.subarray(0, data_port_count);
+
+        me.buffer.set(write_dest, data, function()
         {
             push_irq();
         });
 
-        me.stats.sectors_written += data_port_buffer.length / me.sector_size | 0;
-        me.stats.bytes_written += data_port_buffer.length;
+        me.stats.sectors_written += data_port_count / me.sector_size | 0;
+        me.stats.bytes_written += data_port_count;
     }
 
     var next_status = -1;
@@ -346,11 +371,14 @@ function IDEDevice(cpu, buffer, is_cd, nr)
 
         if(data & 4)
         {
+            dbg_log("Reset via control port", LOG_DISK);
+
             // reset
             if(me.is_atapi)
             {
                 status = 0x50 | 1;
                 bytecount = 1;
+                lba_count = 1;
                 sector = 1; // lba_low
                 cylinder_low = 0x14; // lba_mid
                 cylinder_high = 0xeb; // lba_high
@@ -359,6 +387,7 @@ function IDEDevice(cpu, buffer, is_cd, nr)
             {
                 status = 0x50 | 1;
                 bytecount = 1;
+                lba_count = 1;
                 sector = 1; // lba_low
                 cylinder_low = 0x3c; // lba_mid
                 cylinder_high = 0xc3; // lba_high
@@ -506,8 +535,8 @@ function IDEDevice(cpu, buffer, is_cd, nr)
         }
         else if(port_addr === (me.ata_port | 1))
         {
-            dbg_log("Read lba_count", LOG_DISK);
-            return lba_count;
+            dbg_log("Read lba_count: " + h(lba_count & 0xFF), LOG_DISK);
+            return lba_count & 0xFF;
         }
         else if(port_addr === (me.ata_port | 2))
         {
@@ -516,7 +545,7 @@ function IDEDevice(cpu, buffer, is_cd, nr)
         }
         else if(port_addr === (me.ata_port | 3))
         {
-            dbg_log("Read sector", LOG_DISK);
+            dbg_log("Read sector: " + h(sector & 0xFF), LOG_DISK);
             return sector & 0xFF;
         }
     }
@@ -619,10 +648,19 @@ function IDEDevice(cpu, buffer, is_cd, nr)
             }
             else
             {
-                dbg_log("Data port: " + h(data) + " count=" + h(data_port_count) +
-                        " cur=" + h(data_port_current), LOG_DISK);
+                if((data_port_current + 1 & 255) === 0 || data_port_count < 20)
+                {
+                    dbg_log("Data port: " + h(data) + " count=" + h(data_port_count) +
+                            " cur=" + h(data_port_current), LOG_DISK);
+                }
 
                 data_port_buffer[data_port_current++] = data;
+
+                if((data_port_current % (sectors_per_drq * 512)) === 0)
+                {
+                    dbg_log("ATA IRQ", LOG_DISK);
+                    push_irq();
+                }
 
                 if(data_port_current === data_port_count)
                 {
@@ -654,12 +692,12 @@ function IDEDevice(cpu, buffer, is_cd, nr)
 
     this.io.register_write(me.ata_port | 4, function(data)
     {
-        dbg_log("sector low: " + h(data), LOG_DISK);
+        dbg_log("1F4/sector low: " + h(data), LOG_DISK);
         cylinder_low = (cylinder_low << 8 | data) & 0xFFFF;
     });
     this.io.register_write(me.ata_port | 5, function(data)
     {
-        dbg_log("sector high: " + h(data), LOG_DISK);
+        dbg_log("1F5/sector high: " + h(data), LOG_DISK);
         cylinder_high = (cylinder_high << 8 | data) & 0xFFFF;
     });
     this.io.register_write(me.ata_port | 6, function(data)
@@ -668,18 +706,25 @@ function IDEDevice(cpu, buffer, is_cd, nr)
             mode = data & 0xE0,
             low = data & 0xF;
 
-        dbg_log("1F6: " + h(data, 2), LOG_DISK);
+        dbg_log("1F6/drive: " + h(data, 2), LOG_DISK);
 
         if(slave)
         {
+            dbg_log("Slave", LOG_DISK);
             return;
+        }
+        
+        if((mode & 0x40) === 0)
+        {
+            // chs mode
+            //dbg_log("CHS mode: Unimplemented", LOG_DISK);
+            //return;
         }
 
         drive_head = data;
         is_lba = data >> 6 & 1;
         head = data & 0xF;
         last_drive = data;
-
     });
 
     this.io.register_write(me.ata_port | 7, function(cmd)
@@ -710,7 +755,7 @@ function IDEDevice(cpu, buffer, is_cd, nr)
                 break;
 
             case 0x27:
-                // READ NATIVE MAX ADDRESS EXT - read the actual size of the HD
+                // read native max address ext - read the actual size of the HD
                 // https://en.wikipedia.org/wiki/Host_protected_area
                 dbg_log("ATA cmd 27", LOG_DISK);
                 push_irq();
@@ -733,8 +778,10 @@ function IDEDevice(cpu, buffer, is_cd, nr)
             case 0x20:
             case 0x29:
             case 0x24:
+            case 0xC4:
                 // 0x20 read sectors
                 // 0x24 read sectors ext
+                // 0xC4 read multiple 
                 // 0x29 read multiple ext
                 ata_read_sectors(cmd);
                 break;
@@ -859,24 +906,28 @@ function IDEDevice(cpu, buffer, is_cd, nr)
 
     function ata_read_sectors(cmd)
     {
-        if(cmd === 0x20)
+        if(cmd === 0x20 || cmd === 0xC4)
         {
+            // read sectors
             var count = bytecount & 0xff,
-                lba = get_lba28();
+                lba = is_lba ? get_lba28() : get_chs();
+
+            if(count === 0)
+                count = 0x100;
         }
-        else if(cmd === 0x29)
+        else if(cmd === 0x24 || cmd === 0x29)
         {
+            // read sectors ext
             var count = bytecount,
-                lba = get_lba28();
+                lba = get_lba48(); 
+
+            if(count === 0)
+                count = 0x10000;
         }
         else
         {
-            var count = bytecount,
-                lba = (cylinder_high << 16 | cylinder_low) >>> 0;
+            dbg_assert(false);
         }
-
-        if(!count)
-            count = 0x10000;
 
         var
             byte_count = count * me.sector_size,
@@ -980,18 +1031,24 @@ function IDEDevice(cpu, buffer, is_cd, nr)
     {
         if(cmd === 0x30)
         {
+            // write sectors
             var count = bytecount & 0xff,
-                lba = get_lba28();
+                lba = is_lba ? get_lba28() : get_chs();
+
+            if(count === 0)
+                count = 0x100;
         }
-        else if(cmd === 0x39)
+        else if(cmd === 0x34 || cmd === 0x39)
         {
             var count = bytecount,
-                lba = get_lba28();
+                lba = get_lba48(); 
+
+            if(count === 0)
+                count = 0x10000;
         }
         else
         {
-            var count = bytecount,
-                lba = (cylinder_high << 16 | cylinder_low) >>> 0;
+            dbg_assert(false);
         }
 
         var byte_count = count * me.sector_size,
@@ -1107,16 +1164,38 @@ function IDEDevice(cpu, buffer, is_cd, nr)
         me.stats.bytes_written += byte_count;
     }
 
+    function get_chs()
+    {
+        var c = cylinder_low & 0xFF | cylinder_high << 8 & 0xFF00,
+            h = head,
+            s = sector & 0xFF;
+
+        return (c * me.head_count + h) * me.sectors_per_track + s - 1;
+    }
+
     function get_lba28()
     {
-        return cylinder_high << 16 & 0x0F0000 | cylinder_low << 8 & 0xFF00 | sector & 0xFF;
+        return sector & 0xFF | cylinder_low << 8 & 0xFF00 | cylinder_high << 16 & 0xFF0000;
+    }
+
+    function get_lba48()
+    {
+        // Note: Bits over 32 missing
+        return (sector & 0xFF | cylinder_low << 8 & 0xFF00 | cylinder_high << 16 & 0xFF0000 | 
+                (sector >> 8) << 24 & 0xFF000000) >>> 0;
     }
 
     function create_identify_packet()
     {
+        data_pointer = 0;
         // http://bochs.sourceforge.net/cgi-bin/lxr/source/iodev/harddrv.cc#L2821
 
-        data_pointer = 0;
+        if(drive_head & 0x10)
+        {
+            // slave
+            pio_data = new Uint8Array(0);
+            return;
+        }
 
         pio_data = new Uint8Array([
             0x40, me.is_atapi ? 0x85 : 0, 
@@ -1150,7 +1229,7 @@ function IDEDevice(cpu, buffer, is_cd, nr)
             // 47
             0xFF, 0, 
             1, 0, 
-            0, 3,  // capabilities
+            0, 3,  // capabilities, 2: Only LBA / 3: LBA and DMA
             // 50
             0, 0, 
             0, 2, 
@@ -1175,6 +1254,8 @@ function IDEDevice(cpu, buffer, is_cd, nr)
             0, 0, 
             // 63, dma selected mode
             0, 4, 
+            //0, 0, // no DMA
+
             0, 0,
             // 65
             30, 0, 30, 0, 30, 0, 30, 0, 0, 0,
@@ -1193,8 +1274,6 @@ function IDEDevice(cpu, buffer, is_cd, nr)
             // 100
             me.sector_count & 0xFF, me.sector_count >> 8 & 0xFF, 
             me.sector_count >> 16 & 0xFF, me.sector_count >> 24 & 0xFF, 
-            
-
         ]);
 
         if(me.cylinder_count > 16383)
@@ -1265,7 +1344,7 @@ function IDEDevice(cpu, buffer, is_cd, nr)
 
     function dma_write_status(value)
     {
-        dbg_log("DMA write status: " + h(value), LOG_DISK);
+        dbg_log("DMA set status: " + h(value), LOG_DISK);
         dma_status &= ~value;
     }
 
