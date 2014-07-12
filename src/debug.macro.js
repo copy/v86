@@ -250,8 +250,8 @@
         line1 += "  ds=" + h(cpu.sreg[reg_ds], 4) + " es=" + h(cpu.sreg[reg_es], 4) + "  fs=" + h(cpu.sreg[reg_fs], 4);
         line2 += "  gs=" + h(cpu.sreg[reg_gs], 4) + " cs=" + h(cpu.sreg[reg_cs], 4) + "  ss=" + h(cpu.sreg[reg_ss], 4);
 
-        dbg_log(line1);
-        dbg_log(line2);
+        dbg_log(line1, LOG_CPU);
+        dbg_log(line2, LOG_CPU);
     }
 
     function dump_regs()
@@ -347,7 +347,7 @@
                         cpu.memory.read8(addr + 4) << 16 | 
                         cpu.memory.read8(addr + 7) << 24,
 
-                    limit = (cpu.memory.read16(addr) | cpu.memory.read8(addr + 6) & 0xF) + 1,
+                    limit = cpu.memory.read16(addr) | (cpu.memory.read8(addr + 6) & 0xF) << 16,
                     access = cpu.memory.read8(addr + 5),
                     flags = cpu.memory.read8(addr + 6) >> 4,
                     flags_str = "",
@@ -399,10 +399,10 @@
 
                 if(flags & 8)
                 {
-                    limit <<= 12;
+                    limit = limit << 12 | 0xFFF;
                 }
                 
-                dbg_log(h(i & ~7, 4) + " " + h(base >>> 0, 8) + " (" + h(limit, 8) + " bytes) " +
+                dbg_log(h(i & ~7, 4) + " " + h(base >>> 0, 8) + " (" + h(limit >>> 0, 8) + " bytes) " +
                         flags_str + ";  dpl = " + dpl + ", a = " + access.toString(2) +
                         ", f = " + flags.toString(2));
             }
@@ -484,7 +484,7 @@
             global: (dword_entry & 256) === 256,
             accessed: (dword_entry & 0x20) === 0x20,
             dirty: (dword_entry & 0x40) === 0x40,
-            cache : (dword_entry & 16) === 16,
+            cache_disable : (dword_entry & 16) === 16,
             user : (dword_entry & 4) === 4,
             read_write : (dword_entry & 2) === 2,
             address : address >>> 0
@@ -507,20 +507,11 @@
 
             var flags = "";
 
-            if(entry.size)
-                flags += "S ";
-
-            if(entry.cache)
-                flags += "D ";
-
-            if(entry.user)
-                flags += "U ";
-
-            if(entry.read_write)
-                flags += "R ";
-
-            if(entry.accessed)
-                flags += "A ";
+            flags += entry.size ? "S " : "  ";
+            flags += entry.accessed ? "A " : "  ";
+            flags += entry.cache_disable ? "Cd " : "  ";
+            flags += entry.user ? "U " : "  ";
+            flags += entry.read_write ? "Rw " : "   ";
 
             dbg_log("=== " + h((i << 22) >>> 0, 8) + " | " + flags);
             
@@ -539,26 +530,12 @@
                 {
                     flags = "";
 
-                    if(subentry.size)
-                        flags += "S ";
-
-                    if(subentry.cache)
-                        flags += "D ";
-
-                    if(subentry.user)
-                        flags += "U ";
-
-                    if(subentry.read_write)
-                        flags += "R ";
-
-                    if(subentry.global)
-                        flags += "G ";
-                    
-                    if(subentry.accessed)
-                        flags += "A ";
-
-                    if(subentry.dirty)
-                        flags += "Di ";
+                    flags += subentry.cache_disable ? "Cd " : "   ";
+                    flags += subentry.user ? "U " : "  ";
+                    flags += subentry.read_write ? "Rw " : "   ";
+                    flags += subentry.global ? "G " : "  ";
+                    flags += subentry.accessed ? "A " : "  ";
+                    flags += subentry.dirty ? "Di " : "   ";
 
                     dbg_log("# " + h((i << 22 | j << 12) >>> 0, 8) + " -> " +
                             h(subentry.address, 8) + " | " + flags);
