@@ -21,11 +21,15 @@ function MouseAdapter()
 
         mouse = this;
 
+    // set by controller
     this.enabled = false;
+
+    // set by emulator
+    this.emu_enabled = true;
 
     function may_handle(e)
     {
-        return mouse.enabled && 
+        return mouse.enabled && mouse.emu_enabled && 
             (!e.target || e.type === "mousemove" || (e.target.nodeName !== "INPUT" && e.target.nodeName !== "TEXTAREA"));
     }
 

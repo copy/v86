@@ -531,8 +531,27 @@
             loader.load();
         }
 
+        $("toggle_mouse").onclick = function()
+        {
+            var mouse_adapter = settings.mouse_adapter;
+
+            if(mouse_adapter)
+            {
+                var state = mouse_adapter.emu_enabled = !mouse_adapter.emu_enabled;
+
+                $("toggle_mouse").value = (state ? "Dis" : "En") + "able mouse";
+            }
+        };
+
         $("lock_mouse").onclick = function()
         {
+            var mouse_adapter = settings.mouse_adapter;
+
+            if(mouse_adapter && !mouse_adapter.emu_enabled)
+            {
+                $("toggle_mouse").onclick();
+            }
+
             lock_mouse(document.body);
             $("lock_mouse").blur();
         };
@@ -921,8 +940,7 @@
 
             if(settings.mouse_adapter)
             {
-                $("info_mouse_enabled").textContent = 
-                    settings.mouse_adapter.enabled ? "Yes" : "No";
+                $("info_mouse_enabled").textContent = settings.mouse_adapter.enabled ? "Yes" : "No";
             }
 
             if(cpu.devices.hda)
