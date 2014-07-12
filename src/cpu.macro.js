@@ -2350,7 +2350,11 @@ v86.prototype.full_clear_tlb = function()
     dbg_log("TLB full clear", LOG_CPU);
 
     // clear tlb including global pages
-    this.tlb_info_global = new Uint8Array(1 << 20);
+    var buf32 = new Int32Array(this.tlb_info_global.buffer);
+    for(var i = 0; i < (1 << 18); )
+    {
+        buf32[i++] = buf32[i++] = buf32[i++] = buf32[i++] = 0;
+    }
 
     this.clear_tlb();
 };
