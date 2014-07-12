@@ -273,14 +273,17 @@ v86.prototype.imul_reg16 = function(operand1, operand2)
 
 
 #define do_mul32(a, b)\
-    var a00 = a & 0xFFFF, \
-        a16 = a >>> 16, \
-        b00 = b & 0xFFFF, \
-        b16 = b >>> 16, \
-        c00 = a00 * b00 | 0, \
-        c16 = (c00 >>> 16) + a16 * b00 + a00 * b16 | 0, \
-        low_result = (c16 << 16) | c00 & 0xFFFF, \
-        high_result = (c16 >>> 16) + a16 * b16 | 0; 
+    var a00 = a & 0xFFFF;\
+    var a16 = a >>> 16;\
+    var b00 = b & 0xFFFF;\
+    var b16 = b >>> 16;\
+    var low_result = a00 * b00;\
+    var mid = (low_result >>> 16) + (a16 * b00 | 0) | 0;\
+    var high_result = mid >>> 16;\
+    mid = (mid & 0xFFFF) + (a00 * b16 | 0) | 0;\
+    low_result = (mid << 16) | low_result & 0xFFFF;\
+    high_result = ((mid >>> 16) + (a16 * b16 | 0) | 0) + high_result | 0;\
+
 
 #define do_imul32(a, b)\
     var is_neg = false; \
@@ -317,8 +320,8 @@ v86.prototype.mul32 = function(source_operand)
     }
     this.flags_changed = 0;
 
-    //console.log(this.memory.read32s(address) + " * " + old);
-    //console.log("= " + this.reg32[reg_edx] + " " + this.reg32[reg_eax]);
+    //console.log(h(source_operand >>> 0, 8) + " * " + h(dest_operand >>> 0, 8));
+    //console.log("= " + h(this.reg32[reg_edx], 8) + ":" + h(this.reg32[reg_eax], 8));
 }
 
 v86.prototype.imul32 = function(source_operand)
