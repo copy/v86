@@ -96,7 +96,7 @@ Credits
 - Test cases via QEMU, http://wiki.qemu.org/Main_Page 
 - https://github.com/creationix/node-sdl
 - ascii.ttf (used in node) from http://www.apollosoft.de/ASCII/indexen.htm 
-- [Disk Images](images)
+- [Disk Images](https://github.com/copy/images)
 
 
 More questions?
