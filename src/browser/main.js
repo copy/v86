@@ -183,7 +183,7 @@
             dbg_assert(block.byteLength === data_slice.length);
         }
 
-        setTimeout(fn, 0);
+        fn();
     }
 
     /**
@@ -368,6 +368,7 @@
         var BLOCK_SHIFT = 9,
             BLOCK_SIZE = 1 << BLOCK_SHIFT;
 
+        this.file = file;
         this.byteLength = file.size;
 
         this.block_count = file.size >> BLOCK_SHIFT;
@@ -413,7 +414,26 @@
             this.onload && this.onload({});
         };
     }
-    AsyncFileBuffer.prototype.get = async_buffer_get;
+    AsyncFileBuffer.prototype.get = function(offset, len, fn)
+    {
+        dbg_assert(offset % this.block_size === 0);
+        dbg_assert(len % this.block_size === 0);
+        dbg_assert(len);
+
+        var fr = new FileReader();
+        var me = this;
+
+        fr.onload = function(e)
+        {
+            var buffer = e.target.result;
+
+            //me.loaded_blocks[i] = buffer;
+            fn(new Uint8Array(buffer));
+        };
+
+        fr.readAsArrayBuffer(this.file.slice(offset, offset + len));
+    }
+    //AsyncFileBuffer.prototype.get = async_buffer_get;
     AsyncFileBuffer.prototype.set = async_buffer_set;
 
     function lock_mouse(elem)
@@ -711,7 +731,8 @@
                 //settings.cdrom = new AsyncXHRBuffer("images/linux.iso", 2048, 5632000);
                 //settings.fda = new AsyncXHRBuffer("images/kolibri.img", 512, 1440 * 1024);
                 //settings.fda = new AsyncXHRBuffer("images/freedos722.img", 512, 720 * 1024);
-                settings.hda = new AsyncXHRBuffer("images/arch.img", 512, 8589934592);
+                //settings.hda = new AsyncXHRBuffer("images/arch.img", 512, 8589934592);
+                settings.cdrom = new AsyncXHRBuffer("https://dl.dropboxusercontent.com/u/61029208/linux.iso", 2048, 6547456);
                 init(settings);
             }
 
