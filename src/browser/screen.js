@@ -24,6 +24,7 @@ function ScreenAdapter()
 
         graphic_image_data,
         graphic_buffer,
+        graphic_buffer32,
 
         /** @type {number} */
         cursor_row,
@@ -39,10 +40,8 @@ function ScreenAdapter()
 
         graphical_mode_width,
 
-        diff_rect_left = 0,
-        diff_rect_top = 0,
-        diff_rect_right = 0,
-        diff_rect_bottom = 0,
+        modified_pixel_min = 0,
+        modified_pixel_max = 0,
 
         screen = this,
 
@@ -182,16 +181,14 @@ function ScreenAdapter()
 
     this.put_pixel = function(x, y, color)
     {
-        var offset = y * graphical_mode_width + x << 2;
+        var index = y * graphical_mode_width + x << 2;
 
-        graphic_buffer[offset] = color >> 16 & 0xFF;
-        graphic_buffer[offset + 1] = color >> 8 & 0xFF;
-        graphic_buffer[offset + 2] = color & 0xFF;
+        graphic_buffer[index] = color >> 16;
+        graphic_buffer[index + 1] = color >> 8;
+        graphic_buffer[index + 2] = color;
 
-        diff_rect_left = diff_rect_left < x ? diff_rect_left : x;
-        diff_rect_right = diff_rect_right > x ? diff_rect_right : x;
-        diff_rect_top = diff_rect_top < y ? diff_rect_top : y;
-        diff_rect_bottom = diff_rect_bottom > y ? diff_rect_bottom : y;
+        modified_pixel_min = index < modified_pixel_min ? index : modified_pixel_min;
+        modified_pixel_max = index > modified_pixel_max ? index : modified_pixel_max;
     };
 
     // put a single color component
@@ -204,17 +201,28 @@ function ScreenAdapter()
             return;
         }
 
-        var i = index >> 2,
-            x = i % graphical_mode_width,
-            y = i / graphical_mode_width | 0;
-
-        diff_rect_left = diff_rect_left < x ? diff_rect_left : x;
-        diff_rect_right = diff_rect_right > x ? diff_rect_right : x;
-        diff_rect_top = diff_rect_top < y ? diff_rect_top : y;
-        diff_rect_bottom = diff_rect_bottom > y ? diff_rect_bottom : y;
+        modified_pixel_min = index < modified_pixel_min ? index : modified_pixel_min;
+        modified_pixel_max = index > modified_pixel_max ? index : modified_pixel_max;
 
         // (addr + 1) ^ 3: Change BGR (svga) order to RGB (canvas)
         graphic_buffer[(index + 1) ^ 3] = color;
+    };
+
+    // put a single color 
+    this.put_pixel_linear32 = function(index, color)
+    {
+        dbg_assert((index & 3) === 0);
+
+        if(index >= graphic_buffer.length)
+        {
+            dbg_log("Write outside of buffer: " + h(index), LOG_VGA);
+            return;
+        }
+
+        modified_pixel_min = index < modified_pixel_min ? index : modified_pixel_min;
+        modified_pixel_max = index > modified_pixel_max ? index : modified_pixel_max;
+
+        graphic_buffer32[index >> 2] = 0xFF000000 | color >> 16 | (color << 16 | color) & 0xFFFF00;
     };
 
     this.timer_graphical = function()
@@ -229,20 +237,20 @@ function ScreenAdapter()
         {
             did_redraw = true;
 
-            var width = diff_rect_right - diff_rect_left + 1,
-                height = diff_rect_bottom - diff_rect_top + 1;
-
-            if(width > 0 && height > 0)
+            if(modified_pixel_min < modified_pixel_max)
             {
+                var top = modified_pixel_min / graphical_mode_width >> 2;
+                var height = ((modified_pixel_max - modified_pixel_min) / graphical_mode_width >> 2) + 1;
+
                 graphic_context.putImageData(
                     graphic_image_data, 
                     0, 0,
-                    diff_rect_left, diff_rect_top,
-                    width, height
+                    0, top,
+                    graphical_mode_width, height
                 );
 
-                diff_rect_left = diff_rect_top = 1e7;
-                diff_rect_right = diff_rect_bottom = 0;
+                modified_pixel_min = 1e7;
+                modified_pixel_max = 0;
             }
         });
     };
@@ -315,7 +323,8 @@ function ScreenAdapter()
         screen.clear_screen();
 
         graphic_image_data = graphic_context.getImageData(0, 0, width, height);
-        graphic_buffer = graphic_image_data.data;
+        graphic_buffer = new Uint8Array(graphic_image_data.data.buffer);
+        graphic_buffer32 = new Int32Array(graphic_image_data.data.buffer);
 
         graphical_mode_width = width;
     };
