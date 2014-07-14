@@ -222,7 +222,8 @@ function ScreenAdapter()
         modified_pixel_min = index < modified_pixel_min ? index : modified_pixel_min;
         modified_pixel_max = index > modified_pixel_max ? index : modified_pixel_max;
 
-        graphic_buffer32[index >> 2] = 0xFF000000 | color >> 16 | (color << 16 | color) & 0xFFFF00;
+        // change BGR order to RGB
+        graphic_buffer32[index >> 2] = 0xFF000000 | color >> 16 & 0xFF | color << 16 | color & 0xFF00;
     };
 
     this.timer_graphical = function()
