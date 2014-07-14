@@ -121,41 +121,10 @@ entry_sib_level1(6, esi);
 entry_sib_level1(7, edi);
 
 
-///**
-// * @param {number} modrm_byte
-// * @return {number}
-// */
-//v86.prototype.modrm_resolve16 = function(modrm_byte)
-//{
-//    return this.modrm_table16[modrm_byte](this);
-//}
-
-///**
-// * @param {number} modrm_byte
-// * @return {number}
-// */
-//v86.prototype.modrm_resolve32 = function(modrm_byte)
-//{
-//    return this.modrm_table32[modrm_byte](this);
-//}
-
 v86.prototype.modrm_resolve = function(modrm_byte)
 {
     return (this.address_size_32 ? this.modrm_table32 : this.modrm_table16)[modrm_byte](this);
 };
-
-//v86.prototype.modrm_skip = function(modrm_byte)
-//{
-//    // advance the instruction pointer depending on modrm byte
-//    // but don't actually do address arithmatic
-//    
-//    if(modrm_byte < 0xC0)
-//    {
-//        // TODO
-//        this.modrm_resolve(modrm_byte);
-//    }
-//}
-
 
 #undef ds 
 #undef ss 
