@@ -49,6 +49,9 @@ function ScreenAdapter()
 
         did_redraw = true,
 
+        // are we in graphical mode now?
+        is_graphical = false,
+
         // Index 0: ASCII code
         // Index 1: Background color
         // Index 2: Foreground color
@@ -154,7 +157,7 @@ function ScreenAdapter()
         }
     };
 
-    this.timer_text = function()
+    this.timer = function()
     {
         if(!did_redraw)
         {
@@ -162,7 +165,7 @@ function ScreenAdapter()
         }
         did_redraw = false;
 
-        requestAnimationFrame(update_text);
+        requestAnimationFrame(is_graphical ? update_graphical : update_text);
     };
 
     function update_text()
@@ -179,19 +182,28 @@ function ScreenAdapter()
         }
     }
 
-    this.put_pixel = function(x, y, color)
+    function update_graphical()
     {
-        var index = y * graphical_mode_width + x << 2;
+        did_redraw = true;
 
-        graphic_buffer[index] = color >> 16;
-        graphic_buffer[index + 1] = color >> 8;
-        graphic_buffer[index + 2] = color;
+        if(modified_pixel_min < modified_pixel_max)
+        {
+            var top = modified_pixel_min / graphical_mode_width >> 2;
+            var height = ((modified_pixel_max - modified_pixel_min) / graphical_mode_width >> 2) + 1;
 
-        modified_pixel_min = index < modified_pixel_min ? index : modified_pixel_min;
-        modified_pixel_max = index > modified_pixel_max ? index : modified_pixel_max;
-    };
+            graphic_context.putImageData(
+                graphic_image_data, 
+                0, 0,
+                0, top,
+                graphical_mode_width, height
+            );
 
-    // put a single color component
+            modified_pixel_min = 1e7;
+            modified_pixel_max = 0;
+        }
+    }
+
+    // put a single color component in the linear buffer
     this.put_pixel_linear = function(index, color)
     {
         dbg_assert((index & 3) !== 3);
@@ -226,36 +238,6 @@ function ScreenAdapter()
         graphic_buffer32[index >> 2] = 0xFF000000 | color >> 16 & 0xFF | color << 16 | color & 0xFF00;
     };
 
-    this.timer_graphical = function()
-    {
-        if(!did_redraw)
-        {
-            return;
-        }
-        did_redraw = false;
-
-        requestAnimationFrame(function()
-        {
-            did_redraw = true;
-
-            if(modified_pixel_min < modified_pixel_max)
-            {
-                var top = modified_pixel_min / graphical_mode_width >> 2;
-                var height = ((modified_pixel_max - modified_pixel_min) / graphical_mode_width >> 2) + 1;
-
-                graphic_context.putImageData(
-                    graphic_image_data, 
-                    0, 0,
-                    0, top,
-                    graphical_mode_width, height
-                );
-
-                modified_pixel_min = 1e7;
-                modified_pixel_max = 0;
-            }
-        });
-    };
-
     this.destroy = function()
     {
         //dom_target.removeChild(text_screen);
@@ -264,6 +246,8 @@ function ScreenAdapter()
 
     this.set_mode = function(graphical)
     {
+        is_graphical = graphical;
+
         if(graphical)
         {
             text_screen.style.display = "none";

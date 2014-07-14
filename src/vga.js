@@ -439,8 +439,7 @@ function VGAScreen(cpu, adapter, vga_memory_size)
 
     this.graphical_planar_redraw = function()
     {
-        var addr = 0,
-            color;
+        var addr = 0;
 
         for(var y = 0; y < screen_height; y++)
         {
@@ -448,13 +447,14 @@ function VGAScreen(cpu, adapter, vga_memory_size)
             {
                 for(var i = 0; i < 8; i++)
                 {
-                    color = 
-                        plane0[addr] >> i & 1 |
-                        plane1[addr] >> i << 1 & 2 |
-                        plane2[addr] >> i << 2 & 4 |
-                        plane3[addr] >> i << 3 & 8;
+                    var index = y * screen_width + x << 2;
+                    var color = 
+                            plane0[addr] >> i & 1 |
+                            plane1[addr] >> i << 1 & 2 |
+                            plane2[addr] >> i << 2 & 4 |
+                            plane3[addr] >> i << 3 & 8;
 
-                    this.adapter.put_pixel(x + 7 - i, y, vga256_palette[dac_map[color]]);
+                    this.adapter.put_pixel_linear32(index, vga256_palette[dac_map[color]]);
                 }
 
                 addr++;
@@ -696,14 +696,7 @@ function VGAScreen(cpu, adapter, vga_memory_size)
             }
         }
 
-        if(graphical_mode || this.svga_enabled)
-        {
-            this.adapter.timer_graphical();
-        }
-        else
-        {
-            this.adapter.timer_text();
-        }
+        this.adapter.timer();
     };
 
     /**
@@ -726,11 +719,6 @@ function VGAScreen(cpu, adapter, vga_memory_size)
     this.update_cursor_scanline = function()
     {
         this.adapter.update_cursor_scanline(cursor_scanline_start, cursor_scanline_end);
-    };
-
-    this.clear_screen = function()
-    {
-        this.adapter.clear_screen();
     };
 
     this.set_video_mode = function(mode)
@@ -889,7 +877,7 @@ function VGAScreen(cpu, adapter, vga_memory_size)
         }
 
     };
-    io.register_write(0x3D5, port3D5_write);
+    io.register_write(0x3D5, port3D5_write, this);
 
     function port3D5_read()
     {
@@ -1297,13 +1285,10 @@ function VGADummyAdapter()
     this.put_pixel_linear = function() {};
     this.put_pixel_linear32 = function() {};
     this.put_char = function() {};
-    this.put_pixel = function() {};
     this.set_mode = function() {};
-    this.clear_screen = function() {};
+    this.set_size_graphical = function() {};
+    this.set_size_text = function() {};
     this.update_cursor = function() {};
     this.update_cursor_scanline = function() {};
-    this.set_size_graphical = function() {};
-    this.timer_text = function() {};
-    this.timer_graphical = function() {};
-    this.set_size_text = function() {};
+    this.timer = function() {};
 }
