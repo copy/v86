@@ -528,7 +528,7 @@ v86.prototype.init = function(settings)
         }
 
         // seabios expects the bios to be mapped to 0xFFF00000 also
-        io.mmap_register(0xFFF00000, 0x100000, 1,
+        io.mmap_register(0xFFF00000, 0x100000, 
             function(addr)
             {
                 return this.memory.mem8[addr];

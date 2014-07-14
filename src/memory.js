@@ -25,14 +25,10 @@ function Memory(buffer, memory_size)
 
     // managed by IO() in io.js
     this.memory_map_registered = memory_map_registered;
-    this.memory_map_read = [];
-    this.memory_map_write = [];
-
-    for(var i = 0; i < size; i++)
-    {
-        this.memory_map_read[i] = undefined;
-        this.memory_map_write[i] = undefined;
-    }
+    this.memory_map_read8 = [];
+    this.memory_map_write8 = [];
+    this.memory_map_read32 = [];
+    this.memory_map_write32 = [];
 
     // use by dynamic translator
     if(OP_TRANSLATION) this.mem_page_infos = new Uint8Array(1 << 20);
@@ -67,48 +63,37 @@ Memory.prototype.debug_read = function(addr, size, is_write)
 
 Memory.prototype.mmap_read8 = function(addr)
 {
-    return this.memory_map_read[addr >>> MMAP_BLOCK_BITS](addr);
-}
+    return this.memory_map_read8[addr >>> MMAP_BLOCK_BITS](addr);
+};
 
 Memory.prototype.mmap_write8 = function(addr, value)
 {
-    this.memory_map_write[addr >>> MMAP_BLOCK_BITS](addr, value);
-}
+    this.memory_map_write8[addr >>> MMAP_BLOCK_BITS](addr, value);
+};
+
+Memory.prototype.mmap_read16 = function(addr)
+{
+    return this.mmap_read8(addr) | this.mmap_read8(addr + 1) << 8;
+};
+
+Memory.prototype.mmap_write16 = function(addr, value)
+{
+    this.mmap_write8(addr, value & 0xff);
+    this.mmap_write8(addr + 1, value >> 8 & 0xff);
+};
 
 Memory.prototype.mmap_read32 = function(addr)
 {
-    var aligned_addr = addr >>> MMAP_BLOCK_BITS,
-        size = this.memory_map_registered[aligned_addr],
-        fn = this.memory_map_read[aligned_addr];
+    var aligned_addr = addr >>> MMAP_BLOCK_BITS;
 
-    if(size & 4)
-    {
-        return fn(addr);
-    }
-    else
-    {
-        return fn(addr) | fn(addr + 1) << 8 | 
-                fn(addr + 2) << 16 | fn(addr + 3) << 24;
-    }
+    return this.memory_map_read32[aligned_addr](addr);
 }
 
 Memory.prototype.mmap_write32 = function(addr, value)
 {
-    var aligned_addr = addr >>> MMAP_BLOCK_BITS,
-        size = this.memory_map_registered[aligned_addr],
-        fn = this.memory_map_write[aligned_addr];
+    var aligned_addr = addr >>> MMAP_BLOCK_BITS;
 
-    if(size & 4)
-    {
-        fn(addr, value);
-    }
-    else
-    {
-        fn(addr, value & 0xFF);
-        fn(addr + 1, value >> 8 & 0xFF);
-        fn(addr + 2, value >> 16 & 0xFF);
-        fn(addr + 3, value >>> 24);
-    }
+    this.memory_map_write32[aligned_addr](addr, value);
 }
 
 /**
@@ -137,7 +122,7 @@ Memory.prototype.read16 = function(addr)
 
     if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS])
     {
-        return this.mmap_read8(addr) | this.mmap_read8(addr + 1) << 8;
+        return this.mmap_read16(addr);
     }
     else
     {
@@ -154,8 +139,7 @@ Memory.prototype.read_aligned16 = function(addr)
 
     if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS - 1])
     {
-        addr <<= 1;
-        return this.mmap_read8(addr) | this.mmap_read8(addr + 1) << 8;
+        return this.mmap_read16(addr << 1);
     }
     else
     {
@@ -238,8 +222,7 @@ Memory.prototype.write16 = function(addr, value)
 
     if(this.memory_map_registered[page])
     {
-        this.mmap_write8(addr, value & 0xff);
-        this.mmap_write8(addr + 1, value >> 8 & 0xff);
+        this.mmap_write16(addr, value);
     }
     else
     {
@@ -262,9 +245,7 @@ Memory.prototype.write_aligned16 = function(addr, value)
 
     if(this.memory_map_registered[page])
     {
-        addr <<= 1;
-        this.mmap_write8(addr, value & 0xff);
-        this.mmap_write8(addr + 1, value >> 8 & 0xff);
+        this.mmap_write16(addr << 1, value);
     }
     else
     {

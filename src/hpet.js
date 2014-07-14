@@ -141,7 +141,7 @@ function HPET(cpu)
         }
     }
 
-    cpu.io.mmap_register(HPET_ADDR, 0x4000, 4, mmio_read, mmio_write);
+    cpu.io.mmap_register(HPET_ADDR, 0x4000, mmio_read, mmio_write);
             
             
             

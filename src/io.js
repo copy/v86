@@ -161,57 +161,70 @@ function IO(memory)
         write_callbacks[port_addr] = callback;
     };
 
-    // remember registrations in the RAM area, used by in_mmap_range
-    var low_memory_registered = new Uint8Array(memory_size >> MMAP_BLOCK_BITS);
+    this.mmap_read32_shim = function(addr)
+    {
+        var aligned_addr = addr >>> MMAP_BLOCK_BITS;
+        var fn = memory.memory_map_read8[aligned_addr];
+
+        return fn(addr) | fn(addr + 1) << 8 | 
+                fn(addr + 2) << 16 | fn(addr + 3) << 24;
+    };
+
+    this.mmap_write32_shim = function(addr, value)
+    {
+        var aligned_addr = addr >>> MMAP_BLOCK_BITS;
+        var fn = memory.memory_map_write8[aligned_addr];
+
+        fn(addr, value & 0xFF);
+        fn(addr + 1, value >> 8 & 0xFF);
+        fn(addr + 2, value >> 16 & 0xFF);
+        fn(addr + 3, value >>> 24);
+    };
 
     /**
-     * @param addr {number}
-     * @param size {number}
-     *
+     * @param {number} addr 
+     * @param {number} size 
+     * @param {*} read_func8
+     * @param {*} write_func8
+     * @param {*=} read_func32 
+     * @param {*=} write_func32 
      */
-    this.mmap_register = function(addr, size, fn_size, read_func, write_func)
+    this.mmap_register = function(addr, size, read_func8, write_func8, read_func32, write_func32)
     {
-        dbg_log("mmap_register addr=" + h(addr >>> 0, 8) + " size=" + h(size, 8) + " fn_size=" + fn_size, LOG_IO);
+        dbg_log("mmap_register addr=" + h(addr >>> 0, 8) + " size=" + h(size, 8), LOG_IO);
 
         dbg_assert((addr & MMAP_BLOCK_SIZE - 1) === 0);
         dbg_assert(size && (size & MMAP_BLOCK_SIZE - 1) === 0);
-        dbg_assert(fn_size === 1 || fn_size === 4);
+
+        if(!read_func32)
+            read_func32 = this.mmap_read32_shim.bind(this);
+
+        if(!write_func32)
+            write_func32 = this.mmap_write32_shim.bind(this);
 
         var aligned_addr = addr >>> MMAP_BLOCK_BITS;
 
         for(; size > 0; aligned_addr++)
         {
-            memory.memory_map_registered[aligned_addr] = fn_size;
+            memory.memory_map_registered[aligned_addr] = 1;
 
-            memory.memory_map_read[aligned_addr] = do_read;
-            memory.memory_map_write[aligned_addr] = do_write;
-
-            if((aligned_addr << MMAP_BLOCK_BITS >>> 0) < memory_size)
-            {
-                low_memory_registered[aligned_addr] = fn_size;
-            }
+            memory.memory_map_read8[aligned_addr] = read_func8;
+            memory.memory_map_write8[aligned_addr] = write_func8;
+            memory.memory_map_read32[aligned_addr] = read_func32;
+            memory.memory_map_write32[aligned_addr] = write_func32;
 
             size -= MMAP_BLOCK_SIZE;
-        }
-
-        function do_read(read_addr)
-        {
-            return read_func(read_addr - addr | 0);
-        }
-
-        function do_write(write_addr, value)
-        {
-            write_func(write_addr - addr | 0, value);
         }
     };
 
     for(var i = 0; (i << MMAP_BLOCK_BITS) < memory_size; i++)
     {
         // avoid sparse arrays
-        memory.memory_map_read[i] = memory.memory_map_write[i] = undefined;
+        memory.memory_map_read8[i] = memory.memory_map_write8[i] = undefined;
+        memory.memory_map_read32[i] = memory.memory_map_write32[i] = undefined;
     }
 
-    this.mmap_register(memory_size, 0x100000000 - memory_size, 1,
+    this.mmap_register(memory_size, 0x100000000 - memory_size,
         function(addr) {
             // read outside of the memory size
             addr += memory_size;
@@ -227,6 +240,9 @@ function IO(memory)
     
     this.in_mmap_range = function(start, count)
     {
+        start >>>= 0;
+        count >>>= 0;
+
         var end = start + count;
 
         if(end >= memory_size)
@@ -234,11 +250,12 @@ function IO(memory)
             return true;
         }
 
+        //dbg_log("in_mmap_range start=" + start + " count=" + count);
         start &= ~(MMAP_BLOCK_SIZE - 1);
 
         while(start < end)
         {
-            if(low_memory_registered[start >> MMAP_BLOCK_BITS])
+            if(memory.memory_map_registered[start >> MMAP_BLOCK_BITS])
             {
                 return true;
             }
@@ -267,12 +284,14 @@ function IO(memory)
 
     this.port_write16 = function(port_addr, out_byte)
     {
+        //dbg_log("16 bit write port=" + h(port_addr) + " " + get_port_description(port_addr));
         write_callbacks[port_addr](out_byte & 0xFF, port_addr);
         write_callbacks[port_addr + 1](out_byte >> 8, port_addr);
     };
 
     this.port_write32 = function(port_addr, out_byte)
     {
+        //dbg_log("32 bit write port=" + h(port_addr) + " " + get_port_description(port_addr));
         write_callbacks[port_addr](out_byte & 0xFF, port_addr);
         write_callbacks[port_addr + 1](out_byte >> 8 & 0xFF, port_addr);
         write_callbacks[port_addr + 2](out_byte >> 16 & 0xFF, port_addr);
@@ -287,12 +306,14 @@ function IO(memory)
 
     this.port_read16 = function(port_addr)
     {
+        //dbg_log("16 bit read  port=" + h(port_addr) + " " + get_port_description(port_addr));
         return read_callbacks[port_addr](port_addr) | 
                     read_callbacks[port_addr + 1](port_addr) << 8;
     };
 
     this.port_read32 = function(port_addr)
     {
+        //dbg_log("32 bit read  port=" + h(port_addr) + " " + get_port_description(port_addr));
         return read_callbacks[port_addr](port_addr) | 
                     read_callbacks[port_addr + 1](port_addr) << 8 | 
                     read_callbacks[port_addr + 2](port_addr) << 16 | 

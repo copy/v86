@@ -73,14 +73,16 @@ function ACPI(cpu)
     });
 
 
-    io.mmap_register(0xFEE00000, 0x100000, 1,
+    io.mmap_register(0xFEE00000, 0x100000, 
         function(addr)
         {
+            addr = addr - 0xFEE00000 | 0;
             dbg_log("APIC read " + h(addr), LOG_CPU);
             return 0;
         },
         function(addr, value)
         {
+            addr = addr - 0xFEE00000 | 0;
             dbg_log("APIC write " + h(addr), LOG_CPU);
         });
 }
