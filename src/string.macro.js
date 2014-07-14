@@ -114,7 +114,7 @@ function movsw(cpu)
 
 function movsd(cpu)
 {
-    if(false && cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
+    if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         // often used by memcpy, well worth optimizing
         //   using cpu.memory.mem32s.set
@@ -134,10 +134,12 @@ function movsd(cpu)
         // and dword-aligned in general
         var align_mask = cpu.paging ? 0xFFF : 3;
 
-        if(!(dest & align_mask) && 
-            !(src & align_mask)  && 
-            !cpu.io.in_mmap_range(src, count) && 
-            !cpu.io.in_mmap_range(dest, count))
+        if((dest & align_mask) === 0 && 
+           (src & align_mask) === 0 &&
+
+           // If df is set, alignment works a different
+           // This should be unlikely
+           (cpu.flags & flag_direction) === 0)
         {
             var cont = false;
 
@@ -153,23 +155,17 @@ function movsd(cpu)
                 }
             }
 
-            if((dest >>> 0) + (count << 2) <= cpu.memory_size &&
-                    (src >>> 0) + (count << 2) <= cpu.memory_size)
+            if(!cpu.io.in_mmap_range(src, count) && 
+               !cpu.io.in_mmap_range(dest, count))
             {
-                dest >>= 2;
-                src >>= 2;
-
-                if(cpu.flags & flag_direction)
-                {
-                    dest -= count - 1;
-                    src -= count - 1;
-                }
-
-                var diff = cpu.flags & flag_direction ? -count << 2 : count << 2;
+                var diff = count << 2;
 
                 cpu.regv[cpu.reg_vcx] -= count;
                 cpu.regv[cpu.reg_vdi] += diff;
                 cpu.regv[cpu.reg_vsi] += diff;
+
+                dest >>= 2;
+                src >>= 2;
 
                 cpu.memory.mem32s.set(cpu.memory.mem32s.subarray(src, src + count), dest);
 
