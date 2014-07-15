@@ -1867,7 +1867,17 @@ opm(0x22, {
 
             if((cpu.cr4 ^ data) & CR4_PGE)
             {
-                cpu.full_clear_tlb();
+                if(data & CR4_PGE)
+                {
+                    // The PGE bit has been enabled. The global TLB is
+                    // still empty, so we only have to copy it over
+                    cpu.clear_tlb();
+                }
+                else
+                {
+                    // Clear the global TLB
+                    cpu.full_clear_tlb();
+                }
             }
 
             cpu.cr4 = data;
