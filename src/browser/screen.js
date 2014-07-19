@@ -12,16 +12,18 @@ if(!window.requestAnimationFrame)
  * Adapter to use visual screen in browsers (in constrast to node)
  * @constructor
  */
-function ScreenAdapter()
+function ScreenAdapter(screen_container)
 {
+    console.assert(screen_container, "1st argument must be a DOM container");
+
     var 
-        dom_target = document.body,
-        text_screen = document.getElementById("screen"),
-        graphic_screen = document.getElementById("vga"),
+        graphic_screen = screen_container.getElementsByTagName("canvas")[0],
         graphic_context = graphic_screen.getContext("2d"),
-        cursor_element = document.createElement("div"),
 
+        text_screen = graphic_screen.nextElementSibling || graphic_screen.previousElementSibling,
+        cursor_element = document.createElement("div");
 
+    var 
         graphic_image_data,
         graphic_buffer,
         graphic_buffer32,
@@ -43,8 +45,6 @@ function ScreenAdapter()
         modified_pixel_min = 0,
         modified_pixel_max = 0,
 
-        screen = this,
-
         changed_rows,
 
         did_redraw = true,
@@ -63,6 +63,7 @@ function ScreenAdapter()
         // number of rows
         text_mode_height;
 
+    var screen = this;
 
     // 0x12345 -> "#012345"
     function number_as_color(n)
@@ -240,8 +241,6 @@ function ScreenAdapter()
 
     this.destroy = function()
     {
-        //dom_target.removeChild(text_screen);
-        //dom_target.removeChild(graphic_screen);
     };
 
     this.set_mode = function(graphical)
