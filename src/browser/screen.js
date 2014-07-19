@@ -135,6 +135,13 @@ function ScreenAdapter(screen_container)
 
     graphic_screen.style.display = "none";
 
+    this.init = function()
+    {
+        // not necessary, because this gets initialized by the bios early,
+        // but nicer to look at
+        this.set_size_text(80, 25);
+    };
+
     this.make_screenshot = function()
     {
         try {
@@ -277,12 +284,12 @@ function ScreenAdapter(screen_container)
         text_mode_width = cols;
         text_mode_height = rows;
 
-        while(text_screen.firstChild)
+        while(text_screen.childNodes.length > rows)
         {
             text_screen.removeChild(text_screen.firstChild);
         }
 
-        for(var i = 0; i < rows; i++)
+        while(text_screen.childNodes.length < rows)
         {
             text_screen.appendChild(document.createElement("div"));
         }
@@ -427,4 +434,6 @@ function ScreenAdapter(screen_container)
 
         row_element.appendChild(fragment);
     };
+
+    this.init();
 }
