@@ -1,6 +1,5 @@
 "use strict";
 
-
 (function()
 {
     function log(data)
@@ -10,14 +9,6 @@
         log_element.style.display = "block";
         log_element.textContent += data + "\n";
         log_element.scrollTop = 1e9;
-    }
-
-    function dump_text(text)
-    {
-        var box = document.createElement("textarea");
-
-        box.appendChild(document.createTextNode(text));
-        document.body.appendChild(box);
     }
 
     function dump_file(ab, name)
@@ -35,6 +26,7 @@
 
         $("runtime_infos").appendChild(a);
     }
+
     function set_title(text)
     {
         document.title = text + " - Virtual x86" +  (DEBUG ? " - debug" : "");
