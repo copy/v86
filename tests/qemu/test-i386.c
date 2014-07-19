@@ -2847,7 +2847,7 @@ int main(int argc, char **argv)
     test_code16();
 #endif
 #ifdef TEST_VM86
-    test_vm86();
+    //test_vm86();
 #endif
 #if !defined(__x86_64__)
     test_self_modifying_code();
