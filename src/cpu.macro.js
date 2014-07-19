@@ -250,7 +250,7 @@ function v86()
 #define unimpl(x) this.debug.unimpl(x)
 #define vm86_mode() (!!(this.flags & flag_vm))
 
-v86.prototype.run = function() 
+v86.prototype["run"] = function() 
 {
     if(!this.running)
     {
@@ -531,11 +531,13 @@ v86.prototype.init = function(settings)
         io.mmap_register(0xFFF00000, 0x100000, 
             function(addr)
             {
+                addr &= 0xFFFFF;
                 return this.memory.mem8[addr];
                 //return data[start + addr];
             }.bind(this),
             function(addr, value)
             {
+                addr &= 0xFFFFF;
                 this.memory.mem8[addr] = value;
                 //data[start + addr] = value;
             }.bind(this));
@@ -861,7 +863,7 @@ v86.prototype.read_imm8 = function()
 
     // memory.read8 inlined under the assumption that code never runs in 
     // memory-mapped space
-    var data8 = this.memory.mem8[this.eip_phys ^ this.instruction_pointer];
+    var data8 = this.memory.mem8[this.eip_phys ^ this.instruction_pointer] | 0;
     //var data8 = this.memory.read8(this.eip_phys ^ this.instruction_pointer);
     this.instruction_pointer = this.instruction_pointer + 1 | 0;
 
