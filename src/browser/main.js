@@ -801,32 +801,6 @@
         window.onload();
     }
 
-
-    // load_external("https://dl.dropbox.com/example/freedos.img.js");
-    function load_external(url)
-    {
-        window["loaded"] = function(bin_image)
-        {
-            var buffer = new ArrayBuffer(bin_image.length),
-                buffer_array = new Uint8Array(buffer);
-
-            for(var i = 0; i < bin_image.length; i++)
-            {
-                buffer_array[i] = bin_image.charCodeAt(i);
-            }
-
-            window["loaded"] = function() { 
-                dbg_log("load_external: result loaded twice ?"); 
-            };
-        };
-
-        var script = document.createElement("script");
-        script.src = url;
-
-        document.body.appendChild(script);
-    }
-
-
     function init(settings)
     {
         if(!settings.bios || !settings.vga_bios)
