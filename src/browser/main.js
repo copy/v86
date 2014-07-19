@@ -12,7 +12,6 @@
         log_element.scrollTop = 1e9;
     }
 
-
     function dump_text(text)
     {
         var box = document.createElement("textarea");
@@ -632,11 +631,24 @@
                 settings.cdrom = new SyncBuffer(buffer);
                 set_title("Linux");
                 init(settings);
-            }, show_progress.bind(this, { msg: "Downloading image", total: 5632000 }));
+            }, show_progress.bind(this, { msg: "Downloading image", total: 5666816 }));
 
             $("start_linux").blur();
             $("boot_options").style.display = "none";
         };
+
+        //$("start_nanolinux").onclick = function()
+        //{
+        //    load_file("images/nanolinux-1.2.iso", function(buffer)
+        //    {
+        //        settings.cdrom = new SyncBuffer(buffer);
+        //        set_title("Nanolinux");
+        //        init(settings);
+        //    }, show_progress.bind(this, { msg: "Downloading image", total: 14047232 }));
+
+        //    $("start_linux").blur();
+        //    $("boot_options").style.display = "none";
+        //};
 
         $("start_koli").onclick = function()
         {
@@ -826,7 +838,7 @@
         var have_serial = true;
 
         var cpu = new v86(),
-            screen_adapter = new ScreenAdapter();
+            screen_adapter = new ScreenAdapter($("screen_container"));
 
         $("boot_options").style.display = "none";
         $("loading").style.display = "none";
