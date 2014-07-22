@@ -925,12 +925,13 @@ function VGAScreen(cpu, adapter, vga_memory_size)
     }
     io.register_write(0x3C2, port3C2_write);
 
+    var port_3DA_value = 0xFF;
 
     function port3DA_read()
     {
         // status register
-        attribute_controller_index = -1;
-        return 0xff;
+        port_3DA_value ^= 8;
+        return port_3DA_value;
     }
     io.register_read(0x3DA, port3DA_read);
 
