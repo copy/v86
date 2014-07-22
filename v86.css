@@ -47,12 +47,6 @@
 #screen > div > span {
     height: 15px;
 }
-#cursor {
-    position: absolute;
-    background-color: #ccc;
-    width: 7px;
-    display: inline-block;
-}
 body {
     background-color: #111;
     color: #fff;

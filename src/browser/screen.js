@@ -130,9 +130,12 @@ function ScreenAdapter(screen_container)
     graphic_context["mozImageSmoothingEnabled"] = false;
     graphic_context["webkitImageSmoothingEnabled"] = false;
 
-    cursor_element.id = "cursor";
-    text_screen.style.display = "block";
+    cursor_element.style.position = "absolute";
+    cursor_element.style.backgroundColor = "#ccc";
+    cursor_element.style.width = "7px";
+    cursor_element.style.display = "inline-block";
 
+    text_screen.style.display = "block";
     graphic_screen.style.display = "none";
 
     this.init = function()
