@@ -80,6 +80,7 @@ libv86.js: src/*.js
 		--js_output_file "../libv86.js"\
 		--define=DEBUG=false\
 		--define=IN_CLOSURE=false\
+		--externs adapter-externs.js\
 		$(CLOSURE_FLAGS)\
 		$(CLOSURE_READABLE)\
 		--js $(CORE_FILES)
