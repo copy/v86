@@ -1,0 +1,98 @@
+<!doctype html>
+<title>Basic Emulator <!-- not BASIC! --></title>
+
+<!-- defines ScreenAdapter -->
+<script src="../../src/browser/screen.js"></script>
+
+<!-- defines KeyboardAdapter -->
+<script src="../../src/browser/keyboard.js"></script>
+
+<!-- defines v86, SyncBuffer -->
+<script src="../../libv86.js"></script>
+
+
+<script>
+// Load a file using XHR as an ArrayBuffer.
+// If you want to use this, add some error handling
+function load_file(filename, done)
+{
+    var http = new XMLHttpRequest();
+
+    http.open("get", filename, true);
+    http.responseType = "arraybuffer";
+
+    http.onload = function(e) {
+        if(http.readyState === 4 && http.response) {
+            done(http.response);
+        }
+    };
+    http.send(null);
+}
+
+window.onload = function()
+{
+    // For a minimal boot, we need at least 2 images: A bios and a disk image
+    // (CD, HD or floppy). For non-serial output, a vgabios has to be specified
+    var images = {};
+
+    load_file("../../bios/seabios.bin", function(buffer) {
+        images.seabios = buffer;
+        cont(images);
+    });
+
+    load_file("../../bios/vgabios.bin", function(buffer) {
+        images.vga_bios = buffer;
+        cont(images);
+    });
+
+    load_file("../../images/linux.iso", function(buffer) {
+        images.cdrom = buffer;
+        cont(images);
+    });
+};
+
+function cont(images)
+{
+    if(!images.seabios || !images.vga_bios || !images.cdrom) {
+        return;
+    }
+
+    var container = document.getElementById("screen_container");
+    var cpu = new v86();
+
+    cpu.init({
+        // load_devices has to be set to true, otherwise no OS can run
+        load_devices: true,
+
+        // The CD image. All disk images have to be wrapped in SyncBuffer or an
+        // object, that exports the same interface. A few examples are available 
+        // in browser/lib.js
+        cdrom: new SyncBuffer(images.cdrom),
+
+        //hda: images.hd, // a hard disk image
+        //fda: images.floppy, // a floppy disk image
+
+        // The bioses. If you don't need the vgabios, just leave it out.
+        // Only pass ArrayBuffers here
+        bios: images.seabios,
+        vga_bios: images.vga_bios,
+
+        // Adapters implement the communication from or to the emulator. These
+        // default adapters (defined in browser/*.js) implement what you see
+        // on copy.sh/v24. You could change them to programatically control the emulator
+        screen_adapter: new ScreenAdapter(container),
+        keyboard_adapter: new KeyboardAdapter(),
+
+        vga_memory_size: 2 * 1024 * 1024, // default 8M
+        memory_size: 32 * 1024 * 1024, // default 64M
+    });
+
+    cpu.run();
+}
+</script>
+
+<!-- A minimal structure for the ScreenAdapter defined in browser/screen.js -->
+<div id="screen_container">
+    <div style="white-space: pre; font: 14px monospace"></div>
+    <canvas style="display: none"></canvas>
+</div>
