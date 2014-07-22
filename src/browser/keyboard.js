@@ -125,6 +125,7 @@ function KeyboardAdapter()
 
         if(e.target)
         {
+            // className shouldn't be hardcoded here
             return e.target.className === "phone_keyboard" ||
                 (e.target.nodeName !== "INPUT" && e.target.nodeName !== "TEXTAREA");
         }
@@ -207,7 +208,7 @@ function KeyboardAdapter()
     {
         if(chr >= charmap.length || charmap[chr] === 0)
         {
-            dbg_log("missing char: " + h(chr), LOG_PS2);
+            console.log("Missing char in map: " + chr.toString(16));
             return true;
         }
 
@@ -217,7 +218,7 @@ function KeyboardAdapter()
         {
             code |= 0x80;
         }
-        dbg_log("Key: " + h(code) + " from " + h(chr) + " down=" + keydown, LOG_PS2);
+        //console.log("Key: " + code.toString(16) + " from " + chr.toString(16) + " down=" + keydown);
 
         if(code > 0xFF)
         {

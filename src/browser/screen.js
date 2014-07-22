@@ -158,7 +158,6 @@ function ScreenAdapter(screen_container)
         if(row < text_mode_height && col < text_mode_width)
         {
             var p = 3 * (row * text_mode_width + col);
-            dbg_assert(p + 2 <= text_mode_data.length);
 
             text_mode_data[p] = chr;
             text_mode_data[p + 1] = bg_color;
@@ -217,8 +216,6 @@ function ScreenAdapter(screen_container)
     // put a single color component in the linear buffer
     this.put_pixel_linear = function(index, color)
     {
-        dbg_assert((index & 3) !== 3);
-
         if(index >= graphic_buffer.length)
         {
             return;
@@ -234,14 +231,6 @@ function ScreenAdapter(screen_container)
     // put a single color 
     this.put_pixel_linear32 = function(index, color)
     {
-        dbg_assert((index & 3) === 0);
-
-        if(index >= graphic_buffer.length)
-        {
-            dbg_log("Write outside of buffer: " + h(index), LOG_VGA);
-            return;
-        }
-
         modified_pixel_min = index < modified_pixel_min ? index : modified_pixel_min;
         modified_pixel_max = index > modified_pixel_max ? index : modified_pixel_max;
 

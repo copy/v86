@@ -1,5 +1,8 @@
 
-/** @param {?=} progress */
+/** 
+ * @param {?=} progress 
+ * @param {?=} headers 
+ */
 function load_file(filename, done, progress, headers)
 {
     var http = new XMLHttpRequest();
@@ -25,7 +28,7 @@ function load_file(filename, done, progress, headers)
         {
             if(http.status !== 200 && http.status !== 206)
             {
-                log("Loading the image `" + filename + "` failed");
+                console.log("Loading the image `" + filename + "` failed");
             }
             else if(http.response)
             {
@@ -51,9 +54,9 @@ function load_file(filename, done, progress, headers)
 function async_buffer_get(offset, len, fn)
 {
     // TODO: Unaligned read
-    dbg_assert(offset % this.block_size === 0);
-    dbg_assert(len % this.block_size === 0);
-    dbg_assert(len);
+    console.assert(offset % this.block_size === 0);
+    console.assert(len % this.block_size === 0);
+    console.assert(len);
 
     var block_size = this.block_size,
         blocks_to_load = len / block_size,
@@ -96,14 +99,14 @@ function async_buffer_get(offset, len, fn)
 // Likewise, relies on this.byteLength, this.loaded_blocks and this.block_size
 function async_buffer_set(offset, data, fn)
 {
-    dbg_assert(offset + data.length <= this.byteLength);
+    console.assert(offset + data.length <= this.byteLength);
     
     var len = data.length;
 
     // TODO: Unaligned write
-    dbg_assert(offset % this.block_size === 0);
-    dbg_assert(len % this.block_size === 0);
-    dbg_assert(len);
+    console.assert(offset % this.block_size === 0);
+    console.assert(len % this.block_size === 0);
+    console.assert(len);
 
     var start_block = offset / this.block_size;
     var block_count = len / this.block_size;
@@ -120,7 +123,7 @@ function async_buffer_set(offset, data, fn)
         var data_slice = data.subarray(i * this.block_size, (i + 1) * this.block_size);
         new Uint8Array(block).set(data_slice);
 
-        dbg_assert(block.byteLength === data_slice.length);
+        console.assert(block.byteLength === data_slice.length);
     }
 
     fn();
@@ -138,7 +141,7 @@ function AsyncXHRBuffer(filename, block_size, size)
 {
     this.block_size = block_size;
     this.block_count = size / block_size;
-    dbg_assert(this.block_count === (this.block_count | 0));
+    console.assert(this.block_count === (this.block_count | 0));
 
     this.loaded_blocks = [];
     for(var i = 0; i < this.block_count; i++)
@@ -164,7 +167,7 @@ function AsyncXHRBuffer(filename, block_size, size)
             load_file(filename, 
                 function(buffer)
                 {
-                    dbg_assert(buffer.byteLength === block_size);
+                    console.assert(buffer.byteLength === block_size);
 
                     me.loaded_blocks[i] = buffer;
                     fn(buffer, i);
@@ -205,7 +208,7 @@ function SyncFileBuffer(file)
 
     if(file.size > (1 << 30))
     {
-        dbg_log("Warning: Allocating buffer of " + (file.size >> 20) + " MB ...");
+        console.log("Warning: Allocating buffer of " + (file.size >> 20) + " MB ...");
     }
 
     var buffer = new ArrayBuffer(file.size),
@@ -220,7 +223,6 @@ function SyncFileBuffer(file)
         {
             new Uint8Array(buffer, pointer).set(new Uint8Array(e.target.result));
             pointer += PART_SIZE;
-            //dbg_log(PART_SIZE + " bytes of file read");
             next();
         };
 
@@ -259,7 +261,7 @@ function SyncFileBuffer(file)
     {
         if(ready)
         {
-            dbg_assert(offset + len <= buffer.byteLength);
+            console.assert(offset + len <= buffer.byteLength);
 
             fn(new Uint8Array(buffer, offset, len));
         }
@@ -286,7 +288,7 @@ function SyncFileBuffer(file)
     {
         if(ready)
         {
-            dbg_assert(offset + data.byteLength <= buffer.byteLength);
+            console.assert(offset + data.byteLength <= buffer.byteLength);
 
             new Uint8Array(buffer, offset, data.byteLength).set(data);
             fn();
@@ -356,9 +358,9 @@ function AsyncFileBuffer(file)
 }
 AsyncFileBuffer.prototype.get = function(offset, len, fn)
 {
-    dbg_assert(offset % this.block_size === 0);
-    dbg_assert(len % this.block_size === 0);
-    dbg_assert(len);
+    console.assert(offset % this.block_size === 0);
+    console.assert(len % this.block_size === 0);
+    console.assert(len);
 
     var fr = new FileReader();
     var me = this;

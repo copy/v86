@@ -88,11 +88,10 @@ function MouseAdapter()
 
         if(Math.abs(delta_x) > 100 || Math.abs(delta_y) > 100)
         {
-            dbg_log("Large mouse delta: x=" + delta_x + " y=" + delta_y + " (drop?)");
+            // Large mouse delta, drop?
         }
 
         send_delta(delta_x, -delta_y);
-
     }
 
     function contextmenu_handler(e)
@@ -135,7 +134,7 @@ function MouseAdapter()
         }
         else
         {
-            dbg_log("Unknown event.which: " + e.which, LOG_MOUSE);
+            console.log("Unknown event.which: " + e.which);
         }
         send_click(left_down, middle_down, right_down);
 
