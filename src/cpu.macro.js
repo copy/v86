@@ -3,11 +3,6 @@
 #define getiopl(f) (f >> 12 & 3)
 #define logop(x, y)  if(DEBUG) { this.debug.logop(x, y); }
 
-if(typeof window === "object")
-{
-    window["v86"] = v86;
-}
-
 /** @constructor */
 function v86()
 {
@@ -250,7 +245,7 @@ function v86()
 #define unimpl(x) this.debug.unimpl(x)
 #define vm86_mode() (!!(this.flags & flag_vm))
 
-v86.prototype["run"] = function() 
+v86.prototype.run = function() 
 {
     if(!this.running)
     {
@@ -512,18 +507,21 @@ v86.prototype.init = function(settings)
     var io = new IO(this.memory);
     this.io = this.devices.io = io;
 
-    if(settings.bios)
+    var bios = settings["bios"],
+        vga_bios = settings["vga_bios"];
+
+    if(bios)
     {
         // load bios
-        var data = new Uint8Array(settings.bios),
-            start = 0x100000 - settings.bios.byteLength;
+        var data = new Uint8Array(bios),
+            start = 0x100000 - bios.byteLength;
 
         this.memory.mem8.set(data, start);
 
-        if(settings.vga_bios)
+        if(vga_bios)
         {
             // load vga bios
-            data = new Uint8Array(settings.vga_bios);
+            data = new Uint8Array(vga_bios);
             this.memory.mem8.set(data, 0xC0000);
         }
 
@@ -620,12 +618,12 @@ v86.prototype.init = function(settings)
         });
     }
 
+    this.devices = {};
 
     // TODO: Make this more configurable
-    if(settings.load_devices)
+    if(settings["load_devices"])
     {
-        var devices = {};
-        this.devices = devices;
+        var devices = this.devices;
 
         devices.pic = new PIC(this);
 
@@ -639,14 +637,14 @@ v86.prototype.init = function(settings)
         }
 
         this.devices.vga = new VGAScreen(this, 
-                settings.screen_adapter, settings.vga_memory_size || 8 * 1024 * 1024);
-        this.devices.ps2 = new PS2(this, settings.keyboard_adapter, settings.mouse_adapter);
+                settings["screen_adapter"], settings["vga_memory_size"] || 8 * 1024 * 1024);
+        this.devices.ps2 = new PS2(this, settings["keyboard_adapter"], settings["mouse_adapter"]);
         
         this.fpu = new FPU(this);
 
-        if(settings.serial_adapter)
+        if(settings["serial_adapter"])
         {
-            devices.uart = new UART(this, 0x3F8, settings.serial_adapter);
+            devices.uart = new UART(this, 0x3F8, settings["serial_adapter"]);
         }
         else
         {
@@ -657,29 +655,28 @@ v86.prototype.init = function(settings)
             });
         }
 
-        this.devices.fdc = new FloppyController(this, settings.fda, settings.fdb);
+        this.devices.fdc = new FloppyController(this, settings["fda"], settings["fdb"]);
 
-        if(settings.cdrom)
+        if(settings["cdrom"])
         {
-            this.devices.cdrom = new IDEDevice(this, settings.cdrom, true, 1);
+            this.devices.cdrom = new IDEDevice(this, settings["cdrom"], true, 1);
         }
 
-        if(settings.hda)
+        if(settings["hda"])
         {
-            this.devices.hda = new IDEDevice(this, settings.hda, false, 0);
+            this.devices.hda = new IDEDevice(this, settings["hda"], false, 0);
         }
         else
         {
             //this.devices.hda = new IDEDevice(this, undefined, false, 0);
         }
-        //if(settings.hdb)
+        //if(settings["hdb"])
         //{
-        //    this.devices.hdb = hdb = new IDEDevice(this, settings.hdb, false, 1);
+        //    this.devices.hdb = hdb = new IDEDevice(this, settings["hdb"], false, 1);
         //}
 
         devices.pit = new PIT(this);
-        devices.rtc = new RTC(this, devices.fdc.type, settings.boot_order || 0x213);
-
+        devices.rtc = new RTC(this, devices.fdc.type, settings["boot_order"] || 0x213);
     }
 
     if(DEBUG)
@@ -2677,3 +2674,9 @@ v86.prototype.trigger_pagefault = function(write, user, present)
 };
 
 
+if(typeof window === "object")
+{
+    window["v86"] = v86;
+    v86.prototype["run"] = v86.prototype.run;
+    v86.prototype["stop"] = v86.prototype.stop;
+}
