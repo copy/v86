@@ -396,7 +396,7 @@ v86.prototype.lazy_init = function()
     {
         this.next_tick = function()
         {
-            setTimeout(this.main_run, 0);
+            setTimeout(function() { cpu.main_run(); }, 0);
         };
     }
 
@@ -850,8 +850,6 @@ v86.prototype.get_phys_eip = function()
 
 v86.prototype.read_imm8 = function()
 {
-    dbg_assert(this.instruction_pointer !== undefined);
-
     if((this.instruction_pointer & ~0xFFF) ^ this.last_virt_eip)
     {
         this.eip_phys = this.translate_address_read(this.instruction_pointer) ^ this.instruction_pointer;
