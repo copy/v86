@@ -1924,11 +1924,35 @@ unimplemented_sse(0x2E);
 unimplemented_sse(0x2F);
 
 // wrmsr
-todo_op(0x30);
 op(0x30, {
     // wrmsr - write maschine specific register
-    dbg_log("wrmsr ecx=" + h(cpu.reg32[reg_ecx], 8) + 
-                " data=" + h(cpu.reg32[reg_edx], 8) + ":" + h(cpu.reg32[reg_eax], 8), LOG_CPU);
+    
+    if(cpu.cpl)
+    {
+        cpu.trigger_gp(0);
+    }
+
+    var index = cpu.reg32s[reg_ecx];
+    var low = cpu.reg32s[reg_eax];
+    var high = cpu.reg32s[reg_edx];
+
+    dbg_log("wrmsr ecx=" + h(index >>> 0, 8) + 
+                " data=" + h(high >>> 0, 8) + ":" + h(low >>> 0, 8), LOG_CPU);
+
+    switch(index)
+    {
+        case IA32_SYSENTER_CS:
+            cpu.sysenter_cs = low & 0xFFFF;
+            break;
+
+        case IA32_SYSENTER_EIP:
+            cpu.sysenter_eip = low;
+            break;
+
+        case IA32_SYSENTER_ESP:
+            cpu.sysenter_esp = low;
+            break;
+    }
 });
 
 op(0x31, {
@@ -1949,18 +1973,117 @@ op(0x31, {
 
 op(0x32, {
     // rdmsr - read maschine specific register
-    dbg_log("rdmsr ecx=" + h(cpu.reg32[reg_ecx], 8), LOG_CPU);
 
-    // TODO
-    cpu.reg32s[reg_eax] = 0;
-    cpu.reg32s[reg_edx] = 0;
+    if(cpu.cpl)
+    {
+        cpu.trigger_gp(0);
+    }
+
+    var index = cpu.reg32s[reg_ecx];
+
+    dbg_log("rdmsr ecx=" + h(index >>> 0, 8), LOG_CPU);
+
+    var low = 0;
+    var high = 0;
+
+    switch(index)
+    {
+        case IA32_SYSENTER_CS:
+            low = cpu.sysenter_cs;
+            break;
+
+        case IA32_SYSENTER_EIP:
+            low = cpu.sysenter_eip;
+            break;
+
+        case IA32_SYSENTER_ESP:
+            low = cpu.sysenter_esp;
+            break;
+    }
+
+    cpu.reg32s[reg_eax] = low;
+    cpu.reg32s[reg_edx] = high;
 });
+
 // rdpmc
 todo_op(0x33);
-// sysenter
-todo_op(0x34);
-// sysexit
-todo_op(0x35);
+
+op(0x34, {
+    // sysenter
+    var seg = cpu.sysenter_cs & 0xFFFC;
+
+    if(!cpu.protected_mode || seg === 0)
+    {
+        cpu.trigger_gp(0);
+    }
+
+    dbg_log("sysenter  cs:eip=" + h(seg    , 4) + ":" + h(cpu.sysenter_eip >>> 0, 8) + 
+                     " ss:esp=" + h(seg + 8, 4) + ":" + h(cpu.sysenter_esp >>> 0, 8), LOG_CPU);
+
+    cpu.flags &= ~flag_vm & ~flag_interrupt;
+
+    cpu.instruction_pointer = cpu.sysenter_eip;
+    cpu.reg32s[reg_esp] = cpu.sysenter_esp;
+
+    cpu.sreg[reg_cs] = seg;
+    cpu.segment_is_null[reg_cs] = 0;
+    cpu.segment_limits[reg_cs] = -1;
+    cpu.segment_offsets[reg_cs] = 0;
+
+    if(!cpu.is_32)
+        cpu.update_cs_size(true);
+
+    cpu.cpl = 0;
+    cpu.cpl_changed();
+
+    cpu.sreg[reg_ss] = seg + 8;
+    cpu.segment_is_null[reg_ss] = 0;
+    cpu.segment_limits[reg_ss] = -1;
+    cpu.segment_offsets[reg_ss] = 0;
+
+    cpu.stack_size_32 = true;
+    cpu.stack_reg = cpu.reg32s;
+    cpu.reg_vsp = reg_esp;
+    cpu.reg_vbp = reg_ebp;
+});
+
+op(0x35, {
+    // sysexit
+    var seg = cpu.sysenter_cs & 0xFFFC;
+
+    if(!cpu.protected_mode || cpu.cpl || seg === 0)
+    {
+        cpu.trigger_gp(0);
+    }
+
+    dbg_log("sysenter  cs:eip=" + h(seg + 16, 4) + ":" + h(cpu.reg32s[reg_edx] >>> 0, 8) + 
+                     " ss:esp=" + h(seg + 24, 4) + ":" + h(cpu.reg32s[reg_ecx] >>> 0, 8), LOG_CPU);
+
+    cpu.instruction_pointer = cpu.reg32s[reg_edx];
+    cpu.reg32s[reg_esp] = cpu.reg32s[reg_ecx];
+
+    cpu.sreg[reg_cs] = seg + 16 | 3;
+
+    cpu.segment_is_null[reg_cs] = 0;
+    cpu.segment_limits[reg_cs] = -1;
+    cpu.segment_offsets[reg_cs] = 0;
+
+    if(!cpu.is_32)
+        cpu.update_cs_size(true);
+
+    cpu.cpl = 3;
+    cpu.cpl_changed();
+
+    cpu.sreg[reg_ss] = seg + 24 | 3;
+    cpu.segment_is_null[reg_ss] = 0;
+    cpu.segment_limits[reg_ss] = -1;
+    cpu.segment_offsets[reg_ss] = 0;
+
+    cpu.stack_size_32 = true;
+    cpu.stack_reg = cpu.reg32s;
+    cpu.reg_vsp = reg_esp;
+    cpu.reg_vbp = reg_ebp;
+});
 
 undefined_instruction(0x36);
 

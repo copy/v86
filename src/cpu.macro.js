@@ -128,6 +128,15 @@ function v86()
     this.esp_phys = 0;
 
 
+    /** @type {number} */
+    this.sysenter_cs = 0;
+
+    /** @type {number} */
+    this.sysenter_esp = 0;
+
+    /** @type {number} */
+    this.sysenter_eip = 0;
+
 
     /** @type {number} */
     this.repeat_string_prefix = REPEAT_STRING_PREFIX_NONE;
@@ -495,6 +504,10 @@ v86.prototype.init = function(settings)
 
     this.running = false;
     this.stopped = false;
+
+    this.sysenter_cs = 0;
+    this.sysenter_esp = 0;
+    this.sysenter_eip = 0;
 
     this.segment_prefix = SEG_PREFIX_NONE;
     this.repeat_string_prefix = REPEAT_STRING_PREFIX_NONE;
