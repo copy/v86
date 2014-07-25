@@ -48,9 +48,12 @@ function load_file(filename, done, progress, headers)
     http.send(null);
 }
 
-// A function set on the protoype of asynchronous buffers (such as AsyncXHRBuffer)
-// Relies on this.load_block and this.block_size
-// Warning: fn may be called synchronously or asynchronously
+/** 
+ * @this {AsyncFileBuffer}
+ * A function set on the protoype of asynchronous buffers (such as AsyncXHRBuffer)
+ * Relies on this.load_block and this.block_size
+ * Warning: fn may be called synchronously or asynchronously
+ */
 function async_buffer_get(offset, len, fn)
 {
     // TODO: Unaligned read
@@ -96,7 +99,10 @@ function async_buffer_get(offset, len, fn)
     }
 }
 
-// Likewise, relies on this.byteLength, this.loaded_blocks and this.block_size
+/**
+ * @this {AsyncFileBuffer}
+ * Likewise, relies on this.byteLength, this.loaded_blocks and this.block_size
+ */
 function async_buffer_set(offset, data, fn)
 {
     console.assert(offset + data.length <= this.byteLength);

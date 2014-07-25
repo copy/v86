@@ -30,10 +30,10 @@ var
 
 
 
-///** @const */ LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_DISK & ~LOG_PIT;
-/** @const */ LOG_LEVEL = LOG_CPU | LOG_OTHER;
-///** @const */ LOG_LEVEL = LOG_CPU | LOG_OTHER | LOG_DISK | LOG_IO | LOG_CD;
-///** @const */ LOG_LEVEL = 0;
+    //LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_DISK & ~LOG_PIT;
+    LOG_LEVEL = LOG_CPU | LOG_OTHER | LOG_IO;
+    //LOG_LEVEL = LOG_CPU | LOG_OTHER | LOG_DISK | LOG_IO | LOG_CD;
+    //LOG_LEVEL = 0;
 
 
 var

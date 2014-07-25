@@ -1,12 +1,13 @@
 "use strict";
 
-var 
-    /** @define {boolean} */
-    IN_NODE = false,
-    /** @define {boolean} */
-    IN_WORKER = false,
-    /** @define {boolean} */
-    IN_BROWSER = true;
+/** @define {boolean} */
+var IN_NODE = false;
+
+/** @define {boolean} */
+var IN_WORKER = false;
+
+/** @define {boolean} */
+var IN_BROWSER = true;
 
 
 if(IN_BROWSER + IN_NODE + IN_WORKER !== 1)
