@@ -2254,8 +2254,14 @@ opm(0xB7, {
     reg_g32s = data;
 });
 
-// popcnt
-todo_op(0xB8);
+opm2(0xB8, {
+    // popcnt
+    read_e16; 
+    reg_g16 = cpu.popcnt(data);
+}, {
+    read_e32s; 
+    reg_g32s = cpu.popcnt(data);
+});
 
 // UD
 todo_op(0xB9);

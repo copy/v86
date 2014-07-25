@@ -17,6 +17,8 @@
  * bts, btr, btc, bt
  * bsf, bsr
  *
+ * popcnt
+ *
  * Gets #included by cpu.macro.js
  *
 */
@@ -1401,9 +1403,26 @@ v86.prototype.bsr32 = function(old, bit_base)
     else
     {
         this.flags &= ~flag_zero;
-
         return Math.int_log2(bit_base >>> 0);
     }
 }
 
+v86.prototype.popcnt = function(v)
+{
+    this.flags_changed = 0;
+    this.flags &= ~flag_overflow & ~flag_sign & ~flag_zero 
+                & ~flag_adjust & ~flag_parity & ~1;
 
+    if(v)
+    {
+        // http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+        v = v - ((v >> 1) & 0x55555555);
+        v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
+        return ((v + (v >> 4) & 0xF0F0F0F) * 0x1010101) >> 24;
+    }
+    else
+    {
+        this.flags |= flag_zero;
+        return 0;
+    }
+};
