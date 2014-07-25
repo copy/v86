@@ -104,7 +104,16 @@ function v86()
     /** @type {boolean} */
     this.stopped = false;
 
-    this.devices = {};
+    this.devices = {
+        vga: {
+            timer: function(now) {},
+            destroy: function() {},
+        },
+        ps2: {
+            timer: function(now) {},
+            destroy: function() {},
+        },
+    };
 
     /** @type {number} */
     this.last_virt_eip = 0;
