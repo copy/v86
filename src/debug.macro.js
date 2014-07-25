@@ -513,11 +513,14 @@
             flags += entry.user ? "U " : "  ";
             flags += entry.read_write ? "Rw " : "   ";
 
-            dbg_log("=== " + h((i << 22) >>> 0, 8) + " | " + flags);
-            
             if(entry.size)
             {
+                dbg_log("=== " + h((i << 22) >>> 0, 8) + " -> " + h(entry.address >>> 0, 8) + " | " + flags);
                 continue;
+            }
+            else
+            {
+                dbg_log("=== " + h((i << 22) >>> 0, 8) + " | " + flags);
             }
 
             for(var j = 0; j < 1024; j++)
