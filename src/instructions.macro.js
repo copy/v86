@@ -398,7 +398,10 @@ each_reg(group58);
 op2(0x60, { cpu.pusha16(); }, { cpu.pusha32(); });
 op2(0x61, { cpu.popa16(); }, { cpu.popa32(); });
 
-op(0x62, { throw unimpl("bound instruction"); });
+op(0x62, { 
+    // bound
+    dbg_log("Unimplemented BOUND instruction", LOG_CPU);
+});
 opm(0x63, { 
     // arpl
     write_ev16(cpu.arpl(data, modrm_byte >> 2 & 14));
