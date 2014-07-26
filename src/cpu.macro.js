@@ -1881,57 +1881,54 @@ v86.prototype.cpuid = function()
     // http://lxr.linux.no/linux+%2a/arch/x86/include/asm/cpufeature.h
     // http://www.sandpile.org/x86/cpuid.htm
     
-    var id = this.reg32s[reg_eax],
-        extended = this.reg32s[reg_eax] >>> 31;
+    var eax = 0,
+        ecx = 0,
+        edx = 0,
+        ebx = 0;
     
-    if((id & 0x7FFFFFFF) === 0)
+    switch(this.reg32s[reg_eax])
     {
-        this.reg32s[reg_eax] = 2;
+        case 0:
+            // maximum supported level
+            eax = 5;
 
-        if(id === 0)
-        {
-            this.reg32s[reg_ebx] = 0x756E6547|0; // Genu
-            this.reg32s[reg_edx] = 0x49656E69|0; // ineI
-            this.reg32s[reg_ecx] = 0x6C65746E|0; // ntel
-        }
+            ebx = 0x756E6547|0; // Genu
+            edx = 0x49656E69|0; // ineI
+            ecx = 0x6C65746E|0; // ntel
+            break;
+
+        case 1:
+            // pentium
+            eax = 3 | 6 << 4 | 15 << 8;
+            ebx = 0;
+            ecx = 1 << 23; // popcnt
+            edx = (this.fpu ? 1 : 0) |                // fpu
+                    1 << 1 | 1 << 3 | 1 << 4 | 1 << 5 |   // vme, pse, tsc, msr
+                    1 << 8 | 1 << 11 | 1 << 13 | 1 << 15; // cx8, sep, pge, cmov
+            break;
+
+        case 2:
+            // Taken from http://siyobik.info.gf/main/reference/instruction/CPUID
+            eax = 0x665B5001|0;
+            ebx = 0;
+            ecx = 0;
+            edx = 0x007A7000;
+            break;
+
+        case 0x80000000|0:
+            // maximum supported extended level
+            eax = 5;
+            // other registers are reserved
+            break;
+
+        default:
+            dbg_log("cpuid: unimplemented eax: " + h(this.reg32[reg_eax]), LOG_CPU);
     }
-    else if(id === 1)
-    {
-        // pentium
-        this.reg32s[reg_eax] = 3 | 6 << 4 | 15 << 8;
-        this.reg32s[reg_ebx] = 0;
-        this.reg32s[reg_ecx] = 0;
-        this.reg32s[reg_edx] = this.fpu !== undefined | 1 << 1 | 1 << 3 | 1 << 4 | 1 << 5 | 
-                            1 << 8 | 1 << 13 | 1 << 15;
-    }
-    else if(id === 2)
-    {
-        // Taken from http://siyobik.info.gf/main/reference/instruction/CPUID
-        this.reg32s[reg_eax] = 0x665B5001|0;
-        this.reg32s[reg_ebx] = 0;
-        this.reg32s[reg_ecx] = 0;
-        this.reg32s[reg_edx] = 0x007A7000;
-    }
-    else if(id === (0x80860000 | 0))
-    {
-        // Transmeta level
-        this.reg32s[reg_eax] = 0;
-        this.reg32s[reg_ebx] = 0;
-        this.reg32s[reg_ecx] = 0;
-        this.reg32s[reg_edx] = 0;
-    }
-    else if((id & (0xC0000000|0)) === 0x40000000)
-    {
-        // Not sure
-        this.reg32s[reg_eax] = 0;
-        this.reg32s[reg_ebx] = 0;
-        this.reg32s[reg_ecx] = 0;
-        this.reg32s[reg_edx] = 0;
-    }
-    else
-    {
-        if(DEBUG) throw unimpl("cpuid: unimplemented eax: " + h(id >>> 0));
-    }
+
+    this.reg32s[reg_eax] = eax;
+    this.reg32s[reg_ecx] = ecx;
+    this.reg32s[reg_edx] = edx;
+    this.reg32s[reg_ebx] = ebx;
 };
 
 v86.prototype.update_cs_size = function(new_size)
