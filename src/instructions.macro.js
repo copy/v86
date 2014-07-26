@@ -1961,10 +1961,12 @@ op(0x30, {
 op(0x31, {
     // rdtsc - read timestamp counter
 
-    if(!cpu.protected_mode || !cpu.cpl || !(cpu.cr4 & CR4_TSD))
+    if(!cpu.cpl || !(cpu.cr4 & CR4_TSD))
     {
-        cpu.reg32s[reg_eax] = cpu.timestamp_counter;
-        cpu.reg32s[reg_edx] = cpu.timestamp_counter / 0x100000000;
+        var n = cpu.microtick() - cpu.tsc_offset;
+
+        cpu.reg32s[reg_eax] = n * TSC_RATE;
+        cpu.reg32s[reg_edx] = n * (TSC_RATE / 0x100000000);
 
         //dbg_log("rtdsc  edx:eax=" + h(cpu.reg32[reg_edx], 8) + ":" + h(cpu.reg32[reg_eax], 8), LOG_CPU);
     }

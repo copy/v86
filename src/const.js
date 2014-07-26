@@ -228,3 +228,20 @@ var
 
     /** @const */
     SEG_PREFIX_ZERO = 9;
+
+
+var
+    /** @const */
+    IA32_SYSENTER_CS = 0x174,
+
+    // Note: These are wrong in Intel's manuals. Fuck Intel
+    /** @const */
+    IA32_SYSENTER_ESP = 0x175,
+
+    /** @const */
+    IA32_SYSENTER_EIP = 0x176;
+
+
+var 
+    /** @const */
+    TSC_RATE = 1024;

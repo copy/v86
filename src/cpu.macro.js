@@ -167,7 +167,7 @@ function v86()
     /** @type {number} */
     this.last_result = 0;
 
-
+    this.tsc_offset = 0;
 
 
     // cpu.reg16 or cpu.reg32s, depending on address size attribute
@@ -519,6 +519,8 @@ v86.prototype.init = function(settings)
     this.last_op1 = 0;
     this.last_op2 = 0;
     this.last_op_size = 0;
+
+    this.tsc_offset = this.microtick();
 
     if(OP_TRANSLATION)
     {
