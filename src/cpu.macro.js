@@ -15,7 +15,7 @@ function v86()
     this.segment_is_null = [];
     this.segment_offsets = [];
     this.segment_limits = [];
-    this.segment_infos = [];
+    //this.segment_infos = [];
 
     /*
      * Translation Lookaside Buffer 
@@ -448,7 +448,7 @@ v86.prototype.init = function(settings)
 
     this.segment_is_null = new Uint8Array(8);
     this.segment_limits = new Uint32Array(8);
-    this.segment_infos = new Uint32Array(8);
+    //this.segment_infos = new Uint32Array(8);
     this.segment_offsets = new Int32Array(8);
 
     // 16 MB in total
@@ -529,7 +529,7 @@ v86.prototype.init = function(settings)
     }
 
     var io = new IO(this.memory);
-    this.io = this.devices.io = io;
+    this.io = io;
 
     var bios = settings["bios"],
         vga_bios = settings["vga_bios"];
@@ -647,17 +647,15 @@ v86.prototype.init = function(settings)
     // TODO: Make this more configurable
     if(settings["load_devices"])
     {
-        var devices = this.devices;
+        this.devices.pic = new PIC(this);
 
-        devices.pic = new PIC(this);
+        this.devices.pci = new PCI(this);
+        this.devices.dma = new DMA(this);
 
-        devices.pci = new PCI(this);
-        devices.dma = new DMA(this);
-
-        devices.acpi = new ACPI(this);
+        this.devices.acpi = new ACPI(this);
         if(ENABLE_HPET)
         {
-            devices.hpet = new HPET(this);
+            this.devices.hpet = new HPET(this);
         }
 
         this.devices.vga = new VGAScreen(this, 
@@ -668,11 +666,11 @@ v86.prototype.init = function(settings)
 
         if(settings["serial_adapter"])
         {
-            devices.uart = new UART(this, 0x3F8, settings["serial_adapter"]);
+            this.devices.uart = new UART(this, 0x3F8, settings["serial_adapter"]);
         }
         else
         {
-            devices.uart = new UART(this, 0x3F8, { 
+            this.devices.uart = new UART(this, 0x3F8, { 
                 //put_line: envapi.log,
                 put_line: function() { },
                 init: function(fn) {  },
@@ -699,8 +697,8 @@ v86.prototype.init = function(settings)
         //    this.devices.hdb = hdb = new IDEDevice(this, settings["hdb"], false, 1);
         //}
 
-        devices.pit = new PIT(this);
-        devices.rtc = new RTC(this, devices.fdc.type, settings["boot_order"] || 0x213);
+        this.devices.pit = new PIT(this);
+        this.devices.rtc = new RTC(this, this.devices.fdc.type, settings["boot_order"] || 0x213);
     }
 
     if(DEBUG)
@@ -896,8 +894,6 @@ v86.prototype.read_imm8s = function()
 
 v86.prototype.read_imm16 = function()
 {
-    dbg_assert(this.instruction_pointer !== undefined);
-
     // Two checks in one comparison:
     //    1. Did the high 20 bits of eip change
     // or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)
@@ -919,8 +915,6 @@ v86.prototype.read_imm16s = function()
 
 v86.prototype.read_imm32s = function()
 {
-    dbg_assert(this.instruction_pointer !== undefined);
-
     // Analogue to the above comment
     if(((this.instruction_pointer ^ this.last_virt_eip) >>> 0) > 0xFFC)
     {
@@ -1416,7 +1410,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         }
         else
         {
-            dbg_assert(false);
+            throw unimpl("#GP handler");
         }
 
         this.push32(old_flags);
@@ -1450,7 +1444,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             this.update_cs_size(info.size);
         }
 
-        this.segment_limits[reg_cs] = info.real_limit;
+        this.segment_limits[reg_cs] = info.effective_limit;
         this.segment_offsets[reg_cs] = info.base;
 
         //dbg_log("current esp: " + h(this.reg32s[reg_esp]), LOG_CPU);
@@ -1665,7 +1659,7 @@ v86.prototype.iret32 = function()
         this.update_cs_size(info.size);
     }
 
-    this.segment_limits[reg_cs] = info.real_limit;
+    this.segment_limits[reg_cs] = info.effective_limit;
     this.segment_offsets[reg_cs] = info.base;
 
     this.instruction_pointer = this.instruction_pointer + this.get_seg(reg_cs) | 0;
@@ -2000,7 +1994,6 @@ v86.prototype.lookup_segment_selector = function(selector)
         base: 0,
         access: 0,
         flags: 0,
-        limit: 0,
         type: 0,
         dpl: 0,
         is_system: false,
@@ -2009,8 +2002,10 @@ v86.prototype.lookup_segment_selector = function(selector)
         rw_bit: false,
         dc_bit: false,
         size: false,
-        granularity: false,
-        real_limit: false,
+
+        // limit after applying granularity
+        effective_limit: 0,
+
         is_writable: false,
         is_readable: false,
         table_offset: 0,
@@ -2034,8 +2029,10 @@ v86.prototype.lookup_segment_selector = function(selector)
     }
 
     // limit is the number of entries in the table minus one
-    if((selector_offset >> 3) > table_limit)
+    if((selector | 7) > table_limit)
     {
+        dbg_log("Selector " + h(selector, 4) + " is outside of the " 
+                    + (is_gdt ? "g" : "l") + "dt limits", LOG_CPU)
         info.is_valid = false;
         return info;
     }
@@ -2052,7 +2049,6 @@ v86.prototype.lookup_segment_selector = function(selector)
             this.memory.read8(table_offset + 7) << 24,
     info.access = this.memory.read8(table_offset + 5),
     info.flags = this.memory.read8(table_offset + 6) >> 4,
-    info.limit = this.memory.read16(table_offset) | (this.memory.read8(table_offset + 6) & 0xF) << 16,
 
     // used if system
     info.type = info.access & 0xF;
@@ -2067,16 +2063,18 @@ v86.prototype.lookup_segment_selector = function(selector)
     info.dc_bit = (info.access & 4) === 4;
 
     info.size = (info.flags & 4) === 4;
-    info.granularity = (info.flags & 8) === 8;
 
+    var limit = this.memory.read16(table_offset) | 
+                (this.memory.read8(table_offset + 6) & 0xF) << 16;
 
-    if(info.gr_bit)
+    if(info.flags & 8)
     {
-        info.real_limit = (info.limit << 12 | 0xFFF) >>> 0;
+        // granularity set
+        info.effective_limit = (limit << 12 | 0xFFF) >>> 0;
     }
     else
     {
-        info.real_limit = info.limit;
+        info.effective_limit = limit;
     }
 
     info.is_writable = info.rw_bit && !info.is_executable;
@@ -2229,8 +2227,8 @@ v86.prototype.switch_seg = function(reg, selector)
     //dbg_log("seg " + reg + " " + h(info.base));
 
     this.segment_is_null[reg] = 0;
-    this.segment_limits[reg] = info.real_limit;
-    this.segment_infos[reg] = 0; // TODO
+    this.segment_limits[reg] = info.effective_limit;
+    //this.segment_infos[reg] = 0; // TODO
     
     this.segment_offsets[reg] = info.base;
 
@@ -2276,13 +2274,13 @@ v86.prototype.load_tr = function(selector)
 
 
     this.segment_offsets[reg_tr] = info.base;
-    this.segment_limits[reg_tr] = info.limit;
+    this.segment_limits[reg_tr] = info.effective_limit;
     this.sreg[reg_tr] = selector;
 
     // mark task as busy
     this.memory.write8(info.table_offset + 5, this.memory.read8(info.table_offset + 5) | 2);
 
-    //dbg_log("tsr at " + h(info.base) + "; (" + info.limit + " bytes)");
+    //dbg_log("tsr at " + h(info.base) + "; (" + info.effective_limit + " bytes)");
 };
 
 v86.prototype.load_ldt = function(selector)
@@ -2321,10 +2319,10 @@ v86.prototype.load_ldt = function(selector)
     }
 
     this.segment_offsets[reg_ldtr] = info.base;
-    this.segment_limits[reg_ldtr] = info.limit;
+    this.segment_limits[reg_ldtr] = info.effective_limit;
     this.sreg[reg_ldtr] = selector;
 
-    //dbg_log("ldt at " + h(info.base) + "; (" + info.limit + " bytes)");
+    //dbg_log("ldt at " + h(info.base) + "; (" + info.effective_limit + " bytes)");
 };
 
 v86.prototype.arpl = function(seg, r16)

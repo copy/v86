@@ -654,6 +654,7 @@ opm(0x8E, {
     {
         // TODO
         // run next instruction, so no irqs are handled
+        // Can't use cpu.cycle, because prefixes are still active
     }
 });
 
@@ -1375,7 +1376,8 @@ op(0xFB, {
     {
         cpu.flags |= flag_interrupt;
 
-        cpu.table[cpu.read_imm8()](cpu);
+        //cpu.table[cpu.read_imm8()](cpu);
+        cpu.cycle();
 
         cpu.handle_irqs();
     }
