@@ -1229,14 +1229,6 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
     //this.in_hlt && dbg_log("Leave HLT loop", LOG_CPU);
     this.in_hlt = false;
 
-    // This function could be called from 1) an INT instruction
-    // 2) an instruction that caused an exception 3) an external interrupt
-    // To handle case 3), previous_ip has to be set correctly
-    if(!is_software_int)
-    {
-        this.previous_ip = this.instruction_pointer;
-    }
-
     if(this.protected_mode)
     {
         if(vm86_mode() && (this.cr4 & CR4_VME))

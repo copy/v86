@@ -85,6 +85,10 @@ function PIC(cpu, master)
 
             //dbg_log("master handling irq " + irq_number, LOG_PIC);
             //dbg_trace(LOG_PIC);
+
+            // call_interrupt_vector can cause an exception in the CPU, so we
+            // have to set previous_ip correctly here
+            cpu.previous_ip = cpu.instruction_pointer;
             cpu.call_interrupt_vector(irq_map | irq_number, false, false);
 
             return true;
@@ -117,6 +121,7 @@ function PIC(cpu, master)
             isr |= irq;
 
             //dbg_log("slave handling irq " + irq_number, LOG_PIC);
+            cpu.previous_ip = cpu.instruction_pointer;
             cpu.call_interrupt_vector(irq_map | irq_number, false, false);
 
             if(irr)
