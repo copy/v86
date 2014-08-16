@@ -931,6 +931,7 @@ function VGAScreen(cpu, adapter, vga_memory_size)
     {
         // status register
         port_3DA_value ^= 8;
+        attribute_controller_index = -1
         return port_3DA_value;
     }
     io.register_read(0x3DA, port3DA_read);
