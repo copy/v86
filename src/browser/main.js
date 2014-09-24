@@ -2,6 +2,8 @@
 
 (function()
 {
+    var waiting_for_bios = false;
+
     function log(data)
     {
         var log_element = document.getElementById("log");
@@ -191,12 +193,16 @@
         load_file("bios/" + biosfile, function(img)
         {
             settings.bios = img;
+
+            if(waiting_for_bios) init();
         });
 
         //load_file("bios/vgabios.bin", function(img)
         load_file("bios/bochs-vgabios-0.7a.bin", function(img)
         {
             settings.vga_bios = img;
+
+            if(waiting_for_bios) init();
         });
 
         var oses = [
@@ -402,7 +408,7 @@
     {
         if(!settings.bios || !settings.vga_bios)
         {
-            log("The BIOS has not been loaded - reload the page to try again.");
+            waiting_for_bios = true;
             return;
         }
 
