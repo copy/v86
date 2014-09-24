@@ -336,7 +336,7 @@
             //settings.hda = new AsyncXHRBuffer("images/arch.img", 512, 8589934592);
             settings.cdrom = new AsyncXHRBuffer("https://dl.dropboxusercontent.com/u/61029208/linux.iso", 2048, 6547456);
             init(settings);
-        }
+        };
 
         var log_levels = document.getElementById("log_levels"),
             count = 0,
@@ -440,6 +440,11 @@
 
             running = !running;
             $("run").blur();
+        };
+
+        $("exit").onclick = function()
+        {
+            location.href = location.pathname;
         };
 
         var time = $("running_time"),
