@@ -201,49 +201,49 @@
 
         var oses = [
             {
-                id: "start_freedos",
+                id: "freedos",
                 image: "freedos722.img",
                 size: 737280,
                 disk_type: "fda",
                 name: "FreeDOS",
             },
             {
-                id: "start_win101",
+                id: "windows1",
                 image: "windows101.img",
                 size: 1474560,
                 disk_type: "fda",
                 name: "Windows",
             },
             {
-                id: "start_linux",
+                id: "linux26",
                 image: "linux.iso",
                 size: 5666816,
                 disk_type: "cdrom",
                 name: "Linux",
             },
             {
-                id: "start_nanolinux",
+                id: "nanolinux",
                 image: "nanolinux-1.2.iso",
                 size: 14047232,
                 disk_type: "cdrom",
                 name: "Nanolinux",
             },
             {
-                id: "start_koli",
+                id: "kolibrios",
                 image: "kolibri.img",
                 size: 1474560,
                 disk_type: "fda",
                 name: "KolibriOS",
             },
             {
-                id: "start_bsd",
+                id: "openbsd",
                 image: "openbsd.img",
                 size: 1474560,
                 disk_type: "fda",
                 name: "OpenBSD",
             },
             {
-                id: "start_sol",
+                id: "solos",
                 image: "os8.dsk",
                 size: 1474560,
                 disk_type: "fda",
@@ -254,15 +254,21 @@
         for(var i = 0; i < oses.length; i++)
         {
             var infos = oses[i];
+            var dom_id = "start_" + infos.id;
 
-            $(infos.id).onclick = function(infos)
+            $(dom_id).onclick = function(infos)
             {
                 var message = { msg: "Downloading image", total: infos.size };
 
                 load_file("images/" + infos.image, loaded, show_progress.bind(this, message));
 
+                if(history.pushState)
+                {
+                    history.pushState(null, "", "?profile=" + infos.id);
+                }
+
                 set_title(infos.name);
-                $(infos.id).blur();
+                $(dom_id).blur();
                 $("boot_options").style.display = "none";
 
                 function loaded(buffer)
