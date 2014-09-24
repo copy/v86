@@ -28,6 +28,21 @@
         $("runtime_infos").appendChild(a);
     }
 
+    function get_query_arguments()
+    {
+        var query = location.search.substr(1).split("&"),
+            param,
+            parameters = {};
+
+        for(var i = 0; i < query.length; i++)
+        {
+            param = query[i].split("=");
+            parameters[param[0]] = param[1];
+        }
+
+        return parameters;
+    }
+
     function set_title(text)
     {
         document.title = text + " - Virtual x86" +  (DEBUG ? " - debug" : "");
@@ -205,6 +220,58 @@
             if(waiting_for_bios) init();
         });
 
+        $("start_emulation").onclick = function()
+        {
+            $("boot_options").style.display = "none";
+
+            var images = [];
+
+            if($("floppy_image").files.length)
+            {
+                images.push({
+                    file: $("floppy_image").files[0],
+                    type: "floppy",
+                });
+            }
+
+            if($("cd_image").files.length)
+            {
+                images.push({
+                    file: $("cd_image").files[0],
+                    type: "cdrom",
+                });
+            }
+
+            if($("hd_image").files.length)
+            {
+                images.push({
+                    file: $("hd_image").files[0],
+                    type: "hd",
+                });
+            }
+
+            function cont()
+            {
+                if(images.length === 0)
+                {
+                    init(settings);
+                }
+                else
+                {
+                    var obj = images.pop();
+
+                    load_local(obj.file, obj.type, cont);
+                }
+            }
+
+            cont();
+        };
+
+        if(DEBUG)
+        {
+            debug_onload(settings);
+        }
+
         var oses = [
             {
                 id: "freedos",
@@ -257,6 +324,8 @@
             },
         ];
 
+        var profile = get_query_arguments().profile;
+
         for(var i = 0; i < oses.length; i++)
         {
             var infos = oses[i];
@@ -268,9 +337,9 @@
 
                 load_file("images/" + infos.image, loaded, show_progress.bind(this, message));
 
-                if(history.pushState)
+                if(window.history.pushState)
                 {
-                    history.pushState(null, "", "?profile=" + infos.id);
+                    window.history.pushState(null, "", "?profile=" + infos.id);
                 }
 
                 set_title(infos.name);
@@ -283,63 +352,42 @@
                     init(settings);
                 }
             }.bind(this, infos);
-        }
 
-        $("start_emulation").onclick = function()
-        {
-            $("boot_options").style.display = "none";
-
-            var images = [];
-
-            if($("floppy_image").files.length)
+            if(profile === infos.id)
             {
-                images.push({
-                    file: $("floppy_image").files[0],
-                    type: "floppy",
-                });
+                $(dom_id).onclick();
+                return;
             }
-
-            if($("cd_image").files.length)
-            {
-                images.push({
-                    file: $("cd_image").files[0],
-                    type: "cdrom",
-                });
-            }
-
-            if($("hd_image").files.length)
-            {
-                images.push({
-                    file: $("hd_image").files[0],
-                    type: "hd",
-                });
-            }
-
-            function cont()
-            {
-                if(images.length === 0)
-                {
-                    init(settings);
-                }
-                else
-                {
-                    var obj = images.pop();
-
-                    load_local(obj.file, obj.type, cont);
-                }
-            }
-
-            cont();
-        };
-
-        if(DEBUG)
-        {
-            debug_onload(settings);
         }
     }
 
     function debug_onload(settings)
     {
+        // called on window.onload, in debug mode
+
+        $("restore_state").onchange = function()
+        {
+            var file = $("restore_state").files[0];
+
+            if(!file)
+            {
+                return;
+            }
+
+            var cpu = new v86();
+            var fr = new FileReader();
+
+            fr.onload = function(e)
+            {
+                var buffer = e.target.result;
+                init_ui({}, cpu);
+                cpu.restore_state(buffer);
+                cpu.run();
+            }
+
+            fr.readAsArrayBuffer(file);
+        };
+
         $("start_test").onclick = function()
         {
             //settings.cdrom = new AsyncXHRBuffer("images/linux.iso", 2048, 5632000);
@@ -412,11 +460,53 @@
             return;
         }
 
-        var have_serial = true;
+        var cpu = new v86();
 
-        var cpu = new v86(),
-            screen_adapter = new ScreenAdapter($("screen_container"));
+        if(DEBUG)
+        {
+            debug_start(cpu);
+        }
 
+        // avoid warnings
+        settings.fdb = undefined;
+
+        settings.screen_adapter = new ScreenAdapter($("screen_container"));;
+        settings.keyboard_adapter = new KeyboardAdapter();
+        settings.mouse_adapter = new MouseAdapter();
+
+        settings.boot_order = parseInt($("boot_order").value, 16);
+        settings.serial_adapter = new SerialAdapter($("serial"));
+
+        var memory_size = parseInt($("memory_size").value, 10) * 1024 * 1024;
+        if(memory_size >= 16 * 1024 * 1024 && memory_size < 2048 * 1024 * 1024)
+        {
+            settings.memory_size = memory_size;
+        }
+        else
+        {
+            log("Invalid memory size - ignored.");
+            settings.memory_size = 32 * 1024 * 1024;
+        }
+
+        var video_memory_size = parseInt($("video_memory_size").value, 10) * 1024 * 1024;
+        if(video_memory_size > 64 * 1024 && video_memory_size < 2048 * 1024 * 1024)
+        {
+            settings.vga_memory_size = video_memory_size;
+        }
+        else
+        {
+            log("Invalid video memory size - ignored.");
+            settings.vga_memory_size = 8 * 1024 * 1024;
+        }
+
+        init_ui(settings, cpu);
+
+        cpu.init(settings);
+        cpu.run();
+    }
+
+    function init_ui(settings, cpu)
+    {
         $("boot_options").style.display = "none";
         $("loading").style.display = "none";
         $("runtime_options").style.display = "block";
@@ -426,11 +516,6 @@
         if($("news")) 
         {
             $("news").style.display = "none";
-        }
-
-        if(DEBUG)
-        {
-            debug_start(cpu);
         }
 
         var running = true;
@@ -603,7 +688,7 @@
 
             if(n || n > 0)
             {
-                screen_adapter.set_scale(n, n);
+                settings.screen_adapter.set_scale(n, n);
             }
         };
 
@@ -640,54 +725,20 @@
 
         $("take_screenshot").onclick = function()
         {
-            screen_adapter.make_screenshot();
+            settings.screen_adapter.make_screenshot();
 
             $("take_screenshot").blur();
         };
-
-        // avoid warnings
-        settings.fdb = undefined;
-
-        settings.screen_adapter = screen_adapter;
-        settings.keyboard_adapter = new KeyboardAdapter();
-        settings.mouse_adapter = new MouseAdapter();
-
-        settings.boot_order = parseInt($("boot_order").value, 16);
-
-        var memory_size = parseInt($("memory_size").value, 10) * 1024 * 1024;
-        if(memory_size >= 16 * 1024 * 1024 && memory_size < 2048 * 1024 * 1024)
+        if(settings.serial_adapter)
         {
-            settings.memory_size = memory_size;
-        }
-        else
-        {
-            log("Invalid memory size - ignored.");
-            settings.memory_size = 32 * 1024 * 1024;
-        }
 
-        var video_memory_size = parseInt($("video_memory_size").value, 10) * 1024 * 1024;
-        if(video_memory_size > 64 * 1024 && video_memory_size < 2048 * 1024 * 1024)
-        {
-            settings.vga_memory_size = video_memory_size;
-        }
-        else
-        {
-            log("Invalid video memory size - ignored.");
-            settings.vga_memory_size = 8 * 1024 * 1024;
-        }
-
-        if(have_serial)
-        {
-            settings.serial_adapter = new SerialAdapter($("serial"));
             $("serial").style.display = "block";
         }
-
-        cpu.init(settings);
-        cpu.run();
     }
 
     function debug_start(cpu)
     {
+        // called as soon as soon as emulation is started, in debug mode
         var debug = cpu.debug;
 
         $("step").onclick = debug.step.bind(debug);
@@ -702,6 +753,11 @@
         $("memory_dump").onclick = function()
         {
             dump_file(debug.get_memory_dump(), "memory.bin");
+        };
+
+        $("save_state").onclick = function()
+        {
+            dump_file(cpu.save_state(), "v86-state.bin");
         };
     }
 
