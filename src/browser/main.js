@@ -22,7 +22,17 @@
         a.href = window.URL.createObjectURL(blob),
         a.dataset["downloadurl"] = ["application/octet-stream", a["download"], a.href].join(":");
 
-        a.click();
+        
+        if(document.createEvent)
+        {
+            var ev = document.createEvent("MouseEvent");
+            ev.initMouseEvent("click", true, true, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+            a.dispatchEvent(ev);
+        }
+        else
+        {
+            a.click();
+        }
     }
 
     function get_query_arguments()
