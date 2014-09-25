@@ -37,7 +37,8 @@ CLOSURE_FLAGS=\
 
 
 CORE_FILES=const.js io.js cpu.js main.js fpu.js ide.js pci.js floppy.js memory.js\
-		   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js
+		   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js\
+		   cpu_state.js
 BROWSER_FILES=browser/main.js browser/screen.js\
 			  browser/keyboard.js browser/mouse.js browser/serial.js browser/lib.js
 NODE_FILES=node/main.js node/keyboard_sdl.js\
@@ -105,4 +106,4 @@ clean:
 run:
 	python2 -m SimpleHTTPServer 2> /dev/null &
 	sleep 1
-	$(BROWSER) http://localhost:8000/ &
+	$(BROWSER) http://localhost:8000/index.html &
