@@ -20,12 +20,9 @@
         var a = document.createElement("a");
         a["download"] = name;
         a.href = window.URL.createObjectURL(blob),
-        a.textContent = "Download " + name;
-        a.onclick = function() { a.parentNode.removeChild(a); };
-
         a.dataset["downloadurl"] = ["application/octet-stream", a["download"], a.href].join(":");
 
-        $("runtime_infos").appendChild(a);
+        a.click();
     }
 
     function get_query_arguments()
@@ -740,9 +737,9 @@
 
             $("take_screenshot").blur();
         };
+
         if(settings.serial_adapter)
         {
-
             $("serial").style.display = "block";
         }
     }
@@ -763,7 +760,7 @@
 
         $("memory_dump").onclick = function()
         {
-            dump_file(debug.get_memory_dump(), "memory.bin");
+            dump_file(debug.get_memory_dump(), "v86-memory.bin");
         };
 
         $("save_state").onclick = function()
