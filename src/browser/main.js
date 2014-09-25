@@ -2,7 +2,7 @@
 
 (function()
 {
-    var waiting_for_bios = false;
+    var on_bios_load;
 
     function log(data)
     {
@@ -206,7 +206,7 @@
         {
             settings.bios = img;
 
-            if(waiting_for_bios) init();
+            if(on_bios_load) on_bios_load();
         });
 
         //load_file("bios/vgabios.bin", function(img)
@@ -214,7 +214,7 @@
         {
             settings.vga_bios = img;
 
-            if(waiting_for_bios) init();
+            if(on_bios_load) on_bios_load();
         });
 
         $("start_emulation").onclick = function()
@@ -464,7 +464,7 @@
     {
         if(!settings.bios || !settings.vga_bios)
         {
-            waiting_for_bios = true;
+            on_bios_load = init.bind(this, settings);
             return;
         }
 
