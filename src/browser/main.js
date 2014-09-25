@@ -337,9 +337,19 @@
 
                 load_file("images/" + infos.image, loaded, show_progress.bind(this, message));
 
-                if(window.history.pushState)
+                if(window.history.pushState && window.history.replaceState)
                 {
-                    window.history.pushState(null, "", "?profile=" + infos.id);
+                    var method;
+                    if(profile === infos.id)
+                    {
+                        method = window.history.replaceState;
+                    }
+                    else
+                    {
+                        method = window.history.pushState;
+                    }
+
+                    method.call(window.history, { profile: infos.id }, "", "?profile=" + infos.id);
                 }
 
                 set_title(infos.name);
@@ -445,6 +455,7 @@
     }
 
     window.addEventListener("load", onload, false);
+    window.addEventListener("popstate", onpopstate, false);
 
     // works in firefox and chromium
     if(document.readyState === "complete")
@@ -761,4 +772,8 @@
         };
     }
 
+    function onpopstate(e)
+    {
+        location.reload();
+    }
 })();
