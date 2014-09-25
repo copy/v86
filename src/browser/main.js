@@ -574,6 +574,7 @@
         {
             if(!running)
             {
+                setTimeout(update_info, 1000);
                 return;
             }
 
@@ -589,12 +590,15 @@
             time.textContent = time2str(running_time / 1000 | 0);
 
             last_instr_counter = cpu.timestamp_counter;
+
+            setTimeout(update_info, 1000);
         }
 
         function update_other_info()
         {
             if(!running)
             {
+                setTimeout(update_other_info, 1000);
                 return;
             }
 
@@ -644,11 +648,12 @@
             {
                 $("info_cdrom").style.display = "none";
             }
+
+            setTimeout(update_other_info, 1000);
         }
 
-        setInterval(update_info, 1000);
-        setInterval(update_other_info, 2500);
-        setTimeout(update_other_info, 100);
+        setTimeout(update_info, 1000);
+        setTimeout(update_other_info, 1000);
 
         $("reset").onclick = function()
         {
