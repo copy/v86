@@ -45,20 +45,21 @@
             // write seabios debug output to console
             var seabios_debug = "";
 
-            cpu.io.register_write(0x402, function(out_byte)
-            {
-                // seabios debug
+            cpu.io.register_write(0x402, handle); // seabios
+            cpu.io.register_write(0x500, handle); // vgabios
+        }
 
-                if(out_byte === 10)
-                {
-                    dbg_log(seabios_debug, LOG_BIOS);
-                    seabios_debug = "";
-                }
-                else
-                {
-                    seabios_debug += String.fromCharCode(out_byte);
-                }
-            });
+        function handle(out_byte)
+        {
+            if(out_byte === 10)
+            {
+                dbg_log(seabios_debug, LOG_BIOS);
+                seabios_debug = "";
+            }
+            else
+            {
+                seabios_debug += String.fromCharCode(out_byte);
+            }
         }
     };
 
