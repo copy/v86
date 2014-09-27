@@ -47,25 +47,25 @@ function VGAScreen(cpu, adapter, vga_memory_size)
      * Number of columns in text mode
      * @type {number} 
      */
-    this.max_cols;
+    this.max_cols = 0;
 
     /** 
      * Number of rows in text mode
      * @type {number} 
      */
-    this.max_rows;
+    this.max_rows = 0;
 
     /**
      * Width in pixels in graphical mode
      * @type {number}
      */
-    this.screen_width;
+    this.screen_width = 0;
 
     /**
      * Height in pixels in graphical mode
      * @type {number}
      */
-    this.screen_height;
+    this.screen_height = 0;
 
     /**
      * video memory start address
