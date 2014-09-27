@@ -5,605 +5,602 @@
  */
 function PS2(cpu, keyboard, mouse)
 {
-    var 
-        io = cpu.io,
-        pic = cpu.devices.pic,
+    this.pic = cpu.devices.pic;
+    this.cpu = cpu;
 
-        me = this,
+    /** @type {boolean} */
+    this.enable_mouse_stream = false;
+    /** @type {boolean} */
+    this.enable_mouse = false;
 
-        /** @type {boolean} */
-        enable_mouse_stream = false,
-        /** @type {boolean} */
-        enable_mouse = false,
+    /** @type {boolean} */
+    this.have_mouse = false;
 
-        /** @type {boolean} */
-        have_mouse = false,
+    /** @type {number} */
+    this.mouse_delta_x = 0;
+    /** @type {number} */
+    this.mouse_delta_y = 0;
+    /** @type {number} */
+    this.mouse_clicks = 0;
 
-        /** @type {number} */
-        mouse_delta_x = 0,
-        /** @type {number} */
-        mouse_delta_y = 0,
-        /** @type {number} */
-        mouse_clicks = 0,
+    /** @type {boolean} */
+    this.have_keyboard = false;
 
-        /** @type {boolean} */
-        have_keyboard = false,
+    /** @type {boolean} */
+    this.enable_keyboard_stream = false;
 
-        /** @type {boolean} */
-        enable_keyboard_stream = false,
+    /** @type {boolean} */
+    this.next_is_mouse_command = false;
 
-        /** @type {boolean} */
-        next_is_mouse_command = false,
+    /** @type {boolean} */
+    this.next_read_sample = false;
 
-        /** @type {boolean} */
-        next_read_sample = false,
+    /** @type {boolean} */
+    this.next_read_led = false;
 
-        /** @type {boolean} */
-        next_read_led = false,
+    /** @type {boolean} */
+    this.next_handle_scan_code_set = false;
 
-        /** @type {boolean} */
-        next_handle_scan_code_set = false,
+    /** @type {boolean} */
+    this.next_read_rate = false;
 
-        /** @type {boolean} */
-        next_read_rate = false,
+    /** @type {boolean} */
+    this.next_read_resolution = false;
 
-        /** @type {boolean} */
-        next_read_resolution = false,
+    /** 
+     * @type {ByteQueue} 
+     */
+    this.kbd_buffer = new ByteQueue(32);
 
-        /** 
-         * @type {ByteQueue} 
-         */
-        kbd_buffer = new ByteQueue(32),
+    this.last_port60_byte = 0;
 
-        last_port60_byte = 0,
+    /** @type {number} */
+    this.sample_rate = 100;
 
-        /** @type {number} */
-        sample_rate = 100,
+    /** @type {number} */
+    this.resolution = 4;
 
-        /** @type {number} */
-        resolution = 4,
+    /** @type {boolean} */
+    this.scaling2 = false;
 
-        /** @type {boolean} */
-        scaling2 = false,
+    /** @type {number} */
+    this.last_mouse_packet = -1;
 
-        /** @type {number} */
-        last_mouse_packet = -1,
+    /** 
+     * @type {ByteQueue} 
+     */
+    this.mouse_buffer = new ByteQueue(32);
 
-        /** 
-         * @type {ByteQueue} 
-         */
-        mouse_buffer = new ByteQueue(32);
+    this.keyboard = keyboard;
+    this.mouse = mouse;
 
-
-    if(keyboard)
+    if(this.keyboard)
     {
-        have_keyboard = true;
-        keyboard.init(kbd_send_code);
+        this.have_keyboard = true;
+        this.keyboard.init(this.kbd_send_code.bind(this));
     }
 
-    if(mouse)
+    if(this.mouse)
     {
-        have_mouse = true;
-        mouse.init(mouse_send_click, mouse_send_delta);
+        this.have_mouse = true;
+        this.mouse.init(this.mouse_send_click.bind(this), this.mouse_send_delta.bind(this));
 
         // TODO: Mouse Wheel
         // http://www.computer-engineering.org/ps2mouse/
     }
 
-    function mouse_irq()
+    this.command_register = 1 | 4;
+    this.read_output_register = false;
+    this.read_command_register = false;
+
+    cpu.io.register_read(0x60, this.port60_read, this);
+    cpu.io.register_read(0x64, this.port64_read, this);
+
+    cpu.io.register_write(0x60, this.port60_write, this);
+    cpu.io.register_write(0x64, this.port64_write, this);
+}
+
+
+PS2.prototype.mouse_irq = function()
+{
+    if(this.command_register & 2)
     {
-        if(command_register & 2)
-        {
-            pic.push_irq(12);
-        }
+        this.pic.push_irq(12);
+    }
+}
+
+PS2.prototype.kbd_irq = function()
+{
+    if(this.command_register & 1)
+    {
+        this.pic.push_irq(1);
+    }
+}
+
+PS2.prototype.kbd_send_code = function(code)
+{
+    if(this.cpu.running && this.enable_keyboard_stream)
+    {
+        this.kbd_buffer.push(code);
+        this.kbd_irq();
+    }
+}
+
+PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
+{
+    if(!this.cpu.running || !this.have_mouse || !this.enable_mouse)
+    {
+        return;
     }
 
-    function kbd_irq()
+    // note: delta_x or delta_y can be floating point numbers
+
+    this.mouse_delta_x += delta_x * this.resolution;
+    this.mouse_delta_y += delta_y * this.resolution;
+
+    if(this.enable_mouse_stream)
     {
-        if(command_register & 1)
+        var change_x = this.mouse_delta_x | 0,
+            change_y = this.mouse_delta_y | 0;
+
+        if(change_x || change_y)
         {
-            pic.push_irq(1);
-        }
-    }
+            var now = Date.now();
 
-    function kbd_send_code(code)
-    {
-        if(cpu.running && enable_keyboard_stream)
-        {
-            kbd_buffer.push(code);
-            kbd_irq();
-        }
-    }
-    this.kbd_send_code = kbd_send_code;
-
-    function mouse_send_delta(delta_x, delta_y)
-    {
-        if(!cpu.running || !have_mouse || !enable_mouse)
-        {
-            return;
-        }
-
-        // note: delta_x or delta_y can be floating point numbers
-
-        mouse_delta_x += delta_x * resolution;
-        mouse_delta_y += delta_y * resolution;
-
-        if(enable_mouse_stream)
-        {
-            var change_x = mouse_delta_x | 0,
-                change_y = mouse_delta_y | 0;
-
-            if(change_x || change_y)
+            if(now - this.last_mouse_packet < 1000 / this.sample_rate)
             {
-                var now = Date.now();
-
-                if(now - last_mouse_packet < 1000 / sample_rate)
-                {
-                    // TODO: set timeout
-                    return;
-                }
-
-                mouse_delta_x -= change_x;
-                mouse_delta_y -= change_y;
-
-                send_mouse_packet(change_x, change_y);
-            }
-        }
-    }
-
-    function mouse_send_click(left, middle, right)
-    {
-        if(!have_mouse || !enable_mouse)
-        {
-            return;
-        }
-
-        mouse_clicks = left | right << 1 | middle << 2;
-
-        if(enable_mouse_stream)
-        {
-            send_mouse_packet(0, 0);
-        }
-    }
-
-    function send_mouse_packet(dx, dy)
-    {
-        var info_byte = 
-                (dy < 0) << 5 |
-                (dx < 0) << 4 |
-                1 << 3 | 
-                mouse_clicks,
-            delta_x = dx,
-            delta_y = dy;
-
-        last_mouse_packet = Date.now();
-
-        if(scaling2)
-        {
-            // only in automatic packets, not 0xEB requests
-            delta_x = apply_scaling2(delta_x);
-            delta_y = apply_scaling2(delta_y);
-        }
-
-        mouse_buffer.push(info_byte);
-        mouse_buffer.push(delta_x);
-        mouse_buffer.push(delta_y);
-
-        dbg_log("adding mouse packets:" + [info_byte, dx, dy], LOG_PS2);
-
-        mouse_irq();
-    }
-
-    function apply_scaling2(n)
-    {
-        // http://www.computer-engineering.org/ps2mouse/#Inputs.2C_Resolution.2C_and_Scaling
-        var abs = Math.abs(n),
-            sign = n >> 31;
-
-        switch(abs)
-        {
-            case 0:
-            case 1:
-            case 3:
-                return n;
-            case 2:
-                return sign;
-            case 4: 
-                return 6 * sign;
-            case 5:
-                return 9 * sign;
-            default:
-                return n << 1;
-        }
-    }
-
-    this.destroy = function()
-    {
-        if(have_keyboard)
-        {
-            keyboard.destroy();
-        }
-
-        if(have_mouse)
-        {
-            mouse.destroy();
-        }
-    };
-        
-
-    var command_register = 1 | 4,
-        read_output_register = false,
-        read_command_register = false;
-
-
-    io.register_read(0x60, port60_read);
-    io.register_read(0x64, port64_read);
-
-    io.register_write(0x60, port60_write);
-    io.register_write(0x64, port64_write);
-
-    function port60_read()
-    {
-        //dbg_log("port 60 read: " + (buffer[0] || "(none)"));
-
-        if(!kbd_buffer.length && !mouse_buffer.length)
-        {
-            // should not happen
-            dbg_log("Port 60 read: Empty", LOG_PS2);
-            return last_port60_byte;
-        }
-
-        var do_mouse_buffer;
-
-        if(kbd_buffer.length && mouse_buffer.length)
-        {
-            // tough decision, let's ask the PIC
-            do_mouse_buffer = (pic.get_isr() & 2) === 0;
-            //do_mouse_buffer = false;
-        }
-        else if(kbd_buffer.length)
-        {
-            do_mouse_buffer = false;
-        }
-        else
-        {
-            do_mouse_buffer = true;
-        }
-
-        if(do_mouse_buffer)
-        {
-            last_port60_byte = mouse_buffer.shift();
-            dbg_log("Port 60 read (mouse): " + h(last_port60_byte), LOG_PS2);
-
-            if(mouse_buffer.length >= 1)
-            {
-                mouse_irq();
-            }
-        }
-        else
-        {
-            last_port60_byte = kbd_buffer.shift();
-            dbg_log("Port 60 read (kbd)  : " + h(last_port60_byte), LOG_PS2);
-
-            if(kbd_buffer.length >= 1)
-            {
-                kbd_irq();
-            }
-        }
-
-        return last_port60_byte;
-    };
-
-    function port64_read()
-    {
-        // status port 
-
-        var status_byte = 0x10;
-
-        if(mouse_buffer.length || kbd_buffer.length)
-        {
-            status_byte |= 1;
-        }
-        if(mouse_buffer.length)
-        {
-            status_byte |= 0x20;
-        }
-
-        dbg_log("port 64 read: " + h(status_byte), LOG_PS2);
-
-        return status_byte;
-    };
-
-    function port60_write(write_byte)
-    {
-        dbg_log("port 60 write: " + h(write_byte), LOG_PS2);
-        
-        if(read_command_register)
-        {
-            kbd_irq();
-            command_register = write_byte;
-            read_command_register = false;
-            // not sure, causes "spurious ack" in Linux
-            //kbd_buffer.push(0xFA); 
-
-            dbg_log("Keyboard command register = " + h(command_register), LOG_PS2);
-        }
-        else if(read_output_register)
-        {
-            read_output_register = false;
-
-            mouse_buffer.clear();
-            mouse_buffer.push(write_byte);
-            mouse_irq();
-        }
-        else if(next_read_sample)
-        {
-            next_read_sample = false;
-            mouse_buffer.clear();
-            mouse_buffer.push(0xFA);
-
-            sample_rate = write_byte;
-            dbg_log("mouse sample rate: " + h(write_byte), LOG_PS2);
-            mouse_irq();
-        }
-        else if(next_read_resolution)
-        {
-            next_read_resolution = false;
-            mouse_buffer.clear();
-            mouse_buffer.push(0xFA);
-
-            if(write_byte > 3)
-            {
-                resolution = 4;
-                dbg_log("invalid resolution, resetting to 4", LOG_PS2);
-            }
-            else
-            {
-                resolution = 1 << write_byte;
-                dbg_log("resolution: " + resolution, LOG_PS2);
-            }
-            mouse_irq();
-        }
-        else if(next_read_led)
-        {
-            // nope
-            next_read_led = false;
-            kbd_buffer.push(0xFA);
-            kbd_irq();
-        }
-        else if(next_handle_scan_code_set)
-        {
-            next_handle_scan_code_set = false;
-
-            kbd_buffer.push(0xFA);
-            kbd_irq();
-
-            if(write_byte)
-            {
-                // set scan code set
-            }
-            else
-            {
-                kbd_buffer.push(2);
-            }
-        }
-        else if(next_read_rate)
-        {
-            // nope
-            next_read_rate = false;
-            kbd_buffer.push(0xFA);
-            kbd_irq();
-        }
-        else if(next_is_mouse_command)
-        {
-            next_is_mouse_command = false;
-            dbg_log("Port 60 data register write: " + h(write_byte), LOG_PS2); 
-
-            if(!have_mouse)
-            {
+                // TODO: set timeout
                 return;
             }
 
-            // send ack
-            kbd_buffer.clear();
-            mouse_buffer.clear();
-            mouse_buffer.push(0xFA);
+            this.mouse_delta_x -= change_x;
+            this.mouse_delta_y -= change_y;
 
-            switch(write_byte)
-            {
-            case 0xE6:
-                // set scaling to 1:1
-                dbg_log("Scaling 1:1", LOG_PS2);
-                scaling2 = false;
-                break;
-            case 0xE7:
-                // set scaling to 2:1
-                dbg_log("Scaling 2:1", LOG_PS2);
-                scaling2 = true;
-                break;
-            case 0xE8:
-                // set mouse resolution
-                next_read_resolution = true;
-                break;
-            case 0xE9:
-                // status request - send one packet
-                send_mouse_packet(0, 0);
-                break;
-            case 0xEB:
-                // request single packet
-                dbg_log("unimplemented request single packet", LOG_PS2);
-                break;
-            case 0xF2:
-                //  MouseID Byte
-                mouse_buffer.push(0);
-                mouse_buffer.push(0);
-
-                mouse_clicks = mouse_delta_x = mouse_delta_y = 0;
-                break;
-            case 0xF3:
-                // sample rate
-                next_read_sample = true;
-                break;
-            case 0xF4:
-                // enable streaming
-                enable_mouse_stream = true;
-                enable_mouse = true;
-                mouse.enabled = true;
-
-                mouse_clicks = mouse_delta_x = mouse_delta_y = 0;
-                break;
-            case 0xF5:
-                // disable streaming
-                enable_mouse_stream = false;
-                break;
-            case 0xF6:
-                // set defaults 
-                enable_mouse_stream = false;
-                sample_rate = 100;
-                scaling2 = false;
-                resolution = 4;
-                break;
-            case 0xFF:
-                // reset, send completion code
-                mouse_buffer.push(0xAA);
-                mouse_buffer.push(0);
-
-                //enable_mouse = true;
-                //mouse.enabled = true;
-                enable_mouse_stream = false;
-                sample_rate = 100;
-                scaling2 = false;
-                resolution = 4;
-
-                mouse_clicks = mouse_delta_x = mouse_delta_y = 0;
-                break;
-
-            default:
-                dbg_log("Unimplemented mouse command: " + h(write_byte), LOG_PS2);
-            }
-
-            mouse_irq();
+            this.send_mouse_packet(change_x, change_y);
         }
-        else 
-        {
-            dbg_log("Port 60 data register write: " + h(write_byte), LOG_PS2); 
+    }
+}
 
-            // send ack
-            mouse_buffer.clear();
-            kbd_buffer.clear();
-            kbd_buffer.push(0xFA);
-
-            switch(write_byte)
-            {
-            case 0xED:
-                next_read_led = true;
-                break;
-            case 0xF0:
-                // get/set scan code set
-                next_handle_scan_code_set = true;
-                break;
-            case 0xF2:
-                // identify
-                kbd_buffer.push(0xAB);
-                kbd_buffer.push(83);
-                break;
-            case 0xF3:
-                //  Set typematic rate and delay 
-                next_read_rate = true;
-                break;
-            case 0xF4:
-                // enable scanning
-                dbg_log("kbd enable scanning", LOG_PS2);
-                enable_keyboard_stream = true;
-                break;
-            case 0xF5:
-                // disable scanning
-                dbg_log("kbd disable scanning", LOG_PS2);
-                enable_keyboard_stream = false;
-                break;
-            case 0xF6:
-                // reset defaults
-                //enable_keyboard_stream = false;
-                break;
-            case 0xFF:
-                kbd_buffer.clear();
-                kbd_buffer.push(0xFA);
-                kbd_buffer.push(0xAA);
-                break;
-            default:
-                dbg_log("Unimplemented keyboard command: " + h(write_byte), LOG_PS2);
-            }
-            
-            kbd_irq();
-        }
-    };
-
-    function port64_write(write_byte)
+PS2.prototype.mouse_send_click = function(left, middle, right)
+{
+    if(!this.have_mouse || !this.enable_mouse)
     {
-        dbg_log("port 64 write: " + h(write_byte), LOG_PS2);
+        return;
+    }
+
+    this.mouse_clicks = left | right << 1 | middle << 2;
+
+    if(this.enable_mouse_stream)
+    {
+        this.send_mouse_packet(0, 0);
+    }
+}
+
+PS2.prototype.send_mouse_packet = function(dx, dy)
+{
+    var info_byte = 
+            (dy < 0) << 5 |
+            (dx < 0) << 4 |
+            1 << 3 | 
+            this.mouse_clicks,
+        delta_x = dx,
+        delta_y = dy;
+
+    this.last_mouse_packet = Date.now();
+
+    if(this.scaling2)
+    {
+        // only in automatic packets, not 0xEB requests
+        delta_x = this.apply_scaling2(delta_x);
+        delta_y = this.apply_scaling2(delta_y);
+    }
+
+    this.mouse_buffer.push(info_byte);
+    this.mouse_buffer.push(delta_x);
+    this.mouse_buffer.push(delta_y);
+
+    dbg_log("adding mouse packets:" + [info_byte, dx, dy], LOG_PS2);
+
+    this.mouse_irq();
+}
+
+PS2.prototype.apply_scaling2 = function(n)
+{
+    // http://www.computer-engineering.org/ps2mouse/#Inputs.2C_Resolution.2C_and_Scaling
+    var abs = Math.abs(n),
+        sign = n >> 31;
+
+    switch(abs)
+    {
+        case 0:
+        case 1:
+        case 3:
+            return n;
+        case 2:
+            return sign;
+        case 4: 
+            return 6 * sign;
+        case 5:
+            return 9 * sign;
+        default:
+            return n << 1;
+    }
+}
+
+PS2.prototype.destroy = function()
+{
+    if(this.have_keyboard)
+    {
+        this.keyboard.destroy();
+    }
+
+    if(this.have_mouse)
+    {
+        this.mouse.destroy();
+    }
+};
+    
+
+PS2.prototype.port60_read = function()
+{
+    //dbg_log("port 60 read: " + (buffer[0] || "(none)"));
+
+    if(!this.kbd_buffer.length && !this.mouse_buffer.length)
+    {
+        // should not happen
+        dbg_log("Port 60 read: Empty", LOG_PS2);
+        return this.last_port60_byte;
+    }
+
+    var do_mouse_buffer;
+
+    if(this.kbd_buffer.length && this.mouse_buffer.length)
+    {
+        // tough decision, let's ask the PIC
+        do_mouse_buffer = (this.pic.get_isr() & 2) === 0;
+        //do_mouse_buffer = false;
+    }
+    else if(this.kbd_buffer.length)
+    {
+        do_mouse_buffer = false;
+    }
+    else
+    {
+        do_mouse_buffer = true;
+    }
+
+    if(do_mouse_buffer)
+    {
+        this.last_port60_byte = this.mouse_buffer.shift();
+        dbg_log("Port 60 read (mouse): " + h(this.last_port60_byte), LOG_PS2);
+
+        if(this.mouse_buffer.length >= 1)
+        {
+            this.mouse_irq();
+        }
+    }
+    else
+    {
+        this.last_port60_byte = this.kbd_buffer.shift();
+        dbg_log("Port 60 read (kbd)  : " + h(this.last_port60_byte), LOG_PS2);
+
+        if(this.kbd_buffer.length >= 1)
+        {
+            this.kbd_irq();
+        }
+    }
+
+    return this.last_port60_byte;
+};
+
+PS2.prototype.port64_read = function()
+{
+    // status port 
+
+    var status_byte = 0x10;
+
+    if(this.mouse_buffer.length || this.kbd_buffer.length)
+    {
+        status_byte |= 1;
+    }
+    if(this.mouse_buffer.length)
+    {
+        status_byte |= 0x20;
+    }
+
+    dbg_log("port 64 read: " + h(status_byte), LOG_PS2);
+
+    return status_byte;
+};
+
+PS2.prototype.port60_write = function(write_byte)
+{
+    dbg_log("port 60 write: " + h(write_byte), LOG_PS2);
+    
+    if(this.read_command_register)
+    {
+        this.kbd_irq();
+        this.command_register = write_byte;
+        this.read_command_register = false;
+        // not sure, causes "spurious ack" in Linux
+        //this.kbd_buffer.push(0xFA); 
+
+        dbg_log("Keyboard command register = " + h(this.command_register), LOG_PS2);
+    }
+    else if(this.read_output_register)
+    {
+        this.read_output_register = false;
+
+        this.mouse_buffer.clear();
+        this.mouse_buffer.push(write_byte);
+        this.mouse_irq();
+    }
+    else if(this.next_read_sample)
+    {
+        this.next_read_sample = false;
+        this.mouse_buffer.clear();
+        this.mouse_buffer.push(0xFA);
+
+        this.sample_rate = write_byte;
+        dbg_log("mouse sample rate: " + h(write_byte), LOG_PS2);
+        this.mouse_irq();
+    }
+    else if(this.next_read_resolution)
+    {
+        this.next_read_resolution = false;
+        this.mouse_buffer.clear();
+        this.mouse_buffer.push(0xFA);
+
+        if(write_byte > 3)
+        {
+            this.resolution = 4;
+            dbg_log("invalid resolution, resetting to 4", LOG_PS2);
+        }
+        else
+        {
+            this.resolution = 1 << write_byte;
+            dbg_log("resolution: " + this.resolution, LOG_PS2);
+        }
+        this.mouse_irq();
+    }
+    else if(this.next_read_led)
+    {
+        // nope
+        this.next_read_led = false;
+        this.kbd_buffer.push(0xFA);
+        this.kbd_irq();
+    }
+    else if(this.next_handle_scan_code_set)
+    {
+        this.next_handle_scan_code_set = false;
+
+        this.kbd_buffer.push(0xFA);
+        this.kbd_irq();
+
+        if(write_byte)
+        {
+            // set scan code set
+        }
+        else
+        {
+            this.kbd_buffer.push(2);
+        }
+    }
+    else if(this.next_read_rate)
+    {
+        // nope
+        this.next_read_rate = false;
+        this.kbd_buffer.push(0xFA);
+        this.kbd_irq();
+    }
+    else if(this.next_is_mouse_command)
+    {
+        this.next_is_mouse_command = false;
+        dbg_log("Port 60 data register write: " + h(write_byte), LOG_PS2); 
+
+        if(!this.have_mouse)
+        {
+            return;
+        }
+
+        // send ack
+        this.kbd_buffer.clear();
+        this.mouse_buffer.clear();
+        this.mouse_buffer.push(0xFA);
 
         switch(write_byte)
         {
-        case 0x20:
-            kbd_buffer.clear();
-            mouse_buffer.clear();
-            kbd_buffer.push(command_register);
+        case 0xE6:
+            // set scaling to 1:1
+            dbg_log("Scaling 1:1", LOG_PS2);
+            this.scaling2 = false;
             break;
-        case 0x60:
-            read_command_register = true;
+        case 0xE7:
+            // set scaling to 2:1
+            dbg_log("Scaling 2:1", LOG_PS2);
+            this.scaling2 = true;
             break;
-        case 0xD3:
-            read_output_register = true;
+        case 0xE8:
+            // set mouse resolution
+            this.next_read_resolution = true;
             break;
-        case 0xD4:
-            next_is_mouse_command = true;
+        case 0xE9:
+            // status request - send one packet
+            this.send_mouse_packet(0, 0);
             break;
-        case 0xA7:
-            // Disable second port
-            dbg_log("Disable second port", LOG_PS2);
-            command_register |= 0x20;
+        case 0xEB:
+            // request single packet
+            dbg_log("unimplemented request single packet", LOG_PS2);
             break;
-        case 0xA8:
-            // Enable second port
-            dbg_log("Enable second port", LOG_PS2);
-            command_register &= ~0x20;
+        case 0xF2:
+            //  MouseID Byte
+            this.mouse_buffer.push(0);
+            this.mouse_buffer.push(0);
+
+            this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
             break;
-        case 0xA9:
-            // test second ps/2 port
-            kbd_buffer.clear();
-            mouse_buffer.clear();
-            kbd_buffer.push(0);
+        case 0xF3:
+            // sample rate
+            this.next_read_sample = true;
             break;
-        case 0xAA:
-            kbd_buffer.clear();
-            mouse_buffer.clear();
-            kbd_buffer.push(0x55);
+        case 0xF4:
+            // enable streaming
+            this.enable_mouse_stream = true;
+            this.enable_mouse = true;
+            this.mouse.enabled = true;
+
+            this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
             break;
-        case 0xAB:
-            // Test first PS/2 port 
-            kbd_buffer.clear();
-            mouse_buffer.clear();
-            kbd_buffer.push(0);
+        case 0xF5:
+            // disable streaming
+            this.enable_mouse_stream = false;
             break;
-        case 0xAD:
-            // Disable Keyboard
-            dbg_log("Disable Keyboard", LOG_PS2);
-            command_register |= 0x10;
+        case 0xF6:
+            // set defaults 
+            this.enable_mouse_stream = false;
+            this.sample_rate = 100;
+            this.scaling2 = false;
+            this.resolution = 4;
             break;
-        case 0xAE:
-            // Enable Keyboard
-            dbg_log("Enable Keyboard", LOG_PS2);
-            command_register &= ~0x10;
+        case 0xFF:
+            // reset, send completion code
+            this.mouse_buffer.push(0xAA);
+            this.mouse_buffer.push(0);
+
+            //this.enable_mouse = true;
+            //this.mouse.enabled = true;
+            this.enable_mouse_stream = false;
+            this.sample_rate = 100;
+            this.scaling2 = false;
+            this.resolution = 4;
+
+            this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
             break;
-        case 0xFE:
-            dbg_log("CPU reboot via PS2");
-            cpu.reboot_internal();
+
+        default:
+            dbg_log("Unimplemented mouse command: " + h(write_byte), LOG_PS2);
+        }
+
+        this.mouse_irq();
+    }
+    else 
+    {
+        dbg_log("Port 60 data register write: " + h(write_byte), LOG_PS2); 
+
+        // send ack
+        this.mouse_buffer.clear();
+        this.kbd_buffer.clear();
+        this.kbd_buffer.push(0xFA);
+
+        switch(write_byte)
+        {
+        case 0xED:
+            this.next_read_led = true;
+            break;
+        case 0xF0:
+            // get/set scan code set
+            this.next_handle_scan_code_set = true;
+            break;
+        case 0xF2:
+            // identify
+            this.kbd_buffer.push(0xAB);
+            this.kbd_buffer.push(83);
+            break;
+        case 0xF3:
+            //  Set typematic rate and delay 
+            this.next_read_rate = true;
+            break;
+        case 0xF4:
+            // enable scanning
+            dbg_log("kbd enable scanning", LOG_PS2);
+            this.enable_keyboard_stream = true;
+            break;
+        case 0xF5:
+            // disable scanning
+            dbg_log("kbd disable scanning", LOG_PS2);
+            this.enable_keyboard_stream = false;
+            break;
+        case 0xF6:
+            // reset defaults
+            //this.enable_keyboard_stream = false;
+            break;
+        case 0xFF:
+            this.kbd_buffer.clear();
+            this.kbd_buffer.push(0xFA);
+            this.kbd_buffer.push(0xAA);
             break;
         default:
-            dbg_log("port 64: Unimplemented command byte: " + h(write_byte), LOG_PS2);
+            dbg_log("Unimplemented keyboard command: " + h(write_byte), LOG_PS2);
         }
-    };
-}
+        
+        this.kbd_irq();
+    }
+};
 
+PS2.prototype.port64_write = function(write_byte)
+{
+    dbg_log("port 64 write: " + h(write_byte), LOG_PS2);
+
+    switch(write_byte)
+    {
+    case 0x20:
+        this.kbd_buffer.clear();
+        this.mouse_buffer.clear();
+        this.kbd_buffer.push(this.command_register);
+        break;
+    case 0x60:
+        this.read_command_register = true;
+        break;
+    case 0xD3:
+        this.read_output_register = true;
+        break;
+    case 0xD4:
+        this.next_is_mouse_command = true;
+        break;
+    case 0xA7:
+        // Disable second port
+        dbg_log("Disable second port", LOG_PS2);
+        this.command_register |= 0x20;
+        break;
+    case 0xA8:
+        // Enable second port
+        dbg_log("Enable second port", LOG_PS2);
+        this.command_register &= ~0x20;
+        break;
+    case 0xA9:
+        // test second ps/2 port
+        this.kbd_buffer.clear();
+        this.mouse_buffer.clear();
+        this.kbd_buffer.push(0);
+        break;
+    case 0xAA:
+        this.kbd_buffer.clear();
+        this.mouse_buffer.clear();
+        this.kbd_buffer.push(0x55);
+        break;
+    case 0xAB:
+        // Test first PS/2 port 
+        this.kbd_buffer.clear();
+        this.mouse_buffer.clear();
+        this.kbd_buffer.push(0);
+        break;
+    case 0xAD:
+        // Disable Keyboard
+        dbg_log("Disable Keyboard", LOG_PS2);
+        this.command_register |= 0x10;
+        break;
+    case 0xAE:
+        // Enable Keyboard
+        dbg_log("Enable Keyboard", LOG_PS2);
+        this.command_register &= ~0x10;
+        break;
+    case 0xFE:
+        dbg_log("CPU reboot via PS2");
+        this.cpu.reboot_internal();
+        break;
+    default:
+        dbg_log("port 64: Unimplemented command byte: " + h(write_byte), LOG_PS2);
+    }
+};
 
 
