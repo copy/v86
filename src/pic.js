@@ -9,59 +9,58 @@
  */
 function PIC(cpu, master)
 {
-    var 
-        io = cpu.io,
+    /** 
+     * all irqs off
+     * @type {number}
+     */
+    this.irq_mask = 0;
 
-        /** 
-         * all irqs off
-         * @type {number}
-         */
-        irq_mask = 0,
+    /**
+     * @type {number}
+     *
+     * Bogus default value (both master and slave mapped to 0).
+     * Will be initialized by the BIOS
+     */
+    this.irq_map = 0;
 
-        /**
-         * @type {number}
-         *
-         * Bogus default value (both master and slave mapped to 0).
-         * Will be initialized by the BIOS
-         */
-        irq_map = 0,
+    /**
+     * in-service register
+     * Holds interrupts that are currently being serviced
+     * @type {number}
+     */
+    this.isr = 0;
 
-        /**
-         * in-service register
-         * Holds interrupts that are currently being serviced
-         * @type {number}
-         */
-        isr = 0,
+    /**
+     * interrupt request register
+     * Holds interrupts that have been requested
+     * @type {number}
+     */
+    this.irr = 0;
 
-        /**
-         * interrupt request register
-         * Holds interrupts that have been requested
-         * @type {number}
-         */
-        irr = 0,
+    this.is_master = master === undefined;
+    this.slave = undefined;
 
-        is_master = master === undefined,
+    this.expect_icw4 = false;
+    this.state = 0;
+    this.read_irr = 1;
+    this.auto_eoi = 1;
 
-        slave,
-
-        me = this;
-
-    if(is_master)
+    if(this.is_master)
     {
-        slave = new PIC(cpu, this);
+        this.slave = new PIC(cpu, this);
 
         this.check_irqs = function()
         {
-            var enabled_irr = irr & irq_mask;
+            var enabled_irr = this.irr & this.irq_mask;
 
             if(!enabled_irr)
             {
-                return slave.check_irqs();
+                return this.slave.check_irqs();
             }
 
             var irq = enabled_irr & -enabled_irr;
 
-            if(isr && (isr & -isr) <= irq)
+            if(this.isr && (this.isr & -this.isr) <= irq)
             {
                 // wait for eoi of higher or same priority interrupt
                 return false;
@@ -70,17 +69,17 @@ function PIC(cpu, master)
             var irq_number = Math.int_log2(irq);
             irq = 1 << irq_number;
 
-            irr &= ~irq;
+            this.irr &= ~irq;
 
             if(irq === 4)
             {
                 // this should always return true
-                return slave.check_irqs();
+                return this.slave.check_irqs();
             }
 
-            if(!auto_eoi)
+            if(!this.auto_eoi)
             {
-                isr |= irq;
+                this.isr |= irq;
             }
 
             //dbg_log("master handling irq " + irq_number, LOG_PIC);
@@ -89,17 +88,17 @@ function PIC(cpu, master)
             // call_interrupt_vector can cause an exception in the CPU, so we
             // have to set previous_ip correctly here
             cpu.previous_ip = cpu.instruction_pointer;
-            cpu.call_interrupt_vector(irq_map | irq_number, false, false);
+            cpu.call_interrupt_vector(this.irq_map | irq_number, false, false);
 
             return true;
-        };
+        }.bind(this);
     }
     else
     {
         // is slave
         this.check_irqs = function()
         {
-            var enabled_irr = irr & irq_mask;
+            var enabled_irr = this.irr & this.irq_mask;
 
             if(!enabled_irr)
             {
@@ -108,7 +107,7 @@ function PIC(cpu, master)
 
             var irq = enabled_irr & -enabled_irr;
 
-            if(isr && (isr & -isr) <= irq)
+            if(this.isr && (this.isr & -this.isr) <= irq)
             {
                 // wait for eoi of higher or same priority interrupt
                 return false;
@@ -117,50 +116,43 @@ function PIC(cpu, master)
             var irq_number = Math.int_log2(irq);
             irq = 1 << irq_number;
 
-            irr &= ~irq;
-            isr |= irq;
+            this.irr &= ~irq;
+            this.isr |= irq;
 
             //dbg_log("slave handling irq " + irq_number, LOG_PIC);
             cpu.previous_ip = cpu.instruction_pointer;
-            cpu.call_interrupt_vector(irq_map | irq_number, false, false);
+            cpu.call_interrupt_vector(this.irq_map | irq_number, false, false);
 
-            if(irr)
+            if(this.irr)
             {
                 // tell the master we have one more
                 master.push_irq(2);
             }
 
-            if(!auto_eoi)
+            if(!this.auto_eoi)
             {
-                isr &= ~irq;
+                this.isr &= ~irq;
             }
 
             return true;
-        };
+        }.bind(this);
     }
 
     this.dump = function()
     {
-        dbg_log("mask: " + h(irq_mask & 0xFF), LOG_PIC);
-        dbg_log("base: " + h(irq_map), LOG_PIC);
-        dbg_log("requested: " + h(irr), LOG_PIC);
-        dbg_log("serviced: " + h(isr), LOG_PIC);
+        dbg_log("mask: " + h(this.irq_mask & 0xFF), LOG_PIC);
+        dbg_log("base: " + h(this.irq_map), LOG_PIC);
+        dbg_log("requested: " + h(this.irr), LOG_PIC);
+        dbg_log("serviced: " + h(this.isr), LOG_PIC);
 
-        if(is_master)
+        if(this.is_master)
         {
-            slave.dump();
+            this.slave.dump();
         }
     };
 
-
-    var expect_icw4,
-        state = 0,
-        read_irr = 1,
-        io_base,
-        auto_eoi;
-
-
-    if(is_master)
+    var io_base;
+    if(this.is_master)
     {
         io_base = 0x20;
     }
@@ -169,11 +161,11 @@ function PIC(cpu, master)
         io_base = 0xA0;
     }
 
-    io.register_write(io_base, port20_write);
-    io.register_read(io_base, port20_read);
+    cpu.io.register_write(io_base, port20_write, this);
+    cpu.io.register_read(io_base, port20_read, this);
 
-    io.register_write(io_base | 1, port21_write);
-    io.register_read(io_base | 1, port21_read);
+    cpu.io.register_write(io_base | 1, port21_write, this);
+    cpu.io.register_read(io_base | 1, port21_read, this);
 
     function port20_write(data_byte)
     {
@@ -182,14 +174,14 @@ function PIC(cpu, master)
         {
             // icw1
             dbg_log("icw1 = " + h(data_byte), LOG_PIC);
-            expect_icw4 = data_byte & 1;
-            state = 1;
+            this.expect_icw4 = data_byte & 1;
+            this.state = 1;
         }
         else if(data_byte & 8) // xxx01xxx
         {
             // ocw3
             dbg_log("ocw3: " + h(data_byte), LOG_PIC);
-            read_irr = data_byte & 1;
+            this.read_irr = data_byte & 1;
         }
         else // xxx00xxx
         {
@@ -202,12 +194,12 @@ function PIC(cpu, master)
             if(eoi_type === 1)
             {
                 // non-specific eoi
-                isr &= isr - 1;
+                this.isr &= this.isr - 1;
             }
             else if(eoi_type === 3)
             {
                 // specific eoi
-                isr &= ~(1 << (data_byte & 7));
+                this.isr &= ~(1 << (data_byte & 7));
             }
             else
             {
@@ -218,60 +210,60 @@ function PIC(cpu, master)
 
     function port20_read()
     {
-        if(read_irr)
+        if(this.read_irr)
         {
-            return irr;
+            return this.irr;
         }
         else
         {
-            return isr;
+            return this.isr;
         }
     }
 
     function port21_write(data_byte)
     {
         //dbg_log("21 write: " + h(data_byte), LOG_PIC);
-        if(state === 0)
+        if(this.state === 0)
         {
-            if(expect_icw4)
+            if(this.expect_icw4)
             {
                 // icw4
-                expect_icw4 = false;
-                auto_eoi = data_byte & 2;
+                this.expect_icw4 = false;
+                this.auto_eoi = data_byte & 2;
                 dbg_log("icw4: " + h(data_byte), LOG_PIC);
             }
             else
             {
                 // ocw1
-                irq_mask = ~data_byte;
+                this.irq_mask = ~data_byte;
 
-                //dbg_log("interrupt mask: " + (irq_mask & 0xFF).toString(2) +
-                //        " (" + (is_master ? "master" : "slave") + ")", LOG_PIC);
+                //dbg_log("interrupt mask: " + (this.irq_mask & 0xFF).toString(2) +
+                //        " (" + (this.is_master ? "master" : "slave") + ")", LOG_PIC);
             }
         }
-        else if(state === 1)
+        else if(this.state === 1)
         {
             // icw2
-            irq_map = data_byte;
-            dbg_log("interrupts are mapped to " + h(irq_map) +
-                    " (" + (is_master ? "master" : "slave") + ")", LOG_PIC);
-            state++;
+            this.irq_map = data_byte;
+            dbg_log("interrupts are mapped to " + h(this.irq_map) +
+                    " (" + (this.is_master ? "master" : "slave") + ")", LOG_PIC);
+            this.state++;
         }
-        else if(state === 2)
+        else if(this.state === 2)
         {
             // icw3
-            state = 0;
+            this.state = 0;
             dbg_log("icw3: " + h(data_byte), LOG_PIC);
         }
     };
 
     function port21_read()
     {
-        //dbg_log("21h read " + h(~irq_mask & 0xff), LOG_PIC);
-        return ~irq_mask & 0xFF;
+        //dbg_log("21h read " + h(~this.irq_mask & 0xff), LOG_PIC);
+        return ~this.irq_mask & 0xFF;
     };
 
-    if(is_master)
+    if(this.is_master)
     {
         this.push_irq = function(irq_number)
         {
@@ -279,11 +271,11 @@ function PIC(cpu, master)
 
             if(irq_number >= 8)
             {
-                slave.push_irq(irq_number - 8);
+                this.slave.push_irq(irq_number - 8);
                 irq_number = 2;
             }
 
-            irr |= 1 << irq_number;
+            this.irr |= 1 << irq_number;
 
             cpu.handle_irqs();
         };
@@ -294,12 +286,12 @@ function PIC(cpu, master)
         {
             dbg_assert(irq_number >= 0 && irq_number < 8);
 
-            irr |= 1 << irq_number;
+            this.irr |= 1 << irq_number;
         };
     }
 
     this.get_isr = function()
     {
-        return isr;
+        return this.isr;
     };
 }
