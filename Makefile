@@ -104,6 +104,6 @@ clean:
 	rm -f v86-latest.tar.gz v86_all.js src/v86_all.js.map src/cpu.js
 
 run:
-	python2 -m SimpleHTTPServer 2> /dev/null &
-	sleep 1
-	$(BROWSER) http://localhost:8000/index.html &
+	python2 -m SimpleHTTPServer 2> /dev/null 
+	#sleep 1
+	#$(BROWSER) http://localhost:8000/index.html &
