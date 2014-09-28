@@ -110,6 +110,10 @@ function AsyncXHRBuffer(filename, block_size, size)
 }
 AsyncXHRBuffer.prototype.get = function(offset, len, fn)
 {
+    console.assert(offset % this.block_size === 0);
+    console.assert(len % this.block_size === 0);
+    console.assert(len);
+
     var range_start = offset,
         range_end = offset + len - 1;
 
@@ -118,22 +122,7 @@ AsyncXHRBuffer.prototype.get = function(offset, len, fn)
         {
             var block = new Uint8Array(buffer);
             
-            var start_block = offset / this.block_size,
-                block_count = len / this.block_size;
-
-            console.assert(offset % this.block_size === 0);
-            console.assert(len % this.block_size === 0);
-
-            for(var i = 0; i < block_count; i++)
-            {
-                var cached_block = this.loaded_blocks[start_block + i];
-
-                if(cached_block)
-                {
-                    block.set(cached_block, i * this.block_size);
-                }
-            }
-
+            this.handle_read(offset, len, block);
             fn(block);
         }.bind(this), 
         null,
@@ -143,6 +132,25 @@ AsyncXHRBuffer.prototype.get = function(offset, len, fn)
     );
 }
 AsyncXHRBuffer.prototype.set = async_buffer_set;
+
+AsyncXHRBuffer.prototype.handle_read = function(offset, len, block)
+{
+    // Used by AsyncXHRBuffer and AsyncFileBuffer
+    // Overwrites blocks from the original source that have been written since
+    
+    var start_block = offset / this.block_size,
+        block_count = len / this.block_size;
+
+    for(var i = 0; i < block_count; i++)
+    {
+        var written_block = this.loaded_blocks[start_block + i];
+
+        if(written_block)
+        {
+            block.set(written_block, i * this.block_size);
+        }
+    }
+};
 
 /**
  * Synchronous access to File, loading blocks from the input type=file
@@ -286,17 +294,18 @@ AsyncFileBuffer.prototype.get = function(offset, len, fn)
     console.assert(len);
 
     var fr = new FileReader();
-    var me = this;
 
     fr.onload = function(e)
     {
         var buffer = e.target.result;
+        var block = new Uint8Array(buffer);
 
-        //me.loaded_blocks[i] = buffer;
-        fn(new Uint8Array(buffer));
-    };
+        this.handle_read(offset, len, block);
+        fn(block);
+    }.bind(this);
 
     fr.readAsArrayBuffer(this.file.slice(offset, offset + len));
 }
 AsyncFileBuffer.prototype.set = async_buffer_set;
+AsyncFileBuffer.prototype.handle_read = AsyncXHRBuffer.prototype.handle_read;
 
