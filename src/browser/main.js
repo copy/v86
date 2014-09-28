@@ -632,6 +632,7 @@
 
                 $("info_hda_sectors_written").textContent = hda_stats.sectors_written;
                 $("info_hda_bytes_written").textContent = hda_stats.bytes_written;
+                $("info_hda_status").textContent = hda_stats.loading ? "Loading ..." : "Idle";
             }
             else
             {
@@ -644,6 +645,7 @@
 
                 $("info_cdrom_sectors_read").textContent = cdrom_stats.sectors_read;
                 $("info_cdrom_bytes_read").textContent = cdrom_stats.bytes_read;
+                $("info_cdrom_status").textContent = cdrom_stats.loading ? "Loading ..." : "Idle";
             }
             else
             {
