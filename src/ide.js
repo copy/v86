@@ -27,22 +27,40 @@ function IDEDevice(cpu, buffer, is_cd, nr)
     }
 
     // alternate status, starting at 3f4/374
+    /** @type {number} */
     this.ata_port_high = this.ata_port | 0x204;
     
+    /** @type {number} */
     this.master_port = 0xC000;
 
     this.pic = cpu.devices.pic;
     this.memory = cpu.memory;
 
-    this.sector_size = is_cd ? CDROM_SECTOR_SIZE : HD_SECTOR_SIZE;
     this.buffer = buffer;
+
+    /** @type {number} */
+    this.sector_size = is_cd ? CDROM_SECTOR_SIZE : HD_SECTOR_SIZE;
+
+    /** @type {boolean} */
     this.is_atapi = is_cd;
+
+    /** @type {number} */
+    this.sector_count = 0;
+
+    /** @type {number} */
+    this.head_count = 0;
+
+    /** @type {number} */
+    this.sectors_per_track = 0;
+
+    /** @type {number} */
+    this.cylinder_count = 0;
 
     if(this.buffer)
     {
         this.sector_count = this.buffer.byteLength / this.sector_size;
 
-        if(this.sector_size !== (this.sector_size | 0))
+        if(this.sector_count !== (this.sector_count | 0))
         {
             dbg_log("Warning: Disk size not aligned with sector size", LOG_DISK);
             this.sector_count = Math.ceil(this.sector_count);
@@ -66,15 +84,6 @@ function IDEDevice(cpu, buffer, is_cd, nr)
             dbg_log("Warning: Rounding up cylinder count. Choose different head number", LOG_DISK);
             this.cylinder_count = Math.ceil(this.cylinder_count);
         }
-    }
-    else
-    {
-        this.sector_count = 0;
-
-        this.head_count = 0;
-        this.sectors_per_track = 0;
-
-        this.cylinder_count = 0;
     }
 
     this.stats = {
@@ -133,32 +142,52 @@ function IDEDevice(cpu, buffer, is_cd, nr)
     cpu.io.register_write(this.ata_port | 7, this.write_control, this);
     cpu.io.register_write(this.ata_port_high | 2, this.write_control, this);
 
+    /** @type {number} */
     this.device_control = 2;
+    /** @type {number} */
     this.last_drive = 0xFF;
+    /** @type {number} */
     this.data_pointer = 0;
     this.pio_data = new Uint8Array(0);
+    /** @type {number} */
     this.is_lba = 0;
+    /** @type {number} */
     this.bytecount = 0;
+    /** @type {number} */
     this.sector = 0;
+    /** @type {number} */
     this.lba_count = 0;
+    /** @type {number} */
     this.cylinder_low = 0;
+    /** @type {number} */
     this.cylinder_high = 0;
+    /** @type {number} */
     this.head = 0;
+    /** @type {number} */
     this.drive_head = 0;
+    /** @type {number} */
     this.status = 0x50;
+    /** @type {number} */
     this.sectors_per_drq = 1;
 
+    /** @type {number} */
     this.write_dest = 0;
 
+    /** @type {number} */
     this.data_port_count = 0;
+    /** @type {number} */
     this.data_port_current = 0;
     this.data_port_buffer = new Uint8Array(0);
+
     this.data_port_callback = null;
 
 
+    /** @type {number} */
     this.next_status = -1;
 
+    /** @type {number} */
     this.prdt_addr = 0;
+    /** @type {number} */
     this.dma_status = 0;
 
     cpu.io.register_read(this.ata_port | 0, this.read_data_port, this);
@@ -345,7 +374,7 @@ IDEDevice.prototype.ata_command = function(cmd)
                 // ATA_CMD_PACKET
                 this.status = 0x58;
                 this.allocate_in_buffer(12);
-                this.data_port_callback = this.atapi_handle;
+                this.data_port_callback = "atapi_handle";
 
                 this.bytecount = 1;
                 this.push_irq();
@@ -898,7 +927,8 @@ IDEDevice.prototype.write_data_port = function(data, port_addr)
 
             if(this.data_port_current === this.data_port_count)
             {
-                this.data_port_callback();
+                dbg_assert(typeof this[this.data_port_callback] === "function");
+                this[this.data_port_callback]();
             }
         }
 
@@ -1092,7 +1122,7 @@ IDEDevice.prototype.ata_write = function(cmd)
         this.allocate_in_buffer(byte_count);
 
         this.write_dest = start;
-        this.data_port_callback = this.do_write;
+        this.data_port_callback = "do_write";
 
         //this.bytecount = 1;
         this.push_irq();
