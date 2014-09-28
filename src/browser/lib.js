@@ -48,57 +48,6 @@ function load_file(filename, done, progress, headers)
     http.send(null);
 }
 
-/** 
- * @this {AsyncFileBuffer}
- * A function set on the protoype of asynchronous buffers (such as AsyncXHRBuffer)
- * Relies on this.load_block and this.block_size
- * Warning: fn may be called synchronously or asynchronously
- */
-function async_buffer_get(offset, len, fn)
-{
-    // TODO: Unaligned read
-    console.assert(offset % this.block_size === 0);
-    console.assert(len % this.block_size === 0);
-    console.assert(len);
-
-    var block_size = this.block_size,
-        blocks_to_load = len / block_size,
-        data,
-        loaded_count = 0,
-        start_block = offset / block_size;
-
-    if(blocks_to_load > 1)
-    {
-        // copy blocks in this buffer if there is more than one
-        data = new Uint8Array(len);
-    }
-
-    for(var i = start_block; i < start_block + blocks_to_load; i++)
-    {
-        this.load_block(i, block_loaded);
-    }
-
-    function block_loaded(buffer, i)
-    {
-        var block = new Uint8Array(buffer);
-        loaded_count++;
-
-        if(blocks_to_load === 1)
-        {
-            data = block;
-        }
-        else
-        {
-            data.set(block, (i - start_block) * block_size);
-        }
-
-        if(loaded_count === blocks_to_load)
-        {
-            fn(data);
-        }
-    }
-}
-
 /**
  * @this {AsyncFileBuffer}
  * Likewise, relies on this.byteLength, this.loaded_blocks and this.block_size
@@ -123,11 +72,11 @@ function async_buffer_set(offset, data, fn)
 
         if(block === undefined)
         {
-            block = this.loaded_blocks[start_block + i] = new ArrayBuffer(this.block_size);
+            block = this.loaded_blocks[start_block + i] = new Uint8Array(this.block_size);
         }
 
         var data_slice = data.subarray(i * this.block_size, (i + 1) * this.block_size);
-        new Uint8Array(block).set(data_slice);
+        block.set(data_slice);
 
         console.assert(block.byteLength === data_slice.length);
     }
@@ -145,57 +94,54 @@ function async_buffer_set(offset, data, fn)
  */
 function AsyncXHRBuffer(filename, block_size, size)
 {
+    this.filename = filename;
     this.block_size = block_size;
     this.block_count = size / block_size;
     console.assert(this.block_count === (this.block_count | 0));
 
-    this.loaded_blocks = [];
-    for(var i = 0; i < this.block_count; i++)
-    {
-        this.loaded_blocks[i] = undefined;
-    }
+    this.loaded_blocks = {};
     
     this.byteLength = size;
-
-    // can be called to preload a block into the cache
-    this.load_block = function(i, fn)
-    {
-        var cached_block = this.loaded_blocks[i];
-
-        if(cached_block === undefined)
-        {
-            var me = this;
-
-            // use Range: bytes=... to load slices of a file
-            var range_start = i * block_size,
-                range_end = range_start + block_size - 1;
-
-            load_file(filename, 
-                function(buffer)
-                {
-                    console.assert(buffer.byteLength === block_size);
-
-                    me.loaded_blocks[i] = buffer;
-                    fn(buffer, i);
-                }, 
-                null,
-                {
-                    Range: "bytes=" + range_start + "-" + range_end,
-                }
-            );
-        }
-        else
-        {
-            fn(cached_block, i);
-        }
-    };
 
     this.get_buffer = function(fn)
     {
         // We must download all parts, unlikely a good idea for big files
     };
 }
-AsyncXHRBuffer.prototype.get = async_buffer_get;
+AsyncXHRBuffer.prototype.get = function(offset, len, fn)
+{
+    var range_start = offset,
+        range_end = offset + len - 1;
+
+    load_file(this.filename, 
+        function(buffer)
+        {
+            var block = new Uint8Array(buffer);
+            
+            var start_block = offset / this.block_size,
+                block_count = len / this.block_size;
+
+            console.assert(offset % this.block_size === 0);
+            console.assert(len % this.block_size === 0);
+
+            for(var i = 0; i < block_count; i++)
+            {
+                var cached_block = this.loaded_blocks[start_block + i];
+
+                if(cached_block)
+                {
+                    block.set(cached_block, i * this.block_size);
+                }
+            }
+
+            fn(block);
+        }.bind(this), 
+        null,
+        {
+            Range: "bytes=" + range_start + "-" + range_end,
+        }
+    );
+}
 AsyncXHRBuffer.prototype.set = async_buffer_set;
 
 /**
@@ -322,36 +268,7 @@ function AsyncFileBuffer(file)
     this.block_count = file.size >> BLOCK_SHIFT;
     this.block_size = BLOCK_SIZE;
 
-    this.loaded_blocks = [];
-    for(var i = 0; i < this.block_count; i++)
-    {
-        this.loaded_blocks[i] = undefined;
-    }
-
-    this.load_block = function(i, fn)
-    {
-        var cached_block = this.loaded_blocks[i];
-
-        if(cached_block === undefined)
-        {
-            var fr = new FileReader();
-            var me = this;
-
-            fr.onload = function(e)
-            {
-                var buffer = e.target.result;
-
-                me.loaded_blocks[i] = buffer;
-                fn(buffer, i);
-            };
-
-            fr.readAsArrayBuffer(file.slice(i * this.block_size, (i + 1) * this.block_size));
-        }
-        else
-        {
-            fn(cached_block, i);
-        }
-    };
+    this.loaded_blocks = {};
 
     this.get_buffer = function(fn)
     {
@@ -381,6 +298,5 @@ AsyncFileBuffer.prototype.get = function(offset, len, fn)
 
     fr.readAsArrayBuffer(this.file.slice(offset, offset + len));
 }
-//AsyncFileBuffer.prototype.get = async_buffer_get;
 AsyncFileBuffer.prototype.set = async_buffer_set;
 
