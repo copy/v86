@@ -303,11 +303,16 @@ function ScreenAdapter(screen_container)
         //graphic_screen.style.height = height * scale_y + "px";
 
         // Make sure to call this here, because pixels are transparent otherwise
-        screen.clear_screen();
+        //screen.clear_screen();
 
-        graphic_image_data = graphic_context.getImageData(0, 0, width, height);
+        graphic_image_data = graphic_context.createImageData(width, height);
         graphic_buffer = new Uint8Array(graphic_image_data.data.buffer);
         graphic_buffer32 = new Int32Array(graphic_image_data.data.buffer);
+
+        for(var i = 3; i < graphic_buffer.length; i += 4)
+        {
+            graphic_buffer[i] = 255;
+        }
 
         graphical_mode_width = width;
     };
