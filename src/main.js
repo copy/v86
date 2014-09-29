@@ -334,3 +334,14 @@ function ByteQueue(size)
     this.clear();
 }
 
+Array.prototype.setify = function()
+{
+    var set = {};
+
+    for(var i = 0; i < this.length; i++)
+    {
+        set[this[i]] = true;
+    }
+    
+    return set;
+};

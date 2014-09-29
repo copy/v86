@@ -81,23 +81,12 @@ function FPU(cpu)
     /*
      * used for conversion
      */
-    /** @const */
     this.float32 = new Float32Array(1);
-    /** @const */
     this.float32_byte = new Uint8Array(this.float32.buffer);
-    /** @const */
     this.float32_int = new Int32Array(this.float32.buffer);
-
-    /** @const */
     this.float64 = new Float64Array(1);
-    /** @const */
     this.float64_byte = new Uint8Array(this.float64.buffer);
-    /** @const */
     this.float64_int = new Int32Array(this.float64.buffer);
-
-    /** @const */
-    this.float80_byte = new Uint8Array(10);
-
 
     /** @const */
     this.indefinite_nan = NaN;
@@ -108,7 +97,33 @@ function FPU(cpu)
         Math.log(2) / Math.LN10, Math.LN2, 0
     ]);
 
+    /** @const */
+    this._state_skip = [
+        "cpu",
+        "float32",
+        "float32_byte",
+        "float32_int",
+        "float64",
+        "float64_byte",
+        "float64_int",
+        "_st8", 
+        "_st32",
+    ];
 }
+
+FPU.prototype._state_restore = function()
+{
+    this.float32 = new Float32Array(1);
+    this.float32_byte = new Uint8Array(this.float32.buffer);
+    this.float32_int = new Int32Array(this.float32.buffer);
+
+    this.float64 = new Float64Array(1);
+    this.float64_byte = new Uint8Array(this.float64.buffer);
+    this.float64_int = new Int32Array(this.float64.buffer);
+
+    this._st8 = new Uint8Array(this._st.buffer);
+    this._st32 = new Int32Array(this._st.buffer);
+};
 
 FPU.prototype._fpu_unimpl = function()
 {

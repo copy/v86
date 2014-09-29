@@ -272,7 +272,13 @@ function IDEDevice(cpu, buffer, is_cd, nr)
     cpu.io.register_read(this.master_port, this.dma_read_command, this);
     cpu.io.register_write(this.master_port, this.dma_write_command, this);
 
-
+    /** @const */
+    this._state_skip = [
+        "memory",
+        "buffer",
+        "pic",
+        "stats",
+    ];
 }
 
 

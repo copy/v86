@@ -23,6 +23,9 @@ function DMA(dev)
     this.io.register_write(0x0B, this.portB_write.bind(this));
     this.io.register_write(0x0C, this.portC_write.bind(this));
     this.io.register_write(0x81, this.port81_write.bind(this));
+
+    /** @const */
+    this._state_skip = ["io", "memory"];
 };
 
 DMA.prototype.port_write = function(port, data_byte)

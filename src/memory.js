@@ -5,15 +5,9 @@
  */
 function Memory(buffer, memory_size)
 {
-    var mem8 = new Uint8Array(buffer),
-        mem16 = new Uint16Array(buffer),
-        //mem8s = new Int8Array(buffer),
-        mem32s = new Int32Array(buffer);
-
-    this.mem8 = mem8;
-    this.mem16 = mem16;
-    //this.mem8s = mem8s;
-    this.mem32s = mem32s;
+    this.mem8 = new Uint8Array(buffer);
+    this.mem16 = new Uint16Array(buffer);
+    this.mem32s = new Int32Array(buffer);
 
     this.buffer = buffer;
 
@@ -34,7 +28,26 @@ function Memory(buffer, memory_size)
     if(OP_TRANSLATION) this.mem_page_infos = new Uint8Array(1 << 20);
 
     dbg_assert((memory_size & MMAP_BLOCK_SIZE - 1) === 0);
-}
+
+    /** @const */
+    this._state_skip = [
+        "mem8", 
+        "mem16", 
+        "mem32s",
+        "memory_map_registered",
+        "memory_map_read8",
+        "memory_map_read32",
+        "memory_map_write8",
+        "memory_map_write32",
+    ];
+};
+
+Memory.prototype._state_restore = function()
+{
+    this.mem8 = new Uint8Array(this.buffer);
+    this.mem16 = new Uint16Array(this.buffer);
+    this.mem32s = new Int32Array(this.buffer);
+};
 
 // called by all memory reads and writes
 Memory.prototype.debug_write = function(addr, size, value)
@@ -346,3 +359,4 @@ Memory.prototype.write_string = function(str, addr)
         this.write8(addr + i, str.charCodeAt(i));
     }
 };
+

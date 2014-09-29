@@ -59,6 +59,9 @@ function PIT(cpu)
     cpu.io.register_write(0x42, this.counter_write.bind(this, 2));
 
     cpu.io.register_write(0x43, this.port43_write.bind(this));
+
+    /** @const */
+    this._state_skip = ["pic"];
 }
 
 PIT.prototype.get_timer2 = function()

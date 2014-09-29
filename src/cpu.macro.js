@@ -190,13 +190,11 @@ function v86()
     /** @type {number} */
     this.instruction_pointer = 0;
 
-
     /** @type {number} */
     this.previous_ip = 0;
 
 
     /** 
-     * Cycles since last cpu reset, used by rdtsc instruction
      * @type {number}
      */
     this.timestamp_counter = 0;
@@ -208,8 +206,8 @@ function v86()
     this.reg32 = new Uint32Array(this.reg32s.buffer);
     this.reg16s = new Int16Array(this.reg32s.buffer);
     this.reg16 = new Uint16Array(this.reg32s.buffer);
-    this.reg8s  = new Int8Array(this.reg32s.buffer);
-    this.reg8  = new Uint8Array(this.reg32s.buffer);
+    this.reg8s = new Int8Array(this.reg32s.buffer);
+    this.reg8 = new Uint8Array(this.reg32s.buffer);
 
     // segment registers, tr and ldtr
     this.sreg = new Uint16Array(8);
@@ -239,7 +237,6 @@ function v86()
     this.next_tick = function() {};
     this.microtick = function() {};
 
-
     this.io = undefined;
     this.fpu = undefined;
 
@@ -247,9 +244,51 @@ function v86()
 // Closure Compiler is able to remove unused functions
 #include "debug.macro.js"
 
+    /** @const */
+    this._state_skip = [
+        "current_settings",
+        "debug",
+        "regv",
+        "table", "table0F",
+        "table16", "table32",
+        "table0F_16", "table0F_32",
+        "reg8", "reg8s", 
+        "reg16", "reg16s", "reg32",
 
-    Object.preventExtensions(this);
+        "tlb_data",
+        "tlb_info",
+        "tlb_info_global",
+
+        "timestamp_counter",
+
+        "running",
+        "stopped",
+    ];
 }
+
+v86.prototype._state_restore = function()
+{
+    this.reg32 = new Uint32Array(this.reg32s.buffer);
+    this.reg16s = new Int16Array(this.reg32s.buffer);
+    this.reg16 = new Uint16Array(this.reg32s.buffer);
+    this.reg8s = new Int8Array(this.reg32s.buffer);
+    this.reg8 = new Uint8Array(this.reg32s.buffer);
+
+    this.update_address_size();
+    this.update_operand_size();
+
+    if(this.stack_size_32)
+    {
+        this.stack_reg = this.reg32s;
+    }
+    else
+    {
+        this.stack_reg = this.reg16;
+    }
+
+    this.full_clear_tlb();
+    this.timestamp_counter = 0;
+};
 
 #include "translate.macro.js"
 
@@ -457,12 +496,12 @@ v86.prototype.init = function(settings)
     this.tlb_info_global = new Uint8Array(1 << 20);
 
 
-    this.reg32 = new Uint32Array(8);
-    this.reg32s = new Int32Array(this.reg32.buffer);
-    this.reg16 = new Uint16Array(this.reg32.buffer);
-    this.reg16s = new Int16Array(this.reg32.buffer);
-    this.reg8  = new Uint8Array(this.reg32.buffer);
-    this.reg8s  = new Int8Array(this.reg32.buffer);
+    this.reg32s = new Int32Array(8);
+    this.reg32 = new Uint32Array(this.reg32s.buffer);
+    this.reg16s = new Int16Array(this.reg32s.buffer);
+    this.reg16 = new Uint16Array(this.reg32s.buffer);
+    this.reg8s = new Int8Array(this.reg32s.buffer);
+    this.reg8 = new Uint8Array(this.reg32s.buffer);
     this.sreg = new Uint16Array(8);
     this.dreg = new Int32Array(8);
     this.protected_mode = false;
@@ -1465,7 +1504,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         }
         else
         {
-            setTimeout(function() { this.handle_irqs(); }.bind(this), 0);
+            this.handle_irqs();
         }
     }
     else
@@ -1956,8 +1995,6 @@ v86.prototype.update_address_size = function()
 {
     if(this.address_size_32)
     {
-        //this.modrm_resolve = this.modrm_resolve32;
-
         this.regv = this.reg32s;
         this.reg_vcx = reg_ecx;
         this.reg_vsi = reg_esi;
@@ -1965,8 +2002,6 @@ v86.prototype.update_address_size = function()
     }
     else
     {
-        //this.modrm_resolve = this.modrm_resolve16;
-
         this.regv = this.reg16;
         this.reg_vcx = reg_cx;
         this.reg_vsi = reg_si;

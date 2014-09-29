@@ -98,6 +98,9 @@ function PS2(cpu, keyboard, mouse)
 
     cpu.io.register_write(0x60, this.port60_write, this);
     cpu.io.register_write(0x64, this.port64_write, this);
+
+    /** @const */
+    this._state_skip = ["pic", "cpu"];
 }
 
 

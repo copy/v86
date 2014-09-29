@@ -3,7 +3,6 @@
 /** @constructor */
 function FloppyController(cpu, fda_image, fdb_image)
 {
-
     this.io = cpu.io;
     this.pic = cpu.devices.pic;
     this.dma = cpu.devices.dma;
@@ -30,6 +29,9 @@ function FloppyController(cpu, fda_image, fdb_image)
     this.last_cylinder = 0;
     this.last_head = 0;
     this.last_sector = 1;
+
+
+    this._state_skip = ["io", "pic", "dma", "fda_image", "fdb_image"];
 
     if(!fda_image)
     {
@@ -83,7 +85,6 @@ function FloppyController(cpu, fda_image, fdb_image)
 
     this.io.register_write(0x3F2, this.port3F2_write, this);
     this.io.register_write(0x3F5, this.port3F5_write, this);
-
 }
 
 FloppyController.prototype.port3F0_read = function()

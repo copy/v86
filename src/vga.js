@@ -258,7 +258,46 @@ function VGAScreen(cpu, adapter, vga_memory_size)
         this.svga_memory_read32.bind(this), this.svga_memory_write32.bind(this)
     );
 
-    Object.preventExtensions(this);
+    /** @const */
+    this._state_skip = [
+        "adapter",
+        "svga_memory16",
+        "svga_memory32",
+        "vga_memory",
+        "plane0",
+        "plane1",
+        "plane2",
+        "plane3",
+    ];
+};
+
+VGAScreen.prototype._state_restore = function()
+{
+    this.svga_memory16 = new Uint16Array(this.svga_memory.buffer);
+    this.svga_memory32 = new Int32Array(this.svga_memory.buffer);
+
+    this.vga_memory = new Uint8Array(this.svga_memory.buffer, 0, 4 * VGA_BANK_SIZE);
+
+    this.plane0 = new Uint8Array(this.svga_memory.buffer, 0 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+    this.plane1 = new Uint8Array(this.svga_memory.buffer, 1 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+    this.plane2 = new Uint8Array(this.svga_memory.buffer, 2 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+    this.plane3 = new Uint8Array(this.svga_memory.buffer, 3 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+
+    this.adapter.set_mode(this.graphical_mode || this.svga_enabled);
+
+    if(this.graphical_mode || this.svga_enabled)
+    {
+        // TODO: Consider non-svga modes
+        this.set_size_graphical(this.svga_width, this.svga_height);
+    }
+    else
+    {
+        this.set_size_text(this.max_cols, this.max_rows);
+        this.update_cursor_scanline();
+        this.update_cursor();
+    }
+
+    this.do_complete_redraw = true;
 };
 
 VGAScreen.prototype.vga_memory_read = function(addr)

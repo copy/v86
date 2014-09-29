@@ -39,6 +39,8 @@ function RTC(cpu, diskette_type, boot_order)
 
     cpu.io.register_write(0x71, this.cmos_write.bind(this));
     cpu.io.register_read(0x71, this.cmos_read.bind(this));
+
+    this._state_skip = ["cpu", "pic"];
 }
 
 RTC.prototype.timer = function(time, legacy_mode)
