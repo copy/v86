@@ -1,7 +1,6 @@
 #runtime_infos {
     float: left;
-    width: 400px;
-    width: 360px;
+    width: 300px;
 }
 #log, #runtime_infos, #serial {
     font-family: DejaVu Sans Mono, monospace;
