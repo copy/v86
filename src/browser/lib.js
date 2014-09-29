@@ -49,7 +49,7 @@ function load_file(filename, done, progress, headers)
 }
 
 /**
- * @this {AsyncFileBuffer}
+ * @this {AsyncFileBuffer|AsyncXHRBuffer}
  * Likewise, relies on this.byteLength, this.loaded_blocks and this.block_size
  */
 function async_buffer_set(offset, data, fn)
