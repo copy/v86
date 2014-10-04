@@ -21,7 +21,6 @@
         a["download"] = name;
         a.href = window.URL.createObjectURL(blob),
         a.dataset["downloadurl"] = ["application/octet-stream", a["download"], a.href].join(":");
-
         
         if(document.createEvent)
         {
@@ -656,7 +655,7 @@
         }
 
         setTimeout(update_info, 1000);
-        setTimeout(update_other_info, 1000);
+        setTimeout(update_other_info, 0);
 
         $("reset").onclick = function()
         {
@@ -779,12 +778,16 @@
         $("memory_dump").onclick = function()
         {
             dump_file(debug.get_memory_dump(), "v86-memory.bin");
+            $("memory_dump").blur();
         };
 
         $("save_state").onclick = function()
         {
             dump_file(cpu.save_state(), "v86-state.bin");
+            $("save_state").blur();
         };
+
+        window.cpu = cpu;
     }
 
     function onpopstate(e)
