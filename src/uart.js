@@ -12,37 +12,36 @@ var DLAB = 0x80;
  */
 function UART(cpu, port, adapter)
 {
-    var io = cpu.io,
-        pic = cpu.devices.pic,
+    this.pic = cpu.devices.pic;
 
-        line = "",
-        baud_rate = 0,
+    this.line = "";
+    this.baud_rate = 0;
 
-        line_control = 0,
-        line_status = 0,
+    this.line_control = 0;
+    this.line_status = 0;
 
-        fifo_control = 0,
-        interrupt_enable = 0,
+    this.fifo_control = 0;
+    this.interrupt_enable = 0;
 
-        // interrupt identification register
-        iir = 1,
+    // interrupt identification register
+    this.iir = 1;
 
-        modem_control = 0,
-        modem_status = 0,
+    this.modem_control = 0;
+    this.modem_status = 0;
 
-        scratch_register = 0,
+    this.scratch_register = 0;
 
-        irq = 0,
+    this.irq = 0;
 
-        input = new ByteQueue(4096);
+    this.input = new ByteQueue(4096);
 
     if(port === 0x3E8 || port === 0x3F8)
     {
-        irq = 4;
+        this.irq = 4;
     }
     else if(port === 0x3E8 || port === 0x3E8)
     {
-        irq = 3;
+        this.irq = 3;
     }
     else
     {
@@ -52,25 +51,22 @@ function UART(cpu, port, adapter)
 
     function data_received(data)
     {
-        input.push(data);
+        this.input.push(data);
 
-        if(interrupt_enable & 1)
+        if(this.interrupt_enable & 1)
         {
-            push_irq();
+            this.push_irq();
         }
     }
-    adapter.init(data_received);
+    adapter.init(data_received.bind(this));
 
-    function push_irq()
-    {
-        pic.push_irq(irq);
-    }
+    var io = cpu.io;
 
     io.register_write(port, function(out_byte) 
     {
-        if(line_control & DLAB)
+        if(this.line_control & DLAB)
         {
-            baud_rate = baud_rate & ~0xFF | out_byte;
+            this.baud_rate = this.baud_rate & ~0xFF | out_byte;
             return;
         }
 
@@ -90,43 +86,43 @@ function UART(cpu, port, adapter)
         {
             if(out_byte === 0x0A)
             {
-                adapter.put_line(line);
-                line = "";
+                adapter.put_line(this.line);
+                this.line = "";
             }
             else
             {
-                line += String.fromCharCode(out_byte);
+                this.line += String.fromCharCode(out_byte);
             }
         }
         else
         {
             adapter.put_str(String.fromCharCode(out_byte));
         }
-    });
+    }, this);
 
     io.register_write(port | 1, function(out_byte)
     {
-        if(line_control & DLAB)
+        if(this.line_control & DLAB)
         {
-            baud_rate = baud_rate & 0xFF | out_byte << 8;
-            dbg_log("baud rate: " + h(baud_rate), LOG_SERIAL);
+            this.baud_rate = this.baud_rate & 0xFF | out_byte << 8;
+            dbg_log("baud rate: " + h(this.baud_rate), LOG_SERIAL);
         }
         else
         {
-            interrupt_enable = out_byte;
+            this.interrupt_enable = out_byte;
             dbg_log("interrupt enable: " + h(out_byte), LOG_SERIAL);
         }
-    });
+    }, this);
 
     io.register_read(port, function()
     {
-        if(line_control & DLAB)
+        if(this.line_control & DLAB)
         {
-            return baud_rate & 0xFF;
+            return this.baud_rate & 0xFF;
         }
         else
         {
-            var data = input.shift();
+            var data = this.input.shift();
 
             if(data === -1)
             {
@@ -139,61 +135,61 @@ function UART(cpu, port, adapter)
 
             return data;
         }
-    });
+    }, this);
 
     io.register_read(port | 1, function()
     {
-        if(line_control & DLAB)
+        if(this.line_control & DLAB)
         {
-            return baud_rate >> 8;
+            return this.baud_rate >> 8;
         }
         else
         {
-            return interrupt_enable;
+            return this.interrupt_enable;
         }
-    });
+    }, this);
 
     io.register_read(port | 2, function()
     {
-        var ret = iir;
-        dbg_log("read interrupt identification: " + h(iir), LOG_SERIAL);
-        iir ^= 1;
+        var ret = this.iir;
+        dbg_log("read interrupt identification: " + h(this.iir), LOG_SERIAL);
+        this.iir ^= 1;
 
         return ret;
-    });
+    }, this);
     io.register_write(port | 2, function(out_byte)
     {
         dbg_log("fifo control: " + h(out_byte), LOG_SERIAL);
-        fifo_control = out_byte;
-    });
+        this.fifo_control = out_byte;
+    }, this);
 
     io.register_read(port | 3, function()
     {
-        dbg_log("read line control: " + h(line_control), LOG_SERIAL);
-        return line_control;
-    });
+        dbg_log("read line control: " + h(this.line_control), LOG_SERIAL);
+        return this.line_control;
+    }, this);
     io.register_write(port | 3, function(out_byte)
     {
         dbg_log("line control: " + h(out_byte), LOG_SERIAL);
-        line_control = out_byte;
-    });
+        this.line_control = out_byte;
+    }, this);
 
 
     io.register_read(port | 4, function()
     {
-        return modem_control;
-    });
+        return this.modem_control;
+    }, this);
     io.register_write(port | 4, function(out_byte)
     {
         dbg_log("modem control: " + h(out_byte), LOG_SERIAL);
-        modem_control = out_byte;
-    });
+        this.modem_control = out_byte;
+    }, this);
 
     io.register_read(port | 5, function()
     {
         var line_status = 0;
 
-        if(input.length)
+        if(this.input.length)
         {
             line_status |= 1;
         }
@@ -202,28 +198,34 @@ function UART(cpu, port, adapter)
 
         dbg_log("read line status: " + h(line_status), LOG_SERIAL);
         return line_status;
-    });
+    }, this);
     io.register_write(port | 5, function(out_byte)
     {
         dbg_log("Factory test write", LOG_SERIAL);
-    });
+    }, this);
 
     io.register_read(port | 6, function()
     {
-        dbg_log("read modem status: " + h(modem_status), LOG_SERIAL);
-        return modem_status;
-    });
+        dbg_log("read modem status: " + h(this.modem_status), LOG_SERIAL);
+        return this.modem_status;
+    }, this);
     io.register_write(port | 6, function(out_byte)
     {
         dbg_log("Unkown register write (base+6)", LOG_SERIAL);
-    });
+    }, this);
 
     io.register_read(port | 7, function()
     {
-        return scratch_register;
-    });
+        return this.scratch_register;
+    }, this);
     io.register_write(port | 7, function(out_byte)
     {
-        scratch_register = out_byte;
-    });
+        this.scratch_register = out_byte;
+    }, this);
 }
+
+UART.prototype.push_irq = function()
+{
+    this.pic.push_irq(this.irq);
+};
+
