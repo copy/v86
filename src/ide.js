@@ -275,7 +275,6 @@ function IDEDevice(cpu, buffer, is_cd, nr)
     /** @const */
     this._state_skip = [
         "memory",
-        "buffer",
         "pic",
         "stats",
     ];

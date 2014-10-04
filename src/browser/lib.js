@@ -286,6 +286,13 @@ function AsyncFileBuffer(file)
     {
         this.onload && this.onload({});
     };
+
+    this._state_skip = [
+        "file",
+        "block_count",
+        "byteLength",
+        "block_size",
+    ];
 }
 AsyncFileBuffer.prototype.get = function(offset, len, fn)
 {
