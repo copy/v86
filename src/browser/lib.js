@@ -149,6 +149,11 @@ AsyncXHRBuffer.prototype.handle_read = function(offset, len, block)
         {
             block.set(written_block, i * this.block_size);
         }
+        //else
+        //{
+        //    var cached = this.loaded_blocks[start_block + i] = new Uint8Array(this.block_size);
+        //    cached.set(block.subarray(i * this.block_size, (i + 1) * this.block_size));
+        //}
     }
 };
 
