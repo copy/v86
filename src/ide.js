@@ -466,7 +466,7 @@ IDEDevice.prototype.ata_command = function(cmd)
     }
 };
 
-IDEDevice.prototype.atapi_handle = function()
+IDEDevice.prototype["atapi_handle"] = function()
 {
     dbg_log("ATAPI Command: " + h(this.data_port_buffer[0]), LOG_DISK);
 
@@ -625,7 +625,7 @@ IDEDevice.prototype.atapi_handle = function()
     }
 };
 
-IDEDevice.prototype.do_write = function()
+IDEDevice.prototype["do_write"] = function()
 {
     this.status = 0x50;
 
