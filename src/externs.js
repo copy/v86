@@ -1,4 +1,3 @@
-var console = {};
 var performance = {};
 
 
@@ -15,4 +14,3 @@ var exports = {};
 var define = {};
 var module = {};
 
-var postMessage = function() {};
