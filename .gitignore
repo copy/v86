@@ -1,9 +1,3 @@
-v86_all.js
-libv86.js
-src/cpu.js
-src/v86_all.js.map
-src/v86_all.js.map
-src/node/v86_node.js
 *.swp
 *.swo
 deploy.sh

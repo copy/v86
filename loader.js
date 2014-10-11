@@ -3,13 +3,14 @@
 (function()
 {
     var 
-        CORE_FILES = "const.js io.js cpu.js main.js ide.js fpu.js pci.js floppy.js " +
+        CORE_FILES = "const.js io.js main.js ide.js fpu.js pci.js floppy.js " +
                      "memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js acpi.js hpet.js " +
                      "ne2k.js cpu_state.js",
         BROWSER_FILES = "main.js screen.js keyboard.js mouse.js serial.js lib.js network.js",
         LIB_FILES = "esprima.js walk.js";
 
 
+    load_scripts("cpu.js", "build/");
     load_scripts(CORE_FILES, "src/");
     load_scripts(BROWSER_FILES, "src/browser/");
     load_scripts(LIB_FILES, "lib/");
