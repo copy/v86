@@ -26,6 +26,7 @@ v86 emulates an x86-compatible CPU and hardware. Here's a list of emulated hardw
   support for large resolutions.
 - A PCI bus. This one is partly incomplete and not used by every device.
 - An IDE disk controller.
+- An NE2000 (8390) PCI network card.
 
 
 How to build, run and embed?
