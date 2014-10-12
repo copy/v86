@@ -422,6 +422,13 @@ Ne2k.prototype.receive = function(data)
         return;
     }
 
+    if(data.length < 60)
+    {
+        var old = data;
+        data = new Uint8Array(60);
+        data.set(old)
+    }
+
     var offset = this.curpg << 8;
     var total_length = data.length + 4;
     var data_start = offset + 4;
