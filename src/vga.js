@@ -101,6 +101,9 @@ function VGAScreen(cpu, adapter, vga_memory_size)
     /** @type {number} */
     this.svga_height = 0;
 
+    /** @type {number} */
+    this.text_mode_width = 80;
+
     this.plane0;
     this.plane1;
     this.plane2;
@@ -846,7 +849,7 @@ VGAScreen.prototype.set_video_mode = function(mode)
     switch(mode)
     {
         case 0x03:
-            this.set_size_text(80, 25);
+            this.set_size_text(this.text_mode_width, 25);
             break;
         case 0x10:
             this.screen_width = 640;
@@ -1087,15 +1090,18 @@ VGAScreen.prototype.port3D5_write = function(value)
 {
     switch(this.index_crtc)
     {
+        case 0x2:
+            this.text_mode_width = value;
+            break;
         case 0x9:
             this.max_scan_line = value;
             if((value & 0x1F) === 7)
             {
-                this.set_size_text(80, 50);
+                this.set_size_text(this.text_mode_width, 50);
             }
             else
             {
-                this.set_size_text(80, 25);
+                this.set_size_text(this.text_mode_width, 25);
             }
             break;
         case 0xA:
