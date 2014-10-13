@@ -759,6 +759,26 @@
         {
             $("serial").style.display = "block";
         }
+
+        window.addEventListener("keydown", ctrl_w_rescue, false);
+        window.addEventListener("keyup", ctrl_w_rescue, false);
+        window.addEventListener("blur", ctrl_w_rescue, false);
+
+        function ctrl_w_rescue(e)
+        {
+            if(e.ctrlKey)
+            {
+                window.onbeforeunload = function()
+                {
+                    window.onbeforeunload = null;
+                    return "CTRL-W cannot be sent to the emulator.";
+                }
+            }
+            else
+            {
+                window.onbeforeunload = null;
+            }
+        }
     }
 
     function debug_start(cpu)
