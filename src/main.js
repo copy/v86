@@ -49,6 +49,7 @@ var dbg_names = Object.fromList([
     [LOG_ACPI, "ACPI"],
     [LOG_APIC, "APIC"],
     [LOG_NET, "NET"],
+    [LOG_VIRTIO, "VIO"],
 ]);
 
 
@@ -256,12 +257,47 @@ function CircularQueue(size)
     this.clear();
 }
 
+var int_log2_table = new Int8Array(256);
+
+for(var i = 0, b = -2; i < 256; i++)
+{
+    if(!(i & i - 1))
+        b++;
+
+    int_log2_table[i] = b;
+}
+
 Math.int_log2 = function(x)
 {
     dbg_assert(x > 0);
 
-    // well optimized in modern browsers, http://jsperf.com/integer-log2/2
-    return (Math.log(x) / Math.LN2) | 0;
+    // http://jsperf.com/integer-log2/6
+    var tt = x >>> 16;
+
+    if(tt)
+    {
+        var t = tt >>> 8;
+        if(t)
+        {
+            return 24 + int_log2_table[t];
+        }
+        else
+        {
+            return 16 + int_log2_table[tt];
+        }
+    }
+    else
+    {
+        var t = x >>> 8;
+        if(t)
+        {
+            return 8 + int_log2_table[t];
+        }
+        else
+        {
+            return int_log2_table[x];
+        }
+    }
 }
 
 

@@ -66,7 +66,7 @@ function PIC(cpu, master)
                 return false;
             }
 
-            var irq_number = Math.int_log2(irq);
+            var irq_number = int_log2_table[irq];
             irq = 1 << irq_number;
 
             this.irr &= ~irq;
@@ -113,7 +113,7 @@ function PIC(cpu, master)
                 return false;
             }
 
-            var irq_number = Math.int_log2(irq);
+            var irq_number = int_log2_table[irq];
             irq = 1 << irq_number;
 
             this.irr &= ~irq;
