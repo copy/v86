@@ -138,6 +138,8 @@ function IO(memory)
      */
     this.register_read = function(port_addr, callback, device)
     {
+        dbg_assert(typeof port_addr === "number");
+
         if(device !== undefined)
         {
             callback = callback.bind(device);
@@ -153,6 +155,8 @@ function IO(memory)
      */
     this.register_write = function(port_addr, callback, device)
     {
+        dbg_assert(typeof port_addr === "number");
+
         if(device !== undefined)
         {
             callback = callback.bind(device);
