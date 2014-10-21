@@ -662,12 +662,12 @@ v86.prototype.init = function(settings)
 
     var a20_byte = 0;
 
-    io.register_read(0x92, function()
+    io.register_read(0x92, this, function()
     {
         return a20_byte;
     });
 
-    io.register_write(0x92, function(out_byte)
+    io.register_write(0x92, this, function(out_byte)
     {
         a20_byte = out_byte;
     });
@@ -676,7 +676,7 @@ v86.prototype.init = function(settings)
     {
         // Use by linux for port-IO delay
         // Avoid generating tons of debug messages
-        io.register_write(0x80, function(out_byte)
+        io.register_write(0x80, this, function(out_byte)
         {
         });
     }

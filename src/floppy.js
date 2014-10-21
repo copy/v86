@@ -77,14 +77,14 @@ function FloppyController(cpu, fda_image, fdb_image)
     this.number_of_heads = number_of_heads;
     this.number_of_cylinders = number_of_cylinders;
 
-    this.io.register_read(0x3F0, this.port3F0_read, this);
-    this.io.register_read(0x3F2, this.port3F2_read, this);
-    this.io.register_read(0x3F4, this.port3F4_read, this);
-    this.io.register_read(0x3F5, this.port3F5_read, this);
-    this.io.register_read(0x3F7, this.port3F7_read, this);
+    this.io.register_read(0x3F0, this, this.port3F0_read);
+    this.io.register_read(0x3F2, this, this.port3F2_read);
+    this.io.register_read(0x3F4, this, this.port3F4_read);
+    this.io.register_read(0x3F5, this, this.port3F5_read);
+    this.io.register_read(0x3F7, this, this.port3F7_read);
 
-    this.io.register_write(0x3F2, this.port3F2_write, this);
-    this.io.register_write(0x3F5, this.port3F5_write, this);
+    this.io.register_write(0x3F2, this, this.port3F2_write);
+    this.io.register_write(0x3F5, this, this.port3F5_write);
 }
 
 FloppyController.prototype.port3F0_read = function()

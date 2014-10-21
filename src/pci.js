@@ -46,80 +46,86 @@ function PCI(cpu)
         }
     });*/
     
-    io.register_write(PCI_CONFIG_DATA, function(out_byte)
-    {
-        dbg_log("PCI data0: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
-        pci_write_byte(0, out_byte);
-    });
-    io.register_write(PCI_CONFIG_DATA | 1, function(out_byte)
-    {
-        dbg_log("PCI data1: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
-        pci_write_byte(1, out_byte);
-    });
-    io.register_write(PCI_CONFIG_DATA | 2, function(out_byte)
-    {
-        dbg_log("PCI data2: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
-        pci_write_byte(2, out_byte);
-    });
-    io.register_write(PCI_CONFIG_DATA | 3, function(out_byte)
-    {
-        dbg_log("PCI data3: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
+    io.register_write_consecutive(PCI_CONFIG_DATA, this, 
+        function(out_byte)
+        {
+            dbg_log("PCI data0: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
+            pci_write_byte(0, out_byte);
+        },
+        function(out_byte)
+        {
+            dbg_log("PCI data1: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
+            pci_write_byte(1, out_byte);
+        },
+        function(out_byte)
+        {
+            dbg_log("PCI data2: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
+            pci_write_byte(2, out_byte);
+        },
+        function(out_byte)
+        {
+            dbg_log("PCI data3: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
+            pci_write_byte(3, out_byte);
+        }
+    );
 
-        pci_write_byte(3, out_byte);
-    });
+    io.register_read_consecutive(PCI_CONFIG_DATA, this, 
+        function()
+        {
+            return pci_response[0];
+        },
+        function()
+        {
+            return pci_response[1];
+        },
+        function()
+        {
+            return pci_response[2];
+        },
+        function()
+        {
+            return pci_response[3];
+        }
+    );
 
-    io.register_read(PCI_CONFIG_DATA, function()
-    {
-        return pci_response[0];
-    });
-    io.register_read(PCI_CONFIG_DATA | 1, function()
-    {
-        return pci_response[1];
-    });
-    io.register_read(PCI_CONFIG_DATA | 2, function()
-    {
-        return pci_response[2];
-    });
-    io.register_read(PCI_CONFIG_DATA | 3, function()
-    {
-        return pci_response[3];
-    });
+    io.register_read_consecutive(PCI_CONFIG_ADDRESS, this, 
+        function()
+        {
+            return pci_status[0];
+        },
+        function()
+        {
+            return pci_status[1];
+        },
+        function()
+        {
+            return pci_status[2];
+        },
+        function()
+        {
+            return pci_status[3];
+        }
+    );
 
-    io.register_read(PCI_CONFIG_ADDRESS, function()
-    {
-        return pci_status[0];
-    });
-    io.register_read(PCI_CONFIG_ADDRESS | 1, function()
-    {
-        return pci_status[1];
-    });
-    io.register_read(PCI_CONFIG_ADDRESS | 2, function()
-    {
-        return pci_status[2];
-    });
-    io.register_read(PCI_CONFIG_ADDRESS | 3, function()
-    {
-        return pci_status[3];
-    });
-
-    io.register_write(PCI_CONFIG_ADDRESS, function(out_byte)
-    {
-        pci_addr[0] = out_byte;
-    });
-    io.register_write(PCI_CONFIG_ADDRESS | 1, function(out_byte)
-    {
-        pci_addr[1] = out_byte;
-    });
-    io.register_write(PCI_CONFIG_ADDRESS | 2, function(out_byte)
-    {
-        pci_addr[2] = out_byte;
-    });
-    io.register_write(PCI_CONFIG_ADDRESS | 3, function(out_byte)
-    {
-        pci_addr[3] = out_byte;
-
-        pci_query();
-    });
+    io.register_write_consecutive(PCI_CONFIG_ADDRESS, this, 
+        function(out_byte)
+        {
+            pci_addr[0] = out_byte;
+        },
+        function(out_byte)
+        {
+            pci_addr[1] = out_byte;
+        },
+        function(out_byte)
+        {
+            pci_addr[2] = out_byte;
+        },
+        function(out_byte)
+        {
+            pci_addr[3] = out_byte;
+            pci_query();
+        }
+    );
 
     function pci_query()
     {

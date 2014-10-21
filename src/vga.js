@@ -182,49 +182,43 @@ function VGAScreen(cpu, adapter, vga_memory_size)
 
     var io = cpu.io;
         
-    io.register_write(0x3C0, this.port3C0_write, this);
-    io.register_read(0x3C0, this.port3C0_read, this);
+    io.register_write(0x3C0, this, this.port3C0_write);
+    io.register_read(0x3C0, this, this.port3C0_read);
 
-    io.register_read(0x3C1, this.port3C1_read, this);
-    io.register_write(0x3C2, this.port3C2_write, this);
+    io.register_read(0x3C1, this, this.port3C1_read);
+    io.register_write(0x3C2, this, this.port3C2_write);
     
-    io.register_write(0x3C4, this.port3C4_write, this);
-    io.register_read(0x3C4, this.port3C4_read, this);
+    io.register_write_consecutive(0x3C4, this, this.port3C4_write, this.port3C5_write);
 
-    io.register_write(0x3C5, this.port3C5_write, this);
-    io.register_read(0x3C5, this.port3C5_read, this);
+    io.register_read(0x3C4, this, this.port3C4_read);
+    io.register_read(0x3C5, this, this.port3C5_read);
 
-    io.register_write(0x3CE, this.port3CE_write, this);
-    io.register_read(0x3CE, this.port3CE_read, this);
+    io.register_write_consecutive(0x3CE, this, this.port3CE_write, this.port3CF_write);
 
-    io.register_write(0x3CF, this.port3CF_write, this);
-    io.register_read(0x3CF, this.port3CF_read, this);
+    io.register_read(0x3CE, this, this.port3CE_read);
+    io.register_read(0x3CF, this, this.port3CF_read);
 
-    io.register_write(0x3C7, this.port3C7_write, this);
-    io.register_write(0x3C8, this.port3C8_write, this);
-    io.register_write(0x3C9, this.port3C9_write, this);
+    io.register_write(0x3C7, this, this.port3C7_write);
+    io.register_write(0x3C8, this, this.port3C8_write);
+    io.register_write(0x3C9, this, this.port3C9_write);
 
-    io.register_read(0x3CC, this.port3CC_read, this);
+    io.register_read(0x3CC, this, this.port3CC_read);
 
-    io.register_write(0x3D4, this.port3D4_write, this);
-    io.register_write(0x3D5, this.port3D5_write, this);
-    io.register_read(0x3D5, this.port3D5_read, this);
+    io.register_write_consecutive(0x3D4, this, this.port3D4_write, this.port3D5_write);
+    io.register_read(0x3D5, this, this.port3D5_read);
 
-    io.register_read(0x3DA, this.port3DA_read, this);
+    io.register_read(0x3DA, this, this.port3DA_read);
 
 
     // Bochs VBE Extensions
     // http://wiki.osdev.org/Bochs_VBE_Extensions
     this.dispi_index = -1;
-    this.dispi_value = -1;
     this.dispi_enable_value = 0;
 
-    io.register_write(0x1CE, this.port1CE_write, this);
-    io.register_write(0x1CF, this.port1CF_write, this);
-    io.register_write(0x1D0, this.port1D0_write, this);
+    io.register_write(0x1CE, this, undefined, this.port1CE_write);
 
-    io.register_read(0x1CF, this.port1CF_read, this);
-    io.register_read(0x1D0, this.port1D0_read, this);
+    io.register_write(0x1CF, this, undefined, this.port1CF_write);
+    io.register_read(0x1CF, this, undefined, this.port1CF_read);
 
     if(this.vga_memory_size === undefined || this.vga_memory_size < 4 * VGA_BANK_SIZE)
     {
@@ -252,13 +246,16 @@ function VGAScreen(cpu, adapter, vga_memory_size)
     this.set_size_text(80, 25);
     this.update_cursor_scanline();
 
+    var me = this;
     io.mmap_register(0xA0000, 0x20000, 
-        this.vga_memory_read.bind(this), 
-        this.vga_memory_write.bind(this)
+        function(addr) { return me.vga_memory_read(addr); },
+        function(addr, value) { me.vga_memory_write(addr, value); }
     );
     io.mmap_register(0xE0000000, this.vga_memory_size, 
-        this.svga_memory_read8.bind(this), this.svga_memory_write8.bind(this),
-        this.svga_memory_read32.bind(this), this.svga_memory_write32.bind(this)
+        function(addr) { return me.svga_memory_read8(addr); },
+        function(addr, value) { me.svga_memory_write8(addr, value); },
+        function(addr) { return me.svga_memory_read32(addr); },
+        function(addr, value) { me.svga_memory_write32(addr, value); }
     );
 
     /** @const */
@@ -1211,29 +1208,14 @@ VGAScreen.prototype.port1CE_write = function(value)
     this.dispi_index = value;
 };
 
-VGAScreen.prototype.port1CF_write = function(value, low_port)
+VGAScreen.prototype.port1CF_write = function(value)
 {
-    if(low_port === 0x1CE)
-    {
-        this.dispi_index = this.dispi_index & 0xFF | value << 8;
-    }
-    else
-    {
-        this.dispi_value = value;
-
-        dbg_log("1CF / dispi write low " + h(this.dispi_index) + ": " + h(value), LOG_VGA);
-    }
-};
-
-VGAScreen.prototype.port1D0_write = function(value)
-{
-    dbg_log("1D0 / dispi write high " + h(this.dispi_index) + ": " + h(value), LOG_VGA);
-    this.dispi_value = this.dispi_value & 0xFF | value << 8;
+    dbg_log("1CF / dispi write " + h(this.dispi_index) + ": " + h(value), LOG_VGA);
 
     switch(this.dispi_index)
     {
         case 1:
-            this.svga_width = this.dispi_value;
+            this.svga_width = value;
             if(this.svga_width > MAX_XRES)
             {
                 dbg_log("svga_width reduced from " + this.svga_width + " to " + MAX_XRES, LOG_VGA);
@@ -1241,7 +1223,7 @@ VGAScreen.prototype.port1D0_write = function(value)
             }
             break;
         case 2:
-            this.svga_height = this.dispi_value;
+            this.svga_height = value;
             if(this.svga_height > MAX_YRES)
             {
                 dbg_log("svga_height reduced from " + this.svga_height + " to " + MAX_YRES, LOG_VGA);
@@ -1249,17 +1231,17 @@ VGAScreen.prototype.port1D0_write = function(value)
             }
             break;
         case 3:
-            this.svga_bpp = this.dispi_value;
+            this.svga_bpp = value;
             break;
         case 4:
             // enable, options
-            this.svga_enabled = (this.dispi_value & 1) === 1;
-            this.dispi_enable_value = this.dispi_value;
+            this.svga_enabled = (value & 1) === 1;
+            this.dispi_enable_value = value;
             break;
         case 9:
             // y offset
-            this.svga_offset = this.dispi_value * this.svga_bytes_per_line();
-            dbg_log("SVGA offset: " + h(this.svga_offset) + " y=" + h(this.dispi_value), LOG_VGA);
+            this.svga_offset = value * this.svga_bytes_per_line();
+            dbg_log("SVGA offset: " + h(this.svga_offset) + " y=" + h(value), LOG_VGA);
             this.do_complete_redraw = true;
             break;
         default:
@@ -1287,13 +1269,8 @@ VGAScreen.prototype.port1D0_write = function(value)
 
 VGAScreen.prototype.port1CF_read = function()
 {
-    dbg_log("1CF / dispi read low " + h(this.dispi_index), LOG_VGA);
+    dbg_log("1CF / dispi read " + h(this.dispi_index), LOG_VGA);
     return this.svga_register_read(this.dispi_index);
-};
-VGAScreen.prototype.port1D0_read = function()
-{
-    dbg_log("1D0 / dispi read high " + h(this.dispi_index), LOG_VGA);
-    return this.svga_register_read(this.dispi_index) >> 8;
 };
 
 VGAScreen.prototype.svga_register_read = function(n)
@@ -1304,11 +1281,11 @@ VGAScreen.prototype.svga_register_read = function(n)
             // id
             return 0xB0C0;
         case 1:
-            return this.dispi_value & 2 ? MAX_XRES : this.svga_width;
+            return this.dispi_enable_value & 2 ? MAX_XRES : this.svga_width;
         case 2:
-            return this.dispi_value & 2 ? MAX_YRES : this.svga_height;
+            return this.dispi_enable_value & 2 ? MAX_YRES : this.svga_height;
         case 3:
-            return this.dispi_value & 2 ? MAX_BPP : this.svga_bpp;
+            return this.dispi_enable_value & 2 ? MAX_BPP : this.svga_bpp;
         case 4:
             return this.dispi_enable_value;
         case 6:

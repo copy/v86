@@ -28,45 +28,45 @@ function ACPI(cpu)
     var elcr = 0;
 
     // ACPI, ELCR register
-    io.register_write(0x4d0, function(data)
+    io.register_write(0x4d0, this, function(data)
     {
         elcr = elcr & 0xFF00 | data;
     });
-    io.register_write(0x4d1, function(data)
+    io.register_write(0x4d1, this, function(data)
     {
         elcr = elcr & 0xFF | data << 8;
     });
 
-    io.register_read(0xb3, function()
+    io.register_read(0xb3, this, function()
     {
         return 0;
     });
 
     // ACPI, pmtimer
-    io.register_read(0xb008, function()
+    io.register_read(0xb008, this, function()
     {
         return 0;
     });
-    io.register_read(0xb009, function()
+    io.register_read(0xb009, this, function()
     {
         return 0;
     });
-    io.register_read(0xb00a, function()
+    io.register_read(0xb00a, this, function()
     {
         return 0;
     });
-    io.register_read(0xb00b, function()
+    io.register_read(0xb00b, this, function()
     {
         return 0;
     });
 
     // ACPI status
-    io.register_read(0xb004, function(data)
+    io.register_read(0xb004, this, function(data)
     {
         dbg_log("b004 read");
         return 1;
     });
-    io.register_read(0xb005, function(data)
+    io.register_read(0xb005, this, function(data)
     {
         dbg_log("b005 read");
         return 0;

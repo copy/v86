@@ -137,11 +137,11 @@ function IDEDevice(cpu, buffer, is_cd, nr)
     cpu.devices.pci.register_device(this);
 
     // status
-    cpu.io.register_read(this.ata_port | 7, this.read_status, this);
-    cpu.io.register_read(this.ata_port_high | 2, this.read_status, this);
+    cpu.io.register_read(this.ata_port | 7, this, this.read_status);
+    cpu.io.register_read(this.ata_port_high | 2, this, this.read_status);
 
-    cpu.io.register_write(this.ata_port | 7, this.write_control, this);
-    cpu.io.register_write(this.ata_port_high | 2, this.write_control, this);
+    cpu.io.register_write(this.ata_port | 7, this, this.write_control);
+    cpu.io.register_write(this.ata_port_high | 2, this, this.write_control);
 
     /** @type {number} */
     this.device_control = 2;
@@ -191,44 +191,44 @@ function IDEDevice(cpu, buffer, is_cd, nr)
     /** @type {number} */
     this.dma_status = 0;
 
-    cpu.io.register_read(this.ata_port | 0, this.read_data_port, this);
-    cpu.io.register_read(this.ata_port | 1, this.read_data_port, this);
-    cpu.io.register_read(this.ata_port | 2, this.read_data_port, this);
-    cpu.io.register_read(this.ata_port | 3, this.read_data_port, this);
+    cpu.io.register_read(this.ata_port | 0, this, this.read_data_port8, this.read_data_port16, this.read_data_port32);
+    cpu.io.register_read(this.ata_port | 1, this, this.read_lba_port);
+    cpu.io.register_read(this.ata_port | 2, this, this.read_bytecount_port);
+    cpu.io.register_read(this.ata_port | 3, this, this.read_sector_port);
 
-    cpu.io.register_read(this.ata_port | 4, function()
+    cpu.io.register_read(this.ata_port | 4, this, function()
     {
         dbg_log("Read 1F4: " + h(this.cylinder_low & 0xFF), LOG_DISK);
         return this.cylinder_low & 0xFF;
-    }, this);
-    cpu.io.register_read(this.ata_port | 5, function(port)
+    });
+    cpu.io.register_read(this.ata_port | 5, this, function(port)
     {
         dbg_log("Read 1F5: " + h(this.cylinder_high & 0xFF), LOG_DISK);
         return this.cylinder_high & 0xFF;
-    }, this);
-    cpu.io.register_read(this.ata_port | 6, function()
+    });
+    cpu.io.register_read(this.ata_port | 6, this, function()
     {
         dbg_log("Read 1F6", LOG_DISK);
         return this.drive_head;
-    }, this);
+    });
 
 
-    cpu.io.register_write(this.ata_port | 0, this.write_data_port, this);
-    cpu.io.register_write(this.ata_port | 1, this.write_data_port, this);
-    cpu.io.register_write(this.ata_port | 2, this.write_data_port, this);
-    cpu.io.register_write(this.ata_port | 3, this.write_data_port, this);
+    cpu.io.register_write(this.ata_port | 0, this, this.write_data_port8, this.write_data_port16, this.write_data_port32);
+    cpu.io.register_write(this.ata_port | 1, this, this.write_lba_port);
+    cpu.io.register_write(this.ata_port | 2, this, this.write_bytecount_port);
+    cpu.io.register_write(this.ata_port | 3, this, this.write_sector_port);
 
-    cpu.io.register_write(this.ata_port | 4, function(data)
+    cpu.io.register_write(this.ata_port | 4, this, function(data)
     {
         dbg_log("1F4/sector low: " + h(data), LOG_DISK);
         this.cylinder_low = (this.cylinder_low << 8 | data) & 0xFFFF;
-    }, this);
-    cpu.io.register_write(this.ata_port | 5, function(data)
+    });
+    cpu.io.register_write(this.ata_port | 5, this, function(data)
     {
         dbg_log("1F5/sector high: " + h(data), LOG_DISK);
         this.cylinder_high = (this.cylinder_high << 8 | data) & 0xFFFF;
-    }, this);
-    cpu.io.register_write(this.ata_port | 6, function(data)
+    });
+    cpu.io.register_write(this.ata_port | 6, this, function(data)
     {
         var slave = data & 0x10,
             mode = data & 0xE0,
@@ -253,24 +253,18 @@ function IDEDevice(cpu, buffer, is_cd, nr)
         this.is_lba = data >> 6 & 1;
         this.head = data & 0xF;
         this.last_drive = data;
-    }, this);
+    });
 
-    cpu.io.register_write(this.ata_port | 7, this.ata_command, this);
+    cpu.io.register_write(this.ata_port | 7, this, this.ata_command);
 
-    cpu.io.register_read(this.master_port | 4, this.dma_read_addr0, this);
-    cpu.io.register_read(this.master_port | 5, this.dma_read_addr1, this);
-    cpu.io.register_read(this.master_port | 6, this.dma_read_addr2, this);
-    cpu.io.register_read(this.master_port | 7, this.dma_read_addr3, this);
+    cpu.io.register_read(this.master_port | 4, this, undefined, undefined, this.dma_read_addr);
+    cpu.io.register_write(this.master_port | 4, this, undefined, undefined, this.dma_set_addr);
 
-    cpu.io.register_write(this.master_port | 4, this.dma_set_addr0, this);
-    cpu.io.register_write(this.master_port | 5, this.dma_set_addr1, this);
-    cpu.io.register_write(this.master_port | 6, this.dma_set_addr2, this);
-    cpu.io.register_write(this.master_port | 7, this.dma_set_addr3, this);
+    cpu.io.register_read(this.master_port, this, this.dma_read_command8, undefined, this.dma_read_command);
+    cpu.io.register_write(this.master_port, this, undefined, undefined, this.dma_write_command);
 
-    cpu.io.register_read(this.master_port | 2, this.dma_read_status, this);
-    cpu.io.register_write(this.master_port | 2, this.dma_write_status, this);
-    cpu.io.register_read(this.master_port, this.dma_read_command, this);
-    cpu.io.register_write(this.master_port, this.dma_write_command, this);
+    cpu.io.register_read(this.master_port | 2, this, this.dma_read_status, undefined, undefined);
+    cpu.io.register_write(this.master_port | 2, this, this.dma_write_status, undefined);
 
     /** @const */
     this._state_skip = [
@@ -821,27 +815,38 @@ IDEDevice.prototype.atapi_read_dma = function(cmd)
     }
 };
 
-IDEDevice.prototype.read_data_port = function(port_addr)
+IDEDevice.prototype.read_data_port8 = function()
 {
-    if(port_addr === this.ata_port)
-    {
-        return this.read_data();
-    }
-    else if(port_addr === (this.ata_port | 1))
-    {
-        dbg_log("Read lba_count: " + h(this.lba_count & 0xFF), LOG_DISK);
-        return this.lba_count & 0xFF;
-    }
-    else if(port_addr === (this.ata_port | 2))
-    {
-        dbg_log("Read bytecount: " + h(this.bytecount & 0xFF), LOG_DISK);
-        return this.bytecount & 0xFF;
-    }
-    else if(port_addr === (this.ata_port | 3))
-    {
-        dbg_log("Read sector: " + h(this.sector & 0xFF), LOG_DISK);
-        return this.sector & 0xFF;
-    }
+    return this.read_data();
+};
+
+IDEDevice.prototype.read_data_port16 = function()
+{
+    return this.read_data() | this.read_data() << 8;
+};
+
+IDEDevice.prototype.read_data_port32 = function()
+{
+    return this.read_data() | this.read_data() << 8 |
+            this.read_data() << 16 | this.read_data() << 24;
+};
+
+IDEDevice.prototype.read_lba_port = function()
+{
+    dbg_log("Read lba_count: " + h(this.lba_count & 0xFF), LOG_DISK);
+    return this.lba_count & 0xFF;
+};
+
+IDEDevice.prototype.read_bytecount_port = function()
+{
+    dbg_log("Read bytecount: " + h(this.bytecount & 0xFF), LOG_DISK);
+    return this.bytecount & 0xFF;
+};
+
+IDEDevice.prototype.read_sector_port = function()
+{
+    dbg_log("Read sector: " + h(this.sector & 0xFF), LOG_DISK);
+    return this.sector & 0xFF;
 };
 
 IDEDevice.prototype.read_data = function()
@@ -910,54 +915,67 @@ IDEDevice.prototype.read_data = function()
     }
 };
 
-IDEDevice.prototype.write_data_port = function(data, port_addr)
+IDEDevice.prototype.write_data_port8 = function(data)
 {
-    if(port_addr === this.ata_port)
+    if(this.data_port_current >= this.data_port_count)
     {
-        if(this.data_port_current >= this.data_port_count)
+        dbg_log("Redundant write to data port: " + h(data) + " count=" + h(this.data_port_count) +
+                " cur=" + h(this.data_port_current), LOG_DISK);
+    }
+    else
+    {
+        if((this.data_port_current + 1 & 255) === 0 || this.data_port_count < 20)
         {
-            dbg_log("Redundant write to data port: " + h(data) + " count=" + h(this.data_port_count) +
+            dbg_log("Data port: " + h(data) + " count=" + h(this.data_port_count) +
                     " cur=" + h(this.data_port_current), LOG_DISK);
         }
-        else
+
+        this.data_port_buffer[this.data_port_current++] = data;
+
+        if((this.data_port_current % (this.sectors_per_drq * 512)) === 0)
         {
-            if((this.data_port_current + 1 & 255) === 0 || this.data_port_count < 20)
-            {
-                dbg_log("Data port: " + h(data) + " count=" + h(this.data_port_count) +
-                        " cur=" + h(this.data_port_current), LOG_DISK);
-            }
-
-            this.data_port_buffer[this.data_port_current++] = data;
-
-            if((this.data_port_current % (this.sectors_per_drq * 512)) === 0)
-            {
-                dbg_log("ATA IRQ", LOG_DISK);
-                this.push_irq();
-            }
-
-            if(this.data_port_current === this.data_port_count)
-            {
-                dbg_assert(typeof this[this.data_port_callback] === "function");
-                this[this.data_port_callback]();
-            }
+            dbg_log("ATA IRQ", LOG_DISK);
+            this.push_irq();
         }
 
+        if(this.data_port_current === this.data_port_count)
+        {
+            dbg_assert(typeof this[this.data_port_callback] === "function");
+            this[this.data_port_callback]();
+        }
     }
-    else if(port_addr === (this.ata_port | 1))
-    {
-        dbg_log("1F1/lba_count: " + h(data), LOG_DISK);
-        this.lba_count = (this.lba_count << 8 | data) & 0xFFFF;
-    }
-    else if(port_addr === (this.ata_port | 2))
-    {
-        dbg_log("1F2/bytecount: " + h(data), LOG_DISK);
-        this.bytecount = (this.bytecount << 8 | data) & 0xFFFF;
-    }
-    else if(port_addr === (this.ata_port | 3))
-    {
+};
+
+IDEDevice.prototype.write_data_port16 = function(data)
+{
+    this.write_data_port8(data & 0xFF);
+    this.write_data_port8(data >> 8 & 0xFF);
+};
+
+IDEDevice.prototype.write_data_port32 = function(data)
+{
+    this.write_data_port8(data & 0xFF);
+    this.write_data_port8(data >> 8 & 0xFF);
+    this.write_data_port8(data >> 16 & 0xFF);
+    this.write_data_port8(data >> 24 & 0xFF);
+};
+
+IDEDevice.prototype.write_lba_port = function(data)
+{
+    dbg_log("1F1/lba_count: " + h(data), LOG_DISK);
+    this.lba_count = (this.lba_count << 8 | data) & 0xFFFF;
+};
+
+IDEDevice.prototype.write_bytecount_port = function(data)
+{
+    dbg_log("1F2/bytecount: " + h(data), LOG_DISK);
+    this.bytecount = (this.bytecount << 8 | data) & 0xFFFF;
+};
+
+IDEDevice.prototype.write_sector_port = function(data)
+{
         dbg_log("1F3/sector: " + h(data), LOG_DISK);
         this.sector = (this.sector << 8 | data) & 0xFFFF;
-    }
 };
 
 IDEDevice.prototype.ata_read_sectors = function(cmd)
@@ -1343,39 +1361,14 @@ IDEDevice.prototype.create_identify_packet = function()
     }
 };
 
-IDEDevice.prototype.dma_read_addr0 = function()
+IDEDevice.prototype.dma_read_addr = function()
 {
-    return this.prdt_addr & 0xFF;
-};
-IDEDevice.prototype.dma_read_addr1 = function()
-{
-    return this.prdt_addr >> 8 & 0xFF;
-};
-IDEDevice.prototype.dma_read_addr2 = function()
-{
-    return this.prdt_addr >> 16 & 0xFF;
-};
-IDEDevice.prototype.dma_read_addr3 = function()
-{
-    return this.prdt_addr >> 24 & 0xFF;
+    return this.prdt_addr;
 };
 
-IDEDevice.prototype.dma_set_addr0 = function(data)
+IDEDevice.prototype.dma_set_addr = function(data)
 {
-    this.prdt_addr = this.prdt_addr & ~0xFF | data;
-};
-IDEDevice.prototype.dma_set_addr1 = function(data)
-{
-    this.prdt_addr = this.prdt_addr & ~0xFF00 | data << 8;
-};
-IDEDevice.prototype.dma_set_addr2 = function(data)
-{
-    this.prdt_addr = this.prdt_addr & ~0xFF0000 | data << 16;
-};
-IDEDevice.prototype.dma_set_addr3 = function(data)
-{
-    this.prdt_addr = this.prdt_addr & 0xFFFFFF | data << 24;
-    dbg_log("Set PRDT addr: " + h(this.prdt_addr), LOG_DISK);
+    this.prdt_addr = data;
 };
 
 IDEDevice.prototype.dma_read_status = function()
@@ -1394,8 +1387,15 @@ IDEDevice.prototype.dma_write_status = function(value)
 IDEDevice.prototype.dma_read_command = function()
 {
     dbg_log("DMA read command", LOG_DISK);
+    return 1 | this.dma_read_status() << 16;
+};
+
+IDEDevice.prototype.dma_read_command8 = function()
+{
+    dbg_log("DMA read command8", LOG_DISK);
     return 1;
 };
+
 
 IDEDevice.prototype.dma_write_command = function(value)
 {
@@ -1405,5 +1405,7 @@ IDEDevice.prototype.dma_write_command = function(value)
     {
         this.push_irq();
     }
+
+    this.dma_write_status(value >> 16 & 0xFF);
 };
 

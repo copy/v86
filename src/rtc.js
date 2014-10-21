@@ -31,14 +31,14 @@ function RTC(cpu, diskette_type, boot_order)
 
     this.nmi_disabled = 0;
 
-    cpu.io.register_write(0x70, function(out_byte)
+    cpu.io.register_write(0x70, this, function(out_byte)
     {
         this.cmos_index = out_byte & 0x7F;
         this.nmi_disabled = out_byte >> 7;
-    }.bind(this));
+    });
 
-    cpu.io.register_write(0x71, this.cmos_write.bind(this));
-    cpu.io.register_read(0x71, this.cmos_read.bind(this));
+    cpu.io.register_write(0x71, this, this.cmos_write);
+    cpu.io.register_read(0x71, this, this.cmos_read);
 
     this._state_skip = ["cpu", "pic"];
 }

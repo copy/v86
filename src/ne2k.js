@@ -106,13 +106,13 @@ function Ne2k(cpu, adapter)
 
     var io = cpu.io;
 
-    io.register_read(this.port | E8390_CMD, function()
+    io.register_read(this.port | E8390_CMD, this, function()
     {
         dbg_log("Read cmd", LOG_NET);
         return this.cr;
-    }, this);
+    });
 
-    io.register_write(this.port | E8390_CMD, function(data_byte)
+    io.register_write(this.port | E8390_CMD, this, function(data_byte)
     {
         this.cr = data_byte | (this.cr & 4);
         dbg_log("Write command: " + h(data_byte, 2), LOG_NET);
@@ -123,27 +123,27 @@ function Ne2k(cpu, adapter)
         {
             this.remote_buffer = new Uint8Array(this.rcnt);
         }
-    }, this);
+    });
 
-    io.register_read(this.port | EN0_COUNTER0, function()
+    io.register_read(this.port | EN0_COUNTER0, this, function()
     {
         dbg_log("Read counter0", LOG_NET);
         return 0;
-    }, this);
+    });
 
-    io.register_read(this.port | EN0_COUNTER1, function()
+    io.register_read(this.port | EN0_COUNTER1, this, function()
     {
         dbg_log("Read counter1", LOG_NET);
         return 0;
-    }, this);
+    });
 
-    io.register_read(this.port | EN0_COUNTER2, function()
+    io.register_read(this.port | EN0_COUNTER2, this, function()
     {
         dbg_log("Read counter2", LOG_NET);
         return 0;
-    }, this);
+    });
 
-    io.register_read(this.port | NE_RESET, function()
+    io.register_read(this.port | NE_RESET, this, function()
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -156,9 +156,9 @@ function Ne2k(cpu, adapter)
         {
             dbg_log("Read pg1/1f", LOG_NET);
         }
-    }, this);
+    });
 
-    io.register_write(this.port | NE_RESET, function(data_byte)
+    io.register_write(this.port | NE_RESET, this, function(data_byte)
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -170,9 +170,9 @@ function Ne2k(cpu, adapter)
         {
             dbg_log("Write pg1/1f: " + h(data_byte), LOG_NET);
         }
-    }, this);
+    });
 
-    io.register_read(this.port | EN0_ISR, function()
+    io.register_read(this.port | EN0_ISR, this, function()
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -185,9 +185,9 @@ function Ne2k(cpu, adapter)
             dbg_log("Read curpg: " + h(this.curpg, 2), LOG_NET);
             return this.curpg;
         }
-    }, this);
+    });
 
-    io.register_write(this.port | EN0_ISR, function(data_byte)
+    io.register_write(this.port | EN0_ISR, this, function(data_byte)
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -201,9 +201,9 @@ function Ne2k(cpu, adapter)
             dbg_log("Write curpg: " + h(data_byte, 2), LOG_NET);
             this.curpg = data_byte
         }
-    }, this);
+    });
 
-    io.register_write(this.port | EN0_TXCR, function(data_byte)
+    io.register_write(this.port | EN0_TXCR, this, function(data_byte)
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -214,9 +214,9 @@ function Ne2k(cpu, adapter)
         {
             dbg_log("Write pg1/0x0d " + h(data_byte, 2), LOG_NET);
         }
-    }, this);
+    });
 
-    io.register_write(this.port | EN0_DCFG, function(data_byte)
+    io.register_write(this.port | EN0_DCFG, this, function(data_byte)
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -227,9 +227,9 @@ function Ne2k(cpu, adapter)
         {
             dbg_log("Write pg1/0x0e " + h(data_byte, 2), LOG_NET);
         }
-    }, this);
+    });
 
-    io.register_write(this.port | EN0_RCNTLO, function(data_byte)
+    io.register_write(this.port | EN0_RCNTLO, this, function(data_byte)
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -241,9 +241,9 @@ function Ne2k(cpu, adapter)
         {
             dbg_log("Write pg1/0x0a " + h(data_byte, 2), LOG_NET);
         }
-    }, this);
+    });
 
-    io.register_write(this.port | EN0_RCNTHI, function(data_byte)
+    io.register_write(this.port | EN0_RCNTHI, this, function(data_byte)
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -255,9 +255,9 @@ function Ne2k(cpu, adapter)
         {
             dbg_log("Write pg1/0x0b " + h(data_byte, 2), LOG_NET);
         }
-    }, this);
+    });
 
-    io.register_write(this.port | EN0_RSARLO, function(data_byte)
+    io.register_write(this.port | EN0_RSARLO, this, function(data_byte)
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -269,9 +269,9 @@ function Ne2k(cpu, adapter)
         {
             dbg_log("Write pg1/0x08 " + h(data_byte, 2), LOG_NET);
         }
-    }, this);
+    });
 
-    io.register_write(this.port | EN0_RSARHI, function(data_byte)
+    io.register_write(this.port | EN0_RSARHI, this, function(data_byte)
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -283,9 +283,9 @@ function Ne2k(cpu, adapter)
         {
             dbg_log("Write pg1/0x09 " + h(data_byte, 2), LOG_NET);
         }
-    }, this);
+    });
 
-    io.register_write(this.port | EN0_IMR, function(data_byte)
+    io.register_write(this.port | EN0_IMR, this, function(data_byte)
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -297,9 +297,9 @@ function Ne2k(cpu, adapter)
         {
             dbg_log("Write pg1/0x0f " + h(data_byte, 2), LOG_NET);
         }
-    }, this);
+    });
 
-    io.register_read(this.port | EN0_BOUNDARY, function()
+    io.register_read(this.port | EN0_BOUNDARY, this, function()
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -312,9 +312,9 @@ function Ne2k(cpu, adapter)
             dbg_log("Read pg1/0x03", LOG_NET);
             return 0;
         }
-    }, this);
+    });
 
-    io.register_write(this.port | EN0_BOUNDARY, function(data_byte)
+    io.register_write(this.port | EN0_BOUNDARY, this, function(data_byte)
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -326,9 +326,9 @@ function Ne2k(cpu, adapter)
         {
             dbg_log("Write pg1/0x03 " + h(data_byte, 2), LOG_NET);
         }
-    }, this);
+    });
 
-    io.register_read(this.port | EN0_TSR, function()
+    io.register_read(this.port | EN0_TSR, this, function()
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -340,9 +340,9 @@ function Ne2k(cpu, adapter)
             dbg_log("Read pg1/0x04", LOG_NET);
             return 0;
         }
-    }, this);
+    });
 
-    io.register_read(this.port | EN0_RSR, function()
+    io.register_read(this.port | EN0_RSR, this, function()
     {
         var pg = this.cr & 0xC0;
         if(pg === 0)
@@ -354,17 +354,10 @@ function Ne2k(cpu, adapter)
             dbg_log("Read pg1/0x0c", LOG_NET);
             return 0;
         }
-    }, this);
+    });
 
-    io.register_read(this.port | NE_DATAPORT | 0, this.data_port_read, this);
-    io.register_read(this.port | NE_DATAPORT | 1, this.data_port_read, this);
-    io.register_read(this.port | NE_DATAPORT | 2, this.data_port_read, this);
-    io.register_read(this.port | NE_DATAPORT | 3, this.data_port_read, this);
-
-    io.register_write(this.port | NE_DATAPORT | 0, this.data_port_write, this);
-    io.register_write(this.port | NE_DATAPORT | 1, this.data_port_write, this);
-    io.register_write(this.port | NE_DATAPORT | 2, this.data_port_write, this);
-    io.register_write(this.port | NE_DATAPORT | 3, this.data_port_write, this);
+    io.register_read(this.port | NE_DATAPORT | 0, this, this.data_port_read, this.data_port_read16, this.data_port_read32);
+    io.register_write(this.port | NE_DATAPORT | 0, this, this.data_port_write, this.data_port_write16, this.data_port_write32);
 
     this._state_skip = [
         "adapter",
@@ -403,6 +396,20 @@ Ne2k.prototype.data_port_write = function(data_byte)
     }
 };
 
+Ne2k.prototype.data_port_write16 = function(data)
+{
+    this.data_port_write(data);
+    this.data_port_write(data >> 8);
+};
+
+Ne2k.prototype.data_port_write32 = function(data)
+{
+    this.data_port_write(data);
+    this.data_port_write(data >> 8);
+    this.data_port_write(data >> 16);
+    this.data_port_write(data >> 24);
+};
+
 Ne2k.prototype.data_port_read = function()
 {
     var data = this.receive_buffer[this.rsar++];
@@ -410,6 +417,17 @@ Ne2k.prototype.data_port_read = function()
     dbg_log("Read data port: data=" + h(data, 2) + " rsar=" + h(this.rsar - 1, 2), LOG_NET);
 
     return data;
+};
+
+Ne2k.prototype.data_port_read16 = function()
+{
+    return this.data_port_read() | this.data_port_read() << 8;
+};
+
+Ne2k.prototype.data_port_read32 = function()
+{
+    return this.data_port_read() | this.data_port_read() << 8 | 
+            this.data_port_read() << 16 | this.data_port_read() << 24;
 };
 
 Ne2k.prototype.receive = function(data)

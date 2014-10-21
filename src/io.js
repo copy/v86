@@ -10,6 +10,8 @@ function IO(memory)
 {
     var memory_size = memory.size;
 
+    this._state_skip = ["devices", "ports",];
+
     function get_port_description(addr)
     {
         // via seabios ioport.h
@@ -79,90 +81,188 @@ function IO(memory)
         }
     }
 
-    function empty_port_read_debug(port_addr)
+    function empty_port_read8()
     {
-        dbg_log(
-            "read port  #" + h(port_addr, 3) + get_port_description(port_addr),
-            LOG_IO
-        );
-
         return 0xFF;
     }
 
-    function empty_port_write_debug(out_byte, port_addr)
+    function empty_port_read16()
     {
-        dbg_log(
-            "write port #" + h(port_addr, 3) + " <- " + h(out_byte, 2) + get_port_description(port_addr),
-            LOG_IO
-        );
+        return 0xFFFF;
     }
 
-    function empty_port_read()
+    function empty_port_read32()
     {
-        return 0xFF;
+        return -1;
     }
 
     function empty_port_write(x)
     {
     }
 
-    // Why 0x10003 if there are only 0x10000 ports:
-    //   Reading/Writing from port 0xFFFF could make the number
-    //   go outside of the valid range and cause an exception otherwise
-    /** @const */
-    var NUM_PORTS = 0x10003;
+    this.ports = [];
+    this.devices = Array(0x10000);
 
-    var read_callbacks = Array(NUM_PORTS),
-        write_callbacks = Array(NUM_PORTS);
-
-    for(var i = 0; i < NUM_PORTS; i++)
+    for(var i = 0; i < 0x10000; i++)
     {
-        // avoid sparse arrays
+        this.ports[i] = {
+            read8: empty_port_read8,
+            read16: empty_port_read16,
+            read32: empty_port_read32,
 
-        if(DEBUG)
-        {
-            read_callbacks[i] = empty_port_read_debug;
-            write_callbacks[i] = empty_port_write_debug;
-        }
-        else
-        {
-            read_callbacks[i] = empty_port_read;
-            write_callbacks[i] = empty_port_write;
-        }
+            write8: empty_port_write,
+            write16: empty_port_write,
+            write32: empty_port_write,
+
+            device: undefined,
+        };
     }
 
     /**
      * @param {number} port_addr
-     * @param {function():number} callback
-     * @param {Object=} device
+     * @param {Object} device
+     * @param {function():number} r8
+     * @param {function():number=} r16
+     * @param {function():number=} r32
      */
-    this.register_read = function(port_addr, callback, device)
+    this.register_read = function(port_addr, device, r8, r16, r32)
     {
         dbg_assert(typeof port_addr === "number");
+        dbg_assert(typeof device === "object");
+        dbg_assert(!r8 || typeof r8 === "function");
+        dbg_assert(!r16 || typeof r16 === "function");
+        dbg_assert(!r32 || typeof r32 === "function");
+        dbg_assert(r8 || r16 || r32);
 
-        if(device !== undefined)
+        if(DEBUG)
         {
-            callback = callback.bind(device);
+            var fail = function(n) { 
+                dbg_assert(false, "Overlapped read" + n + " " + h(port_addr, 4));
+                return -1;
+            };
+            if(!r8) r8 = fail.bind(this, 8);
+            if(!r16) r16 = fail.bind(this, 16);
+            if(!r32) r32 = fail.bind(this, 32);
         }
 
-        read_callbacks[port_addr] = callback;
+        this.ports[port_addr].read8 = r8;
+        this.ports[port_addr].read16 = r16;
+        this.ports[port_addr].read32 = r32;
+        this.ports[port_addr].device = device;
     };
 
     /**
      * @param {number} port_addr
-     * @param {function(number)} callback
-     * @param {Object=} device
+     * @param {Object} device
+     * @param {function(number)} w8
+     * @param {function(number)=} w16
+     * @param {function(number)=} w32
      */
-    this.register_write = function(port_addr, callback, device)
+    this.register_write = function(port_addr, device, w8, w16, w32)
     {
         dbg_assert(typeof port_addr === "number");
+        dbg_assert(typeof device === "object");
+        dbg_assert(!w8 || typeof w8 === "function");
+        dbg_assert(!w16 || typeof w16 === "function");
+        dbg_assert(!w32 || typeof w32 === "function");
+        dbg_assert(w8 || w16 || w32);
 
-        if(device !== undefined)
+        if(DEBUG)
         {
-            callback = callback.bind(device);
+            var fail = function(n) { 
+                dbg_assert(false, "Overlapped write" + n + " " + h(port_addr));
+            };
+            if(!w8) w8 = fail.bind(this, 8);
+            if(!w16) w16 = fail.bind(this, 16);
+            if(!w32) w32 = fail.bind(this, 32);
         }
 
-        write_callbacks[port_addr] = callback;
+        this.ports[port_addr].write8 = w8;
+        this.ports[port_addr].write16 = w16;
+        this.ports[port_addr].write32 = w32;
+        this.ports[port_addr].device = device;
+    };
+
+    /*
+     * > Any two consecutive 8-bit ports can be treated as a 16-bit port;
+     * > and four consecutive 8-bit ports can be treated as a 32-bit port
+     * > http://css.csail.mit.edu/6.858/2012/readings/i386/s08_01.htm
+     *
+     * This info is not correct for all ports, but handled by the following functions
+     *
+     * Register the write of 2 or 4 consecutive 8-bit ports, 1 or 2 16-bit
+     * ports and 0 or 1 32-bit ports
+     */
+    this.register_read_consecutive = function(port_addr, device, r8_1, r8_2, r8_3, r8_4)
+    {
+        dbg_assert(arguments.length === 4 || arguments.length === 6);
+
+        function r16_1()
+        {
+            return r8_1.call(this) | 
+                    r8_2.call(this) << 8;
+        }
+        function r16_2()
+        {
+            return r8_3.call(this) | 
+                    r8_4.call(this) << 8;
+        }
+        function r32()
+        {
+            return r8_1.call(this) | 
+                    r8_2.call(this) << 8 | 
+                    r8_3.call(this) << 16 | 
+                    r8_4.call(this) << 24;
+        }
+
+        if(r8_3 && r8_4)
+        {
+            this.register_read(port_addr, device, r8_1, r16_1, r32);
+            this.register_read(port_addr + 1, device, r8_2);
+            this.register_read(port_addr + 2, device, r8_3, r16_2);
+            this.register_read(port_addr + 3, device, r8_4);
+        }
+        else
+        {
+            this.register_read(port_addr, device, r8_1, r16_1);
+            this.register_read(port_addr + 1, device, r8_2);
+        }
+    };
+
+    this.register_write_consecutive = function(port_addr, device, w8_1, w8_2, w8_3, w8_4)
+    {
+        dbg_assert(arguments.length === 4 || arguments.length === 6);
+
+        function w16_1(data)
+        {
+            w8_1.call(this, data & 0xFF);
+            w8_2.call(this, data >> 8 & 0xFF);
+        }
+        function w16_2(data)
+        {
+            w8_3.call(this, data & 0xFF);
+            w8_4.call(this, data >> 8 & 0xFF);
+        }
+        function w32(data)
+        {
+            w8_1.call(this, data & 0xFF);
+            w8_2.call(this, data >> 8 & 0xFF);
+            w8_3.call(this, data >> 16 & 0xFF);
+            w8_4.call(this, data >>> 24);
+        }
+
+        if(w8_3 && w8_4)
+        {
+            this.register_write(port_addr,     device, w8_1, w16_1, w32);
+            this.register_write(port_addr + 1, device, w8_2);
+            this.register_write(port_addr + 2, device, w8_3, w16_2);
+            this.register_write(port_addr + 3, device, w8_4);
+        }
+        else
+        {
+            this.register_write(port_addr,     device, w8_1, w16_1);
+            this.register_write(port_addr + 1, device, w8_2);
+        }
     };
 
     this.mmap_read32_shim = function(addr)
@@ -201,10 +301,10 @@ function IO(memory)
         dbg_assert(size && (size & MMAP_BLOCK_SIZE - 1) === 0);
 
         if(!read_func32)
-            read_func32 = this.mmap_read32_shim.bind(this);
+            read_func32 = this.mmap_read32_shim;
 
         if(!write_func32)
-            write_func32 = this.mmap_write32_shim.bind(this);
+            write_func32 = this.mmap_write32_shim;
 
         var aligned_addr = addr >>> MMAP_BLOCK_BITS;
 
@@ -237,8 +337,15 @@ function IO(memory)
         function(addr, value) {
             // write outside of the memory size
             dbg_log("Write to unmapped memory space, addr=" + h(addr >>> 0, 8) + " value=" + h(value, 2), LOG_IO);
-        });
-
+        },
+        function(addr) {
+            dbg_log("Read from unmapped memory space, addr=" + h(addr >>> 0, 8), LOG_IO);
+            return -1;
+        },
+        function(addr, value) {
+            dbg_log("Write to unmapped memory space, addr=" + h(addr >>> 0, 8) + " value=" + h(value >>> 0, 8), LOG_IO);
+        }
+    );
     
     this.in_mmap_range = function(start, count)
     {
@@ -268,58 +375,88 @@ function IO(memory)
         return false;
     };
 
-    // any two consecutive 8-bit ports can be treated as a 16-bit port;
-    // and four consecutive 8-bit ports can be treated as a 32-bit port
-    //
-    // http://css.csail.mit.edu/6.858/2012/readings/i386/s08_01.htm
-    //
-    // This info seems to be incorrect, at least some multibyte ports are next
-    // to each other, such as 1CE and 1CF (VBE dispi) or the 170 (ATA data port).
-    //
-    // As a workaround, we pass the original port to the callback as the last argument.
-
-
-    this.port_write8 = function(port_addr, out_byte)
+    this.port_write8 = function(port_addr, data)
     {
-        write_callbacks[port_addr](out_byte, port_addr);
+        var entry = this.ports[port_addr];
+
+        if(entry.write8 === empty_port_write)
+        {
+            dbg_log(
+                "write8 port #" + h(port_addr, 4) + " <- " + h(data, 2) + get_port_description(port_addr),
+                LOG_IO
+            );
+        }
+        return entry.write8.call(entry.device, data);
     };
 
-    this.port_write16 = function(port_addr, out_byte)
+    this.port_write16 = function(port_addr, data)
     {
-        //dbg_log("16 bit write port=" + h(port_addr) + " " + get_port_description(port_addr));
-        write_callbacks[port_addr](out_byte & 0xFF, port_addr);
-        write_callbacks[port_addr + 1](out_byte >> 8, port_addr);
+        var entry = this.ports[port_addr];
+
+        if(entry.write16 === empty_port_write)
+        {
+            dbg_log(
+                "write16 port #" + h(port_addr, 4) + " <- " + h(data, 4) + get_port_description(port_addr),
+                LOG_IO
+            );
+        }
+        return entry.write16.call(entry.device, data);
     };
 
-    this.port_write32 = function(port_addr, out_byte)
+    this.port_write32 = function(port_addr, data)
     {
-        //dbg_log("32 bit write port=" + h(port_addr) + " " + get_port_description(port_addr));
-        write_callbacks[port_addr](out_byte & 0xFF, port_addr);
-        write_callbacks[port_addr + 1](out_byte >> 8 & 0xFF, port_addr);
-        write_callbacks[port_addr + 2](out_byte >> 16 & 0xFF, port_addr);
-        write_callbacks[port_addr + 3](out_byte >>> 24, port_addr);
+        var entry = this.ports[port_addr];
+
+        if(entry.write32 === empty_port_write)
+        {
+            dbg_log(
+                "write32 port #" + h(port_addr, 4) + " <- " + h(data, 8) + get_port_description(port_addr),
+                LOG_IO
+            );
+        }
+        return entry.write32.call(entry.device, data);
     };
 
-    // read byte from port
     this.port_read8 = function(port_addr)
     {
-        return read_callbacks[port_addr](port_addr);
+        var entry = this.ports[port_addr];
+
+        if(entry.read8 === empty_port_read8)
+        {
+            dbg_log(
+                "read8 port  #" + h(port_addr, 4) + get_port_description(port_addr),
+                LOG_IO
+            );
+        }
+        return entry.read8.call(entry.device);
     };
 
     this.port_read16 = function(port_addr)
     {
-        //dbg_log("16 bit read  port=" + h(port_addr) + " " + get_port_description(port_addr));
-        return read_callbacks[port_addr](port_addr) | 
-                    read_callbacks[port_addr + 1](port_addr) << 8;
+        var entry = this.ports[port_addr];
+
+        if(entry.read16 === empty_port_read16)
+        {
+            dbg_log(
+                "read16 port  #" + h(port_addr, 4) + get_port_description(port_addr),
+                LOG_IO
+            );
+        }
+        return entry.read16.call(entry.device);
     };
 
     this.port_read32 = function(port_addr)
     {
-        //dbg_log("32 bit read  port=" + h(port_addr) + " " + get_port_description(port_addr));
-        return read_callbacks[port_addr](port_addr) | 
-                    read_callbacks[port_addr + 1](port_addr) << 8 | 
-                    read_callbacks[port_addr + 2](port_addr) << 16 | 
-                    read_callbacks[port_addr + 3](port_addr) << 24;
+        var entry = this.ports[port_addr];
+
+        if(entry.read32 === empty_port_read32)
+        {
+            dbg_log(
+                "read32 port  #" + h(port_addr, 4) + get_port_description(port_addr),
+                LOG_IO
+            );
+        }
+        return entry.read32.call(entry.device);
     };
 }
 

@@ -91,7 +91,7 @@ function PIC(cpu, master)
             cpu.call_interrupt_vector(this.irq_map | irq_number, false, false);
 
             return true;
-        }.bind(this);
+        };
     }
     else
     {
@@ -135,7 +135,7 @@ function PIC(cpu, master)
             }
 
             return true;
-        }.bind(this);
+        };
     }
 
     this.dump = function()
@@ -161,11 +161,11 @@ function PIC(cpu, master)
         io_base = 0xA0;
     }
 
-    cpu.io.register_write(io_base, port20_write, this);
-    cpu.io.register_read(io_base, port20_read, this);
+    cpu.io.register_write(io_base, this, port20_write);
+    cpu.io.register_read(io_base, this, port20_read);
 
-    cpu.io.register_write(io_base | 1, port21_write, this);
-    cpu.io.register_read(io_base | 1, port21_read, this);
+    cpu.io.register_write(io_base | 1, this, port21_write);
+    cpu.io.register_read(io_base | 1, this, port21_read);
 
     function port20_write(data_byte)
     {

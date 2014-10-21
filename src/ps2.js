@@ -93,11 +93,11 @@ function PS2(cpu, keyboard, mouse)
     this.read_output_register = false;
     this.read_command_register = false;
 
-    cpu.io.register_read(0x60, this.port60_read, this);
-    cpu.io.register_read(0x64, this.port64_read, this);
+    cpu.io.register_read(0x60, this, this.port60_read);
+    cpu.io.register_read(0x64, this, this.port64_read);
 
-    cpu.io.register_write(0x60, this.port60_write, this);
-    cpu.io.register_write(0x64, this.port64_write, this);
+    cpu.io.register_write(0x60, this, this.port60_write);
+    cpu.io.register_write(0x64, this, this.port64_write);
 
     /** @const */
     this._state_skip = ["pic", "cpu"];

@@ -39,7 +39,7 @@ function PIT(cpu)
 
     var parity = 0;
 
-    cpu.io.register_read(0x61, function()
+    cpu.io.register_read(0x61, this, function()
     {
         // > xxx1 xxxx  0=RAM parity error enable
         // >            PS/2: Read:  This bit tiggles for each refresh request.
@@ -48,17 +48,17 @@ function PIT(cpu)
         
         parity ^= 0x10;
         return parity | this.counter2_out << 5;
-    }.bind(this));
+    });
 
-    cpu.io.register_read(0x40, this.counter_read.bind(this, 0));
-    cpu.io.register_read(0x41, this.counter_read.bind(this, 1));
-    cpu.io.register_read(0x42, this.counter_read.bind(this, 2));
+    cpu.io.register_read(0x40, this, function() { return this.counter_read(0); });
+    cpu.io.register_read(0x41, this, function() { return this.counter_read(1); });
+    cpu.io.register_read(0x42, this, function() { return this.counter_read(2); });
 
-    cpu.io.register_write(0x40, this.counter_write.bind(this, 0));
-    cpu.io.register_write(0x41, this.counter_write.bind(this, 1));
-    cpu.io.register_write(0x42, this.counter_write.bind(this, 2));
+    cpu.io.register_write(0x40, this, function(data) { this.counter_write(0, data); });
+    cpu.io.register_write(0x41, this, function(data) { this.counter_write(1, data); });
+    cpu.io.register_write(0x42, this, function(data) { this.counter_write(2, data); });
 
-    cpu.io.register_write(0x43, this.port43_write.bind(this));
+    cpu.io.register_write(0x43, this, this.port43_write);
 
     /** @const */
     this._state_skip = ["pic"];
