@@ -1,6 +1,6 @@
 #runtime_infos {
     float: left;
-    width: 300px;
+    width: 250px;
 }
 #log, #runtime_infos, #serial {
     font-family: DejaVu Sans Mono, monospace;
@@ -42,6 +42,8 @@
     image-rendering: -o-crisp-edges;
     image-rendering: optimize-contrast;
     -ms-interpolation-mode: nearest-neighbor;
+
+    background-color: #000;
 }
 #screen > div > span {
     height: 15px;
