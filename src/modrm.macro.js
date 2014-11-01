@@ -15,8 +15,8 @@ v86.prototype.modrm_table32 = Array(0xC0);
 v86.prototype.sib_table = Array(0x100);
 
 
-#define ds cpu.get_seg_prefix(reg_ds)
-#define ss cpu.get_seg_prefix(reg_ss)
+#define ds cpu.get_seg_prefix_ds()
+#define ss cpu.get_seg_prefix_ss()
 
 #define eax cpu.reg32s[reg_eax]
 #define ecx cpu.reg32s[reg_ecx]

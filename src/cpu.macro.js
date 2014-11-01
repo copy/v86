@@ -885,7 +885,7 @@ v86.prototype.cr0_changed = function(old_cr0)
         this.full_clear_tlb();
     }
 
-    if(this.translator !== undefined && (this.cr0 ^ old_cr0) & 1)
+    if(OP_TRANSLATION && (this.cr0 ^ old_cr0) & 1)
     {
         this.translator.clear_cache();
     }
@@ -1817,6 +1817,21 @@ v86.prototype.seg_prefix = function(seg)
     this.segment_prefix = SEG_PREFIX_NONE;
 };
 
+v86.prototype.get_seg_prefix_ds = function()
+{
+    return this.get_seg_prefix(reg_ds);
+};
+
+v86.prototype.get_seg_prefix_ss = function()
+{
+    return this.get_seg_prefix(reg_ss);
+};
+
+v86.prototype.get_seg_prefix_cs = function()
+{
+    return this.get_seg_prefix(reg_cs);
+};
+
 /**
  * Get segment base by prefix or default
  * @param {number} default_segment
@@ -1976,7 +1991,7 @@ v86.prototype.update_cs_size = function(new_size)
     this.update_operand_size();
     this.update_address_size();
 
-    if(this.translator !== undefined)
+    if(OP_TRANSLATION)
     {
         this.translator.clear_cache();
     }
@@ -2131,7 +2146,7 @@ v86.prototype.switch_seg = function(reg, selector)
 {
     dbg_assert(reg >= 0 && reg <= 5);
     dbg_assert(typeof selector === "number" && selector < 0x10000 && selector >= 0);
-    
+
     if(reg === reg_cs)
     {
         this.protected_mode = (this.cr0 & CR0_PE) === CR0_PE;
@@ -2269,6 +2284,11 @@ v86.prototype.switch_seg = function(reg, selector)
     this.segment_is_null[reg] = 0;
     this.segment_limits[reg] = info.effective_limit;
     //this.segment_infos[reg] = 0; // TODO
+    
+    if(OP_TRANSLATION && (reg === reg_ds || reg === reg_ss) && info.base !== this.segment_offsets[reg])
+    {
+        this.translator.clear_cache();
+    }
     
     this.segment_offsets[reg] = info.base;
 
