@@ -30,7 +30,7 @@ function PIT(cpu)
     this.counter_reload = new Uint16Array(3);
     this.counter_current = new Uint16Array(3);
 
-        // only counter2 output can be read
+    // only counter2 output can be read
     this.counter2_out = 0;
 
 

@@ -23,7 +23,6 @@ function NetworkAdapter(url)
 
 NetworkAdapter.prototype.handle_message = function(e)
 {
-    //console.log("onmessage", e);
     this.send_data(new Uint8Array(e.data));
 };
 

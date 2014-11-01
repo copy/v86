@@ -66,6 +66,7 @@ function PIC(cpu, master)
                 return false;
             }
 
+            dbg_assert(irq !== 0);
             var irq_number = int_log2_table[irq];
             irq = 1 << irq_number;
 
@@ -113,6 +114,7 @@ function PIC(cpu, master)
                 return false;
             }
 
+            dbg_assert(irq !== 0);
             var irq_number = int_log2_table[irq];
             irq = 1 << irq_number;
 

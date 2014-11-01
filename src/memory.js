@@ -44,6 +44,9 @@ function Memory(buffer, memory_size)
 
 Memory.prototype._state_restore = function()
 {
+    //this.mem8 = new Uint8Array(this.mem32s.buffer, this.mem32s.byteOffset, this.mem32s.byteLength);
+    //this.mem16 = new Uint16Array(this.mem32s.buffer, this.mem32s.byteOffset, this.mem32s.byteLength >> 1);
+    
     this.mem8 = new Uint8Array(this.buffer);
     this.mem16 = new Uint16Array(this.buffer);
     this.mem32s = new Int32Array(this.buffer);
@@ -86,13 +89,17 @@ Memory.prototype.mmap_write8 = function(addr, value)
 
 Memory.prototype.mmap_read16 = function(addr)
 {
-    return this.mmap_read8(addr) | this.mmap_read8(addr + 1) << 8;
+    var fn = this.memory_map_read8[addr >>> MMAP_BLOCK_BITS];
+
+    return fn(addr) | fn(addr + 1) << 8;
 };
 
 Memory.prototype.mmap_write16 = function(addr, value)
 {
-    this.mmap_write8(addr, value & 0xff);
-    this.mmap_write8(addr + 1, value >> 8 & 0xff);
+    var fn = this.memory_map_write8[addr >>> MMAP_BLOCK_BITS];
+
+    fn(addr, value & 0xFF);
+    fn(addr + 1, value >> 8 & 0xFF);
 };
 
 Memory.prototype.mmap_read32 = function(addr)

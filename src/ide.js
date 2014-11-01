@@ -201,7 +201,7 @@ function IDEDevice(cpu, buffer, is_cd, nr)
         dbg_log("Read 1F4: " + h(this.cylinder_low & 0xFF), LOG_DISK);
         return this.cylinder_low & 0xFF;
     });
-    cpu.io.register_read(this.ata_port | 5, this, function(port)
+    cpu.io.register_read(this.ata_port | 5, this, function()
     {
         dbg_log("Read 1F5: " + h(this.cylinder_high & 0xFF), LOG_DISK);
         return this.cylinder_high & 0xFF;
@@ -263,8 +263,8 @@ function IDEDevice(cpu, buffer, is_cd, nr)
     cpu.io.register_read(this.master_port, this, this.dma_read_command8, undefined, this.dma_read_command);
     cpu.io.register_write(this.master_port, this, undefined, undefined, this.dma_write_command);
 
-    cpu.io.register_read(this.master_port | 2, this, this.dma_read_status, undefined, undefined);
-    cpu.io.register_write(this.master_port | 2, this, this.dma_write_status, undefined);
+    cpu.io.register_read(this.master_port | 2, this, this.dma_read_status);
+    cpu.io.register_write(this.master_port | 2, this, this.dma_write_status);
 
     /** @const */
     this._state_skip = [
@@ -648,9 +648,9 @@ IDEDevice.prototype.read_status = function()
     return ret;
 };
 
-IDEDevice.prototype.write_control = function(data, port)
+IDEDevice.prototype.write_control = function(data)
 {
-    dbg_log("device control: " + h(data) + " port=" + h(port), LOG_DISK);
+    dbg_log("device control: " + h(data), LOG_DISK);
     this.device_control = data;
 
     if(data & 4)

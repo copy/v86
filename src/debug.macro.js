@@ -45,8 +45,8 @@
             // write seabios debug output to console
             var seabios_debug = "";
 
-            cpu.io.register_write(0x402, handle); // seabios
-            cpu.io.register_write(0x500, handle); // vgabios
+            cpu.io.register_write(0x402, this, handle); // seabios
+            cpu.io.register_write(0x500, this, handle); // vgabios
         }
 
         function handle(out_byte)

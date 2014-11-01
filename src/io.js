@@ -145,9 +145,9 @@ function IO(memory)
             if(!r32) r32 = fail.bind(this, 32);
         }
 
-        this.ports[port_addr].read8 = r8;
-        this.ports[port_addr].read16 = r16;
-        this.ports[port_addr].read32 = r32;
+        if(r8) this.ports[port_addr].read8 = r8;
+        if(r16) this.ports[port_addr].read16 = r16;
+        if(r32) this.ports[port_addr].read32 = r32;
         this.ports[port_addr].device = device;
     };
 
@@ -177,9 +177,9 @@ function IO(memory)
             if(!w32) w32 = fail.bind(this, 32);
         }
 
-        this.ports[port_addr].write8 = w8;
-        this.ports[port_addr].write16 = w16;
-        this.ports[port_addr].write32 = w32;
+        if(w8) this.ports[port_addr].write8 = w8;
+        if(w16) this.ports[port_addr].write16 = w16;
+        if(w32) this.ports[port_addr].write32 = w32;
         this.ports[port_addr].device = device;
     };
 
