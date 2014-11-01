@@ -4,15 +4,6 @@
 {
     var on_bios_load;
 
-    function log(data)
-    {
-        var log_element = document.getElementById("log");
-
-        log_element.style.display = "block";
-        log_element.textContent += data + "\n";
-        log_element.scrollTop = 1e9;
-    }
-
     function dump_file(ab, name)
     {
         var blob = new Blob([ab]);
@@ -132,7 +123,7 @@
     {
         if(!("responseType" in new XMLHttpRequest))
         {
-            log("Your browser is not supported because it doesn't have XMLHttpRequest.responseType");
+            alert("Your browser is not supported because it doesn't have XMLHttpRequest.responseType");
             return;
         }
 
@@ -261,7 +252,10 @@
             {
                 if(images.length === 0)
                 {
-                    init(settings);
+                    init(settings, function(cpu)
+                    {
+                        cpu.run();
+                    });
                 }
                 else
                 {
@@ -281,52 +275,58 @@
 
         var oses = [
             {
+                id: "archlinux",
+                state: "http://localhost/v86-images/v86state.bin",
+                //state: "http://104.131.53.7:8086/v86state.bin",
+                size: 137 * 1024 * 1024,
+                name: "Arch Linux",
+                memory_size: 256 * 1024 * 1024,
+                //memory_size: 64 * 1024 * 1024,
+                vga_memory_size: 8 * 1024 * 1024,
+                async_hda: "http://localhost/v86-images/arch3.img",
+                //async_hda: "http://104.131.53.7:8086/arch3.img", 
+                async_hda_size: 8589934592,
+            },
+            {
                 id: "freedos",
-                image: "freedos722.img",
+                fda: "images/freedos722.img",
                 size: 737280,
-                disk_type: "fda",
                 name: "FreeDOS",
             },
             {
                 id: "windows1",
-                image: "windows101.img",
+                fda: "images/windows101.img",
                 size: 1474560,
-                disk_type: "fda",
                 name: "Windows",
             },
             {
                 id: "linux26",
-                image: "linux.iso",
+                cdrom: "images/linux.iso",
                 size: 5666816,
-                disk_type: "cdrom",
                 name: "Linux",
             },
-            {
-                id: "nanolinux",
-                image: "nanolinux-1.2.iso",
-                size: 14047232,
-                disk_type: "cdrom",
-                name: "Nanolinux",
-            },
+            //{
+            //    id: "nanolinux",
+            //    cdrom: "images/nanolinux-1.2.iso",
+            //    size: 14047232,
+            //    name: "Nanolinux",
+            //},
             {
                 id: "kolibrios",
-                image: "kolibri.img",
+                fda: "images/kolibri.img",
                 size: 1474560,
-                disk_type: "fda",
                 name: "KolibriOS",
             },
             {
                 id: "openbsd",
-                image: "openbsd.img",
+                fda: "images/openbsd.img",
                 size: 1474560,
-                disk_type: "fda",
                 name: "OpenBSD",
             },
             {
                 id: "solos",
-                image: "os8.dsk",
+                fda: "images/os8.dsk",
                 size: 1474560,
-                disk_type: "fda",
                 name: "Sol OS",
             },
         ];
@@ -341,33 +341,33 @@
             $(dom_id).onclick = function(infos)
             {
                 var message = { msg: "Downloading image", total: infos.size };
+                var image = infos.state || infos.fda || infos.cdrom;
 
-                load_file("images/" + infos.image, loaded, show_progress.bind(this, message));
+                load_file(
+                    image, 
+                    loaded.bind(this, infos, settings), 
+                    show_progress.bind(this, message)
+                );
 
-                if(window.history.pushState && window.history.replaceState)
+                var update_history;
+                if(profile === infos.id)
                 {
-                    var method;
-                    if(profile === infos.id)
-                    {
-                        method = window.history.replaceState;
-                    }
-                    else
-                    {
-                        method = window.history.pushState;
-                    }
+                    update_history = window.history.replaceState;
+                }
+                else
+                {
+                    update_history = window.history.pushState;
+                }
 
-                    method.call(window.history, { profile: infos.id }, "", "?profile=" + infos.id);
+                if(update_history)
+                {
+                    update_history.call(window.history, { profile: infos.id }, "", "?profile=" + infos.id);
                 }
 
                 set_title(infos.name);
                 $(dom_id).blur();
                 $("boot_options").style.display = "none";
 
-                function loaded(buffer)
-                {
-                    settings[infos.disk_type] = new SyncBuffer(buffer);
-                    init(settings);
-                }
             }.bind(this, infos);
 
             if(profile === infos.id)
@@ -375,6 +375,40 @@
                 $(dom_id).onclick();
                 return;
             }
+        }
+
+        function loaded(infos, settings, buffer)
+        {
+            settings.memory_size = infos.memory_size;
+            settings.vga_memory_size = infos.vga_memory_size;
+
+            if(infos.async_hda)
+            {
+                settings.hda = new AsyncXHRBuffer(
+                    infos.async_hda,
+                    512, 
+                    infos.async_hda_size
+                );
+            }
+
+            if(infos.fda)
+            {
+                settings.fda = new SyncBuffer(buffer);
+            }
+            else if(infos.cdrom)
+            {
+                settings.cdrom = new SyncBuffer(buffer);
+            }
+
+            init(settings, function(cpu)
+            {
+                if(infos.state)
+                {
+                    cpu.restore_state(buffer);
+                }
+
+                cpu.run();
+            });
         }
     }
 
@@ -396,10 +430,11 @@
 
             fr.onload = function(e)
             {
-                var buffer = e.target.result;
-                init_ui({}, cpu);
-                cpu.restore_state(buffer);
-                cpu.run();
+                init(settings, function(cpu)
+                {
+                    cpu.restore_state(e.target.result);
+                    cpu.run();
+                });
             }
 
             fr.readAsArrayBuffer(file);
@@ -407,12 +442,18 @@
 
         $("start_test").onclick = function()
         {
-            //settings.cdrom = new AsyncXHRBuffer("images/linux.iso", 2048, 5632000);
-            //settings.fda = new AsyncXHRBuffer("images/kolibri.img", 512, 1440 * 1024);
-            //settings.fda = new AsyncXHRBuffer("images/freedos722.img", 512, 720 * 1024);
-            //settings.hda = new AsyncXHRBuffer("images/arch.img", 512, 8589934592);
-            settings.cdrom = new AsyncXHRBuffer("https://dl.dropboxusercontent.com/u/61029208/linux.iso", 2048, 6547456);
-            init(settings);
+            //settings.hda = new AsyncXHRBuffer("http://localhost:8000/images/arch3.img", 512, 8589934592);
+            settings.memory_size = 128 * 1024 * 1024;
+            settings.vga_memory_size = 128 * 1024 * 1024;
+
+            load_file("images/v86state.bin", function(buffer)
+            {
+                init(settings, function(cpu)
+                {
+                    cpu.restore_state(buffer);
+                    cpu.run();
+                });
+            });
         };
 
         var log_levels = document.getElementById("log_levels"),
@@ -470,11 +511,11 @@
         onload();
     }
 
-    function init(settings)
+    function init(settings, done)
     {
         if(!settings.bios || !settings.vga_bios)
         {
-            on_bios_load = init.bind(this, settings);
+            on_bios_load = init.bind(this, settings, done);
             return;
         }
 
@@ -494,33 +535,42 @@
 
         settings.boot_order = parseInt($("boot_order").value, 16);
         settings.serial_adapter = new SerialAdapter($("serial"));
+        //settings.serial_adapter = new ModemAdapter();
+        //settings.network_adapter = new NetworkAdapter("ws://localhost:8001/");
+        //settings.network_adapter = new NetworkAdapter("ws://relay.widgetry.org/");
 
-        var memory_size = parseInt($("memory_size").value, 10) * 1024 * 1024;
-        if(memory_size >= 16 * 1024 * 1024 && memory_size < 2048 * 1024 * 1024)
+        if(!settings.memory_size)
         {
-            settings.memory_size = memory_size;
-        }
-        else
-        {
-            log("Invalid memory size - ignored.");
-            settings.memory_size = 32 * 1024 * 1024;
+            var memory_size = parseInt($("memory_size").value, 10) * 1024 * 1024;
+            if(memory_size >= 16 * 1024 * 1024 && memory_size < 2048 * 1024 * 1024)
+            {
+                settings.memory_size = memory_size;
+            }
+            else
+            {
+                alert("Invalid memory size - ignored.");
+                settings.memory_size = 32 * 1024 * 1024;
+            }
         }
 
-        var video_memory_size = parseInt($("video_memory_size").value, 10) * 1024 * 1024;
-        if(video_memory_size > 64 * 1024 && video_memory_size < 2048 * 1024 * 1024)
+        if(!settings.vga_memory_size)
         {
-            settings.vga_memory_size = video_memory_size;
-        }
-        else
-        {
-            log("Invalid video memory size - ignored.");
-            settings.vga_memory_size = 8 * 1024 * 1024;
+            var video_memory_size = parseInt($("video_memory_size").value, 10) * 1024 * 1024;
+            if(video_memory_size > 64 * 1024 && video_memory_size < 2048 * 1024 * 1024)
+            {
+                settings.vga_memory_size = video_memory_size;
+            }
+            else
+            {
+                alert("Invalid video memory size - ignored.");
+                settings.vga_memory_size = 8 * 1024 * 1024;
+            }
         }
 
         init_ui(settings, cpu);
-
         cpu.init(settings);
-        cpu.run();
+
+        done(cpu);
     }
 
     function init_ui(settings, cpu)
@@ -669,14 +719,13 @@
         for(var i = 0; i < image_types.length; i++)
         {
             var elem = $("get_" + image_types[i] + "_image");
+            var obj = settings[image_types[i]];
 
-            if(settings[image_types[i]])
+            if(obj && obj.byteLength < 16 * 1024 * 1024)
             {
                 elem.onclick = (function(type)
                 {
-                    var buffer = settings[type];
-
-                    buffer.get_buffer(function(b)
+                    obj.get_buffer(function(b)
                     {
                         dump_file(b, type + ".img");
                     });
