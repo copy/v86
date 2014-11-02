@@ -41,7 +41,7 @@ How to build, run and embed?
   locally, make sure to serve it from a local webserver.
 - For more details on how to customize the behaviour and interface, see [docs/adapters.md](docs/adapters.md).
 - If you want only want to embed v86 on website you can use libv86.js. For
-  usage, check out [basic.html](docs/sample/basic.html).
+  usage, check out [basic.html](docs/samples/basic.html).
 
 
 Why? 
