@@ -28,6 +28,7 @@ var
 /** @const */ LOG_ACPI =   0x040000,
 /** @const */ LOG_APIC =   0x080000,
 /** @const */ LOG_NET =    0x100000,
+/** @const */ LOG_VIRTIO = 0x200000,
 
 
 
