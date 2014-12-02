@@ -58,10 +58,11 @@ build/v86_all.js: src/*.js src/browser/*.js build/cpu.js lib/*.js
 		$(CLOSURE_SOURCE_MAP) ../build/v86_all.js.map\
 		$(CLOSURE_FLAGS)\
 		--js $(CORE_FILES)\
+		--js $(LIB_FILES)\
 		--js $(BROWSER_FILES)\
 	 	--js ../build/cpu.js
 
-	echo "//# sourceMappingURL=build/v86_all.js.map" >> build/v86_all.js
+	echo "//# sourceMappingURL=v86_all.js.map" >> build/v86_all.js
 	ls -lh build/v86_all.js
 
 
@@ -76,6 +77,7 @@ src/node/v86_node.js: src/*.js src/node/*.js
 		$(CLOSURE_FLAGS)\
 		$(CLOSURE_READABLE)\
 		--js $(CORE_FILES)\
+		--js $(LIB_FILES)\
 		--js $(NODE_FILES)
 
 build/libv86.js: src/*.js build/cpu.js
@@ -88,19 +90,8 @@ build/libv86.js: src/*.js build/cpu.js
 		$(CLOSURE_FLAGS)\
 		$(CLOSURE_READABLE)\
 		--js $(CORE_FILES)\
+		--js $(LIB_FILES)\
 	 	--js ../build/cpu.js
-
-
-pack:
-	rm -f ../v86-latest.tar.gz 
-		# Not sure if legally necessary
-		#--exclude "qemu"
-	tar -zcvf ../v86-latest.tar.gz ../v86/ \
-		--exclude "images" \
-		--exclude "mcpp" \
-		--exclude "closure-compiler" \
-		--exclude "screenshots" \
-		--exclude ".git"
 
 clean:
 	rm -f build/*
