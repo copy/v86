@@ -38,14 +38,15 @@ CLOSURE_FLAGS=\
 
 CORE_FILES=const.js io.js main.js fpu.js ide.js pci.js floppy.js memory.js\
 		   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js\
-		   cpu_state.js ne2k.js
+		   cpu_state.js ne2k.js virtio.js
+LIB_FILES=../lib/9p.js ../lib/filesystem.js ../lib/jor1k.js ../lib/marshall.js ../lib/utf8.js
 BROWSER_FILES=browser/main.js browser/screen.js\
 			  browser/keyboard.js browser/mouse.js browser/serial.js\
 			  browser/network.js browser/lib.js
 NODE_FILES=node/main.js node/keyboard_sdl.js\
 		   node/screen_sdl.js node/keyboard_tty.js node/screen_tty.js
 
-build/v86_all.js: src/*.js src/browser/*.js build/cpu.js
+build/v86_all.js: src/*.js src/browser/*.js build/cpu.js lib/*.js
 	-ls -lh build/v86_all.js
 	cd src &&\
 	java -jar $(CLOSURE) \

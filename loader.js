@@ -2,13 +2,14 @@
 
 (function()
 {
-    var 
-        CORE_FILES = "const.js io.js main.js ide.js fpu.js pci.js floppy.js " +
+    var CORE_FILES = "const.js io.js main.js ide.js fpu.js pci.js floppy.js " +
                      "memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js acpi.js hpet.js " +
-                     "ne2k.js cpu_state.js",
-        BROWSER_FILES = "main.js screen.js keyboard.js mouse.js serial.js lib.js network.js",
-        LIB_FILES = "esprima.js walk.js";
+                     "ne2k.js cpu_state.js virtio.js";
+    var BROWSER_FILES = "main.js screen.js keyboard.js mouse.js serial.js lib.js network.js";
+    var LIB_FILES = "esprima.js walk.js";
 
+    // jor1k stuff
+    LIB_FILES += " jor1k.js 9p.js filesystem.js marshall.js utf8.js";
 
     load_scripts("cpu.js", "build/");
     load_scripts(CORE_FILES, "src/");

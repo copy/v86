@@ -743,6 +743,11 @@ v86.prototype.init = function(settings)
         {
             this.devices.net = new Ne2k(this, settings.network_adapter);
         }
+
+        if(settings.fs9p)
+        {
+            this.devices.virtio = new VirtIO(this, settings.fs9p);
+        }
     }
 
     if(DEBUG)

@@ -27,6 +27,7 @@ v86 emulates an x86-compatible CPU and hardware. Here's a list of emulated hardw
 - A PCI bus. This one is partly incomplete and not used by every device.
 - An IDE disk controller.
 - An NE2000 (8390) PCI network card.
+- A virtio filesystem.
 
 
 How to build, run and embed?
@@ -100,6 +101,7 @@ Credits
 - https://github.com/creationix/node-sdl
 - ascii.ttf (used in node) from http://www.apollosoft.de/ASCII/indexen.htm 
 - [Disk Images](https://github.com/copy/images)
+- [The jor1k project](https://github.com/s-macke/jor1k) for 9p and filesystem drivers
 
 
 More questions?
