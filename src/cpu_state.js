@@ -130,9 +130,16 @@ function restore_object(base, obj, buffers)
     else if(type === "ArrayBuffer")
     {
         var info = buffers.infos[obj.buffer_id];
-        dbg_assert(base.byteLength === info.length);
 
-        new Uint8Array(base).set(new Uint8Array(buffers.full, info.offset, info.length));
+        if(base && base.byteLength === info.length)
+        {
+            new Uint8Array(base).set(new Uint8Array(buffers.full, info.offset, info.length));
+        }
+        else
+        {
+            //base = buffers.full.slice(info.offset, info.offset + info.length);
+            dbg_assert(false);
+        }
 
         return base;
     }
@@ -156,12 +163,14 @@ function restore_object(base, obj, buffers)
 
         // avoid a new allocation if possible
         if(base && 
-           base.byteOffset === 0 && 
            base.constructor === constructor && 
+           base.byteOffset === 0 &&
            base.byteLength === info.length)
         {
-            // byteOffset != 0 could also be handled here, but is not very common
-            new Uint8Array(base.buffer).set(new Uint8Array(buffers.full, info.offset, info.length));
+            new Uint8Array(base.buffer).set(
+                new Uint8Array(buffers.full, info.offset, info.length), 
+                base.byteOffset
+            );
             return base;
         }
         else
@@ -190,6 +199,9 @@ v86.prototype.save_state = function()
         };
 
         total_buffer_size += len;
+
+        // align
+        total_buffer_size = total_buffer_size + 3 & ~3;
     }
 
     var info_object = JSON.stringify({
