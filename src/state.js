@@ -71,7 +71,7 @@ function save_object(obj, arraybuffers)
         };
     }
 
-    var skip = (obj._state_skip || []).setify();
+    var skip = Array.setify(obj._state_skip || []);
     skip["_state_skip"] = true;
 
     var keys = Object.keys(obj);

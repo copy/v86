@@ -371,13 +371,13 @@ function ByteQueue(size)
     this.clear();
 }
 
-Array.prototype.setify = function()
+Array.setify = function(array)
 {
     var set = {};
 
-    for(var i = 0; i < this.length; i++)
+    for(var i = 0; i < array.length; i++)
     {
-        set[this[i]] = true;
+        set[array[i]] = true;
     }
     
     return set;
