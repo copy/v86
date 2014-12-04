@@ -147,12 +147,12 @@
             // Heuristics: If file is smaller than 64M, use SyncFileBuffer
             if(file.size < 64 * 1024 * 1024)
             {
-                var loader = new SyncFileBuffer(file);
+                var loader = new v86util.SyncFileBuffer(file);
                 loader.onprogress = show_progress.bind(this, { msg: "Loading disk image into memory" });
             }
             else
             {
-                var loader = new AsyncFileBuffer(file);
+                var loader = new v86util.AsyncFileBuffer(file);
             }
 
             loader.onload = function()
@@ -203,15 +203,15 @@
         var biosfile = DEBUG ? "seabios-debug.bin" : "seabios.bin";
         var vgabiosfile = DEBUG ? "vgabios-0.7a.debug.bin" : "bochs-vgabios-0.7a.bin";
 
-        load_file("bios/" + biosfile, function(img)
+        v86util.load_file("bios/" + biosfile, function(img)
         {
             settings.bios = img;
 
             if(on_bios_load) on_bios_load();
         });
 
-        //load_file("bios/vgabios.bin", function(img)
-        load_file("bios/" + vgabiosfile, function(img)
+        //v86util.load_file("bios/vgabios.bin", function(img)
+        v86util.load_file("bios/" + vgabiosfile, function(img)
         {
             settings.vga_bios = img;
 
@@ -343,7 +343,7 @@
                 var message = { msg: "Downloading image", total: infos.size };
                 var image = infos.state || infos.fda || infos.cdrom;
 
-                load_file(
+                v86util.load_file(
                     image, 
                     loaded.bind(this, infos, settings), 
                     show_progress.bind(this, message)
@@ -384,7 +384,7 @@
 
             if(infos.async_hda)
             {
-                settings.hda = new AsyncXHRBuffer(
+                settings.hda = new v86util.AsyncXHRBuffer(
                     infos.async_hda,
                     512, 
                     infos.async_hda_size
