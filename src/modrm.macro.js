@@ -748,131 +748,131 @@
     };;
     v86.prototype.sib_table[0x00 | 4 << 3 | 0] = function(cpu, mod)
     {
-        return(0) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
     v86.prototype.sib_table[0x00 | 4 << 3 | 1] = function(cpu, mod)
     {
-        return(0) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
     v86.prototype.sib_table[0x00 | 4 << 3 | 2] = function(cpu, mod)
     {
-        return(0) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
     v86.prototype.sib_table[0x00 | 4 << 3 | 3] = function(cpu, mod)
     {
-        return(0) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
     v86.prototype.sib_table[0x00 | 4 << 3 | 4] = function(cpu, mod)
     {
-        return(0) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
+        return cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
     v86.prototype.sib_table[0x00 | 4 << 3 | 5] = function(cpu, mod)
     {
-        return(0) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
+        return (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
     v86.prototype.sib_table[0x00 | 4 << 3 | 6] = function(cpu, mod)
     {
-        return(0) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
     v86.prototype.sib_table[0x00 | 4 << 3 | 7] = function(cpu, mod)
     {
-        return(0) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
     v86.prototype.sib_table[0x40 | 4 << 3 | 0] = function(cpu, mod)
     {
-        return(0 << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
     v86.prototype.sib_table[0x40 | 4 << 3 | 1] = function(cpu, mod)
     {
-        return(0 << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
     v86.prototype.sib_table[0x40 | 4 << 3 | 2] = function(cpu, mod)
     {
-        return(0 << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
     v86.prototype.sib_table[0x40 | 4 << 3 | 3] = function(cpu, mod)
     {
-        return(0 << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
     v86.prototype.sib_table[0x40 | 4 << 3 | 4] = function(cpu, mod)
     {
-        return(0 << 1) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
+        return cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
     v86.prototype.sib_table[0x40 | 4 << 3 | 5] = function(cpu, mod)
     {
-        return(0 << 1) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
+        return (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
     v86.prototype.sib_table[0x40 | 4 << 3 | 6] = function(cpu, mod)
     {
-        return(0 << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
     v86.prototype.sib_table[0x40 | 4 << 3 | 7] = function(cpu, mod)
     {
-        return(0 << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
     v86.prototype.sib_table[0x80 | 4 << 3 | 0] = function(cpu, mod)
     {
-        return(0 << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
     v86.prototype.sib_table[0x80 | 4 << 3 | 1] = function(cpu, mod)
     {
-        return(0 << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
     v86.prototype.sib_table[0x80 | 4 << 3 | 2] = function(cpu, mod)
     {
-        return(0 << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
     v86.prototype.sib_table[0x80 | 4 << 3 | 3] = function(cpu, mod)
     {
-        return(0 << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
     v86.prototype.sib_table[0x80 | 4 << 3 | 4] = function(cpu, mod)
     {
-        return(0 << 2) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
+        return cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
     v86.prototype.sib_table[0x80 | 4 << 3 | 5] = function(cpu, mod)
     {
-        return(0 << 2) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
+        return (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
     v86.prototype.sib_table[0x80 | 4 << 3 | 6] = function(cpu, mod)
     {
-        return(0 << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
     v86.prototype.sib_table[0x80 | 4 << 3 | 7] = function(cpu, mod)
     {
-        return(0 << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
     v86.prototype.sib_table[0xC0 | 4 << 3 | 0] = function(cpu, mod)
     {
-        return(0 << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
     v86.prototype.sib_table[0xC0 | 4 << 3 | 1] = function(cpu, mod)
     {
-        return(0 << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
     v86.prototype.sib_table[0xC0 | 4 << 3 | 2] = function(cpu, mod)
     {
-        return(0 << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
     v86.prototype.sib_table[0xC0 | 4 << 3 | 3] = function(cpu, mod)
     {
-        return(0 << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
     v86.prototype.sib_table[0xC0 | 4 << 3 | 4] = function(cpu, mod)
     {
-        return(0 << 3) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
+        return cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
     v86.prototype.sib_table[0xC0 | 4 << 3 | 5] = function(cpu, mod)
     {
-        return(0 << 3) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
+        return (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
     v86.prototype.sib_table[0xC0 | 4 << 3 | 6] = function(cpu, mod)
     {
-        return(0 << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
     v86.prototype.sib_table[0xC0 | 4 << 3 | 7] = function(cpu, mod)
     {
-        return(0 << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
+        return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };;
     v86.prototype.sib_table[0x00 | 5 << 3 | 0] = function(cpu, mod)
     {
