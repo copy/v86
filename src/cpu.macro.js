@@ -1,6 +1,5 @@
 "use strict";
 
-#define getiopl(f) (f >> 12 & 3)
 #define logop(x, y)  if(DEBUG) { this.debug.logop(x, y); }
 
 /** @constructor */
@@ -1136,6 +1135,12 @@ v86.prototype.read_moffs = function()
     }
 };
 
+v86.prototype.getiopl = function() 
+{
+    return this.flags >> 12 & 3;
+}
+
+
 v86.prototype.get_eflags = function()
 {
     return (this.flags & ~flags_all) | !!this.getcf() | !!this.getpf() << 2 | !!this.getaf() << 4 | 
@@ -1159,7 +1164,7 @@ v86.prototype.update_eflags = function(new_flags)
     if(this.flags & flag_vm)
     {
         // other case needs to be handled in popf or iret
-        dbg_assert(getiopl(this.flags) === 3);
+        dbg_assert(this.getiopl() === 3);
 
         mask |= flag_iopl;
 
@@ -1176,7 +1181,7 @@ v86.prototype.update_eflags = function(new_flags)
             // cannot update iopl
             mask |= flag_iopl;
 
-            if(this.cpl > getiopl(this.flags))
+            if(this.cpl > this.getiopl())
             {
                 // cpl > iopl
                 // can update interrupt flag but not iopl
@@ -1279,7 +1284,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             throw unimpl("VME");
         }
 
-        if(vm86_mode() && is_software_int && getiopl(this.flags) < 3)
+        if(vm86_mode() && is_software_int && this.getiopl() < 3)
         {
             this.trigger_gp(0);
         }
@@ -1542,7 +1547,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
 v86.prototype.iret16 = function()
 {
-    if(!this.protected_mode || (vm86_mode() && getiopl(this.flags) === 3))
+    if(!this.protected_mode || (vm86_mode() && this.getiopl() === 3))
     {
         var ip = this.pop16();
 
@@ -1570,7 +1575,7 @@ v86.prototype.iret16 = function()
 
 v86.prototype.iret32 = function()
 {
-    if(!this.protected_mode || (vm86_mode() && getiopl(this.flags) === 3))
+    if(!this.protected_mode || (vm86_mode() && this.getiopl() === 3))
     {
         if(vm86_mode()) dbg_log("iret in vm86 mode  iopl=3", LOG_CPU);
 
@@ -1618,7 +1623,7 @@ v86.prototype.iret32 = function()
 
             dbg_log("in vm86 mode now " + 
                     " cs:eip=" + h(this.sreg[reg_cs]) + ":" + h(this.instruction_pointer >>> 0) +
-                    " iopl=" + getiopl(this.flags), LOG_CPU);
+                    " iopl=" + this.getiopl(), LOG_CPU);
 
             this.switch_seg(reg_cs, this.sreg[reg_cs]);
             this.instruction_pointer = this.instruction_pointer + this.get_seg(reg_cs) | 0;
@@ -1902,7 +1907,7 @@ v86.prototype.handle_irqs = function()
 
 v86.prototype.test_privileges_for_io = function(port, size)
 {
-    if(this.protected_mode && (this.cpl > getiopl(this.flags) || (this.flags & flag_vm)))
+    if(this.protected_mode && (this.cpl > this.getiopl() || (this.flags & flag_vm)))
     {
         var tsr_size = this.segment_limits[reg_tr],
             tsr_offset = this.segment_offsets[reg_tr];

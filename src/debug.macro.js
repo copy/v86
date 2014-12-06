@@ -299,7 +299,7 @@
                 out += i + "=" + Number(!!flg[i]()) + " | ";
             }
         }
-        out += "iopl=" + getiopl(cpu.flags);
+        out += "iopl=" + cpu.getiopl();
         dbg_log(out);
         
         

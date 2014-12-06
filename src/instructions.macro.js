@@ -754,7 +754,7 @@ op(0x9B, {
 });
 op2(0x9C, {
     // pushf
-    if((cpu.flags & flag_vm) && getiopl(cpu.flags) < 3)
+    if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
     {
         cpu.trigger_gp(0);
     }
@@ -765,7 +765,7 @@ op2(0x9C, {
     }
 }, {
     // pushf
-    if((cpu.flags & flag_vm) && getiopl(cpu.flags) < 3)
+    if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
     {
         // trap to virtual 8086 monitor
         cpu.trigger_gp(0);
@@ -779,7 +779,7 @@ op2(0x9C, {
 });
 op2(0x9D, {
     // popf
-    if((cpu.flags & flag_vm) && getiopl(cpu.flags) < 3)
+    if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
     {
         cpu.trigger_gp(0);
     }
@@ -788,7 +788,7 @@ op2(0x9D, {
     cpu.handle_irqs();
 }, {
     // popf
-    if((cpu.flags & flag_vm) && getiopl(cpu.flags) < 3)
+    if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
     {
         cpu.trigger_gp(0);
     }
@@ -1349,13 +1349,13 @@ op(0xFA, {
     //dbg_log("interrupts off");
 
     if(!cpu.protected_mode || ((cpu.flags & flag_vm) ? 
-            getiopl(cpu.flags) === 3 : getiopl(cpu.flags) >= cpu.cpl))
+            cpu.getiopl() === 3 : cpu.getiopl() >= cpu.cpl))
     {
         cpu.flags &= ~flag_interrupt;
     }
     else
     {
-        if(getiopl(cpu.flags) < 3 && ((cpu.flags & flag_vm) ? 
+        if(cpu.getiopl() < 3 && ((cpu.flags & flag_vm) ? 
             (cpu.cr4 & CR4_VME) :
             (cpu.cpl === 3 && (cpu.cr4 & CR4_PVI))))
         {
@@ -1372,7 +1372,7 @@ op(0xFB, {
     //dbg_log("interrupts on");
 
     if(!cpu.protected_mode || ((cpu.flags & flag_vm) ? 
-            getiopl(cpu.flags) === 3 : getiopl(cpu.flags) >= cpu.cpl))
+            cpu.getiopl() === 3 : cpu.getiopl() >= cpu.cpl))
     {
         cpu.flags |= flag_interrupt;
 
@@ -1383,7 +1383,7 @@ op(0xFB, {
     }
     else
     {
-        if(getiopl(cpu.flags) < 3 && (cpu.flags & flag_vip) === 0 && ((cpu.flags & flag_vm) ? 
+        if(cpu.getiopl() < 3 && (cpu.flags & flag_vip) === 0 && ((cpu.flags & flag_vm) ? 
             (cpu.cr4 & CR4_VME) :
             (cpu.cpl === 3 && (cpu.cr4 & CR4_PVI))))
         {
