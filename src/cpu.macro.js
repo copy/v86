@@ -1,12 +1,8 @@
 "use strict";
 
-#define logop(x, y)  if(DEBUG) { this.debug.logop(x, y); }
-
 /** @constructor */
 function v86()
 {
-    var cpu = this;
-
     /** @type {number } */
     this.memory_size = 0;
 
@@ -296,10 +292,6 @@ v86.prototype._state_restore = function()
 #include "string.macro.js"
 #include "instructions.macro.js"
 #include "misc_instr.macro.js"
-
-#undef unimpl
-#define unimpl(x) this.debug.unimpl(x)
-#define vm86_mode() (!!(this.flags & flag_vm))
 
 v86.prototype.run = function() 
 {
@@ -826,7 +818,10 @@ v86.prototype.cycle = function()
 
     var opcode = this.read_imm8();
 
-    logop(this.instruction_pointer - 1 >>> 0, opcode);
+    if(DEBUG) 
+    { 
+        this.debug.logop(this.instruction_pointer - 1 >>> 0, opcode); 
+    }
 
     // call the instruction
     this.table[opcode](this);
@@ -1138,8 +1133,12 @@ v86.prototype.read_moffs = function()
 v86.prototype.getiopl = function() 
 {
     return this.flags >> 12 & 3;
-}
+};
 
+v86.prototype.vm86_mode = function()
+{
+    return !!(this.flags & flag_vm);
+};
 
 v86.prototype.get_eflags = function()
 {
@@ -1279,12 +1278,12 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
     if(this.protected_mode)
     {
-        if(vm86_mode() && (this.cr4 & CR4_VME))
+        if(this.vm86_mode() && (this.cr4 & CR4_VME))
         {
-            throw unimpl("VME");
+            throw this.debug.unimpl("VME");
         }
 
-        if(vm86_mode() && is_software_int && this.getiopl() < 3)
+        if(this.vm86_mode() && is_software_int && this.getiopl() < 3)
         {
             this.trigger_gp(0);
         }
@@ -1293,7 +1292,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         {
             dbg_log(interrupt_nr, LOG_CPU);
             dbg_trace(LOG_CPU);
-            throw unimpl("#GP handler");
+            throw this.debug.unimpl("#GP handler");
         }
 
 
@@ -1314,7 +1313,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         if((type & 128) === 0)
         {
             // present bit not set
-            throw unimpl("#NP handler");
+            throw this.debug.unimpl("#NP handler");
         }
 
         if(is_software_int && dpl < this.cpl)
@@ -1334,15 +1333,15 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         }
         else if(type === 5)
         {
-            throw unimpl("call int to task gate");
+            throw this.debug.unimpl("call int to task gate");
         }
         else if(type === 6)
         {
-            throw unimpl("16 bit interrupt gate");
+            throw this.debug.unimpl("16 bit interrupt gate");
         }
         else if(type === 7)
         {
-            throw unimpl("16 bit trap gate");
+            throw this.debug.unimpl("16 bit trap gate");
         }
         else
         {
@@ -1350,7 +1349,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             dbg_trace(LOG_CPU);
             dbg_log("invalid type: " + h(type));
             dbg_log(h(addr) + " " + h(base) + " " + h(selector));
-            throw unimpl("#GP handler");
+            throw this.debug.unimpl("#GP handler");
         }
 
         var info = this.lookup_segment_selector(selector);
@@ -1358,17 +1357,17 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         if(info.is_null)
         {
             dbg_log("is null");
-            throw unimpl("#GP handler");
+            throw this.debug.unimpl("#GP handler");
         }
         if(!info.is_executable || info.dpl > this.cpl)
         {
             dbg_log("not exec");
-            throw unimpl("#GP handler");
+            throw this.debug.unimpl("#GP handler");
         }
         if(!info.is_present)
         {
             dbg_log("not present");
-            throw unimpl("#NP handler");
+            throw this.debug.unimpl("#NP handler");
         }
         
         this.load_eflags();
@@ -1383,7 +1382,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
             if(tss_stack_addr + 5 > this.segment_limits[reg_tr])
             {
-                throw unimpl("#TS handler");
+                throw this.debug.unimpl("#TS handler");
             }
 
             tss_stack_addr = tss_stack_addr + this.segment_offsets[reg_tr] | 0;
@@ -1399,19 +1398,19 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
             if(ss_info.is_null)
             {
-                throw unimpl("#TS handler");
+                throw this.debug.unimpl("#TS handler");
             }
             if(ss_info.rpl !== info.dpl)
             {
-                throw unimpl("#TS handler");
+                throw this.debug.unimpl("#TS handler");
             }
             if(ss_info.dpl !== info.dpl || !ss_info.rw_bit)
             {
-                throw unimpl("#TS handler");
+                throw this.debug.unimpl("#TS handler");
             }
             if(!ss_info.is_present)
             {
-                throw unimpl("#TS handler");
+                throw this.debug.unimpl("#TS handler");
             }
 
             var old_esp = this.reg32s[reg_esp],
@@ -1464,7 +1463,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         }
         else
         {
-            throw unimpl("#GP handler");
+            throw this.debug.unimpl("#GP handler");
         }
 
         this.push32(old_flags);
@@ -1547,7 +1546,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
 v86.prototype.iret16 = function()
 {
-    if(!this.protected_mode || (vm86_mode() && this.getiopl() === 3))
+    if(!this.protected_mode || (this.vm86_mode() && this.getiopl() === 3))
     {
         var ip = this.pop16();
 
@@ -1561,13 +1560,13 @@ v86.prototype.iret16 = function()
     } 
     else
     {
-        if(vm86_mode()) 
+        if(this.vm86_mode()) 
         {
             // vm86 mode, iopl != 3
             this.trigger_gp(0);
         }
 
-        throw unimpl("16 bit iret in protected mode");
+        throw this.debug.unimpl("16 bit iret in protected mode");
     }
 
     this.last_instr_jump = true;
@@ -1575,9 +1574,9 @@ v86.prototype.iret16 = function()
 
 v86.prototype.iret32 = function()
 {
-    if(!this.protected_mode || (vm86_mode() && this.getiopl() === 3))
+    if(!this.protected_mode || (this.vm86_mode() && this.getiopl() === 3))
     {
-        if(vm86_mode()) dbg_log("iret in vm86 mode  iopl=3", LOG_CPU);
+        if(this.vm86_mode()) dbg_log("iret in vm86 mode  iopl=3", LOG_CPU);
 
         var ip = this.pop32s();
 
@@ -1591,7 +1590,7 @@ v86.prototype.iret32 = function()
         return;
     }
 
-    if(vm86_mode()) 
+    if(this.vm86_mode()) 
     {
         // vm86 mode, iopl != 3
         this.trigger_gp(0);
@@ -1599,7 +1598,7 @@ v86.prototype.iret32 = function()
 
     if(this.flags & flag_nt)
     {
-        if(DEBUG) throw "unimplemented nt";
+        if(DEBUG) throw this.debug.unimpl("nt");
     }
 
     //dbg_log("pop eip from " + h(this.reg32[reg_esp], 8));
@@ -1659,23 +1658,23 @@ v86.prototype.iret32 = function()
 
     if(info.is_null)
     {
-        throw unimpl("is null");
+        throw this.debug.unimpl("is null");
     }
     if(!info.is_present)
     {
-        throw unimpl("not present");
+        throw this.debug.unimpl("not present");
     }
     if(!info.is_executable)
     {
-        throw unimpl("not exec");
+        throw this.debug.unimpl("not exec");
     }
     if(info.rpl < this.cpl)
     {
-        throw unimpl("rpl < cpl");
+        throw this.debug.unimpl("rpl < cpl");
     }
     if(info.dc_bit && info.dpl > info.rpl)
     {
-        throw unimpl("conforming and dpl > rpl");
+        throw this.debug.unimpl("conforming and dpl > rpl");
     }
 
     if(info.rpl > this.cpl)
@@ -1879,7 +1878,7 @@ v86.prototype.get_seg = function(segment /*, offset*/)
             if(DEBUG)
             {
                 dbg_log("Load null segment: " + h(segment), LOG_CPU);
-                throw unimpl("#GP handler");
+                throw this.debug.unimpl("#GP handler");
             }
         }
 
@@ -2162,7 +2161,7 @@ v86.prototype.switch_seg = function(reg, selector)
         this.protected_mode = (this.cr0 & CR0_PE) === CR0_PE;
     }
 
-    if(!this.protected_mode || vm86_mode())
+    if(!this.protected_mode || this.vm86_mode())
     {
         this.sreg[reg] = selector;
         this.segment_is_null[reg] = 0;
@@ -2216,32 +2215,32 @@ v86.prototype.switch_seg = function(reg, selector)
         {
             // cs not executable
             dbg_log(info + " " + h(selector & ~3), LOG_CPU);
-            throw unimpl("#GP handler");
+            throw this.debug.unimpl("#GP handler");
         }
 
         if(info.is_system)
         {
             dbg_log(info + " " + h(selector & ~3), LOG_CPU);
-            throw unimpl("load system segment descriptor, type = " + (info.access & 15));
+            throw this.debug.unimpl("load system segment descriptor, type = " + (info.access & 15));
         }
 
         //if(info.dc_bit && (info.dpl !== info.rpl))
         //{
         //    dbg_log(info + " " + h(selector & ~3), LOG_CPU);
-        //    throw unimpl("#GP handler");
+        //    throw this.debug.unimpl("#GP handler");
         //}
 
         if(info.rpl !== this.cpl)
         {
             dbg_log(info + " " + h(selector & ~3), LOG_CPU);
-            throw unimpl("privilege change");
+            throw this.debug.unimpl("privilege change");
         }
 
         dbg_assert(this.cpl === info.dpl);
 
         if(!info.dc_bit && info.dpl < this.cpl)
         {
-            throw unimpl("inter privilege call");
+            throw this.debug.unimpl("inter privilege call");
         }
         else
         {
@@ -2253,7 +2252,7 @@ v86.prototype.switch_seg = function(reg, selector)
             {
                 // PE = 1, interrupt or trap gate, nonconforming code segment, DPL > CPL
                 dbg_log(info + " " + h(selector & ~3), LOG_CPU);
-                throw unimpl("#GP handler");
+                throw this.debug.unimpl("#GP handler");
             }
         }
 
@@ -2315,31 +2314,31 @@ v86.prototype.load_tr = function(selector)
 
     if(!info.from_gdt)
     {
-        throw unimpl("TR can only be loaded from GDT");
+        throw this.debug.unimpl("TR can only be loaded from GDT");
     }
 
     if(info.is_null)
     {
         dbg_log("#GP(0) | tried to load null selector (ltr)");
-        throw unimpl("#GP handler");
+        throw this.debug.unimpl("#GP handler");
     }
 
     if(!info.is_present)
     {
         dbg_log("#GP | present bit not set (ltr)");
-        throw unimpl("#GP handler");
+        throw this.debug.unimpl("#GP handler");
     }
 
     if(!info.is_system)
     {
         dbg_log("#GP | ltr: not a system entry");
-        throw unimpl("#GP handler");
+        throw this.debug.unimpl("#GP handler");
     }
 
     if(info.type !== 9)
     {
         dbg_log("#GP | ltr: invalid type (type = " + info.type + ")");
-        throw unimpl("#GP handler");
+        throw this.debug.unimpl("#GP handler");
     }
 
 
@@ -2367,25 +2366,25 @@ v86.prototype.load_ldt = function(selector)
 
     if(!info.from_gdt)
     {
-        throw unimpl("LDTR can only be loaded from GDT");
+        throw this.debug.unimpl("LDTR can only be loaded from GDT");
     }
 
     if(!info.is_present)
     {
         dbg_log("lldt: present bit not set");
-        throw unimpl("#GP handler");
+        throw this.debug.unimpl("#GP handler");
     }
 
     if(!info.is_system)
     {
         dbg_log("lldt: not a system entry");
-        throw unimpl("#GP handler");
+        throw this.debug.unimpl("#GP handler");
     }
 
     if(info.type !== 2)
     {
         dbg_log("lldt: invalid type (" + info.type + ")");
-        throw unimpl("#GP handler");
+        throw this.debug.unimpl("#GP handler");
     }
 
     this.segment_offsets[reg_ldtr] = info.base;
@@ -2736,7 +2735,7 @@ v86.prototype.trigger_pagefault = function(write, user, present)
     if(this.page_fault)
     {
         dbg_trace(LOG_CPU);
-        throw unimpl("Double fault");
+        throw this.debug.unimpl("Double fault");
     }
 
     // invalidate tlb entry

@@ -1,7 +1,5 @@
 "use strict";
 
-#define unimpl(x) cpu.debug.unimpl(x)
-
 var 
     table16 = [], 
     table32 = [], 
@@ -1268,7 +1266,7 @@ op(0xF0, {
 op(0xF1, {
     // INT1
     // https://code.google.com/p/corkami/wiki/x86oddities#IceBP
-    throw unimpl("int1 instruction");
+    throw cpu.debug.unimpl("int1 instruction");
 });
 
 op(0xF2, {
@@ -1842,7 +1840,7 @@ opm(0x22, {
             if((cpu.cr0 & (CR0_PE | CR0_PG)) === CR0_PG)
             {
                 // cannot load PG without PE
-                throw unimpl("#GP handler");
+                throw cpu.debug.unimpl("#GP handler");
             }
 
             cpu.cr0_changed(old_cr0);
@@ -1890,7 +1888,7 @@ opm(0x22, {
 
             if(cpu.cr4 & CR4_PAE)
             {
-                throw unimpl("PAE");
+                throw cpu.debug.unimpl("PAE");
             }
 
             dbg_log("cr4=" + h(cpu.cr4 >>> 0), LOG_CPU);

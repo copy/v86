@@ -1,6 +1,6 @@
 "use strict";
 
-(function()
+(function(cpu)
 {
     var debug = {};
     cpu.debug = debug;
@@ -629,6 +629,4 @@
         }
     };
 
-
-
-})();
+})(this);

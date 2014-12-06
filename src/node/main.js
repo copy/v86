@@ -24,8 +24,8 @@ var USE_SDL = false,
     FONT_FILE = path + "node/ascii.ttf";
 
 
-var fs = require('fs'),
-    vm = require('vm'),
+var fs = require("fs"),
+    vm = require("vm"),
     
     include = function(path) 
     {
