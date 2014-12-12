@@ -2756,10 +2756,3 @@ v86.prototype.trigger_pagefault = function(write, user, present)
     throw MAGIC_CPU_EXCEPTION;
 };
 
-
-if(typeof window === "object")
-{
-    window["v86"] = v86;
-    v86.prototype["run"] = v86.prototype.run;
-    v86.prototype["stop"] = v86.prototype.stop;
-}

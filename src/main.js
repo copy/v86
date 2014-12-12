@@ -212,10 +212,6 @@ function SyncBuffer(buffer)
         fn(buffer);
     };
 }
-if(typeof window === "object")
-{
-    window["SyncBuffer"] = SyncBuffer;
-}
 
 /**
  * Simple circular queue for logs
