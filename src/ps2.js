@@ -137,9 +137,11 @@ PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
     }
 
     // note: delta_x or delta_y can be floating point numbers
+    
+    var factor = this.resolution * this.sample_rate / 80;
 
-    this.mouse_delta_x += delta_x * this.resolution;
-    this.mouse_delta_y += delta_y * this.resolution;
+    this.mouse_delta_x += delta_x * factor;
+    this.mouse_delta_y += delta_y * factor;
 
     if(this.enable_mouse_stream)
     {
