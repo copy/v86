@@ -217,8 +217,8 @@ function v86()
         {
             // write seabios debug output to console
             var seabios_debug = "";
-            cpu.io.register_write(0x402, handle); // seabios
-            cpu.io.register_write(0x500, handle); // vgabios
+            cpu.io.register_write(0x402, this, handle); // seabios
+            cpu.io.register_write(0x500, this, handle); // vgabios
         }
         function handle(out_byte)
         {
@@ -2251,8 +2251,8 @@ table0F_16[0x31] = table0F_32[0x31] = function(cpu) { { /* rdtsc - read timestam
 table0F_16[0x32] = table0F_32[0x32] = function(cpu) { { /* rdmsr - read maschine specific register*/ if(cpu.cpl) { cpu.trigger_gp(0); } var index = cpu.reg32s[reg_ecx]; dbg_log("rdmsr ecx=" + h(index >>> 0, 8), LOG_CPU); var low = 0; var high = 0; switch(index) { case IA32_SYSENTER_CS: low = cpu.sysenter_cs; break; case IA32_SYSENTER_EIP: low = cpu.sysenter_eip; break; case IA32_SYSENTER_ESP: low = cpu.sysenter_esp; break; } cpu.reg32s[reg_eax] = low; cpu.reg32s[reg_edx] = high; } };;
 // rdpmc
 table0F_16[0x33] = table0F_32[0x33] = function(cpu) { { if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();;} };;
-table0F_16[0x34] = table0F_32[0x34] = function(cpu) { { /* sysenter*/ var seg = cpu.sysenter_cs & 0xFFFC; if(!cpu.protected_mode || seg === 0) { cpu.trigger_gp(0); } dbg_log("sysenter  cs:eip=" + h(seg , 4) + ":" + h(cpu.sysenter_eip >>> 0, 8) + " ss:esp=" + h(seg + 8, 4) + ":" + h(cpu.sysenter_esp >>> 0, 8), LOG_CPU); cpu.flags &= ~flag_vm & ~flag_interrupt; cpu.instruction_pointer = cpu.sysenter_eip; cpu.reg32s[reg_esp] = cpu.sysenter_esp; cpu.sreg[reg_cs] = seg; cpu.segment_is_null[reg_cs] = 0; cpu.segment_limits[reg_cs] = -1; cpu.segment_offsets[reg_cs] = 0; if(!cpu.is_32) cpu.update_cs_size(true); cpu.cpl = 0; cpu.cpl_changed(); cpu.sreg[reg_ss] = seg + 8; cpu.segment_is_null[reg_ss] = 0; cpu.segment_limits[reg_ss] = -1; cpu.segment_offsets[reg_ss] = 0; cpu.stack_size_32 = true; cpu.stack_reg = cpu.reg32s; cpu.reg_vsp = reg_esp; cpu.reg_vbp = reg_ebp; } };;
-table0F_16[0x35] = table0F_32[0x35] = function(cpu) { { /* sysexit*/ var seg = cpu.sysenter_cs & 0xFFFC; if(!cpu.protected_mode || cpu.cpl || seg === 0) { cpu.trigger_gp(0); } dbg_log("sysenter  cs:eip=" + h(seg + 16, 4) + ":" + h(cpu.reg32s[reg_edx] >>> 0, 8) + " ss:esp=" + h(seg + 24, 4) + ":" + h(cpu.reg32s[reg_ecx] >>> 0, 8), LOG_CPU); cpu.instruction_pointer = cpu.reg32s[reg_edx]; cpu.reg32s[reg_esp] = cpu.reg32s[reg_ecx]; cpu.sreg[reg_cs] = seg + 16 | 3; cpu.segment_is_null[reg_cs] = 0; cpu.segment_limits[reg_cs] = -1; cpu.segment_offsets[reg_cs] = 0; if(!cpu.is_32) cpu.update_cs_size(true); cpu.cpl = 3; cpu.cpl_changed(); cpu.sreg[reg_ss] = seg + 24 | 3; cpu.segment_is_null[reg_ss] = 0; cpu.segment_limits[reg_ss] = -1; cpu.segment_offsets[reg_ss] = 0; cpu.stack_size_32 = true; cpu.stack_reg = cpu.reg32s; cpu.reg_vsp = reg_esp; cpu.reg_vbp = reg_ebp; } };;
+table0F_16[0x34] = table0F_32[0x34] = function(cpu) { { /* sysenter*/ var seg = cpu.sysenter_cs & 0xFFFC; if(!cpu.protected_mode || seg === 0) { cpu.trigger_gp(0); } /*dbg_log("sysenter  cs:eip=" + h(seg    , 4) + ":" + h(cpu.sysenter_eip >>> 0, 8) + */ /*                 " ss:esp=" + h(seg + 8, 4) + ":" + h(cpu.sysenter_esp >>> 0, 8), LOG_CPU);*/ cpu.flags &= ~flag_vm & ~flag_interrupt; cpu.instruction_pointer = cpu.sysenter_eip; cpu.reg32s[reg_esp] = cpu.sysenter_esp; cpu.sreg[reg_cs] = seg; cpu.segment_is_null[reg_cs] = 0; cpu.segment_limits[reg_cs] = -1; cpu.segment_offsets[reg_cs] = 0; if(!cpu.is_32) cpu.update_cs_size(true); cpu.cpl = 0; cpu.cpl_changed(); cpu.sreg[reg_ss] = seg + 8; cpu.segment_is_null[reg_ss] = 0; cpu.segment_limits[reg_ss] = -1; cpu.segment_offsets[reg_ss] = 0; cpu.stack_size_32 = true; cpu.stack_reg = cpu.reg32s; cpu.reg_vsp = reg_esp; cpu.reg_vbp = reg_ebp; } };;
+table0F_16[0x35] = table0F_32[0x35] = function(cpu) { { /* sysexit*/ var seg = cpu.sysenter_cs & 0xFFFC; if(!cpu.protected_mode || cpu.cpl || seg === 0) { cpu.trigger_gp(0); } /*dbg_log("sysexit  cs:eip=" + h(seg + 16, 4) + ":" + h(cpu.reg32s[reg_edx] >>> 0, 8) + */ /*                 " ss:esp=" + h(seg + 24, 4) + ":" + h(cpu.reg32s[reg_ecx] >>> 0, 8), LOG_CPU);*/ cpu.instruction_pointer = cpu.reg32s[reg_edx]; cpu.reg32s[reg_esp] = cpu.reg32s[reg_ecx]; cpu.sreg[reg_cs] = seg + 16 | 3; cpu.segment_is_null[reg_cs] = 0; cpu.segment_limits[reg_cs] = -1; cpu.segment_offsets[reg_cs] = 0; if(!cpu.is_32) cpu.update_cs_size(true); cpu.cpl = 3; cpu.cpl_changed(); cpu.sreg[reg_ss] = seg + 24 | 3; cpu.segment_is_null[reg_ss] = 0; cpu.segment_limits[reg_ss] = -1; cpu.segment_offsets[reg_ss] = 0; cpu.stack_size_32 = true; cpu.stack_reg = cpu.reg32s; cpu.reg_vsp = reg_esp; cpu.reg_vbp = reg_ebp; } };;
 table0F_16[0x36] = table0F_32[0x36] = function(cpu) { { if(DEBUG) throw "Possible fault: undefined instruction"; cpu.trigger_ud();} };;
 // getsec
 table0F_16[0x37] = table0F_32[0x37] = function(cpu) { { if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();;} };;
@@ -2999,8 +2999,8 @@ v86.prototype.init = function(settings)
     }
     var io = new IO(this.memory);
     this.io = io;
-    var bios = settings["bios"],
-        vga_bios = settings["vga_bios"];
+    var bios = settings.bios,
+        vga_bios = settings.vga_bios;
     if(bios)
     {
         // load bios
@@ -3071,11 +3071,11 @@ v86.prototype.init = function(settings)
         this.instruction_pointer = 0;
     }
     var a20_byte = 0;
-    io.register_read(0x92, function()
+    io.register_read(0x92, this, function()
     {
         return a20_byte;
     });
-    io.register_write(0x92, function(out_byte)
+    io.register_write(0x92, this, function(out_byte)
     {
         a20_byte = out_byte;
     });
@@ -3083,13 +3083,13 @@ v86.prototype.init = function(settings)
     {
         // Use by linux for port-IO delay
         // Avoid generating tons of debug messages
-        io.register_write(0x80, function(out_byte)
+        io.register_write(0x80, this, function(out_byte)
         {
         });
     }
     this.devices = {};
     // TODO: Make this more configurable
-    if(settings["load_devices"])
+    if(settings.load_devices)
     {
         this.devices.pic = new PIC(this);
         this.devices.pci = new PCI(this);
@@ -3100,12 +3100,12 @@ v86.prototype.init = function(settings)
             this.devices.hpet = new HPET(this);
         }
         this.devices.vga = new VGAScreen(this,
-                settings["screen_adapter"], settings["vga_memory_size"] || 8 * 1024 * 1024);
-        this.devices.ps2 = new PS2(this, settings["keyboard_adapter"], settings["mouse_adapter"]);
+                settings.screen_adapter, settings.vga_memory_size || 8 * 1024 * 1024);
+        this.devices.ps2 = new PS2(this, settings.keyboard_adapter, settings.mouse_adapter);
         this.fpu = new FPU(this);
-        if(settings["serial_adapter"])
+        if(settings.serial_adapter)
         {
-            this.devices.uart = new UART(this, 0x3F8, settings["serial_adapter"]);
+            this.devices.uart = new UART(this, 0x3F8, settings.serial_adapter);
         }
         else
         {
@@ -3115,25 +3115,25 @@ v86.prototype.init = function(settings)
                 init: function(fn) { },
             });
         }
-        this.devices.fdc = new FloppyController(this, settings["fda"], settings["fdb"]);
-        if(settings["cdrom"])
+        this.devices.fdc = new FloppyController(this, settings.fda, settings.fdb);
+        if(settings.cdrom)
         {
-            this.devices.cdrom = new IDEDevice(this, settings["cdrom"], true, 1);
+            this.devices.cdrom = new IDEDevice(this, settings.cdrom, true, 1);
         }
-        if(settings["hda"])
+        if(settings.hda)
         {
-            this.devices.hda = new IDEDevice(this, settings["hda"], false, 0);
+            this.devices.hda = new IDEDevice(this, settings.hda, false, 0);
         }
         else
         {
             //this.devices.hda = new IDEDevice(this, undefined, false, 0);
         }
-        //if(settings["hdb"])
+        //if(settings.hdb)
         //{
-        //    this.devices.hdb = hdb = new IDEDevice(this, settings["hdb"], false, 1);
+        //    this.devices.hdb = hdb = new IDEDevice(this, settings.hdb, false, 1);
         //}
         this.devices.pit = new PIT(this);
-        this.devices.rtc = new RTC(this, this.devices.fdc.type, settings["boot_order"] || 0x213);
+        this.devices.rtc = new RTC(this, this.devices.fdc.type, settings.boot_order || 0x213);
         if(settings.network_adapter)
         {
             this.devices.net = new Ne2k(this, settings.network_adapter);
@@ -3229,7 +3229,7 @@ v86.prototype.hlt_loop = function()
         this.devices.rtc.timer(now, false);
     }
     this.devices.vga.timer(now);
-    if(false && this.in_hlt)
+    if(this.in_hlt)
     {
         var me = this;
         setTimeout(function() { me.hlt_loop(); }, 0);
@@ -3255,7 +3255,7 @@ v86.prototype.cr0_changed = function(old_cr0)
         this.paging = new_paging;
         this.full_clear_tlb();
     }
-    if(this.translator !== undefined && (this.cr0 ^ old_cr0) & 1)
+    if(OP_TRANSLATION && (this.cr0 ^ old_cr0) & 1)
     {
         this.translator.clear_cache();
     }
@@ -4164,7 +4164,7 @@ v86.prototype.update_cs_size = function(new_size)
     this.is_32 = this.operand_size_32 = this.address_size_32 = new_size;
     this.update_operand_size();
     this.update_address_size();
-    if(this.translator !== undefined)
+    if(OP_TRANSLATION)
     {
         this.translator.clear_cache();
     }
@@ -4420,9 +4420,8 @@ v86.prototype.switch_seg = function(reg, selector)
     this.segment_is_null[reg] = 0;
     this.segment_limits[reg] = info.effective_limit;
     //this.segment_infos[reg] = 0; // TODO
-    if(this.translator && (reg === reg_ds || reg === reg_ss) && info.base !== this.segment_offsets[reg])
+    if(OP_TRANSLATION && (reg === reg_ds || reg === reg_ss) && info.base !== this.segment_offsets[reg])
     {
-        //console.log("clear");
         this.translator.clear_cache();
     }
     this.segment_offsets[reg] = info.base;
