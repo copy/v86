@@ -29,8 +29,6 @@ v86.prototype.table0F_32 = table0F_32;
     table32[n] = function(cpu) { var modrm_byte = cpu.read_imm8(); code32 };
 
 
-#define do_op() cpu.table[cpu.read_imm8()](cpu)
-
 #define unimplemented_sse(num) op(num, {\
     dbg_log("No SSE", LOG_CPU);\
     cpu.trigger_ud();\
@@ -39,10 +37,6 @@ v86.prototype.table0F_32 = table0F_32;
 #define undefined_instruction(num) op(num, {\
     if(DEBUG) throw "Possible fault: undefined instruction"; \
     cpu.trigger_ud();\
-})
-
-#define todo_op(num) op(num, {\
-    todo();\
 })
 
 #define todo()\
@@ -67,27 +61,6 @@ v86.prototype.table0F_32 = table0F_32;
     macro(0xD, (!cpu.test_l()));\
     macro(0xE, ( cpu.test_le()));\
     macro(0xF, (!cpu.test_le()));
-
-#define each_reg(macro)\
-    macro(0, reg_ax, reg_eax)\
-    macro(1, reg_cx, reg_ecx)\
-    macro(2, reg_dx, reg_edx)\
-    macro(3, reg_bx, reg_ebx)\
-    macro(4, reg_sp, reg_esp)\
-    macro(5, reg_bp, reg_ebp)\
-    macro(6, reg_si, reg_esi)\
-    macro(7, reg_di, reg_edi)
-
-#define each_reg8(macro)\
-    macro(0, reg_al)\
-    macro(1, reg_cl)\
-    macro(2, reg_dl)\
-    macro(3, reg_bl)\
-    macro(4, reg_ah)\
-    macro(5, reg_ch)\
-    macro(6, reg_dh)\
-    macro(7, reg_bh)
-
 
 
 // very special, should be somewhere else?
@@ -370,27 +343,43 @@ op(0x3E, { cpu.seg_prefix(reg_ds); });
 op(0x3F, { cpu.bcd_aas(); });
 
 
-#define group40(n, r16, r32)\
-    op2(0x40 | n, { cpu.reg16[r16] = inc16(cpu.reg16[r16]); }, { cpu.reg32s[r32] = inc32(cpu.reg32s[r32]); });
-each_reg(group40);
-#undef group40
+op2(0x40, { cpu.reg16[reg_ax] = inc16(cpu.reg16[reg_ax]); }, { cpu.reg32s[reg_eax] = inc32(cpu.reg32s[reg_eax]); });
+op2(0x41, { cpu.reg16[reg_cx] = inc16(cpu.reg16[reg_cx]); }, { cpu.reg32s[reg_ecx] = inc32(cpu.reg32s[reg_ecx]); });
+op2(0x42, { cpu.reg16[reg_dx] = inc16(cpu.reg16[reg_dx]); }, { cpu.reg32s[reg_edx] = inc32(cpu.reg32s[reg_edx]); });
+op2(0x43, { cpu.reg16[reg_bx] = inc16(cpu.reg16[reg_bx]); }, { cpu.reg32s[reg_ebx] = inc32(cpu.reg32s[reg_ebx]); });
+op2(0x44, { cpu.reg16[reg_sp] = inc16(cpu.reg16[reg_sp]); }, { cpu.reg32s[reg_esp] = inc32(cpu.reg32s[reg_esp]); });
+op2(0x45, { cpu.reg16[reg_bp] = inc16(cpu.reg16[reg_bp]); }, { cpu.reg32s[reg_ebp] = inc32(cpu.reg32s[reg_ebp]); });
+op2(0x46, { cpu.reg16[reg_si] = inc16(cpu.reg16[reg_si]); }, { cpu.reg32s[reg_esi] = inc32(cpu.reg32s[reg_esi]); });
+op2(0x47, { cpu.reg16[reg_di] = inc16(cpu.reg16[reg_di]); }, { cpu.reg32s[reg_edi] = inc32(cpu.reg32s[reg_edi]); });
 
 
-#define group48(n, r16, r32)\
-    op2(0x48 | n, { cpu.reg16[r16] = dec16(cpu.reg16[r16]); }, { cpu.reg32s[r32] = dec32(cpu.reg32s[r32]); });
-each_reg(group48);
-#undef group48
+op2(0x48, { cpu.reg16[reg_ax] = dec16(cpu.reg16[reg_ax]); }, { cpu.reg32s[reg_eax] = dec32(cpu.reg32s[reg_eax]); });
+op2(0x49, { cpu.reg16[reg_cx] = dec16(cpu.reg16[reg_cx]); }, { cpu.reg32s[reg_ecx] = dec32(cpu.reg32s[reg_ecx]); });
+op2(0x4A, { cpu.reg16[reg_dx] = dec16(cpu.reg16[reg_dx]); }, { cpu.reg32s[reg_edx] = dec32(cpu.reg32s[reg_edx]); });
+op2(0x4B, { cpu.reg16[reg_bx] = dec16(cpu.reg16[reg_bx]); }, { cpu.reg32s[reg_ebx] = dec32(cpu.reg32s[reg_ebx]); });
+op2(0x4C, { cpu.reg16[reg_sp] = dec16(cpu.reg16[reg_sp]); }, { cpu.reg32s[reg_esp] = dec32(cpu.reg32s[reg_esp]); });
+op2(0x4D, { cpu.reg16[reg_bp] = dec16(cpu.reg16[reg_bp]); }, { cpu.reg32s[reg_ebp] = dec32(cpu.reg32s[reg_ebp]); });
+op2(0x4E, { cpu.reg16[reg_si] = dec16(cpu.reg16[reg_si]); }, { cpu.reg32s[reg_esi] = dec32(cpu.reg32s[reg_esi]); });
+op2(0x4F, { cpu.reg16[reg_di] = dec16(cpu.reg16[reg_di]); }, { cpu.reg32s[reg_edi] = dec32(cpu.reg32s[reg_edi]); });
 
 
-#define group50(n, r16, r32)\
-    op2(0x50 | n, { cpu.push16(cpu.reg16[r16]); }, { cpu.push32(cpu.reg32s[r32]); })
-each_reg(group50);
-#undef group50
+op2(0x50, { cpu.push16(cpu.reg16[reg_ax]); }, { cpu.push32(cpu.reg32s[reg_eax]); })
+op2(0x51, { cpu.push16(cpu.reg16[reg_cx]); }, { cpu.push32(cpu.reg32s[reg_ecx]); })
+op2(0x52, { cpu.push16(cpu.reg16[reg_dx]); }, { cpu.push32(cpu.reg32s[reg_edx]); })
+op2(0x53, { cpu.push16(cpu.reg16[reg_bx]); }, { cpu.push32(cpu.reg32s[reg_ebx]); })
+op2(0x54, { cpu.push16(cpu.reg16[reg_sp]); }, { cpu.push32(cpu.reg32s[reg_esp]); })
+op2(0x55, { cpu.push16(cpu.reg16[reg_bp]); }, { cpu.push32(cpu.reg32s[reg_ebp]); })
+op2(0x56, { cpu.push16(cpu.reg16[reg_si]); }, { cpu.push32(cpu.reg32s[reg_esi]); })
+op2(0x57, { cpu.push16(cpu.reg16[reg_di]); }, { cpu.push32(cpu.reg32s[reg_edi]); })
 
-#define group58(n, r16, r32)\
-    op2(0x58 | n, { cpu.reg16[r16] = cpu.pop16(); }, { cpu.reg32s[r32] = cpu.pop32s(); })
-each_reg(group58);
-#undef group58
+op2(0x58, { cpu.reg16[reg_ax] = cpu.pop16(); }, { cpu.reg32s[reg_eax] = cpu.pop32s(); })
+op2(0x59, { cpu.reg16[reg_cx] = cpu.pop16(); }, { cpu.reg32s[reg_ecx] = cpu.pop32s(); })
+op2(0x5A, { cpu.reg16[reg_dx] = cpu.pop16(); }, { cpu.reg32s[reg_edx] = cpu.pop32s(); })
+op2(0x5B, { cpu.reg16[reg_bx] = cpu.pop16(); }, { cpu.reg32s[reg_ebx] = cpu.pop32s(); })
+op2(0x5C, { cpu.reg16[reg_sp] = cpu.pop16(); }, { cpu.reg32s[reg_esp] = cpu.pop32s(); })
+op2(0x5D, { cpu.reg16[reg_bp] = cpu.pop16(); }, { cpu.reg32s[reg_ebp] = cpu.pop32s(); })
+op2(0x5E, { cpu.reg16[reg_si] = cpu.pop16(); }, { cpu.reg32s[reg_esi] = cpu.pop32s(); })
+op2(0x5F, { cpu.reg16[reg_di] = cpu.pop16(); }, { cpu.reg32s[reg_edi] = cpu.pop32s(); })
 
 
 op2(0x60, { cpu.pusha16(); }, { cpu.pusha32(); });
@@ -415,7 +404,7 @@ op(0x66, {
     cpu.operand_size_32 = !cpu.is_32;
     cpu.update_operand_size();
 
-    do_op();
+    cpu.do_op();
 
     cpu.operand_size_32 = cpu.is_32;
     cpu.update_operand_size();
@@ -428,7 +417,7 @@ op(0x67, {
     cpu.address_size_32 = !cpu.is_32;
     cpu.update_address_size();
 
-    do_op();
+    cpu.do_op();
 
     cpu.address_size_32 = cpu.is_32;
     cpu.update_address_size();
@@ -689,12 +678,14 @@ opm2(0x8F, {
     }
 });
 
-#define group90(n, r16, r32) op2(0x90 | n, { cpu.xchg16r(r16) }, { cpu.xchg32r(r32) })
-each_reg(group90)
-#undef group90
-
 op(0x90,  /* nop */ );
-
+op2(0x91, { cpu.xchg16r(reg_cx) }, { cpu.xchg32r(reg_ecx) });
+op2(0x92, { cpu.xchg16r(reg_dx) }, { cpu.xchg32r(reg_edx) });
+op2(0x93, { cpu.xchg16r(reg_bx) }, { cpu.xchg32r(reg_ebx) });
+op2(0x94, { cpu.xchg16r(reg_sp) }, { cpu.xchg32r(reg_esp) });
+op2(0x95, { cpu.xchg16r(reg_bp) }, { cpu.xchg32r(reg_ebp) });
+op2(0x96, { cpu.xchg16r(reg_si) }, { cpu.xchg32r(reg_esi) });
+op2(0x97, { cpu.xchg16r(reg_di) }, { cpu.xchg32r(reg_edi) });
 
 op2(0x98, 
     { /* cbw */ cpu.reg16[reg_ax] = cpu.reg8s[reg_al]; },
@@ -852,15 +843,23 @@ op(0xAE, { scasb(cpu); });
 op2(0xAF, { scasw(cpu); }, { scasd(cpu); });
 
 
-#define groupB0(n, r8) op(0xB0 | n, { cpu.reg8[r8] = cpu.read_imm8(); });
-each_reg8(groupB0);
-#undef groupB0
+op(0xB0, { cpu.reg8[reg_al] = cpu.read_imm8(); })
+op(0xB1, { cpu.reg8[reg_cl] = cpu.read_imm8(); })
+op(0xB2, { cpu.reg8[reg_dl] = cpu.read_imm8(); })
+op(0xB3, { cpu.reg8[reg_bl] = cpu.read_imm8(); })
+op(0xB4, { cpu.reg8[reg_ah] = cpu.read_imm8(); })
+op(0xB5, { cpu.reg8[reg_ch] = cpu.read_imm8(); })
+op(0xB6, { cpu.reg8[reg_dh] = cpu.read_imm8(); })
+op(0xB7, { cpu.reg8[reg_bh] = cpu.read_imm8(); })
 
-
-#define groupB8(n, r16, r32)\
-    op2(0xB8 | n, { cpu.reg16[r16] = cpu.read_imm16(); }, { cpu.reg32s[r32] = cpu.read_imm32s(); });
-each_reg(groupB8);
-#undef groupB8
+op2(0xB8, { cpu.reg16[reg_ax] = cpu.read_imm16(); }, { cpu.reg32s[reg_eax] = cpu.read_imm32s(); });
+op2(0xB9, { cpu.reg16[reg_cx] = cpu.read_imm16(); }, { cpu.reg32s[reg_ecx] = cpu.read_imm32s(); });
+op2(0xBA, { cpu.reg16[reg_dx] = cpu.read_imm16(); }, { cpu.reg32s[reg_edx] = cpu.read_imm32s(); });
+op2(0xBB, { cpu.reg16[reg_bx] = cpu.read_imm16(); }, { cpu.reg32s[reg_ebx] = cpu.read_imm32s(); });
+op2(0xBC, { cpu.reg16[reg_sp] = cpu.read_imm16(); }, { cpu.reg32s[reg_esp] = cpu.read_imm32s(); });
+op2(0xBD, { cpu.reg16[reg_bp] = cpu.read_imm16(); }, { cpu.reg32s[reg_ebp] = cpu.read_imm32s(); });
+op2(0xBE, { cpu.reg16[reg_si] = cpu.read_imm16(); }, { cpu.reg32s[reg_esi] = cpu.read_imm32s(); });
+op2(0xBF, { cpu.reg16[reg_di] = cpu.read_imm16(); }, { cpu.reg32s[reg_edi] = cpu.read_imm32s(); });
 
 
 opm(0xC0, { 
@@ -1261,7 +1260,7 @@ op(0xF0, {
     // TODO
     // This triggers UD when used with
     // some instructions that don't write to memory
-    do_op();
+    cpu.do_op();
 });
 op(0xF1, {
     // INT1
@@ -1273,14 +1272,14 @@ op(0xF2, {
     // repnz
     dbg_assert(cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_NONE);
     cpu.repeat_string_prefix = REPEAT_STRING_PREFIX_NZ;
-    do_op();
+    cpu.do_op();
     cpu.repeat_string_prefix = REPEAT_STRING_PREFIX_NONE;
 });
 op(0xF3, {
     // repz
     dbg_assert(cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_NONE);
     cpu.repeat_string_prefix = REPEAT_STRING_PREFIX_Z;
-    do_op();
+    cpu.do_op();
     cpu.repeat_string_prefix = REPEAT_STRING_PREFIX_NONE;
 });
 
@@ -1699,13 +1698,13 @@ opm(0x01, {
 });
 
 opm(0x02, {
-    todo();
     // lar
+    todo();
 });
 
 opm(0x03, {
-    todo();
     // lsl
+    todo();
 });
 
 undefined_instruction(0x04);
@@ -1726,8 +1725,10 @@ op(0x06, {
 });
 
 undefined_instruction(0x07);
-// invd
-todo_op(0x08);
+op(0x08, {
+    // invd
+    todo();
+})
 
 op(0x09, {
     if(cpu.cpl)
@@ -1744,7 +1745,12 @@ op(0x0B, {
     cpu.trigger_ud();
 });
 undefined_instruction(0x0C);
-todo_op(0x0D);
+
+op(0x0D, {
+    // nop
+    todo();
+})
+
 undefined_instruction(0x0E);
 undefined_instruction(0x0F);
 
@@ -2010,8 +2016,10 @@ op(0x32, {
     cpu.reg32s[reg_edx] = high;
 });
 
-// rdpmc
-todo_op(0x33);
+op(0x33, {
+    // rdpmc
+    todo();
+})
 
 op(0x34, {
     // sysenter
@@ -2092,8 +2100,10 @@ op(0x35, {
 
 undefined_instruction(0x36);
 
-// getsec
-todo_op(0x37);
+op(0x37, {
+    // getsec
+    todo();
+})
 
 unimplemented_sse(0x38);
 unimplemented_sse(0x39);
@@ -2230,8 +2240,10 @@ undefined_instruction(0xA7);
 op2(0xA8, { cpu.push16(cpu.sreg[reg_gs]); }, { cpu.push32(cpu.sreg[reg_gs]); });
 pop_sreg_op(0xA9, reg_gs);
 
-// rsm
-todo_op(0xAA);
+op(0xAA, {
+    // rsm
+    todo();
+})
 
 opm2(0xAB, {
     bt_op16(bts, reg_g16s);
@@ -2251,7 +2263,10 @@ opm2(0xAD, {
     write_ev32s(cpu.shrd32(data, reg_g32s, cpu.reg8[reg_cl] & 31));
 });
 
-todo_op(0xAE);
+op(0xAE, {
+    // fxsave, fxrstor, ldmxcsr ...
+    todo();
+})
 
 opm2(0xAF, {
     read_e16s;
@@ -2391,8 +2406,10 @@ opm2(0xB8, {
     reg_g32s = cpu.popcnt(data);
 });
 
-// UD
-todo_op(0xB9);
+op(0xB9, {
+    // UD
+    todo();
+})
 
 opm2(0xBA, {
     //dbg_log("BA " + mod + " " + imm8);
@@ -2538,9 +2555,14 @@ opm(0xC7, {
     cpu.flags_changed &= ~flag_zero;
 });
 
-#define group0FC8(n, r16, r32) op(0xC8 | n, { cpu.bswap(r32); });
-each_reg(group0FC8)
-#undef group0FC8
+op(0xC8, { cpu.bswap(reg_eax); });
+op(0xC9, { cpu.bswap(reg_ecx); });
+op(0xCA, { cpu.bswap(reg_edx); });
+op(0xCB, { cpu.bswap(reg_ebx); });
+op(0xCC, { cpu.bswap(reg_esp); });
+op(0xCD, { cpu.bswap(reg_ebp); });
+op(0xCE, { cpu.bswap(reg_esi); });
+op(0xCF, { cpu.bswap(reg_edi); });
 
 unimplemented_sse(0xD0);
 unimplemented_sse(0xD1);
@@ -2618,15 +2640,11 @@ undefined_instruction(0xFF);
 #undef opm
 #undef op2
 #undef opm2
-#undef do_op
 #undef unimplemented_sse
 #undef undefined_instruction
-#undef todo_op
 #undef todo
 
 #undef each_jcc
-#undef each_reg
-#undef each_reg8
 
 #undef lss_op16
 #undef lss_op32

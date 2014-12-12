@@ -833,6 +833,11 @@ v86.prototype.cycle = function()
     }
 };
 
+v86.prototype.do_op = function()
+{
+    this.table[this.read_imm8()](this)
+};
+
 v86.prototype.hlt_loop = function()
 {
     //dbg_log("In HLT loop", LOG_CPU);
