@@ -561,8 +561,8 @@ v86.prototype.init = function(settings)
     var io = new IO(this.memory);
     this.io = io;
 
-    var bios = settings["bios"],
-        vga_bios = settings["vga_bios"];
+    var bios = settings.bios,
+        vga_bios = settings.vga_bios;
 
     if(bios)
     {
@@ -675,7 +675,7 @@ v86.prototype.init = function(settings)
     this.devices = {};
 
     // TODO: Make this more configurable
-    if(settings["load_devices"])
+    if(settings.load_devices)
     {
         this.devices.pic = new PIC(this);
 
@@ -689,14 +689,14 @@ v86.prototype.init = function(settings)
         }
 
         this.devices.vga = new VGAScreen(this, 
-                settings["screen_adapter"], settings["vga_memory_size"] || 8 * 1024 * 1024);
-        this.devices.ps2 = new PS2(this, settings["keyboard_adapter"], settings["mouse_adapter"]);
+                settings.screen_adapter, settings.vga_memory_size || 8 * 1024 * 1024);
+        this.devices.ps2 = new PS2(this, settings.keyboard_adapter, settings.mouse_adapter);
         
         this.fpu = new FPU(this);
 
-        if(settings["serial_adapter"])
+        if(settings.serial_adapter)
         {
-            this.devices.uart = new UART(this, 0x3F8, settings["serial_adapter"]);
+            this.devices.uart = new UART(this, 0x3F8, settings.serial_adapter);
         }
         else
         {
@@ -707,28 +707,28 @@ v86.prototype.init = function(settings)
             });
         }
 
-        this.devices.fdc = new FloppyController(this, settings["fda"], settings["fdb"]);
+        this.devices.fdc = new FloppyController(this, settings.fda, settings.fdb);
 
-        if(settings["cdrom"])
+        if(settings.cdrom)
         {
-            this.devices.cdrom = new IDEDevice(this, settings["cdrom"], true, 1);
+            this.devices.cdrom = new IDEDevice(this, settings.cdrom, true, 1);
         }
 
-        if(settings["hda"])
+        if(settings.hda)
         {
-            this.devices.hda = new IDEDevice(this, settings["hda"], false, 0);
+            this.devices.hda = new IDEDevice(this, settings.hda, false, 0);
         }
         else
         {
             //this.devices.hda = new IDEDevice(this, undefined, false, 0);
         }
-        //if(settings["hdb"])
+        //if(settings.hdb)
         //{
-        //    this.devices.hdb = hdb = new IDEDevice(this, settings["hdb"], false, 1);
+        //    this.devices.hdb = hdb = new IDEDevice(this, settings.hdb, false, 1);
         //}
 
         this.devices.pit = new PIT(this);
-        this.devices.rtc = new RTC(this, this.devices.fdc.type, settings["boot_order"] || 0x213);
+        this.devices.rtc = new RTC(this, this.devices.fdc.type, settings.boot_order || 0x213);
 
         if(settings.network_adapter)
         {
