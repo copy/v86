@@ -34,15 +34,39 @@ How to build, run and embed?
 -
 
 - In order to build the `cpu.js` file, you need `make` and `cpp` (the C preprocessor).
-  Run: `make src/cpu.js`.
+  Run: `make build/cpu.js`.
 - If you want a compressed and fast (i.e. with debug code removed) version, you
   need Closure Compiler. Pull the submodule using 
-  `git submodule update --init --recursive closure-compiler` and run `make v86_all.js`.
+  `git submodule update --init --recursive closure-compiler` and run `make build/v86_all.js`.
 - ROM and disk images are loaded via XHR, so if you want to try out `index.html`
-  locally, make sure to serve it from a local webserver.
-- For more details on how to customize the behaviour and interface, see [docs/adapters.md](docs/adapters.md).
+  locally, make sure to serve it from a local webserver. You can use `make run`
+  to serve the files using Python's SimpleHTTPServer.
 - If you want only want to embed v86 on website you can use libv86.js. For
   usage, check out [basic.html](docs/samples/basic.html).
+- A couple of disk images are provided for testing. You can check them out
+  using `git submodule update --init --recursive images`.
+
+
+To summarize:
+
+```
+git clone https://github.com/copy/v86.git                     # grab the main repo
+cd v86
+git submodule update --init --recursive images                # get the disk images
+git submodule update --init --recursive closure-compiler      # fetch the disk images
+```
+
+Rebuild compiled version:
+
+```
+make
+```
+
+Rebuild only debug version (only necessary after changing `.macro.js` files):
+
+```
+make build/cpu.js
+```
 
 
 Why? 
@@ -75,14 +99,14 @@ Here's an overview of the operating systems supported in v86:
 - ReactOS doesn't work.
 - No Android version seems to work, you still get a shell.
 
-You can get some infos on the disk images here: https://github.com/copy/v86/tree/master/images
+You can get some infos on the disk images here: https://github.com/copy/images
 
 
 How can I contribute?
 -
 
 - Add new features (hardware devices, fill holes in the CPU), fix bugs. Check
-  out the issues section and concact me if you need help.
+  out the issues section and contact me if you need help.
 - Report bugs.
 - Donate. Via Bitcoin:
   [`14KBXSoewGzbQY8VoznJ5MZXGxoia8RxC9`](https://blockchain.info/address/14KBXSoewGzbQY8VoznJ5MZXGxoia8RxC9).
