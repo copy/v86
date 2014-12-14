@@ -210,7 +210,6 @@
             if(on_bios_load) on_bios_load();
         });
 
-        //v86util.load_file("bios/vgabios.bin", function(img)
         v86util.load_file("bios/" + vgabiosfile, function(img)
         {
             settings.vga_bios = img;
@@ -274,19 +273,21 @@
         }
 
         var oses = [
-            {
-                id: "archlinux",
-                state: "http://localhost/v86-images/v86state.bin",
-                //state: "http://104.131.53.7:8086/v86state.bin",
-                size: 137 * 1024 * 1024,
-                name: "Arch Linux",
-                memory_size: 256 * 1024 * 1024,
-                //memory_size: 64 * 1024 * 1024,
-                vga_memory_size: 8 * 1024 * 1024,
-                async_hda: "http://localhost/v86-images/arch3.img",
-                //async_hda: "http://104.131.53.7:8086/arch3.img", 
-                async_hda_size: 8589934592,
-            },
+            //{
+            //    id: "archlinux",
+            //    state: "http://localhost/v86-images/v86state.bin",
+            //    //size: 137 * 1024 * 1024,
+            //    size: 75550474,
+            //    name: "Arch Linux",
+            //    memory_size: 64 * 1024 * 1024,
+            //    vga_memory_size: 8 * 1024 * 1024,
+            //    async_hda: "http://localhost/v86-images/arch3.img",
+            //    async_hda_size: 8 * 1024 * 1024 * 1024,
+            //    filesystem: {
+            //        basefs: "http://localhost/v86-images/fs.json",
+            //        baseurl: "http://localhost/v86-images/arch/",
+            //    },
+            //},
             {
                 id: "freedos",
                 fda: "images/freedos722.img",
@@ -391,6 +392,20 @@
                 );
             }
 
+            if(infos.filesystem)
+            {
+                settings.fs9p = new FS(infos.filesystem.baseurl);
+
+                if(infos.filesystem.basefs)
+                {
+                    settings.fs9p.LoadFilesystem({
+                        lazyloadimages: [],
+                        earlyload: [],
+                        basefsURL: infos.filesystem.basefs,
+                    });
+                }
+            }
+
             if(infos.fda)
             {
                 settings.fda = new SyncBuffer(buffer);
@@ -404,6 +419,7 @@
             {
                 if(infos.state)
                 {
+                    $("reset").style.display = "none";
                     cpu.restore_state(buffer);
                 }
 
@@ -415,6 +431,13 @@
     function debug_onload(settings)
     {
         // called on window.onload, in debug mode
+
+        //settings.fs9p = new FS("http://localhost/v86-images/arch/");
+        //settings.fs9p.LoadFilesystem({
+        //    lazyloadimages: [],
+        //    earlyload: [],
+        //    basefsURL: "http://localhost/v86-images/fs.json",
+        //});
 
         $("restore_state").onchange = function()
         {
@@ -442,18 +465,6 @@
 
         $("start_test").onclick = function()
         {
-            //settings.hda = new AsyncXHRBuffer("http://localhost:8000/images/arch3.img", 512, 8589934592);
-            settings.memory_size = 128 * 1024 * 1024;
-            settings.vga_memory_size = 128 * 1024 * 1024;
-
-            load_file("images/v86state.bin", function(buffer)
-            {
-                init(settings, function(cpu)
-                {
-                    cpu.restore_state(buffer);
-                    cpu.run();
-                });
-            });
         };
 
         var log_levels = document.getElementById("log_levels"),
