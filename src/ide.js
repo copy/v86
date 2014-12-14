@@ -261,7 +261,7 @@ function IDEDevice(cpu, buffer, is_cd, nr)
     cpu.io.register_write(this.master_port | 4, this, undefined, undefined, this.dma_set_addr);
 
     cpu.io.register_read(this.master_port, this, this.dma_read_command8, undefined, this.dma_read_command);
-    cpu.io.register_write(this.master_port, this, undefined, undefined, this.dma_write_command);
+    cpu.io.register_write(this.master_port, this, this.dma_write_command8, undefined, this.dma_write_command);
 
     cpu.io.register_read(this.master_port | 2, this, this.dma_read_status);
     cpu.io.register_write(this.master_port | 2, this, this.dma_write_status);
@@ -1409,3 +1409,13 @@ IDEDevice.prototype.dma_write_command = function(value)
     this.dma_write_status(value >> 16 & 0xFF);
 };
 
+
+IDEDevice.prototype.dma_write_command8 = function(value)
+{
+    dbg_log("DMA write command8: " + h(value), LOG_DISK);
+
+    if(value & 1)
+    {
+        this.push_irq();
+    }
+};
