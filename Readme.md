@@ -1,4 +1,11 @@
-[Live demo](http://copy.sh/v86/).
+
+Demos 
+-
+
+- [Linux](http://copy.sh/v86/?profile=linux26)
+- [KolibriOS](http://copy.sh/v86/?profile=kolibrios)
+- [FreeDOS](http://copy.sh/v86/?profile=freedos)
+- [Windows 1.01](http://copy.sh/v86/?profile=windows1)
 
 
 How does it work?
@@ -22,8 +29,7 @@ v86 emulates an x86-compatible CPU and hardware. Here's a list of emulated hardw
 - An 8254 Programmable Interval Timer (PIT).
 - An 8259 Programmable Interrupt Controller (PIC).
 - A CMOS Real Time Clock (RTC).
-- A VGA controller with SVGA support and Bochs VBE Extensions. This includes
-  support for large resolutions.
+- A VGA controller with SVGA support and Bochs VBE Extensions.
 - A PCI bus. This one is partly incomplete and not used by every device.
 - An IDE disk controller.
 - An NE2000 (8390) PCI network card.
