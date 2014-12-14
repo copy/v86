@@ -1,11 +1,25 @@
-/** 
- * No full implementation, just dumping serial output
- * to console
- *
+"use strict";
+
+/*
+ * Serial ports
+ * http://wiki.osdev.org/UART
+ * https://github.com/s-macke/jor1k/blob/master/js/worker/dev/uart.js
+ * https://www.freebsd.org/doc/en/articles/serial-uart/
  */
 
 /** @const */
 var DLAB = 0x80;
+
+/** @const */ var UART_IER_THRI = 0x02; /* Enable Transmitter holding register int. */
+/** @const */ var UART_IER_RDI = 0x01; /* Enable receiver data interrupt */
+
+/** @const */var UART_IIR_MSI = 0x00; /* Modem status interrupt (Low priority) */
+/** @const */var UART_IIR_NO_INT = 0x01;
+/** @const */var UART_IIR_THRI = 0x02; /* Transmitter holding register empty */
+/** @const */var UART_IIR_RDI = 0x04; /* Receiver data interrupt */
+/** @const */var UART_IIR_RLSI = 0x06; /* Receiver line status interrupt (High p.) */
+/** @const */var UART_IIR_CTI = 0x0c; /* Character timeout */
+
 
 /** 
  * @constructor 
@@ -14,6 +28,8 @@ function UART(cpu, port, adapter)
 {
     this.pic = cpu.devices.pic;
 
+    this.interrupts = 0;
+
     this.line = "";
     this.baud_rate = 0;
 
@@ -21,7 +37,10 @@ function UART(cpu, port, adapter)
     this.line_status = 0;
 
     this.fifo_control = 0;
-    this.interrupt_enable = 0;
+
+
+    // interrupts enable
+    this.ier = 0;
 
     // interrupt identification register
     this.iir = 1;
@@ -51,10 +70,13 @@ function UART(cpu, port, adapter)
 
     function data_received(data)
     {
+        dbg_log("input: " + h(data), LOG_SERIAL);
         this.input.push(data);
+        this.interrupts |= 1 << UART_IIR_CTI;
 
-        if(this.interrupt_enable & 1)
+        if(this.ier & UART_IER_RDI)
         {
+            this.iir = UART_IIR_CTI;
             this.push_irq();
         }
     }
@@ -70,7 +92,12 @@ function UART(cpu, port, adapter)
             return;
         }
 
-        //dbg_log("data: " + h(out_byte), LOG_SERIAL);
+        dbg_log("data: " + h(out_byte), LOG_SERIAL);
+
+        if(this.ier & UART_IER_THRI)
+        {
+            this.push_irq();
+        }
 
         if(out_byte === 0xFF)
         {
@@ -109,7 +136,7 @@ function UART(cpu, port, adapter)
         }
         else
         {
-            this.interrupt_enable = out_byte;
+            this.ier = out_byte;
             dbg_log("interrupt enable: " + h(out_byte), LOG_SERIAL);
         }
     });
@@ -126,11 +153,11 @@ function UART(cpu, port, adapter)
 
             if(data === -1)
             {
-                dbg_log("Input empty", LOG_SERIAL);
+                dbg_log("Read input empty", LOG_SERIAL);
             }
             else
             {
-                dbg_log("Input: " + h(data), LOG_SERIAL);
+                dbg_log("Read input: " + h(data), LOG_SERIAL);
             }
 
             return data;
@@ -145,15 +172,23 @@ function UART(cpu, port, adapter)
         }
         else
         {
-            return this.interrupt_enable;
+            return this.ier;
         }
     });
 
     io.register_read(port | 2, this, function()
     {
-        var ret = this.iir;
+        var ret = this.iir & 0xF | 0xC0;
         dbg_log("read interrupt identification: " + h(this.iir), LOG_SERIAL);
-        this.iir ^= 1;
+
+        if(this.iir === UART_IIR_THRI)
+        {
+            this.clear_interrupt(UART_IIR_THRI);
+        }
+        else if(this.iir === UART_IIR_CTI)
+        {
+            this.clear_interrupt(UART_IIR_CTI);
+        }
 
         return ret;
     });
@@ -226,6 +261,31 @@ function UART(cpu, port, adapter)
 
 UART.prototype.push_irq = function()
 {
+    dbg_log("Push irq", LOG_SERIAL);
     this.pic.push_irq(this.irq);
 };
 
+UART.prototype.clear_interrupt = function(line)
+{
+    this.interrupts &= ~(1 << line);
+    this.iir = UART_IIR_NO_INT;
+
+    if(line === this.iir) 
+    {
+        this.next_interrupt();
+    }
+};
+
+UART.prototype.next_interrupt = function()
+{
+    if ((this.interrupts & (1 << UART_IIR_CTI)) && (this.ier & UART_IER_RDI)) {
+        //this.ThrowCTI();
+    }
+    else if ((this.interrupts & (1 << UART_IIR_THRI)) && (this.ier & UART_IER_THRI)) {
+        //this.ThrowTHRI();
+    }
+    else {
+        this.iir = UART_IIR_NO_INT;
+        //this.intdev.ClearInterrupt(0x2);
+    }
+};
