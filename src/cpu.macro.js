@@ -701,8 +701,7 @@ v86.prototype.init = function(settings)
         else
         {
             this.devices.uart = new UART(this, 0x3F8, { 
-                //put_line: envapi.log,
-                put_line: function() { },
+                put_chr: function(chr) { },
                 init: function(fn) {  },
             });
         }
