@@ -1981,6 +1981,31 @@ v86.prototype.cpuid = function()
             edx = 0x007A7000;
             break;
 
+        case 4:
+            // from my local machine
+            switch(this.reg32s[reg_ecx])
+            {
+                case 0:
+                    eax = 0x0c000121; 
+                    ebx = 0x01c0003f; 
+                    ecx = 0x0000003f; 
+                    edx = 0x00000001;
+                    break;
+                case 1:
+                    eax = 0x0c000122; 
+                    ebx = 0x01c0003f; 
+                    ecx = 0x0000003f; 
+                    edx = 0x00000001;
+                    break
+                case 2:
+                    eax = 0x0c004143; 
+                    ebx = 0x05c0003f; 
+                    ecx = 0x00000fff; 
+                    edx = 0x00000001;
+                    break;
+            }
+            break;
+
         case 0x80000000|0:
             // maximum supported extended level
             eax = 5;
