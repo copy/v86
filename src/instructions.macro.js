@@ -2263,9 +2263,18 @@ opm2(0xAD, {
     write_ev32s(cpu.shrd32(data, reg_g32s, cpu.reg8[reg_cl] & 31));
 });
 
-op(0xAE, {
+opm(0xAE, {
     // fxsave, fxrstor, ldmxcsr ...
-    todo();
+
+    switch(modrm_byte >> 3 & 7)
+    {
+        case 6:
+            // mfence
+            break;
+        default:
+            dbg_log("missing " + (modrm_byte >> 3 & 7), LOG_CPU);
+            todo();
+    }
 })
 
 opm2(0xAF, {
