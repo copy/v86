@@ -29,22 +29,22 @@ function SerialAdapter(element)
         element.removeEventListener("paste", paste_handler, false);
     };
 
-    this.put_str = function(str)
+    this.put_chr = function(chr)
     {
-        if(str === "\x08")
+        if(chr === "\x08")
         {
             var text = element.value;
             element.value = text.substr(0, text.length - 1);
         }
-        else if(str === "\r")
+        else if(chr === "\r")
         {
             // do nothing 
         }
         else
         {
-            element.value += str;
+            element.value += chr;
 
-            if(str === "\n")
+            if(chr === "\n")
             {
                 element.scrollTop = 1e9;
             }

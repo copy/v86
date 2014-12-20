@@ -30,7 +30,6 @@ function UART(cpu, port, adapter)
 
     this.interrupts = 0;
 
-    this.line = "";
     this.baud_rate = 0;
 
     this.line_control = 0;
@@ -109,22 +108,7 @@ function UART(cpu, port, adapter)
             return;
         }
 
-        if(adapter.put_line)
-        {
-            if(out_byte === 0x0A)
-            {
-                adapter.put_line(this.line);
-                this.line = "";
-            }
-            else
-            {
-                this.line += String.fromCharCode(out_byte);
-            }
-        }
-        else
-        {
-            adapter.put_str(String.fromCharCode(out_byte));
-        }
+        adapter.put_chr(String.fromCharCode(out_byte));
     });
 
     io.register_write(port | 1, this, function(out_byte)

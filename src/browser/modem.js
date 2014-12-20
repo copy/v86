@@ -53,9 +53,9 @@ ModemAdapter.prototype.destroy = function()
 {
 };
 
-ModemAdapter.prototype.put_str = function(chr)
+ModemAdapter.prototype.put_chr = function(chr)
 {
-    console.log("put_str", chr);
+    console.log("put_chr", chr);
     if(this.opened)
     {
         this.socket.send(chr);
