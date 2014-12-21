@@ -38,6 +38,32 @@ var
     //LOG_LEVEL = 0;
 
 
+/** @const */
+var LOG_NAMES = [
+    [1, ""],
+    [LOG_CPU, "CPU"],
+    [LOG_DISK, "DISK"],
+    [LOG_FPU, "FPU"],
+    [LOG_MEM, "MEM"],
+    [LOG_DMA, "DMA"],
+    [LOG_IO, "IO"],
+    [LOG_PS2, "PS2"],
+    [LOG_PIC, "PIC"],
+    [LOG_VGA, "VGA"],
+    [LOG_PIT, "PIT"],
+    [LOG_MOUSE, "MOUS"],
+    [LOG_PCI, "PCI"],
+    [LOG_BIOS, "BIOS"],
+    [LOG_CD, "CD"],
+    [LOG_SERIAL, "SERI"],
+    [LOG_RTC, "RTC"],
+    [LOG_HPET, "HPET"],
+    [LOG_ACPI, "ACPI"],
+    [LOG_APIC, "APIC"],
+    [LOG_NET, "NET"],
+    [LOG_VIRTIO, "VIO"],
+];
+
 var
 /** @const */ TLB_SYSTEM_READ = 1,
 /** @const */ TLB_SYSTEM_WRITE = 2,

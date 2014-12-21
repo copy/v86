@@ -1,49 +1,18 @@
 "use strict";
 
-Object.fromList = function(xs)
-{
-    var result = {};
-
-    for(var i = 0; i < xs.length; i++)
-    {
-        result[xs[i][0]] = xs[i][1];
-    }
-
-    return result;
-};
-
-var dbg_names = Object.fromList([
-    [1, ""],
-    [LOG_CPU, "CPU"],
-    [LOG_DISK, "DISK"],
-    [LOG_FPU, "FPU"],
-    [LOG_MEM, "MEM"],
-    [LOG_DMA, "DMA"],
-    [LOG_IO, "IO"],
-    [LOG_PS2, "PS2"],
-    [LOG_PIC, "PIC"],
-    [LOG_VGA, "VGA"],
-    [LOG_PIT, "PIT"],
-    [LOG_MOUSE, "MOUS"],
-    [LOG_PCI, "PCI"],
-    [LOG_BIOS, "BIOS"],
-    [LOG_CD, "CD"],
-    [LOG_SERIAL, "SERI"],
-    [LOG_RTC, "RTC"],
-    [LOG_HPET, "HPET"],
-    [LOG_ACPI, "ACPI"],
-    [LOG_APIC, "APIC"],
-    [LOG_NET, "NET"],
-    [LOG_VIRTIO, "VIO"],
-]);
-
-
 /** 
  * @type {function((string|number), number=)}
  * @const 
  */
 var dbg_log = (function()
 {
+    /** @const */
+    var dbg_names = LOG_NAMES.reduce(function(a, x)
+    {
+        a[x[0]] = x[1];
+        return a;
+    }, {});
+
     var log_last_message = "";
     var log_message_repetitions = 0;
 

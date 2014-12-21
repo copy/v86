@@ -467,18 +467,16 @@
         {
         };
 
-        var log_levels = document.getElementById("log_levels"),
-            count = 0,
-            mask;
+        var log_levels = document.getElementById("log_levels");
 
-        for(var i in dbg_names)
+        for(var i = 0; i < LOG_NAMES.length; i++)
         {
-            mask = +i;
+            var mask = LOG_NAMES[i][0];
 
             if(mask == 1)
                 continue;
 
-            var name = dbg_names[mask].toLowerCase(),
+            var name = LOG_NAMES[i][1].toLowerCase(),
                 input = document.createElement("input"),
                 label = document.createElement("label");
 
