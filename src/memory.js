@@ -3,8 +3,10 @@
 /**
  * @constructor
  */
-function Memory(buffer, memory_size)
+function Memory(memory_size)
 {
+    var buffer = new ArrayBuffer(memory_size);
+
     this.mem8 = new Uint8Array(buffer);
     this.mem16 = new Uint16Array(buffer);
     this.mem32s = new Int32Array(buffer);

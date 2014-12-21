@@ -343,7 +343,7 @@ CPU.prototype.init = function(settings)
 
     this.memory_size = settings.memory_size || 1024 * 1024 * 64;
 
-    this.memory = new Memory(new ArrayBuffer(this.memory_size), this.memory_size); 
+    this.memory = new Memory(this.memory_size);
 
     this.segment_is_null = new Uint8Array(8);
     this.segment_limits = new Uint32Array(8);
