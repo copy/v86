@@ -71,11 +71,16 @@ var dbg_log = (function()
                 }
             }
 
+            var now = new Date();
+            var time_str = String.pad0(now.getHours(), 2) + ":" + 
+                           String.pad0(now.getMinutes(), 2) + ":" + 
+                           String.pad0(now.getSeconds(), 2) + " ";
+
             if(log_message_repetitions)
             {
                 if(log_message_repetitions === 1)
                 {
-                    console.log(log_last_message);
+                    console.log(time_str + log_last_message);
                 }
                 else 
                 {
@@ -85,7 +90,7 @@ var dbg_log = (function()
                 log_message_repetitions = 0;
             }
 
-            console.log(message);
+            console.log(time_str + message);
 
             log_last_message = message;
         }
