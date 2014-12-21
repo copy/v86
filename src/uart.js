@@ -67,19 +67,7 @@ function UART(cpu, port, adapter)
         return;
     }
 
-    function data_received(data)
-    {
-        dbg_log("input: " + h(data), LOG_SERIAL);
-        this.input.push(data);
-        this.interrupts |= 1 << UART_IIR_CTI;
-
-        if(this.ier & UART_IER_RDI)
-        {
-            this.iir = UART_IIR_CTI;
-            this.push_irq();
-        }
-    }
-    adapter.init(data_received.bind(this));
+    adapter.init(this.data_received.bind(this));
 
     var io = cpu.io;
 
@@ -271,5 +259,21 @@ UART.prototype.next_interrupt = function()
     else {
         this.iir = UART_IIR_NO_INT;
         //this.intdev.ClearInterrupt(0x2);
+    }
+};
+
+/** 
+ * @param {number} data
+ */
+UART.prototype.data_received = function(data)
+{
+    dbg_log("input: " + h(data), LOG_SERIAL);
+    this.input.push(data);
+    this.interrupts |= 1 << UART_IIR_CTI;
+
+    if(this.ier & UART_IER_RDI)
+    {
+        this.iir = UART_IIR_CTI;
+        this.push_irq();
     }
 };
