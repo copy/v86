@@ -288,7 +288,9 @@ String.pad0 = function(str, len)
 
 /**
  * number to hex
+ * @param {number} n
  * @param {number=} len
+ * @return {string}
  */
 function h(n, len)
 {
@@ -312,29 +314,44 @@ function h(n, len)
  */
 function SyncBuffer(buffer)
 {
+    this.buffer = buffer;
     this.byteLength = buffer.byteLength;
-
-    // warning: fn may be called synchronously or asynchronously
-    this.get = function(start, len, fn)
-    {
-        dbg_assert(start + len <= buffer.byteLength);
-
-        fn(new Uint8Array(buffer, start, len));
-    };
-
-    this.set = function(start, slice, fn)
-    {
-        dbg_assert(start + slice.length <= buffer.byteLength);
-
-        new Uint8Array(buffer, start, slice.byteLength).set(slice);
-        fn();
-    };
-
-    this.get_buffer = function(fn)
-    {
-        fn(buffer);
-    };
 }
+
+/** 
+ * @param {number} start
+ * @param {number} len
+ * @param {function(!Uint8Array)} fn
+ */
+SyncBuffer.prototype.get = function(start, len, fn)
+{
+    // warning: fn may be called synchronously or asynchronously
+    dbg_assert(start + len <= this.buffer.byteLength);
+
+    fn(new Uint8Array(this.buffer, start, len));
+};
+
+/** 
+ * @param {number} start
+ * @param {!Uint8Array} slice
+ * @param {function()} fn
+ */
+SyncBuffer.prototype.set = function(start, slice, fn)
+{
+    dbg_assert(start + slice.length <= this.buffer.byteLength);
+
+    new Uint8Array(this.buffer, start, slice.byteLength).set(slice);
+    fn();
+};
+
+/**
+ * @param {function(!ArrayBuffer)} fn
+ */
+SyncBuffer.prototype.get_buffer = function(fn)
+{
+    fn(this.buffer);
+};
+
 
 /**
  * Simple circular queue for logs
@@ -344,37 +361,37 @@ function SyncBuffer(buffer)
  */
 function CircularQueue(size)
 {
-    var data,
-        index;
-
-    this.add = function(item)
-    {
-        data[index] = item;
-
-        index = (index + 1) % size;
-    };
-
-    this.toArray = function()
-    {
-        return [].slice.call(data, index).concat([].slice.call(data, 0, index));
-    };
-
-    this.clear = function()
-    {
-        data = [];
-
-        index = 0;
-    };
-
-    this.set = function(new_data)
-    {
-        data = new_data;
-        index = 0;
-    };
-
-
-    this.clear();
+    this.data = [];
+    this.index = 0;
+    this.size = size;
 }
+
+CircularQueue.prototype.add = function(item)
+{
+    this.data[this.index] = item;
+    this.index = (this.index + 1) % this.size;
+};
+
+CircularQueue.prototype.toArray = function()
+{
+    return [].slice.call(this.data, this.index).concat([].slice.call(this.data, 0, this.index));
+};
+
+CircularQueue.prototype.clear = function()
+{
+    this.data = [];
+    this.index = 0;
+};
+
+/**
+ * @param {Array} new_data
+ */
+CircularQueue.prototype.set = function(new_data)
+{
+    this.data = new_data;
+    this.index = 0;
+};
+
 
 var int_log2_table = new Int8Array(256);
 
@@ -386,6 +403,11 @@ for(var i = 0, b = -2; i < 256; i++)
     int_log2_table[i] = b;
 }
 
+/**
+ * calculate the integer logarithm base 2
+ * @param {number} x
+ * @return {number}
+ */
 Math.int_log2 = function(x)
 {
     dbg_assert(x > 0);

@@ -1001,6 +1001,7 @@ IDEDevice.prototype.ata_read_sectors = function(cmd)
     else
     {
         dbg_assert(false);
+        return;
     }
 
     var
@@ -1127,6 +1128,7 @@ IDEDevice.prototype.ata_write = function(cmd)
     else
     {
         dbg_assert(false);
+        return;
     }
 
     var byte_count = count * this.sector_size,

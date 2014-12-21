@@ -93,6 +93,7 @@ function CPU()
      */
     this.in_hlt = false;
 
+    /** @type {!Object} */
     this.devices = {
         vga: {
             timer: function(now) {},
@@ -179,7 +180,7 @@ function CPU()
     /** @type {number} */
     this.previous_ip = 0;
 
-    /** @type {Object} */
+    /** @type {!Object} */
     this.bios = {};
 
     /** 
