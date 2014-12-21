@@ -514,7 +514,16 @@
     }
 
     window.addEventListener("load", onload, false);
-    window.addEventListener("popstate", onpopstate, false);
+
+    // old webkit fires popstate on every load, fuck webkit
+    // https://code.google.com/p/chromium/issues/detail?id=63040
+    window.addEventListener("load", function() 
+    {
+        setTimeout(function() 
+        {
+            window.addEventListener("popstate", onpopstate);
+        }, 0);
+    });
 
     // works in firefox and chromium
     if(document.readyState === "complete")
