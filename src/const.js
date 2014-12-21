@@ -29,6 +29,7 @@ var
 /** @const */ LOG_APIC =   0x080000,
 /** @const */ LOG_NET =    0x100000,
 /** @const */ LOG_VIRTIO = 0x200000,
+/** @const */ LOG_9P =     0x400000,
 
 
 
@@ -62,6 +63,7 @@ var LOG_NAMES = [
     [LOG_APIC, "APIC"],
     [LOG_NET, "NET"],
     [LOG_VIRTIO, "VIO"],
+    [LOG_9P, "9P"],
 ];
 
 var
