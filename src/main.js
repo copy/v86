@@ -54,7 +54,6 @@ v86.prototype.do_tick = function()
     this.running = true;
     this.cpu.main_run();
 
-    var me = this;
     this.next_tick();
 };
 
@@ -68,26 +67,8 @@ v86.prototype.stop = function()
 
 v86.prototype.restart = function()
 {
-    dbg_log("cpu restart", LOG_CPU);
-
-    var was_running = this.running;
-    var cpu = this;
-
-    this.stopped = true;
-    this.running = false;
-
-    setTimeout(function()
-    {
-        cpu.devices.ps2.destroy();
-        cpu.devices.vga.destroy();
-
-        cpu.init(cpu.current_settings);
-
-        if(was_running)
-        {
-            cpu.next_tick();
-        }
-    }, 10);
+    this.cpu.reset();
+    this.cpu.load_bios();
 };
 
 v86.prototype.init = function(settings)

@@ -168,9 +168,6 @@ function CPU()
     this.table = [];
     this.table0F = [];
 
-
-    this.current_settings = {};
-
     // paging enabled
     /** @type {boolean} */
     this.paging = false;
@@ -182,6 +179,8 @@ function CPU()
     /** @type {number} */
     this.previous_ip = 0;
 
+    /** @type {Object} */
+    this.bios = {};
 
     /** 
      * @type {number}
@@ -231,7 +230,7 @@ function CPU()
 
     /** @const */
     this._state_skip = [
-        "current_settings",
+        "bios",
         "debug",
         "regv",
         "table", "table0F",
@@ -329,22 +328,14 @@ CPU.prototype.exception_cleanup = function(e)
 
 CPU.prototype.reboot_internal = function()
 {
-    this.devices.ps2.destroy();
-    this.devices.vga.destroy();
-
-    this.init(this.current_settings);
+    this.reset();
+    this.load_bios();
 
     throw MAGIC_CPU_EXCEPTION;
 };
 
-CPU.prototype.init = function(settings)
+CPU.prototype.reset = function()
 {
-    this.current_settings = settings;
-
-    this.memory_size = settings.memory_size || 1024 * 1024 * 64;
-
-    this.memory = new Memory(this.memory_size);
-
     this.segment_is_null = new Uint8Array(8);
     this.segment_limits = new Uint32Array(8);
     //this.segment_infos = new Uint32Array(8);
@@ -418,6 +409,19 @@ CPU.prototype.init = function(settings)
 
     this.tsc_offset = v86.microtick();
 
+
+    this.instruction_pointer = 0xFFFF0;
+    this.switch_seg(reg_ss, 0x30);
+    this.reg16[reg_sp] = 0x100;
+};
+
+CPU.prototype.init = function(settings)
+{
+    this.memory_size = settings.memory_size || 1024 * 1024 * 64;
+    this.memory = new Memory(this.memory_size);
+
+    this.reset();
+
     if(OP_TRANSLATION)
     {
         this.translator = new DynamicTranslator(this);
@@ -427,95 +431,12 @@ CPU.prototype.init = function(settings)
     var io = new IO(this.memory);
     this.io = io;
 
-    var bios = settings.bios,
-        vga_bios = settings.vga_bios;
+    this.bios = {
+        main: settings.bios,
+        vga: settings.vga_bios,
+    };
 
-    if(bios)
-    {
-        // load bios
-        var data = new Uint8Array(bios),
-            start = 0x100000 - bios.byteLength;
-
-        this.memory.mem8.set(data, start);
-
-        if(vga_bios)
-        {
-            // load vga bios
-            data = new Uint8Array(vga_bios);
-            this.memory.mem8.set(data, 0xC0000);
-        }
-
-        // seabios expects the bios to be mapped to 0xFFF00000 also
-        io.mmap_register(0xFFF00000, 0x100000, 
-            function(addr)
-            {
-                addr &= 0xFFFFF;
-                return this.memory.mem8[addr];
-                //return data[start + addr];
-            }.bind(this),
-            function(addr, value)
-            {
-                addr &= 0xFFFFF;
-                this.memory.mem8[addr] = value;
-                //data[start + addr] = value;
-            }.bind(this));
-
-
-        // ip initial value
-        this.instruction_pointer = 0xFFFF0;
-
-        // ss and sp inital value
-        this.switch_seg(reg_ss, 0x30);
-        this.reg16[reg_sp] = 0x100;
-    }
-    else if(settings.linux)
-    {
-        this.instruction_pointer = 0x10000;
-
-        this.memory.write_blob(new Uint8Array(settings.linux.vmlinux), 0x100000);
-        this.memory.write_blob(new Uint8Array(settings.linux.linuxstart), this.instruction_pointer);
-
-        if(settings.linux.root)
-        {
-            this.memory.write_blob(new Uint8Array(settings.linux.root), 0x00400000);
-            this.reg32s[reg_ebx] = settings.linux.root.byteLength;
-        }
-
-        this.memory.write_string(settings.linux.cmdline, 0xF800);
-
-        this.reg32s[reg_eax] = this.memory_size;
-        this.reg32s[reg_ecx] = 0xF800;
-
-        this.switch_seg(reg_cs, 0);
-        this.switch_seg(reg_ss, 0);
-        this.switch_seg(reg_ds, 0);
-        this.switch_seg(reg_es, 0);
-        this.switch_seg(reg_gs, 0);
-        this.switch_seg(reg_fs, 0);
-
-        this.is_32 = true;
-        this.address_size_32 = true;
-        this.operand_size_32 = true;
-        this.stack_size_32 = true;
-        this.protected_mode = true;
-
-        this.update_operand_size();
-        this.update_address_size();
-
-        this.regv = this.reg32s;
-        this.reg_vsp = reg_esp;
-        this.reg_vbp = reg_ebp;
-
-        this.cr0 = 1;
-    }
-    else
-    {
-        this.switch_seg(reg_ss, 0x30);
-        this.reg16[reg_sp] = 0x100;
-
-        this.instruction_pointer = 0;
-    }
-
+    this.load_bios();
 
     var a20_byte = 0;
 
@@ -610,6 +531,51 @@ CPU.prototype.init = function(settings)
     {
         this.debug.init();
     }
+};
+
+CPU.prototype.load_bios = function()
+{
+    var bios = this.bios.main;
+    var vga_bios = this.bios.vga;
+
+    if(!bios)
+    {
+        dbg_log("Warning: No BIOS");
+        return;
+    }
+
+    // load bios
+    var data = new Uint8Array(bios),
+        start = 0x100000 - bios.byteLength;
+
+    this.memory.mem8.set(data, start);
+
+    if(vga_bios)
+    {
+        // load vga bios
+        data = new Uint8Array(vga_bios);
+        this.memory.mem8.set(data, 0xC0000);
+    }
+    else
+    {
+        dbg_log("Warning: No VGA BIOS");
+    }
+
+    // seabios expects the bios to be mapped to 0xFFF00000 also
+    this.io.mmap_register(0xFFF00000, 0x100000, 
+        function(addr)
+        {
+            addr &= 0xFFFFF;
+            return this.memory.mem8[addr];
+            //return data[start + addr];
+        }.bind(this),
+        function(addr, value)
+        {
+            addr &= 0xFFFFF;
+            this.memory.mem8[addr] = value;
+            //data[start + addr] = value;
+        }.bind(this));
+
 };
 
 CPU.prototype.do_run = function()
