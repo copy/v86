@@ -72,6 +72,8 @@ PIT.prototype.get_timer2 = function()
 
 PIT.prototype.timer = function(time, no_irq)
 {
+    dbg_assert(time >= this.next_tick);
+
     var current,
         mode,
         steps = (time - this.next_tick) * OSCILLATOR_FREQ >>> 0;
@@ -80,7 +82,6 @@ PIT.prototype.timer = function(time, no_irq)
     {
         return;
     }
-    dbg_assert(steps >= 0);
 
     this.next_tick += steps / OSCILLATOR_FREQ;
 
