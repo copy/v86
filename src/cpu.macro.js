@@ -588,7 +588,7 @@ CPU.prototype.do_run = function()
         start = Date.now(),
         now = start;
 
-    this.devices.vga.timer(now);
+    this.devices.vga.timer();
 
     // outer loop:
     // runs cycles + timers

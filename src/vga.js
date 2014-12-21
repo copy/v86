@@ -782,7 +782,7 @@ VGAScreen.prototype.svga_redraw = function()
     }
 };
 
-VGAScreen.prototype.timer = function(time)
+VGAScreen.prototype.timer = function()
 {
     if(this.do_complete_redraw)
     {
