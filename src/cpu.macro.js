@@ -1,7 +1,7 @@
 "use strict";
 
 /** @constructor */
-function v86()
+function CPU()
 {
     /** @type {number } */
     this.memory_size = 0;
@@ -92,12 +92,6 @@ function v86()
      * @type {boolean}
      */
     this.in_hlt = false;
-
-    /** @type {boolean} */
-    this.running = false;
-
-    /** @type {boolean} */
-    this.stopped = false;
 
     this.devices = {
         vga: {
@@ -228,10 +222,6 @@ function v86()
     // was the last instruction a jump?
     this.last_instr_jump = false;
 
-    this.first_init = true;
-    this.next_tick = function() {};
-    this.microtick = function() {};
-
     this.io = undefined;
     this.fpu = undefined;
 
@@ -255,13 +245,10 @@ function v86()
         "tlb_info_global",
 
         "timestamp_counter",
-
-        "running",
-        "stopped",
     ];
 }
 
-v86.prototype._state_restore = function()
+CPU.prototype._state_restore = function()
 {
     this.reg32 = new Uint32Array(this.reg32s.buffer);
     this.reg16s = new Int16Array(this.reg32s.buffer);
@@ -293,25 +280,11 @@ v86.prototype._state_restore = function()
 #include "instructions.macro.js"
 #include "misc_instr.macro.js"
 
-v86.prototype.run = function() 
+
+CPU.prototype.main_run = function()
 {
-    if(!this.running)
+    try 
     {
-        this.next_tick();
-    }
-};
-
-v86.prototype.main_run = function()
-{
-    if(this.stopped)
-    {
-        this.stopped = this.running = false;
-        return;
-    }
-
-    this.running = true;
-
-    try {
         if(this.in_hlt)
         {
             this.hlt_loop();
@@ -327,42 +300,7 @@ v86.prototype.main_run = function()
     }
 };
 
-
-v86.prototype.stop = function()
-{
-    if(this.running)
-    {
-        this.stopped = true;
-    }
-};
-
-
-v86.prototype.restart = function()
-{
-    dbg_log("cpu restart", LOG_CPU);
-
-    var was_running = this.running;
-    var cpu = this;
-
-    this.stopped = true;
-    this.running = false;
-
-    setTimeout(function()
-    {
-        cpu.devices.ps2.destroy();
-        cpu.devices.vga.destroy();
-
-        cpu.init(cpu.current_settings);
-
-        if(was_running)
-        {
-            cpu.next_tick();
-        }
-    }, 10);
-};
-
-
-v86.prototype.exception_cleanup = function(e)
+CPU.prototype.exception_cleanup = function(e)
 {
     if(e === MAGIC_CPU_EXCEPTION)
     {
@@ -380,24 +318,17 @@ v86.prototype.exception_cleanup = function(e)
         this.update_address_size();
         this.operand_size_32 = this.is_32;
         this.update_operand_size();
-
-        this.next_tick();
     }
     else
     {
-        this.running = false;
-
         console.log(e);
         console.log(e.stack);
         throw e;
     }
 }
 
-
-v86.prototype.reboot_internal = function()
+CPU.prototype.reboot_internal = function()
 {
-    dbg_assert(this.running);
-
     this.devices.ps2.destroy();
     this.devices.vga.destroy();
 
@@ -406,70 +337,8 @@ v86.prototype.reboot_internal = function()
     throw MAGIC_CPU_EXCEPTION;
 };
 
-// initialization that only needs to be once
-v86.prototype.lazy_init = function()
+CPU.prototype.init = function(settings)
 {
-    var cpu = this;
-
-    if(typeof setImmediate !== "undefined")
-    {
-        this.next_tick = function()
-        {
-            setImmediate(function() { cpu.main_run(); });
-        };
-    }
-    else if(typeof window !== "undefined" && typeof postMessage !== "undefined")
-    {
-        // setImmediate shim for the browser.
-        // TODO: Make this deactivatable, for other applications
-        //       using postMessage
-
-        /** @const */
-        var MAGIC_POST_MESSAGE = 0xAA55;
-
-        window.addEventListener("message", function(e)
-        {
-            if(e.source === window && e.data === MAGIC_POST_MESSAGE)
-            {
-                cpu.main_run();
-            }
-        }, false);
-
-        this.next_tick = function()
-        {
-            window.postMessage(MAGIC_POST_MESSAGE, "*");
-        };
-    }
-    else
-    {
-        this.next_tick = function()
-        {
-            setTimeout(function() { cpu.main_run(); }, 0);
-        };
-    }
-
-    if(typeof performance === "object" && performance.now)
-    {
-        this.microtick = function()
-        {
-            return performance.now();
-        };
-    }
-    else
-    {
-        this.microtick = Date.now;
-    }
-};
-
-
-v86.prototype.init = function(settings)
-{
-    if(this.first_init)
-    {
-        this.first_init = false;
-        this.lazy_init();
-    }
-
     this.current_settings = settings;
 
     this.memory_size = settings.memory_size || 1024 * 1024 * 64;
@@ -532,9 +401,6 @@ v86.prototype.init = function(settings)
     this.previous_ip = 0;
     this.in_hlt = false;
 
-    this.running = false;
-    this.stopped = false;
-
     this.sysenter_cs = 0;
     this.sysenter_esp = 0;
     this.sysenter_eip = 0;
@@ -550,7 +416,7 @@ v86.prototype.init = function(settings)
     this.last_op2 = 0;
     this.last_op_size = 0;
 
-    this.tsc_offset = this.microtick();
+    this.tsc_offset = v86.microtick();
 
     if(OP_TRANSLATION)
     {
@@ -746,7 +612,7 @@ v86.prototype.init = function(settings)
     }
 };
 
-v86.prototype.do_run = function()
+CPU.prototype.do_run = function()
 {
     var 
         /** 
@@ -791,8 +657,6 @@ v86.prototype.do_run = function()
 
         now = Date.now();
     }
-
-    this.next_tick();
 };
 
 
@@ -801,16 +665,16 @@ v86.prototype.do_run = function()
 // This trick is a bit ugly, but it works without further complication.
 if(typeof window !== "undefined")
 {
-    window.__no_inline1 = v86.prototype.do_run;
-    window.__no_inline2 = v86.prototype.exception_cleanup;
-    window.__no_inline3 = v86.prototype.hlt_loop;
+    window.__no_inline1 = CPU.prototype.do_run;
+    window.__no_inline2 = CPU.prototype.exception_cleanup;
+    window.__no_inline3 = CPU.prototype.hlt_loop;
 };
 
 /**
  * execute a single instruction cycle on the cpu
  * this includes reading all prefixes and the whole instruction
  */
-v86.prototype.cycle = function()
+CPU.prototype.cycle = function()
 {
     this.timestamp_counter++;
     this.previous_ip = this.instruction_pointer;
@@ -832,12 +696,12 @@ v86.prototype.cycle = function()
     }
 };
 
-v86.prototype.do_op = function()
+CPU.prototype.do_op = function()
 {
-    this.table[this.read_imm8()](this)
+    this.table[this.read_imm8()](this);
 };
 
-v86.prototype.hlt_loop = function()
+CPU.prototype.hlt_loop = function()
 {
     //dbg_log("In HLT loop", LOG_CPU);
 
@@ -857,18 +721,18 @@ v86.prototype.hlt_loop = function()
 
     this.devices.vga.timer(now);
 
-    if(this.in_hlt)
-    {
-        var me = this;
-        setTimeout(function() { me.hlt_loop(); }, 0);
-    }
-    else
-    {
-        this.next_tick();
-    }
+    //if(this.in_hlt)
+    //{
+    //    var me = this;
+    //    setTimeout(function() { me.hlt_loop(); }, 0);
+    //}
+    //else
+    //{
+    //    this.next_tick();
+    //}
 };
 
-v86.prototype.cr0_changed = function(old_cr0)
+CPU.prototype.cr0_changed = function(old_cr0)
 {
     //dbg_log("cr0 = " + h(this.cr0 >>> 0), LOG_CPU);
 
@@ -894,19 +758,19 @@ v86.prototype.cr0_changed = function(old_cr0)
     }
 };
 
-v86.prototype.paging_changed = function()
+CPU.prototype.paging_changed = function()
 {
     this.last_virt_eip = -1;
     this.last_virt_esp = -1;
 };
 
-v86.prototype.cpl_changed = function()
+CPU.prototype.cpl_changed = function()
 {
     this.last_virt_eip = -1;
     this.last_virt_esp = -1;
 };
 
-v86.prototype.get_phys_eip = function()
+CPU.prototype.get_phys_eip = function()
 {
     if((this.instruction_pointer & ~0xFFF) ^ this.last_virt_eip)
     {
@@ -917,7 +781,7 @@ v86.prototype.get_phys_eip = function()
     return this.eip_phys ^ this.instruction_pointer;
 };
 
-v86.prototype.read_imm8 = function()
+CPU.prototype.read_imm8 = function()
 {
     if((this.instruction_pointer & ~0xFFF) ^ this.last_virt_eip)
     {
@@ -934,12 +798,12 @@ v86.prototype.read_imm8 = function()
     return data8;
 };
 
-v86.prototype.read_imm8s = function()
+CPU.prototype.read_imm8s = function()
 {
     return this.read_imm8() << 24 >> 24;
 };
 
-v86.prototype.read_imm16 = function()
+CPU.prototype.read_imm16 = function()
 {
     // Two checks in one comparison:
     //    1. Did the high 20 bits of eip change
@@ -955,12 +819,12 @@ v86.prototype.read_imm16 = function()
     return data16;
 };
 
-v86.prototype.read_imm16s = function()
+CPU.prototype.read_imm16s = function()
 {
     return this.read_imm16() << 16 >> 16;
 };
 
-v86.prototype.read_imm32s = function()
+CPU.prototype.read_imm32s = function()
 {
     // Analogue to the above comment
     if(((this.instruction_pointer ^ this.last_virt_eip) >>> 0) > 0xFFC)
@@ -975,7 +839,7 @@ v86.prototype.read_imm32s = function()
 };
 
 // read word from a page boundary, given 2 physical addresses
-v86.prototype.virt_boundary_read16 = function(low, high)
+CPU.prototype.virt_boundary_read16 = function(low, high)
 {
     dbg_assert((low & 0xFFF) === 0xFFF);
     dbg_assert((high & 0xFFF) === 0);
@@ -984,7 +848,7 @@ v86.prototype.virt_boundary_read16 = function(low, high)
 };
 
 // read doubleword from a page boundary, given 2 addresses
-v86.prototype.virt_boundary_read32s = function(low, high)
+CPU.prototype.virt_boundary_read32s = function(low, high)
 {
     dbg_assert((low & 0xFFF) >= 0xFFD);
     dbg_assert((high - 3 & 0xFFF) === (low & 0xFFF));
@@ -1013,7 +877,7 @@ v86.prototype.virt_boundary_read32s = function(low, high)
     return this.memory.read8(low) | mid << 8 | this.memory.read8(high) << 24;;
 };
 
-v86.prototype.virt_boundary_write16 = function(low, high, value)
+CPU.prototype.virt_boundary_write16 = function(low, high, value)
 {
     dbg_assert((low & 0xFFF) === 0xFFF);
     dbg_assert((high & 0xFFF) === 0);
@@ -1022,7 +886,7 @@ v86.prototype.virt_boundary_write16 = function(low, high, value)
     this.memory.write8(high, value >> 8);
 };
 
-v86.prototype.virt_boundary_write32 = function(low, high, value)
+CPU.prototype.virt_boundary_write32 = function(low, high, value)
 {
     dbg_assert((low & 0xFFF) >= 0xFFD);
     dbg_assert((high - 3 & 0xFFF) === (low & 0xFFF));
@@ -1057,13 +921,13 @@ v86.prototype.virt_boundary_write32 = function(low, high, value)
 // read or write byte, word or dword to the given *virtual* address,
 // and be safe on page boundaries
 
-v86.prototype.safe_read8 = function(addr)
+CPU.prototype.safe_read8 = function(addr)
 {
     dbg_assert(addr < 0x80000000);
     return this.memory.read8(this.translate_address_read(addr));
 };
 
-v86.prototype.safe_read16 = function(addr)
+CPU.prototype.safe_read16 = function(addr)
 {
     if(this.paging && (addr & 0xFFF) === 0xFFF)
     {
@@ -1075,7 +939,7 @@ v86.prototype.safe_read16 = function(addr)
     }
 };
 
-v86.prototype.safe_read32s = function(addr)
+CPU.prototype.safe_read32s = function(addr)
 {
     if(this.paging && (addr & 0xFFF) >= 0xFFD)
     {
@@ -1087,13 +951,13 @@ v86.prototype.safe_read32s = function(addr)
     }
 };
 
-v86.prototype.safe_write8 = function(addr, value)
+CPU.prototype.safe_write8 = function(addr, value)
 {
     dbg_assert(addr < 0x80000000);
     this.memory.write8(this.translate_address_write(addr), value);
 };
 
-v86.prototype.safe_write16 = function(addr, value)
+CPU.prototype.safe_write16 = function(addr, value)
 {
     var phys_low = this.translate_address_write(addr);
 
@@ -1107,7 +971,7 @@ v86.prototype.safe_write16 = function(addr, value)
     }
 };
 
-v86.prototype.safe_write32 = function(addr, value)
+CPU.prototype.safe_write32 = function(addr, value)
 {
     var phys_low = this.translate_address_write(addr);
 
@@ -1122,7 +986,7 @@ v86.prototype.safe_write32 = function(addr, value)
 };
 
 // read 2 or 4 byte from ip, depending on address size attribute
-v86.prototype.read_moffs = function()
+CPU.prototype.read_moffs = function()
 {
     if(this.address_size_32)
     {
@@ -1134,23 +998,23 @@ v86.prototype.read_moffs = function()
     }
 };
 
-v86.prototype.getiopl = function() 
+CPU.prototype.getiopl = function() 
 {
     return this.flags >> 12 & 3;
 };
 
-v86.prototype.vm86_mode = function()
+CPU.prototype.vm86_mode = function()
 {
     return !!(this.flags & flag_vm);
 };
 
-v86.prototype.get_eflags = function()
+CPU.prototype.get_eflags = function()
 {
     return (this.flags & ~flags_all) | !!this.getcf() | !!this.getpf() << 2 | !!this.getaf() << 4 | 
                                   !!this.getzf() << 6 | !!this.getsf() << 7 | !!this.getof() << 11;
 };
 
-v86.prototype.load_eflags = function()
+CPU.prototype.load_eflags = function()
 {
     this.flags = this.get_eflags();
     this.flags_changed = 0;
@@ -1159,7 +1023,7 @@ v86.prototype.load_eflags = function()
 /**
  * Update the flags register depending on iopl and cpl
  */
-v86.prototype.update_eflags = function(new_flags)
+CPU.prototype.update_eflags = function(new_flags)
 {
     var mask = flag_rf | flag_vm | flag_vip | flag_vif,
         clear = ~flag_vip & ~flag_vif & flags_mask;
@@ -1199,7 +1063,7 @@ v86.prototype.update_eflags = function(new_flags)
 };
 
 
-v86.prototype.get_stack_pointer = function(mod)
+CPU.prototype.get_stack_pointer = function(mod)
 {
     return this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + mod | 0;
 };
@@ -1208,12 +1072,12 @@ v86.prototype.get_stack_pointer = function(mod)
  * returns the "real" instruction pointer, 
  * without segment offset
  */
-v86.prototype.get_real_eip = function()
+CPU.prototype.get_real_eip = function()
 {
     return this.instruction_pointer - this.get_seg(reg_cs) | 0;
 };
 
-v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, error_code)
+CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, error_code)
 {
     dbg_assert(this.instruction_pointer !== undefined);
 
@@ -1548,7 +1412,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
     this.last_instr_jump = true;
 };
 
-v86.prototype.iret16 = function()
+CPU.prototype.iret16 = function()
 {
     if(!this.protected_mode || (this.vm86_mode() && this.getiopl() === 3))
     {
@@ -1576,7 +1440,7 @@ v86.prototype.iret16 = function()
     this.last_instr_jump = true;
 };
 
-v86.prototype.iret32 = function()
+CPU.prototype.iret32 = function()
 {
     if(!this.protected_mode || (this.vm86_mode() && this.getiopl() === 3))
     {
@@ -1728,10 +1592,8 @@ v86.prototype.iret32 = function()
     this.last_instr_jump = true;
 };
 
-v86.prototype.hlt_op = function()
+CPU.prototype.hlt_op = function()
 {
-    dbg_assert(this.instruction_pointer !== undefined);
-
     if(this.cpl)
     {
         this.trigger_gp(0);
@@ -1741,7 +1603,6 @@ v86.prototype.hlt_op = function()
     if((this.flags & flag_interrupt) === 0)
     {
         this.debug.show("cpu halted");
-        this.stopped = true;
         if(DEBUG) this.debug.dump_regs();
         throw "HALT";
     }
@@ -1754,7 +1615,7 @@ v86.prototype.hlt_op = function()
 };
 
 // assumes ip to point to the byte before the next instruction
-v86.prototype.raise_exception = function(interrupt_nr)
+CPU.prototype.raise_exception = function(interrupt_nr)
 {
     if(DEBUG && interrupt_nr !== 7)
     {
@@ -1768,7 +1629,7 @@ v86.prototype.raise_exception = function(interrupt_nr)
     throw MAGIC_CPU_EXCEPTION;
 };
 
-v86.prototype.raise_exception_with_code = function(interrupt_nr, error_code)
+CPU.prototype.raise_exception_with_code = function(interrupt_nr, error_code)
 {
     if(DEBUG)
     {
@@ -1781,37 +1642,37 @@ v86.prototype.raise_exception_with_code = function(interrupt_nr, error_code)
     throw MAGIC_CPU_EXCEPTION;
 };
 
-v86.prototype.trigger_de = function()
+CPU.prototype.trigger_de = function()
 {
     this.instruction_pointer = this.previous_ip;
     this.raise_exception(0);
 };
 
-v86.prototype.trigger_ud = function()
+CPU.prototype.trigger_ud = function()
 {
     this.instruction_pointer = this.previous_ip;
     this.raise_exception(6);
 };
 
-v86.prototype.trigger_nm = function()
+CPU.prototype.trigger_nm = function()
 {
     this.instruction_pointer = this.previous_ip;
     this.raise_exception(7);
 };
 
-v86.prototype.trigger_gp = function(code)
+CPU.prototype.trigger_gp = function(code)
 {
     this.instruction_pointer = this.previous_ip;
     this.raise_exception_with_code(13, code);
 };
 
-v86.prototype.trigger_np = function(code)
+CPU.prototype.trigger_np = function(code)
 {
     this.instruction_pointer = this.previous_ip;
     this.raise_exception_with_code(11, code);
 };
 
-v86.prototype.trigger_ss = function(code)
+CPU.prototype.trigger_ss = function(code)
 {
     this.instruction_pointer = this.previous_ip;
     this.raise_exception_with_code(12, code);
@@ -1820,7 +1681,7 @@ v86.prototype.trigger_ss = function(code)
 /**
  * @param {number} seg
  */
-v86.prototype.seg_prefix = function(seg)
+CPU.prototype.seg_prefix = function(seg)
 {
     dbg_assert(this.segment_prefix === SEG_PREFIX_NONE);
     dbg_assert(seg >= 0 && seg <= 5);
@@ -1830,17 +1691,17 @@ v86.prototype.seg_prefix = function(seg)
     this.segment_prefix = SEG_PREFIX_NONE;
 };
 
-v86.prototype.get_seg_prefix_ds = function()
+CPU.prototype.get_seg_prefix_ds = function()
 {
     return this.get_seg_prefix(reg_ds);
 };
 
-v86.prototype.get_seg_prefix_ss = function()
+CPU.prototype.get_seg_prefix_ss = function()
 {
     return this.get_seg_prefix(reg_ss);
 };
 
-v86.prototype.get_seg_prefix_cs = function()
+CPU.prototype.get_seg_prefix_cs = function()
 {
     return this.get_seg_prefix(reg_cs);
 };
@@ -1849,7 +1710,7 @@ v86.prototype.get_seg_prefix_cs = function()
  * Get segment base by prefix or default
  * @param {number} default_segment
  */
-v86.prototype.get_seg_prefix = function(default_segment /*, offset*/)
+CPU.prototype.get_seg_prefix = function(default_segment /*, offset*/)
 {
     if(this.segment_prefix === SEG_PREFIX_NONE)
     {
@@ -1869,7 +1730,7 @@ v86.prototype.get_seg_prefix = function(default_segment /*, offset*/)
  * Get segment base
  * @param {number} segment
  */
-v86.prototype.get_seg = function(segment /*, offset*/)
+CPU.prototype.get_seg = function(segment /*, offset*/)
 {
     dbg_assert(segment >= 0 && segment < 8);
     dbg_assert(this.protected_mode || (this.sreg[segment] << 4) == this.segment_offsets[segment]);
@@ -1895,7 +1756,7 @@ v86.prototype.get_seg = function(segment /*, offset*/)
     return this.segment_offsets[segment];
 };
 
-v86.prototype.handle_irqs = function()
+CPU.prototype.handle_irqs = function()
 {
     if(this.devices.pic)
     {
@@ -1908,7 +1769,7 @@ v86.prototype.handle_irqs = function()
     }
 };
 
-v86.prototype.test_privileges_for_io = function(port, size)
+CPU.prototype.test_privileges_for_io = function(port, size)
 {
     if(this.protected_mode && (this.cpl > this.getiopl() || (this.flags & flag_vm)))
     {
@@ -1939,7 +1800,7 @@ v86.prototype.test_privileges_for_io = function(port, size)
     }
 };
 
-v86.prototype.cpuid = function()
+CPU.prototype.cpuid = function()
 {
     // cpuid
     // TODO: Fill in with less bogus values
@@ -2022,7 +1883,7 @@ v86.prototype.cpuid = function()
     this.reg32s[reg_ebx] = ebx;
 };
 
-v86.prototype.update_cs_size = function(new_size)
+CPU.prototype.update_cs_size = function(new_size)
 {
     this.is_32 = this.operand_size_32 = this.address_size_32 = new_size;
 
@@ -2035,7 +1896,7 @@ v86.prototype.update_cs_size = function(new_size)
     }
 };
 
-v86.prototype.update_operand_size = function()
+CPU.prototype.update_operand_size = function()
 {
     if(this.operand_size_32)
     {
@@ -2049,7 +1910,7 @@ v86.prototype.update_operand_size = function()
     }
 };
 
-v86.prototype.update_address_size = function()
+CPU.prototype.update_address_size = function()
 {
     if(this.address_size_32)
     {
@@ -2070,7 +1931,7 @@ v86.prototype.update_address_size = function()
 /**
  * @param {number} selector
  */
-v86.prototype.lookup_segment_selector = function(selector)
+CPU.prototype.lookup_segment_selector = function(selector)
 {
     var is_gdt = (selector & 4) === 0,
         selector_offset = selector & ~7,
@@ -2180,7 +2041,7 @@ v86.prototype.lookup_segment_selector = function(selector)
  * @param {number} reg
  * @param {number} selector
  */
-v86.prototype.switch_seg = function(reg, selector)
+CPU.prototype.switch_seg = function(reg, selector)
 {
     dbg_assert(reg >= 0 && reg <= 5);
     dbg_assert(typeof selector === "number" && selector < 0x10000 && selector >= 0);
@@ -2335,7 +2196,7 @@ v86.prototype.switch_seg = function(reg, selector)
     return true;
 };
 
-v86.prototype.load_tr = function(selector)
+CPU.prototype.load_tr = function(selector)
 {
     var info = this.lookup_segment_selector(selector);
 
@@ -2381,7 +2242,7 @@ v86.prototype.load_tr = function(selector)
     //dbg_log("tsr at " + h(info.base) + "; (" + info.effective_limit + " bytes)");
 };
 
-v86.prototype.load_ldt = function(selector)
+CPU.prototype.load_ldt = function(selector)
 {
     var info = this.lookup_segment_selector(selector);
 
@@ -2423,7 +2284,7 @@ v86.prototype.load_ldt = function(selector)
     //dbg_log("ldt at " + h(info.base) + "; (" + info.effective_limit + " bytes)");
 };
 
-v86.prototype.arpl = function(seg, r16)
+CPU.prototype.arpl = function(seg, r16)
 {
     this.flags_changed &= ~flag_zero;
 
@@ -2440,7 +2301,7 @@ v86.prototype.arpl = function(seg, r16)
 };
 
 
-v86.prototype.clear_tlb = function()
+CPU.prototype.clear_tlb = function()
 {
     // clear tlb excluding global pages
     this.last_virt_eip = -1;
@@ -2451,7 +2312,7 @@ v86.prototype.clear_tlb = function()
     //dbg_log("page table loaded", LOG_CPU);
 };
 
-v86.prototype.full_clear_tlb = function()
+CPU.prototype.full_clear_tlb = function()
 {
     dbg_log("TLB full clear", LOG_CPU);
 
@@ -2465,7 +2326,7 @@ v86.prototype.full_clear_tlb = function()
     this.clear_tlb();
 };
 
-v86.prototype.invlpg = function(addr)
+CPU.prototype.invlpg = function(addr)
 {
     var page = addr >>> 12;
     //dbg_log("invlpg: addr=" + h(addr >>> 0), LOG_CPU);
@@ -2477,7 +2338,7 @@ v86.prototype.invlpg = function(addr)
     this.last_virt_esp = -1;
 };
 
-v86.prototype.translate_address_read = function(addr)
+CPU.prototype.translate_address_read = function(addr)
 {
     if(!this.paging)
     {
@@ -2494,7 +2355,7 @@ v86.prototype.translate_address_read = function(addr)
     }
 };
 
-v86.prototype.translate_address_write = function(addr)
+CPU.prototype.translate_address_write = function(addr)
 {
     if(!this.paging)
     {
@@ -2511,7 +2372,7 @@ v86.prototype.translate_address_write = function(addr)
     }
 };
 
-v86.prototype.translate_address_user_write = function(addr)
+CPU.prototype.translate_address_user_write = function(addr)
 {
     var base = addr >>> 12;
     
@@ -2525,7 +2386,7 @@ v86.prototype.translate_address_user_write = function(addr)
     }
 };
 
-v86.prototype.translate_address_user_read = function(addr)
+CPU.prototype.translate_address_user_read = function(addr)
 {
     var base = addr >>> 12;
     
@@ -2539,7 +2400,7 @@ v86.prototype.translate_address_user_read = function(addr)
     }
 };
 
-v86.prototype.translate_address_system_write = function(addr)
+CPU.prototype.translate_address_system_write = function(addr)
 {
     var base = addr >>> 12;
     
@@ -2553,7 +2414,7 @@ v86.prototype.translate_address_system_write = function(addr)
     }
 };
 
-v86.prototype.translate_address_system_read = function(addr)
+CPU.prototype.translate_address_system_read = function(addr)
 {
     var base = addr >>> 12;
     
@@ -2570,7 +2431,7 @@ v86.prototype.translate_address_system_read = function(addr)
 /**
  * @return {number} 
  */
-v86.prototype.do_page_translation = function(addr, for_writing, user)
+CPU.prototype.do_page_translation = function(addr, for_writing, user)
 {
     var page = addr >>> 12,
         page_dir_addr = (this.cr3 >>> 2) + (page >> 10),
@@ -2720,7 +2581,7 @@ v86.prototype.do_page_translation = function(addr, for_writing, user)
     return high;
 };
 
-v86.prototype.writable_or_pagefault = function(addr, size)
+CPU.prototype.writable_or_pagefault = function(addr, size)
 {
     dbg_assert(size < 0x1000, "not supported yet");
     dbg_assert(size > 0);
@@ -2748,7 +2609,7 @@ v86.prototype.writable_or_pagefault = function(addr, size)
     }
 };
 
-v86.prototype.trigger_pagefault = function(write, user, present)
+CPU.prototype.trigger_pagefault = function(write, user, present)
 {
     //dbg_log("page fault w=" + write + " u=" + user + " p=" + present + 
     //        " eip=" + h(this.previous_ip >>> 0, 8) +

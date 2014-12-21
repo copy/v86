@@ -6,11 +6,11 @@ var
     table0F_16 = [],
     table0F_32 = [];
 
-v86.prototype.table16 = table16;
-v86.prototype.table32 = table32;
+CPU.prototype.table16 = table16;
+CPU.prototype.table32 = table32;
 
-v86.prototype.table0F_16 = table0F_16;
-v86.prototype.table0F_32 = table0F_32;
+CPU.prototype.table0F_16 = table0F_16;
+CPU.prototype.table0F_32 = table0F_32;
 
 
 #define op(n, code) table16[n] = table32[n] = function(cpu) { code };
@@ -1969,7 +1969,8 @@ op(0x31, {
 
     if(!cpu.cpl || !(cpu.cr4 & CR4_TSD))
     {
-        var n = cpu.microtick() - cpu.tsc_offset;
+        var n = v86.microtick() - cpu.tsc_offset;
+        dbg_assert(isFinite(n));
 
         cpu.reg32s[reg_eax] = n * TSC_RATE;
         cpu.reg32s[reg_edx] = n * (TSC_RATE / 0x100000000);

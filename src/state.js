@@ -181,7 +181,7 @@ function restore_object(base, obj, buffers)
     }
 }
 
-v86.prototype.save_state = function()
+CPU.prototype.save_state = function()
 {
     var arraybuffers = [];
     var state = save_object(this, arraybuffers);
@@ -248,7 +248,7 @@ v86.prototype.save_state = function()
     return result;
 };
 
-v86.prototype.restore_state = function(state)
+CPU.prototype.restore_state = function(state)
 {
     var len = state.byteLength;
 

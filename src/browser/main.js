@@ -251,9 +251,9 @@
             {
                 if(images.length === 0)
                 {
-                    init(settings, function(cpu)
+                    init(settings, function(emulator)
                     {
-                        cpu.run();
+                        emulator.run();
                     });
                 }
                 else
@@ -415,15 +415,15 @@
                 settings.cdrom = new SyncBuffer(buffer);
             }
 
-            init(settings, function(cpu)
+            init(settings, function(emulator)
             {
                 if(infos.state)
                 {
                     $("reset").style.display = "none";
-                    cpu.restore_state(buffer);
+                    emulator.restore_state(buffer);
                 }
 
-                cpu.run();
+                emulator.run();
             });
         }
     }
@@ -448,15 +448,15 @@
                 return;
             }
 
-            var cpu = new v86();
+            var emulator = new v86();
             var fr = new FileReader();
 
             fr.onload = function(e)
             {
-                init(settings, function(cpu)
+                init(settings, function(emulator)
                 {
-                    cpu.restore_state(e.target.result);
-                    cpu.run();
+                    emulator.restore_state(e.target.result);
+                    emulator.run();
                 });
             }
 
@@ -530,11 +530,11 @@
             return;
         }
 
-        var cpu = new v86();
+        var emulator = new v86();
 
         if(DEBUG)
         {
-            debug_start(cpu);
+            debug_start(emulator);
         }
 
         // avoid warnings
@@ -578,13 +578,13 @@
             }
         }
 
-        init_ui(settings, cpu);
-        cpu.init(settings);
+        init_ui(settings, emulator);
+        emulator.init(settings);
 
-        done(cpu);
+        done(emulator);
     }
 
-    function init_ui(settings, cpu)
+    function init_ui(settings, emulator)
     {
         $("boot_options").style.display = "none";
         $("loading").style.display = "none";
@@ -605,12 +605,12 @@
             {
                 running_time += Date.now() - last_tick;
                 $("run").value = "Run";
-                cpu.stop();
+                emulator.stop();
             }
             else
             {
                 $("run").value = "Pause";
-                cpu.run();
+                emulator.run();
                 last_tick = Date.now();
             }
 
@@ -640,7 +640,7 @@
             }
 
             var now = Date.now(),
-                last_ips = (cpu.timestamp_counter - last_instr_counter) / 1000 | 0;
+                last_ips = (emulator.cpu.timestamp_counter - last_instr_counter) / 1000 | 0;
 
             summed_ips += last_ips
             running_time += now - last_tick;
@@ -650,7 +650,7 @@
             avg_ips.textContent = summed_ips / running_time * 1000 | 0;
             time.textContent = time2str(running_time / 1000 | 0);
 
-            last_instr_counter = cpu.timestamp_counter;
+            last_instr_counter = emulator.cpu.timestamp_counter;
 
             setTimeout(update_info, 1000);
         }
@@ -663,7 +663,8 @@
                 return;
             }
 
-            var vga_stats = cpu.devices.vga.stats;
+            var devices = emulator.cpu.devices;
+            var vga_stats = devices.vga.stats;
 
             if(vga_stats.is_graphical)
             {
@@ -683,9 +684,9 @@
                 $("info_mouse_enabled").textContent = settings.mouse_adapter.enabled ? "Yes" : "No";
             }
 
-            if(cpu.devices.hda)
+            if(devices.hda)
             {
-                var hda_stats = cpu.devices.hda.stats;
+                var hda_stats = devices.hda.stats;
 
                 $("info_hda_sectors_read").textContent = hda_stats.sectors_read;
                 $("info_hda_bytes_read").textContent = hda_stats.bytes_read;
@@ -699,9 +700,9 @@
                 $("info_hda").style.display = "none";
             }
 
-            if(cpu.devices.cdrom)
+            if(devices.cdrom)
             {
-                var cdrom_stats = cpu.devices.cdrom.stats;
+                var cdrom_stats = devices.cdrom.stats;
 
                 $("info_cdrom_sectors_read").textContent = cdrom_stats.sectors_read;
                 $("info_cdrom_bytes_read").textContent = cdrom_stats.bytes_read;
@@ -720,7 +721,7 @@
 
         $("reset").onclick = function()
         {
-            cpu.restart();
+            emulator.restart();
             $("reset").blur();
         };
 
@@ -753,7 +754,7 @@
 
         $("ctrlaltdel").onclick = function()
         {
-            var ps2 = cpu.devices.ps2;
+            var ps2 = emulator.cpu.devices.ps2;
 
             ps2.kbd_send_code(0x1D); // ctrl
             ps2.kbd_send_code(0x38); // alt
@@ -841,10 +842,10 @@
         }
     }
 
-    function debug_start(cpu)
+    function debug_start(emulator)
     {
         // called as soon as soon as emulation is started, in debug mode
-        var debug = cpu.debug;
+        var debug = emulator.cpu.debug;
 
         $("step").onclick = debug.step.bind(debug);
         $("run_until").onclick = debug.run_until.bind(debug);
@@ -863,11 +864,11 @@
 
         $("save_state").onclick = function()
         {
-            dump_file(cpu.save_state(), "v86-state.bin");
+            dump_file(emulator.save_state(), "v86-state.bin");
             $("save_state").blur();
         };
 
-        window.cpu = cpu;
+        window.emulator = emulator;
     }
 
     function onpopstate(e)

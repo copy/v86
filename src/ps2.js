@@ -122,7 +122,7 @@ PS2.prototype.kbd_irq = function()
 
 PS2.prototype.kbd_send_code = function(code)
 {
-    if(this.cpu.running && this.enable_keyboard_stream)
+    if(this.enable_keyboard_stream)
     {
         this.kbd_buffer.push(code);
         this.kbd_irq();
@@ -131,7 +131,7 @@ PS2.prototype.kbd_send_code = function(code)
 
 PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
 {
-    if(!this.cpu.running || !this.have_mouse || !this.enable_mouse)
+    if(!this.have_mouse || !this.enable_mouse)
     {
         return;
     }

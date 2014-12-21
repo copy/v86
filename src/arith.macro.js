@@ -44,7 +44,7 @@
 #define sbb16(dest, src) cpu.sbb(dest, src, OPSIZE_16)
 #define sbb32(dest, src) cpu.sbb(dest, src, OPSIZE_32)
 
-v86.prototype.add = function(dest_operand, source_operand, op_size)
+CPU.prototype.add = function(dest_operand, source_operand, op_size)
 {
     this.last_op1 = dest_operand;
     this.last_op2 = source_operand;
@@ -56,7 +56,7 @@ v86.prototype.add = function(dest_operand, source_operand, op_size)
     return this.last_result;
 }
 
-v86.prototype.adc = function(dest_operand, source_operand, op_size)
+CPU.prototype.adc = function(dest_operand, source_operand, op_size)
 {
     var cf = this.getcf();
     this.last_op1 = dest_operand;
@@ -69,7 +69,7 @@ v86.prototype.adc = function(dest_operand, source_operand, op_size)
     return this.last_result;
 }
 
-v86.prototype.cmp = function(dest_operand, source_operand, op_size)
+CPU.prototype.cmp = function(dest_operand, source_operand, op_size)
 {
     this.last_add_result = dest_operand;
     this.last_op2 = source_operand;
@@ -79,7 +79,7 @@ v86.prototype.cmp = function(dest_operand, source_operand, op_size)
     this.flags_changed = flags_all;
 }
 
-v86.prototype.sub = function(dest_operand, source_operand, op_size)
+CPU.prototype.sub = function(dest_operand, source_operand, op_size)
 {
     this.last_add_result = dest_operand;
     this.last_op2 = source_operand;
@@ -91,7 +91,7 @@ v86.prototype.sub = function(dest_operand, source_operand, op_size)
     return this.last_result;
 }
 
-v86.prototype.sbb = function(dest_operand, source_operand, op_size)
+CPU.prototype.sbb = function(dest_operand, source_operand, op_size)
 {
     var cf = this.getcf();
     this.last_add_result = dest_operand;
@@ -116,7 +116,7 @@ v86.prototype.sbb = function(dest_operand, source_operand, op_size)
 #define dec16(dest) cpu.dec(dest, OPSIZE_16)
 #define dec32(dest) cpu.dec(dest, OPSIZE_32)
 
-v86.prototype.inc = function(dest_operand, op_size)
+CPU.prototype.inc = function(dest_operand, op_size)
 {
     this.flags = (this.flags & ~1) | this.getcf();
     this.last_op1 = dest_operand;
@@ -129,7 +129,7 @@ v86.prototype.inc = function(dest_operand, op_size)
     return this.last_result;
 }
 
-v86.prototype.dec = function(dest_operand, op_size)
+CPU.prototype.dec = function(dest_operand, op_size)
 {
     this.flags = (this.flags & ~1) | this.getcf();
     this.last_add_result = dest_operand;
@@ -150,7 +150,7 @@ v86.prototype.dec = function(dest_operand, op_size)
 #define neg16(dest) neg(dest, OPSIZE_16)
 #define neg32(dest) neg(dest, OPSIZE_32)
 
-v86.prototype.neg = function(dest_operand, op_size)
+CPU.prototype.neg = function(dest_operand, op_size)
 {
     this.last_op1 = this.last_result = -dest_operand | 0;
     
@@ -171,7 +171,7 @@ v86.prototype.neg = function(dest_operand, op_size)
  *       ax * modrm
  */
 
-v86.prototype.mul8 = function(source_operand)
+CPU.prototype.mul8 = function(source_operand)
 {
     var result = source_operand * this.reg8[reg_al];
 
@@ -189,7 +189,7 @@ v86.prototype.mul8 = function(source_operand)
     this.flags_changed = 0;
 }
 
-v86.prototype.imul8 = function(source_operand)
+CPU.prototype.imul8 = function(source_operand)
 {
     var result = source_operand * this.reg8s[reg_al];
 
@@ -206,7 +206,7 @@ v86.prototype.imul8 = function(source_operand)
     this.flags_changed = 0;
 }
 
-v86.prototype.mul16 = function(source_operand)
+CPU.prototype.mul16 = function(source_operand)
 {
     var result = source_operand * this.reg16[reg_ax],
         high_result = result >>> 16;
@@ -230,7 +230,7 @@ v86.prototype.mul16 = function(source_operand)
  * imul with 1 argument
  * ax = ax * r/m
  */
-v86.prototype.imul16 = function(source_operand)
+CPU.prototype.imul16 = function(source_operand)
 {
     var result = source_operand * this.reg16s[reg_ax];
 
@@ -253,7 +253,7 @@ v86.prototype.imul16 = function(source_operand)
  * reg = reg * r/m
  * reg = imm * r/m
  */
-v86.prototype.imul_reg16 = function(operand1, operand2)
+CPU.prototype.imul_reg16 = function(operand1, operand2)
 {
     dbg_assert(operand1 < 0x8000 && operand1 >= -0x8000);
     dbg_assert(operand2 < 0x8000 && operand2 >= -0x8000);
@@ -303,7 +303,7 @@ v86.prototype.imul_reg16 = function(operand1, operand2)
         high_result = ~high_result + !low_result | 0; \
     }
 
-v86.prototype.mul32 = function(source_operand)
+CPU.prototype.mul32 = function(source_operand)
 {
     var dest_operand = this.reg32s[reg_eax];
 
@@ -326,7 +326,7 @@ v86.prototype.mul32 = function(source_operand)
     //console.log("= " + h(this.reg32[reg_edx], 8) + ":" + h(this.reg32[reg_eax], 8));
 }
 
-v86.prototype.imul32 = function(source_operand)
+CPU.prototype.imul32 = function(source_operand)
 {
     dbg_assert(source_operand < 0x80000000 && source_operand >= -0x80000000);
 
@@ -356,7 +356,7 @@ v86.prototype.imul32 = function(source_operand)
  * reg = reg * r/m
  * reg = imm * r/m
  */
-v86.prototype.imul_reg32 = function(operand1, operand2)
+CPU.prototype.imul_reg32 = function(operand1, operand2)
 {
     dbg_assert(operand1 < 0x80000000 && operand1 >= -0x80000000);
     dbg_assert(operand2 < 0x80000000 && operand2 >= -0x80000000);
@@ -381,7 +381,7 @@ v86.prototype.imul_reg32 = function(operand1, operand2)
 #undef do_mul32
 #undef do_imul32
 
-v86.prototype.div8 = function(source_operand)
+CPU.prototype.div8 = function(source_operand)
 {
     dbg_assert(source_operand >= 0 && source_operand < 0x100);
 
@@ -399,7 +399,7 @@ v86.prototype.div8 = function(source_operand)
     }
 }
 
-v86.prototype.idiv8 = function(source_operand)
+CPU.prototype.idiv8 = function(source_operand)
 {
     dbg_assert(source_operand >= -0x80 && source_operand < 0x80);
 
@@ -417,7 +417,7 @@ v86.prototype.idiv8 = function(source_operand)
     }
 }
 
-v86.prototype.div16 = function(source_operand)
+CPU.prototype.div16 = function(source_operand)
 {
     dbg_assert(source_operand >= 0 && source_operand < 0x10000);
 
@@ -436,7 +436,7 @@ v86.prototype.div16 = function(source_operand)
     }
 }
 
-v86.prototype.idiv16 = function(source_operand)
+CPU.prototype.idiv16 = function(source_operand)
 {
     dbg_assert(source_operand >= -0x8000 && source_operand < 0x8000);
 
@@ -488,7 +488,7 @@ v86.prototype.idiv16 = function(source_operand)
     result += div / quot | 0;\
 
 
-v86.prototype.div32 = function(source_operand)
+CPU.prototype.div32 = function(source_operand)
 {
     dbg_assert(source_operand >= 0 && source_operand <= 0xffffffff);
 
@@ -513,7 +513,7 @@ v86.prototype.div32 = function(source_operand)
     //console.log("= " + h(this.reg32[reg_eax]) + " rem " + h(this.reg32[reg_edx]));
 }
 
-v86.prototype.idiv32 = function(source_operand)
+CPU.prototype.idiv32 = function(source_operand)
 {
     dbg_assert(source_operand < 0x80000000 && source_operand >= -0x80000000);
 
@@ -564,7 +564,7 @@ v86.prototype.idiv32 = function(source_operand)
 }
 
 
-v86.prototype.xadd8 = function(source_operand, reg)
+CPU.prototype.xadd8 = function(source_operand, reg)
 {
     var tmp = this.reg8[reg];
 
@@ -574,7 +574,7 @@ v86.prototype.xadd8 = function(source_operand, reg)
 }
 
 
-v86.prototype.xadd16 = function(source_operand, reg)
+CPU.prototype.xadd16 = function(source_operand, reg)
 {
     var tmp = this.reg16[reg];
 
@@ -584,7 +584,7 @@ v86.prototype.xadd16 = function(source_operand, reg)
 }
 
 
-v86.prototype.xadd32 = function(source_operand, reg)
+CPU.prototype.xadd32 = function(source_operand, reg)
 {
     var tmp = this.reg32s[reg];
 
@@ -594,7 +594,7 @@ v86.prototype.xadd32 = function(source_operand, reg)
 }
 
 
-v86.prototype.bcd_daa = function()
+CPU.prototype.bcd_daa = function()
 {
     //dbg_log("daa");
     // decimal adjust after addition
@@ -621,7 +621,7 @@ v86.prototype.bcd_daa = function()
     this.flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
 }
 
-v86.prototype.bcd_das = function()
+CPU.prototype.bcd_das = function()
 {
     //dbg_log("das");
     // decimal adjust after subtraction
@@ -653,7 +653,7 @@ v86.prototype.bcd_das = function()
     this.flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
 }
 
-v86.prototype.bcd_aam = function()
+CPU.prototype.bcd_aam = function()
 {
     //dbg_log("aam");
     // ascii adjust after multiplication
@@ -676,7 +676,7 @@ v86.prototype.bcd_aam = function()
     }
 }
 
-v86.prototype.bcd_aad = function()
+CPU.prototype.bcd_aad = function()
 {
     //dbg_log("aad");
     // ascii adjust after division
@@ -690,7 +690,7 @@ v86.prototype.bcd_aad = function()
     this.flags &= ~1 & ~flag_adjust & ~flag_overflow;
 }
 
-v86.prototype.bcd_aaa = function()
+CPU.prototype.bcd_aaa = function()
 {
     //dbg_log("aaa");
     if((this.reg8[reg_al] & 0xF) > 9 || this.getaf())
@@ -709,7 +709,7 @@ v86.prototype.bcd_aaa = function()
 };
 
 
-v86.prototype.bcd_aas = function()
+CPU.prototype.bcd_aas = function()
 {
     //dbg_log("aas");
     if((this.reg8[reg_al] & 0xF) > 9 || this.getaf())
@@ -756,7 +756,7 @@ v86.prototype.bcd_aas = function()
 #define xor16(dest, src) cpu.xor(dest, src, OPSIZE_16)
 #define xor32(dest, src) cpu.xor(dest, src, OPSIZE_32)
 
-v86.prototype.and = function(dest_operand, source_operand, op_size)
+CPU.prototype.and = function(dest_operand, source_operand, op_size)
 {
     this.last_result = dest_operand & source_operand;
     
@@ -767,7 +767,7 @@ v86.prototype.and = function(dest_operand, source_operand, op_size)
     return this.last_result;
 }
 
-v86.prototype.or = function(dest_operand, source_operand, op_size)
+CPU.prototype.or = function(dest_operand, source_operand, op_size)
 {
     this.last_result = dest_operand | source_operand;
     
@@ -778,7 +778,7 @@ v86.prototype.or = function(dest_operand, source_operand, op_size)
     return this.last_result;
 }
 
-v86.prototype.xor = function(dest_operand, source_operand, op_size)
+CPU.prototype.xor = function(dest_operand, source_operand, op_size)
 {
     this.last_result = dest_operand ^ source_operand;
     
@@ -794,7 +794,7 @@ v86.prototype.xor = function(dest_operand, source_operand, op_size)
  * rotates and shifts
  */
 
-v86.prototype.rol8 = function(dest_operand, count)
+CPU.prototype.rol8 = function(dest_operand, count)
 {
     if(!count)
     {
@@ -812,7 +812,7 @@ v86.prototype.rol8 = function(dest_operand, count)
     return result;
 }
 
-v86.prototype.rol16 = function(dest_operand, count)
+CPU.prototype.rol16 = function(dest_operand, count)
 {
     if(!count)
     {
@@ -830,7 +830,7 @@ v86.prototype.rol16 = function(dest_operand, count)
     return result;
 }
 
-v86.prototype.rol32 = function(dest_operand, count)
+CPU.prototype.rol32 = function(dest_operand, count)
 {
     if(!count)
     {
@@ -847,7 +847,7 @@ v86.prototype.rol32 = function(dest_operand, count)
     return result;
 }
 
-v86.prototype.rcl8 = function(dest_operand, count)
+CPU.prototype.rcl8 = function(dest_operand, count)
 {
     count %= 9;
     if(!count)
@@ -865,7 +865,7 @@ v86.prototype.rcl8 = function(dest_operand, count)
     return result;
 }
 
-v86.prototype.rcl16 = function(dest_operand, count)
+CPU.prototype.rcl16 = function(dest_operand, count)
 {
     count %= 17;
     if(!count)
@@ -883,7 +883,7 @@ v86.prototype.rcl16 = function(dest_operand, count)
     return result;
 }
 
-v86.prototype.rcl32 = function(dest_operand, count)
+CPU.prototype.rcl32 = function(dest_operand, count)
 {
     if(!count)
     {
@@ -904,7 +904,7 @@ v86.prototype.rcl32 = function(dest_operand, count)
     return result;
 }
 
-v86.prototype.ror8 = function(dest_operand, count)
+CPU.prototype.ror8 = function(dest_operand, count)
 {
     count &= 7;
     if(!count)
@@ -922,7 +922,7 @@ v86.prototype.ror8 = function(dest_operand, count)
     return result;
 } 
 
-v86.prototype.ror16 = function(dest_operand, count)
+CPU.prototype.ror16 = function(dest_operand, count)
 {
     count &= 15;
     if(!count)
@@ -940,7 +940,7 @@ v86.prototype.ror16 = function(dest_operand, count)
     return result;
 }    
 
-v86.prototype.ror32 = function(dest_operand, count)
+CPU.prototype.ror32 = function(dest_operand, count)
 {
     if(!count)
     {
@@ -957,7 +957,7 @@ v86.prototype.ror32 = function(dest_operand, count)
     return result;
 }
 
-v86.prototype.rcr8 = function(dest_operand, count)
+CPU.prototype.rcr8 = function(dest_operand, count)
 {
     count %= 9;
     if(!count)
@@ -975,7 +975,7 @@ v86.prototype.rcr8 = function(dest_operand, count)
     return result;
 }    
 
-v86.prototype.rcr16 = function(dest_operand, count)
+CPU.prototype.rcr16 = function(dest_operand, count)
 {
     count %= 17;
     if(!count)
@@ -993,7 +993,7 @@ v86.prototype.rcr16 = function(dest_operand, count)
     return result;
 }
 
-v86.prototype.rcr32 = function(dest_operand, count)
+CPU.prototype.rcr32 = function(dest_operand, count)
 {
     if(!count)
     {
@@ -1015,7 +1015,7 @@ v86.prototype.rcr32 = function(dest_operand, count)
     return result;
 }
 
-v86.prototype.shl8 = function(dest_operand, count)
+CPU.prototype.shl8 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -1033,7 +1033,7 @@ v86.prototype.shl8 = function(dest_operand, count)
     return this.last_result;
 }
 
-v86.prototype.shl16 = function(dest_operand, count)
+CPU.prototype.shl16 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -1051,7 +1051,7 @@ v86.prototype.shl16 = function(dest_operand, count)
     return this.last_result;
 }
 
-v86.prototype.shl32 = function(dest_operand, count)
+CPU.prototype.shl32 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -1069,7 +1069,7 @@ v86.prototype.shl32 = function(dest_operand, count)
     return this.last_result;
 }
     
-v86.prototype.shr8 = function(dest_operand, count)
+CPU.prototype.shr8 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -1087,7 +1087,7 @@ v86.prototype.shr8 = function(dest_operand, count)
     return this.last_result;
 }    
 
-v86.prototype.shr16 = function(dest_operand, count)
+CPU.prototype.shr16 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -1105,7 +1105,7 @@ v86.prototype.shr16 = function(dest_operand, count)
     return this.last_result;
 }    
 
-v86.prototype.shr32 = function(dest_operand, count)
+CPU.prototype.shr32 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -1123,7 +1123,7 @@ v86.prototype.shr32 = function(dest_operand, count)
     return this.last_result;
 }
 
-v86.prototype.sar8 = function(dest_operand, count)
+CPU.prototype.sar8 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -1140,7 +1140,7 @@ v86.prototype.sar8 = function(dest_operand, count)
     return this.last_result;
 }    
 
-v86.prototype.sar16 = function(dest_operand, count)
+CPU.prototype.sar16 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -1156,7 +1156,7 @@ v86.prototype.sar16 = function(dest_operand, count)
     return this.last_result;
 }
 
-v86.prototype.sar32 = function(dest_operand, count)
+CPU.prototype.sar32 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -1173,7 +1173,7 @@ v86.prototype.sar32 = function(dest_operand, count)
 }
 
 
-v86.prototype.shrd16 = function(dest_operand, source_operand, count)
+CPU.prototype.shrd16 = function(dest_operand, source_operand, count)
 {
     if(count === 0)
     {
@@ -1198,7 +1198,7 @@ v86.prototype.shrd16 = function(dest_operand, source_operand, count)
     return this.last_result;
 }
 
-v86.prototype.shrd32 = function(dest_operand, source_operand, count)
+CPU.prototype.shrd32 = function(dest_operand, source_operand, count)
 {
     if(count === 0)
     {
@@ -1215,7 +1215,7 @@ v86.prototype.shrd32 = function(dest_operand, source_operand, count)
     return this.last_result;
 }
 
-v86.prototype.shld16 = function(dest_operand, source_operand, count)
+CPU.prototype.shld16 = function(dest_operand, source_operand, count)
 {
     if(count === 0)
     {
@@ -1240,7 +1240,7 @@ v86.prototype.shld16 = function(dest_operand, source_operand, count)
     return this.last_result;
 }
 
-v86.prototype.shld32 = function(dest_operand, source_operand, count)
+CPU.prototype.shld32 = function(dest_operand, source_operand, count)
 {
     if(count === 0)
     {
@@ -1258,13 +1258,13 @@ v86.prototype.shld32 = function(dest_operand, source_operand, count)
 }
 
 
-v86.prototype.bt_reg = function(bit_base, bit_offset)
+CPU.prototype.bt_reg = function(bit_base, bit_offset)
 {
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
     this.flags_changed &= ~1;
 }
 
-v86.prototype.btc_reg = function(bit_base, bit_offset)
+CPU.prototype.btc_reg = function(bit_base, bit_offset)
 {
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
     this.flags_changed &= ~1;
@@ -1272,7 +1272,7 @@ v86.prototype.btc_reg = function(bit_base, bit_offset)
     return bit_base ^ 1 << bit_offset;
 }
 
-v86.prototype.bts_reg = function(bit_base, bit_offset)
+CPU.prototype.bts_reg = function(bit_base, bit_offset)
 {
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
     this.flags_changed &= ~1;
@@ -1280,7 +1280,7 @@ v86.prototype.bts_reg = function(bit_base, bit_offset)
     return bit_base | 1 << bit_offset;
 }
 
-v86.prototype.btr_reg = function(bit_base, bit_offset)
+CPU.prototype.btr_reg = function(bit_base, bit_offset)
 {
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
     this.flags_changed &= ~1;
@@ -1288,7 +1288,7 @@ v86.prototype.btr_reg = function(bit_base, bit_offset)
     return bit_base & ~(1 << bit_offset);
 }
 
-v86.prototype.bt_mem = function(virt_addr, bit_offset)
+CPU.prototype.bt_mem = function(virt_addr, bit_offset)
 {
     var bit_base = this.safe_read8(virt_addr + (bit_offset >> 3));
     bit_offset &= 7;
@@ -1297,7 +1297,7 @@ v86.prototype.bt_mem = function(virt_addr, bit_offset)
     this.flags_changed &= ~1;
 }
 
-v86.prototype.btc_mem = function(virt_addr, bit_offset)
+CPU.prototype.btc_mem = function(virt_addr, bit_offset)
 {
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3));
     var bit_base = this.memory.read8(phys_addr);
@@ -1310,7 +1310,7 @@ v86.prototype.btc_mem = function(virt_addr, bit_offset)
     this.memory.write8(phys_addr, bit_base ^ 1 << bit_offset);
 }
 
-v86.prototype.btr_mem = function(virt_addr, bit_offset)
+CPU.prototype.btr_mem = function(virt_addr, bit_offset)
 {
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3));
     var bit_base = this.memory.read8(phys_addr);
@@ -1323,7 +1323,7 @@ v86.prototype.btr_mem = function(virt_addr, bit_offset)
     this.memory.write8(phys_addr, bit_base & ~(1 << bit_offset));
 }
 
-v86.prototype.bts_mem = function(virt_addr, bit_offset)
+CPU.prototype.bts_mem = function(virt_addr, bit_offset)
 {
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3));
     var bit_base = this.memory.read8(phys_addr);
@@ -1336,7 +1336,7 @@ v86.prototype.bts_mem = function(virt_addr, bit_offset)
     this.memory.write8(phys_addr, bit_base | 1 << bit_offset);
 }
 
-v86.prototype.bsf16 = function(old, bit_base)
+CPU.prototype.bsf16 = function(old, bit_base)
 {
     this.flags_changed = 0;
 
@@ -1356,7 +1356,7 @@ v86.prototype.bsf16 = function(old, bit_base)
     }
 }
 
-v86.prototype.bsf32 = function(old, bit_base)
+CPU.prototype.bsf32 = function(old, bit_base)
 {
     this.flags_changed = 0;
 
@@ -1374,7 +1374,7 @@ v86.prototype.bsf32 = function(old, bit_base)
     }
 }
 
-v86.prototype.bsr16 = function(old, bit_base)
+CPU.prototype.bsr16 = function(old, bit_base)
 {
     this.flags_changed = 0;
 
@@ -1391,7 +1391,7 @@ v86.prototype.bsr16 = function(old, bit_base)
     }
 }
 
-v86.prototype.bsr32 = function(old, bit_base)
+CPU.prototype.bsr32 = function(old, bit_base)
 {
     this.flags_changed = 0;
 
@@ -1407,7 +1407,7 @@ v86.prototype.bsr32 = function(old, bit_base)
     }
 }
 
-v86.prototype.popcnt = function(v)
+CPU.prototype.popcnt = function(v)
 {
     this.flags_changed = 0;
     this.flags &= ~flag_overflow & ~flag_sign & ~flag_zero 

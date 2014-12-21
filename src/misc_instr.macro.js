@@ -16,7 +16,7 @@
  */
 "use strict";
 
-v86.prototype.jmp_rel16 = function(rel16)
+CPU.prototype.jmp_rel16 = function(rel16)
 {
     var current_cs = this.get_seg(reg_cs);
 
@@ -29,7 +29,7 @@ v86.prototype.jmp_rel16 = function(rel16)
     this.last_instr_jump = true;
 }
 
-v86.prototype.jmpcc16 = function(condition)
+CPU.prototype.jmpcc16 = function(condition)
 {
     if(condition)
     {
@@ -44,7 +44,7 @@ v86.prototype.jmpcc16 = function(condition)
 }
 
 
-v86.prototype.jmpcc32 = function(condition)
+CPU.prototype.jmpcc32 = function(condition)
 {
     if(condition)
     {
@@ -62,7 +62,7 @@ v86.prototype.jmpcc32 = function(condition)
     this.last_instr_jump = true;
 }
 
-v86.prototype.loopne = function()
+CPU.prototype.loopne = function()
 {
     if(--this.regv[this.reg_vcx] && !this.getzf())
     {
@@ -77,7 +77,7 @@ v86.prototype.loopne = function()
     this.last_instr_jump = true;
 }
 
-v86.prototype.loope = function()
+CPU.prototype.loope = function()
 {
     if(--this.regv[this.reg_vcx] && this.getzf())
     {
@@ -92,7 +92,7 @@ v86.prototype.loope = function()
     this.last_instr_jump = true;
 }
 
-v86.prototype.loop = function()
+CPU.prototype.loop = function()
 {
     if(--this.regv[this.reg_vcx])
     {
@@ -107,7 +107,7 @@ v86.prototype.loop = function()
     this.last_instr_jump = true;
 }
 
-v86.prototype.jcxz = function()
+CPU.prototype.jcxz = function()
 {
     var imm8s = this.read_imm8s();
 
@@ -123,7 +123,7 @@ v86.prototype.jcxz = function()
  * @return {number}
  * @const
  */
-v86.prototype.getcf = function()
+CPU.prototype.getcf = function()
 {
     if(this.flags_changed & 1)
     {
@@ -136,7 +136,7 @@ v86.prototype.getcf = function()
 };
 
 /** @return {number} */
-v86.prototype.getpf = function()
+CPU.prototype.getpf = function()
 {
     if(this.flags_changed & flag_parity)
     {
@@ -150,7 +150,7 @@ v86.prototype.getpf = function()
 };
 
 /** @return {number} */
-v86.prototype.getaf = function()
+CPU.prototype.getaf = function()
 {
     if(this.flags_changed & flag_adjust)
     {
@@ -163,7 +163,7 @@ v86.prototype.getaf = function()
 };
 
 /** @return {number} */
-v86.prototype.getzf = function()
+CPU.prototype.getzf = function()
 {
     if(this.flags_changed & flag_zero)
     {
@@ -176,7 +176,7 @@ v86.prototype.getzf = function()
 };
 
 /** @return {number} */
-v86.prototype.getsf = function()
+CPU.prototype.getsf = function()
 {
     if(this.flags_changed & flag_sign)
     {
@@ -189,7 +189,7 @@ v86.prototype.getsf = function()
 };
 
 /** @return {number} */
-v86.prototype.getof = function()
+CPU.prototype.getof = function()
 {
     if(this.flags_changed & flag_overflow)
     {
@@ -201,27 +201,27 @@ v86.prototype.getof = function()
     }
 };
 
-v86.prototype.test_o = v86.prototype.getof;
-v86.prototype.test_b = v86.prototype.getcf;
-v86.prototype.test_z = v86.prototype.getzf;
-v86.prototype.test_s = v86.prototype.getsf;
-v86.prototype.test_p = v86.prototype.getpf;
+CPU.prototype.test_o = CPU.prototype.getof;
+CPU.prototype.test_b = CPU.prototype.getcf;
+CPU.prototype.test_z = CPU.prototype.getzf;
+CPU.prototype.test_s = CPU.prototype.getsf;
+CPU.prototype.test_p = CPU.prototype.getpf;
 
-v86.prototype.test_be = function()
+CPU.prototype.test_be = function()
 {
     // Idea:
     //    return this.last_op1 <= this.last_op2;
     return this.getcf() || this.getzf();
 }
 
-v86.prototype.test_l = function()
+CPU.prototype.test_l = function()
 {
     // Idea:
     //    return this.last_add_result < this.last_op2;
     return !this.getsf() !== !this.getof();
 }
 
-v86.prototype.test_le = function()
+CPU.prototype.test_le = function()
 {
     // Idea:
     //    return this.last_add_result <= this.last_op2;
@@ -230,7 +230,7 @@ v86.prototype.test_le = function()
 
 
 
-v86.prototype.push16 = function(imm16)
+CPU.prototype.push16 = function(imm16)
 {
     var sp = this.get_stack_pointer(-2);
 
@@ -238,7 +238,7 @@ v86.prototype.push16 = function(imm16)
     this.stack_reg[this.reg_vsp] -= 2;
 }
 
-v86.prototype.push32 = function(imm32)
+CPU.prototype.push32 = function(imm32)
 {
     var sp = this.get_stack_pointer(-4);
 
@@ -246,7 +246,7 @@ v86.prototype.push32 = function(imm32)
     this.stack_reg[this.reg_vsp] -= 4;
 }
 
-v86.prototype.pop16 = function()
+CPU.prototype.pop16 = function()
 {
     var sp = this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] | 0,
         result = this.safe_read16(sp);
@@ -255,7 +255,7 @@ v86.prototype.pop16 = function()
     return result;
 }
 
-v86.prototype.pop32s = function()
+CPU.prototype.pop32s = function()
 {
     var sp = this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] | 0,
         result = this.safe_read32s(sp);
@@ -264,7 +264,7 @@ v86.prototype.pop32s = function()
     return result;
 }
 
-v86.prototype.pusha16 = function()
+CPU.prototype.pusha16 = function()
 {
     var temp = this.reg16[reg_sp];
 
@@ -282,7 +282,7 @@ v86.prototype.pusha16 = function()
     this.push16(this.reg16[reg_di]);
 }
 
-v86.prototype.pusha32 = function()
+CPU.prototype.pusha32 = function()
 {
     var temp = this.reg32s[reg_esp];
 
@@ -298,7 +298,7 @@ v86.prototype.pusha32 = function()
     this.push32(this.reg32s[reg_edi]);
 }
 
-v86.prototype.popa16 = function()
+CPU.prototype.popa16 = function()
 {
     this.translate_address_read(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + 15 | 0);
 
@@ -312,7 +312,7 @@ v86.prototype.popa16 = function()
     this.reg16[reg_ax] = this.pop16();
 }
 
-v86.prototype.popa32 = function()
+CPU.prototype.popa32 = function()
 {
     this.translate_address_read(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + 31 | 0);
 
@@ -326,7 +326,7 @@ v86.prototype.popa32 = function()
     this.reg32s[reg_eax] = this.pop32s();
 }
 
-v86.prototype.xchg8 = function(memory_data, modrm_byte)
+CPU.prototype.xchg8 = function(memory_data, modrm_byte)
 {
     var mod = modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1,
         tmp = this.reg8[mod];
@@ -336,7 +336,7 @@ v86.prototype.xchg8 = function(memory_data, modrm_byte)
     return tmp;
 }
 
-v86.prototype.xchg16 = function(memory_data, modrm_byte)
+CPU.prototype.xchg16 = function(memory_data, modrm_byte)
 {
     var mod = modrm_byte >> 2 & 14,
         tmp = this.reg16[mod];
@@ -346,14 +346,14 @@ v86.prototype.xchg16 = function(memory_data, modrm_byte)
     return tmp;
 }
 
-v86.prototype.xchg16r = function(operand)
+CPU.prototype.xchg16r = function(operand)
 {
     var temp = this.reg16[reg_ax];
     this.reg16[reg_ax] = this.reg16[operand];
     this.reg16[operand] = temp;
 }
 
-v86.prototype.xchg32 = function(memory_data, modrm_byte)
+CPU.prototype.xchg32 = function(memory_data, modrm_byte)
 {
     var mod = modrm_byte >> 3 & 7,
         tmp = this.reg32s[mod];
@@ -363,14 +363,14 @@ v86.prototype.xchg32 = function(memory_data, modrm_byte)
     return tmp;
 }
 
-v86.prototype.xchg32r = function(operand)
+CPU.prototype.xchg32r = function(operand)
 {
     var temp = this.reg32s[reg_eax];
     this.reg32s[reg_eax] = this.reg32s[operand];
     this.reg32s[operand] = temp;
 }
 
-v86.prototype.lss16 = function(seg, addr, mod)
+CPU.prototype.lss16 = function(seg, addr, mod)
 {
     var new_reg = this.safe_read16(addr),
         new_seg = this.safe_read16(addr + 2 | 0);
@@ -380,7 +380,7 @@ v86.prototype.lss16 = function(seg, addr, mod)
     this.reg16[mod] = new_reg;
 }
 
-v86.prototype.lss32 = function(seg, addr, mod)
+CPU.prototype.lss32 = function(seg, addr, mod)
 {
     var new_reg = this.safe_read32s(addr),
         new_seg = this.safe_read16(addr + 4 | 0);
@@ -390,7 +390,7 @@ v86.prototype.lss32 = function(seg, addr, mod)
     this.reg32s[mod] = new_reg;
 }
 
-v86.prototype.enter16 = function()
+CPU.prototype.enter16 = function()
 {
     var size = this.read_imm16(),
         nesting_level = this.read_imm8() & 31,
@@ -415,7 +415,7 @@ v86.prototype.enter16 = function()
     this.reg16[reg_sp] -= size;
 };
 
-v86.prototype.enter32 = function()
+CPU.prototype.enter32 = function()
 {
     var size = this.read_imm16(),
         nesting_level = this.read_imm8() & 31,
@@ -440,7 +440,7 @@ v86.prototype.enter32 = function()
     this.reg32s[reg_esp] -= size;
 };
 
-v86.prototype.bswap = function(reg)
+CPU.prototype.bswap = function(reg)
 {
     var temp = this.reg32s[reg];
 
