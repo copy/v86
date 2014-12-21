@@ -25,15 +25,17 @@
         }
     }
 
+    /** 
+     * @return {Object.<string, string>}
+     */
     function get_query_arguments()
     {
-        var query = location.search.substr(1).split("&"),
-            param,
-            parameters = {};
+        var query = location.search.substr(1).split("&");
+        var parameters = {};
 
         for(var i = 0; i < query.length; i++)
         {
-            param = query[i].split("=");
+            var param = query[i].split("=");
             parameters[param[0]] = param[1];
         }
 
@@ -113,10 +115,14 @@
 
     function $(id)
     {
-        if(!document.getElementById(id))
-            console.log("Element with id `" + id + "` not found");
+        var el = document.getElementById(id);
 
-        return document.getElementById(id);
+        if(!el)
+        {
+            console.log("Element with id `" + id + "` not found");
+        }
+
+        return el;
     }
 
     function onload()
@@ -332,50 +338,46 @@
             },
         ];
 
-        var profile = get_query_arguments().profile;
+        var query_args = get_query_arguments();
+        var profile = query_args.profile;
 
         for(var i = 0; i < oses.length; i++)
         {
             var infos = oses[i];
             var dom_id = "start_" + infos.id;
 
-            $(dom_id).onclick = function(infos)
+            $(dom_id).onclick = function(infos, dom_id)
             {
-                var message = { msg: "Downloading image", total: infos.size };
-                var image = infos.state || infos.fda || infos.cdrom;
-
-                v86util.load_file(
-                    image, 
-                    loaded.bind(this, infos, settings), 
-                    show_progress.bind(this, message)
-                );
-
-                var update_history;
-                if(profile === infos.id)
+                if(window.history.pushState)
                 {
-                    update_history = window.history.replaceState;
-                }
-                else
-                {
-                    update_history = window.history.pushState;
+                    window.history.pushState({ profile: infos.id }, "", "?profile=" + infos.id);
                 }
 
-                if(update_history)
-                {
-                    update_history.call(window.history, { profile: infos.id }, "", "?profile=" + infos.id);
-                }
-
-                set_title(infos.name);
                 $(dom_id).blur();
-                $("boot_options").style.display = "none";
 
-            }.bind(this, infos);
+                start_profile(infos);
+            }.bind(this, infos, dom_id);
 
             if(profile === infos.id)
             {
-                $(dom_id).onclick();
+                start_profile(infos);
                 return;
             }
+        }
+
+        function start_profile(infos)
+        {
+            var message = { msg: "Downloading image", total: infos.size };
+            var image = infos.state || infos.fda || infos.cdrom;
+
+            v86util.load_file(
+                image, 
+                loaded.bind(this, infos, settings), 
+                show_progress.bind(this, message)
+            );
+
+            set_title(infos.name);
+            $("boot_options").style.display = "none";
         }
 
         function loaded(infos, settings, buffer)
