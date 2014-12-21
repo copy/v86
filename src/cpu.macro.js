@@ -269,6 +269,7 @@ CPU.prototype._state_restore = function()
 
     this.full_clear_tlb();
     this.timestamp_counter = 0;
+    this.tsc_offset = v86.microtick();
 };
 
 #include "translate.macro.js"
@@ -408,7 +409,6 @@ CPU.prototype.reset = function()
     this.last_op_size = 0;
 
     this.tsc_offset = v86.microtick();
-
 
     this.instruction_pointer = 0xFFFF0;
     this.switch_seg(reg_ss, 0x30);
