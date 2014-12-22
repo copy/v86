@@ -126,6 +126,17 @@ v86.prototype.lazy_init = function()
 
 };
 
+v86.prototype.save_state = function()
+{
+    return this.cpu.save_state();
+};
+
+v86.prototype.restore_state = function(state)
+{
+    return this.cpu.restore_state(state);
+};
+
+
 if(typeof performance === "object" && performance.now)
 {
     v86.microtick = function()
