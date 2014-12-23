@@ -16,6 +16,7 @@ function SerialAdapter(element)
         this.destroy();
 
         send_char = code_fn;
+        serial.send_char = send_char;
 
         element.addEventListener("keypress", keypress_handler, false);
         element.addEventListener("keydown", keydown_handler, false);
