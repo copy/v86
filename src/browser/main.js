@@ -36,7 +36,7 @@
         for(var i = 0; i < query.length; i++)
         {
             var param = query[i].split("=");
-            parameters[param[0]] = param[1];
+            parameters[param[0]] = decodeURIComponent(param[1]);
         }
 
         return parameters;
@@ -137,7 +137,7 @@
             load_devices: true
         };
 
-        function load_local(file, type, cont)
+        function load_local(file, type, cb)
         {
             set_title(file.name);
 
@@ -175,7 +175,7 @@
                    settings.cdrom = loader;
                    break;
                 }
-                cont();
+                cb();
             }
 
             loader.load();
@@ -475,7 +475,7 @@
         {
             var mask = LOG_NAMES[i][0];
 
-            if(mask == 1)
+            if(mask === 1)
                 continue;
 
             var name = LOG_NAMES[i][1].toLowerCase(),
