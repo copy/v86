@@ -2,7 +2,37 @@
 
 (function()
 {
-    var on_bios_load;
+    // based on https://github.com/Raynos/after
+    // All the flow control you'll ever need
+    function after(count, callback) 
+    {
+        proxy.count = count;
+        var result = {};
+
+        return (count === 0) ? callback() : proxy;
+
+        function proxy(data) {
+            if(proxy.count <= 0) 
+            {
+                throw new Error("after called too many times");
+            }
+            proxy.count--;
+
+            if(data)
+            {
+                var keys = Object.keys(data);
+                for(var i = 0; i < keys.length; i++)
+                {
+                    result[keys[i]] = data[keys[i]];
+                }
+            }
+
+            if(proxy.count === 0) 
+            {
+                callback(result);
+            }
+        }
+    }
 
     function dump_file(ab, name)
     {
@@ -212,15 +242,13 @@
         v86util.load_file("bios/" + biosfile, function(img)
         {
             settings.bios = img;
-
-            if(on_bios_load) on_bios_load();
+            start_emulation();
         });
 
         v86util.load_file("bios/" + vgabiosfile, function(img)
         {
             settings.vga_bios = img;
-
-            if(on_bios_load) on_bios_load();
+            start_emulation();
         });
 
         $("start_emulation").onclick = function()
@@ -253,24 +281,18 @@
                 });
             }
 
-            function cont()
+            var cont = after(images.length, function(result)
             {
-                if(images.length === 0)
-                {
-                    init(settings, function(emulator)
-                    {
-                        emulator.run();
-                    });
-                }
-                else
-                {
-                    var obj = images.pop();
+                start_emulation({ 
+                    settings: settings,
+                    done: function(e) { e.run(); },
+                });
+            });
 
-                    load_local(obj.file, obj.type, cont);
-                }
-            }
-
-            cont();
+            images.forEach(function(image)
+            {
+                load_local(image.file, image.type, cont);
+            });
         };
 
         if(DEBUG)
@@ -339,7 +361,7 @@
         ];
 
         var query_args = get_query_arguments();
-        var profile = query_args.profile;
+        var profile = query_args["profile"];
 
         for(var i = 0; i < oses.length; i++)
         {
@@ -370,11 +392,36 @@
             var message = { msg: "Downloading image", total: infos.size };
             var image = infos.state || infos.fda || infos.cdrom;
 
+            var start = after(1, function(result)
+            {
+                loaded(infos, settings, result.buffer);
+            });
+
             v86util.load_file(
                 image, 
-                loaded.bind(this, infos, settings), 
+                function(buffer)
+                {
+                    start({ buffer: buffer });
+                },
                 show_progress.bind(this, message)
             );
+
+            if(infos.filesystem)
+            {
+                settings.fs9p = new FS(infos.filesystem.baseurl);
+
+                if(infos.filesystem.basefs)
+                {
+                    start.count++;
+                    settings.fs9p.OnLoaded = start;
+
+                    settings.fs9p.LoadFilesystem({
+                        lazyloadimages: [],
+                        earlyload: [],
+                        basefsURL: infos.filesystem.basefs,
+                    });
+                }
+            }
 
             set_title(infos.name);
             $("boot_options").style.display = "none";
@@ -394,20 +441,6 @@
                 );
             }
 
-            if(infos.filesystem)
-            {
-                settings.fs9p = new FS(infos.filesystem.baseurl);
-
-                if(infos.filesystem.basefs)
-                {
-                    settings.fs9p.LoadFilesystem({
-                        lazyloadimages: [],
-                        earlyload: [],
-                        basefsURL: infos.filesystem.basefs,
-                    });
-                }
-            }
-
             if(infos.fda)
             {
                 settings.fda = new SyncBuffer(buffer);
@@ -417,15 +450,28 @@
                 settings.cdrom = new SyncBuffer(buffer);
             }
 
-            init(settings, function(emulator)
-            {
-                if(infos.state)
+            start_emulation({ 
+                settings: settings, 
+                done: function(emulator)
                 {
-                    $("reset").style.display = "none";
-                    emulator.restore_state(buffer);
-                }
+                    if(infos.state)
+                    {
+                        $("reset").style.display = "none";
+                        emulator.restore_state(buffer);
+                    }
 
-                emulator.run();
+                    emulator.run();
+
+                    if(query_args["c"])
+                    {
+                        var cmd = query_args["c"] + "\n";
+
+                        for(var i = 0; i < cmd.length; i++)
+                        {
+                            settings.serial_adapter.send_char(cmd.charCodeAt(i));
+                        }
+                    }
+                }
             });
         }
     }
@@ -455,10 +501,13 @@
 
             fr.onload = function(e)
             {
-                init(settings, function(emulator)
-                {
-                    emulator.restore_state(e.target.result);
-                    emulator.run();
+                start_emulation({
+                    settings: settings, 
+                    done: function(emulator)
+                    {
+                        emulator.restore_state(e.target.result);
+                        emulator.run();
+                    }
                 });
             }
 
@@ -531,13 +580,10 @@
         onload();
     }
 
-    function init(settings, done)
+    var start_emulation = after(3, function(result)
     {
-        if(!settings.bios || !settings.vga_bios)
-        {
-            on_bios_load = init.bind(this, settings, done);
-            return;
-        }
+        var settings = result.settings;
+        dbg_assert(settings.bios && settings.vga_bios);
 
         var emulator = new v86();
 
@@ -590,8 +636,8 @@
         init_ui(settings, emulator);
         emulator.init(settings);
 
-        done(emulator);
-    }
+        result.done(emulator);
+    });
 
     function init_ui(settings, emulator)
     {
