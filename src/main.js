@@ -32,7 +32,6 @@ function v86()
     this.cpu = new CPU();
 
     this.next_tick = function() {};
-    this.microtick = function() {};
 }
 
 v86.prototype.run = function() 
