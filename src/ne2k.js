@@ -53,13 +53,15 @@
 
 
 /** @constructor */
-function Ne2k(cpu, adapter)
+function Ne2k(cpu, bus)
 {
     this.pic = cpu.devices.pic;
 
-    this.adapter = adapter;
-    adapter.init(this.receive.bind(this));
-
+    this.bus = bus;
+    this.bus.register("net0-receive", function(data)
+    {
+        this.receive(data);
+    }, this);
 
     this.pci_space = [
         0xec, 0x10, 0x29, 0x80, 0x03, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
@@ -360,7 +362,7 @@ function Ne2k(cpu, adapter)
     io.register_write(this.port | NE_DATAPORT | 0, this, this.data_port_write, this.data_port_write16, this.data_port_write32);
 
     this._state_skip = [
-        "adapter",
+        "bus",
         "pic",
     ];
 }
@@ -391,7 +393,7 @@ Ne2k.prototype.data_port_write = function(data_byte)
 
         // Not technically correct but works (TM): 
         // Send is done in another operation
-        this.adapter.send(data);
+        this.bus.send("net0-send", data);
         this.do_interrupt(ENISR_TX);
     }
 };

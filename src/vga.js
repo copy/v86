@@ -21,16 +21,9 @@ var
 /**
  * @constructor
  */
-function VGAScreen(cpu, adapter, vga_memory_size)
+function VGAScreen(cpu, bus, vga_memory_size)
 {
-    if(adapter === undefined)
-    {
-        this.adapter = new VGADummyAdapter();
-    }
-    else
-    {
-        this.adapter = adapter;
-    }
+    this.bus = bus;
 
     this.vga_memory_size = vga_memory_size;
 
@@ -260,7 +253,7 @@ function VGAScreen(cpu, adapter, vga_memory_size)
 
     /** @const */
     this._state_skip = [
-        "adapter",
+        "bus",
         "svga_memory16",
         "svga_memory32",
         "vga_memory",
@@ -283,7 +276,7 @@ VGAScreen.prototype._state_restore = function()
     this.plane2 = new Uint8Array(this.svga_memory.buffer, 2 * VGA_BANK_SIZE, VGA_BANK_SIZE);
     this.plane3 = new Uint8Array(this.svga_memory.buffer, 3 * VGA_BANK_SIZE, VGA_BANK_SIZE);
 
-    this.adapter.set_mode(this.graphical_mode || this.svga_enabled);
+    this.bus.send("screen-set-mode", this.graphical_mode || this.svga_enabled);
 
     if(this.graphical_mode || this.svga_enabled)
     {
@@ -349,9 +342,9 @@ VGAScreen.prototype.vga_memory_write_graphical_linear = function(addr, value)
     var offset = addr << 2,
         color = this.vga256_palette[value];
 
-    this.adapter.put_pixel_linear(offset | 2, color >> 16 & 0xFF);
-    this.adapter.put_pixel_linear(offset | 1, color >> 8 & 0xFF);
-    this.adapter.put_pixel_linear(offset, color & 0xFF);
+    this.bus.send("screen-put-pixel-linear", [offset | 2, color >> 16 & 0xFF]);
+    this.bus.send("screen-put-pixel-linear", [offset | 1, color >> 8 & 0xFF]);
+    this.bus.send("screen-put-pixel-linear", [offset, color & 0xFF]);
 
     this.vga_memory[addr] = value;
 };
@@ -517,9 +510,9 @@ VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
                 plane3_byte >> i & 8,
             color = this.vga256_palette[this.dac_map[color_index]];
 
-        this.adapter.put_pixel_linear(offset | 2, color >> 16);
-        this.adapter.put_pixel_linear(offset | 1, color >> 8 & 0xFF);
-        this.adapter.put_pixel_linear(offset, color & 0xFF);
+        this.bus.send("screen-put-pixel-linear", [offset | 2, color >> 16]);
+        this.bus.send("screen-put-pixel-linear", [offset | 1, color >> 8 & 0xFF]);
+        this.bus.send("screen-put-pixel-linear", [offset, color & 0xFF]);
 
         offset -= 4;
     }
@@ -538,8 +531,8 @@ VGAScreen.prototype.text_mode_redraw = function()
             chr = this.vga_memory[addr];
             color = this.vga_memory[addr | 1];
 
-            this.adapter.put_char(row, col, chr, 
-                this.vga256_palette[color >> 4 & 0xF], this.vga256_palette[color & 0xF]);
+            this.bus.send("screen-put-char", [row, col, chr, 
+                this.vga256_palette[color >> 4 & 0xF], this.vga256_palette[color & 0xF]]);
 
             addr += 2;
         }
@@ -568,7 +561,7 @@ VGAScreen.prototype.graphical_planar_redraw = function()
                         this.plane2[addr] >> i << 2 & 4 |
                         this.plane3[addr] >> i << 3 & 8;
 
-                this.adapter.put_pixel_linear32(index, this.vga256_palette[this.dac_map[color]]);
+                this.bus.send("screen-put-pixel-linear32", [index, this.vga256_palette[this.dac_map[color]]]);
             }
 
             addr++;
@@ -600,8 +593,8 @@ VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
         color = this.vga_memory[addr | 1];
     }
 
-    this.adapter.put_char(row, col, chr, 
-            this.vga256_palette[color >> 4 & 0xF], this.vga256_palette[color & 0xF]);
+    this.bus.send("screen-put-char", [row, col, chr, 
+            this.vga256_palette[color >> 4 & 0xF], this.vga256_palette[color & 0xF]]);
 
     this.vga_memory[addr] = value;
 };
@@ -613,7 +606,7 @@ VGAScreen.prototype.update_cursor = function()
 
     row = Math.min(this.max_rows - 1, row);
 
-    this.adapter.update_cursor(row, col);
+    this.bus.send("screen-update-cursor", [row, col]);
 };
 
 VGAScreen.prototype.svga_memory_read8 = function(addr)
@@ -659,13 +652,13 @@ VGAScreen.prototype.svga_memory_write8 = function(addr, value)
             // 4th byte is meaningless
             if((addr & 3) !== 3)
             {
-                this.adapter.put_pixel_linear(addr, value);
+                this.bus.send("screen-put-pixel-linear", [addr, value]);
             }
             break;
 
         case 24:
             addr = (addr << 2) / 3 | 0;
-            this.adapter.put_pixel_linear(addr, value);
+            this.bus.send("screen-put-pixel-linear", [addr, value]);
             break;
 
         case 16:
@@ -682,9 +675,9 @@ VGAScreen.prototype.svga_memory_write8 = function(addr, value)
 
                 addr <<= 1;
 
-                this.adapter.put_pixel_linear(addr, red);
-                this.adapter.put_pixel_linear(addr - 1, green);
-                this.adapter.put_pixel_linear(addr - 2, blue);
+                this.bus.send("screen-put-pixel-linear", [addr, red]);
+                this.bus.send("screen-put-pixel-linear", [addr - 1, green]);
+                this.bus.send("screen-put-pixel-linear", [addr - 2, blue]);
             }
             break;
 
@@ -692,9 +685,9 @@ VGAScreen.prototype.svga_memory_write8 = function(addr, value)
             var color = this.vga256_palette[value],
                 offset = addr << 2;
 
-            this.adapter.put_pixel_linear(offset, color >> 16 & 0xFF);
-            this.adapter.put_pixel_linear(offset | 1, color >> 8 & 0xFF);
-            this.adapter.put_pixel_linear(offset | 2, color & 0xFF);
+            this.bus.send("screen-put-pixel-linear", [offset, color >> 16 & 0xFF]);
+            this.bus.send("screen-put-pixel-linear", [offset | 1, color >> 8 & 0xFF]);
+            this.bus.send("screen-put-pixel-linear", [offset | 2, color & 0xFF]);
             break;
 
         default:
@@ -735,7 +728,7 @@ VGAScreen.prototype.svga_memory_write32 = function(addr, value)
     switch(this.svga_bpp)
     {
         case 32:
-            this.adapter.put_pixel_linear32(addr, value);
+            this.bus.send("screen-put-pixel-linear32", [addr, value]);
             break;
 
         default:
@@ -760,7 +753,7 @@ VGAScreen.prototype.svga_redraw = function()
 
         for(; pixel < count; )
         {
-            this.adapter.put_pixel_linear32(pixel, buf32[addr++]);
+            this.bus.send("screen-put-pixel-linear32", [pixel, buf32[addr++]]);
             pixel += 4;
         }
     }
@@ -770,9 +763,9 @@ VGAScreen.prototype.svga_redraw = function()
 
         for(; pixel < count; )
         {
-            this.adapter.put_pixel_linear(pixel++, this.svga_memory[addr++]);
-            this.adapter.put_pixel_linear(pixel++, this.svga_memory[addr++]);
-            this.adapter.put_pixel_linear(pixel++, this.svga_memory[addr++]);
+            this.bus.send("screen-put-pixel-linear", [pixel++, this.svga_memory[addr++]]);
+            this.bus.send("screen-put-pixel-linear", [pixel++, this.svga_memory[addr++]]);
+            this.bus.send("screen-put-pixel-linear", [pixel++, this.svga_memory[addr++]]);
             pixel++;
         }
     }
@@ -808,8 +801,6 @@ VGAScreen.prototype.timer = function()
             this.text_mode_redraw();
         }
     }
-
-    this.adapter.timer();
 };
 
 VGAScreen.prototype.destroy = function()
@@ -826,17 +817,17 @@ VGAScreen.prototype.set_size_text = function(cols_count, rows_count)
     this.max_cols = cols_count;
     this.max_rows = rows_count;
 
-    this.adapter.set_size_text(cols_count, rows_count);
+    this.bus.send("screen-set-size-text", [cols_count, rows_count]);
 };
 
 VGAScreen.prototype.set_size_graphical = function(width, height)
 {
-    this.adapter.set_size_graphical(width, height);
+    this.bus.send("screen-set-size-graphical", [width, height]);
 };
 
 VGAScreen.prototype.update_cursor_scanline = function()
 {
-    this.adapter.update_cursor_scanline(this.cursor_scanline_start, this.cursor_scanline_end);
+    this.bus.send("screen-update-cursor-scanline", [this.cursor_scanline_start, this.cursor_scanline_end]);
 };
 
 VGAScreen.prototype.set_video_mode = function(mode)
@@ -869,7 +860,7 @@ VGAScreen.prototype.set_video_mode = function(mode)
         default:
     }
 
-    this.adapter.set_mode(is_graphical);
+    this.bus.send("screen-set-mode", is_graphical);
     this.stats.is_graphical = is_graphical;
 
     if(is_graphical)
@@ -1258,7 +1249,7 @@ VGAScreen.prototype.port1CF_write = function(value)
     if(this.svga_enabled && this.dispi_index === 4)
     {
         this.set_size_graphical(this.svga_width, this.svga_height);
-        this.adapter.set_mode(true);
+        this.bus.send("screen-set-mode", true);
 
         this.stats.bpp = this.svga_bpp;
         this.stats.is_graphical = true;

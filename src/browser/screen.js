@@ -47,8 +47,6 @@ function ScreenAdapter(screen_container)
 
         changed_rows,
 
-        did_redraw = true,
-
         // are we in graphical mode now?
         is_graphical = false,
 
@@ -138,11 +136,51 @@ function ScreenAdapter(screen_container)
     text_screen.style.display = "block";
     graphic_screen.style.display = "none";
 
-    this.init = function()
+    this.bus = undefined;
+
+    this.register = function(bus)
     {
+        this.bus = bus;
+
         // not necessary, because this gets initialized by the bios early,
         // but nicer to look at
         this.set_size_text(80, 25);
+
+        bus.register("screen-set-mode", this.set_mode, this);
+
+        bus.register("screen-put-pixel-linear", function(data)
+        {
+            this.put_pixel_linear(data[0], data[1]);
+        }, this);
+        bus.register("screen-put-pixel-linear32", function(data)
+        {
+            this.put_pixel_linear32(data[0], data[1]);
+        }, this);
+        bus.register("screen-put-char", function(data)
+        {
+            //console.log(data);
+            this.put_char(data[0], data[1], data[2], data[3], data[4]);
+        }, this);
+
+        bus.register("screen-update-cursor", function(data)
+        {
+            this.update_cursor(data[0], data[1]);
+        }, this);
+        bus.register("screen-update-cursor-scanline", function(data)
+        {
+            this.update_cursor_scanline(data[0], data[1]);
+        }, this);
+
+        bus.register("screen-set-size-text", function(data)
+        {
+            this.set_size_text(data[0], data[1]);
+        }, this);
+        bus.register("screen-set-size-graphical", function(data)
+        {
+            this.set_size_graphical(data[0], data[1]);
+        }, this);
+
+        this.timer();
     };
 
     this.make_screenshot = function()
@@ -169,19 +207,11 @@ function ScreenAdapter(screen_container)
 
     this.timer = function()
     {
-        if(!did_redraw)
-        {
-            return;
-        }
-        did_redraw = false;
-
         requestAnimationFrame(is_graphical ? update_graphical : update_text);
     };
 
     function update_text()
     {
-        did_redraw = true;
-
         for(var i = 0; i < text_mode_height; i++)
         {
             if(changed_rows[i])
@@ -190,12 +220,13 @@ function ScreenAdapter(screen_container)
                 changed_rows[i] = 0;
             }
         }
+
+        this.timer();
     }
+    update_text = update_text.bind(this);
 
     function update_graphical()
     {
-        did_redraw = true;
-
         if(modified_pixel_min < modified_pixel_max)
         {
             var top = modified_pixel_min / graphical_mode_width >> 2;
@@ -211,7 +242,10 @@ function ScreenAdapter(screen_container)
             modified_pixel_min = 1e7;
             modified_pixel_max = 0;
         }
+
+        this.timer();
     }
+    update_graphical = update_graphical.bind(this);
 
     // put a single color component in the linear buffer
     this.put_pixel_linear = function(index, color)
@@ -270,6 +304,11 @@ function ScreenAdapter(screen_container)
      */
     this.set_size_text = function(cols, rows)
     {
+        if(cols === text_mode_width || rows === text_mode_height)
+        {
+            return;
+        }
+
         changed_rows = new Int8Array(rows);
         text_mode_data = new Int32Array(cols * rows * 3);
 
@@ -431,6 +470,4 @@ function ScreenAdapter(screen_container)
 
         row_element.appendChild(fragment);
     };
-
-    this.init();
 }

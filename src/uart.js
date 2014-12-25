@@ -24,8 +24,10 @@ var DLAB = 0x80;
 /** 
  * @constructor 
  */
-function UART(cpu, port, adapter)
+function UART(cpu, port, bus)
 {
+    this.bus = bus;
+
     this.pic = cpu.devices.pic;
 
     this.interrupts = 0;
@@ -67,7 +69,10 @@ function UART(cpu, port, adapter)
         return;
     }
 
-    adapter.init(this.data_received.bind(this));
+    this.bus.register("serial0-input", function(data)
+    {
+        this.data_received(data);
+    }, this);
 
     var io = cpu.io;
 
@@ -91,12 +96,7 @@ function UART(cpu, port, adapter)
             return;
         }
 
-        if(!adapter)
-        {
-            return;
-        }
-
-        adapter.put_chr(String.fromCharCode(out_byte));
+        this.bus.send("serial0-output", String.fromCharCode(out_byte));
     });
 
     io.register_write(port | 1, this, function(out_byte)
@@ -229,6 +229,10 @@ function UART(cpu, port, adapter)
     {
         this.scratch_register = out_byte;
     });
+
+    this._state_skip = [
+        "bus",
+    ];
 }
 
 UART.prototype.push_irq = function()

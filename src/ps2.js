@@ -3,10 +3,12 @@
 /**
  * @constructor
  */
-function PS2(cpu, keyboard, mouse)
+function PS2(cpu, bus)
 {
     this.pic = cpu.devices.pic;
     this.cpu = cpu;
+
+    this.bus = bus;
 
     /** @type {boolean} */
     this.enable_mouse_stream = false;
@@ -14,7 +16,7 @@ function PS2(cpu, keyboard, mouse)
     this.enable_mouse = false;
 
     /** @type {boolean} */
-    this.have_mouse = false;
+    this.have_mouse = true;
 
     /** @type {number} */
     this.mouse_delta_x = 0;
@@ -24,7 +26,7 @@ function PS2(cpu, keyboard, mouse)
     this.mouse_clicks = 0;
 
     /** @type {boolean} */
-    this.have_keyboard = false;
+    this.have_keyboard = true;
 
     /** @type {boolean} */
     this.enable_keyboard_stream = false;
@@ -71,23 +73,27 @@ function PS2(cpu, keyboard, mouse)
      */
     this.mouse_buffer = new ByteQueue(32);
 
-    this.keyboard = keyboard;
-    this.mouse = mouse;
 
-    if(this.keyboard)
+    this.bus.register("keyboard-code", function(code)
     {
-        this.have_keyboard = true;
-        this.keyboard.init(this.kbd_send_code.bind(this));
-    }
+        this.kbd_send_code(code);
+    }, this);
 
-    if(this.mouse)
+    this.bus.register("mouse-click", function(data)
     {
-        this.have_mouse = true;
-        this.mouse.init(this.mouse_send_click.bind(this), this.mouse_send_delta.bind(this));
+        this.mouse_send_click(data[0], data[1], data[2]);
+    }, this);
 
+    this.bus.register("mouse-delta", function(data)
+    {
+        this.mouse_send_delta(data[0], data[1]);
+    }, this);
+
+    this.bus.register("mouse-wheel", function(data)
+    {
         // TODO: Mouse Wheel
         // http://www.computer-engineering.org/ps2mouse/
-    }
+    }, this);
 
     this.command_register = 1 | 4;
     this.read_output_register = false;
@@ -100,7 +106,11 @@ function PS2(cpu, keyboard, mouse)
     cpu.io.register_write(0x64, this, this.port64_write);
 
     /** @const */
-    this._state_skip = ["pic", "cpu"];
+    this._state_skip = [
+        "bus",
+        "pic", 
+        "cpu",
+    ];
 }
 
 
@@ -234,15 +244,15 @@ PS2.prototype.apply_scaling2 = function(n)
 
 PS2.prototype.destroy = function()
 {
-    if(this.have_keyboard)
-    {
-        this.keyboard.destroy();
-    }
+    //if(this.have_keyboard)
+    //{
+    //    this.keyboard.destroy();
+    //}
 
-    if(this.have_mouse)
-    {
-        this.mouse.destroy();
-    }
+    //if(this.have_mouse)
+    //{
+    //    this.mouse.destroy();
+    //}
 };
     
 
@@ -452,7 +462,7 @@ PS2.prototype.port60_write = function(write_byte)
             // enable streaming
             this.enable_mouse_stream = true;
             this.enable_mouse = true;
-            this.mouse.enabled = true;
+            //this.mouse.enabled = true;
 
             this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
             break;

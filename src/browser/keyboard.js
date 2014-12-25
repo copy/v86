@@ -11,10 +11,7 @@ function KeyboardAdapter()
          */
         keys_pressed = {},
 
-        keyboard = this,
-
-        // callback to call on a keypress
-        send_code;
+        keyboard = this;
 
     this.enabled = true;
 
@@ -88,11 +85,12 @@ function KeyboardAdapter()
         0, 0, 0, 0x1A, 0x2B, 0x1B, 0x28, 0
     ]);
 
-    this.init = function(code_fn)
+    this.bus = undefined;
+
+    this.register = function(bus)
     {
         this.destroy();
-
-        send_code = code_fn;
+        this.bus = bus;
 
         window.addEventListener("keyup", keyup_handler, false);
         window.addEventListener("keydown", keydown_handler, false);
@@ -206,6 +204,11 @@ function KeyboardAdapter()
      */
     function handler(chr, keydown)
     {
+        if(!keyboard.bus)
+        {
+            return;
+        }
+
         if(chr >= charmap.length || charmap[chr] === 0)
         {
             console.log("Missing char in map: " + chr.toString(16));
@@ -223,12 +226,12 @@ function KeyboardAdapter()
         if(code > 0xFF)
         {
             // prefix
-            send_code(code >> 8);
-            send_code(code & 0xFF);
+            keyboard.bus.send("keyboard-code", code >> 8);
+            keyboard.bus.send("keyboard-code", code & 0xFF);
         }
         else
         {
-            send_code(code);
+            keyboard.bus.send("keyboard-code", code);
         }
 
         return false;

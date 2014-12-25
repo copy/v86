@@ -5,18 +5,20 @@
  */
 function SerialAdapter(element)
 {
-    var 
-        serial = this,
-        send_char;
+    var serial = this;
 
     this.enabled = true;
+    this.bus = undefined;
 
-    this.init = function(code_fn)
+    this.register = function(bus)
     {
         this.destroy();
+        this.bus = bus;
 
-        send_char = code_fn;
-        serial.send_char = send_char;
+        bus.register("serial0-output", function(chr)
+        {
+            this.put_chr(chr);
+        }, this);
 
         element.addEventListener("keypress", keypress_handler, false);
         element.addEventListener("keydown", keydown_handler, false);
@@ -66,6 +68,10 @@ function SerialAdapter(element)
 
     function keypress_handler(e)
     {
+        if(!serial.bus)
+        {
+            return;
+        }
         if(!may_handle(e))
         {
             return;
@@ -73,18 +79,22 @@ function SerialAdapter(element)
 
         var chr = e.keyCode;
 
-        send_char(chr);
+        serial.bus.send("serial0-input", chr);
         e.preventDefault();
     }
 
     function keydown_handler(e)
     {
+        if(!serial.bus)
+        {
+            return;
+        }
         var chr = e.keyCode;
 
         if(chr === 8)
         {
             // supress backspace
-            send_char(127);
+            serial.bus.send("serial0-input", 127);
             e.preventDefault();
         }
     }
@@ -92,12 +102,16 @@ function SerialAdapter(element)
     function paste_handler(e)
     {
         //console.log(e.clipboardData.getData('text/plain'));
+        if(!serial.bus)
+        {
+            return;
+        }
 
         var data = e.clipboardData.getData('text/plain');
 
         for(var i = 0; i < data.length; i++)
         {
-            send_char(data.charCodeAt(i));
+            serial.bus.send("serial0-input", data.charCodeAt(i));
         }
 
         e.preventDefault();

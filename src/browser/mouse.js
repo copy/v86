@@ -13,19 +13,15 @@ function MouseAdapter()
         last_x = 0,
         last_y = 0,
 
-        // callback to call on a mouse click
-        send_click,
-
-        // callback to call on a mouse move
-        send_delta,
-
         mouse = this;
 
     // set by controller
-    this.enabled = false;
+    this.enabled = true;
 
     // set by emulator
     this.emu_enabled = true;
+
+    this.bus = undefined;
 
     function may_handle(e)
     {
@@ -41,14 +37,10 @@ function MouseAdapter()
         window.removeEventListener("mouseup", mouseup_handler, false);
     };
 
-    this.init = function(click_fn, delta_fn, wheel_fn)
+    this.register = function(bus)
     {
         this.destroy();
-
-        send_click = click_fn;
-        send_delta = delta_fn;
-
-        // TODO: wheel_fn
+        this.bus = bus;
 
         window.addEventListener("mousemove", mousemove_handler, false);
         document.addEventListener("contextmenu", contextmenu_handler, false);
@@ -58,6 +50,11 @@ function MouseAdapter()
 
     function mousemove_handler(e)
     {
+        if(!mouse.bus)
+        {
+            return;
+        }
+
         if(!may_handle(e))
         {
             return;
@@ -91,7 +88,9 @@ function MouseAdapter()
             // Large mouse delta, drop?
         }
 
-        send_delta(delta_x, -delta_y);
+        delta_y = -delta_y;
+
+        mouse.bus.send("mouse-delta", [delta_x, delta_y]);
     }
 
     function contextmenu_handler(e)
@@ -120,6 +119,11 @@ function MouseAdapter()
 
     function click_event(e, down)
     {
+        if(!mouse.bus)
+        {
+            return;
+        }
+
         if(e.which === 1)
         {
             left_down = down;
@@ -136,7 +140,7 @@ function MouseAdapter()
         {
             console.log("Unknown event.which: " + e.which);
         }
-        send_click(left_down, middle_down, right_down);
+        mouse.bus.send("mouse-click", [left_down, middle_down, right_down]);
 
         e.preventDefault();
     }

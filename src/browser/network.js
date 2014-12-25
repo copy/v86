@@ -12,6 +12,7 @@ function NetworkAdapter(url)
 {
     this.send_data = function(x) {};
 
+    this.bus = undefined;
     this.socket = undefined;
     this.send_queue = [];
     this.url = url;
@@ -23,7 +24,10 @@ function NetworkAdapter(url)
 
 NetworkAdapter.prototype.handle_message = function(e)
 {
-    this.send_data(new Uint8Array(e.data));
+    if(this.bus)
+    {
+        this.bus.send("net0-receive", new Uint8Array(e.data));
+    }
 };
 
 NetworkAdapter.prototype.handle_close = function(e)
@@ -51,9 +55,13 @@ NetworkAdapter.prototype.handle_error = function(e)
     //console.log("onerror", e);
 };
 
-NetworkAdapter.prototype.init = function(send_data)
+NetworkAdapter.prototype.register = function(bus)
 {
-    this.send_data = send_data;
+    this.bus = bus;
+    this.bus.register("net0-send", function(data)
+    {
+        this.send(data);
+    }, this);
 };
 
 NetworkAdapter.prototype.destroy = function() 

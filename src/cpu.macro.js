@@ -465,6 +465,10 @@ CPU.prototype.init = function(settings)
     // TODO: Make this more configurable
     if(settings.load_devices)
     {
+        var bus = Bus.create();
+        var device_bus = bus[0];
+        var adapter_bus = bus[1];
+
         this.devices.pic = new PIC(this);
 
         this.devices.pci = new PCI(this);
@@ -476,15 +480,29 @@ CPU.prototype.init = function(settings)
             this.devices.hpet = new HPET(this);
         }
 
-        this.devices.vga = new VGAScreen(this, 
-                settings.screen_adapter, settings.vga_memory_size || 8 * 1024 * 1024);
-        this.devices.ps2 = new PS2(this, settings.keyboard_adapter, settings.mouse_adapter);
+        if(settings.screen_adapter)
+        {
+            settings.screen_adapter.register(adapter_bus);
+        }
+        this.devices.vga = new VGAScreen(this, device_bus, 
+                settings.vga_memory_size || 8 * 1024 * 1024);
         
         this.fpu = new FPU(this);
 
+        if(settings.mouse_adapter)
+        {
+            settings.mouse_adapter.register(adapter_bus);
+        }
+        if(settings.keyboard_adapter)
+        {
+            settings.keyboard_adapter.register(adapter_bus);
+        }
+        this.devices.ps2 = new PS2(this, device_bus);
+
         if(settings.serial_adapter)
         {
-            this.devices.uart = new UART(this, 0x3F8, settings.serial_adapter);
+            settings.serial_adapter.register(adapter_bus);
+            this.devices.uart = new UART(this, 0x3F8, device_bus);
         }
         else
         {
@@ -519,7 +537,8 @@ CPU.prototype.init = function(settings)
 
         if(settings.network_adapter)
         {
-            this.devices.net = new Ne2k(this, settings.network_adapter);
+            settings.network_adapter.register(adapter_bus);
+            this.devices.net = new Ne2k(this, device_bus);
         }
 
         if(settings.fs9p)
