@@ -1436,7 +1436,7 @@ opm2(0xFF, {
             if(modrm_byte >= 0xC0)
             {
                 cpu.trigger_ud();
-                dbg_assert(false);
+                dbg_assert(false, "unreachable");
             }
 
             var virt_addr = cpu.modrm_resolve(modrm_byte);
@@ -1462,7 +1462,7 @@ opm2(0xFF, {
             if(modrm_byte >= 0xC0)
             {
                 cpu.trigger_ud();
-                dbg_assert(false);
+                dbg_assert(false, "unreachable");
             }
 
             var virt_addr = cpu.modrm_resolve(modrm_byte);
@@ -1499,7 +1499,7 @@ opm2(0xFF, {
             if(modrm_byte >= 0xC0)
             {
                 cpu.trigger_ud();
-                dbg_assert(false);
+                dbg_assert(false, "unreachable");
             }
 
             var virt_addr = cpu.modrm_resolve(modrm_byte);
@@ -1525,7 +1525,7 @@ opm2(0xFF, {
             if(modrm_byte >= 0xC0)
             {
                 cpu.trigger_ud();
-                dbg_assert(false);
+                dbg_assert(false, "unreachable");
             }
 
             var virt_addr = cpu.modrm_resolve(modrm_byte);
@@ -1628,7 +1628,6 @@ opm(0x01, {
     {
         // only memory
         cpu.trigger_ud();
-        dbg_assert(false);
     }
 
     if((mod === 2 || mod === 3) && cpu.protected_mode)
@@ -1970,7 +1969,7 @@ op(0x31, {
     if(!cpu.cpl || !(cpu.cr4 & CR4_TSD))
     {
         var n = v86.microtick() - cpu.tsc_offset;
-        dbg_assert(isFinite(n));
+        dbg_assert(isFinite(n), "non-finite tsc: " + n);
 
         cpu.reg32s[reg_eax] = n * TSC_RATE;
         cpu.reg32s[reg_edx] = n * (TSC_RATE / 0x100000000);
