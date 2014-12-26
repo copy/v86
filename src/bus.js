@@ -24,9 +24,13 @@ Bus.Connector.prototype.register = function(name, fn, thisValue)
     });
 };
 
+/**
+ * @param {string} name
+ * @param {Object=} value
+ */
 Bus.Connector.prototype.send = function(name, value)
 {
-    dbg_assert(arguments.length === 2);
+    dbg_assert(arguments.length === 1 || arguments.length === 2);
 
     if(!this.pair)
     {
