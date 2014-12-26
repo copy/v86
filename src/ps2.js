@@ -462,7 +462,7 @@ PS2.prototype.port60_write = function(write_byte)
             // enable streaming
             this.enable_mouse_stream = true;
             this.enable_mouse = true;
-            //this.mouse.enabled = true;
+            this.bus.send("mouse-enable", true);
 
             this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
             break;
@@ -483,7 +483,8 @@ PS2.prototype.port60_write = function(write_byte)
             this.mouse_buffer.push(0);
 
             //this.enable_mouse = true;
-            //this.mouse.enabled = true;
+            this.bus.send("mouse-enable", true);
+
             this.enable_mouse_stream = false;
             this.sample_rate = 100;
             this.scaling2 = false;

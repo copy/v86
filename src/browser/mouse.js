@@ -16,7 +16,7 @@ function MouseAdapter()
         mouse = this;
 
     // set by controller
-    this.enabled = true;
+    this.enabled = false;
 
     // set by emulator
     this.emu_enabled = true;
@@ -46,6 +46,11 @@ function MouseAdapter()
         document.addEventListener("contextmenu", contextmenu_handler, false);
         window.addEventListener("mousedown", mousedown_handler, false);
         window.addEventListener("mouseup", mouseup_handler, false);
+
+        bus.register("mouse-enable", function(enabled)
+        {
+            this.enabled = enabled;
+        }, this);
     };
 
     function mousemove_handler(e)
