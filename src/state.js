@@ -114,6 +114,12 @@ function restore_object(base, obj, buffers)
     {
         var keys = Object.keys(obj);
 
+        if(DEBUG && base === undefined)
+        {
+            console.log("Cannot restore (base doesn't exist)", obj);
+            dbg_assert(false);
+        }
+
         for(var i = 0; i < keys.length; i++)
         {
             var key = keys[i];
@@ -138,7 +144,7 @@ function restore_object(base, obj, buffers)
         else
         {
             //base = buffers.full.slice(info.offset, info.offset + info.length);
-            dbg_assert(false);
+            dbg_assert(false, base ? "buffer of different size" : "no buffer");
         }
 
         return base;
