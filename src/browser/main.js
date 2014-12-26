@@ -460,6 +460,7 @@
                         emulator.restore_state(buffer);
                     }
 
+                    //emulator.send("cpu-run");
                     emulator.run();
 
                     if(query_args["c"])
@@ -489,29 +490,6 @@
 
         $("restore_state").onchange = function()
         {
-            var file = $("restore_state").files[0];
-
-            if(!file)
-            {
-                return;
-            }
-
-            var emulator = new v86();
-            var fr = new FileReader();
-
-            fr.onload = function(e)
-            {
-                start_emulation({
-                    settings: settings, 
-                    done: function(emulator)
-                    {
-                        emulator.restore_state(e.target.result);
-                        emulator.run();
-                    }
-                });
-            }
-
-            fr.readAsArrayBuffer(file);
         };
 
         $("start_test").onclick = function()
@@ -585,7 +563,13 @@
         var settings = result.settings;
         dbg_assert(settings.bios && settings.vga_bios);
 
-        var emulator = new v86();
+        //var worker = new Worker("src/browser/worker.js");
+        //var adapter_bus = WorkerBus.init(worker);
+        var bus = Bus.create();
+        var adapter_bus = bus[0];
+        var device_bus = bus[1];
+
+        var emulator = new v86(device_bus);
 
         if(DEBUG)
         {
@@ -634,9 +618,38 @@
         }
 
         init_ui(settings, emulator);
-        emulator.init(settings);
+        
+        if(settings.mouse_adapter)
+        {
+            settings.mouse_adapter.register(adapter_bus);
+        }
+        if(settings.keyboard_adapter)
+        {
+            settings.keyboard_adapter.register(adapter_bus);
+        }
+        if(settings.serial_adapter)
+        {
+            settings.serial_adapter.register(adapter_bus);
+        }
+        if(settings.screen_adapter)
+        {
+            settings.screen_adapter.register(adapter_bus);
+        }
+        if(settings.network_adapter)
+        {
+            settings.network_adapter.register(adapter_bus);
+        }
 
-        result.done(emulator);
+        emulator.init(settings);
+        
+        //settings.fs9p = undefined;
+        //settings.fda = undefined;
+        //adapter_bus.send("cpu-init", settings);
+
+        //setTimeout(function()
+        //{
+            result.done(emulator);
+        //}, 100);
     });
 
     function init_ui(settings, emulator)

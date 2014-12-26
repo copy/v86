@@ -15,9 +15,8 @@ if(IN_BROWSER + IN_NODE + IN_WORKER !== 1)
     throw "Invalid environment";
 }
 
-
 /** @constructor */
-function v86()
+function v86(bus)
 {
     /** @type {boolean} */
     this.first_init = true;
@@ -30,6 +29,11 @@ function v86()
 
     /** @type {CPU} */
     this.cpu = new CPU();
+
+    this.bus = bus;
+    bus.register("cpu-init", this.init, this);
+    bus.register("cpu-run", this.run, this);
+    bus.register("cpu-stop", this.stop, this);
 
     this.next_tick = function() {};
 }
@@ -78,7 +82,7 @@ v86.prototype.init = function(settings)
         this.lazy_init();
     }
 
-    this.cpu.init(settings);
+    this.cpu.init(settings, this.bus);
 };
 
 // initialization that only needs to be once

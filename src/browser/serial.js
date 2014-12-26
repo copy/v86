@@ -17,7 +17,7 @@ function SerialAdapter(element)
 
         bus.register("serial0-output", function(chr)
         {
-            this.put_chr(chr);
+            this.show_char(chr);
         }, this);
 
         element.addEventListener("keypress", keypress_handler, false);
@@ -32,7 +32,7 @@ function SerialAdapter(element)
         element.removeEventListener("paste", paste_handler, false);
     };
 
-    this.put_chr = function(chr)
+    this.show_char = function(chr)
     {
         if(chr === "\x08")
         {
@@ -52,7 +52,18 @@ function SerialAdapter(element)
                 element.scrollTop = 1e9;
             }
         }
-    }
+    };
+
+    /**
+     * @param {number} chr_code
+     */
+    this.send_char = function(chr_code)
+    {
+        if(serial.bus)
+        {
+            serial.bus.send("serial0-input", chr_code);
+        }
+    };
 
     function may_handle(e)
     {
@@ -79,22 +90,18 @@ function SerialAdapter(element)
 
         var chr = e.keyCode;
 
-        serial.bus.send("serial0-input", chr);
+        serial.send_char(chr);
         e.preventDefault();
     }
 
     function keydown_handler(e)
     {
-        if(!serial.bus)
-        {
-            return;
-        }
         var chr = e.keyCode;
 
         if(chr === 8)
         {
             // supress backspace
-            serial.bus.send("serial0-input", 127);
+            serial.send_char(127);
             e.preventDefault();
         }
     }
@@ -102,16 +109,11 @@ function SerialAdapter(element)
     function paste_handler(e)
     {
         //console.log(e.clipboardData.getData('text/plain'));
-        if(!serial.bus)
-        {
-            return;
-        }
-
         var data = e.clipboardData.getData('text/plain');
 
         for(var i = 0; i < data.length; i++)
         {
-            serial.bus.send("serial0-input", data.charCodeAt(i));
+            serial.send_char(data.charCodeAt(i));
         }
 
         e.preventDefault();
