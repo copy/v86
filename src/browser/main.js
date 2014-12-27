@@ -283,6 +283,8 @@
 
             var cont = after(images.length, function(result)
             {
+                set_profile("custom");
+
                 start_emulation({ 
                     settings: settings,
                     done: function(e) { e.run(); },
@@ -370,11 +372,7 @@
 
             $(dom_id).onclick = function(infos, dom_id)
             {
-                if(window.history.pushState)
-                {
-                    window.history.pushState({ profile: infos.id }, "", "?profile=" + infos.id);
-                }
-
+                set_profile(infos.id);
                 $(dom_id).blur();
 
                 start_profile(infos);
@@ -942,5 +940,14 @@
     function onpopstate(e)
     {
         location.reload();
+    }
+
+    function set_profile(prof)
+    {
+        if(window.history.pushState)
+        {
+            window.history.pushState({ profile: prof }, "", "?profile=" + prof);
+        }
+
     }
 })();
