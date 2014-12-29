@@ -2,6 +2,11 @@
 
 var Bus = {};
 
+if(typeof window === "object")
+{
+    window["Bus"] = Bus;
+}
+
 /** @constructor */
 Bus.Connector = function()
 {
