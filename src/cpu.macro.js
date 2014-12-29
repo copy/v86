@@ -489,10 +489,7 @@ CPU.prototype.init = function(settings, device_bus)
         }
         else
         {
-            this.devices.uart = new UART(this, 0x3F8, { 
-                put_chr: function(chr) { },
-                init: function(fn) {  },
-            });
+            this.devices.uart = new UART(this, 0x3F8, device_bus);
         }
 
         this.devices.fdc = new FloppyController(this, settings.fda, settings.fdb);
