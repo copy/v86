@@ -1051,9 +1051,9 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
     if(DEBUG && this.debug.step_mode)
     {
-        this.debug.ops.add(this.instruction_pointer >>> 0);
-        this.debug.ops.add("-- INT " + h(interrupt_nr));
-        this.debug.ops.add(1);
+        //this.debug.ops.add(this.instruction_pointer >>> 0);
+        //this.debug.ops.add("-- INT " + h(interrupt_nr));
+        //this.debug.ops.add(1);
     }
 
     //if(interrupt_nr == 0x13)

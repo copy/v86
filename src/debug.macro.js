@@ -11,7 +11,10 @@
      * @type {boolean}
      */
     debug.step_mode = false;
-    debug.ops = {};
+    debug.ops = undefined;
+    debug.all_ops = [];
+
+    debug.trace_all = false;
 
     // "log" some information visually to the user.
     // Also in non-DEBUG modes
@@ -38,7 +41,7 @@
         if(!DEBUG) return;
 
         // used for debugging 
-        debug.ops = new CircularQueue(30000);
+        debug.ops = new CircularQueue(200000);
 
         if(cpu.io)
         {
@@ -65,6 +68,7 @@
 
     debug.dump_regs = dump_regs;
     debug.dump_instructions = dump_instructions;
+    debug.get_instructions = get_instructions;
     debug.dump_regs_short = dump_regs_short;
     debug.dump_stack = dump_stack;
 
@@ -185,19 +189,20 @@
 
     debug.logop = function(_ip, op)
     {
-        if(!DEBUG || !debug.ops)
+        if(!DEBUG || !debug.step_mode)
         {
             return;
         }
-        if(!debug.step_mode)
-        {
-            return;
-        }
-        
 
-        debug.ops.add(_ip);
-        debug.ops.add(opcode_map[op] || "unkown");
-        debug.ops.add(op);
+        if(debug.trace_all && debug.all_ops)
+        {
+            debug.all_ops.push(_ip, op);
+        }
+        else if(debug.ops)
+        {
+            debug.ops.add(_ip);
+            debug.ops.add(op);
+        }
     }
 
     function dump_stack(start, end)
@@ -308,26 +313,51 @@
         
     }
 
+    function get_instructions()
+    {
+        if(!DEBUG) return;
+
+        debug.step_mode = true;
+
+        function add(ip, op)
+        {
+            out += h(ip, 8)  + ":        " + 
+                String.pads(opcode_map[op] || "unkown", 20) + h(op, 2) + "\n";
+        }
+
+        var opcodes;
+        var out = "";
+
+        if(debug.trace_all && debug.all_ops)
+        {
+            opcodes = debug.all_ops;
+        }
+        else if(debug.ops)
+        {
+            opcodes = debug.ops.toArray();
+        }
+
+        if(!opcodes)
+        {
+            return "";
+        }
+
+        for(var i = 0; i < opcodes.length; i += 2)
+        {
+            add(opcodes[i], opcodes[i + 1]);
+        }
+
+        debug.ops.clear();
+        debug.all_ops = [];
+
+        return out;
+    }
+
     function dump_instructions()
     {
         if(!DEBUG) return;
 
-        var opcodes = debug.ops.toArray(),
-            out = "";
-
-        for(var i = 0; i < opcodes.length; i += 3)
-        {
-            if(opcodes[i])
-            {
-                out += h(opcodes[i], 8)  + ":        " + 
-                    String.pads(opcodes[i + 1], 20) + h(opcodes[i + 2], 2) + "\n";
-            }
-        }
-
-        debug.show(out.substr(0, out.length - 1));
-
-        debug.ops.clear();
-        debug.step_mode = true;
+        debug.show(get_instructions());
     }
 
     function dump_gdt_ldt()

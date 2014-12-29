@@ -921,6 +921,15 @@
         $("dump_regs").onclick = debug.dump_regs.bind(debug);
         $("dump_pt").onclick = debug.dump_page_directory.bind(debug);
         $("dump_instructions").onclick = debug.dump_instructions.bind(debug);
+        $("dump_instructions_file").onclick = function()
+        {
+            var ins = debug.get_instructions();
+
+            if(ins)
+            {
+                dump_file(ins, "trace.txt");
+            }
+        };
 
         $("memory_dump").onclick = function()
         {
