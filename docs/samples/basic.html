@@ -8,7 +8,7 @@
 <!-- defines KeyboardAdapter -->
 <script src="../../src/browser/keyboard.js"></script>
 
-<!-- defines v86, SyncBuffer -->
+<!-- defines v86, SyncBuffer, Bus -->
 <script src="../../build/libv86.js"></script>
 
 
@@ -58,8 +58,16 @@ function cont(images)
         return;
     }
 
+    var bus = Bus.create();
+
     var container = document.getElementById("screen_container");
-    var cpu = new v86();
+    var cpu = new v86(bus[0]);
+
+    // Adapters implement the communication from or to the emulator. These
+    // default adapters (defined in browser/*.js) implement what you see
+    // on copy.sh/v86. You could change them to programatically control the emulator
+    var keyboard = new KeyboardAdapter(bus[1]);
+    var screen = new ScreenAdapter(container, bus[1]);
 
     cpu.init({
         // load_devices has to be set to true, otherwise no OS can run
@@ -77,12 +85,6 @@ function cont(images)
         // Only pass ArrayBuffers here
         bios: images.seabios,
         vga_bios: images.vga_bios,
-
-        // Adapters implement the communication from or to the emulator. These
-        // default adapters (defined in browser/*.js) implement what you see
-        // on copy.sh/v86. You could change them to programatically control the emulator
-        screen_adapter: new ScreenAdapter(container),
-        keyboard_adapter: new KeyboardAdapter(),
 
         vga_memory_size: 2 * 1024 * 1024, // default 8M
         memory_size: 32 * 1024 * 1024, // default 64M
