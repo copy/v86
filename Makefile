@@ -80,12 +80,11 @@ src/node/v86_node.js: src/*.js src/node/*.js
 		--js $(LIB_FILES)\
 		--js $(NODE_FILES)
 
-build/libv86.js: src/*.js build/cpu.js
+build/libv86.js: src/*.js build/cpu.js lib/*.js
 	cd src &&\
 	java -jar $(CLOSURE) \
 		--js_output_file "../build/libv86.js"\
 		--define=DEBUG=false\
-		--define=IN_CLOSURE=false\
 		--externs adapter-externs.js\
 		$(CLOSURE_FLAGS)\
 		$(CLOSURE_READABLE)\
