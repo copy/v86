@@ -1,7 +1,7 @@
 "use strict";
 
 /** @constructor */
-function MouseAdapter()
+function MouseAdapter(bus)
 {
     /** @const */
     var SPEED_FACTOR = 0.15;
@@ -22,12 +22,6 @@ function MouseAdapter()
     this.emu_enabled = true;
 
     this.bus = undefined;
-
-    function may_handle(e)
-    {
-        return mouse.enabled && mouse.emu_enabled && 
-            (!e.target || e.type === "mousemove" || (e.target.nodeName !== "INPUT" && e.target.nodeName !== "TEXTAREA"));
-    }
 
     this.destroy = function()
     {
@@ -52,6 +46,13 @@ function MouseAdapter()
             this.enabled = enabled;
         }, this);
     };
+    this.register(bus);
+
+    function may_handle(e)
+    {
+        return mouse.enabled && mouse.emu_enabled && 
+            (!e.target || e.type === "mousemove" || (e.target.nodeName !== "INPUT" && e.target.nodeName !== "TEXTAREA"));
+    }
 
     function mousemove_handler(e)
     {

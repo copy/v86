@@ -12,7 +12,7 @@ if(!window.requestAnimationFrame)
  * Adapter to use visual screen in browsers (in constrast to node)
  * @constructor
  */
-function ScreenAdapter(screen_container)
+function ScreenAdapter(screen_container, bus)
 {
     console.assert(screen_container, "1st argument must be a DOM container");
 
@@ -470,4 +470,6 @@ function ScreenAdapter(screen_container)
 
         row_element.appendChild(fragment);
     };
+
+    this.register(bus);
 }

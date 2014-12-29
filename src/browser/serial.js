@@ -3,12 +3,19 @@
 /**
  * @constructor
  */
-function SerialAdapter(element)
+function SerialAdapter(element, bus)
 {
     var serial = this;
 
     this.enabled = true;
     this.bus = undefined;
+
+    this.destroy = function() 
+    {
+        element.removeEventListener("keypress", keypress_handler, false);
+        element.removeEventListener("keydown", keydown_handler, false);
+        element.removeEventListener("paste", paste_handler, false);
+    };
 
     this.register = function(bus)
     {
@@ -24,13 +31,8 @@ function SerialAdapter(element)
         element.addEventListener("keydown", keydown_handler, false);
         element.addEventListener("paste", paste_handler, false);
     };
+    this.register(bus);
 
-    this.destroy = function() 
-    {
-        element.removeEventListener("keypress", keypress_handler, false);
-        element.removeEventListener("keydown", keydown_handler, false);
-        element.removeEventListener("paste", paste_handler, false);
-    };
 
     this.show_char = function(chr)
     {

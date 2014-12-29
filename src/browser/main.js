@@ -577,15 +577,15 @@
         // avoid warnings
         settings.fdb = undefined;
 
-        settings.screen_adapter = new ScreenAdapter($("screen_container"));;
-        settings.keyboard_adapter = new KeyboardAdapter();
-        settings.mouse_adapter = new MouseAdapter();
+        settings.screen_adapter = new ScreenAdapter($("screen_container"), adapter_bus);;
+        settings.keyboard_adapter = new KeyboardAdapter(adapter_bus);
+        settings.mouse_adapter = new MouseAdapter(adapter_bus);
 
         settings.boot_order = parseInt($("boot_order").value, 16);
-        settings.serial_adapter = new SerialAdapter($("serial"));
+        settings.serial_adapter = new SerialAdapter($("serial"), adapter_bus);
         //settings.serial_adapter = new ModemAdapter();
-        //settings.network_adapter = new NetworkAdapter("ws://localhost:8001/");
-        //settings.network_adapter = new NetworkAdapter("ws://relay.widgetry.org/");
+        //settings.network_adapter = new NetworkAdapter("ws://localhost:8001/", adapter_bus);
+        //settings.network_adapter = new NetworkAdapter("ws://relay.widgetry.org/", adapter_bus);
 
         if(!settings.memory_size)
         {
@@ -616,27 +616,6 @@
         }
 
         init_ui(settings, emulator);
-        
-        if(settings.mouse_adapter)
-        {
-            settings.mouse_adapter.register(adapter_bus);
-        }
-        if(settings.keyboard_adapter)
-        {
-            settings.keyboard_adapter.register(adapter_bus);
-        }
-        if(settings.serial_adapter)
-        {
-            settings.serial_adapter.register(adapter_bus);
-        }
-        if(settings.screen_adapter)
-        {
-            settings.screen_adapter.register(adapter_bus);
-        }
-        if(settings.network_adapter)
-        {
-            settings.network_adapter.register(adapter_bus);
-        }
 
         emulator.init(settings);
         

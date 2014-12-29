@@ -3,7 +3,7 @@
 /**
  * @constructor
  */
-function KeyboardAdapter()
+function KeyboardAdapter(bus)
 {
     var 
         /**
@@ -87,6 +87,13 @@ function KeyboardAdapter()
 
     this.bus = undefined;
 
+    this.destroy = function() 
+    {
+        window.removeEventListener("keyup", keyup_handler, false);
+        window.removeEventListener("keydown", keydown_handler, false);
+        window.removeEventListener("blur", blur_handler, false);
+    };
+
     this.register = function(bus)
     {
         this.destroy();
@@ -96,13 +103,7 @@ function KeyboardAdapter()
         window.addEventListener("keydown", keydown_handler, false);
         window.addEventListener("blur", blur_handler, false);
     };
-
-    this.destroy = function() 
-    {
-        window.removeEventListener("keyup", keyup_handler, false);
-        window.removeEventListener("keydown", keydown_handler, false);
-        window.removeEventListener("blur", blur_handler, false);
-    };
+    this.register(bus);
 
 
     function may_handle(e)

@@ -8,7 +8,7 @@
  *
  * @constructor
  */
-function NetworkAdapter(url)
+function NetworkAdapter(url, bus)
 {
     this.send_data = function(x) {};
 
@@ -20,6 +20,8 @@ function NetworkAdapter(url)
     this.reconnect_interval = 10000;
     this.last_connect_attempt = Date.now() - this.reconnect_interval;
     this.send_queue_limit = 64;
+
+    this.register(bus);
 }
 
 NetworkAdapter.prototype.handle_message = function(e)
