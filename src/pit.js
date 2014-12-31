@@ -37,17 +37,10 @@ function PIT(cpu)
     // TODO:
     // - counter2 can be controlled by an input
 
-    var parity = 0;
-
     cpu.io.register_read(0x61, this, function()
     {
-        // > xxx1 xxxx  0=RAM parity error enable
-        // >            PS/2: Read:  This bit tiggles for each refresh request.
-        // 
-        // tiggles??
-        
-        parity ^= 0x10;
-        return parity | this.counter2_out << 5;
+        var ref_toggle = (v86.microtick() * (1000 * 1000 / 15000)) & 1;
+        return ref_toggle << 4 | this.counter2_out << 5;
     });
 
     cpu.io.register_read(0x40, this, function() { return this.counter_read(0); });
