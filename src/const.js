@@ -274,4 +274,4 @@ var
 
 var 
     /** @const */
-    TSC_RATE = 1024;
+    TSC_RATE = 8 * 1024;
