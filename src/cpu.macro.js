@@ -1812,19 +1812,19 @@ CPU.prototype.cpuid = function()
             switch(this.reg32s[reg_ecx])
             {
                 case 0:
-                    eax = 0x0c000121; 
+                    eax = 0x00000121; 
                     ebx = 0x01c0003f; 
                     ecx = 0x0000003f; 
                     edx = 0x00000001;
                     break;
                 case 1:
-                    eax = 0x0c000122; 
+                    eax = 0x00000122; 
                     ebx = 0x01c0003f; 
                     ecx = 0x0000003f; 
                     edx = 0x00000001;
                     break
                 case 2:
-                    eax = 0x0c004143; 
+                    eax = 0x00000143; 
                     ebx = 0x05c0003f; 
                     ecx = 0x00000fff; 
                     edx = 0x00000001;
@@ -1841,6 +1841,8 @@ CPU.prototype.cpuid = function()
         default:
             dbg_log("cpuid: unimplemented eax: " + h(this.reg32[reg_eax]), LOG_CPU);
     }
+
+    //dbg_log("cpuid: eax=" + h(this.reg32[reg_eax], 8) + " cl=" + h(this.reg8[reg_cl], 2), LOG_CPU);
 
     this.reg32s[reg_eax] = eax;
     this.reg32s[reg_ecx] = ecx;
