@@ -89,9 +89,9 @@ function KeyboardAdapter(bus)
         0, 0, 0, 0x1A,  0x2B, 0x1B, 0x28, 0,
 
         // 0xE0
-        // Right alt
-        0, 0xE038, 0, 0,  0, 0, 0, 0,
-        0, 0, 0, 0,       0, 0, 0, 0,
+        // Apple key on Gecko, Right alt
+        0xE05B, 0xE038, 0, 0,  0, 0, 0, 0,
+        0, 0, 0, 0,            0, 0, 0, 0,
     ]);
 
     this.bus = undefined;
