@@ -813,6 +813,18 @@
             $("ctrlaltdel").blur();
         };
 
+        $("alttab").onclick = function()
+        {
+            var ps2 = emulator.cpu.devices.ps2;
+
+            ps2.kbd_send_code(0x38); // alt
+            ps2.kbd_send_code(0x0F); // tab
+            ps2.kbd_send_code(0x38 | 0x80);
+            ps2.kbd_send_code(0x0F | 0x80);
+
+            $("alttab").blur();
+        };
+
         $("scale").onchange = function()
         {
             var n = parseFloat(this.value);
