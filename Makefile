@@ -12,7 +12,6 @@ endif
 
 all: build/v86_all.js
 browser: build/v86_all.js
-node: src/node/v86_node.js
 
 build/cpu.js: src/*.macro.js
 	# build cpu.macro.js using cpp or mcpp
@@ -43,8 +42,6 @@ LIB_FILES=../lib/9p.js ../lib/filesystem.js ../lib/jor1k.js ../lib/marshall.js .
 BROWSER_FILES=browser/main.js browser/screen.js\
 			  browser/keyboard.js browser/mouse.js browser/serial.js\
 			  browser/network.js browser/lib.js
-NODE_FILES=node/main.js node/keyboard_sdl.js\
-		   node/screen_sdl.js node/keyboard_tty.js node/screen_tty.js
 
 build/v86_all.js: src/*.js src/browser/*.js build/cpu.js lib/*.js
 	-ls -lh build/v86_all.js
@@ -65,20 +62,6 @@ build/v86_all.js: src/*.js src/browser/*.js build/cpu.js lib/*.js
 	echo "//# sourceMappingURL=v86_all.js.map" >> build/v86_all.js
 	ls -lh build/v86_all.js
 
-
-src/node/v86_node.js: src/*.js src/node/*.js
-	cd src &&\
-	java -jar $(CLOSURE) \
-		--js_output_file "node/v86_node.js"\
-		--define=DEBUG=false\
-		--define=IN_NODE=true\
-		--define=IN_BROWSER=false\
-		--define=IN_WORKER=false\
-		$(CLOSURE_FLAGS)\
-		$(CLOSURE_READABLE)\
-		--js $(CORE_FILES)\
-		--js $(LIB_FILES)\
-		--js $(NODE_FILES)
 
 build/libv86.js: src/*.js build/cpu.js lib/*.js
 	cd src &&\
