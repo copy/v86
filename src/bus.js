@@ -30,6 +30,8 @@ Bus.Connector.prototype.register = function(name, fn, thisValue)
 };
 
 /**
+ * Send ("emit") a message
+ *
  * @param {string} name
  * @param {Object=} value
  */
@@ -54,6 +56,19 @@ Bus.Connector.prototype.send = function(name, value)
         var listener = listeners[i];
         listener.fn.call(listener.thisValue, value);
     }
+};
+
+/**
+ * Send a message, guaranteeing that it is received asynchronously
+ *
+ * @param {string} name
+ * @param {Object=} value
+ */
+Bus.Connector.prototype.send_async = function(name, value)
+{
+    dbg_assert(arguments.length === 1 || arguments.length === 2);
+
+    setTimeout(this.send.bind(this, name, value), 0);
 };
 
 
