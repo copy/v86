@@ -58,9 +58,7 @@ v86.prototype.do_tick = function()
     this.running = true;
     var dt = this.cpu.main_run();
 
-    //this.next_tick(dt);
-    var me = this;
-    setTimeout(function() { me.do_tick(); }, dt);
+    this.next_tick(dt);
 };
 
 v86.prototype.stop = function()
