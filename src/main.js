@@ -35,14 +35,15 @@ function v86(bus)
     bus.register("cpu-run", this.run, this);
     bus.register("cpu-stop", this.stop, this);
 
-    this.next_tick = function() {};
+    this.fast_next_tick = function() { console.assert(false); };
+    this.next_tick = function(time) { console.assert(false); };
 }
 
 v86.prototype.run = function() 
 {
     if(!this.running)
     {
-        this.next_tick();
+        this.fast_next_tick();
     }
 };
 
@@ -55,9 +56,11 @@ v86.prototype.do_tick = function()
     }
 
     this.running = true;
-    this.cpu.main_run();
+    var dt = this.cpu.main_run();
 
-    this.next_tick();
+    //this.next_tick(dt);
+    var me = this;
+    setTimeout(function() { me.do_tick(); }, dt);
 };
 
 v86.prototype.stop = function()
@@ -92,7 +95,7 @@ v86.prototype.lazy_init = function()
 
     if(typeof setImmediate !== "undefined")
     {
-        this.next_tick = function()
+        this.fast_next_tick = function()
         {
             setImmediate(function() { emulator.do_tick(); });
         };
@@ -114,19 +117,44 @@ v86.prototype.lazy_init = function()
             }
         }, false);
 
-        this.next_tick = function()
+        this.fast_next_tick = function()
         {
             window.postMessage(MAGIC_POST_MESSAGE, "*");
         };
     }
     else
     {
-        this.next_tick = function()
+        this.fast_next_tick = function()
         {
             setTimeout(function() { emulator.do_tick(); }, 0);
         };
     }
 
+    if(typeof document !== "undefined" && typeof document.hidden === "boolean")
+    {
+        this.next_tick = function(t)
+        {
+            if(t < 4 || document.hidden)
+            {
+                // Avoid sleeping for 1 second (happens if page is not
+                // visible), it can break boot processes. Also don't try to
+                // sleep for less than 4ms, since the value is clamped up
+                this.fast_next_tick();
+            }
+            else
+            {
+                setTimeout(function() { emulator.do_tick(); }, t);
+            }
+        };
+    }
+    else
+    {
+        // In environments that aren't browsers, we might as well use setTimeout
+        this.next_tick = function(t)
+        {
+            setTimeout(function() { emulator.do_tick(); }, t);
+        };
+    }
 };
 
 v86.prototype.save_state = function()

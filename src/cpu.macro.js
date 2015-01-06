@@ -282,13 +282,16 @@ CPU.prototype._state_restore = function()
 #include "misc_instr.macro.js"
 
 
+/**
+ * @return {number} time in ms until this method should becalled again
+ */
 CPU.prototype.main_run = function()
 {
     try 
     {
         if(this.in_hlt)
         {
-            this.hlt_loop();
+            return this.hlt_loop();
         }
         else
         {
@@ -299,6 +302,8 @@ CPU.prototype.main_run = function()
     {
         this.exception_cleanup(e);
     }
+
+    return 0;
 };
 
 CPU.prototype.exception_cleanup = function(e)
@@ -686,15 +691,7 @@ CPU.prototype.hlt_loop = function()
 
     this.devices.vga.timer(now);
 
-    //if(this.in_hlt)
-    //{
-    //    var me = this;
-    //    setTimeout(function() { me.hlt_loop(); }, 0);
-    //}
-    //else
-    //{
-    //    this.next_tick();
-    //}
+    return 4;
 };
 
 CPU.prototype.cr0_changed = function(old_cr0)
