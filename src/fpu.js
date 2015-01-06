@@ -640,8 +640,7 @@ FPU.prototype._dbg_log_fpu_op = function(op, imm8)
 
 FPU.prototype.fwait = function()
 {
-    // TODO:
-    // Exceptions
+    // NOP unless FPU instructions run in parallel with CPU instructions
 };
 
 
