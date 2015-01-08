@@ -37,7 +37,7 @@ CLOSURE_FLAGS=\
 
 CORE_FILES=const.js io.js main.js lib.js fpu.js ide.js pci.js floppy.js memory.js\
 		   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js\
-		   state.js ne2k.js virtio.js bus.js
+		   state.js ne2k.js virtio.js bus.js log.js
 LIB_FILES=../lib/9p.js ../lib/filesystem.js ../lib/jor1k.js ../lib/marshall.js ../lib/utf8.js
 BROWSER_FILES=browser/main.js browser/screen.js\
 			  browser/keyboard.js browser/mouse.js browser/serial.js\
