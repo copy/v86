@@ -6,6 +6,14 @@ var
     /** @const */
     HD_SECTOR_SIZE = 512;
 
+var /** @const */
+    IDE_CALLBACK_NONE = 0,
+
+    /** @const */
+    IDE_CALLBACK_WRITE = 1,
+
+    /** @const */
+    IDE_CALLBACK_ATAPI = 2;
 
 /** @constructor */
 function IDEDevice(cpu, buffer, is_cd, nr)
@@ -180,8 +188,7 @@ function IDEDevice(cpu, buffer, is_cd, nr)
     this.data_port_current = 0;
     this.data_port_buffer = new Uint8Array(0);
 
-    this.data_port_callback = null;
-
+    this.data_port_callback = IDE_CALLBACK_NONE;
 
     /** @type {number} */
     this.next_status = -1;
@@ -273,6 +280,26 @@ function IDEDevice(cpu, buffer, is_cd, nr)
         "stats",
     ];
 }
+
+IDEDevice.prototype.do_callback = function()
+{
+    switch(this.data_port_callback)
+    {
+        case IDE_CALLBACK_NONE:
+            break;
+
+        case IDE_CALLBACK_WRITE:
+            this.do_write();
+            break;
+
+        case IDE_CALLBACK_ATAPI:
+            this.atapi_handle();
+            break;
+
+        default:
+            dbg_assert(false, "Invalid IDE callback: " + this.data_port_callback);
+    }
+};
 
 
 IDEDevice.prototype.push_irq = function()
@@ -374,7 +401,7 @@ IDEDevice.prototype.ata_command = function(cmd)
                 // ATA_CMD_PACKET
                 this.status = 0x58;
                 this.allocate_in_buffer(12);
-                this.data_port_callback = "atapi_handle";
+                this.data_port_callback = IDE_CALLBACK_ATAPI;
 
                 this.bytecount = 1;
                 this.push_irq();
@@ -460,7 +487,7 @@ IDEDevice.prototype.ata_command = function(cmd)
     }
 };
 
-IDEDevice.prototype["atapi_handle"] = function()
+IDEDevice.prototype.atapi_handle = function()
 {
     dbg_log("ATAPI Command: " + h(this.data_port_buffer[0]), LOG_DISK);
 
@@ -619,7 +646,7 @@ IDEDevice.prototype["atapi_handle"] = function()
     }
 };
 
-IDEDevice.prototype["do_write"] = function()
+IDEDevice.prototype.do_write = function()
 {
     this.status = 0x50;
 
@@ -940,8 +967,7 @@ IDEDevice.prototype.write_data_port8 = function(data)
 
         if(this.data_port_current === this.data_port_count)
         {
-            dbg_assert(typeof this[this.data_port_callback] === "function");
-            this[this.data_port_callback]();
+            this.do_callback();
         }
     }
 };
@@ -1156,7 +1182,7 @@ IDEDevice.prototype.ata_write = function(cmd)
         this.allocate_in_buffer(byte_count);
 
         this.write_dest = start;
-        this.data_port_callback = "do_write";
+        this.data_port_callback = IDE_CALLBACK_WRITE;
 
         //this.bytecount = 1;
         this.push_irq();
