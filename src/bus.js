@@ -9,6 +9,11 @@ Bus.Connector = function()
     this.pair = undefined;
 };
 
+/**
+ * @param {string} name
+ * @param {function()} fn
+ * @param {Object} thisValue
+ */
 Bus.Connector.prototype.register = function(name, fn, thisValue)
 {
     var listeners = this.listeners[name];
@@ -21,6 +26,27 @@ Bus.Connector.prototype.register = function(name, fn, thisValue)
     listeners.push({
         fn: fn,
         thisValue: thisValue,
+    });
+};
+
+/**
+ * Unregister one message with the given name and callback
+ *
+ * @param {string} name
+ * @param {function()} fn
+ */
+Bus.Connector.prototype.unregister = function(name, fn)
+{
+    var listeners = this.listeners[name];
+
+    if(listeners === undefined)
+    {
+        return;
+    }
+
+    this.listeners[name] = listeners.filter(function(l)
+    {
+        return l.fn !== fn
     });
 };
 
