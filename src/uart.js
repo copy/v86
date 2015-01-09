@@ -55,6 +55,8 @@ function UART(cpu, port, bus)
 
     this.input = new ByteQueue(4096);
 
+    this.current_line = "";
+
     if(port === 0x3E8 || port === 0x3F8)
     {
         this.irq = 4;
@@ -96,7 +98,20 @@ function UART(cpu, port, bus)
             return;
         }
 
-        this.bus.send("serial0-output", String.fromCharCode(out_byte));
+        var char = String.fromCharCode(out_byte);
+
+        this.bus.send("serial0-output-char", char);
+
+        if(this.bus.should_send("serial0-output-line"))
+        {
+            this.current_line += char;
+
+            if(char === "\n")
+            {
+                this.bus.send("serial0-output-line", this.current_line);
+                this.current_line = "";
+            }
+        }
     });
 
     io.register_write(port | 1, this, function(out_byte)

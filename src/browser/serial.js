@@ -22,7 +22,7 @@ function SerialAdapter(element, bus)
         this.destroy();
         this.bus = bus;
 
-        bus.register("serial0-output", function(chr)
+        bus.register("serial0-output-char", function(chr)
         {
             this.show_char(chr);
         }, this);
