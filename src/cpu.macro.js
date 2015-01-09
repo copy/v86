@@ -488,14 +488,7 @@ CPU.prototype.init = function(settings, device_bus)
 
         this.devices.ps2 = new PS2(this, device_bus);
 
-        if(settings.serial_adapter)
-        {
-            this.devices.uart = new UART(this, 0x3F8, device_bus);
-        }
-        else
-        {
-            this.devices.uart = new UART(this, 0x3F8, device_bus);
-        }
+        this.devices.uart = new UART(this, 0x3F8, device_bus);
 
         this.devices.fdc = new FloppyController(this, settings.fda, settings.fdb);
 
