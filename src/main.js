@@ -84,6 +84,7 @@ v86.prototype.init = function(settings)
     }
 
     this.cpu.init(settings, this.bus);
+    this.bus.send_async("emulator-ready");
 };
 
 // initialization that only needs to be once
@@ -157,11 +158,13 @@ v86.prototype.lazy_init = function()
 
 v86.prototype.save_state = function()
 {
+    // TODO: Should be implemented here, not on cpu
     return this.cpu.save_state();
 };
 
 v86.prototype.restore_state = function(state)
 {
+    // TODO: Should be implemented here, not on cpu
     return this.cpu.restore_state(state);
 };
 

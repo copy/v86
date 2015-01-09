@@ -48,11 +48,6 @@ function h(n, len)
     }
 }
 
-if(typeof window === "object")
-{
-    window["SyncBuffer"] = SyncBuffer;
-}
-
 /** 
  * Synchronous access to ArrayBuffer
  * @constructor

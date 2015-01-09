@@ -19,7 +19,8 @@ build/cpu.js: src/*.macro.js
 
 # Used for nodejs builds and in order to profile code.
 # `debug` gives identifiers a readable name, make sure it doesn't have any side effects. 
-CLOSURE_READABLE=--formatting PRETTY_PRINT --debug
+#CLOSURE_READABLE=--formatting PRETTY_PRINT --debug
+CLOSURE_READABLE=--formatting PRETTY_PRINT
 
 CLOSURE_SOURCE_MAP=\
 		--source_map_format V3\
@@ -39,9 +40,9 @@ CORE_FILES=const.js io.js main.js lib.js fpu.js ide.js pci.js floppy.js memory.j
 		   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js\
 		   state.js ne2k.js virtio.js bus.js log.js
 LIB_FILES=../lib/9p.js ../lib/filesystem.js ../lib/jor1k.js ../lib/marshall.js ../lib/utf8.js
-BROWSER_FILES=browser/main.js browser/screen.js\
+BROWSER_FILES=browser/screen.js\
 			  browser/keyboard.js browser/mouse.js browser/serial.js\
-			  browser/network.js browser/lib.js
+			  browser/network.js browser/lib.js browser/starter.js
 
 build/v86_all.js: src/*.js src/browser/*.js build/cpu.js lib/*.js
 	-ls -lh build/v86_all.js
@@ -57,21 +58,26 @@ build/v86_all.js: src/*.js src/browser/*.js build/cpu.js lib/*.js
 		--js $(CORE_FILES)\
 		--js $(LIB_FILES)\
 		--js $(BROWSER_FILES)\
-	 	--js ../build/cpu.js
+	 	--js ../build/cpu.js\
+	 	--js browser/main.js
 
 	echo "//# sourceMappingURL=v86_all.js.map" >> build/v86_all.js
 	ls -lh build/v86_all.js
 
 
-build/libv86.js: src/*.js build/cpu.js lib/*.js
+build/libv86.js: src/*.js build/cpu.js lib/*.js src/browser/*.js
 	cd src &&\
 	java -jar $(CLOSURE) \
 		--js_output_file "../build/libv86.js"\
 		--define=DEBUG=false\
-		--externs adapter-externs.js\
+		--define=IN_NODE=false\
+		--define=IN_BROWSER=true\
+		--define=IN_WORKER=false\
 		$(CLOSURE_FLAGS)\
 		$(CLOSURE_READABLE)\
+		--output_wrapper ';(function(){%output%})();'\
 		--js $(CORE_FILES)\
+		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)\
 	 	--js ../build/cpu.js
 
