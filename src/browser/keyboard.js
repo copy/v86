@@ -13,7 +13,11 @@ function KeyboardAdapter(bus)
 
         keyboard = this;
 
-    this.enabled = true;
+    /** 
+     * Set by emulator
+     * @type {boolean}
+     */
+    this.emu_enabled = true;
 
     /** 
      * Format:
@@ -124,7 +128,7 @@ function KeyboardAdapter(bus)
               return false;
         }
 
-        if(!keyboard.enabled)
+        if(!keyboard.emu_enabled)
         {
             return false;
         }
