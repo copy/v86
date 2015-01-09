@@ -12,9 +12,9 @@ Bus.Connector = function()
 /**
  * @param {string} name
  * @param {function()} fn
- * @param {Object} thisValue
+ * @param {Object} this_value
  */
-Bus.Connector.prototype.register = function(name, fn, thisValue)
+Bus.Connector.prototype.register = function(name, fn, this_value)
 {
     var listeners = this.listeners[name];
 
@@ -25,7 +25,7 @@ Bus.Connector.prototype.register = function(name, fn, thisValue)
 
     listeners.push({
         fn: fn,
-        thisValue: thisValue,
+        this_value: this_value,
     });
 };
 
@@ -75,7 +75,7 @@ Bus.Connector.prototype.send = function(name, value)
     for(var i = 0; i < listeners.length; i++)
     {
         var listener = listeners[i];
-        listener.fn.call(listener.thisValue, value);
+        listener.fn.call(listener.this_value, value);
     }
 };
 
