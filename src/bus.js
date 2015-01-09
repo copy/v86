@@ -2,11 +2,6 @@
 
 var Bus = {};
 
-if(typeof window === "object")
-{
-    window["Bus"] = Bus;
-}
-
 /** @constructor */
 Bus.Connector = function()
 {
@@ -71,6 +66,24 @@ Bus.Connector.prototype.send_async = function(name, value)
     setTimeout(this.send.bind(this, name, value), 0);
 };
 
+/**
+ * Return true if a message with the given name should be sent. That is, if
+ * there are any listeners for this message
+ *
+ * @param {string} name
+ * @return {boolean}
+ */
+Bus.Connector.prototype.should_send = function(name)
+{
+    if(!this.pair)
+    {
+        return false;
+    }
+
+    var listeners = this.pair.listeners[name];
+
+    return listeners !== undefined && listeners.length > 0;
+};
 
 Bus.create = function()
 {
