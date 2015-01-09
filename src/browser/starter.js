@@ -446,7 +446,7 @@ V86Starter.prototype.serial0_send = function(data)
 {
     for(var i = 0; i < data.length; i++)
     {
-        this.serial_adapter.send_char(data.charCodeAt(i));
+        this.bus.send("serial0-input", data.charCodeAt(i));
     }
 };
 
