@@ -436,6 +436,19 @@ V86Starter.prototype.mouse_set_status = function(enabled)
     }
 };
 
+/** 
+ * Enable or disable sending keyboard events to the emulated PS2 controller
+ *
+ * @param {boolean} enabled
+ */
+V86Starter.prototype.keyboard_set_status = function(enabled)
+{
+    if(this.keyboard_adapter)
+    {
+        this.keyboard_adapter.emu_enabled = enabled;
+    }
+};
+
 
 /** 
  * Send a string to the first emulated serial terminal
@@ -470,5 +483,6 @@ if(typeof window !== "undefined")
     V86Starter.prototype["screen_go_fullscreen"] = V86Starter.prototype.screen_go_fullscreen;
     V86Starter.prototype["lock_mouse"] = V86Starter.prototype.lock_mouse;
     V86Starter.prototype["mouse_set_status"] = V86Starter.prototype.mouse_set_status;
+    V86Starter.prototype["keyboard_set_status"] = V86Starter.prototype.keyboard_set_status;
     V86Starter.prototype["serial0_send"] = V86Starter.prototype.serial0_send;
 }
