@@ -13,7 +13,7 @@ function PS2(cpu, bus)
     /** @type {boolean} */
     this.enable_mouse_stream = false;
     /** @type {boolean} */
-    this.enable_mouse = false;
+    this.use_mouse = false;
 
     /** @type {boolean} */
     this.have_mouse = true;
@@ -141,7 +141,7 @@ PS2.prototype.kbd_send_code = function(code)
 
 PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
 {
-    if(!this.have_mouse || !this.enable_mouse)
+    if(!this.have_mouse || !this.use_mouse)
     {
         return;
     }
@@ -178,7 +178,7 @@ PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
 
 PS2.prototype.mouse_send_click = function(left, middle, right)
 {
-    if(!this.have_mouse || !this.enable_mouse)
+    if(!this.have_mouse || !this.use_mouse)
     {
         return;
     }
@@ -461,7 +461,7 @@ PS2.prototype.port60_write = function(write_byte)
         case 0xF4:
             // enable streaming
             this.enable_mouse_stream = true;
-            this.enable_mouse = true;
+            this.use_mouse = true;
             this.bus.send("mouse-enable", true);
 
             this.mouse_clicks = this.mouse_delta_x = this.mouse_delta_y = 0;
@@ -482,7 +482,7 @@ PS2.prototype.port60_write = function(write_byte)
             this.mouse_buffer.push(0xAA);
             this.mouse_buffer.push(0);
 
-            //this.enable_mouse = true;
+            this.use_mouse = true;
             this.bus.send("mouse-enable", true);
 
             this.enable_mouse_stream = false;
