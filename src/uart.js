@@ -30,7 +30,7 @@ function UART(cpu, port, bus)
 
     this.pic = cpu.devices.pic;
 
-    this.interrupts = 0;
+    this.ints = 0;
 
     this.baud_rate = 0;
 
@@ -38,7 +38,6 @@ function UART(cpu, port, bus)
     this.line_status = 0;
 
     this.fifo_control = 0;
-
 
     // interrupts enable
     this.ier = 0;
@@ -88,10 +87,7 @@ function UART(cpu, port, bus)
 
         dbg_log("data: " + h(out_byte), LOG_SERIAL);
 
-        if(this.ier & UART_IER_THRI)
-        {
-            this.push_irq();
-        }
+        this.ThrowTHRI();
 
         if(out_byte === 0xFF)
         {
@@ -125,6 +121,7 @@ function UART(cpu, port, bus)
         {
             this.ier = out_byte;
             dbg_log("interrupt enable: " + h(out_byte), LOG_SERIAL);
+            this.NextInterrupt();
         }
     });
 
@@ -258,7 +255,7 @@ UART.prototype.push_irq = function()
 
 UART.prototype.clear_interrupt = function(line)
 {
-    this.interrupts &= ~(1 << line);
+    this.ints &= ~(1 << line);
     this.iir = UART_IIR_NO_INT;
 
     if(line === this.iir) 
@@ -269,17 +266,54 @@ UART.prototype.clear_interrupt = function(line)
 
 UART.prototype.next_interrupt = function()
 {
-    if ((this.interrupts & (1 << UART_IIR_CTI)) && (this.ier & UART_IER_RDI)) {
-        //this.ThrowCTI();
+    if ((this.ints & (1 << UART_IIR_CTI)) && (this.ier & UART_IER_RDI)) {
+        this.ThrowCTI();
     }
-    else if ((this.interrupts & (1 << UART_IIR_THRI)) && (this.ier & UART_IER_THRI)) {
-        //this.ThrowTHRI();
+    else if ((this.ints & (1 << UART_IIR_THRI)) && (this.ier & UART_IER_THRI)) {
+        this.ThrowTHRI();
     }
     else {
         this.iir = UART_IIR_NO_INT;
         //this.intdev.ClearInterrupt(0x2);
     }
 };
+
+UART.prototype.ThrowCTI = function() {
+    this.ints |= 1 << UART_IIR_CTI;
+    if (!(this.ier & UART_IER_RDI)) {
+        return;
+    }
+    if ((this.iir != UART_IIR_RLSI) && (this.iir != UART_IIR_RDI)) {
+        this.iir = UART_IIR_CTI;
+        this.push_irq();
+    }
+};
+
+
+UART.prototype.ThrowTHRI = function() {
+    this.ints |= 1 << UART_IIR_THRI;
+    if (!(this.ier & UART_IER_THRI)) {
+        return;
+    }
+    if ((this.iir & UART_IIR_NO_INT) || (this.iir == UART_IIR_MSI) || (this.iir == UART_IIR_THRI)) {
+        this.iir = UART_IIR_THRI;
+        this.push_irq();
+    }
+};
+
+UART.prototype.NextInterrupt = function() {
+    if ((this.ints & (1 << UART_IIR_CTI)) && (this.ier & UART_IER_RDI)) {
+        this.ThrowCTI();
+    }
+    else if ((this.ints & (1 << UART_IIR_THRI)) && (this.ier & UART_IER_THRI)) {
+        this.ThrowTHRI();
+    }
+    else {
+        this.iir = UART_IIR_NO_INT;
+        //this.intdev.ClearInterrupt(0x2);
+    }
+};
+
 
 /** 
  * @param {number} data
@@ -288,11 +322,10 @@ UART.prototype.data_received = function(data)
 {
     dbg_log("input: " + h(data), LOG_SERIAL);
     this.input.push(data);
-    this.interrupts |= 1 << UART_IIR_CTI;
+    this.ints |= 1 << UART_IIR_CTI;
 
     if(this.ier & UART_IER_RDI)
     {
-        this.iir = UART_IIR_CTI;
-        this.push_irq();
+        this.ThrowCTI();
     }
 };
