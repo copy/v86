@@ -513,7 +513,7 @@ CPU.prototype.init = function(settings, device_bus)
         this.devices.pit = new PIT(this);
         this.devices.rtc = new RTC(this, this.devices.fdc.type, settings.boot_order || 0x213);
 
-        if(settings.network_adapter)
+        if(settings.enable_ne2k)
         {
             this.devices.net = new Ne2k(this, device_bus);
         }
