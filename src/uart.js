@@ -98,16 +98,15 @@ function UART(cpu, port, bus)
 
         this.bus.send("serial0-output-char", char);
 
-        if(this.bus.should_send("serial0-output-line"))
-        {
-            this.current_line += char;
-
-            if(char === "\n")
-            {
-                this.bus.send("serial0-output-line", this.current_line);
-                this.current_line = "";
-            }
-        }
+        //if(this.bus.should_send("serial0-output-line"))
+        //{
+        //    this.current_line += char;
+        //    if(char === "\n")
+        //    {
+        //        this.bus.send("serial0-output-line", this.current_line);
+        //        this.current_line = "";
+        //    }
+        //}
     });
 
     io.register_write(port | 1, this, function(out_byte)
