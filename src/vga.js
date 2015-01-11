@@ -147,7 +147,6 @@ function VGAScreen(cpu, bus, vga_memory_size)
 
     this.index_crtc = 0;
 
-
     // index for setting colors through port 3C9h
     this.dac_color_index = 0;
 
@@ -1291,16 +1290,3 @@ VGAScreen.prototype.svga_register_read = function(n)
 };
 
 
-/** @constructor */
-function VGADummyAdapter()
-{
-    this.put_pixel_linear = function() {};
-    this.put_pixel_linear32 = function() {};
-    this.put_char = function() {};
-    this.set_mode = function() {};
-    this.set_size_graphical = function() {};
-    this.set_size_text = function() {};
-    this.update_cursor = function() {};
-    this.update_cursor_scanline = function() {};
-    this.timer = function() {};
-}
