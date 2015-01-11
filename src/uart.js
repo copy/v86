@@ -143,6 +143,11 @@ function UART(cpu, port, bus)
                 dbg_log("Read input: " + h(data), LOG_SERIAL);
             }
 
+            if(this.input.length)
+            {
+                this.ThrowCTI();
+            }
+
             return data;
         }
     });
@@ -166,11 +171,11 @@ function UART(cpu, port, bus)
 
         if(this.iir === UART_IIR_THRI)
         {
-            this.clear_interrupt(UART_IIR_THRI);
+            this.ClearInterrupt(UART_IIR_THRI);
         }
         else if(this.iir === UART_IIR_CTI)
         {
-            this.clear_interrupt(UART_IIR_CTI);
+            this.ClearInterrupt(UART_IIR_CTI);
         }
 
         return ret;
@@ -252,28 +257,14 @@ UART.prototype.push_irq = function()
     this.pic.push_irq(this.irq);
 };
 
-UART.prototype.clear_interrupt = function(line)
+UART.prototype.ClearInterrupt = function(line)
 {
     this.ints &= ~(1 << line);
     this.iir = UART_IIR_NO_INT;
 
     if(line === this.iir) 
     {
-        this.next_interrupt();
-    }
-};
-
-UART.prototype.next_interrupt = function()
-{
-    if ((this.ints & (1 << UART_IIR_CTI)) && (this.ier & UART_IER_RDI)) {
-        this.ThrowCTI();
-    }
-    else if ((this.ints & (1 << UART_IIR_THRI)) && (this.ier & UART_IER_THRI)) {
-        this.ThrowTHRI();
-    }
-    else {
-        this.iir = UART_IIR_NO_INT;
-        //this.intdev.ClearInterrupt(0x2);
+        this.NextInterrupt();
     }
 };
 
