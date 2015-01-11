@@ -1,10 +1,54 @@
 "use strict";
 
-/** @constructor */
+/** 
+ * Constructor for emulator instances.
+ *
+ * Usage: `var emulator = new V86Starter(options);`
+ *
+ * Options can have the following properties (all optional, default in parenthesis):
+ *
+ * - `memory_size number` (16 * 1024 * 1024) - The memory size in bytes, should
+ *   be a power of 2.
+ * - `vga_memory_size number` (8 * 1024 * 1024) - VGA memory size in bytes.
+ * - `autostart boolean` (false) - If emulation should be started when emulator
+ *   is ready.
+ * - `disable_keyboard boolean` (false) - If the keyboard should be disabled.
+ * - `disable_mouse boolean` (false) - If the mouse should be disabled.
+ * - `network_relay_url string` (No network card) - The url of a server running
+ *   websockproxy. See
+ *   https://github.com/copy/v86/blob/master/docs/networking.md.
+ * - `bios Object` (No bios) - Either a url pointing to a bios or an
+ *   ArrayBuffer, see below.
+ * - `vga_bios Object` (No VGA bios) - VGA bios, see below.
+ * - `hda Object` (No hard drive) - First hard disk, see below.
+ * - `fda Object` (No floppy disk) - First floppy disk, see below.
+ * - `cdrom Object` (No cd drive) - CD disk, see below.
+ * - `initial_state Object` (Normal boot) - An initial state to load, see
+ *   [`restore_state`](#restore_statearraybuffer-state) and below.
+ * - `serial_container HTMLTextAreaElement` (No serial terminal) - A textarea
+ *   that will receive and send data to the emulated serial terminal.
+ *   Alternatively the serial terminal can also be accessed programatically,
+ *   see https://github.com/copy/v86/blob/master/docs/samples/serial.html.
+ * - `screen_container HTMLElement` (No screen) - An HTMLElement. This should
+ *   have a certain structure, see
+ *   https://github.com/copy/v86/blob/master/docs/samples/basic.html.
+ *
+ * There are two ways to load images (`bios`, `vga_bios`, `cdrom`, `hda`, ...):
+ *
+ * - Pass an object that has a url: `options.bios = { url:
+ *   "http://copy.sh/v86/bios/seabios.bin" }`. Optionally, `async: true` can be
+ *   added to the object, so that sectors of the image are loaded on demand
+ *   instead of being loaded before boot (slower, but strongly recommended for
+ *   big files).
+ * - Pass an `ArrayBuffer` or `File` object, for instance `options.hda = {
+ *   buffer: new ArrayBuffer(512 * 1024) }` to add an empty hard drive.
+ *
+ *
+ * @param {Object} options Options to initialize the emulator with.
+ * @constructor 
+ */
 function V86Starter(options)
 {
-    this.screen_adapter = undefined;
-
     var bus = Bus.create();
     var adapter_bus = this.bus = bus[0];
 
@@ -224,7 +268,8 @@ function V86Starter(options)
 }
 
 /**
- * Start emulation. Do nothing if emulator is running already.
+ * Start emulation. Do nothing if emulator is running already. Can be
+ * asynchronous.
  */
 V86Starter.prototype.run = function()
 {
@@ -232,7 +277,7 @@ V86Starter.prototype.run = function()
 };
 
 /**
- * Stop emulation. Do nothing if emulator is not running.
+ * Stop emulation. Do nothing if emulator is not running. Can be asynchronous.
  */
 V86Starter.prototype.stop = function()
 {
@@ -248,8 +293,13 @@ V86Starter.prototype.restart = function()
 };
 
 /**
- * @param {string} event
- * @param {function(*)} listener
+ * Add an event listener (the emulator is an event emitter). A list of events
+ * can be found at https://github.com/copy/v86/blob/master/docs/events.md.
+ *
+ * The callback function gets a single argument which depends on the event.
+ *
+ * @param {string} event Name of the event.
+ * @param {function(*)} listener The callback function. 
  */
 V86Starter.prototype.add_listener = function(event, listener)
 {
@@ -257,6 +307,8 @@ V86Starter.prototype.add_listener = function(event, listener)
 };
 
 /**
+ * Remove an event listener. 
+ *
  * @param {string} event
  * @param {function(*)} listener
  */
@@ -266,6 +318,17 @@ V86Starter.prototype.remove_listener = function(event, listener)
 };
 
 /**
+ * Restore the emulator state from the given state, which must be an
+ * ArrayBuffer returned by
+ * [`save_state`](#save_statefunctionobject-arraybuffer-callback). 
+ *
+ * Note that the state can only be restored correctly if this constructor has
+ * been created with the same options as the original instance (e.g., same disk
+ * images, memory size, etc.). 
+ *
+ * Different versions of the emulator might use a different format for the
+ * state buffer.
+ *
  * @param {ArrayBuffer} state
  */
 V86Starter.prototype.restore_state = function(state)
@@ -274,6 +337,10 @@ V86Starter.prototype.restore_state = function(state)
 };
 
 /**
+ * Asynchronously save the current state of the emulator. The first argument to
+ * the callback is an Error object if something went wrong and is null
+ * otherwise.
+ *
  * @param {function(Object, ArrayBuffer)} callback
  */
 V86Starter.prototype.save_state = function(callback)
@@ -284,11 +351,53 @@ V86Starter.prototype.save_state = function(callback)
 
     setTimeout(function()
     {
-        callback(null, emulator.v86.save_state());
+        try
+        {
+            callback(null, emulator.v86.save_state());
+        }
+        catch(e)
+        {
+            callback(e, null);
+        }
     }, 0);
 };
 
 /**
+ * Return an object with several statistics. Return value looks similar to
+ * (but can be subject to change in future versions or different
+ * configurations, so use defensively):
+ *
+ * ```
+ * {
+ *     "cpu": {
+ *         "instruction_counter": 2821610069
+ *     },
+ *     "hda": {
+ *         "sectors_read": 95240,
+ *         "sectors_written": 952,
+ *         "bytes_read": 48762880,
+ *         "bytes_written": 487424,
+ *         "loading": false
+ *     },
+ *     "cdrom": {
+ *         "sectors_read": 0,
+ *         "sectors_written": 0,
+ *         "bytes_read": 0,
+ *         "bytes_written": 0,
+ *         "loading": false
+ *     },
+ *     "mouse": {
+ *         "enabled": true
+ *     },
+ *     "vga": {
+ *         "is_graphical": true,
+ *         "res_x": 800,
+ *         "res_y": 600,
+ *         "bpp": 32
+ *     }
+ * }
+ * ```
+ *
  * @return {Object}
  */
 V86Starter.prototype.get_statistics = function()
@@ -314,7 +423,7 @@ V86Starter.prototype.get_statistics = function()
     if(devices.ps2)
     {
         stats.mouse = {
-            enabled: devices.ps2.enable_mouse,
+            enabled: devices.ps2.use_mouse,
         };
     }
 
@@ -335,6 +444,10 @@ V86Starter.prototype.is_running = function()
 };
 
 /** 
+ * Send a sequence of scan codes to the emulated PS2 controller. A list of
+ * codes can be found at http://stanislavs.org/helppc/make_codes.html.
+ * Do nothing if there is not keyboard controller.
+ *
  * @param {Array.<number>} codes
  */
 V86Starter.prototype.keyboard_send_scancodes = function(codes)
@@ -348,7 +461,9 @@ V86Starter.prototype.keyboard_send_scancodes = function(codes)
 };
 
 /**
- * Download a screenshot
+ * Download a screenshot.
+ * 
+ * @ignore
  */
 V86Starter.prototype.screen_make_screenshot = function()
 {
@@ -359,10 +474,12 @@ V86Starter.prototype.screen_make_screenshot = function()
 };
 
 /**
- * Set the scaling level of the emulated screen 
+ * Set the scaling level of the emulated screen.
  *
  * @param {number} sx
  * @param {number} sy
+ *
+ * @ignore
  */
 V86Starter.prototype.screen_set_scale = function(sx, sy)
 {
@@ -373,7 +490,9 @@ V86Starter.prototype.screen_set_scale = function(sx, sy)
 };
 
 /**
- * Make the browser go fullscreen
+ * Go fullscreen.
+ *
+ * @ignore
  */
 V86Starter.prototype.screen_go_fullscreen = function()
 {
@@ -410,8 +529,10 @@ V86Starter.prototype.screen_go_fullscreen = function()
 };
 
 /**
- * Lock the mouse button (it is inivisble and movements are only registered in
- * the emulator
+ * Lock the mouse cursor: It becomes inivisble and is not moved out of the
+ * browser window.
+ *
+ * @ignore
  */
 V86Starter.prototype.lock_mouse = function()
 {
@@ -428,7 +549,7 @@ V86Starter.prototype.lock_mouse = function()
 };
 
 /** 
- * Enable or disable sending mouse events to the emulated PS2 controller
+ * Enable or disable sending mouse events to the emulated PS2 controller.
  *
  * @param {boolean} enabled
  */
@@ -441,7 +562,7 @@ V86Starter.prototype.mouse_set_status = function(enabled)
 };
 
 /** 
- * Enable or disable sending keyboard events to the emulated PS2 controller
+ * Enable or disable sending keyboard events to the emulated PS2 controller.
  *
  * @param {boolean} enabled
  */
@@ -455,7 +576,7 @@ V86Starter.prototype.keyboard_set_status = function(enabled)
 
 
 /** 
- * Send a string to the first emulated serial terminal
+ * Send a string to the first emulated serial terminal.
  *
  * @param {string} data
  */
