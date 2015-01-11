@@ -23,7 +23,8 @@ function V86Starter(options)
 
     if(options["network_relay_url"])
     {
-        settings.network_adapter = new NetworkAdapter(options["network_relay_url"], adapter_bus);
+        this.network_adapter = new NetworkAdapter(options["network_relay_url"], adapter_bus);
+        settings.enable_ne2k = true;
     }
 
     if(!options["disable_keyboard"])
