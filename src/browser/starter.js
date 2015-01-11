@@ -15,8 +15,8 @@ function V86Starter(options)
     var settings = {};
 
     settings.load_devices = true;
-    settings.memory_size = options["memory_size"];
-    settings.vga_memory_size = options["vga_memory_size"];
+    settings.memory_size = options["memory_size"] || 64 * 1024 * 1024;
+    settings.vga_memory_size = options["vga_memory_size"] || 8 * 1024 * 1024;
     settings.boot_order = options["boot_order"] || 0x213;
     settings.fda = undefined;
     settings.fdb = undefined;
@@ -58,7 +58,10 @@ function V86Starter(options)
 
         if(file.buffer)
         {
-            console.assert(file.buffer instanceof ArrayBuffer || file.buffer instanceof File);
+            console.assert(
+                file.buffer instanceof ArrayBuffer || file.buffer instanceof File,
+                "buffer should be ArrayBuffer or File"
+            );
             handler(file.buffer);
         }
         else if(file.url)
@@ -152,16 +155,16 @@ function V86Starter(options)
     add_file(options["fda"], make_sync_buffer.bind(this, "fda"));
     add_file(options["fdb"], make_sync_buffer.bind(this, "fdb"));
 
-    if(options.filesystem)
+    if(options["filesystem"])
     {
-        var fs9p = new FS(options.filesystem.baseurl);
+        var fs9p = new FS(options["filesystem"].baseurl);
 
         settings.fs9p = fs9p;
 
         //add_file(infos.filesystem.basefs, function()
         //{
             fs9p.LoadFilesystem({
-                basefsURL: options.filesystem.basefs,
+                basefsURL: options["filesystem"].basefs,
             });
         //});
     }
