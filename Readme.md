@@ -6,6 +6,37 @@ Demos
 - [KolibriOS](http://copy.sh/v86/?profile=kolibrios)
 - [FreeDOS](http://copy.sh/v86/?profile=freedos)
 - [Windows 1.01](http://copy.sh/v86/?profile=windows1)
+- [Archlinux](http://copy.sh/v86/?profile=archlinux) (possibly unstable)
+
+
+API examples
+-
+
+- [Basic](docs/samples/basic.html)
+- [Programatically using the serial terminal](docs/samples/serial.html)
+- [A LUA interpreter](docs/samples/lua.html)
+- [Two instances in one window](docs/samples/two_instances.html)
+- [Saving and restoring emulator state](docs/samples/save_restore.html)
+
+Using v86 for your own purposes is as easy as:
+
+```javascript
+var emulator = new V86Starter({
+    screen_container: document.getElementById("screen_container"),
+    bios: {
+        url: "../../bios/seabios.bin",
+    },
+    vga_bios: {
+        url: "../../bios/vgabios.bin",
+    },
+    cdrom: {
+        url: "../../images/linux.iso",
+    },
+    autostart: true,
+});
+```
+
+See [API](docs/api.md).
 
 
 How does it work?
@@ -48,14 +79,14 @@ How to build, run and embed?
   locally, make sure to serve it from a local webserver. You can use `make run`
   to serve the files using Python's SimpleHTTPServer.
 - If you want only want to embed v86 on website you can use libv86.js. For
-  usage, check out [basic.html](docs/samples/basic.html).
+  usage, check out the [API](docs/api.md) and [examples](docs/samples/).
 - A couple of disk images are provided for testing. You can check them out
   using `git submodule update --init --recursive images`.
 
 
-To summarize:
+**Summary:**
 
-```
+```bash
 git clone https://github.com/copy/v86.git                     # grab the main repo
 cd v86
 git submodule update --init --recursive images                # get the disk images
@@ -105,7 +136,7 @@ Here's an overview of the operating systems supported in v86:
 - ReactOS doesn't work.
 - No Android version seems to work, you still get a shell.
 
-You can get some infos on the disk images here: https://github.com/copy/images
+You can get some infos on the disk images here: https://github.com/copy/images.
 
 
 How can I contribute?
@@ -128,8 +159,6 @@ Credits
 -
 
 - Test cases via QEMU, http://wiki.qemu.org/Main_Page 
-- https://github.com/creationix/node-sdl
-- ascii.ttf (used in node) from http://www.apollosoft.de/ASCII/indexen.htm 
 - [Disk Images](https://github.com/copy/images)
 - [The jor1k project](https://github.com/s-macke/jor1k) for 9p and filesystem drivers
 
