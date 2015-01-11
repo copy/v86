@@ -98,7 +98,7 @@ function KeyboardAdapter(bus)
         0, 0, 0, 0,            0, 0, 0, 0,
     ]);
 
-    this.bus = undefined;
+    this.bus = bus;
 
     this.destroy = function() 
     {
@@ -107,16 +107,15 @@ function KeyboardAdapter(bus)
         window.removeEventListener("blur", blur_handler, false);
     };
 
-    this.register = function(bus)
+    this.init = function()
     {
         this.destroy();
-        this.bus = bus;
 
         window.addEventListener("keyup", keyup_handler, false);
         window.addEventListener("keydown", keydown_handler, false);
         window.addEventListener("blur", blur_handler, false);
     };
-    this.register(bus);
+    this.init();
 
 
     function may_handle(e)

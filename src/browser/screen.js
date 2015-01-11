@@ -136,49 +136,51 @@ function ScreenAdapter(screen_container, bus)
     text_screen.style.display = "block";
     graphic_screen.style.display = "none";
 
-    this.bus = undefined;
+    this.bus = bus;
 
-    this.register = function(bus)
+    bus.register("screen-set-mode", function(data)
     {
-        this.bus = bus;
+        this.set_mode(data);
+    }, this);
 
+    bus.register("screen-put-pixel-linear", function(data)
+    {
+        this.put_pixel_linear(data[0], data[1]);
+    }, this);
+    bus.register("screen-put-pixel-linear32", function(data)
+    {
+        this.put_pixel_linear32(data[0], data[1]);
+    }, this);
+    bus.register("screen-put-char", function(data)
+    {
+        //console.log(data);
+        this.put_char(data[0], data[1], data[2], data[3], data[4]);
+    }, this);
+
+    bus.register("screen-update-cursor", function(data)
+    {
+        this.update_cursor(data[0], data[1]);
+    }, this);
+    bus.register("screen-update-cursor-scanline", function(data)
+    {
+        this.update_cursor_scanline(data[0], data[1]);
+    }, this);
+
+    bus.register("screen-set-size-text", function(data)
+    {
+        this.set_size_text(data[0], data[1]);
+    }, this);
+    bus.register("screen-set-size-graphical", function(data)
+    {
+        this.set_size_graphical(data[0], data[1]);
+    }, this);
+
+
+    this.init = function()
+    {
         // not necessary, because this gets initialized by the bios early,
         // but nicer to look at
         this.set_size_text(80, 25);
-
-        bus.register("screen-set-mode", this.set_mode, this);
-
-        bus.register("screen-put-pixel-linear", function(data)
-        {
-            this.put_pixel_linear(data[0], data[1]);
-        }, this);
-        bus.register("screen-put-pixel-linear32", function(data)
-        {
-            this.put_pixel_linear32(data[0], data[1]);
-        }, this);
-        bus.register("screen-put-char", function(data)
-        {
-            //console.log(data);
-            this.put_char(data[0], data[1], data[2], data[3], data[4]);
-        }, this);
-
-        bus.register("screen-update-cursor", function(data)
-        {
-            this.update_cursor(data[0], data[1]);
-        }, this);
-        bus.register("screen-update-cursor-scanline", function(data)
-        {
-            this.update_cursor_scanline(data[0], data[1]);
-        }, this);
-
-        bus.register("screen-set-size-text", function(data)
-        {
-            this.set_size_text(data[0], data[1]);
-        }, this);
-        bus.register("screen-set-size-graphical", function(data)
-        {
-            this.set_size_graphical(data[0], data[1]);
-        }, this);
 
         this.timer();
     };
@@ -471,5 +473,5 @@ function ScreenAdapter(screen_container, bus)
         row_element.appendChild(fragment);
     };
 
-    this.register(bus);
+    this.init();
 }

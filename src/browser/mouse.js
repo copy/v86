@@ -21,7 +21,12 @@ function MouseAdapter(bus)
     // set by emulator
     this.emu_enabled = true;
 
-    this.bus = undefined;
+    this.bus = bus;
+
+    this.bus.register("mouse-enable", function(enabled)
+    {
+        this.enabled = enabled;
+    }, this);
 
     this.destroy = function()
     {
@@ -31,22 +36,16 @@ function MouseAdapter(bus)
         window.removeEventListener("mouseup", mouseup_handler, false);
     };
 
-    this.register = function(bus)
+    this.init = function()
     {
         this.destroy();
-        this.bus = bus;
 
         window.addEventListener("mousemove", mousemove_handler, false);
         document.addEventListener("contextmenu", contextmenu_handler, false);
         window.addEventListener("mousedown", mousedown_handler, false);
         window.addEventListener("mouseup", mouseup_handler, false);
-
-        bus.register("mouse-enable", function(enabled)
-        {
-            this.enabled = enabled;
-        }, this);
     };
-    this.register(bus);
+    this.init();
 
     function may_handle(e)
     {

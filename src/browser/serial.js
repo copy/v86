@@ -8,7 +8,13 @@ function SerialAdapter(element, bus)
     var serial = this;
 
     this.enabled = true;
-    this.bus = undefined;
+    this.bus = bus;
+
+    this.bus.register("serial0-output-char", function(chr)
+    {
+        this.show_char(chr);
+    }, this);
+
 
     this.destroy = function() 
     {
@@ -17,21 +23,15 @@ function SerialAdapter(element, bus)
         element.removeEventListener("paste", paste_handler, false);
     };
 
-    this.register = function(bus)
+    this.init = function()
     {
         this.destroy();
-        this.bus = bus;
-
-        bus.register("serial0-output-char", function(chr)
-        {
-            this.show_char(chr);
-        }, this);
 
         element.addEventListener("keypress", keypress_handler, false);
         element.addEventListener("keydown", keydown_handler, false);
         element.addEventListener("paste", paste_handler, false);
     };
-    this.register(bus);
+    this.init();
 
 
     this.show_char = function(chr)
