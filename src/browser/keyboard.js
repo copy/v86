@@ -238,15 +238,20 @@ function KeyboardAdapter(bus)
         if(code > 0xFF)
         {
             // prefix
-            keyboard.bus.send("keyboard-code", code >> 8);
-            keyboard.bus.send("keyboard-code", code & 0xFF);
+            send_to_controller(code >> 8);
+            send_to_controller(code & 0xFF);
         }
         else
         {
-            keyboard.bus.send("keyboard-code", code);
+            send_to_controller(code);
         }
 
         return false;
+    }
+
+    function send_to_controller(code)
+    {
+        keyboard.bus.send("keyboard-code", code);
     }
 }
 
