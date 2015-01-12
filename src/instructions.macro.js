@@ -305,7 +305,11 @@ pop_sreg_op(0x07, reg_es);
 arith_group(0x08, or);
 
 op2(0x0E, { cpu.push16(cpu.sreg[reg_cs]); }, { cpu.push32(cpu.sreg[reg_cs]); });
-op(0x0F, { cpu.table0F[cpu.read_imm8()](cpu); });
+op2(0x0F, { 
+    cpu.table0F_16[cpu.read_imm8()](cpu); 
+}, {
+    cpu.table0F_32[cpu.read_imm8()](cpu); 
+});
 
 arith_group(0x10, adc);
 

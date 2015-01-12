@@ -170,7 +170,6 @@ function CPU()
     this.reg_vdi = 0;
 
     this.table = [];
-    this.table0F = [];
 
     // paging enabled
     /** @type {boolean} */
@@ -1863,12 +1862,10 @@ CPU.prototype.update_operand_size = function()
     if(this.operand_size_32)
     {
         this.table = this.table32;
-        this.table0F = this.table0F_32;
     }
     else
     {
         this.table = this.table16;
-        this.table0F = this.table0F_16;
     }
 };
 
