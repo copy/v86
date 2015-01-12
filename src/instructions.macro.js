@@ -401,13 +401,22 @@ opm(0x63, {
 op(0x64, { cpu.seg_prefix(reg_fs); });
 op(0x65, { cpu.seg_prefix(reg_gs); });
 
-op(0x66, {
+op2(0x66, {
     // Operand-size override prefix
     dbg_assert(cpu.operand_size_32 === cpu.is_32);
 
-    cpu.operand_size_32 = !cpu.is_32;
-    cpu.update_operand_size();
+    cpu.operand_size_32 = true;
 
+    cpu.table = cpu.table32;
+    cpu.do_op();
+
+    cpu.operand_size_32 = cpu.is_32;
+    cpu.update_operand_size();
+}, {
+    dbg_assert(cpu.operand_size_32 === cpu.is_32);
+    cpu.operand_size_32 = false;
+
+    cpu.table = cpu.table16;
     cpu.do_op();
 
     cpu.operand_size_32 = cpu.is_32;
