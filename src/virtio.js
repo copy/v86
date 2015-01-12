@@ -125,6 +125,8 @@ function VirtIO(cpu, filesystem)
     });
 
     this.irq = 0xC;
+
+    /** @const */
     this.pic = cpu.devices.pic;
 
     this.queue_select = 0;
@@ -136,7 +138,7 @@ function VirtIO(cpu, filesystem)
     this.queue_size = 32;
     this.queue_address = 0;
 
-
+    /** @const */
     this.memory = cpu.memory;
 
     for(var i = 0; i < 128; i++)
@@ -156,10 +158,15 @@ function VirtIO(cpu, filesystem)
     }
 
     // should be generalized to support more devices than just the filesystem
+    /** @const */
     this.device = new Virtio9p(filesystem);
     this.device.SendReply = this.device_reply.bind(this);
 
-    this._state_skip = ["memory", "pic"];
+    this._state_skip = [
+        this.memory,
+        this.pic,
+        this.device,
+    ];
     this._state_restore = function()
     {
         this.device.SendReply = this.device_reply.bind(this);

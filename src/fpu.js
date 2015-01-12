@@ -63,8 +63,8 @@ function FPU(cpu)
 
     // Why no Float80Array :-(
     this._st = new Float64Array(8);
-    this._st8 = new Uint8Array(this._st.buffer);
-    this._st32 = new Int32Array(this._st.buffer);
+
+    this._state_restore();
 
     // bitmap of which stack registers are empty
     this._stack_empty = 0xff;
@@ -78,16 +78,6 @@ function FPU(cpu)
     this._fpu_dp = 0;
     this._fpu_dp_selector = 0;
 
-    /*
-     * used for conversion
-     */
-    this.float32 = new Float32Array(1);
-    this.float32_byte = new Uint8Array(this.float32.buffer);
-    this.float32_int = new Int32Array(this.float32.buffer);
-    this.float64 = new Float64Array(1);
-    this.float64_byte = new Uint8Array(this.float64.buffer);
-    this.float64_int = new Int32Array(this.float64.buffer);
-
     /** @const */
     this.indefinite_nan = NaN;
 
@@ -97,32 +87,35 @@ function FPU(cpu)
         Math.log(2) / Math.LN10, Math.LN2, 0
     ]);
 
-    /** @const */
-    this._state_skip = [
-        "cpu",
-        "float32",
-        "float32_byte",
-        "float32_int",
-        "float64",
-        "float64_byte",
-        "float64_int",
-        "_st8", 
-        "_st32",
-    ];
 }
 
 FPU.prototype._state_restore = function()
 {
-    this.float32 = new Float32Array(1);
-    this.float32_byte = new Uint8Array(this.float32.buffer);
-    this.float32_int = new Int32Array(this.float32.buffer);
+    // used for conversion
+    /** @const */ this.float32 = new Float32Array(1);
+    /** @const */ this.float32_byte = new Uint8Array(this.float32.buffer);
+    /** @const */ this.float32_int = new Int32Array(this.float32.buffer);
+    /** @const */ this.float64 = new Float64Array(1);
+    /** @const */ this.float64_byte = new Uint8Array(this.float64.buffer);
+    /** @const */ this.float64_int = new Int32Array(this.float64.buffer);
 
-    this.float64 = new Float64Array(1);
-    this.float64_byte = new Uint8Array(this.float64.buffer);
-    this.float64_int = new Int32Array(this.float64.buffer);
+    /** @const */ this._st8 = new Uint8Array(this._st.buffer);
+    /** @const */ this._st32 = new Int32Array(this._st.buffer);
 
-    this._st8 = new Uint8Array(this._st.buffer);
-    this._st32 = new Int32Array(this._st.buffer);
+    /** @const */
+    this._state_skip = [
+        this.cpu,
+
+        this.float32,
+        this.float32_byte,
+        this.float32_int,
+        this.float64,
+        this.float64_byte,
+        this.float64_int,
+
+        this._st8, 
+        this._st32,
+    ];
 };
 
 FPU.prototype._fpu_unimpl = function()

@@ -5,9 +5,12 @@
  */
 function PS2(cpu, bus)
 {
+    /** @const */
     this.pic = cpu.devices.pic;
+    /** @const */
     this.cpu = cpu;
 
+    /** @const */
     this.bus = bus;
 
     /** @type {boolean} */
@@ -107,9 +110,9 @@ function PS2(cpu, bus)
 
     /** @const */
     this._state_skip = [
-        "bus",
-        "pic", 
-        "cpu",
+        this.bus,
+        this.pic, 
+        this.cpu,
     ];
 }
 

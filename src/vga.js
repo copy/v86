@@ -23,6 +23,7 @@ var
  */
 function VGAScreen(cpu, bus, vga_memory_size)
 {
+    /** @const */
     this.bus = bus;
 
     this.vga_memory_size = vga_memory_size;
@@ -40,13 +41,13 @@ function VGAScreen(cpu, bus, vga_memory_size)
      * Number of columns in text mode
      * @type {number} 
      */
-    this.max_cols = 0;
+    this.max_cols = 80;
 
     /** 
      * Number of rows in text mode
      * @type {number} 
      */
-    this.max_rows = 0;
+    this.max_rows = 25;
 
     /**
      * Width in pixels in graphical mode
@@ -96,18 +97,6 @@ function VGAScreen(cpu, bus, vga_memory_size)
 
     /** @type {number} */
     this.text_mode_width = 80;
-
-    this.plane0;
-    this.plane1;
-    this.plane2;
-    this.plane3;
-
-    // 4 times 64k
-    this.vga_memory = null;
-    
-    this.svga_memory = null;
-    this.svga_memory16 = null;
-    this.svga_memory32 = null;
 
     this.svga_enabled = false;
 
@@ -225,18 +214,8 @@ function VGAScreen(cpu, bus, vga_memory_size)
     }
 
     this.svga_memory = new Uint8Array(this.vga_memory_size);
-    this.svga_memory16 = new Uint16Array(this.svga_memory.buffer);
-    this.svga_memory32 = new Int32Array(this.svga_memory.buffer);
 
-    this.vga_memory = new Uint8Array(this.svga_memory.buffer, 0, 4 * VGA_BANK_SIZE);
-
-    this.plane0 = new Uint8Array(this.svga_memory.buffer, 0 * VGA_BANK_SIZE, VGA_BANK_SIZE);
-    this.plane1 = new Uint8Array(this.svga_memory.buffer, 1 * VGA_BANK_SIZE, VGA_BANK_SIZE);
-    this.plane2 = new Uint8Array(this.svga_memory.buffer, 2 * VGA_BANK_SIZE, VGA_BANK_SIZE);
-    this.plane3 = new Uint8Array(this.svga_memory.buffer, 3 * VGA_BANK_SIZE, VGA_BANK_SIZE);
-
-    this.set_size_text(80, 25);
-    this.update_cursor_scanline();
+    this._state_restore();
 
     var me = this;
     io.mmap_register(0xA0000, 0x20000, 
@@ -249,31 +228,32 @@ function VGAScreen(cpu, bus, vga_memory_size)
         function(addr) { return me.svga_memory_read32(addr); },
         function(addr, value) { me.svga_memory_write32(addr, value); }
     );
-
-    /** @const */
-    this._state_skip = [
-        "bus",
-        "svga_memory16",
-        "svga_memory32",
-        "vga_memory",
-        "plane0",
-        "plane1",
-        "plane2",
-        "plane3",
-    ];
 };
 
 VGAScreen.prototype._state_restore = function()
 {
-    this.svga_memory16 = new Uint16Array(this.svga_memory.buffer);
-    this.svga_memory32 = new Int32Array(this.svga_memory.buffer);
+    /** @const */ this.svga_memory16 = new Uint16Array(this.svga_memory.buffer);
+    /** @const */ this.svga_memory32 = new Int32Array(this.svga_memory.buffer);
 
-    this.vga_memory = new Uint8Array(this.svga_memory.buffer, 0, 4 * VGA_BANK_SIZE);
+    /** @const */ this.vga_memory = new Uint8Array(this.svga_memory.buffer, 0, 4 * VGA_BANK_SIZE);
 
-    this.plane0 = new Uint8Array(this.svga_memory.buffer, 0 * VGA_BANK_SIZE, VGA_BANK_SIZE);
-    this.plane1 = new Uint8Array(this.svga_memory.buffer, 1 * VGA_BANK_SIZE, VGA_BANK_SIZE);
-    this.plane2 = new Uint8Array(this.svga_memory.buffer, 2 * VGA_BANK_SIZE, VGA_BANK_SIZE);
-    this.plane3 = new Uint8Array(this.svga_memory.buffer, 3 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+    /** @const */ this.plane0 = new Uint8Array(this.svga_memory.buffer, 0 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+    /** @const */ this.plane1 = new Uint8Array(this.svga_memory.buffer, 1 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+    /** @const */ this.plane2 = new Uint8Array(this.svga_memory.buffer, 2 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+    /** @const */ this.plane3 = new Uint8Array(this.svga_memory.buffer, 3 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+
+    /** @const */
+    this._state_skip = [
+        this.bus,
+
+        this.svga_memory16,
+        this.svga_memory32,
+        this.vga_memory,
+        this.plane0,
+        this.plane1,
+        this.plane2,
+        this.plane3,
+    ];
 
     this.bus.send("screen-set-mode", this.graphical_mode || this.svga_enabled);
 

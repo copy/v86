@@ -3,8 +3,13 @@
 /** @constructor */
 function FloppyController(cpu, fda_image, fdb_image)
 {
+    /** @const */
     this.io = cpu.io;
+
+    /** @const */
     this.pic = cpu.devices.pic;
+
+    /** @const */
     this.dma = cpu.devices.dma;
 
     this.bytes_expecting = 0;
@@ -18,8 +23,12 @@ function FloppyController(cpu, fda_image, fdb_image)
 
     this.floppy_size = 0;
 
+    /** @const */
     this.fda_image = fda_image;
+
+    /** @const */
     this.fdb_image = fdb_image;
+
 
     this.status_reg0 = 0;
     this.status_reg1 = 0;
@@ -30,14 +39,25 @@ function FloppyController(cpu, fda_image, fdb_image)
     this.last_head = 0;
     this.last_sector = 1;
 
+    /** @const */
+    this._state_skip = [
+        this.io,
+        this.pic,
+        this.dma,
+    ];
 
-    this._state_skip = ["io", "pic", "dma", "fda_image", "fdb_image"];
+    if(this.fdb_image)
+    {
+        this._state_skip.push(this.fdb_image);
+    }
 
     if(!fda_image)
     {
         this.type = 4;
         return;
     }
+
+    this._state_skip.push(this.fda_image);
 
     this.floppy_size = fda_image.byteLength;
 

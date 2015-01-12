@@ -26,8 +26,10 @@ var DLAB = 0x80;
  */
 function UART(cpu, port, bus)
 {
+    /** @const */
     this.bus = bus;
 
+    /** @const */
     this.pic = cpu.devices.pic;
 
     this.ints = 0;
@@ -247,7 +249,8 @@ function UART(cpu, port, bus)
     });
 
     this._state_skip = [
-        "bus",
+        this.bus,
+        this.pic,
     ];
 }
 

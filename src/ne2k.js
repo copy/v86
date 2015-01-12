@@ -55,8 +55,10 @@
 /** @constructor */
 function Ne2k(cpu, bus)
 {
+    /** @const */
     this.pic = cpu.devices.pic;
 
+    /** @const */
     this.bus = bus;
     this.bus.register("net0-receive", function(data)
     {
@@ -362,8 +364,8 @@ function Ne2k(cpu, bus)
     io.register_write(this.port | NE_DATAPORT | 0, this, this.data_port_write, this.data_port_write16, this.data_port_write32);
 
     this._state_skip = [
-        "bus",
-        "pic",
+        this.bus,
+        this.pic,
     ];
 }
 

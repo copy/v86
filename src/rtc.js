@@ -4,7 +4,10 @@
  */
 function RTC(cpu, diskette_type, boot_order)
 {
+    /** @const */
     this.cpu = cpu;
+
+    /** @const */
     this.pic = cpu.devices.pic;
 
     this.cmos_index = 0;
@@ -40,7 +43,10 @@ function RTC(cpu, diskette_type, boot_order)
     cpu.io.register_write(0x71, this, this.cmos_write);
     cpu.io.register_read(0x71, this, this.cmos_read);
 
-    this._state_skip = ["cpu", "pic"];
+    this._state_skip = [
+        this.cpu,
+        this.pic,
+    ];
 }
 
 RTC.prototype.timer = function(time, legacy_mode)

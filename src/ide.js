@@ -41,7 +41,10 @@ function IDEDevice(cpu, buffer, is_cd, nr)
     /** @type {number} */
     this.master_port = 0xC000;
 
+    /** @const */
     this.pic = cpu.devices.pic;
+
+    /** @const */
     this.memory = cpu.memory;
 
     this.buffer = buffer;
@@ -94,6 +97,7 @@ function IDEDevice(cpu, buffer, is_cd, nr)
         }
     }
 
+    /** @const */
     this.stats = {
         sectors_read: 0,
         sectors_written: 0,
@@ -275,9 +279,10 @@ function IDEDevice(cpu, buffer, is_cd, nr)
 
     /** @const */
     this._state_skip = [
-        "memory",
-        "pic",
-        "stats",
+        this.memory,
+        this.pic,
+        this.stats,
+        this.buffer,
     ];
 }
 

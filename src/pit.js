@@ -14,6 +14,7 @@ var OSCILLATOR_FREQ = 1193.1816666; // 1.193182 MHz
  */
 function PIT(cpu)
 {
+    /** @const */
     this.pic = cpu.devices.pic;
         
     this.next_tick = Date.now();
@@ -54,7 +55,9 @@ function PIT(cpu)
     cpu.io.register_write(0x43, this, this.port43_write);
 
     /** @const */
-    this._state_skip = ["pic"];
+    this._state_skip = [
+        this.pic,
+    ];
 }
 
 PIT.prototype.get_timer2 = function()

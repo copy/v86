@@ -12,25 +12,28 @@ function CPU()
     this.segment_limits = [];
     //this.segment_infos = [];
 
-    /*
+    /**
      * Translation Lookaside Buffer 
+     * @const
      */
-    this.tlb_data = [];
+    this.tlb_data = new Int32Array(1 << 20);
 
-    /*
+    /**
      * Information about which pages are cached in the tlb.
      * By bit:
      *   0 system, read
      *   1 system, write
      *   2 user, read
      *   3 user, write
+     * @const
      */
-    this.tlb_info = [];
+    this.tlb_info = new Uint8Array(1 << 20);
 
-    /*
+    /**
      * Same as tlb_info, except it only contains global pages
+     * @const
      */
-    this.tlb_info_global = [];
+    this.tlb_info_global = new Uint8Array(1 << 20);
 
     /** 
      * Wheter or not in protected mode
@@ -180,8 +183,14 @@ function CPU()
     /** @type {number} */
     this.previous_ip = 0;
 
-    /** @type {!Object} */
-    this.bios = {};
+    /** 
+     * @const
+     * @type {{main: ArrayBuffer, vga: ArrayBuffer}} 
+     */
+    this.bios = {
+        main: null,
+        vga: null,
+    };
 
     /** 
      * @type {number}
@@ -229,23 +238,10 @@ function CPU()
 // Closure Compiler is able to remove unused functions
 #include "debug.macro.js"
 
-    /** @const */
-    this._state_skip = [
-        "bios",
-        "debug",
-        "regv",
-        "table", "table0F",
-        "table16", "table32",
-        "table0F_16", "table0F_32",
-        "reg8", "reg8s", 
-        "reg16", "reg16s", "reg32",
+    dbg_assert(this.table16 && this.table32);
+    dbg_assert(this.table0F_16 && this.table0F_32);
 
-        "tlb_data",
-        "tlb_info",
-        "tlb_info_global",
-
-        "timestamp_counter",
-    ];
+    this._state_restore();
 }
 
 CPU.prototype._state_restore = function()
@@ -271,6 +267,21 @@ CPU.prototype._state_restore = function()
     this.full_clear_tlb();
     this.timestamp_counter = 0;
     this.tsc_offset = v86.microtick();
+
+    /** @const */
+    this._state_skip = [
+        this.bios,
+        this.debug,
+
+        this.table16, 
+        this.table32,
+        this.table0F_16, 
+        this.table0F_32,
+
+        this.tlb_data,
+        this.tlb_info,
+        this.tlb_info_global,
+    ];
 };
 
 #include "translate.macro.js"
@@ -348,11 +359,7 @@ CPU.prototype.reset = function()
     //this.segment_infos = new Uint32Array(8);
     this.segment_offsets = new Int32Array(8);
 
-    // 16 MB in total
-    this.tlb_data = new Int32Array(1 << 20);
-    this.tlb_info = new Uint8Array(1 << 20);
-    this.tlb_info_global = new Uint8Array(1 << 20);
-
+    this.full_clear_tlb();
 
     this.reg32s = new Int32Array(8);
     this.reg32 = new Uint32Array(this.reg32s.buffer);
@@ -437,10 +444,8 @@ CPU.prototype.init = function(settings, device_bus)
     var io = new IO(this.memory);
     this.io = io;
 
-    this.bios = {
-        main: settings.bios,
-        vga: settings.vga_bios,
-    };
+    this.bios.main = settings.bios;
+    this.bios.vga = settings.vga_bios;
 
     this.load_bios();
 

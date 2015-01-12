@@ -10,8 +10,6 @@ function IO(memory)
 {
     var memory_size = memory.size;
 
-    this._state_skip = ["devices", "ports",];
-
     function get_port_description(addr)
     {
         // via seabios ioport.h
@@ -100,8 +98,17 @@ function IO(memory)
     {
     }
 
+    /** @const */
     this.ports = [];
+
+    /** @const */
     this.devices = Array(0x10000);
+
+    this._state_skip = [
+        this.ports,
+        this.devices,
+    ];
+
 
     for(var i = 0; i < 0x10000; i++)
     {

@@ -5,14 +5,6 @@
  */
 function Memory(memory_size)
 {
-    var buffer = new ArrayBuffer(memory_size);
-
-    this.mem8 = new Uint8Array(buffer);
-    this.mem16 = new Uint16Array(buffer);
-    this.mem32s = new Int32Array(buffer);
-
-    this.buffer = buffer;
-
     this.size = memory_size;
 
     // this only supports a 32 bit address space
@@ -20,38 +12,44 @@ function Memory(memory_size)
     var memory_map_registered = new Uint8Array(size);
 
     // managed by IO() in io.js
-    this.memory_map_registered = memory_map_registered;
-    this.memory_map_read8 = [];
-    this.memory_map_write8 = [];
-    this.memory_map_read32 = [];
-    this.memory_map_write32 = [];
+    /** @const */ this.memory_map_registered = memory_map_registered;
+    /** @const */ this.memory_map_read8 = [];
+    /** @const */ this.memory_map_write8 = [];
+    /** @const */ this.memory_map_read32 = [];
+    /** @const */ this.memory_map_write32 = [];
 
     // use by dynamic translator
     if(OP_TRANSLATION) this.mem_page_infos = new Uint8Array(1 << 20);
 
     dbg_assert((memory_size & MMAP_BLOCK_SIZE - 1) === 0);
 
-    /** @const */
-    this._state_skip = [
-        "mem8", 
-        "mem16", 
-        "mem32s",
-        "memory_map_registered",
-        "memory_map_read8",
-        "memory_map_read32",
-        "memory_map_write8",
-        "memory_map_write32",
-    ];
+    this.buffer = new ArrayBuffer(memory_size);;
+    this._state_restore();
 };
 
 Memory.prototype._state_restore = function()
 {
-    //this.mem8 = new Uint8Array(this.mem32s.buffer, this.mem32s.byteOffset, this.mem32s.byteLength);
-    //this.mem16 = new Uint16Array(this.mem32s.buffer, this.mem32s.byteOffset, this.mem32s.byteLength >> 1);
-    
+    /** @const */
     this.mem8 = new Uint8Array(this.buffer);
+
+    /** @const */
     this.mem16 = new Uint16Array(this.buffer);
+
+    /** @const */
     this.mem32s = new Int32Array(this.buffer);
+
+    /** @const */
+    this._state_skip = [
+        this.mem8,
+        this.mem16,
+        this.mem32s,
+
+        this.memory_map_registered,
+        this.memory_map_read8,
+        this.memory_map_read32,
+        this.memory_map_write8,
+        this.memory_map_write32,
+    ];
 };
 
 // called by all memory reads and writes

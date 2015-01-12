@@ -5,7 +5,7 @@
  */
 function DMA(dev)
 {
-    this.io = dev.io;
+    /** @const */
     this.memory = dev.memory;
 
     this.channels = [
@@ -17,15 +17,18 @@ function DMA(dev)
 
     this.lsb_msb_flipflop = 0;
 
-    this.io.register_write(0x04, this, this.port_write.bind(this, 0x04));
-    this.io.register_write(0x05, this, this.port_write.bind(this, 0x05));
-    this.io.register_write(0x0A, this, this.portA_write);
-    this.io.register_write(0x0B, this, this.portB_write);
-    this.io.register_write(0x0C, this, this.portC_write);
-    this.io.register_write(0x81, this, this.port81_write);
+    var io = dev.io;
+    io.register_write(0x04, this, this.port_write.bind(this, 0x04));
+    io.register_write(0x05, this, this.port_write.bind(this, 0x05));
+    io.register_write(0x0A, this, this.portA_write);
+    io.register_write(0x0B, this, this.portB_write);
+    io.register_write(0x0C, this, this.portC_write);
+    io.register_write(0x81, this, this.port81_write);
 
     /** @const */
-    this._state_skip = ["io", "memory"];
+    this._state_skip = [
+        this.memory,
+    ];
 };
 
 DMA.prototype.port_write = function(port, data_byte)

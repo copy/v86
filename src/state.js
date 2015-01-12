@@ -71,26 +71,37 @@ function save_object(obj, arraybuffers)
         };
     }
 
-    var skip = Array.setify(obj._state_skip || []);
-    skip["_state_skip"] = true;
+    var skip;
+
+    if(obj._state_skip)
+    {
+        skip = obj._state_skip.slice();
+        skip.push(obj._state_skip);
+    }
 
     var keys = Object.keys(obj);
     var result = {};
 
+    outer:
     for(var i = 0; i < keys.length; i++)
     {
         var key = keys[i];
-
-        if(skip[key])
-        {
-            continue;
-        }
-
         var value = obj[key];
 
         if(typeof value === "function")
         {
             continue;
+        }
+
+        if(skip && typeof value === "object" && value)
+        {
+            for(var j = 0; j < skip.length; j++)
+            {
+                if(skip[j] === value)
+                {
+                    continue outer;
+                }
+            }
         }
 
         result[key] = save_object(value, arraybuffers);

@@ -301,14 +301,8 @@ var v86util = v86util || {};
         {
             this.onload && this.onload({});
         };
-
-        this._state_skip = [
-            "file",
-            "block_count",
-            "byteLength",
-            "block_size",
-        ];
     }
+
     AsyncFileBuffer.prototype.get = function(offset, len, fn)
     {
         console.assert(offset % this.block_size === 0);
