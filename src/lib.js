@@ -252,14 +252,3 @@ function ByteQueue(size)
     this.clear();
 }
 
-Array.setify = function(array)
-{
-    var set = {};
-
-    for(var i = 0; i < array.length; i++)
-    {
-        set[array[i]] = true;
-    }
-    
-    return set;
-};
