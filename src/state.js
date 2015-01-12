@@ -229,6 +229,9 @@ CPU.prototype.save_state = function()
     var buffer_block_start = STATE_INFO_BLOCK_START + 2 * info_object.length;
     var total_size = buffer_block_start + total_buffer_size;
 
+    dbg_log("State: json_size=" + Math.ceil(buffer_block_start / 1024 / 1024) + "MB " +
+                   "buffer_size=" + Math.ceil(total_buffer_size / 1024 / 1024) + "MB");
+
     var result = new ArrayBuffer(total_size);
 
     var header_block = new Int32Array(

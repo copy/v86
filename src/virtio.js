@@ -165,7 +165,6 @@ function VirtIO(cpu, filesystem)
     this._state_skip = [
         this.memory,
         this.pic,
-        this.device,
     ];
     this._state_restore = function()
     {
