@@ -1352,7 +1352,7 @@ CPU.prototype.bsf16 = function(old, bit_base)
         this.flags &= ~flag_zero;
 
         // http://jsperf.com/lowest-bit-index
-        return Math.int_log2(-bit_base & bit_base);
+        return v86util.int_log2(-bit_base & bit_base);
     }
 }
 
@@ -1370,7 +1370,7 @@ CPU.prototype.bsf32 = function(old, bit_base)
     {
         this.flags &= ~flag_zero;
 
-        return Math.int_log2((-bit_base & bit_base) >>> 0);
+        return v86util.int_log2((-bit_base & bit_base) >>> 0);
     }
 }
 
@@ -1387,7 +1387,7 @@ CPU.prototype.bsr16 = function(old, bit_base)
     {
         this.flags &= ~flag_zero;
 
-        return Math.int_log2(bit_base);
+        return v86util.int_log2(bit_base);
     }
 }
 
@@ -1403,7 +1403,7 @@ CPU.prototype.bsr32 = function(old, bit_base)
     else
     {
         this.flags &= ~flag_zero;
-        return Math.int_log2(bit_base >>> 0);
+        return v86util.int_log2(bit_base >>> 0);
     }
 }
 

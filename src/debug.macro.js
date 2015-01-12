@@ -322,7 +322,7 @@
         function add(ip, op)
         {
             out += h(ip, 8)  + ":        " + 
-                String.pads(opcode_map[op] || "unkown", 20) + h(op, 2) + "\n";
+                v86util.pads(opcode_map[op] || "unkown", 20) + h(op, 2) + "\n";
         }
 
         var opcodes;

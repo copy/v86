@@ -1,7 +1,9 @@
 "use strict";
 
+var v86util = v86util || {};
+
 // pad string with spaces on the right
-String.pads = function(str, len)
+v86util.pads = function(str, len)
 {
     str = str ? str + "" : "";
 
@@ -14,7 +16,7 @@ String.pads = function(str, len)
 }
 
 // pad string with zeros on the left
-String.pad0 = function(str, len)
+v86util.pad0 = function(str, len)
 {
     str = str ? str + "" : "";
 
@@ -36,11 +38,11 @@ function h(n, len)
 {
     //dbg_assert(typeof n === "number");
 
-    if(!n) return String.pad0("", len || 1);
+    if(!n) return v86util.pad0("", len || 1);
 
     if(len)
     {
-        return String.pad0(n.toString(16).toUpperCase(), len);
+        return v86util.pad0(n.toString(16).toUpperCase(), len);
     }
     else
     {
@@ -93,93 +95,70 @@ SyncBuffer.prototype.get_buffer = function(fn)
 };
 
 
-/**
- * Simple circular queue for logs
- *
- * @param {number} size
- * @constructor
- */
-function CircularQueue(size)
+
+(function()
 {
-    this.data = [];
-    this.index = 0;
-    this.size = size;
-}
+    var int_log2_table = new Int8Array(256);
 
-CircularQueue.prototype.add = function(item)
-{
-    this.data[this.index] = item;
-    this.index = (this.index + 1) % this.size;
-};
-
-CircularQueue.prototype.toArray = function()
-{
-    return [].slice.call(this.data, this.index).concat([].slice.call(this.data, 0, this.index));
-};
-
-CircularQueue.prototype.clear = function()
-{
-    this.data = [];
-    this.index = 0;
-};
-
-/**
- * @param {Array} new_data
- */
-CircularQueue.prototype.set = function(new_data)
-{
-    this.data = new_data;
-    this.index = 0;
-};
-
-
-var int_log2_table = new Int8Array(256);
-
-for(var i = 0, b = -2; i < 256; i++)
-{
-    if(!(i & i - 1))
-        b++;
-
-    int_log2_table[i] = b;
-}
-
-/**
- * calculate the integer logarithm base 2
- * @param {number} x
- * @return {number}
- */
-Math.int_log2 = function(x)
-{
-    dbg_assert(x > 0);
-
-    // http://jsperf.com/integer-log2/6
-    var tt = x >>> 16;
-
-    if(tt)
+    for(var i = 0, b = -2; i < 256; i++)
     {
-        var t = tt >>> 8;
-        if(t)
+        if(!(i & i - 1))
+            b++;
+
+        int_log2_table[i] = b;
+    }
+
+    /**
+     * calculate the integer logarithm base 2 of a byte
+     * @param {number} x
+     * @return {number}
+     */
+    v86util.int_log2_byte = function(x)
+    {
+        dbg_assert(x > 0);
+        dbg_assert(x < 0x100);
+
+        return int_log2_table[x];
+    };
+
+    /**
+     * calculate the integer logarithm base 2
+     * @param {number} x
+     * @return {number}
+     */
+    v86util.int_log2 = function(x)
+    {
+        dbg_assert(x > 0);
+
+        // http://jsperf.com/integer-log2/6
+        var tt = x >>> 16;
+
+        if(tt)
         {
-            return 24 + int_log2_table[t];
+            var t = tt >>> 8;
+            if(t)
+            {
+                return 24 + int_log2_table[t];
+            }
+            else
+            {
+                return 16 + int_log2_table[tt];
+            }
         }
         else
         {
-            return 16 + int_log2_table[tt];
+            var t = x >>> 8;
+            if(t)
+            {
+                return 8 + int_log2_table[t];
+            }
+            else
+            {
+                return int_log2_table[x];
+            }
         }
     }
-    else
-    {
-        var t = x >>> 8;
-        if(t)
-        {
-            return 8 + int_log2_table[t];
-        }
-        else
-        {
-            return int_log2_table[x];
-        }
-    }
-}
+})();
 
 
 /** 
@@ -252,3 +231,42 @@ function ByteQueue(size)
     this.clear();
 }
 
+
+/**
+ * Simple circular queue for logs
+ *
+ * @param {number} size
+ * @constructor
+ */
+function CircularQueue(size)
+{
+    this.data = [];
+    this.index = 0;
+    this.size = size;
+}
+
+CircularQueue.prototype.add = function(item)
+{
+    this.data[this.index] = item;
+    this.index = (this.index + 1) % this.size;
+};
+
+CircularQueue.prototype.toArray = function()
+{
+    return [].slice.call(this.data, this.index).concat([].slice.call(this.data, 0, this.index));
+};
+
+CircularQueue.prototype.clear = function()
+{
+    this.data = [];
+    this.index = 0;
+};
+
+/**
+ * @param {Array} new_data
+ */
+CircularQueue.prototype.set = function(new_data)
+{
+    this.data = new_data;
+    this.index = 0;
+};

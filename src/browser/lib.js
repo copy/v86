@@ -1,7 +1,5 @@
 "use strict";
 
-var v86util = v86util || {};
-
 (function()
 {
     v86util.load_file = load_file;

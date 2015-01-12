@@ -28,7 +28,7 @@ var dbg_log = (function()
         if(level & LOG_LEVEL)
         {
             var level_name = dbg_names[level] || "",
-                message = "[" + String.pads(level_name, 4) + "] " + stuff;
+                message = "[" + v86util.pads(level_name, 4) + "] " + stuff;
 
             if(message === log_last_message)
             {
@@ -41,9 +41,9 @@ var dbg_log = (function()
             }
 
             var now = new Date();
-            var time_str = String.pad0(now.getHours(), 2) + ":" + 
-                           String.pad0(now.getMinutes(), 2) + ":" + 
-                           String.pad0(now.getSeconds(), 2) + " ";
+            var time_str = v86util.pad0(now.getHours(), 2) + ":" + 
+                           v86util.pad0(now.getMinutes(), 2) + ":" + 
+                           v86util.pad0(now.getSeconds(), 2) + " ";
 
             if(log_message_repetitions)
             {

@@ -67,7 +67,7 @@ function PIC(cpu, master)
             }
 
             dbg_assert(irq !== 0);
-            var irq_number = int_log2_table[irq];
+            var irq_number = v86util.int_log2_byte(irq);
             irq = 1 << irq_number;
 
             this.irr &= ~irq;
@@ -115,7 +115,7 @@ function PIC(cpu, master)
             }
 
             dbg_assert(irq !== 0);
-            var irq_number = int_log2_table[irq];
+            var irq_number = v86util.int_log2_byte(irq);
             irq = 1 << irq_number;
 
             this.irr &= ~irq;

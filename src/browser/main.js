@@ -53,13 +53,13 @@
         }
         else if(time < 3600)
         {
-            return (time / 60 | 0) + "m " + String.pad0(time % 60, 2) + "s";
+            return (time / 60 | 0) + "m " + v86util.pad0(time % 60, 2) + "s";
         }
         else
         {
             return (time / 3600 | 0) + "h " + 
-                String.pad0((time / 60 | 0) % 60, 2) + "m " + 
-                String.pad0(time % 60, 2) + "s";
+                v86util.pad0((time / 60 | 0) % 60, 2) + "m " + 
+                v86util.pad0(time % 60, 2) + "s";
         }
     }
 
