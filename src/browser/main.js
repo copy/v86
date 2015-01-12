@@ -334,10 +334,10 @@
     {
         // called on window.onload, in debug mode
 
-        settings.filesystem = {
-            baseurl: "http://localhost/v86-images/arch/",
-            basefs: "http://localhost/v86-images/fs.json",
-        };
+        //settings.filesystem = {
+        //    baseurl: "http://localhost/v86-images/arch/",
+        //    basefs: "http://localhost/v86-images/fs.json",
+        //};
 
         $("restore_state").onchange = function()
         {
