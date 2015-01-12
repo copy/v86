@@ -1,0 +1,78 @@
+<!doctype html>
+<title>Two emulators</title>
+
+<script src="../../build/libv86.js"></script>
+<script>
+"use strict";
+
+window.onload = function()
+{
+    var container1 = document.getElementById("screen_container1");
+    var container2 = document.getElementById("screen_container2");
+
+    var emulator1 = new V86Starter({
+        screen_container: container1,
+        bios: {
+            url: "../../bios/seabios.bin",
+        },
+        vga_bios: {
+            url: "../../bios/vgabios.bin",
+        },
+        cdrom: {
+            url: "../../images/linux.iso",
+        },
+        autostart: true,
+    });
+
+    var emulator2 = new V86Starter({
+        screen_container: container2,
+        bios: {
+            url: "../../bios/seabios.bin",
+        },
+        vga_bios: {
+            url: "../../bios/vgabios.bin",
+        },
+        cdrom: {
+            url: "../../images/linux.iso",
+        },
+        autostart: true,
+    });
+
+    emulator2.keyboard_set_status(false);
+
+    container1.addEventListener("mousedown", function(e)
+    {
+        container1.style.borderColor = "yellow";
+        container2.style.borderColor = "black";
+
+        emulator1.keyboard_set_status(true);
+        emulator2.keyboard_set_status(false);
+    }, false);
+
+    container2.addEventListener("mousedown", function(e)
+    {
+        container1.style.borderColor = "black";
+        container2.style.borderColor = "yellow";
+
+        emulator1.keyboard_set_status(false);
+        emulator2.keyboard_set_status(true);
+    }, false);
+
+    emulator1.add_listener("serial0-output-char", function(char)
+    {
+        emulator2.serial0_send(char);
+    });
+};
+</script>
+
+Click on a screen to control it.<hr>
+
+<div id="screen_container1" style="float: left; margin: 10px; border: 3px solid yellow;">
+    <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+    <canvas style="display: none"></canvas>
+</div>
+
+<div id="screen_container2" style="float: left; margin: 10px; border: 3px solid black;">
+    <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+    <canvas style="display: none"></canvas>
+</div>

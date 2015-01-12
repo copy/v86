@@ -1,0 +1,127 @@
+<!doctype html>
+<title>Lua interpreter</title>
+
+<script src="../../build/libv86.js"></script>
+<script>
+"use strict";
+
+window.onload = function()
+{
+    var emulator = new V86Starter({
+        memory_size: 32 * 1024 * 1024,
+        vga_memory_size: 2 * 1024 * 1024,
+
+        // Uncomment to see what's going on
+        //screen_container: document.getElementById("screen_container"),
+
+        bios: {
+            url: "../../bios/seabios.bin",
+        },
+        vga_bios: {
+            url: "../../bios/vgabios.bin",
+        },
+        cdrom: {
+            url: "../../images/linux.iso",
+        },
+        autostart: true,
+        disable_keyboard: true,
+    });
+
+    var data = "";
+
+    emulator.add_listener("serial0-output-char", function(char)
+    {
+        if(char !== "\r")
+        {
+            data += char;
+        }
+
+        if(data.endsWith("login: "))
+        {
+            console.log("Do login");
+            emulator.serial0_send("root\n");
+        }
+        else if(data.endsWith("/root% "))
+        {
+            console.log("Now ready");
+            document.getElementById("status").textContent = "Ready.\n";
+            document.getElementById("run").disabled = false;
+        }
+    });
+
+    emulator.add_listener("serial0-output-line", function(line)
+    {
+        // filter noise
+        if(!line.startsWith("/root% lua -e") && 
+           !line.startsWith("> ") &&
+           line.indexOf("Welcome to Buildroot") === -1 && 
+           line.indexOf("login:") === -1 &&
+           line.trim() !== "")
+        {
+            document.getElementById("result").textContent += line;
+        }
+    });
+
+    document.getElementById("source").onkeydown = function(e)
+    {
+        if(e.which == 13 && e.ctrlKey)
+        {
+            document.getElementById("run").onclick();
+        }
+    };
+
+    document.getElementById("run").onclick = function()
+    {
+        var code = document.getElementById("source").value;
+
+        emulator.serial0_send("lua -e " + bashEscape(code) + "\n");
+
+        document.getElementById("result").textContent = "";
+        document.getElementById("status").textContent = "Running ...\n";
+        this.disabled = true;
+    };
+};
+
+// https://gist.github.com/creationix/2502704
+// Implement bash string escaping.
+function bashEscape(arg) 
+{
+    return "'" + arg.replace(/'+/g, function (val) {
+        return "'" + val.replace(/'/g, "\\'") + "'";
+    }) + "'";
+}
+</script>
+
+<textarea id=source rows=20 cols=80>
+k = 1
+x = 0
+
+while k &lt; 1000 do
+    x = x + 1 / (k * k)
+    k = k + 2
+end
+
+print(math.sqrt(x*8))
+
+function factorial(n)
+    if n == 0 then
+        return 1
+    else
+    return n * factorial(n - 1)
+    end
+end
+
+print("factorial(10):", factorial(10))
+</textarea>
+<button disabled id=run>run (ctrl-enter)</button>
+<br>
+<hr>
+<pre id=status>Wait for boot ...</pre>
+<pre id=result></pre>
+
+<hr>
+
+<div id="screen_container">
+    <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+    <canvas style="display: none"></canvas>
+</div>

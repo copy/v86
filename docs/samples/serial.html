@@ -1,0 +1,85 @@
+<!doctype html>
+<title>Serial example</title>
+
+<script src="../../build/libv86.js"></script>
+<script>
+"use strict";
+
+window.onload = function()
+{
+    var emulator = new V86Starter({
+        // Uncomment to see what's going on
+        //screen_container: document.getElementById("screen_container"),
+
+        bios: {
+            url: "../../bios/seabios.bin",
+        },
+        vga_bios: {
+            url: "../../bios/vgabios.bin",
+        },
+        cdrom: {
+            url: "../../images/linux.iso",
+        },
+        autostart: true,
+        disable_keyboard: true,
+    });
+
+    // In this example we wait for output from the serial terminal, which
+    // should be running busybox. We log in as soon as a prompt appears and then
+    // retrieve a directory listing of the root directory
+    var data = "";
+
+    var stages = [
+        {
+            test: "login:",
+            send: "root\n",
+        },
+        {
+            test: "/root% ",
+            send: "ls -1 --color=never /\n",
+        },
+        {
+            test: "/root% ",
+            send: "lua -e 'print(3+4)'\n",
+        },
+    ];
+    var stage = 0;
+
+    emulator.add_listener("serial0-output-char", function(char)
+    {
+        if(char === "\r")
+        {
+            return;
+        }
+
+        data += char;
+        document.getElementById("terminal").value += char;
+
+        var current = stages[stage];
+
+        if(!current)
+        {
+            return;
+        }
+
+        if(data.endsWith(current.test))
+        {
+            stage++;
+            emulator.serial0_send(current.send);
+
+            var log = "Sending: " + current.send.replace(/\n/g, "\\n") + "\n";
+            document.getElementById("log").value += log;
+        }
+    });
+};
+</script>
+
+<textarea readonly rows=25 cols=60 id="log">Waiting for boot ...
+</textarea>
+
+<textarea readonly rows=25 cols=60 id="terminal"></textarea>
+
+<div id="screen_container">
+    <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+    <canvas style="display: none"></canvas>
+</div>
