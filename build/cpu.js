@@ -1,6 +1,6 @@
 "use strict";
 /** @constructor */
-function v86()
+function CPU()
 {
     /** @type {number } */
     this.memory_size = 0;
@@ -8,23 +8,26 @@ function v86()
     this.segment_offsets = [];
     this.segment_limits = [];
     //this.segment_infos = [];
-    /*
+    /**
      * Translation Lookaside Buffer 
+     * @const
      */
-    this.tlb_data = [];
-    /*
+    this.tlb_data = new Int32Array(1 << 20);
+    /**
      * Information about which pages are cached in the tlb.
      * By bit:
      *   0 system, read
      *   1 system, write
      *   2 user, read
      *   3 user, write
+     * @const
      */
-    this.tlb_info = [];
-    /*
+    this.tlb_info = new Uint8Array(1 << 20);
+    /**
      * Same as tlb_info, except it only contains global pages
+     * @const
      */
-    this.tlb_info_global = [];
+    this.tlb_info_global = new Uint8Array(1 << 20);
     /** 
      * Wheter or not in protected mode
      * @type {boolean} 
@@ -76,10 +79,7 @@ function v86()
      * @type {boolean}
      */
     this.in_hlt = false;
-    /** @type {boolean} */
-    this.running = false;
-    /** @type {boolean} */
-    this.stopped = false;
+    /** @type {!Object} */
     this.devices = {
         vga: {
             timer: function(now) {},
@@ -135,7 +135,6 @@ function v86()
     this.reg_vdi = 0;
     this.table = [];
     this.table0F = [];
-    this.current_settings = {};
     // paging enabled
     /** @type {boolean} */
     this.paging = false;
@@ -143,6 +142,14 @@ function v86()
     this.instruction_pointer = 0;
     /** @type {number} */
     this.previous_ip = 0;
+    /** 
+     * @const
+     * @type {{main: ArrayBuffer, vga: ArrayBuffer}} 
+     */
+    this.bios = {
+        main: null,
+        vga: null,
+    };
     /** 
      * @type {number}
      */
@@ -171,9 +178,6 @@ function v86()
     this.translator = undefined;
     // was the last instruction a jump?
     this.last_instr_jump = false;
-    this.first_init = true;
-    this.next_tick = function() {};
-    this.microtick = function() {};
     this.io = undefined;
     this.fpu = undefined;
 // it looks pointless to have this here, but 
@@ -189,7 +193,9 @@ function v86()
      * @type {boolean}
      */
     debug.step_mode = false;
-    debug.ops = {};
+    debug.ops = undefined;
+    debug.all_ops = [];
+    debug.trace_all = false;
     // "log" some information visually to the user.
     // Also in non-DEBUG modes
     debug.show = function(x)
@@ -211,7 +217,7 @@ function v86()
     {
         if(!DEBUG) return;
         // used for debugging 
-        debug.ops = new CircularQueue(30000);
+        debug.ops = new CircularQueue(200000);
         if(cpu.io)
         {
             // write seabios debug output to console
@@ -234,6 +240,7 @@ function v86()
     };
     debug.dump_regs = dump_regs;
     debug.dump_instructions = dump_instructions;
+    debug.get_instructions = get_instructions;
     debug.dump_regs_short = dump_regs_short;
     debug.dump_stack = dump_stack;
     debug.dump_page_directory = dump_page_directory;
@@ -338,17 +345,19 @@ function v86()
     ];
     debug.logop = function(_ip, op)
     {
-        if(!DEBUG || !debug.ops)
+        if(!DEBUG || !debug.step_mode)
         {
             return;
         }
-        if(!debug.step_mode)
+        if(debug.trace_all && debug.all_ops)
         {
-            return;
+            debug.all_ops.push(_ip, op);
         }
-        debug.ops.add(_ip);
-        debug.ops.add(opcode_map[op] || "unkown");
-        debug.ops.add(op);
+        else if(debug.ops)
+        {
+            debug.ops.add(_ip);
+            debug.ops.add(op);
+        }
     }
     function dump_stack(start, end)
     {
@@ -429,22 +438,41 @@ function v86()
         //dbg_log("last operation: " + h(last_op1 | 0) + ", " +  h(last_op2 | 0) + " = " +
                 //h(last_result | 0) + " (" + last_op_size + " bit)")
     }
+    function get_instructions()
+    {
+        if(!DEBUG) return;
+        debug.step_mode = true;
+        function add(ip, op)
+        {
+            out += h(ip, 8) + ":        " +
+                v86util.pads(opcode_map[op] || "unkown", 20) + h(op, 2) + "\n";
+        }
+        var opcodes;
+        var out = "";
+        if(debug.trace_all && debug.all_ops)
+        {
+            opcodes = debug.all_ops;
+        }
+        else if(debug.ops)
+        {
+            opcodes = debug.ops.toArray();
+        }
+        if(!opcodes)
+        {
+            return "";
+        }
+        for(var i = 0; i < opcodes.length; i += 2)
+        {
+            add(opcodes[i], opcodes[i + 1]);
+        }
+        debug.ops.clear();
+        debug.all_ops = [];
+        return out;
+    }
     function dump_instructions()
     {
         if(!DEBUG) return;
-        var opcodes = debug.ops.toArray(),
-            out = "";
-        for(var i = 0; i < opcodes.length; i += 3)
-        {
-            if(opcodes[i])
-            {
-                out += h(opcodes[i], 8) + ":        " +
-                    String.pads(opcodes[i + 1], 20) + h(opcodes[i + 2], 2) + "\n";
-            }
-        }
-        debug.show(out.substr(0, out.length - 1));
-        debug.ops.clear();
-        debug.step_mode = true;
+        debug.show(get_instructions());
     }
     function dump_gdt_ldt()
     {
@@ -693,25 +721,11 @@ function v86()
         }
     };
 })(this);
-    /** @const */
-    this._state_skip = [
-        "current_settings",
-        "debug",
-        "regv",
-        "table", "table0F",
-        "table16", "table32",
-        "table0F_16", "table0F_32",
-        "reg8", "reg8s",
-        "reg16", "reg16s", "reg32",
-        "tlb_data",
-        "tlb_info",
-        "tlb_info_global",
-        "timestamp_counter",
-        "running",
-        "stopped",
-    ];
+    dbg_assert(this.table16 && this.table32);
+    dbg_assert(this.table0F_16 && this.table0F_32);
+    this._state_restore();
 }
-v86.prototype._state_restore = function()
+CPU.prototype._state_restore = function()
 {
     this.reg32 = new Uint32Array(this.reg32s.buffer);
     this.reg16s = new Int16Array(this.reg32s.buffer);
@@ -730,6 +744,19 @@ v86.prototype._state_restore = function()
     }
     this.full_clear_tlb();
     this.timestamp_counter = 0;
+    this.tsc_offset = v86.microtick();
+    /** @const */
+    this._state_skip = [
+        this.bios,
+        this.debug,
+        this.table16,
+        this.table32,
+        this.table0F_16,
+        this.table0F_32,
+        this.tlb_data,
+        this.tlb_info,
+        this.tlb_info_global,
+    ];
 };
 /** @constructor */
 function DynamicTranslator(something)
@@ -747,219 +774,219 @@ function DynamicTranslator(something)
 "use strict";
 (function()
 {
-    v86.prototype.modrm_table16 = Array(0xC0);
-    v86.prototype.modrm_table32 = Array(0xC0);
-    v86.prototype.sib_table = Array(0x100);
-    v86.prototype.modrm_table16[0x00 | 0] = function(cpu)
+    CPU.prototype.modrm_table16 = Array(0xC0);
+    CPU.prototype.modrm_table32 = Array(0xC0);
+    CPU.prototype.sib_table = Array(0x100);
+    CPU.prototype.modrm_table16[0x00 | 0] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_bx] + cpu.reg16[reg_si]) & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x40 | 0] = function(cpu)
+    CPU.prototype.modrm_table16[0x40 | 0] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_bx] + cpu.reg16[reg_si]) + cpu.read_imm8s() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x80 | 0] = function(cpu)
+    CPU.prototype.modrm_table16[0x80 | 0] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_bx] + cpu.reg16[reg_si]) + cpu.read_imm16() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x00 | 1] = function(cpu)
+    CPU.prototype.modrm_table16[0x00 | 1] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_bx] + cpu.reg16[reg_di]) & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x40 | 1] = function(cpu)
+    CPU.prototype.modrm_table16[0x40 | 1] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_bx] + cpu.reg16[reg_di]) + cpu.read_imm8s() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x80 | 1] = function(cpu)
+    CPU.prototype.modrm_table16[0x80 | 1] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_bx] + cpu.reg16[reg_di]) + cpu.read_imm16() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x00 | 2] = function(cpu)
+    CPU.prototype.modrm_table16[0x00 | 2] = function(cpu)
     {
         return cpu.get_seg_prefix_ss() + ((cpu.reg16[reg_bp] + cpu.reg16[reg_si]) & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x40 | 2] = function(cpu)
+    CPU.prototype.modrm_table16[0x40 | 2] = function(cpu)
     {
         return cpu.get_seg_prefix_ss() + ((cpu.reg16[reg_bp] + cpu.reg16[reg_si]) + cpu.read_imm8s() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x80 | 2] = function(cpu)
+    CPU.prototype.modrm_table16[0x80 | 2] = function(cpu)
     {
         return cpu.get_seg_prefix_ss() + ((cpu.reg16[reg_bp] + cpu.reg16[reg_si]) + cpu.read_imm16() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x00 | 3] = function(cpu)
+    CPU.prototype.modrm_table16[0x00 | 3] = function(cpu)
     {
         return cpu.get_seg_prefix_ss() + ((cpu.reg16[reg_bp] + cpu.reg16[reg_di]) & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x40 | 3] = function(cpu)
+    CPU.prototype.modrm_table16[0x40 | 3] = function(cpu)
     {
         return cpu.get_seg_prefix_ss() + ((cpu.reg16[reg_bp] + cpu.reg16[reg_di]) + cpu.read_imm8s() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x80 | 3] = function(cpu)
+    CPU.prototype.modrm_table16[0x80 | 3] = function(cpu)
     {
         return cpu.get_seg_prefix_ss() + ((cpu.reg16[reg_bp] + cpu.reg16[reg_di]) + cpu.read_imm16() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x00 | 4] = function(cpu)
+    CPU.prototype.modrm_table16[0x00 | 4] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_si]) & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x40 | 4] = function(cpu)
+    CPU.prototype.modrm_table16[0x40 | 4] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_si]) + cpu.read_imm8s() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x80 | 4] = function(cpu)
+    CPU.prototype.modrm_table16[0x80 | 4] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_si]) + cpu.read_imm16() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x00 | 5] = function(cpu)
+    CPU.prototype.modrm_table16[0x00 | 5] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_di]) & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x40 | 5] = function(cpu)
+    CPU.prototype.modrm_table16[0x40 | 5] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_di]) + cpu.read_imm8s() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x80 | 5] = function(cpu)
+    CPU.prototype.modrm_table16[0x80 | 5] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_di]) + cpu.read_imm16() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x00 | 6] = function(cpu)
+    CPU.prototype.modrm_table16[0x00 | 6] = function(cpu)
     {
         return cpu.get_seg_prefix_ss() + ((cpu.reg16[reg_bp]) & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x40 | 6] = function(cpu)
+    CPU.prototype.modrm_table16[0x40 | 6] = function(cpu)
     {
         return cpu.get_seg_prefix_ss() + ((cpu.reg16[reg_bp]) + cpu.read_imm8s() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x80 | 6] = function(cpu)
+    CPU.prototype.modrm_table16[0x80 | 6] = function(cpu)
     {
         return cpu.get_seg_prefix_ss() + ((cpu.reg16[reg_bp]) + cpu.read_imm16() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x00 | 7] = function(cpu)
+    CPU.prototype.modrm_table16[0x00 | 7] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_bx]) & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x40 | 7] = function(cpu)
+    CPU.prototype.modrm_table16[0x40 | 7] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_bx]) + cpu.read_imm8s() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table16[0x80 | 7] = function(cpu)
+    CPU.prototype.modrm_table16[0x80 | 7] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + ((cpu.reg16[reg_bx]) + cpu.read_imm16() & 0xFFFF) | 0;
     };
-    v86.prototype.modrm_table32[0x00 | 0] = function(cpu)
+    CPU.prototype.modrm_table32[0x00 | 0] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax]) | 0;
     };
-    v86.prototype.modrm_table32[0x40 | 0] = function(cpu)
+    CPU.prototype.modrm_table32[0x40 | 0] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax]) + cpu.read_imm8s() | 0;
     };
-    v86.prototype.modrm_table32[0x80 | 0] = function(cpu)
+    CPU.prototype.modrm_table32[0x80 | 0] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax]) + cpu.read_imm32s() | 0;
     };;
-    v86.prototype.modrm_table32[0x00 | 1] = function(cpu)
+    CPU.prototype.modrm_table32[0x00 | 1] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx]) | 0;
     };
-    v86.prototype.modrm_table32[0x40 | 1] = function(cpu)
+    CPU.prototype.modrm_table32[0x40 | 1] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx]) + cpu.read_imm8s() | 0;
     };
-    v86.prototype.modrm_table32[0x80 | 1] = function(cpu)
+    CPU.prototype.modrm_table32[0x80 | 1] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx]) + cpu.read_imm32s() | 0;
     };;
-    v86.prototype.modrm_table32[0x00 | 2] = function(cpu)
+    CPU.prototype.modrm_table32[0x00 | 2] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx]) | 0;
     };
-    v86.prototype.modrm_table32[0x40 | 2] = function(cpu)
+    CPU.prototype.modrm_table32[0x40 | 2] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx]) + cpu.read_imm8s() | 0;
     };
-    v86.prototype.modrm_table32[0x80 | 2] = function(cpu)
+    CPU.prototype.modrm_table32[0x80 | 2] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx]) + cpu.read_imm32s() | 0;
     };;
-    v86.prototype.modrm_table32[0x00 | 3] = function(cpu)
+    CPU.prototype.modrm_table32[0x00 | 3] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx]) | 0;
     };
-    v86.prototype.modrm_table32[0x40 | 3] = function(cpu)
+    CPU.prototype.modrm_table32[0x40 | 3] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx]) + cpu.read_imm8s() | 0;
     };
-    v86.prototype.modrm_table32[0x80 | 3] = function(cpu)
+    CPU.prototype.modrm_table32[0x80 | 3] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx]) + cpu.read_imm32s() | 0;
     };;
-    v86.prototype.modrm_table32[0x00 | 4] = function(cpu)
+    CPU.prototype.modrm_table32[0x00 | 4] = function(cpu)
     {
         return(cpu.sib_table[cpu.read_imm8()](cpu, false)) | 0;
     };
-    v86.prototype.modrm_table32[0x40 | 4] = function(cpu)
+    CPU.prototype.modrm_table32[0x40 | 4] = function(cpu)
     {
         return(cpu.sib_table[cpu.read_imm8()](cpu, false)) + cpu.read_imm8s() | 0;
     };
-    v86.prototype.modrm_table32[0x80 | 4] = function(cpu)
+    CPU.prototype.modrm_table32[0x80 | 4] = function(cpu)
     {
         return(cpu.sib_table[cpu.read_imm8()](cpu, false)) + cpu.read_imm32s() | 0;
     };;
-    v86.prototype.modrm_table32[0x00 | 5] = function(cpu)
+    CPU.prototype.modrm_table32[0x00 | 5] = function(cpu)
     {
         return(cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp]) | 0;
     };
-    v86.prototype.modrm_table32[0x40 | 5] = function(cpu)
+    CPU.prototype.modrm_table32[0x40 | 5] = function(cpu)
     {
         return(cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp]) + cpu.read_imm8s() | 0;
     };
-    v86.prototype.modrm_table32[0x80 | 5] = function(cpu)
+    CPU.prototype.modrm_table32[0x80 | 5] = function(cpu)
     {
         return(cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp]) + cpu.read_imm32s() | 0;
     };;
-    v86.prototype.modrm_table32[0x00 | 6] = function(cpu)
+    CPU.prototype.modrm_table32[0x00 | 6] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi]) | 0;
     };
-    v86.prototype.modrm_table32[0x40 | 6] = function(cpu)
+    CPU.prototype.modrm_table32[0x40 | 6] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi]) + cpu.read_imm8s() | 0;
     };
-    v86.prototype.modrm_table32[0x80 | 6] = function(cpu)
+    CPU.prototype.modrm_table32[0x80 | 6] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi]) + cpu.read_imm32s() | 0;
     };;
-    v86.prototype.modrm_table32[0x00 | 7] = function(cpu)
+    CPU.prototype.modrm_table32[0x00 | 7] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi]) | 0;
     };
-    v86.prototype.modrm_table32[0x40 | 7] = function(cpu)
+    CPU.prototype.modrm_table32[0x40 | 7] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi]) + cpu.read_imm8s() | 0;
     };
-    v86.prototype.modrm_table32[0x80 | 7] = function(cpu)
+    CPU.prototype.modrm_table32[0x80 | 7] = function(cpu)
     {
         return(cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi]) + cpu.read_imm32s() | 0;
     };;
     // special cases
-    v86.prototype.modrm_table16[0x00 | 6] = function(cpu)
+    CPU.prototype.modrm_table16[0x00 | 6] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + cpu.read_imm16() | 0;
     }
-    v86.prototype.modrm_table32[0x00 | 5] = function(cpu)
+    CPU.prototype.modrm_table32[0x00 | 5] = function(cpu)
     {
         return cpu.get_seg_prefix_ds() + cpu.read_imm32s() | 0;
     };
-    v86.prototype.modrm_table32[0x00 | 4] = function(cpu)
+    CPU.prototype.modrm_table32[0x00 | 4] = function(cpu)
     {
         return cpu.sib_table[cpu.read_imm8()](cpu, false) | 0;
     };
-    v86.prototype.modrm_table32[0x40 | 4] = function(cpu)
+    CPU.prototype.modrm_table32[0x40 | 4] = function(cpu)
     {
         return cpu.sib_table[cpu.read_imm8()](cpu, true) + cpu.read_imm8s() | 0;
     };
-    v86.prototype.modrm_table32[0x80 | 4] = function(cpu)
+    CPU.prototype.modrm_table32[0x80 | 4] = function(cpu)
     {
         return cpu.sib_table[cpu.read_imm8()](cpu, true) + cpu.read_imm32s() | 0;
     };
@@ -970,1036 +997,1036 @@ function DynamicTranslator(something)
             var x = low | high << 6;
             for(var i = 1; i < 8; i++)
             {
-                v86.prototype.modrm_table32[x | i << 3] = v86.prototype.modrm_table32[x];
-                v86.prototype.modrm_table16[x | i << 3] = v86.prototype.modrm_table16[x];
+                CPU.prototype.modrm_table32[x | i << 3] = CPU.prototype.modrm_table32[x];
+                CPU.prototype.modrm_table16[x | i << 3] = CPU.prototype.modrm_table16[x];
             }
         }
     }
-    v86.prototype.sib_table[0x00 | 0 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 0 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x00 | 0 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 0 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 0 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 0 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 0 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 0 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 0 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 0 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax]) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x00 | 0 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 0 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax]) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x00 | 0 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 0 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x00 | 0 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 0 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 0 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 0 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x40 | 0 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 0 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 0 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 0 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 0 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 0 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 0 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 0 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 1) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x40 | 0 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 0 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 1) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x40 | 0 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 0 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 0 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 0 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 0 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 0 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x80 | 0 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 0 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 0 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 0 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 0 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 0 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 0 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 0 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 2) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x80 | 0 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 0 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 2) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x80 | 0 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 0 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 0 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 0 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 0 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 0 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 0 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 0 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 0 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 0 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 0 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 0 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 0 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 0 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 3) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 0 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 0 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 3) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0xC0 | 0 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 0 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 0 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 0 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_eax] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };;
-    v86.prototype.sib_table[0x00 | 1 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 1 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x00 | 1 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 1 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 1 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 1 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 1 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 1 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 1 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 1 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx]) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x00 | 1 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 1 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx]) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x00 | 1 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 1 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x00 | 1 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 1 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 1 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 1 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x40 | 1 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 1 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 1 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 1 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 1 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 1 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 1 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 1 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 1) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x40 | 1 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 1 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 1) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x40 | 1 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 1 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 1 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 1 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 1 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 1 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x80 | 1 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 1 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 1 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 1 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 1 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 1 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 1 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 1 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 2) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x80 | 1 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 1 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 2) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x80 | 1 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 1 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 1 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 1 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 1 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 1 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 1 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 1 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 1 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 1 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 1 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 1 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 1 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 1 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 3) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 1 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 1 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 3) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0xC0 | 1 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 1 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 1 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 1 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ecx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };;
-    v86.prototype.sib_table[0x00 | 2 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 2 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x00 | 2 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 2 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 2 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 2 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 2 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 2 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 2 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 2 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx]) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x00 | 2 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 2 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx]) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x00 | 2 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 2 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x00 | 2 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 2 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 2 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 2 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x40 | 2 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 2 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 2 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 2 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 2 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 2 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 2 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 2 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 1) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x40 | 2 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 2 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 1) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x40 | 2 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 2 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 2 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 2 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 2 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 2 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x80 | 2 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 2 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 2 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 2 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 2 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 2 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 2 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 2 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 2) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x80 | 2 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 2 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 2) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x80 | 2 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 2 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 2 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 2 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 2 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 2 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 2 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 2 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 2 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 2 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 2 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 2 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 2 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 2 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 3) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 2 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 2 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 3) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0xC0 | 2 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 2 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 2 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 2 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };;
-    v86.prototype.sib_table[0x00 | 3 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 3 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x00 | 3 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 3 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 3 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 3 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 3 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 3 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 3 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 3 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx]) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x00 | 3 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 3 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx]) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x00 | 3 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 3 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x00 | 3 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 3 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 3 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 3 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x40 | 3 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 3 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 3 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 3 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 3 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 3 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 3 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 3 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 1) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x40 | 3 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 3 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 1) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x40 | 3 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 3 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 3 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 3 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 3 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 3 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x80 | 3 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 3 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 3 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 3 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 3 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 3 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 3 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 3 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 2) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x80 | 3 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 3 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 2) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x80 | 3 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 3 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 3 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 3 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 3 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 3 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 3 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 3 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 3 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 3 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 3 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 3 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 3 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 3 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 3) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 3 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 3 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 3) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0xC0 | 3 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 3 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 3 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 3 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebx] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };;
-    v86.prototype.sib_table[0x00 | 4 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 4 << 3 | 0] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x00 | 4 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 4 << 3 | 1] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 4 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 4 << 3 | 2] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 4 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 4 << 3 | 3] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 4 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 4 << 3 | 4] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x00 | 4 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 4 << 3 | 5] = function(cpu, mod)
     {
         return (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x00 | 4 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 4 << 3 | 6] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x00 | 4 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 4 << 3 | 7] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 4 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 4 << 3 | 0] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x40 | 4 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 4 << 3 | 1] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 4 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 4 << 3 | 2] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 4 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 4 << 3 | 3] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 4 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 4 << 3 | 4] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x40 | 4 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 4 << 3 | 5] = function(cpu, mod)
     {
         return (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x40 | 4 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 4 << 3 | 6] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 4 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 4 << 3 | 7] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 4 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 4 << 3 | 0] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x80 | 4 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 4 << 3 | 1] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 4 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 4 << 3 | 2] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 4 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 4 << 3 | 3] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 4 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 4 << 3 | 4] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x80 | 4 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 4 << 3 | 5] = function(cpu, mod)
     {
         return (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x80 | 4 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 4 << 3 | 6] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 4 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 4 << 3 | 7] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 4 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 4 << 3 | 0] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 4 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 4 << 3 | 1] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 4 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 4 << 3 | 2] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 4 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 4 << 3 | 3] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 4 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 4 << 3 | 4] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 4 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 4 << 3 | 5] = function(cpu, mod)
     {
         return (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0xC0 | 4 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 4 << 3 | 6] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 4 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 4 << 3 | 7] = function(cpu, mod)
     {
         return cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };;
-    v86.prototype.sib_table[0x00 | 5 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 5 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x00 | 5 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 5 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 5 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 5 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 5 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 5 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 5 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 5 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp]) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x00 | 5 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 5 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp]) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x00 | 5 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 5 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x00 | 5 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 5 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 5 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 5 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x40 | 5 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 5 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 5 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 5 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 5 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 5 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 5 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 5 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 1) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x40 | 5 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 5 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 1) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x40 | 5 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 5 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 5 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 5 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 5 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 5 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x80 | 5 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 5 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 5 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 5 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 5 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 5 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 5 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 5 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 2) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x80 | 5 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 5 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 2) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x80 | 5 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 5 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 5 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 5 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 5 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 5 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 5 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 5 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 5 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 5 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 5 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 5 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 5 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 5 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 3) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 5 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 5 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 3) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0xC0 | 5 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 5 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 5 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 5 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_ebp] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };;
-    v86.prototype.sib_table[0x00 | 6 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 6 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x00 | 6 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 6 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 6 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 6 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 6 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 6 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 6 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 6 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi]) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x00 | 6 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 6 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi]) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x00 | 6 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 6 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x00 | 6 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 6 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 6 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 6 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x40 | 6 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 6 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 6 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 6 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 6 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 6 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 6 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 6 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 1) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x40 | 6 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 6 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 1) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x40 | 6 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 6 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 6 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 6 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 6 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 6 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x80 | 6 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 6 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 6 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 6 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 6 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 6 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 6 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 6 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 2) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x80 | 6 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 6 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 2) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x80 | 6 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 6 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 6 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 6 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 6 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 6 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 6 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 6 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 6 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 6 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 6 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 6 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 6 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 6 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 3) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 6 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 6 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 3) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0xC0 | 6 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 6 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 6 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 6 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_esi] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };;
-    v86.prototype.sib_table[0x00 | 7 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 7 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x00 | 7 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 7 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 7 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 7 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 7 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 7 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x00 | 7 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 7 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi]) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x00 | 7 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 7 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi]) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x00 | 7 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 7 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x00 | 7 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x00 | 7 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi]) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 7 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 7 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x40 | 7 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 7 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 7 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 7 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 7 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 7 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x40 | 7 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 7 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 1) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x40 | 7 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 7 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 1) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x40 | 7 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 7 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x40 | 7 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x40 | 7 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 1) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 7 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 7 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0x80 | 7 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 7 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 7 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 7 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 7 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 7 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0x80 | 7 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 7 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 2) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0x80 | 7 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 7 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 2) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0x80 | 7 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 7 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0x80 | 7 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0x80 | 7 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 2) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 7 << 3 | 0] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 7 << 3 | 0] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_eax] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 7 << 3 | 1] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 7 << 3 | 1] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ecx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 7 << 3 | 2] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 7 << 3 | 2] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 7 << 3 | 3] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 7 << 3 | 3] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_ebx] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 7 << 3 | 4] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 7 << 3 | 4] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 3) + cpu.get_seg_prefix_ss() + cpu.reg32s[reg_esp] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 7 << 3 | 5] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 7 << 3 | 5] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 3) + (mod ? cpu.get_seg_prefix_ss() + cpu.reg32s[reg_ebp] : cpu.get_seg_prefix_ds() + cpu.read_imm32s()) | 0;
     };
-    v86.prototype.sib_table[0xC0 | 7 << 3 | 6] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 7 << 3 | 6] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_esi] | 0;
     };
-    v86.prototype.sib_table[0xC0 | 7 << 3 | 7] = function(cpu, mod)
+    CPU.prototype.sib_table[0xC0 | 7 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
     };;
-    v86.prototype.modrm_resolve = function(modrm_byte)
+    CPU.prototype.modrm_resolve = function(modrm_byte)
     {
         return(this.address_size_32 ? this.modrm_table32 : this.modrm_table16)[modrm_byte](this);
     };
@@ -2029,7 +2056,7 @@ function DynamicTranslator(something)
  *
 */
 "use strict";
-v86.prototype.add = function(dest_operand, source_operand, op_size)
+CPU.prototype.add = function(dest_operand, source_operand, op_size)
 {
     this.last_op1 = dest_operand;
     this.last_op2 = source_operand;
@@ -2038,7 +2065,7 @@ v86.prototype.add = function(dest_operand, source_operand, op_size)
     this.flags_changed = flags_all;
     return this.last_result;
 }
-v86.prototype.adc = function(dest_operand, source_operand, op_size)
+CPU.prototype.adc = function(dest_operand, source_operand, op_size)
 {
     var cf = this.getcf();
     this.last_op1 = dest_operand;
@@ -2048,7 +2075,7 @@ v86.prototype.adc = function(dest_operand, source_operand, op_size)
     this.flags_changed = flags_all;
     return this.last_result;
 }
-v86.prototype.cmp = function(dest_operand, source_operand, op_size)
+CPU.prototype.cmp = function(dest_operand, source_operand, op_size)
 {
     this.last_add_result = dest_operand;
     this.last_op2 = source_operand;
@@ -2056,7 +2083,7 @@ v86.prototype.cmp = function(dest_operand, source_operand, op_size)
     this.last_op_size = op_size;
     this.flags_changed = flags_all;
 }
-v86.prototype.sub = function(dest_operand, source_operand, op_size)
+CPU.prototype.sub = function(dest_operand, source_operand, op_size)
 {
     this.last_add_result = dest_operand;
     this.last_op2 = source_operand;
@@ -2065,7 +2092,7 @@ v86.prototype.sub = function(dest_operand, source_operand, op_size)
     this.flags_changed = flags_all;
     return this.last_result;
 }
-v86.prototype.sbb = function(dest_operand, source_operand, op_size)
+CPU.prototype.sbb = function(dest_operand, source_operand, op_size)
 {
     var cf = this.getcf();
     this.last_add_result = dest_operand;
@@ -2078,7 +2105,7 @@ v86.prototype.sbb = function(dest_operand, source_operand, op_size)
 /*
  * inc and dec
  */
-v86.prototype.inc = function(dest_operand, op_size)
+CPU.prototype.inc = function(dest_operand, op_size)
 {
     this.flags = (this.flags & ~1) | this.getcf();
     this.last_op1 = dest_operand;
@@ -2088,7 +2115,7 @@ v86.prototype.inc = function(dest_operand, op_size)
     this.flags_changed = flags_all & ~1;
     return this.last_result;
 }
-v86.prototype.dec = function(dest_operand, op_size)
+CPU.prototype.dec = function(dest_operand, op_size)
 {
     this.flags = (this.flags & ~1) | this.getcf();
     this.last_add_result = dest_operand;
@@ -2101,7 +2128,7 @@ v86.prototype.dec = function(dest_operand, op_size)
 /*
  * neg
  */
-v86.prototype.neg = function(dest_operand, op_size)
+CPU.prototype.neg = function(dest_operand, op_size)
 {
     this.last_op1 = this.last_result = -dest_operand | 0;
     this.flags_changed = flags_all;
@@ -2117,7 +2144,7 @@ v86.prototype.neg = function(dest_operand, op_size)
  *       while other functions only allow
  *       ax * modrm
  */
-v86.prototype.mul8 = function(source_operand)
+CPU.prototype.mul8 = function(source_operand)
 {
     var result = source_operand * this.reg8[reg_al];
     this.reg16[reg_ax] = result;
@@ -2131,7 +2158,7 @@ v86.prototype.mul8 = function(source_operand)
     }
     this.flags_changed = 0;
 }
-v86.prototype.imul8 = function(source_operand)
+CPU.prototype.imul8 = function(source_operand)
 {
     var result = source_operand * this.reg8s[reg_al];
     this.reg16[reg_ax] = result;
@@ -2145,7 +2172,7 @@ v86.prototype.imul8 = function(source_operand)
     }
     this.flags_changed = 0;
 }
-v86.prototype.mul16 = function(source_operand)
+CPU.prototype.mul16 = function(source_operand)
 {
     var result = source_operand * this.reg16[reg_ax],
         high_result = result >>> 16;
@@ -2166,7 +2193,7 @@ v86.prototype.mul16 = function(source_operand)
  * imul with 1 argument
  * ax = ax * r/m
  */
-v86.prototype.imul16 = function(source_operand)
+CPU.prototype.imul16 = function(source_operand)
 {
     var result = source_operand * this.reg16s[reg_ax];
     this.reg16[reg_ax] = result;
@@ -2186,7 +2213,7 @@ v86.prototype.imul16 = function(source_operand)
  * reg = reg * r/m
  * reg = imm * r/m
  */
-v86.prototype.imul_reg16 = function(operand1, operand2)
+CPU.prototype.imul_reg16 = function(operand1, operand2)
 {
     dbg_assert(operand1 < 0x8000 && operand1 >= -0x8000);
     dbg_assert(operand2 < 0x8000 && operand2 >= -0x8000);
@@ -2202,7 +2229,7 @@ v86.prototype.imul_reg16 = function(operand1, operand2)
     this.flags_changed = 0;
     return result;
 }
-v86.prototype.mul32 = function(source_operand)
+CPU.prototype.mul32 = function(source_operand)
 {
     var dest_operand = this.reg32s[reg_eax];
     var a00 = dest_operand & 0xFFFF; var a16 = dest_operand >>> 16; var b00 = source_operand & 0xFFFF; var b16 = source_operand >>> 16; var low_result = a00 * b00; var mid = (low_result >>> 16) + (a16 * b00 | 0) | 0; var high_result = mid >>> 16; mid = (mid & 0xFFFF) + (a00 * b16 | 0) | 0; low_result = (mid << 16) | low_result & 0xFFFF; high_result = ((mid >>> 16) + (a16 * b16 | 0) | 0) + high_result | 0;;
@@ -2220,7 +2247,7 @@ v86.prototype.mul32 = function(source_operand)
     //console.log(h(source_operand >>> 0, 8) + " * " + h(dest_operand >>> 0, 8));
     //console.log("= " + h(this.reg32[reg_edx], 8) + ":" + h(this.reg32[reg_eax], 8));
 }
-v86.prototype.imul32 = function(source_operand)
+CPU.prototype.imul32 = function(source_operand)
 {
     dbg_assert(source_operand < 0x80000000 && source_operand >= -0x80000000);
     var dest_operand = this.reg32s[reg_eax];
@@ -2244,7 +2271,7 @@ v86.prototype.imul32 = function(source_operand)
  * reg = reg * r/m
  * reg = imm * r/m
  */
-v86.prototype.imul_reg32 = function(operand1, operand2)
+CPU.prototype.imul_reg32 = function(operand1, operand2)
 {
     dbg_assert(operand1 < 0x80000000 && operand1 >= -0x80000000);
     dbg_assert(operand2 < 0x80000000 && operand2 >= -0x80000000);
@@ -2262,7 +2289,7 @@ v86.prototype.imul_reg32 = function(operand1, operand2)
     //console.log(operand + " * " + source_operand);
     //console.log("= " + this.reg32[reg]);
 }
-v86.prototype.div8 = function(source_operand)
+CPU.prototype.div8 = function(source_operand)
 {
     dbg_assert(source_operand >= 0 && source_operand < 0x100);
     var target_operand = this.reg16[reg_ax],
@@ -2277,7 +2304,7 @@ v86.prototype.div8 = function(source_operand)
         this.reg8[reg_ah] = target_operand % source_operand;
     }
 }
-v86.prototype.idiv8 = function(source_operand)
+CPU.prototype.idiv8 = function(source_operand)
 {
     dbg_assert(source_operand >= -0x80 && source_operand < 0x80);
     var target_operand = this.reg16s[reg_ax],
@@ -2292,7 +2319,7 @@ v86.prototype.idiv8 = function(source_operand)
         this.reg8[reg_ah] = target_operand % source_operand;
     }
 }
-v86.prototype.div16 = function(source_operand)
+CPU.prototype.div16 = function(source_operand)
 {
     dbg_assert(source_operand >= 0 && source_operand < 0x10000);
     var
@@ -2308,7 +2335,7 @@ v86.prototype.div16 = function(source_operand)
         this.reg16[reg_dx] = target_operand % source_operand;
     }
 }
-v86.prototype.idiv16 = function(source_operand)
+CPU.prototype.idiv16 = function(source_operand)
 {
     dbg_assert(source_operand >= -0x8000 && source_operand < 0x8000);
     var target_operand = this.reg16[reg_ax] | (this.reg16[reg_dx] << 16),
@@ -2326,7 +2353,7 @@ v86.prototype.idiv16 = function(source_operand)
 // If the dividend is too large, the division cannot be done precisely using
 // JavaScript's double floating point numbers. Run simple long divsion until
 // the dividend is small enough
-v86.prototype.div32 = function(source_operand)
+CPU.prototype.div32 = function(source_operand)
 {
     dbg_assert(source_operand >= 0 && source_operand <= 0xffffffff);
     var dest_operand_low = this.reg32[reg_eax],
@@ -2345,7 +2372,7 @@ v86.prototype.div32 = function(source_operand)
     //console.log(h(dest_operand_high) + ":" + h(dest_operand_low) + " / " + h(source_operand));
     //console.log("= " + h(this.reg32[reg_eax]) + " rem " + h(this.reg32[reg_edx]));
 }
-v86.prototype.idiv32 = function(source_operand)
+CPU.prototype.idiv32 = function(source_operand)
 {
     dbg_assert(source_operand < 0x80000000 && source_operand >= -0x80000000);
     var dest_operand_low = this.reg32[reg_eax],
@@ -2386,25 +2413,25 @@ v86.prototype.idiv32 = function(source_operand)
     //console.log(h(dest_operand_high) + ":" + h(dest_operand_low) + " / " + h(source_operand));
     //console.log("= " + h(this.reg32[reg_eax]) + " rem " + h(this.reg32[reg_edx]));
 }
-v86.prototype.xadd8 = function(source_operand, reg)
+CPU.prototype.xadd8 = function(source_operand, reg)
 {
     var tmp = this.reg8[reg];
     this.reg8[reg] = source_operand;
     return this.add(source_operand, tmp, OPSIZE_8);
 }
-v86.prototype.xadd16 = function(source_operand, reg)
+CPU.prototype.xadd16 = function(source_operand, reg)
 {
     var tmp = this.reg16[reg];
     this.reg16[reg] = source_operand;
     return this.add(source_operand, tmp, OPSIZE_16);
 }
-v86.prototype.xadd32 = function(source_operand, reg)
+CPU.prototype.xadd32 = function(source_operand, reg)
 {
     var tmp = this.reg32s[reg];
     this.reg32s[reg] = source_operand;
     return this.add(source_operand, tmp, OPSIZE_32);
 }
-v86.prototype.bcd_daa = function()
+CPU.prototype.bcd_daa = function()
 {
     //dbg_log("daa");
     // decimal adjust after addition
@@ -2427,7 +2454,7 @@ v86.prototype.bcd_daa = function()
     this.last_op1 = this.last_op2 = 0;
     this.flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
 }
-v86.prototype.bcd_das = function()
+CPU.prototype.bcd_das = function()
 {
     //dbg_log("das");
     // decimal adjust after subtraction
@@ -2454,7 +2481,7 @@ v86.prototype.bcd_das = function()
     this.last_op1 = this.last_op2 = 0;
     this.flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
 }
-v86.prototype.bcd_aam = function()
+CPU.prototype.bcd_aam = function()
 {
     //dbg_log("aam");
     // ascii adjust after multiplication
@@ -2473,7 +2500,7 @@ v86.prototype.bcd_aam = function()
         this.flags &= ~1 & ~flag_adjust & ~flag_overflow;
     }
 }
-v86.prototype.bcd_aad = function()
+CPU.prototype.bcd_aad = function()
 {
     //dbg_log("aad");
     // ascii adjust after division
@@ -2484,7 +2511,7 @@ v86.prototype.bcd_aad = function()
     this.flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
     this.flags &= ~1 & ~flag_adjust & ~flag_overflow;
 }
-v86.prototype.bcd_aaa = function()
+CPU.prototype.bcd_aaa = function()
 {
     //dbg_log("aaa");
     if((this.reg8[reg_al] & 0xF) > 9 || this.getaf())
@@ -2500,7 +2527,7 @@ v86.prototype.bcd_aaa = function()
     this.reg8[reg_al] &= 0xF;
     this.flags_changed &= ~flag_adjust & ~1;
 };
-v86.prototype.bcd_aas = function()
+CPU.prototype.bcd_aas = function()
 {
     //dbg_log("aas");
     if((this.reg8[reg_al] & 0xF) > 9 || this.getaf())
@@ -2527,7 +2554,7 @@ v86.prototype.bcd_aas = function()
  * bt, bts, btr, btc
  * bsf, bsr
  */
-v86.prototype.and = function(dest_operand, source_operand, op_size)
+CPU.prototype.and = function(dest_operand, source_operand, op_size)
 {
     this.last_result = dest_operand & source_operand;
     this.last_op_size = op_size;
@@ -2535,7 +2562,7 @@ v86.prototype.and = function(dest_operand, source_operand, op_size)
     this.flags_changed = flags_all & ~1 & ~flag_overflow & ~flag_adjust;
     return this.last_result;
 }
-v86.prototype.or = function(dest_operand, source_operand, op_size)
+CPU.prototype.or = function(dest_operand, source_operand, op_size)
 {
     this.last_result = dest_operand | source_operand;
     this.last_op_size = op_size;
@@ -2543,7 +2570,7 @@ v86.prototype.or = function(dest_operand, source_operand, op_size)
     this.flags_changed = flags_all & ~1 & ~flag_overflow & ~flag_adjust;
     return this.last_result;
 }
-v86.prototype.xor = function(dest_operand, source_operand, op_size)
+CPU.prototype.xor = function(dest_operand, source_operand, op_size)
 {
     this.last_result = dest_operand ^ source_operand;
     this.last_op_size = op_size;
@@ -2554,7 +2581,7 @@ v86.prototype.xor = function(dest_operand, source_operand, op_size)
 /*
  * rotates and shifts
  */
-v86.prototype.rol8 = function(dest_operand, count)
+CPU.prototype.rol8 = function(dest_operand, count)
 {
     if(!count)
     {
@@ -2568,7 +2595,7 @@ v86.prototype.rol8 = function(dest_operand, count)
                 | (result << 11 ^ result << 4) & flag_overflow;
     return result;
 }
-v86.prototype.rol16 = function(dest_operand, count)
+CPU.prototype.rol16 = function(dest_operand, count)
 {
     if(!count)
     {
@@ -2582,7 +2609,7 @@ v86.prototype.rol16 = function(dest_operand, count)
                 | (result << 11 ^ result >> 4) & flag_overflow;
     return result;
 }
-v86.prototype.rol32 = function(dest_operand, count)
+CPU.prototype.rol32 = function(dest_operand, count)
 {
     if(!count)
     {
@@ -2595,7 +2622,7 @@ v86.prototype.rol32 = function(dest_operand, count)
                 | (result << 11 ^ result >> 20) & flag_overflow;
     return result;
 }
-v86.prototype.rcl8 = function(dest_operand, count)
+CPU.prototype.rcl8 = function(dest_operand, count)
 {
     count %= 9;
     if(!count)
@@ -2609,7 +2636,7 @@ v86.prototype.rcl8 = function(dest_operand, count)
                 | (result << 3 ^ result << 4) & flag_overflow;
     return result;
 }
-v86.prototype.rcl16 = function(dest_operand, count)
+CPU.prototype.rcl16 = function(dest_operand, count)
 {
     count %= 17;
     if(!count)
@@ -2623,7 +2650,7 @@ v86.prototype.rcl16 = function(dest_operand, count)
                 | (result >> 5 ^ result >> 4) & flag_overflow;
     return result;
 }
-v86.prototype.rcl32 = function(dest_operand, count)
+CPU.prototype.rcl32 = function(dest_operand, count)
 {
     if(!count)
     {
@@ -2639,7 +2666,7 @@ v86.prototype.rcl32 = function(dest_operand, count)
     this.flags |= (this.flags << 11 ^ result >> 20) & flag_overflow;
     return result;
 }
-v86.prototype.ror8 = function(dest_operand, count)
+CPU.prototype.ror8 = function(dest_operand, count)
 {
     count &= 7;
     if(!count)
@@ -2653,7 +2680,7 @@ v86.prototype.ror8 = function(dest_operand, count)
                 | (result << 4 ^ result << 5) & flag_overflow;
     return result;
 }
-v86.prototype.ror16 = function(dest_operand, count)
+CPU.prototype.ror16 = function(dest_operand, count)
 {
     count &= 15;
     if(!count)
@@ -2667,7 +2694,7 @@ v86.prototype.ror16 = function(dest_operand, count)
                 | (result >> 4 ^ result >> 3) & flag_overflow;
     return result;
 }
-v86.prototype.ror32 = function(dest_operand, count)
+CPU.prototype.ror32 = function(dest_operand, count)
 {
     if(!count)
     {
@@ -2680,7 +2707,7 @@ v86.prototype.ror32 = function(dest_operand, count)
                 | (result >> 20 ^ result >> 19) & flag_overflow;
     return result;
 }
-v86.prototype.rcr8 = function(dest_operand, count)
+CPU.prototype.rcr8 = function(dest_operand, count)
 {
     count %= 9;
     if(!count)
@@ -2694,7 +2721,7 @@ v86.prototype.rcr8 = function(dest_operand, count)
                 | (result << 4 ^ result << 5) & flag_overflow;
     return result;
 }
-v86.prototype.rcr16 = function(dest_operand, count)
+CPU.prototype.rcr16 = function(dest_operand, count)
 {
     count %= 17;
     if(!count)
@@ -2708,7 +2735,7 @@ v86.prototype.rcr16 = function(dest_operand, count)
                 | (result >> 4 ^ result >> 3) & flag_overflow;
     return result;
 }
-v86.prototype.rcr32 = function(dest_operand, count)
+CPU.prototype.rcr32 = function(dest_operand, count)
 {
     if(!count)
     {
@@ -2725,7 +2752,7 @@ v86.prototype.rcr32 = function(dest_operand, count)
                 | (result >> 20 ^ result >> 19) & flag_overflow;
     return result;
 }
-v86.prototype.shl8 = function(dest_operand, count)
+CPU.prototype.shl8 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -2739,7 +2766,7 @@ v86.prototype.shl8 = function(dest_operand, count)
                 | (this.last_result << 3 ^ this.last_result << 4) & flag_overflow;
     return this.last_result;
 }
-v86.prototype.shl16 = function(dest_operand, count)
+CPU.prototype.shl16 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -2753,7 +2780,7 @@ v86.prototype.shl16 = function(dest_operand, count)
                 | (this.last_result >> 5 ^ this.last_result >> 4) & flag_overflow;
     return this.last_result;
 }
-v86.prototype.shl32 = function(dest_operand, count)
+CPU.prototype.shl32 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -2767,7 +2794,7 @@ v86.prototype.shl32 = function(dest_operand, count)
     this.flags |= ((this.flags & 1) ^ (this.last_result >> 31 & 1)) << 11 & flag_overflow;
     return this.last_result;
 }
-v86.prototype.shr8 = function(dest_operand, count)
+CPU.prototype.shr8 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -2781,7 +2808,7 @@ v86.prototype.shr8 = function(dest_operand, count)
                 | (dest_operand >> 7 & 1) << 11 & flag_overflow;
     return this.last_result;
 }
-v86.prototype.shr16 = function(dest_operand, count)
+CPU.prototype.shr16 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -2795,7 +2822,7 @@ v86.prototype.shr16 = function(dest_operand, count)
                 | (dest_operand >> 4) & flag_overflow;
     return this.last_result;
 }
-v86.prototype.shr32 = function(dest_operand, count)
+CPU.prototype.shr32 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -2809,7 +2836,7 @@ v86.prototype.shr32 = function(dest_operand, count)
                 | (dest_operand >> 20) & flag_overflow;
     return this.last_result;
 }
-v86.prototype.sar8 = function(dest_operand, count)
+CPU.prototype.sar8 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -2822,7 +2849,7 @@ v86.prototype.sar8 = function(dest_operand, count)
     // of is zero
     return this.last_result;
 }
-v86.prototype.sar16 = function(dest_operand, count)
+CPU.prototype.sar16 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -2834,7 +2861,7 @@ v86.prototype.sar16 = function(dest_operand, count)
     this.flags = (this.flags & ~1 & ~flag_overflow) | (dest_operand >> (count - 1) & 1);
     return this.last_result;
 }
-v86.prototype.sar32 = function(dest_operand, count)
+CPU.prototype.sar32 = function(dest_operand, count)
 {
     if(count === 0)
     {
@@ -2846,7 +2873,7 @@ v86.prototype.sar32 = function(dest_operand, count)
     this.flags = (this.flags & ~1 & ~flag_overflow) | (dest_operand >>> (count - 1) & 1);
     return this.last_result;
 }
-v86.prototype.shrd16 = function(dest_operand, source_operand, count)
+CPU.prototype.shrd16 = function(dest_operand, source_operand, count)
 {
     if(count === 0)
     {
@@ -2867,7 +2894,7 @@ v86.prototype.shrd16 = function(dest_operand, source_operand, count)
     this.flags = (this.flags & ~flag_overflow) | ((this.last_result ^ dest_operand) >> 4 & flag_overflow);
     return this.last_result;
 }
-v86.prototype.shrd32 = function(dest_operand, source_operand, count)
+CPU.prototype.shrd32 = function(dest_operand, source_operand, count)
 {
     if(count === 0)
     {
@@ -2880,7 +2907,7 @@ v86.prototype.shrd32 = function(dest_operand, source_operand, count)
     this.flags = (this.flags & ~flag_overflow) | ((this.last_result ^ dest_operand) >> 20 & flag_overflow);
     return this.last_result;
 }
-v86.prototype.shld16 = function(dest_operand, source_operand, count)
+CPU.prototype.shld16 = function(dest_operand, source_operand, count)
 {
     if(count === 0)
     {
@@ -2901,7 +2928,7 @@ v86.prototype.shld16 = function(dest_operand, source_operand, count)
     this.flags = (this.flags & ~flag_overflow) | ((this.flags & 1) ^ (this.last_result >> 15 & 1)) << 11;
     return this.last_result;
 }
-v86.prototype.shld32 = function(dest_operand, source_operand, count)
+CPU.prototype.shld32 = function(dest_operand, source_operand, count)
 {
     if(count === 0)
     {
@@ -2914,37 +2941,37 @@ v86.prototype.shld32 = function(dest_operand, source_operand, count)
     this.flags = (this.flags & ~flag_overflow) | ((this.flags & 1) ^ (this.last_result >> 31 & 1)) << 11;
     return this.last_result;
 }
-v86.prototype.bt_reg = function(bit_base, bit_offset)
+CPU.prototype.bt_reg = function(bit_base, bit_offset)
 {
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
     this.flags_changed &= ~1;
 }
-v86.prototype.btc_reg = function(bit_base, bit_offset)
+CPU.prototype.btc_reg = function(bit_base, bit_offset)
 {
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
     this.flags_changed &= ~1;
     return bit_base ^ 1 << bit_offset;
 }
-v86.prototype.bts_reg = function(bit_base, bit_offset)
+CPU.prototype.bts_reg = function(bit_base, bit_offset)
 {
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
     this.flags_changed &= ~1;
     return bit_base | 1 << bit_offset;
 }
-v86.prototype.btr_reg = function(bit_base, bit_offset)
+CPU.prototype.btr_reg = function(bit_base, bit_offset)
 {
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
     this.flags_changed &= ~1;
     return bit_base & ~(1 << bit_offset);
 }
-v86.prototype.bt_mem = function(virt_addr, bit_offset)
+CPU.prototype.bt_mem = function(virt_addr, bit_offset)
 {
     var bit_base = this.safe_read8(virt_addr + (bit_offset >> 3));
     bit_offset &= 7;
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
     this.flags_changed &= ~1;
 }
-v86.prototype.btc_mem = function(virt_addr, bit_offset)
+CPU.prototype.btc_mem = function(virt_addr, bit_offset)
 {
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3));
     var bit_base = this.memory.read8(phys_addr);
@@ -2953,7 +2980,7 @@ v86.prototype.btc_mem = function(virt_addr, bit_offset)
     this.flags_changed &= ~1;
     this.memory.write8(phys_addr, bit_base ^ 1 << bit_offset);
 }
-v86.prototype.btr_mem = function(virt_addr, bit_offset)
+CPU.prototype.btr_mem = function(virt_addr, bit_offset)
 {
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3));
     var bit_base = this.memory.read8(phys_addr);
@@ -2962,7 +2989,7 @@ v86.prototype.btr_mem = function(virt_addr, bit_offset)
     this.flags_changed &= ~1;
     this.memory.write8(phys_addr, bit_base & ~(1 << bit_offset));
 }
-v86.prototype.bts_mem = function(virt_addr, bit_offset)
+CPU.prototype.bts_mem = function(virt_addr, bit_offset)
 {
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3));
     var bit_base = this.memory.read8(phys_addr);
@@ -2971,7 +2998,7 @@ v86.prototype.bts_mem = function(virt_addr, bit_offset)
     this.flags_changed &= ~1;
     this.memory.write8(phys_addr, bit_base | 1 << bit_offset);
 }
-v86.prototype.bsf16 = function(old, bit_base)
+CPU.prototype.bsf16 = function(old, bit_base)
 {
     this.flags_changed = 0;
     if(bit_base === 0)
@@ -2984,10 +3011,10 @@ v86.prototype.bsf16 = function(old, bit_base)
     {
         this.flags &= ~flag_zero;
         // http://jsperf.com/lowest-bit-index
-        return Math.int_log2(-bit_base & bit_base);
+        return v86util.int_log2(-bit_base & bit_base);
     }
 }
-v86.prototype.bsf32 = function(old, bit_base)
+CPU.prototype.bsf32 = function(old, bit_base)
 {
     this.flags_changed = 0;
     if(bit_base === 0)
@@ -2998,10 +3025,10 @@ v86.prototype.bsf32 = function(old, bit_base)
     else
     {
         this.flags &= ~flag_zero;
-        return Math.int_log2((-bit_base & bit_base) >>> 0);
+        return v86util.int_log2((-bit_base & bit_base) >>> 0);
     }
 }
-v86.prototype.bsr16 = function(old, bit_base)
+CPU.prototype.bsr16 = function(old, bit_base)
 {
     this.flags_changed = 0;
     if(bit_base === 0)
@@ -3012,10 +3039,10 @@ v86.prototype.bsr16 = function(old, bit_base)
     else
     {
         this.flags &= ~flag_zero;
-        return Math.int_log2(bit_base);
+        return v86util.int_log2(bit_base);
     }
 }
-v86.prototype.bsr32 = function(old, bit_base)
+CPU.prototype.bsr32 = function(old, bit_base)
 {
     this.flags_changed = 0;
     if(bit_base === 0)
@@ -3026,10 +3053,10 @@ v86.prototype.bsr32 = function(old, bit_base)
     else
     {
         this.flags &= ~flag_zero;
-        return Math.int_log2(bit_base >>> 0);
+        return v86util.int_log2(bit_base >>> 0);
     }
 }
-v86.prototype.popcnt = function(v)
+CPU.prototype.popcnt = function(v)
 {
     this.flags_changed = 0;
     this.flags &= ~flag_overflow & ~flag_sign & ~flag_zero
@@ -3060,13 +3087,104 @@ v86.prototype.popcnt = function(v)
  * ins    0    0   1/w
  * outs   0    1   0
  */
+var data_dest,
+    data_src;
+CPU.prototype.string_instruction = function(s, use_cmp, use_si, use_di, fn, aligned_fn)
+{
+    var cpu = this;
+    var src, dest, phys_dest, phys_src;
+    var size = cpu.flags & flag_direction ? -(s >> 3) : s >> 3;
+    var cont = false;
+    if(use_cmp && !use_si) {
+        if(s === 32) data_src = cpu.reg32s[reg_eax];
+        else if(s === 16) data_src = cpu.reg16[reg_ax];
+        else data_src = cpu.reg8[reg_al]
+    }
+    if(use_di) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
+    if(use_si) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0;
+    if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) {
+        var count = cpu.regv[cpu.reg_vcx] >>> 0,
+            start_count = count;
+        if(count === 0) return;
+        var next_cycle = 0x4000;
+        var aligned = s === 8 ||
+            ((!use_di || !(dest & (s >> 3) - 1)) && (!use_si || !(src & (s >> 3) - 1)));
+        if(aligned) {
+            var single_size = size >> 31 | 1;
+            if(cpu.paging) {
+                if(use_si) {
+                    next_cycle = (single_size >> 1 ^ ~src) & 0xFFF;
+                    phys_src = cpu.translate_address_read(src);
+                }
+                if(use_di) {
+                    next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF);
+                    phys_dest = use_cmp ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest);
+                }
+                if(s === 32) next_cycle >>= 2;
+                else if(s === 16) next_cycle >>= 1;
+            } else {
+                if(use_di) phys_dest = dest;
+                if(use_si) phys_src = src;
+            }
+            if(s === 32) { if(use_di) phys_dest >>>= 2; if(use_si) phys_src >>>= 2; }
+            else if(s === 16) { if(use_di) phys_dest >>>= 1; if(use_si) phys_src >>>= 1; }
+            do {
+                aligned_fn(cpu, phys_src, phys_dest);
+                if(use_di) phys_dest += single_size;
+                if(use_si) phys_src += single_size;
+                cont = --count !== 0 && (!use_cmp || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z));
+            } while(cont && next_cycle--)
+            var diff = size * (start_count - count) | 0;
+            if(use_di) cpu.regv[cpu.reg_vdi] += diff;
+            if(use_si) cpu.regv[cpu.reg_vsi] += diff;
+            cpu.regv[cpu.reg_vcx] = count;
+            cpu.timestamp_counter += start_count - count;
+        } else {
+            do {
+                fn(cpu, src, dest);
+                if(use_di) dest += size, cpu.regv[cpu.reg_vdi] += size;
+                if(use_si) src += size, cpu.regv[cpu.reg_vsi] += size;
+                cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!use_cmp || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z));
+            } while(cont && next_cycle--)
+        }
+    } else {
+        if(s === 8) {
+            if(use_si) phys_src = cpu.translate_address_read(src);
+            if(use_di) phys_dest = use_cmp ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest);
+            aligned_fn(cpu, phys_src, phys_dest);
+        } else { fn(cpu, src, dest); }
+        if(use_di) cpu.regv[cpu.reg_vdi] += size;
+        if(use_si) cpu.regv[cpu.reg_vsi] += size;
+    }
+    if(use_cmp)
+    {
+        if(s === 32) cpu.sub(data_src, data_dest, OPSIZE_32);
+        else if(s === 16) cpu.sub(data_src, data_dest, OPSIZE_16);
+        else cpu.sub(data_src, data_dest, OPSIZE_8);
+    }
+    if(cont)
+    {
+        cpu.instruction_pointer = cpu.previous_ip;
+    }
+};
 function movsb(cpu)
 {
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(8 >> 3) : 8 >> 3; var cont = false; if(false && !true) data_src = 8 === 32 ? cpu.reg32s[reg_eax] : cpu.reg8[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(true) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 8 === 8 || ((!true || !(dest & (8 >> 3) - 1)) && (!true || !(src & (8 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(true) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(8 === 32) next_cycle >>= 2; else if(8 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(true) phys_src = src; } if(8 === 32) { if(true) phys_dest >>>= 2; if(true) phys_src >>>= 2; } else if(8 === 16) { if(true) phys_dest >>>= 1; if(true) phys_src >>>= 1; } do { { cpu.memory.write8(phys_dest, cpu.memory.read8(phys_src)); }; if(true) phys_dest += single_size; if(true) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(true) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { /* no unaligned fn, bytewise is always aligned*/ }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(true) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(8 === 8) { if(true) phys_src = cpu.translate_address_read(src); if(true) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.memory.write8(phys_dest, cpu.memory.read8(phys_src)); }; } else { { /* no unaligned fn, bytewise is always aligned*/ }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(true) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_8); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(8, false, true, true,
+        function(cpu, src, dest) {
+            // no unaligned fn, bytewise is always aligned
+            dbg_assert(false);
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.memory.write8(phys_dest, cpu.memory.read8(phys_src));
+        });
 }
 function movsw(cpu)
 {
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(16 >> 3) : 16 >> 3; var cont = false; if(false && !true) data_src = 16 === 32 ? cpu.reg32s[reg_eax] : cpu.reg16[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(true) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 16 === 8 || ((!true || !(dest & (16 >> 3) - 1)) && (!true || !(src & (16 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(true) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(16 === 32) next_cycle >>= 2; else if(16 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(true) phys_src = src; } if(16 === 32) { if(true) phys_dest >>>= 2; if(true) phys_src >>>= 2; } else if(16 === 16) { if(true) phys_dest >>>= 1; if(true) phys_src >>>= 1; } do { { cpu.memory.write_aligned16(phys_dest, cpu.memory.read_aligned16(phys_src)); }; if(true) phys_dest += single_size; if(true) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(true) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { cpu.safe_write16(dest, cpu.safe_read16(src)); }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(true) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(16 === 8) { if(true) phys_src = cpu.translate_address_read(src); if(true) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.memory.write_aligned16(phys_dest, cpu.memory.read_aligned16(phys_src)); }; } else { { cpu.safe_write16(dest, cpu.safe_read16(src)); }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(true) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_16); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(16, false, true, true,
+        function(cpu, src, dest) {
+            cpu.safe_write16(dest, cpu.safe_read16(src));
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.memory.write_aligned16(phys_dest, cpu.memory.read_aligned16(phys_src));
+        });
 }
 function movsd(cpu)
 {
@@ -3121,95 +3239,195 @@ function movsd(cpu)
             }
         }
     }
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(32 >> 3) : 32 >> 3; var cont = false; if(false && !true) data_src = 32 === 32 ? cpu.reg32s[reg_eax] : cpu.reg32[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(true) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 32 === 8 || ((!true || !(dest & (32 >> 3) - 1)) && (!true || !(src & (32 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(true) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(32 === 32) next_cycle >>= 2; else if(32 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(true) phys_src = src; } if(32 === 32) { if(true) phys_dest >>>= 2; if(true) phys_src >>>= 2; } else if(32 === 16) { if(true) phys_dest >>>= 1; if(true) phys_src >>>= 1; } do { { cpu.memory.write_aligned32(phys_dest, cpu.memory.read_aligned32(phys_src)); }; if(true) phys_dest += single_size; if(true) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(true) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { cpu.safe_write32(dest, cpu.safe_read32s(src)); }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(true) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(32 === 8) { if(true) phys_src = cpu.translate_address_read(src); if(true) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.memory.write_aligned32(phys_dest, cpu.memory.read_aligned32(phys_src)); }; } else { { cpu.safe_write32(dest, cpu.safe_read32s(src)); }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(true) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_32); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(32, false, true, true,
+        function(cpu, src, dest) {
+            cpu.safe_write32(dest, cpu.safe_read32s(src));
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.memory.write_aligned32(phys_dest, cpu.memory.read_aligned32(phys_src));
+        });
 }
 function cmpsb(cpu)
 {
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(8 >> 3) : 8 >> 3; var cont = false; if(true && !true) data_src = 8 === 32 ? cpu.reg32s[reg_eax] : cpu.reg8[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(true) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 8 === 8 || ((!true || !(dest & (8 >> 3) - 1)) && (!true || !(src & (8 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(true) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = true ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(8 === 32) next_cycle >>= 2; else if(8 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(true) phys_src = src; } if(8 === 32) { if(true) phys_dest >>>= 2; if(true) phys_src >>>= 2; } else if(8 === 16) { if(true) phys_dest >>>= 1; if(true) phys_src >>>= 1; } do { { data_dest = cpu.memory.read8(phys_dest); data_src = cpu.memory.read8(phys_src); }; if(true) phys_dest += single_size; if(true) phys_src += single_size; cont = --count !== 0 && (!true || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(true) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(true) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!true || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(8 === 8) { if(true) phys_src = cpu.translate_address_read(src); if(true) phys_dest = true ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { data_dest = cpu.memory.read8(phys_dest); data_src = cpu.memory.read8(phys_src); }; } else { { }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(true) cpu.regv[cpu.reg_vsi] += size; } if(true) { cpu.sub(data_src, data_dest, OPSIZE_8); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(8, true, true, true,
+        function(cpu, src, dest) {
+            dbg_assert(false);
+        }, function(cpu, phys_src, phys_dest) {
+            data_dest = cpu.memory.read8(phys_dest);
+            data_src = cpu.memory.read8(phys_src);
+        });
 }
 function cmpsw(cpu)
 {
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(16 >> 3) : 16 >> 3; var cont = false; if(true && !true) data_src = 16 === 32 ? cpu.reg32s[reg_eax] : cpu.reg16[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(true) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 16 === 8 || ((!true || !(dest & (16 >> 3) - 1)) && (!true || !(src & (16 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(true) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = true ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(16 === 32) next_cycle >>= 2; else if(16 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(true) phys_src = src; } if(16 === 32) { if(true) phys_dest >>>= 2; if(true) phys_src >>>= 2; } else if(16 === 16) { if(true) phys_dest >>>= 1; if(true) phys_src >>>= 1; } do { { data_dest = cpu.memory.read_aligned16(phys_dest); data_src = cpu.memory.read_aligned16(phys_src); }; if(true) phys_dest += single_size; if(true) phys_src += single_size; cont = --count !== 0 && (!true || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(true) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { data_dest = cpu.safe_read16(dest); data_src = cpu.safe_read16(src); }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(true) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!true || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(16 === 8) { if(true) phys_src = cpu.translate_address_read(src); if(true) phys_dest = true ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { data_dest = cpu.memory.read_aligned16(phys_dest); data_src = cpu.memory.read_aligned16(phys_src); }; } else { { data_dest = cpu.safe_read16(dest); data_src = cpu.safe_read16(src); }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(true) cpu.regv[cpu.reg_vsi] += size; } if(true) { cpu.sub(data_src, data_dest, OPSIZE_16); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(16, true, true, true,
+        function(cpu, src, dest) {
+            data_dest = cpu.safe_read16(dest);
+            data_src = cpu.safe_read16(src);
+        }, function(cpu, phys_src, phys_dest) {
+            data_dest = cpu.memory.read_aligned16(phys_dest);
+            data_src = cpu.memory.read_aligned16(phys_src);
+        });
 }
 function cmpsd(cpu)
 {
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(32 >> 3) : 32 >> 3; var cont = false; if(true && !true) data_src = 32 === 32 ? cpu.reg32s[reg_eax] : cpu.reg32[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(true) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 32 === 8 || ((!true || !(dest & (32 >> 3) - 1)) && (!true || !(src & (32 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(true) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = true ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(32 === 32) next_cycle >>= 2; else if(32 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(true) phys_src = src; } if(32 === 32) { if(true) phys_dest >>>= 2; if(true) phys_src >>>= 2; } else if(32 === 16) { if(true) phys_dest >>>= 1; if(true) phys_src >>>= 1; } do { { data_dest = cpu.memory.read_aligned32(phys_dest); data_src = cpu.memory.read_aligned32(phys_src); }; if(true) phys_dest += single_size; if(true) phys_src += single_size; cont = --count !== 0 && (!true || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(true) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { data_dest = cpu.safe_read32s(dest); data_src = cpu.safe_read32s(src); }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(true) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!true || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(32 === 8) { if(true) phys_src = cpu.translate_address_read(src); if(true) phys_dest = true ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { data_dest = cpu.memory.read_aligned32(phys_dest); data_src = cpu.memory.read_aligned32(phys_src); }; } else { { data_dest = cpu.safe_read32s(dest); data_src = cpu.safe_read32s(src); }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(true) cpu.regv[cpu.reg_vsi] += size; } if(true) { cpu.sub(data_src, data_dest, OPSIZE_32); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(32, true, true, true,
+        function(cpu, src, dest) {
+            data_dest = cpu.safe_read32s(dest);
+            data_src = cpu.safe_read32s(src);
+        }, function(cpu, phys_src, phys_dest) {
+            data_dest = cpu.memory.read_aligned32(phys_dest);
+            data_src = cpu.memory.read_aligned32(phys_src);
+        });
 }
 function stosb(cpu)
 {
     var data = cpu.reg8[reg_al];
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(8 >> 3) : 8 >> 3; var cont = false; if(false && !false) data_src = 8 === 32 ? cpu.reg32s[reg_eax] : cpu.reg8[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(false) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 8 === 8 || ((!true || !(dest & (8 >> 3) - 1)) && (!false || !(src & (8 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(false) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(8 === 32) next_cycle >>= 2; else if(8 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(false) phys_src = src; } if(8 === 32) { if(true) phys_dest >>>= 2; if(false) phys_src >>>= 2; } else if(8 === 16) { if(true) phys_dest >>>= 1; if(false) phys_src >>>= 1; } do { { cpu.memory.write8(phys_dest, data); }; if(true) phys_dest += single_size; if(false) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(false) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(false) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(8 === 8) { if(false) phys_src = cpu.translate_address_read(src); if(true) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.memory.write8(phys_dest, data); }; } else { { }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(false) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_8); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(8, false, false, true,
+        function(cpu, src, dest) {
+            dbg_assert(false);
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.memory.write8(phys_dest, data);
+        });
 }
 function stosw(cpu)
 {
     var data = cpu.reg16[reg_ax];
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(16 >> 3) : 16 >> 3; var cont = false; if(false && !false) data_src = 16 === 32 ? cpu.reg32s[reg_eax] : cpu.reg16[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(false) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 16 === 8 || ((!true || !(dest & (16 >> 3) - 1)) && (!false || !(src & (16 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(false) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(16 === 32) next_cycle >>= 2; else if(16 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(false) phys_src = src; } if(16 === 32) { if(true) phys_dest >>>= 2; if(false) phys_src >>>= 2; } else if(16 === 16) { if(true) phys_dest >>>= 1; if(false) phys_src >>>= 1; } do { { cpu.memory.write_aligned16(phys_dest, data); }; if(true) phys_dest += single_size; if(false) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(false) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { cpu.safe_write16(dest, data); }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(false) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(16 === 8) { if(false) phys_src = cpu.translate_address_read(src); if(true) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.memory.write_aligned16(phys_dest, data); }; } else { { cpu.safe_write16(dest, data); }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(false) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_16); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(16, false, false, true,
+        function(cpu, src, dest) {
+            cpu.safe_write16(dest, data);
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.memory.write_aligned16(phys_dest, data);
+        });
 }
 function stosd(cpu)
 {
     //dbg_log("stosd " + ((cpu.reg32s[reg_edi] & 3) ? "mis" : "") + "aligned", LOG_CPU);
     var data = cpu.reg32s[reg_eax];
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(32 >> 3) : 32 >> 3; var cont = false; if(false && !false) data_src = 32 === 32 ? cpu.reg32s[reg_eax] : cpu.reg32[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(false) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 32 === 8 || ((!true || !(dest & (32 >> 3) - 1)) && (!false || !(src & (32 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(false) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(32 === 32) next_cycle >>= 2; else if(32 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(false) phys_src = src; } if(32 === 32) { if(true) phys_dest >>>= 2; if(false) phys_src >>>= 2; } else if(32 === 16) { if(true) phys_dest >>>= 1; if(false) phys_src >>>= 1; } do { { cpu.memory.write_aligned32(phys_dest, data); }; if(true) phys_dest += single_size; if(false) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(false) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { cpu.safe_write32(dest, data); }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(false) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(32 === 8) { if(false) phys_src = cpu.translate_address_read(src); if(true) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.memory.write_aligned32(phys_dest, data); }; } else { { cpu.safe_write32(dest, data); }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(false) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_32); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(32, false, false, true,
+        function(cpu, src, dest) {
+            cpu.safe_write32(dest, data);
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.memory.write_aligned32(phys_dest, data);
+        });
 }
 function lodsb(cpu)
 {
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(8 >> 3) : 8 >> 3; var cont = false; if(false && !true) data_src = 8 === 32 ? cpu.reg32s[reg_eax] : cpu.reg8[reg_al]; if(false) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(true) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 8 === 8 || ((!false || !(dest & (8 >> 3) - 1)) && (!true || !(src & (8 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(true) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(false) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(8 === 32) next_cycle >>= 2; else if(8 === 16) next_cycle >>= 1; } else { if(false) phys_dest = dest; if(true) phys_src = src; } if(8 === 32) { if(false) phys_dest >>>= 2; if(true) phys_src >>>= 2; } else if(8 === 16) { if(false) phys_dest >>>= 1; if(true) phys_src >>>= 1; } do { { cpu.reg8[reg_al] = cpu.memory.read8(phys_src); }; if(false) phys_dest += single_size; if(true) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(false) cpu.regv[cpu.reg_vdi] += diff; if(true) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { }; if(false) dest += size, cpu.regv[cpu.reg_vdi] += size; if(true) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(8 === 8) { if(true) phys_src = cpu.translate_address_read(src); if(false) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.reg8[reg_al] = cpu.memory.read8(phys_src); }; } else { { }; } if(false) cpu.regv[cpu.reg_vdi] += size; if(true) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_8); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(8, false, true, false,
+        function(cpu, src, dest) {
+            dbg_assert(false);
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.reg8[reg_al] = cpu.memory.read8(phys_src);
+        });
 }
 function lodsw(cpu)
 {
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(16 >> 3) : 16 >> 3; var cont = false; if(false && !true) data_src = 16 === 32 ? cpu.reg32s[reg_eax] : cpu.reg16[reg_al]; if(false) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(true) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 16 === 8 || ((!false || !(dest & (16 >> 3) - 1)) && (!true || !(src & (16 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(true) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(false) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(16 === 32) next_cycle >>= 2; else if(16 === 16) next_cycle >>= 1; } else { if(false) phys_dest = dest; if(true) phys_src = src; } if(16 === 32) { if(false) phys_dest >>>= 2; if(true) phys_src >>>= 2; } else if(16 === 16) { if(false) phys_dest >>>= 1; if(true) phys_src >>>= 1; } do { { cpu.reg16[reg_ax] = cpu.memory.read_aligned16(phys_src); }; if(false) phys_dest += single_size; if(true) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(false) cpu.regv[cpu.reg_vdi] += diff; if(true) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { cpu.reg16[reg_ax] = cpu.safe_read16(src); }; if(false) dest += size, cpu.regv[cpu.reg_vdi] += size; if(true) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(16 === 8) { if(true) phys_src = cpu.translate_address_read(src); if(false) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.reg16[reg_ax] = cpu.memory.read_aligned16(phys_src); }; } else { { cpu.reg16[reg_ax] = cpu.safe_read16(src); }; } if(false) cpu.regv[cpu.reg_vdi] += size; if(true) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_16); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(16, false, true, false,
+        function(cpu, src, dest) {
+            cpu.reg16[reg_ax] = cpu.safe_read16(src);
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.reg16[reg_ax] = cpu.memory.read_aligned16(phys_src);
+        });
 }
 function lodsd(cpu)
 {
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(32 >> 3) : 32 >> 3; var cont = false; if(false && !true) data_src = 32 === 32 ? cpu.reg32s[reg_eax] : cpu.reg32[reg_al]; if(false) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(true) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 32 === 8 || ((!false || !(dest & (32 >> 3) - 1)) && (!true || !(src & (32 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(true) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(false) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(32 === 32) next_cycle >>= 2; else if(32 === 16) next_cycle >>= 1; } else { if(false) phys_dest = dest; if(true) phys_src = src; } if(32 === 32) { if(false) phys_dest >>>= 2; if(true) phys_src >>>= 2; } else if(32 === 16) { if(false) phys_dest >>>= 1; if(true) phys_src >>>= 1; } do { { cpu.reg32s[reg_eax] = cpu.memory.read_aligned32(phys_src); }; if(false) phys_dest += single_size; if(true) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(false) cpu.regv[cpu.reg_vdi] += diff; if(true) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { cpu.reg32s[reg_eax] = cpu.safe_read32s(src); }; if(false) dest += size, cpu.regv[cpu.reg_vdi] += size; if(true) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(32 === 8) { if(true) phys_src = cpu.translate_address_read(src); if(false) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.reg32s[reg_eax] = cpu.memory.read_aligned32(phys_src); }; } else { { cpu.reg32s[reg_eax] = cpu.safe_read32s(src); }; } if(false) cpu.regv[cpu.reg_vdi] += size; if(true) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_32); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(32, false, true, false,
+        function(cpu, src, dest) {
+            cpu.reg32s[reg_eax] = cpu.safe_read32s(src);
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.reg32s[reg_eax] = cpu.memory.read_aligned32(phys_src);
+        });
 }
 function scasb(cpu)
 {
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(8 >> 3) : 8 >> 3; var cont = false; if(true && !false) data_src = 8 === 32 ? cpu.reg32s[reg_eax] : cpu.reg8[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(false) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 8 === 8 || ((!true || !(dest & (8 >> 3) - 1)) && (!false || !(src & (8 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(false) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = true ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(8 === 32) next_cycle >>= 2; else if(8 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(false) phys_src = src; } if(8 === 32) { if(true) phys_dest >>>= 2; if(false) phys_src >>>= 2; } else if(8 === 16) { if(true) phys_dest >>>= 1; if(false) phys_src >>>= 1; } do { { data_dest = cpu.memory.read8(phys_dest); }; if(true) phys_dest += single_size; if(false) phys_src += single_size; cont = --count !== 0 && (!true || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(false) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(false) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!true || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(8 === 8) { if(false) phys_src = cpu.translate_address_read(src); if(true) phys_dest = true ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { data_dest = cpu.memory.read8(phys_dest); }; } else { { }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(false) cpu.regv[cpu.reg_vsi] += size; } if(true) { cpu.sub(data_src, data_dest, OPSIZE_8); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(8, true, false, true,
+        function(cpu, src, dest) {
+            dbg_assert(false);
+        }, function(cpu, phys_src, phys_dest) {
+            data_dest = cpu.memory.read8(phys_dest);
+        });
 }
 function scasw(cpu)
 {
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(16 >> 3) : 16 >> 3; var cont = false; if(true && !false) data_src = 16 === 32 ? cpu.reg32s[reg_eax] : cpu.reg16[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(false) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 16 === 8 || ((!true || !(dest & (16 >> 3) - 1)) && (!false || !(src & (16 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(false) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = true ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(16 === 32) next_cycle >>= 2; else if(16 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(false) phys_src = src; } if(16 === 32) { if(true) phys_dest >>>= 2; if(false) phys_src >>>= 2; } else if(16 === 16) { if(true) phys_dest >>>= 1; if(false) phys_src >>>= 1; } do { { data_dest = cpu.memory.read_aligned16(phys_dest); }; if(true) phys_dest += single_size; if(false) phys_src += single_size; cont = --count !== 0 && (!true || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(false) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { data_dest = cpu.safe_read16(dest); }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(false) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!true || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(16 === 8) { if(false) phys_src = cpu.translate_address_read(src); if(true) phys_dest = true ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { data_dest = cpu.memory.read_aligned16(phys_dest); }; } else { { data_dest = cpu.safe_read16(dest); }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(false) cpu.regv[cpu.reg_vsi] += size; } if(true) { cpu.sub(data_src, data_dest, OPSIZE_16); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(16, true, false, true,
+        function(cpu, src, dest) {
+            data_dest = cpu.safe_read16(dest);
+        }, function(cpu, phys_src, phys_dest) {
+            data_dest = cpu.memory.read_aligned16(phys_dest);
+        });
 }
 function scasd(cpu)
 {
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(32 >> 3) : 32 >> 3; var cont = false; if(true && !false) data_src = 32 === 32 ? cpu.reg32s[reg_eax] : cpu.reg32[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(false) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 32 === 8 || ((!true || !(dest & (32 >> 3) - 1)) && (!false || !(src & (32 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(false) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = true ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(32 === 32) next_cycle >>= 2; else if(32 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(false) phys_src = src; } if(32 === 32) { if(true) phys_dest >>>= 2; if(false) phys_src >>>= 2; } else if(32 === 16) { if(true) phys_dest >>>= 1; if(false) phys_src >>>= 1; } do { { data_dest = cpu.memory.read_aligned32(phys_dest); }; if(true) phys_dest += single_size; if(false) phys_src += single_size; cont = --count !== 0 && (!true || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(false) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { data_dest = cpu.safe_read32s(dest); }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(false) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!true || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(32 === 8) { if(false) phys_src = cpu.translate_address_read(src); if(true) phys_dest = true ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { data_dest = cpu.memory.read_aligned32(phys_dest); }; } else { { data_dest = cpu.safe_read32s(dest); }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(false) cpu.regv[cpu.reg_vsi] += size; } if(true) { cpu.sub(data_src, data_dest, OPSIZE_32); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(32, true, false, true,
+        function(cpu, src, dest) {
+            data_dest = cpu.safe_read32s(dest);
+        }, function(cpu, phys_src, phys_dest) {
+            data_dest = cpu.memory.read_aligned32(phys_dest);
+        });
 }
 function insb(cpu)
 {
     var port = cpu.reg16[reg_dx];
     cpu.test_privileges_for_io(port, 1);
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(8 >> 3) : 8 >> 3; var cont = false; if(false && !false) data_src = 8 === 32 ? cpu.reg32s[reg_eax] : cpu.reg8[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(false) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 8 === 8 || ((!true || !(dest & (8 >> 3) - 1)) && (!false || !(src & (8 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(false) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(8 === 32) next_cycle >>= 2; else if(8 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(false) phys_src = src; } if(8 === 32) { if(true) phys_dest >>>= 2; if(false) phys_src >>>= 2; } else if(8 === 16) { if(true) phys_dest >>>= 1; if(false) phys_src >>>= 1; } do { { cpu.memory.write8(phys_dest, cpu.io.port_read8(port)); }; if(true) phys_dest += single_size; if(false) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(false) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(false) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(8 === 8) { if(false) phys_src = cpu.translate_address_read(src); if(true) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.memory.write8(phys_dest, cpu.io.port_read8(port)); }; } else { { }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(false) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_8); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(8, false, false, true,
+        function(cpu, src, dest) {
+            dbg_assert(false);
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.memory.write8(phys_dest, cpu.io.port_read8(port));
+        });
 }
 function insw(cpu)
 {
     var port = cpu.reg16[reg_dx];
     cpu.test_privileges_for_io(port, 2);
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(16 >> 3) : 16 >> 3; var cont = false; if(false && !false) data_src = 16 === 32 ? cpu.reg32s[reg_eax] : cpu.reg16[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(false) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 16 === 8 || ((!true || !(dest & (16 >> 3) - 1)) && (!false || !(src & (16 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(false) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(16 === 32) next_cycle >>= 2; else if(16 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(false) phys_src = src; } if(16 === 32) { if(true) phys_dest >>>= 2; if(false) phys_src >>>= 2; } else if(16 === 16) { if(true) phys_dest >>>= 1; if(false) phys_src >>>= 1; } do { { cpu.memory.write_aligned16(phys_dest, cpu.io.port_read16(port)); }; if(true) phys_dest += single_size; if(false) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(false) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { cpu.safe_write16(dest, cpu.io.port_read16(port)); }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(false) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(16 === 8) { if(false) phys_src = cpu.translate_address_read(src); if(true) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.memory.write_aligned16(phys_dest, cpu.io.port_read16(port)); }; } else { { cpu.safe_write16(dest, cpu.io.port_read16(port)); }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(false) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_16); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(16, false, false, true,
+        function(cpu, src, dest) {
+            cpu.safe_write16(dest, cpu.io.port_read16(port));
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.memory.write_aligned16(phys_dest, cpu.io.port_read16(port));
+        });
 }
 function insd(cpu)
 {
     var port = cpu.reg16[reg_dx];
     cpu.test_privileges_for_io(port, 4);
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(32 >> 3) : 32 >> 3; var cont = false; if(false && !false) data_src = 32 === 32 ? cpu.reg32s[reg_eax] : cpu.reg32[reg_al]; if(true) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(false) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 32 === 8 || ((!true || !(dest & (32 >> 3) - 1)) && (!false || !(src & (32 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(false) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(true) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(32 === 32) next_cycle >>= 2; else if(32 === 16) next_cycle >>= 1; } else { if(true) phys_dest = dest; if(false) phys_src = src; } if(32 === 32) { if(true) phys_dest >>>= 2; if(false) phys_src >>>= 2; } else if(32 === 16) { if(true) phys_dest >>>= 1; if(false) phys_src >>>= 1; } do { { cpu.memory.write_aligned32(phys_dest, cpu.io.port_read32(port)); }; if(true) phys_dest += single_size; if(false) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(true) cpu.regv[cpu.reg_vdi] += diff; if(false) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { cpu.safe_write32(dest, cpu.io.port_read32(port)); }; if(true) dest += size, cpu.regv[cpu.reg_vdi] += size; if(false) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(32 === 8) { if(false) phys_src = cpu.translate_address_read(src); if(true) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.memory.write_aligned32(phys_dest, cpu.io.port_read32(port)); }; } else { { cpu.safe_write32(dest, cpu.io.port_read32(port)); }; } if(true) cpu.regv[cpu.reg_vdi] += size; if(false) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_32); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(32, false, false, true,
+        function(cpu, src, dest) {
+            cpu.safe_write32(dest, cpu.io.port_read32(port));
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.memory.write_aligned32(phys_dest, cpu.io.port_read32(port));
+        });
 }
 function outsb(cpu)
 {
     var port = cpu.reg16[reg_dx];
     cpu.test_privileges_for_io(port, 1);
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(8 >> 3) : 8 >> 3; var cont = false; if(false && !true) data_src = 8 === 32 ? cpu.reg32s[reg_eax] : cpu.reg8[reg_al]; if(false) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(true) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 8 === 8 || ((!false || !(dest & (8 >> 3) - 1)) && (!true || !(src & (8 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(true) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(false) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(8 === 32) next_cycle >>= 2; else if(8 === 16) next_cycle >>= 1; } else { if(false) phys_dest = dest; if(true) phys_src = src; } if(8 === 32) { if(false) phys_dest >>>= 2; if(true) phys_src >>>= 2; } else if(8 === 16) { if(false) phys_dest >>>= 1; if(true) phys_src >>>= 1; } do { { cpu.io.port_write8(port, cpu.memory.read8(phys_src)); }; if(false) phys_dest += single_size; if(true) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(false) cpu.regv[cpu.reg_vdi] += diff; if(true) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { }; if(false) dest += size, cpu.regv[cpu.reg_vdi] += size; if(true) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(8 === 8) { if(true) phys_src = cpu.translate_address_read(src); if(false) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.io.port_write8(port, cpu.memory.read8(phys_src)); }; } else { { }; } if(false) cpu.regv[cpu.reg_vdi] += size; if(true) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_8); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(8, false, true, false,
+        function(cpu, src, dest) {
+            dbg_assert(false);
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.io.port_write8(port, cpu.memory.read8(phys_src));
+        });
 }
 function outsw(cpu)
 {
     var port = cpu.reg16[reg_dx];
     cpu.test_privileges_for_io(port, 2);
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(16 >> 3) : 16 >> 3; var cont = false; if(false && !true) data_src = 16 === 32 ? cpu.reg32s[reg_eax] : cpu.reg16[reg_al]; if(false) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(true) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 16 === 8 || ((!false || !(dest & (16 >> 3) - 1)) && (!true || !(src & (16 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(true) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(false) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(16 === 32) next_cycle >>= 2; else if(16 === 16) next_cycle >>= 1; } else { if(false) phys_dest = dest; if(true) phys_src = src; } if(16 === 32) { if(false) phys_dest >>>= 2; if(true) phys_src >>>= 2; } else if(16 === 16) { if(false) phys_dest >>>= 1; if(true) phys_src >>>= 1; } do { { cpu.io.port_write16(port, cpu.memory.read_aligned16(phys_src)); }; if(false) phys_dest += single_size; if(true) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(false) cpu.regv[cpu.reg_vdi] += diff; if(true) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { cpu.io.port_write16(port, cpu.safe_read16(src)); }; if(false) dest += size, cpu.regv[cpu.reg_vdi] += size; if(true) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(16 === 8) { if(true) phys_src = cpu.translate_address_read(src); if(false) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.io.port_write16(port, cpu.memory.read_aligned16(phys_src)); }; } else { { cpu.io.port_write16(port, cpu.safe_read16(src)); }; } if(false) cpu.regv[cpu.reg_vdi] += size; if(true) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_16); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(16, false, true, false,
+        function(cpu, src, dest) {
+            cpu.io.port_write16(port, cpu.safe_read16(src));
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.io.port_write16(port, cpu.memory.read_aligned16(phys_src));
+        });
 }
 function outsd(cpu)
 {
     var port = cpu.reg16[reg_dx];
     cpu.test_privileges_for_io(port, 4);
-    var src, dest, data_src, data_dest = 0, phys_dest, phys_src; var size = cpu.flags & flag_direction ? -(32 >> 3) : 32 >> 3; var cont = false; if(false && !true) data_src = 32 === 32 ? cpu.reg32s[reg_eax] : cpu.reg32[reg_al]; if(false) dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0; if(true) src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0; if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE) { var count = cpu.regv[cpu.reg_vcx] >>> 0, start_count = count; if(count === 0) return; var next_cycle = 0x4000; var aligned = 32 === 8 || ((!false || !(dest & (32 >> 3) - 1)) && (!true || !(src & (32 >> 3) - 1))); if(aligned) { var single_size = size >> 31 | 1; if(cpu.paging) { if(true) { next_cycle = (single_size >> 1 ^ ~src) & 0xFFF; phys_src = cpu.translate_address_read(src); } if(false) { next_cycle = Math.min(next_cycle, (single_size >> 1 ^ ~dest) & 0xFFF); phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); } if(32 === 32) next_cycle >>= 2; else if(32 === 16) next_cycle >>= 1; } else { if(false) phys_dest = dest; if(true) phys_src = src; } if(32 === 32) { if(false) phys_dest >>>= 2; if(true) phys_src >>>= 2; } else if(32 === 16) { if(false) phys_dest >>>= 1; if(true) phys_src >>>= 1; } do { { cpu.io.port_write32(port, cpu.memory.read_aligned32(phys_src)); }; if(false) phys_dest += single_size; if(true) phys_src += single_size; cont = --count !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); var diff = size * (start_count - count) | 0; if(false) cpu.regv[cpu.reg_vdi] += diff; if(true) cpu.regv[cpu.reg_vsi] += diff; cpu.regv[cpu.reg_vcx] = count; cpu.timestamp_counter += start_count - count; } else { do { { cpu.io.port_write32(port, cpu.safe_read32s(src)); }; if(false) dest += size, cpu.regv[cpu.reg_vdi] += size; if(true) src += size, cpu.regv[cpu.reg_vsi] += size; cont = --cpu.regv[cpu.reg_vcx] !== 0 && (!false || (data_src === data_dest) === (cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z)); } while(cont && next_cycle--); } } else { if(32 === 8) { if(true) phys_src = cpu.translate_address_read(src); if(false) phys_dest = false ? cpu.translate_address_read(dest) : cpu.translate_address_write(dest); { cpu.io.port_write32(port, cpu.memory.read_aligned32(phys_src)); }; } else { { cpu.io.port_write32(port, cpu.safe_read32s(src)); }; } if(false) cpu.regv[cpu.reg_vdi] += size; if(true) cpu.regv[cpu.reg_vsi] += size; } if(false) { cpu.sub(data_src, data_dest, OPSIZE_32); } if(cont) { cpu.instruction_pointer = cpu.previous_ip; };
+    cpu.string_instruction(32, false, true, false,
+        function(cpu, src, dest) {
+            cpu.io.port_write32(port, cpu.safe_read32s(src));
+        }, function(cpu, phys_src, phys_dest) {
+            cpu.io.port_write32(port, cpu.memory.read_aligned32(phys_src));
+        });
 }
 "use strict";
 var
@@ -3217,10 +3435,10 @@ var
     table32 = [],
     table0F_16 = [],
     table0F_32 = [];
-v86.prototype.table16 = table16;
-v86.prototype.table32 = table32;
-v86.prototype.table0F_16 = table0F_16;
-v86.prototype.table0F_32 = table0F_32;
+CPU.prototype.table16 = table16;
+CPU.prototype.table32 = table32;
+CPU.prototype.table0F_16 = table0F_16;
+CPU.prototype.table0F_32 = table0F_32;
 // opcode with modm byte
 // opcode that has a 16 and a 32 bit version
 // very special, should be somewhere else?
@@ -3447,10 +3665,10 @@ table16[0xFB] = table32[0xFB] = function(cpu) { { /* sti*/ /*dbg_log("interrupts
 table16[0xFC] = table32[0xFC] = function(cpu) { { /* cld*/ cpu.flags &= ~flag_direction; } };;
 table16[0xFD] = table32[0xFD] = function(cpu) { { /* std*/ cpu.flags |= flag_direction; } };;
 table16[0xFE] = table32[0xFE] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var mod = modrm_byte & 56; if(mod === 0) { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.inc(data, OPSIZE_8); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; }; } else if(mod === 8) { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.dec(data, OPSIZE_8); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; }; } else { if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
-table16[0xFF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { switch(modrm_byte >> 3 & 7) { case 0: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.inc(data, OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; }; break; case 1: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.dec(data, OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; }; break; case 2: { /* 2, call near*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.push16(cpu.get_real_eip()); cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; cpu.last_instr_jump = true; }; break; case 3: { /* 3, callf*/ if(modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false); } var virt_addr = cpu.modrm_resolve(modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 2); var new_ip = cpu.safe_read16(virt_addr); cpu.writable_or_pagefault(cpu.get_stack_pointer(-4), 4); cpu.push16(cpu.sreg[reg_cs]); cpu.push16(cpu.get_real_eip()); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; }; break; case 4: { /* 4, jmp near*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; cpu.last_instr_jump = true; }; break; case 5: { /* 5, jmpf*/ if(modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false); } var virt_addr = cpu.modrm_resolve(modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 2); var new_ip = cpu.safe_read16(virt_addr); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; }; break; case 6: { /* 6, push*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.push16(data); }; break; case 7: { if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; }; break; } } }; table32[0xFF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { switch(modrm_byte >> 3 & 7) { case 0: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.inc(data, OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; }; break; case 1: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.dec(data, OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; }; break; case 2: { /* 2, call near*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.push32(cpu.get_real_eip()); cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; cpu.last_instr_jump = true; }; break; case 3: { /* 3, callf*/ if(modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false); } var virt_addr = cpu.modrm_resolve(modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 4); var new_ip = cpu.safe_read32s(virt_addr); cpu.writable_or_pagefault(cpu.get_stack_pointer(-8), 8); cpu.push32(cpu.sreg[reg_cs]); cpu.push32(cpu.get_real_eip()); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; }; break; case 4: { /* 4, jmp near*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; cpu.last_instr_jump = true; }; break; case 5: { /* 5, jmpf*/ if(modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false); } var virt_addr = cpu.modrm_resolve(modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 4); var new_ip = cpu.safe_read32s(virt_addr); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; }; break; case 6: { /* push*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.push32(data); }; break; case 7: { if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; }; break; } } };;
+table16[0xFF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { switch(modrm_byte >> 3 & 7) { case 0: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.inc(data, OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; }; break; case 1: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.dec(data, OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; }; break; case 2: { /* 2, call near*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.push16(cpu.get_real_eip()); cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; cpu.last_instr_jump = true; }; break; case 3: { /* 3, callf*/ if(modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false, "unreachable"); } var virt_addr = cpu.modrm_resolve(modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 2); var new_ip = cpu.safe_read16(virt_addr); cpu.writable_or_pagefault(cpu.get_stack_pointer(-4), 4); cpu.push16(cpu.sreg[reg_cs]); cpu.push16(cpu.get_real_eip()); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; }; break; case 4: { /* 4, jmp near*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; cpu.last_instr_jump = true; }; break; case 5: { /* 5, jmpf*/ if(modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false, "unreachable"); } var virt_addr = cpu.modrm_resolve(modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 2); var new_ip = cpu.safe_read16(virt_addr); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; }; break; case 6: { /* 6, push*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.push16(data); }; break; case 7: { if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; }; break; } } }; table32[0xFF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { switch(modrm_byte >> 3 & 7) { case 0: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.inc(data, OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; }; break; case 1: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.dec(data, OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; }; break; case 2: { /* 2, call near*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.push32(cpu.get_real_eip()); cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; cpu.last_instr_jump = true; }; break; case 3: { /* 3, callf*/ if(modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false, "unreachable"); } var virt_addr = cpu.modrm_resolve(modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 4); var new_ip = cpu.safe_read32s(virt_addr); cpu.writable_or_pagefault(cpu.get_stack_pointer(-8), 8); cpu.push32(cpu.sreg[reg_cs]); cpu.push32(cpu.get_real_eip()); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; }; break; case 4: { /* 4, jmp near*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; cpu.last_instr_jump = true; }; break; case 5: { /* 5, jmpf*/ if(modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false, "unreachable"); } var virt_addr = cpu.modrm_resolve(modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 4); var new_ip = cpu.safe_read32s(virt_addr); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; }; break; case 6: { /* push*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.push32(data); }; break; case 7: { if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; }; break; } } };;
 // 0F ops start here
 table0F_16[0x00] = table0F_32[0x00] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(!cpu.protected_mode) { /* No GP, UD is correct here*/ cpu.trigger_ud(); } if(cpu.cpl) { cpu.trigger_gp(0); } switch(modrm_byte >> 3 & 7) { case 0: /* sldt*/ if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.sreg[reg_ldtr]; if(modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[modrm_byte << 1 & 14] = data; }; break; case 1: /* str*/ if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.sreg[reg_tr]; if(modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[modrm_byte << 1 & 14] = data; }; break; case 2: /* lldt*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.load_ldt(data); break; case 3: /* ltr*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.load_tr(data); break; default: dbg_log(modrm_byte >> 3 & 7, LOG_CPU); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
-table0F_16[0x01] = table0F_32[0x01] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cpl) { cpu.trigger_gp(0); } var mod = modrm_byte >> 3 & 7; if(mod === 4) { /* smsw*/ if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.cr0; if(modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[modrm_byte << 1 & 14] = data; }; return; } else if(mod === 6) { /* lmsw*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; var old_cr0 = cpu.cr0; cpu.cr0 = (cpu.cr0 & ~0xF) | (data & 0xF); if(cpu.protected_mode) { /* lmsw cannot be used to switch back*/ cpu.cr0 |= CR0_PE; } /*dbg_log("cr0=" + h(data >>> 0), LOG_CPU);*/ cpu.cr0_changed(old_cr0); return; } if(modrm_byte >= 0xC0) { /* only memory*/ cpu.trigger_ud(); dbg_assert(false); } if((mod === 2 || mod === 3) && cpu.protected_mode) { /* override prefix, so cpu.modrm_resolve does not return the segment part*/ /* only lgdt and lidt and only in protected mode*/ cpu.segment_prefix = SEG_PREFIX_ZERO; } var addr = cpu.modrm_resolve(modrm_byte); cpu.segment_prefix = SEG_PREFIX_NONE; switch(mod) { case 0: /* sgdt*/ cpu.writable_or_pagefault(addr, 6); cpu.safe_write16(addr, cpu.gdtr_size); cpu.safe_write32(addr + 2, cpu.gdtr_offset); break; case 1: /* sidt*/ cpu.writable_or_pagefault(addr, 6); cpu.safe_write16(addr, cpu.idtr_size); cpu.safe_write32(addr + 2, cpu.idtr_offset); break; case 2: /* lgdt*/ var size = cpu.safe_read16(addr); var offset = cpu.safe_read32s(addr + 2); cpu.gdtr_size = size; cpu.gdtr_offset = offset; if(!cpu.operand_size_32) { cpu.gdtr_offset &= 0xFFFFFF; } /*dbg_log("gdt at " + h(cpu.gdtr_offset) + ", " + cpu.gdtr_size + " bytes", LOG_CPU);*/ /*dump_gdt_ldt();*/ break; case 3: /* lidt*/ var size = cpu.safe_read16(addr); var offset = cpu.safe_read32s(addr + 2); cpu.idtr_size = size; cpu.idtr_offset = offset; if(!cpu.operand_size_32) { cpu.idtr_offset &= 0xFFFFFF; } /*dbg_log("[" + h(cpu.instruction_pointer) + "] idt at " + */ /*        h(idtr_offset) + ", " + cpu.idtr_size + " bytes " + h(addr), LOG_CPU);*/ break; case 7: /* flush translation lookaside buffer*/ cpu.invlpg(addr); break; default: dbg_log(mod); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
+table0F_16[0x01] = table0F_32[0x01] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cpl) { cpu.trigger_gp(0); } var mod = modrm_byte >> 3 & 7; if(mod === 4) { /* smsw*/ if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.cr0; if(modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[modrm_byte << 1 & 14] = data; }; return; } else if(mod === 6) { /* lmsw*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; var old_cr0 = cpu.cr0; cpu.cr0 = (cpu.cr0 & ~0xF) | (data & 0xF); if(cpu.protected_mode) { /* lmsw cannot be used to switch back*/ cpu.cr0 |= CR0_PE; } /*dbg_log("cr0=" + h(data >>> 0), LOG_CPU);*/ cpu.cr0_changed(old_cr0); return; } if(modrm_byte >= 0xC0) { /* only memory*/ cpu.trigger_ud(); } if((mod === 2 || mod === 3) && cpu.protected_mode) { /* override prefix, so cpu.modrm_resolve does not return the segment part*/ /* only lgdt and lidt and only in protected mode*/ cpu.segment_prefix = SEG_PREFIX_ZERO; } var addr = cpu.modrm_resolve(modrm_byte); cpu.segment_prefix = SEG_PREFIX_NONE; switch(mod) { case 0: /* sgdt*/ cpu.writable_or_pagefault(addr, 6); cpu.safe_write16(addr, cpu.gdtr_size); cpu.safe_write32(addr + 2, cpu.gdtr_offset); break; case 1: /* sidt*/ cpu.writable_or_pagefault(addr, 6); cpu.safe_write16(addr, cpu.idtr_size); cpu.safe_write32(addr + 2, cpu.idtr_offset); break; case 2: /* lgdt*/ var size = cpu.safe_read16(addr); var offset = cpu.safe_read32s(addr + 2); cpu.gdtr_size = size; cpu.gdtr_offset = offset; if(!cpu.operand_size_32) { cpu.gdtr_offset &= 0xFFFFFF; } /*dbg_log("gdt at " + h(cpu.gdtr_offset) + ", " + cpu.gdtr_size + " bytes", LOG_CPU);*/ /*dump_gdt_ldt();*/ break; case 3: /* lidt*/ var size = cpu.safe_read16(addr); var offset = cpu.safe_read32s(addr + 2); cpu.idtr_size = size; cpu.idtr_offset = offset; if(!cpu.operand_size_32) { cpu.idtr_offset &= 0xFFFFFF; } /*dbg_log("[" + h(cpu.instruction_pointer) + "] idt at " + */ /*        h(idtr_offset) + ", " + cpu.idtr_size + " bytes " + h(addr), LOG_CPU);*/ break; case 7: /* flush translation lookaside buffer*/ cpu.invlpg(addr); break; default: dbg_log(mod); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
 table0F_16[0x02] = table0F_32[0x02] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* lar*/ if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } };;
 table0F_16[0x03] = table0F_32[0x03] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* lsl*/ if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } };;
 table0F_16[0x04] = table0F_32[0x04] = function(cpu) { { if(DEBUG) throw "Possible fault: undefined instruction"; cpu.trigger_ud();} };;
@@ -3499,7 +3717,7 @@ table0F_16[0x2E] = table0F_32[0x2E] = function(cpu) { { dbg_log("No SSE", LOG_CP
 table0F_16[0x2F] = table0F_32[0x2F] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 // wrmsr
 table0F_16[0x30] = table0F_32[0x30] = function(cpu) { { /* wrmsr - write maschine specific register*/ if(cpu.cpl) { cpu.trigger_gp(0); } var index = cpu.reg32s[reg_ecx]; var low = cpu.reg32s[reg_eax]; var high = cpu.reg32s[reg_edx]; dbg_log("wrmsr ecx=" + h(index >>> 0, 8) + " data=" + h(high >>> 0, 8) + ":" + h(low >>> 0, 8), LOG_CPU); switch(index) { case IA32_SYSENTER_CS: cpu.sysenter_cs = low & 0xFFFF; break; case IA32_SYSENTER_EIP: cpu.sysenter_eip = low; break; case IA32_SYSENTER_ESP: cpu.sysenter_esp = low; break; } } };;
-table0F_16[0x31] = table0F_32[0x31] = function(cpu) { { /* rdtsc - read timestamp counter*/ if(!cpu.cpl || !(cpu.cr4 & CR4_TSD)) { var n = cpu.microtick() - cpu.tsc_offset; cpu.reg32s[reg_eax] = n * TSC_RATE; cpu.reg32s[reg_edx] = n * (TSC_RATE / 0x100000000); /*dbg_log("rtdsc  edx:eax=" + h(cpu.reg32[reg_edx], 8) + ":" + h(cpu.reg32[reg_eax], 8), LOG_CPU);*/ } else { cpu.trigger_gp(0); } } };;
+table0F_16[0x31] = table0F_32[0x31] = function(cpu) { { /* rdtsc - read timestamp counter*/ if(!cpu.cpl || !(cpu.cr4 & CR4_TSD)) { var n = v86.microtick() - cpu.tsc_offset; dbg_assert(isFinite(n), "non-finite tsc: " + n); cpu.reg32s[reg_eax] = n * TSC_RATE; cpu.reg32s[reg_edx] = n * (TSC_RATE / 0x100000000); /*dbg_log("rtdsc  edx:eax=" + h(cpu.reg32[reg_edx], 8) + ":" + h(cpu.reg32[reg_eax], 8), LOG_CPU);*/ } else { cpu.trigger_gp(0); } } };;
 table0F_16[0x32] = table0F_32[0x32] = function(cpu) { { /* rdmsr - read maschine specific register*/ if(cpu.cpl) { cpu.trigger_gp(0); } var index = cpu.reg32s[reg_ecx]; dbg_log("rdmsr ecx=" + h(index >>> 0, 8), LOG_CPU); var low = 0; var high = 0; switch(index) { case IA32_SYSENTER_CS: low = cpu.sysenter_cs; break; case IA32_SYSENTER_EIP: low = cpu.sysenter_eip; break; case IA32_SYSENTER_ESP: low = cpu.sysenter_esp; break; } cpu.reg32s[reg_eax] = low; cpu.reg32s[reg_edx] = high; } };;
 table0F_16[0x33] = table0F_32[0x33] = function(cpu) { { /* rdpmc*/ if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } };
 table0F_16[0x34] = table0F_32[0x34] = function(cpu) { { /* sysenter*/ var seg = cpu.sysenter_cs & 0xFFFC; if(!cpu.protected_mode || seg === 0) { cpu.trigger_gp(0); } /*dbg_log("sysenter  cs:eip=" + h(seg    , 4) + ":" + h(cpu.sysenter_eip >>> 0, 8) + */ /*                 " ss:esp=" + h(seg + 8, 4) + ":" + h(cpu.sysenter_esp >>> 0, 8), LOG_CPU);*/ cpu.flags &= ~flag_vm & ~flag_interrupt; cpu.instruction_pointer = cpu.sysenter_eip; cpu.reg32s[reg_esp] = cpu.sysenter_esp; cpu.sreg[reg_cs] = seg; cpu.segment_is_null[reg_cs] = 0; cpu.segment_limits[reg_cs] = -1; cpu.segment_offsets[reg_cs] = 0; if(!cpu.is_32) cpu.update_cs_size(true); cpu.cpl = 0; cpu.cpl_changed(); cpu.sreg[reg_ss] = seg + 8; cpu.segment_is_null[reg_ss] = 0; cpu.segment_limits[reg_ss] = -1; cpu.segment_offsets[reg_ss] = 0; cpu.stack_size_32 = true; cpu.stack_reg = cpu.reg32s; cpu.reg_vsp = reg_esp; cpu.reg_vbp = reg_ebp; } };;
@@ -3580,7 +3798,7 @@ table0F_16[0xAA] = table0F_32[0xAA] = function(cpu) { { /* rsm*/ if(DEBUG) { dbg
 table0F_16[0xAB] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { cpu.bts_mem(cpu.modrm_resolve(modrm_byte), cpu.reg16s[modrm_byte >> 2 & 14]); } else { cpu.reg16[modrm_byte << 1 & 14] = cpu.bts_reg(cpu.reg16[modrm_byte << 1 & 14], cpu.reg16s[modrm_byte >> 2 & 14] & 15); }; } }; table0F_32[0xAB] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { cpu.bts_mem(cpu.modrm_resolve(modrm_byte), cpu.reg32s[modrm_byte >> 3 & 7]); } else { cpu.reg32s[modrm_byte & 7] = cpu.bts_reg(cpu.reg32s[modrm_byte & 7], cpu.reg32s[modrm_byte >> 3 & 7] & 31); }; } };;
 table0F_16[0xAC] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.shrd16(data, cpu.reg16[modrm_byte >> 2 & 14], cpu.read_imm8() & 31); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; } }; table0F_32[0xAC] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.shrd32(data, cpu.reg32s[modrm_byte >> 3 & 7], cpu.read_imm8() & 31); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; } };;
 table0F_16[0xAD] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.shrd16(data, cpu.reg16[modrm_byte >> 2 & 14], cpu.reg8[reg_cl] & 31); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; } }; table0F_32[0xAD] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.shrd32(data, cpu.reg32s[modrm_byte >> 3 & 7], cpu.reg8[reg_cl] & 31); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; } };;
-table0F_16[0xAE] = table0F_32[0xAE] = function(cpu) { { /* fxsave, fxrstor, ldmxcsr ...*/ if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } };
+table0F_16[0xAE] = table0F_32[0xAE] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* fxsave, fxrstor, ldmxcsr ...*/ switch(modrm_byte >> 3 & 7) { case 6: /* mfence*/ break; default: dbg_log("missing " + (modrm_byte >> 3 & 7), LOG_CPU); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };
 table0F_16[0xAF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = (cpu.safe_read16(cpu.modrm_resolve(modrm_byte)) << 16 >> 16); } else { data = cpu.reg16s[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.imul_reg16(cpu.reg16s[modrm_byte >> 2 & 14], data); } }; table0F_32[0xAF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.imul_reg32(cpu.reg32s[modrm_byte >> 3 & 7], data); } };;
 table0F_16[0xB0] = table0F_32[0xB0] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* cmpxchg8*/ if(modrm_byte < 0xC0) { var virt_addr = cpu.modrm_resolve(modrm_byte); cpu.writable_or_pagefault(virt_addr, 1); var data = cpu.safe_read8(virt_addr); } else data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; cpu.sub(data, cpu.reg8[reg_al], OPSIZE_8); if(cpu.getzf()) { if(modrm_byte < 0xC0) cpu.safe_write8(virt_addr, cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1]); else cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1]; } else { cpu.reg8[reg_al] = data; } } };;
 table0F_16[0xB1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* cmpxchg16/32*/ if(modrm_byte < 0xC0) { var virt_addr = cpu.modrm_resolve(modrm_byte); cpu.writable_or_pagefault(virt_addr, 2); var data = cpu.safe_read16(virt_addr); } else data = cpu.reg16[modrm_byte << 1 & 14]; cpu.sub(data, cpu.reg16[reg_ax], OPSIZE_16); if(cpu.getzf()) { if(modrm_byte < 0xC0) cpu.safe_write16(virt_addr, cpu.reg16[modrm_byte >> 2 & 14]); else cpu.reg16[modrm_byte << 1 & 14] = cpu.reg16[modrm_byte >> 2 & 14]; } else { cpu.reg16[reg_ax] = data; } } }; table0F_32[0xB1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var virt_addr = cpu.modrm_resolve(modrm_byte); cpu.writable_or_pagefault(virt_addr, 4); var data = cpu.safe_read32s(virt_addr); } else { data = cpu.reg32s[modrm_byte & 7]; } cpu.sub(data, cpu.reg32s[reg_eax], OPSIZE_32); if(cpu.getzf()) { if(modrm_byte < 0xC0) cpu.safe_write32(virt_addr, cpu.reg32s[modrm_byte >> 3 & 7]); else cpu.reg32s[modrm_byte & 7] = cpu.reg32s[modrm_byte >> 3 & 7]; } else { cpu.reg32s[reg_eax] = data; } } };;
@@ -3682,7 +3900,7 @@ table0F_16[0xFF] = table0F_32[0xFF] = function(cpu) { { if(DEBUG) throw "Possibl
  * Gets #included by cpu.macro.js
  */
 "use strict";
-v86.prototype.jmp_rel16 = function(rel16)
+CPU.prototype.jmp_rel16 = function(rel16)
 {
     var current_cs = this.get_seg(reg_cs);
     // limit ip to 16 bit
@@ -3692,7 +3910,7 @@ v86.prototype.jmp_rel16 = function(rel16)
     this.instruction_pointer = this.instruction_pointer + current_cs | 0;
     this.last_instr_jump = true;
 }
-v86.prototype.jmpcc16 = function(condition)
+CPU.prototype.jmpcc16 = function(condition)
 {
     if(condition)
     {
@@ -3704,7 +3922,7 @@ v86.prototype.jmpcc16 = function(condition)
     }
     this.last_instr_jump = true;
 }
-v86.prototype.jmpcc32 = function(condition)
+CPU.prototype.jmpcc32 = function(condition)
 {
     if(condition)
     {
@@ -3719,7 +3937,7 @@ v86.prototype.jmpcc32 = function(condition)
     }
     this.last_instr_jump = true;
 }
-v86.prototype.loopne = function()
+CPU.prototype.loopne = function()
 {
     if(--this.regv[this.reg_vcx] && !this.getzf())
     {
@@ -3732,7 +3950,7 @@ v86.prototype.loopne = function()
     }
     this.last_instr_jump = true;
 }
-v86.prototype.loope = function()
+CPU.prototype.loope = function()
 {
     if(--this.regv[this.reg_vcx] && this.getzf())
     {
@@ -3745,7 +3963,7 @@ v86.prototype.loope = function()
     }
     this.last_instr_jump = true;
 }
-v86.prototype.loop = function()
+CPU.prototype.loop = function()
 {
     if(--this.regv[this.reg_vcx])
     {
@@ -3758,7 +3976,7 @@ v86.prototype.loop = function()
     }
     this.last_instr_jump = true;
 }
-v86.prototype.jcxz = function()
+CPU.prototype.jcxz = function()
 {
     var imm8s = this.read_imm8s();
     if(this.regv[this.reg_vcx] === 0)
@@ -3771,7 +3989,7 @@ v86.prototype.jcxz = function()
  * @return {number}
  * @const
  */
-v86.prototype.getcf = function()
+CPU.prototype.getcf = function()
 {
     if(this.flags_changed & 1)
     {
@@ -3783,7 +4001,7 @@ v86.prototype.getcf = function()
     }
 };
 /** @return {number} */
-v86.prototype.getpf = function()
+CPU.prototype.getpf = function()
 {
     if(this.flags_changed & flag_parity)
     {
@@ -3796,7 +4014,7 @@ v86.prototype.getpf = function()
     }
 };
 /** @return {number} */
-v86.prototype.getaf = function()
+CPU.prototype.getaf = function()
 {
     if(this.flags_changed & flag_adjust)
     {
@@ -3808,7 +4026,7 @@ v86.prototype.getaf = function()
     }
 };
 /** @return {number} */
-v86.prototype.getzf = function()
+CPU.prototype.getzf = function()
 {
     if(this.flags_changed & flag_zero)
     {
@@ -3820,7 +4038,7 @@ v86.prototype.getzf = function()
     }
 };
 /** @return {number} */
-v86.prototype.getsf = function()
+CPU.prototype.getsf = function()
 {
     if(this.flags_changed & flag_sign)
     {
@@ -3832,7 +4050,7 @@ v86.prototype.getsf = function()
     }
 };
 /** @return {number} */
-v86.prototype.getof = function()
+CPU.prototype.getof = function()
 {
     if(this.flags_changed & flag_overflow)
     {
@@ -3843,56 +4061,56 @@ v86.prototype.getof = function()
         return this.flags & flag_overflow;
     }
 };
-v86.prototype.test_o = v86.prototype.getof;
-v86.prototype.test_b = v86.prototype.getcf;
-v86.prototype.test_z = v86.prototype.getzf;
-v86.prototype.test_s = v86.prototype.getsf;
-v86.prototype.test_p = v86.prototype.getpf;
-v86.prototype.test_be = function()
+CPU.prototype.test_o = CPU.prototype.getof;
+CPU.prototype.test_b = CPU.prototype.getcf;
+CPU.prototype.test_z = CPU.prototype.getzf;
+CPU.prototype.test_s = CPU.prototype.getsf;
+CPU.prototype.test_p = CPU.prototype.getpf;
+CPU.prototype.test_be = function()
 {
     // Idea:
     //    return this.last_op1 <= this.last_op2;
     return this.getcf() || this.getzf();
 }
-v86.prototype.test_l = function()
+CPU.prototype.test_l = function()
 {
     // Idea:
     //    return this.last_add_result < this.last_op2;
     return !this.getsf() !== !this.getof();
 }
-v86.prototype.test_le = function()
+CPU.prototype.test_le = function()
 {
     // Idea:
     //    return this.last_add_result <= this.last_op2;
     return this.getzf() || !this.getsf() !== !this.getof();
 }
-v86.prototype.push16 = function(imm16)
+CPU.prototype.push16 = function(imm16)
 {
     var sp = this.get_stack_pointer(-2);
     this.safe_write16(sp, imm16);
     this.stack_reg[this.reg_vsp] -= 2;
 }
-v86.prototype.push32 = function(imm32)
+CPU.prototype.push32 = function(imm32)
 {
     var sp = this.get_stack_pointer(-4);
     this.safe_write32(sp, imm32);
     this.stack_reg[this.reg_vsp] -= 4;
 }
-v86.prototype.pop16 = function()
+CPU.prototype.pop16 = function()
 {
     var sp = this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] | 0,
         result = this.safe_read16(sp);
     this.stack_reg[this.reg_vsp] += 2;
     return result;
 }
-v86.prototype.pop32s = function()
+CPU.prototype.pop32s = function()
 {
     var sp = this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] | 0,
         result = this.safe_read32s(sp);
     this.stack_reg[this.reg_vsp] += 4;
     return result;
 }
-v86.prototype.pusha16 = function()
+CPU.prototype.pusha16 = function()
 {
     var temp = this.reg16[reg_sp];
     // make sure we don't get a pagefault after having 
@@ -3907,7 +4125,7 @@ v86.prototype.pusha16 = function()
     this.push16(this.reg16[reg_si]);
     this.push16(this.reg16[reg_di]);
 }
-v86.prototype.pusha32 = function()
+CPU.prototype.pusha32 = function()
 {
     var temp = this.reg32s[reg_esp];
     this.translate_address_write(this.get_seg(reg_ss) + temp - 31 | 0);
@@ -3920,7 +4138,7 @@ v86.prototype.pusha32 = function()
     this.push32(this.reg32s[reg_esi]);
     this.push32(this.reg32s[reg_edi]);
 }
-v86.prototype.popa16 = function()
+CPU.prototype.popa16 = function()
 {
     this.translate_address_read(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + 15 | 0);
     this.reg16[reg_di] = this.pop16();
@@ -3932,7 +4150,7 @@ v86.prototype.popa16 = function()
     this.reg16[reg_cx] = this.pop16();
     this.reg16[reg_ax] = this.pop16();
 }
-v86.prototype.popa32 = function()
+CPU.prototype.popa32 = function()
 {
     this.translate_address_read(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + 31 | 0);
     this.reg32s[reg_edi] = this.pop32s();
@@ -3944,54 +4162,54 @@ v86.prototype.popa32 = function()
     this.reg32s[reg_ecx] = this.pop32s();
     this.reg32s[reg_eax] = this.pop32s();
 }
-v86.prototype.xchg8 = function(memory_data, modrm_byte)
+CPU.prototype.xchg8 = function(memory_data, modrm_byte)
 {
     var mod = modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1,
         tmp = this.reg8[mod];
     this.reg8[mod] = memory_data;
     return tmp;
 }
-v86.prototype.xchg16 = function(memory_data, modrm_byte)
+CPU.prototype.xchg16 = function(memory_data, modrm_byte)
 {
     var mod = modrm_byte >> 2 & 14,
         tmp = this.reg16[mod];
     this.reg16[mod] = memory_data;
     return tmp;
 }
-v86.prototype.xchg16r = function(operand)
+CPU.prototype.xchg16r = function(operand)
 {
     var temp = this.reg16[reg_ax];
     this.reg16[reg_ax] = this.reg16[operand];
     this.reg16[operand] = temp;
 }
-v86.prototype.xchg32 = function(memory_data, modrm_byte)
+CPU.prototype.xchg32 = function(memory_data, modrm_byte)
 {
     var mod = modrm_byte >> 3 & 7,
         tmp = this.reg32s[mod];
     this.reg32s[mod] = memory_data;
     return tmp;
 }
-v86.prototype.xchg32r = function(operand)
+CPU.prototype.xchg32r = function(operand)
 {
     var temp = this.reg32s[reg_eax];
     this.reg32s[reg_eax] = this.reg32s[operand];
     this.reg32s[operand] = temp;
 }
-v86.prototype.lss16 = function(seg, addr, mod)
+CPU.prototype.lss16 = function(seg, addr, mod)
 {
     var new_reg = this.safe_read16(addr),
         new_seg = this.safe_read16(addr + 2 | 0);
     this.switch_seg(seg, new_seg);
     this.reg16[mod] = new_reg;
 }
-v86.prototype.lss32 = function(seg, addr, mod)
+CPU.prototype.lss32 = function(seg, addr, mod)
 {
     var new_reg = this.safe_read32s(addr),
         new_seg = this.safe_read16(addr + 4 | 0);
     this.switch_seg(seg, new_seg);
     this.reg32s[mod] = new_reg;
 }
-v86.prototype.enter16 = function()
+CPU.prototype.enter16 = function()
 {
     var size = this.read_imm16(),
         nesting_level = this.read_imm8() & 31,
@@ -4013,7 +4231,7 @@ v86.prototype.enter16 = function()
     this.reg16[reg_bp] = frame_temp;
     this.reg16[reg_sp] -= size;
 };
-v86.prototype.enter32 = function()
+CPU.prototype.enter32 = function()
 {
     var size = this.read_imm16(),
         nesting_level = this.read_imm8() & 31,
@@ -4035,30 +4253,21 @@ v86.prototype.enter32 = function()
     this.reg32s[reg_ebp] = frame_temp;
     this.reg32s[reg_esp] -= size;
 };
-v86.prototype.bswap = function(reg)
+CPU.prototype.bswap = function(reg)
 {
     var temp = this.reg32s[reg];
     this.reg32s[reg] = temp >>> 24 | temp << 24 | (temp >> 8 & 0xFF00) | (temp << 8 & 0xFF0000);
 }
-v86.prototype.run = function()
+/**
+ * @return {number} time in ms until this method should becalled again
+ */
+CPU.prototype.main_run = function()
 {
-    if(!this.running)
+    try
     {
-        this.next_tick();
-    }
-};
-v86.prototype.main_run = function()
-{
-    if(this.stopped)
-    {
-        this.stopped = this.running = false;
-        return;
-    }
-    this.running = true;
-    try {
         if(this.in_hlt)
         {
-            this.hlt_loop();
+            return this.hlt_loop();
         }
         else
         {
@@ -4069,33 +4278,9 @@ v86.prototype.main_run = function()
     {
         this.exception_cleanup(e);
     }
+    return 0;
 };
-v86.prototype.stop = function()
-{
-    if(this.running)
-    {
-        this.stopped = true;
-    }
-};
-v86.prototype.restart = function()
-{
-    dbg_log("cpu restart", LOG_CPU);
-    var was_running = this.running;
-    var cpu = this;
-    this.stopped = true;
-    this.running = false;
-    setTimeout(function()
-    {
-        cpu.devices.ps2.destroy();
-        cpu.devices.vga.destroy();
-        cpu.init(cpu.current_settings);
-        if(was_running)
-        {
-            cpu.next_tick();
-        }
-    }, 10);
-};
-v86.prototype.exception_cleanup = function(e)
+CPU.prototype.exception_cleanup = function(e)
 {
     if(e === MAGIC_CPU_EXCEPTION)
     {
@@ -4110,91 +4295,27 @@ v86.prototype.exception_cleanup = function(e)
         this.update_address_size();
         this.operand_size_32 = this.is_32;
         this.update_operand_size();
-        this.next_tick();
     }
     else
     {
-        this.running = false;
         console.log(e);
         console.log(e.stack);
         throw e;
     }
 }
-v86.prototype.reboot_internal = function()
+CPU.prototype.reboot_internal = function()
 {
-    dbg_assert(this.running);
-    this.devices.ps2.destroy();
-    this.devices.vga.destroy();
-    this.init(this.current_settings);
+    this.reset();
+    this.load_bios();
     throw MAGIC_CPU_EXCEPTION;
 };
-// initialization that only needs to be once
-v86.prototype.lazy_init = function()
+CPU.prototype.reset = function()
 {
-    var cpu = this;
-    if(typeof setImmediate !== "undefined")
-    {
-        this.next_tick = function()
-        {
-            setImmediate(function() { cpu.main_run(); });
-        };
-    }
-    else if(typeof window !== "undefined" && typeof postMessage !== "undefined")
-    {
-        // setImmediate shim for the browser.
-        // TODO: Make this deactivatable, for other applications
-        //       using postMessage
-        /** @const */
-        var MAGIC_POST_MESSAGE = 0xAA55;
-        window.addEventListener("message", function(e)
-        {
-            if(e.source === window && e.data === MAGIC_POST_MESSAGE)
-            {
-                cpu.main_run();
-            }
-        }, false);
-        this.next_tick = function()
-        {
-            window.postMessage(MAGIC_POST_MESSAGE, "*");
-        };
-    }
-    else
-    {
-        this.next_tick = function()
-        {
-            setTimeout(function() { cpu.main_run(); }, 0);
-        };
-    }
-    if(typeof performance === "object" && performance.now)
-    {
-        this.microtick = function()
-        {
-            return performance.now();
-        };
-    }
-    else
-    {
-        this.microtick = Date.now;
-    }
-};
-v86.prototype.init = function(settings)
-{
-    if(this.first_init)
-    {
-        this.first_init = false;
-        this.lazy_init();
-    }
-    this.current_settings = settings;
-    this.memory_size = settings.memory_size || 1024 * 1024 * 64;
-    this.memory = new Memory(new ArrayBuffer(this.memory_size), this.memory_size);
     this.segment_is_null = new Uint8Array(8);
     this.segment_limits = new Uint32Array(8);
     //this.segment_infos = new Uint32Array(8);
     this.segment_offsets = new Int32Array(8);
-    // 16 MB in total
-    this.tlb_data = new Int32Array(1 << 20);
-    this.tlb_info = new Uint8Array(1 << 20);
-    this.tlb_info_global = new Uint8Array(1 << 20);
+    this.full_clear_tlb();
     this.reg32s = new Int32Array(8);
     this.reg32 = new Uint32Array(this.reg32s.buffer);
     this.reg16s = new Int16Array(this.reg32s.buffer);
@@ -4232,8 +4353,6 @@ v86.prototype.init = function(settings)
     this.timestamp_counter = 0;
     this.previous_ip = 0;
     this.in_hlt = false;
-    this.running = false;
-    this.stopped = false;
     this.sysenter_cs = 0;
     this.sysenter_esp = 0;
     this.sysenter_eip = 0;
@@ -4246,7 +4365,16 @@ v86.prototype.init = function(settings)
     this.last_op1 = 0;
     this.last_op2 = 0;
     this.last_op_size = 0;
-    this.tsc_offset = this.microtick();
+    this.tsc_offset = v86.microtick();
+    this.instruction_pointer = 0xFFFF0;
+    this.switch_seg(reg_ss, 0x30);
+    this.reg16[reg_sp] = 0x100;
+};
+CPU.prototype.init = function(settings, device_bus)
+{
+    this.memory_size = settings.memory_size || 1024 * 1024 * 64;
+    this.memory = new Memory(this.memory_size);
+    this.reset();
     if(OP_TRANSLATION)
     {
         this.translator = new DynamicTranslator(this);
@@ -4254,77 +4382,9 @@ v86.prototype.init = function(settings)
     }
     var io = new IO(this.memory);
     this.io = io;
-    var bios = settings.bios,
-        vga_bios = settings.vga_bios;
-    if(bios)
-    {
-        // load bios
-        var data = new Uint8Array(bios),
-            start = 0x100000 - bios.byteLength;
-        this.memory.mem8.set(data, start);
-        if(vga_bios)
-        {
-            // load vga bios
-            data = new Uint8Array(vga_bios);
-            this.memory.mem8.set(data, 0xC0000);
-        }
-        // seabios expects the bios to be mapped to 0xFFF00000 also
-        io.mmap_register(0xFFF00000, 0x100000,
-            function(addr)
-            {
-                addr &= 0xFFFFF;
-                return this.memory.mem8[addr];
-                //return data[start + addr];
-            }.bind(this),
-            function(addr, value)
-            {
-                addr &= 0xFFFFF;
-                this.memory.mem8[addr] = value;
-                //data[start + addr] = value;
-            }.bind(this));
-        // ip initial value
-        this.instruction_pointer = 0xFFFF0;
-        // ss and sp inital value
-        this.switch_seg(reg_ss, 0x30);
-        this.reg16[reg_sp] = 0x100;
-    }
-    else if(settings.linux)
-    {
-        this.instruction_pointer = 0x10000;
-        this.memory.write_blob(new Uint8Array(settings.linux.vmlinux), 0x100000);
-        this.memory.write_blob(new Uint8Array(settings.linux.linuxstart), this.instruction_pointer);
-        if(settings.linux.root)
-        {
-            this.memory.write_blob(new Uint8Array(settings.linux.root), 0x00400000);
-            this.reg32s[reg_ebx] = settings.linux.root.byteLength;
-        }
-        this.memory.write_string(settings.linux.cmdline, 0xF800);
-        this.reg32s[reg_eax] = this.memory_size;
-        this.reg32s[reg_ecx] = 0xF800;
-        this.switch_seg(reg_cs, 0);
-        this.switch_seg(reg_ss, 0);
-        this.switch_seg(reg_ds, 0);
-        this.switch_seg(reg_es, 0);
-        this.switch_seg(reg_gs, 0);
-        this.switch_seg(reg_fs, 0);
-        this.is_32 = true;
-        this.address_size_32 = true;
-        this.operand_size_32 = true;
-        this.stack_size_32 = true;
-        this.protected_mode = true;
-        this.update_operand_size();
-        this.update_address_size();
-        this.regv = this.reg32s;
-        this.reg_vsp = reg_esp;
-        this.reg_vbp = reg_ebp;
-        this.cr0 = 1;
-    }
-    else
-    {
-        this.switch_seg(reg_ss, 0x30);
-        this.reg16[reg_sp] = 0x100;
-        this.instruction_pointer = 0;
-    }
+    this.bios.main = settings.bios;
+    this.bios.vga = settings.vga_bios;
+    this.load_bios();
     var a20_byte = 0;
     io.register_read(0x92, this, function()
     {
@@ -4354,22 +4414,11 @@ v86.prototype.init = function(settings)
         {
             this.devices.hpet = new HPET(this);
         }
-        this.devices.vga = new VGAScreen(this,
-                settings.screen_adapter, settings.vga_memory_size || 8 * 1024 * 1024);
-        this.devices.ps2 = new PS2(this, settings.keyboard_adapter, settings.mouse_adapter);
+        this.devices.vga = new VGAScreen(this, device_bus,
+                settings.vga_memory_size || 8 * 1024 * 1024);
         this.fpu = new FPU(this);
-        if(settings.serial_adapter)
-        {
-            this.devices.uart = new UART(this, 0x3F8, settings.serial_adapter);
-        }
-        else
-        {
-            this.devices.uart = new UART(this, 0x3F8, {
-                //put_line: envapi.log,
-                put_line: function() { },
-                init: function(fn) { },
-            });
-        }
+        this.devices.ps2 = new PS2(this, device_bus);
+        this.devices.uart = new UART(this, 0x3F8, device_bus);
         this.devices.fdc = new FloppyController(this, settings.fda, settings.fdb);
         if(settings.cdrom)
         {
@@ -4389,9 +4438,9 @@ v86.prototype.init = function(settings)
         //}
         this.devices.pit = new PIT(this);
         this.devices.rtc = new RTC(this, this.devices.fdc.type, settings.boot_order || 0x213);
-        if(settings.network_adapter)
+        if(settings.enable_ne2k)
         {
-            this.devices.net = new Ne2k(this, settings.network_adapter);
+            this.devices.net = new Ne2k(this, device_bus);
         }
         if(settings.fs9p)
         {
@@ -4403,7 +4452,45 @@ v86.prototype.init = function(settings)
         this.debug.init();
     }
 };
-v86.prototype.do_run = function()
+CPU.prototype.load_bios = function()
+{
+    var bios = this.bios.main;
+    var vga_bios = this.bios.vga;
+    if(!bios)
+    {
+        dbg_log("Warning: No BIOS");
+        return;
+    }
+    // load bios
+    var data = new Uint8Array(bios),
+        start = 0x100000 - bios.byteLength;
+    this.memory.mem8.set(data, start);
+    if(vga_bios)
+    {
+        // load vga bios
+        data = new Uint8Array(vga_bios);
+        this.memory.mem8.set(data, 0xC0000);
+    }
+    else
+    {
+        dbg_log("Warning: No VGA BIOS");
+    }
+    // seabios expects the bios to be mapped to 0xFFF00000 also
+    this.io.mmap_register(0xFFF00000, 0x100000,
+        function(addr)
+        {
+            addr &= 0xFFFFF;
+            return this.memory.mem8[addr];
+            //return data[start + addr];
+        }.bind(this),
+        function(addr, value)
+        {
+            addr &= 0xFFFFF;
+            this.memory.mem8[addr] = value;
+            //data[start + addr] = value;
+        }.bind(this));
+};
+CPU.prototype.do_run = function()
 {
     var
         /** 
@@ -4411,7 +4498,7 @@ v86.prototype.do_run = function()
          */
         start = Date.now(),
         now = start;
-    this.devices.vga.timer(now);
+    this.devices.vga.timer();
     // outer loop:
     // runs cycles + timers
     for(; now - start < TIME_PER_FRAME;)
@@ -4443,22 +4530,21 @@ v86.prototype.do_run = function()
         }
         now = Date.now();
     }
-    this.next_tick();
 };
 // do_run must not be inlined into cpu_run, because then more code 
 // is in the deoptimized try-catch. 
 // This trick is a bit ugly, but it works without further complication.
 if(typeof window !== "undefined")
 {
-    window.__no_inline1 = v86.prototype.do_run;
-    window.__no_inline2 = v86.prototype.exception_cleanup;
-    window.__no_inline3 = v86.prototype.hlt_loop;
+    window.__no_inline1 = CPU.prototype.do_run;
+    window.__no_inline2 = CPU.prototype.exception_cleanup;
+    window.__no_inline3 = CPU.prototype.hlt_loop;
 };
 /**
  * execute a single instruction cycle on the cpu
  * this includes reading all prefixes and the whole instruction
  */
-v86.prototype.cycle = function()
+CPU.prototype.cycle = function()
 {
     this.timestamp_counter++;
     this.previous_ip = this.instruction_pointer;
@@ -4475,11 +4561,11 @@ v86.prototype.cycle = function()
         dbg_log("Trap flag: Ignored", LOG_CPU);
     }
 };
-v86.prototype.do_op = function()
+CPU.prototype.do_op = function()
 {
-    this.table[this.read_imm8()](this)
+    this.table[this.read_imm8()](this);
 };
-v86.prototype.hlt_loop = function()
+CPU.prototype.hlt_loop = function()
 {
     //dbg_log("In HLT loop", LOG_CPU);
     var now = Date.now();
@@ -4495,17 +4581,9 @@ v86.prototype.hlt_loop = function()
         this.devices.rtc.timer(now, false);
     }
     this.devices.vga.timer(now);
-    if(this.in_hlt)
-    {
-        var me = this;
-        setTimeout(function() { me.hlt_loop(); }, 0);
-    }
-    else
-    {
-        this.next_tick();
-    }
+    return 4;
 };
-v86.prototype.cr0_changed = function(old_cr0)
+CPU.prototype.cr0_changed = function(old_cr0)
 {
     //dbg_log("cr0 = " + h(this.cr0 >>> 0), LOG_CPU);
     var new_paging = (this.cr0 & CR0_PG) === CR0_PG;
@@ -4526,17 +4604,17 @@ v86.prototype.cr0_changed = function(old_cr0)
         this.translator.clear_cache();
     }
 };
-v86.prototype.paging_changed = function()
+CPU.prototype.paging_changed = function()
 {
     this.last_virt_eip = -1;
     this.last_virt_esp = -1;
 };
-v86.prototype.cpl_changed = function()
+CPU.prototype.cpl_changed = function()
 {
     this.last_virt_eip = -1;
     this.last_virt_esp = -1;
 };
-v86.prototype.get_phys_eip = function()
+CPU.prototype.get_phys_eip = function()
 {
     if((this.instruction_pointer & ~0xFFF) ^ this.last_virt_eip)
     {
@@ -4545,7 +4623,7 @@ v86.prototype.get_phys_eip = function()
     }
     return this.eip_phys ^ this.instruction_pointer;
 };
-v86.prototype.read_imm8 = function()
+CPU.prototype.read_imm8 = function()
 {
     if((this.instruction_pointer & ~0xFFF) ^ this.last_virt_eip)
     {
@@ -4559,11 +4637,11 @@ v86.prototype.read_imm8 = function()
     this.instruction_pointer = this.instruction_pointer + 1 | 0;
     return data8;
 };
-v86.prototype.read_imm8s = function()
+CPU.prototype.read_imm8s = function()
 {
     return this.read_imm8() << 24 >> 24;
 };
-v86.prototype.read_imm16 = function()
+CPU.prototype.read_imm16 = function()
 {
     // Two checks in one comparison:
     //    1. Did the high 20 bits of eip change
@@ -4576,11 +4654,11 @@ v86.prototype.read_imm16 = function()
     this.instruction_pointer = this.instruction_pointer + 2 | 0;
     return data16;
 };
-v86.prototype.read_imm16s = function()
+CPU.prototype.read_imm16s = function()
 {
     return this.read_imm16() << 16 >> 16;
 };
-v86.prototype.read_imm32s = function()
+CPU.prototype.read_imm32s = function()
 {
     // Analogue to the above comment
     if(((this.instruction_pointer ^ this.last_virt_eip) >>> 0) > 0xFFC)
@@ -4592,14 +4670,14 @@ v86.prototype.read_imm32s = function()
     return data32;
 };
 // read word from a page boundary, given 2 physical addresses
-v86.prototype.virt_boundary_read16 = function(low, high)
+CPU.prototype.virt_boundary_read16 = function(low, high)
 {
     dbg_assert((low & 0xFFF) === 0xFFF);
     dbg_assert((high & 0xFFF) === 0);
     return this.memory.read8(low) | this.memory.read8(high) << 8;
 };
 // read doubleword from a page boundary, given 2 addresses
-v86.prototype.virt_boundary_read32s = function(low, high)
+CPU.prototype.virt_boundary_read32s = function(low, high)
 {
     dbg_assert((low & 0xFFF) >= 0xFFD);
     dbg_assert((high - 3 & 0xFFF) === (low & 0xFFF));
@@ -4624,14 +4702,14 @@ v86.prototype.virt_boundary_read32s = function(low, high)
     }
     return this.memory.read8(low) | mid << 8 | this.memory.read8(high) << 24;;
 };
-v86.prototype.virt_boundary_write16 = function(low, high, value)
+CPU.prototype.virt_boundary_write16 = function(low, high, value)
 {
     dbg_assert((low & 0xFFF) === 0xFFF);
     dbg_assert((high & 0xFFF) === 0);
     this.memory.write8(low, value);
     this.memory.write8(high, value >> 8);
 };
-v86.prototype.virt_boundary_write32 = function(low, high, value)
+CPU.prototype.virt_boundary_write32 = function(low, high, value)
 {
     dbg_assert((low & 0xFFF) >= 0xFFD);
     dbg_assert((high - 3 & 0xFFF) === (low & 0xFFF));
@@ -4662,12 +4740,12 @@ v86.prototype.virt_boundary_write32 = function(low, high, value)
 // safe_read, safe_write
 // read or write byte, word or dword to the given *virtual* address,
 // and be safe on page boundaries
-v86.prototype.safe_read8 = function(addr)
+CPU.prototype.safe_read8 = function(addr)
 {
     dbg_assert(addr < 0x80000000);
     return this.memory.read8(this.translate_address_read(addr));
 };
-v86.prototype.safe_read16 = function(addr)
+CPU.prototype.safe_read16 = function(addr)
 {
     if(this.paging && (addr & 0xFFF) === 0xFFF)
     {
@@ -4678,7 +4756,7 @@ v86.prototype.safe_read16 = function(addr)
         return this.memory.read16(this.translate_address_read(addr));
     }
 };
-v86.prototype.safe_read32s = function(addr)
+CPU.prototype.safe_read32s = function(addr)
 {
     if(this.paging && (addr & 0xFFF) >= 0xFFD)
     {
@@ -4689,12 +4767,12 @@ v86.prototype.safe_read32s = function(addr)
         return this.memory.read32s(this.translate_address_read(addr));
     }
 };
-v86.prototype.safe_write8 = function(addr, value)
+CPU.prototype.safe_write8 = function(addr, value)
 {
     dbg_assert(addr < 0x80000000);
     this.memory.write8(this.translate_address_write(addr), value);
 };
-v86.prototype.safe_write16 = function(addr, value)
+CPU.prototype.safe_write16 = function(addr, value)
 {
     var phys_low = this.translate_address_write(addr);
     if((addr & 0xFFF) === 0xFFF)
@@ -4706,7 +4784,7 @@ v86.prototype.safe_write16 = function(addr, value)
         this.memory.write16(phys_low, value);
     }
 };
-v86.prototype.safe_write32 = function(addr, value)
+CPU.prototype.safe_write32 = function(addr, value)
 {
     var phys_low = this.translate_address_write(addr);
     if((addr & 0xFFF) >= 0xFFD)
@@ -4719,7 +4797,7 @@ v86.prototype.safe_write32 = function(addr, value)
     }
 };
 // read 2 or 4 byte from ip, depending on address size attribute
-v86.prototype.read_moffs = function()
+CPU.prototype.read_moffs = function()
 {
     if(this.address_size_32)
     {
@@ -4730,20 +4808,20 @@ v86.prototype.read_moffs = function()
         return this.get_seg_prefix(reg_ds) + this.read_imm16() | 0;
     }
 };
-v86.prototype.getiopl = function()
+CPU.prototype.getiopl = function()
 {
     return this.flags >> 12 & 3;
 };
-v86.prototype.vm86_mode = function()
+CPU.prototype.vm86_mode = function()
 {
     return !!(this.flags & flag_vm);
 };
-v86.prototype.get_eflags = function()
+CPU.prototype.get_eflags = function()
 {
     return (this.flags & ~flags_all) | !!this.getcf() | !!this.getpf() << 2 | !!this.getaf() << 4 |
                                   !!this.getzf() << 6 | !!this.getsf() << 7 | !!this.getof() << 11;
 };
-v86.prototype.load_eflags = function()
+CPU.prototype.load_eflags = function()
 {
     this.flags = this.get_eflags();
     this.flags_changed = 0;
@@ -4751,7 +4829,7 @@ v86.prototype.load_eflags = function()
 /**
  * Update the flags register depending on iopl and cpl
  */
-v86.prototype.update_eflags = function(new_flags)
+CPU.prototype.update_eflags = function(new_flags)
 {
     var mask = flag_rf | flag_vm | flag_vip | flag_vif,
         clear = ~flag_vip & ~flag_vif & flags_mask;
@@ -4782,7 +4860,7 @@ v86.prototype.update_eflags = function(new_flags)
     this.flags = (new_flags ^ ((this.flags ^ new_flags) & mask)) & clear | flags_default;
     this.flags_changed = 0;
 };
-v86.prototype.get_stack_pointer = function(mod)
+CPU.prototype.get_stack_pointer = function(mod)
 {
     return this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + mod | 0;
 };
@@ -4790,18 +4868,18 @@ v86.prototype.get_stack_pointer = function(mod)
  * returns the "real" instruction pointer, 
  * without segment offset
  */
-v86.prototype.get_real_eip = function()
+CPU.prototype.get_real_eip = function()
 {
     return this.instruction_pointer - this.get_seg(reg_cs) | 0;
 };
-v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, error_code)
+CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, error_code)
 {
     dbg_assert(this.instruction_pointer !== undefined);
     if(DEBUG && this.debug.step_mode)
     {
-        this.debug.ops.add(this.instruction_pointer >>> 0);
-        this.debug.ops.add("-- INT " + h(interrupt_nr));
-        this.debug.ops.add(1);
+        //this.debug.ops.add(this.instruction_pointer >>> 0);
+        //this.debug.ops.add("-- INT " + h(interrupt_nr));
+        //this.debug.ops.add(1);
     }
     //if(interrupt_nr == 0x13)
     //{
@@ -5068,7 +5146,7 @@ v86.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
     }
     this.last_instr_jump = true;
 };
-v86.prototype.iret16 = function()
+CPU.prototype.iret16 = function()
 {
     if(!this.protected_mode || (this.vm86_mode() && this.getiopl() === 3))
     {
@@ -5090,7 +5168,7 @@ v86.prototype.iret16 = function()
     }
     this.last_instr_jump = true;
 };
-v86.prototype.iret32 = function()
+CPU.prototype.iret32 = function()
 {
     if(!this.protected_mode || (this.vm86_mode() && this.getiopl() === 3))
     {
@@ -5204,9 +5282,8 @@ v86.prototype.iret32 = function()
     this.handle_irqs();
     this.last_instr_jump = true;
 };
-v86.prototype.hlt_op = function()
+CPU.prototype.hlt_op = function()
 {
-    dbg_assert(this.instruction_pointer !== undefined);
     if(this.cpl)
     {
         this.trigger_gp(0);
@@ -5215,7 +5292,6 @@ v86.prototype.hlt_op = function()
     if((this.flags & flag_interrupt) === 0)
     {
         this.debug.show("cpu halted");
-        this.stopped = true;
         if(DEBUG) this.debug.dump_regs();
         throw "HALT";
     }
@@ -5227,7 +5303,7 @@ v86.prototype.hlt_op = function()
     }
 };
 // assumes ip to point to the byte before the next instruction
-v86.prototype.raise_exception = function(interrupt_nr)
+CPU.prototype.raise_exception = function(interrupt_nr)
 {
     if(DEBUG && interrupt_nr !== 7)
     {
@@ -5239,7 +5315,7 @@ v86.prototype.raise_exception = function(interrupt_nr)
     this.call_interrupt_vector(interrupt_nr, false, false);
     throw MAGIC_CPU_EXCEPTION;
 };
-v86.prototype.raise_exception_with_code = function(interrupt_nr, error_code)
+CPU.prototype.raise_exception_with_code = function(interrupt_nr, error_code)
 {
     if(DEBUG)
     {
@@ -5250,32 +5326,32 @@ v86.prototype.raise_exception_with_code = function(interrupt_nr, error_code)
     this.call_interrupt_vector(interrupt_nr, false, error_code);
     throw MAGIC_CPU_EXCEPTION;
 };
-v86.prototype.trigger_de = function()
+CPU.prototype.trigger_de = function()
 {
     this.instruction_pointer = this.previous_ip;
     this.raise_exception(0);
 };
-v86.prototype.trigger_ud = function()
+CPU.prototype.trigger_ud = function()
 {
     this.instruction_pointer = this.previous_ip;
     this.raise_exception(6);
 };
-v86.prototype.trigger_nm = function()
+CPU.prototype.trigger_nm = function()
 {
     this.instruction_pointer = this.previous_ip;
     this.raise_exception(7);
 };
-v86.prototype.trigger_gp = function(code)
+CPU.prototype.trigger_gp = function(code)
 {
     this.instruction_pointer = this.previous_ip;
     this.raise_exception_with_code(13, code);
 };
-v86.prototype.trigger_np = function(code)
+CPU.prototype.trigger_np = function(code)
 {
     this.instruction_pointer = this.previous_ip;
     this.raise_exception_with_code(11, code);
 };
-v86.prototype.trigger_ss = function(code)
+CPU.prototype.trigger_ss = function(code)
 {
     this.instruction_pointer = this.previous_ip;
     this.raise_exception_with_code(12, code);
@@ -5283,7 +5359,7 @@ v86.prototype.trigger_ss = function(code)
 /**
  * @param {number} seg
  */
-v86.prototype.seg_prefix = function(seg)
+CPU.prototype.seg_prefix = function(seg)
 {
     dbg_assert(this.segment_prefix === SEG_PREFIX_NONE);
     dbg_assert(seg >= 0 && seg <= 5);
@@ -5291,15 +5367,15 @@ v86.prototype.seg_prefix = function(seg)
     this.table[this.read_imm8()](this);
     this.segment_prefix = SEG_PREFIX_NONE;
 };
-v86.prototype.get_seg_prefix_ds = function()
+CPU.prototype.get_seg_prefix_ds = function()
 {
     return this.get_seg_prefix(reg_ds);
 };
-v86.prototype.get_seg_prefix_ss = function()
+CPU.prototype.get_seg_prefix_ss = function()
 {
     return this.get_seg_prefix(reg_ss);
 };
-v86.prototype.get_seg_prefix_cs = function()
+CPU.prototype.get_seg_prefix_cs = function()
 {
     return this.get_seg_prefix(reg_cs);
 };
@@ -5307,7 +5383,7 @@ v86.prototype.get_seg_prefix_cs = function()
  * Get segment base by prefix or default
  * @param {number} default_segment
  */
-v86.prototype.get_seg_prefix = function(default_segment /*, offset*/)
+CPU.prototype.get_seg_prefix = function(default_segment /*, offset*/)
 {
     if(this.segment_prefix === SEG_PREFIX_NONE)
     {
@@ -5326,7 +5402,7 @@ v86.prototype.get_seg_prefix = function(default_segment /*, offset*/)
  * Get segment base
  * @param {number} segment
  */
-v86.prototype.get_seg = function(segment /*, offset*/)
+CPU.prototype.get_seg = function(segment /*, offset*/)
 {
     dbg_assert(segment >= 0 && segment < 8);
     dbg_assert(this.protected_mode || (this.sreg[segment] << 4) == this.segment_offsets[segment]);
@@ -5348,18 +5424,18 @@ v86.prototype.get_seg = function(segment /*, offset*/)
     }
     return this.segment_offsets[segment];
 };
-v86.prototype.handle_irqs = function()
+CPU.prototype.handle_irqs = function()
 {
     if(this.devices.pic)
     {
-        //dbg_assert(!this.page_fault);
+        dbg_assert(!this.page_fault);
         if((this.flags & flag_interrupt) && !this.page_fault)
         {
             this.devices.pic.check_irqs();
         }
     }
 };
-v86.prototype.test_privileges_for_io = function(port, size)
+CPU.prototype.test_privileges_for_io = function(port, size)
 {
     if(this.protected_mode && (this.cpl > this.getiopl() || (this.flags & flag_vm)))
     {
@@ -5385,7 +5461,7 @@ v86.prototype.test_privileges_for_io = function(port, size)
         this.trigger_gp(0);
     }
 };
-v86.prototype.cpuid = function()
+CPU.prototype.cpuid = function()
 {
     // cpuid
     // TODO: Fill in with less bogus values
@@ -5420,6 +5496,30 @@ v86.prototype.cpuid = function()
             ecx = 0;
             edx = 0x007A7000;
             break;
+        case 4:
+            // from my local machine
+            switch(this.reg32s[reg_ecx])
+            {
+                case 0:
+                    eax = 0x00000121;
+                    ebx = 0x01c0003f;
+                    ecx = 0x0000003f;
+                    edx = 0x00000001;
+                    break;
+                case 1:
+                    eax = 0x00000122;
+                    ebx = 0x01c0003f;
+                    ecx = 0x0000003f;
+                    edx = 0x00000001;
+                    break
+                case 2:
+                    eax = 0x00000143;
+                    ebx = 0x05c0003f;
+                    ecx = 0x00000fff;
+                    edx = 0x00000001;
+                    break;
+            }
+            break;
         case 0x80000000|0:
             // maximum supported extended level
             eax = 5;
@@ -5428,12 +5528,13 @@ v86.prototype.cpuid = function()
         default:
             dbg_log("cpuid: unimplemented eax: " + h(this.reg32[reg_eax]), LOG_CPU);
     }
+    //dbg_log("cpuid: eax=" + h(this.reg32[reg_eax], 8) + " cl=" + h(this.reg8[reg_cl], 2), LOG_CPU);
     this.reg32s[reg_eax] = eax;
     this.reg32s[reg_ecx] = ecx;
     this.reg32s[reg_edx] = edx;
     this.reg32s[reg_ebx] = ebx;
 };
-v86.prototype.update_cs_size = function(new_size)
+CPU.prototype.update_cs_size = function(new_size)
 {
     this.is_32 = this.operand_size_32 = this.address_size_32 = new_size;
     this.update_operand_size();
@@ -5443,7 +5544,7 @@ v86.prototype.update_cs_size = function(new_size)
         this.translator.clear_cache();
     }
 };
-v86.prototype.update_operand_size = function()
+CPU.prototype.update_operand_size = function()
 {
     if(this.operand_size_32)
     {
@@ -5456,7 +5557,7 @@ v86.prototype.update_operand_size = function()
         this.table0F = this.table0F_16;
     }
 };
-v86.prototype.update_address_size = function()
+CPU.prototype.update_address_size = function()
 {
     if(this.address_size_32)
     {
@@ -5476,7 +5577,7 @@ v86.prototype.update_address_size = function()
 /**
  * @param {number} selector
  */
-v86.prototype.lookup_segment_selector = function(selector)
+CPU.prototype.lookup_segment_selector = function(selector)
 {
     var is_gdt = (selector & 4) === 0,
         selector_offset = selector & ~7,
@@ -5566,7 +5667,7 @@ v86.prototype.lookup_segment_selector = function(selector)
  * @param {number} reg
  * @param {number} selector
  */
-v86.prototype.switch_seg = function(reg, selector)
+CPU.prototype.switch_seg = function(reg, selector)
 {
     dbg_assert(reg >= 0 && reg <= 5);
     dbg_assert(typeof selector === "number" && selector < 0x10000 && selector >= 0);
@@ -5702,7 +5803,7 @@ v86.prototype.switch_seg = function(reg, selector)
     this.sreg[reg] = selector;
     return true;
 };
-v86.prototype.load_tr = function(selector)
+CPU.prototype.load_tr = function(selector)
 {
     var info = this.lookup_segment_selector(selector);
     //dbg_log("load tr");
@@ -5737,7 +5838,7 @@ v86.prototype.load_tr = function(selector)
     this.memory.write8(info.table_offset + 5, this.memory.read8(info.table_offset + 5) | 2);
     //dbg_log("tsr at " + h(info.base) + "; (" + info.effective_limit + " bytes)");
 };
-v86.prototype.load_ldt = function(selector)
+CPU.prototype.load_ldt = function(selector)
 {
     var info = this.lookup_segment_selector(selector);
     if(info.is_null)
@@ -5771,7 +5872,7 @@ v86.prototype.load_ldt = function(selector)
     this.sreg[reg_ldtr] = selector;
     //dbg_log("ldt at " + h(info.base) + "; (" + info.effective_limit + " bytes)");
 };
-v86.prototype.arpl = function(seg, r16)
+CPU.prototype.arpl = function(seg, r16)
 {
     this.flags_changed &= ~flag_zero;
     if((seg & 3) < (this.reg16[r16] & 3))
@@ -5785,7 +5886,7 @@ v86.prototype.arpl = function(seg, r16)
         return seg;
     }
 };
-v86.prototype.clear_tlb = function()
+CPU.prototype.clear_tlb = function()
 {
     // clear tlb excluding global pages
     this.last_virt_eip = -1;
@@ -5793,7 +5894,7 @@ v86.prototype.clear_tlb = function()
     this.tlb_info.set(this.tlb_info_global);
     //dbg_log("page table loaded", LOG_CPU);
 };
-v86.prototype.full_clear_tlb = function()
+CPU.prototype.full_clear_tlb = function()
 {
     dbg_log("TLB full clear", LOG_CPU);
     // clear tlb including global pages
@@ -5804,7 +5905,7 @@ v86.prototype.full_clear_tlb = function()
     }
     this.clear_tlb();
 };
-v86.prototype.invlpg = function(addr)
+CPU.prototype.invlpg = function(addr)
 {
     var page = addr >>> 12;
     //dbg_log("invlpg: addr=" + h(addr >>> 0), LOG_CPU);
@@ -5813,7 +5914,7 @@ v86.prototype.invlpg = function(addr)
     this.last_virt_eip = -1;
     this.last_virt_esp = -1;
 };
-v86.prototype.translate_address_read = function(addr)
+CPU.prototype.translate_address_read = function(addr)
 {
     if(!this.paging)
     {
@@ -5828,7 +5929,7 @@ v86.prototype.translate_address_read = function(addr)
         return this.translate_address_system_read(addr);
     }
 };
-v86.prototype.translate_address_write = function(addr)
+CPU.prototype.translate_address_write = function(addr)
 {
     if(!this.paging)
     {
@@ -5843,7 +5944,7 @@ v86.prototype.translate_address_write = function(addr)
         return this.translate_address_system_write(addr);
     }
 };
-v86.prototype.translate_address_user_write = function(addr)
+CPU.prototype.translate_address_user_write = function(addr)
 {
     var base = addr >>> 12;
     if(this.tlb_info[base] & TLB_USER_WRITE)
@@ -5855,7 +5956,7 @@ v86.prototype.translate_address_user_write = function(addr)
         return this.do_page_translation(addr, 1, 1) | addr & 0xFFF;
     }
 };
-v86.prototype.translate_address_user_read = function(addr)
+CPU.prototype.translate_address_user_read = function(addr)
 {
     var base = addr >>> 12;
     if(this.tlb_info[base] & TLB_USER_READ)
@@ -5867,7 +5968,7 @@ v86.prototype.translate_address_user_read = function(addr)
         return this.do_page_translation(addr, 0, 1) | addr & 0xFFF;
     }
 };
-v86.prototype.translate_address_system_write = function(addr)
+CPU.prototype.translate_address_system_write = function(addr)
 {
     var base = addr >>> 12;
     if(this.tlb_info[base] & TLB_SYSTEM_WRITE)
@@ -5879,7 +5980,7 @@ v86.prototype.translate_address_system_write = function(addr)
         return this.do_page_translation(addr, 1, 0) | addr & 0xFFF;
     }
 };
-v86.prototype.translate_address_system_read = function(addr)
+CPU.prototype.translate_address_system_read = function(addr)
 {
     var base = addr >>> 12;
     if(this.tlb_info[base] & TLB_SYSTEM_READ)
@@ -5894,7 +5995,7 @@ v86.prototype.translate_address_system_read = function(addr)
 /**
  * @return {number} 
  */
-v86.prototype.do_page_translation = function(addr, for_writing, user)
+CPU.prototype.do_page_translation = function(addr, for_writing, user)
 {
     var page = addr >>> 12,
         page_dir_addr = (this.cr3 >>> 2) + (page >> 10),
@@ -6019,7 +6120,7 @@ v86.prototype.do_page_translation = function(addr, for_writing, user)
     }
     return high;
 };
-v86.prototype.writable_or_pagefault = function(addr, size)
+CPU.prototype.writable_or_pagefault = function(addr, size)
 {
     dbg_assert(size < 0x1000, "not supported yet");
     dbg_assert(size > 0);
@@ -6042,7 +6143,7 @@ v86.prototype.writable_or_pagefault = function(addr, size)
         }
     }
 };
-v86.prototype.trigger_pagefault = function(write, user, present)
+CPU.prototype.trigger_pagefault = function(write, user, present)
 {
     //dbg_log("page fault w=" + write + " u=" + user + " p=" + present + 
     //        " eip=" + h(this.previous_ip >>> 0, 8) +
