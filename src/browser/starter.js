@@ -218,7 +218,6 @@ function V86Starter(options)
     {
         add_file(options["initial_state"], function(buffer)
         {
-            console.log(options["initial_state"], buffer);
             initial_state_buffer = buffer;
         });
     }
@@ -529,7 +528,7 @@ V86Starter.prototype.screen_go_fullscreen = function()
 };
 
 /**
- * Lock the mouse cursor: It becomes inivisble and is not moved out of the
+ * Lock the mouse cursor: It becomes invisble and is not moved out of the
  * browser window.
  *
  * @ignore
