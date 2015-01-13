@@ -260,7 +260,7 @@ VGAScreen.prototype._state_restore = function()
     if(this.graphical_mode || this.svga_enabled)
     {
         // TODO: Consider non-svga modes
-        this.set_size_graphical(this.svga_width, this.svga_height);
+        this.set_size_graphical(this.svga_width, this.svga_height, this.svga_bpp);
     }
     else
     {
@@ -799,9 +799,9 @@ VGAScreen.prototype.set_size_text = function(cols_count, rows_count)
     this.bus.send("screen-set-size-text", [cols_count, rows_count]);
 };
 
-VGAScreen.prototype.set_size_graphical = function(width, height)
+VGAScreen.prototype.set_size_graphical = function(width, height, bpp)
 {
-    this.bus.send("screen-set-size-graphical", [width, height]);
+    this.bus.send("screen-set-size-graphical", [width, height, bpp]);
 };
 
 VGAScreen.prototype.update_cursor_scanline = function()
@@ -844,7 +844,7 @@ VGAScreen.prototype.set_video_mode = function(mode)
 
     if(is_graphical)
     {
-        this.set_size_graphical(this.screen_width, this.screen_height);
+        this.set_size_graphical(this.screen_width, this.screen_height, 8);
         this.stats.res_x = this.screen_width;
         this.stats.res_y = this.screen_height;
         this.stats.bpp = 8;
@@ -1227,7 +1227,7 @@ VGAScreen.prototype.port1CF_write = function(value)
 
     if(this.svga_enabled && this.dispi_index === 4)
     {
-        this.set_size_graphical(this.svga_width, this.svga_height);
+        this.set_size_graphical(this.svga_width, this.svga_height, this.svga_bpp);
         this.bus.send("screen-set-mode", true);
 
         this.stats.bpp = this.svga_bpp;
