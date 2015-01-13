@@ -761,7 +761,7 @@ IDEDevice.prototype.atapi_read = function(cmd)
     {
         byte_count = Math.min(byte_count, this.buffer.byteLength - start);
         this.status = 0x80;
-        this.stats.loading = true;
+        this.report_read_start();
 
         this.buffer.get(start, byte_count, function(data)
         {
@@ -774,8 +774,7 @@ IDEDevice.prototype.atapi_read = function(cmd)
             this.data_pointer = 0;
             this.push_irq();
 
-            this.stats.loading = false;
-            this.report_read(byte_count);
+            this.report_read_end(byte_count);
         }.bind(this));
     }
 };
@@ -807,7 +806,7 @@ IDEDevice.prototype.atapi_read_dma = function(cmd)
     {
         byte_count = Math.min(byte_count, this.buffer.byteLength - start);
         this.status = 0x80;
-        this.stats.loading = true;
+        this.report_read_start();
 
         this.buffer.get(start, byte_count, function(data)
         {
@@ -838,8 +837,7 @@ IDEDevice.prototype.atapi_read_dma = function(cmd)
 
             this.push_irq();
             
-            this.stats.loading = false;
-            this.report_read(byte_count);
+            this.report_read_end(byte_count);
         }.bind(this));
     }
 };
@@ -1054,7 +1052,7 @@ IDEDevice.prototype.ata_read_sectors = function(cmd)
     {
         //this.status = 0xFF & ~8;
         this.status = 0x80;
-        this.stats.loading = true;
+        this.report_read_start();
 
         this.buffer.get(start, byte_count, function(data)
         {
@@ -1064,8 +1062,7 @@ IDEDevice.prototype.ata_read_sectors = function(cmd)
 
             this.push_irq();
 
-            this.stats.loading = false;
-            this.report_read(byte_count);
+            this.report_read_end(byte_count);
         }.bind(this));
     }
 };
@@ -1096,7 +1093,7 @@ IDEDevice.prototype.ata_read_sectors_dma = function(cmd)
     //this.status = 0xFF & ~8;
     this.status = 0x80;
     this.dma_status |= 1;
-    this.stats.loading = true;
+    this.report_read_start();
 
     this.buffer.get(start, byte_count, function(data)
     {
@@ -1127,8 +1124,7 @@ IDEDevice.prototype.ata_read_sectors_dma = function(cmd)
 
         this.push_irq();
 
-        this.stats.loading = false;
-        this.report_read(byte_count);
+        this.report_read_end(byte_count);
     }.bind(this));
 };
 
@@ -1447,8 +1443,14 @@ IDEDevice.prototype.dma_write_command8 = function(value)
     }
 };
 
-IDEDevice.prototype.report_read = function(byte_count)
+IDEDevice.prototype.report_read_start = function()
 {
+    this.stats.loading = true;
+};
+
+IDEDevice.prototype.report_read_end = function(byte_count)
+{
+    this.stats.loading = false;
     this.stats.sectors_read += byte_count / this.sector_size | 0;
     this.stats.bytes_read += byte_count;
 };
@@ -1458,3 +1460,4 @@ IDEDevice.prototype.report_write = function(byte_count)
     this.stats.sectors_written += byte_count / this.sector_size | 0;
     this.stats.bytes_written += byte_count;
 };
+
