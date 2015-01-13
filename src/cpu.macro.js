@@ -498,20 +498,20 @@ CPU.prototype.init = function(settings, device_bus)
 
         if(settings.cdrom)
         {
-            this.devices.cdrom = new IDEDevice(this, settings.cdrom, true, 1);
+            this.devices.cdrom = new IDEDevice(this, settings.cdrom, true, 1, device_bus);
         }
 
         if(settings.hda)
         {
-            this.devices.hda = new IDEDevice(this, settings.hda, false, 0);
+            this.devices.hda = new IDEDevice(this, settings.hda, false, 0, device_bus);
         }
         else
         {
-            //this.devices.hda = new IDEDevice(this, undefined, false, 0);
+            //this.devices.hda = new IDEDevice(this, undefined, false, 0, device_bus);
         }
         //if(settings.hdb)
         //{
-        //    this.devices.hdb = hdb = new IDEDevice(this, settings.hdb, false, 1);
+        //    this.devices.hdb = hdb = new IDEDevice(this, settings.hdb, false, 1, device_bus);
         //}
 
         this.devices.pit = new PIT(this);

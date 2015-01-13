@@ -16,8 +16,11 @@ var /** @const */
     IDE_CALLBACK_ATAPI = 2;
 
 /** @constructor */
-function IDEDevice(cpu, buffer, is_cd, nr)
+function IDEDevice(cpu, buffer, is_cd, nr, bus)
 {
+    /** @const */
+    this.bus = bus;
+
     // gets set via PCI in seabios, likely doesn't matter
     if(nr === 0)
     {
@@ -283,6 +286,7 @@ function IDEDevice(cpu, buffer, is_cd, nr)
         this.pic,
         this.stats,
         this.buffer,
+        this.bus,
     ];
 }
 
