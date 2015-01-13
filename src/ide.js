@@ -662,8 +662,7 @@ IDEDevice.prototype.do_write = function()
         this.push_irq();
     }.bind(this));
 
-    this.stats.sectors_written += this.data_port_count / this.sector_size | 0;
-    this.stats.bytes_written += this.data_port_count;
+    this.report_write(this.data_port_count);
 };
 
 IDEDevice.prototype.read_status = function()
@@ -776,8 +775,7 @@ IDEDevice.prototype.atapi_read = function(cmd)
             this.push_irq();
 
             this.stats.loading = false;
-            this.stats.sectors_read += byte_count / this.sector_size | 0;
-            this.stats.bytes_read += byte_count;
+            this.report_read(byte_count);
         }.bind(this));
     }
 };
@@ -841,8 +839,7 @@ IDEDevice.prototype.atapi_read_dma = function(cmd)
             this.push_irq();
             
             this.stats.loading = false;
-            this.stats.sectors_read += byte_count / this.sector_size | 0;
-            this.stats.bytes_read += byte_count;
+            this.report_read(byte_count);
         }.bind(this));
     }
 };
@@ -1068,8 +1065,7 @@ IDEDevice.prototype.ata_read_sectors = function(cmd)
             this.push_irq();
 
             this.stats.loading = false;
-            this.stats.sectors_read += byte_count / this.sector_size | 0;
-            this.stats.bytes_read += byte_count;
+            this.report_read(byte_count);
         }.bind(this));
     }
 };
@@ -1132,8 +1128,7 @@ IDEDevice.prototype.ata_read_sectors_dma = function(cmd)
         this.push_irq();
 
         this.stats.loading = false;
-        this.stats.sectors_read += byte_count / this.sector_size | 0;
-        this.stats.bytes_read += byte_count;
+        this.report_read(byte_count);
     }.bind(this));
 };
 
@@ -1271,8 +1266,7 @@ IDEDevice.prototype.ata_write_dma = function(cmd)
         this.dma_status |= 4;
     }
 
-    this.stats.sectors_written += byte_count / this.sector_size | 0;
-    this.stats.bytes_written += byte_count;
+    this.report_write(byte_count);
 };
 
 IDEDevice.prototype.get_chs = function()
@@ -1451,4 +1445,16 @@ IDEDevice.prototype.dma_write_command8 = function(value)
     {
         this.push_irq();
     }
+};
+
+IDEDevice.prototype.report_read = function(byte_count)
+{
+    this.stats.sectors_read += byte_count / this.sector_size | 0;
+    this.stats.bytes_read += byte_count;
+};
+
+IDEDevice.prototype.report_write = function(byte_count)
+{
+    this.stats.sectors_written += byte_count / this.sector_size | 0;
+    this.stats.bytes_written += byte_count;
 };
