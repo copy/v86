@@ -120,6 +120,7 @@ function V86Starter(options)
                     url: file.url,
                     handler: handler,
                     size: file.size,
+                    as_text: file.as_text,
                 });
             }
         }
@@ -213,12 +214,13 @@ function V86Starter(options)
 
         settings.fs9p = fs9p;
 
-        //add_file(infos.filesystem.basefs, function()
-        //{
-            fs9p.LoadFilesystem({
-                basefsURL: options["filesystem"].basefs,
-            });
-        //});
+        add_file({ url: options["filesystem"].basefs, as_text: true, }, function(text)
+        {
+            //fs9p.LoadFilesystem({
+            //    basefsURL: options["filesystem"].basefs,
+            //});
+            fs9p.OnJSONLoaded(text);
+        });
     }
 
     var initial_state_buffer;
