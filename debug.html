@@ -161,20 +161,21 @@
     Speed: <span id="speed">0</span>kIPS<br>
     Avg speed: <span id="avg_speed">0</span>kIPS<br>
     <br>
-    <div id="info_hda">
-        <b>HDA</b><br>
-        Sectors read: <span id="info_hda_sectors_read"></span><br>
-        Bytes read: <span id="info_hda_bytes_read"></span><br>
-        Sectors written: <span id="info_hda_sectors_written"></span><br>
-        Bytes written: <span id="info_hda_bytes_written"></span><br>
-        Status: <span id="info_hda_status"></span><br>
+    <div id="info_storage" style="display: none">
+        <b>Storage (HDA or CDROM)</b><br>
+        Sectors read: <span id="info_storage_sectors_read">0</span><br>
+        Bytes read: <span id="info_storage_bytes_read">0</span><br>
+        Sectors written: <span id="info_storage_sectors_written">0</span><br>
+        Bytes written: <span id="info_storage_bytes_written">0</span><br>
+        Status: <span id="info_storage_status"></span><br>
         <br>
     </div>
-    <div id="info_cdrom">
-        <b>CDROM</b><br>
-        Sectors read: <span id="info_cdrom_sectors_read"></span><br>
-        Bytes read: <span id="info_cdrom_bytes_read"></span><br>
-        Status: <span id="info_cdrom_status"></span><br>
+    <div id="info_filesystem" style="display: none">
+        <b>9p Filesystem</b><br>
+        Bytes read: <span id="info_filesystem_bytes_read">0</span><br>
+        Bytes written: <span id="info_filesystem_bytes_written">0</span><br>
+        Last file: <span id="info_filesystem_last_file" style="word-wrap: break-word"></span><br>
+        Status: <span id="info_filesystem_status"></span><br>
         <br>
     </div>
     <b>VGA</b><br>
@@ -182,7 +183,7 @@
     Resolution: <span id="info_res">-</span><br>
     BPP: <span id="info_bpp">-</span><br>
     <br>
-    Mouse: <span id="info_mouse_enabled">-</span><br>
+    Mouse: <span id="info_mouse_enabled">No</span><br>
     <!-- Keyboard: <span id="info_keyboard_enabled">-</span><br> -->
 </div>
 

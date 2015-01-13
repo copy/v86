@@ -545,69 +545,103 @@
         };
 
 
-        var time = $("running_time"),
-            ips = $("speed"),
-            avg_ips = $("avg_speed"),
-            last_tick = Date.now(),
-            running_time = 0,
-            summed_ips = 0,
-            last_instr_counter = 0;
+        var last_tick = Date.now();
+        var running_time = 0;
+        var summed_ips = 0;
+        var last_instr_counter = 0;
 
         function update_info()
         {
             if(!emulator.is_running())
             {
-                setTimeout(update_info, 1000);
                 return;
             }
 
-            var stats = emulator.get_statistics();
-
-            var now = Date.now();
-            var last_ips = stats.cpu.instruction_counter - last_instr_counter;
+            var instruction_counter = emulator.get_instruction_counter();
+            var last_ips = instruction_counter - last_instr_counter;
 
             summed_ips += last_ips;
+            last_instr_counter = instruction_counter;
+
+            var now = Date.now();
+
             running_time += now - last_tick;
             last_tick = now;
 
-            ips.textContent = last_ips / 1000 | 0;
-            avg_ips.textContent = summed_ips / running_time | 0;
-            time.textContent = time2str(running_time / 1000 | 0);
+            $("speed").textContent = last_ips / 1000 | 0;
+            $("avg_speed").textContent = summed_ips / running_time | 0;
+            $("running_time").textContent = time2str(running_time / 1000 | 0);
+        }
 
-            last_instr_counter = stats.cpu.instruction_counter;
+        setInterval(update_info, 1000);
 
-            $("info_mouse_enabled").textContent = stats.mouse.enabled ? "Yes" : "No";
+        var stats_9p = {
+            read: 0,
+            write: 0,
+        };
 
-            if(stats.hda)
-            {
-                $("info_hda_sectors_read").textContent = stats.hda.sectors_read;
-                $("info_hda_bytes_read").textContent = stats.hda.bytes_read;
+        emulator.add_listener("9p-read-start", function()
+        {
+            $("info_filesystem").style.display = "block";
+            $("info_filesystem_status").textContent = "Loading ...";
+        });
+        emulator.add_listener("9p-read-end", function(args)
+        {
+            stats_9p.read += args[1];
 
-                $("info_hda_sectors_written").textContent = stats.hda.sectors_written;
-                $("info_hda_bytes_written").textContent = stats.hda.bytes_written;
-                $("info_hda_status").textContent = stats.hda.loading ? "Loading ..." : "Idle";
-            }
-            else
-            {
-                $("info_hda").style.display = "none";
-            }
+            $("info_filesystem_status").textContent = "Idle";
+            $("info_filesystem_last_file").textContent = args[0]
+            $("info_filesystem_bytes_read").textContent = stats_9p.read;
+        });
+        emulator.add_listener("9p-write-end", function(args)
+        {
+            stats_9p.write += args[1];
 
-            if(stats.cdrom)
-            {
-                $("info_cdrom_sectors_read").textContent = stats.cdrom.sectors_read;
-                $("info_cdrom_bytes_read").textContent = stats.cdrom.bytes_read;
-                $("info_cdrom_status").textContent = stats.cdrom.loading ? "Loading ..." : "Idle";
-            }
-            else
-            {
-                $("info_cdrom").style.display = "none";
-            }
+            $("info_filesystem_last_file").textContent = args[0]
+            $("info_filesystem_bytes_written").textContent = stats_9p.write;
+        });
 
-            if(stats.vga.is_graphical)
+        var stats_storage = {
+            read: 0,
+            read_sectors: 0,
+            write: 0,
+            write_sectors: 0,
+        };
+
+        emulator.add_listener("ide-read-start", function()
+        {
+            $("info_storage").style.display = "block";
+            $("info_storage_status").textContent = "Loading ...";
+        });
+        emulator.add_listener("ide-read-end", function(args)
+        {
+            stats_storage.read += args[1];
+            stats_storage.read_sectors += args[2];
+
+            $("info_storage_status").textContent = "Idle";
+            $("info_storage_bytes_read").textContent = stats_storage.read;
+            $("info_storage_sectors_read").textContent = stats_storage.read_sectors;
+        });
+        emulator.add_listener("ide-write-end", function(args)
+        {
+            stats_storage.write += args[1];
+            stats_storage.write_sectors += args[2];
+
+            $("info_storage_bytes_written").textContent = stats_storage.write;
+            $("info_storage_sectors_written").textContent = stats_storage.write_sectors;
+        });
+
+
+        emulator.add_listener("mouse-enable", function(is_enabled)
+        {
+            $("info_mouse_enabled").textContent = is_enabled ? "Yes" : "No";
+        });
+
+        emulator.add_listener("screen-set-mode", function(is_graphical)
+        {
+            if(is_graphical)
             {
                 $("info_vga_mode").textContent = "Graphical";
-                $("info_res").textContent = stats.vga.res_x + "x" + stats.vga.res_y;
-                $("info_bpp").textContent = stats.vga.bpp;
             }
             else
             {
@@ -615,22 +649,12 @@
                 $("info_res").textContent = "-";
                 $("info_bpp").textContent = "-";
             }
-
-            setTimeout(update_info, 1000);
-        }
-
-        setTimeout(update_info, 1000);
-
-        var stats = emulator.get_statistics();
-
-        if(!stats.cdrom)
+        });
+        emulator.add_listener("screen-set-size-graphical", function(args)
         {
-            $("info_cdrom").style.display = "none";
-        }
-        if(!stats.hda)
-        {
-            $("info_hda").style.display = "none";
-        }
+            $("info_res").textContent = args[0] + "x" + args[1];
+            $("info_bpp").textContent = args[2];
+        });
 
 
         $("reset").onclick = function()
