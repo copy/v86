@@ -37,6 +37,9 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
         this.pci_id = 0x1F << 3;
     }
 
+    /** @const */
+    this.nr = nr;
+
     // alternate status, starting at 3f4/374
     /** @type {number} */
     this.ata_port_high = this.ata_port | 0x204;
@@ -1450,18 +1453,26 @@ IDEDevice.prototype.dma_write_command8 = function(value)
 IDEDevice.prototype.report_read_start = function()
 {
     this.stats.loading = true;
+    this.bus.send("ide-read-start");
 };
 
 IDEDevice.prototype.report_read_end = function(byte_count)
 {
     this.stats.loading = false;
-    this.stats.sectors_read += byte_count / this.sector_size | 0;
+
+    var sector_count = byte_count / this.sector_size | 0;
+    this.stats.sectors_read += sector_count;
     this.stats.bytes_read += byte_count;
+
+    this.bus.send("ide-read-end", [this.nr, byte_count, sector_count]);
 };
 
 IDEDevice.prototype.report_write = function(byte_count)
 {
-    this.stats.sectors_written += byte_count / this.sector_size | 0;
+    var sector_count = byte_count / this.sector_size | 0;
+    this.stats.sectors_written += sector_count;
     this.stats.bytes_written += byte_count;
+
+    this.bus.send("ide-write-end", [this.nr, byte_count, sector_count]);
 };
 
