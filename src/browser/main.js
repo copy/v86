@@ -180,65 +180,76 @@
         var oses = [
             {
                 id: "archlinux",
-                state: "http://localhost/v86-images/v86state.bin",
-                //state: "http://104.131.53.7:8086/v86state.bin",
+                state: {
+                    //url: "http://localhost/v86-images/v86state.bin",
+                    url: "http://104.131.53.7:8086/v86state.bin",
+                    size: 69283634,
+                },
                 //size: 137 * 1024 * 1024,
-                size: 75550474,
                 name: "Arch Linux",
                 memory_size: 64 * 1024 * 1024,
-                vga_memory_size: 8 * 1024 * 1024,
-                async_hda: "http://localhost/v86-images/arch3.img",
-                //async_hda: "https://dl.dropboxusercontent.com/u/61029208/arch3.img", 
-                //async_hda: "http://104.131.53.7:8086/arch3.img", 
-                async_hda_size: 8 * 1024 * 1024 * 1024,
+                vga_memory_size: 2 * 1024 * 1024,
+
+                async_hda: {
+                    url: "https://dl.dropboxusercontent.com/u/61029208/arch3.img", 
+                    //url: "http://104.131.53.7:8086/arch3.img", 
+                    //url: "http://localhost/v86-images/arch3.img",
+                    size: 8 * 1024 * 1024 * 1024,
+                },
 
                 filesystem: {
-                    basefs: "http://localhost/v86-images/fs.json",
-                    baseurl: "http://localhost/v86-images/arch/",
-                    //basefs: "http://104.131.53.7:8086/fs.json",
-                    //baseurl: "http://104.131.53.7:8086/arch/",
+                    //basefs: "http://localhost/v86-images/fs.json",
+                    //baseurl: "http://localhost/v86-images/arch/",
+                    basefs: "http://104.131.53.7:8086/fs.json",
+                    baseurl: "http://104.131.53.7:8086/arch/",
                 },
             },
             {
                 id: "freedos",
-                fda: "images/freedos722.img",
-                size: 737280,
+                fda: {
+                    url: "images/freedos722.img",
+                    size: 737280,
+                },
                 name: "FreeDOS",
             },
             {
                 id: "windows1",
-                fda: "images/windows101.img",
-                size: 1474560,
+                fda: {
+                    url: "images/windows101.img",
+                    size: 1474560,
+                },
                 name: "Windows",
             },
             {
                 id: "linux26",
-                cdrom: "images/linux.iso",
-                size: 5666816,
+                cdrom: {
+                    url: "images/linux.iso",
+                    size: 5666816,
+                },
                 name: "Linux",
             },
-            //{
-            //    id: "nanolinux",
-            //    cdrom: "images/nanolinux-1.2.iso",
-            //    size: 14047232,
-            //    name: "Nanolinux",
-            //},
             {
                 id: "kolibrios",
-                fda: "images/kolibri.img",
-                size: 1474560,
+                fda: {
+                    url: "images/kolibri.img",
+                    size: 1474560,
+                },
                 name: "KolibriOS",
             },
             {
                 id: "openbsd",
-                fda: "images/openbsd.img",
-                size: 1474560,
+                fda: {
+                    url: "images/openbsd.img",
+                    size: 1474560,
+                },
                 name: "OpenBSD",
             },
             {
                 id: "solos",
-                fda: "images/os8.dsk",
-                size: 1474560,
+                fda: {
+                    url: "images/os8.dsk",
+                    size: 1474560,
+                },
                 name: "Sol OS",
             },
         ];
@@ -276,44 +287,27 @@
             if(infos.state)
             {
                 $("reset").style.display = "none";
-                settings.initial_state = {
-                    url: infos.state,
-                };
+                settings.initial_state = infos.state;
             }
 
-            settings.fda = {
-                url: infos.fda,
-            };
-            settings.cdrom = {
-                url: infos.cdrom,
-            };
+            settings.fda = infos.fda;
+            settings.cdrom = infos.cdrom;
             
             if(infos.hda)
             {
-                settings.hda = {
-                    url: infos.hda,
-                };
+                settings.hda = infos.hda
             }
             else if(infos.async_hda)
             {
                 settings.hda = {
-                    url: infos.async_hda,
+                    url: infos.async_hda.url,
+                    size: infos.async_hda.size,
                     async: true,
-                    size: infos.async_hda_size,
                 };
             }
 
             settings.memory_size = infos.memory_size;
             settings.vga_memory_size = infos.vga_memory_size;
-
-            //if(infos.async_hda)
-            //{
-            //    settings.hda = new v86util.AsyncXHRBuffer(
-            //        infos.async_hda,
-            //        512, 
-            //        infos.async_hda_size
-            //    );
-            //}
 
             start_emulation({ 
                 settings: settings, 
