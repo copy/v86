@@ -2,7 +2,7 @@
 
 
 /** @constructor */
-function VirtIO(cpu, filesystem)
+function VirtIO(cpu, bus, filesystem)
 {
     // http://ozlabs.org/~rusty/virtio-spec/virtio-0.9.5.pdf
 
@@ -129,6 +129,9 @@ function VirtIO(cpu, filesystem)
     /** @const */
     this.pic = cpu.devices.pic;
 
+    /** @const */
+    this.bus = bus;
+
     this.queue_select = 0;
     this.device_status = 0;
     this.isr = 0;
@@ -159,12 +162,13 @@ function VirtIO(cpu, filesystem)
 
     // should be generalized to support more devices than just the filesystem
     /** @const */
-    this.device = new Virtio9p(filesystem);
+    this.device = new Virtio9p(filesystem, bus);
     this.device.SendReply = this.device_reply.bind(this);
 
     this._state_skip = [
         this.memory,
         this.pic,
+        this.bus,
     ];
     this._state_restore = function()
     {

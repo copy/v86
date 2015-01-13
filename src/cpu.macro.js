@@ -524,7 +524,7 @@ CPU.prototype.init = function(settings, device_bus)
 
         if(settings.fs9p)
         {
-            this.devices.virtio = new VirtIO(this, settings.fs9p);
+            this.devices.virtio = new VirtIO(this, device_bus, settings.fs9p);
         }
     }
 
