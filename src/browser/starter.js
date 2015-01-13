@@ -417,7 +417,7 @@ V86Starter.prototype.get_statistics = function()
 {
     var stats = {
         cpu: {
-            instruction_counter: this.v86.cpu.timestamp_counter,
+            instruction_counter: this.get_instruction_counter(),
         },
     };
 
@@ -446,6 +446,15 @@ V86Starter.prototype.get_statistics = function()
     }
 
     return stats;
+};
+
+/**
+ * @return {number}
+ * @ignore
+ */
+V86Starter.prototype.get_instruction_counter = function()
+{
+    return this.v86.cpu.timestamp_counter;
 };
 
 /**
