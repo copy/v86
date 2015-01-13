@@ -8,8 +8,8 @@
     v86util.SyncFileBuffer = SyncFileBuffer;
 
     /** 
-     * @param {?=} progress 
-     * @param {?=} headers 
+     * @param {string} filename
+     * @param {Object} options
      */
     function load_file(filename, options)
     {
