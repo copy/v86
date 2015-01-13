@@ -39,6 +39,9 @@ function FloppyController(cpu, fda_image, fdb_image)
     this.last_head = 0;
     this.last_sector = 1;
 
+    // this should actually be write-only ... but people read it anyway
+    this.dor = 0;
+
     /** @const */
     this._state_skip = [
         this.io,
@@ -126,7 +129,7 @@ FloppyController.prototype.port3F4_read = function()
         return_byte |= 0x40 | 0x10;
     }
 
-    if((dor & 8) === 0)
+    if((this.dor & 8) === 0)
     {
         return_byte |= 0x20;
     }
@@ -235,19 +238,15 @@ FloppyController.prototype.port3F5_write = function(reg_byte)
     }
 };
 
-
-// this should actually be write-only ... but people read it anyway
-var dor = 0;
-
 FloppyController.prototype.port3F2_read = function()
 {
     dbg_log("read 3F2: DOR", LOG_DISK);
-    return dor;
+    return this.dor;
 }
 
 FloppyController.prototype.port3F2_write = function(value)
 {
-    if((value & 4) === 4 && (dor & 4) === 0)
+    if((value & 4) === 4 && (this.dor & 4) === 0)
     {
         // reset
         this.pic.push_irq(6);
@@ -259,8 +258,7 @@ FloppyController.prototype.port3F2_write = function(value)
     dbg_log("drive select: " + (value & 3), LOG_DISK);
     dbg_log("DOR = " + h(value), LOG_DISK);
 
-    dor = value;
-
+    this.dor = value;
 }
 
 FloppyController.prototype.check_drive_status = function(args)
@@ -279,7 +277,7 @@ FloppyController.prototype.seek = function(args)
     this.last_cylinder = args[1];
     this.last_head = args[0] >> 2 & 1;
     
-    if(dor & 8)
+    if(this.dor & 8)
     {
         this.pic.push_irq(6);
     }
@@ -289,7 +287,7 @@ FloppyController.prototype.calibrate = function(args)
 {
     dbg_log("floppy calibrate", LOG_DISK);
 
-    if(dor & 8)
+    if(this.dor & 8)
     {
         this.pic.push_irq(6);
     }
@@ -373,7 +371,7 @@ FloppyController.prototype.done = function(cylinder, args, head, sector, error)
     this.response_data[5] = sector; 
     this.response_data[6] = args[4];
 
-    if(dor & 8)
+    if(this.dor & 8)
     {
         this.pic.push_irq(6);
     }
@@ -399,7 +397,7 @@ FloppyController.prototype.read_sector_id = function(args)
     this.response_data[5] = 0;
     this.response_data[6] = 0;
 
-    if(dor & 8)
+    if(this.dor & 8)
     {
         this.pic.push_irq(6);
     }
