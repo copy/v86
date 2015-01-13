@@ -687,9 +687,15 @@
             emulator.keyboard_send_scancodes([
                 0x38, // alt
                 0x0F, // tab
-                0x38 | 0x80,
-                0x0F | 0x80,
             ]);
+
+            setTimeout(function()
+            {
+                emulator.keyboard_send_scancodes([
+                    0x38 | 0x80,
+                    0x0F | 0x80,
+                ]);
+            }, 100);
 
             $("alttab").blur();
         };
