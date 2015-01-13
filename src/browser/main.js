@@ -441,30 +441,30 @@
 
         
         var emulator = new V86Starter({
-            memory_size: memory_size,
-            vga_memory_size: vga_memory_size,
+            "memory_size": memory_size,
+            "vga_memory_size": vga_memory_size,
 
-            screen_container: $("screen_container"),
-            serial_container: $("serial"),
+            "screen_container": $("screen_container"),
+            "serial_container": $("serial"),
 
-            boot_order: parseInt($("boot_order").value, 16) || 0,
+            "boot_order": parseInt($("boot_order").value, 16) || 0,
 
-            network_relay_url: "ws://relay.widgetry.org/",
-            //network_relay_url: "ws://localhost:8001/",
+            "network_relay_url": "ws://relay.widgetry.org/",
+            //"network_relay_url": "ws://localhost:8001/",
 
-            bios: {
-                url: BIOSPATH + biosfile,
+            "bios": {
+                "url": BIOSPATH + biosfile,
             },
-            vga_bios: {
-                url: BIOSPATH + vgabiosfile,
+            "vga_bios": {
+                "url": BIOSPATH + vgabiosfile,
             },
 
-            fda: settings.fda,
-            hda: settings.hda,
-            cdrom: settings.cdrom,
+            "fda": settings.fda,
+            "hda": settings.hda,
+            "cdrom": settings.cdrom,
 
-            initial_state: settings.initial_state,
-            filesystem: settings.filesystem,
+            "initial_state": settings.initial_state,
+            "filesystem": settings.filesystem,
         });
 
         emulator.add_listener("emulator-ready", function()
