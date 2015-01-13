@@ -172,10 +172,18 @@ function V86Starter(options)
             // - loads slices of the file asynchronously as requested
             // - slower get/set
 
-            // Heuristics: If file is smaller than 64M, use SyncFileBuffer
-            //if(file.size < 64 * 1024 * 1024)
-            
-            var result = new v86util.AsyncFileBuffer(buffer);
+            var result;
+
+            // Heuristics: If file is smaller than 16M, use SyncFileBuffer
+            if(buffer.size < 16 * 1024 * 1024)
+            {
+                result = new v86util.SyncFileBuffer(buffer);
+                result.load();
+            }
+            else
+            {
+                result = new v86util.AsyncFileBuffer(buffer);
+            }
             //settings[name] = new SyncFileBuffer(buffer);
         }
         else if(buffer.async)
