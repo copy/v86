@@ -11,22 +11,26 @@
      * @param {?=} progress 
      * @param {?=} headers 
      */
-    function load_file(filename, done, progress, headers)
+    function load_file(filename, options)
     {
         var http = new XMLHttpRequest();
 
         http.open("get", filename, true);
-        http.responseType = "arraybuffer";
 
-        if(headers)
+        if(!options.as_text)
         {
-            var header_names = Object.keys(headers);
+            http.responseType = "arraybuffer";
+        }
+
+        if(options.headers)
+        {
+            var header_names = Object.keys(options.headers);
 
             for(var i = 0; i < header_names.length; i++)
             {
                 var name = header_names[i];
 
-                http.setRequestHeader(name, headers[name]);
+                http.setRequestHeader(name, options.headers[name]);
             }
         }
 
@@ -40,16 +44,16 @@
                 }
                 else if(http.response)
                 {
-                    done(http.response);
+                    options.done && options.done(http.response);
                 }
             }
         };
 
-        if(progress)
+        if(options.progress)
         {
             http.onprogress = function(e)
             {
-                progress(e);
+                options.progress(e);
             };
         }
         
@@ -125,19 +129,18 @@
         var range_start = offset,
             range_end = offset + len - 1;
 
-        load_file(this.filename, 
-            function(buffer)
+        load_file(this.filename, {
+            done: function done(buffer)
             {
                 var block = new Uint8Array(buffer);
                 
                 this.handle_read(offset, len, block);
                 fn(block);
             }.bind(this), 
-            null,
-            {
+            headers: {
                 Range: "bytes=" + range_start + "-" + range_end,
             }
-        );
+        });
     }
     AsyncXHRBuffer.prototype.set = async_buffer_set;
 

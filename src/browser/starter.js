@@ -241,20 +241,24 @@ function V86Starter(options)
         {
             var f = files_to_load[index];
 
-            v86util.load_file(f.url, function done(result)
-            {
-                f.handler(result);
-                cont(index + 1);
-            }, function progress(e)
-            {
-                starter.emulator_bus.send("download-progress", {
-                    file_index: index,
-                    file_count: total,
+            v86util.load_file(f.url, {
+                done: function done(result)
+                {
+                    f.handler(result);
+                    cont(index + 1);
+                }, 
+                progress: function progress(e)
+                {
+                    starter.emulator_bus.send("download-progress", {
+                        file_index: index,
+                        file_count: total,
 
-                    lengthComputable: e.lengthComputable,
-                    total: f.size || e.total,
-                    loaded: e.loaded,
-                });
+                        lengthComputable: e.lengthComputable,
+                        total: f.size || e.total,
+                        loaded: e.loaded,
+                    });
+                },
+                as_text: f.as_text,
             });
         }
         else
