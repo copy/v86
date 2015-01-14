@@ -76,10 +76,12 @@ PIT.prototype.timer = function(time, no_irq)
 
     if(!steps)
     {
-        return;
+        return 0;
     }
 
     this.next_tick += steps / OSCILLATOR_FREQ;
+
+    var time_to_next_interrupt = 100;
 
     // counter 0 produces interrupts
     if(!no_irq && this.counter_enabled[0])
@@ -88,6 +90,8 @@ PIT.prototype.timer = function(time, no_irq)
 
         if(current <= 0)
         {
+            time_to_next_interrupt = 0;
+
             this.pic.push_irq(0);
             mode = this.counter_mode[0];
 
@@ -100,6 +104,10 @@ PIT.prototype.timer = function(time, no_irq)
             {
                 this.counter_current[0] = this.counter_reload[0] + current % this.counter_reload[0];
             }
+        }
+        else
+        {
+            time_to_next_interrupt = current / OSCILLATOR_FREQ;
         }
     }
 
@@ -138,6 +146,8 @@ PIT.prototype.timer = function(time, no_irq)
         //    }
         //}
     }
+
+    return time_to_next_interrupt;
 };
 
         

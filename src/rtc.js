@@ -51,6 +51,9 @@ function RTC(cpu, diskette_type, boot_order)
 
 RTC.prototype.timer = function(time, legacy_mode)
 {
+    this.rtc_time += time - this.last_update;
+    this.last_update = time;
+
     if(this.periodic_interrupt && this.cmos_c_was_read && this.next_interrupt < time)
     {
         this.cmos_c_was_read = false;
@@ -59,10 +62,11 @@ RTC.prototype.timer = function(time, legacy_mode)
 
         this.next_interrupt += this.periodic_interrupt_time * 
                 Math.ceil((time - this.next_interrupt) / this.periodic_interrupt_time);
+
+        return Math.max(0, time - this.next_interrupt);
     }
 
-    this.rtc_time += time - this.last_update;
-    this.last_update = time;
+    return 100;
 };
 
 RTC.prototype.bcd_pack = function(n)

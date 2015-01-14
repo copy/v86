@@ -676,19 +676,26 @@ CPU.prototype.hlt_loop = function()
 
     if(ENABLE_HPET)
     {
-        this.devices.pit.timer(now, this.devices.hpet.legacy_mode);
-        this.devices.rtc.timer(now, this.devices.hpet.legacy_mode);
+        var pit_time = this.devices.pit.timer(now, this.devices.hpet.legacy_mode);
+        var rtc_time = this.devices.rtc.timer(now, this.devices.hpet.legacy_mode);
         this.devices.hpet.timer(now);
     }
     else
     {
-        this.devices.pit.timer(now, false);
-        this.devices.rtc.timer(now, false);
+        var pit_time = this.devices.pit.timer(now, false);
+        var rtc_time = this.devices.rtc.timer(now, false);
     }
 
     this.devices.vga.timer(now);
 
-    return 4;
+    if(!this.in_hlt)
+    {
+        return 0;
+    }
+    else
+    {
+        return Math.ceil(Math.min(100, pit_time, rtc_time));
+    }
 };
 
 CPU.prototype.cr0_changed = function(old_cr0)
