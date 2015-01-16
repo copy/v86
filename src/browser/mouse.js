@@ -38,6 +38,10 @@ function MouseAdapter(bus)
 
     this.init = function()
     {
+        if(typeof window === "undefined")
+        {
+            return;
+        }
         this.destroy();
 
         window.addEventListener("mousemove", mousemove_handler, false);

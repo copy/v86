@@ -1,6 +1,6 @@
 "use strict";
 
-if(!window.requestAnimationFrame)
+if(typeof window !== "undefined" && !window.requestAnimationFrame)
 {
     window.requestAnimationFrame = 
         window.mozRequestAnimationFrame || 

@@ -109,6 +109,10 @@ function KeyboardAdapter(bus)
 
     this.init = function()
     {
+        if(typeof window === "undefined")
+        {
+            return;
+        }
         this.destroy();
 
         window.addEventListener("keyup", keyup_handler, false);
