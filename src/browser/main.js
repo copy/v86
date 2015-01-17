@@ -519,6 +519,7 @@
 
         $("exit").onclick = function()
         {
+            emulator.stop();
             location.href = location.pathname;
         };
 
