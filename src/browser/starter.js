@@ -614,22 +614,26 @@ V86Starter.prototype.serial0_send = function(data)
 if(typeof window !== "undefined")
 {
     window["V86Starter"] = V86Starter;
-
-    V86Starter.prototype["run"] = V86Starter.prototype.run;
-    V86Starter.prototype["stop"] = V86Starter.prototype.stop;
-    V86Starter.prototype["restart"] = V86Starter.prototype.restart;
-    V86Starter.prototype["add_listener"] = V86Starter.prototype.add_listener;
-    V86Starter.prototype["remove_listener"] = V86Starter.prototype.remove_listener;
-    V86Starter.prototype["restore_state"] = V86Starter.prototype.restore_state;
-    V86Starter.prototype["save_state"] = V86Starter.prototype.save_state;
-    V86Starter.prototype["get_statistics"] = V86Starter.prototype.get_statistics;
-    V86Starter.prototype["is_running"] = V86Starter.prototype.is_running;
-    V86Starter.prototype["keyboard_send_scancodes"] = V86Starter.prototype.keyboard_send_scancodes;
-    V86Starter.prototype["screen_make_screenshot"] = V86Starter.prototype.screen_make_screenshot;
-    V86Starter.prototype["screen_set_scale"] = V86Starter.prototype.screen_set_scale;
-    V86Starter.prototype["screen_go_fullscreen"] = V86Starter.prototype.screen_go_fullscreen;
-    V86Starter.prototype["lock_mouse"] = V86Starter.prototype.lock_mouse;
-    V86Starter.prototype["mouse_set_status"] = V86Starter.prototype.mouse_set_status;
-    V86Starter.prototype["keyboard_set_status"] = V86Starter.prototype.keyboard_set_status;
-    V86Starter.prototype["serial0_send"] = V86Starter.prototype.serial0_send;
 }
+else if(typeof module !== "undefined" && typeof module.exports !== "undefined")
+{
+    module.exports["V86Starter"] = V86Starter;
+}
+
+V86Starter.prototype["run"] = V86Starter.prototype.run;
+V86Starter.prototype["stop"] = V86Starter.prototype.stop;
+V86Starter.prototype["restart"] = V86Starter.prototype.restart;
+V86Starter.prototype["add_listener"] = V86Starter.prototype.add_listener;
+V86Starter.prototype["remove_listener"] = V86Starter.prototype.remove_listener;
+V86Starter.prototype["restore_state"] = V86Starter.prototype.restore_state;
+V86Starter.prototype["save_state"] = V86Starter.prototype.save_state;
+V86Starter.prototype["get_statistics"] = V86Starter.prototype.get_statistics;
+V86Starter.prototype["is_running"] = V86Starter.prototype.is_running;
+V86Starter.prototype["keyboard_send_scancodes"] = V86Starter.prototype.keyboard_send_scancodes;
+V86Starter.prototype["screen_make_screenshot"] = V86Starter.prototype.screen_make_screenshot;
+V86Starter.prototype["screen_set_scale"] = V86Starter.prototype.screen_set_scale;
+V86Starter.prototype["screen_go_fullscreen"] = V86Starter.prototype.screen_go_fullscreen;
+V86Starter.prototype["lock_mouse"] = V86Starter.prototype.lock_mouse;
+V86Starter.prototype["mouse_set_status"] = V86Starter.prototype.mouse_set_status;
+V86Starter.prototype["keyboard_set_status"] = V86Starter.prototype.keyboard_set_status;
+V86Starter.prototype["serial0_send"] = V86Starter.prototype.serial0_send;
