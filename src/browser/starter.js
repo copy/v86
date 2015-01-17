@@ -90,42 +90,9 @@ function V86Starter(options)
         this.serial_adapter = new SerialAdapter(options["serial_container"], adapter_bus);
     }
     //settings.serial_adapter = new ModemAdapter();
+    
 
-    var files_to_load = [];
-
-    function add_file(file, handler)
-    {
-        if(!file)
-        {
-            return;
-        }
-
-        if(file.buffer)
-        {
-            console.assert(
-                file.buffer instanceof ArrayBuffer || file.buffer instanceof File,
-                "buffer should be ArrayBuffer or File"
-            );
-            handler(file.buffer);
-        }
-        else if(file.url)
-        {
-            if(file.async)
-            {
-                handler(file);
-            }
-            else
-            {
-                files_to_load.push({
-                    url: file.url,
-                    handler: handler,
-                    size: file.size,
-                    as_text: file.as_text,
-                });
-            }
-        }
-    }
-
+    // ugly, but required for closure compiler compilation
     function put_on_settings(name, buffer)
     {
         switch(name)
@@ -156,13 +123,57 @@ function V86Starter(options)
         }
     }
 
-    function make_sync_buffer(name, buffer)
+
+    var files_to_load = [];
+
+    /**
+     * @param {boolean=} no_async
+     */
+    function add_file(file, handler, no_async)
     {
-        if(buffer instanceof ArrayBuffer)
+        if(!file)
         {
-            var result = new SyncBuffer(buffer);
+            return;
         }
-        else if(buffer instanceof File)
+
+        if(file.buffer)
+        {
+            console.assert(
+                file.buffer instanceof ArrayBuffer || 
+                    (typeof File !== "undefined" && file.buffer instanceof File),
+                "buffer should be ArrayBuffer or File"
+            );
+            handler(file.buffer);
+        }
+        else if(file.url)
+        {
+            if(file.async && !no_async)
+            {
+                handler(file);
+            }
+            else
+            {
+                files_to_load.push({
+                    url: file.url,
+                    handler: handler,
+                    size: file.size,
+                    as_text: file.as_text,
+                });
+            }
+        }
+        else
+        {
+            dbg_log("Ignored file: url=" + file.url + " buffer=" + file.buffer);
+        }
+    }
+
+    function make_buffer_object(name, result)
+    {
+        if(result instanceof ArrayBuffer)
+        {
+            var buffer = new SyncBuffer(result);
+        }
+        else if(result instanceof File)
         {
             // SyncFileBuffer:
             // - loads the whole disk image into memory, impossible for large files (more than 1GB)
@@ -173,40 +184,37 @@ function V86Starter(options)
             // - loads slices of the file asynchronously as requested
             // - slower get/set
 
-            var result;
-
             // Heuristics: If file is smaller than 16M, use SyncFileBuffer
-            if(buffer.size < 16 * 1024 * 1024)
+            if(result.size < 16 * 1024 * 1024)
             {
-                result = new v86util.SyncFileBuffer(buffer);
-                result.load();
+                var buffer = new v86util.SyncFileBuffer(result);
+                buffer.load();
             }
             else
             {
-                result = new v86util.AsyncFileBuffer(buffer);
+                var buffer = new v86util.AsyncFileBuffer(result);
             }
-            //settings[name] = new SyncFileBuffer(buffer);
         }
-        else if(buffer.async)
+        else if(result.url && result.async)
         {
-            var result = new v86util.AsyncXHRBuffer(buffer.url, 512, buffer.size);
+            var buffer = new v86util.AsyncXHRBuffer(result.url, 512, result.size);
         }
         else
         {
             console.assert(false);
         }
 
-        put_on_settings(name, result);
+        put_on_settings(name, buffer);
     }
 
-    add_file(options["bios"], put_on_settings.bind(this, "bios"));
-    add_file(options["vga_bios"], put_on_settings.bind(this, "vga_bios"));
+    add_file(options["bios"], put_on_settings.bind(this, "bios"), true);
+    add_file(options["vga_bios"], put_on_settings.bind(this, "vga_bios"), true);
 
-    add_file(options["cdrom"], make_sync_buffer.bind(this, "cdrom"));
-    add_file(options["hda"], make_sync_buffer.bind(this, "hda"));
-    add_file(options["hdb"], make_sync_buffer.bind(this, "hdb"));
-    add_file(options["fda"], make_sync_buffer.bind(this, "fda"));
-    add_file(options["fdb"], make_sync_buffer.bind(this, "fdb"));
+    add_file(options["cdrom"], make_buffer_object.bind(this, "cdrom"));
+    add_file(options["hda"], make_buffer_object.bind(this, "hda"));
+    add_file(options["hdb"], make_buffer_object.bind(this, "hdb"));
+    add_file(options["fda"], make_buffer_object.bind(this, "fda"));
+    add_file(options["fdb"], make_buffer_object.bind(this, "fdb"));
 
     if(options["filesystem"])
     {
@@ -216,9 +224,6 @@ function V86Starter(options)
 
         add_file({ url: options["filesystem"].basefs, as_text: true, }, function(text)
         {
-            //fs9p.LoadFilesystem({
-            //    basefsURL: options["filesystem"].basefs,
-            //});
             fs9p.OnJSONLoaded(text);
         });
     }
