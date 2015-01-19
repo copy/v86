@@ -260,21 +260,26 @@
         for(var i = 0; i < oses.length; i++)
         {
             var infos = oses[i];
-            var dom_id = "start_" + infos.id;
-
-            $(dom_id).onclick = function(infos, dom_id)
-            {
-                set_profile(infos.id);
-                $(dom_id).blur();
-
-                start_profile(infos);
-            }.bind(this, infos, dom_id);
+            var element = $("start_" + infos.id);
 
             if(profile === infos.id)
             {
                 start_profile(infos);
                 return;
             }
+
+            if(!element)
+            {
+                continue;
+            }
+
+            element.onclick = function(infos, element)
+            {
+                set_profile(infos.id);
+                element.blur();
+
+                start_profile(infos);
+            }.bind(this, infos, element);
         }
 
         function start_profile(infos)
