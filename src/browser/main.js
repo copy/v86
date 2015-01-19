@@ -485,6 +485,10 @@
         });
     };
 
+    /**
+     * @param {Object} settings
+     * @param {V86Starter} emulator
+     */
     function init_ui(settings, emulator)
     {
         $("boot_options").style.display = "none";
@@ -691,6 +695,29 @@
             }
         }
 
+        $("memory_dump").onclick = function()
+        {
+            dump_file(emulator.v86.cpu.memory.buffer, "v86memory.bin");
+            $("memory_dump").blur();
+        };
+
+        $("save_state").onclick = function()
+        {
+            emulator.save_state(function(error, result)
+            {
+                if(error)
+                {
+                    console.log("Couldn't save state: ", error);
+                }
+                else
+                {
+                    dump_file(result, "v86state.bin");
+                }
+            });
+
+            $("save_state").blur();
+        };
+
         $("ctrlaltdel").onclick = function()
         {
             emulator.keyboard_send_scancodes([
@@ -801,29 +828,6 @@
             {
                 dump_file(ins, "trace.txt");
             }
-        };
-
-        $("memory_dump").onclick = function()
-        {
-            dump_file(debug.get_memory_dump(), "v86-memory.bin");
-            $("memory_dump").blur();
-        };
-
-        $("save_state").onclick = function()
-        {
-            emulator.save_state(function(error, result)
-            {
-                if(error)
-                {
-                    console.log("Couldn't save state: ", error);
-                }
-                else
-                {
-                    dump_file(result, "v86state.bin");
-                }
-            });
-
-            $("save_state").blur();
         };
 
         // helps debugging
