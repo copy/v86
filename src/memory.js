@@ -23,7 +23,7 @@ function Memory(memory_size)
 
     dbg_assert((memory_size & MMAP_BLOCK_SIZE - 1) === 0);
 
-    this.buffer = new ArrayBuffer(memory_size);;
+    this.buffer = new ArrayBuffer(memory_size);
     this._state_restore();
 };
 

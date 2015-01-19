@@ -84,7 +84,7 @@ v86.prototype.init = function(settings)
     }
 
     this.cpu.init(settings, this.bus);
-    this.bus.send_async("emulator-ready");
+    this.bus.send("emulator-ready");
 };
 
 // initialization that only needs to be once

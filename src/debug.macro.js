@@ -33,7 +33,7 @@
             }
         }
 
-        console.log(el);
+        console.log(x);
     };
 
     debug.init = function()
@@ -593,14 +593,6 @@
             count = start;
             start = 0;
         }
-
-        // textarea method: (slow)
-        //var result_string = "";
-        //for(var i = start; i < start + end; i++)
-        //{
-        //    result_string += String.fromCharCode(int8array[i]);
-        //}
-        //dump_text(btoa(result_string));
 
         return cpu.memory.buffer.slice(start, start + count);
     }

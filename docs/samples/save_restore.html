@@ -45,6 +45,7 @@ window.onload = function()
                     throw error;
                 }
 
+                console.log("Saved state of " + new_state.byteLength + " bytes");
                 button.value = "Restore state";
                 state = new_state;
             });
@@ -63,7 +64,7 @@ window.onload = function()
             }
 
             var a = document.createElement("a");
-            a.download = "v86-state.bin";
+            a.download = "v86state.bin";
             a.href = window.URL.createObjectURL(new Blob([new_state]));
             a.dataset.downloadurl = "application/octet-stream:" + a.download + ":" + a.href;
             a.click();
