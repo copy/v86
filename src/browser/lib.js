@@ -101,15 +101,18 @@
      * This is just a prototype and partly incomplete.
      *
      * @constructor
-     * @param {string} filename   Name of the file to download parts
-     *                            from. Replaces %d with the block number (padded)
+     * @param {string} filename   Name of the file to download 
      */
     function AsyncXHRBuffer(filename, block_size, size)
     {
         this.filename = filename;
         this.block_size = block_size;
         this.block_count = size / block_size;
-        console.assert(this.block_count === (this.block_count | 0));
+        
+        if(size)
+        {
+            console.assert(this.block_count === (this.block_count | 0));
+        }
 
         this.loaded_blocks = {};
         
