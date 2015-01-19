@@ -1,5 +1,4 @@
 # V86Starter
-- [`add_file(boolean no_async)`](#add_fileboolean-no_async)
 - [`run()`](#run)
 - [`stop()`](#stop)
 - [`restart()`](#restart)
@@ -13,8 +12,8 @@
 - [`mouse_set_status(boolean enabled)`](#mouse_set_statusboolean-enabled)
 - [`keyboard_set_status(boolean enabled)`](#keyboard_set_statusboolean-enabled)
 - [`serial0_send(string data)`](#serial0_sendstring-data)
-- [`create_file(string file, Uint8Array data, Function callback)`](#create_filestring-file-uint8array-data-function-callback)
-- [`read_file(string file, Function callback)`](#read_filestring-file-function-callback)
+- [`create_file(string file, Uint8Array data, function(Object) callback)`](#create_filestring-file-uint8array-data-functionobject-callback)
+- [`read_file(string file, function(Object, Uint8Array) callback)`](#read_filestring-file-functionobject-uint8array-callback)
 
 ***
 ## `V86Starter`
@@ -27,49 +26,78 @@ Options can have the following properties (all optional, default in parenthesis)
 - `memory_size number` (16 * 1024 * 1024) - The memory size in bytes, should
   be a power of 2.
 - `vga_memory_size number` (8 * 1024 * 1024) - VGA memory size in bytes.
+
 - `autostart boolean` (false) - If emulation should be started when emulator
   is ready.
+
 - `disable_keyboard boolean` (false) - If the keyboard should be disabled.
 - `disable_mouse boolean` (false) - If the mouse should be disabled.
+
 - `network_relay_url string` (No network card) - The url of a server running
-  websockproxy. See
-  https://github.com/copy/v86/blob/master/docs/networking.md.
+  websockproxy. See [networking.md](docs/networking.md). Setting this will
+  enable an emulated network card.
+
 - `bios Object` (No bios) - Either a url pointing to a bios or an
   ArrayBuffer, see below.
 - `vga_bios Object` (No VGA bios) - VGA bios, see below.
 - `hda Object` (No hard drive) - First hard disk, see below.
 - `fda Object` (No floppy disk) - First floppy disk, see below.
-- `cdrom Object` (No cd drive) - CD disk, see below.
+- `cdrom Object` (No CD) - See below.
 - `initial_state Object` (Normal boot) - An initial state to load, see
   [`restore_state`](#restore_statearraybuffer-state) and below.
+
+- `filesystem Object` (No 9p filesystem) - A 9p filesystem, see
+  [filesystem.md](docs/filesystem.md).
+
 - `serial_container HTMLTextAreaElement` (No serial terminal) - A textarea
   that will receive and send data to the emulated serial terminal.
   Alternatively the serial terminal can also be accessed programatically,
-  see https://github.com/copy/v86/blob/master/docs/samples/serial.html.
+  see [serial.html](docs/samples/serial.html).
+
 - `screen_container HTMLElement` (No screen) - An HTMLElement. This should
-  have a certain structure, see
-  https://github.com/copy/v86/blob/master/docs/samples/basic.html.
+  have a certain structure, see [basic.html](docs/samples/basic.html).
+
+***
 
 There are two ways to load images (`bios`, `vga_bios`, `cdrom`, `hda`, ...):
 
-- Pass an object that has a url: `options.bios = { url:
-  "http://copy.sh/v86/bios/seabios.bin" }`. Optionally, `async: true` can be
-  added to the object, so that sectors of the image are loaded on demand
-  instead of being loaded before boot (slower, but strongly recommended for
-  big files).
-- Pass an `ArrayBuffer` or `File` object, for instance `options.hda = {
-  buffer: new ArrayBuffer(512 * 1024) }` to add an empty hard drive.
+- Pass an object that has a url. Optionally, `async: true` and `size:
+  size_in_bytes` can be added to the object, so that sectors of the image
+  are loaded on demand instead of being loaded before boot (slower, but
+  strongly recommended for big files). In that case, the `Range: bytes=...`
+  header must be supported on the server.
+
+  ```javascript
+  // download file before boot
+  options.bios = { 
+      url: "bios/seabios.bin" 
+  }
+  // download file sectors as requested, size is required
+  options.hda = { 
+      url: "disk/linux.iso",
+      async: true,
+      size: 16 * 1024 * 1024 
+  }
+  ```
+
+- Pass an `ArrayBuffer` or `File` object as `buffer` property.
+
+  ```javascript
+  // use <input type=file>
+  options.bios = { 
+      buffer: document.all.hd_image.files[0]
+  }
+  // start with empty hard drive
+  options.hda = { 
+      buffer: new ArrayBuffer(16 * 1024 * 1024)
+  }
+  ```
+
+***
 
 **Parameters:**
 
 1. **`Object`** options – Options to initialize the emulator with.
-
-***
-#### `add_file(boolean no_async)`
-
-**Parameters:**
-
-1. **`boolean`** no_async 
 
 ***
 #### `run()`
@@ -87,7 +115,7 @@ Restart (force a reboot).
 ***
 #### `add_listener(string event, function(*) listener)`
 Add an event listener (the emulator is an event emitter). A list of events
-can be found at https://github.com/copy/v86/blob/master/docs/events.md.
+can be found at [docs/events.md](docs/events.md).
 
 The callback function gets a single argument which depends on the event.
 
@@ -138,7 +166,7 @@ Return an object with several statistics. Return value looks similar to
 (but can be subject to change in future versions or different
 configurations, so use defensively):
 
-```
+```javascript
 {
     "cpu": {
         "instruction_counter": 2821610069
@@ -215,21 +243,26 @@ Send a string to the first emulated serial terminal.
 1. **`string`** data 
 
 ***
-#### `create_file(string file, Uint8Array data, Function callback)`
+#### `create_file(string file, Uint8Array data, function(Object) callback)`
+Write to a file in the 9p filesystem. Nothing happens if no filesystem has
+been initialized. First argument to the callback is an error object if
+something went wrong and null otherwise.
 
 **Parameters:**
 
 1. **`string`** file 
 2. **`Uint8Array`** data 
-3. **`Function`** callback 
+3. **`function(Object)`** (optional) callback 
 
 ***
-#### `read_file(string file, Function callback)`
+#### `read_file(string file, function(Object, Uint8Array) callback)`
+Read a file in the 9p filesystem. Nothing happens if no filesystem has been
+initialized.
 
 **Parameters:**
 
 1. **`string`** file 
-2. **`Function`** callback 
+2. **`function(Object, Uint8Array)`** callback 
 
 <!-- src/browser/starter.js-->
 
