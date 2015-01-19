@@ -1,0 +1,27 @@
+A 9p filesystem is supported by the emulator, using a virtio transport. Using
+it, files can be exchanged with the guest OS, see
+[`create_file`](docs/api.md#create_filestring-file-uint8array-data-functionobject-callback)
+and
+[`read_file`](docs/api.md#read_filestring-file-functionobject-uint8array-callback). It can
+be enabled by passing the following options to `V86Starter`:
+
+```javascript
+options.filesystem = {
+    basefs: "http://localhost/9p/fs.json",
+    baseurl: "http://localhost/9p/base/",
+}
+```
+
+Here, `basefs` is a json file created using
+[fs2json](https://github.com/copy/fs2json). The base url is the prefix of a url
+from which the files are available. For instance, if the 9p filesystem has a
+file `/bin/sh`, that file must be accessible from
+`http://localhost/9p/base/bin/sh`. If `basefs` and `baseurl` are omitted, an
+empty 9p filesystem is created.
+
+The `mount_tag` of the 9p device is `host9p`. In order to mount it in the
+guest, use:
+
+```sh
+mount -t 9p host9p /mnt/9p/
+```
