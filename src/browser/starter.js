@@ -197,6 +197,10 @@ function V86Starter(options)
         }
         else if(result.url && result.async)
         {
+            console.assert(
+                typeof result.size === "number", 
+                "Size must be specified for asynchronous remote buffer: " + name
+            );
             var buffer = new v86util.AsyncXHRBuffer(result.url, 512, result.size);
         }
         else
