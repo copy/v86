@@ -181,74 +181,84 @@
             {
                 id: "archlinux",
                 state: {
-                    //url: "http://localhost/v86-images/v86state.bin",
-                    url: "http://104.131.53.7:8086/v86state.bin",
-                    size: 69283634,
+                    "url": "http://104.131.53.7:8086/v86state.bin",
+                    "size": 69283634,
                 },
-                //size: 137 * 1024 * 1024,
                 name: "Arch Linux",
-                memory_size: 64 * 1024 * 1024,
-                vga_memory_size: 2 * 1024 * 1024,
+                memory_size: 128 * 1024 * 1024,
+                vga_memory_size: 8 * 1024 * 1024,
 
                 async_hda: {
-                    url: "https://dl.dropboxusercontent.com/u/61029208/arch3.img", 
-                    //url: "http://104.131.53.7:8086/arch3.img", 
-                    //url: "http://localhost/v86-images/arch3.img",
-                    size: 8 * 1024 * 1024 * 1024,
+                    "url": "https://dl.dropboxusercontent.com/u/61029208/arch3.img", 
+                    "size": 8 * 1024 * 1024 * 1024,
                 },
 
                 filesystem: {
-                    //basefs: "http://localhost/v86-images/fs.json",
-                    //baseurl: "http://localhost/v86-images/arch/",
-                    basefs: "http://104.131.53.7:8086/fs.json",
-                    baseurl: "http://104.131.53.7:8086/arch/",
+                    "basefs": "http://104.131.53.7:8086/fs.json",
+                    "baseurl": "http://104.131.53.7:8086/arch/",
+                },
+            },
+            {
+                id: "archlinux2",
+                name: "Arch Linux",
+                memory_size: 128 * 1024 * 1024,
+                vga_memory_size: 8 * 1024 * 1024,
+
+                async_hda: {
+                    "url": "https://dl.dropboxusercontent.com/u/61029208/arch3.img", 
+                    "size": 8 * 1024 * 1024 * 1024,
+                },
+
+                filesystem: {
+                    "basefs": "http://104.131.53.7:8086/fs.json",
+                    "baseurl": "http://104.131.53.7:8086/arch/",
                 },
             },
             {
                 id: "freedos",
                 fda: {
-                    url: "images/freedos722.img",
-                    size: 737280,
+                    "url": "images/freedos722.img",
+                    "size": 737280,
                 },
                 name: "FreeDOS",
             },
             {
                 id: "windows1",
                 fda: {
-                    url: "images/windows101.img",
-                    size: 1474560,
+                    "url": "images/windows101.img",
+                    "size": 1474560,
                 },
                 name: "Windows",
             },
             {
                 id: "linux26",
                 cdrom: {
-                    url: "images/linux.iso",
-                    size: 5666816,
+                    "url": "images/linux.iso",
+                    "size": 5666816,
                 },
                 name: "Linux",
             },
             {
                 id: "kolibrios",
                 fda: {
-                    url: "images/kolibri.img",
-                    size: 1474560,
+                    "url": "images/kolibri.img",
+                    "size": 1474560,
                 },
                 name: "KolibriOS",
             },
             {
                 id: "openbsd",
                 fda: {
-                    url: "images/openbsd.img",
-                    size: 1474560,
+                    "url": "images/openbsd.img",
+                    "size": 1474560,
                 },
                 name: "OpenBSD",
             },
             {
                 id: "solos",
                 fda: {
-                    url: "images/os8.dsk",
-                    size: 1474560,
+                    "url": "images/os8.dsk",
+                    "size": 1474560,
                 },
                 name: "Sol OS",
             },

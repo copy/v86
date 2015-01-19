@@ -136,6 +136,16 @@ function V86Starter(options)
             return;
         }
 
+        // anything coming from the outside world needs to be quoted for
+        // Closure Compiler compilation
+        file = {
+            buffer: file["buffer"],
+            async: file["async"],
+            url: file["url"],
+            size: file["size"],
+            as_text: file.as_text,
+        };
+
         if(file.buffer)
         {
             console.assert(
@@ -222,11 +232,12 @@ function V86Starter(options)
 
     if(options["filesystem"])
     {
-        var fs9p = new FS(options["filesystem"].baseurl);
+        var fs9p = new FS(options["filesystem"]["baseurl"]);
 
         settings.fs9p = fs9p;
+        this.fs9p = fs9p;
 
-        add_file({ url: options["filesystem"].basefs, as_text: true, }, function(text)
+        add_file({ url: options["filesystem"]["basefs"], as_text: true, }, function(text)
         {
             fs9p.OnJSONLoaded(text);
         });
