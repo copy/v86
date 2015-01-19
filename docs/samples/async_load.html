@@ -1,0 +1,39 @@
+<!doctype html>
+<title>Asynchronous loading of disk images</title>
+
+<script src="../../build/libv86.js"></script>
+<script>
+"use strict";
+
+window.onload = function()
+{
+    // Async loading of the iso image
+    // Note how the emulation starts without downloading the 50MB image
+
+    // Support of the "Range: bytes=..." header is required on the server, CORS
+    // is required if the server is on a different host
+
+    var emulator = new V86Starter({
+        memory_size: 64 * 1024 * 1024,
+        vga_memory_size: 2 * 1024 * 1024,
+        screen_container: document.getElementById("screen_container"),
+        bios: {
+            url: "../../bios/seabios.bin",
+        },
+        vga_bios: {
+            url: "../../bios/vgabios.bin",
+        },
+        cdrom: {
+            url: "https://dl.dropboxusercontent.com/u/61029208/dsl-4.11.rc2.iso",
+            size: 52824064,
+            async: true,
+        },
+        autostart: true,
+    });
+}
+</script>
+
+<div id="screen_container">
+    <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+    <canvas style="display: none"></canvas>
+</div>
