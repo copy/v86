@@ -1,4 +1,5 @@
 # V86Starter
+- [`add_file(boolean no_async)`](#add_fileboolean-no_async)
 - [`run()`](#run)
 - [`stop()`](#stop)
 - [`restart()`](#restart)
@@ -12,6 +13,8 @@
 - [`mouse_set_status(boolean enabled)`](#mouse_set_statusboolean-enabled)
 - [`keyboard_set_status(boolean enabled)`](#keyboard_set_statusboolean-enabled)
 - [`serial0_send(string data)`](#serial0_sendstring-data)
+- [`create_file(string file, Uint8Array data, Function callback)`](#create_filestring-file-uint8array-data-function-callback)
+- [`read_file(string file, Function callback)`](#read_filestring-file-function-callback)
 
 ***
 ## `V86Starter`
@@ -60,6 +63,13 @@ There are two ways to load images (`bios`, `vga_bios`, `cdrom`, `hda`, ...):
 **Parameters:**
 
 1. **`Object`** options – Options to initialize the emulator with.
+
+***
+#### `add_file(boolean no_async)`
+
+**Parameters:**
+
+1. **`boolean`** no_async 
 
 ***
 #### `run()`
@@ -203,6 +213,23 @@ Send a string to the first emulated serial terminal.
 **Parameters:**
 
 1. **`string`** data 
+
+***
+#### `create_file(string file, Uint8Array data, Function callback)`
+
+**Parameters:**
+
+1. **`string`** file 
+2. **`Uint8Array`** data 
+3. **`Function`** callback 
+
+***
+#### `read_file(string file, Function callback)`
+
+**Parameters:**
+
+1. **`string`** file 
+2. **`Function`** callback 
 
 <!-- src/browser/starter.js-->
 

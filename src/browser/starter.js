@@ -630,6 +630,82 @@ V86Starter.prototype.serial0_send = function(data)
     }
 };
 
+/**
+ * @param {string} file
+ * @param {Uint8Array} data
+ * @param {Function=} callback
+ */
+V86Starter.prototype.create_file = function(file, data, callback)
+{
+    var fs = this.fs9p;
+
+    var parts = file.split("/");
+    var filename = parts[parts.length - 1];
+
+    var path_infos = fs.SearchPath(file);
+    var parent_id = path_infos.parentid;
+    var not_found = filename === "" || parent_id === -1
+
+    if(!not_found)
+    {
+        fs.CreateBinaryFile(filename, parent_id, data);
+    }
+
+    if(callback)
+    {
+        setTimeout(function()
+        {
+            if(not_found)
+            {
+                callback(new FileNotFoundError());
+            }
+            else
+            {
+                callback(null);
+            }
+        }, 0);
+    }
+};
+
+/**
+ * @param {string} file
+ * @param {Function=} callback
+ */
+V86Starter.prototype.read_file = function(file, callback)
+{
+    var fs = this.fs9p;
+    var path_infos = fs.SearchPath(file);
+    var id = path_infos.id;
+
+    if(id === -1)
+    {
+        callback(new FileNotFoundError(), null);
+    }
+    else
+    {
+        fs.OpenInode(id, undefined);
+        fs.AddEvent(
+            id, 
+            function() 
+            {
+                callback(null, fs.inodedata[id]);
+            }
+        );
+    }
+};
+
+/** 
+ * @ignore
+ * @constructor
+ *
+ * @param {string=} message
+ */
+function FileNotFoundError(message)
+{
+    this.message = message || "File not found";
+}
+FileNotFoundError.prototype = Error.prototype;
+
 // Closure Compiler's way of exporting 
 if(typeof window !== "undefined")
 {
@@ -657,3 +733,5 @@ V86Starter.prototype["lock_mouse"] = V86Starter.prototype.lock_mouse;
 V86Starter.prototype["mouse_set_status"] = V86Starter.prototype.mouse_set_status;
 V86Starter.prototype["keyboard_set_status"] = V86Starter.prototype.keyboard_set_status;
 V86Starter.prototype["serial0_send"] = V86Starter.prototype.serial0_send;
+V86Starter.prototype["create_file"] = V86Starter.prototype.create_file;
+V86Starter.prototype["read_file"] = V86Starter.prototype.read_file;
