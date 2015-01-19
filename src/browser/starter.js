@@ -232,15 +232,23 @@ function V86Starter(options)
 
     if(options["filesystem"])
     {
-        var fs9p = new FS(options["filesystem"]["baseurl"]);
+        var fs_url = options["filesystem"]["basefs"];
+        var base_url = options["filesystem"]["baseurl"];
+
+        var fs9p = new FS(base_url);
 
         settings.fs9p = fs9p;
         this.fs9p = fs9p;
 
-        add_file({ url: options["filesystem"]["basefs"], as_text: true, }, function(text)
+        if(fs_url)
         {
-            fs9p.OnJSONLoaded(text);
-        });
+            console.assert(base_url, "Filesystem: baseurl must be specified");
+
+            add_file({ url: fs_url, as_text: true, }, function(text)
+            {
+                fs9p.OnJSONLoaded(text);
+            });
+        }
     }
 
     var initial_state_buffer;
