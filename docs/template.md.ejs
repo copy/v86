@@ -77,7 +77,7 @@ docfiles.forEach(function(doc)
 
         comment.paramTags.forEach(function(paramTag, i) 
         {
-          ?><?= (i + 1) + ". **`" + paramTag.joinedTypes + "`** " + paramTag.name + " " + (paramTag.description ? "– " + paramTag.description : "") + "\n" ?><?
+          ?><?= (i + 1) + ". **`" + paramTag.joinedTypes + "`** " + (paramTag.optional ? "(optional) " : "") + paramTag.name + " " + (paramTag.description ? "– " + paramTag.description : "") + "\n" ?><?
         });
       }
 
