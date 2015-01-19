@@ -647,6 +647,11 @@ V86Starter.prototype.create_file = function(file, data, callback)
 {
     var fs = this.fs9p;
 
+    if(!fs)
+    {
+        return;
+    }
+
     var parts = file.split("/");
     var filename = parts[parts.length - 1];
 
@@ -682,6 +687,12 @@ V86Starter.prototype.create_file = function(file, data, callback)
 V86Starter.prototype.read_file = function(file, callback)
 {
     var fs = this.fs9p;
+
+    if(!fs)
+    {
+        return;
+    }
+
     var path_infos = fs.SearchPath(file);
     var id = path_infos.id;
 
