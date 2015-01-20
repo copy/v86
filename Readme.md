@@ -81,16 +81,22 @@ How to build, run and embed?
 - If you want only want to embed v86 on website you can use libv86.js. For
   usage, check out the [API](docs/api.md) and [examples](docs/samples/).
 - A couple of disk images are provided for testing. You can check them out
-  using `git submodule update --init --recursive images`.
+  using `wget -P images/ http://copy.sh/v86/images/{linux.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}`.
 
 
 **Summary:**
 
 ```bash
-git clone https://github.com/copy/v86.git                     # grab the main repo
+# grab the main repo
+git clone https://github.com/copy/v86.git                     
+
 cd v86
-git submodule update --init --recursive images                # get the disk images
-git submodule update --init --recursive closure-compiler      # fetch the disk images
+
+# grab the disk images
+wget -P images/ http://copy.sh/v86/images/{linux.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}
+
+# grab closure compiler
+git submodule update --init --recursive closure-compiler
 ```
 
 Rebuild compiled version:
