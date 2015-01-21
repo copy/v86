@@ -8,6 +8,8 @@ function readfile(path)
     return new Uint8Array(fs.readFileSync(path)).buffer;
 }
 
+console.log("Use F2 to save the state and F3 to restore.");
+
 var bios = readfile(__dirname + "/../../bios/seabios.bin");
 var linux = readfile(__dirname + "/../../images/linux.iso");
 
@@ -21,6 +23,8 @@ emulator.add_listener("serial0-output-char", function(chr)
 {
     process.stdout.write(chr);
 });
+
+console.log("Now booting, please stand by ...");
 
 process.stdin.setRawMode(true);
 process.stdin.resume();
