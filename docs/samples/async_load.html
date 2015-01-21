@@ -25,8 +25,11 @@ window.onload = function()
         },
         cdrom: {
             url: "https://dl.dropboxusercontent.com/u/61029208/dsl-4.11.rc2.iso",
-            size: 52824064,
             async: true,
+
+            // size can be determined automatically, but costs an extra request
+            // and might not work reliably
+            size: 52824064,
         },
         autostart: true,
     });
