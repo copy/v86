@@ -262,6 +262,14 @@
                 },
                 name: "Sol OS",
             },
+            {
+                id: "dsl",
+                cdrom: {
+                    "url": "https://dl.dropboxusercontent.com/u/61029208/dsl-4.11.rc2.iso",
+                    "async": true,
+                },
+                name: "Damn Small Linux",
+            },
         ];
 
         var query_args = get_query_arguments();
