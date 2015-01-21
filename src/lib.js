@@ -58,7 +58,14 @@ function SyncBuffer(buffer)
 {
     this.buffer = buffer;
     this.byteLength = buffer.byteLength;
+    this.onload = undefined;
+    this.onprogress = undefined;
 }
+
+SyncBuffer.prototype.load = function()
+{
+    this.onload && this.onload({ buffer: this.buffer });
+};
 
 /** 
  * @param {number} start
@@ -67,9 +74,7 @@ function SyncBuffer(buffer)
  */
 SyncBuffer.prototype.get = function(start, len, fn)
 {
-    // warning: fn may be called synchronously or asynchronously
-    dbg_assert(start + len <= this.buffer.byteLength);
-
+    dbg_assert(start + len <= this.byteLength);
     fn(new Uint8Array(this.buffer, start, len));
 };
 
@@ -80,7 +85,7 @@ SyncBuffer.prototype.get = function(start, len, fn)
  */
 SyncBuffer.prototype.set = function(start, slice, fn)
 {
-    dbg_assert(start + slice.length <= this.buffer.byteLength);
+    dbg_assert(start + slice.byteLength <= this.byteLength);
 
     new Uint8Array(this.buffer, start, slice.byteLength).set(slice);
     fn();
