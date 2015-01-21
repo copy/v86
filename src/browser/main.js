@@ -292,6 +292,46 @@
             }.bind(this, infos, element);
         }
 
+        if(profile === "custom")
+        {
+            if(query_args["hda.url"])
+            {
+                settings.hda = {
+                    "size": parseInt(query_args["hda.size"], 10) || undefined,
+                    "url": query_args["hda.url"],
+                    "async": true,
+                };
+            }
+
+            if(query_args["cdrom.url"])
+            {
+                settings.cdrom = {
+                    "size": parseInt(query_args["cdrom.size"], 10) || undefined,
+                    "url": query_args["cdrom.url"],
+                    "async": true,
+                };
+            }
+
+            if(query_args["fda.url"])
+            {
+                settings.fda = {
+                    "size": parseInt(query_args["fda.size"], 10) || undefined,
+                    "url": query_args["fda.url"],
+                    "async": true,
+                };
+            }
+
+            if(settings.fda || settings.cdrom || settings.hda)
+            {
+                $("boot_options").style.display = "none";
+
+                start_emulation({ 
+                    settings: settings, 
+                    done: done,
+                });
+            }
+        }
+
         function start_profile(infos)
         {
             $("boot_options").style.display = "none";
@@ -326,16 +366,18 @@
 
             start_emulation({ 
                 settings: settings, 
-                done: function(emulator)
-                {
-                    emulator.run();
-
-                    if(query_args["c"])
-                    {
-                        emulator.serial0_send(query_args["c"] + "\n");
-                    }
-                }
+                done: done,
             });
+        }
+
+        function done(emulator)
+        {
+            emulator.run();
+
+            if(query_args["c"])
+            {
+                emulator.serial0_send(query_args["c"] + "\n");
+            }
         }
     }
 
