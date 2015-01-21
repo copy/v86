@@ -747,7 +747,10 @@
                 {
                     obj.get_buffer(function(b)
                     {
-                        dump_file(b, type + ".img");
+                        if(b)
+                        {
+                            dump_file(b, type + ".img");
+                        }
                     });
 
                     this.blur();
