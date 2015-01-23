@@ -679,11 +679,11 @@ CPU.prototype.bcd_aam = function()
 CPU.prototype.bcd_aad = function()
 {
     //dbg_log("aad");
-    // ascii adjust after division
+    // ascii adjust before division
     var imm8 = this.read_imm8();
 
-    this.last_result = this.reg8[reg_al] + this.reg8[reg_ah] * imm8;
-    this.reg16[reg_ax] = this.last_result & 0xFF;
+    this.last_result = this.reg8[reg_al] + this.reg8[reg_ah] * imm8 & 0xFF;
+    this.reg16[reg_ax] = this.last_result;
     this.last_op_size = OPSIZE_8;
 
     this.flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
