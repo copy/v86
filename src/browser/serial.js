@@ -90,7 +90,7 @@ function SerialAdapter(element, bus)
             return;
         }
 
-        var chr = e.keyCode;
+        var chr = e.which;
 
         serial.send_char(chr);
         e.preventDefault();
@@ -98,7 +98,7 @@ function SerialAdapter(element, bus)
 
     function keydown_handler(e)
     {
-        var chr = e.keyCode;
+        var chr = e.which;
 
         if(chr === 8)
         {
