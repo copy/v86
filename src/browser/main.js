@@ -504,7 +504,19 @@
         var biosfile = DEBUG ? "seabios-debug.bin" : "seabios.bin";
         var vgabiosfile = DEBUG ? "vgabios-0.7a.debug.bin" : "bochs-vgabios-0.7a.bin";
 
-        
+        var bios;
+        var vga_bios;
+
+        if(!settings.initial_state)
+        {
+            bios = {
+                "url": BIOSPATH + biosfile,
+            };
+            vga_bios = {
+                "url": BIOSPATH + vgabiosfile,
+            };
+        }
+
         var emulator = new V86Starter({
             "memory_size": memory_size,
             "vga_memory_size": vga_memory_size,
@@ -517,12 +529,8 @@
             "network_relay_url": "ws://relay.widgetry.org/",
             //"network_relay_url": "ws://localhost:8001/",
 
-            "bios": {
-                "url": BIOSPATH + biosfile,
-            },
-            "vga_bios": {
-                "url": BIOSPATH + vgabiosfile,
-            },
+            "bios": bios,
+            "vga_bios": vga_bios,
 
             "fda": settings.fda,
             "hda": settings.hda,
