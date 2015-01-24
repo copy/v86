@@ -110,8 +110,7 @@ function SerialAdapter(element, bus)
 
     function paste_handler(e)
     {
-        //console.log(e.clipboardData.getData('text/plain'));
-        var data = e.clipboardData.getData('text/plain');
+        var data = e.clipboardData.getData("text/plain");
 
         for(var i = 0; i < data.length; i++)
         {
