@@ -124,7 +124,6 @@ function V86Starter(options)
     {
         this.serial_adapter = new SerialAdapter(options["serial_container"], adapter_bus);
     }
-    //settings.serial_adapter = new ModemAdapter();
     
 
     // ugly, but required for closure compiler compilation
@@ -147,79 +146,58 @@ function V86Starter(options)
             case "fdb":
                 settings.fdb = buffer;
                 break;
+
             case "bios":
-                settings.bios = buffer;
+                settings.bios = buffer.buffer;
                 break;
             case "vga_bios":
-                settings.vga_bios = buffer;
+                settings.vga_bios = buffer.buffer;
+                break;
+            case "initial_state":
+                settings.initial_state = buffer.buffer;
+                break;
+            case "fs9p_json":
+                settings.fs9p_json = buffer.buffer;
                 break;
             default:
                 dbg_assert(false, name);
         }
     }
 
-
     var files_to_load = [];
 
-    /**
-     * @param {boolean=} no_async
-     * @ignore
-     */
-    function add_file(file, handler, no_async)
+    function add_file(name, file)
     {
         if(!file)
         {
             return;
         }
 
-        // anything coming from the outside world needs to be quoted for
+        // Anything coming from the outside world needs to be quoted for
         // Closure Compiler compilation
         file = {
             buffer: file["buffer"],
             async: file["async"],
             url: file["url"],
             size: file["size"],
-            as_text: file.as_text,
         };
 
-        if(file.buffer)
+        if(name === "bios" || name === "vga_bios" || name === "initial_state")
         {
-            console.assert(
-                file.buffer instanceof ArrayBuffer || 
-                    (typeof File !== "undefined" && file.buffer instanceof File),
-                "buffer should be ArrayBuffer or File"
-            );
-            handler(file.buffer);
+            // Ignore async for these because they must be availabe before boot.
+            // This should make result.buffer available after the object is loaded
+            file.async = false;
         }
-        else if(file.url)
-        {
-            if(file.async && !no_async)
-            {
-                handler(file);
-            }
-            else
-            {
-                files_to_load.push({
-                    url: file.url,
-                    handler: handler,
-                    size: file.size,
-                    as_text: file.as_text,
-                });
-            }
-        }
-        else
-        {
-            dbg_log("Ignored file: url=" + file.url + " buffer=" + file.buffer);
-        }
-    }
 
-    function make_buffer_object(name, result)
-    {
-        if(result instanceof ArrayBuffer)
+        if(file.buffer instanceof ArrayBuffer)
         {
-            var buffer = new SyncBuffer(result);
+            var buffer = new SyncBuffer(file.buffer);
+            files_to_load.push({
+                name: name,
+                loadable: buffer,
+            });
         }
-        else if(result instanceof File)
+        else if(file.buffer instanceof File)
         {
             // SyncFileBuffer:
             // - loads the whole disk image into memory, impossible for large files (more than 1GB)
@@ -231,88 +209,112 @@ function V86Starter(options)
             // - slower get/set
 
             // Heuristics: If file is smaller than 16M, use SyncFileBuffer
-            if(result.size < 16 * 1024 * 1024)
+            if(file.async === undefined)
             {
-                var buffer = new v86util.SyncFileBuffer(result);
-                buffer.load();
+                file.async = file.buffer.size < 16 * 1024 * 1024;
+            }
+
+            if(file.async)
+            {
+                var buffer = new v86util.SyncFileBuffer(file.buffer);
             }
             else
             {
-                var buffer = new v86util.AsyncFileBuffer(result);
+                var buffer = new v86util.AsyncFileBuffer(file.buffer);
             }
+
+            files_to_load.push({
+                name: name,
+                loadable: buffer,
+            });
         }
-        else if(result.url && result.async)
+        else if(file.url)
         {
-            console.assert(
-                typeof result.size === "number", 
-                "Size must be specified for asynchronous remote buffer: " + name
-            );
-            var buffer = new v86util.AsyncXHRBuffer(result.url, 512, result.size);
+            if(file.async)
+            {
+                var buffer = new v86util.AsyncXHRBuffer(file.url, file.size);
+                files_to_load.push({
+                    name: name,
+                    loadable: buffer,
+                });
+            }
+            else
+            {
+                files_to_load.push({
+                    name: name,
+                    url: file.url,
+                });
+            }
         }
         else
         {
-            console.assert(false);
+            dbg_log("Ignored file: url=" + file.url + " buffer=" + file.buffer);
         }
-
-        put_on_settings(name, buffer);
     }
 
-    add_file(options["bios"], put_on_settings.bind(this, "bios"), true);
-    add_file(options["vga_bios"], put_on_settings.bind(this, "vga_bios"), true);
+    var image_names = [
+        "bios", "vga_bios", 
+        "cdrom", "hda", "hdb", "fda", "fdb",
+        "initial_state",
+    ];
 
-    add_file(options["cdrom"], make_buffer_object.bind(this, "cdrom"));
-    add_file(options["hda"], make_buffer_object.bind(this, "hda"));
-    add_file(options["hdb"], make_buffer_object.bind(this, "hdb"));
-    add_file(options["fda"], make_buffer_object.bind(this, "fda"));
-    add_file(options["fdb"], make_buffer_object.bind(this, "fdb"));
+    for(var i = 0; i < image_names.length; i++)
+    {
+        add_file(image_names[i], options[image_names[i]]);
+    }
 
     if(options["filesystem"])
     {
         var fs_url = options["filesystem"]["basefs"];
         var base_url = options["filesystem"]["baseurl"];
 
-        var fs9p = new FS(base_url);
-
-        settings.fs9p = fs9p;
-        this.fs9p = fs9p;
+        this.fs9p = new FS(base_url);
+        settings.fs9p = this.fs9p;
 
         if(fs_url)
         {
             console.assert(base_url, "Filesystem: baseurl must be specified");
 
-            add_file({ url: fs_url, as_text: true, }, function(text)
-            {
-                fs9p.OnJSONLoaded(text);
+            files_to_load.push({
+                name: "fs9p_json",
+                url: fs_url,
+                as_text: true,
             });
         }
     }
 
-    var initial_state_buffer;
-    if(options["initial_state"])
-    {
-        add_file(options["initial_state"], function(buffer)
-        {
-            initial_state_buffer = buffer;
-        });
-    }
-
     var starter = this;
+    var total = files_to_load.length;
+
     cont(0);
 
     function cont(index)
     {
-        var total = files_to_load.length;
-
-        if(index < total)
+        if(index === total)
         {
-            var f = files_to_load[index];
+            done();
+            return;
+        }
 
+        var f = files_to_load[index];
+
+        if(f.loadable)
+        {
+            f.loadable.onload = function(e)
+            {
+                put_on_settings(f.name, f.loadable);
+                cont(index + 1);
+            }
+            f.loadable.load();
+        }
+        else
+        {
             v86util.load_file(f.url, {
                 done: function done(result)
                 {
-                    f.handler(result);
+                    put_on_settings(f.name, new SyncBuffer(result));
                     cont(index + 1);
-                }, 
+                },
                 progress: function progress(e)
                 {
                     starter.emulator_bus.send("download-progress", {
@@ -327,19 +329,25 @@ function V86Starter(options)
                 as_text: f.as_text,
             });
         }
-        else
+    }
+
+    function done()
+    {
+        emulator.init(settings);
+
+        if(settings.initial_state)
         {
-            emulator.init(settings);
+            emulator.restore_state(settings.initial_state);
+        }
 
-            if(initial_state_buffer)
-            {
-                emulator.restore_state(initial_state_buffer);
-            }
+        if(settings.fs9p)
+        {
+            settings.fs9p.OnJSONLoaded(settings.fs9p_json);
+        }
 
-            if(options["autostart"])
-            {
-                emulator.run();
-            }
+        if(options["autostart"])
+        {
+            emulator.run();
         }
     }
 }
