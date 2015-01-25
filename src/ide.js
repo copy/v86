@@ -1283,7 +1283,10 @@ IDEDevice.prototype.get_chs = function()
 
 IDEDevice.prototype.get_lba28 = function()
 {
-    return this.sector & 0xFF | this.cylinder_low << 8 & 0xFF00 | this.cylinder_high << 16 & 0xFF0000;
+    return this.sector & 0xFF | 
+            this.cylinder_low << 8 & 0xFF00 | 
+            this.cylinder_high << 16 & 0xFF0000 | 
+            this.head << 24;
 };
 
 IDEDevice.prototype.get_lba48 = function()
