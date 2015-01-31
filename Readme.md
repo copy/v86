@@ -73,8 +73,7 @@ How to build, run and embed?
 - In order to build the `cpu.js` file, you need `make` and `cpp` (the C preprocessor).
   Run: `make build/cpu.js`.
 - If you want a compressed and fast (i.e. with debug code removed) version, you
-  need Closure Compiler. Pull the submodule using 
-  `git submodule update --init --recursive closure-compiler` and run `make build/v86_all.js`.
+  need Closure Compiler. Download it as shown below and run `make build/v86_all.js`.
 - ROM and disk images are loaded via XHR, so if you want to try out `index.html`
   locally, make sure to serve it from a local webserver. You can use `make run`
   to serve the files using Python's SimpleHTTPServer.
@@ -96,7 +95,10 @@ cd v86
 wget -P images/ http://copy.sh/v86/images/{linux.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}
 
 # grab closure compiler
-git submodule update --init --recursive closure-compiler
+wget -P closure-compiler http://dl.google.com/closure-compiler/compiler-latest.zip
+cd closure-compiler
+unzip compiler-latest.zip compiler.jar
+rm compiler-latest.zip
 ```
 
 Rebuild compiled version:
