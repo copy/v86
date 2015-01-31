@@ -785,6 +785,11 @@ else if(typeof module !== "undefined" && typeof module.exports !== "undefined")
 {
     module.exports["V86Starter"] = V86Starter;
 }
+else if(typeof importScripts === "function")
+{
+    // web worker
+    self["V86Starter"] = V86Starter;
+}
 
 V86Starter.prototype["run"] = V86Starter.prototype.run;
 V86Starter.prototype["stop"] = V86Starter.prototype.stop;
