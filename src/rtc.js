@@ -186,6 +186,10 @@ RTC.prototype.cmos_read = function()
             // bootflag 2, both nibbles, high and middle priority
             return this.boot_order & 0xFF; 
 
+        case 0x39:
+            // disk translation translation -> lba
+            return 1;
+
         case 0x5B:
         case 0x5C:
         case 0x5D:
