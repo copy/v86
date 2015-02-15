@@ -395,7 +395,15 @@ op(0x62, {
 });
 opm(0x63, { 
     // arpl
-    write_ev16(cpu.arpl(data, modrm_byte >> 2 & 14));
+    dbg_log("arpl", LOG_CPU);
+    if(cpu.protected_mode && !cpu.vm86_mode())
+    {
+        write_ev16(cpu.arpl(data, modrm_byte >> 2 & 14));
+    }
+    else
+    {
+        cpu.trigger_ud();
+    }
 });
 
 op(0x64, { cpu.seg_prefix(reg_fs); });
@@ -725,6 +733,14 @@ op2(0x9A, {
     var new_ip = cpu.read_imm32s();
     var new_cs = cpu.read_imm16();
 
+    if(!cpu.protected_mode || cpu.vm86_mode())
+    {
+        if(new_ip & 0xFFFF0000)
+        {
+            throw cpu.debug.unimpl("#GP handler");
+        }
+    }
+
     cpu.writable_or_pagefault(cpu.get_stack_pointer(-8), 8);
     cpu.push32(cpu.sreg[reg_cs]);
     cpu.push32(cpu.get_real_eip());
@@ -776,7 +792,7 @@ op2(0x9C, {
     {
         cpu.load_eflags();
         // vm and rf flag are cleared in image stored on the stack
-        cpu.push32(cpu.flags & ~flag_vm & ~flag_rf);
+        cpu.push32(cpu.flags & 0x00FCFFFF);
     }
 });
 op2(0x9D, {
@@ -1566,7 +1582,7 @@ opm2(0xFF, {
 #define table32 table0F_32
 
 opm(0x00, {
-    if(!cpu.protected_mode)
+    if(!cpu.protected_mode || cpu.vm86_mode())
     {
         // No GP, UD is correct here
         cpu.trigger_ud();
@@ -1711,11 +1727,23 @@ opm(0x01, {
 
 opm(0x02, {
     // lar
+    dbg_log("lar", LOG_CPU);
+    if(!cpu.protected_mode || cpu.vm86_mode())
+    {
+        cpu.trigger_ud();
+    }
+
     todo();
 });
 
 opm(0x03, {
     // lsl
+    dbg_log("lsl", LOG_CPU);
+    if(!cpu.protected_mode || cpu.vm86_mode())
+    {
+        cpu.trigger_ud();
+    }
+
     todo();
 });
 
@@ -1950,6 +1978,7 @@ op(0x30, {
     
     if(cpu.cpl)
     {
+        // cpl > 0 or vm86 mode (vm86 mode is always runs with cpl=3)
         cpu.trigger_gp(0);
     }
 
@@ -1997,7 +2026,6 @@ op(0x31, {
 
 op(0x32, {
     // rdmsr - read maschine specific register
-
     if(cpu.cpl)
     {
         cpu.trigger_gp(0);
