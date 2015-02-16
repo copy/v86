@@ -164,7 +164,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     var io = cpu.io;
         
     io.register_write(0x3C0, this, this.port3C0_write);
-    io.register_read(0x3C0, this, this.port3C0_read);
+    io.register_read(0x3C0, this, this.port3C0_read, this.port3C0_read16);
 
     io.register_read(0x3C1, this, this.port3C1_read);
     io.register_write(0x3C2, this, this.port3C2_write);
@@ -884,6 +884,12 @@ VGAScreen.prototype.port3C0_read = function()
     var result = this.attribute_controller_index;
     this.attribute_controller_index = -1;
     return result;
+};
+
+VGAScreen.prototype.port3C0_read16 = function()
+{
+    dbg_log("3C0 read16", LOG_VGA);
+    return this.port3C0_read() & 0xFF | this.port3C1_read() << 8 & 0xFF00;
 };
 
 VGAScreen.prototype.port3C1_read = function()
