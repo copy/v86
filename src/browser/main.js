@@ -117,7 +117,7 @@
 
         if(!el)
         {
-            console.log("Element with id `" + id + "` not found");
+            dbg_log("Element with id `" + id + "` not found");
         }
 
         return el;
