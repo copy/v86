@@ -2,6 +2,9 @@
 
 (function()
 {
+    /** @const */
+    var ON_LOCALHOST = location.host.indexOf(".") === -1;
+
     function dump_file(ab, name)
     {
         var blob = new Blob([ab]);
@@ -240,6 +243,16 @@
             },
             {
                 id: "kolibrios",
+                fda: {
+                    "url": ON_LOCALHOST ? 
+                            "images/kolibri.img" : 
+                            "http://builds.kolibrios.org/eng/data/data/kolibri.img",
+                    "size": 1474560,
+                },
+                name: "KolibriOS",
+            },
+            {
+                id: "kolibrios-fallback",
                 fda: {
                     "url": "images/kolibri.img",
                     "size": 1474560,
