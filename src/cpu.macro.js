@@ -2266,6 +2266,53 @@ CPU.prototype.arpl = function(seg, r16)
     }
 };
 
+CPU.prototype.lar = function(selector, original)
+{
+    /** @const */
+    var LAR_INVALID_TYPE = 1 << 0 | 1 << 6 | 1 << 7 | 1 << 8 | 1 << 0xA | 
+                           1 << 0xD | 1 << 0xE | 1 << 0xF;
+
+    var info = this.lookup_segment_selector(selector);
+    this.flags_changed &= ~flag_zero;
+
+    if(info.is_null || !info.is_valid ||
+       (LAR_INVALID_TYPE >> info.type & 1)
+    ) {
+        this.flags &= ~flag_zero;
+        return original;
+    }
+    else
+    {
+        this.flags |= flag_zero;
+        return info.type << 8 | info.size << 12 | info.dpl << 13 |
+                info.is_present << 15 | 
+                info.flags << 20;
+    }
+
+};
+
+CPU.prototype.lsl = function(selector, original)
+{
+    /** @const */
+    var LSL_INVALID_TYPE = 1 << 0 | 1 << 4 | 1 << 5 | 1 << 6 | 1 << 8 | 
+                           1 << 0xA | 1 << 0xC | 1 << 0xD | 1 << 0xE | 1 << 0xF;
+
+    var info = this.lookup_segment_selector(selector);
+    this.flags_changed &= ~flag_zero;
+
+    if(info.is_null || !info.is_valid ||
+       (LSL_INVALID_TYPE >> info.type & 1)
+    ) {
+        this.flags &= ~flag_zero;
+        return original;
+    }
+    else
+    {
+        this.flags |= flag_zero;
+        return info.effective_limit | 0;
+    }
+
+};
 
 CPU.prototype.clear_tlb = function()
 {

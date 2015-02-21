@@ -1725,26 +1725,42 @@ opm(0x01, {
     }
 });
 
-opm(0x02, {
+opm2(0x02, {
     // lar
     dbg_log("lar", LOG_CPU);
     if(!cpu.protected_mode || cpu.vm86_mode())
     {
         cpu.trigger_ud();
     }
-
-    todo();
+    read_e16; 
+    reg_g16 = cpu.lar(data, reg_g16);
+}, {
+    dbg_log("lar", LOG_CPU);
+    if(!cpu.protected_mode || cpu.vm86_mode())
+    {
+        cpu.trigger_ud();
+    }
+    read_e16; 
+    reg_g32s = cpu.lar(data, reg_g32s);
 });
 
-opm(0x03, {
+opm2(0x03, {
     // lsl
     dbg_log("lsl", LOG_CPU);
     if(!cpu.protected_mode || cpu.vm86_mode())
     {
         cpu.trigger_ud();
     }
-
-    todo();
+    read_e16; 
+    reg_g16 = cpu.lsl(data, reg_g16);
+}, {
+    dbg_log("lsl", LOG_CPU);
+    if(!cpu.protected_mode || cpu.vm86_mode())
+    {
+        cpu.trigger_ud();
+    }
+    read_e16; 
+    reg_g32s = cpu.lsl(data, reg_g32s);
 });
 
 undefined_instruction(0x04);
