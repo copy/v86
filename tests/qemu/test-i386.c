@@ -1442,7 +1442,6 @@ void test_segs(void)
                  : "m" (segoff));
     printf("FS:reg = %04x:%08x\n", res2, res);
 
-#if 0
     TEST_LR("larw", "w", MK_SEL(2), 0x0100);
     TEST_LR("larl", "", MK_SEL(2), 0x0100);
     TEST_LR("lslw", "w", MK_SEL(2), 0);
@@ -1452,7 +1451,6 @@ void test_segs(void)
     TEST_LR("larl", "", 0xfff8, 0);
     TEST_LR("lslw", "w", 0xfff8, 0);
     TEST_LR("lsll", "", 0xfff8, 0);
-#endif
 
     TEST_ARPL("arpl", "w", 0x12345678 | 3, 0x762123c | 1);
     TEST_ARPL("arpl", "w", 0x12345678 | 1, 0x762123c | 3);
