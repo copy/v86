@@ -1,6 +1,10 @@
 "use strict";
 
-/** @constructor */
+/** 
+ * @constructor 
+ *
+ * @param {CPU} cpu
+ */
 function FloppyController(cpu, fda_image, fdb_image)
 {
     /** @const */
@@ -56,7 +60,12 @@ function FloppyController(cpu, fda_image, fdb_image)
 
     if(!fda_image)
     {
-        this.type = 4;
+        cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, 4 << 4);
+        //this.io.register_read(0x3F4, this, function()
+        //{
+        //    return 0xFF;
+        //});
+
         return;
     }
 
@@ -85,7 +94,7 @@ function FloppyController(cpu, fda_image, fdb_image)
 
     if(floppy_type && (this.floppy_size & 0x3FF) === 0)
     {
-        this.type = floppy_type.type;
+        cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, floppy_type.type << 4);
 
         sectors_per_track = floppy_type.sectors;
         number_of_heads = floppy_type.heads;

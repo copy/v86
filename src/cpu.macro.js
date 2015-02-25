@@ -476,6 +476,9 @@ CPU.prototype.init = function(settings, device_bus)
     {
         this.devices.pic = new PIC(this);
 
+        this.devices.rtc = new RTC(this);
+        this.fill_cmos(this.devices.rtc, settings);
+
         this.devices.pci = new PCI(this);
         this.devices.dma = new DMA(this);
 
@@ -515,7 +518,6 @@ CPU.prototype.init = function(settings, device_bus)
         //}
 
         this.devices.pit = new PIT(this);
-        this.devices.rtc = new RTC(this, this.devices.fdc.type, settings.boot_order || 0x213);
 
         if(settings.enable_ne2k)
         {
@@ -532,6 +534,37 @@ CPU.prototype.init = function(settings, device_bus)
     {
         this.debug.init();
     }
+};
+
+CPU.prototype.fill_cmos = function(rtc, settings)
+{
+    var boot_order = settings.boot_order || 0x213;
+
+    // Used by seabios to determine the boot order
+    //   Nibble
+    //   1: FloppyPrio 
+    //   2: HDPrio 
+    //   3: CDPrio 
+    //   4: BEVPrio 
+    // bootflag 1, high nibble, lowest priority
+    // Low nibble: Disable floppy signature check (1)
+    this.devices.rtc.cmos_write(CMOS_BIOS_BOOTFLAG1 , 1 | boot_order >> 4 & 0xF0);
+
+    // bootflag 2, both nibbles, high and middle priority
+    this.devices.rtc.cmos_write(CMOS_BIOS_BOOTFLAG2, boot_order & 0xFF);
+
+    var memory_above_16m = this.memory_size - 16 * 1024 * 1024;
+    this.devices.rtc.cmos_write(CMOS_MEM_EXTMEM2_LOW, 
+            memory_above_16m >> 16 & 0xFF);
+    this.devices.rtc.cmos_write(CMOS_MEM_EXTMEM2_HIGH, 
+            memory_above_16m >> 24 & 0xFF);
+
+    // memory above 4G
+    this.devices.rtc.cmos_write(CMOS_MEM_HIGHMEM_LOW, 0);
+    this.devices.rtc.cmos_write(CMOS_MEM_HIGHMEM_MID, 0);
+    this.devices.rtc.cmos_write(CMOS_MEM_HIGHMEM_HIGH, 0);
+
+    this.devices.rtc.cmos_write(CMOS_EQUIPMENT_INFO, 0x2D);
 };
 
 CPU.prototype.load_bios = function()
@@ -652,6 +685,7 @@ CPU.prototype.cycle = function()
     { 
         this.debug.logop(this.instruction_pointer - 1 >>> 0, opcode); 
     }
+
 
     // call the instruction
     this.table[opcode](this);
