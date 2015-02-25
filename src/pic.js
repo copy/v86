@@ -5,6 +5,7 @@
  * http://stanislavs.org/helppc/8259.html
  *
  * @constructor
+ * @param {CPU} cpu
  * @param {PIC=} master
  */
 function PIC(cpu, master)

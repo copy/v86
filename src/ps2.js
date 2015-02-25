@@ -2,6 +2,8 @@
 
 /**
  * @constructor
+ * @param {CPU} cpu
+ * @param {Bus.Connector} bus
  */
 function PS2(cpu, bus)
 {

@@ -5,6 +5,7 @@
  * Devices register their ports here
  *
  * @constructor
+ * @param {Memory} memory
  */
 function IO(memory)
 {
@@ -92,7 +93,7 @@ IO.prototype.empty_port_write = function(x)
 /**
  * @param {number} port_addr
  * @param {Object} device
- * @param {function():number} r8
+ * @param {function():number=} r8
  * @param {function():number=} r16
  * @param {function():number=} r32
  */
@@ -125,7 +126,7 @@ IO.prototype.register_read = function(port_addr, device, r8, r16, r32)
 /**
  * @param {number} port_addr
  * @param {Object} device
- * @param {function(number)} w8
+ * @param {function(number)=} w8
  * @param {function(number)=} w16
  * @param {function(number)=} w32
  */
@@ -154,7 +155,7 @@ IO.prototype.register_write = function(port_addr, device, w8, w16, w32)
     this.ports[port_addr].device = device;
 };
 
-/*
+/**
  * > Any two consecutive 8-bit ports can be treated as a 16-bit port;
  * > and four consecutive 8-bit ports can be treated as a 32-bit port
  * > http://css.csail.mit.edu/6.858/2012/readings/i386/s08_01.htm
@@ -163,6 +164,13 @@ IO.prototype.register_write = function(port_addr, device, w8, w16, w32)
  *
  * Register the write of 2 or 4 consecutive 8-bit ports, 1 or 2 16-bit
  * ports and 0 or 1 32-bit ports
+ *
+ * @param {number} port_addr
+ * @param {!Object} device
+ * @param {function():number} r8_1
+ * @param {function():number} r8_2
+ * @param {function():number=} r8_3
+ * @param {function():number=} r8_4
  */
 IO.prototype.register_read_consecutive = function(port_addr, device, r8_1, r8_2, r8_3, r8_4)
 {
@@ -200,6 +208,14 @@ IO.prototype.register_read_consecutive = function(port_addr, device, r8_1, r8_2,
     }
 };
 
+/**
+ * @param {number} port_addr
+ * @param {!Object} device
+ * @param {function(number)} w8_1
+ * @param {function(number)} w8_2
+ * @param {function(number)=} w8_3
+ * @param {function(number)=} w8_4
+ */
 IO.prototype.register_write_consecutive = function(port_addr, device, w8_1, w8_2, w8_3, w8_4)
 {
     dbg_assert(arguments.length === 4 || arguments.length === 6);

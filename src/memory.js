@@ -2,6 +2,7 @@
 
 /**
  * @constructor
+ * @param {number} memory_size
  */
 function Memory(memory_size)
 {

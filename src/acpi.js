@@ -1,7 +1,10 @@
 "use strict";
 
 
-/** @constructor */
+/** 
+ * @constructor 
+ * @param {CPU} cpu
+ */
 function ACPI(cpu)
 {
     if(!ENABLE_ACPI)
@@ -61,12 +64,12 @@ function ACPI(cpu)
     });
 
     // ACPI status
-    io.register_read(0xb004, this, function(data)
+    io.register_read(0xb004, this, function()
     {
         dbg_log("b004 read");
         return 1;
     });
-    io.register_read(0xb005, this, function(data)
+    io.register_read(0xb005, this, function()
     {
         dbg_log("b005 read");
         return 0;

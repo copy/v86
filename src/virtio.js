@@ -1,7 +1,12 @@
 "use strict";
 
 
-/** @constructor */
+/** 
+ * @constructor 
+ * @param {CPU} cpu
+ * @param {Bus.Connector} bus
+ * @param {FS} filesystem
+ */
 function VirtIO(cpu, bus, filesystem)
 {
     // http://ozlabs.org/~rusty/virtio-spec/virtio-0.9.5.pdf

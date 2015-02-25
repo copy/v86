@@ -51,6 +51,7 @@ var
 
 /**
  * @constructor
+ * @param {CPU} cpu
  */
 function FPU(cpu)
 {

@@ -14,6 +14,7 @@ var HPET_ADDR = 0xFED00000,
  * http://wiki.osdev.org/HPET
  *
  * @constructor 
+ * @param {CPU} cpu
  */
 function HPET(cpu)
 {

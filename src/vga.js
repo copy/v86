@@ -20,6 +20,9 @@ var
 
 /**
  * @constructor
+ * @param {CPU} cpu
+ * @param {Bus.Connector} bus
+ * @param {number} vga_memory_size
  */
 function VGAScreen(cpu, bus, vga_memory_size)
 {

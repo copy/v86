@@ -17,7 +17,10 @@ var
 /** @const */ PCI_CONFIG_ADDRESS = 0xCF8,
 /** @const */ PCI_CONFIG_DATA = 0xCFC;
 
-/** @constructor */
+/** 
+ * @constructor 
+ * @param {CPU} cpu
+ */
 function PCI(cpu)
 {
     var

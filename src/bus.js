@@ -11,7 +11,7 @@ Bus.Connector = function()
 
 /**
  * @param {string} name
- * @param {function()} fn
+ * @param {function(*=)} fn
  * @param {Object} this_value
  */
 Bus.Connector.prototype.register = function(name, fn, this_value)
@@ -54,7 +54,7 @@ Bus.Connector.prototype.unregister = function(name, fn)
  * Send ("emit") a message
  *
  * @param {string} name
- * @param {Object=} value
+ * @param {*=} value
  */
 Bus.Connector.prototype.send = function(name, value)
 {

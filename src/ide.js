@@ -15,7 +15,13 @@ var /** @const */
     /** @const */
     IDE_CALLBACK_ATAPI = 2;
 
-/** @constructor */
+/** 
+ * @constructor 
+ * @param {CPU} cpu
+ * @param {boolean} is_cd
+ * @param {number} nr
+ * @param {Bus.Connector} bus
+ * */
 function IDEDevice(cpu, buffer, is_cd, nr, bus)
 {
     /** @const */

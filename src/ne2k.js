@@ -52,7 +52,11 @@
 /** @const */ var STOP_PAGE = 0x80;
 
 
-/** @constructor */
+/** 
+ * @constructor 
+ * @param {CPU} cpu
+ * @param {Bus.Connector} bus
+ */
 function Ne2k(cpu, bus)
 {
     /** @const */

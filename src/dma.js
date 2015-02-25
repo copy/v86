@@ -2,6 +2,7 @@
 
 /**
  * @constructor
+ * @param {CPU} dev
  */
 function DMA(dev)
 {

@@ -23,6 +23,9 @@ var DLAB = 0x80;
 
 /** 
  * @constructor 
+ * @param {CPU} cpu
+ * @param {number} port
+ * @param {Bus.Connector} bus
  */
 function UART(cpu, port, bus)
 {
