@@ -89,25 +89,41 @@ function Ne2k(cpu, bus)
 
     this.cr = 1;
 
+    this.dcfg = 0;
+
     this.port = 0xB800;
     this.irq = 0x0B;
 
     this.rcnt = 0;
-    this.remote_buffer = new Uint8Array(0);
-    this.remote_pointer = 0;
 
-    this.receive_buffer = new Uint8Array(256 * 0x80);
-    this.receiving_pointer = 0;
+    this.tcnt = 0;
+    this.tpsr = 0;
+    this.memory = new Uint8Array(256 * 0x80);
 
     // mac address
-    this.receive_buffer[0] = 0x00
-    this.receive_buffer[1] = 0x22;
-    this.receive_buffer[2] = 0x15;
-    this.receive_buffer[3] = Math.random() * 255 | 0;
-    this.receive_buffer[4] = Math.random() * 255 | 0;
-    this.receive_buffer[5] = Math.random() * 255 | 0;
+    var mac = [
+        0x00, 0x22, 0x15,
+        Math.random() * 255 | 0,
+        Math.random() * 255 | 0,
+        Math.random() * 255 | 0,
+    ];
+
+    for(var i = 0; i < 6; i++)
+    {
+        this.memory[i << 1] = this.memory[i << 1 | 1] = mac[i];
+    }
+
+    dbg_log("Mac: " + h(mac[0], 2) + ":" + 
+                      h(mac[1], 2) + ":" + 
+                      h(mac[2], 2) + ":" + 
+                      h(mac[3], 2) + ":" + 
+                      h(mac[4], 2) + ":" + 
+                      h(mac[5], 2), LOG_NET);
 
     this.rsar = 0;
+
+    this.pstart = START_PAGE;
+    this.pstop = STOP_PAGE;
 
     this.curpg = START_RX_PAGE;
     this.boundary = START_RX_PAGE;
@@ -122,14 +138,27 @@ function Ne2k(cpu, bus)
 
     io.register_write(this.port | E8390_CMD, this, function(data_byte)
     {
-        this.cr = data_byte | (this.cr & 4);
-        dbg_log("Write command: " + h(data_byte, 2), LOG_NET);
+        this.cr = data_byte & ~4;
+        dbg_log("Write command: " + h(data_byte, 2) + " newpg=" + (this.cr >> 6), LOG_NET);
 
-        this.remote_pointer = 0;
-
-        if(this.rcnt > this.remote_buffer.length)
+        if(this.cr & 1)
         {
-            this.remote_buffer = new Uint8Array(this.rcnt);
+            return;
+        }
+
+        if(data_byte & 4)
+        {
+            var start = this.tpsr << 8;
+            var data = this.memory.subarray(start, start + this.tcnt);
+            this.bus.send("net0-send", data);
+            this.do_interrupt(ENISR_TX);
+
+            if(this.rcnt === 0)
+            {
+                this.do_interrupt(ENISR_RDC);
+            }
+
+            dbg_log("Command: Transfer. length=" + h(data.byteLength), LOG_NET);
         }
     });
 
@@ -153,22 +182,22 @@ function Ne2k(cpu, bus)
 
     io.register_read(this.port | NE_RESET, this, function()
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             dbg_log("Read reset", LOG_NET);
             this.do_interrupt(ENISR_RESET);
-            return 0;
         }
         else
         {
             dbg_log("Read pg1/1f", LOG_NET);
         }
+        return 0;
     });
 
     io.register_write(this.port | NE_RESET, this, function(data_byte)
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             dbg_log("Write reset: " + h(data_byte, 2), LOG_NET);
@@ -180,9 +209,37 @@ function Ne2k(cpu, bus)
         }
     });
 
+    io.register_write(this.port | EN0_STARTPG, this, function(data_byte)
+    {
+        var pg = this.get_page();
+        if(pg === 0)
+        {
+            dbg_log("start page: " + h(data_byte, 2), LOG_NET);
+            this.pstart = data_byte;
+        }
+        else
+        {
+            dbg_log("pg1/1: " + h(data_byte, 2), LOG_NET);
+        }
+    });
+
+    io.register_write(this.port | EN0_STOPPG, this, function(data_byte)
+    {
+        var pg = this.get_page();
+        if(pg === 0)
+        {
+            dbg_log("stop page: " + h(data_byte, 2), LOG_NET);
+            this.pstop = data_byte;
+        }
+        else
+        {
+            dbg_log("pg1/2: " + h(data_byte, 2), LOG_NET);
+        }
+    });
+
     io.register_read(this.port | EN0_ISR, this, function()
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             dbg_log("Read isr: " + h(this.isr, 2), LOG_NET);
@@ -197,7 +254,7 @@ function Ne2k(cpu, bus)
 
     io.register_write(this.port | EN0_ISR, this, function(data_byte)
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             // acknoledge interrupts where bit is set
@@ -213,7 +270,7 @@ function Ne2k(cpu, bus)
 
     io.register_write(this.port | EN0_TXCR, this, function(data_byte)
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             dbg_log("Write tx config: " + h(data_byte, 2), LOG_NET);
@@ -226,10 +283,11 @@ function Ne2k(cpu, bus)
 
     io.register_write(this.port | EN0_DCFG, this, function(data_byte)
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             dbg_log("Write data configuration: " + h(data_byte, 2), LOG_NET);
+            this.dcfg = data_byte;
         }
         else
         {
@@ -239,7 +297,7 @@ function Ne2k(cpu, bus)
 
     io.register_write(this.port | EN0_RCNTLO, this, function(data_byte)
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             dbg_log("Write remote byte count low: " + h(data_byte, 2), LOG_NET);
@@ -253,7 +311,7 @@ function Ne2k(cpu, bus)
 
     io.register_write(this.port | EN0_RCNTHI, this, function(data_byte)
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             dbg_log("Write remote byte count high: " + h(data_byte, 2), LOG_NET);
@@ -267,7 +325,7 @@ function Ne2k(cpu, bus)
 
     io.register_write(this.port | EN0_RSARLO, this, function(data_byte)
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             dbg_log("Write remote start address low: " + h(data_byte, 2), LOG_NET);
@@ -281,7 +339,7 @@ function Ne2k(cpu, bus)
 
     io.register_write(this.port | EN0_RSARHI, this, function(data_byte)
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             dbg_log("Write start addresse count high: " + h(data_byte, 2), LOG_NET);
@@ -295,7 +353,7 @@ function Ne2k(cpu, bus)
 
     io.register_write(this.port | EN0_IMR, this, function(data_byte)
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             this.imr = data_byte;
@@ -309,7 +367,7 @@ function Ne2k(cpu, bus)
 
     io.register_read(this.port | EN0_BOUNDARY, this, function()
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             dbg_log("Read boundary: " + h(this.boundary, 2), LOG_NET);
@@ -324,7 +382,7 @@ function Ne2k(cpu, bus)
 
     io.register_write(this.port | EN0_BOUNDARY, this, function(data_byte)
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             dbg_log("Write boundary: " + h(data_byte, 2), LOG_NET);
@@ -338,7 +396,7 @@ function Ne2k(cpu, bus)
 
     io.register_read(this.port | EN0_TSR, this, function()
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             return 1 | 2 | 1 << 5; // transmit status ok
@@ -350,9 +408,51 @@ function Ne2k(cpu, bus)
         }
     });
 
+    io.register_write(this.port | EN0_TPSR, this, function(data_byte)
+    {
+        var pg = this.get_page();
+        if(pg === 0)
+        {
+            dbg_log("Write tpsr: " + h(data_byte, 2), LOG_NET);
+            this.tpsr = data_byte;
+        }
+        else
+        {
+            dbg_log("Write pg1/0x04 " + h(data_byte, 2), LOG_NET);
+        }
+    });
+
+    io.register_write(this.port | EN0_TCNTLO, this, function(data_byte)
+    {
+        var pg = this.get_page();
+        if(pg === 0)
+        {
+            dbg_log("Write tcnt low: " + h(data_byte, 2), LOG_NET);
+            this.tcnt = this.tcnt & ~0xFF | data_byte;
+        }
+        else
+        {
+            dbg_log("Write pg1/0x05 " + h(data_byte, 2), LOG_NET);
+        }
+    });
+
+    io.register_write(this.port | EN0_TCNTHI, this, function(data_byte)
+    {
+        var pg = this.get_page();
+        if(pg === 0)
+        {
+            dbg_log("Write tcnt high: " + h(data_byte, 2), LOG_NET);
+            this.tcnt = this.tcnt & 0xFF | data_byte << 8;
+        }
+        else
+        {
+            dbg_log("Write pg1/0x06 " + h(data_byte, 2), LOG_NET);
+        }
+    });
+
     io.register_read(this.port | EN0_RSR, this, function()
     {
-        var pg = this.cr & 0xC0;
+        var pg = this.get_page();
         if(pg === 0)
         {
             return 1 | 1 << 3; // receive status ok
@@ -364,8 +464,14 @@ function Ne2k(cpu, bus)
         }
     });
 
-    io.register_read(this.port | NE_DATAPORT | 0, this, this.data_port_read, this.data_port_read16, this.data_port_read32);
-    io.register_write(this.port | NE_DATAPORT | 0, this, this.data_port_write, this.data_port_write16, this.data_port_write32);
+    io.register_read(this.port | NE_DATAPORT | 0, this, 
+            this.data_port_read16, 
+            this.data_port_read16, 
+            this.data_port_read32);
+    io.register_write(this.port | NE_DATAPORT | 0, this, 
+            this.data_port_write16, 
+            this.data_port_write16, 
+            this.data_port_write32);
 
     this._state_skip = [
         this.bus,
@@ -386,28 +492,32 @@ Ne2k.prototype.do_interrupt = function(ir_mask)
 
 Ne2k.prototype.data_port_write = function(data_byte)
 {
-    dbg_log("Write data port: ptr=" + h(this.remote_pointer) + " rcnt=" + h(this.rcnt), LOG_NET);
-    this.remote_buffer[this.remote_pointer++] = data_byte;
+    dbg_log("Write data port: data=" + h(data_byte & 0xFF, 2) + 
+                            " rsar=" + h(this.rsar, 4) + 
+                            " rcnt=" + h(this.rcnt, 4), LOG_NET);
+    
+    this.rcnt--;
+    this.memory[this.rsar++] = data_byte;
 
-    if(this.remote_pointer === this.rcnt)
+    if(this.rsar >= (this.pstop << 8))
     {
-        var data = this.remote_buffer.subarray(0, this.rcnt);
-        dbg_log("Send buffer: " + [].slice.call(data), LOG_NET);
+        this.rsar += (this.pstart - this.pstop) << 8;
+    }
 
+    if(this.rcnt === 0)
+    {
         this.do_interrupt(ENISR_RDC);
-        this.cr &= ~4;
-
-        // Not technically correct but works (TM): 
-        // Send is done in another operation
-        this.bus.send("net0-send", data);
-        this.do_interrupt(ENISR_TX);
     }
 };
 
 Ne2k.prototype.data_port_write16 = function(data)
 {
     this.data_port_write(data);
-    this.data_port_write(data >> 8);
+
+    if(this.dcfg & 1)
+    {
+        this.data_port_write(data >> 8);
+    }
 };
 
 Ne2k.prototype.data_port_write32 = function(data)
@@ -420,16 +530,36 @@ Ne2k.prototype.data_port_write32 = function(data)
 
 Ne2k.prototype.data_port_read = function()
 {
-    var data = this.receive_buffer[this.rsar++];
+    var data = this.memory[this.rsar++];
 
-    dbg_log("Read data port: data=" + h(data, 2) + " rsar=" + h(this.rsar - 1, 2), LOG_NET);
+    dbg_log("Read data port: data=" + h(data, 2) + 
+                           " rsar=" + h(this.rsar - 1, 4) + 
+                           " rcnt=" + h(this.rcnt, 4), LOG_NET);
+    this.rcnt--;
+
+    if(this.rsar >= (this.pstop << 8))
+    {
+        this.rsar += (this.pstart - this.pstop) << 8;
+    }
+
+    if(this.rcnt === 0)
+    {
+        this.do_interrupt(ENISR_RDC);
+    }
 
     return data;
 };
 
 Ne2k.prototype.data_port_read16 = function()
 {
-    return this.data_port_read() | this.data_port_read() << 8;
+    if(this.dcfg & 1)
+    {
+        return this.data_port_read() | this.data_port_read() << 8;
+    }
+    else
+    {
+        return this.data_port_read();
+    }
 };
 
 Ne2k.prototype.data_port_read32 = function()
@@ -462,28 +592,31 @@ Ne2k.prototype.receive = function(data)
 
     var end = offset + total_length;
 
-    if(end > this.receive_buffer.length)
+    if(end > this.memory.length)
     {
-        var cut = this.receive_buffer.length - data_start;
-        this.receive_buffer.set(data.subarray(0, cut), data_start);
-        this.receive_buffer.set(data.subarray(cut), START_RX_PAGE);
+        // shouldn't happen because at this size it can't cross a page
+        dbg_assert(data.length >= 60);
+
+        var cut = this.memory.length - data_start;
+        this.memory.set(data.subarray(0, cut), data_start);
+        this.memory.set(data.subarray(cut), START_RX_PAGE);
         dbg_log("rcv cut=" + h(cut), LOG_NET);
     }
     else
     {
-        this.receive_buffer.set(data, data_start);
+        this.memory.set(data, data_start);
     }
 
-    if(next >= STOP_PAGE)
+    if(next >= this.pstop)
     {
-        next += START_RX_PAGE - STOP_PAGE;
+        next += this.pstart - this.pstop;
     }
 
     // write packet header
-    this.receive_buffer[offset] = ENRSR_RXOK; // status
-    this.receive_buffer[offset + 1] = next;
-    this.receive_buffer[offset + 2] = total_length;
-    this.receive_buffer[offset + 3] = total_length >> 8;
+    this.memory[offset] = ENRSR_RXOK; // status
+    this.memory[offset + 1] = next;
+    this.memory[offset + 2] = total_length;
+    this.memory[offset + 3] = total_length >> 8;
 
     this.curpg = next;
 
@@ -492,3 +625,7 @@ Ne2k.prototype.receive = function(data)
     this.do_interrupt(ENISR_RX);
 };
 
+Ne2k.prototype.get_page = function()
+{
+    return this.cr & 0xC0;
+};
