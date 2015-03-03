@@ -243,6 +243,7 @@ function V86Starter(options)
                 files_to_load.push({
                     name: name,
                     url: file.url,
+                    size: file.size,
                 });
             }
         }
