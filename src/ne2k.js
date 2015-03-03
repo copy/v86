@@ -151,6 +151,7 @@ function Ne2k(cpu, bus)
             var start = this.tpsr << 8;
             var data = this.memory.subarray(start, start + this.tcnt);
             this.bus.send("net0-send", data);
+            this.bus.send("eth-transmit-end", [data.length]);
             this.do_interrupt(ENISR_TX);
 
             if(this.rcnt === 0)
@@ -577,6 +578,8 @@ Ne2k.prototype.receive = function(data)
         // stop bit set
         return;
     }
+
+    this.bus.send("eth-receive-end", [data.length]);
 
     if(data.length < 60)
     {
