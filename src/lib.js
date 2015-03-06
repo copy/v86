@@ -36,18 +36,16 @@ v86util.pad0 = function(str, len)
  */
 function h(n, len)
 {
-    //dbg_assert(typeof n === "number");
-
-    if(!n) return v86util.pad0("", len || 1);
-
-    if(len)
+    if(!n) 
     {
-        return v86util.pad0(n.toString(16).toUpperCase(), len);
+        var str = "";
     }
-    else
+    else 
     {
-        return n.toString(16).toUpperCase();
+        var str = n.toString(16);
     }
+
+    return "0x" + v86util.pad0(str.toUpperCase(), len || 1);
 }
 
 /** 
