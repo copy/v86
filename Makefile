@@ -79,7 +79,6 @@ build/libv86.js: src/*.js build/cpu.js lib/*.js src/browser/*.js
 		--define=IN_BROWSER=true\
 		--define=IN_WORKER=false\
 		$(CLOSURE_FLAGS)\
-		$(CLOSURE_READABLE)\
 		--output_wrapper ';(function(){%output%})();'\
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
