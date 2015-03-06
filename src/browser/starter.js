@@ -293,7 +293,7 @@ function V86Starter(options)
     {
         if(index === total)
         {
-            done();
+            setTimeout(done, 0);
             return;
         }
 
@@ -336,20 +336,26 @@ function V86Starter(options)
     {
         emulator.init(settings);
 
-        if(settings.initial_state)
+        setTimeout(function()
         {
-            emulator.restore_state(settings.initial_state);
-        }
+            if(settings.initial_state)
+            {
+                emulator.restore_state(settings.initial_state);
+            }
 
-        if(settings.fs9p)
-        {
-            settings.fs9p.OnJSONLoaded(settings.fs9p_json);
-        }
+            setTimeout(function()
+            {
+                if(settings.fs9p)
+                {
+                    settings.fs9p.OnJSONLoaded(settings.fs9p_json);
+                }
 
-        if(options["autostart"])
-        {
-            emulator.run();
-        }
+                if(options["autostart"])
+                {
+                    emulator.run();
+                }
+            }, 0)
+        }, 0);
     }
 }
 
