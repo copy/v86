@@ -126,7 +126,6 @@ function ScreenAdapter(screen_container, bus)
 
     graphic_context["imageSmoothingEnabled"] = false;
     graphic_context["mozImageSmoothingEnabled"] = false;
-    graphic_context["webkitImageSmoothingEnabled"] = false;
 
     cursor_element.style.position = "absolute";
     cursor_element.style.backgroundColor = "#ccc";
