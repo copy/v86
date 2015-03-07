@@ -560,7 +560,7 @@
                 debug_start(emulator);
             }
 
-            init_ui({}, emulator);
+            init_ui(settings, emulator);
 
             result.done(emulator);
         });
@@ -582,6 +582,11 @@
         $("runtime_options").style.display = "block";
         $("runtime_infos").style.display = "block";
         document.getElementsByClassName("phone_keyboard")[0].style.display = "block";
+
+        if(settings.filesystem)
+        {
+            init_filesystem_panel(emulator);
+        }
 
         var news_element = $("news");
         if(news_element) 
@@ -913,6 +918,57 @@
                 window.onbeforeunload = null;
             }
         }
+    }
+
+    function init_filesystem_panel(emulator)
+    {
+        $("filesystem_panel").style.display = "block";
+
+        $("filesystem_send_file").onchange = function()
+        {
+            Array.prototype.forEach.call(this.files, function(file)
+            {
+                var loader = new v86util.SyncFileBuffer(file);
+                loader.onload = function()
+                {
+                    loader.get_buffer(function(buffer)
+                    {
+                        emulator.create_file("/" + file.name, new Uint8Array(buffer));
+                    });
+                };
+                loader.load();
+            }, this);
+
+            this.value = "";
+        };
+
+        $("filesystem_get_file").onkeypress = function(e)
+        {
+            if(e.which !== 13)
+            {
+                return;
+            }
+
+            this.disabled = true;
+
+            emulator.read_file(this.value, function(err, uint8array)
+            {
+                this.disabled = false;
+
+                if(uint8array) 
+                {
+                    var filename = this.value.replace(/\/$/, "").split("/");
+                    filename = filename[filename.length - 1] || "root";
+
+                    dump_file(uint8array.buffer, filename);
+                    this.value = "";
+                }
+                else 
+                {
+                    alert("Can't read file");
+                }
+            }.bind(this));
+        };
     }
 
     function debug_start(emulator)

@@ -171,6 +171,18 @@
     <!-- Keyboard: <span id="info_keyboard_enabled">-</span><br> -->
 </div>
 
+<div id="filesystem_panel" style="display: none">
+    <label title="Files will appear in / of the 9p filesystem">
+        Send files to emulator<br>
+        <input type="file" id="filesystem_send_file" multiple>
+    </label>
+    <br><br>
+    <label>
+        Get file from emulator<br>
+        <input type="text" id="filesystem_get_file" placeholder="Absolute path">
+    </label>
+</div>
+
 <br style="clear:both"><br>
 
 <textarea cols="40" rows="12" id="serial" style="display: none">This is the serial console. Whatever you type or paste here will be send to COM1.
