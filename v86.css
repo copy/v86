@@ -1,14 +1,17 @@
-#runtime_infos {
-    float: left;
-    width: 250px;
-}
-#log, #runtime_infos, #serial {
+#log, #runtime_infos, #serial, #filesystem_panel {
     font-family: DejaVu Sans Mono, monospace;
     font-size: 13px;
     border: 1px solid #333;
     background-color: #000;
     padding: 4px;
     color: #fff;
+}
+#runtime_infos, #filesystem_panel {
+    float: left;
+    width: 250px;
+    margin-bottom: 7px;
+    margin-right: 7px;
+    padding-bottom: 7px;
 }
 #log {
     height: 100px;
