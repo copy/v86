@@ -23,22 +23,21 @@ var
  */
 function PCI(cpu)
 {
-    var
-        io = cpu.io,
-        pci_addr = new Uint8Array(4),
-        pci_response = new Uint8Array(4),
-        pci_status = new Uint8Array(4),
+    this.pci_addr = new Uint8Array(4);
+    this.pci_value = new Uint8Array(4);
+    this.pci_response = new Uint8Array(4);
+    this.pci_status = new Uint8Array(4);
 
-        pci_addr32 = new Int32Array(pci_addr.buffer),
-        pci_response32 = new Int32Array(pci_response.buffer),
-        pci_status32 = new Int32Array(pci_status.buffer),
-        pci = this;
+    this.pci_addr32 = new Int32Array(this.pci_addr.buffer);
+    this.pci_value32 = new Int32Array(this.pci_value.buffer);
+    this.pci_response32 = new Int32Array(this.pci_response.buffer);
+    this.pci_status32 = new Int32Array(this.pci_status.buffer);
 
-    var device_spaces = Array(0x10000),
-        devices = Array(0x10000);
+    this.device_spaces = Array(0x10000);
+    this.devices = Array(0x10000);
 
     /*
-    io.register_write(0xCF9, function(value)
+    cpu.io.register_write(0xCF9, function(value)
     {
         dbg_log("PCI reboot: " + h(value, 2), LOG_PCI);
 
@@ -49,183 +48,88 @@ function PCI(cpu)
         }
     });*/
     
-    io.register_write_consecutive(PCI_CONFIG_DATA, this, 
+    cpu.io.register_write_consecutive(PCI_CONFIG_DATA, this, 
         function(out_byte)
         {
-            dbg_log("PCI data0: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
-            pci_write_byte(0, out_byte);
+            dbg_log("PCI data0: " + h(out_byte, 2) + " addr=" + h(this.pci_addr32[0] >>> 0), LOG_PCI);
+            this.pci_value[0] = out_byte;
         },
         function(out_byte)
         {
-            dbg_log("PCI data1: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
-            pci_write_byte(1, out_byte);
+            dbg_log("PCI data1: " + h(out_byte, 2) + " addr=" + h(this.pci_addr32[0] >>> 0), LOG_PCI);
+            this.pci_value[1] = out_byte;
         },
         function(out_byte)
         {
-            dbg_log("PCI data2: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
-            pci_write_byte(2, out_byte);
+            dbg_log("PCI data2: " + h(out_byte, 2) + " addr=" + h(this.pci_addr32[0] >>> 0), LOG_PCI);
+            this.pci_value[2] = out_byte;
         },
         function(out_byte)
         {
-            dbg_log("PCI data3: " + h(out_byte, 2) + " addr=" + h(pci_addr32[0] >>> 0), LOG_PCI);
-            pci_write_byte(3, out_byte);
+            dbg_log("PCI data3: " + h(out_byte, 2) + " addr=" + h(this.pci_addr32[0] >>> 0), LOG_PCI);
+            this.pci_value[3] = out_byte;
+            this.pci_write();
         }
     );
 
-    io.register_read_consecutive(PCI_CONFIG_DATA, this, 
+    cpu.io.register_read_consecutive(PCI_CONFIG_DATA, this, 
         function()
         {
-            return pci_response[0];
+            return this.pci_response[0];
         },
         function()
         {
-            return pci_response[1];
+            return this.pci_response[1];
         },
         function()
         {
-            return pci_response[2];
+            return this.pci_response[2];
         },
         function()
         {
-            return pci_response[3];
+            return this.pci_response[3];
         }
     );
 
-    io.register_read_consecutive(PCI_CONFIG_ADDRESS, this, 
+    cpu.io.register_read_consecutive(PCI_CONFIG_ADDRESS, this, 
         function()
         {
-            return pci_status[0];
+            return this.pci_status[0];
         },
         function()
         {
-            return pci_status[1];
+            return this.pci_status[1];
         },
         function()
         {
-            return pci_status[2];
+            return this.pci_status[2];
         },
         function()
         {
-            return pci_status[3];
+            return this.pci_status[3];
         }
     );
 
-    io.register_write_consecutive(PCI_CONFIG_ADDRESS, this, 
+    cpu.io.register_write_consecutive(PCI_CONFIG_ADDRESS, this, 
         function(out_byte)
         {
-            pci_addr[0] = out_byte;
+            this.pci_addr[0] = out_byte;
         },
         function(out_byte)
         {
-            pci_addr[1] = out_byte;
+            this.pci_addr[1] = out_byte;
         },
         function(out_byte)
         {
-            pci_addr[2] = out_byte;
+            this.pci_addr[2] = out_byte;
         },
         function(out_byte)
         {
-            pci_addr[3] = out_byte;
-            pci_query();
+            this.pci_addr[3] = out_byte;
+            this.pci_query();
         }
     );
 
-    function pci_query()
-    {
-        var dbg_line = "PCI: ";
-        
-        // Bit | .31                     .0
-        // Fmt | EBBBBBBBBDDDDDFFFRRRRRR00
-
-        var bdf = pci_addr[2] << 8 | pci_addr[1],
-            addr = pci_addr[0] & 0xFC,
-            devfn = bdf & 0xFF,
-            bus = bdf >> 8,
-            dev = bdf >> 3 & 0x1F,
-            fn = bdf & 7,
-            enabled = pci_addr[3] >> 7;
-
-        dbg_line += " enabled=" + (enabled);
-        dbg_line += " bdf=" + h(bdf, 4);
-        dbg_line += " addr=" + h(addr, 2);
-
-        //dbg_log(dbg_line + " " + h(pci_addr32[0] >>> 0, 8), LOG_PCI);
-
-        var device = device_spaces[bdf];
-
-        if(device !== undefined)
-        {
-            pci_status32[0] = 0x80000000 | 0;
-
-            if(addr < device.byteLength)
-            {
-                pci_response32[0] = device[addr >> 2];
-            }
-            else
-            {
-                pci_response32[0] = -1;
-            }
-
-            dbg_log(dbg_line + " " + h(pci_addr32[0] >>> 0, 8) + "  " + h(pci_response32[0] >>> 0, 8), LOG_PCI);
-        }
-        else
-        {
-            pci_response32[0] = -1;
-            pci_status32[0] = 0;
-        }
-    }
-
-    function pci_write_byte(byte_pos, byte)
-    {
-        var bdf = pci_addr[2] << 8 | pci_addr[1],
-            addr = pci_addr[0] & 0xFC;
-
-        var space = device_spaces[bdf],
-            device = devices[bdf];
-
-        if(space)
-        {
-            //(new Uint8Array(space.buffer))[addr | byte_pos] = byte;
-
-            if(byte_pos === 3 && addr >= 0x10 && addr < 0x28)
-            {
-                var bar_nr = addr - 0x10 >> 2,
-                    bars = device.pci_bars,
-                    bar = bar_nr < bars.length ? bars[bar_nr] : undefined,
-                    value = space[addr >> 2];
-
-                dbg_log("BAR" + bar_nr + " changed to " + h(space[addr >> 2] >>> 0) + " dev=" + h(bdf, 2), LOG_PCI);
-
-                if(bar)
-                {
-                    dbg_assert(!(bar.size & bar.size - 1));
-                    //space[addr >> 2] = value & ~(bar.size - 1) | 3;
-                }
-                else
-                {
-                    space[addr >> 2] = 0;
-                }
-            }
-        }
-    }
-
-    this.register_device = function(device)
-    {
-        dbg_assert(device.pci_id !== undefined);
-        dbg_assert(device.pci_space !== undefined);
-        dbg_assert(device.pci_bars !== undefined);
-
-        var device_id = device.pci_id;
-
-        dbg_log("PCI register bdf=" + h(device_id), LOG_PCI);
-
-        dbg_assert(!devices[device_id]);
-        dbg_assert(device.pci_space.length >= 64);
-
-        // convert bytewise notation from lspci to double words
-        device_spaces[device_id] = new Int32Array(new Uint8Array(device.pci_space).buffer);
-        devices[device_id] = device;
-    };
 
     // Some experimental PCI devices taken from my PC:
 
@@ -275,3 +179,116 @@ function PCI(cpu)
     //    0x00, 0x00, 0x00, 0x00, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x02, 0x00,
     //], 0x1e << 3);
 }
+
+PCI.prototype.pci_query = function()
+{
+    var dbg_line = "PCI: ";
+    
+    // Bit | .31                     .0
+    // Fmt | EBBBBBBBBDDDDDFFFRRRRRR00
+
+    var bdf = this.pci_addr[2] << 8 | this.pci_addr[1],
+        addr = this.pci_addr[0] & 0xFC,
+        devfn = bdf & 0xFF,
+        bus = bdf >> 8,
+        dev = bdf >> 3 & 0x1F,
+        fn = bdf & 7,
+        enabled = this.pci_addr[3] >> 7;
+
+    dbg_line += " enabled=" + (enabled);
+    dbg_line += " bdf=" + h(bdf, 4);
+    dbg_line += " addr=" + h(addr, 2);
+
+    //dbg_log(dbg_line + " " + h(this.pci_addr32[0] >>> 0, 8), LOG_PCI);
+
+    var device = this.device_spaces[bdf];
+
+    if(device !== undefined)
+    {
+        this.pci_status32[0] = 0x80000000 | 0;
+
+        if(addr < device.byteLength)
+        {
+            this.pci_response32[0] = device[addr >> 2];
+        }
+        else
+        {
+            this.pci_response32[0] = -1;
+        }
+
+        dbg_log(dbg_line + " " + h(this.pci_addr32[0] >>> 0, 8) + "  " + h(this.pci_response32[0] >>> 0, 8), LOG_PCI);
+    }
+    else
+    {
+        this.pci_response32[0] = -1;
+        this.pci_status32[0] = 0;
+    }
+};
+
+PCI.prototype.pci_write = function()
+{
+    var bdf = this.pci_addr[2] << 8 | this.pci_addr[1],
+        addr = this.pci_addr[0] & 0xFC;
+
+    var space = this.device_spaces[bdf],
+        device = this.devices[bdf];
+
+    if(!space)
+    {
+        return;
+    }
+
+    if(addr >= 0x10 && addr < 0x28)
+    {
+        var written = this.pci_value32[0];
+
+        var bar_nr = addr - 0x10 >> 2;
+        var bar = device.pci_bars[bar_nr];
+
+        //dbg_log("BAR" + bar_nr + " changed to " + h(space[addr >> 2] >>> 0) + " dev=" + h(bdf >> 3, 2), LOG_PCI);
+        dbg_log("BAR" + bar_nr + " changed to " + h(written >>> 0) + " dev=" + h(bdf >> 3, 2), LOG_PCI);
+
+        if(bar)
+        {
+            if(written === -1)
+            {
+                space[addr >> 2] = bar.size | 3;
+            }
+            else
+            {
+                // changing isn't supported yet, reset to default
+                space[addr >> 2] = device.current_bars[bar_nr];
+            }
+
+            dbg_log("BAR <- " + h(space[addr >> 2] >>> 0), LOG_PCI);
+            dbg_assert(!(bar.size & bar.size - 1));
+        }
+        else
+        {
+            space[addr >> 2] = 0;
+        }
+    }
+};
+
+PCI.prototype.register_device = function(device)
+{
+    dbg_assert(device.pci_id !== undefined);
+    dbg_assert(device.pci_space !== undefined);
+    dbg_assert(device.pci_bars !== undefined);
+
+    var device_id = device.pci_id;
+
+    dbg_log("PCI register bdf=" + h(device_id), LOG_PCI);
+
+    dbg_assert(!this.devices[device_id]);
+    dbg_assert(device.pci_space.length >= 64);
+
+    // convert bytewise notation from lspci to double words
+    var space = new Int32Array(new Uint8Array(device.pci_space).buffer);
+    this.device_spaces[device_id] = space;
+    this.devices[device_id] = device;
+
+    // copy the bars so they can be restored later
+    device.current_bars = new Int32Array(6);
+    device.current_bars.set(space.subarray(4, 10));
+};
