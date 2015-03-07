@@ -722,6 +722,26 @@
             $("info_storage_sectors_written").textContent = stats_storage.write_sectors;
         });
 
+        var stats_net = {
+            bytes_transmitted: 0,
+            bytes_received: 0,
+        };
+
+        emulator.add_listener("eth-receive-end", function(args)
+        {
+            stats_net.bytes_received += args[0];
+
+            $("info_network").style.display = "block";
+            $("info_network_bytes_received").textContent = stats_net.bytes_received;
+        });
+        emulator.add_listener("eth-transmit-end", function(args)
+        {
+            stats_net.bytes_transmitted += args[0];
+
+            $("info_network").style.display = "block";
+            $("info_network_bytes_transmitted").textContent = stats_net.bytes_transmitted;
+        });
+
 
         emulator.add_listener("mouse-enable", function(is_enabled)
         {
