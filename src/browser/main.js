@@ -85,10 +85,11 @@
         var el = $("loading");
         el.style.display = "block";
 
-        if(e.file_index === e.file_count - 1 && e.total >= e.loaded - 2048)
+        if(e.file_index === e.file_count - 1 && e.loaded >= e.total - 2048)
         {
+            // last file is (almost) loaded 
             el.textContent = "Done downloading. Starting now ...";
-            return
+            return;
         }
 
         var line = "Downloading images ";
