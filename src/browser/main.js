@@ -556,7 +556,7 @@
             "cdrom": settings.cdrom,
 
             "initial_state": settings.initial_state,
-            "filesystem": settings.filesystem,
+            "filesystem": settings.filesystem || {},
         });
 
         emulator.add_listener("emulator-ready", function()
