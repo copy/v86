@@ -345,7 +345,7 @@ function V86Starter(options)
 
             setTimeout(function()
             {
-                if(settings.fs9p)
+                if(settings.fs9p && settings.fs9p_json)
                 {
                     settings.fs9p.OnJSONLoaded(settings.fs9p_json);
                 }
