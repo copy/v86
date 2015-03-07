@@ -80,12 +80,18 @@
 
     var progress_ticks = 0;
 
-    function show_progress(message, e)
+    function show_progress(e)
     {
         var el = $("loading");
         el.style.display = "block";
 
-        var line = message + " ";
+        if(e.file_index === e.file_count - 1 && e.total >= e.loaded - 2048)
+        {
+            el.textContent = "Done downloading. Starting now ...";
+            return
+        }
+
+        var line = "Downloading images ";
 
         if(typeof e.file_index === "number" && e.file_count)
         {
@@ -567,7 +573,7 @@
 
         emulator.add_listener("download-progress", function(e)
         {
-            show_progress("Downloading images", e);
+            show_progress(e);
         });
     };
 
