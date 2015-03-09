@@ -96,16 +96,28 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
         }
         else
         {
-            this.head_count = 255;
+            // "default" values: 16/63
+            // common: 255, 63
+            this.head_count = 16;
             this.sectors_per_track = 63;
         }
 
-        this.cylinder_count = this.sector_count / (this.head_count + 1) / (this.sectors_per_track + 1);
+        // disk translation translation -> lba
+        cpu.devices.rtc.cmos_write(CMOS_BIOS_DISKTRANSFLAG, 1);
+
+        this.cylinder_count = this.sector_count / this.head_count / this.sectors_per_track;
 
         if(this.cylinder_count !== (this.cylinder_count | 0))
         {
             dbg_log("Warning: Rounding up cylinder count. Choose different head number", LOG_DISK);
-            this.cylinder_count = Math.ceil(this.cylinder_count);
+            this.cylinder_count = Math.floor(this.cylinder_count);
+            //this.sector_count = this.cylinder_count * this.head_count * 
+            //                        this.sectors_per_track * this.sector_size;
+        }
+
+        if(this.cylinder_count > 16383) 
+        {
+            this.cylinder_count = 16383;
         }
     }
 
@@ -1012,8 +1024,8 @@ IDEDevice.prototype.write_bytecount_port = function(data)
 
 IDEDevice.prototype.write_sector_port = function(data)
 {
-        dbg_log("1F3/sector: " + h(data), LOG_DISK);
-        this.sector = (this.sector << 8 | data) & 0xFFFF;
+    dbg_log("1F3/sector: " + h(data), LOG_DISK);
+    this.sector = (this.sector << 8 | data) & 0xFFFF;
 };
 
 IDEDevice.prototype.ata_read_sectors = function(cmd)
@@ -1047,7 +1059,9 @@ IDEDevice.prototype.ata_read_sectors = function(cmd)
         start = lba * this.sector_size;
 
 
-    dbg_log("ATA read lba=" + h(lba) + 
+    dbg_log("ATA read cmd=" + h(cmd) +
+            " mode=" + (this.is_lba ? "lba" : "chs") +
+            " lba=" + h(lba) + 
             " lbacount=" + h(count) +
             " bytecount=" + h(byte_count), LOG_DISK);
 
@@ -1325,7 +1339,7 @@ IDEDevice.prototype.create_identify_packet = function()
         // 5
         0, 0, 
         // sectors per track
-        this.sectors_per_track, 0, 
+        this.sectors_per_track, this.sectors_per_track >> 8, 
         0, 0, 0, 0, 0, 0,
         // 10-19 serial number
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
