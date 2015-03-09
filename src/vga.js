@@ -122,11 +122,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00, 0x00,
     ];
     this.pci_id = 0x12 << 3;
-    this.pci_bars = [
-        {
-            size: this.vga_memory_size,
-        },
-    ];
+    this.pci_bars = [];
 
     cpu.devices.pci.register_device(this);
 
