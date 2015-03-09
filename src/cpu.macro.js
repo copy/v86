@@ -1025,7 +1025,7 @@ CPU.prototype.load_eflags = function()
  */
 CPU.prototype.update_eflags = function(new_flags)
 {
-    var mask = flag_rf | flag_vm | flag_vip | flag_vif,
+    var dont_update = flag_rf | flag_vm | flag_vip | flag_vif,
         clear = ~flag_vip & ~flag_vif & flags_mask;
 
     if(this.flags & flag_vm)
@@ -1033,9 +1033,9 @@ CPU.prototype.update_eflags = function(new_flags)
         // other case needs to be handled in popf or iret
         dbg_assert(this.getiopl() === 3);
 
-        mask |= flag_iopl;
+        dont_update |= flag_iopl;
 
-        // vip and vif are preserved
+        // don't clear vip or vif
         clear |= flag_vip | flag_vif;
     }
     else 
@@ -1046,18 +1046,18 @@ CPU.prototype.update_eflags = function(new_flags)
         {
             // cpl > 0
             // cannot update iopl
-            mask |= flag_iopl;
+            dont_update |= flag_iopl;
 
             if(this.cpl > this.getiopl())
             {
                 // cpl > iopl
-                // can update interrupt flag but not iopl
-                mask |= flag_interrupt;
+                // cannot update interrupt flag
+                dont_update |= flag_interrupt;
             }
         }
     }
 
-    this.flags = (new_flags ^ ((this.flags ^ new_flags) & mask)) & clear | flags_default;
+    this.flags = (new_flags ^ ((this.flags ^ new_flags) & dont_update)) & clear | flags_default;
 
     this.flags_changed = 0;
 };
