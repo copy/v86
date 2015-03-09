@@ -249,6 +249,14 @@
                 name: "Linux",
             },
             {
+                id: "linux3",
+                cdrom: {
+                    "url": "images/linux3.iso",
+                    "size": 10000384,
+                },
+                name: "Linux",
+            },
+            {
                 id: "kolibrios",
                 fda: {
                     "url": ON_LOCALHOST ? 
