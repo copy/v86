@@ -2055,8 +2055,16 @@ CPU.prototype.switch_seg = function(reg, selector)
     {
         this.sreg[reg] = selector;
         this.segment_is_null[reg] = 0;
-        this.segment_limits[reg] = 0xFFFFF;
         this.segment_offsets[reg] = selector << 4;
+
+        if(reg === reg_ss && this.stack_size_32)
+        {
+            this.stack_size_32 = false;
+
+            this.stack_reg = this.reg16;
+            this.reg_vsp = reg_sp;
+            this.reg_vbp = reg_bp;
+        }
         return;
     }
 
