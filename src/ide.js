@@ -164,7 +164,6 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
     cpu.io.register_read(this.ata_port | 7, this, this.read_status);
     cpu.io.register_read(this.ata_port_high | 2, this, this.read_status);
 
-    cpu.io.register_write(this.ata_port | 7, this, this.write_control);
     cpu.io.register_write(this.ata_port_high | 2, this, this.write_control);
 
     /** @type {number} */
