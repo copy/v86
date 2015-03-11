@@ -656,7 +656,7 @@ FPU.prototype.op_D8_reg = function(imm8)
             this.st[this.stack_ptr] = st0 * sti;
             break;
         case 2:
-            // this.fcom
+            // fcom
             this.fcom(sti);
             break;
         case 3:
@@ -705,7 +705,7 @@ FPU.prototype.op_D8_mem = function(imm8, addr)
             this.st[this.stack_ptr] = st0 * m32;
             break;
         case 2:
-            // this.fcom
+            // fcom
             this.fcom(m32);
             break;
         case 3:
@@ -1449,7 +1449,7 @@ FPU.prototype.op_DE_mem = function(imm8, addr)
             this.st[this.stack_ptr] = st0 * m16;
             break;
         case 2:
-            // this.fcom
+            // fcom
             this.fcom(m16);
             break;
         case 3:
