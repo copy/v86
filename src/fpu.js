@@ -45,9 +45,7 @@ var
 
 var 
     /** @const */
-    TWO_POW_63 =  0x8000000000000000,
-    /** @const */
-    TWO_POW_64 = 0x10000000000000000;
+    TWO_POW_63 =  0x8000000000000000;
 
 /**
  * @constructor
@@ -1568,14 +1566,9 @@ FPU.prototype.op_DF_mem = function(imm8, addr)
         case 5:
             // fild
             var low = this.cpu.safe_read32s(addr) >>> 0,
-                high = this.cpu.safe_read32s(addr + 4) >>> 0;
+                high = this.cpu.safe_read32s(addr + 4);
 
             var m64 = low + 0x100000000 * high;
-
-            if(high >> 31)
-            {
-                m64 -= TWO_POW_64;
-            }
 
             this.push(m64);
             break;
