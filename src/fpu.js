@@ -833,11 +833,13 @@ FPU.prototype.op_D9_reg = function(imm8)
                     break;
                 case 6:
                     // fdecstp
-                    this.fpu_unimpl();
+                    this.stack_ptr = this.stack_ptr - 1 & 7;
+                    this.status_word &= ~FPU_C1;
                     break;
                 case 7:
                     // fincstp
-                    this.fpu_unimpl();
+                    this.stack_ptr = this.stack_ptr + 1 & 7;
+                    this.status_word &= ~FPU_C1;
                     break;
                 default:
                     dbg_assert(false);
