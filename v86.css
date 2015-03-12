@@ -29,7 +29,7 @@
     font-family: Liberation Mono, DejaVu Sans Mono, Courier New, monospace;
     font-weight: bold;
     font-size: 15px;
-    line-height: 1;
+    line-height: normal;
 }
 #screen, #vga {
     border: 1px solid #555;
