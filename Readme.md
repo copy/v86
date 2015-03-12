@@ -97,9 +97,7 @@ wget -P images/ http://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,wind
 
 # grab closure compiler
 wget -P closure-compiler http://dl.google.com/closure-compiler/compiler-latest.zip
-cd closure-compiler
-unzip compiler-latest.zip compiler.jar
-rm compiler-latest.zip
+unzip -d closure-compiler closure-compiler/compiler-latest.zip compiler.jar
 ```
 
 Rebuild compiled version:
