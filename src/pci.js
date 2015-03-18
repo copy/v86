@@ -255,9 +255,9 @@ PCI.prototype.pci_write = function()
 
         if(bar)
         {
-            if(written === -1)
+            if((written | 3)  === -1)
             {
-                space[addr >> 2] = bar.size | 3;
+                space[addr >> 2] = ~(bar.size - 1);
             }
             else
             {
