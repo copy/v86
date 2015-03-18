@@ -118,6 +118,10 @@ function PS2(cpu, bus)
     ];
 }
 
+PS2.prototype._state_restore = function()
+{
+    this.bus.send("mouse-enable", this.use_mouse);
+};
 
 PS2.prototype.mouse_irq = function()
 {
