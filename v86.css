@@ -48,9 +48,6 @@
 
     background-color: #000;
 }
-#screen > div > span {
-    height: 15px;
-}
 body {
     background-color: #111;
     color: #fff;
