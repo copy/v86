@@ -530,7 +530,8 @@
 
         var BIOSPATH = "bios/";
         var biosfile = DEBUG ? "seabios-debug.bin" : "seabios.bin";
-        var vgabiosfile = DEBUG ? "vgabios-0.7a.debug.bin" : "bochs-vgabios-0.7a.bin";
+        var vgabiosfile = DEBUG ? "vgabios-debug.bin" : "vgabios.bin";
+
 
         var bios;
         var vga_bios;
