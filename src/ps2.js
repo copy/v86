@@ -553,6 +553,7 @@ PS2.prototype.port60_write = function(write_byte)
             this.kbd_buffer.clear();
             this.kbd_buffer.push(0xFA);
             this.kbd_buffer.push(0xAA);
+            this.kbd_buffer.push(0);
             break;
         default:
             dbg_log("Unimplemented keyboard command: " + h(write_byte), LOG_PS2);
