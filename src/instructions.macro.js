@@ -2493,13 +2493,13 @@ opm2(0xBA, {
             }
             break;
         case 5:
-            bt_op16(bts, cpu.read_imm8());
+            bt_op16(bts, cpu.read_imm8() & 15);
             break;
         case 6:
-            bt_op16(btr, cpu.read_imm8());
+            bt_op16(btr, cpu.read_imm8() & 15);
             break;
         case 7:
-            bt_op16(btc, cpu.read_imm8());
+            bt_op16(btc, cpu.read_imm8() & 15);
             break;
         default:
             dbg_log(modrm_byte >> 3 & 7);
@@ -2521,13 +2521,13 @@ opm2(0xBA, {
             }
             break;
         case 5:
-            bt_op32(bts, cpu.read_imm8());
+            bt_op32(bts, cpu.read_imm8() & 31);
             break;
         case 6:
-            bt_op32(btr, cpu.read_imm8());
+            bt_op32(btr, cpu.read_imm8() & 31);
             break;
         case 7:
-            bt_op32(btc, cpu.read_imm8());
+            bt_op32(btc, cpu.read_imm8() & 31);
             break;
         default:
             dbg_log(modrm_byte >> 3 & 7);
