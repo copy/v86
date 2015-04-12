@@ -55,10 +55,11 @@ Bus.Connector.prototype.unregister = function(name, fn)
  *
  * @param {string} name
  * @param {*=} value
+ * @param {*=} unused_transfer
  */
-Bus.Connector.prototype.send = function(name, value)
+Bus.Connector.prototype.send = function(name, value, unused_transfer)
 {
-    dbg_assert(arguments.length === 1 || arguments.length === 2);
+    dbg_assert(arguments.length === 1 || arguments.length === 2 || arguments.length === 3);
 
     if(!this.pair)
     {
