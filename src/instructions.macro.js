@@ -2591,34 +2591,70 @@ unimplemented_sse(0xC6);
 
 opm(0xC7, {
     // cmpxchg8b
-    if(modrm_byte >= 0xC0)
+    switch(modrm_byte >> 3 & 7)
     {
-        cpu.trigger_ud();
+        case 1:
+            if(modrm_byte >= 0xC0)
+            {
+                cpu.trigger_ud();
+            }
+
+            var addr = cpu.modrm_resolve(modrm_byte);
+            cpu.writable_or_pagefault(addr, 8);
+
+            var m64_low = cpu.safe_read32s(addr);
+            var m64_high = cpu.safe_read32s(addr + 4);
+
+            if(cpu.reg32s[reg_eax] === m64_low &&
+                    cpu.reg32s[reg_edx] === m64_high)
+            {
+                cpu.flags |= flag_zero;
+
+                cpu.safe_write32(addr, cpu.reg32s[reg_ebx]);
+                cpu.safe_write32(addr + 4, cpu.reg32s[reg_ecx]);
+            }
+            else
+            {
+                cpu.flags &= ~flag_zero;
+
+                cpu.reg32s[reg_eax] = m64_low;
+                cpu.reg32s[reg_edx] = m64_high;
+            }
+
+            cpu.flags_changed &= ~flag_zero;
+            break;
+
+        case 6:
+            var has_rand = v86.has_rand_int();
+
+            if(has_rand)
+            {
+                var rand = v86.get_rand_int();
+            }
+            else
+            {
+                var rand = 0;
+            }
+            //dbg_log("rdrand -> " + h(rand >>> 0, 8), LOG_CPU);
+
+            if(cpu.operand_size_32)
+            {
+                set_ev32(rand);
+            }
+            else
+            {
+                set_ev16(rand);
+            }
+
+            cpu.flags &= ~flags_all;
+            cpu.flags |= has_rand;
+            cpu.flags_changed = 0;
+            break;
+
+        default:
+            dbg_log(modrm_byte >> 3 & 7, LOG_CPU);
+            todo();
     }
-
-    var addr = cpu.modrm_resolve(modrm_byte);
-    cpu.writable_or_pagefault(addr, 8);
-    
-    var m64_low = cpu.safe_read32s(addr);
-    var m64_high = cpu.safe_read32s(addr + 4);
-
-    if(cpu.reg32s[reg_eax] === m64_low &&
-            cpu.reg32s[reg_edx] === m64_high)
-    {
-        cpu.flags |= flag_zero;
-
-        cpu.safe_write32(addr, cpu.reg32s[reg_ebx]);
-        cpu.safe_write32(addr + 4, cpu.reg32s[reg_ecx]);
-    }
-    else
-    {
-        cpu.flags &= ~flag_zero;
-
-        cpu.reg32s[reg_eax] = m64_low;
-        cpu.reg32s[reg_edx] = m64_high;
-    }
-
-    cpu.flags_changed &= ~flag_zero;
 });
 
 op(0xC8, { cpu.bswap(reg_eax); });

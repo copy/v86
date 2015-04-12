@@ -184,3 +184,31 @@ else
     v86.microtick = Date.now;
 }
 
+
+if(typeof window !== "undefined" && window.crypto && window.crypto.getRandomValues)
+{
+    v86._rand_data = new Int32Array(1);
+
+    v86.has_rand_int = function()
+    {
+        return true;
+    };
+
+    v86.get_rand_int = function()
+    {
+        window.crypto.getRandomValues(v86._rand_data);
+        return v86._rand_data[0];
+    };
+}
+else
+{
+    v86.has_rand_int = function()
+    {
+        return false;
+    };
+
+    v86.get_rand_int = function()
+    {
+        console.assert(false);
+    };
+}
