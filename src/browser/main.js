@@ -536,6 +536,7 @@
         var bios;
         var vga_bios;
 
+        // a bios is only needed if the machine is booted
         if(!settings.initial_state)
         {
             bios = {
@@ -614,7 +615,6 @@
         {
             if(emulator.is_running())
             {
-                running_time += Date.now() - last_tick;
                 $("run").value = "Run";
                 emulator.stop();
             }
@@ -622,7 +622,6 @@
             {
                 $("run").value = "Pause";
                 emulator.run();
-                last_tick = Date.now();
             }
 
             $("run").blur();
@@ -657,35 +656,40 @@
         };
 
 
-        var last_tick = Date.now();
+        var last_tick = 0;
         var running_time = 0;
-        var summed_ips = 0;
         var last_instr_counter = 0;
+        var interval;
 
         function update_info()
         {
-            if(!emulator.is_running())
-            {
-                return;
-            }
+            var now = Date.now();
 
             var instruction_counter = emulator.get_instruction_counter();
             var last_ips = instruction_counter - last_instr_counter;
 
-            summed_ips += last_ips;
             last_instr_counter = instruction_counter;
 
-            var now = Date.now();
-
-            running_time += now - last_tick;
+            var delta_time = now - last_tick;
+            running_time += delta_time;
             last_tick = now;
 
-            $("speed").textContent = last_ips / 1000 | 0;
-            $("avg_speed").textContent = summed_ips / running_time | 0;
+            $("speed").textContent = last_ips / delta_time | 0;
+            $("avg_speed").textContent = instruction_counter / running_time | 0;
             $("running_time").textContent = time2str(running_time / 1000 | 0);
         }
 
-        setInterval(update_info, 1000);
+        emulator.add_listener("emulator-started", function()
+        {
+            last_tick = Date.now();
+            interval = setInterval(update_info, 1000);
+        });
+
+        emulator.add_listener("emulator-stopped", function()
+        {
+            update_info();
+            clearInterval(interval);
+        });
 
         var stats_9p = {
             read: 0,
