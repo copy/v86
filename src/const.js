@@ -194,7 +194,7 @@ var
      *
      * @const 
      */ 
-    MMAP_BLOCK_BITS = 14,
+    MMAP_BLOCK_BITS = 17,
     /** @const */
     MMAP_BLOCK_SIZE = 1 << MMAP_BLOCK_BITS;
 
