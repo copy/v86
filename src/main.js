@@ -34,6 +34,7 @@ function v86(bus)
     bus.register("cpu-init", this.init, this);
     bus.register("cpu-run", this.run, this);
     bus.register("cpu-stop", this.stop, this);
+    bus.register("cpu-restart", this.restart, this);
 
     this.fast_next_tick = function() { console.assert(false); };
     this.next_tick = function(time) { console.assert(false); };
@@ -43,6 +44,7 @@ v86.prototype.run = function()
 {
     if(!this.running)
     {
+        this.bus.send("emulator-started");
         this.fast_next_tick();
     }
 };
@@ -52,6 +54,7 @@ v86.prototype.do_tick = function()
     if(this.stopped)
     {
         this.stopped = this.running = false;
+        this.bus.send("emulator-stopped");
         return;
     }
 
