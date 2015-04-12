@@ -11,6 +11,10 @@ function SerialAdapter(element, bus)
 
     this.enabled = true;
     this.bus = bus;
+    this.text = [];
+    this.text_changed = false;
+    this.text_new_line = false;
+
 
     this.bus.register("serial0-output-char", function(chr)
     {
@@ -32,6 +36,21 @@ function SerialAdapter(element, bus)
         element.addEventListener("keypress", keypress_handler, false);
         element.addEventListener("keydown", keydown_handler, false);
         element.addEventListener("paste", paste_handler, false);
+
+        setInterval(function()
+        {
+            if(this.text_changed)
+            {
+                this.text_changed = false;
+                element.value = this.text.join("");
+
+                if(this.text_new_line)
+                {
+                    this.text_new_line = false;
+                    element.scrollTop = 1e9;
+                }
+            }
+        }.bind(this), 16);
     };
     this.init();
 
@@ -40,8 +59,8 @@ function SerialAdapter(element, bus)
     {
         if(chr === "\x08")
         {
-            var text = element.value;
-            element.value = text.substr(0, text.length - 1);
+            this.text.pop();
+            this.text_changed = true;
         }
         else if(chr === "\r")
         {
@@ -49,11 +68,12 @@ function SerialAdapter(element, bus)
         }
         else
         {
-            element.value += chr;
+            this.text_changed = true;
+            this.text.push(chr);
 
             if(chr === "\n")
             {
-                element.scrollTop = 1e9;
+                this.text_new_line = true;
             }
         }
     };
@@ -112,6 +132,11 @@ function SerialAdapter(element, bus)
 
     function paste_handler(e)
     {
+        if(!may_handle(e))
+        {
+            return;
+        }
+
         var data = e.clipboardData.getData("text/plain");
 
         for(var i = 0; i < data.length; i++)
