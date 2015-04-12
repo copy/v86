@@ -2356,7 +2356,7 @@ opm(0xB0, {
         data = reg_e8;
 
 
-    cmp8(data, cpu.reg8[reg_al]);
+    cmp8(cpu.reg8[reg_al], data);
 
     if(cpu.getzf())
     {
@@ -2382,7 +2382,7 @@ opm2(0xB1, {
     else
         data = reg_e16;
     
-    cmp16(data, cpu.reg16[reg_ax]);
+    cmp16(cpu.reg16[reg_ax], data);
 
     if(cpu.getzf())
     {
@@ -2408,7 +2408,7 @@ opm2(0xB1, {
         data = reg_e32s;
     }
 
-    cmp32(data, cpu.reg32s[reg_eax]);
+    cmp32(cpu.reg32s[reg_eax], data);
 
     if(cpu.getzf())
     {
