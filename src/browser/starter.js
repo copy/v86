@@ -84,12 +84,25 @@
  */
 function V86Starter(options)
 {
+    //var worker = new Worker("src/browser/worker.js");
+    //var adapter_bus = this.bus = WorkerBus.init(worker);
+    
+    this.cpu_is_running = false;
+
     var bus = Bus.create();
     var adapter_bus = this.bus = bus[0];
-
     this.emulator_bus = bus[1];
+    var emulator = this.v86 = new v86(this.emulator_bus);
 
-    var emulator = this.v86 = new v86(bus[1]);
+    this.bus.register("emulator-stopped", function()
+    {
+        this.cpu_is_running = false;
+    }, this);
+
+    this.bus.register("emulator-started", function()
+    {
+        this.cpu_is_running = true;
+    }, this);
 
     var settings = {};
 
@@ -124,7 +137,6 @@ function V86Starter(options)
     {
         this.serial_adapter = new SerialAdapter(options["serial_container"], adapter_bus);
     }
-    
 
     // ugly, but required for closure compiler compilation
     function put_on_settings(name, buffer)
@@ -254,7 +266,7 @@ function V86Starter(options)
     }
 
     var image_names = [
-        "bios", "vga_bios", 
+        "bios", "vga_bios",
         "cdrom", "hda", "hdb", "fda", "fdb",
         "initial_state",
     ];
@@ -276,9 +288,19 @@ function V86Starter(options)
         {
             console.assert(base_url, "Filesystem: baseurl must be specified");
 
+            var size;
+
+            if(typeof fs_url === "object")
+            {
+                size = fs_url.size;
+                fs_url = fs_url.url;
+            }
+            dbg_assert(typeof fs_url === "string");
+
             files_to_load.push({
                 name: "fs9p_json",
                 url: fs_url,
+                size: size,
                 as_text: true,
             });
         }
@@ -321,6 +343,7 @@ function V86Starter(options)
                     starter.emulator_bus.send("download-progress", {
                         file_index: index,
                         file_count: total,
+                        file_name: f.url,
 
                         lengthComputable: e.lengthComputable,
                         total: f.size || e.total,
@@ -332,9 +355,9 @@ function V86Starter(options)
         }
     }
 
-    function done()
+    var done = function done()
     {
-        emulator.init(settings);
+        this.bus.send("cpu-init", settings);
 
         setTimeout(function()
         {
@@ -352,11 +375,11 @@ function V86Starter(options)
 
                 if(options["autostart"])
                 {
-                    emulator.run();
+                    this.bus.send("cpu-run");
                 }
-            }, 0)
-        }, 0);
-    }
+            }.bind(this), 0)
+        }.bind(this), 0);
+    }.bind(this);
 }
 
 /**
@@ -365,7 +388,7 @@ function V86Starter(options)
  */
 V86Starter.prototype.run = function()
 {
-    this.v86.run();
+    this.bus.send("cpu-run");
 };
 
 /**
@@ -373,7 +396,7 @@ V86Starter.prototype.run = function()
  */
 V86Starter.prototype.stop = function()
 {
-    this.v86.stop();
+    this.bus.send("cpu-stop");
 };
 
 /**
@@ -381,7 +404,7 @@ V86Starter.prototype.stop = function()
  */
 V86Starter.prototype.restart = function()
 {
-    this.v86.restart();
+    this.bus.send("cpu-restart");
 };
 
 /**
@@ -438,20 +461,18 @@ V86Starter.prototype.restore_state = function(state)
 V86Starter.prototype.save_state = function(callback)
 {
     // Might become asynchronous at some point
-    
-    var emulator = this;
 
     setTimeout(function()
     {
         try
         {
-            callback(null, emulator.v86.save_state());
+            callback(null, this.v86.save_state());
         }
         catch(e)
         {
             callback(e, null);
         }
-    }, 0);
+    }.bind(this), 0);
 };
 
 /**
@@ -490,15 +511,23 @@ V86Starter.prototype.save_state = function(callback)
  * }
  * ```
  *
+ * @deprecated
  * @return {Object}
  */
 V86Starter.prototype.get_statistics = function()
 {
+    console.warn("V86Starter.prototype.get_statistics is deprecated. Use events instead.");
+
     var stats = {
         cpu: {
             instruction_counter: this.get_instruction_counter(),
         },
     };
+
+    if(!this.v86)
+    {
+        return stats;
+    }
 
     var devices = this.v86.cpu.devices;
 
@@ -533,7 +562,15 @@ V86Starter.prototype.get_statistics = function()
  */
 V86Starter.prototype.get_instruction_counter = function()
 {
-    return this.v86.cpu.timestamp_counter;
+    if(this.v86)
+    {
+        return this.v86.cpu.timestamp_counter;
+    }
+    else
+    {
+        // TODO: Should be handled using events
+        return 0;
+    }
 };
 
 /**
@@ -541,29 +578,27 @@ V86Starter.prototype.get_instruction_counter = function()
  */
 V86Starter.prototype.is_running = function()
 {
-    return this.v86.running;
+    return this.cpu_is_running;
 };
 
 /** 
  * Send a sequence of scan codes to the emulated PS2 controller. A list of
  * codes can be found at http://stanislavs.org/helppc/make_codes.html.
- * Do nothing if there is not keyboard controller.
+ * Do nothing if there is no keyboard controller.
  *
  * @param {Array.<number>} codes
  */
 V86Starter.prototype.keyboard_send_scancodes = function(codes)
 {
-    var ps2 = this.v86.cpu.devices.ps2;
-
     for(var i = 0; i < codes.length; i++)
     {
-        ps2.kbd_send_code(codes[i]);
+        this.bus.send("keyboard-code", codes[i]);
     }
 };
 
 /**
  * Download a screenshot.
- * 
+ *
  * @ignore
  */
 V86Starter.prototype.screen_make_screenshot = function()

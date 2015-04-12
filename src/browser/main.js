@@ -993,6 +993,11 @@
 
     function debug_start(emulator)
     {
+        if(!emulator.v86)
+        {
+            return;
+        }
+
         // called as soon as soon as emulation is started, in debug mode
         var debug = emulator.v86.cpu.debug;
 
