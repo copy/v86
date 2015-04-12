@@ -68,8 +68,14 @@ docfiles.forEach(function(doc)
           ?><?= "## `" + comment.name + "`\n" ?><?
         }
       }
+
+      if(comment.deprecated)
+      {
+        ?><?= "\n\n**Deprecated - Might be removed in a later release.**\n\n" ?><?
+      }
         
       ?><?= comment.description + "\n" ?><?
+
 
       if(comment.paramTags.length) 
       {
