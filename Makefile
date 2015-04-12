@@ -47,7 +47,7 @@ CORE_FILES=const.js io.js main.js lib.js fpu.js ide.js pci.js floppy.js memory.j
 LIB_FILES=../lib/9p.js ../lib/filesystem.js ../lib/jor1k.js ../lib/marshall.js ../lib/utf8.js
 BROWSER_FILES=browser/screen.js\
 			  browser/keyboard.js browser/mouse.js browser/serial.js\
-			  browser/network.js browser/lib.js browser/starter.js
+			  browser/network.js browser/lib.js browser/starter.js browser/worker_bus.js
 
 build/v86_all.js: src/*.js src/browser/*.js build/cpu.js lib/*.js
 	-ls -lh build/v86_all.js
