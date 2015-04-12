@@ -24,8 +24,7 @@ build/cpu.js: src/*.macro.js
 
 # Used for nodejs builds and in order to profile code.
 # `debug` gives identifiers a readable name, make sure it doesn't have any side effects. 
-#CLOSURE_READABLE=--formatting PRETTY_PRINT --debug
-CLOSURE_READABLE=--formatting PRETTY_PRINT
+CLOSURE_READABLE=--formatting PRETTY_PRINT --debug
 
 CLOSURE_SOURCE_MAP=\
 		--source_map_format V3\
@@ -39,6 +38,11 @@ CLOSURE_FLAGS=\
 		--use_types_for_optimization\
 		--summary_detail_level 3\
 		--language_in ECMASCRIPT5_STRICT
+
+
+TRANSPILE_ES6_FLAGS=\
+		--language_in ECMASCRIPT6_STRICT\
+		--language_out ECMASCRIPT5_STRICT\
 
 
 CORE_FILES=const.js io.js main.js lib.js fpu.js ide.js pci.js floppy.js memory.js\
