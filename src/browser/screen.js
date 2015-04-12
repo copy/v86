@@ -43,6 +43,7 @@ function ScreenAdapter(screen_container, bus)
         scale_y = 1,
 
         graphical_mode_width,
+        graphical_mode_height,
 
         modified_pixel_min = 0,
         modified_pixel_max = 0,
@@ -144,14 +145,14 @@ function ScreenAdapter(screen_container, bus)
         this.set_mode(data);
     }, this);
 
-    bus.register("screen-put-pixel-linear", function(data)
+    bus.register("screen-fill-buffer-end", function(data)
     {
-        this.put_pixel_linear(data[0], data[1]);
+        var min = data[0];
+        var max = data[1];
+
+        this.update_buffer(min, max);
     }, this);
-    bus.register("screen-put-pixel-linear32", function(data)
-    {
-        this.put_pixel_linear32(data[0], data[1]);
-    }, this);
+
     bus.register("screen-put-char", function(data)
     {
         //console.log(data);
@@ -230,50 +231,11 @@ function ScreenAdapter(screen_container, bus)
 
     function update_graphical()
     {
-        if(modified_pixel_min < modified_pixel_max)
-        {
-            var top = modified_pixel_min / graphical_mode_width >> 2;
-            var height = ((modified_pixel_max - modified_pixel_min) / graphical_mode_width >> 2) + 1;
-
-            graphic_context.putImageData(
-                graphic_image_data, 
-                0, 0,
-                0, top,
-                graphical_mode_width, height
-            );
-
-            modified_pixel_min = 1e7;
-            modified_pixel_max = 0;
-        }
+        this.bus.send("screen-fill-buffer");
 
         this.timer();
     }
     update_graphical = update_graphical.bind(this);
-
-    // put a single color component in the linear buffer
-    this.put_pixel_linear = function(index, color)
-    {
-        if(index >= graphic_buffer.length)
-        {
-            return;
-        }
-
-        modified_pixel_min = index < modified_pixel_min ? index : modified_pixel_min;
-        modified_pixel_max = index > modified_pixel_max ? index : modified_pixel_max;
-
-        // (addr + 1) ^ 3: Change BGR (svga) order to RGB (canvas)
-        graphic_buffer[(index + 1) ^ 3] = color;
-    };
-
-    // put a single color 
-    this.put_pixel_linear32 = function(index, color)
-    {
-        modified_pixel_min = index < modified_pixel_min ? index : modified_pixel_min;
-        modified_pixel_max = index > modified_pixel_max ? index : modified_pixel_max;
-
-        // change BGR order to RGB
-        graphic_buffer32[index >> 2] = 0xFF000000 | color >> 16 & 0xFF | color << 16 | color & 0xFF00;
-    };
 
     this.destroy = function()
     {
@@ -351,12 +313,10 @@ function ScreenAdapter(screen_container, bus)
         graphic_buffer = new Uint8Array(graphic_image_data.data.buffer);
         graphic_buffer32 = new Int32Array(graphic_image_data.data.buffer);
 
-        for(var i = 3; i < graphic_buffer.length; i += 4)
-        {
-            graphic_buffer[i] = 255;
-        }
-
         graphical_mode_width = width;
+        graphical_mode_height = height;
+
+        this.bus.send("screen-tell-buffer", [graphic_buffer32], [graphic_buffer32.buffer]);
     };
 
     this.set_scale = function(s_x, s_y)
@@ -474,5 +434,25 @@ function ScreenAdapter(screen_container, bus)
         row_element.appendChild(fragment);
     };
 
+    this.update_buffer = function(min, max)
+    {
+        if(max < min)
+        {
+            return;
+        }
+
+        var min_y = min / graphical_mode_width | 0;
+        var max_y = max / graphical_mode_width | 0;
+
+        graphic_context.putImageData(
+            graphic_image_data,
+            0, 0,
+            0, min_y,
+            graphical_mode_width, max_y - min_y + 1
+        );
+    };
+
     this.init();
 }
+
+
