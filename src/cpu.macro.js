@@ -62,14 +62,16 @@ function CPU()
      */
     this.page_fault = false;
 
+    this.cr = new Int32Array(8);
+
     /** @type {number} */
-    this.cr0 = 0;
+    this.cr[0] = 0;
     /** @type {number} */
-    this.cr2 = 0;
+    this.cr[2] = 0;
     /** @type {number} */
-    this.cr3 = 0;
+    this.cr[3] = 0;
     /** @type {number} */
-    this.cr4 = 0;
+    this.cr[4] = 0;
 
     // current privilege level
     /** @type {number} */
@@ -378,10 +380,10 @@ CPU.prototype.reset = function()
     this.gdtr_offset = 0;
 
     this.page_fault = false;
-    this.cr0 = 1 << 30 | 1 << 29 | 1 << 4;
-    this.cr2 = 0;
-    this.cr3 = 0;
-    this.cr4 = 0;
+    this.cr[0] = 1 << 30 | 1 << 29 | 1 << 4;
+    this.cr[2] = 0;
+    this.cr[3] = 0;
+    this.cr[4] = 0;
     this.dreg[6] = 0xFFFF0FF0|0;
     this.dreg[7] = 0x400;
     this.cpl = 0;
@@ -734,16 +736,16 @@ CPU.prototype.hlt_loop = function()
 
 CPU.prototype.cr0_changed = function(old_cr0)
 {
-    //dbg_log("cr0 = " + h(this.cr0 >>> 0), LOG_CPU);
+    //dbg_log("cr0 = " + h(this.cr[0] >>> 0), LOG_CPU);
 
-    var new_paging = (this.cr0 & CR0_PG) === CR0_PG;
+    var new_paging = (this.cr[0] & CR0_PG) === CR0_PG;
 
     if(!this.fpu)
     {
         // if there's no FPU, keep emulation set
-        this.cr0 |= CR0_EM;
+        this.cr[0] |= CR0_EM;
     }
-    this.cr0 |= CR0_ET;
+    this.cr[0] |= CR0_ET;
 
     dbg_assert(typeof this.paging === "boolean");
     if(new_paging !== this.paging)
@@ -752,7 +754,7 @@ CPU.prototype.cr0_changed = function(old_cr0)
         this.full_clear_tlb();
     }
 
-    if(OP_TRANSLATION && (this.cr0 ^ old_cr0) & 1)
+    if(OP_TRANSLATION && (this.cr[0] ^ old_cr0) & 1)
     {
         this.translator.clear_cache();
     }
@@ -1127,7 +1129,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
     //if(interrupt_nr === 14)
     //{
     //    dbg_log("int14 error_code=" + error_code + 
-    //            " cr2=" + h(this.cr2 >>> 0) + 
+    //            " cr2=" + h(this.cr[2] >>> 0) + 
     //            " prev=" + h(this.previous_ip >>> 0) + 
     //            " cpl=" + this.cpl, LOG_CPU);
     //}
@@ -1146,7 +1148,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
     if(this.protected_mode)
     {
-        if(this.vm86_mode() && (this.cr4 & CR4_VME))
+        if(this.vm86_mode() && (this.cr[4] & CR4_VME))
         {
             throw this.debug.unimpl("VME");
         }
@@ -2132,7 +2134,7 @@ CPU.prototype.switch_seg = function(reg, selector)
 
     if(reg === reg_cs)
     {
-        this.protected_mode = (this.cr0 & CR0_PE) === CR0_PE;
+        this.protected_mode = (this.cr[0] & CR0_PE) === CR0_PE;
     }
 
     if(!this.protected_mode || this.vm86_mode())
@@ -2573,7 +2575,7 @@ CPU.prototype.translate_address_system_read = function(addr)
 CPU.prototype.do_page_translation = function(addr, for_writing, user)
 {
     var page = addr >>> 12,
-        page_dir_addr = (this.cr3 >>> 2) + (page >> 10),
+        page_dir_addr = (this.cr[3] >>> 2) + (page >> 10),
         page_dir_entry = this.memory.mem32s[page_dir_addr],
         high,
         can_write = true,
@@ -2592,7 +2594,7 @@ CPU.prototype.do_page_translation = function(addr, for_writing, user)
         // - prevent execution of the function that triggered this call
         //dbg_log("#PF not present", LOG_CPU);
 
-        this.cr2 = addr;
+        this.cr[2] = addr;
         this.trigger_pagefault(for_writing, user, 0);
 
         // never reached as this.trigger_pagefault throws up
@@ -2603,9 +2605,9 @@ CPU.prototype.do_page_translation = function(addr, for_writing, user)
     {
         can_write = false;
 
-        if(for_writing && (user || (this.cr0 & CR0_WP)))
+        if(for_writing && (user || (this.cr[0] & CR0_WP)))
         {
-            this.cr2 = addr;
+            this.cr[2] = addr;
             this.trigger_pagefault(for_writing, user, 1);
             dbg_assert(false);
         }
@@ -2619,7 +2621,7 @@ CPU.prototype.do_page_translation = function(addr, for_writing, user)
         {
             // "Page Fault: page table accessed by non-supervisor";
             //dbg_log("#PF supervisor", LOG_CPU);
-            this.cr2 = addr;
+            this.cr[2] = addr;
             this.trigger_pagefault(for_writing, user, 1);
             dbg_assert(false);
         }
@@ -2643,7 +2645,7 @@ CPU.prototype.do_page_translation = function(addr, for_writing, user)
         if((page_table_entry & 1) === 0)
         {
             //dbg_log("#PF not present table", LOG_CPU);
-            this.cr2 = addr;
+            this.cr[2] = addr;
             this.trigger_pagefault(for_writing, user, 0);
             dbg_assert(false);
         }
@@ -2652,10 +2654,10 @@ CPU.prototype.do_page_translation = function(addr, for_writing, user)
         {
             can_write = false;
 
-            if(for_writing && (user || (this.cr0 & CR0_WP)))
+            if(for_writing && (user || (this.cr[0] & CR0_WP)))
             {
                 //dbg_log("#PF not writable page", LOG_CPU);
-                this.cr2 = addr;
+                this.cr[2] = addr;
                 this.trigger_pagefault(for_writing, user, 1);
                 dbg_assert(false);
             }
@@ -2668,7 +2670,7 @@ CPU.prototype.do_page_translation = function(addr, for_writing, user)
             if(user)
             {
                 //dbg_log("#PF not supervisor page", LOG_CPU);
-                this.cr2 = addr;
+                this.cr[2] = addr;
                 this.trigger_pagefault(for_writing, user, 1);
                 dbg_assert(false);
             }
@@ -2712,7 +2714,7 @@ CPU.prototype.do_page_translation = function(addr, for_writing, user)
     
     this.tlb_info[page] = allowed_flag;
 
-    if(global && (this.cr4 & CR4_PGE))
+    if(global && (this.cr[4] & CR4_PGE))
     {
         this.tlb_info_global[page] = allowed_flag;
     }
@@ -2752,11 +2754,11 @@ CPU.prototype.trigger_pagefault = function(write, user, present)
 {
     //dbg_log("page fault w=" + write + " u=" + user + " p=" + present + 
     //        " eip=" + h(this.previous_ip >>> 0, 8) +
-    //        " cr2=" + h(this.cr2 >>> 0, 8), LOG_CPU);
+    //        " cr2=" + h(this.cr[2] >>> 0, 8), LOG_CPU);
     //dbg_trace(LOG_CPU);
 
     // likely invalid pointer reference 
-    //if((this.cr2 >>> 0) < 0x100)
+    //if((this.cr[2] >>> 0) < 0x100)
     //{
     //    throw "stop";
     //}
@@ -2768,7 +2770,7 @@ CPU.prototype.trigger_pagefault = function(write, user, present)
     }
 
     // invalidate tlb entry
-    var page = this.cr2 >>> 12;
+    var page = this.cr[2] >>> 12;
 
     this.tlb_info[page] = 0;
     this.tlb_info_global[page] = 0;

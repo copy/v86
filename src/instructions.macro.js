@@ -752,7 +752,7 @@ op2(0x9A, {
 
 op(0x9B, {
     // fwait: check for pending fpu exceptions
-    if((cpu.cr0 & (CR0_MP | CR0_TS)) === (CR0_MP | CR0_TS))
+    if((cpu.cr[0] & (CR0_MP | CR0_TS)) === (CR0_MP | CR0_TS))
     {
         // task switched and MP bit is set
         cpu.trigger_nm();
@@ -1151,7 +1151,7 @@ op(0xD7, {
 // fpu instructions
 #define fpu_op(n, op)\
     opm(n, { \
-        if(cpu.cr0 & (CR0_EM | CR0_TS))\
+        if(cpu.cr[0] & (CR0_EM | CR0_TS))\
             cpu.trigger_nm();\
         if(modrm_byte < 0xC0)\
             cpu.fpu.op_ ## op ## _mem(modrm_byte, cpu.modrm_resolve(modrm_byte));\
@@ -1382,8 +1382,8 @@ op(0xFA, {
     else
     {
         if(cpu.getiopl() < 3 && ((cpu.flags & flag_vm) ? 
-            (cpu.cr4 & CR4_VME) :
-            (cpu.cpl === 3 && (cpu.cr4 & CR4_PVI))))
+            (cpu.cr[4] & CR4_VME) :
+            (cpu.cpl === 3 && (cpu.cr[4] & CR4_PVI))))
         {
             cpu.flags &= ~flag_vif;
         }
@@ -1410,8 +1410,8 @@ op(0xFB, {
     else
     {
         if(cpu.getiopl() < 3 && (cpu.flags & flag_vip) === 0 && ((cpu.flags & flag_vm) ? 
-            (cpu.cr4 & CR4_VME) :
-            (cpu.cpl === 3 && (cpu.cr4 & CR4_PVI))))
+            (cpu.cr[4] & CR4_VME) :
+            (cpu.cpl === 3 && (cpu.cr[4] & CR4_PVI))))
         {
             cpu.flags |= flag_vif;
         }
@@ -1631,7 +1631,7 @@ opm(0x01, {
     if(mod === 4)
     {
         // smsw
-        set_ev16(cpu.cr0);
+        set_ev16(cpu.cr[0]);
         return;
     }
     else if(mod === 6)
@@ -1639,13 +1639,13 @@ opm(0x01, {
         // lmsw
         read_e16;
 
-        var old_cr0 = cpu.cr0;
-        cpu.cr0 = (cpu.cr0 & ~0xF) | (data & 0xF);
+        var old_cr0 = cpu.cr[0];
+        cpu.cr[0] = (cpu.cr[0] & ~0xF) | (data & 0xF);
 
         if(cpu.protected_mode)
         {
             // lmsw cannot be used to switch back
-            cpu.cr0 |= CR0_PE;
+            cpu.cr[0] |= CR0_PE;
         }
 
         //dbg_log("cr0=" + h(data >>> 0), LOG_CPU);
@@ -1775,7 +1775,7 @@ op(0x06, {
     else
     {
         //dbg_log("clts", LOG_CPU);
-        cpu.cr0 &= ~CR0_TS;
+        cpu.cr[0] &= ~CR0_TS;
         // do something here ?
     }
 });
@@ -1849,17 +1849,17 @@ opm(0x20, {
     switch(modrm_byte >> 3 & 7)
     {
         case 0:
-            reg_e32s = cpu.cr0;
+            reg_e32s = cpu.cr[0];
             break;
         case 2:
-            reg_e32s = cpu.cr2;
+            reg_e32s = cpu.cr[2];
             break;
         case 3:
-            //dbg_log("read cr3 (" + h(cpu.cr3, 8) + ")", LOG_CPU);
-            reg_e32s = cpu.cr3;
+            //dbg_log("read cr3 (" + h(cpu.cr[3], 8) + ")", LOG_CPU);
+            reg_e32s = cpu.cr[3];
             break;
         case 4:
-            reg_e32s = cpu.cr4;
+            reg_e32s = cpu.cr[4];
             break;
         default:
             dbg_log(modrm_byte >> 3 & 7);
@@ -1896,10 +1896,10 @@ opm(0x22, {
     switch(modrm_byte >> 3 & 7)
     {
         case 0:
-            var old_cr0 = cpu.cr0;
-            cpu.cr0 = data;
+            var old_cr0 = cpu.cr[0];
+            cpu.cr[0] = data;
 
-            if((cpu.cr0 & (CR0_PE | CR0_PG)) === CR0_PG)
+            if((cpu.cr[0] & (CR0_PE | CR0_PG)) === CR0_PG)
             {
                 // cannot load PG without PE
                 throw cpu.debug.unimpl("#GP handler");
@@ -1910,18 +1910,18 @@ opm(0x22, {
             break;
 
         case 2:
-            cpu.cr2 = data;
+            cpu.cr[2] = data;
             //dbg_log("cr2=" + h(data >>> 0), LOG_CPU);
             break;
 
         case 3: 
             //dbg_log("cr3=" + h(data >>> 0), LOG_CPU);
-            cpu.cr3 = data;
-            dbg_assert((cpu.cr3 & 0xFFF) === 0);
+            cpu.cr[3] = data;
+            dbg_assert((cpu.cr[3] & 0xFFF) === 0);
             cpu.clear_tlb();
 
             //dump_page_directory();
-            //dbg_log("page directory loaded at " + h(cpu.cr3 >>> 0, 8), LOG_CPU);
+            //dbg_log("page directory loaded at " + h(cpu.cr[3] >>> 0, 8), LOG_CPU);
             break;
 
         case 4:
@@ -1930,7 +1930,7 @@ opm(0x22, {
                 cpu.trigger_gp(0);
             }
 
-            if((cpu.cr4 ^ data) & CR4_PGE)
+            if((cpu.cr[4] ^ data) & CR4_PGE)
             {
                 if(data & CR4_PGE)
                 {
@@ -1945,15 +1945,15 @@ opm(0x22, {
                 }
             }
 
-            cpu.cr4 = data;
-            cpu.page_size_extensions = (cpu.cr4 & CR4_PSE) ? PSE_ENABLED : 0;
+            cpu.cr[4] = data;
+            cpu.page_size_extensions = (cpu.cr[4] & CR4_PSE) ? PSE_ENABLED : 0;
 
-            if(cpu.cr4 & CR4_PAE)
+            if(cpu.cr[4] & CR4_PAE)
             {
                 throw cpu.debug.unimpl("PAE");
             }
 
-            dbg_log("cr4=" + h(cpu.cr4 >>> 0), LOG_CPU);
+            dbg_log("cr4=" + h(cpu.cr[4] >>> 0), LOG_CPU);
             break;
 
         default:
@@ -2024,7 +2024,7 @@ op(0x30, {
 op(0x31, {
     // rdtsc - read timestamp counter
 
-    if(!cpu.cpl || !(cpu.cr4 & CR4_TSD))
+    if(!cpu.cpl || !(cpu.cr[4] & CR4_TSD))
     {
         var n = v86.microtick() - cpu.tsc_offset;
         dbg_assert(isFinite(n), "non-finite tsc: " + n);
