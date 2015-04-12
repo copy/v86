@@ -8,6 +8,7 @@
 EMULATOR=http://localhost/v86/
 
 chromium \
+     --incognito\
      --no-sandbox                           \
      --js-flags="--trace-hydrogen           \
                  --trace-phase=Z            \
