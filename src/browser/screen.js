@@ -307,7 +307,7 @@ function ScreenAdapter(screen_container, bus)
      */
     this.set_size_text = function(cols, rows)
     {
-        if(cols === text_mode_width || rows === text_mode_height)
+        if(cols === text_mode_width && rows === text_mode_height)
         {
             return;
         }
