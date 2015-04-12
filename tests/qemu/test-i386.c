@@ -1210,14 +1210,17 @@ void test_bcd(void)
 #define TEST_CMPXCHG(op, size, opconst, eax)\
 {\
     long op0, op1, op2;\
+    long eflags;\
     op0 = i2l(0x12345678);\
     op1 = i2l(0xfbca7654);\
     op2 = i2l(eax);\
-    asm(#op " %" size "0, %" size "1" \
-        : "=q" (op0), opconst (op1) \
+    asm(#op " %" size "0, %" size "1\n" \
+        "pushf\n" \
+        "pop %2\n" \
+        : "=q" (op0), opconst (op1), "=g" (eflags) \
         : "0" (op0), "a" (op2));\
-    printf("%-10s EAX=" FMTLX " A=" FMTLX " C=" FMTLX "\n",\
-           #op, op2, op0, op1);\
+    printf("%-10s EAX=" FMTLX " A=" FMTLX " C=" FMTLX " CC=%02lx\n",\
+           #op, op2, op0, op1, eflags & (CC_C | CC_P | CC_Z | CC_S | CC_O | CC_A));\
 }
 
 void test_xchg(void)
