@@ -2,6 +2,8 @@
 
 /**
  * @constructor
+ *
+ * @param {Bus.Connector} bus
  */
 function KeyboardAdapter(bus)
 {

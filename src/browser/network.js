@@ -7,6 +7,9 @@
  * emulated ethernet card <--> this <--> websocket proxy <--> network
  *
  * @constructor
+ *
+ * @param {string} url
+ * @param {Bus.Connector} bus
  */
 function NetworkAdapter(url, bus)
 {

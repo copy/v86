@@ -11,6 +11,8 @@ if(typeof window !== "undefined" && !window.requestAnimationFrame)
 /**
  * Adapter to use visual screen in browsers (in constrast to node)
  * @constructor
+ *
+ * @param {Bus.Connector} bus
  */
 function ScreenAdapter(screen_container, bus)
 {

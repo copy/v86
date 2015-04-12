@@ -1,6 +1,10 @@
 "use strict";
 
-/** @constructor */
+/**
+ * @constructor
+ *
+ * @param {Bus.Connector} bus
+ */
 function MouseAdapter(bus)
 {
     /** @const */
