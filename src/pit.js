@@ -16,7 +16,7 @@ function PIT(cpu)
 {
     /** @const */
     this.pic = cpu.devices.pic;
-        
+
     this.next_tick = Date.now();
 
     this.counter_next_low = new Uint8Array(4);
@@ -32,7 +32,7 @@ function PIT(cpu)
     this.counter_current = new Uint16Array(3);
 
     // only counter2 output can be read
-    this.counter2_out = 0;
+    this.counter2_start = 0;
 
 
     // TODO:
@@ -40,8 +40,11 @@ function PIT(cpu)
 
     cpu.io.register_read(0x61, this, function()
     {
-        var ref_toggle = (v86.microtick() * (1000 * 1000 / 15000)) & 1;
-        return ref_toggle << 4 | this.counter2_out << 5;
+        var now = v86.microtick();
+        var ref_toggle = (now * (1000 * 1000 / 15000)) & 1;
+        var counter2_out = (now - this.counter2_start) >= (this.counter_reload[2] / OSCILLATOR_FREQ);
+
+        return ref_toggle << 4 | counter2_out << 5;
     });
 
     cpu.io.register_read(0x40, this, function() { return this.counter_read(0); });
@@ -59,12 +62,6 @@ function PIT(cpu)
         this.pic,
     ];
 }
-
-PIT.prototype.get_timer2 = function()
-{
-    //dbg_log("timer2 read", LOG_PIT);
-    return this.counter2_out;
-};
 
 PIT.prototype.timer = function(time, no_irq)
 {
@@ -109,42 +106,6 @@ PIT.prototype.timer = function(time, no_irq)
         {
             time_to_next_interrupt = current / OSCILLATOR_FREQ;
         }
-    }
-
-    // counter 2 has an output bit
-    if(this.counter_enabled[2])
-    {
-        current = this.counter_current[2] -= steps;
-
-        if(current <= 0)
-        {
-            mode = this.counter_mode[2];
-
-            if(mode === 0)
-            {
-                this.counter2_out = 1;
-                this.counter_enabled[2] = 0;
-                this.counter_current[2] = 0;
-            }
-            else if(mode === 2)
-            {
-                this.counter2_out = 1;
-                this.counter_current[2] = this.counter_reload[2] + current % this.counter_reload[2];
-            }
-            else if(mode === 3)
-            {
-                this.counter2_out ^= 1;
-                this.counter_current[2] = this.counter_reload[2] + current % this.counter_reload[2];
-            }
-        }
-        // cannot really happen, because the counter gets changed by big numbers
-        //else if(current === 1)
-        //{
-        //    if(this.counter_mode[2] === 2)
-        //    {
-        //        this.counter2_out = 0;
-        //    }
-        //}
     }
 
     return time_to_next_interrupt;
@@ -281,7 +242,7 @@ PIT.prototype.port43_write = function(reg_byte)
     }
     else if(mode === 3 || mode === 2)
     {
-        // what is the difference 
+        // what is the difference
     }
     else
     {
@@ -293,14 +254,6 @@ PIT.prototype.port43_write = function(reg_byte)
 
     if(i === 2)
     {
-        if(mode === 0)
-        {
-            this.counter2_out = 0;
-        }
-        else
-        {
-            // correct for mode 2 and 3
-            this.counter2_out = 1;
-        }
+        this.counter2_start = v86.microtick();
     }
 };
