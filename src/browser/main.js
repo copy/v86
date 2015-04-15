@@ -980,7 +980,7 @@
                     var filename = this.value.replace(/\/$/, "").split("/");
                     filename = filename[filename.length - 1] || "root";
 
-                    dump_file(uint8array.buffer, filename);
+                    dump_file(uint8array, filename);
                     this.value = "";
                 }
                 else 

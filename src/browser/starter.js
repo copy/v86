@@ -797,10 +797,19 @@ V86Starter.prototype.read_file = function(file, callback)
     {
         fs.OpenInode(id, undefined);
         fs.AddEvent(
-            id, 
-            function() 
+            id,
+            function()
             {
-                callback(null, fs.inodedata[id]);
+                var data = fs.inodedata[id];
+
+                if(data)
+                {
+                    callback(null, data.subarray(0, fs.inodes[id].size));
+                }
+                else
+                {
+                    callback(new FileNotFoundError(), null);
+                }
             }
         );
     }
