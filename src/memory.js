@@ -156,6 +156,7 @@ Memory.prototype.read16 = function(addr)
  */
 Memory.prototype.read_aligned16 = function(addr)
 {
+    dbg_assert(addr >= 0 && addr < 0x80000000);
     this.debug_read(addr << 1, 2);
 
     if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS - 1])
@@ -191,6 +192,7 @@ Memory.prototype.read32s = function(addr)
  */
 Memory.prototype.read_aligned32 = function(addr)
 {
+    dbg_assert(addr >= 0 && addr < 0x40000000);
     this.debug_read(addr << 2, 4);
 
     if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS - 2])
@@ -258,6 +260,7 @@ Memory.prototype.write16 = function(addr, value)
  */
 Memory.prototype.write_aligned16 = function(addr, value)
 {
+    dbg_assert(addr >= 0 && addr < 0x80000000);
     this.debug_write(addr << 1, 2, value);
 
     var page = addr >>> MMAP_BLOCK_BITS - 1;
@@ -305,6 +308,7 @@ Memory.prototype.write32 = function(addr, value)
 
 Memory.prototype.write_aligned32 = function(addr, value)
 {
+    dbg_assert(addr >= 0 && addr < 0x40000000);
     this.debug_write(addr << 2, 4, value);
 
     var page = addr >>> MMAP_BLOCK_BITS - 2;
