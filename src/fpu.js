@@ -383,6 +383,19 @@ FPU.prototype.frstor = function(addr)
     //dbg_log("rstor " + [].slice.call(this.st), LOG_FPU);
 }
 
+FPU.prototype.fxtract = function()
+{
+    this.float64[0] = this.get_st0();
+
+    var exponent = ((this.float64_byte[7] & 0x7F) << 4 | this.float64_byte[6] >> 4) - 0x3FF;
+
+    this.float64_byte[7] = 0x3F | (this.float64_byte[7] & 0x80);
+    this.float64_byte[6] |= 0xF0;
+
+    this.st[this.stack_ptr] = exponent;
+    this.push(this.float64[0]);
+};
+
 FPU.prototype.integer_round = function(f)
 {
     var rc = this.control_word >> 10 & 3;
@@ -822,8 +835,7 @@ FPU.prototype.op_D9_reg = function(imm8)
                     this.pop();
                     break;
                 case 4:
-                    // fxtract
-                    this.fpu_unimpl();
+                    this.fxtract();
                     break;
                 case 5:
                     // fprem1
