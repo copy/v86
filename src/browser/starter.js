@@ -309,13 +309,11 @@ function V86Starter(options)
     var starter = this;
     var total = files_to_load.length;
 
-    cont(0);
-
-    function cont(index)
+    var cont = function(index)
     {
         if(index === total)
         {
-            setTimeout(done, 0);
+            setTimeout(done.bind(this), 0);
             return;
         }
 
@@ -333,7 +331,7 @@ function V86Starter(options)
         else
         {
             v86util.load_file(f.url, {
-                done: function done(result)
+                done: function(result)
                 {
                     put_on_settings(f.name, new SyncBuffer(result));
                     cont(index + 1);
@@ -353,9 +351,10 @@ function V86Starter(options)
                 as_text: f.as_text,
             });
         }
-    }
+    }.bind(this);
+    cont(0);
 
-    var done = function done()
+    function done()
     {
         this.bus.send("cpu-init", settings);
 
@@ -379,7 +378,7 @@ function V86Starter(options)
                 }
             }.bind(this), 0)
         }.bind(this), 0);
-    }.bind(this);
+    }
 }
 
 /**
