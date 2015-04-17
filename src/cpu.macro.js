@@ -1919,7 +1919,7 @@ CPU.prototype.cpuid = function()
             // pentium
             eax = 3 | 6 << 4 | 15 << 8;
             ebx = 0;
-            ecx = 1 << 23; // popcnt
+            ecx = 1 << 23 | 1 << 30; // popcnt, rdrand
             edx = (this.fpu ? 1 : 0) |                // fpu
                     1 << 1 | 1 << 3 | 1 << 4 | 1 << 5 |   // vme, pse, tsc, msr
                     1 << 8 | 1 << 11 | 1 << 13 | 1 << 15; // cx8, sep, pge, cmov
