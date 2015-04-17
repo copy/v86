@@ -1138,7 +1138,10 @@ VGAScreen.prototype.svga_register_read = function(n)
             return this.svga_bank_offset >>> 16;
         case 6:
             // virtual width
-            return this.svga_width;
+            return this.screen_width;
+        case 8:
+            // x offset
+            return 0;
         case 0x0A:
             // memory size in 64 kilobyte banks
             return this.vga_memory_size / VGA_BANK_SIZE | 0;
