@@ -106,6 +106,9 @@ function VGAScreen(cpu, bus, vga_memory_size)
     /** @type {number} */
     this.svga_bpp = 32;
 
+    /** @type {number} */
+    this.svga_bank_offset = 0;
+
     /** 
      * The video buffer offset created by VBE_DISPI_INDEX_Y_OFFSET
      * In bytes
@@ -269,9 +272,9 @@ VGAScreen.prototype._state_restore = function()
         this.plane3,
     ];
 
-    this.bus.send("screen-set-mode", this.graphical_mode || this.svga_enabled);
+    this.bus.send("screen-set-mode", this.graphical_mode);
 
-    if(this.graphical_mode || this.svga_enabled)
+    if(this.graphical_mode)
     {
         // TODO: Consider non-svga modes
         this.set_size_graphical(this.svga_width, this.svga_height, this.svga_bpp);
@@ -292,7 +295,9 @@ VGAScreen.prototype.vga_memory_read = function(addr)
 
     if(!this.graphical_mode || this.graphical_mode_is_linear)
     {
-        return this.vga_memory[addr];
+        addr |= this.svga_bank_offset;
+
+        return this.svga_memory[addr];
     }
 
     // TODO: "Color don't care"
@@ -332,10 +337,12 @@ VGAScreen.prototype.vga_memory_write = function(addr, value)
 
 VGAScreen.prototype.vga_memory_write_graphical_linear = function(addr, value)
 {
+    addr |= this.svga_bank_offset;
+
     this.diff_addr_min = addr < this.diff_addr_min ? addr : this.diff_addr_min;
     this.diff_addr_max = addr > this.diff_addr_max ? addr : this.diff_addr_max;
 
-    this.vga_memory[addr] = value;
+    this.svga_memory[addr] = value;
 };
 
 VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
@@ -1065,6 +1072,9 @@ VGAScreen.prototype.port1CF_write = function(value)
             this.svga_enabled = (value & 1) === 1;
             this.dispi_enable_value = value;
             break;
+        case 5:
+            this.svga_bank_offset = value << 16;
+            break;
         case 9:
             // y offset
             this.svga_offset = value * this.svga_bytes_per_line();
@@ -1093,7 +1103,13 @@ VGAScreen.prototype.port1CF_write = function(value)
     {
         this.set_size_graphical(this.svga_width, this.svga_height, this.svga_bpp);
         this.bus.send("screen-set-mode", true);
+        this.graphical_mode = true;
+        this.graphical_mode_is_linear = true;
+    }
 
+    if(!this.svga_enabled)
+    {
+        this.svga_bank_offset = 0;
     }
 };
 
@@ -1118,6 +1134,8 @@ VGAScreen.prototype.svga_register_read = function(n)
             return this.dispi_enable_value & 2 ? MAX_BPP : this.svga_bpp;
         case 4:
             return this.dispi_enable_value;
+        case 5:
+            return this.svga_bank_offset >>> 16;
         case 6:
             // virtual width
             return this.svga_width;
@@ -1131,7 +1149,7 @@ VGAScreen.prototype.svga_register_read = function(n)
 
 VGAScreen.prototype.screen_fill_buffer = function()
 {
-    if(!this.graphical_mode && !this.svga_enabled)
+    if(!this.graphical_mode)
     {
         // text mode
         return;
