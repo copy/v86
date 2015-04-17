@@ -427,6 +427,11 @@ CPU.prototype.reset = function()
     this.instruction_pointer = 0xFFFF0;
     this.switch_seg(reg_ss, 0x30);
     this.reg16[reg_sp] = 0x100;
+
+    if(this.devices.virtio)
+    {
+        this.devices.virtio.reset();
+    }
 };
 
 CPU.prototype.init = function(settings, device_bus)

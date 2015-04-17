@@ -181,6 +181,17 @@ function VirtIO(cpu, bus, filesystem)
     };
 }
 
+VirtIO.prototype.reset = function()
+{
+    this.queue_select = 0;
+    this.device_status = 0;
+    this.isr = 0;
+
+    this.last_idx = 0;
+    this.queue_size = 32;
+    this.queue_address = 0;
+};
+
 VirtIO.prototype.handle_descriptor = function(idx)
 {
     var next = idx;
