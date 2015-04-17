@@ -906,12 +906,12 @@ CPU.prototype.rcl32 = function(dest_operand, count)
 
 CPU.prototype.ror8 = function(dest_operand, count)
 {
-    count &= 7;
     if(!count)
     {
         return dest_operand;
     }
 
+    count &= 7;
     var result = dest_operand >> count | dest_operand << (8 - count);
 
     this.flags_changed &= ~1 & ~flag_overflow;
@@ -924,12 +924,12 @@ CPU.prototype.ror8 = function(dest_operand, count)
 
 CPU.prototype.ror16 = function(dest_operand, count)
 {
-    count &= 15;
     if(!count)
     {
         return dest_operand;
     }
 
+    count &= 15;
     var result = dest_operand >> count | dest_operand << (16 - count);
 
     this.flags_changed &= ~1 & ~flag_overflow;
@@ -938,7 +938,7 @@ CPU.prototype.ror16 = function(dest_operand, count)
                 | (result >> 4 ^ result >> 3) & flag_overflow;
 
     return result;
-}    
+}
 
 CPU.prototype.ror32 = function(dest_operand, count)
 {
@@ -1068,7 +1068,7 @@ CPU.prototype.shl32 = function(dest_operand, count)
 
     return this.last_result;
 }
-    
+
 CPU.prototype.shr8 = function(dest_operand, count)
 {
     if(count === 0)
@@ -1080,12 +1080,12 @@ CPU.prototype.shr8 = function(dest_operand, count)
 
     this.last_op_size = OPSIZE_8;
     this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
                 | (dest_operand >> (count - 1) & 1)
                 | (dest_operand >> 7 & 1) << 11 & flag_overflow;
 
     return this.last_result;
-}    
+}
 
 CPU.prototype.shr16 = function(dest_operand, count)
 {
@@ -1130,12 +1130,20 @@ CPU.prototype.sar8 = function(dest_operand, count)
         return dest_operand;
     }
 
-    this.last_result = dest_operand >> count;
+    if(count < 8)
+    {
+        this.last_result = dest_operand << 24 >> count + 24;
+        // of is zero
+        this.flags = (this.flags & ~1 & ~flag_overflow) | (dest_operand >> (count - 1) & 1);
+    }
+    else
+    {
+        this.last_result = dest_operand << 24 >> 31;
+        this.flags = (this.flags & ~1 & ~flag_overflow) | (this.last_result & 1);
+    }
 
     this.last_op_size = OPSIZE_8;
     this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) | (dest_operand >> (count - 1) & 1);
-    // of is zero
 
     return this.last_result;
 }    
@@ -1147,11 +1155,19 @@ CPU.prototype.sar16 = function(dest_operand, count)
         return dest_operand;
     }
 
-    this.last_result = dest_operand >> count;
+    if(count < 16)
+    {
+        this.last_result = dest_operand << 16 >> count + 16;
+        this.flags = (this.flags & ~1 & ~flag_overflow) | (dest_operand >> (count - 1) & 1);
+    }
+    else
+    {
+        this.last_result = dest_operand << 16 >> 31;
+        this.flags = (this.flags & ~1 & ~flag_overflow) | (this.last_result & 1);
+    }
 
     this.last_op_size = OPSIZE_16;
     this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) | (dest_operand >> (count - 1) & 1);
 
     return this.last_result;
 }
