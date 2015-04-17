@@ -1072,7 +1072,14 @@ CPU.prototype.update_eflags = function(new_flags)
 
 CPU.prototype.get_stack_pointer = function(mod)
 {
-    return this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + mod | 0;
+    if(this.stack_size_32)
+    {
+        return this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + mod | 0;
+    }
+    else
+    {
+        return this.get_seg(reg_ss) + (this.stack_reg[this.reg_vsp] + mod & 0xFFFF) | 0;
+    }
 };
 
 /*
