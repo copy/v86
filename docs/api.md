@@ -34,7 +34,7 @@ Options can have the following properties (all optional, default in parenthesis)
 - `disable_mouse boolean` (false) - If the mouse should be disabled.
 
 - `network_relay_url string` (No network card) - The url of a server running
-  websockproxy. See [networking.md](docs/networking.md). Setting this will
+  websockproxy. See [networking.md](networking.md). Setting this will
   enable an emulated network card.
 
 - `bios Object` (No bios) - Either a url pointing to a bios or an
@@ -47,15 +47,15 @@ Options can have the following properties (all optional, default in parenthesis)
   [`restore_state`](#restore_statearraybuffer-state) and below.
 
 - `filesystem Object` (No 9p filesystem) - A 9p filesystem, see
-  [filesystem.md](docs/filesystem.md).
+  [filesystem.md](filesystem.md).
 
 - `serial_container HTMLTextAreaElement` (No serial terminal) - A textarea
   that will receive and send data to the emulated serial terminal.
   Alternatively the serial terminal can also be accessed programatically,
-  see [serial.html](docs/samples/serial.html).
+  see [serial.html](samples/serial.html).
 
 - `screen_container HTMLElement` (No screen) - An HTMLElement. This should
-  have a certain structure, see [basic.html](docs/samples/basic.html).
+  have a certain structure, see [basic.html](samples/basic.html).
 
 ***
 
@@ -115,7 +115,7 @@ Restart (force a reboot).
 ***
 #### `add_listener(string event, function(*) listener)`
 Add an event listener (the emulator is an event emitter). A list of events
-can be found at [docs/events.md](docs/events.md).
+can be found at [events.md](events.md).
 
 The callback function gets a single argument which depends on the event.
 
@@ -162,6 +162,9 @@ otherwise.
 
 ***
 #### `get_statistics() -> Object`
+
+**Deprecated - Might be removed in a later release.**
+
 Return an object with several statistics. Return value looks similar to
 (but can be subject to change in future versions or different
 configurations, so use defensively):
@@ -212,7 +215,7 @@ configurations, so use defensively):
 #### `keyboard_send_scancodes(Array.<number> codes)`
 Send a sequence of scan codes to the emulated PS2 controller. A list of
 codes can be found at http://stanislavs.org/helppc/make_codes.html.
-Do nothing if there is not keyboard controller.
+Do nothing if there is no keyboard controller.
 
 **Parameters:**
 
