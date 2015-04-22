@@ -628,8 +628,6 @@ CPU.prototype.do_run = function()
         start = Date.now(),
         now = start;
 
-    this.devices.vga.timer();
-
     // outer loop:
     // runs cycles + timers
     for(; now - start < TIME_PER_FRAME;)
@@ -726,8 +724,6 @@ CPU.prototype.hlt_loop = function()
         var pit_time = this.devices.pit.timer(now, false);
         var rtc_time = this.devices.rtc.timer(now, false);
     }
-
-    this.devices.vga.timer(now);
 
     if(!this.in_hlt)
     {
