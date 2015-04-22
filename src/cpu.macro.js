@@ -870,7 +870,7 @@ CPU.prototype.virt_boundary_read32s = function(low, high)
     else
     {
         // 0xFFE
-        mid = this.virt_boundary_read16(low + 1, high - 1); 
+        mid = this.virt_boundary_read16(low + 1 | 0, high - 1 | 0);
     }
 
     return this.memory.read8(low) | mid << 8 | this.memory.read8(high) << 24;;
@@ -904,14 +904,14 @@ CPU.prototype.virt_boundary_write32 = function(low, high, value)
         else
         {
             // 0xFFD
-            this.memory.write8(low + 1, value >> 8);
-            this.memory.write8(low + 2, value >> 16);
+            this.memory.write8(low + 1 | 0, value >> 8);
+            this.memory.write8(low + 2 | 0, value >> 16);
         }
     }
     else
     {
         // 0xFFE
-        this.memory.write8(low + 1, value >> 8);
+        this.memory.write8(low + 1 | 0, value >> 8);
         this.memory.write8(high - 1, value >> 16);
     }
 };
@@ -930,7 +930,7 @@ CPU.prototype.safe_read16 = function(addr)
 {
     if(this.paging && (addr & 0xFFF) === 0xFFF)
     {
-        return this.safe_read8(addr) | this.safe_read8(addr + 1) << 8;
+        return this.safe_read8(addr) | this.safe_read8(addr + 1 | 0) << 8;
     }
     else
     {
@@ -942,7 +942,7 @@ CPU.prototype.safe_read32s = function(addr)
 {
     if(this.paging && (addr & 0xFFF) >= 0xFFD)
     {
-        return this.safe_read16(addr) | this.safe_read16(addr + 2) << 16;
+        return this.safe_read16(addr) | this.safe_read16(addr + 2 | 0) << 16;
     }
     else
     {
@@ -962,7 +962,7 @@ CPU.prototype.safe_write16 = function(addr, value)
 
     if((addr & 0xFFF) === 0xFFF)
     {
-        this.virt_boundary_write16(phys_low, this.translate_address_write(addr + 1), value);
+        this.virt_boundary_write16(phys_low, this.translate_address_write(addr + 1 | 0), value);
     }
     else
     {
@@ -976,7 +976,7 @@ CPU.prototype.safe_write32 = function(addr, value)
 
     if((addr & 0xFFF) >= 0xFFD)
     {
-        this.virt_boundary_write32(phys_low, this.translate_address_write(addr + 3), value);
+        this.virt_boundary_write32(phys_low, this.translate_address_write(addr + 3 | 0), value);
     }
     else
     {
@@ -1171,9 +1171,9 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             addr = this.translate_address_system_read(addr);
         }
 
-        var base = this.memory.read16(addr) | this.memory.read16(addr + 6) << 16,
-            selector = this.memory.read16(addr + 2),
-            type = this.memory.read8(addr + 5),
+        var base = this.memory.read16(addr) | this.memory.read16(addr + 6 | 0) << 16,
+            selector = this.memory.read16(addr + 2 | 0),
+            type = this.memory.read8(addr + 5 | 0),
             dpl = type >> 5 & 3,
             is_trap,
             is_16 = false;
@@ -1257,9 +1257,9 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             //dbg_log("Inter privilege interrupt gate=" + h(selector, 4) + ":" + h(base >>> 0, 8) + " trap=" + is_trap + " 16bit=" + is_16, LOG_CPU);
             //this.debug.dump_regs_short();
 
-            var tss_stack_addr = (info.dpl << 3) + 4;
+            var tss_stack_addr = (info.dpl << 3) + 4 | 0;
 
-            if(tss_stack_addr + 5 > this.segment_limits[reg_tr])
+            if((tss_stack_addr + 5 | 0) > this.segment_limits[reg_tr])
             {
                 throw this.debug.unimpl("#TS handler");
             }
@@ -1272,7 +1272,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             }
 
             var new_esp = this.memory.read32s(tss_stack_addr),
-                new_ss = this.memory.read16(tss_stack_addr + 4),
+                new_ss = this.memory.read16(tss_stack_addr + 4 | 0),
                 ss_info = this.lookup_segment_selector(new_ss);
 
             if(ss_info.is_null)
@@ -1476,7 +1476,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         
         var index = interrupt_nr << 2;
         var new_ip = this.memory.read16(index);
-        var new_cs = this.memory.read16(index + 2);
+        var new_cs = this.memory.read16(index + 2 | 0);
 
         //dbg_log("real mode interrupt #" + h(interrupt_nr) + " to " + h(new_cs, 4) + ":" + h(new_ip, 4), LOG_CPU);
         //dbg_trace(LOG_CPU);
@@ -1866,13 +1866,13 @@ CPU.prototype.test_privileges_for_io = function(port, size)
 
         if(tsr_size >= 0x67)
         {
-            var iomap_base = this.memory.read16(this.translate_address_system_read(tsr_offset + 0x64 + 2)),
-                high_port = port + size - 1;
+            var iomap_base = this.memory.read16(this.translate_address_system_read(tsr_offset + 0x64 + 2 | 0)),
+                high_port = port + size - 1 | 0;
 
-            if(tsr_size >= iomap_base + (high_port >> 3))
+            if(tsr_size >= (iomap_base + (high_port >> 3) | 0))
             {
                 var mask = ((1 << size) - 1) << (port & 7),
-                    addr = this.translate_address_system_read(tsr_offset + iomap_base + (port >> 3)),
+                    addr = this.translate_address_system_read(tsr_offset + iomap_base + (port >> 3) | 0),
                     port_info = (mask & 0xFF00) ? 
                         this.memory.read16(addr) : this.memory.read8(addr);
 
@@ -2087,10 +2087,10 @@ CPU.prototype.lookup_segment_selector = function(selector)
     }
     info.table_offset = table_offset;
 
-    info.base = this.memory.read16(table_offset + 2) | this.memory.read8(table_offset + 4) << 16 | 
-            this.memory.read8(table_offset + 7) << 24,
-    info.access = this.memory.read8(table_offset + 5),
-    info.flags = this.memory.read8(table_offset + 6) >> 4,
+    info.base = this.memory.read16(table_offset + 2 | 0) | this.memory.read8(table_offset + 4 | 0) << 16 | 
+            this.memory.read8(table_offset + 7 | 0) << 24,
+    info.access = this.memory.read8(table_offset + 5 | 0),
+    info.flags = this.memory.read8(table_offset + 6 | 0) >> 4,
 
     // used if system
     info.type = info.access & 0xF;
@@ -2107,7 +2107,7 @@ CPU.prototype.lookup_segment_selector = function(selector)
     info.size = (info.flags & 4) === 4;
 
     var limit = this.memory.read16(table_offset) | 
-                (this.memory.read8(table_offset + 6) & 0xF) << 16;
+                (this.memory.read8(table_offset + 6 | 0) & 0xF) << 16;
 
     if(info.flags & 8)
     {
@@ -2334,7 +2334,7 @@ CPU.prototype.load_tr = function(selector)
     this.sreg[reg_tr] = selector;
 
     // mark task as busy
-    this.memory.write8(info.table_offset + 5, this.memory.read8(info.table_offset + 5) | 2);
+    this.memory.write8(info.table_offset + 5 | 0, this.memory.read8(info.table_offset + 5 | 0) | 2);
 
     //dbg_log("tsr at " + h(info.base) + "; (" + info.effective_limit + " bytes)");
 };
@@ -2578,7 +2578,7 @@ CPU.prototype.translate_address_system_read = function(addr)
 CPU.prototype.do_page_translation = function(addr, for_writing, user)
 {
     var page = addr >>> 12,
-        page_dir_addr = (this.cr[3] >>> 2) + (page >> 10),
+        page_dir_addr = (this.cr[3] >>> 2) + (page >> 10) | 0,
         page_dir_entry = this.memory.mem32s[page_dir_addr],
         high,
         can_write = true,
@@ -2642,7 +2642,7 @@ CPU.prototype.do_page_translation = function(addr, for_writing, user)
     }
     else
     {
-        var page_table_addr = ((page_dir_entry & 0xFFFFF000) >>> 2) + (page & 0x3FF),
+        var page_table_addr = ((page_dir_entry & 0xFFFFF000) >>> 2) + (page & 0x3FF) | 0,
             page_table_entry = this.memory.mem32s[page_table_addr];
 
         if((page_table_entry & 1) === 0)
@@ -2746,9 +2746,9 @@ CPU.prototype.writable_or_pagefault = function(addr, size)
 
     if((addr & 0xFFF) + size - 1 >= 0x1000)
     {
-        if((this.tlb_info[page + 1] & mask) === 0)
+        if((this.tlb_info[page + 1 | 0] & mask) === 0)
         {
-            this.do_page_translation(addr + size - 1, 1, user);
+            this.do_page_translation(addr + size - 1 | 0, 1, user);
         }
     }
 };

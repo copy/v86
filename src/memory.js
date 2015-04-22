@@ -92,7 +92,7 @@ Memory.prototype.mmap_read16 = function(addr)
 {
     var fn = this.memory_map_read8[addr >>> MMAP_BLOCK_BITS];
 
-    return fn(addr) | fn(addr + 1) << 8;
+    return fn(addr) | fn(addr + 1 | 0) << 8;
 };
 
 Memory.prototype.mmap_write16 = function(addr, value)
@@ -100,7 +100,7 @@ Memory.prototype.mmap_write16 = function(addr, value)
     var fn = this.memory_map_write8[addr >>> MMAP_BLOCK_BITS];
 
     fn(addr, value & 0xFF);
-    fn(addr + 1, value >> 8 & 0xFF);
+    fn(addr + 1 | 0, value >> 8 & 0xFF);
 };
 
 Memory.prototype.mmap_read32 = function(addr)
@@ -147,7 +147,7 @@ Memory.prototype.read16 = function(addr)
     }
     else
     {
-        return this.mem8[addr] | this.mem8[addr + 1] << 8;
+        return this.mem8[addr] | this.mem8[addr + 1 | 0] << 8;
     }
 };
 
@@ -182,8 +182,8 @@ Memory.prototype.read32s = function(addr)
     }
     else
     {
-        return this.mem8[addr] | this.mem8[addr + 1] << 8 | 
-            this.mem8[addr + 2] << 16 | this.mem8[addr + 3] << 24;
+        return this.mem8[addr] | this.mem8[addr + 1 | 0] << 8 | 
+            this.mem8[addr + 2 | 0] << 16 | this.mem8[addr + 3 | 0] << 24;
     }
 };
 
@@ -250,7 +250,7 @@ Memory.prototype.write16 = function(addr, value)
     else
     {
         this.mem8[addr] = value;
-        this.mem8[addr + 1] = value >> 8;
+        this.mem8[addr + 1 | 0] = value >> 8;
     }
 };
 
@@ -300,9 +300,9 @@ Memory.prototype.write32 = function(addr, value)
     else
     {
         this.mem8[addr] = value;
-        this.mem8[addr + 1] = value >> 8;
-        this.mem8[addr + 2] = value >> 16;
-        this.mem8[addr + 3] = value >> 24;
+        this.mem8[addr + 1 | 0] = value >> 8;
+        this.mem8[addr + 2 | 0] = value >> 16;
+        this.mem8[addr + 3 | 0] = value >> 24;
     }
 };
 
