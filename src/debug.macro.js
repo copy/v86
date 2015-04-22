@@ -528,7 +528,7 @@
 
         for(var i = 0; i < 1024; i++)
         {
-            var dword = cpu.memory.read32s(cpu.cr3 + 4 * i),
+            var dword = cpu.memory.read32s(cpu.cr[3] + 4 * i),
                 entry = load_page_entry(dword, true);
 
             if(!entry)
