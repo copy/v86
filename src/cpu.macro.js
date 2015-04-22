@@ -229,9 +229,6 @@ function CPU()
     // dynamic instruction translator
     this.translator = undefined;
 
-    // was the last instruction a jump?
-    this.last_instr_jump = false;
-
     this.io = undefined;
     this.fpu = undefined;
 
@@ -444,7 +441,6 @@ CPU.prototype.init = function(settings, device_bus)
     if(OP_TRANSLATION)
     {
         this.translator = new DynamicTranslator(this);
-        this.last_instr_jump = false;
     }
 
     var io = new IO(this.memory);
@@ -1530,8 +1526,6 @@ CPU.prototype.iret16 = function()
 
         throw this.debug.unimpl("16 bit iret in protected mode");
     }
-
-    this.last_instr_jump = true;
 };
 
 CPU.prototype.iret32 = function()
@@ -1683,7 +1677,6 @@ CPU.prototype.iret32 = function()
     //dbg_log("iret if=" + (this.flags & flag_interrupt) + " cpl=" + this.cpl + " eip=" + h(this.instruction_pointer >>> 0, 8), LOG_CPU);
 
     this.handle_irqs();
-    this.last_instr_jump = true;
 };
 
 CPU.prototype.hlt_op = function()

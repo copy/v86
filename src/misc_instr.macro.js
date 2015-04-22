@@ -25,8 +25,6 @@ CPU.prototype.jmp_rel16 = function(rel16)
     this.instruction_pointer -= current_cs;
     this.instruction_pointer = (this.instruction_pointer + rel16) & 0xFFFF;
     this.instruction_pointer = this.instruction_pointer + current_cs | 0;
-
-    this.last_instr_jump = true;
 }
 
 CPU.prototype.jmpcc16 = function(condition)
@@ -39,8 +37,6 @@ CPU.prototype.jmpcc16 = function(condition)
     {
         this.instruction_pointer = this.instruction_pointer + 2 | 0;
     }
-
-    this.last_instr_jump = true;
 }
 
 
@@ -58,8 +54,6 @@ CPU.prototype.jmpcc32 = function(condition)
     {
         this.instruction_pointer = this.instruction_pointer + 4 | 0;
     }
-
-    this.last_instr_jump = true;
 }
 
 CPU.prototype.loopne = function()
@@ -73,8 +67,6 @@ CPU.prototype.loopne = function()
     {
         this.instruction_pointer++;
     }
-
-    this.last_instr_jump = true;
 }
 
 CPU.prototype.loope = function()
@@ -88,8 +80,6 @@ CPU.prototype.loope = function()
     {
         this.instruction_pointer++;
     }
-
-    this.last_instr_jump = true;
 }
 
 CPU.prototype.loop = function()
@@ -103,8 +93,6 @@ CPU.prototype.loop = function()
     {
         this.instruction_pointer++;
     }
-
-    this.last_instr_jump = true;
 }
 
 CPU.prototype.jcxz = function()
@@ -115,8 +103,6 @@ CPU.prototype.jcxz = function()
     {
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
     }
-
-    this.last_instr_jump = true;
 };
 
 /** 

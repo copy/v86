@@ -728,7 +728,6 @@ op2(0x9A, {
 
     cpu.switch_seg(reg_cs, new_cs);
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0;
-    cpu.last_instr_jump = true;
 }, {
     var new_ip = cpu.read_imm32s();
     var new_cs = cpu.read_imm16();
@@ -747,7 +746,6 @@ op2(0x9A, {
 
     cpu.switch_seg(reg_cs, new_cs);
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0;
-    cpu.last_instr_jump = true;
 });
 
 op(0x9B, {
@@ -936,23 +934,19 @@ op2(0xC2, {
 
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop16() | 0;
     cpu.stack_reg[cpu.reg_vsp] += imm16;
-    cpu.last_instr_jump = true;
 }, {
     // retn
     var imm16 = cpu.read_imm16();
 
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop32s() | 0;
     cpu.stack_reg[cpu.reg_vsp] += imm16;
-    cpu.last_instr_jump = true;
 });
 op2(0xC3, {
     // retn
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop16() | 0;
-    cpu.last_instr_jump = true;
 }, {
     // retn
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop32s() | 0;
-    cpu.last_instr_jump = true;
 });
 
 opm2(0xC4, {
@@ -989,7 +983,6 @@ op2(0xCA, {
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
 
     cpu.stack_reg[cpu.reg_vsp] += imm16;
-    cpu.last_instr_jump = true;
 }, {
     // retf 
     cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 8);
@@ -1001,7 +994,6 @@ op2(0xCA, {
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
 
     cpu.stack_reg[cpu.reg_vsp] += imm16;
-    cpu.last_instr_jump = true;
 });
 op2(0xCB, {
     // retf
@@ -1010,7 +1002,6 @@ op2(0xCB, {
 
     cpu.switch_seg(reg_cs, cpu.pop16());
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
-    cpu.last_instr_jump = true;
 }, {
     // retf 
     cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 8);
@@ -1018,7 +1009,6 @@ op2(0xCB, {
 
     cpu.switch_seg(reg_cs, cpu.pop32s() & 0xFFFF);
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
-    cpu.last_instr_jump = true;
 });
 
 op(0xCC, {
@@ -1211,25 +1201,21 @@ op2(0xE8, {
     cpu.push16(cpu.get_real_eip());
 
     cpu.jmp_rel16(imm16s);
-    cpu.last_instr_jump = true;
 }, {
     // call
     var imm32s = cpu.read_imm32s();
     cpu.push32(cpu.get_real_eip());
 
     cpu.instruction_pointer = cpu.instruction_pointer + imm32s | 0;
-    cpu.last_instr_jump = true;
 });
 op2(0xE9, {
     // jmp
     var imm16s = cpu.read_imm16s();
     cpu.jmp_rel16(imm16s);
-    cpu.last_instr_jump = true;
 }, {
     // jmp
     var imm32s = cpu.read_imm32s();
     cpu.instruction_pointer = cpu.instruction_pointer + imm32s | 0;
-    cpu.last_instr_jump = true;
 });
 op2(0xEA, {
     // jmpf
@@ -1237,21 +1223,17 @@ op2(0xEA, {
     cpu.switch_seg(reg_cs, cpu.read_imm16());
 
     cpu.instruction_pointer = ip + cpu.get_seg(reg_cs) | 0;
-    cpu.last_instr_jump = true;
 }, {
     // jmpf
     var ip = cpu.read_imm32s();
     cpu.switch_seg(reg_cs, cpu.read_imm16());
 
     cpu.instruction_pointer = ip + cpu.get_seg(reg_cs) | 0;
-    cpu.last_instr_jump = true;
 });
 op(0xEB, {
     // jmp near
     var imm8 = cpu.read_imm8s();
     cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0;
-
-    cpu.last_instr_jump = true;
 });
 
 op(0xEC, { 
@@ -1458,7 +1440,6 @@ opm2(0xFF, {
             cpu.push16(cpu.get_real_eip());
             
             cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0;
-            cpu.last_instr_jump = true;
         },
         {
             // 3, callf
@@ -1478,13 +1459,11 @@ opm2(0xFF, {
 
             cpu.switch_seg(reg_cs, new_cs);
             cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0;
-            cpu.last_instr_jump = true;
         },
         {
             // 4, jmp near
             read_e16;
             cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0;
-            cpu.last_instr_jump = true;
         },
         {
             // 5, jmpf
@@ -1500,7 +1479,6 @@ opm2(0xFF, {
 
             cpu.switch_seg(reg_cs, new_cs);
             cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0;
-            cpu.last_instr_jump = true;
         },
         {
             // 6, push
@@ -1521,7 +1499,6 @@ opm2(0xFF, {
             cpu.push32(cpu.get_real_eip());
 
             cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0;
-            cpu.last_instr_jump = true;
         },
         {
             // 3, callf
@@ -1541,13 +1518,11 @@ opm2(0xFF, {
 
             cpu.switch_seg(reg_cs, new_cs);
             cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0;
-            cpu.last_instr_jump = true;
         },
         {
             // 4, jmp near
             read_e32s;
             cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0;
-            cpu.last_instr_jump = true;
         },
         {
             // 5, jmpf
@@ -1563,7 +1538,6 @@ opm2(0xFF, {
 
             cpu.switch_seg(reg_cs, new_cs);
             cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0;
-            cpu.last_instr_jump = true;
         },
         {
             // push
