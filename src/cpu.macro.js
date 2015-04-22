@@ -1094,13 +1094,6 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         //this.debug.ops.add(1);
     }
 
-    //if(interrupt_nr == 0x13)
-    //{
-    //    dbg_log("INT 13");
-    //    dbg_log(this.memory.read8(ch) + "/" + this.memory.read8(dh) + "/" + this.memory.read8(cl) + "   |" + this.memory.read8(al));
-    //    dbg_log("=> ", h(this.memory.read16(es) * 16 + this.memory.read16(bx)));
-    //}
-
     //if(interrupt_nr == 0x10)
     //{
     //    dbg_log("int10 ax=" + h(this.reg16[reg_ax], 4) + " '" + String.fromCharCode(this.reg8[reg_al]) + "'"); 
@@ -1210,6 +1203,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         }
         else if(type === 5)
         {
+            dbg_trace();
             throw this.debug.unimpl("call int to task gate");
         }
         else if(type === 6)
@@ -1498,21 +1492,26 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         this.switch_seg(reg_cs, new_cs);
         this.instruction_pointer = this.get_seg(reg_cs) + new_ip | 0;
     }
-
-    this.last_instr_jump = true;
 };
 
 CPU.prototype.iret16 = function()
 {
     if(!this.protected_mode || (this.vm86_mode() && this.getiopl() === 3))
     {
-        var ip = this.pop16();
+        if(this.vm86_mode()) 
+        {
+            dbg_log("iret16 in vm86 mode  iopl=3", LOG_CPU);
+            this.debug.dump_regs_short();
+        }
 
-        this.switch_seg(reg_cs, this.pop16());
+        var new_ip = this.pop16();
+        var new_cs = this.pop16();
         var new_flags = this.pop16();
 
-        this.instruction_pointer = ip + this.get_seg(reg_cs) | 0;
-        this.update_eflags(new_flags);
+        this.switch_seg(reg_cs, new_cs);
+
+        this.instruction_pointer = new_ip + this.get_seg(reg_cs) | 0;
+        this.update_eflags((this.flags & ~0xFFFF) | new_flags);
 
         this.handle_irqs();
     } 
@@ -1536,6 +1535,11 @@ CPU.prototype.iret32 = function()
 
         var ip = this.pop32s();
 
+        if(ip & 0xFFFF0000)
+        {
+            throw this.debug.unimpl("#GP handler");
+        }
+
         this.switch_seg(reg_cs, this.pop32s() & 0xFFFF);
         var new_flags = this.pop32s();
 
@@ -1546,7 +1550,7 @@ CPU.prototype.iret32 = function()
         return;
     }
 
-    if(this.vm86_mode()) 
+    if(this.vm86_mode())
     {
         // vm86 mode, iopl != 3
         this.trigger_gp(0);
@@ -1557,12 +1561,7 @@ CPU.prototype.iret32 = function()
         if(DEBUG) throw this.debug.unimpl("nt");
     }
 
-    //dbg_log("pop eip from " + h(this.reg32[reg_esp], 8));
     this.instruction_pointer = this.pop32s();
-
-    //dbg_log("IRET | from " + h(this.previous_ip >>> 0) + " to " + h(this.instruction_pointer >>> 0));
-    //this.debug.dump_regs_short();
-
     this.sreg[reg_cs] = this.pop32s();
 
     var new_flags = this.pop32s();
@@ -1576,12 +1575,12 @@ CPU.prototype.iret32 = function()
             this.update_eflags(new_flags);
             this.flags |= flag_vm;
 
-            dbg_log("in vm86 mode now " + 
+            dbg_log("in vm86 mode now " +
                     " cs:eip=" + h(this.sreg[reg_cs]) + ":" + h(this.instruction_pointer >>> 0) +
                     " iopl=" + this.getiopl(), LOG_CPU);
 
             this.switch_seg(reg_cs, this.sreg[reg_cs]);
-            this.instruction_pointer = this.instruction_pointer + this.get_seg(reg_cs) | 0;
+            this.instruction_pointer = (this.instruction_pointer & 0xFFFF) + this.get_seg(reg_cs) | 0;
 
             var temp_esp = this.pop32s();
             var temp_ss = this.pop32s();
@@ -1595,6 +1594,8 @@ CPU.prototype.iret32 = function()
             this.switch_seg(reg_ss, temp_ss & 0xFFFF);
 
             this.cpl = 3;
+            this.cpl_changed();
+
             this.update_cs_size(false);
 
             this.debug.dump_regs_short();
@@ -1644,19 +1645,32 @@ CPU.prototype.iret32 = function()
 
         this.update_eflags(new_flags);
 
+        if(!this.cpl)
+        {
+            this.flags = this.flags & ~flag_vif & ~flag_vip | (new_flags & (flag_vif | flag_vip));
+        }
+
         this.cpl = info.rpl;
+        this.cpl_changed();
+
         this.switch_seg(reg_ss, temp_ss & 0xFFFF);
 
-        //dbg_log("iret cpu.cpl=" + this.cpl + " to " + h(this.instruction_pointer) + 
+        //dbg_log("iret cpu.cpl=" + this.cpl + " to " + h(this.instruction_pointer) +
         //        " cs:eip=" + h(this.sreg[reg_cs],4) + ":" + h(this.get_real_eip(), 8) +
         //        " ss:esp=" + h(temp_ss & 0xFFFF, 2) + ":" + h(temp_esp, 8), LOG_CPU);
-
-        this.cpl_changed();
     }
     else
     {
-        this.update_eflags(new_flags);
         // same privilege return
+        dbg_assert(info.rpl === this.cpl);
+
+        this.update_eflags(new_flags);
+
+        // update vip and vif, which are not changed by update_eflags
+        if(!this.cpl)
+        {
+            this.flags = this.flags & ~flag_vif & ~flag_vip | (new_flags & (flag_vif | flag_vip));
+        }
 
         //dbg_log(h(new_flags) + " " + h(this.flags));
         //dbg_log("iret to " + h(this.instruction_pointer));
@@ -1673,8 +1687,9 @@ CPU.prototype.iret32 = function()
 
     this.instruction_pointer = this.instruction_pointer + this.get_seg(reg_cs) | 0;
 
-
-    //dbg_log("iret if=" + (this.flags & flag_interrupt) + " cpl=" + this.cpl + " eip=" + h(this.instruction_pointer >>> 0, 8), LOG_CPU);
+    //dbg_log("iret if=" + (this.flags & flag_interrupt) +
+    //        " cpl=" + this.cpl +
+    //        " eip=" + h(this.instruction_pointer >>> 0, 8), LOG_CPU);
 
     this.handle_irqs();
 };
@@ -1708,7 +1723,7 @@ CPU.prototype.raise_exception = function(interrupt_nr)
     {
         // show interesting exceptions
         dbg_log("Exception " + h(interrupt_nr), LOG_CPU);
-        dbg_trace(LOG_CPU);
+        if(interrupt_nr !== 0xd) dbg_trace(LOG_CPU);
         this.debug.dump_regs_short();
     }
 
@@ -1721,7 +1736,7 @@ CPU.prototype.raise_exception_with_code = function(interrupt_nr, error_code)
     if(DEBUG)
     {
         dbg_log("Exception " + h(interrupt_nr) + " err=" + h(error_code), LOG_CPU);
-        dbg_trace(LOG_CPU);
+        if(interrupt_nr !== 0xd) dbg_trace(LOG_CPU);
         this.debug.dump_regs_short();
     }
 
@@ -1820,7 +1835,6 @@ CPU.prototype.get_seg_prefix = function(default_segment /*, offset*/)
 CPU.prototype.get_seg = function(segment /*, offset*/)
 {
     dbg_assert(segment >= 0 && segment < 8);
-    dbg_assert(this.protected_mode || (this.sreg[segment] << 4) == this.segment_offsets[segment]);
     
     if(this.protected_mode)
     {
@@ -2324,6 +2338,7 @@ CPU.prototype.load_tr = function(selector)
     {
         dbg_log("#GP | ltr: invalid type (type = " + info.type + ")");
         throw this.debug.unimpl("#GP handler");
+        // or 286 TSS
     }
 
 

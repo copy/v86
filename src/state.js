@@ -330,11 +330,6 @@ CPU.prototype.restore_state = function(state)
     var buffer_block_start = STATE_INFO_BLOCK_START + info_block_len;
     var buffer_infos = info_block_obj.buffer_infos;
 
-    console.assert(
-        info_block_obj["state"]["memory"]["size"] === this.memory.size, 
-        "Memory size must match"
-    );
-
     for(var i = 0; i < buffer_infos.length; i++)
     {
         buffer_infos[i].offset += buffer_block_start;

@@ -56,6 +56,7 @@ function PIC(cpu, master)
 
             if(!enabled_irr)
             {
+                dbg_log("master> no unmasked irrs. irr=" + h(this.irr, 2) + " mask=" + h(this.irq_mask & 0xff, 2), LOG_PIC);
                 return this.slave.check_irqs();
             }
 
@@ -64,6 +65,7 @@ function PIC(cpu, master)
             if(this.isr && (this.isr & -this.isr) <= irq)
             {
                 // wait for eoi of higher or same priority interrupt
+                dbg_log("master> higher prio: isr=" + h(this.isr, 2) + " irq=" + h(irq, 2), LOG_PIC);
                 return false;
             }
 
@@ -84,7 +86,7 @@ function PIC(cpu, master)
                 this.isr |= irq;
             }
 
-            //dbg_log("master handling irq " + irq_number, LOG_PIC);
+            dbg_log("master handling irq " + irq_number, LOG_PIC);
             //dbg_trace(LOG_PIC);
 
             // call_interrupt_vector can cause an exception in the CPU, so we
@@ -104,6 +106,7 @@ function PIC(cpu, master)
 
             if(!enabled_irr)
             {
+                dbg_log("slave > no unmasked irrs. irr=" + h(this.irr, 2) + " mask=" + h(this.irq_mask & 0xff, 2), LOG_PIC);
                 return false;
             }
 
@@ -112,6 +115,7 @@ function PIC(cpu, master)
             if(this.isr && (this.isr & -this.isr) <= irq)
             {
                 // wait for eoi of higher or same priority interrupt
+                dbg_log("slave > higher prio: isr=" + h(this.isr, 2) + " irq=" + h(irq, 2), LOG_PIC);
                 return false;
             }
 
@@ -122,7 +126,7 @@ function PIC(cpu, master)
             this.irr &= ~irq;
             this.isr |= irq;
 
-            //dbg_log("slave handling irq " + irq_number, LOG_PIC);
+            dbg_log("slave > handling irq " + irq_number, LOG_PIC);
             cpu.previous_ip = cpu.instruction_pointer;
             cpu.call_interrupt_vector(this.irq_map | irq_number, false, false);
 

@@ -49,7 +49,7 @@ CPU.prototype.add = function(dest_operand, source_operand, op_size)
     this.last_op1 = dest_operand;
     this.last_op2 = source_operand;
     this.last_add_result = this.last_result = dest_operand + source_operand | 0;
-    
+
     this.last_op_size = op_size;
     this.flags_changed = flags_all;
 
@@ -532,7 +532,7 @@ CPU.prototype.idiv32 = function(source_operand)
     {
         div_is_neg = true;
         is_neg = !is_neg;
-        dest_operand_low = -dest_operand_low | 0;
+        dest_operand_low = -dest_operand_low >>> 0;
         dest_operand_high = ~dest_operand_high + !dest_operand_low;
     }
 

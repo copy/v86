@@ -1386,7 +1386,6 @@ op(0xFB, {
     {
         cpu.flags |= flag_interrupt;
 
-        //cpu.table[cpu.read_imm8()](cpu);
         cpu.cycle();
 
         cpu.handle_irqs();
@@ -1568,7 +1567,6 @@ opm(0x00, {
     {
         cpu.trigger_gp(0);
     }
-
 
     switch(modrm_byte >> 3 & 7)
     {
@@ -2008,7 +2006,7 @@ op(0x31, {
         cpu.reg32s[reg_eax] = n * TSC_RATE;
         cpu.reg32s[reg_edx] = n * (TSC_RATE / 0x100000000);
 
-        //dbg_log("rtdsc  edx:eax=" + h(cpu.reg32[reg_edx], 8) + ":" + h(cpu.reg32[reg_eax], 8), LOG_CPU);
+        //dbg_log("rdtsc  edx:eax=" + h(cpu.reg32[reg_edx], 8) + ":" + h(cpu.reg32[reg_eax], 8), LOG_CPU);
     }
     else
     {
@@ -2303,6 +2301,7 @@ opm(0xAE, {
     {
         case 6:
             // mfence
+            dbg_assert(modrm_byte >= 0xC0, "Unexpected mfence encoding");
             break;
         default:
             dbg_log("missing " + (modrm_byte >> 3 & 7), LOG_CPU);

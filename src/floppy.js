@@ -60,7 +60,9 @@ function FloppyController(cpu, fda_image, fdb_image)
 
     if(!fda_image)
     {
+        // Needed for CD emulation provided by seabios
         cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, 4 << 4);
+
         //this.io.register_read(0x3F4, this, function()
         //{
         //    return 0xFF;
