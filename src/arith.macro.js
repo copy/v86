@@ -653,11 +653,10 @@ CPU.prototype.bcd_das = function()
     this.flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
 }
 
-CPU.prototype.bcd_aam = function()
+CPU.prototype.bcd_aam = function(imm8)
 {
     //dbg_log("aam");
     // ascii adjust after multiplication
-    var imm8 = this.read_imm8();
 
     if(imm8 === 0)
     {
@@ -676,11 +675,10 @@ CPU.prototype.bcd_aam = function()
     }
 }
 
-CPU.prototype.bcd_aad = function()
+CPU.prototype.bcd_aad = function(imm8)
 {
     //dbg_log("aad");
     // ascii adjust before division
-    var imm8 = this.read_imm8();
 
     this.last_result = this.reg8[reg_al] + this.reg8[reg_ah] * imm8 & 0xFF;
     this.reg16[reg_ax] = this.last_result;

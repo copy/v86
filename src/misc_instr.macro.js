@@ -56,49 +56,32 @@ CPU.prototype.jmpcc32 = function(condition)
     }
 }
 
-CPU.prototype.loopne = function()
+CPU.prototype.loopne = function(imm8s)
 {
     if(--this.regv[this.reg_vcx] && !this.getzf())
     {
-        var imm8s = this.read_imm8s();
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
-    }
-    else
-    {
-        this.instruction_pointer++;
     }
 }
 
-CPU.prototype.loope = function()
+CPU.prototype.loope = function(imm8s)
 {
     if(--this.regv[this.reg_vcx] && this.getzf())
     {
-        var imm8s = this.read_imm8s();
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
-    }
-    else
-    {
-        this.instruction_pointer++;
     }
 }
 
-CPU.prototype.loop = function()
+CPU.prototype.loop = function(imm8s)
 {
     if(--this.regv[this.reg_vcx])
     {
-        var imm8s = this.read_imm8s();
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
-    }
-    else
-    {
-        this.instruction_pointer++;
     }
 }
 
-CPU.prototype.jcxz = function()
+CPU.prototype.jcxz = function(imm8s)
 {
-    var imm8s = this.read_imm8s();
-
     if(this.regv[this.reg_vcx] === 0)
     {
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
@@ -376,14 +359,14 @@ CPU.prototype.lss32 = function(seg, addr, mod)
     this.reg32s[mod] = new_reg;
 }
 
-CPU.prototype.enter16 = function()
+CPU.prototype.enter16 = function(size, nesting_level)
 {
-    var size = this.read_imm16(),
-        nesting_level = this.read_imm8() & 31,
-        frame_temp,
-        tmp_ebp;
+    nesting_level &= 31;
 
-    //dbg_log("enter16 size=" + size + " nest=" + nesting_level, LOG_CPU);
+    var frame_temp;
+    var tmp_ebp;
+
+    //dbg_log("enter16 stack=" + (this.stack_size_32 ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
     this.push16(this.reg16[reg_bp]);
     frame_temp = this.reg16[reg_sp];
 
@@ -401,14 +384,14 @@ CPU.prototype.enter16 = function()
     this.reg16[reg_sp] -= size;
 };
 
-CPU.prototype.enter32 = function()
+CPU.prototype.enter32 = function(size, nesting_level)
 {
-    var size = this.read_imm16(),
-        nesting_level = this.read_imm8() & 31,
-        frame_temp,
-        tmp_ebp;
+    nesting_level &= 31;
 
-    //dbg_log("enter32 size=" + size + " nest=" + nesting_level, LOG_CPU);
+    var frame_temp;
+    var tmp_ebp;
+
+    //dbg_log("enter32 stack=" + (this.stack_size_32 ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
     this.push32(this.reg32s[reg_ebp]);
     frame_temp = this.reg32s[reg_esp];
 

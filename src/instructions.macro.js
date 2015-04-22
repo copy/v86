@@ -323,17 +323,17 @@ pop_sreg_op(0x1F, reg_ds);
 
 arith_group(0x20, and);
 
-op(0x26, { cpu.seg_prefix(reg_es); });
+op(0x26, { cpu.segment_prefix = reg_es; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; });
 op(0x27, { cpu.bcd_daa(); });
 
 arith_group(0x28, sub);
 
-op(0x2E, { cpu.seg_prefix(reg_cs); });
+op(0x2E, { cpu.segment_prefix = reg_cs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; });
 op(0x2F, { cpu.bcd_das(); });
 
 arith_group(0x30, xor);
 
-op(0x36, { cpu.seg_prefix(reg_ss); });
+op(0x36, { cpu.segment_prefix = reg_ss; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; });
 op(0x37, { cpu.bcd_aaa(); });
 
 opm(0x38, { read_e8; cmp8(data, reg_g8); })
@@ -343,7 +343,7 @@ opm2(0x3B, { read_e16; cmp16(reg_g16, data); }, { read_e32s; cmp32(reg_g32s, dat
 op(0x3C, { cmp8(cpu.reg8[reg_al], cpu.read_imm8()); })
 op2(0x3D, { cmp16(cpu.reg16[reg_ax], cpu.read_imm16()); }, { cmp32(cpu.reg32s[reg_eax], cpu.read_imm32s()); })
 
-op(0x3E, { cpu.seg_prefix(reg_ds); });
+op(0x3E, { cpu.segment_prefix = reg_ds; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; });
 op(0x3F, { cpu.bcd_aas(); });
 
 
@@ -406,8 +406,8 @@ opm(0x63, {
     }
 });
 
-op(0x64, { cpu.seg_prefix(reg_fs); });
-op(0x65, { cpu.seg_prefix(reg_gs); });
+op(0x64, { cpu.segment_prefix = reg_fs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; });
+op(0x65, { cpu.segment_prefix = reg_gs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; });
 
 op2(0x66, {
     // Operand-size override prefix
@@ -472,11 +472,10 @@ op2(0x6F, { outsw(cpu); }, { outsd(cpu); });
 
 #define group70(n, test) \
     op(0x70 | n, { \
+        var imm8 = cpu.read_imm8s();\
         if(test) { \
-            cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0;\
+            cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0;\
         }\
-        cpu.instruction_pointer++;\
-        cpu.last_instr_jump = true;\
     });
 
 each_jcc(group70);
@@ -963,7 +962,7 @@ opm2(0xC5, {
 opm(0xC6, { set_eb(cpu.read_imm8()); })
 opm2(0xC7, { set_ev16(cpu.read_imm16()); }, { set_ev32(cpu.read_imm32s()); })
 
-op2(0xC8, { cpu.enter16(); }, { cpu.enter32(); });
+op2(0xC8, { cpu.enter16(cpu.read_imm16(), cpu.read_imm8()); }, { cpu.enter32(cpu.read_imm16(), cpu.read_imm8()); });
 op2(0xC9, {
     // leave
     var new_bp = cpu.safe_read16(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vbp] | 0);
@@ -1117,10 +1116,10 @@ opm2(0xD3, {
 });
 
 op(0xD4, {
-    cpu.bcd_aam();
+    cpu.bcd_aam(cpu.read_imm8());
 });
 op(0xD5, {
-    cpu.bcd_aad();
+    cpu.bcd_aad(cpu.read_imm8());
 });
 
 op(0xD6, {
@@ -1163,10 +1162,10 @@ fpu_op(0xDF, DF);
 #undef fpu_op
 
 
-op(0xE0, { cpu.loopne(); });
-op(0xE1, { cpu.loope(); });
-op(0xE2, { cpu.loop(); });
-op(0xE3, { cpu.jcxz(); });
+op(0xE0, { cpu.loopne(cpu.read_imm8s()); });
+op(0xE1, { cpu.loope(cpu.read_imm8s()); });
+op(0xE2, { cpu.loop(cpu.read_imm8s()); });
+op(0xE3, { cpu.jcxz(cpu.read_imm8s()); });
 
 op(0xE4, { 
     var port = cpu.read_imm8();

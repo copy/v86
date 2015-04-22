@@ -1780,19 +1780,6 @@ CPU.prototype.trigger_ss = function(code)
     this.raise_exception_with_code(12, code);
 };
 
-/**
- * @param {number} seg
- */
-CPU.prototype.seg_prefix = function(seg)
-{
-    dbg_assert(this.segment_prefix === SEG_PREFIX_NONE);
-    dbg_assert(seg >= 0 && seg <= 5);
-
-    this.segment_prefix = seg;
-    this.table[this.read_imm8()](this);
-    this.segment_prefix = SEG_PREFIX_NONE;
-};
-
 CPU.prototype.get_seg_prefix_ds = function()
 {
     return this.get_seg_prefix(reg_ds);
