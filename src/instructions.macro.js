@@ -966,11 +966,13 @@ opm2(0xC7, { set_ev16(cpu.read_imm16()); }, { set_ev32(cpu.read_imm32s()); })
 op2(0xC8, { cpu.enter16(); }, { cpu.enter32(); });
 op2(0xC9, {
     // leave
-    cpu.stack_reg[cpu.reg_vsp] = cpu.stack_reg[cpu.reg_vbp];
-    cpu.reg16[reg_bp] = cpu.pop16();
+    var new_bp = cpu.safe_read16(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vbp] | 0);
+    cpu.stack_reg[cpu.reg_vsp] = cpu.stack_reg[cpu.reg_vbp] + 2 | 0;
+    cpu.reg16[reg_bp] = new_bp;
 }, {
-    cpu.stack_reg[cpu.reg_vsp] = cpu.stack_reg[cpu.reg_vbp];
-    cpu.reg32s[reg_ebp] = cpu.pop32s();
+    var new_ebp = cpu.safe_read32s(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vbp] | 0);
+    cpu.stack_reg[cpu.reg_vsp] = cpu.stack_reg[cpu.reg_vbp] + 4 | 0;
+    cpu.reg32s[reg_ebp] = new_ebp;
 });
 op2(0xCA, {
     // retf

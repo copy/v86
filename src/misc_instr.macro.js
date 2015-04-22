@@ -256,7 +256,7 @@ CPU.prototype.pusha16 = function()
 
     // make sure we don't get a pagefault after having 
     // pushed several registers already
-    this.translate_address_write(this.get_seg(reg_ss) + temp - 15 | 0);
+    this.translate_address_write(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] - 15 | 0);
 
     this.push16(this.reg16[reg_ax]);
     this.push16(this.reg16[reg_cx]);
@@ -272,7 +272,7 @@ CPU.prototype.pusha32 = function()
 {
     var temp = this.reg32s[reg_esp];
 
-    this.translate_address_write(this.get_seg(reg_ss) + temp - 31 | 0);
+    this.translate_address_write(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] - 31 | 0);
 
     this.push32(this.reg32s[reg_eax]);
     this.push32(this.reg32s[reg_ecx]);
