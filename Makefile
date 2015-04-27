@@ -3,12 +3,12 @@ BROWSER=chromium
 
 CPP_VERSION := $(shell cpp --version 2>/dev/null)
 
-# MacosX Hack : 
+# MacosX Hack :
 # "cpp" doesn't work as expected on MacosX
 # So we define mcpp as default, and cpp IF NOT "on MacosX" AND "CPP is defined"
 UNAME_S := $(shell uname -s)
-CPP=mcpp/src/mcpp -a -C -P 
-ifneq ($(UNAME_S),Darwin))
+CPP=mcpp/src/mcpp -a -C -P
+ifneq ($(UNAME_S),Darwin)
         ifdef CPP_VERSION
                 CPP=cpp -P -undef -Wundef -std=c99 -nostdinc -Wtrigraphs -fdollars-in-identifiers -C
         endif
@@ -20,10 +20,10 @@ browser: build/v86_all.js
 
 build/cpu.js: src/*.macro.js
 	# build cpu.macro.js using cpp or mcpp
-	$(CPP) src/cpu.macro.js build/cpu.js 
+	$(CPP) src/cpu.macro.js build/cpu.js
 
 # Used for nodejs builds and in order to profile code.
-# `debug` gives identifiers a readable name, make sure it doesn't have any side effects. 
+# `debug` gives identifiers a readable name, make sure it doesn't have any side effects.
 CLOSURE_READABLE=--formatting PRETTY_PRINT --debug
 
 CLOSURE_SOURCE_MAP=\
@@ -67,8 +67,8 @@ build/v86_all.js: src/*.js src/browser/*.js build/cpu.js lib/*.js
 		--js $(CORE_FILES)\
 		--js $(LIB_FILES)\
 		--js $(BROWSER_FILES)\
-	 	--js ../build/cpu.js\
-	 	--js browser/main.js
+		--js ../build/cpu.js\
+		--js browser/main.js
 
 	echo "//# sourceMappingURL=v86_all.js.map" >> build/v86_all.js
 	ls -lh build/v86_all.js
@@ -87,12 +87,12 @@ build/libv86.js: src/*.js build/cpu.js lib/*.js src/browser/*.js
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)\
-	 	--js ../build/cpu.js
+		--js ../build/cpu.js
 
 clean:
 	rm -f build/*
 
 run:
-	python2 -m SimpleHTTPServer 2> /dev/null 
+	python2 -m SimpleHTTPServer 2> /dev/null
 	#sleep 1
 	#$(BROWSER) http://localhost:8000/index.html &
