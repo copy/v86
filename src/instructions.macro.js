@@ -144,9 +144,13 @@ CPU.prototype.table0F_32 = table0F_32;
 
 
 #define pop_sreg_op(n, reg)\
-    op2(n, \
-        { cpu.switch_seg(reg, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 2; }, \
-        { cpu.switch_seg(reg, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 4; });
+    op2(n,\
+        { cpu.switch_seg(reg, cpu.safe_read16(cpu.get_stack_pointer(0)));\
+          cpu.stack_reg[cpu.reg_vsp] += 2;\
+          if(reg === reg_ss) { cpu.clear_prefixes(); cpu.cycle(); } },\
+        { cpu.switch_seg(reg, cpu.safe_read16(cpu.get_stack_pointer(0)));\
+          cpu.stack_reg[cpu.reg_vsp] += 4;\
+          if(reg === reg_ss) { cpu.clear_prefixes(); cpu.cycle(); } });
 
 
 #define reg_e8  cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]
@@ -659,9 +663,9 @@ opm(0x8E, {
 
     if(mod === reg_ss)
     {
-        // TODO
-        // run next instruction, so no irqs are handled
-        // Can't use cpu.cycle, because prefixes are still active
+        // run next instruction, so no interrupts are handled
+        cpu.clear_prefixes();
+        cpu.cycle();
     }
 });
 
@@ -1385,6 +1389,7 @@ op(0xFB, {
     {
         cpu.flags |= flag_interrupt;
 
+        cpu.clear_prefixes();
         cpu.cycle();
 
         cpu.handle_irqs();

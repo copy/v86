@@ -326,13 +326,7 @@ CPU.prototype.exception_cleanup = function(e)
         this.page_fault = false;
 
         // restore state from prefixes
-        this.repeat_string_prefix = REPEAT_STRING_PREFIX_NONE;
-        this.segment_prefix = SEG_PREFIX_NONE;
-        
-        this.address_size_32 = this.is_32;
-        this.update_address_size();
-        this.operand_size_32 = this.is_32;
-        this.update_operand_size();
+        this.clear_prefixes();
     }
     else
     {
@@ -728,6 +722,24 @@ CPU.prototype.hlt_loop = function()
     else
     {
         return Math.ceil(Math.min(100, pit_time, rtc_time));
+    }
+};
+
+CPU.prototype.clear_prefixes = function()
+{
+    this.repeat_string_prefix = REPEAT_STRING_PREFIX_NONE;
+    this.segment_prefix = SEG_PREFIX_NONE;
+
+    if(this.address_size_32 !== this.is_32)
+    {
+        this.address_size_32 = this.is_32;
+        this.update_address_size();
+    }
+
+    if(this.operand_size_32 !== this.is_32)
+    {
+        this.operand_size_32 = this.is_32;
+        this.update_operand_size();
     }
 };
 
