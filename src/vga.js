@@ -139,7 +139,8 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.index_crtc = 0;
 
     // index for setting colors through port 3C9h
-    this.dac_color_index = 0;
+    this.dac_color_index_write = 0;
+    this.dac_color_index_read = 0;
 
     this.attribute_controller_index = -1;
 
@@ -184,6 +185,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     io.register_write(0x3C7, this, this.port3C7_write);
     io.register_write(0x3C8, this, this.port3C8_write);
     io.register_write(0x3C9, this, this.port3C9_write);
+    io.register_read(0x3C9, this, this.port3C9_read);
 
     io.register_read(0x3CC, this, this.port3CC_read);
 
@@ -813,17 +815,18 @@ VGAScreen.prototype.port3C7_write = function(index)
 {
     // index for reading the DAC
     dbg_log("3C7 write: " + h(index), LOG_VGA);
+    this.dac_color_index_read = index * 3;
 };
 
 VGAScreen.prototype.port3C8_write = function(index)
 {
-    this.dac_color_index = index * 3;
+    this.dac_color_index_write = index * 3;
 };
 
 VGAScreen.prototype.port3C9_write = function(color_byte)
 {
-    var index = this.dac_color_index / 3 | 0,
-        offset = this.dac_color_index % 3,
+    var index = this.dac_color_index_write / 3 | 0,
+        offset = this.dac_color_index_write % 3,
         color = this.vga256_palette[index];
 
     color_byte = color_byte * 255 / 63 & 0xFF; 
@@ -843,11 +846,21 @@ VGAScreen.prototype.port3C9_write = function(color_byte)
     }
 
     this.vga256_palette[index] = color;
-    this.dac_color_index++;
+    this.dac_color_index_write++;
 
     // Needs to be throttled:
     //this.complete_redraw();
 };
+
+VGAScreen.prototype.port3C9_read = function()
+{
+    var index = this.dac_color_index_read / 3 | 0;
+    var offset = this.dac_color_index_read % 3;
+    var color = this.vga256_palette[index];
+
+    this.dac_color_index_read++;
+    return (color >> (2 - offset) * 8 & 0xFF) / 255 * 63 | 0;
+}
 
 VGAScreen.prototype.port3CC_read = function()
 {
