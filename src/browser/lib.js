@@ -109,11 +109,14 @@
                 {
                     console.assert(false, 
                         "Cannot use: " + this.filename + ". " +
-                        "`Range: bytes=...` header not supported");
+                        "`Range: bytes=...` header not supported (Got `" + header + "`)");
                 }
             }.bind(this), 
             headers: {
                 Range: "bytes=0-0",
+
+                // Added by Chromium, but can cause the whole file to be sent
+                "If-Range": "",
             }
         });
     }
