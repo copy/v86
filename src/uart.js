@@ -33,7 +33,7 @@ function UART(cpu, port, bus)
     this.bus = bus;
 
     /** @const */
-    this.pic = cpu.devices.pic;
+    this.cpu = cpu;
 
     this.ints = 0;
 
@@ -251,14 +251,14 @@ function UART(cpu, port, bus)
 
     this._state_skip = [
         this.bus,
-        this.pic,
+        this.cpu,
     ];
 }
 
 UART.prototype.push_irq = function()
 {
     dbg_log("Push irq", LOG_SERIAL);
-    this.pic.push_irq(this.irq);
+    this.cpu.device_raise_irq(this.irq);
 };
 
 UART.prototype.ClearInterrupt = function(line)

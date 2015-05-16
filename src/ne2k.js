@@ -60,7 +60,7 @@
 function Ne2k(cpu, bus)
 {
     /** @const */
-    this.pic = cpu.devices.pic;
+    this.cpu = cpu;
 
     /** @const */
     this.bus = bus;
@@ -476,7 +476,7 @@ function Ne2k(cpu, bus)
 
     this._state_skip = [
         this.bus,
-        this.pic,
+        this.cpu,
     ];
 }
 
@@ -487,7 +487,7 @@ Ne2k.prototype.do_interrupt = function(ir_mask)
 
     if(this.imr & ir_mask)
     {
-        this.pic.push_irq(this.irq);
+        this.cpu.device_raise_irq(this.irq);
     }
 };
 

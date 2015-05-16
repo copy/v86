@@ -132,7 +132,7 @@ function VirtIO(cpu, bus, filesystem)
     this.irq = 0xC;
 
     /** @const */
-    this.pic = cpu.devices.pic;
+    this.cpu = cpu;
 
     /** @const */
     this.bus = bus;
@@ -172,7 +172,7 @@ function VirtIO(cpu, bus, filesystem)
 
     this._state_skip = [
         this.memory,
-        this.pic,
+        this.cpu,
         this.bus,
     ];
     this._state_restore = function()
@@ -364,7 +364,7 @@ VirtIO.prototype.device_reply = function(infos)
     this.memory.write32(used_desc_offset + 4, result_length);
 
     this.isr |= 1;
-    this.pic.push_irq(this.irq);
+    this.cpu.device_raise_irq(this.irq);
 };
 
 

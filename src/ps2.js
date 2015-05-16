@@ -8,8 +8,6 @@
 function PS2(cpu, bus)
 {
     /** @const */
-    this.pic = cpu.devices.pic;
-    /** @const */
     this.cpu = cpu;
 
     /** @const */
@@ -113,7 +111,6 @@ function PS2(cpu, bus)
     /** @const */
     this._state_skip = [
         this.bus,
-        this.pic, 
         this.cpu,
     ];
 }
@@ -127,7 +124,7 @@ PS2.prototype.mouse_irq = function()
 {
     if(this.command_register & 2)
     {
-        this.pic.push_irq(12);
+        this.cpu.device_raise_irq(12);
     }
 }
 
@@ -135,7 +132,7 @@ PS2.prototype.kbd_irq = function()
 {
     if(this.command_register & 1)
     {
-        this.pic.push_irq(1);
+        this.cpu.device_raise_irq(1);
     }
 }
 

@@ -133,7 +133,7 @@ function PIC(cpu, master)
             if(this.irr)
             {
                 // tell the master we have one more
-                master.push_irq(2);
+                master.raise_irq(2);
             }
 
             if(!this.auto_eoi)
@@ -272,13 +272,13 @@ function PIC(cpu, master)
 
     if(this.is_master)
     {
-        this.push_irq = function(irq_number)
+        this.raise_irq = function(irq_number)
         {
             dbg_assert(irq_number >= 0 && irq_number < 16);
 
             if(irq_number >= 8)
             {
-                this.slave.push_irq(irq_number - 8);
+                this.slave.raise_irq(irq_number - 8);
                 irq_number = 2;
             }
 
@@ -289,7 +289,7 @@ function PIC(cpu, master)
     }
     else
     {
-        this.push_irq = function(irq_number)
+        this.raise_irq = function(irq_number)
         {
             dbg_assert(irq_number >= 0 && irq_number < 8);
 

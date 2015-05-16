@@ -11,7 +11,7 @@ function FloppyController(cpu, fda_image, fdb_image)
     this.io = cpu.io;
 
     /** @const */
-    this.pic = cpu.devices.pic;
+    this.cpu = cpu;
 
     /** @const */
     this.dma = cpu.devices.dma;
@@ -49,7 +49,7 @@ function FloppyController(cpu, fda_image, fdb_image)
     /** @const */
     this._state_skip = [
         this.io,
-        this.pic,
+        this.cpu,
         this.dma,
     ];
 
@@ -260,7 +260,7 @@ FloppyController.prototype.port3F2_write = function(value)
     if((value & 4) === 4 && (this.dor & 4) === 0)
     {
         // reset
-        this.pic.push_irq(6);
+        this.cpu.device_raise_irq(6);
     }
 
     dbg_log("start motors: " + h(value >> 4), LOG_DISK);
@@ -290,7 +290,7 @@ FloppyController.prototype.seek = function(args)
     
     if(this.dor & 8)
     {
-        this.pic.push_irq(6);
+        this.cpu.device_raise_irq(6);
     }
 }
 
@@ -300,7 +300,7 @@ FloppyController.prototype.calibrate = function(args)
 
     if(this.dor & 8)
     {
-        this.pic.push_irq(6);
+        this.cpu.device_raise_irq(6);
     }
 }
 
@@ -384,7 +384,7 @@ FloppyController.prototype.done = function(cylinder, args, head, sector, error)
 
     if(this.dor & 8)
     {
-        this.pic.push_irq(6);
+        this.cpu.device_raise_irq(6);
     }
 }
 
@@ -410,7 +410,7 @@ FloppyController.prototype.read_sector_id = function(args)
 
     if(this.dor & 8)
     {
-        this.pic.push_irq(6);
+        this.cpu.device_raise_irq(6);
     }
 }
 

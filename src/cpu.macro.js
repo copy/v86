@@ -1858,14 +1858,34 @@ CPU.prototype.get_seg = function(segment /*, offset*/)
 
 CPU.prototype.handle_irqs = function()
 {
-    if(this.devices.pic)
-    {
-        dbg_assert(!this.page_fault);
+    dbg_assert(!this.page_fault);
 
-        if((this.flags & flag_interrupt) && !this.page_fault)
+    if((this.flags & flag_interrupt) && !this.page_fault)
+    {
+        if(this.devices.pic)
         {
             this.devices.pic.check_irqs();
         }
+
+        if(this.devices.apic)
+        {
+            this.devices.apic.check_irqs();
+        }
+    }
+};
+
+CPU.prototype.device_raise_irq = function(i)
+{
+    dbg_assert(arguments.length === 1);
+
+    if(this.devices.pic)
+    {
+        this.devices.pic.raise_irq(i);
+    }
+
+    if(this.devices.apic)
+    {
+        this.devices.apic.raise_irq(i);
     }
 };
 

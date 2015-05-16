@@ -15,7 +15,7 @@ var OSCILLATOR_FREQ = 1193.1816666; // 1.193182 MHz
 function PIT(cpu)
 {
     /** @const */
-    this.pic = cpu.devices.pic;
+    this.cpu = cpu;
 
     this.next_tick = Date.now();
 
@@ -59,7 +59,7 @@ function PIT(cpu)
 
     /** @const */
     this._state_skip = [
-        this.pic,
+        this.cpu,
     ];
 }
 
@@ -89,7 +89,7 @@ PIT.prototype.timer = function(time, no_irq)
         {
             time_to_next_interrupt = 0;
 
-            this.pic.push_irq(0);
+            this.cpu.device_raise_irq(0);
             mode = this.counter_mode[0];
 
             if(mode === 0)

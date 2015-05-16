@@ -20,7 +20,6 @@ function HPET(cpu)
 {
     var me = this,
         io = cpu.io,
-        dev = cpu.devices,
 
         hpet_enabled = false,
         hpet_start = Date.now(),
@@ -93,16 +92,16 @@ function HPET(cpu)
                 {
                     if(me.legacy_mode && i === 0)
                     {
-                        dev.pic.push_irq(0);
+                        cpu.device_raise_irq(0);
                     }
                     else if(me.legacy_mode && i === 1)
                     {
-                        dev.pic.push_irq(8);
+                        cpu.device_raise_irq(0);
                     }
                     else
                     {
                         // TODO
-                        dev.pic.push_irq(0);
+                        cpu.device_raise_irq(0);
                     }
                 }
             }

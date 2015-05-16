@@ -54,7 +54,7 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
     this.master_port = 0xC000;
 
     /** @const */
-    this.pic = cpu.devices.pic;
+    this.cpu = cpu;
 
     /** @const */
     this.memory = cpu.memory;
@@ -303,7 +303,7 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
     /** @const */
     this._state_skip = [
         this.memory,
-        this.pic,
+        this.cpu,
         this.stats,
         this.buffer,
         this.bus,
@@ -337,8 +337,7 @@ IDEDevice.prototype.push_irq = function()
     {
         dbg_log("push irq", LOG_DISK);
 
-        this.dma_status |= 4;
-        this.pic.push_irq(this.irq);
+        this.cpu.device_raise_irq(this.irq);
     }
 };
 

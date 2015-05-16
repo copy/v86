@@ -47,9 +47,6 @@ function RTC(cpu)
     /** @const */
     this.cpu = cpu;
 
-    /** @const */
-    this.pic = cpu.devices.pic;
-
     this.cmos_index = 0;
     this.cmos_data = new Uint8Array(256);
 
@@ -84,7 +81,6 @@ function RTC(cpu)
 
     this._state_skip = [
         this.cpu,
-        this.pic,
     ];
 }
 
@@ -96,8 +92,8 @@ RTC.prototype.timer = function(time, legacy_mode)
     if(this.periodic_interrupt && this.cmos_c_was_read && this.next_interrupt < time)
     {
         this.cmos_c_was_read = false;
-        this.pic.push_irq(8);
-        this.cmos_c |= 1 << 6;
+        this.cpu.device_raise_irq(8);
+        this.cmos_c |= 1 << 6 | 1 << 7;
 
         this.next_interrupt += this.periodic_interrupt_time * 
                 Math.ceil((time - this.next_interrupt) / this.periodic_interrupt_time);
