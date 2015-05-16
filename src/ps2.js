@@ -277,9 +277,7 @@ PS2.prototype.port60_read = function()
 
     if(this.kbd_buffer.length && this.mouse_buffer.length)
     {
-        // tough decision, let's ask the PIC
-        do_mouse_buffer = (this.pic.get_isr() & 2) === 0;
-        //do_mouse_buffer = false;
+        do_mouse_buffer = false;
     }
     else if(this.kbd_buffer.length)
     {
