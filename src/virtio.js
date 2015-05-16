@@ -20,7 +20,7 @@ function VirtIO(cpu, bus, filesystem)
     this.pci_id = 0x06 << 3;
     this.pci_bars = [
         {
-            size: 0x800,
+            size: 16,
         },
     ];
 
