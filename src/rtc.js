@@ -181,8 +181,11 @@ RTC.prototype.cmos_port_read = function()
             dbg_log("cmos reg C read", LOG_RTC);
             // Missing IRQF flag
             //return cmos_b & 0x70;
+            var c = this.cmos_c;
 
-            return this.cmos_c;
+            this.cmos_c &= ~0xF0;
+
+            return c;
 
         case CMOS_STATUS_D:
             return 0xFF;
