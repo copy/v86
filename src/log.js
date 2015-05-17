@@ -89,8 +89,6 @@ function dbg_assert(cond, msg, level)
 
     if(!cond) 
     { 
-        //dump_regs();
-        console.log(Error().stack);
         console.trace();
 
         if(msg)
