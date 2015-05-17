@@ -274,18 +274,18 @@
             out;
 
         
-        dbg_log("----- DUMP (ip = 0x" + h(cpu.instruction_pointer >>> 0) + ") ----------")
+        dbg_log("----- DUMP (ip = " + h(cpu.instruction_pointer >>> 0) + ") ----------")
         dbg_log("protected mode: " + cpu.protected_mode);
         
         for(var i in r32)
         {
-            dbg_log(i + " =  0x" + h(cpu.reg32[r32[i]], 8));
+            dbg_log(i + " =  " + h(cpu.reg32[r32[i]], 8));
         }
-        dbg_log("eip =  0x" + h(cpu.get_real_eip() >>> 0, 8));
+        dbg_log("eip =  " + h(cpu.get_real_eip() >>> 0, 8));
         
         for(i in s)
         {
-            dbg_log(i + "  =  0x" + h(cpu.sreg[s[i]], 4));
+            dbg_log(i + "  =  " + h(cpu.sreg[s[i]], 4));
         }
         
         out = "";
@@ -446,7 +446,7 @@
 
         for(var i = 0; i < cpu.idtr_size; i += 8)
         {
-            var addr = cpu.paging ? cpu.do_page_translation(cpu.idtr_offset + i, 0, 0) : cpu.idtr_offset + i,
+            var addr = cpu.translate_address_system_read(cpu.idtr_offset + i),
                 base = cpu.memory.read16(addr) | cpu.memory.read16(addr + 6) << 16,
                 selector = cpu.memory.read16(addr + 2),
                 type = cpu.memory.read8(addr + 5),
@@ -638,7 +638,7 @@
 
         for(var i = 0; i < height; i++)
         {
-            row = "0x" + h(i * width * block_size, 8) + " | ";
+            row = h(i * width * block_size, 8) + " | ";
 
             for(var j = 0; j < width; j++)
             {
