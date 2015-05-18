@@ -353,6 +353,28 @@ IDEDevice.prototype.set_state = function(state)
     this.dma_status = state[19];
 };
 
+IDEDevice.prototype.device_reset = function()
+{
+    if(this.is_atapi)
+    {
+        this.status = 0x50 | 1;
+        this.bytecount = 1;
+        this.lba_count = 1;
+        this.sector = 1; // lba_low
+        this.cylinder_low = 0x14; // lba_mid
+        this.cylinder_high = 0xeb; // lba_high
+    }
+    else
+    {
+        this.status = 0x50 | 1;
+        this.bytecount = 1;
+        this.lba_count = 1;
+        this.sector = 1; // lba_low
+        this.cylinder_low = 0x3c; // lba_mid
+        this.cylinder_high = 0xc3; // lba_high
+    }
+};
+
 IDEDevice.prototype.do_callback = function()
 {
     switch(this.data_port_callback)
@@ -400,7 +422,7 @@ IDEDevice.prototype.ata_command = function(cmd)
             dbg_log("ATA device reset", LOG_DISK);
             this.data_pointer = 0;
             this.pio_data = new Uint8Array(0);
-            this.status = 0x50;
+            this.device_reset();
 
             this.push_irq();
             break;
@@ -754,25 +776,7 @@ IDEDevice.prototype.write_control = function(data)
     {
         dbg_log("Reset via control port", LOG_DISK);
 
-        // reset
-        if(this.is_atapi)
-        {
-            this.status = 0x50 | 1;
-            this.bytecount = 1;
-            this.lba_count = 1;
-            this.sector = 1; // lba_low
-            this.cylinder_low = 0x14; // lba_mid
-            this.cylinder_high = 0xeb; // lba_high
-        }
-        else
-        {
-            this.status = 0x50 | 1;
-            this.bytecount = 1;
-            this.lba_count = 1;
-            this.sector = 1; // lba_low
-            this.cylinder_low = 0x3c; // lba_mid
-            this.cylinder_high = 0xc3; // lba_high
-        }
+        this.device_reset();
     }
 };
 
