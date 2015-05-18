@@ -129,12 +129,19 @@ function CPU()
     /** @type {number} */
     this.last_result = 0;
     this.tsc_offset = 0;
+    /** @type {number} */
+    this.modrm_byte = 0;
     // cpu.reg16 or cpu.reg32s, depending on address size attribute
     this.regv = this.reg16;
     this.reg_vcx = 0;
     this.reg_vsi = 0;
     this.reg_vdi = 0;
     this.table = [];
+    this.large_table = [];
+    this.large_table16 = [];
+    this.large_table32 = [];
+    this.large_table0F_16 = [];
+    this.large_table0F_32 = [];
     // paging enabled
     /** @type {boolean} */
     this.paging = false;
@@ -176,8 +183,6 @@ function CPU()
     this.segment_prefix = SEG_PREFIX_NONE;
     // dynamic instruction translator
     this.translator = undefined;
-    // was the last instruction a jump?
-    this.last_instr_jump = false;
     this.io = undefined;
     this.fpu = undefined;
 // it looks pointless to have this here, but 
@@ -408,16 +413,16 @@ function CPU()
             s = { "cs": reg_cs, "ds": reg_ds, "es": reg_es,
                   "fs": reg_fs, "gs": reg_gs, "ss": reg_ss },
             out;
-        dbg_log("----- DUMP (ip = 0x" + h(cpu.instruction_pointer >>> 0) + ") ----------")
+        dbg_log("----- DUMP (ip = " + h(cpu.instruction_pointer >>> 0) + ") ----------")
         dbg_log("protected mode: " + cpu.protected_mode);
         for(var i in r32)
         {
-            dbg_log(i + " =  0x" + h(cpu.reg32[r32[i]], 8));
+            dbg_log(i + " =  " + h(cpu.reg32[r32[i]], 8));
         }
-        dbg_log("eip =  0x" + h(cpu.get_real_eip() >>> 0, 8));
+        dbg_log("eip =  " + h(cpu.get_real_eip() >>> 0, 8));
         for(i in s)
         {
-            dbg_log(i + "  =  0x" + h(cpu.sreg[s[i]], 4));
+            dbg_log(i + "  =  " + h(cpu.sreg[s[i]], 4));
         }
         out = "";
         var flg = { "cf": cpu.getcf, "pf": cpu.getpf, "zf": cpu.getzf, "sf": cpu.getsf,
@@ -548,7 +553,7 @@ function CPU()
         if(!DEBUG) return;
         for(var i = 0; i < cpu.idtr_size; i += 8)
         {
-            var addr = cpu.paging ? cpu.do_page_translation(cpu.idtr_offset + i, 0, 0) : cpu.idtr_offset + i,
+            var addr = cpu.translate_address_system_read(cpu.idtr_offset + i),
                 base = cpu.memory.read16(addr) | cpu.memory.read16(addr + 6) << 16,
                 selector = cpu.memory.read16(addr + 2),
                 type = cpu.memory.read8(addr + 5),
@@ -704,7 +709,7 @@ function CPU()
             row;
         for(var i = 0; i < height; i++)
         {
-            row = "0x" + h(i * width * block_size, 8) + " | ";
+            row = h(i * width * block_size, 8) + " | ";
             for(var j = 0; j < width; j++)
             {
                 var used = cpu.memory.mem32s[(i * width + j) * block_size] > 0;
@@ -716,10 +721,6 @@ function CPU()
 })(this);
     dbg_assert(this.table16 && this.table32);
     dbg_assert(this.table0F_16 && this.table0F_32);
-    this._state_restore();
-}
-CPU.prototype._state_restore = function()
-{
     this.reg32 = new Uint32Array(this.reg32s.buffer);
     this.reg16s = new Int16Array(this.reg32s.buffer);
     this.reg16 = new Uint16Array(this.reg32s.buffer);
@@ -727,38 +728,1734 @@ CPU.prototype._state_restore = function()
     this.reg8 = new Uint8Array(this.reg32s.buffer);
     this.update_address_size();
     this.update_operand_size();
+    this.tsc_offset = v86.microtick();
+}
+CPU.prototype.get_state = function()
+{
+    var state = [];
+    state[0] = this.memory_size;
+    state[1] = this.segment_is_null;
+    state[2] = this.segment_offsets;
+    state[3] = this.segment_limits;
+    state[4] = this.protected_mode;
+    state[5] = this.idtr_offset;
+    state[6] = this.idtr_size;
+    state[7] = this.gdtr_offset;
+    state[8] = this.gdtr_size;
+    state[9] = this.page_fault;
+    state[10] = this.cr;
+    state[11] = this.cpl;
+    state[12] = this.page_size_extensions;
+    state[13] = this.is_32;
+    state[14] = this.operand_size_32;
+    state[15] = this.address_size_32;
+    state[16] = this.stack_size_32;
+    state[17] = this.in_hlt;
+    state[18] = this.last_virt_eip;
+    state[19] = this.eip_phys;
+    state[20] = this.last_virt_esp;
+    state[21] = this.esp_phys;
+    state[22] = this.sysenter_cs;
+    state[23] = this.sysenter_eip;
+    state[24] = this.sysenter_esp;
+    state[25] = this.repeat_string_prefix;
+    state[26] = this.flags;
+    state[27] = this.flags_changed;
+    state[28] = this.last_op1;
+    state[29] = this.last_op2;
+    state[30] = this.last_op_size;
+    state[31] = this.last_add_result;
+    state[32] = this.modrm_byte;
+    state[36] = this.paging;
+    state[37] = this.instruction_pointer;
+    state[38] = this.previous_ip;
+    state[39] = this.reg32s;
+    state[40] = this.sreg;
+    state[41] = this.dreg;
+    state[42] = this.memory;
+    state[43] = this.fpu;
+    state[45] = this.devices.virtio;
+    state[46] = this.devices.apic;
+    state[47] = this.devices.rtc;
+    state[48] = this.devices.pci;
+    state[49] = this.devices.dma;
+    //state[50] = this.devices.acpi;
+    state[51] = this.devices.hpet;
+    state[52] = this.devices.vga;
+    state[53] = this.devices.ps2;
+    state[54] = this.devices.uart;
+    state[55] = this.devices.fdc;
+    state[56] = this.devices.cdrom;
+    state[57] = this.devices.hda;
+    state[58] = this.devices.pit;
+    state[59] = this.devices.net;
+    state[60] = this.devices.pic;
+    return state;
+};
+CPU.prototype.set_state = function(state)
+{
+    this.memory_size = state[0];
+    this.segment_is_null = state[1];
+    this.segment_offsets = state[2];
+    this.segment_limits = state[3];
+    this.protected_mode = state[4];
+    this.idtr_offset = state[5];
+    this.idtr_size = state[6];
+    this.gdtr_offset = state[7];
+    this.gdtr_size = state[8];
+    this.page_fault = state[9];
+    this.cr = state[10];
+    this.cpl = state[11];
+    this.page_size_extensions = state[12];
+    this.is_32 = state[13];
+    this.operand_size_32 = state[14];
+    this.address_size_32 = state[15];
+    this.stack_size_32 = state[16];
+    this.in_hlt = state[17];
+    this.last_virt_eip = state[18];
+    this.eip_phys = state[19];
+    this.last_virt_esp = state[20];
+    this.esp_phys = state[21];
+    this.sysenter_cs = state[22];
+    this.sysenter_eip = state[23];
+    this.sysenter_esp = state[24];
+    this.repeat_string_prefix = state[25];
+    this.flags = state[26];
+    this.flags_changed = state[27];
+    this.last_op2 = state[27];
+    this.last_op3 = state[28];
+    this.last_op_size = state[30];
+    this.last_add_result = state[31];
+    this.modrm_byte = state[32];
+    this.paging = state[36];
+    this.instruction_pointer = state[37];
+    this.previous_ip = state[38];
+    this.reg33s = state[38];
+    this.sreg = state[40];
+    this.dreg = state[41];
+    this.memory = state[42];
+    this.fpu = state[43];
+    this.devices.virtio = state[45];
+    this.devices.apic = state[46];
+    this.devices.rtc = state[47];
+    this.devices.pci = state[48];
+    this.devices.dma = state[49];
+    this.devices.acpi = state[50];
+    this.devices.hpet = state[51];
+    this.devices.vga = state[52];
+    this.devices.ps5 = state[50];
+    this.devices.uart = state[54];
+    this.devices.fdc = state[55];
+    this.devices.cdrom = state[56];
+    this.devices.hda = state[57];
+    this.devices.pit = state[58];
+    this.devices.net = state[59];
+    this.devices.pic = state[60];
+    this.full_clear_tlb();
+    // tsc_offset?
     if(this.stack_size_32)
     {
         this.stack_reg = this.reg32s;
+        this.reg_vsp = reg_esp;
+        this.reg_vbp = reg_ebp;
     }
     else
     {
         this.stack_reg = this.reg16;
+        this.reg_vsp = reg_sp;
+        this.reg_vbp = reg_bp;
     }
-    this.full_clear_tlb();
-    this.timestamp_counter = 0;
-    this.tsc_offset = v86.microtick();
-    /** @const */
-    this._state_skip = [
-        this.bios,
-        this.debug,
-        this.table16,
-        this.table32,
-        this.table0F_16,
-        this.table0F_32,
-        this.tlb_data,
-        this.tlb_info,
-        this.tlb_info_global,
-    ];
+    this.reg32 = new Uint32Array(this.reg32s.buffer);
+    this.reg16s = new Int16Array(this.reg32s.buffer);
+    this.reg16 = new Uint16Array(this.reg32s.buffer);
+    this.reg8s = new Int8Array(this.reg32s.buffer);
+    this.reg8 = new Uint8Array(this.reg32s.buffer);
+    this.update_address_size();
+    this.update_operand_size();
 };
+"use strict";
+/** @const */
+var DYN_CODE_CACHE_LIMIT = 1000000;
+/** @const */
+var FN_CACHE_LIMIT = 10000;
+/** @const */
+var HIT_COUNT = 5;
+var trans_stats = [];
+var CLASSIFICATION_NONE = 0;
+var CLASSIFICATION_MODRM = 1;
+var CLASSIFICATION_SINGLE = 2;
+var CLASSIFICATION_IMM8 = 3;
+var CLASSIFICATION_IMM8S = 4;
+var CLASSIFICATION_0F = 5;
+var CLASSIFICATION_PREFIX = 6;
+var CLASSIFICATION_NOT_OPTIMIZABLE = 7;
 /** @constructor */
-function DynamicTranslator(something)
+function DynamicTranslator(cpu)
 {
-    // TODO
-    dbg_assert(false);
-    this.clear_cache = function() {};
-    this.cycle_translated = function() {};
+    this.cpu = cpu;
+    this.fn_cache = {};
+    this.fn_cache_size = 0;
+    this.code_translation_cache = {};
+    this.code_translation_cache_size = 0;
+    function bind(fn, thisValue, i, is_32, is_0F)
+    {
+        return function()
+        {
+            return fn.call(thisValue, i, is_32, is_0F);
+        };
+    }
+    console.time("create stub tables");
+    for(var i = 0; i < 0x10000; i++)
+    {
+        this.cpu.large_table16[i] = bind(this.stub, this, i, false, false);
+        this.cpu.large_table32[i] = bind(this.stub, this, i, true, false);
+        this.cpu.large_table0F_16[i] = bind(this.stub, this, i, false, true);
+        this.cpu.large_table0F_32[i] = bind(this.stub, this, i, true, true);
+    }
+    console.timeEnd("create stub tables");
+    this.op_body16 = [];
+    this.op_body32 = [];
+    this.op_tokens16 = [];
+    this.op_tokens32 = [];
+    this.op_body0F_16 = [];
+    this.op_body0F_32 = [];
+    this.op_tokens0F_16 = [];
+    this.op_tokens0F_32 = [];
+    this.modrm_body16 = [];
+    this.modrm_body32 = [];
+    this.page_has_code = new Uint8Array(1 << 20);
+    this.translatable = new Uint8Array(0x100);
+    this.translatable0F = new Uint8Array(0x100);
+    this.seen = new Uint16Array(100003);
+    this.modrm_table16 = Array(0xC0);
+    this.modrm_table32 = Array(0xC0);
+    this.sib_table = Array(0x100);
+    this.jumping_instructions = new Uint8Array(0x100);
+    this.table16 = [];
+    this.table32 = [];
+    this.table0F_16 = [];
+    this.table0F_32 = [];
+    this.current_cache_id = "";
+    this.current_eip = 0;
+    this.op_classification = new Uint8Array(0x100);
+    this.op_classification0F = new Uint8Array(0x100);
+    this.init_tables();
+    this.timing_make_fn = 0;
+    this.timing_make_create_op = 0;
+};
+/** @param {CPU} cpu */
+DynamicTranslator.prototype.get_instruction_pointer = function(cpu)
+{
+    return cpu.instruction_pointer;
+};
+/** @param {CPU} cpu */
+DynamicTranslator.prototype.get_read_imm8 = function(cpu)
+{
+    return cpu.read_imm8;
+};
+/** @param {CPU} cpu */
+DynamicTranslator.prototype.get_read_imm8s = function(cpu)
+{
+    return cpu.read_imm8s;
+};
+/** @param {CPU} cpu */
+DynamicTranslator.prototype.get_do_op = function(cpu)
+{
+    return cpu.do_op;
+};
+/** @param {CPU} cpu */
+DynamicTranslator.prototype.get_safe_read8 = function(cpu)
+{
+    return cpu.safe_read8;
+};
+/** @param {CPU} cpu */
+DynamicTranslator.prototype.get_large_table = function(cpu)
+{
+    return cpu.large_table;
+};
+/** @param {CPU} cpu */
+DynamicTranslator.prototype.get_large_table0F_16 = function(cpu)
+{
+    return cpu.large_table0F_16;
+};
+/** @param {CPU} cpu */
+DynamicTranslator.prototype.get_large_table0F_32 = function(cpu)
+{
+    return cpu.large_table0F_32;
+};
+/** @param {CPU} cpu */
+DynamicTranslator.prototype.get_previous_ip = function(cpu)
+{
+    return cpu.previous_ip;
+};
+/** @param {CPU} cpu */
+DynamicTranslator.prototype.get_table = function(cpu)
+{
+    return cpu.table;
+};
+/** @param {CPU} cpu */
+DynamicTranslator.prototype.get_modrm_byte = function(cpu)
+{
+    return cpu.modrm_byte;
+};
+DynamicTranslator.prototype.init_tables = function()
+{
+    this.text = {
+        cpu: this.jsfunction_extract_arg(this.cpu.table16[0]),
+        instruction_pointer: this.jsfunction_extract_return(this.get_instruction_pointer),
+        read_imm8: this.jsfunction_extract_return(this.get_read_imm8),
+        read_imm8s: this.jsfunction_extract_return(this.get_read_imm8s),
+        do_op: this.jsfunction_extract_return(this.get_do_op),
+        safe_read8: this.jsfunction_extract_return(this.get_safe_read8),
+        large_table: this.jsfunction_extract_return(this.get_large_table),
+        large_table0F_16: this.jsfunction_extract_return(this.get_large_table0F_16),
+        large_table0F_32: this.jsfunction_extract_return(this.get_large_table0F_32),
+        previous_ip: this.jsfunction_extract_return(this.get_previous_ip),
+        table: this.jsfunction_extract_return(this.get_table),
+        modrm_byte: this.jsfunction_extract_return(this.get_modrm_byte),
+    }
+    this.text.eip_plus_1 = this.text.instruction_pointer + "+1|0";
+    this.text.inc_eip = this.text.instruction_pointer + "=" + this.text.eip_plus_1 + ";";
+    this.text.inc_eip2 = this.text.instruction_pointer + "=" + this.text.instruction_pointer + "+2|0;";
+    this.text.previous_eip_to_eip = this.text.previous_ip + "=" + this.text.instruction_pointer + ";";
+    console.log(this.text);
+    console.log(this.cpu.table16);
+    console.log(this.cpu.table32);
+    console.log(this.cpu.table0F_16);
+    console.log(this.cpu.table0F_32);
+    //var cpu = this.cpu;
+    for(var i = 0; i < 8; i++)
+    {
+        this.translatable[i << 3 | 0] = 1;
+        this.translatable[i << 3 | 1] = 1;
+        this.translatable[i << 3 | 2] = 1;
+        this.translatable[i << 3 | 3] = 1;
+        this.translatable[i << 3 | 4] = 1;
+        this.translatable[i << 3 | 5] = 1;
+        // prefixes don't work:
+        //this.translatable[i << 3 | 6] = 1;
+        this.translatable[i << 3 | 7] = 1;
+        this.translatable[0x40 | i] = 1;
+        this.translatable[0x48 | i] = 1;
+        this.translatable[0x50 | i] = 1;
+        this.translatable[0x58 | i] = 1;
+        this.translatable[0x70 | i] = 1;
+        this.translatable[0x78 | i] = 1;
+        this.jumping_instructions[0x70 | i] = 1;
+        this.jumping_instructions[0x78 | i] = 1;
+        //this.translatable[0x80 | i] = 1;
+        this.translatable[0x88 | i] = 1;
+        this.translatable[0x90 | i] = 1;
+        this.translatable[0xB0 | i] = 1;
+        this.translatable[0xB8 | i] = 1;
+        this.translatable[0xD8 | i] = 1;
+        this.translatable0F[0x40 | i] = 1;
+        this.translatable0F[0x48 | i] = 1;
+        this.translatable0F[0x90 | i] = 1;
+        this.translatable0F[0x98 | i] = 1;
+        this.op_classification0F[0x40 | i] = 1;
+        this.op_classification0F[0x48 | i] = 1;
+        this.op_classification0F[0x90 | i] = 1;
+        this.op_classification0F[0x98 | i] = 1;
+    };
+    this.op_classification0F[0xA3] = 1;
+    this.op_classification0F[0xA4] = 1;
+    this.op_classification0F[0xAB] = 1;
+    this.op_classification0F[0xAC] = 1;
+    this.op_classification0F[0xAD] = 1;
+    this.op_classification0F[0xAF] = 1;
+    this.op_classification0F[0xB0] = 1;
+    this.op_classification0F[0xB1] = 1;
+    this.op_classification0F[0xB6] = 1;
+    this.op_classification0F[0xB7] = 1;
+    this.op_classification0F[0xB8] = 1;
+    this.op_classification0F[0xBA] = 1;
+    this.op_classification0F[0xBB] = 1;
+    this.op_classification0F[0xBC] = 1;
+    this.op_classification0F[0xBD] = 1;
+    this.op_classification0F[0xBE] = 1;
+    this.op_classification0F[0xBF] = 1;
+    this.op_classification0F[0xC0] = 1;
+    this.op_classification0F[0xC1] = 1;
+    this.op_classification[0x00] = this.op_classification[0x01] = this.op_classification[0x02] = this.op_classification[0x03] =
+        this.op_classification[0x08] = this.op_classification[0x09] = this.op_classification[0x0a] = this.op_classification[0x0b] =
+        this.op_classification[0x10] = this.op_classification[0x11] = this.op_classification[0x12] = this.op_classification[0x13] =
+        this.op_classification[0x18] = this.op_classification[0x19] = this.op_classification[0x1a] = this.op_classification[0x1b] =
+        this.op_classification[0x20] = this.op_classification[0x21] = this.op_classification[0x22] = this.op_classification[0x23] =
+        this.op_classification[0x28] = this.op_classification[0x29] = this.op_classification[0x2a] = this.op_classification[0x2b] =
+        this.op_classification[0x30] = this.op_classification[0x31] = this.op_classification[0x32] = this.op_classification[0x33] =
+        this.op_classification[0x38] = this.op_classification[0x39] = this.op_classification[0x3a] = this.op_classification[0x3b] =
+        this.op_classification[0x69] = this.op_classification[0x6b] =
+        this.op_classification[0x80] = this.op_classification[0x81] = /*this.op_classification[0x82] =*/ this.op_classification[0x83] =
+        this.op_classification[0x84] = this.op_classification[0x85] = this.op_classification[0x86] = this.op_classification[0x87] =
+        this.op_classification[0x88] = this.op_classification[0x89] = this.op_classification[0x8a] = this.op_classification[0x8b] =
+        this.op_classification[0x8c] = this.op_classification[0x8d] = this.op_classification[0x8e] = this.op_classification[0x8f] =
+        this.op_classification[0xc0] = this.op_classification[0xc1] =
+        this.op_classification[0xc6] = this.op_classification[0xc7] =
+        this.op_classification[0xd0] = this.op_classification[0xd1] = this.op_classification[0xd2] = this.op_classification[0xd3] =
+        this.op_classification[0xd8] = this.op_classification[0xd9] = this.op_classification[0xda] = this.op_classification[0xdb] =
+        this.op_classification[0xdc] = this.op_classification[0xdd] = this.op_classification[0xde] = this.op_classification[0xdf] =
+        this.op_classification[0xf6] = this.op_classification[0xf7] = this.op_classification[0xfe] = this.op_classification[0xff] = CLASSIFICATION_MODRM;
+    this.op_classification[0x06] = this.op_classification[0x07] = this.op_classification[0x0E] =
+        this.op_classification[0x16] = this.op_classification[0x17] = this.op_classification[0x1E] = this.op_classification[0x1F] =
+        this.op_classification[0x27] = this.op_classification[0x2F] = this.op_classification[0x37] = this.op_classification[0x3F] =
+        this.op_classification[0x40] = this.op_classification[0x41] = this.op_classification[0x42] = this.op_classification[0x43] =
+        this.op_classification[0x44] = this.op_classification[0x45] = this.op_classification[0x46] = this.op_classification[0x47] =
+        this.op_classification[0x48] = this.op_classification[0x49] = this.op_classification[0x4A] = this.op_classification[0x4B] =
+        this.op_classification[0x4C] = this.op_classification[0x4D] = this.op_classification[0x4E] = this.op_classification[0x4F] =
+        this.op_classification[0x50] = this.op_classification[0x51] = this.op_classification[0x52] = this.op_classification[0x53] =
+        this.op_classification[0x54] = this.op_classification[0x55] = this.op_classification[0x56] = this.op_classification[0x57] =
+        this.op_classification[0x58] = this.op_classification[0x59] = this.op_classification[0x5A] = this.op_classification[0x5B] =
+        this.op_classification[0x5C] = this.op_classification[0x5D] = this.op_classification[0x5E] = this.op_classification[0x5F] =
+        this.op_classification[0x60] = this.op_classification[0x61] =
+        this.op_classification[0x90] = this.op_classification[0x91] = this.op_classification[0x92] = this.op_classification[0x93] =
+        this.op_classification[0x94] = this.op_classification[0x95] = this.op_classification[0x96] = this.op_classification[0x97] =
+        this.op_classification[0x98] = this.op_classification[0x99] = // cbw, cwd
+        this.op_classification[0x9C] = // pushf
+        //this.op_classification[0x9D] =  //popf: Not supported because it calls handle_irqs -> call_interrupt_vector
+        this.op_classification[0x9E] = this.op_classification[0x9F] =
+        //this.op_classification[0xC9] =  // leave, seems to break openbsd
+        this.op_classification[0xF5] =
+        this.op_classification[0xF8] = this.op_classification[0xF9] =
+        this.op_classification[0xFC] = this.op_classification[0xFD] = CLASSIFICATION_SINGLE;
+    // String operations
+    // Works, because rep prefixes cause the small table to be used.
+    // In any other case, these must be repeatable
+    this.op_classification[0xA4] = this.op_classification[0xA5] =
+        this.op_classification[0xA6] = this.op_classification[0xA7] =
+        this.op_classification[0xAA] = this.op_classification[0xAB] =
+        this.op_classification[0xAC] = this.op_classification[0xAD] =
+        this.op_classification[0xAE] = this.op_classification[0xAF] = CLASSIFICATION_SINGLE;
+    this.op_classification[0x04] = this.op_classification[0x0C] = this.op_classification[0x14] = this.op_classification[0x1C] =
+        this.op_classification[0x24] = this.op_classification[0x2C] = this.op_classification[0x34] = this.op_classification[0x3C] =
+        //this.op_classification[0xcd] =
+        this.op_classification[0xB0] = this.op_classification[0xB1] = this.op_classification[0xB2] = this.op_classification[0xB3] =
+        this.op_classification[0xB4] = this.op_classification[0xB5] = this.op_classification[0xB6] = this.op_classification[0xB7] = CLASSIFICATION_IMM8;
+    // nope, see popf
+    //this.op_classification[0xE4] = this.op_classification[0xE5] = this.op_classification[0xE6] = this.op_classification[0xE7] = CLASSIFICATION_IMM8;
+    this.op_classification[0x70] = this.op_classification[0x71] = this.op_classification[0x72] = this.op_classification[0x73] =
+        this.op_classification[0x74] = this.op_classification[0x75] = this.op_classification[0x76] = this.op_classification[0x77] =
+        this.op_classification[0x78] = this.op_classification[0x79] = this.op_classification[0x7A] = this.op_classification[0x7B] =
+        this.op_classification[0x7C] = this.op_classification[0x7D] = this.op_classification[0x7E] = this.op_classification[0x7F] =
+        this.op_classification[0x6A] = // push imm8s
+        this.op_classification[0xE0] = this.op_classification[0xE1] = // loop, loope, jcxz
+        this.op_classification[0xE2] = this.op_classification[0xE3] =
+        this.op_classification[0xEB] = // jump near
+            CLASSIFICATION_IMM8S;
+    this.op_classification[0xFB] = this.op_classification[0xFA] = // sti, cli
+        this.op_classification[0xCD] = // int
+        this.op_classification[0xF4] = CLASSIFICATION_NOT_OPTIMIZABLE; // hlt
+    this.op_classification[0x0F] = CLASSIFICATION_0F;
+    this.op_classification[0x26] = this.op_classification[0x2E] =
+    this.op_classification[0x36] = this.op_classification[0x3E] =
+    this.op_classification[0x64] = this.op_classification[0x65] =
+    this.op_classification[0x66] = this.op_classification[0x67] =
+    this.op_classification[0xF2] = this.op_classification[0xF3] =
+        CLASSIFICATION_PREFIX;
+    this.translatable[0x60] = 1;
+    this.translatable[0x61] = 1;
+    this.translatable[0x62] = 1;
+    this.translatable[0x63] = 1;
+    this.translatable[0x68] = 1;
+    this.translatable[0x69] = 1;
+    this.translatable[0x6A] = 1;
+    this.translatable[0x6B] = 1;
+    this.translatable[0x6C] = 1;
+    this.translatable[0x6D] = 1;
+    this.translatable[0x6E] = 1;
+    this.translatable[0x6F] = 1;
+    this.translatable[0x84] = 1;
+    this.translatable[0x85] = 1;
+    this.translatable[0x86] = 1;
+    this.translatable[0x87] = 1;
+    this.translatable[0x98] = 1;
+    this.translatable[0x99] = 1;
+    //this.translatable[0x9A] = 1; // problem with get_real_eip
+    //this.jumping_instructions[0x9A] = 1;
+    this.translatable[0x9B] = 1;
+    this.translatable[0x9C] = 1;
+    this.translatable[0x9D] = 1;
+    this.translatable[0x9E] = 1;
+    this.translatable[0x9F] = 1;
+    this.translatable[0xC0] = 1;
+    this.translatable[0xC1] = 1;
+    this.translatable[0xC6] = 1;
+    this.translatable[0xC7] = 1;
+    this.translatable[0xD0] = 1;
+    this.translatable[0xD1] = 1;
+    this.translatable[0xD2] = 1;
+    this.translatable[0xD3] = 1;
+    //this.translatable[0xF6] = 1;
+    //this.translatable[0xF7] = 1;
+    this.translatable[0xF8] = 1;
+    this.translatable[0xF9] = 1;
+    this.translatable[0xFC] = 1;
+    this.translatable[0xFD] = 1;
+    this.translatable0F[0xA3] = 1;
+    this.translatable0F[0xA4] = 1;
+    this.translatable0F[0xA5] = 1;
+    this.translatable0F[0xAB] = 1;
+    this.translatable0F[0xAC] = 1;
+    this.translatable0F[0xAD] = 1;
+    this.translatable0F[0xAF] = 1;
+    this.translatable0F[0xB6] = 1;
+    this.translatable0F[0xB7] = 1;
+    this.translatable0F[0xB8] = 1;
+    //this.translatable0F[0xBA] = 1;
+    this.translatable0F[0xBB] = 1;
+    this.translatable0F[0xBC] = 1;
+    this.translatable0F[0xBD] = 1;
+    this.translatable0F[0xBE] = 1;
+    this.translatable0F[0xBF] = 1;
+    this.translatable0F[0xC0] = 1;
+    this.translatable0F[0xC1] = 1;
+    console.time("modrm translation");
+    for(var low = 0; low < 8; low++)
+    {
+        for(var high = 0; high < 3; high++)
+        {
+            var x = low | high << 6;
+            this.modrm_table16[x] = this.rewrite_modrm(this.cpu.modrm_table16[x], "16", x);
+            this.modrm_table32[x] = this.rewrite_modrm(this.cpu.modrm_table32[x], "32", x);
+        }
+    };
+    //dbg_log(this.modrm_table16.map(String));
+    //dbg_log(this.modrm_table32.map(String));
+    for(var low = 0; low < 8; low++)
+    {
+        for(var high = 0; high < 3; high++)
+        {
+            var x = low | high << 6;
+            for(var i = 1; i < 8; i++)
+            {
+                var to = x | i << 3;
+                this.modrm_table16[to] = this.modrm_table16[x];
+                this.modrm_table32[to] = this.modrm_table32[x];
+                this.modrm_body16[to] = this.modrm_body16[x];
+                this.modrm_body32[to] = this.modrm_body32[x];
+            }
+        }
+    }
+    for(var i = 0; i < 0x100; i++)
+    {
+        this.sib_table[i] = this.rewrite_modrm(this.cpu.sib_table[i], "sib", i);
+    }
+    //dbg_log(this.sib_table.map(String));
+    console.timeEnd("modrm translation");
+    console.time("instruction translation");
+    for(var i = 0; i < 0x100; i++)
+    {
+        this.table16[i] = this.rewrite_instruction(this.cpu.table16, i, false, false);
+        this.table32[i] = this.rewrite_instruction(this.cpu.table32, i, true, false);
+        this.table0F_16[i] = this.rewrite_instruction(this.cpu.table0F_16, i, false, true);
+        this.table0F_32[i] = this.rewrite_instruction(this.cpu.table0F_32, i, true, true);
+        //if(this.table16[i]) dbg_log(h(i) + "  " + this.table16[i]);
+        //if(this.table32[i]) dbg_log(h(i) + "  " + this.table32[i]);
+        //if(this.table0F_16[i]) dbg_log(h(i) + " 0f  " + this.table0F_16[i]);
+        //if(this.table0F_32[i]) dbg_log(h(i) + " 0f  " + this.table0F_32[i]);
+    }
+    console.timeEnd("instruction translation");
+    for(var i = 0; i < 0x100; i++)
+    {
+        //if(!this.translatable[i])
+        //    dbg_log("Not translated: " + h(i, 2));
+    }
+    for(var i = 0; i < 0x100; i++)
+    {
+        //if(!this.translatable0F[i])
+        //    dbg_log("Not translated: 0F " + h(i, 2));
+    }
+};
+DynamicTranslator.prototype.clear_cache = function()
+{
+    //dbg_log("cache cleared");
+    this.code_translation_cache = {};
+    this.code_translation_cache_size = 0;
+};
+DynamicTranslator.prototype.cache_wipe_page = function(page)
+{
+    this.cpu.memory.mem_page_infos[page] = 0;
+    //console.time("wipe");
+    if(!this.page_has_code[page])
+    {
+        return;
+    }
+    //dbg_log("wipe page=" + h(page << 12, 8));
+    this.page_has_code[page] = false;
+    var high = page << 12;
+    for(var i = 0; i < 0x1000; i++)
+    {
+        if(this.code_translation_cache[high + i] !== undefined)
+        {
+            //dbg_log("removed");
+            this.code_translation_cache[high + i] = undefined;
+            //this.code_translation_cache_size--;
+        }
+    }
+    //console.timeEnd("wipe");
+};
+DynamicTranslator.prototype.cycle_translated_xxx = function()
+{
+    var cpu = this.cpu;
+    cpu.previous_ip = cpu.instruction_pointer;
+    var phys_eip = cpu.get_phys_eip(),
+        eip_page = phys_eip >>> 12,
+        cache_entry;
+    if(cpu.memory.mem_page_infos[eip_page])
+    {
+        //console.time("wipe");
+        this.cache_wipe_page(eip_page);
+        //console.timeEnd("wipe");
+    }
+    else
+    {
+        cache_entry = this.code_translation_cache[phys_eip];
+    }
+    if(cache_entry === undefined)
+    {
+        var count = this.seen[phys_eip % 100003]++;
+        if(count > 100)
+        {
+            //console.log("translate");
+            //dbg_log("tran page=" + h(eip_page << 12, 5));
+            this.start_translation(eip_page, phys_eip);
+            this.seen[phys_eip % 100003] = 0;
+        }
+        else
+        {
+            this.cpu.cycle();
+        }
+    }
+    else
+    {
+        cache_entry(cpu);
+    }
+};
+DynamicTranslator.prototype.create_op = function(op, is_32, is_0F)
+{
+    // possible optimizations:
+    // - test eax, eax; test ebx, ebx ...
+    // - or [mem], -1
+    // - and [mem, 0
+    // - Decoding FPU instructions
+    // - 66h prefix optimisations
+    // - Use read_imm32s and create longer lookups as useful
+    // - Cache result if is is the same in 16 and 32 bit mode
+    // - Consider generation of 16 bit operations in 32 bit address mode
+    if(DEBUG)
+    {
+        var start = performance.now();
+    }
+    dbg_assert(op < 0x10000 && op >= 0);
+    var b0 = op & 0xFF;
+    var b1 = op >> 8 & 0xFF;
+    var cpu = this.cpu;
+    var ignore_second_byte = false;
+    var other_op_table;
+    if(is_0F)
+    {
+        // all other cases are already optimized by double lookup including the 0F prefix
+        dbg_assert(this.op_classification0F[b0] === CLASSIFICATION_MODRM);
+        if(is_32)
+        {
+            var op_table = this.cpu.large_table0F_32;
+            var body = this.op_body0F_32[b0];
+        }
+        else
+        {
+            var op_table = this.cpu.large_table0F_16;
+            var body = this.op_body0F_16[b0];
+        }
+        // cannot reuse fn from other table because address_size_32 changes modrm operand
+        var tokens = is_32 ? this.op_tokens0F_32[b0] : this.op_tokens0F_16[b0];
+        //console.log("0x0F", h(b0, 2), h(b1, 2));
+        var code = this.optimize_modrm(tokens, b1, is_32);
+        //console.log(code);
+    }
+    else
+    {
+        if(is_32)
+        {
+            var op_table = this.cpu.large_table32;
+            var body = this.op_body32[b0];
+        }
+        else
+        {
+            var op_table = this.cpu.large_table16;
+            var body = this.op_body16[b0];
+        }
+        var classification = this.op_classification[b0];
+        if(
+            classification === CLASSIFICATION_IMM8S ||
+            classification === CLASSIFICATION_IMM8 ||
+            classification === CLASSIFICATION_NOT_OPTIMIZABLE ||
+            classification === CLASSIFICATION_NONE
+        ) {
+            if(this.cpu.table16[b0] === this.cpu.table32[b0])
+            {
+                other_op_table = is_32 ? this.cpu.large_table16 : this.cpu.large_table32;
+            }
+        }
+        switch(classification)
+        {
+            case CLASSIFICATION_0F:
+                // create code for op from 0f table
+                if(this.op_classification0F[b1] === CLASSIFICATION_MODRM)
+                {
+                    //var code = "cpu.instruction_pointer = cpu.instruction_pointer + 1 | 0; ";
+                    var code = this.text.inc_eip;
+                    if(is_32)
+                    {
+                        //code += "cpu.large_table0F_32[cpu.safe_read8(cpu.instruction_pointer + 1 | 0) << 8 | " + b1 + "](cpu)";
+                        code += this.text.large_table0F_32 + "[" + this.text.safe_read8 + "(" + this.text.eip_plus_1 + ")<<8|" + b1 + "](" + this.text.cpu + ");";
+                    }
+                    else
+                    {
+                        //code += "cpu.large_table0F_16[cpu.safe_read8(cpu.instruction_pointer + 1 | 0) << 8 | " + b1 + "](cpu)";
+                        code += this.text.large_table0F_16 + "[" + this.text.safe_read8 + "(" + this.text.eip_plus_1 + ")<<8|" + b1 + "](" + this.text.cpu + ");";
+                    }
+                    //console.log("0f modrm", code);
+                }
+                else
+                {
+                    //var code = "cpu.instruction_pointer += 2; "
+                    var code = this.text.inc_eip2;
+                    if(is_32)
+                    {
+                        code += this.op_body0F_32[b1];
+                    }
+                    else
+                    {
+                        code += this.op_body0F_16[b1];
+                    }
+                }
+                //console.log(code);
+                break;
+            case CLASSIFICATION_MODRM:
+                //if(b0 >= 0x30 && b0 < 0x34 && b1 >= 0xC0 && (b1 & 7) === (b1 >> 3 & 7))
+                //{
+                //    // xor X, X
+                //    var code = this.generate_xor_self((b0 & 1) ? is_32 ? 32 : 16 : 8, b1 & 7);
+                //    //console.log(code);
+                //}
+                //else
+                {
+                    //console.log(h(b0, 2), h(b1, 2));
+                    var tokens = is_32 ? this.op_tokens32[b0] : this.op_tokens16[b0];
+                    var code = this.optimize_modrm(tokens, b1, is_32);
+                }
+                //console.log(h(b0, 2), code);
+                break;
+            case CLASSIFICATION_SINGLE:
+                // 1 byte op codes (inc eax; ...)
+                //
+                // Probably not a huge advantage over the default case: More functions generated
+                //var code = "cpu.instruction_pointer = cpu.instruction_pointer + 1 | 0; " + body;
+                //code += "cpu.previous_ip = cpu.instruction_pointer;";
+                var code = this.text.inc_eip + body + ";" + this.text.previous_eip_to_eip;
+                if(this.op_classification[b1] === CLASSIFICATION_SINGLE)
+                {
+                    //code += "cpu.instruction_pointer = cpu.instruction_pointer + 1 | 0;";
+                    code += this.text.inc_eip;
+                    code += is_32 ? this.op_body32[b1] : this.op_body16[b1];
+                    //console.log(h(b0, 2), h(b1, 2), code);
+                }
+                else
+                {
+                    //code += "cpu.large_table[cpu.safe_read8(cpu.instruction_pointer + 1 | 0) << 8 | " + b1 + "](cpu)";
+                    code += this.text.large_table + "[" + this.text.safe_read8 + "(" + this.text.eip_plus_1 + ")<<8|" + b1 + "](" + this.text.cpu + ");";
+                }
+                //console.log(h(b0, 2), h(b1, 2), code);
+                break;
+            case CLASSIFICATION_IMM8:
+                // op with imm8 byte and no modrm (add al, 8; mov al, 8; ...)
+                //var code = "cpu.instruction_pointer = cpu.instruction_pointer + 2 | 0; " + body;
+                var code = this.text.inc_eip2 + body;
+                code = this.asserted_replace(code, this.text.read_imm8 + "()", b1 + "");
+                break;
+            case CLASSIFICATION_IMM8S:
+                // op with imm8s byte and no modrm (jz +8; ...)
+                //var code = "cpu.instruction_pointer = cpu.instruction_pointer + 2 | 0; " + body;
+                var code = this.text.inc_eip2 + body;
+                //code = this.asserted_replace(code, "cpu.read_imm8s()", (b1 << 24 >> 24) + "");
+                code = this.asserted_replace(code, this.text.read_imm8s + "()", (b1 << 24 >> 24) + "");
+                break
+            case CLASSIFICATION_PREFIX:
+                if(b0 !== 0x66 && b0 !== 0x67)
+                {
+                    var b1_classification = this.op_classification[b1];
+                    if(
+                        //b1_classification === CLASSIFICATION_IMM8 ||
+                        //b1_classification === CLASSIFICATION_IMM8S ||
+                        b1_classification === CLASSIFICATION_MODRM ||
+                        b1_classification === CLASSIFICATION_0F)
+                    {
+                        //var code = "cpu.instruction_pointer = cpu.instruction_pointer + 1 | 0; " + body;
+                        //code = this.asserted_replace(code, "cpu.do_op()", "cpu.large_table[cpu.safe_read8(cpu.instruction_pointer + 1 | 0) << 8 | " + b1 + "](cpu);");
+                        var code = this.text.inc_eip + body;
+                        code = this.asserted_replace(code, this.text.do_op + "()",
+                                this.text.large_table + "[" + this.text.safe_read8 + "(" + this.text.eip_plus_1 + ")<<8|" + b1 + "](" + this.text.cpu + ");");
+                        //console.log(code);
+                    }
+                    else
+                    {
+                        //var code = "cpu.instruction_pointer = cpu.instruction_pointer + 2 | 0; " + body;
+                        var code = this.text.inc_eip2 + body;
+                        //code = this.asserted_replace(code, "cpu.do_op()", is_32 ? this.op_body32[b1] : this.op_body16[b1]);
+                        code = this.asserted_replace(code, this.text.do_op + "()", is_32 ? this.op_body32[b1] : this.op_body16[b1]);
+                    }
+                }
+                else
+                {
+                    //var code = "cpu.instruction_pointer = cpu.instruction_pointer + 2 | 0; " + body;
+                    //code = this.asserted_replace(code, "cpu.do_op()", "cpu.table[" + b1 + "](cpu);");
+                    var code = this.text.inc_eip2 + body;
+                    code = this.asserted_replace(code, this.text.do_op + "()", this.text.table + "[" + b1 + "](" + this.text.cpu + ");");
+                }
+                //console.log(h(b0, 2), h(b1, 2), code);
+                break;
+            case CLASSIFICATION_NOT_OPTIMIZABLE:
+            case CLASSIFICATION_NONE:
+                //var code = "cpu.instruction_pointer = cpu.instruction_pointer + 1 | 0; " + body;
+                var code = this.text.inc_eip + body;
+                ignore_second_byte = true;
+                //!window.bad_code_stats && (window.bad_code_stats = new Int32Array(0x100));
+                //code += "window.bad_code_stats[" + b0 + "]++;";
+                //code += "console.log(" + h(b0, 2) + ");";
+                break;
+            default:
+                dbg_assert(false, "unhandled classification: " + classification);
+        }
+    }
+    //console.log(h(b0, 2), h(b1, 2), code);
+    //code = code.replace(/\bcpu\b/g, this.cpu_identifier_name);
+    var fn = this.make_fn(code);
+    if(ignore_second_byte)
+    {
+        for(var i = 0; i < 0x100; i++)
+        {
+            op_table[b0 | i << 8] = fn;
+            if(other_op_table) other_op_table[b0 | i << 8] = fn;
+        }
+    }
+    else
+    {
+        op_table[op] = fn;
+        if(other_op_table) other_op_table[op] = fn;
+    }
+    if(DEBUG)
+    {
+        var end = performance.now();
+        this.timing_make_create_op += end - start;
+    }
+    //console.log(h(b0, 2), operand_size_32, code);
+    return fn;
+};
+DynamicTranslator.prototype.stub = function(op, is_32, is_0F)
+{
+    var fn = this.create_op(op, is_32, is_0F);
+    if(DEBUG)
+    {
+        try
+        {
+            fn(this.cpu);
+        }
+        catch(e)
+        {
+            if(e !== MAGIC_CPU_EXCEPTION)
+            {
+                dbg_log("First call of op " + h(op, 2) + " failed");
+                dbg_log("Code: " + fn);
+            }
+            throw e;
+        }
+    }
+    else
+    {
+        //console.log(fn);
+        fn(this.cpu);
+    }
+};
+DynamicTranslator.prototype.start_translation = function(eip_page, phys_eip)
+{
+    // 1. Read an opcode
+    // 2. If it crosses a page boundary, stop
+    // 3. If it's not translatable, insert it into the cache, execute it and quit
+    // 4. Otherwise:
+    // 5. Execute it
+    var cpu = this.cpu;
+    //var start_eip = cpu.instruction_pointer;
+    this.current_eip = phys_eip;
+    //var first_op = op;
+    //cpu.debug.logop(cpu.instruction_pointer - 1 >>> 0, op);
+    //var fn = cpu.table[op];
+    //fn(cpu);
+    //if((start_eip ^ cpu.instruction_pointer) & ~0xFFF)
+    //{
+    //    // the instruction crossed a page boundary, stop right here
+    //    // be safe and don't put this into the cache
+    //    return;
+    //}
+    //this.current_cache_id = String.fromCharCode(cpu.operand_size_32 | cpu.address_size_32 << 1);
+    var op = this.tread_imm8();
+    var code = this.translate_instruction(op);
+    if(code === undefined)
+    {
+        // not translatable instruction, but we can cache the reference
+        //trans_stats[op]++;
+        //entry.fn = fn;
+        //entry.is_single = true;
+        var result = this.code_translation_cache[phys_eip] = this.not_translatable_op;
+        this.page_has_code[eip_page] = true;
+        result(cpu);
+        return;
+    }
+    //var code = translated;
+    //var instruction_start;
+    //var count = 1;
+    if(!this.jumping_instructions[op])
+    while(true)
+    {
+        //instruction_start = cpu.instruction_pointer;
+        //op = cpu.read_imm8();
+        //cpu.debug.logop(cpu.instruction_pointer - 1 >>> 0, op);
+        //var fn = cpu.table[op];
+        //fn(cpu);
+        //if((instruction_start ^ cpu.instruction_pointer) & ~0xFFF)
+        //{
+        //    // the instruction crossed a page boundary, we're done
+        //    break;
+        //}
+        //var phys = phys_eip & ~0xFFF | instruction_start & 0xFFF
+        var start = this.current_eip;
+        var op = this.tread_imm8();
+        var translated = this.translate_instruction(op);
+        if(translated === undefined)
+        {
+            //trans_stats[op]++;
+            //this.code_translation_cache[phys] = {
+            //    fn: fn,
+            //    hit_count: 0,
+            //    is_single: true,
+            //};
+            this.page_has_code[eip_page] = true;
+            this.code_translation_cache[start] = this.not_translatable_op;
+            break;
+        }
+        code += translated;
+        if(this.jumping_instructions[op])
+        {
+            break;
+        }
+        //count++;
+    }
+    //if(count === 1)
+    //{
+    //    var result = cpu.table[first_op],
+    //        is_single = true;
+    //}
+    //else
+    {
+        var result = this.make_fn(code);
+            //is_single = false;
+    }
+    //console.log(code);
+    this.code_translation_cache[phys_eip] = result;
+    this.page_has_code[eip_page] = true;
+    result(cpu);
+    //entry.fn = result;
+    //entry.is_single = is_single;
+};
+DynamicTranslator.prototype.translate_instruction = function(opcode)
+{
+    var cpu = this.cpu;
+    var is_0F = opcode === 0x0F;
+    //this.current_cache_id += opcode + "/";
+    //var start_eip = addr;
+    var start = this.current_eip - 1;
+    if(is_0F)
+    {
+        var next = this.tread_imm8();
+        if(!this.translatable0F[next])
+        {
+            return undefined;
+        }
+        //this.current_eip = addr + 2;
+        //this.current_cache_id += next + "/";
+        var table = cpu.operand_size_32 ? this.table0F_32 : this.table0F_16;
+        //console.log(table[next]);
+        var code = table[next](cpu);
+    }
+    else
+    {
+        if(!this.translatable[opcode])
+        {
+            return undefined;
+        }
+        // opcode has been read already
+        //this.current_eip = addr + 1;
+        var table = cpu.operand_size_32 ? this.table32 : this.table16;
+        //console.log(table[opcode]);
+        var code = table[opcode](cpu);
+    }
+    if((start ^ this.current_eip - 1) & ~0xFFF)
+    {
+        return;
+    }
+    var size = this.current_eip - start;
+    dbg_assert(size > 0);
+    //if(trans_stats[opcode])
+    //    dbg_assert(trans_stats[opcode] === size, [opcode, size, trans_stats[op]]);
+    //trans_stats[opcode] = size;
+    //console.log(code, size, h(opcode));
+    code += this.cpu_identifier_name + ".instruction_pointer += " + size + ";";
+    //dbg_log(code);
+    return code;
+};
+DynamicTranslator.prototype.make_fn = function(code)
+{
+    if(DEBUG)
+    {
+        var start = performance.now();
+        //console.log(code);
+        try
+        {
+            var fn = new Function(this.text.cpu, '"use strict";' + code);
+        }
+        catch(e)
+        {
+            dbg_log(code);
+            throw e;
+        }
+        var end = performance.now();
+        this.timing_make_fn += end - start;
+    }
+    else
+    {
+        var fn = new Function(this.text.cpu, '"use strict";' + code);
+    }
+    return fn;
+};
+DynamicTranslator.prototype.make_fn_cached = function(code, cache_id)
+{
+    var entry = this.fn_cache[cache_id];
+    if(entry !== undefined)
+    {
+        return entry;
+    }
+    else
+    {
+        this.fn_cache_size++;
+        if(this.fn_cache_size >= FN_CACHE_LIMIT)
+        {
+            dbg_log("fn cache cleared (hit limit)");
+            this.fn_cache_size = 0;
+            this.fn_cache = {};
+        }
+        return this.fn_cache[cache_id] = new Function(this.cpu_identifier_name, '"use strict";' + code);
+    }
+};
+// extract the body of an anonymous function
+var jsfunction_anon_body_regex = /^function\s*\([^)]*\)\s*{\s*([\s\S]*?)\s*}\s*$/;
+// extract the name of a function
+// NOTE: Only ASCII names
+var jsfunction_name_regex = /^DynamicTranslator.prototype. = function\s*([$A-Z_][0-9A-Z_$]*)/;
+// extract name of the first argument
+var jsfunction_arg_regex = /^function\s*(?:[$A-Z_][0-9A-Z_$]*?)?\s*\(\s*([$A-Z_][0-9A-Z_$]*)/i;
+// extract value of a function return a single expression
+var jsfunction_return_value_regex = /^function\s*\([^)]*\)\s*{\s*return\s*([^;]*?);?\s*}\s*$/;
+DynamicTranslator.prototype.jsfunction_anon_extract_body = function(fn)
+{
+    var str = fn.toString();
+    var match = str.match(jsfunction_anon_body_regex);
+    dbg_assert(match, "jsfunction_anon_extract_body failed");
+    return match[1];
+};
+DynamicTranslator.prototype.jsfunction_extract_name = function(fn)
+{
+    var str = fn.toString();
+    var match = str.match(jsfunction_name_regex);
+    return match[1];
+};
+DynamicTranslator.prototype.jsfunction_extract_arg = function(fn)
+{
+    var str = fn.toString();
+    var match = str.match(jsfunction_arg_regex);
+    return match[1];
+};
+DynamicTranslator.prototype.jsfunction_extract_return = function(fn)
+{
+    var str = fn.toString();
+    var match = str.match(jsfunction_return_value_regex);
+    dbg_assert(match, "jsfunction_extract_return failed");
+    return match[1];
+};
+// read immediate bytes at translation time (not while the instruction
+// is executed)
+DynamicTranslator.prototype.tread_imm8 = function()
+{
+    var imm = this.cpu.memory.read8(this.current_eip++);
+    //this.current_cache_id += String.fromCharCode(imm);
+    return imm;
+};
+DynamicTranslator.prototype.tread_imm8s = function()
+{
+    return this.tread_imm8() << 24 >> 24;
+};
+DynamicTranslator.prototype.tread_imm16 = function()
+{
+    var imm = this.cpu.memory.read16(this.current_eip);
+    //this.current_cache_id += String.fromCharCode(imm, imm >> 8);
+    this.current_eip += 2;
+    return imm;
+};
+DynamicTranslator.prototype.tread_imm16s = function()
+{
+    return this.tread_imm16() << 16 >> 16;
+};
+DynamicTranslator.prototype.tread_imm32s = function()
+{
+    var imm = this.cpu.memory.read32s(this.current_eip);
+    //this.current_cache_id += String.fromCharCode(imm, imm >>> 8, imm >>> 16, imm >> 24);
+    this.current_eip += 4;
+    return imm;
+};
+DynamicTranslator.prototype.tget_seg_prefix_ds = function()
+{
+    if(!this.cpu.protected_mode)
+    {
+        return "cpu.get_seg_prefix_ds()";
+    }
+    else
+    {
+        return this.cpu.get_seg(reg_ds);
+    }
+};
+DynamicTranslator.prototype.tget_seg_prefix_ss = function()
+{
+    if(!this.cpu.protected_mode)
+    {
+        return "cpu.get_seg_prefix_ss()";
+    }
+    else
+    {
+        return this.cpu.get_seg(reg_ss);
+    }
+};
+DynamicTranslator.prototype.insert_modrm_resolve = function(modrm_byte)
+{
+    if(modrm_byte < 0xC0)
+    {
+        var table = this.cpu.address_size_32 ? this.modrm_table32 : this.modrm_table16;
+        return table[modrm_byte](this.cpu);
+    }
+    else
+    {
+        // is (if everything works correctly) never going to be used
+        return "-1";
+    }
+};
+DynamicTranslator.prototype.insert_sib_addr = function(mod)
+{
+    var sib_byte = this.tread_imm8();
+    return this.sib_table[sib_byte](this.cpu, mod);
+};
+DynamicTranslator.prototype.rewrite_modrm = function(fn, type, x)
+{
+    var tokens = esprima.tokenize(fn);
+    var start = 0;
+    var count = tokens.length;
+    //dbg_assert(tokens[start++].value === "(", '"(" expected')
+    //dbg_assert(tokens[start++].value === "function", '"function" expected')
+    //dbg_assert(tokens[start++].value === "(", '"(" expected')
+    assert_token(start++, "function");
+    assert_token(start++, "(");
+    assert_token_type(start++, "Identifier");
+    if(type === "sib")
+    {
+        //dbg_assert(tokens[start++].value === ",", '"," expected')
+        //dbg_assert(tokens[start++].type === "Identifier", 'Identifier expected')
+        assert_token(start++, ",");
+        assert_token_type(start++, "Identifier");
+    }
+    //dbg_assert(tokens[start++].value === ")", '")" expected')
+    //dbg_assert(tokens[start++].value === "{", '"{" expected')
+    assert_token(start++, ")");
+    assert_token(start++, "{");
+    if(tokens[start].value === '"use strict"')
+    {
+        // firefox inserts this, skip the string and semicolon
+        start += 2;
+    }
+    assert_token(start++, "return");
+    //dbg_assert(tokens[count - 3].value === ";", '";" expected')
+    //dbg_assert(tokens[count - 2].value === "}", '"}" expected')
+    //dbg_assert(tokens[count - 1].value === ")", '")" expected')
+    assert_token(--count, "}");
+    assert_token(--count, ";");
+    //assert_token(count - 1, ")");
+    if(type !== "sib")
+    {
+        var body = [];
+        for(var i = start; i < count; i++)
+        {
+            body.push(tokens[i].value);
+        }
+        var table = type === "32" ? this.modrm_body32 : this.modrm_body16;
+        table[x] = "(" + body.join("") + ")";
+        //console.log(table[x]);
+    }
+    var replacement_table = {
+        "read_imm8s": this.cpu_identifier_name + ".translator.tread_imm8s()",
+        "read_imm16": this.cpu_identifier_name + ".translator.tread_imm16()",
+        "read_imm32s": this.cpu_identifier_name + ".translator.tread_imm32s()",
+        "get_seg_prefix_ds": this.cpu_identifier_name + ".translator.tget_seg_prefix_ds()",
+        "get_seg_prefix_ss": this.cpu_identifier_name + ".translator.tget_seg_prefix_ss()",
+    };
+    if(type === "32" && (x & 7) === 4)
+    {
+        // special cases:
+        // 0x04: sib
+        // 0x44: sib + imm8
+        // 0x84: sib + imm32
+        var mod = x & 0xC0;
+        var result = '"(" + ' + this.cpu_identifier_name + '.translator.insert_sib_addr(' + (mod > 0) + ")";
+        if(mod === 0)
+        {
+            result += '+"|0)"';
+        }
+        else if(mod === 0x40)
+        {
+            result += '+"+"+' + this.cpu_identifier_name + '.translator.tread_imm8s()+"|0)"';
+        }
+        else
+        {
+            dbg_assert(mod === 0x80);
+            result += '+"+"+' + this.cpu_identifier_name + '.translator.tread_imm32s()+"|0)"';
+        }
+    }
+    else if(type === "sib" && (x & 7) === 5)
+    {
+        // requires a custom base in, see #1 in 
+        // http://www.sandpile.org/x86/opc_sib.htm
+        var current = [];
+        // cut out the first part, reg << n 
+        for(var i = start; i < count; i++)
+        {
+            var value = tokens[i].value;
+            current.push(value);
+            if(value === ")")
+            {
+                break;
+            }
+        }
+        result = this.stringify_code(current.join(""));
+        result += ' + (mod ? "+' + this.cpu_identifier_name + '.get_seg_prefix(reg_ss)+' + this.cpu_identifier_name + '.reg32s[reg_ebp]" :' +
+                  '    "+' + this.cpu_identifier_name + '.get_seg_prefix(reg_ds)+" + ' + this.cpu_identifier_name + '.translator.tread_imm32s())';
+    }
+    else
+    {
+        var result = [];
+        var current = ["("];
+        for(var i = start; i < count; i++)
+        {
+            if(is_replaceable(i))
+            {
+                var name = tokens[i + 2].value;
+                result.push(this.stringify_code(current.join("")));
+                current = [];
+                result.push(replacement_table[name]);
+                i += 4;
+                //while(tokens[i].value !== ")") {
+                //    i++;
+                //}
+            }
+            else
+            {
+                var value = tokens[i].value;
+                // required for "return"
+                //if(tokens[i].type === "Keyword")
+                //{
+                //    value += " ";
+                //}
+                current.push(value);
+            }
+        }
+        current.push(")");
+        result.push(this.stringify_code(current.join("")));
+        result = result.join(" + ");
+    }
+    result = "return " + result;
+    //dbg_log(tokens);
+    //dbg_log(fn + "");
+    //dbg_log(result);
+    if(type === "sib")
+    {
+        return new Function(this.cpu_identifier_name, "mod", result);
+    }
+    else
+    {
+        return new Function(this.cpu_identifier_name, result);
+    }
+    function is_replaceable(i)
+    {
+        return i < count - 5 &&
+               tokens[i+0].value === "cpu" &&
+               tokens[i+0].type === "Identifier" &&
+               tokens[i+1].value === "." &&
+               tokens[i+1].type === "Punctuator" &&
+               replacement_table[tokens[i+2].value] !== undefined &&
+               tokens[i+2].type === "Identifier"
+               //&&
+               //tokens[i+3].value === "(" &&
+               //tokens[i+3].type === "Punctuator" &&
+               //tokens[i+4].value === ")" &&
+               //tokens[i+4].type === "Punctuator";
+    }
+    function assert_token(index, token)
+    {
+        var value = tokens[index].value;
+        dbg_assert(value === token, 'expected "' + token + '", saw "' + value + '"');
+    }
+    function assert_token_type(index, token_type)
+    {
+        var type = tokens[index].type;
+        dbg_assert(type === token_type, 'expected token of type "' + token_type + '", got "' + type + '"');
+    }
+};
+DynamicTranslator.prototype.rewrite_instruction = function(table, index, is_32, is_0F)
+{
+    if(!(is_0F ? this.translatable0F : this.translatable)[index])
+    {
+        //return;
+    }
+    var fn = table[index];
+    if(is_32)
+    {
+        var t16 = is_0F ? table0F_16 : table16;
+        if(t16[index] === fn)
+        {
+            // The 16 and 32 bit versions of this instruction are the same.
+            // Rewrite can be skipped, requires 16 bit rewrites to be done before 32 bit rewrites
+            if(is_0F)
+            {
+                this.op_body0F_32[index] = this.op_body0F_16[index];
+                this.op_tokens0F_32[index] = this.op_tokens0F_16[index];
+            }
+            else
+            {
+                this.op_body32[index] = this.op_body16[index];
+                this.op_tokens32[index] = this.op_tokens16[index];
+            }
+            return;
+            //var result = (is_0F ? this.table0F_16 : this.table16)[index];
+            //dbg_assert(result);
+            //return result;
+        }
+    }
+    var tokens = esprima.tokenize(fn);
+    //console.log(tokens);
+    function assert_token(index, token)
+    {
+        var value = tokens[index].value;
+        dbg_assert(value === token, 'expected "' + token + '", saw "' + value + '"');
+    }
+    var start = 0;
+    var end = tokens.length;
+    assert_token(start++, "function");
+    assert_token(start++, "(");
+    assert_token(start++, "cpu");
+    assert_token(start++, ")");
+    assert_token(start++, "{");
+    assert_token(--end, "}");
+    tokens = tokens.slice(start, end);
+    var body_code = this.join_tokens(tokens);
+    if(is_0F)
+    {
+        if(is_32)
+        {
+            this.op_body0F_32[index] = body_code;
+            this.op_tokens0F_32[index] = tokens;
+        }
+        else
+        {
+            this.op_body0F_16[index] = body_code;
+            this.op_tokens0F_16[index] = tokens;
+        }
+    }
+    else
+    {
+        if(is_32)
+        {
+            this.op_body32[index] = body_code;
+            this.op_tokens32[index] = tokens;
+        }
+        else
+        {
+            this.op_body16[index] = body_code;
+            this.op_tokens16[index] = tokens;
+        }
+    }
+    //console.log(body_code);
+    return;
+    var src = this.join_tokens(tokens);
+    var cpu_identifier_name = this.cpu_identifier_name;
+    var root = esprima.parse(src, { "range": true });
+    // extract the body of the function
+    root = root.body[0]["expression"]["body"];
+    //console.log(root, root.body, root.body[0]);
+    var body_code = src.substring(root["range"][0], root["range"][1]);
+    var prefix = '"use strict";';
+    //console.log(h(index), root);
+    // get rid of `(function() {` and `})`
+    var replacements = [
+        {
+            start: 0,
+            end: root.range[0],
+            value: this.cpu_identifier_name + ".previous_ip = " + this.cpu_identifier_name + ".instruction_pointer; " + this.cpu_identifier_name + ".timestamp_counter++; ",
+            lifted: false,
+        },
+        {
+            start: root.range[1],
+            end: src.length,
+            value: "",
+            lifted: false,
+        },
+    ];
+    acorn.walk.simple(root,
+    {
+        //IfStatement: function(node)
+        //{
+        //    //dbg_log(node);
+        //},
+        VariableDeclaration: function(node)
+        {
+            //dbg_log(node);
+            var declarations = node.declarations;
+            if(declarations[0].id.name === "modrm_byte")
+            {
+                dbg_assert(declarations.length === 1);
+                //dbg_log(src.substr(node.range[0] - 1, node.range[1] - node.range[0]));
+                replacements.push({
+                    start: node.range[0],
+                    end: node.range[1],
+                    //value: "cpu.instruction_pointer++;",
+                    value: "",
+                    lifted: false,
+                });
+                prefix += "var m = " + cpu_identifier_name + ".translator.tread_imm8();"
+                // rename so it doesn't get changed below
+                declarations[0].id.name = "modrm byte";
+            }
+        }
+    });
+    var call_replacements = {
+        "read_imm8": "" + this.cpu_identifier_name + ".translator.tread_imm8()",
+        "read_imm8s": "" + this.cpu_identifier_name + ".translator.tread_imm8s()",
+        "read_imm16": "" + this.cpu_identifier_name + ".translator.tread_imm16()",
+        "read_imm16s": "" + this.cpu_identifier_name + ".translator.tread_imm16s()",
+        "read_imm32s": "" + this.cpu_identifier_name + ".translator.tread_imm32s()",
+        "modrm_resolve": "" + this.cpu_identifier_name + ".translator.insert_modrm_resolve(m)",
+    };
+    acorn.walk.simple(root,
+    {
+        Identifier: function(node)
+        {
+            //dbg_log("ident", node);
+            if(node.name === "modrm_byte")
+            {
+                //dbg_log(src.substr(node.range[0] - 1, node.range[1] - node.range[0]));
+                replacements.push({
+                    start: node.range[0],
+                    end: node.range[1],
+                    value: " + m + ",
+                    lifted: true,
+                });
+            }
+        },
+        CallExpression: function(node)
+        {
+            //dbg_log(node);
+            var callee = node.callee;
+            if(callee.type === "MemberExpression")
+            {
+                var name = callee.property.name;
+                var r = call_replacements[name];
+                if(r !== undefined)
+                {
+                    replacements.push({
+                        start: node.range[0],
+                        end: node.range[1],
+                        value: " + " + r + " + ",
+                        lifted: true,
+                    });
+                }
+            }
+        },
+    });
+    replacements.sort(function(a, b)
+    {
+        return a.start - b.start;
+    });
+    var result = "";
+    var current = "";
+    var offset = 0;
+    var start = 0;
+    for(var i = 0; i < replacements.length; i++)
+    {
+        var r = replacements[i];
+        dbg_assert(r.start <= r.end);
+        //dbg_assert(start <= r.start);
+        //src.substring(start, r.start);
+        if(start > r.start)
+            continue;
+        current += src.substring(start, r.start);
+        if(r.lifted)
+        {
+            result += this.stringify_code(current);
+            result += r.value;
+            current = "";
+        }
+        else
+        {
+            current += r.value;
+        }
+        start = r.end;
+    }
+    current += src.substring(start);
+    result += this.stringify_code(current);
+    //dbg_log(current);
+    result = prefix + "return " + result + ";";
+    //dbg_log(result);
+    //dbg_log(src)
+    return new Function(this.cpu_identifier_name, result);
+};
+DynamicTranslator.prototype.stringify_code = function(code)
+{
+    dbg_assert(typeof code === "string");
+    return JSON.stringify(code);
+};
+DynamicTranslator.prototype.not_translatable_op = function(cpu)
+{
+    cpu.cycle();
+};
+DynamicTranslator.prototype.optimize_modrm = function(tokens, modrm_byte, is_32)
+{
+    tokens = tokens.slice();
+    tokens = this.replace_switch_statement(tokens, function(expr, cases)
+    {
+        //console.log(this.join_tokens(expr), modrm_byte >> 3 & 7);
+        //console.log(cases);
+        dbg_assert(this.join_tokens(expr) === "modrm_byte>>3&7");
+        var index = modrm_byte >> 3 & 7;
+        for(var i = 0; i < cases.length; i++)
+        {
+            if(+cases[i].expr[0].value === index)
+            {
+                break;
+            }
+        }
+        var body = cases[i].body;
+        var end = body.length;
+        dbg_assert(+cases[i].expr[0].value === index);
+        dbg_assert(body[--end].value === ";", body[end].value);
+        dbg_assert(body[--end].value === "break");
+        return body.slice(0, end);
+    }.bind(this));
+    var code = this.join_tokens(tokens);
+    var modrm_table = is_32 ? this.modrm_body32 : this.modrm_body16;
+    //console.log(h(op, 2), "0f case", body);
+    //var code = "cpu.instruction_pointer = cpu.instruction_pointer + 2 | 0; " + code;
+    var code = this.text.inc_eip2 + code;
+    var modrm_identifier;
+    code = this.asserted_replace(code, this.text.modrm_byte + "=" + this.text.read_imm8 + "()", "");
+    //code = this.asserted_replace(code, /cpu.modrm_resolve\(modrm_byte\)/g, modrm_table[modrm_byte]);
+    //code = code.replace(/modrm_byte>>3&7/g, (modrm_byte >> 3 & 7) + "");
+    //code = code.replace(/modrm_byte&7/g, (modrm_byte & 7) + "");
+    //code = code.replace(/modrm_byte<<1&14/g, (modrm_byte << 1 & 14) + "");
+    //code = code.replace(/modrm_byte>>2&14/g, (modrm_byte >> 2 & 14) + "");
+    //code = code.replace(/modrm_byte<<2&0xC\|modrm_byte>>2&1/g, (modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1) + "");
+    //code = code.replace(/modrm_byte>>1&0xC\|modrm_byte>>5&1/g, (modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1) + "");
+    //console.log(code);
+    code = code.replace(new RegExp("\\b" + this.escape_regexp(this.text.modrm_byte) + "\\b", "g"), modrm_byte + "");
+    //console.log(code);
+    return code;
+};
+DynamicTranslator.prototype.asserted_replace = function(str, pattern, replacement)
+{
+    var result = str.replace(pattern, replacement);
+    console.assert(result !== str, "Failed to replace `" + pattern + "` with `" + replacement + "` in `" + str + "`");
+    return result;
 }
+DynamicTranslator.prototype.generate_xor_self = function(opsize, reg)
+{
+    if(opsize === 32)
+    {
+        var data = "reg32s[" + reg + "]";
+    }
+    else if(opsize === 16)
+    {
+        var data = "reg16[" + (reg << 1) + "]";
+        reg <<= 1;
+    }
+    else
+    {
+        dbg_assert(opsize === 8);
+        var data = "reg8[" + (reg << 2 & 0xC | reg >> 2 & 1) + "]";
+    }
+    var code = "cpu.instruction_pointer = cpu.instruction_pointer + 2 | 0;" +
+               "cpu.flags_changed = 0; cpu.flags = cpu.flags & ~1 & ~0x10 & ~0x80 & ~0x800 | 4 | 0x40;" +
+               "cpu." + data + " = 0;";
+    return code;
+}
+DynamicTranslator.prototype.xor_self = function(cpu)
+{
+    cpu.instruction_pointer = cpu.instruction_pointer + 2 | 0;
+    cpu.flags_changed = 0;
+    cpu.flags = cpu.flags & ~1 & ~flag_adjust & ~flag_sign & ~flag_overflow | flag_zero | flag_parity;
+};
+DynamicTranslator.prototype.join_tokens = function(tokens)
+{
+    return tokens.map(function(t)
+    {
+        if(t.value === "var")
+        {
+            return "var ";
+        }
+        else if(t.value === "case")
+        {
+            return "case ";
+        }
+        else if(t.value === "else")
+        {
+            return "else ";
+        }
+        else if(t.value === "throw")
+        {
+            return "throw ";
+        }
+        else if(t.value === "do")
+        {
+            return "do ";
+        }
+        else if(t.value === "break")
+        {
+            return "break ";
+        }
+        else
+        {
+            return t.value;
+        }
+    }).join("");
+}
+DynamicTranslator.prototype.replace_switch_statement = function(tokens, cb)
+{
+    for(var i = 0; i < tokens.length; i++)
+    {
+        var token = tokens[i];
+        if(token.value === "switch")
+        {
+            var switch_expression;
+            var cases = [];
+            var switch_start = i;
+            dbg_assert(tokens[i++].value === "switch");
+            dbg_assert(tokens[i].value === "(");
+            var expression_start = i + 1;
+            var expression_end = this.find_matching(tokens, i, "(", ")");
+            dbg_assert(expression_end !== undefined);
+            switch_expression = tokens.slice(expression_start, expression_end);
+            i = expression_end + 1;
+            dbg_assert(tokens[i].value === "{", tokens[i-1].value);
+            var switch_end = this.find_matching(tokens, i, "{", "}");
+            dbg_assert(switch_end !== undefined);
+            dbg_assert(tokens[switch_end].value === "}");
+            dbg_assert(tokens[i++].value === "{");
+            //console.log(this.join_tokens(tokens));
+            while(i < switch_end)
+            {
+                var value = tokens[i++].value;
+                dbg_assert(value === "default" || value === "case");
+                var start = i;
+                i = this.find_forward(tokens, i, ":");
+                dbg_assert(i !== undefined);
+                dbg_assert(i < switch_end);
+                var is_case = value === "case";
+                if(is_case)
+                {
+                    var case_expression = tokens.slice(start, i);
+                    //console.log(this.join_tokens(case_expression));
+                }
+                i++;
+                var start = i;
+                i = this.find_forward(tokens, i, "break");
+                if(i === undefined || i >= switch_end)
+                {
+                    i = switch_end;
+                }
+                else
+                {
+                    dbg_assert(tokens[i++].value === "break");
+                    dbg_assert(tokens[i++].value === ";");
+                }
+                //if(i === undefined)
+                //{
+                //    i = this.find_forward(tokens, i, "default");
+                //}
+                var case_body = tokens.slice(start, i);
+                //console.log(this.join_tokens(case_body));
+                cases.push({
+                    expr: case_expression,
+                    body: case_body,
+                    is_case: is_case,
+                });
+            }
+            var replacement = cb(switch_expression, cases);
+            var old_length = switch_end - switch_start + 1;
+            //console.log("old code", this.join_tokens(tokens.slice(switch_start, switch_start + old_length)));
+            tokens.splice.apply(tokens, [switch_start, old_length].concat(replacement));
+            //console.log("replaced by", this.join_tokens(replacement));
+            i = switch_end - old_length + replacement.length;
+        }
+    }
+    return tokens;
+};
+DynamicTranslator.prototype.find_matching = function(tokens, i, open, close)
+{
+    var depth = 0;
+    while(i < tokens.length)
+    {
+        var token = tokens[i];
+        var token_value = token.value;
+        if(token_value === open)
+        {
+            depth++;
+        }
+        else if(token_value === close)
+        {
+            depth--;
+            if(depth === 0)
+            {
+                return i;
+            }
+        }
+        i++;
+    }
+};
+DynamicTranslator.prototype.find_forward = function(tokens, i, value)
+{
+    while(i < tokens.length)
+    {
+        if(tokens[i].value === value)
+        {
+            return i;
+        }
+        i++;
+    }
+};
+DynamicTranslator.prototype.escape_regexp = function(str)
+{
+    return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+};
 /*
  * This file contains functions to decode the modrm and sib bytes
  *
@@ -2974,14 +4671,14 @@ CPU.prototype.btr_reg = function(bit_base, bit_offset)
 }
 CPU.prototype.bt_mem = function(virt_addr, bit_offset)
 {
-    var bit_base = this.safe_read8(virt_addr + (bit_offset >> 3));
+    var bit_base = this.safe_read8(virt_addr + (bit_offset >> 3) | 0);
     bit_offset &= 7;
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
     this.flags_changed &= ~1;
 }
 CPU.prototype.btc_mem = function(virt_addr, bit_offset)
 {
-    var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3));
+    var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3) | 0);
     var bit_base = this.memory.read8(phys_addr);
     bit_offset &= 7;
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
@@ -2990,7 +4687,7 @@ CPU.prototype.btc_mem = function(virt_addr, bit_offset)
 }
 CPU.prototype.btr_mem = function(virt_addr, bit_offset)
 {
-    var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3));
+    var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3) | 0);
     var bit_base = this.memory.read8(phys_addr);
     bit_offset &= 7;
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
@@ -2999,7 +4696,7 @@ CPU.prototype.btr_mem = function(virt_addr, bit_offset)
 }
 CPU.prototype.bts_mem = function(virt_addr, bit_offset)
 {
-    var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3));
+    var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3) | 0);
     var bit_base = this.memory.read8(phys_addr);
     bit_offset &= 7;
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
@@ -3121,11 +4818,11 @@ function movsb(cpu)
     var src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0;
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var size = cpu.flags & flag_direction ? -1 : 1;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         var phys_src = cpu.translate_address_read(src);
@@ -3147,6 +4844,10 @@ function movsb(cpu)
         cpu.regv[cpu.reg_vsi] += diff;
         cpu.regv[cpu.reg_vcx] = count;
         cpu.timestamp_counter += start_count - count;
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
@@ -3154,21 +4855,17 @@ function movsb(cpu)
         cpu.regv[cpu.reg_vdi] += size;
         cpu.regv[cpu.reg_vsi] += size;
     }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
-    }
 }
 function movsw(cpu)
 {
     var src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0;
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var size = cpu.flags & flag_direction ? -2 : 2;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         if(!(dest & 1) && !(src & 1))
@@ -3207,16 +4904,16 @@ function movsw(cpu)
             }
             while(cont && cycle_counter--);
         }
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
         cpu.safe_write16(dest, cpu.safe_read16(src));
         cpu.regv[cpu.reg_vdi] += size;
         cpu.regv[cpu.reg_vsi] += size;
-    }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
     }
 }
 function movsd(cpu)
@@ -3275,11 +4972,11 @@ function movsd(cpu)
     var src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0;
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var size = cpu.flags & flag_direction ? -4 : 4;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         if(!(dest & 3) && !(src & 3))
@@ -3318,16 +5015,16 @@ function movsd(cpu)
             }
             while(cont && cycle_counter--);
         }
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
         cpu.safe_write32(dest, cpu.safe_read32s(src));
         cpu.regv[cpu.reg_vdi] += size;
         cpu.regv[cpu.reg_vsi] += size;
-    }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
     }
 }
 function cmpsb(cpu)
@@ -3336,11 +5033,11 @@ function cmpsb(cpu)
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var data_src, data_dest;
     var size = cpu.flags & flag_direction ? -1 : 1;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var is_repz = cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
@@ -3364,6 +5061,10 @@ function cmpsb(cpu)
         cpu.regv[cpu.reg_vsi] += diff;
         cpu.regv[cpu.reg_vcx] = count;
         cpu.timestamp_counter += start_count - count;
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
@@ -3373,10 +5074,6 @@ function cmpsb(cpu)
         cpu.regv[cpu.reg_vsi] += size;
     }
     cpu.sub(data_src, data_dest, OPSIZE_8);
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
-    }
 }
 function cmpsw(cpu)
 {
@@ -3384,11 +5081,11 @@ function cmpsw(cpu)
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var data_src, data_dest;
     var size = cpu.flags & flag_direction ? -2 : 2;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var is_repz = cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
@@ -3430,6 +5127,10 @@ function cmpsw(cpu)
             }
             while(cont && cycle_counter--);
         }
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
@@ -3439,10 +5140,6 @@ function cmpsw(cpu)
         cpu.regv[cpu.reg_vsi] += size;
     }
     cpu.sub(data_src, data_dest, OPSIZE_16);
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
-    }
 }
 function cmpsd(cpu)
 {
@@ -3450,11 +5147,11 @@ function cmpsd(cpu)
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var data_src, data_dest;
     var size = cpu.flags & flag_direction ? -4 : 4;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var is_repz = cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
@@ -3496,6 +5193,10 @@ function cmpsd(cpu)
             }
             while(cont && cycle_counter--);
         }
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
@@ -3505,21 +5206,17 @@ function cmpsd(cpu)
         cpu.regv[cpu.reg_vsi] += size;
     }
     cpu.sub(data_src, data_dest, OPSIZE_32);
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
-    }
 }
 function stosb(cpu)
 {
     var data = cpu.reg8[reg_al];
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var size = cpu.flags & flag_direction ? -1 : 1;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         var phys_dest = cpu.translate_address_write(dest);
@@ -3538,15 +5235,15 @@ function stosb(cpu)
         cpu.regv[cpu.reg_vdi] += diff;
         cpu.regv[cpu.reg_vcx] = count;
         cpu.timestamp_counter += start_count - count;
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
         cpu.safe_write8(dest, data);
         cpu.regv[cpu.reg_vdi] += size;
-    }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
     }
 }
 function stosw(cpu)
@@ -3554,11 +5251,11 @@ function stosw(cpu)
     var data = cpu.reg16[reg_ax];
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var size = cpu.flags & flag_direction ? -2 : 2;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         if(!(dest & 1))
@@ -3592,15 +5289,15 @@ function stosw(cpu)
             }
             while(cont && cycle_counter--);
         }
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
         cpu.safe_write16(dest, data);
         cpu.regv[cpu.reg_vdi] += size;
-    }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
     }
 }
 function stosd(cpu)
@@ -3608,11 +5305,11 @@ function stosd(cpu)
     var data = cpu.reg32s[reg_eax];
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var size = cpu.flags & flag_direction ? -4 : 4;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         if(!(dest & 3))
@@ -3646,26 +5343,26 @@ function stosd(cpu)
             }
             while(cont && cycle_counter--);
         }
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
         cpu.safe_write32(dest, data);
         cpu.regv[cpu.reg_vdi] += size;
     }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
-    }
 }
 function lodsb(cpu)
 {
     var src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0;
     var size = cpu.flags & flag_direction ? -1 : 1;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         var phys_src = cpu.translate_address_read(src);
@@ -3684,26 +5381,26 @@ function lodsb(cpu)
         cpu.regv[cpu.reg_vsi] += diff;
         cpu.regv[cpu.reg_vcx] = count;
         cpu.timestamp_counter += start_count - count;
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
         cpu.reg8[reg_al] = cpu.safe_read8(src);
         cpu.regv[cpu.reg_vsi] += size;
     }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
-    }
 }
 function lodsw(cpu)
 {
     var src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0;
     var size = cpu.flags & flag_direction ? -2 : 2;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         do
         {
@@ -3713,26 +5410,26 @@ function lodsw(cpu)
             cont = --cpu.regv[cpu.reg_vcx] !== 0;
         }
         while(cont && cycle_counter--);
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
         cpu.reg16[reg_ax] = cpu.safe_read16(src);
         cpu.regv[cpu.reg_vsi] += size;
     }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
-    }
 }
 function lodsd(cpu)
 {
     var src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0;
     var size = cpu.flags & flag_direction ? -4 : 4;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         do
         {
@@ -3742,28 +5439,28 @@ function lodsd(cpu)
             cont = --cpu.regv[cpu.reg_vcx] !== 0;
         }
         while(cont && cycle_counter--);
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
         cpu.reg32s[reg_eax] = cpu.safe_read32s(src);
         cpu.regv[cpu.reg_vsi] += size;
     }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
-    }
 }
 function scasb(cpu)
 {
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var size = cpu.flags & flag_direction ? -1 : 1;
-    var cont = false;
     var data_dest;
     var data_src = cpu.reg8[reg_al];
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var is_repz = cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
@@ -3783,6 +5480,10 @@ function scasb(cpu)
         cpu.regv[cpu.reg_vdi] += diff;
         cpu.regv[cpu.reg_vcx] = count;
         cpu.timestamp_counter += start_count - count;
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
@@ -3790,22 +5491,18 @@ function scasb(cpu)
         cpu.regv[cpu.reg_vdi] += size;
     }
     cpu.sub(data_src, data_dest, OPSIZE_8);
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
-    }
 }
 function scasw(cpu)
 {
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var size = cpu.flags & flag_direction ? -2 : 2;
-    var cont = false;
     var data_dest;
     var data_src = cpu.reg16[reg_al];
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var is_repz = cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
@@ -3840,6 +5537,10 @@ function scasw(cpu)
             }
             while(cont && cycle_counter--);
         }
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
@@ -3847,22 +5548,18 @@ function scasw(cpu)
         cpu.regv[cpu.reg_vdi] += size;
     }
     cpu.sub(data_src, data_dest, OPSIZE_16);
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
-    }
 }
 function scasd(cpu)
 {
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var size = cpu.flags & flag_direction ? -4 : 4;
-    var cont = false;
     var data_dest;
     var data_src = cpu.reg32s[reg_eax];
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var is_repz = cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_Z;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
@@ -3897,6 +5594,10 @@ function scasd(cpu)
             }
             while(cont && cycle_counter--);
         }
+        if(cont)
+        {
+            cpu.instruction_pointer = cpu.previous_ip;
+        }
     }
     else
     {
@@ -3904,10 +5605,6 @@ function scasd(cpu)
         cpu.regv[cpu.reg_vdi] += size;
     }
     cpu.sub(data_src, data_dest, OPSIZE_32);
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
-    }
 }
 function insb(cpu)
 {
@@ -3915,11 +5612,11 @@ function insb(cpu)
     cpu.test_privileges_for_io(port, 1);
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var size = cpu.flags & flag_direction ? -1 : 1;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         var phys_dest = cpu.translate_address_write(dest);
@@ -3938,15 +5635,16 @@ function insb(cpu)
         cpu.regv[cpu.reg_vdi] += diff;
         cpu.regv[cpu.reg_vcx] = count;
         cpu.timestamp_counter += start_count - count;
+        if(cont)
+        {
+            //cpu.instruction_pointer = cpu.previous_ip;
+            insb(cpu);
+        }
     }
     else
     {
         cpu.safe_write8(dest, cpu.io.port_read8(port));
         cpu.regv[cpu.reg_vdi] += size;
-    }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
     }
 }
 function insw(cpu)
@@ -3955,11 +5653,11 @@ function insw(cpu)
     cpu.test_privileges_for_io(port, 2);
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var size = cpu.flags & flag_direction ? -2 : 2;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         if(!(dest & 1))
@@ -3993,15 +5691,16 @@ function insw(cpu)
             }
             while(cont && cycle_counter--);
         }
+        if(cont)
+        {
+            //cpu.instruction_pointer = cpu.previous_ip;
+            insw(cpu);
+        }
     }
     else
     {
         cpu.safe_write16(dest, cpu.io.port_read16(port));
         cpu.regv[cpu.reg_vdi] += size;
-    }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
     }
 }
 function insd(cpu)
@@ -4010,11 +5709,11 @@ function insd(cpu)
     cpu.test_privileges_for_io(port, 4);
     var dest = cpu.get_seg(reg_es) + cpu.regv[cpu.reg_vdi] | 0;
     var size = cpu.flags & flag_direction ? -4 : 4;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         if(!(dest & 3))
@@ -4048,15 +5747,16 @@ function insd(cpu)
             }
             while(cont && cycle_counter--);
         }
+        if(cont)
+        {
+            //cpu.instruction_pointer = cpu.previous_ip;
+            insd(cpu);
+        }
     }
     else
     {
         cpu.safe_write32(dest, cpu.io.port_read32(port));
         cpu.regv[cpu.reg_vdi] += size;
-    }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
     }
 }
 function outsb(cpu)
@@ -4065,11 +5765,11 @@ function outsb(cpu)
     cpu.test_privileges_for_io(port, 1);
     var src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0;
     var size = cpu.flags & flag_direction ? -1 : 1;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         var phys_src = cpu.translate_address_read(src);
@@ -4088,15 +5788,16 @@ function outsb(cpu)
         cpu.regv[cpu.reg_vsi] += diff;
         cpu.regv[cpu.reg_vcx] = count;
         cpu.timestamp_counter += start_count - count;
+        if(cont)
+        {
+            //cpu.instruction_pointer = cpu.previous_ip;
+            outsb(cpu);
+        }
     }
     else
     {
         cpu.io.port_write8(port, cpu.safe_read8(src));
         cpu.regv[cpu.reg_vsi] += size;
-    }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
     }
 }
 function outsw(cpu)
@@ -4105,11 +5806,11 @@ function outsw(cpu)
     cpu.test_privileges_for_io(port, 2);
     var src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0;
     var size = cpu.flags & flag_direction ? -2 : 2;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         if(!(src & 1))
@@ -4143,15 +5844,16 @@ function outsw(cpu)
             }
             while(cont && cycle_counter--);
         }
+        if(cont)
+        {
+            //cpu.instruction_pointer = cpu.previous_ip;
+            outsw(cpu);
+        }
     }
     else
     {
         cpu.io.port_write16(port, cpu.safe_read16(src));
         cpu.regv[cpu.reg_vsi] += size;
-    }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
     }
 }
 function outsd(cpu)
@@ -4160,11 +5862,11 @@ function outsd(cpu)
     cpu.test_privileges_for_io(port, 4);
     var src = cpu.get_seg_prefix(reg_ds) + cpu.regv[cpu.reg_vsi] | 0;
     var size = cpu.flags & flag_direction ? -4 : 4;
-    var cont = false;
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         var count = cpu.regv[cpu.reg_vcx] >>> 0;
         if(count === 0) return;
+        var cont = false;
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         if(!(src & 3))
@@ -4198,15 +5900,16 @@ function outsd(cpu)
             }
             while(cont && cycle_counter--);
         }
+        if(cont)
+        {
+            //cpu.instruction_pointer = cpu.previous_ip;
+            outsd(cpu);
+        }
     }
     else
     {
         cpu.io.port_write32(port, cpu.safe_read32s(src));
         cpu.regv[cpu.reg_vsi] += size;
-    }
-    if(cont)
-    {
-        cpu.instruction_pointer = cpu.previous_ip;
     }
 }
 "use strict";
@@ -4222,48 +5925,48 @@ CPU.prototype.table0F_32 = table0F_32;
 // opcode with modm byte
 // opcode that has a 16 and a 32 bit version
 // very special, should be somewhere else?
-// equivalent to switch(modrm_byte >> 3 & 7)
-//#define sub_op(i0, i1, i2, i3, i4, i5, i6, i7) //    if(modrm_byte & 0x20) { sub_op1(i4, i5, i6, i7) }//    else { sub_op1(i0, i1, i2, i3) }
+// equivalent to switch(cpu.modrm_byte >> 3 & 7)
+//#define sub_op(i0, i1, i2, i3, i4, i5, i6, i7) //    if(cpu.modrm_byte & 0x20) { sub_op1(i4, i5, i6, i7) }//    else { sub_op1(i0, i1, i2, i3) }
 //
-//#define sub_op1(i0, i1, i2, i3)//    if(modrm_byte & 0x10) { sub_op2(i2, i3) }//    else { sub_op2(i0, i1) }
+//#define sub_op1(i0, i1, i2, i3)//    if(cpu.modrm_byte & 0x10) { sub_op2(i2, i3) }//    else { sub_op2(i0, i1) }
 //
-//#define sub_op2(i0, i1)//    if(modrm_byte & 0x08) { i1 }//    else { i0 }
+//#define sub_op2(i0, i1)//    if(cpu.modrm_byte & 0x08) { i1 }//    else { i0 }
 // Evaluate the modrm byte of the instruction and run one
 //   of the 8 instructions depending on the middle 3 bits.
 // Used by 0x80-0x83, 0xd0-0xd3, 0xc0-0xc1, 0xf6-0xf7 and 0xff
 // equivalent to switch(modrm_byte >> 3 & 7)
-//#define reg_g32 cpu.reg32[modrm_byte >> 3 & 7] 
-// use modrm_byte to write a value to cpu.memory or register 
+//#define reg_g32 cpu.reg32[cpu.modrm_byte >> 3 & 7] 
+// use cpu.modrm_byte to write a value to cpu.memory or register 
 // (without reading it beforehand)
-// use modrm_byte to write a value to cpu.memory or register,
+// use cpu.modrm_byte to write a value to cpu.memory or register,
 // using the previous data from cpu.memory or register.
 // op is a function call that needs to return the result
 // instructions start here
-table16[0x00] = table32[0x00] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.add(data, cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], OPSIZE_8); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; } } }; table16[0x00 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.add(data, cpu.reg16[modrm_byte >> 2 & 14], OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; } } }; table32[0x00 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.add(data, cpu.reg32s[modrm_byte >> 3 & 7], OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; } } }; table16[0x00 | 2] = table32[0x00 | 2] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1] = cpu.add(cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x00 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.add(cpu.reg16[modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x00 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.add(cpu.reg32s[modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x00 | 4] = table32[0x00 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.add(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x00 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.add(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x00 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.add(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
+table16[0x00] = table32[0x00] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = cpu.add(data, cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], OPSIZE_8); if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; } } }; table16[0x00 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.add(data, cpu.reg16[cpu.modrm_byte >> 2 & 14], OPSIZE_16); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; } } }; table32[0x00 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.add(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7], OPSIZE_32); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; } } }; table16[0x00 | 2] = table32[0x00 | 2] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1] = cpu.add(cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x00 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.add(cpu.reg16[cpu.modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x00 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.add(cpu.reg32s[cpu.modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x00 | 4] = table32[0x00 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.add(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x00 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.add(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x00 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.add(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
 table16[0x06] = function(cpu) { { cpu.push16(cpu.sreg[reg_es]); } }; table32[0x06] = function(cpu) { { cpu.push32(cpu.sreg[reg_es]); } };;
-table16[0x07] = function(cpu) { { cpu.switch_seg(reg_es, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 2; } }; table32[0x07] = function(cpu) { { cpu.switch_seg(reg_es, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 4; } };;;
-table16[0x08] = table32[0x08] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.or(data, cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], OPSIZE_8); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; } } }; table16[0x08 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.or(data, cpu.reg16[modrm_byte >> 2 & 14], OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; } } }; table32[0x08 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.or(data, cpu.reg32s[modrm_byte >> 3 & 7], OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; } } }; table16[0x08 | 2] = table32[0x08 | 2] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1] = cpu.or(cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x08 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.or(cpu.reg16[modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x08 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.or(cpu.reg32s[modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x08 | 4] = table32[0x08 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.or(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x08 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.or(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x08 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.or(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
+table16[0x07] = function(cpu) { { cpu.switch_seg(reg_es, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 2; if(reg_es === reg_ss) { cpu.clear_prefixes(); cpu.cycle(); } } }; table32[0x07] = function(cpu) { { cpu.switch_seg(reg_es, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 4; if(reg_es === reg_ss) { cpu.clear_prefixes(); cpu.cycle(); } } };;;
+table16[0x08] = table32[0x08] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = cpu.or(data, cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], OPSIZE_8); if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; } } }; table16[0x08 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.or(data, cpu.reg16[cpu.modrm_byte >> 2 & 14], OPSIZE_16); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; } } }; table32[0x08 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.or(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7], OPSIZE_32); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; } } }; table16[0x08 | 2] = table32[0x08 | 2] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1] = cpu.or(cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x08 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.or(cpu.reg16[cpu.modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x08 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.or(cpu.reg32s[cpu.modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x08 | 4] = table32[0x08 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.or(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x08 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.or(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x08 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.or(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
 table16[0x0E] = function(cpu) { { cpu.push16(cpu.sreg[reg_cs]); } }; table32[0x0E] = function(cpu) { { cpu.push32(cpu.sreg[reg_cs]); } };;
 table16[0x0F] = function(cpu) { { cpu.table0F_16[cpu.read_imm8()](cpu); } }; table32[0x0F] = function(cpu) { { cpu.table0F_32[cpu.read_imm8()](cpu); } };;
-table16[0x10] = table32[0x10] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.adc(data, cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], OPSIZE_8); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; } } }; table16[0x10 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.adc(data, cpu.reg16[modrm_byte >> 2 & 14], OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; } } }; table32[0x10 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.adc(data, cpu.reg32s[modrm_byte >> 3 & 7], OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; } } }; table16[0x10 | 2] = table32[0x10 | 2] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1] = cpu.adc(cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x10 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.adc(cpu.reg16[modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x10 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.adc(cpu.reg32s[modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x10 | 4] = table32[0x10 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.adc(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x10 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.adc(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x10 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.adc(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
+table16[0x10] = table32[0x10] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = cpu.adc(data, cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], OPSIZE_8); if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; } } }; table16[0x10 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.adc(data, cpu.reg16[cpu.modrm_byte >> 2 & 14], OPSIZE_16); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; } } }; table32[0x10 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.adc(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7], OPSIZE_32); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; } } }; table16[0x10 | 2] = table32[0x10 | 2] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1] = cpu.adc(cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x10 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.adc(cpu.reg16[cpu.modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x10 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.adc(cpu.reg32s[cpu.modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x10 | 4] = table32[0x10 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.adc(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x10 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.adc(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x10 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.adc(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
 table16[0x16] = function(cpu) { { cpu.push16(cpu.sreg[reg_ss]); } }; table32[0x16] = function(cpu) { { cpu.push32(cpu.sreg[reg_ss]); } };;
-table16[0x17] = function(cpu) { { cpu.switch_seg(reg_ss, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 2; } }; table32[0x17] = function(cpu) { { cpu.switch_seg(reg_ss, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 4; } };;;
-table16[0x18] = table32[0x18] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.sbb(data, cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], OPSIZE_8); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; } } }; table16[0x18 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.sbb(data, cpu.reg16[modrm_byte >> 2 & 14], OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; } } }; table32[0x18 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.sbb(data, cpu.reg32s[modrm_byte >> 3 & 7], OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; } } }; table16[0x18 | 2] = table32[0x18 | 2] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1] = cpu.sbb(cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x18 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.sbb(cpu.reg16[modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x18 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.sbb(cpu.reg32s[modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x18 | 4] = table32[0x18 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.sbb(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x18 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.sbb(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x18 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.sbb(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
+table16[0x17] = function(cpu) { { cpu.switch_seg(reg_ss, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 2; if(reg_ss === reg_ss) { cpu.clear_prefixes(); cpu.cycle(); } } }; table32[0x17] = function(cpu) { { cpu.switch_seg(reg_ss, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 4; if(reg_ss === reg_ss) { cpu.clear_prefixes(); cpu.cycle(); } } };;;
+table16[0x18] = table32[0x18] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = cpu.sbb(data, cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], OPSIZE_8); if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; } } }; table16[0x18 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.sbb(data, cpu.reg16[cpu.modrm_byte >> 2 & 14], OPSIZE_16); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; } } }; table32[0x18 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.sbb(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7], OPSIZE_32); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; } } }; table16[0x18 | 2] = table32[0x18 | 2] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1] = cpu.sbb(cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x18 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.sbb(cpu.reg16[cpu.modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x18 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.sbb(cpu.reg32s[cpu.modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x18 | 4] = table32[0x18 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.sbb(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x18 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.sbb(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x18 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.sbb(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
 table16[0x1E] = function(cpu) { { cpu.push16(cpu.sreg[reg_ds]); } }; table32[0x1E] = function(cpu) { { cpu.push32(cpu.sreg[reg_ds]); } };;
-table16[0x1F] = function(cpu) { { cpu.switch_seg(reg_ds, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 2; } }; table32[0x1F] = function(cpu) { { cpu.switch_seg(reg_ds, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 4; } };;;
-table16[0x20] = table32[0x20] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.and(data, cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], OPSIZE_8); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; } } }; table16[0x20 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.and(data, cpu.reg16[modrm_byte >> 2 & 14], OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; } } }; table32[0x20 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.and(data, cpu.reg32s[modrm_byte >> 3 & 7], OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; } } }; table16[0x20 | 2] = table32[0x20 | 2] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1] = cpu.and(cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x20 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.and(cpu.reg16[modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x20 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.and(cpu.reg32s[modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x20 | 4] = table32[0x20 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.and(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x20 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.and(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x20 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.and(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
+table16[0x1F] = function(cpu) { { cpu.switch_seg(reg_ds, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 2; if(reg_ds === reg_ss) { cpu.clear_prefixes(); cpu.cycle(); } } }; table32[0x1F] = function(cpu) { { cpu.switch_seg(reg_ds, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 4; if(reg_ds === reg_ss) { cpu.clear_prefixes(); cpu.cycle(); } } };;;
+table16[0x20] = table32[0x20] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = cpu.and(data, cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], OPSIZE_8); if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; } } }; table16[0x20 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.and(data, cpu.reg16[cpu.modrm_byte >> 2 & 14], OPSIZE_16); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; } } }; table32[0x20 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.and(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7], OPSIZE_32); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; } } }; table16[0x20 | 2] = table32[0x20 | 2] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1] = cpu.and(cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x20 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.and(cpu.reg16[cpu.modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x20 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.and(cpu.reg32s[cpu.modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x20 | 4] = table32[0x20 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.and(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x20 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.and(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x20 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.and(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
 table16[0x26] = table32[0x26] = function(cpu) { { cpu.segment_prefix = reg_es; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; } };;
 table16[0x27] = table32[0x27] = function(cpu) { { cpu.bcd_daa(); } };;
-table16[0x28] = table32[0x28] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.sub(data, cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], OPSIZE_8); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; } } }; table16[0x28 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.sub(data, cpu.reg16[modrm_byte >> 2 & 14], OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; } } }; table32[0x28 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.sub(data, cpu.reg32s[modrm_byte >> 3 & 7], OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; } } }; table16[0x28 | 2] = table32[0x28 | 2] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1] = cpu.sub(cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x28 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.sub(cpu.reg16[modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x28 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.sub(cpu.reg32s[modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x28 | 4] = table32[0x28 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.sub(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x28 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.sub(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x28 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.sub(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
+table16[0x28] = table32[0x28] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = cpu.sub(data, cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], OPSIZE_8); if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; } } }; table16[0x28 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.sub(data, cpu.reg16[cpu.modrm_byte >> 2 & 14], OPSIZE_16); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; } } }; table32[0x28 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.sub(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7], OPSIZE_32); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; } } }; table16[0x28 | 2] = table32[0x28 | 2] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1] = cpu.sub(cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x28 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.sub(cpu.reg16[cpu.modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x28 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.sub(cpu.reg32s[cpu.modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x28 | 4] = table32[0x28 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.sub(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x28 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.sub(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x28 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.sub(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
 table16[0x2E] = table32[0x2E] = function(cpu) { { cpu.segment_prefix = reg_cs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; } };;
 table16[0x2F] = table32[0x2F] = function(cpu) { { cpu.bcd_das(); } };;
-table16[0x30] = table32[0x30] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.xor(data, cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], OPSIZE_8); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; } } }; table16[0x30 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.xor(data, cpu.reg16[modrm_byte >> 2 & 14], OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; } } }; table32[0x30 | 1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.xor(data, cpu.reg32s[modrm_byte >> 3 & 7], OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; } } }; table16[0x30 | 2] = table32[0x30 | 2] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1] = cpu.xor(cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x30 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.xor(cpu.reg16[modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x30 | 3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.xor(cpu.reg32s[modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x30 | 4] = table32[0x30 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.xor(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x30 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.xor(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x30 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.xor(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
+table16[0x30] = table32[0x30] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = cpu.xor(data, cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], OPSIZE_8); if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; } } }; table16[0x30 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.xor(data, cpu.reg16[cpu.modrm_byte >> 2 & 14], OPSIZE_16); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; } } }; table32[0x30 | 1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.xor(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7], OPSIZE_32); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; } } }; table16[0x30 | 2] = table32[0x30 | 2] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1] = cpu.xor(cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], data, OPSIZE_8); } }; table16[0x30 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.xor(cpu.reg16[cpu.modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x30 | 3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.xor(cpu.reg32s[cpu.modrm_byte >> 3 & 7], data, OPSIZE_32); } }; table16[0x30 | 4] = table32[0x30 | 4] = function(cpu) { { cpu.reg8[reg_al] = cpu.xor(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } }; table16[0x30 | 5] = function(cpu) { { cpu.reg16[reg_ax] = cpu.xor(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x30 | 5] = function(cpu) { { cpu.reg32s[reg_eax] = cpu.xor(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };;
 table16[0x36] = table32[0x36] = function(cpu) { { cpu.segment_prefix = reg_ss; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; } };;
 table16[0x37] = table32[0x37] = function(cpu) { { cpu.bcd_aaa(); } };;
-table16[0x38] = table32[0x38] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.sub(data, cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], OPSIZE_8); } };
-table16[0x39] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.sub(data, cpu.reg16[modrm_byte >> 2 & 14], OPSIZE_16); } }; table32[0x39] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.sub(data, cpu.reg32s[modrm_byte >> 3 & 7], OPSIZE_32); } };
-table16[0x3A] = table32[0x3A] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.sub(cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], data, OPSIZE_8); } };
-table16[0x3B] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.sub(cpu.reg16[modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x3B] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.sub(cpu.reg32s[modrm_byte >> 3 & 7], data, OPSIZE_32); } };
+table16[0x38] = table32[0x38] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.sub(data, cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], OPSIZE_8); } };
+table16[0x39] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.sub(data, cpu.reg16[cpu.modrm_byte >> 2 & 14], OPSIZE_16); } }; table32[0x39] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.sub(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7], OPSIZE_32); } };
+table16[0x3A] = table32[0x3A] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.sub(cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], data, OPSIZE_8); } };
+table16[0x3B] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.sub(cpu.reg16[cpu.modrm_byte >> 2 & 14], data, OPSIZE_16); } }; table32[0x3B] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.sub(cpu.reg32s[cpu.modrm_byte >> 3 & 7], data, OPSIZE_32); } };
 table16[0x3C] = table32[0x3C] = function(cpu) { { cpu.sub(cpu.reg8[reg_al], cpu.read_imm8(), OPSIZE_8); } };
 table16[0x3D] = function(cpu) { { cpu.sub(cpu.reg16[reg_ax], cpu.read_imm16(), OPSIZE_16); } }; table32[0x3D] = function(cpu) { { cpu.sub(cpu.reg32s[reg_eax], cpu.read_imm32s(), OPSIZE_32); } };
 table16[0x3E] = table32[0x3E] = function(cpu) { { cpu.segment_prefix = reg_ds; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; } };;
@@ -4303,36 +6006,36 @@ table16[0x5F] = function(cpu) { { cpu.reg16[reg_di] = cpu.pop16(); } }; table32[
 table16[0x60] = function(cpu) { { cpu.pusha16(); } }; table32[0x60] = function(cpu) { { cpu.pusha32(); } };;
 table16[0x61] = function(cpu) { { cpu.popa16(); } }; table32[0x61] = function(cpu) { { cpu.popa32(); } };;
 table16[0x62] = table32[0x62] = function(cpu) { { /* bound*/ dbg_log("Unimplemented BOUND instruction", LOG_CPU); } };;
-table16[0x63] = table32[0x63] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* arpl*/ dbg_log("arpl", LOG_CPU); if(cpu.protected_mode && !cpu.vm86_mode()) { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.arpl(data, modrm_byte >> 2 & 14); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; } else { cpu.trigger_ud(); } } };;
+table16[0x63] = table32[0x63] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* arpl*/ /*dbg_log("arpl", LOG_CPU);*/ if(cpu.protected_mode && !cpu.vm86_mode()) { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.arpl(data, cpu.modrm_byte >> 2 & 14); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; }; } else { cpu.trigger_ud(); } } };;
 table16[0x64] = table32[0x64] = function(cpu) { { cpu.segment_prefix = reg_fs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; } };;
 table16[0x65] = table32[0x65] = function(cpu) { { cpu.segment_prefix = reg_gs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; } };;
 table16[0x66] = function(cpu) { { /* Operand-size override prefix*/ dbg_assert(cpu.operand_size_32 === cpu.is_32); cpu.operand_size_32 = true; cpu.table = cpu.table32; cpu.do_op(); cpu.operand_size_32 = cpu.is_32; cpu.update_operand_size(); } }; table32[0x66] = function(cpu) { { dbg_assert(cpu.operand_size_32 === cpu.is_32); cpu.operand_size_32 = false; cpu.table = cpu.table16; cpu.do_op(); cpu.operand_size_32 = cpu.is_32; cpu.update_operand_size(); } };;
 table16[0x67] = table32[0x67] = function(cpu) { { /* Address-size override prefix*/ dbg_assert(cpu.address_size_32 === cpu.is_32); cpu.address_size_32 = !cpu.is_32; cpu.update_address_size(); cpu.do_op(); cpu.address_size_32 = cpu.is_32; cpu.update_address_size(); } };;
 table16[0x68] = function(cpu) { { cpu.push16(cpu.read_imm16()); } }; table32[0x68] = function(cpu) { { cpu.push32(cpu.read_imm32s()); } };;
-table16[0x69] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = (cpu.safe_read16(cpu.modrm_resolve(modrm_byte)) << 16 >> 16); } else { data = cpu.reg16s[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.imul_reg16(cpu.read_imm16s(), data); } }; table32[0x69] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.imul_reg32(cpu.read_imm32s(), data); } };;
+table16[0x69] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = (cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)) << 16 >> 16); } else { data = cpu.reg16s[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.imul_reg16(cpu.read_imm16s(), data); } }; table32[0x69] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.imul_reg32(cpu.read_imm32s(), data); } };;
 table16[0x6A] = function(cpu) { { cpu.push16(cpu.read_imm8s()); } }; table32[0x6A] = function(cpu) { { cpu.push32(cpu.read_imm8s()); } };;
-table16[0x6B] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = (cpu.safe_read16(cpu.modrm_resolve(modrm_byte)) << 16 >> 16); } else { data = cpu.reg16s[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.imul_reg16(cpu.read_imm8s(), data); } }; table32[0x6B] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.imul_reg32(cpu.read_imm8s(), data); } };;
+table16[0x6B] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = (cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)) << 16 >> 16); } else { data = cpu.reg16s[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.imul_reg16(cpu.read_imm8s(), data); } }; table32[0x6B] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.imul_reg32(cpu.read_imm8s(), data); } };;
 table16[0x6C] = table32[0x6C] = function(cpu) { { insb(cpu); } };;
 table16[0x6D] = function(cpu) { { insw(cpu); } }; table32[0x6D] = function(cpu) { { insd(cpu); } };;
 table16[0x6E] = table32[0x6E] = function(cpu) { { outsb(cpu); } };;
 table16[0x6F] = function(cpu) { { outsw(cpu); } }; table32[0x6F] = function(cpu) { { outsd(cpu); } };;
-table16[0x70 | 0x0] = table32[0x70 | 0x0] = function(cpu) { { if(( cpu.test_o())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0x1] = table32[0x70 | 0x1] = function(cpu) { { if((!cpu.test_o())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0x2] = table32[0x70 | 0x2] = function(cpu) { { if(( cpu.test_b())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0x3] = table32[0x70 | 0x3] = function(cpu) { { if((!cpu.test_b())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0x4] = table32[0x70 | 0x4] = function(cpu) { { if(( cpu.test_z())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0x5] = table32[0x70 | 0x5] = function(cpu) { { if((!cpu.test_z())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0x6] = table32[0x70 | 0x6] = function(cpu) { { if(( cpu.test_be())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0x7] = table32[0x70 | 0x7] = function(cpu) { { if((!cpu.test_be())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0x8] = table32[0x70 | 0x8] = function(cpu) { { if(( cpu.test_s())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0x9] = table32[0x70 | 0x9] = function(cpu) { { if((!cpu.test_s())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0xA] = table32[0x70 | 0xA] = function(cpu) { { if(( cpu.test_p())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0xB] = table32[0x70 | 0xB] = function(cpu) { { if((!cpu.test_p())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0xC] = table32[0x70 | 0xC] = function(cpu) { { if(( cpu.test_l())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0xD] = table32[0x70 | 0xD] = function(cpu) { { if((!cpu.test_l())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0xE] = table32[0x70 | 0xE] = function(cpu) { { if(( cpu.test_le())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;; table16[0x70 | 0xF] = table32[0x70 | 0xF] = function(cpu) { { if((!cpu.test_le())) { cpu.instruction_pointer = cpu.instruction_pointer + cpu.read_imm8s() | 0; } cpu.instruction_pointer++; cpu.last_instr_jump = true; } };;;;
-table16[0x80] = table32[0x80] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if((modrm_byte & 56) === 56) { /* CMP*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.sub(data, cpu.read_imm8(), OPSIZE_8); } else { var data2; var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = 0; data2 = cpu.read_imm8(); switch(modrm_byte >> 3 & 7) { case 0: result = cpu.add(data, data2, OPSIZE_8); break; case 1: result = cpu.or(data, data2, OPSIZE_8); break; case 2: result = cpu.adc(data, data2, OPSIZE_8); break; case 3: result = cpu.sbb(data, data2, OPSIZE_8); break; case 4: result = cpu.and(data, data2, OPSIZE_8); break; case 5: result = cpu.sub(data, data2, OPSIZE_8); break; case 6: result = cpu.xor(data, data2, OPSIZE_8); break; case 7: result = dbg_assert.bind(this, 0)(data, data2); break; }; if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; } } } };;
-table16[0x81] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if((modrm_byte & 56) === 56) { /* CMP*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.sub(data, cpu.read_imm16(), OPSIZE_16); } else { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = 0; data2 = cpu.read_imm16(); switch(modrm_byte >> 3 & 7) { case 0: result = cpu.add(data, data2, OPSIZE_16); break; case 1: result = cpu.or(data, data2, OPSIZE_16); break; case 2: result = cpu.adc(data, data2, OPSIZE_16); break; case 3: result = cpu.sbb(data, data2, OPSIZE_16); break; case 4: result = cpu.and(data, data2, OPSIZE_16); break; case 5: result = cpu.sub(data, data2, OPSIZE_16); break; case 6: result = cpu.xor(data, data2, OPSIZE_16); break; case 7: result = dbg_assert.bind(this, 0)(data, data2); break; }; if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; } } } }; table32[0x81] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if((modrm_byte & 56) === 56) { /* CMP*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.sub(data, cpu.read_imm32s(), OPSIZE_32); } else { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = 0; data2 = cpu.read_imm32s(); switch(modrm_byte >> 3 & 7) { case 0: result = cpu.add(data, data2, OPSIZE_32); break; case 1: result = cpu.or(data, data2, OPSIZE_32); break; case 2: result = cpu.adc(data, data2, OPSIZE_32); break; case 3: result = cpu.sbb(data, data2, OPSIZE_32); break; case 4: result = cpu.and(data, data2, OPSIZE_32); break; case 5: result = cpu.sub(data, data2, OPSIZE_32); break; case 6: result = cpu.xor(data, data2, OPSIZE_32); break; case 7: result = dbg_assert.bind(this, 0)(data, data2); break; }; if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; } } } };;
+table16[0x70 | 0x0] = table32[0x70 | 0x0] = function(cpu) { { var imm8 = cpu.read_imm8s(); if(( cpu.test_o())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0x1] = table32[0x70 | 0x1] = function(cpu) { { var imm8 = cpu.read_imm8s(); if((!cpu.test_o())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0x2] = table32[0x70 | 0x2] = function(cpu) { { var imm8 = cpu.read_imm8s(); if(( cpu.test_b())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0x3] = table32[0x70 | 0x3] = function(cpu) { { var imm8 = cpu.read_imm8s(); if((!cpu.test_b())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0x4] = table32[0x70 | 0x4] = function(cpu) { { var imm8 = cpu.read_imm8s(); if(( cpu.test_z())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0x5] = table32[0x70 | 0x5] = function(cpu) { { var imm8 = cpu.read_imm8s(); if((!cpu.test_z())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0x6] = table32[0x70 | 0x6] = function(cpu) { { var imm8 = cpu.read_imm8s(); if(( cpu.test_be())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0x7] = table32[0x70 | 0x7] = function(cpu) { { var imm8 = cpu.read_imm8s(); if((!cpu.test_be())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0x8] = table32[0x70 | 0x8] = function(cpu) { { var imm8 = cpu.read_imm8s(); if(( cpu.test_s())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0x9] = table32[0x70 | 0x9] = function(cpu) { { var imm8 = cpu.read_imm8s(); if((!cpu.test_s())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0xA] = table32[0x70 | 0xA] = function(cpu) { { var imm8 = cpu.read_imm8s(); if(( cpu.test_p())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0xB] = table32[0x70 | 0xB] = function(cpu) { { var imm8 = cpu.read_imm8s(); if((!cpu.test_p())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0xC] = table32[0x70 | 0xC] = function(cpu) { { var imm8 = cpu.read_imm8s(); if(( cpu.test_l())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0xD] = table32[0x70 | 0xD] = function(cpu) { { var imm8 = cpu.read_imm8s(); if((!cpu.test_l())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0xE] = table32[0x70 | 0xE] = function(cpu) { { var imm8 = cpu.read_imm8s(); if(( cpu.test_le())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;; table16[0x70 | 0xF] = table32[0x70 | 0xF] = function(cpu) { { var imm8 = cpu.read_imm8s(); if((!cpu.test_le())) { cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } } };;;;
+table16[0x80] = table32[0x80] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if((cpu.modrm_byte & 56) === 56) { /* CMP*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.sub(data, cpu.read_imm8(), OPSIZE_8); } else { var data2; var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = 0; data2 = cpu.read_imm8(); switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.add(data, data2, OPSIZE_8); break; case 1: result = cpu.or(data, data2, OPSIZE_8); break; case 2: result = cpu.adc(data, data2, OPSIZE_8); break; case 3: result = cpu.sbb(data, data2, OPSIZE_8); break; case 4: result = cpu.and(data, data2, OPSIZE_8); break; case 5: result = cpu.sub(data, data2, OPSIZE_8); break; case 6: result = cpu.xor(data, data2, OPSIZE_8); break; case 7: result = dbg_assert.bind(this, 0)(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; } } } };;
+table16[0x81] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if((cpu.modrm_byte & 56) === 56) { /* CMP*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.sub(data, cpu.read_imm16(), OPSIZE_16); } else { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = 0; data2 = cpu.read_imm16(); switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.add(data, data2, OPSIZE_16); break; case 1: result = cpu.or(data, data2, OPSIZE_16); break; case 2: result = cpu.adc(data, data2, OPSIZE_16); break; case 3: result = cpu.sbb(data, data2, OPSIZE_16); break; case 4: result = cpu.and(data, data2, OPSIZE_16); break; case 5: result = cpu.sub(data, data2, OPSIZE_16); break; case 6: result = cpu.xor(data, data2, OPSIZE_16); break; case 7: result = dbg_assert.bind(this, 0)(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; } } } }; table32[0x81] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if((cpu.modrm_byte & 56) === 56) { /* CMP*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.sub(data, cpu.read_imm32s(), OPSIZE_32); } else { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = 0; data2 = cpu.read_imm32s(); switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.add(data, data2, OPSIZE_32); break; case 1: result = cpu.or(data, data2, OPSIZE_32); break; case 2: result = cpu.adc(data, data2, OPSIZE_32); break; case 3: result = cpu.sbb(data, data2, OPSIZE_32); break; case 4: result = cpu.and(data, data2, OPSIZE_32); break; case 5: result = cpu.sub(data, data2, OPSIZE_32); break; case 6: result = cpu.xor(data, data2, OPSIZE_32); break; case 7: result = dbg_assert.bind(this, 0)(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; } } } };;
 table16[0x82] = table32[0x82] = function(cpu) { { cpu.table[0x80](cpu); /* alias*/ } };;
-table16[0x83] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if((modrm_byte & 56) === 56) { /* CMP*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.sub(data, cpu.read_imm8s(), OPSIZE_16); } else { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = 0; data2 = cpu.read_imm8s(); switch(modrm_byte >> 3 & 7) { case 0: result = cpu.add(data, data2, OPSIZE_16); break; case 1: result = cpu.or(data, data2, OPSIZE_16); break; case 2: result = cpu.adc(data, data2, OPSIZE_16); break; case 3: result = cpu.sbb(data, data2, OPSIZE_16); break; case 4: result = cpu.and(data, data2, OPSIZE_16); break; case 5: result = cpu.sub(data, data2, OPSIZE_16); break; case 6: result = cpu.xor(data, data2, OPSIZE_16); break; case 7: result = dbg_assert.bind(this, 0)(data, data2); break; }; if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; } } } }; table32[0x83] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if((modrm_byte & 56) === 56) { /* CMP*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.sub(data, cpu.read_imm8s(), OPSIZE_32); } else { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = 0; data2 = cpu.read_imm8s(); switch(modrm_byte >> 3 & 7) { case 0: result = cpu.add(data, data2, OPSIZE_32); break; case 1: result = cpu.or(data, data2, OPSIZE_32); break; case 2: result = cpu.adc(data, data2, OPSIZE_32); break; case 3: result = cpu.sbb(data, data2, OPSIZE_32); break; case 4: result = cpu.and(data, data2, OPSIZE_32); break; case 5: result = cpu.sub(data, data2, OPSIZE_32); break; case 6: result = cpu.xor(data, data2, OPSIZE_32); break; case 7: result = dbg_assert.bind(this, 0)(data, data2); break; }; if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; } } } };;
-table16[0x84] = table32[0x84] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.and(data, cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1], OPSIZE_8); } };
-table16[0x85] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.and(data, cpu.reg16[modrm_byte >> 2 & 14], OPSIZE_16); } }; table32[0x85] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.and(data, cpu.reg32s[modrm_byte >> 3 & 7], OPSIZE_32); } };
-table16[0x86] = table32[0x86] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.xchg8(data, modrm_byte); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; }; } };;
-table16[0x87] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.xchg16(data, modrm_byte); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; } }; table32[0x87] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.xchg32(data, modrm_byte); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; } };;
-table16[0x88] = table32[0x88] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1]; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };
-table16[0x89] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.reg16[modrm_byte >> 2 & 14]; if(modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[modrm_byte << 1 & 14] = data; }; } }; table32[0x89] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.reg32s[modrm_byte >> 3 & 7]; if(modrm_byte < 0xC0) { cpu.safe_write32(addr, data); } else { cpu.reg32[modrm_byte & 7] = data; }; } };
-table16[0x8A] = table32[0x8A] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1] = data; } };;
-table16[0x8B] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = data; } }; table32[0x8B] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = data; } };;
-table16[0x8C] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.sreg[modrm_byte >> 3 & 7]; if(modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[modrm_byte << 1 & 14] = data; }; } }; table32[0x8C] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.sreg[modrm_byte >> 3 & 7]; if(modrm_byte < 0xC0) { cpu.safe_write32(addr, data); } else { cpu.reg32[modrm_byte & 7] = data; }; } };;
-table16[0x8D] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* lea*/ if(modrm_byte >= 0xC0) { cpu.trigger_ud(); } var mod = modrm_byte >> 3 & 7; /* override prefix, so modrm_resolve does not return the segment part*/ cpu.segment_prefix = SEG_PREFIX_ZERO; cpu.reg16[mod << 1] = cpu.modrm_resolve(modrm_byte); cpu.segment_prefix = SEG_PREFIX_NONE; } }; table32[0x8D] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte >= 0xC0) { cpu.trigger_ud(); } var mod = modrm_byte >> 3 & 7; cpu.segment_prefix = SEG_PREFIX_ZERO; cpu.reg32s[mod] = cpu.modrm_resolve(modrm_byte); cpu.segment_prefix = SEG_PREFIX_NONE; } };;
-table16[0x8E] = table32[0x8E] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var mod = modrm_byte >> 3 & 7; if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.switch_seg(mod, data); if(mod === reg_ss) { /* TODO*/ /* run next instruction, so no irqs are handled*/ /* Can't use cpu.cycle, because prefixes are still active*/ } } };;
-table16[0x8F] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* pop*/ var sp = cpu.safe_read16(cpu.get_stack_pointer(0)); cpu.stack_reg[cpu.reg_vsp] += 2; if(modrm_byte < 0xC0) { var addr = cpu.modrm_resolve(modrm_byte); cpu.stack_reg[cpu.reg_vsp] -= 2; cpu.safe_write16(addr, sp); cpu.stack_reg[cpu.reg_vsp] += 2; } else { cpu.reg16[modrm_byte << 1 & 14] = sp; } } }; table32[0x8F] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var sp = cpu.safe_read32s(cpu.get_stack_pointer(0)); /* change esp first, then resolve modrm address*/ cpu.stack_reg[cpu.reg_vsp] += 4; if(modrm_byte < 0xC0) { var addr = cpu.modrm_resolve(modrm_byte); /* Before attempting a write that might cause a page fault,*/ /* we must set esp to the old value. Fuck Intel.*/ cpu.stack_reg[cpu.reg_vsp] -= 4; cpu.safe_write32(addr, sp); cpu.stack_reg[cpu.reg_vsp] += 4; } else { cpu.reg32s[modrm_byte & 7] = sp; } } };;
+table16[0x83] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if((cpu.modrm_byte & 56) === 56) { /* CMP*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.sub(data, cpu.read_imm8s(), OPSIZE_16); } else { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = 0; data2 = cpu.read_imm8s(); switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.add(data, data2, OPSIZE_16); break; case 1: result = cpu.or(data, data2, OPSIZE_16); break; case 2: result = cpu.adc(data, data2, OPSIZE_16); break; case 3: result = cpu.sbb(data, data2, OPSIZE_16); break; case 4: result = cpu.and(data, data2, OPSIZE_16); break; case 5: result = cpu.sub(data, data2, OPSIZE_16); break; case 6: result = cpu.xor(data, data2, OPSIZE_16); break; case 7: result = dbg_assert.bind(this, 0)(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; } } } }; table32[0x83] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if((cpu.modrm_byte & 56) === 56) { /* CMP*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.sub(data, cpu.read_imm8s(), OPSIZE_32); } else { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = 0; data2 = cpu.read_imm8s(); switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.add(data, data2, OPSIZE_32); break; case 1: result = cpu.or(data, data2, OPSIZE_32); break; case 2: result = cpu.adc(data, data2, OPSIZE_32); break; case 3: result = cpu.sbb(data, data2, OPSIZE_32); break; case 4: result = cpu.and(data, data2, OPSIZE_32); break; case 5: result = cpu.sub(data, data2, OPSIZE_32); break; case 6: result = cpu.xor(data, data2, OPSIZE_32); break; case 7: result = dbg_assert.bind(this, 0)(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; } } } };;
+table16[0x84] = table32[0x84] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.and(data, cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1], OPSIZE_8); } };
+table16[0x85] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.and(data, cpu.reg16[cpu.modrm_byte >> 2 & 14], OPSIZE_16); } }; table32[0x85] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.and(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7], OPSIZE_32); } };
+table16[0x86] = table32[0x86] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = cpu.xchg8(data, cpu.modrm_byte); if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; }; } };;
+table16[0x87] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.xchg16(data, cpu.modrm_byte); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; }; } }; table32[0x87] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.xchg32(data, cpu.modrm_byte); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; }; } };;
+table16[0x88] = table32[0x88] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1]; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };
+table16[0x89] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = cpu.reg16[cpu.modrm_byte >> 2 & 14]; if(cpu.modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = data; }; } }; table32[0x89] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = cpu.reg32s[cpu.modrm_byte >> 3 & 7]; if(cpu.modrm_byte < 0xC0) { cpu.safe_write32(addr, data); } else { cpu.reg32[cpu.modrm_byte & 7] = data; }; } };
+table16[0x8A] = table32[0x8A] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1] = data; } };;
+table16[0x8B] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } }; table32[0x8B] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } };;
+table16[0x8C] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = cpu.sreg[cpu.modrm_byte >> 3 & 7]; if(cpu.modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = data; }; } }; table32[0x8C] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = cpu.sreg[cpu.modrm_byte >> 3 & 7]; if(cpu.modrm_byte < 0xC0) { cpu.safe_write32(addr, data); } else { cpu.reg32[cpu.modrm_byte & 7] = data; }; } };;
+table16[0x8D] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* lea*/ if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); } var mod = cpu.modrm_byte >> 3 & 7; /* override prefix, so modrm_resolve does not return the segment part*/ cpu.segment_prefix = SEG_PREFIX_ZERO; cpu.reg16[mod << 1] = cpu.modrm_resolve(cpu.modrm_byte); cpu.segment_prefix = SEG_PREFIX_NONE; } }; table32[0x8D] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); } var mod = cpu.modrm_byte >> 3 & 7; cpu.segment_prefix = SEG_PREFIX_ZERO; cpu.reg32s[mod] = cpu.modrm_resolve(cpu.modrm_byte); cpu.segment_prefix = SEG_PREFIX_NONE; } };;
+table16[0x8E] = table32[0x8E] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var mod = cpu.modrm_byte >> 3 & 7; /*cpu.paging && console.log(h(cpu.instruction_pointer >>> 0), h(cpu.modrm_byte));*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; /*cpu.paging && console.log(mod, h(data));*/ cpu.switch_seg(mod, data); if(mod === reg_ss) { /* run next instruction, so no interrupts are handled*/ /*cpu.clear_prefixes();*/ /*cpu.cycle();*/ } } };;
+table16[0x8F] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* pop*/ var sp = cpu.safe_read16(cpu.get_stack_pointer(0)); cpu.stack_reg[cpu.reg_vsp] += 2; if(cpu.modrm_byte < 0xC0) { var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.stack_reg[cpu.reg_vsp] -= 2; cpu.safe_write16(addr, sp); cpu.stack_reg[cpu.reg_vsp] += 2; } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = sp; } } }; table32[0x8F] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var sp = cpu.safe_read32s(cpu.get_stack_pointer(0)); /* change esp first, then resolve modrm address*/ cpu.stack_reg[cpu.reg_vsp] += 4; if(cpu.modrm_byte < 0xC0) { var addr = cpu.modrm_resolve(cpu.modrm_byte); /* Before attempting a write that might cause a page fault,*/ /* we must set esp to the old value. Fuck Intel.*/ cpu.stack_reg[cpu.reg_vsp] -= 4; cpu.safe_write32(addr, sp); cpu.stack_reg[cpu.reg_vsp] += 4; } else { cpu.reg32s[cpu.modrm_byte & 7] = sp; } } };;
 table16[0x90] = table32[0x90] = function(cpu) { /* nop */ };;
 table16[0x91] = function(cpu) { { cpu.xchg16r(reg_cx) } }; table32[0x91] = function(cpu) { { cpu.xchg32r(reg_ecx) } };;
 table16[0x92] = function(cpu) { { cpu.xchg16r(reg_dx) } }; table32[0x92] = function(cpu) { { cpu.xchg32r(reg_edx) } };;
@@ -4343,10 +6046,10 @@ table16[0x96] = function(cpu) { { cpu.xchg16r(reg_si) } }; table32[0x96] = funct
 table16[0x97] = function(cpu) { { cpu.xchg16r(reg_di) } }; table32[0x97] = function(cpu) { { cpu.xchg32r(reg_edi) } };;
 table16[0x98] = function(cpu) { { /* cbw */ cpu.reg16[reg_ax] = cpu.reg8s[reg_al]; } }; table32[0x98] = function(cpu) { { /* cwde */ cpu.reg32s[reg_eax] = cpu.reg16s[reg_ax]; } };;
 table16[0x99] = function(cpu) { { /* cwd */ cpu.reg16[reg_dx] = cpu.reg16s[reg_ax] >> 15; } }; table32[0x99] = function(cpu) { { /* cdq */ cpu.reg32s[reg_edx] = cpu.reg32s[reg_eax] >> 31; } };;
-table16[0x9A] = function(cpu) { { /* callf*/ var new_ip = cpu.read_imm16(); var new_cs = cpu.read_imm16(); cpu.writable_or_pagefault(cpu.get_stack_pointer(-4), 4); cpu.push16(cpu.sreg[reg_cs]); cpu.push16(cpu.get_real_eip()); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; } }; table32[0x9A] = function(cpu) { { var new_ip = cpu.read_imm32s(); var new_cs = cpu.read_imm16(); if(!cpu.protected_mode || cpu.vm86_mode()) { if(new_ip & 0xFFFF0000) { throw cpu.debug.unimpl("#GP handler"); } } cpu.writable_or_pagefault(cpu.get_stack_pointer(-8), 8); cpu.push32(cpu.sreg[reg_cs]); cpu.push32(cpu.get_real_eip()); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; } };;
+table16[0x9A] = function(cpu) { { /* callf*/ var new_ip = cpu.read_imm16(); var new_cs = cpu.read_imm16(); cpu.writable_or_pagefault(cpu.get_stack_pointer(-4), 4); cpu.push16(cpu.sreg[reg_cs]); cpu.push16(cpu.get_real_eip()); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; } }; table32[0x9A] = function(cpu) { { var new_ip = cpu.read_imm32s(); var new_cs = cpu.read_imm16(); if(!cpu.protected_mode || cpu.vm86_mode()) { if(new_ip & 0xFFFF0000) { throw cpu.debug.unimpl("#GP handler"); } } cpu.writable_or_pagefault(cpu.get_stack_pointer(-8), 8); cpu.push32(cpu.sreg[reg_cs]); cpu.push32(cpu.get_real_eip()); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; } };;
 table16[0x9B] = table32[0x9B] = function(cpu) { { /* fwait: check for pending fpu exceptions*/ if((cpu.cr[0] & (CR0_MP | CR0_TS)) === (CR0_MP | CR0_TS)) { /* task switched and MP bit is set*/ cpu.trigger_nm(); } else { if(cpu.fpu) { cpu.fpu.fwait(); } else { /* EM bit isn't checked*/ /* If there's no FPU, do nothing*/ } } } };;
 table16[0x9C] = function(cpu) { { /* pushf*/ if((cpu.flags & flag_vm) && cpu.getiopl() < 3) { cpu.trigger_gp(0); } else { cpu.load_eflags(); cpu.push16(cpu.flags); } } }; table32[0x9C] = function(cpu) { { /* pushf*/ if((cpu.flags & flag_vm) && cpu.getiopl() < 3) { /* trap to virtual 8086 monitor*/ cpu.trigger_gp(0); } else { cpu.load_eflags(); /* vm and rf flag are cleared in image stored on the stack*/ cpu.push32(cpu.flags & 0x00FCFFFF); } } };;
-table16[0x9D] = function(cpu) { { /* popf*/ if((cpu.flags & flag_vm) && cpu.getiopl() < 3) { cpu.trigger_gp(0); } cpu.update_eflags((cpu.flags & ~0xFFFF) | cpu.pop16()); cpu.handle_irqs(); } }; table32[0x9D] = function(cpu) { { /* popf*/ if((cpu.flags & flag_vm) && cpu.getiopl() < 3) { cpu.trigger_gp(0); } cpu.update_eflags(cpu.pop32s()); cpu.handle_irqs(); } };;
+table16[0x9D] = function(cpu) { { /* popf*/ if((cpu.flags & flag_vm) && cpu.getiopl() < 3) { cpu.trigger_gp(0); } cpu.update_eflags((cpu.flags & ~0xFFFF) | cpu.pop16()); cpu.handle_irqs(); } }; table32[0x9D] = function(cpu) { { /* popf*/ if(cpu.flags & flag_vm) { /* in vm86 mode, pop causes a #GP when used with the operand-size prefix*/ cpu.trigger_gp(0); } cpu.update_eflags(cpu.pop32s()); cpu.handle_irqs(); } };;
 table16[0x9E] = table32[0x9E] = function(cpu) { { /* sahf*/ cpu.flags = (cpu.flags & ~0xFF) | cpu.reg8[reg_ah]; cpu.flags = (cpu.flags & flags_mask) | flags_default; cpu.flags_changed = 0; } };;
 table16[0x9F] = table32[0x9F] = function(cpu) { { /* lahf*/ cpu.load_eflags(); cpu.reg8[reg_ah] = cpu.flags; } };;
 table16[0xA0] = table32[0xA0] = function(cpu) { { /* mov*/ var data = cpu.safe_read8(cpu.read_moffs()); cpu.reg8[reg_al] = data; } };;
@@ -4381,51 +6084,51 @@ table16[0xBC] = function(cpu) { { cpu.reg16[reg_sp] = cpu.read_imm16(); } }; tab
 table16[0xBD] = function(cpu) { { cpu.reg16[reg_bp] = cpu.read_imm16(); } }; table32[0xBD] = function(cpu) { { cpu.reg32s[reg_ebp] = cpu.read_imm32s(); } };;
 table16[0xBE] = function(cpu) { { cpu.reg16[reg_si] = cpu.read_imm16(); } }; table32[0xBE] = function(cpu) { { cpu.reg32s[reg_esi] = cpu.read_imm32s(); } };;
 table16[0xBF] = function(cpu) { { cpu.reg16[reg_di] = cpu.read_imm16(); } }; table32[0xBF] = function(cpu) { { cpu.reg32s[reg_edi] = cpu.read_imm32s(); } };;
-table16[0xC0] = table32[0xC0] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data2; var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = 0; data2 = cpu.read_imm8() & 31; switch(modrm_byte >> 3 & 7) { case 0: result = cpu.rol8(data, data2); break; case 1: result = cpu.ror8(data, data2); break; case 2: result = cpu.rcl8(data, data2); break; case 3: result = cpu.rcr8(data, data2); break; case 4: result = cpu.shl8(data, data2); break; case 5: result = cpu.shr8(data, data2); break; case 6: result = cpu.shl8(data, data2); break; case 7: result = cpu.sar8(data, data2); break; }; if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; } } };;
-table16[0xC1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = 0; data2 = cpu.read_imm8() & 31; switch(modrm_byte >> 3 & 7) { case 0: result = cpu.rol16(data, data2); break; case 1: result = cpu.ror16(data, data2); break; case 2: result = cpu.rcl16(data, data2); break; case 3: result = cpu.rcr16(data, data2); break; case 4: result = cpu.shl16(data, data2); break; case 5: result = cpu.shr16(data, data2); break; case 6: result = cpu.shl16(data, data2); break; case 7: result = cpu.sar16(data, data2); break; }; if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; } } }; table32[0xC1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = 0; data2 = cpu.read_imm8() & 31; switch(modrm_byte >> 3 & 7) { case 0: result = cpu.rol32(data, data2); break; case 1: result = cpu.ror32(data, data2); break; case 2: result = cpu.rcl32(data, data2); break; case 3: result = cpu.rcr32(data, data2); break; case 4: result = cpu.shl32(data, data2); break; case 5: result = cpu.shr32(data, data2); break; case 6: result = cpu.shl32(data, data2); break; case 7: result = cpu.sar32(data, data2); break; }; if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; } } };;
-table16[0xC2] = function(cpu) { { /* retn*/ var imm16 = cpu.read_imm16(); cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop16() | 0; cpu.stack_reg[cpu.reg_vsp] += imm16; cpu.last_instr_jump = true; } }; table32[0xC2] = function(cpu) { { /* retn*/ var imm16 = cpu.read_imm16(); cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop32s() | 0; cpu.stack_reg[cpu.reg_vsp] += imm16; cpu.last_instr_jump = true; } };;
-table16[0xC3] = function(cpu) { { /* retn*/ cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop16() | 0; cpu.last_instr_jump = true; } }; table32[0xC3] = function(cpu) { { /* retn*/ cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop32s() | 0; cpu.last_instr_jump = true; } };;
-table16[0xC4] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss16(reg_es, cpu.modrm_resolve(modrm_byte), modrm_byte >> 2 & 14);; } }; table32[0xC4] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss32(reg_es, cpu.modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);; } };;
-table16[0xC5] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss16(reg_ds, cpu.modrm_resolve(modrm_byte), modrm_byte >> 2 & 14);; } }; table32[0xC5] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss32(reg_ds, cpu.modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);; } };;
-table16[0xC6] = table32[0xC6] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.read_imm8(); if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };
-table16[0xC7] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.read_imm16(); if(modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[modrm_byte << 1 & 14] = data; }; } }; table32[0xC7] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.read_imm32s(); if(modrm_byte < 0xC0) { cpu.safe_write32(addr, data); } else { cpu.reg32[modrm_byte & 7] = data; }; } };
+table16[0xC0] = table32[0xC0] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data2; var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = 0; data2 = cpu.read_imm8() & 31; switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.rol8(data, data2); break; case 1: result = cpu.ror8(data, data2); break; case 2: result = cpu.rcl8(data, data2); break; case 3: result = cpu.rcr8(data, data2); break; case 4: result = cpu.shl8(data, data2); break; case 5: result = cpu.shr8(data, data2); break; case 6: result = cpu.shl8(data, data2); break; case 7: result = cpu.sar8(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; } } };;
+table16[0xC1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = 0; data2 = cpu.read_imm8() & 31; switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.rol16(data, data2); break; case 1: result = cpu.ror16(data, data2); break; case 2: result = cpu.rcl16(data, data2); break; case 3: result = cpu.rcr16(data, data2); break; case 4: result = cpu.shl16(data, data2); break; case 5: result = cpu.shr16(data, data2); break; case 6: result = cpu.shl16(data, data2); break; case 7: result = cpu.sar16(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; } } }; table32[0xC1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = 0; data2 = cpu.read_imm8() & 31; switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.rol32(data, data2); break; case 1: result = cpu.ror32(data, data2); break; case 2: result = cpu.rcl32(data, data2); break; case 3: result = cpu.rcr32(data, data2); break; case 4: result = cpu.shl32(data, data2); break; case 5: result = cpu.shr32(data, data2); break; case 6: result = cpu.shl32(data, data2); break; case 7: result = cpu.sar32(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; } } };;
+table16[0xC2] = function(cpu) { { /* retn*/ var imm16 = cpu.read_imm16(); cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop16() | 0; cpu.stack_reg[cpu.reg_vsp] += imm16; } }; table32[0xC2] = function(cpu) { { /* retn*/ var imm16 = cpu.read_imm16(); cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop32s() | 0; cpu.stack_reg[cpu.reg_vsp] += imm16; } };;
+table16[0xC3] = function(cpu) { { /* retn*/ cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop16() | 0; } }; table32[0xC3] = function(cpu) { { /* retn*/ cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop32s() | 0; } };;
+table16[0xC4] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss16(reg_es, cpu.modrm_resolve(cpu.modrm_byte), cpu.modrm_byte >> 2 & 14);; } }; table32[0xC4] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss32(reg_es, cpu.modrm_resolve(cpu.modrm_byte), cpu.modrm_byte >> 3 & 7);; } };;
+table16[0xC5] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss16(reg_ds, cpu.modrm_resolve(cpu.modrm_byte), cpu.modrm_byte >> 2 & 14);; } }; table32[0xC5] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss32(reg_ds, cpu.modrm_resolve(cpu.modrm_byte), cpu.modrm_byte >> 3 & 7);; } };;
+table16[0xC6] = table32[0xC6] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = cpu.read_imm8(); if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };
+table16[0xC7] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = cpu.read_imm16(); if(cpu.modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = data; }; } }; table32[0xC7] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = cpu.read_imm32s(); if(cpu.modrm_byte < 0xC0) { cpu.safe_write32(addr, data); } else { cpu.reg32[cpu.modrm_byte & 7] = data; }; } };
 table16[0xC8] = function(cpu) { { cpu.enter16(cpu.read_imm16(), cpu.read_imm8()); } }; table32[0xC8] = function(cpu) { { cpu.enter32(cpu.read_imm16(), cpu.read_imm8()); } };;
 table16[0xC9] = function(cpu) { { /* leave*/ var new_bp = cpu.safe_read16(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vbp] | 0); cpu.stack_reg[cpu.reg_vsp] = cpu.stack_reg[cpu.reg_vbp] + 2 | 0; cpu.reg16[reg_bp] = new_bp; } }; table32[0xC9] = function(cpu) { { var new_ebp = cpu.safe_read32s(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vbp] | 0); cpu.stack_reg[cpu.reg_vsp] = cpu.stack_reg[cpu.reg_vbp] + 4 | 0; cpu.reg32s[reg_ebp] = new_ebp; } };;
-table16[0xCA] = function(cpu) { { /* retf*/ cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 4); var imm16 = cpu.read_imm16(); var ip = cpu.pop16(); cpu.switch_seg(reg_cs, cpu.pop16()); cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0; cpu.stack_reg[cpu.reg_vsp] += imm16; cpu.last_instr_jump = true; } }; table32[0xCA] = function(cpu) { { /* retf */ cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 8); var imm16 = cpu.read_imm16(); var ip = cpu.pop32s(); cpu.switch_seg(reg_cs, cpu.pop32s() & 0xFFFF); cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0; cpu.stack_reg[cpu.reg_vsp] += imm16; cpu.last_instr_jump = true; } };;
-table16[0xCB] = function(cpu) { { /* retf*/ cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 4); var ip = cpu.pop16(); cpu.switch_seg(reg_cs, cpu.pop16()); cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0; cpu.last_instr_jump = true; } }; table32[0xCB] = function(cpu) { { /* retf */ cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 8); var ip = cpu.pop32s(); cpu.switch_seg(reg_cs, cpu.pop32s() & 0xFFFF); cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0; cpu.last_instr_jump = true; } };;
+table16[0xCA] = function(cpu) { { /* retf*/ cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 4); var imm16 = cpu.read_imm16(); var ip = cpu.pop16(); cpu.switch_seg(reg_cs, cpu.pop16()); cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0; cpu.stack_reg[cpu.reg_vsp] += imm16; } }; table32[0xCA] = function(cpu) { { /* retf */ cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 8); var imm16 = cpu.read_imm16(); var ip = cpu.pop32s(); cpu.switch_seg(reg_cs, cpu.pop32s() & 0xFFFF); cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0; cpu.stack_reg[cpu.reg_vsp] += imm16; } };;
+table16[0xCB] = function(cpu) { { /* retf*/ cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 4); var ip = cpu.pop16(); cpu.switch_seg(reg_cs, cpu.pop16()); cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0; } }; table32[0xCB] = function(cpu) { { /* retf */ cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 8); var ip = cpu.pop32s(); cpu.switch_seg(reg_cs, cpu.pop32s() & 0xFFFF); cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0; } };;
 table16[0xCC] = table32[0xCC] = function(cpu) { { /* INT3*/ cpu.call_interrupt_vector(3, true, false); } };;
 table16[0xCD] = table32[0xCD] = function(cpu) { { /* INT */ var imm8 = cpu.read_imm8(); cpu.call_interrupt_vector(imm8, true, false); } };;
 table16[0xCE] = table32[0xCE] = function(cpu) { { /* INTO*/ if(cpu.getof()) { cpu.call_interrupt_vector(4, true, false); } } };;
 table16[0xCF] = function(cpu) { { /* iret*/ cpu.iret16(); } }; table32[0xCF] = function(cpu) { { cpu.iret32(); } };;
-table16[0xD0] = table32[0xD0] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data2; var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = 0; data2 = 1; switch(modrm_byte >> 3 & 7) { case 0: result = cpu.rol8(data, data2); break; case 1: result = cpu.ror8(data, data2); break; case 2: result = cpu.rcl8(data, data2); break; case 3: result = cpu.rcr8(data, data2); break; case 4: result = cpu.shl8(data, data2); break; case 5: result = cpu.shr8(data, data2); break; case 6: result = cpu.shl8(data, data2); break; case 7: result = cpu.sar8(data, data2); break; }; if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; } } };;
-table16[0xD1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = 0; data2 = 1; switch(modrm_byte >> 3 & 7) { case 0: result = cpu.rol16(data, data2); break; case 1: result = cpu.ror16(data, data2); break; case 2: result = cpu.rcl16(data, data2); break; case 3: result = cpu.rcr16(data, data2); break; case 4: result = cpu.shl16(data, data2); break; case 5: result = cpu.shr16(data, data2); break; case 6: result = cpu.shl16(data, data2); break; case 7: result = cpu.sar16(data, data2); break; }; if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; } } }; table32[0xD1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = 0; data2 = 1; switch(modrm_byte >> 3 & 7) { case 0: result = cpu.rol32(data, data2); break; case 1: result = cpu.ror32(data, data2); break; case 2: result = cpu.rcl32(data, data2); break; case 3: result = cpu.rcr32(data, data2); break; case 4: result = cpu.shl32(data, data2); break; case 5: result = cpu.shr32(data, data2); break; case 6: result = cpu.shl32(data, data2); break; case 7: result = cpu.sar32(data, data2); break; }; if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; } } };;
-table16[0xD2] = table32[0xD2] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data2; var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = 0; data2 = cpu.reg8[reg_cl] & 31; switch(modrm_byte >> 3 & 7) { case 0: result = cpu.rol8(data, data2); break; case 1: result = cpu.ror8(data, data2); break; case 2: result = cpu.rcl8(data, data2); break; case 3: result = cpu.rcr8(data, data2); break; case 4: result = cpu.shl8(data, data2); break; case 5: result = cpu.shr8(data, data2); break; case 6: result = cpu.shl8(data, data2); break; case 7: result = cpu.sar8(data, data2); break; }; if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; } } };;
-table16[0xD3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = 0; data2 = cpu.reg8[reg_cl] & 31; switch(modrm_byte >> 3 & 7) { case 0: result = cpu.rol16(data, data2); break; case 1: result = cpu.ror16(data, data2); break; case 2: result = cpu.rcl16(data, data2); break; case 3: result = cpu.rcr16(data, data2); break; case 4: result = cpu.shl16(data, data2); break; case 5: result = cpu.shr16(data, data2); break; case 6: result = cpu.shl16(data, data2); break; case 7: result = cpu.sar16(data, data2); break; }; if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; } } }; table32[0xD3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = 0; data2 = cpu.reg8[reg_cl] & 31; switch(modrm_byte >> 3 & 7) { case 0: result = cpu.rol32(data, data2); break; case 1: result = cpu.ror32(data, data2); break; case 2: result = cpu.rcl32(data, data2); break; case 3: result = cpu.rcr32(data, data2); break; case 4: result = cpu.shl32(data, data2); break; case 5: result = cpu.shr32(data, data2); break; case 6: result = cpu.shl32(data, data2); break; case 7: result = cpu.sar32(data, data2); break; }; if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; } } };;
+table16[0xD0] = table32[0xD0] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data2; var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = 0; data2 = 1; switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.rol8(data, data2); break; case 1: result = cpu.ror8(data, data2); break; case 2: result = cpu.rcl8(data, data2); break; case 3: result = cpu.rcr8(data, data2); break; case 4: result = cpu.shl8(data, data2); break; case 5: result = cpu.shr8(data, data2); break; case 6: result = cpu.shl8(data, data2); break; case 7: result = cpu.sar8(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; } } };;
+table16[0xD1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = 0; data2 = 1; switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.rol16(data, data2); break; case 1: result = cpu.ror16(data, data2); break; case 2: result = cpu.rcl16(data, data2); break; case 3: result = cpu.rcr16(data, data2); break; case 4: result = cpu.shl16(data, data2); break; case 5: result = cpu.shr16(data, data2); break; case 6: result = cpu.shl16(data, data2); break; case 7: result = cpu.sar16(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; } } }; table32[0xD1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = 0; data2 = 1; switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.rol32(data, data2); break; case 1: result = cpu.ror32(data, data2); break; case 2: result = cpu.rcl32(data, data2); break; case 3: result = cpu.rcr32(data, data2); break; case 4: result = cpu.shl32(data, data2); break; case 5: result = cpu.shr32(data, data2); break; case 6: result = cpu.shl32(data, data2); break; case 7: result = cpu.sar32(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; } } };;
+table16[0xD2] = table32[0xD2] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data2; var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = 0; data2 = cpu.reg8[reg_cl] & 31; switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.rol8(data, data2); break; case 1: result = cpu.ror8(data, data2); break; case 2: result = cpu.rcl8(data, data2); break; case 3: result = cpu.rcr8(data, data2); break; case 4: result = cpu.shl8(data, data2); break; case 5: result = cpu.shr8(data, data2); break; case 6: result = cpu.shl8(data, data2); break; case 7: result = cpu.sar8(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; } } };;
+table16[0xD3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = 0; data2 = cpu.reg8[reg_cl] & 31; switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.rol16(data, data2); break; case 1: result = cpu.ror16(data, data2); break; case 2: result = cpu.rcl16(data, data2); break; case 3: result = cpu.rcr16(data, data2); break; case 4: result = cpu.shl16(data, data2); break; case 5: result = cpu.shr16(data, data2); break; case 6: result = cpu.shl16(data, data2); break; case 7: result = cpu.sar16(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; } } }; table32[0xD3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data2; var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = 0; data2 = cpu.reg8[reg_cl] & 31; switch(cpu.modrm_byte >> 3 & 7) { case 0: result = cpu.rol32(data, data2); break; case 1: result = cpu.ror32(data, data2); break; case 2: result = cpu.rcl32(data, data2); break; case 3: result = cpu.rcr32(data, data2); break; case 4: result = cpu.shl32(data, data2); break; case 5: result = cpu.shr32(data, data2); break; case 6: result = cpu.shl32(data, data2); break; case 7: result = cpu.sar32(data, data2); break; }; if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; } } };;
 table16[0xD4] = table32[0xD4] = function(cpu) { { cpu.bcd_aam(cpu.read_imm8()); } };;
 table16[0xD5] = table32[0xD5] = function(cpu) { { cpu.bcd_aad(cpu.read_imm8()); } };;
 table16[0xD6] = table32[0xD6] = function(cpu) { { /* salc*/ cpu.reg8[reg_al] = -cpu.getcf(); } };;
 table16[0xD7] = table32[0xD7] = function(cpu) { { /* xlat*/ if(cpu.address_size_32) { cpu.reg8[reg_al] = cpu.safe_read8(cpu.get_seg_prefix(reg_ds) + cpu.reg32s[reg_ebx] + cpu.reg8[reg_al]); } else { cpu.reg8[reg_al] = cpu.safe_read8(cpu.get_seg_prefix(reg_ds) + cpu.reg16[reg_bx] + cpu.reg8[reg_al]); } } };;
 // fpu instructions
-table16[0xD8] = table32[0xD8] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(modrm_byte < 0xC0) cpu.fpu.op_D8_mem(modrm_byte, cpu.modrm_resolve(modrm_byte)); else cpu.fpu.op_D8_reg(modrm_byte); } };;
-table16[0xD9] = table32[0xD9] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(modrm_byte < 0xC0) cpu.fpu.op_D9_mem(modrm_byte, cpu.modrm_resolve(modrm_byte)); else cpu.fpu.op_D9_reg(modrm_byte); } };;
-table16[0xDA] = table32[0xDA] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(modrm_byte < 0xC0) cpu.fpu.op_DA_mem(modrm_byte, cpu.modrm_resolve(modrm_byte)); else cpu.fpu.op_DA_reg(modrm_byte); } };;
-table16[0xDB] = table32[0xDB] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(modrm_byte < 0xC0) cpu.fpu.op_DB_mem(modrm_byte, cpu.modrm_resolve(modrm_byte)); else cpu.fpu.op_DB_reg(modrm_byte); } };;
-table16[0xDC] = table32[0xDC] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(modrm_byte < 0xC0) cpu.fpu.op_DC_mem(modrm_byte, cpu.modrm_resolve(modrm_byte)); else cpu.fpu.op_DC_reg(modrm_byte); } };;
-table16[0xDD] = table32[0xDD] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(modrm_byte < 0xC0) cpu.fpu.op_DD_mem(modrm_byte, cpu.modrm_resolve(modrm_byte)); else cpu.fpu.op_DD_reg(modrm_byte); } };;
-table16[0xDE] = table32[0xDE] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(modrm_byte < 0xC0) cpu.fpu.op_DE_mem(modrm_byte, cpu.modrm_resolve(modrm_byte)); else cpu.fpu.op_DE_reg(modrm_byte); } };;
-table16[0xDF] = table32[0xDF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(modrm_byte < 0xC0) cpu.fpu.op_DF_mem(modrm_byte, cpu.modrm_resolve(modrm_byte)); else cpu.fpu.op_DF_reg(modrm_byte); } };;
-table16[0xE0] = table32[0xE0] = function(cpu) { { cpu.loopne(); } };;
-table16[0xE1] = table32[0xE1] = function(cpu) { { cpu.loope(); } };;
-table16[0xE2] = table32[0xE2] = function(cpu) { { cpu.loop(); } };;
-table16[0xE3] = table32[0xE3] = function(cpu) { { cpu.jcxz(); } };;
+table16[0xD8] = table32[0xD8] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(cpu.modrm_byte < 0xC0) cpu.fpu.op_D8_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte)); else cpu.fpu.op_D8_reg(cpu.modrm_byte); } };;
+table16[0xD9] = table32[0xD9] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(cpu.modrm_byte < 0xC0) cpu.fpu.op_D9_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte)); else cpu.fpu.op_D9_reg(cpu.modrm_byte); } };;
+table16[0xDA] = table32[0xDA] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(cpu.modrm_byte < 0xC0) cpu.fpu.op_DA_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte)); else cpu.fpu.op_DA_reg(cpu.modrm_byte); } };;
+table16[0xDB] = table32[0xDB] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(cpu.modrm_byte < 0xC0) cpu.fpu.op_DB_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte)); else cpu.fpu.op_DB_reg(cpu.modrm_byte); } };;
+table16[0xDC] = table32[0xDC] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(cpu.modrm_byte < 0xC0) cpu.fpu.op_DC_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte)); else cpu.fpu.op_DC_reg(cpu.modrm_byte); } };;
+table16[0xDD] = table32[0xDD] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(cpu.modrm_byte < 0xC0) cpu.fpu.op_DD_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte)); else cpu.fpu.op_DD_reg(cpu.modrm_byte); } };;
+table16[0xDE] = table32[0xDE] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(cpu.modrm_byte < 0xC0) cpu.fpu.op_DE_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte)); else cpu.fpu.op_DE_reg(cpu.modrm_byte); } };;
+table16[0xDF] = table32[0xDF] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.cr[0] & (CR0_EM | CR0_TS)) cpu.trigger_nm(); if(cpu.modrm_byte < 0xC0) cpu.fpu.op_DF_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte)); else cpu.fpu.op_DF_reg(cpu.modrm_byte); } };;
+table16[0xE0] = table32[0xE0] = function(cpu) { { cpu.loopne(cpu.read_imm8s()); } };;
+table16[0xE1] = table32[0xE1] = function(cpu) { { cpu.loope(cpu.read_imm8s()); } };;
+table16[0xE2] = table32[0xE2] = function(cpu) { { cpu.loop(cpu.read_imm8s()); } };;
+table16[0xE3] = table32[0xE3] = function(cpu) { { cpu.jcxz(cpu.read_imm8s()); } };;
 table16[0xE4] = table32[0xE4] = function(cpu) { { var port = cpu.read_imm8(); cpu.test_privileges_for_io(port, 1); cpu.reg8[reg_al] = cpu.io.port_read8(port); } };;
 table16[0xE5] = function(cpu) { { var port = cpu.read_imm8(); cpu.test_privileges_for_io(port, 2); cpu.reg16[reg_ax] = cpu.io.port_read16(port); } }; table32[0xE5] = function(cpu) { { var port = cpu.read_imm8(); cpu.test_privileges_for_io(port, 4); cpu.reg32s[reg_eax] = cpu.io.port_read32(port); } };;
 table16[0xE6] = table32[0xE6] = function(cpu) { { var port = cpu.read_imm8(); cpu.test_privileges_for_io(port, 1); cpu.io.port_write8(port, cpu.reg8[reg_al]); } };;
 table16[0xE7] = function(cpu) { { var port = cpu.read_imm8(); cpu.test_privileges_for_io(port, 2); cpu.io.port_write16(port, cpu.reg16[reg_ax]); } }; table32[0xE7] = function(cpu) { { var port = cpu.read_imm8(); cpu.test_privileges_for_io(port, 4); cpu.io.port_write32(port, cpu.reg32s[reg_eax]); } };;
-table16[0xE8] = function(cpu) { { /* call*/ var imm16s = cpu.read_imm16s(); cpu.push16(cpu.get_real_eip()); cpu.jmp_rel16(imm16s); cpu.last_instr_jump = true; } }; table32[0xE8] = function(cpu) { { /* call*/ var imm32s = cpu.read_imm32s(); cpu.push32(cpu.get_real_eip()); cpu.instruction_pointer = cpu.instruction_pointer + imm32s | 0; cpu.last_instr_jump = true; } };;
-table16[0xE9] = function(cpu) { { /* jmp*/ var imm16s = cpu.read_imm16s(); cpu.jmp_rel16(imm16s); cpu.last_instr_jump = true; } }; table32[0xE9] = function(cpu) { { /* jmp*/ var imm32s = cpu.read_imm32s(); cpu.instruction_pointer = cpu.instruction_pointer + imm32s | 0; cpu.last_instr_jump = true; } };;
-table16[0xEA] = function(cpu) { { /* jmpf*/ var ip = cpu.read_imm16(); cpu.switch_seg(reg_cs, cpu.read_imm16()); cpu.instruction_pointer = ip + cpu.get_seg(reg_cs) | 0; cpu.last_instr_jump = true; } }; table32[0xEA] = function(cpu) { { /* jmpf*/ var ip = cpu.read_imm32s(); cpu.switch_seg(reg_cs, cpu.read_imm16()); cpu.instruction_pointer = ip + cpu.get_seg(reg_cs) | 0; cpu.last_instr_jump = true; } };;
-table16[0xEB] = table32[0xEB] = function(cpu) { { /* jmp near*/ var imm8 = cpu.read_imm8s(); cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; cpu.last_instr_jump = true; } };;
+table16[0xE8] = function(cpu) { { /* call*/ var imm16s = cpu.read_imm16s(); cpu.push16(cpu.get_real_eip()); cpu.jmp_rel16(imm16s); } }; table32[0xE8] = function(cpu) { { /* call*/ var imm32s = cpu.read_imm32s(); cpu.push32(cpu.get_real_eip()); cpu.instruction_pointer = cpu.instruction_pointer + imm32s | 0; } };;
+table16[0xE9] = function(cpu) { { /* jmp*/ var imm16s = cpu.read_imm16s(); cpu.jmp_rel16(imm16s); } }; table32[0xE9] = function(cpu) { { /* jmp*/ var imm32s = cpu.read_imm32s(); cpu.instruction_pointer = cpu.instruction_pointer + imm32s | 0; } };;
+table16[0xEA] = function(cpu) { { /* jmpf*/ var ip = cpu.read_imm16(); cpu.switch_seg(reg_cs, cpu.read_imm16()); cpu.instruction_pointer = ip + cpu.get_seg(reg_cs) | 0; } }; table32[0xEA] = function(cpu) { { /* jmpf*/ var ip = cpu.read_imm32s(); cpu.switch_seg(reg_cs, cpu.read_imm16()); cpu.instruction_pointer = ip + cpu.get_seg(reg_cs) | 0; } };;
+table16[0xEB] = table32[0xEB] = function(cpu) { { /* jmp near*/ var imm8 = cpu.read_imm8s(); cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0; } };;
 table16[0xEC] = table32[0xEC] = function(cpu) { { var port = cpu.reg16[reg_dx]; cpu.test_privileges_for_io(port, 1); cpu.reg8[reg_al] = cpu.io.port_read8(port); } };;
 table16[0xED] = function(cpu) { { var port = cpu.reg16[reg_dx]; cpu.test_privileges_for_io(port, 2); cpu.reg16[reg_ax] = cpu.io.port_read16(port); } }; table32[0xED] = function(cpu) { { var port = cpu.reg16[reg_dx]; cpu.test_privileges_for_io(port, 4); cpu.reg32s[reg_eax] = cpu.io.port_read32(port); } };;
 table16[0xEE] = table32[0xEE] = function(cpu) { { var port = cpu.reg16[reg_dx]; cpu.test_privileges_for_io(port, 1); cpu.io.port_write8(port, cpu.reg8[reg_al]); } };;
@@ -4436,24 +6139,24 @@ table16[0xF2] = table32[0xF2] = function(cpu) { { /* repnz*/ dbg_assert(cpu.repe
 table16[0xF3] = table32[0xF3] = function(cpu) { { /* repz*/ dbg_assert(cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_NONE); cpu.repeat_string_prefix = REPEAT_STRING_PREFIX_Z; cpu.do_op(); cpu.repeat_string_prefix = REPEAT_STRING_PREFIX_NONE; } };;
 table16[0xF4] = table32[0xF4] = function(cpu) { { cpu.hlt_op(); } };;
 table16[0xF5] = table32[0xF5] = function(cpu) { { /* cmc*/ cpu.flags = (cpu.flags | 1) ^ cpu.getcf(); cpu.flags_changed &= ~1; } };;
-table16[0xF6] = table32[0xF6] = function(cpu) { var modrm_byte = cpu.read_imm8(); { switch(modrm_byte >> 3 & 7) { case 0: { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.and(data, cpu.read_imm8(), OPSIZE_8); }; break; case 1: { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.and(data, cpu.read_imm8(), OPSIZE_8); }; break; case 2: { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = ~(data); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; }; }; break; case 3: { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.neg(data, OPSIZE_8); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; }; }; break; case 4: { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.mul8(data); }; break; case 5: { if(modrm_byte < 0xC0) { var data = (cpu.safe_read8(cpu.modrm_resolve(modrm_byte)) << 24 >> 24); } else { data = cpu.reg8s[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.imul8(data); }; break; case 6: { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.div8(data); }; break; case 7: { if(modrm_byte < 0xC0) { var data = (cpu.safe_read8(cpu.modrm_resolve(modrm_byte)) << 24 >> 24); } else { data = cpu.reg8s[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.idiv8(data); }; break; } } };;
-table16[0xF7] = function(cpu) { var modrm_byte = cpu.read_imm8(); { switch(modrm_byte >> 3 & 7) { case 0: { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.and(data, cpu.read_imm16(), OPSIZE_16); }; break; case 1: { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.and(data, cpu.read_imm16(), OPSIZE_16); }; break; case 2: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = ~(data); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; }; break; case 3: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.neg(data, OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; }; break; case 4: { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.mul16(data); }; break; case 5: { if(modrm_byte < 0xC0) { var data = (cpu.safe_read16(cpu.modrm_resolve(modrm_byte)) << 16 >> 16); } else { data = cpu.reg16s[modrm_byte << 1 & 14]; }; cpu.imul16(data); }; break; case 6: { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.div16(data); }; break; case 7: { if(modrm_byte < 0xC0) { var data = (cpu.safe_read16(cpu.modrm_resolve(modrm_byte)) << 16 >> 16); } else { data = cpu.reg16s[modrm_byte << 1 & 14]; }; cpu.idiv16(data); }; break; } } }; table32[0xF7] = function(cpu) { var modrm_byte = cpu.read_imm8(); { switch(modrm_byte >> 3 & 7) { case 0: { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.and(data, cpu.read_imm32s(), OPSIZE_32); }; break; case 1: { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.and(data, cpu.read_imm32s(), OPSIZE_32); }; break; case 2: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = ~(data); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; }; break; case 3: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.neg(data, OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; }; break; case 4: { if(modrm_byte < 0xC0) { var data = (cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)) >>> 0); } else { data = cpu.reg32[modrm_byte & 7]; }; cpu.mul32(data); }; break; case 5: { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.imul32(data); }; break; case 6: { if(modrm_byte < 0xC0) { var data = (cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)) >>> 0); } else { data = cpu.reg32[modrm_byte & 7]; }; cpu.div32(data); }; break; case 7: { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.idiv32(data); }; break; } } };;
+table16[0xF6] = table32[0xF6] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { switch(cpu.modrm_byte >> 3 & 7) { case 0: { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.and(data, cpu.read_imm8(), OPSIZE_8); }; break; case 1: { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.and(data, cpu.read_imm8(), OPSIZE_8); }; break; case 2: { var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = ~(data); if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; }; }; break; case 3: { var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = cpu.neg(data, OPSIZE_8); if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; }; }; break; case 4: { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.mul8(data); }; break; case 5: { if(cpu.modrm_byte < 0xC0) { var data = (cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)) << 24 >> 24); } else { data = cpu.reg8s[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.imul8(data); }; break; case 6: { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.div8(data); }; break; case 7: { if(cpu.modrm_byte < 0xC0) { var data = (cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)) << 24 >> 24); } else { data = cpu.reg8s[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.idiv8(data); }; break; } } };;
+table16[0xF7] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { switch(cpu.modrm_byte >> 3 & 7) { case 0: { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.and(data, cpu.read_imm16(), OPSIZE_16); }; break; case 1: { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.and(data, cpu.read_imm16(), OPSIZE_16); }; break; case 2: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = ~(data); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; }; }; break; case 3: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.neg(data, OPSIZE_16); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; }; }; break; case 4: { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.mul16(data); }; break; case 5: { if(cpu.modrm_byte < 0xC0) { var data = (cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)) << 16 >> 16); } else { data = cpu.reg16s[cpu.modrm_byte << 1 & 14]; }; cpu.imul16(data); }; break; case 6: { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.div16(data); }; break; case 7: { if(cpu.modrm_byte < 0xC0) { var data = (cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)) << 16 >> 16); } else { data = cpu.reg16s[cpu.modrm_byte << 1 & 14]; }; cpu.idiv16(data); }; break; } } }; table32[0xF7] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { switch(cpu.modrm_byte >> 3 & 7) { case 0: { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.and(data, cpu.read_imm32s(), OPSIZE_32); }; break; case 1: { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.and(data, cpu.read_imm32s(), OPSIZE_32); }; break; case 2: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = ~(data); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; }; }; break; case 3: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.neg(data, OPSIZE_32); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; }; }; break; case 4: { if(cpu.modrm_byte < 0xC0) { var data = (cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)) >>> 0); } else { data = cpu.reg32[cpu.modrm_byte & 7]; }; cpu.mul32(data); }; break; case 5: { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.imul32(data); }; break; case 6: { if(cpu.modrm_byte < 0xC0) { var data = (cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)) >>> 0); } else { data = cpu.reg32[cpu.modrm_byte & 7]; }; cpu.div32(data); }; break; case 7: { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.idiv32(data); }; break; } } };;
 table16[0xF8] = table32[0xF8] = function(cpu) { { /* clc*/ cpu.flags &= ~flag_carry; cpu.flags_changed &= ~1; } };;
 table16[0xF9] = table32[0xF9] = function(cpu) { { /* stc*/ cpu.flags |= flag_carry; cpu.flags_changed &= ~1; } };;
-table16[0xFA] = table32[0xFA] = function(cpu) { { /* cli*/ /*dbg_log("interrupts off");*/ if(!cpu.protected_mode || ((cpu.flags & flag_vm) ? cpu.getiopl() === 3 : cpu.getiopl() >= cpu.cpl)) { cpu.flags &= ~flag_interrupt; } else { if(cpu.getiopl() < 3 && ((cpu.flags & flag_vm) ? (cpu.cr[4] & CR4_VME) : (cpu.cpl === 3 && (cpu.cr[4] & CR4_PVI)))) { cpu.flags &= ~flag_vif; } else { cpu.trigger_gp(0); } } } };;
-table16[0xFB] = table32[0xFB] = function(cpu) { { /* sti*/ /*dbg_log("interrupts on");*/ if(!cpu.protected_mode || ((cpu.flags & flag_vm) ? cpu.getiopl() === 3 : cpu.getiopl() >= cpu.cpl)) { cpu.flags |= flag_interrupt; cpu.cycle(); cpu.handle_irqs(); } else { if(cpu.getiopl() < 3 && (cpu.flags & flag_vip) === 0 && ((cpu.flags & flag_vm) ? (cpu.cr[4] & CR4_VME) : (cpu.cpl === 3 && (cpu.cr[4] & CR4_PVI)))) { cpu.flags |= flag_vif; } else { cpu.trigger_gp(0); } } } };;
+table16[0xFA] = table32[0xFA] = function(cpu) { { /* cli*/ /*dbg_log("interrupts off");*/ if(!cpu.protected_mode || ((cpu.flags & flag_vm) ? cpu.getiopl() === 3 : cpu.getiopl() >= cpu.cpl)) { cpu.flags &= ~flag_interrupt; } else { /*if(cpu.getiopl() < 3 && ((cpu.flags & flag_vm) ? */ /*    (cpu.cr[4] & CR4_VME) :*/ /*    (cpu.cpl === 3 && (cpu.cr[4] & CR4_PVI))))*/ /*{*/ /*    cpu.flags &= ~flag_vif;*/ /*}*/ /*else*/ { cpu.trigger_gp(0); } } } };;
+table16[0xFB] = table32[0xFB] = function(cpu) { { /* sti*/ /*dbg_log("interrupts on");*/ if(!cpu.protected_mode || ((cpu.flags & flag_vm) ? cpu.getiopl() === 3 : cpu.getiopl() >= cpu.cpl)) { cpu.flags |= flag_interrupt; cpu.clear_prefixes(); cpu.cycle(); cpu.handle_irqs(); } else { /*if(cpu.getiopl() < 3 && (cpu.flags & flag_vip) === 0 && ((cpu.flags & flag_vm) ? */ /*    (cpu.cr[4] & CR4_VME) :*/ /*    (cpu.cpl === 3 && (cpu.cr[4] & CR4_PVI))))*/ /*{*/ /*    cpu.flags |= flag_vif;*/ /*}*/ /*else*/ { cpu.trigger_gp(0); } } } };;
 table16[0xFC] = table32[0xFC] = function(cpu) { { /* cld*/ cpu.flags &= ~flag_direction; } };;
 table16[0xFD] = table32[0xFD] = function(cpu) { { /* std*/ cpu.flags |= flag_direction; } };;
-table16[0xFE] = table32[0xFE] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var mod = modrm_byte & 56; if(mod === 0) { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.inc(data, OPSIZE_8); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; }; } else if(mod === 8) { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.dec(data, OPSIZE_8); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; }; } else { if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
-table16[0xFF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { switch(modrm_byte >> 3 & 7) { case 0: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.inc(data, OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; }; break; case 1: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.dec(data, OPSIZE_16); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; }; break; case 2: { /* 2, call near*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.push16(cpu.get_real_eip()); cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; cpu.last_instr_jump = true; }; break; case 3: { /* 3, callf*/ if(modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false, "unreachable"); } var virt_addr = cpu.modrm_resolve(modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 2); var new_ip = cpu.safe_read16(virt_addr); cpu.writable_or_pagefault(cpu.get_stack_pointer(-4), 4); cpu.push16(cpu.sreg[reg_cs]); cpu.push16(cpu.get_real_eip()); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; }; break; case 4: { /* 4, jmp near*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; cpu.last_instr_jump = true; }; break; case 5: { /* 5, jmpf*/ if(modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false, "unreachable"); } var virt_addr = cpu.modrm_resolve(modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 2); var new_ip = cpu.safe_read16(virt_addr); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; }; break; case 6: { /* 6, push*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.push16(data); }; break; case 7: { if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; }; break; } } }; table32[0xFF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { switch(modrm_byte >> 3 & 7) { case 0: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.inc(data, OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; }; break; case 1: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.dec(data, OPSIZE_32); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; }; break; case 2: { /* 2, call near*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.push32(cpu.get_real_eip()); cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; cpu.last_instr_jump = true; }; break; case 3: { /* 3, callf*/ if(modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false, "unreachable"); } var virt_addr = cpu.modrm_resolve(modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 4); var new_ip = cpu.safe_read32s(virt_addr); cpu.writable_or_pagefault(cpu.get_stack_pointer(-8), 8); cpu.push32(cpu.sreg[reg_cs]); cpu.push32(cpu.get_real_eip()); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; }; break; case 4: { /* 4, jmp near*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; cpu.last_instr_jump = true; }; break; case 5: { /* 5, jmpf*/ if(modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false, "unreachable"); } var virt_addr = cpu.modrm_resolve(modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 4); var new_ip = cpu.safe_read32s(virt_addr); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; cpu.last_instr_jump = true; }; break; case 6: { /* push*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.push32(data); }; break; case 7: { if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; }; break; } } };;
+table16[0xFE] = table32[0xFE] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var mod = cpu.modrm_byte & 56; if(mod === 0) { var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = cpu.inc(data, OPSIZE_8); if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; }; } else if(mod === 8) { var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = cpu.dec(data, OPSIZE_8); if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; }; } else { if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
+table16[0xFF] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { switch(cpu.modrm_byte >> 3 & 7) { case 0: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.inc(data, OPSIZE_16); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; }; }; break; case 1: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.dec(data, OPSIZE_16); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; }; }; break; case 2: { /* 2, call near*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.push16(cpu.get_real_eip()); cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; }; break; case 3: { /* 3, callf*/ if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false, "unreachable"); } var virt_addr = cpu.modrm_resolve(cpu.modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 2); var new_ip = cpu.safe_read16(virt_addr); cpu.writable_or_pagefault(cpu.get_stack_pointer(-4), 4); cpu.push16(cpu.sreg[reg_cs]); cpu.push16(cpu.get_real_eip()); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; }; break; case 4: { /* 4, jmp near*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; }; break; case 5: { /* 5, jmpf*/ if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false, "unreachable"); } var virt_addr = cpu.modrm_resolve(cpu.modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 2); var new_ip = cpu.safe_read16(virt_addr); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; }; break; case 6: { /* 6, push*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.push16(data); }; break; case 7: { if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; }; break; } } }; table32[0xFF] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { switch(cpu.modrm_byte >> 3 & 7) { case 0: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.inc(data, OPSIZE_32); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; }; }; break; case 1: { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.dec(data, OPSIZE_32); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; }; }; break; case 2: { /* 2, call near*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.push32(cpu.get_real_eip()); cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; }; break; case 3: { /* 3, callf*/ if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false, "unreachable"); } var virt_addr = cpu.modrm_resolve(cpu.modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 4); var new_ip = cpu.safe_read32s(virt_addr); cpu.writable_or_pagefault(cpu.get_stack_pointer(-8), 8); cpu.push32(cpu.sreg[reg_cs]); cpu.push32(cpu.get_real_eip()); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; }; break; case 4: { /* 4, jmp near*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0; }; break; case 5: { /* 5, jmpf*/ if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); dbg_assert(false, "unreachable"); } var virt_addr = cpu.modrm_resolve(cpu.modrm_byte); var new_cs = cpu.safe_read16(virt_addr + 4); var new_ip = cpu.safe_read32s(virt_addr); cpu.switch_seg(reg_cs, new_cs); cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0; }; break; case 6: { /* push*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.push32(data); }; break; case 7: { if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; }; break; } } };;
 // 0F ops start here
-table0F_16[0x00] = table0F_32[0x00] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /*console.log("0x00 protected_mode=%s vm86_mode=%s cpl=%s", cpu.protected_mode, cpu.vm86_mode(), cpu.cpl);*/ if(!cpu.protected_mode || cpu.vm86_mode()) { /* No GP, UD is correct here*/ cpu.trigger_ud(); } if(cpu.cpl) { cpu.trigger_gp(0); } switch(modrm_byte >> 3 & 7) { case 0: /* sldt*/ if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.sreg[reg_ldtr]; if(modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[modrm_byte << 1 & 14] = data; }; break; case 1: /* str*/ if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.sreg[reg_tr]; if(modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[modrm_byte << 1 & 14] = data; }; break; case 2: /* lldt*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.load_ldt(data); break; case 3: /* ltr*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.load_tr(data); break; default: dbg_log(modrm_byte >> 3 & 7, LOG_CPU); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
-table0F_16[0x01] = table0F_32[0x01] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cpl) { cpu.trigger_gp(0); } var mod = modrm_byte >> 3 & 7; if(mod === 4) { /* smsw*/ if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = cpu.cr[0]; if(modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[modrm_byte << 1 & 14] = data; }; return; } else if(mod === 6) { /* lmsw*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; var old_cr0 = cpu.cr[0]; cpu.cr[0] = (cpu.cr[0] & ~0xF) | (data & 0xF); if(cpu.protected_mode) { /* lmsw cannot be used to switch back*/ cpu.cr[0] |= CR0_PE; } /*dbg_log("cr0=" + h(data >>> 0), LOG_CPU);*/ cpu.cr0_changed(old_cr0); return; } if(modrm_byte >= 0xC0) { /* only memory*/ cpu.trigger_ud(); } if((mod === 2 || mod === 3) && cpu.protected_mode) { /* override prefix, so cpu.modrm_resolve does not return the segment part*/ /* only lgdt and lidt and only in protected mode*/ cpu.segment_prefix = SEG_PREFIX_ZERO; } var addr = cpu.modrm_resolve(modrm_byte); cpu.segment_prefix = SEG_PREFIX_NONE; switch(mod) { case 0: /* sgdt*/ cpu.writable_or_pagefault(addr, 6); cpu.safe_write16(addr, cpu.gdtr_size); cpu.safe_write32(addr + 2, cpu.gdtr_offset); break; case 1: /* sidt*/ cpu.writable_or_pagefault(addr, 6); cpu.safe_write16(addr, cpu.idtr_size); cpu.safe_write32(addr + 2, cpu.idtr_offset); break; case 2: /* lgdt*/ var size = cpu.safe_read16(addr); var offset = cpu.safe_read32s(addr + 2); cpu.gdtr_size = size; cpu.gdtr_offset = offset; if(!cpu.operand_size_32) { cpu.gdtr_offset &= 0xFFFFFF; } /*dbg_log("gdt at " + h(cpu.gdtr_offset) + ", " + cpu.gdtr_size + " bytes", LOG_CPU);*/ /*dump_gdt_ldt();*/ break; case 3: /* lidt*/ var size = cpu.safe_read16(addr); var offset = cpu.safe_read32s(addr + 2); cpu.idtr_size = size; cpu.idtr_offset = offset; if(!cpu.operand_size_32) { cpu.idtr_offset &= 0xFFFFFF; } /*dbg_log("[" + h(cpu.instruction_pointer) + "] idt at " + */ /*        h(idtr_offset) + ", " + cpu.idtr_size + " bytes " + h(addr), LOG_CPU);*/ break; case 7: /* flush translation lookaside buffer*/ cpu.invlpg(addr); break; default: dbg_log(mod); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
-table0F_16[0x02] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* lar*/ dbg_log("lar", LOG_CPU); if(!cpu.protected_mode || cpu.vm86_mode()) { cpu.trigger_ud(); } if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.lar(data, cpu.reg16[modrm_byte >> 2 & 14]); } }; table0F_32[0x02] = function(cpu) { var modrm_byte = cpu.read_imm8(); { dbg_log("lar", LOG_CPU); if(!cpu.protected_mode || cpu.vm86_mode()) { cpu.trigger_ud(); } if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.lar(data, cpu.reg32s[modrm_byte >> 3 & 7]); } };;
-table0F_16[0x03] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* lsl*/ dbg_log("lsl", LOG_CPU); if(!cpu.protected_mode || cpu.vm86_mode()) { cpu.trigger_ud(); } if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.lsl(data, cpu.reg16[modrm_byte >> 2 & 14]); } }; table0F_32[0x03] = function(cpu) { var modrm_byte = cpu.read_imm8(); { dbg_log("lsl", LOG_CPU); if(!cpu.protected_mode || cpu.vm86_mode()) { cpu.trigger_ud(); } if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.lsl(data, cpu.reg32s[modrm_byte >> 3 & 7]); } };;
+table0F_16[0x00] = table0F_32[0x00] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(!cpu.protected_mode || cpu.vm86_mode()) { /* No GP, UD is correct here*/ cpu.trigger_ud(); } if(cpu.cpl) { cpu.trigger_gp(0); } switch(cpu.modrm_byte >> 3 & 7) { case 0: /* sldt*/ if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = cpu.sreg[reg_ldtr]; if(cpu.modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = data; }; if(cpu.modrm_byte >= 0xC0) { cpu.reg32s[cpu.modrm_byte & 7] &= 0xFFFF; } break; case 1: /* str*/ if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = cpu.sreg[reg_tr]; if(cpu.modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = data; }; if(cpu.modrm_byte >= 0xC0) { cpu.reg32s[cpu.modrm_byte & 7] &= 0xFFFF; } break; case 2: /* lldt*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.load_ldt(data); break; case 3: /* ltr*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.load_tr(data); break; default: dbg_log(cpu.modrm_byte >> 3 & 7, LOG_CPU); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
+table0F_16[0x01] = table0F_32[0x01] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.cpl) { cpu.trigger_gp(0); } var mod = cpu.modrm_byte >> 3 & 7; if(mod === 4) { /* smsw*/ if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = cpu.cr[0]; if(cpu.modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = data; }; return; } else if(mod === 6) { /* lmsw*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; var old_cr0 = cpu.cr[0]; cpu.cr[0] = (cpu.cr[0] & ~0xF) | (data & 0xF); if(cpu.protected_mode) { /* lmsw cannot be used to switch back*/ cpu.cr[0] |= CR0_PE; } /*dbg_log("cr0=" + h(data >>> 0), LOG_CPU);*/ cpu.cr0_changed(old_cr0); return; } if(cpu.modrm_byte >= 0xC0) { /* only memory*/ cpu.trigger_ud(); } if((mod === 2 || mod === 3) && cpu.protected_mode) { /* override prefix, so cpu.modrm_resolve does not return the segment part*/ /* only lgdt and lidt and only in protected mode*/ cpu.segment_prefix = SEG_PREFIX_ZERO; } var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.segment_prefix = SEG_PREFIX_NONE; switch(mod) { case 0: /* sgdt*/ cpu.writable_or_pagefault(addr, 6); cpu.safe_write16(addr, cpu.gdtr_size); cpu.safe_write32(addr + 2, cpu.gdtr_offset); break; case 1: /* sidt*/ cpu.writable_or_pagefault(addr, 6); cpu.safe_write16(addr, cpu.idtr_size); cpu.safe_write32(addr + 2, cpu.idtr_offset); break; case 2: /* lgdt*/ var size = cpu.safe_read16(addr); var offset = cpu.safe_read32s(addr + 2); cpu.gdtr_size = size; cpu.gdtr_offset = offset; if(!cpu.operand_size_32) { cpu.gdtr_offset &= 0xFFFFFF; } /*dbg_log("gdt at " + h(cpu.gdtr_offset) + ", " + cpu.gdtr_size + " bytes", LOG_CPU);*/ /*dump_gdt_ldt();*/ break; case 3: /* lidt*/ var size = cpu.safe_read16(addr); var offset = cpu.safe_read32s(addr + 2); cpu.idtr_size = size; cpu.idtr_offset = offset; if(!cpu.operand_size_32) { cpu.idtr_offset &= 0xFFFFFF; } /*dbg_log("[" + h(cpu.instruction_pointer) + "] idt at " + */ /*        h(idtr_offset) + ", " + cpu.idtr_size + " bytes " + h(addr), LOG_CPU);*/ break; case 7: /* flush translation lookaside buffer*/ cpu.invlpg(addr); break; default: dbg_log(mod); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
+table0F_16[0x02] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* lar*/ dbg_log("lar", LOG_CPU); if(!cpu.protected_mode || cpu.vm86_mode()) { cpu.trigger_ud(); } if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.lar(data, cpu.reg16[cpu.modrm_byte >> 2 & 14]); } }; table0F_32[0x02] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { dbg_log("lar", LOG_CPU); if(!cpu.protected_mode || cpu.vm86_mode()) { cpu.trigger_ud(); } if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.lar(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7]); } };;
+table0F_16[0x03] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* lsl*/ dbg_log("lsl", LOG_CPU); if(!cpu.protected_mode || cpu.vm86_mode()) { cpu.trigger_ud(); } if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.lsl(data, cpu.reg16[cpu.modrm_byte >> 2 & 14]); } }; table0F_32[0x03] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { dbg_log("lsl", LOG_CPU); if(!cpu.protected_mode || cpu.vm86_mode()) { cpu.trigger_ud(); } if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.lsl(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7]); } };;
 table0F_16[0x04] = table0F_32[0x04] = function(cpu) { { if(DEBUG) throw "Possible fault: undefined instruction"; cpu.trigger_ud();} };;
 table0F_16[0x05] = table0F_32[0x05] = function(cpu) { { if(DEBUG) throw "Possible fault: undefined instruction"; cpu.trigger_ud();} };;
-table0F_16[0x06] = table0F_32[0x06] = function(cpu) { { /* clts*/ if(cpu.cpl) { cpu.trigger_gp(0); } else { /*dbg_log("clts", LOG_CPU);*/ cpu.cr[0] &= ~CR0_TS; /* do something here ?*/ } } };;
+table0F_16[0x06] = table0F_32[0x06] = function(cpu) { { /* clts*/ if(cpu.cpl) { cpu.trigger_gp(0); } else { /*dbg_log("clts", LOG_CPU);*/ cpu.cr[0] &= ~CR0_TS; } } };;
 table0F_16[0x07] = table0F_32[0x07] = function(cpu) { { if(DEBUG) throw "Possible fault: undefined instruction"; cpu.trigger_ud();} };;
 table0F_16[0x08] = table0F_32[0x08] = function(cpu) { { /* invd*/ if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } };
 table0F_16[0x09] = table0F_32[0x09] = function(cpu) { { if(cpu.cpl) { cpu.trigger_gp(0); } /* wbinvd*/ } };;
@@ -4471,7 +6174,7 @@ table0F_16[0x14] = table0F_32[0x14] = function(cpu) { { dbg_log("No SSE", LOG_CP
 table0F_16[0x15] = table0F_32[0x15] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0x16] = table0F_32[0x16] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0x17] = table0F_32[0x17] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
-table0F_16[0x18] = table0F_32[0x18] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* prefetch*/ /* nop for us */ if(modrm_byte < 0xC0) cpu.modrm_resolve(modrm_byte); } };;
+table0F_16[0x18] = table0F_32[0x18] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* prefetch*/ /* nop for us */ if(cpu.modrm_byte < 0xC0) cpu.modrm_resolve(cpu.modrm_byte); } };;
 table0F_16[0x19] = table0F_32[0x19] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0x1A] = table0F_32[0x1A] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0x1B] = table0F_32[0x1B] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
@@ -4479,10 +6182,10 @@ table0F_16[0x1C] = table0F_32[0x1C] = function(cpu) { { dbg_log("No SSE", LOG_CP
 table0F_16[0x1D] = table0F_32[0x1D] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0x1E] = table0F_32[0x1E] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0x1F] = table0F_32[0x1F] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
-table0F_16[0x20] = table0F_32[0x20] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cpl) { cpu.trigger_gp(0); } /*dbg_log("cr" + mod + " read", LOG_CPU);*/ /* mov addr, cr*/ /* mod = which control register*/ switch(modrm_byte >> 3 & 7) { case 0: cpu.reg32s[modrm_byte & 7] = cpu.cr[0]; break; case 2: cpu.reg32s[modrm_byte & 7] = cpu.cr[2]; break; case 3: /*dbg_log("read cr3 (" + h(cpu.cr[3], 8) + ")", LOG_CPU);*/ cpu.reg32s[modrm_byte & 7] = cpu.cr[3]; break; case 4: cpu.reg32s[modrm_byte & 7] = cpu.cr[4]; break; default: dbg_log(modrm_byte >> 3 & 7); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
-table0F_16[0x21] = table0F_32[0x21] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cpl) { cpu.trigger_gp(0); } /* TODO: mov from debug register*/ dbg_assert(modrm_byte >= 0xC0); cpu.reg32s[modrm_byte & 7] = cpu.dreg[modrm_byte >> 3 & 7]; /*dbg_log("read dr" + (modrm_byte >> 3 & 7) + ": " + h(cpu.reg32[modrm_byte & 7]), LOG_CPU);*/ } };;
-table0F_16[0x22] = table0F_32[0x22] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cpl) { cpu.trigger_gp(0); } var data = cpu.reg32s[modrm_byte & 7]; /*dbg_log("cr" + mod + " written: " + h(cpu.reg32[reg]), LOG_CPU);*/ /* mov cr, addr*/ /* mod = which control register*/ switch(modrm_byte >> 3 & 7) { case 0: var old_cr0 = cpu.cr[0]; cpu.cr[0] = data; if((cpu.cr[0] & (CR0_PE | CR0_PG)) === CR0_PG) { /* cannot load PG without PE*/ throw cpu.debug.unimpl("#GP handler"); } cpu.cr0_changed(old_cr0); /*dbg_log("cr0=" + h(data >>> 0), LOG_CPU);*/ break; case 2: cpu.cr[2] = data; /*dbg_log("cr2=" + h(data >>> 0), LOG_CPU);*/ break; case 3: /*dbg_log("cr3=" + h(data >>> 0), LOG_CPU);*/ cpu.cr[3] = data; dbg_assert((cpu.cr[3] & 0xFFF) === 0); cpu.clear_tlb(); /*dump_page_directory();*/ /*dbg_log("page directory loaded at " + h(cpu.cr[3] >>> 0, 8), LOG_CPU);*/ break; case 4: if(data & (1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19 | 0xFFC00000)) { cpu.trigger_gp(0); } if((cpu.cr[4] ^ data) & CR4_PGE) { if(data & CR4_PGE) { /* The PGE bit has been enabled. The global TLB is*/ /* still empty, so we only have to copy it over*/ cpu.clear_tlb(); } else { /* Clear the global TLB*/ cpu.full_clear_tlb(); } } cpu.cr[4] = data; cpu.page_size_extensions = (cpu.cr[4] & CR4_PSE) ? PSE_ENABLED : 0; if(cpu.cr[4] & CR4_PAE) { throw cpu.debug.unimpl("PAE"); } dbg_log("cr4=" + h(cpu.cr[4] >>> 0), LOG_CPU); break; default: dbg_log(modrm_byte >> 3 & 7); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
-table0F_16[0x23] = table0F_32[0x23] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(cpu.cpl) { cpu.trigger_gp(0); } /* TODO: mov to debug register*/ dbg_assert(modrm_byte >= 0xC0); /*dbg_log("write dr" + (modrm_byte >> 3 & 7) + ": " + h(cpu.reg32[modrm_byte & 7]), LOG_CPU);*/ cpu.dreg[modrm_byte >> 3 & 7] = cpu.reg32s[modrm_byte & 7]; } };;
+table0F_16[0x20] = table0F_32[0x20] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.cpl) { cpu.trigger_gp(0); } /*dbg_log("cr" + mod + " read", LOG_CPU);*/ /* mov addr, cr*/ /* mod = which control register*/ switch(cpu.modrm_byte >> 3 & 7) { case 0: cpu.reg32s[cpu.modrm_byte & 7] = cpu.cr[0]; break; case 2: /*dbg_log("read cr2 at " + h(cpu.instruction_pointer >>> 0, 8));*/ cpu.reg32s[cpu.modrm_byte & 7] = cpu.cr[2]; break; case 3: /*dbg_log("read cr3 (" + h(cpu.cr[3], 8) + ")", LOG_CPU);*/ cpu.reg32s[cpu.modrm_byte & 7] = cpu.cr[3]; break; case 4: cpu.reg32s[cpu.modrm_byte & 7] = cpu.cr[4]; break; default: dbg_log(cpu.modrm_byte >> 3 & 7); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
+table0F_16[0x21] = table0F_32[0x21] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.cpl) { cpu.trigger_gp(0); } /* TODO: mov from debug register*/ dbg_assert(cpu.modrm_byte >= 0xC0); cpu.reg32s[cpu.modrm_byte & 7] = cpu.dreg[cpu.modrm_byte >> 3 & 7]; /*dbg_log("read dr" + (cpu.modrm_byte >> 3 & 7) + ": " + h(cpu.reg32[cpu.modrm_byte & 7]), LOG_CPU);*/ } };;
+table0F_16[0x22] = table0F_32[0x22] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.cpl) { cpu.trigger_gp(0); } var data = cpu.reg32s[cpu.modrm_byte & 7]; /*dbg_log("cr" + mod + " written: " + h(cpu.reg32[reg]), LOG_CPU);*/ /* mov cr, addr*/ /* mod = which control register*/ switch(cpu.modrm_byte >> 3 & 7) { case 0: var old_cr0 = cpu.cr[0]; cpu.cr[0] = data; if((cpu.cr[0] & (CR0_PE | CR0_PG)) === CR0_PG) { /* cannot load PG without PE*/ throw cpu.debug.unimpl("#GP handler"); } cpu.cr0_changed(old_cr0); /*dbg_log("cr0=" + h(data >>> 0), LOG_CPU);*/ break; case 2: cpu.cr[2] = data; /*dbg_log("cr2=" + h(data >>> 0), LOG_CPU);*/ break; case 3: /*dbg_log("cr3=" + h(data >>> 0), LOG_CPU);*/ cpu.cr[3] = data; dbg_assert((cpu.cr[3] & 0xFFF) === 0); cpu.clear_tlb(); /*dump_page_directory();*/ /*dbg_log("page directory loaded at " + h(cpu.cr[3] >>> 0, 8), LOG_CPU);*/ break; case 4: if(data & (1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19 | 0xFFC00000)) { cpu.trigger_gp(0); } if((cpu.cr[4] ^ data) & CR4_PGE) { if(data & CR4_PGE) { /* The PGE bit has been enabled. The global TLB is*/ /* still empty, so we only have to copy it over*/ cpu.clear_tlb(); } else { /* Clear the global TLB*/ cpu.full_clear_tlb(); } } cpu.cr[4] = data; cpu.page_size_extensions = (cpu.cr[4] & CR4_PSE) ? PSE_ENABLED : 0; if(cpu.cr[4] & CR4_PAE) { throw cpu.debug.unimpl("PAE"); } dbg_log("cr4=" + h(cpu.cr[4] >>> 0), LOG_CPU); break; default: dbg_log(cpu.modrm_byte >> 3 & 7); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
+table0F_16[0x23] = table0F_32[0x23] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.cpl) { cpu.trigger_gp(0); } /* TODO: mov to debug register*/ dbg_assert(cpu.modrm_byte >= 0xC0); /*dbg_log("write dr" + (cpu.modrm_byte >> 3 & 7) + ": " + h(cpu.reg32[cpu.modrm_byte & 7]), LOG_CPU);*/ cpu.dreg[cpu.modrm_byte >> 3 & 7] = cpu.reg32s[cpu.modrm_byte & 7]; } };;
 table0F_16[0x24] = table0F_32[0x24] = function(cpu) { { if(DEBUG) throw "Possible fault: undefined instruction"; cpu.trigger_ud();} };;
 table0F_16[0x25] = table0F_32[0x25] = function(cpu) { { if(DEBUG) throw "Possible fault: undefined instruction"; cpu.trigger_ud();} };;
 table0F_16[0x26] = table0F_32[0x26] = function(cpu) { { if(DEBUG) throw "Possible fault: undefined instruction"; cpu.trigger_ud();} };;
@@ -4513,7 +6216,7 @@ table0F_16[0x3D] = table0F_32[0x3D] = function(cpu) { { dbg_log("No SSE", LOG_CP
 table0F_16[0x3E] = table0F_32[0x3E] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0x3F] = table0F_32[0x3F] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 // cmov
-table0F_16[0x40 | 0x0] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if(( cpu.test_o())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x0] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if(( cpu.test_o())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if((!cpu.test_o())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if((!cpu.test_o())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x2] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if(( cpu.test_b())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x2] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if(( cpu.test_b())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if((!cpu.test_b())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if((!cpu.test_b())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x4] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if(( cpu.test_z())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x4] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if(( cpu.test_z())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x5] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if((!cpu.test_z())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x5] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if((!cpu.test_z())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x6] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if(( cpu.test_be())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x6] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if(( cpu.test_be())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x7] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if((!cpu.test_be())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x7] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if((!cpu.test_be())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x8] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if(( cpu.test_s())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x8] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if(( cpu.test_s())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x9] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if((!cpu.test_s())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x9] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if((!cpu.test_s())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0xA] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if(( cpu.test_p())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0xA] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if(( cpu.test_p())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0xB] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if((!cpu.test_p())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0xB] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if((!cpu.test_p())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0xC] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if(( cpu.test_l())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0xC] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if(( cpu.test_l())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0xD] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if((!cpu.test_l())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0xD] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if((!cpu.test_l())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0xE] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if(( cpu.test_le())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0xE] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if(( cpu.test_le())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0xF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; if((!cpu.test_le())) { cpu.reg16[modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0xF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; if((!cpu.test_le())) { cpu.reg32s[modrm_byte >> 3 & 7] = data; } } };;;;
+table0F_16[0x40 | 0x0] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if(( cpu.test_o())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x0] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if(( cpu.test_o())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if((!cpu.test_o())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if((!cpu.test_o())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x2] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if(( cpu.test_b())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x2] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if(( cpu.test_b())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if((!cpu.test_b())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if((!cpu.test_b())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x4] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if(( cpu.test_z())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x4] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if(( cpu.test_z())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x5] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if((!cpu.test_z())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x5] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if((!cpu.test_z())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x6] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if(( cpu.test_be())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x6] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if(( cpu.test_be())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x7] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if((!cpu.test_be())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x7] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if((!cpu.test_be())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x8] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if(( cpu.test_s())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x8] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if(( cpu.test_s())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0x9] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if((!cpu.test_s())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0x9] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if((!cpu.test_s())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0xA] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if(( cpu.test_p())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0xA] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if(( cpu.test_p())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0xB] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if((!cpu.test_p())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0xB] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if((!cpu.test_p())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0xC] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if(( cpu.test_l())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0xC] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if(( cpu.test_l())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0xD] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if((!cpu.test_l())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0xD] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if((!cpu.test_l())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0xE] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if(( cpu.test_le())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0xE] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if(( cpu.test_le())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;; table0F_16[0x40 | 0xF] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; if((!cpu.test_le())) { cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } } }; table0F_32[0x40 | 0xF] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; if((!cpu.test_le())) { cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } } };;;;
 table0F_16[0x50] = table0F_32[0x50] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0x51] = table0F_32[0x51] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0x52] = table0F_32[0x52] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
@@ -4563,49 +6266,49 @@ table0F_16[0x7D] = table0F_32[0x7D] = function(cpu) { { dbg_log("No SSE", LOG_CP
 table0F_16[0x7E] = table0F_32[0x7E] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0x7F] = table0F_32[0x7F] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0x80 | 0x0] = function(cpu) { { cpu.jmpcc16(( cpu.test_o())); } }; table0F_32[0x80 | 0x0] = function(cpu) { { cpu.jmpcc32(( cpu.test_o())); } };; table0F_16[0x80 | 0x1] = function(cpu) { { cpu.jmpcc16((!cpu.test_o())); } }; table0F_32[0x80 | 0x1] = function(cpu) { { cpu.jmpcc32((!cpu.test_o())); } };; table0F_16[0x80 | 0x2] = function(cpu) { { cpu.jmpcc16(( cpu.test_b())); } }; table0F_32[0x80 | 0x2] = function(cpu) { { cpu.jmpcc32(( cpu.test_b())); } };; table0F_16[0x80 | 0x3] = function(cpu) { { cpu.jmpcc16((!cpu.test_b())); } }; table0F_32[0x80 | 0x3] = function(cpu) { { cpu.jmpcc32((!cpu.test_b())); } };; table0F_16[0x80 | 0x4] = function(cpu) { { cpu.jmpcc16(( cpu.test_z())); } }; table0F_32[0x80 | 0x4] = function(cpu) { { cpu.jmpcc32(( cpu.test_z())); } };; table0F_16[0x80 | 0x5] = function(cpu) { { cpu.jmpcc16((!cpu.test_z())); } }; table0F_32[0x80 | 0x5] = function(cpu) { { cpu.jmpcc32((!cpu.test_z())); } };; table0F_16[0x80 | 0x6] = function(cpu) { { cpu.jmpcc16(( cpu.test_be())); } }; table0F_32[0x80 | 0x6] = function(cpu) { { cpu.jmpcc32(( cpu.test_be())); } };; table0F_16[0x80 | 0x7] = function(cpu) { { cpu.jmpcc16((!cpu.test_be())); } }; table0F_32[0x80 | 0x7] = function(cpu) { { cpu.jmpcc32((!cpu.test_be())); } };; table0F_16[0x80 | 0x8] = function(cpu) { { cpu.jmpcc16(( cpu.test_s())); } }; table0F_32[0x80 | 0x8] = function(cpu) { { cpu.jmpcc32(( cpu.test_s())); } };; table0F_16[0x80 | 0x9] = function(cpu) { { cpu.jmpcc16((!cpu.test_s())); } }; table0F_32[0x80 | 0x9] = function(cpu) { { cpu.jmpcc32((!cpu.test_s())); } };; table0F_16[0x80 | 0xA] = function(cpu) { { cpu.jmpcc16(( cpu.test_p())); } }; table0F_32[0x80 | 0xA] = function(cpu) { { cpu.jmpcc32(( cpu.test_p())); } };; table0F_16[0x80 | 0xB] = function(cpu) { { cpu.jmpcc16((!cpu.test_p())); } }; table0F_32[0x80 | 0xB] = function(cpu) { { cpu.jmpcc32((!cpu.test_p())); } };; table0F_16[0x80 | 0xC] = function(cpu) { { cpu.jmpcc16(( cpu.test_l())); } }; table0F_32[0x80 | 0xC] = function(cpu) { { cpu.jmpcc32(( cpu.test_l())); } };; table0F_16[0x80 | 0xD] = function(cpu) { { cpu.jmpcc16((!cpu.test_l())); } }; table0F_32[0x80 | 0xD] = function(cpu) { { cpu.jmpcc32((!cpu.test_l())); } };; table0F_16[0x80 | 0xE] = function(cpu) { { cpu.jmpcc16(( cpu.test_le())); } }; table0F_32[0x80 | 0xE] = function(cpu) { { cpu.jmpcc32(( cpu.test_le())); } };; table0F_16[0x80 | 0xF] = function(cpu) { { cpu.jmpcc16((!cpu.test_le())); } }; table0F_32[0x80 | 0xF] = function(cpu) { { cpu.jmpcc32((!cpu.test_le())); } };;
-table0F_16[0x90 | 0x0] = table0F_32[0x90 | 0x0] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !( cpu.test_o()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x1] = table0F_32[0x90 | 0x1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !(!cpu.test_o()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x2] = table0F_32[0x90 | 0x2] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !( cpu.test_b()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x3] = table0F_32[0x90 | 0x3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !(!cpu.test_b()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x4] = table0F_32[0x90 | 0x4] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !( cpu.test_z()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x5] = table0F_32[0x90 | 0x5] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !(!cpu.test_z()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x6] = table0F_32[0x90 | 0x6] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !( cpu.test_be()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x7] = table0F_32[0x90 | 0x7] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !(!cpu.test_be()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x8] = table0F_32[0x90 | 0x8] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !( cpu.test_s()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x9] = table0F_32[0x90 | 0x9] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !(!cpu.test_s()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0xA] = table0F_32[0x90 | 0xA] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !( cpu.test_p()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0xB] = table0F_32[0x90 | 0xB] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !(!cpu.test_p()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0xC] = table0F_32[0x90 | 0xC] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !( cpu.test_l()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0xD] = table0F_32[0x90 | 0xD] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !(!cpu.test_l()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0xE] = table0F_32[0x90 | 0xE] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !( cpu.test_le()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0xF] = table0F_32[0x90 | 0xF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = !(!cpu.test_le()) ^ 1; if(modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = data; }; } };;;;
+table0F_16[0x90 | 0x0] = table0F_32[0x90 | 0x0] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !( cpu.test_o()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x1] = table0F_32[0x90 | 0x1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !(!cpu.test_o()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x2] = table0F_32[0x90 | 0x2] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !( cpu.test_b()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x3] = table0F_32[0x90 | 0x3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !(!cpu.test_b()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x4] = table0F_32[0x90 | 0x4] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !( cpu.test_z()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x5] = table0F_32[0x90 | 0x5] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !(!cpu.test_z()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x6] = table0F_32[0x90 | 0x6] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !( cpu.test_be()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x7] = table0F_32[0x90 | 0x7] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !(!cpu.test_be()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x8] = table0F_32[0x90 | 0x8] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !( cpu.test_s()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0x9] = table0F_32[0x90 | 0x9] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !(!cpu.test_s()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0xA] = table0F_32[0x90 | 0xA] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !( cpu.test_p()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0xB] = table0F_32[0x90 | 0xB] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !(!cpu.test_p()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0xC] = table0F_32[0x90 | 0xC] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !( cpu.test_l()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0xD] = table0F_32[0x90 | 0xD] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !(!cpu.test_l()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0xE] = table0F_32[0x90 | 0xE] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !( cpu.test_le()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;; table0F_16[0x90 | 0xF] = table0F_32[0x90 | 0xF] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = !(!cpu.test_le()) ^ 1; if(cpu.modrm_byte < 0xC0) { cpu.safe_write8(addr, data); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = data; }; } };;;;
 table0F_16[0xA0] = function(cpu) { { cpu.push16(cpu.sreg[reg_fs]); } }; table0F_32[0xA0] = function(cpu) { { cpu.push32(cpu.sreg[reg_fs]); } };;
-table0F_16[0xA1] = function(cpu) { { cpu.switch_seg(reg_fs, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 2; } }; table0F_32[0xA1] = function(cpu) { { cpu.switch_seg(reg_fs, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 4; } };;;
+table0F_16[0xA1] = function(cpu) { { cpu.switch_seg(reg_fs, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 2; if(reg_fs === reg_ss) { cpu.clear_prefixes(); cpu.cycle(); } } }; table0F_32[0xA1] = function(cpu) { { cpu.switch_seg(reg_fs, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 4; if(reg_fs === reg_ss) { cpu.clear_prefixes(); cpu.cycle(); } } };;;
 table0F_16[0xA2] = table0F_32[0xA2] = function(cpu) { { cpu.cpuid(); } };;
-table0F_16[0xA3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { cpu.bt_mem(cpu.modrm_resolve(modrm_byte), cpu.reg16s[modrm_byte >> 2 & 14]); } else { cpu.bt_reg(cpu.reg16[modrm_byte << 1 & 14], cpu.reg16[modrm_byte >> 2 & 14] & 15); } } }; table0F_32[0xA3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { cpu.bt_mem(cpu.modrm_resolve(modrm_byte), cpu.reg32s[modrm_byte >> 3 & 7]); } else { cpu.bt_reg(cpu.reg32s[modrm_byte & 7], cpu.reg32s[modrm_byte >> 3 & 7] & 31); } } };;
-table0F_16[0xA4] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.shld16(data, cpu.reg16[modrm_byte >> 2 & 14], cpu.read_imm8() & 31); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; } }; table0F_32[0xA4] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.shld32(data, cpu.reg32s[modrm_byte >> 3 & 7], cpu.read_imm8() & 31); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; } };;
-table0F_16[0xA5] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.shld16(data, cpu.reg16[modrm_byte >> 2 & 14], cpu.reg8[reg_cl] & 31); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; } }; table0F_32[0xA5] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.shld32(data, cpu.reg32s[modrm_byte >> 3 & 7], cpu.reg8[reg_cl] & 31); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; } };;
+table0F_16[0xA3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { cpu.bt_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.reg16s[cpu.modrm_byte >> 2 & 14]); } else { cpu.bt_reg(cpu.reg16[cpu.modrm_byte << 1 & 14], cpu.reg16[cpu.modrm_byte >> 2 & 14] & 15); } } }; table0F_32[0xA3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { cpu.bt_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.reg32s[cpu.modrm_byte >> 3 & 7]); } else { cpu.bt_reg(cpu.reg32s[cpu.modrm_byte & 7], cpu.reg32s[cpu.modrm_byte >> 3 & 7] & 31); } } };;
+table0F_16[0xA4] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.shld16(data, cpu.reg16[cpu.modrm_byte >> 2 & 14], cpu.read_imm8() & 31); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; }; } }; table0F_32[0xA4] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.shld32(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7], cpu.read_imm8() & 31); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; }; } };;
+table0F_16[0xA5] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.shld16(data, cpu.reg16[cpu.modrm_byte >> 2 & 14], cpu.reg8[reg_cl] & 31); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; }; } }; table0F_32[0xA5] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.shld32(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7], cpu.reg8[reg_cl] & 31); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; }; } };;
 table0F_16[0xA6] = table0F_32[0xA6] = function(cpu) { { if(DEBUG) throw "Possible fault: undefined instruction"; cpu.trigger_ud();} };;
 table0F_16[0xA7] = table0F_32[0xA7] = function(cpu) { { if(DEBUG) throw "Possible fault: undefined instruction"; cpu.trigger_ud();} };;
 table0F_16[0xA8] = function(cpu) { { cpu.push16(cpu.sreg[reg_gs]); } }; table0F_32[0xA8] = function(cpu) { { cpu.push32(cpu.sreg[reg_gs]); } };;
-table0F_16[0xA9] = function(cpu) { { cpu.switch_seg(reg_gs, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 2; } }; table0F_32[0xA9] = function(cpu) { { cpu.switch_seg(reg_gs, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 4; } };;;
+table0F_16[0xA9] = function(cpu) { { cpu.switch_seg(reg_gs, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 2; if(reg_gs === reg_ss) { cpu.clear_prefixes(); cpu.cycle(); } } }; table0F_32[0xA9] = function(cpu) { { cpu.switch_seg(reg_gs, cpu.safe_read16(cpu.get_stack_pointer(0))); cpu.stack_reg[cpu.reg_vsp] += 4; if(reg_gs === reg_ss) { cpu.clear_prefixes(); cpu.cycle(); } } };;;
 table0F_16[0xAA] = table0F_32[0xAA] = function(cpu) { { /* rsm*/ if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } };
-table0F_16[0xAB] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { cpu.bts_mem(cpu.modrm_resolve(modrm_byte), cpu.reg16s[modrm_byte >> 2 & 14]); } else { cpu.reg16[modrm_byte << 1 & 14] = cpu.bts_reg(cpu.reg16[modrm_byte << 1 & 14], cpu.reg16s[modrm_byte >> 2 & 14] & 15); }; } }; table0F_32[0xAB] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { cpu.bts_mem(cpu.modrm_resolve(modrm_byte), cpu.reg32s[modrm_byte >> 3 & 7]); } else { cpu.reg32s[modrm_byte & 7] = cpu.bts_reg(cpu.reg32s[modrm_byte & 7], cpu.reg32s[modrm_byte >> 3 & 7] & 31); }; } };;
-table0F_16[0xAC] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.shrd16(data, cpu.reg16[modrm_byte >> 2 & 14], cpu.read_imm8() & 31); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; } }; table0F_32[0xAC] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.shrd32(data, cpu.reg32s[modrm_byte >> 3 & 7], cpu.read_imm8() & 31); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; } };;
-table0F_16[0xAD] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.shrd16(data, cpu.reg16[modrm_byte >> 2 & 14], cpu.reg8[reg_cl] & 31); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; } }; table0F_32[0xAD] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.shrd32(data, cpu.reg32s[modrm_byte >> 3 & 7], cpu.reg8[reg_cl] & 31); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; } };;
-table0F_16[0xAE] = table0F_32[0xAE] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* fxsave, fxrstor, ldmxcsr ...*/ switch(modrm_byte >> 3 & 7) { case 6: /* mfence*/ dbg_assert(modrm_byte >= 0xC0, "Unexpected mfence encoding"); break; default: dbg_log("missing " + (modrm_byte >> 3 & 7), LOG_CPU); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };
-table0F_16[0xAF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = (cpu.safe_read16(cpu.modrm_resolve(modrm_byte)) << 16 >> 16); } else { data = cpu.reg16s[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.imul_reg16(cpu.reg16s[modrm_byte >> 2 & 14], data); } }; table0F_32[0xAF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.imul_reg32(cpu.reg32s[modrm_byte >> 3 & 7], data); } };;
-table0F_16[0xB0] = table0F_32[0xB0] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* cmpxchg8*/ if(modrm_byte < 0xC0) { var virt_addr = cpu.modrm_resolve(modrm_byte); cpu.writable_or_pagefault(virt_addr, 1); var data = cpu.safe_read8(virt_addr); } else data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; cpu.sub(cpu.reg8[reg_al], data, OPSIZE_8); if(cpu.getzf()) { if(modrm_byte < 0xC0) cpu.safe_write8(virt_addr, cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1]); else cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = cpu.reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1]; } else { cpu.reg8[reg_al] = data; } } };;
-table0F_16[0xB1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* cmpxchg16/32*/ if(modrm_byte < 0xC0) { var virt_addr = cpu.modrm_resolve(modrm_byte); cpu.writable_or_pagefault(virt_addr, 2); var data = cpu.safe_read16(virt_addr); } else data = cpu.reg16[modrm_byte << 1 & 14]; cpu.sub(cpu.reg16[reg_ax], data, OPSIZE_16); if(cpu.getzf()) { if(modrm_byte < 0xC0) cpu.safe_write16(virt_addr, cpu.reg16[modrm_byte >> 2 & 14]); else cpu.reg16[modrm_byte << 1 & 14] = cpu.reg16[modrm_byte >> 2 & 14]; } else { cpu.reg16[reg_ax] = data; } } }; table0F_32[0xB1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var virt_addr = cpu.modrm_resolve(modrm_byte); cpu.writable_or_pagefault(virt_addr, 4); var data = cpu.safe_read32s(virt_addr); } else { data = cpu.reg32s[modrm_byte & 7]; } cpu.sub(cpu.reg32s[reg_eax], data, OPSIZE_32); if(cpu.getzf()) { if(modrm_byte < 0xC0) cpu.safe_write32(virt_addr, cpu.reg32s[modrm_byte >> 3 & 7]); else cpu.reg32s[modrm_byte & 7] = cpu.reg32s[modrm_byte >> 3 & 7]; } else { cpu.reg32s[reg_eax] = data; } } };;
+table0F_16[0xAB] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { cpu.bts_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.reg16s[cpu.modrm_byte >> 2 & 14]); } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = cpu.bts_reg(cpu.reg16[cpu.modrm_byte << 1 & 14], cpu.reg16s[cpu.modrm_byte >> 2 & 14] & 15); }; } }; table0F_32[0xAB] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { cpu.bts_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.reg32s[cpu.modrm_byte >> 3 & 7]); } else { cpu.reg32s[cpu.modrm_byte & 7] = cpu.bts_reg(cpu.reg32s[cpu.modrm_byte & 7], cpu.reg32s[cpu.modrm_byte >> 3 & 7] & 31); }; } };;
+table0F_16[0xAC] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.shrd16(data, cpu.reg16[cpu.modrm_byte >> 2 & 14], cpu.read_imm8() & 31); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; }; } }; table0F_32[0xAC] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.shrd32(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7], cpu.read_imm8() & 31); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; }; } };;
+table0F_16[0xAD] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.shrd16(data, cpu.reg16[cpu.modrm_byte >> 2 & 14], cpu.reg8[reg_cl] & 31); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; }; } }; table0F_32[0xAD] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.shrd32(data, cpu.reg32s[cpu.modrm_byte >> 3 & 7], cpu.reg8[reg_cl] & 31); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; }; } };;
+table0F_16[0xAE] = table0F_32[0xAE] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* fxsave, fxrstor, ldmxcsr ...*/ switch(cpu.modrm_byte >> 3 & 7) { case 6: /* mfence*/ dbg_assert(cpu.modrm_byte >= 0xC0, "Unexpected mfence encoding"); break; default: dbg_log("missing " + (cpu.modrm_byte >> 3 & 7), LOG_CPU); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };
+table0F_16[0xAF] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = (cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)) << 16 >> 16); } else { data = cpu.reg16s[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.imul_reg16(cpu.reg16s[cpu.modrm_byte >> 2 & 14], data); } }; table0F_32[0xAF] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.imul_reg32(cpu.reg32s[cpu.modrm_byte >> 3 & 7], data); } };;
+table0F_16[0xB0] = table0F_32[0xB0] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* cmpxchg8*/ if(cpu.modrm_byte < 0xC0) { var virt_addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.writable_or_pagefault(virt_addr, 1); var data = cpu.safe_read8(virt_addr); } else data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; cpu.sub(cpu.reg8[reg_al], data, OPSIZE_8); if(cpu.getzf()) { if(cpu.modrm_byte < 0xC0) cpu.safe_write8(virt_addr, cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1]); else cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = cpu.reg8[cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1]; } else { cpu.reg8[reg_al] = data; } } };;
+table0F_16[0xB1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* cmpxchg16/32*/ if(cpu.modrm_byte < 0xC0) { var virt_addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.writable_or_pagefault(virt_addr, 2); var data = cpu.safe_read16(virt_addr); } else data = cpu.reg16[cpu.modrm_byte << 1 & 14]; cpu.sub(cpu.reg16[reg_ax], data, OPSIZE_16); if(cpu.getzf()) { if(cpu.modrm_byte < 0xC0) cpu.safe_write16(virt_addr, cpu.reg16[cpu.modrm_byte >> 2 & 14]); else cpu.reg16[cpu.modrm_byte << 1 & 14] = cpu.reg16[cpu.modrm_byte >> 2 & 14]; } else { cpu.reg16[reg_ax] = data; } } }; table0F_32[0xB1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var virt_addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.writable_or_pagefault(virt_addr, 4); var data = cpu.safe_read32s(virt_addr); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } cpu.sub(cpu.reg32s[reg_eax], data, OPSIZE_32); if(cpu.getzf()) { if(cpu.modrm_byte < 0xC0) cpu.safe_write32(virt_addr, cpu.reg32s[cpu.modrm_byte >> 3 & 7]); else cpu.reg32s[cpu.modrm_byte & 7] = cpu.reg32s[cpu.modrm_byte >> 3 & 7]; } else { cpu.reg32s[reg_eax] = data; } } };;
 // lss
-table0F_16[0xB2] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss16(reg_ss, cpu.modrm_resolve(modrm_byte), modrm_byte >> 2 & 14);; } }; table0F_32[0xB2] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss32(reg_ss, cpu.modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);; } };;
-table0F_16[0xB3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { cpu.btr_mem(cpu.modrm_resolve(modrm_byte), cpu.reg16s[modrm_byte >> 2 & 14]); } else { cpu.reg16[modrm_byte << 1 & 14] = cpu.btr_reg(cpu.reg16[modrm_byte << 1 & 14], cpu.reg16s[modrm_byte >> 2 & 14] & 15); }; } }; table0F_32[0xB3] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { cpu.btr_mem(cpu.modrm_resolve(modrm_byte), cpu.reg32s[modrm_byte >> 3 & 7]); } else { cpu.reg32s[modrm_byte & 7] = cpu.btr_reg(cpu.reg32s[modrm_byte & 7], cpu.reg32s[modrm_byte >> 3 & 7] & 31); }; } };;
+table0F_16[0xB2] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss16(reg_ss, cpu.modrm_resolve(cpu.modrm_byte), cpu.modrm_byte >> 2 & 14);; } }; table0F_32[0xB2] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss32(reg_ss, cpu.modrm_resolve(cpu.modrm_byte), cpu.modrm_byte >> 3 & 7);; } };;
+table0F_16[0xB3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { cpu.btr_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.reg16s[cpu.modrm_byte >> 2 & 14]); } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = cpu.btr_reg(cpu.reg16[cpu.modrm_byte << 1 & 14], cpu.reg16s[cpu.modrm_byte >> 2 & 14] & 15); }; } }; table0F_32[0xB3] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { cpu.btr_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.reg32s[cpu.modrm_byte >> 3 & 7]); } else { cpu.reg32s[cpu.modrm_byte & 7] = cpu.btr_reg(cpu.reg32s[cpu.modrm_byte & 7], cpu.reg32s[cpu.modrm_byte >> 3 & 7] & 31); }; } };;
 // lfs, lgs
-table0F_16[0xB4] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss16(reg_fs, cpu.modrm_resolve(modrm_byte), modrm_byte >> 2 & 14);; } }; table0F_32[0xB4] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss32(reg_fs, cpu.modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);; } };;
-table0F_16[0xB5] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss16(reg_gs, cpu.modrm_resolve(modrm_byte), modrm_byte >> 2 & 14);; } }; table0F_32[0xB5] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss32(reg_gs, cpu.modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);; } };;
-table0F_16[0xB6] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* movzx*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.reg16[modrm_byte >> 2 & 14] = data; } }; table0F_32[0xB6] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.reg32s[modrm_byte >> 3 & 7] = data; } };;
-table0F_16[0xB7] = table0F_32[0xB7] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* movzx*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg32s[modrm_byte >> 3 & 7] = data; } };;
-table0F_16[0xB8] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* popcnt*/ if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.popcnt(data); } }; table0F_32[0xB8] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.popcnt(data); } };;
+table0F_16[0xB4] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss16(reg_fs, cpu.modrm_resolve(cpu.modrm_byte), cpu.modrm_byte >> 2 & 14);; } }; table0F_32[0xB4] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss32(reg_fs, cpu.modrm_resolve(cpu.modrm_byte), cpu.modrm_byte >> 3 & 7);; } };;
+table0F_16[0xB5] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss16(reg_gs, cpu.modrm_resolve(cpu.modrm_byte), cpu.modrm_byte >> 2 & 14);; } }; table0F_32[0xB5] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); } cpu.lss32(reg_gs, cpu.modrm_resolve(cpu.modrm_byte), cpu.modrm_byte >> 3 & 7);; } };;
+table0F_16[0xB6] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* movzx*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } }; table0F_32[0xB6] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } };;
+table0F_16[0xB7] = table0F_32[0xB7] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* movzx*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } };;
+table0F_16[0xB8] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* popcnt*/ if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.popcnt(data); } }; table0F_32[0xB8] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.popcnt(data); } };;
 table0F_16[0xB9] = table0F_32[0xB9] = function(cpu) { { /* UD*/ if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } };
-table0F_16[0xBA] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /*dbg_log("BA " + mod + " " + imm8);*/ switch(modrm_byte >> 3 & 7) { case 4: if(modrm_byte < 0xC0) { cpu.bt_mem(cpu.modrm_resolve(modrm_byte), cpu.read_imm8() & 15); } else { cpu.bt_reg(cpu.reg16[modrm_byte << 1 & 14], cpu.read_imm8() & 15); } break; case 5: if(modrm_byte < 0xC0) { cpu.bts_mem(cpu.modrm_resolve(modrm_byte), cpu.read_imm8() & 15); } else { cpu.reg16[modrm_byte << 1 & 14] = cpu.bts_reg(cpu.reg16[modrm_byte << 1 & 14], cpu.read_imm8() & 15 & 15); }; break; case 6: if(modrm_byte < 0xC0) { cpu.btr_mem(cpu.modrm_resolve(modrm_byte), cpu.read_imm8() & 15); } else { cpu.reg16[modrm_byte << 1 & 14] = cpu.btr_reg(cpu.reg16[modrm_byte << 1 & 14], cpu.read_imm8() & 15 & 15); }; break; case 7: if(modrm_byte < 0xC0) { cpu.btc_mem(cpu.modrm_resolve(modrm_byte), cpu.read_imm8() & 15); } else { cpu.reg16[modrm_byte << 1 & 14] = cpu.btc_reg(cpu.reg16[modrm_byte << 1 & 14], cpu.read_imm8() & 15 & 15); }; break; default: dbg_log(modrm_byte >> 3 & 7); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } }; table0F_32[0xBA] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /*dbg_log("BA " + mod + " " + imm8);*/ switch(modrm_byte >> 3 & 7) { case 4: if(modrm_byte < 0xC0) { cpu.bt_mem(cpu.modrm_resolve(modrm_byte), cpu.read_imm8() & 31); } else { cpu.bt_reg(cpu.reg32s[modrm_byte & 7], cpu.read_imm8() & 31); } break; case 5: if(modrm_byte < 0xC0) { cpu.bts_mem(cpu.modrm_resolve(modrm_byte), cpu.read_imm8() & 31); } else { cpu.reg32s[modrm_byte & 7] = cpu.bts_reg(cpu.reg32s[modrm_byte & 7], cpu.read_imm8() & 31 & 31); }; break; case 6: if(modrm_byte < 0xC0) { cpu.btr_mem(cpu.modrm_resolve(modrm_byte), cpu.read_imm8() & 31); } else { cpu.reg32s[modrm_byte & 7] = cpu.btr_reg(cpu.reg32s[modrm_byte & 7], cpu.read_imm8() & 31 & 31); }; break; case 7: if(modrm_byte < 0xC0) { cpu.btc_mem(cpu.modrm_resolve(modrm_byte), cpu.read_imm8() & 31); } else { cpu.reg32s[modrm_byte & 7] = cpu.btc_reg(cpu.reg32s[modrm_byte & 7], cpu.read_imm8() & 31 & 31); }; break; default: dbg_log(modrm_byte >> 3 & 7); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
-table0F_16[0xBB] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { cpu.btc_mem(cpu.modrm_resolve(modrm_byte), cpu.reg16s[modrm_byte >> 2 & 14]); } else { cpu.reg16[modrm_byte << 1 & 14] = cpu.btc_reg(cpu.reg16[modrm_byte << 1 & 14], cpu.reg16s[modrm_byte >> 2 & 14] & 15); }; } }; table0F_32[0xBB] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { cpu.btc_mem(cpu.modrm_resolve(modrm_byte), cpu.reg32s[modrm_byte >> 3 & 7]); } else { cpu.reg32s[modrm_byte & 7] = cpu.btc_reg(cpu.reg32s[modrm_byte & 7], cpu.reg32s[modrm_byte >> 3 & 7] & 31); }; } };;
-table0F_16[0xBC] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.bsf16(cpu.reg16[modrm_byte >> 2 & 14], data); } }; table0F_32[0xBC] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.bsf32(cpu.reg32s[modrm_byte >> 3 & 7], data); } };;
-table0F_16[0xBD] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg16[modrm_byte << 1 & 14]; }; cpu.reg16[modrm_byte >> 2 & 14] = cpu.bsr16(cpu.reg16[modrm_byte >> 2 & 14], data); } }; table0F_32[0xBD] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(modrm_byte)); } else { data = cpu.reg32s[modrm_byte & 7]; }; cpu.reg32s[modrm_byte >> 3 & 7] = cpu.bsr32(cpu.reg32s[modrm_byte >> 3 & 7], data); } };;
-table0F_16[0xBE] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* movsx*/ if(modrm_byte < 0xC0) { var data = (cpu.safe_read8(cpu.modrm_resolve(modrm_byte)) << 24 >> 24); } else { data = cpu.reg8s[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.reg16[modrm_byte >> 2 & 14] = data; } }; table0F_32[0xBE] = function(cpu) { var modrm_byte = cpu.read_imm8(); { if(modrm_byte < 0xC0) { var data = (cpu.safe_read8(cpu.modrm_resolve(modrm_byte)) << 24 >> 24); } else { data = cpu.reg8s[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; }; cpu.reg32s[modrm_byte >> 3 & 7] = data; } };;
-table0F_16[0xBF] = table0F_32[0xBF] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* movsx*/ if(modrm_byte < 0xC0) { var data = (cpu.safe_read16(cpu.modrm_resolve(modrm_byte)) << 16 >> 16); } else { data = cpu.reg16s[modrm_byte << 1 & 14]; }; cpu.reg32s[modrm_byte >> 3 & 7] = data; } };;
-table0F_16[0xC0] = table0F_32[0xC0] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]; } result = cpu.xadd8(data, modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1); if(modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = result; }; } };;
-table0F_16[0xC1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[modrm_byte << 1 & 14]; } result = cpu.xadd16(data, modrm_byte >> 2 & 14); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[modrm_byte << 1 & 14] = result; }; } }; table0F_32[0xC1] = function(cpu) { var modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[modrm_byte & 7]; } result = cpu.xadd32(data, modrm_byte >> 3 & 7); if(modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[modrm_byte & 7] = result; }; } };;
+table0F_16[0xBA] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /*dbg_log("BA " + mod + " " + imm8);*/ switch(cpu.modrm_byte >> 3 & 7) { case 4: if(cpu.modrm_byte < 0xC0) { cpu.bt_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_imm8() & 15); } else { cpu.bt_reg(cpu.reg16[cpu.modrm_byte << 1 & 14], cpu.read_imm8() & 15); } break; case 5: if(cpu.modrm_byte < 0xC0) { cpu.bts_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_imm8() & 15); } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = cpu.bts_reg(cpu.reg16[cpu.modrm_byte << 1 & 14], cpu.read_imm8() & 15 & 15); }; break; case 6: if(cpu.modrm_byte < 0xC0) { cpu.btr_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_imm8() & 15); } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = cpu.btr_reg(cpu.reg16[cpu.modrm_byte << 1 & 14], cpu.read_imm8() & 15 & 15); }; break; case 7: if(cpu.modrm_byte < 0xC0) { cpu.btc_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_imm8() & 15); } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = cpu.btc_reg(cpu.reg16[cpu.modrm_byte << 1 & 14], cpu.read_imm8() & 15 & 15); }; break; default: dbg_log(cpu.modrm_byte >> 3 & 7); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } }; table0F_32[0xBA] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /*dbg_log("BA " + mod + " " + imm8);*/ switch(cpu.modrm_byte >> 3 & 7) { case 4: if(cpu.modrm_byte < 0xC0) { cpu.bt_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_imm8() & 31); } else { cpu.bt_reg(cpu.reg32s[cpu.modrm_byte & 7], cpu.read_imm8() & 31); } break; case 5: if(cpu.modrm_byte < 0xC0) { cpu.bts_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_imm8() & 31); } else { cpu.reg32s[cpu.modrm_byte & 7] = cpu.bts_reg(cpu.reg32s[cpu.modrm_byte & 7], cpu.read_imm8() & 31 & 31); }; break; case 6: if(cpu.modrm_byte < 0xC0) { cpu.btr_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_imm8() & 31); } else { cpu.reg32s[cpu.modrm_byte & 7] = cpu.btr_reg(cpu.reg32s[cpu.modrm_byte & 7], cpu.read_imm8() & 31 & 31); }; break; case 7: if(cpu.modrm_byte < 0xC0) { cpu.btc_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_imm8() & 31); } else { cpu.reg32s[cpu.modrm_byte & 7] = cpu.btc_reg(cpu.reg32s[cpu.modrm_byte & 7], cpu.read_imm8() & 31 & 31); }; break; default: dbg_log(cpu.modrm_byte >> 3 & 7); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
+table0F_16[0xBB] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { cpu.btc_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.reg16s[cpu.modrm_byte >> 2 & 14]); } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = cpu.btc_reg(cpu.reg16[cpu.modrm_byte << 1 & 14], cpu.reg16s[cpu.modrm_byte >> 2 & 14] & 15); }; } }; table0F_32[0xBB] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { cpu.btc_mem(cpu.modrm_resolve(cpu.modrm_byte), cpu.reg32s[cpu.modrm_byte >> 3 & 7]); } else { cpu.reg32s[cpu.modrm_byte & 7] = cpu.btc_reg(cpu.reg32s[cpu.modrm_byte & 7], cpu.reg32s[cpu.modrm_byte >> 3 & 7] & 31); }; } };;
+table0F_16[0xBC] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.bsf16(cpu.reg16[cpu.modrm_byte >> 2 & 14], data); } }; table0F_32[0xBC] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.bsf32(cpu.reg32s[cpu.modrm_byte >> 3 & 7], data); } };;
+table0F_16[0xBD] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = cpu.bsr16(cpu.reg16[cpu.modrm_byte >> 2 & 14], data); } }; table0F_32[0xBD] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = cpu.safe_read32s(cpu.modrm_resolve(cpu.modrm_byte)); } else { data = cpu.reg32s[cpu.modrm_byte & 7]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = cpu.bsr32(cpu.reg32s[cpu.modrm_byte >> 3 & 7], data); } };;
+table0F_16[0xBE] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* movsx*/ if(cpu.modrm_byte < 0xC0) { var data = (cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)) << 24 >> 24); } else { data = cpu.reg8s[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.reg16[cpu.modrm_byte >> 2 & 14] = data; } }; table0F_32[0xBE] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { if(cpu.modrm_byte < 0xC0) { var data = (cpu.safe_read8(cpu.modrm_resolve(cpu.modrm_byte)) << 24 >> 24); } else { data = cpu.reg8s[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } };;
+table0F_16[0xBF] = table0F_32[0xBF] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* movsx*/ if(cpu.modrm_byte < 0xC0) { var data = (cpu.safe_read16(cpu.modrm_resolve(cpu.modrm_byte)) << 16 >> 16); } else { data = cpu.reg16s[cpu.modrm_byte << 1 & 14]; }; cpu.reg32s[cpu.modrm_byte >> 3 & 7] = data; } };;
+table0F_16[0xC0] = table0F_32[0xC0] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var addr; var result; if(cpu.modrm_byte < 0xC0) { addr = cpu.translate_address_write(cpu.modrm_resolve(cpu.modrm_byte)); data = cpu.memory.read8(addr); } else { data = cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1]; } result = cpu.xadd8(data, cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1); if(cpu.modrm_byte < 0xC0) { cpu.memory.write8(addr, result); } else { cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = result; }; } };;
+table0F_16[0xC1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) === 0xFFF) { phys_addr_high = cpu.translate_address_write(virt_addr + 1); data = cpu.virt_boundary_read16(phys_addr, phys_addr_high); } else { data = cpu.memory.read16(phys_addr); } } else { data = cpu.reg16[cpu.modrm_byte << 1 & 14]; } result = cpu.xadd16(data, cpu.modrm_byte >> 2 & 14); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write16(phys_addr, phys_addr_high, result); } else { cpu.memory.write16(phys_addr, result); } } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = result; }; } }; table0F_32[0xC1] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { var data; var virt_addr; var phys_addr; var phys_addr_high = 0; var result; if(cpu.modrm_byte < 0xC0) { virt_addr = cpu.modrm_resolve(cpu.modrm_byte); phys_addr = cpu.translate_address_write(virt_addr); if(cpu.paging && (virt_addr & 0xFFF) >= 0xFFD) { phys_addr_high = cpu.translate_address_write(virt_addr + 3); data = cpu.virt_boundary_read32s(phys_addr, phys_addr_high); } else { data = cpu.memory.read32s(phys_addr); } } else { data = cpu.reg32s[cpu.modrm_byte & 7]; } result = cpu.xadd32(data, cpu.modrm_byte >> 3 & 7); if(cpu.modrm_byte < 0xC0) { if(phys_addr_high) { cpu.virt_boundary_write32(phys_addr, phys_addr_high, result); } else { cpu.memory.write32(phys_addr, result); } } else { cpu.reg32s[cpu.modrm_byte & 7] = result; }; } };;
 table0F_16[0xC2] = table0F_32[0xC2] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0xC3] = table0F_32[0xC3] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0xC4] = table0F_32[0xC4] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0xC5] = table0F_32[0xC5] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
 table0F_16[0xC6] = table0F_32[0xC6] = function(cpu) { { dbg_log("No SSE", LOG_CPU); cpu.trigger_ud();} };;
-table0F_16[0xC7] = table0F_32[0xC7] = function(cpu) { var modrm_byte = cpu.read_imm8(); { /* cmpxchg8b*/ switch(modrm_byte >> 3 & 7) { case 1: if(modrm_byte >= 0xC0) { cpu.trigger_ud(); } var addr = cpu.modrm_resolve(modrm_byte); cpu.writable_or_pagefault(addr, 8); var m64_low = cpu.safe_read32s(addr); var m64_high = cpu.safe_read32s(addr + 4); if(cpu.reg32s[reg_eax] === m64_low && cpu.reg32s[reg_edx] === m64_high) { cpu.flags |= flag_zero; cpu.safe_write32(addr, cpu.reg32s[reg_ebx]); cpu.safe_write32(addr + 4, cpu.reg32s[reg_ecx]); } else { cpu.flags &= ~flag_zero; cpu.reg32s[reg_eax] = m64_low; cpu.reg32s[reg_edx] = m64_high; } cpu.flags_changed &= ~flag_zero; break; case 6: var has_rand = v86.has_rand_int(); if(has_rand) { var rand = v86.get_rand_int(); } else { var rand = 0; } /*dbg_log("rdrand -> " + h(rand >>> 0, 8), LOG_CPU);*/ if(cpu.operand_size_32) { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = rand; if(modrm_byte < 0xC0) { cpu.safe_write32(addr, data); } else { cpu.reg32[modrm_byte & 7] = data; }; } else { if(modrm_byte < 0xC0) var addr = cpu.modrm_resolve(modrm_byte); var data = rand; if(modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[modrm_byte << 1 & 14] = data; }; } cpu.flags &= ~flags_all; cpu.flags |= has_rand; cpu.flags_changed = 0; break; default: dbg_log(modrm_byte >> 3 & 7, LOG_CPU); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
+table0F_16[0xC7] = table0F_32[0xC7] = function(cpu) { cpu.modrm_byte = cpu.read_imm8(); { /* cmpxchg8b*/ switch(cpu.modrm_byte >> 3 & 7) { case 1: if(cpu.modrm_byte >= 0xC0) { cpu.trigger_ud(); } var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.writable_or_pagefault(addr, 8); var m64_low = cpu.safe_read32s(addr); var m64_high = cpu.safe_read32s(addr + 4); if(cpu.reg32s[reg_eax] === m64_low && cpu.reg32s[reg_edx] === m64_high) { cpu.flags |= flag_zero; cpu.safe_write32(addr, cpu.reg32s[reg_ebx]); cpu.safe_write32(addr + 4, cpu.reg32s[reg_ecx]); } else { cpu.flags &= ~flag_zero; cpu.reg32s[reg_eax] = m64_low; cpu.reg32s[reg_edx] = m64_high; } cpu.flags_changed &= ~flag_zero; break; case 6: var has_rand = v86.has_rand_int(); if(has_rand) { var rand = v86.get_rand_int(); } else { var rand = 0; } /*dbg_log("rdrand -> " + h(rand >>> 0, 8), LOG_CPU);*/ if(cpu.operand_size_32) { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = rand; if(cpu.modrm_byte < 0xC0) { cpu.safe_write32(addr, data); } else { cpu.reg32[cpu.modrm_byte & 7] = data; }; } else { if(cpu.modrm_byte < 0xC0) var addr = cpu.modrm_resolve(cpu.modrm_byte); var data = rand; if(cpu.modrm_byte < 0xC0) { cpu.safe_write16(addr, data); } else { cpu.reg16[cpu.modrm_byte << 1 & 14] = data; }; } cpu.flags &= ~flags_all; cpu.flags |= has_rand; cpu.flags_changed = 0; break; default: dbg_log(cpu.modrm_byte >> 3 & 7, LOG_CPU); if(DEBUG) { dbg_trace(); throw "TODO"; } cpu.trigger_ud();; } } };;
 table0F_16[0xC8] = table0F_32[0xC8] = function(cpu) { { cpu.bswap(reg_eax); } };;
 table0F_16[0xC9] = table0F_32[0xC9] = function(cpu) { { cpu.bswap(reg_ecx); } };;
 table0F_16[0xCA] = table0F_32[0xCA] = function(cpu) { { cpu.bswap(reg_edx); } };;
@@ -4688,7 +6391,6 @@ CPU.prototype.jmp_rel16 = function(rel16)
     this.instruction_pointer -= current_cs;
     this.instruction_pointer = (this.instruction_pointer + rel16) & 0xFFFF;
     this.instruction_pointer = this.instruction_pointer + current_cs | 0;
-    this.last_instr_jump = true;
 }
 CPU.prototype.jmpcc16 = function(condition)
 {
@@ -4700,7 +6402,6 @@ CPU.prototype.jmpcc16 = function(condition)
     {
         this.instruction_pointer = this.instruction_pointer + 2 | 0;
     }
-    this.last_instr_jump = true;
 }
 CPU.prototype.jmpcc32 = function(condition)
 {
@@ -4715,55 +6416,34 @@ CPU.prototype.jmpcc32 = function(condition)
     {
         this.instruction_pointer = this.instruction_pointer + 4 | 0;
     }
-    this.last_instr_jump = true;
 }
-CPU.prototype.loopne = function()
+CPU.prototype.loopne = function(imm8s)
 {
     if(--this.regv[this.reg_vcx] && !this.getzf())
     {
-        var imm8s = this.read_imm8s();
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
     }
-    else
-    {
-        this.instruction_pointer++;
-    }
-    this.last_instr_jump = true;
 }
-CPU.prototype.loope = function()
+CPU.prototype.loope = function(imm8s)
 {
     if(--this.regv[this.reg_vcx] && this.getzf())
     {
-        var imm8s = this.read_imm8s();
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
     }
-    else
-    {
-        this.instruction_pointer++;
-    }
-    this.last_instr_jump = true;
 }
-CPU.prototype.loop = function()
+CPU.prototype.loop = function(imm8s)
 {
     if(--this.regv[this.reg_vcx])
     {
-        var imm8s = this.read_imm8s();
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
     }
-    else
-    {
-        this.instruction_pointer++;
-    }
-    this.last_instr_jump = true;
 }
-CPU.prototype.jcxz = function()
+CPU.prototype.jcxz = function(imm8s)
 {
-    var imm8s = this.read_imm8s();
     if(this.regv[this.reg_vcx] === 0)
     {
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
     }
-    this.last_instr_jump = true;
 };
 /** 
  * @return {number}
@@ -5045,7 +6725,9 @@ CPU.prototype.main_run = function()
     {
         if(this.in_hlt)
         {
-            return this.hlt_loop();
+            var t = this.hlt_loop();
+            return 0;
+            //return t;
         }
         else
         {
@@ -5067,17 +6749,15 @@ CPU.prototype.exception_cleanup = function(e)
         // so we just need to reset some state
         this.page_fault = false;
         // restore state from prefixes
-        this.repeat_string_prefix = REPEAT_STRING_PREFIX_NONE;
-        this.segment_prefix = SEG_PREFIX_NONE;
-        this.address_size_32 = this.is_32;
-        this.update_address_size();
-        this.operand_size_32 = this.is_32;
-        this.update_operand_size();
+        this.clear_prefixes();
+        //this.main_run();
     }
     else
     {
         console.log(e);
         console.log(e.stack);
+        //var e = new Error(e.message);
+        //Error.captureStackTrace && Error.captureStackTrace(e);
         throw e;
     }
 }
@@ -5160,7 +6840,6 @@ CPU.prototype.init = function(settings, device_bus)
     if(OP_TRANSLATION)
     {
         this.translator = new DynamicTranslator(this);
-        this.last_instr_jump = false;
     }
     var io = new IO(this.memory);
     this.io = io;
@@ -5189,11 +6868,15 @@ CPU.prototype.init = function(settings, device_bus)
     if(settings.load_devices)
     {
         this.devices.pic = new PIC(this);
+        if(ENABLE_ACPI)
+        {
+            this.devices.apic = new APIC(this);
+            this.devices.acpi = new ACPI(this);
+        }
         this.devices.rtc = new RTC(this);
         this.fill_cmos(this.devices.rtc, settings);
         this.devices.pci = new PCI(this);
         this.devices.dma = new DMA(this);
-        this.devices.acpi = new ACPI(this);
         if(ENABLE_HPET)
         {
             this.devices.hpet = new HPET(this);
@@ -5328,7 +7011,7 @@ CPU.prototype.do_run = function()
         {
             if(OP_TRANSLATION)
             {
-                this.translator.cycle_translated();
+                this.cycle_translated();
             }
             else
             {
@@ -5354,12 +7037,13 @@ var prefixes = {};
  */
 CPU.prototype.cycle = function()
 {
+    this.previous_ip = this.instruction_pointer;
     //var op = this.safe_read32s(this.instruction_pointer);
+    //var op = this.safe_read16(this.instruction_pointer);
     //var op2 = this.safe_read16(this.instruction_pointer + 4);
     //prefixes[op + op2 * 0x100000000] = true;
     //prefixes[op] = ~~prefixes[op] + 1 | 0;
     this.timestamp_counter++;
-    this.previous_ip = this.instruction_pointer;
     var opcode = this.read_imm8();
     if(DEBUG)
     {
@@ -5372,6 +7056,12 @@ CPU.prototype.cycle = function()
         // TODO
         dbg_log("Trap flag: Ignored", LOG_CPU);
     }
+};
+CPU.prototype.cycle_translated = function()
+{
+    this.previous_ip = this.instruction_pointer;
+    this.timestamp_counter++;
+    this.large_table[this.get_imm16() | 0](this);
 };
 CPU.prototype.do_op = function()
 {
@@ -5392,6 +7082,7 @@ CPU.prototype.hlt_loop = function()
         var pit_time = this.devices.pit.timer(now, false);
         var rtc_time = this.devices.rtc.timer(now, false);
     }
+    return 0;
     if(!this.in_hlt)
     {
         return 0;
@@ -5399,6 +7090,21 @@ CPU.prototype.hlt_loop = function()
     else
     {
         return Math.ceil(Math.min(100, pit_time, rtc_time));
+    }
+};
+CPU.prototype.clear_prefixes = function()
+{
+    this.repeat_string_prefix = REPEAT_STRING_PREFIX_NONE;
+    this.segment_prefix = SEG_PREFIX_NONE;
+    if(this.address_size_32 !== this.is_32)
+    {
+        this.address_size_32 = this.is_32;
+        this.update_address_size();
+    }
+    if(this.operand_size_32 !== this.is_32)
+    {
+        this.operand_size_32 = this.is_32;
+        this.update_operand_size();
     }
 };
 CPU.prototype.cr0_changed = function(old_cr0)
@@ -5443,6 +7149,7 @@ CPU.prototype.get_phys_eip = function()
 };
 CPU.prototype.read_imm8 = function()
 {
+    //return this.safe_read8(this.instruction_pointer++);
     if((this.instruction_pointer & ~0xFFF) ^ this.last_virt_eip)
     {
         this.eip_phys = this.translate_address_read(this.instruction_pointer) ^ this.instruction_pointer;
@@ -5450,8 +7157,8 @@ CPU.prototype.read_imm8 = function()
     }
     // memory.read8 inlined under the assumption that code never runs in 
     // memory-mapped space
-    var data8 = this.memory.mem8[this.eip_phys ^ this.instruction_pointer] | 0;
-    //var data8 = this.memory.read8(this.eip_phys ^ this.instruction_pointer);
+    //var data8 = this.memory.mem8[this.eip_phys ^ this.instruction_pointer] | 0;
+    var data8 = this.memory.read8(this.eip_phys ^ this.instruction_pointer);
     this.instruction_pointer = this.instruction_pointer + 1 | 0;
     return data8;
 };
@@ -5461,6 +7168,8 @@ CPU.prototype.read_imm8s = function()
 };
 CPU.prototype.read_imm16 = function()
 {
+    //this.instruction_pointer += 2;
+    //return this.safe_read16(this.instruction_pointer - 2);
     // Two checks in one comparison:
     //    1. Did the high 20 bits of eip change
     // or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)
@@ -5478,6 +7187,8 @@ CPU.prototype.read_imm16s = function()
 };
 CPU.prototype.read_imm32s = function()
 {
+    //this.instruction_pointer += 4;
+    //return this.safe_read32s(this.instruction_pointer - 4);
     // Analogue to the above comment
     if(((this.instruction_pointer ^ this.last_virt_eip) >>> 0) > 0xFFC)
     {
@@ -5486,6 +7197,15 @@ CPU.prototype.read_imm32s = function()
     var data32 = this.memory.read32s(this.eip_phys ^ this.instruction_pointer);
     this.instruction_pointer = this.instruction_pointer + 4 | 0;
     return data32;
+};
+CPU.prototype.get_imm16 = function()
+{
+    return this.safe_read16(this.instruction_pointer);
+    //if(((this.instruction_pointer ^ this.last_virt_eip) >>> 0) > 0xFFE)
+    //{
+    //    return this.safe_read16(this.instruction_pointer);
+    //}
+    //return this.memory.read16(this.eip_phys ^ this.instruction_pointer);
 };
 CPU.prototype.get_imm32s = function()
 {
@@ -5524,7 +7244,7 @@ CPU.prototype.virt_boundary_read32s = function(low, high)
     else
     {
         // 0xFFE
-        mid = this.virt_boundary_read16(low + 1, high - 1);
+        mid = this.virt_boundary_read16(low + 1 | 0, high - 1 | 0);
     }
     return this.memory.read8(low) | mid << 8 | this.memory.read8(high) << 24;;
 };
@@ -5552,14 +7272,14 @@ CPU.prototype.virt_boundary_write32 = function(low, high, value)
         else
         {
             // 0xFFD
-            this.memory.write8(low + 1, value >> 8);
-            this.memory.write8(low + 2, value >> 16);
+            this.memory.write8(low + 1 | 0, value >> 8);
+            this.memory.write8(low + 2 | 0, value >> 16);
         }
     }
     else
     {
         // 0xFFE
-        this.memory.write8(low + 1, value >> 8);
+        this.memory.write8(low + 1 | 0, value >> 8);
         this.memory.write8(high - 1, value >> 16);
     }
 };
@@ -5575,7 +7295,7 @@ CPU.prototype.safe_read16 = function(addr)
 {
     if(this.paging && (addr & 0xFFF) === 0xFFF)
     {
-        return this.safe_read8(addr) | this.safe_read8(addr + 1) << 8;
+        return this.safe_read8(addr) | this.safe_read8(addr + 1 | 0) << 8;
     }
     else
     {
@@ -5586,7 +7306,7 @@ CPU.prototype.safe_read32s = function(addr)
 {
     if(this.paging && (addr & 0xFFF) >= 0xFFD)
     {
-        return this.safe_read16(addr) | this.safe_read16(addr + 2) << 16;
+        return this.safe_read16(addr) | this.safe_read16(addr + 2 | 0) << 16;
     }
     else
     {
@@ -5603,7 +7323,7 @@ CPU.prototype.safe_write16 = function(addr, value)
     var phys_low = this.translate_address_write(addr);
     if((addr & 0xFFF) === 0xFFF)
     {
-        this.virt_boundary_write16(phys_low, this.translate_address_write(addr + 1), value);
+        this.virt_boundary_write16(phys_low, this.translate_address_write(addr + 1 | 0), value);
     }
     else
     {
@@ -5615,7 +7335,7 @@ CPU.prototype.safe_write32 = function(addr, value)
     var phys_low = this.translate_address_write(addr);
     if((addr & 0xFFF) >= 0xFFD)
     {
-        this.virt_boundary_write32(phys_low, this.translate_address_write(addr + 3), value);
+        this.virt_boundary_write32(phys_low, this.translate_address_write(addr + 3 | 0), value);
     }
     else
     {
@@ -5776,9 +7496,9 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         {
             addr = this.translate_address_system_read(addr);
         }
-        var base = this.memory.read16(addr) | this.memory.read16(addr + 6) << 16,
-            selector = this.memory.read16(addr + 2),
-            type = this.memory.read8(addr + 5),
+        var base = this.memory.read16(addr) | this.memory.read16(addr + 6 | 0) << 16,
+            selector = this.memory.read16(addr + 2 | 0),
+            type = this.memory.read8(addr + 5 | 0),
             dpl = type >> 5 & 3,
             is_trap,
             is_16 = false;
@@ -5804,8 +7524,17 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         }
         else if(type === 5)
         {
+            // task gate
             dbg_trace();
-            throw this.debug.unimpl("call int to task gate");
+            dbg_log("interrupt to task gate: int=" + h(interrupt_nr, 2) + " sel=" + h(selector, 4) + " dpl=" + dpl, LOG_CPU);
+            this.do_task_switch(selector);
+            if(error_code !== false)
+            {
+                dbg_assert(typeof error_code == "number");
+                // TODO: push16 if in 16 bit mode?
+                this.push32(error_code);
+            }
+            return;
         }
         else if(type === 6)
         {
@@ -5852,8 +7581,8 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             // interrupt from vm86 mode
             //dbg_log("Inter privilege interrupt gate=" + h(selector, 4) + ":" + h(base >>> 0, 8) + " trap=" + is_trap + " 16bit=" + is_16, LOG_CPU);
             //this.debug.dump_regs_short();
-            var tss_stack_addr = (info.dpl << 3) + 4;
-            if(tss_stack_addr + 5 > this.segment_limits[reg_tr])
+            var tss_stack_addr = (info.dpl << 3) + 4 | 0;
+            if((tss_stack_addr + 5 | 0) > this.segment_limits[reg_tr])
             {
                 throw this.debug.unimpl("#TS handler");
             }
@@ -5863,7 +7592,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
                 tss_stack_addr = this.translate_address_system_read(tss_stack_addr);
             }
             var new_esp = this.memory.read32s(tss_stack_addr),
-                new_ss = this.memory.read16(tss_stack_addr + 4),
+                new_ss = this.memory.read16(tss_stack_addr + 4 | 0),
                 ss_info = this.lookup_segment_selector(new_ss);
             if(ss_info.is_null)
             {
@@ -6011,7 +7740,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         }
         this.segment_limits[reg_cs] = info.effective_limit;
         this.segment_offsets[reg_cs] = info.base;
-        //dbg_log("current esp: " + h(this.reg32s[reg_esp]), LOG_CPU);
+        //dbg_log("current esp: " + h(this.reg32s[reg_esp] >>> 0, 8), LOG_CPU);
         //dbg_log("call int " + h(interrupt_nr >>> 0, 8) + 
         //        " from " + h(this.instruction_pointer >>> 0, 8) + 
         //        " to " + h(base >>> 0) + 
@@ -6035,7 +7764,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         this.writable_or_pagefault(this.get_stack_pointer(-6), 6);
         var index = interrupt_nr << 2;
         var new_ip = this.memory.read16(index);
-        var new_cs = this.memory.read16(index + 2);
+        var new_cs = this.memory.read16(index + 2 | 0);
         //dbg_log("real mode interrupt #" + h(interrupt_nr) + " to " + h(new_cs, 4) + ":" + h(new_ip, 4), LOG_CPU);
         //dbg_trace(LOG_CPU);
         // push flags, cs:ip
@@ -6047,7 +7776,6 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         this.switch_seg(reg_cs, new_cs);
         this.instruction_pointer = this.get_seg(reg_cs) + new_ip | 0;
     }
-    this.last_instr_jump = true;
 };
 CPU.prototype.iret16 = function()
 {
@@ -6055,8 +7783,8 @@ CPU.prototype.iret16 = function()
     {
         if(this.vm86_mode())
         {
-            dbg_log("iret16 in vm86 mode  iopl=3", LOG_CPU);
-            this.debug.dump_regs_short();
+            //dbg_log("iret16 in vm86 mode  iopl=3", LOG_CPU);
+            //this.debug.dump_regs_short();
         }
         var new_ip = this.pop16();
         var new_cs = this.pop16();
@@ -6075,13 +7803,12 @@ CPU.prototype.iret16 = function()
         }
         throw this.debug.unimpl("16 bit iret in protected mode");
     }
-    this.last_instr_jump = true;
 };
 CPU.prototype.iret32 = function()
 {
     if(!this.protected_mode || (this.vm86_mode() && this.getiopl() === 3))
     {
-        if(this.vm86_mode()) dbg_log("iret in vm86 mode  iopl=3", LOG_CPU);
+        //if(this.vm86_mode()) dbg_log("iret in vm86 mode  iopl=3", LOG_CPU);
         var ip = this.pop32s();
         if(ip & 0xFFFF0000)
         {
@@ -6103,10 +7830,7 @@ CPU.prototype.iret32 = function()
     {
         if(DEBUG) throw this.debug.unimpl("nt");
     }
-    //dbg_log("pop eip from " + h(this.reg32[reg_esp], 8));
     this.instruction_pointer = this.pop32s();
-    //dbg_log("IRET | from " + h(this.previous_ip >>> 0) + " to " + h(this.instruction_pointer >>> 0));
-    //this.debug.dump_regs_short();
     this.sreg[reg_cs] = this.pop32s();
     var new_flags = this.pop32s();
     if(new_flags & flag_vm)
@@ -6114,17 +7838,13 @@ CPU.prototype.iret32 = function()
         if(this.cpl === 0)
         {
             // return to virtual 8086 mode
-            //dbg_log("new flags: " + h(new_flags, 8));
-            //dbg_log(h(this.translate_address_read(0x800077A9|0)));
-            //throw "stop";
             this.update_eflags(new_flags);
             this.flags |= flag_vm;
-            dbg_log("in vm86 mode now " +
-                    " cs:eip=" + h(this.sreg[reg_cs]) + ":" + h(this.instruction_pointer >>> 0) +
-                    " iopl=" + this.getiopl(), LOG_CPU);
+            //dbg_log("in vm86 mode now " +
+            //        " cs:eip=" + h(this.sreg[reg_cs]) + ":" + h(this.instruction_pointer >>> 0) +
+            //        " iopl=" + this.getiopl(), LOG_CPU);
             this.switch_seg(reg_cs, this.sreg[reg_cs]);
             this.instruction_pointer = (this.instruction_pointer & 0xFFFF) + this.get_seg(reg_cs) | 0;
-            //dbg_log("esp popped from " + h(this.get_stack_pointer(0) >>> 0));
             var temp_esp = this.pop32s();
             var temp_ss = this.pop32s();
             this.switch_seg(reg_es, this.pop32s() & 0xFFFF);
@@ -6136,7 +7856,7 @@ CPU.prototype.iret32 = function()
             this.cpl = 3;
             this.cpl_changed();
             this.update_cs_size(false);
-            this.debug.dump_regs_short();
+            //this.debug.dump_regs_short();
             return;
         }
         else
@@ -6181,7 +7901,7 @@ CPU.prototype.iret32 = function()
         this.cpl = info.rpl;
         this.cpl_changed();
         this.switch_seg(reg_ss, temp_ss & 0xFFFF);
-        //dbg_log("iret cpu.cpl=" + this.cpl + " to " + h(this.instruction_pointer) + 
+        //dbg_log("iret cpu.cpl=" + this.cpl + " to " + h(this.instruction_pointer) +
         //        " cs:eip=" + h(this.sreg[reg_cs],4) + ":" + h(this.get_real_eip(), 8) +
         //        " ss:esp=" + h(temp_ss & 0xFFFF, 2) + ":" + h(temp_esp, 8), LOG_CPU);
     }
@@ -6206,9 +7926,102 @@ CPU.prototype.iret32 = function()
     this.segment_limits[reg_cs] = info.effective_limit;
     this.segment_offsets[reg_cs] = info.base;
     this.instruction_pointer = this.instruction_pointer + this.get_seg(reg_cs) | 0;
-    //dbg_log("iret if=" + (this.flags & flag_interrupt) + " cpl=" + this.cpl + " eip=" + h(this.instruction_pointer >>> 0, 8), LOG_CPU);
+    //dbg_log("iret if=" + (this.flags & flag_interrupt) +
+    //        " cpl=" + this.cpl +
+    //        " eip=" + h(this.instruction_pointer >>> 0, 8), LOG_CPU);
     this.handle_irqs();
-    this.last_instr_jump = true;
+};
+CPU.prototype.do_task_switch = function(selector)
+{
+    var descriptor = this.lookup_segment_selector(selector);
+    if(!descriptor.is_valid || descriptor.is_null || !descriptor.from_gdt)
+    {
+        throw this.debug.unimpl("#GP handler");
+    }
+    if((descriptor.access & 31) === 0xB)
+    {
+        // is busy
+        throw this.debug.unimpl("#GP handler");
+    }
+    if(!descriptor.is_present)
+    {
+        throw this.debug.unimpl("#NP handler");
+    }
+    if(descriptor.effective_limit < 103)
+    {
+        throw this.debug.unimpl("#NP handler");
+    }
+    var tsr_size = this.segment_limits[reg_tr];
+    var tsr_offset = this.segment_offsets[reg_tr];
+    var old_eflags = this.get_eflags();
+    if(false /* is iret */)
+    {
+        old_eflags &= ~flag_nt;
+    }
+    this.writable_or_pagefault(tsr_offset, 0x66);
+    //this.safe_write32(tsr_offset + TSR_CR3, this.cr[3]);
+    this.safe_write32(tsr_offset + TSR_EIP, this.get_real_eip());
+    this.safe_write32(tsr_offset + TSR_EFLAGS, old_eflags);
+    this.safe_write32(tsr_offset + TSR_EAX, this.reg32s[reg_eax]);
+    this.safe_write32(tsr_offset + TSR_ECX, this.reg32s[reg_ecx]);
+    this.safe_write32(tsr_offset + TSR_EDX, this.reg32s[reg_edx]);
+    this.safe_write32(tsr_offset + TSR_EBX, this.reg32s[reg_ebx]);
+    this.safe_write32(tsr_offset + TSR_ESP, this.reg32s[reg_esp]);
+    this.safe_write32(tsr_offset + TSR_EBP, this.reg32s[reg_ebp]);
+    this.safe_write32(tsr_offset + TSR_ESI, this.reg32s[reg_esi]);
+    this.safe_write32(tsr_offset + TSR_EDI, this.reg32s[reg_edi]);
+    this.safe_write32(tsr_offset + TSR_ES, this.sreg[reg_es]);
+    this.safe_write32(tsr_offset + TSR_CS, this.sreg[reg_cs]);
+    this.safe_write32(tsr_offset + TSR_SS, this.sreg[reg_ss]);
+    this.safe_write32(tsr_offset + TSR_DS, this.sreg[reg_ds]);
+    this.safe_write32(tsr_offset + TSR_FS, this.sreg[reg_fs]);
+    this.safe_write32(tsr_offset + TSR_GS, this.sreg[reg_gs]);
+    this.safe_write32(tsr_offset + TSR_LDT, this.sreg[reg_ldtr]);
+    if(true /* is jump or call or int */)
+    {
+        // mark as busy
+        this.memory.write8(descriptor.table_offset + 5 | 0, this.memory.read8(descriptor.table_offset + 5 | 0) | 2);
+    }
+    //var new_tsr_size = descriptor.effective_limit;
+    var new_tsr_offset = descriptor.base;
+    var new_cr3 = this.safe_read32s(new_tsr_offset + TSR_CR3);
+    this.flags &= ~flag_vm;
+    this.switch_seg(reg_cs, this.safe_read16(new_tsr_offset + TSR_CS));
+    var new_eflags = this.safe_read32s(new_tsr_offset + TSR_EFLAGS);
+    if(true /* is call or int */)
+    {
+        this.safe_write32(tsr_offset + TSR_BACKLINK, selector);
+        new_eflags |= flag_nt;
+    }
+    if(new_eflags & flag_vm)
+    {
+        throw this.debug.unimpl("task switch to VM mode");
+    }
+    this.update_eflags(new_eflags);
+    this.load_ldt(this.safe_read16(new_tsr_offset + TSR_LDT));
+    this.reg32s[reg_eax] = this.safe_read32s(new_tsr_offset + TSR_EAX);
+    this.reg32s[reg_ecx] = this.safe_read32s(new_tsr_offset + TSR_ECX);
+    this.reg32s[reg_edx] = this.safe_read32s(new_tsr_offset + TSR_EDX);
+    this.reg32s[reg_ebx] = this.safe_read32s(new_tsr_offset + TSR_EBX);
+    this.reg32s[reg_esp] = this.safe_read32s(new_tsr_offset + TSR_ESP);
+    this.reg32s[reg_ebp] = this.safe_read32s(new_tsr_offset + TSR_EBP);
+    this.reg32s[reg_esi] = this.safe_read32s(new_tsr_offset + TSR_ESI);
+    this.reg32s[reg_edi] = this.safe_read32s(new_tsr_offset + TSR_EDI);
+    this.switch_seg(reg_es, this.safe_read16(new_tsr_offset + TSR_ES));
+    this.switch_seg(reg_ss, this.safe_read16(new_tsr_offset + TSR_SS));
+    this.switch_seg(reg_ds, this.safe_read16(new_tsr_offset + TSR_DS));
+    this.switch_seg(reg_fs, this.safe_read16(new_tsr_offset + TSR_FS));
+    this.switch_seg(reg_gs, this.safe_read16(new_tsr_offset + TSR_GS));
+    this.instruction_pointer = this.get_seg(reg_cs) + this.safe_read32s(new_tsr_offset + TSR_EIP) | 0;
+    this.segment_offsets[reg_tr] = descriptor.base;
+    this.segment_limits[reg_tr] = descriptor.effective_limit;
+    this.sreg[reg_tr] = selector;
+    this.cr[3] = new_cr3;
+    dbg_assert((this.cr[3] & 0xFFF) === 0);
+    this.clear_tlb();
+    this.cr[0] |= CR0_TS;
+    //debugger;
+    //throw "todo";
 };
 CPU.prototype.hlt_op = function()
 {
@@ -6237,7 +8050,7 @@ CPU.prototype.raise_exception = function(interrupt_nr)
     {
         // show interesting exceptions
         dbg_log("Exception " + h(interrupt_nr), LOG_CPU);
-        if(interrupt_nr !== 0xd) dbg_trace(LOG_CPU);
+        dbg_trace(LOG_CPU);
         this.debug.dump_regs_short();
     }
     this.call_interrupt_vector(interrupt_nr, false, false);
@@ -6248,7 +8061,7 @@ CPU.prototype.raise_exception_with_code = function(interrupt_nr, error_code)
     if(DEBUG)
     {
         dbg_log("Exception " + h(interrupt_nr) + " err=" + h(error_code), LOG_CPU);
-        if(interrupt_nr !== 0xd) dbg_trace(LOG_CPU);
+        dbg_trace(LOG_CPU);
         this.debug.dump_regs_short();
     }
     this.call_interrupt_vector(interrupt_nr, false, error_code);
@@ -6329,7 +8142,7 @@ CPU.prototype.get_seg = function(segment /*, offset*/)
             // trying to access null segment
             if(DEBUG)
             {
-                dbg_log("Load null segment: " + h(segment), LOG_CPU);
+                dbg_log("Load null segment: " + segment + " sel=" + h(this.sreg[segment], 4), LOG_CPU);
                 throw this.debug.unimpl("#GP handler");
             }
         }
@@ -6342,13 +8155,29 @@ CPU.prototype.get_seg = function(segment /*, offset*/)
 };
 CPU.prototype.handle_irqs = function()
 {
-    if(this.devices.pic)
+    dbg_assert(!this.page_fault);
+    if((this.flags & flag_interrupt) && !this.page_fault)
     {
-        dbg_assert(!this.page_fault);
-        if((this.flags & flag_interrupt) && !this.page_fault)
+        if(this.devices.pic)
         {
             this.devices.pic.check_irqs();
         }
+        if(this.devices.apic)
+        {
+            this.devices.apic.check_irqs();
+        }
+    }
+};
+CPU.prototype.device_raise_irq = function(i)
+{
+    dbg_assert(arguments.length === 1);
+    if(this.devices.pic)
+    {
+        this.devices.pic.raise_irq(i);
+    }
+    if(this.devices.apic)
+    {
+        this.devices.apic.raise_irq(i);
     }
 };
 CPU.prototype.test_privileges_for_io = function(port, size)
@@ -6359,12 +8188,12 @@ CPU.prototype.test_privileges_for_io = function(port, size)
             tsr_offset = this.segment_offsets[reg_tr];
         if(tsr_size >= 0x67)
         {
-            var iomap_base = this.memory.read16(this.translate_address_system_read(tsr_offset + 0x64 + 2)),
-                high_port = port + size - 1;
-            if(tsr_size >= iomap_base + (high_port >> 3))
+            var iomap_base = this.memory.read16(this.translate_address_system_read(tsr_offset + 0x64 + 2 | 0)),
+                high_port = port + size - 1 | 0;
+            if(tsr_size >= (iomap_base + (high_port >> 3) | 0))
             {
                 var mask = ((1 << size) - 1) << (port & 7),
-                    addr = this.translate_address_system_read(tsr_offset + iomap_base + (port >> 3)),
+                    addr = this.translate_address_system_read(tsr_offset + iomap_base + (port >> 3) | 0),
                     port_info = (mask & 0xFF00) ?
                         this.memory.read16(addr) : this.memory.read8(addr);
                 if(!(port_info & mask))
@@ -6399,11 +8228,12 @@ CPU.prototype.cpuid = function()
         case 1:
             // pentium
             eax = 3 | 6 << 4 | 15 << 8;
-            ebx = 0;
+            ebx = 1 << 16 | 8 << 8; // cpu count, clflush size
             ecx = 1 << 23 | 1 << 30; // popcnt, rdrand
             edx = (this.fpu ? 1 : 0) | // fpu
                     1 << 1 | 1 << 3 | 1 << 4 | 1 << 5 | // vme, pse, tsc, msr
                     1 << 8 | 1 << 11 | 1 << 13 | 1 << 15; // cx8, sep, pge, cmov
+            edx |= 1 << 9; // apic
             break;
         case 2:
             // Taken from http://siyobik.info.gf/main/reference/instruction/CPUID
@@ -6444,7 +8274,7 @@ CPU.prototype.cpuid = function()
         default:
             dbg_log("cpuid: unimplemented eax: " + h(this.reg32[reg_eax]), LOG_CPU);
     }
-    //dbg_log("cpuid: eax=" + h(this.reg32[reg_eax], 8) + " cl=" + h(this.reg8[reg_cl], 2), LOG_CPU);
+    dbg_log("cpuid: eax=" + h(this.reg32[reg_eax], 8) + " cl=" + h(this.reg8[reg_cl], 2), LOG_CPU);
     this.reg32s[reg_eax] = eax;
     this.reg32s[reg_ecx] = ecx;
     this.reg32s[reg_edx] = edx;
@@ -6465,10 +8295,12 @@ CPU.prototype.update_operand_size = function()
     if(this.operand_size_32)
     {
         this.table = this.table32;
+        this.large_table = this.large_table32;
     }
     else
     {
         this.table = this.table16;
+        this.large_table = this.large_table16;
     }
 };
 CPU.prototype.update_address_size = function()
@@ -6493,6 +8325,7 @@ CPU.prototype.update_address_size = function()
  */
 CPU.prototype.lookup_segment_selector = function(selector)
 {
+    dbg_assert(typeof selector === "number" && selector >= 0 && selector < 0x10000);
     var is_gdt = (selector & 4) === 0,
         selector_offset = selector & ~7,
         info,
@@ -6549,10 +8382,11 @@ CPU.prototype.lookup_segment_selector = function(selector)
         table_offset = this.translate_address_system_read(table_offset);
     }
     info.table_offset = table_offset;
-    info.base = this.memory.read16(table_offset + 2) | this.memory.read8(table_offset + 4) << 16 |
-            this.memory.read8(table_offset + 7) << 24,
-    info.access = this.memory.read8(table_offset + 5),
-    info.flags = this.memory.read8(table_offset + 6) >> 4,
+    info.base = this.memory.read16(table_offset + 2 | 0) | this.memory.read8(table_offset + 4 | 0) << 16 |
+            this.memory.read8(table_offset + 7 | 0) << 24;
+    info.access = this.memory.read8(table_offset + 5 | 0);
+    info.flags = this.memory.read8(table_offset + 6 | 0) >> 4;
+    //this.memory.write8(table_offset + 5 | 0, info.access | 1);
     // used if system
     info.type = info.access & 0xF;
     info.dpl = info.access >> 5 & 3;
@@ -6563,7 +8397,7 @@ CPU.prototype.lookup_segment_selector = function(selector)
     info.dc_bit = (info.access & 4) === 4;
     info.size = (info.flags & 4) === 4;
     var limit = this.memory.read16(table_offset) |
-                (this.memory.read8(table_offset + 6) & 0xF) << 16;
+                (this.memory.read8(table_offset + 6 | 0) & 0xF) << 16;
     if(info.flags & 8)
     {
         // granularity set
@@ -6608,8 +8442,9 @@ CPU.prototype.switch_seg = function(reg, selector)
     {
         if(info.is_null)
         {
+            dbg_log("#GP for loading 0 in SS sel=" + h(selector, 4), LOG_CPU);
+            dbg_trace(LOG_CPU);
             this.trigger_gp(0);
-            return false;
         }
         if(!info.is_valid ||
                 info.is_system ||
@@ -6617,13 +8452,15 @@ CPU.prototype.switch_seg = function(reg, selector)
                 !info.is_writable ||
                 info.dpl !== this.cpl)
         {
+            dbg_log("#GP for loading invalid in SS sel=" + h(selector, 4), LOG_CPU);
+            dbg_trace(LOG_CPU);
             this.trigger_gp(selector & ~3);
-            return false;
         }
         if(!info.is_present)
         {
+            dbg_log("#SS for loading non-present in SS sel=" + h(selector, 4), LOG_CPU);
+            dbg_trace(LOG_CPU);
             this.trigger_ss(selector & ~3);
-            return false;
         }
         this.stack_size_32 = info.size;
         if(info.size)
@@ -6691,9 +8528,11 @@ CPU.prototype.switch_seg = function(reg, selector)
         // es, ds, fs, gs
         if(info.is_null)
         {
+            //dbg_log("0 loaded in seg=" + reg + " sel=" + h(selector, 4), LOG_CPU);
+            //dbg_trace(LOG_CPU);
             this.sreg[reg] = selector;
             this.segment_is_null[reg] = 1;
-            return true;
+            return;
         }
         if(!info.is_valid ||
                 info.is_system ||
@@ -6702,31 +8541,33 @@ CPU.prototype.switch_seg = function(reg, selector)
                  info.rpl > info.dpl &&
                  this.cpl > info.dpl))
         {
+            dbg_log("#GP for loading invalid in seg " + reg + " sel=" + h(selector, 4), LOG_CPU);
+            dbg_trace(LOG_CPU);
+            debugger;
             this.trigger_gp(selector & ~3);
-            return false;
         }
         if(!info.is_present)
         {
+            dbg_log("#NP for loading not-present in seg " + reg + " sel=" + h(selector, 4), LOG_CPU);
+            dbg_trace(LOG_CPU);
             this.trigger_np(selector & ~3);
-            return false;
         }
     }
     //dbg_log("seg " + reg + " " + h(info.base));
     this.segment_is_null[reg] = 0;
     this.segment_limits[reg] = info.effective_limit;
     //this.segment_infos[reg] = 0; // TODO
-    if(OP_TRANSLATION && (reg === reg_ds || reg === reg_ss) && info.base !== this.segment_offsets[reg])
-    {
-        this.translator.clear_cache();
-    }
+    //if(OP_TRANSLATION && (reg === reg_ds || reg === reg_ss) && info.base !== this.segment_offsets[reg])
+    //{
+    //    this.translator.clear_cache();
+    //}
     this.segment_offsets[reg] = info.base;
     this.sreg[reg] = selector;
-    return true;
 };
 CPU.prototype.load_tr = function(selector)
 {
     var info = this.lookup_segment_selector(selector);
-    //dbg_log("load tr");
+    dbg_log("load tr: " + h(selector, 4), LOG_CPU);
     if(!info.from_gdt)
     {
         throw this.debug.unimpl("TR can only be loaded from GDT");
@@ -6748,15 +8589,17 @@ CPU.prototype.load_tr = function(selector)
     }
     if(info.type !== 9)
     {
-        dbg_log("#GP | ltr: invalid type (type = " + info.type + ")");
+        // 0xB: busy 386 TSS (GP)
+        // 0x3: busy 286 TSS (GP)
+        // 0x1: 286 TSS (]
+        dbg_log("#GP | ltr: invalid type (type = " + h(info.type) + ")");
         throw this.debug.unimpl("#GP handler");
-        // or 286 TSS
     }
     this.segment_offsets[reg_tr] = info.base;
     this.segment_limits[reg_tr] = info.effective_limit;
     this.sreg[reg_tr] = selector;
-    // mark task as busy
-    this.memory.write8(info.table_offset + 5, this.memory.read8(info.table_offset + 5) | 2);
+    // Mark task as busy
+    this.memory.write8(info.table_offset + 5 | 0, this.memory.read8(info.table_offset + 5 | 0) | 2);
     //dbg_log("tsr at " + h(info.base) + "; (" + info.effective_limit + " bytes)");
 };
 CPU.prototype.load_ldt = function(selector)
@@ -6814,6 +8657,7 @@ CPU.prototype.lar = function(selector, original)
                            1 << 0xD | 1 << 0xE | 1 << 0xF;
     var info = this.lookup_segment_selector(selector);
     this.flags_changed &= ~flag_zero;
+    //console.log("lar -> ", h(selector, 4), this.cpl, info, LAR_INVALID_TYPE >> info.type & 1);
     if(info.is_null || !info.is_valid ||
        (LAR_INVALID_TYPE >> info.type & 1)
     ) {
@@ -6835,6 +8679,8 @@ CPU.prototype.lsl = function(selector, original)
                            1 << 0xA | 1 << 0xC | 1 << 0xD | 1 << 0xE | 1 << 0xF;
     var info = this.lookup_segment_selector(selector);
     this.flags_changed &= ~flag_zero;
+    //console.log("lsl -> ", h(selector, 4), this.cpl, info, LSL_INVALID_TYPE >> info.type & 1);
+    //this.debug.dump_gdt_ldt();
     if(info.is_null || !info.is_valid ||
        (LSL_INVALID_TYPE >> info.type & 1)
     ) {
@@ -6857,7 +8703,7 @@ CPU.prototype.clear_tlb = function()
 };
 CPU.prototype.full_clear_tlb = function()
 {
-    dbg_log("TLB full clear", LOG_CPU);
+    //dbg_log("TLB full clear", LOG_CPU);
     // clear tlb including global pages
     var buf32 = new Int32Array(this.tlb_info_global.buffer);
     for(var i = 0; i < (1 << 18); )
@@ -6959,7 +8805,7 @@ CPU.prototype.translate_address_system_read = function(addr)
 CPU.prototype.do_page_translation = function(addr, for_writing, user)
 {
     var page = addr >>> 12,
-        page_dir_addr = (this.cr[3] >>> 2) + (page >> 10),
+        page_dir_addr = (this.cr[3] >>> 2) + (page >> 10) | 0,
         page_dir_entry = this.memory.mem32s[page_dir_addr],
         high,
         can_write = true,
@@ -7012,7 +8858,7 @@ CPU.prototype.do_page_translation = function(addr, for_writing, user)
     }
     else
     {
-        var page_table_addr = ((page_dir_entry & 0xFFFFF000) >>> 2) + (page & 0x3FF),
+        var page_table_addr = ((page_dir_entry & 0xFFFFF000) >>> 2) + (page & 0x3FF) | 0,
             page_table_entry = this.memory.mem32s[page_table_addr];
         if((page_table_entry & 1) === 0)
         {
@@ -7098,9 +8944,9 @@ CPU.prototype.writable_or_pagefault = function(addr, size)
     }
     if((addr & 0xFFF) + size - 1 >= 0x1000)
     {
-        if((this.tlb_info[page + 1] & mask) === 0)
+        if((this.tlb_info[page + 1 | 0] & mask) === 0)
         {
-            this.do_page_translation(addr + size - 1, 1, user);
+            this.do_page_translation(addr + size - 1 | 0, 1, user);
         }
     }
 };
