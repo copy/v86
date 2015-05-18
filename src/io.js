@@ -61,12 +61,6 @@ function IO(memory)
             dbg_log("Write to unmapped memory space, addr=" + h(addr >>> 0, 8) + " value=" + h(value >>> 0, 8), LOG_IO);
         }
     );
-
-    this._state_skip = [
-        this.ports,
-        this.devices,
-        this.memory,
-    ];
 }
 
 

@@ -10,7 +10,7 @@
  */
 function PIC(cpu, master)
 {
-    /** 
+    /**
      * all irqs off
      * @type {number}
      */
@@ -302,3 +302,36 @@ function PIC(cpu, master)
         return this.isr;
     };
 }
+
+PIC.prototype.get_state = function()
+{
+    var state = [];
+
+    state[0] = this.irq_mask;
+    state[1] = this.irq_map;
+    state[2] = this.isr;
+    state[3] = this.irr;
+    state[4] = this.is_master;
+    state[5] = this.slave;
+    state[6] = this.expect_icw4;
+    state[7] = this.state;
+    state[8] = this.read_irr;
+    state[9] = this.auto_eoi;
+
+    return state;
+};
+
+PIC.prototype.set_state = function(state)
+{
+    this.irq_mask = state[0];
+    this.irq_map = state[1];
+    this.isr = state[2];
+    this.irr = state[3];
+    this.is_master = state[4];
+    this.slave = state[5];
+    this.expect_icw4 = state[6];
+    this.state = state[7];
+    this.read_irr = state[8];
+    this.auto_eoi = state[9];
+};
+

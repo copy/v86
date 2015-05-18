@@ -107,18 +107,67 @@ function PS2(cpu, bus)
 
     cpu.io.register_write(0x60, this, this.port60_write);
     cpu.io.register_write(0x64, this, this.port64_write);
-
-    /** @const */
-    this._state_skip = [
-        this.bus,
-        this.cpu,
-    ];
 }
 
-PS2.prototype._state_restore = function()
+PS2.prototype.get_state = function()
 {
-    this.bus.send("mouse-enable", this.use_mouse);
+    var state = [];
+
+    state[0] = this.enable_mouse_stream;
+    state[1] = this.use_mouse;
+    state[2] = this.have_mouse;
+    state[3] = this.mouse_delta_x;
+    state[4] = this.mouse_delta_y;
+    state[5] = this.mouse_clicks;
+    state[6] = this.have_keyboard;
+    state[7] = this.enable_keyboard_stream;
+    state[8] = this.next_is_mouse_command;
+    state[9] = this.next_read_sample;
+    state[10] = this.next_read_led;
+    state[11] = this.next_handle_scan_code_set;
+    state[12] = this.next_read_rate;
+    state[13] = this.next_read_resolution;
+    //state[14] = this.kbd_buffer;
+    state[15] = this.last_port60_byte;
+    state[16] = this.sample_rate;
+    state[17] = this.resolution;
+    state[18] = this.scaling2;
+    //state[19] = this.mouse_buffer;
+    state[20] = this.command_register;
+    state[21] = this.read_output_register;
+    state[22] = this.read_command_register;
+
+    return state;
 };
+
+PS2.prototype.set_state = function(state)
+{
+    this.enable_mouse_stream = state[0];
+    this.use_mouse = state[1];
+    this.have_mouse = state[2];
+    this.mouse_delta_x = state[3];
+    this.mouse_delta_y = state[4];
+    this.mouse_clicks = state[5];
+    this.have_keyboard = state[6];
+    this.enable_keyboard_stream = state[7];
+    this.next_is_mouse_command = state[8];
+    this.next_read_sample = state[9];
+    this.next_read_led = state[10];
+    this.next_handle_scan_code_set = state[11];
+    this.next_read_rate = state[12];
+    this.next_read_resolution = state[13];
+    //this.kbd_buffer = state[14];
+    this.last_port60_byte = state[15];
+    this.sample_rate = state[16];
+    this.resolution = state[17];
+    this.scaling2 = state[18];
+    //this.mouse_buffer = state[19];
+    this.command_register = state[20];
+    this.read_output_register = state[21];
+    this.read_command_register = state[22];
+
+    this.bus.send("mouse-enable", this.use_mouse);
+}
 
 PS2.prototype.mouse_irq = function()
 {

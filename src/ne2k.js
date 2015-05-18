@@ -473,12 +473,41 @@ function Ne2k(cpu, bus)
             this.data_port_write16, 
             this.data_port_write16, 
             this.data_port_write32);
-
-    this._state_skip = [
-        this.bus,
-        this.cpu,
-    ];
 }
+
+Ne2k.prototype.get_state = function()
+{
+    var state = [];
+
+    state[0] = this.isr;
+    state[1] = this.imr;
+    state[2] = this.cr;
+    state[3] = this.dcfg;
+    state[4] = this.rcnt;
+    state[5] = this.tcnt;
+    state[6] = this.tpsr;
+    state[7] = this.rsar;
+    state[8] = this.pstart;
+    state[9] = this.curpg;
+    state[10] = this.boundary;
+
+    return state;
+};
+
+Ne2k.prototype.set_state = function(state)
+{
+    this.isr = state[0];
+    this.imr = state[1];
+    this.cr = state[2];
+    this.dcfg = state[3];
+    this.rcnt = state[4];
+    this.tcnt = state[5];
+    this.tpsr = state[6];
+    this.rsar = state[7];
+    this.pstart = state[8];
+    this.curpg = state[9];
+    this.boundary = state[10];
+};
 
 Ne2k.prototype.do_interrupt = function(ir_mask)
 {

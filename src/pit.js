@@ -56,12 +56,37 @@ function PIT(cpu)
     cpu.io.register_write(0x42, this, function(data) { this.counter_write(2, data); });
 
     cpu.io.register_write(0x43, this, this.port43_write);
-
-    /** @const */
-    this._state_skip = [
-        this.cpu,
-    ];
 }
+
+PIT.prototype.get_state = function()
+{
+    var state = [];
+
+    state[0] = this.counter_next_low;
+    state[1] = this.counter_enabled;
+    state[2] = this.counter_mode;
+    state[3] = this.counter_read_mode;
+    state[4] = this.counter_latch;
+    state[5] = this.counter_latch_value;
+    state[6] = this.counter_reload;
+    state[7] = this.counter_current;
+    state[8] = this.counter2_start;
+
+    return state;
+};
+
+PIT.prototype.set_state = function(state)
+{
+    this.counter_next_low = state[0];
+    this.counter_enabled = state[1];
+    this.counter_mode = state[2];
+    this.counter_read_mode = state[3];
+    this.counter_latch = state[4];
+    this.counter_latch_value = state[5];
+    this.counter_reload = state[6];
+    this.counter_current = state[7];
+    this.counter2_start = state[8];
+};
 
 PIT.prototype.timer = function(time, no_irq)
 {

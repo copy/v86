@@ -234,14 +234,21 @@ function VGAScreen(cpu, bus, vga_memory_size)
         this.screen_fill_buffer();
     }, this);
 
-    this._state_restore();
+
+    this.svga_memory16 = new Uint16Array(this.svga_memory.buffer);
+    this.svga_memory32 = new Int32Array(this.svga_memory.buffer);
+    this.vga_memory = new Uint8Array(this.svga_memory.buffer, 0, 4 * VGA_BANK_SIZE);
+    this.plane0 = new Uint8Array(this.svga_memory.buffer, 0 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+    this.plane1 = new Uint8Array(this.svga_memory.buffer, 1 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+    this.plane2 = new Uint8Array(this.svga_memory.buffer, 2 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+    this.plane3 = new Uint8Array(this.svga_memory.buffer, 3 * VGA_BANK_SIZE, VGA_BANK_SIZE);
 
     var me = this;
-    io.mmap_register(0xA0000, 0x20000, 
+    io.mmap_register(0xA0000, 0x20000,
         function(addr) { return me.vga_memory_read(addr); },
         function(addr, value) { me.vga_memory_write(addr, value); }
     );
-    io.mmap_register(0xE0000000, this.vga_memory_size, 
+    io.mmap_register(0xE0000000, this.vga_memory_size,
         function(addr) { return me.svga_memory_read8(addr); },
         function(addr, value) { me.svga_memory_write8(addr, value); },
         function(addr) { return me.svga_memory_read32(addr); },
@@ -249,30 +256,96 @@ function VGAScreen(cpu, bus, vga_memory_size)
     );
 };
 
-VGAScreen.prototype._state_restore = function()
+VGAScreen.prototype.get_state = function()
 {
-    /** @const */ this.svga_memory16 = new Uint16Array(this.svga_memory.buffer);
-    /** @const */ this.svga_memory32 = new Int32Array(this.svga_memory.buffer);
+    var state = [];
 
-    /** @const */ this.vga_memory = new Uint8Array(this.svga_memory.buffer, 0, 4 * VGA_BANK_SIZE);
+    state[0] = this.vga_memory_size;
+    state[1] = this.cursor_address;
+    state[2] = this.cursor_scanline_start;
+    state[3] = this.cursor_scanline_end;
+    state[4] = this.max_cols;
+    state[5] = this.max_rows;
+    state[6] = this.screen_width;
+    state[7] = this.screen_height;
+    state[8] = this.start_address;
+    state[9] = this.graphical_mode;
+    state[10] = this.vga256_palette;
+    state[11] = this.latch0;
+    state[12] = this.latch1;
+    state[13] = this.latch2;
+    state[14] = this.latch3;
+    state[15] = this.svga_width;
+    state[16] = this.svga_height;
+    state[17] = this.text_mode_width;
+    state[18] = this.svga_enabled;
+    state[19] = this.svga_bpp;
+    state[20] = this.svga_bank_offset;
+    state[21] = this.svga_offset;
+    state[22] = this.index_crtc;
+    state[23] = this.dac_color_index_write;
+    state[24] = this.dac_color_index_read;
+    state[25] = this.dac_map;
+    state[26] = this.sequencer_index;
+    state[27] = this.plane_write_bm;
+    state[28] = this.sequencer_memory_mode;
+    state[29] = this.graphics_index;
+    state[30] = this.plane_read;
+    state[31] = this.planar_mode;
+    state[32] = this.planar_rotate_reg;
+    state[33] = this.planar_bitmap;
+    state[34] = this.max_scan_line;
+    state[35] = this.miscellaneous_output_register;;
+    state[36] = this.port_3DA_value;
+    state[37] = this.dispi_index;
+    state[38] = this.dispi_enable_value;
+    state[39] = this.svga_memory;
 
-    /** @const */ this.plane0 = new Uint8Array(this.svga_memory.buffer, 0 * VGA_BANK_SIZE, VGA_BANK_SIZE);
-    /** @const */ this.plane1 = new Uint8Array(this.svga_memory.buffer, 1 * VGA_BANK_SIZE, VGA_BANK_SIZE);
-    /** @const */ this.plane2 = new Uint8Array(this.svga_memory.buffer, 2 * VGA_BANK_SIZE, VGA_BANK_SIZE);
-    /** @const */ this.plane3 = new Uint8Array(this.svga_memory.buffer, 3 * VGA_BANK_SIZE, VGA_BANK_SIZE);
+    return state;
+};
 
-    /** @const */
-    this._state_skip = [
-        this.bus,
-
-        this.svga_memory16,
-        this.svga_memory32,
-        this.vga_memory,
-        this.plane0,
-        this.plane1,
-        this.plane2,
-        this.plane3,
-    ];
+VGAScreen.prototype.set_state = function(state)
+{
+    this.vga_memory_size = state[0];
+    this.cursor_address = state[1];
+    this.cursor_scanline_start = state[2];
+    this.cursor_scanline_end = state[3];
+    this.max_cols = state[4];
+    this.max_rows = state[5];
+    this.screen_width = state[6];
+    this.screen_height = state[7];
+    this.start_address = state[8];
+    this.graphical_mode = state[9];
+    this.vga256_palette = state[10];
+    this.latch0 = state[11];
+    this.latch1 = state[12];
+    this.latch2 = state[13];
+    this.latch3 = state[14];
+    this.svga_width = state[15];
+    this.svga_height = state[16];
+    this.text_mode_width = state[17];
+    this.svga_enabled = state[18];
+    this.svga_bpp = state[19];
+    this.svga_bank_offset = state[20];
+    this.svga_offset = state[21];
+    this.index_crtc = state[22];
+    this.dac_color_index_write = state[23];
+    this.dac_color_index_read = state[24];
+    this.dac_map = state[25];
+    this.sequencer_index = state[26];
+    this.plane_write_bm = state[27];
+    this.sequencer_memory_mode = state[28];
+    this.graphics_index = state[29];
+    this.plane_read = state[30];
+    this.planar_mode = state[31];
+    this.planar_rotate_reg = state[32];
+    this.planar_bitmap = state[33];
+    this.max_scan_line = state[34];
+    this.miscellaneous_output_register = state[35];
+    this.port_3DA_value = state[36];
+    this.dispi_index = state[37];
+    this.dispi_enable_value = state[38];
+    this.svga_memory.set(state[39]);
 
     this.bus.send("screen-set-mode", this.graphical_mode);
 

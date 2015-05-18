@@ -78,11 +78,43 @@ function RTC(cpu)
 
     cpu.io.register_write(0x71, this, this.cmos_port_write);
     cpu.io.register_read(0x71, this, this.cmos_port_read);
-
-    this._state_skip = [
-        this.cpu,
-    ];
 }
+
+RTC.prototype.get_state = function()
+{
+    var state = [];
+
+    state[0] = this.cmos_index;
+    state[1] = this.cmos_data;
+    state[2] = this.rtc_time;
+    state[3] = this.last_update;
+    state[4] = this.next_interrupt;
+    state[5] = this.cmos_c_was_read;
+    state[6] = this.periodic_interrupt;
+    state[7] = this.periodic_interrupt_time;
+    state[8] = this.cmos_a;
+    state[9] = this.cmos_b;
+    state[10] = this.cmos_c;
+    state[11] = this.nmi_disabled;
+
+    return state;
+};
+
+RTC.prototype.set_state = function(state)
+{
+    this.cmos_index = state[0];
+    this.cmos_data = state[1];
+    this.rtc_time = state[2];
+    this.last_update = state[3];
+    this.next_interrupt = state[4];
+    this.cmos_c_was_read = state[5];
+    this.periodic_interrupt = state[6];
+    this.periodic_interrupt_time = state[7];
+    this.cmos_a = state[8];
+    this.cmos_b = state[9];
+    this.cmos_c = state[10];
+    this.nmi_disabled = state[11];
+};
 
 RTC.prototype.timer = function(time, legacy_mode)
 {

@@ -21,11 +21,22 @@ function DMA(dev)
     io.register_write(0x0B, this, this.portB_write);
     io.register_write(0x0C, this, this.portC_write);
     io.register_write(0x81, this, this.port81_write);
+}
 
-    /** @const */
-    this._state_skip = [
-        this.memory,
+DMA.prototype.get_state = function()
+{
+    return [
+        this.channel_addr,
+        this.channel_count,
+        this.lsb_msb_flipflop,
     ];
+};
+
+DMA.prototype.set_state = function(state)
+{
+    this.channel_addr = state[0];
+    this.channel_count = state[1];
+    this.lsb_msb_flipflop = state[2];
 };
 
 DMA.prototype.port_write = function(port, data_byte)

@@ -166,20 +166,39 @@ function VirtIO(cpu, bus, filesystem)
     }
 
     // should be generalized to support more devices than just the filesystem
-    /** @const */
     this.device = new Virtio9p(filesystem, bus);
     this.device.SendReply = this.device_reply.bind(this);
-
-    this._state_skip = [
-        this.memory,
-        this.cpu,
-        this.bus,
-    ];
-    this._state_restore = function()
-    {
-        this.device.SendReply = this.device_reply.bind(this);
-    };
 }
+
+VirtIO.prototype.get_state = function()
+{
+    var state = [];
+
+    state[0] = this.irq;
+    state[1] = this.queue_select;
+    state[2] = this.device_status;
+    state[3] = this.isr;
+    state[4] = this.last_idx;
+    state[5] = this.queue_size;
+    state[6] = this.queue_address;
+    state[7] = this.device;
+
+    return state;
+};
+
+VirtIO.prototype.set_state = function(state)
+{
+    this.irq = state[0];
+    this.queue_select = state[1];
+    this.device_status = state[2];
+    this.isr = state[3];
+    this.last_idx = state[4];
+    this.queue_size = state[5];
+    this.queue_address = state[6];
+
+    this.device = state[7];
+    this.device.SendReply = this.device_reply.bind(this);
+};
 
 VirtIO.prototype.reset = function()
 {

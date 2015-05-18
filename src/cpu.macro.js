@@ -239,11 +239,6 @@ function CPU()
     dbg_assert(this.table16 && this.table32);
     dbg_assert(this.table0F_16 && this.table0F_32);
 
-    this._state_restore();
-}
-
-CPU.prototype._state_restore = function()
-{
     this.reg32 = new Uint32Array(this.reg32s.buffer);
     this.reg16s = new Int16Array(this.reg32s.buffer);
     this.reg16 = new Uint16Array(this.reg32s.buffer);
@@ -253,33 +248,163 @@ CPU.prototype._state_restore = function()
     this.update_address_size();
     this.update_operand_size();
 
+    this.tsc_offset = v86.microtick();
+}
+
+CPU.prototype.get_state = function()
+{
+    var state = [];
+
+    state[0] = this.memory_size;
+    state[1] = this.segment_is_null;
+    state[2] = this.segment_offsets;
+    state[3] = this.segment_limits;
+    state[4] = this.protected_mode;
+    state[5] = this.idtr_offset;
+    state[6] = this.idtr_size;
+    state[7] = this.gdtr_offset;
+    state[8] = this.gdtr_size;
+    state[9] = this.page_fault;
+    state[10] = this.cr;
+    state[11] = this.cpl;
+    state[12] = this.page_size_extensions;
+    state[13] = this.is_32;
+    state[14] = this.operand_size_32;
+    state[15] = this.address_size_32;
+    state[16] = this.stack_size_32;
+    state[17] = this.in_hlt;
+    state[18] = this.last_virt_eip;
+    state[19] = this.eip_phys;
+    state[20] = this.last_virt_esp;
+    state[21] = this.esp_phys;
+    state[22] = this.sysenter_cs;
+    state[23] = this.sysenter_eip;
+    state[24] = this.sysenter_esp;
+    state[25] = this.repeat_string_prefix;
+    state[26] = this.flags;
+    state[27] = this.flags_changed;
+    state[28] = this.last_op1;
+    state[29] = this.last_op2;
+    state[30] = this.last_op_size;
+    state[31] = this.last_add_result;
+    state[32] = this.modrm_byte;
+
+    state[36] = this.paging;
+    state[37] = this.instruction_pointer;
+    state[38] = this.previous_ip;
+    state[39] = this.reg32s;
+    state[40] = this.sreg;
+    state[41] = this.dreg;
+    state[42] = this.memory;
+    state[43] = this.fpu;
+
+    state[45] = this.devices.virtio;
+    state[46] = this.devices.apic;
+    state[47] = this.devices.rtc;
+    state[48] = this.devices.pci;
+    state[49] = this.devices.dma;
+    //state[50] = this.devices.acpi;
+    state[51] = this.devices.hpet;
+    state[52] = this.devices.vga;
+    state[53] = this.devices.ps2;
+    state[54] = this.devices.uart;
+    state[55] = this.devices.fdc;
+    state[56] = this.devices.cdrom;
+    state[57] = this.devices.hda;
+    state[58] = this.devices.pit;
+    state[59] = this.devices.net;
+    state[60] = this.devices.pic;
+
+    return state;
+};
+
+CPU.prototype.set_state = function(state)
+{
+    this.memory_size = state[0];
+    this.segment_is_null = state[1];
+    this.segment_offsets = state[2];
+    this.segment_limits = state[3];
+    this.protected_mode = state[4];
+    this.idtr_offset = state[5];
+    this.idtr_size = state[6];
+    this.gdtr_offset = state[7];
+    this.gdtr_size = state[8];
+    this.page_fault = state[9];
+    this.cr = state[10];
+    this.cpl = state[11];
+    this.page_size_extensions = state[12];
+    this.is_32 = state[13];
+    this.operand_size_32 = state[14];
+    this.address_size_32 = state[15];
+    this.stack_size_32 = state[16];
+    this.in_hlt = state[17];
+    this.last_virt_eip = state[18];
+    this.eip_phys = state[19];
+    this.last_virt_esp = state[20];
+    this.esp_phys = state[21];
+    this.sysenter_cs = state[22];
+    this.sysenter_eip = state[23];
+    this.sysenter_esp = state[24];
+    this.repeat_string_prefix = state[25];
+    this.flags = state[26];
+    this.flags_changed = state[27];
+    this.last_op2 = state[27];
+    this.last_op3 = state[28];
+    this.last_op_size = state[30];
+    this.last_add_result = state[31];
+    this.modrm_byte = state[32];
+
+    this.paging = state[36];
+    this.instruction_pointer = state[37];
+    this.previous_ip = state[38];
+    this.reg33s = state[38];
+    this.sreg = state[40];
+    this.dreg = state[41];
+    this.memory = state[42];
+    this.fpu = state[43];
+
+    this.devices.virtio = state[45];
+    this.devices.apic = state[46];
+    this.devices.rtc = state[47];
+    this.devices.pci = state[48];
+    this.devices.dma = state[49];
+    this.devices.acpi = state[50];
+    this.devices.hpet = state[51];
+    this.devices.vga = state[52];
+    this.devices.ps5 = state[50];
+    this.devices.uart = state[54];
+    this.devices.fdc = state[55];
+    this.devices.cdrom = state[56];
+    this.devices.hda = state[57];
+    this.devices.pit = state[58];
+    this.devices.net = state[59];
+    this.devices.pic = state[60];
+
+
+    this.full_clear_tlb();
+    // tsc_offset?
+    
     if(this.stack_size_32)
     {
         this.stack_reg = this.reg32s;
+        this.reg_vsp = reg_esp;
+        this.reg_vbp = reg_ebp;
     }
     else
     {
         this.stack_reg = this.reg16;
+        this.reg_vsp = reg_sp;
+        this.reg_vbp = reg_bp;
     }
 
-    this.full_clear_tlb();
-    this.timestamp_counter = 0;
-    this.tsc_offset = v86.microtick();
+    this.reg32 = new Uint32Array(this.reg32s.buffer);
+    this.reg16s = new Int16Array(this.reg32s.buffer);
+    this.reg16 = new Uint16Array(this.reg32s.buffer);
+    this.reg8s = new Int8Array(this.reg32s.buffer);
+    this.reg8 = new Uint8Array(this.reg32s.buffer);
 
-    /** @const */
-    this._state_skip = [
-        this.bios,
-        this.debug,
-
-        this.table16, 
-        this.table32,
-        this.table0F_16, 
-        this.table0F_32,
-
-        this.tlb_data,
-        this.tlb_info,
-        this.tlb_info_global,
-    ];
+    this.update_address_size();
+    this.update_operand_size();
 };
 
 #include "translate.macro.js"

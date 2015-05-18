@@ -299,16 +299,59 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
 
     cpu.io.register_read(this.master_port | 2, this, this.dma_read_status);
     cpu.io.register_write(this.master_port | 2, this, this.dma_write_status);
-
-    /** @const */
-    this._state_skip = [
-        this.memory,
-        this.cpu,
-        this.stats,
-        this.buffer,
-        this.bus,
-    ];
 }
+
+IDEDevice.prototype.get_state = function()
+{
+    var state = [];
+
+    state[0] = this.device_control;
+    state[1] = this.last_drive;
+    state[2] = this.data_pointer;
+    state[3] = this.pio_data;
+    state[4] = this.is_lba;
+    state[5] = this.bytecount;
+    state[6] = this.sector;
+    state[7] = this.lba_count;
+    state[8] = this.cylinder_low;
+    state[9] = this.head;
+    state[10] = this.drive_head;
+    state[11] = this.status;
+    state[12] = this.sectors_per_drq;
+    state[13] = this.write_dest;
+    state[14] = this.data_port_count;
+    state[15] = this.data_port_current;
+    state[16] = this.data_port_buffer;
+    state[17] = this.next_status;
+    state[18] = this.prdt_addr;
+    state[19] = this.dma_status;
+
+    return state;
+};
+
+IDEDevice.prototype.set_state = function(state)
+{
+    this.device_control = state[0];
+    this.last_drive = state[1];
+    this.data_pointer = state[2];
+    this.pio_data = state[3];
+    this.is_lba = state[4];
+    this.bytecount = state[5];
+    this.sector = state[6];
+    this.lba_count = state[7];
+    this.cylinder_low = state[8];
+    this.head = state[9];
+    this.drive_head = state[10];
+    this.status = state[11];
+    this.sectors_per_drq = state[12];
+    this.write_dest = state[13];
+    this.data_port_count = state[14];
+    this.data_port_current = state[15];
+    this.data_port_buffer = state[16];
+    this.next_status = state[17];
+    this.prdt_addr = state[18];
+    this.dma_status = state[19];
+};
 
 IDEDevice.prototype.do_callback = function()
 {

@@ -178,12 +178,27 @@ function PCI(cpu)
     //    0xb0, 0xfe, 0xb0, 0xfe, 0xf1, 0xff, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     //    0x00, 0x00, 0x00, 0x00, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x02, 0x00,
     //], 0x1e << 3);
-    
-    this._state_skip = [
-        this.devices,
-        this.device_spaces,
-    ];
 }
+
+PCI.prototype.get_state = function()
+{
+    var state = [];
+
+    state[0] = this.pci_addr;
+    state[1] = this.pci_value;
+    state[2] = this.pci_response;
+    state[3] = this.pci_status;
+
+    return state;
+};
+
+PCI.prototype.set_state = function(state)
+{
+    this.pci_addr.set(state[0]);
+    this.pci_value.set(state[1]);
+    this.pci_response.set(state[2]);
+    this.pci_status.set(state[3]);
+};
 
 PCI.prototype.pci_query = function()
 {

@@ -248,12 +248,41 @@ function UART(cpu, port, bus)
     {
         this.scratch_register = out_byte;
     });
-
-    this._state_skip = [
-        this.bus,
-        this.cpu,
-    ];
 }
+
+UART.prototype.get_state = function()
+{
+    var state = [];
+
+    state[0] = this.ints;
+    state[1] = this.baud_rate;
+    state[2] = this.line_control;
+    state[3] = this.line_status;
+    state[4] = this.fifo_control;
+    state[5] = this.ier;
+    state[6] = this.iir;
+    state[7] = this.modem_control;
+    state[8] = this.modem_status;
+    state[9] = this.scratch_register;
+    state[10] = this.irq;
+
+    return state;
+};
+
+UART.prototype.set_state = function(state)
+{
+    this.ints = state[0];
+    this.baud_rate = state[1];
+    this.line_control = state[2];
+    this.line_status = state[3];
+    this.fifo_control = state[4];
+    this.ier = state[5];
+    this.iir = state[6];
+    this.modem_control = state[7];
+    this.modem_status = state[8];
+    this.scratch_register = state[9];
+    this.irq = state[10];
+};
 
 UART.prototype.push_irq = function()
 {

@@ -46,18 +46,6 @@ function FloppyController(cpu, fda_image, fdb_image)
     // this should actually be write-only ... but people read it anyway
     this.dor = 0;
 
-    /** @const */
-    this._state_skip = [
-        this.io,
-        this.cpu,
-        this.dma,
-    ];
-
-    if(this.fdb_image)
-    {
-        this._state_skip.push(this.fdb_image);
-    }
-
     if(!fda_image)
     {
         // Needed for CD emulation provided by seabios
@@ -70,8 +58,6 @@ function FloppyController(cpu, fda_image, fdb_image)
 
         return;
     }
-
-    this._state_skip.push(this.fda_image);
 
     this.floppy_size = fda_image.byteLength;
 
@@ -120,6 +106,56 @@ function FloppyController(cpu, fda_image, fdb_image)
     this.io.register_write(0x3F2, this, this.port3F2_write);
     this.io.register_write(0x3F5, this, this.port3F5_write);
 }
+
+FloppyController.prototype.get_state = function()
+{
+    var state = [];
+
+    state[0] = this.bytes_expecting;
+    state[1] = this.receiving_command;
+    state[2] = this.receiving_index;
+    //state[3] = this.next_command;
+    state[4] = this.response_data;
+    state[5] = this.response_index;
+    state[6] = this.response_length;
+    state[7] = this.floppy_size;
+    state[8] = this.status_reg0;
+    state[9] = this.status_reg1;
+    state[10] = this.status_reg2;
+    state[11] = this.drive;
+    state[12] = this.last_cylinder;
+    state[13] = this.last_head;
+    state[14] = this.last_sector;
+    state[15] = this.dor;
+    state[16] = this.sectors_per_track;
+    state[17] = this.number_of_heads;
+    state[18] = this.number_of_cylinders;
+
+    return state;
+};
+
+FloppyController.prototype.set_state = function(state)
+{
+    this.bytes_expecting = state[0];
+    this.receiving_command = state[1];
+    this.receiving_index = state[2];
+    this.next_command = state[3];
+    this.response_data = state[4];
+    this.response_index = state[5];
+    this.response_length = state[6];
+    this.floppy_size = state[7];
+    this.status_reg0 = state[8];
+    this.status_reg1 = state[9];
+    this.status_reg2 = state[10];
+    this.drive = state[11];
+    this.last_cylinder = state[12];
+    this.last_head = state[13];
+    this.last_sector = state[14];
+    this.dor = state[15];
+    this.sectors_per_track = state[16];
+    this.number_of_heads = state[17];
+    this.number_of_cylinders = state[18];
+};
 
 FloppyController.prototype.port3F0_read = function()
 {

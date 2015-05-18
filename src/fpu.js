@@ -63,7 +63,17 @@ function FPU(cpu)
     // Why no Float80Array :-(
     this.st = new Float64Array(8);
 
-    this._state_restore();
+    // used for conversion
+    /** @const */ this.float32 = new Float32Array(1);
+    /** @const */ this.float32_byte = new Uint8Array(this.float32.buffer);
+    /** @const */ this.float32_int = new Int32Array(this.float32.buffer);
+    /** @const */ this.float64 = new Float64Array(1);
+    /** @const */ this.float64_byte = new Uint8Array(this.float64.buffer);
+    /** @const */ this.float64_int = new Int32Array(this.float64.buffer);
+
+    /** @const */ this.st8 = new Uint8Array(this.st.buffer);
+    /** @const */ this.st32 = new Int32Array(this.st.buffer);
+
 
     // bitmap of which stack registers are empty
     this.stack_empty = 0xff;
@@ -88,33 +98,36 @@ function FPU(cpu)
 
 }
 
-FPU.prototype._state_restore = function()
+FPU.prototype.get_state = function()
 {
-    // used for conversion
-    /** @const */ this.float32 = new Float32Array(1);
-    /** @const */ this.float32_byte = new Uint8Array(this.float32.buffer);
-    /** @const */ this.float32_int = new Int32Array(this.float32.buffer);
-    /** @const */ this.float64 = new Float64Array(1);
-    /** @const */ this.float64_byte = new Uint8Array(this.float64.buffer);
-    /** @const */ this.float64_int = new Int32Array(this.float64.buffer);
+    var state = [];
 
-    /** @const */ this.st8 = new Uint8Array(this.st.buffer);
-    /** @const */ this.st32 = new Int32Array(this.st.buffer);
+    state[0] = this.st;
+    state[1] = this.stack_empty;
+    state[2] = this.stack_ptr;
+    state[3] = this.control_word;
+    state[4] = this.fpu_dp_selector;
+    state[5] = this.fpu_ip;
+    state[6] = this.fpu_ip_selector;
+    state[7] = this.fpu_dp;
+    state[8] = this.fpu_dp_selector;
+    state[9] = this.fpu_opcode;
 
-    /** @const */
-    this._state_skip = [
-        this.cpu,
+    return state;
+};
 
-        this.float32,
-        this.float32_byte,
-        this.float32_int,
-        this.float64,
-        this.float64_byte,
-        this.float64_int,
-
-        this.st8, 
-        this.st32,
-    ];
+FPU.prototype.set_state = function(state)
+{
+    this.st.set(state[0]);
+    this.stack_empty = state[1];
+    this.stack_ptr = state[2];
+    this.control_word = state[3];
+    this.fpu_dp_selector = state[4];
+    this.fpu_ip = state[5];
+    this.fpu_ip_selector = state[6];
+    this.fpu_dp = state[7];
+    this.fpu_dp_selector = state[8];
+    this.fpu_opcode = state[9];
 };
 
 FPU.prototype.fpu_unimpl = function()
