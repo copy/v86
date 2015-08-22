@@ -37,8 +37,8 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
     }
     else
     {
-        this.ata_port = 0x1F0;
-        this.irq = 14;
+        this.ata_port = 0x170;
+        this.irq = 15;
 
         this.pci_id = 0x1F << 3;
     }
