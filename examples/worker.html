@@ -1,0 +1,28 @@
+<!doctype html>
+<title>Worker</title>
+
+<script>
+"use strict";
+
+window.onload = function()
+{
+    var worker = new Worker("worker.js");
+    var terminal = document.getElementById("terminal");
+
+    worker.onmessage = function(e)
+    {
+        terminal.textContent += e.data;
+    }
+}
+
+var start = Date.now();
+setInterval(function()
+{
+    document.getElementById("time").textContent = (Date.now() - start) / 1000 | 0;
+});
+</script>
+
+<span id=time></span>s
+<hr>
+<textarea readonly rows=25 cols=80 id=terminal></textarea>
+

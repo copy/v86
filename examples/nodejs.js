@@ -14,6 +14,10 @@ console.log("Use F2 to save the state and F3 to restore.");
 var bios = readfile(__dirname + "/../../bios/seabios.bin");
 var linux = readfile(__dirname + "/../../images/linux.iso");
 
+process.stdin.setRawMode(true);
+process.stdin.resume();
+process.stdin.setEncoding("utf8");
+
 var emulator = new V86Starter({
     bios: { buffer: bios },
     cdrom: { buffer: linux },
@@ -22,15 +26,20 @@ var emulator = new V86Starter({
 
 emulator.add_listener("serial0-output-char", function(chr)
 {
+    if(!booted)
+    {
+        var now = Date.now();
+        console.log("Took %dms to boot", now - boot_start);
+        booted = true;
+    }
+
     process.stdout.write(chr);
 });
 
 console.log("Now booting, please stand by ...");
 
-process.stdin.setRawMode(true);
-process.stdin.resume();
-process.stdin.setEncoding("utf8");
-
+var boot_start = Date.now();
+var booted = false;
 var state;
 
 process.stdin.on("data", function(c)

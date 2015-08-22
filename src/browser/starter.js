@@ -36,10 +36,10 @@
  * - `serial_container HTMLTextAreaElement` (No serial terminal) - A textarea
  *   that will receive and send data to the emulated serial terminal.
  *   Alternatively the serial terminal can also be accessed programatically,
- *   see [serial.html](samples/serial.html).
+ *   see [serial.html](../examples/serial.html).
  *
  * - `screen_container HTMLElement` (No screen) - An HTMLElement. This should
- *   have a certain structure, see [basic.html](samples/basic.html).
+ *   have a certain structure, see [basic.html](../examples/basic.html).
  *
  * ***
  *

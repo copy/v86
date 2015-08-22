@@ -1,0 +1,90 @@
+<!doctype html>
+<title>Basic Emulator</title><!-- not BASIC! -->
+
+<script src="../../build/libv86.js"></script>
+<script>
+"use strict";
+
+window.onload = function()
+{
+    var start = Date.now();
+
+    setInterval(function()
+    {
+        document.getElementById("time").textContent = Math.round((Date.now() - start) / 1000);
+    }, 999);
+
+    var emulator = new V86Starter({
+        memory_size: 128 * 1024 * 1024,
+        vga_memory_size: 8 * 1024 * 1024,
+        screen_container: document.getElementById("screen_container"),
+        bios: {
+            url: "../../bios/seabios.bin",
+        },
+        vga_bios: {
+            url: "../../bios/vgabios.bin",
+        },
+        hda: {
+            url: "http://localhost/v86-images/arch3.img",
+            size: 8 * 1024 * 1024 * 1024,
+            async: true,
+        },
+        initial_state: {
+            url: "http://localhost/v86-images/v86state.bin",
+        },
+        filesystem: {
+            baseurl: "http://localhost/v86-images/arch/",
+            basefs: "http://localhost/v86-images/fs.json",
+        },
+        autostart: true,
+    });
+
+    document.getElementById("status").textContent += ".";
+
+    emulator.add_listener("emulator-ready", function()
+    {
+        document.getElementById("status").textContent += ".";
+
+        var code = "console.log(3 * 7);\n";
+        var buffer = new Uint8Array(code.length);
+
+        buffer.set(code.split("").map(function(chr) { return chr.charCodeAt(0); }));
+
+        emulator.create_file("/root/code.js", buffer, function(error)
+        {
+            if(error) throw error;
+
+            emulator.serial0_send("node /root/code.js > /root/out.txt 2> /root/out.txt\n");
+        });
+    });
+
+    var serial_out = "";
+    emulator.add_listener("serial0-output-char", function(chr)
+    {
+        serial_out += chr;
+        //document.getElementById("output").textContent += chr;
+
+        if(serial_out.endsWith("root@nyu"))
+        {
+            emulator.read_file("/root/out.txt", function(error, data)
+            {
+                if(error) throw error;
+
+                document.getElementById("output").textContent += String.fromCharCode.apply(this, data);
+            });
+        }
+    });
+}
+</script>
+
+<pre><span id=time></span> <span id=status></span></pre>
+
+<!-- A minimal structure for the ScreenAdapter defined in browser/screen.js -->
+<div id="screen_container">
+    <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+    <canvas style="display: none"></canvas>
+</div>
+
+<hr>
+
+<pre id=output></pre>

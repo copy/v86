@@ -3,7 +3,7 @@
 var markdox = require("markdox");
 
 var options = {
-    output: __dirname + "/api.md", 
+    output: __dirname + "/api.md",
     template: __dirname + "/template.md.ejs"
 };
 
@@ -12,5 +12,5 @@ var files = [
 ];
 
 markdox.process(files, options, function() {
-  console.log("Ok.");
+  console.log("Ok. %s written.", options.output);
 });

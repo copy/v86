@@ -13,11 +13,11 @@ Demos
 API examples
 -
 
-- [Basic](docs/samples/basic.html)
-- [Programatically using the serial terminal](docs/samples/serial.html)
-- [A LUA interpreter](docs/samples/lua.html)
-- [Two instances in one window](docs/samples/two_instances.html)
-- [Saving and restoring emulator state](docs/samples/save_restore.html)
+- [Basic](examples/basic.html)
+- [Programatically using the serial terminal](examples/serial.html)
+- [A LUA interpreter](examples/lua.html)
+- [Two instances in one window](examples/two_instances.html)
+- [Saving and restoring emulator state](examples/save_restore.html)
 
 Using v86 for your own purposes is as easy as:
 
@@ -79,7 +79,7 @@ How to build, run and embed?
   locally, make sure to serve it from a local webserver. You can use `make run`
   to serve the files using Python's SimpleHTTPServer.
 - If you want only want to embed v86 on website you can use libv86.js. For
-  usage, check out the [API](docs/api.md) and [examples](docs/samples/).
+  usage, check out the [API](docs/api.md) and [examples](examples/).
 - A couple of disk images are provided for testing. You can check them out
   using `wget -P images/ http://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}`.
 
@@ -88,7 +88,7 @@ How to build, run and embed?
 
 ```bash
 # grab the main repo
-git clone https://github.com/copy/v86.git                     
+git clone https://github.com/copy/v86.git
 
 cd v86
 
