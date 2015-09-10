@@ -88,6 +88,8 @@ How to build, run and embed?
 
 ```bash
 # grab the main repo
+
+[![Join the chat at https://gitter.im/copy/v86](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/copy/v86?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 git clone https://github.com/copy/v86.git                     
 
 cd v86
