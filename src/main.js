@@ -40,7 +40,7 @@ function v86(bus)
     this.next_tick = function(time) { console.assert(false); };
 }
 
-v86.prototype.run = function() 
+v86.prototype.run = function()
 {
     if(!this.running)
     {
@@ -49,7 +49,7 @@ v86.prototype.run = function()
     }
 };
 
-v86.prototype.do_tick = function() 
+v86.prototype.do_tick = function()
 {
     if(this.stopped)
     {
@@ -61,7 +61,14 @@ v86.prototype.do_tick = function()
     this.running = true;
     var dt = this.cpu.main_run();
 
-    this.next_tick(dt);
+    if(dt <= 0)
+    {
+        this.fast_next_tick();
+    }
+    else
+    {
+        this.next_tick(dt);
+    }
 };
 
 v86.prototype.stop = function()
