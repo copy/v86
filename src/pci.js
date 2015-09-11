@@ -202,7 +202,7 @@ PCI.prototype.set_state = function(state)
 
 PCI.prototype.pci_query = function()
 {
-    var dbg_line = "PCI: ";
+    var dbg_line = "";
 
     // Bit | .31                     .0
     // Fmt | EBBBBBBBBDDDDDFFFRRRRRR00
@@ -215,11 +215,10 @@ PCI.prototype.pci_query = function()
         fn = bdf & 7,
         enabled = this.pci_addr[3] >> 7;
 
-    dbg_line += " enabled=" + (enabled);
+    dbg_line += "enabled=" + (enabled);
     dbg_line += " bdf=" + h(bdf, 4);
+    dbg_line += " dev=" + h(dev, 4);
     dbg_line += " addr=" + h(addr, 2);
-
-    //dbg_log(dbg_line + " " + h(this.pci_addr32[0] >>> 0, 8), LOG_PCI);
 
     var device = this.device_spaces[bdf];
 
@@ -237,7 +236,14 @@ PCI.prototype.pci_query = function()
             this.pci_response32[0] = 0;
         }
 
-        dbg_log(dbg_line + " " + h(this.pci_addr32[0] >>> 0, 8) + "  " + h(this.pci_response32[0] >>> 0, 8), LOG_PCI);
+        dbg_line += " " + h(this.pci_addr32[0] >>> 0, 8) + " -> " + h(this.pci_response32[0] >>> 0, 8);
+
+        if(addr >= device.byteLength)
+        {
+            dbg_line += " (undef)";
+        }
+
+        dbg_log(dbg_line, LOG_PCI);
     }
     else
     {
