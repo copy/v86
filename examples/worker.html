@@ -13,6 +13,12 @@ window.onload = function()
     {
         terminal.textContent += e.data;
     }
+
+    terminal.onkeypress = function(e)
+    {
+        e.preventDefault();
+        worker.postMessage(String.fromCharCode(e.which));
+    };
 }
 
 var start = Date.now();
@@ -24,5 +30,5 @@ setInterval(function()
 
 <span id=time></span>s
 <hr>
-<textarea readonly rows=25 cols=80 id=terminal></textarea>
+<textarea rows=25 cols=80 id=terminal></textarea>
 

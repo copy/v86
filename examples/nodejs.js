@@ -2,7 +2,7 @@
 "use strict";
 
 var fs = require("fs");
-var V86Starter = require("../../build/libv86.js").V86Starter;
+var V86Starter = require("../build/libv86.js").V86Starter;
 
 function readfile(path)
 {
@@ -11,8 +11,8 @@ function readfile(path)
 
 console.log("Use F2 to save the state and F3 to restore.");
 
-var bios = readfile(__dirname + "/../../bios/seabios.bin");
-var linux = readfile(__dirname + "/../../images/linux.iso");
+var bios = readfile(__dirname + "/../bios/seabios.bin");
+var linux = readfile(__dirname + "/../images/linux.iso");
 
 process.stdin.setRawMode(true);
 process.stdin.resume();

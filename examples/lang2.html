@@ -1,7 +1,7 @@
 <!doctype html>
 <title>Interpreter 2</title>
 
-<script src="../../build/libv86.js"></script>
+<script src="../build/libv86.js"></script>
 <script>
 "use strict";
 
@@ -30,10 +30,10 @@ window.onload = function()
         vga_memory_size: 8 * 1024 * 1024,
         screen_container: document.getElementById("screen_container"),
         bios: {
-            url: "../../bios/seabios.bin",
+            url: "../bios/seabios.bin",
         },
         vga_bios: {
-            url: "../../bios/vgabios.bin",
+            url: "../bios/vgabios.bin",
         },
         hda: {
             url: urlbase + "arch3.img",

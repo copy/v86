@@ -1,7 +1,7 @@
 <!doctype html>
 <title>Asynchronous loading of disk images</title>
 
-<script src="../../build/libv86.js"></script>
+<script src="../build/libv86.js"></script>
 <script>
 "use strict";
 
@@ -18,10 +18,10 @@ window.onload = function()
         vga_memory_size: 2 * 1024 * 1024,
         screen_container: document.getElementById("screen_container"),
         bios: {
-            url: "../../bios/seabios.bin",
+            url: "../bios/seabios.bin",
         },
         vga_bios: {
-            url: "../../bios/vgabios.bin",
+            url: "../bios/vgabios.bin",
         },
         cdrom: {
             url: "https://dl.dropboxusercontent.com/u/61029208/dsl-4.11.rc2.iso",

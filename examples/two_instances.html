@@ -1,7 +1,7 @@
 <!doctype html>
 <title>Two emulators</title>
 
-<script src="../../build/libv86.js"></script>
+<script src="../build/libv86.js"></script>
 <script>
 "use strict";
 
@@ -13,13 +13,13 @@ window.onload = function()
     var emulator1 = new V86Starter({
         screen_container: container1,
         bios: {
-            url: "../../bios/seabios.bin",
+            url: "../bios/seabios.bin",
         },
         vga_bios: {
-            url: "../../bios/vgabios.bin",
+            url: "../bios/vgabios.bin",
         },
         cdrom: {
-            url: "../../images/linux.iso",
+            url: "../images/linux.iso",
         },
         autostart: true,
     });
@@ -27,13 +27,13 @@ window.onload = function()
     var emulator2 = new V86Starter({
         screen_container: container2,
         bios: {
-            url: "../../bios/seabios.bin",
+            url: "../bios/seabios.bin",
         },
         vga_bios: {
-            url: "../../bios/vgabios.bin",
+            url: "../bios/vgabios.bin",
         },
         cdrom: {
-            url: "../../images/linux.iso",
+            url: "../images/linux.iso",
         },
         autostart: true,
     });
