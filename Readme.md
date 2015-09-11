@@ -90,7 +90,7 @@ How to build, run and embed?
 
 ```bash
 # grab the main repo
-git clone https://github.com/copy/v86.git                     
+git clone https://github.com/copy/v86.git
 
 cd v86
 
@@ -154,9 +154,7 @@ How can I contribute?
 - Add new features (hardware devices, fill holes in the CPU), fix bugs. Check
   out the issues section and contact me if you need help.
 - Report bugs.
-- Donate. Via Bitcoin:
-  [`14KBXSoewGzbQY8VoznJ5MZXGxoia8RxC9`](https://blockchain.info/address/14KBXSoewGzbQY8VoznJ5MZXGxoia8RxC9).
-  If you want to donate elsewhere, let me know.
+- If you want to donate, let me know.
 
 License
 -
