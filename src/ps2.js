@@ -52,8 +52,8 @@ function PS2(cpu, bus)
     /** @type {boolean} */
     this.next_read_resolution = false;
 
-    /** 
-     * @type {ByteQueue} 
+    /**
+     * @type {ByteQueue}
      */
     this.kbd_buffer = new ByteQueue(32);
 
@@ -71,8 +71,8 @@ function PS2(cpu, bus)
     /** @type {number} */
     this.last_mouse_packet = -1;
 
-    /** 
-     * @type {ByteQueue} 
+    /**
+     * @type {ByteQueue}
      */
     this.mouse_buffer = new ByteQueue(32);
 
@@ -202,7 +202,7 @@ PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
     }
 
     // note: delta_x or delta_y can be floating point numbers
-    
+
     var factor = this.resolution * this.sample_rate / 80;
 
     this.mouse_delta_x += delta_x * factor;
@@ -248,10 +248,10 @@ PS2.prototype.mouse_send_click = function(left, middle, right)
 
 PS2.prototype.send_mouse_packet = function(dx, dy)
 {
-    var info_byte = 
+    var info_byte =
             (dy < 0) << 5 |
             (dx < 0) << 4 |
-            1 << 3 | 
+            1 << 3 |
             this.mouse_clicks,
         delta_x = dx,
         delta_y = dy;
@@ -288,7 +288,7 @@ PS2.prototype.apply_scaling2 = function(n)
             return n;
         case 2:
             return sign;
-        case 4: 
+        case 4:
             return 6 * sign;
         case 5:
             return 9 * sign;
@@ -309,7 +309,7 @@ PS2.prototype.destroy = function()
     //    this.mouse.destroy();
     //}
 };
-    
+
 
 PS2.prototype.port60_read = function()
 {
@@ -363,7 +363,7 @@ PS2.prototype.port60_read = function()
 
 PS2.prototype.port64_read = function()
 {
-    // status port 
+    // status port
 
     var status_byte = 0x10;
 
@@ -384,14 +384,14 @@ PS2.prototype.port64_read = function()
 PS2.prototype.port60_write = function(write_byte)
 {
     dbg_log("port 60 write: " + h(write_byte), LOG_PS2);
-    
+
     if(this.read_command_register)
     {
         this.kbd_irq();
         this.command_register = write_byte;
         this.read_command_register = false;
         // not sure, causes "spurious ack" in Linux
-        //this.kbd_buffer.push(0xFA); 
+        //this.kbd_buffer.push(0xFA);
 
         dbg_log("Keyboard command register = " + h(this.command_register), LOG_PS2);
     }
@@ -464,7 +464,7 @@ PS2.prototype.port60_write = function(write_byte)
     else if(this.next_is_mouse_command)
     {
         this.next_is_mouse_command = false;
-        dbg_log("Port 60 data register write: " + h(write_byte), LOG_PS2); 
+        dbg_log("Port 60 data register write: " + h(write_byte), LOG_PS2);
 
         if(!this.have_mouse)
         {
@@ -524,7 +524,7 @@ PS2.prototype.port60_write = function(write_byte)
             this.enable_mouse_stream = false;
             break;
         case 0xF6:
-            // set defaults 
+            // set defaults
             this.enable_mouse_stream = false;
             this.sample_rate = 100;
             this.scaling2 = false;
@@ -552,9 +552,9 @@ PS2.prototype.port60_write = function(write_byte)
 
         this.mouse_irq();
     }
-    else 
+    else
     {
-        dbg_log("Port 60 data register write: " + h(write_byte), LOG_PS2); 
+        dbg_log("Port 60 data register write: " + h(write_byte), LOG_PS2);
 
         // send ack
         this.mouse_buffer.clear();
@@ -576,7 +576,7 @@ PS2.prototype.port60_write = function(write_byte)
             this.kbd_buffer.push(83);
             break;
         case 0xF3:
-            //  Set typematic rate and delay 
+            //  Set typematic rate and delay
             this.next_read_rate = true;
             break;
         case 0xF4:
@@ -602,7 +602,7 @@ PS2.prototype.port60_write = function(write_byte)
         default:
             dbg_log("Unimplemented keyboard command: " + h(write_byte), LOG_PS2);
         }
-        
+
         this.kbd_irq();
     }
 };
@@ -649,7 +649,7 @@ PS2.prototype.port64_write = function(write_byte)
         this.kbd_buffer.push(0x55);
         break;
     case 0xAB:
-        // Test first PS/2 port 
+        // Test first PS/2 port
         this.kbd_buffer.clear();
         this.mouse_buffer.clear();
         this.kbd_buffer.push(0);

@@ -1,8 +1,8 @@
 "use strict";
 
 
-/** 
- * @constructor 
+/**
+ * @constructor
  * @param {CPU} cpu
  * @param {Bus.Connector} bus
  * @param {FS} filesystem
@@ -243,7 +243,7 @@ VirtIO.prototype.handle_descriptor = function(idx)
             len: len,
         });
 
-        dbg_log("descriptor: addr=" + h(addr_high, 8) + ":" + h(addr_low, 8) + 
+        dbg_log("descriptor: addr=" + h(addr_high, 8) + ":" + h(addr_low, 8) +
                              " len=" + h(len, 8) + " flags=" + h(flags, 4) + " next=" + h(next, 4), LOG_VIRTIO);
 
         if(flags & VRING_DESC_F_NEXT)
@@ -328,7 +328,7 @@ VirtIO.prototype.device_reply = function(infos)
             len: len,
         });
 
-        dbg_log("descriptor: addr=" + h(addr_high, 8) + ":" + h(addr_low, 8) + 
+        dbg_log("descriptor: addr=" + h(addr_high, 8) + ":" + h(addr_low, 8) +
                              " len=" + h(len, 8) + " flags=" + h(flags, 4) + " next=" + h(next, 4), LOG_VIRTIO);
 
         if(flags & VRING_DESC_F_NEXT)

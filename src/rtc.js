@@ -127,7 +127,7 @@ RTC.prototype.timer = function(time, legacy_mode)
         this.cpu.device_raise_irq(8);
         this.cmos_c |= 1 << 6 | 1 << 7;
 
-        this.next_interrupt += this.periodic_interrupt_time * 
+        this.next_interrupt += this.periodic_interrupt_time *
                 Math.ceil((time - this.next_interrupt) / this.periodic_interrupt_time);
 
         return Math.max(0, time - this.next_interrupt);
@@ -137,20 +137,20 @@ RTC.prototype.timer = function(time, legacy_mode)
 };
 
 RTC.prototype.bcd_pack = function(n)
-{ 
-    var i = 0, 
+{
+    var i = 0,
         result = 0,
         digit;
-    
+
     while(n)
     {
-        digit = n % 10; 
-        
-        result |= digit << (4 * i); 
-        i++; 
+        digit = n % 10;
+
+        result |= digit << (4 * i);
+        i++;
         n = (n - digit) / 10;
-    } 
-    
+    }
+
     return result;
 };
 
@@ -171,7 +171,7 @@ RTC.prototype.encode_time = function(t)
 // - interrupt on update
 // - countdown
 // - letting bios/os set values
-// (none of these are used by seabios or the OSes we're 
+// (none of these are used by seabios or the OSes we're
 // currently testing)
 RTC.prototype.cmos_port_read = function()
 {
@@ -208,7 +208,7 @@ RTC.prototype.cmos_port_read = function()
             // It is important to know that upon a IRQ 8, Status Register C
             // will contain a bitmask telling which interrupt happened.
             // What is important is that if register C is not read after an
-            // IRQ 8, then the interrupt will not happen again. 
+            // IRQ 8, then the interrupt will not happen again.
 
             dbg_log("cmos reg C read", LOG_RTC);
             // Missing IRQF flag

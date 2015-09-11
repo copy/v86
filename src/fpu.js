@@ -3,7 +3,7 @@
 /** @const */
 var FPU_LOG_OP = false;
 
-var 
+var
     /** @const */
     FPU_C0 = 0x100,
     /** @const */
@@ -17,7 +17,7 @@ var
     /** @const */
     FPU_STACK_TOP = 0x3800;
 
-var 
+var
     // precision, round & infinity control
     /** @const */
     FPU_PC = 3 << 8,
@@ -27,7 +27,7 @@ var
     FPU_IF = 1 << 12;
 
 // exception bits in the status word
-var 
+var
     /** @const */
     FPU_EX_SF = 1 << 6,
     /** @const */
@@ -43,7 +43,7 @@ var
     /** @const */
     FPU_EX_I = 1 << 0;
 
-var 
+var
     /** @const */
     TWO_POW_63 =  0x8000000000000000;
 
@@ -351,7 +351,7 @@ FPU.prototype.fldenv = function(addr)
 
         this.safe_status_word(this.cpu.safe_read16(addr + 4));
         this.safe_tag_word(this.cpu.safe_read16(addr + 8));
-        
+
         this.fpu_ip = this.cpu.safe_read32s(addr + 12);
         this.fpu_ip_selector = this.cpu.safe_read16(addr + 16);
         this.fpu_opcode = this.cpu.safe_read16(addr + 18);
@@ -432,7 +432,7 @@ FPU.prototype.integer_round = function(f)
     {
         return Math.floor(f);
     }
-    else 
+    else
     {
         return Math.ceil(f);
     }
@@ -503,7 +503,7 @@ FPU.prototype.load_m80 = function(addr)
 {
     var exponent = this.cpu.safe_read16(addr + 8),
         sign,
-        low = this.cpu.safe_read32s(addr) >>> 0, 
+        low = this.cpu.safe_read32s(addr) >>> 0,
         high = this.cpu.safe_read32s(addr + 4) >>> 0;
 
     sign = exponent >> 15;
@@ -536,7 +536,7 @@ FPU.prototype.load_m80 = function(addr)
 
     // Note: some bits might be lost at this point
     var mantissa = low + 0x100000000 * high;
-    
+
     if(sign)
     {
         mantissa = -mantissa;
@@ -650,7 +650,7 @@ FPU.prototype.dbg_log_fpu_op = function(op, imm8)
     }
     else
     {
-        dbg_log(h(op, 2) + " /" + (imm8 >> 3 & 7) + 
+        dbg_log(h(op, 2) + " /" + (imm8 >> 3 & 7) +
                 "     @" + h(this.cpu.instruction_pointer >>> 0, 8) + " sp=" + this.stack_ptr + " st=" + h(this.stack_empty, 2), LOG_FPU);
     }
 }
@@ -788,7 +788,7 @@ FPU.prototype.op_D9_reg = function(imm8)
                     // fnop
                     break;
                 default:
-                    dbg_log(low); 
+                    dbg_log(low);
                     this.fpu_unimpl();
             }
             break;
@@ -816,7 +816,7 @@ FPU.prototype.op_D9_reg = function(imm8)
                     this.fxam(st0);
                     break;
                 default:
-                    dbg_log(low); 
+                    dbg_log(low);
                     this.fpu_unimpl();
             }
             break;
@@ -1013,7 +1013,7 @@ FPU.prototype.op_DA_reg = function(imm8)
             }
             break;
         default:
-            dbg_log(mod); 
+            dbg_log(mod);
             this.fpu_unimpl();
     }
 };
@@ -1141,7 +1141,7 @@ FPU.prototype.op_DB_reg = function(imm8)
             this.fcomi(this.get_sti(low));
             break;
         default:
-            dbg_log(mod); 
+            dbg_log(mod);
             this.fpu_unimpl();
     }
 };
@@ -1198,7 +1198,7 @@ FPU.prototype.op_DB_mem = function(imm8, addr)
             this.pop();
             break;
         default:
-            dbg_log(mod); 
+            dbg_log(mod);
             this.fpu_unimpl();
     }
 };
@@ -1326,7 +1326,7 @@ FPU.prototype.op_DD_reg = function(imm8)
             {
                 this.pop();
             }
-            else 
+            else
             {
                 this.st[this.stack_ptr + low & 7] = this.get_st0();
                 this.pop();
@@ -1341,7 +1341,7 @@ FPU.prototype.op_DD_reg = function(imm8)
             this.pop();
             break;
         default:
-            dbg_log(mod); 
+            dbg_log(mod);
             this.fpu_unimpl();
     }
 };
@@ -1427,7 +1427,7 @@ FPU.prototype.op_DE_reg = function(imm8)
             else
             {
                 // not a valid encoding
-                dbg_log(mod); 
+                dbg_log(mod);
                 this.fpu_unimpl();
             }
             break;
@@ -1535,7 +1535,7 @@ FPU.prototype.op_DF_reg = function(imm8)
             this.pop();
             break;
         default:
-            dbg_log(mod); 
+            dbg_log(mod);
             this.fpu_unimpl();
     }
 };

@@ -11,7 +11,7 @@ v86util.pads = function(str, len)
     {
         str = str + " ";
     }
-    
+
     return str;
 }
 
@@ -24,7 +24,7 @@ v86util.pad0 = function(str, len)
     {
         str = "0" + str;
     }
-    
+
     return str;
 }
 
@@ -36,11 +36,11 @@ v86util.pad0 = function(str, len)
  */
 function h(n, len)
 {
-    if(!n) 
+    if(!n)
     {
         var str = "";
     }
-    else 
+    else
     {
         var str = n.toString(16);
     }
@@ -48,7 +48,7 @@ function h(n, len)
     return "0x" + v86util.pad0(str.toUpperCase(), len || 1);
 }
 
-/** 
+/**
  * Synchronous access to ArrayBuffer
  * @constructor
  */
@@ -65,7 +65,7 @@ SyncBuffer.prototype.load = function()
     this.onload && this.onload({ buffer: this.buffer });
 };
 
-/** 
+/**
  * @param {number} start
  * @param {number} len
  * @param {function(!Uint8Array)} fn
@@ -76,7 +76,7 @@ SyncBuffer.prototype.get = function(start, len, fn)
     fn(new Uint8Array(this.buffer, start, len));
 };
 
-/** 
+/**
  * @param {number} start
  * @param {!Uint8Array} slice
  * @param {function()} fn
@@ -164,8 +164,8 @@ SyncBuffer.prototype.get_buffer = function(fn)
 })();
 
 
-/** 
- * @constructor 
+/**
+ * @constructor
  *
  * Queue wrapper around Uint8Array
  * Used by devices such as the PS2 controller

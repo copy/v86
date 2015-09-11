@@ -1,6 +1,6 @@
 "use strict";
 
-var 
+var
 /** @const */  PCI_VENDOR_ID =		0x00	/* 16 bits */
 /** @const */ ,PCI_DEVICE_ID =		0x02	/* 16 bits */
 /** @const */ ,PCI_COMMAND =		0x04	/* 16 bits */
@@ -13,12 +13,12 @@ var
 /** @const */ ,PCI_INTERRUPT_LINE =	0x3c	/* 8 bits */
 /** @const */ ,PCI_CLASS_REVISION =	0x08;	/* High 24 bits are class, low 8 revision */
 
-var 
+var
 /** @const */ PCI_CONFIG_ADDRESS = 0xCF8,
 /** @const */ PCI_CONFIG_DATA = 0xCFC;
 
-/** 
- * @constructor 
+/**
+ * @constructor
  * @param {CPU} cpu
  */
 function PCI(cpu)
@@ -47,8 +47,8 @@ function PCI(cpu)
             cpu_restart();
         }
     });*/
-    
-    cpu.io.register_write_consecutive(PCI_CONFIG_DATA, this, 
+
+    cpu.io.register_write_consecutive(PCI_CONFIG_DATA, this,
         function(out_byte)
         {
             dbg_log("PCI data0: " + h(out_byte, 2) + " addr=" + h(this.pci_addr32[0] >>> 0), LOG_PCI);
@@ -72,7 +72,7 @@ function PCI(cpu)
         }
     );
 
-    cpu.io.register_read_consecutive(PCI_CONFIG_DATA, this, 
+    cpu.io.register_read_consecutive(PCI_CONFIG_DATA, this,
         function()
         {
             return this.pci_response[0];
@@ -91,7 +91,7 @@ function PCI(cpu)
         }
     );
 
-    cpu.io.register_read_consecutive(PCI_CONFIG_ADDRESS, this, 
+    cpu.io.register_read_consecutive(PCI_CONFIG_ADDRESS, this,
         function()
         {
             return this.pci_status[0];
@@ -110,7 +110,7 @@ function PCI(cpu)
         }
     );
 
-    cpu.io.register_write_consecutive(PCI_CONFIG_ADDRESS, this, 
+    cpu.io.register_write_consecutive(PCI_CONFIG_ADDRESS, this,
         function(out_byte)
         {
             this.pci_addr[0] = out_byte;
@@ -144,7 +144,7 @@ function PCI(cpu)
     //    ],
     //    pci_bars: [],
     //};
-    
+
     var host_bridge = {
         pci_id: 0,
         pci_space: [
@@ -203,7 +203,7 @@ PCI.prototype.set_state = function(state)
 PCI.prototype.pci_query = function()
 {
     var dbg_line = "PCI: ";
-    
+
     // Bit | .31                     .0
     // Fmt | EBBBBBBBBDDDDDFFFRRRRRR00
 

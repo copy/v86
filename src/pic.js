@@ -1,6 +1,6 @@
 "use strict";
 
-/** 
+/**
  * Programmable Interrupt Controller
  * http://stanislavs.org/helppc/8259.html
  *

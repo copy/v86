@@ -1,8 +1,8 @@
 "use strict";
 
-/** 
+/**
  * @type {function((string|number), number=)}
- * @const 
+ * @const
  */
 var dbg_log = (function()
 {
@@ -16,7 +16,7 @@ var dbg_log = (function()
     var log_last_message = "";
     var log_message_repetitions = 0;
 
-    /** 
+    /**
      * @param {number=} level
      */
     function dbg_log_(stuff, level)
@@ -41,8 +41,8 @@ var dbg_log = (function()
             }
 
             var now = new Date();
-            var time_str = v86util.pad0(now.getHours(), 2) + ":" + 
-                           v86util.pad0(now.getMinutes(), 2) + ":" + 
+            var time_str = v86util.pad0(now.getHours(), 2) + ":" +
+                           v86util.pad0(now.getMinutes(), 2) + ":" +
                            v86util.pad0(now.getSeconds(), 2) + " ";
 
             if(log_message_repetitions)
@@ -51,7 +51,7 @@ var dbg_log = (function()
                 {
                     console.log(time_str + log_last_message);
                 }
-                else 
+                else
                 {
                     console.log("Previous message repeated " + log_message_repetitions + " times");
                 }
@@ -68,7 +68,7 @@ var dbg_log = (function()
     return dbg_log_;
 })();
 
-/** 
+/**
  * @param {number=} level
  */
 function dbg_trace(level)
@@ -78,17 +78,17 @@ function dbg_trace(level)
     dbg_log(Error().stack, level);
 }
 
-/** 
+/**
  * console.assert is fucking slow
  * @param {string=} msg
  * @param {number=} level
  */
-function dbg_assert(cond, msg, level) 
-{ 
+function dbg_assert(cond, msg, level)
+{
     if(!DEBUG) return;
 
-    if(!cond) 
-    { 
+    if(!cond)
+    {
         console.trace();
 
         if(msg)
@@ -99,6 +99,6 @@ function dbg_assert(cond, msg, level)
         {
             throw "Assert failed";
         }
-    } 
+    }
 };
 

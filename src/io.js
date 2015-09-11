@@ -102,7 +102,7 @@ IO.prototype.register_read = function(port_addr, device, r8, r16, r32)
 
     if(DEBUG)
     {
-        var fail = function(n) { 
+        var fail = function(n) {
             dbg_assert(false, "Overlapped read" + n + " " + h(port_addr, 4));
             return -1;
         };
@@ -135,7 +135,7 @@ IO.prototype.register_write = function(port_addr, device, w8, w16, w32)
 
     if(DEBUG)
     {
-        var fail = function(n) { 
+        var fail = function(n) {
             dbg_assert(false, "Overlapped write" + n + " " + h(port_addr));
         };
         if(!w8) w8 = fail.bind(this, 8);
@@ -172,19 +172,19 @@ IO.prototype.register_read_consecutive = function(port_addr, device, r8_1, r8_2,
 
     function r16_1()
     {
-        return r8_1.call(this) | 
+        return r8_1.call(this) |
                 r8_2.call(this) << 8;
     }
     function r16_2()
     {
-        return r8_3.call(this) | 
+        return r8_3.call(this) |
                 r8_4.call(this) << 8;
     }
     function r32()
     {
-        return r8_1.call(this) | 
-                r8_2.call(this) << 8 | 
-                r8_3.call(this) << 16 | 
+        return r8_1.call(this) |
+                r8_2.call(this) << 8 |
+                r8_3.call(this) << 16 |
                 r8_4.call(this) << 24;
     }
 
@@ -279,7 +279,7 @@ IO.prototype.mmap_read32_shim = function(addr)
     var aligned_addr = addr >>> MMAP_BLOCK_BITS;
     var fn = this.memory.memory_map_read8[aligned_addr];
 
-    return fn(addr) | fn(addr + 1) << 8 | 
+    return fn(addr) | fn(addr + 1) << 8 |
             fn(addr + 2) << 16 | fn(addr + 3) << 24;
 };
 
@@ -295,12 +295,12 @@ IO.prototype.mmap_write32_shim = function(addr, value)
 };
 
 /**
- * @param {number} addr 
- * @param {number} size 
+ * @param {number} addr
+ * @param {number} size
  * @param {*} read_func8
  * @param {*} write_func8
- * @param {*=} read_func32 
- * @param {*=} write_func32 
+ * @param {*=} read_func32
+ * @param {*=} write_func32
  */
 IO.prototype.mmap_register = function(addr, size, read_func8, write_func8, read_func32, write_func32)
 {

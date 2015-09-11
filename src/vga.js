@@ -1,10 +1,10 @@
 "use strict";
 
 
-var 
-    /** 
+var
+    /**
      * Always 64k
-     * @const 
+     * @const
      */
     VGA_BANK_SIZE = 64 * 1024,
 
@@ -45,13 +45,13 @@ function VGAScreen(cpu, bus, vga_memory_size)
 
     /**
      * Number of columns in text mode
-     * @type {number} 
+     * @type {number}
      */
     this.max_cols = 80;
 
-    /** 
+    /**
      * Number of rows in text mode
-     * @type {number} 
+     * @type {number}
      */
     this.max_rows = 25;
 
@@ -79,7 +79,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     /** @type {boolean} */
     this.graphical_mode = false;
 
-    /* 
+    /*
      * VGA palette containing 256 colors for video mode 13 etc.
      * Needs to be initialised by the BIOS
      */
@@ -91,7 +91,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.latch2 = 0;
     this.latch3 = 0;
 
-        
+
     /** @type {number} */
     this.svga_width = 0;
 
@@ -109,10 +109,10 @@ function VGAScreen(cpu, bus, vga_memory_size)
     /** @type {number} */
     this.svga_bank_offset = 0;
 
-    /** 
+    /**
      * The video buffer offset created by VBE_DISPI_INDEX_Y_OFFSET
      * In bytes
-     * @type {number} 
+     * @type {number}
      */
     this.svga_offset = 0;
 
@@ -165,13 +165,13 @@ function VGAScreen(cpu, bus, vga_memory_size)
 
 
     var io = cpu.io;
-        
+
     io.register_write(0x3C0, this, this.port3C0_write);
     io.register_read(0x3C0, this, this.port3C0_read, this.port3C0_read16);
 
     io.register_read(0x3C1, this, this.port3C1_read);
     io.register_write(0x3C2, this, this.port3C2_write);
-    
+
     io.register_write_consecutive(0x3C4, this, this.port3C4_write, this.port3C5_write);
 
     io.register_read(0x3C4, this, this.port3C4_read);
@@ -562,7 +562,7 @@ VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
         return;
     }
 
-    // Shift these, so that the bits for the color are in 
+    // Shift these, so that the bits for the color are in
     // the correct position in the for loop
     plane1_byte <<= 1;
     plane2_byte <<= 2;
@@ -603,7 +603,7 @@ VGAScreen.prototype.text_mode_redraw = function()
             chr = this.vga_memory[addr];
             color = this.vga_memory[addr | 1];
 
-            this.bus.send("screen-put-char", [row, col, chr, 
+            this.bus.send("screen-put-char", [row, col, chr,
                 this.vga256_palette[color >> 4 & 0xF], this.vga256_palette[color & 0xF]]);
 
             addr += 2;
@@ -635,7 +635,7 @@ VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
         color = this.vga_memory[addr | 1];
     }
 
-    this.bus.send("screen-put-char", [row, col, chr, 
+    this.bus.send("screen-put-char", [row, col, chr,
             this.vga256_palette[color >> 4 & 0xF], this.vga256_palette[color & 0xF]]);
 
     this.vga_memory[addr] = value;
@@ -712,8 +712,8 @@ VGAScreen.prototype.destroy = function()
 };
 
 /**
- * @param {number} cols_count 
- * @param {number} rows_count 
+ * @param {number} cols_count
+ * @param {number} rows_count
  */
 VGAScreen.prototype.set_size_text = function(cols_count, rows_count)
 {
@@ -902,7 +902,7 @@ VGAScreen.prototype.port3C9_write = function(color_byte)
         offset = this.dac_color_index_write % 3,
         color = this.vga256_palette[index];
 
-    color_byte = color_byte * 255 / 63 & 0xFF; 
+    color_byte = color_byte * 255 / 63 & 0xFF;
 
     if(offset === 0)
     {
@@ -1089,7 +1089,7 @@ VGAScreen.prototype.port3DA_read = function()
 
 VGAScreen.prototype.switch_video_mode = function(mar)
 {
-    // Cheap way to figure this out, using the Miscellaneous Output Register 
+    // Cheap way to figure this out, using the Miscellaneous Output Register
     // See: http://wiki.osdev.org/VGA_Hardware#List_of_register_settings
 
     if(mar === 0x67)
@@ -1178,8 +1178,8 @@ VGAScreen.prototype.port1CF_write = function(value)
 
     dbg_assert(this.svga_bpp !== 4, "unimplemented svga bpp: 4");
     dbg_assert(this.svga_bpp !== 15, "unimplemented svga bpp: 15");
-    dbg_assert(this.svga_bpp === 4 || this.svga_bpp === 8 || 
-               this.svga_bpp === 15 || this.svga_bpp === 16 || 
+    dbg_assert(this.svga_bpp === 4 || this.svga_bpp === 8 ||
+               this.svga_bpp === 15 || this.svga_bpp === 16 ||
                this.svga_bpp === 24 || this.svga_bpp === 32,
                "unexpected svga bpp: " + this.svga_bpp);
 

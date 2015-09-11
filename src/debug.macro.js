@@ -5,7 +5,7 @@
     var debug = {};
     cpu.debug = debug;
 
-    /** 
+    /**
      * wheter or not in step mode
      * used for debugging
      * @type {boolean}
@@ -40,7 +40,7 @@
     {
         if(!DEBUG) return;
 
-        // used for debugging 
+        // used for debugging
         debug.ops = new CircularQueue(200000);
 
         if(cpu.io)
@@ -91,7 +91,7 @@
         }
     }
 
-    /** 
+    /**
      * @param {string=} msg
      */
     debug.unimpl = function(msg)
@@ -119,17 +119,17 @@
 
         if(!cpu.running)
         {
-            try 
+            try
             {
-                cpu.cycle(); 
+                cpu.cycle();
             }
-            catch(e) 
+            catch(e)
             {
                 cpu.exception_cleanup(e);
             }
         }
 
-        dump_regs_short(); 
+        dump_regs_short();
         var now = Date.now();
 
         cpu.devices.vga.timer(now);
@@ -145,7 +145,7 @@
         if(!DEBUG) return;
 
         cpu.running = false;
-        var a = parseInt(prompt("input hex", ""), 16); 
+        var a = parseInt(prompt("input hex", ""), 16);
         if(a) while(cpu.instruction_pointer != a) step();
         dump_regs();
     }
@@ -235,7 +235,7 @@
         if(!DEBUG) return;
 
         var
-            r32 = { "eax": reg_eax, "ecx": reg_ecx, "edx": reg_edx, "ebx": reg_ebx, 
+            r32 = { "eax": reg_eax, "ecx": reg_ecx, "edx": reg_edx, "ebx": reg_ebx,
                     "esp": reg_esp, "ebp": reg_ebp, "esi": reg_esi, "edi": reg_edi },
             r32_names = ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi"],
             s = { "cs": reg_cs, "ds": reg_ds, "es": reg_es, "fs": reg_fs, "gs": reg_gs, "ss": reg_ss },
@@ -243,7 +243,7 @@
             line2 = "";
 
 
-        
+
         for(var i = 0; i < 4; i++)
         {
             line1 += r32_names[i] + "="  + h(cpu.reg32[r32[r32_names[i]]], 8) + " ";
@@ -265,34 +265,34 @@
         if(!DEBUG) return;
 
         var
-            r32 = { "eax": reg_eax, "ecx": reg_ecx, "edx": reg_edx, "ebx": reg_ebx, 
+            r32 = { "eax": reg_eax, "ecx": reg_ecx, "edx": reg_edx, "ebx": reg_ebx,
                     "esp": reg_esp, "ebp": reg_ebp, "esi": reg_esi, "edi": reg_edi },
 
-            s = { "cs": reg_cs, "ds": reg_ds, "es": reg_es, 
+            s = { "cs": reg_cs, "ds": reg_ds, "es": reg_es,
                   "fs": reg_fs, "gs": reg_gs, "ss": reg_ss },
 
             out;
 
-        
+
         dbg_log("----- DUMP (ip = " + h(cpu.instruction_pointer >>> 0) + ") ----------")
         dbg_log("protected mode: " + cpu.protected_mode);
-        
+
         for(var i in r32)
         {
             dbg_log(i + " =  " + h(cpu.reg32[r32[i]], 8));
         }
         dbg_log("eip =  " + h(cpu.get_real_eip() >>> 0, 8));
-        
+
         for(i in s)
         {
             dbg_log(i + "  =  " + h(cpu.sreg[s[i]], 4));
         }
-        
+
         out = "";
-        
-        var flg = { "cf": cpu.getcf, "pf": cpu.getpf, "zf": cpu.getzf,  "sf": cpu.getsf, 
+
+        var flg = { "cf": cpu.getcf, "pf": cpu.getpf, "zf": cpu.getzf,  "sf": cpu.getsf,
                     "of": cpu.getof, "df": flag_direction, "if": flag_interrupt };
-        
+
         for(var i in flg)
         {
             if(+flg[i])
@@ -306,11 +306,11 @@
         }
         out += "iopl=" + cpu.getiopl();
         dbg_log(out);
-        
-        
+
+
         //dbg_log("last operation: " + h(last_op1 | 0) + ", " +  h(last_op2 | 0) + " = " +
                 //h(last_result | 0) + " (" + last_op_size + " bit)")
-        
+
     }
 
     function get_instructions()
@@ -321,7 +321,7 @@
 
         function add(ip, op)
         {
-            out += h(ip, 8)  + ":        " + 
+            out += h(ip, 8)  + ":        " +
                 v86util.pads(opcode_map[op] || "unkown", 20) + h(op, 2) + "\n";
         }
 
@@ -374,8 +374,8 @@
         {
             for(var i = 0; i < size; i += 8, addr += 8)
             {
-                var base = cpu.memory.read16(addr + 2) | 
-                        cpu.memory.read8(addr + 4) << 16 | 
+                var base = cpu.memory.read16(addr + 2) |
+                        cpu.memory.read8(addr + 4) << 16 |
                         cpu.memory.read8(addr + 7) << 24,
 
                     limit = cpu.memory.read16(addr) | (cpu.memory.read8(addr + 6) & 0xF) << 16,
@@ -397,7 +397,7 @@
 
                 if(access & 16)
                 {
-                    if(flags & 4) 
+                    if(flags & 4)
                     {
                         flags_str += "32b ";
                     }
@@ -432,7 +432,7 @@
                 {
                     limit = limit << 12 | 0xFFF;
                 }
-                
+
                 dbg_log(h(i & ~7, 4) + " " + h(base >>> 0, 8) + " (" + h(limit >>> 0, 8) + " bytes) " +
                         flags_str + ";  dpl = " + dpl + ", a = " + access.toString(2) +
                         ", f = " + flags.toString(2));
@@ -482,8 +482,8 @@
                 line += "NP";
             }
 
-        
-            dbg_log(h(i >> 3, 4) + " " + h(base >>> 0, 8) + ", " + 
+
+            dbg_log(h(i >> 3, 4) + " " + h(base >>> 0, 8) + ", " +
                     h(selector, 4) + "; " + line + ";  dpl = " + dpl + ", t = " + type.toString(2));
         }
     }
@@ -557,7 +557,7 @@
             for(var j = 0; j < 1024; j++)
             {
                 dword = cpu.memory.read32s(entry.address + 4 * j);
-                
+
                 var subentry = load_page_entry(dword, false);
 
                 if(subentry)
@@ -596,7 +596,7 @@
 
         return cpu.memory.buffer.slice(start, start + count);
     }
-        
+
 
     function memory_hex_dump(addr, length)
     {
@@ -604,7 +604,7 @@
 
         length = length || 4 * 0x10;
         var line, byt;
-        
+
         for(var i = 0; i < length >> 4; i++)
         {
             line = h(addr + (i << 4), 5) + "   ";
@@ -630,7 +630,7 @@
     function used_memory_dump()
     {
         if(!DEBUG) return;
-        
+
         var width = 0x80,
             height = 0x10,
             block_size = cpu.memory_size / width / height | 0,

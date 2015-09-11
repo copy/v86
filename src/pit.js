@@ -1,7 +1,7 @@
 "use strict";
 
-/** 
- * @const 
+/**
+ * @const
  * In kHz
  */
 var OSCILLATOR_FREQ = 1193.1816666; // 1.193182 MHz
@@ -136,8 +136,8 @@ PIT.prototype.timer = function(time, no_irq)
     return time_to_next_interrupt;
 };
 
-        
-PIT.prototype.counter_read = function(i) 
+
+PIT.prototype.counter_read = function(i)
 {
     var latch = this.counter_latch[i];
 
@@ -173,9 +173,9 @@ PIT.prototype.counter_read = function(i)
         }
     }
 };
-        
-PIT.prototype.counter_write = function(i, value) 
-{ 
+
+PIT.prototype.counter_write = function(i, value)
+{
     if(this.counter_next_low[i])
     {
         this.counter_reload[i] = this.counter_reload[i] & ~0xFF | value;
@@ -192,13 +192,13 @@ PIT.prototype.counter_write = function(i, value)
             this.counter_reload[i] = 0xFFFF;
         }
 
-        // depends on the mode, should actually 
+        // depends on the mode, should actually
         // happen on the first tick
         this.counter_current[i] = this.counter_reload[i];
 
         this.counter_enabled[i] = true;
 
-        dbg_log("counter" + i + " reload=" + h(this.counter_reload[i]) + 
+        dbg_log("counter" + i + " reload=" + h(this.counter_reload[i]) +
             " tick=" + (this.counter_reload[i] || 0x10000) / OSCILLATOR_FREQ + "ms", LOG_PIT);
     }
 
@@ -242,7 +242,7 @@ PIT.prototype.port43_write = function(reg_byte)
         mode &= ~4;
     }
 
-    dbg_log("Control: mode=" + mode + " ctr=" + i + 
+    dbg_log("Control: mode=" + mode + " ctr=" + i +
             " read_mode=" + read_mode + " bcd=" + binary_mode, LOG_PIT);
 
     if(read_mode === 1)

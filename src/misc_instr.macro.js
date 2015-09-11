@@ -88,7 +88,7 @@ CPU.prototype.jcxz = function(imm8s)
     }
 };
 
-/** 
+/**
  * @return {number}
  * @const
  */
@@ -237,7 +237,7 @@ CPU.prototype.pusha16 = function()
 {
     var temp = this.reg16[reg_sp];
 
-    // make sure we don't get a pagefault after having 
+    // make sure we don't get a pagefault after having
     // pushed several registers already
     this.translate_address_write(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] - 15 | 0);
 

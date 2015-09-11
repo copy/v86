@@ -1,7 +1,7 @@
 "use strict";
 
-/** 
- * @constructor 
+/**
+ * @constructor
  *
  * @param {CPU} cpu
  */
@@ -219,7 +219,7 @@ FloppyController.prototype.port3F5_write = function(reg_byte)
             if(DEBUG)
             {
                 var log = "3F5 command received: ";
-                for(var i = 0; i < this.receiving_index; i++) 
+                for(var i = 0; i < this.receiving_index; i++)
                     log += h(this.receiving_command[i]) + " ";
                 dbg_log(log, LOG_DISK);
             }
@@ -269,7 +269,7 @@ FloppyController.prototype.port3F5_write = function(reg_byte)
                 this.next_command = this.seek;
                 break;
             case 0x0E:
-                // dump regs 
+                // dump regs
                 dbg_log("dump registers", LOG_DISK);
                 this.response_data[0] = 0x80;
                 this.response_index = 0;
@@ -323,7 +323,7 @@ FloppyController.prototype.seek = function(args)
 
     this.last_cylinder = args[1];
     this.last_head = args[0] >> 2 & 1;
-    
+
     if(this.dor & 8)
     {
         this.cpu.device_raise_irq(6);
@@ -361,7 +361,7 @@ FloppyController.prototype.do_sector = function(is_write, args)
         read_count = args[5] - args[3] + 1,
 
         read_offset = ((head + this.number_of_heads * cylinder) * this.sectors_per_track + sector - 1) * sector_size;
-    
+
     dbg_log("Floppy Read", LOG_DISK);
     dbg_log("from " + h(read_offset) + " length " + h(read_count * sector_size), LOG_DISK);
     dbg_log(cylinder + " / " + head + " / " + sector, LOG_DISK);
@@ -410,12 +410,12 @@ FloppyController.prototype.done = function(cylinder, args, head, sector, error)
     this.response_index = 0;
     this.response_length = 7;
 
-    this.response_data[0] = head << 2 | 0x20; 
-    this.response_data[1] = 0; 
-    this.response_data[2] = 0; 
-    this.response_data[3] = cylinder; 
-    this.response_data[4] = head; 
-    this.response_data[5] = sector; 
+    this.response_data[0] = head << 2 | 0x20;
+    this.response_data[1] = 0;
+    this.response_data[2] = 0;
+    this.response_data[3] = cylinder;
+    this.response_data[4] = head;
+    this.response_data[5] = sector;
     this.response_data[6] = args[4];
 
     if(this.dor & 8)

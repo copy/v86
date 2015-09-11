@@ -52,8 +52,8 @@
 /** @const */ var STOP_PAGE = 0x80;
 
 
-/** 
- * @constructor 
+/**
+ * @constructor
  * @param {CPU} cpu
  * @param {Bus.Connector} bus
  */
@@ -113,11 +113,11 @@ function Ne2k(cpu, bus)
         this.memory[i << 1] = this.memory[i << 1 | 1] = mac[i];
     }
 
-    dbg_log("Mac: " + h(mac[0], 2) + ":" + 
-                      h(mac[1], 2) + ":" + 
-                      h(mac[2], 2) + ":" + 
-                      h(mac[3], 2) + ":" + 
-                      h(mac[4], 2) + ":" + 
+    dbg_log("Mac: " + h(mac[0], 2) + ":" +
+                      h(mac[1], 2) + ":" +
+                      h(mac[2], 2) + ":" +
+                      h(mac[3], 2) + ":" +
+                      h(mac[4], 2) + ":" +
                       h(mac[5], 2), LOG_NET);
 
     this.rsar = 0;
@@ -465,13 +465,13 @@ function Ne2k(cpu, bus)
         }
     });
 
-    io.register_read(this.port | NE_DATAPORT | 0, this, 
-            this.data_port_read16, 
-            this.data_port_read16, 
+    io.register_read(this.port | NE_DATAPORT | 0, this,
+            this.data_port_read16,
+            this.data_port_read16,
             this.data_port_read32);
-    io.register_write(this.port | NE_DATAPORT | 0, this, 
-            this.data_port_write16, 
-            this.data_port_write16, 
+    io.register_write(this.port | NE_DATAPORT | 0, this,
+            this.data_port_write16,
+            this.data_port_write16,
             this.data_port_write32);
 }
 
@@ -522,10 +522,10 @@ Ne2k.prototype.do_interrupt = function(ir_mask)
 
 Ne2k.prototype.data_port_write = function(data_byte)
 {
-    dbg_log("Write data port: data=" + h(data_byte & 0xFF, 2) + 
-                            " rsar=" + h(this.rsar, 4) + 
+    dbg_log("Write data port: data=" + h(data_byte & 0xFF, 2) +
+                            " rsar=" + h(this.rsar, 4) +
                             " rcnt=" + h(this.rcnt, 4), LOG_NET);
-    
+
     this.rcnt--;
     this.memory[this.rsar++] = data_byte;
 
@@ -562,8 +562,8 @@ Ne2k.prototype.data_port_read = function()
 {
     var data = this.memory[this.rsar++];
 
-    dbg_log("Read data port: data=" + h(data, 2) + 
-                           " rsar=" + h(this.rsar - 1, 4) + 
+    dbg_log("Read data port: data=" + h(data, 2) +
+                           " rsar=" + h(this.rsar - 1, 4) +
                            " rcnt=" + h(this.rcnt, 4), LOG_NET);
     this.rcnt--;
 
@@ -594,14 +594,14 @@ Ne2k.prototype.data_port_read16 = function()
 
 Ne2k.prototype.data_port_read32 = function()
 {
-    return this.data_port_read() | this.data_port_read() << 8 | 
+    return this.data_port_read() | this.data_port_read() << 8 |
             this.data_port_read() << 16 | this.data_port_read() << 24;
 };
 
 Ne2k.prototype.receive = function(data)
 {
     // called from the adapter when data is received over the network
-    
+
     if(this.cr & 1)
     {
         // stop bit set

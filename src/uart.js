@@ -21,8 +21,8 @@ var DLAB = 0x80;
 /** @const */var UART_IIR_CTI = 0x0c; /* Character timeout */
 
 
-/** 
- * @constructor 
+/**
+ * @constructor
  * @param {CPU} cpu
  * @param {number} port
  * @param {Bus.Connector} bus
@@ -82,7 +82,7 @@ function UART(cpu, port, bus)
 
     var io = cpu.io;
 
-    io.register_write(port, this, function(out_byte) 
+    io.register_write(port, this, function(out_byte)
     {
         if(this.line_control & DLAB)
         {
@@ -295,7 +295,7 @@ UART.prototype.ClearInterrupt = function(line)
     this.ints &= ~(1 << line);
     this.iir = UART_IIR_NO_INT;
 
-    if(line === this.iir) 
+    if(line === this.iir)
     {
         this.NextInterrupt();
     }
@@ -338,7 +338,7 @@ UART.prototype.NextInterrupt = function() {
 };
 
 
-/** 
+/**
  * @param {number} data
  */
 UART.prototype.data_received = function(data)
