@@ -186,6 +186,14 @@ if(typeof performance === "object" && performance.now)
         return performance.now();
     };
 }
+//else if(typeof process === "object" && process.hrtime)
+//{
+//    v86.microtick = function()
+//    {
+//        var t = process.hrtime();
+//        return t[0] * 1000 + t[1] / 1e6;
+//    };
+//}
 else
 {
     v86.microtick = Date.now;
