@@ -233,7 +233,8 @@ PCI.prototype.pci_query = function()
         }
         else
         {
-            this.pci_response32[0] = -1;
+            // required by freebsd-9.1
+            this.pci_response32[0] = 0;
         }
 
         dbg_log(dbg_line + " " + h(this.pci_addr32[0] >>> 0, 8) + "  " + h(this.pci_response32[0] >>> 0, 8), LOG_PCI);
