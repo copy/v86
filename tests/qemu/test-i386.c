@@ -819,18 +819,47 @@ void test_bsx(void)
 {
     TEST_BSX(bsrw, "w", 0);
     TEST_BSX(bsrw, "w", 0x12340128);
+    TEST_BSX(bsrw, "w", 0xffffffff);
+    TEST_BSX(bsrw, "w", 0xffff7fff);
+
     TEST_BSX(bsfw, "w", 0);
     TEST_BSX(bsfw, "w", 0x12340128);
+    TEST_BSX(bsfw, "w", 0xffffffff);
+    TEST_BSX(bsfw, "w", 0xfffffff7);
+
     TEST_BSX(bsrl, "k", 0);
     TEST_BSX(bsrl, "k", 0x00340128);
+    TEST_BSX(bsrl, "k", 0xffffffff);
+    TEST_BSX(bsrl, "k", 0x7fffffff);
+
     TEST_BSX(bsfl, "k", 0);
     TEST_BSX(bsfl, "k", 0x00340128);
+    TEST_BSX(bsfl, "k", 0xffffffff);
+    TEST_BSX(bsfl, "k", 0xfffffff7);
+
 #if defined(__x86_64__)
     TEST_BSX(bsrq, "", 0);
     TEST_BSX(bsrq, "", 0x003401281234);
     TEST_BSX(bsfq, "", 0);
     TEST_BSX(bsfq, "", 0x003401281234);
 #endif
+}
+
+#define TEST_POPCNT(size, op0)\
+{\
+    long res, val, resz;\
+    val = op0;\
+    asm("xor %1, %1\n"\
+        "mov $0x12345678, %0\n"\
+        "popcnt %" size "2, %" size "0 ; pushf; pop %1;" \
+        : "=&r" (res), "=&q" (resz)\
+        : "r" (val));\
+    printf("popcnt A=" FMTLX " R=" FMTLX " flags=%lx\n", val, res, resz);\
+}
+
+void test_popcnt(void)
+{
+    TEST_POPCNT("w", 0);
 }
 
 /**********************************************/
@@ -845,17 +874,38 @@ union float64u s_nan = { .l = 0xFFF0000000000000LL };
 
 void test_fops(double a, double b)
 {
+    int ib = (int)b;
+    int dest = 0;
+
     printf("a=%f b=%f a+b=%f\n", a, b, a + b);
     printf("a=%f b=%f a-b=%f\n", a, b, a - b);
     printf("a=%f b=%f a*b=%f\n", a, b, a * b);
     printf("a=%f b=%f a/b=%f\n", a, b, a / b);
-    //printf("a=%f b=%f fmod(a, b)=%f\n", a, b, fmod(a, b));
+    printf("a=%f b=%f =%f\n", a, b, a + a + a + 3 * b / a * (a * a * a / b / b / (a + 1.0) - 3.5 + a * b / (3.7 * a / (a - b * b) + 6.5 * a / (b * b * a / -b - a * b) + 5.5 * (b - a))));
+    printf("a=%f b=%f fmod(a, b)=%f\n", a, b, fmod(a, b));
+    printf("a=%f fma(a,b,a)=%f\n", a, fma(a, b, a));
+    printf("a=%f fdim(a,b)=%f\n", a, fdim(a, b));
+    printf("a=%f copysign(a,b)=%f\n", a, copysign(a, b));
     printf("a=%f sqrt(a)=%f\n", a, sqrt(a));
     printf("a=%f sin(a)=%f\n", a, sin(a));
     printf("a=%f cos(a)=%f\n", a, cos(a));
     printf("a=%f tan(a)=%f\n", a, tan(a));
     printf("a=%f log(a)=%f\n", a, log(a));
+    printf("a=%f log10(a)=%f\n", a, log10(a));
+    printf("a=%f log1p(a)=%f\n", a, log1p(a));
+    printf("a=%f log2(a)=%f\n", a, log2(a));
+    printf("a=%f logb(a)=%f\n", a, logb(a));
+    printf("a=%f ilogb(a)=%d\n", a, ilogb(a));
     printf("a=%f exp(a)=%f\n", a, exp(a));
+    printf("a=%f exp2(a)=%f\n", a, exp2(a));
+    printf("a=%f frexp(a)=%f, %d\n", a, frexp(a, &dest), dest);
+    printf("a=%f ldexp(a,b)=%f\n", a, ldexp(a, ib));
+    printf("a=%f scalbn(a,b)=%f\n", a, scalbn(a, ib));
+    printf("a=%f sihh(a)=%f\n", a, sinh(a));
+    printf("a=%f cosh(a)=%f\n", a, cosh(a));
+    printf("a=%f tanh(a)=%f\n", a, tanh(a));
+    printf("a=%f fabs(a)=%f\n", a, fabs(a));
+    printf("a=%f pow(a,b)=%f\n", a, pow(a,b));
     printf("a=%f b=%f atan2(a, b)=%f\n", a, b, atan2(a, b));
     /* just to test some op combining */
     printf("a=%f asin(sin(a))=%f\n", a, asin(sin(a)));
@@ -1098,6 +1148,8 @@ void test_floats(void)
 {
     test_fops(2, 3);
     test_fops(1.4, -5);
+    test_fops(-20.5, 128);
+    test_fops(-0.5, -4);
     test_fcmp(2, -1);
     test_fcmp(2, 2);
     test_fcmp(2, 3);
@@ -2832,6 +2884,7 @@ int main(int argc, char **argv)
         func();
     }
     test_bsx();
+    test_popcnt();
     test_mul();
     test_jcc();
     test_loop();

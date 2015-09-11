@@ -144,6 +144,22 @@ void glue(test_, OP)(void)
     exec_op(0x12348080, -1);
     exec_op(0x12348080, 1);
     exec_op(0x12348080, -2);
+
+    exec_op(0xfffe0080, -1);
+    exec_op(0xfffe0080, 1);
+    exec_op(0xfffe0080, 0);
+    exec_op(0xfffe0080, 0xfffe0080);
+    exec_op(0xfffe0080, 0x80);
+    exec_op(0xfffe0080, 0x81);
+    exec_op(0xfffe0080, 0x10000);
+    exec_op(0xfffe0080, 0x20000);
+    exec_op(0xfffe0080, 0x1ff7f);
+    exec_op(0xfffe0080, 0x1ff80);
+    exec_op(0xfffe0080, 0x1ff81);
+    exec_op(0xfffe0080, 0x1ffff);
+
+
+    exec_op(0, 0);
 }
 
 void *glue(_test_, OP) __init_call = glue(test_, OP);
