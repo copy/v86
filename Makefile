@@ -30,11 +30,48 @@ CLOSURE_SOURCE_MAP=\
 		--source_map_format V3\
 		--create_source_map
 
+		#--jscomp_error reportUnknownTypes\
+
 CLOSURE_FLAGS=\
 		--compilation_level ADVANCED_OPTIMIZATIONS\
 		--externs externs.js\
 		--warning_level VERBOSE\
 		--jscomp_off uselessCode\
+		--jscomp_error accessControls\
+		--jscomp_error ambiguousFunctionDecl\
+		--jscomp_error checkEventfulObjectDisposal\
+		--jscomp_error checkRegExp\
+		--jscomp_error checkTypes\
+		--jscomp_error checkVars\
+		--jscomp_error conformanceViolations\
+		--jscomp_error const\
+		--jscomp_error constantProperty\
+		--jscomp_error deprecated\
+		--jscomp_error deprecatedAnnotations\
+		--jscomp_error duplicateMessage\
+		--jscomp_error es3\
+		--jscomp_error es5Strict\
+		--jscomp_error externsValidation\
+		--jscomp_error fileoverviewTags\
+		--jscomp_error globalThis\
+		--jscomp_error inferredConstCheck\
+		--jscomp_error internetExplorerChecks\
+		--jscomp_error invalidCasts\
+		--jscomp_error misplacedTypeAnnotation\
+		--jscomp_error missingGetCssName\
+		--jscomp_error missingProperties\
+		--jscomp_error missingReturn\
+		--jscomp_error msgDescriptions\
+		--jscomp_error newCheckTypes\
+		--jscomp_error nonStandardJsDocs\
+		--jscomp_error suspiciousCode\
+		--jscomp_error strictModuleDepCheck\
+		--jscomp_error typeInvalidation\
+		--jscomp_error undefinedNames\
+		--jscomp_error undefinedVars\
+		--jscomp_error unknownDefines\
+		--jscomp_error unnecessaryCasts\
+		--jscomp_error visibility\
 		--use_types_for_optimization\
 		--summary_detail_level 3\
 		--language_in ECMASCRIPT5_STRICT
