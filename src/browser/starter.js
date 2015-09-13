@@ -399,6 +399,14 @@ V86Starter.prototype.stop = function()
 };
 
 /**
+ * @ignore
+ */
+V86Starter.prototype.destroy = function()
+{
+    this.keyboard_adapter.destroy();
+};
+
+/**
  * Restart (force a reboot).
  */
 V86Starter.prototype.restart = function()
@@ -844,6 +852,7 @@ else if(typeof importScripts === "function")
 V86Starter.prototype["run"] = V86Starter.prototype.run;
 V86Starter.prototype["stop"] = V86Starter.prototype.stop;
 V86Starter.prototype["restart"] = V86Starter.prototype.restart;
+V86Starter.prototype["destroy"] = V86Starter.prototype.destroy;
 V86Starter.prototype["add_listener"] = V86Starter.prototype.add_listener;
 V86Starter.prototype["remove_listener"] = V86Starter.prototype.remove_listener;
 V86Starter.prototype["restore_state"] = V86Starter.prototype.restore_state;
