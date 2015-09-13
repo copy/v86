@@ -1,20 +1,6 @@
 CLOSURE=../closure-compiler/compiler.jar
 BROWSER=chromium
 
-CPP_VERSION := $(shell cpp --version 2>/dev/null)
-
-# MacosX Hack :
-# "cpp" doesn't work as expected on MacosX
-# So we define mcpp as default, and cpp IF NOT "on MacosX" AND "CPP is defined"
-UNAME_S := $(shell uname -s)
-CPP=mcpp/src/mcpp -a -C -P
-ifneq ($(UNAME_S),Darwin)
-        ifdef CPP_VERSION
-                CPP=cpp -P -undef -Wundef -std=c99 -nostdinc -Wtrigraphs -fdollars-in-identifiers -C
-        endif
-endif
-
-
 all: build/v86_all.js
 browser: build/v86_all.js
 
