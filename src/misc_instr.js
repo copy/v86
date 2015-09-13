@@ -16,6 +16,19 @@
  */
 "use strict";
 
+CPU.prototype.jmpcc8 = function(condition)
+{
+    if(condition)
+    {
+        var imm8 = this.read_imm8s();
+        this.instruction_pointer = this.instruction_pointer + imm8 | 0;
+    }
+    else
+    {
+        this.instruction_pointer = this.instruction_pointer + 1 | 0;
+    }
+};
+
 CPU.prototype.jmp_rel16 = function(rel16)
 {
     var current_cs = this.get_seg(reg_cs);
@@ -25,7 +38,7 @@ CPU.prototype.jmp_rel16 = function(rel16)
     this.instruction_pointer -= current_cs;
     this.instruction_pointer = (this.instruction_pointer + rel16) & 0xFFFF;
     this.instruction_pointer = this.instruction_pointer + current_cs | 0;
-}
+};
 
 CPU.prototype.jmpcc16 = function(condition)
 {
@@ -54,7 +67,30 @@ CPU.prototype.jmpcc32 = function(condition)
     {
         this.instruction_pointer = this.instruction_pointer + 4 | 0;
     }
-}
+};
+
+CPU.prototype.cmovcc16 = function(condition)
+{
+    var data = this.read_e16();
+    if(condition) 
+    {
+        this.write_g16(data);
+    }
+};
+
+CPU.prototype.cmovcc32 = function(condition)
+{
+    var data = this.read_e32s();
+    if(condition)
+    {
+        this.write_g32(data);
+    }
+};
+
+CPU.prototype.setcc = function(condition)
+{
+    this.set_e8(this.modrm_resolve(this.modrm_byte), condition ? 1 : 0)
+};
 
 CPU.prototype.loopne = function(imm8s)
 {
@@ -339,24 +375,38 @@ CPU.prototype.xchg32r = function(operand)
     this.reg32s[operand] = temp;
 }
 
-CPU.prototype.lss16 = function(seg, addr, mod)
+CPU.prototype.lss16 = function(seg)
 {
+    if(this.modrm_byte >= 0xC0)
+    {
+        this.trigger_ud();
+    }
+
+    var addr = this.modrm_resolve(this.modrm_byte);
+
     var new_reg = this.safe_read16(addr),
         new_seg = this.safe_read16(addr + 2 | 0);
 
     this.switch_seg(seg, new_seg);
 
-    this.reg16[mod] = new_reg;
+    this.reg16[this.modrm_byte >> 2 & 14] = new_reg;
 }
 
-CPU.prototype.lss32 = function(seg, addr, mod)
+CPU.prototype.lss32 = function(seg)
 {
+    if(this.modrm_byte >= 0xC0)
+    {
+        this.trigger_ud();
+    }
+
+    var addr = this.modrm_resolve(this.modrm_byte);
+
     var new_reg = this.safe_read32s(addr),
         new_seg = this.safe_read16(addr + 4 | 0);
 
     this.switch_seg(seg, new_seg);
 
-    this.reg32s[mod] = new_reg;
+    this.reg32s[this.modrm_byte >> 3 & 7] = new_reg;
 }
 
 CPU.prototype.enter16 = function(size, nesting_level)

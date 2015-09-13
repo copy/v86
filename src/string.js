@@ -318,7 +318,7 @@ function cmpsb(cpu)
         cpu.regv[cpu.reg_vsi] += size;
     }
 
-    cmp8(data_src, data_dest);
+    cpu.cmp8(data_src, data_dest);
 }
 
 function cmpsw(cpu)
@@ -387,7 +387,7 @@ function cmpsw(cpu)
         cpu.regv[cpu.reg_vsi] += size;
     }
 
-    cmp16(data_src, data_dest);
+    cpu.cmp16(data_src, data_dest);
 }
 
 function cmpsd(cpu)
@@ -456,7 +456,7 @@ function cmpsd(cpu)
         cpu.regv[cpu.reg_vsi] += size;
     }
 
-    cmp32(data_src, data_dest);
+    cpu.cmp32(data_src, data_dest);
 }
 
 function stosb(cpu)
@@ -756,7 +756,7 @@ function scasb(cpu)
         cpu.regv[cpu.reg_vdi] += size;
     }
 
-    cmp8(data_src, data_dest);
+    cpu.cmp8(data_src, data_dest);
 }
 
 function scasw(cpu)
@@ -816,7 +816,7 @@ function scasw(cpu)
         cpu.regv[cpu.reg_vdi] += size;
     }
 
-    cmp16(data_src, data_dest);
+    cpu.cmp16(data_src, data_dest);
 }
 
 function scasd(cpu)
@@ -876,7 +876,7 @@ function scasd(cpu)
         cpu.regv[cpu.reg_vdi] += size;
     }
 
-    cmp32(data_src, data_dest);
+    cpu.cmp32(data_src, data_dest);
 }
 
 function insb(cpu)

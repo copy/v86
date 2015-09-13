@@ -18,10 +18,6 @@ endif
 all: build/v86_all.js
 browser: build/v86_all.js
 
-build/cpu.js: src/*.macro.js
-	# build cpu.macro.js using cpp or mcpp
-	$(CPP) src/cpu.macro.js build/cpu.js
-
 # Used for nodejs builds and in order to profile code.
 # `debug` gives identifiers a readable name, make sure it doesn't have any side effects.
 CLOSURE_READABLE=--formatting PRETTY_PRINT --debug
@@ -83,14 +79,15 @@ TRANSPILE_ES6_FLAGS=\
 
 
 CORE_FILES=const.js io.js main.js lib.js fpu.js ide.js pci.js floppy.js memory.js\
-		   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js\
-		   state.js ne2k.js virtio.js bus.js log.js
+		   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js\
+		   state.js ne2k.js virtio.js bus.js log.js\
+		   cpu.js translate.js modrm.js string.js arith.js misc_instr.js instructions.js debug.js
 LIB_FILES=../lib/9p.js ../lib/filesystem.js ../lib/jor1k.js ../lib/marshall.js ../lib/utf8.js
 BROWSER_FILES=browser/screen.js\
-			  browser/keyboard.js browser/mouse.js browser/serial.js\
-			  browser/network.js browser/lib.js browser/starter.js browser/worker_bus.js
+		  browser/keyboard.js browser/mouse.js browser/serial.js\
+		  browser/network.js browser/lib.js browser/starter.js browser/worker_bus.js
 
-build/v86_all.js: src/*.js src/browser/*.js build/cpu.js lib/*.js
+build/v86_all.js: src/*.js src/browser/*.js lib/*.js
 	-ls -lh build/v86_all.js
 	cd src &&\
 	java -jar $(CLOSURE) \
@@ -101,17 +98,18 @@ build/v86_all.js: src/*.js src/browser/*.js build/cpu.js lib/*.js
 		--define=IN_WORKER=false\
 		$(CLOSURE_SOURCE_MAP) ../build/v86_all.js.map\
 		$(CLOSURE_FLAGS)\
+		$(TRANSPILE_ES6_FLAGS)\
 		--js $(CORE_FILES)\
 		--js $(LIB_FILES)\
 		--js $(BROWSER_FILES)\
-		--js ../build/cpu.js\
 		--js browser/main.js
 
 	echo "//# sourceMappingURL=v86_all.js.map" >> build/v86_all.js
 	ls -lh build/v86_all.js
 
 
-build/libv86.js: src/*.js build/cpu.js lib/*.js src/browser/*.js
+build/libv86.js: src/*.js lib/*.js src/browser/*.js
+	-ls -lh build/libv86.js
 	cd src &&\
 	java -jar $(CLOSURE) \
 		--js_output_file "../build/libv86.js"\
@@ -120,11 +118,13 @@ build/libv86.js: src/*.js build/cpu.js lib/*.js src/browser/*.js
 		--define=IN_BROWSER=true\
 		--define=IN_WORKER=false\
 		$(CLOSURE_FLAGS)\
+		$(TRANSPILE_ES6_FLAGS)\
 		--output_wrapper ';(function(){%output%})();'\
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
-		--js $(LIB_FILES)\
-		--js ../build/cpu.js
+		--js $(LIB_FILES)
+
+	ls -lh build/libv86.js
 
 clean:
 	rm -f build/*

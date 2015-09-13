@@ -1260,6 +1260,13 @@
     };;
     CPU.prototype.modrm_resolve = function(modrm_byte)
     {
-        return(this.address_size_32 ? this.modrm_table32 : this.modrm_table16)[modrm_byte](this);
+        if(modrm_byte < 0xC0)
+        {
+            return(this.address_size_32 ? this.modrm_table32 : this.modrm_table16)[modrm_byte](this);
+        }
+        else
+        {
+            return -1;
+        }
     };
 })();

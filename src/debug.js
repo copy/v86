@@ -1,9 +1,10 @@
 "use strict";
 
-(function(cpu)
+CPU.prototype.debug_init = function()
 {
+    var cpu = this;
     var debug = {};
-    cpu.debug = debug;
+    this.debug = debug;
 
     /**
      * wheter or not in step mode
@@ -651,4 +652,4 @@
         }
     };
 
-})(this);
+}

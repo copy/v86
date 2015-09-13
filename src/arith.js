@@ -24,28 +24,30 @@
 */
 "use strict";
 
-#define add8(dest, src)  cpu.add(dest, src, OPSIZE_8)
-#define add16(dest, src) cpu.add(dest, src, OPSIZE_16)
-#define add32(dest, src) cpu.add(dest, src, OPSIZE_32)
+CPU.prototype.add8 = function(dest, src) { return this.add(dest, src, OPSIZE_8); }
+CPU.prototype.add16 = function(dest, src) { return this.add(dest, src, OPSIZE_16); }
+CPU.prototype.add32 = function(dest, src) { return this.add(dest, src, OPSIZE_32); }
 
-#define adc8(dest, src)  cpu.adc(dest, src, OPSIZE_8)
-#define adc16(dest, src) cpu.adc(dest, src, OPSIZE_16)
-#define adc32(dest, src) cpu.adc(dest, src, OPSIZE_32)
+CPU.prototype.adc8 = function(dest, src) { return this.adc(dest, src, OPSIZE_8); }
+CPU.prototype.adc16 = function(dest, src) { return this.adc(dest, src, OPSIZE_16); }
+CPU.prototype.adc32 = function(dest, src) { return this.adc(dest, src, OPSIZE_32); }
 
-#define sub8(dest, src)  cpu.sub(dest, src, OPSIZE_8)
-#define sub16(dest, src) cpu.sub(dest, src, OPSIZE_16)
-#define sub32(dest, src) cpu.sub(dest, src, OPSIZE_32)
+CPU.prototype.sub8 = function(dest, src) { return this.sub(dest, src, OPSIZE_8); }
+CPU.prototype.sub16 = function(dest, src) { return this.sub(dest, src, OPSIZE_16); }
+CPU.prototype.sub32 = function(dest, src) { return this.sub(dest, src, OPSIZE_32); }
 
-#define cmp8(dest, src)  cpu.sub(dest, src, OPSIZE_8)
-#define cmp16(dest, src) cpu.sub(dest, src, OPSIZE_16)
-#define cmp32(dest, src) cpu.sub(dest, src, OPSIZE_32)
+CPU.prototype.cmp8 = function(dest, src) { return this.sub(dest, src, OPSIZE_8); }
+CPU.prototype.cmp16 = function(dest, src) { return this.sub(dest, src, OPSIZE_16); }
+CPU.prototype.cmp32 = function(dest, src) { return this.sub(dest, src, OPSIZE_32); }
 
-#define sbb8(dest, src)  cpu.sbb(dest, src, OPSIZE_8)
-#define sbb16(dest, src) cpu.sbb(dest, src, OPSIZE_16)
-#define sbb32(dest, src) cpu.sbb(dest, src, OPSIZE_32)
+CPU.prototype.sbb8 = function(dest, src) { return this.sbb(dest, src, OPSIZE_8); }
+CPU.prototype.sbb16 = function(dest, src) { return this.sbb(dest, src, OPSIZE_16); }
+CPU.prototype.sbb32 = function(dest, src) { return this.sbb(dest, src, OPSIZE_32); }
 
 CPU.prototype.add = function(dest_operand, source_operand, op_size)
 {
+    //if(this.safe_read32s(this.instruction_pointer + 1) === 0) throw "0000000";
+
     this.last_op1 = dest_operand;
     this.last_op2 = source_operand;
     this.last_add_result = this.last_result = dest_operand + source_operand | 0;
@@ -108,13 +110,13 @@ CPU.prototype.sbb = function(dest_operand, source_operand, op_size)
  * inc and dec
  */
 
-#define inc8(dest) cpu.inc(dest, OPSIZE_8)
-#define inc16(dest) cpu.inc(dest, OPSIZE_16)
-#define inc32(dest) cpu.inc(dest, OPSIZE_32)
+CPU.prototype.inc8 = function(dest) { return this.inc(dest, OPSIZE_8); }
+CPU.prototype.inc16 = function(dest) { return this.inc(dest, OPSIZE_16); }
+CPU.prototype.inc32 = function(dest) { return this.inc(dest, OPSIZE_32); }
 
-#define dec8(dest) cpu.dec(dest, OPSIZE_8)
-#define dec16(dest) cpu.dec(dest, OPSIZE_16)
-#define dec32(dest) cpu.dec(dest, OPSIZE_32)
+CPU.prototype.dec8 = function(dest) { return this.dec(dest, OPSIZE_8); }
+CPU.prototype.dec16 = function(dest) { return this.dec(dest, OPSIZE_16); }
+CPU.prototype.dec32 = function(dest) { return this.dec(dest, OPSIZE_32); }
 
 CPU.prototype.inc = function(dest_operand, op_size)
 {
@@ -146,9 +148,9 @@ CPU.prototype.dec = function(dest_operand, op_size)
 /*
  * neg
  */
-#define neg8(dest) neg(dest, OPSIZE_8)
-#define neg16(dest) neg(dest, OPSIZE_16)
-#define neg32(dest) neg(dest, OPSIZE_32)
+CPU.prototype.neg8 = function(dest) { return this.neg(dest, OPSIZE_8); }
+CPU.prototype.neg16 = function(dest) { return this.neg(dest, OPSIZE_16); }
+CPU.prototype.neg32 = function(dest) { return this.neg(dest, OPSIZE_32); }
 
 CPU.prototype.neg = function(dest_operand, op_size)
 {
@@ -273,46 +275,52 @@ CPU.prototype.imul_reg16 = function(operand1, operand2)
     return result;
 }
 
+CPU.mul32_result = new Int32Array(2);
 
-#define do_mul32(a, b)\
-    var a00 = a & 0xFFFF;\
-    var a16 = a >>> 16;\
-    var b00 = b & 0xFFFF;\
-    var b16 = b >>> 16;\
-    var low_result = a00 * b00;\
-    var mid = (low_result >>> 16) + (a16 * b00 | 0) | 0;\
-    var high_result = mid >>> 16;\
-    mid = (mid & 0xFFFF) + (a00 * b16 | 0) | 0;\
-    low_result = (mid << 16) | low_result & 0xFFFF;\
-    high_result = ((mid >>> 16) + (a16 * b16 | 0) | 0) + high_result | 0;\
+CPU.prototype.do_mul32 = function(a, b)
+{
+    var a00 = a & 0xFFFF;
+    var a16 = a >>> 16;
+    var b00 = b & 0xFFFF;
+    var b16 = b >>> 16;
+    var low_result = a00 * b00;
+    var mid = (low_result >>> 16) + (a16 * b00 | 0) | 0;
+    var high_result = mid >>> 16;
+    mid = (mid & 0xFFFF) + (a00 * b16 | 0) | 0;
+    CPU.mul32_result[0] = (mid << 16) | low_result & 0xFFFF;
+    CPU.mul32_result[1] = ((mid >>> 16) + (a16 * b16 | 0) | 0) + high_result | 0;
+    return CPU.mul32_result;
+};
 
-
-#define do_imul32(a, b)\
-    var is_neg = false; \
-    if(a < 0) { \
-        is_neg = true; \
-        a = -a | 0; \
-    } \
-    if(b < 0) { \
-        is_neg = !is_neg; \
-        b = -b | 0; \
-    } \
-    do_mul32(a, b); \
-    if(is_neg) { \
-        low_result = -low_result | 0; \
-        high_result = ~high_result + !low_result | 0; \
+CPU.prototype.do_imul32 = function(a, b)
+{
+    var is_neg = false;
+    if(a < 0) {
+        is_neg = true;
+        a = -a | 0;
     }
+    if(b < 0) {
+        is_neg = !is_neg;
+        b = -b | 0;
+    }
+    var result = this.do_mul32(a, b);
+    if(is_neg) {
+        result[0] = -result[0] | 0;
+        result[1] = ~result[1] + !result[0] | 0;
+    }
+    return result;
+}
 
 CPU.prototype.mul32 = function(source_operand)
 {
     var dest_operand = this.reg32s[reg_eax];
 
-    do_mul32(dest_operand, source_operand);
+    var result = this.do_mul32(dest_operand, source_operand);
 
-    this.reg32s[reg_eax] = low_result;
-    this.reg32s[reg_edx] = high_result;
+    this.reg32s[reg_eax] = result[0];
+    this.reg32s[reg_edx] = result[1];
 
-    if(high_result === 0)
+    if(result[1] === 0)
     {
         this.flags &= ~1 & ~flag_overflow;
     }
@@ -332,12 +340,12 @@ CPU.prototype.imul32 = function(source_operand)
 
     var dest_operand = this.reg32s[reg_eax];
 
-    do_imul32(dest_operand, source_operand);
-    
-    this.reg32s[reg_eax] = low_result;
-    this.reg32s[reg_edx] = high_result;
+    var result = this.do_imul32(dest_operand, source_operand);
 
-    if(high_result === (low_result >> 31))
+    this.reg32s[reg_eax] = result[0];
+    this.reg32s[reg_edx] = result[1];
+
+    if(result[1] === (result[0] >> 31))
     {
         this.flags &= ~1 & ~flag_overflow;
     }
@@ -361,9 +369,9 @@ CPU.prototype.imul_reg32 = function(operand1, operand2)
     dbg_assert(operand1 < 0x80000000 && operand1 >= -0x80000000);
     dbg_assert(operand2 < 0x80000000 && operand2 >= -0x80000000);
 
-    do_imul32(operand1, operand2);
+    var result = this.do_imul32(operand1, operand2);
 
-    if(high_result === (low_result >> 31))
+    if(result[1] === (result[0] >> 31))
     {
         this.flags &= ~1 & ~flag_overflow;
     }
@@ -373,13 +381,11 @@ CPU.prototype.imul_reg32 = function(operand1, operand2)
     }
     this.flags_changed = 0;
 
-    return low_result;
+    return result[0];
 
     //console.log(operand + " * " + source_operand);
     //console.log("= " + this.reg32[reg]);
 }
-#undef do_mul32
-#undef do_imul32
 
 CPU.prototype.div8 = function(source_operand)
 {
@@ -454,38 +460,57 @@ CPU.prototype.idiv16 = function(source_operand)
     }
 }
 
+CPU.div32_result = new Uint32Array(2);
+
 // If the dividend is too large, the division cannot be done precisely using
 // JavaScript's double floating point numbers. Run simple long divsion until
 // the dividend is small enough
-#define do_div32(div_low, div_high, quot)\
-    if(div_high >= quot || !quot) this.trigger_de();\
-    var result = 0;\
-    if(div_high > 0x100000) {\
-        var m = 0;\
-        var i = 32;\
-        var q = quot;\
-        while(q > div_high) {\
-            q >>>= 1;\
-            i--;\
-        }\
-        while(div_high > 0x100000) {\
-            if(div_high >= q) {\
-                div_high -= q;\
-                var sub = quot << i >>> 0;\
-                if(sub > div_low) {\
-                    div_high--;\
-                }\
-                div_low = div_low - sub >>> 0;\
-                result |= 1 << i\
-            }\
-            i--;\
-            q >>= 1;\
-        }\
-        result >>>= 0;\
-    }\
-    var div = div_low + div_high * 0x100000000;\
-    var mod = div % quot;\
-    result += div / quot | 0;\
+CPU.prototype.do_div32 = function(div_low, div_high, quot)
+{
+    if(div_high >= quot || !quot)
+    {
+        this.trigger_de();
+    }
+
+    var result = 0;
+
+    if(div_high > 0x100000)
+    {
+        var m = 0;
+        var i = 32;
+        var q = quot;
+        while(q > div_high)
+        {
+            q >>>= 1;
+            i--;
+        }
+        while(div_high > 0x100000)
+        {
+            if(div_high >= q)
+            {
+                div_high -= q;
+                var sub = quot << i >>> 0;
+                if(sub > div_low)
+                {
+                    div_high--;
+                }
+                div_low = div_low - sub >>> 0;
+                result |= 1 << i
+            }
+            i--;
+            q >>= 1;
+        }
+        result >>>= 0;
+    }
+
+    var div = div_low + div_high * 0x100000000;
+    var mod = div % quot;
+    result += div / quot | 0;
+
+    CPU.div32_result[0] = result;
+    CPU.div32_result[1] = mod;
+    return CPU.div32_result;
+}
 
 
 CPU.prototype.div32 = function(source_operand)
@@ -495,8 +520,11 @@ CPU.prototype.div32 = function(source_operand)
     var dest_operand_low = this.reg32[reg_eax],
         dest_operand_high = this.reg32[reg_edx];
 
-    do_div32(dest_operand_low, dest_operand_high, source_operand);
+    var result_mod = this.do_div32(dest_operand_low, dest_operand_high, source_operand);
+    var result = result_mod[0];
+    var mod = result_mod[1];
 
+    // XXX
     if(result >= 0x100000000 || source_operand === 0)
     {
         dbg_log("div32 #DE: " + h(dest_operand_high, 8) + ":" + h(dest_operand_low, 8) + " div " + h(source_operand, 8));
@@ -536,7 +564,9 @@ CPU.prototype.idiv32 = function(source_operand)
         dest_operand_high = ~dest_operand_high + !dest_operand_low;
     }
 
-    do_div32(dest_operand_low, dest_operand_high, source_operand);
+    var result_mod = this.do_div32(dest_operand_low, dest_operand_high, source_operand);
+    var result = result_mod[0];
+    var mod = result_mod[1];
 
     if(is_neg)
     {
@@ -738,21 +768,21 @@ CPU.prototype.bcd_aas = function()
  * bsf, bsr
  */
 
-#define and8(dest, src)  cpu.and(dest, src, OPSIZE_8)
-#define and16(dest, src) cpu.and(dest, src, OPSIZE_16)
-#define and32(dest, src) cpu.and(dest, src, OPSIZE_32)
+CPU.prototype.and8 = function(dest, src) { return this.and(dest, src, OPSIZE_8); }
+CPU.prototype.and16 = function(dest, src) { return this.and(dest, src, OPSIZE_16); }
+CPU.prototype.and32 = function(dest, src) { return this.and(dest, src, OPSIZE_32); }
 
-#define test8(dest, src)  cpu.and(dest, src, OPSIZE_8)
-#define test16(dest, src) cpu.and(dest, src, OPSIZE_16)
-#define test32(dest, src) cpu.and(dest, src, OPSIZE_32)
+CPU.prototype.test8 = function(dest, src) { return this.and(dest, src, OPSIZE_8); }
+CPU.prototype.test16 = function(dest, src) { return this.and(dest, src, OPSIZE_16); }
+CPU.prototype.test32 = function(dest, src) { return this.and(dest, src, OPSIZE_32); }
 
-#define or8(dest, src)  cpu.or(dest, src, OPSIZE_8)
-#define or16(dest, src) cpu.or(dest, src, OPSIZE_16)
-#define or32(dest, src) cpu.or(dest, src, OPSIZE_32)
+CPU.prototype.or8 = function(dest, src) { return this.or(dest, src, OPSIZE_8); }
+CPU.prototype.or16 = function(dest, src) { return this.or(dest, src, OPSIZE_16); }
+CPU.prototype.or32 = function(dest, src) { return this.or(dest, src, OPSIZE_32); }
 
-#define xor8(dest, src)  cpu.xor(dest, src, OPSIZE_8)
-#define xor16(dest, src) cpu.xor(dest, src, OPSIZE_16)
-#define xor32(dest, src) cpu.xor(dest, src, OPSIZE_32)
+CPU.prototype.xor8 = function(dest, src) { return this.xor(dest, src, OPSIZE_8); }
+CPU.prototype.xor16 = function(dest, src) { return this.xor(dest, src, OPSIZE_16); }
+CPU.prototype.xor32 = function(dest, src) { return this.xor(dest, src, OPSIZE_32); }
 
 CPU.prototype.and = function(dest_operand, source_operand, op_size)
 {
@@ -1424,7 +1454,7 @@ CPU.prototype.bsr32 = function(old, bit_base)
 CPU.prototype.popcnt = function(v)
 {
     this.flags_changed = 0;
-    this.flags &= ~flag_overflow & ~flag_sign & ~flag_zero 
+    this.flags &= ~flag_overflow & ~flag_sign & ~flag_zero
                 & ~flag_adjust & ~flag_parity & ~1;
 
     if(v)
