@@ -23,16 +23,15 @@
 
         for(var i = 0; i < files.length; i++)
         {
-            // this may be a bad idea, if someone tries to 
-            // load this script after the document has loaded,
-            // but it's necessary to ensure that scripts are 
-            // loaded in order
-            document.write('<script src="' + path + files[i] + '"></script>');
+            if(!files[i])
+            {
+                continue;
+            }
 
-            //script = document.createElement("script");
-            //script.src = PATH + files[i] + "?" + Math.random();
-            //script.defer = "defer";
-            //document.body.appendChild(script);
+            script = document.createElement("script");
+            script.src = path + files[i] + "?" + Math.random();
+            script.defer = "defer";
+            document.head.appendChild(script);
         }
     }
 })();
