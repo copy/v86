@@ -275,3 +275,29 @@ var
 var 
     /** @const */
     TSC_RATE = 8 * 1024;
+
+
+
+/** @const */ var TSR_BACKLINK = 0x00;
+/** @const */ var TSR_CR3 = 0x1C;
+/** @const */ var TSR_EIP = 0x20;
+/** @const */ var TSR_EFLAGS = 0x24;
+
+/** @const */ var TSR_EAX = 0x28;
+/** @const */ var TSR_ECX = 0x2c;
+/** @const */ var TSR_EDX = 0x30;
+/** @const */ var TSR_EBX = 0x34;
+/** @const */ var TSR_ESP = 0x38;
+/** @const */ var TSR_EBP = 0x3c;
+/** @const */ var TSR_ESI = 0x40;
+/** @const */ var TSR_EDI = 0x44;
+
+/** @const */ var TSR_ES = 0x48;
+/** @const */ var TSR_CS = 0x4c;
+/** @const */ var TSR_SS = 0x50;
+/** @const */ var TSR_DS = 0x54;
+/** @const */ var TSR_FS = 0x58;
+/** @const */ var TSR_GS = 0x5c;
+/** @const */ var TSR_LDT = 0x60;
+
+
