@@ -14,14 +14,15 @@
     // jor1k stuff
     LIB_FILES += " jor1k.js 9p.js filesystem.js marshall.js utf8.js";
 
+    var to_load = [];
+
     load_scripts(CORE_FILES, "src/");
     load_scripts(BROWSER_FILES, "src/browser/");
     load_scripts(LIB_FILES, "lib/");
 
     function load_scripts(resp, path)
     {
-        var files = resp.split(" "),
-            script;
+        var files = resp.split(" ");
 
         for(var i = 0; i < files.length; i++)
         {
@@ -30,10 +31,24 @@
                 continue;
             }
 
-            script = document.createElement("script");
-            script.src = path + files[i] + "?" + Math.random();
-            script.defer = "defer";
-            document.head.appendChild(script);
+            to_load.push(path + files[i]);
         }
+    }
+
+    load_next();
+
+    function load_next()
+    {
+        var s = to_load.shift();
+
+        if(!s)
+        {
+            return;
+        }
+
+        var script = document.createElement("script");
+        script.src = s;
+        script.onload = load_next;
+        document.head.appendChild(script);
     }
 })();
