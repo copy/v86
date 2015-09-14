@@ -73,12 +73,26 @@ function MouseAdapter(bus)
             return;
         }
 
-        var delta_x, delta_y;
+        var delta_x = 0;
+        var delta_y = 0;
 
         if(true)
         {
-            delta_x = e["webkitMovementX"] || e["mozMovementX"] || 0;
-            delta_y = e["webkitMovementY"] || e["mozMovementY"] || 0;
+            if(typeof e["movementX"] === "number")
+            {
+                delta_x = e["movementX"];
+                delta_y = e["movementY"];
+            }
+            else if(typeof e["webkitMovementX"] === "number")
+            {
+                delta_x = e["webkitMovementX"];
+                delta_y = e["webkitMovementY"];
+            }
+            else if(typeof e["mozMovementX"] === "number")
+            {
+                delta_x = e["mozMovementX"];
+                delta_y = e["mozMovementY"];
+            }
         }
         else
         {
