@@ -604,6 +604,30 @@ V86Starter.prototype.keyboard_send_scancodes = function(codes)
 };
 
 /**
+ * Send translated keys
+ * @ignore
+ */
+V86Starter.prototype.keyboard_send_keys = function(codes)
+{
+    for(var i = 0; i < codes.length; i++)
+    {
+        this.keyboard_adapter.simulate_press(codes[i]);
+    }
+};
+
+/**
+ * Send text
+ * @ignore
+ */
+V86Starter.prototype.keyboard_send_text = function(string)
+{
+    for(var i = 0; i < string.length; i++)
+    {
+        this.keyboard_adapter.simulate_char(string[i]);
+    }
+};
+
+/**
  * Download a screenshot.
  *
  * @ignore
@@ -860,6 +884,8 @@ V86Starter.prototype["save_state"] = V86Starter.prototype.save_state;
 V86Starter.prototype["get_statistics"] = V86Starter.prototype.get_statistics;
 V86Starter.prototype["is_running"] = V86Starter.prototype.is_running;
 V86Starter.prototype["keyboard_send_scancodes"] = V86Starter.prototype.keyboard_send_scancodes;
+V86Starter.prototype["keyboard_send_keys"] = V86Starter.prototype.keyboard_send_keys;
+V86Starter.prototype["keyboard_send_text"] = V86Starter.prototype.keyboard_send_text;
 V86Starter.prototype["screen_make_screenshot"] = V86Starter.prototype.screen_make_screenshot;
 V86Starter.prototype["screen_set_scale"] = V86Starter.prototype.screen_set_scale;
 V86Starter.prototype["screen_go_fullscreen"] = V86Starter.prototype.screen_go_fullscreen;
