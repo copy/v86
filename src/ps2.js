@@ -55,7 +55,7 @@ function PS2(cpu, bus)
     /**
      * @type {ByteQueue}
      */
-    this.kbd_buffer = new ByteQueue(32);
+    this.kbd_buffer = new ByteQueue(1024);
 
     this.last_port60_byte = 0;
 
@@ -74,7 +74,7 @@ function PS2(cpu, bus)
     /**
      * @type {ByteQueue}
      */
-    this.mouse_buffer = new ByteQueue(32);
+    this.mouse_buffer = new ByteQueue(1024);
 
 
     this.bus.register("keyboard-code", function(code)
