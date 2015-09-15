@@ -103,8 +103,8 @@ t16[0x25] = cpu => { cpu.reg16[reg_ax] = cpu.and16(cpu.reg16[reg_ax], cpu.read_i
 t32[0x25] = cpu => { cpu.reg32s[reg_eax] = cpu.and32(cpu.reg32s[reg_eax], cpu.read_imm32s()); }
 
 
-t[0x26] = cpu => { cpu.segment_prefix = reg_es; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };;
-t[0x27] = cpu => { cpu.bcd_daa(); };;
+t[0x26] = cpu => { cpu.segment_prefix = reg_es; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };
+t[0x27] = cpu => { cpu.bcd_daa(); };
 
 t[0x28] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8_(cpu.sub8(cpu.read_write_e8(), cpu.read_g8())); };
 t16[0x29] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16_(cpu.sub16(cpu.read_write_e16(), cpu.read_g16())); };
@@ -116,8 +116,8 @@ t[0x2c] = cpu => { cpu.reg8[reg_al] = cpu.sub8(cpu.reg8[reg_al], cpu.read_imm8()
 t16[0x2d] = cpu => { cpu.reg16[reg_ax] = cpu.sub16(cpu.reg16[reg_ax], cpu.read_imm16()); };
 t32[0x2d] = cpu => { cpu.reg32s[reg_eax] = cpu.sub32(cpu.reg32s[reg_eax], cpu.read_imm32s()); }
 
-t[0x2E] = cpu => { cpu.segment_prefix = reg_cs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };;
-t[0x2F] = cpu => { cpu.bcd_das(); };;
+t[0x2E] = cpu => { cpu.segment_prefix = reg_cs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };
+t[0x2F] = cpu => { cpu.bcd_das(); };
 
 t[0x30] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8_(cpu.xor8(cpu.read_write_e8(), cpu.read_g8())); };
 t16[0x31] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16_(cpu.xor16(cpu.read_write_e16(), cpu.read_g16())); };
@@ -129,21 +129,21 @@ t[0x34] = cpu => { cpu.reg8[reg_al] = cpu.xor8(cpu.reg8[reg_al], cpu.read_imm8()
 t16[0x35] = cpu => { cpu.reg16[reg_ax] = cpu.xor16(cpu.reg16[reg_ax], cpu.read_imm16()); };
 t32[0x35] = cpu => { cpu.reg32s[reg_eax] = cpu.xor32(cpu.reg32s[reg_eax], cpu.read_imm32s()); }
 
-t[0x36] = cpu => { cpu.segment_prefix = reg_ss; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };;
-t[0x37] = cpu => { cpu.bcd_aaa(); };;
+t[0x36] = cpu => { cpu.segment_prefix = reg_ss; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };
+t[0x37] = cpu => { cpu.bcd_aaa(); };
 
-t[0x38] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_e8(); cpu.cmp8(data, cpu.read_g8()); };
-t16[0x39] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_e16(); cpu.cmp16(data, cpu.read_g16()); };
-t32[0x39] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_e32s(); cpu.cmp32(data, cpu.read_g32s()); }
-t[0x3A] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_e8(); cpu.cmp8(cpu.read_g8(), data); };
-t16[0x3B] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_e16(); cpu.cmp16(cpu.read_g16(), data); };
-t32[0x3B] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_e32s(); cpu.cmp32(cpu.read_g32s(), data); }
+t[0x38] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.cmp8(cpu.read_e8(), cpu.read_g8()); };
+t16[0x39] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.cmp16(cpu.read_e16(), cpu.read_g16()); };
+t32[0x39] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.cmp32(cpu.read_e32s(), cpu.read_g32s()); }
+t[0x3A] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.cmp8(cpu.read_g8(), cpu.read_e8()); };
+t16[0x3B] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.cmp16(cpu.read_g16(), cpu.read_e16()); };
+t32[0x3B] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.cmp32(cpu.read_g32s(), cpu.read_e32s()); }
 t[0x3C] = cpu => { cpu.cmp8(cpu.reg8[reg_al], cpu.read_imm8()); };
 t16[0x3D] = cpu => { cpu.cmp16(cpu.reg16[reg_ax], cpu.read_imm16()); };
 t32[0x3D] = cpu => { cpu.cmp32(cpu.reg32s[reg_eax], cpu.read_imm32s()); }
 
-t[0x3E] = cpu => { cpu.segment_prefix = reg_ds; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };;
-t[0x3F] = cpu => { cpu.bcd_aas(); };;
+t[0x3E] = cpu => { cpu.segment_prefix = reg_ds; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };
+t[0x3F] = cpu => { cpu.bcd_aas(); };
 
 
 t16[0x40] = cpu => { cpu.reg16[reg_ax] = cpu.inc16(cpu.reg16[reg_ax]); };
@@ -225,22 +225,22 @@ t32[0x61] = cpu => { cpu.popa32(); };
 t[0x62] = cpu => {
     // bound
     dbg_log("Unimplemented BOUND instruction", LOG_CPU);
-};;
+};
 t[0x63] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     // arpl
     //dbg_log("arpl", LOG_CPU);
     if(cpu.protected_mode && !cpu.vm86_mode())
     {
-        var data = cpu.read_write_e16(); cpu.write_e16_(cpu.arpl(data, cpu.modrm_byte >> 2 & 14));
+        cpu.write_e16_(cpu.arpl(cpu.read_write_e16(), cpu.modrm_byte >> 2 & 14));
     }
     else
     {
         cpu.trigger_ud();
     }
-};;
+};
 
-t[0x64] = cpu => { cpu.segment_prefix = reg_fs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };;
-t[0x65] = cpu => { cpu.segment_prefix = reg_gs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };;
+t[0x64] = cpu => { cpu.segment_prefix = reg_fs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };
+t[0x65] = cpu => { cpu.segment_prefix = reg_gs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };
 
 t16[0x66] = cpu => {
     // Operand-size override prefix
@@ -276,55 +276,51 @@ t[0x67] = cpu => {
 
     cpu.address_size_32 = cpu.is_32;
     cpu.update_address_size();
-};;
+};
 
 t16[0x68] = cpu => { cpu.push16(cpu.read_imm16()); };
 t32[0x68] = cpu => { cpu.push32(cpu.read_imm32s()); };
 
 t16[0x69] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_e16s();
-    cpu.write_g16(cpu.imul_reg16(cpu.read_imm16s(), data));
+    cpu.write_g16(cpu.imul_reg16(cpu.read_e16s(), cpu.read_imm16s()));
 };
 t32[0x69] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_e32s();
-    cpu.write_g32(cpu.imul_reg32(cpu.read_imm32s(), data));
+    cpu.write_g32(cpu.imul_reg32(cpu.read_e32s(), cpu.read_imm32s()));
 };
 
 t16[0x6A] = cpu => { cpu.push16(cpu.read_imm8s()); };
 t32[0x6A] = cpu => { cpu.push32(cpu.read_imm8s()); };
 
 t16[0x6B] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_e16s();
-    cpu.write_g16(cpu.imul_reg16(cpu.read_imm8s(), data));
+    cpu.write_g16(cpu.imul_reg16(cpu.read_e16s(), cpu.read_imm8s()));
 };
 t32[0x6B] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_e32s();
-    cpu.write_g32(cpu.imul_reg32(cpu.read_imm8s(), data));
+    cpu.write_g32(cpu.imul_reg32(cpu.read_e32s(), cpu.read_imm8s()));
 };
 
-t[0x6C] = cpu => { insb(cpu); };;
+t[0x6C] = cpu => { insb(cpu); };
 t16[0x6D] = cpu => { insw(cpu); };
 t32[0x6D] = cpu => { insd(cpu); };
-t[0x6E] = cpu => { outsb(cpu); };;
+t[0x6E] = cpu => { outsb(cpu); };
 t16[0x6F] = cpu => { outsw(cpu); };
 t32[0x6F] = cpu => { outsd(cpu); };
 
-t[0x70] = cpu => { cpu.jmpcc8( cpu.test_o()); };;
-t[0x71] = cpu => { cpu.jmpcc8(!cpu.test_o()); };;
-t[0x72] = cpu => { cpu.jmpcc8( cpu.test_b()); };;
-t[0x73] = cpu => { cpu.jmpcc8(!cpu.test_b()); };;
-t[0x74] = cpu => { cpu.jmpcc8( cpu.test_z()); };;
-t[0x75] = cpu => { cpu.jmpcc8(!cpu.test_z()); };;
-t[0x76] = cpu => { cpu.jmpcc8( cpu.test_be()); };;
-t[0x77] = cpu => { cpu.jmpcc8(!cpu.test_be()); };;
-t[0x78] = cpu => { cpu.jmpcc8( cpu.test_s()); };;
-t[0x79] = cpu => { cpu.jmpcc8(!cpu.test_s()); };;
-t[0x7A] = cpu => { cpu.jmpcc8( cpu.test_p()); };;
-t[0x7B] = cpu => { cpu.jmpcc8(!cpu.test_p()); };;
-t[0x7C] = cpu => { cpu.jmpcc8( cpu.test_l()); };;
-t[0x7D] = cpu => { cpu.jmpcc8(!cpu.test_l()); };;
-t[0x7E] = cpu => { cpu.jmpcc8( cpu.test_le()); };;
-t[0x7F] = cpu => { cpu.jmpcc8(!cpu.test_le()); };;
+t[0x70] = cpu => { cpu.jmpcc8( cpu.test_o()); };
+t[0x71] = cpu => { cpu.jmpcc8(!cpu.test_o()); };
+t[0x72] = cpu => { cpu.jmpcc8( cpu.test_b()); };
+t[0x73] = cpu => { cpu.jmpcc8(!cpu.test_b()); };
+t[0x74] = cpu => { cpu.jmpcc8( cpu.test_z()); };
+t[0x75] = cpu => { cpu.jmpcc8(!cpu.test_z()); };
+t[0x76] = cpu => { cpu.jmpcc8( cpu.test_be()); };
+t[0x77] = cpu => { cpu.jmpcc8(!cpu.test_be()); };
+t[0x78] = cpu => { cpu.jmpcc8( cpu.test_s()); };
+t[0x79] = cpu => { cpu.jmpcc8(!cpu.test_s()); };
+t[0x7A] = cpu => { cpu.jmpcc8( cpu.test_p()); };
+t[0x7B] = cpu => { cpu.jmpcc8(!cpu.test_p()); };
+t[0x7C] = cpu => { cpu.jmpcc8( cpu.test_l()); };
+t[0x7D] = cpu => { cpu.jmpcc8(!cpu.test_l()); };
+t[0x7E] = cpu => { cpu.jmpcc8( cpu.test_le()); };
+t[0x7F] = cpu => { cpu.jmpcc8(!cpu.test_le()); };
 
 t[0x80] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     switch(cpu.modrm_byte >> 3 & 7)
@@ -338,7 +334,7 @@ t[0x80] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 6: cpu.write_e8_(cpu.xor8(cpu.read_write_e8(), cpu.read_imm8())); break;
         case 7: cpu.cmp8(cpu.read_e8(), cpu.read_imm8()); break;
     }
-};;
+};
 t16[0x81] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     switch(cpu.modrm_byte >> 3 & 7)
     {
@@ -367,7 +363,7 @@ t32[0x81] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 };
 t[0x82] = cpu => {
     cpu.table[0x80](cpu); // alias
-};;
+};
 t16[0x83] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     switch(cpu.modrm_byte >> 3 & 7)
     {
@@ -400,7 +396,7 @@ t16[0x85] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_e16()
 t32[0x85] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_e32s(); cpu.test32(data, cpu.read_g32s()); }
 
 
-t[0x86] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_write_e8(); cpu.write_e8_(cpu.xchg8(data, cpu.modrm_byte)); };;
+t[0x86] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_write_e8(); cpu.write_e8_(cpu.xchg8(data, cpu.modrm_byte)); };
 t16[0x87] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var data = cpu.read_write_e16(); cpu.write_e16_(cpu.xchg16(data, cpu.modrm_byte));
 };
@@ -415,7 +411,7 @@ t32[0x89] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var addr = cpu.modrm_reso
 t[0x8A] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var data = cpu.read_e8();
     cpu.write_g8(data);
-};;
+};
 t16[0x8B] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var data = cpu.read_e16();
     cpu.write_g16(data);
@@ -472,7 +468,7 @@ t[0x8E] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         //cpu.clear_prefixes();
         //cpu.cycle();
     }
-};;
+};
 
 t16[0x8F] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     // pop
@@ -581,7 +577,7 @@ t[0x9B] = cpu => {
             // If there's no FPU, do nothing
         }
     }
-};;
+};
 t16[0x9C] = cpu => {
     // pushf
     if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
@@ -634,18 +630,18 @@ t[0x9E] = cpu => {
     cpu.flags = (cpu.flags & ~0xFF) | cpu.reg8[reg_ah];
     cpu.flags = (cpu.flags & flags_mask) | flags_default;
     cpu.flags_changed = 0;
-};;
+};
 t[0x9F] = cpu => {
     // lahf
     cpu.load_eflags();
     cpu.reg8[reg_ah] = cpu.flags;
-};;
+};
 
 t[0xA0] = cpu => {
     // mov
     var data = cpu.safe_read8(cpu.read_moffs());
     cpu.reg8[reg_al] = data;
-};;
+};
 t16[0xA1] = cpu => {
     // mov
     var data = cpu.safe_read16(cpu.read_moffs());
@@ -658,7 +654,7 @@ t32[0xA1] = cpu => {
 t[0xA2] = cpu => {
     // mov
     cpu.safe_write8(cpu.read_moffs(), cpu.reg8[reg_al]);
-};;
+};
 t16[0xA3] = cpu => {
     // mov
     cpu.safe_write16(cpu.read_moffs(), cpu.reg16[reg_ax]);
@@ -667,16 +663,16 @@ t32[0xA3] = cpu => {
     cpu.safe_write32(cpu.read_moffs(), cpu.reg32s[reg_eax]);
 };
 
-t[0xA4] = cpu => { movsb(cpu); };;
+t[0xA4] = cpu => { movsb(cpu); };
 t16[0xA5] = cpu => { movsw(cpu); };
 t32[0xA5] = cpu => { movsd(cpu); };
-t[0xA6] = cpu => { cmpsb(cpu); };;
+t[0xA6] = cpu => { cmpsb(cpu); };
 t16[0xA7] = cpu => { cmpsw(cpu); };
 t32[0xA7] = cpu => { cmpsd(cpu); };
 
 t[0xA8] = cpu => {
     cpu.test8(cpu.reg8[reg_al], cpu.read_imm8());
-};;
+};
 t16[0xA9] = cpu => {
     cpu.test16(cpu.reg16[reg_ax], cpu.read_imm16());
 };
@@ -684,13 +680,13 @@ t32[0xA9] = cpu => {
     cpu.test32(cpu.reg32s[reg_eax], cpu.read_imm32s());
 };
 
-t[0xAA] = cpu => { stosb(cpu); };;
+t[0xAA] = cpu => { stosb(cpu); };
 t16[0xAB] = cpu => { stosw(cpu); };
 t32[0xAB] = cpu => { stosd(cpu); };
-t[0xAC] = cpu => { lodsb(cpu); };;
+t[0xAC] = cpu => { lodsb(cpu); };
 t16[0xAD] = cpu => { lodsw(cpu); };
 t32[0xAD] = cpu => { lodsd(cpu); };
-t[0xAE] = cpu => { scasb(cpu); };;
+t[0xAE] = cpu => { scasb(cpu); };
 t16[0xAF] = cpu => { scasw(cpu); };
 t32[0xAF] = cpu => { scasd(cpu); };
 
@@ -738,7 +734,7 @@ t[0xC0] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 7: result = cpu.sar8(op1, op2); break;
     }
     cpu.write_e8_(result);
-};;
+};
 t16[0xC1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var op1 = cpu.read_write_e16();
     var op2 = cpu.read_imm8() & 31;
@@ -871,20 +867,20 @@ t32[0xCB] = cpu => {
 t[0xCC] = cpu => {
     // INT3
     cpu.call_interrupt_vector(3, true, false);
-};;
+};
 t[0xCD] = cpu => {
     // INT
     var imm8 = cpu.read_imm8();
 
     cpu.call_interrupt_vector(imm8, true, false);
-};;
+};
 t[0xCE] = cpu => {
     // INTO
     if(cpu.getof())
     {
         cpu.call_interrupt_vector(4, true, false);
     }
-};;
+};
 
 t16[0xCF] = cpu => {
     // iret
@@ -909,7 +905,7 @@ t[0xD0] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 7: result = cpu.sar8(op1, 1); break;
     }
     cpu.write_e8_(result);
-};;
+};
 t16[0xD1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var op1 = cpu.read_write_e16();
     var result = 0;
@@ -959,7 +955,7 @@ t[0xD2] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 7: result = cpu.sar8(op1, op2); break;
     }
     cpu.write_e8_(result);
-};;
+};
 t16[0xD3] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var op1 = cpu.read_write_e16();
     var op2 = cpu.reg8[reg_cl] & 31;
@@ -997,15 +993,15 @@ t32[0xD3] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 
 t[0xD4] = cpu => {
     cpu.bcd_aam(cpu.read_imm8());
-};;
+};
 t[0xD5] = cpu => {
     cpu.bcd_aad(cpu.read_imm8());
-};;
+};
 
 t[0xD6] = cpu => {
     // salc
     cpu.reg8[reg_al] = -cpu.getcf();
-};;
+};
 t[0xD7] = cpu => {
     // xlat
     if(cpu.address_size_32)
@@ -1016,7 +1012,7 @@ t[0xD7] = cpu => {
     {
         cpu.reg8[reg_al] = cpu.safe_read8(cpu.get_seg_prefix(reg_ds) + cpu.reg16[reg_bx] + cpu.reg8[reg_al]);
     }
-};;
+};
 
 t[0xD8] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     cpu.task_switch_test();
@@ -1024,67 +1020,67 @@ t[0xD8] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         cpu.fpu.op_D8_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
     else
         cpu.fpu.op_D8_reg(cpu.modrm_byte);
-};;
+};
 t[0xD9] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     cpu.task_switch_test();
     if(cpu.modrm_byte < 0xC0)
         cpu.fpu.op_D9_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
     else
         cpu.fpu.op_D9_reg(cpu.modrm_byte);
-};;
+};
 t[0xDA] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     cpu.task_switch_test();
     if(cpu.modrm_byte < 0xC0)
         cpu.fpu.op_DA_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
     else
         cpu.fpu.op_DA_reg(cpu.modrm_byte);
-};;
+};
 t[0xDB] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     cpu.task_switch_test();
     if(cpu.modrm_byte < 0xC0)
         cpu.fpu.op_DB_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
     else
         cpu.fpu.op_DB_reg(cpu.modrm_byte);
-};;
+};
 t[0xDC] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     cpu.task_switch_test();
     if(cpu.modrm_byte < 0xC0)
         cpu.fpu.op_DC_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
     else
         cpu.fpu.op_DC_reg(cpu.modrm_byte);
-};;
+};
 t[0xDD] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     cpu.task_switch_test();
     if(cpu.modrm_byte < 0xC0)
         cpu.fpu.op_DD_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
     else
         cpu.fpu.op_DD_reg(cpu.modrm_byte);
-};;
+};
 t[0xDE] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     cpu.task_switch_test();
     if(cpu.modrm_byte < 0xC0)
         cpu.fpu.op_DE_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
     else
         cpu.fpu.op_DE_reg(cpu.modrm_byte);
-};;
+};
 t[0xDF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     cpu.task_switch_test();
     if(cpu.modrm_byte < 0xC0)
         cpu.fpu.op_DF_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
     else
         cpu.fpu.op_DF_reg(cpu.modrm_byte);
-};;
+};
 
-t[0xE0] = cpu => { cpu.loopne(cpu.read_imm8s()); };;
-t[0xE1] = cpu => { cpu.loope(cpu.read_imm8s()); };;
-t[0xE2] = cpu => { cpu.loop(cpu.read_imm8s()); };;
-t[0xE3] = cpu => { cpu.jcxz(cpu.read_imm8s()); };;
+t[0xE0] = cpu => { cpu.loopne(cpu.read_imm8s()); };
+t[0xE1] = cpu => { cpu.loope(cpu.read_imm8s()); };
+t[0xE2] = cpu => { cpu.loop(cpu.read_imm8s()); };
+t[0xE3] = cpu => { cpu.jcxz(cpu.read_imm8s()); };
 
 t[0xE4] = cpu => {
     var port = cpu.read_imm8();
     cpu.test_privileges_for_io(port, 1);
     cpu.reg8[reg_al] = cpu.io.port_read8(port);
-};;
+};
 t16[0xE5] = cpu => {
     var port = cpu.read_imm8();
     cpu.test_privileges_for_io(port, 2);
@@ -1099,7 +1095,7 @@ t[0xE6] = cpu => {
     var port = cpu.read_imm8();
     cpu.test_privileges_for_io(port, 1);
     cpu.io.port_write8(port, cpu.reg8[reg_al]);
-};;
+};
 t16[0xE7] = cpu => {
     var port = cpu.read_imm8();
     cpu.test_privileges_for_io(port, 2);
@@ -1153,13 +1149,13 @@ t[0xEB] = cpu => {
     // jmp near
     var imm8 = cpu.read_imm8s();
     cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0;
-};;
+};
 
 t[0xEC] = cpu => {
     var port = cpu.reg16[reg_dx];
     cpu.test_privileges_for_io(port, 1);
     cpu.reg8[reg_al] = cpu.io.port_read8(port);
-};;
+};
 t16[0xED] = cpu => {
     var port = cpu.reg16[reg_dx];
     cpu.test_privileges_for_io(port, 2);
@@ -1174,7 +1170,7 @@ t[0xEE] = cpu => {
     var port = cpu.reg16[reg_dx];
     cpu.test_privileges_for_io(port, 1);
     cpu.io.port_write8(port, cpu.reg8[reg_al]);
-};;
+};
 t16[0xEF] = cpu => {
     var port = cpu.reg16[reg_dx];
     cpu.test_privileges_for_io(port, 2);
@@ -1193,12 +1189,12 @@ t[0xF0] = cpu => {
     // This triggers UD when used with
     // some instructions that don't write to memory
     cpu.do_op();
-};;
+};
 t[0xF1] = cpu => {
     // INT1
     // https://code.google.com/p/corkami/wiki/x86oddities#IceBP
     throw cpu.debug.unimpl("int1 instruction");
-};;
+};
 
 t[0xF2] = cpu => {
     // repnz
@@ -1206,24 +1202,24 @@ t[0xF2] = cpu => {
     cpu.repeat_string_prefix = REPEAT_STRING_PREFIX_NZ;
     cpu.do_op();
     cpu.repeat_string_prefix = REPEAT_STRING_PREFIX_NONE;
-};;
+};
 t[0xF3] = cpu => {
     // repz
     dbg_assert(cpu.repeat_string_prefix === REPEAT_STRING_PREFIX_NONE);
     cpu.repeat_string_prefix = REPEAT_STRING_PREFIX_Z;
     cpu.do_op();
     cpu.repeat_string_prefix = REPEAT_STRING_PREFIX_NONE;
-};;
+};
 
 t[0xF4] = cpu => {
     cpu.hlt_op();
-};;
+};
 
 t[0xF5] = cpu => {
     // cmc
     cpu.flags = (cpu.flags | 1) ^ cpu.getcf();
     cpu.flags_changed &= ~1;
-};;
+};
 
 t[0xF6] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     switch(cpu.modrm_byte >> 3 & 7)
@@ -1253,7 +1249,7 @@ t[0xF6] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             var data = cpu.read_e8s(); cpu.idiv8(data);
             break;
     }
-};;
+};
 
 t16[0xF7] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     switch(cpu.modrm_byte >> 3 & 7)
@@ -1318,12 +1314,12 @@ t[0xF8] = cpu => {
     // clc
     cpu.flags &= ~flag_carry;
     cpu.flags_changed &= ~1;
-};;
+};
 t[0xF9] = cpu => {
     // stc
     cpu.flags |= flag_carry;
     cpu.flags_changed &= ~1;
-};;
+};
 
 t[0xFA] = cpu => {
     // cli
@@ -1347,7 +1343,7 @@ t[0xFA] = cpu => {
             cpu.trigger_gp(0);
         }
     }
-};;
+};
 t[0xFB] = cpu => {
     // sti
     //dbg_log("interrupts on");
@@ -1376,16 +1372,16 @@ t[0xFB] = cpu => {
         }
     }
 
-};;
+};
 
 t[0xFC] = cpu => {
     // cld
     cpu.flags &= ~flag_direction;
-};;
+};
 t[0xFD] = cpu => {
     // std
     cpu.flags |= flag_direction;
-};;
+};
 
 t[0xFE] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var mod = cpu.modrm_byte & 56;
@@ -1402,7 +1398,7 @@ t[0xFE] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     {
         cpu.todo();
     }
-};;
+};
 t16[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     switch(cpu.modrm_byte >> 3 & 7)
     {
@@ -1605,7 +1601,7 @@ t[0x00] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             dbg_log(cpu.modrm_byte >> 3 & 7, LOG_CPU);
             cpu.todo();
     }
-};;
+};
 
 t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     if(cpu.cpl)
@@ -1710,7 +1706,7 @@ t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             dbg_log(mod);
             cpu.todo();
     }
-};;
+};
 
 t16[0x02] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     // lar
@@ -1752,8 +1748,8 @@ t32[0x03] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     cpu.write_g32(cpu.lsl(data, cpu.read_g32s()));
 };
 
-t[0x04] = cpu => { cpu.undefined_instruction(); };;
-t[0x05] = cpu => { cpu.undefined_instruction(); };;
+t[0x04] = cpu => { cpu.undefined_instruction(); };
+t[0x05] = cpu => { cpu.undefined_instruction(); };
 
 t[0x06] = cpu => {
     // clts
@@ -1766,9 +1762,9 @@ t[0x06] = cpu => {
         //dbg_log("clts", LOG_CPU);
         cpu.cr[0] &= ~CR0_TS;
     }
-};;
+};
 
-t[0x07] = cpu => { cpu.undefined_instruction(); };;
+t[0x07] = cpu => { cpu.undefined_instruction(); };
 t[0x08] = cpu => {
     // invd
     cpu.todo();
@@ -1780,47 +1776,47 @@ t[0x09] = cpu => {
         cpu.trigger_gp(0);
     }
     // wbinvd
-};;
+};
 
 
-t[0x0A] = cpu => { cpu.undefined_instruction(); };;
+t[0x0A] = cpu => { cpu.undefined_instruction(); };
 t[0x0B] = cpu => {
     // UD2
     cpu.trigger_ud();
-};;
-t[0x0C] = cpu => { cpu.undefined_instruction(); };;
+};
+t[0x0C] = cpu => { cpu.undefined_instruction(); };
 
 t[0x0D] = cpu => {
     // nop
     cpu.todo();
 };
 
-t[0x0E] = cpu => { cpu.undefined_instruction(); };;
-t[0x0F] = cpu => { cpu.undefined_instruction(); };;
+t[0x0E] = cpu => { cpu.undefined_instruction(); };
+t[0x0F] = cpu => { cpu.undefined_instruction(); };
 
-t[0x10] = cpu => { cpu.unimplemented_sse(); };;
-t[0x11] = cpu => { cpu.unimplemented_sse(); };;
-t[0x12] = cpu => { cpu.unimplemented_sse(); };;
-t[0x13] = cpu => { cpu.unimplemented_sse(); };;
-t[0x14] = cpu => { cpu.unimplemented_sse(); };;
-t[0x15] = cpu => { cpu.unimplemented_sse(); };;
-t[0x16] = cpu => { cpu.unimplemented_sse(); };;
-t[0x17] = cpu => { cpu.unimplemented_sse(); };;
+t[0x10] = cpu => { cpu.unimplemented_sse(); };
+t[0x11] = cpu => { cpu.unimplemented_sse(); };
+t[0x12] = cpu => { cpu.unimplemented_sse(); };
+t[0x13] = cpu => { cpu.unimplemented_sse(); };
+t[0x14] = cpu => { cpu.unimplemented_sse(); };
+t[0x15] = cpu => { cpu.unimplemented_sse(); };
+t[0x16] = cpu => { cpu.unimplemented_sse(); };
+t[0x17] = cpu => { cpu.unimplemented_sse(); };
 
 t[0x18] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     // prefetch
     // nop for us
     if(cpu.modrm_byte < 0xC0)
         cpu.modrm_resolve(cpu.modrm_byte);
-};;
+};
 
-t[0x19] = cpu => { cpu.unimplemented_sse(); };;
-t[0x1A] = cpu => { cpu.unimplemented_sse(); };;
-t[0x1B] = cpu => { cpu.unimplemented_sse(); };;
-t[0x1C] = cpu => { cpu.unimplemented_sse(); };;
-t[0x1D] = cpu => { cpu.unimplemented_sse(); };;
-t[0x1E] = cpu => { cpu.unimplemented_sse(); };;
-t[0x1F] = cpu => { cpu.unimplemented_sse(); };;
+t[0x19] = cpu => { cpu.unimplemented_sse(); };
+t[0x1A] = cpu => { cpu.unimplemented_sse(); };
+t[0x1B] = cpu => { cpu.unimplemented_sse(); };
+t[0x1C] = cpu => { cpu.unimplemented_sse(); };
+t[0x1D] = cpu => { cpu.unimplemented_sse(); };
+t[0x1E] = cpu => { cpu.unimplemented_sse(); };
+t[0x1F] = cpu => { cpu.unimplemented_sse(); };
 
 
 t[0x20] = cpu => { cpu.modrm_byte = cpu.read_imm8();
@@ -1853,7 +1849,7 @@ t[0x20] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             dbg_log(cpu.modrm_byte >> 3 & 7);
             cpu.todo();
     }
-};;
+};
 
 t[0x21] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     if(cpu.cpl)
@@ -1867,7 +1863,7 @@ t[0x21] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     cpu.reg32s[cpu.modrm_byte & 7] = cpu.dreg[cpu.modrm_byte >> 3 & 7];
 
     //dbg_log("read dr" + (cpu.modrm_byte >> 3 & 7) + ": " + h(cpu.reg32[cpu.modrm_byte & 7]), LOG_CPU);
-};;
+};
 
 t[0x22] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 
@@ -1948,7 +1944,7 @@ t[0x22] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             dbg_log(cpu.modrm_byte >> 3 & 7);
             cpu.todo();
     }
-};;
+};
 t[0x23] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     if(cpu.cpl)
     {
@@ -1960,21 +1956,21 @@ t[0x23] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     //dbg_log("write dr" + (cpu.modrm_byte >> 3 & 7) + ": " + h(cpu.reg32[cpu.modrm_byte & 7]), LOG_CPU);
 
     cpu.dreg[cpu.modrm_byte >> 3 & 7] = cpu.read_reg_e32s();
-};;
+};
 
-t[0x24] = cpu => { cpu.undefined_instruction(); };;
-t[0x25] = cpu => { cpu.undefined_instruction(); };;
-t[0x26] = cpu => { cpu.undefined_instruction(); };;
-t[0x27] = cpu => { cpu.undefined_instruction(); };;
+t[0x24] = cpu => { cpu.undefined_instruction(); };
+t[0x25] = cpu => { cpu.undefined_instruction(); };
+t[0x26] = cpu => { cpu.undefined_instruction(); };
+t[0x27] = cpu => { cpu.undefined_instruction(); };
 
-t[0x28] = cpu => { cpu.unimplemented_sse(); };;
-t[0x29] = cpu => { cpu.unimplemented_sse(); };;
-t[0x2A] = cpu => { cpu.unimplemented_sse(); };;
-t[0x2B] = cpu => { cpu.unimplemented_sse(); };;
-t[0x2C] = cpu => { cpu.unimplemented_sse(); };;
-t[0x2D] = cpu => { cpu.unimplemented_sse(); };;
-t[0x2E] = cpu => { cpu.unimplemented_sse(); };;
-t[0x2F] = cpu => { cpu.unimplemented_sse(); };;
+t[0x28] = cpu => { cpu.unimplemented_sse(); };
+t[0x29] = cpu => { cpu.unimplemented_sse(); };
+t[0x2A] = cpu => { cpu.unimplemented_sse(); };
+t[0x2B] = cpu => { cpu.unimplemented_sse(); };
+t[0x2C] = cpu => { cpu.unimplemented_sse(); };
+t[0x2D] = cpu => { cpu.unimplemented_sse(); };
+t[0x2E] = cpu => { cpu.unimplemented_sse(); };
+t[0x2F] = cpu => { cpu.unimplemented_sse(); };
 
 // wrmsr
 t[0x30] = cpu => {
@@ -2007,7 +2003,7 @@ t[0x30] = cpu => {
             cpu.sysenter_esp = low;
             break;
     }
-};;
+};
 
 t[0x31] = cpu => {
     // rdtsc - read timestamp counter
@@ -2026,7 +2022,7 @@ t[0x31] = cpu => {
     {
         cpu.trigger_gp(0);
     }
-};;
+};
 
 t[0x32] = cpu => {
     // rdmsr - read maschine specific register
@@ -2059,7 +2055,7 @@ t[0x32] = cpu => {
 
     cpu.reg32s[reg_eax] = low;
     cpu.reg32s[reg_edx] = high;
-};;
+};
 
 t[0x33] = cpu => {
     // rdpmc
@@ -2103,7 +2099,7 @@ t[0x34] = cpu => {
     cpu.stack_reg = cpu.reg32s;
     cpu.reg_vsp = reg_esp;
     cpu.reg_vbp = reg_ebp;
-};;
+};
 
 t[0x35] = cpu => {
     // sysexit
@@ -2141,23 +2137,23 @@ t[0x35] = cpu => {
     cpu.stack_reg = cpu.reg32s;
     cpu.reg_vsp = reg_esp;
     cpu.reg_vbp = reg_ebp;
-};;
+};
 
-t[0x36] = cpu => { cpu.undefined_instruction(); };;
+t[0x36] = cpu => { cpu.undefined_instruction(); };
 
 t[0x37] = cpu => {
     // getsec
     cpu.todo();
 };
 
-t[0x38] = cpu => { cpu.unimplemented_sse(); };;
-t[0x39] = cpu => { cpu.unimplemented_sse(); };;
-t[0x3A] = cpu => { cpu.unimplemented_sse(); };;
-t[0x3B] = cpu => { cpu.unimplemented_sse(); };;
-t[0x3C] = cpu => { cpu.unimplemented_sse(); };;
-t[0x3D] = cpu => { cpu.unimplemented_sse(); };;
-t[0x3E] = cpu => { cpu.unimplemented_sse(); };;
-t[0x3F] = cpu => { cpu.unimplemented_sse(); };;
+t[0x38] = cpu => { cpu.unimplemented_sse(); };
+t[0x39] = cpu => { cpu.unimplemented_sse(); };
+t[0x3A] = cpu => { cpu.unimplemented_sse(); };
+t[0x3B] = cpu => { cpu.unimplemented_sse(); };
+t[0x3C] = cpu => { cpu.unimplemented_sse(); };
+t[0x3D] = cpu => { cpu.unimplemented_sse(); };
+t[0x3E] = cpu => { cpu.unimplemented_sse(); };
+t[0x3F] = cpu => { cpu.unimplemented_sse(); };
 
 
 // cmov
@@ -2195,59 +2191,59 @@ t16[0x4F] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.cmovcc16(!cpu.test_le
 t32[0x4F] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.cmovcc32(!cpu.test_le()); };
 
 
-t[0x50] = cpu => { cpu.unimplemented_sse(); };;
-t[0x51] = cpu => { cpu.unimplemented_sse(); };;
-t[0x52] = cpu => { cpu.unimplemented_sse(); };;
-t[0x53] = cpu => { cpu.unimplemented_sse(); };;
-t[0x54] = cpu => { cpu.unimplemented_sse(); };;
-t[0x55] = cpu => { cpu.unimplemented_sse(); };;
-t[0x56] = cpu => { cpu.unimplemented_sse(); };;
-t[0x57] = cpu => { cpu.unimplemented_sse(); };;
+t[0x50] = cpu => { cpu.unimplemented_sse(); };
+t[0x51] = cpu => { cpu.unimplemented_sse(); };
+t[0x52] = cpu => { cpu.unimplemented_sse(); };
+t[0x53] = cpu => { cpu.unimplemented_sse(); };
+t[0x54] = cpu => { cpu.unimplemented_sse(); };
+t[0x55] = cpu => { cpu.unimplemented_sse(); };
+t[0x56] = cpu => { cpu.unimplemented_sse(); };
+t[0x57] = cpu => { cpu.unimplemented_sse(); };
 
-t[0x58] = cpu => { cpu.unimplemented_sse(); };;
-t[0x59] = cpu => { cpu.unimplemented_sse(); };;
-t[0x5A] = cpu => { cpu.unimplemented_sse(); };;
-t[0x5B] = cpu => { cpu.unimplemented_sse(); };;
-t[0x5C] = cpu => { cpu.unimplemented_sse(); };;
-t[0x5D] = cpu => { cpu.unimplemented_sse(); };;
-t[0x5E] = cpu => { cpu.unimplemented_sse(); };;
-t[0x5F] = cpu => { cpu.unimplemented_sse(); };;
+t[0x58] = cpu => { cpu.unimplemented_sse(); };
+t[0x59] = cpu => { cpu.unimplemented_sse(); };
+t[0x5A] = cpu => { cpu.unimplemented_sse(); };
+t[0x5B] = cpu => { cpu.unimplemented_sse(); };
+t[0x5C] = cpu => { cpu.unimplemented_sse(); };
+t[0x5D] = cpu => { cpu.unimplemented_sse(); };
+t[0x5E] = cpu => { cpu.unimplemented_sse(); };
+t[0x5F] = cpu => { cpu.unimplemented_sse(); };
 
-t[0x60] = cpu => { cpu.unimplemented_sse(); };;
-t[0x61] = cpu => { cpu.unimplemented_sse(); };;
-t[0x62] = cpu => { cpu.unimplemented_sse(); };;
-t[0x63] = cpu => { cpu.unimplemented_sse(); };;
-t[0x64] = cpu => { cpu.unimplemented_sse(); };;
-t[0x65] = cpu => { cpu.unimplemented_sse(); };;
-t[0x66] = cpu => { cpu.unimplemented_sse(); };;
-t[0x67] = cpu => { cpu.unimplemented_sse(); };;
+t[0x60] = cpu => { cpu.unimplemented_sse(); };
+t[0x61] = cpu => { cpu.unimplemented_sse(); };
+t[0x62] = cpu => { cpu.unimplemented_sse(); };
+t[0x63] = cpu => { cpu.unimplemented_sse(); };
+t[0x64] = cpu => { cpu.unimplemented_sse(); };
+t[0x65] = cpu => { cpu.unimplemented_sse(); };
+t[0x66] = cpu => { cpu.unimplemented_sse(); };
+t[0x67] = cpu => { cpu.unimplemented_sse(); };
 
-t[0x68] = cpu => { cpu.unimplemented_sse(); };;
-t[0x69] = cpu => { cpu.unimplemented_sse(); };;
-t[0x6A] = cpu => { cpu.unimplemented_sse(); };;
-t[0x6B] = cpu => { cpu.unimplemented_sse(); };;
-t[0x6C] = cpu => { cpu.unimplemented_sse(); };;
-t[0x6D] = cpu => { cpu.unimplemented_sse(); };;
-t[0x6E] = cpu => { cpu.unimplemented_sse(); };;
-t[0x6F] = cpu => { cpu.unimplemented_sse(); };;
+t[0x68] = cpu => { cpu.unimplemented_sse(); };
+t[0x69] = cpu => { cpu.unimplemented_sse(); };
+t[0x6A] = cpu => { cpu.unimplemented_sse(); };
+t[0x6B] = cpu => { cpu.unimplemented_sse(); };
+t[0x6C] = cpu => { cpu.unimplemented_sse(); };
+t[0x6D] = cpu => { cpu.unimplemented_sse(); };
+t[0x6E] = cpu => { cpu.unimplemented_sse(); };
+t[0x6F] = cpu => { cpu.unimplemented_sse(); };
 
-t[0x70] = cpu => { cpu.unimplemented_sse(); };;
-t[0x71] = cpu => { cpu.unimplemented_sse(); };;
-t[0x72] = cpu => { cpu.unimplemented_sse(); };;
-t[0x73] = cpu => { cpu.unimplemented_sse(); };;
-t[0x74] = cpu => { cpu.unimplemented_sse(); };;
-t[0x75] = cpu => { cpu.unimplemented_sse(); };;
-t[0x76] = cpu => { cpu.unimplemented_sse(); };;
-t[0x77] = cpu => { cpu.unimplemented_sse(); };;
+t[0x70] = cpu => { cpu.unimplemented_sse(); };
+t[0x71] = cpu => { cpu.unimplemented_sse(); };
+t[0x72] = cpu => { cpu.unimplemented_sse(); };
+t[0x73] = cpu => { cpu.unimplemented_sse(); };
+t[0x74] = cpu => { cpu.unimplemented_sse(); };
+t[0x75] = cpu => { cpu.unimplemented_sse(); };
+t[0x76] = cpu => { cpu.unimplemented_sse(); };
+t[0x77] = cpu => { cpu.unimplemented_sse(); };
 
-t[0x78] = cpu => { cpu.unimplemented_sse(); };;
-t[0x79] = cpu => { cpu.unimplemented_sse(); };;
-t[0x7A] = cpu => { cpu.unimplemented_sse(); };;
-t[0x7B] = cpu => { cpu.unimplemented_sse(); };;
-t[0x7C] = cpu => { cpu.unimplemented_sse(); };;
-t[0x7D] = cpu => { cpu.unimplemented_sse(); };;
-t[0x7E] = cpu => { cpu.unimplemented_sse(); };;
-t[0x7F] = cpu => { cpu.unimplemented_sse(); };;
+t[0x78] = cpu => { cpu.unimplemented_sse(); };
+t[0x79] = cpu => { cpu.unimplemented_sse(); };
+t[0x7A] = cpu => { cpu.unimplemented_sse(); };
+t[0x7B] = cpu => { cpu.unimplemented_sse(); };
+t[0x7C] = cpu => { cpu.unimplemented_sse(); };
+t[0x7D] = cpu => { cpu.unimplemented_sse(); };
+t[0x7E] = cpu => { cpu.unimplemented_sse(); };
+t[0x7F] = cpu => { cpu.unimplemented_sse(); };
 
 // jmpcc
 t16[0x80] = cpu => { cpu.jmpcc16( cpu.test_o()); };
@@ -2284,22 +2280,22 @@ t16[0x8F] = cpu => { cpu.jmpcc16(!cpu.test_le()); };
 t32[0x8F] = cpu => { cpu.jmpcc32(!cpu.test_le()); };
 
 // setcc
-t[0x90] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_o()); };;
-t[0x91] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_o()); };;
-t[0x92] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_b()); };;
-t[0x93] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_b()); };;
-t[0x94] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_z()); };;
-t[0x95] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_z()); };;
-t[0x96] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_be()); };;
-t[0x97] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_be()); };;
-t[0x98] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_s()); };;
-t[0x99] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_s()); };;
-t[0x9A] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_p()); };;
-t[0x9B] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_p()); };;
-t[0x9C] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_l()); };;
-t[0x9D] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_l()); };;
-t[0x9E] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_le()); };;
-t[0x9F] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_le()); };;
+t[0x90] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_o()); };
+t[0x91] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_o()); };
+t[0x92] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_b()); };
+t[0x93] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_b()); };
+t[0x94] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_z()); };
+t[0x95] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_z()); };
+t[0x96] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_be()); };
+t[0x97] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_be()); };
+t[0x98] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_s()); };
+t[0x99] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_s()); };
+t[0x9A] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_p()); };
+t[0x9B] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_p()); };
+t[0x9C] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_l()); };
+t[0x9D] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_l()); };
+t[0x9E] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc( cpu.test_le()); };
+t[0x9F] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.setcc(!cpu.test_le()); };
 
 t16[0xA0] = cpu => { cpu.push16(cpu.sreg[reg_fs]); };
 t32[0xA0] = cpu => { cpu.push32(cpu.sreg[reg_fs]); };
@@ -2312,7 +2308,7 @@ t32[0xA1] = cpu => {
     cpu.stack_reg[cpu.reg_vsp] += 4;
 };
 
-t[0xA2] = cpu => { cpu.cpuid(); };;
+t[0xA2] = cpu => { cpu.cpuid(); };
 
 t16[0xA3] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     if(cpu.modrm_byte < 0xC0)
@@ -2348,8 +2344,8 @@ t32[0xA5] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var data = cpu.read_write_e32(); cpu.write_e32_(cpu.shld32(data, cpu.read_g32s(), cpu.reg8[reg_cl] & 31));
 };
 
-t[0xA6] = cpu => { cpu.undefined_instruction(); };;
-t[0xA7] = cpu => { cpu.undefined_instruction(); };;
+t[0xA6] = cpu => { cpu.undefined_instruction(); };
+t[0xA7] = cpu => { cpu.undefined_instruction(); };
 
 t16[0xA8] = cpu => { cpu.push16(cpu.sreg[reg_gs]); };
 t32[0xA8] = cpu => { cpu.push32(cpu.sreg[reg_gs]); };
@@ -2448,7 +2444,7 @@ t[0xB0] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     {
         cpu.reg8[reg_al] = data;
     }
-};;
+};
 t16[0xB1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     // cmpxchg16/32
     if(cpu.modrm_byte < 0xC0)
@@ -2554,7 +2550,7 @@ t[0xB7] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     // movzx
     var data = cpu.read_e16();
     cpu.write_g32(data);
-};;
+};
 
 t16[0xB8] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     // popcnt
@@ -2701,11 +2697,11 @@ t[0xBF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     // movsx
     var data = cpu.read_e16s();
     cpu.write_g32(data);
-};;
+};
 
 t[0xC0] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var data = cpu.read_write_e8(); cpu.write_e8_(cpu.xadd8(data, cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1));
-};;
+};
 
 t16[0xC1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var data = cpu.read_write_e16();
@@ -2717,11 +2713,11 @@ t32[0xC1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 };
 
 
-t[0xC2] = cpu => { cpu.unimplemented_sse(); };;
-t[0xC3] = cpu => { cpu.unimplemented_sse(); };;
-t[0xC4] = cpu => { cpu.unimplemented_sse(); };;
-t[0xC5] = cpu => { cpu.unimplemented_sse(); };;
-t[0xC6] = cpu => { cpu.unimplemented_sse(); };;
+t[0xC2] = cpu => { cpu.unimplemented_sse(); };
+t[0xC3] = cpu => { cpu.unimplemented_sse(); };
+t[0xC4] = cpu => { cpu.unimplemented_sse(); };
+t[0xC5] = cpu => { cpu.unimplemented_sse(); };
+t[0xC6] = cpu => { cpu.unimplemented_sse(); };
 
 t[0xC7] = cpu => {
     cpu.modrm_byte = cpu.read_imm8();
@@ -2795,70 +2791,70 @@ t[0xC7] = cpu => {
     }
 };
 
-t[0xC8] = cpu => { cpu.bswap(reg_eax); };;
-t[0xC9] = cpu => { cpu.bswap(reg_ecx); };;
-t[0xCA] = cpu => { cpu.bswap(reg_edx); };;
-t[0xCB] = cpu => { cpu.bswap(reg_ebx); };;
-t[0xCC] = cpu => { cpu.bswap(reg_esp); };;
-t[0xCD] = cpu => { cpu.bswap(reg_ebp); };;
-t[0xCE] = cpu => { cpu.bswap(reg_esi); };;
-t[0xCF] = cpu => { cpu.bswap(reg_edi); };;
+t[0xC8] = cpu => { cpu.bswap(reg_eax); };
+t[0xC9] = cpu => { cpu.bswap(reg_ecx); };
+t[0xCA] = cpu => { cpu.bswap(reg_edx); };
+t[0xCB] = cpu => { cpu.bswap(reg_ebx); };
+t[0xCC] = cpu => { cpu.bswap(reg_esp); };
+t[0xCD] = cpu => { cpu.bswap(reg_ebp); };
+t[0xCE] = cpu => { cpu.bswap(reg_esi); };
+t[0xCF] = cpu => { cpu.bswap(reg_edi); };
 
-t[0xD0] = cpu => { cpu.unimplemented_sse(); };;
-t[0xD1] = cpu => { cpu.unimplemented_sse(); };;
-t[0xD2] = cpu => { cpu.unimplemented_sse(); };;
-t[0xD3] = cpu => { cpu.unimplemented_sse(); };;
-t[0xD4] = cpu => { cpu.unimplemented_sse(); };;
-t[0xD5] = cpu => { cpu.unimplemented_sse(); };;
-t[0xD6] = cpu => { cpu.unimplemented_sse(); };;
-t[0xD7] = cpu => { cpu.unimplemented_sse(); };;
+t[0xD0] = cpu => { cpu.unimplemented_sse(); };
+t[0xD1] = cpu => { cpu.unimplemented_sse(); };
+t[0xD2] = cpu => { cpu.unimplemented_sse(); };
+t[0xD3] = cpu => { cpu.unimplemented_sse(); };
+t[0xD4] = cpu => { cpu.unimplemented_sse(); };
+t[0xD5] = cpu => { cpu.unimplemented_sse(); };
+t[0xD6] = cpu => { cpu.unimplemented_sse(); };
+t[0xD7] = cpu => { cpu.unimplemented_sse(); };
 
-t[0xD8] = cpu => { cpu.unimplemented_sse(); };;
-t[0xD9] = cpu => { cpu.unimplemented_sse(); };;
-t[0xDA] = cpu => { cpu.unimplemented_sse(); };;
-t[0xDB] = cpu => { cpu.unimplemented_sse(); };;
-t[0xDC] = cpu => { cpu.unimplemented_sse(); };;
-t[0xDD] = cpu => { cpu.unimplemented_sse(); };;
-t[0xDE] = cpu => { cpu.unimplemented_sse(); };;
-t[0xDF] = cpu => { cpu.unimplemented_sse(); };;
+t[0xD8] = cpu => { cpu.unimplemented_sse(); };
+t[0xD9] = cpu => { cpu.unimplemented_sse(); };
+t[0xDA] = cpu => { cpu.unimplemented_sse(); };
+t[0xDB] = cpu => { cpu.unimplemented_sse(); };
+t[0xDC] = cpu => { cpu.unimplemented_sse(); };
+t[0xDD] = cpu => { cpu.unimplemented_sse(); };
+t[0xDE] = cpu => { cpu.unimplemented_sse(); };
+t[0xDF] = cpu => { cpu.unimplemented_sse(); };
 
-t[0xE0] = cpu => { cpu.unimplemented_sse(); };;
-t[0xE1] = cpu => { cpu.unimplemented_sse(); };;
-t[0xE2] = cpu => { cpu.unimplemented_sse(); };;
-t[0xE3] = cpu => { cpu.unimplemented_sse(); };;
-t[0xE4] = cpu => { cpu.unimplemented_sse(); };;
-t[0xE5] = cpu => { cpu.unimplemented_sse(); };;
-t[0xE6] = cpu => { cpu.unimplemented_sse(); };;
-t[0xE7] = cpu => { cpu.unimplemented_sse(); };;
+t[0xE0] = cpu => { cpu.unimplemented_sse(); };
+t[0xE1] = cpu => { cpu.unimplemented_sse(); };
+t[0xE2] = cpu => { cpu.unimplemented_sse(); };
+t[0xE3] = cpu => { cpu.unimplemented_sse(); };
+t[0xE4] = cpu => { cpu.unimplemented_sse(); };
+t[0xE5] = cpu => { cpu.unimplemented_sse(); };
+t[0xE6] = cpu => { cpu.unimplemented_sse(); };
+t[0xE7] = cpu => { cpu.unimplemented_sse(); };
 
-t[0xE8] = cpu => { cpu.unimplemented_sse(); };;
-t[0xE9] = cpu => { cpu.unimplemented_sse(); };;
-t[0xEA] = cpu => { cpu.unimplemented_sse(); };;
-t[0xEB] = cpu => { cpu.unimplemented_sse(); };;
-t[0xEC] = cpu => { cpu.unimplemented_sse(); };;
-t[0xED] = cpu => { cpu.unimplemented_sse(); };;
-t[0xEE] = cpu => { cpu.unimplemented_sse(); };;
-t[0xEF] = cpu => { cpu.unimplemented_sse(); };;
+t[0xE8] = cpu => { cpu.unimplemented_sse(); };
+t[0xE9] = cpu => { cpu.unimplemented_sse(); };
+t[0xEA] = cpu => { cpu.unimplemented_sse(); };
+t[0xEB] = cpu => { cpu.unimplemented_sse(); };
+t[0xEC] = cpu => { cpu.unimplemented_sse(); };
+t[0xED] = cpu => { cpu.unimplemented_sse(); };
+t[0xEE] = cpu => { cpu.unimplemented_sse(); };
+t[0xEF] = cpu => { cpu.unimplemented_sse(); };
 
-t[0xF0] = cpu => { cpu.unimplemented_sse(); };;
-t[0xF1] = cpu => { cpu.unimplemented_sse(); };;
-t[0xF2] = cpu => { cpu.unimplemented_sse(); };;
-t[0xF3] = cpu => { cpu.unimplemented_sse(); };;
-t[0xF4] = cpu => { cpu.unimplemented_sse(); };;
-t[0xF5] = cpu => { cpu.unimplemented_sse(); };;
-t[0xF6] = cpu => { cpu.unimplemented_sse(); };;
-t[0xF7] = cpu => { cpu.unimplemented_sse(); };;
+t[0xF0] = cpu => { cpu.unimplemented_sse(); };
+t[0xF1] = cpu => { cpu.unimplemented_sse(); };
+t[0xF2] = cpu => { cpu.unimplemented_sse(); };
+t[0xF3] = cpu => { cpu.unimplemented_sse(); };
+t[0xF4] = cpu => { cpu.unimplemented_sse(); };
+t[0xF5] = cpu => { cpu.unimplemented_sse(); };
+t[0xF6] = cpu => { cpu.unimplemented_sse(); };
+t[0xF7] = cpu => { cpu.unimplemented_sse(); };
 
-t[0xF8] = cpu => { cpu.unimplemented_sse(); };;
-t[0xF9] = cpu => { cpu.unimplemented_sse(); };;
-t[0xFA] = cpu => { cpu.unimplemented_sse(); };;
-t[0xFB] = cpu => { cpu.unimplemented_sse(); };;
-t[0xFC] = cpu => { cpu.unimplemented_sse(); };;
-t[0xFD] = cpu => { cpu.unimplemented_sse(); };;
-t[0xFE] = cpu => { cpu.unimplemented_sse(); };;
+t[0xF8] = cpu => { cpu.unimplemented_sse(); };
+t[0xF9] = cpu => { cpu.unimplemented_sse(); };
+t[0xFA] = cpu => { cpu.unimplemented_sse(); };
+t[0xFB] = cpu => { cpu.unimplemented_sse(); };
+t[0xFC] = cpu => { cpu.unimplemented_sse(); };
+t[0xFD] = cpu => { cpu.unimplemented_sse(); };
+t[0xFE] = cpu => { cpu.unimplemented_sse(); };
 
 // NSA backdoor instruction
-t[0xFF] = cpu => { cpu.undefined_instruction(); };;
+t[0xFF] = cpu => { cpu.undefined_instruction(); };
 
 
 var table0F_16 = [];

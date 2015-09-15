@@ -459,8 +459,6 @@ CPU.prototype.exception_cleanup = function(e)
 
         // restore state from prefixes
         this.clear_prefixes();
-
-        //this.main_run();
     }
     else
     {
@@ -805,8 +803,6 @@ if(typeof window !== "undefined")
     window.__no_inline3 = CPU.prototype.hlt_loop;
 };
 
-var prefixes = {};
-
 /**
  * execute a single instruction cycle on the cpu
  * this includes reading all prefixes and the whole instruction
@@ -814,12 +810,6 @@ var prefixes = {};
 CPU.prototype.cycle = function()
 {
     this.previous_ip = this.instruction_pointer;
-
-    //var op = this.safe_read32s(this.instruction_pointer);
-    //var op = this.safe_read16(this.instruction_pointer);
-    //var op2 = this.safe_read16(this.instruction_pointer + 4);
-    //prefixes[op + op2 * 0x100000000] = true;
-    //prefixes[op] = ~~prefixes[op] + 1 | 0;
 
     this.timestamp_counter++;
 
@@ -872,14 +862,6 @@ CPU.prototype.hlt_loop = function()
     }
 
     return 0;
-    //if(!this.in_hlt)
-    //{
-    //    return 0;
-    //}
-    //else
-    //{
-    //    return Math.ceil(Math.min(100, pit_time, rtc_time));
-    //}
 };
 
 CPU.prototype.clear_prefixes = function()
@@ -951,7 +933,6 @@ CPU.prototype.get_phys_eip = function()
 
 CPU.prototype.read_imm8 = function()
 {
-    //return this.safe_read8(this.instruction_pointer++);
     if((this.instruction_pointer & ~0xFFF) ^ this.last_virt_eip)
     {
         this.eip_phys = this.translate_address_read(this.instruction_pointer) ^ this.instruction_pointer;
@@ -974,8 +955,6 @@ CPU.prototype.read_imm8s = function()
 
 CPU.prototype.read_imm16 = function()
 {
-    //this.instruction_pointer += 2;
-    //return this.safe_read16(this.instruction_pointer - 2);
     // Two checks in one comparison:
     //    1. Did the high 20 bits of eip change
     // or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)
@@ -997,8 +976,6 @@ CPU.prototype.read_imm16s = function()
 
 CPU.prototype.read_imm32s = function()
 {
-    //this.instruction_pointer += 4;
-    //return this.safe_read32s(this.instruction_pointer - 4);
     // Analogue to the above comment
     if(((this.instruction_pointer ^ this.last_virt_eip) >>> 0) > 0xFFC)
     {

@@ -20,7 +20,7 @@ function Memory(memory_size)
     /** @const */ this.memory_map_write32 = [];
 
     // use by dynamic translator
-    if(OP_TRANSLATION) this.mem_page_infos = new Uint8Array(1 << 20);
+    //if(OP_TRANSLATION) this.mem_page_infos = new Uint8Array(1 << 20);
 
     dbg_assert((memory_size & MMAP_BLOCK_SIZE - 1) === 0);
 
@@ -57,7 +57,9 @@ Memory.prototype.debug_write = function(addr, size, value)
         return;
     }
 
-    //dbg_assert(typeof value === "number" && !isNaN(value));
+    dbg_assert(typeof value === "number" && !isNaN(value));
+    dbg_assert(value >= -0x80000000 && addr < 0x80000000);
+
     this.debug_read(addr, size, true);
 }
 
@@ -213,7 +215,7 @@ Memory.prototype.write8 = function(addr, value)
 
     var page = addr >>> MMAP_BLOCK_BITS;
 
-    if(OP_TRANSLATION) this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
+    //if(OP_TRANSLATION) this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
 
     if(this.memory_map_registered[page])
     {
@@ -235,11 +237,11 @@ Memory.prototype.write16 = function(addr, value)
 
     var page = addr >>> MMAP_BLOCK_BITS;
 
-    if(OP_TRANSLATION) 
-    {
-        this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
-        this.mem_page_infos[addr + 1 >>> MMAP_BLOCK_BITS] |= MEM_PAGE_WRITTEN;
-    }
+    //if(OP_TRANSLATION)
+    //{
+    //    this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
+    //    this.mem_page_infos[addr + 1 >>> MMAP_BLOCK_BITS] |= MEM_PAGE_WRITTEN;
+    //}
 
     if(this.memory_map_registered[page])
     {
@@ -263,7 +265,7 @@ Memory.prototype.write_aligned16 = function(addr, value)
 
     var page = addr >>> MMAP_BLOCK_BITS - 1;
 
-    if(OP_TRANSLATION) this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
+    //if(OP_TRANSLATION) this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
 
     if(this.memory_map_registered[page])
     {
@@ -285,11 +287,11 @@ Memory.prototype.write32 = function(addr, value)
 
     var page = addr >>> MMAP_BLOCK_BITS;
 
-    if(OP_TRANSLATION) 
-    {
-        this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
-        this.mem_page_infos[addr + 3 >>> MMAP_BLOCK_BITS] |= MEM_PAGE_WRITTEN;
-    }
+    //if(OP_TRANSLATION)
+    //{
+    //    this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
+    //    this.mem_page_infos[addr + 3 >>> MMAP_BLOCK_BITS] |= MEM_PAGE_WRITTEN;
+    //}
 
     if(this.memory_map_registered[page])
     {
@@ -333,16 +335,16 @@ Memory.prototype.write_blob = function(blob, offset)
 
     this.mem8.set(blob, offset);
 
-    var page = offset >>> 12,
-        end = (offset + blob) >>> 12;
+    //var page = offset >>> 12;
+    //var end = (offset + blob) >>> 12;
 
-    if(OP_TRANSLATION)
-    {
-        for(; page <= end; page++)
-        {
-            this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
-        }
-    }
+    //if(OP_TRANSLATION)
+    //{
+    //    for(; page <= end; page++)
+    //    {
+    //        this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
+    //    }
+    //}
 };
 
 /**
