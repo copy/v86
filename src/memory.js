@@ -61,7 +61,9 @@ Memory.prototype.debug_write = function(addr, size, value)
     this.debug_read(addr, size, true);
 }
 
-/** @param {boolean=} is_write */
+/**
+ * @param {boolean=} is_write
+ */
 Memory.prototype.debug_read = function(addr, size, is_write)
 {
     if(!DEBUG)
@@ -114,7 +116,7 @@ Memory.prototype.mmap_write32 = function(addr, value)
 }
 
 /**
- * @param addr {number}
+ * @param {number} addr
  */
 Memory.prototype.read8 = function(addr)
 {
@@ -131,7 +133,7 @@ Memory.prototype.read8 = function(addr)
 };
 
 /**
- * @param addr {number}
+ * @param {number} addr
  */
 Memory.prototype.read16 = function(addr)
 {
@@ -148,7 +150,7 @@ Memory.prototype.read16 = function(addr)
 };
 
 /**
- * @param addr {number}
+ * @param {number} addr
  */
 Memory.prototype.read_aligned16 = function(addr)
 {
@@ -166,7 +168,7 @@ Memory.prototype.read_aligned16 = function(addr)
 };
 
 /**
- * @param addr {number}
+ * @param {number} addr
  */
 Memory.prototype.read32s = function(addr)
 {
@@ -178,13 +180,13 @@ Memory.prototype.read32s = function(addr)
     }
     else
     {
-        return this.mem8[addr] | this.mem8[addr + 1 | 0] << 8 | 
+        return this.mem8[addr] | this.mem8[addr + 1 | 0] << 8 |
             this.mem8[addr + 2 | 0] << 16 | this.mem8[addr + 3 | 0] << 24;
     }
 };
 
 /**
- * @param addr {number}
+ * @param {number} addr
  */
 Memory.prototype.read_aligned32 = function(addr)
 {
@@ -202,8 +204,8 @@ Memory.prototype.read_aligned32 = function(addr)
 };
 
 /**
- * @param addr {number}
- * @param value {number}
+ * @param {number} addr
+ * @param {number} value
  */
 Memory.prototype.write8 = function(addr, value)
 {
@@ -224,8 +226,8 @@ Memory.prototype.write8 = function(addr, value)
 };
 
 /**
- * @param addr {number}
- * @param value {number}
+ * @param {number} addr
+ * @param {number} value
  */
 Memory.prototype.write16 = function(addr, value)
 {
@@ -251,8 +253,8 @@ Memory.prototype.write16 = function(addr, value)
 };
 
 /**
- * @param addr {number}
- * @param value {number}
+ * @param {number} addr
+ * @param {number} value
  */
 Memory.prototype.write_aligned16 = function(addr, value)
 {
@@ -274,8 +276,8 @@ Memory.prototype.write_aligned16 = function(addr, value)
 };
 
 /**
- * @param addr {number}
- * @param value {number}
+ * @param {number} addr
+ * @param {number} value
  */
 Memory.prototype.write32 = function(addr, value)
 {
@@ -309,7 +311,7 @@ Memory.prototype.write_aligned32 = function(addr, value)
 
     var page = addr >>> MMAP_BLOCK_BITS - 2;
 
-    if(OP_TRANSLATION) this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
+    //if(OP_TRANSLATION) this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
 
     if(this.memory_map_registered[page])
     {
@@ -322,8 +324,8 @@ Memory.prototype.write_aligned32 = function(addr, value)
 };
 
 /**
- * @param offset {number}
- * @param blob {Array.<number>}
+ * @param {number} offset
+ * @param {Array.<number>} blob
  */
 Memory.prototype.write_blob = function(blob, offset)
 {

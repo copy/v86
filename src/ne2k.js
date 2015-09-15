@@ -59,10 +59,10 @@
  */
 function Ne2k(cpu, bus)
 {
-    /** @const */
+    /** @const @type {CPU} */
     this.cpu = cpu;
 
-    /** @const */
+    /** @const @type {Bus.Connector} */
     this.bus = bus;
     this.bus.register("net0-receive", function(data)
     {

@@ -24,7 +24,7 @@ var /** @const */
  * */
 function IDEDevice(cpu, buffer, is_cd, nr, bus)
 {
-    /** @const */
+    /** @const @type {Bus.Connector} */
     this.bus = bus;
 
     // gets set via PCI in seabios, likely doesn't matter
@@ -49,14 +49,14 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
     // alternate status, starting at 3f4/374
     /** @type {number} */
     this.ata_port_high = this.ata_port | 0x204;
-    
+
     /** @type {number} */
     this.master_port = 0xC000;
 
-    /** @const */
+    /** @const @type {CPU} */
     this.cpu = cpu;
 
-    /** @const */
+    /** @const @type {Memory} */
     this.memory = cpu.memory;
 
     this.buffer = buffer;

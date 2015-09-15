@@ -6,7 +6,7 @@
  */
 var dbg_log = (function()
 {
-    /** @const */
+    /** @const @type {Object.<number, string>} */
     var dbg_names = LOG_NAMES.reduce(function(a, x)
     {
         a[x[0]] = x[1];

@@ -29,7 +29,7 @@ var VGA_PLANAR_REAL_BUFFER_START = 4 * VGA_BANK_SIZE;
  */
 function VGAScreen(cpu, bus, vga_memory_size)
 {
-    /** @const */
+    /** @const @type {Bus.Connector} */
     this.bus = bus;
 
     this.vga_memory_size = vga_memory_size;

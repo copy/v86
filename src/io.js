@@ -12,10 +12,10 @@ function IO(memory)
     /** @const */
     this.ports = [];
 
-    /** @const */
+    /* const */
     this.devices = Array(0x10000);
 
-    /** @const */
+    /** @const @type {Memory} */
     this.memory = memory;
 
 

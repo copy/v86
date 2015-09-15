@@ -7,13 +7,13 @@
  */
 function FloppyController(cpu, fda_image, fdb_image)
 {
-    /** @const */
+    /** @const @type {IO|undefined} */
     this.io = cpu.io;
 
-    /** @const */
+    /** @const @type {CPU} */
     this.cpu = cpu;
 
-    /** @const */
+    /** @const @type {DMA} */
     this.dma = cpu.devices.dma;
 
     this.bytes_expecting = 0;
@@ -27,10 +27,10 @@ function FloppyController(cpu, fda_image, fdb_image)
 
     this.floppy_size = 0;
 
-    /** @const */
+    /* const */
     this.fda_image = fda_image;
 
-    /** @const */
+    /* const */
     this.fdb_image = fdb_image;
 
 

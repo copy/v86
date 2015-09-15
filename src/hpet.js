@@ -19,7 +19,6 @@ var HPET_ADDR = 0xFED00000,
 function HPET(cpu)
 {
     var me = this,
-        io = cpu.io,
 
         hpet_enabled = false,
         hpet_start = Date.now(),
@@ -32,9 +31,9 @@ function HPET(cpu)
 
         counter_config = new Int32Array(HPET_NUM_COUNTERS << 1),
         counter_comparator = new Int32Array(HPET_NUM_COUNTERS << 1),
-        counter_accumulator = new Int32Array(HPET_NUM_COUNTERS << 1),
+        counter_accumulator = new Int32Array(HPET_NUM_COUNTERS << 1);
 
-        counter_last_irq = new Int32Array(HPET_NUM_COUNTERS << 1);
+    //var counter_last_irq = new Int32Array(HPET_NUM_COUNTERS << 1);
 
 
     var last_check = 0;
@@ -52,7 +51,7 @@ function HPET(cpu)
         var
             counter_value = get_counter() >>> 0,
             config,
-            last_irq,
+            //last_irq,
             comparator,
             do_irq;
 

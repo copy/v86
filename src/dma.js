@@ -6,7 +6,7 @@
  */
 function DMA(dev)
 {
-    /** @const */
+    /** @const @type {Memory} */
     this.memory = dev.memory;
 
     this.channel_addr = new Int32Array(4);

@@ -209,10 +209,10 @@ PCI.prototype.pci_query = function()
 
     var bdf = this.pci_addr[2] << 8 | this.pci_addr[1],
         addr = this.pci_addr[0] & 0xFC,
-        devfn = bdf & 0xFF,
-        bus = bdf >> 8,
+        //devfn = bdf & 0xFF,
+        //bus = bdf >> 8,
         dev = bdf >> 3 & 0x1F,
-        fn = bdf & 7,
+        //fn = bdf & 7,
         enabled = this.pci_addr[3] >> 7;
 
     dbg_line += "enabled=" + (enabled);

@@ -44,7 +44,7 @@
  */
 function RTC(cpu)
 {
-    /** @const */
+    /** @const @type {CPU} */
     this.cpu = cpu;
 
     this.cmos_index = 0;

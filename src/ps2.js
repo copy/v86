@@ -7,10 +7,10 @@
  */
 function PS2(cpu, bus)
 {
-    /** @const */
+    /** @const @type {CPU} */
     this.cpu = cpu;
 
-    /** @const */
+    /** @const @type {Bus.Connector} */
     this.bus = bus;
 
     /** @type {boolean} */

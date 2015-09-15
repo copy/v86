@@ -110,7 +110,7 @@ function VirtIO(cpu, bus, filesystem)
         var ring_start = queue_start + 16 * this.queue_size;
         var ring_desc_start = ring_start + 4;
 
-        var flags = this.memory.read16(ring_start),
+        var //flags = this.memory.read16(ring_start),
             // index of the next free ring
             idx = this.memory.read16(ring_start + 2);
 
@@ -131,10 +131,10 @@ function VirtIO(cpu, bus, filesystem)
 
     this.irq = 0xC;
 
-    /** @const */
+    /** @const @type {CPU} */
     this.cpu = cpu;
 
-    /** @const */
+    /** @const @type {Bus.Connector} */
     this.bus = bus;
 
     this.queue_select = 0;
@@ -146,7 +146,7 @@ function VirtIO(cpu, bus, filesystem)
     this.queue_size = 32;
     this.queue_address = 0;
 
-    /** @const */
+    /** @const @type {Memory} */
     this.memory = cpu.memory;
 
     for(var i = 0; i < 128; i++)

@@ -14,7 +14,7 @@ var OSCILLATOR_FREQ = 1193.1816666; // 1.193182 MHz
  */
 function PIT(cpu)
 {
-    /** @const */
+    /** @const @type {CPU} */
     this.cpu = cpu;
 
     this.next_tick = Date.now();
@@ -213,8 +213,7 @@ PIT.prototype.port43_write = function(reg_byte)
     var mode = reg_byte >> 1 & 7,
         binary_mode = reg_byte & 1,
         i = reg_byte >> 6 & 3,
-        read_mode = reg_byte >> 4 & 3,
-        next_low;
+        read_mode = reg_byte >> 4 & 3;
 
     if(i === 1)
     {

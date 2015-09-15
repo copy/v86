@@ -29,10 +29,10 @@ var DLAB = 0x80;
  */
 function UART(cpu, port, bus)
 {
-    /** @const */
+    /** @const @type {Bus.Connector} */
     this.bus = bus;
 
-    /** @const */
+    /** @const @type {CPU} */
     this.cpu = cpu;
 
     this.ints = 0;
