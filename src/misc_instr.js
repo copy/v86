@@ -72,7 +72,7 @@ CPU.prototype.jmpcc32 = function(condition)
 CPU.prototype.cmovcc16 = function(condition)
 {
     var data = this.read_e16();
-    if(condition) 
+    if(condition)
     {
         this.write_g16(data);
     }

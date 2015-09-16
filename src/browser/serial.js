@@ -22,7 +22,7 @@ function SerialAdapter(element, bus)
     }, this);
 
 
-    this.destroy = function() 
+    this.destroy = function()
     {
         element.removeEventListener("keypress", keypress_handler, false);
         element.removeEventListener("keydown", keydown_handler, false);
@@ -64,7 +64,7 @@ function SerialAdapter(element, bus)
         }
         else if(chr === "\r")
         {
-            // do nothing 
+            // do nothing
         }
         else
         {

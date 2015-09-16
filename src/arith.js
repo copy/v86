@@ -64,7 +64,7 @@ CPU.prototype.adc = function(dest_operand, source_operand, op_size)
     this.last_op1 = dest_operand;
     this.last_op2 = source_operand;
     this.last_add_result = this.last_result = (dest_operand + source_operand | 0) + cf | 0;
-    
+
     this.last_op_size = op_size;
     this.flags_changed = flags_all;
 
@@ -86,7 +86,7 @@ CPU.prototype.sub = function(dest_operand, source_operand, op_size)
     this.last_add_result = dest_operand;
     this.last_op2 = source_operand;
     this.last_op1 = this.last_result = dest_operand - source_operand | 0;
-    
+
     this.last_op_size = op_size;
     this.flags_changed = flags_all;
 
@@ -100,7 +100,7 @@ CPU.prototype.sbb = function(dest_operand, source_operand, op_size)
     this.last_op2 = source_operand;
     this.last_op1 = this.last_result = dest_operand - source_operand - cf | 0;
     this.last_op_size = op_size;
-    
+
     this.flags_changed = flags_all;
 
     return this.last_result;
@@ -125,7 +125,7 @@ CPU.prototype.inc = function(dest_operand, op_size)
     this.last_op2 = 1;
     this.last_add_result = this.last_result = dest_operand + 1 | 0;
     this.last_op_size = op_size;
-    
+
     this.flags_changed = flags_all & ~1;
 
     return this.last_result;
@@ -138,7 +138,7 @@ CPU.prototype.dec = function(dest_operand, op_size)
     this.last_op2 = 1;
     this.last_op1 = this.last_result = dest_operand - 1 | 0;
     this.last_op_size = op_size;
-    
+
     this.flags_changed = flags_all & ~1;
 
     return this.last_result;
@@ -155,7 +155,7 @@ CPU.prototype.neg32 = function(dest) { return this.neg(dest, OPSIZE_32); }
 CPU.prototype.neg = function(dest_operand, op_size)
 {
     this.last_op1 = this.last_result = -dest_operand | 0;
-    
+
     this.flags_changed = flags_all;
     this.last_add_result = 0;
     this.last_op2 = dest_operand;
@@ -427,7 +427,7 @@ CPU.prototype.div16 = function(source_operand)
 {
     dbg_assert(source_operand >= 0 && source_operand < 0x10000);
 
-    var 
+    var
         target_operand = (this.reg16[reg_ax] | this.reg16[reg_dx] << 16) >>> 0,
         result = target_operand / source_operand | 0;
 
@@ -448,13 +448,13 @@ CPU.prototype.idiv16 = function(source_operand)
 
     var target_operand = this.reg16[reg_ax] | (this.reg16[reg_dx] << 16),
         result = target_operand / source_operand | 0;
-    
+
     if(result >= 0x8000 || result <= -0x8001 || source_operand === 0)
     {
         this.trigger_de();
     }
     else
-    {    
+    {
         this.reg16[reg_ax] = result;
         this.reg16[reg_dx] = target_operand % source_operand;
     }
@@ -587,7 +587,7 @@ CPU.prototype.idiv32 = function(source_operand)
         this.trigger_de();
     }
     else
-    {    
+    {
         this.reg32s[reg_eax] = result;
         this.reg32s[reg_edx] = mod;
     }
@@ -790,7 +790,7 @@ CPU.prototype.xor32 = function(dest, src) { return this.xor(dest, src, OPSIZE_32
 CPU.prototype.and = function(dest_operand, source_operand, op_size)
 {
     this.last_result = dest_operand & source_operand;
-    
+
     this.last_op_size = op_size;
     this.flags &= ~1 & ~flag_overflow & ~flag_adjust;
     this.flags_changed = flags_all & ~1 & ~flag_overflow & ~flag_adjust;
@@ -801,7 +801,7 @@ CPU.prototype.and = function(dest_operand, source_operand, op_size)
 CPU.prototype.or = function(dest_operand, source_operand, op_size)
 {
     this.last_result = dest_operand | source_operand;
-    
+
     this.last_op_size = op_size;
     this.flags &= ~1 & ~flag_overflow & ~flag_adjust;
     this.flags_changed = flags_all & ~1 & ~flag_overflow & ~flag_adjust;
@@ -812,7 +812,7 @@ CPU.prototype.or = function(dest_operand, source_operand, op_size)
 CPU.prototype.xor = function(dest_operand, source_operand, op_size)
 {
     this.last_result = dest_operand ^ source_operand;
-    
+
     this.last_op_size = op_size;
     this.flags &= ~1 & ~flag_overflow & ~flag_adjust;
     this.flags_changed = flags_all & ~1 & ~flag_overflow & ~flag_adjust;
@@ -836,7 +836,7 @@ CPU.prototype.rol8 = function(dest_operand, count)
     var result = dest_operand << count | dest_operand >> (8 - count);
 
     this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
                 | (result & 1)
                 | (result << 11 ^ result << 4) & flag_overflow;
 
@@ -854,7 +854,7 @@ CPU.prototype.rol16 = function(dest_operand, count)
     var result = dest_operand << count | dest_operand >> (16 - count);
 
     this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
                 | (result & 1)
                 | (result << 11 ^ result >> 4) & flag_overflow;
 
@@ -871,7 +871,7 @@ CPU.prototype.rol32 = function(dest_operand, count)
     var result = dest_operand << count | dest_operand >>> (32 - count);
 
     this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
                 | (result & 1)
                 | (result << 11 ^ result >> 20) & flag_overflow;
 
@@ -889,7 +889,7 @@ CPU.prototype.rcl8 = function(dest_operand, count)
     var result = dest_operand << count | this.getcf() << (count - 1) | dest_operand >> (9 - count);
 
     this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
                 | (result >> 8 & 1)
                 | (result << 3 ^ result << 4) & flag_overflow;
 
@@ -907,8 +907,8 @@ CPU.prototype.rcl16 = function(dest_operand, count)
     var result = dest_operand << count | this.getcf() << (count - 1) | dest_operand >> (17 - count);
 
     this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
-                | (result >> 16 & 1) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
+                | (result >> 16 & 1)
                 | (result >> 5 ^ result >> 4) & flag_overflow;
 
     return result;
@@ -946,12 +946,12 @@ CPU.prototype.ror8 = function(dest_operand, count)
     var result = dest_operand >> count | dest_operand << (8 - count);
 
     this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
                 | (result >> 7 & 1)
                 | (result << 4 ^ result << 5) & flag_overflow;
 
     return result;
-} 
+}
 
 CPU.prototype.ror16 = function(dest_operand, count)
 {
@@ -964,8 +964,8 @@ CPU.prototype.ror16 = function(dest_operand, count)
     var result = dest_operand >> count | dest_operand << (16 - count);
 
     this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
-                | (result >> 15 & 1) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
+                | (result >> 15 & 1)
                 | (result >> 4 ^ result >> 3) & flag_overflow;
 
     return result;
@@ -981,8 +981,8 @@ CPU.prototype.ror32 = function(dest_operand, count)
     var result = dest_operand >>> count | dest_operand << (32 - count);
 
     this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
-                | (result >> 31 & 1) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
+                | (result >> 31 & 1)
                 | (result >> 20 ^ result >> 19) & flag_overflow;
 
     return result;
@@ -999,12 +999,12 @@ CPU.prototype.rcr8 = function(dest_operand, count)
     var result = dest_operand >> count | this.getcf() << (8 - count) | dest_operand << (9 - count);
 
     this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
                 | (result >> 8 & 1)
                 | (result << 4 ^ result << 5) & flag_overflow;
 
     return result;
-}    
+}
 
 CPU.prototype.rcr16 = function(dest_operand, count)
 {
@@ -1017,7 +1017,7 @@ CPU.prototype.rcr16 = function(dest_operand, count)
     var result = dest_operand >> count | this.getcf() << (16 - count) | dest_operand << (17 - count);
 
     this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
                 | (result >> 16 & 1)
                 | (result >> 4 ^ result >> 3) & flag_overflow;
 
@@ -1039,7 +1039,7 @@ CPU.prototype.rcr32 = function(dest_operand, count)
     }
 
     this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
                 | (dest_operand >> (count - 1) & 1)
                 | (result >> 20 ^ result >> 19) & flag_overflow;
 
@@ -1057,7 +1057,7 @@ CPU.prototype.shl8 = function(dest_operand, count)
 
     this.last_op_size = OPSIZE_8;
     this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
                 | (this.last_result >> 8 & 1)
                 | (this.last_result << 3 ^ this.last_result << 4) & flag_overflow;
 
@@ -1075,7 +1075,7 @@ CPU.prototype.shl16 = function(dest_operand, count)
 
     this.last_op_size = OPSIZE_16;
     this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
                 | (this.last_result >> 16 & 1)
                 | (this.last_result >> 5 ^ this.last_result >> 4) & flag_overflow;
 
@@ -1129,12 +1129,12 @@ CPU.prototype.shr16 = function(dest_operand, count)
 
     this.last_op_size = OPSIZE_16;
     this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
-                | (dest_operand >> (count - 1) & 1) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
+                | (dest_operand >> (count - 1) & 1)
                 | (dest_operand >> 4)  & flag_overflow;
 
     return this.last_result;
-}    
+}
 
 CPU.prototype.shr32 = function(dest_operand, count)
 {
@@ -1147,7 +1147,7 @@ CPU.prototype.shr32 = function(dest_operand, count)
 
     this.last_op_size = OPSIZE_32;
     this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) 
+    this.flags = (this.flags & ~1 & ~flag_overflow)
                 | (dest_operand >>> (count - 1) & 1)
                 | (dest_operand >> 20) & flag_overflow;
 
@@ -1177,7 +1177,7 @@ CPU.prototype.sar8 = function(dest_operand, count)
     this.flags_changed = flags_all & ~1 & ~flag_overflow;
 
     return this.last_result;
-}    
+}
 
 CPU.prototype.sar16 = function(dest_operand, count)
 {
@@ -1390,7 +1390,7 @@ CPU.prototype.bsf16 = function(old, bit_base)
     if(bit_base === 0)
     {
         this.flags |= flag_zero;
-        
+
         // not defined in the docs, but value doesn't change on my intel this
         return old;
     }

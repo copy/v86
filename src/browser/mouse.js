@@ -57,7 +57,7 @@ function MouseAdapter(bus)
 
     function may_handle(e)
     {
-        return mouse.enabled && mouse.emu_enabled && 
+        return mouse.enabled && mouse.emu_enabled &&
             (!e.target || e.type === "mousemove" || (e.target.nodeName !== "INPUT" && e.target.nodeName !== "TEXTAREA"));
     }
 

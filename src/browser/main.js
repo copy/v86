@@ -26,7 +26,7 @@
         }
     }
 
-    /** 
+    /**
      * @return {Object.<string, string>}
      */
     function get_query_arguments()
@@ -60,8 +60,8 @@
         }
         else
         {
-            return (time / 3600 | 0) + "h " + 
-                v86util.pad0((time / 60 | 0) % 60, 2) + "m " + 
+            return (time / 3600 | 0) + "h " +
+                v86util.pad0((time / 60 | 0) % 60, 2) + "m " +
                 v86util.pad0(time % 60, 2) + "s";
         }
     }
@@ -87,7 +87,7 @@
 
         if(e.file_index === e.file_count - 1 && e.loaded >= e.total - 2048)
         {
-            // last file is (almost) loaded 
+            // last file is (almost) loaded
             el.textContent = "Done downloading. Starting now ...";
             return;
         }
@@ -174,7 +174,7 @@
                 set_title(last_file.name);
             }
 
-            start_emulation({ 
+            start_emulation({
                 settings: settings,
             });
         };
@@ -358,8 +358,8 @@
             {
                 $("boot_options").style.display = "none";
 
-                start_emulation({ 
-                    settings: settings, 
+                start_emulation({
+                    settings: settings,
                     done: done,
                 });
             }
@@ -380,7 +380,7 @@
 
             settings.fda = infos.fda;
             settings.cdrom = infos.cdrom;
-            
+
             if(infos.hda)
             {
                 settings.hda = infos.hda
@@ -397,8 +397,8 @@
             settings.memory_size = infos.memory_size;
             settings.vga_memory_size = infos.vga_memory_size;
 
-            start_emulation({ 
-                settings: settings, 
+            start_emulation({
+                settings: settings,
                 done: done,
             });
         }
@@ -481,9 +481,9 @@
 
     // old webkit fires popstate on every load, fuck webkit
     // https://code.google.com/p/chromium/issues/detail?id=63040
-    window.addEventListener("load", function() 
+    window.addEventListener("load", function()
     {
-        setTimeout(function() 
+        setTimeout(function()
         {
             window.addEventListener("popstate", onpopstate);
         }, 0);
@@ -513,7 +513,7 @@
                 memory_size = 32 * MB;
             }
         }
-        
+
         var vga_memory_size = settings.vga_memory_size;
 
         if(!vga_memory_size)
@@ -607,7 +607,7 @@
         }
 
         var news_element = $("news");
-        if(news_element) 
+        if(news_element)
         {
             news_element.style.display = "none";
         }
@@ -861,7 +861,7 @@
                 0x53, // delete
 
                 // break codes
-                0x1D | 0x80, 
+                0x1D | 0x80,
                 0x38 | 0x80,
                 0x53 | 0x80,
             ]);
@@ -976,7 +976,7 @@
             {
                 this.disabled = false;
 
-                if(uint8array) 
+                if(uint8array)
                 {
                     var filename = this.value.replace(/\/$/, "").split("/");
                     filename = filename[filename.length - 1] || "root";
@@ -984,7 +984,7 @@
                     dump_file(uint8array, filename);
                     this.value = "";
                 }
-                else 
+                else
                 {
                     alert("Can't read file");
                 }

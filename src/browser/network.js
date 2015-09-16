@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * An ethernet-through-websocket adapter, to be used with 
+ * An ethernet-through-websocket adapter, to be used with
  *     https://github.com/benjamincburns/websockproxy
- * 
+ *
  * emulated ethernet card <--> this <--> websocket proxy <--> network
  *
  * @constructor
@@ -63,7 +63,7 @@ NetworkAdapter.prototype.handle_error = function(e)
     //console.log("onerror", e);
 };
 
-NetworkAdapter.prototype.destroy = function() 
+NetworkAdapter.prototype.destroy = function()
 {
     if(this.socket)
     {

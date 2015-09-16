@@ -1,6 +1,6 @@
 "use strict";
 
-/** 
+/**
  * Constructor for emulator instances.
  *
  * Usage: `var emulator = new V86Starter(options);`
@@ -53,14 +53,14 @@
  *
  *   ```javascript
  *   // download file before boot
- *   options.bios = { 
- *       url: "bios/seabios.bin" 
+ *   options.bios = {
+ *       url: "bios/seabios.bin"
  *   }
  *   // download file sectors as requested, size is required
- *   options.hda = { 
+ *   options.hda = {
  *       url: "disk/linux.iso",
  *       async: true,
- *       size: 16 * 1024 * 1024 
+ *       size: 16 * 1024 * 1024
  *   }
  *   ```
  *
@@ -68,11 +68,11 @@
  *
  *   ```javascript
  *   // use <input type=file>
- *   options.bios = { 
+ *   options.bios = {
  *       buffer: document.all.hd_image.files[0]
  *   }
  *   // start with empty hard drive
- *   options.hda = { 
+ *   options.hda = {
  *       buffer: new ArrayBuffer(16 * 1024 * 1024)
  *   }
  *   ```
@@ -80,13 +80,13 @@
  * ***
  *
  * @param {Object} options Options to initialize the emulator with.
- * @constructor 
+ * @constructor
  */
 function V86Starter(options)
 {
     //var worker = new Worker("src/browser/worker.js");
     //var adapter_bus = this.bus = WorkerBus.init(worker);
-    
+
     this.cpu_is_running = false;
 
     var bus = Bus.create();
@@ -213,7 +213,7 @@ function V86Starter(options)
         {
             // SyncFileBuffer:
             // - loads the whole disk image into memory, impossible for large files (more than 1GB)
-            // - can later serve get/set operations fast and synchronously 
+            // - can later serve get/set operations fast and synchronously
             // - takes some time for first load, neglectable for small files (up to 100Mb)
             //
             // AsyncFileBuffer:
@@ -426,7 +426,7 @@ V86Starter.prototype.restart = function()
  * The callback function gets a single argument which depends on the event.
  *
  * @param {string} event Name of the event.
- * @param {function(*)} listener The callback function. 
+ * @param {function(*)} listener The callback function.
  */
 V86Starter.prototype.add_listener = function(event, listener)
 {
@@ -434,7 +434,7 @@ V86Starter.prototype.add_listener = function(event, listener)
 };
 
 /**
- * Remove an event listener. 
+ * Remove an event listener.
  *
  * @param {string} event
  * @param {function(*)} listener
@@ -447,11 +447,11 @@ V86Starter.prototype.remove_listener = function(event, listener)
 /**
  * Restore the emulator state from the given state, which must be an
  * ArrayBuffer returned by
- * [`save_state`](#save_statefunctionobject-arraybuffer-callback). 
+ * [`save_state`](#save_statefunctionobject-arraybuffer-callback).
  *
  * Note that the state can only be restored correctly if this constructor has
  * been created with the same options as the original instance (e.g., same disk
- * images, memory size, etc.). 
+ * images, memory size, etc.).
  *
  * Different versions of the emulator might use a different format for the
  * state buffer.
@@ -593,7 +593,7 @@ V86Starter.prototype.is_running = function()
     return this.cpu_is_running;
 };
 
-/** 
+/**
  * Send a sequence of scan codes to the emulated PS2 controller. A list of
  * codes can be found at http://stanislavs.org/helppc/make_codes.html.
  * Do nothing if there is no keyboard controller.
@@ -681,9 +681,9 @@ V86Starter.prototype.screen_go_fullscreen = function()
     }
 
     // bracket notation because otherwise they get renamed by closure compiler
-    var fn = elem["requestFullScreen"] || 
-            elem["webkitRequestFullscreen"] || 
-            elem["mozRequestFullScreen"] || 
+    var fn = elem["requestFullScreen"] ||
+            elem["webkitRequestFullscreen"] ||
+            elem["mozRequestFullScreen"] ||
             elem["msRequestFullScreen"];
 
     if(fn)
@@ -720,7 +720,7 @@ V86Starter.prototype.lock_mouse = function()
     }
 };
 
-/** 
+/**
  * Enable or disable sending mouse events to the emulated PS2 controller.
  *
  * @param {boolean} enabled
@@ -733,7 +733,7 @@ V86Starter.prototype.mouse_set_status = function(enabled)
     }
 };
 
-/** 
+/**
  * Enable or disable sending keyboard events to the emulated PS2 controller.
  *
  * @param {boolean} enabled
@@ -747,7 +747,7 @@ V86Starter.prototype.keyboard_set_status = function(enabled)
 };
 
 
-/** 
+/**
  * Send a string to the first emulated serial terminal.
  *
  * @param {string} data
@@ -851,7 +851,7 @@ V86Starter.prototype.read_file = function(file, callback)
     }
 };
 
-/** 
+/**
  * @ignore
  * @constructor
  *

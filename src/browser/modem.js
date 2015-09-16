@@ -49,7 +49,7 @@ ModemAdapter.prototype.init = function(code_fn)
     this.send_char = code_fn;
 };
 
-ModemAdapter.prototype.destroy = function() 
+ModemAdapter.prototype.destroy = function()
 {
 };
 

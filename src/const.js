@@ -1,8 +1,8 @@
-/** @define {boolean} */            
+/** @define {boolean} */
 var DEBUG = true;
 
 
-var 
+var
 
 /** @const */ LOG_ALL = -1,
 /** @const */ LOG_NONE = 0,
@@ -73,14 +73,14 @@ var
 /** @const */ TLB_USER_WRITE = 8;
 
 
-var 
+var
     /** @const */
     ENABLE_HPET = false,
 
     /** @const */
     ENABLE_ACPI = false;
 
-var 
+var
 
 
 // flags register bitflags
@@ -88,7 +88,7 @@ var
 /** @const */ flag_parity = 4,
 /** @const */ flag_adjust = 16,
 /** @const */ flag_zero = 64,
-/** @const */ flag_sign = 128, 
+/** @const */ flag_sign = 128,
 /** @const */ flag_trap = 256,
 /** @const */ flag_interrupt = 512,
 /** @const */ flag_direction = 1024,
@@ -102,17 +102,17 @@ var
 /** @const */ flag_vip = 1 << 20,
 /** @const */ flag_id = 1 << 21,
 
-/** 
+/**
  * default values of reserved flags bits
  * @const
  */
 flags_default = 1 << 1,
 
-/** 
+/**
  * bitmask to select non-reserved flags bits
  * @const
  */
-flags_mask = 
+flags_mask =
     flag_carry | flag_parity | flag_adjust | flag_zero | flag_sign | flag_trap | flag_interrupt |
     flag_direction | flag_overflow | flag_iopl | flag_nt | flag_rf | flag_vm | flag_ac |
     flag_vif | flag_vip | flag_id,
@@ -187,13 +187,14 @@ PSE_ENABLED = 128,
 var OP_TRANSLATION = false;
 
 
-var 
-    /** 
+var
+    /**
      * The minimum number of bytes that can be memory-mapped
-     * by one device. 
+     * by one device.
      *
-     * @const 
-     */ 
+     * @const
+     */
+
     MMAP_BLOCK_BITS = 17,
     /** @const */
     MMAP_BLOCK_SIZE = 1 << MMAP_BLOCK_BITS;
@@ -207,7 +208,7 @@ var MEM_PAGE_WRITTEN = 1;
 var MAGIC_CPU_EXCEPTION = 0xDEADBEE;
 
 
-var 
+var
     /** @const */
     REPEAT_STRING_PREFIX_NONE = 0,
     /** @const */
@@ -215,7 +216,7 @@ var
     /** @const */
     REPEAT_STRING_PREFIX_Z = 2;
 
-var 
+var
     /** @const */
     CR0_PE = 1,
     /** @const */
@@ -235,7 +236,7 @@ var
     /** @const */
     CR0_PG = 1 << 31;
 
-var 
+var
     /** @const */
     CR4_VME = 1,
     /** @const */
@@ -252,7 +253,7 @@ var
 
 // Segment prefixes must not collide with reg_*s variables
 // _ZERO is a special zero offset segment
-var 
+var
     /** @const */
     SEG_PREFIX_NONE = -1,
 
