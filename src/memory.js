@@ -24,29 +24,28 @@ function Memory(memory_size)
 
     dbg_assert((memory_size & MMAP_BLOCK_SIZE - 1) === 0);
 
-    this.buffer = new ArrayBuffer(memory_size);
+    var buffer = new ArrayBuffer(memory_size);
 
-    this.mem8 = new Uint8Array(this.buffer);
-    this.mem16 = new Uint16Array(this.buffer);
-    this.mem32s = new Int32Array(this.buffer);
+    this.mem8 = new Uint8Array(buffer);
+    this.mem16 = new Uint16Array(buffer);
+    this.mem32s = new Int32Array(buffer);
 };
 
 Memory.prototype.get_state = function()
 {
     return [
         this.size,
-        this.buffer,
+        this.mem8,
     ];
 }
 
 Memory.prototype.set_state = function(state)
 {
     this.size = state[0];
-    this.buffer = state[1];
 
-    this.mem8 = new Uint8Array(this.buffer);
-    this.mem16 = new Uint16Array(this.buffer);
-    this.mem32s = new Int32Array(this.buffer);
+    this.mem8 = state[1];
+    this.mem16 = new Uint16Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 1);
+    this.mem32s = new Int32Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 2);
 };
 
 // called by all memory reads and writes

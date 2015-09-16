@@ -1,7 +1,7 @@
 "use strict";
 
 /** @const */
-var STATE_VERSION = 1;
+var STATE_VERSION = 2;
 
 /** @const */
 var STATE_MAGIC = 0x86768676|0;
@@ -30,7 +30,7 @@ function StateLoadError(msg)
 StateLoadError.prototype = new Error;
 
 
-function save_object(obj, arraybuffers)
+function save_object(obj, saved_buffers)
 {
     if(typeof obj !== "object" || obj === null || obj instanceof Array)
     {
@@ -42,17 +42,11 @@ function save_object(obj, arraybuffers)
     if(obj.BYTES_PER_ELEMENT)
     {
         // Uint8Array, etc.
+        var buffer = new Uint8Array(obj.buffer, obj.byteOffset, obj.length * obj.BYTES_PER_ELEMENT);
+
         return {
             "__state_type__": obj.constructor.name,
-            "buffer_id": arraybuffers.push(obj.buffer) - 1,
-        };
-    }
-
-    if(obj instanceof ArrayBuffer)
-    {
-        return {
-            "__state_type__": "ArrayBuffer",
-            "buffer_id": arraybuffers.push(obj) - 1,
+            "buffer_id": saved_buffers.push(buffer) - 1,
         };
     }
 
@@ -70,7 +64,7 @@ function save_object(obj, arraybuffers)
 
         dbg_assert(typeof value !== "function");
 
-        result[i] = save_object(value, arraybuffers);
+        result[i] = save_object(value, saved_buffers);
     }
 
     return result;
@@ -118,22 +112,6 @@ function restore_object(base, obj, buffers)
 
         return base;
     }
-    else if(type === "ArrayBuffer")
-    {
-        var info = buffers.infos[obj["buffer_id"]];
-
-        if(base && base.byteLength === info.length)
-        {
-            new Uint8Array(base).set(new Uint8Array(buffers.full, info.offset, info.length));
-        }
-        else
-        {
-            //base = buffers.full.slice(info.offset, info.offset + info.length);
-            dbg_assert(false, base ? "buffer of different size" : "no buffer");
-        }
-
-        return base;
-    }
     else
     {
         var table = {
@@ -152,11 +130,16 @@ function restore_object(base, obj, buffers)
 
         var info = buffers.infos[obj["buffer_id"]];
 
+        // restore large buffers by just returning a view on the state blob
+        if(info.length >= 1024 * 1024 && constructor === Uint8Array)
+        {
+            return new Uint8Array(buffers.full, info.offset, info.length);
+        }
         // avoid a new allocation if possible
-        if(base &&
-           base.constructor === constructor &&
-           base.byteOffset === 0 &&
-           base.byteLength === info.length)
+        else if(base &&
+                base.constructor === constructor &&
+                base.byteOffset === 0 &&
+                base.byteLength === info.length)
         {
             new Uint8Array(base.buffer).set(
                 new Uint8Array(buffers.full, info.offset, info.length),
@@ -174,15 +157,15 @@ function restore_object(base, obj, buffers)
 
 CPU.prototype.save_state = function()
 {
-    var arraybuffers = [];
-    var state = save_object(this, arraybuffers);
+    var saved_buffers = [];
+    var state = save_object(this, saved_buffers);
 
     var buffer_infos = [];
     var total_buffer_size = 0;
 
-    for(var i = 0; i < arraybuffers.length; i++)
+    for(var i = 0; i < saved_buffers.length; i++)
     {
-        var len = arraybuffers[i].byteLength;
+        var len = saved_buffers[i].byteLength;
 
         buffer_infos[i] = {
             offset: total_buffer_size,
@@ -201,6 +184,7 @@ CPU.prototype.save_state = function()
     });
 
     var buffer_block_start = STATE_INFO_BLOCK_START + 2 * info_object.length;
+    buffer_block_start = buffer_block_start + 3 & ~3;
     var total_size = buffer_block_start + total_buffer_size;
 
     //console.log("State: json_size=" + Math.ceil(buffer_block_start / 1024 / 1024) + "MB " +
@@ -233,9 +217,9 @@ CPU.prototype.save_state = function()
         info_block[i] = info_object.charCodeAt(i);
     }
 
-    for(var i = 0; i < arraybuffers.length; i++)
+    for(var i = 0; i < saved_buffers.length; i++)
     {
-        var buffer = arraybuffers[i];
+        var buffer = saved_buffers[i];
         buffer_block.set(new Uint8Array(buffer), buffer_infos[i].offset);
     }
 
@@ -304,6 +288,7 @@ CPU.prototype.restore_state = function(state)
     var state_object = info_block_obj["state"];
     var buffer_infos = info_block_obj["buffer_infos"];
     var buffer_block_start = STATE_INFO_BLOCK_START + info_block_len;
+    buffer_block_start = buffer_block_start + 3 & ~3;
 
     for(var i = 0; i < buffer_infos.length; i++)
     {

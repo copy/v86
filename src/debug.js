@@ -595,7 +595,7 @@ CPU.prototype.debug_init = function()
             start = 0;
         }
 
-        return cpu.memory.buffer.slice(start, start + count);
+        return cpu.memory.mem8.slice(start, start + count).buffer;
     }
 
 
