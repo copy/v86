@@ -185,6 +185,15 @@ function V86Starter(options)
             return;
         }
 
+        if(file["get"] && file["set"] && file["load"])
+        {
+            files_to_load.push({
+                name: name,
+                loadable: file,
+            });
+            return;
+        }
+
         // Anything coming from the outside world needs to be quoted for
         // Closure Compiler compilation
         file = {
@@ -292,8 +301,8 @@ function V86Starter(options)
 
             if(typeof fs_url === "object")
             {
-                size = fs_url.size;
-                fs_url = fs_url.url;
+                size = fs_url["size"];
+                fs_url = fs_url["url"];
             }
             dbg_assert(typeof fs_url === "string");
 
@@ -555,14 +564,16 @@ V86Starter.prototype.get_statistics = function()
 
     if(devices.ps2)
     {
-        stats.mouse = {
-            enabled: devices.ps2.use_mouse,
+        stats["mouse"] = {
+            "enabled": devices.ps2.use_mouse,
         };
     }
 
     if(devices.vga)
     {
-        stats.vga = devices.vga.stats;
+        stats["vga"] = {
+            "is_graphical": devices.vga.stats.is_graphical,
+        };
     }
 
     return stats;
