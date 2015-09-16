@@ -460,15 +460,16 @@ CPU.prototype.idiv16 = function(source_operand)
     }
 }
 
-CPU.div32_result = new Uint32Array(2);
+CPU.div32_result = new Float64Array(2);
 
 // If the dividend is too large, the division cannot be done precisely using
 // JavaScript's double floating point numbers. Run simple long divsion until
 // the dividend is small enough
 CPU.prototype.do_div32 = function(div_low, div_high, quot)
 {
-    if(div_high >= quot || !quot)
+    if(div_high >= quot || quot === 0)
     {
+        dbg_log("div32 #DE: " + h(div_high, 8) + ":" + h(div_low, 8) + " div " + h(quot, 8));
         this.trigger_de();
     }
 
@@ -528,11 +529,12 @@ CPU.prototype.div32 = function(source_operand)
     if(result >= 0x100000000 || source_operand === 0)
     {
         dbg_log("div32 #DE: " + h(dest_operand_high, 8) + ":" + h(dest_operand_low, 8) + " div " + h(source_operand, 8));
+        dbg_log("-> " + h(result));
 
         this.trigger_de();
     }
     else
-    {    
+    {
         this.reg32s[reg_eax] = result;
         this.reg32s[reg_edx] = mod;
     }
@@ -581,6 +583,7 @@ CPU.prototype.idiv32 = function(source_operand)
     if(result >= 0x80000000 || result <= -0x80000001 || source_operand === 0)
     {
         dbg_log("div32 #DE: " + h(dest_operand_high, 8) + ":" + h(dest_operand_low, 8) + " div " + h(source_operand, 8));
+        dbg_log("-> " + h(result));
         this.trigger_de();
     }
     else
