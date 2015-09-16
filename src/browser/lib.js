@@ -2,7 +2,14 @@
 
 (function()
 {
-    v86util.load_file = load_file;
+    if(typeof XMLHttpRequest === "undefined")
+    {
+        v86util.load_file = load_file_nodejs;
+    }
+    else
+    {
+        v86util.load_file = load_file;
+    }
 
     v86util.AsyncXHRBuffer = AsyncXHRBuffer;
     v86util.AsyncFileBuffer = AsyncFileBuffer;
@@ -61,6 +68,31 @@
         http.send(null);
     }
 
+    function load_file_nodejs(filename, options)
+    {
+        var o = {
+            encoding: options.as_text ? "utf-8" : null,
+        };
+
+        require("fs")["readFile"](filename, o, function(err, data)
+        {
+            if(err)
+            {
+                console.log("Could not read file:", filename);
+            }
+            else
+            {
+                var result = data;
+
+                if(!options.as_text)
+                {
+                    result = new Uint8Array(result).buffer;
+                }
+
+                options.done(result);
+            }
+        });
+    }
 
     /**
      * Asynchronous access to ArrayBuffer, loading blocks lazily as needed,
