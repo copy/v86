@@ -4,7 +4,7 @@
  * @constructor
  * @param {number} memory_size
  */
-function Memory(memory_size)
+function Memory(memory_size, no_alloc)
 {
     this.size = memory_size;
 
@@ -24,11 +24,22 @@ function Memory(memory_size)
 
     dbg_assert((memory_size & MMAP_BLOCK_SIZE - 1) === 0);
 
-    var buffer = new ArrayBuffer(memory_size);
+    if(no_alloc)
+    {
+        var buffer = new ArrayBuffer(0);
 
-    this.mem8 = new Uint8Array(buffer);
-    this.mem16 = new Uint16Array(buffer);
-    this.mem32s = new Int32Array(buffer);
+        this.mem8 = new Uint8Array(buffer);
+        this.mem16 = new Uint16Array(buffer);
+        this.mem32s = new Int32Array(buffer);
+    }
+    else
+    {
+        var buffer = new ArrayBuffer(memory_size);
+
+        this.mem8 = new Uint8Array(buffer);
+        this.mem16 = new Uint16Array(buffer);
+        this.mem32s = new Int32Array(buffer);
+    }
 };
 
 Memory.prototype.get_state = function()

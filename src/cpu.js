@@ -562,7 +562,7 @@ CPU.prototype.reset = function()
 CPU.prototype.init = function(settings, device_bus)
 {
     this.memory_size = settings.memory_size || 1024 * 1024 * 64;
-    this.memory = new Memory(this.memory_size);
+    this.memory = new Memory(this.memory_size, settings.no_initial_alloc);
 
     this.reset();
 

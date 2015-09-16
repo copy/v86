@@ -176,9 +176,6 @@
 
             start_emulation({ 
                 settings: settings,
-                done: function(emulator) { 
-                    emulator.run(); 
-                },
             });
         };
 
@@ -408,11 +405,13 @@
 
         function done(emulator)
         {
-            emulator.run();
-
             if(query_args["c"])
             {
-                emulator.serial0_send(query_args["c"] + "\n");
+                setTimeout(function()
+                {
+                    //emulator.serial0_send(query_args["c"] + "\n");
+                    emulator.keyboard_send_text(query_args["c"] + "\n");
+                }, 25);
             }
         }
     }
@@ -568,6 +567,8 @@
 
             "initial_state": settings.initial_state,
             "filesystem": settings.filesystem || {},
+
+            "autostart": true,
         });
 
         emulator.add_listener("emulator-ready", function()
@@ -579,7 +580,7 @@
 
             init_ui(settings, emulator);
 
-            result.done(emulator);
+            result.done && result.done(emulator);
         });
 
         emulator.add_listener("download-progress", function(e)

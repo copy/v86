@@ -356,6 +356,11 @@ function V86Starter(options)
 
     function done()
     {
+        if(settings.initial_state)
+        {
+            settings.no_initial_alloc = true;
+        }
+
         this.bus.send("cpu-init", settings);
 
         setTimeout(function()
