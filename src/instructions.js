@@ -1564,11 +1564,6 @@ t[0x00] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         cpu.trigger_ud();
     }
 
-    if(cpu.cpl)
-    {
-        cpu.trigger_gp(0);
-    }
-
     switch(cpu.modrm_byte >> 3 & 7)
     {
         case 0:
@@ -1589,11 +1584,21 @@ t[0x00] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             break;
         case 2:
             // lldt
+            if(cpu.cpl)
+            {
+                cpu.trigger_gp(0);
+            }
+
             var data = cpu.read_e16();
             cpu.load_ldt(data);
             break;
         case 3:
             // ltr
+            if(cpu.cpl)
+            {
+                cpu.trigger_gp(0);
+            }
+
             var data = cpu.read_e16();
             cpu.load_tr(data);
             break;
@@ -1604,11 +1609,6 @@ t[0x00] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 };
 
 t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    if(cpu.cpl)
-    {
-        cpu.trigger_gp(0);
-    }
-
     var mod = cpu.modrm_byte >> 3 & 7;
 
     if(mod === 4)
@@ -1620,6 +1620,11 @@ t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     else if(mod === 6)
     {
         // lmsw
+        if(cpu.cpl)
+        {
+            cpu.trigger_gp(0);
+        }
+
         var data = cpu.read_e16();
 
         var old_cr0 = cpu.cr[0];
@@ -1668,6 +1673,11 @@ t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             break;
         case 2:
             // lgdt
+            if(cpu.cpl)
+            {
+                cpu.trigger_gp(0);
+            }
+
             var size = cpu.safe_read16(addr);
             var offset = cpu.safe_read32s(addr + 2);
 
@@ -1684,6 +1694,11 @@ t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             break;
         case 3:
             // lidt
+            if(cpu.cpl)
+            {
+                cpu.trigger_gp(0);
+            }
+
             var size = cpu.safe_read16(addr);
             var offset = cpu.safe_read32s(addr + 2);
 
@@ -1700,6 +1715,11 @@ t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             break;
         case 7:
             // flush translation lookaside buffer
+            if(cpu.cpl)
+            {
+                cpu.trigger_gp(0);
+            }
+
             cpu.invlpg(addr);
             break;
         default:
