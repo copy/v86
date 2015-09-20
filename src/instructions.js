@@ -235,6 +235,7 @@ t[0x63] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     }
     else
     {
+        dbg_log("arpl #ud", LOG_CPU);
         cpu.trigger_ud();
     }
 };
@@ -432,6 +433,7 @@ t16[0x8D] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     // lea
     if(cpu.modrm_byte >= 0xC0)
     {
+        dbg_log("lea #ud", LOG_CPU);
         cpu.trigger_ud();
     }
     var mod = cpu.modrm_byte >> 3 & 7;
@@ -444,6 +446,7 @@ t16[0x8D] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 t32[0x8D] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     if(cpu.modrm_byte >= 0xC0)
     {
+        dbg_log("lea #ud", LOG_CPU);
         cpu.trigger_ud();
     }
     var mod = cpu.modrm_byte >> 3 & 7;
@@ -582,6 +585,7 @@ t16[0x9C] = cpu => {
     // pushf
     if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
     {
+        dbg_log("pushf #gp", LOG_CPU);
         cpu.trigger_gp(0);
     }
     else
@@ -595,6 +599,7 @@ t32[0x9C] = cpu => {
     if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
     {
         // trap to virtual 8086 monitor
+        dbg_log("pushf #gp", LOG_CPU);
         cpu.trigger_gp(0);
     }
     else
@@ -608,6 +613,7 @@ t16[0x9D] = cpu => {
     // popf
     if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
     {
+        dbg_log("popf #gp", LOG_CPU);
         cpu.trigger_gp(0);
     }
 
@@ -619,6 +625,7 @@ t32[0x9D] = cpu => {
     if(cpu.flags & flag_vm)
     {
         // in vm86 mode, pop causes a #GP when used with the operand-size prefix
+        dbg_log("popf #gp", LOG_CPU);
         cpu.trigger_gp(0);
     }
 
@@ -1340,6 +1347,7 @@ t[0xFA] = cpu => {
         //}
         //else
         {
+            dbg_log("cli #gp", LOG_CPU);
             cpu.trigger_gp(0);
         }
     }
@@ -1368,6 +1376,7 @@ t[0xFB] = cpu => {
         //}
         //else
         {
+            dbg_log("sti #gp", LOG_CPU);
             cpu.trigger_gp(0);
         }
     }
@@ -1418,6 +1427,7 @@ t16[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             // 3, callf
             if(cpu.modrm_byte >= 0xC0)
             {
+                dbg_log("callf #ud", LOG_CPU);
                 cpu.trigger_ud();
                 dbg_assert(false, "unreachable");
             }
@@ -1442,6 +1452,7 @@ t16[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             // 5, jmpf
             if(cpu.modrm_byte >= 0xC0)
             {
+                dbg_log("jmpf #ud", LOG_CPU);
                 cpu.trigger_ud();
                 dbg_assert(false, "unreachable");
             }
@@ -1482,6 +1493,7 @@ t32[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             // 3, callf
             if(cpu.modrm_byte >= 0xC0)
             {
+                dbg_log("callf #ud", LOG_CPU);
                 cpu.trigger_ud();
                 dbg_assert(false, "unreachable");
             }
@@ -1506,6 +1518,7 @@ t32[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             // 5, jmpf
             if(cpu.modrm_byte >= 0xC0)
             {
+                dbg_log("jmpf #ud", LOG_CPU);
                 cpu.trigger_ud();
                 dbg_assert(false, "unreachable");
             }
@@ -1561,6 +1574,7 @@ t[0x00] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     if(!cpu.protected_mode || cpu.vm86_mode())
     {
         // No GP, UD is correct here
+        dbg_log("0f 00 #ud", LOG_CPU);
         cpu.trigger_ud();
     }
 
@@ -1602,6 +1616,21 @@ t[0x00] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             var data = cpu.read_e16();
             cpu.load_tr(data);
             break;
+        case 4:
+            // verr
+            var reg = cpu.read_e16(addr);
+            dbg_log("unimplemented: verr  " + h(reg, 4));
+            cpu.flags_changed &= ~flag_zero;
+            cpu.flags |= flag_zero;
+            break;
+        case 5:
+            // verw
+            var reg = cpu.read_e16(addr);
+            dbg_log("unimplemented: verw  " + h(reg, 4));
+            cpu.flags_changed &= ~flag_zero;
+            cpu.flags |= flag_zero;
+            break;
+
         default:
             dbg_log(cpu.modrm_byte >> 3 & 7, LOG_CPU);
             cpu.todo();
@@ -1636,7 +1665,7 @@ t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             cpu.cr[0] |= CR0_PE;
         }
 
-        //dbg_log("cr0=" + h(data >>> 0), LOG_CPU);
+        dbg_log("cr0=" + h(data >>> 0), LOG_CPU);
         cpu.cr0_changed(old_cr0);
         return;
     }
@@ -1644,6 +1673,7 @@ t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     if(cpu.modrm_byte >= 0xC0)
     {
         // only memory
+        dbg_log("0f 01 #ud", LOG_CPU);
         cpu.trigger_ud();
     }
 
@@ -1733,6 +1763,7 @@ t16[0x02] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     dbg_log("lar", LOG_CPU);
     if(!cpu.protected_mode || cpu.vm86_mode())
     {
+        dbg_log("lar #ud", LOG_CPU);
         cpu.trigger_ud();
     }
     var data = cpu.read_e16();
@@ -1742,6 +1773,7 @@ t32[0x02] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     dbg_log("lar", LOG_CPU);
     if(!cpu.protected_mode || cpu.vm86_mode())
     {
+        dbg_log("lar #ud", LOG_CPU);
         cpu.trigger_ud();
     }
     var data = cpu.read_e16();
@@ -1753,6 +1785,7 @@ t16[0x03] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     dbg_log("lsl", LOG_CPU);
     if(!cpu.protected_mode || cpu.vm86_mode())
     {
+        dbg_log("lsl #ud", LOG_CPU);
         cpu.trigger_ud();
     }
     var data = cpu.read_e16();
@@ -1762,6 +1795,7 @@ t32[0x03] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     dbg_log("lsl", LOG_CPU);
     if(!cpu.protected_mode || cpu.vm86_mode())
     {
+        dbg_log("lsl #ud", LOG_CPU);
         cpu.trigger_ud();
     }
     var data = cpu.read_e16();
@@ -1775,6 +1809,7 @@ t[0x06] = cpu => {
     // clts
     if(cpu.cpl)
     {
+        dbg_log("clts #gp", LOG_CPU);
         cpu.trigger_gp(0);
     }
     else
@@ -1793,6 +1828,7 @@ t[0x08] = cpu => {
 t[0x09] = cpu => {
     if(cpu.cpl)
     {
+        dbg_log("wbinvd #gp", LOG_CPU);
         cpu.trigger_gp(0);
     }
     // wbinvd
@@ -1845,7 +1881,7 @@ t[0x20] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     {
         cpu.trigger_gp(0);
     }
-    //dbg_log("cr" + mod + " read", LOG_CPU);
+    //dbg_log("cr" + (cpu.modrm_byte >> 3 & 7) + " read", LOG_CPU);
 
     // mov addr, cr
     // mod = which control register
@@ -1893,7 +1929,7 @@ t[0x22] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     }
 
     var data = cpu.read_reg_e32s();
-    //dbg_log("cr" + mod + " written: " + h(cpu.reg32[reg]), LOG_CPU);
+    //dbg_log("cr" + (cpu.modrm_byte >> 3 & 7) + " written: " + h(data >>> 0, 8), LOG_CPU);
 
     // mov cr, addr
     // mod = which control register
