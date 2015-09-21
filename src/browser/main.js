@@ -288,6 +288,14 @@
                 name: "Sol OS",
             },
             {
+                id: "bootchess",
+                fda: {
+                    "url": "images/bootchess.img",
+                    "async": true,
+                },
+                name: "Bootchess",
+            },
+            {
                 id: "dsl",
                 cdrom: {
                     "url": "https://dl.dropboxusercontent.com/u/61029208/dsl-4.11.rc2.iso",
