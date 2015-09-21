@@ -148,7 +148,9 @@
                 Range: "bytes=0-0",
 
                 // Added by Chromium, but can cause the whole file to be sent
-                "If-Range": "",
+                // Settings this to empty also causes problems and Chromium
+                // doesn't seem to create this header any more
+                //"If-Range": "",
             }
         });
     }
