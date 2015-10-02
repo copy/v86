@@ -272,10 +272,25 @@ var
     /** @const */
     IA32_SYSENTER_EIP = 0x176;
 
+/** @const */
+var IA32_TIME_STAMP_COUNTER = 0x10;
 
-var 
-    /** @const */
-    TSC_RATE = 8 * 1024;
+/** @const */
+var IA32_PLATFORM_ID = 0x17;
+
+/** @const */
+var IA32_APIC_BASE_MSR = 0x1B;
+
+/** @const */
+var IA32_BIOS_SIGN_ID = 0x8B;
+
+/** @const */
+var IA32_MISC_ENABLE = 0x1A0;
+
+
+
+/** @const */
+var TSC_RATE = 8 * 1024;
 
 
 

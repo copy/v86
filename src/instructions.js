@@ -2058,6 +2058,25 @@ t[0x30] = cpu => {
         case IA32_SYSENTER_ESP:
             cpu.sysenter_esp = low;
             break;
+
+        case IA32_APIC_BASE_MSR:
+            // changing not supported
+            dbg_assert((low >>> 0) === APIC_ADDRESS);
+            break;
+
+        case IA32_TIME_STAMP_COUNTER:
+            var new_tick = (low >>> 0) + 0x100000000 * (high >>> 0);
+            cpu.tsc_offset = v86.microtick() - new_tick / TSC_RATE;
+            break;
+
+        case IA32_BIOS_SIGN_ID:
+            break;
+
+        case IA32_MISC_ENABLE: // Enable Misc. Processor Features
+            break;
+
+        default:
+            dbg_assert(false, "Unknown msr: " + h(index >>> 0, 8));
     }
 };
 
@@ -2107,6 +2126,32 @@ t[0x32] = cpu => {
         case IA32_SYSENTER_ESP:
             low = cpu.sysenter_esp;
             break;
+
+        case IA32_TIME_STAMP_COUNTER:
+            var n = v86.microtick() - cpu.tsc_offset;
+            cpu.reg32s[reg_eax] = n * TSC_RATE;
+            cpu.reg32s[reg_edx] = n * (TSC_RATE / 0x100000000);
+            break;
+
+        case IA32_PLATFORM_ID:
+            break;
+
+        case IA32_APIC_BASE_MSR:
+            low = APIC_ADDRESS;
+            break;
+
+        case IA32_BIOS_SIGN_ID:
+            break;
+
+        case IA32_MISC_ENABLE: // Enable Misc. Processor Features
+            break;
+
+        case 0x570:
+            // linux4
+            break;
+
+        default:
+            dbg_assert(false, "Unknown msr: " + h(index >>> 0, 8));
     }
 
     cpu.reg32s[reg_eax] = low;
