@@ -74,6 +74,7 @@ BROWSER_FILES=browser/screen.js\
 		  browser/network.js browser/lib.js browser/starter.js browser/worker_bus.js
 
 build/v86_all.js: src/*.js src/browser/*.js lib/*.js
+	mkdir -p build
 	-ls -lh build/v86_all.js
 	cd src &&\
 	java -jar $(CLOSURE) \
@@ -95,6 +96,7 @@ build/v86_all.js: src/*.js src/browser/*.js lib/*.js
 
 
 build/libv86.js: src/*.js lib/*.js src/browser/*.js
+	mkdir -p build
 	-ls -lh build/libv86.js
 	cd src &&\
 	java -jar $(CLOSURE) \
