@@ -3,7 +3,7 @@ var performance = {};
 
 
 var global = {};
-var require = function() {};
+var require = function(module) {};
 var process = {};
 var __dirname = "";
 
