@@ -250,12 +250,6 @@ function CPU()
     dbg_assert(this.table16 && this.table32);
     dbg_assert(this.table0F_16 && this.table0F_32);
 
-    this.reg32 = new Uint32Array(this.reg32s.buffer);
-    this.reg16s = new Int16Array(this.reg32s.buffer);
-    this.reg16 = new Uint16Array(this.reg32s.buffer);
-    this.reg8s = new Int8Array(this.reg32s.buffer);
-    this.reg8 = new Uint8Array(this.reg32s.buffer);
-
     this.update_address_size();
     this.update_operand_size();
 
