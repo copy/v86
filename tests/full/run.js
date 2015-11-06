@@ -89,12 +89,12 @@ var tests = [
         expect_graphical_mode: true,
         expect_mouse_registered: true,
     },
-    {
-        name: "OpenBSD",
-        fda: root_path + "/images/openbsd.img",
-        timeout: 120,
-        expected_texts: ["(I)nstall, (U)pgrade or (S)hell"],
-    },
+    //{
+    //    name: "OpenBSD",
+    //    fda: root_path + "/images/openbsd.img",
+    //    timeout: 120,
+    //    expected_texts: ["(I)nstall, (U)pgrade or (S)hell"],
+    //},
 ];
 
 next_test(0);
