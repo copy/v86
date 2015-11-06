@@ -208,6 +208,8 @@ function next_test(test_nr)
             }
 
             clearInterval(poll_interval);
+
+            process.exit(1); // XXX: Continue with other tests
         }
     }
 
