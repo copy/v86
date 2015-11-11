@@ -111,7 +111,7 @@ wget -P closure-compiler http://dl.google.com/closure-compiler/compiler-latest.z
 unzip -d closure-compiler closure-compiler/compiler-latest.zip compiler.jar
 
 # build the library
-make build/lib86.js
+make build/libv86.js
 
 # run the tests
 ./tests/full/run.js
