@@ -815,12 +815,13 @@
         {
             var elem = $("get_" + image_types[i] + "_image");
             var obj = settings[image_types[i]];
+            var max_size = 256 * 1024 * 1024;
 
-            if(obj && obj.byteLength < 16 * 1024 * 1024)
+            if(obj && ((obj.buffer && obj.buffer.size < max_size) || obj.size < max_size))
             {
                 elem.onclick = (function(type)
                 {
-                    obj.get_buffer(function(b)
+                    emulator.settings[type].get_buffer(function(b)
                     {
                         if(b)
                         {
