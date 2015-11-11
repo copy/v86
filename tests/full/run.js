@@ -56,7 +56,7 @@ var tests = [
     {
         name: "Linux",
         cdrom: root_path + "/images/linux.iso",
-        timeout: 30,
+        timeout: 70,
         expected_texts: [
             "/root%",
             "test passed",
@@ -71,7 +71,7 @@ var tests = [
     {
         name: "Linux 3",
         cdrom: root_path + "/images/linux3.iso",
-        timeout: 75,
+        timeout: 200,
         expected_texts: [
             "test passed",
         ],
