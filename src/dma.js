@@ -156,7 +156,7 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
         this.channel_addr[channel] += read_count;
 
         buffer.set(start,
-                this.memory.mem8.subarray(addr, read_count + 1),
+                this.memory.mem8.subarray(addr, addr + read_count + 1),
                 function() {
                     fn(false);
                 }
