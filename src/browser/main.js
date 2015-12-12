@@ -821,7 +821,7 @@
             {
                 elem.onclick = (function(type)
                 {
-                    emulator.settings[type].get_buffer(function(b)
+                    settings[type].get_buffer(function(b)
                     {
                         if(b)
                         {
