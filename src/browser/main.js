@@ -809,29 +809,31 @@
         };
 
         // writable image types
-        var image_types = ["hda", "hdb", "fda", "fdb"];
+        add_image_download_button(settings.hda, "hda");
+        add_image_download_button(settings.hdb, "hdb");
+        add_image_download_button(settings.fda, "fda");
+        add_image_download_button(settings.fdb, "fdb");
+        console.log(settings);
 
-        for(var i = 0; i < image_types.length; i++)
+        function add_image_download_button(obj, type)
         {
-            var elem = $("get_" + image_types[i] + "_image");
-            var obj = settings[image_types[i]];
+            var elem = $("get_" + type + "_image");
             var max_size = 256 * 1024 * 1024;
 
             if(obj && ((obj.buffer && obj.buffer.size < max_size) || obj.size < max_size))
             {
-                elem.onclick = (function(type)
+                elem.onclick = function(e)
                 {
-                    settings[type].get_buffer(function(b)
+                    emulator.disk_images[type].get_buffer(function(b)
                     {
                         if(b)
                         {
-                            dump_file(b, type + ".img");
+                            dump_file(b, "disk.img");
                         }
                     });
 
-                    this.blur();
-
-                }).bind(elem, image_types[i]);
+                    elem.blur();
+                }
             }
             else
             {
