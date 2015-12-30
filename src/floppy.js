@@ -320,6 +320,7 @@ FloppyController.prototype.check_drive_status = function(args)
 FloppyController.prototype.seek = function(args)
 {
     dbg_log("seek", LOG_DISK);
+    dbg_assert((args[0] & 3) === 0, "Unhandled seek drive");
 
     this.last_cylinder = args[1];
     this.last_head = args[0] >> 2 & 1;
@@ -362,7 +363,7 @@ FloppyController.prototype.do_sector = function(is_write, args)
 
         read_offset = ((head + this.number_of_heads * cylinder) * this.sectors_per_track + sector - 1) * sector_size;
 
-    dbg_log("Floppy Read", LOG_DISK);
+    dbg_log("Floppy " + (is_write ? "Write" : "Read"), LOG_DISK);
     dbg_log("from " + h(read_offset) + " length " + h(read_count * sector_size), LOG_DISK);
     dbg_log(cylinder + " / " + head + " / " + sector, LOG_DISK);
 
@@ -381,7 +382,7 @@ FloppyController.prototype.do_sector = function(is_write, args)
     }
 };
 
-FloppyController.prototype.done = function(cylinder, args, head, sector, error)
+FloppyController.prototype.done = function(args, cylinder, head, sector, error)
 {
     if(error)
     {
