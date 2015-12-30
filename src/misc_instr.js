@@ -416,7 +416,7 @@ CPU.prototype.enter16 = function(size, nesting_level)
     var frame_temp;
     var tmp_ebp;
 
-    //dbg_log("enter16 stack=" + (this.stack_size_32 ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
+    if(nesting_level) dbg_log("enter16 stack=" + (this.stack_size_32 ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
     this.push16(this.reg16[reg_bp]);
     frame_temp = this.reg16[reg_sp];
 
@@ -441,7 +441,7 @@ CPU.prototype.enter32 = function(size, nesting_level)
     var frame_temp;
     var tmp_ebp;
 
-    //dbg_log("enter32 stack=" + (this.stack_size_32 ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
+    if(nesting_level) dbg_log("enter32 stack=" + (this.stack_size_32 ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
     this.push32(this.reg32s[reg_ebp]);
     frame_temp = this.reg32s[reg_esp];
 
