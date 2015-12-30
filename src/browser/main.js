@@ -11,9 +11,9 @@
 
         var a = document.createElement("a");
         a["download"] = name;
-        a.href = window.URL.createObjectURL(blob),
+        a.href = window.URL.createObjectURL(blob);
         a.dataset["downloadurl"] = ["application/octet-stream", a["download"], a.href].join(":");
-        
+
         if(document.createEvent)
         {
             var ev = document.createEvent("MouseEvent");

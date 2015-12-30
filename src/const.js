@@ -39,7 +39,10 @@ var
     //LOG_LEVEL = 0;
 
 
-/** @const */
+/**
+ * @const
+ * @type {Array<Array<string|number>>}
+ */
 var LOG_NAMES = [
     [1, ""],
     [LOG_CPU, "CPU"],

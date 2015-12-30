@@ -882,7 +882,7 @@ function FileNotFoundError(message)
 }
 FileNotFoundError.prototype = Error.prototype;
 
-// Closure Compiler's way of exporting 
+// Closure Compiler's way of exporting
 if(typeof window !== "undefined")
 {
     window["V86Starter"] = V86Starter;

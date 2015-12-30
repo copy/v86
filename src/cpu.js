@@ -213,8 +213,6 @@ function CPU()
      */
     this.timestamp_counter = 0;
 
-    //this.modrm_resolve = function(x){ dbg_assert(false); };
-
     // registers
     this.reg32s = new Int32Array(8);
     this.reg32 = new Uint32Array(this.reg32s.buffer);
@@ -608,14 +606,14 @@ CPU.prototype.init = function(settings, device_bus)
 
         var ide_device_count = 0;
 
-        if(settings.cdrom)
-        {
-            this.devices.cdrom = new IDEDevice(this, settings.cdrom, true, ide_device_count++, device_bus);
-        }
-
         if(settings.hda)
         {
             this.devices.hda = new IDEDevice(this, settings.hda, false, ide_device_count++, device_bus);
+        }
+
+        if(settings.cdrom)
+        {
+            this.devices.cdrom = new IDEDevice(this, settings.cdrom, true, ide_device_count++, device_bus);
         }
 
         if(settings.hdb)
@@ -743,6 +741,11 @@ CPU.prototype.do_run = function()
             this.devices.rtc.timer(now, false);
         }
 
+        if(ENABLE_ACPI)
+        {
+            this.devices.apic.timer(now);
+        }
+
         this.handle_irqs();
 
         // inner loop:
@@ -791,7 +794,6 @@ CPU.prototype.cycle = function()
         this.debug.logop(this.instruction_pointer - 1 >>> 0, opcode);
     }
 
-
     // call the instruction
     this.table[opcode](this);
 
@@ -830,6 +832,11 @@ CPU.prototype.hlt_loop = function()
     {
         var pit_time = this.devices.pit.timer(now, false);
         var rtc_time = this.devices.rtc.timer(now, false);
+    }
+
+    if(ENABLE_ACPI)
+    {
+        this.devices.apic.timer(now);
     }
 
     return 0;
@@ -1330,6 +1337,8 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
         if(this.vm86_mode() && is_software_int && this.getiopl() < 3)
         {
+            dbg_log("call_interrupt_vector #GP. vm86 && software int && iopl < 3", LOG_CPU);
+            dbg_trace();
             this.trigger_gp(0);
         }
 
@@ -1561,6 +1570,12 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             //        " cpl=" + this.cpl + " dpl=" + info.dpl + " conforming=" + +info.dc_bit, LOG_CPU);
             //this.debug.dump_regs_short();
 
+            if(this.flags & flag_vm)
+            {
+                dbg_log("xxx");
+                this.trigger_gp(selector & ~3);
+            }
+
             if(is_16)
             {
                 this.writable_or_pagefault(this.get_stack_pointer(-8), 8);
@@ -1570,11 +1585,6 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
                 this.writable_or_pagefault(this.get_stack_pointer(-16), 16);
             }
 
-            if(this.flags & flag_vm)
-            {
-                dbg_log("xxx");
-                this.trigger_gp(selector & ~3);
-            }
             // intra privilege level interrupt
 
             //dbg_log("int" + h(interrupt_nr, 2) +" from=" + h(this.instruction_pointer, 8), LOG_CPU);
@@ -1660,8 +1670,6 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
     else
     {
         // call 4 byte cs:ip interrupt vector from ivt at cpu.memory 0
-
-        this.writable_or_pagefault(this.get_stack_pointer(-6), 6);
 
         var index = interrupt_nr << 2;
         var new_ip = this.memory.read16(index);
@@ -1971,7 +1979,9 @@ CPU.prototype.do_task_switch = function(selector)
     }
 
     this.update_eflags(new_eflags);
-    this.load_ldt(this.safe_read16(new_tsr_offset + TSR_LDT));
+
+    var new_ldt = this.safe_read16(new_tsr_offset + TSR_LDT);
+    this.load_ldt(new_ldt);
 
     this.reg32s[reg_eax] = this.safe_read32s(new_tsr_offset + TSR_EAX);
     this.reg32s[reg_ecx] = this.safe_read32s(new_tsr_offset + TSR_ECX);
