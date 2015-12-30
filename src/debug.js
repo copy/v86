@@ -134,10 +134,6 @@ CPU.prototype.debug_init = function()
         dump_regs_short();
         var now = Date.now();
 
-        cpu.devices.vga.timer(now);
-        //this.pit.timer(now);
-        //this.rtc.timer(now);
-
         cpu.running = false;
         dump_instructions();
     }
