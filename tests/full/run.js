@@ -11,6 +11,8 @@ catch(e)
     process.exit(1);
 }
 
+var cluster = require("cluster");
+var os = require("os");
 var fs = require("fs");
 var root_path = __dirname + "/../..";
 
@@ -20,84 +22,6 @@ function readfile(path)
 {
     return new Uint8Array(fs.readFileSync(path)).buffer;
 }
-
-var bios = readfile(root_path + "/bios/seabios.bin");
-var vga_bios = readfile(root_path + "/bios/vgabios.bin");
-
-var tests = [
-    {
-        name: "FreeDOS boot",
-        fda: root_path + "/images/freedos722.img",
-        timeout: 10,
-        expected_texts: [
-            "Welcome to FreeDOS",
-        ],
-    },
-    {
-        name: "Windows 1.01 boot",
-        fda: root_path + "/images/windows101.img",
-        timeout: 10,
-        expect_graphical_mode: true,
-        expect_mouse_registered: true,
-    },
-    {
-        name: "Sol OS",
-        fda: root_path + "/images/os8.dsk",
-        timeout: 10,
-        expect_graphical_mode: true,
-        expect_mouse_registered: true,
-        actions: [
-            {
-                after: 1,
-                run: "\n"
-            },
-        ],
-    },
-    {
-        name: "Linux",
-        cdrom: root_path + "/images/linux.iso",
-        timeout: 70,
-        expected_texts: [
-            "/root%",
-            "test passed",
-        ],
-        actions: [
-            {
-                on_text: "/root%",
-                run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test > /dev/null && echo test pas''sed || echo failed\n",
-            },
-        ],
-    },
-    {
-        name: "Linux 3",
-        cdrom: root_path + "/images/linux3.iso",
-        timeout: 200,
-        expected_texts: [
-            "test passed",
-        ],
-        actions: [
-            {
-                on_text: "~%",
-                run: "echo test pas''sed\n"
-            },
-        ],
-    },
-    {
-        name: "KolibriOS",
-        fda: root_path + "/images/kolibri.img",
-        timeout: 120,
-        expect_graphical_mode: true,
-        expect_mouse_registered: true,
-    },
-    //{
-    //    name: "OpenBSD",
-    //    fda: root_path + "/images/openbsd.img",
-    //    timeout: 120,
-    //    expected_texts: ["(I)nstall, (U)pgrade or (S)hell"],
-    //},
-];
-
-next_test(0);
 
 function line_to_text(screen, y)
 {
@@ -117,17 +41,145 @@ function screen_to_text(s)
     return result.join("\n");
 }
 
-function next_test(test_nr)
-{
-    var test = tests[test_nr];
 
-    if(!test)
+if(cluster.isMaster)
+{
+    var tests = [
+        {
+            name: "FreeDOS boot",
+            fda: root_path + "/images/freedos722.img",
+            timeout: 10,
+            expected_texts: [
+                "Welcome to FreeDOS",
+            ],
+        },
+        {
+            name: "Windows 1.01 boot",
+            fda: root_path + "/images/windows101.img",
+            timeout: 10,
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+        },
+        {
+            name: "Sol OS",
+            fda: root_path + "/images/os8.dsk",
+            timeout: 10,
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            actions: [
+                {
+                    after: 1,
+                    run: "\n"
+                },
+            ],
+        },
+        {
+            name: "Linux",
+            cdrom: root_path + "/images/linux.iso",
+            timeout: 70,
+            expected_texts: [
+                "/root%",
+                "test passed",
+            ],
+            actions: [
+                {
+                    on_text: "/root%",
+                    run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test > /dev/null && echo test pas''sed || echo failed\n",
+                },
+            ],
+        },
+        {
+            name: "Linux 3",
+            cdrom: root_path + "/images/linux3.iso",
+            timeout: 200,
+            expected_texts: [
+                "test passed",
+            ],
+            actions: [
+                {
+                    on_text: "~%",
+                    run: "echo test pas''sed\n"
+                },
+            ],
+        },
+        {
+            name: "KolibriOS",
+            fda: root_path + "/images/kolibri.img",
+            timeout: 120,
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+        },
+        //{
+        //    name: "OpenBSD",
+        //    fda: root_path + "/images/openbsd.img",
+        //    timeout: 120,
+        //    expected_texts: ["(I)nstall, (U)pgrade or (S)hell"],
+        //},
+    ];
+
+    var nr_of_cpus = Math.min(os.cpus().length, tests.length);
+    console.log("Using %d cpus", nr_of_cpus);
+
+    var current_test = 0;
+
+    function send_work_to_worker(worker, message)
     {
-        console.log("\nAll tests passed!");
-        return;
+        if(current_test < tests.length)
+        {
+            worker.send(tests[current_test]);
+            current_test++;
+        }
+        else
+        {
+            worker.disconnect();
+        }
     }
 
-    console.log("Starting test %d: %s", test_nr + 1, test.name);
+    for(var i = 0; i < nr_of_cpus; i++)
+    {
+        var worker = cluster.fork();
+
+        worker.on("message", send_work_to_worker.bind(this, worker));
+        worker.on("online", send_work_to_worker.bind(this, worker));
+
+        worker.on("exit", function(code, signal)
+        {
+            if(code !== 0)
+            {
+                process.exit(code);
+            }
+
+            var remaining_tests = 0;
+
+            for(let i in cluster.workers)
+            {
+                if(cluster.workers[i].state === "online")
+                {
+                    remaining_tests++;
+                }
+            }
+
+            console.log("%d tests still running.", remaining_tests);
+        })
+    }
+}
+else
+{
+    cluster.worker.on("message", function(test_case)
+    {
+        run_test(test_case, function()
+        {
+            process.send("I'm done");
+        });
+    });
+}
+
+function run_test(test, done)
+{
+    console.log("Starting test: %s", test.name);
+
+    var bios = readfile(root_path + "/bios/seabios.bin");
+    var vga_bios = readfile(root_path + "/bios/vgabios.bin");
 
     var settings = {
         bios: { buffer: bios },
@@ -153,7 +205,7 @@ function next_test(test_nr)
     }
 
     var emulator = new V86(settings);
-    var screen = new Uint8Array(80 * 26);
+    var screen = new Uint8Array(SCREEN_WIDTH * 25);
 
     function check_text_test_done()
     {
@@ -174,7 +226,7 @@ function next_test(test_nr)
 
     var test_start = Date.now();
 
-    setTimeout(check_test_done, test.timeout * 1000);
+    var timeout = setTimeout(check_test_done, test.timeout * 1000);
 
     var on_text = [];
     var stopped = false;
@@ -188,6 +240,7 @@ function next_test(test_nr)
 
         if(check_text_test_done() && check_mouse_test_done() && check_grapical_test_done())
         {
+            clearTimeout(timeout);
             stopped = true;
             emulator.stop();
 
@@ -195,13 +248,15 @@ function next_test(test_nr)
             console.warn("Took %ds", (Date.now() - test_start) / 1000);
             console.warn();
 
-            next_test(test_nr + 1);
+            done();
         }
 
         if(Date.now() >= test_start + test.timeout * 1000)
         {
+            stopped = true;
             emulator.stop();
             emulator.destroy();
+
             console.warn("=================================== SCREEN ===================================");
             console.warn(screen_to_text(screen));
             console.warn("==============================================================================");
@@ -222,7 +277,7 @@ function next_test(test_nr)
                 console.warn("Expected mouse activation");
             }
 
-            process.exit(1); // XXX: Continue with other tests
+            process.exit(1);
         }
     }
 
