@@ -106,6 +106,14 @@ function V86Starter(options)
 
     var settings = {};
 
+    this.disk_images = {
+        "fda": undefined,
+        "fdb": undefined,
+        "hda": undefined,
+        "hdb": undefined,
+        "cdrom": undefined,
+    };
+
     settings.load_devices = true;
     settings.memory_size = options["memory_size"] || 64 * 1024 * 1024;
     settings.vga_memory_size = options["vga_memory_size"] || 8 * 1024 * 1024;
@@ -144,19 +152,19 @@ function V86Starter(options)
         switch(name)
         {
             case "hda":
-                settings.hda = buffer;
+                settings.hda = this.disk_images["hda"] = buffer;
                 break;
             case "hdb":
-                settings.hdb = buffer;
+                settings.hdb = this.disk_images["hdb"] = buffer;
                 break;
             case "cdrom":
-                settings.cdrom = buffer;
+                settings.cdrom = this.disk_images["cdrom"] = buffer;
                 break;
             case "fda":
-                settings.fda = buffer;
+                settings.fda = this.disk_images["fda"] = buffer;
                 break;
             case "fdb":
-                settings.fdb = buffer;
+                settings.fdb = this.disk_images["fdb"] = buffer;
                 break;
 
             case "bios":
@@ -332,9 +340,9 @@ function V86Starter(options)
         {
             f.loadable.onload = function(e)
             {
-                put_on_settings(f.name, f.loadable);
+                put_on_settings.call(this, f.name, f.loadable);
                 cont(index + 1);
-            }
+            }.bind(this);
             f.loadable.load();
         }
         else
@@ -342,9 +350,9 @@ function V86Starter(options)
             v86util.load_file(f.url, {
                 done: function(result)
                 {
-                    put_on_settings(f.name, new SyncBuffer(result));
+                    put_on_settings.call(this, f.name, new SyncBuffer(result));
                     cont(index + 1);
-                },
+                }.bind(this),
                 progress: function progress(e)
                 {
                     starter.emulator_bus.send("download-progress", {
