@@ -71,6 +71,7 @@ CPU.prototype.debug_init = function()
     debug.dump_instructions = dump_instructions;
     debug.get_instructions = get_instructions;
     debug.dump_regs_short = dump_regs_short;
+    debug.dump_state = dump_state;
     debug.dump_stack = dump_stack;
 
     debug.dump_page_directory = dump_page_directory;
@@ -229,6 +230,20 @@ CPU.prototype.debug_init = function()
 
             dbg_log(line + h(esp + 4 * i, 8) + " | " + h(cpu.memory.read32s(esp + 4 * i) >>> 0));
         }
+    }
+
+    function dump_state()
+    {
+        if(!DEBUG) return;
+
+        var mode = cpu.protected_mode ? "prot" : "real";
+        var vm = (cpu.flags & flag_vm) ? 1 : 0;
+        var iopl = cpu.getiopl();
+        var cpl = cpu.cpl;
+        var cs_eip = h(cpu.sreg[reg_cs], 4) + ":" + h(cpu.get_real_eip() >>> 0, 8);
+        var op_size = cpu.is_32 ? "32" : "16";
+
+        dbg_log("mode=" + mode + "/" + op_size + " paging=" + cpu.paging + " vm=" + vm + " iopl=" + iopl + " cpl=" + cpl + " cs:eip=" + cs_eip, LOG_CPU);
     }
 
     function dump_regs_short()
