@@ -13,7 +13,7 @@ function Memory(memory_size, no_alloc)
     var memory_map_registered = new Uint8Array(size);
 
     // managed by IO() in io.js
-    /** @const */ this.memory_map_registered = memory_map_registered;
+    this.memory_map_registered = memory_map_registered;
     /** @const */ this.memory_map_read8 = [];
     /** @const */ this.memory_map_write8 = [];
     /** @const */ this.memory_map_read32 = [];

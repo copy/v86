@@ -4,7 +4,7 @@
 /**
  * @constructor
  * @param {CPU} cpu
- * @param {Bus.Connector} bus
+ * @param {BusConnector} bus
  * @param {FS} filesystem
  */
 function VirtIO(cpu, bus, filesystem)
@@ -134,7 +134,7 @@ function VirtIO(cpu, bus, filesystem)
     /** @const @type {CPU} */
     this.cpu = cpu;
 
-    /** @const @type {Bus.Connector} */
+    /** @const @type {BusConnector} */
     this.bus = bus;
 
     this.queue_select = 0;

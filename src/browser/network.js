@@ -9,7 +9,7 @@
  * @constructor
  *
  * @param {string} url
- * @param {Bus.Connector} bus
+ * @param {BusConnector} bus
  */
 function NetworkAdapter(url, bus)
 {

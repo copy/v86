@@ -1,7 +1,10 @@
-/*
+/**
  * This file contains functions to decode the modrm and sib bytes
  *
  * These functions return a virtual address
+ *
+ * @fileoverview .
+ * @suppress {newCheckTypes}
  */
 "use strict";
 (function()

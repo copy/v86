@@ -3,7 +3,7 @@
 /**
  * @constructor
  *
- * @param {Bus.Connector} bus
+ * @param {BusConnector} bus
  */
 function SerialAdapter(element, bus)
 {

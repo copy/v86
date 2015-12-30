@@ -25,11 +25,11 @@ var DLAB = 0x80;
  * @constructor
  * @param {CPU} cpu
  * @param {number} port
- * @param {Bus.Connector} bus
+ * @param {BusConnector} bus
  */
 function UART(cpu, port, bus)
 {
-    /** @const @type {Bus.Connector} */
+    /** @const @type {BusConnector} */
     this.bus = bus;
 
     /** @const @type {CPU} */

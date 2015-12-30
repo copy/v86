@@ -3,7 +3,7 @@
 /**
  * @constructor
  *
- * @param {Bus.Connector} bus
+ * @param {BusConnector} bus
  */
 function MouseAdapter(bus)
 {

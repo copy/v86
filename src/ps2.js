@@ -3,14 +3,14 @@
 /**
  * @constructor
  * @param {CPU} cpu
- * @param {Bus.Connector} bus
+ * @param {BusConnector} bus
  */
 function PS2(cpu, bus)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
 
-    /** @const @type {Bus.Connector} */
+    /** @const @type {BusConnector} */
     this.bus = bus;
 
     /** @type {boolean} */
