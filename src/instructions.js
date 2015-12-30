@@ -2146,8 +2146,11 @@ t[0x32] = cpu => {
         case IA32_MISC_ENABLE: // Enable Misc. Processor Features
             break;
 
-        case 0x570:
+        case IA32_RTIT_CTL:
             // linux4
+            break;
+
+        case MSR_SMI_COUNT:
             break;
 
         default:

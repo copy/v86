@@ -287,6 +287,12 @@ var IA32_BIOS_SIGN_ID = 0x8B;
 /** @const */
 var IA32_MISC_ENABLE = 0x1A0;
 
+/** @const */
+var IA32_RTIT_CTL = 0x570;
+
+/** @const */
+var MSR_SMI_COUNT = 0x34;
+
 
 
 /** @const */
