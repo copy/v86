@@ -58,6 +58,8 @@ CLOSURE_FLAGS=\
 		--summary_detail_level 3\
 		--language_in ECMASCRIPT5_STRICT
 
+		#--new_type_inf\
+
 
 TRANSPILE_ES6_FLAGS=\
 		--language_in ECMASCRIPT6_STRICT\
@@ -96,7 +98,6 @@ build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	-ls -lh build/libv86.js
-	cd src &&\
 	java -jar $(CLOSURE) \
 		--js_output_file build/libv86.js\
 		--define=DEBUG=false\
