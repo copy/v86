@@ -229,12 +229,6 @@ function CPU()
     // debug registers
     this.dreg = new Int32Array(8);
 
-
-    // sp or esp, depending on stack size attribute
-    this.stack_reg = this.reg16;
-    this.reg_vsp = 0;
-    this.reg_vbp = 0;
-
     /** @type {Memory} */
     this.memory = null;
 
@@ -391,19 +385,6 @@ CPU.prototype.set_state = function(state)
     this.full_clear_tlb();
     // tsc_offset?
 
-    if(this.stack_size_32)
-    {
-        this.stack_reg = this.reg32s;
-        this.reg_vsp = reg_esp;
-        this.reg_vbp = reg_ebp;
-    }
-    else
-    {
-        this.stack_reg = this.reg16;
-        this.reg_vsp = reg_sp;
-        this.reg_vbp = reg_bp;
-    }
-
     this.reg32 = new Uint32Array(this.reg32s.buffer);
     this.reg16s = new Int16Array(this.reg32s.buffer);
     this.reg16 = new Uint16Array(this.reg32s.buffer);
@@ -517,10 +498,6 @@ CPU.prototype.reset = function()
 
     this.update_operand_size();
     this.update_address_size();
-
-    this.stack_reg = this.reg16;
-    this.reg_vsp = reg_sp;
-    this.reg_vbp = reg_bp;
 
     this.timestamp_counter = 0;
     this.previous_ip = 0;
@@ -1227,16 +1204,51 @@ CPU.prototype.update_eflags = function(new_flags)
     this.flags_changed = 0;
 };
 
+CPU.prototype.get_stack_reg = function()
+{
+    if(this.stack_size_32)
+    {
+        return this.reg32s[reg_esp];
+    }
+    else
+    {
+        return this.reg16[reg_sp];
+    }
+};
+
+CPU.prototype.set_stack_reg = function(value)
+{
+    if(this.stack_size_32)
+    {
+        this.reg32s[reg_esp] = value;
+    }
+    else
+    {
+        this.reg16[reg_sp] = value;
+    }
+};
+
+CPU.prototype.adjust_stack_reg = function(value)
+{
+    if(this.stack_size_32)
+    {
+        this.reg32s[reg_esp] += value;
+    }
+    else
+    {
+        this.reg16[reg_sp] += value;
+    }
+};
 
 CPU.prototype.get_stack_pointer = function(mod)
 {
     if(this.stack_size_32)
     {
-        return this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + mod | 0;
+        return this.get_seg(reg_ss) + this.reg32s[reg_esp] + mod | 0;
     }
     else
     {
-        return this.get_seg(reg_ss) + (this.stack_reg[this.reg_vsp] + mod & 0xFFFF) | 0;
+        return this.get_seg(reg_ss) + (this.reg16[reg_sp] + mod & 0xFFFF) | 0;
     }
 };
 
@@ -1495,7 +1507,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             this.flags &= ~flag_vm & ~flag_rf;
 
             this.switch_seg(reg_ss, new_ss);
-            this.stack_reg[this.reg_vsp] = new_esp;
+            this.set_stack_reg(new_esp);
 
             if(old_flags & flag_vm)
             {
@@ -2715,13 +2727,9 @@ CPU.prototype.switch_seg = function(reg, selector)
         this.segment_is_null[reg] = 0;
         this.segment_offsets[reg] = selector << 4;
 
-        if(reg === reg_ss && this.stack_size_32)
+        if(reg === reg_ss)
         {
             this.stack_size_32 = false;
-
-            this.stack_reg = this.reg16;
-            this.reg_vsp = reg_sp;
-            this.reg_vbp = reg_bp;
         }
         return;
     }
@@ -2754,19 +2762,6 @@ CPU.prototype.switch_seg = function(reg, selector)
         }
 
         this.stack_size_32 = info.size;
-
-        if(info.size)
-        {
-            this.stack_reg = this.reg32s;
-            this.reg_vsp = reg_esp;
-            this.reg_vbp = reg_ebp;
-        }
-        else
-        {
-            this.stack_reg = this.reg16;
-            this.reg_vsp = reg_sp;
-            this.reg_vbp = reg_bp;
-        }
     }
     else if(reg === reg_cs)
     {

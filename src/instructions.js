@@ -18,11 +18,11 @@ t16[0x06] = cpu => { cpu.push16(cpu.sreg[reg_es]); };
 t32[0x06] = cpu => { cpu.push32(cpu.sreg[reg_es]); };
 t16[0x07] = cpu => {
     cpu.switch_seg(reg_es, cpu.safe_read16(cpu.get_stack_pointer(0)));
-    cpu.stack_reg[cpu.reg_vsp] += 2;
+    cpu.adjust_stack_reg(2);
 };
 t32[0x07] = cpu => {
     cpu.switch_seg(reg_es, cpu.safe_read16(cpu.get_stack_pointer(0)));
-    cpu.stack_reg[cpu.reg_vsp] += 4;
+    cpu.adjust_stack_reg(4);
 };
 
 t[0x08] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8_(cpu.or8(cpu.read_write_e8(), cpu.read_g8())); };
@@ -59,13 +59,13 @@ t16[0x16] = cpu => { cpu.push16(cpu.sreg[reg_ss]); };
 t32[0x16] = cpu => { cpu.push32(cpu.sreg[reg_ss]); };
 t16[0x17] = cpu => {
     cpu.switch_seg(reg_ss, cpu.safe_read16(cpu.get_stack_pointer(0)));
-    cpu.stack_reg[cpu.reg_vsp] += 2;
+    cpu.adjust_stack_reg(2);
     cpu.clear_prefixes();
     cpu.cycle();
 };
 t32[0x17] = cpu => {
     cpu.switch_seg(reg_ss, cpu.safe_read16(cpu.get_stack_pointer(0)));
-    cpu.stack_reg[cpu.reg_vsp] += 4;
+    cpu.adjust_stack_reg(4);
     cpu.clear_prefixes();
     cpu.cycle();
 };
@@ -85,11 +85,11 @@ t16[0x1E] = cpu => { cpu.push16(cpu.sreg[reg_ds]); };
 t32[0x1E] = cpu => { cpu.push32(cpu.sreg[reg_ds]); };
 t16[0x1F] = cpu => {
     cpu.switch_seg(reg_ds, cpu.safe_read16(cpu.get_stack_pointer(0)));
-    cpu.stack_reg[cpu.reg_vsp] += 2;
+    cpu.adjust_stack_reg(2);
 };
 t32[0x1F] = cpu => {
     cpu.switch_seg(reg_ds, cpu.safe_read16(cpu.get_stack_pointer(0)));
-    cpu.stack_reg[cpu.reg_vsp] += 4;
+    cpu.adjust_stack_reg(4);
 };
 
 t[0x20] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8_(cpu.and8(cpu.read_write_e8(), cpu.read_g8())); };
@@ -477,13 +477,13 @@ t16[0x8F] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     // pop
     var sp = cpu.safe_read16(cpu.get_stack_pointer(0));
 
-    cpu.stack_reg[cpu.reg_vsp] += 2;
+    cpu.adjust_stack_reg(2);
 
     if(cpu.modrm_byte < 0xC0) {
         var addr = cpu.modrm_resolve(cpu.modrm_byte);
-        cpu.stack_reg[cpu.reg_vsp] -= 2;
+        cpu.adjust_stack_reg(-2);
         cpu.safe_write16(addr, sp);
-        cpu.stack_reg[cpu.reg_vsp] += 2;
+        cpu.adjust_stack_reg(2);
     } else {
         cpu.write_reg_e16(sp);
     }
@@ -492,16 +492,16 @@ t32[0x8F] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var sp = cpu.safe_read32s(cpu.get_stack_pointer(0));
 
     // change esp first, then resolve modrm address
-    cpu.stack_reg[cpu.reg_vsp] += 4;
+    cpu.adjust_stack_reg(4);
 
     if(cpu.modrm_byte < 0xC0) {
         var addr = cpu.modrm_resolve(cpu.modrm_byte);
 
         // Before attempting a write that might cause a page fault,
         // we must set esp to the old value. Fuck Intel.
-        cpu.stack_reg[cpu.reg_vsp] -= 4;
+        cpu.adjust_stack_reg(-4);
         cpu.safe_write32(addr, sp);
-        cpu.stack_reg[cpu.reg_vsp] += 4;
+        cpu.adjust_stack_reg(4);
     } else {
         cpu.write_reg_e32(sp);
     }
@@ -782,14 +782,14 @@ t16[0xC2] = cpu => {
     var imm16 = cpu.read_imm16();
 
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop16() | 0;
-    cpu.stack_reg[cpu.reg_vsp] += imm16;
+    cpu.adjust_stack_reg(imm16);
 };
 t32[0xC2] = cpu => {
     // retn
     var imm16 = cpu.read_imm16();
 
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop32s() | 0;
-    cpu.stack_reg[cpu.reg_vsp] += imm16;
+    cpu.adjust_stack_reg(imm16);
 };
 t16[0xC3] = cpu => {
     // retn
@@ -821,18 +821,20 @@ t16[0xC8] = cpu => { cpu.enter16(cpu.read_imm16(), cpu.read_imm8()); };
 t32[0xC8] = cpu => { cpu.enter32(cpu.read_imm16(), cpu.read_imm8()); };
 t16[0xC9] = cpu => {
     // leave
-    var new_bp = cpu.safe_read16(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vbp] | 0);
-    cpu.stack_reg[cpu.reg_vsp] = cpu.stack_reg[cpu.reg_vbp] + 2 | 0;
+    var old_vbp = cpu.stack_size_32 ? cpu.reg32s[reg_ebp] : cpu.reg16[reg_bp];
+    var new_bp = cpu.safe_read16(cpu.get_seg(reg_ss) + old_vbp | 0);
+    cpu.set_stack_reg(old_vbp + 2 | 0);
     cpu.reg16[reg_bp] = new_bp;
 };
 t32[0xC9] = cpu => {
-    var new_ebp = cpu.safe_read32s(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vbp] | 0);
-    cpu.stack_reg[cpu.reg_vsp] = cpu.stack_reg[cpu.reg_vbp] + 4 | 0;
+    var old_vbp = cpu.stack_size_32 ? cpu.reg32s[reg_ebp] : cpu.reg16[reg_bp];
+    var new_ebp = cpu.safe_read32s(cpu.get_seg(reg_ss) + old_vbp | 0);
+    cpu.set_stack_reg(old_vbp + 4 | 0);
     cpu.reg32s[reg_ebp] = new_ebp;
 };
 t16[0xCA] = cpu => {
     // retf
-    cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 4);
+    cpu.translate_address_read(cpu.get_stack_pointer(4));
 
     var imm16 = cpu.read_imm16();
     var ip = cpu.pop16();
@@ -840,11 +842,11 @@ t16[0xCA] = cpu => {
     cpu.switch_seg(reg_cs, cpu.pop16());
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
 
-    cpu.stack_reg[cpu.reg_vsp] += imm16;
+    cpu.adjust_stack_reg(imm16);
 };
 t32[0xCA] = cpu => {
     // retf
-    cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 8);
+    cpu.translate_address_read(cpu.get_stack_pointer(8));
 
     var imm16 = cpu.read_imm16();
     var ip = cpu.pop32s();
@@ -852,11 +854,11 @@ t32[0xCA] = cpu => {
     cpu.switch_seg(reg_cs, cpu.pop32s() & 0xFFFF);
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
 
-    cpu.stack_reg[cpu.reg_vsp] += imm16;
+    cpu.adjust_stack_reg(imm16);
 };
 t16[0xCB] = cpu => {
     // retf
-    cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 4);
+    cpu.translate_address_read(cpu.get_stack_pointer(4));
     var ip = cpu.pop16();
 
     cpu.switch_seg(reg_cs, cpu.pop16());
@@ -864,7 +866,7 @@ t16[0xCB] = cpu => {
 };
 t32[0xCB] = cpu => {
     // retf
-    cpu.translate_address_read(cpu.get_seg(reg_ss) + cpu.stack_reg[cpu.reg_vsp] + 8);
+    cpu.translate_address_read(cpu.get_stack_pointer(8));
     var ip = cpu.pop32s();
 
     cpu.switch_seg(reg_cs, cpu.pop32s() & 0xFFFF);
@@ -2200,9 +2202,6 @@ t[0x34] = cpu => {
     cpu.segment_offsets[reg_ss] = 0;
 
     cpu.stack_size_32 = true;
-    cpu.stack_reg = cpu.reg32s;
-    cpu.reg_vsp = reg_esp;
-    cpu.reg_vbp = reg_ebp;
 };
 
 t[0x35] = cpu => {
@@ -2238,9 +2237,6 @@ t[0x35] = cpu => {
     cpu.segment_offsets[reg_ss] = 0;
 
     cpu.stack_size_32 = true;
-    cpu.stack_reg = cpu.reg32s;
-    cpu.reg_vsp = reg_esp;
-    cpu.reg_vbp = reg_ebp;
 };
 
 t[0x36] = cpu => { cpu.undefined_instruction(); };
@@ -2405,11 +2401,11 @@ t16[0xA0] = cpu => { cpu.push16(cpu.sreg[reg_fs]); };
 t32[0xA0] = cpu => { cpu.push32(cpu.sreg[reg_fs]); };
 t16[0xA1] = cpu => {
     cpu.switch_seg(reg_fs, cpu.safe_read16(cpu.get_stack_pointer(0)));
-    cpu.stack_reg[cpu.reg_vsp] += 2;
+    cpu.adjust_stack_reg(2);
 };
 t32[0xA1] = cpu => {
     cpu.switch_seg(reg_fs, cpu.safe_read16(cpu.get_stack_pointer(0)));
-    cpu.stack_reg[cpu.reg_vsp] += 4;
+    cpu.adjust_stack_reg(4);
 };
 
 t[0xA2] = cpu => { cpu.cpuid(); };
@@ -2455,11 +2451,11 @@ t16[0xA8] = cpu => { cpu.push16(cpu.sreg[reg_gs]); };
 t32[0xA8] = cpu => { cpu.push32(cpu.sreg[reg_gs]); };
 t16[0xA9] = cpu => {
     cpu.switch_seg(reg_gs, cpu.safe_read16(cpu.get_stack_pointer(0)));
-    cpu.stack_reg[cpu.reg_vsp] += 2;
+    cpu.adjust_stack_reg(2);
 };
 t32[0xA9] = cpu => {
     cpu.switch_seg(reg_gs, cpu.safe_read16(cpu.get_stack_pointer(0)));
-    cpu.stack_reg[cpu.reg_vsp] += 4;
+    cpu.adjust_stack_reg(4);
 };
 
 

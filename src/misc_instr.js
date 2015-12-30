@@ -240,7 +240,7 @@ CPU.prototype.push16 = function(imm16)
     var sp = this.get_stack_pointer(-2);
 
     this.safe_write16(sp, imm16);
-    this.stack_reg[this.reg_vsp] -= 2;
+    this.adjust_stack_reg(-2);
 }
 
 CPU.prototype.push32 = function(imm32)
@@ -248,24 +248,24 @@ CPU.prototype.push32 = function(imm32)
     var sp = this.get_stack_pointer(-4);
 
     this.safe_write32(sp, imm32);
-    this.stack_reg[this.reg_vsp] -= 4;
+    this.adjust_stack_reg(-4);
 }
 
 CPU.prototype.pop16 = function()
 {
-    var sp = this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] | 0,
+    var sp = this.get_seg(reg_ss) + this.get_stack_reg() | 0,
         result = this.safe_read16(sp);
 
-    this.stack_reg[this.reg_vsp] += 2;
+    this.adjust_stack_reg(2);
     return result;
 }
 
 CPU.prototype.pop32s = function()
 {
-    var sp = this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] | 0,
+    var sp = this.get_seg(reg_ss) + this.get_stack_reg() | 0,
         result = this.safe_read32s(sp);
 
-    this.stack_reg[this.reg_vsp] += 4;
+    this.adjust_stack_reg(4);
     return result;
 }
 
@@ -275,7 +275,7 @@ CPU.prototype.pusha16 = function()
 
     // make sure we don't get a pagefault after having
     // pushed several registers already
-    this.translate_address_write(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] - 15 | 0);
+    this.translate_address_write(this.get_stack_pointer(-15));
 
     this.push16(this.reg16[reg_ax]);
     this.push16(this.reg16[reg_cx]);
@@ -291,7 +291,7 @@ CPU.prototype.pusha32 = function()
 {
     var temp = this.reg32s[reg_esp];
 
-    this.translate_address_write(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] - 31 | 0);
+    this.translate_address_write(this.get_stack_pointer(-31));
 
     this.push32(this.reg32s[reg_eax]);
     this.push32(this.reg32s[reg_ecx]);
@@ -305,12 +305,12 @@ CPU.prototype.pusha32 = function()
 
 CPU.prototype.popa16 = function()
 {
-    this.translate_address_read(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + 15 | 0);
+    this.translate_address_read(this.get_stack_pointer(15));
 
     this.reg16[reg_di] = this.pop16();
     this.reg16[reg_si] = this.pop16();
     this.reg16[reg_bp] = this.pop16();
-    this.stack_reg[this.reg_vsp] += 2;
+    this.adjust_stack_reg(2);
     this.reg16[reg_bx] = this.pop16();
     this.reg16[reg_dx] = this.pop16();
     this.reg16[reg_cx] = this.pop16();
@@ -319,12 +319,12 @@ CPU.prototype.popa16 = function()
 
 CPU.prototype.popa32 = function()
 {
-    this.translate_address_read(this.get_seg(reg_ss) + this.stack_reg[this.reg_vsp] + 31 | 0);
+    this.translate_address_read(this.get_stack_pointer(31));
 
     this.reg32s[reg_edi] = this.pop32s();
     this.reg32s[reg_esi] = this.pop32s();
     this.reg32s[reg_ebp] = this.pop32s();
-    this.stack_reg[this.reg_vsp] += 4;
+    this.adjust_stack_reg(4);
     this.reg32s[reg_ebx] = this.pop32s();
     this.reg32s[reg_edx] = this.pop32s();
     this.reg32s[reg_ecx] = this.pop32s();
