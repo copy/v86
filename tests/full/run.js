@@ -147,71 +147,94 @@ function next_test(test_nr)
         settings.fda = { buffer: readfile(test.fda) };
     }
 
+    if(!test.expected_texts)
+    {
+        test.expected_texts = [];
+    }
+
     var emulator = new V86(settings);
     var screen = new Uint8Array(80 * 26);
 
-    function text_test_done()
+    function check_text_test_done()
     {
-        return !test.expected_texts || test.expected_texts.length === 0;
+        return test.expected_texts.length === 0;
     }
 
-    function mouse_test_done()
+    var mouse_test_done = false;
+    function check_mouse_test_done()
     {
-        return !test.expect_mouse_registered || emulator.get_statistics().mouse.enabled;
+        return !test.expect_mouse_registered || mouse_test_done;
     }
 
-    function grapical_test_done()
+    var graphical_test_done = false;
+    function check_grapical_test_done()
     {
-        return !test.expect_graphical_mode || emulator.get_statistics().vga.is_graphical;
+        return !test.expect_graphical_mode || graphical_test_done;
     }
 
-    // TODO: Avoid polling
-    var poll_interval = setInterval(check_test_done, 500);
     var test_start = Date.now();
 
+    setTimeout(check_test_done, test.timeout * 1000);
+
     var on_text = [];
+    var stopped = false;
 
     function check_test_done()
     {
-        if(text_test_done() && mouse_test_done() && grapical_test_done())
+        if(stopped)
         {
+            return;
+        }
+
+        if(check_text_test_done() && check_mouse_test_done() && check_grapical_test_done())
+        {
+            stopped = true;
             emulator.stop();
 
             console.warn("Passed test: %s", test.name);
             console.warn("Took %ds", (Date.now() - test_start) / 1000);
             console.warn();
 
-            clearInterval(poll_interval);
             next_test(test_nr + 1);
         }
 
-        if(Date.now() > test_start + test.timeout * 1000)
+        if(Date.now() >= test_start + test.timeout * 1000)
         {
             emulator.stop();
             emulator.destroy();
             console.warn(screen_to_text(screen));
             console.warn("Test failed: %s\n", test.name);
 
-            if(!text_test_done())
+            if(!check_text_test_done())
             {
                 console.warn('Expected text "%s"', test.expected_texts[0]);
             }
 
-            if(!grapical_test_done())
+            if(!check_grapical_test_done())
             {
                 console.warn("Expected graphical mode");
             }
 
-            if(!mouse_test_done())
+            if(!check_mouse_test_done())
             {
                 console.warn("Expected mouse activation");
             }
 
-            clearInterval(poll_interval);
-
             process.exit(1); // XXX: Continue with other tests
         }
     }
+
+    emulator.add_listener("mouse-enable", function()
+    {
+        mouse_test_done = true;
+        check_test_done();
+    });
+
+    emulator.add_listener("screen-set-mode", function(is_graphical)
+    {
+        graphical_test_done = is_graphical;
+        check_test_done();
+    });
 
     emulator.add_listener("screen-put-char", function(chr)
     {
@@ -222,7 +245,7 @@ function next_test(test_nr)
 
         var line = line_to_text(screen, y);
 
-        if(!text_test_done())
+        if(!check_text_test_done())
         {
             var expected = test.expected_texts[0];
 
