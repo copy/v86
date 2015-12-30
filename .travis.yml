@@ -2,8 +2,6 @@ language: node_js
 node_js:
   - "5.0.0"
 script:
-  - wget -P closure-compiler http://dl.google.com/closure-compiler/compiler-latest.zip
-  - unzip -d closure-compiler closure-compiler/compiler-latest.zip compiler.jar
   - wget -P images/ http://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}
   - make build/libv86.js
   - npm test

@@ -73,7 +73,7 @@ BROWSER_FILES=browser/screen.js\
 		  browser/keyboard.js browser/mouse.js browser/serial.js\
 		  browser/network.js browser/lib.js browser/starter.js browser/worker_bus.js
 
-build/v86_all.js: src/*.js src/browser/*.js lib/*.js
+build/v86_all.js: closure-compiler/compiler.jar src/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	-ls -lh build/v86_all.js
 	cd src &&\
@@ -95,7 +95,7 @@ build/v86_all.js: src/*.js src/browser/*.js lib/*.js
 	ls -lh build/v86_all.js
 
 
-build/libv86.js: src/*.js lib/*.js src/browser/*.js
+build/libv86.js: closure-compiler/compiler.jar src/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	-ls -lh build/libv86.js
 	cd src &&\
@@ -121,3 +121,7 @@ run:
 	python2 -m SimpleHTTPServer 2> /dev/null
 	#sleep 1
 	#$(BROWSER) http://localhost:8000/index.html &
+
+closure-compiler/compiler.jar:
+	wget -P closure-compiler http://dl.google.com/closure-compiler/compiler-latest.zip
+	unzip -d closure-compiler closure-compiler/compiler-latest.zip compiler.jar
