@@ -265,10 +265,10 @@ PCI.prototype.pci_write = function()
         return;
     }
 
+    var written = this.pci_value32[0];
+
     if(addr >= 0x10 && addr < 0x28)
     {
-        var written = this.pci_value32[0];
-
         var bar_nr = addr - 0x10 >> 2;
         var bar = device.pci_bars[bar_nr];
 
@@ -294,6 +294,11 @@ PCI.prototype.pci_write = function()
         {
             space[addr >> 2] = 0;
         }
+    }
+    else
+    {
+        dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " addr=" + h(addr, 4) + " value=" + h(written >>> 0, 8), LOG_PCI);
+        space[addr >> 2] = written;
     }
 };
 
