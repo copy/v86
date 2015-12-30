@@ -1,4 +1,4 @@
-CLOSURE=../closure-compiler/compiler.jar
+CLOSURE=closure-compiler/compiler.jar
 BROWSER=chromium
 
 all: build/v86_all.js
@@ -16,7 +16,7 @@ CLOSURE_SOURCE_MAP=\
 
 CLOSURE_FLAGS=\
 		--compilation_level ADVANCED_OPTIMIZATIONS\
-		--externs externs.js\
+		--externs src/externs.js\
 		--warning_level VERBOSE\
 		--jscomp_off uselessCode\
 		--jscomp_error accessControls\
@@ -64,43 +64,41 @@ TRANSPILE_ES6_FLAGS=\
 		--language_out ECMASCRIPT5_STRICT\
 
 
-CORE_FILES=const.js io.js main.js lib.js fpu.js ide.js pci.js floppy.js memory.js\
-		   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js\
-		   state.js ne2k.js virtio.js bus.js log.js\
-		   cpu.js translate.js modrm.js string.js arith.js misc_instr.js instructions.js debug.js
-LIB_FILES=../lib/9p.js ../lib/filesystem.js ../lib/jor1k.js ../lib/marshall.js ../lib/utf8.js
-BROWSER_FILES=browser/screen.js\
-		  browser/keyboard.js browser/mouse.js browser/serial.js\
-		  browser/network.js browser/lib.js browser/starter.js browser/worker_bus.js
+CORE_FILES=src/const.js src/io.js src/main.js src/lib.js src/fpu.js src/ide.js src/pci.js src/floppy.js src/memory.js\
+	   src/dma.js src/pit.js src/vga.js src/ps2.js src/pic.js src/rtc.js src/uart.js src/hpet.js src/acpi.js src/apic.js\
+	   src/state.js src/ne2k.js src/virtio.js src/bus.js src/log.js\
+	   src/cpu.js src/translate.js src/modrm.js src/string.js src/arith.js src/misc_instr.js src/instructions.js src/debug.js
+LIB_FILES=lib/9p.js lib/filesystem.js lib/jor1k.js lib/marshall.js lib/utf8.js
+BROWSER_FILES=src/browser/screen.js\
+	      src/browser/keyboard.js src/browser/mouse.js src/browser/serial.js\
+	      src/browser/network.js src/browser/lib.js src/browser/starter.js src/browser/worker_bus.js
 
-build/v86_all.js: closure-compiler/compiler.jar src/*.js src/browser/*.js lib/*.js
+build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	-ls -lh build/v86_all.js
-	cd src &&\
 	java -jar $(CLOSURE) \
-		--js_output_file "../build/v86_all.js"\
+		--js_output_file build/v86_all.js\
 		--define=DEBUG=false\
 		--define=IN_NODE=false\
 		--define=IN_BROWSER=true\
 		--define=IN_WORKER=false\
-		$(CLOSURE_SOURCE_MAP) ../build/v86_all.js.map\
+		$(CLOSURE_SOURCE_MAP) build/v86_all.js.map\
 		$(CLOSURE_FLAGS)\
 		$(TRANSPILE_ES6_FLAGS)\
 		--js $(CORE_FILES)\
 		--js $(LIB_FILES)\
 		--js $(BROWSER_FILES)\
-		--js browser/main.js
+		--js src/browser/main.js
 
-	echo "//# sourceMappingURL=v86_all.js.map" >> build/v86_all.js
 	ls -lh build/v86_all.js
 
 
-build/libv86.js: closure-compiler/compiler.jar src/*.js lib/*.js src/browser/*.js
+build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	-ls -lh build/libv86.js
 	cd src &&\
 	java -jar $(CLOSURE) \
-		--js_output_file "../build/libv86.js"\
+		--js_output_file build/libv86.js\
 		--define=DEBUG=false\
 		--define=IN_NODE=false\
 		--define=IN_BROWSER=true\
@@ -122,6 +120,6 @@ run:
 	#sleep 1
 	#$(BROWSER) http://localhost:8000/index.html &
 
-closure-compiler/compiler.jar:
+$(CLOSURE):
 	wget -P closure-compiler http://dl.google.com/closure-compiler/compiler-latest.zip
 	unzip -d closure-compiler closure-compiler/compiler-latest.zip compiler.jar
