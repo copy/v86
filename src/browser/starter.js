@@ -229,10 +229,10 @@ function V86Starter(options)
             // - loads slices of the file asynchronously as requested
             // - slower get/set
 
-            // Heuristics: If file is smaller than 16M, use SyncFileBuffer
+            // Heuristics: If file is smaller than 256M, use SyncFileBuffer
             if(file.async === undefined)
             {
-                file.async = file.buffer.size < 16 * 1024 * 1024;
+                file.async = file.buffer.size < 256 * 1024 * 1024;
             }
 
             if(file.async)
