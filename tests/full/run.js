@@ -202,7 +202,9 @@ function next_test(test_nr)
         {
             emulator.stop();
             emulator.destroy();
+            console.warn("=================================== SCREEN ===================================");
             console.warn(screen_to_text(screen));
+            console.warn("==============================================================================");
             console.warn("Test failed: %s\n", test.name);
 
             if(!check_text_test_done())
