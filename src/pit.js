@@ -230,7 +230,8 @@ PIT.prototype.port43_write = function(reg_byte)
     {
         // latch
         this.counter_latch[i] = 2;
-        this.counter_latch_value[i] = this.counter_current[i];
+        var value = this.counter_current[i];
+        this.counter_latch_value[i] = value ? value - 1 : 0;
 
         return;
     }
