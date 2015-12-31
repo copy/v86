@@ -34,6 +34,9 @@ function MouseAdapter(bus)
 
     this.destroy = function()
     {
+        window.removeEventListener("touchstart", touch_start_handler, false);
+        window.removeEventListener("touchend", touch_end_handler, false);
+        window.removeEventListener("touchmove", mousemove_handler, false);
         window.removeEventListener("mousemove", mousemove_handler, false);
         document.removeEventListener("contextmenu", contextmenu_handler, false);
         window.removeEventListener("mousedown", mousedown_handler, false);
@@ -48,6 +51,9 @@ function MouseAdapter(bus)
         }
         this.destroy();
 
+        window.addEventListener("touchstart", touch_start_handler, false);
+        window.addEventListener("touchend", touch_end_handler, false);
+        window.addEventListener("touchmove", mousemove_handler, false);
         window.addEventListener("mousemove", mousemove_handler, false);
         document.addEventListener("contextmenu", contextmenu_handler, false);
         window.addEventListener("mousedown", mousedown_handler, false);
@@ -58,7 +64,31 @@ function MouseAdapter(bus)
     function may_handle(e)
     {
         return mouse.enabled && mouse.emu_enabled &&
-            (!e.target || e.type === "mousemove" || (e.target.nodeName !== "INPUT" && e.target.nodeName !== "TEXTAREA"));
+            (!e.target || e.type === "mousemove" || e.type === "touchmove" || (e.target.nodeName !== "INPUT" && e.target.nodeName !== "TEXTAREA"));
+    }
+
+    function touch_start_handler(e)
+    {
+        if(may_handle(e))
+        {
+            var touches = e["changedTouches"];
+
+            if(touches && touches.length)
+            {
+                var touch = touches[touches.length - 1];
+                last_x = touch.clientX;
+                last_y = touch.clientY;
+            }
+        }
+    }
+
+    function touch_end_handler(e)
+    {
+        if(left_down || middle_down || right_down)
+        {
+            mouse.bus.send("mouse-click", [false, false, false]);
+            left_down = middle_down = right_down = false;
+        }
     }
 
     function mousemove_handler(e)
@@ -76,7 +106,23 @@ function MouseAdapter(bus)
         var delta_x = 0;
         var delta_y = 0;
 
-        if(true)
+        var touches = e["changedTouches"];
+
+        if(touches)
+        {
+            if(touches.length)
+            {
+                var touch = touches[touches.length - 1];
+                delta_x = touch.clientX - last_x;
+                delta_y = touch.clientY - last_y;
+
+                last_x = touch.clientX;
+                last_y = touch.clientY;
+
+                e.preventDefault();
+            }
+        }
+        else if(true)
         {
             if(typeof e["movementX"] === "number")
             {
