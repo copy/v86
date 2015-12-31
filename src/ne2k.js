@@ -101,6 +101,8 @@ function Ne2k(cpu, bus)
     this.memory = new Uint8Array(256 * 0x80);
 
     this.rxcr = 0;
+    this.txcr = 0;
+    this.tsr = 1;
 
     // mac address
     var mac = [
@@ -141,11 +143,16 @@ function Ne2k(cpu, bus)
     io.register_write(this.port | E8390_CMD, this, function(data_byte)
     {
         this.cr = data_byte & ~4;
-        dbg_log("Write command: " + h(data_byte, 2) + " newpg=" + (this.cr >> 6), LOG_NET);
+        dbg_log("Write command: " + h(data_byte, 2) + " newpg=" + (this.cr >> 6) + " txcr=" + h(this.txcr, 2), LOG_NET);
 
         if(this.cr & 1)
         {
             return;
+        }
+
+        if((data_byte | 0x18) && this.rcnt === 0)
+        {
+            this.do_interrupt(ENISR_RDC);
         }
 
         if(data_byte & 4)
@@ -155,11 +162,6 @@ function Ne2k(cpu, bus)
             this.bus.send("net0-send", data);
             this.bus.send("eth-transmit-end", [data.length]);
             this.do_interrupt(ENISR_TX);
-
-            if(this.rcnt === 0)
-            {
-                this.do_interrupt(ENISR_RDC);
-            }
 
             dbg_log("Command: Transfer. length=" + h(data.byteLength), LOG_NET);
         }
@@ -276,6 +278,7 @@ function Ne2k(cpu, bus)
         var pg = this.get_page();
         if(pg === 0)
         {
+            this.txcr = data_byte;
             dbg_log("Write tx config: " + h(data_byte, 2), LOG_NET);
         }
         else
@@ -359,8 +362,9 @@ function Ne2k(cpu, bus)
         var pg = this.get_page();
         if(pg === 0)
         {
+            dbg_log("Write interrupt mask register: " + h(data_byte, 2) + " isr=" + h(this.isr, 2), LOG_NET);
             this.imr = data_byte;
-            dbg_log("Write interrupt mask register: " + h(data_byte, 2), LOG_NET);
+            this.update_irq();
         }
         else
         {
@@ -402,7 +406,7 @@ function Ne2k(cpu, bus)
         var pg = this.get_page();
         if(pg === 0)
         {
-            return 1 | 2 | 1 << 5; // transmit status ok
+            return this.tsr;
         }
         else
         {
@@ -521,8 +525,12 @@ Ne2k.prototype.do_interrupt = function(ir_mask)
 {
     dbg_log("Do interrupt " + h(ir_mask, 2), LOG_NET);
     this.isr |= ir_mask;
+    this.update_irq();
+};
 
-    if(this.imr & ir_mask)
+Ne2k.prototype.update_irq = function()
+{
+    if(this.imr & this.isr)
     {
         this.cpu.device_raise_irq(this.irq);
     }
