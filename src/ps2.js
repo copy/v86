@@ -310,6 +310,10 @@ PS2.prototype.destroy = function()
     //}
 };
 
+PS2.prototype.next_byte_is_aux = function()
+{
+    return this.mouse_buffer.length && !this.kbd_buffer.length;
+};
 
 PS2.prototype.port60_read = function()
 {
@@ -322,20 +326,7 @@ PS2.prototype.port60_read = function()
         return this.last_port60_byte;
     }
 
-    var do_mouse_buffer;
-
-    if(this.kbd_buffer.length && this.mouse_buffer.length)
-    {
-        do_mouse_buffer = false;
-    }
-    else if(this.kbd_buffer.length)
-    {
-        do_mouse_buffer = false;
-    }
-    else
-    {
-        do_mouse_buffer = true;
-    }
+    var do_mouse_buffer = this.next_byte_is_aux();
 
     if(do_mouse_buffer)
     {
@@ -371,7 +362,7 @@ PS2.prototype.port64_read = function()
     {
         status_byte |= 1;
     }
-    if(this.mouse_buffer.length)
+    if(this.next_byte_is_aux())
     {
         status_byte |= 0x20;
     }

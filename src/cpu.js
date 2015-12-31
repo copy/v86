@@ -2283,7 +2283,7 @@ CPU.prototype.read_write_e8 = function()
     }
 };
 
-CPU.prototype.write_e8_ = function(value)
+CPU.prototype.write_e8 = function(value)
 {
     if(this.modrm_byte < 0xC0) {
         this.memory.write8(this.phys_addr, value);
@@ -2310,7 +2310,7 @@ CPU.prototype.read_write_e16 = function()
     }
 };
 
-CPU.prototype.write_e16_ = function(value)
+CPU.prototype.write_e16 = function(value)
 {
     if(this.modrm_byte < 0xC0) {
         if(this.phys_addr_high) {
@@ -2341,7 +2341,7 @@ CPU.prototype.read_write_e32 = function()
     }
 };
 
-CPU.prototype.write_e32_ = function(value)
+CPU.prototype.write_e32 = function(value)
 {
     if(this.modrm_byte < 0xC0) {
         if(this.phys_addr_high) {

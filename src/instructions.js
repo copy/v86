@@ -4,9 +4,9 @@ var t = [];
 var t16 = [];
 var t32 = [];
 
-t[0x00] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8_(cpu.add8(cpu.read_write_e8(), cpu.read_g8())); };
-t16[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16_(cpu.add16(cpu.read_write_e16(), cpu.read_g16())); };
-t32[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32_(cpu.add32(cpu.read_write_e32(), cpu.read_g32s())); }
+t[0x00] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8(cpu.add8(cpu.read_write_e8(), cpu.read_g8())); };
+t16[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16(cpu.add16(cpu.read_write_e16(), cpu.read_g16())); };
+t32[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32(cpu.add32(cpu.read_write_e32(), cpu.read_g32s())); }
 t[0x02] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g8(cpu.add8(cpu.read_g8(), cpu.read_e8())); };
 t16[0x03] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g16(cpu.add16(cpu.read_g16(), cpu.read_e16())); };
 t32[0x03] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g32(cpu.add32(cpu.read_g32s(), cpu.read_e32s())); }
@@ -25,9 +25,9 @@ t32[0x07] = cpu => {
     cpu.adjust_stack_reg(4);
 };
 
-t[0x08] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8_(cpu.or8(cpu.read_write_e8(), cpu.read_g8())); };
-t16[0x09] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16_(cpu.or16(cpu.read_write_e16(), cpu.read_g16())); };
-t32[0x09] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32_(cpu.or32(cpu.read_write_e32(), cpu.read_g32s())); }
+t[0x08] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8(cpu.or8(cpu.read_write_e8(), cpu.read_g8())); };
+t16[0x09] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16(cpu.or16(cpu.read_write_e16(), cpu.read_g16())); };
+t32[0x09] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32(cpu.or32(cpu.read_write_e32(), cpu.read_g32s())); }
 t[0x0a] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g8(cpu.or8(cpu.read_g8(), cpu.read_e8())); };
 t16[0x0b] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g16(cpu.or16(cpu.read_g16(), cpu.read_e16())); };
 t32[0x0b] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g32(cpu.or32(cpu.read_g32s(), cpu.read_e32s())); }
@@ -45,9 +45,9 @@ t32[0x0F] = cpu => {
     cpu.table0F_32[cpu.read_imm8()](cpu);
 };
 
-t[0x10] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8_(cpu.adc8(cpu.read_write_e8(), cpu.read_g8())); };
-t16[0x11] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16_(cpu.adc16(cpu.read_write_e16(), cpu.read_g16())); };
-t32[0x11] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32_(cpu.adc32(cpu.read_write_e32(), cpu.read_g32s())); }
+t[0x10] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8(cpu.adc8(cpu.read_write_e8(), cpu.read_g8())); };
+t16[0x11] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16(cpu.adc16(cpu.read_write_e16(), cpu.read_g16())); };
+t32[0x11] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32(cpu.adc32(cpu.read_write_e32(), cpu.read_g32s())); }
 t[0x12] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g8(cpu.adc8(cpu.read_g8(), cpu.read_e8())); };
 t16[0x13] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g16(cpu.adc16(cpu.read_g16(), cpu.read_e16())); };
 t32[0x13] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g32(cpu.adc32(cpu.read_g32s(), cpu.read_e32s())); }
@@ -70,9 +70,9 @@ t32[0x17] = cpu => {
     cpu.cycle();
 };
 
-t[0x18] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8_(cpu.sbb8(cpu.read_write_e8(), cpu.read_g8())); };
-t16[0x19] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16_(cpu.sbb16(cpu.read_write_e16(), cpu.read_g16())); };
-t32[0x19] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32_(cpu.sbb32(cpu.read_write_e32(), cpu.read_g32s())); }
+t[0x18] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8(cpu.sbb8(cpu.read_write_e8(), cpu.read_g8())); };
+t16[0x19] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16(cpu.sbb16(cpu.read_write_e16(), cpu.read_g16())); };
+t32[0x19] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32(cpu.sbb32(cpu.read_write_e32(), cpu.read_g32s())); }
 t[0x1a] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g8(cpu.sbb8(cpu.read_g8(), cpu.read_e8())); };
 t16[0x1b] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g16(cpu.sbb16(cpu.read_g16(), cpu.read_e16())); };
 t32[0x1b] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g32(cpu.sbb32(cpu.read_g32s(), cpu.read_e32s())); }
@@ -92,9 +92,9 @@ t32[0x1F] = cpu => {
     cpu.adjust_stack_reg(4);
 };
 
-t[0x20] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8_(cpu.and8(cpu.read_write_e8(), cpu.read_g8())); };
-t16[0x21] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16_(cpu.and16(cpu.read_write_e16(), cpu.read_g16())); };
-t32[0x21] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32_(cpu.and32(cpu.read_write_e32(), cpu.read_g32s())); }
+t[0x20] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8(cpu.and8(cpu.read_write_e8(), cpu.read_g8())); };
+t16[0x21] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16(cpu.and16(cpu.read_write_e16(), cpu.read_g16())); };
+t32[0x21] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32(cpu.and32(cpu.read_write_e32(), cpu.read_g32s())); }
 t[0x22] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g8(cpu.and8(cpu.read_g8(), cpu.read_e8())); };
 t16[0x23] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g16(cpu.and16(cpu.read_g16(), cpu.read_e16())); };
 t32[0x23] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g32(cpu.and32(cpu.read_g32s(), cpu.read_e32s())); }
@@ -106,9 +106,9 @@ t32[0x25] = cpu => { cpu.reg32s[reg_eax] = cpu.and32(cpu.reg32s[reg_eax], cpu.re
 t[0x26] = cpu => { cpu.segment_prefix = reg_es; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };
 t[0x27] = cpu => { cpu.bcd_daa(); };
 
-t[0x28] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8_(cpu.sub8(cpu.read_write_e8(), cpu.read_g8())); };
-t16[0x29] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16_(cpu.sub16(cpu.read_write_e16(), cpu.read_g16())); };
-t32[0x29] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32_(cpu.sub32(cpu.read_write_e32(), cpu.read_g32s())); }
+t[0x28] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8(cpu.sub8(cpu.read_write_e8(), cpu.read_g8())); };
+t16[0x29] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16(cpu.sub16(cpu.read_write_e16(), cpu.read_g16())); };
+t32[0x29] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32(cpu.sub32(cpu.read_write_e32(), cpu.read_g32s())); }
 t[0x2a] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g8(cpu.sub8(cpu.read_g8(), cpu.read_e8())); };
 t16[0x2b] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g16(cpu.sub16(cpu.read_g16(), cpu.read_e16())); };
 t32[0x2b] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g32(cpu.sub32(cpu.read_g32s(), cpu.read_e32s())); }
@@ -119,9 +119,9 @@ t32[0x2d] = cpu => { cpu.reg32s[reg_eax] = cpu.sub32(cpu.reg32s[reg_eax], cpu.re
 t[0x2E] = cpu => { cpu.segment_prefix = reg_cs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };
 t[0x2F] = cpu => { cpu.bcd_das(); };
 
-t[0x30] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8_(cpu.xor8(cpu.read_write_e8(), cpu.read_g8())); };
-t16[0x31] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16_(cpu.xor16(cpu.read_write_e16(), cpu.read_g16())); };
-t32[0x31] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32_(cpu.xor32(cpu.read_write_e32(), cpu.read_g32s())); }
+t[0x30] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8(cpu.xor8(cpu.read_write_e8(), cpu.read_g8())); };
+t16[0x31] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e16(cpu.xor16(cpu.read_write_e16(), cpu.read_g16())); };
+t32[0x31] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e32(cpu.xor32(cpu.read_write_e32(), cpu.read_g32s())); }
 t[0x32] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g8(cpu.xor8(cpu.read_g8(), cpu.read_e8())); };
 t16[0x33] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g16(cpu.xor16(cpu.read_g16(), cpu.read_e16())); };
 t32[0x33] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_g32(cpu.xor32(cpu.read_g32s(), cpu.read_e32s())); }
@@ -231,7 +231,7 @@ t[0x63] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     //dbg_log("arpl", LOG_CPU);
     if(cpu.protected_mode && !cpu.vm86_mode())
     {
-        cpu.write_e16_(cpu.arpl(cpu.read_write_e16(), cpu.modrm_byte >> 2 & 14));
+        cpu.write_e16(cpu.arpl(cpu.read_write_e16(), cpu.modrm_byte >> 2 & 14));
     }
     else
     {
@@ -326,39 +326,39 @@ t[0x7F] = cpu => { cpu.jmpcc8(!cpu.test_le()); };
 t[0x80] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     switch(cpu.modrm_byte >> 3 & 7)
     {
-        case 0: cpu.write_e8_(cpu.add8(cpu.read_write_e8(), cpu.read_imm8())); break;
-        case 1: cpu.write_e8_(cpu. or8(cpu.read_write_e8(), cpu.read_imm8())); break;
-        case 2: cpu.write_e8_(cpu.adc8(cpu.read_write_e8(), cpu.read_imm8())); break;
-        case 3: cpu.write_e8_(cpu.sbb8(cpu.read_write_e8(), cpu.read_imm8())); break;
-        case 4: cpu.write_e8_(cpu.and8(cpu.read_write_e8(), cpu.read_imm8())); break;
-        case 5: cpu.write_e8_(cpu.sub8(cpu.read_write_e8(), cpu.read_imm8())); break;
-        case 6: cpu.write_e8_(cpu.xor8(cpu.read_write_e8(), cpu.read_imm8())); break;
+        case 0: cpu.write_e8(cpu.add8(cpu.read_write_e8(), cpu.read_imm8())); break;
+        case 1: cpu.write_e8(cpu. or8(cpu.read_write_e8(), cpu.read_imm8())); break;
+        case 2: cpu.write_e8(cpu.adc8(cpu.read_write_e8(), cpu.read_imm8())); break;
+        case 3: cpu.write_e8(cpu.sbb8(cpu.read_write_e8(), cpu.read_imm8())); break;
+        case 4: cpu.write_e8(cpu.and8(cpu.read_write_e8(), cpu.read_imm8())); break;
+        case 5: cpu.write_e8(cpu.sub8(cpu.read_write_e8(), cpu.read_imm8())); break;
+        case 6: cpu.write_e8(cpu.xor8(cpu.read_write_e8(), cpu.read_imm8())); break;
         case 7: cpu.cmp8(cpu.read_e8(), cpu.read_imm8()); break;
     }
 };
 t16[0x81] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     switch(cpu.modrm_byte >> 3 & 7)
     {
-        case 0: cpu.write_e16_(cpu.add16(cpu.read_write_e16(), cpu.read_imm16())); break;
-        case 1: cpu.write_e16_(cpu. or16(cpu.read_write_e16(), cpu.read_imm16())); break;
-        case 2: cpu.write_e16_(cpu.adc16(cpu.read_write_e16(), cpu.read_imm16())); break;
-        case 3: cpu.write_e16_(cpu.sbb16(cpu.read_write_e16(), cpu.read_imm16())); break;
-        case 4: cpu.write_e16_(cpu.and16(cpu.read_write_e16(), cpu.read_imm16())); break;
-        case 5: cpu.write_e16_(cpu.sub16(cpu.read_write_e16(), cpu.read_imm16())); break;
-        case 6: cpu.write_e16_(cpu.xor16(cpu.read_write_e16(), cpu.read_imm16())); break;
+        case 0: cpu.write_e16(cpu.add16(cpu.read_write_e16(), cpu.read_imm16())); break;
+        case 1: cpu.write_e16(cpu. or16(cpu.read_write_e16(), cpu.read_imm16())); break;
+        case 2: cpu.write_e16(cpu.adc16(cpu.read_write_e16(), cpu.read_imm16())); break;
+        case 3: cpu.write_e16(cpu.sbb16(cpu.read_write_e16(), cpu.read_imm16())); break;
+        case 4: cpu.write_e16(cpu.and16(cpu.read_write_e16(), cpu.read_imm16())); break;
+        case 5: cpu.write_e16(cpu.sub16(cpu.read_write_e16(), cpu.read_imm16())); break;
+        case 6: cpu.write_e16(cpu.xor16(cpu.read_write_e16(), cpu.read_imm16())); break;
         case 7: cpu.cmp16(cpu.read_e16(), cpu.read_imm16()); break;
     }
 };
 t32[0x81] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     switch(cpu.modrm_byte >> 3 & 7)
     {
-        case 0: cpu.write_e32_(cpu.add32(cpu.read_write_e32(), cpu.read_imm32s())); break;
-        case 1: cpu.write_e32_(cpu. or32(cpu.read_write_e32(), cpu.read_imm32s())); break;
-        case 2: cpu.write_e32_(cpu.adc32(cpu.read_write_e32(), cpu.read_imm32s())); break;
-        case 3: cpu.write_e32_(cpu.sbb32(cpu.read_write_e32(), cpu.read_imm32s())); break;
-        case 4: cpu.write_e32_(cpu.and32(cpu.read_write_e32(), cpu.read_imm32s())); break;
-        case 5: cpu.write_e32_(cpu.sub32(cpu.read_write_e32(), cpu.read_imm32s())); break;
-        case 6: cpu.write_e32_(cpu.xor32(cpu.read_write_e32(), cpu.read_imm32s())); break;
+        case 0: cpu.write_e32(cpu.add32(cpu.read_write_e32(), cpu.read_imm32s())); break;
+        case 1: cpu.write_e32(cpu. or32(cpu.read_write_e32(), cpu.read_imm32s())); break;
+        case 2: cpu.write_e32(cpu.adc32(cpu.read_write_e32(), cpu.read_imm32s())); break;
+        case 3: cpu.write_e32(cpu.sbb32(cpu.read_write_e32(), cpu.read_imm32s())); break;
+        case 4: cpu.write_e32(cpu.and32(cpu.read_write_e32(), cpu.read_imm32s())); break;
+        case 5: cpu.write_e32(cpu.sub32(cpu.read_write_e32(), cpu.read_imm32s())); break;
+        case 6: cpu.write_e32(cpu.xor32(cpu.read_write_e32(), cpu.read_imm32s())); break;
         case 7: cpu.cmp32(cpu.read_e32(), cpu.read_imm32s()); break;
     }
 };
@@ -368,26 +368,26 @@ t[0x82] = cpu => {
 t16[0x83] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     switch(cpu.modrm_byte >> 3 & 7)
     {
-        case 0: cpu.write_e16_(cpu.add16(cpu.read_write_e16(), cpu.read_imm8s())); break;
-        case 1: cpu.write_e16_(cpu. or16(cpu.read_write_e16(), cpu.read_imm8s())); break;
-        case 2: cpu.write_e16_(cpu.adc16(cpu.read_write_e16(), cpu.read_imm8s())); break;
-        case 3: cpu.write_e16_(cpu.sbb16(cpu.read_write_e16(), cpu.read_imm8s())); break;
-        case 4: cpu.write_e16_(cpu.and16(cpu.read_write_e16(), cpu.read_imm8s())); break;
-        case 5: cpu.write_e16_(cpu.sub16(cpu.read_write_e16(), cpu.read_imm8s())); break;
-        case 6: cpu.write_e16_(cpu.xor16(cpu.read_write_e16(), cpu.read_imm8s())); break;
+        case 0: cpu.write_e16(cpu.add16(cpu.read_write_e16(), cpu.read_imm8s())); break;
+        case 1: cpu.write_e16(cpu. or16(cpu.read_write_e16(), cpu.read_imm8s())); break;
+        case 2: cpu.write_e16(cpu.adc16(cpu.read_write_e16(), cpu.read_imm8s())); break;
+        case 3: cpu.write_e16(cpu.sbb16(cpu.read_write_e16(), cpu.read_imm8s())); break;
+        case 4: cpu.write_e16(cpu.and16(cpu.read_write_e16(), cpu.read_imm8s())); break;
+        case 5: cpu.write_e16(cpu.sub16(cpu.read_write_e16(), cpu.read_imm8s())); break;
+        case 6: cpu.write_e16(cpu.xor16(cpu.read_write_e16(), cpu.read_imm8s())); break;
         case 7: cpu.cmp16(cpu.read_e16(), cpu.read_imm8s()); break;
     }
 };
 t32[0x83] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     switch(cpu.modrm_byte >> 3 & 7)
     {
-        case 0: cpu.write_e32_(cpu.add32(cpu.read_write_e32(), cpu.read_imm8s())); break;
-        case 1: cpu.write_e32_(cpu. or32(cpu.read_write_e32(), cpu.read_imm8s())); break;
-        case 2: cpu.write_e32_(cpu.adc32(cpu.read_write_e32(), cpu.read_imm8s())); break;
-        case 3: cpu.write_e32_(cpu.sbb32(cpu.read_write_e32(), cpu.read_imm8s())); break;
-        case 4: cpu.write_e32_(cpu.and32(cpu.read_write_e32(), cpu.read_imm8s())); break;
-        case 5: cpu.write_e32_(cpu.sub32(cpu.read_write_e32(), cpu.read_imm8s())); break;
-        case 6: cpu.write_e32_(cpu.xor32(cpu.read_write_e32(), cpu.read_imm8s())); break;
+        case 0: cpu.write_e32(cpu.add32(cpu.read_write_e32(), cpu.read_imm8s())); break;
+        case 1: cpu.write_e32(cpu. or32(cpu.read_write_e32(), cpu.read_imm8s())); break;
+        case 2: cpu.write_e32(cpu.adc32(cpu.read_write_e32(), cpu.read_imm8s())); break;
+        case 3: cpu.write_e32(cpu.sbb32(cpu.read_write_e32(), cpu.read_imm8s())); break;
+        case 4: cpu.write_e32(cpu.and32(cpu.read_write_e32(), cpu.read_imm8s())); break;
+        case 5: cpu.write_e32(cpu.sub32(cpu.read_write_e32(), cpu.read_imm8s())); break;
+        case 6: cpu.write_e32(cpu.xor32(cpu.read_write_e32(), cpu.read_imm8s())); break;
         case 7: cpu.cmp32(cpu.read_e32(), cpu.read_imm8s()); break;
     }
 };
@@ -397,12 +397,12 @@ t16[0x85] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_e16()
 t32[0x85] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_e32s(); cpu.test32(data, cpu.read_g32s()); }
 
 
-t[0x86] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_write_e8(); cpu.write_e8_(cpu.xchg8(data, cpu.modrm_byte)); };
+t[0x86] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var data = cpu.read_write_e8(); cpu.write_e8(cpu.xchg8(data, cpu.modrm_byte)); };
 t16[0x87] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_write_e16(); cpu.write_e16_(cpu.xchg16(data, cpu.modrm_byte));
+    var data = cpu.read_write_e16(); cpu.write_e16(cpu.xchg16(data, cpu.modrm_byte));
 };
 t32[0x87] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_write_e32(); cpu.write_e32_(cpu.xchg32(data, cpu.modrm_byte));
+    var data = cpu.read_write_e32(); cpu.write_e32(cpu.xchg32(data, cpu.modrm_byte));
 };
 
 t[0x88] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.set_e8(addr, cpu.read_g8()); };
@@ -740,7 +740,7 @@ t[0xC0] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 6: result = cpu.shl8(op1, op2); break;
         case 7: result = cpu.sar8(op1, op2); break;
     }
-    cpu.write_e8_(result);
+    cpu.write_e8(result);
 };
 t16[0xC1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var op1 = cpu.read_write_e16();
@@ -757,7 +757,7 @@ t16[0xC1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 6: result = cpu.shl16(op1, op2); break;
         case 7: result = cpu.sar16(op1, op2); break;
     }
-    cpu.write_e16_(result);
+    cpu.write_e16(result);
 };
 t32[0xC1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var op1 = cpu.read_write_e32();
@@ -774,7 +774,7 @@ t32[0xC1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 6: result = cpu.shl32(op1, op2); break;
         case 7: result = cpu.sar32(op1, op2); break;
     }
-    cpu.write_e32_(result);
+    cpu.write_e32(result);
 };
 
 t16[0xC2] = cpu => {
@@ -913,7 +913,7 @@ t[0xD0] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 6: result = cpu.shl8(op1, 1); break;
         case 7: result = cpu.sar8(op1, 1); break;
     }
-    cpu.write_e8_(result);
+    cpu.write_e8(result);
 };
 t16[0xD1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var op1 = cpu.read_write_e16();
@@ -929,7 +929,7 @@ t16[0xD1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 6: result = cpu.shl16(op1, 1); break;
         case 7: result = cpu.sar16(op1, 1); break;
     }
-    cpu.write_e16_(result);
+    cpu.write_e16(result);
 };
 t32[0xD1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var op1 = cpu.read_write_e32();
@@ -945,7 +945,7 @@ t32[0xD1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 6: result = cpu.shl32(op1, 1); break;
         case 7: result = cpu.sar32(op1, 1); break;
     }
-    cpu.write_e32_(result);
+    cpu.write_e32(result);
 };
 
 t[0xD2] = cpu => { cpu.modrm_byte = cpu.read_imm8();
@@ -963,7 +963,7 @@ t[0xD2] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 6: result = cpu.shl8(op1, op2); break;
         case 7: result = cpu.sar8(op1, op2); break;
     }
-    cpu.write_e8_(result);
+    cpu.write_e8(result);
 };
 t16[0xD3] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var op1 = cpu.read_write_e16();
@@ -980,7 +980,7 @@ t16[0xD3] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 6: result = cpu.shl16(op1, op2); break;
         case 7: result = cpu.sar16(op1, op2); break;
     }
-    cpu.write_e16_(result);
+    cpu.write_e16(result);
 };
 t32[0xD3] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var op1 = cpu.read_write_e32();
@@ -997,7 +997,7 @@ t32[0xD3] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 6: result = cpu.shl32(op1, op2); break;
         case 7: result = cpu.sar32(op1, op2); break;
     }
-    cpu.write_e32_(result);
+    cpu.write_e32(result);
 };
 
 t[0xD4] = cpu => {
@@ -1240,10 +1240,10 @@ t[0xF6] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             var data = cpu.read_e8(); cpu.test8(data, cpu.read_imm8());
             break;
         case 2:
-            var data = cpu.read_write_e8(); cpu.write_e8_(~(data));
+            var data = cpu.read_write_e8(); cpu.write_e8(~(data));
             break;
         case 3:
-            var data = cpu.read_write_e8(); cpu.write_e8_(cpu.neg8(data));
+            var data = cpu.read_write_e8(); cpu.write_e8(cpu.neg8(data));
             break;
         case 4:
             var data = cpu.read_e8(); cpu.mul8(data);
@@ -1270,10 +1270,10 @@ t16[0xF7] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             var data = cpu.read_e16(); cpu.test16(data, cpu.read_imm16());
             break;
         case 2:
-            var data = cpu.read_write_e16(); cpu.write_e16_(~(data));
+            var data = cpu.read_write_e16(); cpu.write_e16(~(data));
             break;
         case 3:
-            var data = cpu.read_write_e16(); cpu.write_e16_(cpu.neg16(data));
+            var data = cpu.read_write_e16(); cpu.write_e16(cpu.neg16(data));
             break;
         case 4:
             var data = cpu.read_e16(); cpu.mul16(data);
@@ -1299,10 +1299,10 @@ t32[0xF7] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             var data = cpu.read_e32s(); cpu.test32(data, cpu.read_imm32s());
             break;
         case 2:
-            var data = cpu.read_write_e32(); cpu.write_e32_(~(data));
+            var data = cpu.read_write_e32(); cpu.write_e32(~(data));
             break;
         case 3:
-            var data = cpu.read_write_e32(); cpu.write_e32_(cpu.neg32(data));
+            var data = cpu.read_write_e32(); cpu.write_e32(cpu.neg32(data));
             break;
         case 4:
             var data = cpu.read_e32(); cpu.mul32(data);
@@ -1399,11 +1399,11 @@ t[0xFE] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 
     if(mod === 0)
     {
-        var data = cpu.read_write_e8(); cpu.write_e8_(cpu.inc8(data));
+        var data = cpu.read_write_e8(); cpu.write_e8(cpu.inc8(data));
     }
     else if(mod === 8)
     {
-        var data = cpu.read_write_e8(); cpu.write_e8_(cpu.dec8(data));
+        var data = cpu.read_write_e8(); cpu.write_e8(cpu.dec8(data));
     }
     else
     {
@@ -1414,10 +1414,10 @@ t16[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     switch(cpu.modrm_byte >> 3 & 7)
     {
         case 0:
-            var data = cpu.read_write_e16(); cpu.write_e16_(cpu.inc16(data));
+            var data = cpu.read_write_e16(); cpu.write_e16(cpu.inc16(data));
             break;
         case 1:
-            var data = cpu.read_write_e16(); cpu.write_e16_(cpu.dec16(data));
+            var data = cpu.read_write_e16(); cpu.write_e16(cpu.dec16(data));
             break;
         case 2:
             // 2, call near
@@ -1479,10 +1479,10 @@ t32[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     switch(cpu.modrm_byte >> 3 & 7)
     {
         case 0:
-            var data = cpu.read_write_e32(); cpu.write_e32_(cpu.inc32(data));
+            var data = cpu.read_write_e32(); cpu.write_e32(cpu.inc32(data));
             break;
         case 1:
-            var data = cpu.read_write_e32(); cpu.write_e32_(cpu.dec32(data));
+            var data = cpu.read_write_e32(); cpu.write_e32(cpu.dec32(data));
             break;
         case 2:
             // 2, call near
@@ -2432,16 +2432,16 @@ t32[0xA3] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 };
 
 t16[0xA4] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_write_e16(); cpu.write_e16_(cpu.shld16(data, cpu.read_g16(), cpu.read_imm8() & 31));
+    var data = cpu.read_write_e16(); cpu.write_e16(cpu.shld16(data, cpu.read_g16(), cpu.read_imm8() & 31));
 };
 t32[0xA4] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_write_e32(); cpu.write_e32_(cpu.shld32(data, cpu.read_g32s(), cpu.read_imm8() & 31));
+    var data = cpu.read_write_e32(); cpu.write_e32(cpu.shld32(data, cpu.read_g32s(), cpu.read_imm8() & 31));
 };
 t16[0xA5] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_write_e16(); cpu.write_e16_(cpu.shld16(data, cpu.read_g16(), cpu.reg8[reg_cl] & 31));
+    var data = cpu.read_write_e16(); cpu.write_e16(cpu.shld16(data, cpu.read_g16(), cpu.reg8[reg_cl] & 31));
 };
 t32[0xA5] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_write_e32(); cpu.write_e32_(cpu.shld32(data, cpu.read_g32s(), cpu.reg8[reg_cl] & 31));
+    var data = cpu.read_write_e32(); cpu.write_e32(cpu.shld32(data, cpu.read_g32s(), cpu.reg8[reg_cl] & 31));
 };
 
 t[0xA6] = cpu => { cpu.undefined_instruction(); };
@@ -2481,16 +2481,16 @@ t32[0xAB] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 
 
 t16[0xAC] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_write_e16(); cpu.write_e16_(cpu.shrd16(data, cpu.read_g16(), cpu.read_imm8() & 31));
+    var data = cpu.read_write_e16(); cpu.write_e16(cpu.shrd16(data, cpu.read_g16(), cpu.read_imm8() & 31));
 };
 t32[0xAC] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_write_e32(); cpu.write_e32_(cpu.shrd32(data, cpu.read_g32s(), cpu.read_imm8() & 31));
+    var data = cpu.read_write_e32(); cpu.write_e32(cpu.shrd32(data, cpu.read_g32s(), cpu.read_imm8() & 31));
 };
 t16[0xAD] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_write_e16(); cpu.write_e16_(cpu.shrd16(data, cpu.read_g16(), cpu.reg8[reg_cl] & 31));
+    var data = cpu.read_write_e16(); cpu.write_e16(cpu.shrd16(data, cpu.read_g16(), cpu.reg8[reg_cl] & 31));
 };
 t32[0xAD] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_write_e32(); cpu.write_e32_(cpu.shrd32(data, cpu.read_g32s(), cpu.reg8[reg_cl] & 31));
+    var data = cpu.read_write_e32(); cpu.write_e32(cpu.shrd32(data, cpu.read_g32s(), cpu.reg8[reg_cl] & 31));
 };
 
 t[0xAE] = cpu => { cpu.modrm_byte = cpu.read_imm8();
@@ -2800,16 +2800,16 @@ t[0xBF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 };
 
 t[0xC0] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var data = cpu.read_write_e8(); cpu.write_e8_(cpu.xadd8(data, cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1));
+    var data = cpu.read_write_e8(); cpu.write_e8(cpu.xadd8(data, cpu.modrm_byte >> 1 & 0xC | cpu.modrm_byte >> 5 & 1));
 };
 
 t16[0xC1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var data = cpu.read_write_e16();
-    cpu.write_e16_(cpu.xadd16(data, cpu.modrm_byte >> 2 & 14));
+    cpu.write_e16(cpu.xadd16(data, cpu.modrm_byte >> 2 & 14));
 };
 t32[0xC1] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var data = cpu.read_write_e32();
-    cpu.write_e32_(cpu.xadd32(data, cpu.modrm_byte >> 3 & 7));
+    cpu.write_e32(cpu.xadd32(data, cpu.modrm_byte >> 3 & 7));
 };
 
 
