@@ -100,6 +100,8 @@ function Ne2k(cpu, bus)
     this.tpsr = 0;
     this.memory = new Uint8Array(256 * 0x80);
 
+    this.rxcr = 0;
+
     // mac address
     var mac = [
         0x00, 0x22, 0x15,
@@ -463,6 +465,12 @@ function Ne2k(cpu, bus)
             dbg_log("Read pg1/0x0c", LOG_NET);
             return 0;
         }
+    });
+
+    io.register_write(this.port | EN0_RXCR, this, function(data_byte)
+    {
+        dbg_log("RX configuration reg write: " + h(data_byte, 2), LOG_NET);
+        this.rxcr = data_byte;
     });
 
     io.register_read(this.port | NE_DATAPORT | 0, this,
