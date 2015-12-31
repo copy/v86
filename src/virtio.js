@@ -154,9 +154,15 @@ function VirtIO(cpu, bus, filesystem)
         io.register_read(0xA814 + i, this, function(port)
         {
             dbg_log("Read device " + h(port), LOG_VIRTIO);
-            //dbg_assert(typeof this.device.configspace[port] === "number");
 
-            return this.device.configspace[port];
+            if(port < this.device.configspace.length)
+            {
+                return this.device.configspace[port];
+            }
+            else
+            {
+                return 0;
+            }
         }.bind(this, i), undefined, undefined);
 
         io.register_write(0xA814 + i, this, function(port, data)
