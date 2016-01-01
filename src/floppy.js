@@ -325,20 +325,14 @@ FloppyController.prototype.seek = function(args)
     this.last_cylinder = args[1];
     this.last_head = args[0] >> 2 & 1;
 
-    if(this.dor & 8)
-    {
-        this.cpu.device_raise_irq(6);
-    }
+    this.raise_irq();
 }
 
 FloppyController.prototype.calibrate = function(args)
 {
     dbg_log("floppy calibrate", LOG_DISK);
 
-    if(this.dor & 8)
-    {
-        this.cpu.device_raise_irq(6);
-    }
+    this.raise_irq();
 }
 
 FloppyController.prototype.check_interrupt_status = function()
@@ -419,10 +413,7 @@ FloppyController.prototype.done = function(args, cylinder, head, sector, error)
     this.response_data[5] = sector;
     this.response_data[6] = args[4];
 
-    if(this.dor & 8)
-    {
-        this.cpu.device_raise_irq(6);
-    }
+    this.raise_irq();
 }
 
 FloppyController.prototype.fix_drive_data = function(args)
@@ -445,9 +436,13 @@ FloppyController.prototype.read_sector_id = function(args)
     this.response_data[5] = 0;
     this.response_data[6] = 0;
 
+    this.raise_irq();
+}
+
+FloppyController.prototype.raise_irq = function()
+{
     if(this.dor & 8)
     {
         this.cpu.device_raise_irq(6);
     }
-}
-
+};
