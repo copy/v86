@@ -81,6 +81,7 @@ function Ne2k(cpu, bus)
             size: 32,
         },
     ];
+    this.name = "ne2k";
 
     cpu.devices.pci.register_device(this);
 

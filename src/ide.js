@@ -164,6 +164,7 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
             size: 0x10,
         },
     ];
+    this.name = "ide" + nr;
 
     // 00:1f.2 IDE interface: Intel Corporation 82801JI (ICH10 Family) 4 port SATA IDE Controller #1
     //0x86, 0x80, 0x20, 0x3a, 0x05, 0x00, 0xb0, 0x02, 0x00, 0x8f, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,

@@ -217,7 +217,7 @@ PCI.prototype.pci_query = function()
 
     dbg_line += "enabled=" + (enabled);
     dbg_line += " bdf=" + h(bdf, 4);
-    dbg_line += " dev=" + h(dev, 4);
+    dbg_line += " dev=" + h(dev, 2);
     dbg_line += " addr=" + h(addr, 2);
 
     var device = this.device_spaces[bdf];
@@ -273,7 +273,7 @@ PCI.prototype.pci_write = function()
         var bar = device.pci_bars[bar_nr];
 
         //dbg_log("BAR" + bar_nr + " changed to " + h(space[addr >> 2] >>> 0) + " dev=" + h(bdf >> 3, 2), LOG_PCI);
-        dbg_log("BAR" + bar_nr + " changed to " + h(written >>> 0) + " dev=" + h(bdf >> 3, 2), LOG_PCI);
+        dbg_log("BAR" + bar_nr + " exists=" + (bar ? "y" : "n") + " changed to " + h(written >>> 0) + " dev=" + h(bdf >> 3, 2) + " (" + device.name + ") ", LOG_PCI);
 
         if(bar)
         {
@@ -287,17 +287,18 @@ PCI.prototype.pci_write = function()
                 space[addr >> 2] = device.current_bars[bar_nr];
             }
 
-            dbg_log("BAR <- " + h(space[addr >> 2] >>> 0), LOG_PCI);
             dbg_assert(!(bar.size & bar.size - 1));
         }
         else
         {
             space[addr >> 2] = 0;
         }
+
+        dbg_log("BAR effective value: " + h(space[addr >> 2] >>> 0), LOG_PCI);
     }
     else
     {
-        dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " addr=" + h(addr, 4) + " value=" + h(written >>> 0, 8), LOG_PCI);
+        dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " (" + device.name + ") " + " addr=" + h(addr, 4) + " value=" + h(written >>> 0, 8), LOG_PCI);
         space[addr >> 2] = written;
     }
 };
@@ -310,7 +311,7 @@ PCI.prototype.register_device = function(device)
 
     var device_id = device.pci_id;
 
-    dbg_log("PCI register bdf=" + h(device_id), LOG_PCI);
+    dbg_log("PCI register bdf=" + h(device_id) + " (" + device.name + ")", LOG_PCI);
 
     dbg_assert(!this.devices[device_id]);
     dbg_assert(device.pci_space.length >= 64);

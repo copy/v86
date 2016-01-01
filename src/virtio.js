@@ -23,6 +23,7 @@ function VirtIO(cpu, bus, filesystem)
             size: 16,
         },
     ];
+    this.name = "virtio";
 
     cpu.devices.pci.register_device(this);
 
