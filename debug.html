@@ -11,15 +11,15 @@
     <div id="boot_options">
         <h4>Debugger</h4>
         <!-- <input type="button" value="Arch Linux" id="start_archlinux"> -->
-        <input type="button" value="KolibriOS" id="start_kolibrios"> 
-        <input type="button" value="Linux 2.6" id="start_linux26"> 
-        <input type="button" value="Linux 3.18" id="start_linux3"> 
-        <input type="button" value="Windows 1.01" id="start_windows1"> 
-        <input type="button" value="FreeDOS" id="start_freedos"> 
-        <input type="button" value="OpenBSD" id="start_openbsd"> 
-        <input type="button" value="Solar OS" id="start_solos"> 
-        <input type="button" value="Bootchess" id="start_bootchess"> 
-        <input type="button" value="Test" id="start_test"> 
+        <input type="button" value="KolibriOS" id="start_kolibrios">
+        <input type="button" value="Linux 2.6" id="start_linux26">
+        <input type="button" value="Linux 3.18" id="start_linux3">
+        <input type="button" value="Windows 1.01" id="start_windows1">
+        <input type="button" value="FreeDOS" id="start_freedos">
+        <input type="button" value="OpenBSD" id="start_openbsd">
+        <input type="button" value="Solar OS" id="start_solos">
+        <input type="button" value="Bootchess" id="start_bootchess">
+        <input type="button" value="Test" id="start_test">
         <br>
 
         <hr>
@@ -31,7 +31,7 @@
         <table>
             <tr>
                 <td width="250">CD image</td>
-                <td> 
+                <td>
                     <!--
                     <select>
                         <option>None</option>
@@ -59,7 +59,7 @@
             <tr>
                 <td>Memory size</td>
                 <td>
-                    <input id="memory_size" type="number" value="64" min="16" max="2048" step="16"> MB<br>
+                    <input id="memory_size" type="number" value="128" min="16" max="2048" step="16"> MB<br>
                 </td>
             </tr>
 
@@ -83,7 +83,7 @@
 
             <tr>
                 <td>Boot order</td>
-                <td> 
+                <td>
                     <select id="boot_order">
                         <option value="213">CD / Floppy / Hard Disk</option>
                         <option value="123">CD / Hard Disk / Floppy</option>
@@ -140,18 +140,18 @@
         <input type="button" value="Take screenshot (only graphic modes)" id="take_screenshot">
 
         <label>
-            Scale: 
+            Scale:
             <input type="number" min="0.25" step="0.25" value="1.0" id="scale" style="width: 50px">
         </label>
 
         <br>
         <label id="change_fda" style="display: none">
-            Change floppy: 
+            Change floppy:
             <input type="file">
         </label>
 
         <label id="change_cdrom" style="display: none">
-            Change CD: 
+            Change CD:
             <input type="file">
         </label>
 

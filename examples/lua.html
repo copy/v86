@@ -84,7 +84,7 @@ window.onload = function()
 
 // https://gist.github.com/creationix/2502704
 // Implement bash string escaping.
-function bashEscape(arg) 
+function bashEscape(arg)
 {
     return "'" + arg.replace(/'+/g, function (val) {
         return "'" + val.replace(/'/g, "\\'") + "'";
