@@ -652,23 +652,29 @@ CPU.prototype.fill_cmos = function(rtc, settings)
     //   4: BEVPrio
     // bootflag 1, high nibble, lowest priority
     // Low nibble: Disable floppy signature check (1)
-    this.devices.rtc.cmos_write(CMOS_BIOS_BOOTFLAG1 , 1 | boot_order >> 4 & 0xF0);
+    rtc.cmos_write(CMOS_BIOS_BOOTFLAG1 , 1 | boot_order >> 4 & 0xF0);
 
     // bootflag 2, both nibbles, high and middle priority
-    this.devices.rtc.cmos_write(CMOS_BIOS_BOOTFLAG2, boot_order & 0xFF);
+    rtc.cmos_write(CMOS_BIOS_BOOTFLAG2, boot_order & 0xFF);
+
+    var memory_above_1m = 0x3c00;
+    rtc.cmos_write(CMOS_MEM_EXTMEM_LOW,
+            memory_above_1m & 0xFF);
+    rtc.cmos_write(CMOS_MEM_EXTMEM_HIGH,
+            memory_above_1m >> 8 & 0xFF);
 
     var memory_above_16m = this.memory_size - 16 * 1024 * 1024;
-    this.devices.rtc.cmos_write(CMOS_MEM_EXTMEM2_LOW,
+    rtc.cmos_write(CMOS_MEM_EXTMEM2_LOW,
             memory_above_16m >> 16 & 0xFF);
-    this.devices.rtc.cmos_write(CMOS_MEM_EXTMEM2_HIGH,
+    rtc.cmos_write(CMOS_MEM_EXTMEM2_HIGH,
             memory_above_16m >> 24 & 0xFF);
 
     // memory above 4G
-    this.devices.rtc.cmos_write(CMOS_MEM_HIGHMEM_LOW, 0);
-    this.devices.rtc.cmos_write(CMOS_MEM_HIGHMEM_MID, 0);
-    this.devices.rtc.cmos_write(CMOS_MEM_HIGHMEM_HIGH, 0);
+    rtc.cmos_write(CMOS_MEM_HIGHMEM_LOW, 0);
+    rtc.cmos_write(CMOS_MEM_HIGHMEM_MID, 0);
+    rtc.cmos_write(CMOS_MEM_HIGHMEM_HIGH, 0);
 
-    this.devices.rtc.cmos_write(CMOS_EQUIPMENT_INFO, 0x2D);
+    rtc.cmos_write(CMOS_EQUIPMENT_INFO, 0x2D);
 };
 
 CPU.prototype.load_bios = function()
