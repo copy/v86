@@ -10,7 +10,7 @@
 <div>
     <div id="boot_options">
         <h4>Debugger</h4>
-        <!-- <input type="button" value="Arch Linux" id="start_archlinux"> -->
+        <input type="button" value="Arch Linux" id="start_archlinux">
         <input type="button" value="KolibriOS" id="start_kolibrios">
         <input type="button" value="Linux 2.6" id="start_linux26">
         <input type="button" value="Linux 3.18" id="start_linux3">
@@ -22,8 +22,10 @@
         <input type="button" value="Test" id="start_test">
         <br>
 
+        <!--
         <hr>
         Restore state: <input type="file" id="restore_state">
+        -->
 
         <br>
         <hr>
@@ -157,7 +159,8 @@
 
     </div>
 
-    <div id="log_levels" style="width: 600px"><b>Log:</b></div>
+    <pre style="margin: 0" id="log_levels"></pre>
+    <pre style="margin: 3px 0px 0px 0px" id="debug_infos"></pre>
 
     <pre style="display: none" id="loading"></pre>
 

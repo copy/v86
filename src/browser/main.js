@@ -174,9 +174,7 @@
                 set_title(last_file.name);
             }
 
-            start_emulation({
-                settings: settings,
-            });
+            start_emulation(settings);
         };
 
         if(DEBUG)
@@ -366,10 +364,7 @@
             {
                 $("boot_options").style.display = "none";
 
-                start_emulation({
-                    settings: settings,
-                    done: done,
-                });
+                start_emulation(settings, done);
             }
         }
 
@@ -405,10 +400,7 @@
             settings.memory_size = infos.memory_size;
             settings.vga_memory_size = infos.vga_memory_size;
 
-            start_emulation({
-                settings: settings,
-                done: done,
-            });
+            start_emulation(settings, done);
         }
 
         function done(emulator)
@@ -433,15 +425,15 @@
         //    basefs: "http://localhost/v86-images/fs.json",
         //};
 
-        $("restore_state").onchange = function()
-        {
-        };
+        //$("restore_state").onchange = function()
+        //{
+        //};
 
-        $("start_test").onclick = function()
-        {
-        };
+        //$("start_test").onclick = function()
+        //{
+        //};
 
-        var log_levels = document.getElementById("log_levels");
+        var log_levels = $("log_levels");
 
         for(var i = 0; i < LOG_NAMES.length; i++)
         {
@@ -465,8 +457,13 @@
             input.mask = mask;
 
             label.appendChild(input);
-            label.appendChild(document.createTextNode(name + " "));
+            label.appendChild(document.createTextNode(v86util.pads(name, 4) + " "));
             log_levels.appendChild(label);
+
+            if(i === Math.floor(LOG_NAMES.length / 2))
+            {
+                log_levels.appendChild(document.createTextNode("\n"));
+            }
         }
 
         log_levels.onchange = function(e)
@@ -483,6 +480,9 @@
                 LOG_LEVEL &= ~mask;
             }
         };
+
+        var debug_infos = $("debug_infos");
+        debug_infos.textContent = "ACPI: " + (ENABLE_ACPI ? "enabled" : "disabled");
     }
 
     window.addEventListener("load", onload, false);
@@ -503,12 +503,12 @@
         onload();
     }
 
-    function start_emulation(result)
+    /** @param {?=} done */
+    function start_emulation(settings, done)
     {
         /** @const */
         var MB = 1024 * 1024;
 
-        var settings = result.settings;
         var memory_size = settings.memory_size;
 
         if(!memory_size)
@@ -588,7 +588,7 @@
 
             init_ui(settings, emulator);
 
-            result.done && result.done(emulator);
+            done && done(emulator);
         });
 
         emulator.add_listener("download-progress", function(e)
@@ -813,7 +813,6 @@
         add_image_download_button(settings.hdb, "hdb");
         add_image_download_button(settings.fda, "fda");
         add_image_download_button(settings.fdb, "fdb");
-        console.log(settings);
 
         function add_image_download_button(obj, type)
         {
@@ -853,6 +852,7 @@
             {
                 if(error)
                 {
+                    console.log(error.stack);
                     console.log("Couldn't save state: ", error);
                 }
                 else
@@ -1012,6 +1012,9 @@
 
         // called as soon as soon as emulation is started, in debug mode
         var debug = emulator.v86.cpu.debug;
+
+        var debug_infos = $("debug_infos");
+        debug_infos.textContent += " | logging ops: " + (debug.step_mode || debug.trace_all ? "yes" : "no");
 
         $("step").onclick = debug.step.bind(debug);
         $("run_until").onclick = debug.run_until.bind(debug);
