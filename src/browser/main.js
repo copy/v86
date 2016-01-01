@@ -843,7 +843,7 @@
 
         $("memory_dump").onclick = function()
         {
-            dump_file(emulator.v86.cpu.memory.buffer, "v86memory.bin");
+            dump_file(emulator.v86.cpu.memory.mem8, "v86memory.bin");
             $("memory_dump").blur();
         };
 
