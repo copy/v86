@@ -46,6 +46,8 @@ function PIC(cpu, master)
     this.read_irr = 1;
     this.auto_eoi = 1;
 
+    this.elcr = 0;
+
     if(this.is_master)
     {
         this.slave = new PIC(cpu, this);
@@ -159,13 +161,16 @@ function PIC(cpu, master)
     };
 
     var io_base;
+    var iobase_high;
     if(this.is_master)
     {
         io_base = 0x20;
+        iobase_high = 0x4D0;
     }
     else
     {
         io_base = 0xA0;
+        iobase_high = 0x4D1;
     }
 
     cpu.io.register_write(io_base, this, port20_write);
@@ -173,6 +178,10 @@ function PIC(cpu, master)
 
     cpu.io.register_write(io_base | 1, this, port21_write);
     cpu.io.register_read(io_base | 1, this, port21_read);
+
+    cpu.io.register_write(iobase_high, this, port4D0_write);
+    cpu.io.register_read(iobase_high, this, port4D0_read);
+
 
     function port20_write(data_byte)
     {
@@ -269,6 +278,19 @@ function PIC(cpu, master)
         //dbg_log("21h read " + h(~this.irq_mask & 0xff), LOG_PIC);
         return ~this.irq_mask & 0xFF;
     };
+
+    function port4D0_read()
+    {
+        dbg_log("elcr read: " + h(this.elcr, 2), LOG_PIC);
+        return this.elcr;
+    }
+
+    function port4D0_write(value)
+    {
+        dbg_log("elcr write: " + h(value, 2), LOG_PIC);
+        // set by seabios to 00 0C (only set for pci interrupts)
+        this.elcr = value;
+    }
 
     if(this.is_master)
     {
