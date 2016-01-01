@@ -306,10 +306,14 @@
         var query_args = get_query_arguments();
         var profile = query_args["profile"];
 
+        if(query_args["use_bochs_bios"])
+        {
+            settings.use_bochs_bios = true;
+        }
+
         for(var i = 0; i < oses.length; i++)
         {
             var infos = oses[i];
-            var element = $("start_" + infos.id);
 
             if(profile === infos.id)
             {
@@ -317,18 +321,18 @@
                 return;
             }
 
-            if(!element)
+            var element = $("start_" + infos.id);
+
+            if(element)
             {
-                continue;
+                element.onclick = function(infos, element)
+                {
+                    set_profile(infos.id);
+                    element.blur();
+
+                    start_profile(infos);
+                }.bind(this, infos, element);
             }
-
-            element.onclick = function(infos, element)
-            {
-                set_profile(infos.id);
-                element.blur();
-
-                start_profile(infos);
-            }.bind(this, infos, element);
         }
 
         if(profile === "custom")
@@ -536,9 +540,17 @@
         }
 
         var BIOSPATH = "bios/";
-        var biosfile = DEBUG ? "seabios-debug.bin" : "seabios.bin";
-        var vgabiosfile = DEBUG ? "vgabios-debug.bin" : "vgabios.bin";
 
+        if(settings.use_bochs_bios)
+        {
+            var biosfile = "bochs-bios.bin";
+            var vgabiosfile = "bochs-vgabios.bin";
+        }
+        else
+        {
+            var biosfile = DEBUG ? "seabios-debug.bin" : "seabios.bin";
+            var vgabiosfile = DEBUG ? "vgabios-debug.bin" : "vgabios.bin";
+        }
 
         var bios;
         var vga_bios;
