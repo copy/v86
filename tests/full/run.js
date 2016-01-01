@@ -31,12 +31,15 @@ function line_to_text(screen, y)
 function screen_to_text(s)
 {
     var result = [];
+    result.push("+==================================== SCREEN ====================================+");
 
     for(var i = 0; i < 25; i++)
     {
         var line = line_to_text(s, i);
-        result.push(line);
+        result.push("|" + line + "|");
     }
+
+    result.push("+================================================================================+");
 
     return result.join("\n");
 }
@@ -257,24 +260,22 @@ function run_test(test, done)
             emulator.stop();
             emulator.destroy();
 
-            console.warn("=================================== SCREEN ===================================");
             console.warn(screen_to_text(screen));
-            console.warn("==============================================================================");
             console.warn("Test failed: %s\n", test.name);
 
             if(!check_text_test_done())
             {
-                console.warn('Expected text "%s"', test.expected_texts[0]);
+                console.warn('Expected text "%s" after %d seconds.', test.expected_texts[0], test.timeout);
             }
 
             if(!check_grapical_test_done())
             {
-                console.warn("Expected graphical mode");
+                console.warn("Expected graphical mode after %d seconds.", test.timeout);
             }
 
             if(!check_mouse_test_done())
             {
-                console.warn("Expected mouse activation");
+                console.warn("Expected mouse activation after %d seconds.", test.timeout);
             }
 
             process.exit(1);
