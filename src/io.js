@@ -107,7 +107,7 @@ IO.prototype.register_read = function(port_addr, device, r8, r16, r32)
     {
         var fail = function(n) {
             dbg_assert(false, "Overlapped read" + n + " " + h(port_addr, 4));
-            return -1;
+            return -1 >>> (32 - n) | 0;
         };
         if(!r8) r8 = fail.bind(this, 8);
         if(!r16) r16 = fail.bind(this, 16);
