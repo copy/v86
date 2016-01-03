@@ -10,7 +10,7 @@ CLOSURE_READABLE=--formatting PRETTY_PRINT --debug
 
 CLOSURE_SOURCE_MAP=\
 		--source_map_format V3\
-		--create_source_map
+		--create_source_map '%outname%.map'
 
 		#--jscomp_error reportUnknownTypes\
 
@@ -84,13 +84,15 @@ build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 		--define=IN_NODE=false\
 		--define=IN_BROWSER=true\
 		--define=IN_WORKER=false\
-		$(CLOSURE_SOURCE_MAP) build/v86_all.js.map\
+		$(CLOSURE_SOURCE_MAP)\
 		$(CLOSURE_FLAGS)\
 		$(TRANSPILE_ES6_FLAGS)\
 		--js $(CORE_FILES)\
 		--js $(LIB_FILES)\
 		--js $(BROWSER_FILES)\
 		--js src/browser/main.js
+
+	echo '//# sourceMappingURL=v86_all.js.map' >> build/v86_all.js
 
 	ls -lh build/v86_all.js
 
