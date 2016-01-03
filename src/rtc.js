@@ -19,6 +19,10 @@
 /** @const */ var CMOS_FLOPPY_DRIVE_TYPE = 0x10;
 /** @const */ var CMOS_DISK_DATA = 0x12;
 /** @const */ var CMOS_EQUIPMENT_INFO = 0x14;
+/** @const */ var CMOS_MEM_BASE_LOW = 0x15;
+/** @const */ var CMOS_MEM_BASE_HIGH = 0x16;
+/** @const */ var CMOS_MEM_OLD_EXT_LOW = 0x17;
+/** @const */ var CMOS_MEM_OLD_EXT_HIGH = 0x18;
 /** @const */ var CMOS_DISK_DRIVE1_TYPE = 0x19;
 /** @const */ var CMOS_DISK_DRIVE2_TYPE = 0x1a;
 /** @const */ var CMOS_DISK_DRIVE1_CYL = 0x1b;
@@ -258,6 +262,14 @@ RTC.prototype.cmos_port_write = function(data_byte)
     }
 
     this.periodic_interrupt = (this.cmos_b & 0x40) === 0x40 && (this.cmos_a & 0xF) > 0;
+};
+
+/**
+ * @param {number} index
+ */
+RTC.prototype.cmos_read = function(index)
+{
+    return this.cmos_data[index];
 };
 
 /**
