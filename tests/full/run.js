@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 "use strict";
 
+var TIMEOUT_EXTRA_FACTOR = 1;
+
 try
 {
     var V86 = require("../../build/libv86.js").V86Starter;
@@ -71,7 +73,7 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
             actions: [
                 {
-                    after: 1,
+                    after: 5,
                     run: "\n"
                 },
             ],
@@ -120,7 +122,7 @@ if(cluster.isMaster)
         //},
     ];
 
-    var nr_of_cpus = Math.min(os.cpus().length, tests.length);
+    var nr_of_cpus = Math.min(os.cpus().length - 1 || 1, tests.length);
     console.log("Using %d cpus", nr_of_cpus);
 
     var current_test = 0;
@@ -161,9 +163,13 @@ if(cluster.isMaster)
                     remaining_tests++;
                 }
             }
+        });
 
-            console.log("%d tests still running.", remaining_tests);
-        })
+        worker.on("error", function(error)
+        {
+            console.error("Worker error: ", error.toString(), error);
+            process.exit(1);
+        });
     }
 }
 else
@@ -229,7 +235,8 @@ function run_test(test, done)
 
     var test_start = Date.now();
 
-    var timeout = setTimeout(check_test_done, test.timeout * 1000);
+    var timeout_seconds = test.timeout * TIMEOUT_EXTRA_FACTOR;
+    var timeout = setTimeout(check_test_done, (timeout_seconds + 1) * 1000);
 
     var on_text = [];
     var stopped = false;
@@ -245,6 +252,7 @@ function run_test(test, done)
         {
             clearTimeout(timeout);
             stopped = true;
+
             emulator.stop();
 
             console.warn("Passed test: %s", test.name);
@@ -253,10 +261,11 @@ function run_test(test, done)
 
             done();
         }
-
-        if(Date.now() >= test_start + test.timeout * 1000)
+        else if(Date.now() >= test_start + timeout_seconds * 1000)
         {
+            clearTimeout(timeout);
             stopped = true;
+
             emulator.stop();
             emulator.destroy();
 
@@ -265,17 +274,17 @@ function run_test(test, done)
 
             if(!check_text_test_done())
             {
-                console.warn('Expected text "%s" after %d seconds.', test.expected_texts[0], test.timeout);
+                console.warn('Expected text "%s" after %d seconds.', test.expected_texts[0], timeout_seconds);
             }
 
             if(!check_grapical_test_done())
             {
-                console.warn("Expected graphical mode after %d seconds.", test.timeout);
+                console.warn("Expected graphical mode after %d seconds.", timeout_seconds);
             }
 
             if(!check_mouse_test_done())
             {
-                console.warn("Expected mouse activation after %d seconds.", test.timeout);
+                console.warn("Expected mouse activation after %d seconds.", timeout_seconds);
             }
 
             process.exit(1);
@@ -335,7 +344,7 @@ function run_test(test, done)
         {
             setTimeout(function() {
                 emulator.keyboard_send_text(action.run);
-            }, action.after * 1000);
+            }, action.after * 1000 * TIMEOUT_EXTRA_FACTOR);
         }
     });
 }
