@@ -627,6 +627,32 @@ Ne2k.prototype.receive = function(data)
 
     this.bus.send("eth-receive-end", [data.length]);
 
+    if(this.rxcr & 0x10)
+    {
+        // promiscuous
+    }
+    else if((this.rxcr & 4) &&
+            data[0] === 0xFF && data[1] === 0xFF && data[2] === 0xFF &&
+            data[3] === 0xFF && data[4] === 0xFF && data[5] === 0xFF)
+    {
+        // broadcast
+    }
+    else if((this.rxcr & 8) && (data[0] & 1) === 1)
+    {
+        // multicast
+        // XXX
+        return;
+    }
+    else if(data[0] === this.memory[0] && data[1] === this.memory[2] &&
+            data[2] === this.memory[4] && data[3] === this.memory[6] &&
+            data[4] === this.memory[8] && data[5] === this.memory[10])
+    {
+    }
+    else
+    {
+        return;
+    }
+
     var packet_length = Math.max(60, data.length);
 
     var offset = this.curpg << 8;
