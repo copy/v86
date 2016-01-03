@@ -657,24 +657,39 @@ CPU.prototype.fill_cmos = function(rtc, settings)
     // bootflag 2, both nibbles, high and middle priority
     rtc.cmos_write(CMOS_BIOS_BOOTFLAG2, boot_order & 0xFF);
 
-    var memory_above_1m = 0x3c00;
-    rtc.cmos_write(CMOS_MEM_EXTMEM_LOW,
-            memory_above_1m & 0xFF);
-    rtc.cmos_write(CMOS_MEM_EXTMEM_HIGH,
-            memory_above_1m >> 8 & 0xFF);
+    // 640k or less if less memory is used
+    rtc.cmos_write(CMOS_MEM_BASE_LOW, 640 & 0xFF);
+    rtc.cmos_write(CMOS_MEM_BASE_HIGH, 640 >> 8);
 
-    var memory_above_16m = this.memory_size - 16 * 1024 * 1024;
-    rtc.cmos_write(CMOS_MEM_EXTMEM2_LOW,
-            memory_above_16m >> 16 & 0xFF);
-    rtc.cmos_write(CMOS_MEM_EXTMEM2_HIGH,
-            memory_above_16m >> 24 & 0xFF);
+    var memory_above_1m = 0; // in k
+    if(this.memory_size >= 1024 * 1024)
+    {
+        memory_above_1m = (this.memory_size - 1024 * 1024) >> 10;
+        memory_above_1m = Math.min(memory_above_1m, 0xFFFF);
+    }
 
-    // memory above 4G
+    rtc.cmos_write(CMOS_MEM_OLD_EXT_LOW, memory_above_1m & 0xFF);
+    rtc.cmos_write(CMOS_MEM_OLD_EXT_HIGH, memory_above_1m >> 8 & 0xFF);
+    rtc.cmos_write(CMOS_MEM_EXTMEM_LOW, memory_above_1m & 0xFF);
+    rtc.cmos_write(CMOS_MEM_EXTMEM_HIGH, memory_above_1m >> 8 & 0xFF);
+
+    var memory_above_16m = 0; // in 64k blocks
+    if(this.memory_size >= 16 * 1024 * 1024)
+    {
+        memory_above_16m = (this.memory_size - 16 * 1024 * 1024) >> 16;
+        memory_above_16m = Math.min(memory_above_16m, 0xFFFF);
+    }
+    rtc.cmos_write(CMOS_MEM_EXTMEM2_LOW, memory_above_16m & 0xFF);
+    rtc.cmos_write(CMOS_MEM_EXTMEM2_HIGH, memory_above_16m >> 8 & 0xFF);
+
+    // memory above 4G (not supported by this emulator)
     rtc.cmos_write(CMOS_MEM_HIGHMEM_LOW, 0);
     rtc.cmos_write(CMOS_MEM_HIGHMEM_MID, 0);
     rtc.cmos_write(CMOS_MEM_HIGHMEM_HIGH, 0);
 
-    rtc.cmos_write(CMOS_EQUIPMENT_INFO, 0x2D);
+    rtc.cmos_write(CMOS_EQUIPMENT_INFO, 0x2F);
+
+    rtc.cmos_write(CMOS_BIOS_SMP_COUNT, 0);
 };
 
 CPU.prototype.load_bios = function()
