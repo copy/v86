@@ -1158,6 +1158,8 @@ t[0xEB] = cpu => {
     // jmp near
     var imm8 = cpu.read_imm8s();
     cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0;
+
+    cpu.protected_mode = (cpu.cr[0] & CR0_PE) === CR0_PE;
 };
 
 t[0xEC] = cpu => {
