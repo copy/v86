@@ -81,9 +81,6 @@ build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 	java -jar $(CLOSURE) \
 		--js_output_file build/v86_all.js\
 		--define=DEBUG=false\
-		--define=IN_NODE=false\
-		--define=IN_BROWSER=true\
-		--define=IN_WORKER=false\
 		$(CLOSURE_SOURCE_MAP)\
 		$(CLOSURE_FLAGS)\
 		$(TRANSPILE_ES6_FLAGS)\
@@ -103,9 +100,6 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 	java -jar $(CLOSURE) \
 		--js_output_file build/libv86.js\
 		--define=DEBUG=false\
-		--define=IN_NODE=false\
-		--define=IN_BROWSER=true\
-		--define=IN_WORKER=false\
 		$(CLOSURE_FLAGS)\
 		$(TRANSPILE_ES6_FLAGS)\
 		--output_wrapper ';(function(){%output%})();'\
