@@ -627,15 +627,10 @@ Ne2k.prototype.receive = function(data)
 
     this.bus.send("eth-receive-end", [data.length]);
 
-    if(data.length < 60)
-    {
-        var old = data;
-        data = new Uint8Array(60);
-        data.set(old)
-    }
+    var packet_length = Math.max(60, data.length);
 
     var offset = this.curpg << 8;
-    var total_length = data.length + 4;
+    var total_length = packet_length + 4;
     var data_start = offset + 4;
     var next = this.curpg + 1 + (total_length >> 8);
 
@@ -654,6 +649,14 @@ Ne2k.prototype.receive = function(data)
     else
     {
         this.memory.set(data, data_start);
+
+        if(data.length < 60)
+        {
+            for(var i = data.length; i < 60; i++)
+            {
+                this.memory[data_start + i] = 0;
+            }
+        }
     }
 
     if(next >= this.pstop)
