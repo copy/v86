@@ -53,6 +53,7 @@ function PIC(cpu, master)
     this.state = 0;
     this.read_isr = 0;
     this.auto_eoi = 1;
+    this.special_mask_mode = 0;
 
     this.elcr = 0;
 
@@ -86,7 +87,14 @@ function PIC(cpu, master)
 
             var irq_mask = enabled_irr & -enabled_irr;
 
-            if(this.isr && (this.isr & -this.isr) <= irq_mask)
+            if(this.isr & irq_mask)
+            {
+                dbg_log("master> same prio: isr=" + h(this.isr, 2) +
+                        " mask=" + h(this.irq_mask & 0xff, 2) + " irq=" + h(irq_mask, 2), LOG_PIC);
+                return false;
+            }
+
+            if(!this.special_mask_mode && this.isr && (this.isr & -this.isr) <= irq_mask)
             {
                 // wait for eoi of higher or same priority interrupt
                 dbg_log("master> higher prio: isr=" + h(this.isr, 2) +
@@ -142,7 +150,12 @@ function PIC(cpu, master)
 
             var irq_mask = enabled_irr & -enabled_irr;
 
-            if(this.isr && (this.isr & -this.isr) <= irq_mask)
+            if(this.isr & irq_mask)
+            {
+                dbg_log("slave > higher prio: isr=" + h(this.isr, 2) + " irq=" + h(irq_mask, 2), LOG_PIC);
+            }
+
+            if(!this.special_mask_mode && this.isr && (this.isr & -this.isr) <= irq_mask)
             {
                 // wait for eoi of higher or same priority interrupt
                 dbg_log("slave > higher prio: isr=" + h(this.isr, 2) + " irq=" + h(irq_mask, 2), LOG_PIC);
@@ -243,7 +256,8 @@ function PIC(cpu, master)
             }
             if(data_byte & 0x40)
             {
-                dbg_assert(false, "unimplemented: special mask mode", LOG_PIC);
+                this.special_mask_mode = data_byte & 0x20;
+                dbg_log("special mask mode: " + this.special_mask_mode, LOG_PIC);
             }
         }
         else // xxx00xxx
