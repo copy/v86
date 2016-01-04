@@ -2451,15 +2451,30 @@ CPU.prototype.handle_irqs = function()
 CPU.prototype.device_raise_irq = function(i)
 {
     dbg_assert(arguments.length === 1);
-
     if(this.devices.pic)
     {
-        this.devices.pic.raise_irq(i);
+        this.devices.pic.set_irq(i);
     }
 
     if(this.devices.apic)
     {
-        this.devices.apic.raise_irq(i);
+        this.devices.apic.set_irq(i);
+    }
+
+    // XXX: This should be implemented by the devices themselves
+    this.device_lower_irq(i);
+};
+
+CPU.prototype.device_lower_irq = function(i)
+{
+    if(this.devices.pic)
+    {
+        this.devices.pic.clear_irq(i);
+    }
+
+    if(this.devices.apic)
+    {
+        this.devices.apic.clear_irq(i);
     }
 };
 
