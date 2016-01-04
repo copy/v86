@@ -32,6 +32,7 @@ function VirtIO(cpu, bus, filesystem)
     io.register_read(0xA800, this, undefined, undefined, function()
     {
         // device features
+        dbg_log("Read device features", LOG_VIRTIO);
         return 1;
     });
 
@@ -81,12 +82,31 @@ function VirtIO(cpu, bus, filesystem)
     io.register_write(0xA812, this, function(data)
     {
         dbg_log("Write device status: " + h(data, 2), LOG_VIRTIO);
+
+        if(data === 0)
+        {
+            dbg_log("Reset", LOG_VIRTIO);
+            this.reset();
+        }
+        else if(data & 0x80)
+        {
+            dbg_log("Warning: Device status failed", LOG_VIRTIO);
+        }
+        else
+        {
+            dbg_log(((data & 1) ? "ACKNOWLEDGE " : "") +
+                    ((data & 2) ? "DRIVER " : "") +
+                    ((data & 4) ? "DRIVER_OK" : ""),
+                    LOG_VIRTIO);
+
+        }
+
         this.device_status = data;
     });
 
     io.register_read(0xA812, this, function()
     {
-        dbg_log("Read device status", LOG_VIRTIO);
+        dbg_log("Read device status: " + h(this.device_status), LOG_VIRTIO);
         return this.device_status;
     });
 
@@ -297,7 +317,7 @@ VirtIO.prototype.handle_descriptor = function(idx)
     }.bind(this));
 };
 
-VirtIO.prototype.device_reply = function(infos)
+VirtIO.prototype.device_reply = function(queueidx, infos)
 {
     if(infos.next === -1)
     {
