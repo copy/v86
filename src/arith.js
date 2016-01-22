@@ -1387,6 +1387,7 @@ CPU.prototype.btr_reg = function(bit_base, bit_offset)
 
 CPU.prototype.bt_mem = function(virt_addr, bit_offset)
 {
+    dbg_assert(bit_offset >= 0);
     var bit_base = this.safe_read8(virt_addr + (bit_offset >> 3) | 0);
     bit_offset &= 7;
 
@@ -1396,6 +1397,7 @@ CPU.prototype.bt_mem = function(virt_addr, bit_offset)
 
 CPU.prototype.btc_mem = function(virt_addr, bit_offset)
 {
+    dbg_assert(bit_offset >= 0);
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3) | 0);
     var bit_base = this.memory.read8(phys_addr);
 
@@ -1409,6 +1411,7 @@ CPU.prototype.btc_mem = function(virt_addr, bit_offset)
 
 CPU.prototype.btr_mem = function(virt_addr, bit_offset)
 {
+    dbg_assert(bit_offset >= 0);
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3) | 0);
     var bit_base = this.memory.read8(phys_addr);
 
@@ -1422,6 +1425,7 @@ CPU.prototype.btr_mem = function(virt_addr, bit_offset)
 
 CPU.prototype.bts_mem = function(virt_addr, bit_offset)
 {
+    dbg_assert(bit_offset >= 0);
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3) | 0);
     var bit_base = this.memory.read8(phys_addr);
 
