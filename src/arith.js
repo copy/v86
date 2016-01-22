@@ -757,12 +757,18 @@ CPU.prototype.bcd_aad = function(imm8)
     //dbg_log("aad");
     // ascii adjust before division
 
-    this.last_result = this.reg8[reg_al] + this.reg8[reg_ah] * imm8 & 0xFF;
+    var result = this.reg8[reg_al] + this.reg8[reg_ah] * imm8;
+    this.last_result = result & 0xFF;
     this.reg16[reg_ax] = this.last_result;
     this.last_op_size = OPSIZE_8;
 
     this.flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
     this.flags &= ~1 & ~flag_adjust & ~flag_overflow;
+
+    if(result > 0xFFFF)
+    {
+        this.flags |= 1;
+    }
 }
 
 CPU.prototype.bcd_aaa = function()
