@@ -1515,7 +1515,7 @@ CPU.prototype.bsr32 = function(old, bit_base)
 CPU.prototype.popcnt = function(v)
 {
     this.flags_changed = 0;
-    this.flags &= ~flag_all;
+    this.flags &= ~flags_all;
 
     if(v)
     {
