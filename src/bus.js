@@ -59,8 +59,6 @@ BusConnector.prototype.unregister = function(name, fn)
  */
 BusConnector.prototype.send = function(name, value, unused_transfer)
 {
-    dbg_assert(arguments.length === 1 || arguments.length === 2 || arguments.length === 3);
-
     if(!this.pair)
     {
         return;
