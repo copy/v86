@@ -117,6 +117,16 @@ run:
 	#sleep 1
 	#$(BROWSER) http://localhost:8000/index.html &
 
+update_version:
+	set -e ;\
+	COMMIT=`git log --format="%h" -n 1` ;\
+	DATE=`git log --date="format:%b %e, %Y %H:%m" --format="%cd" -n 1` ;\
+	SEARCH='<code>Version: <a href="https://github.com/copy/v86/commits/[a-f0-9]\+">[a-f0-9]\+</a> ([^(]\+)</a></code>' ;\
+	REPLACE='<code>Version: <a href="https://github.com/copy/v86/commits/'$$COMMIT'">'$$COMMIT'</a> ('$$DATE')</a></code>' ;\
+	sed -i "s@$$SEARCH@$$REPLACE@g" index.html ;\
+	grep $$COMMIT index.html
+
+
 $(CLOSURE):
 	wget -P closure-compiler http://dl.google.com/closure-compiler/compiler-latest.zip
 	unzip -d closure-compiler closure-compiler/compiler-latest.zip compiler.jar
