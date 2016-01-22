@@ -391,10 +391,15 @@ CPU.prototype.div8 = function(source_operand)
 {
     dbg_assert(source_operand >= 0 && source_operand < 0x100);
 
+    if(source_operand === 0)
+    {
+        this.trigger_de();
+    }
+
     var target_operand = this.reg16[reg_ax],
         result = target_operand / source_operand | 0;
 
-    if(result >= 0x100 || source_operand === 0)
+    if(result >= 0x100)
     {
         this.trigger_de();
     }
@@ -409,10 +414,15 @@ CPU.prototype.idiv8 = function(source_operand)
 {
     dbg_assert(source_operand >= -0x80 && source_operand < 0x80);
 
+    if(source_operand === 0)
+    {
+        this.trigger_de();
+    }
+
     var target_operand = this.reg16s[reg_ax],
         result = target_operand / source_operand | 0;
 
-    if(result >= 0x80 || result <= -0x81 || source_operand === 0)
+    if(result >= 0x80 || result <= -0x81)
     {
         this.trigger_de();
     }
@@ -427,11 +437,16 @@ CPU.prototype.div16 = function(source_operand)
 {
     dbg_assert(source_operand >= 0 && source_operand < 0x10000);
 
+    if(source_operand === 0)
+    {
+        this.trigger_de();
+    }
+
     var
         target_operand = (this.reg16[reg_ax] | this.reg16[reg_dx] << 16) >>> 0,
         result = target_operand / source_operand | 0;
 
-    if(result >= 0x10000 || result < 0 || source_operand === 0)
+    if(result >= 0x10000 || result < 0)
     {
         this.trigger_de();
     }
@@ -446,10 +461,15 @@ CPU.prototype.idiv16 = function(source_operand)
 {
     dbg_assert(source_operand >= -0x8000 && source_operand < 0x8000);
 
+    if(source_operand === 0)
+    {
+        this.trigger_de();
+    }
+
     var target_operand = this.reg16[reg_ax] | (this.reg16[reg_dx] << 16),
         result = target_operand / source_operand | 0;
 
-    if(result >= 0x8000 || result <= -0x8001 || source_operand === 0)
+    if(result >= 0x8000 || result <= -0x8001)
     {
         this.trigger_de();
     }
@@ -526,7 +546,8 @@ CPU.prototype.div32 = function(source_operand)
     var mod = result_mod[1];
 
     // XXX
-    if(result >= 0x100000000 || source_operand === 0)
+    dbg_assert(source_operand);
+    if(result >= 0x100000000)
     {
         dbg_log("div32 #DE: " + h(dest_operand_high, 8) + ":" + h(dest_operand_low, 8) + " div " + h(source_operand, 8));
         dbg_log("-> " + h(result));
@@ -580,7 +601,8 @@ CPU.prototype.idiv32 = function(source_operand)
         mod = -mod | 0;
     }
 
-    if(result >= 0x80000000 || result <= -0x80000001 || source_operand === 0)
+    dbg_assert(source_operand);
+    if(result >= 0x80000000 || result <= -0x80000001)
     {
         dbg_log("div32 #DE: " + h(dest_operand_high, 8) + ":" + h(dest_operand_low, 8) + " div " + h(source_operand, 8));
         dbg_log("-> " + h(result));
