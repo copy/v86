@@ -626,12 +626,6 @@
             init_filesystem_panel(emulator);
         }
 
-        var news_element = $("news");
-        if(news_element)
-        {
-            news_element.style.display = "none";
-        }
-
         $("run").onclick = function()
         {
             if(emulator.is_running())
