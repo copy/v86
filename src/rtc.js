@@ -52,7 +52,7 @@ function RTC(cpu)
     this.cpu = cpu;
 
     this.cmos_index = 0;
-    this.cmos_data = new Uint8Array(256);
+    this.cmos_data = new Uint8Array(128);
 
     // used for cmos entries
     this.rtc_time = Date.now();
@@ -269,6 +269,7 @@ RTC.prototype.cmos_port_write = function(data_byte)
  */
 RTC.prototype.cmos_read = function(index)
 {
+    dbg_assert(index < 128);
     return this.cmos_data[index];
 };
 
@@ -279,5 +280,6 @@ RTC.prototype.cmos_read = function(index)
 RTC.prototype.cmos_write = function(index, value)
 {
     dbg_log("cmos " + h(index) + " <- " + h(value), LOG_RTC);
+    dbg_assert(index < 128);
     this.cmos_data[index] = value;
 };
