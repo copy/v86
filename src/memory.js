@@ -1,5 +1,15 @@
 "use strict";
 
+/** @const */
+var A20_MASK = ~(1 << 20);
+/** @const */
+var A20_MASK16 = ~(1 << 20 - 1);
+/** @const */
+var A20_MASK32 = ~(1 << 20 - 2);
+
+/** @const */
+var USE_A20 = false;
+
 /**
  * @constructor
  * @param {number} memory_size
@@ -40,6 +50,8 @@ function Memory(memory_size, no_alloc)
         this.mem16 = new Uint16Array(buffer);
         this.mem32s = new Int32Array(buffer);
     }
+
+    this.a20_enabled = true;
 };
 
 Memory.prototype.get_state = function()
@@ -133,6 +145,7 @@ Memory.prototype.mmap_write32 = function(addr, value)
 Memory.prototype.read8 = function(addr)
 {
     this.debug_read(addr, 1);
+    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
 
     if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS])
     {
@@ -150,6 +163,7 @@ Memory.prototype.read8 = function(addr)
 Memory.prototype.read16 = function(addr)
 {
     this.debug_read(addr, 2);
+    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
 
     if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS])
     {
@@ -168,6 +182,7 @@ Memory.prototype.read_aligned16 = function(addr)
 {
     dbg_assert(addr >= 0 && addr < 0x80000000);
     this.debug_read(addr << 1, 2);
+    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK16;
 
     if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS - 1])
     {
@@ -185,6 +200,7 @@ Memory.prototype.read_aligned16 = function(addr)
 Memory.prototype.read32s = function(addr)
 {
     this.debug_read(addr, 4);
+    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
 
     if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS])
     {
@@ -222,6 +238,7 @@ Memory.prototype.read_aligned32 = function(addr)
 Memory.prototype.write8 = function(addr, value)
 {
     this.debug_write(addr, 1, value);
+    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
 
     var page = addr >>> MMAP_BLOCK_BITS;
 
@@ -244,6 +261,7 @@ Memory.prototype.write8 = function(addr, value)
 Memory.prototype.write16 = function(addr, value)
 {
     this.debug_write(addr, 2, value);
+    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
 
     var page = addr >>> MMAP_BLOCK_BITS;
 
@@ -272,6 +290,7 @@ Memory.prototype.write_aligned16 = function(addr, value)
 {
     dbg_assert(addr >= 0 && addr < 0x80000000);
     this.debug_write(addr << 1, 2, value);
+    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK16;
 
     var page = addr >>> MMAP_BLOCK_BITS - 1;
 
@@ -294,6 +313,7 @@ Memory.prototype.write_aligned16 = function(addr, value)
 Memory.prototype.write32 = function(addr, value)
 {
     this.debug_write(addr, 4, value);
+    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
 
     var page = addr >>> MMAP_BLOCK_BITS;
 
@@ -320,6 +340,7 @@ Memory.prototype.write_aligned32 = function(addr, value)
 {
     dbg_assert(addr >= 0 && addr < 0x40000000);
     this.debug_write(addr << 2, 4, value);
+    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK32;
 
     var page = addr >>> MMAP_BLOCK_BITS - 2;
 
