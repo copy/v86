@@ -178,6 +178,8 @@ CPU.prototype.mul8 = function(source_operand)
     var result = source_operand * this.reg8[reg_al];
 
     this.reg16[reg_ax] = result;
+    this.last_result = result & 0xFF;
+    this.last_op_size = OPSIZE_8;
 
     if(result < 0x100)
     {
@@ -188,7 +190,7 @@ CPU.prototype.mul8 = function(source_operand)
         this.flags = this.flags | 1 | flag_overflow;
     }
 
-    this.flags_changed = 0;
+    this.flags_changed = flags_all & ~1 & ~flag_overflow;
 }
 
 CPU.prototype.imul8 = function(source_operand)
@@ -196,6 +198,8 @@ CPU.prototype.imul8 = function(source_operand)
     var result = source_operand * this.reg8s[reg_al];
 
     this.reg16[reg_ax] = result;
+    this.last_result = result & 0xFF;
+    this.last_op_size = OPSIZE_8;
 
     if(result > 0x7F || result < -0x80)
     {
@@ -205,7 +209,7 @@ CPU.prototype.imul8 = function(source_operand)
     {
         this.flags = this.flags & ~1 & ~flag_overflow;
     }
-    this.flags_changed = 0;
+    this.flags_changed = flags_all & ~1 & ~flag_overflow;
 }
 
 CPU.prototype.mul16 = function(source_operand)
@@ -217,6 +221,9 @@ CPU.prototype.mul16 = function(source_operand)
     this.reg16[reg_ax] = result;
     this.reg16[reg_dx] = high_result;
 
+    this.last_result = result & 0xFFFF;
+    this.last_op_size = OPSIZE_16;
+
     if(high_result === 0)
     {
         this.flags &= ~1 & ~flag_overflow;
@@ -225,7 +232,7 @@ CPU.prototype.mul16 = function(source_operand)
     {
         this.flags |= 1 | flag_overflow;
     }
-    this.flags_changed = 0;
+    this.flags_changed = flags_all & ~1 & ~flag_overflow;
 }
 
 /*
@@ -239,6 +246,9 @@ CPU.prototype.imul16 = function(source_operand)
     this.reg16[reg_ax] = result;
     this.reg16[reg_dx] = result >> 16;
 
+    this.last_result = result & 0xFFFF;
+    this.last_op_size = OPSIZE_16;
+
     if(result > 0x7FFF || result < -0x8000)
     {
         this.flags |= 1 | flag_overflow;
@@ -247,7 +257,7 @@ CPU.prototype.imul16 = function(source_operand)
     {
         this.flags &= ~1 & ~flag_overflow;
     }
-    this.flags_changed = 0;
+    this.flags_changed = flags_all & ~1 & ~flag_overflow;
 }
 
 /*
@@ -262,6 +272,9 @@ CPU.prototype.imul_reg16 = function(operand1, operand2)
 
     var result = operand1 * operand2;
 
+    this.last_result = result & 0xFFFF;
+    this.last_op_size = OPSIZE_16;
+
     if(result > 0x7FFF || result < -0x8000)
     {
         this.flags |= 1 | flag_overflow;
@@ -270,7 +283,7 @@ CPU.prototype.imul_reg16 = function(operand1, operand2)
     {
         this.flags &= ~1 & ~flag_overflow;
     }
-    this.flags_changed = 0;
+    this.flags_changed = flags_all & ~1 & ~flag_overflow;
 
     return result;
 }
@@ -320,6 +333,9 @@ CPU.prototype.mul32 = function(source_operand)
     this.reg32s[reg_eax] = result[0];
     this.reg32s[reg_edx] = result[1];
 
+    this.last_result = result[0];
+    this.last_op_size = OPSIZE_32;
+
     if(result[1] === 0)
     {
         this.flags &= ~1 & ~flag_overflow;
@@ -328,7 +344,7 @@ CPU.prototype.mul32 = function(source_operand)
     {
         this.flags |= 1 | flag_overflow;
     }
-    this.flags_changed = 0;
+    this.flags_changed = flags_all & ~1 & ~flag_overflow;
 
     //console.log(h(source_operand >>> 0, 8) + " * " + h(dest_operand >>> 0, 8));
     //console.log("= " + h(this.reg32[reg_edx], 8) + ":" + h(this.reg32[reg_eax], 8));
@@ -345,6 +361,9 @@ CPU.prototype.imul32 = function(source_operand)
     this.reg32s[reg_eax] = result[0];
     this.reg32s[reg_edx] = result[1];
 
+    this.last_result = result[0];
+    this.last_op_size = OPSIZE_32;
+
     if(result[1] === (result[0] >> 31))
     {
         this.flags &= ~1 & ~flag_overflow;
@@ -353,7 +372,7 @@ CPU.prototype.imul32 = function(source_operand)
     {
         this.flags |= 1 | flag_overflow;
     }
-    this.flags_changed = 0;
+    this.flags_changed = flags_all & ~1 & ~flag_overflow;
 
     //console.log(target_operand + " * " + source_operand);
     //console.log("= " + h(this.reg32[reg_edx]) + " " + h(this.reg32[reg_eax]));
@@ -371,6 +390,9 @@ CPU.prototype.imul_reg32 = function(operand1, operand2)
 
     var result = this.do_imul32(operand1, operand2);
 
+    this.last_result = result[0];
+    this.last_op_size = OPSIZE_32;
+
     if(result[1] === (result[0] >> 31))
     {
         this.flags &= ~1 & ~flag_overflow;
@@ -379,7 +401,7 @@ CPU.prototype.imul_reg32 = function(operand1, operand2)
     {
         this.flags |= 1 | flag_overflow;
     }
-    this.flags_changed = 0;
+    this.flags_changed = flags_all & ~1 & ~flag_overflow;
 
     return result[0];
 
@@ -1407,13 +1429,14 @@ CPU.prototype.bts_mem = function(virt_addr, bit_offset)
 
 CPU.prototype.bsf16 = function(old, bit_base)
 {
-    this.flags_changed = 0;
+    this.flags_changed = flags_all & ~flag_zero;
+    this.last_op_size = OPSIZE_16;
 
     if(bit_base === 0)
     {
         this.flags |= flag_zero;
 
-        // not defined in the docs, but value doesn't change on my intel this
+        // not defined in the docs, but value doesn't change on my intel machine
         return old;
     }
     else
@@ -1421,13 +1444,14 @@ CPU.prototype.bsf16 = function(old, bit_base)
         this.flags &= ~flag_zero;
 
         // http://jsperf.com/lowest-bit-index
-        return v86util.int_log2(-bit_base & bit_base);
+        return this.last_result = v86util.int_log2(-bit_base & bit_base);
     }
 }
 
 CPU.prototype.bsf32 = function(old, bit_base)
 {
-    this.flags_changed = 0;
+    this.flags_changed = flags_all & ~flag_zero;
+    this.last_op_size = OPSIZE_32;
 
     if(bit_base === 0)
     {
@@ -1439,13 +1463,14 @@ CPU.prototype.bsf32 = function(old, bit_base)
     {
         this.flags &= ~flag_zero;
 
-        return v86util.int_log2((-bit_base & bit_base) >>> 0);
+        return this.last_result = v86util.int_log2((-bit_base & bit_base) >>> 0);
     }
 }
 
 CPU.prototype.bsr16 = function(old, bit_base)
 {
-    this.flags_changed = 0;
+    this.flags_changed = flags_all & ~flag_zero;
+    this.last_op_size = OPSIZE_16;
 
     if(bit_base === 0)
     {
@@ -1456,13 +1481,14 @@ CPU.prototype.bsr16 = function(old, bit_base)
     {
         this.flags &= ~flag_zero;
 
-        return v86util.int_log2(bit_base);
+        return this.last_result = v86util.int_log2(bit_base);
     }
 }
 
 CPU.prototype.bsr32 = function(old, bit_base)
 {
-    this.flags_changed = 0;
+    this.flags_changed = flags_all & ~flag_zero;
+    this.last_op_size = OPSIZE_32;
 
     if(bit_base === 0)
     {
@@ -1472,15 +1498,14 @@ CPU.prototype.bsr32 = function(old, bit_base)
     else
     {
         this.flags &= ~flag_zero;
-        return v86util.int_log2(bit_base >>> 0);
+        return this.last_result = v86util.int_log2(bit_base >>> 0);
     }
 }
 
 CPU.prototype.popcnt = function(v)
 {
     this.flags_changed = 0;
-    this.flags &= ~flag_overflow & ~flag_sign & ~flag_zero
-                & ~flag_adjust & ~flag_parity & ~1;
+    this.flags &= ~flag_all;
 
     if(v)
     {
