@@ -2522,11 +2522,20 @@ CPU.prototype.cpuid = function()
         edx = 0,
         ebx = 0;
 
+    var winnt_fix = false;
+
     switch(this.reg32s[reg_eax])
     {
         case 0:
             // maximum supported level
-            eax = 5;
+            if(winnt_fix)
+            {
+                eax = 2;
+            }
+            else
+            {
+                eax = 5;
+            }
 
             ebx = 0x756E6547|0; // Genu
             edx = 0x49656E69|0; // ineI
