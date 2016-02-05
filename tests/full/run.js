@@ -59,6 +59,15 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "FreeDOS boot with Bochs BIOS",
+            fda: root_path + "/images/freedos722.img",
+            timeout: 10,
+            alternative_bios: true,
+            expected_texts: [
+                "Welcome to FreeDOS",
+            ],
+        },
+        {
             name: "Windows 1.01 boot",
             fda: root_path + "/images/windows101.img",
             timeout: 10,
@@ -68,7 +77,7 @@ if(cluster.isMaster)
         {
             name: "Sol OS",
             fda: root_path + "/images/os8.dsk",
-            timeout: 10,
+            timeout: 20,
             expect_graphical_mode: true,
             expect_mouse_registered: true,
             actions: [
@@ -81,11 +90,27 @@ if(cluster.isMaster)
         {
             name: "Linux",
             cdrom: root_path + "/images/linux.iso",
-            timeout: 70,
+            timeout: 75,
             expected_texts: [
                 "/root%",
                 "test passed",
             ],
+            actions: [
+                {
+                    on_text: "/root%",
+                    run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test > /dev/null && echo test pas''sed || echo failed\n",
+                },
+            ],
+        },
+        {
+            name: "Linux with Bochs BIOS",
+            cdrom: root_path + "/images/linux.iso",
+            timeout: 75,
+            expected_texts: [
+                "/root%",
+                "test passed",
+            ],
+            alternative_bios: true,
             actions: [
                 {
                     on_text: "/root%",
@@ -117,7 +142,7 @@ if(cluster.isMaster)
         {
             name: "OpenBSD",
             fda: root_path + "/images/openbsd.img",
-            timeout: 120,
+            timeout: 180,
             expected_texts: ["(I)nstall, (U)pgrade or (S)hell"],
         },
     ];
@@ -187,8 +212,16 @@ function run_test(test, done)
 {
     console.log("Starting test: %s", test.name);
 
-    var bios = readfile(root_path + "/bios/seabios.bin");
-    var vga_bios = readfile(root_path + "/bios/vgabios.bin");
+    if(test.alternative_bios)
+    {
+        var bios = readfile(root_path + "/bios/bochs-bios.bin");
+        var vga_bios = readfile(root_path + "/bios/bochs-vgabios.bin");
+    }
+    else
+    {
+        var bios = readfile(root_path + "/bios/seabios.bin");
+        var vga_bios = readfile(root_path + "/bios/vgabios.bin");
+    }
 
     var settings = {
         bios: { buffer: bios },
