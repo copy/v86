@@ -289,17 +289,72 @@ PCI.prototype.pci_write = function()
 
         if(bar)
         {
-            if((written | 3)  === -1)
+            dbg_assert(!(bar.size & bar.size - 1), "bar size should be power of 2");
+
+            var space_addr = addr >> 2;
+            var type = space[space_addr] & 1;
+
+            if((written | 3 | bar.size - 1)  === -1)
             {
-                space[addr >> 2] = ~(bar.size - 1);
+                written = ~(bar.size - 1) | type;
+
+                if(type === 0)
+                {
+                    space[space_addr] = written;
+                }
             }
             else
             {
-                // changing isn't supported yet, reset to default
-                space[addr >> 2] = device.current_bars[bar_nr];
+                if(type === 0)
+                {
+                    // memory
+                    var original_bar = this.original_bars[bdf][bar_nr];
+                    dbg_assert((written | 1) === (original_bar | 1));
+
+                    // changing isn't supported yet, reset to default
+                    space[space_addr] = original_bar & ~3;
+                }
             }
 
-            dbg_assert(!(bar.size & bar.size - 1));
+            if(type === 1)
+            {
+                // io
+                var from = space[space_addr] & ~1 & 0xFFFF;
+                var to = written & ~1 & 0xFFFF;
+                dbg_log("io bar changed from " + h(from >>> 0, 8) + " to " + h(to >>> 0, 8) + " size=" + bar.size, LOG_PCI);
+                var ports = this.io.ports;
+
+                if(to === from)
+                {
+                }
+                else if(Math.abs(from - to) < bar.size)
+                {
+                    // currently not handled correctly
+                    dbg_assert(false, "PCI change bar: abs(from - to) < bar.size", LOG_PCI);
+                }
+                else
+                {
+                    for(var i = 0; i < bar.size; i++)
+                    {
+                        var entry = ports[from + i];
+                        var empty_entry = ports[to + i];
+                        dbg_assert(entry && empty_entry);
+
+                        ports[from + i] = empty_entry;
+                        ports[to + i] = entry;
+
+                        // these can fail if the os maps io bars twice (indicating a bug)
+                        dbg_assert(empty_entry.read8 === this.io.empty_port_read8);
+                        dbg_assert(empty_entry.read16 === this.io.empty_port_read16);
+                        dbg_assert(empty_entry.read32 === this.io.empty_port_read32);
+                        dbg_assert(empty_entry.write8 === this.io.empty_port_write);
+                        dbg_assert(empty_entry.write16 === this.io.empty_port_write);
+                        dbg_assert(empty_entry.write32 === this.io.empty_port_write);
+                    }
+
+                    space[space_addr] = written | 1;
+                }
+            }
         }
         else
         {
@@ -335,6 +390,6 @@ PCI.prototype.register_device = function(device)
     this.devices[device_id] = device;
 
     // copy the bars so they can be restored later
-    device.current_bars = new Int32Array(6);
-    device.current_bars.set(space.subarray(4, 10));
+    this.original_bars[device_id] = new Int32Array(6);
+    this.original_bars[device_id].set(space.subarray(4, 10));
 };
