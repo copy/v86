@@ -303,6 +303,9 @@ var IA32_RTIT_CTL = 0x570;
 /** @const */
 var MSR_SMI_COUNT = 0x34;
 
+/** @const */
+var IA32_MCG_CAP = 0x179;
+
 
 
 /** @const */

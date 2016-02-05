@@ -2079,6 +2079,10 @@ t[0x30] = cpu => {
         case IA32_MISC_ENABLE: // Enable Misc. Processor Features
             break;
 
+        case IA32_MCG_CAP:
+            // netbsd
+            break;
+
         default:
             dbg_assert(false, "Unknown msr: " + h(index >>> 0, 8));
     }
@@ -2155,6 +2159,10 @@ t[0x32] = cpu => {
             break;
 
         case MSR_SMI_COUNT:
+            break;
+
+        case IA32_MCG_CAP:
+            // netbsd
             break;
 
         default:
