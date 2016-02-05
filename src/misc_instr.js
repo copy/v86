@@ -11,8 +11,6 @@
  * lea
  * enter
  * bswap
- *
- * Gets #included by cpu.macro.js
  */
 "use strict";
 
@@ -413,16 +411,13 @@ CPU.prototype.enter16 = function(size, nesting_level)
 {
     nesting_level &= 31;
 
-    var frame_temp;
-    var tmp_ebp;
-
     if(nesting_level) dbg_log("enter16 stack=" + (this.stack_size_32 ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
     this.push16(this.reg16[reg_bp]);
-    frame_temp = this.reg16[reg_sp];
+    var frame_temp = this.reg16[reg_sp];
 
     if(nesting_level > 0)
     {
-        tmp_ebp = this.reg16[reg_ebp];
+        var tmp_ebp = this.reg16[reg_ebp];
         for(var i = 1; i < nesting_level; i++)
         {
             tmp_ebp -= 2;
@@ -438,16 +433,13 @@ CPU.prototype.enter32 = function(size, nesting_level)
 {
     nesting_level &= 31;
 
-    var frame_temp;
-    var tmp_ebp;
-
     if(nesting_level) dbg_log("enter32 stack=" + (this.stack_size_32 ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
     this.push32(this.reg32s[reg_ebp]);
-    frame_temp = this.reg32s[reg_esp];
+    var frame_temp = this.reg32s[reg_esp];
 
     if(nesting_level > 0)
     {
-        tmp_ebp = this.reg32s[reg_ebp];
+        var tmp_ebp = this.reg32s[reg_ebp];
         for(var i = 1; i < nesting_level; i++)
         {
             tmp_ebp -= 4;

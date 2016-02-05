@@ -269,7 +269,7 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
     this.mouse_buffer.push(delta_x);
     this.mouse_buffer.push(delta_y);
 
-    dbg_log("adding mouse packets:" + [info_byte, dx, dy], LOG_PS2);
+    dbg_log("adding mouse packets: " + [info_byte, dx, dy], LOG_PS2);
 
     this.mouse_irq();
 }

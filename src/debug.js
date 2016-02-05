@@ -240,7 +240,9 @@ CPU.prototype.debug_init = function()
         var op_size = cpu.is_32 ? "32" : "16";
         var if_ = (cpu.flags & flag_interrupt) ? 1 : 0;
 
-        dbg_log("mode=" + mode + "/" + op_size + " paging=" + cpu.paging + " vm=" + vm + " iopl=" + iopl + " cpl=" + cpl + " if=" + if_ + " cs:eip=" + cs_eip, LOG_CPU);
+        dbg_log("mode=" + mode + "/" + op_size + " paging=" + (+cpu.paging) + " vm=" + vm +
+                " iopl=" + iopl + " cpl=" + cpl + " if=" + if_ + " cs:eip=" + cs_eip +
+                " cs_off=" + h(cpu.get_seg(reg_cs) >>> 0, 8), LOG_CPU);
     }
 
     function dump_regs_short()
