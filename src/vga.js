@@ -1225,7 +1225,14 @@ VGAScreen.prototype.svga_register_read = function(n)
             return this.svga_bank_offset >>> 16;
         case 6:
             // virtual width
-            return this.screen_width;
+            if(this.screen_width)
+            {
+                return this.screen_width;
+            }
+            else
+            {
+                return 1; // seabios/windows98 divide exception
+            }
         case 8:
             // x offset
             return 0;
