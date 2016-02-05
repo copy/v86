@@ -550,6 +550,13 @@ CPU.prototype.init = function(settings, device_bus)
 
     var a20_byte = 0;
 
+    io.register_read(0xB3, this, function()
+    {
+        // seabios smm_relocate_and_restore
+        dbg_log("port 0xB3 read");
+        return 0;
+    });
+
     io.register_read(0x92, this, function()
     {
         return a20_byte;
