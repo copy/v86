@@ -278,7 +278,7 @@ FloppyController.prototype.port3F5_write = function(reg_byte)
                 this.bytes_expecting = 0;
                 break;
             default:
-                if(DEBUG) throw "unimpl floppy command call " + h(reg_byte);
+                dbg_assert(false, "Unimplemented floppy command call " + h(reg_byte));
         }
 
         this.receiving_index = 0;

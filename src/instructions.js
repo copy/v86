@@ -1697,13 +1697,15 @@ t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             // sgdt
             cpu.writable_or_pagefault(addr, 6);
             cpu.safe_write16(addr, cpu.gdtr_size);
-            cpu.safe_write32(addr + 2, cpu.gdtr_offset);
+            var mask = cpu.operand_size_32 ? -1 : 0x00FFFFFF;
+            cpu.safe_write32(addr + 2, cpu.gdtr_offset & mask);
             break;
         case 1:
             // sidt
             cpu.writable_or_pagefault(addr, 6);
             cpu.safe_write16(addr, cpu.idtr_size);
-            cpu.safe_write32(addr + 2, cpu.idtr_offset);
+            var mask = cpu.operand_size_32 ? -1 : 0x00FFFFFF;
+            cpu.safe_write32(addr + 2, cpu.idtr_offset & mask);
             break;
         case 2:
             // lgdt
