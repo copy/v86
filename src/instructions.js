@@ -359,7 +359,7 @@ t32[0x81] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 4: cpu.write_e32(cpu.and32(cpu.read_write_e32(), cpu.read_imm32s())); break;
         case 5: cpu.write_e32(cpu.sub32(cpu.read_write_e32(), cpu.read_imm32s())); break;
         case 6: cpu.write_e32(cpu.xor32(cpu.read_write_e32(), cpu.read_imm32s())); break;
-        case 7: cpu.cmp32(cpu.read_e32(), cpu.read_imm32s()); break;
+        case 7: cpu.cmp32(cpu.read_e32s(), cpu.read_imm32s()); break;
     }
 };
 t[0x82] = cpu => {
@@ -388,7 +388,7 @@ t32[0x83] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         case 4: cpu.write_e32(cpu.and32(cpu.read_write_e32(), cpu.read_imm8s())); break;
         case 5: cpu.write_e32(cpu.sub32(cpu.read_write_e32(), cpu.read_imm8s())); break;
         case 6: cpu.write_e32(cpu.xor32(cpu.read_write_e32(), cpu.read_imm8s())); break;
-        case 7: cpu.cmp32(cpu.read_e32(), cpu.read_imm8s()); break;
+        case 7: cpu.cmp32(cpu.read_e32s(), cpu.read_imm8s()); break;
     }
 };
 
