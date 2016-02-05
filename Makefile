@@ -131,5 +131,5 @@ $(CLOSURE):
 	wget -P closure-compiler http://dl.google.com/closure-compiler/compiler-latest.zip
 	unzip -d closure-compiler closure-compiler/compiler-latest.zip compiler.jar
 
-test:
+test: build/libv86.js
 	./tests/full/run.js
