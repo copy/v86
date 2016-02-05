@@ -130,3 +130,6 @@ update_version:
 $(CLOSURE):
 	wget -P closure-compiler http://dl.google.com/closure-compiler/compiler-latest.zip
 	unzip -d closure-compiler closure-compiler/compiler-latest.zip compiler.jar
+
+test:
+	./tests/full/run.js
