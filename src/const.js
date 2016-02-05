@@ -2,6 +2,13 @@
 var DEBUG = true;
 
 
+/** @const */
+var LOG_TO_FILE = false;
+
+/** @const */
+var LOG_ALL_IO = false;
+
+
 var
 
 /** @const */ LOG_ALL = -1,

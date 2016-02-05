@@ -1,5 +1,19 @@
 "use strict";
 
+var log_data = [];
+
+function do_the_log(message)
+{
+    if(LOG_TO_FILE)
+    {
+        log_data.push(message);
+    }
+    else
+    {
+        console.log(message);
+    }
+}
+
 /**
  * @type {function((string|number), number=)}
  * @const
@@ -43,24 +57,24 @@ var dbg_log = (function()
             var now = new Date();
             var time_str = v86util.pad0(now.getHours(), 2) + ":" +
                            v86util.pad0(now.getMinutes(), 2) + ":" +
-                           v86util.pad0(now.getSeconds(), 2) + " ";
+                           v86util.pad0(now.getSeconds(), 2) + "+" +
+                           v86util.pad0(now.getMilliseconds(), 3) + " ";
 
             if(log_message_repetitions)
             {
                 if(log_message_repetitions === 1)
                 {
-                    console.log(time_str + log_last_message);
+                    do_the_log(time_str + log_last_message);
                 }
                 else
                 {
-                    console.log("Previous message repeated " + log_message_repetitions + " times");
+                    do_the_log("Previous message repeated " + log_message_repetitions + " times");
                 }
 
                 log_message_repetitions = 0;
             }
 
-            console.log(time_str + message);
-
+            do_the_log(time_str + message);
             log_last_message = message;
         }
     }

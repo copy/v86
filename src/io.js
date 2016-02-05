@@ -1,8 +1,5 @@
 "use strict";
 
-/** @const */
-var LOG_ALL_IO = false;
-
 /**
  * The ISA IO bus
  * Devices register their ports here
