@@ -33,8 +33,18 @@ function PCI(cpu)
     this.pci_response32 = new Int32Array(this.pci_response.buffer);
     this.pci_status32 = new Int32Array(this.pci_status.buffer);
 
-    this.device_spaces = Array(0x10000);
-    this.devices = Array(0x10000);
+    this.device_spaces = [];
+    this.devices = [];
+    this.original_bars = [];
+
+    for(var i = 0; i < 256; i++)
+    {
+        this.device_spaces[i] = undefined;
+        this.devices[i] = undefined;
+        this.original_bars[i] = undefined;
+    }
+
+    this.io = cpu.io;
 
     /*
     cpu.io.register_write(0xCF9, function(value)
@@ -317,6 +327,7 @@ PCI.prototype.register_device = function(device)
 
     dbg_assert(!this.devices[device_id]);
     dbg_assert(device.pci_space.length >= 64);
+    dbg_assert(device_id < this.devices.length);
 
     // convert bytewise notation from lspci to double words
     var space = new Int32Array(new Uint8Array(device.pci_space).buffer);
