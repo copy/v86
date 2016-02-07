@@ -196,20 +196,64 @@ PCI.prototype.get_state = function()
 {
     var state = [];
 
-    state[0] = this.pci_addr;
-    state[1] = this.pci_value;
-    state[2] = this.pci_response;
-    state[3] = this.pci_status;
+
+    for(var i = 0; i < 256; i++)
+    {
+        state[i] = this.device_spaces[i];
+    }
+
+    state[256] = this.pci_addr;
+    state[257] = this.pci_value;
+    state[258] = this.pci_response;
+    state[259] = this.pci_status;
 
     return state;
 };
 
 PCI.prototype.set_state = function(state)
 {
-    this.pci_addr.set(state[0]);
-    this.pci_value.set(state[1]);
-    this.pci_response.set(state[2]);
-    this.pci_status.set(state[3]);
+    for(var i = 0; i < 256; i++)
+    {
+        var device = this.devices[i];
+        var space = state[i];
+
+        if(!device || !space)
+        {
+            if(device)
+            {
+                dbg_log("Warning: While restoring PCI device: Device exists in current configuration but not in snapshot (" + device.name + ")");
+            }
+            if(space)
+            {
+                dbg_log("Warning: While restoring PCI device: Device doesn't exist in current configuration but does in snapshot (device " + i + ")");
+            }
+            continue;
+        }
+
+        this.device_spaces[i].set(space);
+
+        for(var bar_nr = 0; bar_nr < device.pci_bars.length; bar_nr++)
+        {
+            var bar = device.pci_bars[bar_nr];
+            var value = space[(0x10 >> 2) + bar_nr];
+
+            if(value & 1)
+            {
+                var to = value & ~1 & 0xFFFF;
+                var from = this.original_bars[i][bar_nr] & ~1 & 0xFFFF;
+                this.move_io_bars(from, to, bar.size);
+            }
+            else
+            {
+                // memory, cannot be changed
+            }
+        }
+    }
+
+    this.pci_addr.set(state[256]);
+    this.pci_value.set(state[257]);
+    this.pci_response.set(state[258]);
+    this.pci_status.set(state[259]);
 };
 
 PCI.prototype.pci_query = function()
@@ -322,38 +366,8 @@ PCI.prototype.pci_write = function()
                 var from = space[space_addr] & ~1 & 0xFFFF;
                 var to = written & ~1 & 0xFFFF;
                 dbg_log("io bar changed from " + h(from >>> 0, 8) + " to " + h(to >>> 0, 8) + " size=" + bar.size, LOG_PCI);
-                var ports = this.io.ports;
-
-                if(to === from)
-                {
-                }
-                else if(Math.abs(from - to) < bar.size)
-                {
-                    // currently not handled correctly
-                    dbg_assert(false, "PCI change bar: abs(from - to) < bar.size", LOG_PCI);
-                }
-                else
-                {
-                    for(var i = 0; i < bar.size; i++)
-                    {
-                        var entry = ports[from + i];
-                        var empty_entry = ports[to + i];
-                        dbg_assert(entry && empty_entry);
-
-                        ports[from + i] = empty_entry;
-                        ports[to + i] = entry;
-
-                        // these can fail if the os maps io bars twice (indicating a bug)
-                        dbg_assert(empty_entry.read8 === this.io.empty_port_read8);
-                        dbg_assert(empty_entry.read16 === this.io.empty_port_read16);
-                        dbg_assert(empty_entry.read32 === this.io.empty_port_read32);
-                        dbg_assert(empty_entry.write8 === this.io.empty_port_write);
-                        dbg_assert(empty_entry.write16 === this.io.empty_port_write);
-                        dbg_assert(empty_entry.write32 === this.io.empty_port_write);
-                    }
-
-                    space[space_addr] = written | 1;
-                }
+                this.move_io_bars(from, to, bar.size);
+                space[space_addr] = written | 1;
             }
         }
         else
@@ -392,4 +406,39 @@ PCI.prototype.register_device = function(device)
     // copy the bars so they can be restored later
     this.original_bars[device_id] = new Int32Array(6);
     this.original_bars[device_id].set(space.subarray(4, 10));
+};
+
+PCI.prototype.move_io_bars = function(from, to, count)
+{
+    dbg_log("from=" + h(from) + " to=" + h(to) + " count=" + count);
+    if(to === from)
+    {
+    }
+    else if(Math.abs(from - to) < count)
+    {
+        // currently not handled correctly
+        dbg_assert(false, "PCI change bar: abs(from - to) < count", LOG_PCI);
+    }
+    else
+    {
+        var ports = this.io.ports;
+
+        for(var i = 0; i < count; i++)
+        {
+            var entry = ports[from + i];
+            var empty_entry = ports[to + i];
+            dbg_assert(entry && empty_entry);
+
+            ports[from + i] = empty_entry;
+            ports[to + i] = entry;
+
+            // these can fail if the os maps io bars twice (indicating a bug)
+            dbg_assert(empty_entry.read8 === this.io.empty_port_read8);
+            dbg_assert(empty_entry.read16 === this.io.empty_port_read16);
+            dbg_assert(empty_entry.read32 === this.io.empty_port_read32);
+            dbg_assert(empty_entry.write8 === this.io.empty_port_write);
+            dbg_assert(empty_entry.write16 === this.io.empty_port_write);
+            dbg_assert(empty_entry.write32 === this.io.empty_port_write);
+        }
+    }
 };
