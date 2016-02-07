@@ -1766,7 +1766,6 @@ t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 
 t16[0x02] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     // lar
-    dbg_log("lar", LOG_CPU);
     if(!cpu.protected_mode || cpu.vm86_mode())
     {
         dbg_log("lar #ud", LOG_CPU);
@@ -1776,7 +1775,6 @@ t16[0x02] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     cpu.write_g16(cpu.lar(data, cpu.read_g16()));
 };
 t32[0x02] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    dbg_log("lar", LOG_CPU);
     if(!cpu.protected_mode || cpu.vm86_mode())
     {
         dbg_log("lar #ud", LOG_CPU);
@@ -1788,7 +1786,6 @@ t32[0x02] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 
 t16[0x03] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     // lsl
-    dbg_log("lsl", LOG_CPU);
     if(!cpu.protected_mode || cpu.vm86_mode())
     {
         dbg_log("lsl #ud", LOG_CPU);
@@ -1798,7 +1795,6 @@ t16[0x03] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     cpu.write_g16(cpu.lsl(data, cpu.read_g16()));
 };
 t32[0x03] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    dbg_log("lsl", LOG_CPU);
     if(!cpu.protected_mode || cpu.vm86_mode())
     {
         dbg_log("lsl #ud", LOG_CPU);

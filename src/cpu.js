@@ -2693,6 +2693,8 @@ CPU.prototype.lookup_segment_selector = function(selector)
         is_writable: false,
         is_readable: false,
         table_offset: 0,
+
+        raw1: 0,
     };
 
     if(is_gdt)
@@ -2730,9 +2732,11 @@ CPU.prototype.lookup_segment_selector = function(selector)
     info.table_offset = table_offset;
 
     info.base = this.memory.read16(table_offset + 2 | 0) | this.memory.read8(table_offset + 4 | 0) << 16 |
-            this.memory.read8(table_offset + 7 | 0) << 24;
+                this.memory.read8(table_offset + 7 | 0) << 24;
     info.access = this.memory.read8(table_offset + 5 | 0);
     info.flags = this.memory.read8(table_offset + 6 | 0) >> 4;
+
+    info.raw1 = this.memory.read32s(table_offset + 4 | 0);
 
     //this.memory.write8(table_offset + 5 | 0, info.access | 1);
 
@@ -3042,20 +3046,20 @@ CPU.prototype.lar = function(selector, original)
     var info = this.lookup_segment_selector(selector);
     this.flags_changed &= ~flag_zero;
 
-    //console.log("lar -> ", h(selector, 4), this.cpl, info, LAR_INVALID_TYPE >> info.type & 1);
+    var dpl_bad = info.dpl < this.cpl || info.dpl < info.rpl;
 
     if(info.is_null || !info.is_valid ||
-       (LAR_INVALID_TYPE >> info.type & 1)
+       (info.is_system ? (LAR_INVALID_TYPE >> info.type & 1) || dpl_bad :
+                         (!info.is_executable || !info.dc_bit) && dpl_bad)
     ) {
         this.flags &= ~flag_zero;
+        dbg_log("lar: invali selector=" + h(selector, 4) + " d is_null=" + info.is_null, LOG_CPU);
         return original;
     }
     else
     {
         this.flags |= flag_zero;
-        return info.type << 8 | info.size << 12 | info.dpl << 13 |
-                info.is_present << 15 |
-                info.flags << 20;
+        return info.raw1 & 0x00FFFF00;
     }
 
 };
@@ -3069,13 +3073,14 @@ CPU.prototype.lsl = function(selector, original)
     var info = this.lookup_segment_selector(selector);
     this.flags_changed &= ~flag_zero;
 
-    //console.log("lsl -> ", h(selector, 4), this.cpl, info, LSL_INVALID_TYPE >> info.type & 1);
-    //this.debug.dump_gdt_ldt();
+    var dpl_bad = info.dpl < this.cpl || info.dpl < info.rpl;
 
     if(info.is_null || !info.is_valid ||
-       (LSL_INVALID_TYPE >> info.type & 1)
+       (info.is_system ? (LSL_INVALID_TYPE >> info.type & 1) || dpl_bad :
+                         (!info.is_executable || !info.dc_bit) && dpl_bad)
     ) {
         this.flags &= ~flag_zero;
+        dbg_log("lsl: invalid  selector=" + h(selector, 4) + " is_null=" + info.is_null, LOG_CPU);
         return original;
     }
     else
