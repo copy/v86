@@ -3159,6 +3159,11 @@ CPU.prototype.translate_address_write = function(addr)
 
 CPU.prototype.translate_address_user_write = function(addr)
 {
+    if(!this.paging)
+    {
+        return addr;
+    }
+
     var base = addr >>> 12;
 
     if(this.tlb_info[base] & TLB_USER_WRITE)
@@ -3173,6 +3178,11 @@ CPU.prototype.translate_address_user_write = function(addr)
 
 CPU.prototype.translate_address_user_read = function(addr)
 {
+    if(!this.paging)
+    {
+        return addr;
+    }
+
     var base = addr >>> 12;
 
     if(this.tlb_info[base] & TLB_USER_READ)
@@ -3187,6 +3197,11 @@ CPU.prototype.translate_address_user_read = function(addr)
 
 CPU.prototype.translate_address_system_write = function(addr)
 {
+    if(!this.paging)
+    {
+        return addr;
+    }
+
     var base = addr >>> 12;
 
     if(this.tlb_info[base] & TLB_SYSTEM_WRITE)
@@ -3201,6 +3216,11 @@ CPU.prototype.translate_address_system_write = function(addr)
 
 CPU.prototype.translate_address_system_read = function(addr)
 {
+    if(!this.paging)
+    {
+        return addr;
+    }
+
     var base = addr >>> 12;
 
     if(this.tlb_info[base] & TLB_SYSTEM_READ)
