@@ -110,7 +110,8 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 	ls -lh build/libv86.js
 
 clean:
-	rm -f build/*
+	rm build/libv86.js
+	rm build/v86_all.js
 
 run:
 	python2 -m SimpleHTTPServer 2> /dev/null
