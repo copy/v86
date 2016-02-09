@@ -2961,8 +2961,11 @@ t[0xFC] = cpu => { cpu.unimplemented_sse(); };
 t[0xFD] = cpu => { cpu.unimplemented_sse(); };
 t[0xFE] = cpu => { cpu.unimplemented_sse(); };
 
-// NSA backdoor instruction
-t[0xFF] = cpu => { cpu.undefined_instruction(); };
+t[0xFF] = cpu => {
+    // Windows 98
+    dbg_log("#ud: 0F FF");
+    cpu.trigger_ud();
+};
 
 
 var table0F_16 = [];
