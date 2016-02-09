@@ -848,7 +848,7 @@ t32[0xC9] = cpu => {
 };
 t16[0xCA] = cpu => {
     // retf
-    cpu.translate_address_read(cpu.get_stack_pointer(4));
+    cpu.translate_address_read(cpu.get_stack_pointer(3));
 
     var imm16 = cpu.read_imm16();
     var ip = cpu.pop16();
@@ -860,31 +860,34 @@ t16[0xCA] = cpu => {
 };
 t32[0xCA] = cpu => {
     // retf
-    cpu.translate_address_read(cpu.get_stack_pointer(8));
-
     var imm16 = cpu.read_imm16();
+
+    cpu.translate_address_read(cpu.get_stack_pointer(7));
     var ip = cpu.pop32s();
 
     cpu.switch_seg(reg_cs, cpu.pop32s() & 0xFFFF);
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
+    dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
 
     cpu.adjust_stack_reg(imm16);
 };
 t16[0xCB] = cpu => {
     // retf
-    cpu.translate_address_read(cpu.get_stack_pointer(4));
+    cpu.translate_address_read(cpu.get_stack_pointer(3));
     var ip = cpu.pop16();
 
     cpu.switch_seg(reg_cs, cpu.pop16());
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
+    dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
 };
 t32[0xCB] = cpu => {
     // retf
-    cpu.translate_address_read(cpu.get_stack_pointer(8));
+    cpu.translate_address_read(cpu.get_stack_pointer(7));
     var ip = cpu.pop32s();
 
     cpu.switch_seg(reg_cs, cpu.pop32s() & 0xFFFF);
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
+    dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
 };
 
 t[0xCC] = cpu => {
