@@ -3097,7 +3097,7 @@ CPU.prototype.verr = function(selector)
     if(info.is_null || !info.is_valid || info.is_system || !info.is_readable ||
        (!info.is_conforming_executable && (info.dpl < this.cpl || info.dpl < info.rpl)))
     {
-        dbg_log("verr -> invalid. selector=" + h(selector, 4, LOG_CPU));
+        dbg_log("verr -> invalid. selector=" + h(selector, 4), LOG_CPU);
         this.flags &= ~flag_zero;
     }
     else
