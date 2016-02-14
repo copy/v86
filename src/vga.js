@@ -139,6 +139,8 @@ function VGAScreen(cpu, bus, vga_memory_size)
 
     this.index_crtc = 0;
 
+    this.offset_register = 0;
+
     // index for setting colors through port 3C9h
     this.dac_color_index_write = 0;
     this.dac_color_index_read = 0;
@@ -303,6 +305,7 @@ VGAScreen.prototype.get_state = function()
     state[39] = this.svga_memory;
     state[40] = this.graphical_mode_is_linear;
     state[41] = this.attribute_controller_index;
+    state[42] = this.offset_register;
 
     return state;
 };
@@ -351,6 +354,7 @@ VGAScreen.prototype.set_state = function(state)
     this.svga_memory.set(state[39]);
     this.graphical_mode_is_linear = state[40];
     this.attribute_controller_index = state[41];
+    this.offset_register = state[42];
 
     this.bus.send("screen-set-mode", this.graphical_mode);
 
@@ -1055,6 +1059,9 @@ VGAScreen.prototype.port3D5_write = function(value)
             this.cursor_address = this.cursor_address & 0xFF00 | value;
             this.update_cursor();
             break;
+        case 0x13:
+            this.offset_register = value;
+            break;
         default:
             dbg_log("3D5 / CRTC write " + h(this.index_crtc) + ": " + h(value), LOG_VGA);
     }
@@ -1071,10 +1078,16 @@ VGAScreen.prototype.port3D5_read = function()
             return this.cursor_scanline_start;
         case 0xB:
             return this.cursor_scanline_end;
+        case 0xC:
+            return this.start_address & 0xFF;
+        case 0xD:
+            return this.start_address >> 8;
         case 0xE:
             return this.cursor_address >> 8;
         case 0xF:
             return this.cursor_address & 0xFF;
+        case 0x13:
+            return this.offset_register;
     }
 
     dbg_log("3D5 read " + h(this.index_crtc), LOG_VGA);
