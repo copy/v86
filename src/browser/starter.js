@@ -133,7 +133,7 @@ function V86Starter(options)
     }
     if(!options["disable_mouse"])
     {
-        this.mouse_adapter = new MouseAdapter(adapter_bus);
+        this.mouse_adapter = new MouseAdapter(adapter_bus, options["screen_container"]);
     }
 
     if(options["screen_container"])
