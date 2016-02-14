@@ -1296,58 +1296,13 @@ CPU.prototype.get_real_eip = function()
 
 CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, error_code)
 {
-    dbg_assert(this.instruction_pointer !== undefined);
+    dbg_log("int " + h(interrupt_nr, 2) + " (" + (is_software_int ? "soft" : "hard") + "ware)", LOG_CPU);
+    this.debug.dump_state();
+    this.debug.dump_regs_short();
 
-    if(DEBUG && this.debug.step_mode)
-    {
-        //this.debug.ops.add(this.instruction_pointer >>> 0);
-        //this.debug.ops.add("-- INT " + h(interrupt_nr));
-        //this.debug.ops.add(1);
-    }
+    this.debug.debug_interrupt(interrupt_nr);
 
-    //if(interrupt_nr == 0x10)
-    //{
-    //    dbg_log("int10 ax=" + h(this.reg16[reg_ax], 4) + " '" + String.fromCharCode(this.reg8[reg_al]) + "'");
-    //    this.debug.dump_regs_short();
-    //    if(this.reg8[reg_ah] == 0xe) vga.tt_write(this.reg8[reg_al]);
-    //}
-
-    //if(interrupt_nr === 0x13)
-    //{
-    //    this.debug.dump_regs_short();
-    //}
-
-    //if(interrupt_nr === 6)
-    //{
-    //    this.instruction_pointer += 2;
-    //    dbg_log("BUG()", LOG_CPU);
-    //    dbg_log("line=" + this.read_imm16() + " " +
-    //            "file=" + this.memory.read_string(this.translate_address_read(this.read_imm32s())), LOG_CPU);
-    //    this.instruction_pointer -= 8;
-    //    this.debug.dump_regs_short();
-    //}
-
-    //if(interrupt_nr === 0x80)
-    //{
-    //    dbg_log("linux syscall");
-    //    this.debug.dump_regs_short();
-    //}
-
-
-    //if(interrupt_nr === 14)
-    //{
-    //    dbg_log("int14 error_code=" + error_code +
-    //            " cr2=" + h(this.cr[2] >>> 0) +
-    //            " prev=" + h(this.previous_ip >>> 0) +
-    //            " cpl=" + this.cpl, LOG_CPU);
-    //}
-
-    //if(interrupt_nr === 0x40)
-    //{
-    //    dbg_log("kolibri syscall");
-    //    this.debug.dump_regs_short();
-    //}
-
+    dbg_assert(error_code === false || typeof error_code === "number");
 
     // we have to leave hlt_loop at some point, this is a
     // good place to do it
@@ -1364,7 +1319,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         if(this.vm86_mode() && is_software_int && this.getiopl() < 3)
         {
             dbg_log("call_interrupt_vector #GP. vm86 && software int && iopl < 3", LOG_CPU);
-            dbg_trace();
+            dbg_trace(LOG_CPU);
             this.trigger_gp(0);
         }
 
@@ -1375,7 +1330,6 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             throw this.debug.unimpl("#GP handler");
         }
 
-
         var addr = this.idtr_offset + (interrupt_nr << 3) | 0;
         dbg_assert((addr & 0xFFF) < 0xFF8);
 
@@ -1384,14 +1338,13 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             addr = this.translate_address_system_read(addr);
         }
 
-        var base = this.memory.read16(addr) | this.memory.read16(addr + 6 | 0) << 16,
-            selector = this.memory.read16(addr + 2 | 0),
-            type = this.memory.read8(addr + 5 | 0),
-            dpl = type >> 5 & 3,
-            is_trap,
-            is_16 = false;
+        var base = this.memory.read16(addr) | this.memory.read16(addr + 6 | 0) << 16;
+        var selector = this.memory.read16(addr + 2 | 0);
+        var access = this.memory.read8(addr + 5 | 0);
+        var dpl = access >> 5 & 3;
+        var type = access & 31;
 
-        if((type & 128) === 0)
+        if((access & 0x80) === 0)
         {
             // present bit not set
             throw this.debug.unimpl("#NP handler");
@@ -1399,51 +1352,28 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
         if(is_software_int && dpl < this.cpl)
         {
+            dbg_log("#gp software interrupt (" + h(interrupt_nr, 2) + ") and dpl < cpl", LOG_CPU);
+            dbg_trace(LOG_CPU);
             this.trigger_gp(interrupt_nr << 3 | 2);
         }
 
-        type &= 31;
-
-        if(type === 14)
-        {
-            is_trap = false;
-            is_16 = false;
-        }
-        else if(type === 15)
-        {
-            is_trap = true;
-            is_16 = false;
-        }
-        else if(type === 5)
+        if(type === 5)
         {
             // task gate
-            dbg_trace();
             dbg_log("interrupt to task gate: int=" + h(interrupt_nr, 2) + " sel=" + h(selector, 4) + " dpl=" + dpl, LOG_CPU);
+            dbg_trace(LOG_CPU);
 
             this.do_task_switch(selector);
 
             if(error_code !== false)
             {
-                dbg_assert(typeof error_code == "number");
                 // TODO: push16 if in 16 bit mode?
                 this.push32(error_code);
             }
             return;
         }
-        else if(type === 6)
-        {
-            // 16 bit interrupt gate
-            throw this.debug.unimpl("16 bit interrupt gate");
-            is_trap = false;
-            is_16 = true;
-        }
-        else if(type === 7)
-        {
-            // 16 bit trap gate
-            is_trap = true;
-            is_16 = true;
-        }
-        else
+
+        if((type & ~1 & ~8) !== 6)
         {
             // invalid type
             dbg_trace(LOG_CPU);
@@ -1452,7 +1382,13 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             throw this.debug.unimpl("#GP handler");
         }
 
+        var is_trap = (type & 1) === 1;
+        var is_16 = (type & 8) === 0;
+
         var info = this.lookup_segment_selector(selector);
+
+        dbg_assert((base >>> 0) <= info.effective_limit);
+        dbg_assert(info.is_valid);
 
         if(info.is_null)
         {
@@ -1472,6 +1408,8 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
         this.load_eflags();
         var old_flags = this.flags;
+
+        //dbg_log("interrupt " + h(interrupt_nr, 2) + " (" + (is_software_int ? "soft" : "hard") + "ware) from cpl=" + this.cpl + " vm=" + (this.flags & flag_vm) + " cs:eip=" + h(this.sreg[reg_cs], 4) + ":" + h(this.get_real_eip(), 8) + " to cpl="
 
         if(!info.dc_bit && info.dpl < this.cpl)
         {
@@ -1495,15 +1433,20 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
                 tss_stack_addr = this.translate_address_system_read(tss_stack_addr);
             }
 
-            var new_esp = this.memory.read32s(tss_stack_addr),
-                new_ss = this.memory.read16(tss_stack_addr + 4 | 0),
-                ss_info = this.lookup_segment_selector(new_ss);
+            dbg_assert((tss_stack_addr & 0xFFF) <= 0x1000 - 6);
+
+            var new_esp = this.memory.read32s(tss_stack_addr);
+            var new_ss = this.memory.read16(tss_stack_addr + 4 | 0);
+            var ss_info = this.lookup_segment_selector(new_ss);
+
+            dbg_assert((new_esp >>> 0) <= ss_info.effective_limit);
+            dbg_assert(ss_info.is_valid && !ss_info.is_system && ss_info.is_writable);
 
             if(ss_info.is_null)
             {
                 throw this.debug.unimpl("#TS handler");
             }
-            if(ss_info.rpl !== info.dpl)
+            if(ss_info.rpl !== info.dpl) // xxx: 0 in v86 mode
             {
                 throw this.debug.unimpl("#TS handler");
             }
@@ -1516,8 +1459,8 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
                 throw this.debug.unimpl("#TS handler");
             }
 
-            var old_esp = this.reg32s[reg_esp],
-                old_ss = this.sreg[reg_ss];
+            var old_esp = this.reg32s[reg_esp];
+            var old_ss = this.sreg[reg_ss];
 
             if(old_flags & flag_vm)
             {
@@ -1526,11 +1469,16 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
                 dbg_assert(info.dpl === 0, "switch to non-0 dpl from vm86 mode");
             }
 
+            var stack_space = (is_16 ? 2 : 4) * (5 + (error_code !== false) + 4 * ((old_flags & flag_vm) === flag_vm));
+            var new_stack_pointer = ss_info.base + (ss_info.size ? new_esp - stack_space : (new_esp - stack_space & 0xFFFF));
+
+            // XXX: with new cpl or with cpl 0?
+            this.translate_address_system_write(new_stack_pointer);
+            this.translate_address_system_write(ss_info.base + new_esp - 1);
+
+            // no exceptions below
 
             this.cpl = info.dpl;
-            //dbg_log("int" + h(interrupt_nr, 2) +" from=" + h(this.instruction_pointer >>> 0, 8)
-            //        + " cpl=" + this.cpl + " old ss:esp=" + h(old_ss, 4) + ":" + h(old_esp >>> 0, 8), LOG_CPU);
-
             this.cpl_changed();
 
             dbg_assert(typeof info.size === "boolean");
@@ -1548,32 +1496,14 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             {
                 if(is_16)
                 {
-                    this.writable_or_pagefault(this.get_stack_pointer(-20), 20);
-
-                    this.push16(this.sreg[reg_gs]);
-                    this.push16(this.sreg[reg_fs]);
-                    this.push16(this.sreg[reg_ds]);
-                    this.push16(this.sreg[reg_es]);
+                    dbg_assert(false);
                 }
                 else
                 {
-                    this.writable_or_pagefault(this.get_stack_pointer(-40), 40);
-
                     this.push32(this.sreg[reg_gs]);
                     this.push32(this.sreg[reg_fs]);
                     this.push32(this.sreg[reg_ds]);
                     this.push32(this.sreg[reg_es]);
-                }
-            }
-            else
-            {
-                if(is_16)
-                {
-                    this.writable_or_pagefault(this.get_stack_pointer(-12), 12);
-                }
-                else
-                {
-                    this.writable_or_pagefault(this.get_stack_pointer(-24), 24);
                 }
             }
 
@@ -1587,10 +1517,11 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
                 this.push32(old_ss);
                 this.push32(old_esp);
             }
-            //dbg_log("esp pushed to " + h(this.get_stack_pointer(0) >>> 0));
         }
         else if(info.dc_bit || info.dpl === this.cpl)
         {
+            // intra privilege level interrupt
+
             //dbg_log("Intra privilege interrupt gate=" + h(selector, 4) + ":" + h(base >>> 0, 8) +
             //        " trap=" + is_trap + " 16bit=" + is_16 +
             //        " cpl=" + this.cpl + " dpl=" + info.dpl + " conforming=" + +info.dc_bit, LOG_CPU);
@@ -1598,22 +1529,16 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
             if(this.flags & flag_vm)
             {
-                dbg_log("xxx");
+                dbg_assert(false, "check error code");
                 this.trigger_gp(selector & ~3);
             }
 
-            if(is_16)
-            {
-                this.writable_or_pagefault(this.get_stack_pointer(-8), 8);
-            }
-            else
-            {
-                this.writable_or_pagefault(this.get_stack_pointer(-16), 16);
-            }
+            var stack_space = (is_16 ? 2 : 4) * (3 + (error_code !== false));
 
-            // intra privilege level interrupt
+            // XXX: with current cpl or with cpl 0?
+            this.writable_or_pagefault(this.get_stack_pointer(-stack_space), stack_space);
 
-            //dbg_log("int" + h(interrupt_nr, 2) +" from=" + h(this.instruction_pointer, 8), LOG_CPU);
+            // no exceptions below
         }
         else
         {
@@ -1628,7 +1553,6 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
             if(error_code !== false)
             {
-                dbg_assert(typeof error_code == "number");
                 this.push16(error_code);
             }
 
@@ -1637,14 +1561,11 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         else
         {
             this.push32(old_flags);
-
             this.push32(this.sreg[reg_cs]);
             this.push32(this.get_real_eip());
-            //dbg_log("pushed eip to " + h(this.reg32s[reg_esp], 8), LOG_CPU);
 
             if(error_code !== false)
             {
-                dbg_assert(typeof error_code == "number");
                 this.push32(error_code);
             }
         }
@@ -1658,9 +1579,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         }
 
 
-        // TODO
         this.sreg[reg_cs] = selector & ~3 | this.cpl;
-        //this.switch_seg(reg_cs);
 
         dbg_assert(typeof info.size === "boolean");
         dbg_assert(typeof this.is_32 === "boolean");
@@ -1672,16 +1591,9 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         this.segment_limits[reg_cs] = info.effective_limit;
         this.segment_offsets[reg_cs] = info.base;
 
-        //dbg_log("current esp: " + h(this.reg32s[reg_esp] >>> 0, 8), LOG_CPU);
-        //dbg_log("call int " + h(interrupt_nr >>> 0, 8) +
-        //        " from " + h(this.instruction_pointer >>> 0, 8) +
-        //        " to " + h(base >>> 0) +
-        //        " if=" + +!!(is_trap && this.flags & flag_interrupt) +
-        //        " error_code=" + error_code, LOG_CPU);
-
         this.instruction_pointer = this.get_seg(reg_cs) + base | 0;
 
-        //dbg_log("int" + h(interrupt_nr) + " trap=" + is_trap + " if=" + +!!(this.flags & flag_interrupt));
+        this.flags &= ~flag_nt & ~flag_vm & ~flag_rf & ~flag_trap;
 
         if(!is_trap)
         {
@@ -1690,7 +1602,10 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         }
         else
         {
-            //this.handle_irqs();
+            if(!this.page_fault) // XXX
+            {
+                this.handle_irqs();
+            }
         }
     }
     else
@@ -1701,31 +1616,31 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         var new_ip = this.memory.read16(index);
         var new_cs = this.memory.read16(index + 2 | 0);
 
-        //dbg_log("real mode interrupt #" + h(interrupt_nr) + " to " + h(new_cs, 4) + ":" + h(new_ip, 4), LOG_CPU);
-        //dbg_trace(LOG_CPU);
-
         // push flags, cs:ip
         this.load_eflags();
         this.push16(this.flags);
         this.push16(this.sreg[reg_cs]);
         this.push16(this.get_real_eip());
 
-        this.flags = this.flags & ~flag_interrupt;
+        this.flags &= ~flag_interrupt;
 
         this.switch_seg(reg_cs, new_cs);
         this.instruction_pointer = this.get_seg(reg_cs) + new_ip | 0;
     }
+
+    //dbg_log("int to:", LOG_CPU);
+    //this.debug.dump_state();
 };
 
 CPU.prototype.iret16 = function()
 {
     this.iret(true);
-}
+};
 
 CPU.prototype.iret32 = function()
 {
     this.iret(false);
-}
+};
 
 CPU.prototype.iret = function(is_16)
 {
