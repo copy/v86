@@ -95,6 +95,7 @@ CPU.prototype.loopne = function(imm8s)
     if(--this.regv[this.reg_vcx] && !this.getzf())
     {
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
+        if(!this.operand_size_32) dbg_assert(this.get_real_eip() <= 0xffff);
     }
 }
 
@@ -103,6 +104,7 @@ CPU.prototype.loope = function(imm8s)
     if(--this.regv[this.reg_vcx] && this.getzf())
     {
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
+        if(!this.operand_size_32) dbg_assert(this.get_real_eip() <= 0xffff);
     }
 }
 
@@ -111,6 +113,7 @@ CPU.prototype.loop = function(imm8s)
     if(--this.regv[this.reg_vcx])
     {
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
+        if(!this.operand_size_32) dbg_assert(this.get_real_eip() <= 0xffff);
     }
 }
 
@@ -119,6 +122,7 @@ CPU.prototype.jcxz = function(imm8s)
     if(this.regv[this.reg_vcx] === 0)
     {
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
+        if(!this.operand_size_32) dbg_assert(this.get_real_eip() <= 0xffff);
     }
 };
 

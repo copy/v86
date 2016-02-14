@@ -225,6 +225,7 @@ t32[0x61] = cpu => { cpu.popa32(); };
 t[0x62] = cpu => {
     // bound
     dbg_log("Unimplemented BOUND instruction", LOG_CPU);
+    dbg_assert(false);
 };
 t[0x63] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     // arpl
@@ -446,11 +447,7 @@ t32[0x8D] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 
 t[0x8E] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var mod = cpu.modrm_byte >> 3 & 7;
-    //cpu.paging && console.log(h(cpu.instruction_pointer >>> 0), h(cpu.modrm_byte));
-
     var data = cpu.read_e16();
-
-    //cpu.paging && console.log(mod, h(data));
     cpu.switch_seg(mod, data);
 
     if(mod === reg_ss)
@@ -1213,6 +1210,7 @@ t32[0xEF] = cpu => {
 
 t[0xF0] = cpu => {
     // lock
+    //dbg_log("lock", LOG_CPU);
 
     // TODO
     // This triggers UD when used with
@@ -1619,8 +1617,6 @@ t16 = [];
 t32 = [];
 
 // 0F ops start here
-//#define table16 table0F_16
-//#define table32 table0F_32
 
 t[0x00] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     if(!cpu.protected_mode || cpu.vm86_mode())
@@ -2102,8 +2098,7 @@ t[0x30] = cpu => {
             break;
 
         case IA32_APIC_BASE_MSR:
-            // changing not supported
-            dbg_assert((low >>> 0) === APIC_ADDRESS);
+            dbg_assert((low >>> 0) === APIC_ADDRESS, "Changing APIC address not supported");
             break;
 
         case IA32_TIME_STAMP_COUNTER:
@@ -2716,8 +2711,6 @@ t[0xB9] = cpu => {
 };
 
 t16[0xBA] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    //dbg_log("BA " + mod + " " + imm8);
-
     switch(cpu.modrm_byte >> 3 & 7)
     {
         case 4:
@@ -2757,8 +2750,6 @@ t16[0xBA] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     }
 };
 t32[0xBA] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    //dbg_log("BA " + mod + " " + imm8);
-
     switch(cpu.modrm_byte >> 3 & 7)
     {
         case 4:

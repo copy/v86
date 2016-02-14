@@ -101,7 +101,7 @@ function restore_object(base, obj, buffers)
 
         var current = base.get_state();
 
-        dbg_assert(current.length === obj.length);
+        dbg_assert(current.length === obj.length, "Cannot restore: Different number of properties");
 
         for(var i = 0; i < obj.length; i++)
         {

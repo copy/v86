@@ -3,7 +3,7 @@
 /** @constructor */
 function CPU()
 {
-    /** @type {number } */
+    /** @type {number} */
     this.memory_size = 0;
 
     this.segment_is_null = [];
@@ -731,13 +731,11 @@ CPU.prototype.load_bios = function()
         {
             addr &= 0xFFFFF;
             return this.memory.mem8[addr];
-            //return data[start + addr];
         }.bind(this),
         function(addr, value)
         {
             addr &= 0xFFFFF;
             this.memory.mem8[addr] = value;
-            //data[start + addr] = value;
         }.bind(this));
 
 };
@@ -943,9 +941,6 @@ CPU.prototype.read_imm8 = function()
         this.last_virt_eip = this.instruction_pointer & ~0xFFF;
     }
 
-    // memory.read8 inlined under the assumption that code never runs in
-    // memory-mapped space
-    //var data8 = this.memory.mem8[this.eip_phys ^ this.instruction_pointer] | 0;
     var data8 = this.memory.read8(this.eip_phys ^ this.instruction_pointer);
     this.instruction_pointer = this.instruction_pointer + 1 | 0;
 
@@ -1296,9 +1291,9 @@ CPU.prototype.get_real_eip = function()
 
 CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, error_code)
 {
-    dbg_log("int " + h(interrupt_nr, 2) + " (" + (is_software_int ? "soft" : "hard") + "ware)", LOG_CPU);
-    this.debug.dump_state();
-    this.debug.dump_regs_short();
+    //dbg_log("int " + h(interrupt_nr, 2) + " (" + (is_software_int ? "soft" : "hard") + "ware)", LOG_CPU);
+    //this.debug.dump_state();
+    //this.debug.dump_regs_short();
 
     this.debug.debug_interrupt(interrupt_nr);
 
@@ -1819,7 +1814,7 @@ CPU.prototype.iret = function(is_16)
         this.cpl = info.rpl;
         this.cpl_changed();
 
-        dbg_log("outer privilege return: from=" + this.cpl + " to=" + info.rpl + " ss:esp=" + h(temp_ss, 4) + ":" + h(temp_esp >>> 0, 8), LOG_CPU);
+        //dbg_log("outer privilege return: from=" + this.cpl + " to=" + info.rpl + " ss:esp=" + h(temp_ss, 4) + ":" + h(temp_esp >>> 0, 8), LOG_CPU);
 
         // XXX: Can raise, conditions should be checked before side effects
         this.switch_seg(reg_ss, temp_ss);
@@ -2002,9 +1997,6 @@ CPU.prototype.do_task_switch = function(selector)
     this.clear_tlb();
 
     this.cr[0] |= CR0_TS;
-
-    //debugger;
-    //throw "todo";
 };
 
 CPU.prototype.hlt_op = function()
@@ -2032,13 +2024,14 @@ CPU.prototype.hlt_op = function()
 // assumes ip to point to the byte before the next instruction
 CPU.prototype.raise_exception = function(interrupt_nr)
 {
-    if(DEBUG && interrupt_nr !== 7)
-    {
-        // show interesting exceptions
-        dbg_log("Exception " + h(interrupt_nr), LOG_CPU);
-        dbg_trace(LOG_CPU);
-        this.debug.dump_regs_short();
-    }
+    //if(DEBUG && interrupt_nr !== 7)
+    //{
+    //    // show interesting exceptions
+    //    dbg_log("Exception " + h(interrupt_nr) + " at " + h(this.previous_ip >>> 0, 8) + " (cs=" + h(this.sreg[reg_cs], 4) + ")", LOG_CPU);
+    //    dbg_trace(LOG_CPU);
+    //    this.debug.dump_regs_short();
+    //    this.debug.dump_state();
+    //}
 
     this.call_interrupt_vector(interrupt_nr, false, false);
     throw MAGIC_CPU_EXCEPTION;
@@ -2046,12 +2039,12 @@ CPU.prototype.raise_exception = function(interrupt_nr)
 
 CPU.prototype.raise_exception_with_code = function(interrupt_nr, error_code)
 {
-    if(DEBUG)
-    {
-        dbg_log("Exception " + h(interrupt_nr) + " err=" + h(error_code), LOG_CPU);
-        dbg_trace(LOG_CPU);
-        this.debug.dump_regs_short();
-    }
+    //if(DEBUG)
+    //{
+    //    dbg_log("Exception " + h(interrupt_nr) + " err=" + h(error_code) + " at " + h(this.previous_ip >>> 0, 8) + " (cs=" + h(this.sreg[reg_cs], 4) + ")", LOG_CPU);
+    //    dbg_trace(LOG_CPU);
+    //    this.debug.dump_regs_short();
+    //}
 
     this.call_interrupt_vector(interrupt_nr, false, error_code);
     throw MAGIC_CPU_EXCEPTION;
@@ -2593,12 +2586,20 @@ CPU.prototype.update_operand_size = function()
     if(this.operand_size_32)
     {
         this.table = this.table32;
-        this.large_table = this.large_table32;
+
+        if(OP_TRANSLATION)
+        {
+            this.large_table = this.large_table32;
+        }
     }
     else
     {
         this.table = this.table16;
-        this.large_table = this.large_table16;
+
+        if(OP_TRANSLATION)
+        {
+            this.large_table = this.large_table16;
+        }
     }
 };
 
@@ -2902,7 +2903,8 @@ CPU.prototype.load_tr = function(selector)
 {
     var info = this.lookup_segment_selector(selector);
 
-    dbg_log("load tr: " + h(selector, 4), LOG_CPU);
+    dbg_assert(info.is_valid);
+    dbg_log("load tr: " + h(selector, 4) + " offset=" + h(info.base >>> 0, 8) + " limit=" + h(info.effective_limit >>> 0, 8), LOG_CPU);
 
     if(!info.from_gdt)
     {
@@ -2927,7 +2929,7 @@ CPU.prototype.load_tr = function(selector)
         throw this.debug.unimpl("#GP handler");
     }
 
-    if(info.type !== 9)
+    if(info.type !== 9 && info.type !== 1)
     {
         // 0xB: busy 386 TSS (GP)
         // 0x3: busy 286 TSS (GP)
@@ -2936,6 +2938,11 @@ CPU.prototype.load_tr = function(selector)
         throw this.debug.unimpl("#GP handler");
     }
 
+    if(info.type === 1)
+    {
+        // 286 tss: Load 16 bit values from tss in call_interrupt_vector
+        throw this.debug.unimpl("286 tss");
+    }
 
     this.segment_offsets[reg_tr] = info.base;
     this.segment_limits[reg_tr] = info.effective_limit;
@@ -2958,6 +2965,8 @@ CPU.prototype.load_ldt = function(selector)
         this.segment_limits[reg_ldtr] = 0;
         return;
     }
+
+    dbg_assert(info.is_valid);
 
     if(!info.from_gdt)
     {
@@ -3021,7 +3030,7 @@ CPU.prototype.lar = function(selector, original)
                          !info.is_conforming_executable && dpl_bad)
     ) {
         this.flags &= ~flag_zero;
-        dbg_log("lar: invali selector=" + h(selector, 4) + " d is_null=" + info.is_null, LOG_CPU);
+        dbg_log("lar: invalid selector=" + h(selector, 4) + " is_null=" + info.is_null, LOG_CPU);
         return original;
     }
     else
@@ -3430,12 +3439,6 @@ CPU.prototype.trigger_pagefault = function(write, user, present)
     //        " eip=" + h(this.previous_ip >>> 0, 8) +
     //        " cr2=" + h(this.cr[2] >>> 0, 8), LOG_CPU);
     //dbg_trace(LOG_CPU);
-
-    // likely invalid pointer reference
-    //if((this.cr[2] >>> 0) < 0x100)
-    //{
-    //    throw "stop";
-    //}
 
     if(this.page_fault)
     {

@@ -242,7 +242,7 @@ CPU.prototype.debug_init = function()
 
         dbg_log("mode=" + mode + "/" + op_size + " paging=" + (+cpu.paging) + " vm=" + vm +
                 " iopl=" + iopl + " cpl=" + cpl + " if=" + if_ + " cs:eip=" + cs_eip +
-                " cs_off=" + h(cpu.get_seg(reg_cs) >>> 0, 8), LOG_CPU);
+                " cs_off=" + h(cpu.get_seg(reg_cs) >>> 0, 8) + " flgs=" + h(cpu.get_eflags() >>> 0), LOG_CPU);
     }
 
     function dump_regs_short()
@@ -380,10 +380,10 @@ CPU.prototype.debug_init = function()
         if(!DEBUG) return;
 
         dbg_log("gdt: (len = " + h(cpu.gdtr_size) + ")");
-        dump_table(cpu.translate_address_read(cpu.gdtr_offset), cpu.gdtr_size);
+        dump_table(cpu.translate_address_system_read(cpu.gdtr_offset), cpu.gdtr_size);
 
         dbg_log("\nldt: (len = " + h(cpu.segment_limits[reg_ldtr]) + ")");
-        dump_table(cpu.translate_address_read(cpu.segment_offsets[reg_ldtr]), cpu.segment_limits[reg_ldtr]);
+        dump_table(cpu.translate_address_system_read(cpu.segment_offsets[reg_ldtr]), cpu.segment_limits[reg_ldtr]);
 
         function dump_table(addr, size)
         {
@@ -436,6 +436,8 @@ CPU.prototype.debug_init = function()
                         // data
                         flags_str += "R ";
                     }
+
+                    flags_str += "RW ";
                 }
                 else
                 {
