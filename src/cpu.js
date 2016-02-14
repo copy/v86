@@ -3089,6 +3089,43 @@ CPU.prototype.lsl = function(selector, original)
 
 };
 
+CPU.prototype.verr = function(selector)
+{
+    var info = this.lookup_segment_selector(selector);
+    this.flags_changed &= ~flag_zero;
+
+    if(info.is_null || !info.is_valid || info.is_system || !info.is_readable ||
+       (!info.is_conforming_executable && (info.dpl < this.cpl || info.dpl < info.rpl)))
+    {
+        dbg_log("verr -> invalid. selector=" + h(selector, 4, LOG_CPU));
+        this.flags &= ~flag_zero;
+    }
+    else
+    {
+        dbg_log("verr -> valid. selector=" + h(selector, 4), LOG_CPU);
+        this.flags |= flag_zero;
+    }
+};
+
+CPU.prototype.verw = function(selector)
+{
+    var info = this.lookup_segment_selector(selector);
+    this.flags_changed &= ~flag_zero;
+
+    if(info.is_null || !info.is_valid || info.is_system || !info.is_writable ||
+       info.dpl < this.cpl || info.dpl < info.rpl)
+    {
+        dbg_log("verw invalid " + " " + h(selector) + " " + info.is_null + " " +
+                !info.is_valid + " " + info.is_system + " " + !info.is_writable + " " +
+                (info.dpl < this.cpl) + " " + (info.dpl < info.rpl) + " " + LOG_CPU);
+        this.flags &= ~flag_zero;
+    }
+    else
+    {
+        this.flags |= flag_zero;
+    }
+};
+
 CPU.prototype.clear_tlb = function()
 {
     // clear tlb excluding global pages

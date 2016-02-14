@@ -1670,18 +1670,10 @@ t[0x00] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             cpu.load_tr(data);
             break;
         case 4:
-            // verr
-            var reg = cpu.read_e16(addr);
-            dbg_log("unimplemented: verr  " + h(reg, 4));
-            cpu.flags_changed &= ~flag_zero;
-            cpu.flags |= flag_zero;
+            cpu.verr(cpu.read_e16(addr));
             break;
         case 5:
-            // verw
-            var reg = cpu.read_e16(addr);
-            dbg_log("unimplemented: verw  " + h(reg, 4));
-            cpu.flags_changed &= ~flag_zero;
-            cpu.flags |= flag_zero;
+            cpu.verw(cpu.read_e16(addr));
             break;
 
         default:
