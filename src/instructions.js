@@ -243,23 +243,11 @@ t[0x63] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 t[0x64] = cpu => { cpu.segment_prefix = reg_fs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };
 t[0x65] = cpu => { cpu.segment_prefix = reg_gs; cpu.do_op(); cpu.segment_prefix = SEG_PREFIX_NONE; };
 
-t16[0x66] = cpu => {
+t[0x66] = cpu => {
     // Operand-size override prefix
-    dbg_assert(cpu.operand_size_32 === cpu.is_32);
-
-    cpu.operand_size_32 = true;
-
-    cpu.table = cpu.table32;
-    cpu.do_op();
-
-    cpu.operand_size_32 = cpu.is_32;
+    cpu.operand_size_32 = !cpu.is_32;
     cpu.update_operand_size();
-};
-t32[0x66] = cpu => {
-    dbg_assert(cpu.operand_size_32 === cpu.is_32);
-    cpu.operand_size_32 = false;
 
-    cpu.table = cpu.table16;
     cpu.do_op();
 
     cpu.operand_size_32 = cpu.is_32;
