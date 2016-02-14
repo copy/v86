@@ -301,6 +301,8 @@ VGAScreen.prototype.get_state = function()
     state[37] = this.dispi_index;
     state[38] = this.dispi_enable_value;
     state[39] = this.svga_memory;
+    state[40] = this.graphical_mode_is_linear;
+    state[41] = this.attribute_controller_index;
 
     return state;
 };
@@ -347,6 +349,8 @@ VGAScreen.prototype.set_state = function(state)
     this.dispi_index = state[37];
     this.dispi_enable_value = state[38];
     this.svga_memory.set(state[39]);
+    this.graphical_mode_is_linear = state[40];
+    this.attribute_controller_index = state[41];
 
     this.bus.send("screen-set-mode", this.graphical_mode);
 
@@ -780,6 +784,8 @@ VGAScreen.prototype.set_video_mode = function(mode)
 
     if(is_graphical)
     {
+        this.svga_width = width;
+        this.svga_height = height;
         this.set_size_graphical(width, height, 8);
     }
 
