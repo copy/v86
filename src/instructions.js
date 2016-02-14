@@ -619,9 +619,8 @@ t16[0x9D] = cpu => {
 };
 t32[0x9D] = cpu => {
     // popf
-    if(cpu.flags & flag_vm)
+    if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
     {
-        // in vm86 mode, pop causes a #GP when used with the operand-size prefix
         dbg_log("popf #gp", LOG_CPU);
         cpu.trigger_gp(0);
     }
