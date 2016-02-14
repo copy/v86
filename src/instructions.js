@@ -848,46 +848,47 @@ t32[0xC9] = cpu => {
 };
 t16[0xCA] = cpu => {
     // retf
-    cpu.translate_address_read(cpu.get_stack_pointer(3));
-
     var imm16 = cpu.read_imm16();
-    var ip = cpu.pop16();
+    var ip = cpu.safe_read16(cpu.get_stack_pointer(0));
+    var cs = cpu.safe_read16(cpu.get_stack_pointer(2));
 
-    cpu.switch_seg(reg_cs, cpu.pop16());
+    cpu.switch_seg(reg_cs, cs);
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
 
-    cpu.adjust_stack_reg(imm16);
+    cpu.adjust_stack_reg(imm16 + 4 | 0);
 };
 t32[0xCA] = cpu => {
     // retf
     var imm16 = cpu.read_imm16();
 
-    cpu.translate_address_read(cpu.get_stack_pointer(7));
-    var ip = cpu.pop32s();
+    var ip = cpu.safe_read32s(cpu.get_stack_pointer(0));
+    var cs = cpu.safe_read32s(cpu.get_stack_pointer(4)) & 0xFFFF;
 
-    cpu.switch_seg(reg_cs, cpu.pop32s() & 0xFFFF);
+    cpu.switch_seg(reg_cs, cs);
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
     dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
 
-    cpu.adjust_stack_reg(imm16);
+    cpu.adjust_stack_reg(imm16 + 8 | 0);
 };
 t16[0xCB] = cpu => {
     // retf
-    cpu.translate_address_read(cpu.get_stack_pointer(3));
-    var ip = cpu.pop16();
+    var ip = cpu.safe_read16(cpu.get_stack_pointer(0));
+    var cs = cpu.safe_read16(cpu.get_stack_pointer(2));
 
-    cpu.switch_seg(reg_cs, cpu.pop16());
+    cpu.switch_seg(reg_cs, cs);
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
     dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
+    cpu.adjust_stack_reg(4);
 };
 t32[0xCB] = cpu => {
     // retf
-    cpu.translate_address_read(cpu.get_stack_pointer(7));
-    var ip = cpu.pop32s();
+    var ip = cpu.safe_read32s(cpu.get_stack_pointer(0));
+    var cs = cpu.safe_read32s(cpu.get_stack_pointer(4)) & 0xFFFF;
 
-    cpu.switch_seg(reg_cs, cpu.pop32s() & 0xFFFF);
+    cpu.switch_seg(reg_cs, cs);
     cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
     dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
+    cpu.adjust_stack_reg(8);
 };
 
 t[0xCC] = cpu => {
