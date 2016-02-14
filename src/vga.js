@@ -700,10 +700,12 @@ VGAScreen.prototype.svga_memory_write32 = function(addr, value)
 
 VGAScreen.prototype.complete_redraw = function()
 {
+    dbg_log("complete redraw", LOG_VGA);
+
     if(this.graphical_mode)
     {
-        this.diff_addr_min = this.vga_memory_size;
-        this.diff_addr_max = 0;
+        this.diff_addr_min = 0;
+        this.diff_addr_max = this.vga_memory_size;
     }
     else
     {
