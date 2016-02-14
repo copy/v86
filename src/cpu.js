@@ -1719,55 +1719,56 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
 CPU.prototype.iret16 = function()
 {
-    if(!this.protected_mode || (this.vm86_mode() && this.getiopl() === 3))
-    {
-        if(this.vm86_mode())
-        {
-            //dbg_log("iret16 in vm86 mode  iopl=3", LOG_CPU);
-            //this.debug.dump_regs_short();
-        }
-
-        var new_ip = this.pop16();
-        var new_cs = this.pop16();
-        var new_flags = this.pop16();
-
-        this.switch_seg(reg_cs, new_cs);
-
-        this.instruction_pointer = new_ip + this.get_seg(reg_cs) | 0;
-        this.update_eflags((this.flags & ~0xFFFF) | new_flags);
-
-        this.handle_irqs();
-    }
-    else
-    {
-        if(this.vm86_mode())
-        {
-            // vm86 mode, iopl != 3
-            this.trigger_gp(0);
-        }
-
-        throw this.debug.unimpl("16 bit iret in protected mode");
-    }
-};
+    this.iret(true);
+}
 
 CPU.prototype.iret32 = function()
 {
+    this.iret(false);
+}
+
+CPU.prototype.iret = function(is_16)
+{
+    //dbg_log("iret is_16=" + is_16, LOG_CPU);
+    //this.debug.dump_state();
+    //this.debug.dump_regs_short();
+
+    if(is_16)
+    {
+        var new_eip = this.safe_read16(this.get_stack_pointer(0));
+        var new_cs = this.safe_read16(this.get_stack_pointer(2));
+        var new_flags = this.safe_read16(this.get_stack_pointer(4));
+    }
+    else
+    {
+        var new_eip = this.safe_read32s(this.get_stack_pointer(0));
+        var new_cs = this.safe_read16(this.get_stack_pointer(4));
+        var new_flags = this.safe_read32s(this.get_stack_pointer(8));
+    }
+
     if(!this.protected_mode || (this.vm86_mode() && this.getiopl() === 3))
     {
-        //if(this.vm86_mode()) dbg_log("iret in vm86 mode  iopl=3", LOG_CPU);
-
-        var ip = this.pop32s();
-
-        if(ip & 0xFFFF0000)
+        if(new_eip & 0xFFFF0000)
         {
             throw this.debug.unimpl("#GP handler");
         }
 
-        this.switch_seg(reg_cs, this.pop32s() & 0xFFFF);
-        var new_flags = this.pop32s();
+        this.switch_seg(reg_cs, new_cs);
+        this.instruction_pointer = new_eip + this.get_seg(reg_cs) | 0;
 
-        this.instruction_pointer = ip + this.get_seg(reg_cs) | 0;
-        this.update_eflags(new_flags);
+        if(is_16)
+        {
+            this.update_eflags(new_flags | this.flags & ~0xFFFF);
+            this.adjust_stack_reg(3 * 2);
+        }
+        else
+        {
+            this.update_eflags(new_flags);
+            this.adjust_stack_reg(3 * 4);
+        }
+
+        //dbg_log("iret32 to:", LOG_CPU);
+        //this.debug.dump_state();
 
         this.handle_irqs();
         return;
@@ -1776,18 +1777,15 @@ CPU.prototype.iret32 = function()
     if(this.vm86_mode())
     {
         // vm86 mode, iopl != 3
+        dbg_log("#gp iret vm86 mode, iopl != 3", LOG_CPU)
         this.trigger_gp(0);
     }
 
     if(this.flags & flag_nt)
     {
         if(DEBUG) throw this.debug.unimpl("nt");
+        this.trigger_gp(0);
     }
-
-    this.instruction_pointer = this.pop32s();
-    this.sreg[reg_cs] = this.pop32s();
-
-    var new_flags = this.pop32s();
 
     if(new_flags & flag_vm)
     {
@@ -1795,46 +1793,66 @@ CPU.prototype.iret32 = function()
         {
             // return to virtual 8086 mode
 
+            // vm86 cannot be set in 16 bit flag
+            dbg_assert(!is_16);
+
+            dbg_assert((new_eip & ~0xFFFF) === 0);
+
+            //dbg_log("in vm86 mode now " +
+            //        " cs:eip=" + h(new_cs, 4) + ":" + h(this.instruction_pointer >>> 0, 8) +
+            //        " iopl=" + this.getiopl() + " flags=" + h(new_flags, 8), LOG_CPU);
+
+
+            var temp_esp = this.safe_read32s(this.get_stack_pointer(12));
+            var temp_ss = this.safe_read16(this.get_stack_pointer(16));
+
+            var new_es = this.safe_read16(this.get_stack_pointer(20));
+            var new_ds = this.safe_read16(this.get_stack_pointer(24));
+            var new_fs = this.safe_read16(this.get_stack_pointer(28));
+            var new_gs = this.safe_read16(this.get_stack_pointer(32));
+
+            // no exceptions below
+
             this.update_eflags(new_flags);
             this.flags |= flag_vm;
 
-            //dbg_log("in vm86 mode now " +
-            //        " cs:eip=" + h(this.sreg[reg_cs]) + ":" + h(this.instruction_pointer >>> 0) +
-            //        " iopl=" + this.getiopl(), LOG_CPU);
+            this.switch_seg(reg_cs, new_cs);
+            this.instruction_pointer = (new_eip & 0xFFFF) + this.get_seg(reg_cs) | 0;
 
-            this.switch_seg(reg_cs, this.sreg[reg_cs]);
-            this.instruction_pointer = (this.instruction_pointer & 0xFFFF) + this.get_seg(reg_cs) | 0;
+            this.switch_seg(reg_es, new_es);
+            this.switch_seg(reg_ds, new_ds);
+            this.switch_seg(reg_fs, new_fs);
+            this.switch_seg(reg_gs, new_gs);
 
-            var temp_esp = this.pop32s();
-            var temp_ss = this.pop32s();
-
-            this.switch_seg(reg_es, this.pop32s() & 0xFFFF);
-            this.switch_seg(reg_ds, this.pop32s() & 0xFFFF);
-            this.switch_seg(reg_fs, this.pop32s() & 0xFFFF);
-            this.switch_seg(reg_gs, this.pop32s() & 0xFFFF);
+            this.adjust_stack_reg(9 * 4); // 9 dwords: eip, cs, flags, esp, ss, es, ds, fs, gs
 
             this.reg32s[reg_esp] = temp_esp;
-            this.switch_seg(reg_ss, temp_ss & 0xFFFF);
+            this.switch_seg(reg_ss, temp_ss);
 
             this.cpl = 3;
             this.cpl_changed();
 
             this.update_cs_size(false);
 
+            //dbg_log("iret32 to:", LOG_CPU);
+            //this.debug.dump_state();
             //this.debug.dump_regs_short();
 
             return;
         }
         else
         {
-            // ignored if not cpl=0
+            dbg_log("vm86 flag ignored because cpl != 0"), LOG_CPU;
             new_flags &= ~flag_vm;
         }
     }
 
     // protected mode return
 
-    var info = this.lookup_segment_selector(this.sreg[reg_cs]);
+    var info = this.lookup_segment_selector(new_cs);
+
+    dbg_assert(info.is_valid);
+    dbg_assert((new_eip >>> 0) <= info.effective_limit);
 
     if(info.is_null)
     {
@@ -1857,47 +1875,81 @@ CPU.prototype.iret32 = function()
         throw this.debug.unimpl("conforming and dpl > rpl");
     }
 
+
     if(info.rpl > this.cpl)
     {
         // outer privilege return
-        var temp_esp = this.pop32s();
-        var temp_ss = this.pop32s();
-
-
-        this.reg32s[reg_esp] = temp_esp;
-
-        this.update_eflags(new_flags);
-
-        if(!this.cpl)
+        if(is_16)
         {
-            this.flags = this.flags & ~flag_vif & ~flag_vip | (new_flags & (flag_vif | flag_vip));
+            var temp_esp = this.safe_read16(this.get_stack_pointer(6));
+            var temp_ss = this.safe_read16(this.get_stack_pointer(8));
+        }
+        else
+        {
+            var temp_esp = this.safe_read32s(this.get_stack_pointer(12));
+            var temp_ss = this.safe_read16(this.get_stack_pointer(16));
+        }
+
+        // no exceptions below
+
+        if(is_16)
+        {
+            this.update_eflags(new_flags | this.flags & ~0xFFFF);
+        }
+        else
+        {
+            this.update_eflags(new_flags);
         }
 
         this.cpl = info.rpl;
         this.cpl_changed();
 
-        this.switch_seg(reg_ss, temp_ss & 0xFFFF);
+        dbg_log("outer privilege return: from=" + this.cpl + " to=" + info.rpl + " ss:esp=" + h(temp_ss, 4) + ":" + h(temp_esp >>> 0, 8), LOG_CPU);
 
-        //dbg_log("iret cpu.cpl=" + this.cpl + " to " + h(this.instruction_pointer) +
-        //        " cs:eip=" + h(this.sreg[reg_cs],4) + ":" + h(this.get_real_eip(), 8) +
-        //        " ss:esp=" + h(temp_ss & 0xFFFF, 2) + ":" + h(temp_esp, 8), LOG_CPU);
-    }
-    else
-    {
-        // same privilege return
-        dbg_assert(info.rpl === this.cpl);
+        // XXX: Can raise, conditions should be checked before side effects
+        this.switch_seg(reg_ss, temp_ss);
 
-        this.update_eflags(new_flags);
+        this.set_stack_reg(temp_esp);
 
-        // update vip and vif, which are not changed by update_eflags
-        if(!this.cpl)
+        if(this.cpl === 0)
         {
             this.flags = this.flags & ~flag_vif & ~flag_vip | (new_flags & (flag_vif | flag_vip));
         }
 
-        //dbg_log(h(new_flags) + " " + h(this.flags));
-        //dbg_log("iret to " + h(this.instruction_pointer));
+
+        // XXX: Set segment to 0 if it's not usable in the new cpl
+        // XXX: Use cached segment information
+        //var ds_info = this.lookup_segment_selector(this.sreg[reg_ds]);
+        //if(this.cpl > ds_info.dpl && (!ds_info.is_executable || !ds_info.dc_bit)) this.switch_seg(reg_ds, 0);
+        // ...
     }
+    else if(info.rpl === this.cpl)
+    {
+        // same privilege return
+        // no exceptions below
+        if(is_16)
+        {
+            this.adjust_stack_reg(3 * 2);
+            this.update_eflags(new_flags | this.flags & ~0xFFFF);
+        }
+        else
+        {
+            this.adjust_stack_reg(3 * 4);
+            this.update_eflags(new_flags);
+        }
+
+        // update vip and vif, which are not changed by update_eflags
+        if(this.cpl === 0)
+        {
+            this.flags = this.flags & ~flag_vif & ~flag_vip | (new_flags & (flag_vif | flag_vip));
+        }
+    }
+    else
+    {
+        dbg_assert(false);
+    }
+
+    this.sreg[reg_cs] = new_cs;
 
     dbg_assert(typeof info.size === "boolean");
     if(info.size !== this.is_32)
@@ -1908,11 +1960,10 @@ CPU.prototype.iret32 = function()
     this.segment_limits[reg_cs] = info.effective_limit;
     this.segment_offsets[reg_cs] = info.base;
 
-    this.instruction_pointer = this.instruction_pointer + this.get_seg(reg_cs) | 0;
+    this.instruction_pointer = new_eip + this.get_seg(reg_cs) | 0;
 
-    //dbg_log("iret if=" + (this.flags & flag_interrupt) +
-    //        " cpl=" + this.cpl +
-    //        " eip=" + h(this.instruction_pointer >>> 0, 8), LOG_CPU);
+    //dbg_log("iret is_16=" + is_16 + " to:", LOG_CPU);
+    //this.debug.dump_state();
 
     this.handle_irqs();
 };
