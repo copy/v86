@@ -5,7 +5,7 @@
  *
  * @param {BusConnector} bus
  */
-function MouseAdapter(bus)
+function MouseAdapter(bus, screen_container)
 {
     /** @const */
     var SPEED_FACTOR = 0.15;
@@ -41,6 +41,8 @@ function MouseAdapter(bus)
         document.removeEventListener("contextmenu", contextmenu_handler, false);
         window.removeEventListener("mousedown", mousedown_handler, false);
         window.removeEventListener("mouseup", mouseup_handler, false);
+        window.removeEventListener("DOMMouseScroll", mousewheel_handler, false);
+        window.removeEventListener("mousewheel", mousewheel_handler, false);
     };
 
     this.init = function()
@@ -58,13 +60,44 @@ function MouseAdapter(bus)
         document.addEventListener("contextmenu", contextmenu_handler, false);
         window.addEventListener("mousedown", mousedown_handler, false);
         window.addEventListener("mouseup", mouseup_handler, false);
+        window.addEventListener("DOMMouseScroll", mousewheel_handler, false);
+        window.addEventListener("mousewheel", mousewheel_handler, false);
     };
     this.init();
 
+    function is_child(child, parent)
+    {
+        while(child.parentNode)
+        {
+            if(child === parent)
+            {
+                return true;
+            }
+            child = child.parentNode;
+        }
+
+        return false;
+    }
+
     function may_handle(e)
     {
-        return mouse.enabled && mouse.emu_enabled &&
-            (!e.target || e.type === "mousemove" || e.type === "touchmove" || (e.target.nodeName !== "INPUT" && e.target.nodeName !== "TEXTAREA"));
+        if(!mouse.enabled || !mouse.emu_enabled)
+        {
+            return false;
+        }
+
+        if(e.type === "mousemove" || e.type === "touchmove")
+        {
+            return true;
+        }
+
+        if(e.type === "mousewheel" || e.type === "DOMMouseScroll")
+        {
+            var parent = screen_container || document.body;
+            return is_child(e.target, parent);
+        }
+
+        return !e.target || e.target.nodeName !== "INPUT" && e.target.nodeName !== "TEXTAREA";
     }
 
     function touch_start_handler(e)
@@ -122,7 +155,7 @@ function MouseAdapter(bus)
                 e.preventDefault();
             }
         }
-        else if(true)
+        else
         {
             if(typeof e["movementX"] === "number")
             {
@@ -139,15 +172,15 @@ function MouseAdapter(bus)
                 delta_x = e["mozMovementX"];
                 delta_y = e["mozMovementY"];
             }
-        }
-        else
-        {
-            // Fallback for other browsers?
-            delta_x = e.clientX - last_x;
-            delta_y = e.clientY - last_y;
+            else
+            {
+                // Fallback for other browsers?
+                delta_x = e.clientX - last_x;
+                delta_y = e.clientY - last_y;
 
-            last_x = e.clientX;
-            last_y = e.clientY;
+                last_x = e.clientX;
+                last_y = e.clientY;
+            }
         }
 
         if(SPEED_FACTOR !== 1)
@@ -215,6 +248,29 @@ function MouseAdapter(bus)
         }
         mouse.bus.send("mouse-click", [left_down, middle_down, right_down]);
 
+        e.preventDefault();
+    }
+
+    function mousewheel_handler(e)
+    {
+        if(!may_handle(e))
+        {
+            return;
+        }
+
+        var delta_x = e.wheelDelta || -e.detail;
+        var delta_y = 0;
+
+        if(delta_x < 0)
+        {
+            delta_x = -1;
+        }
+        else if(delta_x > 0)
+        {
+            delta_x = 1;
+        }
+
+        mouse.bus.send("mouse-wheel", [delta_x, delta_y]);
         e.preventDefault();
     }
 }
