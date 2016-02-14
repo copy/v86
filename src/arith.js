@@ -288,7 +288,7 @@ CPU.prototype.imul_reg16 = function(operand1, operand2)
     return result;
 }
 
-CPU.mul32_result = new Int32Array(2);
+var mul32_result = new Int32Array(2);
 
 CPU.prototype.do_mul32 = function(a, b)
 {
@@ -300,9 +300,9 @@ CPU.prototype.do_mul32 = function(a, b)
     var mid = (low_result >>> 16) + (a16 * b00 | 0) | 0;
     var high_result = mid >>> 16;
     mid = (mid & 0xFFFF) + (a00 * b16 | 0) | 0;
-    CPU.mul32_result[0] = (mid << 16) | low_result & 0xFFFF;
-    CPU.mul32_result[1] = ((mid >>> 16) + (a16 * b16 | 0) | 0) + high_result | 0;
-    return CPU.mul32_result;
+    mul32_result[0] = (mid << 16) | low_result & 0xFFFF;
+    mul32_result[1] = ((mid >>> 16) + (a16 * b16 | 0) | 0) + high_result | 0;
+    return mul32_result;
 };
 
 CPU.prototype.do_imul32 = function(a, b)
@@ -502,7 +502,7 @@ CPU.prototype.idiv16 = function(source_operand)
     }
 }
 
-CPU.div32_result = new Float64Array(2);
+var div32_result = new Float64Array(2);
 
 // If the dividend is too large, the division cannot be done precisely using
 // JavaScript's double floating point numbers. Run simple long divsion until
@@ -550,9 +550,9 @@ CPU.prototype.do_div32 = function(div_low, div_high, quot)
     var mod = div % quot;
     result += div / quot | 0;
 
-    CPU.div32_result[0] = result;
-    CPU.div32_result[1] = mod;
-    return CPU.div32_result;
+    div32_result[0] = result;
+    div32_result[1] = mod;
+    return div32_result;
 }
 
 
