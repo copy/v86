@@ -1063,25 +1063,18 @@ VGAScreen.prototype.port3D5_write = function(value)
 
 VGAScreen.prototype.port3D5_read = function()
 {
-    if(this.index_crtc === 0x9)
+    switch(this.index_crtc)
     {
-        return this.max_scan_line;
-    }
-    if(this.index_crtc === 0xA)
-    {
-        return this.cursor_scanline_start;
-    }
-    else if(this.index_crtc === 0xB)
-    {
-        return this.cursor_scanline_end;
-    }
-    else if(this.index_crtc === 0xE)
-    {
-        return this.cursor_address >> 8;
-    }
-    else if(this.index_crtc === 0xF)
-    {
-        return this.cursor_address & 0xFF;
+        case 0x9:
+            return this.max_scan_line;
+        case 0xA:
+            return this.cursor_scanline_start;
+        case 0xB:
+            return this.cursor_scanline_end;
+        case 0xE:
+            return this.cursor_address >> 8;
+        case 0xF:
+            return this.cursor_address & 0xFF;
     }
 
     dbg_log("3D5 read " + h(this.index_crtc), LOG_VGA);
