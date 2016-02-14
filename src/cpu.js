@@ -2736,6 +2736,8 @@ CPU.prototype.lookup_segment_selector = function(selector)
         dc_bit: false,
         size: false,
 
+        is_conforming_executable: false,
+
         // limit after applying granularity
         effective_limit: 0,
 
@@ -2800,6 +2802,8 @@ CPU.prototype.lookup_segment_selector = function(selector)
 
     info.rw_bit = (info.access & 2) === 2;
     info.dc_bit = (info.access & 4) === 4;
+
+    info.is_conforming_executable = info.dc_bit && info.is_executable;
 
     info.size = (info.flags & 4) === 4;
 
@@ -3099,7 +3103,7 @@ CPU.prototype.lar = function(selector, original)
 
     if(info.is_null || !info.is_valid ||
        (info.is_system ? (LAR_INVALID_TYPE >> info.type & 1) || dpl_bad :
-                         (!info.is_executable || !info.dc_bit) && dpl_bad)
+                         !info.is_conforming_executable && dpl_bad)
     ) {
         this.flags &= ~flag_zero;
         dbg_log("lar: invali selector=" + h(selector, 4) + " d is_null=" + info.is_null, LOG_CPU);
@@ -3126,7 +3130,7 @@ CPU.prototype.lsl = function(selector, original)
 
     if(info.is_null || !info.is_valid ||
        (info.is_system ? (LSL_INVALID_TYPE >> info.type & 1) || dpl_bad :
-                         (!info.is_executable || !info.dc_bit) && dpl_bad)
+                         !info.is_conforming_executable && dpl_bad)
     ) {
         this.flags &= ~flag_zero;
         dbg_log("lsl: invalid  selector=" + h(selector, 4) + " is_null=" + info.is_null, LOG_CPU);
