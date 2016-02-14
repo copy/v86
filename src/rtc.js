@@ -122,6 +122,7 @@ RTC.prototype.set_state = function(state)
 
 RTC.prototype.timer = function(time, legacy_mode)
 {
+    time = Date.now(); // XXX
     this.rtc_time += time - this.last_update;
     this.last_update = time;
 

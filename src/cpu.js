@@ -403,9 +403,7 @@ CPU.prototype.main_run = function()
     {
         if(this.in_hlt)
         {
-            var t = this.hlt_loop();
-            return 0;
-            //return t;
+            return this.hlt_loop();
         }
         else
         {
@@ -750,7 +748,7 @@ CPU.prototype.do_run = function()
         /**
          * @type {number}
          */
-        start = Date.now(),
+        start = v86.microtick(),
         now = start;
 
     // outer loop:
@@ -790,7 +788,7 @@ CPU.prototype.do_run = function()
             }
         }
 
-        now = Date.now();
+        now = v86.microtick();
     }
 };
 
@@ -848,7 +846,7 @@ CPU.prototype.hlt_loop = function()
 {
     //dbg_log("In HLT loop", LOG_CPU);
 
-    var now = Date.now();
+    var now = v86.microtick();
 
     if(ENABLE_HPET)
     {
