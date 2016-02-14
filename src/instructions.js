@@ -1469,8 +1469,8 @@ t16[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             }
 
             var virt_addr = cpu.modrm_resolve(cpu.modrm_byte);
-            var new_cs = cpu.safe_read16(virt_addr + 2);
             var new_ip = cpu.safe_read16(virt_addr);
+            var new_cs = cpu.safe_read16(virt_addr + 2 | 0);
             var old_cs = cpu.sreg[reg_cs];
             var old_ip = cpu.get_real_eip();
 
@@ -1499,8 +1499,8 @@ t16[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             }
 
             var virt_addr = cpu.modrm_resolve(cpu.modrm_byte);
-            var new_cs = cpu.safe_read16(virt_addr + 2);
             var new_ip = cpu.safe_read16(virt_addr);
+            var new_cs = cpu.safe_read16(virt_addr + 2 | 0);
 
             cpu.switch_seg(reg_cs, new_cs);
             cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0;
@@ -1542,8 +1542,8 @@ t32[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             }
 
             var virt_addr = cpu.modrm_resolve(cpu.modrm_byte);
-            var new_cs = cpu.safe_read16(virt_addr + 4);
             var new_ip = cpu.safe_read32s(virt_addr);
+            var new_cs = cpu.safe_read16(virt_addr + 4 | 0);
             var old_cs = cpu.sreg[reg_cs];
             var old_eip = cpu.get_real_eip();
 
@@ -1580,8 +1580,8 @@ t32[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             }
 
             var virt_addr = cpu.modrm_resolve(cpu.modrm_byte);
-            var new_cs = cpu.safe_read16(virt_addr + 4);
             var new_ip = cpu.safe_read32s(virt_addr);
+            var new_cs = cpu.safe_read16(virt_addr + 4 | 0);
 
             if(!cpu.protected_mode || cpu.vm86_mode())
             {
