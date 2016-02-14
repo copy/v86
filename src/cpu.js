@@ -517,6 +517,8 @@ CPU.prototype.reset = function()
     this.tsc_offset = v86.microtick();
 
     this.instruction_pointer = 0xFFFF0;
+    this.switch_seg(reg_cs, 0xF000);
+
     this.switch_seg(reg_ss, 0x30);
     this.reg16[reg_sp] = 0x100;
 
