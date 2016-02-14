@@ -15,6 +15,7 @@ function PS2(cpu, bus)
 
     /** @type {boolean} */
     this.enable_mouse_stream = false;
+
     /** @type {boolean} */
     this.use_mouse = false;
 
@@ -217,11 +218,11 @@ PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
         {
             var now = Date.now();
 
-            if(now - this.last_mouse_packet < 1000 / this.sample_rate)
-            {
-                // TODO: set timeout
-                return;
-            }
+            //if(now - this.last_mouse_packet < 1000 / this.sample_rate)
+            //{
+            //    // TODO: set timeout
+            //    return;
+            //}
 
             this.mouse_delta_x -= change_x;
             this.mouse_delta_y -= change_y;
