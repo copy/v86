@@ -2195,8 +2195,8 @@ t[0x32] = cpu => {
 
         case IA32_TIME_STAMP_COUNTER:
             var n = v86.microtick() - cpu.tsc_offset;
-            cpu.reg32s[reg_eax] = n * TSC_RATE;
-            cpu.reg32s[reg_edx] = n * (TSC_RATE / 0x100000000);
+            low = n * TSC_RATE;
+            high = n * (TSC_RATE / 0x100000000);
             break;
 
         case IA32_PLATFORM_ID:
