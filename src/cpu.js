@@ -2171,19 +2171,15 @@ CPU.prototype.get_seg = function(segment /*, offset*/)
     {
         if(this.segment_is_null[segment])
         {
-            // trying to access null segment
-            if(DEBUG)
-            {
-                dbg_log("Load null segment: " + segment + " sel=" + h(this.sreg[segment], 4), LOG_CPU);
-                throw this.debug.unimpl("#GP handler");
-            }
-        }
+            dbg_assert(segment !== reg_cs && segment !== reg_ss);
+            dbg_log("#gp Use null segment: " + segment + " sel=" + h(this.sreg[segment], 4), LOG_CPU);
 
+            this.trigger_gp(0);
+        }
 
         // TODO:
         // - validate segment limits
         // - validate if segment is writable
-        // - set accessed bit
     }
 
     return this.segment_offsets[segment];
@@ -2781,16 +2777,18 @@ CPU.prototype.switch_seg = function(reg, selector)
             dbg_trace(LOG_CPU);
             this.trigger_gp(0);
         }
+
         if(!info.is_valid ||
-                info.is_system ||
-                info.rpl !== this.cpl ||
-                !info.is_writable ||
-                info.dpl !== this.cpl)
+           info.is_system ||
+           info.rpl !== this.cpl ||
+           !info.is_writable ||
+           info.dpl !== this.cpl)
         {
             dbg_log("#GP for loading invalid in SS sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
             this.trigger_gp(selector & ~3);
         }
+
         if(!info.is_present)
         {
             dbg_log("#SS for loading non-present in SS sel=" + h(selector, 4), LOG_CPU);
@@ -2802,29 +2800,35 @@ CPU.prototype.switch_seg = function(reg, selector)
     }
     else if(reg === reg_cs)
     {
-        if(!info.is_executable)
-        {
-            // cs not executable
-            dbg_log(info + " " + h(selector & ~3), LOG_CPU);
-            this.trigger_gp(selector & ~3);
-            //throw this.debug.unimpl("#GP handler");
-        }
+        dbg_assert(!info.is_null, "todo: #gp");
+        dbg_assert(info.is_valid, "todo: #gp");
 
         if(info.is_system)
         {
-            dbg_log(info + " " + h(selector & ~3), LOG_CPU);
+            dbg_log("system type cs: " + h(selector), LOG_CPU);
             throw this.debug.unimpl("load system segment descriptor, type = " + (info.access & 15));
         }
 
-        //if(info.dc_bit && (info.dpl !== info.rpl))
-        //{
-        //    dbg_log(info + " " + h(selector & ~3), LOG_CPU);
-        //    throw this.debug.unimpl("#GP handler");
-        //}
-
-        if(info.rpl !== this.cpl)
+        if(!info.is_executable)
         {
-            dbg_log(info + " " + h(selector & ~3), LOG_CPU);
+            dbg_log("non-executable cs: " + h(selector), LOG_CPU);
+            this.trigger_gp(selector & ~3);
+        }
+
+        dbg_assert(info.rpl >= this.cpl, "todo: #gp");
+        dbg_assert(!(info.dc_bit && info.dpl > info.rpl), "todo: #gp");
+        dbg_assert(!(!info.dc_bit && info.dpl !== info.rpl), "todo: #gp");
+
+        if(!info.is_present)
+        {
+            dbg_log("#NP for loading not-present in cs sel=" + h(selector, 4), LOG_CPU);
+            dbg_trace(LOG_CPU);
+            this.trigger_np(selector & ~3);
+        }
+
+        if(info.rpl > this.cpl)
+        {
+            dbg_log("privilege change cs: " + h(selector), LOG_CPU);
             throw this.debug.unimpl("privilege change");
         }
 
@@ -2842,8 +2846,7 @@ CPU.prototype.switch_seg = function(reg, selector)
             }
             else
             {
-                // PE = 1, interrupt or trap gate, nonconforming code segment, DPL > CPL
-                dbg_log(info + " " + h(selector & ~3), LOG_CPU);
+                dbg_log("#GP for nonconforming code segment, DPL > CPL in cs sel=" + h(selector, 4), LOG_CPU);
                 throw this.debug.unimpl("#GP handler");
             }
         }
@@ -2865,17 +2868,18 @@ CPU.prototype.switch_seg = function(reg, selector)
             this.segment_is_null[reg] = 1;
             return;
         }
+
         if(!info.is_valid ||
-                info.is_system ||
-                !info.is_readable ||
-                ((!info.is_executable || !info.dc_bit) &&
-                 info.rpl > info.dpl &&
-                 this.cpl > info.dpl))
-        {
+           info.is_system ||
+           !info.is_readable ||
+           (!info.is_conforming_executable &&
+            (info.rpl > info.dpl || this.cpl > info.dpl))
+        ) {
             dbg_log("#GP for loading invalid in seg " + reg + " sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
             this.trigger_gp(selector & ~3);
         }
+
         if(!info.is_present)
         {
             dbg_log("#NP for loading not-present in seg " + reg + " sel=" + h(selector, 4), LOG_CPU);
@@ -2884,12 +2888,9 @@ CPU.prototype.switch_seg = function(reg, selector)
         }
     }
 
-    //dbg_log("seg " + reg + " " + h(info.base));
-
     this.segment_is_null[reg] = 0;
     this.segment_limits[reg] = info.effective_limit;
     //this.segment_infos[reg] = 0; // TODO
-
 
     //if(OP_TRANSLATION && (reg === reg_ds || reg === reg_ss) && info.base !== this.segment_offsets[reg])
     //{
