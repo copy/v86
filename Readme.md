@@ -4,6 +4,7 @@
 Demos
 -
 
+- [Windows 98](http://copy.sh/v86/?profile=windows98)
 - [Linux](http://copy.sh/v86/?profile=linux26)
 - [Linux 3](http://copy.sh/v86/?profile=linux3)
 - [KolibriOS](http://copy.sh/v86/?profile=kolibrios)
