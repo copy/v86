@@ -120,7 +120,7 @@ make build/libv86.js
 Why?
 -
 
-Similiar projects have been done before, but I decided to work on this as a fun
+Similar projects have been done before, but I decided to work on this as a fun
 project and learn something about the x86 architecture. It has grown pretty
 advanced and I got Linux and KolibriOS working, so there might be some actual
 uses.
