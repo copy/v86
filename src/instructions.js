@@ -2541,6 +2541,10 @@ t[0xAE] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 
     switch(cpu.modrm_byte >> 3 & 7)
     {
+        case 5:
+            // lfence
+            dbg_assert(cpu.modrm_byte >= 0xC0, "Unexpected mfence encoding");
+            break;
         case 6:
             // mfence
             dbg_assert(cpu.modrm_byte >= 0xC0, "Unexpected mfence encoding");
