@@ -2227,27 +2227,30 @@ CPU.prototype.read_e32 = function()
     return this.read_e32s() >>> 0;
 };
 
-CPU.prototype.set_e8 = function(addr, value)
+CPU.prototype.set_e8 = function(value)
 {
     if(this.modrm_byte < 0xC0) {
+        var addr = this.modrm_resolve(this.modrm_byte);
         this.safe_write8(addr, value);
     } else {
         this.reg8[this.modrm_byte << 2 & 0xC | this.modrm_byte >> 2 & 1] = value;
     }
 };
 
-CPU.prototype.set_e16 = function(addr, value)
+CPU.prototype.set_e16 = function(value)
 {
     if(this.modrm_byte < 0xC0) {
+        var addr = this.modrm_resolve(this.modrm_byte);
         this.safe_write16(addr, value);
     } else {
         this.reg16[this.modrm_byte << 1 & 14] = value;
     }
 };
 
-CPU.prototype.set_e32 = function(addr, value)
+CPU.prototype.set_e32 = function(value)
 {
     if(this.modrm_byte < 0xC0) {
+        var addr = this.modrm_resolve(this.modrm_byte);
         this.safe_write32(addr, value);
     } else {
         this.reg32s[this.modrm_byte & 7] = value;

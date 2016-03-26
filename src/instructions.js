@@ -394,9 +394,9 @@ t32[0x87] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var data = cpu.read_write_e32(); cpu.write_e32(cpu.xchg32(data, cpu.modrm_byte));
 };
 
-t[0x88] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.set_e8(addr, cpu.read_g8()); };
-t16[0x89] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.set_e16(addr, cpu.read_g16()); };
-t32[0x89] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.set_e32(addr, cpu.read_g32s()); }
+t[0x88] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.set_e8(cpu.read_g8()); };
+t16[0x89] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.set_e16(cpu.read_g16()); };
+t32[0x89] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.set_e32(cpu.read_g32s()); }
 
 t[0x8A] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var data = cpu.read_e8();
@@ -412,10 +412,10 @@ t32[0x8B] = cpu => { cpu.modrm_byte = cpu.read_imm8();
 };
 
 t16[0x8C] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.set_e16(addr, cpu.sreg[cpu.modrm_byte >> 3 & 7]);
+    cpu.set_e16(cpu.sreg[cpu.modrm_byte >> 3 & 7]);
 };
 t32[0x8C] = cpu => { cpu.modrm_byte = cpu.read_imm8();
-    var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.set_e32(addr, cpu.sreg[cpu.modrm_byte >> 3 & 7]);
+    cpu.set_e32(cpu.sreg[cpu.modrm_byte >> 3 & 7]);
 };
 
 t16[0x8D] = cpu => { cpu.modrm_byte = cpu.read_imm8();
@@ -811,9 +811,27 @@ t32[0xC5] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     cpu.lss32(reg_ds);
 };
 
-t[0xC6] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.set_e8(addr, cpu.read_imm8()); };
-t16[0xC7] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.set_e16(addr, cpu.read_imm16()); };
-t32[0xC7] = cpu => { cpu.modrm_byte = cpu.read_imm8(); var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.set_e32(addr, cpu.read_imm32s()); }
+t[0xC6] = cpu => { cpu.modrm_byte = cpu.read_imm8();
+    if(cpu.modrm_byte < 0xC0) {
+        cpu.safe_write8(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_imm8());
+    } else {
+        cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = cpu.read_imm8();
+    }
+}
+t16[0xC7] = cpu => { cpu.modrm_byte = cpu.read_imm8();
+    if(cpu.modrm_byte < 0xC0) {
+        cpu.safe_write16(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_imm16());
+    } else {
+        cpu.reg16[cpu.modrm_byte << 1 & 14] = cpu.read_imm16();
+    }
+};
+t32[0xC7] = cpu => { cpu.modrm_byte = cpu.read_imm8();
+    if(cpu.modrm_byte < 0xC0) {
+        cpu.safe_write32(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_imm32s());
+    } else {
+        cpu.reg32s[cpu.modrm_byte & 7] = cpu.read_imm32s();
+    }
+}
 
 t16[0xC8] = cpu => { cpu.enter16(cpu.read_imm16(), cpu.read_imm8()); };
 t32[0xC8] = cpu => { cpu.enter32(cpu.read_imm16(), cpu.read_imm8()); };
@@ -1630,7 +1648,7 @@ t[0x00] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     {
         case 0:
             // sldt
-            var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.set_e16(addr, cpu.sreg[reg_ldtr]);
+            cpu.set_e16(cpu.sreg[reg_ldtr]);
             if(cpu.modrm_byte >= 0xC0)
             {
                 cpu.reg32s[cpu.modrm_byte & 7] &= 0xFFFF;
@@ -1638,7 +1656,7 @@ t[0x00] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             break;
         case 1:
             // str
-            var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.set_e16(addr, cpu.sreg[reg_tr]);
+            cpu.set_e16(cpu.sreg[reg_tr]);
             if(cpu.modrm_byte >= 0xC0)
             {
                 cpu.reg32s[cpu.modrm_byte & 7] &= 0xFFFF;
@@ -1665,10 +1683,10 @@ t[0x00] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             cpu.load_tr(data);
             break;
         case 4:
-            cpu.verr(cpu.read_e16(addr));
+            cpu.verr(cpu.read_e16());
             break;
         case 5:
-            cpu.verw(cpu.read_e16(addr));
+            cpu.verw(cpu.read_e16());
             break;
 
         default:
@@ -1683,7 +1701,7 @@ t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     if(mod === 4)
     {
         // smsw
-        var addr = cpu.modrm_resolve(cpu.modrm_byte); cpu.set_e16(addr, cpu.cr[0]);
+        cpu.set_e16(cpu.cr[0]);
         return;
     }
     else if(mod === 6)
@@ -2914,13 +2932,11 @@ t[0xC7] = cpu => {
 
             if(cpu.operand_size_32)
             {
-                var addr = cpu.modrm_resolve(cpu.modrm_byte);
-                cpu.set_e32(addr, rand);
+                cpu.set_e32(rand);
             }
             else
             {
-                var addr = cpu.modrm_resolve(cpu.modrm_byte);
-                cpu.set_e16(addr, rand);
+                cpu.set_e16(rand);
             }
 
             cpu.flags &= ~flags_all;

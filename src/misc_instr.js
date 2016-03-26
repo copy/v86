@@ -87,7 +87,7 @@ CPU.prototype.cmovcc32 = function(condition)
 
 CPU.prototype.setcc = function(condition)
 {
-    this.set_e8(this.modrm_resolve(this.modrm_byte), condition ? 1 : 0)
+    this.set_e8(condition ? 1 : 0)
 };
 
 CPU.prototype.loopne = function(imm8s)
