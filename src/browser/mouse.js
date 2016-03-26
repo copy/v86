@@ -189,10 +189,10 @@ function MouseAdapter(bus, screen_container)
             delta_y = delta_y * SPEED_FACTOR;
         }
 
-        if(Math.abs(delta_x) > 100 || Math.abs(delta_y) > 100)
-        {
-            // Large mouse delta, drop?
-        }
+        //if(Math.abs(delta_x) > 100 || Math.abs(delta_y) > 100)
+        //{
+        //    // Large mouse delta, drop?
+        //}
 
         delta_y = -delta_y;
 

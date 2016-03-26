@@ -253,8 +253,8 @@ RTC.prototype.cmos_port_write = function(data_byte)
                 this.next_interrupt = Date.now();
             }
 
-            if(this.cmos_b & 0x20) dbg_log("Unimplemented: alarm interrupt");
-            if(this.cmos_b & 0x10) dbg_log("Unimplemented: updated interrupt");
+            if(this.cmos_b & 0x20) dbg_log("Unimplemented: alarm interrupt", LOG_RTC);
+            if(this.cmos_b & 0x10) dbg_log("Unimplemented: updated interrupt", LOG_RTC);
 
             dbg_log("cmos b=" + h(this.cmos_b, 2), LOG_RTC);
             break;

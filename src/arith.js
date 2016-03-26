@@ -71,16 +71,6 @@ CPU.prototype.adc = function(dest_operand, source_operand, op_size)
     return this.last_result;
 }
 
-CPU.prototype.cmp = function(dest_operand, source_operand, op_size)
-{
-    this.last_add_result = dest_operand;
-    this.last_op2 = source_operand;
-    this.last_op1 = this.last_result = dest_operand - source_operand | 0;
-
-    this.last_op_size = op_size;
-    this.flags_changed = flags_all;
-}
-
 CPU.prototype.sub = function(dest_operand, source_operand, op_size)
 {
     this.last_add_result = dest_operand;
@@ -416,6 +406,7 @@ CPU.prototype.div8 = function(source_operand)
     if(source_operand === 0)
     {
         this.trigger_de();
+        return;
     }
 
     var target_operand = this.reg16[reg_ax],
@@ -439,6 +430,7 @@ CPU.prototype.idiv8 = function(source_operand)
     if(source_operand === 0)
     {
         this.trigger_de();
+        return;
     }
 
     var target_operand = this.reg16s[reg_ax],
@@ -462,6 +454,7 @@ CPU.prototype.div16 = function(source_operand)
     if(source_operand === 0)
     {
         this.trigger_de();
+        return;
     }
 
     var
@@ -486,6 +479,7 @@ CPU.prototype.idiv16 = function(source_operand)
     if(source_operand === 0)
     {
         this.trigger_de();
+        return;
     }
 
     var target_operand = this.reg16[reg_ax] | (this.reg16[reg_dx] << 16),
