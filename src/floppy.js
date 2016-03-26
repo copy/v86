@@ -51,51 +51,52 @@ function FloppyController(cpu, fda_image, fdb_image)
         // Needed for CD emulation provided by seabios
         cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, 4 << 4);
 
-        //this.io.register_read(0x3F4, this, function()
-        //{
-        //    return 0xFF;
-        //});
+        this.sectors_per_track = 0;
+        this.number_of_heads = 0;
+        this.number_of_cylinders = 0;
 
-        return;
-    }
-
-    this.floppy_size = fda_image.byteLength;
-
-    var floppy_types = {
-        160  : { type: 1, tracks: 40, sectors: 8 , heads: 1 },
-        180  : { type: 1, tracks: 40, sectors: 9 , heads: 1 },
-        200  : { type: 1, tracks: 40, sectors: 10, heads: 1 },
-        320  : { type: 1, tracks: 40, sectors: 8 , heads: 2 },
-        360  : { type: 1, tracks: 40, sectors: 9 , heads: 2 },
-        400  : { type: 1, tracks: 40, sectors: 10, heads: 2 },
-        720  : { type: 3, tracks: 80, sectors: 9 , heads: 2 },
-        1200 : { type: 2, tracks: 80, sectors: 15, heads: 2 },
-        1440 : { type: 4, tracks: 80, sectors: 18, heads: 2 },
-        1722 : { type: 5, tracks: 82, sectors: 21, heads: 2 },
-        2880 : { type: 5, tracks: 80, sectors: 36, heads: 2 },
-    };
-
-    var number_of_cylinders,
-        sectors_per_track,
-        number_of_heads,
-        floppy_type = floppy_types[this.floppy_size >> 10];
-
-    if(floppy_type && (this.floppy_size & 0x3FF) === 0)
-    {
-        cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, floppy_type.type << 4);
-
-        sectors_per_track = floppy_type.sectors;
-        number_of_heads = floppy_type.heads;
-        number_of_cylinders = floppy_type.tracks;
+        this.floppy_size = 0;
     }
     else
     {
-        throw "Unknown floppy size: " + h(fda_image.byteLength);
-    }
+        this.floppy_size = fda_image.byteLength;
 
-    this.sectors_per_track = sectors_per_track;
-    this.number_of_heads = number_of_heads;
-    this.number_of_cylinders = number_of_cylinders;
+        var floppy_types = {
+            160  : { type: 1, tracks: 40, sectors: 8 , heads: 1 },
+            180  : { type: 1, tracks: 40, sectors: 9 , heads: 1 },
+            200  : { type: 1, tracks: 40, sectors: 10, heads: 1 },
+            320  : { type: 1, tracks: 40, sectors: 8 , heads: 2 },
+            360  : { type: 1, tracks: 40, sectors: 9 , heads: 2 },
+            400  : { type: 1, tracks: 40, sectors: 10, heads: 2 },
+            720  : { type: 3, tracks: 80, sectors: 9 , heads: 2 },
+            1200 : { type: 2, tracks: 80, sectors: 15, heads: 2 },
+            1440 : { type: 4, tracks: 80, sectors: 18, heads: 2 },
+            1722 : { type: 5, tracks: 82, sectors: 21, heads: 2 },
+            2880 : { type: 5, tracks: 80, sectors: 36, heads: 2 },
+        };
+
+        var number_of_cylinders,
+            sectors_per_track,
+            number_of_heads,
+            floppy_type = floppy_types[this.floppy_size >> 10];
+
+        if(floppy_type && (this.floppy_size & 0x3FF) === 0)
+        {
+            cpu.devices.rtc.cmos_write(CMOS_FLOPPY_DRIVE_TYPE, floppy_type.type << 4);
+
+            sectors_per_track = floppy_type.sectors;
+            number_of_heads = floppy_type.heads;
+            number_of_cylinders = floppy_type.tracks;
+        }
+        else
+        {
+            throw "Unknown floppy size: " + h(fda_image.byteLength);
+        }
+
+        this.sectors_per_track = sectors_per_track;
+        this.number_of_heads = number_of_heads;
+        this.number_of_cylinders = number_of_cylinders;
+    }
 
     this.io.register_read(0x3F0, this, this.port3F0_read);
     this.io.register_read(0x3F2, this, this.port3F2_read);
@@ -277,6 +278,7 @@ FloppyController.prototype.port3F5_write = function(reg_byte)
 
                 this.bytes_expecting = 0;
                 break;
+
             default:
                 dbg_assert(false, "Unimplemented floppy command call " + h(reg_byte));
         }
@@ -364,6 +366,11 @@ FloppyController.prototype.do_sector = function(is_write, args)
     if(!args[4])
     {
         dbg_log("FDC: sector count is zero, use data length instead", LOG_DISK);
+    }
+
+    if(!this.fda_image)
+    {
+        return;
     }
 
     if(is_write)
