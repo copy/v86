@@ -17,7 +17,7 @@ API examples
 
 - [Basic](examples/basic.html)
 - [Programatically using the serial terminal](examples/serial.html)
-- [A LUA interpreter](examples/lua.html)
+- [A Lua interpreter](examples/lua.html)
 - [Two instances in one window](examples/two_instances.html)
 - [Saving and restoring emulator state](examples/save_restore.html)
 
