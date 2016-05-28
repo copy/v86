@@ -18,7 +18,7 @@ API examples
 
 - [Basic](examples/basic.html)
 - [Programatically using the serial terminal](examples/serial.html)
-- [A LUA interpreter](examples/lua.html)
+- [A Lua interpreter](examples/lua.html)
 - [Two instances in one window](examples/two_instances.html)
 - [Saving and restoring emulator state](examples/save_restore.html)
 
@@ -121,7 +121,7 @@ make build/libv86.js
 Why?
 -
 
-Similiar projects have been done before, but I decided to work on this as a fun
+Similar projects have been done before, but I decided to work on this as a fun
 project and learn something about the x86 architecture. It has grown pretty
 advanced and I got Linux and KolibriOS working, so there might be some actual
 uses.
