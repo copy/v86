@@ -408,4 +408,41 @@
         fn();
     };
 
+    AsyncFileBuffer.prototype.get_as_file = function(name)
+    {
+        var parts = [];
+        var existing_blocks = Object.keys(this.loaded_blocks)
+                                .map(Number)
+                                .sort(function(x, y) { return x - y; });
+
+        var current_offset = 0;
+
+        for(var i = 0; i < existing_blocks.length; i++)
+        {
+            var block_index = existing_blocks[i];
+            var block = this.loaded_blocks[block_index];
+            var start = block_index * this.block_size;
+            console.assert(start >= current_offset);
+
+            if(start !== current_offset)
+            {
+                parts.push(this.file.slice(current_offset, start));
+                current_offset = start;
+            }
+
+            parts.push(block);
+            current_offset += block.length;
+        }
+
+        if(current_offset !== this.file.size)
+        {
+            parts.push(this.file.slice(current_offset));
+        }
+
+        var file = new File(parts, name);
+        console.assert(file.size === this.file.size);
+
+        return file;
+    };
+
 })();

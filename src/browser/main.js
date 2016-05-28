@@ -7,11 +7,20 @@
 
     function dump_file(ab, name)
     {
-        var blob = new Blob([ab]);
+        if(!(ab instanceof Array))
+        {
+            ab = [ab];
+        }
 
+        var blob = new Blob(ab);
+        download(blob, name);
+    }
+
+    function download(file_or_blob, name)
+    {
         var a = document.createElement("a");
         a["download"] = name;
-        a.href = window.URL.createObjectURL(blob);
+        a.href = window.URL.createObjectURL(file_or_blob);
         a.dataset["downloadurl"] = ["application/octet-stream", a["download"], a.href].join(":");
 
         if(document.createEvent)
@@ -823,26 +832,38 @@
         function add_image_download_button(obj, type)
         {
             var elem = $("get_" + type + "_image");
-            var max_size = 256 * 1024 * 1024;
 
-            if(obj && ((obj.buffer && obj.buffer.size < max_size) || obj.size < max_size))
+            if(!obj)
             {
-                elem.onclick = function(e)
+                elem.style.display = "none";
+                return;
+            }
+
+            elem.onclick = function(e)
+            {
+                let buffer = emulator.disk_images[type];
+
+                if(buffer.get_as_file)
                 {
-                    emulator.disk_images[type].get_buffer(function(b)
+                    var file = buffer.get_as_file("disk.img");
+                    download(file, "disk.img");
+                }
+                else
+                {
+                    buffer.get_buffer(function(b)
                     {
                         if(b)
                         {
                             dump_file(b, "disk.img");
                         }
+                        else
+                        {
+                            alert("The file could not be loaded. Maybe it's too big?");
+                        }
                     });
-
-                    elem.blur();
                 }
-            }
-            else
-            {
-                elem.style.display = "none";
+
+                elem.blur();
             }
         }
 
