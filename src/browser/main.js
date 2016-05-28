@@ -696,6 +696,7 @@
         var running_time = 0;
         var last_instr_counter = 0;
         var interval;
+        var os_uses_mouse = false;
 
         function update_info()
         {
@@ -806,6 +807,7 @@
 
         emulator.add_listener("mouse-enable", function(is_enabled)
         {
+            os_uses_mouse = is_enabled;
             $("info_mouse_enabled").textContent = is_enabled ? "Yes" : "No";
         });
 
@@ -954,10 +956,18 @@
 
         $("screen_container").onclick = function()
         {
-            // allow text selection
-            if(window.getSelection().isCollapsed)
+            if(mouse_is_enabled && os_uses_mouse)
             {
-                document.getElementsByClassName("phone_keyboard")[0].focus();
+                emulator.lock_mouse();
+                $("lock_mouse").blur();
+            }
+            else
+            {
+                // allow text selection
+                if(window.getSelection().isCollapsed)
+                {
+                    document.getElementsByClassName("phone_keyboard")[0].focus();
+                }
             }
         };
 
