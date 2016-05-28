@@ -237,6 +237,18 @@
                 name: "FreeDOS",
             },
             {
+                id: "oberon",
+                fda: {
+                    "url": "images/oberon-boot.dsk",
+                    "size": 1440 * 1024,
+                },
+                hda: {
+                    "url": "images/oberon.dsk",
+                    "size": 41943040,
+                },
+                name: "Oberon",
+            },
+            {
                 id: "windows1",
                 fda: {
                     "url": "images/windows101.img",
