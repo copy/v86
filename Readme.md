@@ -10,7 +10,7 @@ Demos
 - [KolibriOS](http://copy.sh/v86/?profile=kolibrios)
 - [FreeDOS](http://copy.sh/v86/?profile=freedos)
 - [Windows 1.01](http://copy.sh/v86/?profile=windows1)
-- [Archlinux](http://copy.sh/v86/?profile=archlinux) (possibly unstable)
+- [Archlinux](http://copy.sh/v86/?profile=archlinux)
 
 
 API examples
