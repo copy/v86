@@ -160,11 +160,55 @@
      * @param {number} len
      * @param {function(!Uint8Array)} fn
      */
+    AsyncXHRBuffer.prototype.get_from_cache = function(offset, len, fn)
+    {
+        var number_of_blocks = len / this.block_size;
+        var block_index = offset / this.block_size;
+
+        for(var i = 0; i < number_of_blocks; i++)
+        {
+            var block = this.loaded_blocks[block_index + i];
+
+            if(!block)
+            {
+                return;
+            }
+        }
+
+        console.log("From cache", number_of_blocks, len);
+
+        if(number_of_blocks === 1)
+        {
+            return this.loaded_blocks[block_index];
+        }
+        else
+        {
+            var result = new Uint8Array(len);
+            for(var i = 0; i < number_of_blocks; i++)
+            {
+                result.set(this.loaded_blocks[block_index + i], i * this.block_size);
+            }
+            return result;
+        }
+    };
+
+    /**
+     * @param {number} offset
+     * @param {number} len
+     * @param {function(!Uint8Array)} fn
+     */
     AsyncXHRBuffer.prototype.get = function(offset, len, fn)
     {
         console.assert(offset % this.block_size === 0);
         console.assert(len % this.block_size === 0);
         console.assert(len);
+
+        var block = this.get_from_cache(offset, len, fn);
+        if(block)
+        {
+            fn(block);
+            return;
+        }
 
         var range_start = offset;
         var range_end = offset + len - 1;
@@ -386,6 +430,13 @@
         console.assert(len % this.block_size === 0);
         console.assert(len);
 
+        var block = this.get_from_cache(offset, len, fn);
+        if(block)
+        {
+            fn(block);
+            return;
+        }
+
         var fr = new FileReader();
 
         fr.onload = function(e)
@@ -399,6 +450,7 @@
 
         fr.readAsArrayBuffer(this.file.slice(offset, offset + len));
     }
+    AsyncFileBuffer.prototype.get_from_cache = AsyncXHRBuffer.prototype.get_from_cache;
     AsyncFileBuffer.prototype.set = AsyncXHRBuffer.prototype.set;
     AsyncFileBuffer.prototype.handle_read = AsyncXHRBuffer.prototype.handle_read;
 
