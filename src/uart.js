@@ -82,7 +82,7 @@ function UART(cpu, port, bus)
 
     var io = cpu.io;
 
-    io.register_write(port, this, function(out_byte)
+    function write_data(out_byte)
     {
         if(this.line_control & DLAB)
         {
@@ -110,6 +110,15 @@ function UART(cpu, port, bus)
             this.bus.send("serial0-output-line", String.fromCharCode.apply("", this.current_line));
             this.current_line = [];
         }
+    }
+
+    io.register_write(port, this, function(out_byte)
+    {
+        write_data.call(this, out_byte);
+    }, function(out_word)
+    {
+        write_data.call(this, out_word & 0xFF);
+        write_data.call(this, out_word >> 8);
     });
 
     io.register_write(port | 1, this, function(out_byte)
