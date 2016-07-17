@@ -1,4 +1,5 @@
-CLOSURE=closure-compiler/compiler.jar
+CLOSURE_DIR=closure-compiler
+CLOSURE=$(CLOSURE_DIR)/compiler.jar
 BROWSER=chromium
 
 all: build/v86_all.js
@@ -129,8 +130,10 @@ update_version:
 
 
 $(CLOSURE):
-	wget -P closure-compiler http://dl.google.com/closure-compiler/compiler-latest.zip
-	unzip -d closure-compiler closure-compiler/compiler-latest.zip compiler.jar
+	wget -P $(CLOSURE_DIR) http://dl.google.com/closure-compiler/compiler-latest.zip
+	unzip -d closure-compiler $(CLOSURE_DIR)/compiler-latest.zip \*.jar
+	mv $(CLOSURE_DIR)/*.jar $(CLOSURE)
+	rm $(CLOSURE_DIR)/compiler-latest.zip
 
 test: build/libv86.js
 	./tests/full/run.js
