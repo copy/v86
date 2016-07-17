@@ -14,12 +14,17 @@ CLOSURE_SOURCE_MAP=\
 		--create_source_map '%outname%.map'
 
 		#--jscomp_error reportUnknownTypes\
+		#--jscomp_error unusedLocalVariables\
+		#--jscomp_error unusedPrivateMembers\
+		#--new_type_inf\
+
+		# Easily breaks code:
+		#--assume_function_wrapper\
 
 CLOSURE_FLAGS=\
 		--compilation_level ADVANCED_OPTIMIZATIONS\
 		--externs src/externs.js\
 		--warning_level VERBOSE\
-		--jscomp_off uselessCode\
 		--jscomp_error accessControls\
 		--jscomp_error ambiguousFunctionDecl\
 		--jscomp_error checkEventfulObjectDisposal\
@@ -58,8 +63,6 @@ CLOSURE_FLAGS=\
 		--use_types_for_optimization\
 		--summary_detail_level 3\
 		--language_in ECMASCRIPT5_STRICT
-
-		#--new_type_inf\
 
 
 TRANSPILE_ES6_FLAGS=\
@@ -111,8 +114,8 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 	ls -lh build/libv86.js
 
 clean:
-	rm build/libv86.js
-	rm build/v86_all.js
+	-rm build/libv86.js
+	-rm build/v86_all.js
 
 run:
 	python2 -m SimpleHTTPServer 2> /dev/null
@@ -135,5 +138,5 @@ $(CLOSURE):
 	mv $(CLOSURE_DIR)/*.jar $(CLOSURE)
 	rm $(CLOSURE_DIR)/compiler-latest.zip
 
-test: build/libv86.js
+tests: build/libv86.js
 	./tests/full/run.js
