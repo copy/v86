@@ -147,7 +147,7 @@ if(cluster.isMaster)
         },
     ];
 
-    var nr_of_cpus = Math.min(os.cpus().length - 1 || 1, tests.length);
+    var nr_of_cpus = Math.min(os.cpus().length / 2 || 1, tests.length);
     console.log("Using %d cpus", nr_of_cpus);
 
     var current_test = 0;
@@ -177,16 +177,6 @@ if(cluster.isMaster)
             if(code !== 0)
             {
                 process.exit(code);
-            }
-
-            var remaining_tests = 0;
-
-            for(let i in cluster.workers)
-            {
-                if(cluster.workers[i].state === "online")
-                {
-                    remaining_tests++;
-                }
             }
         });
 
@@ -288,8 +278,7 @@ function run_test(test, done)
 
             emulator.stop();
 
-            console.warn("Passed test: %s", test.name);
-            console.warn("Took %ds", (Date.now() - test_start) / 1000);
+            console.warn("Passed test: %s (took %ds)", test.name, (Date.now() - test_start) / 1000);
             console.warn();
 
             done();
