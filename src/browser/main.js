@@ -5,6 +5,9 @@
     /** @const */
     var ON_LOCALHOST = location.host.indexOf(".") === -1;
 
+    /** @const */
+    var HOST = ON_LOCALHOST ? "" : "//i.copy.sh/";
+
     function dump_file(ab, name)
     {
         if(!(ab instanceof Array))
@@ -195,44 +198,31 @@
             {
                 id: "archlinux",
                 state: {
-                    "url": "http://104.131.53.7:8086/v86state.bin",
-                    "size": 69283634,
+                    "url": HOST + "images/v86state.bin",
+                    "size": 142924774,
                 },
                 name: "Arch Linux",
                 memory_size: 128 * 1024 * 1024,
                 vga_memory_size: 8 * 1024 * 1024,
 
+                // required for restoring state, should not be used when booted on 9p
                 async_hda: {
-                    "url": "https://dl.dropboxusercontent.com/u/61029208/arch3.img", 
-                    "size": 8 * 1024 * 1024 * 1024,
+                    "url": HOST + "images/arch3.img",
+                    "size": 16 * 1024 * 1024 * 1024,
                 },
 
                 filesystem: {
-                    "basefs": "http://104.131.53.7:8086/fs.json",
-                    "baseurl": "http://104.131.53.7:8086/arch/",
-                },
-            },
-            {
-                id: "archlinux2",
-                name: "Arch Linux",
-                memory_size: 128 * 1024 * 1024,
-                vga_memory_size: 8 * 1024 * 1024,
-                boot_order: 0x132,
-
-                async_hda: {
-                    "url": "https://dl.dropboxusercontent.com/u/61029208/arch3.img", 
-                    "size": 8 * 1024 * 1024 * 1024,
-                },
-
-                filesystem: {
-                    "basefs": "http://104.131.53.7:8086/fs.json",
-                    "baseurl": "http://104.131.53.7:8086/arch/",
+                    "basefs": {
+                        "url": HOST + "images/fs.json",
+                        "size": 7510249
+                    },
+                    "baseurl": HOST + "arch/",
                 },
             },
             {
                 id: "freedos",
                 fda: {
-                    "url": "images/freedos722.img",
+                    "url": HOST + "images/freedos722.img",
                     "size": 737280,
                 },
                 name: "FreeDOS",
@@ -240,11 +230,11 @@
             {
                 id: "oberon",
                 fda: {
-                    "url": "images/oberon-boot.dsk",
+                    "url": HOST + "images/oberon-boot.dsk",
                     "size": 1440 * 1024,
                 },
                 hda: {
-                    "url": "images/oberon.dsk",
+                    "url": HOST + "images/oberon.dsk",
                     "size": 41943040,
                 },
                 name: "Oberon",
@@ -252,7 +242,7 @@
             {
                 id: "windows1",
                 fda: {
-                    "url": "images/windows101.img",
+                    "url": HOST + "images/windows101.img",
                     "size": 1474560,
                 },
                 name: "Windows",
@@ -260,7 +250,7 @@
             {
                 id: "linux26",
                 cdrom: {
-                    "url": "images/linux.iso",
+                    "url": HOST + "images/linux.iso",
                     "size": 5666816,
                 },
                 name: "Linux",
@@ -268,16 +258,17 @@
             {
                 id: "linux3",
                 cdrom: {
-                    "url": "images/linux3.iso",
+                    "url": HOST + "images/linux3.iso",
                     "size": 10000384,
                 },
                 name: "Linux",
+                filesystem: {},
             },
             {
                 id: "kolibrios",
                 fda: {
-                    "url": ON_LOCALHOST ? 
-                            "images/kolibri.img" : 
+                    "url": ON_LOCALHOST ?
+                            "images/kolibri.img" :
                             "http://builds.kolibrios.org/eng/data/data/kolibri.img",
                     "size": 1474560,
                 },
@@ -294,7 +285,7 @@
             {
                 id: "openbsd",
                 fda: {
-                    "url": "images/openbsd.img",
+                    "url": HOST + "images/openbsd.img",
                     "size": 1474560,
                 },
                 name: "OpenBSD",
@@ -302,28 +293,44 @@
             {
                 id: "solos",
                 fda: {
-                    "url": "images/os8.dsk",
+                    "url": HOST + "images/os8.dsk",
                     "size": 1474560,
                 },
                 name: "Sol OS",
             },
             {
+                id: "dexos",
+                cdrom: {
+                    "url": HOST + "images/DexOSv6.iso",
+                    "size": 1837056,
+                },
+                name: "DexOS",
+            },
+            {
                 id: "bootchess",
                 fda: {
-                    "url": "images/bootchess.img",
-                    "async": true,
+                    "url": HOST + "images/bootchess.img",
                 },
                 name: "Bootchess",
             },
             {
-                id: "dsl",
-                cdrom: {
-                    "url": "https://dl.dropboxusercontent.com/u/61029208/dsl-4.11.rc2.iso",
+                id: "windows98",
+                memory_size: 64 * 1024 * 1024,
+                hda: {
+                    "url": HOST + "images/windows98.img",
                     "async": true,
+                    "size": 300 * 1024 * 1024,
                 },
-                name: "Damn Small Linux",
+                name: "Windows 98",
+                boot_order: 0x132,
+                state: {
+                    "url": HOST + "images/windows98_state.bin",
+                    "size": 75760000,
+                },
             },
         ];
+
+
 
         var query_args = get_query_arguments();
         var profile = query_args["profile"];
