@@ -1120,6 +1120,11 @@
         $("dump_pt").onclick = debug.dump_page_directory.bind(debug);
         $("dump_instructions").onclick = debug.dump_instructions.bind(debug);
 
+        $("dump_log").onclick = function()
+        {
+            dump_file(log_data.join("\n"), "v86.log");
+        };
+
         $("dump_instructions_file").onclick = function()
         {
             var ins = debug.get_instructions();
