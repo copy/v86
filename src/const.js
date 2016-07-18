@@ -85,10 +85,10 @@ var
 
 var
     /** @const */
-    ENABLE_HPET = false,
+    ENABLE_HPET = !DEBUG && false,
 
     /** @const */
-    ENABLE_ACPI = false;
+    ENABLE_ACPI = !DEBUG && false;
 
 var
 
