@@ -100,6 +100,7 @@ NetworkAdapter.prototype.connect = function()
     catch(e)
     {
         this.handle_close(undefined);
+        return;
     }
 
     this.socket.binaryType = "arraybuffer";
