@@ -488,7 +488,7 @@ function Ne2k(cpu, bus)
     });
 
     io.register_read(this.port | NE_DATAPORT | 0, this,
-            this.data_port_read16,
+            this.data_port_read8,
             this.data_port_read16,
             this.data_port_read32);
     io.register_write(this.port | NE_DATAPORT | 0, this,
@@ -610,6 +610,11 @@ Ne2k.prototype.data_port_read = function()
     }
 
     return data;
+};
+
+Ne2k.prototype.data_port_read8 = function()
+{
+    return this.data_port_read16() & 0xFF;
 };
 
 Ne2k.prototype.data_port_read16 = function()
