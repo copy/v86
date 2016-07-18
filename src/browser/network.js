@@ -17,6 +17,8 @@ function NetworkAdapter(url, bus)
 
     this.bus = bus;
     this.socket = undefined;
+
+    // TODO: circular buffer?
     this.send_queue = [];
     this.url = url;
 

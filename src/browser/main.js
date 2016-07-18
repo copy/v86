@@ -1067,6 +1067,7 @@
             }, this);
 
             this.value = "";
+            this.blur();
         };
 
         $("filesystem_get_file").onkeypress = function(e)

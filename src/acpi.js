@@ -40,5 +40,4 @@ function ACPI(cpu)
         //dbg_log("pmtimer read: " + h(value >>> 0), LOG_ACPI);
         return value;
     });
-
 }

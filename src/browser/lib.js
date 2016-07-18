@@ -37,7 +37,6 @@
             for(var i = 0; i < header_names.length; i++)
             {
                 var name = header_names[i];
-
                 http.setRequestHeader(name, options.headers[name]);
             }
         }
@@ -147,6 +146,8 @@
             headers: {
                 Range: "bytes=0-0",
 
+                //"Accept-Encoding": "",
+
                 // Added by Chromium, but can cause the whole file to be sent
                 // Settings this to empty also causes problems and Chromium
                 // doesn't seem to create this header any more
@@ -174,8 +175,6 @@
                 return;
             }
         }
-
-        console.log("From cache", number_of_blocks, len);
 
         if(number_of_blocks === 1)
         {
