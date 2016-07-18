@@ -125,6 +125,8 @@ function Ne2k(cpu, bus)
         this.memory[i << 1] = this.memory[i << 1 | 1] = mac[i];
     }
 
+    this.memory[14] = this.memory[15] = 0x57;
+
     dbg_log("Mac: " + h(mac[0], 2) + ":" +
                       h(mac[1], 2) + ":" +
                       h(mac[2], 2) + ":" +
@@ -549,6 +551,12 @@ Ne2k.prototype.data_port_write = function(data_byte)
     dbg_log("Write data port: data=" + h(data_byte & 0xFF, 2) +
                             " rsar=" + h(this.rsar, 4) +
                             " rcnt=" + h(this.rcnt, 4), LOG_NET);
+
+    if(this.rsar > 0x10 && this.rsar < (START_PAGE << 8))
+    {
+        // unmapped
+        return;
+    }
 
     this.rcnt--;
     this.memory[this.rsar++] = data_byte;
