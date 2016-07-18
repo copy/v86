@@ -361,7 +361,7 @@ function V86Starter(options)
                         file_name: f.url,
 
                         lengthComputable: e.lengthComputable,
-                        total: f.size || e.total,
+                        total: e.total || f.size,
                         loaded: e.loaded,
                     });
                 },
