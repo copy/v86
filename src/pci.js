@@ -196,7 +196,6 @@ PCI.prototype.get_state = function()
 {
     var state = [];
 
-
     for(var i = 0; i < 256; i++)
     {
         state[i] = this.device_spaces[i];
@@ -221,16 +220,16 @@ PCI.prototype.set_state = function(state)
         {
             if(device)
             {
-                dbg_log("Warning: While restoring PCI device: Device exists in current configuration but not in snapshot (" + device.name + ")");
+                dbg_log("Warning: While restoring PCI device: Device exists in current " +
+                        "configuration but not in snapshot (" + device.name + ")");
             }
             if(space)
             {
-                dbg_log("Warning: While restoring PCI device: Device doesn't exist in current configuration but does in snapshot (device " + i + ")");
+                dbg_log("Warning: While restoring PCI device: Device doesn't exist in current " +
+                        "configuration but does in snapshot (device " + h(i, 2) + ")");
             }
             continue;
         }
-
-        this.device_spaces[i].set(space);
 
         for(var bar_nr = 0; bar_nr < device.pci_bars.length; bar_nr++)
         {
@@ -240,7 +239,10 @@ PCI.prototype.set_state = function(state)
             if(value & 1)
             {
                 var to = value & ~1 & 0xFFFF;
-                var from = this.original_bars[i][bar_nr] & ~1 & 0xFFFF;
+
+                // Note: Breaks when state is restored in-place, since old state is accessed here
+                var from = this.device_spaces[i][(0x10 >> 2) + bar_nr] & ~1 & 0xFFFF;
+
                 this.move_io_bars(from, to, bar.size);
             }
             else
@@ -248,6 +250,8 @@ PCI.prototype.set_state = function(state)
                 // memory, cannot be changed
             }
         }
+
+        this.device_spaces[i].set(space);
     }
 
     this.pci_addr.set(state[256]);
@@ -410,9 +414,11 @@ PCI.prototype.register_device = function(device)
 
 PCI.prototype.move_io_bars = function(from, to, count)
 {
-    dbg_log("from=" + h(from) + " to=" + h(to) + " count=" + count);
+    dbg_log("Move io bars: from=" + h(from) + " to=" + h(to) + " count=" + count);
+
     if(to === from)
     {
+        dbg_log("Not moved (from == to)");
     }
     else if(Math.abs(from - to) < count)
     {
@@ -433,12 +439,22 @@ PCI.prototype.move_io_bars = function(from, to, count)
             ports[to + i] = entry;
 
             // these can fail if the os maps io bars twice (indicating a bug)
-            dbg_assert(empty_entry.read8 === this.io.empty_port_read8);
-            dbg_assert(empty_entry.read16 === this.io.empty_port_read16);
-            dbg_assert(empty_entry.read32 === this.io.empty_port_read32);
-            dbg_assert(empty_entry.write8 === this.io.empty_port_write);
-            dbg_assert(empty_entry.write16 === this.io.empty_port_write);
-            dbg_assert(empty_entry.write32 === this.io.empty_port_write);
+            dbg_assert(empty_entry.read8 === this.io.empty_port_read8, "Bad IO bar: Target already mapped");
+            dbg_assert(empty_entry.read16 === this.io.empty_port_read16, "Bad IO bar: Target already mapped");
+            dbg_assert(empty_entry.read32 === this.io.empty_port_read32, "Bad IO bar: Target already mapped");
+            dbg_assert(empty_entry.write8 === this.io.empty_port_write, "Bad IO bar: Target already mapped");
+            dbg_assert(empty_entry.write16 === this.io.empty_port_write, "Bad IO bar: Target already mapped");
+            dbg_assert(empty_entry.write32 === this.io.empty_port_write, "Bad IO bar: Target already mapped");
+
+            if(entry.read8 !== this.io.empty_port_read8 ||
+               entry.read16 !== this.io.empty_port_read16 ||
+               entry.read32 !== this.io.empty_port_read32 ||
+               entry.write8 !== this.io.empty_port_write ||
+               entry.write16 !== this.io.empty_port_write ||
+               entry.write32 !== this.io.empty_port_write)
+            {
+                dbg_log("Move IO bar: Source not mapped, port=" + h(from + i, 4), LOG_PCI);
+            };
         }
     }
 };

@@ -130,23 +130,28 @@ function restore_object(base, obj, buffers)
 
         var info = buffers.infos[obj["buffer_id"]];
 
+        dbg_assert(base.constructor === constructor);
+        dbg_assert(base);
+
         // restore large buffers by just returning a view on the state blob
         if(info.length >= 1024 * 1024 && constructor === Uint8Array)
         {
             return new Uint8Array(buffers.full, info.offset, info.length);
         }
+        // XXX: Disabled, unpredictable since it updates in-place, breaks pci
+        //      and possibly also breaks restore -> save -> restore again
         // avoid a new allocation if possible
-        else if(base &&
-                base.constructor === constructor &&
-                base.byteOffset === 0 &&
-                base.byteLength === info.length)
-        {
-            new Uint8Array(base.buffer).set(
-                new Uint8Array(buffers.full, info.offset, info.length),
-                base.byteOffset
-            );
-            return base;
-        }
+        //else if(base &&
+        //        base.constructor === constructor &&
+        //        base.byteOffset === 0 &&
+        //        base.byteLength === info.length)
+        //{
+        //    new Uint8Array(base.buffer).set(
+        //        new Uint8Array(buffers.full, info.offset, info.length),
+        //        base.byteOffset
+        //    );
+        //    return base;
+        //}
         else
         {
             var buf = buffers.full.slice(info.offset, info.offset + info.length);
