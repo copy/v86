@@ -217,6 +217,7 @@
                 name: "Arch Linux",
                 memory_size: 128 * 1024 * 1024,
                 vga_memory_size: 8 * 1024 * 1024,
+                boot_order: 0x132,
 
                 async_hda: {
                     "url": "https://dl.dropboxusercontent.com/u/61029208/arch3.img", 
@@ -425,6 +426,11 @@
             settings.memory_size = infos.memory_size;
             settings.vga_memory_size = infos.vga_memory_size;
 
+            if(infos.boot_order !== undefined)
+            {
+                settings.boot_order = infos.boot_order;
+            }
+
             start_emulation(settings, done);
         }
 
@@ -594,7 +600,7 @@
             "screen_container": $("screen_container"),
             "serial_container": $("serial"),
 
-            "boot_order": parseInt($("boot_order").value, 16) || 0,
+            "boot_order": settings.boot_order || parseInt($("boot_order").value, 16) || 0,
 
             "network_relay_url": "ws://relay.widgetry.org/",
             //"network_relay_url": "ws://localhost:8001/",
