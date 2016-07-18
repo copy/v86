@@ -384,7 +384,9 @@ IO.prototype.port_read8 = function(port_addr)
             LOG_IO
         );
     }
-    return entry.read8.call(entry.device);
+    var value = entry.read8.call(entry.device);
+    dbg_assert(value < 0x100);
+    return value;
 };
 
 IO.prototype.port_read16 = function(port_addr)
@@ -398,7 +400,9 @@ IO.prototype.port_read16 = function(port_addr)
             LOG_IO
         );
     }
-    return entry.read16.call(entry.device);
+    var value = entry.read16.call(entry.device);
+    dbg_assert(value < 0x10000);
+    return value;
 };
 
 IO.prototype.port_read32 = function(port_addr)
