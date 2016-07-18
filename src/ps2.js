@@ -259,12 +259,12 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
 
     this.last_mouse_packet = Date.now();
 
-    if(this.scaling2)
-    {
-        // only in automatic packets, not 0xEB requests
-        delta_x = this.apply_scaling2(delta_x);
-        delta_y = this.apply_scaling2(delta_y);
-    }
+    //if(this.scaling2)
+    //{
+    //    // only in automatic packets, not 0xEB requests
+    //    delta_x = this.apply_scaling2(delta_x);
+    //    delta_y = this.apply_scaling2(delta_y);
+    //}
 
     this.mouse_buffer.push(info_byte);
     this.mouse_buffer.push(delta_x);
