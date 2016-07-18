@@ -2505,7 +2505,10 @@ t32[0xA5] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     var data = cpu.read_write_e32(); cpu.write_e32(cpu.shld32(data, cpu.read_g32s(), cpu.reg8[reg_cl] & 31));
 };
 
-t[0xA6] = cpu => { cpu.undefined_instruction(); };
+t[0xA6] = cpu => {
+    // obsolete cmpxchg (os/2)
+    cpu.trigger_ud();
+};
 t[0xA7] = cpu => { cpu.undefined_instruction(); };
 
 t16[0xA8] = cpu => { cpu.push16(cpu.sreg[reg_gs]); };
