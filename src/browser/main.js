@@ -905,6 +905,52 @@
             $("save_state").blur();
         };
 
+        $("load_state").onclick = function()
+        {
+            $("load_state_input").click();
+            $("load_state").blur();
+        };
+
+        $("load_state_input").onchange = function()
+        {
+            var file = this.files[0];
+
+            if(!file)
+            {
+                return;
+            }
+
+            var was_running = emulator.is_running();
+
+            if(was_running)
+            {
+                emulator.stop();
+            }
+
+            var filereader = new FileReader();
+            filereader.onload = function(e)
+            {
+                try
+                {
+                    emulator.restore_state(e.target.result);
+                }
+                catch(e)
+                {
+                    alert("Something bad happened while restoring the state:\n" + e + "\n\n" +
+                          "Note that the current configuration must be the same as the original");
+                    throw e;
+                }
+
+                if(was_running)
+                {
+                    emulator.run();
+                }
+            };
+            filereader.readAsArrayBuffer(file);
+
+            this.value = "";
+        };
+
         $("ctrlaltdel").onclick = function()
         {
             emulator.keyboard_send_scancodes([
