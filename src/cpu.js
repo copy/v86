@@ -813,7 +813,7 @@ if(typeof window !== "undefined")
  * execute a single instruction cycle on the cpu
  * this includes reading all prefixes and the whole instruction
  */
-CPU.prototype.cycle = function()
+CPU.prototype.cycle_internal = function()
 {
     this.previous_ip = this.instruction_pointer;
 
@@ -833,6 +833,19 @@ CPU.prototype.cycle = function()
     {
         // TODO
         dbg_log("Trap flag: Ignored", LOG_CPU);
+    }
+};
+
+/** @export */
+CPU.prototype.cycle = function()
+{
+    try
+    {
+        this.cycle_internal();
+    }
+    catch(e)
+    {
+        this.exception_cleanup(e);
     }
 };
 
