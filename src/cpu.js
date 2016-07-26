@@ -534,10 +534,16 @@ CPU.prototype.reset = function()
     }
 };
 
+/** @export */
+CPU.prototype.create_memory = function(size, no_initial_alloc)
+{
+    this.memory_size = size;
+    this.memory = new Memory(this.memory_size, no_initial_alloc);
+};
+
 CPU.prototype.init = function(settings, device_bus)
 {
-    this.memory_size = settings.memory_size || 1024 * 1024 * 64;
-    this.memory = new Memory(this.memory_size, settings.no_initial_alloc);
+    this.create_memory(settings.memory_size || 1024 * 1024 * 64, settings.no_initial_alloc);
 
     this.reset();
 
