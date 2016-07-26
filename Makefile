@@ -22,6 +22,8 @@ CLOSURE_SOURCE_MAP=\
 		#--assume_function_wrapper\
 
 CLOSURE_FLAGS=\
+	        --js lib/closure-base.js\
+		--generate_exports\
 		--compilation_level ADVANCED_OPTIMIZATIONS\
 		--externs src/externs.js\
 		--warning_level VERBOSE\
