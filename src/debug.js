@@ -121,14 +121,7 @@ CPU.prototype.debug_init = function()
 
         if(!cpu.running)
         {
-            try
-            {
-                cpu.cycle();
-            }
-            catch(e)
-            {
-                cpu.exception_cleanup(e);
-            }
+            cpu.cycle();
         }
 
         dump_regs_short();

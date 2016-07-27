@@ -61,13 +61,13 @@ t16[0x17] = cpu => {
     cpu.switch_seg(reg_ss, cpu.safe_read16(cpu.get_stack_pointer(0)));
     cpu.adjust_stack_reg(2);
     cpu.clear_prefixes();
-    cpu.cycle();
+    cpu.cycle_internal();
 };
 t32[0x17] = cpu => {
     cpu.switch_seg(reg_ss, cpu.safe_read16(cpu.get_stack_pointer(0)));
     cpu.adjust_stack_reg(4);
     cpu.clear_prefixes();
-    cpu.cycle();
+    cpu.cycle_internal();
 };
 
 t[0x18] = cpu => { cpu.modrm_byte = cpu.read_imm8(); cpu.write_e8(cpu.sbb8(cpu.read_write_e8(), cpu.read_g8())); };
@@ -453,8 +453,8 @@ t[0x8E] = cpu => { cpu.modrm_byte = cpu.read_imm8();
     if(mod === reg_ss)
     {
         // run next instruction, so no interrupts are handled
-        //cpu.clear_prefixes();
-        //cpu.cycle();
+        cpu.clear_prefixes();
+        cpu.cycle_internal();
     }
 };
 
@@ -1400,7 +1400,7 @@ t[0xFB] = cpu => {
         cpu.flags |= flag_interrupt;
 
         cpu.clear_prefixes();
-        cpu.cycle();
+        cpu.cycle_internal();
 
         cpu.handle_irqs();
     }
