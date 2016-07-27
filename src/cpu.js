@@ -1779,7 +1779,7 @@ CPU.prototype.iret = function(is_16)
         }
         else
         {
-            dbg_log("vm86 flag ignored because cpl != 0"), LOG_CPU;
+            dbg_log("vm86 flag ignored because cpl != 0", LOG_CPU);
             new_flags &= ~flag_vm;
         }
     }
@@ -1935,10 +1935,10 @@ CPU.prototype.do_task_switch = function(selector)
 
     var old_eflags = this.get_eflags();
 
-    if(false /* is iret */)
-    {
-        old_eflags &= ~flag_nt;
-    }
+    //if(false /* is iret */)
+    //{
+    //    old_eflags &= ~flag_nt;
+    //}
 
     this.writable_or_pagefault(tsr_offset, 0x66);
 

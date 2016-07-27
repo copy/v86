@@ -1524,10 +1524,10 @@ IDEInterface.prototype.ata_write_dma = function(cmd)
         var slice = this.memory.mem8.subarray(prd_addr, prd_addr + prd_count);
         dbg_assert(slice.length === prd_count);
 
-        if(DEBUG)
-        {
-            //dbg_log(hex_dump(slice), LOG_DISK);
-        }
+        //if(DEBUG)
+        //{
+        //    dbg_log(hex_dump(slice), LOG_DISK);
+        //}
 
         this.buffer.set(start + offset, slice, function()
         {
