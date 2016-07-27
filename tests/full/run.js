@@ -2,6 +2,7 @@
 "use strict";
 
 var TIMEOUT_EXTRA_FACTOR = 1;
+var MAX_PARALLEL_TESTS = 4;
 
 try
 {
@@ -147,7 +148,7 @@ if(cluster.isMaster)
         },
     ];
 
-    var nr_of_cpus = Math.min(os.cpus().length / 2 || 1, tests.length);
+    var nr_of_cpus = Math.min(Math.round(os.cpus().length / 2) || 1, tests.length, MAX_PARALLEL_TESTS);
     console.log("Using %d cpus", nr_of_cpus);
 
     var current_test = 0;
