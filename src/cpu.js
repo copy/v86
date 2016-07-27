@@ -790,14 +790,7 @@ CPU.prototype.do_run = function()
         // runs only cycles
         for(var k = LOOP_COUNTER; k--;)
         {
-            if(OP_TRANSLATION)
-            {
-                this.cycle_translated();
-            }
-            else
-            {
-                this.cycle();
-            }
+            this.cycle_internal();
         }
 
         now = v86.microtick();
