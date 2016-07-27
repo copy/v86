@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 "use strict";
 
-var TIMEOUT_EXTRA_FACTOR = 1;
-var MAX_PARALLEL_TESTS = 4;
+var TIMEOUT_EXTRA_FACTOR = +process.env.TIMEOUT_EXTRA_FACTOR || 1;
+var MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
 
 try
 {
