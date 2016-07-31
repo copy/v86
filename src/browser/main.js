@@ -433,6 +433,8 @@
             settings.memory_size = infos.memory_size;
             settings.vga_memory_size = infos.vga_memory_size;
 
+            settings.id = infos.id;
+
             if(infos.boot_order !== undefined)
             {
                 settings.boot_order = infos.boot_order;
@@ -850,17 +852,17 @@
             $("reset").blur();
         };
 
-        // writable image types
         add_image_download_button(settings.hda, "hda");
         add_image_download_button(settings.hdb, "hdb");
         add_image_download_button(settings.fda, "fda");
         add_image_download_button(settings.fdb, "fdb");
+        add_image_download_button(settings.cdrom, "cdrom");
 
         function add_image_download_button(obj, type)
         {
             var elem = $("get_" + type + "_image");
 
-            if(!obj)
+            if(!obj || obj.size > 100 * 1024 * 1024)
             {
                 elem.style.display = "none";
                 return;
@@ -869,11 +871,12 @@
             elem.onclick = function(e)
             {
                 let buffer = emulator.disk_images[type];
+                let filename = settings.id + (type === "cdrom" ? ".iso" : ".img");
 
                 if(buffer.get_as_file)
                 {
-                    var file = buffer.get_as_file("disk.img");
-                    download(file, "disk.img");
+                    var file = buffer.get_as_file(filename);
+                    download(file, filename);
                 }
                 else
                 {
@@ -881,7 +884,7 @@
                     {
                         if(b)
                         {
-                            dump_file(b, "disk.img");
+                            dump_file(b, filename);
                         }
                         else
                         {
