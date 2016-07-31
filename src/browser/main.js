@@ -206,9 +206,10 @@
                 vga_memory_size: 8 * 1024 * 1024,
 
                 // required for restoring state, should not be used when booted on 9p
-                async_hda: {
+                hda: {
                     "url": HOST + "images/arch3.img",
                     "size": 16 * 1024 * 1024 * 1024,
+                    "async": true,
                 },
 
                 filesystem: {
@@ -416,19 +417,7 @@
 
             settings.fda = infos.fda;
             settings.cdrom = infos.cdrom;
-
-            if(infos.hda)
-            {
-                settings.hda = infos.hda
-            }
-            else if(infos.async_hda)
-            {
-                settings.hda = {
-                    url: infos.async_hda.url,
-                    size: infos.async_hda.size,
-                    async: true,
-                };
-            }
+            settings.hda = infos.hda
 
             settings.memory_size = infos.memory_size;
             settings.vga_memory_size = infos.vga_memory_size;
