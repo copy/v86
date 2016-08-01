@@ -561,6 +561,7 @@ t16[0x9C] = cpu => {
     // pushf
     if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
     {
+        dbg_assert(cpu.protected_mode);
         dbg_log("pushf #gp", LOG_CPU);
         cpu.trigger_gp(0);
     }
@@ -575,6 +576,7 @@ t32[0x9C] = cpu => {
     if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
     {
         // trap to virtual 8086 monitor
+        dbg_assert(cpu.protected_mode);
         dbg_log("pushf #gp", LOG_CPU);
         cpu.trigger_gp(0);
     }
@@ -879,18 +881,21 @@ t32[0xCB] = cpu => {
 
 t[0xCC] = cpu => {
     // INT3
+    // TODO: inhibit iopl checks
+    dbg_log("INT3", LOG_CPU);
     cpu.call_interrupt_vector(3, true, false);
 };
 t[0xCD] = cpu => {
     // INT
     var imm8 = cpu.read_imm8();
-
     cpu.call_interrupt_vector(imm8, true, false);
 };
 t[0xCE] = cpu => {
     // INTO
+    dbg_log("INTO", LOG_CPU);
     if(cpu.getof())
     {
+        // TODO: inhibit iopl checks
         cpu.call_interrupt_vector(4, true, false);
     }
 };
@@ -1679,7 +1684,7 @@ t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             cpu.cr[0] |= CR0_PE;
         }
 
-        dbg_log("cr0=" + h(data >>> 0), LOG_CPU);
+        //dbg_log("cr0=" + h(data >>> 0), LOG_CPU);
         cpu.cr0_changed(old_cr0);
         return;
     }
@@ -1728,7 +1733,9 @@ t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             }
 
             //dbg_log("gdt at " + h(cpu.gdtr_offset) + ", " + cpu.gdtr_size + " bytes", LOG_CPU);
-            //dump_gdt_ldt();
+            //cpu.debug.dump_state();
+            //cpu.debug.dump_regs_short();
+            //cpu.debug.dump_gdt_ldt();
             break;
         case 3:
             // lidt

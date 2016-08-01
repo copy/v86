@@ -251,7 +251,7 @@ PIT.prototype.port43_write = function(reg_byte)
         // latch
         this.counter_latch[i] = 2;
         var value = this.get_counter_value(i, v86.microtick());
-        dbg_log("pit latch: " + value, LOG_PIT);
+        dbg_log("latch: " + value, LOG_PIT);
         this.counter_latch_value[i] = value ? value - 1 : 0
 
         return;

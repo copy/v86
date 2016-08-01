@@ -808,6 +808,35 @@ if(typeof window !== "undefined")
     window.__no_inline3 = CPU.prototype.hlt_loop;
 };
 
+/** @const */
+var PROFILING = false;
+
+if(PROFILING)
+{
+    var instruction_total = new Float64Array(256);
+    var instruction_count = new Uint32Array(256);
+
+    function print_profiling()
+    {
+        var prof_instructions = [];
+        for(var i = 0; i < 256; i++) prof_instructions[i] = {
+            n: h(i, 2),
+            total: instruction_total[i],
+            count: instruction_count[i],
+            per: (instruction_total[i] / instruction_count[i]) || 0,
+        }
+
+        console.log("count:");
+        console.table(prof_instructions.sort((p0, p1) => p1.count - p0.count));
+
+        console.log("time:");
+        console.table(prof_instructions.sort((p0, p1) => p1.total - p0.total));
+
+        console.log("time/count:");
+        console.table(prof_instructions.sort((p0, p1) => p1.per - p0.per));
+    }
+}
+
 /**
  * execute a single instruction cycle on the cpu
  * this includes reading all prefixes and the whole instruction
@@ -818,7 +847,13 @@ CPU.prototype.cycle_internal = function()
 
     this.timestamp_counter++;
 
+    if(PROFILING)
+    {
+        var start = performance.now();
+    }
+
     var opcode = this.read_imm8();
+    //this.translate_address_read(this.instruction_pointer + 15|0)
 
     if(DEBUG)
     {
@@ -827,6 +862,13 @@ CPU.prototype.cycle_internal = function()
 
     // call the instruction
     this.table[opcode](this);
+
+    if(PROFILING)
+    {
+        var end = performance.now();
+        instruction_total[opcode] += end - start;
+        instruction_count[opcode]++;
+    }
 
     if(this.flags & flag_trap)
     {
@@ -917,6 +959,8 @@ CPU.prototype.cr0_changed = function(old_cr0)
     }
     this.cr[0] |= CR0_ET;
 
+    this.paging_changed();
+
     dbg_assert(typeof this.paging === "boolean");
     if(new_paging !== this.paging)
     {
@@ -940,17 +984,6 @@ CPU.prototype.cpl_changed = function()
 {
     this.last_virt_eip = -1;
     this.last_virt_esp = -1;
-};
-
-CPU.prototype.get_phys_eip = function()
-{
-    if((this.instruction_pointer & ~0xFFF) ^ this.last_virt_eip)
-    {
-        this.eip_phys = this.translate_address_read(this.instruction_pointer) ^ this.instruction_pointer;
-        this.last_virt_eip = this.instruction_pointer & ~0xFFF;
-    }
-
-    return this.eip_phys ^ this.instruction_pointer;
 };
 
 CPU.prototype.read_imm8 = function()
@@ -2423,6 +2456,7 @@ CPU.prototype.do_task_switch = function(selector)
     this.writable_or_pagefault(tsr_offset, 0x66);
 
     //this.safe_write32(tsr_offset + TSR_CR3, this.cr[3]);
+
     this.safe_write32(tsr_offset + TSR_EIP, this.get_real_eip());
     this.safe_write32(tsr_offset + TSR_EFLAGS, old_eflags);
 
@@ -2457,6 +2491,7 @@ CPU.prototype.do_task_switch = function(selector)
 
     this.flags &= ~flag_vm;
 
+    dbg_assert(false);
     this.switch_seg(reg_cs, this.safe_read16(new_tsr_offset + TSR_CS));
 
     var new_eflags = this.safe_read32s(new_tsr_offset + TSR_EFLAGS);
@@ -2797,6 +2832,7 @@ CPU.prototype.read_write_e16 = function()
         this.phys_addr = this.translate_address_write(virt_addr);
         if(this.paging && (virt_addr & 0xFFF) === 0xFFF) {
             this.phys_addr_high = this.translate_address_write(virt_addr + 1 | 0);
+            dbg_assert(this.phys_addr_high);
             return this.virt_boundary_read16(this.phys_addr, this.phys_addr_high);
         } else {
             this.phys_addr_high = 0;
@@ -2826,8 +2862,8 @@ CPU.prototype.read_write_e32 = function()
         var virt_addr = this.modrm_resolve(this.modrm_byte);
         this.phys_addr = this.translate_address_write(virt_addr);
         if(this.paging && (virt_addr & 0xFFF) >= 0xFFD) {
-
             this.phys_addr_high = this.translate_address_write(virt_addr + 3 | 0);
+            dbg_assert(this.phys_addr_high);
             return this.virt_boundary_read32s(this.phys_addr, this.phys_addr_high);
         } else {
             this.phys_addr_high = 0;
@@ -2938,7 +2974,10 @@ CPU.prototype.device_raise_irq = function(i)
     }
 
     // XXX: This should be implemented by the devices themselves
-    this.device_lower_irq(i);
+    if(i !== 14 && i !== 15)
+    {
+        this.device_lower_irq(i);
+    }
 };
 
 CPU.prototype.device_lower_irq = function(i)
@@ -2963,6 +3002,8 @@ CPU.prototype.test_privileges_for_io = function(port, size)
 
         if(tsr_size >= 0x67)
         {
+            dbg_assert((tsr_offset + 0x64 + 2 & 0xFFF) < 0xFFF);
+
             var iomap_base = this.memory.read16(this.translate_address_system_read(tsr_offset + 0x64 + 2 | 0)),
                 high_port = port + size - 1 | 0;
 
@@ -2973,6 +3014,8 @@ CPU.prototype.test_privileges_for_io = function(port, size)
                     port_info = (mask & 0xFF00) ?
                         this.memory.read16(addr) : this.memory.read8(addr);
 
+                dbg_assert((addr & 0xFFF) < 0xFFF);
+
                 if(!(port_info & mask))
                 {
                     return;
@@ -2981,6 +3024,7 @@ CPU.prototype.test_privileges_for_io = function(port, size)
         }
 
         dbg_log("#GP for port io  port=" + h(port) + " size=" + size, LOG_CPU);
+        this.debug.dump_state();
         this.trigger_gp(0);
     }
 };
@@ -3023,8 +3067,9 @@ CPU.prototype.cpuid = function()
             eax = 3 | 6 << 4 | 15 << 8;
             ebx = 1 << 16 | 8 << 8; // cpu count, clflush size
             ecx = 1 << 23 | 1 << 30; // popcnt, rdrand
+            var vme = 0 << 1;
             edx = (this.fpu ? 1 : 0) |                // fpu
-                    1 << 1 | 1 << 3 | 1 << 4 | 1 << 5 |   // vme, pse, tsc, msr
+                    vme | 1 << 3 | 1 << 4 | 1 << 5 |   // vme, pse, tsc, msr
                     1 << 8 | 1 << 11 | 1 << 13 | 1 << 15; // cx8, sep, pge, cmov
 
             if(ENABLE_ACPI)
@@ -3337,6 +3382,8 @@ CPU.prototype.switch_seg = function(reg, selector)
             (info.rpl > info.dpl || this.cpl > info.dpl))
         ) {
             dbg_log("#GP for loading invalid in seg " + reg + " sel=" + h(selector, 4), LOG_CPU);
+            this.debug.dump_state();
+            this.debug.dump_regs_short();
             dbg_trace(LOG_CPU);
             this.trigger_gp(selector & ~3);
         }
@@ -3353,13 +3400,7 @@ CPU.prototype.switch_seg = function(reg, selector)
     this.segment_limits[reg] = info.effective_limit;
     //this.segment_infos[reg] = 0; // TODO
 
-    //if(OP_TRANSLATION && (reg === reg_ds || reg === reg_ss) && info.base !== this.segment_offsets[reg])
-    //{
-    //    this.translator.clear_cache();
-    //}
-
     this.segment_offsets[reg] = info.base;
-
     this.sreg[reg] = selector;
 };
 
@@ -3368,7 +3409,7 @@ CPU.prototype.load_tr = function(selector)
     var info = this.lookup_segment_selector(selector);
 
     dbg_assert(info.is_valid);
-    dbg_log("load tr: " + h(selector, 4) + " offset=" + h(info.base >>> 0, 8) + " limit=" + h(info.effective_limit >>> 0, 8), LOG_CPU);
+    //dbg_log("load tr: " + h(selector, 4) + " offset=" + h(info.base >>> 0, 8) + " limit=" + h(info.effective_limit >>> 0, 8), LOG_CPU);
 
     if(!info.from_gdt)
     {
@@ -3459,7 +3500,7 @@ CPU.prototype.load_ldt = function(selector)
     this.segment_limits[reg_ldtr] = info.effective_limit;
     this.sreg[reg_ldtr] = selector;
 
-    //dbg_log("ldt at " + h(info.base) + "; (" + info.effective_limit + " bytes)");
+    //dbg_log("ldt at " + h(info.base >>> 0) + "; (" + info.effective_limit + " bytes)", LOG_CPU);
 };
 
 CPU.prototype.arpl = function(seg, r16)

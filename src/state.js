@@ -130,8 +130,8 @@ function restore_object(base, obj, buffers)
 
         var info = buffers.infos[obj["buffer_id"]];
 
-        dbg_assert(base.constructor === constructor);
         dbg_assert(base);
+        dbg_assert(base.constructor === constructor);
 
         // restore large buffers by just returning a view on the state blob
         if(info.length >= 1024 * 1024 && constructor === Uint8Array)
