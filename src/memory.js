@@ -18,12 +18,7 @@ function Memory(memory_size, no_alloc)
 {
     this.size = memory_size;
 
-    // this only supports a 32 bit address space
-    var size = 1 << (32 - MMAP_BLOCK_BITS);
-    var memory_map_registered = new Uint8Array(size);
-
     // managed by IO() in io.js
-    this.memory_map_registered = memory_map_registered;
     /** @const */ this.memory_map_read8 = [];
     /** @const */ this.memory_map_write8 = [];
     /** @const */ this.memory_map_read32 = [];
@@ -139,6 +134,11 @@ Memory.prototype.mmap_write32 = function(addr, value)
     this.memory_map_write32[aligned_addr](addr, value);
 }
 
+Memory.prototype.in_mapped_range = function(addr)
+{
+    return addr < 0 || addr >= 0xA0000 && addr < 0xC0000 || addr >= this.size;
+};
+
 /**
  * @param {number} addr
  */
@@ -147,7 +147,7 @@ Memory.prototype.read8 = function(addr)
     this.debug_read(addr, 1);
     if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
 
-    if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS])
+    if(this.in_mapped_range(addr))
     {
         return this.mmap_read8(addr);
     }
@@ -165,7 +165,7 @@ Memory.prototype.read16 = function(addr)
     this.debug_read(addr, 2);
     if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
 
-    if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS])
+    if(this.in_mapped_range(addr))
     {
         return this.mmap_read16(addr);
     }
@@ -184,7 +184,7 @@ Memory.prototype.read_aligned16 = function(addr)
     this.debug_read(addr << 1, 2);
     if(USE_A20 && !this.a20_enabled) addr &= A20_MASK16;
 
-    if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS - 1])
+    if(this.in_mapped_range(addr << 1))
     {
         return this.mmap_read16(addr << 1);
     }
@@ -202,7 +202,7 @@ Memory.prototype.read32s = function(addr)
     this.debug_read(addr, 4);
     if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
 
-    if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS])
+    if(this.in_mapped_range(addr))
     {
         return this.mmap_read32(addr);
     }
@@ -220,8 +220,9 @@ Memory.prototype.read_aligned32 = function(addr)
 {
     dbg_assert(addr >= 0 && addr < 0x40000000);
     this.debug_read(addr << 2, 4);
+    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK32;
 
-    if(this.memory_map_registered[addr >>> MMAP_BLOCK_BITS - 2])
+    if(this.in_mapped_range(addr << 2))
     {
         return this.mmap_read32(addr << 2);
     }
@@ -244,7 +245,7 @@ Memory.prototype.write8 = function(addr, value)
 
     //if(OP_TRANSLATION) this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
 
-    if(this.memory_map_registered[page])
+    if(this.in_mapped_range(addr))
     {
         this.mmap_write8(addr, value);
     }
@@ -271,7 +272,7 @@ Memory.prototype.write16 = function(addr, value)
     //    this.mem_page_infos[addr + 1 >>> MMAP_BLOCK_BITS] |= MEM_PAGE_WRITTEN;
     //}
 
-    if(this.memory_map_registered[page])
+    if(this.in_mapped_range(addr))
     {
         this.mmap_write16(addr, value);
     }
@@ -296,7 +297,7 @@ Memory.prototype.write_aligned16 = function(addr, value)
 
     //if(OP_TRANSLATION) this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
 
-    if(this.memory_map_registered[page])
+    if(this.in_mapped_range(addr << 1))
     {
         this.mmap_write16(addr << 1, value);
     }
@@ -323,7 +324,7 @@ Memory.prototype.write32 = function(addr, value)
     //    this.mem_page_infos[addr + 3 >>> MMAP_BLOCK_BITS] |= MEM_PAGE_WRITTEN;
     //}
 
-    if(this.memory_map_registered[page])
+    if(this.in_mapped_range(addr))
     {
         this.mmap_write32(addr, value);
     }
@@ -346,7 +347,7 @@ Memory.prototype.write_aligned32 = function(addr, value)
 
     //if(OP_TRANSLATION) this.mem_page_infos[page] |= MEM_PAGE_WRITTEN;
 
-    if(this.memory_map_registered[page])
+    if(this.in_mapped_range(addr << 2))
     {
         this.mmap_write32(addr << 2, value);
     }

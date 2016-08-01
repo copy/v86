@@ -263,7 +263,7 @@ IO.prototype.in_mmap_range = function(start, count)
 
     while(start < end)
     {
-        if(this.memory.memory_map_registered[start >> MMAP_BLOCK_BITS])
+        if(this.memory.in_mapped_range(start))
         {
             return true;
         }
@@ -319,8 +319,6 @@ IO.prototype.mmap_register = function(addr, size, read_func8, write_func8, read_
 
     for(; size > 0; aligned_addr++)
     {
-        this.memory.memory_map_registered[aligned_addr] = 1;
-
         this.memory.memory_map_read8[aligned_addr] = read_func8;
         this.memory.memory_map_write8[aligned_addr] = write_func8;
         this.memory.memory_map_read32[aligned_addr] = read_func32;
