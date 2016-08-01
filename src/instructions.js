@@ -1748,15 +1748,7 @@ t[0x01] = cpu => { cpu.modrm_byte = cpu.read_imm8();
         cpu.trigger_ud();
     }
 
-    if((mod === 2 || mod === 3) && cpu.protected_mode)
-    {
-        // override prefix, so cpu.modrm_resolve does not return the segment part
-        // only lgdt and lidt and only in protected mode
-        cpu.segment_prefix = SEG_PREFIX_ZERO;
-    }
-
     var addr = cpu.modrm_resolve(cpu.modrm_byte);
-    cpu.segment_prefix = SEG_PREFIX_NONE;
 
     switch(mod)
     {
