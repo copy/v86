@@ -612,7 +612,20 @@ t16[0x9D] = cpu => {
     }
 
     cpu.update_eflags((cpu.flags & ~0xFFFF) | cpu.pop16());
-    cpu.handle_irqs();
+
+    if(cpu.flags & flag_trap)
+    {
+        // XXX: Problems with fdgame
+        //cpu.clear_prefixes();
+        //cpu.cycle_internal();
+        cpu.flags &= ~flag_trap;
+        //cpu.instruction_pointer = cpu.previous_ip;
+        //cpu.raise_exception(1);
+    }
+    else // XXX
+    {
+        cpu.handle_irqs();
+    }
 };
 t32[0x9D] = cpu => {
     // popf
