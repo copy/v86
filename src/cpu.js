@@ -2533,7 +2533,11 @@ CPU.prototype.cpuid = function()
             edx = (this.fpu ? 1 : 0) |                // fpu
                     1 << 1 | 1 << 3 | 1 << 4 | 1 << 5 |   // vme, pse, tsc, msr
                     1 << 8 | 1 << 11 | 1 << 13 | 1 << 15; // cx8, sep, pge, cmov
-            edx |= 1 << 9; // apic
+
+            if(ENABLE_ACPI)
+            {
+                edx |= 1 << 9; // apic
+            }
             break;
 
         case 2:

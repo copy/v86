@@ -2196,7 +2196,10 @@ t[0x32] = cpu => {
             break;
 
         case IA32_APIC_BASE_MSR:
-            low = APIC_ADDRESS;
+            if(ENABLE_ACPI)
+            {
+                low = APIC_ADDRESS;
+            }
             break;
 
         case IA32_BIOS_SIGN_ID:
