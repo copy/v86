@@ -446,12 +446,12 @@ PCI.prototype.move_io_bars = function(from, to, count)
             dbg_assert(empty_entry.write16 === this.io.empty_port_write, "Bad IO bar: Target already mapped");
             dbg_assert(empty_entry.write32 === this.io.empty_port_write, "Bad IO bar: Target already mapped");
 
-            if(entry.read8 !== this.io.empty_port_read8 ||
-               entry.read16 !== this.io.empty_port_read16 ||
-               entry.read32 !== this.io.empty_port_read32 ||
-               entry.write8 !== this.io.empty_port_write ||
-               entry.write16 !== this.io.empty_port_write ||
-               entry.write32 !== this.io.empty_port_write)
+            if(entry.read8 === this.io.empty_port_read8 &&
+               entry.read16 === this.io.empty_port_read16 &&
+               entry.read32 === this.io.empty_port_read32 &&
+               entry.write8 === this.io.empty_port_write &&
+               entry.write16 === this.io.empty_port_write &&
+               entry.write32 === this.io.empty_port_write)
             {
                 dbg_log("Move IO bar: Source not mapped, port=" + h(from + i, 4), LOG_PCI);
             };
