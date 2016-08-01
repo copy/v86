@@ -21,7 +21,7 @@ t16[0x07] = cpu => {
     cpu.adjust_stack_reg(2);
 };
 t32[0x07] = cpu => {
-    cpu.switch_seg(reg_es, cpu.safe_read16(cpu.get_stack_pointer(0)));
+    cpu.switch_seg(reg_es, cpu.safe_read32s(cpu.get_stack_pointer(0)) & 0xFFFF);
     cpu.adjust_stack_reg(4);
 };
 
@@ -64,7 +64,7 @@ t16[0x17] = cpu => {
     cpu.cycle_internal();
 };
 t32[0x17] = cpu => {
-    cpu.switch_seg(reg_ss, cpu.safe_read16(cpu.get_stack_pointer(0)));
+    cpu.switch_seg(reg_ss, cpu.safe_read32s(cpu.get_stack_pointer(0)) & 0xFFFF);
     cpu.adjust_stack_reg(4);
     cpu.clear_prefixes();
     cpu.cycle_internal();
@@ -88,7 +88,7 @@ t16[0x1F] = cpu => {
     cpu.adjust_stack_reg(2);
 };
 t32[0x1F] = cpu => {
-    cpu.switch_seg(reg_ds, cpu.safe_read16(cpu.get_stack_pointer(0)));
+    cpu.switch_seg(reg_ds, cpu.safe_read32s(cpu.get_stack_pointer(0)) & 0xFFFF);
     cpu.adjust_stack_reg(4);
 };
 
@@ -2468,7 +2468,7 @@ t16[0xA1] = cpu => {
     cpu.adjust_stack_reg(2);
 };
 t32[0xA1] = cpu => {
-    cpu.switch_seg(reg_fs, cpu.safe_read16(cpu.get_stack_pointer(0)));
+    cpu.switch_seg(reg_fs, cpu.safe_read32s(cpu.get_stack_pointer(0)) & 0xFFFF);
     cpu.adjust_stack_reg(4);
 };
 
@@ -2521,7 +2521,7 @@ t16[0xA9] = cpu => {
     cpu.adjust_stack_reg(2);
 };
 t32[0xA9] = cpu => {
-    cpu.switch_seg(reg_gs, cpu.safe_read16(cpu.get_stack_pointer(0)));
+    cpu.switch_seg(reg_gs, cpu.safe_read32s(cpu.get_stack_pointer(0)) & 0xFFFF);
     cpu.adjust_stack_reg(4);
 };
 
