@@ -3483,3 +3483,17 @@ CPU.prototype.trigger_pagefault = function(write, user, present)
     throw MAGIC_CPU_EXCEPTION;
 };
 
+
+// Closure Compiler's way of exporting
+if(typeof window !== "undefined")
+{
+    window["CPU"] = CPU;
+}
+else if(typeof module !== "undefined" && typeof module.exports !== "undefined")
+{
+    module.exports["CPU"] = CPU;
+}
+else if(typeof importScripts === "function")
+{
+    self["CPU"] = CPU;
+}
