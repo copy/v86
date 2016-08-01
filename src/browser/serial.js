@@ -128,6 +128,12 @@ function SerialAdapter(element, bus)
             serial.send_char(127);
             e.preventDefault();
         }
+        else if(chr === 9)
+        {
+            // tab
+            serial.send_char(9);
+            e.preventDefault();
+        }
     }
 
     function paste_handler(e)
