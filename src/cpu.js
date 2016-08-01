@@ -523,7 +523,7 @@ CPU.prototype.reset = function()
     this.tsc_offset = v86.microtick();
 
     this.instruction_pointer = 0xFFFF0;
-    this.switch_seg(reg_cs, 0xF000);
+    this.switch_cs_real_mode(0xF000);
 
     this.switch_seg(reg_ss, 0x30);
     this.reg16[reg_sp] = 0x100;
@@ -1433,28 +1433,17 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
             //dbg_log("Inter privilege interrupt gate=" + h(selector, 4) + ":" + h(base >>> 0, 8) + " trap=" + is_trap + " 16bit=" + is_16, LOG_CPU);
             //this.debug.dump_regs_short();
-
-            var tss_stack_addr = (info.dpl << 3) + 4 | 0;
-
-            if((tss_stack_addr + 5 | 0) > this.segment_limits[reg_tr])
-            {
-                throw this.debug.unimpl("#TS handler");
-            }
-
-            tss_stack_addr = tss_stack_addr + this.segment_offsets[reg_tr] | 0;
-
-            if(this.paging)
-            {
-                tss_stack_addr = this.translate_address_system_read(tss_stack_addr);
-            }
-
-            dbg_assert((tss_stack_addr & 0xFFF) <= 0x1000 - 6);
+            var tss_stack_addr = this.get_tss_stack_addr(info.dpl);
 
             var new_esp = this.memory.read32s(tss_stack_addr);
             var new_ss = this.memory.read16(tss_stack_addr + 4 | 0);
             var ss_info = this.lookup_segment_selector(new_ss);
 
-            dbg_assert((new_esp >>> 0) <= ss_info.effective_limit);
+            // Disabled: Incorrect handling of direction bit
+            // See http://css.csail.mit.edu/6.858/2014/readings/i386/s06_03.htm
+            //if(!((new_esp >>> 0) <= ss_info.effective_limit))
+            //    debugger;
+            //dbg_assert((new_esp >>> 0) <= ss_info.effective_limit);
             dbg_assert(ss_info.is_valid && !ss_info.is_system && ss_info.is_writable);
 
             if(ss_info.is_null)
@@ -1639,7 +1628,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
         this.flags &= ~flag_interrupt;
 
-        this.switch_seg(reg_cs, new_cs);
+        this.switch_cs_real_mode(new_cs);
         this.instruction_pointer = this.get_seg(reg_cs) + new_ip | 0;
     }
 
@@ -1683,7 +1672,7 @@ CPU.prototype.iret = function(is_16)
             throw this.debug.unimpl("#GP handler");
         }
 
-        this.switch_seg(reg_cs, new_cs);
+        this.switch_cs_real_mode(new_cs);
         this.instruction_pointer = new_eip + this.get_seg(reg_cs) | 0;
 
         if(is_16)
@@ -1746,7 +1735,7 @@ CPU.prototype.iret = function(is_16)
             this.update_eflags(new_flags);
             this.flags |= flag_vm;
 
-            this.switch_seg(reg_cs, new_cs);
+            this.switch_cs_real_mode(new_cs);
             this.instruction_pointer = (new_eip & 0xFFFF) + this.get_seg(reg_cs) | 0;
 
             this.switch_seg(reg_es, new_es);
@@ -1898,8 +1887,506 @@ CPU.prototype.iret = function(is_16)
     this.handle_irqs();
 };
 
+CPU.prototype.switch_cs_real_mode = function(selector)
+{
+    dbg_assert(!this.protected_mode || this.vm86_mode());
+
+    this.sreg[reg_cs] = selector;
+    this.segment_is_null[reg_cs] = 0;
+    this.segment_offsets[reg_cs] = selector << 4;
+};
+
+CPU.prototype.far_return = function(eip, selector, stack_adjust)
+{
+    dbg_assert(typeof selector === "number" && selector < 0x10000 && selector >= 0);
+
+    //dbg_log("far return eip=" + h(eip >>> 0, 8) + " cs=" + h(selector, 4) + " stack_adjust=" + h(stack_adjust), LOG_CPU);
+    //this.debug.dump_state();
+
+    this.protected_mode = (this.cr[0] & CR0_PE) === CR0_PE;
+
+    if(!this.protected_mode)
+    {
+        dbg_assert(!this.is_32);
+        //dbg_assert(!this.stack_size_32);
+    }
+
+    if(!this.protected_mode || this.vm86_mode())
+    {
+        this.switch_cs_real_mode(selector);
+        this.instruction_pointer = this.get_seg(reg_cs) + eip | 0;
+        this.adjust_stack_reg(2 * (this.operand_size_32 ? 4 : 2) + stack_adjust);
+        return;
+    }
+
+    var info = this.lookup_segment_selector(selector);
+
+    if(info.is_null)
+    {
+        dbg_log("null cs", LOG_CPU);
+        this.trigger_gp(0);
+    }
+
+    if(!info.is_valid)
+    {
+        dbg_log("invalid cs: " + h(selector), LOG_CPU);
+        this.trigger_gp(selector & ~3);
+    }
+
+    if(info.is_system)
+    {
+        dbg_assert(false, "is system in far return");
+        this.trigger_gp(selector & ~3);
+    }
+
+    if(!info.is_executable)
+    {
+        dbg_log("non-executable cs: " + h(selector), LOG_CPU);
+        this.trigger_gp(selector & ~3);
+    }
+
+    if(info.rpl < this.cpl)
+    {
+        dbg_log("cs rpl < cpl: " + h(selector), LOG_CPU);
+        this.trigger_gp(selector & ~3);
+    }
+
+    if(info.dc_bit && info.dpl > info.rpl)
+    {
+        dbg_log("cs conforming and dpl > rpl: " + h(selector), LOG_CPU);
+        this.trigger_gp(selector & ~3);
+    }
+
+    if(!info.dc_bit && info.dpl !== info.rpl)
+    {
+        dbg_log("cs non-conforming and dpl != rpl: " + h(selector), LOG_CPU);
+        this.trigger_gp(selector & ~3);
+    }
+
+    if(!info.is_present)
+    {
+        dbg_log("#NP for loading not-present in cs sel=" + h(selector, 4), LOG_CPU);
+        dbg_trace(LOG_CPU);
+        this.trigger_np(selector & ~3);
+    }
+
+    if(info.rpl > this.cpl)
+    {
+        dbg_log("far return privilege change cs: " + h(selector) + " from=" + this.cpl + " to=" + info.rpl + " is_16=" + this.operand_size_32, LOG_CPU);
+
+        if(this.operand_size_32)
+        {
+            dbg_log("esp read from " + h(this.translate_address_system_read(this.get_stack_pointer(stack_adjust + 8))))
+            var temp_esp = this.safe_read32s(this.get_stack_pointer(stack_adjust + 8));
+            dbg_log("esp=" + h(temp_esp));
+            var temp_ss = this.safe_read16(this.get_stack_pointer(stack_adjust + 12));
+        }
+        else
+        {
+            dbg_log("esp read from " + h(this.translate_address_system_read(this.get_stack_pointer(stack_adjust + 4))));
+            var temp_esp = this.safe_read16(this.get_stack_pointer(stack_adjust + 4));
+            dbg_log("esp=" + h(temp_esp));
+            var temp_ss = this.safe_read16(this.get_stack_pointer(stack_adjust + 6));
+        }
+
+        this.cpl = info.rpl;
+        this.cpl_changed();
+
+        // XXX: Can raise, conditions should be checked before side effects
+        this.switch_seg(reg_ss, temp_ss);
+        this.set_stack_reg(temp_esp + stack_adjust);
+
+        //if(this.operand_size_32)
+        //{
+        //    this.adjust_stack_reg(2 * 4);
+        //}
+        //else
+        //{
+        //    this.adjust_stack_reg(2 * 2);
+        //}
+
+        //throw this.debug.unimpl("privilege change");
+
+        //this.adjust_stack_reg(stack_adjust);
+    }
+    else
+    {
+        if(this.operand_size_32)
+        {
+            this.adjust_stack_reg(2 * 4 + stack_adjust);
+        }
+        else
+        {
+            this.adjust_stack_reg(2 * 2 + stack_adjust);
+        }
+    }
+
+    //dbg_assert(this.cpl === info.dpl);
+
+    dbg_assert(typeof info.size === "boolean");
+    if(info.size !== this.is_32)
+    {
+        this.update_cs_size(info.size);
+    }
+
+    this.segment_is_null[reg_cs] = 0;
+    this.segment_limits[reg_cs] = info.effective_limit;
+    //this.segment_infos[reg_cs] = 0; // TODO
+
+    this.segment_offsets[reg_cs] = info.base;
+    this.sreg[reg_cs] = selector;
+
+    this.instruction_pointer = this.get_seg(reg_cs) + eip | 0;
+
+    //dbg_log("far return to:", LOG_CPU)
+    //this.debug.dump_state();
+};
+
+CPU.prototype.far_jump = function(eip, selector, is_call)
+{
+    dbg_assert(typeof selector === "number" && selector < 0x10000 && selector >= 0);
+
+    //dbg_log("far " + ["jump", "call"][+is_call] + " eip=" + h(eip >>> 0, 8) + " cs=" + h(selector, 4), LOG_CPU);
+    //this.debug.dump_state();
+
+    this.protected_mode = (this.cr[0] & CR0_PE) === CR0_PE;
+
+    if(!this.protected_mode || this.vm86_mode())
+    {
+        if(is_call)
+        {
+            if(this.operand_size_32)
+            {
+                this.writable_or_pagefault(this.get_stack_pointer(-8), 8);
+                this.push32(this.sreg[reg_cs]);
+                this.push32(this.get_real_eip());
+            }
+            else
+            {
+                this.writable_or_pagefault(this.get_stack_pointer(-4), 4);
+                this.push16(this.sreg[reg_cs]);
+                this.push16(this.get_real_eip());
+            }
+        }
+        this.switch_cs_real_mode(selector);
+        this.instruction_pointer = this.get_seg(reg_cs) + eip | 0;
+        return;
+    }
+
+    var info = this.lookup_segment_selector(selector);
+
+    if(info.is_null)
+    {
+        dbg_log("#gp null cs", LOG_CPU);
+        this.trigger_gp(0);
+    }
+
+    if(!info.is_valid)
+    {
+        dbg_log("#gp invalid cs: " + h(selector), LOG_CPU);
+        this.trigger_gp(selector & ~3);
+    }
+
+    if(info.is_system)
+    {
+        dbg_assert(is_call, "TODO: Jump")
+
+        dbg_log("system type cs: " + h(selector), LOG_CPU);
+
+        if(info.type === 0xC || info.type === 4)
+        {
+            // call gate
+            var is_16 = info.type === 4;
+
+            if(info.dpl < this.cpl || info.dpl < info.rpl)
+            {
+                dbg_log("#gp cs gate dpl < cpl or dpl < rpl: " + h(selector), LOG_CPU);
+                this.trigger_gp(selector & ~3);
+            }
+
+            if(!info.is_present)
+            {
+                dbg_log("#NP for loading not-present in gate cs sel=" + h(selector, 4), LOG_CPU);
+                this.trigger_np(selector & ~3);
+            }
+
+            var cs_selector = info.raw0 >>> 16;
+            var cs_info = this.lookup_segment_selector(cs_selector);
+
+            if(cs_info.is_null)
+            {
+                dbg_log("#gp null cs", LOG_CPU);
+                this.trigger_gp(0);
+            }
+
+            if(!cs_info.is_valid)
+            {
+                dbg_log("#gp invalid cs: " + h(cs_selector), LOG_CPU);
+                this.trigger_gp(cs_selector & ~3);
+            }
+
+            if(!cs_info.is_executable)
+            {
+                dbg_log("#gp non-executable cs: " + h(cs_selector), LOG_CPU);
+                this.trigger_gp(cs_selector & ~3);
+            }
+
+            if(cs_info.dpl > this.cpl)
+            {
+                dbg_log("#gp dpl > cpl: " + h(cs_selector), LOG_CPU);
+                this.trigger_gp(cs_selector & ~3);
+            }
+
+            if(!cs_info.is_present)
+            {
+                dbg_log("#NP for loading not-present in cs sel=" + h(cs_selector, 4), LOG_CPU);
+                this.trigger_np(cs_selector & ~3);
+            }
+
+            //debugger;
+
+            if(!cs_info.dc_bit && cs_info.dpl < this.cpl)
+            {
+                dbg_log("more privilege call gate is_16=" + is_16 + " from=" + this.cpl + " to=" + cs_info.dpl);
+                var tss_stack_addr = this.get_tss_stack_addr(cs_info.dpl);
+
+                var new_esp = this.memory.read32s(tss_stack_addr);
+                var new_ss = this.memory.read16(tss_stack_addr + 4 | 0);
+                var ss_info = this.lookup_segment_selector(new_ss);
+
+                // Disabled: Incorrect handling of direction bit
+                // See http://css.csail.mit.edu/6.858/2014/readings/i386/s06_03.htm
+                //if(!((new_esp >>> 0) <= ss_info.effective_limit))
+                //    debugger;
+                //dbg_assert((new_esp >>> 0) <= ss_info.effective_limit);
+                dbg_assert(ss_info.is_valid && !ss_info.is_system && ss_info.is_writable);
+
+                if(ss_info.is_null)
+                {
+                    throw this.debug.unimpl("#TS handler");
+                }
+                if(ss_info.rpl !== cs_info.dpl) // xxx: 0 in v86 mode
+                {
+                    throw this.debug.unimpl("#TS handler");
+                }
+                if(ss_info.dpl !== cs_info.dpl || !ss_info.rw_bit)
+                {
+                    throw this.debug.unimpl("#TS handler");
+                }
+                if(!ss_info.is_present)
+                {
+                    throw this.debug.unimpl("#SS handler");
+                }
+
+                var old_esp = this.reg32s[reg_esp];
+                var old_ss = this.sreg[reg_ss];
+                var old_stack_pointer = this.get_stack_pointer(0);
+
+                dbg_log("old_esp=" + h(old_esp));
+
+                this.cpl = cs_info.dpl;
+                this.cpl_changed();
+
+                if(this.is_32 !== cs_info.size)
+                {
+                    this.update_cs_size(cs_info.size);
+                }
+
+                this.switch_seg(reg_ss, new_ss);
+                this.set_stack_reg(new_esp);
+
+                var parameter_count = info.raw1 & 0x1F;
+                dbg_log("parameter_count=" + parameter_count);
+                //dbg_assert(parameter_count === 0, "TODO");
+
+                if(is_16)
+                {
+                    this.push16(old_ss);
+                    this.push16(old_esp);
+                    dbg_log("old esp written to " + h(this.translate_address_system_read(this.get_stack_pointer(0))));
+                }
+                else
+                {
+                    this.push32(old_ss);
+                    this.push32(old_esp);
+                    dbg_log("old esp written to " + h(this.translate_address_system_read(this.get_stack_pointer(0))));
+                }
+
+                if(is_call)
+                {
+                    if(is_16)
+                    {
+                        for(var i = parameter_count - 1; i >= 0; i--)
+                        {
+                            var parameter = this.safe_read16(old_stack_pointer + 2 * i);
+                            this.push16(parameter);
+                        }
+
+                        this.writable_or_pagefault(this.get_stack_pointer(-4), 4);
+                        this.push16(this.sreg[reg_cs]);
+                        this.push16(this.get_real_eip());
+                    }
+                    else
+                    {
+                        for(var i = parameter_count - 1; i >= 0; i--)
+                        {
+                            var parameter = this.safe_read32s(old_stack_pointer + 4 * i);
+                            this.push32(parameter);
+                        }
+
+                        this.writable_or_pagefault(this.get_stack_pointer(-8), 8);
+                        this.push32(this.sreg[reg_cs]);
+                        this.push32(this.get_real_eip());
+                    }
+                }
+            }
+            else
+            {
+                dbg_log("same privilege call gate is_16=" + is_16 + " from=" + this.cpl + " to=" + cs_info.dpl + " conforming=" + cs_info.dc_bit);
+                // ok
+
+                if(is_call)
+                {
+                    if(is_16)
+                    {
+                        this.writable_or_pagefault(this.get_stack_pointer(-4), 4);
+                        this.push16(this.sreg[reg_cs]);
+                        this.push16(this.get_real_eip());
+                    }
+                    else
+                    {
+                        this.writable_or_pagefault(this.get_stack_pointer(-8), 8);
+                        this.push32(this.sreg[reg_cs]);
+                        this.push32(this.get_real_eip());
+                    }
+                }
+            }
+
+            // Note: eip from call is ignored
+            var new_eip = info.raw0 & 0xFFFF;
+            if(!is_16)
+            {
+                new_eip |= info.raw1 & 0xFFFF0000;
+            }
+
+            dbg_log("call gate eip=" + h(new_eip >>> 0) + " cs=" + h(cs_selector) + " conforming=" + cs_info.dc_bit);
+            dbg_assert((new_eip >>> 0) <= cs_info.effective_limit, "todo: #gp");
+
+            if(cs_info.size !== this.is_32)
+            {
+                this.update_cs_size(cs_info.size);
+            }
+
+            this.segment_is_null[reg_cs] = 0;
+            this.segment_limits[reg_cs] = cs_info.effective_limit;
+            //this.segment_infos[reg_cs] = 0; // TODO
+            this.segment_offsets[reg_cs] = cs_info.base;
+            this.sreg[reg_cs] = cs_selector & ~3 | this.cpl;
+
+            this.instruction_pointer = this.get_seg(reg_cs) + new_eip | 0;
+        }
+        else
+        {
+            var types = { 9: "Available 386 TSS", 0xb: "Busy 386 TSS", 4: "286 Call Gate", 0xc: "386 Call Gate" };
+            throw this.debug.unimpl("load system segment descriptor, type = " + (info.access & 15) + " (" + types[info.access & 15] + ")");
+        }
+    }
+    else
+    {
+        if(!info.is_executable)
+        {
+            dbg_log("#gp non-executable cs: " + h(selector), LOG_CPU);
+            this.trigger_gp(selector & ~3);
+        }
+
+        if(info.dc_bit)
+        {
+            // conforming code segment
+            if(info.dpl > this.cpl)
+            {
+                dbg_log("#gp cs dpl > cpl: " + h(selector), LOG_CPU);
+                this.trigger_gp(selector & ~3);
+            }
+        }
+        else
+        {
+            // non-conforming code segment
+
+            if(info.rpl > this.cpl || info.dpl !== this.cpl)
+            {
+                dbg_log("#gp cs rpl > cpl or dpl != cpl: " + h(selector), LOG_CPU);
+                this.trigger_gp(selector & ~3);
+            }
+        }
+
+        if(!info.is_present)
+        {
+            dbg_log("#NP for loading not-present in cs sel=" + h(selector, 4), LOG_CPU);
+            dbg_trace(LOG_CPU);
+            this.trigger_np(selector & ~3);
+        }
+
+        if(is_call)
+        {
+            if(this.operand_size_32)
+            {
+                this.writable_or_pagefault(this.get_stack_pointer(-8), 8);
+                this.push32(this.sreg[reg_cs]);
+                this.push32(this.get_real_eip());
+            }
+            else
+            {
+                this.writable_or_pagefault(this.get_stack_pointer(-4), 4);
+                this.push16(this.sreg[reg_cs]);
+                this.push16(this.get_real_eip());
+            }
+        }
+
+        dbg_assert((eip >>> 0) <= info.effective_limit, "todo: #gp");
+
+        if(info.size !== this.is_32)
+        {
+            this.update_cs_size(info.size);
+        }
+
+        this.segment_is_null[reg_cs] = 0;
+        this.segment_limits[reg_cs] = info.effective_limit;
+        //this.segment_infos[reg_cs] = 0; // TODO
+
+        this.segment_offsets[reg_cs] = info.base;
+        this.sreg[reg_cs] = selector & ~3 | this.cpl;
+
+        this.instruction_pointer = this.get_seg(reg_cs) + eip | 0;
+    }
+
+    //dbg_log("far " + ["jump", "call"][+is_call] + " to:", LOG_CPU)
+    //this.debug.dump_state();
+};
+
+CPU.prototype.get_tss_stack_addr = function(dpl)
+{
+    var tss_stack_addr = (dpl << 3) + 4 | 0;
+
+    if((tss_stack_addr + 5 | 0) > this.segment_limits[reg_tr])
+    {
+        throw this.debug.unimpl("#TS handler");
+    }
+
+    tss_stack_addr = tss_stack_addr + this.segment_offsets[reg_tr] | 0;
+
+    if(this.paging)
+    {
+        tss_stack_addr = this.translate_address_system_read(tss_stack_addr);
+    }
+
+    dbg_assert((tss_stack_addr & 0xFFF) <= 0x1000 - 6);
+
+    return tss_stack_addr;
+};
+
 CPU.prototype.do_task_switch = function(selector)
 {
+    dbg_log("do_task_switch sel=" + h(selector), LOG_CPU);
     var descriptor = this.lookup_segment_selector(selector);
 
     if(!descriptor.is_valid || descriptor.is_null || !descriptor.from_gdt)
@@ -2086,6 +2573,12 @@ CPU.prototype.trigger_nm = function()
 {
     this.instruction_pointer = this.previous_ip;
     this.raise_exception(7);
+};
+
+CPU.prototype.trigger_ts = function(code)
+{
+    this.instruction_pointer = this.previous_ip;
+    this.raise_exception_with_code(10, code);
 };
 
 CPU.prototype.trigger_gp = function(code)
@@ -2774,11 +3267,6 @@ CPU.prototype.switch_seg = function(reg, selector)
     dbg_assert(reg >= 0 && reg <= 5);
     dbg_assert(typeof selector === "number" && selector < 0x10000 && selector >= 0);
 
-    if(reg === reg_cs)
-    {
-        this.protected_mode = (this.cr[0] & CR0_PE) === CR0_PE;
-    }
-
     if(!this.protected_mode || this.vm86_mode())
     {
         this.sreg[reg] = selector;
@@ -2825,62 +3313,8 @@ CPU.prototype.switch_seg = function(reg, selector)
     }
     else if(reg === reg_cs)
     {
-        dbg_assert(!info.is_null, "todo: #gp");
-        dbg_assert(info.is_valid, "todo: #gp");
-
-        if(info.is_system)
-        {
-            dbg_log("system type cs: " + h(selector), LOG_CPU);
-            throw this.debug.unimpl("load system segment descriptor, type = " + (info.access & 15));
-        }
-
-        if(!info.is_executable)
-        {
-            dbg_log("non-executable cs: " + h(selector), LOG_CPU);
-            this.trigger_gp(selector & ~3);
-        }
-
-        dbg_assert(info.rpl >= this.cpl, "todo: #gp");
-        dbg_assert(!(info.dc_bit && info.dpl > info.rpl), "todo: #gp");
-        dbg_assert(!(!info.dc_bit && info.dpl !== info.rpl), "todo: #gp");
-
-        if(!info.is_present)
-        {
-            dbg_log("#NP for loading not-present in cs sel=" + h(selector, 4), LOG_CPU);
-            dbg_trace(LOG_CPU);
-            this.trigger_np(selector & ~3);
-        }
-
-        if(info.rpl > this.cpl)
-        {
-            dbg_log("privilege change cs: " + h(selector), LOG_CPU);
-            throw this.debug.unimpl("privilege change");
-        }
-
-        dbg_assert(this.cpl === info.dpl);
-
-        if(!info.dc_bit && info.dpl < this.cpl)
-        {
-            throw this.debug.unimpl("inter privilege call");
-        }
-        else
-        {
-            if(info.dc_bit || info.dpl === this.cpl)
-            {
-                // ok
-            }
-            else
-            {
-                dbg_log("#GP for nonconforming code segment, DPL > CPL in cs sel=" + h(selector, 4), LOG_CPU);
-                throw this.debug.unimpl("#GP handler");
-            }
-        }
-
-        dbg_assert(typeof info.size === "boolean");
-        if(info.size !== this.is_32)
-        {
-            this.update_cs_size(info.size);
-        }
+        // handled by switch_cs_real_mode, far_return or far_jump
+        dbg_assert(false);
     }
     else
     {

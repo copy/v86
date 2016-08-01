@@ -515,19 +515,10 @@ t32[0x99] = cpu => { /* cdq */ cpu.reg32s[reg_edx] = cpu.reg32s[reg_eax] >> 31; 
 
 t16[0x9A] = cpu => {
     // callf
-
     var new_ip = cpu.read_imm16();
     var new_cs = cpu.read_imm16();
-    var old_cs = cpu.sreg[reg_cs];
-    var old_ip = cpu.get_real_eip();
 
-    cpu.writable_or_pagefault(cpu.get_stack_pointer(-4), 4);
-    cpu.switch_seg(reg_cs, new_cs);
-
-    cpu.push16(old_cs);
-    cpu.push16(old_ip);
-
-    cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0;
+    cpu.far_jump(new_ip, new_cs, true);
     dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
 };
 t32[0x9A] = cpu => {
@@ -542,16 +533,7 @@ t32[0x9A] = cpu => {
         }
     }
 
-    var old_cs = cpu.sreg[reg_cs];
-    var old_eip = cpu.get_real_eip();
-
-    cpu.writable_or_pagefault(cpu.get_stack_pointer(-8), 8);
-    cpu.switch_seg(reg_cs, new_cs);
-
-    cpu.push32(old_cs);
-    cpu.push32(old_eip);
-
-    cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0;
+    cpu.far_jump(new_ip, new_cs, true);
     dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
 };
 
@@ -867,43 +849,32 @@ t16[0xCA] = cpu => {
     var ip = cpu.safe_read16(cpu.get_stack_pointer(0));
     var cs = cpu.safe_read16(cpu.get_stack_pointer(2));
 
-    cpu.switch_seg(reg_cs, cs);
-    cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
-
-    cpu.adjust_stack_reg(imm16 + 4 | 0);
+    cpu.far_return(ip, cs, imm16);
 };
 t32[0xCA] = cpu => {
     // retf
     var imm16 = cpu.read_imm16();
-
     var ip = cpu.safe_read32s(cpu.get_stack_pointer(0));
     var cs = cpu.safe_read32s(cpu.get_stack_pointer(4)) & 0xFFFF;
 
-    cpu.switch_seg(reg_cs, cs);
-    cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
+    cpu.far_return(ip, cs, imm16);
     dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
-
-    cpu.adjust_stack_reg(imm16 + 8 | 0);
 };
 t16[0xCB] = cpu => {
     // retf
     var ip = cpu.safe_read16(cpu.get_stack_pointer(0));
     var cs = cpu.safe_read16(cpu.get_stack_pointer(2));
 
-    cpu.switch_seg(reg_cs, cs);
-    cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
+    cpu.far_return(ip, cs, 0);
     dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
-    cpu.adjust_stack_reg(4);
 };
 t32[0xCB] = cpu => {
     // retf
     var ip = cpu.safe_read32s(cpu.get_stack_pointer(0));
     var cs = cpu.safe_read32s(cpu.get_stack_pointer(4)) & 0xFFFF;
 
-    cpu.switch_seg(reg_cs, cs);
-    cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
+    cpu.far_return(ip, cs, 0);
     dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
-    cpu.adjust_stack_reg(8);
 };
 
 t[0xCC] = cpu => {
@@ -1178,25 +1149,15 @@ t32[0xE9] = cpu => {
 t16[0xEA] = cpu => {
     // jmpf
     var ip = cpu.read_imm16();
-    cpu.switch_seg(reg_cs, cpu.read_imm16());
-
-    cpu.instruction_pointer = ip + cpu.get_seg(reg_cs) | 0;
+    var cs = cpu.read_imm16();
+    cpu.far_jump(ip, cs, false);
     dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
 };
 t32[0xEA] = cpu => {
     // jmpf
     var new_ip = cpu.read_imm32s();
-    cpu.switch_seg(reg_cs, cpu.read_imm16());
-
-    if(!cpu.protected_mode || cpu.vm86_mode())
-    {
-        if(new_ip & 0xFFFF0000)
-        {
-            throw cpu.debug.unimpl("#GP handler");
-        }
-    }
-
-    cpu.instruction_pointer = new_ip + cpu.get_seg(reg_cs) | 0;
+    var cs = cpu.read_imm16();
+    cpu.far_jump(new_ip, cs, false);
     dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
 };
 t[0xEB] = cpu => {
@@ -1487,16 +1448,8 @@ t16[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             var virt_addr = cpu.modrm_resolve(cpu.modrm_byte);
             var new_ip = cpu.safe_read16(virt_addr);
             var new_cs = cpu.safe_read16(virt_addr + 2 | 0);
-            var old_cs = cpu.sreg[reg_cs];
-            var old_ip = cpu.get_real_eip();
 
-            cpu.writable_or_pagefault(cpu.get_stack_pointer(-4), 4);
-            cpu.switch_seg(reg_cs, new_cs);
-
-            cpu.push16(old_cs);
-            cpu.push16(old_ip);
-
-            cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0;
+            cpu.far_jump(new_ip, new_cs, true);
             dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
             break;
         case 4:
@@ -1518,8 +1471,7 @@ t16[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             var new_ip = cpu.safe_read16(virt_addr);
             var new_cs = cpu.safe_read16(virt_addr + 2 | 0);
 
-            cpu.switch_seg(reg_cs, new_cs);
-            cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0;
+            cpu.far_jump(new_ip, new_cs, false);
             dbg_assert(cpu.address_size_32 || cpu.get_real_eip() < 0x10000);
             break;
         case 6:
@@ -1560,8 +1512,6 @@ t32[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
             var virt_addr = cpu.modrm_resolve(cpu.modrm_byte);
             var new_ip = cpu.safe_read32s(virt_addr);
             var new_cs = cpu.safe_read16(virt_addr + 4 | 0);
-            var old_cs = cpu.sreg[reg_cs];
-            var old_eip = cpu.get_real_eip();
 
             if(!cpu.protected_mode || cpu.vm86_mode())
             {
@@ -1571,14 +1521,8 @@ t32[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
                 }
             }
 
-            cpu.writable_or_pagefault(cpu.get_stack_pointer(-8), 8);
-            cpu.switch_seg(reg_cs, new_cs);
-
-            cpu.push32(old_cs);
-            cpu.push32(old_eip);
-
+            cpu.far_jump(new_ip, new_cs, true);
             dbg_assert(cpu.address_size_32 || new_ip < 0x10000);
-            cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0;
             break;
         case 4:
             // 4, jmp near
@@ -1607,9 +1551,8 @@ t32[0xFF] = cpu => { cpu.modrm_byte = cpu.read_imm8();
                 }
             }
 
-            cpu.switch_seg(reg_cs, new_cs);
+            cpu.far_jump(new_ip, new_cs, false);
             dbg_assert(cpu.address_size_32 || new_ip < 0x10000);
-            cpu.instruction_pointer = cpu.get_seg(reg_cs) + new_ip | 0;
             break;
         case 6:
             // push
