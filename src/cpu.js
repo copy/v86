@@ -3177,6 +3177,7 @@ CPU.prototype.lookup_segment_selector = function(selector)
         is_readable: false,
         table_offset: 0,
 
+        raw0: 0,
         raw1: 0,
     };
 
@@ -3219,6 +3220,7 @@ CPU.prototype.lookup_segment_selector = function(selector)
     info.access = this.memory.read8(table_offset + 5 | 0);
     info.flags = this.memory.read8(table_offset + 6 | 0) >> 4;
 
+    info.raw0 = this.memory.read32s(table_offset     | 0);
     info.raw1 = this.memory.read32s(table_offset + 4 | 0);
 
     //this.memory.write8(table_offset + 5 | 0, info.access | 1);
