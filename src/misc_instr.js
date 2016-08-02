@@ -16,14 +16,10 @@
 
 CPU.prototype.jmpcc8 = function(condition)
 {
+    var imm8 = this.read_op8s();
     if(condition)
     {
-        var imm8 = this.read_imm8s();
         this.instruction_pointer = this.instruction_pointer + imm8 | 0;
-    }
-    else
-    {
-        this.instruction_pointer = this.instruction_pointer + 1 | 0;
     }
 };
 
@@ -40,30 +36,23 @@ CPU.prototype.jmp_rel16 = function(rel16)
 
 CPU.prototype.jmpcc16 = function(condition)
 {
+    var imm16 = this.read_op16();
     if(condition)
     {
-        this.jmp_rel16(this.read_imm16());
-    }
-    else
-    {
-        this.instruction_pointer = this.instruction_pointer + 2 | 0;
+        this.jmp_rel16(imm16);
     }
 }
 
 
 CPU.prototype.jmpcc32 = function(condition)
 {
+    var imm32s = this.read_op32s();
     if(condition)
     {
-        // don't change to `this.instruction_pointer += this.read_imm32s()`,
-        //   since read_imm32s modifies instruction_pointer
+        // don't change to `this.instruction_pointer += this.read_op32s()`,
+        //   since read_op32s modifies instruction_pointer
 
-        var imm32s = this.read_imm32s();
         this.instruction_pointer = this.instruction_pointer + imm32s | 0;
-    }
-    else
-    {
-        this.instruction_pointer = this.instruction_pointer + 4 | 0;
     }
 };
 

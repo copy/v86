@@ -195,13 +195,6 @@ function CPU()
 
     this.table = [];
 
-    this.large_table = [];
-
-    this.large_table16 = [];
-    this.large_table32 = [];
-    this.large_table0F_16 = [];
-    this.large_table0F_32 = [];
-
     // paging enabled
     /** @type {boolean} */
     this.paging = false;
@@ -839,14 +832,7 @@ CPU.prototype.do_many_cycles_unsafe = function()
     // runs only cycles
     for(var k = LOOP_COUNTER; k--;)
     {
-        if(OP_TRANSLATION)
-        {
-            this.cycle_translated();
-        }
-        else
-        {
-            this.cycle_internal();
-        }
+        this.cycle_internal();
     }
 }
 
@@ -944,14 +930,7 @@ CPU.prototype.cycle = function()
     }
 };
 
-CPU.prototype.cycle_translated = function()
-{
-    this.previous_ip = this.instruction_pointer;
-    this.timestamp_counter++;
-    this.large_table[this.get_imm16() | 0](this);
-};
-
-CPU.prototype.do_op = function()
+CPU.prototype.run_prefix_instruction = function()
 {
     this.table[this.read_imm8()](this);
 };
@@ -1040,11 +1019,6 @@ CPU.prototype.cpl_changed = function()
     this.last_virt_esp = -1;
 };
 
-CPU.prototype.read_modrm_byte = function()
-{
-    this.modrm_byte = this.read_imm8();
-};
-
 CPU.prototype.read_imm8 = function()
 {
     if((this.instruction_pointer & ~0xFFF) ^ this.last_virt_eip)
@@ -1080,11 +1054,6 @@ CPU.prototype.read_imm16 = function()
     return data16;
 };
 
-CPU.prototype.read_imm16s = function()
-{
-    return this.read_imm16() << 16 >> 16;
-};
-
 CPU.prototype.read_imm32s = function()
 {
     // Analogue to the above comment
@@ -1099,26 +1068,21 @@ CPU.prototype.read_imm32s = function()
     return data32;
 };
 
-CPU.prototype.get_imm16 = function()
+CPU.prototype.read_modrm_byte = function()
 {
-    return this.safe_read16(this.instruction_pointer);
-    //if(((this.instruction_pointer ^ this.last_virt_eip) >>> 0) > 0xFFE)
-    //{
-    //    return this.safe_read16(this.instruction_pointer);
-    //}
-    //return this.read16(this.eip_phys ^ this.instruction_pointer);
+    this.modrm_byte = this.read_imm8();
 };
 
-CPU.prototype.get_imm32s = function()
-{
-    if(((this.instruction_pointer ^ this.last_virt_eip) >>> 0) > 0xFFC)
-    {
-        return this.safe_read32s(this.instruction_pointer);
-    }
-
-    return this.read32s(this.eip_phys ^ this.instruction_pointer);
-};
-
+CPU.prototype.read_sib = CPU.prototype.read_imm8;
+CPU.prototype.read_op8 = CPU.prototype.read_imm8;
+CPU.prototype.read_op8s = CPU.prototype.read_imm8s;
+CPU.prototype.read_op16 = CPU.prototype.read_imm16;
+CPU.prototype.read_op32s = CPU.prototype.read_imm32s;
+CPU.prototype.read_second_op8 = CPU.prototype.read_imm8;
+CPU.prototype.read_second_op16 = CPU.prototype.read_imm16;
+CPU.prototype.read_disp8s = CPU.prototype.read_imm8s;
+CPU.prototype.read_disp16 = CPU.prototype.read_imm16;
+CPU.prototype.read_disp32s = CPU.prototype.read_imm32s;
 
 // read word from a page boundary, given 2 physical addresses
 CPU.prototype.virt_boundary_read16 = function(low, high)
@@ -1272,11 +1236,11 @@ CPU.prototype.read_moffs = function()
 {
     if(this.address_size_32)
     {
-        return this.get_seg_prefix(reg_ds) + this.read_imm32s() | 0;
+        return this.get_seg_prefix(reg_ds) + this.read_op32s() | 0;
     }
     else
     {
-        return this.get_seg_prefix(reg_ds) + this.read_imm16() | 0;
+        return this.get_seg_prefix(reg_ds) + this.read_op16() | 0;
     }
 };
 
@@ -3219,20 +3183,10 @@ CPU.prototype.update_operand_size = function()
     if(this.operand_size_32)
     {
         this.table = this.table32;
-
-        if(OP_TRANSLATION)
-        {
-            this.large_table = this.large_table32;
-        }
     }
     else
     {
         this.table = this.table16;
-
-        if(OP_TRANSLATION)
-        {
-            this.large_table = this.large_table16;
-        }
     }
 };
 
