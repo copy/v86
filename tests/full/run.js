@@ -26,9 +26,24 @@ function readfile(path)
     return new Uint8Array(fs.readFileSync(path)).buffer;
 }
 
+function get_line(screen, y)
+{
+    return screen.subarray(y * SCREEN_WIDTH, (y + 1) * SCREEN_WIDTH);
+}
+
 function line_to_text(screen, y)
 {
-    return String.fromCharCode.apply(String, screen.subarray(y * SCREEN_WIDTH, (y + 1) * SCREEN_WIDTH));
+    return bytearray_to_string(get_line(screen, y));
+}
+
+function string_to_bytearray(str)
+{
+    return new Uint8Array(str.split("").map(chr => chr.charCodeAt(0)));
+}
+
+function bytearray_to_string(arr)
+{
+    return String.fromCharCode.apply(String, arr);
 }
 
 function screen_to_text(s)
@@ -83,7 +98,7 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
             actions: [
                 {
-                    after: 5,
+                    on_text: " or press",
                     run: "\n"
                 },
             ],
@@ -91,7 +106,7 @@ if(cluster.isMaster)
         {
             name: "Linux",
             cdrom: root_path + "/images/linux.iso",
-            timeout: 75,
+            timeout: 90,
             expected_texts: [
                 "/root%",
                 "test passed",
@@ -106,7 +121,7 @@ if(cluster.isMaster)
         {
             name: "Linux with Bochs BIOS",
             cdrom: root_path + "/images/linux.iso",
-            timeout: 75,
+            timeout: 90,
             expected_texts: [
                 "/root%",
                 "test passed",
@@ -199,6 +214,18 @@ else
     });
 }
 
+function bytearray_starts_with(arr, search)
+{
+    for(var i = 0; i < search.length; i++)
+    {
+        if(arr[i] !== search[i])
+        {
+            return false
+        }
+    }
+    return true;
+}
+
 function run_test(test, done)
 {
     console.log("Starting test: %s", test.name);
@@ -232,7 +259,11 @@ function run_test(test, done)
         settings.fda = { buffer: readfile(test.fda) };
     }
 
-    if(!test.expected_texts)
+    if(test.expected_texts)
+    {
+        test.expected_texts = test.expected_texts.map(string_to_bytearray);
+    }
+    else
     {
         test.expected_texts = [];
     }
@@ -274,12 +305,14 @@ function run_test(test, done)
 
         if(check_text_test_done() && check_mouse_test_done() && check_grapical_test_done())
         {
+            var end = Date.now();
+
             clearTimeout(timeout);
             stopped = true;
 
             emulator.stop();
 
-            console.warn("Passed test: %s (took %ds)", test.name, (Date.now() - test_start) / 1000);
+            console.warn("Passed test: %s (took %ds)", test.name, (end - test_start) / 1000);
             console.warn();
 
             done();
@@ -333,13 +366,12 @@ function run_test(test, done)
         var code = chr[2];
         screen[x + SCREEN_WIDTH * y] = code;
 
-        var line = line_to_text(screen, y);
+        var line = get_line(screen, y);
 
         if(!check_text_test_done())
         {
-            var expected = test.expected_texts[0];
-
-            if(line.indexOf(expected) >= 0)
+            let expected = test.expected_texts[0];
+            if(x < expected.length && bytearray_starts_with(line, expected))
             {
                 test.expected_texts.shift();
                 check_test_done();
@@ -348,7 +380,8 @@ function run_test(test, done)
 
         if(on_text.length)
         {
-            if(line.indexOf(on_text[0].text) >= 0)
+            let expected = on_text[0].text;
+            if(x < expected.length && bytearray_starts_with(line, expected))
             {
                 var action = on_text.shift();
                 emulator.keyboard_send_text(action.run);
@@ -360,14 +393,7 @@ function run_test(test, done)
     {
         if(action.on_text)
         {
-            on_text.push({ text: action.on_text, run: action.run, });
-        }
-
-        if(action.after !== undefined)
-        {
-            setTimeout(function() {
-                emulator.keyboard_send_text(action.run);
-            }, action.after * 1000 * TIMEOUT_EXTRA_FACTOR);
+            on_text.push({ text: string_to_bytearray(action.on_text), run: action.run, });
         }
     });
 }
