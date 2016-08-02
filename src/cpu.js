@@ -407,12 +407,12 @@ CPU.prototype.main_run = function()
 {
     if(this.in_hlt)
     {
-        if(false)
-        {
-            var _t = this.hlt_loop();
-            return 0;
-        }
-        else
+        //if(false)
+        //{
+        //    var _t = this.hlt_loop();
+        //    return 0;
+        //}
+        //else
         {
             return this.hlt_loop();
         }
@@ -947,7 +947,7 @@ CPU.prototype.hlt_loop = function()
         this.devices.apic.timer(now);
     }
 
-    return 0;
+    return pit_time < rtc_time ? pit_time : rtc_time;
 };
 
 CPU.prototype.clear_prefixes = function()
