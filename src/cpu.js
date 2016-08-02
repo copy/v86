@@ -405,23 +405,23 @@ CPU.prototype.set_state = function(state)
  */
 CPU.prototype.main_run = function()
 {
-    try
+    if(this.in_hlt)
     {
-        if(this.in_hlt)
+        if(false)
         {
-            return this.hlt_loop();
+            var _t = this.hlt_loop();
+            return 0;
         }
         else
         {
-            this.do_run();
+            return this.hlt_loop();
         }
     }
-    catch(e)
+    else
     {
-        this.exception_cleanup(e);
+        this.do_run();
+        return 0;
     }
-
-    return 0;
 };
 
 CPU.prototype.exception_cleanup = function(e)
@@ -756,12 +756,11 @@ CPU.prototype.load_bios = function()
 
 CPU.prototype.do_run = function()
 {
-    var
-        /**
-         * @type {number}
-         */
-        start = v86.microtick(),
-        now = start;
+    /** @type {number} */
+    var start = v86.microtick();
+
+    /** @type {number} */
+    var now = start;
 
     // outer loop:
     // runs cycles + timers
@@ -785,27 +784,50 @@ CPU.prototype.do_run = function()
         }
 
         this.handle_irqs();
-
-        // inner loop:
-        // runs only cycles
-        for(var k = LOOP_COUNTER; k--;)
-        {
-            this.cycle_internal();
-        }
+        this.do_many_cycles();
 
         now = v86.microtick();
     }
 };
 
+CPU.prototype.do_many_cycles = function()
+{
+    try {
+        this.do_many_cycles_unsafe();
+    }
+    catch(e)
+    {
+        this.exception_cleanup(e);
+    }
+};
 
-// do_run must not be inlined into cpu_run, because then more code
-// is in the deoptimized try-catch.
+CPU.prototype.do_many_cycles_unsafe = function()
+{
+    // inner loop:
+    // runs only cycles
+    for(var k = LOOP_COUNTER; k--;)
+    {
+        if(OP_TRANSLATION)
+        {
+            this.cycle_translated();
+        }
+        else
+        {
+            this.cycle_internal();
+        }
+    }
+}
+
+// Some functions must not be inlined, because then more code is in the
+// deoptimized try-catch block.
 // This trick is a bit ugly, but it works without further complication.
 if(typeof window !== "undefined")
 {
-    window.__no_inline1 = CPU.prototype.do_run;
-    window.__no_inline2 = CPU.prototype.exception_cleanup;
-    window.__no_inline3 = CPU.prototype.hlt_loop;
+    window["__no_inline_for_closure_compiler__"] = [
+        CPU.prototype.exception_cleanup,
+        CPU.prototype.do_many_cycles_unsafe,
+        CPU.prototype.do_many_cycles,
+    ];
 };
 
 /** @const */
