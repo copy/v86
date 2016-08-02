@@ -198,7 +198,7 @@ function movsd(cpu)
 
                 dest >>= 2;
                 src >>= 2;
-                cpu.mem32s.set(cpu.mem32s.subarray(src, src + count), dest);
+                cpu.write_blob32(cpu.mem32s.subarray(src, src + count), dest);
 
                 if(cont)
                 {

@@ -769,13 +769,13 @@ CPU.prototype.load_bios = function()
     var data = new Uint8Array(bios),
         start = 0x100000 - bios.byteLength;
 
-    this.mem8.set(data, start);
+    this.write_blob(data, start);
 
     if(vga_bios)
     {
         // load vga bios
         data = new Uint8Array(vga_bios);
-        this.mem8.set(data, 0xC0000);
+        this.write_blob(data, 0xC0000);
     }
     else
     {
@@ -3930,8 +3930,8 @@ CPU.prototype.do_page_translation = function(addr, for_writing, user)
         }
 
         // set the accessed and dirty bits
-        this.mem32s[page_dir_addr] = page_dir_entry | 0x20;
-        this.mem32s[page_table_addr] = page_table_entry | 0x20 | for_writing << 6;
+        this.write_aligned32(page_dir_addr, page_dir_entry | 0x20);
+        this.write_aligned32(page_table_addr, page_table_entry | 0x20 | for_writing << 6);
 
         high = page_table_entry & 0xFFFFF000;
         global = page_table_entry & 0x100;

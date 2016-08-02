@@ -302,8 +302,8 @@ CPU.prototype.write_aligned32 = function(addr, value)
 };
 
 /**
+ * @param {Array.<number>|Uint8Array} blob
  * @param {number} offset
- * @param {Array.<number>} blob
  */
 CPU.prototype.write_blob = function(blob, offset)
 {
@@ -324,27 +324,11 @@ CPU.prototype.write_blob = function(blob, offset)
 };
 
 /**
- * zero byte terminated string
+ * @param {Array.<number>|Int32Array} blob
+ * @param {number} offset
  */
-CPU.prototype.read_string = function(addr)
+CPU.prototype.write_blob32 = function(blob, offset)
 {
-    var str = "",
-        data_byte;
-
-    while(data_byte = this.read8(addr))
-    {
-        str += String.fromCharCode(data_byte);
-        addr++;
-    }
-
-    return str;
+    dbg_assert(blob && blob.length);
+    this.mem32s.set(blob, offset);
 };
-
-CPU.prototype.write_string = function(str, addr)
-{
-    for(var i = 0; i < str.length; i++)
-    {
-        this.write8(addr + i, str.charCodeAt(i));
-    }
-};
-
