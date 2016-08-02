@@ -3007,6 +3007,19 @@ CPU.prototype.write_g32 = function(value)
     this.reg32[this.modrm_byte >> 3 & 7] = value;
 };
 
+CPU.prototype.pic_call_irq = function(int)
+{
+    try
+    {
+        this.previous_ip = this.instruction_pointer;
+        this.call_interrupt_vector(int, false, false);
+    }
+    catch(e)
+    {
+        this.exception_cleanup(e);
+    }
+};
+
 CPU.prototype.handle_irqs = function()
 {
     dbg_assert(!this.page_fault);

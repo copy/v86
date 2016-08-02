@@ -60,7 +60,7 @@ function PIC(cpu, master)
     this.cpu = cpu;
 
     // Checking for callable interrupts:
-    // (cpu changes interrupt flag) -> cpu.handle_irqs -> pic.check_irqs -> cpu.call_interrupt_vector
+    // (cpu changes interrupt flag) -> cpu.handle_irqs -> pic.check_irqs -> cpu.pic_call_irq
     // (pic changes isr/irr) -> cpu.handle_irqs -> ...
 
     // triggering irqs:
@@ -116,11 +116,7 @@ function PIC(cpu, master)
             }
 
             dbg_log("master handling irq " + irq_number, LOG_PIC);
-
-            // call_interrupt_vector can cause an exception in the CPU, so we
-            // have to set previous_ip correctly here
-            this.cpu.previous_ip = this.cpu.instruction_pointer;
-            this.cpu.call_interrupt_vector(this.irq_map | irq_number, false, false);
+            this.cpu.pic_call_irq(this.irq_map | irq_number);
 
             return true;
         };
@@ -159,8 +155,7 @@ function PIC(cpu, master)
             this.irr &= ~irq_mask;
 
             dbg_log("slave > handling irq " + irq_number, LOG_PIC);
-            this.cpu.previous_ip = this.cpu.instruction_pointer;
-            this.cpu.call_interrupt_vector(this.irq_map | irq_number, false, false);
+            this.cpu.pic_call_irq(this.irq_map | irq_number);
 
             if(this.irr)
             {
