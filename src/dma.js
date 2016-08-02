@@ -2,19 +2,19 @@
 
 /**
  * @constructor
- * @param {CPU} dev
+ * @param {CPU} cpu
  */
-function DMA(dev)
+function DMA(cpu)
 {
-    /** @const @type {Memory} */
-    this.memory = dev.memory;
+    /** @const @type {CPU} */
+    this.cpu = cpu;
 
     this.channel_addr = new Int32Array(4);
     this.channel_count = new Int32Array(4);
 
     this.lsb_msb_flipflop = 0;
 
-    var io = dev.io;
+    var io = cpu.io;
     io.register_write(0x04, this, this.port_write.bind(this, 0x04));
     io.register_write(0x05, this, this.port_write.bind(this, 0x05));
     io.register_write(0x0A, this, this.portA_write);
@@ -121,12 +121,12 @@ DMA.prototype.do_read = function(buffer, start, len, channel, fn)
     }
     else
     {
-        var memory = this.memory;
+        var cpu = this.cpu;
         this.channel_addr[channel] += read_count;
 
         buffer.get(start, read_count, function(data)
         {
-            memory.write_blob(data, addr);
+            cpu.write_blob(data, addr);
             fn(false);
         });
     }
@@ -156,7 +156,7 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
         this.channel_addr[channel] += read_count;
 
         buffer.set(start,
-                this.memory.mem8.subarray(addr, addr + read_count + 1),
+                this.cpu.mem8.subarray(addr, addr + read_count + 1),
                 function() {
                     fn(false);
                 }

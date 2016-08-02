@@ -272,7 +272,9 @@ function PIC(cpu, master)
             else
             {
                 dbg_log("Unknown eoi: " + h(data_byte), LOG_PIC);
-                dbg_assert(false);
+                // os2 v4
+                //dbg_assert(false);
+                this.isr &= this.isr - 1;
             }
 
             this.cpu.handle_irqs();

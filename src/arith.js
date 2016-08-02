@@ -18,9 +18,6 @@
  * bsf, bsr
  *
  * popcnt
- *
- * Gets #included by cpu.macro.js
- *
 */
 "use strict";
 
@@ -1393,42 +1390,42 @@ CPU.prototype.btc_mem = function(virt_addr, bit_offset)
 {
     dbg_assert(bit_offset >= 0);
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3) | 0);
-    var bit_base = this.memory.read8(phys_addr);
+    var bit_base = this.read8(phys_addr);
 
     bit_offset &= 7;
 
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
     this.flags_changed &= ~1;
 
-    this.memory.write8(phys_addr, bit_base ^ 1 << bit_offset);
+    this.write8(phys_addr, bit_base ^ 1 << bit_offset);
 }
 
 CPU.prototype.btr_mem = function(virt_addr, bit_offset)
 {
     dbg_assert(bit_offset >= 0);
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3) | 0);
-    var bit_base = this.memory.read8(phys_addr);
+    var bit_base = this.read8(phys_addr);
 
     bit_offset &= 7;
 
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
     this.flags_changed &= ~1;
 
-    this.memory.write8(phys_addr, bit_base & ~(1 << bit_offset));
+    this.write8(phys_addr, bit_base & ~(1 << bit_offset));
 }
 
 CPU.prototype.bts_mem = function(virt_addr, bit_offset)
 {
     dbg_assert(bit_offset >= 0);
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3) | 0);
-    var bit_base = this.memory.read8(phys_addr);
+    var bit_base = this.read8(phys_addr);
 
     bit_offset &= 7;
 
     this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
     this.flags_changed &= ~1;
 
-    this.memory.write8(phys_addr, bit_base | 1 << bit_offset);
+    this.write8(phys_addr, bit_base | 1 << bit_offset);
 }
 
 CPU.prototype.bsf16 = function(old, bit_base)

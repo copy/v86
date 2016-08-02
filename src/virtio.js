@@ -131,9 +131,9 @@ function VirtIO(cpu, bus, filesystem)
         var ring_start = queue_start + 16 * this.queue_size;
         var ring_desc_start = ring_start + 4;
 
-        var //flags = this.memory.read16(ring_start),
+        var //flags = this.cpu.read16(ring_start),
             // index of the next free ring
-            idx = this.memory.read16(ring_start + 2);
+            idx = this.cpu.read16(ring_start + 2);
 
         dbg_log("idx=" + h(idx, 4), LOG_VIRTIO);
         //dbg_assert(idx < this.queue_size);
@@ -143,7 +143,7 @@ function VirtIO(cpu, bus, filesystem)
 
         while(this.last_idx !== idx)
         {
-            var desc_idx = this.memory.read16(ring_desc_start + this.last_idx * 2);
+            var desc_idx = this.cpu.read16(ring_desc_start + this.last_idx * 2);
             this.handle_descriptor(desc_idx);
 
             this.last_idx = this.last_idx + 1 & mask;
@@ -166,9 +166,6 @@ function VirtIO(cpu, bus, filesystem)
     this.last_idx = 0;
     this.queue_size = 32;
     this.queue_address = 0;
-
-    /** @const @type {Memory} */
-    this.memory = cpu.memory;
 
     for(var i = 0; i < 128; i++)
     {
@@ -249,7 +246,7 @@ VirtIO.prototype.handle_descriptor = function(idx)
     do
     {
         var addr = desc_start + next * 16;
-        var flags = this.memory.read16(addr + 12);
+        var flags = this.cpu.read16(addr + 12);
 
         if(flags & VRING_DESC_F_WRITE)
         {
@@ -260,9 +257,9 @@ VirtIO.prototype.handle_descriptor = function(idx)
             dbg_assert(false, "unsupported");
         }
 
-        var addr_low = this.memory.read32s(addr);
-        var addr_high = this.memory.read32s(addr + 4);
-        var len = this.memory.read32s(addr + 8) >>> 0;
+        var addr_low = this.cpu.read32s(addr);
+        var addr_high = this.cpu.read32s(addr + 4);
+        var len = this.cpu.read32s(addr + 8) >>> 0;
 
         buffers.push({
             addr_low: addr_low,
@@ -275,7 +272,7 @@ VirtIO.prototype.handle_descriptor = function(idx)
 
         if(flags & VRING_DESC_F_NEXT)
         {
-            next = this.memory.read16(addr + 14);
+            next = this.cpu.read16(addr + 14);
             dbg_assert(next < this.queue_size);
         }
         else
@@ -313,7 +310,7 @@ VirtIO.prototype.handle_descriptor = function(idx)
             pointer = 0;
         }
 
-        return this.memory.read8(addr_low + pointer++);
+        return this.cpu.read8(addr_low + pointer++);
     }.bind(this));
 };
 
@@ -337,7 +334,7 @@ VirtIO.prototype.device_reply = function(queueidx, infos)
     do
     {
         var addr = desc_start + next * 16;
-        var flags = this.memory.read16(addr + 12);
+        var flags = this.cpu.read16(addr + 12);
 
         if((flags & VRING_DESC_F_WRITE) === 0)
         {
@@ -345,9 +342,9 @@ VirtIO.prototype.device_reply = function(queueidx, infos)
             break;
         }
 
-        var addr_low = this.memory.read32s(addr);
-        var addr_high = this.memory.read32s(addr + 4);
-        var len = this.memory.read32s(addr + 8) >>> 0;
+        var addr_low = this.cpu.read32s(addr);
+        var addr_high = this.cpu.read32s(addr + 4);
+        var len = this.cpu.read32s(addr + 8) >>> 0;
 
         buffers.push({
             addr_low: addr_low,
@@ -360,7 +357,7 @@ VirtIO.prototype.device_reply = function(queueidx, infos)
 
         if(flags & VRING_DESC_F_NEXT)
         {
-            next = this.memory.read16(addr + 14);
+            next = this.cpu.read16(addr + 14);
             dbg_assert(next < this.queue_size);
         }
         else
@@ -392,22 +389,22 @@ VirtIO.prototype.device_reply = function(queueidx, infos)
             pointer = 0;
         }
 
-        this.memory.write8(addr_low + pointer++, data);
+        this.cpu.write8(addr_low + pointer++, data);
     }
 
     var used_desc_start = (this.queue_address << 12) + 16 * this.queue_size + 4 + 2 * this.queue_size;
     used_desc_start = used_desc_start + 4095 & ~4095;
 
-    var flags = this.memory.read16(used_desc_start);
-    var used_idx = this.memory.read16(used_desc_start + 2);
-    this.memory.write16(used_desc_start + 2, used_idx + 1);
+    var flags = this.cpu.read16(used_desc_start);
+    var used_idx = this.cpu.read16(used_desc_start + 2);
+    this.cpu.write16(used_desc_start + 2, used_idx + 1);
 
     dbg_log("used descriptor: addr=" + h(used_desc_start, 8) + " flags=" + h(flags, 4) + " idx=" + h(used_idx, 4), LOG_VIRTIO);
 
     used_idx &= mask;
     var used_desc_offset = used_desc_start + 4 + used_idx * 8;
-    this.memory.write32(used_desc_offset, infos.start);
-    this.memory.write32(used_desc_offset + 4, result_length);
+    this.cpu.write32(used_desc_offset, infos.start);
+    this.cpu.write32(used_desc_offset + 4, result_length);
 
     this.isr |= 1;
     this.cpu.device_raise_irq(this.irq);

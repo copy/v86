@@ -399,9 +399,6 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     /** @const @type {CPU} */
     this.cpu = cpu;
 
-    /** @const @type {Memory} */
-    this.memory = cpu.memory;
-
     this.buffer = buffer;
 
     /** @type {number} */
@@ -1131,9 +1128,9 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
                 offset = 0;
 
             do {
-                var addr = this.memory.read32s(prdt_start),
-                    count = this.memory.read16(prdt_start + 4),
-                    end = this.memory.read8(prdt_start + 7) & 0x80;
+                var addr = this.cpu.read32s(prdt_start),
+                    count = this.cpu.read16(prdt_start + 4),
+                    end = this.cpu.read8(prdt_start + 7) & 0x80;
 
                 if(!count)
                 {
@@ -1141,7 +1138,7 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
                 }
 
                 dbg_log("dma read dest=" + h(addr) + " count=" + h(count), LOG_DISK);
-                this.memory.write_blob(data.subarray(offset, offset + count), addr);
+                this.cpu.write_blob(data.subarray(offset, offset + count), addr);
 
                 offset += count;
                 prdt_start += 8;
@@ -1387,9 +1384,9 @@ IDEInterface.prototype.ata_read_sectors_dma = function(cmd)
         dbg_assert(orig_prdt_start === prdt_start);
 
         do {
-            var addr = this.memory.read32s(prdt_start),
-                count = this.memory.read16(prdt_start + 4),
-                end = this.memory.read8(prdt_start + 7) & 0x80;
+            var addr = this.cpu.read32s(prdt_start),
+                count = this.cpu.read16(prdt_start + 4),
+                end = this.cpu.read8(prdt_start + 7) & 0x80;
 
             if(!count)
             {
@@ -1397,7 +1394,7 @@ IDEInterface.prototype.ata_read_sectors_dma = function(cmd)
             }
 
             dbg_log("dma read transfer dest=" + h(addr) + " count=" + h(count), LOG_DISK);
-            this.memory.write_blob(data.subarray(offset, offset + count), addr);
+            this.cpu.write_blob(data.subarray(offset, offset + count), addr);
 
             offset += count;
             prdt_start += 8;
@@ -1509,9 +1506,9 @@ IDEInterface.prototype.ata_write_dma = function(cmd)
     dbg_log("prdt addr: " + h(prdt_start, 8), LOG_DISK);
 
     do {
-        var prd_addr = this.memory.read32s(prdt_start),
-            prd_count = this.memory.read16(prdt_start + 4),
-            end = this.memory.read8(prdt_start + 7) & 0x80;
+        var prd_addr = this.cpu.read32s(prdt_start),
+            prd_count = this.cpu.read16(prdt_start + 4),
+            end = this.cpu.read8(prdt_start + 7) & 0x80;
 
         if(!prd_count)
         {
@@ -1521,7 +1518,7 @@ IDEInterface.prototype.ata_write_dma = function(cmd)
 
         dbg_log("dma write transfer dest=" + h(prd_addr) + " prd_count=" + h(prd_count), LOG_DISK);
 
-        var slice = this.memory.mem8.subarray(prd_addr, prd_addr + prd_count);
+        var slice = this.cpu.mem8.subarray(prd_addr, prd_addr + prd_count);
         dbg_assert(slice.length === prd_count);
 
         //if(DEBUG)
