@@ -814,9 +814,9 @@ var PROFILING = false;
 if(PROFILING)
 {
     var instruction_total = new Float64Array(256);
-    var instruction_count = new Uint32Array(256);
+    var instruction_count = new Float64Array(256);
 
-    function print_profiling()
+    window["print_profiling"] = function print_profiling()
     {
         var prof_instructions = [];
         for(var i = 0; i < 256; i++) prof_instructions[i] = {
