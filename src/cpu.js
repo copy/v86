@@ -1040,6 +1040,11 @@ CPU.prototype.cpl_changed = function()
     this.last_virt_esp = -1;
 };
 
+CPU.prototype.read_modrm_byte = function()
+{
+    this.modrm_byte = this.read_imm8();
+};
+
 CPU.prototype.read_imm8 = function()
 {
     if((this.instruction_pointer & ~0xFFF) ^ this.last_virt_eip)
