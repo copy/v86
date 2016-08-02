@@ -557,7 +557,7 @@ CPU.prototype.reset = function()
 };
 
 /** @export */
-CPU.prototype.create_memory = function(size, no_alloc)
+CPU.prototype.create_memory = function(size)
 {
     this.memory_size = size;
 
@@ -566,27 +566,16 @@ CPU.prototype.create_memory = function(size, no_alloc)
 
     dbg_assert((size & MMAP_BLOCK_SIZE - 1) === 0);
 
-    if(no_alloc)
-    {
-        var buffer = new ArrayBuffer(0);
+    var buffer = new ArrayBuffer(size);
 
-        this.mem8 = new Uint8Array(buffer);
-        this.mem16 = new Uint16Array(buffer);
-        this.mem32s = new Int32Array(buffer);
-    }
-    else
-    {
-        var buffer = new ArrayBuffer(size);
-
-        this.mem8 = new Uint8Array(buffer);
-        this.mem16 = new Uint16Array(buffer);
-        this.mem32s = new Int32Array(buffer);
-    }
+    this.mem8 = new Uint8Array(buffer);
+    this.mem16 = new Uint16Array(buffer);
+    this.mem32s = new Int32Array(buffer);
 };
 
 CPU.prototype.init = function(settings, device_bus)
 {
-    this.create_memory(settings.memory_size || 1024 * 1024 * 64, settings.no_initial_alloc);
+    this.create_memory(settings.memory_size || 1024 * 1024 * 64);
 
     this.reset();
 

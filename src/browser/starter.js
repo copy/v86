@@ -375,7 +375,8 @@ function V86Starter(options)
     {
         if(settings.initial_state)
         {
-            settings.no_initial_alloc = true;
+            // avoid large allocation now, memory will be restored later anyway
+            settings.memory_size = 0;
         }
 
         this.bus.send("cpu-init", settings);
