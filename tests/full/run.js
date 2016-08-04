@@ -119,20 +119,21 @@ if(cluster.isMaster)
             ],
         },
         {
-            name: "Linux with Bochs BIOS",
-            cdrom: root_path + "/images/linux.iso",
-            timeout: 90,
-            expected_texts: [
-                "/root%",
-                "test passed",
-            ],
-            alternative_bios: true,
-            actions: [
-                {
-                    on_text: "/root%",
-                    run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test > /dev/null && echo test pas''sed || echo failed\n",
-                },
-            ],
+            name: "Windows 98",
+            hda: root_path + "/images/windows98.img",
+            timeout: 300,
+            expect_graphical_mode: true,
+            expect_graphical_size: [800, 600],
+            expect_mouse_registered: true,
+            skip_if_disk_image_missing: true,
+        },
+        {
+            name: "Oberon",
+            hda: root_path + "/images/oberon.dsk",
+            fda: root_path + "/images/oberon-boot.dsk",
+            timeout: 20,
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
         },
         {
             name: "Linux 3",
@@ -154,6 +155,22 @@ if(cluster.isMaster)
             timeout: 120,
             expect_graphical_mode: true,
             expect_mouse_registered: true,
+        },
+        {
+            name: "Linux with Bochs BIOS",
+            cdrom: root_path + "/images/linux.iso",
+            timeout: 90,
+            expected_texts: [
+                "/root%",
+                "test passed",
+            ],
+            alternative_bios: true,
+            actions: [
+                {
+                    on_text: "/root%",
+                    run: "cd tests; ./test-i386 > emu.test; diff emu.test reference.test > /dev/null && echo test pas''sed || echo failed\n",
+                },
+            ],
         },
         {
             name: "OpenBSD",
@@ -247,16 +264,43 @@ function run_test(test, done)
         autostart: true,
     };
 
-    console.assert(test.cdrom || test.fda, "Bootable drive expected");
+    console.assert(test.cdrom || test.fda || test.hda, "Bootable drive expected");
 
-    if(test.cdrom)
+    try
     {
-        settings.cdrom = { buffer: readfile(test.cdrom) };
+        if(test.cdrom)
+        {
+            settings.cdrom = { buffer: readfile(test.cdrom) };
+        }
+        if(test.fda)
+        {
+            settings.fda = { buffer: readfile(test.fda) };
+        }
+        if(test.hda)
+        {
+            settings.hda = { buffer: readfile(test.hda) };
+        }
     }
-
-    if(test.fda)
+    catch(e)
     {
-        settings.fda = { buffer: readfile(test.fda) };
+        if(e.code !== "ENOENT")
+        {
+            throw e;
+        }
+
+        if(test.skip_if_disk_image_missing)
+        {
+            console.warn("Missing disk image: " + e.path + ", test skipped");
+            console.warn();
+
+            done();
+            return;
+        }
+        else
+        {
+            console.warn("Missing disk image: " + e.path);
+            process.exit(1);
+        }
     }
 
     if(test.expected_texts)
@@ -283,9 +327,10 @@ function run_test(test, done)
     }
 
     var graphical_test_done = false;
+    var size_test_done = false;
     function check_grapical_test_done()
     {
-        return !test.expect_graphical_mode || graphical_test_done;
+        return !test.expect_graphical_mode || (graphical_test_done && (!test.expect_graphical_size ||  size_test_done));
     }
 
     var test_start = Date.now();
@@ -357,6 +402,16 @@ function run_test(test, done)
     {
         graphical_test_done = is_graphical;
         check_test_done();
+    });
+
+    emulator.add_listener("screen-set-size-graphical", function(size)
+    {
+        if(test.expect_graphical_size)
+        {
+            size_test_done = size[0] === test.expect_graphical_size[0] &&
+                             size[1] === test.expect_graphical_size[1];
+            check_test_done();
+        }
     });
 
     emulator.add_listener("screen-put-char", function(chr)
