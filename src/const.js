@@ -191,7 +191,7 @@ PSE_ENABLED = 128,
 
 
 /** @const */ LOOP_COUNTER = 11001,
-/** @const */ TIME_PER_FRAME = 33;
+/** @const */ TIME_PER_FRAME = 8;
 
 /** @const */
 var OP_TRANSLATION = false;
