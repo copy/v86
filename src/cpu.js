@@ -423,18 +423,21 @@ CPU.prototype.main_run = function()
         //if(false)
         //{
         //    var _t = this.hlt_loop();
-        //    return 0;
+        //    var t = 0;
         //}
         //else
         {
-            return this.hlt_loop();
+            var t = this.hlt_loop();
+        }
+
+        if(this.in_hlt)
+        {
+            return t;
         }
     }
-    else
-    {
-        this.do_run();
-        return 0;
-    }
+
+    this.do_run();
+    return 0;
 };
 
 CPU.prototype.exception_cleanup = function(e)
@@ -811,6 +814,12 @@ CPU.prototype.do_run = function()
         this.handle_irqs();
         this.do_many_cycles();
 
+        if(this.in_hlt)
+        {
+            this.hlt_loop();
+            return;
+        }
+
         now = v86.microtick();
     }
 };
@@ -937,6 +946,7 @@ CPU.prototype.run_prefix_instruction = function()
 
 CPU.prototype.hlt_loop = function()
 {
+    dbg_assert(this.flags & flag_interrupt);
     //dbg_log("In HLT loop", LOG_CPU);
 
     var now = v86.microtick();
