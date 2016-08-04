@@ -4,13 +4,13 @@
 Demos
 -
 
-- [Windows 98](http://copy.sh/v86/?profile=windows98)
-- [Linux](http://copy.sh/v86/?profile=linux26)
-- [Linux 3](http://copy.sh/v86/?profile=linux3)
-- [KolibriOS](http://copy.sh/v86/?profile=kolibrios)
-- [FreeDOS](http://copy.sh/v86/?profile=freedos)
-- [Windows 1.01](http://copy.sh/v86/?profile=windows1)
-- [Archlinux](http://copy.sh/v86/?profile=archlinux)
+- [Windows 98](https://copy.sh/v86/?profile=windows98)
+- [Linux](https://copy.sh/v86/?profile=linux26)
+- [Linux 3](https://copy.sh/v86/?profile=linux3)
+- [KolibriOS](https://copy.sh/v86/?profile=kolibrios)
+- [FreeDOS](https://copy.sh/v86/?profile=freedos)
+- [Windows 1.01](https://copy.sh/v86/?profile=windows1)
+- [Archlinux](https://copy.sh/v86/?profile=archlinux)
 
 
 API examples
@@ -77,7 +77,7 @@ Testing
 The disk images are not included in this repository. You can download them
 directly from the website using:
 
-`wget -P images/ http://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}`.
+`wget -P images/ https://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}`.
 
 A testsuite is available in `tests/full/`. Run it using `node tests/full/run.js`.
 
@@ -93,7 +93,7 @@ How to build, run and embed?
 - If you want only want to embed v86 on website you can use libv86.js. For
   usage, check out the [API](docs/api.md) and [examples](examples/).
 - A couple of disk images are provided for testing. You can check them out
-  using `wget -P images/ http://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}`.
+  using `wget -P images/ https://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}`.
 
 
 **Short summary:**
@@ -105,10 +105,10 @@ git clone https://github.com/copy/v86.git
 cd v86
 
 # grab the disk images
-wget -P images/ http://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}
+wget -P images/ https://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}
 
 # grab closure compiler
-wget -P closure-compiler http://dl.google.com/closure-compiler/compiler-latest.zip
+wget -P closure-compiler https://dl.google.com/closure-compiler/compiler-latest.zip
 unzip -d closure-compiler closure-compiler/compiler-latest.zip compiler.jar
 
 # build the library
