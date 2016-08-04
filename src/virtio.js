@@ -29,12 +29,18 @@ function VirtIO(cpu, bus, filesystem)
 
     var io = cpu.io;
 
-    io.register_read(0xA800, this, undefined, undefined, function()
-    {
-        // device features
-        dbg_log("Read device features", LOG_VIRTIO);
-        return 1;
-    });
+    io.register_read(0xA800, this,
+        function() {
+            dbg_log("Read device features", LOG_VIRTIO);
+            return 1;
+        },
+        undefined,
+        function()
+        {
+            dbg_log("Read device features", LOG_VIRTIO);
+            return 1;
+        }
+    );
 
     io.register_write(0xA804, this, undefined, undefined, function(data)
     {
