@@ -103,7 +103,7 @@ IO.prototype.register_read = function(port_addr, device, r8, r16, r32)
     if(DEBUG)
     {
         var fail = function(n) {
-            dbg_assert(false, "Overlapped read" + n + " " + h(port_addr, 4));
+            dbg_assert(false, "Overlapped read" + n + " " + h(port_addr, 4) + " (" + device.name + ")");
             return -1 >>> (32 - n) | 0;
         };
         if(!r8) r8 = fail.bind(this, 8);
@@ -136,7 +136,7 @@ IO.prototype.register_write = function(port_addr, device, w8, w16, w32)
     if(DEBUG)
     {
         var fail = function(n) {
-            dbg_assert(false, "Overlapped write" + n + " " + h(port_addr));
+            dbg_assert(false, "Overlapped write" + n + " " + h(port_addr) + " (" + device.name + ")");
         };
         if(!w8) w8 = fail.bind(this, 8);
         if(!w16) w16 = fail.bind(this, 16);
