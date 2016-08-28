@@ -90,7 +90,7 @@ How to build, run and embed?
 - ROM and disk images are loaded via XHR, so if you want to try out `index.html`
   locally, make sure to serve it from a local webserver. You can use `make run`
   to serve the files using Python's SimpleHTTPServer.
-- If you want only want to embed v86 on website you can use libv86.js. For
+- If you only want to embed v86 in a webpage you can use libv86.js. For
   usage, check out the [API](docs/api.md) and [examples](examples/).
 - A couple of disk images are provided for testing. You can check them out
   using `wget -P images/ https://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}`.
