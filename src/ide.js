@@ -110,17 +110,13 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
     cpu.io.register_write(this.ata_port_high | 2, this, this.write_control);
     cpu.io.register_read(this.ata_port | 0, this, function()
     {
-        return this.current_interface.read_data();
+        return this.current_interface.read_data(1);
     }, function()
     {
-        return this.current_interface.read_data() |
-               this.current_interface.read_data() << 8;
+        return this.current_interface.read_data(2);
     }, function()
     {
-        return this.current_interface.read_data() |
-               this.current_interface.read_data() << 8 |
-               this.current_interface.read_data() << 16 |
-               this.current_interface.read_data() << 24;
+        return this.current_interface.read_data(4);
     });
 
     cpu.io.register_read(this.ata_port | 1, this, function()
@@ -529,6 +525,8 @@ function IDEInterface(device, cpu, buffer, is_cd, device_nr, interface_nr, bus)
     this.data_pointer = 0;
 
     this.pio_data = new Uint8Array(64 * 1024);
+    this.pio_data16 = new Uint16Array(this.pio_data.buffer);
+    this.pio_data32 = new Int32Array(this.pio_data.buffer);
 
     /** @type {number} */
     this.write_dest = 0;
@@ -1158,79 +1156,92 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
     }
 };
 
-IDEInterface.prototype.read_data = function()
+IDEInterface.prototype.read_data = function(length)
 {
+    var start = performance.now();
     //dbg_log("ptr: " + h(this.data_pointer, 2));
     if(this.data_pointer < this.pio_data_length)
     {
-        var do_irq = false;
+        dbg_assert(this.data_pointer + length - 1 < this.pio_data_length);
+        dbg_assert(this.data_pointer % length === 0);
 
-        if((this.data_pointer + 1) % (this.sectors_per_drq * 512) === 0 ||
-            this.data_pointer + 1 === this.pio_data_length)
+        if(length === 1)
         {
-            dbg_log("ATA IRQ", LOG_DISK);
-            //this.push_irq();
-            do_irq = true;
+            var result = this.pio_data[this.data_pointer];
         }
-
-        if(this.cylinder_low)
+        else if(length === 2)
         {
-            this.cylinder_low--;
+            var result = this.pio_data16[this.data_pointer >> 1];
         }
         else
         {
-            if(this.cylinder_high)
-            {
-                this.cylinder_high--;
-                this.cylinder_low = 0xFF;
-            }
+            var result = this.pio_data32[this.data_pointer >> 2];
         }
 
-        if(!this.cylinder_low && !this.cylinder_high)
+        this.data_pointer += length;
+
+        var do_irq = false;
+        if(this.data_pointer % (this.sectors_per_drq * 512) === 0)
         {
-            var remaining = this.pio_data_length - this.data_pointer - 1;
-            dbg_log("reset to " + h(remaining), LOG_DISK);
-
-            if(remaining >= 0x10000)
-            {
-                this.cylinder_high = 0xF0;
-                this.cylinder_low = 0;
-            }
-            else
-            {
-                this.cylinder_high = remaining >> 8;
-                this.cylinder_low = remaining;
-            }
-
+            do_irq = true;
         }
-
-        if(this.data_pointer + 1 >= this.pio_data_length)
+        if(this.data_pointer >= this.pio_data_length)
         {
             this.status = 0x50;
             this.bytecount = this.bytecount & ~7 | 3;
-            //this.push_irq();
             do_irq = true;
         }
+        if(do_irq)
+        {
+            dbg_log("ATA IRQ", LOG_DISK);
+            this.push_irq();
+        }
 
-        if((this.data_pointer + 1 & 255) === 0)
+        this.cylinder_low -= length;
+
+        if(this.cylinder_low <= 0)
+        {
+            if(this.cylinder_high)
+            {
+                if(this.cylinder_low < 0)
+                {
+                    this.cylinder_low += 0x100;
+                    this.cylinder_high--;
+                }
+            }
+            else
+            {
+                dbg_assert(this.cylinder_low === 0);
+                var remaining = this.pio_data_length - this.data_pointer;
+                dbg_log("reset to " + h(remaining), LOG_DISK);
+
+                if(remaining >= 0x10000)
+                {
+                    this.cylinder_high = 0xF0;
+                    this.cylinder_low = 0;
+                }
+                else
+                {
+                    this.cylinder_high = remaining >> 8;
+                    this.cylinder_low = remaining;
+                }
+            }
+        }
+
+        if((this.data_pointer & 255) === 0)
         {
             dbg_log("Read 1F0: " + h(this.pio_data[this.data_pointer], 2) +
                         " cur=" + h(this.data_pointer) +
                         " cnt=" + h(this.pio_data_length), LOG_DISK);
         }
 
-        if(do_irq)
-        {
-            this.push_irq();
-        }
-
-        return this.pio_data[this.data_pointer++];
+        return result;
     }
     else
     {
         dbg_log("Read 1F0: empty", LOG_DISK);
 
-        this.data_pointer++;
+        this.data_pointer += length;
         return 0;
     }
 };
@@ -1707,6 +1718,8 @@ IDEInterface.prototype.pio_data_allocate_noclear = function(len)
     if(this.pio_data.length < len)
     {
         this.pio_data = new Uint8Array(len + 3 & ~3);
+        this.pio_data16 = new Uint16Array(this.pio_data.buffer);
+        this.pio_data32 = new Int32Array(this.pio_data.buffer);
     }
 
     this.pio_data_length = len;
@@ -1717,6 +1730,8 @@ IDEInterface.prototype.pio_data_set = function(data)
     if(this.pio_data.length < data.length)
     {
         this.pio_data = new Uint8Array(data.length + 3 & ~3);
+        this.pio_data16 = new Uint16Array(this.pio_data.buffer);
+        this.pio_data32 = new Int32Array(this.pio_data.buffer);
     }
 
     this.pio_data.set(data);
@@ -1807,4 +1822,7 @@ IDEInterface.prototype.set_state = function(state)
     this.sectors_per_track = state[22];
     this.status = state[23];
     this.write_dest = state[24];
+
+    this.pio_data16 = new Uint16Array(this.pio_data.buffer);
+    this.pio_data32 = new Int32Array(this.pio_data.buffer);
 };
