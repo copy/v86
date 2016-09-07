@@ -3,6 +3,7 @@
 
 var TIMEOUT_EXTRA_FACTOR = +process.env.TIMEOUT_EXTRA_FACTOR || 1;
 var MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
+var TEST_NAME = process.env.TEST_NAME;
 
 try
 {
@@ -121,7 +122,7 @@ if(cluster.isMaster)
         {
             name: "Windows 98",
             hda: root_path + "/images/windows98.img",
-            timeout: 300,
+            timeout: 60,
             expect_graphical_mode: true,
             expect_graphical_size: [800, 600],
             expect_mouse_registered: true,
@@ -179,6 +180,11 @@ if(cluster.isMaster)
             expected_texts: ["(I)nstall, (U)pgrade or (S)hell"],
         },
     ];
+
+    if(TEST_NAME)
+    {
+        tests = tests.filter(test => test.name === TEST_NAME);
+    }
 
     var nr_of_cpus = Math.min(Math.round(os.cpus().length / 2) || 1, tests.length, MAX_PARALLEL_TESTS);
     console.log("Using %d cpus", nr_of_cpus);
@@ -375,7 +381,7 @@ function run_test(test, done)
 
             if(!check_text_test_done())
             {
-                console.warn('Expected text "%s" after %d seconds.', test.expected_texts[0], timeout_seconds);
+                console.warn('Expected text "%s" after %d seconds.', bytearray_to_string(test.expected_texts[0]), timeout_seconds);
             }
 
             if(!check_grapical_test_done())
