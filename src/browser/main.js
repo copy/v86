@@ -508,6 +508,7 @@
             {
                 LOG_LEVEL &= ~mask;
             }
+            this.blur();
         };
 
         var debug_infos = $("debug_infos");
