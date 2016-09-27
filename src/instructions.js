@@ -2174,6 +2174,9 @@ t[0x32] = cpu => {
             // netbsd
             break;
 
+        case MSR_PKG_C2_RESIDENCY:
+            break;
+
         default:
             dbg_assert(false, "Unknown msr: " + h(index >>> 0, 8));
     }
