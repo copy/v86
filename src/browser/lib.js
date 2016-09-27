@@ -1,5 +1,8 @@
 "use strict";
 
+/** @const */
+var ASYNC_SAFE = false;
+
 (function()
 {
     if(typeof XMLHttpRequest === "undefined")
@@ -47,7 +50,7 @@
             {
                 if(http.status !== 200 && http.status !== 206)
                 {
-                    console.log("Loading the image `" + filename + "` failed");
+                    console.error("Loading the image `" + filename + "` failed (status %d)", http.status);
                 }
                 else if(http.response)
                 {
@@ -198,6 +201,7 @@
      */
     AsyncXHRBuffer.prototype.get = function(offset, len, fn)
     {
+        console.assert(offset + len <= this.byteLength);
         console.assert(offset % this.block_size === 0);
         console.assert(len % this.block_size === 0);
         console.assert(len);
@@ -205,7 +209,14 @@
         var block = this.get_from_cache(offset, len, fn);
         if(block)
         {
-            fn(block);
+            if(ASYNC_SAFE)
+            {
+                setTimeout(fn.bind(this, block), 0);
+            }
+            else
+            {
+                fn(block);
+            }
             return;
         }
 
