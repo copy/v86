@@ -226,7 +226,7 @@ function V86Starter(options)
                 loadable: buffer,
             });
         }
-        else if(file.buffer instanceof File)
+        else if(typeof File !== "undefined" && file.buffer instanceof File)
         {
             // SyncFileBuffer:
             // - loads the whole disk image into memory, impossible for large files (more than 1GB)
