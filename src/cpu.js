@@ -175,6 +175,9 @@ function CPU()
     /** @type {number} */
     this.last_result = 0;
 
+    this.mul32_result = new Int32Array(2);
+    this.div32_result = new Float64Array(2);
+
     this.tsc_offset = 0;
 
     /** @type {number} */
