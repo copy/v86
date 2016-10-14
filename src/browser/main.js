@@ -633,6 +633,14 @@
         {
             show_progress(e);
         });
+
+        emulator.add_listener("download-error", function(e)
+        {
+            var el = $("loading");
+            el.style.display = "block";
+            el.textContent = "Loading " + e.file_name + " failed. Check your connection " +
+                             "and reload the page to try again.";
+        });
     };
 
     /**

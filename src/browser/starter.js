@@ -355,15 +355,27 @@ function V86Starter(options)
                 }.bind(this),
                 progress: function progress(e)
                 {
-                    starter.emulator_bus.send("download-progress", {
-                        file_index: index,
-                        file_count: total,
-                        file_name: f.url,
+                    if(e.target.status === 200)
+                    {
+                        starter.emulator_bus.send("download-progress", {
+                            file_index: index,
+                            file_count: total,
+                            file_name: f.url,
 
-                        lengthComputable: e.lengthComputable,
-                        total: e.total || f.size,
-                        loaded: e.loaded,
-                    });
+                            lengthComputable: e.lengthComputable,
+                            total: e.total || f.size,
+                            loaded: e.loaded,
+                        });
+                    }
+                    else
+                    {
+                        starter.emulator_bus.send("download-error", {
+                            file_index: index,
+                            file_count: total,
+                            file_name: f.url,
+                            request: e.target,
+                        });
+                    }
                 },
                 as_text: f.as_text,
             });
