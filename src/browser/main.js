@@ -545,10 +545,10 @@
         {
             memory_size = parseInt($("memory_size").value, 10) * MB;
 
-            if(memory_size < 16 * MB || memory_size >= 2048 * MB)
+            if(!memory_size)
             {
-                alert("Invalid memory size - ignored.");
-                memory_size = 32 * MB;
+                alert("Invalid memory size - reset to 128MB");
+                memory_size = 128 * MB;
             }
         }
 
@@ -558,13 +558,14 @@
         {
             vga_memory_size = parseInt($("video_memory_size").value, 10) * MB;
 
-            if(vga_memory_size <= 64 * 1024 || vga_memory_size >= 2048 * MB)
+            if(!vga_memory_size)
             {
-                alert("Invalid video memory size - ignored.");
+                alert("Invalid video memory size - reset to 8MB");
                 vga_memory_size = 8 * MB;
             }
         }
 
+        /** @const */
         var BIOSPATH = "bios/";
 
         if(settings.use_bochs_bios)

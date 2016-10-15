@@ -558,12 +558,23 @@ CPU.prototype.reset = function()
 /** @export */
 CPU.prototype.create_memory = function(size)
 {
+    if(size < 1024 * 1024)
+    {
+        size = 1024 * 1024;
+    }
+    else if((size | 0) < 0)
+    {
+        size = Math.pow(2, 31) - MMAP_BLOCK_SIZE;
+    }
+
+    size = ((size - 1) | (MMAP_BLOCK_SIZE - 1)) + 1 | 0;
+    dbg_assert((size | 0) > 0);
+    dbg_assert((size & MMAP_BLOCK_SIZE - 1) === 0);
+
     this.memory_size = size;
 
     // use by dynamic translator
     //if(OP_TRANSLATION) this.mem_page_infos = new Uint8Array(1 << 20);
-
-    dbg_assert((size & MMAP_BLOCK_SIZE - 1) === 0);
 
     var buffer = new ArrayBuffer(size);
 
