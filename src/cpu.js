@@ -1392,7 +1392,7 @@ CPU.prototype.get_real_eip = function()
 CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, error_code)
 {
     //dbg_log("int " + h(interrupt_nr, 2) + " (" + (is_software_int ? "soft" : "hard") + "ware)", LOG_CPU);
-    //this.debug.dump_state();
+    CPU_LOG_VERBOSE && this.debug.dump_state("int start");
     //this.debug.dump_regs_short();
 
     this.debug.debug_interrupt(interrupt_nr);
@@ -1664,6 +1664,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
 
 
         this.sreg[reg_cs] = selector & ~3 | this.cpl;
+        dbg_assert((this.sreg[reg_cs] & 3) === this.cpl);
 
         dbg_assert(typeof info.size === "boolean");
         dbg_assert(typeof this.is_32 === "boolean");
@@ -1713,7 +1714,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
     }
 
     //dbg_log("int to:", LOG_CPU);
-    //this.debug.dump_state();
+    CPU_LOG_VERBOSE && this.debug.dump_state("int end");
 };
 
 CPU.prototype.iret16 = function()
@@ -1729,7 +1730,7 @@ CPU.prototype.iret32 = function()
 CPU.prototype.iret = function(is_16)
 {
     //dbg_log("iret is_16=" + is_16, LOG_CPU);
-    //this.debug.dump_state();
+    CPU_LOG_VERBOSE && this.debug.dump_state("iret start");
     //this.debug.dump_regs_short();
 
     if(is_16)
@@ -1767,7 +1768,7 @@ CPU.prototype.iret = function(is_16)
         }
 
         //dbg_log("iret32 to:", LOG_CPU);
-        //this.debug.dump_state();
+        CPU_LOG_VERBOSE && this.debug.dump_state("iret end");
 
         this.handle_irqs();
         return;
@@ -1834,7 +1835,7 @@ CPU.prototype.iret = function(is_16)
             this.update_cs_size(false);
 
             //dbg_log("iret32 to:", LOG_CPU);
-            //this.debug.dump_state();
+            CPU_LOG_VERBOSE && this.debug.dump_state("iret end");
             //this.debug.dump_regs_short();
 
             return;
@@ -1889,6 +1890,35 @@ CPU.prototype.iret = function(is_16)
             var temp_ss = this.safe_read16(this.get_stack_pointer(16));
         }
 
+        var ss_info = this.lookup_segment_selector(temp_ss);
+        var new_cpl = info.rpl;
+
+        if(ss_info.is_null)
+        {
+            dbg_log("#GP for loading 0 in SS sel=" + h(temp_ss, 4), LOG_CPU);
+            dbg_trace(LOG_CPU);
+            this.trigger_gp(0);
+        }
+
+        if(!ss_info.is_valid ||
+           ss_info.is_system ||
+           ss_info.rpl !== new_cpl ||
+           !ss_info.is_writable ||
+           ss_info.dpl !== new_cpl)
+        {
+            dbg_log("#GP for loading invalid in SS sel=" + h(temp_ss, 4), LOG_CPU);
+            debugger;
+            dbg_trace(LOG_CPU);
+            this.trigger_gp(temp_ss & ~3);
+        }
+
+        if(!ss_info.is_present)
+        {
+            dbg_log("#SS for loading non-present in SS sel=" + h(temp_ss, 4), LOG_CPU);
+            dbg_trace(LOG_CPU);
+            this.trigger_ss(temp_ss & ~3);
+        }
+
         // no exceptions below
 
         if(is_16)
@@ -1905,7 +1935,6 @@ CPU.prototype.iret = function(is_16)
 
         //dbg_log("outer privilege return: from=" + this.cpl + " to=" + info.rpl + " ss:esp=" + h(temp_ss, 4) + ":" + h(temp_esp >>> 0, 8), LOG_CPU);
 
-        // XXX: Can raise, conditions should be checked before side effects
         this.switch_seg(reg_ss, temp_ss);
 
         this.set_stack_reg(temp_esp);
@@ -1949,6 +1978,7 @@ CPU.prototype.iret = function(is_16)
     }
 
     this.sreg[reg_cs] = new_cs;
+    dbg_assert((new_cs & 3) === this.cpl);
 
     dbg_assert(typeof info.size === "boolean");
     if(info.size !== this.is_32)
@@ -1962,7 +1992,7 @@ CPU.prototype.iret = function(is_16)
     this.instruction_pointer = new_eip + this.get_seg(reg_cs) | 0;
 
     //dbg_log("iret is_16=" + is_16 + " to:", LOG_CPU);
-    //this.debug.dump_state();
+    CPU_LOG_VERBOSE && this.debug.dump_state("iret end");
 
     this.handle_irqs();
 };
@@ -1981,7 +2011,7 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
     dbg_assert(typeof selector === "number" && selector < 0x10000 && selector >= 0);
 
     //dbg_log("far return eip=" + h(eip >>> 0, 8) + " cs=" + h(selector, 4) + " stack_adjust=" + h(stack_adjust), LOG_CPU);
-    //this.debug.dump_state();
+    CPU_LOG_VERBOSE && this.debug.dump_state("far ret start");
 
     this.protected_mode = (this.cr[0] & CR0_PE) === CR0_PE;
 
@@ -2115,11 +2145,12 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
 
     this.segment_offsets[reg_cs] = info.base;
     this.sreg[reg_cs] = selector;
+    dbg_assert((selector & 3) === this.cpl);
 
     this.instruction_pointer = this.get_seg(reg_cs) + eip | 0;
 
     //dbg_log("far return to:", LOG_CPU)
-    //this.debug.dump_state();
+    CPU_LOG_VERBOSE && this.debug.dump_state("far ret end");
 };
 
 CPU.prototype.far_jump = function(eip, selector, is_call)
@@ -2127,7 +2158,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
     dbg_assert(typeof selector === "number" && selector < 0x10000 && selector >= 0);
 
     //dbg_log("far " + ["jump", "call"][+is_call] + " eip=" + h(eip >>> 0, 8) + " cs=" + h(selector, 4), LOG_CPU);
-    //this.debug.dump_state();
+    CPU_LOG_VERBOSE && this.debug.dump_state("far " + ["jump", "call"][+is_call]);
 
     this.protected_mode = (this.cr[0] & CR0_PE) === CR0_PE;
 
@@ -2223,8 +2254,6 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
                 this.trigger_np(cs_selector & ~3);
             }
 
-            //debugger;
-
             if(!cs_info.dc_bit && cs_info.dpl < this.cpl)
             {
                 dbg_log("more privilege call gate is_16=" + is_16 + " from=" + this.cpl + " to=" + cs_info.dpl);
@@ -2258,11 +2287,30 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
                     throw this.debug.unimpl("#SS handler");
                 }
 
+                var parameter_count = info.raw1 & 0x1F;
+                var stack_space = is_16 ? 4 : 8;
+                if(is_call)
+                {
+                    stack_space += is_16 ? 4 + 2 * parameter_count : 8 + 4 * parameter_count;
+                }
+                if(ss_info.size)
+                {
+                    //try {
+                    this.writable_or_pagefault(ss_info.base + new_esp - stack_space | 0, stack_space); // , cs_info.dpl
+                    //} catch(e) { debugger; }
+                }
+                else
+                {
+                    //try {
+                    this.writable_or_pagefault(ss_info.base + (new_esp - stack_space & 0xFFFF) | 0, stack_space); // , cs_info.dpl
+                    //} catch(e) { debugger; }
+                }
+
                 var old_esp = this.reg32s[reg_esp];
                 var old_ss = this.sreg[reg_ss];
                 var old_stack_pointer = this.get_stack_pointer(0);
 
-                dbg_log("old_esp=" + h(old_esp));
+                //dbg_log("old_esp=" + h(old_esp));
 
                 this.cpl = cs_info.dpl;
                 this.cpl_changed();
@@ -2275,21 +2323,20 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
                 this.switch_seg(reg_ss, new_ss);
                 this.set_stack_reg(new_esp);
 
-                var parameter_count = info.raw1 & 0x1F;
-                dbg_log("parameter_count=" + parameter_count);
+                //dbg_log("parameter_count=" + parameter_count);
                 //dbg_assert(parameter_count === 0, "TODO");
 
                 if(is_16)
                 {
                     this.push16(old_ss);
                     this.push16(old_esp);
-                    dbg_log("old esp written to " + h(this.translate_address_system_read(this.get_stack_pointer(0))));
+                    //dbg_log("old esp written to " + h(this.translate_address_system_read(this.get_stack_pointer(0))));
                 }
                 else
                 {
                     this.push32(old_ss);
                     this.push32(old_esp);
-                    dbg_log("old esp written to " + h(this.translate_address_system_read(this.get_stack_pointer(0))));
+                    //dbg_log("old esp written to " + h(this.translate_address_system_read(this.get_stack_pointer(0))));
                 }
 
                 if(is_call)
@@ -2302,7 +2349,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
                             this.push16(parameter);
                         }
 
-                        this.writable_or_pagefault(this.get_stack_pointer(-4), 4);
+                        //this.writable_or_pagefault(this.get_stack_pointer(-4), 4);
                         this.push16(this.sreg[reg_cs]);
                         this.push16(this.get_real_eip());
                     }
@@ -2314,7 +2361,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
                             this.push32(parameter);
                         }
 
-                        this.writable_or_pagefault(this.get_stack_pointer(-8), 8);
+                        //this.writable_or_pagefault(this.get_stack_pointer(-8), 8);
                         this.push32(this.sreg[reg_cs]);
                         this.push32(this.get_real_eip());
                     }
@@ -2362,6 +2409,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             //this.segment_infos[reg_cs] = 0; // TODO
             this.segment_offsets[reg_cs] = cs_info.base;
             this.sreg[reg_cs] = cs_selector & ~3 | this.cpl;
+            dbg_assert((this.sreg[reg_cs] & 3) === this.cpl);
 
             this.instruction_pointer = this.get_seg(reg_cs) + new_eip | 0;
         }
@@ -2440,7 +2488,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
     }
 
     //dbg_log("far " + ["jump", "call"][+is_call] + " to:", LOG_CPU)
-    //this.debug.dump_state();
+    CPU_LOG_VERBOSE && this.debug.dump_state("far " + ["jump", "call"][+is_call] + " end");
 };
 
 CPU.prototype.get_tss_stack_addr = function(dpl)
@@ -3084,7 +3132,7 @@ CPU.prototype.test_privileges_for_io = function(port, size)
         }
 
         dbg_log("#GP for port io  port=" + h(port) + " size=" + size, LOG_CPU);
-        this.debug.dump_state();
+        CPU_LOG_VERBOSE && this.debug.dump_state();
         this.trigger_gp(0);
     }
 };

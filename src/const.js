@@ -1,7 +1,6 @@
 /** @define {boolean} */
 var DEBUG = true;
 
-
 /** @const */
 var LOG_TO_FILE = false;
 
@@ -36,14 +35,14 @@ var
 /** @const */ LOG_APIC =   0x080000,
 /** @const */ LOG_NET =    0x100000,
 /** @const */ LOG_VIRTIO = 0x200000,
-/** @const */ LOG_9P =     0x400000,
+/** @const */ LOG_9P =     0x400000;
 
 
+var LOG_LEVEL = LOG_ALL & ~LOG_PS2 & ~LOG_PIC & ~LOG_PIT & ~LOG_RTC & ~LOG_VIRTIO & ~LOG_9P &
+                          ~LOG_DISK & ~LOG_DMA & ~LOG_VGA & ~LOG_SERIAL & ~LOG_NET;
 
-    //LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_DISK & ~LOG_PIT;
-    LOG_LEVEL = LOG_CPU | LOG_OTHER | LOG_IO;
-    //LOG_LEVEL = LOG_CPU | LOG_OTHER | LOG_DISK | LOG_IO | LOG_CD;
-    //LOG_LEVEL = 0;
+/** @const */
+var CPU_LOG_VERBOSE = false;
 
 
 /**

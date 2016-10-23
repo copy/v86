@@ -221,7 +221,7 @@ CPU.prototype.debug_init = function()
         }
     }
 
-    function dump_state()
+    function dump_state(where)
     {
         if(!DEBUG) return;
 
@@ -236,7 +236,11 @@ CPU.prototype.debug_init = function()
 
         dbg_log("mode=" + mode + "/" + op_size + " paging=" + (+cpu.paging) + " vm=" + vm +
                 " iopl=" + iopl + " cpl=" + cpl + " if=" + if_ + " cs:eip=" + cs_eip +
-                " cs_off=" + h(cpu.get_seg(reg_cs) >>> 0, 8) + " flgs=" + h(cpu.get_eflags() >>> 0) + " ss:esp=" + ss_esp, LOG_CPU);
+                " cs_off=" + h(cpu.get_seg(reg_cs) >>> 0, 8) +
+                " flgs=" + h(cpu.get_eflags() >>> 0) +
+                " ss:esp=" + ss_esp +
+                " ssize=" + (+cpu.stack_size_32) +
+                (where ? " in " + where : ""), LOG_CPU);
     }
 
     function dump_regs_short()
