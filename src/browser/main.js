@@ -36,6 +36,8 @@
         {
             a.click();
         }
+
+        window.URL.revokeObjectURL(a.href);
     }
 
     /**
