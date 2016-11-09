@@ -108,6 +108,10 @@ PIT.prototype.timer = function(now, no_irq)
                 this.counter_enabled[0] = 0;
             }
         }
+        else
+        {
+            this.cpu.device_lower_irq(0);
+        }
     }
     time_to_next_interrupt = 0;
 

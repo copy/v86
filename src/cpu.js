@@ -3080,12 +3080,6 @@ CPU.prototype.device_raise_irq = function(i)
     {
         this.devices.apic.set_irq(i);
     }
-
-    // XXX: This should be implemented by the devices themselves
-    if(i !== 14 && i !== 15)
-    {
-        this.device_lower_irq(i);
-    }
 };
 
 CPU.prototype.device_lower_irq = function(i)

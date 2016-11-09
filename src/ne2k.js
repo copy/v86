@@ -275,6 +275,7 @@ function Ne2k(cpu, bus)
             // acknoledge interrupts where bit is set
             dbg_log("Write isr: " + h(data_byte, 2), LOG_NET);
             this.isr &= ~data_byte
+            this.update_irq();
         }
         else
         {
@@ -543,6 +544,10 @@ Ne2k.prototype.update_irq = function()
     if(this.imr & this.isr)
     {
         this.cpu.device_raise_irq(this.irq);
+    }
+    else
+    {
+        this.cpu.device_lower_irq(this.irq);
     }
 };
 

@@ -298,19 +298,6 @@ PS2.prototype.apply_scaling2 = function(n)
     }
 }
 
-PS2.prototype.destroy = function()
-{
-    //if(this.have_keyboard)
-    //{
-    //    this.keyboard.destroy();
-    //}
-
-    //if(this.have_mouse)
-    //{
-    //    this.mouse.destroy();
-    //}
-};
-
 PS2.prototype.next_byte_is_aux = function()
 {
     return this.mouse_buffer.length && !this.kbd_buffer.length;
@@ -328,6 +315,9 @@ PS2.prototype.port60_read = function()
     }
 
     var do_mouse_buffer = this.next_byte_is_aux();
+
+    this.cpu.device_lower_irq(1);
+    this.cpu.device_lower_irq(12);
 
     if(do_mouse_buffer)
     {
@@ -379,11 +369,12 @@ PS2.prototype.port60_write = function(write_byte)
 
     if(this.read_command_register)
     {
-        this.kbd_irq();
         this.command_register = write_byte;
         this.read_command_register = false;
+
         // not sure, causes "spurious ack" in Linux
         //this.kbd_buffer.push(0xFA);
+        //this.kbd_irq();
 
         dbg_log("Keyboard command register = " + h(this.command_register), LOG_PS2);
     }

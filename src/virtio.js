@@ -123,6 +123,7 @@ function VirtIO(cpu, bus, filesystem)
         // reading resets the isr
         var isr = this.isr;
         this.isr = 0;
+        this.cpu.device_lower_irq(this.irq);
         return isr;
     });
 

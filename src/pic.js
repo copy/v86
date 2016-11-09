@@ -100,13 +100,14 @@ function PIC(cpu, master)
             var irq_number = v86util.int_log2_byte(irq_mask);
             dbg_assert(irq_mask === (1 << irq_number));
 
-            this.irr &= ~irq_mask;
+            this.irr &= ~irq_mask; // not in level mode
 
             if(irq_number === 2)
             {
                 // this should always return true
+                this.irq_value &= ~2;
                 var did = this.slave.check_irqs();
-                dbg_log("Slave had irq when master irq number was 2: " + did, LOG_PIC);
+                if(!did) dbg_log("Slave had irq when master irq number was 2", LOG_PIC);
                 return did;
             }
 
@@ -152,7 +153,7 @@ function PIC(cpu, master)
             var irq_number = v86util.int_log2_byte(irq_mask);
             dbg_assert(irq_mask === (1 << irq_number));
 
-            this.irr &= ~irq_mask;
+            this.irr &= ~irq_mask; // not in level mode
 
             dbg_log("slave > handling irq " + irq_number, LOG_PIC);
             this.cpu.pic_call_irq(this.irq_map | irq_number);
@@ -368,10 +369,13 @@ function PIC(cpu, master)
             }
 
             var irq_mask = 1 << irq_number;
-            this.irr |= irq_mask & ~this.irq_value;
-            this.irq_value |= irq_mask;
+            if((this.irq_value & irq_mask) === 0)
+            {
+                this.irr |= irq_mask & ~this.irq_value;
+                this.irq_value |= irq_mask;
 
-            this.cpu.handle_irqs();
+                this.cpu.handle_irqs();
+            }
         };
 
         this.clear_irq = function(irq_number)
@@ -388,7 +392,12 @@ function PIC(cpu, master)
                 irq_number = 2;
             }
 
-            this.irq_value &= ~(1 << irq_number);
+            var irq_mask = 1 << irq_number;
+            if(this.irq_value & irq_mask)
+            {
+                this.irq_value &= ~irq_mask
+                this.irr &= ~irq_mask;
+            }
         };
     }
     else
@@ -402,18 +411,27 @@ function PIC(cpu, master)
             }
 
             var irq_mask = 1 << irq_number;
-            this.irr |= irq_mask & ~this.irq_value;
-            this.irq_value |= irq_mask;
+            if((this.irq_value & irq_mask) === 0)
+            {
+                this.irr |= irq_mask;
+                this.irq_value |= irq_mask;
+            }
         };
 
         this.clear_irq = function(irq_number)
         {
+            dbg_assert(irq_number >= 0 && irq_number < 8);
             if(PIC_LOG_VERBOSE)
             {
                 dbg_log("slave > clear irq " + irq_number, LOG_PIC);
             }
 
-            this.irq_value &= ~(1 << irq_number);
+            var irq_mask = 1 << irq_number;
+            if(this.irq_value & irq_mask)
+            {
+                this.irq_value &= ~irq_mask;
+                this.irr &= ~irq_mask;
+            }
         };
     }
 

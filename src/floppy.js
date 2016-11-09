@@ -196,6 +196,7 @@ FloppyController.prototype.port3F5_read = function()
     if(this.response_index < this.response_length)
     {
         dbg_log("3F5 read: " + this.response_data[this.response_index], LOG_DISK);
+        this.cpu.device_lower_irq(6);
         return this.response_data[this.response_index++];
     }
     else
