@@ -11,9 +11,10 @@ function SerialAdapter(element, bus)
 
     this.enabled = true;
     this.bus = bus;
-    this.text = [];
-    this.text_changed = false;
+    this.text = "";
     this.text_new_line = false;
+
+    this.last_update = 0;
 
 
     this.bus.register("serial0-output-char", function(chr)
@@ -36,21 +37,6 @@ function SerialAdapter(element, bus)
         element.addEventListener("keypress", keypress_handler, false);
         element.addEventListener("keydown", keydown_handler, false);
         element.addEventListener("paste", paste_handler, false);
-
-        setInterval(function()
-        {
-            if(this.text_changed)
-            {
-                this.text_changed = false;
-                element.value = this.text.join("");
-
-                if(this.text_new_line)
-                {
-                    this.text_new_line = false;
-                    element.scrollTop = 1e9;
-                }
-            }
-        }.bind(this), 16);
     };
     this.init();
 
@@ -59,8 +45,8 @@ function SerialAdapter(element, bus)
     {
         if(chr === "\x08")
         {
-            this.text.pop();
-            this.text_changed = true;
+            this.text = this.text.slice(0, -1);
+            this.update();
         }
         else if(chr === "\r")
         {
@@ -68,15 +54,58 @@ function SerialAdapter(element, bus)
         }
         else
         {
-            this.text_changed = true;
-            this.text.push(chr);
+            this.text += chr;
 
             if(chr === "\n")
             {
                 this.text_new_line = true;
             }
+
+            this.update();
         }
     };
+
+    this.update = function()
+    {
+        var now = Date.now();
+        var delta = now - this.last_update;
+
+        if(delta < 16)
+        {
+            if(this.update_timer === undefined)
+            {
+                this.update_timer = setTimeout(() => {
+                    this.update_timer = undefined;
+                    var now = Date.now();
+                    dbg_assert(now - this.last_update >= 16);
+                    this.last_update = now;
+                    this.render();
+                }, 16 - delta);
+            }
+        }
+        else
+        {
+            if(this.update_timer !== undefined)
+            {
+                clearTimeout(this.update_timer);
+                this.update_timer = undefined;
+            }
+
+            this.last_update = now;
+            this.render();
+        }
+    };
+
+    this.render = function()
+    {
+        element.value = this.text;
+
+        if(this.text_new_line)
+        {
+            this.text_new_line = false;
+            element.scrollTop = 1e9;
+        }
+    }
 
     /**
      * @param {number} chr_code
