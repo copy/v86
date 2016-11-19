@@ -44,12 +44,6 @@
         window.URL.revokeObjectURL(a.href);
     }
 
-    // only for manual use
-    //if(DEBUG)
-    //{
-    //    window.dump_file = dump_file;
-    //}
-
     /**
      * @return {Object.<string, string>}
      */
@@ -670,7 +664,8 @@
 
             "autostart": true,
         });
-        window["emulator"] = emulator;
+
+        if(DEBUG) window["emulator"] = emulator;
 
         emulator.add_listener("emulator-ready", function()
         {
