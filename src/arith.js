@@ -43,7 +43,7 @@ CPU.prototype.sbb32 = function(dest, src) { return this.sbb(dest, src, OPSIZE_32
 
 CPU.prototype.add = function(dest_operand, source_operand, op_size)
 {
-    //if(this.safe_read32s(this.instruction_pointer + 1) === 0) throw "0000000";
+    //if(this.safe_read32s(this.instruction_pointer + 1) === 0 && this.safe_read32s(this.instruction_pointer + 5) === 0) throw "0000000";
 
     this.last_op1 = dest_operand;
     this.last_op2 = source_operand;
@@ -1374,7 +1374,6 @@ CPU.prototype.btr_reg = function(bit_base, bit_offset)
 
 CPU.prototype.bt_mem = function(virt_addr, bit_offset)
 {
-    dbg_assert(bit_offset >= 0);
     var bit_base = this.safe_read8(virt_addr + (bit_offset >> 3) | 0);
     bit_offset &= 7;
 
@@ -1384,7 +1383,6 @@ CPU.prototype.bt_mem = function(virt_addr, bit_offset)
 
 CPU.prototype.btc_mem = function(virt_addr, bit_offset)
 {
-    dbg_assert(bit_offset >= 0);
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3) | 0);
     var bit_base = this.read8(phys_addr);
 
@@ -1398,7 +1396,6 @@ CPU.prototype.btc_mem = function(virt_addr, bit_offset)
 
 CPU.prototype.btr_mem = function(virt_addr, bit_offset)
 {
-    dbg_assert(bit_offset >= 0);
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3) | 0);
     var bit_base = this.read8(phys_addr);
 
@@ -1412,7 +1409,6 @@ CPU.prototype.btr_mem = function(virt_addr, bit_offset)
 
 CPU.prototype.bts_mem = function(virt_addr, bit_offset)
 {
-    dbg_assert(bit_offset >= 0);
     var phys_addr = this.translate_address_write(virt_addr + (bit_offset >> 3) | 0);
     var bit_base = this.read8(phys_addr);
 
