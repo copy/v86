@@ -28,6 +28,7 @@ function SerialAdapter(element, bus)
         element.removeEventListener("keypress", keypress_handler, false);
         element.removeEventListener("keydown", keydown_handler, false);
         element.removeEventListener("paste", paste_handler, false);
+        window.removeEventListener("mousedown", window_click_handler, false);
     };
 
     this.init = function()
@@ -37,6 +38,7 @@ function SerialAdapter(element, bus)
         element.addEventListener("keypress", keypress_handler, false);
         element.addEventListener("keydown", keydown_handler, false);
         element.addEventListener("paste", paste_handler, false);
+        window.addEventListener("mousedown", window_click_handler, false);
     };
     this.init();
 
@@ -180,5 +182,13 @@ function SerialAdapter(element, bus)
         }
 
         e.preventDefault();
+    }
+
+    function window_click_handler(e)
+    {
+        if(e.target !== element)
+        {
+            element.blur();
+        }
     }
 }
