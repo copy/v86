@@ -1,3 +1,5 @@
+"use strict";
+
 /** @define {boolean} */
 var DEBUG = true;
 
@@ -26,7 +28,7 @@ var
 /** @const */ LOG_MOUSE =  0x000400,
 /** @const */ LOG_PCI =    0x000800,
 /** @const */ LOG_BIOS =   0x001000,
-/** @const */ LOG_CD =     0x002000,
+/** @const */ LOG_FLOPPY = 0x002000,
 /** @const */ LOG_SERIAL = 0x004000,
 /** @const */ LOG_DISK =   0x008000,
 /** @const */ LOG_RTC =    0x010000,
@@ -64,7 +66,7 @@ var LOG_NAMES = [
     [LOG_MOUSE, "MOUS"],
     [LOG_PCI, "PCI"],
     [LOG_BIOS, "BIOS"],
-    [LOG_CD, "CD"],
+    [LOG_FLOPPY, "FLOP"],
     [LOG_SERIAL, "SERI"],
     [LOG_RTC, "RTC"],
     [LOG_HPET, "HPET"],
