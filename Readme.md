@@ -101,9 +101,7 @@ How to build, run and embed?
 
 ```bash
 # grab the main repo
-git clone https://github.com/copy/v86.git
-
-cd v86
+git clone https://github.com/copy/v86.git && cd v86
 
 # grab the disk images
 wget -P images/ https://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}
@@ -119,17 +117,6 @@ make build/libv86.js
 ./tests/full/run.js
 ```
 
-Why?
--
-
-Similar projects have been done before, but I decided to work on this as a fun
-project and learn something about the x86 architecture. It has grown pretty
-advanced and I got Linux and KolibriOS working, so there might be some actual
-uses.
-
-If you build something interesting, let me know.
-
-
 Compatibility
 -
 
@@ -137,17 +124,18 @@ Here's an overview of the operating systems supported in v86:
 
 - Linux works pretty well. Graphical boot fails in many versions, but you
   mostly get a shell. The mouse is often not detected automatically.
-  - Damn Small Linux (2.4 Kernel): Run with `lowram` and choose PS2 mouse in
-    xsetup. Takes circa 10 minutes to boot.
+  - Damn Small Linux (2.4 Kernel): Works, takes circa 10 minutes to boot.
   - Tinycore (3.0 kernel): `udev` and `X` fail, but you get a
     terminal.
   - Nanolinux works.
   - Archlinux works. Add `atkbd` to `MODULES` in `/etc/mkinitcpio.conf`.
 - FreeDOS and Windows 1.01 run very well.
 - KolibriOS works. A few applications need SSE.
-- Haiku boots, but takes very long (around 30 minutes). Set the memory size to 128MB.
+- Haiku boots, but takes very long (around 30 minutes).
 - ReactOS doesn't work.
 - No Android version seems to work, you still get a shell.
+- Windows 1, 95 and 98 work. Other versions current don't.
+- Many hobby operating systems work.
 
 You can get some infos on the disk images here: https://github.com/copy/images.
 
@@ -169,9 +157,10 @@ Simplified BSD License, see [LICENSE](LICENSE), unless otherwise noted.
 Credits
 -
 
-- Test cases via QEMU, http://wiki.qemu.org/Main_Page
+- CPU test cases via QEMU, http://wiki.qemu.org/Main_Page
 - [Disk Images](https://github.com/copy/images)
-- [The jor1k project](https://github.com/s-macke/jor1k) for 9p and filesystem drivers
+- [The jor1k project](https://github.com/s-macke/jor1k) for 9p, filesystem and uart drivers
+- [WinWorld](https://winworldpc.com/) sources of some old operating systems
 
 
 More questions?
