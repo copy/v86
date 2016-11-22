@@ -1103,7 +1103,13 @@
                 // allow text selection
                 if(window.getSelection().isCollapsed)
                 {
-                    document.getElementsByClassName("phone_keyboard")[0].focus();
+                    let phone_keyboard = document.getElementsByClassName("phone_keyboard")[0];
+
+                    // stop mobile browser from scrolling into view when the keyboard is shown
+                    phone_keyboard.style.top = document.body.scrollTop + 100 + "px";
+                    phone_keyboard.style.left = document.body.scrollLeft + 100 + "px";
+
+                    phone_keyboard.focus();
                 }
             }
         };
