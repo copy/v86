@@ -541,7 +541,8 @@
             {
                 LOG_LEVEL &= ~mask;
             }
-            this.blur();
+
+            target.blur();
         };
 
         var debug_infos = $("debug_infos");
