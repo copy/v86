@@ -394,6 +394,11 @@ PS2.prototype.port60_write = function(write_byte)
 
         this.sample_rate = write_byte;
         dbg_log("mouse sample rate: " + h(write_byte), LOG_PS2);
+        if(!this.sample_rate)
+        {
+            dbg_log("invalid sample rate, reset to 100", LOG_PS2);
+            this.sample_rate = 100;
+        }
         this.mouse_irq();
     }
     else if(this.next_read_resolution)
