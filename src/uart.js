@@ -115,7 +115,7 @@ function UART(cpu, port, bus)
 
         if(char === "\n")
         {
-            dbg_log("SERIAL: " + String.fromCharCode.apply("", this.current_line));
+            dbg_log("SERIAL: " + String.fromCharCode.apply("", this.current_line).trimRight());
             this.bus.send("serial0-output-line", String.fromCharCode.apply("", this.current_line));
             this.current_line = [];
         }
