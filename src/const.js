@@ -1,5 +1,13 @@
+"use strict";
+
 /** @define {boolean} */
 var DEBUG = true;
+
+/** @const */
+var LOG_TO_FILE = false;
+
+/** @const */
+var LOG_ALL_IO = false;
 
 
 var
@@ -20,7 +28,7 @@ var
 /** @const */ LOG_MOUSE =  0x000400,
 /** @const */ LOG_PCI =    0x000800,
 /** @const */ LOG_BIOS =   0x001000,
-/** @const */ LOG_CD =     0x002000,
+/** @const */ LOG_FLOPPY = 0x002000,
 /** @const */ LOG_SERIAL = 0x004000,
 /** @const */ LOG_DISK =   0x008000,
 /** @const */ LOG_RTC =    0x010000,
@@ -29,17 +37,20 @@ var
 /** @const */ LOG_APIC =   0x080000,
 /** @const */ LOG_NET =    0x100000,
 /** @const */ LOG_VIRTIO = 0x200000,
-/** @const */ LOG_9P =     0x400000,
+/** @const */ LOG_9P =     0x400000;
 
 
-
-    //LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_DISK & ~LOG_PIT;
-    LOG_LEVEL = LOG_CPU | LOG_OTHER | LOG_IO;
-    //LOG_LEVEL = LOG_CPU | LOG_OTHER | LOG_DISK | LOG_IO | LOG_CD;
-    //LOG_LEVEL = 0;
-
+var LOG_LEVEL = LOG_ALL & ~LOG_PS2 & ~LOG_PIC & ~LOG_PIT & ~LOG_RTC & ~LOG_VIRTIO & ~LOG_9P &
+                          ~LOG_DISK & ~LOG_DMA & ~LOG_VGA & ~LOG_SERIAL & ~LOG_NET;
 
 /** @const */
+var CPU_LOG_VERBOSE = false;
+
+
+/**
+ * @const
+ * @type {Array<Array<string|number>>}
+ */
 var LOG_NAMES = [
     [1, ""],
     [LOG_CPU, "CPU"],
@@ -55,7 +66,7 @@ var LOG_NAMES = [
     [LOG_MOUSE, "MOUS"],
     [LOG_PCI, "PCI"],
     [LOG_BIOS, "BIOS"],
-    [LOG_CD, "CD"],
+    [LOG_FLOPPY, "FLOP"],
     [LOG_SERIAL, "SERI"],
     [LOG_RTC, "RTC"],
     [LOG_HPET, "HPET"],
@@ -75,10 +86,10 @@ var
 
 var
     /** @const */
-    ENABLE_HPET = false,
+    ENABLE_HPET = !DEBUG && false,
 
     /** @const */
-    ENABLE_ACPI = false;
+    ENABLE_ACPI = !DEBUG && false;
 
 var
 
@@ -181,7 +192,7 @@ PSE_ENABLED = 128,
 
 
 /** @const */ LOOP_COUNTER = 11001,
-/** @const */ TIME_PER_FRAME = 33;
+/** @const */ TIME_PER_FRAME = 8;
 
 /** @const */
 var OP_TRANSLATION = false;
@@ -286,6 +297,18 @@ var IA32_BIOS_SIGN_ID = 0x8B;
 
 /** @const */
 var IA32_MISC_ENABLE = 0x1A0;
+
+/** @const */
+var IA32_RTIT_CTL = 0x570;
+
+/** @const */
+var MSR_SMI_COUNT = 0x34;
+
+/** @const */
+var IA32_MCG_CAP = 0x179;
+
+/** @const */
+var MSR_PKG_C2_RESIDENCY = 0x60D;
 
 
 

@@ -9,7 +9,7 @@ var SCAN_CODE_RELEASE = 0x80;
 /**
  * @constructor
  *
- * @param {Bus.Connector} bus
+ * @param {BusConnector} bus
  */
 function KeyboardAdapter(bus)
 {

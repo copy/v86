@@ -62,7 +62,7 @@ function movsb(cpu)
         }
         do
         {
-            cpu.memory.write8(phys_dest, cpu.memory.read8(phys_src));
+            cpu.write8(phys_dest, cpu.read8(phys_src));
             phys_dest += size;
             phys_src += size;
             cont = --count !== 0;
@@ -110,7 +110,7 @@ function movsw(cpu)
             }
             do
             {
-                cpu.memory.write_aligned16(phys_dest, cpu.memory.read_aligned16(phys_src));
+                cpu.write_aligned16(phys_dest, cpu.read_aligned16(phys_src));
                 phys_dest += single_size;
                 phys_src += single_size;
                 cont = --count !== 0;
@@ -153,7 +153,7 @@ function movsd(cpu)
     if(cpu.repeat_string_prefix !== REPEAT_STRING_PREFIX_NONE)
     {
         // often used by memcpy, well worth optimizing
-        //   using cpu.memory.mem32s.set
+        //   using cpu.mem32s.set
         var ds = cpu.get_seg_prefix(reg_ds),
             src = ds + cpu.regv[cpu.reg_vsi] | 0,
             es = cpu.get_seg(reg_es),
@@ -198,7 +198,7 @@ function movsd(cpu)
 
                 dest >>= 2;
                 src >>= 2;
-                cpu.memory.mem32s.set(cpu.memory.mem32s.subarray(src, src + count), dest);
+                cpu.write_blob32(cpu.mem32s.subarray(src, src + count), dest);
 
                 if(cont)
                 {
@@ -232,7 +232,7 @@ function movsd(cpu)
             }
             do
             {
-                cpu.memory.write_aligned32(phys_dest, cpu.memory.read_aligned32(phys_src));
+                cpu.write_aligned32(phys_dest, cpu.read_aligned32(phys_src));
                 phys_dest += single_size;
                 phys_src += single_size;
                 cont = --count !== 0;
@@ -293,8 +293,8 @@ function cmpsb(cpu)
         }
         do
         {
-            data_dest = cpu.memory.read8(phys_dest);
-            data_src = cpu.memory.read8(phys_src);
+            data_dest = cpu.read8(phys_dest);
+            data_src = cpu.read8(phys_src);
             phys_dest += size;
             phys_src += size;
             cont = --count !== 0 && (data_src === data_dest) === is_repz;
@@ -347,8 +347,8 @@ function cmpsw(cpu)
             }
             do
             {
-                data_dest = cpu.memory.read_aligned16(phys_dest);
-                data_src = cpu.memory.read_aligned16(phys_src);
+                data_dest = cpu.read_aligned16(phys_dest);
+                data_src = cpu.read_aligned16(phys_src);
                 phys_dest += single_size;
                 phys_src += single_size;
                 cont = --count !== 0 && (data_src === data_dest) === is_repz;
@@ -416,8 +416,8 @@ function cmpsd(cpu)
             }
             do
             {
-                data_dest = cpu.memory.read_aligned32(phys_dest);
-                data_src = cpu.memory.read_aligned32(phys_src);
+                data_dest = cpu.read_aligned32(phys_dest);
+                data_src = cpu.read_aligned32(phys_src);
                 phys_dest += single_size;
                 phys_src += single_size;
                 cont = --count !== 0 && (data_src === data_dest) === is_repz;
@@ -479,7 +479,7 @@ function stosb(cpu)
         }
         do
         {
-            cpu.memory.write8(phys_dest, data);
+            cpu.write8(phys_dest, data);
             phys_dest += size;
             cont = --count !== 0;
         }
@@ -523,7 +523,7 @@ function stosw(cpu)
             }
             do
             {
-                cpu.memory.write_aligned16(phys_dest, data);
+                cpu.write_aligned16(phys_dest, data);
                 phys_dest += single_size;
                 cont = --count !== 0;
             }
@@ -579,7 +579,7 @@ function stosd(cpu)
             }
             do
             {
-                cpu.memory.write_aligned32(phys_dest, data);
+                cpu.write_aligned32(phys_dest, data);
                 phys_dest += single_size;
                 cont = --count !== 0;
             }
@@ -631,7 +631,7 @@ function lodsb(cpu)
         }
         do
         {
-            cpu.reg8[reg_al] = cpu.memory.read8(phys_src);
+            cpu.reg8[reg_al] = cpu.read8(phys_src);
             phys_src += size;
             cont = --count !== 0;
         }
@@ -736,7 +736,7 @@ function scasb(cpu)
         }
         do
         {
-            data_dest = cpu.memory.read8(phys_dest);
+            data_dest = cpu.read8(phys_dest);
             phys_dest += size;
             cont = --count !== 0 && (data_src === data_dest) === is_repz;
         }
@@ -784,7 +784,7 @@ function scasw(cpu)
             }
             do
             {
-                data_dest = cpu.memory.read_aligned16(phys_dest);
+                data_dest = cpu.read_aligned16(phys_dest);
                 phys_dest += single_size;
                 cont = --count !== 0 && (data_src === data_dest) === is_repz;
             }
@@ -844,7 +844,7 @@ function scasd(cpu)
             }
             do
             {
-                data_dest = cpu.memory.read_aligned32(phys_dest);
+                data_dest = cpu.read_aligned32(phys_dest);
                 phys_dest += single_size;
                 cont = --count !== 0 && (data_src === data_dest) === is_repz;
             }
@@ -901,7 +901,7 @@ function insb(cpu)
         }
         do
         {
-            cpu.memory.write8(phys_dest, cpu.io.port_read8(port));
+            cpu.write8(phys_dest, cpu.io.port_read8(port));
             phys_dest += size;
             cont = --count !== 0;
         }
@@ -948,7 +948,7 @@ function insw(cpu)
             }
             do
             {
-                cpu.memory.write_aligned16(phys_dest, cpu.io.port_read16(port));
+                cpu.write_aligned16(phys_dest, cpu.io.port_read16(port));
                 phys_dest += single_size;
                 cont = --count !== 0;
             }
@@ -1007,7 +1007,7 @@ function insd(cpu)
             }
             do
             {
-                cpu.memory.write_aligned32(phys_dest, cpu.io.port_read32(port));
+                cpu.write_aligned32(phys_dest, cpu.io.port_read32(port));
                 phys_dest += single_size;
                 cont = --count !== 0;
             }
@@ -1063,7 +1063,7 @@ function outsb(cpu)
         }
         do
         {
-            cpu.io.port_write8(port, cpu.memory.read8(phys_src));
+            cpu.io.port_write8(port, cpu.read8(phys_src));
             phys_src += size;
             cont = --count !== 0;
         }
@@ -1110,7 +1110,7 @@ function outsw(cpu)
             }
             do
             {
-                cpu.io.port_write16(port, cpu.memory.read_aligned16(phys_src));
+                cpu.io.port_write16(port, cpu.read_aligned16(phys_src));
                 phys_src += single_size;
                 cont = --count !== 0;
             }
@@ -1169,7 +1169,7 @@ function outsd(cpu)
             }
             do
             {
-                cpu.io.port_write32(port, cpu.memory.read_aligned32(phys_src));
+                cpu.io.port_write32(port, cpu.read_aligned32(phys_src));
                 phys_src += single_size;
                 cont = --count !== 0;
             }

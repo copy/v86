@@ -3,18 +3,19 @@
 /**
  * @constructor
  * @param {CPU} cpu
- * @param {Bus.Connector} bus
+ * @param {BusConnector} bus
  */
 function PS2(cpu, bus)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
 
-    /** @const @type {Bus.Connector} */
+    /** @const @type {BusConnector} */
     this.bus = bus;
 
     /** @type {boolean} */
     this.enable_mouse_stream = false;
+
     /** @type {boolean} */
     this.use_mouse = false;
 
@@ -217,11 +218,11 @@ PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
         {
             var now = Date.now();
 
-            if(now - this.last_mouse_packet < 1000 / this.sample_rate)
-            {
-                // TODO: set timeout
-                return;
-            }
+            //if(now - this.last_mouse_packet < 1000 / this.sample_rate)
+            //{
+            //    // TODO: set timeout
+            //    return;
+            //}
 
             this.mouse_delta_x -= change_x;
             this.mouse_delta_y -= change_y;
@@ -258,18 +259,18 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
 
     this.last_mouse_packet = Date.now();
 
-    if(this.scaling2)
-    {
-        // only in automatic packets, not 0xEB requests
-        delta_x = this.apply_scaling2(delta_x);
-        delta_y = this.apply_scaling2(delta_y);
-    }
+    //if(this.scaling2)
+    //{
+    //    // only in automatic packets, not 0xEB requests
+    //    delta_x = this.apply_scaling2(delta_x);
+    //    delta_y = this.apply_scaling2(delta_y);
+    //}
 
     this.mouse_buffer.push(info_byte);
     this.mouse_buffer.push(delta_x);
     this.mouse_buffer.push(delta_y);
 
-    dbg_log("adding mouse packets:" + [info_byte, dx, dy], LOG_PS2);
+    dbg_log("adding mouse packets: " + [info_byte, dx, dy], LOG_PS2);
 
     this.mouse_irq();
 }
@@ -297,19 +298,10 @@ PS2.prototype.apply_scaling2 = function(n)
     }
 }
 
-PS2.prototype.destroy = function()
+PS2.prototype.next_byte_is_aux = function()
 {
-    //if(this.have_keyboard)
-    //{
-    //    this.keyboard.destroy();
-    //}
-
-    //if(this.have_mouse)
-    //{
-    //    this.mouse.destroy();
-    //}
+    return this.mouse_buffer.length && !this.kbd_buffer.length;
 };
-
 
 PS2.prototype.port60_read = function()
 {
@@ -322,20 +314,10 @@ PS2.prototype.port60_read = function()
         return this.last_port60_byte;
     }
 
-    var do_mouse_buffer;
+    var do_mouse_buffer = this.next_byte_is_aux();
 
-    if(this.kbd_buffer.length && this.mouse_buffer.length)
-    {
-        do_mouse_buffer = false;
-    }
-    else if(this.kbd_buffer.length)
-    {
-        do_mouse_buffer = false;
-    }
-    else
-    {
-        do_mouse_buffer = true;
-    }
+    this.cpu.device_lower_irq(1);
+    this.cpu.device_lower_irq(12);
 
     if(do_mouse_buffer)
     {
@@ -371,7 +353,7 @@ PS2.prototype.port64_read = function()
     {
         status_byte |= 1;
     }
-    if(this.mouse_buffer.length)
+    if(this.next_byte_is_aux())
     {
         status_byte |= 0x20;
     }
@@ -387,11 +369,12 @@ PS2.prototype.port60_write = function(write_byte)
 
     if(this.read_command_register)
     {
-        this.kbd_irq();
         this.command_register = write_byte;
         this.read_command_register = false;
+
         // not sure, causes "spurious ack" in Linux
         //this.kbd_buffer.push(0xFA);
+        //this.kbd_irq();
 
         dbg_log("Keyboard command register = " + h(this.command_register), LOG_PS2);
     }
@@ -411,6 +394,11 @@ PS2.prototype.port60_write = function(write_byte)
 
         this.sample_rate = write_byte;
         dbg_log("mouse sample rate: " + h(write_byte), LOG_PS2);
+        if(!this.sample_rate)
+        {
+            dbg_log("invalid sample rate, reset to 100", LOG_PS2);
+            this.sample_rate = 100;
+        }
         this.mouse_irq();
     }
     else if(this.next_read_resolution)

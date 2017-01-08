@@ -3,7 +3,7 @@
 var Bus = {};
 
 /** @constructor */
-Bus.Connector = function()
+function BusConnector()
 {
     this.listeners = {};
     this.pair = undefined;
@@ -14,7 +14,7 @@ Bus.Connector = function()
  * @param {function(*=)} fn
  * @param {Object} this_value
  */
-Bus.Connector.prototype.register = function(name, fn, this_value)
+BusConnector.prototype.register = function(name, fn, this_value)
 {
     var listeners = this.listeners[name];
 
@@ -35,7 +35,7 @@ Bus.Connector.prototype.register = function(name, fn, this_value)
  * @param {string} name
  * @param {function()} fn
  */
-Bus.Connector.prototype.unregister = function(name, fn)
+BusConnector.prototype.unregister = function(name, fn)
 {
     var listeners = this.listeners[name];
 
@@ -57,10 +57,8 @@ Bus.Connector.prototype.unregister = function(name, fn)
  * @param {*=} value
  * @param {*=} unused_transfer
  */
-Bus.Connector.prototype.send = function(name, value, unused_transfer)
+BusConnector.prototype.send = function(name, value, unused_transfer)
 {
-    dbg_assert(arguments.length === 1 || arguments.length === 2 || arguments.length === 3);
-
     if(!this.pair)
     {
         return;
@@ -86,7 +84,7 @@ Bus.Connector.prototype.send = function(name, value, unused_transfer)
  * @param {string} name
  * @param {Object=} value
  */
-Bus.Connector.prototype.send_async = function(name, value)
+BusConnector.prototype.send_async = function(name, value)
 {
     dbg_assert(arguments.length === 1 || arguments.length === 2);
 
@@ -95,8 +93,8 @@ Bus.Connector.prototype.send_async = function(name, value)
 
 Bus.create = function()
 {
-    var c0 = new Bus.Connector();
-    var c1 = new Bus.Connector();
+    var c0 = new BusConnector();
+    var c1 = new BusConnector();
 
     c0.pair = c1;
     c1.pair = c0;

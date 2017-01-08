@@ -24,12 +24,12 @@ var VGA_PLANAR_REAL_BUFFER_START = 4 * VGA_BANK_SIZE;
 /**
  * @constructor
  * @param {CPU} cpu
- * @param {Bus.Connector} bus
+ * @param {BusConnector} bus
  * @param {number} vga_memory_size
  */
 function VGAScreen(cpu, bus, vga_memory_size)
 {
-    /** @const @type {Bus.Connector} */
+    /** @const @type {BusConnector} */
     this.bus = bus;
 
     this.vga_memory_size = vga_memory_size;
@@ -126,6 +126,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     ];
     this.pci_id = 0x12 << 3;
     this.pci_bars = [];
+    this.name = "vga";
 
     cpu.devices.pci.register_device(this);
 
@@ -137,6 +138,8 @@ function VGAScreen(cpu, bus, vga_memory_size)
     };
 
     this.index_crtc = 0;
+
+    this.offset_register = 0;
 
     // index for setting colors through port 3C9h
     this.dac_color_index_write = 0;
@@ -300,6 +303,9 @@ VGAScreen.prototype.get_state = function()
     state[37] = this.dispi_index;
     state[38] = this.dispi_enable_value;
     state[39] = this.svga_memory;
+    state[40] = this.graphical_mode_is_linear;
+    state[41] = this.attribute_controller_index;
+    state[42] = this.offset_register;
 
     return state;
 };
@@ -346,6 +352,9 @@ VGAScreen.prototype.set_state = function(state)
     this.dispi_index = state[37];
     this.dispi_enable_value = state[38];
     this.svga_memory.set(state[39]);
+    this.graphical_mode_is_linear = state[40];
+    this.attribute_controller_index = state[41];
+    this.offset_register = state[42];
 
     this.bus.send("screen-set-mode", this.graphical_mode);
 
@@ -695,10 +704,12 @@ VGAScreen.prototype.svga_memory_write32 = function(addr, value)
 
 VGAScreen.prototype.complete_redraw = function()
 {
+    dbg_log("complete redraw", LOG_VGA);
+
     if(this.graphical_mode)
     {
-        this.diff_addr_min = this.vga_memory_size;
-        this.diff_addr_max = 0;
+        this.diff_addr_min = 0;
+        this.diff_addr_max = this.vga_memory_size;
     }
     else
     {
@@ -779,6 +790,8 @@ VGAScreen.prototype.set_video_mode = function(mode)
 
     if(is_graphical)
     {
+        this.svga_width = width;
+        this.svga_height = height;
         this.set_size_graphical(width, height, 8);
     }
 
@@ -1046,6 +1059,9 @@ VGAScreen.prototype.port3D5_write = function(value)
             this.cursor_address = this.cursor_address & 0xFF00 | value;
             this.update_cursor();
             break;
+        case 0x13:
+            this.offset_register = value;
+            break;
         default:
             dbg_log("3D5 / CRTC write " + h(this.index_crtc) + ": " + h(value), LOG_VGA);
     }
@@ -1054,25 +1070,24 @@ VGAScreen.prototype.port3D5_write = function(value)
 
 VGAScreen.prototype.port3D5_read = function()
 {
-    if(this.index_crtc === 0x9)
+    switch(this.index_crtc)
     {
-        return this.max_scan_line;
-    }
-    if(this.index_crtc === 0xA)
-    {
-        return this.cursor_scanline_start;
-    }
-    else if(this.index_crtc === 0xB)
-    {
-        return this.cursor_scanline_end;
-    }
-    else if(this.index_crtc === 0xE)
-    {
-        return this.cursor_address >> 8;
-    }
-    else if(this.index_crtc === 0xF)
-    {
-        return this.cursor_address & 0xFF;
+        case 0x9:
+            return this.max_scan_line;
+        case 0xA:
+            return this.cursor_scanline_start;
+        case 0xB:
+            return this.cursor_scanline_end;
+        case 0xC:
+            return this.start_address & 0xFF;
+        case 0xD:
+            return this.start_address >> 8;
+        case 0xE:
+            return this.cursor_address >> 8;
+        case 0xF:
+            return this.cursor_address & 0xFF;
+        case 0x13:
+            return this.offset_register;
     }
 
     dbg_log("3D5 read " + h(this.index_crtc), LOG_VGA);
@@ -1224,7 +1239,14 @@ VGAScreen.prototype.svga_register_read = function(n)
             return this.svga_bank_offset >>> 16;
         case 6:
             // virtual width
-            return this.screen_width;
+            if(this.screen_width)
+            {
+                return this.screen_width;
+            }
+            else
+            {
+                return 1; // seabios/windows98 divide exception
+            }
         case 8:
             // x offset
             return 0;

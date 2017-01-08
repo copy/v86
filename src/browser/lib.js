@@ -1,5 +1,8 @@
 "use strict";
 
+/** @const */
+var ASYNC_SAFE = false;
+
 (function()
 {
     if(typeof XMLHttpRequest === "undefined")
@@ -37,7 +40,6 @@
             for(var i = 0; i < header_names.length; i++)
             {
                 var name = header_names[i];
-
                 http.setRequestHeader(name, options.headers[name]);
             }
         }
@@ -48,7 +50,7 @@
             {
                 if(http.status !== 200 && http.status !== 206)
                 {
-                    console.log("Loading the image `" + filename + "` failed");
+                    console.error("Loading the image `" + filename + "` failed (status %d)", http.status);
                 }
                 else if(http.response)
                 {
@@ -147,6 +149,8 @@
             headers: {
                 Range: "bytes=0-0",
 
+                //"Accept-Encoding": "",
+
                 // Added by Chromium, but can cause the whole file to be sent
                 // Settings this to empty also causes problems and Chromium
                 // doesn't seem to create this header any more
@@ -160,11 +164,61 @@
      * @param {number} len
      * @param {function(!Uint8Array)} fn
      */
+    AsyncXHRBuffer.prototype.get_from_cache = function(offset, len, fn)
+    {
+        var number_of_blocks = len / this.block_size;
+        var block_index = offset / this.block_size;
+
+        for(var i = 0; i < number_of_blocks; i++)
+        {
+            var block = this.loaded_blocks[block_index + i];
+
+            if(!block)
+            {
+                return;
+            }
+        }
+
+        if(number_of_blocks === 1)
+        {
+            return this.loaded_blocks[block_index];
+        }
+        else
+        {
+            var result = new Uint8Array(len);
+            for(var i = 0; i < number_of_blocks; i++)
+            {
+                result.set(this.loaded_blocks[block_index + i], i * this.block_size);
+            }
+            return result;
+        }
+    };
+
+    /**
+     * @param {number} offset
+     * @param {number} len
+     * @param {function(!Uint8Array)} fn
+     */
     AsyncXHRBuffer.prototype.get = function(offset, len, fn)
     {
+        console.assert(offset + len <= this.byteLength);
         console.assert(offset % this.block_size === 0);
         console.assert(len % this.block_size === 0);
         console.assert(len);
+
+        var block = this.get_from_cache(offset, len, fn);
+        if(block)
+        {
+            if(ASYNC_SAFE)
+            {
+                setTimeout(fn.bind(this, block), 0);
+            }
+            else
+            {
+                fn(block);
+            }
+            return;
+        }
 
         var range_start = offset;
         var range_end = offset + len - 1;
@@ -386,6 +440,13 @@
         console.assert(len % this.block_size === 0);
         console.assert(len);
 
+        var block = this.get_from_cache(offset, len, fn);
+        if(block)
+        {
+            fn(block);
+            return;
+        }
+
         var fr = new FileReader();
 
         fr.onload = function(e)
@@ -399,6 +460,7 @@
 
         fr.readAsArrayBuffer(this.file.slice(offset, offset + len));
     }
+    AsyncFileBuffer.prototype.get_from_cache = AsyncXHRBuffer.prototype.get_from_cache;
     AsyncFileBuffer.prototype.set = AsyncXHRBuffer.prototype.set;
     AsyncFileBuffer.prototype.handle_read = AsyncXHRBuffer.prototype.handle_read;
 
@@ -406,6 +468,43 @@
     {
         // We must load all parts, unlikely a good idea for big files
         fn();
+    };
+
+    AsyncFileBuffer.prototype.get_as_file = function(name)
+    {
+        var parts = [];
+        var existing_blocks = Object.keys(this.loaded_blocks)
+                                .map(Number)
+                                .sort(function(x, y) { return x - y; });
+
+        var current_offset = 0;
+
+        for(var i = 0; i < existing_blocks.length; i++)
+        {
+            var block_index = existing_blocks[i];
+            var block = this.loaded_blocks[block_index];
+            var start = block_index * this.block_size;
+            console.assert(start >= current_offset);
+
+            if(start !== current_offset)
+            {
+                parts.push(this.file.slice(current_offset, start));
+                current_offset = start;
+            }
+
+            parts.push(block);
+            current_offset += block.length;
+        }
+
+        if(current_offset !== this.file.size)
+        {
+            parts.push(this.file.slice(current_offset));
+        }
+
+        var file = new File(parts, name);
+        console.assert(file.size === this.file.size);
+
+        return file;
     };
 
 })();

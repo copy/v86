@@ -1,17 +1,14 @@
 "use strict";
 
+/** @const */
+var PMTIMER_FREQ = 3579545;
 
-/** 
- * @constructor 
+/**
+ * @constructor
  * @param {CPU} cpu
  */
 function ACPI(cpu)
 {
-    if(!ENABLE_ACPI)
-    {
-        return;
-    }
-
     var io = cpu.io;
 
     var acpi = {
@@ -23,69 +20,24 @@ function ACPI(cpu)
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09, 0x01, 0x00, 0x00,
         ],
         pci_bars: [],
+        name: "acpi",
     };
 
     // 00:07.0 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 08)
     cpu.devices.pci.register_device(acpi);
 
-    var elcr = 0;
-
-    // ACPI, ELCR register
-    io.register_write(0x4d0, this, function(data)
+    // ACPI status
+    io.register_read(0xB004, this, undefined, function()
     {
-        elcr = elcr & 0xFF00 | data;
-    });
-    io.register_write(0x4d1, this, function(data)
-    {
-        elcr = elcr & 0xFF | data << 8;
-    });
-
-    io.register_read(0xb3, this, function()
-    {
-        return 0;
+        dbg_log("ACPI status read", LOG_ACPI);
+        return 1;
     });
 
     // ACPI, pmtimer
-    io.register_read(0xb008, this, function()
+    io.register_read(0xB008, this, undefined, undefined, function()
     {
-        return 0;
+        var value = v86.microtick() * (PMTIMER_FREQ / 1000) | 0;
+        //dbg_log("pmtimer read: " + h(value >>> 0), LOG_ACPI);
+        return value;
     });
-    io.register_read(0xb009, this, function()
-    {
-        return 0;
-    });
-    io.register_read(0xb00a, this, function()
-    {
-        return 0;
-    });
-    io.register_read(0xb00b, this, function()
-    {
-        return 0;
-    });
-
-    // ACPI status
-    io.register_read(0xb004, this, function()
-    {
-        dbg_log("b004 read");
-        return 1;
-    });
-    io.register_read(0xb005, this, function()
-    {
-        dbg_log("b005 read");
-        return 0;
-    });
-
-
-    io.mmap_register(0xFEE00000, 0x100000, 
-        function(addr)
-        {
-            addr = addr - 0xFEE00000 | 0;
-            dbg_log("APIC read " + h(addr), LOG_CPU);
-            return 0;
-        },
-        function(addr, value)
-        {
-            addr = addr - 0xFEE00000 | 0;
-            dbg_log("APIC write " + h(addr), LOG_CPU);
-        });
 }

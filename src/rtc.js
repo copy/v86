@@ -19,6 +19,10 @@
 /** @const */ var CMOS_FLOPPY_DRIVE_TYPE = 0x10;
 /** @const */ var CMOS_DISK_DATA = 0x12;
 /** @const */ var CMOS_EQUIPMENT_INFO = 0x14;
+/** @const */ var CMOS_MEM_BASE_LOW = 0x15;
+/** @const */ var CMOS_MEM_BASE_HIGH = 0x16;
+/** @const */ var CMOS_MEM_OLD_EXT_LOW = 0x17;
+/** @const */ var CMOS_MEM_OLD_EXT_HIGH = 0x18;
 /** @const */ var CMOS_DISK_DRIVE1_TYPE = 0x19;
 /** @const */ var CMOS_DISK_DRIVE2_TYPE = 0x1a;
 /** @const */ var CMOS_DISK_DRIVE1_CYL = 0x1b;
@@ -48,7 +52,7 @@ function RTC(cpu)
     this.cpu = cpu;
 
     this.cmos_index = 0;
-    this.cmos_data = new Uint8Array(256);
+    this.cmos_data = new Uint8Array(128);
 
     // used for cmos entries
     this.rtc_time = Date.now();
@@ -56,8 +60,6 @@ function RTC(cpu)
 
     // used for periodic interrupt
     this.next_interrupt = 0;
-
-    this.cmos_c_was_read = true;
 
     this.periodic_interrupt = false;
 
@@ -89,7 +91,7 @@ RTC.prototype.get_state = function()
     state[2] = this.rtc_time;
     state[3] = this.last_update;
     state[4] = this.next_interrupt;
-    state[5] = this.cmos_c_was_read;
+
     state[6] = this.periodic_interrupt;
     state[7] = this.periodic_interrupt_time;
     state[8] = this.cmos_a;
@@ -107,7 +109,7 @@ RTC.prototype.set_state = function(state)
     this.rtc_time = state[2];
     this.last_update = state[3];
     this.next_interrupt = state[4];
-    this.cmos_c_was_read = state[5];
+
     this.periodic_interrupt = state[6];
     this.periodic_interrupt_time = state[7];
     this.cmos_a = state[8];
@@ -118,12 +120,12 @@ RTC.prototype.set_state = function(state)
 
 RTC.prototype.timer = function(time, legacy_mode)
 {
+    time = Date.now(); // XXX
     this.rtc_time += time - this.last_update;
     this.last_update = time;
 
-    if(this.periodic_interrupt && this.cmos_c_was_read && this.next_interrupt < time)
+    if(this.periodic_interrupt && this.next_interrupt < time)
     {
-        this.cmos_c_was_read = false;
         this.cpu.device_raise_irq(8);
         this.cmos_c |= 1 << 6 | 1 << 7;
 
@@ -202,13 +204,11 @@ RTC.prototype.cmos_port_read = function()
             return this.cmos_b;
 
         case CMOS_STATUS_C:
-            this.cmos_c_was_read = true;
-
-            // TODO:
             // It is important to know that upon a IRQ 8, Status Register C
             // will contain a bitmask telling which interrupt happened.
             // What is important is that if register C is not read after an
             // IRQ 8, then the interrupt will not happen again.
+            this.cpu.device_lower_irq(8);
 
             dbg_log("cmos reg C read", LOG_RTC);
             // Missing IRQF flag
@@ -248,8 +248,8 @@ RTC.prototype.cmos_port_write = function(data_byte)
                 this.next_interrupt = Date.now();
             }
 
-            if(this.cmos_b & 0x20) dbg_log("Unimplemented: alarm interrupt");
-            if(this.cmos_b & 0x10) dbg_log("Unimplemented: updated interrupt");
+            if(this.cmos_b & 0x20) dbg_log("Unimplemented: alarm interrupt", LOG_RTC);
+            if(this.cmos_b & 0x10) dbg_log("Unimplemented: updated interrupt", LOG_RTC);
 
             dbg_log("cmos b=" + h(this.cmos_b, 2), LOG_RTC);
             break;
@@ -262,10 +262,20 @@ RTC.prototype.cmos_port_write = function(data_byte)
 
 /**
  * @param {number} index
+ */
+RTC.prototype.cmos_read = function(index)
+{
+    dbg_assert(index < 128);
+    return this.cmos_data[index];
+};
+
+/**
+ * @param {number} index
  * @param {number} value
  */
 RTC.prototype.cmos_write = function(index, value)
 {
     dbg_log("cmos " + h(index) + " <- " + h(value), LOG_RTC);
+    dbg_assert(index < 128);
     this.cmos_data[index] = value;
 };

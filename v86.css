@@ -64,6 +64,7 @@ a {
     resize: none;
     border: 0;
     padding: 0;
+    position: absolute;
 }
 h4 {
     margin: 0px 0px 20px 0px;

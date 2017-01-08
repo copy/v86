@@ -106,6 +106,14 @@ function V86Starter(options)
 
     var settings = {};
 
+    this.disk_images = {
+        "fda": undefined,
+        "fdb": undefined,
+        "hda": undefined,
+        "hdb": undefined,
+        "cdrom": undefined,
+    };
+
     settings.load_devices = true;
     settings.memory_size = options["memory_size"] || 64 * 1024 * 1024;
     settings.vga_memory_size = options["vga_memory_size"] || 8 * 1024 * 1024;
@@ -125,7 +133,7 @@ function V86Starter(options)
     }
     if(!options["disable_mouse"])
     {
-        this.mouse_adapter = new MouseAdapter(adapter_bus);
+        this.mouse_adapter = new MouseAdapter(adapter_bus, options["screen_container"]);
     }
 
     if(options["screen_container"])
@@ -144,19 +152,19 @@ function V86Starter(options)
         switch(name)
         {
             case "hda":
-                settings.hda = buffer;
+                settings.hda = this.disk_images["hda"] = buffer;
                 break;
             case "hdb":
-                settings.hdb = buffer;
+                settings.hdb = this.disk_images["hdb"] = buffer;
                 break;
             case "cdrom":
-                settings.cdrom = buffer;
+                settings.cdrom = this.disk_images["cdrom"] = buffer;
                 break;
             case "fda":
-                settings.fda = buffer;
+                settings.fda = this.disk_images["fda"] = buffer;
                 break;
             case "fdb":
-                settings.fdb = buffer;
+                settings.fdb = this.disk_images["fdb"] = buffer;
                 break;
 
             case "bios":
@@ -218,7 +226,7 @@ function V86Starter(options)
                 loadable: buffer,
             });
         }
-        else if(file.buffer instanceof File)
+        else if(typeof File !== "undefined" && file.buffer instanceof File)
         {
             // SyncFileBuffer:
             // - loads the whole disk image into memory, impossible for large files (more than 1GB)
@@ -229,10 +237,10 @@ function V86Starter(options)
             // - loads slices of the file asynchronously as requested
             // - slower get/set
 
-            // Heuristics: If file is smaller than 16M, use SyncFileBuffer
+            // Heuristics: If file is smaller than 256M, use SyncFileBuffer
             if(file.async === undefined)
             {
-                file.async = file.buffer.size < 16 * 1024 * 1024;
+                file.async = file.buffer.size < 256 * 1024 * 1024;
             }
 
             if(file.async)
@@ -332,9 +340,9 @@ function V86Starter(options)
         {
             f.loadable.onload = function(e)
             {
-                put_on_settings(f.name, f.loadable);
+                put_on_settings.call(this, f.name, f.loadable);
                 cont(index + 1);
-            }
+            }.bind(this);
             f.loadable.load();
         }
         else
@@ -342,20 +350,32 @@ function V86Starter(options)
             v86util.load_file(f.url, {
                 done: function(result)
                 {
-                    put_on_settings(f.name, new SyncBuffer(result));
+                    put_on_settings.call(this, f.name, new SyncBuffer(result));
                     cont(index + 1);
-                },
+                }.bind(this),
                 progress: function progress(e)
                 {
-                    starter.emulator_bus.send("download-progress", {
-                        file_index: index,
-                        file_count: total,
-                        file_name: f.url,
+                    if(e.target.status === 200)
+                    {
+                        starter.emulator_bus.send("download-progress", {
+                            file_index: index,
+                            file_count: total,
+                            file_name: f.url,
 
-                        lengthComputable: e.lengthComputable,
-                        total: f.size || e.total,
-                        loaded: e.loaded,
-                    });
+                            lengthComputable: e.lengthComputable,
+                            total: e.total || f.size,
+                            loaded: e.loaded,
+                        });
+                    }
+                    else
+                    {
+                        starter.emulator_bus.send("download-error", {
+                            file_index: index,
+                            file_count: total,
+                            file_name: f.url,
+                            request: e.target,
+                        });
+                    }
                 },
                 as_text: f.as_text,
             });
@@ -367,7 +387,8 @@ function V86Starter(options)
     {
         if(settings.initial_state)
         {
-            settings.no_initial_alloc = true;
+            // avoid large allocation now, memory will be restored later anyway
+            settings.memory_size = 0;
         }
 
         this.bus.send("cpu-init", settings);
@@ -398,6 +419,7 @@ function V86Starter(options)
 /**
  * Start emulation. Do nothing if emulator is running already. Can be
  * asynchronous.
+ * @export
  */
 V86Starter.prototype.run = function()
 {
@@ -406,6 +428,7 @@ V86Starter.prototype.run = function()
 
 /**
  * Stop emulation. Do nothing if emulator is not running. Can be asynchronous.
+ * @export
  */
 V86Starter.prototype.stop = function()
 {
@@ -414,6 +437,7 @@ V86Starter.prototype.stop = function()
 
 /**
  * @ignore
+ * @export
  */
 V86Starter.prototype.destroy = function()
 {
@@ -422,6 +446,7 @@ V86Starter.prototype.destroy = function()
 
 /**
  * Restart (force a reboot).
+ * @export
  */
 V86Starter.prototype.restart = function()
 {
@@ -436,6 +461,7 @@ V86Starter.prototype.restart = function()
  *
  * @param {string} event Name of the event.
  * @param {function(*)} listener The callback function.
+ * @export
  */
 V86Starter.prototype.add_listener = function(event, listener)
 {
@@ -447,6 +473,7 @@ V86Starter.prototype.add_listener = function(event, listener)
  *
  * @param {string} event
  * @param {function(*)} listener
+ * @export
  */
 V86Starter.prototype.remove_listener = function(event, listener)
 {
@@ -466,6 +493,7 @@ V86Starter.prototype.remove_listener = function(event, listener)
  * state buffer.
  *
  * @param {ArrayBuffer} state
+ * @export
  */
 V86Starter.prototype.restore_state = function(state)
 {
@@ -478,6 +506,7 @@ V86Starter.prototype.restore_state = function(state)
  * otherwise.
  *
  * @param {function(Object, ArrayBuffer)} callback
+ * @export
  */
 V86Starter.prototype.save_state = function(callback)
 {
@@ -534,6 +563,7 @@ V86Starter.prototype.save_state = function(callback)
  *
  * @deprecated
  * @return {Object}
+ * @export
  */
 V86Starter.prototype.get_statistics = function()
 {
@@ -582,6 +612,7 @@ V86Starter.prototype.get_statistics = function()
 /**
  * @return {number}
  * @ignore
+ * @export
  */
 V86Starter.prototype.get_instruction_counter = function()
 {
@@ -598,6 +629,7 @@ V86Starter.prototype.get_instruction_counter = function()
 
 /**
  * @return {boolean}
+ * @export
  */
 V86Starter.prototype.is_running = function()
 {
@@ -610,6 +642,7 @@ V86Starter.prototype.is_running = function()
  * Do nothing if there is no keyboard controller.
  *
  * @param {Array.<number>} codes
+ * @export
  */
 V86Starter.prototype.keyboard_send_scancodes = function(codes)
 {
@@ -622,6 +655,7 @@ V86Starter.prototype.keyboard_send_scancodes = function(codes)
 /**
  * Send translated keys
  * @ignore
+ * @export
  */
 V86Starter.prototype.keyboard_send_keys = function(codes)
 {
@@ -634,6 +668,7 @@ V86Starter.prototype.keyboard_send_keys = function(codes)
 /**
  * Send text
  * @ignore
+ * @export
  */
 V86Starter.prototype.keyboard_send_text = function(string)
 {
@@ -647,6 +682,7 @@ V86Starter.prototype.keyboard_send_text = function(string)
  * Download a screenshot.
  *
  * @ignore
+ * @export
  */
 V86Starter.prototype.screen_make_screenshot = function()
 {
@@ -663,6 +699,7 @@ V86Starter.prototype.screen_make_screenshot = function()
  * @param {number} sy
  *
  * @ignore
+ * @export
  */
 V86Starter.prototype.screen_set_scale = function(sx, sy)
 {
@@ -676,6 +713,7 @@ V86Starter.prototype.screen_set_scale = function(sx, sy)
  * Go fullscreen.
  *
  * @ignore
+ * @export
  */
 V86Starter.prototype.screen_go_fullscreen = function()
 {
@@ -716,6 +754,7 @@ V86Starter.prototype.screen_go_fullscreen = function()
  * browser window.
  *
  * @ignore
+ * @export
  */
 V86Starter.prototype.lock_mouse = function()
 {
@@ -748,6 +787,7 @@ V86Starter.prototype.mouse_set_status = function(enabled)
  * Enable or disable sending keyboard events to the emulated PS2 controller.
  *
  * @param {boolean} enabled
+ * @export
  */
 V86Starter.prototype.keyboard_set_status = function(enabled)
 {
@@ -762,6 +802,7 @@ V86Starter.prototype.keyboard_set_status = function(enabled)
  * Send a string to the first emulated serial terminal.
  *
  * @param {string} data
+ * @export
  */
 V86Starter.prototype.serial0_send = function(data)
 {
@@ -779,6 +820,7 @@ V86Starter.prototype.serial0_send = function(data)
  * @param {string} file
  * @param {Uint8Array} data
  * @param {function(Object)=} callback
+ * @export
  */
 V86Starter.prototype.create_file = function(file, data, callback)
 {
@@ -823,6 +865,7 @@ V86Starter.prototype.create_file = function(file, data, callback)
  *
  * @param {string} file
  * @param {function(Object, Uint8Array)} callback
+ * @export
  */
 V86Starter.prototype.read_file = function(file, callback)
 {
@@ -874,40 +917,20 @@ function FileNotFoundError(message)
 }
 FileNotFoundError.prototype = Error.prototype;
 
-// Closure Compiler's way of exporting 
+// Closure Compiler's way of exporting
 if(typeof window !== "undefined")
 {
     window["V86Starter"] = V86Starter;
+    window["V86"] = V86Starter;
 }
 else if(typeof module !== "undefined" && typeof module.exports !== "undefined")
 {
     module.exports["V86Starter"] = V86Starter;
+    module.exports["V86"] = V86Starter;
 }
 else if(typeof importScripts === "function")
 {
     // web worker
     self["V86Starter"] = V86Starter;
+    self["V86"] = V86Starter;
 }
-
-V86Starter.prototype["run"] = V86Starter.prototype.run;
-V86Starter.prototype["stop"] = V86Starter.prototype.stop;
-V86Starter.prototype["restart"] = V86Starter.prototype.restart;
-V86Starter.prototype["destroy"] = V86Starter.prototype.destroy;
-V86Starter.prototype["add_listener"] = V86Starter.prototype.add_listener;
-V86Starter.prototype["remove_listener"] = V86Starter.prototype.remove_listener;
-V86Starter.prototype["restore_state"] = V86Starter.prototype.restore_state;
-V86Starter.prototype["save_state"] = V86Starter.prototype.save_state;
-V86Starter.prototype["get_statistics"] = V86Starter.prototype.get_statistics;
-V86Starter.prototype["is_running"] = V86Starter.prototype.is_running;
-V86Starter.prototype["keyboard_send_scancodes"] = V86Starter.prototype.keyboard_send_scancodes;
-V86Starter.prototype["keyboard_send_keys"] = V86Starter.prototype.keyboard_send_keys;
-V86Starter.prototype["keyboard_send_text"] = V86Starter.prototype.keyboard_send_text;
-V86Starter.prototype["screen_make_screenshot"] = V86Starter.prototype.screen_make_screenshot;
-V86Starter.prototype["screen_set_scale"] = V86Starter.prototype.screen_set_scale;
-V86Starter.prototype["screen_go_fullscreen"] = V86Starter.prototype.screen_go_fullscreen;
-V86Starter.prototype["lock_mouse"] = V86Starter.prototype.lock_mouse;
-V86Starter.prototype["mouse_set_status"] = V86Starter.prototype.mouse_set_status;
-V86Starter.prototype["keyboard_set_status"] = V86Starter.prototype.keyboard_set_status;
-V86Starter.prototype["serial0_send"] = V86Starter.prototype.serial0_send;
-V86Starter.prototype["create_file"] = V86Starter.prototype.create_file;
-V86Starter.prototype["read_file"] = V86Starter.prototype.read_file;

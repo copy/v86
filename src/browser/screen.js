@@ -12,7 +12,7 @@ if(typeof window !== "undefined" && !window.requestAnimationFrame)
  * Adapter to use visual screen in browsers (in constrast to node)
  * @constructor
  *
- * @param {Bus.Connector} bus
+ * @param {BusConnector} bus
  */
 function ScreenAdapter(screen_container, bus)
 {
@@ -373,18 +373,12 @@ function ScreenAdapter(screen_container, bus)
             color_element,
             fragment;
 
-        var
-            bg_color,
+        var bg_color,
             fg_color,
             text;
 
         row_element = text_screen.childNodes[row];
-        fragment = document.createDocumentFragment();
-
-        while(row_element.firstChild)
-        {
-            row_element.removeChild(row_element.firstChild);
-        }
+        fragment = document.createElement("div");
 
         for(var i = 0; i < text_mode_width; )
         {
@@ -431,7 +425,7 @@ function ScreenAdapter(screen_container, bus)
             fragment.appendChild(color_element);
         }
 
-        row_element.appendChild(fragment);
+        row_element.parentNode.replaceChild(fragment, row_element);
     };
 
     this.update_buffer = function(min, max)

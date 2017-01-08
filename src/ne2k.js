@@ -55,34 +55,43 @@
 /**
  * @constructor
  * @param {CPU} cpu
- * @param {Bus.Connector} bus
+ * @param {BusConnector} bus
  */
 function Ne2k(cpu, bus)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
 
-    /** @const @type {Bus.Connector} */
+    /** @const @type {BusConnector} */
     this.bus = bus;
     this.bus.register("net0-receive", function(data)
     {
         this.receive(data);
     }, this);
 
-    this.pci_space = [
-        0xec, 0x10, 0x29, 0x80, 0x03, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
-        0x01, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf4, 0x1a, 0x00, 0x11,
-        0x00, 0x00, 0xb8, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0b, 0x01, 0x00, 0x00,
-    ];
-    this.pci_id = 0x05 << 3;
-    this.pci_bars = [
-        {
-            size: 32,
-        },
-    ];
+    this.port = 0x300;
 
-    cpu.devices.pci.register_device(this);
+    this.name = "ne2k";
+
+    /** @const */
+    var use_pci = true;
+
+    if(use_pci)
+    {
+        this.pci_space = [
+            0xec, 0x10, 0x29, 0x80, 0x03, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
+            this.port & 0xFF | 1, this.port >> 8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf4, 0x1a, 0x00, 0x11,
+            0x00, 0x00, 0xb8, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0b, 0x01, 0x00, 0x00,
+        ];
+        this.pci_id = 0x05 << 3;
+        this.pci_bars = [
+            {
+                size: 32,
+            },
+        ];
+        cpu.devices.pci.register_device(this);
+    }
 
     this.isr = 0;
     this.imr = 0; // interrupt mask register
@@ -91,7 +100,6 @@ function Ne2k(cpu, bus)
 
     this.dcfg = 0;
 
-    this.port = 0xB800;
     this.irq = 0x0B;
 
     this.rcnt = 0;
@@ -99,6 +107,10 @@ function Ne2k(cpu, bus)
     this.tcnt = 0;
     this.tpsr = 0;
     this.memory = new Uint8Array(256 * 0x80);
+
+    this.rxcr = 0;
+    this.txcr = 0;
+    this.tsr = 1;
 
     // mac address
     var mac = [
@@ -112,6 +124,8 @@ function Ne2k(cpu, bus)
     {
         this.memory[i << 1] = this.memory[i << 1 | 1] = mac[i];
     }
+
+    this.memory[14] = this.memory[15] = 0x57;
 
     dbg_log("Mac: " + h(mac[0], 2) + ":" +
                       h(mac[1], 2) + ":" +
@@ -139,11 +153,16 @@ function Ne2k(cpu, bus)
     io.register_write(this.port | E8390_CMD, this, function(data_byte)
     {
         this.cr = data_byte & ~4;
-        dbg_log("Write command: " + h(data_byte, 2) + " newpg=" + (this.cr >> 6), LOG_NET);
+        dbg_log("Write command: " + h(data_byte, 2) + " newpg=" + (this.cr >> 6) + " txcr=" + h(this.txcr, 2), LOG_NET);
 
         if(this.cr & 1)
         {
             return;
+        }
+
+        if((data_byte | 0x18) && this.rcnt === 0)
+        {
+            this.do_interrupt(ENISR_RDC);
         }
 
         if(data_byte & 4)
@@ -153,11 +172,6 @@ function Ne2k(cpu, bus)
             this.bus.send("net0-send", data);
             this.bus.send("eth-transmit-end", [data.length]);
             this.do_interrupt(ENISR_TX);
-
-            if(this.rcnt === 0)
-            {
-                this.do_interrupt(ENISR_RDC);
-            }
 
             dbg_log("Command: Transfer. length=" + h(data.byteLength), LOG_NET);
         }
@@ -261,6 +275,7 @@ function Ne2k(cpu, bus)
             // acknoledge interrupts where bit is set
             dbg_log("Write isr: " + h(data_byte, 2), LOG_NET);
             this.isr &= ~data_byte
+            this.update_irq();
         }
         else
         {
@@ -274,6 +289,7 @@ function Ne2k(cpu, bus)
         var pg = this.get_page();
         if(pg === 0)
         {
+            this.txcr = data_byte;
             dbg_log("Write tx config: " + h(data_byte, 2), LOG_NET);
         }
         else
@@ -357,8 +373,9 @@ function Ne2k(cpu, bus)
         var pg = this.get_page();
         if(pg === 0)
         {
+            dbg_log("Write interrupt mask register: " + h(data_byte, 2) + " isr=" + h(this.isr, 2), LOG_NET);
             this.imr = data_byte;
-            dbg_log("Write interrupt mask register: " + h(data_byte, 2), LOG_NET);
+            this.update_irq();
         }
         else
         {
@@ -400,7 +417,7 @@ function Ne2k(cpu, bus)
         var pg = this.get_page();
         if(pg === 0)
         {
-            return 1 | 2 | 1 << 5; // transmit status ok
+            return this.tsr;
         }
         else
         {
@@ -465,8 +482,14 @@ function Ne2k(cpu, bus)
         }
     });
 
+    io.register_write(this.port | EN0_RXCR, this, function(data_byte)
+    {
+        dbg_log("RX configuration reg write: " + h(data_byte, 2), LOG_NET);
+        this.rxcr = data_byte;
+    });
+
     io.register_read(this.port | NE_DATAPORT | 0, this,
-            this.data_port_read16,
+            this.data_port_read8,
             this.data_port_read16,
             this.data_port_read32);
     io.register_write(this.port | NE_DATAPORT | 0, this,
@@ -513,10 +536,18 @@ Ne2k.prototype.do_interrupt = function(ir_mask)
 {
     dbg_log("Do interrupt " + h(ir_mask, 2), LOG_NET);
     this.isr |= ir_mask;
+    this.update_irq();
+};
 
-    if(this.imr & ir_mask)
+Ne2k.prototype.update_irq = function()
+{
+    if(this.imr & this.isr)
     {
         this.cpu.device_raise_irq(this.irq);
+    }
+    else
+    {
+        this.cpu.device_lower_irq(this.irq);
     }
 };
 
@@ -525,6 +556,12 @@ Ne2k.prototype.data_port_write = function(data_byte)
     dbg_log("Write data port: data=" + h(data_byte & 0xFF, 2) +
                             " rsar=" + h(this.rsar, 4) +
                             " rcnt=" + h(this.rcnt, 4), LOG_NET);
+
+    if(this.rsar > 0x10 && this.rsar < (START_PAGE << 8))
+    {
+        // unmapped
+        return;
+    }
 
     this.rcnt--;
     this.memory[this.rsar++] = data_byte;
@@ -580,6 +617,11 @@ Ne2k.prototype.data_port_read = function()
     return data;
 };
 
+Ne2k.prototype.data_port_read8 = function()
+{
+    return this.data_port_read16() & 0xFF;
+};
+
 Ne2k.prototype.data_port_read16 = function()
 {
     if(this.dcfg & 1)
@@ -610,15 +652,36 @@ Ne2k.prototype.receive = function(data)
 
     this.bus.send("eth-receive-end", [data.length]);
 
-    if(data.length < 60)
+    if(this.rxcr & 0x10)
     {
-        var old = data;
-        data = new Uint8Array(60);
-        data.set(old)
+        // promiscuous
+    }
+    else if((this.rxcr & 4) &&
+            data[0] === 0xFF && data[1] === 0xFF && data[2] === 0xFF &&
+            data[3] === 0xFF && data[4] === 0xFF && data[5] === 0xFF)
+    {
+        // broadcast
+    }
+    else if((this.rxcr & 8) && (data[0] & 1) === 1)
+    {
+        // multicast
+        // XXX
+        return;
+    }
+    else if(data[0] === this.memory[0] && data[1] === this.memory[2] &&
+            data[2] === this.memory[4] && data[3] === this.memory[6] &&
+            data[4] === this.memory[8] && data[5] === this.memory[10])
+    {
+    }
+    else
+    {
+        return;
     }
 
+    var packet_length = Math.max(60, data.length);
+
     var offset = this.curpg << 8;
-    var total_length = data.length + 4;
+    var total_length = packet_length + 4;
     var data_start = offset + 4;
     var next = this.curpg + 1 + (total_length >> 8);
 
@@ -637,6 +700,14 @@ Ne2k.prototype.receive = function(data)
     else
     {
         this.memory.set(data, data_start);
+
+        if(data.length < 60)
+        {
+            for(var i = data.length; i < 60; i++)
+            {
+                this.memory[data_start + i] = 0;
+            }
+        }
     }
 
     if(next >= this.pstop)

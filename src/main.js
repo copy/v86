@@ -1,20 +1,5 @@
 "use strict";
 
-/** @define {boolean} */
-var IN_NODE = false;
-
-/** @define {boolean} */
-var IN_WORKER = false;
-
-/** @define {boolean} */
-var IN_BROWSER = true;
-
-
-if(IN_BROWSER + IN_NODE + IN_WORKER !== 1)
-{
-    throw "Invalid environment";
-}
-
 /** @constructor */
 function v86(bus)
 {
