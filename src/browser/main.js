@@ -206,7 +206,7 @@
                 id: "archlinux",
                 state: {
                     "url": HOST + "images/v86state.bin",
-                    "size": 142924774,
+                    "size": 142770440,
                 },
                 name: "Arch Linux",
                 memory_size: 128 * 1024 * 1024,
@@ -222,7 +222,7 @@
                 filesystem: {
                     "basefs": {
                         "url": HOST + "images/fs.json",
-                        "size": 7510249
+                        "size": 10232633,
                     },
                     "baseurl": HOST + "arch/",
                 },
@@ -267,7 +267,7 @@
                 id: "linux3",
                 cdrom: {
                     "url": HOST + "images/linux3.iso",
-                    "size": 10000384,
+                    "size": 8624128,
                 },
                 name: "Linux",
                 filesystem: {},
@@ -333,7 +333,7 @@
                 boot_order: 0x132,
                 state: {
                     "url": HOST + "images/windows98_state.bin",
-                    "size": 75760000,
+                    "size": 42151380,
                 },
             },
             {
@@ -341,12 +341,14 @@
                 memory_size: 64 * 1024 * 1024,
                 hda: {
                     "url": HOST + "images/W95.IMG",
+                    "size": 242049024,
                     "async": true,
                 },
                 name: "Windows 95",
                 boot_order: 0x132,
                 state: {
                     "url": HOST + "images/windows95_state.bin",
+                    "size": 42151328,
                 },
             },
             {
@@ -354,7 +356,7 @@
                 memory_size: 128 * 1024 * 1024,
                 state: {
                     "url": HOST + "images/freebsd_state.bin",
-                    "size": 142924774,
+                    "size": 142815304,
                 },
                 hda: {
                     "url": ON_LOCALHOST ? "../v86-images/os/freebsd3.img" :
@@ -363,6 +365,19 @@
                     "async": true,
                 },
                 name: "FreeBSD",
+            },
+            {
+                id: "reactos",
+                memory_size: 128 * 1024 * 1024,
+                cdrom: {
+                    "url": "images/livecd-73402-rel.iso",
+                    "async": true,
+                },
+                state: {
+                    "url": "images/reactos_state.bin",
+                    "size": 33527772,
+                },
+                name: "React OS",
             },
         ];
 
