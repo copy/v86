@@ -202,157 +202,15 @@ function PIC(cpu, master)
         iobase_high = 0x4D1;
     }
 
-    this.cpu.io.register_write(io_base, this, port20_write);
-    this.cpu.io.register_read(io_base, this, port20_read);
+    this.cpu.io.register_write(io_base, this, this.port20_write);
+    this.cpu.io.register_read(io_base, this, this.port20_read);
 
-    this.cpu.io.register_write(io_base | 1, this, port21_write);
-    this.cpu.io.register_read(io_base | 1, this, port21_read);
+    this.cpu.io.register_write(io_base | 1, this, this.port21_write);
+    this.cpu.io.register_read(io_base | 1, this, this.port21_read);
 
-    this.cpu.io.register_write(iobase_high, this, port4D0_write);
-    this.cpu.io.register_read(iobase_high, this, port4D0_read);
+    this.cpu.io.register_write(iobase_high, this, this.port4D0_write);
+    this.cpu.io.register_read(iobase_high, this, this.port4D0_read);
 
-
-    function port20_write(data_byte)
-    {
-        //dbg_log("20 write: " + h(data_byte), LOG_PIC);
-        if(data_byte & 0x10) // xxxx1xxx
-        {
-            // icw1
-            dbg_log("icw1 = " + h(data_byte), LOG_PIC);
-            this.isr = 0;
-            this.irr = 0;
-            this.irq_mask = 0;
-            this.irq_value = 0;
-            this.auto_eoi = 1;
-
-            this.expect_icw4 = data_byte & 1;
-            this.state = 1;
-        }
-        else if(data_byte & 8) // xxx01xxx
-        {
-            // ocw3
-            dbg_log("ocw3: " + h(data_byte), LOG_PIC);
-            if(data_byte & 2)
-            {
-                this.read_isr = data_byte & 1;
-            }
-            if(data_byte & 4)
-            {
-                dbg_assert(false, "unimplemented: polling", LOG_PIC);
-            }
-            if(data_byte & 0x40)
-            {
-                this.special_mask_mode = (data_byte & 0x20) === 0x20;
-                dbg_log("special mask mode: " + this.special_mask_mode, LOG_PIC);
-            }
-        }
-        else // xxx00xxx
-        {
-            // ocw2
-            // end of interrupt
-            dbg_log("eoi: " + h(data_byte) + " (" + this.name + ")", LOG_PIC);
-
-            var eoi_type = data_byte >> 5;
-
-            if(eoi_type === 1)
-            {
-                // non-specific eoi
-                this.isr &= this.isr - 1;
-                dbg_log("new isr: " + h(this.isr, 2), LOG_PIC);
-            }
-            else if(eoi_type === 3)
-            {
-                // specific eoi
-                this.isr &= ~(1 << (data_byte & 7));
-            }
-            else
-            {
-                dbg_log("Unknown eoi: " + h(data_byte), LOG_PIC);
-                // os2 v4
-                //dbg_assert(false);
-                this.isr &= this.isr - 1;
-            }
-
-            this.cpu.handle_irqs();
-        }
-    };
-
-    function port20_read()
-    {
-        if(this.read_isr)
-        {
-            dbg_log("read port 20h (isr): " + h(this.isr));
-            return this.isr;
-        }
-        else
-        {
-            dbg_log("read port 20h (irr): " + h(this.irr));
-            return this.irr;
-        }
-    }
-
-    function port21_write(data_byte)
-    {
-        //dbg_log("21 write: " + h(data_byte), LOG_PIC);
-        if(this.state === 0)
-        {
-            if(this.expect_icw4)
-            {
-                // icw4
-                this.expect_icw4 = false;
-                this.auto_eoi = data_byte & 2;
-                dbg_log("icw4: " + h(data_byte) + " autoeoi=" + this.auto_eoi, LOG_PIC);
-
-                if((data_byte & 1) === 0)
-                {
-                    dbg_assert(false, "unimplemented: not 8086 mode", LOG_PIC);
-                }
-            }
-            else
-            {
-                // ocw1
-                this.irq_mask = ~data_byte;
-
-                //dbg_log("interrupt mask: " + (this.irq_mask & 0xFF).toString(2) +
-                //        " (" + this.name + ")", LOG_PIC);
-
-                this.cpu.handle_irqs();
-            }
-        }
-        else if(this.state === 1)
-        {
-            // icw2
-            this.irq_map = data_byte;
-            dbg_log("interrupts are mapped to " + h(this.irq_map) +
-                    " (" + this.name + ")", LOG_PIC);
-            this.state++;
-        }
-        else if(this.state === 2)
-        {
-            // icw3
-            this.state = 0;
-            dbg_log("icw3: " + h(data_byte), LOG_PIC);
-        }
-    };
-
-    function port21_read()
-    {
-        dbg_log("21h read " + h(~this.irq_mask & 0xff), LOG_PIC);
-        return ~this.irq_mask & 0xFF;
-    };
-
-    function port4D0_read()
-    {
-        dbg_log("elcr read: " + h(this.elcr, 2), LOG_PIC);
-        return this.elcr;
-    }
-
-    function port4D0_write(value)
-    {
-        dbg_log("elcr write: " + h(value, 2), LOG_PIC);
-        // set by seabios to 00 0C (only set for pci interrupts)
-        this.elcr = value;
-    }
 
     if(this.is_master)
     {
@@ -397,7 +255,7 @@ function PIC(cpu, master)
             var irq_mask = 1 << irq_number;
             if(this.irq_value & irq_mask)
             {
-                this.irq_value &= ~irq_mask
+                this.irq_value &= ~irq_mask;
                 this.irr &= ~irq_mask;
             }
         };
@@ -473,5 +331,147 @@ PIC.prototype.set_state = function(state)
     this.state = state[7];
     this.read_isr = state[8];
     this.auto_eoi = state[9];
+};
+
+PIC.prototype.port20_write = function(data_byte)
+{
+    //dbg_log("20 write: " + h(data_byte), LOG_PIC);
+    if(data_byte & 0x10) // xxxx1xxx
+    {
+        // icw1
+        dbg_log("icw1 = " + h(data_byte), LOG_PIC);
+        this.isr = 0;
+        this.irr = 0;
+        this.irq_mask = 0;
+        this.irq_value = 0;
+        this.auto_eoi = 1;
+
+        this.expect_icw4 = data_byte & 1;
+        this.state = 1;
+    }
+    else if(data_byte & 8) // xxx01xxx
+    {
+        // ocw3
+        dbg_log("ocw3: " + h(data_byte), LOG_PIC);
+        if(data_byte & 2)
+        {
+            this.read_isr = data_byte & 1;
+        }
+        if(data_byte & 4)
+        {
+            dbg_assert(false, "unimplemented: polling", LOG_PIC);
+        }
+        if(data_byte & 0x40)
+        {
+            this.special_mask_mode = (data_byte & 0x20) === 0x20;
+            dbg_log("special mask mode: " + this.special_mask_mode, LOG_PIC);
+        }
+    }
+    else // xxx00xxx
+    {
+        // ocw2
+        // end of interrupt
+        dbg_log("eoi: " + h(data_byte) + " (" + this.name + ")", LOG_PIC);
+
+        var eoi_type = data_byte >> 5;
+
+        if(eoi_type === 1)
+        {
+            // non-specific eoi
+            this.isr &= this.isr - 1;
+            dbg_log("new isr: " + h(this.isr, 2), LOG_PIC);
+        }
+        else if(eoi_type === 3)
+        {
+            // specific eoi
+            this.isr &= ~(1 << (data_byte & 7));
+        }
+        else
+        {
+            dbg_log("Unknown eoi: " + h(data_byte), LOG_PIC);
+            // os2 v4
+            //dbg_assert(false);
+            this.isr &= this.isr - 1;
+        }
+
+        this.cpu.handle_irqs();
+    }
+};
+
+PIC.prototype.port20_read = function()
+{
+    if(this.read_isr)
+    {
+        dbg_log("read port 20h (isr): " + h(this.isr));
+        return this.isr;
+    }
+    else
+    {
+        dbg_log("read port 20h (irr): " + h(this.irr));
+        return this.irr;
+    }
+};
+
+PIC.prototype.port21_write = function(data_byte)
+{
+    //dbg_log("21 write: " + h(data_byte), LOG_PIC);
+    if(this.state === 0)
+    {
+        if(this.expect_icw4)
+        {
+            // icw4
+            this.expect_icw4 = false;
+            this.auto_eoi = data_byte & 2;
+            dbg_log("icw4: " + h(data_byte) + " autoeoi=" + this.auto_eoi, LOG_PIC);
+
+            if((data_byte & 1) === 0)
+            {
+                dbg_assert(false, "unimplemented: not 8086 mode", LOG_PIC);
+            }
+        }
+        else
+        {
+            // ocw1
+            this.irq_mask = ~data_byte;
+
+            //dbg_log("interrupt mask: " + (this.irq_mask & 0xFF).toString(2) +
+            //        " (" + this.name + ")", LOG_PIC);
+
+            this.cpu.handle_irqs();
+        }
+    }
+    else if(this.state === 1)
+    {
+        // icw2
+        this.irq_map = data_byte;
+        dbg_log("interrupts are mapped to " + h(this.irq_map) +
+                " (" + this.name + ")", LOG_PIC);
+        this.state++;
+    }
+    else if(this.state === 2)
+    {
+        // icw3
+        this.state = 0;
+        dbg_log("icw3: " + h(data_byte), LOG_PIC);
+    }
+};
+
+PIC.prototype.port21_read = function()
+{
+    dbg_log("21h read " + h(~this.irq_mask & 0xff), LOG_PIC);
+    return ~this.irq_mask & 0xFF;
+};
+
+PIC.prototype.port4D0_read = function()
+{
+    dbg_log("elcr read: " + h(this.elcr, 2), LOG_PIC);
+    return this.elcr;
+};
+
+PIC.prototype.port4D0_write = function(value)
+{
+    dbg_log("elcr write: " + h(value, 2), LOG_PIC);
+    // set by seabios to 00 0C (only set for pci interrupts)
+    this.elcr = value;
 };
 
