@@ -90,44 +90,13 @@ function UART(cpu, port, bus)
 
     var io = cpu.io;
 
-    function write_data(out_byte)
-    {
-        if(this.line_control & DLAB)
-        {
-            this.baud_rate = this.baud_rate & ~0xFF | out_byte;
-            return;
-        }
-
-        dbg_log("data: " + h(out_byte), LOG_SERIAL);
-
-        this.ThrowInterrupt(UART_IIR_THRI);
-
-        if(out_byte === 0xFF)
-        {
-            return;
-        }
-
-        var char = String.fromCharCode(out_byte);
-
-        this.bus.send("serial0-output-char", char);
-
-        this.current_line.push(out_byte);
-
-        if(char === "\n")
-        {
-            dbg_log("SERIAL: " + String.fromCharCode.apply("", this.current_line).trimRight());
-            this.bus.send("serial0-output-line", String.fromCharCode.apply("", this.current_line));
-            this.current_line = [];
-        }
-    }
-
     io.register_write(port, this, function(out_byte)
     {
-        write_data.call(this, out_byte);
+        this.write_data(out_byte);
     }, function(out_word)
     {
-        write_data.call(this, out_word & 0xFF);
-        write_data.call(this, out_word >> 8);
+        this.write_data(out_word & 0xFF);
+        this.write_data(out_word >> 8);
     });
 
     io.register_write(port | 1, this, function(out_byte)
@@ -310,7 +279,7 @@ UART.prototype.CheckInterrupt = function() {
 UART.prototype.ThrowInterrupt = function(line) {
     this.ints |= (1 << line);
     this.CheckInterrupt();
-}
+};
 
 UART.prototype.ClearInterrupt = function(line) {
     this.ints &= ~(1 << line);
@@ -328,3 +297,35 @@ UART.prototype.data_received = function(data)
     this.lsr |= UART_LSR_DATA_READY;
     this.ThrowInterrupt(UART_IIR_CTI);
 };
+
+UART.prototype.write_data = function(out_byte)
+{
+    if(this.line_control & DLAB)
+    {
+        this.baud_rate = this.baud_rate & ~0xFF | out_byte;
+        return;
+    }
+
+    dbg_log("data: " + h(out_byte), LOG_SERIAL);
+
+    this.ThrowInterrupt(UART_IIR_THRI);
+
+    if(out_byte === 0xFF)
+    {
+        return;
+    }
+
+    var char = String.fromCharCode(out_byte);
+
+    this.bus.send("serial0-output-char", char);
+
+    this.current_line.push(out_byte);
+
+    if(char === "\n")
+    {
+        dbg_log("SERIAL: " + String.fromCharCode.apply("", this.current_line).trimRight());
+        this.bus.send("serial0-output-line", String.fromCharCode.apply("", this.current_line));
+        this.current_line = [];
+    }
+};
+
