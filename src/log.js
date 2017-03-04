@@ -20,6 +20,11 @@ function do_the_log(message)
  */
 var dbg_log = (function()
 {
+    if(!DEBUG)
+    {
+        return function() {};
+    }
+
     /** @const @type {Object.<number, string>} */
     var dbg_names = LOG_NAMES.reduce(function(a, x)
     {
@@ -103,16 +108,22 @@ function dbg_assert(cond, msg, level)
 
     if(!cond)
     {
-        console.trace();
-
-        if(msg)
-        {
-            throw "Assert failed: " + msg;
-        }
-        else
-        {
-            throw "Assert failed";
-        }
+        dbg_assert_failed(msg);
     }
 };
 
+
+function dbg_assert_failed(msg)
+{
+    debugger;
+    console.trace();
+
+    if(msg)
+    {
+        throw "Assert failed: " + msg;
+    }
+    else
+    {
+        throw "Assert failed";
+    }
+}
