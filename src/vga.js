@@ -73,6 +73,13 @@ function VGAScreen(cpu, bus, vga_memory_size)
      */
     this.start_address = 0;
 
+    this.crtc = new Uint8Array(0x19);
+
+    /**
+     * @type {number}
+     */
+    this.previous_start_address = 0;
+
     /** @type {boolean} */
     this.graphical_mode_is_linear = true;
 
@@ -194,6 +201,9 @@ function VGAScreen(cpu, bus, vga_memory_size)
 
     io.register_write_consecutive(0x3D4, this, this.port3D4_write, this.port3D5_write);
     io.register_read(0x3D5, this, this.port3D5_read);
+
+    io.register_read(0x3D4, this, function() { dbg_log("3D4 read", LOG_VGA); return 0; });
+    io.register_read(0x3CA, this, function() { dbg_log("3CA read", LOG_VGA); return 0; });
 
     io.register_read(0x3DA, this, this.port3DA_read);
 
@@ -633,6 +643,7 @@ VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
         chr,
         color;
 
+    // XXX: Should handle 16 bit write if possible
     if(addr & 1)
     {
         color = value;
@@ -761,6 +772,9 @@ VGAScreen.prototype.set_video_mode = function(mode)
 
     switch(mode)
     {
+        case 0x66:
+            this.set_size_text(110, 46);
+            break;
         case 0x03:
             this.set_size_text(this.text_mode_width, 25);
             break;
@@ -982,14 +996,14 @@ VGAScreen.prototype.port3CF_write = function(value)
             break;
         case 5:
             this.planar_mode = value;
-            //dbg_log("planar mode: " + h(value), LOG_VGA);
+            dbg_log("planar mode: " + h(value), LOG_VGA);
             break;
         case 8:
             this.planar_bitmap = value;
-            //dbg_log("planar bitmap: " + h(value), LOG_VGA);
+            dbg_log("planar bitmap: " + h(value), LOG_VGA);
             break;
         default:
-            //dbg_log("3CF / graphics write " + h(this.graphics_index) + ": " + h(value), LOG_VGA);
+            dbg_log("3CF / graphics write " + h(this.graphics_index) + ": " + h(value), LOG_VGA);
     }
 };
 
@@ -1043,12 +1057,24 @@ VGAScreen.prototype.port3D5_write = function(value)
             this.update_cursor_scanline();
             break;
         case 0xC:
+            this.previous_start_address = this.start_address;
             this.start_address = this.start_address & 0xff | value << 8;
             this.complete_redraw();
             break;
         case 0xD:
             this.start_address = this.start_address & 0xff00 | value;
-            this.complete_redraw();
+            var delta = this.start_address - this.previous_start_address;
+            if(delta)
+            {
+                //if(!this.graphical_mode && delta % this.text_mode_width === 0)
+                //{
+                //    this.bus.send("screen-text-scroll", delta / this.text_mode_width);
+                //}
+                //else
+                {
+                    this.complete_redraw();
+                }
+            }
             dbg_log("start addr: " + h(this.start_address, 4), LOG_VGA);
             break;
         case 0xE:
@@ -1063,6 +1089,10 @@ VGAScreen.prototype.port3D5_write = function(value)
             this.offset_register = value;
             break;
         default:
+            if(this.index_crtc < this.crtc.length)
+            {
+                this.crtc[this.index_crtc] = value;
+            }
             dbg_log("3D5 / CRTC write " + h(this.index_crtc) + ": " + h(value), LOG_VGA);
     }
 
@@ -1086,12 +1116,23 @@ VGAScreen.prototype.port3D5_read = function()
             return this.cursor_address >> 8;
         case 0xF:
             return this.cursor_address & 0xFF;
+        case 0x1:
+            return 80; // cols
+        case 0x12:
+            return 50; // rows
         case 0x13:
             return this.offset_register;
     }
 
     dbg_log("3D5 read " + h(this.index_crtc), LOG_VGA);
-    return 0;
+    if(this.index_crtc < this.crtc.length)
+    {
+        return this.crtc[this.index_crtc];
+    }
+    else
+    {
+        return 0;
+    }
 };
 
 VGAScreen.prototype.port3DA_read = function()
@@ -1107,7 +1148,11 @@ VGAScreen.prototype.switch_video_mode = function(mar)
     // Cheap way to figure this out, using the Miscellaneous Output Register
     // See: http://wiki.osdev.org/VGA_Hardware#List_of_register_settings
 
-    if(mar === 0x67)
+    if(mar === 0x66)
+    {
+        this.set_video_mode(0x66);
+    }
+    else if(mar === 0x67)
     {
         this.set_video_mode(0x3);
     }
