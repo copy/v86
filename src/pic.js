@@ -134,7 +134,7 @@ function PIC(cpu, master)
                 if(PIC_LOG_VERBOSE)
                 {
                     dbg_log("slave > no unmasked irrs. irr=" + h(this.irr, 2) +
-                            " mask=" + h(this.irq_mask & 0xff, 2), LOG_PIC);
+                            " mask=" + h(this.irq_mask & 0xff, 2) + " isr=" + h(this.isr, 2), LOG_PIC);
                 }
                 return false;
             }
@@ -158,13 +158,13 @@ function PIC(cpu, master)
             dbg_log("slave > handling irq " + irq_number, LOG_PIC);
             this.cpu.pic_call_irq(this.irq_map | irq_number);
 
+            this.master.clear_irq(2);
+
             if(this.irr)
             {
                 // tell the master we have one more
                 this.master.set_irq(2);
             }
-
-            this.master.clear_irq(2);
 
             if(!this.auto_eoi)
             {
@@ -281,10 +281,12 @@ function PIC(cpu, master)
     {
         if(this.read_isr)
         {
+            dbg_log("read port 20h (isr): " + h(this.isr));
             return this.isr;
         }
         else
         {
+            dbg_log("read port 20h (irr): " + h(this.irr));
             return this.irr;
         }
     }
@@ -335,7 +337,7 @@ function PIC(cpu, master)
 
     function port21_read()
     {
-        //dbg_log("21h read " + h(~this.irq_mask & 0xff), LOG_PIC);
+        dbg_log("21h read " + h(~this.irq_mask & 0xff), LOG_PIC);
         return ~this.irq_mask & 0xFF;
     };
 
@@ -373,9 +375,9 @@ function PIC(cpu, master)
             {
                 this.irr |= irq_mask & ~this.irq_value;
                 this.irq_value |= irq_mask;
-
-                this.cpu.handle_irqs();
             }
+
+            this.cpu.handle_irqs();
         };
 
         this.clear_irq = function(irq_number)
@@ -389,7 +391,7 @@ function PIC(cpu, master)
             if(irq_number >= 8)
             {
                 this.slave.clear_irq(irq_number - 8);
-                irq_number = 2;
+                return;
             }
 
             var irq_mask = 1 << irq_number;
