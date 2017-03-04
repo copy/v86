@@ -21,6 +21,9 @@ CLOSURE_SOURCE_MAP=\
 		# Easily breaks code:
 		#--assume_function_wrapper\
 
+		# implies new type inferrence
+		#--jscomp_error newCheckTypes\
+
 CLOSURE_FLAGS=\
 	        --js lib/closure-base.js\
 		--generate_exports\
@@ -52,7 +55,6 @@ CLOSURE_FLAGS=\
 		--jscomp_error missingProperties\
 		--jscomp_error missingReturn\
 		--jscomp_error msgDescriptions\
-		--jscomp_error newCheckTypes\
 		--jscomp_error nonStandardJsDocs\
 		--jscomp_error suspiciousCode\
 		--jscomp_error strictModuleDepCheck\
@@ -65,7 +67,6 @@ CLOSURE_FLAGS=\
 		--use_types_for_optimization\
 		--summary_detail_level 3\
 		--language_in ECMASCRIPT5_STRICT
-
 
 TRANSPILE_ES6_FLAGS=\
 		--language_in ECMASCRIPT6_STRICT\
