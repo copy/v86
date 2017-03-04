@@ -262,7 +262,7 @@ PCI.prototype.set_state = function(state)
 
 PCI.prototype.pci_query = function()
 {
-    var dbg_line = "";
+    var dbg_line = "query";
 
     // Bit | .31                     .0
     // Fmt | EBBBBBBBBDDDDDFFFRRRRRR00
@@ -275,7 +275,7 @@ PCI.prototype.pci_query = function()
         //fn = bdf & 7,
         enabled = this.pci_addr[3] >> 7;
 
-    dbg_line += "enabled=" + (enabled);
+    dbg_line += " enabled=" + enabled;
     dbg_line += " bdf=" + h(bdf, 4);
     dbg_line += " dev=" + h(dev, 2);
     dbg_line += " addr=" + h(addr, 2);
@@ -302,6 +302,8 @@ PCI.prototype.pci_query = function()
         {
             dbg_line += " (undef)";
         }
+
+        dbg_line += " (" + this.devices[bdf].name + ")";
 
         dbg_log(dbg_line, LOG_PCI);
     }
