@@ -52,7 +52,6 @@ CLOSURE_FLAGS=\
 		--jscomp_error missingProperties\
 		--jscomp_error missingReturn\
 		--jscomp_error msgDescriptions\
-		--jscomp_error newCheckTypes\
 		--jscomp_error nonStandardJsDocs\
 		--jscomp_error suspiciousCode\
 		--jscomp_error strictModuleDepCheck\
