@@ -208,8 +208,8 @@ if(cluster.isMaster)
     {
         var worker = cluster.fork();
 
-        worker.on("message", send_work_to_worker.bind(this, worker));
-        worker.on("online", send_work_to_worker.bind(this, worker));
+        worker.on("message", send_work_to_worker.bind(null, worker));
+        worker.on("online", send_work_to_worker.bind(null, worker));
 
         worker.on("exit", function(code, signal)
         {
@@ -243,7 +243,7 @@ function bytearray_starts_with(arr, search)
     {
         if(arr[i] !== search[i])
         {
-            return false
+            return false;
         }
     }
     return true;
