@@ -76,8 +76,7 @@ CPU.prototype.movsb = function()
         cpu.timestamp_counter += start_count - count;
         if(cont)
         {
-            //cpu.instruction_pointer = cpu.previous_ip;
-            this.movsb();
+            cpu.instruction_pointer = cpu.previous_ip;
         }
     }
     else
@@ -141,8 +140,7 @@ CPU.prototype.movsw = function()
         }
         if(cont)
         {
-            //cpu.instruction_pointer = cpu.previous_ip;
-            this.movsw();
+            cpu.instruction_pointer = cpu.previous_ip;
         }
     }
     else
@@ -157,8 +155,8 @@ CPU.prototype.movsw = function()
 CPU.prototype.movsd = function()
 {
     var cpu = this;
-    //if(cpu.prefixes & PREFIX_MASK_REP)
-    if(false)
+
+    if(cpu.prefixes & PREFIX_MASK_REP)
     {
         // often used by memcpy, well worth optimizing
         //   using cpu.mem32s.set
@@ -210,8 +208,7 @@ CPU.prototype.movsd = function()
 
                 if(cont)
                 {
-                    //cpu.instruction_pointer = cpu.previous_ip;
-                    this.movsd();
+                    cpu.instruction_pointer = cpu.previous_ip;
                 }
 
                 return;
@@ -269,7 +266,6 @@ CPU.prototype.movsd = function()
         if(cont)
         {
             this.instruction_pointer = this.previous_ip;
-            //this.movsd();
         }
     }
     else
@@ -935,8 +931,7 @@ function insb(cpu)
         cpu.timestamp_counter += start_count - count;
         if(cont)
         {
-            //cpu.instruction_pointer = cpu.previous_ip;
-            insb(cpu);
+            cpu.instruction_pointer = cpu.previous_ip;
         }
     }
     else
@@ -995,8 +990,7 @@ function insw(cpu)
         }
         if(cont)
         {
-            //cpu.instruction_pointer = cpu.previous_ip;
-            insw(cpu);
+            cpu.instruction_pointer = cpu.previous_ip;
         }
     }
     else
@@ -1055,8 +1049,7 @@ function insd(cpu)
         }
         if(cont)
         {
-            //cpu.instruction_pointer = cpu.previous_ip;
-            insd(cpu);
+            cpu.instruction_pointer = cpu.previous_ip;
         }
     }
     else
@@ -1100,8 +1093,7 @@ function outsb(cpu)
         cpu.timestamp_counter += start_count - count;
         if(cont)
         {
-            //cpu.instruction_pointer = cpu.previous_ip;
-            outsb(cpu);
+            cpu.instruction_pointer = cpu.previous_ip;
         }
     }
     else
@@ -1160,8 +1152,7 @@ function outsw(cpu)
         }
         if(cont)
         {
-            //cpu.instruction_pointer = cpu.previous_ip;
-            outsw(cpu);
+            cpu.instruction_pointer = cpu.previous_ip;
         }
     }
     else
@@ -1220,8 +1211,7 @@ function outsd(cpu)
         }
         if(cont)
         {
-            //cpu.instruction_pointer = cpu.previous_ip;
-            outsd(cpu);
+            cpu.instruction_pointer = cpu.previous_ip;
         }
     }
     else
