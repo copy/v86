@@ -203,7 +203,6 @@ CPU.prototype.write8 = function(addr, value)
 CPU.prototype.write16 = function(addr, value)
 {
     this.debug_write(addr, 2, value);
-    this.check_write2(addr, 2);
     if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
 
     if(this.in_mapped_range(addr))
@@ -244,7 +243,6 @@ CPU.prototype.write_aligned16 = function(addr, value)
 CPU.prototype.write32 = function(addr, value)
 {
     this.debug_write(addr, 4, value);
-    this.check_write2(addr, 4);
     if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
 
     if(this.in_mapped_range(addr))
