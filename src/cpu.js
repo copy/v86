@@ -3075,12 +3075,12 @@ CPU.prototype.handle_irqs = function()
     {
         if(this.devices.pic)
         {
-            this.devices.pic.check_irqs();
+            this.devices.pic.acknowledge_irq();
         }
 
         if(this.devices.apic)
         {
-            this.devices.apic.check_irqs();
+            this.devices.apic.acknowledge_irq();
         }
     }
 };

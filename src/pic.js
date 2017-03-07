@@ -43,6 +43,11 @@ function PIC(cpu, master)
 
     this.irq_value = 0;
 
+    /**
+     * @type {number}
+     */
+    this.requested_irq = -1;
+
     this.master = master;
     this.is_master = this.master === undefined;
     this.slave = undefined;
@@ -73,6 +78,13 @@ function PIC(cpu, master)
 
         this.check_irqs = function()
         {
+            if(this.requested_irq >= 0)
+            {
+                PIC_LOG_VERBOSE && dbg_log("master> Already requested irq: " + this.requested_irq, LOG_PIC);
+                this.cpu.handle_irqs();
+                return;
+            }
+
             var enabled_irr = this.irr & this.irq_mask;
 
             if(!enabled_irr)
@@ -82,7 +94,7 @@ function PIC(cpu, master)
                     dbg_log("master> no unmasked irrs. irr=" + h(this.irr, 2) +
                             " mask=" + h(this.irq_mask & 0xff, 2) + " isr=" + h(this.isr, 2), LOG_PIC);
                 }
-                return this.slave.check_irqs();
+                return;
             }
 
             var irq_mask = enabled_irr & -enabled_irr;
@@ -93,33 +105,56 @@ function PIC(cpu, master)
                 // wait for eoi of higher or same priority interrupt
                 dbg_log("master> higher prio: isr=" + h(this.isr, 2) +
                         " mask=" + h(this.irq_mask & 0xff, 2) + " irq=" + h(irq_mask, 2), LOG_PIC);
-                return false;
+                return;
             }
 
             dbg_assert(irq_mask !== 0);
             var irq_number = v86util.int_log2_byte(irq_mask);
             dbg_assert(irq_mask === (1 << irq_number));
 
-            this.irr &= ~irq_mask; // not in level mode
+            PIC_LOG_VERBOSE && dbg_log("master> request irq " + irq_number, LOG_PIC);
 
-            if(irq_number === 2)
+            this.requested_irq = irq_number;
+            this.cpu.handle_irqs();
+        };
+
+        this.acknowledge_irq = function()
+        {
+            if(this.requested_irq === -1)
             {
-                // this should always return true
-                this.irq_value &= ~2;
-                var did = this.slave.check_irqs();
-                if(!did) dbg_log("Slave had irq when master irq number was 2", LOG_PIC);
-                return did;
+                return;
             }
+
+            if(this.irr === 0)
+            {
+                PIC_LOG_VERBOSE && dbg_log("master> spurious requested=" + this.requested_irq, LOG_PIC);
+                this.requested_irq = -1;
+                this.cpu.pic_call_irq(this.irq_map | 7);
+                return;
+            }
+            dbg_assert(this.irr); // spurious
+            dbg_assert(this.requested_irq >= 0);
+
+            var irq_mask = 1 << this.requested_irq;
+            this.irr &= ~irq_mask; // not in level mode
 
             if(!this.auto_eoi)
             {
                 this.isr |= irq_mask;
             }
 
-            dbg_log("master handling irq " + irq_number, LOG_PIC);
-            this.cpu.pic_call_irq(this.irq_map | irq_number);
+            PIC_LOG_VERBOSE && dbg_log("master> acknowledge " + this.requested_irq, LOG_PIC);
+            if(this.requested_irq === 2)
+            {
+                this.slave.acknowledge_irq();
+            }
+            else
+            {
+                this.cpu.pic_call_irq(this.irq_map | this.requested_irq);
+            }
 
-            return true;
+            this.requested_irq = -1;
+            this.check_irqs();
         };
     }
     else
@@ -127,6 +162,13 @@ function PIC(cpu, master)
         // is slave
         this.check_irqs = function()
         {
+            if(this.requested_irq >= 0)
+            {
+                PIC_LOG_VERBOSE && dbg_log("slave > Already requested irq: " + this.requested_irq, LOG_PIC);
+                this.cpu.handle_irqs();
+                return;
+            }
+
             var enabled_irr = this.irr & this.irq_mask;
 
             if(!enabled_irr)
@@ -136,7 +178,7 @@ function PIC(cpu, master)
                     dbg_log("slave > no unmasked irrs. irr=" + h(this.irr, 2) +
                             " mask=" + h(this.irq_mask & 0xff, 2) + " isr=" + h(this.isr, 2), LOG_PIC);
                 }
-                return false;
+                return;
             }
 
             var irq_mask = enabled_irr & -enabled_irr;
@@ -145,34 +187,52 @@ function PIC(cpu, master)
             if(this.isr && (this.isr & -this.isr & special_mask) <= irq_mask)
             {
                 // wait for eoi of higher or same priority interrupt
-                dbg_log("slave > higher prio: isr=" + h(this.isr, 2) + " irq=" + h(irq_mask, 2), LOG_PIC);
-                return false;
+                PIC_LOG_VERBOSE && dbg_log("slave > higher prio: isr=" + h(this.isr, 2) + " irq=" + h(irq_mask, 2), LOG_PIC);
+                return;
             }
 
             dbg_assert(irq_mask !== 0);
             var irq_number = v86util.int_log2_byte(irq_mask);
             dbg_assert(irq_mask === (1 << irq_number));
 
-            this.irr &= ~irq_mask; // not in level mode
+            PIC_LOG_VERBOSE && dbg_log("slave > request irq " + irq_number, LOG_PIC);
+            this.requested_irq = irq_number;
+            this.master.set_irq(2);
+        };
 
-            dbg_log("slave > handling irq " + irq_number, LOG_PIC);
-            this.cpu.pic_call_irq(this.irq_map | irq_number);
-
-            this.master.clear_irq(2);
-
-            if(this.irr)
+        this.acknowledge_irq = function()
+        {
+            if(this.requested_irq === -1)
             {
-                // tell the master we have one more
-                this.master.set_irq(2);
+                return;
             }
+
+            if(this.irr === 0)
+            {
+                PIC_LOG_VERBOSE && dbg_log("slave > spurious requested=" + this.requested_irq, LOG_PIC);
+                this.requested_irq = -1;
+                this.master.irq_value &= ~(1 << 2);
+                this.cpu.pic_call_irq(this.irq_map | 7);
+                return;
+            }
+
+            dbg_assert(this.irr); // spurious
+            dbg_assert(this.requested_irq >= 0);
+
+            var irq_mask = 1 << this.requested_irq;
+            this.irr &= ~irq_mask; // not in level mode
 
             if(!this.auto_eoi)
             {
                 this.isr |= irq_mask;
-                this.master.isr |= 1 << 2;
             }
 
-            return true;
+            this.master.irq_value &= ~(1 << 2);
+            PIC_LOG_VERBOSE && dbg_log("slave > acknowledge " + this.requested_irq, LOG_PIC);
+            this.cpu.pic_call_irq(this.irq_map | this.requested_irq);
+
+            this.requested_irq = -1;
+            this.check_irqs();
         };
     }
 
@@ -225,17 +285,16 @@ function PIC(cpu, master)
             if(irq_number >= 8)
             {
                 this.slave.set_irq(irq_number - 8);
-                irq_number = 2;
+                return;
             }
 
             var irq_mask = 1 << irq_number;
             if((this.irq_value & irq_mask) === 0)
             {
-                this.irr |= irq_mask & ~this.irq_value;
+                this.irr |= irq_mask;
                 this.irq_value |= irq_mask;
             }
-
-            this.cpu.handle_irqs();
+            this.check_irqs();
         };
 
         this.clear_irq = function(irq_number)
@@ -258,6 +317,7 @@ function PIC(cpu, master)
                 this.irq_value &= ~irq_mask;
                 this.irr &= ~irq_mask;
             }
+            this.check_irqs();
         };
     }
     else
@@ -276,6 +336,7 @@ function PIC(cpu, master)
                 this.irr |= irq_mask;
                 this.irq_value |= irq_mask;
             }
+            this.check_irqs();
         };
 
         this.clear_irq = function(irq_number)
@@ -292,6 +353,7 @@ function PIC(cpu, master)
                 this.irq_value &= ~irq_mask;
                 this.irr &= ~irq_mask;
             }
+            this.check_irqs();
         };
     }
 
@@ -345,6 +407,7 @@ PIC.prototype.port20_write = function(data_byte)
         this.irq_mask = 0;
         this.irq_value = 0;
         this.auto_eoi = 1;
+        this.requested_irq = -1;
 
         this.expect_icw4 = data_byte & 1;
         this.state = 1;
@@ -394,7 +457,7 @@ PIC.prototype.port20_write = function(data_byte)
             this.isr &= this.isr - 1;
         }
 
-        this.cpu.handle_irqs();
+        this.check_irqs();
     }
 };
 
@@ -434,10 +497,13 @@ PIC.prototype.port21_write = function(data_byte)
             // ocw1
             this.irq_mask = ~data_byte;
 
-            //dbg_log("interrupt mask: " + (this.irq_mask & 0xFF).toString(2) +
-            //        " (" + this.name + ")", LOG_PIC);
+            if(PIC_LOG_VERBOSE)
+            {
+                dbg_log("interrupt mask: " + (this.irq_mask & 0xFF).toString(2) +
+                        " (" + this.name + ")", LOG_PIC);
+            }
 
-            this.cpu.handle_irqs();
+            this.check_irqs();
         }
     }
     else if(this.state === 1)
