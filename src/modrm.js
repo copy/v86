@@ -203,15 +203,15 @@
     };
     CPU.prototype.modrm_table32[0x00 | 4] = function(cpu)
     {
-        return cpu.sib_table[cpu.read_sib()](cpu, false) | 0;
+        return cpu.sib_resolve(false) | 0;
     };
     CPU.prototype.modrm_table32[0x40 | 4] = function(cpu)
     {
-        return cpu.sib_table[cpu.read_sib()](cpu, true) + cpu.read_disp8s() | 0;
+        return cpu.sib_resolve(true) + cpu.read_disp8s() | 0;
     };
     CPU.prototype.modrm_table32[0x80 | 4] = function(cpu)
     {
-        return cpu.sib_table[cpu.read_sib()](cpu, true) + cpu.read_disp32s() | 0;
+        return cpu.sib_resolve(true) + cpu.read_disp32s() | 0;
     };
     for(var low = 0; low < 8; low++)
     {
@@ -1249,17 +1249,5 @@
     CPU.prototype.sib_table[0xC0 | 7 << 3 | 7] = function(cpu, mod)
     {
         return(cpu.reg32s[reg_edi] << 3) + cpu.get_seg_prefix_ds() + cpu.reg32s[reg_edi] | 0;
-    };
-
-    CPU.prototype.modrm_resolve = function(modrm_byte)
-    {
-        if(modrm_byte < 0xC0)
-        {
-            return(this.address_size_32 ? this.modrm_table32 : this.modrm_table16)[modrm_byte](this);
-        }
-        else
-        {
-            return -1;
-        }
     };
 })();

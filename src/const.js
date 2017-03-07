@@ -269,7 +269,7 @@ var
     SEG_PREFIX_NONE = -1,
 
     /** @const */
-    SEG_PREFIX_ZERO = 9;
+    SEG_PREFIX_ZERO = 7;
 
 
 var
@@ -340,3 +340,18 @@ var TSC_RATE = 8 * 1024;
 /** @const */ var TSR_LDT = 0x60;
 
 
+
+/** @const */
+var PREFIX_MASK_REP = 0b11000;
+/** @const */
+var PREFIX_REPZ = 0b01000;
+/** @const */
+var PREFIX_REPNZ = 0b10000;
+
+/** @const */
+var PREFIX_MASK_SEGMENT = 0b111;
+
+/** @const */
+var PREFIX_MASK_OPSIZE = 0b100000;
+/** @const */
+var PREFIX_MASK_ADDRSIZE = 0b1000000;

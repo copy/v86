@@ -322,7 +322,7 @@ FPU.prototype.safe_tag_word = function(tag_word)
 
 FPU.prototype.fstenv = function(addr)
 {
-    if(this.cpu.operand_size_32)
+    if(this.cpu.is_osize_32())
     {
         this.cpu.writable_or_pagefault(addr, 26);
 
@@ -345,7 +345,7 @@ FPU.prototype.fstenv = function(addr)
 
 FPU.prototype.fldenv = function(addr)
 {
-    if(this.cpu.operand_size_32)
+    if(this.cpu.is_osize_32())
     {
         this.control_word = this.cpu.safe_read16(addr);
 

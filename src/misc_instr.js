@@ -20,6 +20,11 @@ CPU.prototype.jmpcc8 = function(condition)
     if(condition)
     {
         this.instruction_pointer = this.instruction_pointer + imm8 | 0;
+        this.branch_taken();
+    }
+    else
+    {
+        this.branch_not_taken();
     }
 };
 
@@ -40,6 +45,11 @@ CPU.prototype.jmpcc16 = function(condition)
     if(condition)
     {
         this.jmp_rel16(imm16);
+        this.branch_taken();
+    }
+    else
+    {
+        this.branch_not_taken();
     }
 }
 
@@ -53,6 +63,11 @@ CPU.prototype.jmpcc32 = function(condition)
         //   since read_op32s modifies instruction_pointer
 
         this.instruction_pointer = this.instruction_pointer + imm32s | 0;
+        this.branch_taken();
+    }
+    else
+    {
+        this.branch_not_taken();
     }
 };
 
@@ -81,37 +96,53 @@ CPU.prototype.setcc = function(condition)
 
 CPU.prototype.loopne = function(imm8s)
 {
-    if(--this.regv[this.reg_vcx] && !this.getzf())
+    if(this.decr_ecx_asize() && !this.getzf())
     {
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
-        if(!this.operand_size_32) dbg_assert(this.get_real_eip() <= 0xffff);
+        this.branch_taken();
+    }
+    else
+    {
+        this.branch_not_taken();
     }
 }
 
 CPU.prototype.loope = function(imm8s)
 {
-    if(--this.regv[this.reg_vcx] && this.getzf())
+    if(this.decr_ecx_asize() && this.getzf())
     {
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
-        if(!this.operand_size_32) dbg_assert(this.get_real_eip() <= 0xffff);
+        this.branch_taken();
+    }
+    else
+    {
+        this.branch_not_taken();
     }
 }
 
 CPU.prototype.loop = function(imm8s)
 {
-    if(--this.regv[this.reg_vcx])
+    if(this.decr_ecx_asize())
     {
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
-        if(!this.operand_size_32) dbg_assert(this.get_real_eip() <= 0xffff);
+        this.branch_taken();
+    }
+    else
+    {
+        this.branch_not_taken();
     }
 }
 
 CPU.prototype.jcxz = function(imm8s)
 {
-    if(this.regv[this.reg_vcx] === 0)
+    if(this.get_reg_asize(reg_ecx) === 0)
     {
         this.instruction_pointer = this.instruction_pointer + imm8s | 0;
-        if(!this.operand_size_32) dbg_assert(this.get_real_eip() <= 0xffff);
+        this.branch_taken();
+    }
+    else
+    {
+        this.branch_not_taken();
     }
 };
 
@@ -266,7 +297,7 @@ CPU.prototype.pusha16 = function()
 
     // make sure we don't get a pagefault after having
     // pushed several registers already
-    this.translate_address_write(this.get_stack_pointer(-15));
+    this.writable_or_pagefault(this.get_stack_pointer(-16), 16);
 
     this.push16(this.reg16[reg_ax]);
     this.push16(this.reg16[reg_cx]);
@@ -282,7 +313,7 @@ CPU.prototype.pusha32 = function()
 {
     var temp = this.reg32s[reg_esp];
 
-    this.translate_address_write(this.get_stack_pointer(-31));
+    this.writable_or_pagefault(this.get_stack_pointer(-32), 32);
 
     this.push32(this.reg32s[reg_eax]);
     this.push32(this.reg32s[reg_ecx]);
@@ -296,6 +327,7 @@ CPU.prototype.pusha32 = function()
 
 CPU.prototype.popa16 = function()
 {
+    this.translate_address_read(this.get_stack_pointer(0));
     this.translate_address_read(this.get_stack_pointer(15));
 
     this.reg16[reg_di] = this.pop16();
@@ -310,6 +342,7 @@ CPU.prototype.popa16 = function()
 
 CPU.prototype.popa32 = function()
 {
+    this.translate_address_read(this.get_stack_pointer(0));
     this.translate_address_read(this.get_stack_pointer(31));
 
     this.reg32s[reg_edi] = this.pop32s();
@@ -419,7 +452,7 @@ CPU.prototype.enter16 = function(size, nesting_level)
         this.push16(frame_temp);
     }
     this.reg16[reg_bp] = frame_temp;
-    this.reg16[reg_sp] -= size;
+    this.adjust_stack_reg(-size);
 };
 
 CPU.prototype.enter32 = function(size, nesting_level)
@@ -441,7 +474,7 @@ CPU.prototype.enter32 = function(size, nesting_level)
         this.push32(frame_temp);
     }
     this.reg32s[reg_ebp] = frame_temp;
-    this.reg32s[reg_esp] -= size;
+    this.adjust_stack_reg(-size);
 };
 
 CPU.prototype.bswap = function(reg)
