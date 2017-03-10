@@ -594,6 +594,12 @@ CPU.prototype.init = function(settings, device_bus)
         a20_byte = out_byte;
     });
 
+    io.register_read(0x511, this, function()
+    {
+        // qemu config port (used by seabios)
+        return 0;
+    });
+
     if(DEBUG)
     {
         // Use by linux for port-IO delay
