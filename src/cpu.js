@@ -746,8 +746,24 @@ CPU.prototype.load_bios = function()
     if(vga_bios)
     {
         // load vga bios
-        data = new Uint8Array(vga_bios);
-        this.write_blob(data, 0xC0000);
+        var vga_bios8 = new Uint8Array(vga_bios);
+
+        // older versions of seabios
+        this.write_blob(vga_bios8, 0xC0000);
+
+        // newer versions of seabios (needs to match pci rom address)
+        this.io.mmap_register(0xFEB00000, 0x100000,
+            function(addr)
+            {
+                addr = (addr - 0xFEB00000) | 0;
+                if(addr < vga_bios8.length)
+                {
+                    return vga_bios8[addr];
+                }
+            },
+            function(addr, value)
+            {
+            });
     }
     else
     {

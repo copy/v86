@@ -383,9 +383,31 @@ PCI.prototype.pci_write = function()
 
         dbg_log("BAR effective value: " + h(space[addr >> 2] >>> 0), LOG_PCI);
     }
+    else if(addr === 0x30)
+    {
+        dbg_log("PCI write rom address dev=" + h(bdf >> 3, 2) + " (" + device.name + ")" +
+                " value=" + h(written >>> 0, 8), LOG_PCI);
+
+        if(device.pci_rom_size)
+        {
+            if((written | 0x7FF) === (0xFFFFFFFF|0))
+            {
+                space[addr >> 2] = -device.pci_rom_size | 0;
+            }
+            else
+            {
+                space[addr >> 2] = device.pci_rom_address | 0;
+            }
+        }
+        else
+        {
+            space[addr >> 2] = 0;
+        }
+    }
     else
     {
-        dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " (" + device.name + ") " + " addr=" + h(addr, 4) + " value=" + h(written >>> 0, 8), LOG_PCI);
+        dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
+                " value=" + h(written >>> 0, 8), LOG_PCI);
         space[addr >> 2] = written;
     }
 };
