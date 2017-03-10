@@ -6,7 +6,7 @@ function do_the_log(message)
 {
     if(LOG_TO_FILE)
     {
-        log_data.push(message);
+        log_data.push(message, "\n");
     }
     else
     {
