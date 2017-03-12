@@ -41,7 +41,7 @@ function UART(cpu, port, bus)
     /** @const @type {CPU} */
     this.cpu = cpu;
 
-    this.ints = 0;
+    this.ints = 1 << UART_IIR_THRI;
 
     this.baud_rate = 0;
 
