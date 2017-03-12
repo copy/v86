@@ -1020,6 +1020,8 @@ CPU.prototype.cr0_changed = function(old_cr0)
         this.paging = new_paging;
         this.full_clear_tlb();
     }
+
+    this.protected_mode = (this.cr[0] & CR0_PE) === CR0_PE;
 };
 
 CPU.prototype.paging_changed = function()
@@ -2029,8 +2031,6 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
     //dbg_log("far return eip=" + h(eip >>> 0, 8) + " cs=" + h(selector, 4) + " stack_adjust=" + h(stack_adjust), LOG_CPU);
     CPU_LOG_VERBOSE && this.debug.dump_state("far ret start");
 
-    this.protected_mode = (this.cr[0] & CR0_PE) === CR0_PE;
-
     if(!this.protected_mode)
     {
         dbg_assert(!this.is_32);
@@ -2175,8 +2175,6 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
 
     //dbg_log("far " + ["jump", "call"][+is_call] + " eip=" + h(eip >>> 0, 8) + " cs=" + h(selector, 4), LOG_CPU);
     CPU_LOG_VERBOSE && this.debug.dump_state("far " + ["jump", "call"][+is_call]);
-
-    this.protected_mode = (this.cr[0] & CR0_PE) === CR0_PE;
 
     if(!this.protected_mode || this.vm86_mode())
     {

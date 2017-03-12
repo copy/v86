@@ -1187,8 +1187,6 @@ t[0xEB] = cpu => {
     var imm8 = cpu.read_op8s();
     cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0;
     dbg_assert(cpu.is_asize_32() || cpu.get_real_eip() < 0x10000);
-
-    cpu.protected_mode = (cpu.cr[0] & CR0_PE) === CR0_PE;
     cpu.diverged();
 };
 
