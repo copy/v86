@@ -37,20 +37,6 @@ var CDROM_SECTOR_SIZE = 2048;
 /** @const */
 var HD_SECTOR_SIZE = 512;
 
-//#define ERR_STAT		0x01
-//#define INDEX_STAT		0x02
-//#define ECC_STAT		0x04	/* Corrected error */
-//#define DRQ_STAT		0x08
-//#define SEEK_STAT		0x10
-//#define SRV_STAT		0x10
-//#define WRERR_STAT		0x20
-//#define READY_STAT		0x40
-//#define BUSY_STAT		0x80
-//#define ATAPI_INT_REASON_CD             0x01 /* 0 = data transfer */
-//#define ATAPI_INT_REASON_IO             0x02 /* 1 = transfer to the host */
-//#define ATAPI_INT_REASON_REL            0x04
-//#define ATAPI_INT_REASON_TAG            0xf8
-
 /**
  * @constructor
  * @param {CPU} cpu
@@ -773,7 +759,7 @@ IDEInterface.prototype.ata_command = function(cmd)
             }
             else
             {
-                this.status = 0x50;
+                this.status = 0x41;
                 this.push_irq();
             }
             break;
