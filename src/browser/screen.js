@@ -294,6 +294,8 @@ function ScreenAdapter(screen_container, bus)
         {
             this.text_update_row(i);
         }
+
+        update_scale_text();
     };
 
     this.set_size_graphical = function(width, height)
@@ -317,6 +319,7 @@ function ScreenAdapter(screen_container, bus)
         graphical_mode_height = height;
 
         this.bus.send("screen-tell-buffer", [graphic_buffer32], [graphic_buffer32.buffer]);
+        update_scale_graphic();
     };
 
     this.set_scale = function(s_x, s_y)
@@ -324,19 +327,44 @@ function ScreenAdapter(screen_container, bus)
         scale_x = s_x;
         scale_y = s_y;
 
-        elem_set_scale(graphic_screen, scale_x, scale_y);
-        elem_set_scale(text_screen, scale_x, scale_y);
+        update_scale_text();
+        update_scale_graphic();
     };
     this.set_scale(scale_x, scale_y);
 
-    function elem_set_scale(elem, scale_x, scale_y)
+    function update_scale_text()
     {
-        var scale_str = "";
+        elem_set_scale(text_screen, scale_x, scale_y, true);
+    }
 
-        scale_str += scale_x === 1 ? "" : " scaleX(" + scale_x + ")";
-        scale_str += scale_y === 1 ? "" : " scaleY(" + scale_y + ")";
+    function update_scale_graphic()
+    {
+        elem_set_scale(graphic_screen, scale_x, scale_y, false);
+    }
 
-        elem.style.webkitTransform = elem.style.MozTransform = scale_str;
+    function elem_set_scale(elem, scale_x, scale_y, use_scale)
+    {
+        elem.style.width = "";
+        elem.style.height = "";
+
+        if(use_scale)
+        {
+            var scale_str = "";
+
+            scale_str += scale_x === 1 ? "" : " scaleX(" + scale_x + ")";
+            scale_str += scale_y === 1 ? "" : " scaleY(" + scale_y + ")";
+
+            elem.style.transform = elem.style.webkitTransform = elem.style.MozTransform = scale_str;
+        }
+
+        if(scale_x !== 1)
+        {
+            elem.style.width = Math.ceil(elem.offsetWidth * scale_x) + "px";
+        }
+        if(scale_y !== 1)
+        {
+            elem.style.height = Math.ceil(elem.offsetHeight * scale_y) + "px";
+        }
     }
 
     this.update_cursor_scanline = function(start, end)
