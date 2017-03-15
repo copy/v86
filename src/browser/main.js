@@ -368,16 +368,16 @@
             },
             {
                 id: "reactos",
-                memory_size: 128 * 1024 * 1024,
+                memory_size: 256 * 1024 * 1024,
                 cdrom: {
-                    "url": "images/livecd-73402-rel.iso",
+                    "url": HOST + "images/ReactOS-0.4.4-live.iso",
                     "async": true,
                 },
                 state: {
-                    "url": "images/reactos_state.bin",
-                    "size": 33527772,
+                    "url": HOST + "images/reactos_state.bin",
+                    "size": 276971224,
                 },
-                name: "React OS",
+                name: "ReactOS",
             },
         ];
 
