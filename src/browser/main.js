@@ -228,6 +228,14 @@
                 },
             },
             {
+                id: "msdos",
+                hda: {
+                    "url": HOST + "images/msdos.img",
+                    "size": 8 * 1024 * 1024,
+                },
+                name: "MS-DOS",
+            },
+            {
                 id: "freedos",
                 fda: {
                     "url": HOST + "images/freedos722.img",
