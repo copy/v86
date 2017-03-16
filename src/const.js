@@ -1,17 +1,6 @@
 "use strict";
 
-/** @define {boolean} */
-var DEBUG = true;
-
-/** @const */
-var LOG_TO_FILE = false;
-
-/** @const */
-var LOG_ALL_IO = false;
-
-
 var
-
 /** @const */ LOG_ALL = -1,
 /** @const */ LOG_NONE = 0,
 
@@ -38,13 +27,6 @@ var
 /** @const */ LOG_NET =    0x100000,
 /** @const */ LOG_VIRTIO = 0x200000,
 /** @const */ LOG_9P =     0x400000;
-
-
-var LOG_LEVEL = LOG_ALL & ~LOG_PS2 & ~LOG_PIC & ~LOG_PIT & ~LOG_RTC & ~LOG_VIRTIO & ~LOG_9P &
-                          ~LOG_DISK & ~LOG_DMA & ~LOG_VGA & ~LOG_SERIAL & ~LOG_NET;
-
-/** @const */
-var CPU_LOG_VERBOSE = false;
 
 
 /**
@@ -85,14 +67,6 @@ var
 
 
 var
-    /** @const */
-    ENABLE_HPET = !DEBUG && false,
-
-    /** @const */
-    ENABLE_ACPI = !DEBUG && false;
-
-var
-
 
 // flags register bitflags
 /** @const */ flag_carry = 1,
@@ -187,16 +161,7 @@ PSE_ENABLED = 128,
 
 
 /** @const */ reg_tr = 6, // task register
-/** @const */ reg_ldtr = 7, // local descriptor table register
-
-
-
-/** @const */ LOOP_COUNTER = 11001,
-/** @const */ TIME_PER_FRAME = 8;
-
-/** @const */
-var OP_TRANSLATION = false;
-
+/** @const */ reg_ldtr = 7; // local descriptor table register
 
 var
     /**
@@ -205,7 +170,6 @@ var
      *
      * @const
      */
-
     MMAP_BLOCK_BITS = 17,
     /** @const */
     MMAP_BLOCK_SIZE = 1 << MMAP_BLOCK_BITS;
@@ -311,12 +275,6 @@ var IA32_MCG_CAP = 0x179;
 var MSR_PKG_C2_RESIDENCY = 0x60D;
 
 
-
-/** @const */
-var TSC_RATE = 8 * 1024;
-
-
-
 /** @const */ var TSR_BACKLINK = 0x00;
 /** @const */ var TSR_CR3 = 0x1C;
 /** @const */ var TSR_EIP = 0x20;
@@ -338,7 +296,6 @@ var TSC_RATE = 8 * 1024;
 /** @const */ var TSR_FS = 0x58;
 /** @const */ var TSR_GS = 0x5c;
 /** @const */ var TSR_LDT = 0x60;
-
 
 
 /** @const */

@@ -1,5 +1,9 @@
 "use strict";
 
+/** @const */
+var CPU_LOG_VERBOSE = true;
+
+
 // Resources:
 // https://pdos.csail.mit.edu/6.828/2006/readings/i386/toc.htm
 // https://www-ssl.intel.com/content/www/us/en/processors/architectures-software-developer-manuals.html
