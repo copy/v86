@@ -503,6 +503,7 @@ CPU.prototype.reset = function()
     this.page_size_extensions = 0;
     this.is_32 = false;
     this.stack_size_32 = false;
+    this.prefixes = 0;
 
     this.paging_changed();
 
