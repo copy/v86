@@ -206,7 +206,7 @@
                 id: "archlinux",
                 state: {
                     "url": HOST + "images/v86state.bin",
-                    "size": 142770440,
+                    "size": 142770436,
                 },
                 name: "Arch Linux",
                 memory_size: 128 * 1024 * 1024,
@@ -233,6 +233,7 @@
                     "url": HOST + "images/msdos.img",
                     "size": 8 * 1024 * 1024,
                 },
+                boot_order: 0x132,
                 name: "MS-DOS",
             },
             {
@@ -338,25 +339,23 @@
                     "size": 300 * 1024 * 1024,
                 },
                 name: "Windows 98",
-                boot_order: 0x132,
                 state: {
                     "url": HOST + "images/windows98_state.bin",
-                    "size": 42151380,
+                    "size": 75705744,
                 },
             },
             {
                 id: "windows95",
-                memory_size: 64 * 1024 * 1024,
+                memory_size: 32 * 1024 * 1024,
                 hda: {
                     "url": HOST + "images/W95.IMG",
                     "size": 242049024,
                     "async": true,
                 },
                 name: "Windows 95",
-                boot_order: 0x132,
                 state: {
                     "url": HOST + "images/windows95_state.bin",
-                    "size": 42151328,
+                    "size": 42151316,
                 },
             },
             {
@@ -364,7 +363,7 @@
                 memory_size: 128 * 1024 * 1024,
                 state: {
                     "url": HOST + "images/freebsd_state.bin",
-                    "size": 142815304,
+                    "size": 142815292,
                 },
                 hda: {
                     "url": ON_LOCALHOST ? "../v86-images/os/freebsd3.img" :
