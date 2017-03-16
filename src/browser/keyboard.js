@@ -284,7 +284,7 @@ function KeyboardAdapter(bus)
 
     function may_handle(e)
     {
-        if(e.shiftKey && e.ctrlKey && e.keyCode === 74)
+        if(e.shiftKey && e.ctrlKey && (e.keyCode === 74 || e.keyCode === 75))
         {
               // don't prevent opening chromium dev tools
               // maybe add other important combinations here, too
