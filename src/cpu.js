@@ -1302,12 +1302,6 @@ CPU.prototype.get_eflags = function()
                                   !!this.getzf() << 6 | !!this.getsf() << 7 | !!this.getof() << 11;
 };
 
-CPU.prototype.load_eflags = function()
-{
-    this.flags = this.get_eflags();
-    this.flags_changed = 0;
-};
-
 /**
  * Update the flags register depending on iopl and cpl
  */
@@ -1519,8 +1513,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             throw this.debug.unimpl("#NP handler");
         }
 
-        this.load_eflags();
-        var old_flags = this.flags;
+        var old_flags = this.get_eflags();
 
         //dbg_log("interrupt " + h(interrupt_nr, 2) + " (" + (is_software_int ? "soft" : "hard") + "ware) from cpl=" + this.cpl + " vm=" + (this.flags & flag_vm) + " cs:eip=" + h(this.sreg[reg_cs], 4) + ":" + h(this.get_real_eip(), 8) + " to cpl="
 
@@ -1720,8 +1713,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         var new_cs = this.read16(index + 2 | 0);
 
         // push flags, cs:ip
-        this.load_eflags();
-        this.push16(this.flags);
+        this.push16(this.get_eflags());
         this.push16(this.sreg[reg_cs]);
         this.push16(this.get_real_eip());
 

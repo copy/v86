@@ -559,8 +559,7 @@ t16[0x9C] = cpu => {
     }
     else
     {
-        cpu.load_eflags();
-        cpu.push16(cpu.flags);
+        cpu.push16(cpu.get_eflags());
     }
 };
 t32[0x9C] = cpu => {
@@ -574,9 +573,8 @@ t32[0x9C] = cpu => {
     }
     else
     {
-        cpu.load_eflags();
         // vm and rf flag are cleared in image stored on the stack
-        cpu.push32(cpu.flags & 0x00FCFFFF);
+        cpu.push32(cpu.get_eflags() & 0x00FCFFFF);
     }
 };
 t16[0x9D] = cpu => {
@@ -622,8 +620,7 @@ t[0x9E] = cpu => {
 };
 t[0x9F] = cpu => {
     // lahf
-    cpu.load_eflags();
-    cpu.reg8[reg_ah] = cpu.flags;
+    cpu.reg8[reg_ah] = cpu.get_eflags();
 };
 
 t[0xA0] = cpu => {
