@@ -75,7 +75,7 @@ TRANSPILE_ES6_FLAGS=\
 
 CORE_FILES=src/const.js src/io.js src/main.js src/lib.js src/fpu.js src/ide.js src/pci.js src/floppy.js src/memory.js\
 	   src/dma.js src/pit.js src/vga.js src/ps2.js src/pic.js src/rtc.js src/uart.js src/hpet.js src/acpi.js src/apic.js\
-	   src/state.js src/ne2k.js src/virtio.js src/bus.js src/log.js\
+	   src/state.js src/ne2k.js src/virtio.js src/bus.js src/log.js src/config.js\
 	   src/cpu.js src/translate.js src/modrm.js src/string.js src/arith.js src/misc_instr.js src/instructions.js src/debug.js
 LIB_FILES=lib/9p.js lib/filesystem.js lib/jor1k.js lib/marshall.js lib/utf8.js
 BROWSER_FILES=src/browser/screen.js\
