@@ -1707,19 +1707,17 @@ t[0x01] = cpu => { cpu.read_modrm_byte();
             cpu.trigger_gp(0);
         }
 
-        var data = cpu.read_e16();
+        var cr0 = cpu.read_e16();
 
-        var old_cr0 = cpu.cr[0];
-        cpu.cr[0] = (cpu.cr[0] & ~0xF) | (data & 0xF);
+        cr0 = (cpu.cr[0] & ~0xF) | (cr0 & 0xF);
 
         if(cpu.protected_mode)
         {
             // lmsw cannot be used to switch back
-            cpu.cr[0] |= CR0_PE;
+            cr0 |= CR0_PE;
         }
 
-        //dbg_log("cr0=" + h(data >>> 0), LOG_CPU);
-        cpu.cr0_changed(old_cr0);
+        cpu.set_cr0(cr0);
         return;
     }
 
@@ -1981,16 +1979,7 @@ t[0x22] = cpu => { cpu.read_modrm_byte();
     switch(cpu.modrm_byte >> 3 & 7)
     {
         case 0:
-            var old_cr0 = cpu.cr[0];
-            cpu.cr[0] = data;
-
-            if((cpu.cr[0] & (CR0_PE | CR0_PG)) === CR0_PG)
-            {
-                // cannot load PG without PE
-                throw cpu.debug.unimpl("#GP handler");
-            }
-
-            cpu.cr0_changed(old_cr0);
+            cpu.set_cr0(data);
             //dbg_log("cr0=" + h(data >>> 0), LOG_CPU);
             break;
 

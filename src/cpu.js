@@ -505,7 +505,8 @@ CPU.prototype.reset = function()
     this.stack_size_32 = false;
     this.prefixes = 0;
 
-    this.paging_changed();
+    this.last_virt_eip = -1;
+    this.last_virt_esp = -1;
 
     this.update_operand_size();
 
@@ -1004,11 +1005,17 @@ CPU.prototype.clear_prefixes = function()
     this.prefixes = 0;
 };
 
-CPU.prototype.cr0_changed = function(old_cr0)
+CPU.prototype.set_cr0 = function(cr0)
 {
     //dbg_log("cr0 = " + h(this.cr[0] >>> 0), LOG_CPU);
 
-    var new_paging = (this.cr[0] & CR0_PG) === CR0_PG;
+    if((cr0 & (CR0_PE | CR0_PG)) === CR0_PG)
+    {
+        // cannot load PG without PE
+        throw this.debug.unimpl("#GP handler");
+    }
+
+    this.cr[0] = cr0;
 
     if(!this.fpu)
     {
@@ -1017,7 +1024,7 @@ CPU.prototype.cr0_changed = function(old_cr0)
     }
     this.cr[0] |= CR0_ET;
 
-    this.paging_changed();
+    var new_paging = (this.cr[0] & CR0_PG) === CR0_PG;
 
     dbg_assert(typeof this.paging === "boolean");
     if(new_paging !== this.paging)
@@ -1027,12 +1034,6 @@ CPU.prototype.cr0_changed = function(old_cr0)
     }
 
     this.protected_mode = (this.cr[0] & CR0_PE) === CR0_PE;
-};
-
-CPU.prototype.paging_changed = function()
-{
-    this.last_virt_eip = -1;
-    this.last_virt_esp = -1;
 };
 
 CPU.prototype.cpl_changed = function()
