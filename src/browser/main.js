@@ -726,6 +726,8 @@
         $("loading").style.display = "none";
         $("runtime_options").style.display = "block";
         $("runtime_infos").style.display = "block";
+        $("screen_container").style.display = "block";
+
         document.getElementsByClassName("phone_keyboard")[0].style.display = "block";
 
         if(settings.filesystem)

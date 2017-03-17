@@ -32,7 +32,6 @@
     line-height: normal;
 }
 #screen, #vga {
-    display: none;
     -webkit-transform-origin: top left;
     -moz-transform-origin: top left;
     transform-origin: top left;
