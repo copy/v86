@@ -4,9 +4,6 @@
 function v86(bus)
 {
     /** @type {boolean} */
-    this.first_init = true;
-
-    /** @type {boolean} */
     this.running = false;
 
     /** @type {boolean} */
@@ -21,8 +18,7 @@ function v86(bus)
     bus.register("cpu-stop", this.stop, this);
     bus.register("cpu-restart", this.restart, this);
 
-    this.fast_next_tick = function() { console.assert(false); };
-    this.next_tick = function(time) { console.assert(false); };
+    this.register_tick();
 }
 
 v86.prototype.run = function()
@@ -72,84 +68,79 @@ v86.prototype.restart = function()
 
 v86.prototype.init = function(settings)
 {
-    if(this.first_init)
-    {
-        this.first_init = false;
-        this.lazy_init();
-    }
-
     this.cpu.init(settings, this.bus);
     this.bus.send("emulator-ready");
 };
 
-// initialization that only needs to be once
-v86.prototype.lazy_init = function()
+if(typeof setImmediate !== "undefined")
 {
-    var emulator = this;
-
-    if(typeof setImmediate !== "undefined")
+    v86.prototype.fast_next_tick = function()
     {
-        this.fast_next_tick = function()
-        {
-            setImmediate(function() { emulator.do_tick(); });
-        };
-    }
-    else if(typeof window !== "undefined" && typeof postMessage !== "undefined")
+        setImmediate(() => { this.do_tick(); });
+    };
+
+    v86.prototype.register_tick = function() {};
+}
+else if(typeof window !== "undefined" && typeof postMessage !== "undefined")
+{
+    // setImmediate shim for the browser.
+    // TODO: Make this deactivatable, for other applications
+    //       using postMessage
+
+    /** @const */
+    let MAGIC_POST_MESSAGE = 0xAA55;
+
+    v86.prototype.fast_next_tick = function()
     {
-        // setImmediate shim for the browser.
-        // TODO: Make this deactivatable, for other applications
-        //       using postMessage
+        window.postMessage(MAGIC_POST_MESSAGE, "*");
+    };
 
-        /** @const */
-        var MAGIC_POST_MESSAGE = 0xAA55;
-
-        window.addEventListener("message", function(e)
+    v86.prototype.register_tick = function()
+    {
+        window.addEventListener("message", (e) =>
         {
             if(e.source === window && e.data === MAGIC_POST_MESSAGE)
             {
-                emulator.do_tick();
+                this.do_tick();
             }
         }, false);
+    };
+}
+else
+{
+    v86.prototype.fast_next_tick = function()
+    {
+        setTimeout(() => { this.do_tick(); }, 0);
+    };
 
-        this.fast_next_tick = function()
-        {
-            window.postMessage(MAGIC_POST_MESSAGE, "*");
-        };
-    }
-    else
-    {
-        this.fast_next_tick = function()
-        {
-            setTimeout(function() { emulator.do_tick(); }, 0);
-        };
-    }
+    v86.prototype.register_tick = function() {};
+}
 
-    if(typeof document !== "undefined" && typeof document.hidden === "boolean")
+if(typeof document !== "undefined" && typeof document.hidden === "boolean")
+{
+    v86.prototype.next_tick = function(t)
     {
-        this.next_tick = function(t)
+        if(t < 4 || document.hidden)
         {
-            if(t < 4 || document.hidden)
-            {
-                // Avoid sleeping for 1 second (happens if page is not
-                // visible), it can break boot processes. Also don't try to
-                // sleep for less than 4ms, since the value is clamped up
-                this.fast_next_tick();
-            }
-            else
-            {
-                setTimeout(function() { emulator.do_tick(); }, t);
-            }
-        };
-    }
-    else
+            // Avoid sleeping for 1 second (happens if page is not
+            // visible), it can break boot processes. Also don't try to
+            // sleep for less than 4ms, since the value is clamped up
+            this.fast_next_tick();
+        }
+        else
+        {
+            setTimeout(() => { this.do_tick(); }, t);
+        }
+    };
+}
+else
+{
+    // In environments that aren't browsers, we might as well use setTimeout
+    v86.prototype.next_tick = function(t)
     {
-        // In environments that aren't browsers, we might as well use setTimeout
-        this.next_tick = function(t)
-        {
-            setTimeout(function() { emulator.do_tick(); }, t);
-        };
-    }
-};
+        setTimeout(() => { this.do_tick(); }, t);
+    };
+}
 
 v86.prototype.save_state = function()
 {
@@ -182,33 +173,4 @@ if(typeof performance === "object" && performance.now)
 else
 {
     v86.microtick = Date.now;
-}
-
-
-if(typeof window !== "undefined" && window.crypto && window.crypto.getRandomValues)
-{
-    v86._rand_data = new Int32Array(1);
-
-    v86.has_rand_int = function()
-    {
-        return true;
-    };
-
-    v86.get_rand_int = function()
-    {
-        window.crypto.getRandomValues(v86._rand_data);
-        return v86._rand_data[0];
-    };
-}
-else
-{
-    v86.has_rand_int = function()
-    {
-        return false;
-    };
-
-    v86.get_rand_int = function()
-    {
-        console.assert(false);
-    };
 }

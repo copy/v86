@@ -48,6 +48,36 @@ function h(n, len)
     return "0x" + v86util.pad0(str.toUpperCase(), len || 1);
 }
 
+
+if(typeof window !== "undefined" && window.crypto && window.crypto.getRandomValues)
+{
+    let rand_data = new Int32Array(1);
+
+    v86util.has_rand_int = function()
+    {
+        return true;
+    };
+
+    v86util.get_rand_int = function()
+    {
+        window.crypto.getRandomValues(rand_data);
+        return rand_data[0];
+    };
+}
+else
+{
+    v86util.has_rand_int = function()
+    {
+        return false;
+    };
+
+    v86util.get_rand_int = function()
+    {
+        console.assert(false);
+    };
+}
+
+
 /**
  * Synchronous access to ArrayBuffer
  * @constructor

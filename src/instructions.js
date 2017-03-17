@@ -2922,11 +2922,11 @@ t[0xC7] = cpu => {
             break;
 
         case 6:
-            var has_rand = v86.has_rand_int();
+            var has_rand = v86util.has_rand_int();
 
             if(has_rand)
             {
-                var rand = v86.get_rand_int();
+                var rand = v86util.get_rand_int();
             }
             else
             {
