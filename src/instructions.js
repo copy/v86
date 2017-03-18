@@ -2238,8 +2238,7 @@ t[0x34] = cpu => {
     cpu.segment_limits[reg_cs] = -1;
     cpu.segment_offsets[reg_cs] = 0;
 
-    if(!cpu.is_32)
-        cpu.update_cs_size(true);
+    cpu.update_cs_size(true);
 
     cpu.cpl = 0;
     cpu.cpl_changed();
@@ -2274,8 +2273,7 @@ t[0x35] = cpu => {
     cpu.segment_limits[reg_cs] = -1;
     cpu.segment_offsets[reg_cs] = 0;
 
-    if(!cpu.is_32)
-        cpu.update_cs_size(true);
+    cpu.update_cs_size(true);
 
     cpu.cpl = 3;
     cpu.cpl_changed();

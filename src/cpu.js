@@ -1577,11 +1577,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             this.cpl = info.dpl;
             this.cpl_changed();
 
-            dbg_assert(typeof info.size === "boolean");
-            if(this.is_32 !== info.size)
-            {
-                this.update_cs_size(info.size);
-            }
+            this.update_cs_size(info.size);
 
             this.flags &= ~flag_vm & ~flag_rf;
 
@@ -1678,12 +1674,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         this.sreg[reg_cs] = selector & ~3 | this.cpl;
         dbg_assert((this.sreg[reg_cs] & 3) === this.cpl);
 
-        dbg_assert(typeof info.size === "boolean");
-        dbg_assert(typeof this.is_32 === "boolean");
-        if(this.is_32 !== info.size)
-        {
-            this.update_cs_size(info.size);
-        }
+        this.update_cs_size(info.size);
 
         this.segment_limits[reg_cs] = info.effective_limit;
         this.segment_offsets[reg_cs] = info.base;
@@ -1997,11 +1988,7 @@ CPU.prototype.iret = function(is_16)
     this.sreg[reg_cs] = new_cs;
     dbg_assert((new_cs & 3) === this.cpl);
 
-    dbg_assert(typeof info.size === "boolean");
-    if(info.size !== this.is_32)
-    {
-        this.update_cs_size(info.size);
-    }
+    this.update_cs_size(info.size);
 
     this.segment_limits[reg_cs] = info.effective_limit;
     this.segment_offsets[reg_cs] = info.base;
@@ -2147,11 +2134,7 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
 
     //dbg_assert(this.cpl === info.dpl);
 
-    dbg_assert(typeof info.size === "boolean");
-    if(info.size !== this.is_32)
-    {
-        this.update_cs_size(info.size);
-    }
+    this.update_cs_size(info.size);
 
     this.segment_is_null[reg_cs] = 0;
     this.segment_limits[reg_cs] = info.effective_limit;
@@ -2327,10 +2310,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
                 this.cpl = cs_info.dpl;
                 this.cpl_changed();
 
-                if(this.is_32 !== cs_info.size)
-                {
-                    this.update_cs_size(cs_info.size);
-                }
+                this.update_cs_size(cs_info.size);
 
                 this.switch_seg(reg_ss, new_ss);
                 this.set_stack_reg(new_esp);
@@ -2411,10 +2391,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             dbg_log("call gate eip=" + h(new_eip >>> 0) + " cs=" + h(cs_selector) + " conforming=" + cs_info.dc_bit);
             dbg_assert((new_eip >>> 0) <= cs_info.effective_limit, "todo: #gp");
 
-            if(cs_info.size !== this.is_32)
-            {
-                this.update_cs_size(cs_info.size);
-            }
+            this.update_cs_size(cs_info.size);
 
             this.segment_is_null[reg_cs] = 0;
             this.segment_limits[reg_cs] = cs_info.effective_limit;
@@ -2484,10 +2461,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
 
         dbg_assert((eip >>> 0) <= info.effective_limit, "todo: #gp");
 
-        if(info.size !== this.is_32)
-        {
-            this.update_cs_size(info.size);
-        }
+        this.update_cs_size(info.size);
 
         this.segment_is_null[reg_cs] = 0;
         this.segment_limits[reg_cs] = info.effective_limit;
@@ -3268,11 +3242,14 @@ CPU.prototype.cpuid = function()
 
 CPU.prototype.update_cs_size = function(new_size)
 {
-    this.clear_instruction_cache();
+    dbg_assert(typeof new_size === "boolean");
 
-    this.is_32 = new_size;
-
-    this.update_operand_size();
+    if(this.is_32 !== new_size)
+    {
+        this.clear_instruction_cache();
+        this.is_32 = new_size;
+        this.update_operand_size();
+    }
 };
 
 CPU.prototype.update_operand_size = function()
