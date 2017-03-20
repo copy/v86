@@ -63,6 +63,18 @@ function screen_to_text(s)
     return result.join("\n");
 }
 
+function send_work_to_worker(worker, message)
+{
+    if(current_test < tests.length)
+    {
+        worker.send(tests[current_test]);
+        current_test++;
+    }
+    else
+    {
+        worker.disconnect();
+    }
+}
 
 if(cluster.isMaster)
 {
@@ -190,19 +202,6 @@ if(cluster.isMaster)
     console.log("Using %d cpus", nr_of_cpus);
 
     var current_test = 0;
-
-    function send_work_to_worker(worker, message)
-    {
-        if(current_test < tests.length)
-        {
-            worker.send(tests[current_test]);
-            current_test++;
-        }
-        else
-        {
-            worker.disconnect();
-        }
-    }
 
     for(var i = 0; i < nr_of_cpus; i++)
     {
