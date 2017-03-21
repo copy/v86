@@ -1960,9 +1960,9 @@ t[0x21] = cpu => { cpu.read_modrm_byte();
         cpu.trigger_gp(0);
     }
 
-    // TODO: mov from debug register
-    dbg_assert(cpu.modrm_byte >= 0xC0);
+    dbg_assert((cpu.cr[4] & (1 << 3)) === 0, "TODO");
 
+    // high two bits of modrm are ignored
     cpu.reg32s[cpu.modrm_byte & 7] = cpu.dreg[cpu.modrm_byte >> 3 & 7];
 
     //dbg_log("read dr" + (cpu.modrm_byte >> 3 & 7) + ": " + h(cpu.reg32[cpu.modrm_byte & 7]), LOG_CPU);
