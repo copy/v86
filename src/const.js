@@ -272,6 +272,9 @@ var MSR_SMI_COUNT = 0x34;
 var IA32_MCG_CAP = 0x179;
 
 /** @const */
+var IA32_KERNEL_GS_BASE = 0xC0000101 | 0;
+
+/** @const */
 var MSR_PKG_C2_RESIDENCY = 0x60D;
 
 

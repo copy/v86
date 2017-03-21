@@ -2119,6 +2119,11 @@ t[0x30] = cpu => {
             // netbsd
             break;
 
+        case IA32_KERNEL_GS_BASE:
+            // Only used in 64 bit mode (by SWAPGS), but set by kvm-unit-test
+            dbg_log("GS Base written", LOG_CPU);
+            break;
+
         default:
             dbg_assert(false, "Unknown msr: " + h(index >>> 0, 8));
     }
