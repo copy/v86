@@ -698,7 +698,7 @@ CPU.prototype.bcd_das = function()
     {
         this.reg8[reg_al] -= 6;
         this.flags |= flag_adjust;
-        this.flags = this.flags & ~1 | old_cf | this.reg8[reg_al] >> 7;
+        this.flags = this.flags & ~1 | old_cf | (old_al < 6);
     }
     else
     {
