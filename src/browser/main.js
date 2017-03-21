@@ -286,7 +286,7 @@
                 fda: {
                     "url": ON_LOCALHOST ?
                             "images/kolibri.img" :
-                            "http://builds.kolibrios.org/eng/data/data/kolibri.img",
+                            "//builds.kolibrios.org/eng/data/data/kolibri.img",
                     "size": 1474560,
                 },
                 name: "KolibriOS",
@@ -294,7 +294,7 @@
             {
                 id: "kolibrios-fallback",
                 fda: {
-                    "url": "images/kolibri.img",
+                    "url": HOST + "images/kolibri.img",
                     "size": 1474560,
                 },
                 name: "KolibriOS",
