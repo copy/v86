@@ -1915,7 +1915,11 @@ t[0x1B] = cpu => { cpu.unimplemented_sse(); };
 t[0x1C] = cpu => { cpu.unimplemented_sse(); };
 t[0x1D] = cpu => { cpu.unimplemented_sse(); };
 t[0x1E] = cpu => { cpu.unimplemented_sse(); };
-t[0x1F] = cpu => { cpu.unimplemented_sse(); };
+t[0x1F] = cpu => { cpu.read_modrm_byte()
+    // multi-byte nop
+    if(cpu.modrm_byte < 0xC0)
+        cpu.modrm_resolve(cpu.modrm_byte);
+};
 
 
 t[0x20] = cpu => { cpu.read_modrm_byte();
