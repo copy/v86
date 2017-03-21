@@ -1236,7 +1236,6 @@
 
         $("step").onclick = debug.step.bind(debug);
         $("run_until").onclick = debug.run_until.bind(debug);
-        $("debugger").onclick = debug.debugger.bind(debug);
         $("dump_gdt").onclick = debug.dump_gdt_ldt.bind(debug);
         $("dump_idt").onclick = debug.dump_idt.bind(debug);
         $("dump_regs").onclick = debug.dump_regs.bind(debug);

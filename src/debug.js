@@ -85,14 +85,6 @@ CPU.prototype.debug_init = function()
     debug.step = step;
     debug.run_until = run_until;
 
-    debug.debugger = function()
-    {
-        if(DEBUG)
-        {
-            debugger;
-        }
-    }
-
     /**
      * @param {string=} msg
      */
