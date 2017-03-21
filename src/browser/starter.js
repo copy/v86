@@ -245,11 +245,11 @@ function V86Starter(options)
 
             if(file.async)
             {
-                var buffer = new v86util.SyncFileBuffer(file.buffer);
+                var buffer = new v86util.AsyncFileBuffer(file.buffer);
             }
             else
             {
-                var buffer = new v86util.AsyncFileBuffer(file.buffer);
+                var buffer = new v86util.SyncFileBuffer(file.buffer);
             }
 
             files_to_load.push({
