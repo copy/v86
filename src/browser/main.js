@@ -3,7 +3,7 @@
 (function()
 {
     /** @const */
-    var ON_LOCALHOST = location.host.indexOf(".") === -1;
+    var ON_LOCALHOST = !location.hostname.endsWith("copy.sh");
 
     /** @const */
     var HOST = ON_LOCALHOST ? "" : "//i.copy.sh/";
