@@ -385,6 +385,7 @@
                     "size": 276971224,
                 },
                 name: "ReactOS",
+                description: 'Running <a href="https://reactos.org/">ReactOS</a>',
             },
         ];
 
@@ -482,6 +483,12 @@
             if(infos.boot_order !== undefined)
             {
                 settings.boot_order = infos.boot_order;
+            }
+
+            if(!DEBUG && infos.description)
+            {
+                $("description").style.display = "block";
+                $("description").innerHTML = "<br>" + infos.description;
             }
 
             start_emulation(settings, done);
