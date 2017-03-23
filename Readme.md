@@ -129,13 +129,13 @@ Here's an overview of the operating systems supported in v86:
     terminal.
   - Nanolinux works.
   - Archlinux works. Add `atkbd` to `MODULES` in `/etc/mkinitcpio.conf`.
-- FreeDOS and Windows 1.01 run very well.
+- FreeDOS, Windows 1.01 and MS-DOS run very well.
 - KolibriOS works. A few applications need SSE.
 - Haiku boots, but takes very long (around 30 minutes).
-- ReactOS doesn't work.
 - No Android version seems to work, you still get a shell.
-- Windows 1, 95 and 98 work. Other versions current don't.
+- Windows 1, 95 and 98 work. Other versions currently don't.
 - Many hobby operating systems work.
+- Modern operating systems that require an APIC don't work.
 
 You can get some infos on the disk images here: https://github.com/copy/images.
 
