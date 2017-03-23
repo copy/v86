@@ -105,8 +105,8 @@ CPU.prototype.movsw = function()
         if(!(dest & 1) && !(src & 1))
         {
             var single_size = size < 0 ? -1 : 1;
-            var phys_src = cpu.translate_address_read(src) >> 1;
-            var phys_dest = cpu.translate_address_write(dest) >> 1;
+            var phys_src = cpu.translate_address_read(src) >>> 1;
+            var phys_dest = cpu.translate_address_write(dest) >>> 1;
             if(cpu.paging)
             {
                 cycle_counter = string_get_cycle_count2(size, src, dest);
@@ -347,8 +347,8 @@ function cmpsw(cpu)
         if(!(dest & 1) && !(src & 1))
         {
             var single_size = size < 0 ? -1 : 1;
-            var phys_src = cpu.translate_address_read(src) >> 1;
-            var phys_dest = cpu.translate_address_read(dest) >> 1;
+            var phys_src = cpu.translate_address_read(src) >>> 1;
+            var phys_dest = cpu.translate_address_read(dest) >>> 1;
             if(cpu.paging)
             {
                 cycle_counter = string_get_cycle_count2(size, src, dest);
@@ -527,7 +527,7 @@ function stosw(cpu)
         if(!(dest & 1))
         {
             var single_size = size < 0 ? -1 : 1;
-            var phys_dest = cpu.translate_address_write(dest) >> 1;
+            var phys_dest = cpu.translate_address_write(dest) >>> 1;
             if(cpu.paging)
             {
                 cycle_counter = string_get_cycle_count(size, dest);
@@ -794,7 +794,7 @@ function scasw(cpu)
         if(!(dest & 1))
         {
             var single_size = size < 0 ? -1 : 1;
-            var phys_dest = cpu.translate_address_read(dest) >> 1;
+            var phys_dest = cpu.translate_address_read(dest) >>> 1;
             if(cpu.paging)
             {
                 cycle_counter = string_get_cycle_count(size, dest);
@@ -960,7 +960,7 @@ function insw(cpu)
         if(!(dest & 1))
         {
             var single_size = size < 0 ? -1 : 1;
-            var phys_dest = cpu.translate_address_write(dest) >> 1;
+            var phys_dest = cpu.translate_address_write(dest) >>> 1;
             if(cpu.paging)
             {
                 cycle_counter = string_get_cycle_count(size, dest);
@@ -1122,7 +1122,7 @@ function outsw(cpu)
         if(!(src & 1))
         {
             var single_size = size < 0 ? -1 : 1;
-            var phys_src = cpu.translate_address_read(src) >> 1;
+            var phys_src = cpu.translate_address_read(src) >>> 1;
             if(cpu.paging)
             {
                 cycle_counter = string_get_cycle_count(size, src);
