@@ -234,6 +234,9 @@ function CPU()
     // debug registers
     this.dreg = new Int32Array(8);
 
+    /** @type {number} */
+    this.fw_value = 0;
+
     // dynamic instruction translator
     this.translator = undefined;
 
@@ -318,6 +321,7 @@ CPU.prototype.get_state = function()
     state[60] = this.devices.pic;
 
     state[61] = this.a20_enabled;
+    state[62] = this.fw_value;
 
     return state;
 };
@@ -386,6 +390,7 @@ CPU.prototype.set_state = function(state)
     this.devices.pic = state[60];
 
     this.a20_enabled = state[61];
+    this.fw_value = state[62];
 
     this.mem16 = new Uint16Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 1);
     this.mem32s = new Int32Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 2);
@@ -539,6 +544,8 @@ CPU.prototype.reset = function()
     {
         this.devices.virtio.reset();
     }
+
+    this.fw_value = 0;
 };
 
 /** @export */
@@ -602,8 +609,34 @@ CPU.prototype.init = function(settings, device_bus)
 
     io.register_read(0x511, this, function()
     {
-        // qemu config port (used by seabios)
-        return 0;
+        // bios config port (used by seabios and kvm-unit-test)
+        let result = this.fw_value & 0xFF;
+        this.fw_value >>>= 8;
+        return result;
+    });
+    io.register_write(0x510, this, undefined, function(value)
+    {
+        dbg_log("bios config port, index=" + h(value));
+
+        if(value === FW_CFG_SIGNATURE)
+        {
+            // We could pretend to be QEMU here to control certain options in
+            // seabios, but for now this isn't needed
+            this.fw_value = 0xfab0fab0|0;
+        }
+        else if(value === FW_CFG_RAM_SIZE)
+        {
+            this.fw_value = this.memory_size;
+        }
+        else if(value === FW_CFG_NB_CPUS)
+        {
+            this.fw_value = 1;
+        }
+        else
+        {
+            dbg_assert(false, "Unimplemented fw index: " + h(value));
+            this.fw_value = 0;
+        }
     });
 
     if(DEBUG)
@@ -794,7 +827,6 @@ CPU.prototype.load_bios = function()
             addr &= 0xFFFFF;
             this.mem8[addr] = value;
         }.bind(this));
-
 };
 
 CPU.prototype.do_run = function()

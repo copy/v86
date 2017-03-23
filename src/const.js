@@ -301,6 +301,11 @@ var MSR_PKG_C2_RESIDENCY = 0x60D;
 /** @const */ var TSR_LDT = 0x60;
 
 
+/** @const */ var FW_CFG_SIGNATURE = 0x00;
+/** @const */ var FW_CFG_RAM_SIZE = 0x03;
+/** @const */ var FW_CFG_NB_CPUS = 0x05;
+
+
 /** @const */
 var PREFIX_MASK_REP = 0b11000;
 /** @const */
