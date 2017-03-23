@@ -7,4 +7,3 @@ A couple of test cases.
   contained in the `linux.iso` image and automatically run in the full test.
 - [perf-irhydra](perf-irhydra/): Manual performance test. Probably not
   interesting for you.
-- [perf](perf/): Very simple performance test. Probably not interesting for you.
