@@ -202,8 +202,8 @@ CPU.prototype.movsd = function()
                 cpu.add_reg_asize(reg_edi, diff);
                 cpu.add_reg_asize(reg_esi, diff);
 
-                dest >>= 2;
-                src >>= 2;
+                dest >>>= 2;
+                src >>>= 2;
                 cpu.write_blob32(cpu.mem32s.subarray(src, src + count), dest);
 
                 if(cont)
