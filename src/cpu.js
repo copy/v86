@@ -308,7 +308,7 @@ CPU.prototype.get_state = function()
     state[47] = this.devices.rtc;
     state[48] = this.devices.pci;
     state[49] = this.devices.dma;
-    //state[50] = this.devices.acpi;
+    state[50] = this.devices.acpi;
     state[51] = this.devices.hpet;
     state[52] = this.devices.vga;
     state[53] = this.devices.ps2;
@@ -377,7 +377,7 @@ CPU.prototype.set_state = function(state)
     this.devices.rtc = state[47];
     this.devices.pci = state[48];
     this.devices.dma = state[49];
-    //this.devices.acpi = state[50];
+    this.devices.acpi = state[50];
     this.devices.hpet = state[51];
     this.devices.vga = state[52];
     this.devices.ps2 = state[53];
@@ -855,6 +855,7 @@ CPU.prototype.do_run = function()
 
         if(ENABLE_ACPI)
         {
+            this.devices.acpi.timer(now);
             this.devices.apic.timer(now);
         }
 
@@ -1026,6 +1027,7 @@ CPU.prototype.hlt_loop = function()
 
     if(ENABLE_ACPI)
     {
+        this.devices.acpi.timer(now);
         this.devices.apic.timer(now);
     }
 
