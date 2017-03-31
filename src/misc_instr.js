@@ -403,6 +403,7 @@ CPU.prototype.lss16 = function(seg)
 {
     if(this.modrm_byte >= 0xC0)
     {
+        // 0xc4c4 #ud (EMULATOR_BOP) is used by reactos and windows to exit vm86 mode
         this.trigger_ud();
     }
 
