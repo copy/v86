@@ -41,7 +41,7 @@ var LOOP_COUNTER = 11001;
  * How often, in milliseconds, to yield to the browser for rendering and
  * running events
  */
-var TIME_PER_FRAME = 8;
+var TIME_PER_FRAME = 1;
 
 /**
  * @const
