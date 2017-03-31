@@ -1914,7 +1914,7 @@ CPU.prototype.iret = function(is_16)
     if(!info.dc_bit && info.rpl !== info.dpl)
     {
         dbg_log("#gp iret: non-conforming cs and rpl != dpl, dpl=" + info.dpl + " rpl=" + info.rpl, LOG_CPU);
-        this.trigger_gp(0);
+        this.trigger_gp(new_cs & ~3);
     }
 
     if(info.rpl > this.cpl)
