@@ -841,25 +841,9 @@ CPU.prototype.do_run = function()
     // runs cycles + timers
     for(; now - start < TIME_PER_FRAME;)
     {
-        if(ENABLE_HPET)
-        {
-            this.devices.pit.timer(now, this.devices.hpet.legacy_mode);
-            this.devices.rtc.timer(now, this.devices.hpet.legacy_mode);
-            this.devices.hpet.timer(now);
-        }
-        else
-        {
-            this.devices.pit.timer(now, false);
-            this.devices.rtc.timer(now, false);
-        }
-
-        if(ENABLE_ACPI)
-        {
-            this.devices.acpi.timer(now);
-            this.devices.apic.timer(now);
-        }
-
+        this.run_hardware_timers(now);
         this.handle_irqs();
+
         this.do_many_cycles();
 
         if(this.in_hlt)
@@ -1011,8 +995,14 @@ CPU.prototype.hlt_loop = function()
     dbg_assert(this.flags & flag_interrupt);
     //dbg_log("In HLT loop", LOG_CPU);
 
-    var now = v86.microtick();
+    this.run_hardware_timers(v86.microtick());
+    this.handle_irqs();
 
+    return 0;
+};
+
+CPU.prototype.run_hardware_timers = function(now)
+{
     if(ENABLE_HPET)
     {
         var pit_time = this.devices.pit.timer(now, this.devices.hpet.legacy_mode);
@@ -1030,8 +1020,6 @@ CPU.prototype.hlt_loop = function()
         this.devices.acpi.timer(now);
         this.devices.apic.timer(now);
     }
-
-    return pit_time < rtc_time ? pit_time : rtc_time;
 };
 
 CPU.prototype.clear_prefixes = function()
