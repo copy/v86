@@ -221,6 +221,8 @@ var
     /** @const */
     CR4_PSE = 1 << 4,
     /** @const */
+    CR4_DE = 1 << 3,
+    /** @const */
     CR4_PAE = 1 << 5,
     /** @const */
     CR4_PGE = 1 << 7;

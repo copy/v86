@@ -1960,12 +1960,17 @@ t[0x21] = cpu => { cpu.read_modrm_byte();
         cpu.trigger_gp(0);
     }
 
-    dbg_assert((cpu.cr[4] & (1 << 3)) === 0, "TODO");
+    var dreg = cpu.modrm_byte >> 3 & 7;
+    if((cpu.cr[4] & CR4_DE) && (dreg === 4 || dreg === 5))
+    {
+        dbg_log("#ud mov dreg 4/5 with cr4.DE set", LOG_CPU);
+        cpu.trigger_ud();
+    }
 
     // high two bits of modrm are ignored
-    cpu.reg32s[cpu.modrm_byte & 7] = cpu.dreg[cpu.modrm_byte >> 3 & 7];
+    cpu.reg32s[cpu.modrm_byte & 7] = cpu.dreg[dreg];
 
-    //dbg_log("read dr" + (cpu.modrm_byte >> 3 & 7) + ": " + h(cpu.reg32[cpu.modrm_byte & 7]), LOG_CPU);
+    //dbg_log("read dr" + dreg + ": " + h(cpu.dreg[dreg] >>> 0), LOG_CPU);
 };
 
 t[0x22] = cpu => { cpu.read_modrm_byte();
@@ -2045,11 +2050,17 @@ t[0x23] = cpu => { cpu.read_modrm_byte();
         cpu.trigger_gp(0);
     }
 
-    // TODO: mov to debug register
-    dbg_assert(cpu.modrm_byte >= 0xC0);
-    //dbg_log("write dr" + (cpu.modrm_byte >> 3 & 7) + ": " + h(cpu.reg32[cpu.modrm_byte & 7]), LOG_CPU);
+    var dreg = cpu.modrm_byte >> 3 & 7;
+    if((cpu.cr[4] & CR4_DE) && (dreg === 4 || dreg === 5))
+    {
+        dbg_log("#ud mov dreg 4/5 with cr4.DE set", LOG_CPU);
+        cpu.trigger_ud();
+    }
 
-    cpu.dreg[cpu.modrm_byte >> 3 & 7] = cpu.read_reg_e32s();
+    // high two bits of modrm are ignored
+    cpu.dreg[dreg] = cpu.read_reg_e32s();
+
+    //dbg_log("write dr" + dreg + ": " + h(cpu.dreg[dreg] >>> 0), LOG_CPU);
 };
 
 t[0x24] = cpu => { cpu.undefined_instruction(); };
