@@ -1427,8 +1427,9 @@ CPU.prototype.get_real_eip = function()
 CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, error_code)
 {
     //dbg_log("int " + h(interrupt_nr, 2) + " (" + (is_software_int ? "soft" : "hard") + "ware)", LOG_CPU);
-    CPU_LOG_VERBOSE && this.debug.dump_state("int " + h(interrupt_nr) + " start");
-    //this.debug.dump_regs_short();
+    CPU_LOG_VERBOSE && this.debug.dump_state("int " + h(interrupt_nr) + " start" +
+        " (" + (is_software_int ? "soft" : "hard") + "ware)");
+    CPU_LOG_VERBOSE && this.debug.dump_regs();
 
     this.debug.debug_interrupt(interrupt_nr);
 
@@ -1546,7 +1547,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             // interrupt from vm86 mode
 
             //dbg_log("Inter privilege interrupt gate=" + h(selector, 4) + ":" + h(base >>> 0, 8) + " trap=" + is_trap + " 16bit=" + is_16, LOG_CPU);
-            //this.debug.dump_regs_short();
+            //this.debug.dump_regs();
             var tss_stack_addr = this.get_tss_stack_addr(info.dpl);
 
             var new_esp = this.read32s(tss_stack_addr);
@@ -1583,7 +1584,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             if(old_flags & flag_vm)
             {
                 //dbg_log("return from vm86 mode");
-                //this.debug.dump_regs_short();
+                //this.debug.dump_regs();
                 dbg_assert(info.dpl === 0, "switch to non-0 dpl from vm86 mode");
             }
 
@@ -1639,7 +1640,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             //dbg_log("Intra privilege interrupt gate=" + h(selector, 4) + ":" + h(base >>> 0, 8) +
             //        " trap=" + is_trap + " 16bit=" + is_16 +
             //        " cpl=" + this.cpl + " dpl=" + info.dpl + " conforming=" + +info.dc_bit, LOG_CPU);
-            //this.debug.dump_regs_short();
+            //this.debug.dump_regs();
 
             if(this.flags & flag_vm)
             {
@@ -1691,7 +1692,6 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             this.switch_seg(reg_ds, 0);
             this.switch_seg(reg_es, 0);
         }
-
 
         this.sreg[reg_cs] = selector & ~3 | this.cpl;
         dbg_assert((this.sreg[reg_cs] & 3) === this.cpl);
@@ -1755,7 +1755,7 @@ CPU.prototype.iret = function(is_16)
 {
     //dbg_log("iret is_16=" + is_16, LOG_CPU);
     CPU_LOG_VERBOSE && this.debug.dump_state("iret" + (is_16 ? "16" : "32") + " start");
-    //this.debug.dump_regs_short();
+    //this.debug.dump_regs();
 
     if(this.vm86_mode() && this.getiopl() < 3)
     {
@@ -1862,7 +1862,7 @@ CPU.prototype.iret = function(is_16)
 
             //dbg_log("iret32 to:", LOG_CPU);
             CPU_LOG_VERBOSE && this.debug.dump_state("iret end");
-            //this.debug.dump_regs_short();
+            //this.debug.dump_regs();
 
             return;
         }
@@ -2164,6 +2164,7 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
 
     this.segment_offsets[reg_cs] = info.base;
     this.sreg[reg_cs] = selector;
+
     dbg_assert((selector & 3) === this.cpl);
 
     this.instruction_pointer = this.get_seg(reg_cs) + eip | 0;
@@ -2687,7 +2688,7 @@ CPU.prototype.raise_exception = function(interrupt_nr)
     //    // show interesting exceptions
     //    dbg_log("Exception " + h(interrupt_nr) + " at " + h(this.previous_ip >>> 0, 8) + " (cs=" + h(this.sreg[reg_cs], 4) + ")", LOG_CPU);
     //    dbg_trace(LOG_CPU);
-    //    this.debug.dump_regs_short();
+    //    this.debug.dump_regs();
     //    this.debug.dump_state();
     //}
 
@@ -2703,7 +2704,7 @@ CPU.prototype.raise_exception_with_code = function(interrupt_nr, error_code)
     //{
     //    dbg_log("Exception " + h(interrupt_nr) + " err=" + h(error_code) + " at " + h(this.previous_ip >>> 0, 8) + " (cs=" + h(this.sreg[reg_cs], 4) + ")", LOG_CPU);
     //    dbg_trace(LOG_CPU);
-    //    this.debug.dump_regs_short();
+    //    this.debug.dump_regs();
     //}
 
     this.call_interrupt_vector(interrupt_nr, false, error_code);
@@ -3487,7 +3488,7 @@ CPU.prototype.switch_seg = function(reg, selector)
         ) {
             dbg_log("#GP for loading invalid in seg " + reg + " sel=" + h(selector, 4), LOG_CPU);
             this.debug.dump_state();
-            this.debug.dump_regs_short();
+            this.debug.dump_regs();
             dbg_trace(LOG_CPU);
             this.trigger_gp(selector & ~3);
         }

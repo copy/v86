@@ -1264,9 +1264,20 @@
             }
         };
 
+        var cpu = emulator.v86.cpu;
+
+        $("debug_panel").style.display = "block";
+        setInterval(function()
+        {
+            $("debug_panel").textContent =
+                cpu.debug.get_regs_short().join("\n") + "\n"
+            + cpu.debug.get_state();
+        }, 1000);
+
         // helps debugging
         window.emulator = emulator;
-        window.cpu = emulator.v86.cpu;
+        window.cpu = cpu;
+        window.dump_file = dump_file;
     }
 
     function onpopstate(e)
