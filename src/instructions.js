@@ -2112,7 +2112,11 @@ t[0x30] = cpu => {
             break;
 
         case IA32_APIC_BASE_MSR:
-            dbg_assert((low >>> 0) === APIC_ADDRESS, "Changing APIC address not supported");
+            dbg_assert(high === 0, "Changing APIC address (high 32 bits) not supported");
+            let address = low & ~(IA32_APIC_BASE_BSP | IA32_APIC_BASE_EXTD | IA32_APIC_BASE_EN);
+            dbg_assert((address >>> 0) === APIC_ADDRESS, "Changing APIC address not supported");
+            dbg_assert((low & IA32_APIC_BASE_EXTD) === 0, "x2apic not supported");
+            cpu.apic_enabled = (low & IA32_APIC_BASE_EN) === IA32_APIC_BASE_EN;
             break;
 
         case IA32_TIME_STAMP_COUNTER:
@@ -2200,6 +2204,11 @@ t[0x32] = cpu => {
             if(ENABLE_ACPI)
             {
                 low = APIC_ADDRESS;
+
+                if(cpu.apic_enabled)
+                {
+                    low |= IA32_APIC_BASE_EN;
+                }
             }
             break;
 

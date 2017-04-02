@@ -27,7 +27,7 @@ var LOG_LEVEL = LOG_ALL & ~LOG_PS2 & ~LOG_PIT & ~LOG_VIRTIO & ~LOG_9P & ~LOG_PIC
 var ENABLE_HPET = DEBUG && false;
 
 /** @const */
-var ENABLE_ACPI = DEBUG && false;
+var ENABLE_ACPI = true;
 
 
 /**
@@ -48,3 +48,7 @@ var TIME_PER_FRAME = 1;
  * How many ticks the TSC does per millisecond
  */
 var TSC_RATE = 8 * 1024;
+
+
+/** @const */
+var APIC_TIMER_FREQ = TSC_RATE;

@@ -200,6 +200,8 @@ function CPU()
     /** @type {number} */
     this.previous_ip = 0;
 
+    this.apic_enabled = true;
+
     // managed in io.js
     /** @const */ this.memory_map_read8 = [];
     /** @const */ this.memory_map_write8 = [];
@@ -304,7 +306,7 @@ CPU.prototype.get_state = function()
     state[43] = this.fpu;
 
     state[45] = this.devices.virtio;
-    //state[46] = this.devices.apic;
+    state[46] = this.devices.apic;
     state[47] = this.devices.rtc;
     state[48] = this.devices.pci;
     state[49] = this.devices.dma;
@@ -322,6 +324,8 @@ CPU.prototype.get_state = function()
 
     state[61] = this.a20_enabled;
     state[62] = this.fw_value;
+
+    state[63] = this.devices.ioapic;
 
     return state;
 };
@@ -373,7 +377,7 @@ CPU.prototype.set_state = function(state)
     this.fpu = state[43];
 
     this.devices.virtio = state[45];
-    //this.devices.apic = state[46];
+    this.devices.apic = state[46];
     this.devices.rtc = state[47];
     this.devices.pci = state[48];
     this.devices.dma = state[49];
@@ -391,6 +395,8 @@ CPU.prototype.set_state = function(state)
 
     this.a20_enabled = state[61];
     this.fw_value = state[62];
+
+    this.devices.ioapic = state[63];
 
     this.mem16 = new Uint16Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 1);
     this.mem32s = new Int32Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 2);
@@ -658,6 +664,7 @@ CPU.prototype.init = function(settings, device_bus)
 
         if(ENABLE_ACPI)
         {
+            this.devices.ioapic = new IOAPIC(this);
             this.devices.apic = new APIC(this);
             this.devices.acpi = new ACPI(this);
         }
@@ -3108,9 +3115,9 @@ CPU.prototype.device_raise_irq = function(i)
         this.devices.pic.set_irq(i);
     }
 
-    if(this.devices.apic)
+    if(this.devices.ioapic)
     {
-        this.devices.apic.set_irq(i);
+        this.devices.ioapic.set_irq(i);
     }
 };
 
@@ -3121,9 +3128,9 @@ CPU.prototype.device_lower_irq = function(i)
         this.devices.pic.clear_irq(i);
     }
 
-    if(this.devices.apic)
+    if(this.devices.ioapic)
     {
-        this.devices.apic.clear_irq(i);
+        this.devices.ioapic.clear_irq(i);
     }
 };
 
@@ -3206,7 +3213,7 @@ CPU.prototype.cpuid = function()
                     vme | 1 << 3 | 1 << 4 | 1 << 5 |   // vme, pse, tsc, msr
                     1 << 8 | 1 << 11 | 1 << 13 | 1 << 15; // cx8, sep, pge, cmov
 
-            if(ENABLE_ACPI)
+            if(ENABLE_ACPI && this.apic_enabled)
             {
                 edx |= 1 << 9; // apic
             }

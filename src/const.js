@@ -280,6 +280,14 @@ var IA32_KERNEL_GS_BASE = 0xC0000101 | 0;
 var MSR_PKG_C2_RESIDENCY = 0x60D;
 
 
+/** @const */
+var IA32_APIC_BASE_BSP = 1 << 8;
+/** @const */
+var IA32_APIC_BASE_EXTD = 1 << 10;
+/** @const */
+var IA32_APIC_BASE_EN = 1 << 11;
+
+
 /** @const */ var TSR_BACKLINK = 0x00;
 /** @const */ var TSR_CR3 = 0x1C;
 /** @const */ var TSR_EIP = 0x20;
