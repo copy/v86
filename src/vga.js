@@ -902,6 +902,8 @@ VGAScreen.prototype.port3C5_write = function(value)
 
 VGAScreen.prototype.port3C5_read = function()
 {
+    dbg_log("3C5 / sequencer read " + h(this.sequencer_index), LOG_VGA);
+
     switch(this.sequencer_index)
     {
         case 0x02:
@@ -911,7 +913,6 @@ VGAScreen.prototype.port3C5_read = function()
         case 0x06:
             return 0x12;
         default:
-            dbg_log("3C5 / sequencer read " + h(this.sequencer_index), LOG_VGA);
     }
     return 0;
 };
@@ -959,6 +960,8 @@ VGAScreen.prototype.port3C9_write = function(color_byte)
 
 VGAScreen.prototype.port3C9_read = function()
 {
+    dbg_log("3C9 read", LOG_VGA);
+
     var index = this.dac_color_index_read / 3 | 0;
     var offset = this.dac_color_index_read % 3;
     var color = this.vga256_palette[index];
@@ -969,6 +972,7 @@ VGAScreen.prototype.port3C9_read = function()
 
 VGAScreen.prototype.port3CC_read = function()
 {
+    dbg_log("3CC read", LOG_VGA);
     return this.miscellaneous_output_register;
 };
 
@@ -1014,6 +1018,8 @@ VGAScreen.prototype.port3CF_write = function(value)
 
 VGAScreen.prototype.port3CF_read = function()
 {
+    dbg_log("3CF / graphics read " + h(this.graphics_index), LOG_VGA);
+
     switch(this.graphics_index)
     {
         case 3:
@@ -1025,7 +1031,6 @@ VGAScreen.prototype.port3CF_read = function()
         case 8:
             return this.planar_bitmap;
         default:
-            dbg_log("3CF / graphics read " + h(this.graphics_index), LOG_VGA);
     }
     return 0;
 };
@@ -1105,6 +1110,8 @@ VGAScreen.prototype.port3D5_write = function(value)
 
 VGAScreen.prototype.port3D5_read = function()
 {
+    dbg_log("3D5 read " + h(this.index_crtc), LOG_VGA);
+
     switch(this.index_crtc)
     {
         case 0x9:
@@ -1129,7 +1136,6 @@ VGAScreen.prototype.port3D5_read = function()
             return this.offset_register;
     }
 
-    dbg_log("3D5 read " + h(this.index_crtc), LOG_VGA);
     if(this.index_crtc < this.crtc.length)
     {
         return this.crtc[this.index_crtc];
@@ -1142,6 +1148,8 @@ VGAScreen.prototype.port3D5_read = function()
 
 VGAScreen.prototype.port3DA_read = function()
 {
+    dbg_log("3DA read", LOG_VGA)
+
     // status register
     this.port_3DA_value ^= 8;
     this.attribute_controller_index = -1
