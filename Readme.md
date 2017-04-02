@@ -136,7 +136,7 @@ Here's an overview of the operating systems supported in v86:
 - No Android version seems to work, you still get a shell.
 - Windows 1, 95 and 98 work. Other versions currently don't.
 - Many hobby operating systems work.
-- Modern operating systems that require an APIC don't work.
+- FreeBSD works
 
 You can get some infos on the disk images here: https://github.com/copy/images.
 
