@@ -720,9 +720,188 @@ CPU.prototype.init = function(settings, device_bus)
         }
     }
 
+    if(settings.multiboot)
+    {
+        dbg_assert(settings.multiboot.buffer);
+        this.load_multiboot(settings.multiboot.buffer);
+    }
+
     if(DEBUG)
     {
         this.debug.init();
+    }
+};
+
+CPU.prototype.load_multiboot = function(buffer)
+{
+    // https://www.gnu.org/software/grub/manual/multiboot/multiboot.html
+
+    dbg_log("Trying multiboot from buffer of size " + buffer.byteLength, LOG_CPU);
+
+    const MAGIC = 0x1BADB002;
+    const ELF_MAGIC = 0x464C457F;
+    const MULTIBOOT_HEADER_ADDRESS = 0x10000;
+    const MULTIBOOT_SEARCH_BYTES = 8192;
+
+    var buf32 = new Int32Array(buffer);
+
+    for(var offset = 0; offset < MULTIBOOT_SEARCH_BYTES; offset += 4)
+    {
+        if(buf32[offset >> 2] === MAGIC)
+        {
+            var flags = buf32[offset + 4 >> 2];
+            var checksum = buf32[offset + 8 >> 2];
+            var total = MAGIC + flags + checksum | 0;
+
+            if(total)
+            {
+                dbg_log("Multiboot checksum check failed", LOG_CPU);
+                continue
+            }
+        }
+        else
+        {
+            continue;
+        }
+
+        dbg_log("Multiboot magic found, flags: " + h(flags >>> 0, 8), LOG_CPU);
+        dbg_assert((flags & ~MULTIBOOT_HEADER_ADDRESS) === 0, "TODO");
+
+        this.reg32s[reg_eax] = 0x2BADB002;
+
+        let multiboot_info_addr = 0x7C00
+        this.reg32s[reg_ebx] = multiboot_info_addr;
+        this.write32(multiboot_info_addr, 0);
+
+        this.cr[0] = 1;
+        this.protected_mode = true;
+        this.flags = flags_default
+        this.update_cs_size(true);
+        this.stack_size_32 = true;
+
+        for(var i = 0; i < 6; i++)
+        {
+            this.segment_is_null[i] = 0;
+            this.segment_offsets[i] = 0;
+            this.segment_limits[i] = 0xFFFFFFFF;
+
+            // Value doesn't matter, OS isn't allowed to reload without setting
+            // up a proper GDT
+            this.sreg[i] = 0xB002;
+        }
+
+        if(flags & MULTIBOOT_HEADER_ADDRESS)
+        {
+            dbg_log("Multiboot specifies its own address table", LOG_CPU);
+
+            var header_addr = buf32[offset + 12 >> 2];
+            var load_addr = buf32[offset + 16 >> 2];
+            var load_end_addr = buf32[offset + 20 >> 2];
+            var bss_end_addr = buf32[offset + 24 >> 2];
+            var entry_addr = buf32[offset + 28 >> 2];
+
+            dbg_log("header=" + h(header_addr, 8) +
+                    " load=" + h(load_addr, 8) +
+                    " load_end=" + h(load_end_addr, 8) +
+                    " bss_end=" + h(bss_end_addr, 8) +
+                    " entry=" + h(entry_addr, 8))
+
+            dbg_assert(load_addr <= header_addr);
+
+            var file_start = offset - (header_addr - load_addr);
+
+            if(load_end_addr === 0)
+            {
+                var length = undefined;
+            }
+            else
+            {
+                dbg_assert(load_end_addr >= load_addr);
+                var length = load_end_addr - load_addr;
+            }
+
+            let blob = new Uint8Array(buffer, file_start, length);
+            this.write_blob(blob, load_addr);
+
+            this.instruction_pointer = this.get_seg(reg_cs) + entry_addr | 0;
+        }
+        else if(buf32[0] === ELF_MAGIC)
+        {
+            dbg_log("Multiboot image is in elf format", LOG_CPU);
+
+            let elf = read_elf(buffer);
+
+            this.instruction_pointer = this.get_seg(reg_cs) + elf.header.entry | 0;
+
+            for(let program of elf.program_headers)
+            {
+                if(program.type === 0)
+                {
+                    // null
+                }
+                else if(program.type === 1)
+                {
+                    // load
+
+                    // Since multiboot specifies that paging is disabled,
+                    // virtual and physical address must be equal
+                    dbg_assert(program.paddr === program.vaddr);
+                    dbg_assert(program.filesz <= program.memsz);
+
+                    let blob = new Uint8Array(buffer, program.offset, program.filesz);
+                    this.write_blob(blob, program.paddr);
+                }
+                else if(program.type === 4 ||
+                        program.type === 0x6474e550 ||
+                        program.type === 0x6474e551)
+                {
+                    // ignore for now
+                }
+                else
+                {
+                    dbg_assert(false, "unimplemented elf section type");
+                }
+            }
+        }
+        else
+        {
+            dbg_assert(false, "Not a bootable multiboot format");
+        }
+
+        // only for kvm-unit-test
+        this.io.register_write_consecutive(0xF4, this,
+            function(value)
+            {
+                console.log("Test exited with code " + h(value, 2));
+                throw "HALT";
+            },
+            function() {},
+            function() {},
+            function() {});
+
+        // only for kvm-unit-test
+        for(let i = 0xE; i <= 0xF; i++)
+        {
+            this.io.register_write(0x2000 + i, this,
+                function(value)
+                {
+                    dbg_log("kvm-unit-test: Set irq " + h(i) + " to " + h(value, 2));
+                    if(value)
+                    {
+                        this.device_raise_irq(i);
+                    }
+                    else
+                    {
+                        this.device_lower_irq(i);
+                    }
+                });
+        }
+
+        dbg_log("Starting multiboot kernel at:", LOG_CPU);
+        this.debug.dump_state();
+        this.debug.dump_regs();
+
+        break;
     }
 };
 

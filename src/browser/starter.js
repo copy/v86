@@ -167,6 +167,10 @@ function V86Starter(options)
                 settings.fdb = this.disk_images["fdb"] = buffer;
                 break;
 
+            case "multiboot":
+                settings.multiboot = this.disk_images["multiboot"] = buffer;
+                break;
+
             case "bios":
                 settings.bios = buffer.buffer;
                 break;
@@ -211,7 +215,8 @@ function V86Starter(options)
             size: file["size"],
         };
 
-        if(name === "bios" || name === "vga_bios" || name === "initial_state")
+        if(name === "bios" || name === "vga_bios" ||
+            name === "initial_state" || name === "multiboot")
         {
             // Ignore async for these because they must be availabe before boot.
             // This should make result.buffer available after the object is loaded
@@ -285,7 +290,7 @@ function V86Starter(options)
     var image_names = [
         "bios", "vga_bios",
         "cdrom", "hda", "hdb", "fda", "fdb",
-        "initial_state",
+        "initial_state", "multiboot",
     ];
 
     for(var i = 0; i < image_names.length; i++)

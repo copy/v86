@@ -188,6 +188,16 @@
                 settings.hda = { buffer: hd_file };
             }
 
+            if($("multiboot_image"))
+            {
+                var multiboot_file = $("multiboot_image").files[0];
+                if(multiboot_file)
+                {
+                    last_file = multiboot_file;
+                    settings.multiboot = { buffer: multiboot_file };
+                }
+            }
+
             if(last_file)
             {
                 set_title(last_file.name);
@@ -474,6 +484,7 @@
             settings.fda = infos.fda;
             settings.cdrom = infos.cdrom;
             settings.hda = infos.hda
+            settings.multiboot = infos.multiboot
 
             settings.memory_size = infos.memory_size;
             settings.vga_memory_size = infos.vga_memory_size;
@@ -688,6 +699,8 @@
             "fda": settings.fda,
             "hda": settings.hda,
             "cdrom": settings.cdrom,
+
+            "multiboot": settings.multiboot,
 
             "initial_state": settings.initial_state,
             "filesystem": settings.filesystem || {},
