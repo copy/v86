@@ -1,0 +1,88 @@
+#This is a make file with common rules for both x86 & x86-64
+
+all: test_cases
+
+cflatobjs += lib/pci.o
+cflatobjs += lib/pci-edu.o
+cflatobjs += lib/x86/setup.o
+cflatobjs += lib/x86/io.o
+cflatobjs += lib/x86/smp.o
+cflatobjs += lib/x86/vm.o
+cflatobjs += lib/x86/fwcfg.o
+cflatobjs += lib/x86/apic.o
+cflatobjs += lib/x86/atomic.o
+cflatobjs += lib/x86/desc.o
+cflatobjs += lib/x86/isr.o
+cflatobjs += lib/x86/acpi.o
+cflatobjs += lib/x86/stack.o
+
+$(libcflat): LDFLAGS += -nostdlib
+$(libcflat): CFLAGS += -ffreestanding -I lib
+
+CFLAGS += -m$(bits)
+CFLAGS += -O1
+
+# stack.o relies on frame pointers.
+KEEP_FRAME_POINTER := y
+
+libgcc := $(shell $(CC) -m$(bits) --print-libgcc-file-name)
+
+# We want to keep intermediate file: %.elf and %.o 
+.PRECIOUS: %.elf %.o
+
+FLATLIBS = lib/libcflat.a $(libgcc)
+%.elf: %.o $(FLATLIBS) x86/flat.lds $(cstart.o)
+	$(CC) $(CFLAGS) -nostdlib -o $@ -Wl,-T,x86/flat.lds \
+		$(filter %.o, $^) $(FLATLIBS)
+
+%.flat: %.elf
+	$(OBJCOPY) -O elf32-i386 $^ $@
+
+tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
+               $(TEST_DIR)/smptest.flat  $(TEST_DIR)/port80.flat \
+               $(TEST_DIR)/realmode.flat $(TEST_DIR)/msr.flat \
+               $(TEST_DIR)/hypercall.flat $(TEST_DIR)/sieve.flat \
+               $(TEST_DIR)/kvmclock_test.flat  $(TEST_DIR)/eventinj.flat \
+               $(TEST_DIR)/s3.flat $(TEST_DIR)/pmu.flat $(TEST_DIR)/setjmp.flat \
+               $(TEST_DIR)/tsc_adjust.flat $(TEST_DIR)/asyncpf.flat \
+               $(TEST_DIR)/init.flat $(TEST_DIR)/smap.flat \
+               $(TEST_DIR)/hyperv_synic.flat $(TEST_DIR)/hyperv_stimer.flat \
+
+ifdef API
+tests-common += api/api-sample
+tests-common += api/dirty-log
+tests-common += api/dirty-log-perf
+endif
+
+test_cases: $(tests-common) $(tests)
+
+$(TEST_DIR)/%.o: CFLAGS += -std=gnu99 -ffreestanding -I lib -I lib/x86
+
+$(TEST_DIR)/realmode.elf: $(TEST_DIR)/realmode.o
+	$(CC) -m32 -nostdlib -o $@ -Wl,-T,$(TEST_DIR)/realmode.lds $^
+
+$(TEST_DIR)/realmode.o: bits = 32
+
+$(TEST_DIR)/kvmclock_test.elf: $(TEST_DIR)/kvmclock.o
+
+$(TEST_DIR)/hyperv_synic.elf: $(TEST_DIR)/hyperv.o
+
+$(TEST_DIR)/hyperv_stimer.elf: $(TEST_DIR)/hyperv.o
+
+arch_clean:
+	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
+	$(TEST_DIR)/.*.d lib/x86/.*.d
+
+api/%.o: CFLAGS += -m32
+
+api/%: LDLIBS += -lstdc++ -lboost_thread -lpthread -lrt
+api/%: LDFLAGS += -m32
+
+api/libapi.a: api/kvmxx.o api/identity.o api/exception.o api/memmap.o
+	$(AR) rcs $@ $^
+
+api/api-sample: api/api-sample.o api/libapi.a
+
+api/dirty-log: api/dirty-log.o api/libapi.a
+
+api/dirty-log-perf: api/dirty-log-perf.o api/libapi.a

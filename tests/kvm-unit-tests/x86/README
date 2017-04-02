@@ -1,0 +1,49 @@
+
+Tests for the x86 architecture are run as kernel images for qemu that support
+multiboot format. The tests use an infrastructure called from the bios code.
+The infrastructure initialize the system/cpus, switches to long-mode, and
+calls the 'main' function of the individual test. Tests use a qemu virtual
+test device, named testdev, for services like printing, exiting, querying
+memory size, etc. See file docs/testdev.txt for more details.
+
+Examples of a test invocation:
+ These invocations run the msr test case and outputs to stdio.
+
+ Using qemu-kvm:
+
+	qemu-kvm -device testdev,chardev=testlog \
+		 -chardev file,id=testlog,path=msr.out \
+		 -serial stdio -kernel ./x86/msr.flat
+
+ Using qemu (supported since qemu 1.3):
+
+	qemu-system-x86_64 -enable-kvm -device pc-testdev -serial stdio \
+			   -device isa-debug-exit,iobase=0xf4,iosize=0x4 \
+			   -kernel ./x86/msr.flat
+
+Tests in this directory and what they do:
+ access:	lots of page table related access (pte/pde) (read/write)
+ apic:		enable x2apic, self ipi, ioapic intr, ioapic simultaneous
+ emulator:	move to/from regs, cmps, push, pop, to/from cr8, smsw and lmsw
+ hypercall:	intel and amd hypercall insn
+ msr:		write to msr (only KERNEL_GS_BASE for now)
+ port80:	lots of out to port 80
+ realmode:	goes back to realmode, shld, push/pop, mov immediate, cmp
+		immediate, add immediate, io, eflags instructions
+		(clc, cli, etc.), jcc short, jcc near, call, long jmp, xchg
+ sieve:		heavy memory access with no paging and with paging static and
+		with paging vmalloc'ed
+ smptest:	run smp_id() on every cpu and compares return value to number
+ tsc:		write to tsc(0) and write to tsc(100000000000) and read it back
+ vmexit:	long loops for each: cpuid, vmcall, mov_from_cr8, mov_to_cr8,
+		inl_pmtimer, ipi, ipi+halt
+ kvmclock_test:	test of wallclock, monotonic cycle and performance of kvmclock
+ pcid:		basic functionality test of PCID/INVPCID feature
+
+Legacy notes:
+ The exit status of the binary is inconsistent; with qemu-system, after
+ the unit-test is done, the exit status of qemu is 1, different from the
+ 'old style' qemu-kvm, whose exit status in successful completion is 0.
+ The run script converts the qemu-system exit status to 0 (SUCCESS), and
+ treats the legacy exit status of 0 as an error, converting it to an exit
+ status of 1.

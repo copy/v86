@@ -1,0 +1,33 @@
+cstart.o = $(TEST_DIR)/cstart.o
+bits = 32
+ldarch = elf32-i386
+
+cflatobjs += lib/x86/setjmp32.o
+
+tests = $(TEST_DIR)/taskswitch.flat $(TEST_DIR)/taskswitch2.flat \
+	$(TEST_DIR)/cmpxchg8b.flat
+
+
+# added some tests from Makefile.x86_64
+tests += $(TEST_DIR)/apic.flat \
+	  $(TEST_DIR)/rmap_chain.flat \
+	  $(TEST_DIR)/ioapic.flat $(TEST_DIR)/memory.flat
+
+
+# These tests from Makefile.x86_64 don't compile. emulator.c would be nice to have
+# $(TEST_DIR)/emulator.flat
+# $(TEST_DIR)/access.flat
+# $(TEST_DIR)/idt_test.flat
+# $(TEST_DIR)/xsave.flat
+# $(TEST_DIR)/pcid.flat
+# $(TEST_DIR)/debug.flat
+# $(TEST_DIR)/pku.flat
+# $(TEST_DIR)/hyperv_clock.flat
+
+#tests += $(TEST_DIR)/svm.flat
+#tests += $(TEST_DIR)/vmx.flat
+tests += $(TEST_DIR)/tscdeadline_latency.flat
+#tests += $(TEST_DIR)/intel-iommu.flat
+
+
+include $(TEST_DIR)/Makefile.common

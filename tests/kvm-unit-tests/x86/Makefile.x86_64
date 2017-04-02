@@ -1,0 +1,24 @@
+cstart.o = $(TEST_DIR)/cstart64.o
+bits = 64
+ldarch = elf64-x86-64
+CFLAGS += -mno-red-zone
+
+cflatobjs += lib/x86/setjmp64.o
+cflatobjs += lib/x86/intel-iommu.o
+
+tests = $(TEST_DIR)/access.flat $(TEST_DIR)/apic.flat \
+	  $(TEST_DIR)/emulator.flat $(TEST_DIR)/idt_test.flat \
+	  $(TEST_DIR)/xsave.flat $(TEST_DIR)/rmap_chain.flat \
+	  $(TEST_DIR)/pcid.flat $(TEST_DIR)/debug.flat \
+	  $(TEST_DIR)/ioapic.flat $(TEST_DIR)/memory.flat \
+	  $(TEST_DIR)/pku.flat $(TEST_DIR)/hyperv_clock.flat
+tests += $(TEST_DIR)/svm.flat
+tests += $(TEST_DIR)/vmx.flat
+tests += $(TEST_DIR)/tscdeadline_latency.flat
+tests += $(TEST_DIR)/intel-iommu.flat
+
+include $(TEST_DIR)/Makefile.common
+
+$(TEST_DIR)/hyperv_clock.elf: $(TEST_DIR)/hyperv_clock.o
+
+$(TEST_DIR)/vmx.elf: $(TEST_DIR)/vmx_tests.o

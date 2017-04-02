@@ -1,0 +1,167 @@
+#!/bin/bash
+
+prefix=/usr/local
+cc=gcc
+ld=ld
+objcopy=objcopy
+objdump=objdump
+ar=ar
+addr2line=addr2line
+arch=i386
+host=$arch
+cross_prefix=
+endian=""
+pretty_print_stacks=yes
+u32_long=
+
+usage() {
+    cat <<-EOF
+	Usage: $0 [options]
+
+	Options include:
+	    --arch=ARCH            architecture to compile for ($arch)
+	    --processor=PROCESSOR  processor to compile for ($arch)
+	    --cross-prefix=PREFIX  cross compiler prefix
+	    --cc=CC		   c compiler to use ($cc)
+	    --ld=LD		   ld linker to use ($ld)
+	    --prefix=PREFIX        where to install things ($prefix)
+	    --endian=ENDIAN        endianness to compile for (little or big, ppc64 only)
+	    --[enable|disable]-pretty-print-stacks
+	                           enable or disable pretty stack printing (enabled by default)
+EOF
+    exit 1
+}
+
+while [[ "$1" = -* ]]; do
+    opt="$1"; shift
+    arg=
+    if [[ "$opt" = *=* ]]; then
+	arg="${opt#*=}"
+	opt="${opt%%=*}"
+    fi
+    case "$opt" in
+	--prefix)
+	    prefix="$arg"
+	    ;;
+        --arch)
+	    arch="$arg"
+	    ;;
+        --processor)
+	    processor="$arg"
+	    ;;
+	--cross-prefix)
+	    cross_prefix="$arg"
+	    ;;
+	--endian)
+	    endian="$arg"
+	    ;;
+	--cc)
+	    cc="$arg"
+	    ;;
+	--ld)
+	    ld="$arg"
+	    ;;
+	--enable-pretty-print-stacks)
+	    pretty_print_stacks=yes
+	    ;;
+	--disable-pretty-print-stacks)
+	    pretty_print_stacks=no
+	    ;;
+	--help)
+	    usage
+	    ;;
+	*)
+	    usage
+	    ;;
+    esac
+done
+
+arch_name=$arch
+[ "$arch" = "aarch64" ] && arch="arm64"
+[ "$arch_name" = "arm64" ] && arch_name="aarch64"
+
+[ -z "$processor" ] && processor="$arch"
+
+if [ "$processor" = "arm64" ]; then
+    processor="cortex-a57"
+elif [ "$processor" = "arm" ]; then
+    processor="cortex-a15"
+fi
+
+if [ "$arch" = "i386" ] || [ "$arch" = "x86_64" ]; then
+    testdir=x86
+elif [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
+    testdir=arm
+elif [ "$arch" = "ppc64" ]; then
+    testdir=powerpc
+    firmware="$testdir/boot_rom.bin"
+    if [ "$endian" != "little" ] && [ "$endian" != "big" ]; then
+        echo "You must provide endianness (big or little)!"
+        usage
+    fi
+else
+    testdir=$arch
+fi
+if [ ! -d $testdir ]; then
+    echo "$testdir does not exist!"
+    exit 1
+fi
+if [ -f $testdir/run ]; then
+    ln -fs $testdir/run $testdir-run
+fi
+
+# check if uint32_t needs a long format modifier
+cat << EOF > lib-test.c
+__UINT32_TYPE__
+EOF
+u32_long=$($cross_prefix$cc -E lib-test.c | grep -v '^#' | grep -q long && echo yes)
+rm -f lib-test.c
+
+# check for dependent 32 bit libraries
+if [ "$arch" != "arm" ]; then
+cat << EOF > lib_test.c
+#include <stdc++.h>
+#include <boost_thread-mt.h>
+#include <pthread.h>
+
+int main ()
+{}
+EOF
+$cc -m32 -o /dev/null lib_test.c &> /dev/null
+exit=$?
+if [ $exit -eq 0 ]; then
+    api=true
+fi
+rm -f lib_test.c
+fi
+
+# link lib/asm for the architecture
+rm -f lib/asm
+asm=asm-generic
+if [ -d lib/$arch/asm ]; then
+	asm=$arch/asm
+elif [ -d lib/$testdir/asm ]; then
+	asm=$testdir/asm
+fi
+ln -s $asm lib/asm
+
+# create the config
+cat <<EOF > config.mak
+PREFIX=$prefix
+HOST=$host
+ARCH=$arch
+ARCH_NAME=$arch_name
+PROCESSOR=$processor
+CC=$cross_prefix$cc
+LD=$cross_prefix$ld
+OBJCOPY=$cross_prefix$objcopy
+OBJDUMP=$cross_prefix$objdump
+AR=$cross_prefix$ar
+ADDR2LINE=$cross_prefix$addr2line
+API=$api
+TEST_DIR=$testdir
+FIRMWARE=$firmware
+ENDIAN=$endian
+PRETTY_PRINT_STACKS=$pretty_print_stacks
+U32_LONG_FMT=$u32_long
+EOF
