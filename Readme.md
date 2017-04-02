@@ -159,6 +159,7 @@ Credits
 -
 
 - CPU test cases via QEMU, http://wiki.qemu.org/Main_Page
+- More tests via [kvm-unit-tests](https://www.linux-kvm.org/page/KVM-unit-tests)
 - [Disk Images](https://github.com/copy/images)
 - [The jor1k project](https://github.com/s-macke/jor1k) for 9p, filesystem and uart drivers
 - [WinWorld](https://winworldpc.com/) sources of some old operating systems

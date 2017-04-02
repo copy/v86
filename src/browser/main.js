@@ -399,6 +399,42 @@
             },
         ];
 
+        if(DEBUG)
+        {
+            // see tests/kvm-unit-tests/x86/
+            var tests = [
+                "realmode",
+                // All tests below require an APIC
+                "cmpxchg8b",
+                "port80",
+                "setjmp",
+                "sieve",
+                "hypercall", // crashes
+                "init", // stops execution
+                "msr", // TODO: Expects 64 bit msrs
+                "smap", // test stops, SMAP not enabled
+                "tsc_adjust", // TODO: IA32_TSC_ADJUST
+                "tsc", // TODO: rdtscp
+                "rmap_chain", // crashes
+                "memory", // missing mfence (uninteresting)
+                "taskswitch", // TODO: Jump
+                "taskswitch2", // TODO: Call TSS
+                "eventinj", // Missing #nt
+                "ioapic",
+                "apic",
+            ];
+
+            for(let test of tests)
+            {
+                oses.push({
+                    name: "Test case: " + test,
+                    id: "test-" + test,
+                    memory_size: 128 * 1024 * 1024,
+                    multiboot: { "url": "tests/kvm-unit-tests/x86/" + test + ".flat", }
+                });
+            }
+        }
+
         var query_args = get_query_arguments();
         var profile = query_args["profile"];
 
