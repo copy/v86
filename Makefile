@@ -73,15 +73,19 @@ TRANSPILE_ES6_FLAGS=\
 		--language_out ECMASCRIPT5_STRICT\
 
 
-CORE_FILES=src/const.js src/io.js src/main.js src/lib.js src/fpu.js src/ide.js src/pci.js src/floppy.js src/memory.js\
-	   src/dma.js src/pit.js src/vga.js src/ps2.js src/pic.js src/rtc.js src/uart.js src/hpet.js src/acpi.js src/apic.js src/ioapic.js\
-	   src/state.js src/ne2k.js src/virtio.js src/bus.js src/log.js src/config.js\
-	   src/cpu.js src/translate.js src/modrm.js src/string.js src/arith.js src/misc_instr.js src/instructions.js src/debug.js \
-	   src/elf.js
-LIB_FILES=lib/9p.js lib/filesystem.js lib/jor1k.js lib/marshall.js lib/utf8.js
-BROWSER_FILES=src/browser/screen.js\
-	      src/browser/keyboard.js src/browser/mouse.js src/browser/serial.js\
-	      src/browser/network.js src/browser/lib.js src/browser/starter.js src/browser/worker_bus.js
+CORE_FILES=const.js io.js main.js lib.js fpu.js ide.js pci.js floppy.js memory.js \
+	   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js ioapic.js \
+	   state.js ne2k.js virtio.js bus.js log.js config.js \
+	   cpu.js translate.js modrm.js string.js arith.js misc_instr.js instructions.js debug.js \
+	   elf.js
+LIB_FILES=9p.js filesystem.js jor1k.js marshall.js utf8.js
+BROWSER_FILES=screen.js \
+	      keyboard.js mouse.js serial.js \
+	      network.js lib.js starter.js worker_bus.js
+
+CORE_FILES:=$(addprefix src/,$(CORE_FILES))
+LIB_FILES:=$(addprefix lib/,$(LIB_FILES))
+BROWSER_FILES:=$(addprefix src/browser/,$(BROWSER_FILES))
 
 build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 	mkdir -p build
