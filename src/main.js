@@ -74,12 +74,14 @@ v86.prototype.init = function(settings)
 
 if(typeof setImmediate !== "undefined")
 {
-    v86.prototype.fast_next_tick = function()
+    /** @this {v86} */
+    var fast_next_tick = function()
     {
         setImmediate(() => { this.do_tick(); });
     };
 
-    v86.prototype.register_tick = function() {};
+    /** @this {v86} */
+    var register_tick = function() {};
 }
 else if(typeof window !== "undefined" && typeof postMessage !== "undefined")
 {
@@ -90,12 +92,14 @@ else if(typeof window !== "undefined" && typeof postMessage !== "undefined")
     /** @const */
     let MAGIC_POST_MESSAGE = 0xAA55;
 
-    v86.prototype.fast_next_tick = function()
+    /** @this {v86} */
+    fast_next_tick = function()
     {
         window.postMessage(MAGIC_POST_MESSAGE, "*");
     };
 
-    v86.prototype.register_tick = function()
+    /** @this {v86} */
+    register_tick = function()
     {
         window.addEventListener("message", (e) =>
         {
@@ -108,17 +112,23 @@ else if(typeof window !== "undefined" && typeof postMessage !== "undefined")
 }
 else
 {
-    v86.prototype.fast_next_tick = function()
+    /** @this {v86} */
+    fast_next_tick = function()
     {
         setTimeout(() => { this.do_tick(); }, 0);
     };
 
-    v86.prototype.register_tick = function() {};
+    /** @this {v86} */
+    register_tick = function() {};
 }
+
+v86.prototype.fast_next_tick = fast_next_tick;
+v86.prototype.register_tick = register_tick;
 
 if(typeof document !== "undefined" && typeof document.hidden === "boolean")
 {
-    v86.prototype.next_tick = function(t)
+    /** @this {v86} */
+    var next_tick = function(t)
     {
         if(t < 4 || document.hidden)
         {
@@ -136,11 +146,14 @@ if(typeof document !== "undefined" && typeof document.hidden === "boolean")
 else
 {
     // In environments that aren't browsers, we might as well use setTimeout
-    v86.prototype.next_tick = function(t)
+    /** @this {v86} */
+    next_tick = function(t)
     {
         setTimeout(() => { this.do_tick(); }, t);
     };
 }
+
+v86.prototype.next_tick = next_tick;
 
 v86.prototype.save_state = function()
 {
