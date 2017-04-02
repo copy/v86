@@ -312,6 +312,38 @@ var ASYNC_SAFE = false;
         fn();
     };
 
+    AsyncXHRBuffer.prototype.get_written_blocks = function()
+    {
+        var count = 0;
+        for(var _ in this.loaded_blocks)
+        {
+            count++;
+        }
+
+        var buffer = new Uint8Array(count * this.block_size);
+        var indices = [];
+
+        var i = 0;
+        for(var index in this.loaded_blocks)
+        {
+            var block = this.loaded_blocks[index];
+            dbg_assert(block.length === this.block_size);
+            index = +index;
+            indices.push(index);
+            buffer.set(
+                block,
+                i * this.block_size
+            );
+            i++;
+        }
+
+        return {
+            buffer,
+            indices,
+            block_size: this.block_size,
+        };
+    };
+
     /**
      * Synchronous access to File, loading blocks from the input type=file
      * The whole file is loaded into memory during initialisation
