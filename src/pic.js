@@ -293,8 +293,8 @@ function PIC(cpu, master)
             {
                 this.irr |= irq_mask;
                 this.irq_value |= irq_mask;
+                this.check_irqs();
             }
-            this.check_irqs();
         };
 
         this.clear_irq = function(irq_number)
@@ -316,8 +316,8 @@ function PIC(cpu, master)
             {
                 this.irq_value &= ~irq_mask;
                 this.irr &= ~irq_mask;
+                this.check_irqs();
             }
-            this.check_irqs();
         };
     }
     else
@@ -335,8 +335,8 @@ function PIC(cpu, master)
             {
                 this.irr |= irq_mask;
                 this.irq_value |= irq_mask;
+                this.check_irqs();
             }
-            this.check_irqs();
         };
 
         this.clear_irq = function(irq_number)
@@ -352,8 +352,8 @@ function PIC(cpu, master)
             {
                 this.irq_value &= ~irq_mask;
                 this.irr &= ~irq_mask;
+                this.check_irqs();
             }
-            this.check_irqs();
         };
     }
 
@@ -465,12 +465,12 @@ PIC.prototype.port20_read = function()
 {
     if(this.read_isr)
     {
-        dbg_log("read port 20h (isr): " + h(this.isr));
+        dbg_log("read port 20h (isr): " + h(this.isr), LOG_PIC);
         return this.isr;
     }
     else
     {
-        dbg_log("read port 20h (irr): " + h(this.irr));
+        dbg_log("read port 20h (irr): " + h(this.irr), LOG_PIC);
         return this.irr;
     }
 };
