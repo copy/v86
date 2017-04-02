@@ -27,7 +27,6 @@ CLOSURE_SOURCE_MAP=\
 CLOSURE_FLAGS=\
 	        --js lib/closure-base.js\
 		--generate_exports\
-		--compilation_level ADVANCED_OPTIMIZATIONS\
 		--externs src/externs.js\
 		--warning_level VERBOSE\
 		--jscomp_error accessControls\
@@ -95,6 +94,7 @@ build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 		--define=DEBUG=false\
 		$(CLOSURE_SOURCE_MAP)\
 		$(CLOSURE_FLAGS)\
+		--compilation_level ADVANCED\
 		$(TRANSPILE_ES6_FLAGS)\
 		--js $(CORE_FILES)\
 		--js $(LIB_FILES)\
@@ -113,6 +113,7 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js_output_file build/libv86.js\
 		--define=DEBUG=false\
 		$(CLOSURE_FLAGS)\
+		--compilation_level SIMPLE\
 		$(TRANSPILE_ES6_FLAGS)\
 		--output_wrapper ';(function(){%output%})();'\
 		--js $(CORE_FILES)\
