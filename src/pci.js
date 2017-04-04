@@ -404,6 +404,11 @@ PCI.prototype.pci_write = function()
             space[addr >> 2] = 0;
         }
     }
+    else if(addr === 0x04)
+    {
+        dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
+                " value=" + h(written >>> 0, 8), LOG_PCI);
+    }
     else
     {
         dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
@@ -430,6 +435,8 @@ PCI.prototype.register_device = function(device)
     var space = new Int32Array(new Uint8Array(device.pci_space).buffer);
     this.device_spaces[device_id] = space;
     this.devices[device_id] = device;
+
+    space[0x04 >>> 2] = space[0x04 >>> 2] & ~0xFFFF | 0x0006;
 
     // copy the bars so they can be restored later
     this.original_bars[device_id] = new Int32Array(6);
