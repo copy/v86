@@ -802,6 +802,12 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.push_irq();
             break;
 
+        case 0xE7:
+            dbg_log("ATA flush cache", LOG_DISK);
+            this.status = 0x50;
+            this.push_irq();
+            break;
+
         case 0xEC:
             dbg_log("ATA identify device", LOG_DISK);
 
