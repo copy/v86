@@ -1999,8 +1999,9 @@ t[0x22] = cpu => { cpu.read_modrm_byte();
 
         case 3:
             //dbg_log("cr3=" + h(data >>> 0), LOG_CPU);
+            data &= ~0b111111100111;
+            dbg_assert((data & 0xFFF) === 0, "TODO");
             cpu.cr[3] = data;
-            dbg_assert((cpu.cr[3] & 0xFFF) === 0); // os2 v4
             cpu.clear_tlb();
 
             //dump_page_directory();
