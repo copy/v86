@@ -66,7 +66,7 @@
         document.title = text + " - Virtual x86" +  (DEBUG ? " - debug" : "");
     }
 
-    function time2str(time)
+    function format_timestamp(time)
     {
         if(time < 60)
         {
@@ -857,7 +857,7 @@
 
             $("speed").textContent = last_ips / delta_time | 0;
             $("avg_speed").textContent = instruction_counter / running_time | 0;
-            $("running_time").textContent = time2str(running_time / 1000 | 0);
+            $("running_time").textContent = format_timestamp(running_time / 1000 | 0);
         }
 
         emulator.add_listener("emulator-started", function()
