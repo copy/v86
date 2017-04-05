@@ -2739,8 +2739,13 @@ t32[0xB6] = cpu => { cpu.read_modrm_byte();
     cpu.write_g32(data);
 };
 
-t[0xB7] = cpu => { cpu.read_modrm_byte();
+t16[0xB7] = cpu => { cpu.read_modrm_byte();
     // movzx
+    dbg_assert(false, "Possibly invalid encoding");
+    var data = cpu.read_e16();
+    cpu.write_g16(data);
+};
+t32[0xB7] = cpu => { cpu.read_modrm_byte();
     var data = cpu.read_e16();
     cpu.write_g32(data);
 };
@@ -2882,8 +2887,14 @@ t32[0xBE] = cpu => { cpu.read_modrm_byte();
     cpu.write_g32(data);
 };
 
-t[0xBF] = cpu => { cpu.read_modrm_byte();
+t16[0xBF] = cpu => { cpu.read_modrm_byte();
     // movsx
+    dbg_assert(false, "Possibly invalid encoding");
+    var data = cpu.read_e16();
+    cpu.write_g16(data);
+};
+
+t32[0xBF] = cpu => { cpu.read_modrm_byte();
     var data = cpu.read_e16s();
     cpu.write_g32(data);
 };
