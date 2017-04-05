@@ -220,6 +220,11 @@ APIC.prototype.write32 = function(addr, value)
 
     switch(addr)
     {
+        case 0x30:
+            // version
+            dbg_log("APIC write version: " + h(value >>> 0, 8) + ", ignored", LOG_APIC);
+            break;
+
         case 0x80:
             APIC_LOG_VERBOSE && dbg_log("Set tpr: " + h(value & 0xFF, 2), LOG_APIC);
             this.tpr = value & 0xFF;
