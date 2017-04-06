@@ -1719,8 +1719,9 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
         }
         if(!info.is_present)
         {
+            // kvm-unit-test
             dbg_log("not present");
-            throw this.debug.unimpl("#NP handler");
+            this.trigger_np(interrupt_nr << 3 | 2);
         }
 
         var old_flags = this.get_eflags();
