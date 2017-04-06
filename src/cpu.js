@@ -2693,7 +2693,7 @@ CPU.prototype.get_tss_stack_addr = function(dpl)
     return tss_stack_addr;
 };
 
-CPU.prototype.do_task_switch = function(selector)
+CPU.prototype.do_task_switch = function(selector, error_code)
 {
     dbg_log("do_task_switch sel=" + h(selector), LOG_CPU);
     var descriptor = this.lookup_segment_selector(selector);
