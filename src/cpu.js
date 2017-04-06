@@ -20,14 +20,16 @@ function CPU()
     //       that we support)
     this.a20_enabled = true;
 
+    this.mem_page_infos = undefined;
+
     this.mem8 = new Uint8Array(0);
     this.mem16 = new Uint16Array(this.mem8.buffer);
     this.mem32s = new Int32Array(this.mem8.buffer);
 
-    this.segment_is_null = [];
-    this.segment_offsets = [];
-    this.segment_limits = [];
-    //this.segment_infos = [];
+    this.segment_is_null = new Uint8Array(8);
+    this.segment_limits = new Uint32Array(8);
+    //this.segment_infos = new Uint32Array(8);
+    this.segment_offsets = new Int32Array(8);
 
     /**
      * Translation Lookaside Buffer
@@ -184,7 +186,6 @@ function CPU()
     // paging enabled
     /** @type {boolean} */
     this.paging = false;
-
 
     /** @type {number} */
     this.instruction_pointer = 0;
@@ -468,21 +469,24 @@ CPU.prototype.reset = function()
 {
     this.a20_enabled = true;
 
-    this.segment_is_null = new Uint8Array(8);
-    this.segment_limits = new Uint32Array(8);
-    //this.segment_infos = new Uint32Array(8);
-    this.segment_offsets = new Int32Array(8);
+    for(let i = 0; i < 8; i++)
+    {
+        this.segment_is_null[i] = 0;
+        this.segment_limits[i] = 0;
+        //this.segment_infos = new Uint32Array(8);
+        this.segment_offsets[i] = 0;
+    }
 
     this.full_clear_tlb();
 
-    this.reg32s = new Int32Array(8);
-    this.reg32 = new Uint32Array(this.reg32s.buffer);
-    this.reg16s = new Int16Array(this.reg32s.buffer);
-    this.reg16 = new Uint16Array(this.reg32s.buffer);
-    this.reg8s = new Int8Array(this.reg32s.buffer);
-    this.reg8 = new Uint8Array(this.reg32s.buffer);
-    this.sreg = new Uint16Array(8);
-    this.dreg = new Int32Array(8);
+    for(let i = 0; i < 8; i++)
+    {
+        this.reg32s[i] = 0;
+        this.sreg[i] = 0;
+        this.cr[i] = 0;
+        this.dreg[i] = 0;
+    }
+
     this.protected_mode = false;
 
     // http://www.sandpile.org/x86/initial.htm
