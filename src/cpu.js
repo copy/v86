@@ -98,9 +98,10 @@ function CPU()
     /** @type {number} */
     this.page_size_extensions = 0;
 
-    // current operand/address/stack size
+    // current operand/address size
     /** @type {boolean} */
     this.is_32 = false;
+
     /** @type {boolean} */
     this.stack_size_32 = false;
 
@@ -109,18 +110,6 @@ function CPU()
      * @type {boolean}
      */
     this.in_hlt = false;
-
-    /** @type {!Object} */
-    this.devices = {
-        vga: {
-            timer: function(now) {},
-            destroy: function() {},
-        },
-        ps2: {
-            timer: function(now) {},
-            destroy: function() {},
-        },
-    };
 
     /** @type {number} */
     this.last_virt_eip = 0;
@@ -187,6 +176,9 @@ function CPU()
     /** @type {number} */
     this.phys_addr_high = 0;
 
+    /** @type {!Object} */
+    this.devices = {};
+
     this.table = [];
 
     // paging enabled
@@ -201,21 +193,6 @@ function CPU()
     this.previous_ip = 0;
 
     this.apic_enabled = true;
-
-    // managed in io.js
-    /** @const */ this.memory_map_read8 = [];
-    /** @const */ this.memory_map_write8 = [];
-    /** @const */ this.memory_map_read32 = [];
-    /** @const */ this.memory_map_write32 = [];
-
-    /**
-     * @const
-     * @type {{main: ArrayBuffer, vga: ArrayBuffer}}
-     */
-    this.bios = {
-        main: null,
-        vga: null,
-    };
 
     /**
      * @type {number}
@@ -236,11 +213,24 @@ function CPU()
     // debug registers
     this.dreg = new Int32Array(8);
 
+
+    // managed in io.js
+    /** @const */ this.memory_map_read8 = [];
+    /** @const */ this.memory_map_write8 = [];
+    /** @const */ this.memory_map_read32 = [];
+    /** @const */ this.memory_map_write32 = [];
+
+    /**
+     * @const
+     * @type {{main: ArrayBuffer, vga: ArrayBuffer}}
+     */
+    this.bios = {
+        main: null,
+        vga: null,
+    };
+
     /** @type {number} */
     this.fw_value = 0;
-
-    // dynamic instruction translator
-    this.translator = undefined;
 
     this.io = undefined;
     this.fpu = undefined;
@@ -428,9 +418,9 @@ CPU.prototype.main_run = function()
         //    var t = 0;
         //}
         //else
-        {
+        //{
             var t = this.hlt_loop();
-        }
+        //}
 
         if(this.in_hlt)
         {
@@ -2850,17 +2840,16 @@ CPU.prototype.hlt_op = function()
         // get out of here and into hlt_loop
         this.in_hlt = true;
 
-        if(false) // possibly unsafe, test in safari
-        {
-            this.hlt_loop();
-            this.diverged();
-
-            if(this.in_hlt)
-            {
-                throw MAGIC_CPU_EXCEPTION;
-            }
-        }
-        else
+        //if(false) // possibly unsafe, test in safari
+        //{
+        //    this.hlt_loop();
+        //    this.diverged();
+        //    if(this.in_hlt)
+        //    {
+        //        throw MAGIC_CPU_EXCEPTION;
+        //    }
+        //}
+        //else
         {
             throw MAGIC_CPU_EXCEPTION;
         }
@@ -3029,6 +3018,7 @@ CPU.prototype.get_seg = function(segment /*, offset*/)
         if(this.segment_is_null[segment])
         {
             dbg_assert(segment !== reg_cs && segment !== reg_ss);
+            dbg_trace();
             dbg_log("#gp Use null segment: " + segment + " sel=" + h(this.sreg[segment], 4), LOG_CPU);
 
             this.trigger_gp(0);
@@ -3714,25 +3704,26 @@ CPU.prototype.load_tr = function(selector)
         throw this.debug.unimpl("#GP handler");
     }
 
-    if(!info.is_present)
-    {
-        dbg_log("#GP | present bit not set (ltr)");
-        throw this.debug.unimpl("#GP handler");
-    }
-
     if(!info.is_system)
     {
         dbg_log("#GP | ltr: not a system entry");
-        throw this.debug.unimpl("#GP handler");
+        throw this.debug.unimpl("#GP handler (happens when running kvm-unit-test without ACPI)");
     }
 
     if(info.type !== 9 && info.type !== 1)
     {
         // 0xB: busy 386 TSS (GP)
+        // 0x9: 386 TSS
         // 0x3: busy 286 TSS (GP)
         // 0x1: 286 TSS (??)
         dbg_log("#GP | ltr: invalid type (type = " + h(info.type) + ")");
         throw this.debug.unimpl("#GP handler");
+    }
+
+    if(!info.is_present)
+    {
+        dbg_log("#NT | present bit not set (ltr)");
+        throw this.debug.unimpl("#NT handler");
     }
 
     if(info.type === 1)
@@ -3813,6 +3804,8 @@ CPU.prototype.arpl = function(seg, r16)
 
 CPU.prototype.lar = function(selector, original)
 {
+    dbg_log("lar sel=" + h(selector, 4), LOG_CPU);
+
     /** @const */
     var LAR_INVALID_TYPE = 1 << 0 | 1 << 6 | 1 << 7 | 1 << 8 | 1 << 0xA |
                            1 << 0xD | 1 << 0xE | 1 << 0xF;
@@ -3835,11 +3828,12 @@ CPU.prototype.lar = function(selector, original)
         this.flags |= flag_zero;
         return info.raw1 & 0x00FFFF00;
     }
-
 };
 
 CPU.prototype.lsl = function(selector, original)
 {
+    dbg_log("lsl sel=" + h(selector, 4), LOG_CPU);
+
     /** @const */
     var LSL_INVALID_TYPE = 1 << 0 | 1 << 4 | 1 << 5 | 1 << 6 | 1 << 8 |
                            1 << 0xA | 1 << 0xC | 1 << 0xD | 1 << 0xE | 1 << 0xF;
@@ -3898,6 +3892,7 @@ CPU.prototype.verw = function(selector)
     }
     else
     {
+        dbg_log("verw valid", LOG_CPU);
         this.flags |= flag_zero;
     }
 };
@@ -4245,7 +4240,6 @@ CPU.prototype.trigger_pagefault = function(write, user, present)
 
     // invalidate tlb entry
     var page = this.cr[2] >>> 12;
-
     this.tlb_info[page] = 0;
     this.tlb_info_global[page] = 0;
 
@@ -4309,7 +4303,7 @@ CPU.prototype.add_reg_asize = function(reg, value)
 CPU.prototype.decr_ecx_asize = function()
 {
     return this.is_asize_32() ? --this.reg32s[reg_ecx] : --this.reg16[reg_cx];
-}
+};
 
 // Closure Compiler's way of exporting
 if(typeof window !== "undefined")
