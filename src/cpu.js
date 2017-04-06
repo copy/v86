@@ -3501,6 +3501,14 @@ CPU.prototype.cpuid = function()
             }
             break;
 
+        case 5:
+            // from my local machine
+            eax = 0x40;
+            ebx = 0x40;
+            ecx = 3;
+            edx = 0x00142120;
+            break;
+
         case 0x80000000|0:
             // maximum supported extended level
             eax = 5;
