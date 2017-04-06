@@ -1670,13 +1670,8 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             dbg_log("interrupt to task gate: int=" + h(interrupt_nr, 2) + " sel=" + h(selector, 4) + " dpl=" + dpl, LOG_CPU);
             dbg_trace(LOG_CPU);
 
-            this.do_task_switch(selector);
-
-            if(error_code !== false)
-            {
-                // TODO: push16 if in 16 bit mode?
-                this.push32(error_code);
-            }
+            this.do_task_switch(selector, error_code);
+            CPU_LOG_VERBOSE && this.debug.dump_state("int end");
             return;
         }
 
@@ -2703,6 +2698,10 @@ CPU.prototype.do_task_switch = function(selector)
     dbg_log("do_task_switch sel=" + h(selector), LOG_CPU);
     var descriptor = this.lookup_segment_selector(selector);
 
+    dbg_assert((descriptor.type | 2) === 3 || (descriptor.type | 2) === 0xb);
+    var tss_is_16 = descriptor.type <= 3;
+    var tss_is_busy = (descriptor.type & 2) === 2;
+
     if(!descriptor.is_valid || descriptor.is_null || !descriptor.from_gdt)
     {
         throw this.debug.unimpl("#GP handler");
@@ -2729,15 +2728,16 @@ CPU.prototype.do_task_switch = function(selector)
 
     var old_eflags = this.get_eflags();
 
-    //if(false /* is iret */)
-    //{
-    //    old_eflags &= ~flag_nt;
-    //}
+    if(tss_is_busy)
+    {
+        old_eflags &= ~flag_nt;
+    }
 
     this.writable_or_pagefault(tsr_offset, 0x66);
 
     //this.safe_write32(tsr_offset + TSR_CR3, this.cr[3]);
 
+    // TODO: Write 16 bit values if old tss is 16 bit
     this.safe_write32(tsr_offset + TSR_EIP, this.get_real_eip());
     this.safe_write32(tsr_offset + TSR_EFLAGS, old_eflags);
 
@@ -2757,7 +2757,8 @@ CPU.prototype.do_task_switch = function(selector)
     this.safe_write32(tsr_offset + TSR_DS, this.sreg[reg_ds]);
     this.safe_write32(tsr_offset + TSR_FS, this.sreg[reg_fs]);
     this.safe_write32(tsr_offset + TSR_GS, this.sreg[reg_gs]);
-    this.safe_write32(tsr_offset + TSR_LDT, this.sreg[reg_ldtr]);
+
+    //this.safe_write32(tsr_offset + TSR_LDT, this.sreg[reg_ldtr]);
 
     if(true /* is jump or call or int */)
     {
@@ -2768,12 +2769,73 @@ CPU.prototype.do_task_switch = function(selector)
     //var new_tsr_size = descriptor.effective_limit;
     var new_tsr_offset = descriptor.base;
 
+    dbg_assert(!tss_is_16, "unimplemented");
+
+    if(true /* is call or int */)
+    {
+        this.safe_write16(new_tsr_offset + TSR_BACKLINK, this.sreg[reg_tr]);
+    }
+
     var new_cr3 = this.safe_read32s(new_tsr_offset + TSR_CR3);
 
     this.flags &= ~flag_vm;
 
-    dbg_assert(false);
-    this.switch_seg(reg_cs, this.safe_read16(new_tsr_offset + TSR_CS));
+    var new_eip = this.safe_read32s(new_tsr_offset + TSR_EIP);
+    var new_cs = this.safe_read16(new_tsr_offset + TSR_CS);
+    var info = this.lookup_segment_selector(new_cs);
+
+    if(info.is_null)
+    {
+        dbg_log("null cs", LOG_CPU);
+        throw this.debug.unimpl("#TS handler");
+    }
+
+    if(!info.is_valid)
+    {
+        dbg_log("invalid cs: " + h(selector), LOG_CPU);
+        throw this.debug.unimpl("#TS handler");
+    }
+
+    if(info.is_system)
+    {
+        throw this.debug.unimpl("#TS handler");
+    }
+
+    if(!info.is_executable)
+    {
+        throw this.debug.unimpl("#TS handler");
+    }
+
+    if(info.dc_bit && info.dpl > info.rpl)
+    {
+        dbg_log("cs conforming and dpl > rpl: " + h(selector), LOG_CPU);
+        throw this.debug.unimpl("#TS handler");
+    }
+
+    if(!info.dc_bit && info.dpl !== info.rpl)
+    {
+        dbg_log("cs non-conforming and dpl != rpl: " + h(selector), LOG_CPU);
+        throw this.debug.unimpl("#TS handler");
+    }
+
+    if(!info.is_present)
+    {
+        dbg_log("#NP for loading not-present in cs sel=" + h(selector, 4), LOG_CPU);
+        throw this.debug.unimpl("#TS handler");
+    }
+
+    this.segment_is_null[reg_cs] = 0;
+    this.segment_limits[reg_cs] = info.effective_limit;
+    this.segment_offsets[reg_cs] = info.base;
+    this.sreg[reg_cs] = new_cs;
+
+    this.cpl = info.dpl;
+    this.cpl_changed();
+
+    dbg_assert((this.sreg[reg_cs] & 3) === this.cpl);
+
+    dbg_assert((new_eip >>> 0) <= info.effective_limit, "todo: #gp");
+    this.update_cs_size(info.size);
 
     var new_eflags = this.safe_read32s(new_tsr_offset + TSR_EFLAGS);
 
@@ -2789,6 +2851,11 @@ CPU.prototype.do_task_switch = function(selector)
     }
 
     this.update_eflags(new_eflags);
+
+    if(true /* call or int */)
+    {
+        this.flags |= flag_nt;
+    }
 
     var new_ldt = this.safe_read16(new_tsr_offset + TSR_LDT);
     this.load_ldt(new_ldt);
@@ -2809,7 +2876,7 @@ CPU.prototype.do_task_switch = function(selector)
     this.switch_seg(reg_fs, this.safe_read16(new_tsr_offset + TSR_FS));
     this.switch_seg(reg_gs, this.safe_read16(new_tsr_offset + TSR_GS));
 
-    this.instruction_pointer = this.get_seg(reg_cs) + this.safe_read32s(new_tsr_offset + TSR_EIP) | 0;
+    this.instruction_pointer = this.get_seg(reg_cs) + new_eip | 0;
 
     this.segment_offsets[reg_tr] = descriptor.base;
     this.segment_limits[reg_tr] = descriptor.effective_limit;
@@ -2820,6 +2887,18 @@ CPU.prototype.do_task_switch = function(selector)
     this.clear_tlb();
 
     this.cr[0] |= CR0_TS;
+
+    if(error_code !== false)
+    {
+        if(tss_is_16)
+        {
+            this.push16(error_code & 0xFFFF);
+        }
+        else
+        {
+            this.push32(error_code);
+        }
+    }
 };
 
 CPU.prototype.hlt_op = function()
