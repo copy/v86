@@ -277,15 +277,16 @@ function PIC(cpu, master)
         this.set_irq = function(irq_number)
         {
             dbg_assert(irq_number >= 0 && irq_number < 16);
-            if(PIC_LOG_VERBOSE)
-            {
-                dbg_log("master> set irq " + irq_number, LOG_PIC);
-            }
 
             if(irq_number >= 8)
             {
                 this.slave.set_irq(irq_number - 8);
                 return;
+            }
+
+            if(PIC_LOG_VERBOSE)
+            {
+                dbg_log("master> set irq " + irq_number, LOG_PIC);
             }
 
             var irq_mask = 1 << irq_number;
@@ -449,11 +450,16 @@ PIC.prototype.port20_write = function(data_byte)
             // specific eoi
             this.isr &= ~(1 << (data_byte & 7));
         }
+        else if((data_byte & 0xC8) === 0xC0)
+        {
+            // os2 v4
+            let priority = data_byte & 7;
+            dbg_log("lowest priority: " + h(priority), LOG_PIC);
+        }
         else
         {
             dbg_log("Unknown eoi: " + h(data_byte), LOG_PIC);
-            // os2 v4
-            //dbg_assert(false);
+            dbg_assert(false);
             this.isr &= this.isr - 1;
         }
 
