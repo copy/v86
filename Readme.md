@@ -108,7 +108,7 @@ wget -P images/ https://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,win
 
 # grab closure compiler
 wget -P closure-compiler https://dl.google.com/closure-compiler/compiler-latest.zip
-unzip -d closure-compiler closure-compiler/compiler-latest.zip compiler.jar
+unzip -d closure-compiler closure-compiler/compiler-latest.zip *.jar
 
 # build the library
 make build/libv86.js
