@@ -85,7 +85,7 @@ A testsuite is available in `tests/full/`. Run it using `node tests/full/run.js`
 How to build, run and embed?
 -
 
-- Building is only necessay for releases, open debug.html and everything should load out of the box
+- Building is only necessary for releases, open debug.html and everything should load out of the box
 - If you want a compressed and fast (i.e. with debug code removed) version, you
   need Closure Compiler. Download it as shown below and run `make build/v86_all.js`.
 - ROM and disk images are loaded via XHR, so if you want to try out `index.html`
@@ -128,7 +128,7 @@ Here's an overview of the operating systems supported in v86:
   - Tinycore (3.0 kernel): `udev` and `X` fail, but you get a
     terminal.
   - Nanolinux works.
-  - Archlinux works. Add `atkbd` to `MODULES` in `/etc/mkinitcpio.conf`.
+  - Archlinux works with some caveats. See [archlinux.md](docs/archlinux.md).
 - ReactOS works
 - FreeDOS, Windows 1.01 and MS-DOS run very well.
 - KolibriOS works. A few applications need SSE.
