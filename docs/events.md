@@ -1,8 +1,8 @@
 Here is a list of events that can be listened to using
-[`add_listener`](docs/api.md#add_listenerstring-event-function-listener). These
+[`add_listener`](api.md#add_listenerstring-event-function-listener). These
 can be used to programtically control the emulator. Events cannot be sent to
 the emulator (although it is internally implemented that way), use the
-[API](docs/api.md) methods for that.
+[API](api.md) methods for that.
 
 ### Serial terminal
 

@@ -1,8 +1,9 @@
 A 9p filesystem is supported by the emulator, using a virtio transport. Using
 it, files can be exchanged with the guest OS, see
-[`create_file`](docs/api.md#create_filestring-file-uint8array-data-functionobject-callback)
+[`create_file`](api.md#create_filestring-file-uint8array-data-functionobject-callback)
+[`create_file`](api.md#create_filestring-file-uint8array-data-functionobject-callback)
 and
-[`read_file`](docs/api.md#read_filestring-file-functionobject-uint8array-callback). It can
+[`read_file`](api.md#read_filestring-file-functionobject-uint8array-callback). It can
 be enabled by passing the following options to `V86Starter`:
 
 ```javascript
