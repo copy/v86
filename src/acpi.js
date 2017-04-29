@@ -112,7 +112,7 @@ ACPI.prototype.get_state = function()
     return state;
 };
 
-CPU.prototype.set_state = function(state)
+ACPI.prototype.set_state = function(state)
 {
     this.status = state[0];
     this.pm1_status = state[1];
