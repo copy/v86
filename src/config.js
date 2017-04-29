@@ -27,7 +27,7 @@ var LOG_LEVEL = LOG_ALL & ~LOG_PS2 & ~LOG_PIT & ~LOG_VIRTIO & ~LOG_9P & ~LOG_PIC
 var ENABLE_HPET = DEBUG && false;
 
 /** @const */
-var ENABLE_ACPI = true;
+var ENABLE_ACPI = false;
 
 
 /**
