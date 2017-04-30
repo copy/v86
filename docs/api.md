@@ -65,7 +65,9 @@ There are two ways to load images (`bios`, `vga_bios`, `cdrom`, `hda`, ...):
   size_in_bytes` can be added to the object, so that sectors of the image
   are loaded on demand instead of being loaded before boot (slower, but
   strongly recommended for big files). In that case, the `Range: bytes=...`
-  header must be supported on the server.
+  header must be supported on the server. Note: the python SimpleHTTPServer 
+  does not support this, so it won't work with the default webserver used
+  by `make run`.
 
   ```javascript
   // download file before boot
