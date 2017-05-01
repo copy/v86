@@ -31,6 +31,19 @@ var emulator = new V86({
     memory_size: 256 * 1024 * 1024,
 });
 
+emulator.bus.register("emulator-started", function()
+{
+    emulator.v86.cpu.io.register_write_consecutive(0xF4, this,
+        function(value)
+        {
+            console.log("Test exited with code " + value);
+            process.exit(value);
+        },
+        function() {},
+        function() {},
+        function() {});
+});
+
 emulator.add_listener("serial0-output-char", function(chr)
 {
     process.stdout.write(chr);
