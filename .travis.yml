@@ -1,6 +1,11 @@
 language: node_js
 node_js:
   - "6.10.2"
+before_install:
+  - sudo dpkg --add-architecture i386
+  - sudo apt-get update -qq
+install:
+  - sudo apt-get install -y gcc-multilib
 script:
   - "./.travis-run-$TEST_SUITE.sh"
 env:
