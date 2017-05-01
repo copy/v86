@@ -2,7 +2,7 @@ language: node_js
 node_js:
   - "6.10.2"
 script:
-  - "./.travis-run-$TESTSUITE.sh"
+  - "./.travis-run-$TEST_SUITE.sh"
 env:
     - TEST_SUITE=unit
     - TEST_SUITE=integration
