@@ -876,26 +876,20 @@ FPU.prototype.op_D9_reg = function(imm8)
                 case 0:
                     // fprem
                     var st1 = this.get_sti(1);
-                    // Math.trunc truncates towards 0 as we want
                     var fprem_quotient = Math.trunc(st0 / st1);
                     this.st[this.stack_ptr] = st0 % st1;
 
-                    // Reset C0, C1, C3
                     this.status_word &= ~(FPU_C0 | FPU_C1 | FPU_C3);
-                    // Set C1 = bit 0 of quotient
                     if (fprem_quotient & 1) {
                         this.status_word |= FPU_C1;
                     }
-                    // Set C3 = bit 1 of quotient
                     if (fprem_quotient & (1 << 1)) {
                         this.status_word |= FPU_C3;
                     }
-                    // Set C0 = bit 2 of quotient
                     if (fprem_quotient & (1 << 2)) {
                         this.status_word |= FPU_C0;
                     }
 
-                    // Reset C2 as the "reduction" is complete
                     this.status_word &= ~FPU_C2;
                     break;
                 case 1:
