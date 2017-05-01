@@ -1,6 +1,7 @@
 language: node_js
 node_js:
   - "6.10.2"
+dist: trusty
 before_install:
   - sudo dpkg --add-architecture i386
   - sudo apt-get update -qq
