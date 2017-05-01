@@ -140,14 +140,14 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
             skip_if_disk_image_missing: true,
         },
-        {
-            name: "Oberon",
-            hda: root_path + "/images/oberon.dsk",
-            fda: root_path + "/images/oberon-boot.dsk",
-            timeout: 20,
-            expect_graphical_mode: true,
-            expect_mouse_registered: true,
-        },
+        //{
+        //    name: "Oberon",
+        //    hda: root_path + "/images/oberon.dsk",
+        //    fda: root_path + "/images/oberon-boot.dsk",
+        //    timeout: 20,
+        //    expect_graphical_mode: true,
+        //    expect_mouse_registered: true,
+        //},
         {
             name: "Linux 3",
             cdrom: root_path + "/images/linux3.iso",
