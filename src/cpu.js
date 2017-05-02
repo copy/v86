@@ -297,32 +297,33 @@ CPU.prototype.get_state = function()
     state[37] = this.instruction_pointer;
     state[38] = this.previous_ip;
     state[39] = this.reg32s;
-    state[40] = this.sreg;
-    state[41] = this.dreg;
-    state[42] = this.mem8;
-    state[43] = this.fpu;
+    state[40] = this.reg_mmxs;
+    state[41] = this.sreg;
+    state[42] = this.dreg;
+    state[43] = this.mem8;
+    state[44] = this.fpu;
 
-    state[45] = this.devices.virtio;
-    state[46] = this.devices.apic;
-    state[47] = this.devices.rtc;
-    state[48] = this.devices.pci;
-    state[49] = this.devices.dma;
-    state[50] = this.devices.acpi;
-    state[51] = this.devices.hpet;
-    state[52] = this.devices.vga;
-    state[53] = this.devices.ps2;
-    state[54] = this.devices.uart;
-    state[55] = this.devices.fdc;
-    state[56] = this.devices.cdrom;
-    state[57] = this.devices.hda;
-    state[58] = this.devices.pit;
-    state[59] = this.devices.net;
-    state[60] = this.devices.pic;
+    state[46] = this.devices.virtio;
+    state[47] = this.devices.apic;
+    state[48] = this.devices.rtc;
+    state[49] = this.devices.pci;
+    state[50] = this.devices.dma;
+    state[51] = this.devices.acpi;
+    state[52] = this.devices.hpet;
+    state[53] = this.devices.vga;
+    state[54] = this.devices.ps2;
+    state[55] = this.devices.uart;
+    state[56] = this.devices.fdc;
+    state[57] = this.devices.cdrom;
+    state[58] = this.devices.hda;
+    state[59] = this.devices.pit;
+    state[60] = this.devices.net;
+    state[61] = this.devices.pic;
 
-    state[61] = this.a20_enabled;
-    state[62] = this.fw_value;
+    state[62] = this.a20_enabled;
+    state[63] = this.fw_value;
 
-    state[63] = this.devices.ioapic;
+    state[64] = this.devices.ioapic;
 
     state[64] = this.tss_size_32;
 
@@ -370,32 +371,33 @@ CPU.prototype.set_state = function(state)
     this.instruction_pointer = state[37];
     this.previous_ip = state[38];
     this.reg32s = state[39];
-    this.sreg = state[40];
-    this.dreg = state[41];
-    this.mem8 = state[42];
-    this.fpu = state[43];
+    this.reg_mmxs = state[40];
+    this.sreg = state[41];
+    this.dreg = state[42];
+    this.mem8 = state[43];
+    this.fpu = state[44];
 
-    this.devices.virtio = state[45];
-    this.devices.apic = state[46];
-    this.devices.rtc = state[47];
-    this.devices.pci = state[48];
-    this.devices.dma = state[49];
-    this.devices.acpi = state[50];
-    this.devices.hpet = state[51];
-    this.devices.vga = state[52];
-    this.devices.ps2 = state[53];
-    this.devices.uart = state[54];
-    this.devices.fdc = state[55];
-    this.devices.cdrom = state[56];
-    this.devices.hda = state[57];
-    this.devices.pit = state[58];
-    this.devices.net = state[59];
-    this.devices.pic = state[60];
+    this.devices.virtio = state[46];
+    this.devices.apic = state[47];
+    this.devices.rtc = state[48];
+    this.devices.pci = state[49];
+    this.devices.dma = state[50];
+    this.devices.acpi = state[51];
+    this.devices.hpet = state[52];
+    this.devices.vga = state[53];
+    this.devices.ps2 = state[54];
+    this.devices.uart = state[55];
+    this.devices.fdc = state[56];
+    this.devices.cdrom = state[57];
+    this.devices.hda = state[58];
+    this.devices.pit = state[59];
+    this.devices.net = state[60];
+    this.devices.pic = state[61];
 
-    this.a20_enabled = state[61];
-    this.fw_value = state[62];
+    this.a20_enabled = state[62];
+    this.fw_value = state[63];
 
-    this.devices.ioapic = state[63];
+    this.devices.ioapic = state[64];
 
     this.tss_size_32 = state[64];
 
@@ -412,6 +414,7 @@ CPU.prototype.set_state = function(state)
     this.reg8s = new Int8Array(this.reg32s.buffer);
     this.reg8 = new Uint8Array(this.reg32s.buffer);
 
+    this.reg_mmx = new Uint32Array(this.reg_mmxs.buffer);
     this.update_operand_size();
 };
 
