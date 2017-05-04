@@ -3236,6 +3236,16 @@ CPU.prototype.read_e32 = function()
     return this.read_e32s() >>> 0;
 };
 
+CPU.prototype.read_xmm_mem32s = function()
+{
+    if(this.modrm_byte < 0xC0) {
+        return this.safe_read32s(this.modrm_resolve(this.modrm_byte));
+    } else {
+        // data.lo
+        return this.reg_mmxs[2 * (this.modrm_byte & 7)];
+    }
+};
+
 CPU.prototype.read_xmm_mem64s = function()
 {
     let data = {};
