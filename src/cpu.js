@@ -3242,8 +3242,8 @@ CPU.prototype.read_xmm_mem64s = function()
     if(this.modrm_byte < 0xC0) {
         data = this.safe_read64s(this.modrm_resolve(this.modrm_byte));
     } else {
-        data.lo = this.reg_mmxs[this.modrm_byte & 7];
-        data.hi = this.reg_mmxs[(this.modrm_byte & 7) + 1];
+        data.lo = this.reg_mmxs[2 * (this.modrm_byte & 7)];
+        data.hi = this.reg_mmxs[2 * (this.modrm_byte & 7) + 1];
     }
 
     dbg_assert(data && data.hasOwnProperty('lo') && data.hasOwnProperty('hi'));
@@ -3423,8 +3423,8 @@ CPU.prototype.write_g32 = function(value)
 
 CPU.prototype.write_xmm64s = function(data) {
     dbg_assert(data && data.hasOwnProperty('lo') && data.hasOwnProperty('hi'));
-    this.reg_mmxs[this.modrm_byte >> 3 & 7] = data.lo;
-    this.reg_mmxs[(this.modrm_byte >> 3 & 7) + 1] = data.hi;
+    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)] = data.lo;
+    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1] = data.hi;
 };
 
 CPU.prototype.pic_call_irq = function(int)
