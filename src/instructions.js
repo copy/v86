@@ -39,9 +39,11 @@ t32[0x0d] = cpu => { cpu.reg32s[reg_eax] = cpu.or32(cpu.reg32s[reg_eax], cpu.rea
 t16[0x0E] = cpu => { cpu.push16(cpu.sreg[reg_cs]); };
 t32[0x0E] = cpu => { cpu.push32(cpu.sreg[reg_cs]); };
 t16[0x0F] = cpu => {
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.table0F_16[cpu.read_op0F()](cpu);
 };
 t32[0x0F] = cpu => {
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.table0F_32[cpu.read_op0F()](cpu);
 };
 
@@ -2417,7 +2419,6 @@ t[0x6E] = cpu => {
 };
 t[0x6F] = cpu => {
     // movq mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.read_modrm_byte();
     let data = cpu.read_xmm_mem64s();
     cpu.write_xmm64s(data);
