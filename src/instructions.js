@@ -2427,7 +2427,12 @@ t[0x7B] = cpu => { cpu.unimplemented_sse(); };
 t[0x7C] = cpu => { cpu.unimplemented_sse(); };
 t[0x7D] = cpu => { cpu.unimplemented_sse(); };
 t[0x7E] = cpu => { cpu.unimplemented_sse(); };
-t[0x7F] = cpu => { cpu.unimplemented_sse(); };
+t[0x7F] = cpu => {
+    // movq mm/m64, mm
+    cpu.read_modrm_byte();
+    let data = cpu.read_xmm64s();
+    cpu.set_xmm_mem64s(data);
+};
 
 // jmpcc
 t16[0x80] = cpu => { cpu.jmpcc16( cpu.test_o()); };
