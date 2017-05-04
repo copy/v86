@@ -3281,6 +3281,18 @@ CPU.prototype.set_e32 = function(value)
     }
 };
 
+CPU.prototype.set_xmm_mem64s = function(data) {
+    dbg_assert(data && data.hasOwnProperty('lo') && data.hasOwnProperty('hi'));
+
+    if(this.modrm_byte < 0xC0) {
+        var addr = this.modrm_resolve(this.modrm_byte);
+        this.safe_write32(addr, data.lo);
+        this.safe_write32(addr + 4 | 0, data.hi);
+    } else {
+        this.reg_mmxs[2 * (this.modrm_byte & 7)] = data.lo;
+        this.reg_mmxs[2 * (this.modrm_byte & 7) + 1] = data.hi;
+    }
+};
 
 CPU.prototype.read_write_e8 = function()
 {
@@ -3419,6 +3431,15 @@ CPU.prototype.read_g32s = function()
 CPU.prototype.write_g32 = function(value)
 {
     this.reg32[this.modrm_byte >> 3 & 7] = value;
+};
+
+CPU.prototype.read_xmm64s = function() {
+    let data = {};
+    data.lo = this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)];
+    data.hi = this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1];
+
+    dbg_assert(data && data.hasOwnProperty('lo') && data.hasOwnProperty('hi'));
+    return data;
 };
 
 CPU.prototype.write_xmm64s = function(data) {
