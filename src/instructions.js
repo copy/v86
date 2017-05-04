@@ -2407,8 +2407,7 @@ t[0x6F] = cpu => {
     // movq mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.read_modrm_byte();
-    var data = cpu.read_xmm_mem64s();
-    dbg_assert(data && data.hasOwnProperty('lo') && data.hasOwnProperty('hi'));
+    let data = cpu.read_xmm_mem64s();
     cpu.write_xmm64s(data);
 };
 
