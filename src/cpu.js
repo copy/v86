@@ -1452,6 +1452,22 @@ CPU.prototype.safe_read32s = function(addr)
     }
 };
 
+CPU.prototype.safe_read64s = function(addr)
+{
+    let data = {};
+    if(this.paging && (addr & 0xFFF) >= 0xFF9)
+    {
+        data.lo = this.safe_read32s(addr);
+        data.hi = this.safe_read32s(addr + 4 | 0);
+    }
+    else
+    {
+        data.lo = this.read32s(this.translate_address_read(addr));
+        data.hi = this.read32s(this.translate_address_read(addr + 4 | 0));
+    }
+    return data;
+};
+
 CPU.prototype.safe_write8 = function(addr, value)
 {
     dbg_assert(addr < 0x80000000);
@@ -3336,6 +3352,24 @@ CPU.prototype.read_g32s = function()
 CPU.prototype.write_g32 = function(value)
 {
     this.reg32[this.modrm_byte >> 3 & 7] = value;
+};
+
+CPU.prototype.read_xmm_mem64s = function()
+{
+    let data = {};
+    if(this.modrm_byte < 0xC0) {
+        data = this.safe_read64s(this.modrm_resolve(this.modrm_byte));
+    } else {
+        data.lo = this.reg_mmxs[this.modrm_byte & 7];
+        data.hi = this.reg_mmxs[(this.modrm_byte & 7) + 1];
+    }
+    return data;
+};
+
+CPU.prototype.write_xmm64s = function(data) {
+    dbg_assert(data && data.hasOwnProperty('lo') && data.hasOwnProperty('hi'));
+    this.reg_mmxs[this.modrm_byte >> 3 & 7] = data.lo;
+    this.reg_mmxs[(this.modrm_byte >> 3 & 7) + 1] = data.hi;
 };
 
 CPU.prototype.pic_call_irq = function(int)
