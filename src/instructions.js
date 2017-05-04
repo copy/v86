@@ -2406,7 +2406,15 @@ t[0x6A] = cpu => { cpu.unimplemented_sse(); };
 t[0x6B] = cpu => { cpu.unimplemented_sse(); };
 t[0x6C] = cpu => { cpu.unimplemented_sse(); };
 t[0x6D] = cpu => { cpu.unimplemented_sse(); };
-t[0x6E] = cpu => { cpu.unimplemented_sse(); };
+t[0x6E] = cpu => {
+    // movd mm, r/m32
+    cpu.read_modrm_byte();
+    let data = {
+        lo: cpu.read_xmm_mem32s(),
+        hi: 0
+    };
+    cpu.write_xmm64s(data);
+};
 t[0x6F] = cpu => {
     // movq mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
@@ -2430,7 +2438,12 @@ t[0x7A] = cpu => { cpu.unimplemented_sse(); };
 t[0x7B] = cpu => { cpu.unimplemented_sse(); };
 t[0x7C] = cpu => { cpu.unimplemented_sse(); };
 t[0x7D] = cpu => { cpu.unimplemented_sse(); };
-t[0x7E] = cpu => { cpu.unimplemented_sse(); };
+t[0x7E] = cpu => {
+    // movd r/m32, mm
+    cpu.read_modrm_byte();
+    let data = cpu.read_xmm64s();
+    cpu.set_e32(data.lo);
+};
 t[0x7F] = cpu => {
     // movq mm/m64, mm
     cpu.read_modrm_byte();
