@@ -2403,7 +2403,14 @@ t[0x6B] = cpu => { cpu.unimplemented_sse(); };
 t[0x6C] = cpu => { cpu.unimplemented_sse(); };
 t[0x6D] = cpu => { cpu.unimplemented_sse(); };
 t[0x6E] = cpu => { cpu.unimplemented_sse(); };
-t[0x6F] = cpu => { cpu.unimplemented_sse(); };
+t[0x6F] = cpu => {
+    // movq mm, mm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+    cpu.read_modrm_byte();
+    var data = cpu.read_xmm_mem64s();
+    dbg_assert(data && data.hasOwnProperty('lo') && data.hasOwnProperty('hi'));
+    cpu.write_xmm64s(data);
+};
 
 t[0x70] = cpu => { cpu.unimplemented_sse(); };
 t[0x71] = cpu => { cpu.unimplemented_sse(); };
