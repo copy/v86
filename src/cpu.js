@@ -1503,6 +1503,13 @@ CPU.prototype.safe_write32 = function(addr, value)
     }
 };
 
+CPU.prototype.safe_write64 = function(addr, low, high)
+{
+    this.writable_or_pagefault(addr, 8);
+    this.safe_write32(addr, low);
+    this.safe_write32(addr + 4 | 0, high);
+};
+
 // read 2 or 4 byte from ip, depending on address size attribute
 CPU.prototype.read_moffs = function()
 {
@@ -3244,8 +3251,7 @@ CPU.prototype.set_xmm_mem64s = function(data) {
 
     if(this.modrm_byte < 0xC0) {
         var addr = this.modrm_resolve(this.modrm_byte);
-        this.safe_write32(addr, data.lo);
-        this.safe_write32(addr + 4 | 0, data.hi);
+        this.safe_write64(addr, data.lo, data.hi);
     } else {
         this.reg_mmxs[2 * (this.modrm_byte & 7)] = data.lo;
         this.reg_mmxs[2 * (this.modrm_byte & 7) + 1] = data.hi;
