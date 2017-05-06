@@ -311,7 +311,7 @@ Next, we need a webserver that supports the Range header. For example [this exte
 
 ```sh
 cd /your/v86/dir
-wget https://github.com/smgoller/rangehttpserver/blob/master/RangeHTTPServer.py
+wget https://raw.githubusercontent.com/smgoller/rangehttpserver/master/RangeHTTPServer.py
 python2 RangeHTTPServer.py
 ```
 
