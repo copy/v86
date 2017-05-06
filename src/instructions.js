@@ -3108,7 +3108,32 @@ t[0xF9] = cpu => { cpu.unimplemented_sse(); };
 t[0xFA] = cpu => { cpu.unimplemented_sse(); };
 t[0xFB] = cpu => { cpu.unimplemented_sse(); };
 t[0xFC] = cpu => { cpu.unimplemented_sse(); };
-t[0xFD] = cpu => { cpu.unimplemented_sse(); };
+t[0xFD] = cpu => {
+    // paddw mm, mm/m64
+    cpu.read_modrm_byte();
+    let source = cpu.read_xmm_mem64s();
+    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+    let low = 0;
+    let word0 = ((destination_low & 0xFFFF) + (source.lo & 0xFFFF) % 0x10000);
+    let word1 = (((destination_low >>> 16) & 0xFFFF) + ((source.lo >>> 16) & 0xFFFF) % 0x10000);
+    low |= word0;
+    low |= word1 << 16;
+
+    let high = 0;
+    let word2 = ((destination_high & 0xFFFF) + (source.hi & 0xFFFF) % 0x10000);
+    let word3 = (((destination_high >>> 16) & 0xFFFF) + ((source.hi >>> 16) & 0xFFFF) % 0x10000);
+    high |= word2;
+    high |= word3 << 16;
+
+    let data = {
+        lo: low,
+        hi: high
+    };
+
+    cpu.write_xmm64s(data);
+};
 t[0xFE] = cpu => { cpu.unimplemented_sse(); };
 
 t[0xFF] = cpu => {
