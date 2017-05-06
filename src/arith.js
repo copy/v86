@@ -1513,3 +1513,19 @@ CPU.prototype.popcnt = function(v)
         return 0;
     }
 };
+
+CPU.prototype.saturate_sw_to_ub = function(v)
+{
+    dbg_assert((v & 0xFFFF0000) === 0);
+
+    let ret = v >>> 0;
+    if (ret >= 0x8000) {
+        ret = 0;
+    }
+    else if (ret > 0xFF) {
+        ret = 0xFF;
+    }
+
+    dbg_assert((ret & 0xFFFFFF00) === 0);
+    return ret;
+};
