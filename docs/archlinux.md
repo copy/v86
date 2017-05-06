@@ -318,9 +318,8 @@ python2 RangeHTTPServer.py
 Now that the webserver is running, point your browser to `http://localhost:8000/examples/arch.html`. Wait for the Linux to boot. When the system is up, click 'Save state to file'. Your browser will download a `v86state.bin` file. Copy that file to `/your/v86/dir/images`. You can then edit `examples/arch.html` again and add a 'state' key to the `V86Starter` array.
 
 ```sh
-state: {
+initial_state: {
     "url": ""http://localhost:8000/images/v86state.bin,
-    "size": the_size_of_your_state,  # You can get this by running `stat v86state.bin`
 },
 ```
 
