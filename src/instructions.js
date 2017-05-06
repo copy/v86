@@ -3070,7 +3070,20 @@ t[0xD7] = cpu => { cpu.unimplemented_sse(); };
 t[0xD8] = cpu => { cpu.unimplemented_sse(); };
 t[0xD9] = cpu => { cpu.unimplemented_sse(); };
 t[0xDA] = cpu => { cpu.unimplemented_sse(); };
-t[0xDB] = cpu => { cpu.unimplemented_sse(); };
+t[0xDB] = cpu => {
+    // pand mm, mm/m64
+    cpu.read_modrm_byte();
+    let source = cpu.read_xmm_mem64s();
+    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+    let data = {
+        lo: (source.lo & destination_low),
+        hi: (source.hi & destination_high)
+    };
+
+    cpu.write_xmm64s(data);
+};
 t[0xDC] = cpu => { cpu.unimplemented_sse(); };
 t[0xDD] = cpu => { cpu.unimplemented_sse(); };
 t[0xDE] = cpu => { cpu.unimplemented_sse(); };
