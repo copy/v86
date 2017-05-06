@@ -2402,7 +2402,32 @@ t[0x63] = cpu => { cpu.unimplemented_sse(); };
 t[0x64] = cpu => { cpu.unimplemented_sse(); };
 t[0x65] = cpu => { cpu.unimplemented_sse(); };
 t[0x66] = cpu => { cpu.unimplemented_sse(); };
-t[0x67] = cpu => { cpu.unimplemented_sse(); };
+t[0x67] = cpu => {
+    // packuswb mm, mm/m64
+    cpu.read_modrm_byte();
+    let source = cpu.read_xmm_mem64s();
+    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+    let low = 0;
+    low |= (cpu.saturate_sw_to_ub((destination_low) & 0xFFFF));
+    low |= (cpu.saturate_sw_to_ub((destination_low >>> 16) & 0xFFFF)) << 8;
+    low |= (cpu.saturate_sw_to_ub((destination_high) & 0xFFFF)) << 16;
+    low |= (cpu.saturate_sw_to_ub((destination_high >>> 16) & 0xFFFF)) << 24;
+
+    let high = 0;
+    high |= (cpu.saturate_sw_to_ub((source.lo) & 0xFFFF));
+    high |= (cpu.saturate_sw_to_ub((source.lo >>> 16) & 0xFFFF)) << 8;
+    high |= (cpu.saturate_sw_to_ub((source.hi) & 0xFFFF)) << 16;
+    high |= (cpu.saturate_sw_to_ub((source.hi >>> 16) & 0xFFFF)) << 24;
+
+    let data = {
+        lo: low,
+        hi: high
+    };
+
+    cpu.write_xmm64s(data);
+};
 
 t[0x68] = cpu => { cpu.unimplemented_sse(); };
 t[0x69] = cpu => { cpu.unimplemented_sse(); };
