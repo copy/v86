@@ -324,3 +324,46 @@ initial_state: {
 ```
 
 If you refresh `http://localhost:8000/examples/arch.html` you will see that the state is restored instantly and all required files are loaded over the network on the fly.
+
+### Networking
+
+The emulator can emulate a network card. For more information [look at the networking documentation](https://github.com/copy/v86/blob/master/docs/networking.md). To set up networking in the VM, add the following item to the `V86Starter` array in the `examples/arch.html` file:
+```sh
+network_relay_url: "ws://localhost:8080/",
+```
+
+This will make the emulator try to connect to a [WebSockets proxy](https://github.com/benjamincburns/websockproxy). Running the proxy is very easy if you use the Docker container.
+
+```sh
+sudo docker run --privileged -p 8080:80 --name relay benjamincburns/jor1k-relay:latest
+```
+
+You can check if the relay is running correctly by going to `http://localhost:8080/` in your browser. There you should see a message that reads `Can "Upgrade" only to "Websocket".`.
+
+Now you should be able to get network connectivity in the virtual machine. If you are restoring from a saved state, you might need to first run:
+```sh
+ip link set enp0s5 down
+rmmod ne2k-pci
+```
+
+To bring the network up, run:
+```sh
+modprobe ne2k-pci
+ip link set enp0s5 up
+dhcpcd -w4 enp0s5
+```
+
+It might take a while for a carrier to become available on the interface. If the `dhcpcd` command fails shortly after booting, wait a bit and try again a bit later. If you are using the 9p network filesystem you can use the developer tools networking tab (in chrome) to get a sense of what is going on by looking at the files that are being downloaded.
+
+When the network is up you should be able to curl a website. To check, run `curl icanhazip.com`. There you should see the public IP of the machine running the proxy.
+
+You can't do inbound traffic into the VM with the websockproxy Docker container because it uses a basic NAT. To SSH into the VM running in the browser, you can create a reverse SSH tunnel to expose the SSH port of the sshd in the VM to the outside world.
+
+```sh
+# This will create a port 1122 on the example.com server 
+# which forwards to the SSH in the VM
+ssh root@example.com -R 1122:localhost:22
+```
+
+Now on the `example.com` server you should be able to SSH into your browser tab by running `ssh root@localhost -p 1122`.
+
