@@ -748,7 +748,15 @@ CPU.prototype.load_multiboot = function(buffer)
     const MULTIBOOT_HEADER_ADDRESS = 0x10000;
     const MULTIBOOT_SEARCH_BYTES = 8192;
 
-    var buf32 = new Int32Array(buffer);
+    if(buffer.byteLength < MULTIBOOT_SEARCH_BYTES)
+    {
+        var buf32 = new Int32Array(MULTIBOOT_SEARCH_BYTES / 4);
+        new Uint8Array(buf32.buffer).set(new Uint8Array(buffer));
+    }
+    else
+    {
+        var buf32 = new Int32Array(buffer, 0, MULTIBOOT_SEARCH_BYTES / 4);
+    }
 
     for(var offset = 0; offset < MULTIBOOT_SEARCH_BYTES; offset += 4)
     {
@@ -761,7 +769,7 @@ CPU.prototype.load_multiboot = function(buffer)
             if(total)
             {
                 dbg_log("Multiboot checksum check failed", LOG_CPU);
-                continue
+                continue;
             }
         }
         else
@@ -774,13 +782,13 @@ CPU.prototype.load_multiboot = function(buffer)
 
         this.reg32s[reg_eax] = 0x2BADB002;
 
-        let multiboot_info_addr = 0x7C00
+        let multiboot_info_addr = 0x7C00;
         this.reg32s[reg_ebx] = multiboot_info_addr;
         this.write32(multiboot_info_addr, 0);
 
         this.cr[0] = 1;
         this.protected_mode = true;
-        this.flags = flags_default
+        this.flags = flags_default;
         this.update_cs_size(true);
         this.stack_size_32 = true;
 
@@ -809,7 +817,7 @@ CPU.prototype.load_multiboot = function(buffer)
                     " load=" + h(load_addr, 8) +
                     " load_end=" + h(load_end_addr, 8) +
                     " bss_end=" + h(bss_end_addr, 8) +
-                    " entry=" + h(entry_addr, 8))
+                    " entry=" + h(entry_addr, 8));
 
             dbg_assert(load_addr <= header_addr);
 
@@ -3596,7 +3604,7 @@ CPU.prototype.cpuid = function()
                     ebx = 0x01c0003f;
                     ecx = 0x0000003f;
                     edx = 0x00000001;
-                    break
+                    break;
                 case 2:
                     eax = 0x00000143;
                     ebx = 0x05c0003f;

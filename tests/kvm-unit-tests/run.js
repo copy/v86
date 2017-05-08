@@ -28,7 +28,7 @@ var emulator = new V86({
     vga_bios: { buffer: vga_bios },
     multiboot: new Loader(process.argv[2]),
     autostart: true,
-    memory_size: 256 * 1024 * 1024,
+    memory_size: 64 * 1024 * 1024,
 });
 
 emulator.bus.register("emulator-started", function()
