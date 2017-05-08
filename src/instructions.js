@@ -2412,15 +2412,12 @@ t[0x67] = cpu => {
     low |= (cpu.saturate_sw_to_ub(destination_high >>> 16)) << 24;
 
     let high = 0;
-    high |= (cpu.saturate_sw_to_ub((source.lo) & 0xFFFF));
-    high |= (cpu.saturate_sw_to_ub(source.lo >>> 16)) << 8;
-    high |= (cpu.saturate_sw_to_ub((source.hi) & 0xFFFF)) << 16;
-    high |= (cpu.saturate_sw_to_ub(source.hi >>> 16)) << 24;
+    high |= (cpu.saturate_sw_to_ub((source[0]) & 0xFFFF));
+    high |= (cpu.saturate_sw_to_ub(source[0] >>> 16)) << 8;
+    high |= (cpu.saturate_sw_to_ub((source[1]) & 0xFFFF)) << 16;
+    high |= (cpu.saturate_sw_to_ub(source[1] >>> 16)) << 24;
 
-    let data = {
-        lo: low,
-        hi: high
-    };
+    let data = cpu.create_atom64s(low, high);
 
     cpu.write_xmm64s(data);
 };
@@ -2434,10 +2431,7 @@ t[0x6D] = cpu => { cpu.unimplemented_sse(); };
 t[0x6E] = cpu => {
     // movd mm, r/m32
     cpu.read_modrm_byte();
-    let data = {
-        lo: cpu.read_xmm_mem32s(),
-        hi: 0
-    };
+    let data = cpu.create_atom64s(cpu.read_xmm_mem32s(), 0);
     cpu.write_xmm64s(data);
 };
 t[0x6F] = cpu => {
@@ -2466,7 +2460,7 @@ t[0x7E] = cpu => {
     // movd r/m32, mm
     cpu.read_modrm_byte();
     let data = cpu.read_xmm64s();
-    cpu.set_e32(data.lo);
+    cpu.set_e32(data[0]);
 };
 t[0x7F] = cpu => {
     // movq mm/m64, mm
@@ -3073,10 +3067,10 @@ t[0xDB] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let data = {
-        lo: (source.lo & destination_low),
-        hi: (source.hi & destination_high)
-    };
+    let data = cpu.create_atom64s(
+        (source[0] & destination_low),
+        (source[1] & destination_high)
+    );
 
     cpu.write_xmm64s(data);
 };
@@ -3124,18 +3118,15 @@ t[0xFD] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let word0 = ((destination_low & 0xFFFF) + (source.lo & 0xFFFF)) & 0xFFFF;
-    let word1 = ((destination_low >>> 16) + (source.lo >>> 16)) & 0xFFFF;
+    let word0 = ((destination_low & 0xFFFF) + (source[0] & 0xFFFF)) & 0xFFFF;
+    let word1 = ((destination_low >>> 16) + (source[0] >>> 16)) & 0xFFFF;
     let low = word0 | word1 << 16;
 
-    let word2 = ((destination_high & 0xFFFF) + (source.hi & 0xFFFF) & 0xFFFF);
-    let word3 = (((destination_high >>> 16)) + ((source.hi >>> 16)) & 0xFFFF);
+    let word2 = ((destination_high & 0xFFFF) + (source[1] & 0xFFFF) & 0xFFFF);
+    let word3 = (((destination_high >>> 16)) + ((source[1] >>> 16)) & 0xFFFF);
     let high = word2 | word3 << 16;
 
-    let data = {
-        lo: low,
-        hi: high
-    };
+    let data = cpu.create_atom64s(low, high);
 
     cpu.write_xmm64s(data);
 };
