@@ -3128,17 +3128,13 @@ t[0xFD] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let low = 0;
-    let word0 = ((destination_low & 0xFFFF) + (source.lo & 0xFFFF) % 0x10000);
-    let word1 = (((destination_low >>> 16) & 0xFFFF) + ((source.lo >>> 16) & 0xFFFF) % 0x10000);
-    low |= word0;
-    low |= word1 << 16;
+    let word0 = ((destination_low & 0xFFFF) + (source.lo & 0xFFFF)) & 0xFFFF;
+    let word1 = ((destination_low >>> 16) + (source.lo >>> 16)) & 0xFFFF;
+    let low = word0 | word1 << 16;
 
-    let high = 0;
-    let word2 = ((destination_high & 0xFFFF) + (source.hi & 0xFFFF) % 0x10000);
-    let word3 = (((destination_high >>> 16) & 0xFFFF) + ((source.hi >>> 16) & 0xFFFF) % 0x10000);
-    high |= word2;
-    high |= word3 << 16;
+    let word2 = ((destination_high & 0xFFFF) + (source.hi & 0xFFFF) & 0xFFFF);
+    let word3 = (((destination_high >>> 16)) + ((source.hi >>> 16)) & 0xFFFF);
+    let high = word2 | word3 << 16;
 
     let data = {
         lo: low,
