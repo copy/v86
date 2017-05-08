@@ -2407,15 +2407,15 @@ t[0x67] = cpu => {
 
     let low = 0;
     low |= (cpu.saturate_sw_to_ub((destination_low) & 0xFFFF));
-    low |= (cpu.saturate_sw_to_ub((destination_low >>> 16) & 0xFFFF)) << 8;
+    low |= (cpu.saturate_sw_to_ub(destination_low >>> 16)) << 8;
     low |= (cpu.saturate_sw_to_ub((destination_high) & 0xFFFF)) << 16;
-    low |= (cpu.saturate_sw_to_ub((destination_high >>> 16) & 0xFFFF)) << 24;
+    low |= (cpu.saturate_sw_to_ub(destination_high >>> 16)) << 24;
 
     let high = 0;
     high |= (cpu.saturate_sw_to_ub((source.lo) & 0xFFFF));
-    high |= (cpu.saturate_sw_to_ub((source.lo >>> 16) & 0xFFFF)) << 8;
+    high |= (cpu.saturate_sw_to_ub(source.lo >>> 16)) << 8;
     high |= (cpu.saturate_sw_to_ub((source.hi) & 0xFFFF)) << 16;
-    high |= (cpu.saturate_sw_to_ub((source.hi >>> 16) & 0xFFFF)) << 24;
+    high |= (cpu.saturate_sw_to_ub(source.hi >>> 16)) << 24;
 
     let data = {
         lo: low,
