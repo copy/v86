@@ -1323,6 +1323,18 @@ CPU.prototype.read_imm32s = function()
     return data32;
 };
 
+/*
+ * Create an internal data unit to represent 64 bits of data
+ */
+CPU.prototype.create_atom64s = function(low, high)
+{
+    let data = new Int32Array(2);
+    data[0] = low;
+    data[1] = high;
+
+    return data;
+};
+
 CPU.prototype.read_modrm_byte = function()
 {
     this.modrm_byte = this.read_imm8();
@@ -1473,16 +1485,16 @@ CPU.prototype.safe_read32s = function(addr)
 
 CPU.prototype.safe_read64s = function(addr)
 {
-    let data = {};
+    let data = this.create_atom64s();
     if(this.paging && (addr & 0xFFF) >= 0xFF9)
     {
-        data.lo = this.safe_read32s(addr);
-        data.hi = this.safe_read32s(addr + 4 | 0);
+        data[0] = this.safe_read32s(addr);
+        data[1] = this.safe_read32s(addr + 4 | 0);
     }
     else
     {
-        data.lo = this.read32s(this.translate_address_read(addr));
-        data.hi = this.read32s(this.translate_address_read(addr + 4 | 0));
+        data[0] = this.read32s(this.translate_address_read(addr));
+        data[1] = this.read32s(this.translate_address_read(addr + 4 | 0));
     }
     return data;
 };
@@ -1522,11 +1534,12 @@ CPU.prototype.safe_write32 = function(addr, value)
     }
 };
 
-CPU.prototype.safe_write64 = function(addr, low, high)
+CPU.prototype.safe_write64 = function(addr, data)
 {
+    dbg_assert(data && data.length === 2);
     this.writable_or_pagefault(addr, 8);
-    this.safe_write32(addr, low);
-    this.safe_write32(addr + 4 | 0, high);
+    this.safe_write32(addr, data[0]);
+    this.safe_write32(addr + 4 | 0, data[1]);
 };
 
 // read 2 or 4 byte from ip, depending on address size attribute
@@ -3248,22 +3261,23 @@ CPU.prototype.read_xmm_mem32s = function()
     if(this.modrm_byte < 0xC0) {
         return this.safe_read32s(this.modrm_resolve(this.modrm_byte));
     } else {
-        // data.lo
+        // Returning lower dword of qword
         return this.reg_mmxs[2 * (this.modrm_byte & 7)];
     }
 };
 
 CPU.prototype.read_xmm_mem64s = function()
 {
-    let data = {};
+    let data;
     if(this.modrm_byte < 0xC0) {
         data = this.safe_read64s(this.modrm_resolve(this.modrm_byte));
     } else {
-        data.lo = this.reg_mmxs[2 * (this.modrm_byte & 7)];
-        data.hi = this.reg_mmxs[2 * (this.modrm_byte & 7) + 1];
+        data = this.create_atom64s();
+        data[0] = this.reg_mmxs[2 * (this.modrm_byte & 7)];
+        data[1] = this.reg_mmxs[2 * (this.modrm_byte & 7) + 1];
     }
 
-    dbg_assert(data && data.hasOwnProperty('lo') && data.hasOwnProperty('hi'));
+    dbg_assert(data && data.length === 2);
 
     return data;
 };
@@ -3299,14 +3313,14 @@ CPU.prototype.set_e32 = function(value)
 };
 
 CPU.prototype.set_xmm_mem64s = function(data) {
-    dbg_assert(data && data.hasOwnProperty('lo') && data.hasOwnProperty('hi'));
+    dbg_assert(data && data.length === 2);
 
     if(this.modrm_byte < 0xC0) {
         var addr = this.modrm_resolve(this.modrm_byte);
-        this.safe_write64(addr, data.lo, data.hi);
+        this.safe_write64(addr, data);
     } else {
-        this.reg_mmxs[2 * (this.modrm_byte & 7)] = data.lo;
-        this.reg_mmxs[2 * (this.modrm_byte & 7) + 1] = data.hi;
+        this.reg_mmxs[2 * (this.modrm_byte & 7)] = data[0];
+        this.reg_mmxs[2 * (this.modrm_byte & 7) + 1] = data[1];
     }
 };
 
@@ -3450,18 +3464,20 @@ CPU.prototype.write_g32 = function(value)
 };
 
 CPU.prototype.read_xmm64s = function() {
-    let data = {};
-    data.lo = this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)];
-    data.hi = this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1];
+    let data = this.create_atom64s(
+        this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)],
+        this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1]
+    );
 
-    dbg_assert(data && data.hasOwnProperty('lo') && data.hasOwnProperty('hi'));
+    dbg_assert(data && data.length === 2);
     return data;
 };
 
 CPU.prototype.write_xmm64s = function(data) {
-    dbg_assert(data && data.hasOwnProperty('lo') && data.hasOwnProperty('hi'));
-    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)] = data.lo;
-    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1] = data.hi;
+    dbg_assert(data && data.length === 2);
+
+    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)] = data[0];
+    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1] = data[1];
 };
 
 CPU.prototype.pic_call_irq = function(int)
