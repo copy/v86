@@ -298,7 +298,7 @@ IDEDevice.prototype.read_status = function()
 IDEDevice.prototype.write_control = function(data)
 {
     dbg_log("set device control: " + h(data, 2) + " interrupts " +
-            ((data & 2) ? "disabled" : "enabled"), LOG_DISK)
+            ((data & 2) ? "disabled" : "enabled"), LOG_DISK);
 
     if(data & 4)
     {
@@ -1171,7 +1171,7 @@ IDEInterface.prototype.atapi_read = function(cmd)
         this.buffer.get(start, byte_count, (data) =>
         {
             //setTimeout(() => {
-            dbg_log("cd read: data arrived", LOG_DISK)
+            dbg_log("cd read: data arrived", LOG_DISK);
             this.data_set(data);
             this.status = 0x58;
             this.bytecount = this.bytecount & ~7 | 2;
@@ -1222,7 +1222,7 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
         this.status = 0x58;
         this.device.dma_status |= 1;
     }
-}
+};
 
 IDEInterface.prototype.do_atapi_read_dma = function()
 {
@@ -1496,7 +1496,7 @@ IDEInterface.prototype.write_end = function()
 {
     if(this.current_command === 0xA0)
     {
-        this.atapi_handle()
+        this.atapi_handle();
     }
     else
     {
@@ -1505,7 +1505,7 @@ IDEInterface.prototype.write_end = function()
 
         if(this.data_pointer >= this.data_length)
         {
-            this.do_write()
+            this.do_write();
         }
         else
         {
@@ -1514,7 +1514,7 @@ IDEInterface.prototype.write_end = function()
             //this.ata_advance(this.current_command, 1);
             this.status = 0x58;
             this.data_end += 512;
-            this.push_irq()
+            this.push_irq();
         }
     }
 };
