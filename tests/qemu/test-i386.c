@@ -2277,7 +2277,8 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     { 0x0f76255a085427f8, 0xc233e9e8c4c9439a },
 };
 
-#define SSE_OP(op)\
+#define SSE_OP(op) {}
+/*                                              \
 {\
     asm volatile (#op " %2, %0" : "=x" (r.dq) : "0" (a.dq), "x" (b.dq));\
     printf("%-9s: a=" FMT64X "" FMT64X " b=" FMT64X "" FMT64X " r=" FMT64X "" FMT64X "\n",\
@@ -2286,8 +2287,10 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
            b.q[1], b.q[0],\
            r.q[1], r.q[0]);\
 }
+*/
 
-#define SSE_OP2(op)\
+#define SSE_OP2(op) {}
+/*                                              \
 {\
     int i;\
     for(i=0;i<2;i++) {\
@@ -2298,6 +2301,7 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     SSE_OP(op);\
     }\
 }
+*/
 
 #define MMX_OP2(op)\
 {\
@@ -2418,10 +2422,12 @@ SSE_OP(a ## sd);
 
 void test_sse_comi(double a1, double b1)
 {
+    /*
     SSE_COMI(ucomiss, s);
     SSE_COMI(ucomisd, d);
     SSE_COMI(comiss, s);
     SSE_COMI(comisd, d);
+    */
 }
 
 #define CVT_OP_XMM(op)\
@@ -2548,6 +2554,7 @@ void test_sse(void)
     XMMReg r, a, b;
     int i;
 
+    /*
     MMX_OP2(punpcklbw);
     MMX_OP2(punpcklwd);
     MMX_OP2(punpckldq);
@@ -2555,7 +2562,9 @@ void test_sse(void)
     MMX_OP2(pcmpgtb);
     MMX_OP2(pcmpgtw);
     MMX_OP2(pcmpgtd);
+    */
     MMX_OP2(packuswb);
+    /*
     MMX_OP2(punpckhbw);
     MMX_OP2(punpckhwd);
     MMX_OP2(punpckhdq);
@@ -2565,11 +2574,15 @@ void test_sse(void)
     MMX_OP2(pcmpeqd);
 
     MMX_OP2(paddq);
+    */
     MMX_OP2(pmullw);
+    /*
     MMX_OP2(psubusb);
     MMX_OP2(psubusw);
     MMX_OP2(pminub);
+    */
     MMX_OP2(pand);
+    /*
     MMX_OP2(paddusb);
     MMX_OP2(paddusw);
     MMX_OP2(pmaxub);
@@ -2594,7 +2607,9 @@ void test_sse(void)
     MMX_OP2(psubd);
     MMX_OP2(psubq);
     MMX_OP2(paddb);
+    */
     MMX_OP2(paddw);
+    /*
     MMX_OP2(paddd);
 
     MMX_OP2(pavgb);
@@ -2697,9 +2712,10 @@ void test_sse(void)
 
     MOVMSK(movmskps);
     MOVMSK(movmskpd);
+    */
 
     /* FPU specific ops */
-
+    /*
     {
         uint32_t mxcsr;
         asm volatile("stmxcsr %0" : "=m" (mxcsr));
@@ -2768,8 +2784,10 @@ void test_sse(void)
         SSE_OPD(cmpnle);
         SSE_OPD(cmpord);
     }
+    */
 
     /* float to float/int */
+    /*
     a.s[0] = 2.7;
     a.s[1] = 3.4;
     a.s[2] = 4;
@@ -2793,12 +2811,16 @@ void test_sse(void)
     CVT_OP_XMM2REG(cvttsd2si);
     CVT_OP_XMM(cvtpd2dq);
     CVT_OP_XMM(cvttpd2dq);
+    */
 
     /* sse/mmx moves */
+    /*
     CVT_OP_XMM2MMX(movdq2q);
     CVT_OP_MMX2XMM(movq2dq);
+    */
 
     /* int to float */
+    /*
     a.l[0] = -6;
     a.l[1] = 2;
     a.l[2] = 100;
@@ -2809,10 +2831,10 @@ void test_sse(void)
     CVT_OP_REG2XMM(cvtsi2sd);
     CVT_OP_XMM(cvtdq2ps);
     CVT_OP_XMM(cvtdq2pd);
-
+    */
     /* XXX: test PNI insns */
 #if 0
-    SSE_OP2(movshdup);
+    // SSE_OP2(movshdup);
 #endif
     asm volatile ("emms");
 }
@@ -2910,7 +2932,7 @@ int main(int argc, char **argv)
     test_conv();
 #ifdef TEST_SSE
     test_sse();
-    test_fxsave();
+    // test_fxsave();
 #endif
     test_exceptions();
     //test_single_step();
