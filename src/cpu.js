@@ -3618,7 +3618,7 @@ CPU.prototype.lookup_segment_selector = function(selector)
         table_limit = this.segment_limits[reg_ldtr];
     }
 
-    if(selector_offset === 0)
+    if(is_gdt && selector_offset === 0)
     {
         info.is_null = true;
         return info;
