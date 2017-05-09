@@ -2456,19 +2456,15 @@ t[0x70] = cpu => {
     let order = cpu.read_op8();
 
     let word0_shift = order & 0b11;
-    let word0 = source[Math.floor(word0_shift >> 1)] >>>
-            ((word0_shift & 1) * 16);
+    let word0 = source[word0_shift >> 1] >>> ((word0_shift & 1) * 16);
     let word1_shift = (order >> 2) & 0b11;
-    let word1 = source[Math.floor(word1_shift >> 1)] >>>
-            ((word1_shift & 1) * 16);
+    let word1 = source[word1_shift >> 1] >>> ((word1_shift & 1) * 16);
     let low = word0 | word1 << 16;
 
     let word2_shift = (order >> 4) & 0b11;
-    let word2 = source[Math.floor(word2_shift >> 1)] >>>
-            ((word2_shift & 1) * 16);
+    let word2 = source[word2_shift >> 1] >>> ((word2_shift & 1) * 16);
     let word3_shift = (order >>> 6);
-    let word3 = source[Math.floor(word3_shift >> 1)] >>>
-            ((word3_shift & 1) * 16);
+    let word3 = source[word3_shift >> 1] >>> ((word3_shift & 1) * 16);
     let high = word2 | word3 << 16;
 
     let data = cpu.create_atom64s(low, high);
