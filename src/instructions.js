@@ -3174,12 +3174,12 @@ t[0xFD] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let word0 = ((destination_low & 0xFFFF) + (source[0] & 0xFFFF)) & 0xFFFF;
+    let word0 = (destination_low + source[0]) & 0xFFFF;
     let word1 = ((destination_low >>> 16) + (source[0] >>> 16)) & 0xFFFF;
     let low = word0 | word1 << 16;
 
-    let word2 = ((destination_high & 0xFFFF) + (source[1] & 0xFFFF) & 0xFFFF);
-    let word3 = (((destination_high >>> 16)) + ((source[1] >>> 16)) & 0xFFFF);
+    let word2 = (destination_high + source[1]) & 0xFFFF;
+    let word3 = ((destination_high >>> 16) + (source[1] >>> 16)) & 0xFFFF;
     let high = word2 | word3 << 16;
 
     let data = cpu.create_atom64s(low, high);
