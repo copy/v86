@@ -2395,7 +2395,30 @@ t[0x5D] = cpu => { cpu.unimplemented_sse(); };
 t[0x5E] = cpu => { cpu.unimplemented_sse(); };
 t[0x5F] = cpu => { cpu.unimplemented_sse(); };
 
-t[0x60] = cpu => { cpu.unimplemented_sse(); };
+t[0x60] = cpu => {
+    // punpcklbw mm, mm/m32
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    cpu.read_modrm_byte();
+    let source = cpu.read_xmm_mem32s();
+    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+
+    let byte0 = destination_low & 0xFF;
+    let byte1 = source & 0xFF;
+    let byte2 = (destination_low >> 8) & 0xFF;
+    let byte3 = (source >> 8) & 0xFF;
+    let byte4 = (destination_low >> 16) & 0xFF;
+    let byte5 = (source >> 16) & 0xFF;
+    let byte6 = destination_low >>> 24;
+    let byte7 = source >>> 24;
+
+    let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+    let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+    let data = cpu.create_atom64s(low, high);
+
+    cpu.write_xmm64s(data);
+};
 t[0x61] = cpu => { cpu.unimplemented_sse(); };
 t[0x62] = cpu => { cpu.unimplemented_sse(); };
 t[0x63] = cpu => { cpu.unimplemented_sse(); };
