@@ -2420,6 +2420,7 @@ t[0x66] = cpu => { cpu.unimplemented_sse(); };
 t[0x67] = cpu => {
     // packuswb mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -2451,6 +2452,7 @@ t[0x6D] = cpu => { cpu.unimplemented_sse(); };
 t[0x6E] = cpu => {
     // movd mm, r/m32
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
     cpu.read_modrm_byte();
     let data = cpu.create_atom64s(cpu.read_xmm_mem32s(), 0);
     cpu.write_xmm64s(data);
@@ -2458,6 +2460,7 @@ t[0x6E] = cpu => {
 t[0x6F] = cpu => {
     // movq mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
     cpu.read_modrm_byte();
     let data = cpu.read_xmm_mem64s();
     cpu.write_xmm64s(data);
@@ -2466,6 +2469,7 @@ t[0x6F] = cpu => {
 t[0x70] = cpu => {
     // pshufw mm1, mm2/m64, imm8
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let order = cpu.read_op8();
@@ -2508,6 +2512,7 @@ t[0x7D] = cpu => { cpu.unimplemented_sse(); };
 t[0x7E] = cpu => {
     // movd r/m32, mm
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
     cpu.read_modrm_byte();
     let data = cpu.read_xmm64s();
     cpu.set_e32(data[0]);
@@ -2515,6 +2520,7 @@ t[0x7E] = cpu => {
 t[0x7F] = cpu => {
     // movq mm/m64, mm
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
     cpu.read_modrm_byte();
     let data = cpu.read_xmm64s();
     cpu.set_xmm_mem64s(data);
@@ -3133,6 +3139,7 @@ t[0xD4] = cpu => { cpu.unimplemented_sse(); };
 t[0xD5] = cpu => {
     // pmullw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -3159,6 +3166,7 @@ t[0xDA] = cpu => { cpu.unimplemented_sse(); };
 t[0xDB] = cpu => {
     // pand mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
