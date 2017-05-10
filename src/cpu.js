@@ -1365,6 +1365,16 @@ CPU.prototype.modrm_resolve = function(modrm_byte)
     return (this.is_asize_32() ? this.modrm_table32 : this.modrm_table16)[modrm_byte](this);
 };
 
+CPU.prototype.rm_resolve = function(modrm_byte)
+{
+    return modrm_byte & 7;
+};
+
+CPU.prototype.reg_resolve = function(modrm_byte)
+{
+    return modrm_byte >> 3 & 7;
+};
+
 CPU.prototype.sib_resolve = function(mod)
 {
     return this.sib_table[this.read_sib()](this, mod);
@@ -3264,7 +3274,7 @@ CPU.prototype.read_xmm_mem32s = function()
         return this.safe_read32s(this.modrm_resolve(this.modrm_byte));
     } else {
         // Returning lower dword of qword
-        return this.reg_mmxs[2 * (this.modrm_byte & 7)];
+        return this.reg_mmxs[2 * this.rm_resolve(this.modrm_byte)];
     }
 };
 
@@ -3275,8 +3285,8 @@ CPU.prototype.read_xmm_mem64s = function()
         data = this.safe_read64s(this.modrm_resolve(this.modrm_byte));
     } else {
         data = this.create_atom64s();
-        data[0] = this.reg_mmxs[2 * (this.modrm_byte & 7)];
-        data[1] = this.reg_mmxs[2 * (this.modrm_byte & 7) + 1];
+        data[0] = this.reg_mmxs[2 * this.rm_resolve(this.modrm_byte)];
+        data[1] = this.reg_mmxs[2 * this.rm_resolve(this.modrm_byte) + 1];
     }
 
     dbg_assert(data && data.length === 2);
@@ -3321,8 +3331,8 @@ CPU.prototype.set_xmm_mem64s = function(data) {
         var addr = this.modrm_resolve(this.modrm_byte);
         this.safe_write64(addr, data);
     } else {
-        this.reg_mmxs[2 * (this.modrm_byte & 7)] = data[0];
-        this.reg_mmxs[2 * (this.modrm_byte & 7) + 1] = data[1];
+        this.reg_mmxs[2 * this.rm_resolve(this.modrm_byte)] = data[0];
+        this.reg_mmxs[2 * this.rm_resolve(this.modrm_byte) + 1] = data[1];
     }
 };
 
@@ -3467,8 +3477,8 @@ CPU.prototype.write_g32 = function(value)
 
 CPU.prototype.read_xmm64s = function() {
     let data = this.create_atom64s(
-        this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)],
-        this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1]
+        this.reg_mmxs[2 * this.reg_resolve(this.modrm_byte)],
+        this.reg_mmxs[2 * this.reg_resolve(this.modrm_byte) + 1]
     );
 
     dbg_assert(data && data.length === 2);
@@ -3478,8 +3488,8 @@ CPU.prototype.read_xmm64s = function() {
 CPU.prototype.write_xmm64s = function(data) {
     dbg_assert(data && data.length === 2);
 
-    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)] = data[0];
-    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1] = data[1];
+    this.reg_mmxs[2 * this.reg_resolve(this.modrm_byte)] = data[0];
+    this.reg_mmxs[2 * this.reg_resolve(this.modrm_byte) + 1] = data[1];
 };
 
 CPU.prototype.pic_call_irq = function(int)
