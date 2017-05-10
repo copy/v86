@@ -2496,7 +2496,12 @@ t[0x73] = cpu => { cpu.unimplemented_sse(); };
 t[0x74] = cpu => { cpu.unimplemented_sse(); };
 t[0x75] = cpu => { cpu.unimplemented_sse(); };
 t[0x76] = cpu => { cpu.unimplemented_sse(); };
-t[0x77] = cpu => { cpu.unimplemented_sse(); };
+t[0x77] = cpu => {
+    // emms
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    cpu.fpu.safe_tag_word(0xFFFF);
+};
 
 t[0x78] = cpu => { cpu.unimplemented_sse(); };
 t[0x79] = cpu => { cpu.unimplemented_sse(); };
