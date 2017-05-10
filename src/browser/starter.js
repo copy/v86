@@ -140,6 +140,10 @@ function V86Starter(options)
     {
         this.screen_adapter = new ScreenAdapter(options["screen_container"], adapter_bus);
     }
+    else if(options["screen_dummy"])
+    {
+        this.screen_adapter = new DummyScreenAdapter(adapter_bus);
+    }
 
     if(options["serial_container"])
     {
@@ -416,7 +420,7 @@ function V86Starter(options)
                 {
                     this.bus.send("cpu-run");
                 }
-            }.bind(this), 0)
+            }.bind(this), 0);
         }.bind(this), 0);
     }
 }
@@ -841,7 +845,7 @@ V86Starter.prototype.create_file = function(file, data, callback)
 
     var path_infos = fs.SearchPath(file);
     var parent_id = path_infos.parentid;
-    var not_found = filename === "" || parent_id === -1
+    var not_found = filename === "" || parent_id === -1;
 
     if(!not_found)
     {

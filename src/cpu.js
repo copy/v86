@@ -76,6 +76,8 @@ function CPU()
     /** @type {number} */
     this.gdtr_offset = 0;
 
+    this.tss_size_32 = false;
+
     /*
      * whether or not a page fault occured
      */
@@ -323,6 +325,8 @@ CPU.prototype.get_state = function()
 
     state[64] = this.devices.ioapic;
 
+    state[64] = this.tss_size_32;
+
     return state;
 };
 
@@ -394,6 +398,8 @@ CPU.prototype.set_state = function(state)
     this.fw_value = state[63];
 
     this.devices.ioapic = state[64];
+
+    this.tss_size_32 = state[64];
 
     this.mem16 = new Uint16Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 1);
     this.mem32s = new Int32Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 2);
@@ -1781,8 +1787,16 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, er
             //this.debug.dump_regs();
             var tss_stack_addr = this.get_tss_stack_addr(info.dpl);
 
-            var new_esp = this.read32s(tss_stack_addr);
-            var new_ss = this.read16(tss_stack_addr + 4 | 0);
+            if(this.tss_size_32)
+            {
+                var new_esp = this.read32s(tss_stack_addr);
+                var new_ss = this.read16(tss_stack_addr + 4 | 0);
+            }
+            else
+            {
+                var new_esp = this.read16(tss_stack_addr);
+                var new_ss = this.read16(tss_stack_addr + 2 | 0);
+            }
             var ss_info = this.lookup_segment_selector(new_ss);
 
             // Disabled: Incorrect handling of direction bit
@@ -2449,7 +2463,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
 
     if(info.is_system)
     {
-        dbg_assert(is_call, "TODO: Jump")
+        dbg_assert(is_call, "TODO: Jump");
 
         dbg_log("system type cs: " + h(selector), LOG_CPU);
 
@@ -2508,8 +2522,16 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
                 dbg_log("more privilege call gate is_16=" + is_16 + " from=" + this.cpl + " to=" + cs_info.dpl);
                 var tss_stack_addr = this.get_tss_stack_addr(cs_info.dpl);
 
-                var new_esp = this.read32s(tss_stack_addr);
-                var new_ss = this.read16(tss_stack_addr + 4 | 0);
+                if(this.tss_size_32)
+                {
+                    var new_esp = this.read32s(tss_stack_addr);
+                    var new_ss = this.read16(tss_stack_addr + 4 | 0);
+                }
+                else
+                {
+                    var new_esp = this.read16(tss_stack_addr);
+                    var new_ss = this.read16(tss_stack_addr + 2 | 0);
+                }
                 var ss_info = this.lookup_segment_selector(new_ss);
 
                 // Disabled: Incorrect handling of direction bit
@@ -2733,27 +2755,44 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
 
 CPU.prototype.get_tss_stack_addr = function(dpl)
 {
-    var tss_stack_addr = (dpl << 3) + 4 | 0;
-
-    if((tss_stack_addr + 5 | 0) > this.segment_limits[reg_tr])
+    if(this.tss_size_32)
     {
-        throw this.debug.unimpl("#TS handler");
-    }
+        var tss_stack_addr = (dpl << 3) + 4 | 0;
 
-    tss_stack_addr = tss_stack_addr + this.segment_offsets[reg_tr] | 0;
+        if((tss_stack_addr + 5 | 0) > this.segment_limits[reg_tr])
+        {
+            throw this.debug.unimpl("#TS handler");
+        }
+
+        tss_stack_addr = tss_stack_addr + this.segment_offsets[reg_tr] | 0;
+
+        dbg_assert((tss_stack_addr & 0xFFF) <= 0x1000 - 6);
+    }
+    else
+    {
+        var tss_stack_addr = (dpl << 2) + 2 | 0;
+
+        if((tss_stack_addr + 5 | 0) > this.segment_limits[reg_tr])
+        {
+            throw this.debug.unimpl("#TS handler");
+        }
+
+        tss_stack_addr = tss_stack_addr + this.segment_offsets[reg_tr] | 0;
+        dbg_assert((tss_stack_addr & 0xFFF) <= 0x1000 - 4);
+    }
 
     if(this.paging)
     {
         tss_stack_addr = this.translate_address_system_read(tss_stack_addr);
     }
 
-    dbg_assert((tss_stack_addr & 0xFFF) <= 0x1000 - 6);
-
     return tss_stack_addr;
 };
 
 CPU.prototype.do_task_switch = function(selector, error_code)
 {
+    dbg_assert(!this.tss_size_32, "TODO");
+
     dbg_log("do_task_switch sel=" + h(selector), LOG_CPU);
     var descriptor = this.lookup_segment_selector(selector);
 
@@ -3367,12 +3406,12 @@ CPU.prototype.write_e32 = function(value)
 CPU.prototype.read_reg_e16 = function()
 {
     return this.reg16[this.modrm_byte << 1 & 14];
-}
+};
 
 CPU.prototype.write_reg_e16 = function(value)
 {
     this.reg16[this.modrm_byte << 1 & 14] = value;
-}
+};
 
 CPU.prototype.read_reg_e32s = function()
 {
@@ -3500,8 +3539,15 @@ CPU.prototype.test_privileges_for_io = function(port, size)
 {
     if(this.protected_mode && (this.cpl > this.getiopl() || (this.flags & flag_vm)))
     {
-        var tsr_size = this.segment_limits[reg_tr],
-            tsr_offset = this.segment_offsets[reg_tr];
+        if(!this.tss_size_32)
+        {
+            dbg_log("#GP for port io, 16-bit TSS  port=" + h(port) + " size=" + size, LOG_CPU);
+            CPU_LOG_VERBOSE && this.debug.dump_state();
+            this.trigger_gp(0);
+        }
+
+        var tsr_size = this.segment_limits[reg_tr];
+        var tsr_offset = this.segment_offsets[reg_tr];
 
         if(tsr_size >= 0x67)
         {
@@ -3719,7 +3765,7 @@ CPU.prototype.lookup_segment_selector = function(selector)
         table_limit = this.segment_limits[reg_ldtr];
     }
 
-    if(selector_offset === 0)
+    if(is_gdt && selector_offset === 0)
     {
         info.is_null = true;
         return info;
@@ -3728,8 +3774,8 @@ CPU.prototype.lookup_segment_selector = function(selector)
     // limit is the number of entries in the table minus one
     if((selector | 7) > table_limit)
     {
-        dbg_log("Selector " + h(selector, 4) + " is outside of the "
-                    + (is_gdt ? "g" : "l") + "dt limits", LOG_CPU)
+        dbg_log("Selector " + h(selector, 4) + " is outside of the " +
+            (is_gdt ? "g" : "l") + "dt limits", LOG_CPU);
         info.is_valid = false;
         return info;
     }
@@ -3926,12 +3972,7 @@ CPU.prototype.load_tr = function(selector)
         throw this.debug.unimpl("#NT handler");
     }
 
-    if(info.type === 1)
-    {
-        // 286 tss: Load 16 bit values from tss in call_interrupt_vector
-        throw this.debug.unimpl("286 tss");
-    }
-
+    this.tss_size_32 = info.type === 9;
     this.segment_offsets[reg_tr] = info.base;
     this.segment_limits[reg_tr] = info.effective_limit;
     this.sreg[reg_tr] = selector;

@@ -44,6 +44,13 @@ var ASYNC_SAFE = false;
             }
         }
 
+        if(options.range)
+        {
+            let start = options.range.start;
+            let end = start + options.range.length - 1;
+            http.setRequestHeader("Range", "bytes=" + start + "-" + end);
+        }
+
         http.onload = function(e)
         {
             if(http.readyState === 4)
@@ -72,28 +79,107 @@ var ASYNC_SAFE = false;
 
     function load_file_nodejs(filename, options)
     {
-        var o = {
-            encoding: options.as_text ? "utf-8" : null,
-        };
+        let fs = require("fs");
 
-        require("fs")["readFile"](filename, o, function(err, data)
+        if(options.range)
         {
-            if(err)
-            {
-                console.log("Could not read file:", filename);
-            }
-            else
-            {
-                var result = data;
+            dbg_assert(!options.as_text);
 
-                if(!options.as_text)
+            fs["open"](filename, "r", (err, fd) =>
+            {
+                if(err) throw err;
+
+                let length = options.range.length;
+                var buffer = new global["Buffer"](length);
+
+                fs["read"](fd, buffer, 0, length, options.range.start, (err, bytes_read) =>
                 {
-                    result = new Uint8Array(result).buffer;
-                }
+                    if(err) throw err;
 
-                options.done(result);
-            }
-        });
+                    dbg_assert(bytes_read === length);
+                    options.done && options.done(new Uint8Array(buffer));
+
+                    fs["close"](fd, (err) => {
+                        if(err) throw err;
+                    });
+                });
+            });
+        }
+        else
+        {
+            var o = {
+                encoding: options.as_text ? "utf-8" : null,
+            };
+
+            fs["readFile"](filename, o, function(err, data)
+            {
+                if(err)
+                {
+                    console.log("Could not read file:", filename, err);
+                }
+                else
+                {
+                    var result = data;
+
+                    if(!options.as_text)
+                    {
+                        result = new Uint8Array(result).buffer;
+                    }
+
+                    options.done(result);
+                }
+            });
+        }
+    }
+
+    if(typeof XMLHttpRequest === "undefined")
+    {
+        var determine_size = function(path, cb)
+        {
+            require("fs")["stat"](path, (err, stats) =>
+            {
+                if(err)
+                {
+                    cb(err);
+                }
+                else
+                {
+                    cb(null, stats.size);
+                }
+            });
+        };
+    }
+    else
+    {
+        var determine_size = function(url, cb)
+        {
+            v86util.load_file(url, {
+                done: (buffer, http) =>
+                {
+                    var header = http.getResponseHeader("Content-Range") || "";
+                    var match = header.match(/\/(\d+)\s*$/);
+
+                    if(match)
+                    {
+                        cb(null, +match[1]);
+                    }
+                    else
+                    {
+                        cb({ header });
+                    }
+                },
+                headers: {
+                    Range: "bytes=0-0",
+
+                    //"Accept-Encoding": "",
+
+                    // Added by Chromium, but can cause the whole file to be sent
+                    // Settings this to empty also causes problems and Chromium
+                    // doesn't seem to create this header any more
+                    //"If-Range": "",
+                }
+            });
+        };
     }
 
     /**
@@ -128,36 +214,22 @@ var ASYNC_SAFE = false;
 
         // Determine the size using a request
 
-        load_file(this.filename, {
-            done: function done(buffer, http)
+        determine_size(this.filename, (error, size) =>
+        {
+            if(error)
             {
-                var header = http.getResponseHeader("Content-Range") || "";
-                var match = header.match(/\/(\d+)\s*$/);
-
-                if(match)
-                {
-                    this.byteLength = +match[1]
-                    this.onload && this.onload({});
-                }
-                else
-                {
-                    console.assert(false,
-                        "Cannot use: " + this.filename + ". " +
-                        "`Range: bytes=...` header not supported (Got `" + header + "`)");
-                }
-            }.bind(this),
-            headers: {
-                Range: "bytes=0-0",
-
-                //"Accept-Encoding": "",
-
-                // Added by Chromium, but can cause the whole file to be sent
-                // Settings this to empty also causes problems and Chromium
-                // doesn't seem to create this header any more
-                //"If-Range": "",
+                console.assert(false,
+                    "Cannot use: " + this.filename + ". " +
+                    "`Range: bytes=...` header not supported (Got `" + error.header + "`)");
+            }
+            else
+            {
+                dbg_assert(size >= 0);
+                this.byteLength = size;
+                this.onload && this.onload({});
             }
         });
-    }
+    };
 
     /**
      * @param {number} offset
@@ -220,21 +292,16 @@ var ASYNC_SAFE = false;
             return;
         }
 
-        var range_start = offset;
-        var range_end = offset + len - 1;
-
-        load_file(this.filename, {
+        v86util.load_file(this.filename, {
             done: function done(buffer)
             {
                 var block = new Uint8Array(buffer);
                 this.handle_read(offset, len, block);
                 fn(block);
             }.bind(this),
-            headers: {
-                Range: "bytes=" + range_start + "-" + range_end,
-            }
+            range: { start: offset, length: len },
         });
-    }
+    };
 
     /**
      * Relies on this.byteLength, this.loaded_blocks and this.block_size
@@ -274,7 +341,7 @@ var ASYNC_SAFE = false;
         }
 
         fn();
-    }
+    };
 
     /**
      * @this {AsyncFileBuffer|AsyncXHRBuffer}
@@ -368,7 +435,7 @@ var ASYNC_SAFE = false;
     SyncFileBuffer.prototype.load = function()
     {
         this.load_next(0);
-    }
+    };
 
     /**
      * @param {number} start
@@ -407,7 +474,7 @@ var ASYNC_SAFE = false;
             this.file = undefined;
             this.onload && this.onload({ buffer: this.buffer });
         }
-    }
+    };
 
     /**
      * @param {number} start
@@ -449,7 +516,7 @@ var ASYNC_SAFE = false;
         this.byteLength = file.size;
 
         /** @const */
-        this.block_size = 256
+        this.block_size = 256;
         this.loaded_blocks = {};
 
         this.onload = undefined;
@@ -491,7 +558,7 @@ var ASYNC_SAFE = false;
         }.bind(this);
 
         fr.readAsArrayBuffer(this.file.slice(offset, offset + len));
-    }
+    };
     AsyncFileBuffer.prototype.get_from_cache = AsyncXHRBuffer.prototype.get_from_cache;
     AsyncFileBuffer.prototype.set = AsyncXHRBuffer.prototype.set;
     AsyncFileBuffer.prototype.handle_read = AsyncXHRBuffer.prototype.handle_read;

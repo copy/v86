@@ -253,6 +253,9 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
     /** @type {number} */
     this.dma_status = 0;
 
+    /** @type {number} */
+    this.dma_command = 0;
+
     cpu.io.register_write(this.ata_port | 7, this, function(data)
     {
         dbg_log("lower irq", LOG_DISK);
@@ -298,7 +301,7 @@ IDEDevice.prototype.read_status = function()
 IDEDevice.prototype.write_control = function(data)
 {
     dbg_log("set device control: " + h(data, 2) + " interrupts " +
-            ((data & 2) ? "disabled" : "enabled"), LOG_DISK)
+            ((data & 2) ? "disabled" : "enabled"), LOG_DISK);
 
     if(data & 4)
     {
@@ -334,19 +337,18 @@ IDEDevice.prototype.dma_read_status = function()
 IDEDevice.prototype.dma_write_status = function(value)
 {
     dbg_log("DMA set status: " + h(value), LOG_DISK);
-    this.dma_status &= ~value;
+    this.dma_status &= ~(value & 6);
 };
 
 IDEDevice.prototype.dma_read_command = function()
 {
-    dbg_log("DMA read command", LOG_DISK);
-    return 1 | this.dma_read_status() << 16;
+    return this.dma_read_command8() | this.dma_read_status() << 16;
 };
 
 IDEDevice.prototype.dma_read_command8 = function()
 {
-    dbg_log("DMA read command8", LOG_DISK);
-    return 1;
+    dbg_log("DMA read command: " + h(this.dma_command), LOG_DISK);
+    return this.dma_command;
 };
 
 IDEDevice.prototype.dma_write_command = function(value)
@@ -361,10 +363,21 @@ IDEDevice.prototype.dma_write_command8 = function(value)
 {
     dbg_log("DMA write command8: " + h(value), LOG_DISK);
 
-    if((value & 1) === 0)
+    let old_command = this.dma_command;
+    this.dma_command = value & 0x9;
+
+    if((old_command & 1) === (value & 1))
     {
         return;
     }
+
+    if((value & 1) === 0)
+    {
+        this.dma_status &= ~1;
+        return;
+    }
+
+    this.dma_status |= 1;
 
     switch(this.current_interface.current_command)
     {
@@ -379,14 +392,7 @@ IDEDevice.prototype.dma_write_command8 = function(value)
             break;
 
         case 0xA0:
-            if(this.current_interface.current_atapi_command === 0x28)
-            {
-                this.current_interface.do_atapi_read_dma();
-            }
-            else
-            {
-                this.current_interface.do_atapi_dma();
-            }
+            this.current_interface.do_atapi_dma();
             break;
 
         default:
@@ -421,6 +427,7 @@ IDEDevice.prototype.get_state = function()
     state[9] = this.prdt_addr;
     state[10] = this.dma_status;
     state[11] = this.current_interface === this.master;
+    state[12] = this.dma_command;
     return state;
 };
 
@@ -438,6 +445,7 @@ IDEDevice.prototype.set_state = function(state)
     this.prdt_addr = state[9];
     this.dma_status = state[10];
     this.current_interface = state[11] ? this.master : this.slave;
+    this.dma_command = state[12];
 };
 
 
@@ -1139,6 +1147,7 @@ IDEInterface.prototype.atapi_read = function(cmd)
     var req_length = this.cylinder_high << 8 & 0xFF00 | this.cylinder_low & 0xFF;
     dbg_log(h(this.cylinder_high, 2) + " " + h(this.cylinder_low, 2), LOG_DISK);
     this.cylinder_low = this.cylinder_high = 0; // oak technology driver (windows 3.0)
+
     if(req_length === 0xFFFF)
         req_length--;
 
@@ -1171,7 +1180,7 @@ IDEInterface.prototype.atapi_read = function(cmd)
         this.buffer.get(start, byte_count, (data) =>
         {
             //setTimeout(() => {
-            dbg_log("cd read: data arrived", LOG_DISK)
+            dbg_log("cd read: data arrived", LOG_DISK);
             this.data_set(data);
             this.status = 0x58;
             this.bytecount = this.bytecount & ~7 | 2;
@@ -1218,75 +1227,37 @@ IDEInterface.prototype.atapi_read_dma = function(cmd)
     }
     else
     {
-        this.bytecount = this.bytecount & ~7 | 2;
-        this.status = 0x58;
-        this.device.dma_status |= 1;
+        this.status = 0x50 | 0x80;
+        this.report_read_start();
+
+        this.buffer.get(start, byte_count, (data) =>
+        {
+            dbg_log("atapi_read_dma: Data arrived");
+            this.report_read_end(byte_count);
+            this.status = 0x58;
+            this.bytecount = this.bytecount & ~7 | 2;
+            this.data_set(data);
+
+            this.do_atapi_dma();
+        });
     }
-}
-
-IDEInterface.prototype.do_atapi_read_dma = function()
-{
-    var cmd = this.data;
-
-    var lba = cmd[2] << 24 | cmd[3] << 16 | cmd[4] << 8 | cmd[5];
-    var count = cmd[7] << 8 | cmd[8];
-    var flags = cmd[1];
-    var byte_count = count * this.sector_size;
-    var start = lba * this.sector_size;
-
-    dbg_log("CD do read DMA lba=" + h(lba) +
-            " lbacount=" + h(count) +
-            " bytecount=" + h(byte_count) +
-            " flags=" + h(flags), LOG_DISK);
-
-    byte_count = Math.min(byte_count, this.buffer.byteLength - start);
-    //this.status = 0x50 | 0x80;
-    this.report_read_start();
-
-    this.buffer.get(start, byte_count, (data) =>
-    {
-        var prdt_start = this.device.prdt_addr;
-        var offset = 0;
-
-        do {
-            var addr = this.cpu.read32s(prdt_start);
-            var count = this.cpu.read16(prdt_start + 4);
-            var end = this.cpu.read8(prdt_start + 7) & 0x80;
-
-            if(!count)
-            {
-                count = 0x10000;
-            }
-
-            if(offset >= data.length)
-            {
-                dbg_log("Warning: Transfer ended early", LOG_DISK);
-                break;
-            }
-
-            dbg_log("dma read dest=" + h(addr) + " count=" + h(count), LOG_DISK);
-            this.cpu.write_blob(data.subarray(offset, offset + count), addr);
-
-            offset += count;
-            prdt_start += 8;
-
-            dbg_assert(offset <= this.buffer.byteLength);
-        }
-        while(!end);
-
-        this.status = 0x50;
-        this.device.dma_status &= ~2 & ~1;
-        this.bytecount = this.bytecount & ~7 | 3;
-
-        this.push_irq();
-
-        this.report_read_end(byte_count);
-    });
 };
 
 IDEInterface.prototype.do_atapi_dma = function()
 {
-    dbg_log("atapi dma len=" + this.data_length, LOG_DISK);
+    if((this.device.dma_status & 1) === 0)
+    {
+        dbg_log("do_atapi_dma: Status not set", LOG_DISK);
+        return;
+    }
+
+    if((this.status & 0x8) === 0)
+    {
+        dbg_log("do_atapi_dma: DRQ not set", LOG_DISK);
+        return;
+    }
+
+    dbg_log("atapi dma transfer len=" + this.data_length, LOG_DISK);
 
     var prdt_start = this.device.prdt_addr;
     var offset = 0;
@@ -1303,14 +1274,14 @@ IDEInterface.prototype.do_atapi_dma = function()
             count = 0x10000;
         }
 
-        dbg_log("dma read dest=" + h(addr) + " count=" + h(count), LOG_DISK);
+        dbg_log("dma read dest=" + h(addr) + " count=" + h(count) + " datalen=" + h(this.data_length), LOG_DISK);
         this.cpu.write_blob(data.subarray(offset,
             Math.min(offset + count, this.data_length)), addr);
 
         offset += count;
         prdt_start += 8;
 
-        if(offset >= this.data_length)
+        if(offset >= this.data_length && !end)
         {
             dbg_log("leave early end=" + (+end) +
                     " offset=" + h(offset) +
@@ -1324,7 +1295,8 @@ IDEInterface.prototype.do_atapi_dma = function()
     dbg_log("end offset=" + offset, LOG_DISK);
 
     this.status = 0x50;
-    this.device.dma_status &= ~2 & ~1;
+    this.device.dma_status &= ~1;
+    this.bytecount = this.bytecount & ~7 | 3;
     this.push_irq();
 };
 
@@ -1496,7 +1468,7 @@ IDEInterface.prototype.write_end = function()
 {
     if(this.current_command === 0xA0)
     {
-        this.atapi_handle()
+        this.atapi_handle();
     }
     else
     {
@@ -1505,7 +1477,7 @@ IDEInterface.prototype.write_end = function()
 
         if(this.data_pointer >= this.data_length)
         {
-            this.do_write()
+            this.do_write();
         }
         else
         {
@@ -1514,7 +1486,7 @@ IDEInterface.prototype.write_end = function()
             //this.ata_advance(this.current_command, 1);
             this.status = 0x58;
             this.data_end += 512;
-            this.push_irq()
+            this.push_irq();
         }
     }
 };
@@ -1703,7 +1675,7 @@ IDEInterface.prototype.do_ata_read_sectors_dma = function()
 
         this.ata_advance(this.current_command, count);
         this.status = 0x50;
-        this.device.dma_status &= ~2 & ~1;
+        this.device.dma_status &= ~1;
         this.current_command = -1;
 
         this.push_irq();
@@ -1855,7 +1827,7 @@ IDEInterface.prototype.do_ata_write_sectors_dma = function()
         this.ata_advance(this.current_command, count);
         this.status = 0x50;
         this.push_irq();
-        this.device.dma_status &= ~2 & ~1;
+        this.device.dma_status &= ~1;
         this.current_command = -1;
         //}, 10);
     }
