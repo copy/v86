@@ -80,7 +80,7 @@ CORE_FILES=const.js io.js main.js lib.js fpu.js ide.js pci.js floppy.js memory.j
 LIB_FILES=9p.js filesystem.js jor1k.js marshall.js utf8.js
 BROWSER_FILES=screen.js \
 	      keyboard.js mouse.js serial.js \
-	      network.js lib.js starter.js worker_bus.js
+	      network.js lib.js starter.js worker_bus.js dummy_screen.js
 
 CORE_FILES:=$(addprefix src/,$(CORE_FILES))
 LIB_FILES:=$(addprefix lib/,$(LIB_FILES))
