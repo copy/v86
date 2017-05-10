@@ -2319,6 +2319,24 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     SSE_OP2(op);\
 }
 
+
+#define SHUF_OP(op, ib)\
+{\
+    int i;\
+    for(i=0;i<2;i++) {\
+    a.q[0] = test_values[2*i][0];\
+    b.q[0] = test_values[2*i+1][0];\
+    asm volatile (#op " $" #ib ", %2, %0" : "=y" (r.q[0]) : "0" (a.q[0]), "y" (b.q[0])); \
+    printf("%-9s: a=" FMT64X " b=" FMT64X " ib=%02x r=" FMT64X "\n",\
+           #op,\
+           a.q[0],\
+           b.q[0],\
+           ib,\
+           r.q[0]);\
+    }\
+}
+
+/*
 #define SHUF_OP(op, ib)\
 {\
     a.q[0] = test_values[0][0];\
@@ -2333,6 +2351,7 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
            ib,\
            r.q[1], r.q[0]);\
 }
+*/
 
 #define PSHUF_OP(op, ib)\
 {\
@@ -2554,8 +2573,8 @@ void test_sse(void)
     XMMReg r, a, b;
     int i;
 
-    /*
     MMX_OP2(punpcklbw);
+    /*
     MMX_OP2(punpcklwd);
     MMX_OP2(punpckldq);
     MMX_OP2(packsswb);
@@ -2598,17 +2617,22 @@ void test_sse(void)
     MMX_OP2(paddsb);
     MMX_OP2(paddsw);
     MMX_OP2(pmaxsw);
+    */
     MMX_OP2(pxor);
+    /*
     MMX_OP2(pmuludq);
     MMX_OP2(pmaddwd);
     MMX_OP2(psadbw);
     MMX_OP2(psubb);
+    */
     MMX_OP2(psubw);
+    /*
     MMX_OP2(psubd);
     MMX_OP2(psubq);
     MMX_OP2(paddb);
     */
     MMX_OP2(paddw);
+    MMX_OP2(psrlw);
     /*
     MMX_OP2(paddd);
 
