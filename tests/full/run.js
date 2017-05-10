@@ -247,6 +247,27 @@ function run_test(test, done)
 {
     console.log("Starting test: %s", test.name);
 
+    let image = test.fda || test.hda || test.cdrom;
+    console.assert(image, "Bootable drive expected");
+
+    if(!fs.existsSync(image))
+    {
+        if(test.skip_if_disk_image_missing)
+        {
+            console.warn("Missing disk image: " + image + ", test skipped");
+            console.warn();
+
+            done();
+            return;
+        }
+        else
+        {
+            console.warn("Missing disk image: " + image);
+            process.exit(1);
+        }
+    }
+
+
     if(test.alternative_bios)
     {
         var bios = root_path + "/bios/bochs-bios.bin";
@@ -264,43 +285,17 @@ function run_test(test, done)
         autostart: true,
     };
 
-    console.assert(test.cdrom || test.fda || test.hda, "Bootable drive expected");
-
-    try
+    if(test.cdrom)
     {
-        if(test.cdrom)
-        {
-            settings.cdrom = { url: test.cdrom };
-        }
-        if(test.fda)
-        {
-            settings.fda = { url: test.fda };
-        }
-        if(test.hda)
-        {
-            settings.hda = { url: test.hda };
-        }
+        settings.cdrom = { url: test.cdrom };
     }
-    catch(e)
+    if(test.fda)
     {
-        if(e.code !== "ENOENT")
-        {
-            throw e;
-        }
-
-        if(test.skip_if_disk_image_missing)
-        {
-            console.warn("Missing disk image: " + e.path + ", test skipped");
-            console.warn();
-
-            done();
-            return;
-        }
-        else
-        {
-            console.warn("Missing disk image: " + e.path);
-            process.exit(1);
-        }
+        settings.fda = { url: test.fda };
+    }
+    if(test.hda)
+    {
+        settings.hda = { url: test.hda };
     }
 
     if(test.expected_texts)
