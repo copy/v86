@@ -22,11 +22,6 @@ var root_path = __dirname + "/../..";
 
 var SCREEN_WIDTH = 80;
 
-function readfile(path)
-{
-    return new Uint8Array(fs.readFileSync(path)).buffer;
-}
-
 function get_line(screen, y)
 {
     return screen.subarray(y * SCREEN_WIDTH, (y + 1) * SCREEN_WIDTH);
@@ -254,18 +249,18 @@ function run_test(test, done)
 
     if(test.alternative_bios)
     {
-        var bios = readfile(root_path + "/bios/bochs-bios.bin");
-        var vga_bios = readfile(root_path + "/bios/bochs-vgabios.bin");
+        var bios = root_path + "/bios/bochs-bios.bin";
+        var vga_bios = root_path + "/bios/bochs-vgabios.bin";
     }
     else
     {
-        var bios = readfile(root_path + "/bios/seabios.bin");
-        var vga_bios = readfile(root_path + "/bios/vgabios.bin");
+        var bios = root_path + "/bios/seabios.bin";
+        var vga_bios = root_path + "/bios/vgabios.bin";
     }
 
     var settings = {
-        bios: { buffer: bios },
-        vga_bios: { buffer: vga_bios },
+        bios: { url: bios },
+        vga_bios: { url: vga_bios },
         autostart: true,
     };
 
@@ -275,15 +270,15 @@ function run_test(test, done)
     {
         if(test.cdrom)
         {
-            settings.cdrom = { buffer: readfile(test.cdrom) };
+            settings.cdrom = { url: test.cdrom };
         }
         if(test.fda)
         {
-            settings.fda = { buffer: readfile(test.fda) };
+            settings.fda = { url: test.fda };
         }
         if(test.hda)
         {
-            settings.hda = { buffer: readfile(test.hda) };
+            settings.hda = { url: test.hda };
         }
     }
     catch(e)
