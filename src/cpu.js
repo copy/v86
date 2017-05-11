@@ -3631,7 +3631,8 @@ CPU.prototype.cpuid = function()
             var vme = 0 << 1;
             edx = (this.fpu ? 1 : 0) |                // fpu
                     vme | 1 << 3 | 1 << 4 | 1 << 5 |   // vme, pse, tsc, msr
-                    1 << 8 | 1 << 11 | 1 << 13 | 1 << 15; // cx8, sep, pge, cmov
+                    1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
+                    1 << 23;                           // mmx
 
             if(ENABLE_ACPI && this.apic_enabled)
             {
