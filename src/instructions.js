@@ -2490,7 +2490,46 @@ t[0x70] = cpu => {
 
     cpu.write_xmm64s(data);
 };
-t[0x71] = cpu => { cpu.unimplemented_sse(); };
+t[0x71] = cpu => {
+    cpu.read_modrm_byte();
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+    dbg_assert(cpu.modrm_byte >= 0xC0);
+
+    // psrlw, psraw, psllw
+    //     2,     4,     6
+    switch(cpu.modrm_byte >> 3 & 7)
+    {
+        case 2:
+            // psrlw mm, imm8
+            let source = cpu.read_op8();
+            let destination = cpu.modrm_byte & 7;
+
+            let destination_low = cpu.reg_mmxs[2 * destination];
+            let destination_high = cpu.reg_mmxs[2 * destination + 1];
+
+            // JS will right shift as expected only if shift is < 32
+            let shift = source;
+            if (shift > 31) {
+                shift = 31;
+            }
+
+            let word0 = (destination_low & 0xFFFF) >>> shift;
+            let word1 = (destination_low >>> 16) >>> shift;
+            let low = word0 | word1 << 16;
+
+            let word2 = (destination_high & 0xFFFF) >>> shift;
+            let word3 = (destination_high >>> 16) >>> shift;
+            let high = word2 | word3 << 16;
+
+            cpu.reg_mmxs[2 * destination] = low;
+            cpu.reg_mmxs[2 * destination + 1] = high;
+
+            break;
+        default:
+            cpu.unimplemented_sse();
+            break;
+    }
+};
 t[0x72] = cpu => { cpu.unimplemented_sse(); };
 t[0x73] = cpu => { cpu.unimplemented_sse(); };
 t[0x74] = cpu => { cpu.unimplemented_sse(); };
