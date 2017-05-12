@@ -2705,6 +2705,10 @@ void test_sse(void)
 
     SHUF_OP(shufps, 0x78);
     SHUF_OP(shufpd, 0x02);
+    */
+    SHUF_OP(pshufw, 0x78);
+    SHUF_OP(pshufw, 0x02);
+    /*
 
     PSHUF_OP(pshufd, 0x78);
     PSHUF_OP(pshuflw, 0x78);
