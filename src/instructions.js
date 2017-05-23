@@ -2454,7 +2454,7 @@ t[0x6E] = cpu => {
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
     cpu.read_modrm_byte();
-    let data = cpu.create_atom64s(cpu.read_xmm_mem32s(), 0);
+    let data = cpu.create_atom64s(cpu.read_e32s(), 0);
     cpu.write_xmm64s(data);
 };
 t[0x6F] = cpu => {
