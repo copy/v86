@@ -168,7 +168,7 @@ PS2.prototype.set_state = function(state)
     this.read_command_register = state[22];
 
     this.bus.send("mouse-enable", this.use_mouse);
-}
+};
 
 PS2.prototype.mouse_irq = function()
 {
@@ -176,7 +176,7 @@ PS2.prototype.mouse_irq = function()
     {
         this.cpu.device_raise_irq(12);
     }
-}
+};
 
 PS2.prototype.kbd_irq = function()
 {
@@ -184,7 +184,7 @@ PS2.prototype.kbd_irq = function()
     {
         this.cpu.device_raise_irq(1);
     }
-}
+};
 
 PS2.prototype.kbd_send_code = function(code)
 {
@@ -193,7 +193,7 @@ PS2.prototype.kbd_send_code = function(code)
         this.kbd_buffer.push(code);
         this.kbd_irq();
     }
-}
+};
 
 PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
 {
@@ -230,7 +230,7 @@ PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
             this.send_mouse_packet(change_x, change_y);
         }
     }
-}
+};
 
 PS2.prototype.mouse_send_click = function(left, middle, right)
 {
@@ -245,7 +245,7 @@ PS2.prototype.mouse_send_click = function(left, middle, right)
     {
         this.send_mouse_packet(0, 0);
     }
-}
+};
 
 PS2.prototype.send_mouse_packet = function(dx, dy)
 {
@@ -273,7 +273,7 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
     dbg_log("adding mouse packets: " + [info_byte, dx, dy], LOG_PS2);
 
     this.mouse_irq();
-}
+};
 
 PS2.prototype.apply_scaling2 = function(n)
 {
@@ -296,7 +296,7 @@ PS2.prototype.apply_scaling2 = function(n)
         default:
             return n << 1;
     }
-}
+};
 
 PS2.prototype.next_byte_is_aux = function()
 {
