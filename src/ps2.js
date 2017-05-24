@@ -316,11 +316,9 @@ PS2.prototype.port60_read = function()
 
     var do_mouse_buffer = this.next_byte_is_aux();
 
-    this.cpu.device_lower_irq(1);
-    this.cpu.device_lower_irq(12);
-
     if(do_mouse_buffer)
     {
+        this.cpu.device_lower_irq(12);
         this.last_port60_byte = this.mouse_buffer.shift();
         dbg_log("Port 60 read (mouse): " + h(this.last_port60_byte), LOG_PS2);
 
@@ -331,6 +329,7 @@ PS2.prototype.port60_read = function()
     }
     else
     {
+        this.cpu.device_lower_irq(1);
         this.last_port60_byte = this.kbd_buffer.shift();
         dbg_log("Port 60 read (kbd)  : " + h(this.last_port60_byte), LOG_PS2);
 
@@ -487,6 +486,7 @@ PS2.prototype.port60_write = function(write_byte)
         case 0xEB:
             // request single packet
             dbg_log("unimplemented request single packet", LOG_PS2);
+            this.send_mouse_packet(0, 0);
             break;
         case 0xF2:
             //  MouseID Byte
@@ -520,6 +520,7 @@ PS2.prototype.port60_write = function(write_byte)
             break;
         case 0xFF:
             // reset, send completion code
+            dbg_log("Mouse reset", LOG_PS2);
             this.mouse_buffer.push(0xAA);
             this.mouse_buffer.push(0);
 
@@ -660,5 +661,3 @@ PS2.prototype.port64_write = function(write_byte)
         dbg_log("port 64: Unimplemented command byte: " + h(write_byte), LOG_PS2);
     }
 };
-
-
