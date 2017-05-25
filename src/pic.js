@@ -136,7 +136,11 @@ function PIC(cpu, master)
             dbg_assert(this.requested_irq >= 0);
 
             var irq_mask = 1 << this.requested_irq;
-            this.irr &= ~irq_mask; // not in level mode
+
+            if((this.elcr & irq_mask) === 0) // not in level mode
+            {
+                this.irr &= ~irq_mask;
+            }
 
             if(!this.auto_eoi)
             {
@@ -220,7 +224,11 @@ function PIC(cpu, master)
             dbg_assert(this.requested_irq >= 0);
 
             var irq_mask = 1 << this.requested_irq;
-            this.irr &= ~irq_mask; // not in level mode
+
+            if((this.elcr & irq_mask) === 0) // not in level mode
+            {
+                this.irr &= ~irq_mask;
+            }
 
             if(!this.auto_eoi)
             {
@@ -378,6 +386,7 @@ PIC.prototype.get_state = function()
     state[7] = this.state;
     state[8] = this.read_isr;
     state[9] = this.auto_eoi;
+    state[10] = this.elcr;
 
     return state;
 };
@@ -394,6 +403,7 @@ PIC.prototype.set_state = function(state)
     this.state = state[7];
     this.read_isr = state[8];
     this.auto_eoi = state[9];
+    this.elcr = state[10];
 };
 
 PIC.prototype.port20_write = function(data_byte)

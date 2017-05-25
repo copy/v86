@@ -168,7 +168,7 @@ PS2.prototype.set_state = function(state)
     this.read_command_register = state[22];
 
     this.bus.send("mouse-enable", this.use_mouse);
-}
+};
 
 PS2.prototype.mouse_irq = function()
 {
@@ -176,7 +176,7 @@ PS2.prototype.mouse_irq = function()
     {
         this.cpu.device_raise_irq(12);
     }
-}
+};
 
 PS2.prototype.kbd_irq = function()
 {
@@ -184,7 +184,7 @@ PS2.prototype.kbd_irq = function()
     {
         this.cpu.device_raise_irq(1);
     }
-}
+};
 
 PS2.prototype.kbd_send_code = function(code)
 {
@@ -193,7 +193,7 @@ PS2.prototype.kbd_send_code = function(code)
         this.kbd_buffer.push(code);
         this.kbd_irq();
     }
-}
+};
 
 PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
 {
@@ -230,7 +230,7 @@ PS2.prototype.mouse_send_delta = function(delta_x, delta_y)
             this.send_mouse_packet(change_x, change_y);
         }
     }
-}
+};
 
 PS2.prototype.mouse_send_click = function(left, middle, right)
 {
@@ -245,7 +245,7 @@ PS2.prototype.mouse_send_click = function(left, middle, right)
     {
         this.send_mouse_packet(0, 0);
     }
-}
+};
 
 PS2.prototype.send_mouse_packet = function(dx, dy)
 {
@@ -273,7 +273,7 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
     dbg_log("adding mouse packets: " + [info_byte, dx, dy], LOG_PS2);
 
     this.mouse_irq();
-}
+};
 
 PS2.prototype.apply_scaling2 = function(n)
 {
@@ -296,7 +296,7 @@ PS2.prototype.apply_scaling2 = function(n)
         default:
             return n << 1;
     }
-}
+};
 
 PS2.prototype.next_byte_is_aux = function()
 {
@@ -316,11 +316,9 @@ PS2.prototype.port60_read = function()
 
     var do_mouse_buffer = this.next_byte_is_aux();
 
-    this.cpu.device_lower_irq(1);
-    this.cpu.device_lower_irq(12);
-
     if(do_mouse_buffer)
     {
+        this.cpu.device_lower_irq(12);
         this.last_port60_byte = this.mouse_buffer.shift();
         dbg_log("Port 60 read (mouse): " + h(this.last_port60_byte), LOG_PS2);
 
@@ -331,6 +329,7 @@ PS2.prototype.port60_read = function()
     }
     else
     {
+        this.cpu.device_lower_irq(1);
         this.last_port60_byte = this.kbd_buffer.shift();
         dbg_log("Port 60 read (kbd)  : " + h(this.last_port60_byte), LOG_PS2);
 
@@ -487,6 +486,7 @@ PS2.prototype.port60_write = function(write_byte)
         case 0xEB:
             // request single packet
             dbg_log("unimplemented request single packet", LOG_PS2);
+            this.send_mouse_packet(0, 0);
             break;
         case 0xF2:
             //  MouseID Byte
@@ -520,6 +520,7 @@ PS2.prototype.port60_write = function(write_byte)
             break;
         case 0xFF:
             // reset, send completion code
+            dbg_log("Mouse reset", LOG_PS2);
             this.mouse_buffer.push(0xAA);
             this.mouse_buffer.push(0);
 
@@ -660,5 +661,3 @@ PS2.prototype.port64_write = function(write_byte)
         dbg_log("port 64: Unimplemented command byte: " + h(write_byte), LOG_PS2);
     }
 };
-
-
