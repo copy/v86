@@ -1487,7 +1487,7 @@ CPU.prototype.safe_read32s = function(addr)
 
 CPU.prototype.safe_read64s = function(addr)
 {
-    let data = this.create_atom64s();
+    let data = this.create_atom64s(0, 0);
     if(this.paging && (addr & 0xFFF) >= 0xFF9)
     {
         data[0] = this.safe_read32s(addr);
@@ -3274,9 +3274,10 @@ CPU.prototype.read_xmm_mem64s = function()
     if(this.modrm_byte < 0xC0) {
         data = this.safe_read64s(this.modrm_resolve(this.modrm_byte));
     } else {
-        data = this.create_atom64s();
-        data[0] = this.reg_mmxs[2 * (this.modrm_byte & 7)];
-        data[1] = this.reg_mmxs[2 * (this.modrm_byte & 7) + 1];
+        data = this.create_atom64s(
+            this.reg_mmxs[2 * (this.modrm_byte & 7)],
+            this.reg_mmxs[2 * (this.modrm_byte & 7) + 1]
+        );
     }
 
     dbg_assert(data && data.length === 2);
