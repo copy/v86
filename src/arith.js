@@ -1529,3 +1529,26 @@ CPU.prototype.saturate_sw_to_ub = function(v)
     dbg_assert((ret & 0xFFFFFF00) === 0);
     return ret;
 };
+
+CPU.prototype.saturate_sw_to_sb = function(v)
+{
+    dbg_assert((v & 0xFFFF0000) === 0);
+
+    let ret = v;
+    if (ret <= 0x7F) {
+        return ret;
+    }
+
+    if (ret <= 0x7FFF) {
+        ret = 0x7F;
+    }
+    else if (ret <= 0xFF80) {
+        ret = 0x80;
+    }
+    else {
+        ret = ret & 0xFF;
+    }
+
+    dbg_assert((ret & 0xFFFFFF00) === 0);
+    return ret;
+};
