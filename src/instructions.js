@@ -2411,7 +2411,29 @@ t[0x60] = cpu => {
 
     cpu.write_xmm64s(data);
 };
-t[0x61] = cpu => { cpu.unimplemented_sse(); };
+
+t[0x61] = cpu => {
+    // punpcklwd mm, mm/m32
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    cpu.read_modrm_byte();
+    let source = cpu.read_xmm_mem32s();
+    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+
+    let word0 = destination_low & 0xFFFF;
+    let word1 = source & 0xFFFF;
+    let word2 = destination_low >>> 16;
+    let word3 = source >>> 16;
+
+    let low = word0 | word1 << 16;
+    let high = word2 | word3 << 16;
+
+    let data = cpu.create_atom64s(low, high);
+
+    cpu.write_xmm64s(data);
+
+};
+
 t[0x62] = cpu => { cpu.unimplemented_sse(); };
 t[0x63] = cpu => { cpu.unimplemented_sse(); };
 t[0x64] = cpu => { cpu.unimplemented_sse(); };
