@@ -272,7 +272,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     );
 
     cpu.devices.pci.register_device(this);
-};
+}
 
 VGAScreen.prototype.get_state = function()
 {
@@ -313,7 +313,7 @@ VGAScreen.prototype.get_state = function()
     state[32] = this.planar_rotate_reg;
     state[33] = this.planar_bitmap;
     state[34] = this.max_scan_line;
-    state[35] = this.miscellaneous_output_register;;
+    state[35] = this.miscellaneous_output_register;
     state[36] = this.port_3DA_value;
     state[37] = this.dispi_index;
     state[38] = this.dispi_enable_value;
@@ -968,7 +968,7 @@ VGAScreen.prototype.port3C9_read = function()
 
     this.dac_color_index_read++;
     return (color >> (2 - offset) * 8 & 0xFF) / 255 * 63 | 0;
-}
+};
 
 VGAScreen.prototype.port3CC_read = function()
 {
@@ -1148,11 +1148,11 @@ VGAScreen.prototype.port3D5_read = function()
 
 VGAScreen.prototype.port3DA_read = function()
 {
-    dbg_log("3DA read", LOG_VGA)
+    dbg_log("3DA read", LOG_VGA);
 
     // status register
     this.port_3DA_value ^= 8;
-    this.attribute_controller_index = -1
+    this.attribute_controller_index = -1;
     return this.port_3DA_value;
 };
 
@@ -1305,6 +1305,8 @@ VGAScreen.prototype.svga_register_read = function(n)
             {
                 return 1; // seabios/windows98 divide exception
             }
+            break;
+
         case 8:
             // x offset
             return 0;
