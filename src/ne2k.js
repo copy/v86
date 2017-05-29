@@ -90,7 +90,6 @@ function Ne2k(cpu, bus)
                 size: 32,
             },
         ];
-        cpu.devices.pci.register_device(this);
     }
 
     this.isr = 0;
@@ -496,6 +495,11 @@ function Ne2k(cpu, bus)
             this.data_port_write16,
             this.data_port_write16,
             this.data_port_write32);
+
+    if(use_pci)
+    {
+        cpu.devices.pci.register_device(this);
+    }
 }
 
 Ne2k.prototype.get_state = function()

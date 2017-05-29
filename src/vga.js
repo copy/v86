@@ -140,8 +140,6 @@ function VGAScreen(cpu, bus, vga_memory_size)
 
     this.name = "vga";
 
-    cpu.devices.pci.register_device(this);
-
     this.stats = {
         is_graphical: false,
         res_x: 0,
@@ -272,6 +270,8 @@ function VGAScreen(cpu, bus, vga_memory_size)
         function(addr) { return me.svga_memory_read32(addr); },
         function(addr, value) { me.svga_memory_write32(addr, value); }
     );
+
+    cpu.devices.pci.register_device(this);
 };
 
 VGAScreen.prototype.get_state = function()

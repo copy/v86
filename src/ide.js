@@ -116,15 +116,13 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
         {
             size: 4,
         },
-        false,
-        false,
+        undefined,
+        undefined,
         {
             size: 0x10,
         },
     ];
     this.name = "ide" + nr;
-
-    cpu.devices.pci.register_device(this);
 
     /** @type {number} */
     this.device_control = 2;
@@ -280,6 +278,8 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
     cpu.io.register_read(this.master_port | 0xA, this, function() {
         dbg_log("DMA read 0xA", LOG_DISK); return 0;
     });
+
+    cpu.devices.pci.register_device(this);
 
     DEBUG && Object.seal(this);
 }
