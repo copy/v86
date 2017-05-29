@@ -2482,6 +2482,7 @@ t[0x63] = cpu => {
 t[0x64] = cpu => { cpu.unimplemented_sse(); };
 t[0x65] = cpu => { cpu.unimplemented_sse(); };
 t[0x66] = cpu => { cpu.unimplemented_sse(); };
+
 t[0x67] = cpu => {
     // packuswb mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
