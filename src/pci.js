@@ -1,17 +1,6 @@
 "use strict";
 
-var
-/** @const */  PCI_VENDOR_ID =		0x00	/* 16 bits */
-/** @const */ ,PCI_DEVICE_ID =		0x02	/* 16 bits */
-/** @const */ ,PCI_COMMAND =		0x04	/* 16 bits */
-/** @const */ ,PCI_BASE_ADDRESS_0 =	0x10	/* 32 bits */
-/** @const */ ,PCI_BASE_ADDRESS_1 =	0x14	/* 32 bits [htype 0,1 only] */
-/** @const */ ,PCI_BASE_ADDRESS_2 =	0x18	/* 32 bits [htype 0 only] */
-/** @const */ ,PCI_BASE_ADDRESS_3 =	0x1c	/* 32 bits */
-/** @const */ ,PCI_BASE_ADDRESS_4 =	0x20	/* 32 bits */
-/** @const */ ,PCI_BASE_ADDRESS_5 =	0x24	/* 32 bits */
-/** @const */ ,PCI_INTERRUPT_LINE =	0x3c	/* 8 bits */
-/** @const */ ,PCI_CLASS_REVISION =	0x08;	/* High 24 bits are class, low 8 revision */
+// http://wiki.osdev.org/PCI
 
 var
 /** @const */ PCI_CONFIG_ADDRESS = 0xCF8,
