@@ -2857,7 +2857,7 @@ t[0x72] = cpu => {
 
             // JS will right shift as expected only if shift is < 32
             var shift = source;
-            if ((shift >>> 0) > 31) {
+            if (shift > 31) {
                 cpu.reg_mmxs[2 * destination] = 0;
                 cpu.reg_mmxs[2 * destination + 1] = 0;
                 break;
@@ -3622,9 +3622,8 @@ t[0xD2] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    // JS will right shift as expected only if shift is < 32
-    let shift = source[0];
-    if ((shift >>> 0) > 31) {
+    let shift = source[0] >>> 0;
+    if (shift > 31) {
         cpu.write_xmm64s(cpu.create_atom64s(0, 0));
         return;
     }
@@ -3646,8 +3645,8 @@ t[0xD3] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let shift = source[0];
-    if ((shift >>> 0) > 63) {
+    let shift = source[0] >>> 0;
+    if (shift > 63) {
         cpu.write_xmm64s(cpu.create_atom64s(0, 0));
         return;
     }
@@ -3729,7 +3728,7 @@ t[0xE1] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let shift = source[0];
+    let shift = source[0] >>> 0;
     if (shift > 15) {
         shift = 16;
     }
@@ -3756,7 +3755,7 @@ t[0xE2] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let shift = source[0];
+    let shift = source[0] >>> 0;
     let additional_shift = 0;
     if (shift > 31) {
         shift = 31;
@@ -3813,7 +3812,7 @@ t[0xF1] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let shift = source[0];
+    let shift = source[0] >>> 0;
 
     if (shift > 15) {
         cpu.write_xmm64s(cpu.create_atom64s(0, 0));
@@ -3842,7 +3841,7 @@ t[0xF2] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let shift = source[0];
+    let shift = source[0] >>> 0;
 
     if (shift > 31) {
         cpu.write_xmm64s(cpu.create_atom64s(0, 0));
