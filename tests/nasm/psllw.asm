@@ -6,8 +6,10 @@ myquad:
 	dq	0xad0000ceadad00ff
 mydword:
 	dd	0xcafebac0
-myaddress:
+shift1:
 	dq	0x07
+shift2:
+	dq	-0x22
 
 MBALIGN     equ  1<<0                   ; align loaded modules on page boundaries
 MEMINFO     equ  1<<1                   ; provide memory map
@@ -26,10 +28,12 @@ _start:
 main:
 	movq		mm0, [myquad]
 	movq		mm1, [myquad]
+	movq		mm2, [myquad]
 	movq		mm6, [myquad]
 
-	psllw		mm0, [myaddress]
+	psllw		mm0, [shift1]
 	psllw		mm1, 0xff
+	psllw		mm2, [shift2]
 	psllw		mm6, 0x5
 
 loop:
