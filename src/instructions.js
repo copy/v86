@@ -2926,7 +2926,54 @@ t[0x72] = cpu => {
     }
 };
 
-t[0x73] = cpu => { cpu.unimplemented_sse(); };
+t[0x73] = cpu => {
+
+    cpu.read_modrm_byte();
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+    dbg_assert(cpu.modrm_byte >= 0xC0);
+
+    // psrlq, psllq
+    //     2,     6
+    switch(cpu.modrm_byte >> 3 & 7)
+    {
+        case 2:
+            // psrlq mm, imm8
+            var source = cpu.read_op8();
+            var destination = cpu.modrm_byte & 7;
+
+            var destination_low = cpu.reg_mmxs[2 * destination];
+            var destination_high = cpu.reg_mmxs[2 * destination + 1];
+
+            let shift = source;
+            if ((shift >>> 0) > 63) {
+                cpu.reg_mmxs[2 * destination] = 0;
+                cpu.reg_mmxs[2 * destination + 1] = 0;
+                break;
+            }
+
+            let low = 0;
+            let high = 0;
+
+            if (shift < 31) {
+                low = destination_low >>> shift
+                    | (destination_high << (32 - shift));
+                high = destination_high >>> shift;
+            }
+            else {
+                low = destination_high >>> (shift & 0x1F);
+                high = 0;
+            }
+
+            cpu.reg_mmxs[2 * destination] = low;
+            cpu.reg_mmxs[2 * destination + 1] = high;
+
+            break;
+        default:
+            cpu.unimplemented_sse();
+            break;
+    }
+};
+
 t[0x74] = cpu => { cpu.unimplemented_sse(); };
 t[0x75] = cpu => { cpu.unimplemented_sse(); };
 t[0x76] = cpu => { cpu.unimplemented_sse(); };
@@ -3593,7 +3640,38 @@ t[0xD2] = cpu => {
     cpu.write_xmm64s(data);
 };
 
-t[0xD3] = cpu => { cpu.unimplemented_sse(); };
+t[0xD3] = cpu => {
+    // psrlq mm, mm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    cpu.read_modrm_byte();
+    let source = cpu.read_xmm_mem64s();
+    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+    let shift = source[0];
+    if ((shift >>> 0) > 63) {
+        cpu.write_xmm64s(cpu.create_atom64s(0, 0));
+        return;
+    }
+
+    let low = 0;
+    let high = 0;
+
+    if (shift < 31) {
+        low = destination_low >>> shift | (destination_high << (32 - shift));
+        high = destination_high >>> shift;
+    }
+    else {
+        low = destination_high >>> (shift & 0x1F);
+        high = 0;
+    }
+
+    let data = cpu.create_atom64s(low, high);
+
+    cpu.write_xmm64s(data);
+};
+
 t[0xD4] = cpu => { cpu.unimplemented_sse(); };
 t[0xD5] = cpu => {
     // pmullw mm, mm/m64
