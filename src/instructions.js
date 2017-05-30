@@ -2801,6 +2801,35 @@ t[0x71] = cpu => {
             cpu.reg_mmxs[2 * destination + 1] = high;
 
             break;
+        case 6:
+            // psllw mm, imm8
+            var source = cpu.read_op8();
+            var destination = cpu.modrm_byte & 7;
+
+            var destination_low = cpu.reg_mmxs[2 * destination];
+            var destination_high = cpu.reg_mmxs[2 * destination + 1];
+
+            var shift = source;
+
+            if (shift > 15) {
+                cpu.reg_mmxs[2 * destination] = 0;
+                cpu.reg_mmxs[2 * destination + 1] = 0;
+
+                break;
+            }
+
+            var word0 = (destination_low & 0xFFFF) << shift;
+            var word1 = (destination_low >>> 16) << shift;
+            var low = word0 | word1 << 16;
+
+            var word2 = (destination_high & 0xFFFF) << shift;
+            var word3 = (destination_high >>> 16) << shift;
+            var high = word2 | word3 << 16;
+
+            cpu.reg_mmxs[2 * destination] = low;
+            cpu.reg_mmxs[2 * destination + 1] = high;
+
+            break;
         default:
             cpu.unimplemented_sse();
             break;
@@ -3560,7 +3589,36 @@ t[0xEF] = cpu => {
 };
 
 t[0xF0] = cpu => { cpu.unimplemented_sse(); };
-t[0xF1] = cpu => { cpu.unimplemented_sse(); };
+
+t[0xF1] = cpu => {
+    // psllw mm, mm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    cpu.read_modrm_byte();
+    let source = cpu.read_xmm_mem64s();
+    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+    let shift = source[0];
+
+    if (shift > 15) {
+        cpu.write_xmm64s(cpu.create_atom64s(0, 0));
+        return;
+    }
+
+    let word0 = (destination_low & 0xFFFF) << shift;
+    let word1 = (destination_low >>> 16) << shift;
+    let low = word0 | word1 << 16;
+
+    let word2 = (destination_high & 0xFFFF) << shift;
+    let word3 = (destination_high >>> 16) << shift;
+    let high = word2 | word3 << 16;
+
+    let data = cpu.create_atom64s(low, high);
+
+    cpu.write_xmm64s(data);
+};
+
 t[0xF2] = cpu => { cpu.unimplemented_sse(); };
 t[0xF3] = cpu => { cpu.unimplemented_sse(); };
 t[0xF4] = cpu => { cpu.unimplemented_sse(); };
