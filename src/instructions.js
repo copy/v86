@@ -2762,10 +2762,11 @@ t[0x71] = cpu => {
             var destination_low = cpu.reg_mmxs[2 * destination];
             var destination_high = cpu.reg_mmxs[2 * destination + 1];
 
-            // JS will right shift as expected only if shift is < 32
             var shift = source;
-            if (shift > 31) {
-                shift = 31;
+            if (shift > 15) {
+                cpu.reg_mmxs[2 * destination] = 0;
+                cpu.reg_mmxs[2 * destination + 1] = 0;
+                break;
             }
 
             var word0 = (destination_low & 0xFFFF) >>> shift;
@@ -3597,10 +3598,10 @@ t[0xD1] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    // JS will right shift as expected only if shift is < 32
-    let shift = source[0];
-    if ((shift >>> 0) > 31) {
-        shift = 31;
+    let shift = source[0] >>> 0;
+    if (shift > 15) {
+        cpu.write_xmm64s(cpu.create_atom64s(0, 0));
+        return;
     }
 
     let word0 = (destination_low & 0xFFFF) >>> shift;
