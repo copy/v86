@@ -2680,7 +2680,28 @@ t[0x6A] = cpu => {
     cpu.write_xmm64s(data);
 };
 
-t[0x6B] = cpu => { cpu.unimplemented_sse(); };
+t[0x6B] = cpu => {
+    // packssdw mm, mm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    cpu.read_modrm_byte();
+    let source = cpu.read_xmm_mem64s();
+    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+    let low = 0;
+    low |= cpu.saturate_sd_to_sw(destination_low);
+    low |= cpu.saturate_sd_to_sw(destination_high) << 16;
+
+    let high = 0;
+    high |= cpu.saturate_sd_to_sw(source[0]);
+    high |= cpu.saturate_sd_to_sw(source[1]) << 16;
+
+    let data = cpu.create_atom64s(low, high);
+
+    cpu.write_xmm64s(data);
+};
+
 t[0x6C] = cpu => { cpu.unimplemented_sse(); };
 t[0x6D] = cpu => { cpu.unimplemented_sse(); };
 t[0x6E] = cpu => {
