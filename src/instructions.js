@@ -3450,6 +3450,7 @@ t[0xCE] = cpu => { cpu.bswap(reg_esi); };
 t[0xCF] = cpu => { cpu.bswap(reg_edi); };
 
 t[0xD0] = cpu => { cpu.unimplemented_sse(); };
+
 t[0xD1] = cpu => {
     // psrlw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
@@ -3477,6 +3478,7 @@ t[0xD1] = cpu => {
 
     cpu.write_xmm64s(data);
 };
+
 t[0xD2] = cpu => { cpu.unimplemented_sse(); };
 t[0xD3] = cpu => { cpu.unimplemented_sse(); };
 t[0xD4] = cpu => { cpu.unimplemented_sse(); };
