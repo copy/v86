@@ -2941,15 +2941,15 @@ t[0x73] = cpu => {
             var destination_low = cpu.reg_mmxs[2 * destination];
             var destination_high = cpu.reg_mmxs[2 * destination + 1];
 
-            let shift = source;
-            if ((shift >>> 0) > 63) {
+            var shift = source;
+            if (shift > 63) {
                 cpu.reg_mmxs[2 * destination] = 0;
                 cpu.reg_mmxs[2 * destination + 1] = 0;
                 break;
             }
 
-            let low = 0;
-            let high = 0;
+            var low = 0;
+            var high = 0;
 
             if (shift < 31) {
                 low = destination_low >>> shift
