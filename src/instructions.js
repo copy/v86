@@ -2878,15 +2878,12 @@ t[0x72] = cpu => {
             var destination_high = cpu.reg_mmxs[2 * destination + 1];
 
             var shift = source;
-            var additional_shift = 0;
             if (shift > 31) {
                 shift = 31;
-                // Work around JS' "wrap around" behavior when shift >= 32
-                additional_shift = 1;
             }
 
-            var low = destination_low >> shift >> additional_shift;
-            var high = destination_high >> shift >> additional_shift;
+            var low = destination_low >> shift;
+            var high = destination_high >> shift;
 
             cpu.reg_mmxs[2 * destination] = low;
             cpu.reg_mmxs[2 * destination + 1] = high;
@@ -3741,15 +3738,12 @@ t[0xE2] = cpu => {
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
     let shift = source[0] >>> 0;
-    let additional_shift = 0;
     if (shift > 31) {
         shift = 31;
-        // Work around JS' "wrap around" behavior when shift >= 32
-        additional_shift = 1;
     }
 
-    let low = destination_low >> shift >> additional_shift;
-    let high = destination_high >> shift >> additional_shift;
+    let low = destination_low >> shift;
+    let high = destination_high >> shift;
 
     let data = cpu.create_atom64s(low, high);
 
