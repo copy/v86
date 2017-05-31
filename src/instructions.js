@@ -2980,7 +2980,58 @@ t[0x73] = cpu => {
     }
 };
 
-t[0x74] = cpu => { cpu.unimplemented_sse(); };
+t[0x74] = cpu => {
+    // pcmpeqb mm, mm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    cpu.read_modrm_byte();
+    let source = cpu.read_xmm_mem64s();
+    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+    let byte0 = 0;
+    let byte1 = 0;
+    let byte2 = 0;
+    let byte3 = 0;
+    let byte4 = 0;
+    let byte5 = 0;
+    let byte6 = 0;
+    let byte7 = 0;
+
+    if ((destination_low & 0xFF) === (source[0] & 0xFF)) {
+        byte0 = 0xFF;
+    }
+    if ((destination_low & 0xFF00) === (source[0] & 0xFF00)) {
+        byte1 = 0xFF;
+    }
+    if ((destination_low & 0xFF0000) === (source[0] & 0xFF0000)) {
+        byte2 = 0xFF;
+    }
+    if ((destination_low & 0xFF000000) === (source[0] & 0xFF000000)) {
+        byte3 = 0xFF;
+    }
+
+    if ((destination_high & 0xFF) === (source[1] & 0xFF)) {
+        byte4 = 0xFF;
+    }
+    if ((destination_high & 0xFF00) === (source[1] & 0xFF00)) {
+        byte5 = 0xFF;
+    }
+    if ((destination_high & 0xFF0000) === (source[1] & 0xFF0000)) {
+        byte6 = 0xFF;
+    }
+    if ((destination_high & 0xFF000000) === (source[1] & 0xFF000000)) {
+        byte7 = 0xFF;
+    }
+
+    let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+    let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+    let data = cpu.create_atom64s(low, high);
+
+    cpu.write_xmm64s(data);
+};
+
 t[0x75] = cpu => { cpu.unimplemented_sse(); };
 t[0x76] = cpu => { cpu.unimplemented_sse(); };
 t[0x77] = cpu => {
