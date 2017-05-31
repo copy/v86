@@ -2934,7 +2934,7 @@ t[0x73] = cpu => {
             var low = 0;
             var high = 0;
 
-            if (shift < 31) {
+            if (shift <= 31) {
                 low = destination_low >>> shift
                     | (destination_high << (32 - shift));
                 high = destination_high >>> shift;
@@ -3632,7 +3632,7 @@ t[0xD3] = cpu => {
     let low = 0;
     let high = 0;
 
-    if (shift < 31) {
+    if (shift <= 31) {
         low = destination_low >>> shift | (destination_high << (32 - shift));
         high = destination_high >>> shift;
     }
