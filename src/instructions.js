@@ -2759,19 +2759,18 @@ t[0x71] = cpu => {
             var destination_high = cpu.reg_mmxs[2 * destination + 1];
 
             var shift = source;
-            if (shift > 15) {
-                cpu.reg_mmxs[2 * destination] = 0;
-                cpu.reg_mmxs[2 * destination + 1] = 0;
-                break;
+            var low = 0;
+            var high = 0;
+
+            if (shift <= 15) {
+                var word0 = (destination_low & 0xFFFF) >>> shift;
+                var word1 = (destination_low >>> 16) >>> shift;
+                low = word0 | word1 << 16;
+
+                var word2 = (destination_high & 0xFFFF) >>> shift;
+                var word3 = (destination_high >>> 16) >>> shift;
+                high = word2 | word3 << 16;
             }
-
-            var word0 = (destination_low & 0xFFFF) >>> shift;
-            var word1 = (destination_low >>> 16) >>> shift;
-            var low = word0 | word1 << 16;
-
-            var word2 = (destination_high & 0xFFFF) >>> shift;
-            var word3 = (destination_high >>> 16) >>> shift;
-            var high = word2 | word3 << 16;
 
             cpu.reg_mmxs[2 * destination] = low;
             cpu.reg_mmxs[2 * destination + 1] = high;
@@ -2811,21 +2810,18 @@ t[0x71] = cpu => {
             var destination_high = cpu.reg_mmxs[2 * destination + 1];
 
             var shift = source;
+            var low = 0;
+            var high = 0;
 
-            if (shift > 15) {
-                cpu.reg_mmxs[2 * destination] = 0;
-                cpu.reg_mmxs[2 * destination + 1] = 0;
+            if (shift <= 15) {
+                var word0 = (destination_low & 0xFFFF) << shift;
+                var word1 = (destination_low >>> 16) << shift;
+                low = word0 | word1 << 16;
 
-                break;
+                var word2 = (destination_high & 0xFFFF) << shift;
+                var word3 = (destination_high >>> 16) << shift;
+                high = word2 | word3 << 16;
             }
-
-            var word0 = (destination_low & 0xFFFF) << shift;
-            var word1 = (destination_low >>> 16) << shift;
-            var low = word0 | word1 << 16;
-
-            var word2 = (destination_high & 0xFFFF) << shift;
-            var word3 = (destination_high >>> 16) << shift;
-            var high = word2 | word3 << 16;
 
             cpu.reg_mmxs[2 * destination] = low;
             cpu.reg_mmxs[2 * destination + 1] = high;
@@ -2857,14 +2853,13 @@ t[0x72] = cpu => {
 
             // JS will right shift as expected only if shift is < 32
             var shift = source;
-            if (shift > 31) {
-                cpu.reg_mmxs[2 * destination] = 0;
-                cpu.reg_mmxs[2 * destination + 1] = 0;
-                break;
-            }
+            var low = 0;
+            var high = 0;
 
-            var low = destination_low >>> shift;
-            var high = destination_high >>> shift;
+            if (shift <= 31) {
+                low = destination_low >>> shift;
+                high = destination_high >>> shift;
+            }
 
             cpu.reg_mmxs[2 * destination] = low;
             cpu.reg_mmxs[2 * destination + 1] = high;
@@ -2902,16 +2897,13 @@ t[0x72] = cpu => {
             var destination_high = cpu.reg_mmxs[2 * destination + 1];
 
             var shift = source;
+            var low = 0;
+            var high = 0;
 
-            if (shift > 31) {
-                cpu.reg_mmxs[2 * destination] = 0;
-                cpu.reg_mmxs[2 * destination + 1] = 0;
-
-                break;
+            if (shift <= 31) {
+                low = destination_low << shift;
+                high = destination_high << shift;
             }
-
-            var low = destination_low << shift;
-            var high = destination_high << shift;
 
             cpu.reg_mmxs[2 * destination] = low;
             cpu.reg_mmxs[2 * destination + 1] = high;
@@ -2942,12 +2934,6 @@ t[0x73] = cpu => {
             var destination_high = cpu.reg_mmxs[2 * destination + 1];
 
             var shift = source;
-            if (shift > 63) {
-                cpu.reg_mmxs[2 * destination] = 0;
-                cpu.reg_mmxs[2 * destination + 1] = 0;
-                break;
-            }
-
             var low = 0;
             var high = 0;
 
@@ -2956,7 +2942,7 @@ t[0x73] = cpu => {
                     | (destination_high << (32 - shift));
                 high = destination_high >>> shift;
             }
-            else {
+            else if (shift <= 63) {
                 low = destination_high >>> (shift & 0x1F);
                 high = 0;
             }
@@ -3595,18 +3581,18 @@ t[0xD1] = cpu => {
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
     let shift = source[0] >>> 0;
-    if (shift > 15) {
-        cpu.write_xmm64s(cpu.create_atom64s(0, 0));
-        return;
+    let low = 0;
+    let high = 0;
+
+    if (shift <= 15) {
+        let word0 = (destination_low & 0xFFFF) >>> shift;
+        let word1 = (destination_low >>> 16) >>> shift;
+        low = word0 | word1 << 16;
+
+        let word2 = (destination_high & 0xFFFF) >>> shift;
+        let word3 = (destination_high >>> 16) >>> shift;
+        high = word2 | word3 << 16;
     }
-
-    let word0 = (destination_low & 0xFFFF) >>> shift;
-    let word1 = (destination_low >>> 16) >>> shift;
-    let low = word0 | word1 << 16;
-
-    let word2 = (destination_high & 0xFFFF) >>> shift;
-    let word3 = (destination_high >>> 16) >>> shift;
-    let high = word2 | word3 << 16;
 
     let data = cpu.create_atom64s(low, high);
 
@@ -3623,13 +3609,13 @@ t[0xD2] = cpu => {
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
     let shift = source[0] >>> 0;
-    if (shift > 31) {
-        cpu.write_xmm64s(cpu.create_atom64s(0, 0));
-        return;
-    }
+    let low = 0;
+    let high = 0;
 
-    let low = destination_low >>> shift;
-    let high = destination_high >>> shift;
+    if (shift <= 31) {
+        low = destination_low >>> shift;
+        high = destination_high >>> shift;
+    }
 
     let data = cpu.create_atom64s(low, high);
 
@@ -3646,11 +3632,6 @@ t[0xD3] = cpu => {
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
     let shift = source[0] >>> 0;
-    if (shift > 63) {
-        cpu.write_xmm64s(cpu.create_atom64s(0, 0));
-        return;
-    }
-
     let low = 0;
     let high = 0;
 
@@ -3658,7 +3639,7 @@ t[0xD3] = cpu => {
         low = destination_low >>> shift | (destination_high << (32 - shift));
         high = destination_high >>> shift;
     }
-    else {
+    else if (shift <= 63) {
         low = destination_high >>> (shift & 0x1F);
         high = 0;
     }
@@ -3813,19 +3794,18 @@ t[0xF1] = cpu => {
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
     let shift = source[0] >>> 0;
+    let low = 0;
+    let high = 0;
 
-    if (shift > 15) {
-        cpu.write_xmm64s(cpu.create_atom64s(0, 0));
-        return;
+    if (shift <= 15) {
+        let word0 = (destination_low & 0xFFFF) << shift;
+        let word1 = (destination_low >>> 16) << shift;
+        low = word0 | word1 << 16;
+
+        let word2 = (destination_high & 0xFFFF) << shift;
+        let word3 = (destination_high >>> 16) << shift;
+        high = word2 | word3 << 16;
     }
-
-    let word0 = (destination_low & 0xFFFF) << shift;
-    let word1 = (destination_low >>> 16) << shift;
-    let low = word0 | word1 << 16;
-
-    let word2 = (destination_high & 0xFFFF) << shift;
-    let word3 = (destination_high >>> 16) << shift;
-    let high = word2 | word3 << 16;
 
     let data = cpu.create_atom64s(low, high);
 
@@ -3842,14 +3822,13 @@ t[0xF2] = cpu => {
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
     let shift = source[0] >>> 0;
+    let low = 0;
+    let high = 0;
 
-    if (shift > 31) {
-        cpu.write_xmm64s(cpu.create_atom64s(0, 0));
-        return;
+    if (shift <= 31) {
+        low = destination_low << shift;
+        high = destination_high << shift;
     }
-
-    var low = destination_low << shift;
-    var high = destination_high << shift;
 
     let data = cpu.create_atom64s(low, high);
 
