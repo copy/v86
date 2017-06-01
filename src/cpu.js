@@ -11,7 +11,7 @@ var CPU_LOG_VERBOSE = true;
 
 
 /** @constructor */
-function CPU()
+function CPU(bus)
 {
     /** @type {number} */
     this.memory_size = 0;
@@ -242,6 +242,8 @@ function CPU()
 
     this.io = undefined;
     this.fpu = undefined;
+
+    this.bus = bus;
 
     dbg_assert(this.table16 && this.table32);
     dbg_assert(this.table0F_16 && this.table0F_32);
@@ -3017,6 +3019,7 @@ CPU.prototype.hlt_op = function()
     if((this.flags & flag_interrupt) === 0)
     {
         this.debug.show("cpu halted");
+        this.bus.send("cpu-halt");
         if(DEBUG) this.debug.dump_regs();
         throw "HALT";
     }
