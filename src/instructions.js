@@ -2480,44 +2480,20 @@ t[0x64] = cpu => {
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
     cpu.read_modrm_byte();
-    let source = cpu.read_xmm_mem64s();
-    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
-    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+    let source64s = cpu.read_xmm_mem64s();
+    let source8s = new Int8Array(source64s.buffer);
 
-    let byte0 = 0;
-    let byte1 = 0;
-    let byte2 = 0;
-    let byte3 = 0;
-    let byte4 = 0;
-    let byte5 = 0;
-    let byte6 = 0;
-    let byte7 = 0;
+    let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
+    let destination8s = cpu.reg8_mmxs;
 
-    if ((destination_low << 24 >> 24) > (source[0] << 24 >> 24)) {
-        byte0 = 0xFF;
-    }
-    if ((destination_low << 16 >> 24) > (source[0] << 16 >> 24)) {
-        byte1 = 0xFF;
-    }
-    if ((destination_low << 8 >> 24) > (source[0] << 8 >> 24)) {
-        byte2 = 0xFF;
-    }
-    if ((destination_low >> 24) > (source[0] >> 24)) {
-        byte3 = 0xFF;
-    }
-
-    if ((destination_high << 24 >> 24) > (source[1] << 24 >> 24)) {
-        byte4 = 0xFF;
-    }
-    if ((destination_high << 16 >> 24) > (source[1] << 16 >> 24)) {
-        byte5 = 0xFF;
-    }
-    if ((destination_high << 8 >> 24) > (source[1] << 8 >> 24)) {
-        byte6 = 0xFF;
-    }
-    if ((destination_high >> 24) > (source[1] >> 24)) {
-        byte7 = 0xFF;
-    }
+    let byte0 = destination8s[reg_offset] > source8s[0] ? 0xFF : 0;
+    let byte1 = destination8s[reg_offset + 1] > source8s[1] ? 0xFF : 0;
+    let byte2 = destination8s[reg_offset + 2] > source8s[2] ? 0xFF : 0;
+    let byte3 = destination8s[reg_offset + 3] > source8s[3] ? 0xFF : 0;
+    let byte4 = destination8s[reg_offset + 4] > source8s[4] ? 0xFF : 0;
+    let byte5 = destination8s[reg_offset + 5] > source8s[5] ? 0xFF : 0;
+    let byte6 = destination8s[reg_offset + 6] > source8s[6] ? 0xFF : 0;
+    let byte7 = destination8s[reg_offset + 7] > source8s[7] ? 0xFF : 0;
 
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
