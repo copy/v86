@@ -12,3 +12,5 @@ images/
 *.o
 *.bin
 *.img
+*.fixture
+*.fuse_hidden*
