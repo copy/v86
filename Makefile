@@ -1,6 +1,7 @@
 CLOSURE_DIR=closure-compiler
 CLOSURE=$(CLOSURE_DIR)/compiler.jar
 BROWSER=chromium
+NASM_TEST_DIR=./tests/nasm
 
 all: build/v86_all.js
 browser: build/v86_all.js
@@ -127,6 +128,7 @@ clean:
 	-rm build/v86_all.js
 	-rm build/libv86.js.map
 	-rm build/v86_all.js.map
+	$(MAKE) -C $(NASM_TEST_DIR) clean
 
 run:
 	python2 -m SimpleHTTPServer 2> /dev/null
@@ -151,3 +153,7 @@ $(CLOSURE):
 
 tests: build/libv86.js
 	./tests/full/run.js
+
+nasmtests: build/libv86.js
+	$(MAKE) -C $(NASM_TEST_DIR) all
+	$(NASM_TEST_DIR)/run.js
