@@ -2,11 +2,26 @@
 start
 until loop
 
-printf ";;; mm0 = {%d, %d}\n", $mm0.v2_int32[0], $mm0.v2_int32[1]
-printf ";;; mm1 = {%d, %d}\n", $mm1.v2_int32[0], $mm1.v2_int32[1]
-printf ";;; mm2 = {%d, %d}\n", $mm2.v2_int32[0], $mm2.v2_int32[1]
-printf ";;; mm3 = {%d, %d}\n", $mm3.v2_int32[0], $mm3.v2_int32[1]
-printf ";;; mm4 = {%d, %d}\n", $mm4.v2_int32[0], $mm4.v2_int32[1]
-printf ";;; mm5 = {%d, %d}\n", $mm5.v2_int32[0], $mm5.v2_int32[1]
-printf ";;; mm6 = {%d, %d}\n", $mm6.v2_int32[0], $mm6.v2_int32[1]
-printf ";;; mm7 = {%d, %d}\n", $mm7.v2_int32[0], $mm7.v2_int32[1]
+printf "---BEGIN JSON---\n"
+printf "[\n"
+printf "    %d,\n", $mm0.v2_int32[0]
+printf "    %d,\n", $mm0.v2_int32[1]
+printf "    %d,\n", $mm1.v2_int32[0]
+printf "    %d,\n", $mm1.v2_int32[1]
+printf "    %d,\n", $mm2.v2_int32[0]
+printf "    %d,\n", $mm2.v2_int32[1]
+printf "    %d,\n", $mm3.v2_int32[0]
+printf "    %d,\n", $mm3.v2_int32[1]
+printf "    %d,\n", $mm4.v2_int32[0]
+printf "    %d,\n", $mm4.v2_int32[1]
+printf "     %d,\n", $mm5.v2_int32[0]
+printf "     %d,\n", $mm5.v2_int32[1]
+printf "     %d,\n", $mm6.v2_int32[0]
+printf "     %d,\n", $mm6.v2_int32[1]
+printf "     %d,\n", $mm7.v2_int32[0]
+printf "     %d\n", $mm7.v2_int32[1]
+printf "]\n"
+printf "---END JSON---\n"
+
+continue
+quit
