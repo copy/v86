@@ -213,6 +213,7 @@ function CPU()
     // mm0-mm7 split up into 32 bit pairs
     this.reg_mmxs = new Int32Array(16);
     this.reg_mmx = new Uint32Array(this.reg_mmxs.buffer);
+    this.reg8_mmxs = new Int8Array(this.reg_mmxs.buffer);
 
     // segment registers, tr and ldtr
     this.sreg = new Uint16Array(8);
@@ -417,6 +418,7 @@ CPU.prototype.set_state = function(state)
     this.reg8 = new Uint8Array(this.reg32s.buffer);
 
     this.reg_mmx = new Uint32Array(this.reg_mmxs.buffer);
+    this.reg8_mmxs = new Int8Array(this.reg_mmxs.buffer);
     this.update_operand_size();
 };
 
@@ -504,6 +506,10 @@ CPU.prototype.reset = function()
 
     for(let i = 0; i < 16; i++) {
         this.reg_mmxs[i] = 0;
+    }
+
+    for(let i = 0; i < 64; i++) {
+        this.reg8_mmxs[i] = 0;
     }
 
     this.protected_mode = false;
