@@ -12,26 +12,12 @@ function IO(cpu)
     /** @const */
     this.ports = [];
 
-    /* const */
-    this.devices = Array(0x10000);
-
     /** @const @type {CPU} */
     this.cpu = cpu;
 
-
     for(var i = 0; i < 0x10000; i++)
     {
-        this.ports[i] = {
-            read8: this.empty_port_read8,
-            read16: this.empty_port_read16,
-            read32: this.empty_port_read32,
-
-            write8: this.empty_port_write,
-            write16: this.empty_port_write,
-            write32: this.empty_port_write,
-
-            device: undefined,
-        };
+        this.ports[i] = this.create_empty_entry();
     }
 
     var memory_size = cpu.memory_size;
@@ -63,25 +49,39 @@ function IO(cpu)
     );
 }
 
+IO.prototype.create_empty_entry = function()
+{
+    return {
+        read8: this.empty_port_read8,
+        read16: this.empty_port_read16,
+        read32: this.empty_port_read32,
+
+        write8: this.empty_port_write,
+        write16: this.empty_port_write,
+        write32: this.empty_port_write,
+
+        device: undefined,
+    };
+};
 
 IO.prototype.empty_port_read8 = function()
 {
     return 0xFF;
-}
+};
 
 IO.prototype.empty_port_read16 = function()
 {
     return 0xFFFF;
-}
+};
 
 IO.prototype.empty_port_read32 = function()
 {
     return -1;
-}
+};
 
 IO.prototype.empty_port_write = function(x)
 {
-}
+};
 
 
 /**
@@ -486,6 +486,6 @@ IO.prototype.get_port_description = function(addr)
     {
         return "";
     }
-}
+};
 
 
