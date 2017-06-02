@@ -373,7 +373,7 @@ FPU.prototype.fsave = function(addr)
 
     for(var i = 0; i < 8; i++)
     {
-        this.store_m80(addr, i - this.stack_ptr & 7);
+        this.store_m80(addr, i);
         addr += 10;
     }
 
@@ -389,7 +389,7 @@ FPU.prototype.frstor = function(addr)
 
     for(var i = 0; i < 8; i++)
     {
-        this.st[i] = this.load_m80(addr);
+        this.st[(i + this.stack_ptr) & 7] = this.load_m80(addr);
         addr += 10;
     }
 

@@ -27,8 +27,6 @@ function VirtIO(cpu, bus, filesystem)
     ];
     this.name = "virtio";
 
-    cpu.devices.pci.register_device(this);
-
     var io = cpu.io;
 
     io.register_read(0xA800, this,
@@ -199,6 +197,8 @@ function VirtIO(cpu, bus, filesystem)
     // should be generalized to support more devices than just the filesystem
     this.device = new Virtio9p(filesystem, bus);
     this.device.SendReply = this.device_reply.bind(this);
+
+    cpu.devices.pci.register_device(this);
 }
 
 VirtIO.prototype.get_state = function()

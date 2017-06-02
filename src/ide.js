@@ -81,8 +81,8 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
     this.master_port = 0xB400;
 
     this.pci_space = [
-        0x86, 0x80, 0x20, 0x3A, 0x05, 0x00, 0xA0, 0x02,
-        0x00, 0x8F, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
+        0x86, 0x80, 0x10, 0x70, 0x05, 0x00, 0xA0, 0x02,
+        0x00, 0x80, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
         this.ata_port & 0xFF | 1,      this.ata_port >> 8, 0x00, 0x00,
         this.ata_port_high & 0xFF | 1, this.ata_port_high >> 8, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, // second device
@@ -116,15 +116,13 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
         {
             size: 4,
         },
-        false,
-        false,
+        undefined,
+        undefined,
         {
             size: 0x10,
         },
     ];
     this.name = "ide" + nr;
-
-    cpu.devices.pci.register_device(this);
 
     /** @type {number} */
     this.device_control = 2;
@@ -280,6 +278,8 @@ function IDEDevice(cpu, buffer, is_cd, nr, bus)
     cpu.io.register_read(this.master_port | 0xA, this, function() {
         dbg_log("DMA read 0xA", LOG_DISK); return 0;
     });
+
+    cpu.devices.pci.register_device(this);
 
     DEBUG && Object.seal(this);
 }
