@@ -2744,7 +2744,7 @@ CPU.prototype.get_tss_stack_addr = function(dpl)
 
 CPU.prototype.do_task_switch = function(selector, error_code)
 {
-    dbg_assert(!this.tss_size_32, "TODO");
+    dbg_assert(this.tss_size_32, "TODO");
 
     dbg_log("do_task_switch sel=" + h(selector), LOG_CPU);
     var descriptor = this.lookup_segment_selector(selector);
