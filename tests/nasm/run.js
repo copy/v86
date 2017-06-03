@@ -150,7 +150,7 @@ else {
 
         emulator.v86.cpu.debug.show = () => {};
 
-        emulator.v86.bus.register('cpu-halt', function() {
+        emulator.bus.register('cpu-event-halt', function() {
             const filename = TEST_DIR + test.img_name;
             const evaluated_mmxs = this.cpu.reg_mmxs;
             let individual_failures = [];
@@ -177,7 +177,7 @@ else {
 
         }, emulator.v86);
 
-        emulator.v86.bus.pair.register('emulator-ready', function() {
+        emulator.bus.register('emulator-ready', function() {
             try {
                 emulator.run();
             }
