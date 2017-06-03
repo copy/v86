@@ -2484,7 +2484,7 @@ t[0x64] = cpu => {
     let source8s = new Int8Array(source64s.buffer);
 
     let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
-    let destination8s = cpu.reg8_mmxs;
+    let destination8s = cpu.reg_mmx8s;
 
     let byte0 = destination8s[reg_offset] > source8s[0] ? 0xFF : 0;
     let byte1 = destination8s[reg_offset + 1] > source8s[1] ? 0xFF : 0;
@@ -2965,7 +2965,7 @@ t[0x74] = cpu => {
     let source8s = new Int8Array(source64s.buffer);
 
     let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
-    let destination8s = cpu.reg8_mmxs;
+    let destination8s = cpu.reg_mmx8s;
 
     let byte0 = destination8s[reg_offset] === source8s[0] ? 0xFF : 0;
     let byte1 = destination8s[reg_offset + 1] === source8s[1] ? 0xFF : 0;
