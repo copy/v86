@@ -10,7 +10,7 @@ function v86(bus)
     this.stopped = false;
 
     /** @type {CPU} */
-    this.cpu = new CPU(bus.pair);
+    this.cpu = new CPU(bus);
 
     this.bus = bus;
     bus.register("cpu-init", this.init, this);
