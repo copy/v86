@@ -1567,3 +1567,21 @@ CPU.prototype.saturate_sd_to_sw = function(v)
     dbg_assert((ret & 0xFFFF0000) === 0);
     return ret;
 };
+
+CPU.prototype.saturate_sd_to_sb = function(v)
+{
+    let ret = v >>> 0;
+
+    if (ret > 0xFFFFFF80) {
+        ret = ret & 0xFF;
+    }
+    else if (ret > 0x7FFFFFFF) {
+        ret = 0x80;
+    }
+    else if (ret > 0x7F) {
+        ret = 0x7F;
+    }
+
+    dbg_assert((ret & 0xFFFFFF00) === 0);
+    return ret;
+};
