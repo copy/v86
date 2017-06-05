@@ -25,6 +25,7 @@ section .text
 _start:
 main:
 	fld	dword [mydword]
+	fld	dword [myquad]
 	emms
 
 loop:
@@ -33,3 +34,7 @@ loop:
 
 ;;; fptag = 0xFFFF
 ;;; cpu.fpu.load_tag_word() = 0xFFFF
+
+;;; The automated nasm test fails because MMX registers are meant to
+;;; alias the mantissa part of the 80-bit x87 registers, which we're
+;;; ignoring at the moment.
