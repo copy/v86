@@ -3788,7 +3788,7 @@ t[0xD8] = cpu => {
     );
     let byte4 = cpu.saturate_sd_to_ub(
         destination8[reg_offset + 4] - source8[4]
-                    );
+    );
     let byte5 = cpu.saturate_sd_to_ub(
         destination8[reg_offset + 5] - source8[5]
     );
