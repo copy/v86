@@ -3020,7 +3020,31 @@ t[0x75] = cpu => {
     cpu.write_xmm64s(data);
 };
 
-t[0x76] = cpu => { cpu.unimplemented_sse(); };
+t[0x76] = cpu => {
+    // pcmpeqd mm, mm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    cpu.read_modrm_byte();
+    let source = cpu.read_xmm_mem64s();
+    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+    let low = 0;
+    let high = 0;
+
+    if (destination_low === source[0]) {
+        low = 0xFFFFFFFF;
+    }
+
+    if (destination_high === source[1]) {
+        high = 0xFFFFFFFF;
+    }
+
+    let data = cpu.create_atom64s(low, high);
+
+    cpu.write_xmm64s(data);
+};
+
 t[0x77] = cpu => {
     // emms
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
