@@ -4059,7 +4059,50 @@ t[0xE5] = cpu => {
 t[0xE6] = cpu => { cpu.unimplemented_sse(); };
 t[0xE7] = cpu => { cpu.unimplemented_sse(); };
 
-t[0xE8] = cpu => { cpu.unimplemented_sse(); };
+t[0xE8] = cpu => {
+    // psubsb mm, mm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    cpu.read_modrm_byte();
+    let source64s = cpu.read_xmm_mem64s();
+    let source8s = new Int8Array(source64s.buffer);
+
+    let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
+    let destination8s = cpu.reg_mmx8s;
+
+    let byte0 = cpu.saturate_sd_to_sb(
+        destination8s[reg_offset] - source8s[0]
+    );
+    let byte1 = cpu.saturate_sd_to_sb(
+        destination8s[reg_offset + 1] - source8s[1]
+    );
+    let byte2 = cpu.saturate_sd_to_sb(
+        destination8s[reg_offset + 2] - source8s[2]
+    );
+    let byte3 = cpu.saturate_sd_to_sb(
+        destination8s[reg_offset + 3] - source8s[3]
+    );
+    let byte4 = cpu.saturate_sd_to_sb(
+        destination8s[reg_offset + 4] - source8s[4]
+    );
+    let byte5 = cpu.saturate_sd_to_sb(
+        destination8s[reg_offset + 5] - source8s[5]
+    );
+    let byte6 = cpu.saturate_sd_to_sb(
+        destination8s[reg_offset + 6] - source8s[6]
+    );
+    let byte7 = cpu.saturate_sd_to_sb(
+        destination8s[reg_offset + 7] - source8s[7]
+    );
+
+    let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+    let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+    let data = cpu.create_atom64s(low, high);
+
+    cpu.write_xmm64s(data);
+};
+
 t[0xE9] = cpu => { cpu.unimplemented_sse(); };
 t[0xEA] = cpu => { cpu.unimplemented_sse(); };
 t[0xEB] = cpu => { cpu.unimplemented_sse(); };
