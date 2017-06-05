@@ -4323,8 +4323,8 @@ t[0xF5] = cpu => {
     let mul2 = ((destination_high << 16 >> 16) * (source[1] << 16 >> 16));
     let mul3 = ((destination_high >> 16) * (source[1] >> 16));
 
-    let low = (mul0 + mul1) & 0xFFFFFFFF;
-    let high = (mul2 + mul3) & 0xFFFFFFFF;
+    let low = mul0 + mul1;
+    let high = mul2 + mul3;
 
     let data = cpu.create_atom64s(low, high);
 
