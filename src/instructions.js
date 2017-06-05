@@ -3759,7 +3759,59 @@ t[0xD5] = cpu => {
 t[0xD6] = cpu => { cpu.unimplemented_sse(); };
 t[0xD7] = cpu => { cpu.unimplemented_sse(); };
 
-t[0xD8] = cpu => { cpu.unimplemented_sse(); };
+t[0xD8] = cpu => {
+    // psubusb mm, mm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    cpu.read_modrm_byte();
+    let source64s = cpu.read_xmm_mem64s();
+    let source8 = new Uint8Array(source64s.buffer);
+
+    let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
+    let destination8 = cpu.reg_mmx8;
+
+    let byte0 = destination8[reg_offset] - source8[0];
+    let byte1 = destination8[reg_offset + 1] - source8[1];
+    let byte2 = destination8[reg_offset + 2] - source8[2];
+    let byte3 = destination8[reg_offset + 3] - source8[3];
+    let byte4 = destination8[reg_offset + 4] - source8[4];
+    let byte5 = destination8[reg_offset + 5] - source8[5];
+    let byte6 = destination8[reg_offset + 6] - source8[6];
+    let byte7 = destination8[reg_offset + 7] - source8[7];
+
+    if (byte0 < 0) {
+        byte0 = 0;
+    }
+    if (byte1 < 0) {
+        byte1 = 0;
+    }
+    if (byte2 < 0) {
+        byte2 = 0;
+    }
+    if (byte3 < 0) {
+        byte3 = 0;
+    }
+    if (byte4 < 0) {
+        byte4 = 0;
+    }
+    if (byte5 < 0) {
+        byte5 = 0;
+    }
+    if (byte6 < 0) {
+        byte6 = 0;
+    }
+    if (byte7 < 0) {
+        byte7 = 0;
+    }
+
+    let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+    let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+    let data = cpu.create_atom64s(low, high);
+
+    cpu.write_xmm64s(data);
+};
+
 t[0xD9] = cpu => { cpu.unimplemented_sse(); };
 t[0xDA] = cpu => { cpu.unimplemented_sse(); };
 t[0xDB] = cpu => {
