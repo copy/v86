@@ -214,6 +214,7 @@ function CPU(bus)
     this.reg_mmxs = new Int32Array(16);
     this.reg_mmx = new Uint32Array(this.reg_mmxs.buffer);
     this.reg_mmx8s = new Int8Array(this.reg_mmxs.buffer);
+    this.reg_mmx8 = new Uint8Array(this.reg_mmxs.buffer);
 
     // segment registers, tr and ldtr
     this.sreg = new Uint16Array(8);
@@ -421,6 +422,7 @@ CPU.prototype.set_state = function(state)
 
     this.reg_mmx = new Uint32Array(this.reg_mmxs.buffer);
     this.reg_mmx8s = new Int8Array(this.reg_mmxs.buffer);
+    this.reg_mmx8 = new Uint8Array(this.reg_mmxs.buffer);
     this.update_operand_size();
 };
 
