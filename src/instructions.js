@@ -4448,7 +4448,23 @@ t[0xFD] = cpu => {
 
     cpu.write_xmm64s(data);
 };
-t[0xFE] = cpu => { cpu.unimplemented_sse(); };
+
+t[0xFE] = cpu => {
+    // paddd mm, mm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    cpu.read_modrm_byte();
+    let source = cpu.read_xmm_mem64s();
+    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+    let low = destination_low + source[0];
+    let high = destination_high + source[1];
+
+    let data = cpu.create_atom64s(low, high);
+
+    cpu.write_xmm64s(data);
+};
 
 t[0xFF] = cpu => {
     // Windows 98
