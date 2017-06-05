@@ -4330,7 +4330,34 @@ t[0xF5] = cpu => {
 t[0xF6] = cpu => { cpu.unimplemented_sse(); };
 t[0xF7] = cpu => { cpu.unimplemented_sse(); };
 
-t[0xF8] = cpu => { cpu.unimplemented_sse(); };
+t[0xF8] = cpu => {
+    // psubb mm, mm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    cpu.read_modrm_byte();
+    let source64s = cpu.read_xmm_mem64s();
+    let source8s = new Int8Array(source64s.buffer);
+
+    let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
+    let destination8s = cpu.reg_mmx8s;
+
+    let byte0 = (destination8s[reg_offset] - source8s[0]) & 0xFF;
+    let byte1 = (destination8s[reg_offset + 1] - source8s[1]) & 0xFF;
+    let byte2 = (destination8s[reg_offset + 2] - source8s[2]) & 0xFF;
+    let byte3 = (destination8s[reg_offset + 3] - source8s[3]) & 0xFF;
+    let byte4 = (destination8s[reg_offset + 4] - source8s[4]) & 0xFF;
+    let byte5 = (destination8s[reg_offset + 5] - source8s[5]) & 0xFF;
+    let byte6 = (destination8s[reg_offset + 6] - source8s[6]) & 0xFF;
+    let byte7 = (destination8s[reg_offset + 7] - source8s[7]) & 0xFF;
+
+    let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+    let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+    let data = cpu.create_atom64s(low, high);
+
+    cpu.write_xmm64s(data);
+};
+
 t[0xF9] = cpu => {
     // psubw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
