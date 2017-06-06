@@ -3770,30 +3770,14 @@ t[0xD8] = cpu => {
     let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
     let destination8 = cpu.reg_mmx8;
 
-    let byte0 = cpu.saturate_sd_to_ub(
-        destination8[reg_offset] - source8[0]
-    );
-    let byte1 = cpu.saturate_sd_to_ub(
-        destination8[reg_offset + 1] - source8[1]
-    );
-    let byte2 = cpu.saturate_sd_to_ub(
-        destination8[reg_offset + 2] - source8[2]
-    );
-    let byte3 = cpu.saturate_sd_to_ub(
-        destination8[reg_offset + 3] - source8[3]
-    );
-    let byte4 = cpu.saturate_sd_to_ub(
-        destination8[reg_offset + 4] - source8[4]
-    );
-    let byte5 = cpu.saturate_sd_to_ub(
-        destination8[reg_offset + 5] - source8[5]
-    );
-    let byte6 = cpu.saturate_sd_to_ub(
-        destination8[reg_offset + 6] - source8[6]
-    );
-    let byte7 = cpu.saturate_sd_to_ub(
-        destination8[reg_offset + 7] - source8[7]
-    );
+    let byte0 = cpu.saturate_sd_to_ub(destination8[reg_offset] - source8[0]);
+    let byte1 = cpu.saturate_sd_to_ub(destination8[reg_offset + 1] - source8[1]);
+    let byte2 = cpu.saturate_sd_to_ub(destination8[reg_offset + 2] - source8[2]);
+    let byte3 = cpu.saturate_sd_to_ub(destination8[reg_offset + 3] - source8[3]);
+    let byte4 = cpu.saturate_sd_to_ub(destination8[reg_offset + 4] - source8[4]);
+    let byte5 = cpu.saturate_sd_to_ub(destination8[reg_offset + 5] - source8[5]);
+    let byte6 = cpu.saturate_sd_to_ub(destination8[reg_offset + 6] - source8[6]);
+    let byte7 = cpu.saturate_sd_to_ub(destination8[reg_offset + 7] - source8[7]);
 
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
@@ -3867,30 +3851,14 @@ t[0xDC] = cpu => {
     let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
     let destination8 = cpu.reg_mmx8;
 
-    let byte0 = cpu.saturate_ud_to_ub(
-        destination8[reg_offset] + source8[0]
-    );
-    let byte1 = cpu.saturate_ud_to_ub(
-        destination8[reg_offset + 1] + source8[1]
-    );
-    let byte2 = cpu.saturate_ud_to_ub(
-        destination8[reg_offset + 2] + source8[2]
-    );
-    let byte3 = cpu.saturate_ud_to_ub(
-        destination8[reg_offset + 3] + source8[3]
-    );
-    let byte4 = cpu.saturate_ud_to_ub(
-        destination8[reg_offset + 4] + source8[4]
-                    );
-    let byte5 = cpu.saturate_ud_to_ub(
-        destination8[reg_offset + 5] + source8[5]
-    );
-    let byte6 = cpu.saturate_ud_to_ub(
-        destination8[reg_offset + 6] + source8[6]
-    );
-    let byte7 = cpu.saturate_ud_to_ub(
-        destination8[reg_offset + 7] + source8[7]
-    );
+    let byte0 = cpu.saturate_ud_to_ub(destination8[reg_offset] + source8[0]);
+    let byte1 = cpu.saturate_ud_to_ub(destination8[reg_offset + 1] + source8[1]);
+    let byte2 = cpu.saturate_ud_to_ub(destination8[reg_offset + 2] + source8[2]);
+    let byte3 = cpu.saturate_ud_to_ub(destination8[reg_offset + 3] + source8[3]);
+    let byte4 = cpu.saturate_ud_to_ub(destination8[reg_offset + 4] + source8[4]);
+    let byte5 = cpu.saturate_ud_to_ub(destination8[reg_offset + 5] + source8[5]);
+    let byte6 = cpu.saturate_ud_to_ub(destination8[reg_offset + 6] + source8[6]);
+    let byte7 = cpu.saturate_ud_to_ub(destination8[reg_offset + 7] + source8[7]);
 
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
@@ -4016,15 +3984,11 @@ t[0xE5] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let word0 = ((destination_low << 16 >> 16) * (source[0] << 16 >> 16))
-            >>> 16;
-    let word1 = ((destination_low >> 16) * (source[0] >> 16))
-            >>> 16;
+    let word0 = ((destination_low << 16 >> 16) * (source[0] << 16 >> 16)) >>> 16;
+    let word1 = ((destination_low >> 16) * (source[0] >> 16)) >>> 16;
 
-    let word2 = ((destination_high << 16 >> 16) * (source[1] << 16 >> 16))
-            >>> 16;
-    let word3 = ((destination_high >> 16) * (source[1] >> 16))
-            >>> 16;
+    let word2 = ((destination_high << 16 >> 16) * (source[1] << 16 >> 16)) >>> 16;
+    let word3 = ((destination_high >> 16) * (source[1] >> 16)) >>> 16;
 
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
@@ -4048,30 +4012,14 @@ t[0xE8] = cpu => {
     let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
     let destination8s = cpu.reg_mmx8s;
 
-    let byte0 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset] - source8s[0]
-    );
-    let byte1 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 1] - source8s[1]
-    );
-    let byte2 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 2] - source8s[2]
-    );
-    let byte3 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 3] - source8s[3]
-    );
-    let byte4 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 4] - source8s[4]
-    );
-    let byte5 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 5] - source8s[5]
-    );
-    let byte6 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 6] - source8s[6]
-    );
-    let byte7 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 7] - source8s[7]
-    );
+    let byte0 = cpu.saturate_sd_to_sb(destination8s[reg_offset] - source8s[0]);
+    let byte1 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 1] - source8s[1]);
+    let byte2 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 2] - source8s[2]);
+    let byte3 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 3] - source8s[3]);
+    let byte4 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 4] - source8s[4]);
+    let byte5 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 5] - source8s[5]);
+    let byte6 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 6] - source8s[6]);
+    let byte7 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 7] - source8s[7]);
 
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
@@ -4090,18 +4038,10 @@ t[0xE9] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let word0 = cpu.saturate_sd_to_sw(
-        (destination_low << 16 >> 16) - (source[0] << 16 >> 16)
-    );
-    let word1 = cpu.saturate_sd_to_sw(
-        (destination_low >> 16) - (source[0] >> 16)
-    );
-    let word2 = cpu.saturate_sd_to_sw(
-        (destination_high << 16 >> 16) - (source[1] << 16 >> 16)
-    );
-    let word3 = cpu.saturate_sd_to_sw(
-        (destination_high >> 16) - (source[1] >> 16)
-    );
+    let word0 = cpu.saturate_sd_to_sw((destination_low << 16 >> 16) - (source[0] << 16 >> 16));
+    let word1 = cpu.saturate_sd_to_sw((destination_low >> 16) - (source[0] >> 16));
+    let word2 = cpu.saturate_sd_to_sw((destination_high << 16 >> 16) - (source[1] << 16 >> 16));
+    let word3 = cpu.saturate_sd_to_sw((destination_high >> 16) - (source[1] >> 16));
 
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
@@ -4141,30 +4081,14 @@ t[0xEC] = cpu => {
     let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
     let destination8s = cpu.reg_mmx8s;
 
-    let byte0 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset] + source8s[0]
-    );
-    let byte1 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 1] + source8s[1]
-    );
-    let byte2 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 2] + source8s[2]
-    );
-    let byte3 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 3] + source8s[3]
-    );
-    let byte4 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 4] + source8s[4]
-    );
-    let byte5 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 5] + source8s[5]
-    );
-    let byte6 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 6] + source8s[6]
-    );
-    let byte7 = cpu.saturate_sd_to_sb(
-        destination8s[reg_offset + 7] + source8s[7]
-    );
+    let byte0 = cpu.saturate_sd_to_sb(destination8s[reg_offset] + source8s[0]);
+    let byte1 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 1] + source8s[1]);
+    let byte2 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 2] + source8s[2]);
+    let byte3 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 3] + source8s[3]);
+    let byte4 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 4] + source8s[4]);
+    let byte5 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 5] + source8s[5]);
+    let byte6 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 6] + source8s[6]);
+    let byte7 = cpu.saturate_sd_to_sb(destination8s[reg_offset + 7] + source8s[7]);
 
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
@@ -4183,18 +4107,10 @@ t[0xED] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let word0 = cpu.saturate_sd_to_sw(
-        (destination_low << 16 >> 16) + (source[0] << 16 >> 16)
-    );
-    let word1 = cpu.saturate_sd_to_sw(
-        (destination_low >> 16) + (source[0] >> 16)
-    );
-    let word2 = cpu.saturate_sd_to_sw(
-        (destination_high << 16 >> 16) + (source[1] << 16 >> 16)
-    );
-    let word3 = cpu.saturate_sd_to_sw(
-        (destination_high >> 16) + (source[1] >> 16)
-    );
+    let word0 = cpu.saturate_sd_to_sw((destination_low << 16 >> 16) + (source[0] << 16 >> 16));
+    let word1 = cpu.saturate_sd_to_sw((destination_low >> 16) + (source[0] >> 16));
+    let word2 = cpu.saturate_sd_to_sw((destination_high << 16 >> 16) + (source[1] << 16 >> 16));
+    let word3 = cpu.saturate_sd_to_sw((destination_high >> 16) + (source[1] >> 16));
 
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
