@@ -804,6 +804,12 @@ IDEInterface.prototype.ata_command = function(cmd)
             this.push_irq();
             break;
 
+        case 0xE0:
+            dbg_log("ATA standby immediate", LOG_DISK);
+            this.status = 0x50;
+            this.push_irq();
+            break;
+
         case 0xE1:
             dbg_log("ATA idle immediate", LOG_DISK);
             this.status = 0x50;

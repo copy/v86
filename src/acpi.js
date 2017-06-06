@@ -36,6 +36,8 @@ function ACPI(cpu)
     this.pm1_enable = 0;
     this.last_timer = this.get_timer(v86.microtick());
 
+    this.gpe = new Uint8Array(4);
+
     io.register_read(0xB000, this, undefined, function()
     {
         dbg_log("ACPI pm1_status read", LOG_ACPI);
@@ -76,6 +78,49 @@ function ACPI(cpu)
         var value = this.get_timer(v86.microtick()) & 0xFFFFFF;
         //dbg_log("pmtimer read: " + h(value >>> 0), LOG_ACPI);
         return value;
+    });
+
+    // ACPI, gpe
+    io.register_read(0xAFE0, this, function()
+    {
+        dbg_log("Read gpe#0", LOG_ACPI);
+        return this.gpe[0];
+    });
+    io.register_read(0xAFE1, this, function()
+    {
+        dbg_log("Read gpe#1", LOG_ACPI);
+        return this.gpe[1];
+    });
+    io.register_read(0xAFE2, this, function()
+    {
+        dbg_log("Read gpe#2", LOG_ACPI);
+        return this.gpe[2];
+    });
+    io.register_read(0xAFE3, this, function()
+    {
+        dbg_log("Read gpe#3", LOG_ACPI);
+        return this.gpe[3];
+    });
+
+    io.register_write(0xAFE0, this, function(value)
+    {
+        dbg_log("Write gpe#0: " + h(value), LOG_ACPI);
+        this.gpe[0] = value;
+    });
+    io.register_write(0xAFE1, this, function(value)
+    {
+        dbg_log("Write gpe#1: " + h(value), LOG_ACPI);
+        this.gpe[1] = value;
+    });
+    io.register_write(0xAFE2, this, function(value)
+    {
+        dbg_log("Write gpe#2: " + h(value), LOG_ACPI);
+        this.gpe[2] = value;
+    });
+    io.register_write(0xAFE3, this, function(value)
+    {
+        dbg_log("Write gpe#3: " + h(value), LOG_ACPI);
+        this.gpe[3] = value;
     });
 }
 
