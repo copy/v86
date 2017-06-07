@@ -2,6 +2,8 @@
 
 (function()
 {
+    "use strict";
+
     var CORE_FILES =
         "const.js config.js log.js cpu.js debug.js translate.js modrm.js string.js arith.js misc_instr.js instructions.js " +
         "io.js main.js lib.js ide.js fpu.js pci.js floppy.js " +
