@@ -2790,11 +2790,11 @@ t[0x71] = cpu => {
             var high = 0;
 
             if (shift <= 15) {
-                var word0 = (destination_low & 0xFFFF) << shift;
+                var word0 = ((destination_low & 0xFFFF) << shift) & 0xFFFF;
                 var word1 = (destination_low >>> 16) << shift;
                 low = word0 | word1 << 16;
 
-                var word2 = (destination_high & 0xFFFF) << shift;
+                var word2 = ((destination_high & 0xFFFF) << shift) & 0xFFFF;
                 var word3 = (destination_high >>> 16) << shift;
                 high = word2 | word3 << 16;
             }
@@ -4154,11 +4154,11 @@ t[0xF1] = cpu => {
     let high = 0;
 
     if (shift <= 15) {
-        let word0 = (destination_low & 0xFFFF) << shift;
+        let word0 = ((destination_low & 0xFFFF) << shift) & 0xFFFF;
         let word1 = (destination_low >>> 16) << shift;
         low = word0 | word1 << 16;
 
-        let word2 = (destination_high & 0xFFFF) << shift;
+        let word2 = ((destination_high & 0xFFFF) << shift) & 0xFFFF;
         let word3 = (destination_high >>> 16) << shift;
         high = word2 | word3 << 16;
     }
