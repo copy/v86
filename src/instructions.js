@@ -2391,6 +2391,15 @@ t[0x60] = cpu => {
     // punpcklbw mm, mm/m32
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem32s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -2416,6 +2425,15 @@ t[0x61] = cpu => {
     // punpcklwd mm, mm/m32
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem32s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -2437,6 +2455,15 @@ t[0x62] = cpu => {
     // punpckldq mm, mm/m32
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem32s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -2452,6 +2479,15 @@ t[0x62] = cpu => {
 t[0x63] = cpu => {
     // packsswb mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
@@ -2478,6 +2514,15 @@ t[0x63] = cpu => {
 t[0x64] = cpu => {
     // pcmpgtb mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source64s = cpu.read_xmm_mem64s();
@@ -2506,6 +2551,15 @@ t[0x64] = cpu => {
 t[0x65] = cpu => {
     // pcmpgtw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
@@ -2543,6 +2597,15 @@ t[0x66] = cpu => {
     // pcmpgtd mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -2567,6 +2630,15 @@ t[0x66] = cpu => {
 t[0x67] = cpu => {
     // packuswb mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
@@ -2594,6 +2666,15 @@ t[0x68] = cpu => {
     // punpckhbw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
@@ -2619,6 +2700,15 @@ t[0x69] = cpu => {
     // punpckhwd mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
@@ -2640,6 +2730,15 @@ t[0x6A] = cpu => {
     // punpckhdq mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
@@ -2655,6 +2754,15 @@ t[0x6A] = cpu => {
 t[0x6B] = cpu => {
     // packssdw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
@@ -2680,6 +2788,15 @@ t[0x6E] = cpu => {
     // movd mm, r/m32
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let data = cpu.create_atom64s(cpu.read_e32s(), 0);
     cpu.write_xmm64s(data);
@@ -2687,6 +2804,15 @@ t[0x6E] = cpu => {
 t[0x6F] = cpu => {
     // movq mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let data = cpu.read_xmm_mem64s();
@@ -2696,6 +2822,15 @@ t[0x6F] = cpu => {
 t[0x70] = cpu => {
     // pshufw mm1, mm2/m64, imm8
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
@@ -2721,6 +2856,15 @@ t[0x71] = cpu => {
     cpu.read_modrm_byte();
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     dbg_assert(cpu.modrm_byte >= 0xC0);
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
 
     // psrlw, psraw, psllw
     //     2,     4,     6
@@ -2814,6 +2958,15 @@ t[0x72] = cpu => {
     cpu.read_modrm_byte();
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     dbg_assert(cpu.modrm_byte >= 0xC0);
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
 
     // psrld, psrad, pslld
     //     2,     4,     6
@@ -2893,6 +3046,15 @@ t[0x73] = cpu => {
     cpu.read_modrm_byte();
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     dbg_assert(cpu.modrm_byte >= 0xC0);
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
 
     // psrlq, psllq
     //     2,     6
@@ -2960,6 +3122,15 @@ t[0x74] = cpu => {
     // pcmpeqb mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source64s = cpu.read_xmm_mem64s();
     let source8s = new Int8Array(source64s.buffer);
@@ -2987,6 +3158,15 @@ t[0x74] = cpu => {
 t[0x75] = cpu => {
     // pcmpeqw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
@@ -3024,6 +3204,15 @@ t[0x76] = cpu => {
     // pcmpeqd mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -3049,6 +3238,15 @@ t[0x77] = cpu => {
     // emms
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.fpu.safe_tag_word(0xFFFF);
 };
 
@@ -3062,6 +3260,15 @@ t[0x7E] = cpu => {
     // movd r/m32, mm
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let data = cpu.read_xmm64s();
     cpu.set_e32(data[0]);
@@ -3069,6 +3276,15 @@ t[0x7E] = cpu => {
 t[0x7F] = cpu => {
     // movq mm/m64, mm
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let data = cpu.read_xmm64s();
@@ -3660,6 +3876,15 @@ t[0xD1] = cpu => {
     // psrlw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -3688,6 +3913,15 @@ t[0xD2] = cpu => {
     // psrld mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -3710,6 +3944,15 @@ t[0xD2] = cpu => {
 t[0xD3] = cpu => {
     // psrlq mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
@@ -3739,6 +3982,15 @@ t[0xD5] = cpu => {
     // pmullw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -3762,6 +4014,15 @@ t[0xD7] = cpu => { cpu.unimplemented_sse(); };
 t[0xD8] = cpu => {
     // psubusb mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source64s = cpu.read_xmm_mem64s();
@@ -3790,6 +4051,15 @@ t[0xD8] = cpu => {
 t[0xD9] = cpu => {
     // psubusw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
@@ -3827,6 +4097,15 @@ t[0xDB] = cpu => {
     // pand mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -3843,6 +4122,15 @@ t[0xDB] = cpu => {
 t[0xDC] = cpu => {
     // paddusb mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source64s = cpu.read_xmm_mem64s();
@@ -3871,6 +4159,15 @@ t[0xDC] = cpu => {
 t[0xDD] = cpu => {
     // paddusw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
@@ -3908,6 +4205,15 @@ t[0xDF] = cpu => {
     // pandn mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -3926,6 +4232,15 @@ t[0xE0] = cpu => { cpu.unimplemented_sse(); };
 t[0xE1] = cpu => {
     // psraw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
@@ -3954,6 +4269,15 @@ t[0xE2] = cpu => {
     // psrad mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -3978,6 +4302,15 @@ t[0xE4] = cpu => { cpu.unimplemented_sse(); };
 t[0xE5] = cpu => {
     // pmulhw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
@@ -4004,6 +4337,15 @@ t[0xE7] = cpu => { cpu.unimplemented_sse(); };
 t[0xE8] = cpu => {
     // psubsb mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source64s = cpu.read_xmm_mem64s();
@@ -4033,6 +4375,15 @@ t[0xE9] = cpu => {
     // psubsw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -4057,6 +4408,15 @@ t[0xEB] = cpu => {
     // por mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -4073,6 +4433,15 @@ t[0xEB] = cpu => {
 t[0xEC] = cpu => {
     // paddsb mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source64s = cpu.read_xmm_mem64s();
@@ -4102,6 +4471,15 @@ t[0xED] = cpu => {
     // paddsw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -4125,6 +4503,15 @@ t[0xEF] = cpu => {
     // pxor mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -4143,6 +4530,15 @@ t[0xF0] = cpu => { cpu.unimplemented_sse(); };
 t[0xF1] = cpu => {
     // psllw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
@@ -4172,6 +4568,15 @@ t[0xF2] = cpu => {
     // pslld mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -4194,6 +4599,15 @@ t[0xF2] = cpu => {
 t[0xF3] = cpu => {
     // psllq mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
@@ -4225,6 +4639,15 @@ t[0xF5] = cpu => {
     // pmaddwd mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -4249,6 +4672,15 @@ t[0xF7] = cpu => { cpu.unimplemented_sse(); };
 t[0xF8] = cpu => {
     // psubb mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source64s = cpu.read_xmm_mem64s();
@@ -4278,6 +4710,15 @@ t[0xF9] = cpu => {
     // psubw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -4300,6 +4741,15 @@ t[0xFA] = cpu => {
     // psubd mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -4318,6 +4768,15 @@ t[0xFB] = cpu => { cpu.unimplemented_sse(); };
 t[0xFC] = cpu => {
     // paddb mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source64s = cpu.read_xmm_mem64s();
@@ -4347,6 +4806,15 @@ t[0xFD] = cpu => {
     // paddw mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
+
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
@@ -4368,6 +4836,15 @@ t[0xFD] = cpu => {
 t[0xFE] = cpu => {
     // paddd mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+    if(cpu.cr[0] & (CR0_EM | CR0_TS)) {
+        if(cpu.cr[0] & CR0_TS) {
+            cpu.trigger_nm();
+        }
+        else {
+            cpu.trigger_ud();
+        }
+    }
 
     cpu.read_modrm_byte();
     let source = cpu.read_xmm_mem64s();
