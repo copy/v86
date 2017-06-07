@@ -195,6 +195,11 @@ function MouseAdapter(bus, screen_container)
         delta_y = -delta_y;
 
         mouse.bus.send("mouse-delta", [delta_x, delta_y]);
+
+        let absolute_x = e.pageX - screen_container.offsetLeft;
+        let absolute_y = e.pageY - screen_container.offsetTop;
+        mouse.bus.send("mouse-absolute", [
+            absolute_x, absolute_y, screen_container.offsetWidth, screen_container.offsetHeight]);
     }
 
     function mousedown_handler(e)
