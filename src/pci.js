@@ -513,7 +513,7 @@ PCI.prototype.register_device = function(device)
 PCI.prototype.set_io_bars = function(bar, from, to)
 {
     var count = bar.size;
-    dbg_log("Move io bars: from=" + h(from) + " to=" + h(to) + " count=" + count);
+    dbg_log("Move io bars: from=" + h(from) + " to=" + h(to) + " count=" + count, LOG_PCI);
 
     var ports = this.io.ports;
 
