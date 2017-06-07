@@ -1009,7 +1009,7 @@ CPU.prototype.load_bios = function()
         // older versions of seabios
         this.write_blob(vga_bios8, 0xC0000);
 
-        // newer versions of seabios (needs to match pci rom address)
+        // newer versions of seabios (needs to match pci rom address, see vga.js)
         this.io.mmap_register(0xFEB00000, 0x100000,
             function(addr)
             {
@@ -1018,9 +1018,14 @@ CPU.prototype.load_bios = function()
                 {
                     return vga_bios8[addr];
                 }
+                else
+                {
+                    return 0;
+                }
             },
             function(addr, value)
             {
+                dbg_assert(false, "Unexpected write to VGA rom");
             });
     }
     else

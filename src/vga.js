@@ -18,6 +18,10 @@ var
     MAX_BPP = 32;
 
 /** @const */
+//var VGA_LFB_ADDRESS = 0xFE000000; // set by seabios
+var VGA_LFB_ADDRESS = 0xE0000000;
+
+/** @const */
 var VGA_PLANAR_REAL_BUFFER_START = 4 * VGA_BANK_SIZE;
 
 
@@ -127,14 +131,25 @@ function VGAScreen(cpu, bus, vga_memory_size)
     // 01:00.0 VGA compatible controller: NVIDIA Corporation GT216 [GeForce GT 220] (rev a2)
     this.pci_space = [
         0xde, 0x10, 0x20, 0x0a, 0x07, 0x00, 0x00, 0x00,  0xa2, 0x00, 0x00, 0x03, 0x00, 0x00, 0x80, 0x00,
-        0x08, 0x00, 0x00, 0xe0, 0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x08, VGA_LFB_ADDRESS >>> 8, VGA_LFB_ADDRESS >>> 16, VGA_LFB_ADDRESS >>> 24,
+                                0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00, 0x00,
     ];
     this.pci_id = 0x12 << 3;
-    this.pci_bars = [];
+    this.pci_bars = [
+        {
+            size: vga_memory_size,
+        },
+    ];
 
     // TODO: Should be matched with vga bios size and mapping address
+    // Seabios config for this device:
+    // CONFIG_VGA_PCI=y
+    // CONFIG_OVERRIDE_PCI_ID=y
+    // CONFIG_VGA_VID=0x10de
+    // CONFIG_VGA_DID=0x0a20
+
     this.pci_rom_size = 0x10000;
     this.pci_rom_address = 0xFEB00000;
 
@@ -264,7 +279,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
         function(addr) { return me.vga_memory_read(addr); },
         function(addr, value) { me.vga_memory_write(addr, value); }
     );
-    io.mmap_register(0xE0000000, this.vga_memory_size,
+    io.mmap_register(VGA_LFB_ADDRESS, this.vga_memory_size,
         function(addr) { return me.svga_memory_read8(addr); },
         function(addr, value) { me.svga_memory_write8(addr, value); },
         function(addr) { return me.svga_memory_read32(addr); },
