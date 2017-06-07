@@ -13,7 +13,7 @@ v86util.pads = function(str, len)
     }
 
     return str;
-}
+};
 
 // pad string with zeros on the left
 v86util.pad0 = function(str, len)
@@ -26,7 +26,7 @@ v86util.pad0 = function(str, len)
     }
 
     return str;
-}
+};
 
 /**
  * number to hex
@@ -190,7 +190,7 @@ SyncBuffer.prototype.get_buffer = function(fn)
                 return int_log2_table[x];
             }
         }
-    }
+    };
 })();
 
 

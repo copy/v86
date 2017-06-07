@@ -106,7 +106,7 @@ CPU.prototype.debug_init = function()
             return s;
         }
         //this.name = "Unimplemented";
-    }
+    };
 
     function step()
     {
@@ -186,7 +186,7 @@ CPU.prototype.debug_init = function()
             debug.ops.add(_ip);
             debug.ops.add(op);
         }
-    }
+    };
 
     function dump_stack(start, end)
     {
@@ -646,7 +646,7 @@ CPU.prototype.debug_init = function()
 
             dbg_log(row);
         }
-    };
+    }
 
 
     debug.debug_interrupt = function(interrupt_nr)
@@ -707,4 +707,4 @@ CPU.prototype.debug_init = function()
         //    this.debug.dump_regs_short();
         //}
     };
-}
+};
