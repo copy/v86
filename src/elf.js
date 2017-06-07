@@ -14,7 +14,7 @@ let pad = function(size)
         size,
         get: offset => -1,
     };
-}
+};
 
 let Header = create_struct([
     { magic: U32, },

@@ -120,7 +120,7 @@ function IOAPIC(cpu)
                 dbg_assert(false);
             }
         });
-};
+}
 
 IOAPIC.prototype.remote_eoi = function(vector)
 {
@@ -166,7 +166,7 @@ IOAPIC.prototype.check_irq = function(irq)
 
             if(config & IOAPIC_CONFIG_REMOTE_IRR)
             {
-                dbg_log("No route: level interrupt and remote IRR still set", LOG_APIC)
+                dbg_log("No route: level interrupt and remote IRR still set", LOG_APIC);
                 return;
             }
         }
@@ -347,6 +347,6 @@ IOAPIC.prototype.set_state = function(state)
     this.ioredtbl_destination = state[1];
     this.ioregsel = state[2];
     this.ioapic_id = state[3];
-    this.irr = state[4]
+    this.irr = state[4];
     this.irq_value = state[5];
 };

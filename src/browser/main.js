@@ -522,8 +522,8 @@
 
             settings.fda = infos.fda;
             settings.cdrom = infos.cdrom;
-            settings.hda = infos.hda
-            settings.multiboot = infos.multiboot
+            settings.hda = infos.hda;
+            settings.multiboot = infos.multiboot;
 
             settings.memory_size = infos.memory_size;
             settings.vga_memory_size = infos.vga_memory_size;
@@ -773,7 +773,7 @@
             el.textContent = "Loading " + e.file_name + " failed. Check your connection " +
                              "and reload the page to try again.";
         });
-    };
+    }
 
     /**
      * @param {Object} settings
@@ -890,14 +890,14 @@
             stats_9p.read += args[1];
 
             $("info_filesystem_status").textContent = "Idle";
-            $("info_filesystem_last_file").textContent = args[0]
+            $("info_filesystem_last_file").textContent = args[0];
             $("info_filesystem_bytes_read").textContent = stats_9p.read;
         });
         emulator.add_listener("9p-write-end", function(args)
         {
             stats_9p.write += args[1];
 
-            $("info_filesystem_last_file").textContent = args[0]
+            $("info_filesystem_last_file").textContent = args[0];
             $("info_filesystem_bytes_written").textContent = stats_9p.write;
         });
 
@@ -1026,7 +1026,7 @@
                 }
 
                 elem.blur();
-            }
+            };
         }
 
         $("memory_dump").onclick = function()
@@ -1108,11 +1108,11 @@
                 {
                     emulator.restore_state(e.target.result);
                 }
-                catch(e)
+                catch(err)
                 {
-                    alert("Something bad happened while restoring the state:\n" + e + "\n\n" +
+                    alert("Something bad happened while restoring the state:\n" + err + "\n\n" +
                           "Note that the current configuration must be the same as the original");
-                    throw e;
+                    throw err;
                 }
 
                 if(was_running)
@@ -1218,7 +1218,7 @@
                 {
                     window.onbeforeunload = null;
                     return "CTRL-W cannot be sent to the emulator.";
-                }
+                };
             }
             else
             {
@@ -1322,8 +1322,7 @@
         setInterval(function()
         {
             $("debug_panel").textContent =
-                cpu.debug.get_regs_short().join("\n") + "\n"
-            + cpu.debug.get_state();
+                cpu.debug.get_regs_short().join("\n") + "\n" + cpu.debug.get_state();
         }, 1000);
 
         // helps debugging

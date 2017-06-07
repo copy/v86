@@ -63,8 +63,8 @@ function APIC(cpu)
     this.lvt_error = IOAPIC_CONFIG_MASKED;
 
     this.tpr = 0;
-    this.icr0 = 0
-    this.icr1 = 0
+    this.icr0 = 0;
+    this.icr1 = 0;
 
     this.irr = new Int32Array(8);
     this.isr = new Int32Array(8);

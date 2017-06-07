@@ -86,7 +86,7 @@ CPU.prototype.movsb = function()
         cpu.add_reg_asize(reg_esi, size);
     }
     cpu.diverged();
-}
+};
 
 CPU.prototype.movsw = function()
 {
@@ -150,7 +150,7 @@ CPU.prototype.movsw = function()
         cpu.add_reg_asize(reg_esi, size);
     }
     cpu.diverged();
-}
+};
 
 CPU.prototype.movsd = function()
 {
@@ -275,7 +275,7 @@ CPU.prototype.movsd = function()
         cpu.add_reg_asize(reg_esi, size);
     }
     cpu.diverged();
-}
+};
 
 function cmpsb(cpu)
 {
