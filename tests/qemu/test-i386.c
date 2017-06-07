@@ -2368,6 +2368,22 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     }\
 }
 
+// To use mm0-7 registers instead of xmm registers
+#define SHIFT_IM(op, ib)                        \
+{\
+    int i;\
+    for(i=0;i<2;i++) {\
+    a.q[0] = test_values[2*i][0];\
+    asm volatile (#op " $" #ib ", %0" : "=y" (r.q[0]) : "0" (a.q[0]));\
+    printf("%-9s: a=" FMT64X " ib=%02x r=" FMT64X "\n",\
+           #op,\
+           a.q[0],\
+           ib,\
+           r.q[0]);\
+    }\
+}
+
+/*
 #define SHIFT_IM(op, ib)\
 {\
     int i;\
@@ -2382,7 +2398,27 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
            r.q[1], r.q[0]);\
     }\
 }
+*/
 
+// To use mm0-7 registers instead of xmm registers
+#define SHIFT_OP(op, ib)\
+{\
+    int i;\
+    SHIFT_IM(op, ib);\
+    for(i=0;i<2;i++) {\
+    a.q[0] = test_values[2*i][0];\
+    b.q[0] = ib;\
+    asm volatile (#op " %2, %0" : "=y" (r.q[0]) : "0" (a.q[0]), "y" (b.q[0]));\
+    printf("%-9s: a=" FMT64X " b=" FMT64X " ib=%02x r=" FMT64X "\n",\
+           #op,\
+           a.q[0],\
+           b.q[0],\
+           ib,\
+           r.q[0]);\
+    }\
+}
+
+/*
 #define SHIFT_OP(op, ib)\
 {\
     int i;\
@@ -2400,6 +2436,7 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
            r.q[1], r.q[0]);\
     }\
 }
+*/
 
 #define MOVMSK(op)\
 {\
@@ -2574,16 +2611,13 @@ void test_sse(void)
     int i;
 
     MMX_OP2(punpcklbw);
-    /*
     MMX_OP2(punpcklwd);
     MMX_OP2(punpckldq);
     MMX_OP2(packsswb);
     MMX_OP2(pcmpgtb);
     MMX_OP2(pcmpgtw);
     MMX_OP2(pcmpgtd);
-    */
     MMX_OP2(packuswb);
-    /*
     MMX_OP2(punpckhbw);
     MMX_OP2(punpckhwd);
     MMX_OP2(punpckhdq);
@@ -2592,50 +2626,41 @@ void test_sse(void)
     MMX_OP2(pcmpeqw);
     MMX_OP2(pcmpeqd);
 
-    MMX_OP2(paddq);
-    */
+    // MMX_OP2(paddq);
     MMX_OP2(pmullw);
-    /*
     MMX_OP2(psubusb);
     MMX_OP2(psubusw);
-    MMX_OP2(pminub);
-    */
+    // MMX_OP2(pminub);
     MMX_OP2(pand);
-    /*
     MMX_OP2(paddusb);
     MMX_OP2(paddusw);
-    MMX_OP2(pmaxub);
+    // MMX_OP2(pmaxub);
     MMX_OP2(pandn);
 
-    MMX_OP2(pmulhuw);
+    // MMX_OP2(pmulhuw);
     MMX_OP2(pmulhw);
 
     MMX_OP2(psubsb);
     MMX_OP2(psubsw);
-    MMX_OP2(pminsw);
+    // MMX_OP2(pminsw);
     MMX_OP2(por);
     MMX_OP2(paddsb);
     MMX_OP2(paddsw);
-    MMX_OP2(pmaxsw);
-    */
+    // MMX_OP2(pmaxsw);
     MMX_OP2(pxor);
-    /*
-    MMX_OP2(pmuludq);
+    // MMX_OP2(pmuludq);
     MMX_OP2(pmaddwd);
-    MMX_OP2(psadbw);
+    // MMX_OP2(psadbw);
     MMX_OP2(psubb);
-    */
     MMX_OP2(psubw);
-    /*
     MMX_OP2(psubd);
-    MMX_OP2(psubq);
+    // MMX_OP2(psubq);
     MMX_OP2(paddb);
-    */
     MMX_OP2(paddw);
     MMX_OP2(psrlw);
-    /*
     MMX_OP2(paddd);
 
+    /*
     MMX_OP2(pavgb);
     MMX_OP2(pavgw);
 
@@ -2713,6 +2738,7 @@ void test_sse(void)
     PSHUF_OP(pshufd, 0x78);
     PSHUF_OP(pshuflw, 0x78);
     PSHUF_OP(pshufhw, 0x78);
+    */
 
     SHIFT_OP(psrlw, 7);
     SHIFT_OP(psrlw, 16);
@@ -2733,6 +2759,7 @@ void test_sse(void)
     SHIFT_OP(psllq, 7);
     SHIFT_OP(psllq, 32);
 
+    /*
     SHIFT_IM(psrldq, 16);
     SHIFT_IM(psrldq, 7);
     SHIFT_IM(pslldq, 16);
