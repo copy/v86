@@ -25,6 +25,9 @@ function PCI(cpu)
     this.device_spaces = [];
     this.devices = [];
 
+    /** @const @type {CPU} */
+    this.cpu = cpu;
+
     for(var i = 0; i < 256; i++)
     {
         this.device_spaces[i] = undefined;
@@ -33,41 +36,41 @@ function PCI(cpu)
 
     this.io = cpu.io;
 
-    /*
-    cpu.io.register_write(0xCF9, function(value)
-    {
-        dbg_log("PCI reboot: " + h(value, 2), LOG_PCI);
+    cpu.io.register_write(PCI_CONFIG_DATA, this,
+        function(value)
+        {
+            this.pci_write8(this.pci_addr32[0], value);
+        },
+        function(value)
+        {
+            this.pci_write16(this.pci_addr32[0], value);
+        },
+        function(value)
+        {
+            this.pci_write32(this.pci_addr32[0], value);
+        });
 
-        // PCI reboot
-        if(value & 6)
+    cpu.io.register_write(PCI_CONFIG_DATA + 1, this,
+        function(value)
         {
-            cpu_restart();
-        }
-    });*/
+            this.pci_write8(this.pci_addr32[0] + 1 | 0, value);
+        });
 
-    cpu.io.register_write_consecutive(PCI_CONFIG_DATA, this,
-        function(out_byte)
+    cpu.io.register_write(PCI_CONFIG_DATA + 2, this,
+        function(value)
         {
-            dbg_log("PCI data0: " + h(out_byte, 2) + " addr=" + h(this.pci_addr32[0] >>> 0), LOG_PCI);
-            this.pci_value[0] = out_byte;
+            this.pci_write8(this.pci_addr32[0] + 2 | 0, value);
         },
-        function(out_byte)
+        function(value)
         {
-            dbg_log("PCI data1: " + h(out_byte, 2) + " addr=" + h(this.pci_addr32[0] >>> 0), LOG_PCI);
-            this.pci_value[1] = out_byte;
-        },
-        function(out_byte)
+            this.pci_write16(this.pci_addr32[0] + 2 | 0, value);
+        });
+
+    cpu.io.register_write(PCI_CONFIG_DATA + 3, this,
+        function(value)
         {
-            dbg_log("PCI data2: " + h(out_byte, 2) + " addr=" + h(this.pci_addr32[0] >>> 0), LOG_PCI);
-            this.pci_value[2] = out_byte;
-        },
-        function(out_byte)
-        {
-            dbg_log("PCI data3: " + h(out_byte, 2) + " addr=" + h(this.pci_addr32[0] >>> 0), LOG_PCI);
-            this.pci_value[3] = out_byte;
-            this.pci_write();
-        }
-    );
+            this.pci_write8(this.pci_addr32[0] + 3 | 0, value);
+        });
 
     cpu.io.register_read_consecutive(PCI_CONFIG_DATA, this,
         function()
@@ -110,7 +113,7 @@ function PCI(cpu)
     cpu.io.register_write_consecutive(PCI_CONFIG_ADDRESS, this,
         function(out_byte)
         {
-            this.pci_addr[0] = out_byte;
+            this.pci_addr[0] = out_byte & 0xFC;
         },
         function(out_byte)
         {
@@ -156,7 +159,7 @@ function PCI(cpu)
     };
     this.register_device(host_bridge);
 
-    var isa_bridge = {
+    this.isa_bridge = {
         pci_id: 1 << 3,
         pci_space: [
             // 00:01.0 ISA bridge: Intel Corporation 82371SB PIIX3 ISA [Natoma/Triton II]
@@ -168,7 +171,8 @@ function PCI(cpu)
         pci_bars: [],
         name: "82371SB PIIX3 ISA",
     };
-    this.register_device(isa_bridge);
+    this.isa_bridge_space = this.register_device(this.isa_bridge);
+    this.isa_bridge_space8 = new Uint8Array(this.isa_bridge_space.buffer);
 
     // 00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev 90)
     //this.register_device([
@@ -298,28 +302,74 @@ PCI.prototype.pci_query = function()
     }
 };
 
-PCI.prototype.pci_write = function()
+PCI.prototype.pci_write8 = function(address, written)
 {
-    var bdf = this.pci_addr[2] << 8 | this.pci_addr[1],
-        addr = this.pci_addr[0] & 0xFC;
+    var bdf = address >> 8 & 0xFFFF;
+    var addr = address & 0xFF;
 
-    var space = this.device_spaces[bdf],
-        device = this.devices[bdf];
+    var space = new Uint8Array(this.device_spaces[bdf].buffer);
+    var device = this.devices[bdf];
 
     if(!space)
     {
         return;
     }
 
-    var written = this.pci_value32[0];
+    dbg_assert(!(addr >= 0x10 && addr < 0x2C || addr >= 0x30 && addr < 0x34),
+               "PCI: Expected 32-bit write");
+
+    dbg_log("PCI write8 dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
+            " value=" + h(written, 2), LOG_PCI);
+
+    space[addr] = written;
+};
+
+PCI.prototype.pci_write16 = function(address, written)
+{
+    dbg_assert((address & 1) === 0);
+
+    var bdf = address >> 8 & 0xFFFF;
+    var addr = address & 0xFF;
+
+    var space = new Uint16Array(this.device_spaces[bdf].buffer);
+    var device = this.devices[bdf];
+
+    if(!space)
+    {
+        return;
+    }
+
+    dbg_assert(!(addr >= 0x10 && addr < 0x2C || addr >= 0x30 && addr < 0x34),
+               "PCI: Expected 32-bit write");
+
+    dbg_log("PCI writ16 dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
+            " value=" + h(written, 4), LOG_PCI);
+
+    space[addr >>> 1] = written;
+};
+
+PCI.prototype.pci_write32 = function(address, written)
+{
+    dbg_assert((address & 3) === 0);
+
+    var bdf = address >> 8 & 0xFFFF;
+    var addr = address & 0xFF;
+
+    var space = this.device_spaces[bdf];
+    var device = this.devices[bdf];
+
+    if(!space)
+    {
+        return;
+    }
 
     if(addr >= 0x10 && addr < 0x28)
     {
         var bar_nr = addr - 0x10 >> 2;
         var bar = device.pci_bars[bar_nr];
 
-        //dbg_log("BAR" + bar_nr + " changed to " + h(space[addr >> 2] >>> 0) + " dev=" + h(bdf >> 3, 2), LOG_PCI);
-        dbg_log("BAR" + bar_nr + " exists=" + (bar ? "y" : "n") + " changed to " + h(written >>> 0) + " dev=" + h(bdf >> 3, 2) + " (" + device.name + ") ", LOG_PCI);
+        dbg_log("BAR" + bar_nr + " exists=" + (bar ? "y" : "n") + " changed to " +
+                h(written >>> 0) + " dev=" + h(bdf >> 3, 2) + " (" + device.name + ") ", LOG_PCI);
 
         if(bar)
         {
@@ -396,11 +446,6 @@ PCI.prototype.pci_write = function()
             space[addr >> 2] = 0;
         }
     }
-    else if(addr === 0x04)
-    {
-        dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
-                " value=" + h(written >>> 0, 8), LOG_PCI);
-    }
     else
     {
         dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
@@ -424,7 +469,8 @@ PCI.prototype.register_device = function(device)
     dbg_assert(device_id < this.devices.length);
 
     // convert bytewise notation from lspci to double words
-    var space = new Int32Array(new Uint8Array(device.pci_space).buffer);
+    var space = new Int32Array(64);
+    space.set(new Int32Array(new Uint8Array(device.pci_space).buffer));
     this.device_spaces[device_id] = space;
     this.devices[device_id] = device;
 
@@ -460,6 +506,8 @@ PCI.prototype.register_device = function(device)
             }
         }
     }
+
+    return space;
 };
 
 PCI.prototype.set_io_bars = function(bar, from, to)
@@ -498,4 +546,34 @@ PCI.prototype.set_io_bars = function(bar, from, to)
         dbg_assert(empty_entry.write16 === this.io.empty_port_write, "Bad IO bar: Target already mapped");
         dbg_assert(empty_entry.write32 === this.io.empty_port_write, "Bad IO bar: Target already mapped");
     }
+};
+
+PCI.prototype.raise_irq = function(pci_id)
+{
+    var space = this.device_spaces[pci_id];
+    dbg_assert(space);
+
+    var pin = (space[0x3C >>> 2] >> 8 & 0xFF) - 1;
+    var device = (pci_id >> 3) - 1 & 0xFF;
+    var parent_pin = pin + device & 3;
+    var irq = this.isa_bridge_space8[0x60 + parent_pin];
+
+    //dbg_log("PCI raise irq " + h(irq) + " dev=" + h(device, 2) +
+    //        " (" + this.devices[pci_id].name + ")", LOG_PCI);
+    this.cpu.device_raise_irq(irq);
+};
+
+PCI.prototype.lower_irq = function(pci_id)
+{
+    var space = this.device_spaces[pci_id];
+    dbg_assert(space);
+
+    var pin = space[0x3C >>> 2] >> 8 & 0xFF;
+    var device = pci_id >> 3 & 0xFF;
+    var parent_pin = pin + device - 2 & 3;
+    var irq = this.isa_bridge_space8[0x60 + parent_pin];
+
+    //dbg_log("PCI lower irq " + h(irq) + " dev=" + h(device, 2) +
+    //        " (" + this.devices[pci_id].name + ")", LOG_PCI);
+    this.cpu.device_lower_irq(irq);
 };
