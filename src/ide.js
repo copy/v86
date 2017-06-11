@@ -1502,7 +1502,8 @@ IDEInterface.prototype.ata_advance = function(cmd, sectors)
     dbg_log("Advance sectors=" + sectors + " old_bytecount=" + this.bytecount, LOG_DISK);
     this.bytecount -= sectors;
 
-    if(cmd === 0x24 || cmd === 0x29 || cmd === 0x34 || cmd === 0x39)
+    if(cmd === 0x24 || cmd === 0x29 || cmd === 0x34 || cmd === 0x39 ||
+       cmd === 0x25 || cmd === 0x35)
     {
         var new_sector = sectors + this.get_lba48();
         this.sector = new_sector & 0xFF | new_sector >> 16 & 0xFF00;
@@ -1533,29 +1534,9 @@ IDEInterface.prototype.ata_advance = function(cmd, sectors)
 
 IDEInterface.prototype.ata_read_sectors = function(cmd)
 {
-    if(cmd === 0x20 || cmd === 0xC4)
-    {
-        // read sectors
-        var count = this.bytecount & 0xFF;
-        var lba = this.is_lba ? this.get_lba28() : this.get_chs();
-
-        if(count === 0)
-            count = 0x100;
-    }
-    else if(cmd === 0x24 || cmd === 0x29)
-    {
-        // read sectors ext
-        var count = this.bytecount;
-        var lba = this.get_lba48();
-
-        if(count === 0)
-            count = 0x10000;
-    }
-    else
-    {
-        dbg_assert(false);
-        return;
-    }
+    var is_lba48 = cmd === 0x24 || cmd === 0x29;
+    var count = this.get_count(is_lba48);
+    var lba = this.get_lba(is_lba48);
 
     var is_single = cmd === 0x20 || cmd === 0x24;
 
@@ -1599,14 +1580,9 @@ IDEInterface.prototype.ata_read_sectors = function(cmd)
 
 IDEInterface.prototype.ata_read_sectors_dma = function(cmd)
 {
-    dbg_assert(cmd === 0xC8, "TODO");
-    dbg_assert(this.is_lba, "TODO");
-
-    var count = this.bytecount & 0xFF;
-    var lba = this.get_lba28();
-
-    if(count === 0)
-        count = 0x100;
+    var is_lba48 = cmd === 0x25;
+    var count = this.get_count(is_lba48);
+    var lba = this.get_lba(is_lba48);
 
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
@@ -1630,14 +1606,11 @@ IDEInterface.prototype.ata_read_sectors_dma = function(cmd)
 
 IDEInterface.prototype.do_ata_read_sectors_dma = function()
 {
-    dbg_assert(this.current_command === 0xC8, "TODO");
-    dbg_assert(this.is_lba, "TODO");
+    var cmd = this.current_command;
 
-    var count = this.bytecount & 0xFF;
-    var lba = this.get_lba28();
-
-    if(count === 0)
-        count = 0x100;
+    var is_lba48 = cmd === 0x25;
+    var count = this.get_count(is_lba48);
+    var lba = this.get_lba(is_lba48);
 
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
@@ -1693,28 +1666,9 @@ IDEInterface.prototype.do_ata_read_sectors_dma = function()
 
 IDEInterface.prototype.ata_write_sectors = function(cmd)
 {
-    if(cmd === 0x30 || cmd === 0xC5)
-    {
-        // write sectors
-        var count = this.bytecount & 0xFF;
-        var lba = this.is_lba ? this.get_lba28() : this.get_chs();
-
-        if(count === 0)
-            count = 0x100;
-    }
-    else if(cmd === 0x34 || cmd === 0x39)
-    {
-        var count = this.bytecount;
-        var lba = this.get_lba48();
-
-        if(count === 0)
-            count = 0x10000;
-    }
-    else
-    {
-        dbg_assert(false);
-        return;
-    }
+    var is_lba48 = cmd === 0x34 || cmd === 0x39;
+    var count = this.get_count(is_lba48);
+    var lba = this.get_lba(is_lba48);
 
     var is_single = cmd === 0x30 || cmd === 0x34;
 
@@ -1744,14 +1698,9 @@ IDEInterface.prototype.ata_write_sectors = function(cmd)
 
 IDEInterface.prototype.ata_write_sectors_dma = function(cmd)
 {
-    dbg_assert(cmd === 0xCA, "TODO");
-    dbg_assert(this.is_lba, "TODO");
-
-    var count = this.bytecount & 0xFF;
-    var lba = this.get_lba28();
-
-    if(count === 0)
-        count = 0x100;
+    var is_lba48 = cmd === 0x35;
+    var count = this.get_count(is_lba48);
+    var lba = this.get_lba(is_lba48);
 
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
@@ -1775,14 +1724,11 @@ IDEInterface.prototype.ata_write_sectors_dma = function(cmd)
 
 IDEInterface.prototype.do_ata_write_sectors_dma = function()
 {
-    dbg_assert(this.is_lba, "TODO");
-    dbg_assert(this.current_command === 0xCA, "TODO");
+    var cmd = this.current_command;
 
-    var count = this.bytecount & 0xFF;
-    var lba = this.get_lba28();
-
-    if(count === 0)
-        count = 0x100;
+    var is_lba48 = cmd === 0x35;
+    var count = this.get_count(is_lba48);
+    var lba = this.get_lba(is_lba48);
 
     var byte_count = count * this.sector_size;
     var start = lba * this.sector_size;
@@ -1873,6 +1819,38 @@ IDEInterface.prototype.get_lba48 = function()
             this.cylinder_low << 8 & 0xFF00 |
             this.cylinder_high << 16 & 0xFF0000 |
             (this.sector >> 8) << 24 & 0xFF000000) >>> 0;
+};
+
+IDEInterface.prototype.get_lba = function(is_lba48)
+{
+    if(is_lba48)
+    {
+        return this.get_lba48();
+    }
+    else if(this.is_lba)
+    {
+        return this.get_lba28();
+    }
+    else
+    {
+        return this.get_chs();
+    }
+};
+
+IDEInterface.prototype.get_count = function(is_lba48)
+{
+    if(is_lba48)
+    {
+        var count = this.bytecount;
+        if(count === 0) count = 0x10000;
+        return count;
+    }
+    else
+    {
+        var count = this.bytecount & 0xFF;
+        if(count === 0) count = 0x100;
+        return count;
+    }
 };
 
 IDEInterface.prototype.create_identify_packet = function()
