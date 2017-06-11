@@ -2233,6 +2233,10 @@ t[0x32] = cpu => {
         case MSR_PKG_C2_RESIDENCY:
             break;
 
+        case MSR_EBC_FREQUENCY_ID:
+            low = 1 << 24;
+            break;
+
         default:
             dbg_assert(false, "Unknown msr: " + h(index >>> 0, 8));
     }

@@ -256,6 +256,9 @@ var IA32_TIME_STAMP_COUNTER = 0x10;
 var IA32_PLATFORM_ID = 0x17;
 
 /** @const */
+var MSR_EBC_FREQUENCY_ID = 0x2C;
+
+/** @const */
 var IA32_APIC_BASE_MSR = 0x1B;
 
 /** @const */
