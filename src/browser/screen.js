@@ -227,15 +227,14 @@ function ScreenAdapter(screen_container, bus)
 
         this.timer();
     }
-    update_text = update_text.bind(this);
+    var update_text = update_text.bind(this);
 
     function update_graphical()
     {
         this.bus.send("screen-fill-buffer");
-
         this.timer();
     }
-    update_graphical = update_graphical.bind(this);
+    var update_graphical = update_graphical.bind(this);
 
     this.destroy = function()
     {
@@ -421,9 +420,9 @@ function ScreenAdapter(screen_container, bus)
             text = "";
 
             // put characters of the same color in one element
-            while(i < text_mode_width
-                    && text_mode_data[offset + 1] === bg_color
-                    && text_mode_data[offset + 2] === fg_color)
+            while(i < text_mode_width &&
+                text_mode_data[offset + 1] === bg_color &&
+                text_mode_data[offset + 2] === fg_color)
             {
                 var ascii = text_mode_data[offset];
 
