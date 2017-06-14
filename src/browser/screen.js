@@ -348,6 +348,13 @@ function ScreenAdapter(screen_container, bus)
 
         if(use_scale)
         {
+            elem.style.transform = elem.style.webkitTransform = elem.style.MozTransform = "";
+        }
+
+        var rectangle = elem.getBoundingClientRect();
+
+        if(use_scale)
+        {
             var scale_str = "";
 
             scale_str += scale_x === 1 ? "" : " scaleX(" + scale_x + ")";
@@ -355,14 +362,40 @@ function ScreenAdapter(screen_container, bus)
 
             elem.style.transform = elem.style.webkitTransform = elem.style.MozTransform = scale_str;
         }
+        else
+        {
+            // unblur non-fractional scales
+            if(scale_x % 1 === 0 && scale_y % 1 === 0)
+            {
+                graphic_screen.style.imageRendering = "-moz-crisp-edges";
+                graphic_screen.style.imageRendering = "moz-crisp-edges";
+                graphic_screen.style.imageRendering = "webkit-optimize-contrast";
+                graphic_screen.style.imageRendering = "o-crisp-edges";
+                graphic_screen.style.imageRendering = "pixelated";
+                graphic_screen.style["-ms-interpolation-mode"] = "nearest-neighbor";
+            }
+            else
+            {
+                graphic_screen.style.imageRendering = "";
+                graphic_screen.style["-ms-interpolation-mode"] = "";
+            }
+
+            // undo fractional css-to-device pixel ratios
+            var device_pixel_ratio = window.devicePixelRatio || 1;
+            if(device_pixel_ratio % 1 !== 0)
+            {
+                scale_x /= device_pixel_ratio;
+                scale_y /= device_pixel_ratio;
+            }
+        }
 
         if(scale_x !== 1)
         {
-            elem.style.width = Math.ceil(elem.offsetWidth * scale_x) + "px";
+            elem.style.width = rectangle.width * scale_x + "px";
         }
         if(scale_y !== 1)
         {
-            elem.style.height = Math.ceil(elem.offsetHeight * scale_y) + "px";
+            elem.style.height = rectangle.height * scale_y + "px";
         }
     }
 
