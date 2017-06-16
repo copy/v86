@@ -58,6 +58,9 @@ if (cluster.isMaster) {
             current_test++;
         }
         else {
+            if (failed_tests.length > 0) {
+                process.exit(1);
+            }
             worker.disconnect();
         }
     }
