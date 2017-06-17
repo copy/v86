@@ -4484,10 +4484,13 @@ CPU.prototype.writable_or_pagefault = function(addr, size)
 
 CPU.prototype.trigger_pagefault = function(write, user, present)
 {
-    //dbg_log("page fault w=" + write + " u=" + user + " p=" + present +
-    //        " eip=" + h(this.previous_ip >>> 0, 8) +
-    //        " cr2=" + h(this.cr[2] >>> 0, 8), LOG_CPU);
-    //dbg_trace(LOG_CPU);
+    if(LOG_PAGE_FAULTS)
+    {
+        dbg_log("page fault w=" + write + " u=" + user + " p=" + present +
+                " eip=" + h(this.previous_ip >>> 0, 8) +
+                " cr2=" + h(this.cr[2] >>> 0, 8), LOG_CPU);
+        dbg_trace(LOG_CPU);
+    }
 
     if(this.page_fault)
     {
