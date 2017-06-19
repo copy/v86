@@ -13,3 +13,4 @@ env:
     - TEST_SUITE=unit
     - TEST_SUITE=integration
     - TEST_SUITE=unit-qemu
+    - TEST_SUITE=nasm
