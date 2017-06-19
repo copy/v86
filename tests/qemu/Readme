@@ -1,8 +1,0 @@
-How to run:
-
-- Build test-i386
-- Run test-i386 locally (requires Linux and an x86 machine)
-- Put both on a disk (for instance, a cd image built with buildroot)
-- Run test-i386 in the emulator
-- Compare the result
-

@@ -5,7 +5,7 @@ moment.
 
 # Automated Testing
 
-- Run `make nasmtests` in the root of the project
+- Run `make && ./run.js` in the root of the project
 
 # Manual
 
