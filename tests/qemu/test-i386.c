@@ -30,12 +30,14 @@
 #include <sys/mman.h>
 
 #if !defined(__x86_64__)
-#define TEST_VM86
+//#define TEST_VM86
 #define TEST_SEGS
 #endif
 //#define LINUX_VM86_IOPL_FIX
 //#define TEST_P4_FLAGS
-#ifdef __SSE__
+
+//#ifdef __SSE__
+#if 1
 #define TEST_SSE
 #define TEST_CMOV  1
 #define TEST_FCOMI 1
@@ -2981,7 +2983,7 @@ int main(int argc, char **argv)
     test_code16();
 #endif
 #ifdef TEST_VM86
-    //test_vm86();
+    test_vm86();
 #endif
 #if !defined(__x86_64__)
     test_self_modifying_code();
