@@ -6,7 +6,7 @@ before_install:
   - sudo dpkg --add-architecture i386
   - sudo apt-get update -qq
 install:
-  - sudo apt-get install -y gcc-multilib
+  - sudo apt-get install -y gcc-multilib nasm
 script:
   - "./.travis-run-$TEST_SUITE.sh"
 env:
