@@ -2,18 +2,15 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 const os = require('os');
 const cluster = require('cluster');
 
-const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
-const TEST_DIR = './tests/nasm/';
+const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 99;
+const TEST_DIR = __dirname + "/";
 const DONE_MSG = 'DONE';
 
-let fixture_files = [];
-let img_files = [];
-
-let failed_tests = [];
-let current_test = 0;
+const MASK_ARITH = 1 | 1 << 2 | 1 << 4 | 1 << 6 | 1 << 7 | 1 << 11;
 
 try {
     var V86 = require('../../build/libv86.js').V86Starter;
@@ -22,6 +19,33 @@ catch(e) {
     console.error('Failed to import build/libv86.js. Run ' +
                   '`make build/libv86.js` first.');
     process.exit(1);
+}
+
+function h(n, len)
+{
+    // pad string with zeros on the left
+    function pad0(str, len)
+    {
+        str = str ? str + "" : "";
+
+        while(str.length < len)
+        {
+            str = "0" + str;
+        }
+
+        return str;
+    }
+
+    if(!n)
+    {
+        var str = "";
+    }
+    else
+    {
+        var str = n.toString(16);
+    }
+
+    return "0x" + pad0(str.toUpperCase(), len || 1);
 }
 
 if (cluster.isMaster) {
@@ -43,11 +67,11 @@ if (cluster.isMaster) {
 
 
     function send_work_to_worker(worker, message) {
-        if(current_test + failed_tests.length < fixture_files.length) {
-            let img_name = img_files[current_test];
-            let fixture_text = fs.readFileSync(
-                TEST_DIR + fixture_files[current_test]
-            );
+        if(current_test < files.length) {
+            let name = files[current_test];
+            let fixture_name = name + ".fixture";
+            let img_name = name + ".img";
+            let fixture_text = fs.readFileSync(TEST_DIR + fixture_name);
             let fixture_array = extract_json(fixture_text);
 
             worker.send({
@@ -58,39 +82,34 @@ if (cluster.isMaster) {
             current_test++;
         }
         else {
-            if (failed_tests.length > 0) {
-                process.exit(1);
-            }
             worker.disconnect();
+
+            finished_workers++;
+            if(finished_workers === nr_of_cpus)
+            {
+                test_finished();
+            }
         }
     }
 
     const dir_files = fs.readdirSync(TEST_DIR);
-    fixture_files = dir_files.filter((name) => {
-        return /.*\.fixture$/.test(name);
+    const files = dir_files.filter((name) => {
+        return name.endsWith(".asm");
+    }).map(name => {
+        return name.slice(0, -4);
     });
-    img_files = dir_files.filter((name) => {
-        return /.*\.img$/.test(name);
-    });
-
-    if (fixture_files.length !== img_files.length) {
-        console.log(
-            '%d .fixture files, but %d .img files found. Run `make nasmtests` '
-                + 'in the root directory again.',
-            fixture_files.length,
-            img_files.length
-        );
-        process.exit(1);
-    }
 
     const nr_of_cpus = Math.min(
-        Math.round(os.cpus().length / 2) || 1,
-        fixture_files.length,
+        os.cpus().length || 1,
+        files.length,
         MAX_PARALLEL_TESTS
     );
     console.log('Using %d cpus', nr_of_cpus);
 
-    current_test = 0;
+    let current_test = 0;
+
+    let failed_tests = [];
+    let finished_workers = 0;
 
     for (let i = 0; i < nr_of_cpus; i++) {
         let worker = cluster.fork();
@@ -117,11 +136,12 @@ if (cluster.isMaster) {
         });
     }
 
-    process.on('exit', function() {
+    function test_finished()
+    {
         console.log(
             '\n[+] Passed %d/%d tests.',
-            current_test,
-            fixture_files.length
+            files.length - failed_tests.length,
+            files.length
         );
         if (failed_tests.length > 0) {
             console.log('[-] Failed %d test(s).', failed_tests.length);
@@ -129,16 +149,12 @@ if (cluster.isMaster) {
                 console.error('\n[-] %s:', test_failure.img_name);
 
                 test_failure.failures.forEach(function(individual_failure) {
-                    console.error(
-                        '\n\tcpu.reg_mmxs[%d]',
-                        individual_failure.index
-                    );
-                    console.error('\tActual:', individual_failure.actual);
-                    console.error('\tExpected:', individual_failure.expected);
+                    console.error(individual_failure);
                 });
             });
+            process.exit(1);
         }
-    });
+    }
 }
 else {
     function run_test(test, done) {
