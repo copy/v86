@@ -214,7 +214,7 @@ function ScreenAdapter(screen_container, bus)
         requestAnimationFrame(is_graphical ? update_graphical : update_text);
     };
 
-    function update_text()
+    var update_text = function()
     {
         for(var i = 0; i < text_mode_height; i++)
         {
