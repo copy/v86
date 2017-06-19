@@ -226,15 +226,13 @@ function ScreenAdapter(screen_container, bus)
         }
 
         this.timer();
-    }
-    var update_text = update_text.bind(this);
+    }.bind(this);
 
-    function update_graphical()
+    var update_graphical = function()
     {
         this.bus.send("screen-fill-buffer");
         this.timer();
-    }
-    var update_graphical = update_graphical.bind(this);
+    }.bind(this);
 
     this.destroy = function()
     {
