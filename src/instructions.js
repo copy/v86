@@ -2259,8 +2259,8 @@ t[0x34] = cpu => {
         cpu.trigger_gp(0);
     }
 
-    dbg_log("sysenter  cs:eip=" + h(seg    , 4) + ":" + h(cpu.sysenter_eip >>> 0, 8) +
-                     " ss:esp=" + h(seg + 8, 4) + ":" + h(cpu.sysenter_esp >>> 0, 8), LOG_CPU);
+    //dbg_log("sysenter  cs:eip=" + h(seg    , 4) + ":" + h(cpu.sysenter_eip >>> 0, 8) +
+    //                 " ss:esp=" + h(seg + 8, 4) + ":" + h(cpu.sysenter_esp >>> 0, 8), LOG_CPU);
 
     cpu.flags &= ~flag_vm & ~flag_interrupt;
 
@@ -2295,8 +2295,8 @@ t[0x35] = cpu => {
         cpu.trigger_gp(0);
     }
 
-    dbg_log("sysexit  cs:eip=" + h(seg + 16, 4) + ":" + h(cpu.reg32s[reg_edx] >>> 0, 8) +
-                     " ss:esp=" + h(seg + 24, 4) + ":" + h(cpu.reg32s[reg_ecx] >>> 0, 8), LOG_CPU);
+    //dbg_log("sysexit  cs:eip=" + h(seg + 16, 4) + ":" + h(cpu.reg32s[reg_edx] >>> 0, 8) +
+    //                 " ss:esp=" + h(seg + 24, 4) + ":" + h(cpu.reg32s[reg_ecx] >>> 0, 8), LOG_CPU);
 
     cpu.instruction_pointer = cpu.reg32s[reg_edx];
     cpu.reg32s[reg_esp] = cpu.reg32s[reg_ecx];
