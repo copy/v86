@@ -1542,12 +1542,11 @@ CPU.prototype.safe_write32 = function(addr, value)
     }
 };
 
-CPU.prototype.safe_write64 = function(addr, data)
+CPU.prototype.safe_write64 = function(addr, low, high)
 {
-    dbg_assert(data && data.length === 2);
     this.writable_or_pagefault(addr, 8);
-    this.safe_write32(addr, data[0]);
-    this.safe_write32(addr + 4 | 0, data[1]);
+    this.safe_write32(addr, low);
+    this.safe_write32(addr + 4 | 0, high);
 };
 
 // read 2 or 4 byte from ip, depending on address size attribute
@@ -3339,15 +3338,14 @@ CPU.prototype.set_e32 = function(value)
     }
 };
 
-CPU.prototype.set_mmx_mem64s = function(data) {
-    dbg_assert(data && data.length === 2);
-
+CPU.prototype.set_mmx_mem64s = function(low, high)
+{
     if(this.modrm_byte < 0xC0) {
         var addr = this.modrm_resolve(this.modrm_byte);
-        this.safe_write64(addr, data);
+        this.safe_write64(addr, low, high);
     } else {
-        this.reg_mmxs[2 * (this.modrm_byte & 7)] = data[0];
-        this.reg_mmxs[2 * (this.modrm_byte & 7) + 1] = data[1];
+        this.reg_mmxs[2 * (this.modrm_byte & 7)] = low;
+        this.reg_mmxs[2 * (this.modrm_byte & 7) + 1] = high;
     }
 };
 
@@ -3490,21 +3488,18 @@ CPU.prototype.write_g32 = function(value)
     this.reg32[this.modrm_byte >> 3 & 7] = value;
 };
 
-CPU.prototype.read_mmx64s = function() {
-    let data = this.create_atom64s(
+CPU.prototype.read_mmx64s = function()
+{
+    return this.create_atom64s(
         this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)],
         this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1]
     );
-
-    dbg_assert(data && data.length === 2);
-    return data;
 };
 
-CPU.prototype.write_mmx64s = function(data) {
-    dbg_assert(data && data.length === 2);
-
-    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)] = data[0];
-    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1] = data[1];
+CPU.prototype.write_mmx64s = function(low, high)
+{
+    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)] = low;
+    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1] = high;
 };
 
 CPU.prototype.pic_call_irq = function(int)

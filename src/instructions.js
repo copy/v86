@@ -2426,9 +2426,7 @@ t[0x60] = cpu => {
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x61] = cpu => {
@@ -2449,9 +2447,7 @@ t[0x61] = cpu => {
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x62] = cpu => {
@@ -2467,9 +2463,7 @@ t[0x62] = cpu => {
     let low = destination_low;
     let high = source;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x63] = cpu => {
@@ -2495,9 +2489,7 @@ t[0x63] = cpu => {
     high |= (cpu.saturate_sw_to_sb((source[1]) & 0xFFFF)) << 16;
     high |= (cpu.saturate_sw_to_sb(source[1] >>> 16)) << 24;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x64] = cpu => {
@@ -2525,9 +2517,7 @@ t[0x64] = cpu => {
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x65] = cpu => {
@@ -2563,9 +2553,7 @@ t[0x65] = cpu => {
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x66] = cpu => {
@@ -2590,9 +2578,7 @@ t[0x66] = cpu => {
         high = 0xFFFFFFFF;
     }
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x67] = cpu => {
@@ -2618,9 +2604,7 @@ t[0x67] = cpu => {
     high |= (cpu.saturate_sw_to_ub((source[1]) & 0xFFFF)) << 16;
     high |= (cpu.saturate_sw_to_ub(source[1] >>> 16)) << 24;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x68] = cpu => {
@@ -2645,9 +2629,7 @@ t[0x68] = cpu => {
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x69] = cpu => {
@@ -2668,9 +2650,7 @@ t[0x69] = cpu => {
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x6A] = cpu => {
@@ -2686,9 +2666,7 @@ t[0x6A] = cpu => {
     let low = destination_high;
     let high = source[1];
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x6B] = cpu => {
@@ -2710,9 +2688,7 @@ t[0x6B] = cpu => {
     high |= cpu.saturate_sd_to_sw(source[0]);
     high |= cpu.saturate_sd_to_sw(source[1]) << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x6C] = cpu => { cpu.unimplemented_sse(); };
@@ -2724,8 +2700,8 @@ t[0x6E] = cpu => {
     cpu.task_switch_test_mmx();
 
     cpu.read_modrm_byte();
-    let data = cpu.create_atom64s(cpu.read_e32s(), 0);
-    cpu.write_mmx64s(data);
+    let data = cpu.read_e32s();
+    cpu.write_mmx64s(data, 0);
 };
 t[0x6F] = cpu => {
     // movq mm, mm/m64
@@ -2735,7 +2711,7 @@ t[0x6F] = cpu => {
 
     cpu.read_modrm_byte();
     let data = cpu.read_mmx_mem64s();
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(data[0], data[1]);
 };
 
 t[0x70] = cpu => {
@@ -2760,9 +2736,7 @@ t[0x70] = cpu => {
     let word3 = source[word3_shift >> 1] >>> ((word3_shift & 1) * 16);
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 t[0x71] = cpu => {
     cpu.read_modrm_byte();
@@ -3031,9 +3005,7 @@ t[0x74] = cpu => {
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x75] = cpu => {
@@ -3069,9 +3041,7 @@ t[0x75] = cpu => {
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x76] = cpu => {
@@ -3096,9 +3066,7 @@ t[0x76] = cpu => {
         high = 0xFFFFFFFF;
     }
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0x77] = cpu => {
@@ -3132,7 +3100,7 @@ t[0x7F] = cpu => {
 
     cpu.read_modrm_byte();
     let data = cpu.read_mmx64s();
-    cpu.set_mmx_mem64s(data);
+    cpu.set_mmx_mem64s(data[0], data[1]);
 };
 
 // jmpcc
@@ -3749,9 +3717,7 @@ t[0xD1] = cpu => {
         high = word2 | word3 << 16;
     }
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xD2] = cpu => {
@@ -3774,9 +3740,7 @@ t[0xD2] = cpu => {
         high = destination_high >>> shift;
     }
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xD3] = cpu => {
@@ -3803,9 +3767,7 @@ t[0xD3] = cpu => {
         high = 0;
     }
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xD4] = cpu => { cpu.unimplemented_sse(); };
@@ -3828,9 +3790,7 @@ t[0xD5] = cpu => {
     let word3 = ((destination_high >>> 16) * (source[1] >>> 16)) & 0xFFFF;
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 t[0xD6] = cpu => { cpu.unimplemented_sse(); };
 t[0xD7] = cpu => { cpu.unimplemented_sse(); };
@@ -3860,9 +3820,7 @@ t[0xD8] = cpu => {
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xD9] = cpu => {
@@ -3897,9 +3855,7 @@ t[0xD9] = cpu => {
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xDA] = cpu => { cpu.unimplemented_sse(); };
@@ -3914,12 +3870,10 @@ t[0xDB] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let data = cpu.create_atom64s(
-        (source[0] & destination_low),
-        (source[1] & destination_high)
-    );
+    let low = source[0] & destination_low;
+    let high = source[1] & destination_high;
 
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xDC] = cpu => {
@@ -3947,9 +3901,7 @@ t[0xDC] = cpu => {
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xDD] = cpu => {
@@ -3984,9 +3936,7 @@ t[0xDD] = cpu => {
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xDE] = cpu => { cpu.unimplemented_sse(); };
@@ -4001,12 +3951,10 @@ t[0xDF] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let data = cpu.create_atom64s(
-        (source[0] & ~destination_low),
-        (source[1] & ~destination_high)
-    );
+    let low = source[0] & ~destination_low;
+    let high = source[1] & ~destination_high;
 
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xE0] = cpu => { cpu.unimplemented_sse(); };
@@ -4035,9 +3983,7 @@ t[0xE1] = cpu => {
     let word3 = ((destination_high >> 16) >> shift) & 0xFFFF;
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xE2] = cpu => {
@@ -4059,9 +4005,7 @@ t[0xE2] = cpu => {
     let low = destination_low >> shift;
     let high = destination_high >> shift;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xE3] = cpu => { cpu.unimplemented_sse(); };
@@ -4087,9 +4031,7 @@ t[0xE5] = cpu => {
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xE6] = cpu => { cpu.unimplemented_sse(); };
@@ -4120,9 +4062,7 @@ t[0xE8] = cpu => {
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xE9] = cpu => {
@@ -4144,9 +4084,7 @@ t[0xE9] = cpu => {
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xEA] = cpu => { cpu.unimplemented_sse(); };
@@ -4162,12 +4100,10 @@ t[0xEB] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let data = cpu.create_atom64s(
-        (source[0] | destination_low),
-        (source[1] | destination_high)
-    );
+    let low = source[0] | destination_low;
+    let high = source[1] | destination_high;
 
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xEC] = cpu => {
@@ -4195,9 +4131,7 @@ t[0xEC] = cpu => {
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xED] = cpu => {
@@ -4219,9 +4153,7 @@ t[0xED] = cpu => {
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xEE] = cpu => { cpu.unimplemented_sse(); };
@@ -4239,9 +4171,7 @@ t[0xEF] = cpu => {
     let low = source[0] ^ destination_low;
     let high = source[1] ^ destination_high;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xF0] = cpu => { cpu.unimplemented_sse(); };
@@ -4271,9 +4201,7 @@ t[0xF1] = cpu => {
         high = word2 | word3 << 16;
     }
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xF2] = cpu => {
@@ -4296,9 +4224,7 @@ t[0xF2] = cpu => {
         high = destination_high << shift;
     }
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xF3] = cpu => {
@@ -4326,9 +4252,7 @@ t[0xF3] = cpu => {
         low = 0;
     }
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xF4] = cpu => { cpu.unimplemented_sse(); };
@@ -4349,12 +4273,10 @@ t[0xF5] = cpu => {
     let mul2 = ((destination_high << 16 >> 16) * (source[1] << 16 >> 16));
     let mul3 = ((destination_high >> 16) * (source[1] >> 16));
 
-    let low = mul0 + mul1;
-    let high = mul2 + mul3;
+    let low = mul0 + mul1 | 0;
+    let high = mul2 + mul3 | 0;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xF6] = cpu => { cpu.unimplemented_sse(); };
@@ -4385,9 +4307,7 @@ t[0xF8] = cpu => {
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xF9] = cpu => {
@@ -4409,9 +4329,7 @@ t[0xF9] = cpu => {
     let word3 = ((destination_high >>> 16) - (source[1] >>> 16)) & 0xFFFF;
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xFA] = cpu => {
@@ -4428,9 +4346,7 @@ t[0xFA] = cpu => {
     let low = destination_low - source[0];
     let high = destination_high - source[1];
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xFB] = cpu => { cpu.unimplemented_sse(); };
@@ -4460,9 +4376,7 @@ t[0xFC] = cpu => {
     let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xFD] = cpu => {
@@ -4484,9 +4398,7 @@ t[0xFD] = cpu => {
     let word3 = ((destination_high >>> 16) + (source[1] >>> 16)) & 0xFFFF;
     let high = word2 | word3 << 16;
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xFE] = cpu => {
@@ -4503,9 +4415,7 @@ t[0xFE] = cpu => {
     let low = destination_low + source[0];
     let high = destination_high + source[1];
 
-    let data = cpu.create_atom64s(low, high);
-
-    cpu.write_mmx64s(data);
+    cpu.write_mmx64s(low, high);
 };
 
 t[0xFF] = cpu => {
