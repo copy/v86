@@ -2579,8 +2579,8 @@ void test_fxsave(void)
         "movdqa %2, %%xmm15\n"
 #endif
         " fld1\n"
-        " fldpi\n"
-        " fldln2\n"
+        " fld1\n"
+        " fldz\n"
         " fxsave %0\n"
         " fxrstor %0\n"
         " fxsave %1\n"
@@ -2992,7 +2992,7 @@ int main(int argc, char **argv)
     test_conv();
 #ifdef TEST_SSE
     test_sse();
-    // test_fxsave();
+    test_fxsave();
 #endif
     test_exceptions();
     //test_single_step();
