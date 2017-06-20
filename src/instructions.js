@@ -3008,7 +3008,7 @@ t[0x77] = cpu => {
     // emms
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
-    cpu.fpu.safe_tag_word(0xFFFF);
+    cpu.fpu.stack_empty = 0xFF;
 };
 
 t[0x78] = cpu => { cpu.unimplemented_sse(); };

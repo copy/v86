@@ -274,7 +274,7 @@ FPU.prototype.load_status_word = function()
     return this.status_word & ~(7 << 11) | this.stack_ptr << 11;
 }
 
-FPU.prototype.safe_status_word = function(sw)
+FPU.prototype.set_status_word = function(sw)
 {
     this.status_word = sw & ~(7 << 11);
     this.stack_ptr = sw >> 11 & 7;
@@ -308,7 +308,7 @@ FPU.prototype.load_tag_word = function()
     return tag_word;
 }
 
-FPU.prototype.safe_tag_word = function(tag_word)
+FPU.prototype.set_tag_word = function(tag_word)
 {
     this.stack_empty = 0;
 
@@ -317,7 +317,7 @@ FPU.prototype.safe_tag_word = function(tag_word)
         this.stack_empty |= (tag_word >> i) & (tag_word >> i + 1) & 1 << i;
     }
 
-    //dbg_log("safe  tw=" + h(tag_word) + " se=" + h(this.stack_empty), LOG_FPU);
+    //dbg_log("set_tag_word  tw=" + h(tag_word) + " se=" + h(this.stack_empty), LOG_FPU);
 }
 
 FPU.prototype.fstenv = function(addr)
@@ -349,8 +349,8 @@ FPU.prototype.fldenv = function(addr)
     {
         this.control_word = this.cpu.safe_read16(addr);
 
-        this.safe_status_word(this.cpu.safe_read16(addr + 4));
-        this.safe_tag_word(this.cpu.safe_read16(addr + 8));
+        this.set_status_word(this.cpu.safe_read16(addr + 4));
+        this.set_tag_word(this.cpu.safe_read16(addr + 8));
 
         this.fpu_ip = this.cpu.safe_read32s(addr + 12);
         this.fpu_ip_selector = this.cpu.safe_read16(addr + 16);
