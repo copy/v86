@@ -58,3 +58,7 @@ var TSC_RATE = 8 * 1024;
 
 /** @const */
 var APIC_TIMER_FREQ = TSC_RATE;
+
+
+/** @const */
+var VMWARE_HYPERVISOR_PORT = true;

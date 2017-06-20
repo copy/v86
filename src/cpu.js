@@ -3632,6 +3632,7 @@ CPU.prototype.cpuid = function()
             ebx = 1 << 16 | 8 << 8; // cpu count, clflush size
             ecx = 1 << 23 | 1 << 30; // popcnt, rdrand
             var vme = 0 << 1;
+            if(VMWARE_HYPERVISOR_PORT) ecx |= 1 << 31; // hypervisor
             edx = (this.fpu ? 1 : 0) |                // fpu
                     vme | 1 << 3 | 1 << 4 | 1 << 5 |   // vme, pse, tsc, msr
                     1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
@@ -3688,6 +3689,16 @@ CPU.prototype.cpuid = function()
             // maximum supported extended level
             eax = 5;
             // other registers are reserved
+            break;
+
+        case 0x40000000|0: // hypervisor
+            if(VMWARE_HYPERVISOR_PORT)
+            {
+                // h("Ware".split("").reduce((a, c, i) => a | c.charCodeAt(0) << i * 8, 0))
+                ebx = 0x61774D56|0; // VMwa
+                ecx = 0x4D566572|0; // reVM
+                edx = 0x65726177|0; // ware
+            }
             break;
 
         default:
