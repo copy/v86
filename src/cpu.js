@@ -3129,6 +3129,23 @@ CPU.prototype.task_switch_test = function()
     }
 };
 
+// used before mmx instructions
+CPU.prototype.task_switch_test_mmx = function()
+{
+    if(this.cr[0] & (CR0_EM | CR0_TS))
+    {
+        if(this.cr[0] & CR0_TS)
+        {
+            this.trigger_nm();
+        }
+        else
+        {
+            this.trigger_ud();
+        }
+    }
+
+};
+
 CPU.prototype.todo = function()
 {
     if(DEBUG)
