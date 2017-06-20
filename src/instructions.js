@@ -3466,10 +3466,18 @@ t32[0xB7] = cpu => { cpu.read_modrm_byte();
 
 t16[0xB8] = cpu => { cpu.read_modrm_byte();
     // popcnt
+    if((cpu.prefixes & PREFIX_REPZ) === 0)
+    {
+        cpu.trigger_ud();
+    }
     var data = cpu.read_e16();
     cpu.write_g16(cpu.popcnt(data));
 };
 t32[0xB8] = cpu => { cpu.read_modrm_byte();
+    if((cpu.prefixes & PREFIX_REPZ) === 0)
+    {
+        cpu.trigger_ud();
+    }
     var data = cpu.read_e32s();
     cpu.write_g32(cpu.popcnt(data));
 };
