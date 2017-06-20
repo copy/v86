@@ -157,3 +157,9 @@ tests: build/libv86.js
 nasmtests: build/libv86.js
 	$(MAKE) -C $(NASM_TEST_DIR) all
 	$(NASM_TEST_DIR)/run.js
+
+qemutests: build/libv86.js
+	make -C tests/qemu test-i386
+	./tests/qemu/run.js > result
+	./tests/qemu/test-i386 > reference
+	diff result reference
