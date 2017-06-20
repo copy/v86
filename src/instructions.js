@@ -2525,24 +2525,10 @@ t[0x65] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let word0 = 0;
-    let word1 = 0;
-    let word2 = 0;
-    let word3 = 0;
-
-    if ((destination_low << 16 >> 16) > (source[0] << 16 >> 16)) {
-        word0 = 0xFFFF;
-    }
-    if ((destination_low >> 16) > (source[0] >> 16)) {
-        word1 = 0xFFFF;
-    }
-
-    if ((destination_high << 16 >> 16) > (source[1] << 16 >> 16)) {
-        word2 = 0xFFFF;
-    }
-    if ((destination_high >> 16) > (source[1] >> 16)) {
-        word3 = 0xFFFF;
-    }
+    let word0 = (destination_low << 16 >> 16) > (source[0] << 16 >> 16) ? 0xFFFF : 0;
+    let word1 = (destination_low >> 16) > (source[0] >> 16) ? 0xFFFF : 0;
+    let word2 = (destination_high << 16 >> 16) > (source[1] << 16 >> 16) ? 0xFFFF : 0;
+    let word3 = (destination_high >> 16) > (source[1] >> 16) ? 0xFFFF : 0;
 
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
@@ -2560,16 +2546,8 @@ t[0x66] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let low = 0;
-    let high = 0;
-
-    if (destination_low > source[0]) {
-        low = 0xFFFFFFFF;
-    }
-
-    if (destination_high > source[1]) {
-        high = 0xFFFFFFFF;
-    }
+    let low = destination_low > source[0] ? -1 : 0;
+    let high = destination_high > source[1] ? -1 : 0;
 
     cpu.write_mmx64s(low, high);
 };
@@ -2835,7 +2813,6 @@ t[0x72] = cpu => {
             var destination_low = cpu.reg_mmxs[2 * destination];
             var destination_high = cpu.reg_mmxs[2 * destination + 1];
 
-            // JS will right shift as expected only if shift is < 32
             var shift = source;
             var low = 0;
             var high = 0;
@@ -2920,8 +2897,7 @@ t[0x73] = cpu => {
             var high = 0;
 
             if (shift <= 31) {
-                low = destination_low >>> shift
-                    | (destination_high << (32 - shift));
+                low = destination_low >>> shift | (destination_high << (32 - shift));
                 high = destination_high >>> shift;
             }
             else if (shift <= 63) {
@@ -2947,8 +2923,7 @@ t[0x73] = cpu => {
 
             if (shift <= 31) {
                 low = destination_low << shift;
-                high = destination_high << shift
-                    | (destination_low >>> (32 - shift));
+                high = destination_high << shift | (destination_low >>> (32 - shift));
             }
             else if (shift <= 63) {
                 high = destination_low << (shift & 0x1F);
@@ -3002,24 +2977,10 @@ t[0x75] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let word0 = 0;
-    let word1 = 0;
-    let word2 = 0;
-    let word3 = 0;
-
-    if ((destination_low & 0xFFFF) === (source[0] & 0xFFFF)) {
-        word0 = 0xFFFF;
-    }
-    if ((destination_low & 0xFFFF0000) === (source[0] & 0xFFFF0000)) {
-        word1 = 0xFFFF;
-    }
-
-    if ((destination_high & 0xFFFF) === (source[1] & 0xFFFF)) {
-        word2 = 0xFFFF;
-    }
-    if ((destination_high & 0xFFFF0000) === (source[1] & 0xFFFF0000)) {
-        word3 = 0xFFFF;
-    }
+    let word0 = (destination_low & 0xFFFF) === (source[0] & 0xFFFF) ? 0xFFFF : 0;
+    let word1 = (destination_low & 0xFFFF0000) === (source[0] & 0xFFFF0000) ? 0xFFFF : 0;
+    let word2 = (destination_high & 0xFFFF) === (source[1] & 0xFFFF) ? 0xFFFF : 0;
+    let word3 = (destination_high & 0xFFFF0000) === (source[1] & 0xFFFF0000) ? 0xFFFF : 0;
 
     let low = word0 | word1 << 16;
     let high = word2 | word3 << 16;
@@ -3037,16 +2998,8 @@ t[0x76] = cpu => {
     let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    let low = 0;
-    let high = 0;
-
-    if (destination_low === source[0]) {
-        low = 0xFFFFFFFF;
-    }
-
-    if (destination_high === source[1]) {
-        high = 0xFFFFFFFF;
-    }
+    let low = destination_low === source[0] ? -1 : 0;
+    let high = destination_high === source[1] ? -1 : 0;
 
     cpu.write_mmx64s(low, high);
 };
@@ -4201,8 +4154,7 @@ t[0xF3] = cpu => {
 
     if (shift <= 31) {
         low = destination_low << shift;
-        high = destination_high << shift
-            | (destination_low >>> (32 - shift));
+        high = destination_high << shift | (destination_low >>> (32 - shift));
     }
     else if (shift <= 63) {
         high = destination_low << (shift & 0x1F);
