@@ -2037,6 +2037,18 @@ t[0x22] = cpu => { cpu.read_modrm_byte();
                 throw cpu.debug.unimpl("PAE");
             }
 
+            if(cpu.cr[4] & CR4_OSXMMEXCPT)
+            {
+                dbg_assert(false, "Unimplemented: CR4_OSXMMEXCPT");
+                cpu.trigger_ud();
+            }
+
+            if(cpu.cr[4] & 0xFFFFF900)
+            {
+                dbg_assert(false, "Unimplemented CR4 bits: " + h(cpu.cr[4]));
+                cpu.trigger_ud();
+            }
+
             dbg_log("cr4=" + h(cpu.cr[4] >>> 0), LOG_CPU);
             break;
 
@@ -2129,6 +2141,7 @@ t[0x30] = cpu => {
             break;
 
         case IA32_MISC_ENABLE: // Enable Misc. Processor Features
+            dbg_log("IA32_MISC_ENABLE=" + h(low >>> 0, 8), LOG_CPU);
             break;
 
         case IA32_MCG_CAP:

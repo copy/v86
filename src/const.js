@@ -225,7 +225,11 @@ var
     /** @const */
     CR4_PAE = 1 << 5,
     /** @const */
-    CR4_PGE = 1 << 7;
+    CR4_PGE = 1 << 7,
+    /** @const */
+    CR4_OSFXSR = 1 << 9,
+    /** @const */
+    CR4_OSXMMEXCPT = 1 << 10;
 
 
 // Segment prefixes must not collide with reg_*s variables
