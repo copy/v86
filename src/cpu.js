@@ -3282,7 +3282,7 @@ CPU.prototype.read_e32 = function()
     return this.read_e32s() >>> 0;
 };
 
-CPU.prototype.read_xmm_mem32s = function()
+CPU.prototype.read_mmx_mem32s = function()
 {
     if(this.modrm_byte < 0xC0) {
         return this.safe_read32s(this.modrm_resolve(this.modrm_byte));
@@ -3292,7 +3292,7 @@ CPU.prototype.read_xmm_mem32s = function()
     }
 };
 
-CPU.prototype.read_xmm_mem64s = function()
+CPU.prototype.read_mmx_mem64s = function()
 {
     let data;
     if(this.modrm_byte < 0xC0) {
@@ -3339,7 +3339,7 @@ CPU.prototype.set_e32 = function(value)
     }
 };
 
-CPU.prototype.set_xmm_mem64s = function(data) {
+CPU.prototype.set_mmx_mem64s = function(data) {
     dbg_assert(data && data.length === 2);
 
     if(this.modrm_byte < 0xC0) {
@@ -3490,7 +3490,7 @@ CPU.prototype.write_g32 = function(value)
     this.reg32[this.modrm_byte >> 3 & 7] = value;
 };
 
-CPU.prototype.read_xmm64s = function() {
+CPU.prototype.read_mmx64s = function() {
     let data = this.create_atom64s(
         this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)],
         this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1]
@@ -3500,7 +3500,7 @@ CPU.prototype.read_xmm64s = function() {
     return data;
 };
 
-CPU.prototype.write_xmm64s = function(data) {
+CPU.prototype.write_mmx64s = function(data) {
     dbg_assert(data && data.length === 2);
 
     this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)] = data[0];
