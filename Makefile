@@ -163,3 +163,8 @@ qemutests: build/libv86.js
 	./tests/qemu/run.js > result
 	./tests/qemu/test-i386 > reference
 	diff result reference
+
+kvm-unit-test: build/libv86.js
+	(cd tests/kvm-unit-tests && ./configure)
+	make -C tests/kvm-unit-tests
+	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
