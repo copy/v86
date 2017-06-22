@@ -337,3 +337,13 @@ var PREFIX_MASK_SEGMENT = 0b111;
 var PREFIX_MASK_OPSIZE = 0b100000;
 /** @const */
 var PREFIX_MASK_ADDRSIZE = 0b1000000;
+
+/** @const */
+var PREFIX_F2 = PREFIX_REPNZ; // alias
+/** @const */
+var PREFIX_F3 = PREFIX_REPZ; // alias
+/** @const */
+var PREFIX_66 = PREFIX_MASK_OPSIZE; // alias
+
+/** @const */
+var MXCSR_MASK = (0xFFFF & ~(1 << 6));
