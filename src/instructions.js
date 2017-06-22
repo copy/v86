@@ -1950,7 +1950,8 @@ t[0x20] = cpu => { cpu.read_modrm_byte();
             break;
         default:
             dbg_log(cpu.modrm_byte >> 3 & 7);
-            cpu.todo();
+            dbg_assert(false);
+            cpu.trigger_ud();
     }
 };
 
@@ -2009,52 +2010,13 @@ t[0x22] = cpu => { cpu.read_modrm_byte();
             break;
 
         case 4:
-            if(data & (1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19 | 0xFFC00000))
-            {
-                cpu.trigger_gp(0);
-            }
-
-            if((cpu.cr[4] ^ data) & CR4_PGE)
-            {
-                if(data & CR4_PGE)
-                {
-                    // The PGE bit has been enabled. The global TLB is
-                    // still empty, so we only have to copy it over
-                    cpu.clear_tlb();
-                }
-                else
-                {
-                    // Clear the global TLB
-                    cpu.full_clear_tlb();
-                }
-            }
-
-            cpu.cr[4] = data;
-            cpu.page_size_extensions = (cpu.cr[4] & CR4_PSE) ? PSE_ENABLED : 0;
-
-            if(cpu.cr[4] & CR4_PAE)
-            {
-                throw cpu.debug.unimpl("PAE");
-            }
-
-            if(cpu.cr[4] & CR4_OSXMMEXCPT)
-            {
-                dbg_assert(false, "Unimplemented: CR4_OSXMMEXCPT");
-                cpu.trigger_ud();
-            }
-
-            if(cpu.cr[4] & 0xFFFFF900)
-            {
-                dbg_assert(false, "Unimplemented CR4 bits: " + h(cpu.cr[4]));
-                cpu.trigger_ud();
-            }
-
-            dbg_log("cr4=" + h(cpu.cr[4] >>> 0), LOG_CPU);
+            cpu.set_cr4(data);
             break;
 
         default:
             dbg_log(cpu.modrm_byte >> 3 & 7);
-            cpu.todo();
+            dbg_assert(false);
+            cpu.trigger_ud();
     }
 };
 t[0x23] = cpu => { cpu.read_modrm_byte();

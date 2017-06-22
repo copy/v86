@@ -1276,6 +1276,45 @@ CPU.prototype.set_cr0 = function(cr0)
     this.protected_mode = (this.cr[0] & CR0_PE) === CR0_PE;
 };
 
+CPU.prototype.set_cr4 = function(cr4)
+{
+    if(cr4 & (1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19 | 0xFFC00000))
+    {
+        this.trigger_gp(0);
+    }
+
+    if((this.cr[4] ^ cr4) & CR4_PGE)
+    {
+        if(cr4 & CR4_PGE)
+        {
+            // The PGE bit has been enabled. The global TLB is
+            // still empty, so we only have to copy it over
+            this.clear_tlb();
+        }
+        else
+        {
+            // Clear the global TLB
+            this.full_clear_tlb();
+        }
+    }
+
+    this.cr[4] = cr4;
+    this.page_size_extensions = (cr4 & CR4_PSE) ? PSE_ENABLED : 0;
+
+    if(cr4 & CR4_PAE)
+    {
+        throw this.debug.unimpl("PAE");
+    }
+
+    if(cr4 & 0xFFFFF900)
+    {
+        dbg_assert(false, "Unimplemented CR4 bits: " + h(cr4));
+        this.trigger_ud();
+    }
+
+    dbg_log("cr4=" + h(cr4 >>> 0), LOG_CPU);
+};
+
 CPU.prototype.cpl_changed = function()
 {
     this.last_virt_eip = -1;
