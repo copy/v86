@@ -7,7 +7,7 @@ all: $(host_executables) $(v86_executables) $(host_fixtures)
 .PHONY: all
 
 # To run / debug locally
-%.bin: %.asm
+%.bin: %.asm *.inc
 	nasm -felf32 -o $@.o $<; ld -g $@.o -m elf_i386 -o $@
 
 # To generate a fixture using gdb
@@ -15,7 +15,7 @@ all: $(host_executables) $(v86_executables) $(host_fixtures)
 	gdb -quiet -batch -x gdbauto $< > $@
 
 # To use as a multiboot kernel image for v86
-%.img: %.asm
+%.img: %.asm *.inc
 	nasm -felf32 -o $@.o $<; ld -g $@.o -m elf_i386 --section-start=.text=0x8000 -o $@
 
 clean:
