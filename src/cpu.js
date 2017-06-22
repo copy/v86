@@ -216,6 +216,9 @@ function CPU(bus)
     this.reg_mmx8s = new Int8Array(this.reg_mmxs.buffer);
     this.reg_mmx8 = new Uint8Array(this.reg_mmxs.buffer);
 
+    this.reg_xmm32s = new Int32Array(8 * 4);
+    this.mxcsr = 0x1F80;
+
     // segment registers, tr and ldtr
     this.sreg = new Uint16Array(8);
 
@@ -508,9 +511,16 @@ CPU.prototype.reset = function()
         this.dreg[i] = 0;
     }
 
-    for(let i = 0; i < 16; i++) {
+    for(let i = 0; i < this.reg_mmxs.length; i++)
+    {
         this.reg_mmxs[i] = 0;
     }
+
+    for(let i = 0; i < this.reg_xmm32s.length; i++)
+    {
+        this.reg_xmm32s[i] = 0;
+    }
+    this.mxcsr = 0x1F80;
 
     this.protected_mode = false;
 
