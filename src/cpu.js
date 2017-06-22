@@ -3662,10 +3662,10 @@ CPU.prototype.cpuid = function()
     // http://lxr.linux.no/linux+%2a/arch/x86/include/asm/cpufeature.h
     // http://www.sandpile.org/x86/cpuid.htm
 
-    var eax = 0,
-        ecx = 0,
-        edx = 0,
-        ebx = 0;
+    var eax = 0;
+    var ecx = 0;
+    var edx = 0;
+    var ebx = 0;
 
     var winnt_fix = false;
 
@@ -3697,7 +3697,7 @@ CPU.prototype.cpuid = function()
             edx = (this.fpu ? 1 : 0) |                // fpu
                     vme | 1 << 3 | 1 << 4 | 1 << 5 |   // vme, pse, tsc, msr
                     1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
-                    1 << 23;                           // mmx
+                    1 << 23 | 1 << 24;   // mmx, fxsr
 
             if(ENABLE_ACPI && this.apic_enabled)
             {

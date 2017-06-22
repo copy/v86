@@ -11,6 +11,7 @@
  * lea
  * enter
  * bswap
+ * fxsave, fxrstor
  */
 "use strict";
 
@@ -485,3 +486,73 @@ CPU.prototype.bswap = function(reg)
     this.reg32s[reg] = temp >>> 24 | temp << 24 | (temp >> 8 & 0xFF00) | (temp << 8 & 0xFF0000);
 }
 
+CPU.prototype.fxsave = function(addr)
+{
+    this.writable_or_pagefault(addr, 512);
+
+    this.safe_write16(addr + 0 | 0, this.fpu.control_word);
+    this.safe_write16(addr + 2 | 0, this.fpu.load_status_word());
+    this.safe_write8( addr + 4 | 0, ~this.fpu.stack_empty & 0xFF);
+    this.safe_write16(addr + 6 | 0, this.fpu.fpu_opcode);
+    this.safe_write32(addr + 8 | 0, this.fpu.fpu_ip);
+    this.safe_write16(addr + 12 | 0, this.fpu.fpu_ip_selector);
+    this.safe_write32(addr + 16 | 0, this.fpu.fpu_dp);
+    this.safe_write16(addr + 20 | 0, this.fpu.fpu_dp_selector);
+
+    this.safe_write32(addr + 24 | 0, this.mxcsr);
+    this.safe_write32(addr + 28 | 0, MXCSR_MASK);
+
+    for(let i = 0; i < 8; i++)
+    {
+        this.fpu.store_m80(addr + 32 + (i << 4) | 0, this.fpu.st[this.fpu.stack_ptr + i & 7]);
+    }
+
+    // If the OSFXSR bit in control register CR4 is not set, the FXSAVE
+    // instruction may not save these registers. This behavior is
+    // implementation dependent.
+    for(let i = 0; i < 8; i++)
+    {
+        this.safe_write32(addr + 160 + (i << 4) +  0 | 0, this.reg_xmm32s[i << 2 | 0]);
+        this.safe_write32(addr + 160 + (i << 4) +  4 | 0, this.reg_xmm32s[i << 2 | 1]);
+        this.safe_write32(addr + 160 + (i << 4) +  8 | 0, this.reg_xmm32s[i << 2 | 2]);
+        this.safe_write32(addr + 160 + (i << 4) + 12 | 0, this.reg_xmm32s[i << 2 | 3]);
+    }
+};
+
+CPU.prototype.fxrstor = function(addr)
+{
+    this.translate_address_read(addr | 0);
+    this.translate_address_read(addr + 511 | 0);
+
+    var new_mxcsr = this.safe_read32s(addr + 24 | 0);
+
+    if(new_mxcsr & ~MXCSR_MASK)
+    {
+        dbg_log("Invalid mxcsr bits: " + h((new_mxcsr & ~MXCSR_MASK) >>> 0, 8));
+        this.trigger_gp(0);
+    }
+
+    this.fpu.control_word = this.safe_read16(addr + 0 | 0);
+    this.fpu.set_status_word(this.safe_read16(addr + 2 | 0));
+    this.fpu.stack_empty = ~this.safe_read8(addr + 4 | 0) & 0xFF;
+    this.fpu.fpu_opcode = this.safe_read16(addr + 6 | 0);
+    this.fpu.fpu_ip = this.safe_read32s(addr + 8 | 0);
+    this.fpu.fpu_ip = this.safe_read16(addr + 12 | 0);
+    this.fpu.fpu_dp = this.safe_read32s(addr + 16 | 0);
+    this.fpu.fpu_dp_selector = this.safe_read16(addr + 20 | 0);
+
+    this.mxcsr = new_mxcsr;
+
+    for(let i = 0; i < 8; i++)
+    {
+        this.fpu.st[this.fpu.stack_ptr + i & 7] = this.fpu.load_m80(addr + 32 + (i << 4) | 0);
+    }
+
+    for(let i = 0; i < 8; i++)
+    {
+        this.reg_xmm32s[i << 2 | 0] = this.safe_read32s(addr + 160 + (i << 4) +  0 | 0);
+        this.reg_xmm32s[i << 2 | 1] = this.safe_read32s(addr + 160 + (i << 4) +  4 | 0);
+        this.reg_xmm32s[i << 2 | 2] = this.safe_read32s(addr + 160 + (i << 4) +  8 | 0);
+        this.reg_xmm32s[i << 2 | 3] = this.safe_read32s(addr + 160 + (i << 4) + 12 | 0);
+    }
+};

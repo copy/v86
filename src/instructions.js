@@ -3150,10 +3150,22 @@ t32[0xAD] = cpu => { cpu.read_modrm_byte();
 };
 
 t[0xAE] = cpu => { cpu.read_modrm_byte();
-    // fxsave, fxrstor, ldmxcsr ...
+    // ldmxcsr ...
 
     switch(cpu.modrm_byte >> 3 & 7)
     {
+        case 0: // fxsave
+            dbg_assert(cpu.modrm_byte < 0xC0, "Unexpected fxsave encoding");
+            var addr = cpu.modrm_resolve(cpu.modrm_byte);
+            cpu.fxsave(addr);
+            break;
+
+        case 1: // fxrstor
+            dbg_assert(cpu.modrm_byte < 0xC0, "Unexpected fxrstor encoding");
+            var addr = cpu.modrm_resolve(cpu.modrm_byte);
+            cpu.fxrstor(addr);
+            break;
+
         case 5:
             // lfence
             dbg_assert(cpu.modrm_byte >= 0xC0, "Unexpected mfence encoding");
