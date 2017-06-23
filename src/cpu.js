@@ -1388,9 +1388,18 @@ CPU.prototype.create_atom64s = function(low, high)
     let data = new Int32Array(2);
     data[0] = low;
     data[1] = high;
-
     return data;
 };
+
+CPU.prototype.create_atom128s = function(d0, d1, d2, d3)
+{
+    let data = new Int32Array(4);
+    data[0] = d0;
+    data[1] = d1;
+    data[2] = d2;
+    data[3] = d3;
+    return data;
+}
 
 CPU.prototype.read_modrm_byte = function()
 {
@@ -1556,6 +1565,28 @@ CPU.prototype.safe_read64s = function(addr)
     return data;
 };
 
+CPU.prototype.safe_read128s_aligned = function(addr)
+{
+    dbg_assert((addr & 0xF) === 0);
+    let phys = this.translate_address_read(addr);
+    return this.create_atom128s(
+        this.read32s(phys),
+        this.read32s(phys + 4 | 0),
+        this.read32s(phys + 8 | 0),
+        this.read32s(phys + 12 | 0)
+    );
+};
+
+CPU.prototype.safe_read128s_unaligned = function(addr)
+{
+    return this.create_atom128s(
+        this.safe_read32s(addr),
+        this.safe_read32s(addr + 4 | 0),
+        this.safe_read32s(addr + 8 | 0),
+        this.safe_read32s(addr + 12 | 0)
+    );
+};
+
 CPU.prototype.safe_write8 = function(addr, value)
 {
     dbg_assert(addr < 0x80000000);
@@ -1597,6 +1628,16 @@ CPU.prototype.safe_write64 = function(addr, low, high)
     this.safe_write32(addr, low);
     this.safe_write32(addr + 4 | 0, high);
 };
+
+CPU.prototype.safe_write128 = function(addr, d0, d1, d2, d3)
+{
+    this.writable_or_pagefault(addr, 16);
+    this.safe_write32(addr, d0);
+    this.safe_write32(addr + 4 | 0, d1);
+    this.safe_write32(addr + 8 | 0, d2);
+    this.safe_write32(addr + 12 | 0, d3);
+};
+
 
 // read 2 or 4 byte from ip, depending on address size attribute
 CPU.prototype.read_moffs = function()
@@ -3207,17 +3248,14 @@ CPU.prototype.todo = function()
 
 CPU.prototype.undefined_instruction = function()
 {
-    if(DEBUG)
-    {
-        throw "Possible fault: undefined instruction";
-    }
-
+    dbg_assert(false, "Possible fault: undefined instruction");
     this.trigger_ud();
 };
 
 CPU.prototype.unimplemented_sse = function()
 {
     dbg_log("No SSE", LOG_CPU);
+    dbg_assert(false);
     this.trigger_ud();
 };
 
@@ -3342,19 +3380,57 @@ CPU.prototype.read_mmx_mem32s = function()
 
 CPU.prototype.read_mmx_mem64s = function()
 {
-    let data;
     if(this.modrm_byte < 0xC0) {
-        data = this.safe_read64s(this.modrm_resolve(this.modrm_byte));
+        return this.safe_read64s(this.modrm_resolve(this.modrm_byte));
     } else {
-        data = this.create_atom64s(
+        return this.create_atom64s(
             this.reg_mmxs[2 * (this.modrm_byte & 7)],
             this.reg_mmxs[2 * (this.modrm_byte & 7) + 1]
         );
     }
+};
 
-    dbg_assert(data && data.length === 2);
+CPU.prototype.read_xmm_mem64s = function()
+{
+    if(this.modrm_byte < 0xC0) {
+        return this.safe_read64s(this.modrm_resolve(this.modrm_byte));
+    } else {
+        let i = (this.modrm_byte & 7) << 2;
+        return this.create_atom64s(
+            this.reg_xmm32s[i],
+            this.reg_xmm32s[i | 1]
+        );
+    }
+};
 
-    return data;
+CPU.prototype.read_xmm_mem128s = function()
+{
+    if(this.modrm_byte < 0xC0) {
+        return this.safe_read128s_aligned(this.modrm_resolve(this.modrm_byte));
+    } else {
+        let i = (this.modrm_byte & 7) << 2;
+        return this.create_atom128s(
+            this.reg_xmm32s[i],
+            this.reg_xmm32s[i | 1],
+            this.reg_xmm32s[i | 2],
+            this.reg_xmm32s[i | 3]
+        );
+    }
+};
+
+CPU.prototype.read_xmm_mem128s_unaligned = function()
+{
+    if(this.modrm_byte < 0xC0) {
+        return this.safe_read128s_unaligned(this.modrm_resolve(this.modrm_byte));
+    } else {
+        let i = (this.modrm_byte & 7) << 2;
+        return this.create_atom128s(
+            this.reg_xmm32s[i],
+            this.reg_xmm32s[i | 1],
+            this.reg_xmm32s[i | 2],
+            this.reg_xmm32s[i | 3]
+        );
+    }
 };
 
 CPU.prototype.set_e8 = function(value)
@@ -3537,6 +3613,25 @@ CPU.prototype.write_g32 = function(value)
     this.reg32[this.modrm_byte >> 3 & 7] = value;
 };
 
+CPU.prototype.read_xmm64s = function()
+{
+    return this.create_atom64s(
+        this.reg_xmm32s[(this.modrm_byte >> 3 & 7) << 2],
+        this.reg_xmm32s[(this.modrm_byte >> 3 & 7) << 2 | 1]
+    );
+};
+
+CPU.prototype.read_xmm128s = function()
+{
+    let i = (this.modrm_byte >> 3 & 7) << 2;
+    return this.create_atom128s(
+        this.reg_xmm32s[i | 0],
+        this.reg_xmm32s[i | 1],
+        this.reg_xmm32s[i | 2],
+        this.reg_xmm32s[i | 3]
+    );
+};
+
 CPU.prototype.read_mmx64s = function()
 {
     return this.create_atom64s(
@@ -3549,6 +3644,22 @@ CPU.prototype.write_mmx64s = function(low, high)
 {
     this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)] = low;
     this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1] = high;
+};
+
+CPU.prototype.write_xmm64 = function(low, high)
+{
+    let i = (this.modrm_byte >> 3 & 7) << 2;
+    this.reg_xmm32s[i] = low;
+    this.reg_xmm32s[i + 1] = high;
+};
+
+CPU.prototype.write_xmm128s = function(d0, d1, d2, d3)
+{
+    let i = (this.modrm_byte >> 3 & 7) << 2;
+    this.reg_xmm32s[i] = d0;
+    this.reg_xmm32s[i + 1] = d1;
+    this.reg_xmm32s[i + 2] = d2;
+    this.reg_xmm32s[i + 3] = d3;
 };
 
 CPU.prototype.pic_call_irq = function(int)
@@ -3697,7 +3808,7 @@ CPU.prototype.cpuid = function()
             edx = (this.fpu ? 1 : 0) |                // fpu
                     vme | 1 << 3 | 1 << 4 | 1 << 5 |   // vme, pse, tsc, msr
                     1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
-                    1 << 23 | 1 << 24;   // mmx, fxsr
+                    1 << 23 | 1 << 24 | 1 << 25 | 1 << 26;   // mmx, fxsr, sse1, sse2
 
             if(ENABLE_ACPI && this.apic_enabled)
             {

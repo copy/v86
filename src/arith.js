@@ -1621,3 +1621,9 @@ CPU.prototype.saturate_ud_to_ub = function(v)
     dbg_assert((ret & 0xFFFFFF00) === 0);
     return ret;
 };
+
+CPU.prototype.saturate_uw = function(v)
+{
+    dbg_assert(v >= 0);
+    return v > 0xFFFF ? 0xFFFF : v;
+};

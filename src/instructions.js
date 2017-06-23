@@ -1895,8 +1895,24 @@ t[0x0F] = cpu => { cpu.undefined_instruction(); };
 
 t[0x10] = cpu => { cpu.unimplemented_sse(); };
 t[0x11] = cpu => { cpu.unimplemented_sse(); };
-t[0x12] = cpu => { cpu.unimplemented_sse(); };
-t[0x13] = cpu => { cpu.unimplemented_sse(); };
+t[0x12] = cpu => {
+    // movlpd xmm, xmm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+    let data = cpu.read_xmm_mem64s();
+    cpu.write_xmm64(data[0], data[1]);
+};
+t[0x13] = cpu => {
+    // movlpd xmm/m64, xmm
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+    let data = cpu.read_xmm64s();
+    dbg_assert(cpu.modrm_byte < 0xC0);
+    var addr = cpu.modrm_resolve(cpu.modrm_byte);
+    cpu.safe_write64(addr, data[0], data[1]);
+};
 t[0x14] = cpu => { cpu.unimplemented_sse(); };
 t[0x15] = cpu => { cpu.unimplemented_sse(); };
 t[0x16] = cpu => { cpu.unimplemented_sse(); };
@@ -2043,8 +2059,36 @@ t[0x25] = cpu => { cpu.undefined_instruction(); };
 t[0x26] = cpu => { cpu.undefined_instruction(); };
 t[0x27] = cpu => { cpu.undefined_instruction(); };
 
-t[0x28] = cpu => { cpu.unimplemented_sse(); };
-t[0x29] = cpu => { cpu.unimplemented_sse(); };
+t[0x28] = cpu => {
+    // movaps xmm, xmm/m128
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+    let data = cpu.read_xmm_mem128s();
+    cpu.write_xmm128s(data[0], data[1], data[2], data[3]);
+};
+t[0x29] = cpu => {
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66)
+    {
+        // movapd xmm/m128, xmm
+        // (note: same as below, see google.com/?q=MOVAPD+vs+MOVAPS)
+        let data = cpu.read_xmm128s();
+        dbg_assert(cpu.modrm_byte < 0xC0);
+        let addr = cpu.modrm_resolve(cpu.modrm_byte);
+        cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
+    }
+    else
+    {
+        // movaps xmm/m128, xmm
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
+        let data = cpu.read_xmm128s();
+        dbg_assert(cpu.modrm_byte < 0xC0);
+        let addr = cpu.modrm_resolve(cpu.modrm_byte);
+        cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
+    }
+};
 t[0x2A] = cpu => { cpu.unimplemented_sse(); };
 t[0x2B] = cpu => { cpu.unimplemented_sse(); };
 t[0x2C] = cpu => { cpu.unimplemented_sse(); };
@@ -2303,6 +2347,7 @@ t[0x37] = cpu => {
     cpu.todo();
 };
 
+// sse3+
 t[0x38] = cpu => { cpu.unimplemented_sse(); };
 t[0x39] = cpu => { cpu.unimplemented_sse(); };
 t[0x3A] = cpu => { cpu.unimplemented_sse(); };
@@ -2311,7 +2356,6 @@ t[0x3C] = cpu => { cpu.unimplemented_sse(); };
 t[0x3D] = cpu => { cpu.unimplemented_sse(); };
 t[0x3E] = cpu => { cpu.unimplemented_sse(); };
 t[0x3F] = cpu => { cpu.unimplemented_sse(); };
-
 
 // cmov
 t16[0x40] = cpu => { cpu.read_modrm_byte(); cpu.cmovcc16( cpu.test_o()); };
@@ -2355,7 +2399,23 @@ t[0x53] = cpu => { cpu.unimplemented_sse(); };
 t[0x54] = cpu => { cpu.unimplemented_sse(); };
 t[0x55] = cpu => { cpu.unimplemented_sse(); };
 t[0x56] = cpu => { cpu.unimplemented_sse(); };
-t[0x57] = cpu => { cpu.unimplemented_sse(); };
+t[0x57] = cpu => {
+    // xorps xmm, xmm/mem128
+    // xorpd xmm, xmm/mem128
+    // Note: Same code as pxor
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    let source = cpu.read_xmm_mem128s();
+    let destination = cpu.read_xmm128s();
+
+    cpu.write_xmm128s(
+        source[0] ^ destination[0],
+        source[1] ^ destination[1],
+        source[2] ^ destination[2],
+        source[3] ^ destination[3]
+    );
+};
 
 t[0x58] = cpu => { cpu.unimplemented_sse(); };
 t[0x59] = cpu => { cpu.unimplemented_sse(); };
@@ -2367,47 +2427,86 @@ t[0x5E] = cpu => { cpu.unimplemented_sse(); };
 t[0x5F] = cpu => { cpu.unimplemented_sse(); };
 
 t[0x60] = cpu => {
-    // punpcklbw mm, mm/m32
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source = cpu.read_mmx_mem32s();
-    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // punpcklbw xmm, xmm/m128
+        let source = cpu.read_xmm_mem64s();
+        let source8 = new Uint8Array(source.buffer);
 
-    let byte0 = destination_low & 0xFF;
-    let byte1 = source & 0xFF;
-    let byte2 = (destination_low >> 8) & 0xFF;
-    let byte3 = (source >> 8) & 0xFF;
-    let byte4 = (destination_low >> 16) & 0xFF;
-    let byte5 = (source >> 16) & 0xFF;
-    let byte6 = destination_low >>> 24;
-    let byte7 = source >>> 24;
+        let destination = cpu.read_xmm64s();
+        let destination8 = new Uint8Array(destination.buffer);
 
-    let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
-    let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+        cpu.write_xmm128s(
+            destination8[0] | source8[0] << 8 | destination8[1] << 16 | source8[1] << 24,
+            destination8[2] | source8[2] << 8 | destination8[3] << 16 | source8[3] << 24,
+            destination8[4] | source8[4] << 8 | destination8[5] << 16 | source8[5] << 24,
+            destination8[6] | source8[6] << 8 | destination8[7] << 16 | source8[7] << 24
+        );
+    }
+    else
+    {
+        // punpcklbw mm, mm/m32
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
-    cpu.write_mmx64s(low, high);
+        let source = cpu.read_mmx_mem32s();
+        let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+
+        let byte0 = destination_low & 0xFF;
+        let byte1 = source & 0xFF;
+        let byte2 = (destination_low >> 8) & 0xFF;
+        let byte3 = (source >> 8) & 0xFF;
+        let byte4 = (destination_low >> 16) & 0xFF;
+        let byte5 = (source >> 16) & 0xFF;
+        let byte6 = destination_low >>> 24;
+        let byte7 = source >>> 24;
+
+        let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+        let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+        cpu.write_mmx64s(low, high);
+    }
 };
 
 t[0x61] = cpu => {
-    // punpcklwd mm, mm/m32
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source = cpu.read_mmx_mem32s();
-    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // punpcklwd xmm, xmm/m128
+        let source = cpu.read_xmm_mem64s();
+        let source16 = new Uint16Array(source.buffer);
 
-    let word0 = destination_low & 0xFFFF;
-    let word1 = source & 0xFFFF;
-    let word2 = destination_low >>> 16;
-    let word3 = source >>> 16;
+        let destination = cpu.read_xmm64s();
+        let destination16 = new Uint16Array(destination.buffer);
 
-    let low = word0 | word1 << 16;
-    let high = word2 | word3 << 16;
+        cpu.write_xmm128s(
+            destination16[0] | source16[0] << 16,
+            destination16[1] | source16[1] << 16,
+            destination16[2] | source16[2] << 16,
+            destination16[3] | source16[3] << 16
+        );
+    }
+    else
+    {
+        // punpcklwd mm, mm/m32
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+        let source = cpu.read_mmx_mem32s();
+        let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
 
-    cpu.write_mmx64s(low, high);
+        let word0 = destination_low & 0xFFFF;
+        let word1 = source & 0xFFFF;
+        let word2 = destination_low >>> 16;
+        let word3 = source >>> 16;
+
+        let low = word0 | word1 << 16;
+        let high = word2 | word3 << 16;
+
+        cpu.write_mmx64s(low, high);
+    }
 };
 
 t[0x62] = cpu => {
@@ -2515,52 +2614,95 @@ t[0x66] = cpu => {
 };
 
 t[0x67] = cpu => {
-    // packuswb mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source = cpu.read_mmx_mem64s();
-    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
-    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        let source = cpu.read_xmm_mem128s();
+        let source16s = new Int16Array(source.buffer);
 
-    let low = 0;
-    low |= (cpu.saturate_sw_to_ub((destination_low) & 0xFFFF));
-    low |= (cpu.saturate_sw_to_ub(destination_low >>> 16)) << 8;
-    low |= (cpu.saturate_sw_to_ub((destination_high) & 0xFFFF)) << 16;
-    low |= (cpu.saturate_sw_to_ub(destination_high >>> 16)) << 24;
+        let destination = cpu.read_xmm128s();
+        let destination16s = new Int16Array(destination.buffer);
 
-    let high = 0;
-    high |= (cpu.saturate_sw_to_ub((source[0]) & 0xFFFF));
-    high |= (cpu.saturate_sw_to_ub(source[0] >>> 16)) << 8;
-    high |= (cpu.saturate_sw_to_ub((source[1]) & 0xFFFF)) << 16;
-    high |= (cpu.saturate_sw_to_ub(source[1] >>> 16)) << 24;
+        let result = cpu.create_atom128s(0, 0, 0, 0);
+        let result8 = new Uint8Array(result.buffer);
 
-    cpu.write_mmx64s(low, high);
+        for(let i = 0; i < 8; i++)
+        {
+            result8[i] = cpu.saturate_sw_to_ub(destination16s[i]);
+            result8[i | 8] = cpu.saturate_sw_to_ub(source16s[i]);
+        }
+
+        cpu.write_xmm128s(result[0], result[1], result[2], result[3]);
+    }
+    else
+    {
+        // packuswb mm, mm/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+        let source = cpu.read_mmx_mem64s();
+        let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+        let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+        let low = 0;
+        low |= (cpu.saturate_sw_to_ub((destination_low) & 0xFFFF));
+        low |= (cpu.saturate_sw_to_ub(destination_low >>> 16)) << 8;
+        low |= (cpu.saturate_sw_to_ub((destination_high) & 0xFFFF)) << 16;
+        low |= (cpu.saturate_sw_to_ub(destination_high >>> 16)) << 24;
+
+        let high = 0;
+        high |= (cpu.saturate_sw_to_ub((source[0]) & 0xFFFF));
+        high |= (cpu.saturate_sw_to_ub(source[0] >>> 16)) << 8;
+        high |= (cpu.saturate_sw_to_ub((source[1]) & 0xFFFF)) << 16;
+        high |= (cpu.saturate_sw_to_ub(source[1] >>> 16)) << 24;
+
+        cpu.write_mmx64s(low, high);
+    }
 };
 
 t[0x68] = cpu => {
-    // punpckhbw mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source = cpu.read_mmx_mem64s();
-    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // punpckhbw xmm, xmm/m128
+        let source = cpu.read_xmm_mem128s();
+        let source8 = new Uint8Array(source.buffer);
 
-    let byte0 = destination_high & 0xFF;
-    let byte1 = source[1] & 0xFF;
-    let byte2 = (destination_high >> 8) & 0xFF;
-    let byte3 = (source[1] >> 8) & 0xFF;
-    let byte4 = (destination_high >> 16) & 0xFF;
-    let byte5 = (source[1] >> 16) & 0xFF;
-    let byte6 = destination_high >>> 24;
-    let byte7 = source[1] >>> 24;
+        let destination = cpu.read_xmm128s();
+        let destination8 = new Uint8Array(destination.buffer);
 
-    let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
-    let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+        cpu.write_xmm128s(
+            destination8[ 8] | source8[ 8] << 8 | destination8[ 9] << 16 | source8[ 9] << 24,
+            destination8[10] | source8[10] << 8 | destination8[11] << 16 | source8[11] << 24,
+            destination8[12] | source8[12] << 8 | destination8[13] << 16 | source8[13] << 24,
+            destination8[14] | source8[14] << 8 | destination8[15] << 16 | source8[15] << 24
+        );
+    }
+    else
+    {
+        // punpckhbw mm, mm/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
-    cpu.write_mmx64s(low, high);
+        let source = cpu.read_mmx_mem64s();
+        let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+        let byte0 = destination_high & 0xFF;
+        let byte1 = source[1] & 0xFF;
+        let byte2 = (destination_high >> 8) & 0xFF;
+        let byte3 = (source[1] >> 8) & 0xFF;
+        let byte4 = (destination_high >> 16) & 0xFF;
+        let byte5 = (source[1] >> 16) & 0xFF;
+        let byte6 = destination_high >>> 24;
+        let byte7 = source[1] >>> 24;
+
+        let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+        let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+        cpu.write_mmx64s(low, high);
+    }
 };
 
 t[0x69] = cpu => {
@@ -2623,51 +2765,122 @@ t[0x6C] = cpu => { cpu.unimplemented_sse(); };
 t[0x6D] = cpu => { cpu.unimplemented_sse(); };
 t[0x6E] = cpu => {
     // movd mm, r/m32
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let data = cpu.read_e32s();
-    cpu.write_mmx64s(data, 0);
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66)
+    {
+        let data = cpu.read_e32s();
+        cpu.write_xmm128s(data, 0, 0, 0);
+    }
+    else
+    {
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+        let data = cpu.read_e32s();
+        cpu.write_mmx64s(data, 0);
+    }
 };
 t[0x6F] = cpu => {
-    // movq mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let data = cpu.read_mmx_mem64s();
-    cpu.write_mmx64s(data[0], data[1]);
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // movdqa xmm, xmm/mem128
+        let data = cpu.read_xmm_mem128s();
+        cpu.write_xmm128s(data[0], data[1], data[2], data[3]);
+    }
+    else if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_F3)
+    {
+        // movdqu xmm, xmm/m128
+        let data = cpu.read_xmm_mem128s_unaligned();
+        cpu.write_xmm128s(data[0], data[1], data[2], data[3]);
+    }
+    else
+    {
+        // movq mm, mm/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+        let data = cpu.read_mmx_mem64s();
+        cpu.write_mmx64s(data[0], data[1]);
+    }
 };
 
 t[0x70] = cpu => {
-    // pshufw mm1, mm2/m64, imm8
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source = cpu.read_mmx_mem64s();
-    let order = cpu.read_op8();
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66)
+    {
+        // pshufd xmm, xmm/mem128
+        let source = cpu.read_xmm_mem128s();
+        let order = cpu.read_op8();
 
-    let word0_shift = order & 0b11;
-    let word0 = source[word0_shift >> 1] >>> ((word0_shift & 1) * 16) & 0xFFFF;
-    let word1_shift = (order >> 2) & 0b11;
-    let word1 = source[word1_shift >> 1] >>> ((word1_shift & 1) * 16);
-    let low = word0 | word1 << 16;
+        cpu.write_xmm128s(
+            source[order & 3],
+            source[order >> 2 & 3],
+            source[order >> 4 & 3],
+            source[order >> 6 & 3]
+        );
+    }
+    else if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_F2)
+    {
+        // pshuflw xmm, xmm/m128, imm8
+        let source = cpu.read_xmm_mem128s();
+        let source16 = new Uint16Array(source.buffer);
+        let order = cpu.read_op8();
 
-    let word2_shift = (order >> 4) & 0b11;
-    let word2 = source[word2_shift >> 1] >>> ((word2_shift & 1) * 16) & 0xFFFF;
-    let word3_shift = (order >>> 6);
-    let word3 = source[word3_shift >> 1] >>> ((word3_shift & 1) * 16);
-    let high = word2 | word3 << 16;
+        cpu.write_xmm128s(
+            source16[order & 3] | source16[order >> 2 & 3] << 16,
+            source16[order >> 4 & 3] | source16[order >> 6 & 3] << 16,
+            source[2],
+            source[3]
+        );
+    }
+    else if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_F3)
+    {
+        // pshufhw xmm, xmm/m128, imm8
+        let source = cpu.read_xmm_mem128s();
+        let source16 = new Uint16Array(source.buffer);
+        let order = cpu.read_op8();
 
-    cpu.write_mmx64s(low, high);
+        cpu.write_xmm128s(
+            source[0],
+            source[1],
+            source16[order & 3 | 4] | source16[order >> 2 & 3 | 4] << 16,
+            source16[order >> 4 & 3 | 4] | source16[order >> 6 & 3 | 4] << 16
+        );
+    }
+    else
+    {
+        // pshufw mm1, mm2/m64, imm8
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+        let source = cpu.read_mmx_mem64s();
+        let order = cpu.read_op8();
+
+        let word0_shift = order & 0b11;
+        let word0 = source[word0_shift >> 1] >>> ((word0_shift & 1) * 16) & 0xFFFF;
+        let word1_shift = (order >> 2) & 0b11;
+        let word1 = source[word1_shift >> 1] >>> ((word1_shift & 1) * 16);
+        let low = word0 | word1 << 16;
+
+        let word2_shift = (order >> 4) & 0b11;
+        let word2 = source[word2_shift >> 1] >>> ((word2_shift & 1) * 16) & 0xFFFF;
+        let word3_shift = (order >>> 6);
+        let word3 = source[word3_shift >> 1] >>> ((word3_shift & 1) * 16);
+        let high = word2 | word3 << 16;
+
+        cpu.write_mmx64s(low, high);
+    }
 };
 t[0x71] = cpu => {
     cpu.read_modrm_byte();
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
-    dbg_assert(cpu.modrm_byte >= 0xC0);
     cpu.task_switch_test_mmx();
+
+    if(cpu.modrm_byte < 0xC0)
+    {
+        cpu.trigger_ud();
+    }
 
     // psrlw, psraw, psllw
     //     2,     4,     6
@@ -2757,11 +2970,14 @@ t[0x71] = cpu => {
 };
 
 t[0x72] = cpu => {
-
     cpu.read_modrm_byte();
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
-    dbg_assert(cpu.modrm_byte >= 0xC0);
     cpu.task_switch_test_mmx();
+
+    if(cpu.modrm_byte < 0xC0)
+    {
+        cpu.trigger_ud();
+    }
 
     // psrld, psrad, pslld
     //     2,     4,     6
@@ -2836,11 +3052,14 @@ t[0x72] = cpu => {
 };
 
 t[0x73] = cpu => {
-
     cpu.read_modrm_byte();
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
-    dbg_assert(cpu.modrm_byte >= 0xC0);
     cpu.task_switch_test_mmx();
+
+    if(cpu.modrm_byte < 0xC0)
+    {
+        cpu.trigger_ud();
+    }
 
     // psrlq, psllq
     //     2,     6
@@ -2903,30 +3122,52 @@ t[0x73] = cpu => {
 };
 
 t[0x74] = cpu => {
-    // pcmpeqb mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source64s = cpu.read_mmx_mem64s();
-    let source8s = new Int8Array(source64s.buffer);
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // pcmpeqb xmm, xmm/m128
+        let source64s = cpu.read_xmm_mem128s();
+        let source8 = new Uint8Array(source64s.buffer);
 
-    let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
-    let destination8s = cpu.reg_mmx8s;
+        let destination128 = cpu.read_xmm128s();
+        let destination8 = new Uint8Array(destination128.buffer);
 
-    let byte0 = destination8s[reg_offset] === source8s[0] ? 0xFF : 0;
-    let byte1 = destination8s[reg_offset + 1] === source8s[1] ? 0xFF : 0;
-    let byte2 = destination8s[reg_offset + 2] === source8s[2] ? 0xFF : 0;
-    let byte3 = destination8s[reg_offset + 3] === source8s[3] ? 0xFF : 0;
-    let byte4 = destination8s[reg_offset + 4] === source8s[4] ? 0xFF : 0;
-    let byte5 = destination8s[reg_offset + 5] === source8s[5] ? 0xFF : 0;
-    let byte6 = destination8s[reg_offset + 6] === source8s[6] ? 0xFF : 0;
-    let byte7 = destination8s[reg_offset + 7] === source8s[7] ? 0xFF : 0;
+        let result = cpu.create_atom128s(0, 0, 0, 0);
+        let result8 = new Uint8Array(result.buffer);
 
-    let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
-    let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+        for(let i = 0; i < 16; i++)
+        {
+            result8[i] = source8[i] === destination8[i] ? 0xFF : 0;
+        }
 
-    cpu.write_mmx64s(low, high);
+        cpu.write_xmm128s(result[0], result[1], result[2], result[3])
+    }
+    else
+    {
+        // pcmpeqb mm, mm/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+        let source64s = cpu.read_mmx_mem64s();
+        let source8s = new Int8Array(source64s.buffer);
+
+        let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
+        let destination8s = cpu.reg_mmx8s;
+
+        let byte0 = destination8s[reg_offset] === source8s[0] ? 0xFF : 0;
+        let byte1 = destination8s[reg_offset + 1] === source8s[1] ? 0xFF : 0;
+        let byte2 = destination8s[reg_offset + 2] === source8s[2] ? 0xFF : 0;
+        let byte3 = destination8s[reg_offset + 3] === source8s[3] ? 0xFF : 0;
+        let byte4 = destination8s[reg_offset + 4] === source8s[4] ? 0xFF : 0;
+        let byte5 = destination8s[reg_offset + 5] === source8s[5] ? 0xFF : 0;
+        let byte6 = destination8s[reg_offset + 6] === source8s[6] ? 0xFF : 0;
+        let byte7 = destination8s[reg_offset + 7] === source8s[7] ? 0xFF : 0;
+
+        let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+        let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+        cpu.write_mmx64s(low, high);
+    }
 };
 
 t[0x75] = cpu => {
@@ -2951,19 +3192,36 @@ t[0x75] = cpu => {
 };
 
 t[0x76] = cpu => {
-    // pcmpeqd mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source = cpu.read_mmx_mem64s();
-    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
-    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // pcmpeqd xmm, xmm/m128
+        let source = cpu.read_xmm_mem128s();
+        let destination = cpu.read_xmm128s();
 
-    let low = destination_low === source[0] ? -1 : 0;
-    let high = destination_high === source[1] ? -1 : 0;
+        cpu.write_xmm128s(
+            source[0] === destination[0] ? -1 : 0,
+            source[1] === destination[1] ? -1 : 0,
+            source[2] === destination[2] ? -1 : 0,
+            source[3] === destination[3] ? -1 : 0
+        );
+    }
+    else
+    {
+        // pcmpeqd mm, mm/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
-    cpu.write_mmx64s(low, high);
+        let source = cpu.read_mmx_mem64s();
+        let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+        let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+        let low = destination_low === source[0] ? -1 : 0;
+        let high = destination_high === source[1] ? -1 : 0;
+
+        cpu.write_mmx64s(low, high);
+    }
 };
 
 t[0x77] = cpu => {
@@ -2980,22 +3238,57 @@ t[0x7B] = cpu => { cpu.unimplemented_sse(); };
 t[0x7C] = cpu => { cpu.unimplemented_sse(); };
 t[0x7D] = cpu => { cpu.unimplemented_sse(); };
 t[0x7E] = cpu => {
-    // movd r/m32, mm
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let data = cpu.read_mmx64s();
-    cpu.set_e32(data[0]);
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_F3)
+    {
+        // movq xmm, xmm/mem64
+        let data = cpu.read_xmm_mem64s();
+        cpu.write_xmm128s(data[0], data[1], 0, 0);
+    }
+    else if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // movd r/m32, xmm
+        let data = cpu.read_xmm64s();
+        cpu.set_e32(data[0]);
+    }
+    else
+    {
+        // movd r/m32, mm
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+        let data = cpu.read_mmx64s();
+        cpu.set_e32(data[0]);
+    }
 };
 t[0x7F] = cpu => {
-    // movq mm/m64, mm
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let data = cpu.read_mmx64s();
-    cpu.set_mmx_mem64s(data[0], data[1]);
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_F3)
+    {
+        // movdqu xmm/m128, xmm
+        let data = cpu.read_xmm128s();
+        dbg_assert(cpu.modrm_byte < 0xC0);
+        let addr = cpu.modrm_resolve(cpu.modrm_byte);
+        cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
+    }
+    else if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // movdqa xmm/m128, xmm
+        let data = cpu.read_xmm128s();
+        dbg_assert(cpu.modrm_byte < 0xC0);
+        let addr = cpu.modrm_resolve(cpu.modrm_byte);
+        cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
+    }
+    else
+    {
+        // movq mm/m64, mm
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+        let data = cpu.read_mmx64s();
+        cpu.set_mmx_mem64s(data[0], data[1]);
+    }
 };
 
 // jmpcc
@@ -3150,29 +3443,55 @@ t32[0xAD] = cpu => { cpu.read_modrm_byte();
 };
 
 t[0xAE] = cpu => { cpu.read_modrm_byte();
-    // ldmxcsr ...
+    // xsave, xrstor, ...
+    if(cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) cpu.todo();
 
     switch(cpu.modrm_byte >> 3 & 7)
     {
         case 0: // fxsave
-            dbg_assert(cpu.modrm_byte < 0xC0, "Unexpected fxsave encoding");
+            if(cpu.modrm_byte >= 0xC0) cpu.trigger_ud();
             var addr = cpu.modrm_resolve(cpu.modrm_byte);
             cpu.fxsave(addr);
             break;
 
         case 1: // fxrstor
-            dbg_assert(cpu.modrm_byte < 0xC0, "Unexpected fxrstor encoding");
+            if(cpu.modrm_byte >= 0xC0) cpu.trigger_ud();
             var addr = cpu.modrm_resolve(cpu.modrm_byte);
             cpu.fxrstor(addr);
             break;
 
+        case 2: // ldmxcsr
+            if(cpu.modrm_byte >= 0xC0) cpu.trigger_ud();
+            var addr = cpu.modrm_resolve(cpu.modrm_byte);
+            let new_mxcsr = cpu.safe_read32s(addr);
+            if(new_mxcsr & ~MXCSR_MASK)
+            {
+                dbg_log("Invalid mxcsr bits: " + h((new_mxcsr & ~MXCSR_MASK) >>> 0, 8));
+                cpu.trigger_gp(0);
+            }
+            cpu.mxcsr = new_mxcsr;
+            break;
+
+        case 3: // stmxcsr
+            if(cpu.modrm_byte >= 0xC0) cpu.trigger_ud();
+            var addr = cpu.modrm_resolve(cpu.modrm_byte);
+            cpu.safe_write32(addr, cpu.mxcsr);
+            break;
+
         case 5:
             // lfence
-            dbg_assert(cpu.modrm_byte >= 0xC0, "Unexpected mfence encoding");
+            dbg_assert(cpu.modrm_byte >= 0xC0, "Unexpected lfence encoding");
+            if(cpu.modrm_byte < 0xC0) cpu.trigger_ud();
             break;
         case 6:
             // mfence
             dbg_assert(cpu.modrm_byte >= 0xC0, "Unexpected mfence encoding");
+            if(cpu.modrm_byte < 0xC0) cpu.trigger_ud();
+            break;
+        case 7:
+            // sfence or clflush
+            dbg_assert(cpu.modrm_byte >= 0xC0, "Unexpected sfence encoding");
+            if(cpu.modrm_byte < 0xC0) cpu.trigger_ud();
             break;
         default:
             dbg_log("missing " + (cpu.modrm_byte >> 3 & 7), LOG_CPU);
@@ -3188,7 +3507,6 @@ t32[0xAF] = cpu => { cpu.read_modrm_byte();
     var data = cpu.read_e32s();
     cpu.write_g32(cpu.imul_reg32(cpu.read_g32s(), data));
 };
-
 
 t[0xB0] = cpu => { cpu.read_modrm_byte();
     // cmpxchg8
@@ -3340,7 +3658,7 @@ t32[0xB7] = cpu => { cpu.read_modrm_byte();
 
 t16[0xB8] = cpu => { cpu.read_modrm_byte();
     // popcnt
-    if((cpu.prefixes & PREFIX_REPZ) === 0)
+    if((cpu.prefixes & PREFIX_F3) === 0)
     {
         cpu.trigger_ud();
     }
@@ -3348,7 +3666,7 @@ t16[0xB8] = cpu => { cpu.read_modrm_byte();
     cpu.write_g16(cpu.popcnt(data));
 };
 t32[0xB8] = cpu => { cpu.read_modrm_byte();
-    if((cpu.prefixes & PREFIX_REPZ) === 0)
+    if((cpu.prefixes & PREFIX_F3) === 0)
     {
         cpu.trigger_ud();
     }
@@ -3510,7 +3828,12 @@ t32[0xC1] = cpu => { cpu.read_modrm_byte();
 
 
 t[0xC2] = cpu => { cpu.unimplemented_sse(); };
-t[0xC3] = cpu => { cpu.unimplemented_sse(); };
+t[0xC3] = cpu => {
+    // movnti
+    cpu.read_modrm_byte();
+    if(cpu.modrm_byte >= 0xC0) cpu.trigger_ud();
+    cpu.set_e32(cpu.read_g32s());
+};
 t[0xC4] = cpu => { cpu.unimplemented_sse(); };
 t[0xC5] = cpu => { cpu.unimplemented_sse(); };
 t[0xC6] = cpu => { cpu.unimplemented_sse(); };
@@ -3659,6 +3982,12 @@ t[0xD3] = cpu => {
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
     let shift = source[0] >>> 0;
+
+    if(shift === 0)
+    {
+        return;
+    }
+
     let low = 0;
     let high = 0;
 
@@ -3676,27 +4005,72 @@ t[0xD3] = cpu => {
 
 t[0xD4] = cpu => { cpu.unimplemented_sse(); };
 t[0xD5] = cpu => {
-    // pmullw mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source = cpu.read_mmx_mem64s();
-    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
-    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // pmullw xmm, xmm/m128
+        let source = cpu.read_xmm_mem128s();
+        let source16s = new Int16Array(source.buffer);
 
-    let word0 = ((destination_low & 0xFFFF) * (source[0] & 0xFFFF)) & 0xFFFF;
-    let word1 = ((destination_low >>> 16) * (source[0] >>> 16)) & 0xFFFF;
-    let low = word0 | word1 << 16;
+        let destination = cpu.read_xmm128s();
+        let destination16s = new Int16Array(destination.buffer);
 
-    let word2 = ((destination_high & 0xFFFF) * (source[1] & 0xFFFF)) & 0xFFFF;
-    let word3 = ((destination_high >>> 16) * (source[1] >>> 16)) & 0xFFFF;
-    let high = word2 | word3 << 16;
+        cpu.write_xmm128s(
+            source16s[0] * destination16s[0] & 0xFFFF | source16s[1] * destination16s[1] << 16,
+            source16s[2] * destination16s[2] & 0xFFFF | source16s[3] * destination16s[3] << 16,
+            source16s[4] * destination16s[4] & 0xFFFF | source16s[5] * destination16s[5] << 16,
+            source16s[6] * destination16s[6] & 0xFFFF | source16s[7] * destination16s[7] << 16
+        );
+    }
+    else
+    {
+        // pmullw mm, mm/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
-    cpu.write_mmx64s(low, high);
+        let source = cpu.read_mmx_mem64s();
+        let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+        let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+        let word0 = ((destination_low & 0xFFFF) * (source[0] & 0xFFFF)) & 0xFFFF;
+        let word1 = ((destination_low >>> 16) * (source[0] >>> 16)) & 0xFFFF;
+        let low = word0 | word1 << 16;
+
+        let word2 = ((destination_high & 0xFFFF) * (source[1] & 0xFFFF)) & 0xFFFF;
+        let word3 = ((destination_high >>> 16) * (source[1] >>> 16)) & 0xFFFF;
+        let high = word2 | word3 << 16;
+
+        cpu.write_mmx64s(low, high);
+    }
 };
-t[0xD6] = cpu => { cpu.unimplemented_sse(); };
-t[0xD7] = cpu => { cpu.unimplemented_sse(); };
+t[0xD6] = cpu => {
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    // movq xmm/m64, xmm
+    var data = cpu.read_xmm64s();
+    dbg_assert(cpu.modrm_byte < 0xC0);
+    var addr = cpu.modrm_resolve(cpu.modrm_byte);
+    cpu.safe_write64(addr, data[0], data[1]);
+};
+t[0xD7] = cpu => {
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+    if(cpu.modrm_byte < 0xC0) cpu.trigger_ud();
+
+    // pmovmskb reg, xmm
+    let data = cpu.read_xmm_mem128s();
+    let data8 = new Uint8Array(data.buffer);
+    let result =
+        data8[0] >> 7 << 0 | data8[1] >> 7 << 1 | data8[2] >> 7 << 2 | data8[3] >> 7 << 3 |
+        data8[4] >> 7 << 4 | data8[5] >> 7 << 5 | data8[6] >> 7 << 6 | data8[7] >> 7 << 7 |
+        data8[8] >> 7 << 8 | data8[9] >> 7 << 9 | data8[10] >> 7 << 10 | data8[11] >> 7 << 11 |
+        data8[12] >> 7 << 12 | data8[13] >> 7 << 13 | data8[14] >> 7 << 14 | data8[15] >> 7 << 15;
+    cpu.write_g32(result);
+};
 
 t[0xD8] = cpu => {
     // psubusb mm, mm/m64
@@ -3759,7 +4133,28 @@ t[0xD9] = cpu => {
     cpu.write_mmx64s(low, high);
 };
 
-t[0xDA] = cpu => { cpu.unimplemented_sse(); };
+t[0xDA] = cpu => {
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    // pminub xmm, xmm/m128
+    let source = cpu.read_xmm_mem128s();
+    let source8 = new Uint8Array(source.buffer);
+
+    let destination = cpu.read_xmm128s();
+    let destination8 = new Uint8Array(destination.buffer);
+
+    let result = cpu.create_atom128s(0, 0, 0, 0);
+    let result8 = new Uint8Array(result.buffer);
+
+    for(let i = 0; i < 16; i++)
+    {
+        result8[i] = source8[i] < destination8[i] ? source8[i] : destination8[i];
+    }
+
+    cpu.write_xmm128s(result[0], result[1], result[2], result[3])
+};
 t[0xDB] = cpu => {
     // pand mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
@@ -3777,67 +4172,124 @@ t[0xDB] = cpu => {
 };
 
 t[0xDC] = cpu => {
-    // paddusb mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source64s = cpu.read_mmx_mem64s();
-    let source8 = new Uint8Array(source64s.buffer);
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // paddusb xmm, xmm/m128
+        let source = cpu.read_xmm_mem128s();
+        let source8 = new Uint8Array(source.buffer);
 
-    let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
-    let destination8 = cpu.reg_mmx8;
+        let destination = cpu.read_xmm128s();
+        let destination8 = new Uint8Array(destination.buffer);
 
-    let byte0 = cpu.saturate_ud_to_ub(destination8[reg_offset] + source8[0]);
-    let byte1 = cpu.saturate_ud_to_ub(destination8[reg_offset + 1] + source8[1]);
-    let byte2 = cpu.saturate_ud_to_ub(destination8[reg_offset + 2] + source8[2]);
-    let byte3 = cpu.saturate_ud_to_ub(destination8[reg_offset + 3] + source8[3]);
-    let byte4 = cpu.saturate_ud_to_ub(destination8[reg_offset + 4] + source8[4]);
-    let byte5 = cpu.saturate_ud_to_ub(destination8[reg_offset + 5] + source8[5]);
-    let byte6 = cpu.saturate_ud_to_ub(destination8[reg_offset + 6] + source8[6]);
-    let byte7 = cpu.saturate_ud_to_ub(destination8[reg_offset + 7] + source8[7]);
+        let result = cpu.create_atom128s(0, 0, 0, 0);
+        let result8 = new Uint8Array(result.buffer);
 
-    let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
-    let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+        for(let i = 0; i < 16; i++)
+        {
+            result8[i] = cpu.saturate_ud_to_ub(source8[i] + destination8[i]);
+        }
 
-    cpu.write_mmx64s(low, high);
+        cpu.write_xmm128s(result[0], result[1], result[2], result[3])
+    }
+    else
+    {
+        // paddusb mm, mm/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+        let source64s = cpu.read_mmx_mem64s();
+        let source8 = new Uint8Array(source64s.buffer);
+
+        let reg_offset = 8 * (cpu.modrm_byte >> 3 & 7);
+        let destination8 = cpu.reg_mmx8;
+
+        let byte0 = cpu.saturate_ud_to_ub(destination8[reg_offset] + source8[0]);
+        let byte1 = cpu.saturate_ud_to_ub(destination8[reg_offset + 1] + source8[1]);
+        let byte2 = cpu.saturate_ud_to_ub(destination8[reg_offset + 2] + source8[2]);
+        let byte3 = cpu.saturate_ud_to_ub(destination8[reg_offset + 3] + source8[3]);
+        let byte4 = cpu.saturate_ud_to_ub(destination8[reg_offset + 4] + source8[4]);
+        let byte5 = cpu.saturate_ud_to_ub(destination8[reg_offset + 5] + source8[5]);
+        let byte6 = cpu.saturate_ud_to_ub(destination8[reg_offset + 6] + source8[6]);
+        let byte7 = cpu.saturate_ud_to_ub(destination8[reg_offset + 7] + source8[7]);
+
+        let low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+        let high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+        cpu.write_mmx64s(low, high);
+    }
 };
 
 t[0xDD] = cpu => {
-    // paddusw mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source = cpu.read_mmx_mem64s();
-    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
-    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // paddusw mm, mm/m64
+        let source = cpu.read_xmm_mem128s();
+        let source16 = new Uint16Array(source.buffer);
 
-    let word0 = (destination_low & 0xFFFF) + (source[0] & 0xFFFF);
-    let word1 = (destination_low >>> 16) + (source[0] >>> 16);
-    if (word0 > 0xFFFF) {
-        word0 = 0xFFFF;
-    }
-    if (word1 > 0xFFFF) {
-        word1 = 0xFFFF;
-    }
+        let destination = cpu.read_xmm128s();
+        let destination16 = new Uint16Array(destination.buffer);
 
-    let word2 = (destination_high & 0xFFFF) + (source[1] & 0xFFFF);
-    let word3 = (destination_high >>> 16) + (source[1] >>> 16);
-    if (word2 > 0xFFFF) {
-        word2 = 0xFFFF;
+        cpu.write_xmm128s(
+            cpu.saturate_uw(source16[0] + destination16[0]) | cpu.saturate_uw(source16[1] + destination16[1]) << 16,
+            cpu.saturate_uw(source16[2] + destination16[2]) | cpu.saturate_uw(source16[3] + destination16[3]) << 16,
+            cpu.saturate_uw(source16[4] + destination16[4]) | cpu.saturate_uw(source16[5] + destination16[5]) << 16,
+            cpu.saturate_uw(source16[6] + destination16[6]) | cpu.saturate_uw(source16[7] + destination16[7]) << 16
+        );
     }
-    if (word3 > 0xFFFF) {
-        word3 = 0xFFFF;
+    else
+    {
+        // paddusw mm, mm/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+        let source = cpu.read_mmx_mem64s();
+        let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+        let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+        let word0 = cpu.saturate_uw((destination_low & 0xFFFF) + (source[0] & 0xFFFF));
+        let word1 = cpu.saturate_uw((destination_low >>> 16) + (source[0] >>> 16));
+        let word2 = cpu.saturate_uw((destination_high & 0xFFFF) + (source[1] & 0xFFFF));
+        let word3 = cpu.saturate_uw((destination_high >>> 16) + (source[1] >>> 16));
+
+        let low = word0 | word1 << 16;
+        let high = word2 | word3 << 16;
+
+        cpu.write_mmx64s(low, high);
     }
-
-    let low = word0 | word1 << 16;
-    let high = word2 | word3 << 16;
-
-    cpu.write_mmx64s(low, high);
 };
 
-t[0xDE] = cpu => { cpu.unimplemented_sse(); };
+t[0xDE] = cpu => {
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // pmaxub xmm, xmm/m128
+        let source = cpu.read_xmm_mem128s();
+        let source8 = new Uint8Array(source.buffer);
+
+        let destination = cpu.read_xmm128s();
+        let destination8 = new Uint8Array(destination.buffer);
+
+        let result = cpu.create_atom128s(0, 0, 0, 0);
+        let result8 = new Uint8Array(result.buffer);
+
+        for(let i = 0; i < 16; i++)
+        {
+            result8[i] = source8[i] > destination8[i] ? source8[i] : destination8[i];
+        }
+
+        cpu.write_xmm128s(result[0], result[1], result[2], result[3])
+    }
+    else
+    {
+        dbg_assert(false);
+    }
+};
 t[0xDF] = cpu => {
     // pandn mm, mm/m64
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
@@ -3904,7 +4356,25 @@ t[0xE2] = cpu => {
 };
 
 t[0xE3] = cpu => { cpu.unimplemented_sse(); };
-t[0xE4] = cpu => { cpu.unimplemented_sse(); };
+t[0xE4] = cpu => {
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    // pmulhuw xmm, xmm/m128
+    let source = cpu.read_xmm_mem128s();
+    let source16 = new Uint16Array(source.buffer);
+
+    let destination = cpu.read_xmm128s();
+    let destination16 = new Uint16Array(destination.buffer);
+
+    cpu.write_xmm128s(
+        source16[0] * destination16[0] >>> 16 | source16[1] * destination16[1] & 0xFFFF0000,
+        source16[2] * destination16[2] >>> 16 | source16[3] * destination16[3] & 0xFFFF0000,
+        source16[4] * destination16[4] >>> 16 | source16[5] * destination16[5] & 0xFFFF0000,
+        source16[6] * destination16[6] >>> 16 | source16[7] * destination16[7] & 0xFFFF0000
+    );
+};
 
 t[0xE5] = cpu => {
     // pmulhw mm, mm/m64
@@ -3928,7 +4398,26 @@ t[0xE5] = cpu => {
 };
 
 t[0xE6] = cpu => { cpu.unimplemented_sse(); };
-t[0xE7] = cpu => { cpu.unimplemented_sse(); };
+t[0xE7] = cpu => {
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    if(cpu.modrm_byte >= 0xC0)
+    {
+        cpu.trigger_ud();
+    }
+
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        let data = cpu.read_xmm128s();
+        let addr = cpu.modrm_resolve(cpu.modrm_byte);
+        cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
+    }
+    else
+    {
+        dbg_assert(false);
+    }
+};
 
 t[0xE8] = cpu => {
     // psubsb mm, mm/m64
@@ -3981,19 +4470,36 @@ t[0xE9] = cpu => {
 t[0xEA] = cpu => { cpu.unimplemented_sse(); };
 
 t[0xEB] = cpu => {
-    // por mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source = cpu.read_mmx_mem64s();
-    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
-    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66)
+    {
+        // por xmm, xmm/m128
+        let source = cpu.read_xmm_mem128s();
+        let destination = cpu.read_xmm128s();
 
-    let low = source[0] | destination_low;
-    let high = source[1] | destination_high;
+        cpu.write_xmm128s(
+            source[0] | destination[0],
+            source[1] | destination[1],
+            source[2] | destination[2],
+            source[3] | destination[3]
+        );
+    }
+    else
+    {
+        // por mm, mm/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
-    cpu.write_mmx64s(low, high);
+        let source = cpu.read_mmx_mem64s();
+        let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+        let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+        let low = source[0] | destination_low;
+        let high = source[1] | destination_high;
+
+        cpu.write_mmx64s(low, high);
+    }
 };
 
 t[0xEC] = cpu => {
@@ -4047,18 +4553,33 @@ t[0xED] = cpu => {
 t[0xEE] = cpu => { cpu.unimplemented_sse(); };
 t[0xEF] = cpu => {
     // pxor mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source = cpu.read_mmx_mem64s();
-    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
-    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        let source = cpu.read_xmm_mem128s();
+        let destination = cpu.read_xmm128s();
 
-    let low = source[0] ^ destination_low;
-    let high = source[1] ^ destination_high;
+        cpu.write_xmm128s(
+            source[0] ^ destination[0],
+            source[1] ^ destination[1],
+            source[2] ^ destination[2],
+            source[3] ^ destination[3]
+        );
+    }
+    else
+    {
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+        let source = cpu.read_mmx_mem64s();
+        let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+        let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
-    cpu.write_mmx64s(low, high);
+        let low = source[0] ^ destination_low;
+        let high = source[1] ^ destination_high;
+
+        cpu.write_mmx64s(low, high);
+    }
 };
 
 t[0xF0] = cpu => { cpu.unimplemented_sse(); };
@@ -4123,6 +4644,12 @@ t[0xF3] = cpu => {
     let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
 
     let shift = source[0] >>> 0;
+
+    if(shift === 0)
+    {
+        return;
+    }
+
     let low = 0;
     let high = 0;
 

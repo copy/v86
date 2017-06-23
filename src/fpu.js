@@ -373,11 +373,11 @@ FPU.prototype.fsave = function(addr)
 
     for(var i = 0; i < 8; i++)
     {
-        this.store_m80(addr, i);
+        this.store_m80(addr, this.st[this.stack_ptr + i & 7]);
         addr += 10;
     }
 
-    //dbg_log("save " + [].slice.call(this.st), LOG_FPU);
+    //dbg_log("save st=" + this.stack_ptr + " " + [].slice.call(this.st), LOG_FPU);
 
     this.finit();
 }
@@ -393,7 +393,7 @@ FPU.prototype.frstor = function(addr)
         addr += 10;
     }
 
-    //dbg_log("rstor " + [].slice.call(this.st), LOG_FPU);
+    //dbg_log("rstor st=" + this.stack_ptr + " " + [].slice.call(this.st), LOG_FPU);
 }
 
 FPU.prototype.fxtract = function()
@@ -554,9 +554,9 @@ FPU.prototype.load_m80 = function(addr)
     return mantissa * Math.pow(2, exponent - 63);
 }
 
-FPU.prototype.store_m80 = function(addr, i)
+FPU.prototype.store_m80 = function(addr, n)
 {
-    this.float64[0] = this.st[this.stack_ptr + i & 7];
+    this.float64[0] = n;
 
     var sign = this.float64_byte[7] & 0x80,
         exponent = (this.float64_byte[7] & 0x7f) << 4 | this.float64_byte[6] >> 4,
@@ -1209,7 +1209,7 @@ FPU.prototype.op_DB_mem = function(imm8, addr)
         case 7:
             // fstp
             this.cpu.writable_or_pagefault(addr, 10);
-            this.store_m80(addr, 0);
+            this.store_m80(addr, this.get_st0());
             this.pop();
             break;
         default:
