@@ -936,6 +936,7 @@ function insb(cpu)
     }
     else
     {
+        cpu.writable_or_pagefault(dest, 1);
         cpu.safe_write8(dest, cpu.io.port_read8(port));
         cpu.add_reg_asize(reg_edi, size);
     }
@@ -995,6 +996,7 @@ function insw(cpu)
     }
     else
     {
+        cpu.writable_or_pagefault(dest, 2);
         cpu.safe_write16(dest, cpu.io.port_read16(port));
         cpu.add_reg_asize(reg_edi, size);
     }
@@ -1054,6 +1056,7 @@ function insd(cpu)
     }
     else
     {
+        cpu.writable_or_pagefault(dest, 4);
         cpu.safe_write32(dest, cpu.io.port_read32(port));
         cpu.add_reg_asize(reg_edi, size);
     }
