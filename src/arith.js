@@ -1336,7 +1336,15 @@ CPU.prototype.shld32 = function(dest_operand, source_operand, count)
     this.last_op_size = OPSIZE_32;
     this.flags_changed = flags_all & ~1 & ~flag_overflow;
     this.flags = (this.flags & ~1) | (dest_operand >>> (32 - count) & 1);
-    this.flags = (this.flags & ~flag_overflow) | ((this.flags & 1) ^ (this.last_result >> 31 & 1)) << 11;
+
+    if(count === 1)
+    {
+        this.flags = (this.flags & ~flag_overflow) | ((this.flags & 1) ^ (this.last_result >> 31 & 1)) << 11;
+    }
+    else
+    {
+        this.flags &= ~flag_overflow;
+    }
 
     return this.last_result;
 }
@@ -1428,6 +1436,7 @@ CPU.prototype.bsf16 = function(old, bit_base)
     if(bit_base === 0)
     {
         this.flags |= flag_zero;
+        this.last_result = bit_base;
 
         // not defined in the docs, but value doesn't change on my intel machine
         return old;
@@ -1449,7 +1458,7 @@ CPU.prototype.bsf32 = function(old, bit_base)
     if(bit_base === 0)
     {
         this.flags |= flag_zero;
-
+        this.last_result = bit_base;
         return old;
     }
     else
@@ -1468,6 +1477,7 @@ CPU.prototype.bsr16 = function(old, bit_base)
     if(bit_base === 0)
     {
         this.flags |= flag_zero;
+        this.last_result = bit_base;
         return old;
     }
     else
@@ -1486,6 +1496,7 @@ CPU.prototype.bsr32 = function(old, bit_base)
     if(bit_base === 0)
     {
         this.flags |= flag_zero;
+        this.last_result = bit_base;
         return old;
     }
     else
