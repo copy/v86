@@ -225,7 +225,8 @@ CPU.prototype.save_state = function()
     for(var i = 0; i < saved_buffers.length; i++)
     {
         var buffer = saved_buffers[i];
-        buffer_block.set(new Uint8Array(buffer), buffer_infos[i].offset);
+        dbg_assert(buffer.constructor === Uint8Array);
+        buffer_block.set(buffer, buffer_infos[i].offset);
     }
 
     return result;
