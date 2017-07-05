@@ -130,7 +130,7 @@ CPU.prototype.debug_init = function()
 
         cpu.running = false;
         var a = parseInt(prompt("input hex", ""), 16);
-        if(a) while(cpu.instruction_pointer != a) step();
+        if(a) while(cpu.instruction_pointer[0] != a) step();
     }
 
     // http://ref.x86asm.net/x86reference.xml
@@ -215,15 +215,17 @@ CPU.prototype.debug_init = function()
 
     function get_state(where)
     {
-        var vm = (cpu.flags & flag_vm) ? 1 : 0;
-        var mode = cpu.protected_mode ? vm ? "vm86" : "prot" : "real";
+        if(!DEBUG) return;
+
+        var mode = cpu.protected_mode[0] ? "prot" : "real";
+        var vm = (cpu.flags[0] & flag_vm) ? 1 : 0;
         var flags = cpu.get_eflags();
         var iopl = cpu.getiopl();
-        var cpl = cpu.cpl;
+        var cpl = cpu.cpl[0];
         var cs_eip = h(cpu.sreg[reg_cs], 4) + ":" + h(cpu.get_real_eip() >>> 0, 8);
         var ss_esp = h(cpu.sreg[reg_ss], 4) + ":" + h(cpu.get_stack_reg() >>> 0, 8);
-        var op_size = cpu.is_32 ? "32" : "16";
-        var if_ = (cpu.flags & flag_interrupt) ? 1 : 0;
+        var op_size = cpu.is_32[0] ? "32" : "16";
+        var if_ = (cpu.flags[0] & flag_interrupt) ? 1 : 0;
 
         var flag_names = {
             [flag_carry]: "c",
@@ -253,12 +255,12 @@ CPU.prototype.debug_init = function()
             }
         }
 
-        return ("mode=" + mode + "/" + op_size + " paging=" + (+cpu.paging) +
+        return ("mode=" + mode + "/" + op_size + " paging=" + (+cpu.paging[0]) +
                 " iopl=" + iopl + " cpl=" + cpl + " if=" + if_ + " cs:eip=" + cs_eip +
                 " cs_off=" + h(cpu.get_seg(reg_cs) >>> 0, 8) +
                 " flgs=" + h(cpu.get_eflags() >>> 0, 6) + " (" + flag_string + ")" +
                 " ss:esp=" + ss_esp +
-                " ssize=" + (+cpu.stack_size_32) +
+                " ssize=" + (+cpu.stack_size_32[0]) +
                 (where ? " in " + where : ""));
     }
 
@@ -357,8 +359,8 @@ CPU.prototype.debug_init = function()
     {
         if(!DEBUG) return;
 
-        dbg_log("gdt: (len = " + h(cpu.gdtr_size) + ")");
-        dump_table(cpu.translate_address_system_read(cpu.gdtr_offset), cpu.gdtr_size);
+        dbg_log("gdt: (len = " + h(cpu.gdtr_size[0]) + ")");
+        dump_table(cpu.translate_address_system_read(cpu.gdtr_offset[0]), cpu.gdtr_size[0]);
 
         dbg_log("\nldt: (len = " + h(cpu.segment_limits[reg_ldtr]) + ")");
         dump_table(cpu.translate_address_system_read(cpu.segment_offsets[reg_ldtr]), cpu.segment_limits[reg_ldtr]);
@@ -439,9 +441,9 @@ CPU.prototype.debug_init = function()
     {
         if(!DEBUG) return;
 
-        for(var i = 0; i < cpu.idtr_size; i += 8)
+        for(var i = 0; i < cpu.idtr_size[0]; i += 8)
         {
-            var addr = cpu.translate_address_system_read(cpu.idtr_offset + i),
+            var addr = cpu.translate_address_system_read(cpu.idtr_offset[0] + i),
                 base = cpu.read16(addr) | cpu.read16(addr + 6) << 16,
                 selector = cpu.read16(addr + 2),
                 type = cpu.read8(addr + 5),
@@ -583,7 +585,7 @@ CPU.prototype.debug_init = function()
         if(start === undefined)
         {
             start = 0;
-            count = cpu.memory_size;
+            count = cpu.memory_size[0];
         }
         else if(count === undefined)
         {
@@ -630,7 +632,7 @@ CPU.prototype.debug_init = function()
 
         var width = 0x80,
             height = 0x10,
-            block_size = cpu.memory_size / width / height | 0,
+            block_size = cpu.memory_size[0] / width / height | 0,
             row;
 
         for(var i = 0; i < height; i++)

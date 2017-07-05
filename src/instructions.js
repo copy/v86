@@ -230,9 +230,9 @@ t[0x62] = cpu => {
 t[0x63] = cpu => { cpu.read_modrm_byte();
     // arpl
     //dbg_log("arpl", LOG_CPU);
-    if(cpu.protected_mode && !cpu.vm86_mode())
+    if(cpu.protected_mode[0] && !cpu.vm86_mode())
     {
-        cpu.write_e16(cpu.arpl(cpu.read_write_e16(), cpu.modrm_byte >> 2 & 14));
+        cpu.write_e16(cpu.arpl(cpu.read_write_e16(), cpu.modrm_byte[0] >> 2 & 14));
     }
     else
     {
@@ -246,18 +246,18 @@ t[0x65] = cpu => { cpu.segment_prefix_op(reg_gs); };
 
 t[0x66] = cpu => {
     // Operand-size override prefix
-    cpu.prefixes |= PREFIX_MASK_OPSIZE;
+    cpu.prefixes[0] |= PREFIX_MASK_OPSIZE;
     cpu.run_prefix_instruction();
-    cpu.prefixes = 0;
+    cpu.prefixes[0] = 0;
 };
 
 t[0x67] = cpu => {
     // Address-size override prefix
-    dbg_assert(cpu.is_asize_32() === cpu.is_32);
+    dbg_assert(cpu.is_asize_32() === Boolean(cpu.is_32[0]));
 
-    cpu.prefixes |= PREFIX_MASK_ADDRSIZE;
+    cpu.prefixes[0] |= PREFIX_MASK_ADDRSIZE;
     cpu.run_prefix_instruction();
-    cpu.prefixes = 0;
+    cpu.prefixes[0] = 0;
 };
 
 t16[0x68] = cpu => { cpu.push16(cpu.read_op16()); };
@@ -305,7 +305,7 @@ t[0x7E] = cpu => { cpu.jmpcc8( cpu.test_le()); };
 t[0x7F] = cpu => { cpu.jmpcc8(!cpu.test_le()); };
 
 t[0x80] = cpu => { cpu.read_modrm_byte();
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: cpu.write_e8(cpu.add8(cpu.read_write_e8(), cpu.read_op8())); break;
         case 1: cpu.write_e8(cpu. or8(cpu.read_write_e8(), cpu.read_op8())); break;
@@ -318,7 +318,7 @@ t[0x80] = cpu => { cpu.read_modrm_byte();
     }
 };
 t16[0x81] = cpu => { cpu.read_modrm_byte();
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: cpu.write_e16(cpu.add16(cpu.read_write_e16(), cpu.read_op16())); break;
         case 1: cpu.write_e16(cpu. or16(cpu.read_write_e16(), cpu.read_op16())); break;
@@ -331,7 +331,7 @@ t16[0x81] = cpu => { cpu.read_modrm_byte();
     }
 };
 t32[0x81] = cpu => { cpu.read_modrm_byte();
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: cpu.write_e32(cpu.add32(cpu.read_write_e32(), cpu.read_op32s())); break;
         case 1: cpu.write_e32(cpu. or32(cpu.read_write_e32(), cpu.read_op32s())); break;
@@ -345,7 +345,7 @@ t32[0x81] = cpu => { cpu.read_modrm_byte();
 };
 t[0x82] = t[0x80]; // alias
 t16[0x83] = cpu => { cpu.read_modrm_byte();
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: cpu.write_e16(cpu.add16(cpu.read_write_e16(), cpu.read_op8s())); break;
         case 1: cpu.write_e16(cpu. or16(cpu.read_write_e16(), cpu.read_op8s())); break;
@@ -358,7 +358,7 @@ t16[0x83] = cpu => { cpu.read_modrm_byte();
     }
 };
 t32[0x83] = cpu => { cpu.read_modrm_byte();
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: cpu.write_e32(cpu.add32(cpu.read_write_e32(), cpu.read_op8s())); break;
         case 1: cpu.write_e32(cpu. or32(cpu.read_write_e32(), cpu.read_op8s())); break;
@@ -376,12 +376,12 @@ t16[0x85] = cpu => { cpu.read_modrm_byte(); var data = cpu.read_e16(); cpu.test1
 t32[0x85] = cpu => { cpu.read_modrm_byte(); var data = cpu.read_e32s(); cpu.test32(data, cpu.read_g32s()); }
 
 
-t[0x86] = cpu => { cpu.read_modrm_byte(); var data = cpu.read_write_e8(); cpu.write_e8(cpu.xchg8(data, cpu.modrm_byte)); };
+t[0x86] = cpu => { cpu.read_modrm_byte(); var data = cpu.read_write_e8(); cpu.write_e8(cpu.xchg8(data, cpu.modrm_byte[0])); };
 t16[0x87] = cpu => { cpu.read_modrm_byte();
-    var data = cpu.read_write_e16(); cpu.write_e16(cpu.xchg16(data, cpu.modrm_byte));
+    var data = cpu.read_write_e16(); cpu.write_e16(cpu.xchg16(data, cpu.modrm_byte[0]));
 };
 t32[0x87] = cpu => { cpu.read_modrm_byte();
-    var data = cpu.read_write_e32(); cpu.write_e32(cpu.xchg32(data, cpu.modrm_byte));
+    var data = cpu.read_write_e32(); cpu.write_e32(cpu.xchg32(data, cpu.modrm_byte[0]));
 };
 
 t[0x88] = cpu => { cpu.read_modrm_byte(); cpu.set_e8(cpu.read_g8()); };
@@ -402,41 +402,41 @@ t32[0x8B] = cpu => { cpu.read_modrm_byte();
 };
 
 t16[0x8C] = cpu => { cpu.read_modrm_byte();
-    cpu.set_e16(cpu.sreg[cpu.modrm_byte >> 3 & 7]);
+    cpu.set_e16(cpu.sreg[cpu.modrm_byte[0] >> 3 & 7]);
 };
 t32[0x8C] = cpu => { cpu.read_modrm_byte();
-    cpu.set_e32(cpu.sreg[cpu.modrm_byte >> 3 & 7]);
+    cpu.set_e32(cpu.sreg[cpu.modrm_byte[0] >> 3 & 7]);
 };
 
 t16[0x8D] = cpu => { cpu.read_modrm_byte();
     // lea
-    if(cpu.modrm_byte >= 0xC0)
+    if(cpu.modrm_byte[0] >= 0xC0)
     {
         dbg_log("lea #ud", LOG_CPU);
         cpu.trigger_ud();
     }
-    var mod = cpu.modrm_byte >> 3 & 7;
+    var mod = cpu.modrm_byte[0] >> 3 & 7;
 
     // override prefix, so modrm_resolve does not return the segment part
-    cpu.prefixes |= SEG_PREFIX_ZERO;
-    cpu.reg16[mod << 1] = cpu.modrm_resolve(cpu.modrm_byte);
-    cpu.prefixes = 0;
+    cpu.prefixes[0] |= SEG_PREFIX_ZERO;
+    cpu.reg16[mod << 1] = cpu.modrm_resolve(cpu.modrm_byte[0]);
+    cpu.prefixes[0] = 0;
 };
 t32[0x8D] = cpu => { cpu.read_modrm_byte();
-    if(cpu.modrm_byte >= 0xC0)
+    if(cpu.modrm_byte[0] >= 0xC0)
     {
         dbg_log("lea #ud", LOG_CPU);
         cpu.trigger_ud();
     }
-    var mod = cpu.modrm_byte >> 3 & 7;
+    var mod = cpu.modrm_byte[0] >> 3 & 7;
 
-    cpu.prefixes |= SEG_PREFIX_ZERO;
-    cpu.reg32s[mod] = cpu.modrm_resolve(cpu.modrm_byte);
-    cpu.prefixes = 0;
+    cpu.prefixes[0] |= SEG_PREFIX_ZERO;
+    cpu.reg32s[mod] = cpu.modrm_resolve(cpu.modrm_byte[0]);
+    cpu.prefixes[0] = 0;
 };
 
 t[0x8E] = cpu => { cpu.read_modrm_byte();
-    var mod = cpu.modrm_byte >> 3 & 7;
+    var mod = cpu.modrm_byte[0] >> 3 & 7;
     var data = cpu.read_e16();
     cpu.switch_seg(mod, data);
 
@@ -454,8 +454,8 @@ t16[0x8F] = cpu => { cpu.read_modrm_byte();
 
     cpu.adjust_stack_reg(2);
 
-    if(cpu.modrm_byte < 0xC0) {
-        var addr = cpu.modrm_resolve(cpu.modrm_byte);
+    if(cpu.modrm_byte[0] < 0xC0) {
+        var addr = cpu.modrm_resolve(cpu.modrm_byte[0]);
         cpu.adjust_stack_reg(-2);
         cpu.safe_write16(addr, sp);
         cpu.adjust_stack_reg(2);
@@ -469,8 +469,8 @@ t32[0x8F] = cpu => { cpu.read_modrm_byte();
     // change esp first, then resolve modrm address
     cpu.adjust_stack_reg(4);
 
-    if(cpu.modrm_byte < 0xC0) {
-        var addr = cpu.modrm_resolve(cpu.modrm_byte);
+    if(cpu.modrm_byte[0] < 0xC0) {
+        var addr = cpu.modrm_resolve(cpu.modrm_byte[0]);
 
         // Before attempting a write that might cause a page fault,
         // we must set esp to the old value. Fuck Intel.
@@ -516,7 +516,7 @@ t32[0x9A] = cpu => {
     var new_ip = cpu.read_op32s();
     var new_cs = cpu.read_disp16();
 
-    if(!cpu.protected_mode || cpu.vm86_mode())
+    if(!cpu.protected_mode[0] || cpu.vm86_mode())
     {
         if(new_ip & 0xFFFF0000)
         {
@@ -551,9 +551,9 @@ t[0x9B] = cpu => {
 };
 t16[0x9C] = cpu => {
     // pushf
-    if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
+    if((cpu.flags[0] & flag_vm) && cpu.getiopl() < 3)
     {
-        dbg_assert(cpu.protected_mode);
+        dbg_assert(cpu.protected_mode[0]);
         dbg_log("pushf #gp", LOG_CPU);
         cpu.trigger_gp(0);
     }
@@ -564,10 +564,10 @@ t16[0x9C] = cpu => {
 };
 t32[0x9C] = cpu => {
     // pushf
-    if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
+    if((cpu.flags[0] & flag_vm) && cpu.getiopl() < 3)
     {
         // trap to virtual 8086 monitor
-        dbg_assert(cpu.protected_mode);
+        dbg_assert(cpu.protected_mode[0]);
         dbg_log("pushf #gp", LOG_CPU);
         cpu.trigger_gp(0);
     }
@@ -579,20 +579,20 @@ t32[0x9C] = cpu => {
 };
 t16[0x9D] = cpu => {
     // popf
-    if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
+    if((cpu.flags[0] & flag_vm) && cpu.getiopl() < 3)
     {
         dbg_log("popf #gp", LOG_CPU);
         cpu.trigger_gp(0);
     }
 
-    cpu.update_eflags((cpu.flags & ~0xFFFF) | cpu.pop16());
+    cpu.update_eflags((cpu.flags[0] & ~0xFFFF) | cpu.pop16());
 
-    if(cpu.flags & flag_trap)
+    if(cpu.flags[0] & flag_trap)
     {
         // XXX: Problems with fdgame
         //cpu.clear_prefixes();
         //cpu.cycle_internal();
-        cpu.flags &= ~flag_trap;
+        cpu.flags[0] &= ~flag_trap;
         //cpu.instruction_pointer = cpu.previous_ip;
         //cpu.raise_exception(1);
     }
@@ -603,7 +603,7 @@ t16[0x9D] = cpu => {
 };
 t32[0x9D] = cpu => {
     // popf
-    if((cpu.flags & flag_vm) && cpu.getiopl() < 3)
+    if((cpu.flags[0] & flag_vm) && cpu.getiopl() < 3)
     {
         dbg_log("popf #gp", LOG_CPU);
         cpu.trigger_gp(0);
@@ -614,9 +614,9 @@ t32[0x9D] = cpu => {
 };
 t[0x9E] = cpu => {
     // sahf
-    cpu.flags = (cpu.flags & ~0xFF) | cpu.reg8[reg_ah];
-    cpu.flags = (cpu.flags & flags_mask) | flags_default;
-    cpu.flags_changed = 0;
+    cpu.flags[0] = (cpu.flags[0] & ~0xFF) | cpu.reg8[reg_ah];
+    cpu.flags[0] = (cpu.flags[0] & flags_mask) | flags_default;
+    cpu.flags_changed[0] = 0;
 };
 t[0x9F] = cpu => {
     // lahf
@@ -708,7 +708,7 @@ t[0xC0] = cpu => { cpu.read_modrm_byte();
     var op1 = cpu.read_write_e8();
     var op2 = cpu.read_op8() & 31;
     var result = 0;
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: result = cpu.rol8(op1, op2); break;
         case 1: result = cpu.ror8(op1, op2); break;
@@ -725,7 +725,7 @@ t16[0xC1] = cpu => { cpu.read_modrm_byte();
     var op1 = cpu.read_write_e16();
     var op2 = cpu.read_op8() & 31;
     var result = 0;
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: result = cpu.rol16(op1, op2); break;
         case 1: result = cpu.ror16(op1, op2); break;
@@ -742,7 +742,7 @@ t32[0xC1] = cpu => { cpu.read_modrm_byte();
     var op1 = cpu.read_write_e32();
     var op2 = cpu.read_op8() & 31;
     var result = 0;
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: result = cpu.rol32(op1, op2); break;
         case 1: result = cpu.ror32(op1, op2); break;
@@ -760,7 +760,7 @@ t16[0xC2] = cpu => {
     // retn
     var imm16 = cpu.read_op16();
 
-    cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop16() | 0;
+    cpu.instruction_pointer[0] = cpu.get_seg(reg_cs) + cpu.pop16() | 0;
     dbg_assert(cpu.is_asize_32() || cpu.get_real_eip() < 0x10000);
     cpu.adjust_stack_reg(imm16);
     cpu.diverged();
@@ -771,20 +771,20 @@ t32[0xC2] = cpu => {
     var ip = cpu.pop32s();
 
     dbg_assert(cpu.is_asize_32() || ip < 0x10000);
-    cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
+    cpu.instruction_pointer[0] = cpu.get_seg(reg_cs) + ip | 0;
     cpu.adjust_stack_reg(imm16);
     cpu.diverged();
 };
 t16[0xC3] = cpu => {
     // retn
-    cpu.instruction_pointer = cpu.get_seg(reg_cs) + cpu.pop16() | 0;
+    cpu.instruction_pointer[0] = cpu.get_seg(reg_cs) + cpu.pop16() | 0;
     cpu.diverged();
 };
 t32[0xC3] = cpu => {
     // retn
     var ip = cpu.pop32s();
     dbg_assert(cpu.is_asize_32() || ip < 0x10000);
-    cpu.instruction_pointer = cpu.get_seg(reg_cs) + ip | 0;
+    cpu.instruction_pointer[0] = cpu.get_seg(reg_cs) + ip | 0;
     cpu.diverged();
 };
 
@@ -802,24 +802,24 @@ t32[0xC5] = cpu => { cpu.read_modrm_byte();
 };
 
 t[0xC6] = cpu => { cpu.read_modrm_byte();
-    if(cpu.modrm_byte < 0xC0) {
-        cpu.safe_write8(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_op8());
+    if(cpu.modrm_byte[0] < 0xC0) {
+        cpu.safe_write8(cpu.modrm_resolve(cpu.modrm_byte[0]), cpu.read_op8());
     } else {
-        cpu.reg8[cpu.modrm_byte << 2 & 0xC | cpu.modrm_byte >> 2 & 1] = cpu.read_op8();
+        cpu.reg8[cpu.modrm_byte[0] << 2 & 0xC | cpu.modrm_byte[0] >> 2 & 1] = cpu.read_op8();
     }
 }
 t16[0xC7] = cpu => { cpu.read_modrm_byte();
-    if(cpu.modrm_byte < 0xC0) {
-        cpu.safe_write16(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_op16());
+    if(cpu.modrm_byte[0] < 0xC0) {
+        cpu.safe_write16(cpu.modrm_resolve(cpu.modrm_byte[0]), cpu.read_op16());
     } else {
-        cpu.reg16[cpu.modrm_byte << 1 & 14] = cpu.read_op16();
+        cpu.reg16[cpu.modrm_byte[0] << 1 & 14] = cpu.read_op16();
     }
 };
 t32[0xC7] = cpu => { cpu.read_modrm_byte();
-    if(cpu.modrm_byte < 0xC0) {
-        cpu.safe_write32(cpu.modrm_resolve(cpu.modrm_byte), cpu.read_op32s());
+    if(cpu.modrm_byte[0] < 0xC0) {
+        cpu.safe_write32(cpu.modrm_resolve(cpu.modrm_byte[0]), cpu.read_op32s());
     } else {
-        cpu.reg32s[cpu.modrm_byte & 7] = cpu.read_op32s();
+        cpu.reg32s[cpu.modrm_byte[0] & 7] = cpu.read_op32s();
     }
 }
 
@@ -827,13 +827,13 @@ t16[0xC8] = cpu => { cpu.enter16(cpu.read_op16(), cpu.read_disp8()); };
 t32[0xC8] = cpu => { cpu.enter32(cpu.read_op16(), cpu.read_disp8()); };
 t16[0xC9] = cpu => {
     // leave
-    var old_vbp = cpu.stack_size_32 ? cpu.reg32s[reg_ebp] : cpu.reg16[reg_bp];
+    var old_vbp = cpu.stack_size_32[0] ? cpu.reg32s[reg_ebp] : cpu.reg16[reg_bp];
     var new_bp = cpu.safe_read16(cpu.get_seg(reg_ss) + old_vbp | 0);
     cpu.set_stack_reg(old_vbp + 2 | 0);
     cpu.reg16[reg_bp] = new_bp;
 };
 t32[0xC9] = cpu => {
-    var old_vbp = cpu.stack_size_32 ? cpu.reg32s[reg_ebp] : cpu.reg16[reg_bp];
+    var old_vbp = cpu.stack_size_32[0] ? cpu.reg32s[reg_ebp] : cpu.reg16[reg_bp];
     var new_ebp = cpu.safe_read32s(cpu.get_seg(reg_ss) + old_vbp | 0);
     cpu.set_stack_reg(old_vbp + 4 | 0);
     cpu.reg32s[reg_ebp] = new_ebp;
@@ -880,13 +880,13 @@ t[0xCC] = cpu => {
     // INT3
     // TODO: inhibit iopl checks
     dbg_log("INT3", LOG_CPU);
-    cpu.call_interrupt_vector(3, true, false);
+    cpu.call_interrupt_vector(3, true, false, 0);
     cpu.diverged();
 };
 t[0xCD] = cpu => {
     // INT
     var imm8 = cpu.read_op8();
-    cpu.call_interrupt_vector(imm8, true, false);
+    cpu.call_interrupt_vector(imm8, true, false, 0);
     cpu.diverged();
 };
 t[0xCE] = cpu => {
@@ -895,7 +895,7 @@ t[0xCE] = cpu => {
     if(cpu.getof())
     {
         // TODO: inhibit iopl checks
-        cpu.call_interrupt_vector(4, true, false);
+        cpu.call_interrupt_vector(4, true, false, 0);
     }
     cpu.diverged();
 };
@@ -913,7 +913,7 @@ t32[0xCF] = cpu => {
 t[0xD0] = cpu => { cpu.read_modrm_byte();
     var op1 = cpu.read_write_e8();
     var result = 0;
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: result = cpu.rol8(op1, 1); break;
         case 1: result = cpu.ror8(op1, 1); break;
@@ -929,7 +929,7 @@ t[0xD0] = cpu => { cpu.read_modrm_byte();
 t16[0xD1] = cpu => { cpu.read_modrm_byte();
     var op1 = cpu.read_write_e16();
     var result = 0;
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: result = cpu.rol16(op1, 1); break;
         case 1: result = cpu.ror16(op1, 1); break;
@@ -945,7 +945,7 @@ t16[0xD1] = cpu => { cpu.read_modrm_byte();
 t32[0xD1] = cpu => { cpu.read_modrm_byte();
     var op1 = cpu.read_write_e32();
     var result = 0;
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: result = cpu.rol32(op1, 1); break;
         case 1: result = cpu.ror32(op1, 1); break;
@@ -963,7 +963,7 @@ t[0xD2] = cpu => { cpu.read_modrm_byte();
     var op1 = cpu.read_write_e8();
     var op2 = cpu.reg8[reg_cl] & 31;
     var result = 0;
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: result = cpu.rol8(op1, op2); break;
         case 1: result = cpu.ror8(op1, op2); break;
@@ -980,7 +980,7 @@ t16[0xD3] = cpu => { cpu.read_modrm_byte();
     var op1 = cpu.read_write_e16();
     var op2 = cpu.reg8[reg_cl] & 31;
     var result = 0;
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: result = cpu.rol16(op1, op2); break;
         case 1: result = cpu.ror16(op1, op2); break;
@@ -997,7 +997,7 @@ t32[0xD3] = cpu => { cpu.read_modrm_byte();
     var op1 = cpu.read_write_e32();
     var op2 = cpu.reg8[reg_cl] & 31;
     var result = 0;
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0: result = cpu.rol32(op1, op2); break;
         case 1: result = cpu.ror32(op1, op2); break;
@@ -1036,59 +1036,59 @@ t[0xD7] = cpu => {
 
 t[0xD8] = cpu => { cpu.read_modrm_byte();
     cpu.task_switch_test();
-    if(cpu.modrm_byte < 0xC0)
-        cpu.fpu.op_D8_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
+    if(cpu.modrm_byte[0] < 0xC0)
+        cpu.fpu.op_D8_mem(cpu.modrm_byte[0], cpu.modrm_resolve(cpu.modrm_byte[0]));
     else
-        cpu.fpu.op_D8_reg(cpu.modrm_byte);
+        cpu.fpu.op_D8_reg(cpu.modrm_byte[0]);
 };
 t[0xD9] = cpu => { cpu.read_modrm_byte();
     cpu.task_switch_test();
-    if(cpu.modrm_byte < 0xC0)
-        cpu.fpu.op_D9_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
+    if(cpu.modrm_byte[0] < 0xC0)
+        cpu.fpu.op_D9_mem(cpu.modrm_byte[0], cpu.modrm_resolve(cpu.modrm_byte[0]));
     else
-        cpu.fpu.op_D9_reg(cpu.modrm_byte);
+        cpu.fpu.op_D9_reg(cpu.modrm_byte[0]);
 };
 t[0xDA] = cpu => { cpu.read_modrm_byte();
     cpu.task_switch_test();
-    if(cpu.modrm_byte < 0xC0)
-        cpu.fpu.op_DA_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
+    if(cpu.modrm_byte[0] < 0xC0)
+        cpu.fpu.op_DA_mem(cpu.modrm_byte[0], cpu.modrm_resolve(cpu.modrm_byte[0]));
     else
-        cpu.fpu.op_DA_reg(cpu.modrm_byte);
+        cpu.fpu.op_DA_reg(cpu.modrm_byte[0]);
 };
 t[0xDB] = cpu => { cpu.read_modrm_byte();
     cpu.task_switch_test();
-    if(cpu.modrm_byte < 0xC0)
-        cpu.fpu.op_DB_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
+    if(cpu.modrm_byte[0] < 0xC0)
+        cpu.fpu.op_DB_mem(cpu.modrm_byte[0], cpu.modrm_resolve(cpu.modrm_byte[0]));
     else
-        cpu.fpu.op_DB_reg(cpu.modrm_byte);
+        cpu.fpu.op_DB_reg(cpu.modrm_byte[0]);
 };
 t[0xDC] = cpu => { cpu.read_modrm_byte();
     cpu.task_switch_test();
-    if(cpu.modrm_byte < 0xC0)
-        cpu.fpu.op_DC_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
+    if(cpu.modrm_byte[0] < 0xC0)
+        cpu.fpu.op_DC_mem(cpu.modrm_byte[0], cpu.modrm_resolve(cpu.modrm_byte[0]));
     else
-        cpu.fpu.op_DC_reg(cpu.modrm_byte);
+        cpu.fpu.op_DC_reg(cpu.modrm_byte[0]);
 };
 t[0xDD] = cpu => { cpu.read_modrm_byte();
     cpu.task_switch_test();
-    if(cpu.modrm_byte < 0xC0)
-        cpu.fpu.op_DD_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
+    if(cpu.modrm_byte[0] < 0xC0)
+        cpu.fpu.op_DD_mem(cpu.modrm_byte[0], cpu.modrm_resolve(cpu.modrm_byte[0]));
     else
-        cpu.fpu.op_DD_reg(cpu.modrm_byte);
+        cpu.fpu.op_DD_reg(cpu.modrm_byte[0]);
 };
 t[0xDE] = cpu => { cpu.read_modrm_byte();
     cpu.task_switch_test();
-    if(cpu.modrm_byte < 0xC0)
-        cpu.fpu.op_DE_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
+    if(cpu.modrm_byte[0] < 0xC0)
+        cpu.fpu.op_DE_mem(cpu.modrm_byte[0], cpu.modrm_resolve(cpu.modrm_byte[0]));
     else
-        cpu.fpu.op_DE_reg(cpu.modrm_byte);
+        cpu.fpu.op_DE_reg(cpu.modrm_byte[0]);
 };
 t[0xDF] = cpu => { cpu.read_modrm_byte();
     cpu.task_switch_test();
-    if(cpu.modrm_byte < 0xC0)
-        cpu.fpu.op_DF_mem(cpu.modrm_byte, cpu.modrm_resolve(cpu.modrm_byte));
+    if(cpu.modrm_byte[0] < 0xC0)
+        cpu.fpu.op_DF_mem(cpu.modrm_byte[0], cpu.modrm_resolve(cpu.modrm_byte[0]));
     else
-        cpu.fpu.op_DF_reg(cpu.modrm_byte);
+        cpu.fpu.op_DF_reg(cpu.modrm_byte[0]);
 };
 
 t[0xE0] = cpu => { cpu.loopne(cpu.read_op8s()); };
@@ -1146,7 +1146,7 @@ t32[0xE8] = cpu => {
     var imm32s = cpu.read_op32s();
     cpu.push32(cpu.get_real_eip());
 
-    cpu.instruction_pointer = cpu.instruction_pointer + imm32s | 0;
+    cpu.instruction_pointer[0] = cpu.instruction_pointer[0] + imm32s | 0;
     dbg_assert(cpu.is_asize_32() || cpu.get_real_eip() < 0x10000);
     cpu.diverged();
 };
@@ -1159,7 +1159,7 @@ t16[0xE9] = cpu => {
 t32[0xE9] = cpu => {
     // jmp
     var imm32s = cpu.read_op32s();
-    cpu.instruction_pointer = cpu.instruction_pointer + imm32s | 0;
+    cpu.instruction_pointer[0] = cpu.instruction_pointer[0] + imm32s | 0;
     dbg_assert(cpu.is_asize_32() || cpu.get_real_eip() < 0x10000);
     cpu.diverged();
 };
@@ -1182,7 +1182,7 @@ t32[0xEA] = cpu => {
 t[0xEB] = cpu => {
     // jmp near
     var imm8 = cpu.read_op8s();
-    cpu.instruction_pointer = cpu.instruction_pointer + imm8 | 0;
+    cpu.instruction_pointer[0] = cpu.instruction_pointer[0] + imm8 | 0;
     dbg_assert(cpu.is_asize_32() || cpu.get_real_eip() < 0x10000);
     cpu.diverged();
 };
@@ -1241,17 +1241,17 @@ t[0xF1] = cpu => {
 
 t[0xF2] = cpu => {
     // repnz
-    dbg_assert((cpu.prefixes & PREFIX_MASK_REP) === 0);
-    cpu.prefixes |= PREFIX_REPNZ;
+    dbg_assert((cpu.prefixes[0] & PREFIX_MASK_REP) === 0);
+    cpu.prefixes[0] |= PREFIX_REPNZ;
     cpu.run_prefix_instruction();
-    cpu.prefixes = 0;
+    cpu.prefixes[0] = 0;
 };
 t[0xF3] = cpu => {
     // repz
-    dbg_assert((cpu.prefixes & PREFIX_MASK_REP) === 0);
-    cpu.prefixes |= PREFIX_REPZ;
+    dbg_assert((cpu.prefixes[0] & PREFIX_MASK_REP) === 0);
+    cpu.prefixes[0] |= PREFIX_REPZ;
     cpu.run_prefix_instruction();
-    cpu.prefixes = 0;
+    cpu.prefixes[0] = 0;
 };
 
 t[0xF4] = cpu => {
@@ -1260,12 +1260,12 @@ t[0xF4] = cpu => {
 
 t[0xF5] = cpu => {
     // cmc
-    cpu.flags = (cpu.flags | 1) ^ cpu.getcf();
-    cpu.flags_changed &= ~1;
+    cpu.flags[0] = (cpu.flags[0] | 1) ^ cpu.getcf();
+    cpu.flags_changed[0] &= ~1;
 };
 
 t[0xF6] = cpu => { cpu.read_modrm_byte();
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0:
             var data = cpu.read_e8(); cpu.test8(data, cpu.read_op8());
@@ -1295,7 +1295,7 @@ t[0xF6] = cpu => { cpu.read_modrm_byte();
 };
 
 t16[0xF7] = cpu => { cpu.read_modrm_byte();
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0:
             var data = cpu.read_e16(); cpu.test16(data, cpu.read_op16());
@@ -1324,7 +1324,7 @@ t16[0xF7] = cpu => { cpu.read_modrm_byte();
     }
 };
 t32[0xF7] = cpu => { cpu.read_modrm_byte();
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0:
             var data = cpu.read_e32s(); cpu.test32(data, cpu.read_op32s());
@@ -1355,31 +1355,31 @@ t32[0xF7] = cpu => { cpu.read_modrm_byte();
 
 t[0xF8] = cpu => {
     // clc
-    cpu.flags &= ~flag_carry;
-    cpu.flags_changed &= ~1;
+    cpu.flags[0] &= ~flag_carry;
+    cpu.flags_changed[0] &= ~1;
 };
 t[0xF9] = cpu => {
     // stc
-    cpu.flags |= flag_carry;
-    cpu.flags_changed &= ~1;
+    cpu.flags[0] |= flag_carry;
+    cpu.flags_changed[0] &= ~1;
 };
 
 t[0xFA] = cpu => {
     // cli
     //dbg_log("interrupts off");
 
-    if(!cpu.protected_mode || ((cpu.flags & flag_vm) ?
-            cpu.getiopl() === 3 : cpu.getiopl() >= cpu.cpl))
+    if(!cpu.protected_mode[0] || ((cpu.flags[0] & flag_vm) ?
+            cpu.getiopl() === 3 : cpu.getiopl() >= cpu.cpl[0]))
     {
-        cpu.flags &= ~flag_interrupt;
+        cpu.flags[0] &= ~flag_interrupt;
     }
     else
     {
-        //if(cpu.getiopl() < 3 && ((cpu.flags & flag_vm) ?
+        //if(cpu.getiopl() < 3 && ((cpu.flags[0] & flag_vm) ?
         //    (cpu.cr[4] & CR4_VME) :
-        //    (cpu.cpl === 3 && (cpu.cr[4] & CR4_PVI))))
+        //    (cpu.cpl[0] === 3 && (cpu.cr[4] & CR4_PVI))))
         //{
-        //    cpu.flags &= ~flag_vif;
+        //    cpu.flags[0] &= ~flag_vif;
         //}
         //else
         {
@@ -1392,10 +1392,10 @@ t[0xFB] = cpu => {
     // sti
     //dbg_log("interrupts on");
 
-    if(!cpu.protected_mode || ((cpu.flags & flag_vm) ?
-            cpu.getiopl() === 3 : cpu.getiopl() >= cpu.cpl))
+    if(!cpu.protected_mode[0] || ((cpu.flags[0] & flag_vm) ?
+            cpu.getiopl() === 3 : cpu.getiopl() >= cpu.cpl[0]))
     {
-        cpu.flags |= flag_interrupt;
+        cpu.flags[0] |= flag_interrupt;
 
         cpu.clear_prefixes();
         cpu.cycle_internal();
@@ -1404,11 +1404,11 @@ t[0xFB] = cpu => {
     }
     else
     {
-        //if(cpu.getiopl() < 3 && (cpu.flags & flag_vip) === 0 && ((cpu.flags & flag_vm) ?
+        //if(cpu.getiopl() < 3 && (cpu.flags[0] & flag_vip) === 0 && ((cpu.flags[0] & flag_vm) ?
         //    (cpu.cr[4] & CR4_VME) :
-        //    (cpu.cpl === 3 && (cpu.cr[4] & CR4_PVI))))
+        //    (cpu.cpl[0] === 3 && (cpu.cr[4] & CR4_PVI))))
         //{
-        //    cpu.flags |= flag_vif;
+        //    cpu.flags[0] |= flag_vif;
         //}
         //else
         {
@@ -1421,15 +1421,15 @@ t[0xFB] = cpu => {
 
 t[0xFC] = cpu => {
     // cld
-    cpu.flags &= ~flag_direction;
+    cpu.flags[0] &= ~flag_direction;
 };
 t[0xFD] = cpu => {
     // std
-    cpu.flags |= flag_direction;
+    cpu.flags[0] |= flag_direction;
 };
 
 t[0xFE] = cpu => { cpu.read_modrm_byte();
-    var mod = cpu.modrm_byte & 56;
+    var mod = cpu.modrm_byte[0] & 56;
 
     if(mod === 0)
     {
@@ -1445,7 +1445,7 @@ t[0xFE] = cpu => { cpu.read_modrm_byte();
     }
 };
 t16[0xFF] = cpu => { cpu.read_modrm_byte();
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0:
             var data = cpu.read_write_e16(); cpu.write_e16(cpu.inc16(data));
@@ -1457,20 +1457,20 @@ t16[0xFF] = cpu => { cpu.read_modrm_byte();
             // 2, call near
             var data = cpu.read_e16();
             cpu.push16(cpu.get_real_eip());
-            cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0;
+            cpu.instruction_pointer[0] = cpu.get_seg(reg_cs) + data | 0;
             dbg_assert(cpu.is_asize_32() || cpu.get_real_eip() < 0x10000);
             cpu.diverged();
             break;
         case 3:
             // 3, callf
-            if(cpu.modrm_byte >= 0xC0)
+            if(cpu.modrm_byte[0] >= 0xC0)
             {
                 dbg_log("callf #ud", LOG_CPU);
                 cpu.trigger_ud();
                 dbg_assert(false, "unreachable");
             }
 
-            var virt_addr = cpu.modrm_resolve(cpu.modrm_byte);
+            var virt_addr = cpu.modrm_resolve(cpu.modrm_byte[0]);
             var new_ip = cpu.safe_read16(virt_addr);
             var new_cs = cpu.safe_read16(virt_addr + 2 | 0);
 
@@ -1481,20 +1481,20 @@ t16[0xFF] = cpu => { cpu.read_modrm_byte();
         case 4:
             // 4, jmp near
             var data = cpu.read_e16();
-            cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0;
+            cpu.instruction_pointer[0] = cpu.get_seg(reg_cs) + data | 0;
             dbg_assert(cpu.is_asize_32() || cpu.get_real_eip() < 0x10000);
             cpu.diverged();
             break;
         case 5:
             // 5, jmpf
-            if(cpu.modrm_byte >= 0xC0)
+            if(cpu.modrm_byte[0] >= 0xC0)
             {
                 dbg_log("jmpf #ud", LOG_CPU);
                 cpu.trigger_ud();
                 dbg_assert(false, "unreachable");
             }
 
-            var virt_addr = cpu.modrm_resolve(cpu.modrm_byte);
+            var virt_addr = cpu.modrm_resolve(cpu.modrm_byte[0]);
             var new_ip = cpu.safe_read16(virt_addr);
             var new_cs = cpu.safe_read16(virt_addr + 2 | 0);
 
@@ -1512,7 +1512,7 @@ t16[0xFF] = cpu => { cpu.read_modrm_byte();
     }
 };
 t32[0xFF] = cpu => { cpu.read_modrm_byte();
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0:
             var data = cpu.read_write_e32(); cpu.write_e32(cpu.inc32(data));
@@ -1526,23 +1526,23 @@ t32[0xFF] = cpu => { cpu.read_modrm_byte();
             cpu.push32(cpu.get_real_eip());
 
             dbg_assert(cpu.is_asize_32() || data < 0x10000);
-            cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0;
+            cpu.instruction_pointer[0] = cpu.get_seg(reg_cs) + data | 0;
             cpu.diverged();
             break;
         case 3:
             // 3, callf
-            if(cpu.modrm_byte >= 0xC0)
+            if(cpu.modrm_byte[0] >= 0xC0)
             {
                 dbg_log("callf #ud", LOG_CPU);
                 cpu.trigger_ud();
                 dbg_assert(false, "unreachable");
             }
 
-            var virt_addr = cpu.modrm_resolve(cpu.modrm_byte);
+            var virt_addr = cpu.modrm_resolve(cpu.modrm_byte[0]);
             var new_ip = cpu.safe_read32s(virt_addr);
             var new_cs = cpu.safe_read16(virt_addr + 4 | 0);
 
-            if(!cpu.protected_mode || cpu.vm86_mode())
+            if(!cpu.protected_mode[0] || cpu.vm86_mode())
             {
                 if(new_ip & 0xFFFF0000)
                 {
@@ -1558,23 +1558,23 @@ t32[0xFF] = cpu => { cpu.read_modrm_byte();
             // 4, jmp near
             var data = cpu.read_e32s();
             dbg_assert(cpu.is_asize_32() || data < 0x10000);
-            cpu.instruction_pointer = cpu.get_seg(reg_cs) + data | 0;
+            cpu.instruction_pointer[0] = cpu.get_seg(reg_cs) + data | 0;
             cpu.diverged();
             break;
         case 5:
             // 5, jmpf
-            if(cpu.modrm_byte >= 0xC0)
+            if(cpu.modrm_byte[0] >= 0xC0)
             {
                 dbg_log("jmpf #ud", LOG_CPU);
                 cpu.trigger_ud();
                 dbg_assert(false, "unreachable");
             }
 
-            var virt_addr = cpu.modrm_resolve(cpu.modrm_byte);
+            var virt_addr = cpu.modrm_resolve(cpu.modrm_byte[0]);
             var new_ip = cpu.safe_read32s(virt_addr);
             var new_cs = cpu.safe_read16(virt_addr + 4 | 0);
 
-            if(!cpu.protected_mode || cpu.vm86_mode())
+            if(!cpu.protected_mode[0] || cpu.vm86_mode())
             {
                 if(new_ip & 0xFFFF0000)
                 {
@@ -1625,34 +1625,34 @@ t32 = [];
 // 0F ops start here
 
 t[0x00] = cpu => { cpu.read_modrm_byte();
-    if(!cpu.protected_mode || cpu.vm86_mode())
+    if(!cpu.protected_mode[0] || cpu.vm86_mode())
     {
         // No GP, UD is correct here
         dbg_log("0f 00 #ud", LOG_CPU);
         cpu.trigger_ud();
     }
 
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0:
             // sldt
             cpu.set_e16(cpu.sreg[reg_ldtr]);
-            if(cpu.is_osize_32() && cpu.modrm_byte >= 0xC0)
+            if(cpu.is_osize_32() && cpu.modrm_byte[0] >= 0xC0)
             {
-                cpu.reg32s[cpu.modrm_byte & 7] &= 0xFFFF;
+                cpu.reg32s[cpu.modrm_byte[0] & 7] &= 0xFFFF;
             }
             break;
         case 1:
             // str
             cpu.set_e16(cpu.sreg[reg_tr]);
-            if(cpu.is_osize_32() && cpu.modrm_byte >= 0xC0)
+            if(cpu.is_osize_32() && cpu.modrm_byte[0] >= 0xC0)
             {
-                cpu.reg32s[cpu.modrm_byte & 7] &= 0xFFFF;
+                cpu.reg32s[cpu.modrm_byte[0] & 7] &= 0xFFFF;
             }
             break;
         case 2:
             // lldt
-            if(cpu.cpl)
+            if(cpu.cpl[0])
             {
                 cpu.trigger_gp(0);
             }
@@ -1662,7 +1662,7 @@ t[0x00] = cpu => { cpu.read_modrm_byte();
             break;
         case 3:
             // ltr
-            if(cpu.cpl)
+            if(cpu.cpl[0])
             {
                 cpu.trigger_gp(0);
             }
@@ -1678,18 +1678,18 @@ t[0x00] = cpu => { cpu.read_modrm_byte();
             break;
 
         default:
-            dbg_log(cpu.modrm_byte >> 3 & 7, LOG_CPU);
+            dbg_log(cpu.modrm_byte[0] >> 3 & 7, LOG_CPU);
             cpu.todo();
     }
 };
 
 t[0x01] = cpu => { cpu.read_modrm_byte();
-    var mod = cpu.modrm_byte >> 3 & 7;
+    var mod = cpu.modrm_byte[0] >> 3 & 7;
 
     if(mod === 4)
     {
         // smsw
-        if(cpu.modrm_byte >= 0xC0 && cpu.is_osize_32())
+        if(cpu.modrm_byte[0] >= 0xC0 && cpu.is_osize_32())
         {
             cpu.set_e32(cpu.cr[0]);
         }
@@ -1702,7 +1702,7 @@ t[0x01] = cpu => { cpu.read_modrm_byte();
     else if(mod === 6)
     {
         // lmsw
-        if(cpu.cpl)
+        if(cpu.cpl[0])
         {
             cpu.trigger_gp(0);
         }
@@ -1711,7 +1711,7 @@ t[0x01] = cpu => { cpu.read_modrm_byte();
 
         cr0 = (cpu.cr[0] & ~0xF) | (cr0 & 0xF);
 
-        if(cpu.protected_mode)
+        if(cpu.protected_mode[0])
         {
             // lmsw cannot be used to switch back
             cr0 |= CR0_PE;
@@ -1721,34 +1721,34 @@ t[0x01] = cpu => { cpu.read_modrm_byte();
         return;
     }
 
-    if(cpu.modrm_byte >= 0xC0)
+    if(cpu.modrm_byte[0] >= 0xC0)
     {
         // only memory
         dbg_log("0f 01 #ud", LOG_CPU);
         cpu.trigger_ud();
     }
 
-    var addr = cpu.modrm_resolve(cpu.modrm_byte);
+    var addr = cpu.modrm_resolve(cpu.modrm_byte[0]);
 
     switch(mod)
     {
         case 0:
             // sgdt
             cpu.writable_or_pagefault(addr, 6);
-            cpu.safe_write16(addr, cpu.gdtr_size);
+            cpu.safe_write16(addr, cpu.gdtr_size[0]);
             var mask = cpu.is_osize_32() ? -1 : 0x00FFFFFF;
-            cpu.safe_write32(addr + 2, cpu.gdtr_offset & mask);
+            cpu.safe_write32(addr + 2, cpu.gdtr_offset[0] & mask);
             break;
         case 1:
             // sidt
             cpu.writable_or_pagefault(addr, 6);
-            cpu.safe_write16(addr, cpu.idtr_size);
+            cpu.safe_write16(addr, cpu.idtr_size[0]);
             var mask = cpu.is_osize_32() ? -1 : 0x00FFFFFF;
-            cpu.safe_write32(addr + 2, cpu.idtr_offset & mask);
+            cpu.safe_write32(addr + 2, cpu.idtr_offset[0] & mask);
             break;
         case 2:
             // lgdt
-            if(cpu.cpl)
+            if(cpu.cpl[0])
             {
                 cpu.trigger_gp(0);
             }
@@ -1756,22 +1756,22 @@ t[0x01] = cpu => { cpu.read_modrm_byte();
             var size = cpu.safe_read16(addr);
             var offset = cpu.safe_read32s(addr + 2);
 
-            cpu.gdtr_size = size;
-            cpu.gdtr_offset = offset;
+            cpu.gdtr_size[0] = size;
+            cpu.gdtr_offset[0] = offset;
 
             if(!cpu.is_osize_32())
             {
-                cpu.gdtr_offset &= 0xFFFFFF;
+                cpu.gdtr_offset[0] &= 0xFFFFFF;
             }
 
-            //dbg_log("gdt at " + h(cpu.gdtr_offset) + ", " + cpu.gdtr_size + " bytes", LOG_CPU);
+            //dbg_log("gdt at " + h(cpu.gdtr_offset[0]) + ", " + cpu.gdtr_size[0] + " bytes", LOG_CPU);
             //cpu.debug.dump_state();
             //cpu.debug.dump_regs_short();
             //cpu.debug.dump_gdt_ldt();
             break;
         case 3:
             // lidt
-            if(cpu.cpl)
+            if(cpu.cpl[0])
             {
                 cpu.trigger_gp(0);
             }
@@ -1779,20 +1779,20 @@ t[0x01] = cpu => { cpu.read_modrm_byte();
             var size = cpu.safe_read16(addr);
             var offset = cpu.safe_read32s(addr + 2);
 
-            cpu.idtr_size = size;
-            cpu.idtr_offset = offset;
+            cpu.idtr_size[0] = size;
+            cpu.idtr_offset[0] = offset;
 
             if(!cpu.is_osize_32())
             {
-                cpu.idtr_offset &= 0xFFFFFF;
+                cpu.idtr_offset[0] &= 0xFFFFFF;
             }
 
             //dbg_log("[" + h(cpu.instruction_pointer) + "] idt at " +
-            //        h(idtr_offset) + ", " + cpu.idtr_size + " bytes " + h(addr), LOG_CPU);
+            //        h(idtr_offset) + ", " + cpu.idtr_size[0] + " bytes " + h(addr), LOG_CPU);
             break;
         case 7:
             // flush translation lookaside buffer
-            if(cpu.cpl)
+            if(cpu.cpl[0])
             {
                 cpu.trigger_gp(0);
             }
@@ -1807,7 +1807,7 @@ t[0x01] = cpu => { cpu.read_modrm_byte();
 
 t16[0x02] = cpu => { cpu.read_modrm_byte();
     // lar
-    if(!cpu.protected_mode || cpu.vm86_mode())
+    if(!cpu.protected_mode[0] || cpu.vm86_mode())
     {
         dbg_log("lar #ud", LOG_CPU);
         cpu.trigger_ud();
@@ -1816,7 +1816,7 @@ t16[0x02] = cpu => { cpu.read_modrm_byte();
     cpu.write_g16(cpu.lar(data, cpu.read_g16()));
 };
 t32[0x02] = cpu => { cpu.read_modrm_byte();
-    if(!cpu.protected_mode || cpu.vm86_mode())
+    if(!cpu.protected_mode[0] || cpu.vm86_mode())
     {
         dbg_log("lar #ud", LOG_CPU);
         cpu.trigger_ud();
@@ -1827,7 +1827,7 @@ t32[0x02] = cpu => { cpu.read_modrm_byte();
 
 t16[0x03] = cpu => { cpu.read_modrm_byte();
     // lsl
-    if(!cpu.protected_mode || cpu.vm86_mode())
+    if(!cpu.protected_mode[0] || cpu.vm86_mode())
     {
         dbg_log("lsl #ud", LOG_CPU);
         cpu.trigger_ud();
@@ -1836,7 +1836,7 @@ t16[0x03] = cpu => { cpu.read_modrm_byte();
     cpu.write_g16(cpu.lsl(data, cpu.read_g16()));
 };
 t32[0x03] = cpu => { cpu.read_modrm_byte();
-    if(!cpu.protected_mode || cpu.vm86_mode())
+    if(!cpu.protected_mode[0] || cpu.vm86_mode())
     {
         dbg_log("lsl #ud", LOG_CPU);
         cpu.trigger_ud();
@@ -1850,7 +1850,7 @@ t[0x05] = cpu => { cpu.undefined_instruction(); };
 
 t[0x06] = cpu => {
     // clts
-    if(cpu.cpl)
+    if(cpu.cpl[0])
     {
         dbg_log("clts #gp", LOG_CPU);
         cpu.trigger_gp(0);
@@ -1869,7 +1869,7 @@ t[0x08] = cpu => {
 };
 
 t[0x09] = cpu => {
-    if(cpu.cpl)
+    if(cpu.cpl[0])
     {
         dbg_log("wbinvd #gp", LOG_CPU);
         cpu.trigger_gp(0);
@@ -1913,7 +1913,21 @@ t[0x13] = cpu => {
     var addr = cpu.modrm_resolve(cpu.modrm_byte);
     cpu.safe_write64(addr, data[0], data[1]);
 };
-t[0x14] = cpu => { cpu.unimplemented_sse(); };
+t[0x14] = cpu => {
+    // unpcklpd xmm, xmm/m128
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+    let source = cpu.read_xmm_mem64s();
+    let destination = cpu.read_xmm64s();
+
+    cpu.write_xmm128s(
+        destination[0],
+        destination[1],
+        source[0],
+        source[1]
+    );
+};
 t[0x15] = cpu => { cpu.unimplemented_sse(); };
 t[0x16] = cpu => { cpu.unimplemented_sse(); };
 t[0x17] = cpu => { cpu.unimplemented_sse(); };
@@ -1921,8 +1935,8 @@ t[0x17] = cpu => { cpu.unimplemented_sse(); };
 t[0x18] = cpu => { cpu.read_modrm_byte();
     // prefetch
     // nop for us
-    if(cpu.modrm_byte < 0xC0)
-        cpu.modrm_resolve(cpu.modrm_byte);
+    if(cpu.modrm_byte[0] < 0xC0)
+        cpu.modrm_resolve(cpu.modrm_byte[0]);
 };
 
 t[0x19] = cpu => { cpu.unimplemented_sse(); };
@@ -1933,22 +1947,22 @@ t[0x1D] = cpu => { cpu.unimplemented_sse(); };
 t[0x1E] = cpu => { cpu.unimplemented_sse(); };
 t[0x1F] = cpu => { cpu.read_modrm_byte()
     // multi-byte nop
-    if(cpu.modrm_byte < 0xC0)
-        cpu.modrm_resolve(cpu.modrm_byte);
+    if(cpu.modrm_byte[0] < 0xC0)
+        cpu.modrm_resolve(cpu.modrm_byte[0]);
 };
 
 
 t[0x20] = cpu => { cpu.read_modrm_byte();
 
-    if(cpu.cpl)
+    if(cpu.cpl[0])
     {
         cpu.trigger_gp(0);
     }
-    //dbg_log("cr" + (cpu.modrm_byte >> 3 & 7) + " read", LOG_CPU);
+    //dbg_log("cr" + (cpu.modrm_byte[0] >> 3 & 7) + " read", LOG_CPU);
 
     // mov addr, cr
     // mod = which control register
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0:
             cpu.write_reg_e32(cpu.cr[0]);
@@ -1972,12 +1986,12 @@ t[0x20] = cpu => { cpu.read_modrm_byte();
 };
 
 t[0x21] = cpu => { cpu.read_modrm_byte();
-    if(cpu.cpl)
+    if(cpu.cpl[0])
     {
         cpu.trigger_gp(0);
     }
 
-    var dreg = cpu.modrm_byte >> 3 & 7;
+    var dreg = cpu.modrm_byte[0] >> 3 & 7;
     if((cpu.cr[4] & CR4_DE) && (dreg === 4 || dreg === 5))
     {
         dbg_log("#ud mov dreg 4/5 with cr4.DE set", LOG_CPU);
@@ -1985,24 +1999,24 @@ t[0x21] = cpu => { cpu.read_modrm_byte();
     }
 
     // high two bits of modrm are ignored
-    cpu.reg32s[cpu.modrm_byte & 7] = cpu.dreg[dreg];
+    cpu.reg32s[cpu.modrm_byte[0] & 7] = cpu.dreg[dreg];
 
     //dbg_log("read dr" + dreg + ": " + h(cpu.dreg[dreg] >>> 0), LOG_CPU);
 };
 
 t[0x22] = cpu => { cpu.read_modrm_byte();
 
-    if(cpu.cpl)
+    if(cpu.cpl[0])
     {
         cpu.trigger_gp(0);
     }
 
     var data = cpu.read_reg_e32s();
-    //dbg_log("cr" + (cpu.modrm_byte >> 3 & 7) + " written: " + h(data >>> 0, 8), LOG_CPU);
+    //dbg_log("cr" + (cpu.modrm_byte[0] >> 3 & 7) + " written: " + h(data >>> 0, 8), LOG_CPU);
 
     // mov cr, addr
     // mod = which control register
-    switch(cpu.modrm_byte >> 3 & 7)
+    switch(cpu.modrm_byte[0] >> 3 & 7)
     {
         case 0:
             cpu.set_cr0(data);
@@ -2036,12 +2050,12 @@ t[0x22] = cpu => { cpu.read_modrm_byte();
     }
 };
 t[0x23] = cpu => { cpu.read_modrm_byte();
-    if(cpu.cpl)
+    if(cpu.cpl[0])
     {
         cpu.trigger_gp(0);
     }
 
-    var dreg = cpu.modrm_byte >> 3 & 7;
+    var dreg = cpu.modrm_byte[0] >> 3 & 7;
     if((cpu.cr[4] & CR4_DE) && (dreg === 4 || dreg === 5))
     {
         dbg_log("#ud mov dreg 4/5 with cr4.DE set", LOG_CPU);
@@ -2060,10 +2074,20 @@ t[0x26] = cpu => { cpu.undefined_instruction(); };
 t[0x27] = cpu => { cpu.undefined_instruction(); };
 
 t[0x28] = cpu => {
-    // movaps xmm, xmm/m128
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
+
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66)
+    {
+        // movapd xmm, xmm/m128
+        // (note: same as movaps, see google.com/?q=MOVAPD+vs+MOVAPS)
+    }
+    else
+    {
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
+        // movaps xmm, xmm/m128
+    }
+
     let data = cpu.read_xmm_mem128s();
     cpu.write_xmm128s(data[0], data[1], data[2], data[3]);
 };
@@ -2073,25 +2097,60 @@ t[0x29] = cpu => {
     if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66)
     {
         // movapd xmm/m128, xmm
-        // (note: same as below, see google.com/?q=MOVAPD+vs+MOVAPS)
-        let data = cpu.read_xmm128s();
-        dbg_assert(cpu.modrm_byte < 0xC0);
-        let addr = cpu.modrm_resolve(cpu.modrm_byte);
-        cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
+        // (note: same as movaps, see google.com/?q=MOVAPD+vs+MOVAPS)
     }
     else
     {
         // movaps xmm/m128, xmm
         dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
-        let data = cpu.read_xmm128s();
-        dbg_assert(cpu.modrm_byte < 0xC0);
-        let addr = cpu.modrm_resolve(cpu.modrm_byte);
-        cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
     }
+
+    let data = cpu.read_xmm128s();
+    dbg_assert(cpu.modrm_byte < 0xC0);
+    let addr = cpu.modrm_resolve(cpu.modrm_byte);
+    cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
 };
 t[0x2A] = cpu => { cpu.unimplemented_sse(); };
-t[0x2B] = cpu => { cpu.unimplemented_sse(); };
-t[0x2C] = cpu => { cpu.unimplemented_sse(); };
+t[0x2B] = cpu => {
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0 ||
+        (cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66);
+
+    if(cpu.modrm_byte >= 0xC0)
+    {
+        cpu.trigger_ud();
+    }
+
+    // movntps m128, xmm
+    // movntpd m128, xmm
+
+    let data = cpu.read_xmm128s();
+    let addr = cpu.modrm_resolve(cpu.modrm_byte);
+    cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
+};
+t[0x2C] = cpu => {
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_F2)
+    {
+        // cvttsd2si r32, xmm/m64
+        let source = cpu.read_xmm_mem64s();
+        let source_f64 = new Float64Array(source.buffer);
+        let f = source_f64[0];
+
+        if(!(f <= 0x7FFFFFFF && f >= -0x80000000))
+        {
+            f = 0x80000000 | 0;
+        }
+
+        cpu.write_g32(f);
+    }
+    else
+    {
+        dbg_assert(false);
+    }
+};
 t[0x2D] = cpu => { cpu.unimplemented_sse(); };
 t[0x2E] = cpu => { cpu.unimplemented_sse(); };
 t[0x2F] = cpu => { cpu.unimplemented_sse(); };
@@ -2100,7 +2159,7 @@ t[0x2F] = cpu => { cpu.unimplemented_sse(); };
 t[0x30] = cpu => {
     // wrmsr - write maschine specific register
 
-    if(cpu.cpl)
+    if(cpu.cpl[0])
     {
         // cpl > 0 or vm86 mode (vm86 mode is always runs with cpl=3)
         cpu.trigger_gp(0);
@@ -2119,15 +2178,15 @@ t[0x30] = cpu => {
     switch(index)
     {
         case IA32_SYSENTER_CS:
-            cpu.sysenter_cs = low & 0xFFFF;
+            cpu.sysenter_cs[0] = low & 0xFFFF;
             break;
 
         case IA32_SYSENTER_EIP:
-            cpu.sysenter_eip = low;
+            cpu.sysenter_eip[0] = low;
             break;
 
         case IA32_SYSENTER_ESP:
-            cpu.sysenter_esp = low;
+            cpu.sysenter_esp[0] = low;
             break;
 
         case IA32_APIC_BASE_MSR:
@@ -2140,7 +2199,7 @@ t[0x30] = cpu => {
 
         case IA32_TIME_STAMP_COUNTER:
             var new_tick = (low >>> 0) + 0x100000000 * (high >>> 0);
-            cpu.tsc_offset = v86.microtick() - new_tick / TSC_RATE;
+            cpu.tsc_offset[0] = v86.microtick() - new_tick / TSC_RATE;
             break;
 
         case IA32_BIOS_SIGN_ID:
@@ -2167,9 +2226,9 @@ t[0x30] = cpu => {
 t[0x31] = cpu => {
     // rdtsc - read timestamp counter
 
-    if(!cpu.cpl || !(cpu.cr[4] & CR4_TSD))
+    if(!cpu.cpl[0] || !(cpu.cr[4] & CR4_TSD))
     {
-        var n = v86.microtick() - cpu.tsc_offset;
+        var n = v86.microtick() - cpu.tsc_offset[0];
         dbg_assert(isFinite(n), "non-finite tsc: " + n);
 
         cpu.reg32s[reg_eax] = n * TSC_RATE;
@@ -2185,7 +2244,7 @@ t[0x31] = cpu => {
 
 t[0x32] = cpu => {
     // rdmsr - read maschine specific register
-    if(cpu.cpl)
+    if(cpu.cpl[0])
     {
         cpu.trigger_gp(0);
     }
@@ -2200,19 +2259,19 @@ t[0x32] = cpu => {
     switch(index)
     {
         case IA32_SYSENTER_CS:
-            low = cpu.sysenter_cs;
+            low = cpu.sysenter_cs[0];
             break;
 
         case IA32_SYSENTER_EIP:
-            low = cpu.sysenter_eip;
+            low = cpu.sysenter_eip[0];
             break;
 
         case IA32_SYSENTER_ESP:
-            low = cpu.sysenter_esp;
+            low = cpu.sysenter_esp[0];
             break;
 
         case IA32_TIME_STAMP_COUNTER:
-            var n = v86.microtick() - cpu.tsc_offset;
+            var n = v86.microtick() - cpu.tsc_offset[0];
             low = n * TSC_RATE;
             high = n * (TSC_RATE / 0x100000000);
             break;
@@ -2271,20 +2330,23 @@ t[0x33] = cpu => {
 
 t[0x34] = cpu => {
     // sysenter
-    var seg = cpu.sysenter_cs & 0xFFFC;
+    var seg = cpu.sysenter_cs[0] & 0xFFFC;
 
-    if(!cpu.protected_mode || seg === 0)
+    if(!cpu.protected_mode[0] || seg === 0)
     {
         cpu.trigger_gp(0);
     }
 
-    //dbg_log("sysenter  cs:eip=" + h(seg    , 4) + ":" + h(cpu.sysenter_eip >>> 0, 8) +
-    //                 " ss:esp=" + h(seg + 8, 4) + ":" + h(cpu.sysenter_esp >>> 0, 8), LOG_CPU);
+    if(CPU_LOG_VERBOSE)
+    {
+        dbg_log("sysenter  cs:eip=" + h(seg    , 4) + ":" + h(cpu.sysenter_eip[0] >>> 0, 8) +
+                         " ss:esp=" + h(seg + 8, 4) + ":" + h(cpu.sysenter_esp[0] >>> 0, 8), LOG_CPU);
+    }
 
-    cpu.flags &= ~flag_vm & ~flag_interrupt;
+    cpu.flags[0] &= ~flag_vm & ~flag_interrupt;
 
-    cpu.instruction_pointer = cpu.sysenter_eip;
-    cpu.reg32s[reg_esp] = cpu.sysenter_esp;
+    cpu.instruction_pointer[0] = cpu.sysenter_eip[0];
+    cpu.reg32s[reg_esp] = cpu.sysenter_esp[0];
 
     cpu.sreg[reg_cs] = seg;
     cpu.segment_is_null[reg_cs] = 0;
@@ -2293,7 +2355,7 @@ t[0x34] = cpu => {
 
     cpu.update_cs_size(true);
 
-    cpu.cpl = 0;
+    cpu.cpl[0] = 0;
     cpu.cpl_changed();
 
     cpu.sreg[reg_ss] = seg + 8;
@@ -2301,23 +2363,26 @@ t[0x34] = cpu => {
     cpu.segment_limits[reg_ss] = -1;
     cpu.segment_offsets[reg_ss] = 0;
 
-    cpu.stack_size_32 = true;
+    cpu.stack_size_32[0] = true;
     cpu.diverged();
 };
 
 t[0x35] = cpu => {
     // sysexit
-    var seg = cpu.sysenter_cs & 0xFFFC;
+    var seg = cpu.sysenter_cs[0] & 0xFFFC;
 
-    if(!cpu.protected_mode || cpu.cpl || seg === 0)
+    if(!cpu.protected_mode[0] || cpu.cpl[0] || seg === 0)
     {
         cpu.trigger_gp(0);
     }
 
-    //dbg_log("sysexit  cs:eip=" + h(seg + 16, 4) + ":" + h(cpu.reg32s[reg_edx] >>> 0, 8) +
-    //                 " ss:esp=" + h(seg + 24, 4) + ":" + h(cpu.reg32s[reg_ecx] >>> 0, 8), LOG_CPU);
+    if(CPU_LOG_VERBOSE)
+    {
+        dbg_log("sysexit  cs:eip=" + h(seg + 16, 4) + ":" + h(cpu.reg32s[reg_edx] >>> 0, 8) +
+                         " ss:esp=" + h(seg + 24, 4) + ":" + h(cpu.reg32s[reg_ecx] >>> 0, 8), LOG_CPU);
+    }
 
-    cpu.instruction_pointer = cpu.reg32s[reg_edx];
+    cpu.instruction_pointer[0] = cpu.reg32s[reg_edx];
     cpu.reg32s[reg_esp] = cpu.reg32s[reg_ecx];
 
     cpu.sreg[reg_cs] = seg + 16 | 3;
@@ -2328,7 +2393,7 @@ t[0x35] = cpu => {
 
     cpu.update_cs_size(true);
 
-    cpu.cpl = 3;
+    cpu.cpl[0] = 3;
     cpu.cpl_changed();
 
     cpu.sreg[reg_ss] = seg + 24 | 3;
@@ -2336,7 +2401,7 @@ t[0x35] = cpu => {
     cpu.segment_limits[reg_ss] = -1;
     cpu.segment_offsets[reg_ss] = 0;
 
-    cpu.stack_size_32 = true;
+    cpu.stack_size_32[0] = true;
     cpu.diverged();
 };
 
@@ -2396,7 +2461,23 @@ t[0x50] = cpu => { cpu.unimplemented_sse(); };
 t[0x51] = cpu => { cpu.unimplemented_sse(); };
 t[0x52] = cpu => { cpu.unimplemented_sse(); };
 t[0x53] = cpu => { cpu.unimplemented_sse(); };
-t[0x54] = cpu => { cpu.unimplemented_sse(); };
+t[0x54] = cpu => {
+    // andps xmm, xmm/mem128
+    // andpd xmm, xmm/mem128
+    // Note: Same code as pand
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    let source = cpu.read_xmm_mem128s();
+    let destination = cpu.read_xmm128s();
+
+    cpu.write_xmm128s(
+        source[0] & destination[0],
+        source[1] & destination[1],
+        source[2] & destination[2],
+        source[3] & destination[3]
+    );
+};
 t[0x55] = cpu => { cpu.unimplemented_sse(); };
 t[0x56] = cpu => { cpu.unimplemented_sse(); };
 t[0x57] = cpu => {
@@ -3053,7 +3134,6 @@ t[0x72] = cpu => {
 
 t[0x73] = cpu => {
     cpu.read_modrm_byte();
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
 
     if(cpu.modrm_byte < 0xC0)
@@ -3066,32 +3146,65 @@ t[0x73] = cpu => {
     switch(cpu.modrm_byte >> 3 & 7)
     {
         case 2:
-            // psrlq mm, imm8
-            var source = cpu.read_op8();
-            var destination = cpu.modrm_byte & 7;
+            if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+            {
+                // psrlq xmm, imm8
+                var shift = cpu.read_op8();
 
-            var destination_low = cpu.reg_mmxs[2 * destination];
-            var destination_high = cpu.reg_mmxs[2 * destination + 1];
+                if(shift === 0)
+                {
+                    return;
+                }
 
-            var shift = source;
-            var low = 0;
-            var high = 0;
+                let destination = cpu.read_xmm128s();
+                let result = cpu.create_atom128s(0, 0, 0, 0);
 
-            if (shift <= 31) {
-                low = destination_low >>> shift | (destination_high << (32 - shift));
-                high = destination_high >>> shift;
+                if (shift <= 31)
+                {
+                    result[0] = destination[0] >>> shift | destination[1] << (32 - shift);
+                    result[1] = destination[1] >>> shift;
+
+                    result[2] = destination[2] >>> shift | destination[3] << (32 - shift);
+                    result[3] = destination[3] >>> shift;
+                }
+                else if (shift <= 63)
+                {
+                    result[0] = destination[1] >>> shift;
+                    result[2] = destination[3] >>> shift;
+                }
+
+                cpu.write_xmm128s(result[0], result[1], result[2], result[3]);
             }
-            else if (shift <= 63) {
-                low = destination_high >>> (shift & 0x1F);
-                high = 0;
+            else
+            {
+                // psrlq mm, imm8
+                dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+                var source = cpu.read_op8();
+                var destination = cpu.modrm_byte & 7;
+
+                var destination_low = cpu.reg_mmxs[2 * destination];
+                var destination_high = cpu.reg_mmxs[2 * destination + 1];
+
+                var shift = source;
+                var low = 0;
+                var high = 0;
+
+                if (shift <= 31) {
+                    low = destination_low >>> shift | (destination_high << (32 - shift));
+                    high = destination_high >>> shift;
+                }
+                else if (shift <= 63) {
+                    low = destination_high >>> (shift & 0x1F);
+                    high = 0;
+                }
+
+                cpu.reg_mmxs[2 * destination] = low;
+                cpu.reg_mmxs[2 * destination + 1] = high;
             }
-
-            cpu.reg_mmxs[2 * destination] = low;
-            cpu.reg_mmxs[2 * destination + 1] = high;
-
             break;
         case 6:
             // psllq mm, imm8
+            dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
             var source = cpu.read_op8();
             var destination = cpu.modrm_byte & 7;
 
@@ -3115,6 +3228,7 @@ t[0x73] = cpu => {
             cpu.reg_mmxs[2 * destination + 1] = high;
 
             break;
+
         default:
             cpu.unimplemented_sse();
             break;
@@ -3171,24 +3285,47 @@ t[0x74] = cpu => {
 };
 
 t[0x75] = cpu => {
-    // pcmpeqw mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source = cpu.read_mmx_mem64s();
-    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
-    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // pcmpeqw xmm, xmm/m128
+        let source64s = cpu.read_xmm_mem128s();
+        let source16 = new Uint16Array(source64s.buffer);
 
-    let word0 = (destination_low & 0xFFFF) === (source[0] & 0xFFFF) ? 0xFFFF : 0;
-    let word1 = (destination_low & 0xFFFF0000) === (source[0] & 0xFFFF0000) ? 0xFFFF : 0;
-    let word2 = (destination_high & 0xFFFF) === (source[1] & 0xFFFF) ? 0xFFFF : 0;
-    let word3 = (destination_high & 0xFFFF0000) === (source[1] & 0xFFFF0000) ? 0xFFFF : 0;
+        let destination128 = cpu.read_xmm128s();
+        let destination16 = new Uint16Array(destination128.buffer);
 
-    let low = word0 | word1 << 16;
-    let high = word2 | word3 << 16;
+        let result = cpu.create_atom128s(0, 0, 0, 0);
+        let result16 = new Uint16Array(result.buffer);
 
-    cpu.write_mmx64s(low, high);
+        for(let i = 0; i < 8; i++)
+        {
+            result16[i] = source16[i] === destination16[i] ? 0xFFFF : 0;
+        }
+
+        cpu.write_xmm128s(result[0], result[1], result[2], result[3])
+    }
+    else
+    {
+        // pcmpeqw mm, mm/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+        let source = cpu.read_mmx_mem64s();
+        let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+        let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+        let word0 = (destination_low & 0xFFFF) === (source[0] & 0xFFFF) ? 0xFFFF : 0;
+        let word1 = (destination_low & 0xFFFF0000) === (source[0] & 0xFFFF0000) ? 0xFFFF : 0;
+        let word2 = (destination_high & 0xFFFF) === (source[1] & 0xFFFF) ? 0xFFFF : 0;
+        let word3 = (destination_high & 0xFFFF0000) === (source[1] & 0xFFFF0000) ? 0xFFFF : 0;
+
+        let low = word0 | word1 << 16;
+        let high = word2 | word3 << 16;
+
+        cpu.write_mmx64s(low, high);
+    }
 };
 
 t[0x76] = cpu => {
@@ -3228,7 +3365,7 @@ t[0x77] = cpu => {
     // emms
     dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
-    cpu.fpu.stack_empty = 0xFF;
+    cpu.fpu.stack_empty[0] = 0xFF;
 };
 
 t[0x78] = cpu => { cpu.unimplemented_sse(); };
@@ -3835,7 +3972,21 @@ t[0xC3] = cpu => {
     cpu.set_e32(cpu.read_g32s());
 };
 t[0xC4] = cpu => { cpu.unimplemented_sse(); };
-t[0xC5] = cpu => { cpu.unimplemented_sse(); };
+t[0xC5] = cpu => {
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66);
+    // pextrw r32/m16, xmm, imm8
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    if(cpu.modrm_byte < 0xC0) cpu.trigger_ud();
+
+    let data = cpu.read_xmm_mem128s();
+    let data16 = new Uint16Array(data.buffer);
+    let index = cpu.read_imm8() & 7;
+    let result = data16[index];
+
+    cpu.write_g32(result);
+};
 t[0xC6] = cpu => { cpu.unimplemented_sse(); };
 
 t[0xC7] = cpu => {
@@ -3859,14 +4010,14 @@ t[0xC7] = cpu => {
             if(cpu.reg32s[reg_eax] === m64_low &&
                cpu.reg32s[reg_edx] === m64_high)
             {
-                cpu.flags |= flag_zero;
+                cpu.flags[0] |= flag_zero;
 
                 cpu.safe_write32(addr, cpu.reg32s[reg_ebx]);
                 cpu.safe_write32(addr + 4 | 0, cpu.reg32s[reg_ecx]);
             }
             else
             {
-                cpu.flags &= ~flag_zero;
+                cpu.flags[0] &= ~flag_zero;
 
                 cpu.reg32s[reg_eax] = m64_low;
                 cpu.reg32s[reg_edx] = m64_high;
@@ -3875,7 +4026,7 @@ t[0xC7] = cpu => {
                 cpu.safe_write32(addr + 4 | 0, m64_high);
             }
 
-            cpu.flags_changed &= ~flag_zero;
+            cpu.flags_changed[0] &= ~flag_zero;
             break;
 
         case 6:
@@ -3900,9 +4051,9 @@ t[0xC7] = cpu => {
                 cpu.set_e16(rand);
             }
 
-            cpu.flags &= ~flags_all;
-            cpu.flags |= has_rand;
-            cpu.flags_changed = 0;
+            cpu.flags[0] &= ~flags_all;
+            cpu.flags[0] |= has_rand;
+            cpu.flags_changed[0] = 0;
             break;
 
         default:
@@ -3972,35 +4123,69 @@ t[0xD2] = cpu => {
 };
 
 t[0xD3] = cpu => {
-    // psrlq mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source = cpu.read_mmx_mem64s();
-    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
-    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
-
-    let shift = source[0] >>> 0;
-
-    if(shift === 0)
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66)
     {
-        return;
-    }
+        // psrlq xmm, mm/m64
+        let source = cpu.read_xmm_mem64s();
+        var shift = source[0] >>> 0;
 
-    let low = 0;
-    let high = 0;
+        if(shift === 0)
+        {
+            return;
+        }
 
-    if (shift <= 31) {
-        low = destination_low >>> shift | (destination_high << (32 - shift));
-        high = destination_high >>> shift;
-    }
-    else if (shift <= 63) {
-        low = destination_high >>> (shift & 0x1F);
-        high = 0;
-    }
+        let destination = cpu.read_xmm128s();
+        let result = cpu.create_atom128s(0, 0, 0, 0);
 
-    cpu.write_mmx64s(low, high);
+        if (shift <= 31)
+        {
+            result[0] = destination[0] >>> shift | destination[1] << (32 - shift);
+            result[1] = destination[1] >>> shift;
+
+            result[2] = destination[2] >>> shift | destination[3] << (32 - shift);
+            result[3] = destination[3] >>> shift;
+        }
+        else if (shift <= 63)
+        {
+            result[0] = destination[1] >>> shift;
+            result[2] = destination[3] >>> shift;
+        }
+
+        cpu.write_xmm128s(result[0], result[1], result[2], result[3]);
+    }
+    else
+    {
+        // psrlq mm, mm/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+
+        let source = cpu.read_mmx_mem64s();
+        let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+        let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+        let shift = source[0] >>> 0;
+
+        if(shift === 0)
+        {
+            return;
+        }
+
+        let low = 0;
+        let high = 0;
+
+        if (shift <= 31) {
+            low = destination_low >>> shift | (destination_high << (32 - shift));
+            high = destination_high >>> shift;
+        }
+        else if (shift <= 63) {
+            low = destination_high >>> (shift & 0x1F);
+            high = 0;
+        }
+
+        cpu.write_mmx64s(low, high);
+    }
 };
 
 t[0xD4] = cpu => { cpu.unimplemented_sse(); };
@@ -4740,19 +4925,36 @@ t[0xF9] = cpu => {
 };
 
 t[0xFA] = cpu => {
-    // psubd mm, mm/m64
-    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
     cpu.task_switch_test_mmx();
     cpu.read_modrm_byte();
 
-    let source = cpu.read_mmx_mem64s();
-    let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
-    let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // psubd xmm, xmm/m128
+        let source = cpu.read_xmm_mem128s();
+        let destination = cpu.read_xmm128s();
 
-    let low = destination_low - source[0];
-    let high = destination_high - source[1];
+        cpu.write_xmm128s(
+            destination[0] - source[0],
+            destination[1] - source[1],
+            destination[2] - source[2],
+            destination[3] - source[3]
+        );
+    }
+    else
+    {
+        // psubd mm, mm/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
-    cpu.write_mmx64s(low, high);
+        let source = cpu.read_mmx_mem64s();
+        let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+        let destination_high = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7) + 1];
+
+        cpu.write_mmx64s(
+            destination_low - source[0],
+            destination_high - source[1]
+        );
+    }
 };
 
 t[0xFB] = cpu => { cpu.unimplemented_sse(); };

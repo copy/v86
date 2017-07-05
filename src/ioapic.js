@@ -120,7 +120,7 @@ function IOAPIC(cpu)
                 dbg_assert(false);
             }
         });
-}
+};
 
 IOAPIC.prototype.remote_eoi = function(vector)
 {

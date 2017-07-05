@@ -20,7 +20,7 @@ function IO(cpu)
         this.ports[i] = this.create_empty_entry();
     }
 
-    var memory_size = cpu.memory_size;
+    var memory_size = cpu.memory_size[0];
 
     for(var i = 0; (i << MMAP_BLOCK_BITS) < memory_size; i++)
     {
@@ -253,7 +253,7 @@ IO.prototype.in_mmap_range = function(start, count)
 
     var end = start + count;
 
-    if(end >= this.cpu.memory_size)
+    if(end >= this.cpu.memory_size[0])
     {
         return true;
     }

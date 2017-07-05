@@ -446,6 +446,11 @@ PCI.prototype.pci_write32 = function(address, written)
             space[addr >> 2] = 0;
         }
     }
+    else if(addr === 0x04)
+    {
+        dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
+                " value=" + h(written >>> 0, 8), LOG_PCI);
+    }
     else
     {
         dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +

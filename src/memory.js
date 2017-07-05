@@ -81,7 +81,7 @@ CPU.prototype.mmap_write32 = function(addr, value)
 
 CPU.prototype.in_mapped_range = function(addr)
 {
-    return (addr | 0) >= 0xA0000 && (addr | 0) < 0xC0000 || (addr >>> 0) >= (this.memory_size >>> 0);
+    return (addr | 0) >= 0xA0000 && (addr | 0) < 0xC0000 || (addr >>> 0) >= (this.memory_size[0] >>> 0);
 };
 
 /**
@@ -90,7 +90,7 @@ CPU.prototype.in_mapped_range = function(addr)
 CPU.prototype.read8 = function(addr)
 {
     this.debug_read(addr, 1);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
+    if(USE_A20 && !this.a20_enabled[0]) addr &= A20_MASK;
 
     if(this.in_mapped_range(addr))
     {
@@ -108,7 +108,7 @@ CPU.prototype.read8 = function(addr)
 CPU.prototype.read16 = function(addr)
 {
     this.debug_read(addr, 2);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
+    if(USE_A20 && !this.a20_enabled[0]) addr &= A20_MASK;
 
     if(this.in_mapped_range(addr))
     {
@@ -127,7 +127,7 @@ CPU.prototype.read_aligned16 = function(addr)
 {
     dbg_assert(addr >= 0 && addr < 0x80000000);
     this.debug_read(addr << 1, 2);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK16;
+    if(USE_A20 && !this.a20_enabled[0]) addr &= A20_MASK16;
 
     if(this.in_mapped_range(addr << 1))
     {
@@ -145,7 +145,7 @@ CPU.prototype.read_aligned16 = function(addr)
 CPU.prototype.read32s = function(addr)
 {
     this.debug_read(addr, 4);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
+    if(USE_A20 && !this.a20_enabled[0]) addr &= A20_MASK;
 
     if(this.in_mapped_range(addr))
     {
@@ -165,7 +165,7 @@ CPU.prototype.read_aligned32 = function(addr)
 {
     dbg_assert(addr >= 0 && addr < 0x40000000);
     this.debug_read(addr << 2, 4);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK32;
+    if(USE_A20 && !this.a20_enabled[0]) addr &= A20_MASK32;
 
     if(this.in_mapped_range(addr << 2))
     {
@@ -184,7 +184,7 @@ CPU.prototype.read_aligned32 = function(addr)
 CPU.prototype.write8 = function(addr, value)
 {
     this.debug_write(addr, 1, value);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
+    if(USE_A20 && !this.a20_enabled[0]) addr &= A20_MASK;
 
     if(this.in_mapped_range(addr))
     {
@@ -203,7 +203,7 @@ CPU.prototype.write8 = function(addr, value)
 CPU.prototype.write16 = function(addr, value)
 {
     this.debug_write(addr, 2, value);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
+    if(USE_A20 && !this.a20_enabled[0]) addr &= A20_MASK;
 
     if(this.in_mapped_range(addr))
     {
@@ -224,7 +224,7 @@ CPU.prototype.write_aligned16 = function(addr, value)
 {
     dbg_assert(addr >= 0 && addr < 0x80000000);
     this.debug_write(addr << 1, 2, value);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK16;
+    if(USE_A20 && !this.a20_enabled[0]) addr &= A20_MASK16;
 
     if(this.in_mapped_range(addr << 1))
     {
@@ -243,7 +243,7 @@ CPU.prototype.write_aligned16 = function(addr, value)
 CPU.prototype.write32 = function(addr, value)
 {
     this.debug_write(addr, 4, value);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK;
+    if(USE_A20 && !this.a20_enabled[0]) addr &= A20_MASK;
 
     if(this.in_mapped_range(addr))
     {
@@ -262,7 +262,7 @@ CPU.prototype.write_aligned32 = function(addr, value)
 {
     dbg_assert(addr >= 0 && addr < 0x40000000);
     this.debug_write(addr << 2, 4, value);
-    if(USE_A20 && !this.a20_enabled) addr &= A20_MASK32;
+    if(USE_A20 && !this.a20_enabled[0]) addr &= A20_MASK32;
 
     if(this.in_mapped_range(addr << 2))
     {

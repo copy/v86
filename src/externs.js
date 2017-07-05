@@ -14,3 +14,4 @@ var exports = {};
 var define = {};
 var module = {};
 
+var WebAssembly = { Memory() {}, Table() {}, instantiate() {}, compile() {} };

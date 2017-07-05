@@ -33,7 +33,7 @@ var emulator = new V86({
 
 emulator.bus.register("emulator-started", function()
 {
-    emulator.v86.cpu.io.register_write_consecutive(0xF4, this,
+    emulator.v86.cpu.io.register_write_consecutive(0xF4, {},
         function(value)
         {
             console.log("Test exited with code " + value);

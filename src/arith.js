@@ -45,52 +45,52 @@ CPU.prototype.add = function(dest_operand, source_operand, op_size)
 {
     //if(this.safe_read32s(this.instruction_pointer + 1) === 0 && this.safe_read32s(this.instruction_pointer + 5) === 0) throw "0000000";
 
-    this.last_op1 = dest_operand;
-    this.last_op2 = source_operand;
-    this.last_add_result = this.last_result = dest_operand + source_operand | 0;
+    this.last_op1[0] = dest_operand;
+    this.last_op2[0] = source_operand;
+    this.last_add_result[0] = this.last_result[0] = dest_operand + source_operand | 0;
 
-    this.last_op_size = op_size;
-    this.flags_changed = flags_all;
+    this.last_op_size[0] = op_size;
+    this.flags_changed[0] = flags_all;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.adc = function(dest_operand, source_operand, op_size)
 {
     var cf = this.getcf();
-    this.last_op1 = dest_operand;
-    this.last_op2 = source_operand;
-    this.last_add_result = this.last_result = (dest_operand + source_operand | 0) + cf | 0;
+    this.last_op1[0] = dest_operand;
+    this.last_op2[0] = source_operand;
+    this.last_add_result[0] = this.last_result[0] = (dest_operand + source_operand | 0) + cf | 0;
 
-    this.last_op_size = op_size;
-    this.flags_changed = flags_all;
+    this.last_op_size[0] = op_size;
+    this.flags_changed[0] = flags_all;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.sub = function(dest_operand, source_operand, op_size)
 {
-    this.last_add_result = dest_operand;
-    this.last_op2 = source_operand;
-    this.last_op1 = this.last_result = dest_operand - source_operand | 0;
+    this.last_add_result[0] = dest_operand;
+    this.last_op2[0] = source_operand;
+    this.last_op1[0] = this.last_result[0] = dest_operand - source_operand | 0;
 
-    this.last_op_size = op_size;
-    this.flags_changed = flags_all;
+    this.last_op_size[0] = op_size;
+    this.flags_changed[0] = flags_all;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.sbb = function(dest_operand, source_operand, op_size)
 {
     var cf = this.getcf();
-    this.last_add_result = dest_operand;
-    this.last_op2 = source_operand;
-    this.last_op1 = this.last_result = dest_operand - source_operand - cf | 0;
-    this.last_op_size = op_size;
+    this.last_add_result[0] = dest_operand;
+    this.last_op2[0] = source_operand;
+    this.last_op1[0] = this.last_result[0] = dest_operand - source_operand - cf | 0;
+    this.last_op_size[0] = op_size;
 
-    this.flags_changed = flags_all;
+    this.flags_changed[0] = flags_all;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 /*
@@ -107,28 +107,28 @@ CPU.prototype.dec32 = function(dest) { return this.dec(dest, OPSIZE_32); }
 
 CPU.prototype.inc = function(dest_operand, op_size)
 {
-    this.flags = (this.flags & ~1) | this.getcf();
-    this.last_op1 = dest_operand;
-    this.last_op2 = 1;
-    this.last_add_result = this.last_result = dest_operand + 1 | 0;
-    this.last_op_size = op_size;
+    this.flags[0] = (this.flags[0] & ~1) | this.getcf();
+    this.last_op1[0] = dest_operand;
+    this.last_op2[0] = 1;
+    this.last_add_result[0] = this.last_result[0] = dest_operand + 1 | 0;
+    this.last_op_size[0] = op_size;
 
-    this.flags_changed = flags_all & ~1;
+    this.flags_changed[0] = flags_all & ~1;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.dec = function(dest_operand, op_size)
 {
-    this.flags = (this.flags & ~1) | this.getcf();
-    this.last_add_result = dest_operand;
-    this.last_op2 = 1;
-    this.last_op1 = this.last_result = dest_operand - 1 | 0;
-    this.last_op_size = op_size;
+    this.flags[0] = (this.flags[0] & ~1) | this.getcf();
+    this.last_add_result[0] = dest_operand;
+    this.last_op2[0] = 1;
+    this.last_op1[0] = this.last_result[0] = dest_operand - 1 | 0;
+    this.last_op_size[0] = op_size;
 
-    this.flags_changed = flags_all & ~1;
+    this.flags_changed[0] = flags_all & ~1;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 
@@ -141,16 +141,15 @@ CPU.prototype.neg32 = function(dest) { return this.neg(dest, OPSIZE_32); }
 
 CPU.prototype.neg = function(dest_operand, op_size)
 {
-    this.last_op1 = this.last_result = -dest_operand | 0;
+    this.last_op1[0] = this.last_result[0] = -dest_operand | 0;
 
-    this.flags_changed = flags_all;
-    this.last_add_result = 0;
-    this.last_op2 = dest_operand;
-    this.last_op_size = op_size;
+    this.flags_changed[0] = flags_all;
+    this.last_add_result[0] = 0;
+    this.last_op2[0] = dest_operand;
+    this.last_op_size[0] = op_size;
 
-    return this.last_result;
+    return this.last_result[0];
 }
-
 
 /*
  * mul, imul, div, idiv
@@ -165,19 +164,19 @@ CPU.prototype.mul8 = function(source_operand)
     var result = source_operand * this.reg8[reg_al];
 
     this.reg16[reg_ax] = result;
-    this.last_result = result & 0xFF;
-    this.last_op_size = OPSIZE_8;
+    this.last_result[0] = result & 0xFF;
+    this.last_op_size[0] = OPSIZE_8;
 
     if(result < 0x100)
     {
-        this.flags = this.flags & ~1 & ~flag_overflow;
+        this.flags[0] = this.flags[0] & ~1 & ~flag_overflow;
     }
     else
     {
-        this.flags = this.flags | 1 | flag_overflow;
+        this.flags[0] = this.flags[0] | 1 | flag_overflow;
     }
 
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
 }
 
 CPU.prototype.imul8 = function(source_operand)
@@ -185,18 +184,18 @@ CPU.prototype.imul8 = function(source_operand)
     var result = source_operand * this.reg8s[reg_al];
 
     this.reg16[reg_ax] = result;
-    this.last_result = result & 0xFF;
-    this.last_op_size = OPSIZE_8;
+    this.last_result[0] = result & 0xFF;
+    this.last_op_size[0] = OPSIZE_8;
 
     if(result > 0x7F || result < -0x80)
     {
-        this.flags = this.flags | 1 | flag_overflow;
+        this.flags[0] = this.flags[0] | 1 | flag_overflow;
     }
     else
     {
-        this.flags = this.flags & ~1 & ~flag_overflow;
+        this.flags[0] = this.flags[0] & ~1 & ~flag_overflow;
     }
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
 }
 
 CPU.prototype.mul16 = function(source_operand)
@@ -208,18 +207,18 @@ CPU.prototype.mul16 = function(source_operand)
     this.reg16[reg_ax] = result;
     this.reg16[reg_dx] = high_result;
 
-    this.last_result = result & 0xFFFF;
-    this.last_op_size = OPSIZE_16;
+    this.last_result[0] = result & 0xFFFF;
+    this.last_op_size[0] = OPSIZE_16;
 
     if(high_result === 0)
     {
-        this.flags &= ~1 & ~flag_overflow;
+        this.flags[0] &= ~1 & ~flag_overflow;
     }
     else
     {
-        this.flags |= 1 | flag_overflow;
+        this.flags[0] |= 1 | flag_overflow;
     }
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
 }
 
 /*
@@ -233,18 +232,18 @@ CPU.prototype.imul16 = function(source_operand)
     this.reg16[reg_ax] = result;
     this.reg16[reg_dx] = result >> 16;
 
-    this.last_result = result & 0xFFFF;
-    this.last_op_size = OPSIZE_16;
+    this.last_result[0] = result & 0xFFFF;
+    this.last_op_size[0] = OPSIZE_16;
 
     if(result > 0x7FFF || result < -0x8000)
     {
-        this.flags |= 1 | flag_overflow;
+        this.flags[0] |= 1 | flag_overflow;
     }
     else
     {
-        this.flags &= ~1 & ~flag_overflow;
+        this.flags[0] &= ~1 & ~flag_overflow;
     }
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
 }
 
 /*
@@ -259,18 +258,18 @@ CPU.prototype.imul_reg16 = function(operand1, operand2)
 
     var result = operand1 * operand2;
 
-    this.last_result = result & 0xFFFF;
-    this.last_op_size = OPSIZE_16;
+    this.last_result[0] = result & 0xFFFF;
+    this.last_op_size[0] = OPSIZE_16;
 
     if(result > 0x7FFF || result < -0x8000)
     {
-        this.flags |= 1 | flag_overflow;
+        this.flags[0] |= 1 | flag_overflow;
     }
     else
     {
-        this.flags &= ~1 & ~flag_overflow;
+        this.flags[0] &= ~1 & ~flag_overflow;
     }
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
 
     return result;
 }
@@ -287,6 +286,14 @@ CPU.prototype.do_mul32 = function(a, b)
     mid = (mid & 0xFFFF) + (a00 * b16 | 0) | 0;
     this.mul32_result[0] = (mid << 16) | low_result & 0xFFFF;
     this.mul32_result[1] = ((mid >>> 16) + (a16 * b16 | 0) | 0) + high_result | 0;
+    return this.mul32_result;
+};
+
+//XXX: do_mul32 returns a typedarray object which we can't do from a wasm
+//function, so we rewrite it here differently from other ports. Would
+//change this when callers of do_mul32 are rewritten in wasm.
+CPU.prototype.do_mul32 = function(a, b) {
+    this.wm.funcs['_do_mul32'](a, b);
     return this.mul32_result;
 };
 
@@ -309,6 +316,12 @@ CPU.prototype.do_imul32 = function(a, b)
     return result;
 }
 
+//XXX: same issue as do_mul32. rewrite after callers are ported to wasm
+CPU.prototype.do_imul32 = function(a, b) {
+    this.wm.funcs['_do_imul32'](a, b);
+    return this.mul32_result;
+};
+
 CPU.prototype.mul32 = function(source_operand)
 {
     var dest_operand = this.reg32s[reg_eax];
@@ -318,18 +331,18 @@ CPU.prototype.mul32 = function(source_operand)
     this.reg32s[reg_eax] = result[0];
     this.reg32s[reg_edx] = result[1];
 
-    this.last_result = result[0];
-    this.last_op_size = OPSIZE_32;
+    this.last_result[0] = result[0];
+    this.last_op_size[0] = OPSIZE_32;
 
     if(result[1] === 0)
     {
-        this.flags &= ~1 & ~flag_overflow;
+        this.flags[0] &= ~1 & ~flag_overflow;
     }
     else
     {
-        this.flags |= 1 | flag_overflow;
+        this.flags[0] |= 1 | flag_overflow;
     }
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
 
     //console.log(h(source_operand >>> 0, 8) + " * " + h(dest_operand >>> 0, 8));
     //console.log("= " + h(this.reg32[reg_edx], 8) + ":" + h(this.reg32[reg_eax], 8));
@@ -346,18 +359,18 @@ CPU.prototype.imul32 = function(source_operand)
     this.reg32s[reg_eax] = result[0];
     this.reg32s[reg_edx] = result[1];
 
-    this.last_result = result[0];
-    this.last_op_size = OPSIZE_32;
+    this.last_result[0] = result[0];
+    this.last_op_size[0] = OPSIZE_32;
 
     if(result[1] === (result[0] >> 31))
     {
-        this.flags &= ~1 & ~flag_overflow;
+        this.flags[0] &= ~1 & ~flag_overflow;
     }
     else
     {
-        this.flags |= 1 | flag_overflow;
+        this.flags[0] |= 1 | flag_overflow;
     }
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
 
     //console.log(target_operand + " * " + source_operand);
     //console.log("= " + h(this.reg32[reg_edx]) + " " + h(this.reg32[reg_eax]));
@@ -375,18 +388,18 @@ CPU.prototype.imul_reg32 = function(operand1, operand2)
 
     var result = this.do_imul32(operand1, operand2);
 
-    this.last_result = result[0];
-    this.last_op_size = OPSIZE_32;
+    this.last_result[0] = result[0];
+    this.last_op_size[0] = OPSIZE_32;
 
     if(result[1] === (result[0] >> 31))
     {
-        this.flags &= ~1 & ~flag_overflow;
+        this.flags[0] &= ~1 & ~flag_overflow;
     }
     else
     {
-        this.flags |= 1 | flag_overflow;
+        this.flags[0] |= 1 | flag_overflow;
     }
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
 
     return result[0];
 
@@ -502,7 +515,7 @@ CPU.prototype.do_div32 = function(div_low, div_high, quot)
         this.trigger_de();
     }
 
-    var result = 0;
+	var result = 0;
 
     if(div_high > 0x100000)
     {
@@ -545,6 +558,7 @@ CPU.prototype.do_div32 = function(div_low, div_high, quot)
 
 CPU.prototype.div32 = function(source_operand)
 {
+    source_operand >>>= 0;
     dbg_assert(source_operand >= 0 && source_operand <= 0xffffffff);
 
     var dest_operand_low = this.reg32[reg_eax],
@@ -666,23 +680,23 @@ CPU.prototype.bcd_daa = function()
         old_cf = this.getcf(),
         old_af = this.getaf();
 
-    this.flags &= ~1 & ~flag_adjust
+    this.flags[0] &= ~1 & ~flag_adjust
 
     if((old_al & 0xF) > 9 || old_af)
     {
         this.reg8[reg_al] += 6;
-        this.flags |= flag_adjust;
+        this.flags[0] |= flag_adjust;
     }
     if(old_al > 0x99 || old_cf)
     {
         this.reg8[reg_al] += 0x60;
-        this.flags |= 1;
+        this.flags[0] |= 1;
     }
 
-    this.last_result = this.reg8[reg_al];
-    this.last_op_size = OPSIZE_8;
-    this.last_op1 = this.last_op2 = 0;
-    this.flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
+    this.last_result[0] = this.reg8[reg_al];
+    this.last_op_size[0] = OPSIZE_8;
+    this.last_op1[0] = this.last_op2[0] = 0;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
 }
 
 CPU.prototype.bcd_das = function()
@@ -692,29 +706,29 @@ CPU.prototype.bcd_das = function()
     var old_al = this.reg8[reg_al],
         old_cf = this.getcf();
 
-    this.flags &= ~1;
+    this.flags[0] &= ~1;
 
     if((old_al & 0xF) > 9 || this.getaf())
     {
         this.reg8[reg_al] -= 6;
-        this.flags |= flag_adjust;
-        this.flags = this.flags & ~1 | old_cf | (old_al < 6);
+        this.flags[0] |= flag_adjust;
+        this.flags[0] = this.flags[0] & ~1 | old_cf | (old_al < 6);
     }
     else
     {
-        this.flags &= ~flag_adjust;
+        this.flags[0] &= ~flag_adjust;
     }
 
     if(old_al > 0x99 || old_cf)
     {
         this.reg8[reg_al] -= 0x60;
-        this.flags |= 1;
+        this.flags[0] |= 1;
     }
 
-    this.last_result = this.reg8[reg_al];
-    this.last_op_size = OPSIZE_8;
-    this.last_op1 = this.last_op2 = 0;
-    this.flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
+    this.last_result[0] = this.reg8[reg_al];
+    this.last_op_size[0] = OPSIZE_8;
+    this.last_op1[0] = this.last_op2[0] = 0;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
 }
 
 CPU.prototype.bcd_aam = function(imm8)
@@ -732,10 +746,10 @@ CPU.prototype.bcd_aam = function(imm8)
         this.reg8[reg_ah] = temp / imm8;
         this.reg8[reg_al] = temp % imm8;
 
-        this.last_result = this.reg8[reg_al];
+        this.last_result[0] = this.reg8[reg_al];
 
-        this.flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
-        this.flags &= ~1 & ~flag_adjust & ~flag_overflow;
+        this.flags_changed[0] = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
+        this.flags[0] &= ~1 & ~flag_adjust & ~flag_overflow;
     }
 }
 
@@ -745,16 +759,16 @@ CPU.prototype.bcd_aad = function(imm8)
     // ascii adjust before division
 
     var result = this.reg8[reg_al] + this.reg8[reg_ah] * imm8;
-    this.last_result = result & 0xFF;
-    this.reg16[reg_ax] = this.last_result;
-    this.last_op_size = OPSIZE_8;
+    this.last_result[0] = result & 0xFF;
+    this.reg16[reg_ax] = this.last_result[0];
+    this.last_op_size[0] = OPSIZE_8;
 
-    this.flags_changed = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
-    this.flags &= ~1 & ~flag_adjust & ~flag_overflow;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_adjust & ~flag_overflow;
+    this.flags[0] &= ~1 & ~flag_adjust & ~flag_overflow;
 
     if(result > 0xFFFF)
     {
-        this.flags |= 1;
+        this.flags[0] |= 1;
     }
 }
 
@@ -765,15 +779,15 @@ CPU.prototype.bcd_aaa = function()
     {
         this.reg16[reg_ax] += 6;
         this.reg8[reg_ah] += 1;
-        this.flags |= flag_adjust | 1;
+        this.flags[0] |= flag_adjust | 1;
     }
     else
     {
-        this.flags &= ~flag_adjust & ~1;
+        this.flags[0] &= ~flag_adjust & ~1;
     }
     this.reg8[reg_al] &= 0xF;
 
-    this.flags_changed &= ~flag_adjust & ~1;
+    this.flags_changed[0] &= ~flag_adjust & ~1;
 };
 
 
@@ -784,15 +798,15 @@ CPU.prototype.bcd_aas = function()
     {
         this.reg16[reg_ax] -= 6;
         this.reg8[reg_ah] -= 1;
-        this.flags |= flag_adjust | 1;
+        this.flags[0] |= flag_adjust | 1;
     }
     else
     {
-        this.flags &= ~flag_adjust & ~1;
+        this.flags[0] &= ~flag_adjust & ~1;
     }
     this.reg8[reg_al] &= 0xF;
 
-    this.flags_changed &= ~flag_adjust & ~1;
+    this.flags_changed[0] &= ~flag_adjust & ~1;
 }
 
 
@@ -826,35 +840,35 @@ CPU.prototype.xor32 = function(dest, src) { return this.xor(dest, src, OPSIZE_32
 
 CPU.prototype.and = function(dest_operand, source_operand, op_size)
 {
-    this.last_result = dest_operand & source_operand;
+    this.last_result[0] = dest_operand & source_operand;
 
-    this.last_op_size = op_size;
-    this.flags &= ~1 & ~flag_overflow & ~flag_adjust;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow & ~flag_adjust;
+    this.last_op_size[0] = op_size;
+    this.flags[0] &= ~1 & ~flag_overflow & ~flag_adjust;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow & ~flag_adjust;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.or = function(dest_operand, source_operand, op_size)
 {
-    this.last_result = dest_operand | source_operand;
+    this.last_result[0] = dest_operand | source_operand;
 
-    this.last_op_size = op_size;
-    this.flags &= ~1 & ~flag_overflow & ~flag_adjust;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow & ~flag_adjust;
+    this.last_op_size[0] = op_size;
+    this.flags[0] &= ~1 & ~flag_overflow & ~flag_adjust;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow & ~flag_adjust;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.xor = function(dest_operand, source_operand, op_size)
 {
-    this.last_result = dest_operand ^ source_operand;
+    this.last_result[0] = dest_operand ^ source_operand;
 
-    this.last_op_size = op_size;
-    this.flags &= ~1 & ~flag_overflow & ~flag_adjust;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow & ~flag_adjust;
+    this.last_op_size[0] = op_size;
+    this.flags[0] &= ~1 & ~flag_overflow & ~flag_adjust;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow & ~flag_adjust;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 
@@ -872,8 +886,8 @@ CPU.prototype.rol8 = function(dest_operand, count)
 
     var result = dest_operand << count | dest_operand >> (8 - count);
 
-    this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.flags_changed[0] &= ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (result & 1)
                 | (result << 11 ^ result << 4) & flag_overflow;
 
@@ -890,8 +904,8 @@ CPU.prototype.rol16 = function(dest_operand, count)
 
     var result = dest_operand << count | dest_operand >> (16 - count);
 
-    this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.flags_changed[0] &= ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (result & 1)
                 | (result << 11 ^ result >> 4) & flag_overflow;
 
@@ -907,8 +921,8 @@ CPU.prototype.rol32 = function(dest_operand, count)
 
     var result = dest_operand << count | dest_operand >>> (32 - count);
 
-    this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.flags_changed[0] &= ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (result & 1)
                 | (result << 11 ^ result >> 20) & flag_overflow;
 
@@ -925,8 +939,8 @@ CPU.prototype.rcl8 = function(dest_operand, count)
 
     var result = dest_operand << count | this.getcf() << (count - 1) | dest_operand >> (9 - count);
 
-    this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.flags_changed[0] &= ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (result >> 8 & 1)
                 | (result << 3 ^ result << 4) & flag_overflow;
 
@@ -943,8 +957,8 @@ CPU.prototype.rcl16 = function(dest_operand, count)
 
     var result = dest_operand << count | this.getcf() << (count - 1) | dest_operand >> (17 - count);
 
-    this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.flags_changed[0] &= ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (result >> 16 & 1)
                 | (result >> 5 ^ result >> 4) & flag_overflow;
 
@@ -965,9 +979,9 @@ CPU.prototype.rcl32 = function(dest_operand, count)
         result |= dest_operand >>> (33 - count);
     }
 
-    this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) | (dest_operand >>> (32 - count) & 1);
-    this.flags |= (this.flags << 11 ^ result >> 20) & flag_overflow;
+    this.flags_changed[0] &= ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow) | (dest_operand >>> (32 - count) & 1);
+    this.flags[0] |= (this.flags[0] << 11 ^ result >> 20) & flag_overflow;
 
     return result;
 }
@@ -982,8 +996,8 @@ CPU.prototype.ror8 = function(dest_operand, count)
     count &= 7;
     var result = dest_operand >> count | dest_operand << (8 - count);
 
-    this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.flags_changed[0] &= ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (result >> 7 & 1)
                 | (result << 4 ^ result << 5) & flag_overflow;
 
@@ -1000,8 +1014,8 @@ CPU.prototype.ror16 = function(dest_operand, count)
     count &= 15;
     var result = dest_operand >> count | dest_operand << (16 - count);
 
-    this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.flags_changed[0] &= ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (result >> 15 & 1)
                 | (result >> 4 ^ result >> 3) & flag_overflow;
 
@@ -1017,8 +1031,8 @@ CPU.prototype.ror32 = function(dest_operand, count)
 
     var result = dest_operand >>> count | dest_operand << (32 - count);
 
-    this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.flags_changed[0] &= ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (result >> 31 & 1)
                 | (result >> 20 ^ result >> 19) & flag_overflow;
 
@@ -1035,8 +1049,8 @@ CPU.prototype.rcr8 = function(dest_operand, count)
 
     var result = dest_operand >> count | this.getcf() << (8 - count) | dest_operand << (9 - count);
 
-    this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.flags_changed[0] &= ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (result >> 8 & 1)
                 | (result << 4 ^ result << 5) & flag_overflow;
 
@@ -1053,8 +1067,8 @@ CPU.prototype.rcr16 = function(dest_operand, count)
 
     var result = dest_operand >> count | this.getcf() << (16 - count) | dest_operand << (17 - count);
 
-    this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.flags_changed[0] &= ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (result >> 16 & 1)
                 | (result >> 4 ^ result >> 3) & flag_overflow;
 
@@ -1075,8 +1089,8 @@ CPU.prototype.rcr32 = function(dest_operand, count)
         result |= dest_operand << (33 - count);
     }
 
-    this.flags_changed &= ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.flags_changed[0] &= ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (dest_operand >> (count - 1) & 1)
                 | (result >> 20 ^ result >> 19) & flag_overflow;
 
@@ -1090,15 +1104,15 @@ CPU.prototype.shl8 = function(dest_operand, count)
         return dest_operand;
     }
 
-    this.last_result = dest_operand << count;
+    this.last_result[0] = dest_operand << count;
 
-    this.last_op_size = OPSIZE_8;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
-                | (this.last_result >> 8 & 1)
-                | (this.last_result << 3 ^ this.last_result << 4) & flag_overflow;
+    this.last_op_size[0] = OPSIZE_8;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
+                | (this.last_result[0] >> 8 & 1)
+                | (this.last_result[0] << 3 ^ this.last_result[0] << 4) & flag_overflow;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.shl16 = function(dest_operand, count)
@@ -1108,15 +1122,15 @@ CPU.prototype.shl16 = function(dest_operand, count)
         return dest_operand;
     }
 
-    this.last_result = dest_operand << count;
+    this.last_result[0] = dest_operand << count;
 
-    this.last_op_size = OPSIZE_16;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
-                | (this.last_result >> 16 & 1)
-                | (this.last_result >> 5 ^ this.last_result >> 4) & flag_overflow;
+    this.last_op_size[0] = OPSIZE_16;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
+                | (this.last_result[0] >> 16 & 1)
+                | (this.last_result[0] >> 5 ^ this.last_result[0] >> 4) & flag_overflow;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.shl32 = function(dest_operand, count)
@@ -1126,15 +1140,15 @@ CPU.prototype.shl32 = function(dest_operand, count)
         return dest_operand;
     }
 
-    this.last_result = dest_operand << count;
+    this.last_result[0] = dest_operand << count;
 
-    this.last_op_size = OPSIZE_32;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
+    this.last_op_size[0] = OPSIZE_32;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
     // test this
-    this.flags = (this.flags & ~1 & ~flag_overflow) | (dest_operand >>> (32 - count) & 1);
-    this.flags |= ((this.flags & 1) ^ (this.last_result >> 31 & 1)) << 11 & flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow) | (dest_operand >>> (32 - count) & 1);
+    this.flags[0] |= ((this.flags[0] & 1) ^ (this.last_result[0] >> 31 & 1)) << 11 & flag_overflow;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.shr8 = function(dest_operand, count)
@@ -1144,15 +1158,15 @@ CPU.prototype.shr8 = function(dest_operand, count)
         return dest_operand;
     }
 
-    this.last_result = dest_operand >> count;
+    this.last_result[0] = dest_operand >> count;
 
-    this.last_op_size = OPSIZE_8;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.last_op_size[0] = OPSIZE_8;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (dest_operand >> (count - 1) & 1)
                 | (dest_operand >> 7 & 1) << 11 & flag_overflow;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.shr16 = function(dest_operand, count)
@@ -1162,15 +1176,15 @@ CPU.prototype.shr16 = function(dest_operand, count)
         return dest_operand;
     }
 
-    this.last_result = dest_operand >> count;
+    this.last_result[0] = dest_operand >> count;
 
-    this.last_op_size = OPSIZE_16;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.last_op_size[0] = OPSIZE_16;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (dest_operand >> (count - 1) & 1)
                 | (dest_operand >> 4)  & flag_overflow;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.shr32 = function(dest_operand, count)
@@ -1180,15 +1194,15 @@ CPU.prototype.shr32 = function(dest_operand, count)
         return dest_operand;
     }
 
-    this.last_result = dest_operand >>> count;
+    this.last_result[0] = dest_operand >>> count;
 
-    this.last_op_size = OPSIZE_32;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow)
+    this.last_op_size[0] = OPSIZE_32;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow)
                 | (dest_operand >>> (count - 1) & 1)
                 | (dest_operand >> 20) & flag_overflow;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.sar8 = function(dest_operand, count)
@@ -1200,20 +1214,20 @@ CPU.prototype.sar8 = function(dest_operand, count)
 
     if(count < 8)
     {
-        this.last_result = dest_operand << 24 >> count + 24;
+        this.last_result[0] = dest_operand << 24 >> count + 24;
         // of is zero
-        this.flags = (this.flags & ~1 & ~flag_overflow) | (dest_operand >> (count - 1) & 1);
+        this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow) | (dest_operand >> (count - 1) & 1);
     }
     else
     {
-        this.last_result = dest_operand << 24 >> 31;
-        this.flags = (this.flags & ~1 & ~flag_overflow) | (this.last_result & 1);
+        this.last_result[0] = dest_operand << 24 >> 31;
+        this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow) | (this.last_result[0] & 1);
     }
 
-    this.last_op_size = OPSIZE_8;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
+    this.last_op_size[0] = OPSIZE_8;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.sar16 = function(dest_operand, count)
@@ -1225,19 +1239,19 @@ CPU.prototype.sar16 = function(dest_operand, count)
 
     if(count < 16)
     {
-        this.last_result = dest_operand << 16 >> count + 16;
-        this.flags = (this.flags & ~1 & ~flag_overflow) | (dest_operand >> (count - 1) & 1);
+        this.last_result[0] = dest_operand << 16 >> count + 16;
+        this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow) | (dest_operand >> (count - 1) & 1);
     }
     else
     {
-        this.last_result = dest_operand << 16 >> 31;
-        this.flags = (this.flags & ~1 & ~flag_overflow) | (this.last_result & 1);
+        this.last_result[0] = dest_operand << 16 >> 31;
+        this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow) | (this.last_result[0] & 1);
     }
 
-    this.last_op_size = OPSIZE_16;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
+    this.last_op_size[0] = OPSIZE_16;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.sar32 = function(dest_operand, count)
@@ -1247,13 +1261,13 @@ CPU.prototype.sar32 = function(dest_operand, count)
         return dest_operand;
     }
 
-    this.last_result = dest_operand >> count;
+    this.last_result[0] = dest_operand >> count;
 
-    this.last_op_size = OPSIZE_32;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1 & ~flag_overflow) | (dest_operand >>> (count - 1) & 1);
+    this.last_op_size[0] = OPSIZE_32;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1 & ~flag_overflow) | (dest_operand >>> (count - 1) & 1);
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 
@@ -1266,20 +1280,20 @@ CPU.prototype.shrd16 = function(dest_operand, source_operand, count)
 
     if(count <= 16)
     {
-        this.last_result = dest_operand >> count | source_operand << (16 - count);
-        this.flags = (this.flags & ~1) | (dest_operand >> (count - 1) & 1);
+        this.last_result[0] = dest_operand >> count | source_operand << (16 - count);
+        this.flags[0] = (this.flags[0] & ~1) | (dest_operand >> (count - 1) & 1);
     }
     else
     {
-        this.last_result = dest_operand << (32 - count) | source_operand >> (count - 16);
-        this.flags = (this.flags & ~1) | (source_operand >> (count - 17) & 1);
+        this.last_result[0] = dest_operand << (32 - count) | source_operand >> (count - 16);
+        this.flags[0] = (this.flags[0] & ~1) | (source_operand >> (count - 17) & 1);
     }
 
-    this.last_op_size = OPSIZE_16;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~flag_overflow) | ((this.last_result ^ dest_operand) >> 4 & flag_overflow);
+    this.last_op_size[0] = OPSIZE_16;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~flag_overflow) | ((this.last_result[0] ^ dest_operand) >> 4 & flag_overflow);
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.shrd32 = function(dest_operand, source_operand, count)
@@ -1289,14 +1303,14 @@ CPU.prototype.shrd32 = function(dest_operand, source_operand, count)
         return dest_operand;
     }
 
-    this.last_result = dest_operand >>> count | source_operand << (32 - count);
+    this.last_result[0] = dest_operand >>> count | source_operand << (32 - count);
 
-    this.last_op_size = OPSIZE_32;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1) | (dest_operand >>> (count - 1) & 1);
-    this.flags = (this.flags & ~flag_overflow) | ((this.last_result ^ dest_operand) >> 20 & flag_overflow);
+    this.last_op_size[0] = OPSIZE_32;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1) | (dest_operand >>> (count - 1) & 1);
+    this.flags[0] = (this.flags[0] & ~flag_overflow) | ((this.last_result[0] ^ dest_operand) >> 20 & flag_overflow);
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.shld16 = function(dest_operand, source_operand, count)
@@ -1308,20 +1322,20 @@ CPU.prototype.shld16 = function(dest_operand, source_operand, count)
 
     if(count <= 16)
     {
-        this.last_result = dest_operand << count | source_operand >>> (16 - count);
-        this.flags = (this.flags & ~1) | (dest_operand >>> (16 - count) & 1);
+        this.last_result[0] = dest_operand << count | source_operand >>> (16 - count);
+        this.flags[0] = (this.flags[0] & ~1) | (dest_operand >>> (16 - count) & 1);
     }
     else
     {
-        this.last_result = dest_operand >> (32 - count) | source_operand << (count - 16);
-        this.flags = (this.flags & ~1) | (source_operand >>> (32 - count) & 1);
+        this.last_result[0] = dest_operand >> (32 - count) | source_operand << (count - 16);
+        this.flags[0] = (this.flags[0] & ~1) | (source_operand >>> (32 - count) & 1);
     }
 
-    this.last_op_size = OPSIZE_16;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~flag_overflow) | ((this.flags & 1) ^ (this.last_result >> 15 & 1)) << 11;
+    this.last_op_size[0] = OPSIZE_16;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~flag_overflow) | ((this.flags[0] & 1) ^ (this.last_result[0] >> 15 & 1)) << 11;
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 CPU.prototype.shld32 = function(dest_operand, source_operand, count)
@@ -1331,51 +1345,51 @@ CPU.prototype.shld32 = function(dest_operand, source_operand, count)
         return dest_operand;
     }
 
-    this.last_result = dest_operand << count | source_operand >>> (32 - count);
+    this.last_result[0] = dest_operand << count | source_operand >>> (32 - count);
 
-    this.last_op_size = OPSIZE_32;
-    this.flags_changed = flags_all & ~1 & ~flag_overflow;
-    this.flags = (this.flags & ~1) | (dest_operand >>> (32 - count) & 1);
+    this.last_op_size[0] = OPSIZE_32;
+    this.flags_changed[0] = flags_all & ~1 & ~flag_overflow;
+    this.flags[0] = (this.flags[0] & ~1) | (dest_operand >>> (32 - count) & 1);
 
     if(count === 1)
     {
-        this.flags = (this.flags & ~flag_overflow) | ((this.flags & 1) ^ (this.last_result >> 31 & 1)) << 11;
+        this.flags[0] = (this.flags[0] & ~flag_overflow) | ((this.flags[0] & 1) ^ (this.last_result[0] >> 31 & 1)) << 11;
     }
     else
     {
-        this.flags &= ~flag_overflow;
+        this.flags[0] &= ~flag_overflow;
     }
 
-    return this.last_result;
+    return this.last_result[0];
 }
 
 
 CPU.prototype.bt_reg = function(bit_base, bit_offset)
 {
-    this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
-    this.flags_changed &= ~1;
+    this.flags[0] = (this.flags[0] & ~1) | (bit_base >> bit_offset & 1);
+    this.flags_changed[0] &= ~1;
 }
 
 CPU.prototype.btc_reg = function(bit_base, bit_offset)
 {
-    this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
-    this.flags_changed &= ~1;
+    this.flags[0] = (this.flags[0] & ~1) | (bit_base >> bit_offset & 1);
+    this.flags_changed[0] &= ~1;
 
     return bit_base ^ 1 << bit_offset;
 }
 
 CPU.prototype.bts_reg = function(bit_base, bit_offset)
 {
-    this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
-    this.flags_changed &= ~1;
+    this.flags[0] = (this.flags[0] & ~1) | (bit_base >> bit_offset & 1);
+    this.flags_changed[0] &= ~1;
 
     return bit_base | 1 << bit_offset;
 }
 
 CPU.prototype.btr_reg = function(bit_base, bit_offset)
 {
-    this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
-    this.flags_changed &= ~1;
+    this.flags[0] = (this.flags[0] & ~1) | (bit_base >> bit_offset & 1);
+    this.flags_changed[0] &= ~1;
 
     return bit_base & ~(1 << bit_offset);
 }
@@ -1385,8 +1399,8 @@ CPU.prototype.bt_mem = function(virt_addr, bit_offset)
     var bit_base = this.safe_read8(virt_addr + (bit_offset >> 3) | 0);
     bit_offset &= 7;
 
-    this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
-    this.flags_changed &= ~1;
+    this.flags[0] = (this.flags[0] & ~1) | (bit_base >> bit_offset & 1);
+    this.flags_changed[0] &= ~1;
 }
 
 CPU.prototype.btc_mem = function(virt_addr, bit_offset)
@@ -1396,8 +1410,8 @@ CPU.prototype.btc_mem = function(virt_addr, bit_offset)
 
     bit_offset &= 7;
 
-    this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
-    this.flags_changed &= ~1;
+    this.flags[0] = (this.flags[0] & ~1) | (bit_base >> bit_offset & 1);
+    this.flags_changed[0] &= ~1;
 
     this.write8(phys_addr, bit_base ^ 1 << bit_offset);
 }
@@ -1409,8 +1423,8 @@ CPU.prototype.btr_mem = function(virt_addr, bit_offset)
 
     bit_offset &= 7;
 
-    this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
-    this.flags_changed &= ~1;
+    this.flags[0] = (this.flags[0] & ~1) | (bit_base >> bit_offset & 1);
+    this.flags_changed[0] &= ~1;
 
     this.write8(phys_addr, bit_base & ~(1 << bit_offset));
 }
@@ -1422,94 +1436,97 @@ CPU.prototype.bts_mem = function(virt_addr, bit_offset)
 
     bit_offset &= 7;
 
-    this.flags = (this.flags & ~1) | (bit_base >> bit_offset & 1);
-    this.flags_changed &= ~1;
+    this.flags[0] = (this.flags[0] & ~1) | (bit_base >> bit_offset & 1);
+    this.flags_changed[0] &= ~1;
 
     this.write8(phys_addr, bit_base | 1 << bit_offset);
 }
 
 CPU.prototype.bsf16 = function(old, bit_base)
 {
-    this.flags_changed = flags_all & ~flag_zero;
-    this.last_op_size = OPSIZE_16;
+    this.flags_changed[0] = flags_all & ~flag_zero;
+    this.last_op_size[0] = OPSIZE_16;
 
     if(bit_base === 0)
     {
-        this.flags |= flag_zero;
-        this.last_result = bit_base;
+        this.flags[0] |= flag_zero;
+        this.last_result[0] = bit_base;
 
         // not defined in the docs, but value doesn't change on my intel machine
         return old;
     }
     else
     {
-        this.flags &= ~flag_zero;
+        this.flags[0] &= ~flag_zero;
 
         // http://jsperf.com/lowest-bit-index
-        return this.last_result = v86util.int_log2(-bit_base & bit_base);
+        return this.last_result[0] = v86util.int_log2(-bit_base & bit_base);
     }
 }
 
 CPU.prototype.bsf32 = function(old, bit_base)
 {
-    this.flags_changed = flags_all & ~flag_zero;
-    this.last_op_size = OPSIZE_32;
+    this.flags_changed[0] = flags_all & ~flag_zero;
+    this.last_op_size[0] = OPSIZE_32;
 
     if(bit_base === 0)
     {
-        this.flags |= flag_zero;
-        this.last_result = bit_base;
+        this.flags[0] |= flag_zero;
+        this.last_result[0] = bit_base;
+
         return old;
     }
     else
     {
-        this.flags &= ~flag_zero;
+        this.flags[0] &= ~flag_zero;
 
-        return this.last_result = v86util.int_log2((-bit_base & bit_base) >>> 0);
+        return this.last_result[0] = v86util.int_log2((-bit_base & bit_base) >>> 0);
     }
 }
 
 CPU.prototype.bsr16 = function(old, bit_base)
 {
-    this.flags_changed = flags_all & ~flag_zero;
-    this.last_op_size = OPSIZE_16;
+    this.flags_changed[0] = flags_all & ~flag_zero;
+    this.last_op_size[0] = OPSIZE_16;
 
     if(bit_base === 0)
     {
-        this.flags |= flag_zero;
-        this.last_result = bit_base;
+        this.flags[0] |= flag_zero;
+        this.last_result[0] = bit_base;
+
         return old;
     }
     else
     {
-        this.flags &= ~flag_zero;
+        this.flags[0] &= ~flag_zero;
 
-        return this.last_result = v86util.int_log2(bit_base);
+        return this.last_result[0] = v86util.int_log2(bit_base);
     }
 }
 
 CPU.prototype.bsr32 = function(old, bit_base)
 {
-    this.flags_changed = flags_all & ~flag_zero;
-    this.last_op_size = OPSIZE_32;
+    this.flags_changed[0] = flags_all & ~flag_zero;
+    this.last_op_size[0] = OPSIZE_32;
 
     if(bit_base === 0)
     {
-        this.flags |= flag_zero;
-        this.last_result = bit_base;
+        this.flags[0] |= flag_zero;
+        this.last_result[0] = bit_base;
+
         return old;
     }
     else
     {
-        this.flags &= ~flag_zero;
-        return this.last_result = v86util.int_log2(bit_base >>> 0);
+        this.flags[0] &= ~flag_zero;
+        return this.last_result[0] = v86util.int_log2(bit_base >>> 0);
     }
 }
 
 CPU.prototype.popcnt = function(v)
 {
-    this.flags_changed = 0;
-    this.flags &= ~flags_all;
+    this.flags_changed[0] = 0;
+    this.flags[0] &= ~flags_all;
 
     if(v)
     {
@@ -1520,7 +1537,7 @@ CPU.prototype.popcnt = function(v)
     }
     else
     {
-        this.flags |= flag_zero;
+        this.flags[0] |= flag_zero;
         return 0;
     }
 };

@@ -18,6 +18,42 @@ var ASYNC_SAFE = false;
     v86util.AsyncFileBuffer = AsyncFileBuffer;
     v86util.SyncFileBuffer = SyncFileBuffer;
 
+    v86util.load_wasm = function load_wasm(filename, imports, cb) {
+        if (!imports) {
+            imports = {};
+        }
+        const STATIC_MEMORY_BASE = 64 * 1024 * 1024; // XXX
+
+        v86util.load_file(filename, { done: function(buffer)
+            {
+                WebAssembly.compile(buffer)
+                    .then(module => {
+                        if (!imports['env']) {
+                            imports['env'] = {};
+                        }
+                        imports['env']['___assert_fail'] = (a, b, c, d) => {
+                            console.error('Assertion Failed', a, b, c, d);
+                            dbg_assert(false);
+                        };
+                        imports['env']['memoryBase'] = STATIC_MEMORY_BASE;
+                        imports['env']['tableBase'] = 0;
+                        imports['env']['memory'] = new WebAssembly.Memory({ ['initial']: 4096, });
+                        imports['env']['table'] = new WebAssembly.Table({ ['initial']: 18, ['element']: 'anyfunc' });
+                        return WebAssembly.instantiate(module, imports).then(instance => ({ instance, module }));
+                    })
+                    .then(({ instance, module }) => {
+                        cb({
+                            mem: imports['env']['memory'],
+                            funcs: instance['exports'],
+                            instance,
+                            imports,
+                            filename,
+                        });
+                    });
+            }
+        });
+    };
+
     /**
      * @param {string} filename
      * @param {Object} options

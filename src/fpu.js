@@ -76,7 +76,8 @@ function FPU(cpu)
 
 
     // bitmap of which stack registers are empty
-    this.stack_empty = 0xff;
+    this.stack_empty = new Int32Array(cpu.wm.mem.buffer, 816, 1);
+    this.stack_empty[0] = 0xff;
     this.stack_ptr = 0;
 
     this.control_word = 0x37F;
@@ -96,14 +97,20 @@ function FPU(cpu)
         Math.log(2) / Math.LN10, Math.LN2, 0
     ]);
 
+    this.wasm_patch();
 }
+
+FPU.prototype.wasm_patch = function()
+{
+    this.set_tag_word = this.cpu.wm.funcs["_safe_tag_word"];
+};
 
 FPU.prototype.get_state = function()
 {
     var state = [];
 
     state[0] = this.st;
-    state[1] = this.stack_empty;
+    state[1] = this.stack_empty[0];
     state[2] = this.stack_ptr;
     state[3] = this.control_word;
     state[4] = this.fpu_dp_selector;
@@ -119,7 +126,7 @@ FPU.prototype.get_state = function()
 FPU.prototype.set_state = function(state)
 {
     this.st.set(state[0]);
-    this.stack_empty = state[1];
+    this.stack_empty[0] = state[1];
     this.stack_ptr = state[2];
     this.control_word = state[3];
     this.fpu_dp_selector = state[4];
@@ -182,23 +189,23 @@ FPU.prototype.fcomi = function(y)
 {
     var x = this.st[this.stack_ptr];
 
-    this.cpu.flags_changed &= ~(1 | flag_parity | flag_zero);
-    this.cpu.flags &= ~(1 | flag_parity | flag_zero);
+    this.cpu.flags_changed[0] &= ~(1 | flag_parity | flag_zero);
+    this.cpu.flags[0] &= ~(1 | flag_parity | flag_zero);
 
     if(x > y)
     {
     }
     else if(y > x)
     {
-        this.cpu.flags |= 1;
+        this.cpu.flags[0] |= 1;
     }
     else if(x === y)
     {
-        this.cpu.flags |= flag_zero;
+        this.cpu.flags[0] |= flag_zero;
     }
     else
     {
-        this.cpu.flags |= 1 | flag_parity | flag_zero;
+        this.cpu.flags[0] |= 1 | flag_parity | flag_zero;
     }
 }
 
@@ -233,7 +240,7 @@ FPU.prototype.fxam = function(x)
     this.status_word &= ~FPU_RESULT_FLAGS;
     this.status_word |= this.sign(0) << 9;
 
-    if(this.stack_empty >> this.stack_ptr & 1)
+    if(this.stack_empty[0] >> this.stack_ptr & 1)
     {
         this.status_word |= FPU_C3 | FPU_C0;
     }
@@ -265,7 +272,7 @@ FPU.prototype.finit = function()
     this.fpu_dp = 0;
     this.fpu_opcode = 0;
 
-    this.stack_empty = 0xFF;
+    this.stack_empty[0] = 0xFF;
     this.stack_ptr = 0;
 }
 
@@ -289,7 +296,7 @@ FPU.prototype.load_tag_word = function()
     {
         value = this.st[i];
 
-        if(this.stack_empty >> i & 1)
+        if(this.stack_empty[0] >> i & 1)
         {
             tag_word |= 3 << (i << 1);
         }
@@ -303,18 +310,18 @@ FPU.prototype.load_tag_word = function()
         }
     }
 
-    //dbg_log("load  tw=" + h(tag_word) + " se=" + h(this.stack_empty) + " sp=" + this.stack_ptr, LOG_FPU);
+    //dbg_log("load  tw=" + h(tag_word) + " se=" + h(this.stack_empty[0]) + " sp=" + this.stack_ptr, LOG_FPU);
 
     return tag_word;
 }
 
 FPU.prototype.set_tag_word = function(tag_word)
 {
-    this.stack_empty = 0;
+    this.stack_empty[0] = 0;
 
     for(var i = 0; i < 8; i++)
     {
-        this.stack_empty |= (tag_word >> i) & (tag_word >> i + 1) & 1 << i;
+        this.stack_empty[0] |= (tag_word >> i) & (tag_word >> i + 1) & 1 << i;
     }
 
     //dbg_log("set_tag_word  tw=" + h(tag_word) + " se=" + h(this.stack_empty), LOG_FPU);
@@ -447,10 +454,10 @@ FPU.prototype.push = function(x)
 {
     this.stack_ptr = this.stack_ptr - 1 & 7;
 
-    if(this.stack_empty >> this.stack_ptr & 1)
+    if(this.stack_empty[0] >> this.stack_ptr & 1)
     {
         this.status_word &= ~FPU_C1;
-        this.stack_empty &= ~(1 << this.stack_ptr);
+        this.stack_empty[0] &= ~(1 << this.stack_ptr);
         this.st[this.stack_ptr] = x;
     }
     else
@@ -463,7 +470,7 @@ FPU.prototype.push = function(x)
 
 FPU.prototype.pop = function()
 {
-    this.stack_empty |= 1 << this.stack_ptr;
+    this.stack_empty[0] |= 1 << this.stack_ptr;
     this.stack_ptr = this.stack_ptr + 1 & 7;
 }
 
@@ -473,7 +480,7 @@ FPU.prototype.get_sti = function(i)
 
     i = i + this.stack_ptr & 7;
 
-    if(this.stack_empty >> i & 1)
+    if(this.stack_empty[0] >> i & 1)
     {
         this.status_word &= ~FPU_C1;
         this.stack_fault();
@@ -487,7 +494,7 @@ FPU.prototype.get_sti = function(i)
 
 FPU.prototype.get_st0 = function()
 {
-    if(this.stack_empty >> this.stack_ptr & 1)
+    if(this.stack_empty[0] >> this.stack_ptr & 1)
     {
         this.status_word &= ~FPU_C1;
         this.stack_fault();
@@ -646,12 +653,12 @@ FPU.prototype.dbg_log_fpu_op = function(op, imm8)
     if(imm8 >= 0xC0)
     {
         dbg_log(h(op, 2) + " " + h(imm8, 2) + "/" + (imm8 >> 3 & 7) + "/" + (imm8 & 7) +
-                " @" + h(this.cpu.instruction_pointer >>> 0, 8) + " sp=" + this.stack_ptr + " st=" + h(this.stack_empty, 2), LOG_FPU);
+                " @" + h(this.cpu.instruction_pointer[0] >>> 0, 8) + " sp=" + this.stack_ptr + " st=" + h(this.stack_empty[0], 2), LOG_FPU);
     }
     else
     {
         dbg_log(h(op, 2) + " /" + (imm8 >> 3 & 7) +
-                "     @" + h(this.cpu.instruction_pointer >>> 0, 8) + " sp=" + this.stack_ptr + " st=" + h(this.stack_empty, 2), LOG_FPU);
+                "     @" + h(this.cpu.instruction_pointer[0] >>> 0, 8) + " sp=" + this.stack_ptr + " st=" + h(this.stack_empty[0], 2), LOG_FPU);
     }
 }
 
@@ -987,7 +994,7 @@ FPU.prototype.op_DA_reg = function(imm8)
             if(this.cpu.test_b())
             {
                 this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty &= ~(1 << this.stack_ptr);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr);
             }
             break;
         case 1:
@@ -995,7 +1002,7 @@ FPU.prototype.op_DA_reg = function(imm8)
             if(this.cpu.test_z())
             {
                 this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty &= ~(1 << this.stack_ptr);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr);
             }
             break;
         case 2:
@@ -1003,7 +1010,7 @@ FPU.prototype.op_DA_reg = function(imm8)
             if(this.cpu.test_be())
             {
                 this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty &= ~(1 << this.stack_ptr);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr);
             }
             break;
         case 3:
@@ -1011,7 +1018,7 @@ FPU.prototype.op_DA_reg = function(imm8)
             if(this.cpu.test_p())
             {
                 this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty &= ~(1 << this.stack_ptr);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr);
             }
             break;
         case 5:
@@ -1096,7 +1103,7 @@ FPU.prototype.op_DB_reg = function(imm8)
             if(!this.cpu.test_b())
             {
                 this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty &= ~(1 << this.stack_ptr);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr);
             }
             break;
         case 1:
@@ -1104,7 +1111,7 @@ FPU.prototype.op_DB_reg = function(imm8)
             if(!this.cpu.test_z())
             {
                 this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty &= ~(1 << this.stack_ptr);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr);
             }
             break;
         case 2:
@@ -1112,7 +1119,7 @@ FPU.prototype.op_DB_reg = function(imm8)
             if(!this.cpu.test_be())
             {
                 this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty &= ~(1 << this.stack_ptr);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr);
             }
             break;
         case 3:
@@ -1120,7 +1127,7 @@ FPU.prototype.op_DB_reg = function(imm8)
             if(!this.cpu.test_p())
             {
                 this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty &= ~(1 << this.stack_ptr);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr);
             }
             break;
         case 4:
@@ -1329,7 +1336,7 @@ FPU.prototype.op_DD_reg = function(imm8)
     {
         case 0:
             // ffree
-            this.stack_empty |= 1 << (this.stack_ptr + low & 7);
+            this.stack_empty[0] |= 1 << (this.stack_ptr + low & 7);
             break;
         case 2:
             // fst

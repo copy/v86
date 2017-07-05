@@ -87,6 +87,27 @@ var dbg_log = (function()
     return dbg_log_;
 })();
 
+function dbg_log_wasm(memory, offset, args)
+{
+    if(!(LOG_LEVEL & LOG_CPU))
+    {
+        return;
+    }
+
+    let s = new Uint8Array(memory, offset);
+    let length = s.indexOf(0);
+    if(length !== -1)
+    {
+        s = new Uint8Array(memory, offset, length);
+    }
+
+    let format_string = "[CPU ] " + String.fromCharCode.apply(String, s);
+    let format_args = [format_string];
+    format_args.push.apply(format_args, args);
+
+    console.log.apply(console, format_args);
+}
+
 /**
  * @param {number=} level
  */

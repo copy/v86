@@ -5,6 +5,7 @@ NASM_TEST_DIR=./tests/nasm
 
 all: build/v86_all.js
 browser: build/v86_all.js
+wasm: build/v86.wasm
 
 # Used for nodejs builds and in order to profile code.
 # `debug` gives identifiers a readable name, make sure it doesn't have any side effects.
@@ -123,11 +124,42 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 
 	ls -lh build/libv86.js
 
+build/v86.wasm: src/native/*.c src/native/*.h
+	mkdir -p build
+	-ls -lh build/v86.wasm
+	# --llvm-opts 3
+	# -Wno-extra-semi
+	# EMCC_WASM_BACKEND=1
+	emcc src/native/all.c \
+	    -Wall -Wpedantic -Wextra \
+	    -DDEBUG=false \
+	    -DNDEBUG \
+	    -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \
+	    -fcolor-diagnostics \
+	    -fwrapv \
+	    --llvm-opts 3 \
+	    -O3 \
+	    -g4 \
+	    -s WASM=1 -s SIDE_MODULE=1 -o build/v86.wasm
+	ls -lh build/v86.wasm
+
+build/v86-debug.wasm: src/native/*.c src/native/*.h
+	emcc src/native/all.c \
+	    -Wall -Wpedantic -Wextra \
+	    -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \
+	    -fcolor-diagnostics \
+	    -fwrapv \
+	    -Os \
+	    -g4 \
+	    -s WASM=1 -s SIDE_MODULE=1 -o build/v86-debug.wasm
+	ls -lh build/v86-debug.wasm
+
 clean:
 	-rm build/libv86.js
 	-rm build/v86_all.js
 	-rm build/libv86.js.map
 	-rm build/v86_all.js.map
+	-rm build/v86.wasm
 	$(MAKE) -C $(NASM_TEST_DIR) clean
 
 run:

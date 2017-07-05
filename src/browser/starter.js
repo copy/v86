@@ -92,7 +92,190 @@ function V86Starter(options)
     var bus = Bus.create();
     var adapter_bus = this.bus = bus[0];
     this.emulator_bus = bus[1];
-    var emulator = this.v86 = new v86(this.emulator_bus);
+    var emulator;
+    var cpu;
+    var mem;
+    var wasm_shared_funcs = {
+        "_throw_cpu_exception": () => { throw MAGIC_CPU_EXCEPTION; },
+        "_hlt_op": function() { return cpu.hlt_op(); },
+        "abort": function() { dbg_assert(false); },
+        "_dbg_assert": function() { return cpu.dbg_assert.apply(cpu, arguments); },
+        "_dbg_log": function() { return cpu.dbg_log.apply(cpu, arguments); },
+        "_todo": function() { return cpu.todo.apply(cpu, arguments); },
+        "_undefined_instruction": function() { return cpu.undefined_instruction.apply(cpu, arguments); },
+        "_unimplemented_sse": function() { return cpu.unimplemented_sse_wasm(); },
+        "_microtick": function() { return v86.microtick(); },
+        "_get_rand_int": function() { return v86util.get_rand_int(); },
+        "_has_rand_int": function() { return v86util.has_rand_int(); },
+        "_printf": function(offset) { dbg_log_wasm(mem, offset, [].slice.call(arguments, 1)); },
+
+        "_call_interrupt_vector": function(interrupt_nr, is_software_int, has_error_code, error_code) {
+            cpu.call_interrupt_vector(interrupt_nr, is_software_int, !!has_error_code, error_code);
+        },
+        "_far_jump": function(eip, selector, is_call) { return cpu.far_jump(eip, selector, !!is_call); },
+        "_far_return": function(eip, selector, stack_adjust) { return cpu.far_return(eip, selector, stack_adjust); },
+        "_switch_seg": function(reg, selector) { cpu.switch_seg(reg, selector); },
+        "_iret16": function() { return cpu.iret16(); },
+        "_iret32": function() { return cpu.iret32(); },
+
+        "_io_port_read8": function(addr) { return cpu.io.port_read8(addr); },
+        "_io_port_read16": function(addr) { return cpu.io.port_read16(addr); },
+        "_io_port_read32": function(addr) { return cpu.io.port_read32(addr); },
+        "_io_port_write8": function(addr, value) { cpu.io.port_write8(addr, value); },
+        "_io_port_write16": function(addr, value) { cpu.io.port_write16(addr, value); },
+        "_io_port_write32": function(addr, value) { cpu.io.port_write32(addr, value); },
+
+        "_mmap_read8": function(addr) { return cpu.mmap_read8(addr); },
+        "_mmap_read16": function(addr) { return cpu.mmap_read16(addr); },
+        "_mmap_read32": function(addr) { return cpu.mmap_read32(addr); },
+        "_mmap_write8": function(addr, value) { return cpu.mmap_write8(addr, value); },
+        "_mmap_write16": function(addr, value) { return cpu.mmap_write16(addr, value); },
+        "_mmap_write32": function(addr, value) { return cpu.mmap_write32(addr, value); },
+
+        "_fpu_op_D8_reg": function() { return cpu.fpu.op_D8_reg.apply(cpu.fpu, arguments); },
+        "_fpu_op_D9_reg": function() { return cpu.fpu.op_D9_reg.apply(cpu.fpu, arguments); },
+        "_fpu_op_DA_reg": function() { return cpu.fpu.op_DA_reg.apply(cpu.fpu, arguments); },
+        "_fpu_op_DB_reg": function() { return cpu.fpu.op_DB_reg.apply(cpu.fpu, arguments); },
+        "_fpu_op_DC_reg": function() { return cpu.fpu.op_DC_reg.apply(cpu.fpu, arguments); },
+        "_fpu_op_DD_reg": function() { return cpu.fpu.op_DD_reg.apply(cpu.fpu, arguments); },
+        "_fpu_op_DE_reg": function() { return cpu.fpu.op_DE_reg.apply(cpu.fpu, arguments); },
+        "_fpu_op_DF_reg": function() { return cpu.fpu.op_DF_reg.apply(cpu.fpu, arguments); },
+
+        "_fpu_op_D8_mem": function() { return cpu.fpu.op_D8_mem.apply(cpu.fpu, arguments); },
+        "_fpu_op_D9_mem": function() { return cpu.fpu.op_D9_mem.apply(cpu.fpu, arguments); },
+        "_fpu_op_DA_mem": function() { return cpu.fpu.op_DA_mem.apply(cpu.fpu, arguments); },
+        "_fpu_op_DB_mem": function() { return cpu.fpu.op_DB_mem.apply(cpu.fpu, arguments); },
+        "_fpu_op_DC_mem": function() { return cpu.fpu.op_DC_mem.apply(cpu.fpu, arguments); },
+        "_fpu_op_DD_mem": function() { return cpu.fpu.op_DD_mem.apply(cpu.fpu, arguments); },
+        "_fpu_op_DE_mem": function() { return cpu.fpu.op_DE_mem.apply(cpu.fpu, arguments); },
+        "_fpu_op_DF_mem": function() { return cpu.fpu.op_DF_mem.apply(cpu.fpu, arguments); },
+        "_fwait": function() { return cpu.fpu.fwait(); },
+
+        "_do_page_translation": function() { return cpu.do_page_translation.apply(cpu, arguments); },
+        "_read_reg_e16": function() { return cpu.read_reg_e16.apply(cpu, arguments); },
+        "_read_reg_e32s": function() { return cpu.read_reg_e32s.apply(cpu, arguments); },
+        "_write_reg_e16": function() { return cpu.write_reg_e16.apply(cpu, arguments); },
+        "_write_reg_e32": function() { return cpu.write_reg_e32.apply(cpu, arguments); },
+        "_read_moffs": function() { return cpu.read_moffs.apply(cpu, arguments); },
+        "_popa16": function() { return cpu.popa16.apply(cpu, arguments); },
+        "_popa32": function() { return cpu.popa32.apply(cpu, arguments); },
+        "_arpl": function() { return cpu.arpl.apply(cpu, arguments); },
+        "_trigger_ud": function() { return cpu.trigger_ud.apply(cpu, arguments); },
+        "_trigger_nm": function() { return cpu.trigger_nm.apply(cpu, arguments); },
+        "_pop16": function() { return cpu.pop16.apply(cpu, arguments); },
+        "_virt_boundary_read16": function() { return cpu.virt_boundary_read16.apply(cpu, arguments); },
+        "_virt_boundary_read32s": function() { return cpu.virt_boundary_read32s.apply(cpu, arguments); },
+        "_virt_boundary_write16": function() { return cpu.virt_boundary_write16.apply(cpu, arguments); },
+        "_virt_boundary_write32": function() { return cpu.virt_boundary_write32.apply(cpu, arguments); },
+        "_set_stack_reg": function() { return cpu.set_stack_reg.apply(cpu, arguments); },
+        "_getiopl": function() { return cpu.getiopl.apply(cpu, arguments); },
+        "_vm86_mode": function() { return cpu.vm86_mode.apply(cpu, arguments); },
+        "_shl8": function() { return cpu.shl8.apply(cpu, arguments); },
+        "_shr8": function() { return cpu.shr8.apply(cpu, arguments); },
+        "_sar8": function() { return cpu.sar8.apply(cpu, arguments); },
+        "_shl16": function() { return cpu.shl16.apply(cpu, arguments); },
+        "_shr16": function() { return cpu.shr16.apply(cpu, arguments); },
+        "_sar16": function() { return cpu.sar16.apply(cpu, arguments); },
+        "_shl32": function() { return cpu.shl32.apply(cpu, arguments); },
+        "_shr32": function() { return cpu.shr32.apply(cpu, arguments); },
+        "_sar32": function() { return cpu.sar32.apply(cpu, arguments); },
+
+        "_shrd16": function() { return cpu.shrd16.apply(cpu, arguments); },
+        "_shrd32": function() { return cpu.shrd32.apply(cpu, arguments); },
+        "_shld16": function() { return cpu.shld16.apply(cpu, arguments); },
+        "_shld32": function() { return cpu.shld32.apply(cpu, arguments); },
+
+        "_bt_reg": function() { return cpu.bt_reg.apply(cpu, arguments); },
+        "_bt_mem": function() { return cpu.bt_mem.apply(cpu, arguments); },
+        "_btr_reg": function() { return cpu.btr_reg.apply(cpu, arguments); },
+        "_btr_mem": function() { return cpu.btr_mem.apply(cpu, arguments); },
+        "_btc_reg": function() { return cpu.btc_reg.apply(cpu, arguments); },
+        "_btc_mem": function() { return cpu.btc_mem.apply(cpu, arguments); },
+        "_bts_reg": function() { return cpu.bts_reg.apply(cpu, arguments); },
+        "_bts_mem": function() { return cpu.bts_mem.apply(cpu, arguments); },
+
+        "_bsf16": function() { return cpu.bsf16.apply(cpu, arguments); },
+        "_bsf32": function() { return cpu.bsf32.apply(cpu, arguments); },
+        "_bsr16": function() { return cpu.bsr16.apply(cpu, arguments); },
+        "_bsr32": function() { return cpu.bsr32.apply(cpu, arguments); },
+        "_popcnt": function() { return cpu.popcnt.apply(cpu, arguments); },
+        "_bswap": function() { return cpu.bswap.apply(cpu, arguments); },
+
+        "_setcc": function() { return cpu.setcc.apply(cpu, arguments); },
+        "_cmovcc16": function() { return cpu.cmovcc16.apply(cpu, arguments); },
+        "_cmovcc32": function() { return cpu.cmovcc32.apply(cpu, arguments); },
+
+        "_lar": function() { return cpu.lar.apply(cpu, arguments); },
+        "_lsl": function() { return cpu.lsl.apply(cpu, arguments); },
+        "_verw": function() { return cpu.verw.apply(cpu, arguments); },
+        "_verr": function() { return cpu.verr.apply(cpu, arguments); },
+
+        "_full_clear_tlb": function() { return cpu.full_clear_tlb.apply(cpu, arguments); },
+        "_invlpg": function() { return cpu.invlpg.apply(cpu, arguments); },
+        "_writable_or_pagefault": function() { return cpu.writable_or_pagefault.apply(cpu, arguments); },
+
+        "_cpl_changed": function() { return cpu.cpl_changed.apply(cpu, arguments); },
+        "_set_cr0": function() { return cpu.set_cr0.apply(cpu, arguments); },
+        "_update_cs_size": function() { return cpu.update_cs_size.apply(cpu, arguments); },
+        "_clear_tlb": function() { return cpu.clear_tlb.apply(cpu, arguments); },
+        "_cpuid": function() { return cpu.cpuid.apply(cpu, arguments); },
+
+        "_load_ldt": function() { return cpu.load_ldt.apply(cpu, arguments); },
+        "_load_tr": function() { return cpu.load_tr.apply(cpu, arguments); },
+
+        "_idiv16": function() { return cpu.idiv16.apply(cpu, arguments); },
+        "_div32": function() { return cpu.div32.apply(cpu, arguments); },
+        "_idiv32": function() { return cpu.idiv32.apply(cpu, arguments); },
+        "_insb": function() { return cpu.insb.apply(cpu, arguments); },
+        "_insw": function() { return cpu.insw.apply(cpu, arguments); },
+        "_insd": function() { return cpu.insd.apply(cpu, arguments); },
+        "_outsb": function() { return cpu.outsb.apply(cpu, arguments); },
+        "_outsw": function() { return cpu.outsw.apply(cpu, arguments); },
+        "_outsd": function() { return cpu.outsd.apply(cpu, arguments); },
+        "_movsb": function() { return cpu.movsb.apply(cpu, arguments); },
+        "_movsw": function() { return cpu.movsw.apply(cpu, arguments); },
+        "_movsd": function() { return cpu.movsd.apply(cpu, arguments); },
+        "_cmpsb": function() { return cpu.cmpsb.apply(cpu, arguments); },
+        "_cmpsw": function() { return cpu.cmpsw.apply(cpu, arguments); },
+        "_cmpsd": function() { return cpu.cmpsd.apply(cpu, arguments); },
+        "_stosb": function() { return cpu.stosb.apply(cpu, arguments); },
+        "_stosw": function() { return cpu.stosw.apply(cpu, arguments); },
+        "_stosd": function() { return cpu.stosd.apply(cpu, arguments); },
+        "_lodsb": function() { return cpu.lodsb.apply(cpu, arguments); },
+        "_lodsw": function() { return cpu.lodsw.apply(cpu, arguments); },
+        "_lodsd": function() { return cpu.lodsd.apply(cpu, arguments); },
+        "_scasb": function() { return cpu.scasb.apply(cpu, arguments); },
+        "_scasw": function() { return cpu.scasw.apply(cpu, arguments); },
+        "_scasd": function() { return cpu.scasd.apply(cpu, arguments); },
+        "_lss16": function() { return cpu.lss16.apply(cpu, arguments); },
+        "_lss32": function() { return cpu.lss32.apply(cpu, arguments); },
+        "_enter16": function() { return cpu.enter16.apply(cpu, arguments); },
+        "_enter32": function() { return cpu.enter32.apply(cpu, arguments); },
+        "_update_eflags": function() { return cpu.update_eflags.apply(cpu, arguments); },
+        "_handle_irqs": function() { return cpu.handle_irqs.apply(cpu, arguments); },
+        "_get_real_eip": function() { return cpu.get_real_eip.apply(cpu, arguments); },
+        "_xchg8": function() { return cpu.xchg8.apply(cpu, arguments); },
+        "_xchg16": function() { return cpu.xchg16.apply(cpu, arguments); },
+        "_xchg16r": function() { return cpu.xchg16r.apply(cpu, arguments); },
+        "_xchg32": function() { return cpu.xchg32.apply(cpu, arguments); },
+        "_xchg32r": function() { return cpu.xchg32r.apply(cpu, arguments); },
+        "_loop": function() { return cpu.loop.apply(cpu, arguments); },
+        "_loope": function() { return cpu.loope.apply(cpu, arguments); },
+        "_loopne": function() { return cpu.loopne.apply(cpu, arguments); },
+        "_bcd_aam": function() { return cpu.bcd_aam.apply(cpu, arguments); },
+        "_task_switch_test": function() { return cpu.task_switch_test.apply(cpu, arguments); },
+        "_jcxz": function() { return cpu.jcxz.apply(cpu, arguments); },
+        "_test_privileges_for_io": function() { return cpu.test_privileges_for_io.apply(cpu, arguments); },
+
+        "_fxsave": function() { return cpu.fxsave.apply(cpu, arguments); },
+        "_fxrstor": function() { return cpu.fxrstor.apply(cpu, arguments); },
+    };
+
+    let wasm_file = DEBUG ? "v86-debug.wasm" : "v86.wasm";
+    v86util.load_wasm("build/" + wasm_file, { 'env': wasm_shared_funcs }, wm => {
+        emulator = this.v86 = new v86(this.emulator_bus, wm);
+        cpu = emulator.cpu;
+        mem = wm.mem.buffer;
 
     this.bus.register("emulator-stopped", function()
     {
@@ -423,6 +606,8 @@ function V86Starter(options)
             }.bind(this), 0);
         }.bind(this), 0);
     }
+
+    });
 }
 
 /**
@@ -627,7 +812,7 @@ V86Starter.prototype.get_instruction_counter = function()
 {
     if(this.v86)
     {
-        return this.v86.cpu.timestamp_counter;
+        return this.v86.cpu.timestamp_counter[0];
     }
     else
     {

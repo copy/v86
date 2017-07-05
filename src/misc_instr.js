@@ -20,7 +20,7 @@ CPU.prototype.jmpcc8 = function(condition)
     var imm8 = this.read_op8s();
     if(condition)
     {
-        this.instruction_pointer = this.instruction_pointer + imm8 | 0;
+        this.instruction_pointer[0] = this.instruction_pointer[0] + imm8 | 0;
         this.branch_taken();
     }
     else
@@ -35,9 +35,9 @@ CPU.prototype.jmp_rel16 = function(rel16)
 
     // limit ip to 16 bit
     // ugly
-    this.instruction_pointer -= current_cs;
-    this.instruction_pointer = (this.instruction_pointer + rel16) & 0xFFFF;
-    this.instruction_pointer = this.instruction_pointer + current_cs | 0;
+    this.instruction_pointer[0] -= current_cs;
+    this.instruction_pointer[0] = (this.instruction_pointer[0] + rel16) & 0xFFFF;
+    this.instruction_pointer[0] = this.instruction_pointer[0] + current_cs | 0;
 };
 
 CPU.prototype.jmpcc16 = function(condition)
@@ -54,7 +54,6 @@ CPU.prototype.jmpcc16 = function(condition)
     }
 }
 
-
 CPU.prototype.jmpcc32 = function(condition)
 {
     var imm32s = this.read_op32s();
@@ -63,7 +62,7 @@ CPU.prototype.jmpcc32 = function(condition)
         // don't change to `this.instruction_pointer += this.read_op32s()`,
         //   since read_op32s modifies instruction_pointer
 
-        this.instruction_pointer = this.instruction_pointer + imm32s | 0;
+        this.instruction_pointer[0] = this.instruction_pointer[0] + imm32s | 0;
         this.branch_taken();
     }
     else
@@ -99,7 +98,7 @@ CPU.prototype.loopne = function(imm8s)
 {
     if(this.decr_ecx_asize() && !this.getzf())
     {
-        this.instruction_pointer = this.instruction_pointer + imm8s | 0;
+        this.instruction_pointer[0] = this.instruction_pointer[0] + imm8s | 0;
         this.branch_taken();
     }
     else
@@ -112,7 +111,7 @@ CPU.prototype.loope = function(imm8s)
 {
     if(this.decr_ecx_asize() && this.getzf())
     {
-        this.instruction_pointer = this.instruction_pointer + imm8s | 0;
+        this.instruction_pointer[0] = this.instruction_pointer[0] + imm8s | 0;
         this.branch_taken();
     }
     else
@@ -125,7 +124,7 @@ CPU.prototype.loop = function(imm8s)
 {
     if(this.decr_ecx_asize())
     {
-        this.instruction_pointer = this.instruction_pointer + imm8s | 0;
+        this.instruction_pointer[0] = this.instruction_pointer[0] + imm8s | 0;
         this.branch_taken();
     }
     else
@@ -138,7 +137,7 @@ CPU.prototype.jcxz = function(imm8s)
 {
     if(this.get_reg_asize(reg_ecx) === 0)
     {
-        this.instruction_pointer = this.instruction_pointer + imm8s | 0;
+        this.instruction_pointer[0] = this.instruction_pointer[0] + imm8s | 0;
         this.branch_taken();
     }
     else
@@ -149,83 +148,82 @@ CPU.prototype.jcxz = function(imm8s)
 
 /**
  * @return {number}
- * @const
  */
 CPU.prototype.getcf = function()
 {
-    if(this.flags_changed & 1)
+    if(this.flags_changed[0] & 1)
     {
-        return (this.last_op1 ^ (this.last_op1 ^ this.last_op2) & (this.last_op2 ^ this.last_add_result)) >>> this.last_op_size & 1;
+        return (this.last_op1[0] ^ (this.last_op1[0] ^ this.last_op2[0]) & (this.last_op2[0] ^ this.last_add_result[0])) >>> this.last_op_size[0] & 1;
     }
     else
     {
-        return this.flags & 1;
+        return this.flags[0] & 1;
     }
 };
 
 /** @return {number} */
 CPU.prototype.getpf = function()
 {
-    if(this.flags_changed & flag_parity)
+    if(this.flags_changed[0] & flag_parity)
     {
         // inverted lookup table
-        return 0x9669 << 2 >> ((this.last_result ^ this.last_result >> 4) & 0xF) & flag_parity;
+        return 0x9669 << 2 >> ((this.last_result[0] ^ this.last_result[0] >> 4) & 0xF) & flag_parity;
     }
     else
     {
-        return this.flags & flag_parity;
+        return this.flags[0] & flag_parity;
     }
 };
 
 /** @return {number} */
 CPU.prototype.getaf = function()
 {
-    if(this.flags_changed & flag_adjust)
+    if(this.flags_changed[0] & flag_adjust)
     {
-        return (this.last_op1 ^ this.last_op2 ^ this.last_add_result) & flag_adjust;
+        return (this.last_op1[0] ^ this.last_op2[0] ^ this.last_add_result[0]) & flag_adjust;
     }
     else
     {
-        return this.flags & flag_adjust;
+        return this.flags[0] & flag_adjust;
     }
 };
 
 /** @return {number} */
 CPU.prototype.getzf = function()
 {
-    if(this.flags_changed & flag_zero)
+    if(this.flags_changed[0] & flag_zero)
     {
-        return (~this.last_result & this.last_result - 1) >>> this.last_op_size & 1;
+        return (~this.last_result[0] & this.last_result[0] - 1) >>> this.last_op_size[0] & 1;
     }
     else
     {
-        return this.flags & flag_zero;
+        return this.flags[0] & flag_zero;
     }
 };
 
 /** @return {number} */
 CPU.prototype.getsf = function()
 {
-    if(this.flags_changed & flag_sign)
+    if(this.flags_changed[0] & flag_sign)
     {
-        return this.last_result >>> this.last_op_size & 1;
+        return this.last_result[0] >>> this.last_op_size[0] & 1;
     }
     else
     {
-        return this.flags & flag_sign;
+        return this.flags[0] & flag_sign;
     }
 };
 
 /** @return {number} */
 CPU.prototype.getof = function()
 {
-    if(this.flags_changed & flag_overflow)
+    if(this.flags_changed[0] & flag_overflow)
     {
-        return ((this.last_op1 ^ this.last_add_result) & (this.last_op2 ^ this.last_add_result)) >>> this.last_op_size & 1;
+        return ((this.last_op1[0] ^ this.last_add_result[0]) & (this.last_op2[0] ^ this.last_add_result[0])) >>> this.last_op_size[0] & 1;
     }
     else
     {
-        return this.flags & flag_overflow;
+        return this.flags[0] & flag_overflow;
     }
 };
 
@@ -402,44 +400,44 @@ CPU.prototype.xchg32r = function(operand)
 
 CPU.prototype.lss16 = function(seg)
 {
-    if(this.modrm_byte >= 0xC0)
+    if(this.modrm_byte[0] >= 0xC0)
     {
         // 0xc4c4 #ud (EMULATOR_BOP) is used by reactos and windows to exit vm86 mode
         this.trigger_ud();
     }
 
-    var addr = this.modrm_resolve(this.modrm_byte);
+    var addr = this.modrm_resolve(this.modrm_byte[0]);
 
     var new_reg = this.safe_read16(addr),
         new_seg = this.safe_read16(addr + 2 | 0);
 
     this.switch_seg(seg, new_seg);
 
-    this.reg16[this.modrm_byte >> 2 & 14] = new_reg;
+    this.reg16[this.modrm_byte[0] >> 2 & 14] = new_reg;
 }
 
 CPU.prototype.lss32 = function(seg)
 {
-    if(this.modrm_byte >= 0xC0)
+    if(this.modrm_byte[0] >= 0xC0)
     {
         this.trigger_ud();
     }
 
-    var addr = this.modrm_resolve(this.modrm_byte);
+    var addr = this.modrm_resolve(this.modrm_byte[0]);
 
     var new_reg = this.safe_read32s(addr),
         new_seg = this.safe_read16(addr + 4 | 0);
 
     this.switch_seg(seg, new_seg);
 
-    this.reg32s[this.modrm_byte >> 3 & 7] = new_reg;
+    this.reg32s[this.modrm_byte[0] >> 3 & 7] = new_reg;
 }
 
 CPU.prototype.enter16 = function(size, nesting_level)
 {
     nesting_level &= 31;
 
-    if(nesting_level) dbg_log("enter16 stack=" + (this.stack_size_32 ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
+    if(nesting_level) dbg_log("enter16 stack=" + (this.stack_size_32[0] ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
     this.push16(this.reg16[reg_bp]);
     var frame_temp = this.reg16[reg_sp];
 
@@ -461,7 +459,7 @@ CPU.prototype.enter32 = function(size, nesting_level)
 {
     nesting_level &= 31;
 
-    if(nesting_level) dbg_log("enter32 stack=" + (this.stack_size_32 ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
+    if(nesting_level) dbg_log("enter32 stack=" + (this.stack_size_32[0] ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
     this.push32(this.reg32s[reg_ebp]);
     var frame_temp = this.reg32s[reg_esp];
 
@@ -492,7 +490,7 @@ CPU.prototype.fxsave = function(addr)
 
     this.safe_write16(addr + 0 | 0, this.fpu.control_word);
     this.safe_write16(addr + 2 | 0, this.fpu.load_status_word());
-    this.safe_write8( addr + 4 | 0, ~this.fpu.stack_empty & 0xFF);
+    this.safe_write8( addr + 4 | 0, ~this.fpu.stack_empty[0] & 0xFF);
     this.safe_write16(addr + 6 | 0, this.fpu.fpu_opcode);
     this.safe_write32(addr + 8 | 0, this.fpu.fpu_ip);
     this.safe_write16(addr + 12 | 0, this.fpu.fpu_ip_selector);
@@ -534,7 +532,7 @@ CPU.prototype.fxrstor = function(addr)
 
     this.fpu.control_word = this.safe_read16(addr + 0 | 0);
     this.fpu.set_status_word(this.safe_read16(addr + 2 | 0));
-    this.fpu.stack_empty = ~this.safe_read8(addr + 4 | 0) & 0xFF;
+    this.fpu.stack_empty[0] = ~this.safe_read8(addr + 4 | 0) & 0xFF;
     this.fpu.fpu_opcode = this.safe_read16(addr + 6 | 0);
     this.fpu.fpu_ip = this.safe_read32s(addr + 8 | 0);
     this.fpu.fpu_ip = this.safe_read16(addr + 12 | 0);

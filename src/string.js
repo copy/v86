@@ -46,9 +46,9 @@ CPU.prototype.movsb = function()
     var cpu = this;
     var src = cpu.get_seg_prefix(reg_ds) + cpu.get_reg_asize(reg_esi) | 0;
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
-    var size = cpu.flags & flag_direction ? -1 : 1;
+    var size = cpu.flags[0] & flag_direction ? -1 : 1;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -57,7 +57,7 @@ CPU.prototype.movsb = function()
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         var phys_src = cpu.translate_address_read(src);
         var phys_dest = cpu.translate_address_write(dest);
-        if(cpu.paging)
+        if(cpu.paging[0])
         {
             cycle_counter = string_get_cycle_count2(size, src, dest);
         }
@@ -73,10 +73,10 @@ CPU.prototype.movsb = function()
         cpu.add_reg_asize(reg_edi, diff);
         cpu.add_reg_asize(reg_esi, diff);
         cpu.set_ecx_asize(count);
-        cpu.timestamp_counter += start_count - count;
+        cpu.timestamp_counter[0] += start_count - count;
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -93,9 +93,9 @@ CPU.prototype.movsw = function()
     var cpu = this;
     var src = cpu.get_seg_prefix(reg_ds) + cpu.get_reg_asize(reg_esi) | 0;
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
-    var size = cpu.flags & flag_direction ? -2 : 2;
+    var size = cpu.flags[0] & flag_direction ? -2 : 2;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -107,7 +107,7 @@ CPU.prototype.movsw = function()
             var single_size = size < 0 ? -1 : 1;
             var phys_src = cpu.translate_address_read(src) >>> 1;
             var phys_dest = cpu.translate_address_write(dest) >>> 1;
-            if(cpu.paging)
+            if(cpu.paging[0])
             {
                 cycle_counter = string_get_cycle_count2(size, src, dest);
             }
@@ -123,7 +123,7 @@ CPU.prototype.movsw = function()
             cpu.add_reg_asize(reg_edi, diff);
             cpu.add_reg_asize(reg_esi, diff);
             cpu.set_ecx_asize(count);
-            cpu.timestamp_counter += start_count - count;
+            cpu.timestamp_counter[0] += start_count - count;
         }
         else
         {
@@ -140,7 +140,7 @@ CPU.prototype.movsw = function()
         }
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -156,7 +156,7 @@ CPU.prototype.movsd = function()
 {
     var cpu = this;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         // often used by memcpy, well worth optimizing
         //   using cpu.mem32s.set
@@ -173,16 +173,16 @@ CPU.prototype.movsd = function()
 
         // must be page-aligned if cpu.paging is enabled
         // and dword-aligned in general
-        var align_mask = cpu.paging ? 0xFFF : 3;
+        var align_mask = cpu.paging[0] ? 0xFFF : 3;
 
         if((dest & align_mask) === 0 &&
            (src & align_mask) === 0 &&
            // If df is set, alignment works a different
            // This should be unlikely
-           (cpu.flags & flag_direction) === 0)
+           (cpu.flags[0] & flag_direction) === 0)
         {
             var cont = false;
-            if(cpu.paging)
+            if(cpu.paging[0])
             {
                 src = cpu.translate_address_read(src);
                 dest = cpu.translate_address_write(dest);
@@ -208,7 +208,7 @@ CPU.prototype.movsd = function()
 
                 if(cont)
                 {
-                    cpu.instruction_pointer = cpu.previous_ip;
+                    cpu.instruction_pointer[0] = cpu.previous_ip[0];
                 }
 
                 return;
@@ -218,9 +218,9 @@ CPU.prototype.movsd = function()
 
     var src = cpu.get_seg_prefix(reg_ds) + cpu.get_reg_asize(reg_esi) | 0;
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
-    var size = cpu.flags & flag_direction ? -4 : 4;
+    var size = cpu.flags[0] & flag_direction ? -4 : 4;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -232,7 +232,7 @@ CPU.prototype.movsd = function()
             var single_size = size < 0 ? -1 : 1;
             var phys_src = cpu.translate_address_read(src) >>> 2;
             var phys_dest = cpu.translate_address_write(dest) >>> 2;
-            if(cpu.paging)
+            if(cpu.paging[0])
             {
                 cycle_counter = string_get_cycle_count2(size, src, dest);
             }
@@ -248,7 +248,7 @@ CPU.prototype.movsd = function()
             cpu.add_reg_asize(reg_edi, diff);
             cpu.add_reg_asize(reg_esi, diff);
             cpu.set_ecx_asize(count);
-            cpu.timestamp_counter += start_count - count;
+            cpu.timestamp_counter[0] += start_count - count;
         }
         else
         {
@@ -265,7 +265,7 @@ CPU.prototype.movsd = function()
         }
         if(cont)
         {
-            this.instruction_pointer = this.previous_ip;
+            this.instruction_pointer[0] = this.previous_ip[0];
         }
     }
     else
@@ -282,19 +282,19 @@ function cmpsb(cpu)
     var src = cpu.get_seg_prefix(reg_ds) + cpu.get_reg_asize(reg_esi) | 0;
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
     var data_src, data_dest;
-    var size = cpu.flags & flag_direction ? -1 : 1;
+    var size = cpu.flags[0] & flag_direction ? -1 : 1;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
         var cont = false;
         var start_count = count;
-        var is_repz = (cpu.prefixes & PREFIX_MASK_REP) === PREFIX_REPZ;
+        var is_repz = (cpu.prefixes[0] & PREFIX_MASK_REP) === PREFIX_REPZ;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         var phys_src = cpu.translate_address_read(src);
         var phys_dest = cpu.translate_address_read(dest);
-        if(cpu.paging)
+        if(cpu.paging[0])
         {
             cycle_counter = string_get_cycle_count2(size, src, dest);
         }
@@ -311,10 +311,10 @@ function cmpsb(cpu)
         cpu.add_reg_asize(reg_edi, diff);
         cpu.add_reg_asize(reg_esi, diff);
         cpu.set_ecx_asize(count);
-        cpu.timestamp_counter += start_count - count;
+        cpu.timestamp_counter[0] += start_count - count;
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -334,22 +334,22 @@ function cmpsw(cpu)
     var src = cpu.get_seg_prefix(reg_ds) + cpu.get_reg_asize(reg_esi) | 0;
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
     var data_src, data_dest;
-    var size = cpu.flags & flag_direction ? -2 : 2;
+    var size = cpu.flags[0] & flag_direction ? -2 : 2;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
         var cont = false;
         var start_count = count;
-        var is_repz = (cpu.prefixes & PREFIX_MASK_REP) === PREFIX_REPZ;
+        var is_repz = (cpu.prefixes[0] & PREFIX_MASK_REP) === PREFIX_REPZ;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         if(!(dest & 1) && !(src & 1))
         {
             var single_size = size < 0 ? -1 : 1;
             var phys_src = cpu.translate_address_read(src) >>> 1;
             var phys_dest = cpu.translate_address_read(dest) >>> 1;
-            if(cpu.paging)
+            if(cpu.paging[0])
             {
                 cycle_counter = string_get_cycle_count2(size, src, dest);
             }
@@ -366,7 +366,7 @@ function cmpsw(cpu)
             cpu.add_reg_asize(reg_edi, diff);
             cpu.add_reg_asize(reg_esi, diff);
             cpu.set_ecx_asize(count);
-            cpu.timestamp_counter += start_count - count;
+            cpu.timestamp_counter[0] += start_count - count;
         }
         else
         {
@@ -384,7 +384,7 @@ function cmpsw(cpu)
         }
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -404,22 +404,22 @@ function cmpsd(cpu)
     var src = cpu.get_seg_prefix(reg_ds) + cpu.get_reg_asize(reg_esi) | 0;
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
     var data_src, data_dest;
-    var size = cpu.flags & flag_direction ? -4 : 4;
+    var size = cpu.flags[0] & flag_direction ? -4 : 4;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
         var cont = false;
         var start_count = count;
-        var is_repz = (cpu.prefixes & PREFIX_MASK_REP) === PREFIX_REPZ;
+        var is_repz = (cpu.prefixes[0] & PREFIX_MASK_REP) === PREFIX_REPZ;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         if(!(dest & 3) && !(src & 3))
         {
             var single_size = size < 0 ? -1 : 1;
             var phys_src = cpu.translate_address_read(src) >>> 2;
             var phys_dest = cpu.translate_address_read(dest) >>> 2;
-            if(cpu.paging)
+            if(cpu.paging[0])
             {
                 cycle_counter = string_get_cycle_count2(size, src, dest);
             }
@@ -436,7 +436,7 @@ function cmpsd(cpu)
             cpu.add_reg_asize(reg_edi, diff);
             cpu.add_reg_asize(reg_esi, diff);
             cpu.set_ecx_asize(count);
-            cpu.timestamp_counter += start_count - count;
+            cpu.timestamp_counter[0] += start_count - count;
         }
         else
         {
@@ -454,7 +454,7 @@ function cmpsd(cpu)
         }
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -473,9 +473,9 @@ function stosb(cpu)
 {
     var data = cpu.reg8[reg_al];
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
-    var size = cpu.flags & flag_direction ? -1 : 1;
+    var size = cpu.flags[0] & flag_direction ? -1 : 1;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -483,7 +483,7 @@ function stosb(cpu)
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         var phys_dest = cpu.translate_address_write(dest);
-        if(cpu.paging)
+        if(cpu.paging[0])
         {
             cycle_counter = string_get_cycle_count(size, dest);
         }
@@ -497,10 +497,10 @@ function stosb(cpu)
         var diff = size * (start_count - count) | 0;
         cpu.add_reg_asize(reg_edi, diff);
         cpu.set_ecx_asize(count);
-        cpu.timestamp_counter += start_count - count;
+        cpu.timestamp_counter[0] += start_count - count;
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -515,9 +515,9 @@ function stosw(cpu)
 {
     var data = cpu.reg16[reg_ax];
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
-    var size = cpu.flags & flag_direction ? -2 : 2;
+    var size = cpu.flags[0] & flag_direction ? -2 : 2;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -528,7 +528,7 @@ function stosw(cpu)
         {
             var single_size = size < 0 ? -1 : 1;
             var phys_dest = cpu.translate_address_write(dest) >>> 1;
-            if(cpu.paging)
+            if(cpu.paging[0])
             {
                 cycle_counter = string_get_cycle_count(size, dest);
             }
@@ -542,7 +542,7 @@ function stosw(cpu)
             var diff = size * (start_count - count) | 0;
             cpu.add_reg_asize(reg_edi, diff);
             cpu.set_ecx_asize(count);
-            cpu.timestamp_counter += start_count - count;
+            cpu.timestamp_counter[0] += start_count - count;
         }
         else
         {
@@ -557,7 +557,7 @@ function stosw(cpu)
         }
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -572,9 +572,9 @@ function stosd(cpu)
 {
     var data = cpu.reg32s[reg_eax];
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
-    var size = cpu.flags & flag_direction ? -4 : 4;
+    var size = cpu.flags[0] & flag_direction ? -4 : 4;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -585,7 +585,7 @@ function stosd(cpu)
         {
             var single_size = size < 0 ? -1 : 1;
             var phys_dest = cpu.translate_address_write(dest) >>> 2;
-            if(cpu.paging)
+            if(cpu.paging[0])
             {
                 cycle_counter = string_get_cycle_count(size, dest);
             }
@@ -599,7 +599,7 @@ function stosd(cpu)
             var diff = size * (start_count - count) | 0;
             cpu.add_reg_asize(reg_edi, diff);
             cpu.set_ecx_asize(count);
-            cpu.timestamp_counter += start_count - count;
+            cpu.timestamp_counter[0] += start_count - count;
         }
         else
         {
@@ -614,7 +614,7 @@ function stosd(cpu)
         }
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -628,9 +628,9 @@ function stosd(cpu)
 function lodsb(cpu)
 {
     var src = cpu.get_seg_prefix(reg_ds) + cpu.get_reg_asize(reg_esi) | 0;
-    var size = cpu.flags & flag_direction ? -1 : 1;
+    var size = cpu.flags[0] & flag_direction ? -1 : 1;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -638,7 +638,7 @@ function lodsb(cpu)
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         var phys_src = cpu.translate_address_read(src);
-        if(cpu.paging)
+        if(cpu.paging[0])
         {
             cycle_counter = string_get_cycle_count(size, src);
         }
@@ -652,10 +652,10 @@ function lodsb(cpu)
         var diff = size * (start_count - count) | 0;
         cpu.add_reg_asize(reg_esi, diff);
         cpu.set_ecx_asize(count);
-        cpu.timestamp_counter += start_count - count;
+        cpu.timestamp_counter[0] += start_count - count;
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -669,9 +669,9 @@ function lodsb(cpu)
 function lodsw(cpu)
 {
     var src = cpu.get_seg_prefix(reg_ds) + cpu.get_reg_asize(reg_esi) | 0;
-    var size = cpu.flags & flag_direction ? -2 : 2;
+    var size = cpu.flags[0] & flag_direction ? -2 : 2;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -687,7 +687,7 @@ function lodsw(cpu)
         while(cont && cycle_counter--);
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -701,9 +701,9 @@ function lodsw(cpu)
 function lodsd(cpu)
 {
     var src = cpu.get_seg_prefix(reg_ds) + cpu.get_reg_asize(reg_esi) | 0;
-    var size = cpu.flags & flag_direction ? -4 : 4;
+    var size = cpu.flags[0] & flag_direction ? -4 : 4;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -719,7 +719,7 @@ function lodsd(cpu)
         while(cont && cycle_counter--);
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -733,20 +733,20 @@ function lodsd(cpu)
 function scasb(cpu)
 {
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
-    var size = cpu.flags & flag_direction ? -1 : 1;
+    var size = cpu.flags[0] & flag_direction ? -1 : 1;
     var data_dest;
     var data_src = cpu.reg8[reg_al];
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
         var cont = false;
         var start_count = count;
-        var is_repz = (cpu.prefixes & PREFIX_MASK_REP) === PREFIX_REPZ;
+        var is_repz = (cpu.prefixes[0] & PREFIX_MASK_REP) === PREFIX_REPZ;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         var phys_dest = cpu.translate_address_read(dest);
-        if(cpu.paging)
+        if(cpu.paging[0])
         {
             cycle_counter = string_get_cycle_count(size, dest);
         }
@@ -760,10 +760,10 @@ function scasb(cpu)
         var diff = size * (start_count - count) | 0;
         cpu.add_reg_asize(reg_edi, diff);
         cpu.set_ecx_asize(count);
-        cpu.timestamp_counter += start_count - count;
+        cpu.timestamp_counter[0] += start_count - count;
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -779,23 +779,23 @@ function scasb(cpu)
 function scasw(cpu)
 {
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
-    var size = cpu.flags & flag_direction ? -2 : 2;
+    var size = cpu.flags[0] & flag_direction ? -2 : 2;
     var data_dest;
     var data_src = cpu.reg16[reg_al];
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
         var cont = false;
         var start_count = count;
-        var is_repz = (cpu.prefixes & PREFIX_MASK_REP) === PREFIX_REPZ;
+        var is_repz = (cpu.prefixes[0] & PREFIX_MASK_REP) === PREFIX_REPZ;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         if(!(dest & 1))
         {
             var single_size = size < 0 ? -1 : 1;
             var phys_dest = cpu.translate_address_read(dest) >>> 1;
-            if(cpu.paging)
+            if(cpu.paging[0])
             {
                 cycle_counter = string_get_cycle_count(size, dest);
             }
@@ -809,7 +809,7 @@ function scasw(cpu)
             var diff = size * (start_count - count) | 0;
             cpu.add_reg_asize(reg_edi, diff);
             cpu.set_ecx_asize(count);
-            cpu.timestamp_counter += start_count - count;
+            cpu.timestamp_counter[0] += start_count - count;
         }
         else
         {
@@ -824,7 +824,7 @@ function scasw(cpu)
         }
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -840,23 +840,23 @@ function scasw(cpu)
 function scasd(cpu)
 {
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
-    var size = cpu.flags & flag_direction ? -4 : 4;
+    var size = cpu.flags[0] & flag_direction ? -4 : 4;
     var data_dest;
     var data_src = cpu.reg32s[reg_eax];
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
         var cont = false;
         var start_count = count;
-        var is_repz = (cpu.prefixes & PREFIX_MASK_REP) === PREFIX_REPZ;
+        var is_repz = (cpu.prefixes[0] & PREFIX_MASK_REP) === PREFIX_REPZ;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         if(!(dest & 3))
         {
             var single_size = size < 0 ? -1 : 1;
             var phys_dest = cpu.translate_address_read(dest) >>> 2;
-            if(cpu.paging)
+            if(cpu.paging[0])
             {
                 cycle_counter = string_get_cycle_count(size, dest);
             }
@@ -870,7 +870,7 @@ function scasd(cpu)
             var diff = size * (start_count - count) | 0;
             cpu.add_reg_asize(reg_edi, diff);
             cpu.set_ecx_asize(count);
-            cpu.timestamp_counter += start_count - count;
+            cpu.timestamp_counter[0] += start_count - count;
         }
         else
         {
@@ -885,7 +885,7 @@ function scasd(cpu)
         }
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -904,9 +904,9 @@ function insb(cpu)
     cpu.test_privileges_for_io(port, 1);
 
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
-    var size = cpu.flags & flag_direction ? -1 : 1;
+    var size = cpu.flags[0] & flag_direction ? -1 : 1;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -914,7 +914,7 @@ function insb(cpu)
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         var phys_dest = cpu.translate_address_write(dest);
-        if(cpu.paging)
+        if(cpu.paging[0])
         {
             cycle_counter = string_get_cycle_count(size, dest);
         }
@@ -928,10 +928,10 @@ function insb(cpu)
         var diff = size * (start_count - count) | 0;
         cpu.add_reg_asize(reg_edi, diff);
         cpu.set_ecx_asize(count);
-        cpu.timestamp_counter += start_count - count;
+        cpu.timestamp_counter[0] += start_count - count;
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -949,9 +949,9 @@ function insw(cpu)
     cpu.test_privileges_for_io(port, 2);
 
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
-    var size = cpu.flags & flag_direction ? -2 : 2;
+    var size = cpu.flags[0] & flag_direction ? -2 : 2;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -962,7 +962,7 @@ function insw(cpu)
         {
             var single_size = size < 0 ? -1 : 1;
             var phys_dest = cpu.translate_address_write(dest) >>> 1;
-            if(cpu.paging)
+            if(cpu.paging[0])
             {
                 cycle_counter = string_get_cycle_count(size, dest);
             }
@@ -976,7 +976,7 @@ function insw(cpu)
             var diff = size * (start_count - count) | 0;
             cpu.add_reg_asize(reg_edi, diff);
             cpu.set_ecx_asize(count);
-            cpu.timestamp_counter += start_count - count;
+            cpu.timestamp_counter[0] += start_count - count;
         }
         else
         {
@@ -991,7 +991,7 @@ function insw(cpu)
         }
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -1009,9 +1009,9 @@ function insd(cpu)
     cpu.test_privileges_for_io(port, 4);
 
     var dest = cpu.get_seg(reg_es) + cpu.get_reg_asize(reg_edi) | 0;
-    var size = cpu.flags & flag_direction ? -4 : 4;
+    var size = cpu.flags[0] & flag_direction ? -4 : 4;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -1022,7 +1022,7 @@ function insd(cpu)
         {
             var single_size = size < 0 ? -1 : 1;
             var phys_dest = cpu.translate_address_write(dest) >>> 2;
-            if(cpu.paging)
+            if(cpu.paging[0])
             {
                 cycle_counter = string_get_cycle_count(size, dest);
             }
@@ -1036,7 +1036,7 @@ function insd(cpu)
             var diff = size * (start_count - count) | 0;
             cpu.add_reg_asize(reg_edi, diff);
             cpu.set_ecx_asize(count);
-            cpu.timestamp_counter += start_count - count;
+            cpu.timestamp_counter[0] += start_count - count;
         }
         else
         {
@@ -1051,7 +1051,7 @@ function insd(cpu)
         }
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -1069,9 +1069,9 @@ function outsb(cpu)
     cpu.test_privileges_for_io(port, 1);
 
     var src = cpu.get_seg_prefix(reg_ds) + cpu.get_reg_asize(reg_esi) | 0;
-    var size = cpu.flags & flag_direction ? -1 : 1;
+    var size = cpu.flags[0] & flag_direction ? -1 : 1;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -1079,7 +1079,7 @@ function outsb(cpu)
         var start_count = count;
         var cycle_counter = MAX_COUNT_PER_CYCLE;
         var phys_src = cpu.translate_address_read(src);
-        if(cpu.paging)
+        if(cpu.paging[0])
         {
             cycle_counter = string_get_cycle_count(size, src);
         }
@@ -1093,10 +1093,10 @@ function outsb(cpu)
         var diff = size * (start_count - count) | 0;
         cpu.add_reg_asize(reg_esi, diff);
         cpu.set_ecx_asize(count);
-        cpu.timestamp_counter += start_count - count;
+        cpu.timestamp_counter[0] += start_count - count;
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -1113,9 +1113,9 @@ function outsw(cpu)
     cpu.test_privileges_for_io(port, 2);
 
     var src = cpu.get_seg_prefix(reg_ds) + cpu.get_reg_asize(reg_esi) | 0;
-    var size = cpu.flags & flag_direction ? -2 : 2;
+    var size = cpu.flags[0] & flag_direction ? -2 : 2;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -1126,7 +1126,7 @@ function outsw(cpu)
         {
             var single_size = size < 0 ? -1 : 1;
             var phys_src = cpu.translate_address_read(src) >>> 1;
-            if(cpu.paging)
+            if(cpu.paging[0])
             {
                 cycle_counter = string_get_cycle_count(size, src);
             }
@@ -1140,7 +1140,7 @@ function outsw(cpu)
             var diff = size * (start_count - count) | 0;
             cpu.add_reg_asize(reg_esi, diff);
             cpu.set_ecx_asize(count);
-            cpu.timestamp_counter += start_count - count;
+            cpu.timestamp_counter[0] += start_count - count;
         }
         else
         {
@@ -1155,7 +1155,7 @@ function outsw(cpu)
         }
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -1172,9 +1172,9 @@ function outsd(cpu)
     cpu.test_privileges_for_io(port, 4);
 
     var src = cpu.get_seg_prefix(reg_ds) + cpu.get_reg_asize(reg_esi) | 0;
-    var size = cpu.flags & flag_direction ? -4 : 4;
+    var size = cpu.flags[0] & flag_direction ? -4 : 4;
 
-    if(cpu.prefixes & PREFIX_MASK_REP)
+    if(cpu.prefixes[0] & PREFIX_MASK_REP)
     {
         var count = cpu.get_reg_asize(reg_ecx) >>> 0;
         if(count === 0) return;
@@ -1185,7 +1185,7 @@ function outsd(cpu)
         {
             var single_size = size < 0 ? -1 : 1;
             var phys_src = cpu.translate_address_read(src) >>> 2;
-            if(cpu.paging)
+            if(cpu.paging[0])
             {
                 cycle_counter = string_get_cycle_count(size, src);
             }
@@ -1199,7 +1199,7 @@ function outsd(cpu)
             var diff = size * (start_count - count) | 0;
             cpu.add_reg_asize(reg_esi, diff);
             cpu.set_ecx_asize(count);
-            cpu.timestamp_counter += start_count - count;
+            cpu.timestamp_counter[0] += start_count - count;
         }
         else
         {
@@ -1214,7 +1214,7 @@ function outsd(cpu)
         }
         if(cont)
         {
-            cpu.instruction_pointer = cpu.previous_ip;
+            cpu.instruction_pointer[0] = cpu.previous_ip[0];
         }
     }
     else
@@ -1224,3 +1224,27 @@ function outsd(cpu)
     }
     cpu.diverged();
 }
+
+CPU.prototype.stosb = function() { stosb(this); }
+CPU.prototype.stosw = function() { stosw(this); }
+CPU.prototype.stosd = function() { stosd(this); }
+
+CPU.prototype.lodsb = function() { lodsb(this); }
+CPU.prototype.lodsw = function() { lodsw(this); }
+CPU.prototype.lodsd = function() { lodsd(this); }
+
+CPU.prototype.cmpsb = function() { cmpsb(this); }
+CPU.prototype.cmpsw = function() { cmpsw(this); }
+CPU.prototype.cmpsd = function() { cmpsd(this); }
+
+CPU.prototype.scasb = function() { scasb(this); }
+CPU.prototype.scasw = function() { scasw(this); }
+CPU.prototype.scasd = function() { scasd(this); }
+
+CPU.prototype.insb = function() { insb(this); }
+CPU.prototype.insw = function() { insw(this); }
+CPU.prototype.insd = function() { insd(this); }
+
+CPU.prototype.outsb = function() { outsb(this); }
+CPU.prototype.outsw = function() { outsw(this); }
+CPU.prototype.outsd = function() { outsd(this); }
