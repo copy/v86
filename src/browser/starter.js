@@ -215,7 +215,6 @@ function V86Starter(options)
         "_cpl_changed": function() { return cpu.cpl_changed.apply(cpu, arguments); },
         "_set_cr0": function() { return cpu.set_cr0.apply(cpu, arguments); },
         "_update_cs_size": function() { return cpu.update_cs_size.apply(cpu, arguments); },
-        "_clear_tlb": function() { return cpu.clear_tlb.apply(cpu, arguments); },
         "_cpuid": function() { return cpu.cpuid.apply(cpu, arguments); },
 
         "_load_ldt": function() { return cpu.load_ldt.apply(cpu, arguments); },

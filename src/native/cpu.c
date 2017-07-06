@@ -570,3 +570,11 @@ void write_e32(int32_t value)
         reg32s[*modrm_byte & 7] = value;
     }
 }
+
+void clear_tlb()
+{
+    for(int32_t i = 0; i < 0x100000; i += 4)
+    {
+        *(int32_t*)(tlb_info + i) = *(int32_t*)(tlb_info_global + i);
+    }
+}
