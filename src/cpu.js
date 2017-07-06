@@ -198,7 +198,7 @@ function CPU(bus, wm)
     this.reg_mmx8s = new Int8Array(this.reg_mmxs.buffer);
     this.reg_mmx8 = new Uint8Array(this.reg_mmxs.buffer);
 
-    this.reg_xmm32s = new Int32Array(8 * 4);
+    this.reg_xmm32s = new Int32Array(wm.mem.buffer, 828, 8 * 4);
     this.mxcsr = new Int32Array(wm.mem.buffer, 824, 1);
 
     // segment registers, tr and ldtr

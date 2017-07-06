@@ -59,6 +59,8 @@ bool* const paging = (bool* const) 820;
 
 bool* const mxcsr = (bool* const) 824;
 
+int32_t* const reg_xmm32s = (int32_t* const) 828; // length 128
+
 uint8_t* const tlb_info = (uint8_t* const) 2048; // length 0x100000
 uint8_t* const tlb_info_global = (uint8_t* const) (2048 + 0x100000); // length 0x100000
 int32_t* const tlb_data = (int32_t* const) (2048 + 0x100000 + 0x100000); // length 0x100000*4
