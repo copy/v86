@@ -351,8 +351,11 @@ static void instr_0F0F() { undefined_instruction(); }
 static void instr_0F10() { unimplemented_sse(); }
 static void instr_0F11() { unimplemented_sse(); }
 static void instr_0F12() { unimplemented_sse(); }
+static void instr_660F12() { unimplemented_sse(); }
 static void instr_0F13() { unimplemented_sse(); }
+static void instr_660F13() { unimplemented_sse(); }
 static void instr_0F14() { unimplemented_sse(); }
+static void instr_660F14() { unimplemented_sse(); }
 static void instr_0F15() { unimplemented_sse(); }
 static void instr_0F16() { unimplemented_sse(); }
 static void instr_0F17() { unimplemented_sse(); }
@@ -526,10 +529,14 @@ static void instr_0F26() { undefined_instruction(); }
 static void instr_0F27() { undefined_instruction(); }
 
 static void instr_0F28() { unimplemented_sse(); }
+static void instr_660F28() { unimplemented_sse(); }
 static void instr_0F29() { unimplemented_sse(); }
+static void instr_660F29() { unimplemented_sse(); }
 static void instr_0F2A() { unimplemented_sse(); }
 static void instr_0F2B() { unimplemented_sse(); }
+static void instr_660F2B() { unimplemented_sse(); }
 static void instr_0F2C() { unimplemented_sse(); }
+static void instr_F20F2C() { unimplemented_sse(); }
 static void instr_0F2D() { unimplemented_sse(); }
 static void instr_0F2E() { unimplemented_sse(); }
 static void instr_0F2F() { unimplemented_sse(); }
@@ -844,9 +851,11 @@ static void instr_0F51() { unimplemented_sse(); }
 static void instr_0F52() { unimplemented_sse(); }
 static void instr_0F53() { unimplemented_sse(); }
 static void instr_0F54() { unimplemented_sse(); }
+static void instr_660F54() { unimplemented_sse(); }
 static void instr_0F55() { unimplemented_sse(); }
 static void instr_0F56() { unimplemented_sse(); }
 static void instr_0F57() { unimplemented_sse(); }
+static void instr_660F57() { unimplemented_sse(); }
 
 static void instr_0F58() { unimplemented_sse(); }
 static void instr_0F59() { unimplemented_sse(); }
@@ -858,30 +867,44 @@ static void instr_0F5E() { unimplemented_sse(); }
 static void instr_0F5F() { unimplemented_sse(); }
 
 static void instr_0F60() { unimplemented_sse(); }
+static void instr_660F60() { unimplemented_sse(); }
 static void instr_0F61() { unimplemented_sse(); }
+static void instr_660F61() { unimplemented_sse(); }
 static void instr_0F62() { unimplemented_sse(); }
 static void instr_0F63() { unimplemented_sse(); }
 static void instr_0F64() { unimplemented_sse(); }
 static void instr_0F65() { unimplemented_sse(); }
 static void instr_0F66() { unimplemented_sse(); }
 static void instr_0F67() { unimplemented_sse(); }
+static void instr_660F67() { unimplemented_sse(); }
 
 static void instr_0F68() { unimplemented_sse(); }
+static void instr_660F68() { unimplemented_sse(); }
 static void instr_0F69() { unimplemented_sse(); }
 static void instr_0F6A() { unimplemented_sse(); }
 static void instr_0F6B() { unimplemented_sse(); }
 static void instr_0F6C() { unimplemented_sse(); }
 static void instr_0F6D() { unimplemented_sse(); }
 static void instr_0F6E() { unimplemented_sse(); }
+static void instr_660F6E() { unimplemented_sse(); }
 static void instr_0F6F() { unimplemented_sse(); }
+static void instr_660F6F() { unimplemented_sse(); }
+static void instr_F30F6F() { unimplemented_sse(); }
 
 static void instr_0F70() { unimplemented_sse(); }
+static void instr_660F70() { unimplemented_sse(); }
+static void instr_F20F70() { unimplemented_sse(); }
+static void instr_F30F70() { unimplemented_sse(); }
 static void instr_0F71() { unimplemented_sse(); }
 static void instr_0F72() { unimplemented_sse(); }
 static void instr_0F73() { unimplemented_sse(); }
+static void instr_660F73() { unimplemented_sse(); }
 static void instr_0F74() { unimplemented_sse(); }
+static void instr_660F74() { unimplemented_sse(); }
 static void instr_0F75() { unimplemented_sse(); }
+static void instr_660F75() { unimplemented_sse(); }
 static void instr_0F76() { unimplemented_sse(); }
+static void instr_660F76() { unimplemented_sse(); }
 static void instr_0F77() {
     // emms
     dbg_assert((*prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
@@ -905,7 +928,11 @@ static void instr_0F7B() { unimplemented_sse(); }
 static void instr_0F7C() { unimplemented_sse(); }
 static void instr_0F7D() { unimplemented_sse(); }
 static void instr_0F7E() { unimplemented_sse(); }
+static void instr_660F7E() { unimplemented_sse(); }
+static void instr_F30F7E() { unimplemented_sse(); }
 static void instr_0F7F() { unimplemented_sse(); }
+static void instr_660F7F() { unimplemented_sse(); }
+static void instr_F30F7F() { unimplemented_sse(); }
 
 // jmpcc
 static void instr16_0F80() { jmpcc16( test_o()); }
@@ -1457,6 +1484,7 @@ static void instr_0FC2() { unimplemented_sse(); }
 static void instr_0FC3() { unimplemented_sse(); }
 static void instr_0FC4() { unimplemented_sse(); }
 static void instr_0FC5() { unimplemented_sse(); }
+static void instr_660FC5() { unimplemented_sse(); }
 static void instr_0FC6() { unimplemented_sse(); }
 
 static void instr_0FC7() {
@@ -1544,18 +1572,26 @@ static void instr_0FD0() { unimplemented_sse(); }
 static void instr_0FD1() { unimplemented_sse(); }
 static void instr_0FD2() { unimplemented_sse(); }
 static void instr_0FD3() { unimplemented_sse(); }
+static void instr_660FD3() { unimplemented_sse(); }
 static void instr_0FD4() { unimplemented_sse(); }
 static void instr_0FD5() { unimplemented_sse(); }
+static void instr_660FD5() { unimplemented_sse(); }
 static void instr_0FD6() { unimplemented_sse(); }
+static void instr_660FD6() { unimplemented_sse(); }
 static void instr_0FD7() { unimplemented_sse(); }
+static void instr_660FD7() { unimplemented_sse(); }
 
 static void instr_0FD8() { unimplemented_sse(); }
 static void instr_0FD9() { unimplemented_sse(); }
 static void instr_0FDA() { unimplemented_sse(); }
+static void instr_660FDA() { unimplemented_sse(); }
 static void instr_0FDB() { unimplemented_sse(); }
 static void instr_0FDC() { unimplemented_sse(); }
+static void instr_660FDC() { unimplemented_sse(); }
 static void instr_0FDD() { unimplemented_sse(); }
+static void instr_660FDD() { unimplemented_sse(); }
 static void instr_0FDE() { unimplemented_sse(); }
+static void instr_660FDE() { unimplemented_sse(); }
 static void instr_0FDF() { unimplemented_sse(); }
 
 static void instr_0FE0() { unimplemented_sse(); }
@@ -1563,18 +1599,22 @@ static void instr_0FE1() { unimplemented_sse(); }
 static void instr_0FE2() { unimplemented_sse(); }
 static void instr_0FE3() { unimplemented_sse(); }
 static void instr_0FE4() { unimplemented_sse(); }
+static void instr_660FE4() { unimplemented_sse(); }
 static void instr_0FE5() { unimplemented_sse(); }
 static void instr_0FE6() { unimplemented_sse(); }
 static void instr_0FE7() { unimplemented_sse(); }
+static void instr_660FE7() { unimplemented_sse(); }
 
 static void instr_0FE8() { unimplemented_sse(); }
 static void instr_0FE9() { unimplemented_sse(); }
 static void instr_0FEA() { unimplemented_sse(); }
 static void instr_0FEB() { unimplemented_sse(); }
+static void instr_660FEB() { unimplemented_sse(); }
 static void instr_0FEC() { unimplemented_sse(); }
 static void instr_0FED() { unimplemented_sse(); }
 static void instr_0FEE() { unimplemented_sse(); }
 static void instr_0FEF() { unimplemented_sse(); }
+static void instr_660FEF() { unimplemented_sse(); }
 
 static void instr_0FF0() { unimplemented_sse(); }
 static void instr_0FF1() { unimplemented_sse(); }
@@ -1588,6 +1628,7 @@ static void instr_0FF7() { unimplemented_sse(); }
 static void instr_0FF8() { unimplemented_sse(); }
 static void instr_0FF9() { unimplemented_sse(); }
 static void instr_0FFA() { unimplemented_sse(); }
+static void instr_660FFA() { unimplemented_sse(); }
 static void instr_0FFB() { unimplemented_sse(); }
 static void instr_0FFC() { unimplemented_sse(); }
 static void instr_0FFD() { unimplemented_sse(); }
@@ -1660,12 +1701,15 @@ case 0x11:
     instr_0F11();
     break;
 case 0x12:
+    (*prefixes & PREFIX_66) ? instr_660F12() :
     instr_0F12();
     break;
 case 0x13:
+    (*prefixes & PREFIX_66) ? instr_660F13() :
     instr_0F13();
     break;
 case 0x14:
+    (*prefixes & PREFIX_66) ? instr_660F14() :
     instr_0F14();
     break;
 case 0x15:
@@ -1726,18 +1770,22 @@ case 0x27:
     instr_0F27();
     break;
 case 0x28:
+    (*prefixes & PREFIX_66) ? instr_660F28() :
     instr_0F28();
     break;
 case 0x29:
+    (*prefixes & PREFIX_66) ? instr_660F29() :
     instr_0F29();
     break;
 case 0x2A:
     instr_0F2A();
     break;
 case 0x2B:
+    (*prefixes & PREFIX_66) ? instr_660F2B() :
     instr_0F2B();
     break;
 case 0x2C:
+    (*prefixes & PREFIX_F2) ? instr_F20F2C() :
     instr_0F2C();
     break;
 case 0x2D:
@@ -1858,6 +1906,7 @@ case 0x53:
     instr_0F53();
     break;
 case 0x54:
+    (*prefixes & PREFIX_66) ? instr_660F54() :
     instr_0F54();
     break;
 case 0x55:
@@ -1867,6 +1916,7 @@ case 0x56:
     instr_0F56();
     break;
 case 0x57:
+    (*prefixes & PREFIX_66) ? instr_660F57() :
     instr_0F57();
     break;
 case 0x58:
@@ -1894,9 +1944,11 @@ case 0x5F:
     instr_0F5F();
     break;
 case 0x60:
+    (*prefixes & PREFIX_66) ? instr_660F60() :
     instr_0F60();
     break;
 case 0x61:
+    (*prefixes & PREFIX_66) ? instr_660F61() :
     instr_0F61();
     break;
 case 0x62:
@@ -1915,9 +1967,11 @@ case 0x66:
     instr_0F66();
     break;
 case 0x67:
+    (*prefixes & PREFIX_66) ? instr_660F67() :
     instr_0F67();
     break;
 case 0x68:
+    (*prefixes & PREFIX_66) ? instr_660F68() :
     instr_0F68();
     break;
 case 0x69:
@@ -1936,12 +1990,18 @@ case 0x6D:
     instr_0F6D();
     break;
 case 0x6E:
+    (*prefixes & PREFIX_66) ? instr_660F6E() :
     instr_0F6E();
     break;
 case 0x6F:
+    (*prefixes & PREFIX_66) ? instr_660F6F() :
+    (*prefixes & PREFIX_F3) ? instr_F30F6F() :
     instr_0F6F();
     break;
 case 0x70:
+    (*prefixes & PREFIX_66) ? instr_660F70() :
+    (*prefixes & PREFIX_F2) ? instr_F20F70() :
+    (*prefixes & PREFIX_F3) ? instr_F30F70() :
     instr_0F70();
     break;
 case 0x71:
@@ -1951,15 +2011,19 @@ case 0x72:
     instr_0F72();
     break;
 case 0x73:
+    (*prefixes & PREFIX_66) ? instr_660F73() :
     instr_0F73();
     break;
 case 0x74:
+    (*prefixes & PREFIX_66) ? instr_660F74() :
     instr_0F74();
     break;
 case 0x75:
+    (*prefixes & PREFIX_66) ? instr_660F75() :
     instr_0F75();
     break;
 case 0x76:
+    (*prefixes & PREFIX_66) ? instr_660F76() :
     instr_0F76();
     break;
 case 0x77:
@@ -1984,9 +2048,13 @@ case 0x7D:
     instr_0F7D();
     break;
 case 0x7E:
+    (*prefixes & PREFIX_66) ? instr_660F7E() :
+    (*prefixes & PREFIX_F3) ? instr_F30F7E() :
     instr_0F7E();
     break;
 case 0x7F:
+    (*prefixes & PREFIX_66) ? instr_660F7F() :
+    (*prefixes & PREFIX_F3) ? instr_F30F7F() :
     instr_0F7F();
     break;
 case 0x80:
@@ -2197,6 +2265,7 @@ case 0xC4:
     instr_0FC4();
     break;
 case 0xC5:
+    (*prefixes & PREFIX_66) ? instr_660FC5() :
     instr_0FC5();
     break;
 case 0xC6:
@@ -2239,18 +2308,22 @@ case 0xD2:
     instr_0FD2();
     break;
 case 0xD3:
+    (*prefixes & PREFIX_66) ? instr_660FD3() :
     instr_0FD3();
     break;
 case 0xD4:
     instr_0FD4();
     break;
 case 0xD5:
+    (*prefixes & PREFIX_66) ? instr_660FD5() :
     instr_0FD5();
     break;
 case 0xD6:
+    (*prefixes & PREFIX_66) ? instr_660FD6() :
     instr_0FD6();
     break;
 case 0xD7:
+    (*prefixes & PREFIX_66) ? instr_660FD7() :
     instr_0FD7();
     break;
 case 0xD8:
@@ -2260,18 +2333,22 @@ case 0xD9:
     instr_0FD9();
     break;
 case 0xDA:
+    (*prefixes & PREFIX_66) ? instr_660FDA() :
     instr_0FDA();
     break;
 case 0xDB:
     instr_0FDB();
     break;
 case 0xDC:
+    (*prefixes & PREFIX_66) ? instr_660FDC() :
     instr_0FDC();
     break;
 case 0xDD:
+    (*prefixes & PREFIX_66) ? instr_660FDD() :
     instr_0FDD();
     break;
 case 0xDE:
+    (*prefixes & PREFIX_66) ? instr_660FDE() :
     instr_0FDE();
     break;
 case 0xDF:
@@ -2290,6 +2367,7 @@ case 0xE3:
     instr_0FE3();
     break;
 case 0xE4:
+    (*prefixes & PREFIX_66) ? instr_660FE4() :
     instr_0FE4();
     break;
 case 0xE5:
@@ -2299,6 +2377,7 @@ case 0xE6:
     instr_0FE6();
     break;
 case 0xE7:
+    (*prefixes & PREFIX_66) ? instr_660FE7() :
     instr_0FE7();
     break;
 case 0xE8:
@@ -2311,6 +2390,7 @@ case 0xEA:
     instr_0FEA();
     break;
 case 0xEB:
+    (*prefixes & PREFIX_66) ? instr_660FEB() :
     instr_0FEB();
     break;
 case 0xEC:
@@ -2323,6 +2403,7 @@ case 0xEE:
     instr_0FEE();
     break;
 case 0xEF:
+    (*prefixes & PREFIX_66) ? instr_660FEF() :
     instr_0FEF();
     break;
 case 0xF0:
@@ -2356,6 +2437,7 @@ case 0xF9:
     instr_0FF9();
     break;
 case 0xFA:
+    (*prefixes & PREFIX_66) ? instr_660FFA() :
     instr_0FFA();
     break;
 case 0xFB:
@@ -2437,12 +2519,15 @@ case 0x11:
     instr_0F11();
     break;
 case 0x12:
+    (*prefixes & PREFIX_66) ? instr_660F12() :
     instr_0F12();
     break;
 case 0x13:
+    (*prefixes & PREFIX_66) ? instr_660F13() :
     instr_0F13();
     break;
 case 0x14:
+    (*prefixes & PREFIX_66) ? instr_660F14() :
     instr_0F14();
     break;
 case 0x15:
@@ -2503,18 +2588,22 @@ case 0x27:
     instr_0F27();
     break;
 case 0x28:
+    (*prefixes & PREFIX_66) ? instr_660F28() :
     instr_0F28();
     break;
 case 0x29:
+    (*prefixes & PREFIX_66) ? instr_660F29() :
     instr_0F29();
     break;
 case 0x2A:
     instr_0F2A();
     break;
 case 0x2B:
+    (*prefixes & PREFIX_66) ? instr_660F2B() :
     instr_0F2B();
     break;
 case 0x2C:
+    (*prefixes & PREFIX_F2) ? instr_F20F2C() :
     instr_0F2C();
     break;
 case 0x2D:
@@ -2635,6 +2724,7 @@ case 0x53:
     instr_0F53();
     break;
 case 0x54:
+    (*prefixes & PREFIX_66) ? instr_660F54() :
     instr_0F54();
     break;
 case 0x55:
@@ -2644,6 +2734,7 @@ case 0x56:
     instr_0F56();
     break;
 case 0x57:
+    (*prefixes & PREFIX_66) ? instr_660F57() :
     instr_0F57();
     break;
 case 0x58:
@@ -2671,9 +2762,11 @@ case 0x5F:
     instr_0F5F();
     break;
 case 0x60:
+    (*prefixes & PREFIX_66) ? instr_660F60() :
     instr_0F60();
     break;
 case 0x61:
+    (*prefixes & PREFIX_66) ? instr_660F61() :
     instr_0F61();
     break;
 case 0x62:
@@ -2692,9 +2785,11 @@ case 0x66:
     instr_0F66();
     break;
 case 0x67:
+    (*prefixes & PREFIX_66) ? instr_660F67() :
     instr_0F67();
     break;
 case 0x68:
+    (*prefixes & PREFIX_66) ? instr_660F68() :
     instr_0F68();
     break;
 case 0x69:
@@ -2713,12 +2808,18 @@ case 0x6D:
     instr_0F6D();
     break;
 case 0x6E:
+    (*prefixes & PREFIX_66) ? instr_660F6E() :
     instr_0F6E();
     break;
 case 0x6F:
+    (*prefixes & PREFIX_66) ? instr_660F6F() :
+    (*prefixes & PREFIX_F3) ? instr_F30F6F() :
     instr_0F6F();
     break;
 case 0x70:
+    (*prefixes & PREFIX_66) ? instr_660F70() :
+    (*prefixes & PREFIX_F2) ? instr_F20F70() :
+    (*prefixes & PREFIX_F3) ? instr_F30F70() :
     instr_0F70();
     break;
 case 0x71:
@@ -2728,15 +2829,19 @@ case 0x72:
     instr_0F72();
     break;
 case 0x73:
+    (*prefixes & PREFIX_66) ? instr_660F73() :
     instr_0F73();
     break;
 case 0x74:
+    (*prefixes & PREFIX_66) ? instr_660F74() :
     instr_0F74();
     break;
 case 0x75:
+    (*prefixes & PREFIX_66) ? instr_660F75() :
     instr_0F75();
     break;
 case 0x76:
+    (*prefixes & PREFIX_66) ? instr_660F76() :
     instr_0F76();
     break;
 case 0x77:
@@ -2761,9 +2866,13 @@ case 0x7D:
     instr_0F7D();
     break;
 case 0x7E:
+    (*prefixes & PREFIX_66) ? instr_660F7E() :
+    (*prefixes & PREFIX_F3) ? instr_F30F7E() :
     instr_0F7E();
     break;
 case 0x7F:
+    (*prefixes & PREFIX_66) ? instr_660F7F() :
+    (*prefixes & PREFIX_F3) ? instr_F30F7F() :
     instr_0F7F();
     break;
 case 0x80:
@@ -2974,6 +3083,7 @@ case 0xC4:
     instr_0FC4();
     break;
 case 0xC5:
+    (*prefixes & PREFIX_66) ? instr_660FC5() :
     instr_0FC5();
     break;
 case 0xC6:
@@ -3016,18 +3126,22 @@ case 0xD2:
     instr_0FD2();
     break;
 case 0xD3:
+    (*prefixes & PREFIX_66) ? instr_660FD3() :
     instr_0FD3();
     break;
 case 0xD4:
     instr_0FD4();
     break;
 case 0xD5:
+    (*prefixes & PREFIX_66) ? instr_660FD5() :
     instr_0FD5();
     break;
 case 0xD6:
+    (*prefixes & PREFIX_66) ? instr_660FD6() :
     instr_0FD6();
     break;
 case 0xD7:
+    (*prefixes & PREFIX_66) ? instr_660FD7() :
     instr_0FD7();
     break;
 case 0xD8:
@@ -3037,18 +3151,22 @@ case 0xD9:
     instr_0FD9();
     break;
 case 0xDA:
+    (*prefixes & PREFIX_66) ? instr_660FDA() :
     instr_0FDA();
     break;
 case 0xDB:
     instr_0FDB();
     break;
 case 0xDC:
+    (*prefixes & PREFIX_66) ? instr_660FDC() :
     instr_0FDC();
     break;
 case 0xDD:
+    (*prefixes & PREFIX_66) ? instr_660FDD() :
     instr_0FDD();
     break;
 case 0xDE:
+    (*prefixes & PREFIX_66) ? instr_660FDE() :
     instr_0FDE();
     break;
 case 0xDF:
@@ -3067,6 +3185,7 @@ case 0xE3:
     instr_0FE3();
     break;
 case 0xE4:
+    (*prefixes & PREFIX_66) ? instr_660FE4() :
     instr_0FE4();
     break;
 case 0xE5:
@@ -3076,6 +3195,7 @@ case 0xE6:
     instr_0FE6();
     break;
 case 0xE7:
+    (*prefixes & PREFIX_66) ? instr_660FE7() :
     instr_0FE7();
     break;
 case 0xE8:
@@ -3088,6 +3208,7 @@ case 0xEA:
     instr_0FEA();
     break;
 case 0xEB:
+    (*prefixes & PREFIX_66) ? instr_660FEB() :
     instr_0FEB();
     break;
 case 0xEC:
@@ -3100,6 +3221,7 @@ case 0xEE:
     instr_0FEE();
     break;
 case 0xEF:
+    (*prefixes & PREFIX_66) ? instr_660FEF() :
     instr_0FEF();
     break;
 case 0xF0:
@@ -3133,6 +3255,7 @@ case 0xF9:
     instr_0FF9();
     break;
 case 0xFA:
+    (*prefixes & PREFIX_66) ? instr_660FFA() :
     instr_0FFA();
     break;
 case 0xFB:
