@@ -149,6 +149,24 @@ void jmpcc32(bool condition)
     }
 }
 
+static void cmovcc16(bool condition)
+{
+    int32_t data = read_e16();
+    if(condition)
+    {
+        write_g16(data);
+    }
+}
+
+static void cmovcc32(bool condition)
+{
+    int32_t data = read_e32s();
+    if(condition)
+    {
+        write_g32(data);
+    }
+}
+
 static int32_t get_stack_pointer(int32_t offset)
 {
     if(*stack_size_32)

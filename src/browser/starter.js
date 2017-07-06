@@ -202,8 +202,6 @@ function V86Starter(options)
         "_bswap": function() { return cpu.bswap.apply(cpu, arguments); },
 
         "_setcc": function() { return cpu.setcc.apply(cpu, arguments); },
-        "_cmovcc16": function() { return cpu.cmovcc16.apply(cpu, arguments); },
-        "_cmovcc32": function() { return cpu.cmovcc32.apply(cpu, arguments); },
 
         "_lar": function() { return cpu.lar.apply(cpu, arguments); },
         "_lsl": function() { return cpu.lsl.apply(cpu, arguments); },

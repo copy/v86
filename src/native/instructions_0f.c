@@ -7,8 +7,8 @@
 #include "global_pointers.h"
 
 // XXX: Remove these declarations when they are implemented in C
-void cmovcc16(bool);
-void cmovcc32(bool);
+static void cmovcc16(bool);
+static void cmovcc32(bool);
 void jmpcc16(bool);
 void jmpcc32(bool);
 void setcc(bool);
