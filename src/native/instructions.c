@@ -1877,7 +1877,7 @@ static void run_instruction(int32_t opcode)
 {
     //dbg_log(opcode);
     // XXX: This table is generated. Don't modify
-    switch(opcode | is_osize_32() << 8)
+    switch(opcode)
     {
 case 0x00:
 case 0x00|0x100:

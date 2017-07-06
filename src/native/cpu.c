@@ -344,12 +344,12 @@ void cycle_internal()
 
     int32_t opcode = read_imm8();
 
-    run_instruction(opcode);
+    run_instruction(opcode | !!*is_32 << 8);
 }
 
 static void run_prefix_instruction()
 {
-    run_instruction(read_imm8());
+    run_instruction(read_imm8() | is_osize_32() << 8);
 }
 
 void clear_prefixes()
