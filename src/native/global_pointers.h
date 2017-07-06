@@ -27,7 +27,7 @@ int32_t* const gdtr_size = (int32_t* const) 572;
 int32_t* const gdtr_offset = (int32_t* const) 576;
 int32_t* const cr = (int32_t* const) 580; // length 8
 
-int32_t* const cpl = (int32_t* const) 612;
+uint8_t* const cpl = (uint8_t* const) 612;
 int32_t* const page_size_extensions = (int32_t* const) 616;
 int32_t* const last_virt_eip = (int32_t* const) 620;
 int32_t* const eip_phys = (int32_t* const) 624;
@@ -36,7 +36,7 @@ int32_t* const esp_phys = (int32_t* const) 632;
 int32_t* const sysenter_cs = (int32_t* const) 636;
 int32_t* const sysenter_esp = (int32_t* const) 640;
 int32_t* const sysenter_eip = (int32_t* const) 644;
-int32_t* const prefixes = (int32_t* const) 648;
+uint8_t* const prefixes = (uint8_t* const) 648;
 int32_t* const tsc_offset = (int32_t* const) 652;
 int32_t* const phys_addr = (int32_t* const) 656;
 int32_t* const phys_addr_high = (int32_t* const) 660;
@@ -45,7 +45,7 @@ int32_t* const timestamp_counter = (int32_t* const) 664;
 uint16_t* const sreg = (uint16_t* const) 668;
 int32_t* const dreg = (int32_t* const) 684; // length 8
 int32_t* const fw_value = (int32_t* const) 720;
-uint8_t* const segment_is_null = (uint8_t* const) 724; // length 8
+bool* const segment_is_null = (bool* const) 724; // length 8
 int32_t* const segment_offsets = (int32_t* const) 736; // length 8
 uint32_t* const segment_limits = (uint32_t* const) 768; // length 8
 
@@ -57,7 +57,7 @@ int32_t* const stack_empty = (int32_t* const) 816;
 
 bool* const paging = (bool* const) 820;
 
-bool* const mxcsr = (bool* const) 824;
+int32_t* const mxcsr = (int32_t* const) 824;
 
 int32_t* const reg_xmm32s = (int32_t* const) 828; // length 128
 
