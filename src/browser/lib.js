@@ -22,7 +22,11 @@ var ASYNC_SAFE = false;
         if (!imports) {
             imports = {};
         }
-        const STATIC_MEMORY_BASE = 64 * 1024 * 1024; // XXX
+
+        // XXX: These should not be fixed
+        // in M
+        const STATIC_MEMORY_BASE = 256 - 32;
+        const WASM_MEMORY_SIZE = 256;
 
         v86util.load_file(filename, { done: function(buffer)
             {
@@ -35,9 +39,9 @@ var ASYNC_SAFE = false;
                             console.error('Assertion Failed', a, b, c, d);
                             dbg_assert(false);
                         };
-                        imports['env']['memoryBase'] = STATIC_MEMORY_BASE;
+                        imports['env']['memoryBase'] = STATIC_MEMORY_BASE * 1024 * 1024;
                         imports['env']['tableBase'] = 0;
-                        imports['env']['memory'] = new WebAssembly.Memory({ ['initial']: 4096, });
+                        imports['env']['memory'] = new WebAssembly.Memory({ ['initial']: WASM_MEMORY_SIZE * 1024 * 1024 / 64 / 1024, });
                         imports['env']['table'] = new WebAssembly.Table({ ['initial']: 18, ['element']: 'anyfunc' });
                         return WebAssembly.instantiate(module, imports).then(instance => ({ instance, module }));
                     })
