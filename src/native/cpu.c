@@ -11,6 +11,7 @@ int32_t read_e8_partial_branch() {
     return reg8[*modrm_byte << 2 & 0xC | *modrm_byte >> 2 & 1];
 }
 
+void writable_or_pagefault(int32_t, int32_t);
 int32_t translate_address_read(int32_t);
 int32_t translate_address_write(int32_t);
 int32_t read8(uint32_t);
@@ -428,6 +429,54 @@ int32_t safe_read32s(int32_t addr)
     }
 }
 
+union reg64 safe_read64s(int32_t addr)
+{
+    union reg64 x;
+    if((addr & 0xFFF) >= 0xFF9)
+    {
+        x.u32[0] = safe_read32s(addr);
+        x.u32[1] = safe_read32s(addr + 4);
+    }
+    else
+    {
+        int32_t addr_phys = translate_address_read(addr);
+        x.u32[0] = read32s(addr_phys);
+        x.u32[1] = read32s(addr_phys + 4);
+    }
+    return x;
+}
+
+union reg128 safe_read128s(int32_t addr)
+{
+    union reg128 x;
+    if((addr & 0xFFF) >= 0xFF1)
+    {
+        x.u32[0] = safe_read32s(addr);
+        x.u32[1] = safe_read32s(addr + 4);
+        x.u32[2] = safe_read32s(addr + 8);
+        x.u32[3] = safe_read32s(addr + 12);
+    }
+    else
+    {
+        int32_t addr_phys = translate_address_read(addr);
+        x.u32[0] = read32s(addr_phys);
+        x.u32[1] = read32s(addr_phys + 4);
+        x.u32[2] = read32s(addr_phys + 8);
+        x.u32[3] = read32s(addr_phys + 12);
+    }
+    return x;
+}
+
+void safe_write128(int32_t addr, union reg128 value)
+{
+    // TODO: Optimize
+    writable_or_pagefault(addr, 16);
+    safe_write32(addr, value.u32[0]);
+    safe_write32(addr + 4, value.u32[1]);
+    safe_write32(addr + 8, value.u32[2]);
+    safe_write32(addr + 12, value.u32[3]);
+}
+
 void safe_write8(int32_t addr, int32_t value)
 {
     write8(translate_address_write(addr), value);
@@ -571,6 +620,69 @@ void write_e32(int32_t value)
     {
         reg32s[*modrm_byte & 7] = value;
     }
+}
+
+union reg64 read_xmm64s()
+{
+    union reg64 x;
+    int32_t i = (*modrm_byte >> 3 & 7) << 2;
+    x.u32[0] = reg_xmm32s[i];
+    x.u32[1] = reg_xmm32s[i | 1];
+    return x;
+}
+
+union reg128 read_xmm128s()
+{
+    union reg128 x;
+    int32_t i = (*modrm_byte >> 3 & 7) << 2;
+    x.u32[0] = reg_xmm32s[i];
+    x.u32[1] = reg_xmm32s[i | 1];
+    x.u32[2] = reg_xmm32s[i | 2];
+    x.u32[3] = reg_xmm32s[i | 3];
+    return x;
+}
+
+union reg64 read_xmm_mem64s()
+{
+    if(*modrm_byte < 0xC0)
+    {
+        return safe_read64s(modrm_resolve(*modrm_byte));
+    }
+    else
+    {
+        union reg64 x;
+        int32_t i = (*modrm_byte & 7) << 2;
+        x.u32[0] = reg_xmm32s[i];
+        x.u32[1] = reg_xmm32s[i | 1];
+        return x;
+    }
+}
+
+union reg128 read_xmm_mem128s()
+{
+    if(*modrm_byte < 0xC0)
+    {
+        return safe_read128s(modrm_resolve(*modrm_byte));
+    }
+    else
+    {
+        union reg128 x;
+        int32_t i = (*modrm_byte & 7) << 2;
+        x.u32[0] = reg_xmm32s[i];
+        x.u32[1] = reg_xmm32s[i | 1];
+        x.u32[2] = reg_xmm32s[i | 2];
+        x.u32[3] = reg_xmm32s[i | 3];
+        return x;
+    }
+}
+
+void write_xmm128s(int32_t d0, int32_t d1, int32_t d2, int32_t d3)
+{
+    int32_t i = (*modrm_byte >> 3 & 7) << 2;
+    reg_xmm32s[i] = d0;
+    reg_xmm32s[i + 1] = d1;
+    reg_xmm32s[i + 2] = d2;
+    reg_xmm32s[i + 3] = d3;
 }
 
 void clear_tlb()
