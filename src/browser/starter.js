@@ -270,6 +270,7 @@ function V86Starter(options)
 
     let wasm_file = DEBUG ? "v86-debug.wasm" : "v86.wasm";
     v86util.load_wasm("build/" + wasm_file, { 'env': wasm_shared_funcs }, wm => {
+        wm.instance.exports["__post_instantiate"]();
         emulator = this.v86 = new v86(this.emulator_bus, wm);
         cpu = emulator.cpu;
         mem = wm.mem.buffer;
