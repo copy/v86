@@ -530,7 +530,16 @@ static void instr_0F27() { undefined_instruction(); }
 
 static void instr_0F28() { unimplemented_sse(); }
 static void instr_660F28() { unimplemented_sse(); }
-static void instr_0F29() { unimplemented_sse(); }
+static void instr_0F29() {
+    // movaps xmm/m128, xmm
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 data = read_xmm128s();
+    assert(*modrm_byte < 0xC0);
+    int32_t addr = modrm_resolve(*modrm_byte);
+    safe_write128(addr, data);
+}
 static void instr_660F29() { unimplemented_sse(); }
 static void instr_0F2A() { unimplemented_sse(); }
 static void instr_0F2B() { unimplemented_sse(); }
@@ -867,7 +876,19 @@ static void instr_0F5E() { unimplemented_sse(); }
 static void instr_0F5F() { unimplemented_sse(); }
 
 static void instr_0F60() { unimplemented_sse(); }
-static void instr_660F60() { unimplemented_sse(); }
+void instr_660F60() {
+    // punpcklbw xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg64 source = read_xmm_mem64s();
+    union reg64 destination = read_xmm64s();
+    write_xmm128s(
+        destination.u8[0] | source.u8[0] << 8 | destination.u8[1] << 16 | source.u8[1] << 24,
+        destination.u8[2] | source.u8[2] << 8 | destination.u8[3] << 16 | source.u8[3] << 24,
+        destination.u8[4] | source.u8[4] << 8 | destination.u8[5] << 16 | source.u8[5] << 24,
+        destination.u8[6] | source.u8[6] << 8 | destination.u8[7] << 16 | source.u8[7] << 24
+    );
+}
 static void instr_0F61() { unimplemented_sse(); }
 static void instr_660F61() { unimplemented_sse(); }
 static void instr_0F62() { unimplemented_sse(); }
@@ -886,13 +907,44 @@ static void instr_0F6B() { unimplemented_sse(); }
 static void instr_0F6C() { unimplemented_sse(); }
 static void instr_0F6D() { unimplemented_sse(); }
 static void instr_0F6E() { unimplemented_sse(); }
-static void instr_660F6E() { unimplemented_sse(); }
+static void instr_660F6E() {
+    // movd mm, r/m32
+    task_switch_test_mmx();
+    read_modrm_byte();
+    int32_t data = read_e32s();
+    write_xmm128s(data, 0, 0, 0);
+}
 static void instr_0F6F() { unimplemented_sse(); }
-static void instr_660F6F() { unimplemented_sse(); }
-static void instr_F30F6F() { unimplemented_sse(); }
+static void instr_660F6F() {
+    // movdqa xmm, xmm/mem128
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg128 data = read_xmm_mem128s();
+    write_xmm128s(data.u32[0], data.u32[1], data.u32[2], data.u32[3]);
+}
+static void instr_F30F6F() {
+    // movdqu xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg128 data = read_xmm_mem128s();
+    write_xmm128s(data.u32[0], data.u32[1], data.u32[2], data.u32[3]);
+}
 
 static void instr_0F70() { unimplemented_sse(); }
-static void instr_660F70() { unimplemented_sse(); }
+static void instr_660F70() {
+    // pshufd xmm, xmm/mem128
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg128 source = read_xmm_mem128s();
+    int32_t order = read_op8();
+
+    write_xmm128s(
+        source.u32[order & 3],
+        source.u32[order >> 2 & 3],
+        source.u32[order >> 4 & 3],
+        source.u32[order >> 6 & 3]
+    );
+}
 static void instr_F20F70() { unimplemented_sse(); }
 static void instr_F30F70() { unimplemented_sse(); }
 static void instr_0F71() { unimplemented_sse(); }
@@ -900,7 +952,23 @@ static void instr_0F72() { unimplemented_sse(); }
 static void instr_0F73() { unimplemented_sse(); }
 static void instr_660F73() { unimplemented_sse(); }
 static void instr_0F74() { unimplemented_sse(); }
-static void instr_660F74() { unimplemented_sse(); }
+static void instr_660F74() {
+    // pcmpeqb xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 source = read_xmm_mem128s();
+    union reg128 destination = read_xmm128s();
+
+    union reg128 result;
+
+    for(int32_t i = 0; i < 16; i++)
+    {
+        result.u8[i] = source.u8[i] == destination.u8[i] ? 0xFF : 0;
+    }
+
+    write_xmm128s(result.u32[0], result.u32[1], result.u32[2], result.u32[3]);
+}
 static void instr_0F75() { unimplemented_sse(); }
 static void instr_660F75() { unimplemented_sse(); }
 static void instr_0F76() { unimplemented_sse(); }
@@ -931,7 +999,15 @@ static void instr_0F7E() { unimplemented_sse(); }
 static void instr_660F7E() { unimplemented_sse(); }
 static void instr_F30F7E() { unimplemented_sse(); }
 static void instr_0F7F() { unimplemented_sse(); }
-static void instr_660F7F() { unimplemented_sse(); }
+static void instr_660F7F() {
+    // movdqa xmm/m128, xmm
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg128 data = read_xmm128s();
+    assert(*modrm_byte < 0xC0);
+    int32_t addr = modrm_resolve(*modrm_byte);
+    safe_write128(addr, data);
+}
 static void instr_F30F7F() { unimplemented_sse(); }
 
 // jmpcc
@@ -1579,7 +1655,20 @@ static void instr_660FD5() { unimplemented_sse(); }
 static void instr_0FD6() { unimplemented_sse(); }
 static void instr_660FD6() { unimplemented_sse(); }
 static void instr_0FD7() { unimplemented_sse(); }
-static void instr_660FD7() { unimplemented_sse(); }
+static void instr_660FD7() {
+    // pmovmskb reg, xmm
+    task_switch_test_mmx();
+    read_modrm_byte();
+    if(*modrm_byte < 0xC0) trigger_ud();
+
+    union reg128 x = read_xmm_mem128s();
+    int32_t result =
+        x.u8[0] >> 7 << 0 | x.u8[1] >> 7 << 1 | x.u8[2] >> 7 << 2 | x.u8[3] >> 7 << 3 |
+        x.u8[4] >> 7 << 4 | x.u8[5] >> 7 << 5 | x.u8[6] >> 7 << 6 | x.u8[7] >> 7 << 7 |
+        x.u8[8] >> 7 << 8 | x.u8[9] >> 7 << 9 | x.u8[10] >> 7 << 10 | x.u8[11] >> 7 << 11 |
+        x.u8[12] >> 7 << 12 | x.u8[13] >> 7 << 13 | x.u8[14] >> 7 << 14 | x.u8[15] >> 7 << 15;
+    write_g32(result);
+}
 
 static void instr_0FD8() { unimplemented_sse(); }
 static void instr_0FD9() { unimplemented_sse(); }
@@ -1603,7 +1692,17 @@ static void instr_660FE4() { unimplemented_sse(); }
 static void instr_0FE5() { unimplemented_sse(); }
 static void instr_0FE6() { unimplemented_sse(); }
 static void instr_0FE7() { unimplemented_sse(); }
-static void instr_660FE7() { unimplemented_sse(); }
+static void instr_660FE7() {
+    // movntdq m128, xmm
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    if(*modrm_byte >= 0xC0) trigger_ud();
+
+    union reg128 data = read_xmm128s();
+    int32_t addr = modrm_resolve(*modrm_byte);
+    safe_write128(addr, data);
+}
 
 static void instr_0FE8() { unimplemented_sse(); }
 static void instr_0FE9() { unimplemented_sse(); }
@@ -1614,7 +1713,21 @@ static void instr_0FEC() { unimplemented_sse(); }
 static void instr_0FED() { unimplemented_sse(); }
 static void instr_0FEE() { unimplemented_sse(); }
 static void instr_0FEF() { unimplemented_sse(); }
-static void instr_660FEF() { unimplemented_sse(); }
+static void instr_660FEF() {
+    // pxor xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 source = read_xmm_mem128s();
+    union reg128 destination = read_xmm128s();
+
+    write_xmm128s(
+        source.u32[0] ^ destination.u32[0],
+        source.u32[1] ^ destination.u32[1],
+        source.u32[2] ^ destination.u32[2],
+        source.u32[3] ^ destination.u32[3]
+    );
+}
 
 static void instr_0FF0() { unimplemented_sse(); }
 static void instr_0FF1() { unimplemented_sse(); }
