@@ -19,4 +19,4 @@ all: $(host_executables) $(v86_executables) $(host_fixtures)
 	nasm -felf32 -o $@.o $<; ld -g $@.o -m elf_i386 --section-start=.text=0x8000 -o $@
 
 clean:
-	rm -f *.o *.bin *.img *.fixture
+	rm -f *.o *.bin *.img *.fixture gen_*.asm
