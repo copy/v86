@@ -25,6 +25,8 @@ void virt_boundary_write16(int32_t, int32_t, int32_t);
 void virt_boundary_write32(int32_t, int32_t, int32_t);
 
 void trigger_gp(int32_t);
+void trigger_ud();
+void trigger_nm();
 
 int32_t safe_read8(int32_t);
 int32_t safe_read16(int32_t);
@@ -576,5 +578,20 @@ void clear_tlb()
     for(int32_t i = 0; i < 0x100000; i += 4)
     {
         *(int32_t*)(tlb_info + i) = *(int32_t*)(tlb_info_global + i);
+    }
+}
+
+void task_switch_test_mmx()
+{
+    if(*cr & (CR0_EM | CR0_TS))
+    {
+        if(*cr & CR0_TS)
+        {
+            trigger_nm();
+        }
+        else
+        {
+            trigger_ud();
+        }
     }
 }
