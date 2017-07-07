@@ -13,3 +13,20 @@ section .text
 
 _start:
 main:
+        xor eax, eax
+        xor ecx, ecx
+        xor edx, edx
+        xor ebx, ebx
+        ; xor esp, esp
+        xor ebp, ebp
+        xor esi, esi
+        xor edi, edi
+
+        ; make space for memory operations
+        %rep 8
+        sub esp, 4
+        mov dword [esp], 0
+        %endrep
+
+        push 0
+        popf

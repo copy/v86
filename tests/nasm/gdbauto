@@ -1,9 +1,20 @@
 # Invocation: gdb -x gdbauto xyz.bin
-start
-until loop
+
+break loop
+run
 
 printf "---BEGIN JSON---\n"
 printf "[\n"
+printf "    %d,\n", $eax
+printf "    %d,\n", $ecx
+printf "    %d,\n", $edx
+printf "    %d,\n", $ebx
+printf "    %d,\n", $esp
+printf "    %d,\n", $ebp
+printf "    %d,\n", $esi
+printf "    %d,\n", $edi
+printf "    \n"
+
 printf "    %d,\n", $mm0.v2_int32[0]
 printf "    %d,\n", $mm0.v2_int32[1]
 printf "    %d,\n", $mm1.v2_int32[0]
@@ -14,14 +25,57 @@ printf "    %d,\n", $mm3.v2_int32[0]
 printf "    %d,\n", $mm3.v2_int32[1]
 printf "    %d,\n", $mm4.v2_int32[0]
 printf "    %d,\n", $mm4.v2_int32[1]
-printf "     %d,\n", $mm5.v2_int32[0]
-printf "     %d,\n", $mm5.v2_int32[1]
-printf "     %d,\n", $mm6.v2_int32[0]
-printf "     %d,\n", $mm6.v2_int32[1]
-printf "     %d,\n", $mm7.v2_int32[0]
-printf "     %d\n", $mm7.v2_int32[1]
+printf "    %d,\n", $mm5.v2_int32[0]
+printf "    %d,\n", $mm5.v2_int32[1]
+printf "    %d,\n", $mm6.v2_int32[0]
+printf "    %d,\n", $mm6.v2_int32[1]
+printf "    %d,\n", $mm7.v2_int32[0]
+printf "    %d,\n", $mm7.v2_int32[1]
+printf "    \n"
+
+printf "    %d,\n", $xmm0.v4_int32[0]
+printf "    %d,\n", $xmm0.v4_int32[1]
+printf "    %d,\n", $xmm0.v4_int32[2]
+printf "    %d,\n", $xmm0.v4_int32[3]
+printf "    %d,\n", $xmm1.v4_int32[0]
+printf "    %d,\n", $xmm1.v4_int32[1]
+printf "    %d,\n", $xmm1.v4_int32[2]
+printf "    %d,\n", $xmm1.v4_int32[3]
+printf "    %d,\n", $xmm2.v4_int32[0]
+printf "    %d,\n", $xmm2.v4_int32[1]
+printf "    %d,\n", $xmm2.v4_int32[2]
+printf "    %d,\n", $xmm2.v4_int32[3]
+printf "    %d,\n", $xmm3.v4_int32[0]
+printf "    %d,\n", $xmm3.v4_int32[1]
+printf "    %d,\n", $xmm3.v4_int32[2]
+printf "    %d,\n", $xmm3.v4_int32[3]
+printf "    %d,\n", $xmm4.v4_int32[0]
+printf "    %d,\n", $xmm4.v4_int32[1]
+printf "    %d,\n", $xmm4.v4_int32[2]
+printf "    %d,\n", $xmm4.v4_int32[3]
+printf "    %d,\n", $xmm5.v4_int32[0]
+printf "    %d,\n", $xmm5.v4_int32[1]
+printf "    %d,\n", $xmm5.v4_int32[2]
+printf "    %d,\n", $xmm5.v4_int32[3]
+printf "    %d,\n", $xmm6.v4_int32[0]
+printf "    %d,\n", $xmm6.v4_int32[1]
+printf "    %d,\n", $xmm6.v4_int32[2]
+printf "    %d,\n", $xmm6.v4_int32[3]
+printf "    %d,\n", $xmm7.v4_int32[0]
+printf "    %d,\n", $xmm7.v4_int32[1]
+printf "    %d,\n", $xmm7.v4_int32[2]
+printf "    %d,\n", $xmm7.v4_int32[3]
+printf "    \n"
+
+printf "    %d,\n", *(int*)($esp+0)
+printf "    %d,\n", *(int*)($esp+4)
+printf "    %d,\n", *(int*)($esp+8)
+printf "    %d,\n", *(int*)($esp+12)
+printf "    \n"
+
+printf "    %d\n", $eflags
+
 printf "]\n"
 printf "---END JSON---\n"
 
-continue
 quit

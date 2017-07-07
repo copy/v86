@@ -50,11 +50,16 @@ function h(n, len)
 
 if (cluster.isMaster) {
 
-    function extract_json(fixture_text) {
+    function extract_json(name, fixture_text) {
+        if(fixture_text.includes("Program received signal") || fixture_text.includes("SIGILL"))
+        {
+            throw new Error("Test was killed during execution by gdb: " + name);
+        }
+
         const json_regex = /---BEGIN JSON---([\s\[\]\w":\-,]*)---END JSON---/;
         const regex_match = json_regex.exec(fixture_text);
         if (!regex_match || regex_match.length < 2) {
-            throw new Error('Could not find JSON in fixture text: ' + fixture_text);
+            throw new Error('Could not find JSON in fixture text: ' + fixture_text + "\nTest: " + name);
         }
 
         try {
@@ -72,7 +77,7 @@ if (cluster.isMaster) {
             let fixture_name = name + ".fixture";
             let img_name = name + ".img";
             let fixture_text = fs.readFileSync(TEST_DIR + fixture_name);
-            let fixture_array = extract_json(fixture_text);
+            let fixture_array = extract_json(name, fixture_text);
 
             worker.send({
                 img_name: img_name,
@@ -146,10 +151,13 @@ if (cluster.isMaster) {
         if (failed_tests.length > 0) {
             console.log('[-] Failed %d test(s).', failed_tests.length);
             failed_tests.forEach(function(test_failure) {
+
                 console.error('\n[-] %s:', test_failure.img_name);
 
                 test_failure.failures.forEach(function(individual_failure) {
-                    console.error(individual_failure);
+                    console.error("\n\t" + individual_failure.name);
+                    console.error("\tActual: 0x" + (individual_failure.actual >>> 0).toString(16));
+                    console.error("\tExpected: 0x" + (individual_failure.expected >>> 0).toString(16));
                 });
             });
             process.exit(1);
@@ -167,21 +175,75 @@ else {
             autostart: false
         });
 
-        emulator.v86.cpu.debug.show = () => {};
+        //emulator.v86.cpu.debug.show = () => {};
 
         emulator.bus.register('cpu-event-halt', function() {
+            var cpu = emulator.v86.cpu;
+
             const filename = TEST_DIR + test.img_name;
-            const evaluated_mmxs = this.cpu.reg_mmxs;
+            const evaluated_mmxs = cpu.reg_mmxs;
+            const evaluated_xmms = cpu.reg_xmm32s;
+            const esp = cpu.reg32s[4];
+            const evaluated_memory = cpu.mem32s.slice(esp >> 2, esp + 16 >> 2);
             let individual_failures = [];
 
-            for (let i = 0; i < evaluated_mmxs.length; i++) {
-                if (evaluated_mmxs[i] !== test.fixture_array[i]) {
+            let offset = 0;
+            const expected_reg32s = test.fixture_array.slice(offset, offset += 8);
+            const expected_mmx_registers = test.fixture_array.slice(offset, offset += 16);
+            const expected_xmm_registers = test.fixture_array.slice(offset, offset += 32);
+            const expected_memory = test.fixture_array.slice(offset, offset += 4);
+            const expected_eflags = test.fixture_array[offset] & MASK_ARITH;
+
+            for (let i = 0; i < cpu.reg32s.length; i++) {
+                if(i === 4) continue; // TODO: Same stack for elf and multiboot
+                let reg = cpu.reg32s[i];
+                if (reg !== expected_reg32s[i]) {
                     individual_failures.push({
-                        index: i,
-                        actual: evaluated_mmxs[i],
-                        expected: test.fixture_array[i]
+                        name: "cpu.reg32s[" + i + "]",
+                        expected: expected_reg32s[i],
+                        actual: reg,
                     });
                 }
+            }
+
+            for (let i = 0; i < evaluated_mmxs.length; i++) {
+                if (evaluated_mmxs[i] !== expected_mmx_registers[i]) {
+                    individual_failures.push({
+                        name: "mm" + (i >> 1) + ".int32[" + (i & 1) + "] (cpu.reg_mmx[" + i + "])",
+                        expected: expected_mmx_registers[i],
+                        actual: evaluated_mmxs[i],
+                    });
+                }
+            }
+
+            for (let i = 0; i < evaluated_xmms.length; i++) {
+                if (evaluated_xmms[i] !== expected_xmm_registers[i]) {
+                    individual_failures.push({
+                        name: "xmm" + (i >> 2) + ".int32[" + (i & 3) + "] (cpu.reg_xmm[" + i + "])",
+                        expected: expected_xmm_registers[i],
+                        actual: evaluated_xmms[i],
+                    });
+                }
+            }
+
+            for (let i = 0; i < evaluated_memory.length; i++) {
+                if (evaluated_memory[i] !== expected_memory[i]) {
+                    individual_failures.push({
+                        name: "mem[" + i + "]",
+                        expected: expected_memory[i],
+                        actual: evaluated_memory[i],
+                    });
+                }
+            }
+
+            const seen_eflags = cpu.get_eflags() & MASK_ARITH;
+            if(seen_eflags !== expected_eflags)
+            {
+                individual_failures.push({
+                    name: "eflags",
+                    expected: expected_eflags,
+                    actual: seen_eflags,
+                });
             }
 
             if (individual_failures.length > 0) {
@@ -194,7 +256,7 @@ else {
                 done();
             }
 
-        }, emulator.v86);
+        });
 
         emulator.bus.register('emulator-ready', function() {
             try {
