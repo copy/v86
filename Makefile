@@ -140,6 +140,8 @@ build/v86.wasm: src/native/*.c src/native/*.h
 	    --llvm-opts 3 \
 	    -O3 \
 	    -g4 \
+	    -s LEGALIZE_JS_FFI=0 \
+	    -s "BINARYEN_TRAP_MODE='allow'" \
 	    -s WASM=1 -s SIDE_MODULE=1 -o build/v86.wasm
 	ls -lh build/v86.wasm
 
@@ -151,6 +153,8 @@ build/v86-debug.wasm: src/native/*.c src/native/*.h
 	    -fwrapv \
 	    -Os \
 	    -g4 \
+	    -s LEGALIZE_JS_FFI=0 \
+	    -s "BINARYEN_TRAP_MODE='allow'" \
 	    -s WASM=1 -s SIDE_MODULE=1 -o build/v86-debug.wasm
 	ls -lh build/v86-debug.wasm
 
