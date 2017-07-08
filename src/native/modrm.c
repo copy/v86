@@ -114,7 +114,7 @@ static int32_t resolve_modrm32(int32_t modrm_byte)
     SIB_ENTRY_LEVEL2(0x80 | (n) << 3, (reg1) << 2)\
     SIB_ENTRY_LEVEL2(0xC0 | (n) << 3, (reg1) << 3)
 
-static int32_t resolve_sib_(bool mod)
+static inline int32_t resolve_sib_(bool mod)
 {
     switch(read_imm8())
     {
@@ -189,7 +189,7 @@ static int32_t resolve_sib(bool mod)
     return get_seg_prefix(seg) + base + offset;
 }
 
-static int32_t resolve_modrm32_(int32_t modrm_byte)
+static inline int32_t resolve_modrm32_(int32_t modrm_byte)
 {
     uint8_t r = modrm_byte & 7;
     assert(modrm_byte < 0xC0);
