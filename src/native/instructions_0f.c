@@ -996,8 +996,20 @@ static void instr_0F7B() { unimplemented_sse(); }
 static void instr_0F7C() { unimplemented_sse(); }
 static void instr_0F7D() { unimplemented_sse(); }
 static void instr_0F7E() { unimplemented_sse(); }
-static void instr_660F7E() { unimplemented_sse(); }
-static void instr_F30F7E() { unimplemented_sse(); }
+static void instr_660F7E() {
+    // movd r/m32, xmm
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg64 data = read_xmm64s();
+    set_e32(data.u32[0]);
+}
+static void instr_F30F7E() {
+    // movq xmm, xmm/mem64
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg64 data = read_xmm_mem64s();
+    write_xmm128s(data.u32[0], data.u32[1], 0, 0);
+}
 static void instr_0F7F() { unimplemented_sse(); }
 static void instr_660F7F() {
     // movdqa xmm/m128, xmm
@@ -1008,7 +1020,15 @@ static void instr_660F7F() {
     int32_t addr = modrm_resolve(*modrm_byte);
     safe_write128(addr, data);
 }
-static void instr_F30F7F() { unimplemented_sse(); }
+static void instr_F30F7F() {
+    // movdqu xmm/m128, xmm
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg128 data = read_xmm128s();
+    assert(*modrm_byte < 0xC0);
+    int32_t addr = modrm_resolve(*modrm_byte);
+    safe_write128(addr, data);
+}
 
 // jmpcc
 static void instr16_0F80() { jmpcc16( test_o()); }
