@@ -161,7 +161,6 @@ function V86Starter(options)
         "_read_reg_e32s": function() { return cpu.read_reg_e32s.apply(cpu, arguments); },
         "_write_reg_e16": function() { return cpu.write_reg_e16.apply(cpu, arguments); },
         "_write_reg_e32": function() { return cpu.write_reg_e32.apply(cpu, arguments); },
-        "_read_moffs": function() { return cpu.read_moffs.apply(cpu, arguments); },
         "_popa16": function() { return cpu.popa16.apply(cpu, arguments); },
         "_popa32": function() { return cpu.popa32.apply(cpu, arguments); },
         "_arpl": function() { return cpu.arpl.apply(cpu, arguments); },

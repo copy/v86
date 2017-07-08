@@ -708,3 +708,16 @@ void task_switch_test_mmx()
         }
     }
 }
+
+// read 2 or 4 byte from ip, depending on address size attribute
+int32_t read_moffs()
+{
+    if(is_asize_32())
+    {
+        return get_seg_prefix(DS) + read_op32s();
+    }
+    else
+    {
+        return get_seg_prefix(DS) + read_op16();
+    }
+}
