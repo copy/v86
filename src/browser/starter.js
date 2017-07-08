@@ -95,6 +95,7 @@ function V86Starter(options)
     var emulator;
     var cpu;
     var mem;
+    var mem8;
     var wasm_shared_funcs = {
         "_throw_cpu_exception": () => { throw MAGIC_CPU_EXCEPTION; },
         "_hlt_op": function() { return cpu.hlt_op(); },
@@ -108,6 +109,10 @@ function V86Starter(options)
         "_get_rand_int": function() { return v86util.get_rand_int(); },
         "_has_rand_int": function() { return v86util.has_rand_int(); },
         "_printf": function(offset) { dbg_log_wasm(mem, offset, [].slice.call(arguments, 1)); },
+        "_memcpy_large": function(dest, source, length) {
+            mem8.set(mem8.subarray(source, source + length), dest);
+            return dest;
+        },
 
         "_call_interrupt_vector": function(interrupt_nr, is_software_int, has_error_code, error_code) {
             cpu.call_interrupt_vector(interrupt_nr, is_software_int, !!has_error_code, error_code);
@@ -274,6 +279,7 @@ function V86Starter(options)
         emulator = this.v86 = new v86(this.emulator_bus, wm);
         cpu = emulator.cpu;
         mem = wm.mem.buffer;
+        mem8 = new Uint8Array(mem);
 
     this.bus.register("emulator-stopped", function()
     {

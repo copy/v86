@@ -11,6 +11,10 @@ int32_t read_e8_partial_branch() {
     return reg8[*modrm_byte << 2 & 0xC | *modrm_byte >> 2 & 1];
 }
 
+// like memcpy, but only efficient for large (approximately 10k) sizes
+// See memcpy in https://github.com/kripken/emscripten/blob/master/src/library.js
+void* memcpy_large(void* dest, const void* src, size_t n);
+
 void writable_or_pagefault(int32_t, int32_t);
 int32_t translate_address_read(int32_t);
 int32_t translate_address_write(int32_t);
@@ -687,10 +691,7 @@ void write_xmm128s(int32_t d0, int32_t d1, int32_t d2, int32_t d3)
 
 void clear_tlb()
 {
-    for(int32_t i = 0; i < 0x100000; i += 4)
-    {
-        *(int32_t*)(tlb_info + i) = *(int32_t*)(tlb_info_global + i);
-    }
+    memcpy_large(tlb_info, tlb_info_global, 0x100000);
 }
 
 void task_switch_test_mmx()
