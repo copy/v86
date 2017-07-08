@@ -254,7 +254,6 @@ function V86Starter(options)
         "_enter32": function() { return cpu.enter32.apply(cpu, arguments); },
         "_update_eflags": function() { return cpu.update_eflags.apply(cpu, arguments); },
         "_handle_irqs": function() { return cpu.handle_irqs.apply(cpu, arguments); },
-        "_get_real_eip": function() { return cpu.get_real_eip.apply(cpu, arguments); },
         "_xchg8": function() { return cpu.xchg8.apply(cpu, arguments); },
         "_xchg16": function() { return cpu.xchg16.apply(cpu, arguments); },
         "_xchg16r": function() { return cpu.xchg16r.apply(cpu, arguments); },

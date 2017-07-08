@@ -721,3 +721,9 @@ int32_t read_moffs()
         return get_seg_prefix(DS) + read_op16();
     }
 }
+
+// Returns the "real" instruction pointer, without segment offset
+int32_t get_real_eip()
+{
+    return *instruction_pointer - get_seg(CS);
+}
