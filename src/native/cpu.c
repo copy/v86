@@ -471,6 +471,14 @@ union reg128 safe_read128s(int32_t addr)
     return x;
 }
 
+void safe_write64(int32_t addr, int32_t low, int32_t high)
+{
+    // TODO: Optimize
+    writable_or_pagefault(addr, 8);
+    safe_write32(addr, low);
+    safe_write32(addr + 4, high);
+}
+
 void safe_write128(int32_t addr, union reg128 value)
 {
     // TODO: Optimize

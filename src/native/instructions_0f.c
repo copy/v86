@@ -1673,7 +1673,15 @@ static void instr_0FD4() { unimplemented_sse(); }
 static void instr_0FD5() { unimplemented_sse(); }
 static void instr_660FD5() { unimplemented_sse(); }
 static void instr_0FD6() { unimplemented_sse(); }
-static void instr_660FD6() { unimplemented_sse(); }
+static void instr_660FD6() {
+    // movq xmm/m64, xmm
+    task_switch_test_mmx();
+    read_modrm_byte();
+    assert(*modrm_byte < 0xC0);
+    union reg64 data = read_xmm64s();
+    int32_t addr = modrm_resolve(*modrm_byte);
+    safe_write64(addr, data.u32[0], data.u32[1]);
+}
 static void instr_0FD7() { unimplemented_sse(); }
 static void instr_660FD7() {
     // pmovmskb reg, xmm
