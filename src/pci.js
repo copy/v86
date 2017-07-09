@@ -534,7 +534,7 @@ PCI.prototype.set_io_bars = function(bar, from, to)
            old_entry.write16 === this.io.empty_port_write &&
            old_entry.write32 === this.io.empty_port_write)
         {
-            dbg_log("Move IO bar: Source not mapped, port=" + h(from + i, 4), LOG_PCI);
+            dbg_log("Warning: Bad IO bar: Source not mapped, port=" + h(from + i, 4), LOG_PCI);
         }
 
         var entry = bar.entries[i];
@@ -543,13 +543,17 @@ PCI.prototype.set_io_bars = function(bar, from, to)
 
         ports[to + i] = entry;
 
-        // these can fail if the os maps an io port in multiple bars (indicating a bug)
-        dbg_assert(empty_entry.read8 === this.io.empty_port_read8, "Bad IO bar: Target already mapped");
-        dbg_assert(empty_entry.read16 === this.io.empty_port_read16, "Bad IO bar: Target already mapped");
-        dbg_assert(empty_entry.read32 === this.io.empty_port_read32, "Bad IO bar: Target already mapped");
-        dbg_assert(empty_entry.write8 === this.io.empty_port_write, "Bad IO bar: Target already mapped");
-        dbg_assert(empty_entry.write16 === this.io.empty_port_write, "Bad IO bar: Target already mapped");
-        dbg_assert(empty_entry.write32 === this.io.empty_port_write, "Bad IO bar: Target already mapped");
+        if(empty_entry.read8 === this.io.empty_port_read8 ||
+            empty_entry.read16 === this.io.empty_port_read16 ||
+            empty_entry.read32 === this.io.empty_port_read32 ||
+            empty_entry.write8 === this.io.empty_port_write ||
+            empty_entry.write16 === this.io.empty_port_write ||
+            empty_entry.write32 === this.io.empty_port_write)
+        {
+            // These can fail if the os maps an io port in multiple bars (indicating a bug)
+            // XXX: Fails during restore_state
+            dbg_log("Warning: Bad IO bar: Target already mapped, port=" + h(to + i, 4), LOG_PCI);
+        }
     }
 };
 
