@@ -3424,32 +3424,32 @@ CPU.prototype.read_e32 = function()
 
 CPU.prototype.read_mmx_mem32s = function()
 {
-    if(this.modrm_byte < 0xC0) {
-        return this.safe_read32s(this.modrm_resolve(this.modrm_byte));
+    if(this.modrm_byte[0] < 0xC0) {
+        return this.safe_read32s(this.modrm_resolve(this.modrm_byte[0]));
     } else {
         // Returning lower dword of qword
-        return this.reg_mmxs[2 * (this.modrm_byte & 7)];
+        return this.reg_mmxs[2 * (this.modrm_byte[0] & 7)];
     }
 };
 
 CPU.prototype.read_mmx_mem64s = function()
 {
-    if(this.modrm_byte < 0xC0) {
-        return this.safe_read64s(this.modrm_resolve(this.modrm_byte));
+    if(this.modrm_byte[0] < 0xC0) {
+        return this.safe_read64s(this.modrm_resolve(this.modrm_byte[0]));
     } else {
         return this.create_atom64s(
-            this.reg_mmxs[2 * (this.modrm_byte & 7)],
-            this.reg_mmxs[2 * (this.modrm_byte & 7) + 1]
+            this.reg_mmxs[2 * (this.modrm_byte[0] & 7)],
+            this.reg_mmxs[2 * (this.modrm_byte[0] & 7) + 1]
         );
     }
 };
 
 CPU.prototype.read_xmm_mem64s = function()
 {
-    if(this.modrm_byte < 0xC0) {
-        return this.safe_read64s(this.modrm_resolve(this.modrm_byte));
+    if(this.modrm_byte[0] < 0xC0) {
+        return this.safe_read64s(this.modrm_resolve(this.modrm_byte[0]));
     } else {
-        let i = (this.modrm_byte & 7) << 2;
+        let i = (this.modrm_byte[0] & 7) << 2;
         return this.create_atom64s(
             this.reg_xmm32s[i],
             this.reg_xmm32s[i | 1]
@@ -3459,10 +3459,10 @@ CPU.prototype.read_xmm_mem64s = function()
 
 CPU.prototype.read_xmm_mem128s = function()
 {
-    if(this.modrm_byte < 0xC0) {
-        return this.safe_read128s_aligned(this.modrm_resolve(this.modrm_byte));
+    if(this.modrm_byte[0] < 0xC0) {
+        return this.safe_read128s_aligned(this.modrm_resolve(this.modrm_byte[0]));
     } else {
-        let i = (this.modrm_byte & 7) << 2;
+        let i = (this.modrm_byte[0] & 7) << 2;
         return this.create_atom128s(
             this.reg_xmm32s[i],
             this.reg_xmm32s[i | 1],
@@ -3474,10 +3474,10 @@ CPU.prototype.read_xmm_mem128s = function()
 
 CPU.prototype.read_xmm_mem128s_unaligned = function()
 {
-    if(this.modrm_byte < 0xC0) {
-        return this.safe_read128s_unaligned(this.modrm_resolve(this.modrm_byte));
+    if(this.modrm_byte[0] < 0xC0) {
+        return this.safe_read128s_unaligned(this.modrm_resolve(this.modrm_byte[0]));
     } else {
-        let i = (this.modrm_byte & 7) << 2;
+        let i = (this.modrm_byte[0] & 7) << 2;
         return this.create_atom128s(
             this.reg_xmm32s[i],
             this.reg_xmm32s[i | 1],
@@ -3522,12 +3522,12 @@ CPU.prototype.set_e32 = function(value)
 
 CPU.prototype.set_mmx_mem64s = function(low, high)
 {
-    if(this.modrm_byte < 0xC0) {
-        var addr = this.modrm_resolve(this.modrm_byte);
+    if(this.modrm_byte[0] < 0xC0) {
+        var addr = this.modrm_resolve(this.modrm_byte[0]);
         this.safe_write64(addr, low, high);
     } else {
-        this.reg_mmxs[2 * (this.modrm_byte & 7)] = low;
-        this.reg_mmxs[2 * (this.modrm_byte & 7) + 1] = high;
+        this.reg_mmxs[2 * (this.modrm_byte[0] & 7)] = low;
+        this.reg_mmxs[2 * (this.modrm_byte[0] & 7) + 1] = high;
     }
 };
 
@@ -3679,14 +3679,14 @@ CPU.prototype.write_g32 = function(value)
 CPU.prototype.read_xmm64s = function()
 {
     return this.create_atom64s(
-        this.reg_xmm32s[(this.modrm_byte >> 3 & 7) << 2],
-        this.reg_xmm32s[(this.modrm_byte >> 3 & 7) << 2 | 1]
+        this.reg_xmm32s[(this.modrm_byte[0] >> 3 & 7) << 2],
+        this.reg_xmm32s[(this.modrm_byte[0] >> 3 & 7) << 2 | 1]
     );
 };
 
 CPU.prototype.read_xmm128s = function()
 {
-    let i = (this.modrm_byte >> 3 & 7) << 2;
+    let i = (this.modrm_byte[0] >> 3 & 7) << 2;
     return this.create_atom128s(
         this.reg_xmm32s[i | 0],
         this.reg_xmm32s[i | 1],
@@ -3698,27 +3698,27 @@ CPU.prototype.read_xmm128s = function()
 CPU.prototype.read_mmx64s = function()
 {
     return this.create_atom64s(
-        this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)],
-        this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1]
+        this.reg_mmxs[2 * (this.modrm_byte[0] >> 3 & 7)],
+        this.reg_mmxs[2 * (this.modrm_byte[0] >> 3 & 7) + 1]
     );
 };
 
 CPU.prototype.write_mmx64s = function(low, high)
 {
-    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7)] = low;
-    this.reg_mmxs[2 * (this.modrm_byte >> 3 & 7) + 1] = high;
+    this.reg_mmxs[2 * (this.modrm_byte[0] >> 3 & 7)] = low;
+    this.reg_mmxs[2 * (this.modrm_byte[0] >> 3 & 7) + 1] = high;
 };
 
 CPU.prototype.write_xmm64 = function(low, high)
 {
-    let i = (this.modrm_byte >> 3 & 7) << 2;
+    let i = (this.modrm_byte[0] >> 3 & 7) << 2;
     this.reg_xmm32s[i] = low;
     this.reg_xmm32s[i + 1] = high;
 };
 
 CPU.prototype.write_xmm128s = function(d0, d1, d2, d3)
 {
-    let i = (this.modrm_byte >> 3 & 7) << 2;
+    let i = (this.modrm_byte[0] >> 3 & 7) << 2;
     this.reg_xmm32s[i] = d0;
     this.reg_xmm32s[i + 1] = d1;
     this.reg_xmm32s[i + 2] = d2;
@@ -4735,7 +4735,7 @@ CPU.prototype.trigger_pagefault = function(write, user, present)
     if(LOG_PAGE_FAULTS)
     {
         dbg_log("page fault w=" + write + " u=" + user + " p=" + present +
-                " eip=" + h(this.previous_ip >>> 0, 8) +
+                " eip=" + h(this.previous_ip[0] >>> 0, 8) +
                 " cr2=" + h(this.cr[2] >>> 0, 8), LOG_CPU);
         dbg_trace(LOG_CPU);
     }
