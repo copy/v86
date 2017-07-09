@@ -103,6 +103,7 @@ void jmp_rel16(int32_t rel16)
 
     // limit ip to 16 bit
     *instruction_pointer = cs_offset + ((*instruction_pointer - cs_offset + rel16) & 0xFFFF);
+    branch_taken();
 }
 
 void jmpcc8(bool condition)
