@@ -199,6 +199,7 @@ function CPU(bus, wm)
     this.reg_mmx8 = new Uint8Array(this.reg_mmxs.buffer);
 
     this.reg_xmm32s = new Int32Array(wm.mem.buffer, 828, 8 * 4);
+
     this.mxcsr = new Int32Array(wm.mem.buffer, 824, 1);
 
     // segment registers, tr and ldtr
@@ -328,17 +329,17 @@ CPU.prototype.get_state = function()
     state[23] = this.sysenter_eip[0];
     state[24] = this.sysenter_esp[0];
     state[25] = this.prefixes[0];
-    state[26] = this.flags;
-    state[27] = this.flags_changed;
-    state[28] = this.last_op1;
-    state[29] = this.last_op2;
-    state[30] = this.last_op_size;
-    state[31] = this.last_add_result;
+    state[26] = this.flags[0];
+    state[27] = this.flags_changed[0];
+    state[28] = this.last_op1[0];
+    state[29] = this.last_op2[0];
+    state[30] = this.last_op_size[0];
+    state[31] = this.last_add_result[0];
     state[32] = this.modrm_byte[0];
 
     state[36] = this.paging[0];
-    state[37] = this.instruction_pointer;
-    state[38] = this.previous_ip;
+    state[37] = this.instruction_pointer[0];
+    state[38] = this.previous_ip[0];
     state[39] = this.reg32s;
     state[40] = this.sreg;
     state[41] = this.dreg;
@@ -369,11 +370,8 @@ CPU.prototype.get_state = function()
 
     state[64] = this.tss_size_32;
 
-    state[63] = this.devices.ioapic;
-
-    state[64] = this.tss_size_32;
-
     state[65] = this.reg_mmxs;
+    state[66] = this.reg_xmm32s;
 
     return state;
 };
@@ -381,16 +379,16 @@ CPU.prototype.get_state = function()
 CPU.prototype.set_state = function(state)
 {
     this.memory_size[0] = state[0];
-    this.segment_is_null = state[1];
-    this.segment_offsets = state[2];
-    this.segment_limits = state[3];
+    this.segment_is_null.set(state[1]);
+    this.segment_offsets.set(state[2]);
+    this.segment_limits.set(state[3]);
     this.protected_mode[0] = state[4];
     this.idtr_offset[0] = state[5];
     this.idtr_size[0] = state[6];
     this.gdtr_offset[0] = state[7];
     this.gdtr_size[0] = state[8];
     this.page_fault = state[9];
-    this.cr = state[10];
+    this.cr.set(state[10]);
     this.cpl[0] = state[11];
     this.page_size_extensions[0] = state[12];
     this.is_32[0] = state[13];
@@ -407,21 +405,21 @@ CPU.prototype.set_state = function(state)
     this.sysenter_esp[0] = state[24];
     this.prefixes[0] = state[25];
 
-    this.flags = state[26];
-    this.flags_changed = state[27];
-    this.last_op1 = state[28];
-    this.last_op2 = state[29];
-    this.last_op_size = state[30];
-    this.last_add_result = state[31];
-    this.modrm_byte = state[32];
+    this.flags[0] = state[26];
+    this.flags_changed[0] = state[27];
+    this.last_op1[0] = state[28];
+    this.last_op2[0] = state[29];
+    this.last_op_size[0] = state[30];
+    this.last_add_result[0] = state[31];
+    this.modrm_byte[0] = state[32];
 
     this.paging[0] = state[36];
-    this.instruction_pointer = state[37];
-    this.previous_ip = state[38];
-    this.reg32s = state[39];
-    this.sreg = state[40];
-    this.dreg = state[41];
-    this.mem8 = state[42];
+    this.instruction_pointer[0] = state[37];
+    this.previous_ip[0] = state[38];
+    this.reg32s.set(state[39]);
+    this.sreg.set(state[40]);
+    this.dreg.set(state[41]);
+    this.mem8.set(state[42]);
     this.fpu = state[43];
 
     this.devices.virtio = state[45];
@@ -448,28 +446,12 @@ CPU.prototype.set_state = function(state)
 
     this.tss_size_32 = state[64];
 
-    this.devices.ioapic = state[63];
-
-    this.tss_size_32 = state[64];
-
-    this.reg_mmxs = state[65];
-
-    this.mem16 = new Uint16Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 1);
-    this.mem32s = new Int32Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 2);
-
+    this.reg_mmxs.set(state[65]);
+    this.reg_xmm32s.set(state[66]);
 
     this.full_clear_tlb();
     // tsc_offset?
 
-    this.reg32 = new Uint32Array(this.reg32s.buffer);
-    this.reg16s = new Int16Array(this.reg32s.buffer);
-    this.reg16 = new Uint16Array(this.reg32s.buffer);
-    this.reg8s = new Int8Array(this.reg32s.buffer);
-    this.reg8 = new Uint8Array(this.reg32s.buffer);
-
-    this.reg_mmx = new Uint32Array(this.reg_mmxs.buffer);
-    this.reg_mmx8s = new Int8Array(this.reg_mmxs.buffer);
-    this.reg_mmx8 = new Uint8Array(this.reg_mmxs.buffer);
     this.update_operand_size();
 };
 
@@ -641,9 +623,9 @@ CPU.prototype.create_memory = function(size)
 
     var buffer = this.wm.mem.buffer;
 
-    this.mem8 = new Uint8Array(buffer, 2048 + 0x100000 * 6);
-    this.mem16 = new Uint16Array(buffer, 2048 + 0x100000 * 6);
-    this.mem32s = new Int32Array(buffer, 2048 + 0x100000 * 6);
+    this.mem8 = new Uint8Array(buffer, 2048 + 0x100000 * 6, size);
+    this.mem16 = new Uint16Array(buffer, 2048 + 0x100000 * 6, size);
+    this.mem32s = new Int32Array(buffer, 2048 + 0x100000 * 6, size);
 };
 
 CPU.prototype.init = function(settings, device_bus)
@@ -3292,7 +3274,6 @@ CPU.prototype.task_switch_test_mmx = function()
             this.trigger_ud();
         }
     }
-
 };
 
 CPU.prototype.todo = function()
