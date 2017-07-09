@@ -194,18 +194,52 @@ static void adjust_stack_reg(int32_t adjustment)
 
 void push16(int32_t imm16)
 {
-    int32_t sp = get_stack_pointer(-2);
-
-    safe_write16(sp, imm16);
-    adjust_stack_reg(-2);
+    if(*stack_size_32)
+    {
+        int32_t sp = get_seg(SS) + reg32s[ESP] - 2;
+        safe_write16(sp, imm16);
+        reg32s[ESP] += -2;
+    }
+    else
+    {
+        int32_t sp = get_seg(SS) + (reg16[SP] - 2 & 0xFFFF);
+        safe_write16(sp, imm16);
+        reg16[SP] += -2;
+    }
 }
 
 void push32(int32_t imm32)
 {
-    int32_t sp = get_stack_pointer(-4);
+    if(*stack_size_32)
+    {
+        int32_t sp = get_seg(SS) + reg32s[ESP] - 4;
+        safe_write32(sp, imm32);
+        reg32s[ESP] += -4;
+    }
+    else
+    {
+        int32_t sp = get_seg(SS) + (reg16[SP] - 4 & 0xFFFF);
+        safe_write32(sp, imm32);
+        reg16[SP] += -4;
+    }
+}
 
-    safe_write32(sp, imm32);
-    adjust_stack_reg(-4);
+int32_t pop32s()
+{
+    if(*stack_size_32)
+    {
+        int32_t sp = get_seg(SS) + reg32s[ESP];
+        int32_t result = safe_read32s(sp);
+        reg32s[ESP] += 4;
+        return result;
+    }
+    else
+    {
+        int32_t sp = get_seg(SS) + reg16[SP];
+        int32_t result = safe_read32s(sp);
+        reg16[SP] += 4;
+        return result;
+    }
 }
 
 void pusha16()
@@ -240,12 +274,4 @@ void pusha32()
     push32(reg32s[EBP]);
     push32(reg32s[ESI]);
     push32(reg32s[EDI]);
-}
-
-int32_t pop32s()
-{
-    int32_t sp = get_stack_pointer(0);
-    int32_t result = safe_read32s(sp);
-    adjust_stack_reg(4);
-    return result;
 }
