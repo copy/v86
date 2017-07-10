@@ -338,14 +338,14 @@ const encodings = [
     { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 6, imm8: 1, only_reg: 1, },
     { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 7, imm8: 1, only_reg: 1, },
 
-    { opcode: 0x0FBC, os: 1, is_32: 1, e: 1, g: 1, }, // bsf
-    { opcode: 0x0FBD, os: 1, is_32: 1, e: 1, g: 1, },
+    { opcode: 0x0FBC, os: 1, e: 1, g: 1, }, // bsf
+    { opcode: 0x0FBD, os: 1, e: 1, g: 1, },
 
     // note: overflow flag only undefined if shift is > 1
-    { opcode: 0x0FA4, os: 1, is_32: 1, e: 1, g: 1, imm8: 1, mask_flags: of, }, // shld
-    { opcode: 0x0FA5, os: 1, is_32: 1, e: 1, g: 1, mask_flags: of, },
-    { opcode: 0x0FAC, os: 1, is_32: 1, e: 1, g: 1, imm8: 1, mask_flags: of, },
-    { opcode: 0x0FAD, os: 1, is_32: 1, e: 1, g: 1, mask_flags: of, },
+    { opcode: 0x0FA4, os: 1, e: 1, g: 1, imm8: 1, mask_flags: of, }, // shld
+    { opcode: 0x0FA5, os: 1, e: 1, g: 1, mask_flags: of, },
+    { opcode: 0x0FAC, os: 1, e: 1, g: 1, imm8: 1, mask_flags: of, },
+    { opcode: 0x0FAD, os: 1, e: 1, g: 1, mask_flags: of, },
 
     { opcode: 0x0FAE, e: 1, g: 1, skip: 1, },
 
@@ -362,7 +362,7 @@ const encodings = [
     { opcode: 0x0FB6, os: 1, e: 1, g: 1, }, // movzx
     { opcode: 0x0FB7, os: 1, e: 1, g: 1, },
 
-    { opcode: 0xF30FB8, os: 1, is_32: 1, e: 1, g: 1 }, // popcnt
+    { opcode: 0xF30FB8, os: 1, e: 1, g: 1 }, // popcnt
 
     { opcode: 0x0FBE, os: 1, e: 1, g: 1, }, // movzx
     { opcode: 0x0FBF, os: 1, e: 1, g: 1, },
@@ -720,8 +720,16 @@ gen_table();
 
 for(const op of encodings)
 {
+    const configurations = [
+        { mem: 0, size: 16, },
+        { mem: 0, size: 32, },
+        { mem: 1, size: 16, },
+        { mem: 1, size: 32, },
+    ];
+
     let i = 0;
-    for(const config of [{ mem: 0 }, { mem: 1 }])
+
+    for(const config of configurations)
     {
         for(const code of create_nasm(op, config))
         {
@@ -771,7 +779,31 @@ function create_nasm(op, config)
         return [];
     }
 
-    var size = (op.is_32 || op.opcode % 2 === 0) ? 8 : 32;
+    if(config.mem ? op.only_reg : op.only_mem)
+    {
+        // illegal opcode
+        return [];
+    }
+
+    if(!op.e)
+    {
+        if(config.mem)
+        {
+            // doesn't use memory, don't test both
+            return [];
+        }
+    }
+
+    if(!op.os)
+    {
+        if(config.size === 16)
+        {
+            // equivalent to 32-bit version, don't test both
+            return [];
+        }
+    }
+
+    var size = (op.os || op.opcode % 2 === 1) ? config.size : 8;
     var is_modrm = op.e || op.g || op.fixed_g !== undefined;
 
     var codes = [];
@@ -820,9 +852,9 @@ function create_nasm(op, config)
     codes.push("push dword " + (random_int32() & ~(1 << 8 | 1 << 9)));
     codes.push("popf");
 
-    if(size === 32)
+    if(size === 16)
     {
-        //codes.push(["", "db 66h ; 16 bit"]);
+        codes.push("db 66h ; 16 bit");
     }
 
     let opcode = op.opcode;
@@ -855,11 +887,6 @@ function create_nasm(op, config)
         let e;
         let sib;
 
-        if(config.mem ? op.only_reg : op.only_mem)
-        {
-            return [];
-        }
-
         if(config.mem)
         {
             e = 0x04; // [esp]
@@ -886,9 +913,24 @@ function create_nasm(op, config)
         }
         else
         {
-            // immaddr: depends on address size
-            console.assert(op.imm1632 || (op.imm && size === 32) || op.immaddr);
-            codes.push("dd 1234abcdh");
+            if(op.immaddr)
+            {
+                // immaddr: depends on address size
+                codes.push("dd 1234abcdh");
+            }
+            else
+            {
+                console.assert(op.imm1632 || (op.imm && (size === 16 || size === 32)));
+
+                if(size === 16)
+                {
+                    codes.push("dw 34cdh");
+                }
+                else
+                {
+                    codes.push("dd 1234abcdh");
+                }
+            }
         }
     }
 
