@@ -384,16 +384,16 @@ const encodings = [
     // - Commented out are not implemented
     // - Missing are sse3+, and floating point
 
-    { opcode: 0x660F12, e: 1, g: 1 },
-    { opcode: 0x660F13, e: 1, g: 1 },
+    { opcode: 0x660F12, only_mem: 1, e: 1, g: 1 },
+    { opcode: 0x660F13, only_mem: 1, e: 1, g: 1 },
     { opcode: 0x660F14, e: 1, g: 1 },
 
     { opcode: 0x0F28, e: 1, g: 1 },
     { opcode: 0x660F28, e: 1, g: 1 },
-    { opcode: 0x0F29, e: 1, g: 1 },
-    { opcode: 0x660F29, e: 1, g: 1 },
-    { opcode: 0x0F2B, e: 1, g: 1 },
-    { opcode: 0x660F2B, e: 1, g: 1 },
+    { opcode: 0x0F29, only_mem: 1, e: 1, g: 1 }, // XXX: Remove only_mem once supported by v86
+    { opcode: 0x660F29, only_mem: 1, e: 1, g: 1 }, // XXX: Remove only_mem once supported by v86
+    { opcode: 0x0F2B, only_mem: 1, e: 1, g: 1 },
+    { opcode: 0x660F2B, only_mem: 1, e: 1, g: 1 },
 
     { opcode: 0xF20F2C, e: 1, g: 1 },
 
@@ -473,8 +473,8 @@ const encodings = [
     { opcode: 0x660F7E, e: 1, g: 1 },
     { opcode: 0xF30F7E, e: 1, g: 1 },
     { opcode: 0x0F7F, e: 1, g: 1 },
-    { opcode: 0x660F7F, e: 1, g: 1 },
-    { opcode: 0xF30F7F, e: 1, g: 1 },
+    { opcode: 0x660F7F, only_mem: 1, e: 1, g: 1 }, // XXX: Remove only_mem once supported by v86
+    { opcode: 0xF30F7F, only_mem: 1, e: 1, g: 1 }, // XXX: Remove only_mem once supported by v86
 
     { opcode: 0x0FC3, e: 1, g: 1, only_mem: 1, },
     { opcode: 0x660FC5, e: 1, g: 1, only_reg: 1, imm8: 1, },
@@ -492,7 +492,7 @@ const encodings = [
     { opcode: 0x0FD5, e: 1, g: 1 },
     { opcode: 0x660FD5, e: 1, g: 1 },
 
-    { opcode: 0x660FD6, e: 1, g: 1 },
+    { opcode: 0x660FD6, only_mem: 1, e: 1, g: 1 }, // XXX: Remove only_mem once supported by v86
     //{ opcode: 0xF20FD6, e: 1, g: 1 },
     //{ opcode: 0xF30FD6, e: 1, g: 1 },
 
@@ -721,12 +721,35 @@ gen_table();
 for(const op of encodings)
 {
     let i = 0;
-    for(const code of create_nasm(op))
+    for(const config of [{ mem: 0 }, { mem: 1 }])
     {
-        const filename = "gen_" + format_opcode(op.opcode) + "_" + (op.fixed_g || 0) + "_" + i + ".asm";
-        console.log("Creating %s", filename);
-        fs.writeFileSync(__dirname + "/" + filename, code);
-        i++;
+        for(const code of create_nasm(op, config))
+        {
+            const filename = "gen_" + format_opcode(op.opcode) + "_" + (op.fixed_g || 0) + "_" + i + ".asm";
+            const dirname = __dirname + "/" + filename;
+
+            let old_code = undefined;
+
+            try
+            {
+                old_code = fs.readFileSync(dirname, { encoding: "ascii" });
+            }
+            catch(e)
+            {
+            }
+
+            if(old_code !== code)
+            {
+                console.log("Creating %s", filename);
+                fs.writeFileSync(dirname, code);
+            }
+            else
+            {
+                console.log("Unchanged: %s", filename);
+            }
+
+            i++;
+        }
     }
 }
 
@@ -741,7 +764,7 @@ function random_int32()
     return Math.random() * 0x100000000 | 0;
 }
 
-function create_nasm(op)
+function create_nasm(op, config)
 {
     if(op.prefix || op.skip)
     {
@@ -832,16 +855,20 @@ function create_nasm(op)
         let e;
         let sib;
 
-        if(op.only_reg)
-        //if(!op.only_mem)
+        if(config.mem ? op.only_reg : op.only_mem)
         {
-            e = 0xc2; // edx
-            sib = "<invalid>";
+            return [];
         }
-        else // op.only_mem
+
+        if(config.mem)
         {
             e = 0x04; // [esp]
             sib = 0x24;
+        }
+        else // op.only_mem
+        {
+            e = 0xc2; // edx
+            sib = "<invalid>";
         }
 
         codes.push("db " + (e | g << 3));
