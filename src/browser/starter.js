@@ -272,7 +272,17 @@ function V86Starter(options)
     };
 
     let wasm_file = DEBUG ? "v86-debug.wasm" : "v86.wasm";
-    v86util.load_wasm("build/" + wasm_file, { 'env': wasm_shared_funcs }, wm => {
+
+    if(typeof window === "undefined" && typeof __dirname === "string")
+    {
+        wasm_file = __dirname + "/" + wasm_file;
+    }
+    else
+    {
+        wasm_file = "build/" + wasm_file;
+    }
+
+    v86util.load_wasm(wasm_file, { 'env': wasm_shared_funcs }, wm => {
         wm.instance.exports["__post_instantiate"]();
         emulator = this.v86 = new v86(this.emulator_bus, wm);
         cpu = emulator.cpu;
