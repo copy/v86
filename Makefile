@@ -195,12 +195,12 @@ nasmtests: build/libv86.js
 	$(NASM_TEST_DIR)/run.js
 
 qemutests: build/libv86.js
-	make -C tests/qemu test-i386
+	$(MAKE) -C tests/qemu test-i386
 	./tests/qemu/run.js > result
 	./tests/qemu/test-i386 > reference
 	diff result reference
 
 kvm-unit-test: build/libv86.js
 	(cd tests/kvm-unit-tests && ./configure)
-	make -C tests/kvm-unit-tests
+	$(MAKE) -C tests/kvm-unit-tests
 	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
