@@ -734,7 +734,7 @@ for(const op of encodings)
         for(const code of create_nasm(op, config))
         {
             const filename = "gen_" + format_opcode(op.opcode) + "_" + (op.fixed_g || 0) + "_" + i + ".asm";
-            const dirname = __dirname + "/" + filename;
+            const dirname = __dirname + "/build/" + filename;
 
             let old_code = undefined;
 

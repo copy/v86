@@ -7,7 +7,7 @@ const os = require('os');
 const cluster = require('cluster');
 
 const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 99;
-const TEST_DIR = __dirname + "/";
+const TEST_DIR = __dirname + "/build/";
 const DONE_MSG = 'DONE';
 
 const MASK_ARITH = 1 | 1 << 2 | 1 << 4 | 1 << 6 | 1 << 7 | 1 << 11;
