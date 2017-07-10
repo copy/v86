@@ -184,7 +184,7 @@ else {
             const evaluated_mmxs = cpu.reg_mmxs;
             const evaluated_xmms = cpu.reg_xmm32s;
             const esp = cpu.reg32s[4];
-            const evaluated_memory = cpu.mem32s.slice(esp >> 2, esp + 16 >> 2);
+            const evaluated_memory = new Int32Array(cpu.mem8.slice(esp, esp + 16).buffer);
             let individual_failures = [];
 
             let offset = 0;
