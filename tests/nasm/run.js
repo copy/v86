@@ -1,6 +1,18 @@
 #!/usr/bin/env node
 'use strict';
 
+// Mapping between signals and x86 exceptions:
+// "Program received signal SIGILL, Illegal instruction." -> #UD
+// "Program received signal SIGFPE, Arithmetic exception." -> #GP
+// to be determined -> #GP
+// to be determined -> #NM
+// to be determined -> #TS
+// to be determined -> #NP
+// to be determined -> #SS
+// to be determined -> #PF
+
+// A #UD might indicate a bug in the test generation
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -51,6 +63,16 @@ function h(n, len)
 if (cluster.isMaster) {
 
     function extract_json(name, fixture_text) {
+        if(fixture_text.includes("SIGFPE, Arithmetic exception"))
+        {
+            return { exception: "DE", };
+        }
+
+        if(fixture_text.includes("SIGILL, Illegal instruction"))
+        {
+            return { exception: "UD", };
+        }
+
         if(fixture_text.includes("Program received signal") || fixture_text.includes("SIGILL"))
         {
             throw new Error("Test was killed during execution by gdb: " + name);
@@ -63,7 +85,8 @@ if (cluster.isMaster) {
         }
 
         try {
-            return JSON.parse(regex_match[1]);
+            let array = JSON.parse(regex_match[1]);
+            return { array: array };
         }
         catch (e) {
             throw e;
@@ -77,11 +100,11 @@ if (cluster.isMaster) {
             let fixture_name = name + ".fixture";
             let img_name = name + ".img";
             let fixture_text = fs.readFileSync(TEST_DIR + fixture_name);
-            let fixture_array = extract_json(name, fixture_text);
+            let fixture = extract_json(name, fixture_text);
 
             worker.send({
                 img_name: img_name,
-                fixture_array: fixture_array
+                fixture: fixture,
             });
 
             current_test++;
@@ -187,63 +210,71 @@ else {
             const evaluated_memory = new Int32Array(cpu.mem8.slice(esp, esp + 16).buffer);
             let individual_failures = [];
 
-            let offset = 0;
-            const expected_reg32s = test.fixture_array.slice(offset, offset += 8);
-            const expected_mmx_registers = test.fixture_array.slice(offset, offset += 16);
-            const expected_xmm_registers = test.fixture_array.slice(offset, offset += 32);
-            const expected_memory = test.fixture_array.slice(offset, offset += 4);
-            const expected_eflags = test.fixture_array[offset] & MASK_ARITH;
-
-            for (let i = 0; i < cpu.reg32s.length; i++) {
-                if(i === 4) continue; // TODO: Same stack for elf and multiboot
-                let reg = cpu.reg32s[i];
-                if (reg !== expected_reg32s[i]) {
-                    individual_failures.push({
-                        name: "cpu.reg32s[" + i + "]",
-                        expected: expected_reg32s[i],
-                        actual: reg,
-                    });
-                }
-            }
-
-            for (let i = 0; i < evaluated_mmxs.length; i++) {
-                if (evaluated_mmxs[i] !== expected_mmx_registers[i]) {
-                    individual_failures.push({
-                        name: "mm" + (i >> 1) + ".int32[" + (i & 1) + "] (cpu.reg_mmx[" + i + "])",
-                        expected: expected_mmx_registers[i],
-                        actual: evaluated_mmxs[i],
-                    });
-                }
-            }
-
-            for (let i = 0; i < evaluated_xmms.length; i++) {
-                if (evaluated_xmms[i] !== expected_xmm_registers[i]) {
-                    individual_failures.push({
-                        name: "xmm" + (i >> 2) + ".int32[" + (i & 3) + "] (cpu.reg_xmm[" + i + "])",
-                        expected: expected_xmm_registers[i],
-                        actual: evaluated_xmms[i],
-                    });
-                }
-            }
-
-            for (let i = 0; i < evaluated_memory.length; i++) {
-                if (evaluated_memory[i] !== expected_memory[i]) {
-                    individual_failures.push({
-                        name: "mem[" + i + "]",
-                        expected: expected_memory[i],
-                        actual: evaluated_memory[i],
-                    });
-                }
-            }
-
-            const seen_eflags = cpu.get_eflags() & MASK_ARITH;
-            if(seen_eflags !== expected_eflags)
+            if(test.exception)
             {
-                individual_failures.push({
-                    name: "eflags",
-                    expected: expected_eflags,
-                    actual: seen_eflags,
-                });
+                throw "TODO: Handle exceptions";
+            }
+
+            if(test.fixture.array)
+            {
+                let offset = 0;
+                const expected_reg32s = test.fixture.array.slice(offset, offset += 8);
+                const expected_mmx_registers = test.fixture.array.slice(offset, offset += 16);
+                const expected_xmm_registers = test.fixture.array.slice(offset, offset += 32);
+                const expected_memory = test.fixture.array.slice(offset, offset += 4);
+                const expected_eflags = test.fixture.array[offset] & MASK_ARITH;
+
+                for (let i = 0; i < cpu.reg32s.length; i++) {
+                    if(i === 4) continue; // TODO: Same stack for elf and multiboot
+                    let reg = cpu.reg32s[i];
+                    if (reg !== expected_reg32s[i]) {
+                        individual_failures.push({
+                            name: "cpu.reg32s[" + i + "]",
+                            expected: expected_reg32s[i],
+                            actual: reg,
+                        });
+                    }
+                }
+
+                for (let i = 0; i < evaluated_mmxs.length; i++) {
+                    if (evaluated_mmxs[i] !== expected_mmx_registers[i]) {
+                        individual_failures.push({
+                            name: "mm" + (i >> 1) + ".int32[" + (i & 1) + "] (cpu.reg_mmx[" + i + "])",
+                            expected: expected_mmx_registers[i],
+                            actual: evaluated_mmxs[i],
+                        });
+                    }
+                }
+
+                for (let i = 0; i < evaluated_xmms.length; i++) {
+                    if (evaluated_xmms[i] !== expected_xmm_registers[i]) {
+                        individual_failures.push({
+                            name: "xmm" + (i >> 2) + ".int32[" + (i & 3) + "] (cpu.reg_xmm[" + i + "])",
+                            expected: expected_xmm_registers[i],
+                            actual: evaluated_xmms[i],
+                        });
+                    }
+                }
+
+                for (let i = 0; i < evaluated_memory.length; i++) {
+                    if (evaluated_memory[i] !== expected_memory[i]) {
+                        individual_failures.push({
+                            name: "mem[" + i + "]",
+                            expected: expected_memory[i],
+                            actual: evaluated_memory[i],
+                        });
+                    }
+                }
+
+                const seen_eflags = cpu.get_eflags() & MASK_ARITH;
+                if(seen_eflags !== expected_eflags)
+                {
+                    individual_failures.push({
+                        name: "eflags",
+                        expected: expected_eflags,
+                        actual: seen_eflags,
+                    });
+                }
             }
 
             if (individual_failures.length > 0) {
