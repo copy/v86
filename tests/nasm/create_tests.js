@@ -1001,7 +1001,7 @@ function create_nasm(op, config)
 
     if(is_modrm)
     {
-        let g = 0;
+        let g = 7; // edi / di / bh
 
         if(op.fixed_g !== undefined)
         {
