@@ -187,20 +187,20 @@ $(CLOSURE):
 	mv $(CLOSURE_DIR)/*.jar $(CLOSURE)
 	rm $(CLOSURE_DIR)/compiler-latest.zip
 
-tests: build/libv86.js
+tests: build/libv86.js build/v86.wasm
 	./tests/full/run.js
 
-nasmtests: build/libv86.js
+nasmtests: build/libv86.js build/v86.wasm
 	$(MAKE) -C $(NASM_TEST_DIR) all
 	$(NASM_TEST_DIR)/run.js
 
-qemutests: build/libv86.js
+qemutests: build/libv86.js build/v86.wasm
 	$(MAKE) -C tests/qemu test-i386
 	./tests/qemu/run.js > result
 	./tests/qemu/test-i386 > reference
 	diff result reference
 
-kvm-unit-test: build/libv86.js
+kvm-unit-test: build/libv86.js build/v86.wasm
 	(cd tests/kvm-unit-tests && ./configure)
 	$(MAKE) -C tests/kvm-unit-tests
 	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
