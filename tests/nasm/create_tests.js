@@ -211,8 +211,8 @@ const encodings = [
     { opcode: 0xF6, fixed_g: 3, },
     { opcode: 0xF6, fixed_g: 4, mask_flags: zf, },
     { opcode: 0xF6, fixed_g: 5, mask_flags: zf, },
-    //{ opcode: 0xF6, fixed_g: 6, }, // zero divide
-    //{ opcode: 0xF6, fixed_g: 7, },
+    { opcode: 0xF6, fixed_g: 6, skip: 1, }, // zero divide
+    { opcode: 0xF6, fixed_g: 7, skip: 1, },
 
     { opcode: 0xF7, os: 1, fixed_g: 0, imm: 1, },
     { opcode: 0xF7, os: 1, fixed_g: 1, imm: 1, },
@@ -220,8 +220,8 @@ const encodings = [
     { opcode: 0xF7, os: 1, fixed_g: 3, },
     { opcode: 0xF7, os: 1, fixed_g: 4, mask_flags: zf, },
     { opcode: 0xF7, os: 1, fixed_g: 5, mask_flags: zf, },
-    //{ opcode: 0xF7, os: 1, fixed_g: 6, }, // zero divide
-    //{ opcode: 0xF7, os: 1, fixed_g: 7, },
+    { opcode: 0xF7, os: 1, fixed_g: 6, skip: 1, }, // zero divide
+    { opcode: 0xF7, os: 1, fixed_g: 7, skip: 1, },
 
     { opcode: 0xF8, },
     { opcode: 0xF9, },
