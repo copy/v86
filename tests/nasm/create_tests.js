@@ -630,6 +630,13 @@ function indent(lines, how_much)
     return lines.map(line => repeat(" ", how_much) + line);
 }
 
+function hex_byte(n)
+{
+    let s = n.toString(16).toUpperCase();
+    if(s.length === 1) s = "0" + s;
+    return s;
+}
+
 function print_syntax_tree(statements)
 {
     let code = [];
@@ -679,10 +686,9 @@ function print_syntax_tree(statements)
 function gen_instruction_body(encoding, variant)
 {
     let suffix = encoding[0].os ? `${variant}` : "";
-    let opcode = encoding[0].opcode & 0xFF;
 
-    let opcode_hex = opcode.toString(16).toUpperCase();
-    if(opcode_hex.length === 1) opcode_hex = "0" + opcode_hex;
+    let opcode = encoding[0].opcode & 0xFF;
+    let opcode_hex = hex_byte(opcode);
 
     //if(opcode === 0 || opcode === 1 || opcode === 2 || opcode === 3)
     //{
@@ -760,8 +766,7 @@ function gen_table()
         let encoding = by_opcode[opcode];
         console.assert(encoding && encoding.length);
 
-        let opcode_hex = opcode.toString(16).toUpperCase();
-        if(opcode_hex.length === 1) opcode_hex = "0" + opcode_hex;
+        let opcode_hex = hex_byte(opcode);
 
         if(encoding[0].os)
         {
