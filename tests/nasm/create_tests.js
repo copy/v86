@@ -618,6 +618,117 @@ encodings.sort((e1, e2) => {
     return o1 - o2 || e1.fixed_g - e2.fixed_g;
 });
 
+function repeat(s, n)
+{
+    let out = "";
+    for(let i = 0; i < n; i++) out += s;
+    return out;
+}
+
+function indent(lines, how_much)
+{
+    return lines.map(line => repeat(" ", how_much) + line);
+}
+
+function print_syntax_tree(statements)
+{
+    let code = [];
+
+    for(let statement of statements)
+    {
+        if(typeof statement === "string")
+        {
+            code.push(statement);
+        }
+        else if(statement.type === "switch")
+        {
+            console.assert(statement.condition);
+            code.push(`switch(${statement.condition})`);
+            code.push(`{`);
+            code.push.apply(code, indent(print_syntax_tree(statement.body), 4));
+            code.push(`}`);
+        }
+        else if(statement.type === "case")
+        {
+            for(let case_ of statement.cases)
+            {
+                code.push(`case ${case_}:`);
+            }
+
+            code.push(`{`);
+            code.push.apply(code, indent(print_syntax_tree(statement.body), 4));
+            code.push(`}`);
+            code.push(`break;`);
+        }
+        else if(statement.type === "default-case")
+        {
+            console.assert(statement.body);
+
+            code.push(`default:`);
+            code.push.apply(code, indent(statement.body, 4));
+        }
+        else
+        {
+            console.assert(false, "Unexpected type: " + statement.type);
+        }
+    }
+
+    return code;
+}
+
+function gen_instruction_body(encoding, variant)
+{
+    let suffix = encoding[0].os ? `${variant}` : "";
+    let opcode = encoding[0].opcode & 0xFF;
+
+    let opcode_hex = opcode.toString(16).toUpperCase();
+    if(opcode_hex.length === 1) opcode_hex = "0" + opcode_hex;
+
+    //if(opcode === 0 || opcode === 1 || opcode === 2 || opcode === 3)
+    //{
+    //    return [
+    //        `int32_t modrm_byte = read_imm8();`,
+    //        `modrm_byte < 0xC0 ?`,
+    //        `    instr${suffix}_${opcode_hex}_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :`,
+    //        `    instr${suffix}_${opcode_hex}_reg(modrm_byte & 7, modrm_byte >> 3 & 7);`,
+    //    ];
+    //}
+    //else
+    if(encoding.length > 1)
+    {
+        let cases = encoding.slice().sort((e1, e2) => e1.fixed_g - e2.fixed_g);
+
+        for(let case_ of cases)
+        {
+            console.assert(typeof case_.fixed_g === "number");
+        }
+
+        return [
+            "read_modrm_byte();",
+            {
+                type: "switch",
+                condition: "*modrm_byte >> 3 & 7",
+                body: cases.map(case_ => {
+                    return {
+                        type: "case",
+                        cases: [case_.fixed_g],
+                        body: [`instr${suffix}_${opcode_hex}_${case_.fixed_g}();`]
+                    };
+                }).concat([
+                    {
+                        type: "default-case",
+                        body: ["assert(false);"],
+                    }
+                ]),
+            }
+        ];
+    }
+    else
+    {
+        return [`instr${suffix}_${opcode_hex}();`];
+    }
+}
+
 function gen_table()
 {
     let by_opcode = Object.create(null);
@@ -643,7 +754,7 @@ function gen_table()
         }
     }
 
-    let t = ``;
+    let t = [];
     for(let opcode = 0; opcode < 0x100; opcode++)
     {
         let encoding = by_opcode[opcode];
@@ -654,23 +765,31 @@ function gen_table()
 
         if(encoding[0].os)
         {
-            t += `case 0x${opcode_hex}:\n`;
-            t += `    instr16_${opcode_hex}();\n`;
-            t += `    break;\n`;
-            t += `case 0x${opcode_hex}|0x100:\n`;
-            t += `    instr32_${opcode_hex}();\n`;
-            t += `    break;\n`;
+            t.push({
+                type: "case",
+                cases: [`0x${opcode_hex}`],
+                body: gen_instruction_body(encoding, 16),
+            });
+            t.push({
+                type: "case",
+                cases: [`0x${opcode_hex}|0x100`],
+                body: gen_instruction_body(encoding, 32),
+            });
         }
         else
         {
-            t += `case 0x${opcode_hex}:\n`;
-            t += `case 0x${opcode_hex}|0x100:\n`;
-            t += `    instr_${opcode_hex}();\n`;
-            t += `    break;\n`;
+            t.push({
+                type: "case",
+                cases: [`0x${opcode_hex}`, `0x${opcode_hex}|0x100`],
+                body: gen_instruction_body(encoding, undefined),
+            });
         }
     }
-    t += `default: assert(false);\n`;
-    fs.writeFileSync("/tmp/table", t);
+    t.push({
+        type: "default-case",
+        body: ["assert(false);"],
+    });
+    fs.writeFileSync("/tmp/table", print_syntax_tree(t).join("\n"));
 
     let t0f_16 = ``;
     let t0f_32 = ``;

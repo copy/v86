@@ -563,72 +563,59 @@ static void instr_7D() { jmpcc8(!test_l()); }
 static void instr_7E() { jmpcc8( test_le()); }
 static void instr_7F() { jmpcc8(!test_le()); }
 
-static void instr_80() { read_modrm_byte();
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: write_e8(add8(read_write_e8(), read_op8())); break;
-        case 1: write_e8( or8(read_write_e8(), read_op8())); break;
-        case 2: write_e8(adc8(read_write_e8(), read_op8())); break;
-        case 3: write_e8(sbb8(read_write_e8(), read_op8())); break;
-        case 4: write_e8(and8(read_write_e8(), read_op8())); break;
-        case 5: write_e8(sub8(read_write_e8(), read_op8())); break;
-        case 6: write_e8(xor8(read_write_e8(), read_op8())); break;
-        case 7: cmp8(read_e8(), read_op8()); break;
-    }
-}
-static void instr16_81() { read_modrm_byte();
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: write_e16(add16(read_write_e16(), read_op16())); break;
-        case 1: write_e16( or16(read_write_e16(), read_op16())); break;
-        case 2: write_e16(adc16(read_write_e16(), read_op16())); break;
-        case 3: write_e16(sbb16(read_write_e16(), read_op16())); break;
-        case 4: write_e16(and16(read_write_e16(), read_op16())); break;
-        case 5: write_e16(sub16(read_write_e16(), read_op16())); break;
-        case 6: write_e16(xor16(read_write_e16(), read_op16())); break;
-        case 7: cmp16(read_e16(), read_op16()); break;
-    }
-}
-static void instr32_81() { read_modrm_byte();
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: write_e32(add32(read_write_e32(), read_op32s())); break;
-        case 1: write_e32( or32(read_write_e32(), read_op32s())); break;
-        case 2: write_e32(adc32(read_write_e32(), read_op32s())); break;
-        case 3: write_e32(sbb32(read_write_e32(), read_op32s())); break;
-        case 4: write_e32(and32(read_write_e32(), read_op32s())); break;
-        case 5: write_e32(sub32(read_write_e32(), read_op32s())); break;
-        case 6: write_e32(xor32(read_write_e32(), read_op32s())); break;
-        case 7: cmp32(read_e32s(), read_op32s()); break;
-    }
-}
-static void instr_82() { instr_80(); }  // alias
-static void instr16_83() { read_modrm_byte();
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: write_e16(add16(read_write_e16(), read_op8s())); break;
-        case 1: write_e16( or16(read_write_e16(), read_op8s())); break;
-        case 2: write_e16(adc16(read_write_e16(), read_op8s())); break;
-        case 3: write_e16(sbb16(read_write_e16(), read_op8s())); break;
-        case 4: write_e16(and16(read_write_e16(), read_op8s())); break;
-        case 5: write_e16(sub16(read_write_e16(), read_op8s())); break;
-        case 6: write_e16(xor16(read_write_e16(), read_op8s())); break;
-        case 7: cmp16(read_e16(), read_op8s()); break;
-    }
-}
-static void instr32_83() { read_modrm_byte();
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: write_e32(add32(read_write_e32(), read_op8s())); break;
-        case 1: write_e32( or32(read_write_e32(), read_op8s())); break;
-        case 2: write_e32(adc32(read_write_e32(), read_op8s())); break;
-        case 3: write_e32(sbb32(read_write_e32(), read_op8s())); break;
-        case 4: write_e32(and32(read_write_e32(), read_op8s())); break;
-        case 5: write_e32(sub32(read_write_e32(), read_op8s())); break;
-        case 6: write_e32(xor32(read_write_e32(), read_op8s())); break;
-        case 7: cmp32(read_e32s(), read_op8s()); break;
-    }
-}
+static void instr_80_0() { write_e8(add8(read_write_e8(), read_op8())); }
+static void instr_80_1() { write_e8( or8(read_write_e8(), read_op8())); }
+static void instr_80_2() { write_e8(adc8(read_write_e8(), read_op8())); }
+static void instr_80_3() { write_e8(sbb8(read_write_e8(), read_op8())); }
+static void instr_80_4() { write_e8(and8(read_write_e8(), read_op8())); }
+static void instr_80_5() { write_e8(sub8(read_write_e8(), read_op8())); }
+static void instr_80_6() { write_e8(xor8(read_write_e8(), read_op8())); }
+static void instr_80_7() { cmp8(read_e8(), read_op8()); }
+
+static void instr16_81_0() { write_e16(add16(read_write_e16(), read_op16())); }
+static void instr16_81_1() { write_e16( or16(read_write_e16(), read_op16())); }
+static void instr16_81_2() { write_e16(adc16(read_write_e16(), read_op16())); }
+static void instr16_81_3() { write_e16(sbb16(read_write_e16(), read_op16())); }
+static void instr16_81_4() { write_e16(and16(read_write_e16(), read_op16())); }
+static void instr16_81_5() { write_e16(sub16(read_write_e16(), read_op16())); }
+static void instr16_81_6() { write_e16(xor16(read_write_e16(), read_op16())); }
+static void instr16_81_7() { cmp16(read_e16(), read_op16()); }
+
+static void instr32_81_0() { write_e32(add32(read_write_e32(), read_op32s())); }
+static void instr32_81_1() { write_e32( or32(read_write_e32(), read_op32s())); }
+static void instr32_81_2() { write_e32(adc32(read_write_e32(), read_op32s())); }
+static void instr32_81_3() { write_e32(sbb32(read_write_e32(), read_op32s())); }
+static void instr32_81_4() { write_e32(and32(read_write_e32(), read_op32s())); }
+static void instr32_81_5() { write_e32(sub32(read_write_e32(), read_op32s())); }
+static void instr32_81_6() { write_e32(xor32(read_write_e32(), read_op32s())); }
+static void instr32_81_7() { cmp32(read_e32s(), read_op32s()); }
+
+static void instr_82_0() { write_e8(add8(read_write_e8(), read_op8())); }
+static void instr_82_1() { write_e8( or8(read_write_e8(), read_op8())); }
+static void instr_82_2() { write_e8(adc8(read_write_e8(), read_op8())); }
+static void instr_82_3() { write_e8(sbb8(read_write_e8(), read_op8())); }
+static void instr_82_4() { write_e8(and8(read_write_e8(), read_op8())); }
+static void instr_82_5() { write_e8(sub8(read_write_e8(), read_op8())); }
+static void instr_82_6() { write_e8(xor8(read_write_e8(), read_op8())); }
+static void instr_82_7() { cmp8(read_e8(), read_op8()); }
+
+static void instr16_83_0() { write_e16(add16(read_write_e16(), read_op8s())); }
+static void instr16_83_1() { write_e16( or16(read_write_e16(), read_op8s())); }
+static void instr16_83_2() { write_e16(adc16(read_write_e16(), read_op8s())); }
+static void instr16_83_3() { write_e16(sbb16(read_write_e16(), read_op8s())); }
+static void instr16_83_4() { write_e16(and16(read_write_e16(), read_op8s())); }
+static void instr16_83_5() { write_e16(sub16(read_write_e16(), read_op8s())); }
+static void instr16_83_6() { write_e16(xor16(read_write_e16(), read_op8s())); }
+static void instr16_83_7() { cmp16(read_e16s(), read_op8s()); }
+
+static void instr32_83_0() { write_e32(add32(read_write_e32(), read_op8s())); }
+static void instr32_83_1() { write_e32( or32(read_write_e32(), read_op8s())); }
+static void instr32_83_2() { write_e32(adc32(read_write_e32(), read_op8s())); }
+static void instr32_83_3() { write_e32(sbb32(read_write_e32(), read_op8s())); }
+static void instr32_83_4() { write_e32(and32(read_write_e32(), read_op8s())); }
+static void instr32_83_5() { write_e32(sub32(read_write_e32(), read_op8s())); }
+static void instr32_83_6() { write_e32(xor32(read_write_e32(), read_op8s())); }
+static void instr32_83_7() { cmp32(read_e32s(), read_op8s()); }
 
 static void instr_84() { read_modrm_byte(); int32_t data = read_e8(); test8(data, read_g8()); }
 static void instr16_85() { read_modrm_byte(); int32_t data = read_e16(); test16(data, read_g16()); }
@@ -964,57 +951,32 @@ static void instr16_BF() { reg16[DI] = read_op16(); }
 static void instr32_BF() { reg32s[EDI] = read_op32s(); }
 
 
-static void instr_C0() { read_modrm_byte();
-    int32_t op1 = read_write_e8();
-    int32_t op2 = read_op8() & 31;
-    int32_t result = 0;
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: result = rol8(op1, op2); break;
-        case 1: result = ror8(op1, op2); break;
-        case 2: result = rcl8(op1, op2); break;
-        case 3: result = rcr8(op1, op2); break;
-        case 4: result = shl8(op1, op2); break;
-        case 5: result = shr8(op1, op2); break;
-        case 6: result = shl8(op1, op2); break;
-        case 7: result = sar8(op1, op2); break;
-    }
-    write_e8(result);
-}
-static void instr16_C1() { read_modrm_byte();
-    int32_t op1 = read_write_e16();
-    int32_t op2 = read_op8() & 31;
-    int32_t result = 0;
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: result = rol16(op1, op2); break;
-        case 1: result = ror16(op1, op2); break;
-        case 2: result = rcl16(op1, op2); break;
-        case 3: result = rcr16(op1, op2); break;
-        case 4: result = shl16(op1, op2); break;
-        case 5: result = shr16(op1, op2); break;
-        case 6: result = shl16(op1, op2); break;
-        case 7: result = sar16(op1, op2); break;
-    }
-    write_e16(result);
-}
-static void instr32_C1() { read_modrm_byte();
-    int32_t op1 = read_write_e32();
-    int32_t op2 = read_op8() & 31;
-    int32_t result = 0;
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: result = rol32(op1, op2); break;
-        case 1: result = ror32(op1, op2); break;
-        case 2: result = rcl32(op1, op2); break;
-        case 3: result = rcr32(op1, op2); break;
-        case 4: result = shl32(op1, op2); break;
-        case 5: result = shr32(op1, op2); break;
-        case 6: result = shl32(op1, op2); break;
-        case 7: result = sar32(op1, op2); break;
-    }
-    write_e32(result);
-}
+static void instr_C0_0() { write_e8(rol8(read_write_e8(), read_op8() & 31)); }
+static void instr_C0_1() { write_e8(ror8(read_write_e8(), read_op8() & 31)); }
+static void instr_C0_2() { write_e8(rcl8(read_write_e8(), read_op8() & 31)); }
+static void instr_C0_3() { write_e8(rcr8(read_write_e8(), read_op8() & 31)); }
+static void instr_C0_4() { write_e8(shl8(read_write_e8(), read_op8() & 31)); }
+static void instr_C0_5() { write_e8(shr8(read_write_e8(), read_op8() & 31)); }
+static void instr_C0_6() { write_e8(shl8(read_write_e8(), read_op8() & 31)); }
+static void instr_C0_7() { write_e8(sar8(read_write_e8(), read_op8() & 31)); }
+
+static void instr16_C1_0() { write_e16(rol16(read_write_e16(), read_op8() & 31)); }
+static void instr16_C1_1() { write_e16(ror16(read_write_e16(), read_op8() & 31)); }
+static void instr16_C1_2() { write_e16(rcl16(read_write_e16(), read_op8() & 31)); }
+static void instr16_C1_3() { write_e16(rcr16(read_write_e16(), read_op8() & 31)); }
+static void instr16_C1_4() { write_e16(shl16(read_write_e16(), read_op8() & 31)); }
+static void instr16_C1_5() { write_e16(shr16(read_write_e16(), read_op8() & 31)); }
+static void instr16_C1_6() { write_e16(shl16(read_write_e16(), read_op8() & 31)); }
+static void instr16_C1_7() { write_e16(sar16(read_write_e16(), read_op8() & 31)); }
+
+static void instr32_C1_0() { write_e32(rol32(read_write_e32(), read_op8() & 31)); }
+static void instr32_C1_1() { write_e32(ror32(read_write_e32(), read_op8() & 31)); }
+static void instr32_C1_2() { write_e32(rcl32(read_write_e32(), read_op8() & 31)); }
+static void instr32_C1_3() { write_e32(rcr32(read_write_e32(), read_op8() & 31)); }
+static void instr32_C1_4() { write_e32(shl32(read_write_e32(), read_op8() & 31)); }
+static void instr32_C1_5() { write_e32(shr32(read_write_e32(), read_op8() & 31)); }
+static void instr32_C1_6() { write_e32(shl32(read_write_e32(), read_op8() & 31)); }
+static void instr32_C1_7() { write_e32(sar32(read_write_e32(), read_op8() & 31)); }
 
 static void instr16_C2() {
     // retn
@@ -1170,106 +1132,60 @@ static void instr32_CF() {
     diverged();
 }
 
-static void instr_D0() { read_modrm_byte();
-    int32_t op1 = read_write_e8();
-    int32_t result = 0;
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: result = rol8(op1, 1); break;
-        case 1: result = ror8(op1, 1); break;
-        case 2: result = rcl8(op1, 1); break;
-        case 3: result = rcr8(op1, 1); break;
-        case 4: result = shl8(op1, 1); break;
-        case 5: result = shr8(op1, 1); break;
-        case 6: result = shl8(op1, 1); break;
-        case 7: result = sar8(op1, 1); break;
-    }
-    write_e8(result);
-}
-static void instr16_D1() { read_modrm_byte();
-    int32_t op1 = read_write_e16();
-    int32_t result = 0;
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: result = rol16(op1, 1); break;
-        case 1: result = ror16(op1, 1); break;
-        case 2: result = rcl16(op1, 1); break;
-        case 3: result = rcr16(op1, 1); break;
-        case 4: result = shl16(op1, 1); break;
-        case 5: result = shr16(op1, 1); break;
-        case 6: result = shl16(op1, 1); break;
-        case 7: result = sar16(op1, 1); break;
-    }
-    write_e16(result);
-}
-static void instr32_D1() { read_modrm_byte();
-    int32_t op1 = read_write_e32();
-    int32_t result = 0;
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: result = rol32(op1, 1); break;
-        case 1: result = ror32(op1, 1); break;
-        case 2: result = rcl32(op1, 1); break;
-        case 3: result = rcr32(op1, 1); break;
-        case 4: result = shl32(op1, 1); break;
-        case 5: result = shr32(op1, 1); break;
-        case 6: result = shl32(op1, 1); break;
-        case 7: result = sar32(op1, 1); break;
-    }
-    write_e32(result);
-}
 
-static void instr_D2() { read_modrm_byte();
-    int32_t op1 = read_write_e8();
-    int32_t op2 = reg8[CL] & 31;
-    int32_t result = 0;
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: result = rol8(op1, op2); break;
-        case 1: result = ror8(op1, op2); break;
-        case 2: result = rcl8(op1, op2); break;
-        case 3: result = rcr8(op1, op2); break;
-        case 4: result = shl8(op1, op2); break;
-        case 5: result = shr8(op1, op2); break;
-        case 6: result = shl8(op1, op2); break;
-        case 7: result = sar8(op1, op2); break;
-    }
-    write_e8(result);
-}
-static void instr16_D3() { read_modrm_byte();
-    int32_t op1 = read_write_e16();
-    int32_t op2 = reg8[CL] & 31;
-    int32_t result = 0;
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: result = rol16(op1, op2); break;
-        case 1: result = ror16(op1, op2); break;
-        case 2: result = rcl16(op1, op2); break;
-        case 3: result = rcr16(op1, op2); break;
-        case 4: result = shl16(op1, op2); break;
-        case 5: result = shr16(op1, op2); break;
-        case 6: result = shl16(op1, op2); break;
-        case 7: result = sar16(op1, op2); break;
-    }
-    write_e16(result);
-}
-static void instr32_D3() { read_modrm_byte();
-    int32_t op1 = read_write_e32();
-    int32_t op2 = reg8[CL] & 31;
-    int32_t result = 0;
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0: result = rol32(op1, op2); break;
-        case 1: result = ror32(op1, op2); break;
-        case 2: result = rcl32(op1, op2); break;
-        case 3: result = rcr32(op1, op2); break;
-        case 4: result = shl32(op1, op2); break;
-        case 5: result = shr32(op1, op2); break;
-        case 6: result = shl32(op1, op2); break;
-        case 7: result = sar32(op1, op2); break;
-    }
-    write_e32(result);
-}
+static void instr_D0_0() { write_e8(rol8(read_write_e8(), 1)); }
+static void instr_D0_1() { write_e8(ror8(read_write_e8(), 1)); }
+static void instr_D0_2() { write_e8(rcl8(read_write_e8(), 1)); }
+static void instr_D0_3() { write_e8(rcr8(read_write_e8(), 1)); }
+static void instr_D0_4() { write_e8(shl8(read_write_e8(), 1)); }
+static void instr_D0_5() { write_e8(shr8(read_write_e8(), 1)); }
+static void instr_D0_6() { write_e8(shl8(read_write_e8(), 1)); }
+static void instr_D0_7() { write_e8(sar8(read_write_e8(), 1)); }
+
+static void instr16_D1_0() { write_e16(rol16(read_write_e16(), 1)); }
+static void instr16_D1_1() { write_e16(ror16(read_write_e16(), 1)); }
+static void instr16_D1_2() { write_e16(rcl16(read_write_e16(), 1)); }
+static void instr16_D1_3() { write_e16(rcr16(read_write_e16(), 1)); }
+static void instr16_D1_4() { write_e16(shl16(read_write_e16(), 1)); }
+static void instr16_D1_5() { write_e16(shr16(read_write_e16(), 1)); }
+static void instr16_D1_6() { write_e16(shl16(read_write_e16(), 1)); }
+static void instr16_D1_7() { write_e16(sar16(read_write_e16(), 1)); }
+
+static void instr32_D1_0() { write_e32(rol32(read_write_e32(), 1)); }
+static void instr32_D1_1() { write_e32(ror32(read_write_e32(), 1)); }
+static void instr32_D1_2() { write_e32(rcl32(read_write_e32(), 1)); }
+static void instr32_D1_3() { write_e32(rcr32(read_write_e32(), 1)); }
+static void instr32_D1_4() { write_e32(shl32(read_write_e32(), 1)); }
+static void instr32_D1_5() { write_e32(shr32(read_write_e32(), 1)); }
+static void instr32_D1_6() { write_e32(shl32(read_write_e32(), 1)); }
+static void instr32_D1_7() { write_e32(sar32(read_write_e32(), 1)); }
+
+static void instr_D2_0() { write_e8(rol8(read_write_e8(), reg8[CL] & 31)); }
+static void instr_D2_1() { write_e8(ror8(read_write_e8(), reg8[CL] & 31)); }
+static void instr_D2_2() { write_e8(rcl8(read_write_e8(), reg8[CL] & 31)); }
+static void instr_D2_3() { write_e8(rcr8(read_write_e8(), reg8[CL] & 31)); }
+static void instr_D2_4() { write_e8(shl8(read_write_e8(), reg8[CL] & 31)); }
+static void instr_D2_5() { write_e8(shr8(read_write_e8(), reg8[CL] & 31)); }
+static void instr_D2_6() { write_e8(shl8(read_write_e8(), reg8[CL] & 31)); }
+static void instr_D2_7() { write_e8(sar8(read_write_e8(), reg8[CL] & 31)); }
+
+static void instr16_D3_0() { write_e16(rol16(read_write_e16(), reg8[CL] & 31)); }
+static void instr16_D3_1() { write_e16(ror16(read_write_e16(), reg8[CL] & 31)); }
+static void instr16_D3_2() { write_e16(rcl16(read_write_e16(), reg8[CL] & 31)); }
+static void instr16_D3_3() { write_e16(rcr16(read_write_e16(), reg8[CL] & 31)); }
+static void instr16_D3_4() { write_e16(shl16(read_write_e16(), reg8[CL] & 31)); }
+static void instr16_D3_5() { write_e16(shr16(read_write_e16(), reg8[CL] & 31)); }
+static void instr16_D3_6() { write_e16(shl16(read_write_e16(), reg8[CL] & 31)); }
+static void instr16_D3_7() { write_e16(sar16(read_write_e16(), reg8[CL] & 31)); }
+
+static void instr32_D3_0() { write_e32(rol32(read_write_e32(), reg8[CL] & 31)); }
+static void instr32_D3_1() { write_e32(ror32(read_write_e32(), reg8[CL] & 31)); }
+static void instr32_D3_2() { write_e32(rcl32(read_write_e32(), reg8[CL] & 31)); }
+static void instr32_D3_3() { write_e32(rcr32(read_write_e32(), reg8[CL] & 31)); }
+static void instr32_D3_4() { write_e32(shl32(read_write_e32(), reg8[CL] & 31)); }
+static void instr32_D3_5() { write_e32(shr32(read_write_e32(), reg8[CL] & 31)); }
+static void instr32_D3_6() { write_e32(shl32(read_write_e32(), reg8[CL] & 31)); }
+static void instr32_D3_7() { write_e32(sar32(read_write_e32(), reg8[CL] & 31)); }
 
 static void instr_D4() {
     bcd_aam(read_op8());
@@ -1525,94 +1441,32 @@ static void instr_F5() {
     flags_changed[0] &= ~1;
 }
 
-static void instr_F6() { read_modrm_byte();
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0:
-            test8(read_e8(), read_op8());
-            break;
-        case 1:
-            test8(read_e8(), read_op8());
-            break;
-        case 2:
-            write_e8(~(read_write_e8()));
-            break;
-        case 3:
-            write_e8(neg8(read_write_e8()));
-            break;
-        case 4:
-            mul8(read_e8());
-            break;
-        case 5:
-            imul8(read_e8s());
-            break;
-        case 6:
-            div8(read_e8());
-            break;
-        case 7:
-            idiv8(read_e8s());
-            break;
-    }
-}
+static void instr_F6_0() { test8(read_e8(), read_op8()); }
+static void instr_F6_1() { test8(read_e8(), read_op8()); }
+static void instr_F6_2() { write_e8(~read_write_e8()); }
+static void instr_F6_3() { write_e8(neg8(read_write_e8())); }
+static void instr_F6_4() { mul8(read_e8()); }
+static void instr_F6_5() { imul8(read_e8s()); }
+static void instr_F6_6() { div8(read_e8()); }
+static void instr_F6_7() { idiv8(read_e8s()); }
 
-static void instr16_F7() { read_modrm_byte();
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0:
-            test16(read_e16(), read_op16());
-            break;
-        case 1:
-            test16(read_e16(), read_op16());
-            break;
-        case 2:
-            write_e16(~(read_write_e16()));
-            break;
-        case 3:
-            write_e16(neg16(read_write_e16()));
-            break;
-        case 4:
-            mul16(read_e16());
-            break;
-        case 5:
-            imul16(read_e16s());
-            break;
-        case 6:
-            div16(read_e16());
-            break;
-        case 7:
-            idiv16(read_e16s());
-            break;
-    }
-}
-static void instr32_F7() { read_modrm_byte();
-    switch(modrm_byte[0] >> 3 & 7)
-    {
-        case 0:
-            test32(read_e32s(), read_op32s());
-            break;
-        case 1:
-            test32(read_e32s(), read_op32s());
-            break;
-        case 2:
-            write_e32(~(read_write_e32()));
-            break;
-        case 3:
-            write_e32(neg32(read_write_e32()));
-            break;
-        case 4:
-            mul32(read_e32s());
-            break;
-        case 5:
-            imul32(read_e32s());
-            break;
-        case 6:
-            div32(read_e32s());
-            break;
-        case 7:
-            idiv32(read_e32s());
-            break;
-    }
-}
+static void instr16_F7_0() { test16(read_e16(), read_op16()); }
+static void instr16_F7_1() { test16(read_e16(), read_op16()); }
+static void instr16_F7_2() { write_e16(~read_write_e16()); }
+static void instr16_F7_3() { write_e16(neg16(read_write_e16())); }
+static void instr16_F7_4() { mul16(read_e16()); }
+static void instr16_F7_5() { imul16(read_e16s()); }
+static void instr16_F7_6() { div16(read_e16()); }
+static void instr16_F7_7() { idiv16(read_e16s()); }
+
+static void instr32_F7_0() { test32(read_e32s(), read_op32s()); }
+static void instr32_F7_1() { test32(read_e32s(), read_op32s()); }
+static void instr32_F7_2() { write_e32(~read_write_e32()); }
+static void instr32_F7_3() { write_e32(neg32(read_write_e32())); }
+static void instr32_F7_4() { mul32(read_e32s()); }
+static void instr32_F7_5() { imul32(read_e32s()); }
+static void instr32_F7_6() { div32(read_e32s()); }
+static void instr32_F7_7() { idiv32(read_e32s()); }
 
 static void instr_F8() {
     // clc
@@ -1689,189 +1543,142 @@ static void instr_FD() {
     flags[0] |= FLAG_DIRECTION;
 }
 
-static void instr_FE() { read_modrm_byte();
-    int32_t mod = modrm_byte[0] & 56;
+static void instr_FE_0() { int32_t data = read_write_e8(); write_e8(inc8(data)); }
+static void instr_FE_1() { int32_t data = read_write_e8(); write_e8(dec8(data)); }
 
-    if(mod == 0)
-    {
-        int32_t data = read_write_e8(); write_e8(inc8(data));
-    }
-    else if(mod == 8)
-    {
-        int32_t data = read_write_e8(); write_e8(dec8(data));
-    }
-    else
-    {
-        assert(false);
-    }
+static void instr16_FF_0() { write_e16(inc16(read_write_e16())); }
+static void instr16_FF_1() { write_e16(dec16(read_write_e16())); }
+static void instr16_FF_2()
+{
+    // call near
+    int32_t data = read_e16();
+    push16(get_real_eip());
+    instruction_pointer[0] = get_seg(CS) + data;
+    dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
+    diverged();
 }
-static void instr16_FF() { read_modrm_byte();
-    switch(modrm_byte[0] >> 3 & 7)
+static void instr16_FF_3()
+{
+    // callf
+    if(modrm_byte[0] >= 0xC0)
     {
-        case 0:
-            write_e16(inc16(read_write_e16()));
-            break;
-        case 1:
-            write_e16(dec16(read_write_e16()));
-            break;
-        case 2:
-            // 2, call near
-            {
-                int32_t data = read_e16();
-                push16(get_real_eip());
-                instruction_pointer[0] = get_seg(CS) + data;
-                dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-                diverged();
-            }
-            break;
-        case 3:
-            // 3, callf
-            {
-                if(modrm_byte[0] >= 0xC0)
-                {
-                    dbg_log("callf #ud");
-                    trigger_ud();
-                    dbg_assert_message(false, "unreachable");
-                }
+        dbg_log("callf #ud");
+        trigger_ud();
+        dbg_assert_message(false, "unreachable");
+    }
 
-                int32_t virt_addr = modrm_resolve(modrm_byte[0]);
-                int32_t new_ip = safe_read16(virt_addr);
-                int32_t new_cs = safe_read16(virt_addr + 2);
+    int32_t virt_addr = modrm_resolve(modrm_byte[0]);
+    int32_t new_ip = safe_read16(virt_addr);
+    int32_t new_cs = safe_read16(virt_addr + 2);
 
-                far_jump(new_ip, new_cs, true);
-                dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-                diverged();
-            }
-            break;
-        case 4:
-            // 4, jmp near
-            {
-                int32_t data = read_e16();
-                instruction_pointer[0] = get_seg(CS) + data;
-                dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-                diverged();
-            }
-            break;
-        case 5:
-            // 5, jmpf
-            {
-                if(modrm_byte[0] >= 0xC0)
-                {
-                    dbg_log("jmpf #ud");
-                    trigger_ud();
-                    dbg_assert_message(false, "unreachable");
-                }
+    far_jump(new_ip, new_cs, true);
+    dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
+    diverged();
+}
+static void instr16_FF_4()
+{
+    // jmp near
+    int32_t data = read_e16();
+    instruction_pointer[0] = get_seg(CS) + data;
+    dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
+    diverged();
+}
+static void instr16_FF_5()
+{
+    // jmpf
+    if(modrm_byte[0] >= 0xC0)
+    {
+        dbg_log("jmpf #ud");
+        trigger_ud();
+        dbg_assert_message(false, "unreachable");
+    }
 
-                int32_t virt_addr = modrm_resolve(modrm_byte[0]);
-                int32_t new_ip = safe_read16(virt_addr);
-                int32_t new_cs = safe_read16(virt_addr + 2);
+    int32_t virt_addr = modrm_resolve(modrm_byte[0]);
+    int32_t new_ip = safe_read16(virt_addr);
+    int32_t new_cs = safe_read16(virt_addr + 2);
 
-                far_jump(new_ip, new_cs, false);
-                dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-                diverged();
-            }
-            break;
-        case 6:
-            // 6, push
-            push16(read_e16());
-            break;
-        case 7:
+    far_jump(new_ip, new_cs, false);
+    dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
+    diverged();
+}
+static void instr16_FF_6() { push16(read_e16()); }
+
+static void instr32_FF_0() { write_e32(inc32(read_write_e32())); }
+static void instr32_FF_1() { write_e32(dec32(read_write_e32())); }
+static void instr32_FF_2()
+{
+    // call near
+    int32_t data = read_e32s();
+    push32(get_real_eip());
+    dbg_assert(is_asize_32() || data < 0x10000);
+    instruction_pointer[0] = get_seg(CS) + data;
+    diverged();
+}
+static void instr32_FF_3()
+{
+    // callf
+    if(modrm_byte[0] >= 0xC0)
+    {
+        dbg_log("callf #ud");
+        trigger_ud();
+        dbg_assert_message(false, "unreachable");
+    }
+
+    int32_t virt_addr = modrm_resolve(modrm_byte[0]);
+    int32_t new_ip = safe_read32s(virt_addr);
+    int32_t new_cs = safe_read16(virt_addr + 4);
+
+    if(!*protected_mode || vm86_mode())
+    {
+        if(new_ip & 0xFFFF0000)
+        {
+            //throw debug.unimpl("#GP handler");
             assert(false);
+        }
     }
+
+    far_jump(new_ip, new_cs, true);
+    dbg_assert(is_asize_32() || new_ip < 0x10000);
+    diverged();
 }
-static void instr32_FF() { read_modrm_byte();
-    switch(modrm_byte[0] >> 3 & 7)
+static void instr32_FF_4()
+{
+    // jmp near
+    int32_t data = read_e32s();
+    dbg_assert(is_asize_32() || data < 0x10000);
+    instruction_pointer[0] = get_seg(CS) + data;
+    diverged();
+}
+static void instr32_FF_5()
+{
+    // jmpf
+    if(modrm_byte[0] >= 0xC0)
     {
-        case 0:
-            write_e32(inc32(read_write_e32()));
-            break;
-        case 1:
-            write_e32(dec32(read_write_e32()));
-            break;
-        case 2:
-            // 2, call near
-            {
-                int32_t data = read_e32s();
-                push32(get_real_eip());
-
-                dbg_assert(is_asize_32() || data < 0x10000);
-                instruction_pointer[0] = get_seg(CS) + data;
-                diverged();
-            }
-            break;
-        case 3:
-            // 3, callf
-            {
-                if(modrm_byte[0] >= 0xC0)
-                {
-                    dbg_log("callf #ud");
-                    trigger_ud();
-                    dbg_assert_message(false, "unreachable");
-                }
-
-                int32_t virt_addr = modrm_resolve(modrm_byte[0]);
-                int32_t new_ip = safe_read32s(virt_addr);
-                int32_t new_cs = safe_read16(virt_addr + 4);
-
-                if(!*protected_mode || vm86_mode())
-                {
-                    if(new_ip & 0xFFFF0000)
-                    {
-                        //throw debug.unimpl("#GP handler");
-                        assert(false);
-                    }
-                }
-
-                far_jump(new_ip, new_cs, true);
-                dbg_assert(is_asize_32() || new_ip < 0x10000);
-                diverged();
-            }
-            break;
-        case 4:
-            // 4, jmp near
-            {
-                int32_t data = read_e32s();
-                dbg_assert(is_asize_32() || data < 0x10000);
-                instruction_pointer[0] = get_seg(CS) + data;
-                diverged();
-            }
-            break;
-        case 5:
-            // 5, jmpf
-            {
-                if(modrm_byte[0] >= 0xC0)
-                {
-                    dbg_log("jmpf #ud");
-                    trigger_ud();
-                    dbg_assert_message(false, "unreachable");
-                }
-
-                int32_t virt_addr = modrm_resolve(modrm_byte[0]);
-                int32_t new_ip = safe_read32s(virt_addr);
-                int32_t new_cs = safe_read16(virt_addr + 4);
-
-                if(!*protected_mode || vm86_mode())
-                {
-                    if(new_ip & 0xFFFF0000)
-                    {
-                        //throw debug.unimpl("#GP handler");
-                        assert(false);
-                    }
-                }
-
-                far_jump(new_ip, new_cs, false);
-                dbg_assert(is_asize_32() || new_ip < 0x10000);
-                diverged();
-            }
-            break;
-        case 6:
-            // push
-            push32(read_e32s());
-            break;
-        case 7:
-            assert(false);
+        dbg_log("jmpf #ud");
+        trigger_ud();
+        dbg_assert_message(false, "unreachable");
     }
+
+    int32_t virt_addr = modrm_resolve(modrm_byte[0]);
+    int32_t new_ip = safe_read32s(virt_addr);
+    int32_t new_cs = safe_read16(virt_addr + 4);
+
+    if(!*protected_mode || vm86_mode())
+    {
+        if(new_ip & 0xFFFF0000)
+        {
+            //throw debug.unimpl("#GP handler");
+            assert(false);
+        }
+    }
+
+    far_jump(new_ip, new_cs, false);
+    dbg_assert(is_asize_32() || new_ip < 0x10000);
+    diverged();
 }
+static void instr32_FF_6() { push32(read_e32s()); }
+
+
 
 static void run_instruction(int32_t opcode)
 {
@@ -1881,1290 +1688,2969 @@ static void run_instruction(int32_t opcode)
     {
 case 0x00:
 case 0x00|0x100:
+{
     instr_00();
-    break;
+}
+break;
 case 0x01:
+{
     instr16_01();
-    break;
+}
+break;
 case 0x01|0x100:
+{
     instr32_01();
-    break;
+}
+break;
 case 0x02:
 case 0x02|0x100:
+{
     instr_02();
-    break;
+}
+break;
 case 0x03:
+{
     instr16_03();
-    break;
+}
+break;
 case 0x03|0x100:
+{
     instr32_03();
-    break;
+}
+break;
 case 0x04:
 case 0x04|0x100:
+{
     instr_04();
-    break;
+}
+break;
 case 0x05:
+{
     instr16_05();
-    break;
+}
+break;
 case 0x05|0x100:
+{
     instr32_05();
-    break;
+}
+break;
 case 0x06:
+{
     instr16_06();
-    break;
+}
+break;
 case 0x06|0x100:
+{
     instr32_06();
-    break;
+}
+break;
 case 0x07:
+{
     instr16_07();
-    break;
+}
+break;
 case 0x07|0x100:
+{
     instr32_07();
-    break;
+}
+break;
 case 0x08:
 case 0x08|0x100:
+{
     instr_08();
-    break;
+}
+break;
 case 0x09:
+{
     instr16_09();
-    break;
+}
+break;
 case 0x09|0x100:
+{
     instr32_09();
-    break;
+}
+break;
 case 0x0A:
 case 0x0A|0x100:
+{
     instr_0A();
-    break;
+}
+break;
 case 0x0B:
+{
     instr16_0B();
-    break;
+}
+break;
 case 0x0B|0x100:
+{
     instr32_0B();
-    break;
+}
+break;
 case 0x0C:
 case 0x0C|0x100:
+{
     instr_0C();
-    break;
+}
+break;
 case 0x0D:
+{
     instr16_0D();
-    break;
+}
+break;
 case 0x0D|0x100:
+{
     instr32_0D();
-    break;
+}
+break;
 case 0x0E:
+{
     instr16_0E();
-    break;
+}
+break;
 case 0x0E|0x100:
+{
     instr32_0E();
-    break;
+}
+break;
 case 0x0F:
+{
     instr16_0F();
-    break;
+}
+break;
 case 0x0F|0x100:
+{
     instr32_0F();
-    break;
+}
+break;
 case 0x10:
 case 0x10|0x100:
+{
     instr_10();
-    break;
+}
+break;
 case 0x11:
+{
     instr16_11();
-    break;
+}
+break;
 case 0x11|0x100:
+{
     instr32_11();
-    break;
+}
+break;
 case 0x12:
 case 0x12|0x100:
+{
     instr_12();
-    break;
+}
+break;
 case 0x13:
+{
     instr16_13();
-    break;
+}
+break;
 case 0x13|0x100:
+{
     instr32_13();
-    break;
+}
+break;
 case 0x14:
 case 0x14|0x100:
+{
     instr_14();
-    break;
+}
+break;
 case 0x15:
+{
     instr16_15();
-    break;
+}
+break;
 case 0x15|0x100:
+{
     instr32_15();
-    break;
+}
+break;
 case 0x16:
+{
     instr16_16();
-    break;
+}
+break;
 case 0x16|0x100:
+{
     instr32_16();
-    break;
+}
+break;
 case 0x17:
+{
     instr16_17();
-    break;
+}
+break;
 case 0x17|0x100:
+{
     instr32_17();
-    break;
+}
+break;
 case 0x18:
 case 0x18|0x100:
+{
     instr_18();
-    break;
+}
+break;
 case 0x19:
+{
     instr16_19();
-    break;
+}
+break;
 case 0x19|0x100:
+{
     instr32_19();
-    break;
+}
+break;
 case 0x1A:
 case 0x1A|0x100:
+{
     instr_1A();
-    break;
+}
+break;
 case 0x1B:
+{
     instr16_1B();
-    break;
+}
+break;
 case 0x1B|0x100:
+{
     instr32_1B();
-    break;
+}
+break;
 case 0x1C:
 case 0x1C|0x100:
+{
     instr_1C();
-    break;
+}
+break;
 case 0x1D:
+{
     instr16_1D();
-    break;
+}
+break;
 case 0x1D|0x100:
+{
     instr32_1D();
-    break;
+}
+break;
 case 0x1E:
+{
     instr16_1E();
-    break;
+}
+break;
 case 0x1E|0x100:
+{
     instr32_1E();
-    break;
+}
+break;
 case 0x1F:
+{
     instr16_1F();
-    break;
+}
+break;
 case 0x1F|0x100:
+{
     instr32_1F();
-    break;
+}
+break;
 case 0x20:
 case 0x20|0x100:
+{
     instr_20();
-    break;
+}
+break;
 case 0x21:
+{
     instr16_21();
-    break;
+}
+break;
 case 0x21|0x100:
+{
     instr32_21();
-    break;
+}
+break;
 case 0x22:
 case 0x22|0x100:
+{
     instr_22();
-    break;
+}
+break;
 case 0x23:
+{
     instr16_23();
-    break;
+}
+break;
 case 0x23|0x100:
+{
     instr32_23();
-    break;
+}
+break;
 case 0x24:
 case 0x24|0x100:
+{
     instr_24();
-    break;
+}
+break;
 case 0x25:
+{
     instr16_25();
-    break;
+}
+break;
 case 0x25|0x100:
+{
     instr32_25();
-    break;
+}
+break;
 case 0x26:
 case 0x26|0x100:
+{
     instr_26();
-    break;
+}
+break;
 case 0x27:
 case 0x27|0x100:
+{
     instr_27();
-    break;
+}
+break;
 case 0x28:
 case 0x28|0x100:
+{
     instr_28();
-    break;
+}
+break;
 case 0x29:
+{
     instr16_29();
-    break;
+}
+break;
 case 0x29|0x100:
+{
     instr32_29();
-    break;
+}
+break;
 case 0x2A:
 case 0x2A|0x100:
+{
     instr_2A();
-    break;
+}
+break;
 case 0x2B:
+{
     instr16_2B();
-    break;
+}
+break;
 case 0x2B|0x100:
+{
     instr32_2B();
-    break;
+}
+break;
 case 0x2C:
 case 0x2C|0x100:
+{
     instr_2C();
-    break;
+}
+break;
 case 0x2D:
+{
     instr16_2D();
-    break;
+}
+break;
 case 0x2D|0x100:
+{
     instr32_2D();
-    break;
+}
+break;
 case 0x2E:
 case 0x2E|0x100:
+{
     instr_2E();
-    break;
+}
+break;
 case 0x2F:
 case 0x2F|0x100:
+{
     instr_2F();
-    break;
+}
+break;
 case 0x30:
 case 0x30|0x100:
+{
     instr_30();
-    break;
+}
+break;
 case 0x31:
+{
     instr16_31();
-    break;
+}
+break;
 case 0x31|0x100:
+{
     instr32_31();
-    break;
+}
+break;
 case 0x32:
 case 0x32|0x100:
+{
     instr_32();
-    break;
+}
+break;
 case 0x33:
+{
     instr16_33();
-    break;
+}
+break;
 case 0x33|0x100:
+{
     instr32_33();
-    break;
+}
+break;
 case 0x34:
 case 0x34|0x100:
+{
     instr_34();
-    break;
+}
+break;
 case 0x35:
+{
     instr16_35();
-    break;
+}
+break;
 case 0x35|0x100:
+{
     instr32_35();
-    break;
+}
+break;
 case 0x36:
 case 0x36|0x100:
+{
     instr_36();
-    break;
+}
+break;
 case 0x37:
 case 0x37|0x100:
+{
     instr_37();
-    break;
+}
+break;
 case 0x38:
 case 0x38|0x100:
+{
     instr_38();
-    break;
+}
+break;
 case 0x39:
+{
     instr16_39();
-    break;
+}
+break;
 case 0x39|0x100:
+{
     instr32_39();
-    break;
+}
+break;
 case 0x3A:
 case 0x3A|0x100:
+{
     instr_3A();
-    break;
+}
+break;
 case 0x3B:
+{
     instr16_3B();
-    break;
+}
+break;
 case 0x3B|0x100:
+{
     instr32_3B();
-    break;
+}
+break;
 case 0x3C:
 case 0x3C|0x100:
+{
     instr_3C();
-    break;
+}
+break;
 case 0x3D:
+{
     instr16_3D();
-    break;
+}
+break;
 case 0x3D|0x100:
+{
     instr32_3D();
-    break;
+}
+break;
 case 0x3E:
 case 0x3E|0x100:
+{
     instr_3E();
-    break;
+}
+break;
 case 0x3F:
 case 0x3F|0x100:
+{
     instr_3F();
-    break;
+}
+break;
 case 0x40:
+{
     instr16_40();
-    break;
+}
+break;
 case 0x40|0x100:
+{
     instr32_40();
-    break;
+}
+break;
 case 0x41:
+{
     instr16_41();
-    break;
+}
+break;
 case 0x41|0x100:
+{
     instr32_41();
-    break;
+}
+break;
 case 0x42:
+{
     instr16_42();
-    break;
+}
+break;
 case 0x42|0x100:
+{
     instr32_42();
-    break;
+}
+break;
 case 0x43:
+{
     instr16_43();
-    break;
+}
+break;
 case 0x43|0x100:
+{
     instr32_43();
-    break;
+}
+break;
 case 0x44:
+{
     instr16_44();
-    break;
+}
+break;
 case 0x44|0x100:
+{
     instr32_44();
-    break;
+}
+break;
 case 0x45:
+{
     instr16_45();
-    break;
+}
+break;
 case 0x45|0x100:
+{
     instr32_45();
-    break;
+}
+break;
 case 0x46:
+{
     instr16_46();
-    break;
+}
+break;
 case 0x46|0x100:
+{
     instr32_46();
-    break;
+}
+break;
 case 0x47:
+{
     instr16_47();
-    break;
+}
+break;
 case 0x47|0x100:
+{
     instr32_47();
-    break;
+}
+break;
 case 0x48:
+{
     instr16_48();
-    break;
+}
+break;
 case 0x48|0x100:
+{
     instr32_48();
-    break;
+}
+break;
 case 0x49:
+{
     instr16_49();
-    break;
+}
+break;
 case 0x49|0x100:
+{
     instr32_49();
-    break;
+}
+break;
 case 0x4A:
+{
     instr16_4A();
-    break;
+}
+break;
 case 0x4A|0x100:
+{
     instr32_4A();
-    break;
+}
+break;
 case 0x4B:
+{
     instr16_4B();
-    break;
+}
+break;
 case 0x4B|0x100:
+{
     instr32_4B();
-    break;
+}
+break;
 case 0x4C:
+{
     instr16_4C();
-    break;
+}
+break;
 case 0x4C|0x100:
+{
     instr32_4C();
-    break;
+}
+break;
 case 0x4D:
+{
     instr16_4D();
-    break;
+}
+break;
 case 0x4D|0x100:
+{
     instr32_4D();
-    break;
+}
+break;
 case 0x4E:
+{
     instr16_4E();
-    break;
+}
+break;
 case 0x4E|0x100:
+{
     instr32_4E();
-    break;
+}
+break;
 case 0x4F:
+{
     instr16_4F();
-    break;
+}
+break;
 case 0x4F|0x100:
+{
     instr32_4F();
-    break;
+}
+break;
 case 0x50:
+{
     instr16_50();
-    break;
+}
+break;
 case 0x50|0x100:
+{
     instr32_50();
-    break;
+}
+break;
 case 0x51:
+{
     instr16_51();
-    break;
+}
+break;
 case 0x51|0x100:
+{
     instr32_51();
-    break;
+}
+break;
 case 0x52:
+{
     instr16_52();
-    break;
+}
+break;
 case 0x52|0x100:
+{
     instr32_52();
-    break;
+}
+break;
 case 0x53:
+{
     instr16_53();
-    break;
+}
+break;
 case 0x53|0x100:
+{
     instr32_53();
-    break;
+}
+break;
 case 0x54:
+{
     instr16_54();
-    break;
+}
+break;
 case 0x54|0x100:
+{
     instr32_54();
-    break;
+}
+break;
 case 0x55:
+{
     instr16_55();
-    break;
+}
+break;
 case 0x55|0x100:
+{
     instr32_55();
-    break;
+}
+break;
 case 0x56:
+{
     instr16_56();
-    break;
+}
+break;
 case 0x56|0x100:
+{
     instr32_56();
-    break;
+}
+break;
 case 0x57:
+{
     instr16_57();
-    break;
+}
+break;
 case 0x57|0x100:
+{
     instr32_57();
-    break;
+}
+break;
 case 0x58:
+{
     instr16_58();
-    break;
+}
+break;
 case 0x58|0x100:
+{
     instr32_58();
-    break;
+}
+break;
 case 0x59:
+{
     instr16_59();
-    break;
+}
+break;
 case 0x59|0x100:
+{
     instr32_59();
-    break;
+}
+break;
 case 0x5A:
+{
     instr16_5A();
-    break;
+}
+break;
 case 0x5A|0x100:
+{
     instr32_5A();
-    break;
+}
+break;
 case 0x5B:
+{
     instr16_5B();
-    break;
+}
+break;
 case 0x5B|0x100:
+{
     instr32_5B();
-    break;
+}
+break;
 case 0x5C:
+{
     instr16_5C();
-    break;
+}
+break;
 case 0x5C|0x100:
+{
     instr32_5C();
-    break;
+}
+break;
 case 0x5D:
+{
     instr16_5D();
-    break;
+}
+break;
 case 0x5D|0x100:
+{
     instr32_5D();
-    break;
+}
+break;
 case 0x5E:
+{
     instr16_5E();
-    break;
+}
+break;
 case 0x5E|0x100:
+{
     instr32_5E();
-    break;
+}
+break;
 case 0x5F:
+{
     instr16_5F();
-    break;
+}
+break;
 case 0x5F|0x100:
+{
     instr32_5F();
-    break;
+}
+break;
 case 0x60:
+{
     instr16_60();
-    break;
+}
+break;
 case 0x60|0x100:
+{
     instr32_60();
-    break;
+}
+break;
 case 0x61:
+{
     instr16_61();
-    break;
+}
+break;
 case 0x61|0x100:
+{
     instr32_61();
-    break;
+}
+break;
 case 0x62:
 case 0x62|0x100:
+{
     instr_62();
-    break;
+}
+break;
 case 0x63:
 case 0x63|0x100:
+{
     instr_63();
-    break;
+}
+break;
 case 0x64:
 case 0x64|0x100:
+{
     instr_64();
-    break;
+}
+break;
 case 0x65:
 case 0x65|0x100:
+{
     instr_65();
-    break;
+}
+break;
 case 0x66:
 case 0x66|0x100:
+{
     instr_66();
-    break;
+}
+break;
 case 0x67:
 case 0x67|0x100:
+{
     instr_67();
-    break;
+}
+break;
 case 0x68:
+{
     instr16_68();
-    break;
+}
+break;
 case 0x68|0x100:
+{
     instr32_68();
-    break;
+}
+break;
 case 0x69:
+{
     instr16_69();
-    break;
+}
+break;
 case 0x69|0x100:
+{
     instr32_69();
-    break;
+}
+break;
 case 0x6A:
+{
     instr16_6A();
-    break;
+}
+break;
 case 0x6A|0x100:
+{
     instr32_6A();
-    break;
+}
+break;
 case 0x6B:
+{
     instr16_6B();
-    break;
+}
+break;
 case 0x6B|0x100:
+{
     instr32_6B();
-    break;
+}
+break;
 case 0x6C:
 case 0x6C|0x100:
+{
     instr_6C();
-    break;
+}
+break;
 case 0x6D:
+{
     instr16_6D();
-    break;
+}
+break;
 case 0x6D|0x100:
+{
     instr32_6D();
-    break;
+}
+break;
 case 0x6E:
 case 0x6E|0x100:
+{
     instr_6E();
-    break;
+}
+break;
 case 0x6F:
+{
     instr16_6F();
-    break;
+}
+break;
 case 0x6F|0x100:
+{
     instr32_6F();
-    break;
+}
+break;
 case 0x70:
 case 0x70|0x100:
+{
     instr_70();
-    break;
+}
+break;
 case 0x71:
 case 0x71|0x100:
+{
     instr_71();
-    break;
+}
+break;
 case 0x72:
 case 0x72|0x100:
+{
     instr_72();
-    break;
+}
+break;
 case 0x73:
 case 0x73|0x100:
+{
     instr_73();
-    break;
+}
+break;
 case 0x74:
 case 0x74|0x100:
+{
     instr_74();
-    break;
+}
+break;
 case 0x75:
 case 0x75|0x100:
+{
     instr_75();
-    break;
+}
+break;
 case 0x76:
 case 0x76|0x100:
+{
     instr_76();
-    break;
+}
+break;
 case 0x77:
 case 0x77|0x100:
+{
     instr_77();
-    break;
+}
+break;
 case 0x78:
 case 0x78|0x100:
+{
     instr_78();
-    break;
+}
+break;
 case 0x79:
 case 0x79|0x100:
+{
     instr_79();
-    break;
+}
+break;
 case 0x7A:
 case 0x7A|0x100:
+{
     instr_7A();
-    break;
+}
+break;
 case 0x7B:
 case 0x7B|0x100:
+{
     instr_7B();
-    break;
+}
+break;
 case 0x7C:
 case 0x7C|0x100:
+{
     instr_7C();
-    break;
+}
+break;
 case 0x7D:
 case 0x7D|0x100:
+{
     instr_7D();
-    break;
+}
+break;
 case 0x7E:
 case 0x7E|0x100:
+{
     instr_7E();
-    break;
+}
+break;
 case 0x7F:
 case 0x7F|0x100:
+{
     instr_7F();
-    break;
+}
+break;
 case 0x80:
 case 0x80|0x100:
-    instr_80();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr_80_0();
+        }
+        break;
+        case 1:
+        {
+            instr_80_1();
+        }
+        break;
+        case 2:
+        {
+            instr_80_2();
+        }
+        break;
+        case 3:
+        {
+            instr_80_3();
+        }
+        break;
+        case 4:
+        {
+            instr_80_4();
+        }
+        break;
+        case 5:
+        {
+            instr_80_5();
+        }
+        break;
+        case 6:
+        {
+            instr_80_6();
+        }
+        break;
+        case 7:
+        {
+            instr_80_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0x81:
-    instr16_81();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr16_81_0();
+        }
+        break;
+        case 1:
+        {
+            instr16_81_1();
+        }
+        break;
+        case 2:
+        {
+            instr16_81_2();
+        }
+        break;
+        case 3:
+        {
+            instr16_81_3();
+        }
+        break;
+        case 4:
+        {
+            instr16_81_4();
+        }
+        break;
+        case 5:
+        {
+            instr16_81_5();
+        }
+        break;
+        case 6:
+        {
+            instr16_81_6();
+        }
+        break;
+        case 7:
+        {
+            instr16_81_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0x81|0x100:
-    instr32_81();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr32_81_0();
+        }
+        break;
+        case 1:
+        {
+            instr32_81_1();
+        }
+        break;
+        case 2:
+        {
+            instr32_81_2();
+        }
+        break;
+        case 3:
+        {
+            instr32_81_3();
+        }
+        break;
+        case 4:
+        {
+            instr32_81_4();
+        }
+        break;
+        case 5:
+        {
+            instr32_81_5();
+        }
+        break;
+        case 6:
+        {
+            instr32_81_6();
+        }
+        break;
+        case 7:
+        {
+            instr32_81_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0x82:
 case 0x82|0x100:
-    instr_82();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr_82_0();
+        }
+        break;
+        case 1:
+        {
+            instr_82_1();
+        }
+        break;
+        case 2:
+        {
+            instr_82_2();
+        }
+        break;
+        case 3:
+        {
+            instr_82_3();
+        }
+        break;
+        case 4:
+        {
+            instr_82_4();
+        }
+        break;
+        case 5:
+        {
+            instr_82_5();
+        }
+        break;
+        case 6:
+        {
+            instr_82_6();
+        }
+        break;
+        case 7:
+        {
+            instr_82_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0x83:
-    instr16_83();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr16_83_0();
+        }
+        break;
+        case 1:
+        {
+            instr16_83_1();
+        }
+        break;
+        case 2:
+        {
+            instr16_83_2();
+        }
+        break;
+        case 3:
+        {
+            instr16_83_3();
+        }
+        break;
+        case 4:
+        {
+            instr16_83_4();
+        }
+        break;
+        case 5:
+        {
+            instr16_83_5();
+        }
+        break;
+        case 6:
+        {
+            instr16_83_6();
+        }
+        break;
+        case 7:
+        {
+            instr16_83_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0x83|0x100:
-    instr32_83();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr32_83_0();
+        }
+        break;
+        case 1:
+        {
+            instr32_83_1();
+        }
+        break;
+        case 2:
+        {
+            instr32_83_2();
+        }
+        break;
+        case 3:
+        {
+            instr32_83_3();
+        }
+        break;
+        case 4:
+        {
+            instr32_83_4();
+        }
+        break;
+        case 5:
+        {
+            instr32_83_5();
+        }
+        break;
+        case 6:
+        {
+            instr32_83_6();
+        }
+        break;
+        case 7:
+        {
+            instr32_83_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0x84:
 case 0x84|0x100:
+{
     instr_84();
-    break;
+}
+break;
 case 0x85:
+{
     instr16_85();
-    break;
+}
+break;
 case 0x85|0x100:
+{
     instr32_85();
-    break;
+}
+break;
 case 0x86:
 case 0x86|0x100:
+{
     instr_86();
-    break;
+}
+break;
 case 0x87:
+{
     instr16_87();
-    break;
+}
+break;
 case 0x87|0x100:
+{
     instr32_87();
-    break;
+}
+break;
 case 0x88:
 case 0x88|0x100:
+{
     instr_88();
-    break;
+}
+break;
 case 0x89:
+{
     instr16_89();
-    break;
+}
+break;
 case 0x89|0x100:
+{
     instr32_89();
-    break;
+}
+break;
 case 0x8A:
 case 0x8A|0x100:
+{
     instr_8A();
-    break;
+}
+break;
 case 0x8B:
+{
     instr16_8B();
-    break;
+}
+break;
 case 0x8B|0x100:
+{
     instr32_8B();
-    break;
+}
+break;
 case 0x8C:
+{
     instr16_8C();
-    break;
+}
+break;
 case 0x8C|0x100:
+{
     instr32_8C();
-    break;
+}
+break;
 case 0x8D:
+{
     instr16_8D();
-    break;
+}
+break;
 case 0x8D|0x100:
+{
     instr32_8D();
-    break;
+}
+break;
 case 0x8E:
 case 0x8E|0x100:
+{
     instr_8E();
-    break;
+}
+break;
 case 0x8F:
+{
     instr16_8F();
-    break;
+}
+break;
 case 0x8F|0x100:
+{
     instr32_8F();
-    break;
+}
+break;
 case 0x90:
 case 0x90|0x100:
+{
     instr_90();
-    break;
+}
+break;
 case 0x91:
+{
     instr16_91();
-    break;
+}
+break;
 case 0x91|0x100:
+{
     instr32_91();
-    break;
+}
+break;
 case 0x92:
+{
     instr16_92();
-    break;
+}
+break;
 case 0x92|0x100:
+{
     instr32_92();
-    break;
+}
+break;
 case 0x93:
+{
     instr16_93();
-    break;
+}
+break;
 case 0x93|0x100:
+{
     instr32_93();
-    break;
+}
+break;
 case 0x94:
+{
     instr16_94();
-    break;
+}
+break;
 case 0x94|0x100:
+{
     instr32_94();
-    break;
+}
+break;
 case 0x95:
+{
     instr16_95();
-    break;
+}
+break;
 case 0x95|0x100:
+{
     instr32_95();
-    break;
+}
+break;
 case 0x96:
+{
     instr16_96();
-    break;
+}
+break;
 case 0x96|0x100:
+{
     instr32_96();
-    break;
+}
+break;
 case 0x97:
+{
     instr16_97();
-    break;
+}
+break;
 case 0x97|0x100:
+{
     instr32_97();
-    break;
+}
+break;
 case 0x98:
+{
     instr16_98();
-    break;
+}
+break;
 case 0x98|0x100:
+{
     instr32_98();
-    break;
+}
+break;
 case 0x99:
+{
     instr16_99();
-    break;
+}
+break;
 case 0x99|0x100:
+{
     instr32_99();
-    break;
+}
+break;
 case 0x9A:
+{
     instr16_9A();
-    break;
+}
+break;
 case 0x9A|0x100:
+{
     instr32_9A();
-    break;
+}
+break;
 case 0x9B:
 case 0x9B|0x100:
+{
     instr_9B();
-    break;
+}
+break;
 case 0x9C:
+{
     instr16_9C();
-    break;
+}
+break;
 case 0x9C|0x100:
+{
     instr32_9C();
-    break;
+}
+break;
 case 0x9D:
+{
     instr16_9D();
-    break;
+}
+break;
 case 0x9D|0x100:
+{
     instr32_9D();
-    break;
+}
+break;
 case 0x9E:
 case 0x9E|0x100:
+{
     instr_9E();
-    break;
+}
+break;
 case 0x9F:
 case 0x9F|0x100:
+{
     instr_9F();
-    break;
+}
+break;
 case 0xA0:
 case 0xA0|0x100:
+{
     instr_A0();
-    break;
+}
+break;
 case 0xA1:
+{
     instr16_A1();
-    break;
+}
+break;
 case 0xA1|0x100:
+{
     instr32_A1();
-    break;
+}
+break;
 case 0xA2:
 case 0xA2|0x100:
+{
     instr_A2();
-    break;
+}
+break;
 case 0xA3:
+{
     instr16_A3();
-    break;
+}
+break;
 case 0xA3|0x100:
+{
     instr32_A3();
-    break;
+}
+break;
 case 0xA4:
 case 0xA4|0x100:
+{
     instr_A4();
-    break;
+}
+break;
 case 0xA5:
+{
     instr16_A5();
-    break;
+}
+break;
 case 0xA5|0x100:
+{
     instr32_A5();
-    break;
+}
+break;
 case 0xA6:
 case 0xA6|0x100:
+{
     instr_A6();
-    break;
+}
+break;
 case 0xA7:
+{
     instr16_A7();
-    break;
+}
+break;
 case 0xA7|0x100:
+{
     instr32_A7();
-    break;
+}
+break;
 case 0xA8:
 case 0xA8|0x100:
+{
     instr_A8();
-    break;
+}
+break;
 case 0xA9:
+{
     instr16_A9();
-    break;
+}
+break;
 case 0xA9|0x100:
+{
     instr32_A9();
-    break;
+}
+break;
 case 0xAA:
 case 0xAA|0x100:
+{
     instr_AA();
-    break;
+}
+break;
 case 0xAB:
+{
     instr16_AB();
-    break;
+}
+break;
 case 0xAB|0x100:
+{
     instr32_AB();
-    break;
+}
+break;
 case 0xAC:
 case 0xAC|0x100:
+{
     instr_AC();
-    break;
+}
+break;
 case 0xAD:
+{
     instr16_AD();
-    break;
+}
+break;
 case 0xAD|0x100:
+{
     instr32_AD();
-    break;
+}
+break;
 case 0xAE:
 case 0xAE|0x100:
+{
     instr_AE();
-    break;
+}
+break;
 case 0xAF:
+{
     instr16_AF();
-    break;
+}
+break;
 case 0xAF|0x100:
+{
     instr32_AF();
-    break;
+}
+break;
 case 0xB0:
 case 0xB0|0x100:
+{
     instr_B0();
-    break;
+}
+break;
 case 0xB1:
 case 0xB1|0x100:
+{
     instr_B1();
-    break;
+}
+break;
 case 0xB2:
 case 0xB2|0x100:
+{
     instr_B2();
-    break;
+}
+break;
 case 0xB3:
 case 0xB3|0x100:
+{
     instr_B3();
-    break;
+}
+break;
 case 0xB4:
 case 0xB4|0x100:
+{
     instr_B4();
-    break;
+}
+break;
 case 0xB5:
 case 0xB5|0x100:
+{
     instr_B5();
-    break;
+}
+break;
 case 0xB6:
 case 0xB6|0x100:
+{
     instr_B6();
-    break;
+}
+break;
 case 0xB7:
 case 0xB7|0x100:
+{
     instr_B7();
-    break;
+}
+break;
 case 0xB8:
+{
     instr16_B8();
-    break;
+}
+break;
 case 0xB8|0x100:
+{
     instr32_B8();
-    break;
+}
+break;
 case 0xB9:
+{
     instr16_B9();
-    break;
+}
+break;
 case 0xB9|0x100:
+{
     instr32_B9();
-    break;
+}
+break;
 case 0xBA:
+{
     instr16_BA();
-    break;
+}
+break;
 case 0xBA|0x100:
+{
     instr32_BA();
-    break;
+}
+break;
 case 0xBB:
+{
     instr16_BB();
-    break;
+}
+break;
 case 0xBB|0x100:
+{
     instr32_BB();
-    break;
+}
+break;
 case 0xBC:
+{
     instr16_BC();
-    break;
+}
+break;
 case 0xBC|0x100:
+{
     instr32_BC();
-    break;
+}
+break;
 case 0xBD:
+{
     instr16_BD();
-    break;
+}
+break;
 case 0xBD|0x100:
+{
     instr32_BD();
-    break;
+}
+break;
 case 0xBE:
+{
     instr16_BE();
-    break;
+}
+break;
 case 0xBE|0x100:
+{
     instr32_BE();
-    break;
+}
+break;
 case 0xBF:
+{
     instr16_BF();
-    break;
+}
+break;
 case 0xBF|0x100:
+{
     instr32_BF();
-    break;
+}
+break;
 case 0xC0:
 case 0xC0|0x100:
-    instr_C0();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr_C0_0();
+        }
+        break;
+        case 1:
+        {
+            instr_C0_1();
+        }
+        break;
+        case 2:
+        {
+            instr_C0_2();
+        }
+        break;
+        case 3:
+        {
+            instr_C0_3();
+        }
+        break;
+        case 4:
+        {
+            instr_C0_4();
+        }
+        break;
+        case 5:
+        {
+            instr_C0_5();
+        }
+        break;
+        case 6:
+        {
+            instr_C0_6();
+        }
+        break;
+        case 7:
+        {
+            instr_C0_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xC1:
-    instr16_C1();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr16_C1_0();
+        }
+        break;
+        case 1:
+        {
+            instr16_C1_1();
+        }
+        break;
+        case 2:
+        {
+            instr16_C1_2();
+        }
+        break;
+        case 3:
+        {
+            instr16_C1_3();
+        }
+        break;
+        case 4:
+        {
+            instr16_C1_4();
+        }
+        break;
+        case 5:
+        {
+            instr16_C1_5();
+        }
+        break;
+        case 6:
+        {
+            instr16_C1_6();
+        }
+        break;
+        case 7:
+        {
+            instr16_C1_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xC1|0x100:
-    instr32_C1();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr32_C1_0();
+        }
+        break;
+        case 1:
+        {
+            instr32_C1_1();
+        }
+        break;
+        case 2:
+        {
+            instr32_C1_2();
+        }
+        break;
+        case 3:
+        {
+            instr32_C1_3();
+        }
+        break;
+        case 4:
+        {
+            instr32_C1_4();
+        }
+        break;
+        case 5:
+        {
+            instr32_C1_5();
+        }
+        break;
+        case 6:
+        {
+            instr32_C1_6();
+        }
+        break;
+        case 7:
+        {
+            instr32_C1_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xC2:
+{
     instr16_C2();
-    break;
+}
+break;
 case 0xC2|0x100:
+{
     instr32_C2();
-    break;
+}
+break;
 case 0xC3:
+{
     instr16_C3();
-    break;
+}
+break;
 case 0xC3|0x100:
+{
     instr32_C3();
-    break;
+}
+break;
 case 0xC4:
+{
     instr16_C4();
-    break;
+}
+break;
 case 0xC4|0x100:
+{
     instr32_C4();
-    break;
+}
+break;
 case 0xC5:
+{
     instr16_C5();
-    break;
+}
+break;
 case 0xC5|0x100:
+{
     instr32_C5();
-    break;
+}
+break;
 case 0xC6:
 case 0xC6|0x100:
+{
     instr_C6();
-    break;
+}
+break;
 case 0xC7:
+{
     instr16_C7();
-    break;
+}
+break;
 case 0xC7|0x100:
+{
     instr32_C7();
-    break;
+}
+break;
 case 0xC8:
+{
     instr16_C8();
-    break;
+}
+break;
 case 0xC8|0x100:
+{
     instr32_C8();
-    break;
+}
+break;
 case 0xC9:
+{
     instr16_C9();
-    break;
+}
+break;
 case 0xC9|0x100:
+{
     instr32_C9();
-    break;
+}
+break;
 case 0xCA:
+{
     instr16_CA();
-    break;
+}
+break;
 case 0xCA|0x100:
+{
     instr32_CA();
-    break;
+}
+break;
 case 0xCB:
+{
     instr16_CB();
-    break;
+}
+break;
 case 0xCB|0x100:
+{
     instr32_CB();
-    break;
+}
+break;
 case 0xCC:
 case 0xCC|0x100:
+{
     instr_CC();
-    break;
+}
+break;
 case 0xCD:
 case 0xCD|0x100:
+{
     instr_CD();
-    break;
+}
+break;
 case 0xCE:
 case 0xCE|0x100:
+{
     instr_CE();
-    break;
+}
+break;
 case 0xCF:
+{
     instr16_CF();
-    break;
+}
+break;
 case 0xCF|0x100:
+{
     instr32_CF();
-    break;
+}
+break;
 case 0xD0:
 case 0xD0|0x100:
-    instr_D0();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr_D0_0();
+        }
+        break;
+        case 1:
+        {
+            instr_D0_1();
+        }
+        break;
+        case 2:
+        {
+            instr_D0_2();
+        }
+        break;
+        case 3:
+        {
+            instr_D0_3();
+        }
+        break;
+        case 4:
+        {
+            instr_D0_4();
+        }
+        break;
+        case 5:
+        {
+            instr_D0_5();
+        }
+        break;
+        case 6:
+        {
+            instr_D0_6();
+        }
+        break;
+        case 7:
+        {
+            instr_D0_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xD1:
-    instr16_D1();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr16_D1_0();
+        }
+        break;
+        case 1:
+        {
+            instr16_D1_1();
+        }
+        break;
+        case 2:
+        {
+            instr16_D1_2();
+        }
+        break;
+        case 3:
+        {
+            instr16_D1_3();
+        }
+        break;
+        case 4:
+        {
+            instr16_D1_4();
+        }
+        break;
+        case 5:
+        {
+            instr16_D1_5();
+        }
+        break;
+        case 6:
+        {
+            instr16_D1_6();
+        }
+        break;
+        case 7:
+        {
+            instr16_D1_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xD1|0x100:
-    instr32_D1();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr32_D1_0();
+        }
+        break;
+        case 1:
+        {
+            instr32_D1_1();
+        }
+        break;
+        case 2:
+        {
+            instr32_D1_2();
+        }
+        break;
+        case 3:
+        {
+            instr32_D1_3();
+        }
+        break;
+        case 4:
+        {
+            instr32_D1_4();
+        }
+        break;
+        case 5:
+        {
+            instr32_D1_5();
+        }
+        break;
+        case 6:
+        {
+            instr32_D1_6();
+        }
+        break;
+        case 7:
+        {
+            instr32_D1_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xD2:
 case 0xD2|0x100:
-    instr_D2();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr_D2_0();
+        }
+        break;
+        case 1:
+        {
+            instr_D2_1();
+        }
+        break;
+        case 2:
+        {
+            instr_D2_2();
+        }
+        break;
+        case 3:
+        {
+            instr_D2_3();
+        }
+        break;
+        case 4:
+        {
+            instr_D2_4();
+        }
+        break;
+        case 5:
+        {
+            instr_D2_5();
+        }
+        break;
+        case 6:
+        {
+            instr_D2_6();
+        }
+        break;
+        case 7:
+        {
+            instr_D2_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xD3:
-    instr16_D3();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr16_D3_0();
+        }
+        break;
+        case 1:
+        {
+            instr16_D3_1();
+        }
+        break;
+        case 2:
+        {
+            instr16_D3_2();
+        }
+        break;
+        case 3:
+        {
+            instr16_D3_3();
+        }
+        break;
+        case 4:
+        {
+            instr16_D3_4();
+        }
+        break;
+        case 5:
+        {
+            instr16_D3_5();
+        }
+        break;
+        case 6:
+        {
+            instr16_D3_6();
+        }
+        break;
+        case 7:
+        {
+            instr16_D3_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xD3|0x100:
-    instr32_D3();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr32_D3_0();
+        }
+        break;
+        case 1:
+        {
+            instr32_D3_1();
+        }
+        break;
+        case 2:
+        {
+            instr32_D3_2();
+        }
+        break;
+        case 3:
+        {
+            instr32_D3_3();
+        }
+        break;
+        case 4:
+        {
+            instr32_D3_4();
+        }
+        break;
+        case 5:
+        {
+            instr32_D3_5();
+        }
+        break;
+        case 6:
+        {
+            instr32_D3_6();
+        }
+        break;
+        case 7:
+        {
+            instr32_D3_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xD4:
 case 0xD4|0x100:
+{
     instr_D4();
-    break;
+}
+break;
 case 0xD5:
 case 0xD5|0x100:
+{
     instr_D5();
-    break;
+}
+break;
 case 0xD6:
 case 0xD6|0x100:
+{
     instr_D6();
-    break;
+}
+break;
 case 0xD7:
 case 0xD7|0x100:
+{
     instr_D7();
-    break;
+}
+break;
 case 0xD8:
 case 0xD8|0x100:
+{
     instr_D8();
-    break;
+}
+break;
 case 0xD9:
 case 0xD9|0x100:
+{
     instr_D9();
-    break;
+}
+break;
 case 0xDA:
 case 0xDA|0x100:
+{
     instr_DA();
-    break;
+}
+break;
 case 0xDB:
 case 0xDB|0x100:
+{
     instr_DB();
-    break;
+}
+break;
 case 0xDC:
 case 0xDC|0x100:
+{
     instr_DC();
-    break;
+}
+break;
 case 0xDD:
 case 0xDD|0x100:
+{
     instr_DD();
-    break;
+}
+break;
 case 0xDE:
 case 0xDE|0x100:
+{
     instr_DE();
-    break;
+}
+break;
 case 0xDF:
 case 0xDF|0x100:
+{
     instr_DF();
-    break;
+}
+break;
 case 0xE0:
 case 0xE0|0x100:
+{
     instr_E0();
-    break;
+}
+break;
 case 0xE1:
 case 0xE1|0x100:
+{
     instr_E1();
-    break;
+}
+break;
 case 0xE2:
 case 0xE2|0x100:
+{
     instr_E2();
-    break;
+}
+break;
 case 0xE3:
 case 0xE3|0x100:
+{
     instr_E3();
-    break;
+}
+break;
 case 0xE4:
 case 0xE4|0x100:
+{
     instr_E4();
-    break;
+}
+break;
 case 0xE5:
+{
     instr16_E5();
-    break;
+}
+break;
 case 0xE5|0x100:
+{
     instr32_E5();
-    break;
+}
+break;
 case 0xE6:
 case 0xE6|0x100:
+{
     instr_E6();
-    break;
+}
+break;
 case 0xE7:
+{
     instr16_E7();
-    break;
+}
+break;
 case 0xE7|0x100:
+{
     instr32_E7();
-    break;
+}
+break;
 case 0xE8:
+{
     instr16_E8();
-    break;
+}
+break;
 case 0xE8|0x100:
+{
     instr32_E8();
-    break;
+}
+break;
 case 0xE9:
+{
     instr16_E9();
-    break;
+}
+break;
 case 0xE9|0x100:
+{
     instr32_E9();
-    break;
+}
+break;
 case 0xEA:
+{
     instr16_EA();
-    break;
+}
+break;
 case 0xEA|0x100:
+{
     instr32_EA();
-    break;
+}
+break;
 case 0xEB:
 case 0xEB|0x100:
+{
     instr_EB();
-    break;
+}
+break;
 case 0xEC:
 case 0xEC|0x100:
+{
     instr_EC();
-    break;
+}
+break;
 case 0xED:
+{
     instr16_ED();
-    break;
+}
+break;
 case 0xED|0x100:
+{
     instr32_ED();
-    break;
+}
+break;
 case 0xEE:
 case 0xEE|0x100:
+{
     instr_EE();
-    break;
+}
+break;
 case 0xEF:
+{
     instr16_EF();
-    break;
+}
+break;
 case 0xEF|0x100:
+{
     instr32_EF();
-    break;
+}
+break;
 case 0xF0:
 case 0xF0|0x100:
+{
     instr_F0();
-    break;
+}
+break;
 case 0xF1:
 case 0xF1|0x100:
+{
     instr_F1();
-    break;
+}
+break;
 case 0xF2:
 case 0xF2|0x100:
+{
     instr_F2();
-    break;
+}
+break;
 case 0xF3:
 case 0xF3|0x100:
+{
     instr_F3();
-    break;
+}
+break;
 case 0xF4:
 case 0xF4|0x100:
+{
     instr_F4();
-    break;
+}
+break;
 case 0xF5:
 case 0xF5|0x100:
+{
     instr_F5();
-    break;
+}
+break;
 case 0xF6:
 case 0xF6|0x100:
-    instr_F6();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr_F6_0();
+        }
+        break;
+        case 1:
+        {
+            instr_F6_1();
+        }
+        break;
+        case 2:
+        {
+            instr_F6_2();
+        }
+        break;
+        case 3:
+        {
+            instr_F6_3();
+        }
+        break;
+        case 4:
+        {
+            instr_F6_4();
+        }
+        break;
+        case 5:
+        {
+            instr_F6_5();
+        }
+        break;
+        case 6:
+        {
+            instr_F6_6();
+        }
+        break;
+        case 7:
+        {
+            instr_F6_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xF7:
-    instr16_F7();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr16_F7_0();
+        }
+        break;
+        case 1:
+        {
+            instr16_F7_1();
+        }
+        break;
+        case 2:
+        {
+            instr16_F7_2();
+        }
+        break;
+        case 3:
+        {
+            instr16_F7_3();
+        }
+        break;
+        case 4:
+        {
+            instr16_F7_4();
+        }
+        break;
+        case 5:
+        {
+            instr16_F7_5();
+        }
+        break;
+        case 6:
+        {
+            instr16_F7_6();
+        }
+        break;
+        case 7:
+        {
+            instr16_F7_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xF7|0x100:
-    instr32_F7();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr32_F7_0();
+        }
+        break;
+        case 1:
+        {
+            instr32_F7_1();
+        }
+        break;
+        case 2:
+        {
+            instr32_F7_2();
+        }
+        break;
+        case 3:
+        {
+            instr32_F7_3();
+        }
+        break;
+        case 4:
+        {
+            instr32_F7_4();
+        }
+        break;
+        case 5:
+        {
+            instr32_F7_5();
+        }
+        break;
+        case 6:
+        {
+            instr32_F7_6();
+        }
+        break;
+        case 7:
+        {
+            instr32_F7_7();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xF8:
 case 0xF8|0x100:
+{
     instr_F8();
-    break;
+}
+break;
 case 0xF9:
 case 0xF9|0x100:
+{
     instr_F9();
-    break;
+}
+break;
 case 0xFA:
 case 0xFA|0x100:
+{
     instr_FA();
-    break;
+}
+break;
 case 0xFB:
 case 0xFB|0x100:
+{
     instr_FB();
-    break;
+}
+break;
 case 0xFC:
 case 0xFC|0x100:
+{
     instr_FC();
-    break;
+}
+break;
 case 0xFD:
 case 0xFD|0x100:
+{
     instr_FD();
-    break;
+}
+break;
 case 0xFE:
 case 0xFE|0x100:
-    instr_FE();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr_FE_0();
+        }
+        break;
+        case 1:
+        {
+            instr_FE_1();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xFF:
-    instr16_FF();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr16_FF_0();
+        }
+        break;
+        case 1:
+        {
+            instr16_FF_1();
+        }
+        break;
+        case 2:
+        {
+            instr16_FF_2();
+        }
+        break;
+        case 3:
+        {
+            instr16_FF_3();
+        }
+        break;
+        case 4:
+        {
+            instr16_FF_4();
+        }
+        break;
+        case 5:
+        {
+            instr16_FF_5();
+        }
+        break;
+        case 6:
+        {
+            instr16_FF_6();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 case 0xFF|0x100:
-    instr32_FF();
-    break;
+{
+    read_modrm_byte();
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            instr32_FF_0();
+        }
+        break;
+        case 1:
+        {
+            instr32_FF_1();
+        }
+        break;
+        case 2:
+        {
+            instr32_FF_2();
+        }
+        break;
+        case 3:
+        {
+            instr32_FF_3();
+        }
+        break;
+        case 4:
+        {
+            instr32_FF_4();
+        }
+        break;
+        case 5:
+        {
+            instr32_FF_5();
+        }
+        break;
+        case 6:
+        {
+            instr32_FF_6();
+        }
+        break;
+        default:
+            assert(false);
+    }
+}
+break;
 default:
     assert(false);
     }
