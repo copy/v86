@@ -205,6 +205,8 @@ var
     /** @const */
     CR0_WP = 1 << 16,
     /** @const */
+    CR0_AM = 1 << 18,
+    /** @const */
     CR0_NW = 1 << 29,
     /** @const */
     CR0_CD = 1 << 30,

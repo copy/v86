@@ -1302,6 +1302,11 @@ CPU.prototype.set_cr0 = function(cr0)
 {
     //dbg_log("cr0 = " + h(this.cr[0] >>> 0), LOG_CPU);
 
+    if(cr0 & CR0_AM)
+    {
+        dbg_log("Warning: Unimplemented: cr0 alignment mask", LOG_CPU);
+    }
+
     if((cr0 & (CR0_PE | CR0_PG)) === CR0_PG)
     {
         // cannot load PG without PE
