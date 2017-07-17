@@ -146,7 +146,7 @@
 /**
  * How many cycles the CPU does at a time before running hardware timers
  */
-#define LOOP_COUNTER 11001
+#define LOOP_COUNTER 20011
 
 #define TSC_RATE (8 * 1024)
 
