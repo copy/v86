@@ -4338,7 +4338,7 @@ CPU.prototype.lsl = function(selector, original)
     dbg_log("lsl sel=" + h(selector, 4), LOG_CPU);
 
     /** @const */
-    var LSL_INVALID_TYPE = 1 << 0 | 1 << 4 | 1 << 5 | 1 << 6 | 1 << 8 |
+    var LSL_INVALID_TYPE = 1 << 0 | 1 << 4 | 1 << 5 | 1 << 6 | 1 << 7 | 1 << 8 |
                            1 << 0xA | 1 << 0xC | 1 << 0xD | 1 << 0xE | 1 << 0xF;
 
     var info = this.lookup_segment_selector(selector);
