@@ -496,7 +496,7 @@ static void instr_0F22() { read_modrm_byte();
                 assert(false);
             }
 
-            //dbg_log("cr4=" + h(cr[4]));
+            //dbg_log("cr4=%d", cr[4]);
             break;
 
         default:
@@ -1357,10 +1357,12 @@ static void instr32_0FB1() { read_modrm_byte();
 
 // lss
 static void instr16_0FB2() { read_modrm_byte();
-    lss16(SS);
+    if(modrm_byte[0] >= 0xC0) trigger_ud();
+    lss16(modrm_resolve(*modrm_byte), *modrm_byte >> 2 & 14, SS);
 }
 static void instr32_0FB2() { read_modrm_byte();
-    lss32(SS);
+    if(modrm_byte[0] >= 0xC0) trigger_ud();
+    lss32(modrm_resolve(*modrm_byte), *modrm_byte >> 3 & 7, SS);
 }
 
 static void instr16_0FB3() { read_modrm_byte();
@@ -1380,16 +1382,20 @@ static void instr32_0FB3() { read_modrm_byte();
 
 // lfs, lgs
 static void instr16_0FB4() { read_modrm_byte();
-    lss16(FS);
+    if(modrm_byte[0] >= 0xC0) trigger_ud();
+    lss16(modrm_resolve(*modrm_byte), *modrm_byte >> 2 & 14, FS);
 }
 static void instr32_0FB4() { read_modrm_byte();
-    lss32(FS);
+    if(modrm_byte[0] >= 0xC0) trigger_ud();
+    lss32(modrm_resolve(*modrm_byte), *modrm_byte >> 3 & 7, FS);
 }
 static void instr16_0FB5() { read_modrm_byte();
-    lss16(GS);
+    if(modrm_byte[0] >= 0xC0) trigger_ud();
+    lss16(modrm_resolve(*modrm_byte), *modrm_byte >> 2 & 14, GS);
 }
 static void instr32_0FB5() { read_modrm_byte();
-    lss32(GS);
+    if(modrm_byte[0] >= 0xC0) trigger_ud();
+    lss32(modrm_resolve(*modrm_byte), *modrm_byte >> 3 & 7, GS);
 }
 
 static void instr16_0FB6() { read_modrm_byte();

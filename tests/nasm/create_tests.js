@@ -106,7 +106,7 @@ const encodings = [
     { opcode: 0x8C, os: 1, e: 1, g: 1, skip: 1, },
     { opcode: 0x8D, os: 1, e: 1, g: 1, skip: 1, }, // lea
     { opcode: 0x8E, e: 1, g: 1, skip: 1, },
-    { opcode: 0x8F, os: 1, e: 1, g: 1, },
+    { opcode: 0x8F, os: 1, e: 1, fixed_g: 0, },
 
     { opcode: 0x90, },
     { opcode: 0x91, os: 1, },
@@ -152,8 +152,8 @@ const encodings = [
     { opcode: 0xC4, os: 1, e: 1, g: 1, skip: 1, },
     { opcode: 0xC5, os: 1, e: 1, g: 1, skip: 1, },
 
-    { opcode: 0xC6, e: 1, g: 1, imm: 1, },
-    { opcode: 0xC7, os: 1, e: 1, g: 1, imm: 1, },
+    { opcode: 0xC6, e: 1, fixed_g: 0, imm: 1, },
+    { opcode: 0xC7, os: 1, e: 1, fixed_g: 0, imm: 1, },
 
     { opcode: 0xC8, os: 1, imm24: 1, skip: 1, }, // enter
     { opcode: 0xC9, os: 1, skip: 1, },
@@ -690,17 +690,25 @@ function gen_instruction_body(encoding, variant)
     let opcode = encoding[0].opcode & 0xFF;
     let opcode_hex = hex_byte(opcode);
 
-    //if(opcode === 0 || opcode === 1 || opcode === 2 || opcode === 3)
-    //{
-    //    return [
-    //        `int32_t modrm_byte = read_imm8();`,
-    //        `modrm_byte < 0xC0 ?`,
-    //        `    instr${suffix}_${opcode_hex}_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :`,
-    //        `    instr${suffix}_${opcode_hex}_reg(modrm_byte & 7, modrm_byte >> 3 & 7);`,
-    //    ];
-    //}
-    //else
-    if(encoding.length > 1)
+    if(encoding[0].fixed_g === undefined && encoding[0].e)
+    {
+        let prefix_call = [];
+
+        if(opcode === 0x8D)
+        {
+            // special case
+            prefix_call = [`if(modrm_byte < 0xC0) { instr${suffix}_${opcode_hex}_mem_pre(); };`];
+        }
+
+        return [].concat(
+            `int32_t modrm_byte = read_imm8();`,
+            prefix_call,
+            `modrm_byte < 0xC0 ?`,
+            `    instr${suffix}_${opcode_hex}_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :`,
+            `    instr${suffix}_${opcode_hex}_reg(modrm_byte & 7, modrm_byte >> 3 & 7);`
+        );
+    }
+    else if(encoding[0].fixed_g !== undefined)
     {
         let cases = encoding.slice().sort((e1, e2) => e1.fixed_g - e2.fixed_g);
 
@@ -710,15 +718,27 @@ function gen_instruction_body(encoding, variant)
         }
 
         return [
-            "read_modrm_byte();",
+            "int32_t modrm_byte = read_imm8();",
             {
                 type: "switch",
-                condition: "*modrm_byte >> 3 & 7",
+                condition: "modrm_byte >> 3 & 7",
                 body: cases.map(case_ => {
+                    let prefix_call = [];
+
+                    if(opcode === 0x8F)
+                    {
+                        // special case
+                        prefix_call = [`if(modrm_byte < 0xC0) { instr${suffix}_${opcode_hex}_${case_.fixed_g}_mem_pre(); };`];
+                    }
+
                     return {
                         type: "case",
                         cases: [case_.fixed_g],
-                        body: [`instr${suffix}_${opcode_hex}_${case_.fixed_g}();`]
+                        body: prefix_call.concat([
+                            `modrm_byte < 0xC0 ?`,
+                            `    instr${suffix}_${opcode_hex}_${case_.fixed_g}_mem(modrm_resolve(modrm_byte)) :`,
+                            `    instr${suffix}_${opcode_hex}_${case_.fixed_g}_reg(modrm_byte & 7);`,
+                        ]),
                     };
                 }).concat([
                     {

@@ -657,7 +657,7 @@ FPU.prototype.dbg_log_fpu_op = function(op, imm8)
     }
     else
     {
-        dbg_log(h(op, 2) + " /" + (imm8 >> 3 & 7) +
+        dbg_log(h(op, 2) + " /" + imm8 +
                 "     @" + h(this.cpu.instruction_pointer[0] >>> 0, 8) + " sp=" + this.stack_ptr + " st=" + h(this.stack_empty[0], 2), LOG_FPU);
     }
 }
@@ -718,13 +718,11 @@ FPU.prototype.op_D8_reg = function(imm8)
     }
 };
 
-FPU.prototype.op_D8_mem = function(imm8, addr)
+FPU.prototype.op_D8_mem = function(mod, addr)
 {
-    this.dbg_log_fpu_op(0xD8, imm8);
+    this.dbg_log_fpu_op(0xD8, mod);
 
-    var mod = imm8 >> 3 & 7,
-        m32 = this.load_m32(addr);
-
+    var m32 = this.load_m32(addr);
     var st0 = this.get_st0();
 
     switch(mod)
@@ -934,11 +932,9 @@ FPU.prototype.op_D9_reg = function(imm8)
     }
 };
 
-FPU.prototype.op_D9_mem = function(imm8, addr)
+FPU.prototype.op_D9_mem = function(mod, addr)
 {
-    this.dbg_log_fpu_op(0xD9, imm8);
-
-    var mod = imm8 >> 3 & 7;
+    this.dbg_log_fpu_op(0xD9, mod);
 
     switch(mod)
     {
@@ -1040,13 +1036,11 @@ FPU.prototype.op_DA_reg = function(imm8)
     }
 };
 
-FPU.prototype.op_DA_mem = function(imm8, addr)
+FPU.prototype.op_DA_mem = function(mod, addr)
 {
-    this.dbg_log_fpu_op(0xDA, imm8);
+    this.dbg_log_fpu_op(0xDA, mod);
 
-    var mod = imm8 >> 3 & 7,
-        m32 = this.cpu.safe_read32s(addr);
-
+    var m32 = this.cpu.safe_read32s(addr);
     var st0 = this.get_st0();
 
     switch(mod)
@@ -1168,11 +1162,9 @@ FPU.prototype.op_DB_reg = function(imm8)
     }
 };
 
-FPU.prototype.op_DB_mem = function(imm8, addr)
+FPU.prototype.op_DB_mem = function(mod, addr)
 {
-    this.dbg_log_fpu_op(0xDB, imm8);
-
-    var mod = imm8 >> 3 & 7;
+    this.dbg_log_fpu_op(0xDB, mod);
 
     switch(mod)
     {
@@ -1275,13 +1267,11 @@ FPU.prototype.op_DC_reg = function(imm8)
     }
 };
 
-FPU.prototype.op_DC_mem = function(imm8, addr)
+FPU.prototype.op_DC_mem = function(mod, addr)
 {
-    this.dbg_log_fpu_op(0xDC, imm8);
+    this.dbg_log_fpu_op(0xDC, mod);
 
-    var
-        mod = imm8 >> 3 & 7,
-        m64 = this.load_m64(addr);
+    var m64 = this.load_m64(addr);
 
     var st0 = this.get_st0();
 
@@ -1368,11 +1358,9 @@ FPU.prototype.op_DD_reg = function(imm8)
     }
 };
 
-FPU.prototype.op_DD_mem = function(imm8, addr)
+FPU.prototype.op_DD_mem = function(mod, addr)
 {
-    this.dbg_log_fpu_op(0xDD, imm8);
-
-    var mod = imm8 >> 3 & 7;
+    this.dbg_log_fpu_op(0xDD, mod);
 
     switch(mod)
     {
@@ -1476,13 +1464,11 @@ FPU.prototype.op_DE_reg = function(imm8)
     this.pop();
 };
 
-FPU.prototype.op_DE_mem = function(imm8, addr)
+FPU.prototype.op_DE_mem = function(mod, addr)
 {
-    this.dbg_log_fpu_op(0xDE, imm8);
+    this.dbg_log_fpu_op(0xDE, mod);
 
-    var mod = imm8 >> 3 & 7,
-        m16 = this.cpu.safe_read16(addr) << 16 >> 16;
-
+    var m16 = this.cpu.safe_read16(addr) << 16 >> 16;
     var st0 = this.get_st0();
 
     switch(mod)
@@ -1562,11 +1548,9 @@ FPU.prototype.op_DF_reg = function(imm8)
     }
 };
 
-FPU.prototype.op_DF_mem = function(imm8, addr)
+FPU.prototype.op_DF_mem = function(mod, addr)
 {
-    this.dbg_log_fpu_op(0xDF, imm8);
-
-    var mod = imm8 >> 3 & 7;
+    this.dbg_log_fpu_op(0xDF, mod);
 
     switch(mod)
     {

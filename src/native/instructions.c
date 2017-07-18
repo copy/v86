@@ -11,44 +11,74 @@
 int32_t translate_address_write(int32_t);
 int32_t resolve_modrm(int32_t);
 
-/*
-int32_t phys_read8(int32_t);
-int32_t phys_write8(int32_t, int32_t);
 
+#define SAFE_READ_WRITE8(addr, fun) \
+    int32_t phys_addr = translate_address_write(addr); \
+    int32_t ___ = read8(phys_addr); \
+    write8(phys_addr, fun);
 
-#define RE8 reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1]
-#define E8 e8
-#define G8 reg8[modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1]
+#define SAFE_READ_WRITE16(addr, fun) \
+    int32_t phys_addr = translate_address_write(addr); \
+    if((phys_addr & 0xFFF) == 0xFFF) \
+    { \
+        int32_t phys_addr_high = translate_address_write(addr + 1); \
+        int32_t ___ = virt_boundary_read16(phys_addr, phys_addr_high); \
+        virt_boundary_write16(phys_addr, phys_addr_high, fun); \
+    } \
+    else \
+    { \
+        int32_t ___ = read16(phys_addr); \
+        write16(phys_addr, fun); \
+    }
 
-#define IDX_E8 (modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1)
-#define IDX_G8 (modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1)
+#define SAFE_READ_WRITE32(addr, fun) \
+    int32_t phys_addr = translate_address_write(addr); \
+    if((phys_addr & 0xFFF) >= 0xFFD) \
+    { \
+        int32_t phys_addr_high = translate_address_write(addr + 3 & ~3) | (addr + 3) & 3; \
+        int32_t ___ = virt_boundary_read32s(phys_addr, phys_addr_high); \
+        virt_boundary_write32(phys_addr, phys_addr_high, fun); \
+    } \
+    else \
+    { \
+        int32_t ___ = read32s(phys_addr); \
+        write32(phys_addr, fun); \
+    }
 
-#define READ_WRITE_E8_(f)\
-{\
-    int32_t modrm_byte = read_modrm_byte();\
-    if(modrm_byte < 0xC0) {\
-        int32_t phys_addr = translate_address_write(resolve_modrm(modrm_byte));\
-        int32_t e8 = phys_read8(phys_addr);\
-        phys_write8(phys_addr, f);\
-    }\
-    else {\
-        int32_t e8 = RE8;\
-        RE8 = f;\
-    }\
+static int32_t get_reg8_index(int32_t index) { return index << 2 & 0xC | index >> 2 & 1; }
+
+static int32_t read_reg8(int32_t index)
+{
+    return reg8[get_reg8_index(index)];
 }
 
-#define READ_WRITE_E8(f)\
-{\
-    int32_t modrm_byte = read_modrm_byte();\
-    if(modrm_byte < 0xC0) {\
-        int32_t virt_addr = resolve_modrm(modrm_byte);\
-        f ## _rm(virt_addr, IDX_G8);\
-    }\
-    else {\
-        f ## _rr(IDX_E8, IDX_G8);\
-    }\
+static void write_reg8(int32_t index, int32_t value)
+{
+    reg8[get_reg8_index(index)] = value;
 }
-*/
+
+static int32_t get_reg16_index(int32_t index) { return index << 1; }
+
+static int32_t read_reg16(int32_t index)
+{
+    return reg16[get_reg16_index(index)];
+}
+
+static void write_reg16(int32_t index, int32_t value)
+{
+    reg16[get_reg16_index(index)] = value;
+}
+
+
+static int32_t read_reg32(int32_t index)
+{
+    return reg32s[index];
+}
+
+static void write_reg32(int32_t index, int32_t value)
+{
+    reg32s[index] = value;
+}
 
 
 // XXX: Remove these declarations when they are implemented in C
@@ -63,7 +93,6 @@ int32_t read_e8(void);
 int32_t read_e8s(void);
 int32_t read_e16(void);
 int32_t read_e16s(void);
-int32_t read_e32(void);
 int32_t read_e32s(void);
 
 void write_e8(int32_t);
@@ -214,8 +243,8 @@ void far_return(int32_t, int32_t, int32_t);
 void iret16();
 void iret32();
 
-void lss16(int32_t);
-void lss32(int32_t);
+void lss16(int32_t, int32_t, int32_t);
+void lss32(int32_t, int32_t, int32_t);
 
 void enter16(int32_t, int32_t);
 void enter32(int32_t, int32_t);
@@ -259,16 +288,67 @@ static void run_instruction0f_32(int32_t);
 void clear_prefixes(void);
 void cycle_internal(void);
 
-
 void fwait(void);
 
 
-static void instr_00() { read_modrm_byte(); write_e8(add8(read_write_e8(), read_g8())); }
-static void instr16_01() { read_modrm_byte(); write_e16(add16(read_write_e16(), read_g16())); }
-static void instr32_01() { read_modrm_byte(); write_e32(add32(read_write_e32(), read_g32s())); }
-static void instr_02() { read_modrm_byte(); write_g8(add8(read_g8(), read_e8())); }
-static void instr16_03() { read_modrm_byte(); write_g16(add16(read_g16(), read_e16())); }
-static void instr32_03() { read_modrm_byte(); write_g32(add32(read_g32s(), read_e32s())); }
+#define DEFINE_MODRM_INSTR1_READ_WRITE_8(name, fun) \
+    static void name ## _mem(int32_t addr) { SAFE_READ_WRITE8(addr, fun) } \
+    static void name ## _reg(int32_t r1) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
+
+#define DEFINE_MODRM_INSTR1_READ_WRITE_16(name, fun) \
+    static void name ## _mem(int32_t addr) { SAFE_READ_WRITE16(addr, fun) } \
+    static void name ## _reg(int32_t r1) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
+
+#define DEFINE_MODRM_INSTR1_READ_WRITE_32(name, fun) \
+    static void name ## _mem(int32_t addr) { SAFE_READ_WRITE32(addr, fun) } \
+    static void name ## _reg(int32_t r1) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
+
+
+#define DEFINE_MODRM_INSTR_READ_WRITE_8(name, fun) \
+    static void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE8(addr, fun) } \
+    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
+
+#define DEFINE_MODRM_INSTR_READ_WRITE_16(name, fun) \
+    static void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE16(addr, fun) } \
+    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
+
+#define DEFINE_MODRM_INSTR_READ_WRITE_32(name, fun) \
+    static void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE32(addr, fun) } \
+    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
+
+
+#define DEFINE_MODRM_INSTR1_READ8(name, fun) \
+    static void name ## _mem(int32_t addr) { int32_t ___ = safe_read8(addr); fun; } \
+    static void name ## _reg(int32_t r1) { int32_t ___ = read_reg8(r1); fun; }
+
+#define DEFINE_MODRM_INSTR1_READ16(name, fun) \
+    static void name ## _mem(int32_t addr) { int32_t ___ = safe_read16(addr); fun; } \
+    static void name ## _reg(int32_t r1) { int32_t ___ = read_reg16(r1); fun; }
+
+#define DEFINE_MODRM_INSTR1_READ32(name, fun) \
+    static void name ## _mem(int32_t addr) { int32_t ___ = safe_read32s(addr); fun; } \
+    static void name ## _reg(int32_t r1) { int32_t ___ = read_reg32(r1); fun; }
+
+
+#define DEFINE_MODRM_INSTR_READ8(name, fun) \
+    static void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read8(addr); fun; } \
+    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg8(r1); fun; }
+
+#define DEFINE_MODRM_INSTR_READ16(name, fun) \
+    static void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read16(addr); fun; } \
+    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); fun; }
+
+#define DEFINE_MODRM_INSTR_READ32(name, fun) \
+    static void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read32s(addr); fun; } \
+    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); fun; }
+
+
+DEFINE_MODRM_INSTR_READ_WRITE_8(instr_00, add8(___, read_reg8(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_01, add16(___, read_reg16(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_01, add32(___, read_reg32(r)))
+DEFINE_MODRM_INSTR_READ8(instr_02, write_reg8(r, add8(read_reg8(r), ___)))
+DEFINE_MODRM_INSTR_READ16(instr16_03, write_reg16(r, add16(read_reg16(r), ___)))
+DEFINE_MODRM_INSTR_READ32(instr32_03, write_reg32(r, add32(read_reg32(r), ___)))
 static void instr_04() { reg8[AL] = add8(reg8[AL], read_op8()); }
 static void instr16_05() { reg16[AX] = add16(reg16[AX], read_op16()); }
 static void instr32_05() { reg32s[EAX] = add32(reg32s[EAX], read_op32s()); }
@@ -284,12 +364,12 @@ static void instr32_07() {
     adjust_stack_reg(4);
 }
 
-static void instr_08() { read_modrm_byte(); write_e8(or8(read_write_e8(), read_g8())); }
-static void instr16_09() { read_modrm_byte(); write_e16(or16(read_write_e16(), read_g16())); }
-static void instr32_09() { read_modrm_byte(); write_e32(or32(read_write_e32(), read_g32s())); }
-static void instr_0A() { read_modrm_byte(); write_g8(or8(read_g8(), read_e8())); }
-static void instr16_0B() { read_modrm_byte(); write_g16(or16(read_g16(), read_e16())); }
-static void instr32_0B() { read_modrm_byte(); write_g32(or32(read_g32s(), read_e32s())); }
+DEFINE_MODRM_INSTR_READ_WRITE_8(instr_08, or8(___, read_reg8(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_09, or16(___, read_reg16(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_09, or32(___, read_reg32(r)))
+DEFINE_MODRM_INSTR_READ8(instr_0A, write_reg8(r, or8(read_reg8(r), ___)))
+DEFINE_MODRM_INSTR_READ16(instr16_0B, write_reg16(r, or16(read_reg16(r), ___)))
+DEFINE_MODRM_INSTR_READ32(instr32_0B, write_reg32(r, or32(read_reg32(r), ___)))
 static void instr_0C() { reg8[AL] = or8(reg8[AL], read_op8()); }
 static void instr16_0D() { reg16[AX] = or16(reg16[AX], read_op16()); }
 static void instr32_0D() { reg32s[EAX] = or32(reg32s[EAX], read_op32s()); }
@@ -304,12 +384,13 @@ static void instr32_0F() {
     run_instruction0f_32(read_imm8());
 }
 
-static void instr_10() { read_modrm_byte(); write_e8(adc8(read_write_e8(), read_g8())); }
-static void instr16_11() { read_modrm_byte(); write_e16(adc16(read_write_e16(), read_g16())); }
-static void instr32_11() { read_modrm_byte(); write_e32(adc32(read_write_e32(), read_g32s())); }
-static void instr_12() { read_modrm_byte(); write_g8(adc8(read_g8(), read_e8())); }
-static void instr16_13() { read_modrm_byte(); write_g16(adc16(read_g16(), read_e16())); }
-static void instr32_13() { read_modrm_byte(); write_g32(adc32(read_g32s(), read_e32s())); }
+
+DEFINE_MODRM_INSTR_READ_WRITE_8(instr_10, adc8(___, read_reg8(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_11, adc16(___, read_reg16(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_11, adc32(___, read_reg32(r)))
+DEFINE_MODRM_INSTR_READ8(instr_12, write_reg8(r, adc8(read_reg8(r), ___)))
+DEFINE_MODRM_INSTR_READ16(instr16_13, write_reg16(r, adc16(read_reg16(r), ___)))
+DEFINE_MODRM_INSTR_READ32(instr32_13, write_reg32(r, adc32(read_reg32(r), ___)))
 static void instr_14() { reg8[AL] = adc8(reg8[AL], read_op8()); }
 static void instr16_15() { reg16[AX] = adc16(reg16[AX], read_op16()); }
 static void instr32_15() { reg32s[EAX] = adc32(reg32s[EAX], read_op32s()); }
@@ -329,12 +410,12 @@ static void instr32_17() {
     cycle_internal();
 }
 
-static void instr_18() { read_modrm_byte(); write_e8(sbb8(read_write_e8(), read_g8())); }
-static void instr16_19() { read_modrm_byte(); write_e16(sbb16(read_write_e16(), read_g16())); }
-static void instr32_19() { read_modrm_byte(); write_e32(sbb32(read_write_e32(), read_g32s())); }
-static void instr_1A() { read_modrm_byte(); write_g8(sbb8(read_g8(), read_e8())); }
-static void instr16_1B() { read_modrm_byte(); write_g16(sbb16(read_g16(), read_e16())); }
-static void instr32_1B() { read_modrm_byte(); write_g32(sbb32(read_g32s(), read_e32s())); }
+DEFINE_MODRM_INSTR_READ_WRITE_8(instr_18, sbb8(___, read_reg8(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_19, sbb16(___, read_reg16(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_19, sbb32(___, read_reg32(r)))
+DEFINE_MODRM_INSTR_READ8(instr_1A, write_reg8(r, sbb8(read_reg8(r), ___)))
+DEFINE_MODRM_INSTR_READ16(instr16_1B, write_reg16(r, sbb16(read_reg16(r), ___)))
+DEFINE_MODRM_INSTR_READ32(instr32_1B, write_reg32(r, sbb32(read_reg32(r), ___)))
 static void instr_1C() { reg8[AL] = sbb8(reg8[AL], read_op8()); }
 static void instr16_1D() { reg16[AX] = sbb16(reg16[AX], read_op16()); }
 static void instr32_1D() { reg32s[EAX] = sbb32(reg32s[EAX], read_op32s()); }
@@ -351,12 +432,12 @@ static void instr32_1F() {
     adjust_stack_reg(4);
 }
 
-static void instr_20() { read_modrm_byte(); write_e8(and8(read_write_e8(), read_g8())); }
-static void instr16_21() { read_modrm_byte(); write_e16(and16(read_write_e16(), read_g16())); }
-static void instr32_21() { read_modrm_byte(); write_e32(and32(read_write_e32(), read_g32s())); }
-static void instr_22() { read_modrm_byte(); write_g8(and8(read_g8(), read_e8())); }
-static void instr16_23() { read_modrm_byte(); write_g16(and16(read_g16(), read_e16())); }
-static void instr32_23() { read_modrm_byte(); write_g32(and32(read_g32s(), read_e32s())); }
+DEFINE_MODRM_INSTR_READ_WRITE_8(instr_20, and8(___, read_reg8(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_21, and16(___, read_reg16(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_21, and32(___, read_reg32(r)))
+DEFINE_MODRM_INSTR_READ8(instr_22, write_reg8(r, and8(read_reg8(r), ___)))
+DEFINE_MODRM_INSTR_READ16(instr16_23, write_reg16(r, and16(read_reg16(r), ___)))
+DEFINE_MODRM_INSTR_READ32(instr32_23, write_reg32(r, and32(read_reg32(r), ___)))
 static void instr_24() { reg8[AL] = and8(reg8[AL], read_op8()); }
 static void instr16_25() { reg16[AX] = and16(reg16[AX], read_op16()); }
 static void instr32_25() { reg32s[EAX] = and32(reg32s[EAX], read_op32s()); }
@@ -365,12 +446,12 @@ static void instr32_25() { reg32s[EAX] = and32(reg32s[EAX], read_op32s()); }
 static void instr_26() { segment_prefix_op(ES); }
 static void instr_27() { bcd_daa(); }
 
-static void instr_28() { read_modrm_byte(); write_e8(sub8(read_write_e8(), read_g8())); }
-static void instr16_29() { read_modrm_byte(); write_e16(sub16(read_write_e16(), read_g16())); }
-static void instr32_29() { read_modrm_byte(); write_e32(sub32(read_write_e32(), read_g32s())); }
-static void instr_2A() { read_modrm_byte(); write_g8(sub8(read_g8(), read_e8())); }
-static void instr16_2B() { read_modrm_byte(); write_g16(sub16(read_g16(), read_e16())); }
-static void instr32_2B() { read_modrm_byte(); write_g32(sub32(read_g32s(), read_e32s())); }
+DEFINE_MODRM_INSTR_READ_WRITE_8(instr_28, sub8(___, read_reg8(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_29, sub16(___, read_reg16(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_29, sub32(___, read_reg32(r)))
+DEFINE_MODRM_INSTR_READ8(instr_2A, write_reg8(r, sub8(read_reg8(r), ___)))
+DEFINE_MODRM_INSTR_READ16(instr16_2B, write_reg16(r, sub16(read_reg16(r), ___)))
+DEFINE_MODRM_INSTR_READ32(instr32_2B, write_reg32(r, sub32(read_reg32(r), ___)))
 static void instr_2C() { reg8[AL] = sub8(reg8[AL], read_op8()); }
 static void instr16_2D() { reg16[AX] = sub16(reg16[AX], read_op16()); }
 static void instr32_2D() { reg32s[EAX] = sub32(reg32s[EAX], read_op32s()); }
@@ -378,12 +459,12 @@ static void instr32_2D() { reg32s[EAX] = sub32(reg32s[EAX], read_op32s()); }
 static void instr_2E() { segment_prefix_op(CS); }
 static void instr_2F() { bcd_das(); }
 
-static void instr_30() { read_modrm_byte(); write_e8(xor8(read_write_e8(), read_g8())); }
-static void instr16_31() { read_modrm_byte(); write_e16(xor16(read_write_e16(), read_g16())); }
-static void instr32_31() { read_modrm_byte(); write_e32(xor32(read_write_e32(), read_g32s())); }
-static void instr_32() { read_modrm_byte(); write_g8(xor8(read_g8(), read_e8())); }
-static void instr16_33() { read_modrm_byte(); write_g16(xor16(read_g16(), read_e16())); }
-static void instr32_33() { read_modrm_byte(); write_g32(xor32(read_g32s(), read_e32s())); }
+DEFINE_MODRM_INSTR_READ_WRITE_8(instr_30, xor8(___, read_reg8(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_31, xor16(___, read_reg16(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_31, xor32(___, read_reg32(r)))
+DEFINE_MODRM_INSTR_READ8(instr_32, write_reg8(r, xor8(read_reg8(r), ___)))
+DEFINE_MODRM_INSTR_READ16(instr16_33, write_reg16(r, xor16(read_reg16(r), ___)))
+DEFINE_MODRM_INSTR_READ32(instr32_33, write_reg32(r, xor32(read_reg32(r), ___)))
 static void instr_34() { reg8[AL] = xor8(reg8[AL], read_op8()); }
 static void instr16_35() { reg16[AX] = xor16(reg16[AX], read_op16()); }
 static void instr32_35() { reg32s[EAX] = xor32(reg32s[EAX], read_op32s()); }
@@ -391,12 +472,12 @@ static void instr32_35() { reg32s[EAX] = xor32(reg32s[EAX], read_op32s()); }
 static void instr_36() { segment_prefix_op(SS); }
 static void instr_37() { bcd_aaa(); }
 
-static void instr_38() { read_modrm_byte(); cmp8(read_e8(), read_g8()); }
-static void instr16_39() { read_modrm_byte(); cmp16(read_e16(), read_g16()); }
-static void instr32_39() { read_modrm_byte(); cmp32(read_e32s(), read_g32s()); }
-static void instr_3A() { read_modrm_byte(); cmp8(read_g8(), read_e8()); }
-static void instr16_3B() { read_modrm_byte(); cmp16(read_g16(), read_e16()); }
-static void instr32_3B() { read_modrm_byte(); cmp32(read_g32s(), read_e32s()); }
+DEFINE_MODRM_INSTR_READ8(instr_38, cmp8(___, read_reg8(r)))
+DEFINE_MODRM_INSTR_READ16(instr16_39, cmp16(___, read_reg16(r)))
+DEFINE_MODRM_INSTR_READ32(instr32_39, cmp32(___, read_reg32(r)))
+DEFINE_MODRM_INSTR_READ8(instr_3A, cmp8(read_reg8(r), ___))
+DEFINE_MODRM_INSTR_READ16(instr16_3B, cmp16(read_reg16(r), ___))
+DEFINE_MODRM_INSTR_READ32(instr32_3B, cmp32(read_reg32(r), ___))
 static void instr_3C() { cmp8(reg8[AL], read_op8()); }
 static void instr16_3D() { cmp16(reg16[AX], read_op16()); }
 static void instr32_3D() { cmp32(reg32s[EAX], read_op32s()); }
@@ -481,24 +562,17 @@ static void instr32_60() { pusha32(); }
 static void instr16_61() { popa16(); }
 static void instr32_61() { popa32(); }
 
-static void instr_62() {
+static void instr_62_reg(int32_t r2, int32_t r) {
     // bound
     dbg_log("Unimplemented BOUND instruction");
     dbg_assert(false);
 }
-static void instr_63() { read_modrm_byte();
-    // arpl
-    //dbg_log("arpl");
-    if(*protected_mode && !vm86_mode())
-    {
-        write_e16(arpl(read_write_e16(), modrm_byte[0] >> 2 & 14));
-    }
-    else
-    {
-        dbg_log("arpl #ud");
-        trigger_ud();
-    }
+static void instr_62_mem(int32_t addr, int32_t r) {
+    dbg_log("Unimplemented BOUND instruction");
+    dbg_assert(false);
 }
+
+DEFINE_MODRM_INSTR_READ_WRITE_16(instr_63, arpl(___, read_reg16(r)))
 
 static void instr_64() { segment_prefix_op(FS); }
 static void instr_65() { segment_prefix_op(GS); }
@@ -522,22 +596,14 @@ static void instr_67() {
 static void instr16_68() { push16(read_op16()); }
 static void instr32_68() { push32(read_op32s()); }
 
-static void instr16_69() { read_modrm_byte();
-    write_g16(imul_reg16(read_e16s(), read_op16() << 16 >> 16));
-}
-static void instr32_69() { read_modrm_byte();
-    write_g32(imul_reg32(read_e32s(), read_op32s()));
-}
+DEFINE_MODRM_INSTR_READ16(instr16_69, write_reg16(r, imul_reg16(___ << 16 >> 16, read_op16() << 16 >> 16)))
+DEFINE_MODRM_INSTR_READ32(instr32_69, write_reg32(r, imul_reg32(___, read_op32s())))
 
 static void instr16_6A() { push16(read_op8s()); }
 static void instr32_6A() { push32(read_op8s()); }
 
-static void instr16_6B() { read_modrm_byte();
-    write_g16(imul_reg16(read_e16s(), read_op8s()));
-}
-static void instr32_6B() { read_modrm_byte();
-    write_g32(imul_reg32(read_e32s(), read_op8s()));
-}
+DEFINE_MODRM_INSTR_READ16(instr16_6B, write_reg16(r, imul_reg16(___ << 16 >> 16, read_op8s())))
+DEFINE_MODRM_INSTR_READ32(instr32_6B, write_reg32(r, imul_reg32(___, read_op8s())))
 
 static void instr_6C() { insb(); }
 static void instr16_6D() { insw(); }
@@ -563,127 +629,124 @@ static void instr_7D() { jmpcc8(!test_l()); }
 static void instr_7E() { jmpcc8( test_le()); }
 static void instr_7F() { jmpcc8(!test_le()); }
 
-static void instr_80_0() { write_e8(add8(read_write_e8(), read_op8())); }
-static void instr_80_1() { write_e8( or8(read_write_e8(), read_op8())); }
-static void instr_80_2() { write_e8(adc8(read_write_e8(), read_op8())); }
-static void instr_80_3() { write_e8(sbb8(read_write_e8(), read_op8())); }
-static void instr_80_4() { write_e8(and8(read_write_e8(), read_op8())); }
-static void instr_80_5() { write_e8(sub8(read_write_e8(), read_op8())); }
-static void instr_80_6() { write_e8(xor8(read_write_e8(), read_op8())); }
-static void instr_80_7() { cmp8(read_e8(), read_op8()); }
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_80_0, add8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_80_1,  or8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_80_2, adc8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_80_3, sbb8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_80_4, and8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_80_5, sub8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_80_6, xor8(___, read_op8()))
+static void instr_80_7_reg(int32_t r) { cmp8(read_reg8(r), read_op8()); }
+static void instr_80_7_mem(int32_t addr) { cmp8(safe_read8(addr), read_op8()); }
 
-static void instr16_81_0() { write_e16(add16(read_write_e16(), read_op16())); }
-static void instr16_81_1() { write_e16( or16(read_write_e16(), read_op16())); }
-static void instr16_81_2() { write_e16(adc16(read_write_e16(), read_op16())); }
-static void instr16_81_3() { write_e16(sbb16(read_write_e16(), read_op16())); }
-static void instr16_81_4() { write_e16(and16(read_write_e16(), read_op16())); }
-static void instr16_81_5() { write_e16(sub16(read_write_e16(), read_op16())); }
-static void instr16_81_6() { write_e16(xor16(read_write_e16(), read_op16())); }
-static void instr16_81_7() { cmp16(read_e16(), read_op16()); }
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_81_0, add16(___, read_op16()))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_81_1,  or16(___, read_op16()))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_81_2, adc16(___, read_op16()))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_81_3, sbb16(___, read_op16()))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_81_4, and16(___, read_op16()))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_81_5, sub16(___, read_op16()))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_81_6, xor16(___, read_op16()))
+static void instr16_81_7_reg(int32_t r) { cmp16(read_reg16(r), read_op16()); }
+static void instr16_81_7_mem(int32_t addr) { cmp16(safe_read16(addr), read_op16()); }
 
-static void instr32_81_0() { write_e32(add32(read_write_e32(), read_op32s())); }
-static void instr32_81_1() { write_e32( or32(read_write_e32(), read_op32s())); }
-static void instr32_81_2() { write_e32(adc32(read_write_e32(), read_op32s())); }
-static void instr32_81_3() { write_e32(sbb32(read_write_e32(), read_op32s())); }
-static void instr32_81_4() { write_e32(and32(read_write_e32(), read_op32s())); }
-static void instr32_81_5() { write_e32(sub32(read_write_e32(), read_op32s())); }
-static void instr32_81_6() { write_e32(xor32(read_write_e32(), read_op32s())); }
-static void instr32_81_7() { cmp32(read_e32s(), read_op32s()); }
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_81_0, add32(___, read_op32s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_81_1,  or32(___, read_op32s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_81_2, adc32(___, read_op32s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_81_3, sbb32(___, read_op32s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_81_4, and32(___, read_op32s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_81_5, sub32(___, read_op32s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_81_6, xor32(___, read_op32s()))
+static void instr32_81_7_reg(int32_t r) { cmp32(read_reg32(r), read_op32s()); }
+static void instr32_81_7_mem(int32_t addr) { cmp32(safe_read32s(addr), read_op32s()); }
 
-static void instr_82_0() { write_e8(add8(read_write_e8(), read_op8())); }
-static void instr_82_1() { write_e8( or8(read_write_e8(), read_op8())); }
-static void instr_82_2() { write_e8(adc8(read_write_e8(), read_op8())); }
-static void instr_82_3() { write_e8(sbb8(read_write_e8(), read_op8())); }
-static void instr_82_4() { write_e8(and8(read_write_e8(), read_op8())); }
-static void instr_82_5() { write_e8(sub8(read_write_e8(), read_op8())); }
-static void instr_82_6() { write_e8(xor8(read_write_e8(), read_op8())); }
-static void instr_82_7() { cmp8(read_e8(), read_op8()); }
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_82_0, add8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_82_1,  or8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_82_2, adc8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_82_3, sbb8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_82_4, and8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_82_5, sub8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_82_6, xor8(___, read_op8()))
+static void instr_82_7_reg(int32_t r) { cmp8(read_reg8(r), read_op8()); }
+static void instr_82_7_mem(int32_t addr) { cmp8(safe_read8(addr), read_op8()); }
 
-static void instr16_83_0() { write_e16(add16(read_write_e16(), read_op8s())); }
-static void instr16_83_1() { write_e16( or16(read_write_e16(), read_op8s())); }
-static void instr16_83_2() { write_e16(adc16(read_write_e16(), read_op8s())); }
-static void instr16_83_3() { write_e16(sbb16(read_write_e16(), read_op8s())); }
-static void instr16_83_4() { write_e16(and16(read_write_e16(), read_op8s())); }
-static void instr16_83_5() { write_e16(sub16(read_write_e16(), read_op8s())); }
-static void instr16_83_6() { write_e16(xor16(read_write_e16(), read_op8s())); }
-static void instr16_83_7() { cmp16(read_e16s(), read_op8s()); }
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_83_0, add16(___, read_op8s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_83_1,  or16(___, read_op8s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_83_2, adc16(___, read_op8s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_83_3, sbb16(___, read_op8s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_83_4, and16(___, read_op8s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_83_5, sub16(___, read_op8s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_83_6, xor16(___, read_op8s()))
+static void instr16_83_7_reg(int32_t r) { cmp16(read_reg16(r), read_op8s()); }
+static void instr16_83_7_mem(int32_t addr) { cmp16(safe_read16(addr), read_op8s()); }
 
-static void instr32_83_0() { write_e32(add32(read_write_e32(), read_op8s())); }
-static void instr32_83_1() { write_e32( or32(read_write_e32(), read_op8s())); }
-static void instr32_83_2() { write_e32(adc32(read_write_e32(), read_op8s())); }
-static void instr32_83_3() { write_e32(sbb32(read_write_e32(), read_op8s())); }
-static void instr32_83_4() { write_e32(and32(read_write_e32(), read_op8s())); }
-static void instr32_83_5() { write_e32(sub32(read_write_e32(), read_op8s())); }
-static void instr32_83_6() { write_e32(xor32(read_write_e32(), read_op8s())); }
-static void instr32_83_7() { cmp32(read_e32s(), read_op8s()); }
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_83_0, add32(___, read_op8s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_83_1,  or32(___, read_op8s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_83_2, adc32(___, read_op8s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_83_3, sbb32(___, read_op8s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_83_4, and32(___, read_op8s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_83_5, sub32(___, read_op8s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_83_6, xor32(___, read_op8s()))
+static void instr32_83_7_reg(int32_t r) { cmp32(read_reg32(r), read_op8s()); }
+static void instr32_83_7_mem(int32_t addr) { cmp32(safe_read32s(addr), read_op8s()); }
 
-static void instr_84() { read_modrm_byte(); int32_t data = read_e8(); test8(data, read_g8()); }
-static void instr16_85() { read_modrm_byte(); int32_t data = read_e16(); test16(data, read_g16()); }
-static void instr32_85() { read_modrm_byte(); int32_t data = read_e32s(); test32(data, read_g32s()); }
+DEFINE_MODRM_INSTR_READ8(instr_84, test8(___, read_reg8(r)))
+DEFINE_MODRM_INSTR_READ16(instr16_85, test16(___, read_reg16(r)))
+DEFINE_MODRM_INSTR_READ32(instr32_85, test32(___, read_reg32(r)))
 
+DEFINE_MODRM_INSTR_READ_WRITE_8(instr_86, xchg8(___, get_reg8_index(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_87, xchg16(___, get_reg16_index(r)))
+DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_87, xchg32(___, r))
 
-static void instr_86() { read_modrm_byte(); int32_t data = read_write_e8(); write_e8(xchg8(data, modrm_byte[0])); }
-static void instr16_87() { read_modrm_byte();
-    int32_t data = read_write_e16(); write_e16(xchg16(data, modrm_byte[0]));
+static void instr_88_reg(int32_t r2, int32_t r) { write_reg8(r2, read_reg8(r)); }
+static void instr_88_mem(int32_t addr, int32_t r) { safe_write8(addr, read_reg8(r)); }
+static void instr16_89_reg(int32_t r2, int32_t r) { write_reg16(r2, read_reg16(r)); }
+static void instr16_89_mem(int32_t addr, int32_t r) { safe_write16(addr, read_reg16(r)); }
+static void instr32_89_reg(int32_t r2, int32_t r) { write_reg32(r2, read_reg32(r)); }
+static void instr32_89_mem(int32_t addr, int32_t r) { safe_write32(addr, read_reg32(r)); }
+
+DEFINE_MODRM_INSTR_READ8(instr_8A, write_reg8(r, ___))
+DEFINE_MODRM_INSTR_READ16(instr16_8B, write_reg16(r, ___))
+DEFINE_MODRM_INSTR_READ32(instr32_8B, write_reg32(r, ___))
+
+static void instr16_8C_reg(int32_t r, int32_t seg) { write_reg16(r, sreg[seg]); }
+static void instr16_8C_mem(int32_t addr, int32_t seg) { safe_write16(addr, sreg[seg]); }
+static void instr32_8C_reg(int32_t r, int32_t seg) { write_reg32(r, sreg[seg]); }
+static void instr32_8C_mem(int32_t addr, int32_t seg) { safe_write32(addr, sreg[seg]); }
+
+static void instr16_8D_reg(int32_t r, int32_t r2)
+{
+    dbg_log("lea #ud");
+    trigger_ud();
 }
-static void instr32_87() { read_modrm_byte();
-    int32_t data = read_write_e32(); write_e32(xchg32(data, modrm_byte[0]));
-}
-
-static void instr_88() { read_modrm_byte(); set_e8(read_g8()); }
-static void instr16_89() { read_modrm_byte(); set_e16(read_g16()); }
-static void instr32_89() { read_modrm_byte(); set_e32(read_g32s()); }
-
-static void instr_8A() { read_modrm_byte();
-    int32_t data = read_e8();
-    write_g8(data);
-}
-static void instr16_8B() { read_modrm_byte();
-    int32_t data = read_e16();
-    write_g16(data);
-}
-static void instr32_8B() { read_modrm_byte();
-    int32_t data = read_e32s();
-    write_g32(data);
-}
-
-static void instr16_8C() { read_modrm_byte();
-    set_e16(sreg[modrm_byte[0] >> 3 & 7]);
-}
-static void instr32_8C() { read_modrm_byte();
-    set_e32(sreg[modrm_byte[0] >> 3 & 7]);
-}
-
-static void instr16_8D() { read_modrm_byte();
-    // lea
-    if(modrm_byte[0] >= 0xC0)
-    {
-        dbg_log("lea #ud");
-        trigger_ud();
-    }
-    int32_t mod = modrm_byte[0] >> 3 & 7;
-
+static void instr16_8D_mem_pre()
+{
     // override prefix, so modrm_resolve does not return the segment part
     *prefixes |= SEG_PREFIX_ZERO;
-    reg16[mod << 1] = modrm_resolve(modrm_byte[0]);
+}
+static void instr16_8D_mem(int32_t addr, int32_t mod)
+{
+    // lea
+    reg16[mod << 1] = addr;
     *prefixes = 0;
 }
-static void instr32_8D() { read_modrm_byte();
-    if(modrm_byte[0] >= 0xC0)
-    {
-        dbg_log("lea #ud");
-        trigger_ud();
-    }
-    int32_t mod = modrm_byte[0] >> 3 & 7;
-
+static void instr32_8D_reg(int32_t r, int32_t r2)
+{
+    dbg_log("lea #ud");
+    trigger_ud();
+}
+static void instr32_8D_mem_pre()
+{
+    // override prefix, so modrm_resolve does not return the segment part
     *prefixes |= SEG_PREFIX_ZERO;
-    reg32s[mod] = modrm_resolve(modrm_byte[0]);
+}
+static void instr32_8D_mem(int32_t addr, int32_t mod) {
+    // lea
+    reg32s[mod] = addr;
     *prefixes = 0;
 }
 
-static void instr_8E() { read_modrm_byte();
-    int32_t mod = modrm_byte[0] >> 3 & 7;
-    int32_t data = read_e16();
+static void instr_8E_helper(int32_t data, int32_t mod)
+{
     switch_seg(mod, data);
 
     if(mod == SS)
@@ -693,39 +756,43 @@ static void instr_8E() { read_modrm_byte();
         cycle_internal();
     }
 }
+DEFINE_MODRM_INSTR_READ16(instr_8E, instr_8E_helper(___, r))
 
-static void instr16_8F() { read_modrm_byte();
-    // pop
-    int32_t sp = safe_read16(get_stack_pointer(0));
-
+static void instr16_8F_0_mem_pre()
+{
+    for(int32_t i = 0; i < 8; i++) { translate_address_read(*instruction_pointer + i); }; // XXX
     adjust_stack_reg(2);
-
-    if(modrm_byte[0] < 0xC0) {
-        int32_t addr = modrm_resolve(modrm_byte[0]);
-        adjust_stack_reg(-2);
-        safe_write16(addr, sp);
-        adjust_stack_reg(2);
-    } else {
-        write_reg_e16(sp);
-    }
 }
-static void instr32_8F() { read_modrm_byte();
+static void instr16_8F_0_mem(int32_t addr)
+{
+    // pop
+    adjust_stack_reg(-2);
+    int32_t sp = safe_read16(get_stack_pointer(0));
+    safe_write16(addr, sp);
+    adjust_stack_reg(2);
+}
+static void instr16_8F_0_reg(int32_t r)
+{
+    write_reg16(r, pop16());
+}
+static void instr32_8F_0_mem_pre()
+{
+    for(int32_t i = 0; i < 8; i++) { translate_address_read(*instruction_pointer + i); }; // XXX
+    adjust_stack_reg(4);
+}
+static void instr32_8F_0_mem(int32_t addr)
+{
+    // Before attempting a write that might cause a page fault,
+    // we must set esp to the old value. Fuck Intel.
+    adjust_stack_reg(-4);
     int32_t sp = safe_read32s(get_stack_pointer(0));
 
-    // change esp first, then resolve modrm address
+    safe_write32(addr, sp);
     adjust_stack_reg(4);
-
-    if(modrm_byte[0] < 0xC0) {
-        int32_t addr = modrm_resolve(modrm_byte[0]);
-
-        // Before attempting a write that might cause a page fault,
-        // we must set esp to the old value. Fuck Intel.
-        adjust_stack_reg(-4);
-        safe_write32(addr, sp);
-        adjust_stack_reg(4);
-    } else {
-        write_reg_e32(sp);
-    }
+}
+static void instr32_8F_0_reg(int32_t r)
+{
+    write_reg32(r, pop32s());
 }
 
 static void instr_90() { }
@@ -950,33 +1017,32 @@ static void instr32_BE() { reg32s[ESI] = read_op32s(); }
 static void instr16_BF() { reg16[DI] = read_op16(); }
 static void instr32_BF() { reg32s[EDI] = read_op32s(); }
 
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_C0_0, rol8(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_C0_1, ror8(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_C0_2, rcl8(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_C0_3, rcr8(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_C0_4, shl8(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_C0_5, shr8(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_C0_6, shl8(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_C0_7, sar8(___, read_op8() & 31))
 
-static void instr_C0_0() { write_e8(rol8(read_write_e8(), read_op8() & 31)); }
-static void instr_C0_1() { write_e8(ror8(read_write_e8(), read_op8() & 31)); }
-static void instr_C0_2() { write_e8(rcl8(read_write_e8(), read_op8() & 31)); }
-static void instr_C0_3() { write_e8(rcr8(read_write_e8(), read_op8() & 31)); }
-static void instr_C0_4() { write_e8(shl8(read_write_e8(), read_op8() & 31)); }
-static void instr_C0_5() { write_e8(shr8(read_write_e8(), read_op8() & 31)); }
-static void instr_C0_6() { write_e8(shl8(read_write_e8(), read_op8() & 31)); }
-static void instr_C0_7() { write_e8(sar8(read_write_e8(), read_op8() & 31)); }
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_C1_0, rol16(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_C1_1, ror16(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_C1_2, rcl16(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_C1_3, rcr16(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_C1_4, shl16(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_C1_5, shr16(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_C1_6, shl16(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_C1_7, sar16(___, read_op8() & 31))
 
-static void instr16_C1_0() { write_e16(rol16(read_write_e16(), read_op8() & 31)); }
-static void instr16_C1_1() { write_e16(ror16(read_write_e16(), read_op8() & 31)); }
-static void instr16_C1_2() { write_e16(rcl16(read_write_e16(), read_op8() & 31)); }
-static void instr16_C1_3() { write_e16(rcr16(read_write_e16(), read_op8() & 31)); }
-static void instr16_C1_4() { write_e16(shl16(read_write_e16(), read_op8() & 31)); }
-static void instr16_C1_5() { write_e16(shr16(read_write_e16(), read_op8() & 31)); }
-static void instr16_C1_6() { write_e16(shl16(read_write_e16(), read_op8() & 31)); }
-static void instr16_C1_7() { write_e16(sar16(read_write_e16(), read_op8() & 31)); }
-
-static void instr32_C1_0() { write_e32(rol32(read_write_e32(), read_op8() & 31)); }
-static void instr32_C1_1() { write_e32(ror32(read_write_e32(), read_op8() & 31)); }
-static void instr32_C1_2() { write_e32(rcl32(read_write_e32(), read_op8() & 31)); }
-static void instr32_C1_3() { write_e32(rcr32(read_write_e32(), read_op8() & 31)); }
-static void instr32_C1_4() { write_e32(shl32(read_write_e32(), read_op8() & 31)); }
-static void instr32_C1_5() { write_e32(shr32(read_write_e32(), read_op8() & 31)); }
-static void instr32_C1_6() { write_e32(shl32(read_write_e32(), read_op8() & 31)); }
-static void instr32_C1_7() { write_e32(sar32(read_write_e32(), read_op8() & 31)); }
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_C1_0, rol32(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_C1_1, ror32(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_C1_2, rcl32(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_C1_3, rcr32(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_C1_4, shl32(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_C1_5, shr32(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_C1_6, shl32(___, read_op8() & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_C1_7, sar32(___, read_op8() & 31))
 
 static void instr16_C2() {
     // retn
@@ -1010,40 +1076,29 @@ static void instr32_C3() {
     diverged();
 }
 
-static void instr16_C4() { read_modrm_byte();
-    lss16(ES);
+static void instr16_C4_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
+static void instr16_C4_mem(int32_t addr, int32_t r) {
+    lss16(addr, get_reg16_index(r), ES);
 }
-static void instr32_C4() { read_modrm_byte();
-    lss32(ES);
+static void instr32_C4_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
+static void instr32_C4_mem(int32_t addr, int32_t r) {
+    lss32(addr, r, ES);
 }
-static void instr16_C5() { read_modrm_byte();
-    lss16(DS);
+static void instr16_C5_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
+static void instr16_C5_mem(int32_t addr, int32_t r) {
+    lss16(addr, get_reg16_index(r), DS);
 }
-static void instr32_C5() { read_modrm_byte();
-    lss32(DS);
+static void instr32_C5_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
+static void instr32_C5_mem(int32_t addr, int32_t r) {
+    lss32(addr, r, DS);
 }
 
-static void instr_C6() { read_modrm_byte();
-    if(modrm_byte[0] < 0xC0) {
-        safe_write8(modrm_resolve(modrm_byte[0]), read_op8());
-    } else {
-        reg8[modrm_byte[0] << 2 & 0xC | modrm_byte[0] >> 2 & 1] = read_op8();
-    }
-}
-static void instr16_C7() { read_modrm_byte();
-    if(modrm_byte[0] < 0xC0) {
-        safe_write16(modrm_resolve(modrm_byte[0]), read_op16());
-    } else {
-        reg16[modrm_byte[0] << 1 & 14] = read_op16();
-    }
-}
-static void instr32_C7() { read_modrm_byte();
-    if(modrm_byte[0] < 0xC0) {
-        safe_write32(modrm_resolve(modrm_byte[0]), read_op32s());
-    } else {
-        reg32s[modrm_byte[0] & 7] = read_op32s();
-    }
-}
+static void instr_C6_0_reg(int32_t r) { write_reg8(r, read_op8()); }
+static void instr_C6_0_mem(int32_t addr) { safe_write8(addr, read_op8()); }
+static void instr16_C7_0_reg(int32_t r) { write_reg16(r, read_op16()); }
+static void instr16_C7_0_mem(int32_t addr) { safe_write16(addr, read_op16()); }
+static void instr32_C7_0_reg(int32_t r) { write_reg32(r, read_op32s()); }
+static void instr32_C7_0_mem(int32_t addr) { safe_write32(addr, read_op32s()); }
 
 static void instr16_C8() { enter16(read_op16(), read_disp8()); }
 static void instr32_C8() { enter32(read_op16(), read_disp8()); }
@@ -1132,60 +1187,59 @@ static void instr32_CF() {
     diverged();
 }
 
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D0_0, rol8(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D0_1, ror8(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D0_2, rcl8(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D0_3, rcr8(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D0_4, shl8(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D0_5, shr8(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D0_6, shl8(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D0_7, sar8(___, 1))
 
-static void instr_D0_0() { write_e8(rol8(read_write_e8(), 1)); }
-static void instr_D0_1() { write_e8(ror8(read_write_e8(), 1)); }
-static void instr_D0_2() { write_e8(rcl8(read_write_e8(), 1)); }
-static void instr_D0_3() { write_e8(rcr8(read_write_e8(), 1)); }
-static void instr_D0_4() { write_e8(shl8(read_write_e8(), 1)); }
-static void instr_D0_5() { write_e8(shr8(read_write_e8(), 1)); }
-static void instr_D0_6() { write_e8(shl8(read_write_e8(), 1)); }
-static void instr_D0_7() { write_e8(sar8(read_write_e8(), 1)); }
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D1_0, rol16(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D1_1, ror16(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D1_2, rcl16(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D1_3, rcr16(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D1_4, shl16(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D1_5, shr16(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D1_6, shl16(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D1_7, sar16(___, 1))
 
-static void instr16_D1_0() { write_e16(rol16(read_write_e16(), 1)); }
-static void instr16_D1_1() { write_e16(ror16(read_write_e16(), 1)); }
-static void instr16_D1_2() { write_e16(rcl16(read_write_e16(), 1)); }
-static void instr16_D1_3() { write_e16(rcr16(read_write_e16(), 1)); }
-static void instr16_D1_4() { write_e16(shl16(read_write_e16(), 1)); }
-static void instr16_D1_5() { write_e16(shr16(read_write_e16(), 1)); }
-static void instr16_D1_6() { write_e16(shl16(read_write_e16(), 1)); }
-static void instr16_D1_7() { write_e16(sar16(read_write_e16(), 1)); }
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D1_0, rol32(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D1_1, ror32(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D1_2, rcl32(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D1_3, rcr32(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D1_4, shl32(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D1_5, shr32(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D1_6, shl32(___, 1))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D1_7, sar32(___, 1))
 
-static void instr32_D1_0() { write_e32(rol32(read_write_e32(), 1)); }
-static void instr32_D1_1() { write_e32(ror32(read_write_e32(), 1)); }
-static void instr32_D1_2() { write_e32(rcl32(read_write_e32(), 1)); }
-static void instr32_D1_3() { write_e32(rcr32(read_write_e32(), 1)); }
-static void instr32_D1_4() { write_e32(shl32(read_write_e32(), 1)); }
-static void instr32_D1_5() { write_e32(shr32(read_write_e32(), 1)); }
-static void instr32_D1_6() { write_e32(shl32(read_write_e32(), 1)); }
-static void instr32_D1_7() { write_e32(sar32(read_write_e32(), 1)); }
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D2_0, rol8(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D2_1, ror8(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D2_2, rcl8(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D2_3, rcr8(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D2_4, shl8(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D2_5, shr8(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D2_6, shl8(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D2_7, sar8(___, reg8[CL] & 31))
 
-static void instr_D2_0() { write_e8(rol8(read_write_e8(), reg8[CL] & 31)); }
-static void instr_D2_1() { write_e8(ror8(read_write_e8(), reg8[CL] & 31)); }
-static void instr_D2_2() { write_e8(rcl8(read_write_e8(), reg8[CL] & 31)); }
-static void instr_D2_3() { write_e8(rcr8(read_write_e8(), reg8[CL] & 31)); }
-static void instr_D2_4() { write_e8(shl8(read_write_e8(), reg8[CL] & 31)); }
-static void instr_D2_5() { write_e8(shr8(read_write_e8(), reg8[CL] & 31)); }
-static void instr_D2_6() { write_e8(shl8(read_write_e8(), reg8[CL] & 31)); }
-static void instr_D2_7() { write_e8(sar8(read_write_e8(), reg8[CL] & 31)); }
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D3_0, rol16(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D3_1, ror16(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D3_2, rcl16(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D3_3, rcr16(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D3_4, shl16(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D3_5, shr16(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D3_6, shl16(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_D3_7, sar16(___, reg8[CL] & 31))
 
-static void instr16_D3_0() { write_e16(rol16(read_write_e16(), reg8[CL] & 31)); }
-static void instr16_D3_1() { write_e16(ror16(read_write_e16(), reg8[CL] & 31)); }
-static void instr16_D3_2() { write_e16(rcl16(read_write_e16(), reg8[CL] & 31)); }
-static void instr16_D3_3() { write_e16(rcr16(read_write_e16(), reg8[CL] & 31)); }
-static void instr16_D3_4() { write_e16(shl16(read_write_e16(), reg8[CL] & 31)); }
-static void instr16_D3_5() { write_e16(shr16(read_write_e16(), reg8[CL] & 31)); }
-static void instr16_D3_6() { write_e16(shl16(read_write_e16(), reg8[CL] & 31)); }
-static void instr16_D3_7() { write_e16(sar16(read_write_e16(), reg8[CL] & 31)); }
-
-static void instr32_D3_0() { write_e32(rol32(read_write_e32(), reg8[CL] & 31)); }
-static void instr32_D3_1() { write_e32(ror32(read_write_e32(), reg8[CL] & 31)); }
-static void instr32_D3_2() { write_e32(rcl32(read_write_e32(), reg8[CL] & 31)); }
-static void instr32_D3_3() { write_e32(rcr32(read_write_e32(), reg8[CL] & 31)); }
-static void instr32_D3_4() { write_e32(shl32(read_write_e32(), reg8[CL] & 31)); }
-static void instr32_D3_5() { write_e32(shr32(read_write_e32(), reg8[CL] & 31)); }
-static void instr32_D3_6() { write_e32(shl32(read_write_e32(), reg8[CL] & 31)); }
-static void instr32_D3_7() { write_e32(sar32(read_write_e32(), reg8[CL] & 31)); }
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D3_0, rol32(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D3_1, ror32(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D3_2, rcl32(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D3_3, rcr32(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D3_4, shl32(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D3_5, shr32(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D3_6, shl32(___, reg8[CL] & 31))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D3_7, sar32(___, reg8[CL] & 31))
 
 static void instr_D4() {
     bcd_aam(read_op8());
@@ -1210,62 +1264,23 @@ static void instr_D7() {
     }
 }
 
-static void instr_D8() { read_modrm_byte();
-    task_switch_test();
-    if(modrm_byte[0] < 0xC0)
-        fpu_op_D8_mem(modrm_byte[0], modrm_resolve(modrm_byte[0]));
-    else
-        fpu_op_D8_reg(modrm_byte[0]);
-}
-static void instr_D9() { read_modrm_byte();
-    task_switch_test();
-    if(modrm_byte[0] < 0xC0)
-        fpu_op_D9_mem(modrm_byte[0], modrm_resolve(modrm_byte[0]));
-    else
-        fpu_op_D9_reg(modrm_byte[0]);
-}
-static void instr_DA() { read_modrm_byte();
-    task_switch_test();
-    if(modrm_byte[0] < 0xC0)
-        fpu_op_DA_mem(modrm_byte[0], modrm_resolve(modrm_byte[0]));
-    else
-        fpu_op_DA_reg(modrm_byte[0]);
-}
-static void instr_DB() { read_modrm_byte();
-    task_switch_test();
-    if(modrm_byte[0] < 0xC0)
-        fpu_op_DB_mem(modrm_byte[0], modrm_resolve(modrm_byte[0]));
-    else
-        fpu_op_DB_reg(modrm_byte[0]);
-}
-static void instr_DC() { read_modrm_byte();
-    task_switch_test();
-    if(modrm_byte[0] < 0xC0)
-        fpu_op_DC_mem(modrm_byte[0], modrm_resolve(modrm_byte[0]));
-    else
-        fpu_op_DC_reg(modrm_byte[0]);
-}
-static void instr_DD() { read_modrm_byte();
-    task_switch_test();
-    if(modrm_byte[0] < 0xC0)
-        fpu_op_DD_mem(modrm_byte[0], modrm_resolve(modrm_byte[0]));
-    else
-        fpu_op_DD_reg(modrm_byte[0]);
-}
-static void instr_DE() { read_modrm_byte();
-    task_switch_test();
-    if(modrm_byte[0] < 0xC0)
-        fpu_op_DE_mem(modrm_byte[0], modrm_resolve(modrm_byte[0]));
-    else
-        fpu_op_DE_reg(modrm_byte[0]);
-}
-static void instr_DF() { read_modrm_byte();
-    task_switch_test();
-    if(modrm_byte[0] < 0xC0)
-        fpu_op_DF_mem(modrm_byte[0], modrm_resolve(modrm_byte[0]));
-    else
-        fpu_op_DF_reg(modrm_byte[0]);
-}
+static void instr_D8_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_D8_mem(r, addr); }
+static void instr_D8_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_D8_reg(0xC0 | r2 | r << 3); }
+static void instr_D9_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_D9_mem(r, addr); }
+static void instr_D9_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_D9_reg(0xC0 | r2 | r << 3); }
+static void instr_DA_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DA_mem(r, addr); }
+static void instr_DA_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DA_reg(0xC0 | r2 | r << 3); }
+static void instr_DB_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DB_mem(r, addr); }
+static void instr_DB_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DB_reg(0xC0 | r2 | r << 3); }
+static void instr_DC_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DC_mem(r, addr); }
+static void instr_DC_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DC_reg(0xC0 | r2 | r << 3); }
+static void instr_DD_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DD_mem(r, addr); }
+static void instr_DD_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DD_reg(0xC0 | r2 | r << 3); }
+static void instr_DE_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DE_mem(r, addr); }
+static void instr_DE_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DE_reg(0xC0 | r2 | r << 3); }
+static void instr_DF_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DF_mem(r, addr); }
+static void instr_DF_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DF_reg(0xC0 | r2 | r << 3); }
+
 
 static void instr_E0() { loopne(read_op8s()); }
 static void instr_E1() { loope(read_op8s()); }
@@ -1441,32 +1456,32 @@ static void instr_F5() {
     flags_changed[0] &= ~1;
 }
 
-static void instr_F6_0() { test8(read_e8(), read_op8()); }
-static void instr_F6_1() { test8(read_e8(), read_op8()); }
-static void instr_F6_2() { write_e8(~read_write_e8()); }
-static void instr_F6_3() { write_e8(neg8(read_write_e8())); }
-static void instr_F6_4() { mul8(read_e8()); }
-static void instr_F6_5() { imul8(read_e8s()); }
-static void instr_F6_6() { div8(read_e8()); }
-static void instr_F6_7() { idiv8(read_e8s()); }
+DEFINE_MODRM_INSTR1_READ8(instr_F6_0, test8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ8(instr_F6_1, test8(___, read_op8()))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_F6_2, ~___)
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_F6_3, neg8(___))
+DEFINE_MODRM_INSTR1_READ8(instr_F6_4, mul8(___))
+DEFINE_MODRM_INSTR1_READ8(instr_F6_5, imul8(___ << 24 >> 24))
+DEFINE_MODRM_INSTR1_READ8(instr_F6_6, div8(___))
+DEFINE_MODRM_INSTR1_READ8(instr_F6_7, idiv8(___ << 24 >> 24))
 
-static void instr16_F7_0() { test16(read_e16(), read_op16()); }
-static void instr16_F7_1() { test16(read_e16(), read_op16()); }
-static void instr16_F7_2() { write_e16(~read_write_e16()); }
-static void instr16_F7_3() { write_e16(neg16(read_write_e16())); }
-static void instr16_F7_4() { mul16(read_e16()); }
-static void instr16_F7_5() { imul16(read_e16s()); }
-static void instr16_F7_6() { div16(read_e16()); }
-static void instr16_F7_7() { idiv16(read_e16s()); }
+DEFINE_MODRM_INSTR1_READ16(instr16_F7_0, test16(___, read_op16()))
+DEFINE_MODRM_INSTR1_READ16(instr16_F7_1, test16(___, read_op16()))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_F7_2, ~___)
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_F7_3, neg16(___))
+DEFINE_MODRM_INSTR1_READ16(instr16_F7_4, mul16(___))
+DEFINE_MODRM_INSTR1_READ16(instr16_F7_5, imul16(___ << 16 >> 16))
+DEFINE_MODRM_INSTR1_READ16(instr16_F7_6, div16(___))
+DEFINE_MODRM_INSTR1_READ16(instr16_F7_7, idiv16(___ << 16 >> 16))
 
-static void instr32_F7_0() { test32(read_e32s(), read_op32s()); }
-static void instr32_F7_1() { test32(read_e32s(), read_op32s()); }
-static void instr32_F7_2() { write_e32(~read_write_e32()); }
-static void instr32_F7_3() { write_e32(neg32(read_write_e32())); }
-static void instr32_F7_4() { mul32(read_e32s()); }
-static void instr32_F7_5() { imul32(read_e32s()); }
-static void instr32_F7_6() { div32(read_e32s()); }
-static void instr32_F7_7() { idiv32(read_e32s()); }
+DEFINE_MODRM_INSTR1_READ32(instr32_F7_0, test32(___, read_op32s()))
+DEFINE_MODRM_INSTR1_READ32(instr32_F7_1, test32(___, read_op32s()))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_F7_2, ~___)
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_F7_3, neg32(___))
+DEFINE_MODRM_INSTR1_READ32(instr32_F7_4, mul32(___))
+DEFINE_MODRM_INSTR1_READ32(instr32_F7_5, imul32(___))
+DEFINE_MODRM_INSTR1_READ32(instr32_F7_6, div32(___))
+DEFINE_MODRM_INSTR1_READ32(instr32_F7_7, idiv32(___))
 
 static void instr_F8() {
     // clc
@@ -1543,90 +1558,82 @@ static void instr_FD() {
     flags[0] |= FLAG_DIRECTION;
 }
 
-static void instr_FE_0() { int32_t data = read_write_e8(); write_e8(inc8(data)); }
-static void instr_FE_1() { int32_t data = read_write_e8(); write_e8(dec8(data)); }
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_FE_0, inc8(___))
+DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_FE_1, dec8(___))
 
-static void instr16_FF_0() { write_e16(inc16(read_write_e16())); }
-static void instr16_FF_1() { write_e16(dec16(read_write_e16())); }
-static void instr16_FF_2()
+
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_FF_0, inc16(___))
+DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_FF_1, dec16(___))
+static void instr16_FF_2_helper(int32_t data)
 {
     // call near
-    int32_t data = read_e16();
     push16(get_real_eip());
     instruction_pointer[0] = get_seg(CS) + data;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr16_FF_3()
+DEFINE_MODRM_INSTR1_READ16(instr16_FF_2, instr16_FF_2_helper(___))
+static void instr16_FF_3_reg(int32_t r)
+{
+    dbg_log("callf #ud");
+    trigger_ud();
+}
+static void instr16_FF_3_mem(int32_t addr)
 {
     // callf
-    if(modrm_byte[0] >= 0xC0)
-    {
-        dbg_log("callf #ud");
-        trigger_ud();
-        dbg_assert_message(false, "unreachable");
-    }
-
-    int32_t virt_addr = modrm_resolve(modrm_byte[0]);
-    int32_t new_ip = safe_read16(virt_addr);
-    int32_t new_cs = safe_read16(virt_addr + 2);
+    int32_t new_ip = safe_read16(addr);
+    int32_t new_cs = safe_read16(addr + 2);
 
     far_jump(new_ip, new_cs, true);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr16_FF_4()
+static void instr16_FF_4_helper(int32_t data)
 {
     // jmp near
-    int32_t data = read_e16();
     instruction_pointer[0] = get_seg(CS) + data;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr16_FF_5()
+DEFINE_MODRM_INSTR1_READ16(instr16_FF_4, instr16_FF_4_helper(___))
+static void instr16_FF_5_reg(int32_t r)
+{
+    dbg_log("jmpf #ud");
+    trigger_ud();
+}
+static void instr16_FF_5_mem(int32_t addr)
 {
     // jmpf
-    if(modrm_byte[0] >= 0xC0)
-    {
-        dbg_log("jmpf #ud");
-        trigger_ud();
-        dbg_assert_message(false, "unreachable");
-    }
-
-    int32_t virt_addr = modrm_resolve(modrm_byte[0]);
-    int32_t new_ip = safe_read16(virt_addr);
-    int32_t new_cs = safe_read16(virt_addr + 2);
+    int32_t new_ip = safe_read16(addr);
+    int32_t new_cs = safe_read16(addr + 2);
 
     far_jump(new_ip, new_cs, false);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr16_FF_6() { push16(read_e16()); }
+DEFINE_MODRM_INSTR1_READ16(instr16_FF_6, push16(___))
 
-static void instr32_FF_0() { write_e32(inc32(read_write_e32())); }
-static void instr32_FF_1() { write_e32(dec32(read_write_e32())); }
-static void instr32_FF_2()
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_FF_0, inc32(___))
+DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_FF_1, dec32(___))
+static void instr32_FF_2_helper(int32_t data)
 {
     // call near
-    int32_t data = read_e32s();
     push32(get_real_eip());
     dbg_assert(is_asize_32() || data < 0x10000);
     instruction_pointer[0] = get_seg(CS) + data;
     diverged();
 }
-static void instr32_FF_3()
+DEFINE_MODRM_INSTR1_READ32(instr32_FF_2, instr32_FF_2_helper(___))
+static void instr32_FF_3_reg(int32_t r)
+{
+    dbg_log("callf #ud");
+    trigger_ud();
+}
+static void instr32_FF_3_mem(int32_t addr)
 {
     // callf
-    if(modrm_byte[0] >= 0xC0)
-    {
-        dbg_log("callf #ud");
-        trigger_ud();
-        dbg_assert_message(false, "unreachable");
-    }
-
-    int32_t virt_addr = modrm_resolve(modrm_byte[0]);
-    int32_t new_ip = safe_read32s(virt_addr);
-    int32_t new_cs = safe_read16(virt_addr + 4);
+    int32_t new_ip = safe_read32s(addr);
+    int32_t new_cs = safe_read16(addr + 4);
 
     if(!*protected_mode || vm86_mode())
     {
@@ -1641,27 +1648,24 @@ static void instr32_FF_3()
     dbg_assert(is_asize_32() || new_ip < 0x10000);
     diverged();
 }
-static void instr32_FF_4()
+static void instr32_FF_4_helper(int32_t data)
 {
     // jmp near
-    int32_t data = read_e32s();
     dbg_assert(is_asize_32() || data < 0x10000);
     instruction_pointer[0] = get_seg(CS) + data;
     diverged();
 }
-static void instr32_FF_5()
+DEFINE_MODRM_INSTR1_READ32(instr32_FF_4, instr32_FF_4_helper(___))
+static void instr32_FF_5_reg(int32_t r)
+{
+    dbg_log("jmpf #ud");
+    trigger_ud();
+}
+static void instr32_FF_5_mem(int32_t addr)
 {
     // jmpf
-    if(modrm_byte[0] >= 0xC0)
-    {
-        dbg_log("jmpf #ud");
-        trigger_ud();
-        dbg_assert_message(false, "unreachable");
-    }
-
-    int32_t virt_addr = modrm_resolve(modrm_byte[0]);
-    int32_t new_ip = safe_read32s(virt_addr);
-    int32_t new_cs = safe_read16(virt_addr + 4);
+    int32_t new_ip = safe_read32s(addr);
+    int32_t new_cs = safe_read16(addr + 4);
 
     if(!*protected_mode || vm86_mode())
     {
@@ -1676,7 +1680,7 @@ static void instr32_FF_5()
     dbg_assert(is_asize_32() || new_ip < 0x10000);
     diverged();
 }
-static void instr32_FF_6() { push32(read_e32s()); }
+DEFINE_MODRM_INSTR1_READ32(instr32_FF_6, push32(___))
 
 
 
@@ -1689,33 +1693,51 @@ static void run_instruction(int32_t opcode)
 case 0x00:
 case 0x00|0x100:
 {
-    instr_00();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_00_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_00_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x01:
 {
-    instr16_01();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_01_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_01_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x01|0x100:
 {
-    instr32_01();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_01_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_01_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x02:
 case 0x02|0x100:
 {
-    instr_02();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_02_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_02_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x03:
 {
-    instr16_03();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_03_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_03_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x03|0x100:
 {
-    instr32_03();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_03_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_03_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x04:
@@ -1757,33 +1779,51 @@ break;
 case 0x08:
 case 0x08|0x100:
 {
-    instr_08();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_08_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_08_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x09:
 {
-    instr16_09();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_09_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_09_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x09|0x100:
 {
-    instr32_09();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_09_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_09_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x0A:
 case 0x0A|0x100:
 {
-    instr_0A();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_0A_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_0A_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x0B:
 {
-    instr16_0B();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_0B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_0B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x0B|0x100:
 {
-    instr32_0B();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_0B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_0B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x0C:
@@ -1825,33 +1865,51 @@ break;
 case 0x10:
 case 0x10|0x100:
 {
-    instr_10();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_10_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_10_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x11:
 {
-    instr16_11();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_11_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_11_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x11|0x100:
 {
-    instr32_11();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_11_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_11_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x12:
 case 0x12|0x100:
 {
-    instr_12();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_12_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_12_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x13:
 {
-    instr16_13();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_13_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_13_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x13|0x100:
 {
-    instr32_13();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_13_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_13_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x14:
@@ -1893,33 +1951,51 @@ break;
 case 0x18:
 case 0x18|0x100:
 {
-    instr_18();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_18_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_18_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x19:
 {
-    instr16_19();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_19_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_19_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x19|0x100:
 {
-    instr32_19();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_19_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_19_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x1A:
 case 0x1A|0x100:
 {
-    instr_1A();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_1A_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_1A_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x1B:
 {
-    instr16_1B();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_1B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_1B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x1B|0x100:
 {
-    instr32_1B();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_1B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_1B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x1C:
@@ -1961,33 +2037,51 @@ break;
 case 0x20:
 case 0x20|0x100:
 {
-    instr_20();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_20_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_20_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x21:
 {
-    instr16_21();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_21_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_21_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x21|0x100:
 {
-    instr32_21();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_21_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_21_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x22:
 case 0x22|0x100:
 {
-    instr_22();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_22_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_22_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x23:
 {
-    instr16_23();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_23_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_23_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x23|0x100:
 {
-    instr32_23();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_23_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_23_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x24:
@@ -2021,33 +2115,51 @@ break;
 case 0x28:
 case 0x28|0x100:
 {
-    instr_28();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_28_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_28_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x29:
 {
-    instr16_29();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_29_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_29_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x29|0x100:
 {
-    instr32_29();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_29_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_29_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x2A:
 case 0x2A|0x100:
 {
-    instr_2A();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_2A_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_2A_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x2B:
 {
-    instr16_2B();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_2B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_2B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x2B|0x100:
 {
-    instr32_2B();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_2B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_2B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x2C:
@@ -2081,33 +2193,51 @@ break;
 case 0x30:
 case 0x30|0x100:
 {
-    instr_30();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_30_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_30_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x31:
 {
-    instr16_31();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_31_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_31_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x31|0x100:
 {
-    instr32_31();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_31_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_31_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x32:
 case 0x32|0x100:
 {
-    instr_32();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_32_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_32_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x33:
 {
-    instr16_33();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_33_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_33_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x33|0x100:
 {
-    instr32_33();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_33_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_33_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x34:
@@ -2141,33 +2271,51 @@ break;
 case 0x38:
 case 0x38|0x100:
 {
-    instr_38();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_38_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_38_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x39:
 {
-    instr16_39();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_39_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_39_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x39|0x100:
 {
-    instr32_39();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_39_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_39_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x3A:
 case 0x3A|0x100:
 {
-    instr_3A();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_3A_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_3A_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x3B:
 {
-    instr16_3B();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_3B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_3B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x3B|0x100:
 {
-    instr32_3B();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_3B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_3B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x3C:
@@ -2541,13 +2689,19 @@ break;
 case 0x62:
 case 0x62|0x100:
 {
-    instr_62();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_62_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_62_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x63:
 case 0x63|0x100:
 {
-    instr_63();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_63_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_63_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x64:
@@ -2586,12 +2740,18 @@ case 0x68|0x100:
 break;
 case 0x69:
 {
-    instr16_69();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_69_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_69_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x69|0x100:
 {
-    instr32_69();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_69_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_69_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x6A:
@@ -2606,12 +2766,18 @@ case 0x6A|0x100:
 break;
 case 0x6B:
 {
-    instr16_6B();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_6B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_6B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x6B|0x100:
 {
-    instr32_6B();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_6B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_6B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x6C:
@@ -2745,47 +2911,63 @@ break;
 case 0x80:
 case 0x80|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr_80_0();
+            modrm_byte < 0xC0 ?
+                instr_80_0_mem(modrm_resolve(modrm_byte)) :
+                instr_80_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr_80_1();
+            modrm_byte < 0xC0 ?
+                instr_80_1_mem(modrm_resolve(modrm_byte)) :
+                instr_80_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr_80_2();
+            modrm_byte < 0xC0 ?
+                instr_80_2_mem(modrm_resolve(modrm_byte)) :
+                instr_80_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr_80_3();
+            modrm_byte < 0xC0 ?
+                instr_80_3_mem(modrm_resolve(modrm_byte)) :
+                instr_80_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr_80_4();
+            modrm_byte < 0xC0 ?
+                instr_80_4_mem(modrm_resolve(modrm_byte)) :
+                instr_80_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr_80_5();
+            modrm_byte < 0xC0 ?
+                instr_80_5_mem(modrm_resolve(modrm_byte)) :
+                instr_80_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr_80_6();
+            modrm_byte < 0xC0 ?
+                instr_80_6_mem(modrm_resolve(modrm_byte)) :
+                instr_80_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr_80_7();
+            modrm_byte < 0xC0 ?
+                instr_80_7_mem(modrm_resolve(modrm_byte)) :
+                instr_80_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -2795,47 +2977,63 @@ case 0x80|0x100:
 break;
 case 0x81:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr16_81_0();
+            modrm_byte < 0xC0 ?
+                instr16_81_0_mem(modrm_resolve(modrm_byte)) :
+                instr16_81_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr16_81_1();
+            modrm_byte < 0xC0 ?
+                instr16_81_1_mem(modrm_resolve(modrm_byte)) :
+                instr16_81_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr16_81_2();
+            modrm_byte < 0xC0 ?
+                instr16_81_2_mem(modrm_resolve(modrm_byte)) :
+                instr16_81_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr16_81_3();
+            modrm_byte < 0xC0 ?
+                instr16_81_3_mem(modrm_resolve(modrm_byte)) :
+                instr16_81_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr16_81_4();
+            modrm_byte < 0xC0 ?
+                instr16_81_4_mem(modrm_resolve(modrm_byte)) :
+                instr16_81_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr16_81_5();
+            modrm_byte < 0xC0 ?
+                instr16_81_5_mem(modrm_resolve(modrm_byte)) :
+                instr16_81_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr16_81_6();
+            modrm_byte < 0xC0 ?
+                instr16_81_6_mem(modrm_resolve(modrm_byte)) :
+                instr16_81_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr16_81_7();
+            modrm_byte < 0xC0 ?
+                instr16_81_7_mem(modrm_resolve(modrm_byte)) :
+                instr16_81_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -2845,47 +3043,63 @@ case 0x81:
 break;
 case 0x81|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr32_81_0();
+            modrm_byte < 0xC0 ?
+                instr32_81_0_mem(modrm_resolve(modrm_byte)) :
+                instr32_81_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr32_81_1();
+            modrm_byte < 0xC0 ?
+                instr32_81_1_mem(modrm_resolve(modrm_byte)) :
+                instr32_81_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr32_81_2();
+            modrm_byte < 0xC0 ?
+                instr32_81_2_mem(modrm_resolve(modrm_byte)) :
+                instr32_81_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr32_81_3();
+            modrm_byte < 0xC0 ?
+                instr32_81_3_mem(modrm_resolve(modrm_byte)) :
+                instr32_81_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr32_81_4();
+            modrm_byte < 0xC0 ?
+                instr32_81_4_mem(modrm_resolve(modrm_byte)) :
+                instr32_81_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr32_81_5();
+            modrm_byte < 0xC0 ?
+                instr32_81_5_mem(modrm_resolve(modrm_byte)) :
+                instr32_81_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr32_81_6();
+            modrm_byte < 0xC0 ?
+                instr32_81_6_mem(modrm_resolve(modrm_byte)) :
+                instr32_81_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr32_81_7();
+            modrm_byte < 0xC0 ?
+                instr32_81_7_mem(modrm_resolve(modrm_byte)) :
+                instr32_81_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -2896,47 +3110,63 @@ break;
 case 0x82:
 case 0x82|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr_82_0();
+            modrm_byte < 0xC0 ?
+                instr_82_0_mem(modrm_resolve(modrm_byte)) :
+                instr_82_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr_82_1();
+            modrm_byte < 0xC0 ?
+                instr_82_1_mem(modrm_resolve(modrm_byte)) :
+                instr_82_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr_82_2();
+            modrm_byte < 0xC0 ?
+                instr_82_2_mem(modrm_resolve(modrm_byte)) :
+                instr_82_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr_82_3();
+            modrm_byte < 0xC0 ?
+                instr_82_3_mem(modrm_resolve(modrm_byte)) :
+                instr_82_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr_82_4();
+            modrm_byte < 0xC0 ?
+                instr_82_4_mem(modrm_resolve(modrm_byte)) :
+                instr_82_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr_82_5();
+            modrm_byte < 0xC0 ?
+                instr_82_5_mem(modrm_resolve(modrm_byte)) :
+                instr_82_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr_82_6();
+            modrm_byte < 0xC0 ?
+                instr_82_6_mem(modrm_resolve(modrm_byte)) :
+                instr_82_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr_82_7();
+            modrm_byte < 0xC0 ?
+                instr_82_7_mem(modrm_resolve(modrm_byte)) :
+                instr_82_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -2946,47 +3176,63 @@ case 0x82|0x100:
 break;
 case 0x83:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr16_83_0();
+            modrm_byte < 0xC0 ?
+                instr16_83_0_mem(modrm_resolve(modrm_byte)) :
+                instr16_83_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr16_83_1();
+            modrm_byte < 0xC0 ?
+                instr16_83_1_mem(modrm_resolve(modrm_byte)) :
+                instr16_83_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr16_83_2();
+            modrm_byte < 0xC0 ?
+                instr16_83_2_mem(modrm_resolve(modrm_byte)) :
+                instr16_83_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr16_83_3();
+            modrm_byte < 0xC0 ?
+                instr16_83_3_mem(modrm_resolve(modrm_byte)) :
+                instr16_83_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr16_83_4();
+            modrm_byte < 0xC0 ?
+                instr16_83_4_mem(modrm_resolve(modrm_byte)) :
+                instr16_83_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr16_83_5();
+            modrm_byte < 0xC0 ?
+                instr16_83_5_mem(modrm_resolve(modrm_byte)) :
+                instr16_83_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr16_83_6();
+            modrm_byte < 0xC0 ?
+                instr16_83_6_mem(modrm_resolve(modrm_byte)) :
+                instr16_83_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr16_83_7();
+            modrm_byte < 0xC0 ?
+                instr16_83_7_mem(modrm_resolve(modrm_byte)) :
+                instr16_83_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -2996,47 +3242,63 @@ case 0x83:
 break;
 case 0x83|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr32_83_0();
+            modrm_byte < 0xC0 ?
+                instr32_83_0_mem(modrm_resolve(modrm_byte)) :
+                instr32_83_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr32_83_1();
+            modrm_byte < 0xC0 ?
+                instr32_83_1_mem(modrm_resolve(modrm_byte)) :
+                instr32_83_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr32_83_2();
+            modrm_byte < 0xC0 ?
+                instr32_83_2_mem(modrm_resolve(modrm_byte)) :
+                instr32_83_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr32_83_3();
+            modrm_byte < 0xC0 ?
+                instr32_83_3_mem(modrm_resolve(modrm_byte)) :
+                instr32_83_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr32_83_4();
+            modrm_byte < 0xC0 ?
+                instr32_83_4_mem(modrm_resolve(modrm_byte)) :
+                instr32_83_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr32_83_5();
+            modrm_byte < 0xC0 ?
+                instr32_83_5_mem(modrm_resolve(modrm_byte)) :
+                instr32_83_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr32_83_6();
+            modrm_byte < 0xC0 ?
+                instr32_83_6_mem(modrm_resolve(modrm_byte)) :
+                instr32_83_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr32_83_7();
+            modrm_byte < 0xC0 ?
+                instr32_83_7_mem(modrm_resolve(modrm_byte)) :
+                instr32_83_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -3047,101 +3309,180 @@ break;
 case 0x84:
 case 0x84|0x100:
 {
-    instr_84();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_84_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_84_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x85:
 {
-    instr16_85();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_85_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_85_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x85|0x100:
 {
-    instr32_85();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_85_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_85_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x86:
 case 0x86|0x100:
 {
-    instr_86();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_86_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_86_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x87:
 {
-    instr16_87();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_87_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_87_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x87|0x100:
 {
-    instr32_87();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_87_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_87_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x88:
 case 0x88|0x100:
 {
-    instr_88();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_88_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_88_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x89:
 {
-    instr16_89();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_89_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_89_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x89|0x100:
 {
-    instr32_89();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_89_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_89_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x8A:
 case 0x8A|0x100:
 {
-    instr_8A();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_8A_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_8A_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x8B:
 {
-    instr16_8B();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_8B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_8B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x8B|0x100:
 {
-    instr32_8B();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_8B_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_8B_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x8C:
 {
-    instr16_8C();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_8C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_8C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x8C|0x100:
 {
-    instr32_8C();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_8C_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_8C_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x8D:
 {
-    instr16_8D();
+    int32_t modrm_byte = read_imm8();
+    if(modrm_byte < 0xC0) { instr16_8D_mem_pre(); };
+    modrm_byte < 0xC0 ?
+        instr16_8D_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_8D_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x8D|0x100:
 {
-    instr32_8D();
+    int32_t modrm_byte = read_imm8();
+    if(modrm_byte < 0xC0) { instr32_8D_mem_pre(); };
+    modrm_byte < 0xC0 ?
+        instr32_8D_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_8D_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x8E:
 case 0x8E|0x100:
 {
-    instr_8E();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_8E_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_8E_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0x8F:
 {
-    instr16_8F();
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            if(modrm_byte < 0xC0) { instr16_8F_0_mem_pre(); };
+            modrm_byte < 0xC0 ?
+                instr16_8F_0_mem(modrm_resolve(modrm_byte)) :
+                instr16_8F_0_reg(modrm_byte & 7);
+        }
+        break;
+        default:
+            assert(false);
+    }
 }
 break;
 case 0x8F|0x100:
 {
-    instr32_8F();
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            if(modrm_byte < 0xC0) { instr32_8F_0_mem_pre(); };
+            modrm_byte < 0xC0 ?
+                instr32_8F_0_mem(modrm_resolve(modrm_byte)) :
+                instr32_8F_0_reg(modrm_byte & 7);
+        }
+        break;
+        default:
+            assert(false);
+    }
 }
 break;
 case 0x90:
@@ -3547,47 +3888,63 @@ break;
 case 0xC0:
 case 0xC0|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr_C0_0();
+            modrm_byte < 0xC0 ?
+                instr_C0_0_mem(modrm_resolve(modrm_byte)) :
+                instr_C0_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr_C0_1();
+            modrm_byte < 0xC0 ?
+                instr_C0_1_mem(modrm_resolve(modrm_byte)) :
+                instr_C0_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr_C0_2();
+            modrm_byte < 0xC0 ?
+                instr_C0_2_mem(modrm_resolve(modrm_byte)) :
+                instr_C0_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr_C0_3();
+            modrm_byte < 0xC0 ?
+                instr_C0_3_mem(modrm_resolve(modrm_byte)) :
+                instr_C0_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr_C0_4();
+            modrm_byte < 0xC0 ?
+                instr_C0_4_mem(modrm_resolve(modrm_byte)) :
+                instr_C0_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr_C0_5();
+            modrm_byte < 0xC0 ?
+                instr_C0_5_mem(modrm_resolve(modrm_byte)) :
+                instr_C0_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr_C0_6();
+            modrm_byte < 0xC0 ?
+                instr_C0_6_mem(modrm_resolve(modrm_byte)) :
+                instr_C0_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr_C0_7();
+            modrm_byte < 0xC0 ?
+                instr_C0_7_mem(modrm_resolve(modrm_byte)) :
+                instr_C0_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -3597,47 +3954,63 @@ case 0xC0|0x100:
 break;
 case 0xC1:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr16_C1_0();
+            modrm_byte < 0xC0 ?
+                instr16_C1_0_mem(modrm_resolve(modrm_byte)) :
+                instr16_C1_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr16_C1_1();
+            modrm_byte < 0xC0 ?
+                instr16_C1_1_mem(modrm_resolve(modrm_byte)) :
+                instr16_C1_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr16_C1_2();
+            modrm_byte < 0xC0 ?
+                instr16_C1_2_mem(modrm_resolve(modrm_byte)) :
+                instr16_C1_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr16_C1_3();
+            modrm_byte < 0xC0 ?
+                instr16_C1_3_mem(modrm_resolve(modrm_byte)) :
+                instr16_C1_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr16_C1_4();
+            modrm_byte < 0xC0 ?
+                instr16_C1_4_mem(modrm_resolve(modrm_byte)) :
+                instr16_C1_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr16_C1_5();
+            modrm_byte < 0xC0 ?
+                instr16_C1_5_mem(modrm_resolve(modrm_byte)) :
+                instr16_C1_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr16_C1_6();
+            modrm_byte < 0xC0 ?
+                instr16_C1_6_mem(modrm_resolve(modrm_byte)) :
+                instr16_C1_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr16_C1_7();
+            modrm_byte < 0xC0 ?
+                instr16_C1_7_mem(modrm_resolve(modrm_byte)) :
+                instr16_C1_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -3647,47 +4020,63 @@ case 0xC1:
 break;
 case 0xC1|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr32_C1_0();
+            modrm_byte < 0xC0 ?
+                instr32_C1_0_mem(modrm_resolve(modrm_byte)) :
+                instr32_C1_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr32_C1_1();
+            modrm_byte < 0xC0 ?
+                instr32_C1_1_mem(modrm_resolve(modrm_byte)) :
+                instr32_C1_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr32_C1_2();
+            modrm_byte < 0xC0 ?
+                instr32_C1_2_mem(modrm_resolve(modrm_byte)) :
+                instr32_C1_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr32_C1_3();
+            modrm_byte < 0xC0 ?
+                instr32_C1_3_mem(modrm_resolve(modrm_byte)) :
+                instr32_C1_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr32_C1_4();
+            modrm_byte < 0xC0 ?
+                instr32_C1_4_mem(modrm_resolve(modrm_byte)) :
+                instr32_C1_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr32_C1_5();
+            modrm_byte < 0xC0 ?
+                instr32_C1_5_mem(modrm_resolve(modrm_byte)) :
+                instr32_C1_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr32_C1_6();
+            modrm_byte < 0xC0 ?
+                instr32_C1_6_mem(modrm_resolve(modrm_byte)) :
+                instr32_C1_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr32_C1_7();
+            modrm_byte < 0xC0 ?
+                instr32_C1_7_mem(modrm_resolve(modrm_byte)) :
+                instr32_C1_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -3717,38 +4106,86 @@ case 0xC3|0x100:
 break;
 case 0xC4:
 {
-    instr16_C4();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_C4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_C4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0xC4|0x100:
 {
-    instr32_C4();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_C4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_C4_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0xC5:
 {
-    instr16_C5();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr16_C5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr16_C5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0xC5|0x100:
 {
-    instr32_C5();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr32_C5_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr32_C5_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0xC6:
 case 0xC6|0x100:
 {
-    instr_C6();
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            modrm_byte < 0xC0 ?
+                instr_C6_0_mem(modrm_resolve(modrm_byte)) :
+                instr_C6_0_reg(modrm_byte & 7);
+        }
+        break;
+        default:
+            assert(false);
+    }
 }
 break;
 case 0xC7:
 {
-    instr16_C7();
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            modrm_byte < 0xC0 ?
+                instr16_C7_0_mem(modrm_resolve(modrm_byte)) :
+                instr16_C7_0_reg(modrm_byte & 7);
+        }
+        break;
+        default:
+            assert(false);
+    }
 }
 break;
 case 0xC7|0x100:
 {
-    instr32_C7();
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
+    {
+        case 0:
+        {
+            modrm_byte < 0xC0 ?
+                instr32_C7_0_mem(modrm_resolve(modrm_byte)) :
+                instr32_C7_0_reg(modrm_byte & 7);
+        }
+        break;
+        default:
+            assert(false);
+    }
 }
 break;
 case 0xC8:
@@ -3822,47 +4259,63 @@ break;
 case 0xD0:
 case 0xD0|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr_D0_0();
+            modrm_byte < 0xC0 ?
+                instr_D0_0_mem(modrm_resolve(modrm_byte)) :
+                instr_D0_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr_D0_1();
+            modrm_byte < 0xC0 ?
+                instr_D0_1_mem(modrm_resolve(modrm_byte)) :
+                instr_D0_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr_D0_2();
+            modrm_byte < 0xC0 ?
+                instr_D0_2_mem(modrm_resolve(modrm_byte)) :
+                instr_D0_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr_D0_3();
+            modrm_byte < 0xC0 ?
+                instr_D0_3_mem(modrm_resolve(modrm_byte)) :
+                instr_D0_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr_D0_4();
+            modrm_byte < 0xC0 ?
+                instr_D0_4_mem(modrm_resolve(modrm_byte)) :
+                instr_D0_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr_D0_5();
+            modrm_byte < 0xC0 ?
+                instr_D0_5_mem(modrm_resolve(modrm_byte)) :
+                instr_D0_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr_D0_6();
+            modrm_byte < 0xC0 ?
+                instr_D0_6_mem(modrm_resolve(modrm_byte)) :
+                instr_D0_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr_D0_7();
+            modrm_byte < 0xC0 ?
+                instr_D0_7_mem(modrm_resolve(modrm_byte)) :
+                instr_D0_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -3872,47 +4325,63 @@ case 0xD0|0x100:
 break;
 case 0xD1:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr16_D1_0();
+            modrm_byte < 0xC0 ?
+                instr16_D1_0_mem(modrm_resolve(modrm_byte)) :
+                instr16_D1_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr16_D1_1();
+            modrm_byte < 0xC0 ?
+                instr16_D1_1_mem(modrm_resolve(modrm_byte)) :
+                instr16_D1_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr16_D1_2();
+            modrm_byte < 0xC0 ?
+                instr16_D1_2_mem(modrm_resolve(modrm_byte)) :
+                instr16_D1_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr16_D1_3();
+            modrm_byte < 0xC0 ?
+                instr16_D1_3_mem(modrm_resolve(modrm_byte)) :
+                instr16_D1_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr16_D1_4();
+            modrm_byte < 0xC0 ?
+                instr16_D1_4_mem(modrm_resolve(modrm_byte)) :
+                instr16_D1_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr16_D1_5();
+            modrm_byte < 0xC0 ?
+                instr16_D1_5_mem(modrm_resolve(modrm_byte)) :
+                instr16_D1_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr16_D1_6();
+            modrm_byte < 0xC0 ?
+                instr16_D1_6_mem(modrm_resolve(modrm_byte)) :
+                instr16_D1_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr16_D1_7();
+            modrm_byte < 0xC0 ?
+                instr16_D1_7_mem(modrm_resolve(modrm_byte)) :
+                instr16_D1_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -3922,47 +4391,63 @@ case 0xD1:
 break;
 case 0xD1|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr32_D1_0();
+            modrm_byte < 0xC0 ?
+                instr32_D1_0_mem(modrm_resolve(modrm_byte)) :
+                instr32_D1_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr32_D1_1();
+            modrm_byte < 0xC0 ?
+                instr32_D1_1_mem(modrm_resolve(modrm_byte)) :
+                instr32_D1_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr32_D1_2();
+            modrm_byte < 0xC0 ?
+                instr32_D1_2_mem(modrm_resolve(modrm_byte)) :
+                instr32_D1_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr32_D1_3();
+            modrm_byte < 0xC0 ?
+                instr32_D1_3_mem(modrm_resolve(modrm_byte)) :
+                instr32_D1_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr32_D1_4();
+            modrm_byte < 0xC0 ?
+                instr32_D1_4_mem(modrm_resolve(modrm_byte)) :
+                instr32_D1_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr32_D1_5();
+            modrm_byte < 0xC0 ?
+                instr32_D1_5_mem(modrm_resolve(modrm_byte)) :
+                instr32_D1_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr32_D1_6();
+            modrm_byte < 0xC0 ?
+                instr32_D1_6_mem(modrm_resolve(modrm_byte)) :
+                instr32_D1_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr32_D1_7();
+            modrm_byte < 0xC0 ?
+                instr32_D1_7_mem(modrm_resolve(modrm_byte)) :
+                instr32_D1_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -3973,47 +4458,63 @@ break;
 case 0xD2:
 case 0xD2|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr_D2_0();
+            modrm_byte < 0xC0 ?
+                instr_D2_0_mem(modrm_resolve(modrm_byte)) :
+                instr_D2_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr_D2_1();
+            modrm_byte < 0xC0 ?
+                instr_D2_1_mem(modrm_resolve(modrm_byte)) :
+                instr_D2_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr_D2_2();
+            modrm_byte < 0xC0 ?
+                instr_D2_2_mem(modrm_resolve(modrm_byte)) :
+                instr_D2_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr_D2_3();
+            modrm_byte < 0xC0 ?
+                instr_D2_3_mem(modrm_resolve(modrm_byte)) :
+                instr_D2_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr_D2_4();
+            modrm_byte < 0xC0 ?
+                instr_D2_4_mem(modrm_resolve(modrm_byte)) :
+                instr_D2_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr_D2_5();
+            modrm_byte < 0xC0 ?
+                instr_D2_5_mem(modrm_resolve(modrm_byte)) :
+                instr_D2_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr_D2_6();
+            modrm_byte < 0xC0 ?
+                instr_D2_6_mem(modrm_resolve(modrm_byte)) :
+                instr_D2_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr_D2_7();
+            modrm_byte < 0xC0 ?
+                instr_D2_7_mem(modrm_resolve(modrm_byte)) :
+                instr_D2_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -4023,47 +4524,63 @@ case 0xD2|0x100:
 break;
 case 0xD3:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr16_D3_0();
+            modrm_byte < 0xC0 ?
+                instr16_D3_0_mem(modrm_resolve(modrm_byte)) :
+                instr16_D3_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr16_D3_1();
+            modrm_byte < 0xC0 ?
+                instr16_D3_1_mem(modrm_resolve(modrm_byte)) :
+                instr16_D3_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr16_D3_2();
+            modrm_byte < 0xC0 ?
+                instr16_D3_2_mem(modrm_resolve(modrm_byte)) :
+                instr16_D3_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr16_D3_3();
+            modrm_byte < 0xC0 ?
+                instr16_D3_3_mem(modrm_resolve(modrm_byte)) :
+                instr16_D3_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr16_D3_4();
+            modrm_byte < 0xC0 ?
+                instr16_D3_4_mem(modrm_resolve(modrm_byte)) :
+                instr16_D3_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr16_D3_5();
+            modrm_byte < 0xC0 ?
+                instr16_D3_5_mem(modrm_resolve(modrm_byte)) :
+                instr16_D3_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr16_D3_6();
+            modrm_byte < 0xC0 ?
+                instr16_D3_6_mem(modrm_resolve(modrm_byte)) :
+                instr16_D3_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr16_D3_7();
+            modrm_byte < 0xC0 ?
+                instr16_D3_7_mem(modrm_resolve(modrm_byte)) :
+                instr16_D3_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -4073,47 +4590,63 @@ case 0xD3:
 break;
 case 0xD3|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr32_D3_0();
+            modrm_byte < 0xC0 ?
+                instr32_D3_0_mem(modrm_resolve(modrm_byte)) :
+                instr32_D3_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr32_D3_1();
+            modrm_byte < 0xC0 ?
+                instr32_D3_1_mem(modrm_resolve(modrm_byte)) :
+                instr32_D3_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr32_D3_2();
+            modrm_byte < 0xC0 ?
+                instr32_D3_2_mem(modrm_resolve(modrm_byte)) :
+                instr32_D3_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr32_D3_3();
+            modrm_byte < 0xC0 ?
+                instr32_D3_3_mem(modrm_resolve(modrm_byte)) :
+                instr32_D3_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr32_D3_4();
+            modrm_byte < 0xC0 ?
+                instr32_D3_4_mem(modrm_resolve(modrm_byte)) :
+                instr32_D3_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr32_D3_5();
+            modrm_byte < 0xC0 ?
+                instr32_D3_5_mem(modrm_resolve(modrm_byte)) :
+                instr32_D3_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr32_D3_6();
+            modrm_byte < 0xC0 ?
+                instr32_D3_6_mem(modrm_resolve(modrm_byte)) :
+                instr32_D3_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr32_D3_7();
+            modrm_byte < 0xC0 ?
+                instr32_D3_7_mem(modrm_resolve(modrm_byte)) :
+                instr32_D3_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -4148,49 +4681,73 @@ break;
 case 0xD8:
 case 0xD8|0x100:
 {
-    instr_D8();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_D8_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_D8_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0xD9:
 case 0xD9|0x100:
 {
-    instr_D9();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_D9_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_D9_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0xDA:
 case 0xDA|0x100:
 {
-    instr_DA();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_DA_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_DA_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0xDB:
 case 0xDB|0x100:
 {
-    instr_DB();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_DB_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_DB_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0xDC:
 case 0xDC|0x100:
 {
-    instr_DC();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_DC_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_DC_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0xDD:
 case 0xDD|0x100:
 {
-    instr_DD();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_DD_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_DD_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0xDE:
 case 0xDE|0x100:
 {
-    instr_DE();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_DE_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_DE_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0xDF:
 case 0xDF|0x100:
 {
-    instr_DF();
+    int32_t modrm_byte = read_imm8();
+    modrm_byte < 0xC0 ?
+        instr_DF_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7) :
+        instr_DF_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
 }
 break;
 case 0xE0:
@@ -4356,47 +4913,63 @@ break;
 case 0xF6:
 case 0xF6|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr_F6_0();
+            modrm_byte < 0xC0 ?
+                instr_F6_0_mem(modrm_resolve(modrm_byte)) :
+                instr_F6_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr_F6_1();
+            modrm_byte < 0xC0 ?
+                instr_F6_1_mem(modrm_resolve(modrm_byte)) :
+                instr_F6_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr_F6_2();
+            modrm_byte < 0xC0 ?
+                instr_F6_2_mem(modrm_resolve(modrm_byte)) :
+                instr_F6_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr_F6_3();
+            modrm_byte < 0xC0 ?
+                instr_F6_3_mem(modrm_resolve(modrm_byte)) :
+                instr_F6_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr_F6_4();
+            modrm_byte < 0xC0 ?
+                instr_F6_4_mem(modrm_resolve(modrm_byte)) :
+                instr_F6_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr_F6_5();
+            modrm_byte < 0xC0 ?
+                instr_F6_5_mem(modrm_resolve(modrm_byte)) :
+                instr_F6_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr_F6_6();
+            modrm_byte < 0xC0 ?
+                instr_F6_6_mem(modrm_resolve(modrm_byte)) :
+                instr_F6_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr_F6_7();
+            modrm_byte < 0xC0 ?
+                instr_F6_7_mem(modrm_resolve(modrm_byte)) :
+                instr_F6_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -4406,47 +4979,63 @@ case 0xF6|0x100:
 break;
 case 0xF7:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr16_F7_0();
+            modrm_byte < 0xC0 ?
+                instr16_F7_0_mem(modrm_resolve(modrm_byte)) :
+                instr16_F7_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr16_F7_1();
+            modrm_byte < 0xC0 ?
+                instr16_F7_1_mem(modrm_resolve(modrm_byte)) :
+                instr16_F7_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr16_F7_2();
+            modrm_byte < 0xC0 ?
+                instr16_F7_2_mem(modrm_resolve(modrm_byte)) :
+                instr16_F7_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr16_F7_3();
+            modrm_byte < 0xC0 ?
+                instr16_F7_3_mem(modrm_resolve(modrm_byte)) :
+                instr16_F7_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr16_F7_4();
+            modrm_byte < 0xC0 ?
+                instr16_F7_4_mem(modrm_resolve(modrm_byte)) :
+                instr16_F7_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr16_F7_5();
+            modrm_byte < 0xC0 ?
+                instr16_F7_5_mem(modrm_resolve(modrm_byte)) :
+                instr16_F7_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr16_F7_6();
+            modrm_byte < 0xC0 ?
+                instr16_F7_6_mem(modrm_resolve(modrm_byte)) :
+                instr16_F7_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr16_F7_7();
+            modrm_byte < 0xC0 ?
+                instr16_F7_7_mem(modrm_resolve(modrm_byte)) :
+                instr16_F7_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -4456,47 +5045,63 @@ case 0xF7:
 break;
 case 0xF7|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr32_F7_0();
+            modrm_byte < 0xC0 ?
+                instr32_F7_0_mem(modrm_resolve(modrm_byte)) :
+                instr32_F7_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr32_F7_1();
+            modrm_byte < 0xC0 ?
+                instr32_F7_1_mem(modrm_resolve(modrm_byte)) :
+                instr32_F7_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr32_F7_2();
+            modrm_byte < 0xC0 ?
+                instr32_F7_2_mem(modrm_resolve(modrm_byte)) :
+                instr32_F7_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr32_F7_3();
+            modrm_byte < 0xC0 ?
+                instr32_F7_3_mem(modrm_resolve(modrm_byte)) :
+                instr32_F7_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr32_F7_4();
+            modrm_byte < 0xC0 ?
+                instr32_F7_4_mem(modrm_resolve(modrm_byte)) :
+                instr32_F7_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr32_F7_5();
+            modrm_byte < 0xC0 ?
+                instr32_F7_5_mem(modrm_resolve(modrm_byte)) :
+                instr32_F7_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr32_F7_6();
+            modrm_byte < 0xC0 ?
+                instr32_F7_6_mem(modrm_resolve(modrm_byte)) :
+                instr32_F7_6_reg(modrm_byte & 7);
         }
         break;
         case 7:
         {
-            instr32_F7_7();
+            modrm_byte < 0xC0 ?
+                instr32_F7_7_mem(modrm_resolve(modrm_byte)) :
+                instr32_F7_7_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -4543,17 +5148,21 @@ break;
 case 0xFE:
 case 0xFE|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr_FE_0();
+            modrm_byte < 0xC0 ?
+                instr_FE_0_mem(modrm_resolve(modrm_byte)) :
+                instr_FE_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr_FE_1();
+            modrm_byte < 0xC0 ?
+                instr_FE_1_mem(modrm_resolve(modrm_byte)) :
+                instr_FE_1_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -4563,42 +5172,56 @@ case 0xFE|0x100:
 break;
 case 0xFF:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr16_FF_0();
+            modrm_byte < 0xC0 ?
+                instr16_FF_0_mem(modrm_resolve(modrm_byte)) :
+                instr16_FF_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr16_FF_1();
+            modrm_byte < 0xC0 ?
+                instr16_FF_1_mem(modrm_resolve(modrm_byte)) :
+                instr16_FF_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr16_FF_2();
+            modrm_byte < 0xC0 ?
+                instr16_FF_2_mem(modrm_resolve(modrm_byte)) :
+                instr16_FF_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr16_FF_3();
+            modrm_byte < 0xC0 ?
+                instr16_FF_3_mem(modrm_resolve(modrm_byte)) :
+                instr16_FF_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr16_FF_4();
+            modrm_byte < 0xC0 ?
+                instr16_FF_4_mem(modrm_resolve(modrm_byte)) :
+                instr16_FF_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr16_FF_5();
+            modrm_byte < 0xC0 ?
+                instr16_FF_5_mem(modrm_resolve(modrm_byte)) :
+                instr16_FF_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr16_FF_6();
+            modrm_byte < 0xC0 ?
+                instr16_FF_6_mem(modrm_resolve(modrm_byte)) :
+                instr16_FF_6_reg(modrm_byte & 7);
         }
         break;
         default:
@@ -4608,42 +5231,56 @@ case 0xFF:
 break;
 case 0xFF|0x100:
 {
-    read_modrm_byte();
-    switch(*modrm_byte >> 3 & 7)
+    int32_t modrm_byte = read_imm8();
+    switch(modrm_byte >> 3 & 7)
     {
         case 0:
         {
-            instr32_FF_0();
+            modrm_byte < 0xC0 ?
+                instr32_FF_0_mem(modrm_resolve(modrm_byte)) :
+                instr32_FF_0_reg(modrm_byte & 7);
         }
         break;
         case 1:
         {
-            instr32_FF_1();
+            modrm_byte < 0xC0 ?
+                instr32_FF_1_mem(modrm_resolve(modrm_byte)) :
+                instr32_FF_1_reg(modrm_byte & 7);
         }
         break;
         case 2:
         {
-            instr32_FF_2();
+            modrm_byte < 0xC0 ?
+                instr32_FF_2_mem(modrm_resolve(modrm_byte)) :
+                instr32_FF_2_reg(modrm_byte & 7);
         }
         break;
         case 3:
         {
-            instr32_FF_3();
+            modrm_byte < 0xC0 ?
+                instr32_FF_3_mem(modrm_resolve(modrm_byte)) :
+                instr32_FF_3_reg(modrm_byte & 7);
         }
         break;
         case 4:
         {
-            instr32_FF_4();
+            modrm_byte < 0xC0 ?
+                instr32_FF_4_mem(modrm_resolve(modrm_byte)) :
+                instr32_FF_4_reg(modrm_byte & 7);
         }
         break;
         case 5:
         {
-            instr32_FF_5();
+            modrm_byte < 0xC0 ?
+                instr32_FF_5_mem(modrm_resolve(modrm_byte)) :
+                instr32_FF_5_reg(modrm_byte & 7);
         }
         break;
         case 6:
         {
-            instr32_FF_6();
+            modrm_byte < 0xC0 ?
+                instr32_FF_6_mem(modrm_resolve(modrm_byte)) :
+                instr32_FF_6_reg(modrm_byte & 7);
         }
         break;
         default:

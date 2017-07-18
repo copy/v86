@@ -354,20 +354,18 @@ CPU.prototype.popa32 = function()
     this.reg32s[reg_eax] = this.pop32s();
 }
 
-CPU.prototype.xchg8 = function(memory_data, modrm_byte)
+CPU.prototype.xchg8 = function(memory_data, mod)
 {
-    var mod = modrm_byte >> 1 & 0xC | modrm_byte >> 5 & 1,
-        tmp = this.reg8[mod];
+    var tmp = this.reg8[mod];
 
     this.reg8[mod] = memory_data;
 
     return tmp;
 }
 
-CPU.prototype.xchg16 = function(memory_data, modrm_byte)
+CPU.prototype.xchg16 = function(memory_data, mod)
 {
-    var mod = modrm_byte >> 2 & 14,
-        tmp = this.reg16[mod];
+    var tmp = this.reg16[mod];
 
     this.reg16[mod] = memory_data;
 
@@ -381,10 +379,9 @@ CPU.prototype.xchg16r = function(operand)
     this.reg16[operand] = temp;
 }
 
-CPU.prototype.xchg32 = function(memory_data, modrm_byte)
+CPU.prototype.xchg32 = function(memory_data, mod)
 {
-    var mod = modrm_byte >> 3 & 7,
-        tmp = this.reg32s[mod];
+    var tmp = this.reg32s[mod];
 
     this.reg32s[mod] = memory_data;
 
@@ -398,39 +395,24 @@ CPU.prototype.xchg32r = function(operand)
     this.reg32s[operand] = temp;
 }
 
-CPU.prototype.lss16 = function(seg)
+CPU.prototype.lss16 = function(addr, reg, seg)
 {
-    if(this.modrm_byte[0] >= 0xC0)
-    {
-        // 0xc4c4 #ud (EMULATOR_BOP) is used by reactos and windows to exit vm86 mode
-        this.trigger_ud();
-    }
-
-    var addr = this.modrm_resolve(this.modrm_byte[0]);
-
     var new_reg = this.safe_read16(addr),
         new_seg = this.safe_read16(addr + 2 | 0);
 
     this.switch_seg(seg, new_seg);
 
-    this.reg16[this.modrm_byte[0] >> 2 & 14] = new_reg;
+    this.reg16[reg] = new_reg;
 }
 
-CPU.prototype.lss32 = function(seg)
+CPU.prototype.lss32 = function(addr, reg, seg)
 {
-    if(this.modrm_byte[0] >= 0xC0)
-    {
-        this.trigger_ud();
-    }
-
-    var addr = this.modrm_resolve(this.modrm_byte[0]);
-
     var new_reg = this.safe_read32s(addr),
         new_seg = this.safe_read16(addr + 4 | 0);
 
     this.switch_seg(seg, new_seg);
 
-    this.reg32s[this.modrm_byte[0] >> 3 & 7] = new_reg;
+    this.reg32s[reg] = new_reg;
 }
 
 CPU.prototype.enter16 = function(size, nesting_level)
