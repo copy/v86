@@ -589,11 +589,11 @@ function V86Starter(options)
 
     function done()
     {
-        if(settings.initial_state)
-        {
-            // avoid large allocation now, memory will be restored later anyway
-            settings.memory_size = 0;
-        }
+        //if(settings.initial_state)
+        //{
+        //    // avoid large allocation now, memory will be restored later anyway
+        //    settings.memory_size = 0;
+        //}
 
         this.bus.send("cpu-init", settings);
 
