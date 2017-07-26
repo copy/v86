@@ -229,7 +229,6 @@ else {
                 const expected_eflags = test.fixture.array[offset] & MASK_ARITH;
 
                 for (let i = 0; i < cpu.reg32s.length; i++) {
-                    if(i === 4) continue; // TODO: Same stack for elf and multiboot
                     let reg = cpu.reg32s[i];
                     if (reg !== expected_reg32s[i]) {
                         individual_failures.push({
