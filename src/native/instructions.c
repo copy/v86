@@ -1047,8 +1047,9 @@ DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_C1_7, sar32(___, read_op8() & 31))
 static void instr16_C2() {
     // retn
     int32_t imm16 = read_op16();
+    int32_t cs = get_seg(CS);
 
-    instruction_pointer[0] = get_seg(CS) + pop16();
+    instruction_pointer[0] = cs + pop16();
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     adjust_stack_reg(imm16);
     diverged();
@@ -1056,23 +1057,26 @@ static void instr16_C2() {
 static void instr32_C2() {
     // retn
     int32_t imm16 = read_op16();
+    int32_t cs = get_seg(CS);
     int32_t ip = pop32s();
 
     dbg_assert(is_asize_32() || ip < 0x10000);
-    instruction_pointer[0] = get_seg(CS) + ip;
+    instruction_pointer[0] = cs + ip;
     adjust_stack_reg(imm16);
     diverged();
 }
 static void instr16_C3() {
     // retn
-    instruction_pointer[0] = get_seg(CS) + pop16();
+    int32_t cs = get_seg(CS);
+    instruction_pointer[0] = cs + pop16();
     diverged();
 }
 static void instr32_C3() {
     // retn
+    int32_t cs = get_seg(CS);
     int32_t ip = pop32s();
     dbg_assert(is_asize_32() || ip < 0x10000);
-    instruction_pointer[0] = get_seg(CS) + ip;
+    instruction_pointer[0] = cs + ip;
     diverged();
 }
 
@@ -1567,8 +1571,9 @@ DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_FF_1, dec16(___))
 static void instr16_FF_2_helper(int32_t data)
 {
     // call near
+    int32_t cs = get_seg(CS);
     push16(get_real_eip());
-    instruction_pointer[0] = get_seg(CS) + data;
+    instruction_pointer[0] = cs + data;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
@@ -1618,9 +1623,10 @@ DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_FF_1, dec32(___))
 static void instr32_FF_2_helper(int32_t data)
 {
     // call near
+    int32_t cs = get_seg(CS);
     push32(get_real_eip());
     dbg_assert(is_asize_32() || data < 0x10000);
-    instruction_pointer[0] = get_seg(CS) + data;
+    instruction_pointer[0] = cs + data;
     diverged();
 }
 DEFINE_MODRM_INSTR1_READ32(instr32_FF_2, instr32_FF_2_helper(___))
