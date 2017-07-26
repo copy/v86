@@ -90,9 +90,9 @@ const encodings = [
     { opcode: 0x67, prefix: 1, },
 
     { opcode: 0x68, os: 1, imm1632: 1, },
-    { opcode: 0x69, os: 1, e: 1, g: 1, imm: 1, mask_flags: 0, }, // zf?
+    { opcode: 0x69, os: 1, e: 1, g: 1, imm: 1, mask_flags: af, }, // zf?
     { opcode: 0x6A, os: 1, imm8: 1, },
-    { opcode: 0x6B, os: 1, e: 1, g: 1, imm8: 1, mask_flags: 0, }, // zf?
+    { opcode: 0x6B, os: 1, e: 1, g: 1, imm8: 1, mask_flags: af, }, // zf?
 
     { opcode: 0x6C, skip: 1, },
     { opcode: 0x6D, os: 1, skip: 1, },
@@ -214,8 +214,8 @@ const encodings = [
     { opcode: 0xF6, fixed_g: 1, imm: 1, },
     { opcode: 0xF6, fixed_g: 2, },
     { opcode: 0xF6, fixed_g: 3, },
-    { opcode: 0xF6, fixed_g: 4, mask_flags: zf, },
-    { opcode: 0xF6, fixed_g: 5, mask_flags: zf, },
+    { opcode: 0xF6, fixed_g: 4, mask_flags: af | zf, },
+    { opcode: 0xF6, fixed_g: 5, mask_flags: af | zf, },
     { opcode: 0xF6, fixed_g: 6, skip: 1, }, // zero divide
     { opcode: 0xF6, fixed_g: 7, skip: 1, },
 
@@ -223,8 +223,8 @@ const encodings = [
     { opcode: 0xF7, os: 1, fixed_g: 1, imm: 1, },
     { opcode: 0xF7, os: 1, fixed_g: 2, },
     { opcode: 0xF7, os: 1, fixed_g: 3, },
-    { opcode: 0xF7, os: 1, fixed_g: 4, mask_flags: zf, },
-    { opcode: 0xF7, os: 1, fixed_g: 5, mask_flags: zf, },
+    { opcode: 0xF7, os: 1, fixed_g: 4, mask_flags: zf | af, },
+    { opcode: 0xF7, os: 1, fixed_g: 5, mask_flags: zf | af, },
     { opcode: 0xF7, os: 1, fixed_g: 6, skip: 1, }, // zero divide
     { opcode: 0xF7, os: 1, fixed_g: 7, skip: 1, },
 
@@ -343,18 +343,18 @@ const encodings = [
     { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 6, imm8: 1, only_reg: 1, },
     { opcode: 0x0FBA, os: 1, e: 1, fixed_g: 7, imm8: 1, only_reg: 1, },
 
-    { opcode: 0x0FBC, os: 1, e: 1, g: 1, }, // bsf
-    { opcode: 0x0FBD, os: 1, e: 1, g: 1, },
+    { opcode: 0x0FBC, os: 1, e: 1, g: 1, mask_flags: af, }, // bsf
+    { opcode: 0x0FBD, os: 1, e: 1, g: 1, mask_flags: af, },
 
     // note: overflow flag only undefined if shift is > 1
-    { opcode: 0x0FA4, os: 1, e: 1, g: 1, imm8: 1, mask_flags: of, }, // shld
-    { opcode: 0x0FA5, os: 1, e: 1, g: 1, mask_flags: of, },
-    { opcode: 0x0FAC, os: 1, e: 1, g: 1, imm8: 1, mask_flags: of, },
-    { opcode: 0x0FAD, os: 1, e: 1, g: 1, mask_flags: of, },
+    { opcode: 0x0FA4, os: 1, e: 1, g: 1, imm8: 1, mask_flags: af | of, }, // shld
+    { opcode: 0x0FA5, os: 1, e: 1, g: 1, mask_flags: af | of, },
+    { opcode: 0x0FAC, os: 1, e: 1, g: 1, imm8: 1, mask_flags: af | of, },
+    { opcode: 0x0FAD, os: 1, e: 1, g: 1, mask_flags: af | of, },
 
     { opcode: 0x0FAE, e: 1, g: 1, skip: 1, },
 
-    { opcode: 0x0FAF, os: 1, e: 1, g: 1, mask_flags: zf }, // imul
+    { opcode: 0x0FAF, os: 1, e: 1, g: 1, mask_flags: af | zf }, // imul
 
     { opcode: 0x0FB0, e: 1, g: 1 }, // cmxchg
     { opcode: 0x0FB1, os: 1, e: 1, g: 1 },
@@ -608,12 +608,13 @@ for(var i = 0; i < 8; i++)
         { opcode: 0xB8 | i, os: 1, imm1632: 1, skip: 1, },
 
         // note: overflow flag only undefined if shift is > 1
-        { opcode: 0xC0, e: 1, fixed_g: i, imm8: 1, mask_flags: of, },
-        { opcode: 0xC1, os: 1, e: 1, fixed_g: i, imm8: 1, mask_flags: of, },
-        { opcode: 0xD0, e: 1, fixed_g: i, mask_flags: of, },
-        { opcode: 0xD1, os: 1, e: 1, fixed_g: i, mask_flags: of, },
-        { opcode: 0xD2, e: 1, fixed_g: i, mask_flags: of, },
-        { opcode: 0xD3, os: 1, e: 1, fixed_g: i, mask_flags: of, },
+        // note: the adjust flag is undefined for shifts > 0 and unaffected by rotates
+        { opcode: 0xC0, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, },
+        { opcode: 0xC1, os: 1, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, },
+        { opcode: 0xD0, e: 1, fixed_g: i, mask_flags: af, },
+        { opcode: 0xD1, os: 1, e: 1, fixed_g: i, mask_flags: af, },
+        { opcode: 0xD2, e: 1, fixed_g: i, mask_flags: of | af, },
+        { opcode: 0xD3, os: 1, e: 1, fixed_g: i, mask_flags: of | af, },
     ]);
 }
 
@@ -1053,6 +1054,22 @@ function create_nasm(op, config)
 
     codes.push("push dword " + (random_int32() & ~(1 << 8 | 1 << 9)));
     codes.push("popf");
+
+    if(true)
+    {
+        // generate random flags using arithmatic instruction
+        // not well-distributed, but can trigger bugs in lazy flag calculation
+        if(true)
+        {
+            // rarely sets zero flag, other flags mostly well-distributed
+            codes.push("add al, ah");
+        }
+        else
+        {
+            // always sets zero flag
+            codes.push("sub al, al");
+        }
+    }
 
     if(size === 16)
     {
