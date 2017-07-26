@@ -420,21 +420,27 @@ CPU.prototype.enter16 = function(size, nesting_level)
     nesting_level &= 31;
 
     if(nesting_level) dbg_log("enter16 stack=" + (this.stack_size_32[0] ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
-    this.push16(this.reg16[reg_bp]);
-    var frame_temp = this.reg16[reg_sp];
+
+    var ss_mask = this.stack_size_32[0] ? -1 : 0xFFFF;
+    var ss = this.get_seg(reg_ss);
+    var frame_temp = this.reg32s[reg_esp] - 2;
 
     if(nesting_level > 0)
     {
-        var tmp_ebp = this.reg16[reg_ebp];
+        var tmp_ebp = this.reg32s[reg_ebp];
         for(var i = 1; i < nesting_level; i++)
         {
             tmp_ebp -= 2;
-            this.push16(this.safe_read16(this.get_seg(reg_ss) + tmp_ebp | 0));
+            this.push16(this.safe_read16(ss + (tmp_ebp & ss_mask) | 0));
         }
         this.push16(frame_temp);
     }
+
+    // check if write to final stack pointer would case a page fault
+    this.writable_or_pagefault(ss + (frame_temp - size & ss_mask), 2);
+    this.safe_write16(ss + (frame_temp & ss_mask) | 0, this.reg16[reg_bp]);
     this.reg16[reg_bp] = frame_temp;
-    this.adjust_stack_reg(-size);
+    this.adjust_stack_reg(-size - 2);
 };
 
 CPU.prototype.enter32 = function(size, nesting_level)
@@ -442,8 +448,10 @@ CPU.prototype.enter32 = function(size, nesting_level)
     nesting_level &= 31;
 
     if(nesting_level) dbg_log("enter32 stack=" + (this.stack_size_32[0] ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
-    this.push32(this.reg32s[reg_ebp]);
-    var frame_temp = this.reg32s[reg_esp];
+
+    var ss_mask = this.stack_size_32[0] ? -1 : 0xFFFF;
+    var ss = this.get_seg(reg_ss);
+    var frame_temp = this.reg32s[reg_esp] - 4;
 
     if(nesting_level > 0)
     {
@@ -451,12 +459,16 @@ CPU.prototype.enter32 = function(size, nesting_level)
         for(var i = 1; i < nesting_level; i++)
         {
             tmp_ebp -= 4;
-            this.push32(this.safe_read32s(this.get_seg(reg_ss) + tmp_ebp | 0));
+            this.push32(this.safe_read32s(ss + (tmp_ebp & ss_mask) | 0));
         }
         this.push32(frame_temp);
     }
+
+    // check if write to final stack pointer would case a page fault
+    this.writable_or_pagefault(ss + (frame_temp - size & ss_mask), 4);
+    this.safe_write32(ss + (frame_temp & ss_mask) | 0, this.reg32s[reg_ebp]);
     this.reg32s[reg_ebp] = frame_temp;
-    this.adjust_stack_reg(-size);
+    this.adjust_stack_reg(-size - 4);
 };
 
 CPU.prototype.bswap = function(reg)
