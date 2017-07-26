@@ -95,18 +95,9 @@ if (cluster.isMaster) {
 
 
     function send_work_to_worker(worker, message) {
-        if(current_test < files.length) {
-            let name = files[current_test];
-            let fixture_name = name + ".fixture";
-            let img_name = name + ".img";
-            let fixture_text = fs.readFileSync(TEST_DIR + fixture_name);
-            let fixture = extract_json(name, fixture_text);
-
-            worker.send({
-                img_name: img_name,
-                fixture: fixture,
-            });
-
+        if(current_test < tests.length) {
+            const test = tests[current_test];
+            worker.send(test);
             current_test++;
         }
         else {
@@ -127,9 +118,21 @@ if (cluster.isMaster) {
         return name.slice(0, -4);
     });
 
+    const tests = files.map(name => {
+        let fixture_name = name + ".fixture";
+        let img_name = name + ".img";
+        let fixture_text = fs.readFileSync(TEST_DIR + fixture_name);
+        let fixture = extract_json(name, fixture_text);
+
+        return {
+            img_name: img_name,
+            fixture: fixture,
+        };
+    });
+
     const nr_of_cpus = Math.min(
         os.cpus().length || 1,
-        files.length,
+        tests.length,
         MAX_PARALLEL_TESTS
     );
     console.log('Using %d cpus', nr_of_cpus);
@@ -168,8 +171,8 @@ if (cluster.isMaster) {
     {
         console.log(
             '\n[+] Passed %d/%d tests.',
-            files.length - failed_tests.length,
-            files.length
+            tests.length - failed_tests.length,
+            tests.length
         );
         if (failed_tests.length > 0) {
             console.log('[-] Failed %d test(s).', failed_tests.length);
