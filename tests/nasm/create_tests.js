@@ -131,10 +131,10 @@ const encodings = [
     { opcode: 0x9E, },
     { opcode: 0x9F, },
 
-    { opcode: 0xA0, immaddr: 1, skip: 1, }, // skip: requires code generation for immediate pointer
-    { opcode: 0xA1, os: 1, immaddr: 1, skip: 1, },
-    { opcode: 0xA2, immaddr: 1, skip: 1, },
-    { opcode: 0xA3, os: 1, immaddr: 1, skip: 1, },
+    { opcode: 0xA0, immaddr: 1, },
+    { opcode: 0xA1, os: 1, immaddr: 1, },
+    { opcode: 0xA2, immaddr: 1, },
+    { opcode: 0xA3, os: 1, immaddr: 1, },
 
     { opcode: 0xA4, skip: 1, },
     { opcode: 0xA5, os: 1, skip: 1, },
@@ -1141,7 +1141,8 @@ function create_nasm(op, config)
             if(op.immaddr)
             {
                 // immaddr: depends on address size
-                codes.push("dd 1234abcdh");
+                // generate valid pointer into bss section
+                codes.push("dd (120000h-16)");
             }
             else
             {
