@@ -29,6 +29,8 @@ void write32(uint32_t, int32_t);
 void virt_boundary_write16(int32_t, int32_t, int32_t);
 void virt_boundary_write32(int32_t, int32_t, int32_t);
 
+bool in_mapped_range(uint32_t);
+
 void trigger_gp(int32_t);
 void trigger_ud();
 void trigger_nm();
@@ -104,7 +106,8 @@ int32_t read_imm8()
         *last_virt_eip = eip & ~0xFFF;
     }
 
-    int32_t data8 = read8(*eip_phys ^ eip);
+    assert(!in_mapped_range(*eip_phys ^ eip));
+    int32_t data8 = mem8[*eip_phys ^ eip];
     *instruction_pointer = eip + 1;
 
     return data8;
