@@ -904,9 +904,13 @@ CPU.prototype.load_multiboot = function(buffer)
                     // virtual and physical address must be equal
                     dbg_assert(program.paddr === program.vaddr);
                     dbg_assert(program.filesz <= program.memsz);
+                    dbg_assert(program.paddr + program.memsz < this.memory_size[0]);
 
-                    let blob = new Uint8Array(buffer, program.offset, program.filesz);
-                    this.write_blob(blob, program.paddr);
+                    if(program.filesz) // offset mighty be outside of buffer if filesz is 0
+                    {
+                        let blob = new Uint8Array(buffer, program.offset, program.filesz);
+                        this.write_blob(blob, program.paddr);
+                    }
                 }
                 else if(program.type === 4 ||
                         program.type === 0x6474e550 ||
