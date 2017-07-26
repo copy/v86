@@ -161,7 +161,7 @@ const encodings = [
     { opcode: 0xC7, os: 1, e: 1, fixed_g: 0, imm: 1, },
 
     { opcode: 0xC8, os: 1, imm16: 1, }, // enter
-    { opcode: 0xC9, os: 1, skip: 1, },
+    { opcode: 0xC9, os: 1, skip: 1, }, // leave: requires valid ebp
     { opcode: 0xCA, os: 1, imm16: 1, skip: 1, },
     { opcode: 0xCB, os: 1, skip: 1, },
     { opcode: 0xCC, skip: 1, },
@@ -352,7 +352,14 @@ const encodings = [
     { opcode: 0x0FAC, os: 1, e: 1, g: 1, imm8: 1, mask_flags: af | of, },
     { opcode: 0x0FAD, os: 1, e: 1, g: 1, mask_flags: af | of, },
 
-    { opcode: 0x0FAE, e: 1, g: 1, skip: 1, },
+    { opcode: 0x0FAE, e: 1, fixed_g: 0, only_mem: 1, skip: 1, }, // fxsave, ...
+    { opcode: 0x0FAE, e: 1, fixed_g: 1, only_mem: 1, skip: 1, },
+    { opcode: 0x0FAE, e: 1, fixed_g: 2, only_mem: 1, skip: 1, },
+    { opcode: 0x0FAE, e: 1, fixed_g: 3, only_mem: 1, skip: 1, },
+
+    { opcode: 0x0FAE, e: 1, fixed_g: 5, only_reg: 1, }, // mfence, ...
+    { opcode: 0x0FAE, e: 1, fixed_g: 6, only_reg: 1, },
+    { opcode: 0x0FAE, e: 1, fixed_g: 7, only_reg: 1, },
 
     { opcode: 0x0FAF, os: 1, e: 1, g: 1, mask_flags: af | zf }, // imul
 
@@ -604,8 +611,8 @@ for(var i = 0; i < 8; i++)
         { opcode: 0x82, e: 1, fixed_g: i, imm: 1, },
         { opcode: 0x83, os: 1, e: 1, fixed_g: i, imm8: 1, },
 
-        { opcode: 0xB0 | i, imm8: 1, skip: 1, },
-        { opcode: 0xB8 | i, os: 1, imm1632: 1, skip: 1, },
+        { opcode: 0xB0 | i, imm8: 1, },
+        { opcode: 0xB8 | i, os: 1, imm1632: 1, },
 
         // note: overflow flag only undefined if shift is > 1
         // note: the adjust flag is undefined for shifts > 0 and unaffected by rotates
