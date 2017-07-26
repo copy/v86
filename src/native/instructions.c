@@ -924,7 +924,7 @@ static void instr_9E() {
     // sahf
     flags[0] = (flags[0] & ~0xFF) | reg8[AH];
     flags[0] = (flags[0] & FLAGS_MASK) | FLAGS_DEFAULT;
-    flags_changed[0] = 0;
+    flags_changed[0] &= ~0xFF;
 }
 static void instr_9F() {
     // lahf
