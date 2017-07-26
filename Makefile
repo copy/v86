@@ -121,15 +121,29 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
-
 	ls -lh build/libv86.js
+
+build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
+	mkdir -p build
+	java -jar $(CLOSURE) \
+		--js_output_file build/libv86-debug.js\
+		--define=DEBUG=true\
+		$(CLOSURE_FLAGS)\
+		$(CLOSURE_READABLE)\
+		--compilation_level SIMPLE\
+		$(TRANSPILE_ES6_FLAGS)\
+		--output_wrapper ';(function(){%output%}).call(this);'\
+		--js $(CORE_FILES)\
+		--js $(BROWSER_FILES)\
+		--js $(LIB_FILES)
 
 build/v86.wasm: src/native/*.c src/native/*.h
 	mkdir -p build
 	-ls -lh build/v86.wasm
 	# --llvm-opts 3
 	# -Wno-extra-semi
-	# EMCC_WASM_BACKEND=1
+	# EMCC_DEBUG=1  EMCC_WASM_BACKEND=1
+	# -fno-inline
 	emcc src/native/all.c \
 	    -Wall -Wpedantic -Wextra \
 	    -DDEBUG=false \
