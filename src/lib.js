@@ -161,6 +161,7 @@ SyncBuffer.prototype.get_buffer = function(fn)
      */
     v86util.int_log2 = function(x)
     {
+        x >>>= 0;
         dbg_assert(x > 0);
 
         // http://jsperf.com/integer-log2/6
