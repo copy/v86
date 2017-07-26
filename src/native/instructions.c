@@ -816,19 +816,13 @@ static void instr32_98() { /* cwde */ reg32s[EAX] = reg16s[AX]; }
 static void instr16_99() { /* cwd */ reg16[DX] = reg16s[AX] >> 15; }
 static void instr32_99() { /* cdq */ reg32s[EDX] = reg32s[EAX] >> 31; }
 
-static void instr16_9A() {
+static void instr16_9A(int32_t new_ip, int32_t new_cs) {
     // callf
-    int32_t new_ip = read_op16();
-    int32_t new_cs = read_disp16();
-
     far_jump(new_ip, new_cs, true);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr32_9A() {
-    int32_t new_ip = read_op32s();
-    int32_t new_cs = read_disp16();
-
+static void instr32_9A(int32_t new_ip, int32_t new_cs) {
     if(!*protected_mode || vm86_mode())
     {
         if(new_ip & 0xFFFF0000)
@@ -1104,8 +1098,8 @@ static void instr16_C7_0_mem(int32_t addr) { safe_write16(addr, read_op16()); }
 static void instr32_C7_0_reg(int32_t r) { write_reg32(r, read_op32s()); }
 static void instr32_C7_0_mem(int32_t addr) { safe_write32(addr, read_op32s()); }
 
-static void instr16_C8() { enter16(read_op16(), read_disp8()); }
-static void instr32_C8() { enter32(read_op16(), read_disp8()); }
+static void instr16_C8(int32_t size, int32_t nesting) { enter16(size, nesting); }
+static void instr32_C8(int32_t size, int32_t nesting) { enter32(size, nesting); }
 static void instr16_C9() {
     // leave
     int32_t old_vbp = *stack_size_32 ? reg32s[EBP] : reg16[BP];
@@ -1358,18 +1352,14 @@ static void instr32_E9() {
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr16_EA() {
+static void instr16_EA(int32_t new_ip, int32_t cs) {
     // jmpf
-    int32_t ip = read_op16();
-    int32_t cs = read_disp16();
-    far_jump(ip, cs, false);
+    far_jump(new_ip, cs, false);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr32_EA() {
+static void instr32_EA(int32_t new_ip, int32_t cs) {
     // jmpf
-    int32_t new_ip = read_op32s();
-    int32_t cs = read_disp16();
     far_jump(new_ip, cs, false);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
@@ -3589,12 +3579,12 @@ case 0x99|0x100:
 break;
 case 0x9A:
 {
-    instr16_9A();
+    instr16_9A(read_imm16(), read_imm16());
 }
 break;
 case 0x9A|0x100:
 {
-    instr32_9A();
+    instr32_9A(read_imm32s(), read_imm16());
 }
 break;
 case 0x9B:
@@ -4196,12 +4186,12 @@ case 0xC7|0x100:
 break;
 case 0xC8:
 {
-    instr16_C8();
+    instr16_C8(read_imm16(), read_imm8());
 }
 break;
 case 0xC8|0x100:
 {
-    instr32_C8();
+    instr32_C8(read_imm16(), read_imm8());
 }
 break;
 case 0xC9:
@@ -4834,12 +4824,12 @@ case 0xE9|0x100:
 break;
 case 0xEA:
 {
-    instr16_EA();
+    instr16_EA(read_imm16(), read_imm16());
 }
 break;
 case 0xEA|0x100:
 {
-    instr32_EA();
+    instr32_EA(read_imm32s(), read_imm16());
 }
 break;
 case 0xEB:

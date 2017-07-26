@@ -22,6 +22,9 @@ const sf = 1 << 7;
 
 
 // os: the instruction behaves differently depending on the operand size
+// The following instructions are special and not properly described in this table
+// - C8 enter: Has an extra immediate byte after the described immediate
+// - EA jump / 9A callf: Have an extra immediate word after the described immediate
 
 const encodings = [
     { opcode: 0x06, os: 1, skip: 1, },
@@ -157,7 +160,7 @@ const encodings = [
     { opcode: 0xC6, e: 1, fixed_g: 0, imm: 1, },
     { opcode: 0xC7, os: 1, e: 1, fixed_g: 0, imm: 1, },
 
-    { opcode: 0xC8, os: 1, imm24: 1, skip: 1, }, // enter
+    { opcode: 0xC8, os: 1, imm16: 1, }, // enter
     { opcode: 0xC9, os: 1, skip: 1, },
     { opcode: 0xCA, os: 1, imm16: 1, skip: 1, },
     { opcode: 0xCB, os: 1, skip: 1, },
@@ -685,9 +688,47 @@ function print_syntax_tree(statements)
     return code;
 }
 
-function gen_instruction_body(encoding, variant)
+function gen_read_imm_call(op, size_variant)
 {
-    let suffix = encoding[0].os ? `${variant}` : "";
+    let size = (op.os || op.opcode % 2 === 1) ? size_variant : 8;
+
+    if(op.imm || op.imm8 || op.imm16 || op.imm1632 || op.immaddr)
+    {
+        if(op.imm8 || (op.imm && size === 8))
+        {
+            return "read_imm8()";
+        }
+        else
+        {
+            if(op.immaddr)
+            {
+                // immaddr: depends on address size
+                return "read_moffs()";
+            }
+            else
+            {
+                console.assert(op.imm1632 || op.imm16 || (op.imm && (size === 16 || size === 32)));
+
+                if(size === 16 || op.imm16)
+                {
+                    return "read_imm16()";
+                }
+                else
+                {
+                    return "read_imm32s()";
+                }
+            }
+        }
+    }
+    else
+    {
+        return undefined;
+    }
+}
+
+function gen_instruction_body(encoding, size)
+{
+    let suffix = encoding[0].os ? `${size}` : "";
 
     let opcode = encoding[0].opcode & 0xFF;
     let opcode_hex = hex_byte(opcode);
@@ -698,7 +739,7 @@ function gen_instruction_body(encoding, variant)
 
         if(opcode === 0x8D)
         {
-            // special case
+            // special case: requires call before modrm_resolve
             prefix_call = [`if(modrm_byte < 0xC0) { instr${suffix}_${opcode_hex}_mem_pre(); };`];
         }
 
@@ -729,7 +770,7 @@ function gen_instruction_body(encoding, variant)
 
                     if(opcode === 0x8F)
                     {
-                        // special case
+                        // special case: requires call before modrm_resolve
                         prefix_call = [`if(modrm_byte < 0xC0) { instr${suffix}_${opcode_hex}_${case_.fixed_g}_mem_pre(); };`];
                     }
 
@@ -753,7 +794,22 @@ function gen_instruction_body(encoding, variant)
     }
     else
     {
-        return [`instr${suffix}_${opcode_hex}();`];
+        if(opcode === 0x9A || opcode === 0xEA) // special case: 2 immediate operands
+        {
+            var imm_read = gen_read_imm_call(encoding[0], size);
+            console.assert(imm_read);
+            return [`instr${suffix}_${opcode_hex}(${imm_read}, read_imm16());`];
+        }
+        else if(opcode === 0xC8) // special case: 2 immediate operands
+        {
+            var imm_read = gen_read_imm_call(encoding[0], size);
+            console.assert(imm_read);
+            return [`instr${suffix}_${opcode_hex}(${imm_read}, read_imm8());`];
+        }
+        else
+        {
+            return [`instr${suffix}_${opcode_hex}();`];
+        }
     }
 }
 
@@ -1051,6 +1107,12 @@ function create_nasm(op, config)
         }
     }
 
+    if(op.opcode === 0xC8) // special case: enter
+    {
+        codes.push("dw 8h");
+        codes.push("db 0h");
+    }
+    else
     if(op.imm || op.imm8 || op.imm16 || op.imm1632 || op.immaddr)
     {
         if(op.imm8 || (op.imm && size === 8))
