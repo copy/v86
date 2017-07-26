@@ -207,7 +207,7 @@ else {
             const evaluated_mmxs = cpu.reg_mmxs;
             const evaluated_xmms = cpu.reg_xmm32s;
             const esp = cpu.reg32s[4];
-            const evaluated_memory = new Int32Array(cpu.mem8.slice(esp, esp + 16).buffer);
+            const evaluated_memory = new Int32Array(cpu.mem8.slice(0x120000 - 16 * 4, 0x120000).buffer);
             let individual_failures = [];
 
             if(test.exception)
@@ -215,13 +215,14 @@ else {
                 throw "TODO: Handle exceptions";
             }
 
+            console.assert(test.fixture.array);
             if(test.fixture.array)
             {
                 let offset = 0;
                 const expected_reg32s = test.fixture.array.slice(offset, offset += 8);
                 const expected_mmx_registers = test.fixture.array.slice(offset, offset += 16);
                 const expected_xmm_registers = test.fixture.array.slice(offset, offset += 32);
-                const expected_memory = test.fixture.array.slice(offset, offset += 4);
+                const expected_memory = test.fixture.array.slice(offset, offset += 16);
                 const expected_eflags = test.fixture.array[offset] & MASK_ARITH;
 
                 for (let i = 0; i < cpu.reg32s.length; i++) {

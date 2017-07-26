@@ -6,10 +6,10 @@
 // TODO
 // - lea (and all modrm/sib addressing modes)
 // - fix style (single quote, brace position)
-// - memory tests
 // - multiple random tests
 // - 16 bit
 // - describe which registers are written and read
+// - string instructions (initialise ds, esi, es, edi)
 
 const fs = require("fs");
 
@@ -17,6 +17,8 @@ const zf = 1 << 6;
 const of = 1 << 11;
 const cf = 1 << 0;
 const af = 1 << 4;
+const pf = 1 << 2;
+const sf = 1 << 7;
 
 
 // os: the instruction behaves differently depending on the operand size
@@ -35,15 +37,15 @@ const encodings = [
     { opcode: 0x2E, prefix: 1, },
     { opcode: 0x2F, mask_flags: of, },
     { opcode: 0x36, prefix: 1, },
-    { opcode: 0x37, skip: 1, },
+    { opcode: 0x37, mask_flags: of | sf | pf | zf, },
     { opcode: 0x3E, prefix: 1, },
-    { opcode: 0x3F, skip: 1, },
+    { opcode: 0x3F, mask_flags: of | sf | pf | zf, },
 
     { opcode: 0x40, os: 1, },
     { opcode: 0x41, os: 1, },
     { opcode: 0x42, os: 1, },
     { opcode: 0x43, os: 1, },
-    { opcode: 0x44, os: 1, skip: 1, }, // inc esp
+    { opcode: 0x44, os: 1, },
     { opcode: 0x45, os: 1, },
     { opcode: 0x46, os: 1, },
     { opcode: 0x47, os: 1, },
@@ -52,7 +54,7 @@ const encodings = [
     { opcode: 0x49, os: 1, },
     { opcode: 0x4A, os: 1, },
     { opcode: 0x4B, os: 1, },
-    { opcode: 0x4C, os: 1, skip: 1, }, // dec esp
+    { opcode: 0x4C, os: 1, },
     { opcode: 0x4D, os: 1, },
     { opcode: 0x4E, os: 1, },
     { opcode: 0x4F, os: 1, },
@@ -61,7 +63,7 @@ const encodings = [
     { opcode: 0x51, os: 1, },
     { opcode: 0x52, os: 1, },
     { opcode: 0x53, os: 1, },
-    { opcode: 0x54, os: 1, skip: 1, }, // push esp
+    { opcode: 0x54, os: 1, },
     { opcode: 0x55, os: 1, },
     { opcode: 0x56, os: 1, },
     { opcode: 0x57, os: 1, },
@@ -70,12 +72,12 @@ const encodings = [
     { opcode: 0x59, os: 1, },
     { opcode: 0x5A, os: 1, },
     { opcode: 0x5B, os: 1, },
-    { opcode: 0x5C, os: 1, skip: 1, }, // pop esp
+    { opcode: 0x5C, os: 1, },
     { opcode: 0x5D, os: 1, },
     { opcode: 0x5E, os: 1, },
     { opcode: 0x5F, os: 1, },
 
-    { opcode: 0x60, os: 1, skip: 1, },
+    { opcode: 0x60, os: 1, },
     { opcode: 0x61, os: 1, },
     { opcode: 0x62, e: 1, g: 1, skip: 1, },
     { opcode: 0x63, e: 1, g: 1, },
@@ -104,7 +106,7 @@ const encodings = [
     { opcode: 0x8B, os: 1, e: 1, g: 1, },
 
     { opcode: 0x8C, os: 1, e: 1, g: 1, skip: 1, },
-    { opcode: 0x8D, os: 1, e: 1, g: 1, skip: 1, }, // lea
+    { opcode: 0x8D, os: 1, e: 1, g: 1, only_mem: 1, }, // lea
     { opcode: 0x8E, e: 1, g: 1, skip: 1, },
     { opcode: 0x8F, os: 1, e: 1, fixed_g: 0, },
 
@@ -112,21 +114,21 @@ const encodings = [
     { opcode: 0x91, os: 1, },
     { opcode: 0x92, os: 1, },
     { opcode: 0x93, os: 1, },
-    { opcode: 0x94, os: 1, skip: 1, }, // xchg eax, esp
+    { opcode: 0x94, os: 1, },
     { opcode: 0x95, os: 1, },
     { opcode: 0x96, os: 1, },
     { opcode: 0x97, os: 1, },
 
     { opcode: 0x98, os: 1, },
     { opcode: 0x99, os: 1, },
-    { opcode: 0x9A, os: 1, imm3248: 1, skip: 1, },
+    { opcode: 0x9A, os: 1, imm1632: 1, skip: 1, },
     { opcode: 0x9B, skip: 1, },
-    { opcode: 0x9C, os: 1, skip: 1, },
-    { opcode: 0x9D, os: 1, skip: 1, },
+    { opcode: 0x9C, os: 1, },
+    { opcode: 0x9D, os: 1, skip: 1, }, // popf
     { opcode: 0x9E, },
     { opcode: 0x9F, },
 
-    { opcode: 0xA0, immaddr: 1, skip: 1, },
+    { opcode: 0xA0, immaddr: 1, skip: 1, }, // skip: requires code generation for immediate pointer
     { opcode: 0xA1, os: 1, immaddr: 1, skip: 1, },
     { opcode: 0xA2, immaddr: 1, skip: 1, },
     { opcode: 0xA3, os: 1, immaddr: 1, skip: 1, },
@@ -164,7 +166,7 @@ const encodings = [
     { opcode: 0xCE, skip: 1, },
     { opcode: 0xCF, os: 1, skip: 1, },
 
-    { opcode: 0xD4, imm8: 1, },
+    { opcode: 0xD4, imm8: 1, }, // aam, may trigger #de
     { opcode: 0xD5, imm8: 1, mask_flags: of | cf | af, },
     { opcode: 0xD6, },
     { opcode: 0xD7, skip: 1, },
@@ -188,9 +190,9 @@ const encodings = [
     { opcode: 0xE6, imm8: 1, skip: 1, },
     { opcode: 0xE7, os: 1, imm8: 1, skip: 1, },
 
-    { opcode: 0xE8, os: 1, imm: 1, skip: 1, },
-    { opcode: 0xE9, os: 1, imm: 1, skip: 1, },
-    { opcode: 0xEA, os: 1, imm: 1, skip: 1, },
+    { opcode: 0xE8, os: 1, imm1632: 1, skip: 1, },
+    { opcode: 0xE9, os: 1, imm1632: 1, skip: 1, },
+    { opcode: 0xEA, os: 1, imm1632: 1, skip: 1, },
     { opcode: 0xEB, imm: 1, skip: 1, },
 
     { opcode: 0xEC, skip: 1, },
@@ -374,7 +376,7 @@ const encodings = [
     { opcode: 0x0FC9, },
     { opcode: 0x0FCA, },
     { opcode: 0x0FCB, },
-    { opcode: 0x0FCC, skip: 1, }, // bswap esp
+    { opcode: 0x0FCC, },
     { opcode: 0x0FCD, },
     { opcode: 0x0FCE, },
     { opcode: 0x0FCF, },
@@ -1049,7 +1051,7 @@ function create_nasm(op, config)
         }
     }
 
-    if(op.imm || op.imm8 || op.imm1632 || op.immaddr)
+    if(op.imm || op.imm8 || op.imm16 || op.imm1632 || op.immaddr)
     {
         if(op.imm8 || (op.imm && size === 8))
         {
@@ -1064,9 +1066,9 @@ function create_nasm(op, config)
             }
             else
             {
-                console.assert(op.imm1632 || (op.imm && (size === 16 || size === 32)));
+                console.assert(op.imm1632 || op.imm16 || (op.imm && (size === 16 || size === 32)));
 
-                if(size === 16)
+                if(size === 16 || op.imm16)
                 {
                     codes.push("dw 34cdh");
                 }

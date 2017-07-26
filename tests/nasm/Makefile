@@ -12,7 +12,7 @@ all: $(source_files) $(host_executables) $(v86_executables) $(host_fixtures)
 
 # To run / debug locally
 build/%.bin: build/%.asm $(inc_files)
-	nasm -felf32 -o $@.o $<; ld -g $@.o -m elf_i386 -o $@
+	nasm -felf32 -o $@.o $<; ld -g $@.o -m elf_i386 --section-start=.bss=0x100000 -o $@
 
 # To generate a fixture using gdb
 build/%.fixture: build/%.bin
@@ -20,7 +20,7 @@ build/%.fixture: build/%.bin
 
 # To use as a multiboot kernel image for v86
 build/%.img: build/%.asm $(inc_files)
-	nasm -felf32 -o $@.o $<; ld -g $@.o -m elf_i386 --section-start=.text=0x8000 -o $@
+	nasm -felf32 -o $@.o $<; ld -g $@.o -m elf_i386 --section-start=.bss=0x100000 --section-start=.text=0x8000 -o $@
 
 build/%.asm: %.asm
 	mkdir -p build; cp $< $@
