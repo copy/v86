@@ -1410,7 +1410,6 @@ static void instr32_0FB6() { read_modrm_byte();
 
 static void instr16_0FB7() { read_modrm_byte();
     // movzx
-    dbg_assert_message(false, "Possibly invalid encoding");
     int32_t data = read_e16();
     write_g16(data);
 }
@@ -1558,7 +1557,6 @@ static void instr32_0FBE() { read_modrm_byte();
 
 static void instr16_0FBF() { read_modrm_byte();
     // movsx
-    dbg_assert_message(false, "Possibly invalid encoding");
     int32_t data = read_e16();
     write_g16(data);
 }
