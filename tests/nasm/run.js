@@ -21,6 +21,7 @@ const cluster = require('cluster');
 const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 99;
 const TEST_DIR = __dirname + "/build/";
 const DONE_MSG = 'DONE';
+const TERMINATE_MSG = 'DONE';
 
 const MASK_ARITH = 1 | 1 << 2 | 1 << 4 | 1 << 6 | 1 << 7 | 1 << 11;
 
@@ -101,7 +102,14 @@ if (cluster.isMaster) {
             current_test++;
         }
         else {
+            worker.send(TERMINATE_MSG);
             worker.disconnect();
+
+            setTimeout(() => {
+                // The emulator currently doesn't cleanly exit, so this is necessary
+                console.log("Worker killed");
+                worker.kill();
+            }, 100);
 
             finished_workers++;
             if(finished_workers === nr_of_cpus)
@@ -155,7 +163,7 @@ if (cluster.isMaster) {
         worker.on('online', send_work_to_worker.bind(null, worker));
 
         worker.on('exit', function(code, signal) {
-            if(code !== 0) {
+            if(code !== 0 &&  code !== null) {
                 console.log('Worker error code:', code);
                 process.exit(code);
             }
@@ -191,135 +199,143 @@ if (cluster.isMaster) {
     }
 }
 else {
-    function run_test(test, done) {
+    function run_test(test)
+    {
+        if(!loaded)
+        {
+            first_test = test;
+            return;
+        }
+
+        current_test = test;
         console.info('Testing', test.img_name);
 
-        let emulator = new V86({
-            multiboot: {
-                url: TEST_DIR + test.img_name
-            },
-            autostart: false
+        var cpu = emulator.v86.cpu;
+
+        cpu.reset();
+        cpu.reset_memory();
+        cpu.load_multiboot(new Uint8Array(fs.readFileSync(TEST_DIR + current_test.img_name)).buffer);
+
+        emulator.run();
+    }
+
+    let loaded = false;
+    let current_test = undefined;
+    let first_test = undefined;
+
+    let emulator = new V86({
+        autostart: false,
+        memory_size: 2 * 1024 * 1024,
+    });
+
+    emulator.add_listener("emulator-loaded", function()
+        {
+            loaded = true;
+
+            if(first_test)
+            {
+                run_test(first_test);
+            }
         });
 
-        //emulator.v86.cpu.debug.show = () => {};
+    emulator.bus.register('cpu-event-halt', function() {
+        emulator.stop();
+        var cpu = emulator.v86.cpu;
 
-        emulator.bus.register('cpu-event-halt', function() {
-            var cpu = emulator.v86.cpu;
+        const filename = TEST_DIR + current_test.img_name;
+        const evaluated_mmxs = cpu.reg_mmxs;
+        const evaluated_xmms = cpu.reg_xmm32s;
+        const esp = cpu.reg32s[4];
+        const evaluated_memory = new Int32Array(cpu.mem8.slice(0x120000 - 16 * 4, 0x120000).buffer);
+        let individual_failures = [];
 
-            const filename = TEST_DIR + test.img_name;
-            const evaluated_mmxs = cpu.reg_mmxs;
-            const evaluated_xmms = cpu.reg_xmm32s;
-            const esp = cpu.reg32s[4];
-            const evaluated_memory = new Int32Array(cpu.mem8.slice(0x120000 - 16 * 4, 0x120000).buffer);
-            let individual_failures = [];
+        if(current_test.exception)
+        {
+            throw "TODO: Handle exceptions";
+        }
 
-            if(test.exception)
-            {
-                throw "TODO: Handle exceptions";
-            }
+        console.assert(current_test.fixture.array);
+        if(current_test.fixture.array)
+        {
+            let offset = 0;
+            const expected_reg32s = current_test.fixture.array.slice(offset, offset += 8);
+            const expected_mmx_registers = current_test.fixture.array.slice(offset, offset += 16);
+            const expected_xmm_registers = current_test.fixture.array.slice(offset, offset += 32);
+            const expected_memory = current_test.fixture.array.slice(offset, offset += 16);
+            const expected_eflags = current_test.fixture.array[offset] & MASK_ARITH;
 
-            console.assert(test.fixture.array);
-            if(test.fixture.array)
-            {
-                let offset = 0;
-                const expected_reg32s = test.fixture.array.slice(offset, offset += 8);
-                const expected_mmx_registers = test.fixture.array.slice(offset, offset += 16);
-                const expected_xmm_registers = test.fixture.array.slice(offset, offset += 32);
-                const expected_memory = test.fixture.array.slice(offset, offset += 16);
-                const expected_eflags = test.fixture.array[offset] & MASK_ARITH;
-
-                for (let i = 0; i < cpu.reg32s.length; i++) {
-                    let reg = cpu.reg32s[i];
-                    if (reg !== expected_reg32s[i]) {
-                        individual_failures.push({
-                            name: "cpu.reg32s[" + i + "]",
-                            expected: expected_reg32s[i],
-                            actual: reg,
-                        });
-                    }
-                }
-
-                for (let i = 0; i < evaluated_mmxs.length; i++) {
-                    if (evaluated_mmxs[i] !== expected_mmx_registers[i]) {
-                        individual_failures.push({
-                            name: "mm" + (i >> 1) + ".int32[" + (i & 1) + "] (cpu.reg_mmx[" + i + "])",
-                            expected: expected_mmx_registers[i],
-                            actual: evaluated_mmxs[i],
-                        });
-                    }
-                }
-
-                for (let i = 0; i < evaluated_xmms.length; i++) {
-                    if (evaluated_xmms[i] !== expected_xmm_registers[i]) {
-                        individual_failures.push({
-                            name: "xmm" + (i >> 2) + ".int32[" + (i & 3) + "] (cpu.reg_xmm[" + i + "])",
-                            expected: expected_xmm_registers[i],
-                            actual: evaluated_xmms[i],
-                        });
-                    }
-                }
-
-                for (let i = 0; i < evaluated_memory.length; i++) {
-                    if (evaluated_memory[i] !== expected_memory[i]) {
-                        individual_failures.push({
-                            name: "mem[" + i + "]",
-                            expected: expected_memory[i],
-                            actual: evaluated_memory[i],
-                        });
-                    }
-                }
-
-                const seen_eflags = cpu.get_eflags() & MASK_ARITH;
-                if(seen_eflags !== expected_eflags)
-                {
+            for (let i = 0; i < cpu.reg32s.length; i++) {
+                let reg = cpu.reg32s[i];
+                if (reg !== expected_reg32s[i]) {
                     individual_failures.push({
-                        name: "eflags",
-                        expected: expected_eflags,
-                        actual: seen_eflags,
+                        name: "cpu.reg32s[" + i + "]",
+                        expected: expected_reg32s[i],
+                        actual: reg,
                     });
                 }
             }
 
-            if (individual_failures.length > 0) {
-                done({
-                    failures: individual_failures,
-                    img_name: test.img_name
+            for (let i = 0; i < evaluated_mmxs.length; i++) {
+                if (evaluated_mmxs[i] !== expected_mmx_registers[i]) {
+                    individual_failures.push({
+                        name: "mm" + (i >> 1) + ".int32[" + (i & 1) + "] (cpu.reg_mmx[" + i + "])",
+                        expected: expected_mmx_registers[i],
+                        actual: evaluated_mmxs[i],
+                    });
+                }
+            }
+
+            for (let i = 0; i < evaluated_xmms.length; i++) {
+                if (evaluated_xmms[i] !== expected_xmm_registers[i]) {
+                    individual_failures.push({
+                        name: "xmm" + (i >> 2) + ".int32[" + (i & 3) + "] (cpu.reg_xmm[" + i + "])",
+                        expected: expected_xmm_registers[i],
+                        actual: evaluated_xmms[i],
+                    });
+                }
+            }
+
+            for (let i = 0; i < evaluated_memory.length; i++) {
+                if (evaluated_memory[i] !== expected_memory[i]) {
+                    individual_failures.push({
+                        name: "mem[" + i + "]",
+                        expected: expected_memory[i],
+                        actual: evaluated_memory[i],
+                    });
+                }
+            }
+
+            const seen_eflags = cpu.get_eflags() & MASK_ARITH;
+            if(seen_eflags !== expected_eflags)
+            {
+                individual_failures.push({
+                    name: "eflags",
+                    expected: expected_eflags,
+                    actual: seen_eflags,
                 });
             }
-            else {
-                done();
-            }
+        }
 
-        });
-
-        emulator.bus.register('emulator-ready', function() {
-            try {
-                emulator.run();
-            }
-            catch(e) {
-                console.log(e);
-            }
-        });
-    }
-
-    // To silence logs from emulator in the worker
-    console.log = () => {};
-
-    process.on('uncaughtException', (err) => {
-        if (err !== 'HALT') {
-            console.error(err);
-            throw err;
+        if (individual_failures.length > 0) {
+            process.send({
+                failures: individual_failures,
+                img_name: current_test.img_name
+            });
+        }
+        else {
+            process.send(DONE_MSG);
         }
     });
 
-    cluster.worker.on('message', function(test) {
-        run_test(test, function(test_failure) {
-            if (test_failure) {
-                process.send(test_failure);
-            }
-            else {
-                process.send(DONE_MSG);
-            }
-        });
+    cluster.worker.on('message', function(message) {
+        if(message === TERMINATE_MSG)
+        {
+            emulator.stop();
+            emulator = null;
+        }
+        else
+        {
+            run_test(message);
+        }
     });
 }

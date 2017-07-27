@@ -26,6 +26,8 @@ function v86(bus, wm)
 
 v86.prototype.run = function()
 {
+    this.stopped = false;
+
     if(!this.running)
     {
         this.bus.send("emulator-started");

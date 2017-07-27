@@ -615,6 +615,8 @@ function V86Starter(options)
                 {
                     this.bus.send("cpu-run");
                 }
+
+                this.emulator_bus.send("emulator-loaded");
             }.bind(this), 0);
         }.bind(this), 0);
     }

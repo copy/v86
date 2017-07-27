@@ -603,6 +603,11 @@ CPU.prototype.reset = function()
     this.fw_value[0] = 0;
 };
 
+CPU.prototype.reset_memory = function()
+{
+    this.mem8.fill(0);
+};
+
 /** @export */
 CPU.prototype.create_memory = function(size)
 {
@@ -1267,13 +1272,19 @@ CPU.prototype.run_prefix_instruction = function()
 
 CPU.prototype.hlt_loop = function()
 {
-    dbg_assert(this.flags[0] & flag_interrupt);
-    //dbg_log("In HLT loop", LOG_CPU);
+    if(this.flags[0] & flag_interrupt)
+    {
+        //dbg_log("In HLT loop", LOG_CPU);
 
-    this.run_hardware_timers(v86.microtick());
-    this.handle_irqs();
+        this.run_hardware_timers(v86.microtick());
+        this.handle_irqs();
 
-    return 0;
+        return 0;
+    }
+    else
+    {
+        return 100;
+    }
 };
 
 CPU.prototype.run_hardware_timers = function(now)
@@ -3161,29 +3172,25 @@ CPU.prototype.hlt_op = function()
 
     if((this.flags[0] & flag_interrupt) === 0)
     {
-        this.debug.show("cpu halted");
+        // execution can never resume (until NMIs are supported)
         this.bus.send("cpu-event-halt");
-        if(DEBUG) this.debug.dump_regs();
-        throw "HALT";
     }
-    else
-    {
-        // get out of here and into hlt_loop
-        this.in_hlt = true;
 
-        //if(false) // possibly unsafe, test in safari
-        //{
-        //    this.hlt_loop();
-        //    this.diverged();
-        //    if(this.in_hlt)
-        //    {
-        //        throw MAGIC_CPU_EXCEPTION;
-        //    }
-        //}
-        //else
-        {
-            throw MAGIC_CPU_EXCEPTION;
-        }
+    // get out of here and into hlt_loop
+    this.in_hlt = true;
+
+    //if(false) // possibly unsafe, test in safari
+    //{
+    //    this.hlt_loop();
+    //    this.diverged();
+    //    if(this.in_hlt)
+    //    {
+    //        throw MAGIC_CPU_EXCEPTION;
+    //    }
+    //}
+    //else
+    {
+        throw MAGIC_CPU_EXCEPTION;
     }
 };
 
