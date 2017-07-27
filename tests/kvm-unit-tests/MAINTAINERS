@@ -76,6 +76,13 @@ F: powerpc/*
 F: lib/powerpc/*
 F: lib/ppc64/*
 
+S390X
+M: Thomas Huth <thuth@redhat.com>
+M: David Hildenbrand <david@redhat.com>
+L: kvm@vger.kernel.org
+F: s390x/*
+F: lib/s390x/*
+
 X86
 M: Paolo Bonzini <pbonzini@redhat.com>
 M: Radim Krčmář <rkrcmar@redhat.com>

@@ -75,7 +75,7 @@ void test_xsave(void)
     printf("Legal instruction testing:\n");
 
     supported_xcr0 = get_supported_xcr0();
-    printf("Supported XCR0 bits: 0x%lx\n", supported_xcr0);
+    printf("Supported XCR0 bits: %#lx\n", supported_xcr0);
 
     test_bits = XSTATE_FP | XSTATE_SSE;
     report("Check minimal XSAVE required bits",

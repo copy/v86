@@ -2,12 +2,12 @@
 #define _BITOPS_H_
 
 /*
- * Adapated from
+ * Adapted from
  *   include/linux/bitops.h
  *
- * Copyright (C) 2015, Red Hat Inc, Andrew Jones <drjones@redhat.com>
+ * Copyright (C) 2017, Red Hat Inc, Andrew Jones <drjones@redhat.com>
  *
- * This work is licensed under the terms of the GNU LGPL, version 2.
+ * This work is licensed under the terms of the GNU GPL, version 2.
  */
 
 #define BITS_PER_LONG_LONG	64

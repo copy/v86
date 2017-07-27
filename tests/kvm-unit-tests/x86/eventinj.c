@@ -171,7 +171,7 @@ static void nmi_iret_isr(struct ex_regs *r)
 static void tirq0(isr_regs_t *r)
 {
 	printf("irq0 running\n");
-	if (test_count != 0)
+	if (test_count == 1)
 		test_count++;
 	eoi();
 }

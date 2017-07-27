@@ -115,9 +115,9 @@ static void vtd_dump_init_info(void)
 	/* Major version >= 1 */
 	assert(((version >> 3) & 0xf) >= 1);
 
-	printf("VT-d version:   0x%x\n", version);
-	printf("     cap:       0x%016lx\n", vtd_readq(DMAR_CAP_REG));
-	printf("     ecap:      0x%016lx\n", vtd_readq(DMAR_ECAP_REG));
+	printf("VT-d version:   %#x\n", version);
+	printf("     cap:       %#018lx\n", vtd_readq(DMAR_CAP_REG));
+	printf("     ecap:      %#018lx\n", vtd_readq(DMAR_ECAP_REG));
 }
 
 static void vtd_setup_root_table(void)
@@ -127,7 +127,7 @@ static void vtd_setup_root_table(void)
 	memset(root, 0, PAGE_SIZE);
 	vtd_writeq(DMAR_RTADDR_REG, virt_to_phys(root));
 	vtd_gcmd_or(VTD_GCMD_ROOT);
-	printf("DMAR table address: 0x%016lx\n", vtd_root_table());
+	printf("DMAR table address: %#018lx\n", vtd_root_table());
 }
 
 static void vtd_setup_ir_table(void)
@@ -138,7 +138,7 @@ static void vtd_setup_ir_table(void)
 	/* 0xf stands for table size (2^(0xf+1) == 65536) */
 	vtd_writeq(DMAR_IRTA_REG, virt_to_phys(root) | 0xf);
 	vtd_gcmd_or(VTD_GCMD_IR_TABLE);
-	printf("IR table address: 0x%016lx\n", vtd_ir_table());
+	printf("IR table address: %#018lx\n", vtd_ir_table());
 }
 
 static void vtd_install_pte(vtd_pte_t *root, iova_t iova,
@@ -219,14 +219,14 @@ void vtd_map_range(uint16_t sid, iova_t iova, phys_addr_t pa, size_t size)
 		ce->present = 1;
 		/* No error reporting yet */
 		ce->disable_fault_report = 1;
-		printf("allocated vt-d context entry for devfn 0x%x\n",
+		printf("allocated vt-d context entry for devfn %#x\n",
 		       devfn);
 	} else
 		slptptr = phys_to_virt(ce->slptptr << VTD_PAGE_SHIFT);
 
 	while (size) {
 		/* TODO: currently we only map 4K pages (level = 1) */
-		printf("map 4K page IOVA 0x%lx to 0x%lx (sid=0x%04x)\n",
+		printf("map 4K page IOVA %#lx to %#lx (sid=%#06x)\n",
 		       iova, pa, sid);
 		vtd_install_pte(slptptr, iova, pa, 1);
 		size -= VTD_PAGE_SIZE;
@@ -324,7 +324,7 @@ bool vtd_setup_msi(struct pci_dev *dev, int vector, int dest_id)
 	msi_addr.head = 0xfee;
 	msi_data.subhandle = 0;
 
-	printf("%s: msi_addr=0x%" PRIx64 ", msi_data=0x%x\n", __func__,
+	printf("%s: msi_addr=%#" PRIx64 ", msi_data=%#x\n", __func__,
 		*(uint64_t *)&msi_addr, *(uint32_t *)&msi_data);
 
 	return pci_setup_msi(dev, *(uint64_t *)&msi_addr,

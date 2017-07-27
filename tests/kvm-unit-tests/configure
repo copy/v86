@@ -1,17 +1,20 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
+srcdir=$(cd "$(dirname "$0")"; pwd)
 prefix=/usr/local
 cc=gcc
+cxx=g++
 ld=ld
 objcopy=objcopy
 objdump=objdump
 ar=ar
 addr2line=addr2line
-arch=i386
+arch=`uname -m | sed -e 's/i.86/i386/;s/arm.*/arm/;s/ppc64.*/ppc64/'`
 host=$arch
 cross_prefix=
 endian=""
 pretty_print_stacks=yes
+environ_default=yes
 u32_long=
 
 usage() {
@@ -23,11 +26,15 @@ usage() {
 	    --processor=PROCESSOR  processor to compile for ($arch)
 	    --cross-prefix=PREFIX  cross compiler prefix
 	    --cc=CC		   c compiler to use ($cc)
+	    --cxx=CXX		   c++ compiler to use ($cxx)
 	    --ld=LD		   ld linker to use ($ld)
 	    --prefix=PREFIX        where to install things ($prefix)
 	    --endian=ENDIAN        endianness to compile for (little or big, ppc64 only)
 	    --[enable|disable]-pretty-print-stacks
 	                           enable or disable pretty stack printing (enabled by default)
+	    --[enable|disable]-default-environ
+	                           enable or disable the generation of a default environ when
+	                           no environ is provided by the user (enabled by default)
 EOF
     exit 1
 }
@@ -58,6 +65,9 @@ while [[ "$1" = -* ]]; do
 	--cc)
 	    cc="$arg"
 	    ;;
+	--cxx)
+	    cxx="$arg"
+	    ;;
 	--ld)
 	    ld="$arg"
 	    ;;
@@ -66,6 +76,12 @@ while [[ "$1" = -* ]]; do
 	    ;;
 	--disable-pretty-print-stacks)
 	    pretty_print_stacks=no
+	    ;;
+	--enable-default-environ)
+	    environ_default=yes
+	    ;;
+	--disable-default-environ)
+	    environ_default=no
 	    ;;
 	--help)
 	    usage
@@ -102,12 +118,12 @@ elif [ "$arch" = "ppc64" ]; then
 else
     testdir=$arch
 fi
-if [ ! -d $testdir ]; then
+if [ ! -d "$srcdir/$testdir" ]; then
     echo "$testdir does not exist!"
     exit 1
 fi
-if [ -f $testdir/run ]; then
-    ln -fs $testdir/run $testdir-run
+if [ -f "$srcdir/$testdir/run" ]; then
+    ln -fs "$srcdir/$testdir/run" $testdir-run
 fi
 
 # check if uint32_t needs a long format modifier
@@ -117,42 +133,56 @@ EOF
 u32_long=$($cross_prefix$cc -E lib-test.c | grep -v '^#' | grep -q long && echo yes)
 rm -f lib-test.c
 
-# check for dependent 32 bit libraries
-if [ "$arch" != "arm" ]; then
-cat << EOF > lib_test.c
-#include <stdc++.h>
-#include <boost_thread-mt.h>
-#include <pthread.h>
-
-int main ()
-{}
-EOF
-$cc -m32 -o /dev/null lib_test.c &> /dev/null
-exit=$?
-if [ $exit -eq 0 ]; then
-    api=true
+# api/: check for dependent 32 bit libraries and gnu++11 support
+if [ "$testdir" = "x86" ]; then
+    echo 'int main () {}' > lib-test.c
+    $cc -m32 -o /dev/null -lstdc++ -lpthread -lrt lib-test.c &> /dev/null
+    exit=$?
+    $cxx -m32 -o /dev/null -std=gnu++11 lib-test.c &> /dev/null
+    if [ $? -eq 0 -a $exit -eq 0 ]; then
+        api=true
+    fi
+    rm -f lib-test.c
 fi
-rm -f lib_test.c
+
+# Are we in a separate build tree? If so, link the Makefile
+# and shared stuff so that 'make' and run_tests.sh work.
+if test ! -e Makefile; then
+    echo "linking Makefile..."
+    ln -s "$srcdir/Makefile" .
+
+    echo "linking tests..."
+    mkdir -p $testdir
+    ln -sf "$srcdir/$testdir/run" $testdir/
+    ln -sf "$srcdir/$testdir/unittests.cfg" $testdir/
+    ln -sf "$srcdir/run_tests.sh"
+
+    echo "linking scripts..."
+    ln -sf "$srcdir/scripts"
 fi
 
 # link lib/asm for the architecture
 rm -f lib/asm
 asm=asm-generic
-if [ -d lib/$arch/asm ]; then
-	asm=$arch/asm
-elif [ -d lib/$testdir/asm ]; then
-	asm=$testdir/asm
+if [ -d "$srcdir/lib/$arch/asm" ]; then
+	asm="$srcdir/lib/$arch/asm"
+elif [ -d "$srcdir/lib/$testdir/asm" ]; then
+	asm="$srcdir/lib/$testdir/asm"
 fi
-ln -s $asm lib/asm
+mkdir -p lib
+ln -sf "$asm" lib/asm
+
 
 # create the config
 cat <<EOF > config.mak
+SRCDIR=$srcdir
 PREFIX=$prefix
 HOST=$host
 ARCH=$arch
 ARCH_NAME=$arch_name
 PROCESSOR=$processor
 CC=$cross_prefix$cc
+CXX=$cross_prefix$cxx
 LD=$cross_prefix$ld
 OBJCOPY=$cross_prefix$objcopy
 OBJDUMP=$cross_prefix$objdump
@@ -163,5 +193,7 @@ TEST_DIR=$testdir
 FIRMWARE=$firmware
 ENDIAN=$endian
 PRETTY_PRINT_STACKS=$pretty_print_stacks
+ENVIRON_DEFAULT=$environ_default
+ERRATATXT=errata.txt
 U32_LONG_FMT=$u32_long
 EOF

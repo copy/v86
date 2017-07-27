@@ -73,7 +73,7 @@ union cpuid10_edx {
 } edx;
 
 struct pmu_event {
-	char *name;
+	const char *name;
 	uint32_t unit_sel;
 	int min;
 	int max;

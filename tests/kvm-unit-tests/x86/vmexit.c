@@ -387,6 +387,32 @@ static bool pci_io_next(struct test *test)
 	return ret;
 }
 
+static int has_tscdeadline(void)
+{
+    uint32_t lvtt;
+
+    if (cpuid(1).c & (1 << 24)) {
+        lvtt = APIC_LVT_TIMER_TSCDEADLINE | IPI_TEST_VECTOR;
+        apic_write(APIC_LVTT, lvtt);
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static void tscdeadline_immed(void)
+{
+	wrmsr(MSR_IA32_TSCDEADLINE, rdtsc());
+	asm volatile("nop");
+}
+
+static void tscdeadline(void)
+{
+	x = 0;
+	wrmsr(MSR_IA32_TSCDEADLINE, rdtsc()+3000);
+	while (x == 0) barrier();
+}
+
 static struct test tests[] = {
 	{ cpuid_test, "cpuid", .parallel = 1,  },
 	{ vmcall, "vmcall", .parallel = 1, },
@@ -399,6 +425,8 @@ static struct test tests[] = {
 	{ inl_nop_kernel, "inl_from_kernel", .parallel = 1 },
 	{ outl_elcr_kernel, "outl_to_kernel", .parallel = 1 },
 	{ mov_dr, "mov_dr", .parallel = 1 },
+	{ tscdeadline_immed, "tscdeadline_immed", has_tscdeadline, .parallel = 1, },
+	{ tscdeadline, "tscdeadline", has_tscdeadline, .parallel = 1, },
 	{ self_ipi_sti_nop, "self_ipi_sti_nop", .parallel = 0, },
 	{ self_ipi_sti_hlt, "self_ipi_sti_hlt", .parallel = 0, },
 	{ self_ipi_tpr, "self_ipi_tpr", .parallel = 0, },
@@ -419,7 +447,6 @@ static struct test tests[] = {
 };
 
 unsigned iterations;
-static atomic_t nr_cpus_done;
 
 static void run_test(void *_func)
 {
@@ -428,8 +455,6 @@ static void run_test(void *_func)
 
     for (i = 0; i < iterations; ++i)
         func();
-
-    atomic_inc(&nr_cpus_done);
 }
 
 static bool do_test(struct test *test)
@@ -463,11 +488,7 @@ static bool do_test(struct test *test)
 			for (i = 0; i < iterations; ++i)
 				func();
 		} else {
-			atomic_set(&nr_cpus_done, 0);
-			for (i = cpu_count(); i > 0; i--)
-				on_cpu_async(i-1, run_test, func);
-			while (atomic_read(&nr_cpus_done) < cpu_count())
-				;
+			on_cpus(run_test, func);
 		}
 		t2 = rdtsc();
 	} while ((t2 - t1) < GOAL);
@@ -509,8 +530,7 @@ int main(int ac, char **av)
 	nr_cpus = cpu_count();
 
 	irq_enable();
-	for (i = cpu_count(); i > 0; i--)
-		on_cpu(i-1, enable_nx, 0);
+	on_cpus(enable_nx, NULL);
 
 	fadt = find_acpi_table_addr(FACP_SIGNATURE);
 	pm_tmr_blk = fadt->pm_tmr_blk;
@@ -524,7 +544,7 @@ int main(int ac, char **av)
 		membar = pcidev.resource[PCI_TESTDEV_BAR_MEM];
 		pci_test.memaddr = ioremap(membar, PAGE_SIZE);
 		pci_test.iobar = pcidev.resource[PCI_TESTDEV_BAR_IO];
-		printf("pci-testdev at 0x%x membar %lx iobar %x\n",
+		printf("pci-testdev at %#x membar %lx iobar %x\n",
 		       pcidev.bdf, membar, pci_test.iobar);
 	}
 

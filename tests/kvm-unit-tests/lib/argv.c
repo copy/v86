@@ -1,8 +1,16 @@
+/*
+ * Set up arguments for main() and prepare environment variables
+ *
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Library General Public License version 2.
+ */
+
 #include "libcflat.h"
+#include "argv.h"
 #include "auxinfo.h"
 
 int __argc;
-char *__args;
+const char *__args;
 char *__argv[100];
 char *__environ[200];
 
@@ -15,7 +23,7 @@ static char *copy_ptr = args_copy;
 #define isalpha(c) (((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' && (c) <= 'z') || (c) == '_')
 #define isalnum(c) (isalpha(c) || ((c) >= '0' && (c) <= '9'))
 
-static char *skip_blanks(char *p)
+static const char *skip_blanks(const char *p)
 {
 	while (isblank(*p))
 		++p;
@@ -24,7 +32,7 @@ static char *skip_blanks(char *p)
 
 void __setup_args(void)
 {
-	char *args = __args;
+	const char *args = __args;
 	char **argv = __argv + __argc;
 
 	while (*(args = skip_blanks(args)) != '\0') {
@@ -36,7 +44,7 @@ void __setup_args(void)
 	__argc = argv - __argv;
 }
 
-void setup_args(char *args)
+static void setup_args(const char *args)
 {
 	if (!args)
 		return;
@@ -45,16 +53,13 @@ void setup_args(char *args)
 	__setup_args();
 }
 
-void setup_args_progname(char *args)
+void setup_args_progname(const char *args)
 {
 	__argv[0] = copy_ptr;
 	strcpy(__argv[0], auxinfo.progname);
 	copy_ptr += strlen(auxinfo.progname) + 1;
 	++__argc;
-	if (args) {
-		__args = args;
-		__setup_args();
-	}
+	setup_args(args);
 }
 
 static char *env_eol(char *env)

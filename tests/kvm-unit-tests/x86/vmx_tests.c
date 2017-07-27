@@ -13,6 +13,10 @@
 #include "apic.h"
 #include "types.h"
 
+#define NONCANONICAL            0xaaaaaaaaaaaaaaaaull
+
+#define VPID_CAP_INVVPID_TYPES_SHIFT 40
+
 u64 ia32_pat;
 u64 ia32_efer;
 void *io_bitmap_a, *io_bitmap_b;
@@ -22,6 +26,18 @@ unsigned long *pml4;
 u64 eptp;
 void *data_page1, *data_page2;
 
+void *pml_log;
+#define PML_INDEX 512
+
+static inline unsigned ffs(unsigned x)
+{
+	int pos = -1;
+
+	__asm__ __volatile__("bsf %1, %%eax; cmovnz %%eax, %0"
+			     : "+r"(pos) : "rm"(x) : "eax");
+	return pos + 1;
+}
+
 static inline void vmcall()
 {
 	asm volatile("vmcall");
@@ -29,6 +45,7 @@ static inline void vmcall()
 
 void basic_guest_main()
 {
+	report("Basic VMX test", 1);
 }
 
 int basic_exit_handler()
@@ -163,7 +180,7 @@ int preemption_timer_exit_handler()
 			       saved_rip == guest_rip);
 			break;
 		default:
-			printf("Invalid stage.\n");
+			report("Invalid stage.", false);
 			print_vmexit_info();
 			break;
 		}
@@ -204,14 +221,14 @@ int preemption_timer_exit_handler()
 			break;
 		default:
 			// Should not reach here
-			printf("ERROR : unexpected stage, %d\n",
+			report("unexpected stage, %d", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
 		}
 		break;
 	default:
-		printf("Unknown exit reason, %ld\n", reason);
+		report("Unknown exit reason, %ld", false, reason);
 		print_vmexit_info();
 	}
 	vmcs_write(PIN_CONTROLS, vmcs_read(PIN_CONTROLS) & ~PIN_PREEMPT);
@@ -508,7 +525,7 @@ static int cr_shadowing_exit_handler()
 			break;
 		default:
 			// Should not reach here
-			printf("ERROR : unexpected stage, %d\n",
+			report("unexpected stage, %d", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -547,7 +564,7 @@ static int cr_shadowing_exit_handler()
 			break;
 		default:
 			// Should not reach here
-			printf("ERROR : unexpected stage, %d\n",
+			report("unexpected stage, %d", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -555,7 +572,7 @@ static int cr_shadowing_exit_handler()
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %ld\n", reason);
+		report("Unknown exit reason, %ld", false, reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -686,7 +703,7 @@ static int iobmp_exit_handler()
 			break;
 		default:
 			// Should not reach here
-			printf("ERROR : unexpected stage, %d\n",
+			report("unexpected stage, %d", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -707,7 +724,7 @@ static int iobmp_exit_handler()
 			break;
 		default:
 			// Should not reach here
-			printf("ERROR : unexpected stage, %d\n",
+			report("unexpected stage, %d", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -715,7 +732,7 @@ static int iobmp_exit_handler()
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		printf("guest_rip = 0x%lx\n", guest_rip);
+		printf("guest_rip = %#lx\n", guest_rip);
 		printf("\tERROR : Undefined exit reason, reason = %ld.\n", reason);
 		break;
 	}
@@ -732,7 +749,7 @@ static int iobmp_exit_handler()
 asm(
 	"insn_hlt: hlt;ret\n\t"
 	"insn_invlpg: invlpg 0x12345678;ret\n\t"
-	"insn_mwait: mwait;ret\n\t"
+	"insn_mwait: xor %eax, %eax; xor %ecx, %ecx; mwait;ret\n\t"
 	"insn_rdpmc: xor %ecx, %ecx; rdpmc;ret\n\t"
 	"insn_rdtsc: rdtsc;ret\n\t"
 	"insn_cr3_load: mov cr3,%rax; mov %rax,%cr3;ret\n\t"
@@ -741,7 +758,7 @@ asm(
 	"insn_cr8_load: mov %rax,%cr8;ret\n\t"
 	"insn_cr8_store: mov %cr8,%rax;ret\n\t"
 #endif
-	"insn_monitor: monitor;ret\n\t"
+	"insn_monitor: xor %eax, %eax; xor %ecx, %ecx; xor %edx, %edx; monitor;ret\n\t"
 	"insn_pause: pause;ret\n\t"
 	"insn_wbinvd: wbinvd;ret\n\t"
 	"insn_cpuid: mov $10, %eax; cpuid;ret\n\t"
@@ -939,10 +956,18 @@ static int insn_intercept_exit_handler()
 }
 
 
-static int setup_ept()
+/* Enables EPT and sets up the identity map. */
+static int setup_ept(bool enable_ad)
 {
-	int support_2m;
 	unsigned long end_of_memory;
+	u32 ctrl_cpu[2];
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
+	    !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
+		printf("\tEPT is not supported");
+		return 1;
+	}
+
 
 	if (!(ept_vpid.val & EPT_CAP_UC) &&
 			!(ept_vpid.val & EPT_CAP_WB)) {
@@ -958,32 +983,6 @@ static int setup_ept()
 		printf("\tPWL4 is not supported\n");
 		return 1;
 	}
-	eptp |= (3 << EPTP_PG_WALK_LEN_SHIFT);
-	pml4 = alloc_page();
-	memset(pml4, 0, PAGE_SIZE);
-	eptp |= virt_to_phys(pml4);
-	vmcs_write(EPTP, eptp);
-	support_2m = !!(ept_vpid.val & EPT_CAP_2M_PAGE);
-	end_of_memory = fwcfg_get_u64(FW_CFG_RAM_SIZE);
-	if (end_of_memory < (1ul << 32))
-		end_of_memory = (1ul << 32);
-	setup_ept_range(pml4, 0, end_of_memory, 0, support_2m,
-			EPT_WA | EPT_RA | EPT_EA);
-	return 0;
-}
-
-static int apic_version;
-
-static int ept_init()
-{
-	u32 ctrl_cpu[2];
-
-	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
-	    !(ctrl_cpu_rev[1].clr & CPU_EPT)) {
-		printf("\tEPT is not supported");
-		return VMX_TEST_EXIT;
-	}
-
 	ctrl_cpu[0] = vmcs_read(CPU_EXEC_CTRL0);
 	ctrl_cpu[1] = vmcs_read(CPU_EXEC_CTRL1);
 	ctrl_cpu[0] = (ctrl_cpu[0] | CPU_SECONDARY)
@@ -992,7 +991,49 @@ static int ept_init()
 		& ctrl_cpu_rev[1].clr;
 	vmcs_write(CPU_EXEC_CTRL0, ctrl_cpu[0]);
 	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu[1]);
-	if (setup_ept())
+	eptp |= (3 << EPTP_PG_WALK_LEN_SHIFT);
+	pml4 = alloc_page();
+	memset(pml4, 0, PAGE_SIZE);
+	eptp |= virt_to_phys(pml4);
+	if (enable_ad)
+		eptp |= EPTP_AD_FLAG;
+	vmcs_write(EPTP, eptp);
+	end_of_memory = fwcfg_get_u64(FW_CFG_RAM_SIZE);
+	if (end_of_memory < (1ul << 32))
+		end_of_memory = (1ul << 32);
+	/* Cannot use large EPT pages if we need to track EPT
+	 * accessed/dirty bits at 4K granularity.
+	 */
+	setup_ept_range(pml4, 0, end_of_memory, 0,
+			!enable_ad && ept_2m_supported(),
+			EPT_WA | EPT_RA | EPT_EA);
+	return 0;
+}
+
+static void ept_enable_ad_bits(void)
+{
+	eptp |= EPTP_AD_FLAG;
+	vmcs_write(EPTP, eptp);
+}
+
+static void ept_disable_ad_bits(void)
+{
+	eptp &= ~EPTP_AD_FLAG;
+	vmcs_write(EPTP, eptp);
+}
+
+static void ept_enable_ad_bits_or_skip_test(void)
+{
+	if (!ept_ad_bits_supported())
+		test_skip("EPT AD bits not supported.");
+	ept_enable_ad_bits();
+}
+
+static int apic_version;
+
+static int ept_init_common(bool have_ad)
+{
+	if (setup_ept(have_ad))
 		return VMX_TEST_EXIT;
 	data_page1 = alloc_page();
 	data_page2 = alloc_page();
@@ -1003,11 +1044,16 @@ static int ept_init()
 	install_ept(pml4, (unsigned long)data_page1, (unsigned long)data_page2,
 			EPT_RA | EPT_WA | EPT_EA);
 
-	apic_version = *((u32 *)0xfee00030UL);
+	apic_version = apic_read(APIC_LVR);
 	return VMX_TEST_START;
 }
 
-static void ept_main()
+static int ept_init()
+{
+	return ept_init_common(false);
+}
+
+static void ept_common()
 {
 	vmx_set_test_stage(0);
 	if (*((u32 *)data_page2) != MAGIC_VAL_1 ||
@@ -1047,6 +1093,11 @@ t1:
 	vmcall();
 	*((u32 *)data_page1) = MAGIC_VAL_2;
 	report("EPT violation - paging structure", vmx_get_test_stage() == 5);
+}
+
+static void ept_main()
+{
+	ept_common();
 
 	// Test EPT access to L1 MMIO
 	vmx_set_test_stage(6);
@@ -1075,15 +1126,63 @@ bool invept_test(int type, u64 eptp)
 	return true;
 }
 
-static int ept_exit_handler()
+static int pml_exit_handler(void)
+{
+	u16 index, count;
+	ulong reason = vmcs_read(EXI_REASON) & 0xff;
+	u64 *pmlbuf = pml_log;
+	u64 guest_rip = vmcs_read(GUEST_RIP);;
+	u64 guest_cr3 = vmcs_read(GUEST_CR3);
+	u32 insn_len = vmcs_read(EXI_INST_LEN);
+
+	switch (reason) {
+	case VMX_VMCALL:
+		switch (vmx_get_test_stage()) {
+		case 0:
+			index = vmcs_read(GUEST_PML_INDEX);
+			for (count = index + 1; count < PML_INDEX; count++) {
+				if (pmlbuf[count] == (u64)data_page2) {
+					vmx_inc_test_stage();
+					clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page2);
+					break;
+				}
+			}
+			break;
+		case 1:
+			index = vmcs_read(GUEST_PML_INDEX);
+			/* Keep clearing the dirty bit till a overflow */
+			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page2);
+			break;
+		default:
+			report("unexpected stage, %d.", false,
+			       vmx_get_test_stage());
+			print_vmexit_info();
+			return VMX_TEST_VMEXIT;
+		}
+		vmcs_write(GUEST_RIP, guest_rip + insn_len);
+		return VMX_TEST_RESUME;
+	case VMX_PML_FULL:
+		vmx_inc_test_stage();
+		vmcs_write(GUEST_PML_INDEX, PML_INDEX - 1);
+		return VMX_TEST_RESUME;
+	default:
+		report("Unknown exit reason, %ld", false, reason);
+		print_vmexit_info();
+	}
+	return VMX_TEST_VMEXIT;
+}
+
+static int ept_exit_handler_common(bool have_ad)
 {
 	u64 guest_rip;
+	u64 guest_cr3;
 	ulong reason;
 	u32 insn_len;
 	u32 exit_qual;
 	static unsigned long data_page1_pte, data_page1_pte_pte;
 
 	guest_rip = vmcs_read(GUEST_RIP);
+	guest_cr3 = vmcs_read(GUEST_CR3);
 	reason = vmcs_read(EXI_REASON) & 0xff;
 	insn_len = vmcs_read(EXI_INST_LEN);
 	exit_qual = vmcs_read(EXI_QUALIFICATION);
@@ -1091,6 +1190,18 @@ static int ept_exit_handler()
 	case VMX_VMCALL:
 		switch (vmx_get_test_stage()) {
 		case 0:
+			check_ept_ad(pml4, guest_cr3,
+				     (unsigned long)data_page1,
+				     have_ad ? EPT_ACCESS_FLAG : 0,
+				     have_ad ? EPT_ACCESS_FLAG | EPT_DIRTY_FLAG : 0);
+			check_ept_ad(pml4, guest_cr3,
+				     (unsigned long)data_page2,
+				     have_ad ? EPT_ACCESS_FLAG | EPT_DIRTY_FLAG : 0,
+				     have_ad ? EPT_ACCESS_FLAG | EPT_DIRTY_FLAG : 0);
+			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page1);
+			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page2);
+			if (have_ad)
+				ept_sync(INVEPT_SINGLE, eptp);;
 			if (*((u32 *)data_page1) == MAGIC_VAL_3 &&
 					*((u32 *)data_page2) == MAGIC_VAL_2) {
 				vmx_inc_test_stage();
@@ -1113,19 +1224,21 @@ static int ept_exit_handler()
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 3:
-			data_page1_pte = get_ept_pte(pml4,
-				(unsigned long)data_page1, 1);
+			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page1);
+			TEST_ASSERT(get_ept_pte(pml4, (unsigned long)data_page1,
+						1, &data_page1_pte));
 			set_ept_pte(pml4, (unsigned long)data_page1, 
-				1, data_page1_pte & (~EPT_PRESENT));
+				1, data_page1_pte & ~EPT_PRESENT);
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 4:
-			data_page1_pte = get_ept_pte(pml4,
-				(unsigned long)data_page1, 2);
+			TEST_ASSERT(get_ept_pte(pml4, (unsigned long)data_page1,
+						2, &data_page1_pte));
 			data_page1_pte &= PAGE_MASK;
-			data_page1_pte_pte = get_ept_pte(pml4, data_page1_pte, 2);
+			TEST_ASSERT(get_ept_pte(pml4, data_page1_pte,
+						2, &data_page1_pte_pte));
 			set_ept_pte(pml4, data_page1_pte, 2,
-				data_page1_pte_pte & (~EPT_PRESENT));
+				data_page1_pte_pte & ~EPT_PRESENT);
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 6:
@@ -1134,7 +1247,7 @@ static int ept_exit_handler()
 			break;
 		// Should not reach here
 		default:
-			printf("ERROR - unexpected stage, %d.\n",
+			report("ERROR - unexpected stage, %d.", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -1153,7 +1266,7 @@ static int ept_exit_handler()
 			break;
 		// Should not reach here
 		default:
-			printf("ERROR - unexpected stage, %d.\n",
+			report("ERROR - unexpected stage, %d.", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -1162,15 +1275,23 @@ static int ept_exit_handler()
 	case VMX_EPT_VIOLATION:
 		switch(vmx_get_test_stage()) {
 		case 3:
+			check_ept_ad(pml4, guest_cr3, (unsigned long)data_page1, 0,
+				     have_ad ? EPT_ACCESS_FLAG | EPT_DIRTY_FLAG : 0);
+			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page1);
 			if (exit_qual == (EPT_VLT_WR | EPT_VLT_LADDR_VLD |
 					EPT_VLT_PADDR))
 				vmx_inc_test_stage();
-			set_ept_pte(pml4, (unsigned long)data_page1, 
+			set_ept_pte(pml4, (unsigned long)data_page1,
 				1, data_page1_pte | (EPT_PRESENT));
 			ept_sync(INVEPT_SINGLE, eptp);
 			break;
 		case 4:
-			if (exit_qual == (EPT_VLT_RD | EPT_VLT_LADDR_VLD))
+			check_ept_ad(pml4, guest_cr3, (unsigned long)data_page1, 0,
+				     have_ad ? EPT_ACCESS_FLAG | EPT_DIRTY_FLAG : 0);
+			clear_ept_ad(pml4, guest_cr3, (unsigned long)data_page1);
+			if (exit_qual == (EPT_VLT_RD |
+					  (have_ad ? EPT_VLT_WR : 0) |
+					  EPT_VLT_LADDR_VLD))
 				vmx_inc_test_stage();
 			set_ept_pte(pml4, data_page1_pte, 2,
 				data_page1_pte_pte | (EPT_PRESENT));
@@ -1178,24 +1299,98 @@ static int ept_exit_handler()
 			break;
 		default:
 			// Should not reach here
-			printf("ERROR : unexpected stage, %d\n",
+			report("ERROR : unexpected stage, %d", false,
 			       vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
 		}
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %ld\n", reason);
+		report("Unknown exit reason, %ld", false, reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
+}
+
+static int ept_exit_handler()
+{
+	return ept_exit_handler_common(false);
+}
+
+static int eptad_init()
+{
+	int r = ept_init_common(true);
+
+	if (r == VMX_TEST_EXIT)
+		return r;
+
+	if ((rdmsr(MSR_IA32_VMX_EPT_VPID_CAP) & EPT_CAP_AD_FLAG) == 0) {
+		printf("\tEPT A/D bits are not supported");
+		return VMX_TEST_EXIT;
+	}
+
+	return r;
+}
+
+static int pml_init()
+{
+	u32 ctrl_cpu;
+	int r = eptad_init();
+
+	if (r == VMX_TEST_EXIT)
+		return r;
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
+		!(ctrl_cpu_rev[1].clr & CPU_PML)) {
+		printf("\tPML is not supported");
+		return VMX_TEST_EXIT;
+	}
+
+	pml_log = alloc_page();
+	memset(pml_log, 0x0, PAGE_SIZE);
+	vmcs_write(PMLADDR, (u64)pml_log);
+	vmcs_write(GUEST_PML_INDEX, PML_INDEX - 1);
+
+	ctrl_cpu = vmcs_read(CPU_EXEC_CTRL1) | CPU_PML;
+	vmcs_write(CPU_EXEC_CTRL1, ctrl_cpu);
+
+	return VMX_TEST_START;
+}
+
+static void pml_main()
+{
+	int count = 0;
+
+	vmx_set_test_stage(0);
+	*((u32 *)data_page2) = 0x1;
+	vmcall();
+	report("PML - Dirty GPA Logging", vmx_get_test_stage() == 1);
+
+	while (vmx_get_test_stage() == 1) {
+		vmcall();
+		*((u32 *)data_page2) = 0x1;
+		if (count++ > PML_INDEX)
+			break;
+	}
+	report("PML Full Event", vmx_get_test_stage() == 2);
+}
+
+static void eptad_main()
+{
+	ept_common();
+}
+
+static int eptad_exit_handler()
+{
+	return ept_exit_handler_common(true);
 }
 
 bool invvpid_test(int type, u16 vpid)
 {
 	bool ret, supported;
 
-	supported = ept_vpid.val & (VPID_CAP_INVVPID_SINGLE >> INVVPID_SINGLE << type);
+	supported = ept_vpid.val &
+		(VPID_CAP_INVVPID_ADDR >> INVVPID_ADDR << type);
 	ret = invvpid(type, vpid, 0);
 
 	if (ret == !supported)
@@ -1252,11 +1447,11 @@ static int vpid_exit_handler()
 	case VMX_VMCALL:
 		switch(vmx_get_test_stage()) {
 		case 0:
-			if (!invvpid_test(INVVPID_SINGLE_ADDRESS, 1))
+			if (!invvpid_test(INVVPID_ADDR, 1))
 				vmx_inc_test_stage();
 			break;
 		case 2:
-			if (!invvpid_test(INVVPID_SINGLE, 1))
+			if (!invvpid_test(INVVPID_CONTEXT_GLOBAL, 1))
 				vmx_inc_test_stage();
 			break;
 		case 4:
@@ -1264,7 +1459,7 @@ static int vpid_exit_handler()
 				vmx_inc_test_stage();
 			break;
 		default:
-			printf("ERROR: unexpected stage, %d\n",
+			report("ERROR: unexpected stage, %d", false,
 					vmx_get_test_stage());
 			print_vmexit_info();
 			return VMX_TEST_VMEXIT;
@@ -1272,7 +1467,7 @@ static int vpid_exit_handler()
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %ld\n", reason);
+		report("Unknown exit reason, %ld", false, reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1429,7 +1624,7 @@ static int interrupt_exit_handler(void)
 			vmcs_write(GUEST_ACTV_STATE, ACTV_ACTIVE);
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %ld\n", reason);
+		report("Unknown exit reason, %ld", false, reason);
 		print_vmexit_info();
 	}
 
@@ -1542,7 +1737,7 @@ static int dbgctls_exit_handler(void)
 		vmcs_write(GUEST_RIP, guest_rip + insn_len);
 		return VMX_TEST_RESUME;
 	default:
-		printf("Unknown exit reason, %d\n", reason);
+		report("Unknown exit reason, %d", false, reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1664,7 +1859,7 @@ static int vmmcall_exit_handler()
 		       (vmcs_read(EXI_INTR_INFO) & 0xff) == UD_VECTOR);
 		break;
 	default:
-		printf("Unknown exit reason, %ld\n", reason);
+		report("Unknown exit reason, %ld", false, reason);
 		print_vmexit_info();
 	}
 
@@ -1736,7 +1931,7 @@ static int disable_rdtscp_exit_handler(void)
 		break;
 
 	default:
-		printf("Unknown exit reason, %d\n", reason);
+		report("Unknown exit reason, %d", false, reason);
 		print_vmexit_info();
 	}
 	return VMX_TEST_VMEXIT;
@@ -1816,6 +2011,1385 @@ int into_exit_handler()
 	return VMX_TEST_VMEXIT;
 }
 
+static void exit_monitor_from_l2_main(void)
+{
+	printf("Calling exit(0) from l2...\n");
+	exit(0);
+}
+
+static int exit_monitor_from_l2_handler(void)
+{
+	report("The guest should have killed the VMM", false);
+	return VMX_TEST_EXIT;
+}
+
+static void assert_exit_reason(u64 expected)
+{
+	u64 actual = vmcs_read(EXI_REASON);
+
+	TEST_ASSERT_EQ_MSG(expected, actual, "Expected %s, got %s.",
+			   exit_reason_description(expected),
+			   exit_reason_description(actual));
+}
+
+static void skip_exit_vmcall()
+{
+	u64 guest_rip = vmcs_read(GUEST_RIP);
+	u32 insn_len = vmcs_read(EXI_INST_LEN);
+
+	assert_exit_reason(VMX_VMCALL);
+	vmcs_write(GUEST_RIP, guest_rip + insn_len);
+}
+
+static void v2_null_test_guest(void)
+{
+}
+
+static void v2_null_test(void)
+{
+	test_set_guest(v2_null_test_guest);
+	enter_guest();
+	report(__func__, 1);
+}
+
+static void v2_multiple_entries_test_guest(void)
+{
+	vmx_set_test_stage(1);
+	vmcall();
+	vmx_set_test_stage(2);
+}
+
+static void v2_multiple_entries_test(void)
+{
+	test_set_guest(v2_multiple_entries_test_guest);
+	enter_guest();
+	TEST_ASSERT_EQ(vmx_get_test_stage(), 1);
+	skip_exit_vmcall();
+	enter_guest();
+	TEST_ASSERT_EQ(vmx_get_test_stage(), 2);
+	report(__func__, 1);
+}
+
+static int fixture_test_data = 1;
+
+static void fixture_test_teardown(void *data)
+{
+	*((int *) data) = 1;
+}
+
+static void fixture_test_guest(void)
+{
+	fixture_test_data++;
+}
+
+
+static void fixture_test_setup(void)
+{
+	TEST_ASSERT_EQ_MSG(1, fixture_test_data,
+			   "fixture_test_teardown didn't run?!");
+	fixture_test_data = 2;
+	test_add_teardown(fixture_test_teardown, &fixture_test_data);
+	test_set_guest(fixture_test_guest);
+}
+
+static void fixture_test_case1(void)
+{
+	fixture_test_setup();
+	TEST_ASSERT_EQ(2, fixture_test_data);
+	enter_guest();
+	TEST_ASSERT_EQ(3, fixture_test_data);
+	report(__func__, 1);
+}
+
+static void fixture_test_case2(void)
+{
+	fixture_test_setup();
+	TEST_ASSERT_EQ(2, fixture_test_data);
+	enter_guest();
+	TEST_ASSERT_EQ(3, fixture_test_data);
+	report(__func__, 1);
+}
+
+enum ept_access_op {
+	OP_READ,
+	OP_WRITE,
+	OP_EXEC,
+	OP_FLUSH_TLB,
+	OP_EXIT,
+};
+
+static struct ept_access_test_data {
+	unsigned long gpa;
+	unsigned long *gva;
+	unsigned long hpa;
+	unsigned long *hva;
+	enum ept_access_op op;
+} ept_access_test_data;
+
+extern unsigned char ret42_start;
+extern unsigned char ret42_end;
+
+/* Returns 42. */
+asm(
+	".align 64\n"
+	"ret42_start:\n"
+	"mov $42, %eax\n"
+	"ret\n"
+	"ret42_end:\n"
+);
+
+static void
+diagnose_ept_violation_qual(u64 expected, u64 actual)
+{
+
+#define DIAGNOSE(flag)							\
+do {									\
+	if ((expected & flag) != (actual & flag))			\
+		printf(#flag " %sexpected\n",				\
+		       (expected & flag) ? "" : "un");			\
+} while (0)
+
+	DIAGNOSE(EPT_VLT_RD);
+	DIAGNOSE(EPT_VLT_WR);
+	DIAGNOSE(EPT_VLT_FETCH);
+	DIAGNOSE(EPT_VLT_PERM_RD);
+	DIAGNOSE(EPT_VLT_PERM_WR);
+	DIAGNOSE(EPT_VLT_PERM_EX);
+	DIAGNOSE(EPT_VLT_LADDR_VLD);
+	DIAGNOSE(EPT_VLT_PADDR);
+
+#undef DIAGNOSE
+}
+
+static void do_ept_access_op(enum ept_access_op op)
+{
+	ept_access_test_data.op = op;
+	enter_guest();
+}
+
+/*
+ * Force the guest to flush its TLB (i.e., flush gva -> gpa mappings). Only
+ * needed by tests that modify guest PTEs.
+ */
+static void ept_access_test_guest_flush_tlb(void)
+{
+	do_ept_access_op(OP_FLUSH_TLB);
+	skip_exit_vmcall();
+}
+
+/*
+ * Modifies the EPT entry at @level in the mapping of @gpa. First clears the
+ * bits in @clear then sets the bits in @set. @mkhuge transforms the entry into
+ * a huge page.
+ */
+static unsigned long ept_twiddle(unsigned long gpa, bool mkhuge, int level,
+				 unsigned long clear, unsigned long set)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	unsigned long orig_pte;
+	unsigned long pte;
+
+	/* Screw with the mapping at the requested level. */
+	TEST_ASSERT(get_ept_pte(pml4, gpa, level, &orig_pte));
+	pte = orig_pte;
+	if (mkhuge)
+		pte = (orig_pte & ~EPT_ADDR_MASK) | data->hpa | EPT_LARGE_PAGE;
+	else
+		pte = orig_pte;
+	pte = (pte & ~clear) | set;
+	set_ept_pte(pml4, gpa, level, pte);
+	ept_sync(INVEPT_SINGLE, eptp);
+
+	return orig_pte;
+}
+
+static void ept_untwiddle(unsigned long gpa, int level, unsigned long orig_pte)
+{
+	set_ept_pte(pml4, gpa, level, orig_pte);
+}
+
+static void do_ept_violation(bool leaf, enum ept_access_op op,
+			     u64 expected_qual, u64 expected_paddr)
+{
+	u64 qual;
+
+	/* Try the access and observe the violation. */
+	do_ept_access_op(op);
+
+	assert_exit_reason(VMX_EPT_VIOLATION);
+
+	qual = vmcs_read(EXI_QUALIFICATION);
+
+	diagnose_ept_violation_qual(expected_qual, qual);
+	TEST_EXPECT_EQ(expected_qual, qual);
+
+	#if 0
+	/* Disable for now otherwise every test will fail */
+	TEST_EXPECT_EQ(vmcs_read(GUEST_LINEAR_ADDRESS),
+		       (unsigned long) (
+			       op == OP_EXEC ? data->gva + 1 : data->gva));
+	#endif
+	/*
+	 * TODO: tests that probe expected_paddr in pages other than the one at
+	 * the beginning of the 1g region.
+	 */
+	TEST_EXPECT_EQ(vmcs_read(INFO_PHYS_ADDR), expected_paddr);
+}
+
+static void
+ept_violation_at_level_mkhuge(bool mkhuge, int level, unsigned long clear,
+			      unsigned long set, enum ept_access_op op,
+			      u64 expected_qual)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	unsigned long orig_pte;
+
+	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
+
+	do_ept_violation(level == 1 || mkhuge, op, expected_qual,
+			 op == OP_EXEC ? data->gpa + sizeof(unsigned long) :
+					 data->gpa);
+
+	/* Fix the violation and resume the op loop. */
+	ept_untwiddle(data->gpa, level, orig_pte);
+	enter_guest();
+	skip_exit_vmcall();
+}
+
+static void
+ept_violation_at_level(int level, unsigned long clear, unsigned long set,
+		       enum ept_access_op op, u64 expected_qual)
+{
+	ept_violation_at_level_mkhuge(false, level, clear, set, op,
+				      expected_qual);
+	if (ept_huge_pages_supported(level))
+		ept_violation_at_level_mkhuge(true, level, clear, set, op,
+					      expected_qual);
+}
+
+static void ept_violation(unsigned long clear, unsigned long set,
+			  enum ept_access_op op, u64 expected_qual)
+{
+	ept_violation_at_level(1, clear, set, op, expected_qual);
+	ept_violation_at_level(2, clear, set, op, expected_qual);
+	ept_violation_at_level(3, clear, set, op, expected_qual);
+	ept_violation_at_level(4, clear, set, op, expected_qual);
+}
+
+static void ept_access_violation(unsigned long access, enum ept_access_op op,
+				       u64 expected_qual)
+{
+	ept_violation(EPT_PRESENT, access, op,
+		      expected_qual | EPT_VLT_LADDR_VLD | EPT_VLT_PADDR);
+}
+
+/*
+ * For translations that don't involve a GVA, that is physical address (paddr)
+ * accesses, EPT violations don't set the flag EPT_VLT_PADDR.  For a typical
+ * guest memory access, the hardware does GVA -> GPA -> HPA.  However, certain
+ * translations don't involve GVAs, such as when the hardware does the guest
+ * page table walk. For example, in translating GVA_1 -> GPA_1, the guest MMU
+ * might try to set an A bit on a guest PTE. If the GPA_2 that the PTE resides
+ * on isn't present in the EPT, then the EPT violation will be for GPA_2 and
+ * the EPT_VLT_PADDR bit will be clear in the exit qualification.
+ *
+ * Note that paddr violations can also be triggered by loading PAE page tables
+ * with wonky addresses. We don't test that yet.
+ *
+ * This function modifies the EPT entry that maps the GPA that the guest page
+ * table entry mapping ept_access_data.gva resides on.
+ *
+ *	@ept_access	EPT permissions to set. Other permissions are cleared.
+ *
+ *	@pte_ad		Set the A/D bits on the guest PTE accordingly.
+ *
+ *	@op		Guest operation to perform with ept_access_data.gva.
+ *
+ *	@expect_violation
+ *			Is a violation expected during the paddr access?
+ *
+ *	@expected_qual	Expected qualification for the EPT violation.
+ *			EPT_VLT_PADDR should be clear.
+ */
+static void ept_access_paddr(unsigned long ept_access, unsigned long pte_ad,
+			     enum ept_access_op op, bool expect_violation,
+			     u64 expected_qual)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	unsigned long *ptep;
+	unsigned long gpa;
+	unsigned long orig_epte;
+
+	/* Modify the guest PTE mapping data->gva according to @pte_ad.  */
+	ptep = get_pte_level(current_page_table(), data->gva, /*level=*/1);
+	TEST_ASSERT(ptep);
+	TEST_ASSERT_EQ(*ptep & PT_ADDR_MASK, data->gpa);
+	*ptep = (*ptep & ~PT_AD_MASK) | pte_ad;
+	ept_access_test_guest_flush_tlb();
+
+	/*
+	 * Now modify the access bits on the EPT entry for the GPA that the
+	 * guest PTE resides on. Note that by modifying a single EPT entry,
+	 * we're potentially affecting 512 guest PTEs. However, we've carefully
+	 * constructed our test such that those other 511 PTEs aren't used by
+	 * the guest: data->gva is at the beginning of a 1G huge page, thus the
+	 * PTE we're modifying is at the beginning of a 4K page and the
+	 * following 511 entires are also under our control (and not touched by
+	 * the guest).
+	 */
+	gpa = virt_to_phys(ptep);
+	TEST_ASSERT_EQ(gpa & ~PAGE_MASK, 0);
+	/*
+	 * Make sure the guest page table page is mapped with a 4K EPT entry,
+	 * otherwise our level=1 twiddling below will fail. We use the
+	 * identity map (gpa = gpa) since page tables are shared with the host.
+	 */
+	install_ept(pml4, gpa, gpa, EPT_PRESENT);
+	orig_epte = ept_twiddle(gpa, /*mkhuge=*/0, /*level=*/1,
+				/*clear=*/EPT_PRESENT, /*set=*/ept_access);
+
+	if (expect_violation) {
+		do_ept_violation(/*leaf=*/true, op,
+				 expected_qual | EPT_VLT_LADDR_VLD, gpa);
+		ept_untwiddle(gpa, /*level=*/1, orig_epte);
+		do_ept_access_op(op);
+	} else {
+		do_ept_access_op(op);
+		ept_untwiddle(gpa, /*level=*/1, orig_epte);
+	}
+
+	TEST_ASSERT(*ptep & PT_ACCESSED_MASK);
+	if ((pte_ad & PT_DIRTY_MASK) || op == OP_WRITE)
+		TEST_ASSERT(*ptep & PT_DIRTY_MASK);
+
+	skip_exit_vmcall();
+}
+
+static void ept_access_allowed_paddr(unsigned long ept_access,
+				     unsigned long pte_ad,
+				     enum ept_access_op op)
+{
+	ept_access_paddr(ept_access, pte_ad, op, /*expect_violation=*/false,
+			 /*expected_qual=*/-1);
+}
+
+static void ept_access_violation_paddr(unsigned long ept_access,
+				       unsigned long pte_ad,
+				       enum ept_access_op op,
+				       u64 expected_qual)
+{
+	ept_access_paddr(ept_access, pte_ad, op, /*expect_violation=*/true,
+			 expected_qual);
+}
+
+
+static void ept_allowed_at_level_mkhuge(bool mkhuge, int level,
+					unsigned long clear,
+					unsigned long set,
+					enum ept_access_op op)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	unsigned long orig_pte;
+
+	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
+
+	/* No violation. Should proceed to vmcall. */
+	do_ept_access_op(op);
+	skip_exit_vmcall();
+
+	ept_untwiddle(data->gpa, level, orig_pte);
+}
+
+static void ept_allowed_at_level(int level, unsigned long clear,
+				 unsigned long set, enum ept_access_op op)
+{
+	ept_allowed_at_level_mkhuge(false, level, clear, set, op);
+	if (ept_huge_pages_supported(level))
+		ept_allowed_at_level_mkhuge(true, level, clear, set, op);
+}
+
+static void ept_allowed(unsigned long clear, unsigned long set,
+			enum ept_access_op op)
+{
+	ept_allowed_at_level(1, clear, set, op);
+	ept_allowed_at_level(2, clear, set, op);
+	ept_allowed_at_level(3, clear, set, op);
+	ept_allowed_at_level(4, clear, set, op);
+}
+
+static void ept_ignored_bit(int bit)
+{
+	/* Set the bit. */
+	ept_allowed(0, 1ul << bit, OP_READ);
+	ept_allowed(0, 1ul << bit, OP_WRITE);
+	ept_allowed(0, 1ul << bit, OP_EXEC);
+
+	/* Clear the bit. */
+	ept_allowed(1ul << bit, 0, OP_READ);
+	ept_allowed(1ul << bit, 0, OP_WRITE);
+	ept_allowed(1ul << bit, 0, OP_EXEC);
+}
+
+static void ept_access_allowed(unsigned long access, enum ept_access_op op)
+{
+	ept_allowed(EPT_PRESENT, access, op);
+}
+
+
+static void ept_misconfig_at_level_mkhuge_op(bool mkhuge, int level,
+					     unsigned long clear,
+					     unsigned long set,
+					     enum ept_access_op op)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	unsigned long orig_pte;
+
+	orig_pte = ept_twiddle(data->gpa, mkhuge, level, clear, set);
+
+	do_ept_access_op(op);
+	assert_exit_reason(VMX_EPT_MISCONFIG);
+
+	/* Intel 27.2.1, "For all other VM exits, this field is cleared." */
+	#if 0
+	/* broken: */
+	TEST_EXPECT_EQ_MSG(vmcs_read(EXI_QUALIFICATION), 0);
+	#endif
+	#if 0
+	/*
+	 * broken:
+	 * According to description of exit qual for EPT violation,
+	 * EPT_VLT_LADDR_VLD indicates if GUEST_LINEAR_ADDRESS is valid.
+	 * However, I can't find anything that says GUEST_LINEAR_ADDRESS ought
+	 * to be set for msiconfig.
+	 */
+	TEST_EXPECT_EQ(vmcs_read(GUEST_LINEAR_ADDRESS),
+		       (unsigned long) (
+			       op == OP_EXEC ? data->gva + 1 : data->gva));
+	#endif
+
+	/* Fix the violation and resume the op loop. */
+	ept_untwiddle(data->gpa, level, orig_pte);
+	enter_guest();
+	skip_exit_vmcall();
+}
+
+static void ept_misconfig_at_level_mkhuge(bool mkhuge, int level,
+					  unsigned long clear,
+					  unsigned long set)
+{
+	/* The op shouldn't matter (read, write, exec), so try them all! */
+	ept_misconfig_at_level_mkhuge_op(mkhuge, level, clear, set, OP_READ);
+	ept_misconfig_at_level_mkhuge_op(mkhuge, level, clear, set, OP_WRITE);
+	ept_misconfig_at_level_mkhuge_op(mkhuge, level, clear, set, OP_EXEC);
+}
+
+static void ept_misconfig_at_level(int level, unsigned long clear,
+				   unsigned long set)
+{
+	ept_misconfig_at_level_mkhuge(false, level, clear, set);
+	if (ept_huge_pages_supported(level))
+		ept_misconfig_at_level_mkhuge(true, level, clear, set);
+}
+
+static void ept_misconfig(unsigned long clear, unsigned long set)
+{
+	ept_misconfig_at_level(1, clear, set);
+	ept_misconfig_at_level(2, clear, set);
+	ept_misconfig_at_level(3, clear, set);
+	ept_misconfig_at_level(4, clear, set);
+}
+
+static void ept_access_misconfig(unsigned long access)
+{
+	ept_misconfig(EPT_PRESENT, access);
+}
+
+static void ept_reserved_bit_at_level_nohuge(int level, int bit)
+{
+	/* Setting the bit causes a misconfig. */
+	ept_misconfig_at_level_mkhuge(false, level, 0, 1ul << bit);
+
+	/* Making the entry non-present turns reserved bits into ignored. */
+	ept_violation_at_level(level, EPT_PRESENT, 1ul << bit, OP_READ,
+			       EPT_VLT_RD | EPT_VLT_LADDR_VLD | EPT_VLT_PADDR);
+}
+
+static void ept_reserved_bit_at_level_huge(int level, int bit)
+{
+	/* Setting the bit causes a misconfig. */
+	ept_misconfig_at_level_mkhuge(true, level, 0, 1ul << bit);
+
+	/* Making the entry non-present turns reserved bits into ignored. */
+	ept_violation_at_level(level, EPT_PRESENT, 1ul << bit, OP_READ,
+			       EPT_VLT_RD | EPT_VLT_LADDR_VLD | EPT_VLT_PADDR);
+}
+
+static void ept_reserved_bit_at_level(int level, int bit)
+{
+	/* Setting the bit causes a misconfig. */
+	ept_misconfig_at_level(level, 0, 1ul << bit);
+
+	/* Making the entry non-present turns reserved bits into ignored. */
+	ept_violation_at_level(level, EPT_PRESENT, 1ul << bit, OP_READ,
+			       EPT_VLT_RD | EPT_VLT_LADDR_VLD | EPT_VLT_PADDR);
+}
+
+static void ept_reserved_bit(int bit)
+{
+	ept_reserved_bit_at_level(1, bit);
+	ept_reserved_bit_at_level(2, bit);
+	ept_reserved_bit_at_level(3, bit);
+	ept_reserved_bit_at_level(4, bit);
+}
+
+#define PAGE_2M_ORDER 9
+#define PAGE_1G_ORDER 18
+
+static void *get_1g_page(void)
+{
+	static void *alloc;
+
+	if (!alloc)
+		alloc = alloc_pages(PAGE_1G_ORDER);
+	return alloc;
+}
+
+static void ept_access_test_teardown(void *unused)
+{
+	/* Exit the guest cleanly. */
+	do_ept_access_op(OP_EXIT);
+}
+
+static void ept_access_test_guest(void)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	int (*code)(void) = (int (*)(void)) &data->gva[1];
+
+	while (true) {
+		switch (data->op) {
+		case OP_READ:
+			TEST_ASSERT_EQ(*data->gva, MAGIC_VAL_1);
+			break;
+		case OP_WRITE:
+			*data->gva = MAGIC_VAL_2;
+			TEST_ASSERT_EQ(*data->gva, MAGIC_VAL_2);
+			*data->gva = MAGIC_VAL_1;
+			break;
+		case OP_EXEC:
+			TEST_ASSERT_EQ(42, code());
+			break;
+		case OP_FLUSH_TLB:
+			write_cr3(read_cr3());
+			break;
+		case OP_EXIT:
+			return;
+		default:
+			TEST_ASSERT_MSG(false, "Unknown op %d", data->op);
+		}
+		vmcall();
+	}
+}
+
+static void ept_access_test_setup(void)
+{
+	struct ept_access_test_data *data = &ept_access_test_data;
+	unsigned long npages = 1ul << PAGE_1G_ORDER;
+	unsigned long size = npages * PAGE_SIZE;
+	unsigned long *page_table = current_page_table();
+	unsigned long pte;
+
+	if (setup_ept(false))
+		test_skip("EPT not supported");
+
+	test_set_guest(ept_access_test_guest);
+	test_add_teardown(ept_access_test_teardown, NULL);
+
+	data->hva = get_1g_page();
+	TEST_ASSERT(data->hva);
+	data->hpa = virt_to_phys(data->hva);
+
+	data->gpa = 1ul << 40;
+	data->gva = (void *) ALIGN((unsigned long) alloc_vpages(npages * 2),
+				   size);
+	TEST_ASSERT(!any_present_pages(page_table, data->gva, size));
+	install_pages(page_table, data->gpa, size, data->gva);
+
+	/*
+	 * Make sure nothing's mapped here so the tests that screw with the
+	 * pml4 entry don't inadvertently break something.
+	 */
+	TEST_ASSERT(get_ept_pte(pml4, data->gpa, 4, &pte) && pte == 0);
+	TEST_ASSERT(get_ept_pte(pml4, data->gpa + size - 1, 4, &pte) && pte == 0);
+	install_ept(pml4, data->hpa, data->gpa, EPT_PRESENT);
+
+	data->hva[0] = MAGIC_VAL_1;
+	memcpy(&data->hva[1], &ret42_start, &ret42_end - &ret42_start);
+}
+
+static void ept_access_test_not_present(void)
+{
+	ept_access_test_setup();
+	/* --- */
+	ept_access_violation(0, OP_READ, EPT_VLT_RD);
+	ept_access_violation(0, OP_WRITE, EPT_VLT_WR);
+	ept_access_violation(0, OP_EXEC, EPT_VLT_FETCH);
+}
+
+static void ept_access_test_read_only(void)
+{
+	ept_access_test_setup();
+
+	/* r-- */
+	ept_access_allowed(EPT_RA, OP_READ);
+	ept_access_violation(EPT_RA, OP_WRITE, EPT_VLT_WR | EPT_VLT_PERM_RD);
+	ept_access_violation(EPT_RA, OP_EXEC, EPT_VLT_FETCH | EPT_VLT_PERM_RD);
+}
+
+static void ept_access_test_write_only(void)
+{
+	ept_access_test_setup();
+	/* -w- */
+	ept_access_misconfig(EPT_WA);
+}
+
+static void ept_access_test_read_write(void)
+{
+	ept_access_test_setup();
+	/* rw- */
+	ept_access_allowed(EPT_RA | EPT_WA, OP_READ);
+	ept_access_allowed(EPT_RA | EPT_WA, OP_WRITE);
+	ept_access_violation(EPT_RA | EPT_WA, OP_EXEC,
+			   EPT_VLT_FETCH | EPT_VLT_PERM_RD | EPT_VLT_PERM_WR);
+}
+
+
+static void ept_access_test_execute_only(void)
+{
+	ept_access_test_setup();
+	/* --x */
+	if (ept_execute_only_supported()) {
+		ept_access_violation(EPT_EA, OP_READ,
+				     EPT_VLT_RD | EPT_VLT_PERM_EX);
+		ept_access_violation(EPT_EA, OP_WRITE,
+				     EPT_VLT_WR | EPT_VLT_PERM_EX);
+		ept_access_allowed(EPT_EA, OP_EXEC);
+	} else {
+		ept_access_misconfig(EPT_EA);
+	}
+}
+
+static void ept_access_test_read_execute(void)
+{
+	ept_access_test_setup();
+	/* r-x */
+	ept_access_allowed(EPT_RA | EPT_EA, OP_READ);
+	ept_access_violation(EPT_RA | EPT_EA, OP_WRITE,
+			   EPT_VLT_WR | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX);
+	ept_access_allowed(EPT_RA | EPT_EA, OP_EXEC);
+}
+
+static void ept_access_test_write_execute(void)
+{
+	ept_access_test_setup();
+	/* -wx */
+	ept_access_misconfig(EPT_WA | EPT_EA);
+}
+
+static void ept_access_test_read_write_execute(void)
+{
+	ept_access_test_setup();
+	/* rwx */
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_READ);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_WRITE);
+	ept_access_allowed(EPT_RA | EPT_WA | EPT_EA, OP_EXEC);
+}
+
+static void ept_access_test_reserved_bits(void)
+{
+	int i;
+	int maxphyaddr;
+
+	ept_access_test_setup();
+
+	/* Reserved bits above maxphyaddr. */
+	maxphyaddr = cpuid_maxphyaddr();
+	for (i = maxphyaddr; i <= 51; i++) {
+		report_prefix_pushf("reserved_bit=%d", i);
+		ept_reserved_bit(i);
+		report_prefix_pop();
+	}
+
+	/* Level-specific reserved bits. */
+	ept_reserved_bit_at_level_nohuge(2, 3);
+	ept_reserved_bit_at_level_nohuge(2, 4);
+	ept_reserved_bit_at_level_nohuge(2, 5);
+	ept_reserved_bit_at_level_nohuge(2, 6);
+	/* 2M alignment. */
+	for (i = 12; i < 20; i++) {
+		report_prefix_pushf("reserved_bit=%d", i);
+		ept_reserved_bit_at_level_huge(2, i);
+		report_prefix_pop();
+	}
+	ept_reserved_bit_at_level_nohuge(3, 3);
+	ept_reserved_bit_at_level_nohuge(3, 4);
+	ept_reserved_bit_at_level_nohuge(3, 5);
+	ept_reserved_bit_at_level_nohuge(3, 6);
+	/* 1G alignment. */
+	for (i = 12; i < 29; i++) {
+		report_prefix_pushf("reserved_bit=%d", i);
+		ept_reserved_bit_at_level_huge(3, i);
+		report_prefix_pop();
+	}
+	ept_reserved_bit_at_level(4, 3);
+	ept_reserved_bit_at_level(4, 4);
+	ept_reserved_bit_at_level(4, 5);
+	ept_reserved_bit_at_level(4, 6);
+	ept_reserved_bit_at_level(4, 7);
+}
+
+static void ept_access_test_ignored_bits(void)
+{
+	ept_access_test_setup();
+	/*
+	 * Bits ignored at every level. Bits 8 and 9 (A and D) are ignored as
+	 * far as translation is concerned even if AD bits are enabled in the
+	 * EPTP. Bit 63 is ignored because "EPT-violation #VE" VM-execution
+	 * control is 0.
+	 */
+	ept_ignored_bit(8);
+	ept_ignored_bit(9);
+	ept_ignored_bit(10);
+	ept_ignored_bit(11);
+	ept_ignored_bit(52);
+	ept_ignored_bit(53);
+	ept_ignored_bit(54);
+	ept_ignored_bit(55);
+	ept_ignored_bit(56);
+	ept_ignored_bit(57);
+	ept_ignored_bit(58);
+	ept_ignored_bit(59);
+	ept_ignored_bit(60);
+	ept_ignored_bit(61);
+	ept_ignored_bit(62);
+	ept_ignored_bit(63);
+}
+
+static void ept_access_test_paddr_not_present_ad_disabled(void)
+{
+	ept_access_test_setup();
+	ept_disable_ad_bits();
+
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_READ, EPT_VLT_RD);
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_WRITE, EPT_VLT_RD);
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC, EPT_VLT_RD);
+}
+
+static void ept_access_test_paddr_not_present_ad_enabled(void)
+{
+	u64 qual = EPT_VLT_RD | EPT_VLT_WR;
+
+	ept_access_test_setup();
+	ept_enable_ad_bits_or_skip_test();
+
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_READ, qual);
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_WRITE, qual);
+	ept_access_violation_paddr(0, PT_AD_MASK, OP_EXEC, qual);
+}
+
+static void ept_access_test_paddr_read_only_ad_disabled(void)
+{
+	/*
+	 * When EPT AD bits are disabled, all accesses to guest paging
+	 * structures are reported separately as a read and (after
+	 * translation of the GPA to host physical address) a read+write
+	 * if the A/D bits have to be set.
+	 */
+	u64 qual = EPT_VLT_WR | EPT_VLT_RD | EPT_VLT_PERM_RD;
+
+	ept_access_test_setup();
+	ept_disable_ad_bits();
+
+	/* Can't update A bit, so all accesses fail. */
+	ept_access_violation_paddr(EPT_RA, 0, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA, 0, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA, 0, OP_EXEC, qual);
+	/* AD bits disabled, so only writes try to update the D bit. */
+	ept_access_allowed_paddr(EPT_RA, PT_ACCESSED_MASK, OP_READ);
+	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_WRITE, qual);
+	ept_access_allowed_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC);
+	/* Both A and D already set, so read-only is OK. */
+	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_READ);
+	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_WRITE);
+	ept_access_allowed_paddr(EPT_RA, PT_AD_MASK, OP_EXEC);
+}
+
+static void ept_access_test_paddr_read_only_ad_enabled(void)
+{
+	/*
+	 * When EPT AD bits are enabled, all accesses to guest paging
+	 * structures are considered writes as far as EPT translation
+	 * is concerned.
+	 */
+	u64 qual = EPT_VLT_WR | EPT_VLT_RD | EPT_VLT_PERM_RD;
+
+	ept_access_test_setup();
+	ept_enable_ad_bits_or_skip_test();
+
+	ept_access_violation_paddr(EPT_RA, 0, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA, 0, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA, 0, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA, PT_ACCESSED_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA, PT_AD_MASK, OP_EXEC, qual);
+}
+
+static void ept_access_test_paddr_read_write(void)
+{
+	ept_access_test_setup();
+	/* Read-write access to paging structure. */
+	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_READ);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_WRITE);
+	ept_access_allowed_paddr(EPT_RA | EPT_WA, 0, OP_EXEC);
+}
+
+static void ept_access_test_paddr_read_write_execute(void)
+{
+	ept_access_test_setup();
+	/* RWX access to paging structure. */
+	ept_access_allowed_paddr(EPT_PRESENT, 0, OP_READ);
+	ept_access_allowed_paddr(EPT_PRESENT, 0, OP_WRITE);
+	ept_access_allowed_paddr(EPT_PRESENT, 0, OP_EXEC);
+}
+
+static void ept_access_test_paddr_read_execute_ad_disabled(void)
+{
+  	/*
+	 * When EPT AD bits are disabled, all accesses to guest paging
+	 * structures are reported separately as a read and (after
+	 * translation of the GPA to host physical address) a read+write
+	 * if the A/D bits have to be set.
+	 */
+	u64 qual = EPT_VLT_WR | EPT_VLT_RD | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX;
+
+	ept_access_test_setup();
+	ept_disable_ad_bits();
+
+	/* Can't update A bit, so all accesses fail. */
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC, qual);
+	/* AD bits disabled, so only writes try to update the D bit. */
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_READ);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_WRITE, qual);
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_EXEC);
+	/* Both A and D already set, so read-only is OK. */
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_READ);
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_WRITE);
+	ept_access_allowed_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC);
+}
+
+static void ept_access_test_paddr_read_execute_ad_enabled(void)
+{
+	/*
+	 * When EPT AD bits are enabled, all accesses to guest paging
+	 * structures are considered writes as far as EPT translation
+	 * is concerned.
+	 */
+	u64 qual = EPT_VLT_WR | EPT_VLT_RD | EPT_VLT_PERM_RD | EPT_VLT_PERM_EX;
+
+	ept_access_test_setup();
+	ept_enable_ad_bits_or_skip_test();
+
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, 0, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_ACCESSED_MASK, OP_EXEC, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_READ, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_WRITE, qual);
+	ept_access_violation_paddr(EPT_RA | EPT_EA, PT_AD_MASK, OP_EXEC, qual);
+}
+
+static void ept_access_test_paddr_not_present_page_fault(void)
+{
+	ept_access_test_setup();
+	/*
+	 * TODO: test no EPT violation as long as guest PF occurs. e.g., GPA is
+	 * page is read-only in EPT but GVA is also mapped read only in PT.
+	 * Thus guest page fault before host takes EPT violation for trying to
+	 * update A bit.
+	 */
+}
+
+static void ept_access_test_force_2m_page(void)
+{
+	ept_access_test_setup();
+
+	TEST_ASSERT_EQ(ept_2m_supported(), true);
+	ept_allowed_at_level_mkhuge(true, 2, 0, 0, OP_READ);
+	ept_violation_at_level_mkhuge(true, 2, EPT_PRESENT, EPT_RA, OP_WRITE,
+				      EPT_VLT_WR | EPT_VLT_PERM_RD |
+				      EPT_VLT_LADDR_VLD | EPT_VLT_PADDR);
+	ept_misconfig_at_level_mkhuge(true, 2, EPT_PRESENT, EPT_WA);
+}
+
+static bool invvpid_valid(u64 type, u64 vpid, u64 gla)
+{
+	u64 msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
+
+	TEST_ASSERT(msr & VPID_CAP_INVVPID);
+
+	if (type < INVVPID_ADDR || type > INVVPID_CONTEXT_LOCAL)
+		return false;
+
+	if (!(msr & (1ull << (type + VPID_CAP_INVVPID_TYPES_SHIFT))))
+		return false;
+
+	if (vpid >> 16)
+		return false;
+
+	if (type != INVVPID_ALL && !vpid)
+		return false;
+
+	if (type == INVVPID_ADDR && !is_canonical(gla))
+		return false;
+
+	return true;
+}
+
+static void try_invvpid(u64 type, u64 vpid, u64 gla)
+{
+	int rc;
+	bool valid = invvpid_valid(type, vpid, gla);
+	u64 expected = valid ? VMXERR_UNSUPPORTED_VMCS_COMPONENT
+		: VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID;
+	/*
+	 * Set VMX_INST_ERROR to VMXERR_UNVALID_VMCS_COMPONENT, so
+	 * that we can tell if it is updated by INVVPID.
+	 */
+	vmcs_read(~0);
+	rc = invvpid(type, vpid, gla);
+	report("INVVPID type %ld VPID %lx GLA %lx %s",
+	       !rc == valid, type, vpid, gla,
+	       valid ? "passes" : "fails");
+	report("After %s INVVPID, VMX_INST_ERR is %ld (actual %ld)",
+	       vmcs_read(VMX_INST_ERROR) == expected,
+	       rc ? "failed" : "successful",
+	       expected, vmcs_read(VMX_INST_ERROR));
+}
+
+static void ds_invvpid(void *data)
+{
+	u64 msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
+	u64 type = ffs(msr >> VPID_CAP_INVVPID_TYPES_SHIFT) - 1;
+
+	TEST_ASSERT(type >= INVVPID_ADDR && type <= INVVPID_CONTEXT_LOCAL);
+	asm volatile("invvpid %0, %1"
+		     :
+		     : "m"(*(struct invvpid_operand *)data),
+		       "r"(type));
+}
+
+/*
+ * The SS override is ignored in 64-bit mode, so we use an addressing
+ * mode with %rsp as the base register to generate an implicit SS
+ * reference.
+ */
+static void ss_invvpid(void *data)
+{
+	u64 msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
+	u64 type = ffs(msr >> VPID_CAP_INVVPID_TYPES_SHIFT) - 1;
+
+	TEST_ASSERT(type >= INVVPID_ADDR && type <= INVVPID_CONTEXT_LOCAL);
+	asm volatile("sub %%rsp,%0; invvpid (%%rsp,%0,1), %1"
+		     : "+r"(data)
+		     : "r"(type));
+}
+
+static void invvpid_test_gp(void)
+{
+	bool fault;
+
+	fault = test_for_exception(GP_VECTOR, &ds_invvpid,
+				   (void *)NONCANONICAL);
+	report("INVVPID with non-canonical DS operand raises #GP", fault);
+}
+
+static void invvpid_test_ss(void)
+{
+	bool fault;
+
+	fault = test_for_exception(SS_VECTOR, &ss_invvpid,
+				   (void *)NONCANONICAL);
+	report("INVVPID with non-canonical SS operand raises #SS", fault);
+}
+
+static void invvpid_test_pf(void)
+{
+	void *vpage = alloc_vpage();
+	bool fault;
+
+	fault = test_for_exception(PF_VECTOR, &ds_invvpid, vpage);
+	report("INVVPID with unmapped operand raises #PF", fault);
+}
+
+static void try_compat_invvpid(void *unused)
+{
+	struct far_pointer32 fp = {
+		.offset = (uintptr_t)&&invvpid,
+		.selector = KERNEL_CS32,
+	};
+	register uintptr_t rsp asm("rsp");
+
+	TEST_ASSERT_MSG(fp.offset == (uintptr_t)&&invvpid,
+			"Code address too high.");
+	TEST_ASSERT_MSG(rsp == (u32)rsp, "Stack address too high.");
+
+	asm goto ("lcall *%0" : : "m" (fp) : "rax" : invvpid);
+	return;
+invvpid:
+	asm volatile (".code32;"
+		      "invvpid (%eax), %eax;"
+		      "lret;"
+		      ".code64");
+	__builtin_unreachable();
+}
+
+static void invvpid_test_compatibility_mode(void)
+{
+	bool fault;
+
+	fault = test_for_exception(UD_VECTOR, &try_compat_invvpid, NULL);
+	report("Compatibility mode INVVPID raises #UD", fault);
+}
+
+static void invvpid_test_not_in_vmx_operation(void)
+{
+	bool fault;
+
+	TEST_ASSERT(!vmx_off());
+	fault = test_for_exception(UD_VECTOR, &ds_invvpid, NULL);
+	report("INVVPID outside of VMX operation raises #UD", fault);
+	TEST_ASSERT(!vmx_on());
+}
+
+/*
+ * This does not test real-address mode, virtual-8086 mode, protected mode,
+ * or CPL > 0.
+ */
+static void invvpid_test_v2(void)
+{
+	u64 msr;
+	int i;
+	unsigned types = 0;
+	unsigned type;
+
+	if (!(ctrl_cpu_rev[0].clr & CPU_SECONDARY) ||
+	    !(ctrl_cpu_rev[1].clr & CPU_VPID))
+		test_skip("VPID not supported");
+
+	msr = rdmsr(MSR_IA32_VMX_EPT_VPID_CAP);
+
+	if (!(msr & VPID_CAP_INVVPID))
+		test_skip("INVVPID not supported.\n");
+
+	if (msr & VPID_CAP_INVVPID_ADDR)
+		types |= 1u << INVVPID_ADDR;
+	if (msr & VPID_CAP_INVVPID_CXTGLB)
+		types |= 1u << INVVPID_CONTEXT_GLOBAL;
+	if (msr & VPID_CAP_INVVPID_ALL)
+		types |= 1u << INVVPID_ALL;
+	if (msr & VPID_CAP_INVVPID_CXTLOC)
+		types |= 1u << INVVPID_CONTEXT_LOCAL;
+
+	if (!types)
+		test_skip("No INVVPID types supported.\n");
+
+	for (i = -127; i < 128; i++)
+		try_invvpid(i, 0xffff, 0);
+
+	/*
+	 * VPID must not be more than 16 bits.
+	 */
+	for (i = 0; i < 64; i++)
+		for (type = 0; type < 4; type++)
+			if (types & (1u << type))
+				try_invvpid(type, 1ul << i, 0);
+
+	/*
+	 * VPID must not be zero, except for "all contexts."
+	 */
+	for (type = 0; type < 4; type++)
+		if (types & (1u << type))
+			try_invvpid(type, 0, 0);
+
+	/*
+	 * The gla operand is only validated for single-address INVVPID.
+	 */
+	if (types & (1u << INVVPID_ADDR))
+		try_invvpid(INVVPID_ADDR, 0xffff, NONCANONICAL);
+
+	invvpid_test_gp();
+	invvpid_test_ss();
+	invvpid_test_pf();
+	invvpid_test_compatibility_mode();
+	invvpid_test_not_in_vmx_operation();
+}
+
+/*
+ * Test for early VMLAUNCH failure. Returns true if VMLAUNCH makes it
+ * at least as far as the guest-state checks. Returns false if the
+ * VMLAUNCH fails early and execution falls through to the next
+ * instruction.
+ */
+static bool vmlaunch_succeeds(void)
+{
+	/*
+	 * Indirectly set VMX_INST_ERR to 12 ("VMREAD/VMWRITE from/to
+	 * unsupported VMCS component"). The caller can then check
+	 * to see if a failed VM-entry sets VMX_INST_ERR as expected.
+	 */
+	vmcs_write(~0u, 0);
+
+	vmcs_write(HOST_RIP, (uintptr_t)&&success);
+	__asm__ __volatile__ goto ("vmwrite %%rsp, %0; vmlaunch"
+				   :
+				   : "r" ((u64)HOST_RSP)
+				   : "cc", "memory"
+				   : success);
+	return false;
+success:
+	TEST_ASSERT(vmcs_read(EXI_REASON) ==
+		    (VMX_FAIL_STATE | VMX_ENTRY_FAILURE));
+	return true;
+}
+
+/*
+ * Try to launch the current VMCS.
+ */
+static void test_vmx_controls(bool controls_valid)
+{
+	bool success = vmlaunch_succeeds();
+	u32 vmx_inst_err;
+
+	report("vmlaunch %s", success == controls_valid,
+	       controls_valid ? "succeeds" : "fails");
+	if (!controls_valid) {
+		vmx_inst_err = vmcs_read(VMX_INST_ERROR);
+		report("VMX inst error is %d (actual %d)",
+		       vmx_inst_err == VMXERR_ENTRY_INVALID_CONTROL_FIELD,
+		       VMXERR_ENTRY_INVALID_CONTROL_FIELD, vmx_inst_err);
+	}
+}
+
+/*
+ * Test a particular address setting for a physical page reference in
+ * the VMCS.
+ */
+static void test_vmcs_page_addr(const char *name,
+				enum Encoding encoding,
+				bool ignored,
+				u64 addr)
+{
+	report_prefix_pushf("%s = %lx", name, addr);
+	vmcs_write(encoding, addr);
+	test_vmx_controls(ignored || (IS_ALIGNED(addr, PAGE_SIZE) &&
+				  addr < (1ul << cpuid_maxphyaddr())));
+	report_prefix_pop();
+}
+
+/*
+ * Test interesting values for a physical page reference in the VMCS.
+ */
+static void test_vmcs_page_values(const char *name,
+				  enum Encoding encoding,
+				  bool ignored)
+{
+	unsigned i;
+	u64 orig_val = vmcs_read(encoding);
+
+	for (i = 0; i < 64; i++)
+		test_vmcs_page_addr(name, encoding, ignored, 1ul << i);
+
+	test_vmcs_page_addr(name, encoding, ignored, PAGE_SIZE - 1);
+	test_vmcs_page_addr(name, encoding, ignored, PAGE_SIZE);
+	test_vmcs_page_addr(name, encoding, ignored,
+			    (1ul << cpuid_maxphyaddr()) - PAGE_SIZE);
+	test_vmcs_page_addr(name, encoding, ignored, -1ul);
+
+	vmcs_write(encoding, orig_val);
+}
+
+/*
+ * Test a physical page reference in the VMCS, when the corresponding
+ * feature is enabled and when the corresponding feature is disabled.
+ */
+static void test_vmcs_page_reference(u32 control_bit, enum Encoding field,
+				     const char *field_name,
+				     const char *control_name)
+{
+	u32 primary = vmcs_read(CPU_EXEC_CTRL0);
+	u64 page_addr;
+
+	if (!(ctrl_cpu_rev[0].clr & control_bit))
+		return;
+
+	page_addr = vmcs_read(field);
+
+	report_prefix_pushf("%s enabled", control_name);
+	vmcs_write(CPU_EXEC_CTRL0, primary | control_bit);
+	test_vmcs_page_values(field_name, field, false);
+	report_prefix_pop();
+
+	report_prefix_pushf("%s disabled", control_name);
+	vmcs_write(CPU_EXEC_CTRL0, primary & ~control_bit);
+	test_vmcs_page_values(field_name, field, true);
+	report_prefix_pop();
+
+	vmcs_write(field, page_addr);
+	vmcs_write(CPU_EXEC_CTRL0, primary);
+}
+
+/*
+ * If the "use I/O bitmaps" VM-execution control is 1, bits 11:0 of
+ * each I/O-bitmap address must be 0. Neither address should set any
+ * bits beyond the processor's physical-address width.
+ * [Intel SDM]
+ */
+static void test_io_bitmaps(void)
+{
+	test_vmcs_page_reference(CPU_IO_BITMAP, IO_BITMAP_A,
+				 "I/O bitmap A", "Use I/O bitmaps");
+	test_vmcs_page_reference(CPU_IO_BITMAP, IO_BITMAP_B,
+				 "I/O bitmap B", "Use I/O bitmaps");
+}
+
+/*
+ * If the "use MSR bitmaps" VM-execution control is 1, bits 11:0 of
+ * the MSR-bitmap address must be 0. The address should not set any
+ * bits beyond the processor's physical-address width.
+ * [Intel SDM]
+ */
+static void test_msr_bitmap(void)
+{
+	test_vmcs_page_reference(CPU_MSR_BITMAP, MSR_BITMAP,
+				 "MSR bitmap", "Use MSR bitmaps");
+}
+
+static void vmx_controls_test(void)
+{
+	/*
+	 * Bit 1 of the guest's RFLAGS must be 1, or VM-entry will
+	 * fail due to invalid guest state, should we make it that
+	 * far.
+	 */
+	vmcs_write(GUEST_RFLAGS, 0);
+
+	test_io_bitmaps();
+	test_msr_bitmap();
+}
+
+static bool valid_vmcs_for_vmentry(void)
+{
+	struct vmcs *current_vmcs = NULL;
+
+	if (vmcs_save(&current_vmcs))
+		return false;
+
+	return current_vmcs && !(current_vmcs->revision_id >> 31);
+}
+
+static void try_vmentry_in_movss_shadow(void)
+{
+	u32 vm_inst_err;
+	u32 flags;
+	bool early_failure = false;
+	u32 expected_flags = X86_EFLAGS_FIXED;
+	bool valid_vmcs = valid_vmcs_for_vmentry();
+
+	expected_flags |= valid_vmcs ? X86_EFLAGS_ZF : X86_EFLAGS_CF;
+
+	/*
+	 * Indirectly set VM_INST_ERR to 12 ("VMREAD/VMWRITE from/to
+	 * unsupported VMCS component").
+	 */
+	vmcs_write(~0u, 0);
+
+	__asm__ __volatile__ ("mov %[host_rsp], %%edx;"
+			      "vmwrite %%rsp, %%rdx;"
+			      "mov 0f, %%rax;"
+			      "mov %[host_rip], %%edx;"
+			      "vmwrite %%rax, %%rdx;"
+			      "mov $-1, %%ah;"
+			      "sahf;"
+			      "mov %%ss, %%ax;"
+			      "mov %%ax, %%ss;"
+			      "vmlaunch;"
+			      "mov $1, %[early_failure];"
+			      "0: lahf;"
+			      "movzbl %%ah, %[flags]"
+			      : [early_failure] "+r" (early_failure),
+				[flags] "=&a" (flags)
+			      : [host_rsp] "i" (HOST_RSP),
+				[host_rip] "i" (HOST_RIP)
+			      : "rdx", "cc", "memory");
+	vm_inst_err = vmcs_read(VMX_INST_ERROR);
+
+	report("Early VM-entry failure", early_failure);
+	report("RFLAGS[8:0] is %x (actual %x)", flags == expected_flags,
+	       expected_flags, flags);
+	if (valid_vmcs)
+		report("VM-instruction error is %d (actual %d)",
+		       vm_inst_err == VMXERR_ENTRY_EVENTS_BLOCKED_BY_MOV_SS,
+		       VMXERR_ENTRY_EVENTS_BLOCKED_BY_MOV_SS, vm_inst_err);
+}
+
+static void vmentry_movss_shadow_test(void)
+{
+	struct vmcs *orig_vmcs;
+
+	TEST_ASSERT(!vmcs_save(&orig_vmcs));
+
+	/*
+	 * Set the launched flag on the current VMCS to verify the correct
+	 * error priority, below.
+	 */
+	test_set_guest(v2_null_test_guest);
+	enter_guest();
+
+	/*
+	 * With bit 1 of the guest's RFLAGS clear, VM-entry should
+	 * fail due to invalid guest state (if we make it that far).
+	 */
+	vmcs_write(GUEST_RFLAGS, 0);
+
+	/*
+	 * "VM entry with events blocked by MOV SS" takes precedence over
+	 * "VMLAUNCH with non-clear VMCS."
+	 */
+	report_prefix_push("valid current-VMCS");
+	try_vmentry_in_movss_shadow();
+	report_prefix_pop();
+
+	/*
+	 * VMfailInvalid takes precedence over "VM entry with events
+	 * blocked by MOV SS."
+	 */
+	TEST_ASSERT(!vmcs_clear(orig_vmcs));
+	report_prefix_push("no current-VMCS");
+	try_vmentry_in_movss_shadow();
+	report_prefix_pop();
+
+	TEST_ASSERT(!make_vmcs_current(orig_vmcs));
+	vmcs_write(GUEST_RFLAGS, X86_EFLAGS_FIXED);
+}
+
+#define TEST(name) { #name, .v2 = name }
+
 /* name/init/guest_main/exit_handler/syscall_handler/guest_regs */
 struct vmx_test vmx_tests[] = {
 	{ "null", NULL, basic_guest_main, basic_exit_handler, NULL, {0} },
@@ -1832,7 +3406,9 @@ struct vmx_test vmx_tests[] = {
 		NULL, {0} },
 	{ "instruction intercept", insn_intercept_init, insn_intercept_main,
 		insn_intercept_exit_handler, NULL, {0} },
-	{ "EPT framework", ept_init, ept_main, ept_exit_handler, NULL, {0} },
+	{ "EPT A/D disabled", ept_init, ept_main, ept_exit_handler, NULL, {0} },
+	{ "EPT A/D enabled", eptad_init, eptad_main, eptad_exit_handler, NULL, {0} },
+	{ "PML", pml_init, pml_main, pml_exit_handler, NULL, {0} },
 	{ "VPID", vpid_init, vpid_main, vpid_exit_handler, NULL, {0} },
 	{ "interrupt", interrupt_init, interrupt_main,
 		interrupt_exit_handler, NULL, {0} },
@@ -1845,5 +3421,38 @@ struct vmx_test vmx_tests[] = {
 		disable_rdtscp_exit_handler, NULL, {0} },
 	{ "int3", int3_init, int3_guest_main, int3_exit_handler, NULL, {0} },
 	{ "into", into_init, into_guest_main, into_exit_handler, NULL, {0} },
+	{ "exit_monitor_from_l2_test", NULL, exit_monitor_from_l2_main,
+		exit_monitor_from_l2_handler, NULL, {0} },
+	/* Basic V2 tests. */
+	TEST(v2_null_test),
+	TEST(v2_multiple_entries_test),
+	TEST(fixture_test_case1),
+	TEST(fixture_test_case2),
+	/* EPT access tests. */
+	TEST(ept_access_test_not_present),
+	TEST(ept_access_test_read_only),
+	TEST(ept_access_test_write_only),
+	TEST(ept_access_test_read_write),
+	TEST(ept_access_test_execute_only),
+	TEST(ept_access_test_read_execute),
+	TEST(ept_access_test_write_execute),
+	TEST(ept_access_test_read_write_execute),
+	TEST(ept_access_test_reserved_bits),
+	TEST(ept_access_test_ignored_bits),
+	TEST(ept_access_test_paddr_not_present_ad_disabled),
+	TEST(ept_access_test_paddr_not_present_ad_enabled),
+	TEST(ept_access_test_paddr_read_only_ad_disabled),
+	TEST(ept_access_test_paddr_read_only_ad_enabled),
+	TEST(ept_access_test_paddr_read_write),
+	TEST(ept_access_test_paddr_read_write_execute),
+	TEST(ept_access_test_paddr_read_execute_ad_disabled),
+	TEST(ept_access_test_paddr_read_execute_ad_enabled),
+	TEST(ept_access_test_paddr_not_present_page_fault),
+	TEST(ept_access_test_force_2m_page),
+	/* Opcode tests. */
+	TEST(invvpid_test_v2),
+	/* VM-entry tests */
+	TEST(vmx_controls_test),
+	TEST(vmentry_movss_shadow_test),
 	{ NULL, NULL, NULL, NULL, NULL, {0} },
 };
