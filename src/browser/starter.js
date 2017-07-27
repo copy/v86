@@ -172,21 +172,7 @@ function V86Starter(options)
         "_virt_boundary_write32": function() { return cpu.virt_boundary_write32.apply(cpu, arguments); },
         "_getiopl": function() { return cpu.getiopl.apply(cpu, arguments); },
         "_vm86_mode": function() { return cpu.vm86_mode.apply(cpu, arguments); },
-        "_shl8": function() { return cpu.shl8.apply(cpu, arguments); },
-        "_shr8": function() { return cpu.shr8.apply(cpu, arguments); },
-        "_sar8": function() { return cpu.sar8.apply(cpu, arguments); },
-        "_shl16": function() { return cpu.shl16.apply(cpu, arguments); },
-        "_shr16": function() { return cpu.shr16.apply(cpu, arguments); },
-        "_sar16": function() { return cpu.sar16.apply(cpu, arguments); },
-        "_shl32": function() { return cpu.shl32.apply(cpu, arguments); },
-        "_shr32": function() { return cpu.shr32.apply(cpu, arguments); },
-        "_sar32": function() { return cpu.sar32.apply(cpu, arguments); },
-
-        "_shrd16": function() { return cpu.shrd16.apply(cpu, arguments); },
-        "_shrd32": function() { return cpu.shrd32.apply(cpu, arguments); },
-        "_shld16": function() { return cpu.shld16.apply(cpu, arguments); },
-        "_shld32": function() { return cpu.shld32.apply(cpu, arguments); },
-
+        
         "_bt_reg": function() { return cpu.bt_reg.apply(cpu, arguments); },
         "_bt_mem": function() { return cpu.bt_mem.apply(cpu, arguments); },
         "_btr_reg": function() { return cpu.btr_reg.apply(cpu, arguments); },

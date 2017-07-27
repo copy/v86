@@ -279,6 +279,20 @@ CPU.prototype.wasm_patch = function(wm)
     this.trigger_de = this.wm.funcs['_trigger_de'];
     this.trigger_gp = this.wm.funcs['_trigger_gp'];
 
+    this.shl8 = this.wm.funcs['_shl8'];
+    this.shl16 = this.wm.funcs['_shl16'];
+    this.shl32 = this.wm.funcs['_shl32'];
+    this.shr8 = this.wm.funcs['_shr8'];
+    this.shr16 = this.wm.funcs['_shr16'];
+    this.shr32 = this.wm.funcs['_shr32'];
+    this.sar8 = this.wm.funcs['_sar8'];
+    this.sar16 = this.wm.funcs['_sar16'];
+    this.sar32 = this.wm.funcs['_sar32'];
+    this.shrd16 = this.wm.funcs['_shrd16'];
+    this.shrd32 = this.wm.funcs['_shrd32'];
+    this.shld16 = this.wm.funcs['_shld16'];
+    this.shld32 = this.wm.funcs['_shld32'];
+
     this.do_many_cycles_unsafe = this.wm.funcs['_do_many_cycles_unsafe'];
 
     this.read_imm8 = this.wm.funcs['_read_imm8'];

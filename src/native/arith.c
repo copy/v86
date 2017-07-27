@@ -823,3 +823,268 @@ void div16(uint32_t source_operand)
     }
 }
 
+int32_t shl8(int32_t dest_operand, int32_t count)
+{
+    if(count == 0)
+    {
+        return dest_operand;
+    }
+
+    *last_result = dest_operand << count;
+
+    *last_op_size = OPSIZE_8;
+    *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
+    *flags = (*flags & ~1 & ~FLAG_OVERFLOW)
+                | (*last_result >> 8 & 1)
+                | (*last_result << 3 ^ *last_result << 4) & FLAG_OVERFLOW;
+
+    return *last_result;
+}
+
+int32_t shl16(int32_t dest_operand, int32_t count)
+{
+    if(count == 0)
+    {
+        return dest_operand;
+    }
+
+    *last_result = dest_operand << count;
+
+    *last_op_size = OPSIZE_16;
+    *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
+    *flags = (*flags & ~1 & ~FLAG_OVERFLOW)
+                | (*last_result >> 16 & 1)
+                | (*last_result >> 5 ^ *last_result >> 4) & FLAG_OVERFLOW;
+
+    return *last_result;
+}
+
+int32_t shl32(int32_t dest_operand, int32_t count)
+{
+    if(count == 0)
+    {
+        return dest_operand;
+    }
+
+    *last_result = dest_operand << count;
+
+    *last_op_size = OPSIZE_32;
+    *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
+    // test this
+    *flags = (*flags & ~1 & ~FLAG_OVERFLOW) | (dest_operand >> (32 - count) & 1);
+    *flags |= ((*flags & 1) ^ (*last_result >> 31 & 1)) << 11 & FLAG_OVERFLOW;
+
+    return *last_result;
+}
+
+int32_t shr8(int32_t dest_operand, int32_t count)
+{
+    if(count == 0)
+    {
+        return dest_operand;
+    }
+
+    *last_result = dest_operand >> count;
+
+    *last_op_size = OPSIZE_8;
+    *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
+    *flags = (*flags & ~1 & ~FLAG_OVERFLOW)
+                | (dest_operand >> (count - 1) & 1)
+                | (dest_operand >> 7 & 1) << 11 & FLAG_OVERFLOW;
+
+    return *last_result;
+}
+
+int32_t shr16(int32_t dest_operand, int32_t count)
+{
+    if(count == 0)
+    {
+        return dest_operand;
+    }
+
+    *last_result = dest_operand >> count;
+
+    *last_op_size = OPSIZE_16;
+    *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
+    *flags = (*flags & ~1 & ~FLAG_OVERFLOW)
+                | (dest_operand >> (count - 1) & 1)
+                | (dest_operand >> 4)  & FLAG_OVERFLOW;
+
+    return *last_result;
+}
+
+int32_t shr32(int32_t dest_operand, int32_t count)
+{
+    if(count == 0)
+    {
+        return dest_operand;
+    }
+
+    *last_result = ((uint32_t) dest_operand) >> count;
+
+    *last_op_size = OPSIZE_32;
+    *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
+    *flags = (*flags & ~1 & ~FLAG_OVERFLOW)
+                | (((uint32_t) dest_operand) >> (count - 1) & 1)
+                | (dest_operand >> 20) & FLAG_OVERFLOW;
+
+    return *last_result;
+}
+
+int32_t sar8(int32_t dest_operand, int32_t count)
+{
+    if(count == 0)
+    {
+        return dest_operand;
+    }
+
+    if(count < 8)
+    {
+        *last_result = dest_operand << 24 >> count + 24;
+        // of is zero
+        *flags = (*flags & ~1 & ~FLAG_OVERFLOW) | (dest_operand >> (count - 1) & 1);
+    }
+    else
+    {
+        *last_result = dest_operand << 24 >> 31;
+        *flags = (*flags & ~1 & ~FLAG_OVERFLOW) | (*last_result & 1);
+    }
+
+    *last_op_size = OPSIZE_8;
+    *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
+
+    return *last_result;
+}
+
+int32_t sar16(int32_t dest_operand, int32_t count)
+{
+    if(count == 0)
+    {
+        return dest_operand;
+    }
+
+    if(count < 16)
+    {
+        *last_result = dest_operand << 16 >> count + 16;
+        *flags = (*flags & ~1 & ~FLAG_OVERFLOW) | (dest_operand >> (count - 1) & 1);
+    }
+    else
+    {
+        *last_result = dest_operand << 16 >> 31;
+        *flags = (*flags & ~1 & ~FLAG_OVERFLOW) | (*last_result & 1);
+    }
+
+    *last_op_size = OPSIZE_16;
+    *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
+
+    return *last_result;
+}
+
+int32_t sar32(int32_t dest_operand, int32_t count)
+{
+    if(count == 0)
+    {
+        return dest_operand;
+    }
+
+    *last_result = dest_operand >> count;
+
+    *last_op_size = OPSIZE_32;
+    *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
+    *flags = (*flags & ~1 & ~FLAG_OVERFLOW) | (((uint32_t) dest_operand) >> (count - 1) & 1);
+
+    return *last_result;
+}
+
+int32_t shrd16(int32_t dest_operand, int32_t source_operand, int32_t count)
+{
+    if(count == 0)
+    {
+        return dest_operand;
+    }
+
+    if(count <= 16)
+    {
+        *last_result = dest_operand >> count | source_operand << (16 - count);
+        *flags = (*flags & ~1) | (dest_operand >> (count - 1) & 1);
+    }
+    else
+    {
+        *last_result = dest_operand << (32 - count) | source_operand >> (count - 16);
+        *flags = (*flags & ~1) | (source_operand >> (count - 17) & 1);
+    }
+
+    *last_op_size = OPSIZE_16;
+    *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
+    *flags = (*flags & ~FLAG_OVERFLOW) | ((*last_result ^ dest_operand) >> 4 & FLAG_OVERFLOW);
+
+    return *last_result;
+}
+
+int32_t shrd32(int32_t dest_operand, int32_t source_operand, int32_t count)
+{
+    if(count == 0)
+    {
+        return dest_operand;
+    }
+
+    *last_result = ((uint32_t) dest_operand) >> count | source_operand << (32 - count);
+
+    *last_op_size = OPSIZE_32;
+    *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
+    *flags = (*flags & ~1) | (((uint32_t) dest_operand) >> (count - 1) & 1);
+    *flags = (*flags & ~FLAG_OVERFLOW) | ((*last_result ^ dest_operand) >> 20 & FLAG_OVERFLOW);
+
+    return *last_result;
+}
+
+int32_t shld16(int32_t dest_operand, int32_t source_operand, int32_t count)
+{
+    if(count == 0)
+    {
+        return dest_operand;
+    }
+
+    if(count <= 16)
+    {
+        *last_result = dest_operand << count | ((uint32_t) source_operand) >> (16 - count);
+        *flags = (*flags & ~1) | (((uint32_t) dest_operand) >> (16 - count) & 1);
+    }
+    else
+    {
+        *last_result = dest_operand >> (32 - count) | source_operand << (count - 16);
+        *flags = (*flags & ~1) | (((uint32_t) source_operand) >> (32 - count) & 1);
+    }
+
+    *last_op_size = OPSIZE_16;
+    *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
+    *flags = (*flags & ~FLAG_OVERFLOW) | ((*flags & 1) ^ (*last_result >> 15 & 1)) << 11;
+
+    return *last_result;
+}
+
+int32_t shld32(int32_t dest_operand, int32_t source_operand, int32_t count)
+{
+    if(count == 0)
+    {
+        return dest_operand;
+    }
+
+    *last_result = dest_operand << count | ((uint32_t) source_operand) >> (32 - count);
+
+    *last_op_size = OPSIZE_32;
+    *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
+    *flags = (*flags & ~1) | (((uint32_t) dest_operand) >> (32 - count) & 1);
+
+    if(count == 1)
+    {
+        *flags = (*flags & ~FLAG_OVERFLOW) | ((*flags & 1) ^ (*last_result >> 31 & 1)) << 11;
+    }
+    else
+    {
+        *flags &= ~FLAG_OVERFLOW;
+    }
+
+    return *last_result;
+}
+
