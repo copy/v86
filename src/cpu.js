@@ -293,6 +293,27 @@ CPU.prototype.wasm_patch = function(wm)
     this.shld16 = this.wm.funcs['_shld16'];
     this.shld32 = this.wm.funcs['_shld32'];
 
+    this.bt_reg = this.wm.funcs['_bt_reg'];
+    this.btc_reg = this.wm.funcs['_btc_reg'];
+    this.bts_reg = this.wm.funcs['_bts_reg'];
+    this.btr_reg = this.wm.funcs['_btr_reg'];
+    this.bt_mem = this.wm.funcs['_bt_mem'];
+    this.btc_mem = this.wm.funcs['_btc_mem'];
+    this.btr_mem = this.wm.funcs['_btr_mem'];
+    this.bts_mem = this.wm.funcs['_bts_mem'];
+    this.bsf16 = this.wm.funcs['_bsf16'];
+    this.bsf32 = this.wm.funcs['_bsf32'];
+    this.bsr16 = this.wm.funcs['_bsr16'];
+    this.bsr32 = this.wm.funcs['_bsr32'];
+    this.popcnt = this.wm.funcs['_popcnt'];
+    this.saturate_sw_to_ub = this.wm.funcs['_saturate_sw_to_ub'];
+    this.saturate_sw_to_sb = this.wm.funcs['_saturate_sw_to_sb'];
+    this.saturate_sd_to_sw = this.wm.funcs['_saturate_sd_to_sw'];
+    this.saturate_sd_to_sb = this.wm.funcs['_saturate_sd_to_sb'];
+    this.saturate_sd_to_ub = this.wm.funcs['_saturate_sd_to_ub'];
+    this.saturate_ud_to_ub = this.wm.funcs['_saturate_ud_to_ub'];
+    this.saturate_uw = this.wm.funcs['_saturate_uw'];
+
     this.do_many_cycles_unsafe = this.wm.funcs['_do_many_cycles_unsafe'];
 
     this.read_imm8 = this.wm.funcs['_read_imm8'];

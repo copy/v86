@@ -14,13 +14,13 @@ void jmpcc32(bool);
 void setcc(bool);
 void cpuid();
 
-int32_t bt_mem(int32_t, int32_t);
-int32_t bt_reg(int32_t, int32_t);
-int32_t bts_mem(int32_t, int32_t);
+void bt_mem(int32_t, int32_t);
+void bt_reg(int32_t, int32_t);
+void bts_mem(int32_t, int32_t);
 int32_t bts_reg(int32_t, int32_t);
-int32_t btc_mem(int32_t, int32_t);
+void btc_mem(int32_t, int32_t);
 int32_t btc_reg(int32_t, int32_t);
-int32_t btr_mem(int32_t, int32_t);
+void btr_mem(int32_t, int32_t);
 int32_t btr_reg(int32_t, int32_t);
 int32_t bsf16(int32_t, int32_t);
 int32_t bsf32(int32_t, int32_t);

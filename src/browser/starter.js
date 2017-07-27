@@ -156,6 +156,8 @@ function V86Starter(options)
         "_fpu_op_DF_mem": function() { return cpu.fpu.op_DF_mem.apply(cpu.fpu, arguments); },
         "_fwait": function() { return cpu.fpu.fwait(); },
 
+        "_int_log2": function(val) { return v86util.int_log2(val); },
+
         "_do_page_translation": function() { return cpu.do_page_translation.apply(cpu, arguments); },
         "_read_reg_e16": function() { return cpu.read_reg_e16.apply(cpu, arguments); },
         "_read_reg_e32s": function() { return cpu.read_reg_e32s.apply(cpu, arguments); },
@@ -173,20 +175,6 @@ function V86Starter(options)
         "_getiopl": function() { return cpu.getiopl.apply(cpu, arguments); },
         "_vm86_mode": function() { return cpu.vm86_mode.apply(cpu, arguments); },
         
-        "_bt_reg": function() { return cpu.bt_reg.apply(cpu, arguments); },
-        "_bt_mem": function() { return cpu.bt_mem.apply(cpu, arguments); },
-        "_btr_reg": function() { return cpu.btr_reg.apply(cpu, arguments); },
-        "_btr_mem": function() { return cpu.btr_mem.apply(cpu, arguments); },
-        "_btc_reg": function() { return cpu.btc_reg.apply(cpu, arguments); },
-        "_btc_mem": function() { return cpu.btc_mem.apply(cpu, arguments); },
-        "_bts_reg": function() { return cpu.bts_reg.apply(cpu, arguments); },
-        "_bts_mem": function() { return cpu.bts_mem.apply(cpu, arguments); },
-
-        "_bsf16": function() { return cpu.bsf16.apply(cpu, arguments); },
-        "_bsf32": function() { return cpu.bsf32.apply(cpu, arguments); },
-        "_bsr16": function() { return cpu.bsr16.apply(cpu, arguments); },
-        "_bsr32": function() { return cpu.bsr32.apply(cpu, arguments); },
-        "_popcnt": function() { return cpu.popcnt.apply(cpu, arguments); },
         "_bswap": function() { return cpu.bswap.apply(cpu, arguments); },
 
         "_lar": function() { return cpu.lar.apply(cpu, arguments); },

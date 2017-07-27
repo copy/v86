@@ -1088,3 +1088,285 @@ int32_t shld32(int32_t dest_operand, int32_t source_operand, int32_t count)
     return *last_result;
 }
 
+int32_t int_log2(int32_t);
+
+void bt_reg(int32_t bit_base, int32_t bit_offset)
+{
+    *flags = (*flags & ~1) | (bit_base >> bit_offset & 1);
+    *flags_changed &= ~1;
+}
+
+int32_t btc_reg(int32_t bit_base, int32_t bit_offset)
+{
+    *flags = (*flags & ~1) | (bit_base >> bit_offset & 1);
+    *flags_changed &= ~1;
+
+    return bit_base ^ 1 << bit_offset;
+}
+
+int32_t bts_reg(int32_t bit_base, int32_t bit_offset)
+{
+    *flags = (*flags & ~1) | (bit_base >> bit_offset & 1);
+    *flags_changed &= ~1;
+
+    return bit_base | 1 << bit_offset;
+}
+
+int32_t btr_reg(int32_t bit_base, int32_t bit_offset)
+{
+    *flags = (*flags & ~1) | (bit_base >> bit_offset & 1);
+    *flags_changed &= ~1;
+
+    return bit_base & ~(1 << bit_offset);
+}
+
+void bt_mem(int32_t virt_addr, int32_t bit_offset)
+{
+    int32_t bit_base = safe_read8(virt_addr + (bit_offset >> 3) | 0);
+    bit_offset &= 7;
+
+    *flags = (*flags & ~1) | (bit_base >> bit_offset & 1);
+    *flags_changed &= ~1;
+}
+
+void btc_mem(int32_t virt_addr, int32_t bit_offset)
+{
+    int32_t phys_addr = translate_address_write(virt_addr + (bit_offset >> 3) | 0);
+    int32_t bit_base = read8(phys_addr);
+
+    bit_offset &= 7;
+
+    *flags = (*flags & ~1) | (bit_base >> bit_offset & 1);
+    *flags_changed &= ~1;
+
+    write8(phys_addr, bit_base ^ 1 << bit_offset);
+}
+
+void btr_mem(int32_t virt_addr, int32_t bit_offset)
+{
+    int32_t phys_addr = translate_address_write(virt_addr + (bit_offset >> 3) | 0);
+    int32_t bit_base = read8(phys_addr);
+
+    bit_offset &= 7;
+
+    *flags = (*flags & ~1) | (bit_base >> bit_offset & 1);
+    *flags_changed &= ~1;
+
+    write8(phys_addr, bit_base & ~(1 << bit_offset));
+}
+
+void bts_mem(int32_t virt_addr, int32_t bit_offset)
+{
+    int32_t phys_addr = translate_address_write(virt_addr + (bit_offset >> 3) | 0);
+    int32_t bit_base = read8(phys_addr);
+
+    bit_offset &= 7;
+
+    *flags = (*flags & ~1) | (bit_base >> bit_offset & 1);
+    *flags_changed &= ~1;
+
+    write8(phys_addr, bit_base | 1 << bit_offset);
+}
+
+int32_t bsf16(int32_t old, int32_t bit_base)
+{
+    *flags_changed = FLAGS_ALL & ~FLAG_ZERO;
+    *last_op_size = OPSIZE_16;
+
+    if(bit_base == 0)
+    {
+        *flags |= FLAG_ZERO;
+        *last_result = bit_base;
+
+        // not defined in the docs, but value doesn't change on my intel machine
+        return old;
+    }
+    else
+    {
+        *flags &= ~FLAG_ZERO;
+
+        // http://jsperf.com/lowest-bit-index
+        return *last_result = int_log2(-bit_base & bit_base);
+    }
+}
+
+int32_t bsf32(int32_t old, int32_t bit_base)
+{
+    *flags_changed = FLAGS_ALL & ~FLAG_ZERO;
+    *last_op_size = OPSIZE_32;
+
+    if(bit_base == 0)
+    {
+        *flags |= FLAG_ZERO;
+        *last_result = bit_base;
+
+        return old;
+    }
+    else
+    {
+        *flags &= ~FLAG_ZERO;
+
+        return *last_result = int_log2(((uint32_t) (-bit_base & bit_base)) >> 0);
+    }
+}
+
+int32_t bsr16(int32_t old, int32_t bit_base)
+{
+    *flags_changed = FLAGS_ALL & ~FLAG_ZERO;
+    *last_op_size = OPSIZE_16;
+
+    if(bit_base == 0)
+    {
+        *flags |= FLAG_ZERO;
+        *last_result = bit_base;
+
+        return old;
+    }
+    else
+    {
+        *flags &= ~FLAG_ZERO;
+
+        return *last_result = int_log2(bit_base);
+    }
+}
+
+int32_t bsr32(int32_t old, int32_t bit_base)
+{
+    *flags_changed = FLAGS_ALL & ~FLAG_ZERO;
+    *last_op_size = OPSIZE_32;
+
+    if(bit_base == 0)
+    {
+        *flags |= FLAG_ZERO;
+        *last_result = bit_base;
+
+        return old;
+    }
+    else
+    {
+        *flags &= ~FLAG_ZERO;
+        return *last_result = int_log2(((uint32_t) bit_base) >> 0);
+    }
+}
+
+int32_t popcnt(int32_t v)
+{
+    *flags_changed = 0;
+    *flags &= ~FLAGS_ALL;
+
+    if(v)
+    {
+        // http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+        v = v - ((v >> 1) & 0x55555555);
+        v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
+        return ((v + (v >> 4) & 0xF0F0F0F) * 0x1010101) >> 24;
+    }
+    else
+    {
+        *flags |= FLAG_ZERO;
+        return 0;
+    }
+}
+
+uint32_t saturate_sw_to_ub(uint32_t v)
+{
+    dbg_assert((v & 0xFFFF0000) == 0);
+
+    uint32_t ret = v >> 0;
+    if (ret >= 0x8000) {
+        ret = 0;
+    }
+    else if (ret > 0xFF) {
+        ret = 0xFF;
+    }
+
+    dbg_assert((ret & 0xFFFFFF00) == 0);
+    return ret;
+}
+
+int32_t saturate_sw_to_sb(int32_t v)
+{
+    dbg_assert((v & 0xFFFF0000) == 0);
+
+    int32_t ret = v;
+
+    if (ret > 0xFF80) {
+        ret = ret & 0xFF;
+    }
+    else if (ret > 0x7FFF) {
+        ret = 0x80;
+    }
+    else if (ret > 0x7F) {
+        ret = 0x7F;
+    }
+
+    dbg_assert((ret & 0xFFFFFF00) == 0);
+    return ret;
+}
+
+uint32_t saturate_sd_to_sw(uint32_t v)
+{
+    uint32_t ret = v >> 0;
+
+    if (ret > 0xFFFF8000) {
+        ret = ret & 0xFFFF;
+    }
+    else if (ret > 0x7FFFFFFF) {
+        ret = 0x8000;
+    }
+    else if (ret > 0x7FFF) {
+        ret = 0x7FFF;
+    }
+
+    dbg_assert((ret & 0xFFFF0000) == 0);
+    return ret;
+}
+
+uint32_t saturate_sd_to_sb(uint32_t v)
+{
+    uint32_t ret = v >> 0;
+
+    if (ret > 0xFFFFFF80) {
+        ret = ret & 0xFF;
+    }
+    else if (ret > 0x7FFFFFFF) {
+        ret = 0x80;
+    }
+    else if (ret > 0x7F) {
+        ret = 0x7F;
+    }
+
+    dbg_assert((ret & 0xFFFFFF00) == 0);
+    return ret;
+}
+
+int32_t saturate_sd_to_ub(int32_t v)
+{
+    int32_t ret = v | 0;
+
+    if (ret < 0) {
+        ret = 0;
+    }
+
+    dbg_assert((ret & 0xFFFFFF00) == 0);
+    return ret;
+}
+
+uint32_t saturate_ud_to_ub(uint32_t v)
+{
+    uint32_t ret = v >> 0;
+
+    if (ret > 0xFF) {
+        ret = 0xFF;
+    }
+
+    dbg_assert((ret & 0xFFFFFF00) == 0);
+    return ret;
+}
+
+int32_t saturate_uw(int32_t v)
+{
+    dbg_assert(v >= 0);
+    return v > 0xFFFF ? 0xFFFF : v;
+}
+
