@@ -840,6 +840,38 @@ void div32(uint32_t source_operand)
     reg32s[EDX] = mod;
 }
 
+void idiv32(int32_t source_operand)
+{
+    if(source_operand == 0)
+    {
+        trigger_de();
+        return;
+    }
+
+    uint32_t target_low = reg32s[EAX];
+    uint32_t target_high = reg32s[EDX];
+
+    int64_t target_operand = (((uint64_t) target_high) << 32) | ((uint64_t) target_low);
+
+    if(source_operand == -1 && target_operand == INT64_MIN)
+    {
+        trigger_de();
+        return;
+    }
+
+    int64_t result = target_operand / source_operand;
+    if(result < INT32_MIN || result > INT32_MAX)
+    {
+        trigger_de();
+        return;
+    }
+
+    int32_t mod = target_operand % source_operand;
+
+    reg32s[EAX] = result;
+    reg32s[EDX] = mod;
+}
+
 int32_t shl8(int32_t dest_operand, int32_t count)
 {
     if(count == 0)

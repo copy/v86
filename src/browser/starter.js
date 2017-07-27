@@ -195,7 +195,6 @@ function V86Starter(options)
         "_load_tr": function() { return cpu.load_tr.apply(cpu, arguments); },
 
         "_idiv16": function() { return cpu.idiv16.apply(cpu, arguments); },
-        "_idiv32": function() { return cpu.idiv32.apply(cpu, arguments); },
         "_insb": function() { return cpu.insb.apply(cpu, arguments); },
         "_insw": function() { return cpu.insw.apply(cpu, arguments); },
         "_insd": function() { return cpu.insd.apply(cpu, arguments); },
