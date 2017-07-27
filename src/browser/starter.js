@@ -166,7 +166,6 @@ function V86Starter(options)
         "_arpl": function() { return cpu.arpl.apply(cpu, arguments); },
         "_trigger_ud": function() { return cpu.trigger_ud.apply(cpu, arguments); },
         "_trigger_nm": function() { return cpu.trigger_nm.apply(cpu, arguments); },
-        "_pop16": function() { return cpu.pop16.apply(cpu, arguments); },
         "_virt_boundary_read16": function() { return cpu.virt_boundary_read16.apply(cpu, arguments); },
         "_virt_boundary_read32s": function() { return cpu.virt_boundary_read32s.apply(cpu, arguments); },
         "_virt_boundary_write16": function() { return cpu.virt_boundary_write16.apply(cpu, arguments); },

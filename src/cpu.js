@@ -298,6 +298,8 @@ CPU.prototype.wasm_patch = function(wm)
     this.push32 = this.wm.funcs['_push32'];
     this.pusha16 = this.wm.funcs['_pusha16'];
     this.pusha32 = this.wm.funcs['_pusha32'];
+    this.pop16 = this.wm.funcs['_pop16'];
+    this.get_stack_reg = this.wm.funcs['_get_stack_reg'];
 };
 
 CPU.prototype.get_state = function()

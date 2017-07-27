@@ -224,6 +224,15 @@ void push32(int32_t imm32)
     }
 }
 
+int32_t pop16()
+{
+    int32_t sp = get_seg(SS) + get_stack_reg();
+    int32_t result = safe_read16(sp);
+
+    adjust_stack_reg(2);
+    return result;
+}
+
 int32_t pop32s()
 {
     if(*stack_size_32)

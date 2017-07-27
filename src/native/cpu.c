@@ -738,3 +738,16 @@ int32_t get_real_eip()
 {
     return *instruction_pointer - get_seg(CS);
 }
+
+int32_t get_stack_reg()
+{
+    if(*stack_size_32)
+    {
+        return reg32s[ESP];
+    }
+    else
+    {
+        return reg16[SP];
+    }
+}
+
