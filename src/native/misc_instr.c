@@ -284,3 +284,7 @@ void pusha32()
     push32(reg32s[ESI]);
     push32(reg32s[EDI]);
 }
+
+void setcc(bool condition) {
+	set_e8(condition);
+}

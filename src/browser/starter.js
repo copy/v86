@@ -204,8 +204,6 @@ function V86Starter(options)
         "_popcnt": function() { return cpu.popcnt.apply(cpu, arguments); },
         "_bswap": function() { return cpu.bswap.apply(cpu, arguments); },
 
-        "_setcc": function() { return cpu.setcc.apply(cpu, arguments); },
-
         "_lar": function() { return cpu.lar.apply(cpu, arguments); },
         "_lsl": function() { return cpu.lsl.apply(cpu, arguments); },
         "_verw": function() { return cpu.verw.apply(cpu, arguments); },
