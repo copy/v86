@@ -306,10 +306,6 @@ void mul32(int32_t source_operand)
 
 void imul32(int32_t source_operand)
 {
-    //XXX: this assert fails since the limits here are out of bounds for int32
-    //but the assert is present in the original JS source :|
-    //assert(source_operand < 0x80000000 && source_operand >= -0x80000000);
-
     int32_t dest_operand = reg32s[EAX];
 
     do_imul32(dest_operand, source_operand);
@@ -333,10 +329,6 @@ void imul32(int32_t source_operand)
 
 int32_t imul_reg32(int32_t operand1, int32_t operand2)
 {
-    //XXX: assert limits OOB for int32
-    //dbg_assert(operand1 < 0x80000000 && operand1 >= -0x80000000);
-    //dbg_assert(operand2 < 0x80000000 && operand2 >= -0x80000000);
-
     do_imul32(operand1, operand2);
 
     *last_result = mul32_result[0];

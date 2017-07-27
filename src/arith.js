@@ -289,14 +289,6 @@ CPU.prototype.do_mul32 = function(a, b)
     return this.mul32_result;
 };
 
-//XXX: do_mul32 returns a typedarray object which we can't do from a wasm
-//function, so we rewrite it here differently from other ports. Would
-//change this when callers of do_mul32 are rewritten in wasm.
-CPU.prototype.do_mul32 = function(a, b) {
-    this.wm.funcs['_do_mul32'](a, b);
-    return this.mul32_result;
-};
-
 CPU.prototype.do_imul32 = function(a, b)
 {
     var is_neg = false;
@@ -315,12 +307,6 @@ CPU.prototype.do_imul32 = function(a, b)
     }
     return result;
 }
-
-//XXX: same issue as do_mul32. rewrite after callers are ported to wasm
-CPU.prototype.do_imul32 = function(a, b) {
-    this.wm.funcs['_do_imul32'](a, b);
-    return this.mul32_result;
-};
 
 CPU.prototype.mul32 = function(source_operand)
 {
