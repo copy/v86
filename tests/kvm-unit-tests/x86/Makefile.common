@@ -23,6 +23,7 @@ $(libcflat): CFLAGS += -ffreestanding -I $(SRCDIR)/lib -I lib
 
 COMMON_CFLAGS += -m$(bits)
 COMMON_CFLAGS += -O1
+COMMON_CFLAGS += -fno-stack-protector
 
 # stack.o relies on frame pointers.
 KEEP_FRAME_POINTER := y
