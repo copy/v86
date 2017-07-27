@@ -10,17 +10,20 @@ inc_files := $(addprefix build/,$(wildcard *.inc))
 all: $(source_files) $(host_executables) $(v86_executables) $(host_fixtures)
 .PHONY: all
 
+build/%.o: build/%.asm $(inc_files)
+	nasm -felf32 -o $@ $<
+
 # To run / debug locally
-build/%.bin: build/%.asm $(inc_files)
-	nasm -felf32 -o $@.o $<; ld -g $@.o -m elf_i386 --section-start=.bss=0x100000 -o $@
+build/%.bin: build/%.o
+	ld -g $< -m elf_i386 --section-start=.bss=0x100000 -o $@
 
 # To generate a fixture using gdb
 build/%.fixture: build/%.bin
 	gdb -quiet -batch -x gdbauto $< > $@
 
 # To use as a multiboot kernel image for v86
-build/%.img: build/%.asm $(inc_files)
-	nasm -felf32 -o $@.o $<; ld -g $@.o -m elf_i386 --section-start=.bss=0x100000 --section-start=.text=0x8000 -o $@
+build/%.img: build/%.o
+	ld -g $< -m elf_i386 --section-start=.bss=0x100000 --section-start=.text=0x8000 -o $@
 
 build/%.asm: %.asm
 	mkdir -p build; cp $< $@
