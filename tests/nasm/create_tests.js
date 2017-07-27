@@ -928,6 +928,18 @@ function gen_table()
 }
 gen_table();
 
+try
+{
+    fs.mkdirSync(__dirname + "/build/");
+}
+catch(e)
+{
+    if(e.code !== 'EEXIST')
+    {
+        throw e;
+    }
+}
+
 for(const op of encodings)
 {
     const configurations = [
