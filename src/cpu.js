@@ -301,6 +301,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.pop16 = this.wm.funcs['_pop16'];
     this.get_stack_reg = this.wm.funcs['_get_stack_reg'];
     this.setcc = this.wm.funcs['_setcc'];
+    this.set_stack_reg = this.wm.funcs['_set_stack_reg'];
 };
 
 CPU.prototype.get_state = function()

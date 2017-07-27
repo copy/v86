@@ -286,5 +286,5 @@ void pusha32()
 }
 
 void setcc(bool condition) {
-	set_e8(condition);
+    set_e8(condition);
 }

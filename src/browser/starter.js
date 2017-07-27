@@ -170,7 +170,6 @@ function V86Starter(options)
         "_virt_boundary_read32s": function() { return cpu.virt_boundary_read32s.apply(cpu, arguments); },
         "_virt_boundary_write16": function() { return cpu.virt_boundary_write16.apply(cpu, arguments); },
         "_virt_boundary_write32": function() { return cpu.virt_boundary_write32.apply(cpu, arguments); },
-        "_set_stack_reg": function() { return cpu.set_stack_reg.apply(cpu, arguments); },
         "_getiopl": function() { return cpu.getiopl.apply(cpu, arguments); },
         "_vm86_mode": function() { return cpu.vm86_mode.apply(cpu, arguments); },
         "_shl8": function() { return cpu.shl8.apply(cpu, arguments); },

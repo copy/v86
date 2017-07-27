@@ -751,3 +751,15 @@ int32_t get_stack_reg()
     }
 }
 
+void set_stack_reg(int32_t value)
+{
+    if(*stack_size_32)
+    {
+        reg32s[ESP] = value;
+    }
+    else
+    {
+        reg16[SP] = value;
+    }
+}
+
