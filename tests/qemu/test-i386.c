@@ -2999,7 +2999,7 @@ int main(int argc, char **argv)
     test_conv();
 #ifdef TEST_SSE
     test_sse();
-    test_fxsave();
+    //test_fxsave();
 #endif
     test_exceptions();
     //test_single_step();
