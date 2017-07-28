@@ -182,7 +182,7 @@ int32_t rol32(int32_t, int32_t);
 int32_t rcr32(int32_t, int32_t);
 int32_t rcl32(int32_t, int32_t);
 
-int32_t idiv16(int32_t);
+void idiv16(int32_t);
 void div32(uint32_t);
 void idiv32(int32_t);
 

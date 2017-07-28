@@ -280,6 +280,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.trigger_gp = this.wm.funcs['_trigger_gp'];
     this.div32 = this.wm.funcs['_div32'];
     this.idiv32 = this.wm.funcs['_idiv32'];
+    this.idiv16 = this.wm.funcs['_idiv16'];
 
     this.shl8 = this.wm.funcs['_shl8'];
     this.shl16 = this.wm.funcs['_shl16'];

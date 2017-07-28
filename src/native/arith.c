@@ -815,6 +815,28 @@ void div16(uint32_t source_operand)
     }
 }
 
+void idiv16(int32_t source_operand)
+{
+    if(source_operand == 0)
+    {
+        trigger_de();
+        return;
+    }
+
+    int32_t target_operand = reg16[AX] | (reg16[DX] << 16);
+    int32_t result = target_operand / source_operand;
+
+    if(result >= 0x8000 || result <= -0x8001)
+    {
+        trigger_de();
+    }
+    else
+    {
+        reg16[AX] = result;
+        reg16[DX] = target_operand % source_operand;
+    }
+}
+
 void div32(uint32_t source_operand)
 {
     if(source_operand == 0)
