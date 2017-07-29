@@ -136,10 +136,10 @@ const encodings = [
     { opcode: 0xA2, immaddr: 1, },
     { opcode: 0xA3, os: 1, immaddr: 1, },
 
-    { opcode: 0xA4, skip: 1, },
-    { opcode: 0xA5, os: 1, skip: 1, },
-    { opcode: 0xA6, skip: 1, },
-    { opcode: 0xA7, os: 1, skip: 1, },
+    { opcode: 0xA4, },
+    { opcode: 0xA5, os: 1, },
+    { opcode: 0xA6, },
+    { opcode: 0xA7, os: 1, },
 
     { opcode: 0xA8, imm: 1, },
     { opcode: 0xA9, os: 1, imm: 1, },
@@ -994,6 +994,11 @@ function random_int32()
     return Math.random() * 0x100000000 | 0;
 }
 
+function is_string_instruction(op)
+{
+    return (op.opcode >= 0x6C && op.opcode <= 0x6F) || (op.opcode >= 0xA4 && op.opcode <= 0xA7);
+}
+
 function create_nasm(op, config)
 {
     if(op.prefix || op.skip)
@@ -1088,6 +1093,14 @@ function create_nasm(op, config)
             // always sets zero flag
             codes.push("sub al, al");
         }
+    }
+
+    if(is_string_instruction(op))
+    {
+        codes.push("mov ecx, 3");
+        codes.push("mov edi, (120000h-16)");
+        codes.push("mov esi, (120000h-20)");
+        codes.push(["", "db 0f2h", "db 0f3h"]);
     }
 
     if(size === 16)
