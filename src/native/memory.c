@@ -97,6 +97,21 @@ void write16(uint32_t addr, uint16_t value)
     }
 }
 
+void write_aligned16(uint32_t addr, uint32_t value)
+{
+    dbg_assert(addr >= 0 && addr < 0x80000000);
+    if(USE_A20 && !*a20_enabled) addr &= A20_MASK16;
+
+    if(in_mapped_range(addr << 1))
+    {
+        mmap_write16(addr << 1, value);
+    }
+    else
+    {
+        *(uint16_t*)(mem16 + addr) = value;
+    }
+}
+
 void write32(uint32_t addr, int32_t value)
 {
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK;

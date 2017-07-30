@@ -331,6 +331,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.read32s = this.wm.funcs['_read32s'];
     this.write8 = this.wm.funcs['_write8'];
     this.write16 = this.wm.funcs['_write16'];
+    this.write_aligned16 = this.wm.funcs['_write_aligned16'];
     this.write32 = this.wm.funcs['_write32'];
     this.push16 = this.wm.funcs['_push16'];
     this.push32 = this.wm.funcs['_push32'];
@@ -343,6 +344,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.get_reg_asize = this.wm.funcs['_get_reg_asize'];
     this.set_ecx_asize = this.wm.funcs['_set_ecx_asize'];
     this.add_reg_asize = this.wm.funcs['_add_reg_asize'];
+    this.decr_ecx_asize = this.wm.funcs['_decr_ecx_asize'];
     this.movsb = this.wm.funcs['_movsb'];
 };
 

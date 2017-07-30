@@ -803,3 +803,8 @@ void add_reg_asize(int32_t reg, int32_t value)
     }
 }
 
+int32_t decr_ecx_asize()
+{
+    return is_asize_32() ? --reg32s[ECX] : --reg16[CX];
+}
+
