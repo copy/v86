@@ -346,6 +346,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.add_reg_asize = this.wm.funcs['_add_reg_asize'];
     this.decr_ecx_asize = this.wm.funcs['_decr_ecx_asize'];
     this.movsb = this.wm.funcs['_movsb'];
+    this.movsw = this.wm.funcs['_movsw'];
 };
 
 CPU.prototype.get_state = function()
