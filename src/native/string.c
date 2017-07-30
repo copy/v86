@@ -310,3 +310,91 @@ void cmpsb()
     }
 }
 
+void cmpsw_rep()
+{
+    int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t data_src, data_dest;
+    int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
+
+    int32_t count = get_reg_asize(ECX) >> 0;
+    if(count == 0) return;
+    int32_t cont = false;
+    int32_t start_count = count;
+    int32_t is_repz = (*prefixes & PREFIX_MASK_REP) == PREFIX_REPZ;
+    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    if(!(dest & 1) && !(src & 1))
+    {
+        int32_t single_size = size < 0 ? -1 : 1;
+        int32_t phys_src = translate_address_read(src) >> 1;
+        int32_t phys_dest = translate_address_read(dest) >> 1;
+        if(*paging)
+        {
+            cycle_counter = string_get_cycle_count2(size, src, dest);
+        }
+        do
+        {
+            data_dest = read_aligned16(phys_dest);
+            data_src = read_aligned16(phys_src);
+            phys_dest += single_size;
+            phys_src += single_size;
+            cont = --count != 0 && (data_src == data_dest) == is_repz;
+        }
+        while(cont && cycle_counter--);
+        int32_t diff = size * (start_count - count) | 0;
+        add_reg_asize(EDI, diff);
+        add_reg_asize(ESI, diff);
+        set_ecx_asize(count);
+        *timestamp_counter += start_count - count;
+    }
+    else
+    {
+        do
+        {
+            data_dest = safe_read16(dest);
+            data_src = safe_read16(src);
+            dest += size;
+            add_reg_asize(EDI, size);
+            src += size;
+            add_reg_asize(ESI, size);
+            cont = decr_ecx_asize() != 0 && (data_src == data_dest) == is_repz;
+        }
+        while(cont && cycle_counter--);
+    }
+    if(cont)
+    {
+        *instruction_pointer = *previous_ip;
+    }
+
+    cmp16(data_src, data_dest);
+    diverged();
+}
+
+void cmpsw_no_rep()
+{
+    int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t data_src, data_dest;
+    int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
+
+    data_dest = safe_read16(dest);
+    data_src = safe_read16(src);
+    add_reg_asize(EDI, size);
+    add_reg_asize(ESI, size);
+
+    cmp16(data_src, data_dest);
+    diverged();
+}
+
+void cmpsw()
+{
+    if(*prefixes & PREFIX_MASK_REP)
+    {
+        cmpsw_rep();
+    }
+    else
+    {
+        cmpsw_no_rep();
+    }
+}
+
