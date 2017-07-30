@@ -17,3 +17,4 @@ extern void throw_cpu_exception(void);
 #include "fpu.c"
 #include "instructions.c"
 #include "instructions_0f.c"
+#include "string.c"
