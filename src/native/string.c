@@ -486,3 +486,204 @@ void cmpsd()
     }
 }
 
+void stosb_rep()
+{
+    int32_t data = reg8[AL];
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
+
+    int32_t count = get_reg_asize(ECX) >> 0;
+    if(count == 0) return;
+    int32_t cont = false;
+    int32_t start_count = count;
+    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    int32_t phys_dest = translate_address_write(dest);
+    if(*paging)
+    {
+        cycle_counter = string_get_cycle_count(size, dest);
+    }
+    do
+    {
+        write8(phys_dest, data);
+        phys_dest += size;
+        cont = --count != 0;
+    }
+    while(cont && cycle_counter--);
+    int32_t diff = size * (start_count - count);
+    add_reg_asize(EDI, diff);
+    set_ecx_asize(count);
+    *timestamp_counter += start_count - count;
+    if(cont)
+    {
+        *instruction_pointer = *previous_ip;
+    }
+    diverged();
+}
+
+void stosb_no_rep()
+{
+    int32_t data = reg8[AL];
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
+
+    safe_write8(dest, data);
+    add_reg_asize(EDI, size);
+    diverged();
+}
+
+void stosb()
+{
+    if(*prefixes & PREFIX_MASK_REP)
+    {
+        stosb_rep();
+    }
+    else
+    {
+        stosb_no_rep();
+    }
+}
+
+void stosw_rep()
+{
+    int32_t data = reg16[AX];
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
+
+    int32_t count = get_reg_asize(ECX) >> 0;
+    if(count == 0) return;
+    int32_t cont = false;
+    int32_t start_count = count;
+    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    if(!(dest & 1))
+    {
+        int32_t single_size = size < 0 ? -1 : 1;
+        int32_t phys_dest = translate_address_write(dest) >> 1;
+        if(*paging)
+        {
+            cycle_counter = string_get_cycle_count(size, dest);
+        }
+        do
+        {
+            write_aligned16(phys_dest, data);
+            phys_dest += single_size;
+            cont = --count != 0;
+        }
+        while(cont && cycle_counter--);
+        int32_t diff = size * (start_count - count);
+        add_reg_asize(EDI, diff);
+        set_ecx_asize(count);
+        *timestamp_counter += start_count - count;
+    }
+    else
+    {
+        do
+        {
+            safe_write16(dest, data);
+            dest += size;
+            add_reg_asize(EDI, size);
+            cont = decr_ecx_asize() != 0;
+        }
+        while(cont && cycle_counter--);
+    }
+    if(cont)
+    {
+        *instruction_pointer = *previous_ip;
+    }
+    diverged();
+}
+
+void stosw_no_rep()
+{
+    int32_t data = reg16[AX];
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
+
+    safe_write16(dest, data);
+    add_reg_asize(EDI, size);
+    diverged();
+}
+
+void stosw()
+{
+    if(*prefixes & PREFIX_MASK_REP)
+    {
+        stosw_rep();
+    }
+    else
+    {
+        stosw_no_rep();
+    }
+}
+
+void stosd_rep()
+{
+    int32_t data = reg32s[EAX];
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
+
+    int32_t count = get_reg_asize(ECX) >> 0;
+    if(count == 0) return;
+    int32_t cont = false;
+    int32_t start_count = count;
+    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    if(!(dest & 3))
+    {
+        int32_t single_size = size < 0 ? -1 : 1;
+        int32_t phys_dest = translate_address_write(dest) >> 2;
+        if(*paging)
+        {
+            cycle_counter = string_get_cycle_count(size, dest);
+        }
+        do
+        {
+            write_aligned32(phys_dest, data);
+            phys_dest += single_size;
+            cont = --count != 0;
+        }
+        while(cont && cycle_counter--);
+        int32_t diff = size * (start_count - count);
+        add_reg_asize(EDI, diff);
+        set_ecx_asize(count);
+        *timestamp_counter += start_count - count;
+    }
+    else
+    {
+        do
+        {
+            safe_write32(dest, data);
+            dest += size;
+            add_reg_asize(EDI, size);
+            cont = decr_ecx_asize() != 0;
+        }
+        while(cont && cycle_counter--);
+    }
+    if(cont)
+    {
+        *instruction_pointer = *previous_ip;
+    }
+    diverged();
+}
+
+void stosd_no_rep()
+{
+    int32_t data = reg32s[EAX];
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
+
+    safe_write32(dest, data);
+    add_reg_asize(EDI, size);
+    diverged();
+}
+
+void stosd()
+{
+    if(*prefixes & PREFIX_MASK_REP)
+    {
+        stosd_rep();
+    }
+    else
+    {
+        stosd_no_rep();
+    }
+}
+
