@@ -200,7 +200,6 @@ function V86Starter(options)
         "_outsb": function() { return cpu.outsb.apply(cpu, arguments); },
         "_outsw": function() { return cpu.outsw.apply(cpu, arguments); },
         "_outsd": function() { return cpu.outsd.apply(cpu, arguments); },
-        "_movsd": function() { return cpu.movsd.apply(cpu, arguments); },
         "_cmpsb": function() { return cpu.cmpsb.apply(cpu, arguments); },
         "_cmpsw": function() { return cpu.cmpsw.apply(cpu, arguments); },
         "_cmpsd": function() { return cpu.cmpsd.apply(cpu, arguments); },
