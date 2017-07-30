@@ -350,6 +350,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.movsb = this.wm.funcs['_movsb'];
     this.movsw = this.wm.funcs['_movsw'];
     this.movsd = this.wm.funcs['_movsd'];
+    this.cmpsb = this.wm.funcs['_cmpsb'];
 };
 
 CPU.prototype.get_state = function()

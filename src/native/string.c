@@ -240,3 +240,73 @@ void movsd()
     }
 }
 
+void cmpsb_rep()
+{
+    int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t data_src, data_dest;
+    int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
+
+    int32_t count = get_reg_asize(ECX) >> 0;
+    if(count == 0) return;
+    int32_t cont = false;
+    int32_t start_count = count;
+    int32_t is_repz = (*prefixes & PREFIX_MASK_REP) == PREFIX_REPZ;
+    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    int32_t phys_src = translate_address_read(src);
+    int32_t phys_dest = translate_address_read(dest);
+    if(*paging)
+    {
+        cycle_counter = string_get_cycle_count2(size, src, dest);
+    }
+    do
+    {
+        data_dest = read8(phys_dest);
+        data_src = read8(phys_src);
+        phys_dest += size;
+        phys_src += size;
+        cont = --count != 0 && (data_src == data_dest) == is_repz;
+    }
+    while(cont && cycle_counter--);
+    int32_t diff = size * (start_count - count);
+    add_reg_asize(EDI, diff);
+    add_reg_asize(ESI, diff);
+    set_ecx_asize(count);
+    *timestamp_counter += start_count - count;
+    if(cont)
+    {
+        *instruction_pointer = *previous_ip;
+    }
+
+    cmp8(data_src, data_dest);
+    diverged();
+}
+
+void cmpsb_no_rep()
+{
+    int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t data_src, data_dest;
+    int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
+
+    data_src = safe_read8(src);
+    data_dest = safe_read8(dest);
+    add_reg_asize(EDI, size);
+    add_reg_asize(ESI, size);
+
+    cmp8(data_src, data_dest);
+    diverged();
+}
+
+void cmpsb()
+{
+    if(*prefixes & PREFIX_MASK_REP)
+    {
+        cmpsb_rep();
+    }
+    else
+    {
+        cmpsb_no_rep();
+    }
+}
+
