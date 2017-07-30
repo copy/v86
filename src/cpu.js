@@ -340,6 +340,9 @@ CPU.prototype.wasm_patch = function(wm)
     this.get_stack_reg = this.wm.funcs['_get_stack_reg'];
     this.setcc = this.wm.funcs['_setcc'];
     this.set_stack_reg = this.wm.funcs['_set_stack_reg'];
+    this.get_reg_asize = this.wm.funcs['_get_reg_asize'];
+    this.set_ecx_asize = this.wm.funcs['_set_ecx_asize'];
+    this.add_reg_asize = this.wm.funcs['_add_reg_asize'];
 };
 
 CPU.prototype.get_state = function()

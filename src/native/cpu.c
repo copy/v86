@@ -763,3 +763,43 @@ void set_stack_reg(int32_t value)
     }
 }
 
+int32_t get_reg_asize(int32_t reg)
+{
+    dbg_assert(reg == ECX || reg == ESI || reg == EDI);
+    int32_t r = reg32s[reg];
+
+    if(is_asize_32())
+    {
+        return r;
+    }
+    else
+    {
+        return r & 0xFFFF;
+    }
+}
+
+void set_ecx_asize(int32_t value)
+{
+    if(is_asize_32())
+    {
+        reg32s[ECX] = value;
+    }
+    else
+    {
+        reg16[CX] = value;
+    }
+}
+
+void add_reg_asize(int32_t reg, int32_t value)
+{
+    dbg_assert(reg == ECX || reg == ESI || reg == EDI);
+    if(is_asize_32())
+    {
+        reg32s[reg] += value;
+    }
+    else
+    {
+        reg16[reg << 1] += value;
+    }
+}
+
