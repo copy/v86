@@ -69,6 +69,20 @@ int32_t read32s(uint32_t addr)
     }
 }
 
+int32_t read_aligned32(uint32_t addr)
+{
+    if(USE_A20 && !*a20_enabled) addr &= A20_MASK32;
+
+    if(in_mapped_range(addr << 2))
+    {
+        return mmap_read32(addr << 2);
+    }
+    else
+    {
+        return mem32s[addr];
+    }
+}
+
 void write8(uint32_t addr, uint8_t value)
 {
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK;
@@ -125,3 +139,18 @@ void write32(uint32_t addr, int32_t value)
         *(int32_t*)(mem8 + addr) = value;
     }
 }
+
+void write_aligned32(int32_t addr, int32_t value)
+{
+    if(USE_A20 && !*a20_enabled) addr &= A20_MASK32;
+
+    if(in_mapped_range(addr << 2))
+    {
+        mmap_write32(addr << 2, value);
+    }
+    else
+    {
+        mem32s[addr] = value;
+    }
+}
+

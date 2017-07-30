@@ -80,5 +80,6 @@ int32_t* const tlb_data = (int32_t* const) (2048 + 0x100000 + 0x100000); // leng
 
 uint8_t* const mem8 = (uint8_t* const) (2048 + 0x100000 * 6);
 uint16_t* const mem16 = (uint16_t* const) (2048 + 0x100000 * 6);
+int32_t* const mem32s = (int32_t* const) (2048 + 0x100000 * 6);
 
 #endif
