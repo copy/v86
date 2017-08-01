@@ -144,12 +144,12 @@ const encodings = [
     { opcode: 0xA8, imm: 1, },
     { opcode: 0xA9, os: 1, imm: 1, },
 
-    { opcode: 0xAA, skip: 1, },
-    { opcode: 0xAB, os: 1, skip: 1, },
-    { opcode: 0xAC, skip: 1, },
-    { opcode: 0xAD, os: 1, skip: 1, },
-    { opcode: 0xAE, skip: 1, },
-    { opcode: 0xAF, os: 1, skip: 1, },
+    { opcode: 0xAA, },
+    { opcode: 0xAB, os: 1, },
+    { opcode: 0xAC, },
+    { opcode: 0xAD, os: 1, },
+    { opcode: 0xAE, },
+    { opcode: 0xAF, os: 1, },
 
     { opcode: 0xC2, os: 1, imm16: 1, skip: 1, },
     { opcode: 0xC3, os: 1, skip: 1, },
@@ -996,7 +996,9 @@ function random_int32()
 
 function is_string_instruction(op)
 {
-    return (op.opcode >= 0x6C && op.opcode <= 0x6F) || (op.opcode >= 0xA4 && op.opcode <= 0xA7);
+    return (op.opcode >= 0x6C && op.opcode <= 0x6F)
+        || (op.opcode >= 0xA4 && op.opcode <= 0xA7)
+        || (op.opcode >= 0xAA && op.opcode <= 0xAF);
 }
 
 function create_nasm(op, config)
