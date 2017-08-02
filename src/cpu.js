@@ -365,6 +365,9 @@ CPU.prototype.wasm_patch = function(wm)
     this.insb = this.wm.funcs['_insb'];
     this.insw = this.wm.funcs['_insw'];
     this.insd = this.wm.funcs['_insd'];
+    this.outsb = this.wm.funcs['_outsb'];
+    this.outsw = this.wm.funcs['_outsw'];
+    this.outsd = this.wm.funcs['_outsd'];
 };
 
 CPU.prototype.get_state = function()

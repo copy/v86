@@ -194,9 +194,6 @@ function V86Starter(options)
         "_load_ldt": function() { return cpu.load_ldt.apply(cpu, arguments); },
         "_load_tr": function() { return cpu.load_tr.apply(cpu, arguments); },
 
-        "_outsb": function() { return cpu.outsb.apply(cpu, arguments); },
-        "_outsw": function() { return cpu.outsw.apply(cpu, arguments); },
-        "_outsd": function() { return cpu.outsd.apply(cpu, arguments); },
         "_lss16": function() { return cpu.lss16.apply(cpu, arguments); },
         "_lss32": function() { return cpu.lss32.apply(cpu, arguments); },
         "_enter16": function() { return cpu.enter16.apply(cpu, arguments); },
