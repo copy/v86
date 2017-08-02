@@ -986,7 +986,7 @@ static void instr_0F77() {
         }
     }
 
-    safe_tag_word(0xFFFF);
+    fpu_set_tag_word(0xFFFF);
 }
 
 static void instr_0F78() { unimplemented_sse(); }

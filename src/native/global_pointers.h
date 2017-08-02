@@ -53,7 +53,7 @@ bool* const protected_mode = (bool* const) 800;
 bool* const is_32 = (bool* const) 804;
 bool* const stack_size_32 = (bool* const) 808;
 uint32_t* const memory_size = (uint32_t* const) 812;
-int32_t* const stack_empty = (int32_t* const) 816;
+int32_t* const fpu_stack_empty = (int32_t* const) 816;
 
 bool* const paging = (bool* const) 820;
 

@@ -97,12 +97,12 @@ function FPU(cpu)
         Math.log(2) / Math.LN10, Math.LN2, 0
     ]);
 
-    this.wasm_patch();
+    this.wasm_patch(cpu.wm);
 }
 
-FPU.prototype.wasm_patch = function()
+FPU.prototype.wasm_patch = function(wm)
 {
-    this.set_tag_word = this.cpu.wm.funcs["_safe_tag_word"];
+    this.set_tag_word = wm.funcs["_fpu_set_tag_word"];
 };
 
 FPU.prototype.get_state = function()
