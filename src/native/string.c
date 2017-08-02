@@ -1051,3 +1051,219 @@ void scasd()
     }
 }
 
+void insb_rep()
+{
+    int32_t port = reg16[DX];
+    test_privileges_for_io(port, 1);
+
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
+
+    int32_t count = get_reg_asize(ECX) >> 0;
+    if(count == 0) return;
+    int32_t cont = false;
+    int32_t start_count = count;
+    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    int32_t phys_dest = translate_address_write(dest);
+    if(*paging)
+    {
+        cycle_counter = string_get_cycle_count(size, dest);
+    }
+    do
+    {
+        write8(phys_dest, io_port_read8(port));
+        phys_dest += size;
+        cont = --count != 0;
+    }
+    while(cont && cycle_counter--);
+    int32_t diff = size * (start_count - count);
+    add_reg_asize(EDI, diff);
+    set_ecx_asize(count);
+    *timestamp_counter += start_count - count;
+    if(cont)
+    {
+        *instruction_pointer = *previous_ip;
+    }
+    diverged();
+}
+
+void insb_no_rep()
+{
+    int32_t port = reg16[DX];
+    test_privileges_for_io(port, 1);
+
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
+
+    writable_or_pagefault(dest, 1);
+    safe_write8(dest, io_port_read8(port));
+    add_reg_asize(EDI, size);
+    diverged();
+}
+
+void insb()
+{
+    if(*prefixes & PREFIX_MASK_REP)
+    {
+        insb_rep();
+    }
+    else
+    {
+        insb_no_rep();
+    }
+}
+
+void insw_rep()
+{
+    int32_t port = reg16[DX];
+    test_privileges_for_io(port, 2);
+
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
+
+    int32_t count = get_reg_asize(ECX) >> 0;
+    if(count == 0) return;
+    int32_t cont = false;
+    int32_t start_count = count;
+    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    if(!(dest & 1))
+    {
+        int32_t single_size = size < 0 ? -1 : 1;
+        int32_t phys_dest = translate_address_write(dest) >> 1;
+        if(*paging)
+        {
+            cycle_counter = string_get_cycle_count(size, dest);
+        }
+        do
+        {
+            write_aligned16(phys_dest, io_port_read16(port));
+            phys_dest += single_size;
+            cont = --count != 0;
+        }
+        while(cont && cycle_counter--);
+        int32_t diff = size * (start_count - count);
+        add_reg_asize(EDI, diff);
+        set_ecx_asize(count);
+        *timestamp_counter += start_count - count;
+    }
+    else
+    {
+        do
+        {
+            safe_write16(dest, io_port_read16(port));
+            dest += size;
+            add_reg_asize(EDI, size);
+            cont = decr_ecx_asize() != 0;
+        }
+        while(cont && cycle_counter--);
+    }
+    if(cont)
+    {
+        *instruction_pointer = *previous_ip;
+    }
+    diverged();
+}
+
+void insw_no_rep()
+{
+    int32_t port = reg16[DX];
+    test_privileges_for_io(port, 2);
+
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
+
+    writable_or_pagefault(dest, 2);
+    safe_write16(dest, io_port_read16(port));
+    add_reg_asize(EDI, size);
+    diverged();
+}
+
+void insw()
+{
+    if(*prefixes & PREFIX_MASK_REP)
+    {
+        insw_rep();
+    }
+    else
+    {
+        insw_no_rep();
+    }
+}
+
+void insd_rep()
+{
+    int32_t port = reg16[DX];
+    test_privileges_for_io(port, 4);
+
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
+
+    int32_t count = get_reg_asize(ECX) >> 0;
+    if(count == 0) return;
+    int32_t cont = false;
+    int32_t start_count = count;
+    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    if(!(dest & 3))
+    {
+        int32_t single_size = size < 0 ? -1 : 1;
+        int32_t phys_dest = translate_address_write(dest) >> 2;
+        if(*paging)
+        {
+            cycle_counter = string_get_cycle_count(size, dest);
+        }
+        do
+        {
+            write_aligned32(phys_dest, io_port_read32(port));
+            phys_dest += single_size;
+            cont = --count != 0;
+        }
+        while(cont && cycle_counter--);
+        int32_t diff = size * (start_count - count);
+        add_reg_asize(EDI, diff);
+        set_ecx_asize(count);
+        *timestamp_counter += start_count - count;
+    }
+    else
+    {
+        do
+        {
+            safe_write32(dest, io_port_read32(port));
+            dest += size;
+            add_reg_asize(EDI, size);
+            cont = decr_ecx_asize() != 0;
+        }
+        while(cont && cycle_counter--);
+    }
+    if(cont)
+    {
+        *instruction_pointer = *previous_ip;
+    }
+    diverged();
+}
+
+void insd_no_rep()
+{
+    int32_t port = reg16[DX];
+    test_privileges_for_io(port, 4);
+
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
+
+    writable_or_pagefault(dest, 4);
+    safe_write32(dest, io_port_read32(port));
+    add_reg_asize(EDI, size);
+    diverged();
+}
+
+void insd()
+{
+    if(*prefixes & PREFIX_MASK_REP)
+    {
+        insd_rep();
+    }
+    else
+    {
+        insd_no_rep();
+    }
+}
+
