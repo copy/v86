@@ -834,3 +834,220 @@ void lodsd()
     }
 }
 
+void scasb_rep()
+{
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
+    int32_t data_dest;
+    int32_t data_src = reg8[AL];
+
+    int32_t count = get_reg_asize(ECX) >> 0;
+    if(count == 0) return;
+    int32_t cont = false;
+    int32_t start_count = count;
+    int32_t is_repz = (*prefixes & PREFIX_MASK_REP) == PREFIX_REPZ;
+    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    int32_t phys_dest = translate_address_read(dest);
+    if(*paging)
+    {
+        cycle_counter = string_get_cycle_count(size, dest);
+    }
+    do
+    {
+        data_dest = read8(phys_dest);
+        phys_dest += size;
+        cont = --count != 0 && (data_src == data_dest) == is_repz;
+    }
+    while(cont && cycle_counter--);
+    int32_t diff = size * (start_count - count);
+    add_reg_asize(EDI, diff);
+    set_ecx_asize(count);
+    *timestamp_counter += start_count - count;
+    if(cont)
+    {
+        *instruction_pointer = *previous_ip;
+    }
+    cmp8(data_src, data_dest);
+    diverged();
+}
+
+void scasb_no_rep()
+{
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
+    int32_t data_dest;
+    int32_t data_src = reg8[AL];
+
+    data_dest = safe_read8(dest);
+    add_reg_asize(EDI, size);
+    cmp8(data_src, data_dest);
+    diverged();
+}
+
+void scasb()
+{
+    if(*prefixes & PREFIX_MASK_REP)
+    {
+        scasb_rep();
+    }
+    else
+    {
+        scasb_no_rep();
+    }
+}
+
+void scasw_rep()
+{
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
+    int32_t data_dest;
+    int32_t data_src = reg16[AL];
+
+    int32_t count = get_reg_asize(ECX) >> 0;
+    if(count == 0) return;
+    int32_t cont = false;
+    int32_t start_count = count;
+    int32_t is_repz = (*prefixes & PREFIX_MASK_REP) == PREFIX_REPZ;
+    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    if(!(dest & 1))
+    {
+        int32_t single_size = size < 0 ? -1 : 1;
+        int32_t phys_dest = translate_address_read(dest) >> 1;
+        if(*paging)
+        {
+            cycle_counter = string_get_cycle_count(size, dest);
+        }
+        do
+        {
+            data_dest = read_aligned16(phys_dest);
+            phys_dest += single_size;
+            cont = --count != 0 && (data_src == data_dest) == is_repz;
+        }
+        while(cont && cycle_counter--);
+        int32_t diff = size * (start_count - count);
+        add_reg_asize(EDI, diff);
+        set_ecx_asize(count);
+        *timestamp_counter += start_count - count;
+    }
+    else
+    {
+        do
+        {
+            data_dest = safe_read16(dest);
+            dest += size;
+            add_reg_asize(EDI, size);
+            cont = decr_ecx_asize() != 0 && (data_src == data_dest) == is_repz;
+        }
+        while(cont && cycle_counter--);
+    }
+    if(cont)
+    {
+        *instruction_pointer = *previous_ip;
+    }
+    cmp16(data_src, data_dest);
+    diverged();
+}
+
+void scasw_no_rep()
+{
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
+    int32_t data_dest;
+    int32_t data_src = reg16[AL];
+
+    data_dest = safe_read16(dest);
+    add_reg_asize(EDI, size);
+    cmp16(data_src, data_dest);
+    diverged();
+}
+
+void scasw()
+{
+    if(*prefixes & PREFIX_MASK_REP)
+    {
+        scasw_rep();
+    }
+    else
+    {
+        scasw_no_rep();
+    }
+}
+
+void scasd_rep()
+{
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
+    int32_t data_dest;
+    int32_t data_src = reg32s[EAX];
+
+    int32_t count = get_reg_asize(ECX) >> 0;
+    if(count == 0) return;
+    int32_t cont = false;
+    int32_t start_count = count;
+    int32_t is_repz = (*prefixes & PREFIX_MASK_REP) == PREFIX_REPZ;
+    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    if(!(dest & 3))
+    {
+        int32_t single_size = size < 0 ? -1 : 1;
+        int32_t phys_dest = translate_address_read(dest) >> 2;
+        if(*paging)
+        {
+            cycle_counter = string_get_cycle_count(size, dest);
+        }
+        do
+        {
+            data_dest = read_aligned32(phys_dest);
+            phys_dest += single_size;
+            cont = --count != 0 && (data_src == data_dest) == is_repz;
+        }
+        while(cont && cycle_counter--);
+        int32_t diff = size * (start_count - count);
+        add_reg_asize(EDI, diff);
+        set_ecx_asize(count);
+        *timestamp_counter += start_count - count;
+    }
+    else
+    {
+        do
+        {
+            data_dest = safe_read32s(dest);
+            dest += size;
+            add_reg_asize(EDI, size);
+            cont = decr_ecx_asize() != 0 && (data_src == data_dest) == is_repz;
+        }
+        while(cont && cycle_counter--);
+    }
+    if(cont)
+    {
+        *instruction_pointer = *previous_ip;
+    }
+    cmp32(data_src, data_dest);
+    diverged();
+}
+
+void scasd_no_rep()
+{
+    int32_t dest = get_seg(ES) + get_reg_asize(EDI);
+    int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
+    int32_t data_dest;
+    int32_t data_src = reg32s[EAX];
+
+    data_dest = safe_read32s(dest);
+    add_reg_asize(EDI, size);
+    cmp32(data_src, data_dest);
+    diverged();
+}
+
+
+void scasd()
+{
+    if(*prefixes & PREFIX_MASK_REP)
+    {
+        scasd_rep();
+    }
+    else
+    {
+        scasd_no_rep();
+    }
+}
+
