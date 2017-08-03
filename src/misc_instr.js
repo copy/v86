@@ -496,7 +496,7 @@ CPU.prototype.fxsave = function(addr)
 
     for(let i = 0; i < 8; i++)
     {
-        this.fpu.store_m80(addr + 32 + (i << 4) | 0, this.fpu.st[this.fpu.stack_ptr + i & 7]);
+        this.fpu.store_m80(addr + 32 + (i << 4) | 0, this.fpu.st[this.fpu.stack_ptr[0] + i & 7]);
     }
 
     // If the OSFXSR bit in control register CR4 is not set, the FXSAVE
@@ -537,7 +537,7 @@ CPU.prototype.fxrstor = function(addr)
 
     for(let i = 0; i < 8; i++)
     {
-        this.fpu.st[this.fpu.stack_ptr + i & 7] = this.fpu.load_m80(addr + 32 + (i << 4) | 0);
+        this.fpu.st[this.fpu.stack_ptr[0] + i & 7] = this.fpu.load_m80(addr + 32 + (i << 4) | 0);
     }
 
     for(let i = 0; i < 8; i++)

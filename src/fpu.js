@@ -78,7 +78,8 @@ function FPU(cpu)
     // bitmap of which stack registers are empty
     this.stack_empty = new Int32Array(cpu.wm.mem.buffer, 816, 1);
     this.stack_empty[0] = 0xff;
-    this.stack_ptr = 0;
+    this.stack_ptr = new Uint32Array(cpu.wm.mem.buffer, 1032, 1);
+    this.stack_ptr[0] = 0;
 
     this.control_word = 0x37F;
     this.status_word = 0;
@@ -111,7 +112,7 @@ FPU.prototype.get_state = function()
 
     state[0] = this.st;
     state[1] = this.stack_empty[0];
-    state[2] = this.stack_ptr;
+    state[2] = this.stack_ptr[0];
     state[3] = this.control_word;
     state[4] = this.fpu_dp_selector;
     state[5] = this.fpu_ip;
@@ -127,7 +128,7 @@ FPU.prototype.set_state = function(state)
 {
     this.st.set(state[0]);
     this.stack_empty[0] = state[1];
-    this.stack_ptr = state[2];
+    this.stack_ptr[0] = state[2];
     this.control_word = state[3];
     this.fpu_dp_selector = state[4];
     this.fpu_ip = state[5];
@@ -187,7 +188,7 @@ FPU.prototype.fucom = function(y)
 
 FPU.prototype.fcomi = function(y)
 {
-    var x = this.st[this.stack_ptr];
+    var x = this.st[this.stack_ptr[0]];
 
     this.cpu.flags_changed[0] &= ~(1 | flag_parity | flag_zero);
     this.cpu.flags[0] &= ~(1 | flag_parity | flag_zero);
@@ -240,7 +241,7 @@ FPU.prototype.fxam = function(x)
     this.status_word &= ~FPU_RESULT_FLAGS;
     this.status_word |= this.sign(0) << 9;
 
-    if(this.stack_empty[0] >> this.stack_ptr & 1)
+    if(this.stack_empty[0] >> this.stack_ptr[0] & 1)
     {
         this.status_word |= FPU_C3 | FPU_C0;
     }
@@ -273,18 +274,18 @@ FPU.prototype.finit = function()
     this.fpu_opcode = 0;
 
     this.stack_empty[0] = 0xFF;
-    this.stack_ptr = 0;
+    this.stack_ptr[0] = 0;
 }
 
 FPU.prototype.load_status_word = function()
 {
-    return this.status_word & ~(7 << 11) | this.stack_ptr << 11;
+    return this.status_word & ~(7 << 11) | this.stack_ptr[0] << 11;
 }
 
 FPU.prototype.set_status_word = function(sw)
 {
     this.status_word = sw & ~(7 << 11);
-    this.stack_ptr = sw >> 11 & 7;
+    this.stack_ptr[0] = sw >> 11 & 7;
 }
 
 FPU.prototype.load_tag_word = function()
@@ -310,7 +311,7 @@ FPU.prototype.load_tag_word = function()
         }
     }
 
-    //dbg_log("load  tw=" + h(tag_word) + " se=" + h(this.stack_empty[0]) + " sp=" + this.stack_ptr, LOG_FPU);
+    //dbg_log("load  tw=" + h(tag_word) + " se=" + h(this.stack_empty[0]) + " sp=" + this.stack_ptr[0], LOG_FPU);
 
     return tag_word;
 }
@@ -380,11 +381,11 @@ FPU.prototype.fsave = function(addr)
 
     for(var i = 0; i < 8; i++)
     {
-        this.store_m80(addr, this.st[this.stack_ptr + i & 7]);
+        this.store_m80(addr, this.st[this.stack_ptr[0] + i & 7]);
         addr += 10;
     }
 
-    //dbg_log("save st=" + this.stack_ptr + " " + [].slice.call(this.st), LOG_FPU);
+    //dbg_log("save st=" + this.stack_ptr[0] + " " + [].slice.call(this.st), LOG_FPU);
 
     this.finit();
 }
@@ -396,11 +397,11 @@ FPU.prototype.frstor = function(addr)
 
     for(var i = 0; i < 8; i++)
     {
-        this.st[(i + this.stack_ptr) & 7] = this.load_m80(addr);
+        this.st[(i + this.stack_ptr[0]) & 7] = this.load_m80(addr);
         addr += 10;
     }
 
-    //dbg_log("rstor st=" + this.stack_ptr + " " + [].slice.call(this.st), LOG_FPU);
+    //dbg_log("rstor st=" + this.stack_ptr[0] + " " + [].slice.call(this.st), LOG_FPU);
 }
 
 FPU.prototype.fxtract = function()
@@ -412,7 +413,7 @@ FPU.prototype.fxtract = function()
     this.float64_byte[7] = 0x3F | (this.float64_byte[7] & 0x80);
     this.float64_byte[6] |= 0xF0;
 
-    this.st[this.stack_ptr] = exponent;
+    this.st[this.stack_ptr[0]] = exponent;
     this.push(this.float64[0]);
 };
 
@@ -452,33 +453,33 @@ FPU.prototype.truncate = function(x)
 
 FPU.prototype.push = function(x)
 {
-    this.stack_ptr = this.stack_ptr - 1 & 7;
+    this.stack_ptr[0] = this.stack_ptr[0] - 1 & 7;
 
-    if(this.stack_empty[0] >> this.stack_ptr & 1)
+    if(this.stack_empty[0] >> this.stack_ptr[0] & 1)
     {
         this.status_word &= ~FPU_C1;
-        this.stack_empty[0] &= ~(1 << this.stack_ptr);
-        this.st[this.stack_ptr] = x;
+        this.stack_empty[0] &= ~(1 << this.stack_ptr[0]);
+        this.st[this.stack_ptr[0]] = x;
     }
     else
     {
         this.status_word |= FPU_C1;
         this.stack_fault();
-        this.st[this.stack_ptr] = this.indefinite_nan;
+        this.st[this.stack_ptr[0]] = this.indefinite_nan;
     }
 }
 
 FPU.prototype.pop = function()
 {
-    this.stack_empty[0] |= 1 << this.stack_ptr;
-    this.stack_ptr = this.stack_ptr + 1 & 7;
+    this.stack_empty[0] |= 1 << this.stack_ptr[0];
+    this.stack_ptr[0] = this.stack_ptr[0] + 1 & 7;
 }
 
 FPU.prototype.get_sti = function(i)
 {
     dbg_assert(typeof i === "number" && i >= 0 && i < 8);
 
-    i = i + this.stack_ptr & 7;
+    i = i + this.stack_ptr[0] & 7;
 
     if(this.stack_empty[0] >> i & 1)
     {
@@ -494,7 +495,7 @@ FPU.prototype.get_sti = function(i)
 
 FPU.prototype.get_st0 = function()
 {
-    if(this.stack_empty[0] >> this.stack_ptr & 1)
+    if(this.stack_empty[0] >> this.stack_ptr[0] & 1)
     {
         this.status_word &= ~FPU_C1;
         this.stack_fault();
@@ -502,7 +503,7 @@ FPU.prototype.get_st0 = function()
     }
     else
     {
-        return this.st[this.stack_ptr];
+        return this.st[this.stack_ptr[0]];
     }
 }
 
@@ -639,7 +640,7 @@ FPU.prototype.store_m32 = function(addr, x)
 // sign of a number on the stack
 FPU.prototype.sign = function(i)
 {
-    return this.st8[(this.stack_ptr + i & 7) << 3 | 7] >> 7;
+    return this.st8[(this.stack_ptr[0] + i & 7) << 3 | 7] >> 7;
 };
 
 
@@ -653,12 +654,12 @@ FPU.prototype.dbg_log_fpu_op = function(op, imm8)
     if(imm8 >= 0xC0)
     {
         dbg_log(h(op, 2) + " " + h(imm8, 2) + "/" + (imm8 >> 3 & 7) + "/" + (imm8 & 7) +
-                " @" + h(this.cpu.instruction_pointer[0] >>> 0, 8) + " sp=" + this.stack_ptr + " st=" + h(this.stack_empty[0], 2), LOG_FPU);
+                " @" + h(this.cpu.instruction_pointer[0] >>> 0, 8) + " sp=" + this.stack_ptr[0] + " st=" + h(this.stack_empty[0], 2), LOG_FPU);
     }
     else
     {
         dbg_log(h(op, 2) + " /" + imm8 +
-                "     @" + h(this.cpu.instruction_pointer[0] >>> 0, 8) + " sp=" + this.stack_ptr + " st=" + h(this.stack_empty[0], 2), LOG_FPU);
+                "     @" + h(this.cpu.instruction_pointer[0] >>> 0, 8) + " sp=" + this.stack_ptr[0] + " st=" + h(this.stack_empty[0], 2), LOG_FPU);
     }
 }
 
@@ -682,11 +683,11 @@ FPU.prototype.op_D8_reg = function(imm8)
     {
         case 0:
             // fadd
-            this.st[this.stack_ptr] = st0 + sti;
+            this.st[this.stack_ptr[0]] = st0 + sti;
             break;
         case 1:
             // fmul
-            this.st[this.stack_ptr] = st0 * sti;
+            this.st[this.stack_ptr[0]] = st0 * sti;
             break;
         case 2:
             // fcom
@@ -699,19 +700,19 @@ FPU.prototype.op_D8_reg = function(imm8)
             break;
         case 4:
             // fsub
-            this.st[this.stack_ptr] = st0 - sti;
+            this.st[this.stack_ptr[0]] = st0 - sti;
             break;
         case 5:
             // fsubr
-            this.st[this.stack_ptr] = sti - st0;
+            this.st[this.stack_ptr[0]] = sti - st0;
             break;
         case 6:
             // fdiv
-            this.st[this.stack_ptr] = st0 / sti;
+            this.st[this.stack_ptr[0]] = st0 / sti;
             break;
         case 7:
             // fdivr
-            this.st[this.stack_ptr] = sti / st0;
+            this.st[this.stack_ptr[0]] = sti / st0;
             break;
         default:
             dbg_assert(false);
@@ -729,11 +730,11 @@ FPU.prototype.op_D8_mem = function(mod, addr)
     {
         case 0:
             // fadd
-            this.st[this.stack_ptr] = st0 + m32;
+            this.st[this.stack_ptr[0]] = st0 + m32;
             break;
         case 1:
             // fmul
-            this.st[this.stack_ptr] = st0 * m32;
+            this.st[this.stack_ptr[0]] = st0 * m32;
             break;
         case 2:
             // fcom
@@ -746,19 +747,19 @@ FPU.prototype.op_D8_mem = function(mod, addr)
             break;
         case 4:
             // fsub
-            this.st[this.stack_ptr] = st0 - m32;
+            this.st[this.stack_ptr[0]] = st0 - m32;
             break;
         case 5:
             // fsubr
-            this.st[this.stack_ptr] = m32 - st0;
+            this.st[this.stack_ptr[0]] = m32 - st0;
             break;
         case 6:
             // fdiv
-            this.st[this.stack_ptr] = st0 / m32;
+            this.st[this.stack_ptr[0]] = st0 / m32;
             break;
         case 7:
             // fdivr
-            this.st[this.stack_ptr] = m32 / st0;
+            this.st[this.stack_ptr[0]] = m32 / st0;
             break;
         default:
             dbg_assert(false);
@@ -783,8 +784,8 @@ FPU.prototype.op_D9_reg = function(imm8)
             // fxch
             var sti = this.get_sti(low);
 
-            this.st[this.stack_ptr + low & 7] = this.get_st0();
-            this.st[this.stack_ptr] = sti;
+            this.st[this.stack_ptr[0] + low & 7] = this.get_st0();
+            this.st[this.stack_ptr[0]] = sti;
             break;
         case 2:
             switch(low)
@@ -808,11 +809,11 @@ FPU.prototype.op_D9_reg = function(imm8)
             {
                 case 0:
                     // fchs
-                    this.st[this.stack_ptr] = -st0;
+                    this.st[this.stack_ptr[0]] = -st0;
                     break;
                 case 1:
                     // fabs
-                    this.st[this.stack_ptr] = Math.abs(st0);
+                    this.st[this.stack_ptr[0]] = Math.abs(st0);
                     break;
                 case 4:
                     this.ftst(st0);
@@ -835,21 +836,21 @@ FPU.prototype.op_D9_reg = function(imm8)
             {
                 case 0:
                     // f2xm1
-                    this.st[this.stack_ptr] = Math.pow(2, st0) - 1;
+                    this.st[this.stack_ptr[0]] = Math.pow(2, st0) - 1;
                     break;
                 case 1:
                     // fyl2x
-                    this.st[this.stack_ptr + 1 & 7] = this.get_sti(1) * Math.log(st0) / Math.LN2;
+                    this.st[this.stack_ptr[0] + 1 & 7] = this.get_sti(1) * Math.log(st0) / Math.LN2;
                     this.pop();
                     break;
                 case 2:
                     // fptan
-                    this.st[this.stack_ptr] = Math.tan(st0);
+                    this.st[this.stack_ptr[0]] = Math.tan(st0);
                     this.push(1); // no bug: push constant 1
                     break;
                 case 3:
                     // fpatan
-                    this.st[this.stack_ptr + 1 & 7] = Math.atan2(this.get_sti(1), st0);
+                    this.st[this.stack_ptr[0] + 1 & 7] = Math.atan2(this.get_sti(1), st0);
                     this.pop();
                     break;
                 case 4:
@@ -857,16 +858,16 @@ FPU.prototype.op_D9_reg = function(imm8)
                     break;
                 case 5:
                     // fprem1
-                    this.st[this.stack_ptr] = st0 % this.get_sti(1);
+                    this.st[this.stack_ptr[0]] = st0 % this.get_sti(1);
                     break;
                 case 6:
                     // fdecstp
-                    this.stack_ptr = this.stack_ptr - 1 & 7;
+                    this.stack_ptr[0] = this.stack_ptr[0] - 1 & 7;
                     this.status_word &= ~FPU_C1;
                     break;
                 case 7:
                     // fincstp
-                    this.stack_ptr = this.stack_ptr + 1 & 7;
+                    this.stack_ptr[0] = this.stack_ptr[0] + 1 & 7;
                     this.status_word &= ~FPU_C1;
                     break;
                 default:
@@ -882,7 +883,7 @@ FPU.prototype.op_D9_reg = function(imm8)
                     // fprem
                     var st1 = this.get_sti(1);
                     var fprem_quotient = Math.trunc(st0 / st1);
-                    this.st[this.stack_ptr] = st0 % st1;
+                    this.st[this.stack_ptr[0]] = st0 % st1;
 
                     this.status_word &= ~(FPU_C0 | FPU_C1 | FPU_C3);
                     if (fprem_quotient & 1) {
@@ -899,29 +900,29 @@ FPU.prototype.op_D9_reg = function(imm8)
                     break;
                 case 1:
                     // fyl2xp1: y * log2(x+1) and pop
-                    this.st[this.stack_ptr + 1 & 7] = this.get_sti(1) * Math.log(st0 + 1) / Math.LN2;
+                    this.st[this.stack_ptr[0] + 1 & 7] = this.get_sti(1) * Math.log(st0 + 1) / Math.LN2;
                     this.pop();
                     break;
                 case 2:
-                    this.st[this.stack_ptr] = Math.sqrt(st0);
+                    this.st[this.stack_ptr[0]] = Math.sqrt(st0);
                     break;
                 case 3:
-                    this.st[this.stack_ptr] = Math.sin(st0);
+                    this.st[this.stack_ptr[0]] = Math.sin(st0);
                     this.push(Math.cos(st0));
                     break;
                 case 4:
                     // frndint
-                    this.st[this.stack_ptr] = this.integer_round(st0);
+                    this.st[this.stack_ptr[0]] = this.integer_round(st0);
                     break;
                 case 5:
                     // fscale
-                    this.st[this.stack_ptr] = st0 * Math.pow(2, this.truncate(this.get_sti(1)));
+                    this.st[this.stack_ptr[0]] = st0 * Math.pow(2, this.truncate(this.get_sti(1)));
                     break;
                 case 6:
-                    this.st[this.stack_ptr] = Math.sin(st0);
+                    this.st[this.stack_ptr[0]] = Math.sin(st0);
                     break;
                 case 7:
-                    this.st[this.stack_ptr] = Math.cos(st0);
+                    this.st[this.stack_ptr[0]] = Math.cos(st0);
                     break;
                 default:
                     dbg_assert(false);
@@ -989,32 +990,32 @@ FPU.prototype.op_DA_reg = function(imm8)
             // fcmovb
             if(this.cpu.test_b())
             {
-                this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty[0] &= ~(1 << this.stack_ptr);
+                this.st[this.stack_ptr[0]] = this.get_sti(low);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr[0]);
             }
             break;
         case 1:
             // fcmove
             if(this.cpu.test_z())
             {
-                this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty[0] &= ~(1 << this.stack_ptr);
+                this.st[this.stack_ptr[0]] = this.get_sti(low);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr[0]);
             }
             break;
         case 2:
             // fcmovbe
             if(this.cpu.test_be())
             {
-                this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty[0] &= ~(1 << this.stack_ptr);
+                this.st[this.stack_ptr[0]] = this.get_sti(low);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr[0]);
             }
             break;
         case 3:
             // fcmovu
             if(this.cpu.test_p())
             {
-                this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty[0] &= ~(1 << this.stack_ptr);
+                this.st[this.stack_ptr[0]] = this.get_sti(low);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr[0]);
             }
             break;
         case 5:
@@ -1047,11 +1048,11 @@ FPU.prototype.op_DA_mem = function(mod, addr)
     {
         case 0:
             // fadd
-            this.st[this.stack_ptr] = st0 + m32;
+            this.st[this.stack_ptr[0]] = st0 + m32;
             break;
         case 1:
             // fmul
-            this.st[this.stack_ptr] = st0 * m32;
+            this.st[this.stack_ptr[0]] = st0 * m32;
             break;
         case 2:
             // fcom
@@ -1064,19 +1065,19 @@ FPU.prototype.op_DA_mem = function(mod, addr)
             break;
         case 4:
             // fsub
-            this.st[this.stack_ptr] = st0 - m32;
+            this.st[this.stack_ptr[0]] = st0 - m32;
             break;
         case 5:
             // fsubr
-            this.st[this.stack_ptr] = m32 - st0;
+            this.st[this.stack_ptr[0]] = m32 - st0;
             break;
         case 6:
             // fdiv
-            this.st[this.stack_ptr] = st0 / m32;
+            this.st[this.stack_ptr[0]] = st0 / m32;
             break;
         case 7:
             // fdivr
-            this.st[this.stack_ptr] = m32 / st0;
+            this.st[this.stack_ptr[0]] = m32 / st0;
             break;
         default:
             dbg_assert(false);
@@ -1096,32 +1097,32 @@ FPU.prototype.op_DB_reg = function(imm8)
             // fcmovnb
             if(!this.cpu.test_b())
             {
-                this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty[0] &= ~(1 << this.stack_ptr);
+                this.st[this.stack_ptr[0]] = this.get_sti(low);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr[0]);
             }
             break;
         case 1:
             // fcmovne
             if(!this.cpu.test_z())
             {
-                this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty[0] &= ~(1 << this.stack_ptr);
+                this.st[this.stack_ptr[0]] = this.get_sti(low);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr[0]);
             }
             break;
         case 2:
             // fcmovnbe
             if(!this.cpu.test_be())
             {
-                this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty[0] &= ~(1 << this.stack_ptr);
+                this.st[this.stack_ptr[0]] = this.get_sti(low);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr[0]);
             }
             break;
         case 3:
             // fcmovnu
             if(!this.cpu.test_p())
             {
-                this.st[this.stack_ptr] = this.get_sti(low);
-                this.stack_empty[0] &= ~(1 << this.stack_ptr);
+                this.st[this.stack_ptr[0]] = this.get_sti(low);
+                this.stack_empty[0] &= ~(1 << this.stack_ptr[0]);
             }
             break;
         case 4:
@@ -1223,7 +1224,7 @@ FPU.prototype.op_DC_reg = function(imm8)
 
     var mod = imm8 >> 3 & 7,
         low = imm8 & 7,
-        low_ptr = this.stack_ptr + low & 7,
+        low_ptr = this.stack_ptr[0] + low & 7,
         sti = this.get_sti(low),
         st0 = this.get_st0();
 
@@ -1279,11 +1280,11 @@ FPU.prototype.op_DC_mem = function(mod, addr)
     {
         case 0:
             // fadd
-            this.st[this.stack_ptr] = st0 + m64;
+            this.st[this.stack_ptr[0]] = st0 + m64;
             break;
         case 1:
             // fmul
-            this.st[this.stack_ptr] = st0 * m64;
+            this.st[this.stack_ptr[0]] = st0 * m64;
             break;
         case 2:
             // fcom
@@ -1296,19 +1297,19 @@ FPU.prototype.op_DC_mem = function(mod, addr)
             break;
         case 4:
             // fsub
-            this.st[this.stack_ptr] = st0 - m64;
+            this.st[this.stack_ptr[0]] = st0 - m64;
             break;
         case 5:
             // fsubr
-            this.st[this.stack_ptr] = m64 - st0;
+            this.st[this.stack_ptr[0]] = m64 - st0;
             break;
         case 6:
             // fdiv
-            this.st[this.stack_ptr] = st0 / m64;
+            this.st[this.stack_ptr[0]] = st0 / m64;
             break;
         case 7:
             // fdivr
-            this.st[this.stack_ptr] = m64 / st0;
+            this.st[this.stack_ptr[0]] = m64 / st0;
             break;
         default:
             dbg_assert(false);
@@ -1326,11 +1327,11 @@ FPU.prototype.op_DD_reg = function(imm8)
     {
         case 0:
             // ffree
-            this.stack_empty[0] |= 1 << (this.stack_ptr + low & 7);
+            this.stack_empty[0] |= 1 << (this.stack_ptr[0] + low & 7);
             break;
         case 2:
             // fst
-            this.st[this.stack_ptr + low & 7] = this.get_st0();
+            this.st[this.stack_ptr[0] + low & 7] = this.get_st0();
             break;
         case 3:
             // fstp
@@ -1340,7 +1341,7 @@ FPU.prototype.op_DD_reg = function(imm8)
             }
             else
             {
-                this.st[this.stack_ptr + low & 7] = this.get_st0();
+                this.st[this.stack_ptr[0] + low & 7] = this.get_st0();
                 this.pop();
             }
             break;
@@ -1409,7 +1410,7 @@ FPU.prototype.op_DE_reg = function(imm8)
 
     var mod = imm8 >> 3 & 7,
         low = imm8 & 7,
-        low_ptr = this.stack_ptr + low & 7,
+        low_ptr = this.stack_ptr[0] + low & 7,
         sti = this.get_sti(low),
         st0 = this.get_st0();
 
@@ -1475,11 +1476,11 @@ FPU.prototype.op_DE_mem = function(mod, addr)
     {
         case 0:
             // fadd
-            this.st[this.stack_ptr] = st0 + m16;
+            this.st[this.stack_ptr[0]] = st0 + m16;
             break;
         case 1:
             // fmul
-            this.st[this.stack_ptr] = st0 * m16;
+            this.st[this.stack_ptr[0]] = st0 * m16;
             break;
         case 2:
             // fcom
@@ -1492,19 +1493,19 @@ FPU.prototype.op_DE_mem = function(mod, addr)
             break;
         case 4:
             // fsub
-            this.st[this.stack_ptr] = st0 - m16;
+            this.st[this.stack_ptr[0]] = st0 - m16;
             break;
         case 5:
             // fsubr
-            this.st[this.stack_ptr] = m16 - st0;
+            this.st[this.stack_ptr[0]] = m16 - st0;
             break;
         case 6:
             // fdiv
-            this.st[this.stack_ptr] = st0 / m16;
+            this.st[this.stack_ptr[0]] = st0 / m16;
             break;
         case 7:
             // fdivr
-            this.st[this.stack_ptr] = m16 / st0;
+            this.st[this.stack_ptr[0]] = m16 / st0;
             break;
         default:
             dbg_assert(false);
