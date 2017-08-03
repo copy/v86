@@ -82,4 +82,16 @@ uint8_t* const mem8 = (uint8_t* const) (2048 + 0x100000 * 6);
 uint16_t* const mem16 = (uint16_t* const) (2048 + 0x100000 * 6);
 int32_t* const mem32s = (int32_t* const) (2048 + 0x100000 * 6);
 
+float_t* const fpu_float32 = (float_t* const) 956;
+uint8_t* const fpu_float32_byte = (uint8_t* const) 956;
+int32_t* const fpu_float32_int = (int32_t* const) 956;
+
+double_t* const fpu_float64 = (double_t* const) 960;
+uint8_t* const fpu_float64_byte = (uint8_t* const) 960;
+int32_t* const fpu_float64_int = (int32_t* const) 960;
+
+double_t* const fpu_st = (double_t* const) 968;
+uint8_t* const fpu_st8 = (uint8_t* const) 968;
+int32_t* const fpu_st32 = (int32_t* const) 968;
+
 #endif

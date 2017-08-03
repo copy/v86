@@ -61,18 +61,18 @@ function FPU(cpu)
     this.cpu = cpu;
 
     // Why no Float80Array :-(
-    this.st = new Float64Array(8);
+    this.st = new Float64Array(cpu.wm.mem.buffer, 968, 8);
 
     // used for conversion
-    /** @const */ this.float32 = new Float32Array(1);
-    /** @const */ this.float32_byte = new Uint8Array(this.float32.buffer);
-    /** @const */ this.float32_int = new Int32Array(this.float32.buffer);
-    /** @const */ this.float64 = new Float64Array(1);
-    /** @const */ this.float64_byte = new Uint8Array(this.float64.buffer);
-    /** @const */ this.float64_int = new Int32Array(this.float64.buffer);
+    /** @const */ this.float32 = new Float32Array(cpu.wm.mem.buffer, 956, 1);
+    /** @const */ this.float32_byte = new Uint8Array(this.float32.buffer, 956, 4);
+    /** @const */ this.float32_int = new Int32Array(this.float32.buffer, 956, 1);
+    /** @const */ this.float64 = new Float64Array(cpu.wm.mem.buffer, 960, 1);
+    /** @const */ this.float64_byte = new Uint8Array(this.float64.buffer, 960, 8);
+    /** @const */ this.float64_int = new Int32Array(this.float64.buffer, 960, 2);
 
-    /** @const */ this.st8 = new Uint8Array(this.st.buffer);
-    /** @const */ this.st32 = new Int32Array(this.st.buffer);
+    /** @const */ this.st8 = new Uint8Array(this.st.buffer, 968, 8 << 3);
+    /** @const */ this.st32 = new Int32Array(this.st.buffer, 968, 8 << 1);
 
 
     // bitmap of which stack registers are empty
