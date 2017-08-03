@@ -104,6 +104,7 @@ function FPU(cpu)
 FPU.prototype.wasm_patch = function(wm)
 {
     this.set_tag_word = wm.funcs["_fpu_set_tag_word"];
+    this.fcomi = wm.funcs["_fpu_fcomi"];
 };
 
 FPU.prototype.get_state = function()
