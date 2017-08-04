@@ -85,8 +85,10 @@ function FPU(cpu)
     this.control_word[0] = 0x37F;
     this.status_word = new Int32Array(cpu.wm.mem.buffer, 1040, 1);
     this.status_word[0] = 0;
-    this.fpu_ip = 0;
-    this.fpu_ip_selector = 0;
+    this.fpu_ip = new Int32Array(cpu.wm.mem.buffer, 1048, 1);
+    this.fpu_ip[0] = 0;
+    this.fpu_ip_selector = new Int32Array(cpu.wm.mem.buffer, 1052, 1);
+    this.fpu_ip_selector[0] = 0;
     this.fpu_opcode = new Int32Array(cpu.wm.mem.buffer, 1044, 1);
     this.fpu_opcode[0] = 0;
     this.fpu_dp = 0;
@@ -119,8 +121,8 @@ FPU.prototype.get_state = function()
     state[2] = this.stack_ptr[0];
     state[3] = this.control_word[0];
     state[4] = this.fpu_dp_selector;
-    state[5] = this.fpu_ip;
-    state[6] = this.fpu_ip_selector;
+    state[5] = this.fpu_ip[0];
+    state[6] = this.fpu_ip_selector[0];
     state[7] = this.fpu_dp;
     state[8] = this.fpu_dp_selector;
     state[9] = this.fpu_opcode[0];
@@ -135,8 +137,8 @@ FPU.prototype.set_state = function(state)
     this.stack_ptr[0] = state[2];
     this.control_word[0] = state[3];
     this.fpu_dp_selector = state[4];
-    this.fpu_ip = state[5];
-    this.fpu_ip_selector = state[6];
+    this.fpu_ip[0] = state[5];
+    this.fpu_ip_selector[0] = state[6];
     this.fpu_dp = state[7];
     this.fpu_dp_selector = state[8];
     this.fpu_opcode[0] = state[9];
@@ -273,7 +275,7 @@ FPU.prototype.finit = function()
 {
     this.control_word[0] = 0x37F;
     this.status_word[0] = 0;
-    this.fpu_ip = 0;
+    this.fpu_ip[0] = 0;
     this.fpu_dp = 0;
     this.fpu_opcode[0] = 0;
 
@@ -343,8 +345,8 @@ FPU.prototype.fstenv = function(addr)
         this.cpu.safe_write16(addr + 4, this.load_status_word());
         this.cpu.safe_write16(addr + 8, this.load_tag_word());
 
-        this.cpu.safe_write32(addr + 12, this.fpu_ip);
-        this.cpu.safe_write16(addr + 16, this.fpu_ip_selector);
+        this.cpu.safe_write32(addr + 12, this.fpu_ip[0]);
+        this.cpu.safe_write16(addr + 16, this.fpu_ip_selector[0]);
         this.cpu.safe_write16(addr + 18, this.fpu_opcode[0]);
         this.cpu.safe_write32(addr + 20, this.fpu_dp);
         this.cpu.safe_write16(addr + 24, this.fpu_dp_selector);
@@ -364,8 +366,8 @@ FPU.prototype.fldenv = function(addr)
         this.set_status_word(this.cpu.safe_read16(addr + 4));
         this.set_tag_word(this.cpu.safe_read16(addr + 8));
 
-        this.fpu_ip = this.cpu.safe_read32s(addr + 12);
-        this.fpu_ip_selector = this.cpu.safe_read16(addr + 16);
+        this.fpu_ip[0] = this.cpu.safe_read32s(addr + 12);
+        this.fpu_ip_selector[0] = this.cpu.safe_read16(addr + 16);
         this.fpu_opcode[0] = this.cpu.safe_read16(addr + 18);
         this.fpu_dp = this.cpu.safe_read32s(addr + 20);
         this.fpu_dp_selector = this.cpu.safe_read16(addr + 24);
