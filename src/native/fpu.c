@@ -46,6 +46,12 @@ int32_t fpu_load_status_word()
     return *fpu_status_word & ~(7 << 11) | *fpu_stack_ptr << 11;
 }
 
+void fpu_set_status_word(int32_t sw)
+{
+    *fpu_status_word = sw & ~(7 << 11);
+    *fpu_stack_ptr = sw >> 11 & 7;
+}
+
 void fpu_store_m80(uint32_t addr, double_t n)
 {
     *fpu_float64 = n;
