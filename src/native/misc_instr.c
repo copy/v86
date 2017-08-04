@@ -288,3 +288,40 @@ void pusha32()
 void setcc(bool condition) {
     set_e8(condition);
 }
+
+int32_t fpu_load_status_word();
+void fpu_store_m80(uint32_t, double_t);
+
+void fxsave(uint32_t addr)
+{
+    writable_or_pagefault(addr, 512);
+
+    safe_write16(addr +  0, *fpu_control_word);
+    safe_write16(addr +  2, fpu_load_status_word());
+    safe_write8( addr +  4, ~*fpu_stack_empty & 0xFF);
+    safe_write16(addr +  6, *fpu_opcode);
+    safe_write32(addr +  8, *fpu_ip);
+    safe_write16(addr + 12, *fpu_ip_selector);
+    safe_write32(addr + 16, *fpu_dp);
+    safe_write16(addr + 20, *fpu_dp_selector);
+
+    safe_write32(addr + 24, *mxcsr);
+    safe_write32(addr + 28, MXCSR_MASK);
+
+    for(int32_t i = 0; i < 8; i++)
+    {
+        fpu_store_m80(addr + 32 + (i << 4), fpu_st[*fpu_stack_ptr + i & 7]);
+    }
+
+    // If the OSFXSR bit in control register CR4 is not set, the FXSAVE
+    // instruction may not save these registers. This behavior is
+    // implementation dependent.
+    for(int32_t i = 0; i < 8; i++)
+    {
+        safe_write32(addr + 160 + (i << 4) +  0, reg_xmm32s[i << 2 | 0]);
+        safe_write32(addr + 160 + (i << 4) +  4, reg_xmm32s[i << 2 | 1]);
+        safe_write32(addr + 160 + (i << 4) +  8, reg_xmm32s[i << 2 | 2]);
+        safe_write32(addr + 160 + (i << 4) + 12, reg_xmm32s[i << 2 | 3]);
+    }
+}
+

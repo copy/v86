@@ -43,7 +43,7 @@ void safe_write8(int32_t, int32_t);
 void safe_write16(int32_t, int32_t);
 void safe_write32(int32_t, int32_t);
 
-void fxsave(int32_t);
+void fxsave(uint32_t);
 void fxrstor(int32_t);
 
 int32_t do_page_translation(int32_t, bool, bool);
