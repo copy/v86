@@ -96,6 +96,8 @@ int32_t* const fpu_status_word = (int32_t* const) 1040;
 int32_t* const fpu_opcode = (int32_t* const) 1044;
 int32_t* const fpu_ip = (int32_t* const) 1048;
 int32_t* const fpu_ip_selector = (int32_t* const) 1052;
+int32_t* const fpu_dp = (int32_t* const) 1056;
+int32_t* const fpu_dp_selector = (int32_t* const) 1060;
 
 double_t* const fpu_st = (double_t* const) 968;
 uint8_t* const fpu_st8 = (uint8_t* const) 968;

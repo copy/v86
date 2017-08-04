@@ -488,8 +488,8 @@ CPU.prototype.fxsave = function(addr)
     this.safe_write16(addr + 6 | 0, this.fpu.fpu_opcode[0]);
     this.safe_write32(addr + 8 | 0, this.fpu.fpu_ip[0]);
     this.safe_write16(addr + 12 | 0, this.fpu.fpu_ip_selector[0]);
-    this.safe_write32(addr + 16 | 0, this.fpu.fpu_dp);
-    this.safe_write16(addr + 20 | 0, this.fpu.fpu_dp_selector);
+    this.safe_write32(addr + 16 | 0, this.fpu.fpu_dp[0]);
+    this.safe_write16(addr + 20 | 0, this.fpu.fpu_dp_selector[0]);
 
     this.safe_write32(addr + 24 | 0, this.mxcsr);
     this.safe_write32(addr + 28 | 0, MXCSR_MASK);
@@ -530,8 +530,8 @@ CPU.prototype.fxrstor = function(addr)
     this.fpu.fpu_opcode[0] = this.safe_read16(addr + 6 | 0);
     this.fpu.fpu_ip[0] = this.safe_read32s(addr + 8 | 0);
     this.fpu.fpu_ip[0] = this.safe_read16(addr + 12 | 0);
-    this.fpu.fpu_dp = this.safe_read32s(addr + 16 | 0);
-    this.fpu.fpu_dp_selector = this.safe_read16(addr + 20 | 0);
+    this.fpu.fpu_dp[0] = this.safe_read32s(addr + 16 | 0);
+    this.fpu.fpu_dp_selector[0] = this.safe_read16(addr + 20 | 0);
 
     this.mxcsr = new_mxcsr;
 
