@@ -41,3 +41,8 @@ void fpu_fcomi(double_t y)
     }
 }
 
+int32_t fpu_load_status_word()
+{
+    return *fpu_status_word & ~(7 << 11) | *fpu_stack_ptr << 11;
+}
+

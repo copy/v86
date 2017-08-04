@@ -112,6 +112,7 @@ FPU.prototype.wasm_patch = function(wm)
 {
     this.set_tag_word = wm.funcs["_fpu_set_tag_word"];
     this.fcomi = wm.funcs["_fpu_fcomi"];
+    this.load_status_word = wm.funcs["_fpu_load_status_word"];
 };
 
 FPU.prototype.get_state = function()
