@@ -482,10 +482,10 @@ CPU.prototype.fxsave = function(addr)
 {
     this.writable_or_pagefault(addr, 512);
 
-    this.safe_write16(addr + 0 | 0, this.fpu.control_word);
+    this.safe_write16(addr + 0 | 0, this.fpu.control_word[0]);
     this.safe_write16(addr + 2 | 0, this.fpu.load_status_word());
     this.safe_write8( addr + 4 | 0, ~this.fpu.stack_empty[0] & 0xFF);
-    this.safe_write16(addr + 6 | 0, this.fpu.fpu_opcode);
+    this.safe_write16(addr + 6 | 0, this.fpu.fpu_opcode[0]);
     this.safe_write32(addr + 8 | 0, this.fpu.fpu_ip);
     this.safe_write16(addr + 12 | 0, this.fpu.fpu_ip_selector);
     this.safe_write32(addr + 16 | 0, this.fpu.fpu_dp);
@@ -524,10 +524,10 @@ CPU.prototype.fxrstor = function(addr)
         this.trigger_gp(0);
     }
 
-    this.fpu.control_word = this.safe_read16(addr + 0 | 0);
+    this.fpu.control_word[0] = this.safe_read16(addr + 0 | 0);
     this.fpu.set_status_word(this.safe_read16(addr + 2 | 0));
     this.fpu.stack_empty[0] = ~this.safe_read8(addr + 4 | 0) & 0xFF;
-    this.fpu.fpu_opcode = this.safe_read16(addr + 6 | 0);
+    this.fpu.fpu_opcode[0] = this.safe_read16(addr + 6 | 0);
     this.fpu.fpu_ip = this.safe_read32s(addr + 8 | 0);
     this.fpu.fpu_ip = this.safe_read16(addr + 12 | 0);
     this.fpu.fpu_dp = this.safe_read32s(addr + 16 | 0);

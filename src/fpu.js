@@ -81,11 +81,14 @@ function FPU(cpu)
     this.stack_ptr = new Uint32Array(cpu.wm.mem.buffer, 1032, 1);
     this.stack_ptr[0] = 0;
 
-    this.control_word = 0x37F;
-    this.status_word = 0;
+    this.control_word = new Int32Array(cpu.wm.mem.buffer, 1036, 1);
+    this.control_word[0] = 0x37F;
+    this.status_word = new Int32Array(cpu.wm.mem.buffer, 1040, 1);
+    this.status_word[0] = 0;
     this.fpu_ip = 0;
     this.fpu_ip_selector = 0;
-    this.fpu_opcode = 0;
+    this.fpu_opcode = new Int32Array(cpu.wm.mem.buffer, 1044, 1);
+    this.fpu_opcode[0] = 0;
     this.fpu_dp = 0;
     this.fpu_dp_selector = 0;
 
@@ -114,13 +117,13 @@ FPU.prototype.get_state = function()
     state[0] = this.st;
     state[1] = this.stack_empty[0];
     state[2] = this.stack_ptr[0];
-    state[3] = this.control_word;
+    state[3] = this.control_word[0];
     state[4] = this.fpu_dp_selector;
     state[5] = this.fpu_ip;
     state[6] = this.fpu_ip_selector;
     state[7] = this.fpu_dp;
     state[8] = this.fpu_dp_selector;
-    state[9] = this.fpu_opcode;
+    state[9] = this.fpu_opcode[0];
 
     return state;
 };
@@ -130,13 +133,13 @@ FPU.prototype.set_state = function(state)
     this.st.set(state[0]);
     this.stack_empty[0] = state[1];
     this.stack_ptr[0] = state[2];
-    this.control_word = state[3];
+    this.control_word[0] = state[3];
     this.fpu_dp_selector = state[4];
     this.fpu_ip = state[5];
     this.fpu_ip_selector = state[6];
     this.fpu_dp = state[7];
     this.fpu_dp_selector = state[8];
-    this.fpu_opcode = state[9];
+    this.fpu_opcode[0] = state[9];
 };
 
 FPU.prototype.fpu_unimpl = function()
@@ -149,34 +152,34 @@ FPU.prototype.fpu_unimpl = function()
 FPU.prototype.stack_fault = function()
 {
     // TODO: Interrupt
-    this.status_word |= FPU_EX_SF | FPU_EX_I;
+    this.status_word[0] |= FPU_EX_SF | FPU_EX_I;
 }
 
 FPU.prototype.invalid_arithmatic = function()
 {
-    this.status_word |= FPU_EX_I;
+    this.status_word[0] |= FPU_EX_I;
 }
 
 FPU.prototype.fcom = function(y)
 {
     var x = this.get_st0();
 
-    this.status_word &= ~FPU_RESULT_FLAGS;
+    this.status_word[0] &= ~FPU_RESULT_FLAGS;
 
     if(x > y)
     {
     }
     else if(y > x)
     {
-        this.status_word |= FPU_C0;
+        this.status_word[0] |= FPU_C0;
     }
     else if(x === y)
     {
-        this.status_word |= FPU_C3;
+        this.status_word[0] |= FPU_C3;
     }
     else
     {
-        this.status_word |= FPU_C0 | FPU_C2 | FPU_C3;
+        this.status_word[0] |= FPU_C0 | FPU_C2 | FPU_C3;
     }
 }
 
@@ -219,19 +222,19 @@ FPU.prototype.fucomi = function(y)
 
 FPU.prototype.ftst = function(x)
 {
-    this.status_word &= ~FPU_RESULT_FLAGS;
+    this.status_word[0] &= ~FPU_RESULT_FLAGS;
 
     if(isNaN(x))
     {
-        this.status_word |= FPU_C3 | FPU_C2 | FPU_C0;
+        this.status_word[0] |= FPU_C3 | FPU_C2 | FPU_C0;
     }
     else if(x === 0)
     {
-        this.status_word |= FPU_C3;
+        this.status_word[0] |= FPU_C3;
     }
     else if(x < 0)
     {
-        this.status_word |= FPU_C0;
+        this.status_word[0] |= FPU_C0;
     }
 
     // TODO: unordered (x is nan, etc)
@@ -239,28 +242,28 @@ FPU.prototype.ftst = function(x)
 
 FPU.prototype.fxam = function(x)
 {
-    this.status_word &= ~FPU_RESULT_FLAGS;
-    this.status_word |= this.sign(0) << 9;
+    this.status_word[0] &= ~FPU_RESULT_FLAGS;
+    this.status_word[0] |= this.sign(0) << 9;
 
     if(this.stack_empty[0] >> this.stack_ptr[0] & 1)
     {
-        this.status_word |= FPU_C3 | FPU_C0;
+        this.status_word[0] |= FPU_C3 | FPU_C0;
     }
     else if(isNaN(x))
     {
-        this.status_word |= FPU_C0;
+        this.status_word[0] |= FPU_C0;
     }
     else if(x === 0)
     {
-        this.status_word |= FPU_C3;
+        this.status_word[0] |= FPU_C3;
     }
     else if(x === Infinity || x === -Infinity)
     {
-        this.status_word |= FPU_C2 | FPU_C0;
+        this.status_word[0] |= FPU_C2 | FPU_C0;
     }
     else
     {
-        this.status_word |= FPU_C2;
+        this.status_word[0] |= FPU_C2;
     }
     // TODO:
     // Unsupported, Denormal
@@ -268,11 +271,11 @@ FPU.prototype.fxam = function(x)
 
 FPU.prototype.finit = function()
 {
-    this.control_word = 0x37F;
-    this.status_word = 0;
+    this.control_word[0] = 0x37F;
+    this.status_word[0] = 0;
     this.fpu_ip = 0;
     this.fpu_dp = 0;
-    this.fpu_opcode = 0;
+    this.fpu_opcode[0] = 0;
 
     this.stack_empty[0] = 0xFF;
     this.stack_ptr[0] = 0;
@@ -280,12 +283,12 @@ FPU.prototype.finit = function()
 
 FPU.prototype.load_status_word = function()
 {
-    return this.status_word & ~(7 << 11) | this.stack_ptr[0] << 11;
+    return this.status_word[0] & ~(7 << 11) | this.stack_ptr[0] << 11;
 }
 
 FPU.prototype.set_status_word = function(sw)
 {
-    this.status_word = sw & ~(7 << 11);
+    this.status_word[0] = sw & ~(7 << 11);
     this.stack_ptr[0] = sw >> 11 & 7;
 }
 
@@ -335,14 +338,14 @@ FPU.prototype.fstenv = function(addr)
     {
         this.cpu.writable_or_pagefault(addr, 26);
 
-        this.cpu.safe_write16(addr, this.control_word);
+        this.cpu.safe_write16(addr, this.control_word[0]);
 
         this.cpu.safe_write16(addr + 4, this.load_status_word());
         this.cpu.safe_write16(addr + 8, this.load_tag_word());
 
         this.cpu.safe_write32(addr + 12, this.fpu_ip);
         this.cpu.safe_write16(addr + 16, this.fpu_ip_selector);
-        this.cpu.safe_write16(addr + 18, this.fpu_opcode);
+        this.cpu.safe_write16(addr + 18, this.fpu_opcode[0]);
         this.cpu.safe_write32(addr + 20, this.fpu_dp);
         this.cpu.safe_write16(addr + 24, this.fpu_dp_selector);
     }
@@ -356,14 +359,14 @@ FPU.prototype.fldenv = function(addr)
 {
     if(this.cpu.is_osize_32())
     {
-        this.control_word = this.cpu.safe_read16(addr);
+        this.control_word[0] = this.cpu.safe_read16(addr);
 
         this.set_status_word(this.cpu.safe_read16(addr + 4));
         this.set_tag_word(this.cpu.safe_read16(addr + 8));
 
         this.fpu_ip = this.cpu.safe_read32s(addr + 12);
         this.fpu_ip_selector = this.cpu.safe_read16(addr + 16);
-        this.fpu_opcode = this.cpu.safe_read16(addr + 18);
+        this.fpu_opcode[0] = this.cpu.safe_read16(addr + 18);
         this.fpu_dp = this.cpu.safe_read32s(addr + 20);
         this.fpu_dp_selector = this.cpu.safe_read16(addr + 24);
     }
@@ -420,7 +423,7 @@ FPU.prototype.fxtract = function()
 
 FPU.prototype.integer_round = function(f)
 {
-    var rc = this.control_word >> 10 & 3;
+    var rc = this.control_word[0] >> 10 & 3;
 
     if(rc === 0)
     {
@@ -458,13 +461,13 @@ FPU.prototype.push = function(x)
 
     if(this.stack_empty[0] >> this.stack_ptr[0] & 1)
     {
-        this.status_word &= ~FPU_C1;
+        this.status_word[0] &= ~FPU_C1;
         this.stack_empty[0] &= ~(1 << this.stack_ptr[0]);
         this.st[this.stack_ptr[0]] = x;
     }
     else
     {
-        this.status_word |= FPU_C1;
+        this.status_word[0] |= FPU_C1;
         this.stack_fault();
         this.st[this.stack_ptr[0]] = this.indefinite_nan;
     }
@@ -484,7 +487,7 @@ FPU.prototype.get_sti = function(i)
 
     if(this.stack_empty[0] >> i & 1)
     {
-        this.status_word &= ~FPU_C1;
+        this.status_word[0] &= ~FPU_C1;
         this.stack_fault();
         return this.indefinite_nan;
     }
@@ -498,7 +501,7 @@ FPU.prototype.get_st0 = function()
 {
     if(this.stack_empty[0] >> this.stack_ptr[0] & 1)
     {
-        this.status_word &= ~FPU_C1;
+        this.status_word[0] &= ~FPU_C1;
         this.stack_fault();
         return this.indefinite_nan;
     }
@@ -864,12 +867,12 @@ FPU.prototype.op_D9_reg = function(imm8)
                 case 6:
                     // fdecstp
                     this.stack_ptr[0] = this.stack_ptr[0] - 1 & 7;
-                    this.status_word &= ~FPU_C1;
+                    this.status_word[0] &= ~FPU_C1;
                     break;
                 case 7:
                     // fincstp
                     this.stack_ptr[0] = this.stack_ptr[0] + 1 & 7;
-                    this.status_word &= ~FPU_C1;
+                    this.status_word[0] &= ~FPU_C1;
                     break;
                 default:
                     dbg_assert(false);
@@ -886,18 +889,18 @@ FPU.prototype.op_D9_reg = function(imm8)
                     var fprem_quotient = Math.trunc(st0 / st1);
                     this.st[this.stack_ptr[0]] = st0 % st1;
 
-                    this.status_word &= ~(FPU_C0 | FPU_C1 | FPU_C3);
+                    this.status_word[0] &= ~(FPU_C0 | FPU_C1 | FPU_C3);
                     if (fprem_quotient & 1) {
-                        this.status_word |= FPU_C1;
+                        this.status_word[0] |= FPU_C1;
                     }
                     if (fprem_quotient & (1 << 1)) {
-                        this.status_word |= FPU_C3;
+                        this.status_word[0] |= FPU_C3;
                     }
                     if (fprem_quotient & (1 << 2)) {
-                        this.status_word |= FPU_C0;
+                        this.status_word[0] |= FPU_C0;
                     }
 
-                    this.status_word &= ~FPU_C2;
+                    this.status_word[0] &= ~FPU_C2;
                     break;
                 case 1:
                     // fyl2xp1: y * log2(x+1) and pop
@@ -964,14 +967,14 @@ FPU.prototype.op_D9_mem = function(mod, addr)
         case 5:
             // fldcw
             var word = this.cpu.safe_read16(addr);
-            this.control_word = word;
+            this.control_word[0] = word;
             break;
         case 6:
             this.fstenv(addr);
             break;
         case 7:
             // fstcw
-            this.cpu.safe_write16(addr, this.control_word);
+            this.cpu.safe_write16(addr, this.control_word[0]);
             break;
         default:
             dbg_assert(false);
@@ -1144,7 +1147,7 @@ FPU.prototype.op_DB_reg = function(imm8)
             else if(imm8 === 0xE2)
             {
                 // fclex
-                this.status_word = 0;
+                this.status_word[0] = 0;
             }
             else
             {
