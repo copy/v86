@@ -157,6 +157,7 @@ function V86Starter(options)
         "_fwait": function() { return cpu.fpu.fwait(); },
 
         "_int_log2": function(val) { return v86util.int_log2(val); },
+        "_math_pow": function(x, y) { return Math.pow(x, y); },
 
         "_do_page_translation": function() { return cpu.do_page_translation.apply(cpu, arguments); },
         "_read_reg_e16": function() { return cpu.read_reg_e16.apply(cpu, arguments); },

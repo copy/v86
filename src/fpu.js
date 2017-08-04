@@ -115,6 +115,7 @@ FPU.prototype.wasm_patch = function(wm)
     this.load_status_word = wm.funcs["_fpu_load_status_word"];
     this.store_m80 = wm.funcs["_fpu_store_m80"];
     this.set_status_word = wm.funcs["_fpu_set_status_word"];
+    this.load_m80 = wm.funcs["_fpu_load_m80"];
 };
 
 FPU.prototype.get_state = function()

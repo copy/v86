@@ -91,3 +91,52 @@ void fpu_store_m80(uint32_t addr, double_t n)
     safe_write16(addr + 8, sign << 8 | exponent);
 }
 
+double_t fpu_load_m80(uint32_t addr)
+{
+    int32_t exponent = safe_read16(addr + 8);
+    uint32_t low = ((uint32_t)(safe_read32s(addr))) >> 0;
+    uint32_t high = ((uint32_t)(safe_read32s(addr + 4))) >> 0;
+
+    int32_t sign = exponent >> 15;
+    exponent &= ~0x8000;
+
+    if(exponent == 0)
+    {
+        // TODO: denormal numbers
+        return 0;
+    }
+
+    if(exponent < 0x7FFF)
+    {
+        exponent -= 0x3FFF;
+    }
+    else
+    {
+        // TODO: NaN, Infinity
+        //dbg_log("Load m80 TODO", LOG_FPU);
+        fpu_float64_byte[7] = 0x7F | sign << 7;
+        fpu_float64_byte[6] = 0xF0 | high >> 30 << 3 & 0x08;
+
+        fpu_float64_byte[5] = 0;
+        fpu_float64_byte[4] = 0;
+
+        fpu_float64_int[0] = 0;
+
+        return *fpu_float64;
+    }
+
+    // Note: some bits might be lost at this point
+    double_t mantissa = ((double_t)(low)) + 0x100000000 * ((double_t)(high));
+
+    if(sign)
+    {
+        mantissa = -mantissa;
+    }
+
+    // Simply compute the 64 bit floating point number.
+    // An alternative write the mantissa, sign and exponent in the
+    // float64_byte and return float64[0]
+
+    return mantissa * math_pow(2, exponent - 63);
+}
+

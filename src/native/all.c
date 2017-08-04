@@ -5,6 +5,7 @@
 
 extern void call_interrupt_vector(int32_t interrupt_nr, bool is_software_int, bool has_error_code, int32_t error_code);
 extern void throw_cpu_exception(void);
+extern double_t math_pow(double_t, double_t);
 
 #include "const.h"
 #include "global_pointers.h"
