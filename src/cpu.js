@@ -370,6 +370,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.outsd = this.wm.funcs['_outsd'];
 
     this.fxsave = this.wm.funcs['_fxsave'];
+    this.fxrstor = this.wm.funcs['_fxrstor'];
 };
 
 CPU.prototype.get_state = function()

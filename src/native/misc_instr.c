@@ -290,7 +290,9 @@ void setcc(bool condition) {
 }
 
 int32_t fpu_load_status_word();
+void fpu_set_status_word(int32_t);
 void fpu_store_m80(uint32_t, double_t);
+double_t fpu_load_m80(uint32_t);
 
 void fxsave(uint32_t addr)
 {
@@ -322,6 +324,44 @@ void fxsave(uint32_t addr)
         safe_write32(addr + 160 + (i << 4) +  4, reg_xmm32s[i << 2 | 1]);
         safe_write32(addr + 160 + (i << 4) +  8, reg_xmm32s[i << 2 | 2]);
         safe_write32(addr + 160 + (i << 4) + 12, reg_xmm32s[i << 2 | 3]);
+    }
+}
+
+void fxrstor(uint32_t addr)
+{
+    translate_address_read(addr);
+    translate_address_read(addr + 511);
+
+    int32_t new_mxcsr = safe_read32s(addr + 24);
+
+    if(new_mxcsr & ~MXCSR_MASK)
+    {
+        //dbg_log("Invalid mxcsr bits: " + h((new_mxcsr & ~MXCSR_MASK) >>> 0, 8));
+        trigger_gp(0);
+    }
+
+    *fpu_control_word = safe_read16(addr + 0);
+    fpu_set_status_word(safe_read16(addr + 2));
+    *fpu_stack_empty = ~safe_read8(addr + 4) & 0xFF;
+    *fpu_opcode = safe_read16(addr + 6);
+    *fpu_ip = safe_read32s(addr + 8);
+    *fpu_ip = safe_read16(addr + 12);
+    *fpu_dp = safe_read32s(addr + 16);
+    *fpu_dp_selector = safe_read16(addr + 20);
+
+    *mxcsr = new_mxcsr;
+
+    for(int32_t i = 0; i < 8; i++)
+    {
+        fpu_st[*fpu_stack_ptr + i & 7] = fpu_load_m80(addr + 32 + (i << 4));
+    }
+
+    for(int32_t i = 0; i < 8; i++)
+    {
+        reg_xmm32s[i << 2 | 0] = safe_read32s(addr + 160 + (i << 4) +  0);
+        reg_xmm32s[i << 2 | 1] = safe_read32s(addr + 160 + (i << 4) +  4);
+        reg_xmm32s[i << 2 | 2] = safe_read32s(addr + 160 + (i << 4) +  8);
+        reg_xmm32s[i << 2 | 3] = safe_read32s(addr + 160 + (i << 4) + 12);
     }
 }
 

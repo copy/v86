@@ -214,8 +214,6 @@ function V86Starter(options)
         "_jcxz": function() { return cpu.jcxz.apply(cpu, arguments); },
         "_test_privileges_for_io": function() { return cpu.test_privileges_for_io.apply(cpu, arguments); },
 
-        "_fxsave": function() { return cpu.fxsave.apply(cpu, arguments); },
-        "_fxrstor": function() { return cpu.fxrstor.apply(cpu, arguments); },
     };
 
     let wasm_file = DEBUG ? "v86-debug.wasm" : "v86.wasm";
