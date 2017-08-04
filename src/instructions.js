@@ -3606,13 +3606,13 @@ t[0xAE] = cpu => { cpu.read_modrm_byte();
                 dbg_log("Invalid mxcsr bits: " + h((new_mxcsr & ~MXCSR_MASK) >>> 0, 8));
                 cpu.trigger_gp(0);
             }
-            cpu.mxcsr = new_mxcsr;
+            cpu.mxcsr[0] = new_mxcsr;
             break;
 
         case 3: // stmxcsr
             if(cpu.modrm_byte >= 0xC0) cpu.trigger_ud();
             var addr = cpu.modrm_resolve(cpu.modrm_byte);
-            cpu.safe_write32(addr, cpu.mxcsr);
+            cpu.safe_write32(addr, cpu.mxcsr[0]);
             break;
 
         case 5:

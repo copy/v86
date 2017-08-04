@@ -491,7 +491,7 @@ CPU.prototype.fxsave = function(addr)
     this.safe_write32(addr + 16 | 0, this.fpu.fpu_dp[0]);
     this.safe_write16(addr + 20 | 0, this.fpu.fpu_dp_selector[0]);
 
-    this.safe_write32(addr + 24 | 0, this.mxcsr);
+    this.safe_write32(addr + 24 | 0, this.mxcsr[0]);
     this.safe_write32(addr + 28 | 0, MXCSR_MASK);
 
     for(let i = 0; i < 8; i++)
@@ -533,7 +533,7 @@ CPU.prototype.fxrstor = function(addr)
     this.fpu.fpu_dp[0] = this.safe_read32s(addr + 16 | 0);
     this.fpu.fpu_dp_selector[0] = this.safe_read16(addr + 20 | 0);
 
-    this.mxcsr = new_mxcsr;
+    this.mxcsr[0] = new_mxcsr;
 
     for(let i = 0; i < 8; i++)
     {
