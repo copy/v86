@@ -1848,7 +1848,32 @@ static void instr_0FF9() { unimplemented_sse(); }
 static void instr_0FFA() { unimplemented_sse(); }
 static void instr_660FFA() { unimplemented_sse(); }
 static void instr_0FFB() { unimplemented_sse(); }
-static void instr_0FFC() { unimplemented_sse(); }
+
+static void instr_0FFC()
+{
+    // paddb mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+
+    uint32_t reg_offset = 8 * (*modrm_byte >> 3 & 7);
+
+    uint8_t byte0 = (reg_mmx->u8[reg_offset] + source.u8[0]) & 0xFF;
+    uint8_t byte1 = (reg_mmx->u8[reg_offset + 1] + source.u8[1]) & 0xFF;
+    uint8_t byte2 = (reg_mmx->u8[reg_offset + 2] + source.u8[2]) & 0xFF;
+    uint8_t byte3 = (reg_mmx->u8[reg_offset + 3] + source.u8[3]) & 0xFF;
+    uint8_t byte4 = (reg_mmx->u8[reg_offset + 4] + source.u8[4]) & 0xFF;
+    uint8_t byte5 = (reg_mmx->u8[reg_offset + 5] + source.u8[5]) & 0xFF;
+    uint8_t byte6 = (reg_mmx->u8[reg_offset + 6] + source.u8[6]) & 0xFF;
+    uint8_t byte7 = (reg_mmx->u8[reg_offset + 7] + source.u8[7]) & 0xFF;
+
+    uint32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+    uint32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+    write_mmx64s(low, high);
+}
+
 static void instr_0FFD() { unimplemented_sse(); }
 static void instr_0FFE() { unimplemented_sse(); }
 
