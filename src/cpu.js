@@ -193,10 +193,10 @@ function CPU(bus, wm)
     this.reg8 = new Uint8Array(this.reg32s.buffer, 4, 32);
 
     // mm0-mm7 split up into 32 bit pairs
-    this.reg_mmxs = new Int32Array(16);
-    this.reg_mmx = new Uint32Array(this.reg_mmxs.buffer);
-    this.reg_mmx8s = new Int8Array(this.reg_mmxs.buffer);
-    this.reg_mmx8 = new Uint8Array(this.reg_mmxs.buffer);
+    this.reg_mmxs = new Int32Array(wm.mem.buffer, 1064, 16);
+    this.reg_mmx = new Uint32Array(this.reg_mmxs.buffer, 1064, 16);
+    this.reg_mmx8s = new Int8Array(this.reg_mmxs.buffer, 1064, 64);
+    this.reg_mmx8 = new Uint8Array(this.reg_mmxs.buffer, 1064, 64);
 
     this.reg_xmm32s = new Int32Array(wm.mem.buffer, 828, 8 * 4);
 
