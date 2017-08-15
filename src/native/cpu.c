@@ -653,6 +653,14 @@ union reg64 read_mmx_mem64s()
         return x;
     }
 };
+
+void write_mmx64s(int32_t low, int32_t high)
+{
+    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
+    reg_mmx32s[offset] = low;
+    reg_mmx32s[offset + 1] = high;
+};
+
 union reg64 read_xmm64s()
 {
     union reg64 x;
