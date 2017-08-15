@@ -903,7 +903,28 @@ static void instr_0F68() { unimplemented_sse(); }
 static void instr_660F68() { unimplemented_sse(); }
 static void instr_0F69() { unimplemented_sse(); }
 static void instr_0F6A() { unimplemented_sse(); }
-static void instr_0F6B() { unimplemented_sse(); }
+
+static void instr_0F6B() {
+    // packssdw mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
+    int32_t destination_low = reg_mmx32s[offset];
+    int32_t destination_high = reg_mmx32s[offset + 1];
+
+    int32_t low = 0;
+    low |= saturate_sd_to_sw(destination_low);
+    low |= saturate_sd_to_sw(destination_high) << 16;
+
+    int32_t high = 0;
+    high |= saturate_sd_to_sw(source.u32[0]);
+    high |= saturate_sd_to_sw(source.u32[1]) << 16;
+
+    write_mmx64s(low, high);
+}
+
 static void instr_0F6C() { unimplemented_sse(); }
 static void instr_0F6D() { unimplemented_sse(); }
 static void instr_0F6E() { unimplemented_sse(); }
