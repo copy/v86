@@ -48,7 +48,6 @@ CLOSURE_FLAGS=\
 		--jscomp_error externsValidation\
 		--jscomp_error fileoverviewTags\
 		--jscomp_error globalThis\
-		--jscomp_error inferredConstCheck\
 		--jscomp_error internetExplorerChecks\
 		--jscomp_error invalidCasts\
 		--jscomp_error misplacedTypeAnnotation\
@@ -63,7 +62,6 @@ CLOSURE_FLAGS=\
 		--jscomp_error undefinedNames\
 		--jscomp_error undefinedVars\
 		--jscomp_error unknownDefines\
-		--jscomp_error unnecessaryCasts\
 		--jscomp_error visibility\
 		--use_types_for_optimization\
 		--summary_detail_level 3\
