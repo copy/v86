@@ -67,6 +67,7 @@ union reg128 {
 
 union reg64 {
     int8_t   s8[8];
+    int32_t  s32[2];
     uint8_t   u8[8];
     uint16_t  u16[4];
     uint32_t  u32[2];
