@@ -1069,7 +1069,24 @@ static void instr_660F74() {
 }
 static void instr_0F75() { unimplemented_sse(); }
 static void instr_660F75() { unimplemented_sse(); }
-static void instr_0F76() { unimplemented_sse(); }
+
+static void instr_0F76()
+{
+    // pcmpeqd mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
+    uint32_t destination_low = reg_mmx32s[offset];
+    uint32_t destination_high = reg_mmx32s[offset + 1];
+
+    int32_t low = destination_low == source.u32[0] ? -1 : 0;
+    int32_t high = destination_high == source.u32[1] ? -1 : 0;
+
+    write_mmx64s(low, high);
+}
+
 static void instr_660F76() { unimplemented_sse(); }
 static void instr_0F77() {
     // emms
