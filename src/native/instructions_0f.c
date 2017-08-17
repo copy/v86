@@ -1832,7 +1832,23 @@ static void instr_0FDD()
 static void instr_660FDD() { unimplemented_sse(); }
 static void instr_0FDE() { unimplemented_sse(); }
 static void instr_660FDE() { unimplemented_sse(); }
-static void instr_0FDF() { unimplemented_sse(); }
+
+static void instr_0FDF()
+{
+    // pandn mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
+    int32_t destination_low = reg_mmx32s[offset];
+    int32_t destination_high = reg_mmx32s[offset + 1];
+
+    int32_t low = source.u32[0] & ~destination_low;
+    int32_t high = source.u32[1] & ~destination_high;
+
+    write_mmx64s(low, high);
+}
 
 static void instr_0FE0() { unimplemented_sse(); }
 static void instr_0FE1() { unimplemented_sse(); }
