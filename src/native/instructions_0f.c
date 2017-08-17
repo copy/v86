@@ -1814,7 +1814,32 @@ static void instr_0FE9() { unimplemented_sse(); }
 static void instr_0FEA() { unimplemented_sse(); }
 static void instr_0FEB() { unimplemented_sse(); }
 static void instr_660FEB() { unimplemented_sse(); }
-static void instr_0FEC() { unimplemented_sse(); }
+
+static void instr_0FEC()
+{
+    // paddsb mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+
+    int32_t reg_offset = (*modrm_byte >> 3 & 7) << 3;
+
+    uint32_t byte0 = saturate_sd_to_sb(reg_mmx->s8[reg_offset] + source.s8[0]);
+    uint32_t byte1 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 1] + source.s8[1]);
+    uint32_t byte2 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 2] + source.s8[2]);
+    uint32_t byte3 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 3] + source.s8[3]);
+    uint32_t byte4 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 4] + source.s8[4]);
+    uint32_t byte5 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 5] + source.s8[5]);
+    uint32_t byte6 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 6] + source.s8[6]);
+    uint32_t byte7 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 7] + source.s8[7]);
+
+    int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+    int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+    write_mmx64s(low, high);
+}
+
 static void instr_0FED() { unimplemented_sse(); }
 static void instr_0FEE() { unimplemented_sse(); }
 static void instr_0FEF() { unimplemented_sse(); }
