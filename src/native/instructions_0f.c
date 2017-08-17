@@ -1875,7 +1875,22 @@ static void instr_0FFC()
 }
 
 static void instr_0FFD() { unimplemented_sse(); }
-static void instr_0FFE() { unimplemented_sse(); }
+static void instr_0FFE()
+{
+    // paddd mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
+    int32_t destination_low = reg_mmx32s[offset];
+    int32_t destination_high = reg_mmx32s[offset + 1];
+
+    int32_t low = destination_low + source.u32[0] | 0;
+    int32_t high = destination_high + source.u32[1] | 0;
+
+    write_mmx64s(low, high);
+}
 
 static void instr_0FFF() {
     // Windows 98
