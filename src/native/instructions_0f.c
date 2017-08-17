@@ -2084,7 +2084,27 @@ static void instr_0FF1() { unimplemented_sse(); }
 static void instr_0FF2() { unimplemented_sse(); }
 static void instr_0FF3() { unimplemented_sse(); }
 static void instr_0FF4() { unimplemented_sse(); }
-static void instr_0FF5() { unimplemented_sse(); }
+
+static void instr_0FF5()
+{
+    // pmaddwd mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t offset = (*modrm_byte >> 3 & 7) << 2;
+
+    int32_t mul0 = (reg_mmx->s16[offset] * (source.s16[0]));
+    int32_t mul1 = (reg_mmx->s16[offset + 1] * (source.s16[1]));
+    int32_t mul2 = (reg_mmx->s16[offset + 2] * (source.s16[2]));
+    int32_t mul3 = (reg_mmx->s16[offset + 3] * (source.s16[3]));
+
+    int32_t low = mul0 + mul1 | 0;
+    int32_t high = mul2 + mul3 | 0;
+
+    write_mmx64s(low, high);
+}
+
 static void instr_0FF6() { unimplemented_sse(); }
 static void instr_0FF7() { unimplemented_sse(); }
 
