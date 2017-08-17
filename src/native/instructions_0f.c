@@ -1996,7 +1996,27 @@ static void instr_0FE2() { unimplemented_sse(); }
 static void instr_0FE3() { unimplemented_sse(); }
 static void instr_0FE4() { unimplemented_sse(); }
 static void instr_660FE4() { unimplemented_sse(); }
-static void instr_0FE5() { unimplemented_sse(); }
+
+static void instr_0FE5()
+{
+    // pmulhw mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t offset = (*modrm_byte >> 3 & 7) << 2;
+
+    uint32_t word0 = ((reg_mmx->s16[offset] * source.s16[0]) >> 16) & 0xFFFF;
+    uint32_t word1 = ((reg_mmx->s16[offset + 1] * source.s16[1]) >> 16) & 0xFFFF;
+    uint32_t word2 = ((reg_mmx->s16[offset + 2] * source.s16[2]) >> 16) & 0xFFFF;
+    uint32_t word3 = ((reg_mmx->s16[offset + 3] * source.s16[3]) >> 16) & 0xFFFF;
+
+    int32_t low = word0 | (word1 << 16);
+    int32_t high = word2 | (word3 << 16);
+
+    write_mmx64s(low, high);
+}
+
 static void instr_0FE6() { unimplemented_sse(); }
 static void instr_0FE7() { unimplemented_sse(); }
 static void instr_660FE7() {
