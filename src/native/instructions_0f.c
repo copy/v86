@@ -1063,7 +1063,31 @@ static void instr_F30F6F() {
     write_xmm128s(data.u32[0], data.u32[1], data.u32[2], data.u32[3]);
 }
 
-static void instr_0F70() { unimplemented_sse(); }
+
+static void instr_0F70()
+{
+    // pshufw mm1, mm2/m64, imm8
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t order = read_op8();
+
+    int32_t word0_shift = order & 0b11;
+    uint32_t word0 = source.u32[word0_shift >> 1] >> ((word0_shift & 1) << 4) & 0xFFFF;
+    int32_t word1_shift = (order >> 2) & 0b11;
+    uint32_t word1 = source.u32[word1_shift >> 1] >> ((word1_shift & 1) << 4);
+    int32_t low = word0 | word1 << 16;
+
+    int32_t word2_shift = (order >> 4) & 0b11;
+    uint32_t word2 = source.u32[word2_shift >> 1] >> ((word2_shift & 1) << 4) & 0xFFFF;
+    uint32_t word3_shift = (order >> 6);
+    uint32_t word3 = source.u32[word3_shift >> 1] >> ((word3_shift & 1) << 4);
+    int32_t high = word2 | word3 << 16;
+
+    write_mmx64s(low, high);
+}
+
 static void instr_660F70() {
     // pshufd xmm, xmm/mem128
     task_switch_test_mmx();
