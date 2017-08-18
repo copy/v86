@@ -1964,7 +1964,30 @@ static void instr_0FCF() { bswap(EDI); }
 
 static void instr_0FD0() { unimplemented_sse(); }
 static void instr_0FD1() { unimplemented_sse(); }
-static void instr_0FD2() { unimplemented_sse(); }
+
+static void instr_0FD2()
+{
+    // psrld mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
+    int32_t destination_low = reg_mmx32s[offset];
+    int32_t destination_high = reg_mmx32s[offset + 1];
+
+    uint32_t shift = source.u32[0];
+    int32_t low = 0;
+    int32_t high = 0;
+
+    if (shift <= 31) {
+        low = (uint32_t) destination_low >> shift;
+        high = (uint32_t) destination_high >> shift;
+    }
+
+    write_mmx64s(low, high);
+}
+
 static void instr_0FD3() { unimplemented_sse(); }
 static void instr_660FD3() { unimplemented_sse(); }
 static void instr_0FD4() { unimplemented_sse(); }
