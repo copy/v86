@@ -2108,7 +2108,31 @@ static void instr_0FDF()
 }
 
 static void instr_0FE0() { unimplemented_sse(); }
-static void instr_0FE1() { unimplemented_sse(); }
+
+static void instr_0FE1()
+{
+    // psraw mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t offset = (*modrm_byte >> 3 & 7) << 2;
+
+    uint32_t shift = source.u32[0];
+    if (shift > 15) {
+        shift = 16;
+    }
+
+    int32_t word0 = (reg_mmx->s16[offset] >> shift) & 0xFFFF;
+    int32_t word1 = (reg_mmx->s16[offset + 1] >> shift) & 0xFFFF;
+    int32_t low = word0 | word1 << 16;
+
+    int32_t word2 = (reg_mmx->s16[offset + 2] >> shift) & 0xFFFF;
+    int32_t word3 = (reg_mmx->s16[offset + 3] >> shift) & 0xFFFF;
+    int32_t high = word2 | word3 << 16;
+
+    write_mmx64s(low, high);
+}
 
 static void instr_0FE2()
 {
