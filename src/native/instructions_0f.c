@@ -2723,7 +2723,23 @@ static void instr_0FF8()
 }
 
 static void instr_0FF9() { unimplemented_sse(); }
-static void instr_0FFA() { unimplemented_sse(); }
+
+static void instr_0FFA()
+{
+    // psubd mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
+    int32_t destination_low = reg_mmx32s[offset];
+    int32_t destination_high = reg_mmx32s[offset + 1];
+
+    write_mmx64s(
+        destination_low - source.u32[0],
+        destination_high - source.u32[1]
+    );
+}
 
 static void instr_660FFA()
 {
