@@ -1319,7 +1319,54 @@ static void instr_0F73()
     }
 }
 
-static void instr_660F73() { unimplemented_sse(); }
+static void instr_660F73()
+{
+
+    read_modrm_byte();
+    task_switch_test_mmx();
+
+    if(*modrm_byte < 0xC0)
+    {
+        trigger_ud();
+    }
+
+    uint32_t shift = read_op8();
+
+    union reg128 destination = read_xmm128s();
+    union reg128 result;
+
+    // psrlq, psllq
+    //     2,     6
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 2:
+            // psrlq xmm, imm8
+            if(shift == 0)
+            {
+                return;
+            }
+
+            if (shift <= 31)
+            {
+                result.u32[0] = (uint32_t) destination.u32[0] >> shift | destination.u32[1] << (32 - shift);
+                result.u32[1] = (uint32_t) destination.u32[1] >> shift;
+
+                result.u32[2] = (uint32_t) destination.u32[2] >> shift | destination.u32[3] << (32 - shift);
+                result.u32[3] = (uint32_t) destination.u32[3] >> shift;
+            }
+            else if (shift <= 63)
+            {
+                result.u32[0] = (uint32_t) destination.u32[1] >> shift;
+                result.u32[2] = (uint32_t) destination.u32[3] >> shift;
+            }
+
+            write_xmm128s(result.u32[0], result.u32[1], result.u32[2], result.u32[3]);
+            break;
+        default:
+            unimplemented_sse();
+            break;
+    }
+}
 
 static void instr_0F74()
 {
