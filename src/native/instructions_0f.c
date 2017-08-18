@@ -2346,7 +2346,42 @@ static void instr_0FD8()
     write_mmx64s(low, high);
 }
 
-static void instr_0FD9() { unimplemented_sse(); }
+
+static void instr_0FD9()
+{
+    // psubusw mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
+    int32_t destination_low = reg_mmx32s[offset];
+    int32_t destination_high = reg_mmx32s[offset + 1];
+
+    int32_t word0 = (destination_low & 0xFFFF) - (source.u32[0] & 0xFFFF);
+    int32_t word1 = ((uint32_t) destination_low >> 16) - (source.u32[0] >> 16);
+    if (word0 < 0) {
+        word0 = 0;
+    }
+    if (word1 < 0) {
+        word1 = 0;
+    }
+
+    int32_t word2 = (destination_high & 0xFFFF) - (source.u32[1] & 0xFFFF);
+    int32_t word3 = ((uint32_t) destination_high >> 16) - (source.u32[1] >> 16);
+    if (word2 < 0) {
+        word2 = 0;
+    }
+    if (word3 < 0) {
+        word3 = 0;
+    }
+
+    int32_t low = word0 | word1 << 16;
+    int32_t high = word2 | word3 << 16;
+
+    write_mmx64s(low, high);
+}
+
 static void instr_0FDA() { unimplemented_sse(); }
 static void instr_660FDA() { unimplemented_sse(); }
 
