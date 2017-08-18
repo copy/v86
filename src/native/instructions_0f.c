@@ -1010,7 +1010,32 @@ static void instr_0F67()
 
 static void instr_660F67() { unimplemented_sse(); }
 
-static void instr_0F68() { unimplemented_sse(); }
+
+static void instr_0F68()
+{
+    // punpckhbw mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
+    uint32_t destination_high = reg_mmx32s[offset + 1];
+
+    int32_t byte0 = destination_high & 0xFF;
+    int32_t byte1 = source.u32[1] & 0xFF;
+    int32_t byte2 = (destination_high >> 8) & 0xFF;
+    int32_t byte3 = (source.u32[1] >> 8) & 0xFF;
+    int32_t byte4 = (destination_high >> 16) & 0xFF;
+    int32_t byte5 = (source.u32[1] >> 16) & 0xFF;
+    int32_t byte6 = destination_high >> 24;
+    int32_t byte7 = source.u32[1] >> 24;
+
+    int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+    int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+    write_mmx64s(low, high);
+}
+
 static void instr_660F68() { unimplemented_sse(); }
 static void instr_0F69() { unimplemented_sse(); }
 static void instr_0F6A() { unimplemented_sse(); }
