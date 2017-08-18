@@ -2320,7 +2320,32 @@ static void instr_660FD7() {
     write_g32(result);
 }
 
-static void instr_0FD8() { unimplemented_sse(); }
+
+static void instr_0FD8()
+{
+    // psubusb mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+
+    int32_t reg_offset = (*modrm_byte >> 3 & 7) << 3;
+
+    int32_t byte0 = saturate_sd_to_ub(reg_mmx->u8[reg_offset] - source.u8[0]);
+    int32_t byte1 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 1] - source.u8[1]);
+    int32_t byte2 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 2] - source.u8[2]);
+    int32_t byte3 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 3] - source.u8[3]);
+    int32_t byte4 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 4] - source.u8[4]);
+    int32_t byte5 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 5] - source.u8[5]);
+    int32_t byte6 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 6] - source.u8[6]);
+    int32_t byte7 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 7] - source.u8[7]);
+
+    int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+    int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+    write_mmx64s(low, high);
+}
+
 static void instr_0FD9() { unimplemented_sse(); }
 static void instr_0FDA() { unimplemented_sse(); }
 static void instr_660FDA() { unimplemented_sse(); }
