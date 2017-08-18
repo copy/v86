@@ -1105,7 +1105,80 @@ static void instr_660F70() {
 static void instr_F20F70() { unimplemented_sse(); }
 static void instr_F30F70() { unimplemented_sse(); }
 static void instr_0F71() { unimplemented_sse(); }
-static void instr_0F72() { unimplemented_sse(); }
+
+static void instr_0F72()
+{
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    if(*modrm_byte < 0xC0)
+    {
+        trigger_ud();
+    }
+
+    uint32_t source = read_op8();
+    uint32_t destination = (*modrm_byte & 7) << 1;
+
+    uint32_t low = 0;
+    uint32_t high = 0;
+    int32_t shift = source;
+
+    int32_t destination_low, destination_high;
+
+    // psrld, psrad, pslld
+    //     2,     4,     6
+    switch(*modrm_byte >> 3 & 7)
+    {
+        case 2:
+            // psrld mm, imm8
+            destination_low = reg_mmx32s[destination];
+            destination_high = reg_mmx32s[destination + 1];
+
+            if (shift <= 31) {
+                low = ((uint32_t) destination_low) >> shift;
+                high = ((uint32_t) destination_high) >> shift;
+            }
+
+            reg_mmx32s[destination] = low;
+            reg_mmx32s[destination + 1] = high;
+
+            break;
+        case 4:
+            // psrad mm, imm8
+            destination_low = reg_mmx32s[destination];
+            destination_high = reg_mmx32s[destination + 1];
+
+            if (shift > 31) {
+                shift = 31;
+            }
+
+            low = destination_low >> shift;
+            high = destination_high >> shift;
+
+            reg_mmx32s[destination] = low;
+            reg_mmx32s[destination + 1] = high;
+
+            break;
+        case 6:
+            // pslld mm, imm8
+            destination_low = reg_mmx32s[destination];
+            destination_high = reg_mmx32s[destination + 1];
+
+            if (shift <= 31) {
+                low = destination_low << shift;
+                high = destination_high << shift;
+            }
+
+            reg_mmx32s[destination] = low;
+            reg_mmx32s[destination + 1] = high;
+
+            break;
+        default:
+            unimplemented_sse();
+            break;
+    }
+}
+
 static void instr_0F73() { unimplemented_sse(); }
 static void instr_660F73() { unimplemented_sse(); }
 
