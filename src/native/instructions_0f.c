@@ -2524,7 +2524,27 @@ static void instr_0FE8()
     write_mmx64s(low, high);
 }
 
-static void instr_0FE9() { unimplemented_sse(); }
+
+static void instr_0FE9()
+{
+    // psubsw mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t offset = (*modrm_byte >> 3 & 7) << 2;
+
+    int32_t word0 = saturate_sd_to_sw(reg_mmx->s16[offset] - source.s16[0]);
+    int32_t word1 = saturate_sd_to_sw(reg_mmx->s16[offset + 1] - source.s16[1]);
+    int32_t word2 = saturate_sd_to_sw(reg_mmx->s16[offset + 2] - source.s16[2]);
+    int32_t word3 = saturate_sd_to_sw(reg_mmx->s16[offset + 3] - source.s16[3]);
+
+    int32_t low = word0 | word1 << 16;
+    int32_t high = word2 | word3 << 16;
+
+    write_mmx64s(low, high);
+}
+
 static void instr_0FEA() { unimplemented_sse(); }
 
 static void instr_0FEB()
