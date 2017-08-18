@@ -1036,7 +1036,24 @@ static void instr_0F68()
     write_mmx64s(low, high);
 }
 
-static void instr_660F68() { unimplemented_sse(); }
+
+static void instr_660F68()
+{
+    // punpckhbw xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 source = read_xmm_mem128s();
+    union reg128 destination = read_xmm128s();
+
+    write_xmm128s(
+        destination.u8[ 8] | source.u8[ 8] << 8 | destination.u8[ 9] << 16 | source.u8[ 9] << 24,
+        destination.u8[10] | source.u8[10] << 8 | destination.u8[11] << 16 | source.u8[11] << 24,
+        destination.u8[12] | source.u8[12] << 8 | destination.u8[13] << 16 | source.u8[13] << 24,
+        destination.u8[14] | source.u8[14] << 8 | destination.u8[15] << 16 | source.u8[15] << 24
+    );
+}
+
 static void instr_0F69() { unimplemented_sse(); }
 static void instr_0F6A() { unimplemented_sse(); }
 
