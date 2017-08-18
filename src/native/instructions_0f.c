@@ -2175,7 +2175,41 @@ static void instr_0FD2()
 }
 
 static void instr_0FD3() { unimplemented_sse(); }
-static void instr_660FD3() { unimplemented_sse(); }
+
+static void instr_660FD3()
+{
+    // psrlq xmm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_xmm_mem64s();
+    uint32_t shift = source.u32[0];
+
+    if(shift == 0)
+    {
+        return;
+    }
+
+    union reg128 destination = read_xmm128s();
+    union reg128 result;
+
+    if (shift <= 31)
+    {
+        result.u32[0] = destination.u32[0] >> shift | destination.u32[1] << (32 - shift);
+        result.u32[1] = destination.u32[1] >> shift;
+
+        result.u32[2] = destination.u32[2] >> shift | destination.u32[3] << (32 - shift);
+        result.u32[3] = destination.u32[3] >> shift;
+    }
+    else if (shift <= 63)
+    {
+        result.u32[0] = destination.u32[1] >> shift;
+        result.u32[2] = destination.u32[3] >> shift;
+    }
+
+    write_xmm128s(result.u32[0], result.u32[1], result.u32[2], result.u32[3]);
+}
+
 static void instr_0FD4() { unimplemented_sse(); }
 
 static void instr_0FD5()
