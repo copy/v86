@@ -2724,7 +2724,24 @@ static void instr_0FF8()
 
 static void instr_0FF9() { unimplemented_sse(); }
 static void instr_0FFA() { unimplemented_sse(); }
-static void instr_660FFA() { unimplemented_sse(); }
+
+static void instr_660FFA()
+{
+    // psubd xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 source = read_xmm_mem128s();
+    union reg128 destination = read_xmm128s();
+
+    write_xmm128s(
+        destination.u32[0] - source.u32[0],
+        destination.u32[1] - source.u32[1],
+        destination.u32[2] - source.u32[2],
+        destination.u32[3] - source.u32[3]
+    );
+}
+
 static void instr_0FFB() { unimplemented_sse(); }
 
 static void instr_0FFC()
