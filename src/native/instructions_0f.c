@@ -2109,7 +2109,29 @@ static void instr_0FDF()
 
 static void instr_0FE0() { unimplemented_sse(); }
 static void instr_0FE1() { unimplemented_sse(); }
-static void instr_0FE2() { unimplemented_sse(); }
+
+static void instr_0FE2()
+{
+    // psrad mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
+    int32_t destination_low = reg_mmx32s[offset];
+    int32_t destination_high = reg_mmx32s[offset + 1];
+
+    uint32_t shift = source.u32[0];
+    if (shift > 31) {
+        shift = 31;
+    }
+
+    int32_t low = destination_low >> shift;
+    int32_t high = destination_high >> shift;
+
+    write_mmx64s(low, high);
+}
+
 static void instr_0FE3() { unimplemented_sse(); }
 static void instr_0FE4() { unimplemented_sse(); }
 static void instr_660FE4() { unimplemented_sse(); }
