@@ -1104,7 +1104,87 @@ static void instr_660F70() {
 }
 static void instr_F20F70() { unimplemented_sse(); }
 static void instr_F30F70() { unimplemented_sse(); }
-static void instr_0F71() { unimplemented_sse(); }
+
+static void instr_0F71()
+{
+    read_modrm_byte();
+    task_switch_test_mmx();
+
+    if(*modrm_byte < 0xC0)
+    {
+        trigger_ud();
+    }
+
+    uint32_t shift = read_op8();
+    int32_t destination = (*modrm_byte & 7) << 1;
+
+    int32_t destination_low = reg_mmx32s[destination];
+    int32_t destination_high = reg_mmx32s[destination + 1];
+
+    int32_t low = 0;
+    int32_t high = 0;
+
+    int32_t word0, word1, word2, word3;
+
+    // psrlw, psraw, psllw
+    //     2,     4,     6
+    switch(*modrm_byte >> 3 & 7)
+    {
+    case 2:
+        // psrlw mm, imm8
+        if (shift <= 15) {
+            word0 = ((uint32_t) destination_low & 0xFFFF) >> shift;
+            word1 = ((uint32_t) destination_low >> 16) >> shift;
+            low = word0 | word1 << 16;
+
+            word2 = ((uint32_t) destination_high & 0xFFFF) >> shift;
+            word3 = ((uint32_t) destination_high >> 16) >> shift;
+            high = word2 | word3 << 16;
+        }
+
+        reg_mmx32s[destination] = low;
+        reg_mmx32s[destination + 1] = high;
+
+        break;
+    case 4:
+        // psraw mm, imm8
+        if (shift > 15) {
+            shift = 16;
+        }
+
+        word0 = ((destination_low << 16 >> 16) >> shift) & 0xFFFF;
+        word1 = ((destination_low >> 16) >> shift) & 0xFFFF;
+        low = word0 | word1 << 16;
+
+        word2 = ((destination_high << 16 >> 16) >> shift) & 0xFFFF;
+        word3 = ((destination_high >> 16) >> shift) & 0xFFFF;
+        high = word2 | word3 << 16;
+
+        reg_mmx32s[destination] = low;
+        reg_mmx32s[destination + 1] = high;
+
+        break;
+    case 6:
+        // psllw mm, imm8
+        if (shift <= 15) {
+            word0 = ((destination_low & 0xFFFF) << shift) & 0xFFFF;
+            word1 = ((uint32_t) destination_low >> 16) << shift;
+            low = word0 | word1 << 16;
+
+            word2 = ((destination_high & 0xFFFF) << shift) & 0xFFFF;
+            word3 = ((uint32_t) destination_high >> 16) << shift;
+            high = word2 | word3 << 16;
+        }
+
+        reg_mmx32s[destination] = low;
+        reg_mmx32s[destination + 1] = high;
+
+        break;
+    default:
+        unimplemented_sse();
+        break;
+    }
+}
 
 static void instr_0F72()
 {
