@@ -351,9 +351,27 @@ static void instr_0F0F() { undefined_instruction(); }
 static void instr_0F10() { unimplemented_sse(); }
 static void instr_0F11() { unimplemented_sse(); }
 static void instr_0F12() { unimplemented_sse(); }
-static void instr_660F12() { unimplemented_sse(); }
+
+static void instr_660F12() {
+    // movlpd xmm, xmm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg64 data = read_xmm_mem64s();
+    write_xmm64(data.u32[0], data.u32[1]);
+}
+
 static void instr_0F13() { unimplemented_sse(); }
-static void instr_660F13() { unimplemented_sse(); }
+
+static void instr_660F13()
+{
+    // movlpd xmm/m64, xmm
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg64 data = read_xmm64s();
+    int32_t addr = modrm_resolve(*modrm_byte);
+    safe_write64(addr, data.s32[0], data.s32[1]);
+}
+
 static void instr_0F14() { unimplemented_sse(); }
 static void instr_660F14() { unimplemented_sse(); }
 static void instr_0F15() { unimplemented_sse(); }
