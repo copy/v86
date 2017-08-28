@@ -915,7 +915,18 @@ void instr_660F60() {
 }
 static void instr_0F61() { unimplemented_sse(); }
 static void instr_660F61() { unimplemented_sse(); }
-static void instr_0F62() { unimplemented_sse(); }
+
+static void instr_0F62()
+{
+    // punpckldq mm, mm/m32
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    int32_t source = read_mmx_mem32s();
+    union reg64 destination = read_mmx64s();
+
+    write_mmx64s(destination.u32[0], source);
+}
 
 static void instr_0F63() {
     // packsswb mm, mm/m64
