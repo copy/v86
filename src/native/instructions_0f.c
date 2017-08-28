@@ -934,7 +934,23 @@ static void instr_0F61()
     write_mmx64s(low, high);
 }
 
-static void instr_660F61() { unimplemented_sse(); }
+
+static void instr_660F61()
+{
+    // punpcklwd xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_xmm_mem64s();
+    union reg64 destination = read_xmm64s();
+
+    write_xmm128s(
+        destination.u16[0] | source.u16[0] << 16,
+        destination.u16[1] | source.u16[1] << 16,
+        destination.u16[2] | source.u16[2] << 16,
+        destination.u16[3] | source.u16[3] << 16
+    );
+}
 
 static void instr_0F62()
 {
@@ -1569,7 +1585,6 @@ static void instr_0F76()
 static void instr_660F76() { unimplemented_sse(); }
 static void instr_0F77() {
     // emms
-    dbg_assert((*prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
 
     if(cr[0] & (CR0_EM | CR0_TS)) {
         if(cr[0] & CR0_TS) {
