@@ -562,8 +562,16 @@ static void instr_0F25() { undefined_instruction(); }
 static void instr_0F26() { undefined_instruction(); }
 static void instr_0F27() { undefined_instruction(); }
 
-static void instr_0F28() { unimplemented_sse(); }
 static void instr_660F28() { unimplemented_sse(); }
+static void instr_0F28()
+{
+    // movaps xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg128 data = read_xmm_mem128s();
+    write_xmm128s(data.u32[0], data.u32[1], data.u32[2], data.u32[3]);
+}
+
 static void instr_0F29() {
     // movaps xmm/m128, xmm
     task_switch_test_mmx();
