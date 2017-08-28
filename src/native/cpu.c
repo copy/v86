@@ -637,6 +637,15 @@ void write_e32(int32_t value)
     }
 }
 
+union reg64 read_mmx64s()
+{
+    union reg64 x;
+    int32_t i = (*modrm_byte >> 3 & 7) << 1;
+    x.u32[0] = reg_mmx32s[i];
+    x.u32[1] = reg_mmx32s[i | 1];
+    return x;
+}
+
 union reg64 read_mmx_mem64s()
 {
     if(*modrm_byte < 0xC0)
