@@ -602,8 +602,45 @@ static void instr_660F29()
 }
 
 static void instr_0F2A() { unimplemented_sse(); }
-static void instr_0F2B() { unimplemented_sse(); }
-static void instr_660F2B() { unimplemented_sse(); }
+
+static void instr_0F2B()
+{
+
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    if(*modrm_byte >= 0xC0)
+    {
+        trigger_ud();
+    }
+
+    // movntps m128, xmm
+    // movntpd m128, xmm
+
+    union reg128 data = read_xmm128s();
+    int32_t addr = modrm_resolve(*modrm_byte);
+    safe_write128(addr, data);
+}
+
+static void instr_660F2B()
+{
+
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    if(*modrm_byte >= 0xC0)
+    {
+        trigger_ud();
+    }
+
+    // movntps m128, xmm
+    // movntpd m128, xmm
+
+    union reg128 data = read_xmm128s();
+    int32_t addr = modrm_resolve(*modrm_byte);
+    safe_write128(addr, data);
+}
+
 static void instr_0F2C() { unimplemented_sse(); }
 static void instr_F20F2C() { unimplemented_sse(); }
 static void instr_0F2D() { unimplemented_sse(); }
