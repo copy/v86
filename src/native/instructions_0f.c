@@ -875,7 +875,31 @@ static void instr_0F5D() { unimplemented_sse(); }
 static void instr_0F5E() { unimplemented_sse(); }
 static void instr_0F5F() { unimplemented_sse(); }
 
-static void instr_0F60() { unimplemented_sse(); }
+
+static void instr_0F60()
+{
+    // punpcklbw mm, mm/m32
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    int32_t source = read_mmx_mem32s();
+    union reg64 destination = read_mmx64s();
+
+    int32_t byte0 = destination.u32[0] & 0xFF;
+    int32_t byte1 = source & 0xFF;
+    int32_t byte2 = (destination.u32[0] >> 8) & 0xFF;
+    int32_t byte3 = (source >> 8) & 0xFF;
+    int32_t byte4 = (destination.u32[0] >> 16) & 0xFF;
+    int32_t byte5 = (source >> 16) & 0xFF;
+    int32_t byte6 = destination.u32[0] >> 24;
+    int32_t byte7 = source >> 24;
+
+    int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+    int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+    write_mmx64s(low, high);
+}
+
 void instr_660F60() {
     // punpcklbw xmm, xmm/m128
     task_switch_test_mmx();
