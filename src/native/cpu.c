@@ -646,6 +646,20 @@ union reg64 read_mmx64s()
     return x;
 }
 
+
+int32_t read_mmx_mem32s()
+{
+    if(*modrm_byte < 0xC0)
+    {
+        return safe_read32s(modrm_resolve(*modrm_byte));
+    }
+    else
+    {
+        // Returning lower dword of qword
+        return reg_mmx32s[(*modrm_byte & 7) << 1];
+    }
+}
+
 union reg64 read_mmx_mem64s()
 {
     if(*modrm_byte < 0xC0)
