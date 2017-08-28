@@ -373,7 +373,23 @@ static void instr_660F13()
 }
 
 static void instr_0F14() { unimplemented_sse(); }
-static void instr_660F14() { unimplemented_sse(); }
+
+static void instr_660F14()
+{
+    // unpcklpd xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg64 source = read_xmm_mem64s();
+    union reg64 destination = read_xmm64s();
+
+    write_xmm128s(
+        destination.u32[0],
+        destination.u32[1],
+        source.u32[0],
+        source.u32[1]
+    );
+}
+
 static void instr_0F15() { unimplemented_sse(); }
 static void instr_0F16() { unimplemented_sse(); }
 static void instr_0F17() { unimplemented_sse(); }
