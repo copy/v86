@@ -899,15 +899,13 @@ static void instr_0F63() {
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    uint32_t destination_low = reg_mmx32s[offset];
-    uint32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
     int32_t low = 0;
-    low |= (saturate_sw_to_sb((destination_low) & 0xFFFF));
-    low |= (saturate_sw_to_sb(destination_low >> 16)) << 8;
-    low |= (saturate_sw_to_sb((destination_high) & 0xFFFF)) << 16;
-    low |= (saturate_sw_to_sb(destination_high >> 16)) << 24;
+    low |= (saturate_sw_to_sb((destination.u32[0]) & 0xFFFF));
+    low |= (saturate_sw_to_sb(destination.u32[0] >> 16)) << 8;
+    low |= (saturate_sw_to_sb((destination.u32[1]) & 0xFFFF)) << 16;
+    low |= (saturate_sw_to_sb(destination.u32[1] >> 16)) << 24;
 
     int32_t high = 0;
     high |= (saturate_sw_to_sb((source.u32[0]) & 0xFFFF));
@@ -972,12 +970,10 @@ static void instr_0F66()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
-    int32_t low = destination_low > source.s32[0] ? -1 : 0;
-    int32_t high = destination_high > source.s32[1] ? -1 : 0;
+    int32_t low = destination.s32[0] > source.s32[0] ? -1 : 0;
+    int32_t high = destination.s32[1] > source.s32[1] ? -1 : 0;
 
     write_mmx64s(low, high);
 }
@@ -989,15 +985,13 @@ static void instr_0F67()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    uint32_t destination_low = reg_mmx32s[offset];
-    uint32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
     uint32_t low = 0;
-    low |= (saturate_sw_to_ub((destination_low) & 0xFFFF));
-    low |= (saturate_sw_to_ub(destination_low >> 16)) << 8;
-    low |= (saturate_sw_to_ub((destination_high) & 0xFFFF)) << 16;
-    low |= (saturate_sw_to_ub(destination_high >> 16)) << 24;
+    low |= (saturate_sw_to_ub((destination.u32[0]) & 0xFFFF));
+    low |= (saturate_sw_to_ub(destination.u32[0] >> 16)) << 8;
+    low |= (saturate_sw_to_ub((destination.u32[1]) & 0xFFFF)) << 16;
+    low |= (saturate_sw_to_ub(destination.u32[1] >> 16)) << 24;
 
     uint32_t high = 0;
     high |= (saturate_sw_to_ub((source.u32[0]) & 0xFFFF));
@@ -1018,16 +1012,15 @@ static void instr_0F68()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    uint32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
-    int32_t byte0 = destination_high & 0xFF;
+    int32_t byte0 = destination.u32[1] & 0xFF;
     int32_t byte1 = source.u32[1] & 0xFF;
-    int32_t byte2 = (destination_high >> 8) & 0xFF;
+    int32_t byte2 = (destination.u32[1] >> 8) & 0xFF;
     int32_t byte3 = (source.u32[1] >> 8) & 0xFF;
-    int32_t byte4 = (destination_high >> 16) & 0xFF;
+    int32_t byte4 = (destination.u32[1] >> 16) & 0xFF;
     int32_t byte5 = (source.u32[1] >> 16) & 0xFF;
-    int32_t byte6 = destination_high >> 24;
+    int32_t byte6 = destination.u32[1] >> 24;
     int32_t byte7 = source.u32[1] >> 24;
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
@@ -1075,13 +1068,11 @@ static void instr_0F6B()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
     int32_t low = 0;
-    low |= saturate_sd_to_sw(destination_low);
-    low |= saturate_sd_to_sw(destination_high) << 16;
+    low |= saturate_sd_to_sw(destination.u32[0]);
+    low |= saturate_sd_to_sw(destination.u32[1]) << 16;
 
     int32_t high = 0;
     high |= saturate_sd_to_sw(source.u32[0]);
@@ -1471,14 +1462,12 @@ static void instr_0F75()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = 2 * (*modrm_byte >> 3 & 7);
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
-    int32_t word0 = (destination_low & 0xFFFF) == (source.u32[0] & 0xFFFF) ? 0xFFFF : 0;
-    int32_t word1 = (destination_low & 0xFFFF0000) == (source.u32[0] & 0xFFFF0000) ? 0xFFFF : 0;
-    int32_t word2 = (destination_high & 0xFFFF) == (source.u32[1] & 0xFFFF) ? 0xFFFF : 0;
-    int32_t word3 = (destination_high & 0xFFFF0000) == (source.u32[1] & 0xFFFF0000) ? 0xFFFF : 0;
+    int32_t word0 = (destination.u32[0] & 0xFFFF) == (source.u32[0] & 0xFFFF) ? 0xFFFF : 0;
+    int32_t word1 = (destination.u32[0] & 0xFFFF0000) == (source.u32[0] & 0xFFFF0000) ? 0xFFFF : 0;
+    int32_t word2 = (destination.u32[1] & 0xFFFF) == (source.u32[1] & 0xFFFF) ? 0xFFFF : 0;
+    int32_t word3 = (destination.u32[1] & 0xFFFF0000) == (source.u32[1] & 0xFFFF0000) ? 0xFFFF : 0;
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
@@ -1495,12 +1484,10 @@ static void instr_0F76()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    uint32_t destination_low = reg_mmx32s[offset];
-    uint32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
-    int32_t low = destination_low == source.u32[0] ? -1 : 0;
-    int32_t high = destination_high == source.u32[1] ? -1 : 0;
+    int32_t low = destination.u32[0] == source.u32[0] ? -1 : 0;
+    int32_t high = destination.u32[1] == source.u32[1] ? -1 : 0;
 
     write_mmx64s(low, high);
 }
@@ -2210,21 +2197,19 @@ static void instr_0FD1()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
     uint32_t shift = source.u32[0];
     int32_t low = 0;
     int32_t high = 0;
 
     if (shift <= 15) {
-        uint32_t word0 = (destination_low & 0xFFFF) >> shift;
-        uint32_t word1 = ((uint32_t) destination_low >> 16) >> shift;
+        uint32_t word0 = (destination.u32[0] & 0xFFFF) >> shift;
+        uint32_t word1 = ((uint32_t) destination.u32[0] >> 16) >> shift;
         low = word0 | word1 << 16;
 
-        uint32_t word2 = ((uint32_t) destination_high & 0xFFFF) >> shift;
-        uint32_t word3 = ((uint32_t) destination_high >> 16) >> shift;
+        uint32_t word2 = ((uint32_t) destination.u32[1] & 0xFFFF) >> shift;
+        uint32_t word3 = ((uint32_t) destination.u32[1] >> 16) >> shift;
         high = word2 | word3 << 16;
     }
 
@@ -2238,17 +2223,15 @@ static void instr_0FD2()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
     uint32_t shift = source.u32[0];
     int32_t low = 0;
     int32_t high = 0;
 
     if (shift <= 31) {
-        low = (uint32_t) destination_low >> shift;
-        high = (uint32_t) destination_high >> shift;
+        low = (uint32_t) destination.u32[0] >> shift;
+        high = (uint32_t) destination.u32[1] >> shift;
     }
 
     write_mmx64s(low, high);
@@ -2262,9 +2245,7 @@ static void instr_0FD3()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
     uint32_t shift = source.u32[0];
 
@@ -2278,12 +2259,12 @@ static void instr_0FD3()
 
     if(shift <= 31)
     {
-        low = (uint32_t) destination_low >> shift | (destination_high << (32 - shift));
-        high = (uint32_t) destination_high >> shift;
+        low = (uint32_t) destination.u32[0] >> shift | (destination.u32[1] << (32 - shift));
+        high = (uint32_t) destination.u32[1] >> shift;
     }
     else if(shift <= 63)
     {
-        low = (uint32_t) destination_high >> (shift & 0x1F);
+        low = (uint32_t) destination.u32[1] >> (shift & 0x1F);
         high = 0;
     }
 
@@ -2407,12 +2388,10 @@ static void instr_0FD9()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
-    int32_t word0 = (destination_low & 0xFFFF) - (source.u32[0] & 0xFFFF);
-    int32_t word1 = ((uint32_t) destination_low >> 16) - (source.u32[0] >> 16);
+    int32_t word0 = (destination.u32[0] & 0xFFFF) - (source.u32[0] & 0xFFFF);
+    int32_t word1 = ((uint32_t) destination.u32[0] >> 16) - (source.u32[0] >> 16);
     if (word0 < 0) {
         word0 = 0;
     }
@@ -2420,8 +2399,8 @@ static void instr_0FD9()
         word1 = 0;
     }
 
-    int32_t word2 = (destination_high & 0xFFFF) - (source.u32[1] & 0xFFFF);
-    int32_t word3 = ((uint32_t) destination_high >> 16) - (source.u32[1] >> 16);
+    int32_t word2 = (destination.u32[1] & 0xFFFF) - (source.u32[1] & 0xFFFF);
+    int32_t word3 = ((uint32_t) destination.u32[1] >> 16) - (source.u32[1] >> 16);
     if (word2 < 0) {
         word2 = 0;
     }
@@ -2445,12 +2424,10 @@ static void instr_0FDB()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
-    int32_t low = source.u32[0] & destination_low;
-    int32_t high = source.u32[1] & destination_high;
+    int32_t low = source.u32[0] & destination.u32[0];
+    int32_t high = source.u32[1] & destination.u32[1];
 
     write_mmx64s(low, high);
 }
@@ -2488,14 +2465,12 @@ static void instr_0FDD()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    uint32_t destination_low = reg_mmx32s[offset];
-    uint32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
-    int32_t word0 = saturate_uw((destination_low & 0xFFFF) + (source.u32[0] & 0xFFFF));
-    int32_t word1 = saturate_uw((destination_low >> 16) + (source.u32[0] >> 16));
-    int32_t word2 = saturate_uw((destination_high & 0xFFFF) + (source.u32[1] & 0xFFFF));
-    int32_t word3 = saturate_uw((destination_high >> 16) + (source.u32[1] >> 16));
+    int32_t word0 = saturate_uw((destination.u32[0] & 0xFFFF) + (source.u32[0] & 0xFFFF));
+    int32_t word1 = saturate_uw((destination.u32[0] >> 16) + (source.u32[0] >> 16));
+    int32_t word2 = saturate_uw((destination.u32[1] & 0xFFFF) + (source.u32[1] & 0xFFFF));
+    int32_t word3 = saturate_uw((destination.u32[1] >> 16) + (source.u32[1] >> 16));
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
@@ -2514,12 +2489,10 @@ static void instr_0FDF()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
-    int32_t low = source.u32[0] & ~destination_low;
-    int32_t high = source.u32[1] & ~destination_high;
+    int32_t low = source.u32[0] & ~destination.u32[0];
+    int32_t high = source.u32[1] & ~destination.u32[1];
 
     write_mmx64s(low, high);
 }
@@ -2558,17 +2531,15 @@ static void instr_0FE2()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
     uint32_t shift = source.u32[0];
     if (shift > 31) {
         shift = 31;
     }
 
-    int32_t low = destination_low >> shift;
-    int32_t high = destination_high >> shift;
+    int32_t low = destination.s32[0] >> shift;
+    int32_t high = destination.s32[1] >> shift;
 
     write_mmx64s(low, high);
 }
@@ -2667,12 +2638,10 @@ static void instr_0FEB()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
-    int32_t low = source.u32[0] | destination_low;
-    int32_t high = source.u32[1] | destination_high;
+    int32_t low = source.u32[0] | destination.u32[0];
+    int32_t high = source.u32[1] | destination.u32[1];
 
     write_mmx64s(low, high);
 }
@@ -2750,9 +2719,7 @@ static void instr_0FF1()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
 
     uint32_t shift = source.u32[0];
@@ -2760,12 +2727,12 @@ static void instr_0FF1()
     int32_t high = 0;
 
     if (shift <= 15) {
-        int32_t word0 = ((destination_low & 0xFFFF) << shift) & 0xFFFF;
-        int32_t word1 = (((uint32_t) destination_low) >> 16) << shift;
+        int32_t word0 = ((destination.u32[0] & 0xFFFF) << shift) & 0xFFFF;
+        int32_t word1 = (((uint32_t) destination.u32[0]) >> 16) << shift;
         low = word0 | word1 << 16;
 
-        int32_t word2 = ((destination_high & 0xFFFF) << shift) & 0xFFFF;
-        int32_t word3 = (((uint32_t) destination_high) >> 16) << shift;
+        int32_t word2 = ((destination.u32[1] & 0xFFFF) << shift) & 0xFFFF;
+        int32_t word3 = (((uint32_t) destination.u32[1]) >> 16) << shift;
         high = word2 | word3 << 16;
     }
 
@@ -2779,17 +2746,15 @@ static void instr_0FF2()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
     uint32_t shift = source.u32[0];
     int32_t low = 0;
     int32_t high = 0;
 
     if (shift <= 31) {
-        low = destination_low << shift;
-        high = destination_high << shift;
+        low = destination.u32[0] << shift;
+        high = destination.u32[1] << shift;
     }
 
     write_mmx64s(low, high);
@@ -2803,9 +2768,7 @@ static void instr_0FF3()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
     uint32_t shift = source.u32[0];
 
@@ -2818,11 +2781,11 @@ static void instr_0FF3()
     int32_t high = 0;
 
     if (shift <= 31) {
-        low = destination_low << shift;
-        high = destination_high << shift | (((uint32_t) destination_low) >> (32 - shift));
+        low = destination.u32[0] << shift;
+        high = destination.u32[1] << shift | (((uint32_t) destination.u32[0]) >> (32 - shift));
     }
     else if (shift <= 63) {
-        high = destination_low << (shift & 0x1F);
+        high = destination.u32[0] << (shift & 0x1F);
         low = 0;
     }
 
@@ -2888,16 +2851,14 @@ static void instr_0FF9()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
-    int32_t word0 = (destination_low - source.u32[0]) & 0xFFFF;
-    int32_t word1 = (((uint32_t) destination_low >> 16) - (source.u32[0] >> 16)) & 0xFFFF;
+    int32_t word0 = (destination.u32[0] - source.u32[0]) & 0xFFFF;
+    int32_t word1 = (((uint32_t) destination.u32[0] >> 16) - (source.u32[0] >> 16)) & 0xFFFF;
     int32_t low = word0 | word1 << 16;
 
-    int32_t word2 = (destination_high - source.u32[1]) & 0xFFFF;
-    int32_t word3 = (((uint32_t) destination_high >> 16) - (source.u32[1] >> 16)) & 0xFFFF;
+    int32_t word2 = (destination.u32[1] - source.u32[1]) & 0xFFFF;
+    int32_t word3 = (((uint32_t) destination.u32[1] >> 16) - (source.u32[1] >> 16)) & 0xFFFF;
     int32_t high = word2 | word3 << 16;
 
     write_mmx64s(low, high);
@@ -2910,13 +2871,11 @@ static void instr_0FFA()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
     write_mmx64s(
-        destination_low - source.u32[0],
-        destination_high - source.u32[1]
+        destination.u32[0] - source.u32[0],
+        destination.u32[1] - source.u32[1]
     );
 }
 
@@ -2971,16 +2930,14 @@ static void instr_0FFD()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    uint32_t destination_low = reg_mmx32s[offset];
-    uint32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
-    int32_t word0 = (destination_low + source.u32[0]) & 0xFFFF;
-    int32_t word1 = ((destination_low >> 16) + (source.u32[0] >> 16)) & 0xFFFF;
+    int32_t word0 = (destination.u32[0] + source.u32[0]) & 0xFFFF;
+    int32_t word1 = ((destination.u32[0] >> 16) + (source.u32[0] >> 16)) & 0xFFFF;
     int32_t low = word0 | word1 << 16;
 
-    int32_t word2 = (destination_high + source.u32[1]) & 0xFFFF;
-    int32_t word3 = ((destination_high >> 16) + (source.u32[1] >> 16)) & 0xFFFF;
+    int32_t word2 = (destination.u32[1] + source.u32[1]) & 0xFFFF;
+    int32_t word3 = ((destination.u32[1] >> 16) + (source.u32[1] >> 16)) & 0xFFFF;
     int32_t high = word2 | word3 << 16;
 
     write_mmx64s(low, high);
@@ -2994,12 +2951,10 @@ static void instr_0FFE()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 1;
-    int32_t destination_low = reg_mmx32s[offset];
-    int32_t destination_high = reg_mmx32s[offset + 1];
+    union reg64 destination = read_mmx64s();
 
-    int32_t low = destination_low + source.u32[0] | 0;
-    int32_t high = destination_high + source.u32[1] | 0;
+    int32_t low = destination.u32[0] + source.u32[0] | 0;
+    int32_t high = destination.u32[1] + source.u32[1] | 0;
 
     write_mmx64s(low, high);
 }
