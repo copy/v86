@@ -589,7 +589,18 @@ static void instr_0F29() {
     int32_t addr = modrm_resolve(*modrm_byte);
     safe_write128(addr, data);
 }
-static void instr_660F29() { unimplemented_sse(); }
+static void instr_660F29()
+{
+    // movapd xmm/m128, xmm
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 data = read_xmm128s();
+    assert(*modrm_byte < 0xC0);
+    int32_t addr = modrm_resolve(*modrm_byte);
+    safe_write128(addr, data);
+}
+
 static void instr_0F2A() { unimplemented_sse(); }
 static void instr_0F2B() { unimplemented_sse(); }
 static void instr_660F2B() { unimplemented_sse(); }
