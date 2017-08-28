@@ -1047,7 +1047,26 @@ static void instr_660F68()
     );
 }
 
-static void instr_0F69() { unimplemented_sse(); }
+
+static void instr_0F69()
+{
+    // punpckhwd mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    union reg64 destination = read_mmx64s();
+
+    int32_t word0 = destination.u32[1] & 0xFFFF;
+    int32_t word1 = source.u32[1] & 0xFFFF;
+    int32_t word2 = destination.u32[1] >> 16;
+    int32_t word3 = source.u32[1] >> 16;
+
+    int32_t low = word0 | word1 << 16;
+    int32_t high = word2 | word3 << 16;
+
+    write_mmx64s(low, high);
+}
 
 static void instr_0F6A()
 {
