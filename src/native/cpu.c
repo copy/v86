@@ -738,6 +738,13 @@ union reg128 read_xmm_mem128s()
     }
 }
 
+void write_xmm64(int32_t d0, int32_t d1)
+{
+    int32_t i = (*modrm_byte >> 3 & 7) << 2;
+    reg_xmm32s[i] = d0;
+    reg_xmm32s[i | 1] = d1;
+}
+
 void write_xmm128s(int32_t d0, int32_t d1, int32_t d2, int32_t d3)
 {
     int32_t i = (*modrm_byte >> 3 & 7) << 2;
