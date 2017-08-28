@@ -913,7 +913,27 @@ void instr_660F60() {
         destination.u8[6] | source.u8[6] << 8 | destination.u8[7] << 16 | source.u8[7] << 24
     );
 }
-static void instr_0F61() { unimplemented_sse(); }
+
+static void instr_0F61()
+{
+    // punpcklwd mm, mm/m32
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    int32_t source = read_mmx_mem32s();
+    union reg64 destination = read_mmx64s();
+
+    int32_t word0 = destination.u32[0] & 0xFFFF;
+    int32_t word1 = source & 0xFFFF;
+    int32_t word2 = destination.u32[0] >> 16;
+    int32_t word3 = source >> 16;
+
+    int32_t low = word0 | word1 << 16;
+    int32_t high = word2 | word3 << 16;
+
+    write_mmx64s(low, high);
+}
+
 static void instr_660F61() { unimplemented_sse(); }
 
 static void instr_0F62()
