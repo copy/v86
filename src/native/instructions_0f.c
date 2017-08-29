@@ -907,6 +907,7 @@ static void instr_0F37() {
     todo();
 }
 
+// sse3+
 static void instr_0F38() { unimplemented_sse(); }
 static void instr_0F39() { unimplemented_sse(); }
 static void instr_0F3A() { unimplemented_sse(); }
