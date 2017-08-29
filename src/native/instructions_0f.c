@@ -957,8 +957,44 @@ static void instr_0F50() { unimplemented_sse(); }
 static void instr_0F51() { unimplemented_sse(); }
 static void instr_0F52() { unimplemented_sse(); }
 static void instr_0F53() { unimplemented_sse(); }
-static void instr_0F54() { unimplemented_sse(); }
-static void instr_660F54() { unimplemented_sse(); }
+
+static void instr_0F54()
+{
+    // andps xmm, xmm/mem128
+    // andpd xmm, xmm/mem128
+    // Note: Same code as pand
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 source = read_xmm_mem128s();
+    union reg128 destination = read_xmm128s();
+
+    write_xmm128s(
+        source.u32[0] & destination.u32[0],
+        source.u32[1] & destination.u32[1],
+        source.u32[2] & destination.u32[2],
+        source.u32[3] & destination.u32[3]
+    );
+}
+
+static void instr_660F54() {
+    // andps xmm, xmm/mem128
+    // andpd xmm, xmm/mem128
+    // Note: Same code as pand
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 source = read_xmm_mem128s();
+    union reg128 destination = read_xmm128s();
+
+    write_xmm128s(
+        source.u32[0] & destination.u32[0],
+        source.u32[1] & destination.u32[1],
+        source.u32[2] & destination.u32[2],
+        source.u32[3] & destination.u32[3]
+    );
+}
+
 static void instr_0F55() { unimplemented_sse(); }
 static void instr_0F56() { unimplemented_sse(); }
 static void instr_0F57() { unimplemented_sse(); }
