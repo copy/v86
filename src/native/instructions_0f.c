@@ -2484,7 +2484,21 @@ static void instr_0FC3()
 
 static void instr_0FC4() { unimplemented_sse(); }
 static void instr_0FC5() { unimplemented_sse(); }
-static void instr_660FC5() { unimplemented_sse(); }
+
+static void instr_660FC5() {
+    // pextrw r32/m16, xmm, imm8
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    if(*modrm_byte < 0xC0) trigger_ud();
+
+    union reg128 data = read_xmm_mem128s();
+    uint32_t index = read_imm8() & 7;
+    uint32_t result = data.u16[index];
+
+    write_g32(result);
+}
+
 static void instr_0FC6() { unimplemented_sse(); }
 
 static void instr_0FC7() {
