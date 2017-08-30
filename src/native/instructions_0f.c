@@ -1440,7 +1440,23 @@ static void instr_660F70() {
         source.u32[order >> 6 & 3]
     );
 }
-static void instr_F20F70() { unimplemented_sse(); }
+
+static void instr_F20F70()
+{
+    // pshuflw xmm, xmm/m128, imm8
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg128 source = read_xmm_mem128s();
+    uint32_t order = read_op8();
+
+    write_xmm128s(
+        source.u16[order & 3] | source.u16[order >> 2 & 3] << 16,
+        source.u16[order >> 4 & 3] | source.u16[order >> 6 & 3] << 16,
+        source.u32[2],
+        source.u32[3]
+    );
+}
+
 static void instr_F30F70() { unimplemented_sse(); }
 
 static void instr_0F71()
