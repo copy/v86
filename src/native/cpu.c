@@ -684,6 +684,18 @@ void write_mmx64s(int32_t low, int32_t high)
     reg_mmx32s[offset + 1] = high;
 }
 
+void write_mmx_mem64s(int32_t low, int32_t high)
+{
+    if(*modrm_byte < 0xC0) {
+        int32_t addr = modrm_resolve(*modrm_byte);
+        safe_write64(addr, low, high);
+    } else {
+        int32_t offset = (*modrm_byte & 7) << 1;
+        reg_mmx32s[offset] = low;
+        reg_mmx32s[offset + 1] = high;
+    }
+}
+
 union reg64 read_xmm64s()
 {
     union reg64 x;
