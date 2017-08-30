@@ -1359,7 +1359,16 @@ static void instr_0F6B()
 
 static void instr_0F6C() { unimplemented_sse(); }
 static void instr_0F6D() { unimplemented_sse(); }
-static void instr_0F6E() { unimplemented_sse(); }
+
+static void instr_0F6E()
+{
+    // movd mm, r/m32
+    task_switch_test_mmx();
+    read_modrm_byte();
+    int32_t data = read_e32s();
+    write_mmx64s(data, 0);
+}
+
 static void instr_660F6E() {
     // movd mm, r/m32
     task_switch_test_mmx();
