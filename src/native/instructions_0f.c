@@ -2473,7 +2473,15 @@ static void instr32_0FC1() { read_modrm_byte();
 
 
 static void instr_0FC2() { unimplemented_sse(); }
-static void instr_0FC3() { unimplemented_sse(); }
+
+static void instr_0FC3()
+{
+    // movnti
+    read_modrm_byte();
+    if(*modrm_byte >= 0xC0) trigger_ud();
+    set_e32(read_g32s());
+}
+
 static void instr_0FC4() { unimplemented_sse(); }
 static void instr_0FC5() { unimplemented_sse(); }
 static void instr_660FC5() { unimplemented_sse(); }
