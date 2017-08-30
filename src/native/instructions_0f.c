@@ -1242,7 +1242,24 @@ static void instr_0F67()
     write_mmx64s(low, high);
 }
 
-static void instr_660F67() { unimplemented_sse(); }
+static void instr_660F67()
+{
+    // packuswb xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 source = read_xmm_mem128s();
+    union reg128 destination = read_xmm128s();
+    union reg128 result;
+
+    for(int32_t i = 0; i < 8; i++)
+    {
+        result.u8[i] = saturate_sw_to_ub(destination.u16[i]);
+        result.u8[i | 8] = saturate_sw_to_ub(source.u16[i]);
+    }
+
+    write_xmm128s(result.u32[0], result.u32[1], result.u32[2], result.u32[3]);
+}
 
 
 static void instr_0F68()
