@@ -1893,7 +1893,16 @@ static void instr_F30F7E() {
     union reg64 data = read_xmm_mem64s();
     write_xmm128s(data.u32[0], data.u32[1], 0, 0);
 }
-static void instr_0F7F() { unimplemented_sse(); }
+
+static void instr_0F7F()
+{
+    // movq mm/m64, mm
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg64 data = read_mmx64s();
+    write_mmx_mem64s(data.u32[0], data.u32[1]);
+}
+
 static void instr_660F7F() {
     // movdqa xmm/m128, xmm
     task_switch_test_mmx();
