@@ -1376,7 +1376,16 @@ static void instr_660F6E() {
     int32_t data = read_e32s();
     write_xmm128s(data, 0, 0, 0);
 }
-static void instr_0F6F() { unimplemented_sse(); }
+
+static void instr_0F6F()
+{
+    // movq mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg64 data = read_mmx_mem64s();
+    write_mmx64s(data.u32[0], data.u32[1]);
+}
+
 static void instr_660F6F() {
     // movdqa xmm, xmm/mem128
     task_switch_test_mmx();
