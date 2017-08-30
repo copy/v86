@@ -1869,7 +1869,16 @@ static void instr_0F7A() { unimplemented_sse(); }
 static void instr_0F7B() { unimplemented_sse(); }
 static void instr_0F7C() { unimplemented_sse(); }
 static void instr_0F7D() { unimplemented_sse(); }
-static void instr_0F7E() { unimplemented_sse(); }
+
+static void instr_0F7E()
+{
+    // movd r/m32, mm
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg64 data = read_mmx64s();
+    set_e32(data.u32[0]);
+}
+
 static void instr_660F7E() {
     // movd r/m32, xmm
     task_switch_test_mmx();
