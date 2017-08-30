@@ -1832,7 +1832,22 @@ static void instr_0F76()
     write_mmx64s(low, high);
 }
 
-static void instr_660F76() { unimplemented_sse(); }
+static void instr_660F76()
+{
+    // pcmpeqd xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 source = read_xmm_mem128s();
+    union reg128 destination = read_xmm128s();
+
+    write_xmm128s(
+        source.u32[0] == destination.u32[0] ? -1 : 0,
+        source.u32[1] == destination.u32[1] ? -1 : 0,
+        source.u32[2] == destination.u32[2] ? -1 : 0,
+        source.u32[3] == destination.u32[3] ? -1 : 0
+    );
+}
 static void instr_0F77() {
     // emms
 
