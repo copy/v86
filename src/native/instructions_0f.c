@@ -997,8 +997,43 @@ static void instr_660F54() {
 
 static void instr_0F55() { unimplemented_sse(); }
 static void instr_0F56() { unimplemented_sse(); }
-static void instr_0F57() { unimplemented_sse(); }
-static void instr_660F57() { unimplemented_sse(); }
+
+static void instr_0F57()
+{
+    // xorps xmm, xmm/mem128
+    // xorpd xmm, xmm/mem128
+    // Note: Same code as pxor
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 source = read_xmm_mem128s();
+    union reg128 destination = read_xmm128s();
+
+    write_xmm128s(
+        source.u32[0] ^ destination.u32[0],
+        source.u32[1] ^ destination.u32[1],
+        source.u32[2] ^ destination.u32[2],
+        source.u32[3] ^ destination.u32[3]
+    );
+}
+
+static void instr_660F57() {
+    // xorps xmm, xmm/mem128
+    // xorpd xmm, xmm/mem128
+    // Note: Same code as pxor
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 source = read_xmm_mem128s();
+    union reg128 destination = read_xmm128s();
+
+    write_xmm128s(
+        source.u32[0] ^ destination.u32[0],
+        source.u32[1] ^ destination.u32[1],
+        source.u32[2] ^ destination.u32[2],
+        source.u32[3] ^ destination.u32[3]
+    );
+}
 
 static void instr_0F58() { unimplemented_sse(); }
 static void instr_0F59() { unimplemented_sse(); }
