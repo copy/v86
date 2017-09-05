@@ -1164,17 +1164,16 @@ static void instr_0F64()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
+    union reg64 destination = read_mmx64s();
 
-    int32_t reg_offset = (*modrm_byte >> 3 & 7) << 3;
-
-    int32_t byte0 = reg_mmx->s8[reg_offset] > source.s8[0] ? 0xFF : 0;
-    int32_t byte1 = reg_mmx->s8[reg_offset + 1] > source.s8[1] ? 0xFF : 0;
-    int32_t byte2 = reg_mmx->s8[reg_offset + 2] > source.s8[2] ? 0xFF : 0;
-    int32_t byte3 = reg_mmx->s8[reg_offset + 3] > source.s8[3] ? 0xFF : 0;
-    int32_t byte4 = reg_mmx->s8[reg_offset + 4] > source.s8[4] ? 0xFF : 0;
-    int32_t byte5 = reg_mmx->s8[reg_offset + 5] > source.s8[5] ? 0xFF : 0;
-    int32_t byte6 = reg_mmx->s8[reg_offset + 6] > source.s8[6] ? 0xFF : 0;
-    int32_t byte7 = reg_mmx->s8[reg_offset + 7] > source.s8[7] ? 0xFF : 0;
+    int32_t byte0 = destination.s8[0] > source.s8[0] ? 0xFF : 0;
+    int32_t byte1 = destination.s8[1] > source.s8[1] ? 0xFF : 0;
+    int32_t byte2 = destination.s8[2] > source.s8[2] ? 0xFF : 0;
+    int32_t byte3 = destination.s8[3] > source.s8[3] ? 0xFF : 0;
+    int32_t byte4 = destination.s8[4] > source.s8[4] ? 0xFF : 0;
+    int32_t byte5 = destination.s8[5] > source.s8[5] ? 0xFF : 0;
+    int32_t byte6 = destination.s8[6] > source.s8[6] ? 0xFF : 0;
+    int32_t byte7 = destination.s8[7] > source.s8[7] ? 0xFF : 0;
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
@@ -1190,12 +1189,12 @@ static void instr_0F65()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 2;
+    union reg64 destination = read_mmx64s();
 
-    int32_t word0 = (reg_mmx->s16[offset]) > (source.s16[0]) ? 0xFFFF : 0;
-    int32_t word1 = (reg_mmx->s16[offset + 1]) > (source.s16[1]) ? 0xFFFF : 0;
-    int32_t word2 = (reg_mmx->s16[offset + 2]) > (source.s16[2]) ? 0xFFFF : 0;
-    int32_t word3 = (reg_mmx->s16[offset + 3]) > (source.s16[3]) ? 0xFFFF : 0;
+    int32_t word0 = (destination.s16[0]) > (source.s16[0]) ? 0xFFFF : 0;
+    int32_t word1 = (destination.s16[1]) > (source.s16[1]) ? 0xFFFF : 0;
+    int32_t word2 = (destination.s16[2]) > (source.s16[2]) ? 0xFFFF : 0;
+    int32_t word3 = (destination.s16[3]) > (source.s16[3]) ? 0xFFFF : 0;
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
@@ -1745,16 +1744,16 @@ static void instr_0F74()
 
     union reg64 source = read_mmx_mem64s();
 
-    int32_t reg_offset = (*modrm_byte >> 3 & 7) << 3;
+    union reg64 destination = read_mmx64s();
 
-    int32_t byte0 = reg_mmx->s8[reg_offset] == source.s8[0] ? 0xFF : 0;
-    int32_t byte1 = reg_mmx->s8[reg_offset + 1] == source.s8[1] ? 0xFF : 0;
-    int32_t byte2 = reg_mmx->s8[reg_offset + 2] == source.s8[2] ? 0xFF : 0;
-    int32_t byte3 = reg_mmx->s8[reg_offset + 3] == source.s8[3] ? 0xFF : 0;
-    int32_t byte4 = reg_mmx->s8[reg_offset + 4] == source.s8[4] ? 0xFF : 0;
-    int32_t byte5 = reg_mmx->s8[reg_offset + 5] == source.s8[5] ? 0xFF : 0;
-    int32_t byte6 = reg_mmx->s8[reg_offset + 6] == source.s8[6] ? 0xFF : 0;
-    int32_t byte7 = reg_mmx->s8[reg_offset + 7] == source.s8[7] ? 0xFF : 0;
+    int32_t byte0 = destination.s8[0] == source.s8[0] ? 0xFF : 0;
+    int32_t byte1 = destination.s8[1] == source.s8[1] ? 0xFF : 0;
+    int32_t byte2 = destination.s8[2] == source.s8[2] ? 0xFF : 0;
+    int32_t byte3 = destination.s8[3] == source.s8[3] ? 0xFF : 0;
+    int32_t byte4 = destination.s8[4] == source.s8[4] ? 0xFF : 0;
+    int32_t byte5 = destination.s8[5] == source.s8[5] ? 0xFF : 0;
+    int32_t byte6 = destination.s8[6] == source.s8[6] ? 0xFF : 0;
+    int32_t byte7 = destination.s8[7] == source.s8[7] ? 0xFF : 0;
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
@@ -2708,12 +2707,12 @@ static void instr_0FD5()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 2;
+    union reg64 destination = read_mmx64s();
 
-    int32_t word0 = ((reg_mmx->u16[offset]) * (source.u16[0])) & 0xFFFF;
-    int32_t word1 = ((reg_mmx->u16[offset + 1]) * (source.u16[1])) & 0xFFFF;
-    int32_t word2 = ((reg_mmx->u16[offset + 2]) * (source.u16[2])) & 0xFFFF;
-    int32_t word3 = ((reg_mmx->u16[offset + 3]) * (source.u16[3])) & 0xFFFF;
+    int32_t word0 = ((destination.u16[0]) * (source.u16[0])) & 0xFFFF;
+    int32_t word1 = ((destination.u16[1]) * (source.u16[1])) & 0xFFFF;
+    int32_t word2 = ((destination.u16[2]) * (source.u16[2])) & 0xFFFF;
+    int32_t word3 = ((destination.u16[3]) * (source.u16[3])) & 0xFFFF;
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
@@ -2773,16 +2772,16 @@ static void instr_0FD8()
 
     union reg64 source = read_mmx_mem64s();
 
-    int32_t reg_offset = (*modrm_byte >> 3 & 7) << 3;
+    union reg64 destination = read_mmx64s();
 
-    int32_t byte0 = saturate_sd_to_ub(reg_mmx->u8[reg_offset] - source.u8[0]);
-    int32_t byte1 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 1] - source.u8[1]);
-    int32_t byte2 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 2] - source.u8[2]);
-    int32_t byte3 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 3] - source.u8[3]);
-    int32_t byte4 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 4] - source.u8[4]);
-    int32_t byte5 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 5] - source.u8[5]);
-    int32_t byte6 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 6] - source.u8[6]);
-    int32_t byte7 = saturate_sd_to_ub(reg_mmx->u8[reg_offset + 7] - source.u8[7]);
+    int32_t byte0 = saturate_sd_to_ub(destination.u8[0] - source.u8[0]);
+    int32_t byte1 = saturate_sd_to_ub(destination.u8[1] - source.u8[1]);
+    int32_t byte2 = saturate_sd_to_ub(destination.u8[2] - source.u8[2]);
+    int32_t byte3 = saturate_sd_to_ub(destination.u8[3] - source.u8[3]);
+    int32_t byte4 = saturate_sd_to_ub(destination.u8[4] - source.u8[4]);
+    int32_t byte5 = saturate_sd_to_ub(destination.u8[5] - source.u8[5]);
+    int32_t byte6 = saturate_sd_to_ub(destination.u8[6] - source.u8[6]);
+    int32_t byte7 = saturate_sd_to_ub(destination.u8[7] - source.u8[7]);
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
@@ -2866,16 +2865,16 @@ static void instr_0FDC()
     read_modrm_byte();
     union reg64 source = read_mmx_mem64s();
 
-    int32_t reg_offset = (*modrm_byte >> 3 & 7) << 3;
+    union reg64 destination = read_mmx64s();
 
-    uint32_t byte0 = saturate_ud_to_ub(reg_mmx->u8[reg_offset] + source.u8[0]);
-    uint32_t byte1 = saturate_ud_to_ub(reg_mmx->u8[reg_offset + 1] + source.u8[1]);
-    uint32_t byte2 = saturate_ud_to_ub(reg_mmx->u8[reg_offset + 2] + source.u8[2]);
-    uint32_t byte3 = saturate_ud_to_ub(reg_mmx->u8[reg_offset + 3] + source.u8[3]);
-    uint32_t byte4 = saturate_ud_to_ub(reg_mmx->u8[reg_offset + 4] + source.u8[4]);
-    uint32_t byte5 = saturate_ud_to_ub(reg_mmx->u8[reg_offset + 5] + source.u8[5]);
-    uint32_t byte6 = saturate_ud_to_ub(reg_mmx->u8[reg_offset + 6] + source.u8[6]);
-    uint32_t byte7 = saturate_ud_to_ub(reg_mmx->u8[reg_offset + 7] + source.u8[7]);
+    uint32_t byte0 = saturate_ud_to_ub(destination.u8[0] + source.u8[0]);
+    uint32_t byte1 = saturate_ud_to_ub(destination.u8[1] + source.u8[1]);
+    uint32_t byte2 = saturate_ud_to_ub(destination.u8[2] + source.u8[2]);
+    uint32_t byte3 = saturate_ud_to_ub(destination.u8[3] + source.u8[3]);
+    uint32_t byte4 = saturate_ud_to_ub(destination.u8[4] + source.u8[4]);
+    uint32_t byte5 = saturate_ud_to_ub(destination.u8[5] + source.u8[5]);
+    uint32_t byte6 = saturate_ud_to_ub(destination.u8[6] + source.u8[6]);
+    uint32_t byte7 = saturate_ud_to_ub(destination.u8[7] + source.u8[7]);
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
@@ -2984,19 +2983,19 @@ static void instr_0FE1()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 2;
+    union reg64 destination = read_mmx64s();
 
     uint32_t shift = source.u32[0];
     if (shift > 15) {
         shift = 16;
     }
 
-    int32_t word0 = (reg_mmx->s16[offset] >> shift) & 0xFFFF;
-    int32_t word1 = (reg_mmx->s16[offset + 1] >> shift) & 0xFFFF;
+    int32_t word0 = (destination.s16[0] >> shift) & 0xFFFF;
+    int32_t word1 = (destination.s16[1] >> shift) & 0xFFFF;
     int32_t low = word0 | word1 << 16;
 
-    int32_t word2 = (reg_mmx->s16[offset + 2] >> shift) & 0xFFFF;
-    int32_t word3 = (reg_mmx->s16[offset + 3] >> shift) & 0xFFFF;
+    int32_t word2 = (destination.s16[2] >> shift) & 0xFFFF;
+    int32_t word3 = (destination.s16[3] >> shift) & 0xFFFF;
     int32_t high = word2 | word3 << 16;
 
     write_mmx64s(low, high);
@@ -3049,12 +3048,12 @@ static void instr_0FE5()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 2;
+    union reg64 destination = read_mmx64s();
 
-    uint32_t word0 = ((reg_mmx->s16[offset] * source.s16[0]) >> 16) & 0xFFFF;
-    uint32_t word1 = ((reg_mmx->s16[offset + 1] * source.s16[1]) >> 16) & 0xFFFF;
-    uint32_t word2 = ((reg_mmx->s16[offset + 2] * source.s16[2]) >> 16) & 0xFFFF;
-    uint32_t word3 = ((reg_mmx->s16[offset + 3] * source.s16[3]) >> 16) & 0xFFFF;
+    uint32_t word0 = ((destination.s16[0] * source.s16[0]) >> 16) & 0xFFFF;
+    uint32_t word1 = ((destination.s16[1] * source.s16[1]) >> 16) & 0xFFFF;
+    uint32_t word2 = ((destination.s16[2] * source.s16[2]) >> 16) & 0xFFFF;
+    uint32_t word3 = ((destination.s16[3] * source.s16[3]) >> 16) & 0xFFFF;
 
     int32_t low = word0 | (word1 << 16);
     int32_t high = word2 | (word3 << 16);
@@ -3085,16 +3084,16 @@ static void instr_0FE8()
 
     union reg64 source = read_mmx_mem64s();
 
-    int32_t reg_offset = (*modrm_byte >> 3 & 7) << 3;
+    union reg64 destination = read_mmx64s();
 
-    int32_t byte0 = saturate_sd_to_sb(reg_mmx->s8[reg_offset] - source.s8[0]);
-    int32_t byte1 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 1] - source.s8[1]);
-    int32_t byte2 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 2] - source.s8[2]);
-    int32_t byte3 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 3] - source.s8[3]);
-    int32_t byte4 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 4] - source.s8[4]);
-    int32_t byte5 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 5] - source.s8[5]);
-    int32_t byte6 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 6] - source.s8[6]);
-    int32_t byte7 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 7] - source.s8[7]);
+    int32_t byte0 = saturate_sd_to_sb(destination.s8[0] - source.s8[0]);
+    int32_t byte1 = saturate_sd_to_sb(destination.s8[1] - source.s8[1]);
+    int32_t byte2 = saturate_sd_to_sb(destination.s8[2] - source.s8[2]);
+    int32_t byte3 = saturate_sd_to_sb(destination.s8[3] - source.s8[3]);
+    int32_t byte4 = saturate_sd_to_sb(destination.s8[4] - source.s8[4]);
+    int32_t byte5 = saturate_sd_to_sb(destination.s8[5] - source.s8[5]);
+    int32_t byte6 = saturate_sd_to_sb(destination.s8[6] - source.s8[6]);
+    int32_t byte7 = saturate_sd_to_sb(destination.s8[7] - source.s8[7]);
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
@@ -3110,12 +3109,12 @@ static void instr_0FE9()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 2;
+    union reg64 destination = read_mmx64s();
 
-    int32_t word0 = saturate_sd_to_sw(reg_mmx->s16[offset] - source.s16[0]);
-    int32_t word1 = saturate_sd_to_sw(reg_mmx->s16[offset + 1] - source.s16[1]);
-    int32_t word2 = saturate_sd_to_sw(reg_mmx->s16[offset + 2] - source.s16[2]);
-    int32_t word3 = saturate_sd_to_sw(reg_mmx->s16[offset + 3] - source.s16[3]);
+    int32_t word0 = saturate_sd_to_sw(destination.s16[0] - source.s16[0]);
+    int32_t word1 = saturate_sd_to_sw(destination.s16[1] - source.s16[1]);
+    int32_t word2 = saturate_sd_to_sw(destination.s16[2] - source.s16[2]);
+    int32_t word3 = saturate_sd_to_sw(destination.s16[3] - source.s16[3]);
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
@@ -3150,16 +3149,16 @@ static void instr_0FEC()
 
     union reg64 source = read_mmx_mem64s();
 
-    int32_t reg_offset = (*modrm_byte >> 3 & 7) << 3;
+    union reg64 destination = read_mmx64s();
 
-    uint32_t byte0 = saturate_sd_to_sb(reg_mmx->s8[reg_offset] + source.s8[0]);
-    uint32_t byte1 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 1] + source.s8[1]);
-    uint32_t byte2 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 2] + source.s8[2]);
-    uint32_t byte3 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 3] + source.s8[3]);
-    uint32_t byte4 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 4] + source.s8[4]);
-    uint32_t byte5 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 5] + source.s8[5]);
-    uint32_t byte6 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 6] + source.s8[6]);
-    uint32_t byte7 = saturate_sd_to_sb(reg_mmx->s8[reg_offset + 7] + source.s8[7]);
+    uint32_t byte0 = saturate_sd_to_sb(destination.s8[0] + source.s8[0]);
+    uint32_t byte1 = saturate_sd_to_sb(destination.s8[1] + source.s8[1]);
+    uint32_t byte2 = saturate_sd_to_sb(destination.s8[2] + source.s8[2]);
+    uint32_t byte3 = saturate_sd_to_sb(destination.s8[3] + source.s8[3]);
+    uint32_t byte4 = saturate_sd_to_sb(destination.s8[4] + source.s8[4]);
+    uint32_t byte5 = saturate_sd_to_sb(destination.s8[5] + source.s8[5]);
+    uint32_t byte6 = saturate_sd_to_sb(destination.s8[6] + source.s8[6]);
+    uint32_t byte7 = saturate_sd_to_sb(destination.s8[7] + source.s8[7]);
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
@@ -3173,12 +3172,12 @@ static void instr_0FED() {
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 2;
+    union reg64 destination = read_mmx64s();
 
-    int32_t word0 = saturate_sd_to_sw((reg_mmx->s16[offset]) + (source.s16[0]));
-    int32_t word1 = saturate_sd_to_sw((reg_mmx->s16[offset + 1]) + (source.s16[1]));
-    int32_t word2 = saturate_sd_to_sw((reg_mmx->s16[offset + 2]) + (source.s16[2]));
-    int32_t word3 = saturate_sd_to_sw((reg_mmx->s16[offset + 3]) + (source.s16[3]));
+    int32_t word0 = saturate_sd_to_sw((destination.s16[0]) + (source.s16[0]));
+    int32_t word1 = saturate_sd_to_sw((destination.s16[1]) + (source.s16[1]));
+    int32_t word2 = saturate_sd_to_sw((destination.s16[2]) + (source.s16[2]));
+    int32_t word3 = saturate_sd_to_sw((destination.s16[3]) + (source.s16[3]));
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
@@ -3295,12 +3294,12 @@ static void instr_0FF5()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
-    int32_t offset = (*modrm_byte >> 3 & 7) << 2;
+    union reg64 destination = read_mmx64s();
 
-    int32_t mul0 = (reg_mmx->s16[offset] * (source.s16[0]));
-    int32_t mul1 = (reg_mmx->s16[offset + 1] * (source.s16[1]));
-    int32_t mul2 = (reg_mmx->s16[offset + 2] * (source.s16[2]));
-    int32_t mul3 = (reg_mmx->s16[offset + 3] * (source.s16[3]));
+    int32_t mul0 = (destination.s16[0] * (source.s16[0]));
+    int32_t mul1 = (destination.s16[1] * (source.s16[1]));
+    int32_t mul2 = (destination.s16[2] * (source.s16[2]));
+    int32_t mul3 = (destination.s16[3] * (source.s16[3]));
 
     int32_t low = mul0 + mul1 | 0;
     int32_t high = mul2 + mul3 | 0;
@@ -3320,16 +3319,16 @@ static void instr_0FF8()
 
     union reg64 source = read_mmx_mem64s();
 
-    int32_t reg_offset = (*modrm_byte >> 3 & 7) << 3;
+    union reg64 destination = read_mmx64s();
 
-    int32_t byte0 = (reg_mmx->s8[reg_offset] - source.s8[0]) & 0xFF;
-    int32_t byte1 = (reg_mmx->s8[reg_offset + 1] - source.s8[1]) & 0xFF;
-    int32_t byte2 = (reg_mmx->s8[reg_offset + 2] - source.s8[2]) & 0xFF;
-    int32_t byte3 = (reg_mmx->s8[reg_offset + 3] - source.s8[3]) & 0xFF;
-    int32_t byte4 = (reg_mmx->s8[reg_offset + 4] - source.s8[4]) & 0xFF;
-    int32_t byte5 = (reg_mmx->s8[reg_offset + 5] - source.s8[5]) & 0xFF;
-    int32_t byte6 = (reg_mmx->s8[reg_offset + 6] - source.s8[6]) & 0xFF;
-    int32_t byte7 = (reg_mmx->s8[reg_offset + 7] - source.s8[7]) & 0xFF;
+    int32_t byte0 = (destination.s8[0] - source.s8[0]) & 0xFF;
+    int32_t byte1 = (destination.s8[1] - source.s8[1]) & 0xFF;
+    int32_t byte2 = (destination.s8[2] - source.s8[2]) & 0xFF;
+    int32_t byte3 = (destination.s8[3] - source.s8[3]) & 0xFF;
+    int32_t byte4 = (destination.s8[4] - source.s8[4]) & 0xFF;
+    int32_t byte5 = (destination.s8[5] - source.s8[5]) & 0xFF;
+    int32_t byte6 = (destination.s8[6] - source.s8[6]) & 0xFF;
+    int32_t byte7 = (destination.s8[7] - source.s8[7]) & 0xFF;
 
     int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
@@ -3399,17 +3398,16 @@ static void instr_0FFC()
     read_modrm_byte();
 
     union reg64 source = read_mmx_mem64s();
+    union reg64 destination = read_mmx64s();
 
-    uint32_t reg_offset = 8 * (*modrm_byte >> 3 & 7);
-
-    uint8_t byte0 = (reg_mmx->u8[reg_offset] + source.u8[0]) & 0xFF;
-    uint8_t byte1 = (reg_mmx->u8[reg_offset + 1] + source.u8[1]) & 0xFF;
-    uint8_t byte2 = (reg_mmx->u8[reg_offset + 2] + source.u8[2]) & 0xFF;
-    uint8_t byte3 = (reg_mmx->u8[reg_offset + 3] + source.u8[3]) & 0xFF;
-    uint8_t byte4 = (reg_mmx->u8[reg_offset + 4] + source.u8[4]) & 0xFF;
-    uint8_t byte5 = (reg_mmx->u8[reg_offset + 5] + source.u8[5]) & 0xFF;
-    uint8_t byte6 = (reg_mmx->u8[reg_offset + 6] + source.u8[6]) & 0xFF;
-    uint8_t byte7 = (reg_mmx->u8[reg_offset + 7] + source.u8[7]) & 0xFF;
+    uint8_t byte0 = (destination.u8[0] + source.u8[0]) & 0xFF;
+    uint8_t byte1 = (destination.u8[1] + source.u8[1]) & 0xFF;
+    uint8_t byte2 = (destination.u8[2] + source.u8[2]) & 0xFF;
+    uint8_t byte3 = (destination.u8[3] + source.u8[3]) & 0xFF;
+    uint8_t byte4 = (destination.u8[4] + source.u8[4]) & 0xFF;
+    uint8_t byte5 = (destination.u8[5] + source.u8[5]) & 0xFF;
+    uint8_t byte6 = (destination.u8[6] + source.u8[6]) & 0xFF;
+    uint8_t byte7 = (destination.u8[7] + source.u8[7]) & 0xFF;
 
     uint32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     uint32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
