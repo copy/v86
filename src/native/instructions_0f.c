@@ -2883,7 +2883,24 @@ static void instr_0FDC()
     write_mmx64s(low, high);
 }
 
-static void instr_660FDC() { unimplemented_sse(); }
+
+static void instr_660FDC()
+{
+    // paddusb xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 source = read_xmm_mem128s();
+    union reg128 destination = read_xmm128s();
+    union reg128 result;
+
+    for(uint32_t i = 0; i < 16; i++)
+    {
+        result.u8[i] = saturate_ud_to_ub(source.u8[i] + destination.u8[i]);
+    }
+
+    write_xmm128s(result.u32[0], result.u32[1], result.u32[2], result.u32[3]);
+}
 
 static void instr_0FDD()
 {
