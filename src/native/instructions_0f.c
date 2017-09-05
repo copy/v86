@@ -3024,7 +3024,23 @@ static void instr_0FE2()
 
 static void instr_0FE3() { unimplemented_sse(); }
 static void instr_0FE4() { unimplemented_sse(); }
-static void instr_660FE4() { unimplemented_sse(); }
+
+static void instr_660FE4()
+{
+    // pmulhuw xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 source = read_xmm_mem128s();
+    union reg128 destination = read_xmm128s();
+
+    write_xmm128s(
+        (source.u16[0] * destination.u16[0] >> 16) & 0xFFFF | source.u16[1] * destination.u16[1] & 0xFFFF0000,
+        (source.u16[2] * destination.u16[2] >> 16) & 0xFFFF | source.u16[3] * destination.u16[3] & 0xFFFF0000,
+        (source.u16[4] * destination.u16[4] >> 16) & 0xFFFF | source.u16[5] * destination.u16[5] & 0xFFFF0000,
+        (source.u16[6] * destination.u16[6] >> 16) & 0xFFFF | source.u16[7] * destination.u16[7] & 0xFFFF0000
+    );
+}
 
 static void instr_0FE5()
 {
