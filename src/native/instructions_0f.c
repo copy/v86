@@ -3202,7 +3202,19 @@ static void instr_0FED() {
 }
 
 static void instr_0FEE() { unimplemented_sse(); }
-static void instr_0FEF() { unimplemented_sse(); }
+
+static void instr_0FEF()
+{
+    // pxor mm, mm/m64
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg64 source = read_mmx_mem64s();
+    union reg64 destination = read_mmx64s();
+
+    write_mmx64s(source.u32[0] ^ destination.u32[0], source.u32[1] ^ destination.u32[1]);
+}
+
 static void instr_660FEF() {
     // pxor xmm, xmm/m128
     task_switch_test_mmx();
