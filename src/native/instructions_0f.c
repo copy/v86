@@ -2922,7 +2922,24 @@ static void instr_0FDD()
     write_mmx64s(low, high);
 }
 
-static void instr_660FDD() { unimplemented_sse(); }
+
+static void instr_660FDD()
+{
+    // paddusw xmm, xmm/m128
+    task_switch_test_mmx();
+    read_modrm_byte();
+
+    union reg128 source = read_xmm_mem128s();
+    union reg128 destination = read_xmm128s();
+
+    write_xmm128s(
+        saturate_uw(source.u16[0] + destination.u16[0]) | saturate_uw(source.u16[1] + destination.u16[1]) << 16,
+        saturate_uw(source.u16[2] + destination.u16[2]) | saturate_uw(source.u16[3] + destination.u16[3]) << 16,
+        saturate_uw(source.u16[4] + destination.u16[4]) | saturate_uw(source.u16[5] + destination.u16[5]) << 16,
+        saturate_uw(source.u16[6] + destination.u16[6]) | saturate_uw(source.u16[7] + destination.u16[7]) << 16
+    );
+}
+
 static void instr_0FDE() { unimplemented_sse(); }
 static void instr_660FDE() { unimplemented_sse(); }
 
