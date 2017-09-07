@@ -642,7 +642,28 @@ static void instr_660F2B()
 }
 
 static void instr_0F2C() { unimplemented_sse(); }
-static void instr_F20F2C() { unimplemented_sse(); }
+
+static void instr_F20F2C()
+{
+    // cvttsd2si r32, xmm/m64
+    // emscripten bug causes this ported instruction to throw "integer result unpresentable"
+    // https://github.com/kripken/emscripten/issues/5433
+    task_switch_test_mmx();
+    read_modrm_byte();
+    union reg64 source = read_xmm_mem64s();
+    double f = source.d64[0];
+
+    if(f <= 0x7FFFFFFF && f >= -0x80000000)
+    {
+        int32_t si = (int32_t) f;
+        write_g32(si);
+    }
+    else
+    {
+        write_g32(0x80000000);
+    }
+}
+
 static void instr_0F2D() { unimplemented_sse(); }
 static void instr_0F2E() { unimplemented_sse(); }
 static void instr_0F2F() { unimplemented_sse(); }

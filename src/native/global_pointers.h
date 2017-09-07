@@ -72,6 +72,7 @@ union reg64 {
     uint8_t   u8[8];
     uint16_t  u16[4];
     uint32_t  u32[2];
+    double   d64[1];
 };
 
 int32_t* const reg_xmm32s = (int32_t* const) 828; // length 128
