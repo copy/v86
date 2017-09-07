@@ -407,7 +407,7 @@ const encodings = [
     { opcode: 0x0F2B, only_mem: 1, e: 1, g: 1 },
     { opcode: 0x660F2B, only_mem: 1, e: 1, g: 1 },
 
-    { opcode: 0xF20F2C, e: 1, g: 1 },
+    { opcode: 0xF20F2C, e: 1, g: 1, skip: 1 },
 
     { opcode: 0x0F54, e: 1, g: 1 },
     { opcode: 0x660F54, e: 1, g: 1 },
