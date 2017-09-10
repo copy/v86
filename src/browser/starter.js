@@ -53,11 +53,11 @@
  *
  *   ```javascript
  *   // download file before boot
- *   options.bios = {
+ *   bios: {
  *       url: "bios/seabios.bin"
  *   }
  *   // download file sectors as requested, size is required
- *   options.hda = {
+ *   hda: {
  *       url: "disk/linux.iso",
  *       async: true,
  *       size: 16 * 1024 * 1024
@@ -68,11 +68,11 @@
  *
  *   ```javascript
  *   // use <input type=file>
- *   options.bios = {
+ *   bios: {
  *       buffer: document.all.hd_image.files[0]
  *   }
  *   // start with empty hard drive
- *   options.hda = {
+ *   hda: {
  *       buffer: new ArrayBuffer(16 * 1024 * 1024)
  *   }
  *   ```
