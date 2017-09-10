@@ -7,9 +7,9 @@ and
 be enabled by passing the following options to `V86Starter`:
 
 ```javascript
-options.filesystem = {
-    basefs: "http://localhost/9p/fs.json",
-    baseurl: "http://localhost/9p/base/",
+filesystem: {
+    basefs: "../9p/fs.json",
+    baseurl: "../9p/base/",
 }
 ```
 
