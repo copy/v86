@@ -681,7 +681,7 @@ void write_mmx64s(int32_t low, int32_t high)
 {
     int32_t offset = (*modrm_byte >> 3 & 7) << 1;
     reg_mmx32s[offset] = low;
-    reg_mmx32s[offset + 1] = high;
+    reg_mmx32s[offset | 1] = high;
 }
 
 void write_mmx_mem64s(int32_t low, int32_t high)
@@ -692,7 +692,7 @@ void write_mmx_mem64s(int32_t low, int32_t high)
     } else {
         int32_t offset = (*modrm_byte & 7) << 1;
         reg_mmx32s[offset] = low;
-        reg_mmx32s[offset + 1] = high;
+        reg_mmx32s[offset | 1] = high;
     }
 }
 
@@ -761,9 +761,9 @@ void write_xmm128s(int32_t d0, int32_t d1, int32_t d2, int32_t d3)
 {
     int32_t i = (*modrm_byte >> 3 & 7) << 2;
     reg_xmm32s[i] = d0;
-    reg_xmm32s[i + 1] = d1;
-    reg_xmm32s[i + 2] = d2;
-    reg_xmm32s[i + 3] = d3;
+    reg_xmm32s[i | 1] = d1;
+    reg_xmm32s[i | 2] = d2;
+    reg_xmm32s[i | 3] = d3;
 }
 
 void clear_tlb()

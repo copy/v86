@@ -605,7 +605,8 @@ static void instr_0F2A() { unimplemented_sse(); }
 
 static void instr_0F2B()
 {
-
+    // movntps m128, xmm
+    // movntpd m128, xmm
     task_switch_test_mmx();
     read_modrm_byte();
 
@@ -613,9 +614,6 @@ static void instr_0F2B()
     {
         trigger_ud();
     }
-
-    // movntps m128, xmm
-    // movntpd m128, xmm
 
     union reg128 data = read_xmm128s();
     int32_t addr = modrm_resolve(*modrm_byte);
@@ -651,7 +649,7 @@ static void instr_F20F2C()
     task_switch_test_mmx();
     read_modrm_byte();
     union reg64 source = read_xmm_mem64s();
-    double f = source.d64[0];
+    double f = source.f64[0];
 
     if(f <= 0x7FFFFFFF && f >= -0x80000000)
     {
@@ -3350,8 +3348,8 @@ static void instr_0FF5()
     int32_t mul2 = (destination.s16[2] * (source.s16[2]));
     int32_t mul3 = (destination.s16[3] * (source.s16[3]));
 
-    int32_t low = mul0 + mul1 | 0;
-    int32_t high = mul2 + mul3 | 0;
+    int32_t low = mul0 + mul1;
+    int32_t high = mul2 + mul3;
 
     write_mmx64s(low, high);
 }
@@ -3494,8 +3492,8 @@ static void instr_0FFE()
     union reg64 source = read_mmx_mem64s();
     union reg64 destination = read_mmx64s();
 
-    int32_t low = destination.u32[0] + source.u32[0] | 0;
-    int32_t high = destination.u32[1] + source.u32[1] | 0;
+    int32_t low = destination.u32[0] + source.u32[0];
+    int32_t high = destination.u32[1] + source.u32[1];
 
     write_mmx64s(low, high);
 }
