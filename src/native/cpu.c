@@ -318,7 +318,6 @@ void cycle_internal()
             run_instruction(opcode | !!*is_32 << 8);
             (*timestamp_counter)++;
         }
-        jit_jump = 0;
         // When the hot instruction is a jmp (backwards),
         // leave its group_status unupdated, thereby invalidating it
         if (entry->end_addr > entry->start_addr)
