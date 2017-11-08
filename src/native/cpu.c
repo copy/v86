@@ -265,6 +265,12 @@ void cycle_internal()
     bool cached = entry->start_addr == phys_addr && entry->is_32 == *is_32;
     bool clean = entry->group_status == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
 
+    if(cached && !clean)
+    {
+        // Remove the cached entry from the Table
+        jit_clear_func(addr_index);
+    }
+
     if(cached && clean)
     {
         // XXX: With the code-generation, we need to figure out how we

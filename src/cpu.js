@@ -412,6 +412,11 @@ CPU.prototype.jit_store_func = function(index)
     this.wm.imports.env.table.set(index, o["exports"]["f"]);
 };
 
+CPU.prototype.jit_clear_func = function(index)
+{
+    this.wm.imports.env.table.set(index, null);
+};
+
 CPU.prototype.get_state = function()
 {
     var state = [];
