@@ -260,7 +260,8 @@ void cycle_internal()
     uint32_t phys_addr = *eip_phys ^ eip;
     assert(!in_mapped_range(phys_addr));
 
-    struct code_cache *entry = &jit_cache_arr[phys_addr & JIT_PHYS_MASK];
+    uint16_t addr_index = phys_addr & JIT_PHYS_MASK;
+    struct code_cache *entry = &jit_cache_arr[addr_index];
 
     if(entry->group_status == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT] &&
        entry->start_addr == phys_addr)
@@ -295,7 +296,7 @@ void cycle_internal()
         entry->len = 0;
         entry->start_addr = phys_addr;
         entry->end_addr = phys_addr + 1;
-        jit_cache_arr[phys_addr & JIT_PHYS_MASK] = *entry;
+        jit_cache_arr[addr_index] = *entry;
 
         *cache_compile = *cache_compile + 1;
 
