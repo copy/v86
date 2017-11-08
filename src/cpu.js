@@ -402,6 +402,16 @@ CPU.prototype.wasm_patch = function(wm)
     this.fxrstor = this.wm.exports['_fxrstor'];
 };
 
+CPU.prototype.jit_store_func = function(index)
+{
+    const gen = this.codegen;
+    let buf = gen.get_module_code();
+    const module = new WebAssembly.Module(buf);
+    const o = new WebAssembly.Instance(module, this.jit_imports);
+    // The following will throw if o.exports.f isn't an exported function
+    this.wm.imports.env.table.set(index, o["exports"]["f"]);
+};
+
 CPU.prototype.get_state = function()
 {
     var state = [];
