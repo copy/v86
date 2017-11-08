@@ -262,10 +262,10 @@ void cycle_internal()
 
     uint16_t addr_index = phys_addr & JIT_PHYS_MASK;
     struct code_cache *entry = &jit_cache_arr[addr_index];
+    bool cached = entry->start_addr == phys_addr && entry->is_32 == *is_32;
+    bool clean = entry->group_status == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
 
-    if(entry->group_status == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT] &&
-       entry->start_addr == phys_addr &&
-       entry->is_32 == *is_32)
+    if(cached && clean)
     {
         // XXX: With the code-generation, we need to figure out how we
         // would call the function from the other module here; likely
