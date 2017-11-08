@@ -36,11 +36,12 @@ struct code_cache {
     uint32_t end_addr;
     int32_t opcode[100];
     int32_t len;
+    int32_t is_32;
     // Cleanliness status of the entry's "group" (based on
     // DIRTY_ARR_SHIFT). Value only has meaning in relation with the
     // group_dirtiness value.
     uint32_t group_status;
-} jit_cache_arr[CACHE_LEN] = {{0, 0, {0}, 0, 0}};
+} jit_cache_arr[CACHE_LEN] = {{0, 0, {0}, 0, 0, 0}};
 
 // Flag indicating whether the instruction that just ran was a jump of some sort
 uint32_t jit_jump = 0;
