@@ -1204,7 +1204,6 @@
 
         $("screen_container").addEventListener("mousedown", (e) =>
         {
-            e.preventDefault();
             phone_keyboard.focus();
         }, false);
 
