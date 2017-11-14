@@ -18,11 +18,40 @@ var ASYNC_SAFE = false;
     v86util.AsyncFileBuffer = AsyncFileBuffer;
     v86util.SyncFileBuffer = SyncFileBuffer;
 
+    /**
+     * Decode a buffer into an unsigned LEB-128 integer
+     * @param {Uint8Array} view Byte-stream of encoded integer
+     * @param {number=} max_bits Maximum number of bits that are represented; see
+     *     https://github.com/WebAssembly/design/blob/master/BinaryEncoding.md#varuintn
+     */
+    v86util.decode_leb128_u = function(view, max_bits=256)
+    {
+        dbg_assert(view instanceof Uint8Array);
+
+        const result = {
+            value: 0,
+            next_index: 0,
+        };
+        let shift = 0;
+        const max_bytes = Math.ceil(max_bits / 7);
+
+        while(result.next_index < view.length && result.next_index < max_bytes)
+        {
+            let byte = view[result.next_index++];
+            result.value |= (byte & 127) << shift;
+            if((byte & 128) === 0)
+            {
+                break;
+            }
+            shift += 7;
+        }
+        return result;
+    };
+
     v86util.load_wasm = function load_wasm(filename, imports, cb) {
         if (!imports) {
             imports = {};
         }
-
         // XXX: These should not be fixed
         // in M
         const STATIC_MEMORY_BASE = 256 - 32;
