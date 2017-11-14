@@ -132,11 +132,9 @@ PIT.prototype.get_counter_value = function(i, now)
 
     dbg_log("diff=" + diff + " dticks=" + diff_in_ticks + " value=" + value + " reload=" + this.counter_reload[i], LOG_PIT);
 
-    if(value < 0)
-    {
-        var reload = this.counter_reload[i];
-        value = value % reload + reload;
-    }
+    // could be too large after restore_state
+    var reload = this.counter_reload[i];
+    value = (value % reload + reload) % reload;
 
     return value;
 };
