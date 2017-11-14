@@ -243,7 +243,7 @@ function V86Starter(options)
     v86util.load_wasm(
         wasm_file,
         { "env": wasm_shared_funcs },
-        WASM_MEMORY_SIZE * 1024 * 1024,
+        options["memory_size"] + INTERNAL_MEM_SIZE,
         WASM_TABLE_SIZE,
         wm => {
             wm.instance.exports["__post_instantiate"]();
