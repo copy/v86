@@ -15,3 +15,4 @@ var define = {};
 var module = {};
 
 var WebAssembly = { Memory() {}, Table() {}, instantiate() {}, compile() {}, Instance() {}, Module() {} };
+WebAssembly.Module.customSections = function(module, section) {};
