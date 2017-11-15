@@ -74,7 +74,7 @@ TRANSPILE_ES6_FLAGS=\
 
 CORE_FILES=const.js config.js io.js main.js lib.js fpu.js ide.js pci.js floppy.js memory.js \
 	   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js ioapic.js \
-	   state.js ne2k.js virtio.js bus.js log.js \
+	   state.js ne2k.js sb16.js virtio.js bus.js log.js \
 	   cpu.js translate.js modrm.js string.js arith.js misc_instr.js instructions.js debug.js \
 	   elf.js
 LIB_FILES=9p.js filesystem.js jor1k.js marshall.js utf8.js

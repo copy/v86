@@ -32,6 +32,10 @@ function SpeakerAdapter(bus)
     this.beep_frequency = 440;
     this.pit_enabled = false;
 
+    this.dac_processor = this.audio_context.createScriptProcessor(DSP_DACSIZE, 0, 2);
+    this.dac_processor.onaudioprocess = this.dac_process.bind(this);
+    this.dac_processor.connect(this.audio_context.destination);
+
     bus.register("pcspeaker-enable", function(yesplease)
     {
         this.beep_enable = yesplease;
@@ -64,4 +68,9 @@ SpeakerAdapter.prototype.beep_update = function()
         this.beep_gain.gain.setValueAtTime(0, current_time);
         this.beep_playing = false;
     }
+}
+
+SpeakerAdapter.prototype.dac_process = function(event)
+{
+    this.bus.send("speaker-process", event);
 }

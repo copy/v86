@@ -747,6 +747,11 @@ CPU.prototype.init = function(settings, device_bus)
         {
             this.devices.virtio = new VirtIO(this, device_bus, settings.fs9p);
         }
+
+        if(true)
+        {
+            this.devices.sb16 = new SB16(this, device_bus);
+        }
     }
 
     if(settings.multiboot)
