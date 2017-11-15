@@ -151,6 +151,11 @@ function V86Starter(options)
         this.serial_adapter = new SerialAdapter(options["serial_container"], adapter_bus);
     }
 
+    if(!options["disable_speaker"])
+    {
+        this.speaker_adapter = new SpeakerAdapter(adapter_bus);
+    }
+
     // ugly, but required for closure compiler compilation
     function put_on_settings(name, buffer)
     {

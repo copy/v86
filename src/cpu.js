@@ -736,7 +736,7 @@ CPU.prototype.init = function(settings, device_bus)
             this.devices.hdb = new IDEDevice(this, settings.hdb, false, ide_device_count++, device_bus);
         }
 
-        this.devices.pit = new PIT(this);
+        this.devices.pit = new PIT(this, device_bus);
 
         if(settings.enable_ne2k)
         {

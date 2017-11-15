@@ -11,10 +11,12 @@ var OSCILLATOR_FREQ = 1193.1816666; // 1.193182 MHz
  *
  * Programmable Interval Timer
  */
-function PIT(cpu)
+function PIT(cpu, bus)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
+
+    this.bus = bus;
 
     this.counter_start_time = new Float64Array(3);
     this.counter_start_value = new Uint16Array(3);
@@ -41,6 +43,10 @@ function PIT(cpu)
         var counter2_out = this.did_rollover(2, now);
 
         return ref_toggle << 4 | counter2_out << 5;
+    });
+    cpu.io.register_write(0x61, this, function(data)
+    {
+        this.bus.send("pcspeaker-enable", data & 1);
     });
 
     cpu.io.register_read(0x40, this, function() { return this.counter_read(0); });
@@ -228,6 +234,8 @@ PIT.prototype.counter_write = function(i, value)
     {
         this.counter_next_low[i] ^= 1;
     }
+
+    this.bus.send("pcspeaker-update", this);
 };
 
 PIT.prototype.port43_write = function(reg_byte)
@@ -303,4 +311,6 @@ PIT.prototype.port43_write = function(reg_byte)
 
     this.counter_mode[i] = mode;
     this.counter_read_mode[i] = read_mode;
+
+    this.bus.send("pcspeaker-update", this);
 };
