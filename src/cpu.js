@@ -16,6 +16,7 @@ function CPU(bus, wm, codegen)
     this.wm = wm;
     this.codegen = codegen;
     this.wasm_patch(wm);
+    this.jit_patch();
 
     this.memory_size = new Uint32Array(wm.memory.buffer, 812, 1);
 
@@ -232,6 +233,30 @@ function CPU(bus, wm, codegen)
 
     //Object.seal(this);
 }
+
+CPU.prototype.jit_patch = function()
+{
+    // Set this.jit_imports as generated WASM modules will expect
+    const imports = {
+        "e": {
+            "m": this.wm.memory,
+        },
+    };
+
+    const exports = this.wm.instance.exports;
+
+    for(let name of Object.keys(exports))
+    {
+        if(name[0] !== "_")
+        {
+            continue;
+        }
+
+        imports["e"][name.slice(1)] = exports[name];
+    }
+
+    this.jit_imports = imports;
+};
 
 CPU.prototype.wasm_patch = function(wm)
 {
