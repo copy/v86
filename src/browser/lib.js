@@ -66,43 +66,65 @@ var ASYNC_SAFE = false;
         }
     };
 
-    v86util.load_wasm = function load_wasm(filename, imports, cb) {
-        if (!imports) {
-            imports = {};
-        }
-        // XXX: These should not be fixed
-        // in M
-        const STATIC_MEMORY_BASE = 256 - 32;
-        const WASM_MEMORY_SIZE = 256;
+    /**
+     * Fetches, compiles, and instantiates a wasm file
+     * @param {string} filename
+     * @param {Object} imports Object used for WebAssembly module's imports
+     * @param {number} memory_size Bytes of memory the module wants for itself, excluding the space
+     *     the dylink section requests.
+     * @param {number} table_size Number of table entries the module wants for itself, excluding
+     *     what the dylink section requests.
+     * @param {function(Object)} cb Callback function that receives custom object with instance, memory,
+     *     exported functions, imports, and the filename.
+     */
+    v86util.load_wasm = function load_wasm(filename, imports, memory_size, table_size, cb)
+    {
+        dbg_assert(memory_size > 0);
+        dbg_assert(typeof imports["env"] === "object");
 
-        v86util.load_file(filename, { done: function(buffer)
-            {
-                WebAssembly.compile(buffer)
-                    .then(module => {
-                        if (!imports['env']) {
-                            imports['env'] = {};
-                        }
-                        imports['env']['___assert_fail'] = (a, b, c, d) => {
-                            console.error('Assertion Failed', a, b, c, d);
-                            dbg_assert(false);
-                        };
-                        imports['env']['memoryBase'] = STATIC_MEMORY_BASE * 1024 * 1024;
-                        imports['env']['tableBase'] = 0;
-                        imports['env']['memory'] = new WebAssembly.Memory({ ['initial']: WASM_MEMORY_SIZE * 1024 * 1024 / 64 / 1024, });
-                        imports['env']['table'] = new WebAssembly.Table({ ['initial']: 18, ['element']: 'anyfunc' });
-                        return WebAssembly.instantiate(module, imports).then(instance => ({ instance, module }));
-                    })
-                    .then(({ instance, module }) => {
-                        cb({
-                            mem: imports['env']['memory'],
-                            funcs: instance['exports'],
-                            instance,
-                            imports,
-                            filename,
+        function load_cb(buffer)
+        {
+            WebAssembly.compile(buffer)
+                .then(module => {
+                    const dylink = v86util.decode_dylink(module);
+                    const total_mem_pages = Math.ceil(
+                        (dylink.memory_size + memory_size) / WASM_PAGE_SIZE
+                    );
+
+                    try
+                    {
+                        imports["env"]["memory"] = new WebAssembly.Memory({
+                            initial: total_mem_pages
                         });
+                    }
+                    catch(e)
+                    {
+                        console.error(
+                            "Failed to allocate WASM memory of %d pages",
+                            total_mem_pages
+                        );
+                        throw e;
+                    }
+                    imports["env"]["memoryBase"] = memory_size;
+                    imports["env"]["table"] = new WebAssembly.Table({
+                        initial: dylink.table_size + table_size, element: "anyfunc"
                     });
-            }
-        });
+                    imports["env"]["tableBase"] = table_size;
+
+                    return WebAssembly.instantiate(module, imports)
+                        .then(instance => ({ instance, module }));
+                })
+                .then(({ instance, module }) => {
+                    cb({
+                        mem: imports["env"]["memory"],
+                        funcs: instance["exports"],
+                        instance,
+                        imports,
+                        filename,
+                    });
+                });
+        };
+        v86util.load_file(filename, { done: load_cb });
     };
 
     /**

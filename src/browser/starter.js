@@ -97,6 +97,10 @@ function V86Starter(options)
     var mem;
     var mem8;
     var wasm_shared_funcs = {
+        "___assert_fail": (a, b, c, d) => {
+            console.error("Assertion Failed", a, b, c, d);
+            dbg_assert(false);
+        },
         "_throw_cpu_exception": () => {
             throw MAGIC_CPU_EXCEPTION;
         },
@@ -236,13 +240,19 @@ function V86Starter(options)
         wasm_file = "build/" + wasm_file;
     }
 
-    v86util.load_wasm(wasm_file, { 'env': wasm_shared_funcs }, wm => {
-        wm.instance.exports["__post_instantiate"]();
-        emulator = this.v86 = new v86(this.emulator_bus, wm, new Codegen(wm));
-        cpu = emulator.cpu;
-        mem = wm.mem.buffer;
-        mem8 = new Uint8Array(mem);
+    v86util.load_wasm(
+        wasm_file,
+        { "env": wasm_shared_funcs },
+        WASM_MEMORY_SIZE * 1024 * 1024,
+        WASM_TABLE_SIZE,
+        wm => {
+            wm.instance.exports["__post_instantiate"]();
+            emulator = this.v86 = new v86(this.emulator_bus, wm, new Codegen(wm));
+            cpu = emulator.cpu;
+            mem = wm.mem.buffer;
+            mem8 = new Uint8Array(mem);
 
+    // XXX: Leaving unindented to minimize diff; still a part of the cb to load_wasm!
     this.bus.register("emulator-stopped", function()
     {
         this.cpu_is_running = false;

@@ -354,3 +354,12 @@ var MXCSR_MASK = (0xFFFF & ~(1 << 6));
 const P_IDLE = 0;
 /** @const */
 const P_DO_MANY_CYCLES = 2;
+
+var WASM_TABLE_SIZE = 0x10000;
+
+// XXX: This should not be fixed
+// in M
+const WASM_MEMORY_SIZE = 256;
+
+/** @const */
+const WASM_PAGE_SIZE = 64 * 1024;
