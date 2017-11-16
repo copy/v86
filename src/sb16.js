@@ -71,6 +71,10 @@ function SB16(cpu, bus)
     this.dma_buffer = new Uint8Array(DMA_BUFSIZE);
     this.sampling_rate = 22050;
 
+    // DMA identification data
+    this.e2_value = 0xAA;
+    this.e2_count = 0;
+
     // Interrupts.
     this.irq = SB_IRQ;
     this.irq_triggered = new Uint8Array(0x10);
@@ -147,6 +151,9 @@ SB16.prototype.reset_dsp = function()
     this.dma_channel = 0;
     this.dma_autoinit = false;
     this.dma_buffer.fill(0);
+
+    this.e2_value = 0xAA;
+    this.e2_count = 0;
 
     this.sampling_rate = 22050;
 
@@ -685,12 +692,48 @@ register_dsp_command([0xD9, 0xDA], 0, function()
     this.dma_autoinit = false;
 });
 
+// DSP identification
+register_dsp_command([0xE0], 1, function()
+{
+    this.read_buffer.clear();
+    this.read_buffer.push(~this.write_buffer.shift());
+});
+
 // Get DSP version number.
 register_dsp_command([0xE1], 0, function()
 {
     this.read_buffer.clear();
     this.read_buffer.push(4);
     this.read_buffer.push(5);
+});
+
+// DMA identification - based completely from dosbox
+/** @const */ var SB_E2_SIGNS = [1, -1, -1, 1];
+/** @const */ var SB_E2_EXTRA = [-106, 165, -151, 90];
+register_dsp_command([0xE2], 1, function()
+{
+    var input = this.write_buffer.shift();
+    dbg_log("e2 dma identification. (not understood) input: " + input, LOG_SB16);
+
+    this.e2_value += (input & 0x01) * SB_E2_SIGNS[(this.e2_count + 0) % 4];
+    this.e2_value += (input & 0x02) * SB_E2_SIGNS[(this.e2_count + 2) % 4];
+    this.e2_value += (input & 0x04) * SB_E2_SIGNS[(this.e2_count + 1) % 4];
+    this.e2_value += (input & 0x08) * SB_E2_SIGNS[(this.e2_count + 3) % 4];
+    this.e2_value += (input & 0x10) * SB_E2_SIGNS[(this.e2_count + 2) % 4];
+    this.e2_value += (input & 0x20) * SB_E2_SIGNS[(this.e2_count + 0) % 4];
+    this.e2_value += (input & 0x40) * SB_E2_SIGNS[(this.e2_count + 3) % 4];
+    this.e2_value += (input & 0x80) * SB_E2_SIGNS[(this.e2_count + 1) % 4];
+
+    this.e2_value += SB_E2_EXTRA[this.e2_count % 4];
+
+    this.e2_count++;
+    this.e2_value %= 256;
+
+    // This is probably incorrect:
+    this.dma.do_write([this.e2_value], 0, 1, this.dma_channel, function()
+    {
+        dbg_log("e2 dma identification: written to dma", LOG_SB16);
+    });
 });
 
 // Get DSP copyright.
