@@ -157,7 +157,7 @@ SB16.prototype.port2xA_read = function()
 // Also used to acknowledge DSP 8-bit interrupt.
 SB16.prototype.port2xE_read = function()
 {
-    dbg_log("22E read: read-buffer status", LOG_SB16);
+    dbg_log("22E read: read-buffer status / irq 8bit ack.", LOG_SB16);
     if(this.irq_triggered_8bit)
     {
         this.lower_irq(SB_IRQ_8BIT);
@@ -169,7 +169,7 @@ SB16.prototype.port2xE_read = function()
 // Indicates whether the DSP is ready to accept commands or data.
 SB16.prototype.port2xC_read = function()
 {
-    dbg_log("22C read: write-buffer status / irq 8bit ack.", LOG_SB16);
+    dbg_log("22C read: write-buffer status", LOG_SB16);
     // Always return ready (bit-7 set to low)
     return 0x7F;
 }
