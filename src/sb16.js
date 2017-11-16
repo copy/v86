@@ -8,12 +8,18 @@ var
 /** @const */ DMA_BUFSIZE = 1024,
 /** @const */ DMA_CHANNEL_8BIT = 1, // (ISA DMA standard sound card channels)
 /** @const */ DMA_CHANNEL_16BIT = 5,
-/** @const */ SB_IRQ = 5;
+/** @const */ SB_IRQ = 5,
+/** @const */ SB_IRQ_8BIT  = 0x1,
+/** @const */ SB_IRQ_16BIT = 0x2,
+/** @const */ SB_IRQ_MIDI  = 0x1,
+/** @const */ SB_IRQ_MPU   = 0x4;
 
 // Probably inefficient, but it looks much nicer instead
 // of having a single large unorganised table.
 var DSP_command_sizes = new Uint8Array(256);
 var DSP_command_handlers = [];
+var mixer_read_handlers = [];
+var mixer_write_handlers = [];
 
 /**
  * Sound Blaster 16 Emulator, or so it seems.
@@ -38,8 +44,9 @@ function SB16(cpu, bus)
     this.command = DSP_NO_COMMAND;
     this.command_size = 0;
 
-    // Current Mixer info.
+    // Mixer.
     this.mixer_current_address = 0;
+    this.mixer_unhandled_registers = new Uint8Array(256);
 
     // Dummy status and test registers.
     this.dummy_speaker_enabled = false;
@@ -56,24 +63,31 @@ function SB16(cpu, bus)
     // Direct Memory Access transfer info.
     this.dma = cpu.devices.dma;
     this.dma_transfer_size = 0;
+    this.dma_irq = 0;
     this.dma_channel = 0;
+    this.dma_channel_8bit = DMA_CHANNEL_8BIT;
+    this.dma_channel_16bit = DMA_CHANNEL_16BIT;
     this.dma_autoinit = false;
     this.dma_buffer = new Uint8Array(DMA_BUFSIZE);
     this.sampling_rate = 22050;
 
+    // Interrupts.
+    this.irq = SB_IRQ;
+    this.irq_triggered = new Uint8Array(0x10);
+
     // http://homepages.cae.wisc.edu/~brodskye/sb16doc/sb16doc.html#DSPPorts
 
-    cpu.io.register_read(0x224, this, this.port4_read);
-    cpu.io.register_read(0x225, this, this.port5_read);
-    cpu.io.register_read(0x22A, this, this.portA_read);
-    cpu.io.register_read(0x22E, this, this.portE_read);
-    cpu.io.register_read(0x22C, this, this.portC_read);
-    cpu.io.register_read(0x22F, this, this.portF_read);
+    cpu.io.register_read(0x224, this, this.port2x4_read);
+    cpu.io.register_read(0x225, this, this.port2x5_read);
+    cpu.io.register_read(0x22A, this, this.port2xA_read);
+    cpu.io.register_read(0x22E, this, this.port2xE_read);
+    cpu.io.register_read(0x22C, this, this.port2xC_read);
+    cpu.io.register_read(0x22F, this, this.port2xF_read);
 
-    cpu.io.register_write(0x224, this, this.port4_write);
-    cpu.io.register_write(0x225, this, this.port5_write);
-    cpu.io.register_write(0x226, this, this.port6_write);
-    cpu.io.register_write(0x22C, this, this.portC_write);
+    cpu.io.register_write(0x224, this, this.port2x4_write);
+    cpu.io.register_write(0x225, this, this.port2x5_write);
+    cpu.io.register_write(0x226, this, this.port2x6_write);
+    cpu.io.register_write(0x22C, this, this.port2xC_write);
 
     bus.register("speaker-process", function(event)
     {
@@ -91,7 +105,8 @@ function SB16(cpu, bus)
 
 SB16.prototype.reset_dsp = function()
 {
-    this.lower_irq();
+    this.lower_irq(SB_IRQ_8BIT);
+    this.irq_triggered.fill(0);
     this.write_buffer.clear();
     this.read_buffer.clear();
     this.command = DSP_NO_COMMAND;
@@ -107,23 +122,27 @@ SB16.prototype.reset_dsp = function()
 
 
 // Mixer Address Port.
-SB16.prototype.port4_read = function()
+SB16.prototype.port2x4_read = function()
 {
     dbg_log("224 read: mixer address port", LOG_SB16);
     return this.mixer_current_address;
 }
 
 // Mixer Data Port.
-SB16.prototype.port5_read = function()
+SB16.prototype.port2x5_read = function()
 {
     dbg_log("225 read: mixer data port", LOG_SB16);
-    //return this.mixer[this.mixer_index];
-    return 0;
+    var handler = mixer_read_handlers[this.mixer_current_address];
+    if(!handler)
+    {
+        handler = this.mixer_default_read;
+    }
+    return handler.call(this);
 }
 
 // Read Data.
 // Used to acces in-bound DSP data.
-SB16.prototype.portA_read = function()
+SB16.prototype.port2xA_read = function()
 {
     dbg_log("22A read: read data", LOG_SB16);
     if(this.read_buffer.length)
@@ -135,45 +154,57 @@ SB16.prototype.portA_read = function()
 
 // Read-Buffer Status.
 // Indicates whether there is any in-bound data available for reading.
-SB16.prototype.portE_read = function()
+// Also used to acknowledge DSP 8-bit interrupt.
+SB16.prototype.port2xE_read = function()
 {
     dbg_log("22E read: read-buffer status", LOG_SB16);
+    if(this.irq_triggered_8bit)
+    {
+        this.lower_irq(SB_IRQ_8BIT);
+    }
     return ((!!this.read_buffer.length) << 7) | 0x7F;
 }
 
 // Write-Buffer Status.
 // Indicates whether the DSP is ready to accept commands or data.
-SB16.prototype.portC_read = function()
+SB16.prototype.port2xC_read = function()
 {
-    dbg_log("22C read: write-buffer status", LOG_SB16);
+    dbg_log("22C read: write-buffer status / irq 8bit ack.", LOG_SB16);
     // Always return ready (bit-7 set to low)
     return 0x7F;
 }
 
-// DSP interrupt acknowledgement.
-SB16.prototype.portF_read = function()
+// DSP 16-bit interrupt acknowledgement.
+SB16.prototype.port2xF_read = function()
 {
-    dbg_log("22F read: irq ack", LOG_SB16);
+    dbg_log("22F read: irq 16bit ack", LOG_SB16);
+    this.irq_triggered_16bit = false;
+    this.lower_irq(SB_IRQ_16BIT);
     return 0;
 }
 
 // Mixer Address Port.
-SB16.prototype.port4_write = function(value)
+SB16.prototype.port2x4_write = function(value)
 {
     dbg_log("224 write: mixer address = " + h(value), LOG_SB16);
     this.mixer_current_address = value;
 }
 
 // Mixer Data Port.
-SB16.prototype.port5_write = function(value)
+SB16.prototype.port2x5_write = function(value)
 {
     dbg_log("225 write: mixer data = " + h(value), LOG_SB16);
-    //this.mixer_register[this.mixer_index] = value;
+    var handler = mixer_write_handlers[this.mixer_current_address];
+    if(!handler)
+    {
+        handler = this.mixer_default_write;
+    }
+    handler.call(this, value);
 }
 
 // Reset.
 // Used to reset the DSP to its default state and to exit highspeed mode.
-SB16.prototype.port6_write = function(yesplease)
+SB16.prototype.port2x6_write = function(yesplease)
 {
     dbg_log("226 write: reset = " + h(yesplease), LOG_SB16);
     if(!yesplease) return;
@@ -186,7 +217,7 @@ SB16.prototype.port6_write = function(yesplease)
 
 // Write Command/Data.
 // Used to send commands or data to the DSP.
-SB16.prototype.portC_write = function(value)
+SB16.prototype.port2xC_write = function(value)
 {
     dbg_log("22C write: write command/data", LOG_SB16);
     if(this.command === DSP_NO_COMMAND)
@@ -220,7 +251,12 @@ SB16.prototype.portC_write = function(value)
 
 SB16.prototype.command_do = function()
 {
-    DSP_command_handlers[this.command].call(this);
+    var handler = DSP_command_handlers[this.command];
+    if (!handler)
+    {
+        handler = this.dsp_default_handler;
+    }
+    handler.call(this);
 
     // Reset Inputs.
     this.command = DSP_NO_COMMAND;
@@ -274,7 +310,8 @@ register_dsp_command([0x10], 1, function()
 // 8-bit single-cycle DMA mode digitized sound output.
 register_dsp_command([0x14, 0x15], 2, function()
 {
-    this.dma_channel = DMA_CHANNEL_8BIT;
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
     this.dma_autoinit = false;
     this.dma_signed = false;
     this.dsp_highspeed = false;
@@ -292,7 +329,8 @@ register_dsp_command([0x17], 2);
 // 8-bit auto-init DMA mode digitized sound output.
 register_dsp_command([0x1C], 0, function()
 {
-    this.dma_channel = DMA_CHANNEL_8BIT;
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
     this.dma_autoinit = true;
     this.dma_signed = false;
     this.dsp_highspeed = false;
@@ -392,7 +430,8 @@ register_dsp_command([0x80], 2);
 // 8-bit high-speed auto-init DMA mode digitized sound output.
 register_dsp_command([0x90], 0, function()
 {
-    this.dma_channel = DMA_CHANNEL_8BIT;
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
     this.dma_autoinit = true;
     this.dma_signed = false;
     this.dsp_highspeed = true;
@@ -424,7 +463,8 @@ register_dsp_command(any_first_digit(0xB0), 3, function()
         return;
     }
     var mode = this.write_buffer.shift();
-    this.dma_channel = DMA_CHANNEL_16BIT;
+    this.dma_irq = SB_IRQ_16BIT;
+    this.dma_channel = this.dma_channel_16bit;
     this.dma_autoinit = !!(this.command & (1 << 2));
     this.dma_signed = !!(mode & (1 << 4));
     this.dsp_stereo = !!(mode & (1 << 5));
@@ -442,7 +482,8 @@ register_dsp_command(any_first_digit(0xC0), 3, function()
         return;
     }
     var mode = this.write_buffer.shift();
-    this.dma_channel = DMA_CHANNEL_8BIT;
+    this.dma_irq = SB_IRQ_8BIT;
+    this.dma_channel = this.dma_channel_8bit;
     this.dma_autoinit = !!(this.command & (1 << 2));
     this.dma_signed = !!(mode & (1 << 4));
     this.dsp_stereo = !!(mode & (1 << 5));
@@ -527,6 +568,124 @@ register_dsp_command([0xF2, 0xF3], 0, function()
 
 
 
+//
+// Mixer Handlers
+//
+
+
+
+SB16.prototype.mixer_default_read = function()
+{
+    dbg_log("unhandled mixer register read. addr:" + h(this.mixer_current_address), LOG_SB16);
+    return this.mixer_unhandled_registers[this.mixer_current_address];
+}
+
+SB16.prototype.mixer_default_write = function(data)
+{
+    dbg_log("unhandled mixer register write. addr:" + h(this.mixer_current_address) + " data:" + h(data), LOG_SB16);
+    this.mixer_unhandled_registers[this.mixer_current_address] = data;
+}
+
+/**
+ * @param{number} address
+ * @param{function():number=} handler
+ */
+function register_mixer_read(address, handler)
+{
+    if(!handler)
+    {
+        handler = SB16.prototype.mixer_default_read;
+    }
+    mixer_read_handlers[address] = handler;
+}
+
+/**
+ * @param{number} address
+ * @param{function(number)=} handler
+ */
+function register_mixer_write(address, handler)
+{
+    if(!handler)
+    {
+        handler = SB16.prototype.mixer_default_write;
+    }
+    mixer_write_handlers[address] = handler;
+}
+
+// Reset.
+register_mixer_read(0x00, function()
+{
+    return 0;
+});
+register_mixer_write(0x00);
+
+// IRQ Select.
+register_mixer_read(0x80, function()
+{
+    switch(this.irq)
+    {
+        case 2: return 0x1;
+        case 5: return 0x2;
+        case 7: return 0x4;
+        case 10: return 0x8;
+        default: return 0x0;
+    }
+});
+register_mixer_write(0x80, function(bits)
+{
+    if(bits & 0x1) this.irq = 2;
+    if(bits & 0x2) this.irq = 5;
+    if(bits & 0x4) this.irq = 7;
+    if(bits & 0x8) this.irq = 10;
+});
+
+// DMA Select.
+register_mixer_read(0x81, function()
+{
+    var ret = 0;
+    switch(this.dma_channel_8bit)
+    {
+        case 0: ret |= 0x1; break;
+        case 1: ret |= 0x2; break;
+        case 3: ret |= 0x8; break;
+    }
+    switch(this.dma_channel_16bit)
+    {
+        case 5: ret |= 0x10; break;
+        case 6: ret |= 0x20; break;
+        case 7: ret |= 0x80; break;
+    }
+    return ret;
+});
+register_mixer_write(0x81, function(bits)
+{
+    if(bits & 0x1)  this.dma_channel_8bit  = 0;
+    if(bits & 0x2)  this.dma_channel_8bit  = 1;
+    if(bits & 0x8)  this.dma_channel_8bit  = 3;
+    if(bits & 0x10) this.dma_channel_16bit = 5;
+    if(bits & 0x20) this.dma_channel_16bit = 6;
+    if(bits & 0x80) this.dma_channel_16bit = 7;
+});
+
+// IRQ Status.
+register_mixer_read(0x82, function()
+{
+    var ret = 0x20;
+    for(var i = 0; i < 16; i++)
+    {
+        ret |= i * this.irq_triggered[i];
+    }
+    return ret;
+});
+
+
+
+//
+// General behaviours
+//
+
+
+
 SB16.prototype.sampling_rate_change = function(rate)
 {
     this.sampling_rate = rate;
@@ -547,10 +706,11 @@ SB16.prototype.dma_transfer_size_set = function()
 SB16.prototype.dma_transfer_start = function()
 {
     dbg_log("begin dma transfer", LOG_SB16);
+    var irq = this.dma_irq;
     this.dma.do_read(this.dma_buffer, 0, this.dma_transfer_size, this.dma_channel, function(error)
     {
         this.dma_to_dac();
-        this.raise_irq();
+        this.raise_irq(irq);
     });
 }
 
@@ -603,14 +763,16 @@ SB16.prototype.audio_process = function(event)
     }
 }
 
-SB16.prototype.raise_irq = function()
+SB16.prototype.raise_irq = function(type)
 {
-    this.cpu.device_raise_irq(SB_IRQ);
+    this.irq_triggered[type] = 1;
+    this.cpu.device_raise_irq(this.irq);
 }
 
-SB16.prototype.lower_irq = function()
+SB16.prototype.lower_irq = function(type)
 {
-    this.cpu.device_lower_irq(SB_IRQ);
+    this.irq_triggered[type] = 0;
+    this.cpu.device_lower_irq(this.irq);
 }
 
 function audio_from_8bit(value)
