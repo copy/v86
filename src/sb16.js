@@ -77,17 +77,39 @@ function SB16(cpu, bus)
 
     // http://homepages.cae.wisc.edu/~brodskye/sb16doc/sb16doc.html#DSPPorts
 
+    cpu.io.register_read(0x220, this, this.port2x0_read);
+    cpu.io.register_read(0x221, this, this.port2x1_read);
+    cpu.io.register_read(0x222, this, this.port2x2_read);
+    cpu.io.register_read(0x223, this, this.port2x3_read);
     cpu.io.register_read(0x224, this, this.port2x4_read);
     cpu.io.register_read(0x225, this, this.port2x5_read);
+    cpu.io.register_read(0x226, this, this.port2x6_read);
+    cpu.io.register_read(0x227, this, this.port2x7_read);
+    cpu.io.register_read(0x228, this, this.port2x8_read);
+    cpu.io.register_read(0x229, this, this.port2x9_read);
     cpu.io.register_read(0x22A, this, this.port2xA_read);
-    cpu.io.register_read(0x22E, this, this.port2xE_read);
+    cpu.io.register_read(0x22B, this, this.port2xB_read);
     cpu.io.register_read(0x22C, this, this.port2xC_read);
+    cpu.io.register_read(0x22D, this, this.port2xD_read);
+    cpu.io.register_read(0x22E, this, this.port2xE_read);
     cpu.io.register_read(0x22F, this, this.port2xF_read);
 
+    cpu.io.register_write(0x220, this, this.port2x0_write);
+    cpu.io.register_write(0x221, this, this.port2x1_write);
+    cpu.io.register_write(0x222, this, this.port2x2_write);
+    cpu.io.register_write(0x223, this, this.port2x3_write);
     cpu.io.register_write(0x224, this, this.port2x4_write);
     cpu.io.register_write(0x225, this, this.port2x5_write);
     cpu.io.register_write(0x226, this, this.port2x6_write);
+    cpu.io.register_write(0x227, this, this.port2x7_write);
+    cpu.io.register_write(0x228, this, this.port2x8_write);
+    cpu.io.register_write(0x229, this, this.port2x9_write);
+    cpu.io.register_write(0x22A, this, this.port2xA_write);
+    cpu.io.register_write(0x22B, this, this.port2xB_write);
     cpu.io.register_write(0x22C, this, this.port2xC_write);
+    cpu.io.register_write(0x22D, this, this.port2xD_write);
+    cpu.io.register_write(0x22E, this, this.port2xE_write);
+    cpu.io.register_write(0x22F, this, this.port2xF_write);
 
     bus.register("speaker-process", function(event)
     {
@@ -121,6 +143,27 @@ SB16.prototype.reset_dsp = function()
 
 
 
+SB16.prototype.port2x0_read = function()
+{
+    dbg_log("220 read: fm music status port (unimplemented)", LOG_SB16);
+    return 0xFF;
+}
+SB16.prototype.port2x1_read = function()
+{
+    dbg_log("221 read: fm music data port (write only)", LOG_SB16);
+    return 0xFF;
+}
+SB16.prototype.port2x2_read = function()
+{
+    dbg_log("222 read: advanced fm music status port (unimplemented)", LOG_SB16);
+    return 0xFF;
+}
+SB16.prototype.port2x3_read = function()
+{
+    dbg_log("223 read: advanced music data port (write only)", LOG_SB16);
+    return 0xFF;
+}
+
 // Mixer Address Port.
 SB16.prototype.port2x4_read = function()
 {
@@ -140,6 +183,27 @@ SB16.prototype.port2x5_read = function()
     return handler.call(this);
 }
 
+SB16.prototype.port2x6_read = function()
+{
+    dbg_log("226 read: (write only)", LOG_SB16);
+    return 0xFF;
+}
+SB16.prototype.port2x7_read = function()
+{
+    dbg_log("227 read: undocumented", LOG_SB16);
+    return 0xFF;
+}
+SB16.prototype.port2x8_read = function()
+{
+    dbg_log("228 read: fm music status port (unimplemented)", LOG_SB16);
+    return 0xFF;
+}
+SB16.prototype.port2x9_read = function()
+{
+    dbg_log("229 read: fm music data port (write only)", LOG_SB16);
+    return 0xFF;
+}
+
 // Read Data.
 // Used to acces in-bound DSP data.
 SB16.prototype.port2xA_read = function()
@@ -151,6 +215,27 @@ SB16.prototype.port2xA_read = function()
     }
     dbg_log(" <- " + this.read_buffer_lastvalue, LOG_SB16);
     return this.read_buffer_lastvalue;
+}
+
+SB16.prototype.port2xB_read = function()
+{
+    dbg_log("22B read: undocumented", LOG_SB16);
+    return 0xFF;
+}
+
+// Write-Buffer Status.
+// Indicates whether the DSP is ready to accept commands or data.
+SB16.prototype.port2xC_read = function()
+{
+    dbg_log("22C read: write-buffer status", LOG_SB16);
+    // Always return ready (bit-7 set to low)
+    return 0x7F;
+}
+
+SB16.prototype.port2xD_read = function()
+{
+    dbg_log("22D read: undocumented", LOG_SB16);
+    return 0xFF;
 }
 
 // Read-Buffer Status.
@@ -166,15 +251,6 @@ SB16.prototype.port2xE_read = function()
     return ((!!this.read_buffer.length) << 7) | 0x7F;
 }
 
-// Write-Buffer Status.
-// Indicates whether the DSP is ready to accept commands or data.
-SB16.prototype.port2xC_read = function()
-{
-    dbg_log("22C read: write-buffer status", LOG_SB16);
-    // Always return ready (bit-7 set to low)
-    return 0x7F;
-}
-
 // DSP 16-bit interrupt acknowledgement.
 SB16.prototype.port2xF_read = function()
 {
@@ -182,6 +258,24 @@ SB16.prototype.port2xF_read = function()
     this.irq_triggered_16bit = false;
     this.lower_irq(SB_IRQ_16BIT);
     return 0;
+}
+
+
+SB16.prototype.port2x0_write = function(value)
+{
+    dbg_log("220 write: fm music register address port (unimplemented)", LOG_SB16);
+}
+SB16.prototype.port2x1_write = function(value)
+{
+    dbg_log("221 write: fm music data port (unimplemented)", LOG_SB16);
+}
+SB16.prototype.port2x2_write = function(value)
+{
+    dbg_log("222 write: advanced fm music register address port (unimplemented)", LOG_SB16);
+}
+SB16.prototype.port2x3_write = function(value)
+{
+    dbg_log("223 write: advanced fm music data port (unimplemented)", LOG_SB16);
 }
 
 // Mixer Address Port.
@@ -216,6 +310,27 @@ SB16.prototype.port2x6_write = function(yesplease)
     this.read_buffer.push(0xAA);
 }
 
+SB16.prototype.port2x7_write = function(value)
+{
+    dbg_log("227 write: undocumented", LOG_SB16);
+}
+SB16.prototype.port2x8_write = function(value)
+{
+    dbg_log("228 write: fm music register port (unimplemented)", LOG_SB16);
+}
+SB16.prototype.port2x9_write = function(value)
+{
+    dbg_log("229 write: fm music data port (unimplemented)", LOG_SB16);
+}
+SB16.prototype.port2xA_write = function(value)
+{
+    dbg_log("22A write: dsp read data port (read only)", LOG_SB16);
+}
+SB16.prototype.port2xB_write = function(value)
+{
+    dbg_log("22B write: undocumented", LOG_SB16);
+}
+
 // Write Command/Data.
 // Used to send commands or data to the DSP.
 SB16.prototype.port2xC_write = function(value)
@@ -240,6 +355,18 @@ SB16.prototype.port2xC_write = function(value)
     {
         this.command_do();
     }
+}
+SB16.prototype.port2xD_write = function(value)
+{
+    dbg_log("22D write: undocumented", LOG_SB16);
+}
+SB16.prototype.port2xE_write = function(value)
+{
+    dbg_log("22E write: dsp read buffer status (read only)", LOG_SB16);
+}
+SB16.prototype.port2xF_write = function(value)
+{
+    dbg_log("22F write: undocumented", LOG_SB16);
 }
 
 
