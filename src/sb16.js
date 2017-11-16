@@ -145,7 +145,7 @@ SB16.prototype.port2x5_read = function()
 SB16.prototype.port2xA_read = function()
 {
     dbg_log("22A read: read data", LOG_SB16);
-    if(this.read_buffer.length)
+    if(!this.read_buffer.length)
     {
         return this.read_buffer_lastvalue;
     }
@@ -208,11 +208,11 @@ SB16.prototype.port2x6_write = function(yesplease)
 {
     dbg_log("226 write: reset = " + h(yesplease), LOG_SB16);
     if(!yesplease) return;
-    this.read_buffer.clear();
     this.reset_dsp();
 
     // Signal completion.
-    this.read_buffer.push(0x0AA);
+    this.read_buffer.clear();
+    this.read_buffer.push(0xAA);
 }
 
 // Write Command/Data.
