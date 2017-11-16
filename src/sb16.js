@@ -115,6 +115,8 @@ function SB16(cpu, bus)
     {
         this.audio_process(event);
     }, this);
+
+    this.reset_dsp();
 }
 
 
@@ -127,12 +129,29 @@ function SB16(cpu, bus)
 
 SB16.prototype.reset_dsp = function()
 {
-    this.lower_irq(SB_IRQ_8BIT);
-    this.irq_triggered.fill(0);
     this.write_buffer.clear();
     this.read_buffer.clear();
+
     this.command = DSP_NO_COMMAND;
-    //TODO
+    this.command_size = 0;
+
+    this.dummy_speaker_enabled = false;
+    this.test_register = 0;
+
+    this.dsp_highspeed = false;
+
+    this.dac_buffer.clear();
+
+    this.dma_transfer_size = 0;
+    this.dma_irq = 0;
+    this.dma_channel = 0;
+    this.dma_autoinit = false;
+    this.dma_buffer.clear();
+
+    this.sampling_rate = 22050;
+
+    this.lower_irq(SB_IRQ_8BIT);
+    this.irq_triggered.fill(0);
 }
 
 
@@ -248,7 +267,8 @@ SB16.prototype.port2xE_read = function()
     {
         this.lower_irq(SB_IRQ_8BIT);
     }
-    return ((!!this.read_buffer.length) << 7) | 0x7F;
+    var ready = this.read_buffer.length && !this.dsp_highspeed;
+    return (ready << 7) | 0x7F;
 }
 
 // DSP 16-bit interrupt acknowledgement.
@@ -302,8 +322,16 @@ SB16.prototype.port2x5_write = function(value)
 SB16.prototype.port2x6_write = function(yesplease)
 {
     dbg_log("226 write: reset = " + h(yesplease), LOG_SB16);
-    if(!yesplease) return;
-    this.reset_dsp();
+    if(this.dsp_highspeed)
+    {
+        dbg_log(" -> exit highspeed", LOG_SB16);
+        this.dsp_highspeed = false;
+    }
+    else if(yesplease)
+    {
+        dbg_log(" -> reset", LOG_SB16);
+        this.reset_dsp();
+    }
 
     // Signal completion.
     this.read_buffer.clear();
