@@ -146,7 +146,7 @@ SB16.prototype.reset_dsp = function()
     this.dma_irq = 0;
     this.dma_channel = 0;
     this.dma_autoinit = false;
-    this.dma_buffer.clear();
+    this.dma_buffer.fill(0);
 
     this.sampling_rate = 22050;
 
