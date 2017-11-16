@@ -48,6 +48,24 @@ var ASYNC_SAFE = false;
         return result;
     };
 
+    v86util.decode_dylink = function(module)
+    {
+        // Details on dylink section:
+        // https://github.com/WebAssembly/tool-conventions/blob/master/DynamicLinking.md
+        const dylink_sections = WebAssembly.Module.customSections(module, "dylink");
+        dbg_assert(dylink_sections && dylink_sections.length === 1);
+        const dylink_section = dylink_sections[0];
+        const view = new Uint8Array(dylink_section);
+        const { value: memory_size, next_index: table_size_start } =
+                v86util.decode_leb128_u(view, 32);
+        const table_size = v86util.decode_leb128_u(view.subarray(table_size_start), 32).value;
+
+        return {
+            memory_size,
+            table_size
+        }
+    };
+
     v86util.load_wasm = function load_wasm(filename, imports, cb) {
         if (!imports) {
             imports = {};
