@@ -765,6 +765,20 @@ register_dsp_command([0xF2, 0xF3], 0, function()
     this.raise_irq();
 });
 
+// ASP - unknown function
+var SB_F9 = new Uint8Array(256);
+SB_F9[0x0E] = 0xFF;
+SB_F9[0x0F] = 0x07;
+SB_F9[0x37] = 0x38;
+register_dsp_command([0xF9], 1, function()
+{
+    var input = this.write_buffer.shift();
+    dbg_log("dsp 0xf9: unknown function. input: " + input, LOG_SB16);
+
+    this.read_buffer.clear();
+    this.read_buffer.push(SB_F9[input]);
+});
+
 
 
 //
@@ -904,8 +918,10 @@ SB16.prototype.dma_transfer_size_set = function()
 
 SB16.prototype.dma_transfer_start = function()
 {
-    dbg_log("begin dma transfer", LOG_SB16);
+    dbg_log("begin dma transfer - not fully understood", LOG_SB16);
     var irq = this.dma_irq;
+
+    // Probably incorrect:
     this.dma.do_read(this.dma_buffer, 0, this.dma_transfer_size, this.dma_channel, function(error)
     {
         this.dma_to_dac();
