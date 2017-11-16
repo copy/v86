@@ -213,7 +213,7 @@ SB16.prototype.port2xA_read = function()
     {
         this.read_buffer_lastvalue = this.read_buffer.shift();
     }
-    dbg_log(" <- " + this.read_buffer_lastvalue, LOG_SB16);
+    dbg_log(" <- " + this.read_buffer_lastvalue + " " + h(this.read_buffer_lastvalue) + " '" + String.fromCharCode(this.read_buffer_lastvalue) + "'", LOG_SB16);
     return this.read_buffer_lastvalue;
 }
 
