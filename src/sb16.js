@@ -145,11 +145,12 @@ SB16.prototype.port2x5_read = function()
 SB16.prototype.port2xA_read = function()
 {
     dbg_log("22A read: read data", LOG_SB16);
-    if(!this.read_buffer.length)
+    if(this.read_buffer.length)
     {
-        return this.read_buffer_lastvalue;
+        this.read_buffer_lastvalue = this.read_buffer.shift();
     }
-    return this.read_buffer_lastvalue = this.read_buffer.shift();
+    dbg_log(" <- " + this.read_buffer_lastvalue, LOG_SB16);
+    return this.read_buffer_lastvalue;
 }
 
 // Read-Buffer Status.
