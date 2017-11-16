@@ -652,8 +652,8 @@ register_mixer_read(0x81, function()
     }
     switch(this.dma_channel_16bit)
     {
-        case 5: ret |= 0x10; break;
-        case 6: ret |= 0x20; break;
+        case 5: ret |= 0x20; break;
+        case 6: ret |= 0x40; break;
         case 7: ret |= 0x80; break;
     }
     return ret;
@@ -663,8 +663,8 @@ register_mixer_write(0x81, function(bits)
     if(bits & 0x1)  this.dma_channel_8bit  = 0;
     if(bits & 0x2)  this.dma_channel_8bit  = 1;
     if(bits & 0x8)  this.dma_channel_8bit  = 3;
-    if(bits & 0x10) this.dma_channel_16bit = 5;
-    if(bits & 0x20) this.dma_channel_16bit = 6;
+    if(bits & 0x20) this.dma_channel_16bit = 5;
+    if(bits & 0x40) this.dma_channel_16bit = 6;
     if(bits & 0x80) this.dma_channel_16bit = 7;
 });
 
