@@ -471,13 +471,13 @@ function any_first_digit(base)
 // ASP set register
 register_dsp_command([0x0E], 2, function()
 {
-    this.asp_registers[this.write_register.shift()] = this.write_register.shift();
+    this.asp_registers[this.write_buffer.shift()] = this.write_buffer.shift();
 });
 
 // ASP get register
 register_dsp_command([0x0F], 1, function()
 {
-    return this.asp_registers[this.write_register.shift()];
+    return this.asp_registers[this.write_buffer.shift()];
 });
 
 // 8-bit direct mode single byte digitized sound output.
