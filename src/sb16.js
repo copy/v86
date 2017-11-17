@@ -79,6 +79,10 @@ function SB16(cpu, bus)
     // ASP data: not understood by me
     this.asp_registers = new Uint8Array(256);
 
+    // MPU
+    this.mpu_read_buffer = new ByteQueue(DSP_BUFSIZE);
+    this.mpu_read_buffer_lastvalue = 0;
+
     // Interrupts.
     this.irq = SB_IRQ;
     this.irq_triggered = new Uint8Array(0x10);
@@ -118,6 +122,11 @@ function SB16(cpu, bus)
     cpu.io.register_write(0x22D, this, this.port2xD_write);
     cpu.io.register_write(0x22E, this, this.port2xE_write);
     cpu.io.register_write(0x22F, this, this.port2xF_write);
+
+    cpu.io.register_read(0x330, this, this.port3x0_read);
+    cpu.io.register_read(0x331, this, this.port3x1_read);
+    cpu.io.register_write(0x330, this, this.port3x0_write);
+    cpu.io.register_write(0x331, this, this.port3x1_write);
 
     bus.register("speaker-process", function(event)
     {
@@ -410,6 +419,49 @@ SB16.prototype.port2xE_write = function(value)
 SB16.prototype.port2xF_write = function(value)
 {
     dbg_log("22F write: undocumented", LOG_SB16);
+}
+
+
+// MPU UART Mode - Data Port
+SB16.prototype.port3x0_read = function()
+{
+    dbg_log("330 read: mpu data", LOG_SB16);
+
+    if(this.mpu_read_buffer.length)
+    {
+        this.mpu_read_buffer_lastvalue = this.mpu_read_buffer.shift();
+    }
+    dbg_log(" <- " + h(this.mpu_read_buffer_lastvalue), LOG_SB16);
+
+    return this.mpu_read_buffer_lastvalue;
+}
+SB16.prototype.port3x0_write = function(value)
+{
+    dbg_log("330 write: mpu data (unimplemented) : " + h(value), LOG_SB16);
+}
+
+// MPU UART Mode - Status Port
+SB16.prototype.port3x1_read = function()
+{
+    dbg_log("331 read: mpu status", LOG_SB16);
+
+    var status = 0;
+    status |= 0x40 * 0; // Output Ready
+    status |= 0x80 * !this.mpu_read_buffer.length; // Input Ready
+
+    return status;
+}
+
+// MPU UART Mode - Command Port
+SB16.prototype.port3x1_write = function(value)
+{
+    dbg_log("331 write: mpu command: " + h(value), LOG_SB16);
+    if(value == 0xFF)
+    {
+        // Command acknowledge.
+        this.mpu_read_buffer.clear();
+        this.mpu_read_buffer.push(0xFE);
+    }
 }
 
 
