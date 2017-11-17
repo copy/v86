@@ -23,12 +23,9 @@ var mixer_write_handlers = [];
 
 /**
  * Sound Blaster 16 Emulator, or so it seems.
- * Note: Uses AudioContext.createScriptProcessor, which is deprecated,
- * but which no satisfactory substitute is availble.
  * @constructor
  * @param {CPU} cpu
  * @param {BusConnector} bus
- * @suppress {deprecated}
  */
 function SB16(cpu, bus)
 {

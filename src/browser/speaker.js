@@ -1,6 +1,8 @@
 "use strict";
 
 /**
+ * Note: Uses AudioContext.createScriptProcessor, which is deprecated,
+ * but which no satisfactory substitute is availble.
  * @constructor
  * @param {BusConnector} bus
  * @suppress {deprecated}
