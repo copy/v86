@@ -475,7 +475,7 @@ SB16.prototype.port3x1_write = function(value)
 SB16.prototype.command_do = function()
 {
     var handler = DSP_command_handlers[this.command];
-    if (!handler)
+    if(!handler)
     {
         handler = this.dsp_default_handler;
     }
@@ -692,7 +692,7 @@ register_dsp_command([0xA8], 0);
 // Program 16-bit DMA mode digitized sound I/O.
 register_dsp_command(any_first_digit(0xB0), 3, function()
 {
-    if (this.command & (1 << 3))
+    if(this.command & (1 << 3))
     {
         // Analogue to digital not implemented.
         this.dsp_default_handler();
@@ -711,7 +711,7 @@ register_dsp_command(any_first_digit(0xB0), 3, function()
 // Program 8-bit DMA mode digitized sound I/O.
 register_dsp_command(any_first_digit(0xC0), 3, function()
 {
-    if (this.command & (1 << 3))
+    if(this.command & (1 << 3))
     {
         // Analogue to digital not implemented.
         this.dsp_default_handler();
@@ -802,15 +802,17 @@ register_dsp_command([0xE2], 1, function()
     this.e2_count++;
     this.e2_value %= 256;
 
+    var sb16 = this;
+
     this.dma.on_unmask(this.dma_channel_8bit, function()
     {
-        this.dma.on_unmask(this.dma_channel_8bit, undefined);
+        sb16.dma.on_unmask(sb16.dma_channel_8bit, undefined);
 
         var buffer = new Uint8Array(1);
-        buffer[0] = this.e2_value;
+        buffer[0] = sb16.e2_value;
         var syncbuffer = new SyncBuffer(buffer);
 
-        this.dma.do_read(syncbuffer, 0, 1, this.dma_channel_8bit, function()
+        sb16.dma.do_read(syncbuffer, 0, 1, sb16.dma_channel_8bit, function()
         {
             dbg_log("e2 dma identification: written to dma", LOG_SB16);
         });
@@ -1004,10 +1006,12 @@ SB16.prototype.dma_transfer_start = function()
     dbg_log("begin dma transfer", LOG_SB16);
     var irq = this.dma_irq;
 
+    var sb16 = this;
+
     this.dma.do_write(this.dma_syncbuffer, 0, this.dma_transfer_size, this.dma_channel, function(error)
     {
-        this.dma_to_dac();
-        this.raise_irq(irq);
+        sb16.dma_to_dac();
+        sb16.raise_irq(irq);
     });
 }
 
@@ -1017,7 +1021,7 @@ SB16.prototype.dma_to_dac = function()
     {
         var value = this.dma_buffer[i];
 
-        if (this.dma_signed)
+        if(this.dma_signed)
         {
             value = audio_from_16bit(value);
         }
@@ -1028,7 +1032,7 @@ SB16.prototype.dma_to_dac = function()
 
         this.dac_buffer.push(value);
 
-        if (!this.dsp_stereo)
+        if(!this.dsp_stereo)
         {
             // Again for both channels.
             this.dac_buffer.push(value);
