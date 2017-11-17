@@ -46,13 +46,13 @@ function DMA(cpu)
     io.register_write(0x89, this, this.port_page_write.bind(this, 6));
     io.register_write(0x8A, this, this.port_page_write.bind(this, 7));
 
-    // io.register_write(0x0A, this, this.port_singlemask_write.bind(this, 0));
-    // io.register_write(0xD4, this, this.port_singlemask_write.bind(this, 4));
-    // io.register_write(0x0F, this, this.port_multimask_write.bind(this, 0));
-    // io.register_write(0xDE, this, this.port_multimask_write.bind(this, 4));
+    io.register_write(0x0A, this, this.port_singlemask_write.bind(this, 0));
+    io.register_write(0xD4, this, this.port_singlemask_write.bind(this, 4));
+    io.register_write(0x0F, this, this.port_multimask_write.bind(this, 0));
+    io.register_write(0xDE, this, this.port_multimask_write.bind(this, 4));
 
-    // io.register_write(0x0B, this, this.port_mode_write.bind(this, 0));
-    // io.register_write(0xD6, this, this.port_mode_write.bind(this, 4));
+    io.register_write(0x0B, this, this.port_mode_write.bind(this, 0));
+    io.register_write(0xD6, this, this.port_mode_write.bind(this, 4));
 
     io.register_write(0x0C, this, this.portC_write);
     io.register_write(0xD8, this, this.portC_write);
