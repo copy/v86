@@ -753,6 +753,8 @@ register_dsp_command([0xE3], 0, function()
     {
         this.read_buffer.push(DSP_COPYRIGHT.charCodeAt(i));
     }
+    // Null terminator.
+    this.read_buffer.push(0);
 });
 
 // Write test register.
