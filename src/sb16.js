@@ -4,8 +4,8 @@ var
 /** @const */ DSP_COPYRIGHT = "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 1992.",
 /** @const */ DSP_NO_COMMAND = 0,
 /** @const */ DSP_BUFSIZE = 64,
-/** @const */ DSP_DACSIZE = 1024,
-/** @const */ DMA_BUFSIZE = 1024,
+/** @const */ DSP_DACSIZE = 65536,
+/** @const */ DMA_BUFSIZE = 65536,
 /** @const */ DMA_CHANNEL_8BIT = 1, // (ISA DMA standard sound card channels)
 /** @const */ DMA_CHANNEL_16BIT = 5,
 /** @const */ SB_IRQ = 5,
