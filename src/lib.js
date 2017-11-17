@@ -266,6 +266,77 @@ function ByteQueue(size)
 
 
 /**
+ * @constructor
+ *
+ * Queue wrapper around an simple array
+ * Used by devices such as the sound blaster sound card
+ */
+function Queue(size)
+{
+    var data = new Array(size),
+        start,
+        end;
+
+    dbg_assert((size & size - 1) === 0);
+
+    this.length = 0;
+
+    this.push = function(item)
+    {
+        if(this.length === size)
+        {
+            // intentional overwrite
+        }
+        else
+        {
+            this.length++;
+        }
+
+        data[end] = item;
+        end = end + 1 & size - 1;
+    };
+
+    this.shift = function()
+    {
+        if(!this.length)
+        {
+            return undefined;
+        }
+        else
+        {
+            var item = data[start];
+
+            start = start + 1 & size - 1;
+            this.length--;
+
+            return item;
+        }
+    };
+
+    this.peek = function()
+    {
+        if(!this.length)
+        {
+            return undefined;
+        }
+        else
+        {
+            return data[start];
+        }
+    };
+
+    this.clear = function()
+    {
+        start = 0;
+        end = 0;
+        this.length = 0;
+    };
+
+    this.clear();
+}
+
+
+/**
  * Simple circular queue for logs
  *
  * @param {number} size
