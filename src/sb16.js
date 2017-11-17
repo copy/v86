@@ -51,15 +51,22 @@ function SB16(cpu, bus)
 
     // DSP state.
     this.dsp_highspeed = false;
+    this.dsp_stereo = false;
+    this.dsp_16bit = false;
+    this.dsp_signed = false;
 
     // Direct mode DAC buffer and DMA DAC buffer.
-    // In Web Audio API representation: between -1 and 1.
+    // 4 bytes per sample:
+    // Left-Low, Left-High, Right-Low, Right-High
+    // Nah lets try using an array
+    // using Web Audio API format:
+    // between -1 and 1 doubles
     // Two channels interleaved.
-    this.dac_buffer = new ByteQueue(DSP_DACSIZE);
+    this.dac_buffer = new Queue(DSP_DACSIZE);
 
     // Direct Memory Access transfer info.
     this.dma = cpu.devices.dma;
-    this.dma_transfer_size = 0;
+    this.dma_transfer_size = 0; // in samples
     this.dma_irq = 0;
     this.dma_channel = 0;
     this.dma_channel_8bit = DMA_CHANNEL_8BIT;
@@ -153,6 +160,9 @@ SB16.prototype.reset_dsp = function()
     this.test_register = 0;
 
     this.dsp_highspeed = false;
+    this.dsp_stereo = false;
+    this.dsp_16bit = false;
+    this.dsp_signed = false;
 
     this.dac_buffer.clear();
 
@@ -533,7 +543,7 @@ register_dsp_command([0x0F], 1, function()
 // 8-bit direct mode single byte digitized sound output.
 register_dsp_command([0x10], 1, function()
 {
-    var value = audio_from_8bit(this.write_buffer.shift());
+    var value = audio_normalize(this.write_buffer.shift(), 127.5, -1);
 
     // Push twice for both channels.
     this.dac_buffer.push(value);
@@ -546,7 +556,8 @@ register_dsp_command([0x14, 0x15], 2, function()
     this.dma_irq = SB_IRQ_8BIT;
     this.dma_channel = this.dma_channel_8bit;
     this.dma_autoinit = false;
-    this.dma_signed = false;
+    this.dsp_signed = false;
+    this.dsp_16bit = false;
     this.dsp_highspeed = false;
     this.dma_transfer_size_set();
     this.dma_transfer_start();
@@ -565,7 +576,8 @@ register_dsp_command([0x1C], 0, function()
     this.dma_irq = SB_IRQ_8BIT;
     this.dma_channel = this.dma_channel_8bit;
     this.dma_autoinit = true;
-    this.dma_signed = false;
+    this.dsp_signed = false;
+    this.dsp_16bit = false;
     this.dsp_highspeed = false;
     this.dma_transfer_start();
 });
@@ -666,8 +678,9 @@ register_dsp_command([0x90], 0, function()
     this.dma_irq = SB_IRQ_8BIT;
     this.dma_channel = this.dma_channel_8bit;
     this.dma_autoinit = true;
-    this.dma_signed = false;
+    this.dsp_signed = false;
     this.dsp_highspeed = true;
+    this.dsp_16bit = false;
     this.dma_transfer_start();
 });
 
@@ -699,8 +712,9 @@ register_dsp_command(any_first_digit(0xB0), 3, function()
     this.dma_irq = SB_IRQ_16BIT;
     this.dma_channel = this.dma_channel_16bit;
     this.dma_autoinit = !!(this.command & (1 << 2));
-    this.dma_signed = !!(mode & (1 << 4));
+    this.dsp_signed = !!(mode & (1 << 4));
     this.dsp_stereo = !!(mode & (1 << 5));
+    this.dsp_16bit = true;
     this.dma_transfer_size_set();
     this.dma_transfer_start();
 });
@@ -718,8 +732,9 @@ register_dsp_command(any_first_digit(0xC0), 3, function()
     this.dma_irq = SB_IRQ_8BIT;
     this.dma_channel = this.dma_channel_8bit;
     this.dma_autoinit = !!(this.command & (1 << 2));
-    this.dma_signed = !!(mode & (1 << 4));
+    this.dsp_signed = !!(mode & (1 << 4));
     this.dsp_stereo = !!(mode & (1 << 5));
+    this.dsp_16bit = false;
     this.dma_transfer_size_set();
     this.dma_transfer_start();
 });
@@ -914,6 +929,14 @@ register_mixer_read(0x00, function()
 });
 register_mixer_write(0x00);
 
+// Output Stereo Select.
+register_mixer_write(0x0E, function(bits)
+{
+    this.dsp_stereo = bits & 0x2;
+    this.bus.send("speaker-stereo", this.dsp_stereo);
+    this.bus.send("speaker-filter", bits & 0x20);
+});
+
 // IRQ Select.
 register_mixer_read(0x80, function()
 {
@@ -1005,34 +1028,44 @@ SB16.prototype.dma_transfer_start = function()
 
     var sb16 = this;
 
-    this.dma.do_write(this.dma_syncbuffer, 0, this.dma_transfer_size, this.dma_channel, function(error)
+    var size = this.dma_transfer_size;
+    if(this.dsp_16bit) size *= 2;
+    if(this.dsp_stereo) size *= 2;
+
+    this.dma.on_unmask(this.dma_channel, function()
     {
-        sb16.dma_to_dac();
-        sb16.raise_irq(irq);
+        sb16.dma.do_write(sb16.dma_syncbuffer, 0, size, sb16.dma_channel, function(error)
+        {
+            dbg_log("dma transfer " + (error ? "unsuccessful" : "successful"));
+            sb16.dma_to_dac();
+            sb16.raise_irq(irq);
+        });
     });
 }
 
 SB16.prototype.dma_to_dac = function()
 {
-    for(var i = 0; i < this.dma_buffer.length; i++)
+    var amplitude = this.dsp_16bit? 32767.5 : 127.5;
+    var offset = this.dsp_signed? 0 : -1;
+    var repeats = this.dsp_stereo? 1 : 2;
+
+    // Hack to convert 16bit signed integers into
+    // javascript doubles.
+    var value = new Int16Array(1);
+
+    for(var i = 0; i < this.dma_transfer_size; i++)
     {
-        var value = this.dma_buffer[i];
-
-        if(this.dma_signed)
+        for(var j = 0; j < repeats; j++)
         {
-            value = audio_from_16bit(value);
-        }
-        else
-        {
-            value = audio_from_8bit(value);
-        }
-
-        this.dac_buffer.push(value);
-
-        if(!this.dsp_stereo)
-        {
-            // Again for both channels.
-            this.dac_buffer.push(value);
+            if(this.dsp_16bit)
+            {
+                value[0] = this.dma_buffer[2*i] | (this.dma_buffer[2*i+1] << 8);
+            }
+            else
+            {
+                value[0] = this.dma_buffer[i];
+            }
+            this.dac_buffer.push(audio_normalize(value[0], amplitude, offset));
         }
     }
 }
@@ -1073,14 +1106,9 @@ SB16.prototype.lower_irq = function(type)
     this.cpu.device_lower_irq(this.irq);
 }
 
-function audio_from_8bit(value)
+function audio_normalize(value, amplitude, offset)
 {
-    return audio_clip(value / 255 - 0.5, -1, 1);
-}
-
-function audio_from_16bit(value)
-{
-    return audio_clip(value / (1 << 16), -1, 1);
+    return audio_clip(value / amplitude + offset, -1, 1);
 }
 
 function audio_clip(value, low, high)
