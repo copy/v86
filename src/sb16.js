@@ -73,6 +73,7 @@ function SB16(cpu, bus)
     this.dma_channel_16bit = DMA_CHANNEL_16BIT;
     this.dma_autoinit = false;
     this.dma_buffer = new Uint8Array(DMA_BUFSIZE);
+    this.dma_buffer_16bit = new Uint16Array(this.dma_buffer);
     this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
     this.sampling_rate = 22050;
 
@@ -1049,23 +1050,27 @@ SB16.prototype.dma_to_dac = function()
     var offset = this.dsp_signed? 0 : -1;
     var repeats = this.dsp_stereo? 1 : 2;
 
-    // Hack to convert 16bit signed integers into
-    // javascript doubles.
-    var value = new Int16Array(1);
+    var buffer;
+    var Caster;
+    if(this.dsp_16bit)
+    {
+        buffer = this.dma_buffer_16bit;
+        Caster = this.dsp_signed? Int16Array : Uint16Array;
+    }
+    else
+    {
+        buffer = this.dma_buffer;
+        Caster = this.dsp_signed? Int8Array : Uint8Array;
+    }
+
+    var cast = new Caster(1);
 
     for(var i = 0; i < this.dma_transfer_size; i++)
     {
         for(var j = 0; j < repeats; j++)
         {
-            if(this.dsp_16bit)
-            {
-                value[0] = this.dma_buffer[2*i] | (this.dma_buffer[2*i+1] << 8);
-            }
-            else
-            {
-                value[0] = this.dma_buffer[i];
-            }
-            this.dac_buffer.push(audio_normalize(value[0], amplitude, offset));
+            cast[0] = buffer[i];
+            this.dac_buffer.push(audio_normalize(cast[0], amplitude, offset));
         }
     }
 }
