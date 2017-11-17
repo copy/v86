@@ -9,7 +9,8 @@ function DMA(cpu)
     /** @const @type {CPU} */
     this.cpu = cpu;
 
-    this.channel_addr = new Int32Array(8);
+    this.channel_addr = new Uint16Array(8);
+    this.channel_page = new Uint8Array(8);
     this.channel_count = new Int32Array(8);
     this.channel_mask = new Uint8Array(8);
     this.channel_mode = new Uint8Array(8);
@@ -89,7 +90,7 @@ DMA.prototype.port_addr_write = function(channel, data_byte)
 DMA.prototype.port_page_write = function(channel, data_byte)
 {
     dbg_log("page write [" + channel + "] = " + h(data_byte), LOG_DMA);
-    this.channel_addr[channel] = this.channel_addr[channel] & 0xFFFF | data_byte << 16;
+    this.channel_page[channel] = data_byte;
 }
 
 DMA.prototype.port_page_read = function(channel)
@@ -224,8 +225,8 @@ DMA.prototype.port81_write = function(data_byte)
 // read data, write to memory
 DMA.prototype.do_read = function(buffer, start, len, channel, fn)
 {
-    var read_count = this.channel_count[channel] + 1,
-        addr = this.channel_addr[channel];
+    var read_count = this.count_get_8bit(channel + 1),
+        addr = this.address_get_8bit(channel);
 
     dbg_log("DMA write channel " + channel, LOG_DMA);
     dbg_log("to " + h(addr) + " len " + h(read_count), LOG_DMA);
@@ -256,8 +257,8 @@ DMA.prototype.do_read = function(buffer, start, len, channel, fn)
 // write data, read memory
 DMA.prototype.do_write = function(buffer, start, len, channel, fn)
 {
-    var read_count = this.channel_count[channel],
-        addr = this.channel_addr[channel];
+    var read_count = this.count_get_8bit(channel),
+        addr = this.address_get_8bit(channel);
 
     dbg_log("DMA write channel " + channel, LOG_DMA);
     dbg_log("to " + h(addr) + " len " + h(read_count), LOG_DMA);
@@ -283,6 +284,34 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
                 }
             );
     }
+}
+
+DMA.prototype.address_get_8bit = function(channel)
+{
+    var addr = this.channel_addr[channel];
+
+    // http://wiki.osdev.org/ISA_DMA#16_bit_issues
+    if(channel >= 5)
+    {
+        addr = (addr << 1);
+    }
+
+    addr &= 0xFFFF;
+    addr |= this.channel_page[channel] << 16;
+
+    return addr;
+}
+
+DMA.prototype.count_get_8bit = function(channel)
+{
+    var count = this.channel_count[channel];
+
+    if(channel >= 5)
+    {
+        count *= 2;
+    }
+
+    return count;
 }
 
 DMA.prototype.flipflop_get = function(old_dword, new_byte)
