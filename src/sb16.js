@@ -1035,6 +1035,8 @@ SB16.prototype.dma_transfer_start = function()
 
     this.dma.on_unmask(this.dma_channel, function()
     {
+        sb16.dma.on_unmask(sb16.dma_channel, undefined);
+
         sb16.dma.do_write(sb16.dma_syncbuffer, 0, size, sb16.dma_channel, function(error)
         {
             dbg_log("dma transfer " + (error ? "unsuccessful" : "successful"));
