@@ -69,6 +69,7 @@ function SB16(cpu, bus)
     this.dma_channel_16bit = DMA_CHANNEL_16BIT;
     this.dma_autoinit = false;
     this.dma_buffer = new Uint8Array(DMA_BUFSIZE);
+    this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
     this.sampling_rate = 22050;
 
     // DMA identification data
@@ -729,10 +730,18 @@ register_dsp_command([0xE2], 1, function()
     this.e2_count++;
     this.e2_value %= 256;
 
-    // This is probably incorrect:
-    this.dma.do_write([this.e2_value], 0, 1, this.dma_channel, function()
+    this.dma.on_unmask(this.dma_channel_8bit, function()
     {
-        dbg_log("e2 dma identification: written to dma", LOG_SB16);
+        this.dma.on_unmask(this.dma_channel_8bit, undefined);
+
+        var buffer = new Uint8Array(1);
+        buffer[0] = this.e2_value;
+        var syncbuffer = new SyncBuffer(buffer);
+
+        this.dma.do_read(syncbuffer, 0, 1, this.dma_channel_8bit, function()
+        {
+            dbg_log("e2 dma identification: written to dma", LOG_SB16);
+        });
     });
 });
 
@@ -918,11 +927,10 @@ SB16.prototype.dma_transfer_size_set = function()
 
 SB16.prototype.dma_transfer_start = function()
 {
-    dbg_log("begin dma transfer - not fully understood", LOG_SB16);
+    dbg_log("begin dma transfer", LOG_SB16);
     var irq = this.dma_irq;
 
-    // Probably incorrect:
-    this.dma.do_read(this.dma_buffer, 0, this.dma_transfer_size, this.dma_channel, function(error)
+    this.dma.do_write(this.dma_syncbuffer, 0, this.dma_transfer_size, this.dma_channel, function(error)
     {
         this.dma_to_dac();
         this.raise_irq(irq);
