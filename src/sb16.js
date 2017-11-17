@@ -477,7 +477,8 @@ register_dsp_command([0x0E], 2, function()
 // ASP get register
 register_dsp_command([0x0F], 1, function()
 {
-    return this.asp_registers[this.write_buffer.shift()];
+    this.read_buffer.clear();
+    this.read_buffer.push(this.asp_registers[this.write_buffer.shift()]);
 });
 
 // 8-bit direct mode single byte digitized sound output.
