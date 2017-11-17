@@ -100,7 +100,7 @@ DMA.prototype.port_page_read = function(channel)
 
 DMA.prototype.port_singlemask_write = function(channel_offset, data_byte)
 {
-    var channel = data_byte & 0x4 + channel_offset;
+    var channel = data_byte & 0x3 + channel_offset;
     var value = !!(data_byte & 0x8);
     dbg_log("singlechannel mask write [" + channel + "] = " + value, LOG_DMA);
     this.update_mask(channel, value);
@@ -128,7 +128,7 @@ DMA.prototype.port_multimask_read = function(channel_offset)
 
 DMA.prototype.port_mode_write = function(channel_offset, data_byte)
 {
-    var channel = data_byte & 0x4 + channel_offset;
+    var channel = data_byte & 0x3 + channel_offset;
     dbg_log("mode write [" + channel + "] = " + h(data_byte), LOG_DMA);
     this.channel_mode[channel] = data_byte;
 }
