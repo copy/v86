@@ -76,6 +76,9 @@ function SB16(cpu, bus)
     this.e2_value = 0xAA;
     this.e2_count = 0;
 
+    // ASP data: not understood by me
+    this.asp_registers = new Uint8Array(256);
+
     // Interrupts.
     this.irq = SB_IRQ;
     this.irq_triggered = new Uint8Array(0x10);
@@ -160,6 +163,10 @@ SB16.prototype.reset_dsp = function()
 
     this.lower_irq(SB_IRQ_8BIT);
     this.irq_triggered.fill(0);
+
+    this.asp_registers.fill(0);
+    this.asp_registers[5] = 0x01;
+    this.asp_registers[9] = 0xF8;
 }
 
 
@@ -460,6 +467,18 @@ function any_first_digit(base)
     }
     return commands;
 }
+
+// ASP set register
+register_dsp_command([0x0E], 2, function()
+{
+    this.asp_registers[this.write_register.shift()] = this.write_register.shift();
+});
+
+// ASP get register
+register_dsp_command([0x0F], 1, function()
+{
+    return this.asp_registers[this.write_register.shift()];
+});
 
 // 8-bit direct mode single byte digitized sound output.
 register_dsp_command([0x10], 1, function()
