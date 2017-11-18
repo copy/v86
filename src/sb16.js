@@ -67,6 +67,7 @@ function SB16(cpu, bus)
     // between -1 and 1 doubles
     // Two channels interleaved.
     this.dac_buffer = new Queue(DSP_DACSIZE);
+    this.dac_rate_ratio = 2;
 
     // Direct Memory Access transfer info.
     this.dma = cpu.devices.dma;
@@ -144,6 +145,12 @@ function SB16(cpu, bus)
     cpu.io.register_write(0x330, this, this.port3x0_write);
     cpu.io.register_write(0x331, this, this.port3x1_write);
 
+    this.audio_samplerate = 48000;
+    bus.register("speaker-samplerate", function(rate)
+    {
+        this.audio_samplerate = rate;
+    }, this);
+
     bus.register("speaker-process", function(event)
     {
         this.audio_process(event);
@@ -177,6 +184,7 @@ SB16.prototype.reset_dsp = function()
     this.dsp_signed = false;
 
     this.dac_buffer.clear();
+    this.dac_rate_ratio = 2;
 
     this.dma_sample_count = 0;
     this.dma_bytes_count = 0;
@@ -1020,7 +1028,6 @@ register_mixer_read(0x82, function()
 
 SB16.prototype.sampling_rate_change = function(rate)
 {
-    this.bus.send("speaker-samplerate", rate);
     this.sampling_rate = rate;
 }
 
@@ -1043,6 +1050,8 @@ SB16.prototype.dma_transfer_start = function()
     this.bytes_per_sample = 1;
     if(this.dsp_16bit) this.bytes_per_sample *= 2;
     if(this.dsp_stereo) this.bytes_per_sample *= 2;
+
+    this.dac_rate_ratio = Math.round(this.audio_samplerate / this.sampling_rate);
 
     this.dma_bytes_count = this.dma_sample_count * this.bytes_per_sample;
     this.dma_bytes_block = DMA_BLOCK_SAMPLES * this.bytes_per_sample;
@@ -1086,7 +1095,7 @@ SB16.prototype.dma_to_dac = function(sample_count)
 {
     var amplitude = this.dsp_16bit? 32767.5 : 127.5;
     var offset = this.dsp_signed? 0 : -1;
-    var repeats = this.dsp_stereo? 1 : 2;
+    var repeats = (this.dsp_stereo? 1 : 2) * this.dac_rate_ratio;
 
     var buffer;
     if(this.dsp_16bit)
@@ -1123,7 +1132,10 @@ SB16.prototype.audio_process = function(event)
         out1[i] = (!!this.dac_buffer.length) * this.dac_buffer.shift();
     }
 
-    setTimeout(() => { this.dma_transfer_next(); }, 0);
+    if(!this.dac_buffer.length)
+    {
+        setTimeout(() => { this.dma_transfer_next(); }, 0);
+    }
 }
 
 SB16.prototype.raise_irq = function(type)
