@@ -308,6 +308,11 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
     if(len < read_count)
     {
         dbg_log("DMA should read more than provided", LOG_DMA);
+        read_count = len;
+    }
+    else if(len > read_count)
+    {
+        dbg_log("DMA attempted to read more than provided", LOG_DMA);
     }
 
     if(start + read_count > buffer.byteLength)
