@@ -6,6 +6,7 @@ var
 /** @const */ DSP_BUFSIZE = 64,
 /** @const */ DSP_DACSIZE = 65536,
 /** @const */ DMA_BUFSIZE = 65536,
+/** @const */ DMA_BLOCK_SAMPLES = 1024,
 /** @const */ DMA_CHANNEL_8BIT = 1, // (ISA DMA standard sound card channels)
 /** @const */ DMA_CHANNEL_16BIT = 5,
 /** @const */ SB_IRQ = 5,
@@ -31,6 +32,9 @@ function SB16(cpu, bus)
 {
     /** @const @type {CPU} */
     this.cpu = cpu;
+
+    /** @const @type {BusConnector} */
+    this.bus = bus;
 
     // I/O Buffers.
     this.write_buffer = new ByteQueue(DSP_BUFSIZE);
@@ -66,7 +70,10 @@ function SB16(cpu, bus)
 
     // Direct Memory Access transfer info.
     this.dma = cpu.devices.dma;
-    this.dma_transfer_size = 0; // in samples
+    this.dma_sample_count = 0;
+    this.dma_bytes_count = 0;
+    this.dma_bytes_left = 0;
+    this.dma_bytes_block = 0;
     this.dma_irq = 0;
     this.dma_channel = 0;
     this.dma_channel_8bit = DMA_CHANNEL_8BIT;
@@ -79,6 +86,7 @@ function SB16(cpu, bus)
     this.dma_buffer_uint16 = new Uint16Array(this.dma_buffer);
     this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
     this.sampling_rate = 22050;
+    this.bytes_per_sample = 1;
 
     // DMA identification data
     this.e2_value = 0xAA;
@@ -170,7 +178,10 @@ SB16.prototype.reset_dsp = function()
 
     this.dac_buffer.clear();
 
-    this.dma_transfer_size = 0;
+    this.dma_sample_count = 0;
+    this.dma_bytes_count = 0;
+    this.dma_bytes_left = 0;
+    this.dma_bytes_block = 0;
     this.dma_irq = 0;
     this.dma_channel = 0;
     this.dma_autoinit = false;
@@ -180,6 +191,7 @@ SB16.prototype.reset_dsp = function()
     this.e2_count = 0;
 
     this.sampling_rate = 22050;
+    this.bytes_per_sample = 1;
 
     this.lower_irq(SB_IRQ_8BIT);
     this.irq_triggered.fill(0);
@@ -818,17 +830,15 @@ register_dsp_command([0xE2], 1, function()
     this.e2_count++;
     this.e2_value %= 256;
 
-    var sb16 = this;
-
-    this.dma.on_unmask(this.dma_channel_8bit, function()
+    this.dma.on_unmask(this.dma_channel_8bit, () =>
     {
-        sb16.dma.on_unmask(sb16.dma_channel_8bit, undefined);
+        this.dma.on_unmask(this.dma_channel_8bit, undefined);
 
         var buffer = new Uint8Array(1);
-        buffer[0] = sb16.e2_value;
+        buffer[0] = this.e2_value;
         var syncbuffer = new SyncBuffer(buffer);
 
-        sb16.dma.do_read(syncbuffer, 0, 1, sb16.dma_channel_8bit, function()
+        this.dma.do_read(syncbuffer, 0, 1, this.dma_channel_8bit, function()
         {
             dbg_log("e2 dma identification: written to dma", LOG_SB16);
         });
@@ -1010,6 +1020,7 @@ register_mixer_read(0x82, function()
 
 SB16.prototype.sampling_rate_change = function(rate)
 {
+    this.bus.send("speaker-samplerate", rate);
     this.sampling_rate = rate;
 }
 
@@ -1020,7 +1031,7 @@ SB16.prototype.get_channel_count = function()
 
 SB16.prototype.dma_transfer_size_set = function()
 {
-    this.dma_transfer_size = 1
+    this.dma_sample_count = 1
         + (this.write_buffer.shift() << 0)
         + (this.write_buffer.shift() << 8);
 }
@@ -1028,28 +1039,50 @@ SB16.prototype.dma_transfer_size_set = function()
 SB16.prototype.dma_transfer_start = function()
 {
     dbg_log("begin dma transfer", LOG_SB16);
-    var irq = this.dma_irq;
 
-    var sb16 = this;
+    this.bytes_per_sample = 1;
+    if(this.dsp_16bit) this.bytes_per_sample *= 2;
+    if(this.dsp_stereo) this.bytes_per_sample *= 2;
 
-    var size = this.dma_transfer_size;
-    if(this.dsp_16bit) size *= 2;
-    if(this.dsp_stereo) size *= 2;
+    this.dma_bytes_count = this.dma_sample_count * this.bytes_per_sample;
+    this.dma_bytes_block = DMA_BLOCK_SAMPLES * this.bytes_per_sample;
 
-    this.dma.on_unmask(this.dma_channel, function()
+    this.dma.on_unmask(this.dma_channel, () =>
     {
-        sb16.dma.on_unmask(sb16.dma_channel, undefined);
-
-        sb16.dma.do_write(sb16.dma_syncbuffer, 0, size, sb16.dma_channel, function(error)
-        {
-            dbg_log("dma transfer " + (error ? "unsuccessful" : "successful"), LOG_SB16);
-            sb16.dma_to_dac();
-            sb16.raise_irq(irq);
-        });
+        this.dma.on_unmask(this.dma_channel, undefined);
+        this.dma_bytes_left = this.dma_bytes_count;
     });
 }
 
-SB16.prototype.dma_to_dac = function()
+SB16.prototype.dma_transfer_next = function()
+{
+    if(!this.dma_bytes_left) return;
+    dbg_log("dma transfering next block", LOG_SB16);
+
+    var size = Math.min(this.dma_bytes_left, this.dma_bytes_block);
+    var samples = Math.floor(size / this.bytes_per_sample);
+
+    this.dma.do_write(this.dma_syncbuffer, 0, size, this.dma_channel, (error) =>
+    {
+        dbg_log("dma block transfer " + (error ? "unsuccessful" : "successful"), LOG_SB16);
+        if(error) return;
+
+        this.dma_to_dac(samples);
+        this.dma_bytes_left -= size;
+
+        if(!this.dma_bytes_left)
+        {
+            this.raise_irq(this.dma_irq);
+
+            if(this.dma_autoinit)
+            {
+                this.dma_bytes_left = this.dma_bytes_count;
+            }
+        }
+    });
+}
+
+SB16.prototype.dma_to_dac = function(sample_count)
 {
     var amplitude = this.dsp_16bit? 32767.5 : 127.5;
     var offset = this.dsp_signed? 0 : -1;
@@ -1069,7 +1102,7 @@ SB16.prototype.dma_to_dac = function()
             this.dma_buffer_uint8;
     }
 
-    for(var i = 0; i < this.dma_transfer_size; i++)
+    for(var i = 0; i < sample_count; i++)
     {
         for(var j = 0; j < repeats; j++)
         {
@@ -1090,16 +1123,7 @@ SB16.prototype.audio_process = function(event)
         out1[i] = (!!this.dac_buffer.length) * this.dac_buffer.shift();
     }
 
-    if(this.dma_autoinit)
-    {
-        // Resend. Emulate DMA autoinit mode.
-        this.dma_to_dac();
-    }
-    else
-    {
-        // Clear.
-        this.dma_buffer_uint8.fill(0);
-    }
+    setTimeout(() => { this.dma_transfer_next(); }, 0);
 }
 
 SB16.prototype.raise_irq = function(type)
