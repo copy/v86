@@ -72,8 +72,11 @@ function SB16(cpu, bus)
     this.dma_channel_8bit = DMA_CHANNEL_8BIT;
     this.dma_channel_16bit = DMA_CHANNEL_16BIT;
     this.dma_autoinit = false;
-    this.dma_buffer = new Uint8Array(DMA_BUFSIZE);
-    this.dma_buffer_16bit = new Uint16Array(this.dma_buffer);
+    this.dma_buffer = new ArrayBuffer(DMA_BUFSIZE);
+    this.dma_buffer_int8 = new Int8Array(this.dma_buffer);
+    this.dma_buffer_uint8 = new Uint8Array(this.dma_buffer);
+    this.dma_buffer_int16 = new Int16Array(this.dma_buffer);
+    this.dma_buffer_uint16 = new Uint16Array(this.dma_buffer);
     this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
     this.sampling_rate = 22050;
 
@@ -171,7 +174,7 @@ SB16.prototype.reset_dsp = function()
     this.dma_irq = 0;
     this.dma_channel = 0;
     this.dma_autoinit = false;
-    this.dma_buffer.fill(0);
+    this.dma_buffer_uint8.fill(0);
 
     this.e2_value = 0xAA;
     this.e2_count = 0;
@@ -1053,26 +1056,24 @@ SB16.prototype.dma_to_dac = function()
     var repeats = this.dsp_stereo? 1 : 2;
 
     var buffer;
-    var Caster;
     if(this.dsp_16bit)
     {
-        buffer = this.dma_buffer_16bit;
-        Caster = this.dsp_signed? Int16Array : Uint16Array;
+        buffer = this.dsp_signed ?
+            this.dma_buffer_int16 :
+            this.dma_buffer_uint16;
     }
     else
     {
-        buffer = this.dma_buffer;
-        Caster = this.dsp_signed? Int8Array : Uint8Array;
+        buffer = this.dsp_signed ?
+            this.dma_buffer_int8 :
+            this.dma_buffer_uint8;
     }
-
-    var cast = new Caster(1);
 
     for(var i = 0; i < this.dma_transfer_size; i++)
     {
         for(var j = 0; j < repeats; j++)
         {
-            cast[0] = buffer[i];
-            this.dac_buffer.push(audio_normalize(cast[0], amplitude, offset));
+            this.dac_buffer.push(audio_normalize(buffer[i], amplitude, offset));
         }
     }
 }
@@ -1097,7 +1098,7 @@ SB16.prototype.audio_process = function(event)
     else
     {
         // Clear.
-        this.dma_buffer.fill(0);
+        this.dma_buffer_uint8.fill(0);
     }
 }
 
