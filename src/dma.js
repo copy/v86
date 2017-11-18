@@ -29,6 +29,15 @@ function DMA(cpu)
     io.register_write(0x05, this, this.port_count_write.bind(this, 2));
     io.register_write(0x07, this, this.port_count_write.bind(this, 3));
 
+    io.register_read(0x00, this, this.port_addr_read.bind(this, 0));
+    io.register_read(0x02, this, this.port_addr_read.bind(this, 1));
+    io.register_read(0x04, this, this.port_addr_read.bind(this, 2));
+    io.register_read(0x06, this, this.port_addr_read.bind(this, 3));
+    io.register_read(0x01, this, this.port_count_read.bind(this, 0));
+    io.register_read(0x03, this, this.port_count_read.bind(this, 1));
+    io.register_read(0x05, this, this.port_count_read.bind(this, 2));
+    io.register_read(0x07, this, this.port_count_read.bind(this, 3));
+
     io.register_write(0xC0, this, this.port_addr_write.bind(this, 4));
     io.register_write(0xC4, this, this.port_addr_write.bind(this, 5));
     io.register_write(0xC8, this, this.port_addr_write.bind(this, 6));
@@ -37,6 +46,15 @@ function DMA(cpu)
     io.register_write(0xC6, this, this.port_count_write.bind(this, 5));
     io.register_write(0xCA, this, this.port_count_write.bind(this, 6));
     io.register_write(0xCE, this, this.port_count_write.bind(this, 7));
+
+    io.register_read(0xC0, this, this.port_addr_read.bind(this, 4));
+    io.register_read(0xC4, this, this.port_addr_read.bind(this, 5));
+    io.register_read(0xC8, this, this.port_addr_read.bind(this, 6));
+    io.register_read(0xCC, this, this.port_addr_read.bind(this, 7));
+    io.register_read(0xC2, this, this.port_count_read.bind(this, 4));
+    io.register_read(0xC6, this, this.port_count_read.bind(this, 5));
+    io.register_read(0xCA, this, this.port_count_read.bind(this, 6));
+    io.register_read(0xCE, this, this.port_count_read.bind(this, 7));
 
     io.register_write(0x87, this, this.port_page_write.bind(this, 0));
     io.register_write(0x83, this, this.port_page_write.bind(this, 1));
@@ -47,10 +65,22 @@ function DMA(cpu)
     io.register_write(0x89, this, this.port_page_write.bind(this, 6));
     io.register_write(0x8A, this, this.port_page_write.bind(this, 7));
 
+    io.register_read(0x87, this, this.port_page_read.bind(this, 0));
+    io.register_read(0x83, this, this.port_page_read.bind(this, 1));
+    io.register_read(0x81, this, this.port_page_read.bind(this, 2));
+    io.register_read(0x82, this, this.port_page_read.bind(this, 3));
+    io.register_read(0x8F, this, this.port_page_read.bind(this, 4));
+    io.register_read(0x8B, this, this.port_page_read.bind(this, 5));
+    io.register_read(0x89, this, this.port_page_read.bind(this, 6));
+    io.register_read(0x8A, this, this.port_page_read.bind(this, 7));
+
     io.register_write(0x0A, this, this.port_singlemask_write.bind(this, 0));
     io.register_write(0xD4, this, this.port_singlemask_write.bind(this, 4));
     io.register_write(0x0F, this, this.port_multimask_write.bind(this, 0));
     io.register_write(0xDE, this, this.port_multimask_write.bind(this, 4));
+
+    io.register_read(0x0F, this, this.port_multimask_read.bind(this, 0));
+    io.register_read(0xDE, this, this.port_multimask_read.bind(this, 4));
 
     io.register_write(0x0B, this, this.port_mode_write.bind(this, 0));
     io.register_write(0xD6, this, this.port_mode_write.bind(this, 4));
@@ -81,10 +111,22 @@ DMA.prototype.port_count_write = function(channel, data_byte)
     this.channel_count[channel] = this.flipflop_get(this.channel_count[channel], data_byte);
 }
 
+DMA.prototype.port_count_read = function(channel)
+{
+    dbg_log("count read [" + channel + "] -> " + h(this.channel_count[channel]), LOG_DMA);
+    return this.flipflop_read(this.channel_count[channel]);
+}
+
 DMA.prototype.port_addr_write = function(channel, data_byte)
 {
     dbg_log("addr write [" + channel + "] = " + h(data_byte), LOG_DMA);
     this.channel_addr[channel] = this.flipflop_get(this.channel_addr[channel], data_byte);
+}
+
+DMA.prototype.port_addr_read = function(channel)
+{
+    dbg_log("addr read [" + channel + "] -> " + h(this.channel_addr[channel]), LOG_DMA);
+    return this.flipflop_read(this.channel_addr[channel]);
 }
 
 DMA.prototype.port_page_write = function(channel, data_byte)
@@ -96,7 +138,7 @@ DMA.prototype.port_page_write = function(channel, data_byte)
 DMA.prototype.port_page_read = function(channel)
 {
     dbg_log("page read [" + channel + "]", LOG_DMA);
-    return this.channel_addr[channel] >> 16;
+    return this.channel_page[channel];
 }
 
 DMA.prototype.port_singlemask_write = function(channel_offset, data_byte)
@@ -327,5 +369,21 @@ DMA.prototype.flipflop_get = function(old_dword, new_byte)
     {
         // high byte
         return old_dword & ~0xFF00 | new_byte << 8;
+    }
+}
+
+DMA.prototype.flipflop_read = function(dword)
+{
+    this.lsb_msb_flipflop ^= 1;
+
+    if(this.lsb_msb_flipflop)
+    {
+        // low byte
+        return dword & 0xFF;
+    }
+    else
+    {
+        // high byte
+        return (dword >> 8) & 0xFF;
     }
 }
