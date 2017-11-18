@@ -267,7 +267,7 @@ DMA.prototype.port81_write = function(data_byte)
 // read data, write to memory
 DMA.prototype.do_read = function(buffer, start, len, channel, fn)
 {
-    var read_count = this.count_get_8bit(channel + 1),
+    var read_count = this.count_get_8bit(channel) + 1,
         addr = this.address_get_8bit(channel);
 
     dbg_log("DMA write channel " + channel, LOG_DMA);
