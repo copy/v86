@@ -34,7 +34,7 @@ function SpeakerAdapter(bus)
     this.beep_frequency = 440;
     this.pit_enabled = false;
 
-    this.dac_processor = this.audio_context.createScriptProcessor(1024, 0, 2);
+    this.dac_processor = this.audio_context.createScriptProcessor(DMA_BLOCK_SAMPLES, 0, 2);
     this.dac_processor.onaudioprocess = this.dac_process.bind(this);
     this.dac_processor.connect(this.audio_context.destination);
 
@@ -74,5 +74,6 @@ SpeakerAdapter.prototype.beep_update = function()
 
 SpeakerAdapter.prototype.dac_process = function(event)
 {
+    this.bus.send("speaker-samplerate", this.audio_context.sampleRate);
     this.bus.send("speaker-process", event);
 }
