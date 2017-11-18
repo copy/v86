@@ -1042,7 +1042,7 @@ SB16.prototype.dma_transfer_start = function()
 
         sb16.dma.do_write(sb16.dma_syncbuffer, 0, size, sb16.dma_channel, function(error)
         {
-            dbg_log("dma transfer " + (error ? "unsuccessful" : "successful"));
+            dbg_log("dma transfer " + (error ? "unsuccessful" : "successful"), LOG_SB16);
             sb16.dma_to_dac();
             sb16.raise_irq(irq);
         });
@@ -1084,9 +1084,9 @@ SB16.prototype.audio_process = function(event)
     var out0 = event.outputBuffer.getChannelData(0);
     var out1 = event.outputBuffer.getChannelData(1);
 
-    for(var i = 0; i < out.length; i++)
+    for(var i = 0; this.dac_buffer.length && i < out.length; i++)
     {
-        out0[i] = (!!this.dac_buffer.length) * this.dac_buffer.shift();
+        out0[i] = this.dac_buffer.shift();
         out1[i] = (!!this.dac_buffer.length) * this.dac_buffer.shift();
     }
 
