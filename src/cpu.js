@@ -325,15 +325,16 @@ CPU.prototype.get_state = function()
     state[58] = this.devices.pit;
     state[59] = this.devices.net;
     state[60] = this.devices.pic;
+    state[61] = this.devices.sb16;
 
-    state[61] = this.a20_enabled;
-    state[62] = this.fw_value;
+    state[62] = this.a20_enabled;
+    state[63] = this.fw_value;
 
-    state[63] = this.devices.ioapic;
+    state[64] = this.devices.ioapic;
 
-    state[64] = this.tss_size_32;
+    state[65] = this.tss_size_32;
 
-    state[65] = this.reg_mmxs;
+    state[66] = this.reg_mmxs;
 
     return state;
 };
@@ -400,15 +401,16 @@ CPU.prototype.set_state = function(state)
     this.devices.pit = state[58];
     this.devices.net = state[59];
     this.devices.pic = state[60];
+    this.devices.sb16 = state[61];
 
-    this.a20_enabled = state[61];
-    this.fw_value = state[62];
+    this.a20_enabled = state[62];
+    this.fw_value = state[63];
 
-    this.devices.ioapic = state[63];
+    this.devices.ioapic = state[64];
 
-    this.tss_size_32 = state[64];
+    this.tss_size_32 = state[65];
 
-    this.reg_mmxs = state[65];
+    this.reg_mmxs = state[66];
 
     this.mem16 = new Uint16Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 1);
     this.mem32s = new Int32Array(this.mem8.buffer, this.mem8.byteOffset, this.mem8.length >> 2);
