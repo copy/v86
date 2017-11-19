@@ -1132,7 +1132,7 @@ SB16.prototype.audio_process = function(event)
         out1[i] = (!!this.dac_buffer.length) * this.dac_buffer.shift();
     }
 
-    if(!this.dac_buffer.length)
+    if(this.dac_buffer.length - out.length < 0)
     {
         setTimeout(() => { this.dma_transfer_next(); }, 0);
     }
