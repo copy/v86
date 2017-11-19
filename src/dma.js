@@ -9,9 +9,11 @@ function DMA(cpu)
     /** @const @type {CPU} */
     this.cpu = cpu;
 
-    this.channel_addr = new Uint16Array(8);
     this.channel_page = new Uint8Array(8);
+    this.channel_addr = new Uint16Array(8);
+    this.channel_addr_init = new Uint16Array(8);
     this.channel_count = new Int32Array(8);
+    this.channel_count_init = new Int32Array(8);
     this.channel_mask = new Uint8Array(8);
     this.channel_mode = new Uint8Array(8);
     this.channel_on_unmask = [];
@@ -108,7 +110,12 @@ DMA.prototype.set_state = function(state)
 DMA.prototype.port_count_write = function(channel, data_byte)
 {
     dbg_log("count write [" + channel + "] = " + h(data_byte), LOG_DMA);
-    this.channel_count[channel] = this.flipflop_get(this.channel_count[channel], data_byte);
+
+    this.channel_count[channel] =
+        this.flipflop_get(this.channel_count[channel], data_byte, false);
+
+    this.channel_count_init[channel] =
+        this.flipflop_get(this.channel_count_init[channel], data_byte, true);
 }
 
 DMA.prototype.port_count_read = function(channel)
@@ -120,7 +127,12 @@ DMA.prototype.port_count_read = function(channel)
 DMA.prototype.port_addr_write = function(channel, data_byte)
 {
     dbg_log("addr write [" + channel + "] = " + h(data_byte), LOG_DMA);
-    this.channel_addr[channel] = this.flipflop_get(this.channel_addr[channel], data_byte);
+
+    this.channel_addr[channel] =
+        this.flipflop_get(this.channel_addr[channel], data_byte, false);
+
+    this.channel_addr_init[channel] =
+        this.flipflop_get(this.channel_addr_init[channel], data_byte, true);
 }
 
 DMA.prototype.port_addr_read = function(channel)
@@ -267,7 +279,7 @@ DMA.prototype.port81_write = function(data_byte)
 // read data, write to memory
 DMA.prototype.do_read = function(buffer, start, len, channel, fn)
 {
-    var read_count = this.count_get_8bit(channel) + 1,
+    var read_count = this.count_get_8bit(channel),
         addr = this.address_get_8bit(channel);
 
     dbg_log("DMA write channel " + channel, LOG_DMA);
@@ -297,25 +309,36 @@ DMA.prototype.do_read = function(buffer, start, len, channel, fn)
 };
 
 // write data, read memory
+// start and len in bytes
 DMA.prototype.do_write = function(buffer, start, len, channel, fn)
 {
-    var read_count = this.count_get_8bit(channel),
-        addr = this.address_get_8bit(channel);
+    var read_count = this.channel_count[channel] + 1,
+        read_bytes = read_count,
+        addr = this.address_get_8bit(channel),
+        unfinished = false,
+        autoinit = this.channel_mode[channel] & 0x10;
+
+    if(channel >= 5)
+    {
+        // convert word count to byte count
+        read_bytes *= 2;
+    }
 
     dbg_log("DMA write channel " + channel, LOG_DMA);
-    dbg_log("to " + h(addr) + " len " + h(read_count), LOG_DMA);
+    dbg_log("to " + h(addr) + " len " + h(read_bytes), LOG_DMA);
 
-    if(len < read_count)
+    if(len < read_bytes)
     {
         dbg_log("DMA should read more than provided", LOG_DMA);
-        read_count = len;
+        read_bytes = len;
+        unfinished = true;
     }
-    else if(len > read_count)
+    else if(len > read_bytes)
     {
         dbg_log("DMA attempted to read more than provided", LOG_DMA);
     }
 
-    if(start + read_count > buffer.byteLength)
+    if(start + read_bytes > buffer.byteLength)
     {
         dbg_log("DMA write outside of buffer", LOG_DMA);
         fn(true);
@@ -323,9 +346,17 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
     else
     {
         this.channel_addr[channel] += read_count;
+        this.channel_count[channel] -= read_count;
+        // when complete, counter should underflow to 0xFFFF
+
+        if(!unfinished && autoinit)
+        {
+            this.channel_addr[channel] = this.channel_addr_init[channel];
+            this.channel_count[channel] = this.channel_count_init[channel];
+        }
 
         buffer.set(start,
-                this.cpu.mem8.subarray(addr, addr + read_count + 1),
+                this.cpu.mem8.subarray(addr, addr + read_count),
                 function() {
                     fn(false);
                 }
@@ -351,7 +382,7 @@ DMA.prototype.address_get_8bit = function(channel)
 
 DMA.prototype.count_get_8bit = function(channel)
 {
-    var count = this.channel_count[channel];
+    var count = this.channel_count[channel] + 1;
 
     if(channel >= 5)
     {
@@ -361,9 +392,12 @@ DMA.prototype.count_get_8bit = function(channel)
     return count;
 }
 
-DMA.prototype.flipflop_get = function(old_dword, new_byte)
+DMA.prototype.flipflop_get = function(old_dword, new_byte, continuing)
 {
-    this.lsb_msb_flipflop ^= 1;
+    if(!continuing)
+    {
+        this.lsb_msb_flipflop ^= 1;
+    }
 
     if(this.lsb_msb_flipflop)
     {
