@@ -1060,6 +1060,8 @@ SB16.prototype.dma_transfer_start = function()
     {
         this.dma.on_unmask(this.dma_channel, undefined);
         this.dma_bytes_left = this.dma_bytes_count;
+
+        this.dma_transfer_next();
     });
 }
 
