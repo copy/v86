@@ -104,6 +104,8 @@ function SB16(cpu, bus)
     this.irq = SB_IRQ;
     this.irq_triggered = new Uint8Array(0x10);
 
+    this.audio_samplerate = 48000;
+
     // http://homepages.cae.wisc.edu/~brodskye/sb16doc/sb16doc.html#DSPPorts
 
     cpu.io.register_read(0x220, this, this.port2x0_read);
@@ -145,7 +147,6 @@ function SB16(cpu, bus)
     cpu.io.register_write(0x330, this, this.port3x0_write);
     cpu.io.register_write(0x331, this, this.port3x1_write);
 
-    this.audio_samplerate = 48000;
     bus.register("speaker-samplerate", function(rate)
     {
         this.audio_samplerate = rate;
@@ -208,6 +209,114 @@ SB16.prototype.reset_dsp = function()
     this.asp_registers[5] = 0x01;
     this.asp_registers[9] = 0xF8;
 }
+
+SB16.prototype.get_state = function()
+{
+    var state = [];
+
+    // state[ 0] = this.write_buffer              ;
+    // state[ 1] = this.read_buffer               ;
+    state[ 2] = this.read_buffer_lastvalue     ;
+
+    state[ 3] = this.command                   ;
+    state[ 4] = this.command_size              ;
+
+    state[ 5] = this.mixer_current_address     ;
+    state[ 6] = this.mixer_unhandled_registers ;
+
+    state[ 7] = this.dummy_speaker_enabled     ;
+    state[ 8] = this.test_register             ;
+
+    state[ 9] = this.dsp_highspeed             ;
+    state[10] = this.dsp_stereo                ;
+    state[11] = this.dsp_16bit                 ;
+    state[12] = this.dsp_signed                ;
+
+    // state[13] = this.dac_buffer                ;
+    state[14] = this.dac_rate_ratio            ;
+
+    state[15] = this.dma_sample_count          ;
+    state[16] = this.dma_bytes_count           ;
+    state[17] = this.dma_bytes_left            ;
+    state[18] = this.dma_bytes_block           ;
+    state[19] = this.dma_irq                   ;
+    state[20] = this.dma_channel               ;
+    state[21] = this.dma_channel_8bit          ;
+    state[22] = this.dma_channel_16bit         ;
+    state[23] = this.dma_autoinit              ;
+    state[24] = this.dma_buffer_uint8          ;
+    state[25] = this.sampling_rate             ;
+    state[26] = this.bytes_per_sample          ;
+
+    state[27] = this.e2_value                  ;
+    state[28] = this.e2_count                  ;
+
+    state[29] = this.asp_registers             ;
+
+    // state[30] = this.mpu_read_buffer           ;
+    state[31] = this.mpu_read_buffer_last_value;
+
+    state[32] = this.irq                       ;
+    state[33] = this.irq_triggered             ;
+    state[34] = this.audio_samplerate          ;
+
+    return state;
+};
+
+SB16.prototype.set_state = function(state)
+{
+    // this.write_buffer               = state[ 0];
+    // this.read_buffer                = state[ 1];
+    this.read_buffer_lastvalue      = state[ 2];
+
+    this.command                    = state[ 3];
+    this.command_size               = state[ 4];
+
+    this.mixer_current_address      = state[ 5];
+    this.mixer_unhandled_registers  = state[ 6];
+
+    this.dummy_speaker_enabled      = state[ 7];
+    this.test_register              = state[ 8];
+
+    this.dsp_highspeed              = state[ 9];
+    this.dsp_stereo                 = state[10];
+    this.dsp_16bit                  = state[11];
+    this.dsp_signed                 = state[12];
+
+    // this.dac_buffer                 = state[13];
+    this.dac_rate_ratio             = state[14];
+
+    this.dma_sample_count           = state[15];
+    this.dma_bytes_count            = state[16];
+    this.dma_bytes_left             = state[17];
+    this.dma_bytes_block            = state[18];
+    this.dma_irq                    = state[19];
+    this.dma_channel                = state[20];
+    this.dma_channel_8bit           = state[21];
+    this.dma_channel_16bit          = state[22];
+    this.dma_autoinit               = state[23];
+    this.dma_buffer_uint8           = state[24];
+    this.sampling_rate              = state[25];
+    this.bytes_per_sample           = state[26];
+
+    this.e2_value                   = state[27];
+    this.e2_count                   = state[28];
+
+    this.asp_registers              = state[29];
+
+    // this.mpu_read_buffer            = state[30];
+    this.mpu_read_buffer_last_value = state[31];
+
+    this.irq                        = state[32];
+    this.irq_triggered              = state[33];
+    this.audio_samplerate           = state[34];
+
+    this.dma_buffer = this.dma_buffer_uint8.buffer;
+    this.dma_buffer_int8 = new Int8Array(this.dma_buffer);
+    this.dma_buffer_int16 = new Int16Array(this.dma_buffer);
+    this.dma_buffer_uint16 = new Uint16Array(this.dma_buffer);
+    this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
+};
 
 
 

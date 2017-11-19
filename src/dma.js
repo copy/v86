@@ -111,17 +111,29 @@ function DMA(cpu)
 DMA.prototype.get_state = function()
 {
     return [
+        this.channel_page,
+        this.channel_pagehi,
         this.channel_addr,
+        this.channel_addr_init,
         this.channel_count,
+        this.channel_count_init,
+        this.channel_mask,
+        this.channel_mode,
         this.lsb_msb_flipflop,
     ];
 };
 
 DMA.prototype.set_state = function(state)
 {
-    this.channel_addr = state[0];
-    this.channel_count = state[1];
-    this.lsb_msb_flipflop = state[2];
+    this.channel_page = state[0];
+    this.channel_pagehi = state[1];
+    this.channel_addr = state[2];
+    this.channel_addr_init = state[3];
+    this.channel_count = state[4];
+    this.channel_count_init = state[5];
+    this.channel_mask = state[6];
+    this.channel_mode = state[7];
+    this.lsb_msb_flipflop = state[8];
 };
 
 DMA.prototype.port_count_write = function(channel, data_byte)
