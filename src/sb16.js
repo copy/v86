@@ -1242,10 +1242,10 @@ SB16.prototype.audio_process = function(event)
         dbg_log("dac_buffer contains only " + Math.floor(100*this.dac_buffer.length/out.length) + "% of data needed", LOG_SB16);
     }
 
-    for(var i = 0; this.dac_buffer.length && i < out.length; i++)
+    for(var i = 0; i < out.length; i++)
     {
-        out0[i] = this.dac_buffer.shift();
-        out1[i] = (!!this.dac_buffer.length) * this.dac_buffer.shift();
+        out0[i] = this.dac_buffer.length > 0 && this.dac_buffer.shift();
+        out1[i] = this.dac_buffer.length > 0 && this.dac_buffer.shift();
     }
 
     if(this.dac_buffer.length - out.length < 0)
