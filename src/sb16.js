@@ -1128,6 +1128,11 @@ SB16.prototype.audio_process = function(event)
     var out0 = event.outputBuffer.getChannelData(0);
     var out1 = event.outputBuffer.getChannelData(1);
 
+    if(this.dac_buffer.length && this.dac_buffer.length < out.length)
+    {
+        dbg_log("dac_buffer contains only " + Math.floor(100*this.dac_buffer.length/out.length) + "% of data needed", LOG_SB16);
+    }
+
     for(var i = 0; this.dac_buffer.length && i < out.length; i++)
     {
         out0[i] = this.dac_buffer.shift();
