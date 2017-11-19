@@ -312,7 +312,7 @@ DMA.prototype.do_read = function(buffer, start, len, channel, fn)
 // start and len in bytes
 DMA.prototype.do_write = function(buffer, start, len, channel, fn)
 {
-    var read_count = this.channel_count[channel] + 1,
+    var read_count = (this.channel_count[channel] + 1) & 0xFFFF,
         read_bytes = read_count,
         addr = this.address_get_8bit(channel),
         unfinished = false,
