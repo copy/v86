@@ -10,6 +10,7 @@ function DMA(cpu)
     this.cpu = cpu;
 
     this.channel_page = new Uint8Array(8);
+    this.channel_pagehi = new Uint8Array(8);
     this.channel_addr = new Uint16Array(8);
     this.channel_addr_init = new Uint16Array(8);
     this.channel_count = new Uint16Array(8);
@@ -76,6 +77,22 @@ function DMA(cpu)
     io.register_read(0x89, this, this.port_page_read.bind(this, 6));
     io.register_read(0x8A, this, this.port_page_read.bind(this, 7));
 
+    io.register_write(0x487, this, this.port_pagehi_write.bind(this, 0));
+    io.register_write(0x483, this, this.port_pagehi_write.bind(this, 1));
+    io.register_write(0x481, this, this.port_pagehi_write.bind(this, 2));
+    io.register_write(0x482, this, this.port_pagehi_write.bind(this, 3));
+    io.register_write(0x48B, this, this.port_pagehi_write.bind(this, 5));
+    io.register_write(0x489, this, this.port_pagehi_write.bind(this, 6));
+    io.register_write(0x48A, this, this.port_pagehi_write.bind(this, 7));
+
+    io.register_read(0x487, this, this.port_pagehi_read.bind(this, 0));
+    io.register_read(0x483, this, this.port_pagehi_read.bind(this, 1));
+    io.register_read(0x481, this, this.port_pagehi_read.bind(this, 2));
+    io.register_read(0x482, this, this.port_pagehi_read.bind(this, 3));
+    io.register_read(0x48B, this, this.port_pagehi_read.bind(this, 5));
+    io.register_read(0x489, this, this.port_pagehi_read.bind(this, 6));
+    io.register_read(0x48A, this, this.port_pagehi_read.bind(this, 7));
+
     io.register_write(0x0A, this, this.port_singlemask_write.bind(this, 0));
     io.register_write(0xD4, this, this.port_singlemask_write.bind(this, 4));
     io.register_write(0x0F, this, this.port_multimask_write.bind(this, 0));
@@ -139,6 +156,18 @@ DMA.prototype.port_addr_read = function(channel)
 {
     dbg_log("addr read [" + channel + "] -> " + h(this.channel_addr[channel]), LOG_DMA);
     return this.flipflop_read(this.channel_addr[channel]);
+}
+
+DMA.prototype.port_pagehi_write = function(channel, data_byte)
+{
+    dbg_log("pagehi write [" + channel + "] = " + h(data_byte), LOG_DMA);
+    this.channel_pagehi[channel] = data_byte;
+}
+
+DMA.prototype.port_pagehi_read = function(channel)
+{
+    dbg_log("pagehi read [" + channel + "]", LOG_DMA);
+    return this.channel_pagehi[channel];
 }
 
 DMA.prototype.port_page_write = function(channel, data_byte)
@@ -388,6 +417,7 @@ DMA.prototype.address_get_8bit = function(channel)
 
     addr &= 0xFFFF;
     addr |= this.channel_page[channel] << 16;
+    addr |= this.channel_pagehi[channel] << 24;
 
     return addr;
 }
