@@ -359,7 +359,7 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
         }
 
         buffer.set(start,
-                this.cpu.mem8.subarray(addr, addr + read_count),
+                this.cpu.mem8.subarray(addr, addr + read_bytes),
                 () =>
                 {
                     if(want_more && autoinit)
