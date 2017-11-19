@@ -1140,12 +1140,14 @@ SB16.prototype.audio_process = function(event)
 
 SB16.prototype.raise_irq = function(type)
 {
+    dbg_log("raise irq", LOG_SB16);
     this.irq_triggered[type] = 1;
     this.cpu.device_raise_irq(this.irq);
 }
 
 SB16.prototype.lower_irq = function(type)
 {
+    dbg_log("lower irq", LOG_SB16);
     this.irq_triggered[type] = 0;
     this.cpu.device_lower_irq(this.irq);
 }
