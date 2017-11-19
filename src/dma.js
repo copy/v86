@@ -12,8 +12,8 @@ function DMA(cpu)
     this.channel_page = new Uint8Array(8);
     this.channel_addr = new Uint16Array(8);
     this.channel_addr_init = new Uint16Array(8);
-    this.channel_count = new Int32Array(8);
-    this.channel_count_init = new Int32Array(8);
+    this.channel_count = new Uint16Array(8);
+    this.channel_count_init = new Uint16Array(8);
     this.channel_mask = new Uint8Array(8);
     this.channel_mode = new Uint8Array(8);
     this.channel_on_unmask = [];
@@ -316,6 +316,7 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
         read_bytes = read_count,
         addr = this.address_get_8bit(channel),
         unfinished = false,
+        want_more = false,
         autoinit = this.channel_mode[channel] & 0x10;
 
     if(channel >= 5)
@@ -336,6 +337,7 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
     else if(len > read_bytes)
     {
         dbg_log("DMA attempted to read more than provided", LOG_DMA);
+        want_more = true;
     }
 
     if(start + read_bytes > buffer.byteLength)
@@ -351,14 +353,24 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
 
         if(!unfinished && autoinit)
         {
+            dbg_log("DMA autoinit", LOG_DMA);
             this.channel_addr[channel] = this.channel_addr_init[channel];
             this.channel_count[channel] = this.channel_count_init[channel];
         }
 
         buffer.set(start,
                 this.cpu.mem8.subarray(addr, addr + read_count),
-                function() {
-                    fn(false);
+                () =>
+                {
+                    if(want_more && autoinit)
+                    {
+                        dbg_log("DMA continuing from start", LOG_DMA);
+                        this.do_write(buffer, start, len - read_bytes, channel, fn);
+                    }
+                    else
+                    {
+                        fn(false);
+                    }
                 }
             );
     }
