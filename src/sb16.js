@@ -6,7 +6,7 @@ var
 /** @const */ DSP_BUFSIZE = 64,
 /** @const */ DSP_DACSIZE = 65536,
 /** @const */ DMA_BUFSIZE = 65536,
-/** @const */ DMA_BLOCK_SAMPLES = 1024,
+/** @const */ DMA_BLOCK_SAMPLES = 2048,
 /** @const */ DMA_CHANNEL_8BIT = 1, // (ISA DMA standard sound card channels)
 /** @const */ DMA_CHANNEL_16BIT = 5,
 /** @const */ SB_IRQ = 5,
@@ -1177,6 +1177,7 @@ SB16.prototype.dma_transfer_start = function()
 SB16.prototype.dma_transfer_next = function()
 {
     if(!this.dma_bytes_left) return;
+    if(this.dac_buffer.length > DMA_BLOCK_SAMPLES * 2) return;
     dbg_log("dma transfering next block", LOG_SB16);
 
     var size = Math.min(this.dma_bytes_left, this.dma_bytes_block);
@@ -1199,6 +1200,9 @@ SB16.prototype.dma_transfer_next = function()
                 this.dma_bytes_left = this.dma_bytes_count;
             }
         }
+
+        // keep transfering until dac_buffer contains enough data
+        setTimeout(() => { this.dma_transfer_next(); }, 0);
     });
 }
 
@@ -1237,9 +1241,9 @@ SB16.prototype.audio_process = function(event)
     var out0 = event.outputBuffer.getChannelData(0);
     var out1 = event.outputBuffer.getChannelData(1);
 
-    if(this.dac_buffer.length && this.dac_buffer.length < out.length)
+    if(this.dac_buffer.length && this.dac_buffer.length < out.length * 2)
     {
-        dbg_log("dac_buffer contains only " + Math.floor(100*this.dac_buffer.length/out.length) + "% of data needed", LOG_SB16);
+        dbg_log("dac_buffer contains only " + Math.floor(100*this.dac_buffer.length/out.length/2) + "% of data needed", LOG_SB16);
     }
 
     for(var i = 0; i < out.length; i++)
@@ -1248,10 +1252,7 @@ SB16.prototype.audio_process = function(event)
         out1[i] = this.dac_buffer.length > 0 && this.dac_buffer.shift();
     }
 
-    if(this.dac_buffer.length - out.length < 0)
-    {
-        setTimeout(() => { this.dma_transfer_next(); }, 0);
-    }
+    setTimeout(() => { this.dma_transfer_next(); }, 0);
 }
 
 SB16.prototype.raise_irq = function(type)
