@@ -50,6 +50,18 @@ function SpeakerAdapter(bus)
         this.beep_frequency = OSCILLATOR_FREQ * 1000 / pit.counter_reload[2];
         this.beep_update();
     }, this);
+
+    this.debug_dac = false;
+    this.debug_dac_out = [];
+    window["speaker_debug_dac_out"] = this.debug_dac_out;
+    window["speaker_debug_start"] = () =>
+    {
+        this.debug_dac = true;
+        setTimeout(() =>
+        {
+            this.debug_dac = false;
+        },250);
+    }
 }
 
 SpeakerAdapter.prototype.beep_update = function()
@@ -76,4 +88,8 @@ SpeakerAdapter.prototype.dac_process = function(event)
 {
     this.bus.send("speaker-samplerate", this.audio_context.sampleRate);
     this.bus.send("speaker-process", event);
+    if(this.debug_dac)
+    {
+        this.debug_dac_out.push(event.outputBuffer.getChannelData(0).slice());
+    }
 }
