@@ -787,8 +787,6 @@
         $("runtime_infos").style.display = "block";
         $("screen_container").style.display = "block";
 
-        document.getElementsByClassName("phone_keyboard")[0].style.display = "block";
-
         if(settings.filesystem)
         {
             init_filesystem_panel(emulator);
@@ -1196,6 +1194,18 @@
                 }
             }
         };
+
+        const phone_keyboard = document.getElementsByClassName("phone_keyboard")[0];
+
+        phone_keyboard.setAttribute("autocorrect", "off");
+        phone_keyboard.setAttribute("autocapitalize", "off");
+        phone_keyboard.setAttribute("spellcheck", "false");
+        phone_keyboard.tabIndex = 0;
+
+        $("screen_container").addEventListener("mousedown", (e) =>
+        {
+            phone_keyboard.focus();
+        }, false);
 
         $("take_screenshot").onclick = function()
         {
