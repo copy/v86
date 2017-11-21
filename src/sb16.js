@@ -1,22 +1,45 @@
 "use strict";
 
 var
+
+    // Used for drivers to identify device (DSP command 0xE3).
 /** @const */ DSP_COPYRIGHT = "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 1992.",
+
+    // Value of the current DSP command that indicates that the
+    // next command/data write in port 2xC should be interpreted
+    // as a command number.
 /** @const */ DSP_NO_COMMAND = 0,
+
+    // Size (bytes) of the DSP write/read buffers
 /** @const */ DSP_BUFSIZE = 64,
+
+    // Size (bytes) of the buffer containing floating point linear PCM
+    // audio with the stereo channels interleaved.
 /** @const */ DSP_DACSIZE = 65536,
+
+    // Size (bytes) of the buffer in which DMA transfers are temporarily
+    // stored before being processed.
 /** @const */ DMA_BUFSIZE = 65536,
+
+    // Number of samples to attempt to retrieve per transfer.
 /** @const */ DMA_BLOCK_SAMPLES = 2048,
-/** @const */ DMA_CHANNEL_8BIT = 1, // (ISA DMA standard sound card channels)
+
+    // Default DMA channels.
+/** @const */ DMA_CHANNEL_8BIT = 1,
 /** @const */ DMA_CHANNEL_16BIT = 5,
+
+    // Default IRQ channel.
 /** @const */ SB_IRQ = 5,
+
+    // Indices to the irq_triggered register.
 /** @const */ SB_IRQ_8BIT  = 0x1,
 /** @const */ SB_IRQ_16BIT = 0x2,
 /** @const */ SB_IRQ_MIDI  = 0x1,
 /** @const */ SB_IRQ_MPU   = 0x4;
 
-// Probably inefficient, but it looks much nicer instead
-// of having a single large unorganised table.
+
+// Probably less efficient, but it's more maintainable, instead
+// of having a single large unorganised and decoupled table.
 var DSP_command_sizes = new Uint8Array(256);
 var DSP_command_handlers = [];
 var mixer_read_handlers = [];
@@ -59,14 +82,18 @@ function SB16(cpu, bus)
     this.dsp_16bit = false;
     this.dsp_signed = false;
 
-    // Direct mode DAC buffer and DMA DAC buffer.
-    // 4 bytes per sample:
-    // Left-Low, Left-High, Right-Low, Right-High
-    // Nah lets try using an array
-    // using Web Audio API format:
-    // between -1 and 1 doubles
-    // Two channels interleaved.
+    // DAC buffer.
+    // The final destination for audio data before being sent off
+    // to Web Audio APIs.
+    // Format:
+    // Floating precision linear PCM, nominal between -1 and 1.
+    // Interleaved two channels for stereo.
     this.dac_buffer = new Queue(DSP_DACSIZE);
+
+    // Number of repeated samples needed to approximate the
+    // emulated sample rate. TODO: This can be improved by
+    // doing some sort of sample rate conversion, or detuning,
+    // as it currently changes the pitch of every audio (slightly sharper).
     this.dac_rate_ratio = 2;
 
     // Direct Memory Access transfer info.
@@ -89,14 +116,14 @@ function SB16(cpu, bus)
     this.sampling_rate = 22050;
     this.bytes_per_sample = 1;
 
-    // DMA identification data
+    // DMA identification data.
     this.e2_value = 0xAA;
     this.e2_count = 0;
 
-    // ASP data: not understood by me
+    // ASP data: not understood by me.
     this.asp_registers = new Uint8Array(256);
 
-    // MPU
+    // MPU.
     this.mpu_read_buffer = new ByteQueue(DSP_BUFSIZE);
     this.mpu_read_buffer_lastvalue = 0;
 
@@ -104,9 +131,12 @@ function SB16(cpu, bus)
     this.irq = SB_IRQ;
     this.irq_triggered = new Uint8Array(0x10);
 
+    // Sample rate of the receiving end, i.e. the Web Audio Context.
     this.audio_samplerate = 48000;
 
+    // IO Ports.
     // http://homepages.cae.wisc.edu/~brodskye/sb16doc/sb16doc.html#DSPPorts
+    // https://pdos.csail.mit.edu/6.828/2011/readings/hardware/SoundBlaster.pdf
 
     cpu.io.register_read(0x220, this, this.port2x0_read);
     cpu.io.register_read(0x221, this, this.port2x1_read);
@@ -331,16 +361,19 @@ SB16.prototype.port2x0_read = function()
     dbg_log("220 read: fm music status port (unimplemented)", LOG_SB16);
     return 0xFF;
 }
+
 SB16.prototype.port2x1_read = function()
 {
     dbg_log("221 read: fm music data port (write only)", LOG_SB16);
     return 0xFF;
 }
+
 SB16.prototype.port2x2_read = function()
 {
     dbg_log("222 read: advanced fm music status port (unimplemented)", LOG_SB16);
     return 0xFF;
 }
+
 SB16.prototype.port2x3_read = function()
 {
     dbg_log("223 read: advanced music data port (write only)", LOG_SB16);
@@ -371,16 +404,19 @@ SB16.prototype.port2x6_read = function()
     dbg_log("226 read: (write only)", LOG_SB16);
     return 0xFF;
 }
+
 SB16.prototype.port2x7_read = function()
 {
     dbg_log("227 read: undocumented", LOG_SB16);
     return 0xFF;
 }
+
 SB16.prototype.port2x8_read = function()
 {
     dbg_log("228 read: fm music status port (unimplemented)", LOG_SB16);
     return 0xFF;
 }
+
 SB16.prototype.port2x9_read = function()
 {
     dbg_log("229 read: fm music data port (write only)", LOG_SB16);
@@ -449,14 +485,17 @@ SB16.prototype.port2x0_write = function(value)
 {
     dbg_log("220 write: fm music register address port (unimplemented)", LOG_SB16);
 }
+
 SB16.prototype.port2x1_write = function(value)
 {
     dbg_log("221 write: fm music data port (unimplemented)", LOG_SB16);
 }
+
 SB16.prototype.port2x2_write = function(value)
 {
     dbg_log("222 write: advanced fm music register address port (unimplemented)", LOG_SB16);
 }
+
 SB16.prototype.port2x3_write = function(value)
 {
     dbg_log("223 write: advanced fm music data port (unimplemented)", LOG_SB16);
@@ -486,6 +525,7 @@ SB16.prototype.port2x5_write = function(value)
 SB16.prototype.port2x6_write = function(yesplease)
 {
     dbg_log("226 write: reset = " + h(yesplease), LOG_SB16);
+
     if(this.dsp_highspeed)
     {
         dbg_log(" -> exit highspeed", LOG_SB16);
@@ -506,18 +546,22 @@ SB16.prototype.port2x7_write = function(value)
 {
     dbg_log("227 write: undocumented", LOG_SB16);
 }
+
 SB16.prototype.port2x8_write = function(value)
 {
     dbg_log("228 write: fm music register port (unimplemented)", LOG_SB16);
 }
+
 SB16.prototype.port2x9_write = function(value)
 {
     dbg_log("229 write: fm music data port (unimplemented)", LOG_SB16);
 }
+
 SB16.prototype.port2xA_write = function(value)
 {
     dbg_log("22A write: dsp read data port (read only)", LOG_SB16);
 }
+
 SB16.prototype.port2xB_write = function(value)
 {
     dbg_log("22B write: undocumented", LOG_SB16);
@@ -528,6 +572,7 @@ SB16.prototype.port2xB_write = function(value)
 SB16.prototype.port2xC_write = function(value)
 {
     dbg_log("22C write: write command/data", LOG_SB16);
+
     if(this.command === DSP_NO_COMMAND)
     {
         // New command.
@@ -538,6 +583,7 @@ SB16.prototype.port2xC_write = function(value)
     }
     else
     {
+        // More data for current command.
         dbg_log("22C write: data: " + h(value), LOG_SB16);
         this.write_buffer.push(value);
     }
@@ -548,14 +594,17 @@ SB16.prototype.port2xC_write = function(value)
         this.command_do();
     }
 }
+
 SB16.prototype.port2xD_write = function(value)
 {
     dbg_log("22D write: undocumented", LOG_SB16);
 }
+
 SB16.prototype.port2xE_write = function(value)
 {
     dbg_log("22E write: dsp read buffer status (read only)", LOG_SB16);
 }
+
 SB16.prototype.port2xF_write = function(value)
 {
     dbg_log("22F write: undocumented", LOG_SB16);
@@ -876,12 +925,14 @@ register_dsp_command(any_first_digit(0xC0), 3, function()
 register_dsp_command([0xD0], 0);
 
 // Turn on speaker.
+// Documented to have no effect on SB16.
 register_dsp_command([0xD1], 0, function()
 {
     this.dummy_speaker_enabled = true;
 });
 
 // Turn off speaker.
+// Documented to have no effect on SB16.
 register_dsp_command([0xD3], 0, function()
 {
     this.dummy_speaker_enabled = false;
@@ -925,7 +976,7 @@ register_dsp_command([0xE1], 0, function()
     this.read_buffer.push(5);
 });
 
-// DMA identification - based completely from dosbox
+// DMA identification - based completely off dosbox
 /** @const */ var SB_E2_SIGNS = [1, -1, -1, 1];
 /** @const */ var SB_E2_EXTRA = [-106, 165, -151, 90];
 register_dsp_command([0xE2], 1, function()
@@ -1156,6 +1207,8 @@ SB16.prototype.dma_transfer_start = function()
 {
     dbg_log("begin dma transfer", LOG_SB16);
 
+    // (1) Setup appropriate settings.
+
     this.bytes_per_sample = 1;
     if(this.dsp_16bit) this.bytes_per_sample *= 2;
     if(this.dsp_stereo) this.bytes_per_sample *= 2;
@@ -1164,6 +1217,9 @@ SB16.prototype.dma_transfer_start = function()
 
     this.dma_bytes_count = this.dma_sample_count * this.bytes_per_sample;
     this.dma_bytes_block = DMA_BLOCK_SAMPLES * this.bytes_per_sample;
+
+    // (2) Configure amount of bytes left to transfer and begin first
+    // block of transfer when the DMA channel has been unmasked.
 
     this.dma.on_unmask(this.dma_channel, () =>
     {
@@ -1176,8 +1232,15 @@ SB16.prototype.dma_transfer_start = function()
 
 SB16.prototype.dma_transfer_next = function()
 {
+    // No more data to transfer.
     if(!this.dma_bytes_left) return;
+
+    // DAC has enough samples buffered for now.
+    // Don't transfer too much too early, or else the DMA counters will not
+    // accurately reflect the amount of audio that has already been
+    // played back by the Web Audio API.
     if(this.dac_buffer.length > DMA_BLOCK_SAMPLES * 2) return;
+
     dbg_log("dma transfering next block", LOG_SB16);
 
     var size = Math.min(this.dma_bytes_left, this.dma_bytes_block);
@@ -1193,15 +1256,17 @@ SB16.prototype.dma_transfer_next = function()
 
         if(!this.dma_bytes_left)
         {
+            // Completed requested transfer of given size.
             this.raise_irq(this.dma_irq);
 
             if(this.dma_autoinit)
             {
+                // Restart the transfer.
                 this.dma_bytes_left = this.dma_bytes_count;
             }
         }
 
-        // keep transfering until dac_buffer contains enough data
+        // Keep transfering until dac_buffer contains enough data.
         setTimeout(() => { this.dma_transfer_next(); }, 0);
     });
 }
@@ -1276,5 +1341,8 @@ function audio_normalize(value, amplitude, offset)
 
 function audio_clip(value, low, high)
 {
-    return (value < low) * low + (value > high) * high + (low <= value && value <= high) * value;
+    return
+        (value < low) * low
+      + (value > high) * high
+      + (low <= value && value <= high) * value;
 }
