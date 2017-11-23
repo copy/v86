@@ -1341,8 +1341,7 @@ function audio_normalize(value, amplitude, offset)
 
 function audio_clip(value, low, high)
 {
-    return
-        (value < low) * low
-      + (value > high) * high
-      + (low <= value && value <= high) * value;
+    return (value < low) * low 
+        +  (value > high) * high
+        +  (low <= value && value <= high) * value;
 }
