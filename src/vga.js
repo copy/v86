@@ -101,6 +101,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.latch1 = 0;
     this.latch2 = 0;
     this.latch3 = 0;
+    this.latch_dword = 0;
 
 
     /** @type {number} */
@@ -185,6 +186,11 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.planar_mode = 0;
     this.planar_rotate_reg = 0;
     this.planar_bitmap = 0xFF;
+    this.planar_bitmap_dword = 0xFFFFFFFF;
+    this.planar_setreset = 0;
+    this.planar_setreset_dword = 0;
+    this.planar_setreset_enable = 0;
+    this.planar_setreset_enable_dword = 0;
 
     this.max_scan_line = 0;
 
@@ -405,6 +411,8 @@ VGAScreen.prototype.set_state = function(state)
 
 VGAScreen.prototype.vga_memory_read = function(addr)
 {
+    dbg_log("vga memory read", LOG_VGA);
+
     addr -= 0xA0000;
 
     if(!this.graphical_mode || this.graphical_mode_is_linear)
@@ -424,6 +432,11 @@ VGAScreen.prototype.vga_memory_read = function(addr)
     this.latch1 = this.plane1[addr];
     this.latch2 = this.plane2[addr];
     this.latch3 = this.plane3[addr];
+    this.latch_dword = 0;
+    this.latch_dword |= this.plane0[addr] << 0;
+    this.latch_dword |= this.plane1[addr] << 8;
+    this.latch_dword |= this.plane2[addr] << 16;
+    this.latch_dword |= this.plane3[addr] << 24;
 
     return this.vga_memory[this.plane_read << 16 | addr];
 };
@@ -466,146 +479,50 @@ VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
         return;
     }
 
-    // TODO:
-    // Replace 4 byte operations with single double word operations
-
-    var write,
-        plane0_byte,
-        plane1_byte,
-        plane2_byte,
-        plane3_byte;
-
-    var write_mode = this.planar_mode & 3;
+    var plane_dword,
+        write_mode = this.planar_mode & 3,
+        bitmask = this.planar_bitmap_dword;
 
     // not implemented:
-    // - Planar mode 3
-    // - Rotation
     // - Shift mode
     // - Host Odd/Even
-    dbg_assert((this.planar_rotate_reg & 7) === 0, "unimplemented");
-    dbg_assert(write_mode !== 3, "unimplemented");
     dbg_assert((this.planar_mode & 0x70)  === 0, "unimplemented");
 
-    if(write_mode === 0)
+    // Write modes - see http://www.osdever.net/FreeVGA/vga/graphreg.htm#05
+    switch(write_mode)
     {
-        plane0_byte = plane1_byte = plane2_byte = plane3_byte = value;
-    }
-    else if(write_mode === 2)
-    {
-        if(this.plane_write_bm & 1)
-        {
-            write = value & 1 ? 0xFF : 0;
-            plane0_byte = this.latch0 & ~this.planar_bitmap | write & this.planar_bitmap;
-        }
-        if(this.plane_write_bm & 2)
-        {
-            write = value & 2 ? 0xFF : 0;
-            plane1_byte = this.latch1 & ~this.planar_bitmap | write & this.planar_bitmap;
-        }
-        if(this.plane_write_bm & 4)
-        {
-            write = value & 4 ? 0xFF : 0;
-            plane2_byte = this.latch2 & ~this.planar_bitmap | write & this.planar_bitmap;
-        }
-        if(this.plane_write_bm & 8)
-        {
-            write = value & 8 ? 0xFF : 0;
-            plane3_byte = this.latch3 & ~this.planar_bitmap | write & this.planar_bitmap;
-        }
+        case 0:
+            value = this.apply_rotate(value);
+            plane_dword = this.apply_feed(value);
+            plane_dword = this.apply_setreset(plane_dword, this.planar_setreset_enable_dword);
+            plane_dword = this.apply_logical(plane_dword, this.latch_dword);
+            plane_dword = this.apply_bitmask(plane_dword, bitmask);
+            break;
+
+        case 1:
+            plane_dword = this.latch_dword;
+            break;
+
+        case 2:
+            plane_dword = this.apply_expand(value);
+            plane_dword = this.apply_logical(plane_dword, this.latch_dword);
+            plane_dword = this.apply_bitmask(plane_dword, bitmask);
+            break;
+
+        case 3:
+            value = this.apply_rotate(value);
+            bitmask &= this.apply_expand(value);
+            plane_dword = this.planar_setreset_dword;
+            plane_dword = this.apply_bitmask(plane_dword, bitmask);
+            break;
     }
 
-    if(write_mode === 0 || write_mode === 2)
-    {
-        switch(this.planar_rotate_reg & 0x18)
-        {
-            case 0x08:
-                plane0_byte &= this.latch0;
-                plane1_byte &= this.latch1;
-                plane2_byte &= this.latch2;
-                plane3_byte &= this.latch3;
-                break;
-            case 0x10:
-                plane0_byte |= this.latch0;
-                plane1_byte |= this.latch1;
-                plane2_byte |= this.latch2;
-                plane3_byte |= this.latch3;
-                break;
-            case 0x18:
-                plane0_byte ^= this.latch0;
-                plane1_byte ^= this.latch1;
-                plane2_byte ^= this.latch2;
-                plane3_byte ^= this.latch3;
-                break;
-        }
-
-        if(this.plane_write_bm & 1)
-        {
-            plane0_byte = this.latch0 & ~this.planar_bitmap | plane0_byte & this.planar_bitmap;
-        }
-        if(this.plane_write_bm & 2)
-        {
-            plane1_byte = this.latch1 & ~this.planar_bitmap | plane1_byte & this.planar_bitmap;
-        }
-        if(this.plane_write_bm & 4)
-        {
-            plane2_byte = this.latch2 & ~this.planar_bitmap | plane2_byte & this.planar_bitmap;
-        }
-        if(this.plane_write_bm & 8)
-        {
-            plane3_byte = this.latch3 & ~this.planar_bitmap | plane3_byte & this.planar_bitmap;
-        }
-    }
-    else if(write_mode === 1)
-    {
-        plane0_byte = this.latch0;
-        plane1_byte = this.latch1;
-        plane2_byte = this.latch2;
-        plane3_byte = this.latch3;
-    }
-
-    if(this.plane_write_bm & 1)
-    {
-        this.plane0[addr] = plane0_byte;
-    }
-    else
-    {
-        plane0_byte = this.plane0[addr];
-    }
-    if(this.plane_write_bm & 2)
-    {
-        this.plane1[addr] = plane1_byte;
-    }
-    else
-    {
-        plane1_byte = this.plane1[addr];
-    }
-    if(this.plane_write_bm & 4)
-    {
-        this.plane2[addr] = plane2_byte;
-    }
-    else
-    {
-        plane2_byte = this.plane2[addr];
-    }
-    if(this.plane_write_bm & 8)
-    {
-        this.plane3[addr] = plane3_byte;
-    }
-    else
-    {
-        plane3_byte = this.plane3[addr];
-    }
+    this.plane_update(addr, plane_dword);
 
     if(addr >= (this.screen_width * this.screen_height << 3))
     {
         return;
     }
-
-    // Shift these, so that the bits for the color are in
-    // the correct position in the for loop
-    plane1_byte <<= 1;
-    plane2_byte <<= 2;
-    plane3_byte <<= 3;
 
     // 8 pixels per byte, we start at high (addr << 3 | 7)
     var offset = (addr << 3 | 7);
@@ -614,19 +531,137 @@ VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
     this.diff_addr_min = actual_buffer_addr - 7 < this.diff_addr_min ? actual_buffer_addr - 7 : this.diff_addr_min;
     this.diff_addr_max = actual_buffer_addr > this.diff_addr_max ? actual_buffer_addr : this.diff_addr_max;
 
+    // 256 color shift mode
+    // see http://www.osdever.net/FreeVGA/vga/vgaseq.htm
+    var plane0_feed = this.plane0[addr] << 0;
+    var plane1_feed = this.plane1[addr] << 1;
+    var plane2_feed = this.plane2[addr] << 2;
+    var plane3_feed = this.plane3[addr] << 3;
+
     for(var i = 0; i < 8; i++)
     {
         var color_index =
-                plane0_byte >> i & 1 |
-                plane1_byte >> i & 2 |
-                plane2_byte >> i & 4 |
-                plane3_byte >> i & 8,
+                plane0_feed >> i & 1 |
+                plane1_feed >> i & 2 |
+                plane2_feed >> i & 4 |
+                plane3_feed >> i & 8,
             color = this.dac_map[color_index];
 
         this.svga_memory[offset + VGA_PLANAR_REAL_BUFFER_START] = color;
 
         offset--;
     }
+};
+
+/**
+ * Copies data_byte into the four planes, with each plane
+ * represented by an 8-bit field inside the dword.
+ * @param {number} data_byte
+ * @return {number} 32-bit number representing the bytes for each plane.
+ */
+VGAScreen.prototype.apply_feed = function(data_byte)
+{
+    var dword = 0;
+    dword |= data_byte << 0;
+    dword |= data_byte << 8;
+    dword |= data_byte << 16;
+    dword |= data_byte << 24;
+    return dword;
+}
+
+/**
+ * Expands bits 0 to 3 to ocupy bits 0 to 31. Each
+ * bit is expanded to 0xFF if set or 0x00 if clear.
+ * @param {number} data_byte
+ * @return {number} 32-bit number representing the bytes for each plane.
+ */
+VGAScreen.prototype.apply_expand = function(data_byte)
+{
+    var dword = 0;
+    dword |= (data_byte & 0x1 ? 0xFF : 0x00) << 0;
+    dword |= (data_byte & 0x2 ? 0xFF : 0x00) << 8;
+    dword |= (data_byte & 0x4 ? 0xFF : 0x00) << 16;
+    dword |= (data_byte & 0x8 ? 0xFF : 0x00) << 24;
+    return dword;
+}
+
+/**
+ * Planar Write - Barrel Shifter
+ * @param {number} data_byte
+ * @return {number}
+ * @see {@link http://www.phatcode.net/res/224/files/html/ch25/25-01.html#Heading3}
+ * @see {@link http://www.osdever.net/FreeVGA/vga/graphreg.htm#03}
+ */
+VGAScreen.prototype.apply_rotate = function(data_byte)
+{
+    var wrapped = data_byte | (data_byte << 8),
+        count = this.planar_rotate_reg & 0x7,
+        shifted = wrapped >>> count;
+    return shifted & 0xFF;
+};
+
+/**
+ * Planar Write - Set / Reset Circuitry
+ * @param {number} data_dword
+ * @param {number} enable_dword
+ * @return {number}
+ * @see {@link http://www.phatcode.net/res/224/files/html/ch25/25-03.html#Heading5}
+ * @see {@link http://www.osdever.net/FreeVGA/vga/graphreg.htm#00}
+ */
+VGAScreen.prototype.apply_setreset = function(data_dword, enable_dword)
+{
+    data_dword |=  enable_dword & this.planar_setreset_dword;
+    data_dword &= ~enable_dword | this.planar_setreset_dword;
+    return data_dword;
+};
+
+/**
+ * Planar Write - ALU Unit
+ * @param {number} data_dword
+ * @param {number} latch_dword
+ * @return {number}
+ * @see {@link http://www.phatcode.net/res/224/files/html/ch24/24-01.html#Heading3}
+ * @see {@link http://www.osdever.net/FreeVGA/vga/graphreg.htm#03}
+ */
+VGAScreen.prototype.apply_logical = function(data_dword, latch_dword)
+{
+    switch(this.planar_rotate_reg & 0x18)
+    {
+        case 0x08:
+            return data_dword & latch_dword;
+        case 0x10:
+            return data_dword | latch_dword;
+        case 0x18:
+            return data_dword ^ latch_dword;
+    }
+    return data_dword;
+};
+
+/**
+ * Planar Write - Bitmask Unit
+ * @param {number} data_dword
+ * @param {number} bitmask_dword
+ * @return {number}
+ * @see {@link http://www.phatcode.net/res/224/files/html/ch25/25-01.html#Heading2}
+ * @see {@link http://www.osdever.net/FreeVGA/vga/graphreg.htm#08}
+ */
+VGAScreen.prototype.apply_bitmask = function(data_dword, bitmask_dword)
+{
+    var plane_dword = 0;
+    plane_dword |=  bitmask_dword & data_dword;
+    plane_dword |= ~bitmask_dword & this.latch_dword;
+    return plane_dword;
+};
+
+/**
+ * @see {@link http://www.osdever.net/FreeVGA/vga/seqreg.htm#02}
+ */
+VGAScreen.prototype.plane_update = function(addr, plane_dword)
+{
+    if(this.plane_write_bm & 0x1) this.plane0[addr] = (plane_dword >>  0) & 0xFF;
+    if(this.plane_write_bm & 0x2) this.plane1[addr] = (plane_dword >>  8) & 0xFF;
+    if(this.plane_write_bm & 0x4) this.plane2[addr] = (plane_dword >> 16) & 0xFF;
+    if(this.plane_write_bm & 0x8) this.plane3[addr] = (plane_dword >> 24) & 0xFF;
 };
 
 VGAScreen.prototype.text_mode_redraw = function()
@@ -1006,9 +1041,16 @@ VGAScreen.prototype.port3CF_write = function(value)
     switch(this.graphics_index)
     {
         // TODO: Set/Reset bit
-        //case 0:
-        //case 1:
-            //break;
+        case 0:
+            this.planar_setreset = value;
+            this.planar_setreset_dword = this.apply_expand(value);
+            dbg_log("plane set/reset: " + h(value), LOG_VGA);
+            break;
+        case 1:
+            this.planar_setreset_enable = value;
+            this.planar_setreset_enable_dword = this.apply_expand(value);
+            dbg_log("plane set/reset enable: " + h(value), LOG_VGA);
+            break;
         case 3:
             this.planar_rotate_reg = value;
             dbg_log("plane rotate: " + h(value), LOG_VGA);
@@ -1024,6 +1066,7 @@ VGAScreen.prototype.port3CF_write = function(value)
             break;
         case 8:
             this.planar_bitmap = value;
+            this.planar_bitmap_dword = this.apply_feed(value);
             dbg_log("planar bitmap: " + h(value), LOG_VGA);
             break;
         default:
@@ -1037,6 +1080,10 @@ VGAScreen.prototype.port3CF_read = function()
 
     switch(this.graphics_index)
     {
+        case 0:
+            return this.planar_setreset;
+        case 1:
+            return this.planar_setreset_enable;
         case 3:
             return this.planar_rotate_reg;
         case 4:
