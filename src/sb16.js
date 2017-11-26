@@ -463,7 +463,7 @@ SB16.prototype.port2xD_read = function()
 SB16.prototype.port2xE_read = function()
 {
     dbg_log("22E read: read-buffer status / irq 8bit ack.", LOG_SB16);
-    if(this.irq_triggered_8bit)
+    if(this.irq_triggered[SB_IRQ_8BIT])
     {
         this.lower_irq(SB_IRQ_8BIT);
     }
@@ -475,7 +475,6 @@ SB16.prototype.port2xE_read = function()
 SB16.prototype.port2xF_read = function()
 {
     dbg_log("22F read: irq 16bit ack", LOG_SB16);
-    this.irq_triggered_16bit = false;
     this.lower_irq(SB_IRQ_16BIT);
     return 0;
 }
