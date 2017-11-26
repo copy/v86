@@ -22,7 +22,7 @@ var
 /** @const */ DMA_BUFSIZE = 65536,
 
     // Number of samples to attempt to retrieve per transfer.
-/** @const */ DMA_BLOCK_SAMPLES = 512,
+/** @const */ DMA_BLOCK_SAMPLES = 1024,
 
     // Default DMA channels.
 /** @const */ DMA_CHANNEL_8BIT = 1,
