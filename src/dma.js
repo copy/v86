@@ -354,17 +354,12 @@ DMA.prototype.do_read = function(buffer, start, len, channel, fn)
 DMA.prototype.do_write = function(buffer, start, len, channel, fn)
 {
     var read_count = (this.channel_count[channel] + 1) & 0xFFFF,
-        read_bytes = read_count,
+        bytes_per_count = channel >= 5 ? 2 : 1,
+        read_bytes = read_count * bytes_per_count,
         addr = this.address_get_8bit(channel),
         unfinished = false,
         want_more = false,
         autoinit = this.channel_mode[channel] & 0x10;
-
-    if(channel >= 5)
-    {
-        // convert word count to byte count
-        read_bytes *= 2;
-    }
 
     dbg_log("DMA write channel " + channel, LOG_DMA);
     dbg_log("to " + h(addr) + " len " + h(read_bytes), LOG_DMA);
@@ -372,7 +367,8 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
     if(len < read_bytes)
     {
         dbg_log("DMA should read more than provided", LOG_DMA);
-        read_bytes = len;
+        read_count = Math.floor(len / bytes_per_count);
+        read_bytes = read_count * bytes_per_count;
         unfinished = true;
     }
     else if(len > read_bytes)
@@ -406,7 +402,7 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
                     if(want_more && autoinit)
                     {
                         dbg_log("DMA continuing from start", LOG_DMA);
-                        this.do_write(buffer, start, len - read_bytes, channel, fn);
+                        this.do_write(buffer, start + read_bytes, len - read_bytes, channel, fn);
                     }
                     else
                     {
