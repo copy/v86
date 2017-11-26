@@ -1217,7 +1217,12 @@ SB16.prototype.dma_transfer_start = function()
 
     this.bytes_per_sample = 1;
     if(this.dsp_16bit) this.bytes_per_sample *= 2;
-    if(this.dsp_stereo) this.bytes_per_sample *= 2;
+
+    // Don't count stereo interleaved bits apparently.
+    // Disabling this line is needed for sounds to work correctly,
+    // especially double buffering autoinit mode.
+    // Learnt the hard way.
+    // if(this.dsp_stereo) this.bytes_per_sample *= 2;
 
     this.dac_rate_ratio = Math.round(this.audio_samplerate / this.sampling_rate);
 
