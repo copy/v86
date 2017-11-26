@@ -828,6 +828,10 @@ register_dsp_command([0x41, 0x42], 2, function()
 // Set DSP block transfer size.
 register_dsp_command([0x48], 2, function()
 {
+    // TODO: should be in bytes, but if this is only used
+    // for 8 bit transfers, then this number is the same
+    // as number of samples?
+    // Wrong: e.g. stereo requires two bytes per sample.
     this.dma_transfer_size_set();
 });
 
