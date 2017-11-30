@@ -303,7 +303,12 @@ static void instr_0F0D() {
 static void instr_0F0E() { undefined_instruction(); }
 static void instr_0F0F() { undefined_instruction(); }
 
-static void instr_0F10() { unimplemented_sse(); }
+static void instr_0F10(union reg128 source, int32_t r) {
+    // movups xmm, xmm/m128
+    mov_rm_r128(source, r);
+}
+DEFINE_SSE_SPLIT(instr_0F10, safe_read128s, read_xmm128s)
+
 static void instr_0F11() { unimplemented_sse(); }
 static void instr_0F12_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_0F12_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
@@ -3475,7 +3480,15 @@ switch(opcode)
     break;
     case 0x10:
     {
-        instr_0F10();
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F10_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F10_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
     }
     break;
     case 0x11:
@@ -7820,7 +7833,15 @@ switch(opcode)
     break;
     case 0x10:
     {
-        instr_0F10();
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F10_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F10_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
     }
     break;
     case 0x11:

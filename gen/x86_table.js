@@ -401,6 +401,7 @@ const encodings = [
     // - Skipped are not implemented
     // - Missing are sse3+, and floating point
 
+    { opcode: 0x0F10, e: 1 },
     { opcode: 0x0F12, e: 1, skip: 1, },
     { opcode: 0x660F12, only_mem: 1, e: 1 },
     { opcode: 0xF20F12, e: 1, skip: 1, },
