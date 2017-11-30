@@ -576,18 +576,14 @@ static void instr_0F2B_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 static void instr_0F2B_mem(int32_t addr, int32_t r) {
     // movntps m128, xmm
     // XXX: Aligned write or #gp
-    task_switch_test_mmx();
-    union reg128 data = read_xmm128s(r);
-    safe_write128(addr, data);
+    mov_r_m128(addr, r);
 }
 
 static void instr_660F2B_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 static void instr_660F2B_mem(int32_t addr, int32_t r) {
     // movntpd m128, xmm
     // XXX: Aligned write or #gp
-    task_switch_test_mmx();
-    union reg128 data = read_xmm128s(r);
-    safe_write128(addr, data);
+    mov_r_m128(addr, r);
 }
 
 static void instr_0F2C_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
@@ -1761,9 +1757,7 @@ static void instr_0F7F_reg(int32_t r1, int32_t r2) {
 static void instr_660F7F_mem(int32_t addr, int32_t r) {
     // movdqa xmm/m128, xmm
     // XXX: Aligned write or #gp
-    task_switch_test_mmx();
-    union reg128 data = read_xmm128s(r);
-    safe_write128(addr, data);
+    mov_r_m128(addr, r);
 }
 static void instr_660F7F_reg(int32_t r1, int32_t r2) {
     // movdqa xmm/m128, xmm
@@ -1771,9 +1765,7 @@ static void instr_660F7F_reg(int32_t r1, int32_t r2) {
 }
 static void instr_F30F7F_mem(int32_t addr, int32_t r) {
     // movdqu xmm/m128, xmm
-    task_switch_test_mmx();
-    union reg128 data = read_xmm128s(r);
-    safe_write128(addr, data);
+    mov_r_m128(addr, r);
 }
 static void instr_F30F7F_reg(int32_t r1, int32_t r2) {
     // movdqu xmm/m128, xmm
@@ -2762,9 +2754,7 @@ static void instr_0FE7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 static void instr_660FE7_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 static void instr_660FE7_mem(int32_t addr, int32_t r) {
     // movntdq m128, xmm
-    task_switch_test_mmx();
-    union reg128 data = read_xmm128s(r);
-    safe_write128(addr, data);
+    mov_r_m128(addr, r);
 }
 
 static void instr_0FE8(union reg64 source, int32_t r) {
