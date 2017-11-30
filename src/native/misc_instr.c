@@ -427,3 +427,10 @@ void mov_r_m128(int32_t addr, int32_t r)
     union reg128 data = read_xmm128s(r);
     safe_write128(addr, data);
 }
+
+void mov_rm_r128(union reg128 source, int32_t r)
+{
+    // mov* xmm, xmm/m128
+    task_switch_test_mmx();
+    write_xmm_reg128(r, source);
+}

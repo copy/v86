@@ -533,8 +533,7 @@ static void instr_0F27() { undefined_instruction(); }
 static void instr_0F28(union reg128 source, int32_t r) {
     // movaps xmm, xmm/m128
     // XXX: Aligned read or #gp
-    task_switch_test_mmx();
-    write_xmm_reg128(r, source);
+    mov_rm_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_0F28, safe_read128s, read_xmm128s)
 
@@ -542,8 +541,7 @@ static void instr_660F28(union reg128 source, int32_t r) {
     // movapd xmm, xmm/m128
     // XXX: Aligned read or #gp
     // Note: Same as movdqa (660F6F)
-    task_switch_test_mmx();
-    write_xmm_reg128(r, source);
+    mov_rm_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_660F28, safe_read128s, read_xmm128s)
 
@@ -1316,14 +1314,12 @@ DEFINE_SSE_SPLIT(instr_0F6F, safe_read64s, read_mmx64s)
 static void instr_660F6F(union reg128 source, int32_t r) {
     // movdqa xmm, xmm/mem128
     // XXX: Aligned read or #gp
-    task_switch_test_mmx();
-    write_xmm_reg128(r, source);
+    mov_rm_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_660F6F, safe_read128s, read_xmm128s)
 static void instr_F30F6F(union reg128 source, int32_t r) {
     // movdqu xmm, xmm/m128
-    task_switch_test_mmx();
-    write_xmm_reg128(r, source);
+    mov_rm_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_F30F6F, safe_read128s, read_xmm128s)
 
