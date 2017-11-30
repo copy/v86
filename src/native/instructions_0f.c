@@ -322,9 +322,7 @@ static void instr_F30F12_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
 static void instr_0F13_mem(int32_t addr, int32_t r) {
     // movlps m64, xmm
-    task_switch_test_mmx();
-    union reg64 data = read_xmm64s(r);
-    safe_write64(addr, data.u64[0]);
+    mov_r_m64(addr, r);
 }
 
 static void instr_0F13_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
@@ -332,9 +330,7 @@ static void instr_0F13_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 static void instr_660F13_reg(int32_t r1, int32_t r) { trigger_ud(); }
 static void instr_660F13_mem(int32_t addr, int32_t r) {
     // movlpd xmm/m64, xmm
-    task_switch_test_mmx();
-    union reg64 data = read_xmm64s(r);
-    safe_write64(addr, data.u64[0]);
+    mov_r_m64(addr, r);
 }
 
 static void instr_0F14_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
@@ -2433,9 +2429,7 @@ static void instr_0FD6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_0FD6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 static void instr_660FD6_mem(int32_t addr, int32_t r) {
     // movq xmm/m64, xmm
-    task_switch_test_mmx();
-    union reg64 data = read_xmm64s(r);
-    safe_write64(addr, data.u64[0]);
+    mov_r_m64(addr, r);
 }
 static void instr_660FD6_reg(int32_t r1, int32_t r2) {
     // movq xmm/m64, xmm

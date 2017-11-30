@@ -403,3 +403,11 @@ void xchg32r(int32_t r32)
     reg32s[EAX] = reg32s[r32];
     reg32s[r32] = tmp;
 }
+
+void mov_r_m64(int32_t addr, int32_t r)
+{
+    // mov* m64, xmm
+    task_switch_test_mmx();
+    union reg64 data = read_xmm64s(r);
+    safe_write64(addr, data.u64[0]);
+}
