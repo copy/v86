@@ -411,3 +411,11 @@ void mov_r_m64(int32_t addr, int32_t r)
     union reg64 data = read_xmm64s(r);
     safe_write64(addr, data.u64[0]);
 }
+
+void mov_r_r128(int32_t r1, int32_t r2)
+{
+    // mov* xmm, xmm
+    task_switch_test_mmx();
+    union reg128 data = read_xmm128s(r2);
+    write_xmm_reg128(r1, data);
+}

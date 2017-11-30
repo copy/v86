@@ -556,9 +556,7 @@ static void instr_0F29_mem(int32_t addr, int32_t r) {
 }
 static void instr_0F29_reg(int32_t r1, int32_t r2) {
     // movaps xmm, xmm
-    task_switch_test_mmx();
-    union reg128 data = read_xmm128s(r2);
-    write_xmm_reg128(r1, data);
+    mov_r_r128(r1, r2);
 }
 static void instr_660F29_mem(int32_t addr, int32_t r) {
     // movapd m128, xmm
@@ -569,9 +567,7 @@ static void instr_660F29_mem(int32_t addr, int32_t r) {
 }
 static void instr_660F29_reg(int32_t r1, int32_t r2) {
     // movapd xmm, xmm
-    task_switch_test_mmx();
-    union reg128 data = read_xmm128s(r2);
-    write_xmm_reg128(r1, data);
+    mov_r_r128(r1, r2);
 }
 
 static void instr_0F2A() { unimplemented_sse(); }
@@ -1771,9 +1767,7 @@ static void instr_660F7F_mem(int32_t addr, int32_t r) {
 }
 static void instr_660F7F_reg(int32_t r1, int32_t r2) {
     // movdqa xmm/m128, xmm
-    task_switch_test_mmx();
-    union reg128 data = read_xmm128s(r2);
-    write_xmm_reg128(r1, data);
+    mov_r_r128(r1, r2);
 }
 static void instr_F30F7F_mem(int32_t addr, int32_t r) {
     // movdqu xmm/m128, xmm
@@ -1783,9 +1777,7 @@ static void instr_F30F7F_mem(int32_t addr, int32_t r) {
 }
 static void instr_F30F7F_reg(int32_t r1, int32_t r2) {
     // movdqu xmm/m128, xmm
-    task_switch_test_mmx();
-    union reg128 data = read_xmm128s(r2);
-    write_xmm_reg128(r1, data);
+    mov_r_r128(r1, r2);
 }
 
 // jmpcc
