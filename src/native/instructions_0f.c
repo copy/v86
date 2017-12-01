@@ -323,6 +323,12 @@ static void instr_F30F10_mem(int32_t addr, int32_t r) {
     write_xmm128(r, data, 0, 0, 0);
 }
 
+static void instr_660F10(union reg128 source, int32_t r) {
+    // movupd xmm, xmm/m128
+    mov_rm_r128(source, r);
+}
+DEFINE_SSE_SPLIT(instr_660F10, safe_read128s, read_xmm128s)
+
 static void instr_0F11_reg(int32_t r1, int32_t r2) {
     // movups xmm/m128, xmm
     mov_r_r128(r1, r2);
@@ -3530,7 +3536,18 @@ switch(opcode)
     {
         int32_t modrm_byte = read_imm8();
         int32_t prefixes_ = *prefixes;
-        if(prefixes_ & PREFIX_F3)
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F10_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F10_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
         {
             if(modrm_byte < 0xC0)
             {
@@ -7921,7 +7938,18 @@ switch(opcode)
     {
         int32_t modrm_byte = read_imm8();
         int32_t prefixes_ = *prefixes;
-        if(prefixes_ & PREFIX_F3)
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F10_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F10_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
         {
             if(modrm_byte < 0xC0)
             {
