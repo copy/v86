@@ -366,6 +366,15 @@ static void instr_F30F11_mem(int32_t addr, int32_t r) {
     safe_write32(addr, data.u32[0]);
 }
 
+static void instr_660F11_reg(int32_t r1, int32_t r2) {
+    // movupd xmm/m128, xmm
+    mov_r_r128(r1, r2);
+}
+static void instr_660F11_mem(int32_t addr, int32_t r) {
+    // movupd xmm/m128, xmm
+    mov_r_m128(addr, r);
+}
+
 static void instr_0F12_mem(int32_t addr, int32_t r) {
     // movlps xmm, m64
     task_switch_test_mmx();
@@ -3600,7 +3609,18 @@ switch(opcode)
     {
         int32_t modrm_byte = read_imm8();
         int32_t prefixes_ = *prefixes;
-        if(prefixes_ & PREFIX_F3)
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F11_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F11_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
         {
             if(modrm_byte < 0xC0)
             {
@@ -8013,7 +8033,18 @@ switch(opcode)
     {
         int32_t modrm_byte = read_imm8();
         int32_t prefixes_ = *prefixes;
-        if(prefixes_ & PREFIX_F3)
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F11_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F11_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
         {
             if(modrm_byte < 0xC0)
             {
