@@ -429,8 +429,20 @@ static void instr_660F13_mem(int32_t addr, int32_t r) {
     mov_r_m64(addr, r);
 }
 
-static void instr_0F14_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_0F14_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_0F14(union reg64 source, int32_t r) {
+    // unpcklps xmm, xmm/m128
+    task_switch_test_mmx();
+    union reg64 destination = read_xmm64s(r);
+
+    write_xmm128(
+        r,
+        destination.u32[0],
+        source.u32[0],
+        destination.u32[1],
+        source.u32[1]
+    );
+}
+DEFINE_SSE_SPLIT(instr_0F14, safe_read64s, read_xmm64s)
 
 static void instr_660F14(union reg64 source, int32_t r) {
     // unpcklpd xmm, xmm/m128

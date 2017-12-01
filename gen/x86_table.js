@@ -415,7 +415,7 @@ const encodings = [
     { opcode: 0xF30F12, e: 1, skip: 1, },
     { opcode: 0x0F13, only_mem: 1, e: 1 },
     { opcode: 0x660F13, only_mem: 1, e: 1 },
-    { opcode: 0x0F14, e: 1, skip: 1, },
+    { opcode: 0x0F14, e: 1 },
     { opcode: 0x660F14, e: 1 },
 
     { opcode: 0x0F28, e: 1 },
