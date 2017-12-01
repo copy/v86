@@ -404,6 +404,7 @@ const encodings = [
     { opcode: 0x0F10, e: 1 },
     { opcode: 0xF30F10, e: 1 },
     { opcode: 0x660F10, e: 1 },
+    { opcode: 0xF20F10, e: 1 },
     { opcode: 0x0F11, e: 1 },
     { opcode: 0xF30F11, e: 1 },
     { opcode: 0x0F12, e: 1 },
