@@ -346,8 +346,20 @@ static void instr_F30F11_mem(int32_t addr, int32_t r) {
     safe_write32(addr, data.u32[0]);
 }
 
-static void instr_0F12_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_0F12_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_0F12_mem(int32_t addr, int32_t r) {
+    // movlps xmm, m64
+    task_switch_test_mmx();
+    union reg64 data = safe_read64s(addr);
+    union reg128 orig = read_xmm128s(r);
+    write_xmm128(r, data.u32[0], data.u32[1], orig.u32[2], orig.u32[3]);
+}
+static void instr_0F12_reg(int32_t r1, int32_t r2) {
+    // movhlps xmm, xmm
+    task_switch_test_mmx();
+    union reg128 data = read_xmm128s(r1);
+    union reg128 orig = read_xmm128s(r2);
+    write_xmm128(r2, data.u32[2], data.u32[3], orig.u32[2], orig.u32[3]);
+}
 
 static void instr_660F12_reg(int32_t r1, int32_t r) { trigger_ud(); }
 static void instr_660F12_mem(int32_t addr, int32_t r) {
