@@ -375,6 +375,20 @@ static void instr_660F11_mem(int32_t addr, int32_t r) {
     mov_r_m128(addr, r);
 }
 
+static void instr_F20F11_reg(int32_t r1, int32_t r2) {
+    // movsd xmm/m64, xmm
+    task_switch_test_mmx();
+    union reg128 data = read_xmm128s(r2);
+    union reg128 orig = read_xmm128s(r1);
+    write_xmm128(r1, data.u32[0], data.u32[1], orig.u32[2], orig.u32[3]);
+}
+static void instr_F20F11_mem(int32_t addr, int32_t r) {
+    // movsd xmm/m64, xmm
+    task_switch_test_mmx();
+    union reg64 data = read_xmm64s(r);
+    safe_write64(addr, data.u64[0]);
+}
+
 static void instr_0F12_mem(int32_t addr, int32_t r) {
     // movlps xmm, m64
     task_switch_test_mmx();
@@ -3618,6 +3632,17 @@ switch(opcode)
             else
             {
                 instr_660F11_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F20F11_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F20F11_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
             }
         }
         else if(prefixes_ & PREFIX_F3)
@@ -8042,6 +8067,17 @@ switch(opcode)
             else
             {
                 instr_660F11_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_F20F11_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_F20F11_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
             }
         }
         else if(prefixes_ & PREFIX_F3)
