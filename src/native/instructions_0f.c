@@ -491,10 +491,7 @@ DEFINE_SSE_SPLIT(instr_660F15, safe_read128s, read_xmm128s)
 
 static void instr_0F16_mem(int32_t addr, int32_t r) {
     // movhps xmm, m64
-    task_switch_test_mmx();
-    union reg64 data = safe_read64s(addr);
-    union reg128 orig = read_xmm128s(r);
-    write_xmm128(r, orig.u32[0], orig.u32[1], data.u32[0], data.u32[1]);
+    mov_m64_r128(addr, r);
 }
 static void instr_0F16_reg(int32_t r1, int32_t r2) {
     // movlhps xmm, xmm
@@ -506,10 +503,7 @@ static void instr_0F16_reg(int32_t r1, int32_t r2) {
 
 static void instr_660F16_mem(int32_t addr, int32_t r) {
     // movhpd xmm, m64
-    task_switch_test_mmx();
-    union reg64 data = safe_read64s(addr);
-    union reg128 orig = read_xmm128s(r);
-    write_xmm128(r, orig.u32[0], orig.u32[1], data.u32[0], data.u32[1]);
+    mov_m64_r128(addr, r);
 }
 static void instr_660F16_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
