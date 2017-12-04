@@ -513,7 +513,13 @@ static void instr_660F16_mem(int32_t addr, int32_t r) {
 }
 static void instr_660F16_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
-static void instr_0F17() { unimplemented_sse(); }
+static void instr_0F17_mem(int32_t addr, int32_t r) {
+    // movhps m64, xmm
+    task_switch_test_mmx();
+    union reg128 data = read_xmm128s(r);
+    safe_write64(addr, data.u64[1]);
+}
+static void instr_0F17_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
 static void instr_0F18_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 static void instr_0F18_mem(int32_t addr, int32_t r) {
@@ -3897,7 +3903,15 @@ switch(opcode)
     break;
     case 0x17:
     {
-        instr_0F17();
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F17_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F17_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
     }
     break;
     case 0x18:
@@ -8378,7 +8392,15 @@ switch(opcode)
     break;
     case 0x17:
     {
-        instr_0F17();
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F17_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F17_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
     }
     break;
     case 0x18:
