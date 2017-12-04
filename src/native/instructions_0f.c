@@ -504,6 +504,15 @@ static void instr_0F16_reg(int32_t r1, int32_t r2) {
     write_xmm128(r2, orig.u32[0], orig.u32[1], data.u32[0], data.u32[1]);
 }
 
+static void instr_660F16_mem(int32_t addr, int32_t r) {
+    // movhpd xmm, m64
+    task_switch_test_mmx();
+    union reg64 data = safe_read64s(addr);
+    union reg128 orig = read_xmm128s(r);
+    write_xmm128(r, orig.u32[0], orig.u32[1], data.u32[0], data.u32[1]);
+}
+static void instr_660F16_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+
 static void instr_0F17() { unimplemented_sse(); }
 
 static void instr_0F18_reg(int32_t r1, int32_t r2) { trigger_ud(); }
@@ -3861,13 +3870,28 @@ switch(opcode)
     case 0x16:
     {
         int32_t modrm_byte = read_imm8();
-        if(modrm_byte < 0xC0)
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
         {
-            instr_0F16_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F16_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F16_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
         }
         else
         {
-            instr_0F16_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F16_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F16_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
         }
     }
     break;
@@ -8327,13 +8351,28 @@ switch(opcode)
     case 0x16:
     {
         int32_t modrm_byte = read_imm8();
-        if(modrm_byte < 0xC0)
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
         {
-            instr_0F16_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F16_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F16_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
         }
         else
         {
-            instr_0F16_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F16_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F16_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
         }
     }
     break;
