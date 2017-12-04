@@ -509,17 +509,13 @@ static void instr_660F16_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
 static void instr_0F17_mem(int32_t addr, int32_t r) {
     // movhps m64, xmm
-    task_switch_test_mmx();
-    union reg128 data = read_xmm128s(r);
-    safe_write64(addr, data.u64[1]);
+    mov_r128_m64(addr, r);
 }
 static void instr_0F17_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
 static void instr_660F17_mem(int32_t addr, int32_t r) {
     // movhpd m64, xmm
-    task_switch_test_mmx();
-    union reg128 data = read_xmm128s(r);
-    safe_write64(addr, data.u64[1]);
+    mov_r128_m64(addr, r);
 }
 static void instr_660F17_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 

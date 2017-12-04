@@ -443,3 +443,11 @@ void mov_m64_r128(int32_t addr, int32_t r)
     union reg128 orig = read_xmm128s(r);
     write_xmm128(r, orig.u32[0], orig.u32[1], data.u32[0], data.u32[1]);
 }
+
+void mov_r128_m64(int32_t addr, int32_t r)
+{
+    // movhp* m64, xmm
+    task_switch_test_mmx();
+    union reg128 data = read_xmm128s(r);
+    safe_write64(addr, data.u64[1]);
+}
