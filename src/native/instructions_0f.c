@@ -1416,8 +1416,21 @@ static void instr_0F66(union reg64 source, int32_t r) {
     write_mmx64(r, low, high);
 }
 DEFINE_SSE_SPLIT(instr_0F66, safe_read64s, read_mmx64s)
-static void instr_660F66_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660F66_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_660F66(union reg128 source, int32_t r) {
+    // pcmpgtd xmm, xmm/m128
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    write_xmm128(
+        r,
+        destination.i32[0] > source.i32[0] ? -1 : 0,
+        destination.i32[1] > source.i32[1] ? -1 : 0,
+        destination.i32[2] > source.i32[2] ? -1 : 0,
+        destination.i32[3] > source.i32[3] ? -1 : 0
+    );
+}
+DEFINE_SSE_SPLIT(instr_660F66, safe_read128s, read_xmm128s)
 
 static void instr_0F67(union reg64 source, int32_t r) {
     // packuswb mm, mm/m64
