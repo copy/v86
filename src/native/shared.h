@@ -5,6 +5,10 @@
 #include "const.h"
 
 union reg128 {
+    int8_t   i8[16];
+    int16_t  i16[8];
+    int32_t  i32[4];
+    int64_t  i64[2];
     uint8_t   u8[16];
     uint16_t  u16[8];
     uint32_t  u32[4];
