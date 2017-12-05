@@ -1344,8 +1344,26 @@ static void instr_0F64(union reg64 source, int32_t r) {
     write_mmx64(r, low, high);
 }
 DEFINE_SSE_SPLIT(instr_0F64, safe_read64s, read_mmx64s)
-static void instr_660F64_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660F64_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_660F64(union reg128 source, int32_t r) {
+    // pcmpgtb xmm, xmm/m128
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    int32_t bytes[16] = {0};
+    for(int32_t i = 0; i < 16; i++)
+    {
+        bytes[i] = destination.i8[i] > source.i8[i] ? 0xFF : 0;
+    }
+
+    int32_t dword0 = bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
+    int32_t dword1 = bytes[4] | bytes[5] << 8 | bytes[6] << 16 | bytes[7] << 24;
+    int32_t dword2 = bytes[8] | bytes[9] << 8 | bytes[10] << 16 | bytes[11] << 24;
+    int32_t dword3 = bytes[12] | bytes[13] << 8 | bytes[14] << 16 | bytes[15] << 24;
+
+    write_xmm128(r, dword0, dword1, dword2, dword3);
+}
+DEFINE_SSE_SPLIT(instr_660F64, safe_read128s, read_xmm128s)
 
 static void instr_0F65(union reg64 source, int32_t r) {
     // pcmpgtw mm, mm/m64
