@@ -447,7 +447,7 @@ const encodings = [
     { opcode: 0x0F60, e: 1 },
     { opcode: 0x660F61, e: 1 },
     { opcode: 0x0F61, e: 1 },
-    { opcode: 0x660F62, e: 1, skip: 1, },
+    { opcode: 0x660F62, e: 1 },
     { opcode: 0x0F62, e: 1 },
     { opcode: 0x660F63, e: 1, skip: 1, },
     { opcode: 0x0F63, e: 1 },
