@@ -1090,7 +1090,16 @@ DEFINE_MODRM_INSTR_READ16(instr16_0F4F, cmovcc16(!test_le(), ___, r))
 DEFINE_MODRM_INSTR_READ32(instr32_0F4F, cmovcc32(!test_le(), ___, r))
 
 
-static void instr_0F50() { unimplemented_sse(); }
+static void instr_0F50_reg(int32_t r1, int32_t r2) {
+    // movmskps r, xmm
+    task_switch_test_mmx();
+    union reg128 source = read_xmm128s(r1);
+    int32_t data = source.u32[0] >> 31 | (source.u32[1] >> 31) << 1 |
+        (source.u32[2] >> 31) << 2 | (source.u32[3] >> 31) << 3;
+    write_reg32(r2, data);
+}
+static void instr_0F50_mem(int32_t addr, int32_t r1) { trigger_ud(); }
+
 static void instr_0F51() { unimplemented_sse(); }
 static void instr_0F52() { unimplemented_sse(); }
 static void instr_0F53() { unimplemented_sse(); }
@@ -4471,7 +4480,15 @@ switch(opcode)
     break;
     case 0x50:
     {
-        instr_0F50();
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F50_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F50_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
     }
     break;
     case 0x51:
@@ -8975,7 +8992,15 @@ switch(opcode)
     break;
     case 0x50:
     {
-        instr_0F50();
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0F50_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+        }
+        else
+        {
+            instr_0F50_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+        }
     }
     break;
     case 0x51:
