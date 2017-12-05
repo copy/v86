@@ -1294,8 +1294,35 @@ static void instr_0F63(union reg64 source, int32_t r) {
     write_mmx64(r, low, high);
 }
 DEFINE_SSE_SPLIT(instr_0F63, safe_read64s, read_mmx64s)
-static void instr_660F63_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660F63_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_660F63(union reg128 source, int32_t r) {
+    // packsswb xmm, xmm/m128
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    int32_t dword0 = saturate_sw_to_sb(destination.u16[0]);
+    dword0 |= saturate_sw_to_sb(destination.u16[1]) << 8;
+    dword0 |= saturate_sw_to_sb(destination.u16[2]) << 16;
+    dword0 |= saturate_sw_to_sb(destination.u16[3]) << 24;
+
+    int32_t dword1 = saturate_sw_to_sb(destination.u16[4]);
+    dword1 |= saturate_sw_to_sb(destination.u16[5]) << 8;
+    dword1 |= saturate_sw_to_sb(destination.u16[6]) << 16;
+    dword1 |= saturate_sw_to_sb(destination.u16[7]) << 24;
+
+    int32_t dword2 = saturate_sw_to_sb(source.u16[0]);
+    dword2 |= saturate_sw_to_sb(source.u16[1]) << 8;
+    dword2 |= saturate_sw_to_sb(source.u16[2]) << 16;
+    dword2 |= saturate_sw_to_sb(source.u16[3]) << 24;
+
+    int32_t dword3 = saturate_sw_to_sb(source.u16[4]);
+    dword3 |= saturate_sw_to_sb(source.u16[5]) << 8;
+    dword3 |= saturate_sw_to_sb(source.u16[6]) << 16;
+    dword3 |= saturate_sw_to_sb(source.u16[7]) << 24;
+
+    write_xmm128(r, dword0, dword1, dword2, dword3);
+}
+DEFINE_SSE_SPLIT(instr_660F63, safe_read128s, read_xmm128s)
 
 static void instr_0F64(union reg64 source, int32_t r) {
     // pcmpgtb mm, mm/m64
