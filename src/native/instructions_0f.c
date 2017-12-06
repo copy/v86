@@ -1544,8 +1544,14 @@ static void instr_0F6A(union reg64 source, int32_t r) {
     write_mmx64(r, destination.u32[1], source.u32[1]);
 }
 DEFINE_SSE_SPLIT(instr_0F6A, safe_read64s, read_mmx64s)
-static void instr_660F6A_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660F6A_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_660F6A(union reg128 source, int32_t r) {
+    // punpckhdq xmm, xmm/m128
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+    write_xmm128(r, destination.u32[2], source.u32[2], destination.u32[3], source.u32[3]);
+}
+DEFINE_SSE_SPLIT(instr_660F6A, safe_read128s, read_xmm128s)
 
 static void instr_0F6B(union reg64 source, int32_t r) {
     // packssdw mm, mm/m64
