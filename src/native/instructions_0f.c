@@ -1606,8 +1606,14 @@ DEFINE_SSE_SPLIT(instr_660F6C, safe_read128s, read_xmm128s)
 static void instr_0F6D_mem(int32_t addr, int32_t r) { trigger_ud(); }
 static void instr_0F6D_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
-static void instr_660F6D_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660F6D_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660F6D(union reg128 source, int32_t r) {
+    // punpckhqdq xmm, xmm/m128
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    write_xmm128(r, destination.u32[2], destination.u32[3], source.u32[2], source.u32[3]);
+}
+DEFINE_SSE_SPLIT(instr_660F6D, safe_read128s, read_xmm128s)
 
 static void instr_0F6E(int32_t source, int32_t r) {
     // movd mm, r/m32
