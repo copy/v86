@@ -482,7 +482,7 @@ const encodings = [
     { opcode: 0xF30F70, e: 1, imm8: 1, },
 
     { opcode: 0x0F71, e: 1, fixed_g: 2, imm8: 1, only_reg: 1, },
-    { opcode: 0x660F71, e: 1, fixed_g: 2, imm8: 1, only_reg: 1, skip: 1, },
+    { opcode: 0x660F71, e: 1, fixed_g: 2, imm8: 1, only_reg: 1 },
     { opcode: 0x0F71, e: 1, fixed_g: 4, imm8: 1, only_reg: 1, },
     { opcode: 0x660F71, e: 1, fixed_g: 4, imm8: 1, only_reg: 1, skip: 1, },
     { opcode: 0x0F71, e: 1, fixed_g: 6, imm8: 1, only_reg: 1, },

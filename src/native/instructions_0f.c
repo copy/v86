@@ -1775,9 +1775,39 @@ static void instr_660F71_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
 static void instr_660F71_4_mem(int32_t addr, int32_t r) { trigger_ud(); }
 static void instr_660F71_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
 
-static void instr_660F71_2_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 static void instr_660F71_4_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 static void instr_660F71_6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_660F71_2_reg(int32_t r, int32_t imm8) {
+    // psrlw xmm, imm8
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    int32_t dword0 = 0;
+    int32_t dword1 = 0;
+    int32_t dword2 = 0;
+    int32_t dword3 = 0;
+
+    if(imm8 <= 15) {
+        int32_t word0 = ((uint32_t) destination.u16[0]) >> imm8;
+        int32_t word1 = ((uint32_t) destination.u16[1]) >> imm8;
+        dword0 = word0 | word1 << 16;
+
+        int32_t word2 = ((uint32_t) destination.u16[2]) >> imm8;
+        int32_t word3 = ((uint32_t) destination.u16[3]) >> imm8;
+        dword1 = word2 | word3 << 16;
+
+        int32_t word4 = ((uint32_t) destination.u16[4]) >> imm8;
+        int32_t word5 = ((uint32_t) destination.u16[5]) >> imm8;
+        dword2 = word4 | word5 << 16;
+
+        int32_t word6 = ((uint32_t) destination.u16[6]) >> imm8;
+        int32_t word7 = ((uint32_t) destination.u16[7]) >> imm8;
+        dword3 = word6 | word7 << 16;
+    }
+
+    write_xmm128(r, dword0, dword1, dword2, dword3);
+}
 
 static void instr_0F72_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
 static void instr_0F72_4_mem(int32_t addr, int32_t r) { trigger_ud(); }
