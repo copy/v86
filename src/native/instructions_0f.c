@@ -1936,7 +1936,21 @@ static void instr_660F72_2_reg(int32_t r, int32_t imm8) {
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 
-static void instr_660F72_4_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660F72_4_reg(int32_t r, int32_t imm8) {
+    // psrad xmm, imm8
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    int32_t shift = imm8 > 31 ? 31 : imm8;
+
+    int32_t dword0 = destination.i32[0] >> shift;
+    int32_t dword1 = destination.i32[1] >> shift;
+    int32_t dword2 = destination.i32[2] >> shift;
+    int32_t dword3 = destination.i32[3] >> shift;
+
+    write_xmm128(r, dword0, dword1, dword2, dword3);
+}
+
 static void instr_660F72_6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
 static void instr_0F73_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
