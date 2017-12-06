@@ -1912,11 +1912,12 @@ static void instr_0F72_6_reg(int32_t r, int32_t imm8) {
     write_mmx64(r, low, high);
 }
 
-static void instr_660F72_2_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+static void instr_660F72_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_660F72_4_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_660F72_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+
 static void instr_660F72_2_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
-static void instr_660F72_4_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_660F72_4_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
-static void instr_660F72_6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_660F72_6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
 static void instr_0F73_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
