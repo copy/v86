@@ -1569,8 +1569,27 @@ static void instr_0F6B(union reg64 source, int32_t r) {
     write_mmx64(r, low, high);
 }
 DEFINE_SSE_SPLIT(instr_0F6B, safe_read64s, read_mmx64s)
-static void instr_660F6B_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660F6B_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_660F6B(union reg128 source, int32_t r) {
+    // packssdw xmm, xmm/m128
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    int32_t dword0 = saturate_sd_to_sw(destination.u32[0]) |
+        saturate_sd_to_sw(destination.u32[1]) << 16;
+
+    int32_t dword1 = saturate_sd_to_sw(destination.u32[2]) |
+        saturate_sd_to_sw(destination.u32[3]) << 16;
+
+    int32_t dword2 = saturate_sd_to_sw(source.u32[0]) |
+        saturate_sd_to_sw(source.u32[1]) << 16;
+
+    int32_t dword3 = saturate_sd_to_sw(source.u32[2]) |
+        saturate_sd_to_sw(source.u32[3]) << 16;
+
+    write_xmm128(r, dword0, dword1, dword2, dword3);
+}
+DEFINE_SSE_SPLIT(instr_660F6B, safe_read128s, read_xmm128s)
 
 static void instr_0F6C_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_0F6C_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
