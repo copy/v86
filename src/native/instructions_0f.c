@@ -1522,8 +1522,20 @@ static void instr_0F69(union reg64 source, int32_t r) {
     write_mmx64(r, low, high);
 }
 DEFINE_SSE_SPLIT(instr_0F69, safe_read64s, read_mmx64s)
-static void instr_660F69_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660F69_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_660F69(union reg128 source, int32_t r) {
+    // punpckhwd xmm, xmm/m128
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    int32_t dword0 = destination.u16[4] | source.u16[4] << 16;
+    int32_t dword1 = destination.u16[5] | source.u16[5] << 16;
+    int32_t dword2 = destination.u16[6] | source.u16[6] << 16;
+    int32_t dword3 = destination.u16[7] | source.u16[7] << 16;
+
+    write_xmm128(r, dword0, dword1, dword2, dword3);
+}
+DEFINE_SSE_SPLIT(instr_660F69, safe_read128s, read_xmm128s)
 
 static void instr_0F6A(union reg64 source, int32_t r) {
     // punpckhdq mm, mm/m64
