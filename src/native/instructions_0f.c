@@ -1591,8 +1591,9 @@ static void instr_660F6B(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660F6B, safe_read128s, read_xmm128s)
 
-static void instr_0F6C_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_0F6C_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_0F6C_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_0F6C_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+
 static void instr_660F6C_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_660F6C_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 static void instr_0F6D_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
