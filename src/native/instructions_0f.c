@@ -2670,7 +2670,18 @@ static void instr_0FC3_mem(int32_t addr, int32_t r) {
     safe_write32(addr, read_reg32(r));
 }
 
-static void instr_0FC4() { unimplemented_sse(); }
+static void instr_0FC4(int32_t source, int32_t r, int32_t imm8) {
+    // pinsrw mm, r32/m16, imm8
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+
+    uint32_t index = imm8 & 3;
+    destination.u16[index] = source & 0xffff;
+
+    write_mmx_reg64(r, destination);
+}
+DEFINE_SSE_SPLIT_IMM(instr_0FC4, read16, read_reg32)
+
 static void instr_0FC5_mem(int32_t addr, int32_t r, int32_t imm8) { unimplemented_sse(); }
 static void instr_0FC5_reg(int32_t r1, int32_t r2, int32_t imm8) { unimplemented_sse(); }
 
@@ -6741,7 +6752,15 @@ switch(opcode)
     break;
     case 0xC4:
     {
-        instr_0FC4();
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0FC4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+        }
+        else
+        {
+            instr_0FC4_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+        }
     }
     break;
     case 0xC5:
@@ -11268,7 +11287,15 @@ switch(opcode)
     break;
     case 0xC4:
     {
-        instr_0FC4();
+        int32_t modrm_byte = read_imm8();
+        if(modrm_byte < 0xC0)
+        {
+            instr_0FC4_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7, read_imm8());
+        }
+        else
+        {
+            instr_0FC4_reg(modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+        }
     }
     break;
     case 0xC5:
