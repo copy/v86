@@ -2079,7 +2079,34 @@ static void instr_660F73_3_reg(int32_t r, int32_t imm8) {
     write_xmm_reg128(r, result);
 }
 
-static void instr_660F73_6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660F73_6_reg(int32_t r, int32_t imm8) {
+    // psllq xmm, imm8
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    if(imm8 == 0)
+    {
+        return;
+    }
+
+    union reg128 result = { { 0 } };
+
+    if(imm8 <= 31) {
+        result.u32[0] = destination.u32[0] << imm8;
+        result.u32[1] = destination.u32[1] << imm8 | (((uint32_t) destination.u32[0]) >> (32 - imm8));
+        result.u32[2] = destination.u32[2] << imm8;
+        result.u32[3] = destination.u32[3] << imm8 | (((uint32_t) destination.u32[2]) >> (32 - imm8));
+    }
+    else if(imm8 <= 63) {
+        result.u32[0] = 0;
+        result.u32[1] = destination.u32[0] << (imm8 & 0x1F);
+        result.u32[2] = 0;
+        result.u32[3] = destination.u32[2] << (imm8 & 0x1F);
+    }
+
+    write_xmm_reg128(r, result);
+}
+
 static void instr_660F73_7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
 static void instr_0F74(union reg64 source, int32_t r) {
