@@ -451,3 +451,33 @@ void mov_r128_m64(int32_t addr, int32_t r)
     union reg128 data = read_xmm128s(r);
     safe_write64(addr, data.u64[1]);
 }
+
+void psrlq_r128(int32_t r, uint32_t shift)
+{
+    // psrlq xmm, {shift}
+    task_switch_test_mmx();
+
+    if(shift == 0)
+    {
+        return;
+    }
+
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = { { 0 } };
+
+    if (shift <= 31)
+    {
+        result.u32[0] = destination.u32[0] >> shift | destination.u32[1] << (32 - shift);
+        result.u32[1] = destination.u32[1] >> shift;
+
+        result.u32[2] = destination.u32[2] >> shift | destination.u32[3] << (32 - shift);
+        result.u32[3] = destination.u32[3] >> shift;
+    }
+    else if (shift <= 63)
+    {
+        result.u32[0] = destination.u32[1] >> shift;
+        result.u32[2] = destination.u32[3] >> shift;
+    }
+
+    write_xmm_reg128(r, result);
+}
