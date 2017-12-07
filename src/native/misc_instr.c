@@ -510,3 +510,35 @@ void psllq_r128(int32_t r, uint32_t shift)
 
     write_xmm_reg128(r, result);
 }
+
+void psrlw_r128(int32_t r, uint32_t shift)
+{
+    // psrlw xmm, {shift}
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    int32_t dword0 = 0;
+    int32_t dword1 = 0;
+    int32_t dword2 = 0;
+    int32_t dword3 = 0;
+
+    if(shift <= 15) {
+        int32_t word0 = ((uint32_t) destination.u16[0]) >> shift;
+        int32_t word1 = ((uint32_t) destination.u16[1]) >> shift;
+        dword0 = word0 | word1 << 16;
+
+        int32_t word2 = ((uint32_t) destination.u16[2]) >> shift;
+        int32_t word3 = ((uint32_t) destination.u16[3]) >> shift;
+        dword1 = word2 | word3 << 16;
+
+        int32_t word4 = ((uint32_t) destination.u16[4]) >> shift;
+        int32_t word5 = ((uint32_t) destination.u16[5]) >> shift;
+        dword2 = word4 | word5 << 16;
+
+        int32_t word6 = ((uint32_t) destination.u16[6]) >> shift;
+        int32_t word7 = ((uint32_t) destination.u16[7]) >> shift;
+        dword3 = word6 | word7 << 16;
+    }
+
+    write_xmm128(r, dword0, dword1, dword2, dword3);
+}
