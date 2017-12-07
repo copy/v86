@@ -519,6 +519,7 @@ const encodings = [
 
     { opcode: 0x0FC3, e: 1, only_mem: 1, },
     { opcode: 0x0FC4, e: 1, imm8: 1 },
+    { opcode: 0x660FC4, e: 1, imm8: 1 },
 
     { opcode: 0x0FC5, e: 1, only_reg: 1, imm8: 1, skip: 1, },
     { opcode: 0x660FC5, e: 1, only_reg: 1, imm8: 1, },
