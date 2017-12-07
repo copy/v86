@@ -2695,7 +2695,16 @@ static void instr_660FC4(int32_t source, int32_t r, int32_t imm8) {
 DEFINE_SSE_SPLIT_IMM(instr_660FC4, read16, read_reg32)
 
 static void instr_0FC5_mem(int32_t addr, int32_t r, int32_t imm8) { unimplemented_sse(); }
-static void instr_0FC5_reg(int32_t r1, int32_t r2, int32_t imm8) { unimplemented_sse(); }
+static void instr_0FC5_reg(int32_t r1, int32_t r2, int32_t imm8) {
+    // pextrw r32, mm, imm8
+    task_switch_test_mmx();
+
+    union reg64 data = read_mmx64s(r1);
+    uint32_t index = imm8 & 3;
+    uint32_t result = data.u16[index];
+
+    write_reg32(r2, result);
+}
 
 static void instr_660FC5_mem(int32_t addr, int32_t r, int32_t imm8) { trigger_ud(); }
 static void instr_660FC5_reg(int32_t r1, int32_t r2, int32_t imm8) {
