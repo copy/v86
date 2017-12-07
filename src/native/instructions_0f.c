@@ -2024,7 +2024,7 @@ static void instr_660F73_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
 static void instr_660F73_7_mem(int32_t addr, int32_t r) { trigger_ud(); }
 
 static void instr_660F73_2_reg(int32_t r, int32_t imm8) {
-    // psrlq mm, imm8
+    // psrlq xmm, imm8
     task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
