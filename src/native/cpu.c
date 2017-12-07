@@ -698,6 +698,11 @@ void write_mmx64(int32_t r, int32_t low, int32_t high)
     reg_mmx[r].u32[1] = high;
 }
 
+void write_mmx_reg64(int32_t r, union reg64 data)
+{
+    reg_mmx[r].u64[0] = data.u64[0];
+}
+
 union reg64 read_xmm64s(int32_t r)
 {
     union reg64 x;
