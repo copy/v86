@@ -2107,7 +2107,33 @@ static void instr_660F73_6_reg(int32_t r, int32_t imm8) {
     write_xmm_reg128(r, result);
 }
 
-static void instr_660F73_7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_660F73_7_reg(int32_t r, int32_t imm8) {
+    // pslldq xmm, imm8
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    if(imm8 == 0)
+    {
+        return;
+    }
+
+    union reg128 result = { { 0 } };
+    uint32_t shift = (imm8 > 15) ? 128 : (imm8 << 3);
+
+    if(shift <= 63)
+    {
+        result.u64[0] = (uint64_t) destination.u64[0] << shift;
+        result.u64[1] = (uint64_t) destination.u64[1] << shift | destination.u64[0] >> (64 - shift);
+    }
+    else if(shift <= 127)
+    {
+        result.u64[0] = 0;
+        result.u64[1] = (uint64_t) destination.u64[0] << (shift - 64);
+    }
+
+    write_xmm_reg128(r, result);
+}
 
 static void instr_0F74(union reg64 source, int32_t r) {
     // pcmpeqb mm, mm/m64
