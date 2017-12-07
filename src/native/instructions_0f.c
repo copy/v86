@@ -2057,30 +2057,7 @@ static void instr_660F73_3_reg(int32_t r, int32_t imm8) {
 
 static void instr_660F73_6_reg(int32_t r, int32_t imm8) {
     // psllq xmm, imm8
-    task_switch_test_mmx();
-    union reg128 destination = read_xmm128s(r);
-
-    if(imm8 == 0)
-    {
-        return;
-    }
-
-    union reg128 result = { { 0 } };
-
-    if(imm8 <= 31) {
-        result.u32[0] = destination.u32[0] << imm8;
-        result.u32[1] = destination.u32[1] << imm8 | (((uint32_t) destination.u32[0]) >> (32 - imm8));
-        result.u32[2] = destination.u32[2] << imm8;
-        result.u32[3] = destination.u32[3] << imm8 | (((uint32_t) destination.u32[2]) >> (32 - imm8));
-    }
-    else if(imm8 <= 63) {
-        result.u32[0] = 0;
-        result.u32[1] = destination.u32[0] << (imm8 & 0x1F);
-        result.u32[2] = 0;
-        result.u32[3] = destination.u32[2] << (imm8 & 0x1F);
-    }
-
-    write_xmm_reg128(r, result);
+    psllq_r128(r, imm8);
 }
 
 
@@ -3482,31 +3459,7 @@ DEFINE_SSE_SPLIT(instr_0FF3, safe_read64s, read_mmx64s)
 
 static void instr_660FF3(union reg128 source, int32_t r) {
     // psllq xmm, xmm/m128
-    task_switch_test_mmx();
-    union reg128 destination = read_xmm128s(r);
-    uint32_t shift = source.u32[0];
-
-    if(shift == 0)
-    {
-        return;
-    }
-
-    union reg128 result = { { 0 } };
-
-    if(shift <= 31) {
-        result.u32[0] = destination.u32[0] << shift;
-        result.u32[1] = destination.u32[1] << shift | (((uint32_t) destination.u32[0]) >> (32 - shift));
-        result.u32[2] = destination.u32[2] << shift;
-        result.u32[3] = destination.u32[3] << shift | (((uint32_t) destination.u32[2]) >> (32 - shift));
-    }
-    else if(shift <= 63) {
-        result.u32[0] = 0;
-        result.u32[1] = destination.u32[0] << (shift & 0x1F);
-        result.u32[2] = 0;
-        result.u32[3] = destination.u32[2] << (shift & 0x1F);
-    }
-
-    write_xmm_reg128(r, result);
+    psllq_r128(r, source.u32[0]);
 }
 DEFINE_SSE_SPLIT(instr_660FF3, safe_read128s, read_xmm128s)
 

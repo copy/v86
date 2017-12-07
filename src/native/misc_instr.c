@@ -481,3 +481,32 @@ void psrlq_r128(int32_t r, uint32_t shift)
 
     write_xmm_reg128(r, result);
 }
+
+void psllq_r128(int32_t r, uint32_t shift)
+{
+    // psllq xmm, {shift}
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    if(shift == 0)
+    {
+        return;
+    }
+
+    union reg128 result = { { 0 } };
+
+    if(shift <= 31) {
+        result.u32[0] = destination.u32[0] << shift;
+        result.u32[1] = destination.u32[1] << shift | (((uint32_t) destination.u32[0]) >> (32 - shift));
+        result.u32[2] = destination.u32[2] << shift;
+        result.u32[3] = destination.u32[3] << shift | (((uint32_t) destination.u32[2]) >> (32 - shift));
+    }
+    else if(shift <= 63) {
+        result.u32[0] = 0;
+        result.u32[1] = destination.u32[0] << (shift & 0x1F);
+        result.u32[2] = 0;
+        result.u32[3] = destination.u32[2] << (shift & 0x1F);
+    }
+
+    write_xmm_reg128(r, result);
+}
