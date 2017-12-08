@@ -2833,8 +2833,15 @@ static void instr_660FD3(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FD3, safe_read128s, read_xmm128s)
 
-static void instr_0FD4_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_0FD4_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_0FD4(union reg64 source, int32_t r) {
+    // paddq mm, mm/m64
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+    destination.u64[0] += source.u64[0];
+    write_mmx_reg64(r, destination);
+}
+DEFINE_SSE_SPLIT(instr_0FD4, safe_read64s, read_mmx64s)
+
 static void instr_660FD4_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_660FD4_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
