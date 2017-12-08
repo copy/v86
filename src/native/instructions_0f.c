@@ -2885,8 +2885,9 @@ static void instr_660FD5(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FD5, safe_read128s, read_xmm128s)
 
-static void instr_0FD6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_0FD6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_0FD6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_0FD6_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+
 static void instr_660FD6_mem(int32_t addr, int32_t r) {
     // movq xmm/m64, xmm
     mov_r_m64(addr, r);
