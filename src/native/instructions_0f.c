@@ -3318,8 +3318,24 @@ static void instr_0FE2(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FE2, safe_read64s, read_mmx64s)
 
-static void instr_660FE2_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660FE2_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FE2(union reg128 source, int32_t r) {
+    // psrad xmm, xmm/m128
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    uint32_t shift = source.u32[0];
+    if (shift > 31) {
+        shift = 31;
+    }
+
+    int32_t dword0 = destination.i32[0] >> shift;
+    int32_t dword1 = destination.i32[1] >> shift;
+    int32_t dword2 = destination.i32[2] >> shift;
+    int32_t dword3 = destination.i32[3] >> shift;
+
+    write_xmm128(r, dword0, dword1, dword2, dword3);
+}
+DEFINE_SSE_SPLIT(instr_660FE2, safe_read128s, read_xmm128s)
 
 static void instr_0FE3_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_0FE3_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
