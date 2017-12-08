@@ -3163,8 +3163,21 @@ static void instr_660FDD(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FDD, safe_read128s, read_xmm128s)
 
-static void instr_0FDE_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_0FDE_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_0FDE(union reg64 source, int32_t r) {
+    // pmaxub mm, mm/m64
+    task_switch_test_mmx();
+
+    union reg64 destination = read_mmx64s(r);
+    union reg64 result;
+
+    for(uint32_t i = 0; i < 8; i++)
+    {
+        result.u8[i] = source.u8[i] > destination.u8[i] ? source.u8[i] : destination.u8[i];
+    }
+
+    write_mmx_reg64(r, result);
+}
+DEFINE_SSE_SPLIT(instr_0FDE, safe_read64s, read_mmx64s)
 
 static void instr_660FDE(union reg128 source, int32_t r) {
     // pmaxub xmm, xmm/m128
