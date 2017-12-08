@@ -2915,8 +2915,17 @@ static void instr_F30FD6_reg(int32_t r1, int32_t r2) {
     write_xmm128(r2, source.u32[0], source.u32[1], 0, 0);
 }
 
-static void instr_0FD7_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_0FD7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_0FD7_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_0FD7_reg(int32_t r1, int32_t r2) {
+    // pmovmskb r, mm
+    task_switch_test_mmx();
+    union reg64 x = read_mmx64s(r1);
+    uint32_t result =
+        x.u8[0] >> 7 << 0 | x.u8[1] >> 7 << 1 | x.u8[2] >> 7 << 2 | x.u8[3] >> 7 << 3 |
+        x.u8[4] >> 7 << 4 | x.u8[5] >> 7 << 5 | x.u8[6] >> 7 << 6 | x.u8[7] >> 7 << 7;
+    write_reg32(r2, result);
+}
+
 static void instr_660FD7_mem(int32_t addr, int32_t r) { trigger_ud(); }
 static void instr_660FD7_reg(int32_t r1, int32_t r2) {
     // pmovmskb reg, xmm
