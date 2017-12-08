@@ -561,7 +561,7 @@ const encodings = [
     { opcode: 0x0FE0, e: 1 },
     { opcode: 0x660FE0, e: 1 },
     { opcode: 0x0FE1, e: 1 },
-    { opcode: 0x660FE1, e: 1, skip: 1, },
+    { opcode: 0x660FE1, e: 1 },
     { opcode: 0x0FE2, e: 1 },
     { opcode: 0x660FE2, e: 1, skip: 1, },
     { opcode: 0x0FE3, e: 1, skip: 1, },
