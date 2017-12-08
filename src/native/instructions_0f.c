@@ -3222,8 +3222,27 @@ static void instr_660FDF(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FDF, safe_read128s, read_xmm128s)
 
-static void instr_0FE0_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_0FE0_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_0FE0(union reg64 source, int32_t r) {
+    // pavgb mm, mm/m64
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+
+    uint8_t byte0 = (destination.u8[0] + source.u8[0] + 1) >> 1;
+    uint8_t byte1 = (destination.u8[1] + source.u8[1] + 1) >> 1;
+    uint8_t byte2 = (destination.u8[2] + source.u8[2] + 1) >> 1;
+    uint8_t byte3 = (destination.u8[3] + source.u8[3] + 1) >> 1;
+    uint8_t byte4 = (destination.u8[4] + source.u8[4] + 1) >> 1;
+    uint8_t byte5 = (destination.u8[5] + source.u8[5] + 1) >> 1;
+    uint8_t byte6 = (destination.u8[6] + source.u8[6] + 1) >> 1;
+    uint8_t byte7 = (destination.u8[7] + source.u8[7] + 1) >> 1;
+
+    uint32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
+    uint32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
+
+    write_mmx64(r, low, high);
+}
+DEFINE_SSE_SPLIT(instr_0FE0, safe_read64s, read_mmx64s)
+
 static void instr_660FE0_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_660FE0_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
