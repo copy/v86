@@ -3243,8 +3243,20 @@ static void instr_0FE0(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FE0, safe_read64s, read_mmx64s)
 
-static void instr_660FE0_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660FE0_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FE0(union reg128 source, int32_t r) {
+    // pavgb xmm, xmm/m128
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result;
+
+    for(uint32_t i = 0; i < 16; i++)
+    {
+        result.u8[i] = (destination.u8[i] + source.u8[i] + 1) >> 1;
+    }
+
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_660FE0, safe_read128s, read_xmm128s)
 
 static void instr_0FE1(union reg64 source, int32_t r) {
     // psraw mm, mm/m64
