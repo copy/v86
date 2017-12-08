@@ -2900,8 +2900,14 @@ static void instr_660FD6_reg(int32_t r1, int32_t r2) {
 }
 static void instr_F20FD6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_F20FD6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
-static void instr_F30FD6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_F30FD6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+
+static void instr_F30FD6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_F30FD6_reg(int32_t r1, int32_t r2) {
+    // movq2dq xmm, mm
+    task_switch_test_mmx();
+    union reg64 source = read_mmx64s(r1);
+    write_xmm128(r2, source.u32[0], source.u32[1], 0, 0);
+}
 
 static void instr_0FD7_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_0FD7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
