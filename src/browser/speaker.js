@@ -9,7 +9,7 @@
  */
 function SpeakerAdapter(bus)
 {
-    if (typeof window === "undefined")
+    if(typeof window === "undefined")
     {
         return;
     }
@@ -86,7 +86,7 @@ SpeakerAdapter.prototype.beep_update = function()
 
 SpeakerAdapter.prototype.dac_process = function(event)
 {
-    this.bus.send("speaker-samplerate", this.audio_context.sampleRate);
+    this.bus.send("speaker-tell-samplerate", this.audio_context.sampleRate);
     this.bus.send("speaker-process", event);
     if(this.debug_dac)
     {
