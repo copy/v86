@@ -118,6 +118,7 @@ function V86Starter(options)
     settings.memory_size = options["memory_size"] || 64 * 1024 * 1024;
     settings.vga_memory_size = options["vga_memory_size"] || 8 * 1024 * 1024;
     settings.boot_order = options["boot_order"] || 0x213;
+    settings.fastboot = options["fastboot"] || false;
     settings.fda = undefined;
     settings.fdb = undefined;
 
