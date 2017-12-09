@@ -1,5 +1,24 @@
 "use strict";
 
+// Useful documentation, articles, and source codes for reference:
+// ===============================================================
+//
+// Official Hardware Programming Guide
+// -> https://pdos.csail.mit.edu/6.828/2011/readings/hardware/SoundBlaster.pdf
+//
+// DOSBox
+// -> https://sourceforge.net/p/dosbox/code-0/HEAD/tree/dosbox/branches/mamesound/src/hardware/sblaster.cpp
+// -> https://github.com/duganchen/dosbox/blob/master/src/hardware/sblaster.cpp
+// -> https://github.com/joncampbell123/dosbox-x/blob/master/src/hardware/sblaster.cpp
+//
+// QEMU
+// -> https://github.com/qemu/qemu/blob/master/hw/audio/sb16.c
+// -> https://github.com/hackndev/qemu/blob/master/hw/sb16.c
+//
+// VirtualBox
+// -> https://www.virtualbox.org/svn/vbox/trunk/src/VBox/Devices/Audio/DevSB16.cpp
+// -> https://github.com/mdaniel/virtualbox-org-svn-vbox-trunk/blob/master/src/VBox/Devices/Audio/DevSB16.cpp
+
 var
 
     // Used for drivers to identify device (DSP command 0xE3).
@@ -44,6 +63,7 @@ var DSP_command_sizes = new Uint8Array(256);
 var DSP_command_handlers = [];
 var mixer_read_handlers = [];
 var mixer_write_handlers = [];
+
 
 /**
  * Sound Blaster 16 Emulator, or so it seems.
@@ -180,7 +200,7 @@ function SB16(cpu, bus)
     cpu.io.register_write(0x330, this, this.port3x0_write);
     cpu.io.register_write(0x331, this, this.port3x1_write);
 
-    bus.register("speaker-samplerate", function(rate)
+    bus.register("speaker-tell-samplerate", function(rate)
     {
         this.audio_samplerate = rate;
     }, this);
@@ -196,7 +216,7 @@ function SB16(cpu, bus)
 
 
 //
-// General:
+// General
 //
 
 
@@ -354,7 +374,7 @@ SB16.prototype.set_state = function(state)
 
 
 //
-// I/O handlers:
+// I/O handlers
 //
 
 
@@ -1346,6 +1366,12 @@ SB16.prototype.lower_irq = function(type)
     this.irq_triggered[type] = 0;
     this.cpu.device_lower_irq(this.irq);
 }
+
+
+
+//
+// Helpers
+//
 
 function audio_normalize(value, amplitude, offset)
 {
