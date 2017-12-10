@@ -253,69 +253,6 @@ DMA.prototype.update_mask = function(channel, value)
         }
     }
 }
-/*
-DMA.prototype.port_write = function(port, data_byte)
-{
-    dbg_log("port " + port + " write " + data_byte, LOG_DMA);
-
-    if(port < 8)
-    {
-        var channel = port >> 1;
-
-        if(port & 1)
-        {
-            this.channel_count[channel] = this.flipflop_get(this.channel_count[channel], data_byte);
-        }
-        else
-        {
-            this.channel_addr[channel] = this.flipflop_get(this.channel_addr[channel], data_byte);
-        }
-    }
-};
-
-DMA.prototype.port_read = function(port)
-{
-    if(port < 8)
-    {
-        var channel = port >> 1;
-
-        if(port & 1)
-        {
-            return this.channel_count[channel];
-        }
-        else
-        {
-            // Bug?
-            return this.channel_addr[channel];
-        }
-    }
-    else
-    {
-        dbg_log("port " + h(port) + " read", LOG_DMA);
-    }
-};
-
-
-DMA.prototype.portA_write = function(data_byte)
-{
-    dbg_log("port A write: " + h(data_byte), LOG_DMA);
-};
-
-DMA.prototype.portB_write = function(data_byte)
-{
-    dbg_log("port B write: " + h(data_byte), LOG_DMA);
-};
-
-DMA.prototype.portC_write = function(data_byte)
-{
-    this.lsb_msb_flipflop = 0;
-}
-
-DMA.prototype.port81_write = function(data_byte)
-{
-    this.channel_addr[2] = this.channel_addr[2] & 0xFFFF | data_byte << 16;
-}
-*/
 
 // read data, write to memory
 DMA.prototype.do_read = function(buffer, start, len, channel, fn)
