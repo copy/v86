@@ -6,6 +6,12 @@
 // Official Hardware Programming Guide
 // -> https://pdos.csail.mit.edu/6.828/2011/readings/hardware/SoundBlaster.pdf
 //
+// Official Yamaha YMF262 Manual
+// -> http://map.grauw.nl/resources/sound/yamaha_ymf262.pdf
+//
+// OPL3 Programming Guide
+// -> http://www.fit.vutbr.cz/~arnost/opl/opl3.html
+//
 // DOSBox
 // -> https://sourceforge.net/p/dosbox/code-0/HEAD/tree/dosbox/branches/mamesound/src/hardware/sblaster.cpp
 // -> https://github.com/duganchen/dosbox/blob/master/src/hardware/sblaster.cpp
@@ -63,6 +69,7 @@ var DSP_command_sizes = new Uint8Array(256);
 var DSP_command_handlers = [];
 var mixer_read_handlers = [];
 var mixer_write_handlers = [];
+var fm_handlers = [];
 
 
 /**
@@ -149,6 +156,11 @@ function SB16(cpu, bus)
     // MPU.
     this.mpu_read_buffer = new ByteQueue(DSP_BUFSIZE);
     this.mpu_read_buffer_lastvalue = 0;
+
+    // FM Synthesizer.
+    this.fm_current_address0 = 0;
+    this.fm_current_address1 = 0;
+    this.fm_waveform_select_enable = false;
 
     // Interrupts.
     this.irq = SB_IRQ;
@@ -503,24 +515,42 @@ SB16.prototype.port2xF_read = function()
 }
 
 
+// FM Address Port - primary register.
 SB16.prototype.port2x0_write = function(value)
 {
-    dbg_log("220 write: fm music register address port (unimplemented)", LOG_SB16);
+    dbg_log("220 write: fm register 0 address = " + h(value), LOG_SB16);
+    this.fm_current_address0 = 0;
 }
 
+// FM Data Port - primary register.
 SB16.prototype.port2x1_write = function(value)
 {
-    dbg_log("221 write: fm music data port (unimplemented)", LOG_SB16);
+    dbg_log("221 write: fm register 0 data = " + h(value), LOG_SB16);
+    var handler = fm_handlers[this.fm_current_address0];
+    if(!handler)
+    {
+        handler = this.fm_default_write;
+    }
+    handler.call(this, value, 0, this.fm_current_address0);
 }
 
+// FM Address Port - secondary register.
 SB16.prototype.port2x2_write = function(value)
 {
-    dbg_log("222 write: advanced fm music register address port (unimplemented)", LOG_SB16);
+    dbg_log("222 write: fm register 1 address = " + h(value), LOG_SB16);
+    this.fm_current_address1 = 0;
 }
 
+// FM Data Port - secondary register.
 SB16.prototype.port2x3_write = function(value)
 {
-    dbg_log("223 write: advanced fm music data port (unimplemented)", LOG_SB16);
+    dbg_log("223 write: fm register 1 data =" + h(value), LOG_SB16);
+    var handler = fm_handlers[this.fm_current_address1];
+    if(!handler)
+    {
+        handler = this.fm_default_write;
+    }
+    handler.call(this, value, 1, this.fm_current_address1);
 }
 
 // Mixer Address Port.
@@ -1203,6 +1233,197 @@ register_mixer_read(0x82, function()
     }
     return ret;
 });
+
+
+
+//
+// FM Handlers
+//
+
+
+
+SB16.prototype.fm_default_write = function(data, register, address)
+{
+    dbg_log("unhandled fm register write. addr:" + register + "|" + h(address) + " data:" + h(data), LOG_SB16);
+    // No need to save into a dummy register as the registers are write-only.
+}
+
+/**
+ * @param{Array} addresses
+ * @param{function(number, number, number)=} handler
+ */
+function register_fm_write(addresses, handler)
+{
+    if(!handler)
+    {
+        handler = SB16.prototype.fm_default_write;
+    }
+    for(var i = 0; i < addresses.length; i++)
+    {
+        fm_handlers[addresses[i]] = handler;
+    }
+}
+
+function between(start, end)
+{
+    if(start === end) return [start];
+    return [start].concat(between(start + 1, end));
+}
+
+/** @const */ var SB_FM_OPERATORS_BY_OFFSET = new Uint8Array(32);
+SB_FM_OPERATORS_BY_OFFSET[0x00] =  0;
+SB_FM_OPERATORS_BY_OFFSET[0x01] =  1;
+SB_FM_OPERATORS_BY_OFFSET[0x02] =  2;
+SB_FM_OPERATORS_BY_OFFSET[0x03] =  3;
+SB_FM_OPERATORS_BY_OFFSET[0x04] =  4;
+SB_FM_OPERATORS_BY_OFFSET[0x05] =  5;
+SB_FM_OPERATORS_BY_OFFSET[0x08] =  6;
+SB_FM_OPERATORS_BY_OFFSET[0x09] =  7;
+SB_FM_OPERATORS_BY_OFFSET[0x0A] =  8;
+SB_FM_OPERATORS_BY_OFFSET[0x0B] =  9;
+SB_FM_OPERATORS_BY_OFFSET[0x0C] = 10;
+SB_FM_OPERATORS_BY_OFFSET[0x0D] = 11;
+SB_FM_OPERATORS_BY_OFFSET[0x10] = 12;
+SB_FM_OPERATORS_BY_OFFSET[0x11] = 13;
+SB_FM_OPERATORS_BY_OFFSET[0x12] = 14;
+SB_FM_OPERATORS_BY_OFFSET[0x13] = 15;
+SB_FM_OPERATORS_BY_OFFSET[0x14] = 16;
+SB_FM_OPERATORS_BY_OFFSET[0x15] = 17;
+function get_fm_operator(register, offset)
+{
+    return register * 18 + SB_FM_OPERATORS_BY_OFFSET[offset];
+}
+
+register_fm_write([0x01], function(bits, register, address)
+{
+    this.fm_waveform_select_enable[register] = bits & 0x20 > 0;
+    this.fm_update_waveforms();
+});
+
+// Timer 1 Count.
+register_fm_write([0x02]);
+
+// Timer 2 Count.
+register_fm_write([0x03]);
+
+register_fm_write([0x04], function(bits, register, address)
+{
+    switch(register)
+    {
+        case 0:
+            if(bits & 0x80)
+            {
+                // IQR Reset
+            }
+            else
+            {
+                // Timer masks and on/off
+            }
+            break;
+        case 1:
+            // Four-operator enable
+            break;
+    }
+});
+
+register_fm_write([0x05], function(bits, register, address)
+{
+    if(register === 0)
+    {
+        // No registers documented here.
+        this.fm_default_write(bits, register, address);
+        return;
+    }
+    // OPL3 Mode Enable
+});
+
+register_fm_write([0x08], function(bits, register, address)
+{
+    // Composite sine wave on/off
+    // Note select (keyboard split selection method)
+});
+
+register_fm_write(between(0x20, 0x35), function(bits, register, address)
+{
+    var operator = get_fm_operator(register, address - 0x20);
+    // Tremolo
+    // Vibrato
+    // Sustain
+    // KSR Envelope Scaling
+    // Frequency Multiplication Factor
+});
+
+register_fm_write(between(0x40, 0x55), function(bits, register, address)
+{
+    var operator = get_fm_operator(register, address - 0x40);
+    // Key Scale Level
+    // Output Level
+});
+
+register_fm_write(between(0x60, 0x75), function(bits, register, address)
+{
+    var operator = get_fm_operator(register, address - 0x60);
+    // Attack Rate
+    // Decay Rate
+});
+
+register_fm_write(between(0x80, 0x95), function(bits, register, address)
+{
+    var operator = get_fm_operator(register, address - 0x80);
+    // Sustain Level
+    // Release Rate
+});
+
+register_fm_write(between(0xA0, 0xA8), function(bits, register, address)
+{
+    var channel = address - 0xA0;
+    // Frequency Number (Lower 8 bits)
+});
+
+register_fm_write(between(0xB0, 0xB8), function(bits, register, address)
+{
+    // Key-On
+    // Block Number
+    // Frequency Number (Higher 2 bits)
+});
+
+register_fm_write([0xBD], function(bits, register, address)
+{
+    // Tremelo Depth
+    // Vibrato Depth
+    // Percussion Mode
+    // Bass Drum Key-On
+    // Snare Drum Key-On
+    // Tom-Tom Key-On
+    // Cymbal Key-On
+    // Hi-Hat Key-On
+});
+
+register_fm_write(between(0xC0, 0xC8), function(bits, register, address)
+{
+    // Right Speaker Enable
+    // Left Speaker Enable
+    // Feedback Modulation Factor
+    // Synthesis Type
+});
+
+register_fm_write(between(0xE0, 0xF5), function(bits, register, address)
+{
+    var operator = get_fm_operator(register, address - 0xE0);
+    // Waveform Select
+});
+
+
+
+//
+// FM behaviours
+//
+
+
+
+SB16.prototype.fm_update_waveforms = function()
+{
+}
 
 
 
