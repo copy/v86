@@ -44,17 +44,31 @@ var
 
     // Size (bytes) of the buffer in which DMA transfers are temporarily
     // stored before being processed.
-/** @const */ DMA_BUFSIZE = 65536,
+/** @const */ SB_DMA_BUFSIZE = 65536,
 
     // Number of samples to attempt to retrieve per transfer.
-/** @const */ DMA_BLOCK_SAMPLES = 1024,
+/** @const */ SB_DMA_BLOCK_SAMPLES = 1024,
+
+    // Usable DMA channels.
+/** @const */ SB_DMA0 = 0,
+/** @const */ SB_DMA1 = 1,
+/** @const */ SB_DMA3 = 3,
+/** @const */ SB_DMA5 = 5,
+/** @const */ SB_DMA6 = 6,
+/** @const */ SB_DMA7 = 7,
 
     // Default DMA channels.
-/** @const */ DMA_CHANNEL_8BIT = 1,
-/** @const */ DMA_CHANNEL_16BIT = 5,
+/** @const */ SB_DMA_CHANNEL_8BIT = SB_DMA1,
+/** @const */ SB_DMA_CHANNEL_16BIT = SB_DMA5,
+
+    // Usable IRQ channels.
+/** @const */ SB_IRQ2 = 2,
+/** @const */ SB_IRQ5 = 5,
+/** @const */ SB_IRQ7 = 7,
+/** @const */ SB_IRQ10 = 10,
 
     // Default IRQ channel.
-/** @const */ SB_IRQ = 5,
+/** @const */ SB_IRQ = SB_IRQ5,
 
     // Indices to the irq_triggered register.
 /** @const */ SB_IRQ_8BIT = 0x1,
@@ -124,7 +138,7 @@ function SB16(cpu, bus)
     this.dac_rate_ratio = 2;
 
     // Number of samples requested on each audio-process.
-    this.dac_process_samples = DMA_BLOCK_SAMPLES;
+    this.dac_process_samples = SB_DMA_BLOCK_SAMPLES;
 
     // Direct Memory Access transfer info.
     this.dma = cpu.devices.dma;
@@ -134,10 +148,10 @@ function SB16(cpu, bus)
     this.dma_bytes_block = 0;
     this.dma_irq = 0;
     this.dma_channel = 0;
-    this.dma_channel_8bit = DMA_CHANNEL_8BIT;
-    this.dma_channel_16bit = DMA_CHANNEL_16BIT;
+    this.dma_channel_8bit = SB_DMA_CHANNEL_8BIT;
+    this.dma_channel_16bit = SB_DMA_CHANNEL_16BIT;
     this.dma_autoinit = false;
-    this.dma_buffer = new ArrayBuffer(DMA_BUFSIZE);
+    this.dma_buffer = new ArrayBuffer(SB_DMA_BUFSIZE);
     this.dma_buffer_int8 = new Int8Array(this.dma_buffer);
     this.dma_buffer_uint8 = new Uint8Array(this.dma_buffer);
     this.dma_buffer_int16 = new Int16Array(this.dma_buffer);
@@ -1135,19 +1149,19 @@ register_mixer_read(0x80, function()
 {
     switch(this.irq)
     {
-        case 2: return 0x1;
-        case 5: return 0x2;
-        case 7: return 0x4;
-        case 10: return 0x8;
+        case SB_IRQ2: return 0x1;
+        case SB_IRQ5: return 0x2;
+        case SB_IRQ7: return 0x4;
+        case SB_IRQ10: return 0x8;
         default: return 0x0;
     }
 });
 register_mixer_write(0x80, function(bits)
 {
-    if(bits & 0x1) this.irq = 2;
-    if(bits & 0x2) this.irq = 5;
-    if(bits & 0x4) this.irq = 7;
-    if(bits & 0x8) this.irq = 10;
+    if(bits & 0x1) this.irq = SB_IRQ2;
+    if(bits & 0x2) this.irq = SB_IRQ5;
+    if(bits & 0x4) this.irq = SB_IRQ7;
+    if(bits & 0x8) this.irq = SB_IRQ10;
 });
 
 // DMA Select.
@@ -1156,26 +1170,28 @@ register_mixer_read(0x81, function()
     var ret = 0;
     switch(this.dma_channel_8bit)
     {
-        case 0: ret |= 0x1; break;
-        case 1: ret |= 0x2; break;
-        case 3: ret |= 0x8; break;
+        case SB_DMA0: ret |= 0x1; break;
+        case SB_DMA1: ret |= 0x2; break;
+        // Channel 2 is hardwired to floppy disk.
+        case SB_DMA3: ret |= 0x8; break;
     }
     switch(this.dma_channel_16bit)
     {
-        case 5: ret |= 0x20; break;
-        case 6: ret |= 0x40; break;
-        case 7: ret |= 0x80; break;
+        // Channel 4 cannot be used.
+        case SB_DMA5: ret |= 0x20; break;
+        case SB_DMA6: ret |= 0x40; break;
+        case SB_DMA7: ret |= 0x80; break;
     }
     return ret;
 });
 register_mixer_write(0x81, function(bits)
 {
-    if(bits & 0x1) this.dma_channel_8bit = 0;
-    if(bits & 0x2) this.dma_channel_8bit = 1;
-    if(bits & 0x8) this.dma_channel_8bit = 3;
-    if(bits & 0x20) this.dma_channel_16bit = 5;
-    if(bits & 0x40) this.dma_channel_16bit = 6;
-    if(bits & 0x80) this.dma_channel_16bit = 7;
+    if(bits & 0x1) this.dma_channel_8bit = SB_DMA0;
+    if(bits & 0x2) this.dma_channel_8bit = SB_DMA1;
+    if(bits & 0x8) this.dma_channel_8bit = SB_DMA3;
+    if(bits & 0x20) this.dma_channel_16bit = SB_DMA5;
+    if(bits & 0x40) this.dma_channel_16bit = SB_DMA6;
+    if(bits & 0x80) this.dma_channel_16bit = SB_DMA7;
 });
 
 // IRQ Status.
@@ -1416,7 +1432,7 @@ SB16.prototype.dma_transfer_start = function()
     this.dac_rate_ratio = Math.round(this.audio_samplerate / this.sampling_rate);
 
     this.dma_bytes_count = this.dma_sample_count * this.bytes_per_sample;
-    this.dma_bytes_block = DMA_BLOCK_SAMPLES * this.bytes_per_sample;
+    this.dma_bytes_block = SB_DMA_BLOCK_SAMPLES * this.bytes_per_sample;
 
     // (2) Wait for unmask event.
     this.dma_waiting_transfer = true;
