@@ -143,6 +143,7 @@ function SB16(cpu, bus)
     this.dma_buffer_int16 = new Int16Array(this.dma_buffer);
     this.dma_buffer_uint16 = new Uint16Array(this.dma_buffer);
     this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
+    this.dma_waiting_transfer = false;
     this.sampling_rate = 22050;
     this.bytes_per_sample = 1;
 
@@ -212,6 +213,8 @@ function SB16(cpu, bus)
     cpu.io.register_write(0x330, this, this.port3x0_write);
     cpu.io.register_write(0x331, this, this.port3x1_write);
 
+    this.dma.on_unmask(this.dma_on_unmask, this);
+
     bus.register("speaker-tell-samplerate", function(rate)
     {
         this.audio_samplerate = rate;
@@ -256,6 +259,7 @@ SB16.prototype.reset_dsp = function()
     this.dma_channel = 0;
     this.dma_autoinit = false;
     this.dma_buffer_uint8.fill(0);
+    this.dma_waiting_transfer = false;
 
     this.e2_value = 0xAA;
     this.e2_count = 0;
@@ -306,20 +310,21 @@ SB16.prototype.get_state = function()
     state[22] = this.dma_channel_16bit;
     state[23] = this.dma_autoinit;
     state[24] = this.dma_buffer_uint8;
-    state[25] = this.sampling_rate;
-    state[26] = this.bytes_per_sample;
+    state[25] = this.dma_waiting_transfer;
+    state[26] = this.sampling_rate;
+    state[27] = this.bytes_per_sample;
 
-    state[27] = this.e2_value;
-    state[28] = this.e2_count;
+    state[28] = this.e2_value;
+    state[29] = this.e2_count;
 
-    state[29] = this.asp_registers;
+    state[30] = this.asp_registers;
 
-    // state[30] = this.mpu_read_buffer;
-    state[31] = this.mpu_read_buffer_last_value;
+    // state[31] = this.mpu_read_buffer;
+    state[32] = this.mpu_read_buffer_last_value;
 
-    state[32] = this.irq;
-    state[33] = this.irq_triggered;
-    state[34] = this.audio_samplerate;
+    state[33] = this.irq;
+    state[34] = this.irq_triggered;
+    state[35] = this.audio_samplerate;
 
     return state;
 };
@@ -1413,16 +1418,22 @@ SB16.prototype.dma_transfer_start = function()
     this.dma_bytes_count = this.dma_sample_count * this.bytes_per_sample;
     this.dma_bytes_block = DMA_BLOCK_SAMPLES * this.bytes_per_sample;
 
-    // (2) Configure amount of bytes left to transfer and begin first
-    // block of transfer when the DMA channel has been unmasked.
+    // (2) Wait for unmask event.
+    this.dma_waiting_transfer = true;
+};
 
-    this.dma.on_unmask(this.dma_channel, () =>
+SB16.prototype.dma_on_unmask = function(channel)
+{
+    if(channel !== this.dma_channel || !this.dma_waiting_transfer)
     {
-        this.dma.on_unmask(this.dma_channel, undefined);
-        this.dma_bytes_left = this.dma_bytes_count;
+        return;
+    }
 
-        this.dma_transfer_next();
-    });
+    // (3) Configure amount of bytes left to transfer and begin first
+    // block of transfer when the DMA channel has been unmasked.
+    this.dma_waiting_transfer = false;
+    this.dma_bytes_left = this.dma_bytes_count;
+    this.dma_transfer_next();
 };
 
 SB16.prototype.dma_transfer_next = function()

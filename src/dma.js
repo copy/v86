@@ -17,7 +17,7 @@ function DMA(cpu)
     this.channel_count_init = new Uint16Array(8);
     this.channel_mask = new Uint8Array(8);
     this.channel_mode = new Uint8Array(8);
-    this.channel_on_unmask = [];
+    this.unmask_listeners = [];
 
     this.lsb_msb_flipflop = 0;
 
@@ -235,9 +235,12 @@ DMA.prototype.portC_write = function(data_byte)
     this.lsb_msb_flipflop = 0;
 };
 
-DMA.prototype.on_unmask = function(channel, fn)
+DMA.prototype.on_unmask = function(fn, this_value)
 {
-    this.channel_on_unmask[channel] = fn;
+    this.unmask_listeners.push({
+        fn: fn,
+        this_value: this_value,
+    });
 };
 
 DMA.prototype.update_mask = function(channel, value)
@@ -246,10 +249,16 @@ DMA.prototype.update_mask = function(channel, value)
     {
         this.channel_mask[channel] ^= 1;
 
-        if(!value && this.channel_on_unmask[channel])
+        if(!value)
         {
-            dbg_log("firing on_unmask[" + channel + "]", LOG_DMA);
-            this.channel_on_unmask[channel]();
+            dbg_log("firing on_unmask(" + channel + ")", LOG_DMA);
+            for(var i = 0; i < this.unmask_listeners.length; i++)
+            {
+                this.unmask_listeners[i].fn.call(
+                    this.unmask_listeners[i].this_value,
+                    channel
+                );
+            }
         }
     }
 };
