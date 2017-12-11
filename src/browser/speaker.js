@@ -13,6 +13,11 @@ function SpeakerAdapter(bus)
     {
         return;
     }
+    if(!window.AudioContext && !window.webkitAudioContext)
+    {
+        console.warn("Web browser doesn't support Web Audio API");
+        return;
+    }
 
     /** @const @type {BusConnector} */
     this.bus = bus;
