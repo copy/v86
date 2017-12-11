@@ -376,20 +376,21 @@ SB16.prototype.set_state = function(state)
     this.dma_channel_16bit = state[22];
     this.dma_autoinit = state[23];
     this.dma_buffer_uint8 = state[24];
-    this.sampling_rate = state[25];
-    this.bytes_per_sample = state[26];
+    this.dma_waiting_transfer = state[25];
+    this.sampling_rate = state[26];
+    this.bytes_per_sample = state[27];
 
-    this.e2_value = state[27];
-    this.e2_count = state[28];
+    this.e2_value = state[28];
+    this.e2_count = state[29];
 
-    this.asp_registers = state[29];
+    this.asp_registers = state[30];
 
-    // this.mpu_read_buffer = state[30];
-    this.mpu_read_buffer_last_value = state[31];
+    // this.mpu_read_buffer = state[31];
+    this.mpu_read_buffer_last_value = state[32];
 
-    this.irq = state[32];
-    this.irq_triggered = state[33];
-    this.audio_samplerate = state[34];
+    this.irq = state[33];
+    this.irq_triggered = state[34];
+    this.audio_samplerate = state[35];
 
     this.dma_buffer = this.dma_buffer_uint8.buffer;
     this.dma_buffer_int8 = new Int8Array(this.dma_buffer);
