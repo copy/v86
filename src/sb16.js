@@ -530,14 +530,14 @@ SB16.prototype.port2xF_read = function()
 // FM Address Port - primary register.
 SB16.prototype.port2x0_write = function(value)
 {
-    dbg_log("220 write: fm register 0 address = " + h(value), LOG_SB16);
+    dbg_log("220 write: (unimplemented) fm register 0 address = " + h(value), LOG_SB16);
     this.fm_current_address0 = 0;
 };
 
 // FM Data Port - primary register.
 SB16.prototype.port2x1_write = function(value)
 {
-    dbg_log("221 write: fm register 0 data = " + h(value), LOG_SB16);
+    dbg_log("221 write: (unimplemented) fm register 0 data = " + h(value), LOG_SB16);
     var handler = FM_HANDLERS[this.fm_current_address0];
     if(!handler)
     {
@@ -549,14 +549,14 @@ SB16.prototype.port2x1_write = function(value)
 // FM Address Port - secondary register.
 SB16.prototype.port2x2_write = function(value)
 {
-    dbg_log("222 write: fm register 1 address = " + h(value), LOG_SB16);
+    dbg_log("222 write: (unimplemented) fm register 1 address = " + h(value), LOG_SB16);
     this.fm_current_address1 = 0;
 };
 
 // FM Data Port - secondary register.
 SB16.prototype.port2x3_write = function(value)
 {
-    dbg_log("223 write: fm register 1 data =" + h(value), LOG_SB16);
+    dbg_log("223 write: (unimplemented) fm register 1 data =" + h(value), LOG_SB16);
     var handler = FM_HANDLERS[this.fm_current_address1];
     if(!handler)
     {
@@ -1284,14 +1284,14 @@ register_fm_write([0x04], function(bits, register, address)
     switch(register)
     {
         case 0:
-            if(bits & 0x80)
-            {
-                // IQR Reset
-            }
-            else
-            {
-                // Timer masks and on/off
-            }
+            // if(bits & 0x80)
+            // {
+            //     // IQR Reset
+            // }
+            // else
+            // {
+            //     // Timer masks and on/off
+            // }
             break;
         case 1:
             // Four-operator enable
@@ -1392,6 +1392,7 @@ register_fm_write(between(0xE0, 0xF5), function(bits, register, address)
 
 SB16.prototype.fm_update_waveforms = function()
 {
+    // To be implemented.
 }
 
 //
