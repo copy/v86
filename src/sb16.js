@@ -1020,42 +1020,8 @@ register_dsp_command([0xE1], 0, function()
     this.read_buffer.push(5);
 });
 
-// DMA identification - based completely off dosbox
-/** @const */ var SB_E2_SIGNS = [1, -1, -1, 1];
-/** @const */ var SB_E2_EXTRA = [-106, 165, -151, 90];
-register_dsp_command([0xE2], 1, function()
-{
-    var input = this.write_buffer.shift();
-    dbg_log("e2 dma identification. (not understood) input: " + input, LOG_SB16);
-
-    this.e2_value += (input & 0x01) * SB_E2_SIGNS[(this.e2_count + 0) % 4];
-    this.e2_value += (input & 0x02) * SB_E2_SIGNS[(this.e2_count + 2) % 4];
-    this.e2_value += (input & 0x04) * SB_E2_SIGNS[(this.e2_count + 1) % 4];
-    this.e2_value += (input & 0x08) * SB_E2_SIGNS[(this.e2_count + 3) % 4];
-    this.e2_value += (input & 0x10) * SB_E2_SIGNS[(this.e2_count + 2) % 4];
-    this.e2_value += (input & 0x20) * SB_E2_SIGNS[(this.e2_count + 0) % 4];
-    this.e2_value += (input & 0x40) * SB_E2_SIGNS[(this.e2_count + 3) % 4];
-    this.e2_value += (input & 0x80) * SB_E2_SIGNS[(this.e2_count + 1) % 4];
-
-    this.e2_value += SB_E2_EXTRA[this.e2_count % 4];
-
-    this.e2_count++;
-    this.e2_value %= 256;
-
-    this.dma.on_unmask(this.dma_channel_8bit, () =>
-    {
-        this.dma.on_unmask(this.dma_channel_8bit, undefined);
-
-        var buffer = new Uint8Array(1);
-        buffer[0] = this.e2_value;
-        var syncbuffer = new SyncBuffer(buffer);
-
-        this.dma.do_read(syncbuffer, 0, 1, this.dma_channel_8bit, function()
-        {
-            dbg_log("e2 dma identification: written to dma", LOG_SB16);
-        });
-    });
-});
+// DMA identification.
+register_dsp_command([0xE2], 1);
 
 // Get DSP copyright.
 register_dsp_command([0xE3], 0, function()
