@@ -49,10 +49,12 @@ function SpeakerAdapter(bus)
         this.beep_update();
     }, this);
 
-    bus.register("pcspeaker-update", function(pit)
+    bus.register("pcspeaker-update", function(data)
     {
-        this.pit_enabled = pit.counter_mode[2] == 3;
-        this.beep_frequency = OSCILLATOR_FREQ * 1000 / pit.counter_reload[2];
+        var counter_mode = data[0];
+        var counter_reload = data[1];
+        this.pit_enabled = counter_mode == 3;
+        this.beep_frequency = OSCILLATOR_FREQ * 1000 / counter_reload;
         this.beep_update();
     }, this);
 
