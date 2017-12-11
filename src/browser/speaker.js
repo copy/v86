@@ -56,16 +56,19 @@ function SpeakerAdapter(bus)
         this.beep_update();
     }, this);
 
-    this.debug_dac = false;
-    this.debug_dac_out = [];
-    window["speaker_debug_dac_out"] = this.debug_dac_out;
-    window["speaker_debug_start"] = () =>
+    if(DEBUG)
     {
-        this.debug_dac = true;
-        setTimeout(() =>
+        this.debug_dac = false;
+        this.debug_dac_out = [];
+        window["speaker_debug_dac_out"] = this.debug_dac_out;
+        window["speaker_debug_start"] = () =>
         {
-            this.debug_dac = false;
-        },250);
+            this.debug_dac = true;
+            setTimeout(() =>
+            {
+                this.debug_dac = false;
+            },250);
+        }
     }
 }
 
@@ -93,8 +96,12 @@ SpeakerAdapter.prototype.dac_process = function(event)
 {
     this.bus.send("speaker-tell-samplerate", this.audio_context.sampleRate);
     this.bus.send("speaker-process", event);
-    if(this.debug_dac)
+
+    if(DEBUG)
     {
-        this.debug_dac_out.push(event.outputBuffer.getChannelData(0).slice());
+        if(this.debug_dac)
+        {
+            this.debug_dac_out.push(event.outputBuffer.getChannelData(0).slice());
+        }
     }
 }
