@@ -90,7 +90,7 @@ SpeakerAdapter.prototype.beep_update = function()
         this.beep_gain.gain.setValueAtTime(0, current_time);
         this.beep_playing = false;
     }
-}
+};
 
 SpeakerAdapter.prototype.dac_process = function(event)
 {
@@ -104,4 +104,4 @@ SpeakerAdapter.prototype.dac_process = function(event)
             this.debug_dac_out.push(event.outputBuffer.getChannelData(0).slice());
         }
     }
-}
+};

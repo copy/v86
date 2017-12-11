@@ -145,13 +145,13 @@ DMA.prototype.port_count_write = function(channel, data_byte)
 
     this.channel_count_init[channel] =
         this.flipflop_get(this.channel_count_init[channel], data_byte, true);
-}
+};
 
 DMA.prototype.port_count_read = function(channel)
 {
     dbg_log("count read [" + channel + "] -> " + h(this.channel_count[channel]), LOG_DMA);
     return this.flipflop_read(this.channel_count[channel]);
-}
+};
 
 DMA.prototype.port_addr_write = function(channel, data_byte)
 {
@@ -162,37 +162,37 @@ DMA.prototype.port_addr_write = function(channel, data_byte)
 
     this.channel_addr_init[channel] =
         this.flipflop_get(this.channel_addr_init[channel], data_byte, true);
-}
+};
 
 DMA.prototype.port_addr_read = function(channel)
 {
     dbg_log("addr read [" + channel + "] -> " + h(this.channel_addr[channel]), LOG_DMA);
     return this.flipflop_read(this.channel_addr[channel]);
-}
+};
 
 DMA.prototype.port_pagehi_write = function(channel, data_byte)
 {
     dbg_log("pagehi write [" + channel + "] = " + h(data_byte), LOG_DMA);
     this.channel_pagehi[channel] = data_byte;
-}
+};
 
 DMA.prototype.port_pagehi_read = function(channel)
 {
     dbg_log("pagehi read [" + channel + "]", LOG_DMA);
     return this.channel_pagehi[channel];
-}
+};
 
 DMA.prototype.port_page_write = function(channel, data_byte)
 {
     dbg_log("page write [" + channel + "] = " + h(data_byte), LOG_DMA);
     this.channel_page[channel] = data_byte;
-}
+};
 
 DMA.prototype.port_page_read = function(channel)
 {
     dbg_log("page read [" + channel + "]", LOG_DMA);
     return this.channel_page[channel];
-}
+};
 
 DMA.prototype.port_singlemask_write = function(channel_offset, data_byte)
 {
@@ -200,7 +200,7 @@ DMA.prototype.port_singlemask_write = function(channel_offset, data_byte)
     var value = !!(data_byte & 0x4);
     dbg_log("singlechannel mask write [" + channel + "] = " + value, LOG_DMA);
     this.update_mask(channel, value);
-}
+};
 
 DMA.prototype.port_multimask_write = function(channel_offset, data_byte)
 {
@@ -209,36 +209,36 @@ DMA.prototype.port_multimask_write = function(channel_offset, data_byte)
     {
         this.update_mask(channel_offset + i, data_byte & (1 << i));
     }
-}
+};
 
 DMA.prototype.port_multimask_read = function(channel_offset)
 {
     var value = 0;
-    value |= this.channel_mask[channel_offset + 0] * 0x1;
-    value |= this.channel_mask[channel_offset + 1] * 0x2;
-    value |= this.channel_mask[channel_offset + 2] * 0x4;
-    value |= this.channel_mask[channel_offset + 3] * 0x8;
+    value |= this.channel_mask[channel_offset + 0];
+    value |= this.channel_mask[channel_offset + 1] << 1;
+    value |= this.channel_mask[channel_offset + 2] << 2;
+    value |= this.channel_mask[channel_offset + 3] << 3;
     dbg_log("multichannel mask read: " + h(value), LOG_DMA);
     return value;
-}
+};
 
 DMA.prototype.port_mode_write = function(channel_offset, data_byte)
 {
     var channel = (data_byte & 0x3) + channel_offset;
     dbg_log("mode write [" + channel + "] = " + h(data_byte), LOG_DMA);
     this.channel_mode[channel] = data_byte;
-}
+};
 
 DMA.prototype.portC_write = function(data_byte)
 {
     dbg_log("flipflop reset", LOG_DMA);
     this.lsb_msb_flipflop = 0;
-}
+};
 
 DMA.prototype.on_unmask = function(channel, fn)
 {
     this.channel_on_unmask[channel] = fn;
-}
+};
 
 DMA.prototype.update_mask = function(channel, value)
 {
@@ -252,7 +252,7 @@ DMA.prototype.update_mask = function(channel, value)
             this.channel_on_unmask[channel]();
         }
     }
-}
+};
 
 // read data, write to memory
 DMA.prototype.do_read = function(buffer, start, len, channel, fn)
@@ -348,7 +348,7 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
                 }
             );
     }
-}
+};
 
 DMA.prototype.address_get_8bit = function(channel)
 {
@@ -365,7 +365,7 @@ DMA.prototype.address_get_8bit = function(channel)
     addr |= this.channel_pagehi[channel] << 24;
 
     return addr;
-}
+};
 
 DMA.prototype.count_get_8bit = function(channel)
 {
@@ -377,7 +377,7 @@ DMA.prototype.count_get_8bit = function(channel)
     }
 
     return count;
-}
+};
 
 DMA.prototype.flipflop_get = function(old_dword, new_byte, continuing)
 {
@@ -396,7 +396,7 @@ DMA.prototype.flipflop_get = function(old_dword, new_byte, continuing)
         // high byte
         return old_dword & ~0xFF00 | new_byte << 8;
     }
-}
+};
 
 DMA.prototype.flipflop_read = function(dword)
 {
@@ -412,4 +412,4 @@ DMA.prototype.flipflop_read = function(dword)
         // high byte
         return (dword >> 8) & 0xFF;
     }
-}
+};

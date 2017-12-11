@@ -57,19 +57,19 @@ var
 /** @const */ SB_IRQ = 5,
 
     // Indices to the irq_triggered register.
-/** @const */ SB_IRQ_8BIT  = 0x1,
+/** @const */ SB_IRQ_8BIT = 0x1,
 /** @const */ SB_IRQ_16BIT = 0x2,
-/** @const */ SB_IRQ_MIDI  = 0x1,
-/** @const */ SB_IRQ_MPU   = 0x4;
+/** @const */ SB_IRQ_MIDI = 0x1,
+/** @const */ SB_IRQ_MPU = 0x4;
 
 
 // Probably less efficient, but it's more maintainable, instead
 // of having a single large unorganised and decoupled table.
-var DSP_command_sizes = new Uint8Array(256);
-var DSP_command_handlers = [];
-var mixer_read_handlers = [];
-var mixer_write_handlers = [];
-var fm_handlers = [];
+var DSP_COMMAND_SIZES = new Uint8Array(256);
+var DSP_COMMAND_HANDLERS = [];
+var MIXER_READ_HANDLERS = [];
+var MIXER_WRITE_HANDLERS = [];
+var FM_HANDLERS = [];
 
 
 /**
@@ -225,13 +225,9 @@ function SB16(cpu, bus)
     this.reset_dsp();
 }
 
-
-
 //
 // General
 //
-
-
 
 SB16.prototype.reset_dsp = function()
 {
@@ -273,108 +269,108 @@ SB16.prototype.reset_dsp = function()
     this.asp_registers.fill(0);
     this.asp_registers[5] = 0x01;
     this.asp_registers[9] = 0xF8;
-}
+};
 
 SB16.prototype.get_state = function()
 {
     var state = [];
 
-    // state[ 0] = this.write_buffer              ;
-    // state[ 1] = this.read_buffer               ;
-    state[ 2] = this.read_buffer_lastvalue     ;
+    // state[0] = this.write_buffer;
+    // state[1] = this.read_buffer;
+    state[2] = this.read_buffer_lastvalue;
 
-    state[ 3] = this.command                   ;
-    state[ 4] = this.command_size              ;
+    state[3] = this.command;
+    state[4] = this.command_size;
 
-    state[ 5] = this.mixer_current_address     ;
-    state[ 6] = this.mixer_unhandled_registers ;
+    state[5] = this.mixer_current_address;
+    state[6] = this.mixer_unhandled_registers;
 
-    state[ 7] = this.dummy_speaker_enabled     ;
-    state[ 8] = this.test_register             ;
+    state[7] = this.dummy_speaker_enabled;
+    state[8] = this.test_register;
 
-    state[ 9] = this.dsp_highspeed             ;
-    state[10] = this.dsp_stereo                ;
-    state[11] = this.dsp_16bit                 ;
-    state[12] = this.dsp_signed                ;
+    state[9] = this.dsp_highspeed;
+    state[10] = this.dsp_stereo;
+    state[11] = this.dsp_16bit;
+    state[12] = this.dsp_signed;
 
-    // state[13] = this.dac_buffer                ;
-    state[14] = this.dac_rate_ratio            ;
+    // state[13] = this.dac_buffer;
+    state[14] = this.dac_rate_ratio;
 
-    state[15] = this.dma_sample_count          ;
-    state[16] = this.dma_bytes_count           ;
-    state[17] = this.dma_bytes_left            ;
-    state[18] = this.dma_bytes_block           ;
-    state[19] = this.dma_irq                   ;
-    state[20] = this.dma_channel               ;
-    state[21] = this.dma_channel_8bit          ;
-    state[22] = this.dma_channel_16bit         ;
-    state[23] = this.dma_autoinit              ;
-    state[24] = this.dma_buffer_uint8          ;
-    state[25] = this.sampling_rate             ;
-    state[26] = this.bytes_per_sample          ;
+    state[15] = this.dma_sample_count;
+    state[16] = this.dma_bytes_count;
+    state[17] = this.dma_bytes_left;
+    state[18] = this.dma_bytes_block;
+    state[19] = this.dma_irq;
+    state[20] = this.dma_channel;
+    state[21] = this.dma_channel_8bit;
+    state[22] = this.dma_channel_16bit;
+    state[23] = this.dma_autoinit;
+    state[24] = this.dma_buffer_uint8;
+    state[25] = this.sampling_rate;
+    state[26] = this.bytes_per_sample;
 
-    state[27] = this.e2_value                  ;
-    state[28] = this.e2_count                  ;
+    state[27] = this.e2_value;
+    state[28] = this.e2_count;
 
-    state[29] = this.asp_registers             ;
+    state[29] = this.asp_registers;
 
-    // state[30] = this.mpu_read_buffer           ;
+    // state[30] = this.mpu_read_buffer;
     state[31] = this.mpu_read_buffer_last_value;
 
-    state[32] = this.irq                       ;
-    state[33] = this.irq_triggered             ;
-    state[34] = this.audio_samplerate          ;
+    state[32] = this.irq;
+    state[33] = this.irq_triggered;
+    state[34] = this.audio_samplerate;
 
     return state;
 };
 
 SB16.prototype.set_state = function(state)
 {
-    // this.write_buffer               = state[ 0];
-    // this.read_buffer                = state[ 1];
-    this.read_buffer_lastvalue      = state[ 2];
+    // this.write_buffer = state[0];
+    // this.read_buffer = state[1];
+    this.read_buffer_lastvalue = state[2];
 
-    this.command                    = state[ 3];
-    this.command_size               = state[ 4];
+    this.command = state[3];
+    this.command_size = state[4];
 
-    this.mixer_current_address      = state[ 5];
-    this.mixer_unhandled_registers  = state[ 6];
+    this.mixer_current_address = state[5];
+    this.mixer_unhandled_registers = state[6];
 
-    this.dummy_speaker_enabled      = state[ 7];
-    this.test_register              = state[ 8];
+    this.dummy_speaker_enabled = state[7];
+    this.test_register = state[8];
 
-    this.dsp_highspeed              = state[ 9];
-    this.dsp_stereo                 = state[10];
-    this.dsp_16bit                  = state[11];
-    this.dsp_signed                 = state[12];
+    this.dsp_highspeed = state[9];
+    this.dsp_stereo = state[10];
+    this.dsp_16bit = state[11];
+    this.dsp_signed = state[12];
 
-    // this.dac_buffer                 = state[13];
-    this.dac_rate_ratio             = state[14];
+    // this.dac_buffer = state[13];
+    this.dac_rate_ratio = state[14];
 
-    this.dma_sample_count           = state[15];
-    this.dma_bytes_count            = state[16];
-    this.dma_bytes_left             = state[17];
-    this.dma_bytes_block            = state[18];
-    this.dma_irq                    = state[19];
-    this.dma_channel                = state[20];
-    this.dma_channel_8bit           = state[21];
-    this.dma_channel_16bit          = state[22];
-    this.dma_autoinit               = state[23];
-    this.dma_buffer_uint8           = state[24];
-    this.sampling_rate              = state[25];
-    this.bytes_per_sample           = state[26];
+    this.dma_sample_count = state[15];
+    this.dma_bytes_count = state[16];
+    this.dma_bytes_left = state[17];
+    this.dma_bytes_block = state[18];
+    this.dma_irq = state[19];
+    this.dma_channel = state[20];
+    this.dma_channel_8bit = state[21];
+    this.dma_channel_16bit = state[22];
+    this.dma_autoinit = state[23];
+    this.dma_buffer_uint8 = state[24];
+    this.sampling_rate = state[25];
+    this.bytes_per_sample = state[26];
 
-    this.e2_value                   = state[27];
-    this.e2_count                   = state[28];
+    this.e2_value = state[27];
+    this.e2_count = state[28];
 
-    this.asp_registers              = state[29];
+    this.asp_registers = state[29];
 
-    // this.mpu_read_buffer            = state[30];
+    // this.mpu_read_buffer = state[30];
     this.mpu_read_buffer_last_value = state[31];
 
-    this.irq                        = state[32];
-    this.irq_triggered              = state[33];
-    this.audio_samplerate           = state[34];
+    this.irq = state[32];
+    this.irq_triggered = state[33];
+    this.audio_samplerate = state[34];
 
     this.dma_buffer = this.dma_buffer_uint8.buffer;
     this.dma_buffer_int8 = new Int8Array(this.dma_buffer);
@@ -383,80 +379,76 @@ SB16.prototype.set_state = function(state)
     this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
 };
 
-
-
 //
 // I/O handlers
 //
-
-
 
 SB16.prototype.port2x0_read = function()
 {
     dbg_log("220 read: fm music status port (unimplemented)", LOG_SB16);
     return 0xFF;
-}
+};
 
 SB16.prototype.port2x1_read = function()
 {
     dbg_log("221 read: fm music data port (write only)", LOG_SB16);
     return 0xFF;
-}
+};
 
 SB16.prototype.port2x2_read = function()
 {
     dbg_log("222 read: advanced fm music status port (unimplemented)", LOG_SB16);
     return 0xFF;
-}
+};
 
 SB16.prototype.port2x3_read = function()
 {
     dbg_log("223 read: advanced music data port (write only)", LOG_SB16);
     return 0xFF;
-}
+};
 
 // Mixer Address Port.
 SB16.prototype.port2x4_read = function()
 {
     dbg_log("224 read: mixer address port", LOG_SB16);
     return this.mixer_current_address;
-}
+};
 
 // Mixer Data Port.
 SB16.prototype.port2x5_read = function()
 {
     dbg_log("225 read: mixer data port", LOG_SB16);
-    var handler = mixer_read_handlers[this.mixer_current_address];
+    var handler = MIXER_READ_HANDLERS[this.mixer_current_address];
     if(!handler)
     {
         handler = this.mixer_default_read;
     }
     return handler.call(this);
-}
+};
 
 SB16.prototype.port2x6_read = function()
 {
     dbg_log("226 read: (write only)", LOG_SB16);
     return 0xFF;
-}
+};
 
 SB16.prototype.port2x7_read = function()
 {
     dbg_log("227 read: undocumented", LOG_SB16);
     return 0xFF;
-}
+};
 
 SB16.prototype.port2x8_read = function()
 {
     dbg_log("228 read: fm music status port (unimplemented)", LOG_SB16);
     return 0xFF;
-}
+};
 
 SB16.prototype.port2x9_read = function()
 {
     dbg_log("229 read: fm music data port (write only)", LOG_SB16);
     return 0xFF;
-}
+};
 
 // Read Data.
 // Used to acces in-bound DSP data.
@@ -469,13 +461,13 @@ SB16.prototype.port2xA_read = function()
     }
     dbg_log(" <- " + this.read_buffer_lastvalue + " " + h(this.read_buffer_lastvalue) + " '" + String.fromCharCode(this.read_buffer_lastvalue) + "'", LOG_SB16);
     return this.read_buffer_lastvalue;
-}
+};
 
 SB16.prototype.port2xB_read = function()
 {
     dbg_log("22B read: undocumented", LOG_SB16);
     return 0xFF;
-}
+};
 
 // Write-Buffer Status.
 // Indicates whether the DSP is ready to accept commands or data.
@@ -484,13 +476,13 @@ SB16.prototype.port2xC_read = function()
     dbg_log("22C read: write-buffer status", LOG_SB16);
     // Always return ready (bit-7 set to low)
     return 0x7F;
-}
+};
 
 SB16.prototype.port2xD_read = function()
 {
     dbg_log("22D read: undocumented", LOG_SB16);
     return 0xFF;
-}
+};
 
 // Read-Buffer Status.
 // Indicates whether there is any in-bound data available for reading.
@@ -504,7 +496,7 @@ SB16.prototype.port2xE_read = function()
     }
     var ready = this.read_buffer.length && !this.dsp_highspeed;
     return (ready << 7) | 0x7F;
-}
+};
 
 // DSP 16-bit interrupt acknowledgement.
 SB16.prototype.port2xF_read = function()
@@ -512,7 +504,7 @@ SB16.prototype.port2xF_read = function()
     dbg_log("22F read: irq 16bit ack", LOG_SB16);
     this.lower_irq(SB_IRQ_16BIT);
     return 0;
-}
+};
 
 
 // FM Address Port - primary register.
@@ -520,57 +512,57 @@ SB16.prototype.port2x0_write = function(value)
 {
     dbg_log("220 write: fm register 0 address = " + h(value), LOG_SB16);
     this.fm_current_address0 = 0;
-}
+};
 
 // FM Data Port - primary register.
 SB16.prototype.port2x1_write = function(value)
 {
     dbg_log("221 write: fm register 0 data = " + h(value), LOG_SB16);
-    var handler = fm_handlers[this.fm_current_address0];
+    var handler = FM_HANDLERS[this.fm_current_address0];
     if(!handler)
     {
         handler = this.fm_default_write;
     }
     handler.call(this, value, 0, this.fm_current_address0);
-}
+};
 
 // FM Address Port - secondary register.
 SB16.prototype.port2x2_write = function(value)
 {
     dbg_log("222 write: fm register 1 address = " + h(value), LOG_SB16);
     this.fm_current_address1 = 0;
-}
+};
 
 // FM Data Port - secondary register.
 SB16.prototype.port2x3_write = function(value)
 {
     dbg_log("223 write: fm register 1 data =" + h(value), LOG_SB16);
-    var handler = fm_handlers[this.fm_current_address1];
+    var handler = FM_HANDLERS[this.fm_current_address1];
     if(!handler)
     {
         handler = this.fm_default_write;
     }
     handler.call(this, value, 1, this.fm_current_address1);
-}
+};
 
 // Mixer Address Port.
 SB16.prototype.port2x4_write = function(value)
 {
     dbg_log("224 write: mixer address = " + h(value), LOG_SB16);
     this.mixer_current_address = value;
-}
+};
 
 // Mixer Data Port.
 SB16.prototype.port2x5_write = function(value)
 {
     dbg_log("225 write: mixer data = " + h(value), LOG_SB16);
-    var handler = mixer_write_handlers[this.mixer_current_address];
+    var handler = MIXER_WRITE_HANDLERS[this.mixer_current_address];
     if(!handler)
     {
         handler = this.mixer_default_write;
     }
     handler.call(this, value);
-}
+};
 
 // Reset.
 // Used to reset the DSP to its default state and to exit highspeed mode.
@@ -592,32 +584,32 @@ SB16.prototype.port2x6_write = function(yesplease)
     // Signal completion.
     this.read_buffer.clear();
     this.read_buffer.push(0xAA);
-}
+};
 
 SB16.prototype.port2x7_write = function(value)
 {
     dbg_log("227 write: undocumented", LOG_SB16);
-}
+};
 
 SB16.prototype.port2x8_write = function(value)
 {
     dbg_log("228 write: fm music register port (unimplemented)", LOG_SB16);
-}
+};
 
 SB16.prototype.port2x9_write = function(value)
 {
     dbg_log("229 write: fm music data port (unimplemented)", LOG_SB16);
-}
+};
 
 SB16.prototype.port2xA_write = function(value)
 {
     dbg_log("22A write: dsp read data port (read only)", LOG_SB16);
-}
+};
 
 SB16.prototype.port2xB_write = function(value)
 {
     dbg_log("22B write: undocumented", LOG_SB16);
-}
+};
 
 // Write Command/Data.
 // Used to send commands or data to the DSP.
@@ -631,7 +623,7 @@ SB16.prototype.port2xC_write = function(value)
         dbg_log("22C write: command = " + h(value), LOG_SB16);
         this.command = value;
         this.write_buffer.clear();
-        this.command_size = DSP_command_sizes[value];
+        this.command_size = DSP_COMMAND_SIZES[value];
     }
     else
     {
@@ -645,22 +637,22 @@ SB16.prototype.port2xC_write = function(value)
     {
         this.command_do();
     }
-}
+};
 
 SB16.prototype.port2xD_write = function(value)
 {
     dbg_log("22D write: undocumented", LOG_SB16);
-}
+};
 
 SB16.prototype.port2xE_write = function(value)
 {
     dbg_log("22E write: dsp read buffer status (read only)", LOG_SB16);
-}
+};
 
 SB16.prototype.port2xF_write = function(value)
 {
     dbg_log("22F write: undocumented", LOG_SB16);
-}
+};
 
 
 // MPU UART Mode - Data Port
@@ -675,11 +667,11 @@ SB16.prototype.port3x0_read = function()
     dbg_log(" <- " + h(this.mpu_read_buffer_lastvalue), LOG_SB16);
 
     return this.mpu_read_buffer_lastvalue;
-}
+};
 SB16.prototype.port3x0_write = function(value)
 {
     dbg_log("330 write: mpu data (unimplemented) : " + h(value), LOG_SB16);
-}
+};
 
 // MPU UART Mode - Status Port
 SB16.prototype.port3x1_read = function()
@@ -691,7 +683,7 @@ SB16.prototype.port3x1_read = function()
     status |= 0x80 * !this.mpu_read_buffer.length; // Input Ready
 
     return status;
-}
+};
 
 // MPU UART Mode - Command Port
 SB16.prototype.port3x1_write = function(value)
@@ -703,19 +695,15 @@ SB16.prototype.port3x1_write = function(value)
         this.mpu_read_buffer.clear();
         this.mpu_read_buffer.push(0xFE);
     }
-}
-
-
+};
 
 //
 // DSP command handlers
 //
 
-
-
 SB16.prototype.command_do = function()
 {
-    var handler = DSP_command_handlers[this.command];
+    var handler = DSP_COMMAND_HANDLERS[this.command];
     if(!handler)
     {
         handler = this.dsp_default_handler;
@@ -726,12 +714,12 @@ SB16.prototype.command_do = function()
     this.command = DSP_NO_COMMAND;
     this.command_size = 0;
     this.write_buffer.clear();
-}
+};
 
 SB16.prototype.dsp_default_handler = function()
 {
     dbg_log("Unhandled command: " + h(this.command), LOG_SB16);
-}
+};
 
 /**
  * @param {Array} commands
@@ -746,8 +734,8 @@ function register_dsp_command(commands, size, handler)
     }
     for(var i = 0; i < commands.length; i++)
     {
-        DSP_command_sizes[commands[i]] = size;
-        DSP_command_handlers[commands[i]] = handler;
+        DSP_COMMAND_SIZES[commands[i]] = size;
+        DSP_COMMAND_HANDLERS[commands[i]] = handler;
     }
 }
 
@@ -1114,25 +1102,21 @@ register_dsp_command([0xF9], 1, function()
     this.read_buffer.push(SB_F9[input]);
 });
 
-
-
 //
 // Mixer Handlers
 //
-
-
 
 SB16.prototype.mixer_default_read = function()
 {
     dbg_log("unhandled mixer register read. addr:" + h(this.mixer_current_address), LOG_SB16);
     return this.mixer_unhandled_registers[this.mixer_current_address];
-}
+};
 
 SB16.prototype.mixer_default_write = function(data)
 {
     dbg_log("unhandled mixer register write. addr:" + h(this.mixer_current_address) + " data:" + h(data), LOG_SB16);
     this.mixer_unhandled_registers[this.mixer_current_address] = data;
-}
+};
 
 /**
  * @param{number} address
@@ -1144,7 +1128,7 @@ function register_mixer_read(address, handler)
     {
         handler = SB16.prototype.mixer_default_read;
     }
-    mixer_read_handlers[address] = handler;
+    MIXER_READ_HANDLERS[address] = handler;
 }
 
 /**
@@ -1157,7 +1141,7 @@ function register_mixer_write(address, handler)
     {
         handler = SB16.prototype.mixer_default_write;
     }
-    mixer_write_handlers[address] = handler;
+    MIXER_WRITE_HANDLERS[address] = handler;
 }
 
 // Reset.
@@ -1215,9 +1199,9 @@ register_mixer_read(0x81, function()
 });
 register_mixer_write(0x81, function(bits)
 {
-    if(bits & 0x1)  this.dma_channel_8bit  = 0;
-    if(bits & 0x2)  this.dma_channel_8bit  = 1;
-    if(bits & 0x8)  this.dma_channel_8bit  = 3;
+    if(bits & 0x1) this.dma_channel_8bit = 0;
+    if(bits & 0x2) this.dma_channel_8bit = 1;
+    if(bits & 0x8) this.dma_channel_8bit = 3;
     if(bits & 0x20) this.dma_channel_16bit = 5;
     if(bits & 0x40) this.dma_channel_16bit = 6;
     if(bits & 0x80) this.dma_channel_16bit = 7;
@@ -1234,19 +1218,15 @@ register_mixer_read(0x82, function()
     return ret;
 });
 
-
-
 //
 // FM Handlers
 //
-
-
 
 SB16.prototype.fm_default_write = function(data, register, address)
 {
     dbg_log("unhandled fm register write. addr:" + register + "|" + h(address) + " data:" + h(data), LOG_SB16);
     // No need to save into a dummy register as the registers are write-only.
-}
+};
 
 /**
  * @param{Array} addresses
@@ -1260,27 +1240,31 @@ function register_fm_write(addresses, handler)
     }
     for(var i = 0; i < addresses.length; i++)
     {
-        fm_handlers[addresses[i]] = handler;
+        FM_HANDLERS[addresses[i]] = handler;
     }
 }
 
 function between(start, end)
 {
-    if(start === end) return [start];
-    return [start].concat(between(start + 1, end));
+    var a = [];
+    for(var i = start; i <= end; i++)
+    {
+        a.push(i);
+    }
+    return a;
 }
 
 /** @const */ var SB_FM_OPERATORS_BY_OFFSET = new Uint8Array(32);
-SB_FM_OPERATORS_BY_OFFSET[0x00] =  0;
-SB_FM_OPERATORS_BY_OFFSET[0x01] =  1;
-SB_FM_OPERATORS_BY_OFFSET[0x02] =  2;
-SB_FM_OPERATORS_BY_OFFSET[0x03] =  3;
-SB_FM_OPERATORS_BY_OFFSET[0x04] =  4;
-SB_FM_OPERATORS_BY_OFFSET[0x05] =  5;
-SB_FM_OPERATORS_BY_OFFSET[0x08] =  6;
-SB_FM_OPERATORS_BY_OFFSET[0x09] =  7;
-SB_FM_OPERATORS_BY_OFFSET[0x0A] =  8;
-SB_FM_OPERATORS_BY_OFFSET[0x0B] =  9;
+SB_FM_OPERATORS_BY_OFFSET[0x00] = 0;
+SB_FM_OPERATORS_BY_OFFSET[0x01] = 1;
+SB_FM_OPERATORS_BY_OFFSET[0x02] = 2;
+SB_FM_OPERATORS_BY_OFFSET[0x03] = 3;
+SB_FM_OPERATORS_BY_OFFSET[0x04] = 4;
+SB_FM_OPERATORS_BY_OFFSET[0x05] = 5;
+SB_FM_OPERATORS_BY_OFFSET[0x08] = 6;
+SB_FM_OPERATORS_BY_OFFSET[0x09] = 7;
+SB_FM_OPERATORS_BY_OFFSET[0x0A] = 8;
+SB_FM_OPERATORS_BY_OFFSET[0x0B] = 9;
 SB_FM_OPERATORS_BY_OFFSET[0x0C] = 10;
 SB_FM_OPERATORS_BY_OFFSET[0x0D] = 11;
 SB_FM_OPERATORS_BY_OFFSET[0x10] = 12;
@@ -1289,6 +1273,7 @@ SB_FM_OPERATORS_BY_OFFSET[0x12] = 14;
 SB_FM_OPERATORS_BY_OFFSET[0x13] = 15;
 SB_FM_OPERATORS_BY_OFFSET[0x14] = 16;
 SB_FM_OPERATORS_BY_OFFSET[0x15] = 17;
+
 function get_fm_operator(register, offset)
 {
     return register * 18 + SB_FM_OPERATORS_BY_OFFSET[offset];
@@ -1413,42 +1398,34 @@ register_fm_write(between(0xE0, 0xF5), function(bits, register, address)
     // Waveform Select
 });
 
-
-
 //
 // FM behaviours
 //
-
-
 
 SB16.prototype.fm_update_waveforms = function()
 {
 }
 
-
-
 //
 // General behaviours
 //
 
-
-
 SB16.prototype.sampling_rate_change = function(rate)
 {
     this.sampling_rate = rate;
-}
+};
 
 SB16.prototype.get_channel_count = function()
 {
     return this.dsp_stereo? 2 : 1;
-}
+};
 
 SB16.prototype.dma_transfer_size_set = function()
 {
-    this.dma_sample_count = 1
-        + (this.write_buffer.shift() << 0)
-        + (this.write_buffer.shift() << 8);
-}
+    this.dma_sample_count = 1 +
+        (this.write_buffer.shift() << 0) +
+        (this.write_buffer.shift() << 8);
+};
 
 SB16.prototype.dma_transfer_start = function()
 {
@@ -1480,7 +1457,7 @@ SB16.prototype.dma_transfer_start = function()
 
         this.dma_transfer_next();
     });
-}
+};
 
 SB16.prototype.dma_transfer_next = function()
 {
@@ -1521,7 +1498,7 @@ SB16.prototype.dma_transfer_next = function()
         // Keep transfering until dac_buffer contains enough data.
         setTimeout(() => { this.dma_transfer_next(); }, 0);
     });
-}
+};
 
 SB16.prototype.dma_to_dac = function(sample_count)
 {
@@ -1550,7 +1527,7 @@ SB16.prototype.dma_to_dac = function(sample_count)
             this.dac_buffer.push(audio_normalize(buffer[i], amplitude, offset));
         }
     }
-}
+};
 
 SB16.prototype.audio_process = function(event)
 {
@@ -1572,23 +1549,21 @@ SB16.prototype.audio_process = function(event)
     }
 
     setTimeout(() => { this.dma_transfer_next(); }, 0);
-}
+};
 
 SB16.prototype.raise_irq = function(type)
 {
     dbg_log("raise irq", LOG_SB16);
     this.irq_triggered[type] = 1;
     this.cpu.device_raise_irq(this.irq);
-}
+};
 
 SB16.prototype.lower_irq = function(type)
 {
     dbg_log("lower irq", LOG_SB16);
     this.irq_triggered[type] = 0;
     this.cpu.device_lower_irq(this.irq);
-}
-
-
+};
 
 //
 // Helpers
@@ -1601,7 +1576,7 @@ function audio_normalize(value, amplitude, offset)
 
 function audio_clip(value, low, high)
 {
-    return (value < low) * low
-        +  (value > high) * high
-        +  (low <= value && value <= high) * value;
+    return (value < low) * low +
+        (value > high) * high +
+        (low <= value && value <= high) * value;
 }
