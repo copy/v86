@@ -3370,8 +3370,19 @@ static void instr_660FE3(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FE3, safe_read128s, read_xmm128s)
 
-static void instr_0FE4_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_0FE4_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_0FE4(union reg64 source, int32_t r) {
+    // pmulhuw mm, mm/m64
+    task_switch_test_mmx();
+
+    union reg64 destination = read_mmx64s(r);
+
+    write_mmx64(
+        r,
+        (source.u16[0] * destination.u16[0] >> 16) & 0xFFFF | source.u16[1] * destination.u16[1] & 0xFFFF0000,
+        (source.u16[2] * destination.u16[2] >> 16) & 0xFFFF | source.u16[3] * destination.u16[3] & 0xFFFF0000
+    );
+}
+DEFINE_SSE_SPLIT(instr_0FE4, safe_read64s, read_mmx64s)
 
 static void instr_660FE4(union reg128 source, int32_t r) {
     // pmulhuw xmm, xmm/m128
