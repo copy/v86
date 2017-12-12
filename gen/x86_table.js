@@ -569,7 +569,7 @@ const encodings = [
     { opcode: 0x0FE4, e: 1 },
     { opcode: 0x660FE4, e: 1 },
     { opcode: 0x0FE5, e: 1 },
-    { opcode: 0x660FE5, e: 1, skip: 1, },
+    { opcode: 0x660FE5, e: 1 },
 
     { opcode: 0x660FE6, e: 1, skip: 1, },
     { opcode: 0xF20FE6, e: 1, skip: 1, },
