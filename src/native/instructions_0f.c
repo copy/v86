@@ -3614,8 +3614,21 @@ static void instr_0FEC(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FEC, safe_read64s, read_mmx64s)
 
-static void instr_660FEC_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660FEC_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FEC(union reg128 source, int32_t r) {
+    // paddsb xmm, xmm/m128
+    task_switch_test_mmx();
+
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result;
+
+    for(uint32_t i = 0; i < 16; i++)
+    {
+        result.i8[i] = saturate_sd_to_sb(destination.i8[i] + source.i8[i]);
+    }
+
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_660FEC, safe_read128s, read_xmm128s)
 
 static void instr_0FED(union reg64 source, int32_t r) {
     // paddsw mm, mm/m64
