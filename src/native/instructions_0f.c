@@ -2,6 +2,7 @@
 #include <math.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #include "const.h"
 #include "sse_instr.h"
@@ -3832,8 +3833,21 @@ static void instr_660FF5(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FF5, safe_read128s, read_xmm128s)
 
-static void instr_0FF6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_0FF6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_0FF6(union reg64 source, int32_t r) {
+    // psadbw mm, mm/m64
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+    uint32_t sum = 0;
+
+    for(uint32_t i = 0; i < 8; i++)
+    {
+        sum += abs(destination.u8[i] - source.u8[i]);
+    }
+
+    write_mmx64(r, sum, 0);
+}
+DEFINE_SSE_SPLIT(instr_0FF6, safe_read64s, read_mmx64s)
+
 static void instr_660FF6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_660FF6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
