@@ -3444,8 +3444,12 @@ static void instr_F20FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 static void instr_F30FE6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_F30FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0FE7_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_0FE7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_0FE7_mem(int32_t addr, int32_t r) {
+    // movntq m64, mm
+    mov_r_m64(addr, r);
+}
+static void instr_0FE7_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+
 static void instr_660FE7_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 static void instr_660FE7_mem(int32_t addr, int32_t r) {
     // movntdq m128, xmm

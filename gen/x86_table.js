@@ -574,7 +574,7 @@ const encodings = [
     { opcode: 0x660FE6, e: 1, skip: 1, },
     { opcode: 0xF20FE6, e: 1, skip: 1, },
     { opcode: 0xF30FE6, e: 1, skip: 1, },
-    { opcode: 0x0FE7, e: 1, only_mem: 1, skip: 1, },
+    { opcode: 0x0FE7, e: 1, only_mem: 1 },
     { opcode: 0x660FE7, e: 1, only_mem: 1, },
 
     { opcode: 0x0FE8, e: 1 },
