@@ -3813,8 +3813,24 @@ static void instr_0FF5(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FF5, safe_read64s, read_mmx64s)
 
-static void instr_660FF5_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660FF5_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FF5(union reg128 source, int32_t r) {
+    // pmaddwd xmm, xmm/m128
+    task_switch_test_mmx();
+
+    union reg128 destination = read_xmm128s(r);
+
+    int32_t dword0 = (destination.i16[0] * source.i16[0]) +
+        (destination.i16[1] * source.i16[1]);
+    int32_t dword1 = (destination.i16[2] * source.i16[2]) +
+        (destination.i16[3] * source.i16[3]);
+    int32_t dword2 = (destination.i16[4] * source.i16[4]) +
+        (destination.i16[5] * source.i16[5]);
+    int32_t dword3 = (destination.i16[6] * source.i16[6]) +
+        (destination.i16[7] * source.i16[7]);
+
+    write_xmm128(r, dword0, dword1, dword2, dword3);
+}
+DEFINE_SSE_SPLIT(instr_660FF5, safe_read128s, read_xmm128s)
 
 static void instr_0FF6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_0FF6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
