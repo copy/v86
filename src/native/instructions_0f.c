@@ -3733,8 +3733,11 @@ static void instr_0FF2(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FF2, safe_read64s, read_mmx64s)
 
-static void instr_660FF2_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660FF2_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FF2(union reg128 source, int32_t r) {
+    // pslld xmm, xmm/m128
+    pslld_r128(r, source.u32[0]);
+}
+DEFINE_SSE_SPLIT(instr_660FF2, safe_read128s, read_xmm128s)
 
 static void instr_0FF3(union reg64 source, int32_t r) {
     // psllq mm, mm/m64
