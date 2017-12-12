@@ -2195,9 +2195,7 @@ static void instr_F30F7E_reg(int32_t r1, int32_t r2) {
 
 static void instr_0F7F_mem(int32_t addr, int32_t r) {
     // movq mm/m64, mm
-    task_switch_test_mmx();
-    union reg64 data = read_mmx64s(r);
-    safe_write64(addr, data.u64[0]);
+    mov_r_m64(addr, r);
 }
 static void instr_0F7F_reg(int32_t r1, int32_t r2) {
     // movq mm/m64, mm

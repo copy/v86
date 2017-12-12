@@ -1,6 +1,7 @@
 #ifndef _SSE_H
 #define _SSE_H
 
+void mov_r_m64(int32_t addr, int32_t r);
 void movl_r128_m64(int32_t addr, int32_t r);
 void mov_r_r128(int32_t r1, int32_t r2);
 void mov_r_m128(int32_t addr, int32_t r);

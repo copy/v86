@@ -1,3 +1,11 @@
+void mov_r_m64(int32_t addr, int32_t r)
+{
+    // mov* m64, mm
+    task_switch_test_mmx();
+    union reg64 data = read_mmx64s(r);
+    safe_write64(addr, data.u64[0]);
+}
+
 void movl_r128_m64(int32_t addr, int32_t r)
 {
     // mov* m64, xmm
