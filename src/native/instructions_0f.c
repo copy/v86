@@ -3512,8 +3512,24 @@ static void instr_0FE9(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FE9, safe_read64s, read_mmx64s)
 
-static void instr_660FE9_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660FE9_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FE9(union reg128 source, int32_t r) {
+    // psubsw xmm, xmm/m128
+    task_switch_test_mmx();
+
+    union reg128 destination = read_xmm128s(r);
+
+    int32_t dword0 = saturate_sd_to_sw(destination.i16[0] - source.i16[0]) |
+        saturate_sd_to_sw(destination.i16[1] - source.i16[1]) << 16;
+    int32_t dword1 = saturate_sd_to_sw(destination.i16[2] - source.i16[2]) |
+        saturate_sd_to_sw(destination.i16[3] - source.i16[3]) << 16;
+    int32_t dword2 = saturate_sd_to_sw(destination.i16[4] - source.i16[4]) |
+        saturate_sd_to_sw(destination.i16[5] - source.i16[5]) << 16;
+    int32_t dword3 = saturate_sd_to_sw(destination.i16[6] - source.i16[6]) |
+        saturate_sd_to_sw(destination.i16[7] - source.i16[7]) << 16;
+
+    write_xmm128(r, dword0, dword1, dword2, dword3);
+}
+DEFINE_SSE_SPLIT(instr_660FE9, safe_read128s, read_xmm128s)
 
 static void instr_0FEA_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_0FEA_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
