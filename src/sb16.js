@@ -97,6 +97,8 @@ function SB16(cpu, bus)
     /** @const @type {CPU} */
     this.cpu = cpu;
 
+    this.cpu_paused = false;
+
     /** @const @type {BusConnector} */
     this.bus = bus;
 
@@ -158,6 +160,7 @@ function SB16(cpu, bus)
     this.dma_buffer_uint16 = new Uint16Array(this.dma_buffer);
     this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
     this.dma_waiting_transfer = false;
+    this.dma_paused = false;
     this.sampling_rate = 22050;
     this.bytes_per_sample = 1;
 
@@ -239,6 +242,16 @@ function SB16(cpu, bus)
         this.audio_process(event);
     }, this);
 
+    bus.register("cpu-stop", function()
+    {
+        this.cpu_paused = true;
+    }, this);
+
+    bus.register("cpu-run", function()
+    {
+        this.cpu_paused = false;
+    }, this);
+
     this.reset_dsp();
 }
 
@@ -274,6 +287,7 @@ SB16.prototype.reset_dsp = function()
     this.dma_autoinit = false;
     this.dma_buffer_uint8.fill(0);
     this.dma_waiting_transfer = false;
+    this.dma_paused = false;
 
     this.e2_value = 0xAA;
     this.e2_count = 0;
@@ -325,20 +339,21 @@ SB16.prototype.get_state = function()
     state[23] = this.dma_autoinit;
     state[24] = this.dma_buffer_uint8;
     state[25] = this.dma_waiting_transfer;
-    state[26] = this.sampling_rate;
-    state[27] = this.bytes_per_sample;
+    state[26] = this.dma_paused;
+    state[27] = this.sampling_rate;
+    state[28] = this.bytes_per_sample;
 
-    state[28] = this.e2_value;
-    state[29] = this.e2_count;
+    state[29] = this.e2_value;
+    state[30] = this.e2_count;
 
-    state[30] = this.asp_registers;
+    state[31] = this.asp_registers;
 
-    // state[31] = this.mpu_read_buffer;
-    state[32] = this.mpu_read_buffer_last_value;
+    // state[32] = this.mpu_read_buffer;
+    state[33] = this.mpu_read_buffer_last_value;
 
-    state[33] = this.irq;
-    state[34] = this.irq_triggered;
-    state[35] = this.audio_samplerate;
+    state[34] = this.irq;
+    state[35] = this.irq_triggered;
+    state[36] = this.audio_samplerate;
 
     return state;
 };
@@ -377,20 +392,21 @@ SB16.prototype.set_state = function(state)
     this.dma_autoinit = state[23];
     this.dma_buffer_uint8 = state[24];
     this.dma_waiting_transfer = state[25];
-    this.sampling_rate = state[26];
-    this.bytes_per_sample = state[27];
+    this.dma_paused = state[26];
+    this.sampling_rate = state[27];
+    this.bytes_per_sample = state[28];
 
-    this.e2_value = state[28];
-    this.e2_count = state[29];
+    this.e2_value = state[29];
+    this.e2_count = state[30];
 
-    this.asp_registers = state[30];
+    this.asp_registers = state[31];
 
-    // this.mpu_read_buffer = state[31];
-    this.mpu_read_buffer_last_value = state[32];
+    // this.mpu_read_buffer = state[32];
+    this.mpu_read_buffer_last_value = state[33];
 
-    this.irq = state[33];
-    this.irq_triggered = state[34];
-    this.audio_samplerate = state[35];
+    this.irq = state[34];
+    this.irq_triggered = state[35];
+    this.audio_samplerate = state[36];
 
     this.dma_buffer = this.dma_buffer_uint8.buffer;
     this.dma_buffer_int8 = new Int8Array(this.dma_buffer);
@@ -986,7 +1002,10 @@ register_dsp_command(any_first_digit(0xC0), 3, function()
 });
 
 // Pause 8-bit DMA mode digitized sound I/O.
-register_dsp_command([0xD0], 0);
+register_dsp_command([0xD0], 0, function()
+{
+    this.dma_paused = true;
+});
 
 // Turn on speaker.
 // Documented to have no effect on SB16.
@@ -1003,13 +1022,22 @@ register_dsp_command([0xD3], 0, function()
 });
 
 // Continue 8-bit DMA mode digitized sound I/O.
-register_dsp_command([0xD4], 0);
+register_dsp_command([0xD4], 0, function()
+{
+    this.dma_paused = false;
+});
 
 // Pause 16-bit DMA mode digitized sound I/O.
-register_dsp_command([0xD5], 0);
+register_dsp_command([0xD5], 0, function()
+{
+    this.dma_paused = true;
+});
 
 // Continue 16-bit DMA mode digitized sound I/O.
-register_dsp_command([0xD6], 0);
+register_dsp_command([0xD6], 0, function()
+{
+    this.dma_paused = false;
+});
 
 // Get speaker status.
 register_dsp_command([0xD8], 0, function()
@@ -1451,6 +1479,7 @@ SB16.prototype.dma_on_unmask = function(channel)
     // block of transfer when the DMA channel has been unmasked.
     this.dma_waiting_transfer = false;
     this.dma_bytes_left = this.dma_bytes_count;
+    this.dma_paused = false;
     this.dma_transfer_next();
 };
 
@@ -1464,6 +1493,9 @@ SB16.prototype.dma_transfer_next = function()
     // accurately reflect the amount of audio that has already been
     // played back by the Web Audio API.
     if(this.dac_buffer.length > this.dac_process_samples * 2) return;
+
+    // Do not transfer if paused.
+    if(this.cpu_paused || this.dma_paused) return;
 
     dbg_log("dma transfering next block", LOG_SB16);
 
@@ -1531,6 +1563,14 @@ SB16.prototype.audio_process = function(event)
     var out1 = event.outputBuffer.getChannelData(1);
 
     this.dac_process_samples = out.length;
+
+    if(this.cpu_paused || this.dma_paused)
+    {
+        // Silence when paused.
+        out0.fill(0);
+        out1.fill(0);
+        return;
+    }
 
     if(this.dac_buffer.length && this.dac_buffer.length < this.dac_process_samples * 2)
     {
