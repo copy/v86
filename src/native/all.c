@@ -19,4 +19,4 @@ extern double_t math_pow(double_t, double_t);
 #include "instructions.c"
 #include "instructions_0f.c"
 #include "string.c"
-
+#include "sse_instr.c"

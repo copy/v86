@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "const.h"
+#include "sse_instr.h"
 #include "global_pointers.h"
 
 #pragma clang diagnostic push
@@ -418,7 +419,7 @@ static void instr_F30F12_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
 static void instr_0F13_mem(int32_t addr, int32_t r) {
     // movlps m64, xmm
-    mov_r_m64(addr, r);
+    movl_r128_m64(addr, r);
 }
 
 static void instr_0F13_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
@@ -426,7 +427,7 @@ static void instr_0F13_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 static void instr_660F13_reg(int32_t r1, int32_t r) { trigger_ud(); }
 static void instr_660F13_mem(int32_t addr, int32_t r) {
     // movlpd xmm/m64, xmm
-    mov_r_m64(addr, r);
+    movl_r128_m64(addr, r);
 }
 
 static void instr_0F14(union reg64 source, int32_t r) {
@@ -491,7 +492,7 @@ DEFINE_SSE_SPLIT(instr_660F15, safe_read128s, read_xmm128s)
 
 static void instr_0F16_mem(int32_t addr, int32_t r) {
     // movhps xmm, m64
-    mov_m64_r128(addr, r);
+    movh_m64_r128(addr, r);
 }
 static void instr_0F16_reg(int32_t r1, int32_t r2) {
     // movlhps xmm, xmm
@@ -503,19 +504,19 @@ static void instr_0F16_reg(int32_t r1, int32_t r2) {
 
 static void instr_660F16_mem(int32_t addr, int32_t r) {
     // movhpd xmm, m64
-    mov_m64_r128(addr, r);
+    movh_m64_r128(addr, r);
 }
 static void instr_660F16_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
 static void instr_0F17_mem(int32_t addr, int32_t r) {
     // movhps m64, xmm
-    mov_r128_m64(addr, r);
+    movh_r128_m64(addr, r);
 }
 static void instr_0F17_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
 static void instr_660F17_mem(int32_t addr, int32_t r) {
     // movhpd m64, xmm
-    mov_r128_m64(addr, r);
+    movh_r128_m64(addr, r);
 }
 static void instr_660F17_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
@@ -2890,7 +2891,7 @@ static void instr_0FD6_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
 static void instr_660FD6_mem(int32_t addr, int32_t r) {
     // movq xmm/m64, xmm
-    mov_r_m64(addr, r);
+    movl_r128_m64(addr, r);
 }
 static void instr_660FD6_reg(int32_t r1, int32_t r2) {
     // movq xmm/m64, xmm
