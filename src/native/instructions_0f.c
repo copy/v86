@@ -1887,22 +1887,7 @@ static void instr_660F72_4_reg(int32_t r, int32_t imm8) {
 
 static void instr_660F72_6_reg(int32_t r, int32_t imm8) {
     // pslld xmm, imm8
-    task_switch_test_mmx();
-    union reg128 destination = read_xmm128s(r);
-
-    int32_t dword0 = 0;
-    int32_t dword1 = 0;
-    int32_t dword2 = 0;
-    int32_t dword3 = 0;
-
-    if(imm8 <= 31) {
-        dword0 = destination.i32[0] << imm8;
-        dword1 = destination.i32[1] << imm8;
-        dword2 = destination.i32[2] << imm8;
-        dword3 = destination.i32[3] << imm8;
-    }
-
-    write_xmm128(r, dword0, dword1, dword2, dword3);
+    pslld_r128(r, imm8);
 }
 
 static void instr_0F73_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
