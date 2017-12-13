@@ -26,9 +26,9 @@ CLOSURE_SOURCE_MAP=\
 		#--jscomp_error newCheckTypes\
 
 CLOSURE_FLAGS=\
-	        --js lib/closure-base.js\
+	        --js ../lib/closure-base.js\
 		--generate_exports\
-		--externs src/externs.js\
+		--externs ../src/externs.js\
 		--warning_level VERBOSE\
 		--jscomp_error accessControls\
 		--jscomp_error ambiguousFunctionDecl\
@@ -81,15 +81,16 @@ BROWSER_FILES=screen.js \
 	      keyboard.js mouse.js serial.js \
 	      network.js lib.js starter.js worker_bus.js dummy_screen.js
 
-CORE_FILES:=$(addprefix src/,$(CORE_FILES))
-LIB_FILES:=$(addprefix lib/,$(LIB_FILES))
-BROWSER_FILES:=$(addprefix src/browser/,$(BROWSER_FILES))
+CORE_FILES:=$(addprefix ../src/,$(CORE_FILES))
+LIB_FILES:=$(addprefix ../lib/,$(LIB_FILES))
+BROWSER_FILES:=$(addprefix ../src/browser/,$(BROWSER_FILES))
 
 build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 	mkdir -p build
 	-ls -lh build/v86_all.js
-	java -jar $(CLOSURE) \
-		--js_output_file build/v86_all.js\
+	cd build; \
+	java -jar ../$(CLOSURE) \
+		--js_output_file v86_all.js\
 		--define=DEBUG=false\
 		$(CLOSURE_SOURCE_MAP)\
 		$(CLOSURE_FLAGS)\
@@ -98,7 +99,7 @@ build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 		--js $(CORE_FILES)\
 		--js $(LIB_FILES)\
 		--js $(BROWSER_FILES)\
-		--js src/browser/main.js
+		--js ../src/browser/main.js
 
 	echo '//# sourceMappingURL=v86_all.js.map' >> build/v86_all.js
 
@@ -108,8 +109,9 @@ build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 	mkdir -p build
 	-ls -lh build/libv86.js
-	java -jar $(CLOSURE) \
-		--js_output_file build/libv86.js\
+	cd build; \
+	java -jar ../$(CLOSURE) \
+		--js_output_file libv86.js\
 		--define=DEBUG=false\
 		$(CLOSURE_FLAGS)\
 		--compilation_level SIMPLE\
