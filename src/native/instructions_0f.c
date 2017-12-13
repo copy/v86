@@ -3865,8 +3865,23 @@ static void instr_660FF6(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FF6, safe_read128s, read_xmm128s)
 
-static void instr_0FF7_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_0FF7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_0FF7_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_0FF7_reg(int32_t r1, int32_t r2) {
+    // maskmovq mm, mm
+    task_switch_test_mmx();
+    union reg64 source = read_mmx64s(r2);
+    union reg64 mask = read_mmx64s(r1);
+    int32_t addr = get_seg_prefix(DS) + get_reg_asize(EDI);
+
+    for(uint32_t i = 0; i < 8; i++)
+    {
+        if(mask.u8[i] >> 7)
+        {
+            safe_write8(addr + i, source.u8[i]);
+        }
+    }
+}
+
 static void instr_660FF7_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 static void instr_660FF7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 

@@ -606,7 +606,8 @@ const encodings = [
     { opcode: 0x660FF5, e: 1 },
     { opcode: 0x0FF6, e: 1 },
     { opcode: 0x660FF6, e: 1 },
-    { opcode: 0x0FF7, e: 1, skip: 1, },
+    // maskmovq tested manually
+    { opcode: 0x0FF7, only_reg: 1, e: 1, skip: 1, },
     { opcode: 0x660FF7, e: 1, skip: 1, },
 
     { opcode: 0x0FF8, e: 1 },
