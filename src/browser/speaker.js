@@ -96,8 +96,11 @@ SpeakerAdapter.prototype.beep_update = function()
 
 SpeakerAdapter.prototype.dac_process = function(event)
 {
+    var out = event.outputBuffer;
+    var out0 = out.getChannelData(0);
+    var out1 = out.getChannelData(1);
     this.bus.send("speaker-tell-samplerate", this.audio_context.sampleRate);
-    this.bus.send("speaker-process", event);
+    this.bus.send("speaker-process", [out0, out1, out.length], [out0.buffer, out1.buffer]);
 
     if(DEBUG)
     {
