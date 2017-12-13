@@ -97,6 +97,31 @@ void psraw_r128(int32_t r, uint32_t shift)
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 
+void psllw_r128(int32_t r, uint32_t shift)
+{
+    // psllw xmm, {shift}
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    int32_t dword0 = 0;
+    int32_t dword1 = 0;
+    int32_t dword2 = 0;
+    int32_t dword3 = 0;
+
+    if(shift <= 15) {
+        dword0 = (destination.u16[0] << shift & 0xFFFF) |
+            (destination.u16[1] << shift) << 16;
+        dword1 = (destination.u16[2] << shift & 0xFFFF) |
+            (destination.u16[3] << shift) << 16;
+        dword2 = (destination.u16[4] << shift & 0xFFFF) |
+            (destination.u16[5] << shift) << 16;
+        dword3 = (destination.u16[6] << shift & 0xFFFF) |
+            (destination.u16[7] << shift) << 16;
+    }
+
+    write_xmm128(r, dword0, dword1, dword2, dword3);
+}
+
 void psrlq_r128(int32_t r, uint32_t shift)
 {
     // psrlq xmm, {shift}
@@ -172,38 +197,6 @@ void pslld_r128(int32_t r, uint32_t shift)
         dword1 = destination.i32[1] << shift;
         dword2 = destination.i32[2] << shift;
         dword3 = destination.i32[3] << shift;
-    }
-
-    write_xmm128(r, dword0, dword1, dword2, dword3);
-}
-
-void psllw_r128(int32_t r, uint32_t shift)
-{
-    // psllw xmm, {shift}
-    task_switch_test_mmx();
-    union reg128 destination = read_xmm128s(r);
-
-    int32_t dword0 = 0;
-    int32_t dword1 = 0;
-    int32_t dword2 = 0;
-    int32_t dword3 = 0;
-
-    if(shift <= 15) {
-        int32_t word0 = ((uint32_t) destination.u16[0]) << shift & 0xFFFF;
-        int32_t word1 = ((uint32_t) destination.u16[1]) << shift & 0xFFFF;
-        dword0 = word0 | word1 << 16;
-
-        int32_t word2 = ((uint32_t) destination.u16[2]) << shift & 0xFFFF;
-        int32_t word3 = ((uint32_t) destination.u16[3]) << shift & 0xFFFF;
-        dword1 = word2 | word3 << 16;
-
-        int32_t word4 = ((uint32_t) destination.u16[4]) << shift & 0xFFFF;
-        int32_t word5 = ((uint32_t) destination.u16[5]) << shift & 0xFFFF;
-        dword2 = word4 | word5 << 16;
-
-        int32_t word6 = ((uint32_t) destination.u16[6]) << shift & 0xFFFF;
-        int32_t word7 = ((uint32_t) destination.u16[7]) << shift & 0xFFFF;
-        dword3 = word6 | word7 << 16;
     }
 
     write_xmm128(r, dword0, dword1, dword2, dword3);
