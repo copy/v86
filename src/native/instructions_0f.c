@@ -1784,28 +1784,7 @@ static void instr_660F71_2_reg(int32_t r, int32_t imm8) {
 
 static void instr_660F71_4_reg(int32_t r, int32_t imm8) {
     // psraw xmm, imm8
-    task_switch_test_mmx();
-    union reg128 destination = read_xmm128s(r);
-
-    int32_t shift = imm8 > 15 ? 16 : imm8;
-
-    int32_t word0 = (destination.i16[0] >> shift) & 0xFFFF;
-    int32_t word1 = (destination.i16[1] >> shift) & 0xFFFF;
-    int32_t dword0 = word0 | word1 << 16;
-
-    int32_t word2 = (destination.i16[2] >> shift) & 0xFFFF;
-    int32_t word3 = (destination.i16[3] >> shift) & 0xFFFF;
-    int32_t dword1 = word2 | word3 << 16;
-
-    int32_t word4 = (destination.i16[4] >> shift) & 0xFFFF;
-    int32_t word5 = (destination.i16[5] >> shift) & 0xFFFF;
-    int32_t dword2 = word4 | word5 << 16;
-
-    int32_t word6 = (destination.i16[6] >> shift) & 0xFFFF;
-    int32_t word7 = (destination.i16[7] >> shift) & 0xFFFF;
-    int32_t dword3 = word6 | word7 << 16;
-
-    write_xmm128(r, dword0, dword1, dword2, dword3);
+    psraw_r128(r, imm8);
 }
 
 static void instr_660F71_6_reg(int32_t r, int32_t imm8) {
@@ -3242,20 +3221,7 @@ DEFINE_SSE_SPLIT(instr_0FE1, safe_read64s, read_mmx64s)
 
 static void instr_660FE1(union reg128 source, int32_t r) {
     // psraw xmm, xmm/m128
-    task_switch_test_mmx();
-    union reg128 destination = read_xmm128s(r);
-
-    uint32_t shift = source.u32[0];
-    if (shift > 15) {
-        shift = 16;
-    }
-
-    for(uint32_t i = 0; i < 8; i++)
-    {
-        destination.i16[i] = (destination.i16[i] >> shift) & 0xFFFF;
-    }
-
-    write_xmm_reg128(r, destination);
+    psraw_r128(r, source.u32[0]);
 }
 DEFINE_SSE_SPLIT(instr_660FE1, safe_read128s, read_xmm128s)
 
