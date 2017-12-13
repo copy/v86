@@ -1351,19 +1351,14 @@ static void instr_660F64(union reg128 source, int32_t r) {
     // pcmpgtb xmm, xmm/m128
     task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
+    union reg128 result = { { 0 } };
 
-    int32_t bytes[16] = {0};
     for(int32_t i = 0; i < 16; i++)
     {
-        bytes[i] = destination.i8[i] > source.i8[i] ? 0xFF : 0;
+        result.i8[i] = destination.i8[i] > source.i8[i] ? 0xFF : 0;
     }
 
-    int32_t dword0 = bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
-    int32_t dword1 = bytes[4] | bytes[5] << 8 | bytes[6] << 16 | bytes[7] << 24;
-    int32_t dword2 = bytes[8] | bytes[9] << 8 | bytes[10] << 16 | bytes[11] << 24;
-    int32_t dword3 = bytes[12] | bytes[13] << 8 | bytes[14] << 16 | bytes[15] << 24;
-
-    write_xmm128(r, dword0, dword1, dword2, dword3);
+    write_xmm_reg128(r, result);
 }
 DEFINE_SSE_SPLIT(instr_660F64, safe_read128s, read_xmm128s)
 
