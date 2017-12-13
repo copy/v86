@@ -12,6 +12,7 @@ CLOSURE_READABLE=--formatting PRETTY_PRINT --debug
 
 CLOSURE_SOURCE_MAP=\
 		--source_map_format V3\
+		--source_map_include_content\
 		--create_source_map '%outname%.map'
 
 		#--jscomp_error reportUnknownTypes\
