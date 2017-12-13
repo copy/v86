@@ -216,6 +216,21 @@ void psrlw_r128(int32_t r, uint32_t shift)
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 
+void psrad_r128(int32_t r, uint32_t shift)
+{
+    // psrad xmm, {shift}
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+    int32_t shift_clamped = shift > 31 ? 31 : shift;
+
+    int32_t dword0 = destination.i32[0] >> shift_clamped;
+    int32_t dword1 = destination.i32[1] >> shift_clamped;
+    int32_t dword2 = destination.i32[2] >> shift_clamped;
+    int32_t dword3 = destination.i32[3] >> shift_clamped;
+
+    write_xmm128(r, dword0, dword1, dword2, dword3);
+}
+
 void psrld_r128(int32_t r, uint32_t shift)
 {
     // psrld xmm, {shift}

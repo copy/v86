@@ -1852,17 +1852,7 @@ static void instr_660F72_2_reg(int32_t r, int32_t imm8) {
 
 static void instr_660F72_4_reg(int32_t r, int32_t imm8) {
     // psrad xmm, imm8
-    task_switch_test_mmx();
-    union reg128 destination = read_xmm128s(r);
-
-    int32_t shift = imm8 > 31 ? 31 : imm8;
-
-    int32_t dword0 = destination.i32[0] >> shift;
-    int32_t dword1 = destination.i32[1] >> shift;
-    int32_t dword2 = destination.i32[2] >> shift;
-    int32_t dword3 = destination.i32[3] >> shift;
-
-    write_xmm128(r, dword0, dword1, dword2, dword3);
+    psrad_r128(r, imm8);
 }
 
 static void instr_660F72_6_reg(int32_t r, int32_t imm8) {
@@ -3245,20 +3235,7 @@ DEFINE_SSE_SPLIT(instr_0FE2, safe_read64s, read_mmx64s)
 
 static void instr_660FE2(union reg128 source, int32_t r) {
     // psrad xmm, xmm/m128
-    task_switch_test_mmx();
-    union reg128 destination = read_xmm128s(r);
-
-    uint32_t shift = source.u32[0];
-    if (shift > 31) {
-        shift = 31;
-    }
-
-    int32_t dword0 = destination.i32[0] >> shift;
-    int32_t dword1 = destination.i32[1] >> shift;
-    int32_t dword2 = destination.i32[2] >> shift;
-    int32_t dword3 = destination.i32[3] >> shift;
-
-    write_xmm128(r, dword0, dword1, dword2, dword3);
+    psrad_r128(r, source.u32[0]);
 }
 DEFINE_SSE_SPLIT(instr_660FE2, safe_read128s, read_xmm128s)
 
