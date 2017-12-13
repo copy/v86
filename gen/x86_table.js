@@ -624,7 +624,7 @@ const encodings = [
     { opcode: 0x0FFD, e: 1 },
     { opcode: 0x660FFD, e: 1 },
     { opcode: 0x0FFE, e: 1 },
-    { opcode: 0x660FFE, e: 1, skip: 1, },
+    { opcode: 0x660FFE, e: 1 },
 ];
 
 for(let i = 0; i < 8; i++)
