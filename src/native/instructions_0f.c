@@ -1281,17 +1281,15 @@ static void instr_0F63(union reg64 source, int32_t r) {
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
-    int32_t low = 0;
-    low |= saturate_sw_to_sb(destination.u16[0]);
-    low |= saturate_sw_to_sb(destination.u16[1]) << 8;
-    low |= saturate_sw_to_sb(destination.u16[2]) << 16;
-    low |= saturate_sw_to_sb(destination.u16[3]) << 24;
+    int32_t low = saturate_sw_to_sb(destination.u16[0]) |
+        saturate_sw_to_sb(destination.u16[1]) << 8 |
+        saturate_sw_to_sb(destination.u16[2]) << 16 |
+        saturate_sw_to_sb(destination.u16[3]) << 24;
 
-    int32_t high = 0;
-    high |= saturate_sw_to_sb(source.u16[0]);
-    high |= saturate_sw_to_sb(source.u16[1]) << 8;
-    high |= saturate_sw_to_sb(source.u16[2]) << 16;
-    high |= saturate_sw_to_sb(source.u16[3]) << 24;
+    int32_t high = saturate_sw_to_sb(source.u16[0]) |
+        saturate_sw_to_sb(source.u16[1]) << 8 |
+        saturate_sw_to_sb(source.u16[2]) << 16 |
+        saturate_sw_to_sb(source.u16[3]) << 24;
 
     write_mmx64(r, low, high);
 }
@@ -1302,25 +1300,25 @@ static void instr_660F63(union reg128 source, int32_t r) {
     task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
-    int32_t dword0 = saturate_sw_to_sb(destination.u16[0]);
-    dword0 |= saturate_sw_to_sb(destination.u16[1]) << 8;
-    dword0 |= saturate_sw_to_sb(destination.u16[2]) << 16;
-    dword0 |= saturate_sw_to_sb(destination.u16[3]) << 24;
+    int32_t dword0 = saturate_sw_to_sb(destination.u16[0]) |
+        saturate_sw_to_sb(destination.u16[1]) << 8 |
+        saturate_sw_to_sb(destination.u16[2]) << 16 |
+        saturate_sw_to_sb(destination.u16[3]) << 24;
 
-    int32_t dword1 = saturate_sw_to_sb(destination.u16[4]);
-    dword1 |= saturate_sw_to_sb(destination.u16[5]) << 8;
-    dword1 |= saturate_sw_to_sb(destination.u16[6]) << 16;
-    dword1 |= saturate_sw_to_sb(destination.u16[7]) << 24;
+    int32_t dword1 = saturate_sw_to_sb(destination.u16[4]) |
+        saturate_sw_to_sb(destination.u16[5]) << 8 |
+        saturate_sw_to_sb(destination.u16[6]) << 16 |
+        saturate_sw_to_sb(destination.u16[7]) << 24;
 
-    int32_t dword2 = saturate_sw_to_sb(source.u16[0]);
-    dword2 |= saturate_sw_to_sb(source.u16[1]) << 8;
-    dword2 |= saturate_sw_to_sb(source.u16[2]) << 16;
-    dword2 |= saturate_sw_to_sb(source.u16[3]) << 24;
+    int32_t dword2 = saturate_sw_to_sb(source.u16[0]) |
+        saturate_sw_to_sb(source.u16[1]) << 8 |
+        saturate_sw_to_sb(source.u16[2]) << 16 |
+        saturate_sw_to_sb(source.u16[3]) << 24;
 
-    int32_t dword3 = saturate_sw_to_sb(source.u16[4]);
-    dword3 |= saturate_sw_to_sb(source.u16[5]) << 8;
-    dword3 |= saturate_sw_to_sb(source.u16[6]) << 16;
-    dword3 |= saturate_sw_to_sb(source.u16[7]) << 24;
+    int32_t dword3 = saturate_sw_to_sb(source.u16[4]) |
+        saturate_sw_to_sb(source.u16[5]) << 8 |
+        saturate_sw_to_sb(source.u16[6]) << 16 |
+        saturate_sw_to_sb(source.u16[7]) << 24;
 
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
@@ -1434,17 +1432,15 @@ static void instr_0F67(union reg64 source, int32_t r) {
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
-    uint32_t low = 0;
-    low |= saturate_sw_to_ub(destination.u16[0]);
-    low |= saturate_sw_to_ub(destination.u16[1]) << 8;
-    low |= saturate_sw_to_ub(destination.u16[2]) << 16;
-    low |= saturate_sw_to_ub(destination.u16[3]) << 24;
+    uint32_t low = saturate_sw_to_ub(destination.u16[0]) |
+        saturate_sw_to_ub(destination.u16[1]) << 8 |
+        saturate_sw_to_ub(destination.u16[2]) << 16 |
+        saturate_sw_to_ub(destination.u16[3]) << 24;
 
-    uint32_t high = 0;
-    high |= saturate_sw_to_ub(source.u16[0]);
-    high |= saturate_sw_to_ub(source.u16[1]) << 8;
-    high |= saturate_sw_to_ub(source.u16[2]) << 16;
-    high |= saturate_sw_to_ub(source.u16[3]) << 24;
+    uint32_t high = saturate_sw_to_ub(source.u16[0]) |
+        saturate_sw_to_ub(source.u16[1]) << 8 |
+        saturate_sw_to_ub(source.u16[2]) << 16 |
+        saturate_sw_to_ub(source.u16[3]) << 24;
 
     write_mmx64(r, low, high);
 }
@@ -1555,13 +1551,10 @@ static void instr_0F6B(union reg64 source, int32_t r) {
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
-    int32_t low = 0;
-    low |= saturate_sd_to_sw(destination.u32[0]);
-    low |= saturate_sd_to_sw(destination.u32[1]) << 16;
-
-    int32_t high = 0;
-    high |= saturate_sd_to_sw(source.u32[0]);
-    high |= saturate_sd_to_sw(source.u32[1]) << 16;
+    int32_t low = saturate_sd_to_sw(destination.u32[0]) |
+        saturate_sd_to_sw(destination.u32[1]) << 16;
+    int32_t high = saturate_sd_to_sw(source.u32[0]) |
+        saturate_sd_to_sw(source.u32[1]) << 16;
 
     write_mmx64(r, low, high);
 }
