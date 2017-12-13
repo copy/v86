@@ -3921,8 +3921,21 @@ static void instr_0FF8(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FF8, safe_read64s, read_mmx64s)
 
-static void instr_660FF8_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660FF8_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FF8(union reg128 source, int32_t r) {
+    // psubb xmm, xmm/m128
+    task_switch_test_mmx();
+
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = { { 0 } };
+
+    for(uint32_t i = 0; i < 16; i++)
+    {
+        result.i8[i] = (destination.i8[i] - source.i8[i]) & 0xFF;
+    }
+
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_660FF8, safe_read128s, read_xmm128s)
 
 static void instr_0FF9(union reg64 source, int32_t r) {
     // psubw mm, mm/m64

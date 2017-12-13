@@ -612,7 +612,7 @@ const encodings = [
     { opcode: 0x660FF7, only_reg: 1, e: 1, skip: 1, },
 
     { opcode: 0x0FF8, e: 1 },
-    { opcode: 0x660FF8, e: 1, skip: 1, },
+    { opcode: 0x660FF8, e: 1 },
     { opcode: 0x0FF9, e: 1 },
     { opcode: 0x660FF9, e: 1, skip: 1, },
     { opcode: 0x0FFA, e: 1 },
