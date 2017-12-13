@@ -4011,8 +4011,17 @@ static void instr_0FFB(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FFB, safe_read64s, read_mmx64s)
 
-static void instr_660FFB_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660FFB_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FFB(union reg128 source, int32_t r) {
+    // psubq xmm, xmm/m128
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    destination.u64[0] = (uint64_t) destination.u64[0] - (uint64_t) source.u64[0];
+    destination.u64[1] = (uint64_t) destination.u64[1] - (uint64_t) source.u64[1];
+
+    write_xmm_reg128(r, destination);
+}
+DEFINE_SSE_SPLIT(instr_660FFB, safe_read128s, read_xmm128s)
 
 static void instr_0FFC(union reg64 source, int32_t r) {
     // paddb mm, mm/m64
