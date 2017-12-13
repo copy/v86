@@ -3882,8 +3882,22 @@ static void instr_0FF7_reg(int32_t r1, int32_t r2) {
     }
 }
 
-static void instr_660FF7_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660FF7_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+static void instr_660FF7_mem(int32_t addr, int32_t r) { trigger_ud(); }
+static void instr_660FF7_reg(int32_t r1, int32_t r2) {
+    // maskmovdqu xmm, xmm
+    task_switch_test_mmx();
+    union reg128 source = read_xmm128s(r2);
+    union reg128 mask = read_xmm128s(r1);
+    int32_t addr = get_seg_prefix(DS) + get_reg_asize(EDI);
+
+    for(uint32_t i = 0; i < 16; i++)
+    {
+        if(mask.u8[i] >> 7)
+        {
+            safe_write8(addr + i, source.u8[i]);
+        }
+    }
+}
 
 static void instr_0FF8(union reg64 source, int32_t r) {
     // psubb mm, mm/m64
