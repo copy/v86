@@ -1556,13 +1556,11 @@ SB16.prototype.dma_to_dac = function(sample_count)
     }
 };
 
-SB16.prototype.audio_process = function(event)
+SB16.prototype.audio_process = function(data)
 {
-    var out = event.outputBuffer;
-    var out0 = event.outputBuffer.getChannelData(0);
-    var out1 = event.outputBuffer.getChannelData(1);
-
-    this.dac_process_samples = out.length;
+    var out0 = data[0];
+    var out1 = data[1];
+    this.dac_process_samples = data[2];
 
     if(this.cpu_paused || this.dma_paused)
     {
@@ -1574,10 +1572,12 @@ SB16.prototype.audio_process = function(event)
 
     if(this.dac_buffer.length && this.dac_buffer.length < this.dac_process_samples * 2)
     {
-        dbg_log("dac_buffer contains only " + Math.floor(100*this.dac_buffer.length/out.length/2) + "% of data needed", LOG_SB16);
+        dbg_log("dac_buffer contains only " +
+          (this.dac_buffer.length / 2) +
+          " samples out of " + this.dac_process_samples + " needed", LOG_SB16);
     }
 
-    for(var i = 0; i < out.length; i++)
+    for(var i = 0; i < this.dac_process_samples; i++)
     {
         out0[i] = this.dac_buffer.length > 0 && this.dac_buffer.shift();
         out1[i] = this.dac_buffer.length > 0 && this.dac_buffer.shift();
