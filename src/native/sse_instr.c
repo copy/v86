@@ -122,6 +122,27 @@ void psllw_r128(int32_t r, uint32_t shift)
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 
+void pslld_r128(int32_t r, uint32_t shift)
+{
+    // pslld xmm, {shift}
+    task_switch_test_mmx();
+    union reg128 destination = read_xmm128s(r);
+
+    int32_t dword0 = 0;
+    int32_t dword1 = 0;
+    int32_t dword2 = 0;
+    int32_t dword3 = 0;
+
+    if(shift <= 31) {
+        dword0 = destination.i32[0] << shift;
+        dword1 = destination.i32[1] << shift;
+        dword2 = destination.i32[2] << shift;
+        dword3 = destination.i32[3] << shift;
+    }
+
+    write_xmm128(r, dword0, dword1, dword2, dword3);
+}
+
 void psrlq_r128(int32_t r, uint32_t shift)
 {
     // psrlq xmm, {shift}
@@ -179,27 +200,6 @@ void psllq_r128(int32_t r, uint32_t shift)
     }
 
     write_xmm_reg128(r, result);
-}
-
-void pslld_r128(int32_t r, uint32_t shift)
-{
-    // pslld xmm, {shift}
-    task_switch_test_mmx();
-    union reg128 destination = read_xmm128s(r);
-
-    int32_t dword0 = 0;
-    int32_t dword1 = 0;
-    int32_t dword2 = 0;
-    int32_t dword3 = 0;
-
-    if(shift <= 31) {
-        dword0 = destination.i32[0] << shift;
-        dword1 = destination.i32[1] << shift;
-        dword2 = destination.i32[2] << shift;
-        dword3 = destination.i32[3] << shift;
-    }
-
-    write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 
 void psrad_r128(int32_t r, uint32_t shift)
