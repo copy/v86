@@ -336,3 +336,30 @@ void pslld_r64(int32_t r, uint32_t shift)
 
     write_mmx64(r, dword0, dword1);
 }
+
+void psrlq_r64(int32_t r, uint32_t shift)
+{
+    // psrlq mm, {shift}
+    task_switch_test_mmx();
+
+    if(shift == 0)
+    {
+        return;
+    }
+
+    union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
+
+    if (shift <= 31)
+    {
+        result.u32[0] = destination.u32[0] >> shift | destination.u32[1] << (32 - shift);
+        result.u32[1] = destination.u32[1] >> shift;
+
+    }
+    else if (shift <= 63)
+    {
+        result.u32[0] = destination.u32[1] >> shift;
+    }
+
+    write_mmx_reg64(r, result);
+}

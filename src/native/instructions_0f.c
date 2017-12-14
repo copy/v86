@@ -1782,22 +1782,7 @@ static void instr_0F73_7_reg(int32_t addr, int32_t r) { trigger_ud(); }
 
 static void instr_0F73_2_reg(int32_t r, int32_t imm8) {
     // psrlq mm, imm8
-    task_switch_test_mmx();
-    union reg64 destination = read_mmx64s(r);
-
-    int32_t low = 0;
-    int32_t high = 0;
-
-    if(imm8 <= 31) {
-        low = (uint32_t) destination.u32[0] >> imm8 | (destination.u32[1] << (32 - imm8));
-        high = (uint32_t) destination.u32[1] >> imm8;
-    }
-    else if(imm8 <= 63) {
-        low = (uint32_t) destination.u32[1] >> (imm8 & 0x1F);
-        high = 0;
-    }
-
-    write_mmx64(r, low, high);
+    psrlq_r64(r, imm8);
 }
 
 static void instr_0F73_6_reg(int32_t r, int32_t imm8) {
@@ -2608,32 +2593,7 @@ DEFINE_SSE_SPLIT(instr_660FD2, safe_read128s, read_xmm128s)
 
 static void instr_0FD3(union reg64 source, int32_t r) {
     // psrlq mm, mm/m64
-    task_switch_test_mmx();
-
-    union reg64 destination = read_mmx64s(r);
-
-    uint32_t shift = source.u32[0];
-
-    if(shift == 0)
-    {
-        return;
-    }
-
-    int32_t low = 0;
-    int32_t high = 0;
-
-    if(shift <= 31)
-    {
-        low = (uint32_t) destination.u32[0] >> shift | (destination.u32[1] << (32 - shift));
-        high = (uint32_t) destination.u32[1] >> shift;
-    }
-    else if(shift <= 63)
-    {
-        low = (uint32_t) destination.u32[1] >> (shift & 0x1F);
-        high = 0;
-    }
-
-    write_mmx64(r, low, high);
+    psrlq_r64(r, source.u32[0]);
 }
 DEFINE_SSE_SPLIT(instr_0FD3, safe_read64s, read_mmx64s)
 
