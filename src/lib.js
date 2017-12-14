@@ -327,17 +327,12 @@ function FloatQueue(size)
         var partial = data.slice(start, slice_end);
 
         slice.set(partial);
-        if(slice_end < size)
-        {
-            start = slice_end;
-            slice_end = 0;
-        }
-        else
+        if(slice_end >= size)
         {
             slice_end -= size;
-            start = slice_end;
+            slice.set(data.slice(0, slice_end), partial.length);
         }
-        slice.set(data.slice(0, slice_end), partial.length);
+        start = slice_end;
 
         this.length -= count;
 
