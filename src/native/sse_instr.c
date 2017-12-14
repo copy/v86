@@ -54,6 +54,157 @@ void movh_r128_m64(int32_t addr, int32_t r)
     safe_write64(addr, data.u64[1]);
 }
 
+void psrlw_r64(int32_t r, uint32_t shift)
+{
+    // psrlw mm, {shift}
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+    int32_t dword0 = 0;
+    int32_t dword1 = 0;
+
+    if(shift <= 15)
+    {
+        dword0 = (destination.u16[0] >> shift) |
+            (destination.u16[1] >> shift) << 16;
+        dword1 = (destination.u16[2] >> shift) |
+            (destination.u16[3] >> shift) << 16;
+    }
+
+    write_mmx64(r, dword0, dword1);
+}
+
+void psraw_r64(int32_t r, uint32_t shift)
+{
+    // psraw mm, {shift}
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+    int32_t shift_clamped = shift > 15 ? 16 : shift;
+
+    int32_t dword0 = (destination.i16[0] >> shift_clamped) & 0xFFFF |
+        (destination.i16[1] >> shift_clamped) << 16;
+    int32_t dword1 = (destination.i16[2] >> shift_clamped) & 0xFFFF |
+        (destination.i16[3] >> shift_clamped) << 16;
+    write_mmx64(r, dword0, dword1);
+}
+
+void psllw_r64(int32_t r, uint32_t shift)
+{
+    // psllw mm, {shift}
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+
+    int32_t dword0 = 0;
+    int32_t dword1 = 0;
+
+    if(shift <= 15) {
+        dword0 = (destination.u16[0] << shift & 0xFFFF) |
+            (destination.u16[1] << shift) << 16;
+        dword1 = (destination.u16[2] << shift & 0xFFFF) |
+            (destination.u16[3] << shift) << 16;
+    }
+
+    write_mmx64(r, dword0, dword1);
+}
+
+void psrld_r64(int32_t r, uint32_t shift)
+{
+    // psrld mm, {shift}
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+
+    int32_t dword0 = 0;
+    int32_t dword1 = 0;
+
+    if(shift <= 31) {
+        dword0 = destination.u32[0] >> shift;
+        dword1 = destination.u32[1] >> shift;
+    }
+
+    write_mmx64(r, dword0, dword1);
+}
+
+void psrad_r64(int32_t r, uint32_t shift)
+{
+    // psrad mm, {shift}
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+    int32_t shift_clamped = shift > 31 ? 31 : shift;
+
+    int32_t dword0 = destination.i32[0] >> shift_clamped;
+    int32_t dword1 = destination.i32[1] >> shift_clamped;
+
+    write_mmx64(r, dword0, dword1);
+}
+
+void pslld_r64(int32_t r, uint32_t shift)
+{
+    // pslld mm, {shift}
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+
+    int32_t dword0 = 0;
+    int32_t dword1 = 0;
+
+    if(shift <= 31) {
+        dword0 = destination.i32[0] << shift;
+        dword1 = destination.i32[1] << shift;
+    }
+
+    write_mmx64(r, dword0, dword1);
+}
+
+void psrlq_r64(int32_t r, uint32_t shift)
+{
+    // psrlq mm, {shift}
+    task_switch_test_mmx();
+
+    if(shift == 0)
+    {
+        return;
+    }
+
+    union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
+
+    if (shift <= 31)
+    {
+        result.u32[0] = destination.u32[0] >> shift | destination.u32[1] << (32 - shift);
+        result.u32[1] = destination.u32[1] >> shift;
+
+    }
+    else if (shift <= 63)
+    {
+        result.u32[0] = destination.u32[1] >> shift;
+    }
+
+    write_mmx_reg64(r, result);
+}
+
+void psllq_r64(int32_t r, uint32_t shift)
+{
+    // psllq mm, {shift}
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+
+    if(shift == 0)
+    {
+        return;
+    }
+
+    union reg64 result = { { 0 } };
+
+    if(shift <= 31) {
+        result.u32[0] = destination.u32[0] << shift;
+        result.u32[1] = destination.u32[1] << shift | (destination.u32[0] >> (32 - shift));
+    }
+    else if(shift <= 63) {
+        result.u32[0] = 0;
+        result.u32[1] = destination.u32[0] << (shift & 0x1F);
+    }
+
+    write_mmx_reg64(r, result);
+}
+
 void psrlw_r128(int32_t r, uint32_t shift)
 {
     // psrlw xmm, {shift}
@@ -236,155 +387,4 @@ void psllq_r128(int32_t r, uint32_t shift)
     }
 
     write_xmm_reg128(r, result);
-}
-
-void psrlw_r64(int32_t r, uint32_t shift)
-{
-    // psrlw mm, {shift}
-    task_switch_test_mmx();
-    union reg64 destination = read_mmx64s(r);
-    int32_t dword0 = 0;
-    int32_t dword1 = 0;
-
-    if(shift <= 15)
-    {
-        dword0 = (destination.u16[0] >> shift) |
-            (destination.u16[1] >> shift) << 16;
-        dword1 = (destination.u16[2] >> shift) |
-            (destination.u16[3] >> shift) << 16;
-    }
-
-    write_mmx64(r, dword0, dword1);
-}
-
-void psraw_r64(int32_t r, uint32_t shift)
-{
-    // psraw mm, {shift}
-    task_switch_test_mmx();
-    union reg64 destination = read_mmx64s(r);
-    int32_t shift_clamped = shift > 15 ? 16 : shift;
-
-    int32_t dword0 = (destination.i16[0] >> shift_clamped) & 0xFFFF |
-        (destination.i16[1] >> shift_clamped) << 16;
-    int32_t dword1 = (destination.i16[2] >> shift_clamped) & 0xFFFF |
-        (destination.i16[3] >> shift_clamped) << 16;
-    write_mmx64(r, dword0, dword1);
-}
-
-void psllw_r64(int32_t r, uint32_t shift)
-{
-    // psllw mm, {shift}
-    task_switch_test_mmx();
-    union reg64 destination = read_mmx64s(r);
-
-    int32_t dword0 = 0;
-    int32_t dword1 = 0;
-
-    if(shift <= 15) {
-        dword0 = (destination.u16[0] << shift & 0xFFFF) |
-            (destination.u16[1] << shift) << 16;
-        dword1 = (destination.u16[2] << shift & 0xFFFF) |
-            (destination.u16[3] << shift) << 16;
-    }
-
-    write_mmx64(r, dword0, dword1);
-}
-
-void psrld_r64(int32_t r, uint32_t shift)
-{
-    // psrld mm, {shift}
-    task_switch_test_mmx();
-    union reg64 destination = read_mmx64s(r);
-
-    int32_t dword0 = 0;
-    int32_t dword1 = 0;
-
-    if(shift <= 31) {
-        dword0 = destination.u32[0] >> shift;
-        dword1 = destination.u32[1] >> shift;
-    }
-
-    write_mmx64(r, dword0, dword1);
-}
-
-void psrad_r64(int32_t r, uint32_t shift)
-{
-    // psrad mm, {shift}
-    task_switch_test_mmx();
-    union reg64 destination = read_mmx64s(r);
-    int32_t shift_clamped = shift > 31 ? 31 : shift;
-
-    int32_t dword0 = destination.i32[0] >> shift_clamped;
-    int32_t dword1 = destination.i32[1] >> shift_clamped;
-
-    write_mmx64(r, dword0, dword1);
-}
-
-void pslld_r64(int32_t r, uint32_t shift)
-{
-    // pslld mm, {shift}
-    task_switch_test_mmx();
-    union reg64 destination = read_mmx64s(r);
-
-    int32_t dword0 = 0;
-    int32_t dword1 = 0;
-
-    if(shift <= 31) {
-        dword0 = destination.i32[0] << shift;
-        dword1 = destination.i32[1] << shift;
-    }
-
-    write_mmx64(r, dword0, dword1);
-}
-
-void psrlq_r64(int32_t r, uint32_t shift)
-{
-    // psrlq mm, {shift}
-    task_switch_test_mmx();
-
-    if(shift == 0)
-    {
-        return;
-    }
-
-    union reg64 destination = read_mmx64s(r);
-    union reg64 result = { { 0 } };
-
-    if (shift <= 31)
-    {
-        result.u32[0] = destination.u32[0] >> shift | destination.u32[1] << (32 - shift);
-        result.u32[1] = destination.u32[1] >> shift;
-
-    }
-    else if (shift <= 63)
-    {
-        result.u32[0] = destination.u32[1] >> shift;
-    }
-
-    write_mmx_reg64(r, result);
-}
-
-void psllq_r64(int32_t r, uint32_t shift)
-{
-    // psllq mm, {shift}
-    task_switch_test_mmx();
-    union reg64 destination = read_mmx64s(r);
-
-    if(shift == 0)
-    {
-        return;
-    }
-
-    union reg64 result = { { 0 } };
-
-    if(shift <= 31) {
-        result.u32[0] = destination.u32[0] << shift;
-        result.u32[1] = destination.u32[1] << shift | (destination.u32[0] >> (32 - shift));
-    }
-    else if(shift <= 63) {
-        result.u32[0] = 0;
-        result.u32[1] = destination.u32[0] << (shift & 0x1F);
-    }
-
-    write_mmx_reg64(r, result);
 }
