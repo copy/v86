@@ -1708,20 +1708,7 @@ static void instr_0F71_2_reg(int32_t r, int32_t imm8) {
 
 static void instr_0F71_4_reg(int32_t r, int32_t imm8) {
     // psraw mm, imm8
-    task_switch_test_mmx();
-    union reg64 destination = read_mmx64s(r);
-
-    int32_t shift = imm8 > 15 ? 16 : imm8;
-
-    int32_t word0 = (destination.i16[0] >> shift) & 0xFFFF;
-    int32_t word1 = (destination.i16[1] >> shift) & 0xFFFF;
-    int32_t low = word0 | word1 << 16;
-
-    int32_t word2 = (destination.i16[2] >> shift) & 0xFFFF;
-    int32_t word3 = (destination.i16[3] >> shift) & 0xFFFF;
-    int32_t high = word2 | word3 << 16;
-
-    write_mmx64(r, low, high);
+    psraw_r64(r, imm8);
 }
 
 static void instr_0F71_6_reg(int32_t r, int32_t imm8) {
@@ -3142,24 +3129,7 @@ DEFINE_SSE_SPLIT(instr_660FE0, safe_read128s, read_xmm128s)
 
 static void instr_0FE1(union reg64 source, int32_t r) {
     // psraw mm, mm/m64
-    task_switch_test_mmx();
-
-    union reg64 destination = read_mmx64s(r);
-
-    uint32_t shift = source.u32[0];
-    if (shift > 15) {
-        shift = 16;
-    }
-
-    int32_t word0 = (destination.i16[0] >> shift) & 0xFFFF;
-    int32_t word1 = (destination.i16[1] >> shift) & 0xFFFF;
-    int32_t low = word0 | word1 << 16;
-
-    int32_t word2 = (destination.i16[2] >> shift) & 0xFFFF;
-    int32_t word3 = (destination.i16[3] >> shift) & 0xFFFF;
-    int32_t high = word2 | word3 << 16;
-
-    write_mmx64(r, low, high);
+    psraw_r64(r, source.u32[0]);
 }
 DEFINE_SSE_SPLIT(instr_0FE1, safe_read64s, read_mmx64s)
 

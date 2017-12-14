@@ -257,3 +257,17 @@ void psrlw_r64(int32_t r, uint32_t shift)
     write_mmx64(r, dword0, dword1);
 }
 
+void psraw_r64(int32_t r, uint32_t shift)
+{
+    // psraw mm, {shift}
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+    int32_t shift_clamped = shift > 15 ? 16 : shift;
+
+    int32_t dword0 = (destination.i16[0] >> shift_clamped) & 0xFFFF |
+        (destination.i16[1] >> shift_clamped) << 16;
+    int32_t dword1 = (destination.i16[2] >> shift_clamped) & 0xFFFF |
+        (destination.i16[3] >> shift_clamped) << 16;
+    write_mmx64(r, dword0, dword1);
+}
+
