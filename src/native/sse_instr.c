@@ -319,3 +319,20 @@ void psrad_r64(int32_t r, uint32_t shift)
 
     write_mmx64(r, dword0, dword1);
 }
+
+void pslld_r64(int32_t r, uint32_t shift)
+{
+    // pslld mm, {shift}
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+
+    int32_t dword0 = 0;
+    int32_t dword1 = 0;
+
+    if(shift <= 31) {
+        dword0 = destination.i32[0] << shift;
+        dword1 = destination.i32[1] << shift;
+    }
+
+    write_mmx64(r, dword0, dword1);
+}

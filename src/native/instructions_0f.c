@@ -1751,18 +1751,7 @@ static void instr_0F72_4_reg(int32_t r, int32_t imm8) {
 
 static void instr_0F72_6_reg(int32_t r, int32_t imm8) {
     // pslld mm, imm8
-    task_switch_test_mmx();
-    union reg64 destination = read_mmx64s(r);
-
-    int32_t low = 0;
-    int32_t high = 0;
-
-    if(imm8 <= 31) {
-        low = destination.i32[0] << imm8;
-        high = destination.i32[1] << imm8;
-    }
-
-    write_mmx64(r, low, high);
+    pslld_r64(r, imm8);
 }
 
 static void instr_660F72_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
@@ -3506,20 +3495,7 @@ DEFINE_SSE_SPLIT(instr_660FF1, safe_read128s, read_xmm128s)
 
 static void instr_0FF2(union reg64 source, int32_t r) {
     // pslld mm, mm/m64
-    task_switch_test_mmx();
-
-    union reg64 destination = read_mmx64s(r);
-
-    uint32_t shift = source.u32[0];
-    int32_t low = 0;
-    int32_t high = 0;
-
-    if (shift <= 31) {
-        low = destination.u32[0] << shift;
-        high = destination.u32[1] << shift;
-    }
-
-    write_mmx64(r, low, high);
+    pslld_r64(r, source.u32[0]);
 }
 DEFINE_SSE_SPLIT(instr_0FF2, safe_read64s, read_mmx64s)
 
