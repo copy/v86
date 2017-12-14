@@ -237,3 +237,23 @@ void psllq_r128(int32_t r, uint32_t shift)
 
     write_xmm_reg128(r, result);
 }
+
+void psrlw_r64(int32_t r, uint32_t shift)
+{
+    // psrlw mm, {shift}
+    task_switch_test_mmx();
+    union reg64 destination = read_mmx64s(r);
+    int32_t dword0 = 0;
+    int32_t dword1 = 0;
+
+    if(shift <= 15)
+    {
+        dword0 = (destination.u16[0] >> shift) |
+            (destination.u16[1] >> shift) << 16;
+        dword1 = (destination.u16[2] >> shift) |
+            (destination.u16[3] >> shift) << 16;
+    }
+
+    write_mmx64(r, dword0, dword1);
+}
+
