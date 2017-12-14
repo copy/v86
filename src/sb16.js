@@ -238,6 +238,8 @@ function SB16(cpu, bus)
         this.audio_samplerate = rate;
     }, this);
 
+    bus.send("speaker-request-samplerate");
+
     bus.register("speaker-request-data", function(size)
     {
         this.audio_send(size);

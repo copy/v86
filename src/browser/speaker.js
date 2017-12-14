@@ -66,6 +66,13 @@ function SpeakerAdapter(bus)
         this.dac_buffer1 = data[1];
     }, this);
 
+    bus.register("speaker-request-samplerate", function()
+    {
+        bus.send("speaker-tell-samplerate", this.audio_context.sampleRate);
+    }, this);
+
+    bus.send("speaker-tell-samplerate", this.audio_context.sampleRate);
+
     if(DEBUG)
     {
         this.debug_dac = false;
@@ -108,7 +115,6 @@ SpeakerAdapter.prototype.dac_process = function(event)
     out.copyToChannel(this.dac_buffer0, 0);
     out.copyToChannel(this.dac_buffer1, 1);
 
-    this.bus.send("speaker-tell-samplerate", this.audio_context.sampleRate);
     this.bus.send("speaker-request-data", out.length);
 
     if(DEBUG)
