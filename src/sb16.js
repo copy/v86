@@ -38,8 +38,7 @@ var
     // Size (bytes) of the DSP write/read buffers
 /** @const */ DSP_BUFSIZE = 64,
 
-    // Size (bytes) of the buffer containing floating point linear PCM
-    // audio with the stereo channels interleaved.
+    // Size (bytes) of the buffers containing floating point linear PCM audio.
 /** @const */ DSP_DACSIZE = 65536,
 
     // Size (bytes) of the buffer in which DMA transfers are temporarily
@@ -130,8 +129,10 @@ function SB16(cpu, bus)
     // to Web Audio APIs.
     // Format:
     // Floating precision linear PCM, nominal between -1 and 1.
-    // Interleaved two channels for stereo.
-    this.dac_buffer = new Queue(DSP_DACSIZE);
+    this.dac_buffers = [
+      new FloatQueue(DSP_DACSIZE),
+      new FloatQueue(DSP_DACSIZE),
+    ];
 
     // Number of repeated samples needed to approximate the
     // emulated sample rate. TODO: This can be improved by
@@ -237,9 +238,9 @@ function SB16(cpu, bus)
         this.audio_samplerate = rate;
     }, this);
 
-    bus.register("speaker-process", function(event)
+    bus.register("speaker-request-data", function(size)
     {
-        this.audio_process(event);
+        this.audio_send(size);
     }, this);
 
     bus.register("cpu-stop", function()
@@ -275,7 +276,8 @@ SB16.prototype.reset_dsp = function()
     this.dsp_16bit = false;
     this.dsp_signed = false;
 
-    this.dac_buffer.clear();
+    this.dac_buffers[0].clear();
+    this.dac_buffers[1].clear();
     this.dac_rate_ratio = 2;
 
     this.dma_sample_count = 0;
@@ -325,7 +327,7 @@ SB16.prototype.get_state = function()
     state[11] = this.dsp_16bit;
     state[12] = this.dsp_signed;
 
-    // state[13] = this.dac_buffer;
+    // state[13] = this.dac_buffers;
     state[14] = this.dac_rate_ratio;
 
     state[15] = this.dma_sample_count;
@@ -378,7 +380,7 @@ SB16.prototype.set_state = function(state)
     this.dsp_16bit = state[11];
     this.dsp_signed = state[12];
 
-    // this.dac_buffer = state[13];
+    // this.dac_buffers = state[13];
     this.dac_rate_ratio = state[14];
 
     this.dma_sample_count = state[15];
@@ -803,9 +805,8 @@ register_dsp_command([0x10], 1, function()
 {
     var value = audio_normalize(this.write_buffer.shift(), 127.5, -1);
 
-    // Push twice for both channels.
-    this.dac_buffer.push(value);
-    this.dac_buffer.push(value);
+    this.dac_buffers[0].push(value);
+    this.dac_buffers[1].push(value);
 });
 
 // 8-bit single-cycle DMA mode digitized sound output.
@@ -1492,7 +1493,7 @@ SB16.prototype.dma_transfer_next = function()
     // Don't transfer too much too early, or else the DMA counters will not
     // accurately reflect the amount of audio that has already been
     // played back by the Web Audio API.
-    if(this.dac_buffer.length > this.dac_process_samples * 2) return;
+    if(this.dac_buffers[0].length > this.dac_process_samples * 2) return;
 
     // Do not transfer if paused.
     if(this.cpu_paused || this.dma_paused) return;
@@ -1547,41 +1548,41 @@ SB16.prototype.dma_to_dac = function(sample_count)
             this.dma_buffer_uint8;
     }
 
+    var channel = 0;
     for(var i = 0; i < sample_count; i++)
     {
         for(var j = 0; j < repeats; j++)
         {
-            this.dac_buffer.push(audio_normalize(buffer[i], amplitude, offset));
+            this.dac_buffers[channel].push(audio_normalize(buffer[i], amplitude, offset));
+            channel ^= 1;
         }
     }
 };
 
-SB16.prototype.audio_process = function(data)
+SB16.prototype.audio_send = function(size)
 {
-    var out0 = data[0];
-    var out1 = data[1];
-    this.dac_process_samples = data[2];
+    this.dac_process_samples = size;
 
     if(this.cpu_paused || this.dma_paused)
     {
         // Silence when paused.
-        out0.fill(0);
-        out1.fill(0);
+        var silence = new Float32Array(size);
+        this.bus.send("speaker-update-data", [silence, silence]);
         return;
     }
 
-    if(this.dac_buffer.length && this.dac_buffer.length < this.dac_process_samples * 2)
+    if(this.dac_buffers[0].length && this.dac_buffers[0].length < this.dac_process_samples * 2)
     {
         dbg_log("dac_buffer contains only " +
-          (this.dac_buffer.length / 2) +
-          " samples out of " + this.dac_process_samples + " needed", LOG_SB16);
+            (this.dac_buffers[0].length / 2) +
+            " samples out of " + this.dac_process_samples + " needed", LOG_SB16);
     }
 
-    for(var i = 0; i < this.dac_process_samples; i++)
-    {
-        out0[i] = this.dac_buffer.length > 0 && this.dac_buffer.shift();
-        out1[i] = this.dac_buffer.length > 0 && this.dac_buffer.shift();
-    }
+    this.bus.send("speaker-update-data",
+    [
+        this.dac_buffers[0].shiftBlock(size),
+        this.dac_buffers[1].shiftBlock(size),
+    ]);
 
     setTimeout(() => { this.dma_transfer_next(); }, 0);
 };
