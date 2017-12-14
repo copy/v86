@@ -96,7 +96,8 @@ void psllw_r64(int32_t r, uint32_t shift)
     int32_t dword0 = 0;
     int32_t dword1 = 0;
 
-    if(shift <= 15) {
+    if(shift <= 15)
+    {
         dword0 = (destination.u16[0] << shift & 0xFFFF) |
             (destination.u16[1] << shift) << 16;
         dword1 = (destination.u16[2] << shift & 0xFFFF) |
@@ -115,7 +116,8 @@ void psrld_r64(int32_t r, uint32_t shift)
     int32_t dword0 = 0;
     int32_t dword1 = 0;
 
-    if(shift <= 31) {
+    if(shift <= 31)
+    {
         dword0 = destination.u32[0] >> shift;
         dword1 = destination.u32[1] >> shift;
     }
@@ -145,7 +147,8 @@ void pslld_r64(int32_t r, uint32_t shift)
     int32_t dword0 = 0;
     int32_t dword1 = 0;
 
-    if(shift <= 31) {
+    if(shift <= 31)
+    {
         dword0 = destination.i32[0] << shift;
         dword1 = destination.i32[1] << shift;
     }
@@ -193,11 +196,13 @@ void psllq_r64(int32_t r, uint32_t shift)
 
     union reg64 result = { { 0 } };
 
-    if(shift <= 31) {
+    if(shift <= 31)
+    {
         result.u32[0] = destination.u32[0] << shift;
         result.u32[1] = destination.u32[1] << shift | (destination.u32[0] >> (32 - shift));
     }
-    else if(shift <= 63) {
+    else if(shift <= 63)
+    {
         result.u32[0] = 0;
         result.u32[1] = destination.u32[0] << (shift & 0x1F);
     }
@@ -259,7 +264,8 @@ void psllw_r128(int32_t r, uint32_t shift)
     int32_t dword2 = 0;
     int32_t dword3 = 0;
 
-    if(shift <= 15) {
+    if(shift <= 15)
+    {
         dword0 = (destination.u16[0] << shift & 0xFFFF) |
             (destination.u16[1] << shift) << 16;
         dword1 = (destination.u16[2] << shift & 0xFFFF) |
@@ -284,7 +290,8 @@ void psrld_r128(int32_t r, uint32_t shift)
     int32_t dword2 = 0;
     int32_t dword3 = 0;
 
-    if(shift <= 31) {
+    if(shift <= 31)
+    {
         dword0 = destination.u32[0] >> shift;
         dword1 = destination.u32[1] >> shift;
         dword2 = destination.u32[2] >> shift;
@@ -320,7 +327,8 @@ void pslld_r128(int32_t r, uint32_t shift)
     int32_t dword2 = 0;
     int32_t dword3 = 0;
 
-    if(shift <= 31) {
+    if(shift <= 31)
+    {
         dword0 = destination.i32[0] << shift;
         dword1 = destination.i32[1] << shift;
         dword2 = destination.i32[2] << shift;
@@ -373,13 +381,15 @@ void psllq_r128(int32_t r, uint32_t shift)
 
     union reg128 result = { { 0 } };
 
-    if(shift <= 31) {
+    if(shift <= 31)
+    {
         result.u32[0] = destination.u32[0] << shift;
         result.u32[1] = destination.u32[1] << shift | (destination.u32[0] >> (32 - shift));
         result.u32[2] = destination.u32[2] << shift;
         result.u32[3] = destination.u32[3] << shift | (destination.u32[2] >> (32 - shift));
     }
-    else if(shift <= 63) {
+    else if(shift <= 63)
+    {
         result.u32[0] = 0;
         result.u32[1] = destination.u32[0] << (shift & 0x1F);
         result.u32[2] = 0;
