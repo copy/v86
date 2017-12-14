@@ -1582,8 +1582,8 @@ SB16.prototype.audio_send = function(size)
 
     this.bus.send("speaker-update-data",
     [
-        this.dac_buffers[0].shiftBlock(size),
-        this.dac_buffers[1].shiftBlock(size),
+        this.dac_buffers[0].shift_block(size),
+        this.dac_buffers[1].shift_block(size),
     ]);
 
     setTimeout(() => { this.dma_transfer_next(); }, 0);
