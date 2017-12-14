@@ -268,12 +268,12 @@ function ByteQueue(size)
 /**
  * @constructor
  *
- * Queue wrapper around an simple array
+ * Queue wrapper around Float32Array
  * Used by devices such as the sound blaster sound card
  */
-function Queue(size)
+function FloatQueue(size)
 {
-    var data = new Array(size),
+    var data = new Float32Array(size),
         start,
         end;
 
@@ -286,6 +286,7 @@ function Queue(size)
         if(this.length === size)
         {
             // intentional overwrite
+            start = start + 1 & size - 1;
         }
         else
         {
@@ -312,6 +313,36 @@ function Queue(size)
             return item;
         }
     };
+
+    this.shiftBlock = function(count)
+    {
+        var slice = new Float32Array(count);
+
+        if(count > this.length)
+        {
+            count = this.length;
+        }
+        var slice_end = start + count;
+
+        var partial = data.slice(start, slice_end);
+
+        slice.set(partial);
+        if(slice_end < size)
+        {
+            start = slice_end;
+            slice_end = 0;
+        }
+        else
+        {
+            slice_end -= size;
+            start = slice_end;
+        }
+        slice.set(data.slice(0, slice_end), partial.length);
+
+        this.length -= count;
+
+        return slice;
+    }
 
     this.peek = function()
     {
