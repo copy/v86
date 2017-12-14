@@ -1209,7 +1209,7 @@ static void instr_0F60(int32_t source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0F60, safe_read32s, read_mmx32s)
 
-void instr_660F60(union reg64 source, int32_t r) {
+static void instr_660F60(union reg64 source, int32_t r) {
     // punpcklbw xmm, xmm/m128
     task_switch_test_mmx();
     union reg64 destination = read_xmm64s(r);
