@@ -1746,15 +1746,7 @@ static void instr_0F72_2_reg(int32_t r, int32_t imm8) {
 
 static void instr_0F72_4_reg(int32_t r, int32_t imm8) {
     // psrad mm, imm8
-    task_switch_test_mmx();
-    union reg64 destination = read_mmx64s(r);
-
-    int32_t shift = imm8 > 31 ? 31 : imm8;
-
-    int32_t low = destination.i32[0] >> shift;
-    int32_t high = destination.i32[1] >> shift;
-
-    write_mmx64(r, low, high);
+    psrad_r64(r, imm8);
 }
 
 static void instr_0F72_6_reg(int32_t r, int32_t imm8) {
@@ -3101,19 +3093,7 @@ DEFINE_SSE_SPLIT(instr_660FE1, safe_read128s, read_xmm128s)
 
 static void instr_0FE2(union reg64 source, int32_t r) {
     // psrad mm, mm/m64
-    task_switch_test_mmx();
-
-    union reg64 destination = read_mmx64s(r);
-
-    uint32_t shift = source.u32[0];
-    if (shift > 31) {
-        shift = 31;
-    }
-
-    int32_t low = destination.i32[0] >> shift;
-    int32_t high = destination.i32[1] >> shift;
-
-    write_mmx64(r, low, high);
+    psrad_r64(r, source.u32[0]);
 }
 DEFINE_SSE_SPLIT(instr_0FE2, safe_read64s, read_mmx64s)
 
