@@ -97,12 +97,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.vga256_palette = new Int32Array(256);
 
     // VGA latches
-    this.latch0 = 0;
-    this.latch1 = 0;
-    this.latch2 = 0;
-    this.latch3 = 0;
     this.latch_dword = 0;
-
 
     /** @type {number} */
     this.svga_width = 0;
@@ -191,6 +186,17 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.planar_setreset_dword = 0;
     this.planar_setreset_enable = 0;
     this.planar_setreset_enable_dword = 0;
+
+    this.color_compare = 0;
+    this.color_compare0 = 0;
+    this.color_compare1 = 0;
+    this.color_compare2 = 0;
+    this.color_compare3 = 0;
+    this.color_dont_care = 0;
+    this.color_care0 = 0;
+    this.color_care1 = 0;
+    this.color_care2 = 0;
+    this.color_care3 = 0;
 
     this.max_scan_line = 0;
 
@@ -310,10 +316,10 @@ VGAScreen.prototype.get_state = function()
     state[8] = this.start_address;
     state[9] = this.graphical_mode;
     state[10] = this.vga256_palette;
-    state[11] = this.latch0;
-    state[12] = this.latch1;
-    state[13] = this.latch2;
-    state[14] = this.latch3;
+    state[11] = this.latch_dword;
+    state[12] = this.color_compare;
+    state[13] = this.color_dont_care;
+    // state[14]
     state[15] = this.svga_width;
     state[16] = this.svga_height;
     state[17] = this.text_mode_width;
@@ -361,10 +367,10 @@ VGAScreen.prototype.set_state = function(state)
     this.start_address = state[8];
     this.graphical_mode = state[9];
     this.vga256_palette = state[10];
-    this.latch0 = state[11];
-    this.latch1 = state[12];
-    this.latch2 = state[13];
-    this.latch3 = state[14];
+    this.latch_dword = state[11];
+    this.color_compare = state[12];
+    this.color_dont_care = state[13];
+    // state[14]
     this.svga_width = state[15];
     this.svga_height = state[16];
     this.text_mode_width = state[17];
@@ -400,11 +406,14 @@ VGAScreen.prototype.set_state = function(state)
     this.planar_setreset_dword = this.apply_expand(this.planar_setreset);
     this.planar_setreset_enable_dword = this.apply_expand(this.planar_setreset_enable);
 
-    this.latch_dword = 0;
-    this.latch_dword |= this.latch0 << 0;
-    this.latch_dword |= this.latch1 << 8;
-    this.latch_dword |= this.latch2 << 16;
-    this.latch_dword |= this.latch3 << 24;
+    this.color_compare0 = this.color_compare & 0x1 ? 0xFF : 0x00;
+    this.color_compare1 = this.color_compare & 0x2 ? 0xFF : 0x00;
+    this.color_compare2 = this.color_compare & 0x4 ? 0xFF : 0x00;
+    this.color_compare3 = this.color_compare & 0x8 ? 0xFF : 0x00;
+    this.color_care0 = this.color_dont_care & 0x1;
+    this.color_care1 = this.color_dont_care & 0x2;
+    this.color_care2 = this.color_dont_care & 0x4;
+    this.color_care3 = this.color_dont_care & 0x8;
 
     this.bus.send("screen-set-mode", this.graphical_mode);
 
@@ -442,23 +451,32 @@ VGAScreen.prototype.vga_memory_read = function(addr)
         return this.svga_memory[addr];
     }
 
-    // TODO: "Color don't care"
-    //dbg_assert((this.planar_mode & 0x08)  === 0, "unimplemented");
-
     // planar mode
     addr &= 0xFFFF;
 
-    this.latch0 = this.plane0[addr];
-    this.latch1 = this.plane1[addr];
-    this.latch2 = this.plane2[addr];
-    this.latch3 = this.plane3[addr];
     this.latch_dword = 0;
     this.latch_dword |= this.plane0[addr] << 0;
     this.latch_dword |= this.plane1[addr] << 8;
     this.latch_dword |= this.plane2[addr] << 16;
     this.latch_dword |= this.plane3[addr] << 24;
 
-    return this.vga_memory[this.plane_read << 16 | addr];
+    if(this.planar_mode & 0x08)
+    {
+        // read mode 1
+        var reading = 0xFF;
+
+        if(this.color_care0) reading &= this.plane0[addr] ^ ~this.color_compare0;
+        if(this.color_care1) reading &= this.plane1[addr] ^ ~this.color_compare1;
+        if(this.color_care2) reading &= this.plane2[addr] ^ ~this.color_compare2;
+        if(this.color_care3) reading &= this.plane3[addr] ^ ~this.color_compare3;
+
+        return reading;
+    }
+    else
+    {
+        // read mode 0
+        return this.vga_memory[this.plane_read << 16 | addr];
+    }
 };
 
 VGAScreen.prototype.vga_memory_write = function(addr, value)
@@ -1071,6 +1089,14 @@ VGAScreen.prototype.port3CF_write = function(value)
             this.planar_setreset_enable_dword = this.apply_expand(value);
             dbg_log("plane set/reset enable: " + h(value), LOG_VGA);
             break;
+        case 2:
+            this.color_compare = value;
+            this.color_campare0 = value & 0x1 ? 0xFF : 0x00;
+            this.color_campare1 = value & 0x2 ? 0xFF : 0x00;
+            this.color_campare2 = value & 0x4 ? 0xFF : 0x00;
+            this.color_campare3 = value & 0x8 ? 0xFF : 0x00;
+            dbg_log("color compare: " + h(value), LOG_VGA);
+            break;
         case 3:
             this.planar_rotate_reg = value;
             dbg_log("plane rotate: " + h(value), LOG_VGA);
@@ -1083,6 +1109,14 @@ VGAScreen.prototype.port3CF_write = function(value)
         case 5:
             this.planar_mode = value;
             dbg_log("planar mode: " + h(value), LOG_VGA);
+            break;
+        case 7:
+            this.color_dont_care = value;
+            this.color_care0 = value & 0x1;
+            this.color_care1 = value & 0x2;
+            this.color_care2 = value & 0x4;
+            this.color_care3 = value & 0x8;
+            dbg_log("color don't care: " + h(value), LOG_VGA);
             break;
         case 8:
             this.planar_bitmap = value;
@@ -1104,12 +1138,16 @@ VGAScreen.prototype.port3CF_read = function()
             return this.planar_setreset;
         case 1:
             return this.planar_setreset_enable;
+        case 2:
+            return this.color_compare;
         case 3:
             return this.planar_rotate_reg;
         case 4:
             return this.plane_read;
         case 5:
             return this.planar_mode;
+        case 7:
+            return this.color_dont_care;
         case 8:
             return this.planar_bitmap;
         default:
