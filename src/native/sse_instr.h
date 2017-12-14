@@ -16,6 +16,7 @@ void psrld_r64(int32_t r, uint32_t shift);
 void psrad_r64(int32_t r, uint32_t shift);
 void pslld_r64(int32_t r, uint32_t shift);
 void psrlq_r64(int32_t r, uint32_t shift);
+void psllq_r64(int32_t r, uint32_t shift);
 
 void psrlw_r128(int32_t r, uint32_t shift);
 void psraw_r128(int32_t r, uint32_t shift);
