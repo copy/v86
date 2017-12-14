@@ -12,6 +12,7 @@ void movh_r128_m64(int32_t addr, int32_t r);
 void psrlw_r64(int32_t r, uint32_t shift);
 void psraw_r64(int32_t r, uint32_t shift);
 void psllw_r64(int32_t r, uint32_t shift);
+void psrld_r64(int32_t r, uint32_t shift);
 
 void psrlw_r128(int32_t r, uint32_t shift);
 void psraw_r128(int32_t r, uint32_t shift);
