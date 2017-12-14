@@ -314,7 +314,7 @@ function FloatQueue(size)
         }
     };
 
-    this.shiftBlock = function(count)
+    this.shift_block = function(count)
     {
         var slice = new Float32Array(count);
 
