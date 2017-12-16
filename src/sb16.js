@@ -248,11 +248,13 @@ function SB16(cpu, bus)
     bus.register("cpu-stop", function()
     {
         this.cpu_paused = true;
+        bus.send("speaker-update-enable", false);
     }, this);
 
     bus.register("cpu-run", function()
     {
         this.cpu_paused = false;
+        bus.send("speaker-update-enable", !this.dma_paused);
     }, this);
 
     this.reset_dsp();
@@ -417,6 +419,8 @@ SB16.prototype.set_state = function(state)
     this.dma_buffer_int16 = new Int16Array(this.dma_buffer);
     this.dma_buffer_uint16 = new Uint16Array(this.dma_buffer);
     this.dma_syncbuffer = new SyncBuffer(this.dma_buffer);
+
+    this.bus.send("speaker-update-enable", !this.dma_paused);
 };
 
 //
@@ -809,6 +813,7 @@ register_dsp_command([0x10], 1, function()
 
     this.dac_buffers[0].push(value);
     this.dac_buffers[1].push(value);
+    this.bus.send("speaker-update-enable", true);
 });
 
 // 8-bit single-cycle DMA mode digitized sound output.
@@ -1005,6 +1010,7 @@ register_dsp_command(any_first_digit(0xC0), 3, function()
 register_dsp_command([0xD0], 0, function()
 {
     this.dma_paused = true;
+    this.bus.send("speaker-update-enable", false);
 });
 
 // Turn on speaker.
@@ -1025,18 +1031,21 @@ register_dsp_command([0xD3], 0, function()
 register_dsp_command([0xD4], 0, function()
 {
     this.dma_paused = false;
+    this.bus.send("speaker-update-enable", true);
 });
 
 // Pause 16-bit DMA mode digitized sound I/O.
 register_dsp_command([0xD5], 0, function()
 {
     this.dma_paused = true;
+    this.bus.send("speaker-update-enable", false);
 });
 
 // Continue 16-bit DMA mode digitized sound I/O.
 register_dsp_command([0xD6], 0, function()
 {
     this.dma_paused = false;
+    this.bus.send("speaker-update-enable", true);
 });
 
 // Get speaker status.
@@ -1478,6 +1487,7 @@ SB16.prototype.dma_on_unmask = function(channel)
     this.dma_waiting_transfer = false;
     this.dma_bytes_left = this.dma_bytes_count;
     this.dma_paused = false;
+    this.bus.send("speaker-update-enable", true);
     this.dma_transfer_next();
 };
 
@@ -1555,14 +1565,6 @@ SB16.prototype.dma_to_dac = function(sample_count)
 SB16.prototype.audio_send = function(size)
 {
     this.dac_process_samples = size;
-
-    if(this.cpu_paused || this.dma_paused)
-    {
-        // Silence when paused.
-        var silence = new Float32Array(size);
-        this.bus.send("speaker-update-data", [silence, silence]);
-        return;
-    }
 
     if(this.dac_buffers[0].length && this.dac_buffers[0].length < this.dac_process_samples * 2)
     {
