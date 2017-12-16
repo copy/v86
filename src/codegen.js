@@ -89,12 +89,10 @@ Codegen.prototype.finish = function()
 
 Codegen.prototype.get_module_code = function()
 {
-    const final_offset = this.wm.funcs["_gen_get_final_offset"]();
+    const end = this.wm.funcs["_gen_get_final_offset"]() - Codegen.OUTPUT_OFFSET;
 
     // extract wasm module
-    const output_buffer_view = new Uint8Array(this.wm.mem.buffer,
-                                              Codegen.OUTPUT_OFFSET,
-                                              final_offset - Codegen.OUTPUT_OFFSET);
+    const output_buffer_view = new Uint8Array(this.wm.mem.buffer, Codegen.OUTPUT_OFFSET, end);
     return output_buffer_view;
 };
 
