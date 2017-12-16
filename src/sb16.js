@@ -1554,9 +1554,10 @@ SB16.prototype.dma_to_dac = function(sample_count)
     var channel = 0;
     for(var i = 0; i < sample_count; i++)
     {
+        var sample = audio_normalize(buffer[i], amplitude, offset);
         for(var j = 0; j < repeats; j++)
         {
-            this.dac_buffers[channel].push(audio_normalize(buffer[i], amplitude, offset));
+            this.dac_buffers[channel].push(sample);
             channel ^= 1;
         }
     }
