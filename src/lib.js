@@ -324,13 +324,13 @@ function FloatQueue(size)
         }
         var slice_end = start + count;
 
-        var partial = data.slice(start, slice_end);
+        var partial = data.subarray(start, slice_end);
 
         slice.set(partial);
         if(slice_end >= size)
         {
             slice_end -= size;
-            slice.set(data.slice(0, slice_end), partial.length);
+            slice.set(data.subarray(0, slice_end), partial.length);
         }
         start = slice_end;
 

@@ -1573,11 +1573,9 @@ SB16.prototype.audio_send = function(size)
             " samples out of " + this.dac_process_samples + " needed", LOG_SB16);
     }
 
-    this.bus.send("speaker-update-data",
-    [
-        this.dac_buffers[0].shift_block(size),
-        this.dac_buffers[1].shift_block(size),
-    ]);
+    var out0 = this.dac_buffers[0].shift_block(size);
+    var out1 = this.dac_buffers[1].shift_block(size);
+    this.bus.send("speaker-update-data", [out0, out1], [out0.buffer, out1.buffer]);
 
     setTimeout(() => { this.dma_transfer_next(); }, 0);
 };
