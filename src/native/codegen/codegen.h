@@ -259,11 +259,16 @@ void gen_init()
     write_import_section_preamble();
 
     // add initial imports
-    uint8_t _fn_get_seg_prefix_ds_idx = write_import_entry("get_seg_prefix_ds", 17, FN1_RET_TYPE_INDEX);
+    uint8_t _fn_get_seg_prefix_ds_idx = write_import_entry(
+            "get_seg_prefix_ds", 17, FN1_RET_TYPE_INDEX);
     assert(_fn_get_seg_prefix_ds_idx == fn_get_seg_prefix_ds_idx);
-    uint8_t _fn_get_seg_prefix_ss_idx = write_import_entry("get_seg_prefix_ss", 17, FN1_RET_TYPE_INDEX);
+
+    uint8_t _fn_get_seg_prefix_ss_idx = write_import_entry(
+            "get_seg_prefix_ss", 17, FN1_RET_TYPE_INDEX);
     assert(_fn_get_seg_prefix_ss_idx == fn_get_seg_prefix_ss_idx);
-    uint8_t _fn_get_seg_prefix_idx = write_import_entry("get_seg_prefix", 14, FN1_RET_TYPE_INDEX);
+
+    uint8_t _fn_get_seg_prefix_idx = write_import_entry(
+            "get_seg_prefix", 14, FN1_RET_TYPE_INDEX);
     assert(_fn_get_seg_prefix_idx == fn_get_seg_prefix_idx);
 
     // store state of current pointers etc. so we can reset them later
