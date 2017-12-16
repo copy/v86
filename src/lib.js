@@ -273,93 +273,93 @@ function ByteQueue(size)
  */
 function FloatQueue(size)
 {
-    var data = new Float32Array(size),
-        start,
-        end;
+    this.size = size;
+    this.data = new Float32Array(size);
+    this.start = 0;
+    this.end = 0;
+    this.length = 0;
 
     dbg_assert((size & size - 1) === 0);
 
     this.length = 0;
+}
 
-    this.push = function(item)
+FloatQueue.prototype.push = function(item)
+{
+    if(this.length === this.size)
     {
-        if(this.length === size)
-        {
-            // intentional overwrite
-            start = start + 1 & size - 1;
-        }
-        else
-        {
-            this.length++;
-        }
-
-        data[end] = item;
-        end = end + 1 & size - 1;
-    };
-
-    this.shift = function()
+        // intentional overwrite
+        this.start = this.start + 1 & this.size - 1;
+    }
+    else
     {
-        if(!this.length)
-        {
-            return undefined;
-        }
-        else
-        {
-            var item = data[start];
-
-            start = start + 1 & size - 1;
-            this.length--;
-
-            return item;
-        }
-    };
-
-    this.shift_block = function(count)
-    {
-        var slice = new Float32Array(count);
-
-        if(count > this.length)
-        {
-            count = this.length;
-        }
-        var slice_end = start + count;
-
-        var partial = data.subarray(start, slice_end);
-
-        slice.set(partial);
-        if(slice_end >= size)
-        {
-            slice_end -= size;
-            slice.set(data.subarray(0, slice_end), partial.length);
-        }
-        start = slice_end;
-
-        this.length -= count;
-
-        return slice;
+        this.length++;
     }
 
-    this.peek = function()
-    {
-        if(!this.length)
-        {
-            return undefined;
-        }
-        else
-        {
-            return data[start];
-        }
-    };
+    this.data[this.end] = item;
+    this.end = this.end + 1 & this.size - 1;
+};
 
-    this.clear = function()
+FloatQueue.prototype.shift = function()
+{
+    if(!this.length)
     {
-        start = 0;
-        end = 0;
-        this.length = 0;
-    };
+        return undefined;
+    }
+    else
+    {
+        var item = this.data[this.start];
 
-    this.clear();
-}
+        this.start = this.start + 1 & this.size - 1;
+        this.length--;
+
+        return item;
+    }
+};
+
+FloatQueue.prototype.shift_block = function(count)
+{
+    var slice = new Float32Array(count);
+
+    if(count > this.length)
+    {
+        count = this.length;
+    }
+    var slice_end = this.start + count;
+
+    var partial = this.data.subarray(this.start, slice_end);
+
+    slice.set(partial);
+    if(slice_end >= this.size)
+    {
+        slice_end -= this.size;
+        slice.set(this.data.subarray(0, slice_end), partial.length);
+    }
+    this.start = slice_end;
+
+    this.length -= count;
+
+    return slice;
+};
+
+FloatQueue.prototype.peek = function()
+{
+    if(!this.length)
+    {
+        return undefined;
+    }
+    else
+    {
+        return this.data[this.start];
+    }
+};
+
+FloatQueue.prototype.clear = function()
+{
+    this.start = 0;
+    this.end = 0;
+    this.length = 0;
+};
 
 
 /**
