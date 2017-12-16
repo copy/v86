@@ -2,6 +2,9 @@
 
 const fs = require("fs");
 
+global.v86util = {};
+require("../src/browser/lib.js");
+
 const Codegen = require("../src/codegen.js");
 console.assert(typeof Codegen === "function");
 
@@ -19,13 +22,14 @@ const vals = {
     previous_ip: 0,
 };
 
-load_wasm(codegen_module_buffer, {
+v86util.load_wasm("build/codegen-test.wasm", {
         env: {
             _read_imm8() { return vals.imm8; },
             _read_imm8s() { return vals.imm8s; },
             _read_imm16() { return vals.imm16; },
             _read_imm32s() { return vals.imm32s; },
             _is_asize_32() { return vals.asize_32; },
+            _printf() {},
 
             // static pointer imports
             g$_reg16() { return vals.reg16; },
@@ -33,11 +37,9 @@ load_wasm(codegen_module_buffer, {
             g$_instruction_pointer() { return vals.instruction_pointer; },
             g$_previous_ip() { return vals.previous_ip; },
         }
-    })
-    .then(function(wm) {
-        return new Codegen(wm);
-    })
-    .then(test);
+    }, function(wm) {
+        return test(new Codegen(wm));
+    });
 
 function test(gen)
 {
@@ -94,47 +96,3 @@ function test(gen)
         console.log("Got:", store);
     }
 }
-
-function load_wasm(buffer, imports, cb)
-{
-    if (!imports) {
-        imports = {};
-    }
-
-    // XXX: These should not be fixed in M
-    const STATIC_MEMORY_BASE = 256 - 32;
-    const WASM_MEMORY_SIZE = 256;
-
-    return WebAssembly.compile(buffer)
-        .then(module => {
-            if (!imports["env"]) {
-                imports["env"] = {};
-            }
-            imports["env"]["___assert_fail"] = (a, b, c, d) => {
-                console.error("Assertion Failed", a, b, c, d);
-                dbg_assert(false);
-            };
-            imports["env"]["memoryBase"] = STATIC_MEMORY_BASE * 1024 * 1024;
-            imports["env"]["tableBase"] = 0;
-            imports["env"]["memory"] = new WebAssembly.Memory({ ["initial"]: WASM_MEMORY_SIZE * 1024 * 1024 / 64 / 1024, });
-            imports["env"]["table"] = new WebAssembly.Table({ ["initial"]: 18, ["element"]: "anyfunc" });
-            return WebAssembly.instantiate(module, imports).then(instance => ({ instance, module }));
-        })
-        .then(({ instance, module }) => {
-            const ret = {
-                mem: imports["env"]["memory"],
-                funcs: instance["exports"],
-                instance,
-                imports,
-            };
-            if (typeof cb === "function")
-            {
-                cb(ret);
-            }
-            else
-            {
-                return ret;
-            }
-        });
-}
-

@@ -175,6 +175,7 @@ build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/n
 
 build/codegen-test.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h
 	emcc src/native/codegen/api.c \
+	    -Isrc/native/ -Isrc/native/profiler/ \
 	    -Wall -Wpedantic -Wextra \
 	    -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \
 	    -fcolor-diagnostics \
