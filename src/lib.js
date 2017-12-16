@@ -280,8 +280,6 @@ function FloatQueue(size)
     this.length = 0;
 
     dbg_assert((size & size - 1) === 0);
-
-    this.length = 0;
 }
 
 FloatQueue.prototype.push = function(item)
