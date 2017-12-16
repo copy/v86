@@ -25,12 +25,12 @@ function SpeakerAdapter(bus)
     this.audio_context = new (window.AudioContext || window.webkitAudioContext)();
 
     this.beep_gain = this.audio_context.createGain();
-    this.beep_gain.gain.value = 0;
+    this.beep_gain.gain.setValueAtTime(0, this.audio_context.currentTime);
     this.beep_gain.connect(this.audio_context.destination);
 
     this.beep_oscillator = this.audio_context.createOscillator();
     this.beep_oscillator.type = "square";
-    this.beep_oscillator.frequency.value = 440;
+    this.beep_oscillator.frequency.setValueAtTime(440, this.audio_context.currentTime);
     this.beep_oscillator.connect(this.beep_gain);
     this.beep_oscillator.start();
 
