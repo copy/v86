@@ -29,7 +29,7 @@ function SpeakerAdapter(bus)
     this.beep_gain.connect(this.audio_context.destination);
 
     this.beep_oscillator = this.audio_context.createOscillator();
-    this.beep_oscillator.type = 'square';
+    this.beep_oscillator.type = "square";
     this.beep_oscillator.frequency.value = 440;
     this.beep_oscillator.connect(this.beep_gain);
     this.beep_oscillator.start();

@@ -896,10 +896,7 @@ register_dsp_command([0x40], 1, function()
 // Set digitized sound input sampling rate.
 register_dsp_command([0x41, 0x42], 2, function()
 {
-    this.sampling_rate_change(
-        (this.write_buffer.shift() << 8)
-        | this.write_buffer.shift()
-    );
+    this.sampling_rate_change((this.write_buffer.shift() << 8) | this.write_buffer.shift());
 });
 
 // Set DSP block transfer size.
@@ -1437,14 +1434,12 @@ SB16.prototype.sampling_rate_change = function(rate)
 
 SB16.prototype.get_channel_count = function()
 {
-    return this.dsp_stereo? 2 : 1;
+    return this.dsp_stereo ? 2 : 1;
 };
 
 SB16.prototype.dma_transfer_size_set = function()
 {
-    this.dma_sample_count = 1 +
-        (this.write_buffer.shift() << 0) +
-        (this.write_buffer.shift() << 8);
+    this.dma_sample_count = 1 + (this.write_buffer.shift() << 0) + (this.write_buffer.shift() << 8);
 };
 
 SB16.prototype.dma_transfer_start = function()
@@ -1532,22 +1527,18 @@ SB16.prototype.dma_transfer_next = function()
 
 SB16.prototype.dma_to_dac = function(sample_count)
 {
-    var amplitude = this.dsp_16bit? 32767.5 : 127.5;
-    var offset = this.dsp_signed? 0 : -1;
-    var repeats = (this.dsp_stereo? 1 : 2) * this.dac_rate_ratio;
+    var amplitude = this.dsp_16bit ? 32767.5 : 127.5;
+    var offset = this.dsp_signed ? 0 : -1;
+    var repeats = (this.dsp_stereo ? 1 : 2) * this.dac_rate_ratio;
 
     var buffer;
     if(this.dsp_16bit)
     {
-        buffer = this.dsp_signed ?
-            this.dma_buffer_int16 :
-            this.dma_buffer_uint16;
+        buffer = this.dsp_signed ? this.dma_buffer_int16 : this.dma_buffer_uint16;
     }
     else
     {
-        buffer = this.dsp_signed ?
-            this.dma_buffer_int8 :
-            this.dma_buffer_uint8;
+        buffer = this.dsp_signed ? this.dma_buffer_int8 : this.dma_buffer_uint8;
     }
 
     var channel = 0;
@@ -1614,7 +1605,5 @@ function audio_normalize(value, amplitude, offset)
 
 function audio_clip(value, low, high)
 {
-    return (value < low) * low +
-        (value > high) * high +
-        (low <= value && value <= high) * value;
+    return (value < low) * low + (value > high) * high + (low <= value && value <= high) * value;
 }
