@@ -1,13 +1,17 @@
 #ifndef _WASM_UTIL_H
 #define _WASM_UTIL_H
 
-#include<stdint.h>
+#include <stdio.h>
+#include <stdint.h>
+
+#define dbg_log(...) { if(DEBUG) { printf(__VA_ARGS__); } }
+#define dbg_assert(condition) { if(DEBUG) { if(!(condition)) dbg_log(#condition); assert(condition); } }
+#define dbg_assert_message(condition, message) { if(DEBUG && !(condition)) { dbg_log(message); assert(false); } }
 
 static uint8_t* _write_leb_u32(uint8_t* ptr, uint32_t v)
 {
-    uint8_t byte;
     do {
-        byte = v & 0b1111111; // get last 7 bits
+        uint8_t byte = v & 0b1111111; // get last 7 bits
         v >>= 7; // shift them away from the value
         if (v != 0)
         {
@@ -26,15 +30,14 @@ static uint8_t* _write_leb_i32(uint8_t* ptr, int32_t v)
 
     bool more = true;
     bool negative = v < 0;
-    uint32_t size = 32;
-    uint8_t byte;
+    const uint32_t SIZE = 32;
     while (more)
     {
-        byte = v & 0b1111111; // get last 7 bits
+        uint8_t byte = v & 0b1111111; // get last 7 bits
         v >>= 7; // shift them away from the value
         if (negative)
         {
-            v |= (~0 << (size - 7)); // extend sign
+            v |= (~0 << (SIZE - 7)); // extend sign
         }
         uint8_t sign_bit = byte & (1 << 6);
         if ((v == 0 && sign_bit == 0) || (v == -1 && sign_bit != 0))
@@ -52,16 +55,9 @@ static uint8_t* _write_leb_i32(uint8_t* ptr, int32_t v)
 
 static void inline write_fixed_leb16_to_ptr(uint8_t* ptr, uint16_t x)
 {
-    if (x < 128)
-    {
-        *ptr = x | 0b10000000;
-        *(ptr + 1) = 0;
-    }
-    else
-    {
-        *ptr = (x & 0b1111111) | 0b10000000;
-        *(ptr + 1) = x >> 7;
-    }
+    dbg_assert(x < (1 << 14)); // we have 14 bits of available space in 2 bytes for leb
+    *ptr = (x & 0b1111111) | 0b10000000;
+    *(ptr + 1) = x >> 7;
 }
 
 static void cs_write_u8(uint8_t);

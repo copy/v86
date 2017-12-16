@@ -1,15 +1,11 @@
-const fs = require('fs');
-const { TextDecoder } = require('util');
+"use strict";
 
-//XXX: use a non-hacky method maybe
-const interfaceCode = fs.readFileSync(__dirname + '/../src/codegen.js', 'utf8');
-eval(interfaceCode);
+const fs = require("fs");
 
+const Codegen = require("../src/codegen.js");
 console.assert(typeof Codegen === "function");
 
-const codegenModuleBuffer = fs.readFileSync(__dirname + '/../build/codegen-test.wasm');
-
-const dec = new TextDecoder('utf-8');
+const codegen_module_buffer = fs.readFileSync(__dirname + "/../build/codegen-test.wasm");
 
 const vals = {
     imm8: 1,
@@ -23,7 +19,7 @@ const vals = {
     previous_ip: 0,
 };
 
-load_wasm(codegenModuleBuffer, {
+load_wasm(codegen_module_buffer, {
         env: {
             _read_imm8() { return vals.imm8; },
             _read_imm8s() { return vals.imm8s; },
@@ -51,31 +47,31 @@ function test(gen)
     let buf = gen.get_module_code();
 
     gen.reset();
-    gen.fn0('fn0');
-    gen.fn1('fn1', 0);
-    gen.fn2('fn2', 0, 1);
+    gen.fn0("fn0");
+    gen.fn1("fn1", 0);
+    gen.fn2("fn2", 0, 1);
     gen.increment_instruction_pointer(10);
     gen.set_previous_eip();
     gen.finish();
 
     buf = gen.get_module_code();
-    fs.writeFileSync(__dirname + '/../build/myjit.wasm', buf);
+    fs.writeFileSync(__dirname + "/../build/codegen-test-output.wasm", buf);
 
     const module = new WebAssembly.Module(buf);
 
     const expected = [
-        ['fn0'],
-        ['fn1', 0],
-        ['fn2', 0, 1],
+        ["fn0"],
+        ["fn1", 0],
+        ["fn2", 0, 1],
     ];
 
     const store = [];
 
     const imports = {
         e: {
-            fn0() { store.push(['fn0']); },
-            fn1(arg0) { store.push(['fn1', arg0]); },
-            fn2(arg0, arg1) { store.push(['fn2', arg0, arg1]); },
+            fn0() { store.push(["fn0"]); },
+            fn1(arg0) { store.push(["fn1", arg0]); },
+            fn2(arg0, arg1) { store.push(["fn2", arg0, arg1]); },
             get_seg_prefix_ds() {},
             get_seg_prefix_ss() {},
             get_seg_prefix() {},
@@ -89,13 +85,13 @@ function test(gen)
     console.assert(view[vals.previous_ip] === 10);
     if (JSON.stringify(store) === JSON.stringify(expected))
     {
-        console.log('Test passed');
+        console.log("Test passed");
     }
     else
     {
-        console.error('Test failed');
-        console.log('Expected:', expected);
-        console.log('Got:', store);
+        console.error("Test failed");
+        console.log("Expected:", expected);
+        console.log("Got:", store);
     }
 }
 
@@ -111,23 +107,23 @@ function load_wasm(buffer, imports, cb)
 
     return WebAssembly.compile(buffer)
         .then(module => {
-            if (!imports['env']) {
-                imports['env'] = {};
+            if (!imports["env"]) {
+                imports["env"] = {};
             }
-            imports['env']['___assert_fail'] = (a, b, c, d) => {
-                console.error('Assertion Failed', a, b, c, d);
+            imports["env"]["___assert_fail"] = (a, b, c, d) => {
+                console.error("Assertion Failed", a, b, c, d);
                 dbg_assert(false);
             };
-            imports['env']['memoryBase'] = STATIC_MEMORY_BASE * 1024 * 1024;
-            imports['env']['tableBase'] = 0;
-            imports['env']['memory'] = new WebAssembly.Memory({ ['initial']: WASM_MEMORY_SIZE * 1024 * 1024 / 64 / 1024, });
-            imports['env']['table'] = new WebAssembly.Table({ ['initial']: 18, ['element']: 'anyfunc' });
+            imports["env"]["memoryBase"] = STATIC_MEMORY_BASE * 1024 * 1024;
+            imports["env"]["tableBase"] = 0;
+            imports["env"]["memory"] = new WebAssembly.Memory({ ["initial"]: WASM_MEMORY_SIZE * 1024 * 1024 / 64 / 1024, });
+            imports["env"]["table"] = new WebAssembly.Table({ ["initial"]: 18, ["element"]: "anyfunc" });
             return WebAssembly.instantiate(module, imports).then(instance => ({ instance, module }));
         })
         .then(({ instance, module }) => {
             const ret = {
-                mem: imports['env']['memory'],
-                funcs: instance['exports'],
+                mem: imports["env"]["memory"],
+                funcs: instance["exports"],
                 instance,
                 imports,
             };

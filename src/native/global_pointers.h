@@ -66,15 +66,15 @@ int32_t* const mxcsr = (int32_t* const) 824;
 
 union reg128* const reg_xmm = (union reg128* const) 828; // length 128
 
-uint8_t* const tlb_info = (uint8_t* const) 2048; // length 0x100000
-uint8_t* const tlb_info_global = (uint8_t* const) (2048 + 0x100000); // length 0x100000
-int32_t* const tlb_data = (int32_t* const) (2048 + 0x100000 + 0x100000); // length 0x100000*4
+uint8_t* const codegen_buffers = (uint8_t* const) 2048; // length 2048
 
-uint8_t* const codegen_buffers = (uint8_t* const) (2048 + 0x100000 * 6); // length 2048
+uint8_t* const tlb_info = (uint8_t* const) 4096; // length 0x100000
+uint8_t* const tlb_info_global = (uint8_t* const) (4096 + 0x100000); // length 0x100000
+int32_t* const tlb_data = (int32_t* const) (4096 + 0x100000 + 0x100000); // length 0x100000*4
 
-uint8_t* const mem8 = (uint8_t* const) (2048 + 0x100000 * 6 + 2048);
-uint16_t* const mem16 = (uint16_t* const) (2048 + 0x100000 * 6 + 2048);
-int32_t* const mem32s = (int32_t* const) (2048 + 0x100000 * 6 + 2048);
+uint8_t* const mem8 = (uint8_t* const) (4096 + 0x100000 * 6);
+uint16_t* const mem16 = (uint16_t* const) (4096 + 0x100000 * 6);
+int32_t* const mem32s = (int32_t* const) (4096 + 0x100000 * 6);
 
 float_t* const fpu_float32 = (float_t* const) 956;
 uint8_t* const fpu_float32_byte = (uint8_t* const) 956;

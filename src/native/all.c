@@ -20,6 +20,3 @@ extern double_t math_pow(double_t, double_t);
 #include "instructions_0f.c"
 #include "string.c"
 
-extern void jit_resolve_modrm16(int32_t);
-extern void jit_resolve_modrm32(int32_t);
-

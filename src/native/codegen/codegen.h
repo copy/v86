@@ -4,7 +4,7 @@
 #include <assert.h>
 
 #include "cstring.h"
-#include "../const.h"
+#include "const.h"
 #include "wasm_opcodes.h"
 #include "util.h"
 
@@ -16,7 +16,7 @@
 // section
 // - Followed by that, upto TOTAL_SIZE_LIMIT bytes could be used for storing the code section
 
-static uint8_t* const output = (uint8_t* const) 2048 + 0x100000 * 6;
+static uint8_t* const output = (uint8_t* const) 2048;
 
 // pointer to next free byte slot in output buffer, incremented as we write along in the buffer
 static uint8_t* op_ptr = output;

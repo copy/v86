@@ -39,7 +39,7 @@ function CPU(bus, wm, codegen)
      * Translation Lookaside Buffer
      * @const
      */
-    this.tlb_data = new Int32Array(wm.mem.buffer, 2048 + 0x100000*2, 0x100000);
+    this.tlb_data = new Int32Array(wm.mem.buffer, 4096 + 0x100000*2, 0x100000);
 
     /**
      * Information about which pages are cached in the tlb.
@@ -50,13 +50,13 @@ function CPU(bus, wm, codegen)
      *   3 user, write
      * @const
      */
-    this.tlb_info = new Uint8Array(wm.mem.buffer, 2048, 0x100000);
+    this.tlb_info = new Uint8Array(wm.mem.buffer, 4096, 0x100000);
 
     /**
      * Same as tlb_info, except it only contains global pages
      * @const
      */
-    this.tlb_info_global = new Uint8Array(wm.mem.buffer, 2048 + 0x100000, 0x100000);
+    this.tlb_info_global = new Uint8Array(wm.mem.buffer, 4096 + 0x100000, 0x100000);
 
     /**
      * Wheter or not in protected mode
@@ -787,9 +787,9 @@ CPU.prototype.create_memory = function(size)
 
     var buffer = this.wm.mem.buffer;
 
-    this.mem8 = new Uint8Array(buffer, 2048 + 0x100000 * 6 + 2048, size);
-    this.mem16 = new Uint16Array(buffer, 2048 + 0x100000 * 6 + 2048, size >> 1);
-    this.mem32s = new Int32Array(buffer, 2048 + 0x100000 * 6 + 2048, size >> 2);
+    this.mem8 = new Uint8Array(buffer, 4096 + 0x100000 * 6, size);
+    this.mem16 = new Uint16Array(buffer, 4096 + 0x100000 * 6, size >> 1);
+    this.mem32s = new Int32Array(buffer, 4096 + 0x100000 * 6, size >> 2);
 };
 
 CPU.prototype.init = function(settings, device_bus)
