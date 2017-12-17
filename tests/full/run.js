@@ -186,6 +186,96 @@ if(cluster.isMaster)
             timeout: 180,
             expected_texts: ["(I)nstall, (U)pgrade or (S)hell"],
         },
+        {
+            name: "Windows 3.0",
+            skip_if_disk_image_missing: true,
+            timeout: 120,
+            cdrom: root_path + "/../v86-images/os/Win30.iso",
+            expected_texts: [
+                "Press any key to continue",
+                "              **************************************************",
+            ],
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            actions: [
+                {
+                    on_text: "Press any key to continue . . .",
+                    after: 1000,
+                    run: "x",
+                },
+                {
+                    on_text: "              **************************************************",
+                    after: 1000,
+                    run: "x",
+                },
+                {
+                    on_text: "C> ",
+                    after: 1000,
+                    run: "win\n",
+                },
+            ],
+        },
+        {
+            name: "FreeBSD",
+            skip_if_disk_image_missing: true,
+            timeout: 240,
+            hda: root_path + "/../v86-images/os/freebsd.img",
+            expected_texts: ["FreeBSD/i386 (nyu) (ttyv0)"],
+            actions: [
+                {
+                    on_text: "   Autoboot in ",
+                    run: "\n",
+                }
+            ],
+        },
+        // TODO: Check serial text
+        {
+            name: "Haiku",
+            skip_if_disk_image_missing: true,
+            timeout: 60 * 15,
+            hda: root_path + "/../v86-images/os/haiku-nightly-anyboot.image",
+            expected_serial_text: ["cx23882: init_hardware()"],
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+        },
+        {
+            name: "HelenOS",
+            skip_if_disk_image_missing: true,
+            timeout: 2 * 60,
+            cdrom: root_path + "/../v86-images/os/HelenOS-0.5.0-ia32.iso",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+        },
+        {
+            name: "Minix",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            hda: root_path + "/../v86-images/os/minix2hd.img",
+            actions: [
+                {
+                    on_text: "    =  Start Minix",
+                    run: "=",
+                },
+                {
+                    on_text: "noname login:",
+                    run: "root\n",
+                },
+            ],
+            expected_texts: ["noname login:", "# "],
+        },
+        {
+            name: "Mobius",
+            skip_if_disk_image_missing: true,
+            timeout: 2 * 60,
+            fda: root_path + "/../v86-images/os/mobius-fd-release5.img",
+            expect_graphical_mode: true,
+            actions: [
+                {
+                    on_text: "   The highlighted entry will be booted automatically",
+                    run: "\n",
+                },
+            ],
+        },
     ];
 
     if(TEST_NAME)
