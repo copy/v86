@@ -181,22 +181,11 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.planar_mode = 0;
     this.planar_rotate_reg = 0;
     this.planar_bitmap = 0xFF;
-    this.planar_bitmap_dword = 0xFFFFFFFF;
     this.planar_setreset = 0;
-    this.planar_setreset_dword = 0;
     this.planar_setreset_enable = 0;
-    this.planar_setreset_enable_dword = 0;
 
     this.color_compare = 0;
-    this.color_compare0 = 0;
-    this.color_compare1 = 0;
-    this.color_compare2 = 0;
-    this.color_compare3 = 0;
     this.color_dont_care = 0;
-    this.color_care0 = 0;
-    this.color_care1 = 0;
-    this.color_care2 = 0;
-    this.color_care3 = 0;
 
     this.max_scan_line = 0;
 
@@ -402,19 +391,6 @@ VGAScreen.prototype.set_state = function(state)
     this.planar_setreset = state[43];
     this.planar_setreset_enable = state[44];
 
-    this.planar_bitmap_dword = this.apply_feed(this.planar_bitmap);
-    this.planar_setreset_dword = this.apply_expand(this.planar_setreset);
-    this.planar_setreset_enable_dword = this.apply_expand(this.planar_setreset_enable);
-
-    this.color_compare0 = this.color_compare & 0x1 ? 0xFF : 0x00;
-    this.color_compare1 = this.color_compare & 0x2 ? 0xFF : 0x00;
-    this.color_compare2 = this.color_compare & 0x4 ? 0xFF : 0x00;
-    this.color_compare3 = this.color_compare & 0x8 ? 0xFF : 0x00;
-    this.color_care0 = this.color_dont_care & 0x1;
-    this.color_care1 = this.color_dont_care & 0x2;
-    this.color_care2 = this.color_dont_care & 0x4;
-    this.color_care3 = this.color_dont_care & 0x8;
-
     this.bus.send("screen-set-mode", this.graphical_mode);
 
     if(this.graphical_mode)
@@ -459,10 +435,22 @@ VGAScreen.prototype.vga_memory_read = function(addr)
         // read mode 1
         var reading = 0xFF;
 
-        if(this.color_care0) reading &= this.plane0[addr] ^ ~this.color_compare0;
-        if(this.color_care1) reading &= this.plane1[addr] ^ ~this.color_compare1;
-        if(this.color_care2) reading &= this.plane2[addr] ^ ~this.color_compare2;
-        if(this.color_care3) reading &= this.plane3[addr] ^ ~this.color_compare3;
+        if(this.color_dont_care & 0x1)
+        {
+            reading &= this.plane0[addr] ^ ~(this.color_compare & 0x1 ? 0xFF : 0x00);
+        }
+        if(this.color_dont_care & 0x2)
+        {
+            reading &= this.plane1[addr] ^ ~(this.color_compare & 0x2 ? 0xFF : 0x00);
+        }
+        if(this.color_dont_care & 0x4)
+        {
+            reading &= this.plane2[addr] ^ ~(this.color_compare & 0x4 ? 0xFF : 0x00);
+        }
+        if(this.color_dont_care & 0x8)
+        {
+            reading &= this.plane3[addr] ^ ~(this.color_compare & 0x8 ? 0xFF : 0x00);
+        }
 
         return reading;
     }
@@ -513,7 +501,9 @@ VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
 
     var plane_dword;
     var write_mode = this.planar_mode & 3;
-    var bitmask = this.planar_bitmap_dword;
+    var bitmask = this.apply_feed(this.planar_bitmap);
+    var setreset_dword = this.apply_expand(this.planar_setreset);
+    var setreset_enable_dword = this.apply_expand(this.planar_setreset_enable);
 
     // not implemented:
     // - Shift mode
@@ -526,7 +516,7 @@ VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
         case 0:
             value = this.apply_rotate(value);
             plane_dword = this.apply_feed(value);
-            plane_dword = this.apply_setreset(plane_dword, this.planar_setreset_enable_dword);
+            plane_dword = this.apply_setreset(plane_dword, setreset_enable_dword);
             plane_dword = this.apply_logical(plane_dword, this.latch_dword);
             plane_dword = this.apply_bitmask(plane_dword, bitmask);
             break;
@@ -541,7 +531,7 @@ VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
         case 3:
             value = this.apply_rotate(value);
             bitmask &= this.apply_expand(value);
-            plane_dword = this.planar_setreset_dword;
+            plane_dword = setreset_dword;
             plane_dword = this.apply_bitmask(plane_dword, bitmask);
             break;
     }
@@ -639,8 +629,9 @@ VGAScreen.prototype.apply_rotate = function(data_byte)
  */
 VGAScreen.prototype.apply_setreset = function(data_dword, enable_dword)
 {
-    data_dword |= enable_dword & this.planar_setreset_dword;
-    data_dword &= ~enable_dword | this.planar_setreset_dword;
+    var setreset_dword = this.apply_expand(this.planar_setreset);
+    data_dword |= enable_dword & setreset_dword;
+    data_dword &= ~enable_dword | setreset_dword;
     return data_dword;
 };
 
@@ -1071,20 +1062,14 @@ VGAScreen.prototype.port3CF_write = function(value)
         // TODO: Set/Reset bit
         case 0:
             this.planar_setreset = value;
-            this.planar_setreset_dword = this.apply_expand(value);
             dbg_log("plane set/reset: " + h(value), LOG_VGA);
             break;
         case 1:
             this.planar_setreset_enable = value;
-            this.planar_setreset_enable_dword = this.apply_expand(value);
             dbg_log("plane set/reset enable: " + h(value), LOG_VGA);
             break;
         case 2:
             this.color_compare = value;
-            this.color_campare0 = value & 0x1 ? 0xFF : 0x00;
-            this.color_campare1 = value & 0x2 ? 0xFF : 0x00;
-            this.color_campare2 = value & 0x4 ? 0xFF : 0x00;
-            this.color_campare3 = value & 0x8 ? 0xFF : 0x00;
             dbg_log("color compare: " + h(value), LOG_VGA);
             break;
         case 3:
@@ -1102,15 +1087,10 @@ VGAScreen.prototype.port3CF_write = function(value)
             break;
         case 7:
             this.color_dont_care = value;
-            this.color_care0 = value & 0x1;
-            this.color_care1 = value & 0x2;
-            this.color_care2 = value & 0x4;
-            this.color_care3 = value & 0x8;
             dbg_log("color don't care: " + h(value), LOG_VGA);
             break;
         case 8:
             this.planar_bitmap = value;
-            this.planar_bitmap_dword = this.apply_feed(value);
             dbg_log("planar bitmap: " + h(value), LOG_VGA);
             break;
         default:
