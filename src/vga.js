@@ -561,8 +561,10 @@ VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
     this.diff_addr_min = actual_buffer_addr - 7 < this.diff_addr_min ? actual_buffer_addr - 7 : this.diff_addr_min;
     this.diff_addr_max = actual_buffer_addr > this.diff_addr_max ? actual_buffer_addr : this.diff_addr_max;
 
-    // 256 color shift mode
+    // Planar shift mode
     // see http://www.osdever.net/FreeVGA/vga/vgaseq.htm
+    // Shift these, so that the bits for the color are in
+    // the correct position in the for loop
     var plane0_feed = this.plane0[addr] << 0;
     var plane1_feed = this.plane1[addr] << 1;
     var plane2_feed = this.plane2[addr] << 2;
