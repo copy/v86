@@ -419,14 +419,10 @@ VGAScreen.prototype.set_state = function(state)
 
     if(this.graphical_mode)
     {
-        if(this.svga_enabled)
-        {
-            this.set_size_graphical(this.svga_width, this.svga_height, this.svga_bpp);
-        }
-        else
-        {
-            this.switch_video_mode(this.miscellaneous_output_register);
-        }
+        // TODO: Check to see if there is anything else to do for
+        // non-svga mode
+        var bpp = this.svga_enabled ? this.svga_bpp : 8;
+        this.set_size_graphical(this.svga_width, this.svga_height, bpp);
     }
     else
     {
