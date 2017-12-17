@@ -419,8 +419,7 @@ VGAScreen.prototype.set_state = function(state)
 
     if(this.graphical_mode)
     {
-        // TODO: Check to see if there is anything else to do for
-        // non-svga mode
+        // TODO: Check to see if there is anything else to do for non-svga mode
         var bpp = this.svga_enabled ? this.svga_bpp : 8;
         this.set_size_graphical(this.svga_width, this.svga_height, bpp);
     }
@@ -532,17 +531,14 @@ VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
             plane_dword = this.apply_logical(plane_dword, this.latch_dword);
             plane_dword = this.apply_bitmask(plane_dword, bitmask);
             break;
-
         case 1:
             plane_dword = this.latch_dword;
             break;
-
         case 2:
             plane_dword = this.apply_expand(value);
             plane_dword = this.apply_logical(plane_dword, this.latch_dword);
             plane_dword = this.apply_bitmask(plane_dword, bitmask);
             break;
-
         case 3:
             value = this.apply_rotate(value);
             bitmask &= this.apply_expand(value);
@@ -601,7 +597,7 @@ VGAScreen.prototype.apply_feed = function(data_byte)
     dword |= data_byte << 16;
     dword |= data_byte << 24;
     return dword;
-}
+};
 
 /**
  * Expands bits 0 to 3 to ocupy bits 0 to 31. Each
@@ -617,7 +613,7 @@ VGAScreen.prototype.apply_expand = function(data_byte)
     dword |= (data_byte & 0x4 ? 0xFF : 0x00) << 16;
     dword |= (data_byte & 0x8 ? 0xFF : 0x00) << 24;
     return dword;
-}
+};
 
 /**
  * Planar Write - Barrel Shifter
@@ -644,7 +640,7 @@ VGAScreen.prototype.apply_rotate = function(data_byte)
  */
 VGAScreen.prototype.apply_setreset = function(data_dword, enable_dword)
 {
-    data_dword |=  enable_dword & this.planar_setreset_dword;
+    data_dword |= enable_dword & this.planar_setreset_dword;
     data_dword &= ~enable_dword | this.planar_setreset_dword;
     return data_dword;
 };
@@ -682,7 +678,7 @@ VGAScreen.prototype.apply_logical = function(data_dword, latch_dword)
 VGAScreen.prototype.apply_bitmask = function(data_dword, bitmask_dword)
 {
     var plane_dword = 0;
-    plane_dword |=  bitmask_dword & data_dword;
+    plane_dword |= bitmask_dword & data_dword;
     plane_dword |= ~bitmask_dword & this.latch_dword;
     return plane_dword;
 };
@@ -692,8 +688,8 @@ VGAScreen.prototype.apply_bitmask = function(data_dword, bitmask_dword)
  */
 VGAScreen.prototype.plane_update = function(addr, plane_dword)
 {
-    if(this.plane_write_bm & 0x1) this.plane0[addr] = (plane_dword >>  0) & 0xFF;
-    if(this.plane_write_bm & 0x2) this.plane1[addr] = (plane_dword >>  8) & 0xFF;
+    if(this.plane_write_bm & 0x1) this.plane0[addr] = (plane_dword >> 0) & 0xFF;
+    if(this.plane_write_bm & 0x2) this.plane1[addr] = (plane_dword >> 8) & 0xFF;
     if(this.plane_write_bm & 0x4) this.plane2[addr] = (plane_dword >> 16) & 0xFF;
     if(this.plane_write_bm & 0x8) this.plane3[addr] = (plane_dword >> 24) & 0xFF;
 };
