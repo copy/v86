@@ -449,8 +449,7 @@ VGAScreen.prototype.vga_memory_read = function(addr)
     // planar mode
     addr &= 0xFFFF;
 
-    this.latch_dword = 0;
-    this.latch_dword |= this.plane0[addr] << 0;
+    this.latch_dword = this.plane0[addr];
     this.latch_dword |= this.plane1[addr] << 8;
     this.latch_dword |= this.plane2[addr] << 16;
     this.latch_dword |= this.plane3[addr] << 24;
@@ -512,9 +511,9 @@ VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
         return;
     }
 
-    var plane_dword,
-        write_mode = this.planar_mode & 3,
-        bitmask = this.planar_bitmap_dword;
+    var plane_dword;
+    var write_mode = this.planar_mode & 3;
+    var bitmask = this.planar_bitmap_dword;
 
     // not implemented:
     // - Shift mode
@@ -576,8 +575,8 @@ VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
                 plane0_feed >> i & 1 |
                 plane1_feed >> i & 2 |
                 plane2_feed >> i & 4 |
-                plane3_feed >> i & 8,
-            color = this.dac_map[color_index];
+                plane3_feed >> i & 8;
+        var color = this.dac_map[color_index];
 
         this.svga_memory[offset + VGA_PLANAR_REAL_BUFFER_START] = color;
 
@@ -593,8 +592,7 @@ VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
  */
 VGAScreen.prototype.apply_feed = function(data_byte)
 {
-    var dword = 0;
-    dword |= data_byte << 0;
+    var dword = data_byte;
     dword |= data_byte << 8;
     dword |= data_byte << 16;
     dword |= data_byte << 24;
@@ -609,8 +607,7 @@ VGAScreen.prototype.apply_feed = function(data_byte)
  */
 VGAScreen.prototype.apply_expand = function(data_byte)
 {
-    var dword = 0;
-    dword |= (data_byte & 0x1 ? 0xFF : 0x00) << 0;
+    var dword = data_byte & 0x1 ? 0xFF : 0x00;
     dword |= (data_byte & 0x2 ? 0xFF : 0x00) << 8;
     dword |= (data_byte & 0x4 ? 0xFF : 0x00) << 16;
     dword |= (data_byte & 0x8 ? 0xFF : 0x00) << 24;
@@ -626,9 +623,9 @@ VGAScreen.prototype.apply_expand = function(data_byte)
  */
 VGAScreen.prototype.apply_rotate = function(data_byte)
 {
-    var wrapped = data_byte | (data_byte << 8),
-        count = this.planar_rotate_reg & 0x7,
-        shifted = wrapped >>> count;
+    var wrapped = data_byte | (data_byte << 8);
+    var count = this.planar_rotate_reg & 0x7;
+    var shifted = wrapped >>> count;
     return shifted & 0xFF;
 };
 
@@ -679,8 +676,7 @@ VGAScreen.prototype.apply_logical = function(data_dword, latch_dword)
  */
 VGAScreen.prototype.apply_bitmask = function(data_dword, bitmask_dword)
 {
-    var plane_dword = 0;
-    plane_dword |= bitmask_dword & data_dword;
+    var plane_dword = bitmask_dword & data_dword;
     plane_dword |= ~bitmask_dword & this.latch_dword;
     return plane_dword;
 };
