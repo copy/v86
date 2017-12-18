@@ -64,10 +64,8 @@ void psrlw_r64(int32_t r, uint32_t shift)
 
     if(shift <= 15)
     {
-        dword0 = (destination.u16[0] >> shift) |
-            (destination.u16[1] >> shift) << 16;
-        dword1 = (destination.u16[2] >> shift) |
-            (destination.u16[3] >> shift) << 16;
+        dword0 = (destination.u16[0] >> shift) | (destination.u16[1] >> shift) << 16;
+        dword1 = (destination.u16[2] >> shift) | (destination.u16[3] >> shift) << 16;
     }
 
     write_mmx64(r, dword0, dword1);
