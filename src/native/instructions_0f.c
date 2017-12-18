@@ -2728,23 +2728,10 @@ static void instr_0FD9(union reg64 source, int32_t r) {
 
     union reg64 destination = read_mmx64s(r);
 
-    int32_t word0 = destination.u16[0] - source.u16[0];
-    int32_t word1 = ((uint32_t) destination.u16[1]) - source.u16[1];
-    if (word0 < 0) {
-        word0 = 0;
-    }
-    if (word1 < 0) {
-        word1 = 0;
-    }
-
-    int32_t word2 = destination.u16[2] - source.u16[2];
-    int32_t word3 = ((uint32_t) destination.u16[3]) - source.u16[3];
-    if (word2 < 0) {
-        word2 = 0;
-    }
-    if (word3 < 0) {
-        word3 = 0;
-    }
+    int32_t word0 = saturate_uw(destination.u16[0] - source.u16[0]);
+    int32_t word1 = saturate_uw(destination.u16[1] - source.u16[1]);
+    int32_t word2 = saturate_uw(destination.u16[2] - source.u16[2]);
+    int32_t word3 = saturate_uw(destination.u16[3] - source.u16[3]);
 
     int32_t low = word0 | word1 << 16;
     int32_t high = word2 | word3 << 16;
@@ -2762,13 +2749,7 @@ static void instr_660FD9(union reg128 source, int32_t r) {
 
     for(uint32_t i = 0; i < 8; i++)
     {
-        int32_t v = destination.u16[i] - source.u16[i];
-        if(v < 0)
-        {
-            v = 0;
-        }
-
-        result.u16[i] = v;
+        result.u16[i] = saturate_uw(destination.u16[i] - source.u16[i]);
     }
 
     write_xmm_reg128(r, result);
