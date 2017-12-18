@@ -1567,13 +1567,10 @@ static void instr_660F6B(union reg128 source, int32_t r) {
 
     int32_t dword0 = saturate_sd_to_sw(destination.u32[0]) |
         saturate_sd_to_sw(destination.u32[1]) << 16;
-
     int32_t dword1 = saturate_sd_to_sw(destination.u32[2]) |
         saturate_sd_to_sw(destination.u32[3]) << 16;
-
     int32_t dword2 = saturate_sd_to_sw(source.u32[0]) |
         saturate_sd_to_sw(source.u32[1]) << 16;
-
     int32_t dword3 = saturate_sd_to_sw(source.u32[2]) |
         saturate_sd_to_sw(source.u32[3]) << 16;
 
@@ -1811,7 +1808,7 @@ static void instr_660F73_3_reg(int32_t r, int32_t imm8) {
     }
 
     union reg128 result = { { 0 } };
-    uint32_t shift = (imm8 > 15) ? 128 : (imm8 << 3);
+    uint32_t shift = imm8 > 15 ? 128 : imm8 << 3;
 
     if(shift <= 63)
     {
@@ -1844,7 +1841,7 @@ static void instr_660F73_7_reg(int32_t r, int32_t imm8) {
     }
 
     union reg128 result = { { 0 } };
-    uint32_t shift = (imm8 > 15) ? 128 : (imm8 << 3);
+    uint32_t shift = imm8 > 15 ? 128 : imm8 << 3;
 
     if(shift <= 63)
     {
@@ -3241,7 +3238,7 @@ static void instr_0FEA(union reg64 source, int32_t r) {
 
     for(uint32_t i = 0; i < 4; i++)
     {
-        result.i16[i] = (destination.i16[i] < source.i16[i]) ? destination.i16[i] : source.i16[i];
+        result.i16[i] = destination.i16[i] < source.i16[i] ? destination.i16[i] : source.i16[i];
     }
 
     write_mmx_reg64(r, result);
@@ -3257,7 +3254,7 @@ static void instr_660FEA(union reg128 source, int32_t r) {
 
     for(uint32_t i = 0; i < 8; i++)
     {
-        result.i16[i] = (destination.i16[i] < source.i16[i]) ? destination.i16[i] : source.i16[i];
+        result.i16[i] = destination.i16[i] < source.i16[i] ? destination.i16[i] : source.i16[i];
     }
 
     write_xmm_reg128(r, result);
@@ -3377,7 +3374,7 @@ static void instr_0FEE(union reg64 source, int32_t r) {
 
     for(uint32_t i = 0; i < 4; i++)
     {
-        result.i16[i] = (destination.i16[i] >= source.i16[i]) ? destination.i16[i] : source.i16[i];
+        result.i16[i] = destination.i16[i] >= source.i16[i] ? destination.i16[i] : source.i16[i];
     }
 
     write_mmx_reg64(r, result);
@@ -3393,7 +3390,7 @@ static void instr_660FEE(union reg128 source, int32_t r) {
 
     for(uint32_t i = 0; i < 8; i++)
     {
-        result.i16[i] = (destination.i16[i] >= source.i16[i]) ? destination.i16[i] : source.i16[i];
+        result.i16[i] = destination.i16[i] >= source.i16[i] ? destination.i16[i] : source.i16[i];
     }
 
     write_xmm_reg128(r, result);

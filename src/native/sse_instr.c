@@ -173,7 +173,6 @@ void psrlq_r64(int32_t r, uint32_t shift)
     {
         result.u32[0] = destination.u32[0] >> shift | destination.u32[1] << (32 - shift);
         result.u32[1] = destination.u32[1] >> shift;
-
     }
     else if (shift <= 63)
     {
