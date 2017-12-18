@@ -1502,7 +1502,7 @@ VGAScreen.prototype.screen_fill_buffer = function()
             var start_pixel = start - offset;
             var end_pixel = end - offset + 1;
 
-            for(var i = start; i < end; i++)
+            for(var i = start; i <= end; i++)
             {
                 var color = this.vga256_palette[this.svga_memory[i]];
                 buffer[i - offset] = color & 0xFF00 | color << 16 | color >> 16 | 0xFF000000;
