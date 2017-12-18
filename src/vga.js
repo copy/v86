@@ -530,7 +530,7 @@ VGAScreen.prototype.vga_memory_write_graphical_planar = function(addr, value)
             break;
         case 3:
             value = this.apply_rotate(value);
-            bitmask &= this.apply_expand(value);
+            bitmask &= this.apply_feed(value);
             plane_dword = setreset_dword;
             plane_dword = this.apply_bitmask(plane_dword, bitmask);
             break;
