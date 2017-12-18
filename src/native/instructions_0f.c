@@ -3530,6 +3530,7 @@ static void instr_0FF7_reg(int32_t r1, int32_t r2) {
     union reg64 mask = read_mmx64s(r1);
     int32_t addr = get_seg_prefix(DS) + get_reg_asize(EDI);
 
+    writable_or_pagefault(addr, 8);
     for(uint32_t i = 0; i < 8; i++)
     {
         if(mask.u8[i] & 0x80)
@@ -3547,6 +3548,7 @@ static void instr_660FF7_reg(int32_t r1, int32_t r2) {
     union reg128 mask = read_xmm128s(r1);
     int32_t addr = get_seg_prefix(DS) + get_reg_asize(EDI);
 
+    writable_or_pagefault(addr, 16);
     for(uint32_t i = 0; i < 16; i++)
     {
         if(mask.u8[i] & 0x80)
