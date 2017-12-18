@@ -3551,7 +3551,7 @@ static void instr_0FF7_reg(int32_t r1, int32_t r2) {
 
     for(uint32_t i = 0; i < 8; i++)
     {
-        if(mask.u8[i] >> 7)
+        if(mask.u8[i] & 0x80)
         {
             safe_write8(addr + i, source.u8[i]);
         }
@@ -3568,7 +3568,7 @@ static void instr_660FF7_reg(int32_t r1, int32_t r2) {
 
     for(uint32_t i = 0; i < 16; i++)
     {
-        if(mask.u8[i] >> 7)
+        if(mask.u8[i] & 0x80)
         {
             safe_write8(addr + i, source.u8[i]);
         }
