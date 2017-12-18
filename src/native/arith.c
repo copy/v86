@@ -1408,9 +1408,18 @@ uint32_t saturate_ud_to_ub(uint32_t v)
     return ret;
 }
 
-int32_t saturate_uw(int32_t v)
+int32_t saturate_uw(uint32_t v)
 {
-    dbg_assert(v >= 0);
-    return v > 0xFFFF ? 0xFFFF : v;
-}
+    uint32_t ret = v;
+    if(ret > 0x7FFFFFFF)
+    {
+        ret = 0;
+    }
+    else if(ret > 0xFFFF)
+    {
+        ret = 0xFFFF;
+    }
 
+    dbg_assert((ret & 0xFFFF0000) == 0);
+    return ret;
+}
