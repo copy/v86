@@ -81,10 +81,10 @@ const encodings = [
     { opcode: 0x6A, os: 1, imm8s: 1, },
     { opcode: 0x6B, os: 1, e: 1, imm8s: 1, mask_flags: af, }, // zf?
 
-    { opcode: 0x6C, is_string: 1, skip: 1, },
-    { opcode: 0x6D, is_string: 1, os: 1, skip: 1, },
-    { opcode: 0x6E, is_string: 1, skip: 1, },
-    { opcode: 0x6F, is_string: 1, os: 1, skip: 1, },
+    { opcode: 0x6C, jump: 1, is_string: 1, skip: 1, },          // ins
+    { opcode: 0x6D, jump: 1, is_string: 1, os: 1, skip: 1, },
+    { opcode: 0x6E, jump: 1, is_string: 1, skip: 1, },          // outs
+    { opcode: 0x6F, jump: 1, is_string: 1, os: 1, skip: 1, },
 
     { opcode: 0x84, e: 1, },
     { opcode: 0x85, os: 1, e: 1, },
@@ -111,7 +111,7 @@ const encodings = [
 
     { opcode: 0x98, os: 1, },
     { opcode: 0x99, os: 1, },
-    { opcode: 0x9A, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, }, // callf
+    { opcode: 0x9A, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, jump: 1, }, // callf
     { opcode: 0x9B, skip: 1, },
     { opcode: 0x9C, os: 1, },
     { opcode: 0x9D, os: 1, skip: 1, }, // popf
@@ -123,23 +123,24 @@ const encodings = [
     { opcode: 0xA2, immaddr: 1, },
     { opcode: 0xA3, os: 1, immaddr: 1, },
 
-    { opcode: 0xA4, is_string: 1, },
-    { opcode: 0xA5, is_string: 1, os: 1, },
-    { opcode: 0xA6, is_string: 1, },
-    { opcode: 0xA7, is_string: 1, os: 1, },
+    // string instructions aren't jumps, but they modify eip due to how they're implemented
+    { opcode: 0xA4, jump: 1, is_string: 1, },
+    { opcode: 0xA5, jump: 1, is_string: 1, os: 1, },
+    { opcode: 0xA6, jump: 1, is_string: 1, },
+    { opcode: 0xA7, jump: 1, is_string: 1, os: 1, },
 
     { opcode: 0xA8, imm8: 1, },
     { opcode: 0xA9, os: 1, imm1632: 1, },
 
-    { opcode: 0xAA, is_string: 1, },
-    { opcode: 0xAB, is_string: 1, os: 1, },
-    { opcode: 0xAC, is_string: 1, },
-    { opcode: 0xAD, is_string: 1, os: 1, },
-    { opcode: 0xAE, is_string: 1, },
-    { opcode: 0xAF, is_string: 1, os: 1, },
+    { opcode: 0xAA, jump: 1, is_string: 1, },
+    { opcode: 0xAB, jump: 1, is_string: 1, os: 1, },
+    { opcode: 0xAC, jump: 1, is_string: 1, },
+    { opcode: 0xAD, jump: 1, is_string: 1, os: 1, },
+    { opcode: 0xAE, jump: 1, is_string: 1, },
+    { opcode: 0xAF, jump: 1, is_string: 1, os: 1, },
 
-    { opcode: 0xC2, os: 1, imm16: 1, skip: 1, },
-    { opcode: 0xC3, os: 1, skip: 1, },
+    { opcode: 0xC2, jump: 1, os: 1, imm16: 1, skip: 1, }, // ret
+    { opcode: 0xC3, jump: 1, os: 1, skip: 1, },
 
     { opcode: 0xC4, os: 1, e: 1, skip: 1, },
     { opcode: 0xC5, os: 1, e: 1, skip: 1, },
@@ -149,12 +150,12 @@ const encodings = [
 
     { opcode: 0xC8, os: 1, imm16: 1, extra_imm8: 1, }, // enter
     { opcode: 0xC9, os: 1, skip: 1, }, // leave: requires valid ebp
-    { opcode: 0xCA, os: 1, imm16: 1, skip: 1, },
-    { opcode: 0xCB, os: 1, skip: 1, },
-    { opcode: 0xCC, skip: 1, },
-    { opcode: 0xCD, imm8: 1, skip: 1, },
-    { opcode: 0xCE, skip: 1, },
-    { opcode: 0xCF, os: 1, skip: 1, },
+    { opcode: 0xCA, jump: 1, os: 1, imm16: 1, skip: 1, }, // retf
+    { opcode: 0xCB, jump: 1, os: 1, skip: 1, },
+    { opcode: 0xCC, jump: 1, skip: 1, },
+    { opcode: 0xCD, jump: 1, skip: 1, imm8: 1, },
+    { opcode: 0xCE, jump: 1, skip: 1, },
+    { opcode: 0xCF, jump: 1, os: 1, skip: 1, },
 
     { opcode: 0xD4, imm8: 1, }, // aam, may trigger #de
     { opcode: 0xD5, imm8: 1, mask_flags: of | cf | af, },
@@ -170,25 +171,26 @@ const encodings = [
     { opcode: 0xDE, e: 1, skip: 1, },
     { opcode: 0xDF, e: 1, skip: 1, },
 
-    { opcode: 0xE0, imm8s: 1, skip: 1, },
-    { opcode: 0xE1, imm8s: 1, skip: 1, },
-    { opcode: 0xE2, imm8s: 1, skip: 1, },
-    { opcode: 0xE3, imm8s: 1, skip: 1, },
+    { opcode: 0xE0, imm8s: 1, skip: 1, jump: 1, },
+    { opcode: 0xE1, imm8s: 1, skip: 1, jump: 1, },
+    { opcode: 0xE2, imm8s: 1, skip: 1, jump: 1, },
+    { opcode: 0xE3, imm8s: 1, skip: 1, jump: 1, },
 
-    { opcode: 0xE4, imm8: 1, skip: 1, },
-    { opcode: 0xE5, os: 1, imm8: 1, skip: 1, },
-    { opcode: 0xE6, imm8: 1, skip: 1, },
-    { opcode: 0xE7, os: 1, imm8: 1, skip: 1, },
+    // port functions aren't jumps, but they may modify eip
+    { opcode: 0xE4, jump: 1, imm8: 1, skip: 1, }, // in
+    { opcode: 0xE5, jump: 1, os: 1, imm8: 1, skip: 1, },
+    { opcode: 0xE6, jump: 1, imm8: 1, skip: 1, }, // out
+    { opcode: 0xE7, jump: 1, os: 1, imm8: 1, skip: 1, },
 
-    { opcode: 0xE8, os: 1, imm1632: 1, skip: 1, },
-    { opcode: 0xE9, os: 1, imm1632: 1, skip: 1, },
-    { opcode: 0xEA, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, }, // jmpf
-    { opcode: 0xEB, imm8s: 1, skip: 1, },
+    { opcode: 0xE8, jump: 1, os: 1, imm1632: 1, skip: 1, },
+    { opcode: 0xE9, jump: 1, os: 1, imm1632: 1, skip: 1, },
+    { opcode: 0xEA, jump: 1, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, }, // jmpf
+    { opcode: 0xEB, jump: 1, imm8s: 1, skip: 1, },
 
-    { opcode: 0xEC, skip: 1, },
-    { opcode: 0xED, os: 1, skip: 1, },
-    { opcode: 0xEE, skip: 1, },
-    { opcode: 0xEF, os: 1, skip: 1, },
+    { opcode: 0xEC, jump: 1, skip: 1, },
+    { opcode: 0xED, jump: 1, os: 1, skip: 1, },
+    { opcode: 0xEE, jump: 1, skip: 1, },
+    { opcode: 0xEF, jump: 1, os: 1, skip: 1, },
 
     { opcode: 0xF0, prefix: 1, },
     { opcode: 0xF1, skip: 1, },
@@ -226,10 +228,10 @@ const encodings = [
     { opcode: 0xFE, e: 1, fixed_g: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 0, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 1, },
-    { opcode: 0xFF, os: 1, e: 1, fixed_g: 2, skip: 1, },
-    { opcode: 0xFF, os: 1, e: 1, fixed_g: 3, skip: 1, },
-    { opcode: 0xFF, os: 1, e: 1, fixed_g: 4, skip: 1, },
-    { opcode: 0xFF, os: 1, e: 1, fixed_g: 5, skip: 1, },
+    { opcode: 0xFF, os: 1, e: 1, fixed_g: 2, jump: 1, skip: 1, },
+    { opcode: 0xFF, os: 1, e: 1, fixed_g: 3, jump: 1, skip: 1, },
+    { opcode: 0xFF, os: 1, e: 1, fixed_g: 4, jump: 1, skip: 1, },
+    { opcode: 0xFF, os: 1, e: 1, fixed_g: 5, jump: 1, skip: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 6, },
 
     { opcode: 0x0F00, fixed_g: 0, e: 1, skip: 1 },
@@ -275,8 +277,8 @@ const encodings = [
     { opcode: 0x0F31, skip: 1 },
     { opcode: 0x0F32, skip: 1 },
     { opcode: 0x0F33, skip: 1 },
-    { opcode: 0x0F34, skip: 1 },
-    { opcode: 0x0F35, skip: 1 },
+    { opcode: 0x0F34, skip: 1, jump: 1, }, // sysenter
+    { opcode: 0x0F35, skip: 1, jump: 1, }, // sysexit
 
     { opcode: 0x0F40, e: 1, os: 1, },
     { opcode: 0x0F41, e: 1, os: 1, },
@@ -295,22 +297,22 @@ const encodings = [
     { opcode: 0x0F4E, e: 1, os: 1, },
     { opcode: 0x0F4F, e: 1, os: 1, },
 
-    { opcode: 0x0F80, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F81, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F82, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F83, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F84, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F85, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F86, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F87, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F88, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F89, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F8A, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F8B, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F8C, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F8D, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F8E, imm1632: 1, os: 1, skip: 1, },
-    { opcode: 0x0F8F, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F80, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F81, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F82, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F83, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F84, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F85, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F86, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F87, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F88, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F89, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F8A, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F8B, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F8C, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F8D, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F8E, jump: 1, imm1632: 1, os: 1, skip: 1, },
+    { opcode: 0x0F8F, jump: 1, imm1632: 1, os: 1, skip: 1, },
 
     { opcode: 0x0F90, e: 1, },
     { opcode: 0x0F91, e: 1, },
@@ -641,8 +643,8 @@ for(let i = 0; i < 8; i++)
         { opcode: 0x04 | i << 3, eax: 1, imm8: 1, },
         { opcode: 0x05 | i << 3, os: 1, eax: 1, imm1632: 1, },
 
-        { opcode: 0x70 | i, imm8s: 1, skip: 1, },
-        { opcode: 0x78 | i, imm8s: 1, skip: 1, },
+        { opcode: 0x70 | i, jump: 1, imm8s: 1, skip: 1, },
+        { opcode: 0x78 | i, jump: 1, imm8s: 1, skip: 1, },
 
         { opcode: 0x80, e: 1, fixed_g: i, imm8: 1, },
         { opcode: 0x81, os: 1, e: 1, fixed_g: i, imm1632: 1, },
