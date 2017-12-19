@@ -1340,20 +1340,14 @@ static void instr_0F64(union reg64 source, int32_t r) {
     // pcmpgtb mm, mm/m64
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
 
-    int32_t byte0 = destination.i8[0] > source.i8[0] ? 0xFF : 0;
-    int32_t byte1 = destination.i8[1] > source.i8[1] ? 0xFF : 0;
-    int32_t byte2 = destination.i8[2] > source.i8[2] ? 0xFF : 0;
-    int32_t byte3 = destination.i8[3] > source.i8[3] ? 0xFF : 0;
-    int32_t byte4 = destination.i8[4] > source.i8[4] ? 0xFF : 0;
-    int32_t byte5 = destination.i8[5] > source.i8[5] ? 0xFF : 0;
-    int32_t byte6 = destination.i8[6] > source.i8[6] ? 0xFF : 0;
-    int32_t byte7 = destination.i8[7] > source.i8[7] ? 0xFF : 0;
+    for(uint32_t i = 0; i < 8; i++)
+    {
+        result.u8[i] = destination.i8[i] > source.i8[i] ? 0xFF : 0;
+    }
 
-    int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
-    int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
-
-    write_mmx64(r, low, high);
+    write_mmx_reg64(r, result);
 }
 DEFINE_SSE_SPLIT(instr_0F64, safe_read64s, read_mmx64s)
 
@@ -1879,20 +1873,14 @@ static void instr_0F74(union reg64 source, int32_t r) {
     // pcmpeqb mm, mm/m64
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
 
-    int32_t byte0 = destination.i8[0] == source.i8[0] ? 0xFF : 0;
-    int32_t byte1 = destination.i8[1] == source.i8[1] ? 0xFF : 0;
-    int32_t byte2 = destination.i8[2] == source.i8[2] ? 0xFF : 0;
-    int32_t byte3 = destination.i8[3] == source.i8[3] ? 0xFF : 0;
-    int32_t byte4 = destination.i8[4] == source.i8[4] ? 0xFF : 0;
-    int32_t byte5 = destination.i8[5] == source.i8[5] ? 0xFF : 0;
-    int32_t byte6 = destination.i8[6] == source.i8[6] ? 0xFF : 0;
-    int32_t byte7 = destination.i8[7] == source.i8[7] ? 0xFF : 0;
+    for(uint32_t i = 0; i < 8; i++)
+    {
+        result.u8[i] = destination.i8[i] == source.i8[i] ? 0xFF : 0;
+    }
 
-    int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
-    int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
-
-    write_mmx64(r, low, high);
+    write_mmx_reg64(r, result);
 }
 DEFINE_SSE_SPLIT(instr_0F74, safe_read64s, read_mmx64s)
 
@@ -2723,20 +2711,14 @@ static void instr_0FD8(union reg64 source, int32_t r) {
     task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
 
-    int32_t byte0 = saturate_sd_to_ub(destination.u8[0] - source.u8[0]);
-    int32_t byte1 = saturate_sd_to_ub(destination.u8[1] - source.u8[1]);
-    int32_t byte2 = saturate_sd_to_ub(destination.u8[2] - source.u8[2]);
-    int32_t byte3 = saturate_sd_to_ub(destination.u8[3] - source.u8[3]);
-    int32_t byte4 = saturate_sd_to_ub(destination.u8[4] - source.u8[4]);
-    int32_t byte5 = saturate_sd_to_ub(destination.u8[5] - source.u8[5]);
-    int32_t byte6 = saturate_sd_to_ub(destination.u8[6] - source.u8[6]);
-    int32_t byte7 = saturate_sd_to_ub(destination.u8[7] - source.u8[7]);
+    for(uint32_t i = 0; i < 8; i++)
+    {
+        result.u8[i] = saturate_sd_to_ub(destination.u8[i] - source.u8[i]);
+    }
 
-    int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
-    int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
-
-    write_mmx64(r, low, high);
+    write_mmx_reg64(r, result);
 }
 DEFINE_SSE_SPLIT(instr_0FD8, safe_read64s, read_mmx64s)
 
@@ -2857,20 +2839,14 @@ static void instr_0FDC(union reg64 source, int32_t r) {
     task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
 
-    uint32_t byte0 = saturate_ud_to_ub(destination.u8[0] + source.u8[0]);
-    uint32_t byte1 = saturate_ud_to_ub(destination.u8[1] + source.u8[1]);
-    uint32_t byte2 = saturate_ud_to_ub(destination.u8[2] + source.u8[2]);
-    uint32_t byte3 = saturate_ud_to_ub(destination.u8[3] + source.u8[3]);
-    uint32_t byte4 = saturate_ud_to_ub(destination.u8[4] + source.u8[4]);
-    uint32_t byte5 = saturate_ud_to_ub(destination.u8[5] + source.u8[5]);
-    uint32_t byte6 = saturate_ud_to_ub(destination.u8[6] + source.u8[6]);
-    uint32_t byte7 = saturate_ud_to_ub(destination.u8[7] + source.u8[7]);
+    for(uint32_t i = 0; i < 8; i++)
+    {
+        result.u8[i] = saturate_ud_to_ub(destination.u8[i] + source.u8[i]);
+    }
 
-    int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
-    int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
-
-    write_mmx64(r, low, high);
+    write_mmx_reg64(r, result);
 }
 DEFINE_SSE_SPLIT(instr_0FDC, safe_read64s, read_mmx64s)
 
@@ -2991,20 +2967,14 @@ static void instr_0FE0(union reg64 source, int32_t r) {
     // pavgb mm, mm/m64
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
 
-    uint8_t byte0 = (destination.u8[0] + source.u8[0] + 1) >> 1;
-    uint8_t byte1 = (destination.u8[1] + source.u8[1] + 1) >> 1;
-    uint8_t byte2 = (destination.u8[2] + source.u8[2] + 1) >> 1;
-    uint8_t byte3 = (destination.u8[3] + source.u8[3] + 1) >> 1;
-    uint8_t byte4 = (destination.u8[4] + source.u8[4] + 1) >> 1;
-    uint8_t byte5 = (destination.u8[5] + source.u8[5] + 1) >> 1;
-    uint8_t byte6 = (destination.u8[6] + source.u8[6] + 1) >> 1;
-    uint8_t byte7 = (destination.u8[7] + source.u8[7] + 1) >> 1;
+    for(uint32_t i = 0; i < 8; i++)
+    {
+        result.u8[i] = (destination.u8[i] + source.u8[i] + 1) >> 1;
+    }
 
-    uint32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
-    uint32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
-
-    write_mmx64(r, low, high);
+    write_mmx_reg64(r, result);
 }
 DEFINE_SSE_SPLIT(instr_0FE0, safe_read64s, read_mmx64s)
 
@@ -3178,20 +3148,14 @@ static void instr_0FE8(union reg64 source, int32_t r) {
     task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
 
-    int32_t byte0 = saturate_sd_to_sb(destination.i8[0] - source.i8[0]);
-    int32_t byte1 = saturate_sd_to_sb(destination.i8[1] - source.i8[1]);
-    int32_t byte2 = saturate_sd_to_sb(destination.i8[2] - source.i8[2]);
-    int32_t byte3 = saturate_sd_to_sb(destination.i8[3] - source.i8[3]);
-    int32_t byte4 = saturate_sd_to_sb(destination.i8[4] - source.i8[4]);
-    int32_t byte5 = saturate_sd_to_sb(destination.i8[5] - source.i8[5]);
-    int32_t byte6 = saturate_sd_to_sb(destination.i8[6] - source.i8[6]);
-    int32_t byte7 = saturate_sd_to_sb(destination.i8[7] - source.i8[7]);
+    for(uint32_t i = 0; i < 8; i++)
+    {
+        result.u8[i] = saturate_sd_to_sb(destination.i8[i] - source.i8[i]);
+    }
 
-    int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
-    int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
-
-    write_mmx64(r, low, high);
+    write_mmx_reg64(r, result);
 }
 DEFINE_SSE_SPLIT(instr_0FE8, safe_read64s, read_mmx64s)
 
@@ -3318,20 +3282,14 @@ static void instr_0FEC(union reg64 source, int32_t r) {
     task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
 
-    uint32_t byte0 = saturate_sd_to_sb(destination.i8[0] + source.i8[0]);
-    uint32_t byte1 = saturate_sd_to_sb(destination.i8[1] + source.i8[1]);
-    uint32_t byte2 = saturate_sd_to_sb(destination.i8[2] + source.i8[2]);
-    uint32_t byte3 = saturate_sd_to_sb(destination.i8[3] + source.i8[3]);
-    uint32_t byte4 = saturate_sd_to_sb(destination.i8[4] + source.i8[4]);
-    uint32_t byte5 = saturate_sd_to_sb(destination.i8[5] + source.i8[5]);
-    uint32_t byte6 = saturate_sd_to_sb(destination.i8[6] + source.i8[6]);
-    uint32_t byte7 = saturate_sd_to_sb(destination.i8[7] + source.i8[7]);
+    for(uint32_t i = 0; i < 8; i++)
+    {
+        result.u8[i] = saturate_sd_to_sb(destination.i8[i] + source.i8[i]);
+    }
 
-    int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
-    int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
-
-    write_mmx64(r, low, high);
+    write_mmx_reg64(r, result);
 }
 DEFINE_SSE_SPLIT(instr_0FEC, safe_read64s, read_mmx64s)
 
@@ -3623,20 +3581,14 @@ static void instr_0FF8(union reg64 source, int32_t r) {
     task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
 
-    int32_t byte0 = (destination.i8[0] - source.i8[0]) & 0xFF;
-    int32_t byte1 = (destination.i8[1] - source.i8[1]) & 0xFF;
-    int32_t byte2 = (destination.i8[2] - source.i8[2]) & 0xFF;
-    int32_t byte3 = (destination.i8[3] - source.i8[3]) & 0xFF;
-    int32_t byte4 = (destination.i8[4] - source.i8[4]) & 0xFF;
-    int32_t byte5 = (destination.i8[5] - source.i8[5]) & 0xFF;
-    int32_t byte6 = (destination.i8[6] - source.i8[6]) & 0xFF;
-    int32_t byte7 = (destination.i8[7] - source.i8[7]) & 0xFF;
+    for(uint32_t i = 0; i < 8; i++)
+    {
+        result.u8[i] = (destination.i8[i] - source.i8[i]) & 0xFF;
+    }
 
-    int32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
-    int32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
-
-    write_mmx64(r, low, high);
+    write_mmx_reg64(r, result);
 }
 DEFINE_SSE_SPLIT(instr_0FF8, safe_read64s, read_mmx64s)
 
@@ -3751,20 +3703,14 @@ static void instr_0FFC(union reg64 source, int32_t r) {
     task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
 
-    uint8_t byte0 = (destination.u8[0] + source.u8[0]) & 0xFF;
-    uint8_t byte1 = (destination.u8[1] + source.u8[1]) & 0xFF;
-    uint8_t byte2 = (destination.u8[2] + source.u8[2]) & 0xFF;
-    uint8_t byte3 = (destination.u8[3] + source.u8[3]) & 0xFF;
-    uint8_t byte4 = (destination.u8[4] + source.u8[4]) & 0xFF;
-    uint8_t byte5 = (destination.u8[5] + source.u8[5]) & 0xFF;
-    uint8_t byte6 = (destination.u8[6] + source.u8[6]) & 0xFF;
-    uint8_t byte7 = (destination.u8[7] + source.u8[7]) & 0xFF;
+    for(uint32_t i = 0; i < 8; i++)
+    {
+        result.u8[i] = (destination.u8[i] + source.u8[i]) & 0xFF;
+    }
 
-    uint32_t low = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
-    uint32_t high = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
-
-    write_mmx64(r, low, high);
+    write_mmx_reg64(r, result);
 }
 DEFINE_SSE_SPLIT(instr_0FFC, safe_read64s, read_mmx64s)
 
