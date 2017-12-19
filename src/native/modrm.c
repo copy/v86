@@ -31,9 +31,6 @@ static int32_t resolve_sib(bool);
     MODRM_ENTRY(0x40 | row, seg(((value) + read_imm8s() & 0xFFFF)))\
     MODRM_ENTRY(0x80 | row, seg(((value) + read_imm16() & 0xFFFF)))\
 
-extern int32_t resolve_modrm16(int32_t modrm_byte);
-
-/*
 static int32_t resolve_modrm16(int32_t modrm_byte)
 {
     switch(modrm_byte)
@@ -58,7 +55,6 @@ static int32_t resolve_modrm16(int32_t modrm_byte)
 
     return 0;
 }
-//*/
 
 #undef MODRM_ENTRY16
 
@@ -67,9 +63,6 @@ static int32_t resolve_modrm16(int32_t modrm_byte)
     MODRM_ENTRY(0x40 | row, seg((value) + read_imm8s()))\
     MODRM_ENTRY(0x80 | row, seg((value) + read_imm32s()))\
 
-extern int32_t resolve_modrm32(int32_t modrm_byte);
-
-/*
 static int32_t resolve_modrm32(int32_t modrm_byte)
 {
     switch(modrm_byte)
@@ -96,7 +89,6 @@ static int32_t resolve_modrm32(int32_t modrm_byte)
 
     return 0;
 }
-//*/
 
 #undef MODRM_ENTRY32
 #undef MODRM_ENTRY

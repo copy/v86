@@ -134,10 +134,6 @@ function V86Starter(options)
         "_iret32": function() { return cpu.iret32(); },
         "_handle_irqs": function() { return cpu.handle_irqs(); },
 
-        //XXX: These are temporary for as long as we are testing the JIT
-        "_resolve_modrm16": function(modrm_byte) { return cpu.resolve_modrm16(modrm_byte); },
-        "_resolve_modrm32": function(modrm_byte) { return cpu.resolve_modrm32(modrm_byte); },
-
         "_io_port_read8": function(addr) { return cpu.io.port_read8(addr); },
         "_io_port_read16": function(addr) { return cpu.io.port_read16(addr); },
         "_io_port_read32": function(addr) { return cpu.io.port_read32(addr); },

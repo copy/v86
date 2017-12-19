@@ -62,12 +62,12 @@ Codegen.prototype.modrm_fn0 = function(fn, modrm_byte)
     this.wm.funcs["_gen_modrm_fn1"](Codegen.STR_INPUT_OFFSET, fn.length, modrm_byte);
 };
 
-Codegen.prototype.jit_resolve_modrm16 = function(modrm_byte)
+Codegen.prototype.resolve_modrm16 = function(modrm_byte)
 {
     this.wm.funcs["_gen_resolve_modrm16"](modrm_byte);
 };
 
-Codegen.prototype.jit_resolve_modrm32 = function(modrm_byte)
+Codegen.prototype.resolve_modrm32 = function(modrm_byte)
 {
     this.wm.funcs["_gen_resolve_modrm32"](modrm_byte);
 };
