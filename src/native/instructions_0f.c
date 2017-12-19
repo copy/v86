@@ -1122,32 +1122,14 @@ static void instr_0F53() { unimplemented_sse(); }
 static void instr_0F54(union reg128 source, int32_t r) {
     // andps xmm, xmm/mem128
     // XXX: Aligned access or #gp
-    // Note: Same code as pand
-    task_switch_test_mmx();
-    union reg128 destination = read_xmm128s(r);
-    write_xmm128(
-        r,
-        source.u32[0] & destination.u32[0],
-        source.u32[1] & destination.u32[1],
-        source.u32[2] & destination.u32[2],
-        source.u32[3] & destination.u32[3]
-    );
+    pand_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_0F54, safe_read128s, read_xmm128s)
 
 static void instr_660F54(union reg128 source, int32_t r) {
     // andpd xmm, xmm/mem128
     // XXX: Aligned access or #gp
-    // Note: Same code as pand
-    task_switch_test_mmx();
-    union reg128 destination = read_xmm128s(r);
-    write_xmm128(
-        r,
-        source.u32[0] & destination.u32[0],
-        source.u32[1] & destination.u32[1],
-        source.u32[2] & destination.u32[2],
-        source.u32[3] & destination.u32[3]
-    );
+    pand_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_660F54, safe_read128s, read_xmm128s)
 
@@ -2821,16 +2803,7 @@ DEFINE_SSE_SPLIT(instr_0FDB, safe_read64s, read_mmx64s)
 static void instr_660FDB(union reg128 source, int32_t r) {
     // pand xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
-
-    union reg128 destination = read_xmm128s(r);
-
-    int32_t dword0 = source.u32[0] & destination.u32[0];
-    int32_t dword1 = source.u32[1] & destination.u32[1];
-    int32_t dword2 = source.u32[2] & destination.u32[2];
-    int32_t dword3 = source.u32[3] & destination.u32[3];
-
-    write_xmm128(r, dword0, dword1, dword2, dword3);
+    pand_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_660FDB, safe_read128s, read_xmm128s)
 
