@@ -69,6 +69,21 @@ void pand_r128(union reg128 source, int32_t r)
     write_xmm_reg128(r, result);
 }
 
+void pxor_r128(union reg128 source, int32_t r)
+{
+    // pxor xmm, xmm/m128
+    // XXX: Aligned access or #gp
+    task_switch_test_mmx();
+
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = { { 0 } };
+
+    result.u64[0] = source.u64[0] ^ destination.u64[0];
+    result.u64[1] = source.u64[1] ^ destination.u64[1];
+
+    write_xmm_reg128(r, result);
+}
+
 void psrlw_r64(int32_t r, uint32_t shift)
 {
     // psrlw mm, {shift}
