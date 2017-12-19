@@ -68,6 +68,11 @@ void gen_fn2(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
     call_fn(fn_idx);
 }
 
+void gen_drop()
+{
+    cs_write_u8(OP_DROP);
+}
+
 #define MODRM_ENTRY(n, work)\
     case (n) | 0 << 3:\
     case (n) | 1 << 3:\

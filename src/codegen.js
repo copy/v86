@@ -50,13 +50,13 @@ Codegen.prototype.fn2 = function(fn, arg0, arg1)
     this.wm.funcs["_gen_fn2"](Codegen.STR_INPUT_OFFSET, fn.length, arg0, arg1);
 };
 
-Codegen.prototype.modrm_fn0 = function(fn, modrm_byte, arg)
+Codegen.prototype.modrm_fn1 = function(fn, modrm_byte, arg)
 {
     this.str_input(fn);
-    this.wm.funcs["_gen_modrm_fn0"](Codegen.STR_INPUT_OFFSET, fn.length, modrm_byte, arg);
+    this.wm.funcs["_gen_modrm_fn1"](Codegen.STR_INPUT_OFFSET, fn.length, modrm_byte, arg);
 };
 
-Codegen.prototype.modrm_fn1 = function(fn, modrm_byte)
+Codegen.prototype.modrm_fn0 = function(fn, modrm_byte)
 {
     this.str_input(fn);
     this.wm.funcs["_gen_modrm_fn1"](Codegen.STR_INPUT_OFFSET, fn.length, modrm_byte);
@@ -80,6 +80,11 @@ Codegen.prototype.increment_instruction_pointer = function(n)
 Codegen.prototype.set_previous_eip = function()
 {
     this.wm.funcs["_gen_set_previous_eip"]();
+};
+
+Codegen.prototype.drop = function()
+{
+    this.wm.funcs["_gen_drop"]();
 };
 
 Codegen.prototype.finish = function()

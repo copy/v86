@@ -23,23 +23,23 @@ const vals = {
 };
 
 v86util.load_wasm("build/codegen-test.wasm", {
-        env: {
-            _read_imm8() { return vals.imm8; },
-            _read_imm8s() { return vals.imm8s; },
-            _read_imm16() { return vals.imm16; },
-            _read_imm32s() { return vals.imm32s; },
-            _is_asize_32() { return vals.asize_32; },
-            _printf() {},
+    env: {
+        _read_imm8() { return vals.imm8; },
+        _read_imm8s() { return vals.imm8s; },
+        _read_imm16() { return vals.imm16; },
+        _read_imm32s() { return vals.imm32s; },
+        _is_asize_32() { return vals.asize_32; },
+        _printf() {},
 
-            // static pointer imports
-            g$_reg16() { return vals.reg16; },
-            g$_reg32s() { return vals.reg32s; },
-            g$_instruction_pointer() { return vals.instruction_pointer; },
-            g$_previous_ip() { return vals.previous_ip; },
-        }
-    }, function(wm) {
-        return test(new Codegen(wm));
-    });
+        // static pointer imports
+        g$_reg16() { return vals.reg16; },
+        g$_reg32s() { return vals.reg32s; },
+        g$_instruction_pointer() { return vals.instruction_pointer; },
+        g$_previous_ip() { return vals.previous_ip; },
+    }
+}, function(wm) {
+    return test(new Codegen(wm));
+});
 
 function test(gen)
 {
@@ -54,6 +54,15 @@ function test(gen)
     gen.fn2("fn2", 0, 1);
     gen.increment_instruction_pointer(10);
     gen.set_previous_eip();
+    gen.modrm_fn0("fn1r");
+    gen.drop();
+    gen.modrm_fn1("fn2r", 2);
+    gen.drop();
+    vals.asize_32 = !vals.asize_32;
+    gen.modrm_fn0("fn1r");
+    gen.drop();
+    gen.modrm_fn1("fn2r", 2);
+    gen.drop();
     gen.finish();
 
     buf = gen.get_module_code();
@@ -65,6 +74,10 @@ function test(gen)
         ["fn0"],
         ["fn1", 0],
         ["fn2", 0, 1],
+        ["fn1r", 0],
+        ["fn2r", 0, 0],
+        ["fn1r", 0],
+        ["fn2r", 0, 0],
     ];
 
     const store = [];
@@ -74,6 +87,8 @@ function test(gen)
             fn0() { store.push(["fn0"]); },
             fn1(arg0) { store.push(["fn1", arg0]); },
             fn2(arg0, arg1) { store.push(["fn2", arg0, arg1]); },
+            fn1r(arg0) { store.push(["fn1r", arg0]); },
+            fn2r(arg0, arg1) { store.push(["fn2r", arg0, arg1]); },
             get_seg_prefix_ds() {},
             get_seg_prefix_ss() {},
             get_seg_prefix() {},
