@@ -22,21 +22,22 @@ mask1:
 	movq	mm7, [mask1]
 
 	;; Look out for size of extracted memory region
+	mov esp, stack_top - 16
 
-	sub		esp, 8
 	mov		edi, esp
 	maskmovq	mm0, mm6
-
 	sub		esp, 8
+
 	mov		edi, esp
 	maskmovq	mm1, mm6
-
 	sub		esp, 8
+
 	mov		edi, esp
 	maskmovq	mm2, mm7
-
 	sub		esp, 8
+
 	mov		edi, esp
 	maskmovq	mm3, mm7
+	sub		esp, 8
 
 %include "footer.inc"
