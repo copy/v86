@@ -279,14 +279,10 @@ void psrlw_r128(int32_t r, uint32_t shift)
 
     if(shift <= 15)
     {
-        dword0 = (destination.u16[0] >> shift) |
-            (destination.u16[1] >> shift) << 16;
-        dword1 = (destination.u16[2] >> shift) |
-            (destination.u16[3] >> shift) << 16;
-        dword2 = (destination.u16[4] >> shift) |
-            (destination.u16[5] >> shift) << 16;
-        dword3 = (destination.u16[6] >> shift) |
-            (destination.u16[7] >> shift) << 16;
+        dword0 = (destination.u16[0] >> shift) | (destination.u16[1] >> shift) << 16;
+        dword1 = (destination.u16[2] >> shift) | (destination.u16[3] >> shift) << 16;
+        dword2 = (destination.u16[4] >> shift) | (destination.u16[5] >> shift) << 16;
+        dword3 = (destination.u16[6] >> shift) | (destination.u16[7] >> shift) << 16;
     }
 
     write_xmm128(r, dword0, dword1, dword2, dword3);
@@ -323,14 +319,10 @@ void psllw_r128(int32_t r, uint32_t shift)
 
     if(shift <= 15)
     {
-        dword0 = (destination.u16[0] << shift & 0xFFFF) |
-            (destination.u16[1] << shift) << 16;
-        dword1 = (destination.u16[2] << shift & 0xFFFF) |
-            (destination.u16[3] << shift) << 16;
-        dword2 = (destination.u16[4] << shift & 0xFFFF) |
-            (destination.u16[5] << shift) << 16;
-        dword3 = (destination.u16[6] << shift & 0xFFFF) |
-            (destination.u16[7] << shift) << 16;
+        dword0 = (destination.u16[0] << shift & 0xFFFF) | (destination.u16[1] << shift) << 16;
+        dword1 = (destination.u16[2] << shift & 0xFFFF) | (destination.u16[3] << shift) << 16;
+        dword2 = (destination.u16[4] << shift & 0xFFFF) | (destination.u16[5] << shift) << 16;
+        dword3 = (destination.u16[6] << shift & 0xFFFF) | (destination.u16[7] << shift) << 16;
     }
 
     write_xmm128(r, dword0, dword1, dword2, dword3);
