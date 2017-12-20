@@ -3218,17 +3218,7 @@ DEFINE_SSE_SPLIT(instr_0FEB, safe_read64s, read_mmx64s)
 static void instr_660FEB(union reg128 source, int32_t r) {
     // por xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
-
-    union reg128 destination = read_xmm128s(r);
-
-    write_xmm128(
-        r,
-        source.u32[0] | destination.u32[0],
-        source.u32[1] | destination.u32[1],
-        source.u32[2] | destination.u32[2],
-        source.u32[3] | destination.u32[3]
-     );
+    por_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_660FEB, safe_read128s, read_xmm128s)
 
