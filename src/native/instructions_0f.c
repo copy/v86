@@ -2787,11 +2787,11 @@ static void instr_0FDB(union reg64 source, int32_t r) {
     task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
 
-    int32_t low = source.u32[0] & destination.u32[0];
-    int32_t high = source.u32[1] & destination.u32[1];
+    result.u64[0] = source.u64[0] & destination.u64[0];
 
-    write_mmx64(r, low, high);
+    write_mmx_reg64(r, result);
 }
 DEFINE_SSE_SPLIT(instr_0FDB, safe_read64s, read_mmx64s)
 
@@ -2908,11 +2908,11 @@ static void instr_0FDF(union reg64 source, int32_t r) {
     task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
 
-    int32_t low = source.u32[0] & ~destination.u32[0];
-    int32_t high = source.u32[1] & ~destination.u32[1];
+    result.u64[0] = source.u64[0] & ~destination.u64[0];
 
-    write_mmx64(r, low, high);
+    write_mmx_reg64(r, result);
 }
 DEFINE_SSE_SPLIT(instr_0FDF, safe_read64s, read_mmx64s)
 
@@ -3220,11 +3220,11 @@ static void instr_0FEB(union reg64 source, int32_t r) {
     task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
+    union reg64 result = { { 0 } };
 
-    int32_t low = source.u32[0] | destination.u32[0];
-    int32_t high = source.u32[1] | destination.u32[1];
+    result.u64[0] = source.u64[0] | destination.u64[0];
 
-    write_mmx64(r, low, high);
+    write_mmx_reg64(r, result);
 }
 DEFINE_SSE_SPLIT(instr_0FEB, safe_read64s, read_mmx64s)
 
@@ -3343,7 +3343,11 @@ static void instr_0FEF(union reg64 source, int32_t r) {
     // pxor mm, mm/m64
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
-    write_mmx64(r, source.u32[0] ^ destination.u32[0], source.u32[1] ^ destination.u32[1]);
+    union reg64 result = { { 0 } };
+
+    result.u64[0] = source.u64[0] ^ destination.u64[0];
+
+    write_mmx_reg64(r, result);
 }
 DEFINE_SSE_SPLIT(instr_0FEF, safe_read64s, read_mmx64s)
 
