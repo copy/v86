@@ -96,9 +96,9 @@ const encodings = [
     { opcode: 0x8B, os: 1, e: 1, },
 
     { opcode: 0x8C, os: 1, e: 1, skip: 1, },
-    { opcode: 0x8D, os: 1, e: 1, only_mem: 1, custom_modrm_resolve: 1, }, // lea
+    { opcode: 0x8D, os: 1, e: 1, only_mem: 1, requires_prefix_call: 1, }, // lea
     { opcode: 0x8E, e: 1, skip: 1, },
-    { opcode: 0x8F, os: 1, e: 1, fixed_g: 0, custom_modrm_resolve: 1, }, // pop r/m
+    { opcode: 0x8F, os: 1, e: 1, fixed_g: 0, requires_prefix_call: 1, }, // pop r/m
 
     { opcode: 0x90, },
     { opcode: 0x91, os: 1, },

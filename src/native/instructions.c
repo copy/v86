@@ -684,13 +684,10 @@ static void instr16_8D_reg(int32_t r, int32_t r2)
     dbg_log("lea #ud");
     trigger_ud();
 }
-static int32_t instr16_8D_modrm_resolve(int32_t modrm_byte)
+static void instr16_8D_mem_pre()
 {
     // override prefix, so modrm_resolve does not return the segment part
     *prefixes |= SEG_PREFIX_ZERO;
-    int32_t result = modrm_resolve(modrm_byte);
-    *prefixes = 0;
-    return result;
 }
 static void instr16_8D_mem(int32_t addr, int32_t mod)
 {
@@ -703,17 +700,15 @@ static void instr32_8D_reg(int32_t r, int32_t r2)
     dbg_log("lea #ud");
     trigger_ud();
 }
-static int32_t instr32_8D_modrm_resolve(int32_t modrm_byte)
+static void instr32_8D_mem_pre()
 {
     // override prefix, so modrm_resolve does not return the segment part
     *prefixes |= SEG_PREFIX_ZERO;
-    int32_t result = modrm_resolve(modrm_byte);
-    *prefixes = 0;
-    return result;
 }
 static void instr32_8D_mem(int32_t addr, int32_t mod) {
     // lea
     reg32s[mod] = addr;
+    *prefixes = 0;
 }
 
 static void instr_8E_helper(int32_t data, int32_t mod)
@@ -736,17 +731,15 @@ static void instr_8E_helper(int32_t data, int32_t mod)
 }
 DEFINE_MODRM_INSTR_READ16(instr_8E, instr_8E_helper(___, r))
 
-static int32_t instr16_8F_0_modrm_resolve(int32_t modrm_byte)
+static void instr16_8F_0_mem_pre()
 {
     for(int32_t i = 0; i < 8; i++) { translate_address_read(*instruction_pointer + i); }; // XXX
     adjust_stack_reg(2);
-    int32_t result = modrm_resolve(modrm_byte);
-    adjust_stack_reg(-2);
-    return result;
 }
 static void instr16_8F_0_mem(int32_t addr)
 {
     // pop
+    adjust_stack_reg(-2);
     int32_t sp = safe_read16(get_stack_pointer(0));
     safe_write16(addr, sp);
     adjust_stack_reg(2);
@@ -755,7 +748,7 @@ static void instr16_8F_0_reg(int32_t r)
 {
     write_reg16(r, pop16());
 }
-static int32_t instr32_8F_0_modrm_resolve(int32_t modrm_byte)
+static void instr32_8F_0_mem_pre()
 {
     // prevent page faults during modrm_resolve
     for(int32_t i = 0; i < 8; i++) { translate_address_read(*instruction_pointer + i); }; // XXX
@@ -763,14 +756,14 @@ static int32_t instr32_8F_0_modrm_resolve(int32_t modrm_byte)
     // esp must be adjusted before calling modrm_resolved
     // The order of calls is: instr32_8F_0_mem_pre -> modrm_resolve -> instr32_8F_0_mem
     adjust_stack_reg(4);
-
-    int32_t result = modrm_resolve(modrm_byte);
-    adjust_stack_reg(-4);
-    return result;
 }
 static void instr32_8F_0_mem(int32_t addr)
 {
+    // Before attempting a write that might cause a page fault,
+    // we must set esp to the old value. Fuck Intel.
+    adjust_stack_reg(-4);
     int32_t sp = safe_read32s(get_stack_pointer(0));
+
     safe_write32(addr, sp);
     adjust_stack_reg(4);
 }
@@ -1655,6 +1648,7 @@ DEFINE_MODRM_INSTR1_READ32(instr32_FF_6, push32(___))
 
 static void run_instruction(int32_t opcode)
 {
+    //dbg_log(opcode);
     // XXX: This table is generated. Don't modify
 switch(opcode)
 {
@@ -3981,7 +3975,8 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            instr16_8D_mem(instr16_8D_modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            instr16_8D_mem_pre();
+            instr16_8D_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
         }
         else
         {
@@ -3994,7 +3989,8 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            instr32_8D_mem(instr32_8D_modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            instr32_8D_mem_pre();
+            instr32_8D_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
         }
         else
         {
@@ -4025,7 +4021,8 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    instr16_8F_0_mem(instr16_8F_0_modrm_resolve(modrm_byte));
+                    instr16_8F_0_mem_pre();
+                    instr16_8F_0_mem(modrm_resolve(modrm_byte));
                 }
                 else
                 {
@@ -4048,7 +4045,8 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    instr32_8F_0_mem(instr32_8F_0_modrm_resolve(modrm_byte));
+                    instr32_8F_0_mem_pre();
+                    instr32_8F_0_mem(modrm_resolve(modrm_byte));
                 }
                 else
                 {
