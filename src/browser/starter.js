@@ -223,10 +223,6 @@ function V86Starter(options)
             return f | 0;
         },
         "_get_time": () => Date.now(),
-        // XXX: Closure compiler hack; these functions are actually wasm exports
-        "_jit_empty_cache": () => {},
-        "_jit_dirty_cache": () => {},
-        "_after_jump": () => {},
     };
 
     let wasm_file = DEBUG ? "v86-debug.wasm" : "v86.wasm";

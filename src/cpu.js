@@ -1442,7 +1442,7 @@ CPU.prototype.set_cr0 = function(cr0)
 
     this.protected_mode[0] = +((this.cr[0] & CR0_PE) === CR0_PE);
 
-    this.wm.exports._jit_empty_cache();
+    this.wm.exports["_jit_empty_cache"]();
 };
 
 CPU.prototype.set_cr4 = function(cr4)
@@ -1581,7 +1581,7 @@ CPU.prototype.init2 = function () {};
 
 CPU.prototype.after_jump = function () {
     // May be called through JS imports in the WASM module, such as loop or handle_irqs (through popf, sti)
-    this.wm.exports._after_jump();
+    this.wm.exports["_after_jump"]();
 };
 CPU.prototype.branch_taken = function () {
     this.after_jump();

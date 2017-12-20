@@ -285,7 +285,7 @@ CPU.prototype.write_aligned32 = function(addr, value)
 CPU.prototype.write_blob = function(blob, offset)
 {
     this.debug_write(offset, blob.length, 0);
-    this.wm.exports._jit_dirty_cache(offset, offset + blob.length);
+    this.wm.exports["_jit_dirty_cache"](offset, offset + blob.length);
 
     dbg_assert(blob && blob.length >= 0);
 
@@ -300,7 +300,7 @@ CPU.prototype.write_blob32 = function(blob, offset)
 {
     dbg_assert(blob && blob.length);
     let phys_addr = offset << 2;
-    this.wm.exports._jit_dirty_cache(phys_addr, phys_addr + blob.length);
+    this.wm.exports["_jit_dirty_cache"](phys_addr, phys_addr + blob.length);
 
     this.debug_write(offset, blob.length << 2, 0);
     this.mem32s.set(blob, offset);
