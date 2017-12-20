@@ -10,6 +10,7 @@ void movh_m64_r128(int32_t addr, int32_t r);
 void movh_r128_m64(int32_t addr, int32_t r);
 
 void pand_r128(union reg128 source, int32_t r);
+void pandn_r128(union reg128 source, int32_t r);
 void pxor_r128(union reg128 source, int32_t r);
 void por_r128(union reg128 source, int32_t r);
 
