@@ -15,3 +15,4 @@ env:
     - TEST_SUITE=unit-qemu
     - TEST_SUITE=nasm
     - TEST_SUITE=codegen
+    - TEST_SUITE=jshint

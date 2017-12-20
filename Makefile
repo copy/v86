@@ -243,3 +243,9 @@ kvm-unit-test: build/libv86.js build/v86.wasm
 
 codegen-test: build/codegen-test.wasm
 	./tests/codegen/codegen.js
+
+node_modules/.bin/jshint:
+	npm install
+
+jshint: node_modules/.bin/jshint
+	./node_modules/.bin/jshint --config=./jshint.json src tests gen

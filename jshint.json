@@ -1,0 +1,32 @@
+{
+    "esversion": 6,
+    "globalstrict": true,
+    "sub": true,
+    "expr": true,
+    "-W058": true,
+    "-W080": true,
+    "-W082": true,
+    "-W079": true,
+    "-W117": true,
+    "-W054": true,
+    "-W027": true,
+    "-W040": true,
+    "-W087": true,
+    "-W008": true,
+    "loopfunc": true,
+    "shadow": true,
+    "funcscope": true,
+    "globals": {
+        "Blob": false,
+        "alert": false,
+        "console": false,
+
+        "Components": false,
+        "XPCOMUtils": false,
+        "vimfx": false,
+        "NetUtil": false,
+        "PlacesUtils": false,
+        "Preferences": false
+    },
+    "browser": true
+}
