@@ -1599,7 +1599,7 @@ CPU.prototype.create_atom128s = function(d0, d1, d2, d3)
     data[2] = d2;
     data[3] = d3;
     return data;
-}
+};
 
 CPU.prototype.read_modrm_byte = function()
 {
@@ -4479,7 +4479,10 @@ CPU.prototype.arpl = function(seg, r16)
 
 CPU.prototype.lar = function(selector, original)
 {
-    dbg_log("lar sel=" + h(selector, 4), LOG_CPU);
+    if(CPU_LOG_VERBOSE)
+    {
+        dbg_log("lar sel=" + h(selector, 4), LOG_CPU);
+    }
 
     if(!this.protected_mode[0] || this.vm86_mode())
     {
@@ -4513,7 +4516,10 @@ CPU.prototype.lar = function(selector, original)
 
 CPU.prototype.lsl = function(selector, original)
 {
-    dbg_log("lsl sel=" + h(selector, 4), LOG_CPU);
+    if(CPU_LOG_VERBOSE)
+    {
+        dbg_log("lsl sel=" + h(selector, 4), LOG_CPU);
+    }
 
     if(!this.protected_mode[0] || this.vm86_mode())
     {
