@@ -141,14 +141,7 @@
 
     function $(id)
     {
-        var el = document.getElementById(id);
-
-        if(!el)
-        {
-            dbg_log("Element with id `" + id + "` not found");
-        }
-
-        return el;
+        return document.getElementById(id);
     }
 
     function onload()
