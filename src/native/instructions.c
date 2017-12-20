@@ -60,7 +60,7 @@ int32_t arpl(int32_t, int32_t);
 
 void trigger_ud(void);
 void trigger_nm(void);
-static void run_prefix_instruction(void);
+void run_prefix_instruction(void);
 
 int32_t pop16(void);
 int32_t pop32s(void);
@@ -211,8 +211,8 @@ void io_port_write32(int32_t, int32_t);
 
 int32_t modrm_resolve(int32_t);
 
-static void run_instruction0f_16(int32_t);
-static void run_instruction0f_32(int32_t);
+void run_instruction0f_16(int32_t);
+void run_instruction0f_32(int32_t);
 
 void clear_prefixes(void);
 void cycle_internal(void);
@@ -221,81 +221,81 @@ void fwait(void);
 
 
 #define DEFINE_MODRM_INSTR1_READ_WRITE_8(name, fun) \
-    static void name ## _mem(int32_t addr) { SAFE_READ_WRITE8(addr, fun) } \
-    static void name ## _reg(int32_t r1) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
+    void name ## _mem(int32_t addr) { SAFE_READ_WRITE8(addr, fun) } \
+    void name ## _reg(int32_t r1) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
 
 #define DEFINE_MODRM_INSTR1_READ_WRITE_16(name, fun) \
-    static void name ## _mem(int32_t addr) { SAFE_READ_WRITE16(addr, fun) } \
-    static void name ## _reg(int32_t r1) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
+    void name ## _mem(int32_t addr) { SAFE_READ_WRITE16(addr, fun) } \
+    void name ## _reg(int32_t r1) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
 
 #define DEFINE_MODRM_INSTR1_READ_WRITE_32(name, fun) \
-    static void name ## _mem(int32_t addr) { SAFE_READ_WRITE32(addr, fun) } \
-    static void name ## _reg(int32_t r1) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
+    void name ## _mem(int32_t addr) { SAFE_READ_WRITE32(addr, fun) } \
+    void name ## _reg(int32_t r1) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
 
 
 #define DEFINE_MODRM_INSTR2_READ_WRITE_8(name, fun) \
-    static void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE8(addr, fun) } \
-    static void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
+    void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE8(addr, fun) } \
+    void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
 
 #define DEFINE_MODRM_INSTR2_READ_WRITE_16(name, fun) \
-    static void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE16(addr, fun) } \
-    static void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
+    void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE16(addr, fun) } \
+    void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
 
 #define DEFINE_MODRM_INSTR2_READ_WRITE_32(name, fun) \
-    static void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE32(addr, fun) } \
-    static void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
+    void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE32(addr, fun) } \
+    void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
 
 
 #define DEFINE_MODRM_INSTR_READ_WRITE_8(name, fun) \
-    static void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE8(addr, fun) } \
-    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
+    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE8(addr, fun) } \
+    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
 
 #define DEFINE_MODRM_INSTR_READ_WRITE_16(name, fun) \
-    static void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE16(addr, fun) } \
-    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
+    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE16(addr, fun) } \
+    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
 
 #define DEFINE_MODRM_INSTR_READ_WRITE_32(name, fun) \
-    static void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE32(addr, fun) } \
-    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
+    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE32(addr, fun) } \
+    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
 
 
 #define DEFINE_MODRM_INSTR1_READ8(name, fun) \
-    static void name ## _mem(int32_t addr) { int32_t ___ = safe_read8(addr); fun; } \
-    static void name ## _reg(int32_t r1) { int32_t ___ = read_reg8(r1); fun; }
+    void name ## _mem(int32_t addr) { int32_t ___ = safe_read8(addr); fun; } \
+    void name ## _reg(int32_t r1) { int32_t ___ = read_reg8(r1); fun; }
 
 #define DEFINE_MODRM_INSTR1_READ16(name, fun) \
-    static void name ## _mem(int32_t addr) { int32_t ___ = safe_read16(addr); fun; } \
-    static void name ## _reg(int32_t r1) { int32_t ___ = read_reg16(r1); fun; }
+    void name ## _mem(int32_t addr) { int32_t ___ = safe_read16(addr); fun; } \
+    void name ## _reg(int32_t r1) { int32_t ___ = read_reg16(r1); fun; }
 
 #define DEFINE_MODRM_INSTR1_READ32(name, fun) \
-    static void name ## _mem(int32_t addr) { int32_t ___ = safe_read32s(addr); fun; } \
-    static void name ## _reg(int32_t r1) { int32_t ___ = read_reg32(r1); fun; }
+    void name ## _mem(int32_t addr) { int32_t ___ = safe_read32s(addr); fun; } \
+    void name ## _reg(int32_t r1) { int32_t ___ = read_reg32(r1); fun; }
 
 
 #define DEFINE_MODRM_INSTR2_READ8(name, fun) \
-    static void name ## _mem(int32_t addr, int32_t imm) { int32_t ___ = safe_read8(addr); fun; } \
-    static void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg8(r1); fun; }
+    void name ## _mem(int32_t addr, int32_t imm) { int32_t ___ = safe_read8(addr); fun; } \
+    void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg8(r1); fun; }
 
 #define DEFINE_MODRM_INSTR2_READ16(name, fun) \
-    static void name ## _mem(int32_t addr, int32_t imm) { int32_t ___ = safe_read16(addr); fun; } \
-    static void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg16(r1); fun; }
+    void name ## _mem(int32_t addr, int32_t imm) { int32_t ___ = safe_read16(addr); fun; } \
+    void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg16(r1); fun; }
 
 #define DEFINE_MODRM_INSTR2_READ32(name, fun) \
-    static void name ## _mem(int32_t addr, int32_t imm) { int32_t ___ = safe_read32s(addr); fun; } \
-    static void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg32(r1); fun; }
+    void name ## _mem(int32_t addr, int32_t imm) { int32_t ___ = safe_read32s(addr); fun; } \
+    void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg32(r1); fun; }
 
 
 #define DEFINE_MODRM_INSTR_READ8(name, fun) \
-    static void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read8(addr); fun; } \
-    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg8(r1); fun; }
+    void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read8(addr); fun; } \
+    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg8(r1); fun; }
 
 #define DEFINE_MODRM_INSTR_READ16(name, fun) \
-    static void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read16(addr); fun; } \
-    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); fun; }
+    void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read16(addr); fun; } \
+    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); fun; }
 
 #define DEFINE_MODRM_INSTR_READ32(name, fun) \
-    static void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read32s(addr); fun; } \
-    static void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); fun; }
+    void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read32s(addr); fun; } \
+    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); fun; }
 
 
 DEFINE_MODRM_INSTR_READ_WRITE_8(instr_00, add8(___, read_reg8(r)))
@@ -304,17 +304,17 @@ DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_01, add32(___, read_reg32(r)))
 DEFINE_MODRM_INSTR_READ8(instr_02, write_reg8(r, add8(read_reg8(r), ___)))
 DEFINE_MODRM_INSTR_READ16(instr16_03, write_reg16(r, add16(read_reg16(r), ___)))
 DEFINE_MODRM_INSTR_READ32(instr32_03, write_reg32(r, add32(read_reg32(r), ___)))
-static void instr_04(int32_t imm8) { reg8[AL] = add8(reg8[AL], imm8); }
-static void instr16_05(int32_t imm16) { reg16[AX] = add16(reg16[AX], imm16); }
-static void instr32_05(int32_t imm32) { reg32s[EAX] = add32(reg32s[EAX], imm32); }
+void instr_04(int32_t imm8) { reg8[AL] = add8(reg8[AL], imm8); }
+void instr16_05(int32_t imm16) { reg16[AX] = add16(reg16[AX], imm16); }
+void instr32_05(int32_t imm32) { reg32s[EAX] = add32(reg32s[EAX], imm32); }
 
-static void instr16_06() { push16(sreg[ES]); }
-static void instr32_06() { push32(sreg[ES]); }
-static void instr16_07() {
+void instr16_06() { push16(sreg[ES]); }
+void instr32_06() { push32(sreg[ES]); }
+void instr16_07() {
     switch_seg(ES, safe_read16(get_stack_pointer(0)));
     adjust_stack_reg(2);
 }
-static void instr32_07() {
+void instr32_07() {
     switch_seg(ES, safe_read32s(get_stack_pointer(0)) & 0xFFFF);
     adjust_stack_reg(4);
 }
@@ -325,17 +325,17 @@ DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_09, or32(___, read_reg32(r)))
 DEFINE_MODRM_INSTR_READ8(instr_0A, write_reg8(r, or8(read_reg8(r), ___)))
 DEFINE_MODRM_INSTR_READ16(instr16_0B, write_reg16(r, or16(read_reg16(r), ___)))
 DEFINE_MODRM_INSTR_READ32(instr32_0B, write_reg32(r, or32(read_reg32(r), ___)))
-static void instr_0C(int32_t imm8) { reg8[AL] = or8(reg8[AL], imm8); }
-static void instr16_0D(int32_t imm16) { reg16[AX] = or16(reg16[AX], imm16); }
-static void instr32_0D(int32_t imm32) { reg32s[EAX] = or32(reg32s[EAX], imm32); }
+void instr_0C(int32_t imm8) { reg8[AL] = or8(reg8[AL], imm8); }
+void instr16_0D(int32_t imm16) { reg16[AX] = or16(reg16[AX], imm16); }
+void instr32_0D(int32_t imm32) { reg32s[EAX] = or32(reg32s[EAX], imm32); }
 
 
-static void instr16_0E() { push16(sreg[CS]); }
-static void instr32_0E() { push32(sreg[CS]); }
-static void instr16_0F() {
+void instr16_0E() { push16(sreg[CS]); }
+void instr32_0E() { push32(sreg[CS]); }
+void instr16_0F() {
     run_instruction0f_16(read_imm8());
 }
-static void instr32_0F() {
+void instr32_0F() {
     run_instruction0f_32(read_imm8());
 }
 
@@ -346,23 +346,23 @@ DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_11, adc32(___, read_reg32(r)))
 DEFINE_MODRM_INSTR_READ8(instr_12, write_reg8(r, adc8(read_reg8(r), ___)))
 DEFINE_MODRM_INSTR_READ16(instr16_13, write_reg16(r, adc16(read_reg16(r), ___)))
 DEFINE_MODRM_INSTR_READ32(instr32_13, write_reg32(r, adc32(read_reg32(r), ___)))
-static void instr_14(int32_t imm8) { reg8[AL] = adc8(reg8[AL], imm8); }
-static void instr16_15(int32_t imm16) { reg16[AX] = adc16(reg16[AX], imm16); }
-static void instr32_15(int32_t imm32) { reg32s[EAX] = adc32(reg32s[EAX], imm32); }
+void instr_14(int32_t imm8) { reg8[AL] = adc8(reg8[AL], imm8); }
+void instr16_15(int32_t imm16) { reg16[AX] = adc16(reg16[AX], imm16); }
+void instr32_15(int32_t imm32) { reg32s[EAX] = adc32(reg32s[EAX], imm32); }
 
-static void instr16_16() { push16(sreg[SS]); }
-static void instr32_16() { push32(sreg[SS]); }
-static void instr16_17() {
+void instr16_16() { push16(sreg[SS]); }
+void instr32_16() { push32(sreg[SS]); }
+void instr16_17() {
     switch_seg(SS, safe_read16(get_stack_pointer(0)));
     adjust_stack_reg(2);
     clear_prefixes();
-    //cycle_internal();
+    cycle_internal();
 }
-static void instr32_17() {
+void instr32_17() {
     switch_seg(SS, safe_read32s(get_stack_pointer(0)) & 0xFFFF);
     adjust_stack_reg(4);
     clear_prefixes();
-    //cycle_internal();
+    cycle_internal();
 }
 
 DEFINE_MODRM_INSTR_READ_WRITE_8(instr_18, sbb8(___, read_reg8(r)))
@@ -371,18 +371,18 @@ DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_19, sbb32(___, read_reg32(r)))
 DEFINE_MODRM_INSTR_READ8(instr_1A, write_reg8(r, sbb8(read_reg8(r), ___)))
 DEFINE_MODRM_INSTR_READ16(instr16_1B, write_reg16(r, sbb16(read_reg16(r), ___)))
 DEFINE_MODRM_INSTR_READ32(instr32_1B, write_reg32(r, sbb32(read_reg32(r), ___)))
-static void instr_1C(int32_t imm8) { reg8[AL] = sbb8(reg8[AL], imm8); }
-static void instr16_1D(int32_t imm16) { reg16[AX] = sbb16(reg16[AX], imm16); }
-static void instr32_1D(int32_t imm32) { reg32s[EAX] = sbb32(reg32s[EAX], imm32); }
+void instr_1C(int32_t imm8) { reg8[AL] = sbb8(reg8[AL], imm8); }
+void instr16_1D(int32_t imm16) { reg16[AX] = sbb16(reg16[AX], imm16); }
+void instr32_1D(int32_t imm32) { reg32s[EAX] = sbb32(reg32s[EAX], imm32); }
 
 
-static void instr16_1E() { push16(sreg[DS]); }
-static void instr32_1E() { push32(sreg[DS]); }
-static void instr16_1F() {
+void instr16_1E() { push16(sreg[DS]); }
+void instr32_1E() { push32(sreg[DS]); }
+void instr16_1F() {
     switch_seg(DS, safe_read16(get_stack_pointer(0)));
     adjust_stack_reg(2);
 }
-static void instr32_1F() {
+void instr32_1F() {
     switch_seg(DS, safe_read32s(get_stack_pointer(0)) & 0xFFFF);
     adjust_stack_reg(4);
 }
@@ -393,13 +393,13 @@ DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_21, and32(___, read_reg32(r)))
 DEFINE_MODRM_INSTR_READ8(instr_22, write_reg8(r, and8(read_reg8(r), ___)))
 DEFINE_MODRM_INSTR_READ16(instr16_23, write_reg16(r, and16(read_reg16(r), ___)))
 DEFINE_MODRM_INSTR_READ32(instr32_23, write_reg32(r, and32(read_reg32(r), ___)))
-static void instr_24(int32_t imm8) { reg8[AL] = and8(reg8[AL], imm8); }
-static void instr16_25(int32_t imm16) { reg16[AX] = and16(reg16[AX], imm16); }
-static void instr32_25(int32_t imm32) { reg32s[EAX] = and32(reg32s[EAX], imm32); }
+void instr_24(int32_t imm8) { reg8[AL] = and8(reg8[AL], imm8); }
+void instr16_25(int32_t imm16) { reg16[AX] = and16(reg16[AX], imm16); }
+void instr32_25(int32_t imm32) { reg32s[EAX] = and32(reg32s[EAX], imm32); }
 
 
-static void instr_26() { segment_prefix_op(ES); }
-static void instr_27() { bcd_daa(); }
+void instr_26() { segment_prefix_op(ES); }
+void instr_27() { bcd_daa(); }
 
 DEFINE_MODRM_INSTR_READ_WRITE_8(instr_28, sub8(___, read_reg8(r)))
 DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_29, sub16(___, read_reg16(r)))
@@ -407,12 +407,12 @@ DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_29, sub32(___, read_reg32(r)))
 DEFINE_MODRM_INSTR_READ8(instr_2A, write_reg8(r, sub8(read_reg8(r), ___)))
 DEFINE_MODRM_INSTR_READ16(instr16_2B, write_reg16(r, sub16(read_reg16(r), ___)))
 DEFINE_MODRM_INSTR_READ32(instr32_2B, write_reg32(r, sub32(read_reg32(r), ___)))
-static void instr_2C(int32_t imm8) { reg8[AL] = sub8(reg8[AL], imm8); }
-static void instr16_2D(int32_t imm16) { reg16[AX] = sub16(reg16[AX], imm16); }
-static void instr32_2D(int32_t imm32) { reg32s[EAX] = sub32(reg32s[EAX], imm32); }
+void instr_2C(int32_t imm8) { reg8[AL] = sub8(reg8[AL], imm8); }
+void instr16_2D(int32_t imm16) { reg16[AX] = sub16(reg16[AX], imm16); }
+void instr32_2D(int32_t imm32) { reg32s[EAX] = sub32(reg32s[EAX], imm32); }
 
-static void instr_2E() { segment_prefix_op(CS); }
-static void instr_2F() { bcd_das(); }
+void instr_2E() { segment_prefix_op(CS); }
+void instr_2F() { bcd_das(); }
 
 DEFINE_MODRM_INSTR_READ_WRITE_8(instr_30, xor8(___, read_reg8(r)))
 DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_31, xor16(___, read_reg16(r)))
@@ -420,12 +420,12 @@ DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_31, xor32(___, read_reg32(r)))
 DEFINE_MODRM_INSTR_READ8(instr_32, write_reg8(r, xor8(read_reg8(r), ___)))
 DEFINE_MODRM_INSTR_READ16(instr16_33, write_reg16(r, xor16(read_reg16(r), ___)))
 DEFINE_MODRM_INSTR_READ32(instr32_33, write_reg32(r, xor32(read_reg32(r), ___)))
-static void instr_34(int32_t imm8) { reg8[AL] = xor8(reg8[AL], imm8); }
-static void instr16_35(int32_t imm16) { reg16[AX] = xor16(reg16[AX], imm16); }
-static void instr32_35(int32_t imm32) { reg32s[EAX] = xor32(reg32s[EAX], imm32); }
+void instr_34(int32_t imm8) { reg8[AL] = xor8(reg8[AL], imm8); }
+void instr16_35(int32_t imm16) { reg16[AX] = xor16(reg16[AX], imm16); }
+void instr32_35(int32_t imm32) { reg32s[EAX] = xor32(reg32s[EAX], imm32); }
 
-static void instr_36() { segment_prefix_op(SS); }
-static void instr_37() { bcd_aaa(); }
+void instr_36() { segment_prefix_op(SS); }
+void instr_37() { bcd_aaa(); }
 
 DEFINE_MODRM_INSTR_READ8(instr_38, cmp8(___, read_reg8(r)))
 DEFINE_MODRM_INSTR_READ16(instr16_39, cmp16(___, read_reg16(r)))
@@ -433,113 +433,113 @@ DEFINE_MODRM_INSTR_READ32(instr32_39, cmp32(___, read_reg32(r)))
 DEFINE_MODRM_INSTR_READ8(instr_3A, cmp8(read_reg8(r), ___))
 DEFINE_MODRM_INSTR_READ16(instr16_3B, cmp16(read_reg16(r), ___))
 DEFINE_MODRM_INSTR_READ32(instr32_3B, cmp32(read_reg32(r), ___))
-static void instr_3C(int32_t imm8) { cmp8(reg8[AL], imm8); }
-static void instr16_3D(int32_t imm16) { cmp16(reg16[AX], imm16); }
-static void instr32_3D(int32_t imm32) { cmp32(reg32s[EAX], imm32); }
+void instr_3C(int32_t imm8) { cmp8(reg8[AL], imm8); }
+void instr16_3D(int32_t imm16) { cmp16(reg16[AX], imm16); }
+void instr32_3D(int32_t imm32) { cmp32(reg32s[EAX], imm32); }
 
-static void instr_3E() { segment_prefix_op(DS); }
-static void instr_3F() { bcd_aas(); }
-
-
-static void instr16_40() { reg16[AX] = inc16(reg16[AX]); }
-static void instr32_40() { reg32s[EAX] = inc32(reg32s[EAX]); }
-static void instr16_41() { reg16[CX] = inc16(reg16[CX]); }
-static void instr32_41() { reg32s[ECX] = inc32(reg32s[ECX]); }
-static void instr16_42() { reg16[DX] = inc16(reg16[DX]); }
-static void instr32_42() { reg32s[EDX] = inc32(reg32s[EDX]); }
-static void instr16_43() { reg16[BX] = inc16(reg16[BX]); }
-static void instr32_43() { reg32s[EBX] = inc32(reg32s[EBX]); }
-static void instr16_44() { reg16[SP] = inc16(reg16[SP]); }
-static void instr32_44() { reg32s[ESP] = inc32(reg32s[ESP]); }
-static void instr16_45() { reg16[BP] = inc16(reg16[BP]); }
-static void instr32_45() { reg32s[EBP] = inc32(reg32s[EBP]); }
-static void instr16_46() { reg16[SI] = inc16(reg16[SI]); }
-static void instr32_46() { reg32s[ESI] = inc32(reg32s[ESI]); }
-static void instr16_47() { reg16[DI] = inc16(reg16[DI]); }
-static void instr32_47() { reg32s[EDI] = inc32(reg32s[EDI]); }
+void instr_3E() { segment_prefix_op(DS); }
+void instr_3F() { bcd_aas(); }
 
 
-static void instr16_48() { reg16[AX] = dec16(reg16[AX]); }
-static void instr32_48() { reg32s[EAX] = dec32(reg32s[EAX]); }
-static void instr16_49() { reg16[CX] = dec16(reg16[CX]); }
-static void instr32_49() { reg32s[ECX] = dec32(reg32s[ECX]); }
-static void instr16_4A() { reg16[DX] = dec16(reg16[DX]); }
-static void instr32_4A() { reg32s[EDX] = dec32(reg32s[EDX]); }
-static void instr16_4B() { reg16[BX] = dec16(reg16[BX]); }
-static void instr32_4B() { reg32s[EBX] = dec32(reg32s[EBX]); }
-static void instr16_4C() { reg16[SP] = dec16(reg16[SP]); }
-static void instr32_4C() { reg32s[ESP] = dec32(reg32s[ESP]); }
-static void instr16_4D() { reg16[BP] = dec16(reg16[BP]); }
-static void instr32_4D() { reg32s[EBP] = dec32(reg32s[EBP]); }
-static void instr16_4E() { reg16[SI] = dec16(reg16[SI]); }
-static void instr32_4E() { reg32s[ESI] = dec32(reg32s[ESI]); }
-static void instr16_4F() { reg16[DI] = dec16(reg16[DI]); }
-static void instr32_4F() { reg32s[EDI] = dec32(reg32s[EDI]); }
+void instr16_40() { reg16[AX] = inc16(reg16[AX]); }
+void instr32_40() { reg32s[EAX] = inc32(reg32s[EAX]); }
+void instr16_41() { reg16[CX] = inc16(reg16[CX]); }
+void instr32_41() { reg32s[ECX] = inc32(reg32s[ECX]); }
+void instr16_42() { reg16[DX] = inc16(reg16[DX]); }
+void instr32_42() { reg32s[EDX] = inc32(reg32s[EDX]); }
+void instr16_43() { reg16[BX] = inc16(reg16[BX]); }
+void instr32_43() { reg32s[EBX] = inc32(reg32s[EBX]); }
+void instr16_44() { reg16[SP] = inc16(reg16[SP]); }
+void instr32_44() { reg32s[ESP] = inc32(reg32s[ESP]); }
+void instr16_45() { reg16[BP] = inc16(reg16[BP]); }
+void instr32_45() { reg32s[EBP] = inc32(reg32s[EBP]); }
+void instr16_46() { reg16[SI] = inc16(reg16[SI]); }
+void instr32_46() { reg32s[ESI] = inc32(reg32s[ESI]); }
+void instr16_47() { reg16[DI] = inc16(reg16[DI]); }
+void instr32_47() { reg32s[EDI] = inc32(reg32s[EDI]); }
 
 
-static void instr16_50() { push16(reg16[AX]); }
-static void instr32_50() { push32(reg32s[EAX]); }
-static void instr16_51() { push16(reg16[CX]); }
-static void instr32_51() { push32(reg32s[ECX]); }
-static void instr16_52() { push16(reg16[DX]); }
-static void instr32_52() { push32(reg32s[EDX]); }
-static void instr16_53() { push16(reg16[BX]); }
-static void instr32_53() { push32(reg32s[EBX]); }
-static void instr16_54() { push16(reg16[SP]); }
-static void instr32_54() { push32(reg32s[ESP]); }
-static void instr16_55() { push16(reg16[BP]); }
-static void instr32_55() { push32(reg32s[EBP]); }
-static void instr16_56() { push16(reg16[SI]); }
-static void instr32_56() { push32(reg32s[ESI]); }
-static void instr16_57() { push16(reg16[DI]); }
-static void instr32_57() { push32(reg32s[EDI]); }
-
-static void instr16_58() { reg16[AX] = pop16(); }
-static void instr32_58() { reg32s[EAX] = pop32s(); }
-static void instr16_59() { reg16[CX] = pop16(); }
-static void instr32_59() { reg32s[ECX] = pop32s(); }
-static void instr16_5A() { reg16[DX] = pop16(); }
-static void instr32_5A() { reg32s[EDX] = pop32s(); }
-static void instr16_5B() { reg16[BX] = pop16(); }
-static void instr32_5B() { reg32s[EBX] = pop32s(); }
-static void instr16_5C() { reg16[SP] = pop16(); }
-static void instr32_5C() { reg32s[ESP] = pop32s(); }
-static void instr16_5D() { reg16[BP] = pop16(); }
-static void instr32_5D() { reg32s[EBP] = pop32s(); }
-static void instr16_5E() { reg16[SI] = pop16(); }
-static void instr32_5E() { reg32s[ESI] = pop32s(); }
-static void instr16_5F() { reg16[DI] = pop16(); }
-static void instr32_5F() { reg32s[EDI] = pop32s(); }
+void instr16_48() { reg16[AX] = dec16(reg16[AX]); }
+void instr32_48() { reg32s[EAX] = dec32(reg32s[EAX]); }
+void instr16_49() { reg16[CX] = dec16(reg16[CX]); }
+void instr32_49() { reg32s[ECX] = dec32(reg32s[ECX]); }
+void instr16_4A() { reg16[DX] = dec16(reg16[DX]); }
+void instr32_4A() { reg32s[EDX] = dec32(reg32s[EDX]); }
+void instr16_4B() { reg16[BX] = dec16(reg16[BX]); }
+void instr32_4B() { reg32s[EBX] = dec32(reg32s[EBX]); }
+void instr16_4C() { reg16[SP] = dec16(reg16[SP]); }
+void instr32_4C() { reg32s[ESP] = dec32(reg32s[ESP]); }
+void instr16_4D() { reg16[BP] = dec16(reg16[BP]); }
+void instr32_4D() { reg32s[EBP] = dec32(reg32s[EBP]); }
+void instr16_4E() { reg16[SI] = dec16(reg16[SI]); }
+void instr32_4E() { reg32s[ESI] = dec32(reg32s[ESI]); }
+void instr16_4F() { reg16[DI] = dec16(reg16[DI]); }
+void instr32_4F() { reg32s[EDI] = dec32(reg32s[EDI]); }
 
 
-static void instr16_60() { pusha16(); }
-static void instr32_60() { pusha32(); }
-static void instr16_61() { popa16(); }
-static void instr32_61() { popa32(); }
+void instr16_50() { push16(reg16[AX]); }
+void instr32_50() { push32(reg32s[EAX]); }
+void instr16_51() { push16(reg16[CX]); }
+void instr32_51() { push32(reg32s[ECX]); }
+void instr16_52() { push16(reg16[DX]); }
+void instr32_52() { push32(reg32s[EDX]); }
+void instr16_53() { push16(reg16[BX]); }
+void instr32_53() { push32(reg32s[EBX]); }
+void instr16_54() { push16(reg16[SP]); }
+void instr32_54() { push32(reg32s[ESP]); }
+void instr16_55() { push16(reg16[BP]); }
+void instr32_55() { push32(reg32s[EBP]); }
+void instr16_56() { push16(reg16[SI]); }
+void instr32_56() { push32(reg32s[ESI]); }
+void instr16_57() { push16(reg16[DI]); }
+void instr32_57() { push32(reg32s[EDI]); }
 
-static void instr_62_reg(int32_t r2, int32_t r) {
+void instr16_58() { reg16[AX] = pop16(); }
+void instr32_58() { reg32s[EAX] = pop32s(); }
+void instr16_59() { reg16[CX] = pop16(); }
+void instr32_59() { reg32s[ECX] = pop32s(); }
+void instr16_5A() { reg16[DX] = pop16(); }
+void instr32_5A() { reg32s[EDX] = pop32s(); }
+void instr16_5B() { reg16[BX] = pop16(); }
+void instr32_5B() { reg32s[EBX] = pop32s(); }
+void instr16_5C() { reg16[SP] = pop16(); }
+void instr32_5C() { reg32s[ESP] = pop32s(); }
+void instr16_5D() { reg16[BP] = pop16(); }
+void instr32_5D() { reg32s[EBP] = pop32s(); }
+void instr16_5E() { reg16[SI] = pop16(); }
+void instr32_5E() { reg32s[ESI] = pop32s(); }
+void instr16_5F() { reg16[DI] = pop16(); }
+void instr32_5F() { reg32s[EDI] = pop32s(); }
+
+
+void instr16_60() { pusha16(); }
+void instr32_60() { pusha32(); }
+void instr16_61() { popa16(); }
+void instr32_61() { popa32(); }
+
+void instr_62_reg(int32_t r2, int32_t r) {
     // bound
     dbg_log("Unimplemented BOUND instruction");
     dbg_assert(false);
 }
-static void instr_62_mem(int32_t addr, int32_t r) {
+void instr_62_mem(int32_t addr, int32_t r) {
     dbg_log("Unimplemented BOUND instruction");
     dbg_assert(false);
 }
 
 DEFINE_MODRM_INSTR_READ_WRITE_16(instr_63, arpl(___, read_reg16(r)))
 
-static void instr_64() { segment_prefix_op(FS); }
-static void instr_65() { segment_prefix_op(GS); }
+void instr_64() { segment_prefix_op(FS); }
+void instr_65() { segment_prefix_op(GS); }
 
-static void instr_66() {
+void instr_66() {
     // Operand-size override prefix
     *prefixes |= PREFIX_MASK_OPSIZE;
     run_prefix_instruction();
     *prefixes = 0;
 }
 
-static void instr_67() {
+void instr_67() {
     // Address-size override prefix
     dbg_assert(is_asize_32() == *is_32);
 
@@ -548,45 +548,45 @@ static void instr_67() {
     *prefixes = 0;
 }
 
-static void instr16_68(int32_t imm16) { push16(imm16); }
-static void instr32_68(int32_t imm32) { push32(imm32); }
+void instr16_68(int32_t imm16) { push16(imm16); }
+void instr32_68(int32_t imm32) { push32(imm32); }
 
-static void instr16_69_mem(int32_t addr, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(safe_read16(addr) << 16 >> 16, imm << 16 >> 16)); }
-static void instr16_69_reg(int32_t r1, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(read_reg16(r1) << 16 >> 16, imm << 16 >> 16)); }
-static void instr32_69_mem(int32_t addr, int32_t r, int32_t imm) { write_reg32(r, imul_reg32(safe_read32s(addr), imm)); }
-static void instr32_69_reg(int32_t r1, int32_t r, int32_t imm) { write_reg32(r, imul_reg32(read_reg32(r1), imm)); }
+void instr16_69_mem(int32_t addr, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(safe_read16(addr) << 16 >> 16, imm << 16 >> 16)); }
+void instr16_69_reg(int32_t r1, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(read_reg16(r1) << 16 >> 16, imm << 16 >> 16)); }
+void instr32_69_mem(int32_t addr, int32_t r, int32_t imm) { write_reg32(r, imul_reg32(safe_read32s(addr), imm)); }
+void instr32_69_reg(int32_t r1, int32_t r, int32_t imm) { write_reg32(r, imul_reg32(read_reg32(r1), imm)); }
 
-static void instr16_6A(int32_t imm8) { push16(imm8); }
-static void instr32_6A(int32_t imm8) { push32(imm8); }
+void instr16_6A(int32_t imm8) { push16(imm8); }
+void instr32_6A(int32_t imm8) { push32(imm8); }
 
-static void instr16_6B_mem(int32_t addr, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(safe_read16(addr) << 16 >> 16, imm)); }
-static void instr16_6B_reg(int32_t r1, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(read_reg16(r1) << 16 >> 16, imm)); }
-static void instr32_6B_mem(int32_t addr, int32_t r, int32_t imm) { write_reg32(r, imul_reg32(safe_read32s(addr), imm)); }
-static void instr32_6B_reg(int32_t r1, int32_t r, int32_t imm) { write_reg32(r, imul_reg32(read_reg32(r1), imm)); }
+void instr16_6B_mem(int32_t addr, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(safe_read16(addr) << 16 >> 16, imm)); }
+void instr16_6B_reg(int32_t r1, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(read_reg16(r1) << 16 >> 16, imm)); }
+void instr32_6B_mem(int32_t addr, int32_t r, int32_t imm) { write_reg32(r, imul_reg32(safe_read32s(addr), imm)); }
+void instr32_6B_reg(int32_t r1, int32_t r, int32_t imm) { write_reg32(r, imul_reg32(read_reg32(r1), imm)); }
 
-static void instr_6C() { insb(); }
-static void instr16_6D() { insw(); }
-static void instr32_6D() { insd(); }
-static void instr_6E() { outsb(); }
-static void instr16_6F() { outsw(); }
-static void instr32_6F() { outsd(); }
+void instr_6C() { insb(); }
+void instr16_6D() { insw(); }
+void instr32_6D() { insd(); }
+void instr_6E() { outsb(); }
+void instr16_6F() { outsw(); }
+void instr32_6F() { outsd(); }
 
-static void instr_70(int32_t imm8) { jmpcc8( test_o(), imm8); }
-static void instr_71(int32_t imm8) { jmpcc8(!test_o(), imm8); }
-static void instr_72(int32_t imm8) { jmpcc8( test_b(), imm8); }
-static void instr_73(int32_t imm8) { jmpcc8(!test_b(), imm8); }
-static void instr_74(int32_t imm8) { jmpcc8( test_z(), imm8); }
-static void instr_75(int32_t imm8) { jmpcc8(!test_z(), imm8); }
-static void instr_76(int32_t imm8) { jmpcc8( test_be(), imm8); }
-static void instr_77(int32_t imm8) { jmpcc8(!test_be(), imm8); }
-static void instr_78(int32_t imm8) { jmpcc8( test_s(), imm8); }
-static void instr_79(int32_t imm8) { jmpcc8(!test_s(), imm8); }
-static void instr_7A(int32_t imm8) { jmpcc8( test_p(), imm8); }
-static void instr_7B(int32_t imm8) { jmpcc8(!test_p(), imm8); }
-static void instr_7C(int32_t imm8) { jmpcc8( test_l(), imm8); }
-static void instr_7D(int32_t imm8) { jmpcc8(!test_l(), imm8); }
-static void instr_7E(int32_t imm8) { jmpcc8( test_le(), imm8); }
-static void instr_7F(int32_t imm8) { jmpcc8(!test_le(), imm8); }
+void instr_70(int32_t imm8) { jmpcc8( test_o(), imm8); }
+void instr_71(int32_t imm8) { jmpcc8(!test_o(), imm8); }
+void instr_72(int32_t imm8) { jmpcc8( test_b(), imm8); }
+void instr_73(int32_t imm8) { jmpcc8(!test_b(), imm8); }
+void instr_74(int32_t imm8) { jmpcc8( test_z(), imm8); }
+void instr_75(int32_t imm8) { jmpcc8(!test_z(), imm8); }
+void instr_76(int32_t imm8) { jmpcc8( test_be(), imm8); }
+void instr_77(int32_t imm8) { jmpcc8(!test_be(), imm8); }
+void instr_78(int32_t imm8) { jmpcc8( test_s(), imm8); }
+void instr_79(int32_t imm8) { jmpcc8(!test_s(), imm8); }
+void instr_7A(int32_t imm8) { jmpcc8( test_p(), imm8); }
+void instr_7B(int32_t imm8) { jmpcc8(!test_p(), imm8); }
+void instr_7C(int32_t imm8) { jmpcc8( test_l(), imm8); }
+void instr_7D(int32_t imm8) { jmpcc8(!test_l(), imm8); }
+void instr_7E(int32_t imm8) { jmpcc8( test_le(), imm8); }
+void instr_7F(int32_t imm8) { jmpcc8(!test_le(), imm8); }
 
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_80_0, add8(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_80_1,  or8(___, imm))
@@ -595,8 +595,8 @@ DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_80_3, sbb8(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_80_4, and8(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_80_5, sub8(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_80_6, xor8(___, imm))
-static void instr_80_7_reg(int32_t r, int32_t imm) { cmp8(read_reg8(r), imm); }
-static void instr_80_7_mem(int32_t addr, int32_t imm) { cmp8(safe_read8(addr), imm); }
+void instr_80_7_reg(int32_t r, int32_t imm) { cmp8(read_reg8(r), imm); }
+void instr_80_7_mem(int32_t addr, int32_t imm) { cmp8(safe_read8(addr), imm); }
 
 DEFINE_MODRM_INSTR2_READ_WRITE_16(instr16_81_0, add16(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_16(instr16_81_1,  or16(___, imm))
@@ -605,8 +605,8 @@ DEFINE_MODRM_INSTR2_READ_WRITE_16(instr16_81_3, sbb16(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_16(instr16_81_4, and16(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_16(instr16_81_5, sub16(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_16(instr16_81_6, xor16(___, imm))
-static void instr16_81_7_reg(int32_t r, int32_t imm) { cmp16(read_reg16(r), imm); }
-static void instr16_81_7_mem(int32_t addr, int32_t imm) { cmp16(safe_read16(addr), imm); }
+void instr16_81_7_reg(int32_t r, int32_t imm) { cmp16(read_reg16(r), imm); }
+void instr16_81_7_mem(int32_t addr, int32_t imm) { cmp16(safe_read16(addr), imm); }
 
 DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_81_0, add32(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_81_1,  or32(___, imm))
@@ -615,8 +615,8 @@ DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_81_3, sbb32(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_81_4, and32(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_81_5, sub32(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_81_6, xor32(___, imm))
-static void instr32_81_7_reg(int32_t r, int32_t imm) { cmp32(read_reg32(r), imm); }
-static void instr32_81_7_mem(int32_t addr, int32_t imm) { cmp32(safe_read32s(addr), imm); }
+void instr32_81_7_reg(int32_t r, int32_t imm) { cmp32(read_reg32(r), imm); }
+void instr32_81_7_mem(int32_t addr, int32_t imm) { cmp32(safe_read32s(addr), imm); }
 
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_82_0, add8(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_82_1,  or8(___, imm))
@@ -625,8 +625,8 @@ DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_82_3, sbb8(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_82_4, and8(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_82_5, sub8(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_82_6, xor8(___, imm))
-static void instr_82_7_reg(int32_t r, int32_t imm) { cmp8(read_reg8(r), imm); }
-static void instr_82_7_mem(int32_t addr, int32_t imm) { cmp8(safe_read8(addr), imm); }
+void instr_82_7_reg(int32_t r, int32_t imm) { cmp8(read_reg8(r), imm); }
+void instr_82_7_mem(int32_t addr, int32_t imm) { cmp8(safe_read8(addr), imm); }
 
 DEFINE_MODRM_INSTR2_READ_WRITE_16(instr16_83_0, add16(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_16(instr16_83_1,  or16(___, imm))
@@ -635,8 +635,8 @@ DEFINE_MODRM_INSTR2_READ_WRITE_16(instr16_83_3, sbb16(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_16(instr16_83_4, and16(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_16(instr16_83_5, sub16(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_16(instr16_83_6, xor16(___, imm))
-static void instr16_83_7_reg(int32_t r, int32_t imm) { cmp16(read_reg16(r), imm); }
-static void instr16_83_7_mem(int32_t addr, int32_t imm) { cmp16(safe_read16(addr), imm); }
+void instr16_83_7_reg(int32_t r, int32_t imm) { cmp16(read_reg16(r), imm); }
+void instr16_83_7_mem(int32_t addr, int32_t imm) { cmp16(safe_read16(addr), imm); }
 
 DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_83_0, add32(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_83_1,  or32(___, imm))
@@ -645,8 +645,8 @@ DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_83_3, sbb32(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_83_4, and32(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_83_5, sub32(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_83_6, xor32(___, imm))
-static void instr32_83_7_reg(int32_t r, int32_t imm) { cmp32(read_reg32(r), imm); }
-static void instr32_83_7_mem(int32_t addr, int32_t imm) { cmp32(safe_read32s(addr), imm); }
+void instr32_83_7_reg(int32_t r, int32_t imm) { cmp32(read_reg32(r), imm); }
+void instr32_83_7_mem(int32_t addr, int32_t imm) { cmp32(safe_read32s(addr), imm); }
 
 DEFINE_MODRM_INSTR_READ8(instr_84, test8(___, read_reg8(r)))
 DEFINE_MODRM_INSTR_READ16(instr16_85, test16(___, read_reg16(r)))
@@ -656,12 +656,12 @@ DEFINE_MODRM_INSTR_READ_WRITE_8(instr_86, xchg8(___, get_reg8_index(r)))
 DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_87, xchg16(___, get_reg16_index(r)))
 DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_87, xchg32(___, r))
 
-static void instr_88_reg(int32_t r2, int32_t r) { write_reg8(r2, read_reg8(r)); }
-static void instr_88_mem(int32_t addr, int32_t r) { safe_write8(addr, read_reg8(r)); }
-static void instr16_89_reg(int32_t r2, int32_t r) { write_reg16(r2, read_reg16(r)); }
-static void instr16_89_mem(int32_t addr, int32_t r) { safe_write16(addr, read_reg16(r)); }
-static void instr32_89_reg(int32_t r2, int32_t r) { write_reg32(r2, read_reg32(r)); }
-static void instr32_89_mem(int32_t addr, int32_t r) { safe_write32(addr, read_reg32(r)); }
+void instr_88_reg(int32_t r2, int32_t r) { write_reg8(r2, read_reg8(r)); }
+void instr_88_mem(int32_t addr, int32_t r) { safe_write8(addr, read_reg8(r)); }
+void instr16_89_reg(int32_t r2, int32_t r) { write_reg16(r2, read_reg16(r)); }
+void instr16_89_mem(int32_t addr, int32_t r) { safe_write16(addr, read_reg16(r)); }
+void instr32_89_reg(int32_t r2, int32_t r) { write_reg32(r2, read_reg32(r)); }
+void instr32_89_mem(int32_t addr, int32_t r) { safe_write32(addr, read_reg32(r)); }
 
 DEFINE_MODRM_INSTR_READ8(instr_8A, write_reg8(r, ___))
 DEFINE_MODRM_INSTR_READ16(instr16_8B, write_reg16(r, ___))
@@ -674,44 +674,44 @@ void instr_8C_check_sreg(int32_t sreg) {
         trigger_ud();
     }
 }
-static void instr16_8C_reg(int32_t r, int32_t seg) { instr_8C_check_sreg(seg); write_reg16(r, sreg[seg]); }
-static void instr16_8C_mem(int32_t addr, int32_t seg) { instr_8C_check_sreg(seg); safe_write16(addr, sreg[seg]); }
-static void instr32_8C_reg(int32_t r, int32_t seg) { instr_8C_check_sreg(seg); write_reg32(r, sreg[seg]); }
-static void instr32_8C_mem(int32_t addr, int32_t seg) { instr_8C_check_sreg(seg); safe_write32(addr, sreg[seg]); }
+void instr16_8C_reg(int32_t r, int32_t seg) { instr_8C_check_sreg(seg); write_reg16(r, sreg[seg]); }
+void instr16_8C_mem(int32_t addr, int32_t seg) { instr_8C_check_sreg(seg); safe_write16(addr, sreg[seg]); }
+void instr32_8C_reg(int32_t r, int32_t seg) { instr_8C_check_sreg(seg); write_reg32(r, sreg[seg]); }
+void instr32_8C_mem(int32_t addr, int32_t seg) { instr_8C_check_sreg(seg); safe_write32(addr, sreg[seg]); }
 
-static void instr16_8D_reg(int32_t r, int32_t r2)
+void instr16_8D_reg(int32_t r, int32_t r2)
 {
     dbg_log("lea #ud");
     trigger_ud();
 }
-static void instr16_8D_mem_pre()
+void instr16_8D_mem_pre()
 {
     // override prefix, so modrm_resolve does not return the segment part
     *prefixes |= SEG_PREFIX_ZERO;
 }
-static void instr16_8D_mem(int32_t addr, int32_t mod)
+void instr16_8D_mem(int32_t addr, int32_t mod)
 {
     // lea
     reg16[mod << 1] = addr;
     *prefixes = 0;
 }
-static void instr32_8D_reg(int32_t r, int32_t r2)
+void instr32_8D_reg(int32_t r, int32_t r2)
 {
     dbg_log("lea #ud");
     trigger_ud();
 }
-static void instr32_8D_mem_pre()
+void instr32_8D_mem_pre()
 {
     // override prefix, so modrm_resolve does not return the segment part
     *prefixes |= SEG_PREFIX_ZERO;
 }
-static void instr32_8D_mem(int32_t addr, int32_t mod) {
+void instr32_8D_mem(int32_t addr, int32_t mod) {
     // lea
     reg32s[mod] = addr;
     *prefixes = 0;
 }
 
-static void instr_8E_helper(int32_t data, int32_t mod)
+void instr_8E_helper(int32_t data, int32_t mod)
 {
     if(mod == ES || mod == SS || mod == DS || mod == FS || mod == GS)
     {
@@ -731,12 +731,12 @@ static void instr_8E_helper(int32_t data, int32_t mod)
 }
 DEFINE_MODRM_INSTR_READ16(instr_8E, instr_8E_helper(___, r))
 
-static void instr16_8F_0_mem_pre()
+void instr16_8F_0_mem_pre()
 {
     for(int32_t i = 0; i < 8; i++) { translate_address_read(*instruction_pointer + i); }; // XXX
     adjust_stack_reg(2);
 }
-static void instr16_8F_0_mem(int32_t addr)
+void instr16_8F_0_mem(int32_t addr)
 {
     // pop
     adjust_stack_reg(-2);
@@ -744,11 +744,11 @@ static void instr16_8F_0_mem(int32_t addr)
     safe_write16(addr, sp);
     adjust_stack_reg(2);
 }
-static void instr16_8F_0_reg(int32_t r)
+void instr16_8F_0_reg(int32_t r)
 {
     write_reg16(r, pop16());
 }
-static void instr32_8F_0_mem_pre()
+void instr32_8F_0_mem_pre()
 {
     // prevent page faults during modrm_resolve
     for(int32_t i = 0; i < 8; i++) { translate_address_read(*instruction_pointer + i); }; // XXX
@@ -757,7 +757,7 @@ static void instr32_8F_0_mem_pre()
     // The order of calls is: instr32_8F_0_mem_pre -> modrm_resolve -> instr32_8F_0_mem
     adjust_stack_reg(4);
 }
-static void instr32_8F_0_mem(int32_t addr)
+void instr32_8F_0_mem(int32_t addr)
 {
     // Before attempting a write that might cause a page fault,
     // we must set esp to the old value. Fuck Intel.
@@ -767,39 +767,39 @@ static void instr32_8F_0_mem(int32_t addr)
     safe_write32(addr, sp);
     adjust_stack_reg(4);
 }
-static void instr32_8F_0_reg(int32_t r)
+void instr32_8F_0_reg(int32_t r)
 {
     write_reg32(r, pop32s());
 }
 
-static void instr_90() { }
-static void instr16_91() { xchg16r(CX); }
-static void instr32_91() { xchg32r(ECX); }
-static void instr16_92() { xchg16r(DX); }
-static void instr32_92() { xchg32r(EDX); }
-static void instr16_93() { xchg16r(BX); }
-static void instr32_93() { xchg32r(EBX); }
-static void instr16_94() { xchg16r(SP); }
-static void instr32_94() { xchg32r(ESP); }
-static void instr16_95() { xchg16r(BP); }
-static void instr32_95() { xchg32r(EBP); }
-static void instr16_96() { xchg16r(SI); }
-static void instr32_96() { xchg32r(ESI); }
-static void instr16_97() { xchg16r(DI); }
-static void instr32_97() { xchg32r(EDI); }
+void instr_90() { }
+void instr16_91() { xchg16r(CX); }
+void instr32_91() { xchg32r(ECX); }
+void instr16_92() { xchg16r(DX); }
+void instr32_92() { xchg32r(EDX); }
+void instr16_93() { xchg16r(BX); }
+void instr32_93() { xchg32r(EBX); }
+void instr16_94() { xchg16r(SP); }
+void instr32_94() { xchg32r(ESP); }
+void instr16_95() { xchg16r(BP); }
+void instr32_95() { xchg32r(EBP); }
+void instr16_96() { xchg16r(SI); }
+void instr32_96() { xchg32r(ESI); }
+void instr16_97() { xchg16r(DI); }
+void instr32_97() { xchg32r(EDI); }
 
-static void instr16_98() { /* cbw */ reg16[AX] = reg8s[AL]; }
-static void instr32_98() { /* cwde */ reg32s[EAX] = reg16s[AX]; }
-static void instr16_99() { /* cwd */ reg16[DX] = reg16s[AX] >> 15; }
-static void instr32_99() { /* cdq */ reg32s[EDX] = reg32s[EAX] >> 31; }
+void instr16_98() { /* cbw */ reg16[AX] = reg8s[AL]; }
+void instr32_98() { /* cwde */ reg32s[EAX] = reg16s[AX]; }
+void instr16_99() { /* cwd */ reg16[DX] = reg16s[AX] >> 15; }
+void instr32_99() { /* cdq */ reg32s[EDX] = reg32s[EAX] >> 31; }
 
-static void instr16_9A(int32_t new_ip, int32_t new_cs) {
+void instr16_9A(int32_t new_ip, int32_t new_cs) {
     // callf
     far_jump(new_ip, new_cs, true);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr32_9A(int32_t new_ip, int32_t new_cs) {
+void instr32_9A(int32_t new_ip, int32_t new_cs) {
     if(!*protected_mode || vm86_mode())
     {
         if(new_ip & 0xFFFF0000)
@@ -814,7 +814,7 @@ static void instr32_9A(int32_t new_ip, int32_t new_cs) {
     diverged();
 }
 
-static void instr_9B() {
+void instr_9B() {
     // fwait: check for pending fpu exceptions
     if((cr[0] & (CR0_MP | CR0_TS)) == (CR0_MP | CR0_TS))
     {
@@ -834,7 +834,7 @@ static void instr_9B() {
         //}
     }
 }
-static void instr16_9C() {
+void instr16_9C() {
     // pushf
     if((flags[0] & FLAG_VM) && getiopl() < 3)
     {
@@ -847,7 +847,7 @@ static void instr16_9C() {
         push16(get_eflags());
     }
 }
-static void instr32_9C() {
+void instr32_9C() {
     // pushf
     if((flags[0] & FLAG_VM) && getiopl() < 3)
     {
@@ -862,7 +862,7 @@ static void instr32_9C() {
         push32(get_eflags() & 0x00FCFFFF);
     }
 }
-static void instr16_9D() {
+void instr16_9D() {
     // popf
     if((flags[0] & FLAG_VM) && getiopl() < 3)
     {
@@ -886,7 +886,7 @@ static void instr16_9D() {
         handle_irqs();
     }
 }
-static void instr32_9D() {
+void instr32_9D() {
     // popf
     if((flags[0] & FLAG_VM) && getiopl() < 3)
     {
@@ -897,96 +897,96 @@ static void instr32_9D() {
     update_eflags(pop32s());
     handle_irqs();
 }
-static void instr_9E() {
+void instr_9E() {
     // sahf
     flags[0] = (flags[0] & ~0xFF) | reg8[AH];
     flags[0] = (flags[0] & FLAGS_MASK) | FLAGS_DEFAULT;
     flags_changed[0] &= ~0xFF;
 }
-static void instr_9F() {
+void instr_9F() {
     // lahf
     reg8[AH] = get_eflags();
 }
 
-static void instr_A0(int32_t moffs) {
+void instr_A0(int32_t moffs) {
     // mov
     int32_t data = safe_read8(get_seg_prefix_ds(moffs));
     reg8[AL] = data;
 }
-static void instr16_A1(int32_t moffs) {
+void instr16_A1(int32_t moffs) {
     // mov
     int32_t data = safe_read16(get_seg_prefix_ds(moffs));
     reg16[AX] = data;
 }
-static void instr32_A1(int32_t moffs) {
+void instr32_A1(int32_t moffs) {
     int32_t data = safe_read32s(get_seg_prefix_ds(moffs));
     reg32s[EAX] = data;
 }
-static void instr_A2(int32_t moffs) {
+void instr_A2(int32_t moffs) {
     // mov
     safe_write8(get_seg_prefix_ds(moffs), reg8[AL]);
 }
-static void instr16_A3(int32_t moffs) {
+void instr16_A3(int32_t moffs) {
     // mov
     safe_write16(get_seg_prefix_ds(moffs), reg16[AX]);
 }
-static void instr32_A3(int32_t moffs) {
+void instr32_A3(int32_t moffs) {
     safe_write32(get_seg_prefix_ds(moffs), reg32s[EAX]);
 }
 
-static void instr_A4() { movsb(); }
-static void instr16_A5() { movsw(); }
-static void instr32_A5() { movsd(); }
-static void instr_A6() { cmpsb(); }
-static void instr16_A7() { cmpsw(); }
-static void instr32_A7() { cmpsd(); }
+void instr_A4() { movsb(); }
+void instr16_A5() { movsw(); }
+void instr32_A5() { movsd(); }
+void instr_A6() { cmpsb(); }
+void instr16_A7() { cmpsw(); }
+void instr32_A7() { cmpsd(); }
 
-static void instr_A8(int32_t imm8) {
+void instr_A8(int32_t imm8) {
     test8(reg8[AL], imm8);
 }
-static void instr16_A9(int32_t imm16) {
+void instr16_A9(int32_t imm16) {
     test16(reg16[AX], imm16);
 }
-static void instr32_A9(int32_t imm32) {
+void instr32_A9(int32_t imm32) {
     test32(reg32s[EAX], imm32);
 }
 
-static void instr_AA() { stosb(); }
-static void instr16_AB() { stosw(); }
-static void instr32_AB() { stosd(); }
-static void instr_AC() { lodsb(); }
-static void instr16_AD() { lodsw(); }
-static void instr32_AD() { lodsd(); }
-static void instr_AE() { scasb(); }
-static void instr16_AF() { scasw(); }
-static void instr32_AF() { scasd(); }
+void instr_AA() { stosb(); }
+void instr16_AB() { stosw(); }
+void instr32_AB() { stosd(); }
+void instr_AC() { lodsb(); }
+void instr16_AD() { lodsw(); }
+void instr32_AD() { lodsd(); }
+void instr_AE() { scasb(); }
+void instr16_AF() { scasw(); }
+void instr32_AF() { scasd(); }
 
 
-static void instr_B0(int32_t imm8) { reg8[AL] = imm8; }
-static void instr_B1(int32_t imm8) { reg8[CL] = imm8; }
-static void instr_B2(int32_t imm8) { reg8[DL] = imm8; }
-static void instr_B3(int32_t imm8) { reg8[BL] = imm8; }
-static void instr_B4(int32_t imm8) { reg8[AH] = imm8; }
-static void instr_B5(int32_t imm8) { reg8[CH] = imm8; }
-static void instr_B6(int32_t imm8) { reg8[DH] = imm8; }
-static void instr_B7(int32_t imm8) { reg8[BH] = imm8; }
+void instr_B0(int32_t imm8) { reg8[AL] = imm8; }
+void instr_B1(int32_t imm8) { reg8[CL] = imm8; }
+void instr_B2(int32_t imm8) { reg8[DL] = imm8; }
+void instr_B3(int32_t imm8) { reg8[BL] = imm8; }
+void instr_B4(int32_t imm8) { reg8[AH] = imm8; }
+void instr_B5(int32_t imm8) { reg8[CH] = imm8; }
+void instr_B6(int32_t imm8) { reg8[DH] = imm8; }
+void instr_B7(int32_t imm8) { reg8[BH] = imm8; }
 
-static void instr16_B8(int32_t imm) { reg16[AX] = imm; }
-static void instr32_B8(int32_t imm) { reg32s[EAX] = imm; }
-static void instr16_B9(int32_t imm) { reg16[CX] = imm; }
-static void instr32_B9(int32_t imm) { reg32s[ECX] = imm; }
-static void instr16_BA(int32_t imm) { reg16[DX] = imm; }
-static void instr32_BA(int32_t imm) { reg32s[EDX] = imm; }
-static void instr16_BB(int32_t imm) { reg16[BX] = imm; }
-static void instr32_BB(int32_t imm) { reg32s[EBX] = imm; }
-static void instr16_BC(int32_t imm) { reg16[SP] = imm; }
-static void instr32_BC(int32_t imm) { reg32s[ESP] = imm; }
-static void instr16_BD(int32_t imm) { reg16[BP] = imm; }
-static void instr32_BD(int32_t imm) { reg32s[EBP] = imm; }
-static void instr16_BE(int32_t imm) { reg16[SI] = imm; }
-static void instr32_BE(int32_t imm) { reg32s[ESI] = imm; }
-static void instr16_BF(int32_t imm) { reg16[DI] = imm; }
-static void instr32_BF(int32_t imm) { reg32s[EDI] = imm; }
+void instr16_B8(int32_t imm) { reg16[AX] = imm; }
+void instr32_B8(int32_t imm) { reg32s[EAX] = imm; }
+void instr16_B9(int32_t imm) { reg16[CX] = imm; }
+void instr32_B9(int32_t imm) { reg32s[ECX] = imm; }
+void instr16_BA(int32_t imm) { reg16[DX] = imm; }
+void instr32_BA(int32_t imm) { reg32s[EDX] = imm; }
+void instr16_BB(int32_t imm) { reg16[BX] = imm; }
+void instr32_BB(int32_t imm) { reg32s[EBX] = imm; }
+void instr16_BC(int32_t imm) { reg16[SP] = imm; }
+void instr32_BC(int32_t imm) { reg32s[ESP] = imm; }
+void instr16_BD(int32_t imm) { reg16[BP] = imm; }
+void instr32_BD(int32_t imm) { reg32s[EBP] = imm; }
+void instr16_BE(int32_t imm) { reg16[SI] = imm; }
+void instr32_BE(int32_t imm) { reg32s[ESI] = imm; }
+void instr16_BF(int32_t imm) { reg16[DI] = imm; }
+void instr32_BF(int32_t imm) { reg32s[EDI] = imm; }
 
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_C0_0, rol8(___, imm & 31))
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_C0_1, ror8(___, imm & 31))
@@ -1015,7 +1015,7 @@ DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_C1_5, shr32(___, imm & 31))
 DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_C1_6, shl32(___, imm & 31))
 DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_C1_7, sar32(___, imm & 31))
 
-static void instr16_C2(int32_t imm16) {
+void instr16_C2(int32_t imm16) {
     // retn
     int32_t cs = get_seg(CS);
 
@@ -1024,7 +1024,7 @@ static void instr16_C2(int32_t imm16) {
     adjust_stack_reg(imm16);
     diverged();
 }
-static void instr32_C2(int32_t imm16) {
+void instr32_C2(int32_t imm16) {
     // retn
     int32_t cs = get_seg(CS);
     int32_t ip = pop32s();
@@ -1034,13 +1034,13 @@ static void instr32_C2(int32_t imm16) {
     adjust_stack_reg(imm16);
     diverged();
 }
-static void instr16_C3() {
+void instr16_C3() {
     // retn
     int32_t cs = get_seg(CS);
     instruction_pointer[0] = cs + pop16();
     diverged();
 }
-static void instr32_C3() {
+void instr32_C3() {
     // retn
     int32_t cs = get_seg(CS);
     int32_t ip = pop32s();
@@ -1049,46 +1049,46 @@ static void instr32_C3() {
     diverged();
 }
 
-static void instr16_C4_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
-static void instr16_C4_mem(int32_t addr, int32_t r) {
+void instr16_C4_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
+void instr16_C4_mem(int32_t addr, int32_t r) {
     lss16(addr, get_reg16_index(r), ES);
 }
-static void instr32_C4_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
-static void instr32_C4_mem(int32_t addr, int32_t r) {
+void instr32_C4_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
+void instr32_C4_mem(int32_t addr, int32_t r) {
     lss32(addr, r, ES);
 }
-static void instr16_C5_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
-static void instr16_C5_mem(int32_t addr, int32_t r) {
+void instr16_C5_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
+void instr16_C5_mem(int32_t addr, int32_t r) {
     lss16(addr, get_reg16_index(r), DS);
 }
-static void instr32_C5_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
-static void instr32_C5_mem(int32_t addr, int32_t r) {
+void instr32_C5_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
+void instr32_C5_mem(int32_t addr, int32_t r) {
     lss32(addr, r, DS);
 }
 
-static void instr_C6_0_reg(int32_t r, int32_t imm) { write_reg8(r, imm); }
-static void instr_C6_0_mem(int32_t addr, int32_t imm) { safe_write8(addr, imm); }
-static void instr16_C7_0_reg(int32_t r, int32_t imm) { write_reg16(r, imm); }
-static void instr16_C7_0_mem(int32_t addr, int32_t imm) { safe_write16(addr, imm); }
-static void instr32_C7_0_reg(int32_t r, int32_t imm) { write_reg32(r, imm); }
-static void instr32_C7_0_mem(int32_t addr, int32_t imm) { safe_write32(addr, imm); }
+void instr_C6_0_reg(int32_t r, int32_t imm) { write_reg8(r, imm); }
+void instr_C6_0_mem(int32_t addr, int32_t imm) { safe_write8(addr, imm); }
+void instr16_C7_0_reg(int32_t r, int32_t imm) { write_reg16(r, imm); }
+void instr16_C7_0_mem(int32_t addr, int32_t imm) { safe_write16(addr, imm); }
+void instr32_C7_0_reg(int32_t r, int32_t imm) { write_reg32(r, imm); }
+void instr32_C7_0_mem(int32_t addr, int32_t imm) { safe_write32(addr, imm); }
 
-static void instr16_C8(int32_t size, int32_t nesting) { enter16(size, nesting); }
-static void instr32_C8(int32_t size, int32_t nesting) { enter32(size, nesting); }
-static void instr16_C9() {
+void instr16_C8(int32_t size, int32_t nesting) { enter16(size, nesting); }
+void instr32_C8(int32_t size, int32_t nesting) { enter32(size, nesting); }
+void instr16_C9() {
     // leave
     int32_t old_vbp = *stack_size_32 ? reg32s[EBP] : reg16[BP];
     int32_t new_bp = safe_read16(get_seg(SS) + old_vbp);
     set_stack_reg(old_vbp + 2);
     reg16[BP] = new_bp;
 }
-static void instr32_C9() {
+void instr32_C9() {
     int32_t old_vbp = *stack_size_32 ? reg32s[EBP] : reg16[BP];
     int32_t new_ebp = safe_read32s(get_seg(SS) + old_vbp);
     set_stack_reg(old_vbp + 4);
     reg32s[EBP] = new_ebp;
 }
-static void instr16_CA(int32_t imm16) {
+void instr16_CA(int32_t imm16) {
     // retf
     int32_t ip = safe_read16(get_stack_pointer(0));
     int32_t cs = safe_read16(get_stack_pointer(2));
@@ -1096,7 +1096,7 @@ static void instr16_CA(int32_t imm16) {
     far_return(ip, cs, imm16);
     diverged();
 }
-static void instr32_CA(int32_t imm16) {
+void instr32_CA(int32_t imm16) {
     // retf
     int32_t ip = safe_read32s(get_stack_pointer(0));
     int32_t cs = safe_read32s(get_stack_pointer(4)) & 0xFFFF;
@@ -1105,7 +1105,7 @@ static void instr32_CA(int32_t imm16) {
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr16_CB() {
+void instr16_CB() {
     // retf
     int32_t ip = safe_read16(get_stack_pointer(0));
     int32_t cs = safe_read16(get_stack_pointer(2));
@@ -1114,7 +1114,7 @@ static void instr16_CB() {
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr32_CB() {
+void instr32_CB() {
     // retf
     int32_t ip = safe_read32s(get_stack_pointer(0));
     int32_t cs = safe_read32s(get_stack_pointer(4)) & 0xFFFF;
@@ -1124,19 +1124,19 @@ static void instr32_CB() {
     diverged();
 }
 
-static void instr_CC() {
+void instr_CC() {
     // INT3
     // TODO: inhibit iopl checks
     dbg_log("INT3");
     call_interrupt_vector(3, true, false, 0);
     diverged();
 }
-static void instr_CD(int32_t imm8) {
+void instr_CD(int32_t imm8) {
     // INT
     call_interrupt_vector(imm8, true, false, 0);
     diverged();
 }
-static void instr_CE() {
+void instr_CE() {
     // INTO
     dbg_log("INTO");
     if(getof())
@@ -1147,12 +1147,12 @@ static void instr_CE() {
     diverged();
 }
 
-static void instr16_CF() {
+void instr16_CF() {
     // iret
     iret16();
     diverged();
 }
-static void instr32_CF() {
+void instr32_CF() {
     iret32();
     diverged();
 }
@@ -1211,18 +1211,18 @@ DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D3_5, shr32(___, reg8[CL] & 31))
 DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D3_6, shl32(___, reg8[CL] & 31))
 DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_D3_7, sar32(___, reg8[CL] & 31))
 
-static void instr_D4(int32_t arg) {
+void instr_D4(int32_t arg) {
     bcd_aam(arg);
 }
-static void instr_D5(int32_t arg) {
+void instr_D5(int32_t arg) {
     bcd_aad(arg);
 }
 
-static void instr_D6() {
+void instr_D6() {
     // salc
     reg8[AL] = -getcf();
 }
-static void instr_D7() {
+void instr_D7() {
     // xlat
     if(is_asize_32())
     {
@@ -1234,68 +1234,68 @@ static void instr_D7() {
     }
 }
 
-static void instr_D8_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_D8_mem(r, addr); }
-static void instr_D8_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_D8_reg(0xC0 | r2 | r << 3); }
-static void instr_D9_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_D9_mem(r, addr); }
-static void instr_D9_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_D9_reg(0xC0 | r2 | r << 3); }
-static void instr_DA_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DA_mem(r, addr); }
-static void instr_DA_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DA_reg(0xC0 | r2 | r << 3); }
-static void instr_DB_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DB_mem(r, addr); }
-static void instr_DB_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DB_reg(0xC0 | r2 | r << 3); }
-static void instr_DC_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DC_mem(r, addr); }
-static void instr_DC_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DC_reg(0xC0 | r2 | r << 3); }
-static void instr_DD_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DD_mem(r, addr); }
-static void instr_DD_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DD_reg(0xC0 | r2 | r << 3); }
-static void instr_DE_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DE_mem(r, addr); }
-static void instr_DE_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DE_reg(0xC0 | r2 | r << 3); }
-static void instr_DF_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DF_mem(r, addr); }
-static void instr_DF_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DF_reg(0xC0 | r2 | r << 3); }
+void instr_D8_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_D8_mem(r, addr); }
+void instr_D8_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_D8_reg(0xC0 | r2 | r << 3); }
+void instr_D9_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_D9_mem(r, addr); }
+void instr_D9_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_D9_reg(0xC0 | r2 | r << 3); }
+void instr_DA_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DA_mem(r, addr); }
+void instr_DA_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DA_reg(0xC0 | r2 | r << 3); }
+void instr_DB_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DB_mem(r, addr); }
+void instr_DB_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DB_reg(0xC0 | r2 | r << 3); }
+void instr_DC_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DC_mem(r, addr); }
+void instr_DC_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DC_reg(0xC0 | r2 | r << 3); }
+void instr_DD_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DD_mem(r, addr); }
+void instr_DD_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DD_reg(0xC0 | r2 | r << 3); }
+void instr_DE_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DE_mem(r, addr); }
+void instr_DE_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DE_reg(0xC0 | r2 | r << 3); }
+void instr_DF_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DF_mem(r, addr); }
+void instr_DF_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DF_reg(0xC0 | r2 | r << 3); }
 
 
-static void instr_E0(int32_t off) { loopne(off); }
-static void instr_E1(int32_t off) { loope(off); }
-static void instr_E2(int32_t off) { loop(off); }
-static void instr_E3(int32_t off) { jcxz(off); }
+void instr_E0(int32_t off) { loopne(off); }
+void instr_E1(int32_t off) { loope(off); }
+void instr_E2(int32_t off) { loop(off); }
+void instr_E3(int32_t off) { jcxz(off); }
 
-static void instr_E4(int32_t port) {
+void instr_E4(int32_t port) {
     test_privileges_for_io(port, 1);
     reg8[AL] = io_port_read8(port);
     diverged();
 }
-static void instr16_E5(int32_t port) {
+void instr16_E5(int32_t port) {
     test_privileges_for_io(port, 2);
     reg16[AX] = io_port_read16(port);
     diverged();
 }
-static void instr32_E5(int32_t port) {
+void instr32_E5(int32_t port) {
     test_privileges_for_io(port, 4);
     reg32s[EAX] = io_port_read32(port);
     diverged();
 }
-static void instr_E6(int32_t port) {
+void instr_E6(int32_t port) {
     test_privileges_for_io(port, 1);
     io_port_write8(port, reg8[AL]);
     diverged();
 }
-static void instr16_E7(int32_t port) {
+void instr16_E7(int32_t port) {
     test_privileges_for_io(port, 2);
     io_port_write16(port, reg16[AX]);
     diverged();
 }
-static void instr32_E7(int32_t port) {
+void instr32_E7(int32_t port) {
     test_privileges_for_io(port, 4);
     io_port_write32(port, reg32s[EAX]);
     diverged();
 }
 
-static void instr16_E8(int32_t imm16) {
+void instr16_E8(int32_t imm16) {
     // call
     push16(get_real_eip());
 
     jmp_rel16(imm16);
     diverged();
 }
-static void instr32_E8(int32_t imm32s) {
+void instr32_E8(int32_t imm32s) {
     // call
     push32(get_real_eip());
 
@@ -1303,74 +1303,74 @@ static void instr32_E8(int32_t imm32s) {
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr16_E9(int32_t imm16) {
+void instr16_E9(int32_t imm16) {
     // jmp
     jmp_rel16(imm16);
     diverged();
 }
-static void instr32_E9(int32_t imm32s) {
+void instr32_E9(int32_t imm32s) {
     // jmp
     instruction_pointer[0] = instruction_pointer[0] + imm32s;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr16_EA(int32_t new_ip, int32_t cs) {
+void instr16_EA(int32_t new_ip, int32_t cs) {
     // jmpf
     far_jump(new_ip, cs, false);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr32_EA(int32_t new_ip, int32_t cs) {
+void instr32_EA(int32_t new_ip, int32_t cs) {
     // jmpf
     far_jump(new_ip, cs, false);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr_EB(int32_t imm8) {
+void instr_EB(int32_t imm8) {
     // jmp near
     instruction_pointer[0] = instruction_pointer[0] + imm8;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
 
-static void instr_EC() {
+void instr_EC() {
     int32_t port = reg16[DX];
     test_privileges_for_io(port, 1);
     reg8[AL] = io_port_read8(port);
     diverged();
 }
-static void instr16_ED() {
+void instr16_ED() {
     int32_t port = reg16[DX];
     test_privileges_for_io(port, 2);
     reg16[AX] = io_port_read16(port);
     diverged();
 }
-static void instr32_ED() {
+void instr32_ED() {
     int32_t port = reg16[DX];
     test_privileges_for_io(port, 4);
     reg32s[EAX] = io_port_read32(port);
     diverged();
 }
-static void instr_EE() {
+void instr_EE() {
     int32_t port = reg16[DX];
     test_privileges_for_io(port, 1);
     io_port_write8(port, reg8[AL]);
     diverged();
 }
-static void instr16_EF() {
+void instr16_EF() {
     int32_t port = reg16[DX];
     test_privileges_for_io(port, 2);
     io_port_write16(port, reg16[AX]);
     diverged();
 }
-static void instr32_EF() {
+void instr32_EF() {
     int32_t port = reg16[DX];
     test_privileges_for_io(port, 4);
     io_port_write32(port, reg32s[EAX]);
     diverged();
 }
 
-static void instr_F0() {
+void instr_F0() {
     // lock
     //dbg_log("lock");
 
@@ -1379,21 +1379,21 @@ static void instr_F0() {
     // some instructions that don't write to memory
     run_prefix_instruction();
 }
-static void instr_F1() {
+void instr_F1() {
     // INT1
     // https://code.google.com/p/corkami/wiki/x86oddities#IceBP
     //throw debug.unimpl("int1 instruction");
     assert(false);
 }
 
-static void instr_F2() {
+void instr_F2() {
     // repnz
     dbg_assert((*prefixes & PREFIX_MASK_REP) == 0);
     *prefixes |= PREFIX_REPNZ;
     run_prefix_instruction();
     *prefixes = 0;
 }
-static void instr_F3() {
+void instr_F3() {
     // repz
     dbg_assert((*prefixes & PREFIX_MASK_REP) == 0);
     *prefixes |= PREFIX_REPZ;
@@ -1401,11 +1401,11 @@ static void instr_F3() {
     *prefixes = 0;
 }
 
-static void instr_F4() {
+void instr_F4() {
     hlt_op();
 }
 
-static void instr_F5() {
+void instr_F5() {
     // cmc
     flags[0] = (flags[0] | 1) ^ getcf();
     flags_changed[0] &= ~1;
@@ -1438,18 +1438,18 @@ DEFINE_MODRM_INSTR1_READ32(instr32_F7_5, imul32(___))
 DEFINE_MODRM_INSTR1_READ32(instr32_F7_6, div32(___))
 DEFINE_MODRM_INSTR1_READ32(instr32_F7_7, idiv32(___))
 
-static void instr_F8() {
+void instr_F8() {
     // clc
     flags[0] &= ~FLAG_CARRY;
     flags_changed[0] &= ~1;
 }
-static void instr_F9() {
+void instr_F9() {
     // stc
     flags[0] |= FLAG_CARRY;
     flags_changed[0] &= ~1;
 }
 
-static void instr_FA() {
+void instr_FA() {
     // cli
     //dbg_log("interrupts off");
 
@@ -1473,7 +1473,7 @@ static void instr_FA() {
         }
     }
 }
-static void instr_FB() {
+void instr_FB() {
     // sti
     //dbg_log("interrupts on");
 
@@ -1509,11 +1509,11 @@ static void instr_FB() {
 
 }
 
-static void instr_FC() {
+void instr_FC() {
     // cld
     flags[0] &= ~FLAG_DIRECTION;
 }
-static void instr_FD() {
+void instr_FD() {
     // std
     flags[0] |= FLAG_DIRECTION;
 }
@@ -1524,7 +1524,7 @@ DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_FE_1, dec8(___))
 
 DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_FF_0, inc16(___))
 DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_FF_1, dec16(___))
-static void instr16_FF_2_helper(int32_t data)
+void instr16_FF_2_helper(int32_t data)
 {
     // call near
     int32_t cs = get_seg(CS);
@@ -1534,12 +1534,12 @@ static void instr16_FF_2_helper(int32_t data)
     diverged();
 }
 DEFINE_MODRM_INSTR1_READ16(instr16_FF_2, instr16_FF_2_helper(___))
-static void instr16_FF_3_reg(int32_t r)
+void instr16_FF_3_reg(int32_t r)
 {
     dbg_log("callf #ud");
     trigger_ud();
 }
-static void instr16_FF_3_mem(int32_t addr)
+void instr16_FF_3_mem(int32_t addr)
 {
     // callf
     int32_t new_ip = safe_read16(addr);
@@ -1549,7 +1549,7 @@ static void instr16_FF_3_mem(int32_t addr)
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
-static void instr16_FF_4_helper(int32_t data)
+void instr16_FF_4_helper(int32_t data)
 {
     // jmp near
     instruction_pointer[0] = get_seg(CS) + data;
@@ -1557,12 +1557,12 @@ static void instr16_FF_4_helper(int32_t data)
     diverged();
 }
 DEFINE_MODRM_INSTR1_READ16(instr16_FF_4, instr16_FF_4_helper(___))
-static void instr16_FF_5_reg(int32_t r)
+void instr16_FF_5_reg(int32_t r)
 {
     dbg_log("jmpf #ud");
     trigger_ud();
 }
-static void instr16_FF_5_mem(int32_t addr)
+void instr16_FF_5_mem(int32_t addr)
 {
     // jmpf
     int32_t new_ip = safe_read16(addr);
@@ -1576,7 +1576,7 @@ DEFINE_MODRM_INSTR1_READ16(instr16_FF_6, push16(___))
 
 DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_FF_0, inc32(___))
 DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_FF_1, dec32(___))
-static void instr32_FF_2_helper(int32_t data)
+void instr32_FF_2_helper(int32_t data)
 {
     // call near
     int32_t cs = get_seg(CS);
@@ -1586,12 +1586,12 @@ static void instr32_FF_2_helper(int32_t data)
     diverged();
 }
 DEFINE_MODRM_INSTR1_READ32(instr32_FF_2, instr32_FF_2_helper(___))
-static void instr32_FF_3_reg(int32_t r)
+void instr32_FF_3_reg(int32_t r)
 {
     dbg_log("callf #ud");
     trigger_ud();
 }
-static void instr32_FF_3_mem(int32_t addr)
+void instr32_FF_3_mem(int32_t addr)
 {
     // callf
     int32_t new_ip = safe_read32s(addr);
@@ -1610,7 +1610,7 @@ static void instr32_FF_3_mem(int32_t addr)
     dbg_assert(is_asize_32() || new_ip < 0x10000);
     diverged();
 }
-static void instr32_FF_4_helper(int32_t data)
+void instr32_FF_4_helper(int32_t data)
 {
     // jmp near
     dbg_assert(is_asize_32() || data < 0x10000);
@@ -1618,12 +1618,12 @@ static void instr32_FF_4_helper(int32_t data)
     diverged();
 }
 DEFINE_MODRM_INSTR1_READ32(instr32_FF_4, instr32_FF_4_helper(___))
-static void instr32_FF_5_reg(int32_t r)
+void instr32_FF_5_reg(int32_t r)
 {
     dbg_log("jmpf #ud");
     trigger_ud();
 }
-static void instr32_FF_5_mem(int32_t addr)
+void instr32_FF_5_mem(int32_t addr)
 {
     // jmpf
     int32_t new_ip = safe_read32s(addr);
@@ -1646,9 +1646,8 @@ DEFINE_MODRM_INSTR1_READ32(instr32_FF_6, push32(___))
 
 
 
-static void run_instruction(int32_t opcode)
+void run_instruction(int32_t opcode)
 {
-    //dbg_log(opcode);
     // XXX: This table is generated. Don't modify
 switch(opcode)
 {
