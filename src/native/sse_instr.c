@@ -227,14 +227,9 @@ void psrlq_r64(int32_t r, uint32_t shift)
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
 
-    if (shift <= 31)
+    if(shift <= 63)
     {
-        result.u32[0] = destination.u32[0] >> shift | destination.u32[1] << (32 - shift);
-        result.u32[1] = destination.u32[1] >> shift;
-    }
-    else if (shift <= 63)
-    {
-        result.u32[0] = destination.u32[1] >> shift;
+        result.u64[0] = destination.u64[0] >> shift;
     }
 
     write_mmx_reg64(r, result);
@@ -253,15 +248,9 @@ void psllq_r64(int32_t r, uint32_t shift)
 
     union reg64 result = { { 0 } };
 
-    if(shift <= 31)
+    if(shift <= 63)
     {
-        result.u32[0] = destination.u32[0] << shift;
-        result.u32[1] = destination.u32[1] << shift | (destination.u32[0] >> (32 - shift));
-    }
-    else if(shift <= 63)
-    {
-        result.u32[0] = 0;
-        result.u32[1] = destination.u32[0] << (shift & 0x1F);
+        result.u64[0] = destination.u64[0] << shift;
     }
 
     write_mmx_reg64(r, result);
@@ -400,18 +389,10 @@ void psrlq_r128(int32_t r, uint32_t shift)
     union reg128 destination = read_xmm128s(r);
     union reg128 result = { { 0 } };
 
-    if (shift <= 31)
+    if(shift <= 63)
     {
-        result.u32[0] = destination.u32[0] >> shift | destination.u32[1] << (32 - shift);
-        result.u32[1] = destination.u32[1] >> shift;
-
-        result.u32[2] = destination.u32[2] >> shift | destination.u32[3] << (32 - shift);
-        result.u32[3] = destination.u32[3] >> shift;
-    }
-    else if (shift <= 63)
-    {
-        result.u32[0] = destination.u32[1] >> shift;
-        result.u32[2] = destination.u32[3] >> shift;
+        result.u64[0] = destination.u64[0] >> shift;
+        result.u64[1] = destination.u64[1] >> shift;
     }
 
     write_xmm_reg128(r, result);
@@ -430,19 +411,10 @@ void psllq_r128(int32_t r, uint32_t shift)
 
     union reg128 result = { { 0 } };
 
-    if(shift <= 31)
+    if(shift <= 63)
     {
-        result.u32[0] = destination.u32[0] << shift;
-        result.u32[1] = destination.u32[1] << shift | (destination.u32[0] >> (32 - shift));
-        result.u32[2] = destination.u32[2] << shift;
-        result.u32[3] = destination.u32[3] << shift | (destination.u32[2] >> (32 - shift));
-    }
-    else if(shift <= 63)
-    {
-        result.u32[0] = 0;
-        result.u32[1] = destination.u32[0] << (shift & 0x1F);
-        result.u32[2] = 0;
-        result.u32[3] = destination.u32[2] << (shift & 0x1F);
+        result.u64[0] = destination.u64[0] << shift;
+        result.u64[1] = destination.u64[1] << shift;
     }
 
     write_xmm_reg128(r, result);
