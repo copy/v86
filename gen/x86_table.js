@@ -440,6 +440,8 @@ const encodings = [
     { opcode: 0x660F50, only_reg: 1, e: 1 },
     { opcode: 0x0F54, e: 1 },
     { opcode: 0x660F54, e: 1 },
+    { opcode: 0x0F56, e: 1 },
+    { opcode: 0x660F56, e: 1 },
     { opcode: 0x0F57, e: 1 },
     { opcode: 0x660F57, e: 1 },
 

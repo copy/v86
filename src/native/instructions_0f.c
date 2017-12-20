@@ -1134,7 +1134,20 @@ static void instr_660F54(union reg128 source, int32_t r) {
 DEFINE_SSE_SPLIT(instr_660F54, safe_read128s, read_xmm128s)
 
 static void instr_0F55() { unimplemented_sse(); }
-static void instr_0F56() { unimplemented_sse(); }
+
+static void instr_0F56(union reg128 source, int32_t r) {
+    // orps xmm, xmm/mem128
+    // XXX: Aligned access or #gp
+    por_r128(source, r);
+}
+DEFINE_SSE_SPLIT(instr_0F56, safe_read128s, read_xmm128s)
+
+static void instr_660F56(union reg128 source, int32_t r) {
+    // orpd xmm, xmm/mem128
+    // XXX: Aligned access or #gp
+    por_r128(source, r);
+}
+DEFINE_SSE_SPLIT(instr_660F56, safe_read128s, read_xmm128s)
 
 static void instr_0F57(union reg128 source, int32_t r) {
     // xorps xmm, xmm/mem128
@@ -4916,7 +4929,30 @@ switch(opcode)
     break;
     case 0x56:
     {
-        instr_0F56();
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F56_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F56_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F56_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F56_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x57:
@@ -9466,7 +9502,30 @@ switch(opcode)
     break;
     case 0x56:
     {
-        instr_0F56();
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_660F56_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_660F56_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                instr_0F56_mem(modrm_resolve(modrm_byte), modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                instr_0F56_reg(modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x57:
