@@ -174,6 +174,7 @@ build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/n
 	ls -lh build/v86-debug.wasm
 
 build/codegen-test.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h
+	mkdir -p build
 	emcc src/native/codegen/api.c \
 	    -Isrc/native/ -Isrc/native/profiler/ \
 	    -Wall -Wpedantic -Wextra \
@@ -239,3 +240,6 @@ kvm-unit-test: build/libv86.js build/v86.wasm
 	(cd tests/kvm-unit-tests && ./configure)
 	$(MAKE) -C tests/kvm-unit-tests
 	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
+
+codegen-test: build/codegen-test.wasm
+	./tests/codegen/codegen.js

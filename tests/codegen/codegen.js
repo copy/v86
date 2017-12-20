@@ -1,14 +1,15 @@
+#!/usr/bin/env node
 "use strict";
 
 const fs = require("fs");
 
 global.v86util = {};
-require("../src/browser/lib.js");
+require("../../src/browser/lib.js");
 
-const Codegen = require("../src/codegen.js");
+const Codegen = require("../../src/codegen.js");
 console.assert(typeof Codegen === "function");
 
-const codegen_module_buffer = fs.readFileSync(__dirname + "/../build/codegen-test.wasm");
+const codegen_module_buffer = fs.readFileSync(__dirname + "/../../build/codegen-test.wasm");
 
 const vals = {
     imm8: 1,
@@ -38,7 +39,12 @@ v86util.load_wasm("build/codegen-test.wasm", {
         g$_previous_ip() { return vals.previous_ip; },
     }
 }, function(wm) {
-    return test(new Codegen(wm));
+    try {
+        test(new Codegen(wm));
+    } catch(er) {
+        console.error(er);
+        process.exit(1);
+    }
 });
 
 function test(gen)
@@ -66,7 +72,7 @@ function test(gen)
     gen.finish();
 
     buf = gen.get_module_code();
-    fs.writeFileSync(__dirname + "/../build/codegen-test-output.wasm", buf);
+    fs.writeFileSync(__dirname + "/../../build/codegen-test-output.wasm", buf);
 
     const module = new WebAssembly.Module(buf);
 
@@ -100,14 +106,6 @@ function test(gen)
     const view = new Uint32Array(imports.e.m.buffer);
     console.assert(view[vals.instruction_pointer] === 10);
     console.assert(view[vals.previous_ip] === 10);
-    if (JSON.stringify(store) === JSON.stringify(expected))
-    {
-        console.log("Test passed");
-    }
-    else
-    {
-        console.error("Test failed");
-        console.log("Expected:", expected);
-        console.log("Got:", store);
-    }
+    console.log(store);
+    console.assert(JSON.stringify(store) === JSON.stringify(expected));
 }
