@@ -17,11 +17,11 @@ function CPU(bus, wm, codegen)
     this.codegen = codegen;
     this.wasm_patch(wm);
 
-    this.memory_size = new Uint32Array(wm.mem.buffer, 812, 1);
+    this.memory_size = new Uint32Array(wm.memory.buffer, 812, 1);
 
     // Note: Currently unused (degrades performance and not required by any OS
     //       that we support)
-    this.a20_enabled = new Int32Array(wm.mem.buffer, 552, 1);
+    this.a20_enabled = new Int32Array(wm.memory.buffer, 552, 1);
     this.a20_enabled[0] = +true;
 
     this.mem_page_infos = undefined;
@@ -30,16 +30,16 @@ function CPU(bus, wm, codegen)
     this.mem16 = new Uint16Array(this.mem8.buffer);
     this.mem32s = new Int32Array(this.mem8.buffer);
 
-    this.segment_is_null = new Uint8Array(wm.mem.buffer, 724, 8);
-    this.segment_offsets = new Int32Array(wm.mem.buffer, 736, 8);
-    this.segment_limits = new Uint32Array(wm.mem.buffer, 768, 8);
+    this.segment_is_null = new Uint8Array(wm.memory.buffer, 724, 8);
+    this.segment_offsets = new Int32Array(wm.memory.buffer, 736, 8);
+    this.segment_limits = new Uint32Array(wm.memory.buffer, 768, 8);
     //this.segment_infos = [];
 
     /**
      * Translation Lookaside Buffer
      * @const
      */
-    this.tlb_data = new Int32Array(wm.mem.buffer, 4096 + 0x100000*2, 0x100000);
+    this.tlb_data = new Int32Array(wm.memory.buffer, 4096 + 0x100000*2, 0x100000);
 
     /**
      * Information about which pages are cached in the tlb.
@@ -50,27 +50,27 @@ function CPU(bus, wm, codegen)
      *   3 user, write
      * @const
      */
-    this.tlb_info = new Uint8Array(wm.mem.buffer, 4096, 0x100000);
+    this.tlb_info = new Uint8Array(wm.memory.buffer, 4096, 0x100000);
 
     /**
      * Same as tlb_info, except it only contains global pages
      * @const
      */
-    this.tlb_info_global = new Uint8Array(wm.mem.buffer, 4096 + 0x100000, 0x100000);
+    this.tlb_info_global = new Uint8Array(wm.memory.buffer, 4096 + 0x100000, 0x100000);
 
     /**
      * Wheter or not in protected mode
      */
-    this.protected_mode = new Int32Array(wm.mem.buffer, 800, 1);
+    this.protected_mode = new Int32Array(wm.memory.buffer, 800, 1);
 
-    this.idtr_size = new Int32Array(wm.mem.buffer, 564, 1);
-    this.idtr_offset = new Int32Array(wm.mem.buffer, 568, 1);
+    this.idtr_size = new Int32Array(wm.memory.buffer, 564, 1);
+    this.idtr_offset = new Int32Array(wm.memory.buffer, 568, 1);
 
     /**
      * global descriptor table register
      */
-    this.gdtr_size = new Int32Array(wm.mem.buffer, 572, 1);
-    this.gdtr_offset = new Int32Array(wm.mem.buffer, 576, 1);
+    this.gdtr_size = new Int32Array(wm.memory.buffer, 572, 1);
+    this.gdtr_offset = new Int32Array(wm.memory.buffer, 576, 1);
 
     this.tss_size_32 = false;
 
@@ -79,7 +79,7 @@ function CPU(bus, wm, codegen)
      */
     this.page_fault = false;
 
-    this.cr = new Int32Array(wm.mem.buffer, 580, 8);
+    this.cr = new Int32Array(wm.memory.buffer, 580, 8);
 
     /** @type {number} */
     this.cr[0] = 0;
@@ -91,15 +91,15 @@ function CPU(bus, wm, codegen)
     this.cr[4] = 0;
 
     // current privilege level
-    this.cpl = new Int32Array(wm.mem.buffer, 612, 1);
+    this.cpl = new Int32Array(wm.memory.buffer, 612, 1);
 
     // if false, pages are 4 KiB, else 4 Mib
-    this.page_size_extensions = new Int32Array(wm.mem.buffer, 616, 1);
+    this.page_size_extensions = new Int32Array(wm.memory.buffer, 616, 1);
 
     // current operand/address size
-    this.is_32 = new Int32Array(wm.mem.buffer, 804, 1);
+    this.is_32 = new Int32Array(wm.memory.buffer, 804, 1);
 
-    this.stack_size_32 = new Int32Array(wm.mem.buffer, 808, 1);
+    this.stack_size_32 = new Int32Array(wm.memory.buffer, 808, 1);
 
     /**
      * Was the last instruction a hlt?
@@ -107,52 +107,52 @@ function CPU(bus, wm, codegen)
      */
     this.in_hlt = false;
 
-    this.last_virt_eip = new Int32Array(wm.mem.buffer, 620, 1);
+    this.last_virt_eip = new Int32Array(wm.memory.buffer, 620, 1);
 
-    this.eip_phys = new Int32Array(wm.mem.buffer, 624, 1);
+    this.eip_phys = new Int32Array(wm.memory.buffer, 624, 1);
 
-    this.last_virt_esp = new Int32Array(wm.mem.buffer, 628, 1);
+    this.last_virt_esp = new Int32Array(wm.memory.buffer, 628, 1);
 
-    this.esp_phys = new Int32Array(wm.mem.buffer, 632, 1);
+    this.esp_phys = new Int32Array(wm.memory.buffer, 632, 1);
 
 
-    this.sysenter_cs = new Int32Array(wm.mem.buffer, 636, 1);
+    this.sysenter_cs = new Int32Array(wm.memory.buffer, 636, 1);
 
-    this.sysenter_esp = new Int32Array(wm.mem.buffer, 640, 1);
+    this.sysenter_esp = new Int32Array(wm.memory.buffer, 640, 1);
 
-    this.sysenter_eip = new Int32Array(wm.mem.buffer, 644, 1);
+    this.sysenter_eip = new Int32Array(wm.memory.buffer, 644, 1);
 
-    this.prefixes = new Int32Array(wm.mem.buffer, 648, 1);
+    this.prefixes = new Int32Array(wm.memory.buffer, 648, 1);
 
-    this.flags = new Int32Array(wm.mem.buffer, 536, 1);
+    this.flags = new Int32Array(wm.memory.buffer, 536, 1);
 
     /**
      * bitmap of flags which are not updated in the flags variable
      * changed by arithmetic instructions, so only relevant to arithmetic flags
      */
-    this.flags_changed = new Int32Array(wm.mem.buffer, 532, 1);
+    this.flags_changed = new Int32Array(wm.memory.buffer, 532, 1);
 
     /**
      * the last 2 operators and the result and size of the last arithmetic operation
      */
-    this.last_op1 = new Int32Array(wm.mem.buffer, 512, 1);
-    this.last_op2 = new Int32Array(wm.mem.buffer, 516, 1);
-    this.last_op_size = new Int32Array(wm.mem.buffer, 520, 1);
+    this.last_op1 = new Int32Array(wm.memory.buffer, 512, 1);
+    this.last_op2 = new Int32Array(wm.memory.buffer, 516, 1);
+    this.last_op_size = new Int32Array(wm.memory.buffer, 520, 1);
 
-    this.last_add_result = new Int32Array(wm.mem.buffer, 524, 1);
+    this.last_add_result = new Int32Array(wm.memory.buffer, 524, 1);
 
-    this.last_result = new Int32Array(wm.mem.buffer, 528, 1);
+    this.last_result = new Int32Array(wm.memory.buffer, 528, 1);
 
-    this.mul32_result = new Int32Array(wm.mem.buffer, 544, 2);
+    this.mul32_result = new Int32Array(wm.memory.buffer, 544, 2);
     this.div32_result = new Float64Array(2);
 
-    this.tsc_offset = new Int32Array(wm.mem.buffer, 652, 1);
+    this.tsc_offset = new Int32Array(wm.memory.buffer, 652, 1);
 
-    this.modrm_byte = new Int32Array(wm.mem.buffer, 540, 1);
+    this.modrm_byte = new Int32Array(wm.memory.buffer, 540, 1);
 
-    this.phys_addr = new Int32Array(wm.mem.buffer, 656, 1);
+    this.phys_addr = new Int32Array(wm.memory.buffer, 656, 1);
 
-    this.phys_addr_high = new Int32Array(wm.mem.buffer, 660, 1);
+    this.phys_addr_high = new Int32Array(wm.memory.buffer, 660, 1);
 
     /** @type {!Object} */
     this.devices = {};
@@ -160,11 +160,11 @@ function CPU(bus, wm, codegen)
     this.table = [];
 
     // paging enabled
-    this.paging = new Uint8Array(wm.mem.buffer, 820, 1);
+    this.paging = new Uint8Array(wm.memory.buffer, 820, 1);
 
-    this.instruction_pointer = new Int32Array(wm.mem.buffer, 556, 1);
+    this.instruction_pointer = new Int32Array(wm.memory.buffer, 556, 1);
 
-    this.previous_ip = new Int32Array(wm.mem.buffer, 560, 1);
+    this.previous_ip = new Int32Array(wm.memory.buffer, 560, 1);
 
     this.apic_enabled = true;
 
@@ -183,10 +183,10 @@ function CPU(bus, wm, codegen)
         vga: null,
     };
 
-    this.timestamp_counter = new Uint32Array(wm.mem.buffer, 664, 1);
+    this.timestamp_counter = new Uint32Array(wm.memory.buffer, 664, 1);
 
     // registers
-    this.reg32s = new Int32Array(wm.mem.buffer, 4, 8);
+    this.reg32s = new Int32Array(wm.memory.buffer, 4, 8);
     this.reg32 = new Uint32Array(this.reg32s.buffer, 4, 8);
     this.reg16s = new Int16Array(this.reg32s.buffer, 4, 16);
     this.reg16 = new Uint16Array(this.reg32s.buffer, 4, 16);
@@ -194,25 +194,25 @@ function CPU(bus, wm, codegen)
     this.reg8 = new Uint8Array(this.reg32s.buffer, 4, 32);
 
     // mm0-mm7 split up into 32 bit pairs
-    this.reg_mmxs = new Int32Array(wm.mem.buffer, 1064, 16);
+    this.reg_mmxs = new Int32Array(wm.memory.buffer, 1064, 16);
     this.reg_mmx = new Uint32Array(this.reg_mmxs.buffer, 1064, 16);
     this.reg_mmx8s = new Int8Array(this.reg_mmxs.buffer, 1064, 64);
     this.reg_mmx8 = new Uint8Array(this.reg_mmxs.buffer, 1064, 64);
 
-    this.cache_hit = new Uint32Array(wm.mem.buffer, 1280, 1);
-    this.cache_compile = new Uint32Array(wm.mem.buffer, 1284, 1);
+    this.cache_hit = new Uint32Array(wm.memory.buffer, 1280, 1);
+    this.cache_compile = new Uint32Array(wm.memory.buffer, 1284, 1);
 
-    this.reg_xmm32s = new Int32Array(wm.mem.buffer, 828, 8 * 4);
+    this.reg_xmm32s = new Int32Array(wm.memory.buffer, 828, 8 * 4);
 
-    this.mxcsr = new Int32Array(wm.mem.buffer, 824, 1);
+    this.mxcsr = new Int32Array(wm.memory.buffer, 824, 1);
 
     // segment registers, tr and ldtr
-    this.sreg = new Uint16Array(wm.mem.buffer, 668, 8);
+    this.sreg = new Uint16Array(wm.memory.buffer, 668, 8);
 
     // debug registers
-    this.dreg = new Int32Array(wm.mem.buffer, 684, 8);
+    this.dreg = new Int32Array(wm.memory.buffer, 684, 8);
 
-    this.fw_value = new Int32Array(wm.mem.buffer, 720, 1);
+    this.fw_value = new Int32Array(wm.memory.buffer, 720, 1);
 
     this.io = undefined;
     this.fpu = undefined;
@@ -235,146 +235,146 @@ function CPU(bus, wm, codegen)
 
 CPU.prototype.wasm_patch = function(wm)
 {
-    this.add = this.wm.funcs['_add'];
-    this.adc = this.wm.funcs['_adc'];
-    this.sub = this.wm.funcs['_sub'];
-    this.sbb = this.wm.funcs['_sbb'];
-    this.inc = this.wm.funcs['_inc'];
-    this.dec = this.wm.funcs['_dec'];
-    this.neg = this.wm.funcs['_neg'];
-    this.mul8 = this.wm.funcs['_mul8'];
-    this.imul8 = this.wm.funcs['_imul8'];
-    this.mul16 = this.wm.funcs['_mul16'];
-    this.imul16 = this.wm.funcs['_imul16'];
-    this.imul_reg16 = this.wm.funcs['_imul_reg16'];
-    this.mul32 = this.wm.funcs['_mul32'];
-    this.imul32 = this.wm.funcs['_imul32'];
-    this.imul_reg32 = this.wm.funcs['_imul_reg32'];
-    this.xadd8 = this.wm.funcs['_xadd8'];
-    this.xadd16 = this.wm.funcs['_xadd16'];
-    this.xadd32 = this.wm.funcs['_xadd32'];
-    this.bcd_daa = this.wm.funcs['_bcd_daa'];
-    this.bcd_das = this.wm.funcs['_bcd_das'];
-    this.bcd_aad = this.wm.funcs['_bcd_aad'];
-    this.bcd_aaa = this.wm.funcs['_bcd_aaa'];
-    this.bcd_aas = this.wm.funcs['_bcd_aas'];
-    this.and = this.wm.funcs['_and'];
-    this.or = this.wm.funcs['_or'];
-    this.xor = this.wm.funcs['_xor'];
-    this.rol8 = this.wm.funcs['_rol8'];
-    this.rol16 = this.wm.funcs['_rol16'];
-    this.rol32 = this.wm.funcs['_rol32'];
-    this.rcl8 = this.wm.funcs['_rcl8'];
-    this.rcl16 = this.wm.funcs['_rcl16'];
-    this.rcl32 = this.wm.funcs['_rcl32'];
-    this.ror8 = this.wm.funcs['_ror8'];
-    this.ror16 = this.wm.funcs['_ror16'];
-    this.ror32 = this.wm.funcs['_ror32'];
-    this.rcr8 = this.wm.funcs['_rcr8'];
-    this.rcr16 = this.wm.funcs['_rcr16'];
-    this.rcr32 = this.wm.funcs['_rcr32'];
-    this.div8 = this.wm.funcs['_div8'];
-    this.idiv8 = this.wm.funcs['_idiv8'];
-    this.div16 = this.wm.funcs['_div16'];
-    this.getcf = this.wm.funcs['_getcf'];
-    this.getaf = this.wm.funcs['_getaf'];
-    this.raise_exception = this.wm.funcs['_raise_exception'];
-    this.raise_exception_with_code = this.wm.funcs['_raise_exception_with_code'];
-    this.trigger_de = this.wm.funcs['_trigger_de'];
-    this.trigger_gp = this.wm.funcs['_trigger_gp'];
-    this.div32 = this.wm.funcs['_div32'];
-    this.idiv32 = this.wm.funcs['_idiv32'];
-    this.idiv16 = this.wm.funcs['_idiv16'];
+    this.add = this.wm.exports['_add'];
+    this.adc = this.wm.exports['_adc'];
+    this.sub = this.wm.exports['_sub'];
+    this.sbb = this.wm.exports['_sbb'];
+    this.inc = this.wm.exports['_inc'];
+    this.dec = this.wm.exports['_dec'];
+    this.neg = this.wm.exports['_neg'];
+    this.mul8 = this.wm.exports['_mul8'];
+    this.imul8 = this.wm.exports['_imul8'];
+    this.mul16 = this.wm.exports['_mul16'];
+    this.imul16 = this.wm.exports['_imul16'];
+    this.imul_reg16 = this.wm.exports['_imul_reg16'];
+    this.mul32 = this.wm.exports['_mul32'];
+    this.imul32 = this.wm.exports['_imul32'];
+    this.imul_reg32 = this.wm.exports['_imul_reg32'];
+    this.xadd8 = this.wm.exports['_xadd8'];
+    this.xadd16 = this.wm.exports['_xadd16'];
+    this.xadd32 = this.wm.exports['_xadd32'];
+    this.bcd_daa = this.wm.exports['_bcd_daa'];
+    this.bcd_das = this.wm.exports['_bcd_das'];
+    this.bcd_aad = this.wm.exports['_bcd_aad'];
+    this.bcd_aaa = this.wm.exports['_bcd_aaa'];
+    this.bcd_aas = this.wm.exports['_bcd_aas'];
+    this.and = this.wm.exports['_and'];
+    this.or = this.wm.exports['_or'];
+    this.xor = this.wm.exports['_xor'];
+    this.rol8 = this.wm.exports['_rol8'];
+    this.rol16 = this.wm.exports['_rol16'];
+    this.rol32 = this.wm.exports['_rol32'];
+    this.rcl8 = this.wm.exports['_rcl8'];
+    this.rcl16 = this.wm.exports['_rcl16'];
+    this.rcl32 = this.wm.exports['_rcl32'];
+    this.ror8 = this.wm.exports['_ror8'];
+    this.ror16 = this.wm.exports['_ror16'];
+    this.ror32 = this.wm.exports['_ror32'];
+    this.rcr8 = this.wm.exports['_rcr8'];
+    this.rcr16 = this.wm.exports['_rcr16'];
+    this.rcr32 = this.wm.exports['_rcr32'];
+    this.div8 = this.wm.exports['_div8'];
+    this.idiv8 = this.wm.exports['_idiv8'];
+    this.div16 = this.wm.exports['_div16'];
+    this.getcf = this.wm.exports['_getcf'];
+    this.getaf = this.wm.exports['_getaf'];
+    this.raise_exception = this.wm.exports['_raise_exception'];
+    this.raise_exception_with_code = this.wm.exports['_raise_exception_with_code'];
+    this.trigger_de = this.wm.exports['_trigger_de'];
+    this.trigger_gp = this.wm.exports['_trigger_gp'];
+    this.div32 = this.wm.exports['_div32'];
+    this.idiv32 = this.wm.exports['_idiv32'];
+    this.idiv16 = this.wm.exports['_idiv16'];
 
-    this.shl8 = this.wm.funcs['_shl8'];
-    this.shl16 = this.wm.funcs['_shl16'];
-    this.shl32 = this.wm.funcs['_shl32'];
-    this.shr8 = this.wm.funcs['_shr8'];
-    this.shr16 = this.wm.funcs['_shr16'];
-    this.shr32 = this.wm.funcs['_shr32'];
-    this.sar8 = this.wm.funcs['_sar8'];
-    this.sar16 = this.wm.funcs['_sar16'];
-    this.sar32 = this.wm.funcs['_sar32'];
-    this.shrd16 = this.wm.funcs['_shrd16'];
-    this.shrd32 = this.wm.funcs['_shrd32'];
-    this.shld16 = this.wm.funcs['_shld16'];
-    this.shld32 = this.wm.funcs['_shld32'];
+    this.shl8 = this.wm.exports['_shl8'];
+    this.shl16 = this.wm.exports['_shl16'];
+    this.shl32 = this.wm.exports['_shl32'];
+    this.shr8 = this.wm.exports['_shr8'];
+    this.shr16 = this.wm.exports['_shr16'];
+    this.shr32 = this.wm.exports['_shr32'];
+    this.sar8 = this.wm.exports['_sar8'];
+    this.sar16 = this.wm.exports['_sar16'];
+    this.sar32 = this.wm.exports['_sar32'];
+    this.shrd16 = this.wm.exports['_shrd16'];
+    this.shrd32 = this.wm.exports['_shrd32'];
+    this.shld16 = this.wm.exports['_shld16'];
+    this.shld32 = this.wm.exports['_shld32'];
 
-    this.bt_reg = this.wm.funcs['_bt_reg'];
-    this.btc_reg = this.wm.funcs['_btc_reg'];
-    this.bts_reg = this.wm.funcs['_bts_reg'];
-    this.btr_reg = this.wm.funcs['_btr_reg'];
-    this.bt_mem = this.wm.funcs['_bt_mem'];
-    this.btc_mem = this.wm.funcs['_btc_mem'];
-    this.btr_mem = this.wm.funcs['_btr_mem'];
-    this.bts_mem = this.wm.funcs['_bts_mem'];
-    this.bsf16 = this.wm.funcs['_bsf16'];
-    this.bsf32 = this.wm.funcs['_bsf32'];
-    this.bsr16 = this.wm.funcs['_bsr16'];
-    this.bsr32 = this.wm.funcs['_bsr32'];
-    this.popcnt = this.wm.funcs['_popcnt'];
-    this.saturate_sw_to_ub = this.wm.funcs['_saturate_sw_to_ub'];
-    this.saturate_sw_to_sb = this.wm.funcs['_saturate_sw_to_sb'];
-    this.saturate_sd_to_sw = this.wm.funcs['_saturate_sd_to_sw'];
-    this.saturate_sd_to_sb = this.wm.funcs['_saturate_sd_to_sb'];
-    this.saturate_sd_to_ub = this.wm.funcs['_saturate_sd_to_ub'];
-    this.saturate_ud_to_ub = this.wm.funcs['_saturate_ud_to_ub'];
-    this.saturate_uw = this.wm.funcs['_saturate_uw'];
+    this.bt_reg = this.wm.exports['_bt_reg'];
+    this.btc_reg = this.wm.exports['_btc_reg'];
+    this.bts_reg = this.wm.exports['_bts_reg'];
+    this.btr_reg = this.wm.exports['_btr_reg'];
+    this.bt_mem = this.wm.exports['_bt_mem'];
+    this.btc_mem = this.wm.exports['_btc_mem'];
+    this.btr_mem = this.wm.exports['_btr_mem'];
+    this.bts_mem = this.wm.exports['_bts_mem'];
+    this.bsf16 = this.wm.exports['_bsf16'];
+    this.bsf32 = this.wm.exports['_bsf32'];
+    this.bsr16 = this.wm.exports['_bsr16'];
+    this.bsr32 = this.wm.exports['_bsr32'];
+    this.popcnt = this.wm.exports['_popcnt'];
+    this.saturate_sw_to_ub = this.wm.exports['_saturate_sw_to_ub'];
+    this.saturate_sw_to_sb = this.wm.exports['_saturate_sw_to_sb'];
+    this.saturate_sd_to_sw = this.wm.exports['_saturate_sd_to_sw'];
+    this.saturate_sd_to_sb = this.wm.exports['_saturate_sd_to_sb'];
+    this.saturate_sd_to_ub = this.wm.exports['_saturate_sd_to_ub'];
+    this.saturate_ud_to_ub = this.wm.exports['_saturate_ud_to_ub'];
+    this.saturate_uw = this.wm.exports['_saturate_uw'];
 
-    this.do_many_cycles_unsafe = this.wm.funcs['_do_many_cycles_unsafe'];
+    this.do_many_cycles_unsafe = this.wm.exports['_do_many_cycles_unsafe'];
 
-    this.read_imm8 = this.wm.funcs['_read_imm8'];
-    this.read_imm8s = this.wm.funcs['_read_imm8s'];
-    this.read_imm16 = this.wm.funcs['_read_imm16'];
-    this.read_imm32s = this.wm.funcs['_read_imm32s'];
-    this.read_write_e8 = this.wm.funcs['_read_write_e8'];
-    this.write_e8 = this.wm.funcs['_write_e8'];
-    this.in_mapped_range = this.wm.funcs['_in_mapped_range'];
-    this.read16 = this.wm.funcs['_read16'];
-    this.read_aligned16 = this.wm.funcs['_read_aligned16'];
-    this.read32s = this.wm.funcs['_read32s'];
-    this.read_aligned32 = this.wm.funcs['_read_aligned32'];
-    this.write8 = this.wm.funcs['_write8'];
-    this.write16 = this.wm.funcs['_write16'];
-    this.write_aligned16 = this.wm.funcs['_write_aligned16'];
-    this.write32 = this.wm.funcs['_write32'];
-    this.write_aligned32 = this.wm.funcs['_write_aligned32'];
-    this.push16 = this.wm.funcs['_push16'];
-    this.push32 = this.wm.funcs['_push32'];
-    this.pusha16 = this.wm.funcs['_pusha16'];
-    this.pusha32 = this.wm.funcs['_pusha32'];
-    this.pop16 = this.wm.funcs['_pop16'];
-    this.get_stack_reg = this.wm.funcs['_get_stack_reg'];
-    this.setcc = this.wm.funcs['_setcc'];
-    this.set_stack_reg = this.wm.funcs['_set_stack_reg'];
-    this.get_reg_asize = this.wm.funcs['_get_reg_asize'];
-    this.set_ecx_asize = this.wm.funcs['_set_ecx_asize'];
-    this.add_reg_asize = this.wm.funcs['_add_reg_asize'];
-    this.decr_ecx_asize = this.wm.funcs['_decr_ecx_asize'];
-    this.movsb = this.wm.funcs['_movsb'];
-    this.movsw = this.wm.funcs['_movsw'];
-    this.movsd = this.wm.funcs['_movsd'];
-    this.cmpsb = this.wm.funcs['_cmpsb'];
-    this.cmpsw = this.wm.funcs['_cmpsw'];
-    this.cmpsd = this.wm.funcs['_cmpsd'];
-    this.stosb = this.wm.funcs['_stosb'];
-    this.stosw = this.wm.funcs['_stosw'];
-    this.stosd = this.wm.funcs['_stosd'];
-    this.lodsb = this.wm.funcs['_lodsb'];
-    this.lodsw = this.wm.funcs['_lodsw'];
-    this.lodsd = this.wm.funcs['_lodsd'];
-    this.scasb = this.wm.funcs['_scasb'];
-    this.scasw = this.wm.funcs['_scasw'];
-    this.scasd = this.wm.funcs['_scasd'];
-    this.insb = this.wm.funcs['_insb'];
-    this.insw = this.wm.funcs['_insw'];
-    this.insd = this.wm.funcs['_insd'];
-    this.outsb = this.wm.funcs['_outsb'];
-    this.outsw = this.wm.funcs['_outsw'];
-    this.outsd = this.wm.funcs['_outsd'];
+    this.read_imm8 = this.wm.exports['_read_imm8'];
+    this.read_imm8s = this.wm.exports['_read_imm8s'];
+    this.read_imm16 = this.wm.exports['_read_imm16'];
+    this.read_imm32s = this.wm.exports['_read_imm32s'];
+    this.read_write_e8 = this.wm.exports['_read_write_e8'];
+    this.write_e8 = this.wm.exports['_write_e8'];
+    this.in_mapped_range = this.wm.exports['_in_mapped_range'];
+    this.read16 = this.wm.exports['_read16'];
+    this.read_aligned16 = this.wm.exports['_read_aligned16'];
+    this.read32s = this.wm.exports['_read32s'];
+    this.read_aligned32 = this.wm.exports['_read_aligned32'];
+    this.write8 = this.wm.exports['_write8'];
+    this.write16 = this.wm.exports['_write16'];
+    this.write_aligned16 = this.wm.exports['_write_aligned16'];
+    this.write32 = this.wm.exports['_write32'];
+    this.write_aligned32 = this.wm.exports['_write_aligned32'];
+    this.push16 = this.wm.exports['_push16'];
+    this.push32 = this.wm.exports['_push32'];
+    this.pusha16 = this.wm.exports['_pusha16'];
+    this.pusha32 = this.wm.exports['_pusha32'];
+    this.pop16 = this.wm.exports['_pop16'];
+    this.get_stack_reg = this.wm.exports['_get_stack_reg'];
+    this.setcc = this.wm.exports['_setcc'];
+    this.set_stack_reg = this.wm.exports['_set_stack_reg'];
+    this.get_reg_asize = this.wm.exports['_get_reg_asize'];
+    this.set_ecx_asize = this.wm.exports['_set_ecx_asize'];
+    this.add_reg_asize = this.wm.exports['_add_reg_asize'];
+    this.decr_ecx_asize = this.wm.exports['_decr_ecx_asize'];
+    this.movsb = this.wm.exports['_movsb'];
+    this.movsw = this.wm.exports['_movsw'];
+    this.movsd = this.wm.exports['_movsd'];
+    this.cmpsb = this.wm.exports['_cmpsb'];
+    this.cmpsw = this.wm.exports['_cmpsw'];
+    this.cmpsd = this.wm.exports['_cmpsd'];
+    this.stosb = this.wm.exports['_stosb'];
+    this.stosw = this.wm.exports['_stosw'];
+    this.stosd = this.wm.exports['_stosd'];
+    this.lodsb = this.wm.exports['_lodsb'];
+    this.lodsw = this.wm.exports['_lodsw'];
+    this.lodsd = this.wm.exports['_lodsd'];
+    this.scasb = this.wm.exports['_scasb'];
+    this.scasw = this.wm.exports['_scasw'];
+    this.scasd = this.wm.exports['_scasd'];
+    this.insb = this.wm.exports['_insb'];
+    this.insw = this.wm.exports['_insw'];
+    this.insd = this.wm.exports['_insd'];
+    this.outsb = this.wm.exports['_outsb'];
+    this.outsw = this.wm.exports['_outsw'];
+    this.outsd = this.wm.exports['_outsd'];
 
-    this.fxsave = this.wm.funcs['_fxsave'];
-    this.fxrstor = this.wm.funcs['_fxrstor'];
+    this.fxsave = this.wm.exports['_fxsave'];
+    this.fxrstor = this.wm.exports['_fxrstor'];
 };
 
 CPU.prototype.get_state = function()
@@ -703,7 +703,7 @@ CPU.prototype.create_memory = function(size)
 
     this.memory_size[0] = size;
 
-    var buffer = this.wm.mem.buffer;
+    var buffer = this.wm.memory.buffer;
 
     this.mem8 = new Uint8Array(buffer, INTERNAL_MEM_SIZE, size);
     this.mem16 = new Uint16Array(buffer, INTERNAL_MEM_SIZE, size >> 1);
@@ -868,7 +868,7 @@ CPU.prototype.init = function(settings, device_bus)
         this.debug.init();
     }
 
-    this.wm.funcs["_profiler_init"]();
+    this.wm.exports["_profiler_init"]();
 };
 
 CPU.prototype.load_multiboot = function(buffer)
@@ -1174,7 +1174,7 @@ CPU.prototype.load_bios = function()
 CPU.prototype.do_run = function()
 {
     // Idle time is when no instructions are being executed
-    this.wm.funcs["_profiler_end"](P_IDLE);
+    this.wm.exports["_profiler_end"](P_IDLE);
 
     /** @type {number} */
     var start = v86.microtick();
@@ -1199,13 +1199,13 @@ CPU.prototype.do_run = function()
         now = v86.microtick();
     }
 
-    this.wm.funcs["_profiler_start"](P_IDLE);
+    this.wm.exports["_profiler_start"](P_IDLE);
 };
 
 CPU.prototype.do_many_cycles = function()
 {
     // Capture the total time we were executing instructions
-    this.wm.funcs["_profiler_start"](P_DO_MANY_CYCLES);
+    this.wm.exports["_profiler_start"](P_DO_MANY_CYCLES);
 
     try {
         this.do_many_cycles_unsafe();
@@ -1215,7 +1215,7 @@ CPU.prototype.do_many_cycles = function()
         this.exception_cleanup(e);
     }
 
-    this.wm.funcs["_profiler_end"](P_DO_MANY_CYCLES);
+    this.wm.exports["_profiler_end"](P_DO_MANY_CYCLES);
 };
 
 CPU.prototype.do_many_cycles_unsafe = function()
@@ -1442,7 +1442,7 @@ CPU.prototype.set_cr0 = function(cr0)
 
     this.protected_mode[0] = +((this.cr[0] & CR0_PE) === CR0_PE);
 
-    this.wm.funcs._jit_empty_cache();
+    this.wm.exports._jit_empty_cache();
 };
 
 CPU.prototype.set_cr4 = function(cr4)
@@ -1581,7 +1581,7 @@ CPU.prototype.init2 = function () {};
 
 CPU.prototype.after_jump = function () {
     // May be called through JS imports in the WASM module, such as loop or handle_irqs (through popf, sti)
-    this.wm.funcs._after_jump();
+    this.wm.exports._after_jump();
 };
 CPU.prototype.branch_taken = function () {
     this.after_jump();
@@ -3502,7 +3502,7 @@ CPU.prototype.read_e8 = function()
     if(modrm_byte < 0xC0) {
         return this.safe_read8(this.modrm_resolve(modrm_byte));
     } else {
-        return this.wm.funcs['_read_e8_partial_branch']();
+        return this.wm.exports['_read_e8_partial_branch']();
     }
 };
 

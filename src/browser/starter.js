@@ -249,7 +249,7 @@ function V86Starter(options)
             wm.instance.exports["__post_instantiate"]();
             emulator = this.v86 = new v86(this.emulator_bus, wm, new Codegen(wm));
             cpu = emulator.cpu;
-            mem = wm.mem.buffer;
+            mem = wm.memory.buffer;
             mem8 = new Uint8Array(mem);
 
     // XXX: Leaving unindented to minimize diff; still a part of the cb to load_wasm!

@@ -116,8 +116,8 @@ var ASYNC_SAFE = false;
                 })
                 .then(({ instance, module }) => {
                     cb({
-                        mem: imports["env"]["memory"],
-                        funcs: instance["exports"],
+                        memory: imports["env"]["memory"],
+                        exports: instance["exports"],
                         instance,
                         imports,
                         filename,

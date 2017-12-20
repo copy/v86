@@ -61,13 +61,13 @@ function FPU(cpu)
     this.cpu = cpu;
 
     // Why no Float80Array :-(
-    this.st = new Float64Array(cpu.wm.mem.buffer, 968, 8);
+    this.st = new Float64Array(cpu.wm.memory.buffer, 968, 8);
 
     // used for conversion
-    /** @const */ this.float32 = new Float32Array(cpu.wm.mem.buffer, 956, 1);
+    /** @const */ this.float32 = new Float32Array(cpu.wm.memory.buffer, 956, 1);
     /** @const */ this.float32_byte = new Uint8Array(this.float32.buffer, 956, 4);
     /** @const */ this.float32_int = new Int32Array(this.float32.buffer, 956, 1);
-    /** @const */ this.float64 = new Float64Array(cpu.wm.mem.buffer, 960, 1);
+    /** @const */ this.float64 = new Float64Array(cpu.wm.memory.buffer, 960, 1);
     /** @const */ this.float64_byte = new Uint8Array(this.float64.buffer, 960, 8);
     /** @const */ this.float64_int = new Int32Array(this.float64.buffer, 960, 2);
 
@@ -76,24 +76,24 @@ function FPU(cpu)
 
 
     // bitmap of which stack registers are empty
-    this.stack_empty = new Int32Array(cpu.wm.mem.buffer, 816, 1);
+    this.stack_empty = new Int32Array(cpu.wm.memory.buffer, 816, 1);
     this.stack_empty[0] = 0xff;
-    this.stack_ptr = new Uint32Array(cpu.wm.mem.buffer, 1032, 1);
+    this.stack_ptr = new Uint32Array(cpu.wm.memory.buffer, 1032, 1);
     this.stack_ptr[0] = 0;
 
-    this.control_word = new Int32Array(cpu.wm.mem.buffer, 1036, 1);
+    this.control_word = new Int32Array(cpu.wm.memory.buffer, 1036, 1);
     this.control_word[0] = 0x37F;
-    this.status_word = new Int32Array(cpu.wm.mem.buffer, 1040, 1);
+    this.status_word = new Int32Array(cpu.wm.memory.buffer, 1040, 1);
     this.status_word[0] = 0;
-    this.fpu_ip = new Int32Array(cpu.wm.mem.buffer, 1048, 1);
+    this.fpu_ip = new Int32Array(cpu.wm.memory.buffer, 1048, 1);
     this.fpu_ip[0] = 0;
-    this.fpu_ip_selector = new Int32Array(cpu.wm.mem.buffer, 1052, 1);
+    this.fpu_ip_selector = new Int32Array(cpu.wm.memory.buffer, 1052, 1);
     this.fpu_ip_selector[0] = 0;
-    this.fpu_opcode = new Int32Array(cpu.wm.mem.buffer, 1044, 1);
+    this.fpu_opcode = new Int32Array(cpu.wm.memory.buffer, 1044, 1);
     this.fpu_opcode[0] = 0;
-    this.fpu_dp = new Int32Array(cpu.wm.mem.buffer, 1056, 1);
+    this.fpu_dp = new Int32Array(cpu.wm.memory.buffer, 1056, 1);
     this.fpu_dp[0] = 0;
-    this.fpu_dp_selector = new Int32Array(cpu.wm.mem.buffer, 1060, 1);
+    this.fpu_dp_selector = new Int32Array(cpu.wm.memory.buffer, 1060, 1);
     this.fpu_dp_selector[0] = 0;
 
     /** @const */
@@ -110,12 +110,12 @@ function FPU(cpu)
 
 FPU.prototype.wasm_patch = function(wm)
 {
-    this.set_tag_word = wm.funcs["_fpu_set_tag_word"];
-    this.fcomi = wm.funcs["_fpu_fcomi"];
-    this.load_status_word = wm.funcs["_fpu_load_status_word"];
-    this.store_m80 = wm.funcs["_fpu_store_m80"];
-    this.set_status_word = wm.funcs["_fpu_set_status_word"];
-    this.load_m80 = wm.funcs["_fpu_load_m80"];
+    this.set_tag_word = wm.exports["_fpu_set_tag_word"];
+    this.fcomi = wm.exports["_fpu_fcomi"];
+    this.load_status_word = wm.exports["_fpu_load_status_word"];
+    this.store_m80 = wm.exports["_fpu_store_m80"];
+    this.set_status_word = wm.exports["_fpu_set_status_word"];
+    this.load_m80 = wm.exports["_fpu_load_m80"];
 };
 
 FPU.prototype.get_state = function()
