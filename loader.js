@@ -17,11 +17,14 @@
     // jor1k stuff
     LIB_FILES += " jor1k.js 9p.js filesystem.js marshall.js utf8.js";
 
+    var BUILD_FILES = "capstone-x86.min.js libwabt.js";
+
     var to_load = [];
 
     load_scripts(CORE_FILES, "src/");
     load_scripts(BROWSER_FILES, "src/browser/");
     load_scripts(LIB_FILES, "lib/");
+    load_scripts(BUILD_FILES, "build/");
 
     function load_scripts(resp, path)
     {

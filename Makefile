@@ -249,3 +249,9 @@ node_modules/.bin/jshint:
 
 jshint: node_modules/.bin/jshint
 	./node_modules/.bin/jshint --config=./.jshint.json src tests gen
+
+build/capstone-x86.min.js:
+	wget -P build https://github.com/AlexAltea/capstone.js/releases/download/v3.0.5-rc1/capstone-x86.min.js
+
+build/libwabt.js:
+	wget -P build https://raw.githubusercontent.com/WebAssembly/wabt/master/demo/libwabt.js

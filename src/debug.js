@@ -711,4 +711,72 @@ CPU.prototype.debug_init = function()
         //    this.debug.dump_regs_short();
         //}
     };
+
+    let capstone_decoder;
+
+    debug.dump_code = function(is_32, buffer, start)
+    {
+        if(!capstone_decoder)
+        {
+            if(typeof cs === "undefined")
+            {
+                dbg_log("Warning: Missing capstone library, disassembly not available");
+                return;
+            }
+
+            capstone_decoder = [
+                new cs.Capstone(cs.ARCH_X86, cs.MODE_16),
+                new cs.Capstone(cs.ARCH_X86, cs.MODE_32),
+            ];
+        }
+
+        try
+        {
+            const instructions = capstone_decoder[is_32].disasm(buffer, start);
+
+            instructions.forEach(function (instr) {
+                dbg_log(h(instr.address) + ": " +
+                    v86util.pads(instr.bytes.map(x => h(x, 2).slice(-2)).join(" "), 20) + " " +
+                    instr.mnemonic + " " + instr.op_str);
+            });
+            dbg_log("");
+        }
+        catch(e)
+        {
+            dbg_log("Could not disassemble: " + Array.from(buffer).map(x => h(x, 2)).join(" "));
+        }
+    };
+
+    debug.dump_wasm = function(buffer)
+    {
+        if(typeof wabt === "undefined")
+        {
+            dbg_log("Warning: Missing libwabt, wasm dump not available");
+            return;
+        }
+
+        // Need to make a small copy otherwise libwabt goes nuts trying to copy
+        // the whole underlying buffer
+        buffer = buffer.slice();
+
+        try
+        {
+            var module = wabt.readWasm(buffer, { readDebugNames: false });
+            module.generateNames();
+            module.applyNames();
+            const result = module.toText({ foldExprs: true, inlineExport: true });
+            dbg_log(result);
+        }
+        catch(e)
+        {
+            console.log(e.toString());
+        }
+        finally
+        {
+            if(module)
+            {
+                module.destroy();
+            }
+        }
+    };
 };
