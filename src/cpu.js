@@ -705,9 +705,9 @@ CPU.prototype.create_memory = function(size)
 
     var buffer = this.wm.mem.buffer;
 
-    this.mem8 = new Uint8Array(buffer, 4096 + 0x100000 * 6, size);
-    this.mem16 = new Uint16Array(buffer, 4096 + 0x100000 * 6, size >> 1);
-    this.mem32s = new Int32Array(buffer, 4096 + 0x100000 * 6, size >> 2);
+    this.mem8 = new Uint8Array(buffer, INTERNAL_MEM_SIZE, size);
+    this.mem16 = new Uint16Array(buffer, INTERNAL_MEM_SIZE, size >> 1);
+    this.mem32s = new Int32Array(buffer, INTERNAL_MEM_SIZE, size >> 2);
 };
 
 CPU.prototype.init = function(settings, device_bus)
