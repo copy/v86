@@ -1042,9 +1042,13 @@ CPU.prototype.load_multiboot = function(buffer)
                         this.write_blob(blob, program.paddr);
                     }
                 }
-                else if(program.type === 4 ||
-                        program.type === 0x6474e550 ||
-                        program.type === 0x6474e551)
+                else if(
+                    program.type === 2 ||
+                    program.type === 3 ||
+                    program.type === 4 ||
+                    program.type === 6 ||
+                    program.type === 0x6474e550 ||
+                    program.type === 0x6474e551)
                 {
                     // ignore for now
                 }
