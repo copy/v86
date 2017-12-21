@@ -177,7 +177,7 @@ build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/n
 build/codegen-test.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h
 	mkdir -p build
 	emcc src/native/codegen/codegen.c \
-	    -Isrc/native/ \
+	    -Isrc/native/ -Isrc/native/profiler/ \
 	    -Wall -Wpedantic -Wextra \
 	    -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \
 	    -fcolor-diagnostics \
@@ -252,7 +252,9 @@ jshint: node_modules/.bin/jshint
 	./node_modules/.bin/jshint --config=./.jshint.json src tests gen
 
 build/capstone-x86.min.js:
+	mkdir -p build
 	wget -P build https://github.com/AlexAltea/capstone.js/releases/download/v3.0.5-rc1/capstone-x86.min.js
 
 build/libwabt.js:
+	mkdir -p build
 	wget -P build https://raw.githubusercontent.com/WebAssembly/wabt/master/demo/libwabt.js
