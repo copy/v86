@@ -20,6 +20,32 @@ function CPU(bus, wm, codegen)
 
     this.memory_size = new Uint32Array(wm.memory.buffer, 812, 1);
 
+    {
+        const imports = {
+            "e": {
+                "m": this.wm.mem,
+            },
+        };
+
+        const exports = this.wm.instance.exports;
+
+        for(let name of Object.keys(exports))
+        {
+            if(name[0] !== "_")
+            {
+                continue;
+            }
+
+            imports["e"][name.slice(1)] = exports[name];
+        }
+
+        this.jit_imports = imports;
+    }
+
+    // XXX: Replace with wasm table
+    // XXX: Not garbage collected currently
+    this.instr_cache = Object.create(null);
+
     // Note: Currently unused (degrades performance and not required by any OS
     //       that we support)
     this.a20_enabled = new Int32Array(wm.memory.buffer, 552, 1);
@@ -1377,6 +1403,78 @@ CPU.prototype.run_instruction_0f = function()
     {
         this.table0F_16[this.read_op0F()](this);
     }
+};
+
+var seen_code = {};
+
+CPU.prototype.codegen_call_cache = function(start)
+{
+    //const before = this.instruction_pointer[0];
+    //dbg_log("calling cached generated code at " + h(before));
+    this.instr_cache[start]();
+    //const after = this.instruction_pointer[0];
+    //dbg_log("cached code block from " + h(before) + " to " + h(after));
+};
+
+CPU.prototype.codegen_finalize = function(virtual_start, start, end)
+{
+    dbg_log("finalize");
+    const code = this.codegen.get_module_code();
+
+    //this.debug.dump_wasm(code);
+
+    let module;
+
+    if(DEBUG)
+    {
+        if(true && !seen_code[start])
+        {
+            this.debug.dump_wasm(code);
+
+            seen_code[start] = true;
+
+            const buffer = new Uint8Array(end - start + 1);
+
+            for(let i = start; i < end + 1; i++)
+            {
+                buffer[i - start] = this.read8(i);
+            }
+
+            this.debug.dump_code(this.is_32[0] ? 1 : 0, buffer, start);
+        }
+
+        try
+        {
+            module = new WebAssembly.Module(code);
+        }
+        catch(e)
+        {
+            //debugger;
+
+            console.log(e);
+            debugger;
+
+            //dump_file(code);
+        }
+    }
+    else
+    {
+        module = new WebAssembly.Module(code);
+    }
+
+    const instance = new WebAssembly.Instance(module, this.jit_imports);
+    const f = instance.exports["f"];
+
+    this.instr_cache[start] = f;
+
+    this.instruction_pointer[0] = virtual_start;
+
+    const before = this.instruction_pointer[0];
+    dbg_log("calling generated code at " + h(before >>> 0));
+    //debugger;
+    f();
+    const after = this.instruction_pointer[0];
+    dbg_log("code block from " + h(before >>> 0) + " to " + h(after >>> 0));
 };
 
 CPU.prototype.dbg_log = function()

@@ -7,6 +7,7 @@
 #include "const.h"
 #include "global_pointers.h"
 #include "profiler.h"
+#include "codegen/codegen.h"
 
 // like memcpy, but only efficient for large (approximately 10k) sizes
 // See memcpy in https://github.com/kripken/emscripten/blob/master/src/library.js
@@ -55,7 +56,8 @@ void after_jump()
     jit_jump = 1;
 }
 
-void diverged() {
+void diverged()
+{
     after_jump();
 }
 
@@ -117,6 +119,8 @@ int32_t translate_address_write(int32_t address)
     }
 }
 
+bool jit_in_progress = false; // XXX: For debugging
+
 int32_t read_imm8()
 {
     int32_t eip = *instruction_pointer;
@@ -129,6 +133,7 @@ int32_t read_imm8()
 
     assert(!in_mapped_range(*eip_phys ^ eip));
     int32_t data8 = mem8[*eip_phys ^ eip];
+    if(jit_in_progress) dbg_log("%x/8/%x", eip, data8);
     *instruction_pointer = eip + 1;
 
     return data8;
@@ -150,6 +155,7 @@ int32_t read_imm16()
     }
 
     int32_t data16 = read16(*eip_phys ^ *instruction_pointer);
+    if(jit_in_progress) dbg_log("%x/16/%x", *instruction_pointer, data16);
     *instruction_pointer = *instruction_pointer + 2;
 
     return data16;
@@ -164,6 +170,7 @@ int32_t read_imm32s()
     }
 
     int32_t data32 = read32s(*eip_phys ^ *instruction_pointer);
+    if(jit_in_progress) dbg_log("%x/32/%x", *instruction_pointer, data32);
     *instruction_pointer = *instruction_pointer + 4;
 
     return data32;
@@ -222,7 +229,7 @@ int32_t get_seg_prefix_ds(int32_t offset) { return get_seg_prefix(DS) + offset; 
 int32_t get_seg_prefix_ss(int32_t offset) { return get_seg_prefix(SS) + offset; }
 int32_t get_seg_prefix_cs(int32_t offset) { return get_seg_prefix(CS) + offset; }
 
-static void run_instruction(int32_t);
+void run_instruction(int32_t);
 static int32_t resolve_modrm16(int32_t);
 static int32_t resolve_modrm32(int32_t);
 
@@ -241,6 +248,28 @@ static int32_t modrm_resolve(int32_t modrm_byte)
 uint32_t jit_hot_hash(uint32_t addr)
 {
     return addr % HASH_PRIME;
+}
+
+static void jit_instruction(int32_t);
+void codegen_finalize(int32_t, int32_t, int32_t);
+void codegen_call_cache(int32_t);
+
+void generate_instruction(int32_t opcode)
+{
+    gen_set_previous_eip();
+    gen_increment_instruction_pointer(0);
+
+    int32_t start_eip = *instruction_pointer - 1;
+
+    jit_instruction(opcode);
+
+    int32_t end_eip = *instruction_pointer;
+    int32_t instruction_length = end_eip - start_eip;
+
+    assert(instruction_length >= 0 && instruction_length < 16);
+    dbg_log("instruction_length=%d", instruction_length);
+
+    gen_patch_increment_instruction_pointer(instruction_length);
 }
 
 void cycle_internal()
@@ -265,13 +294,12 @@ void cycle_internal()
     bool cached = entry->start_addr == phys_addr && entry->is_32 == *is_32;
     bool clean = entry->group_status == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
 
-    if(cached && !clean)
-    {
-        // Remove the cached entry from the Table
-        jit_clear_func(addr_index);
-    }
+    const bool JIT_ALWAYS = false;
+    const bool JIT_DONT_USE_CACHE = false;
 
-    if(cached && clean)
+    if(!JIT_DONT_USE_CACHE &&
+       entry->group_status == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT] &&
+       entry->start_addr == phys_addr)
     {
         // XXX: With the code-generation, we need to figure out how we
         // would call the function from the other module here; likely
@@ -279,6 +307,7 @@ void cycle_internal()
 
         // Confirm that cache is not dirtied (through page-writes,
         // mode switch, or just cache eviction)
+        /*
         for(int32_t i = 0; i < entry->len; i++)
         {
             *previous_ip = *instruction_pointer;
@@ -287,7 +316,10 @@ void cycle_internal()
             assert(opcode == entry->opcode[i]);
             run_instruction(entry->opcode[i] | !!*is_32 << 8);
             (*timestamp_counter)++;
-        }
+        }*/
+
+        codegen_call_cache(phys_addr);
+
         // XXX: Try to find an assert to detect self-modifying code
         // JIT compiled self-modifying basic blocks may trigger this assert
         // assert(entry->group_status != group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT]);
@@ -295,10 +327,14 @@ void cycle_internal()
     }
     // A jump just occured indicating the start of a basic block + the
     // address is hot; let's JIT compile it
-    else if(jit_jump == 1 && ++hot_code_addresses[jit_hot_hash(phys_addr)] > JIT_THRESHOLD)
+    else if(JIT_ALWAYS || jit_jump == 1 && ++hot_code_addresses[jit_hot_hash(phys_addr)] > JIT_THRESHOLD)
     {
+        int32_t start_addr = *instruction_pointer;
+        jit_in_progress = false;
+
         // Minimize collision based thrashing
         hot_code_addresses[jit_hot_hash(phys_addr)] = 0;
+
         jit_jump = 0;
         entry->len = 0;
         entry->start_addr = phys_addr;
@@ -308,6 +344,8 @@ void cycle_internal()
 
         *cache_compile = *cache_compile + 1;
 
+        gen_reset();
+
         // XXX: Artificial limit allows jit_dirty_cache to be
         // simplified by only dirtying 2 entries based on a mask
         // (instead of all possible entries)
@@ -316,23 +354,30 @@ void cycle_internal()
         {
             *previous_ip = *instruction_pointer;
             int32_t opcode = read_imm8();
-            // XXX: Currently only includes opcode of final jmp, not operands
-            entry->end_addr = *eip_phys ^ *instruction_pointer;
+
             entry->opcode[entry->len] = opcode;
             entry->len++;
 
-            // XXX: Generate the instruction instead of running it
-            // XXX: If it's a jmp instruction, make sure
-            // generate_instruction sets jit_jump=1 and end_addr is set correctly
-            run_instruction(opcode | !!*is_32 << 8);
-            (*timestamp_counter)++;
+            generate_instruction(opcode | !!*is_32 << 8);
+
+            entry->end_addr = *eip_phys ^ *instruction_pointer;
         }
+
+        jit_jump = 0;
+
+        gen_finish();
+        jit_in_progress = false;
+
+        codegen_finalize(start_addr, entry->start_addr, entry->end_addr);
+
+        assert(*prefixes == 0);
+
         // When the hot instruction is a jmp (backwards),
         // leave its group_status unupdated, thereby invalidating it
-        if (entry->end_addr > entry->start_addr)
-        {
-            entry->group_status = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
-        }
+        //if (entry->end_addr > entry->start_addr)
+        //{
+        entry->group_status = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
+        //}
     }
     // Regular un-hot code execution
     else
@@ -364,6 +409,12 @@ static void run_prefix_instruction()
     run_instruction(read_imm8() | is_osize_32() << 8);
 }
 
+static void jit_prefix_instruction()
+{
+    dbg_log("jit_prefix_instruction is32=%d", is_osize_32());
+    jit_instruction(read_imm8() | is_osize_32() << 8);
+}
+
 void clear_prefixes()
 {
     *prefixes = 0;
@@ -375,6 +426,14 @@ void segment_prefix_op(int32_t seg)
     *prefixes |= seg + 1;
     run_prefix_instruction();
     *prefixes = 0;
+}
+
+void segment_prefix_op_jit(int32_t seg)
+{
+    assert(seg <= 5);
+    gen_add_prefix_bits(seg + 1);
+    jit_prefix_instruction();
+    gen_clear_prefixes();
 }
 
 void do_many_cycles_unsafe()
