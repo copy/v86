@@ -1554,7 +1554,7 @@ void instr_FB() {
 
         if(old_if == 0)
         {
-            clear_prefixes();
+            //clear_prefixes();
             //cycle_internal();
 
             handle_irqs();
@@ -11292,6 +11292,7 @@ switch(opcode)
     case 0xFB|0x100:
     {
         gen_fn0("instr_FB", 8);
+        jit_jump = true;
     }
     break;
     case 0xFC:

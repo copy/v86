@@ -220,7 +220,8 @@ const encodings = [
     { opcode: 0xF8, },
     { opcode: 0xF9, },
     { opcode: 0xFA, skip: 1, },
-    { opcode: 0xFB, skip: 1, },
+    // sti: not a jump, but can cause a change in eip
+    { opcode: 0xFB, jump: 1, skip: 1, },
     { opcode: 0xFC, },
     { opcode: 0xFD, },
 
