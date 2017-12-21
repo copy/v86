@@ -97,8 +97,27 @@ function V86Starter(options)
     var mem;
     var mem8;
     var wasm_shared_funcs = {
-        "___assert_fail": (a, b, c, d) => {
-            console.error("Assertion Failed", a, b, c, d);
+        "___assert_fail": (condition, file, line, fun) => {
+            const memory = mem8;
+
+            function read_string(memory, offset)
+            {
+                memory = memory.subarray(offset);
+
+                const zero = memory.indexOf(0);
+                if(zero !== -1)
+                {
+                    memory = memory.subarray(0, zero);
+                }
+                return String.fromCharCode.apply(String, memory);
+            }
+
+            console.error("Assertion Failed: '%s' at %s:%d in %s",
+                read_string(memory, condition),
+                read_string(memory, file),
+                line,
+                read_string(memory, fun));
+
             dbg_assert(false);
         },
         "_throw_cpu_exception": () => {
