@@ -1649,8 +1649,6 @@ CPU.prototype.sib_resolve = function(mod)
     return this.sib_table[this.read_sib()](this, mod);
 };
 
-CPU.prototype.clear_instruction_cache = function() {};
-
 // read word from a page boundary, given 2 physical addresses
 CPU.prototype.virt_boundary_read16 = function(low, high)
 {
@@ -4125,7 +4123,9 @@ CPU.prototype.update_cs_size = function(new_size)
 
     if(Boolean(this.is_32[0]) !== new_size)
     {
-        this.clear_instruction_cache();
+        dbg_log("clear instruction cache", LOG_CPU);
+        this.wm.funcs["_jit_empty_cache"]();
+
         this.is_32[0] = +new_size;
         this.update_operand_size();
     }
