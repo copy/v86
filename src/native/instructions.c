@@ -9150,11 +9150,13 @@ switch(opcode)
     case 0x9D:
     {
         gen_fn0("instr16_9D", 10);
+        jit_jump = true;
     }
     break;
     case 0x9D|0x100:
     {
         gen_fn0("instr32_9D", 10);
+        jit_jump = true;
     }
     break;
     case 0x9E:

@@ -114,7 +114,8 @@ const encodings = [
     { opcode: 0x9A, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, jump: 1, }, // callf
     { opcode: 0x9B, skip: 1, },
     { opcode: 0x9C, os: 1, },
-    { opcode: 0x9D, os: 1, skip: 1, }, // popf
+    // popf: not a jump, but can cause an eip change due to updating the interrupt flag
+    { opcode: 0x9D, os: 1, jump: 1, skip: 1, },
     { opcode: 0x9E, },
     { opcode: 0x9F, },
 
