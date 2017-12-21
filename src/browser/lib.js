@@ -62,7 +62,7 @@ var ASYNC_SAFE = false;
 
         return {
             memory_size,
-            table_size
+            table_size,
         }
     };
 
