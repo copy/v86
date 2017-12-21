@@ -236,7 +236,7 @@ qemutests: build/libv86.js build/v86.wasm
 	./tests/qemu/test-i386 > /tmp/v86-test-reference
 	diff /tmp/v86-test-result /tmp/v86-test-reference
 
-kvm-unit-test: build/libv86.js build/v86.wasm
+kvm-unit-test: build/libv86-debug.js build/v86-debug.wasm
 	(cd tests/kvm-unit-tests && ./configure)
 	$(MAKE) -C tests/kvm-unit-tests
 	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat

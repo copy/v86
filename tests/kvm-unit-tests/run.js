@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-var V86 = require("../../build/libv86.js").V86;
+var V86 = require("../../build/libv86-debug.js").V86;
 var fs = require("fs");
 
 function readfile(path)
@@ -29,6 +29,7 @@ var emulator = new V86({
     multiboot: new Loader(process.argv[2]),
     autostart: true,
     memory_size: 64 * 1024 * 1024,
+    log_level: 0,
 });
 
 emulator.bus.register("emulator-started", function()
