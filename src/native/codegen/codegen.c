@@ -23,6 +23,7 @@ extern int32_t read_imm16();
 extern int32_t read_imm32s();
 extern int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index);
 
+extern uint8_t* const prefixes;
 extern int32_t* const instruction_pointer;
 extern int32_t* const previous_ip;
 extern uint8_t* const reg8;
@@ -114,16 +115,24 @@ uintptr_t gen_get_final_offset()
 {
     return (uintptr_t) op.ptr;
 }
+uint8_t* offset_increment_instruction_pointer;
 
 void gen_increment_instruction_pointer(int32_t n)
 {
     push_i32(&cs, (int32_t)instruction_pointer); // store address of ip
 
     load_i32(&cs, (int32_t)instruction_pointer); // load ip
+    offset_increment_instruction_pointer = cs.ptr; // XXX: Hack
     push_i32(&cs, n); // load value to add to it
     add_i32(&cs);
 
     store_i32(&cs); // store it back in
+}
+
+void gen_patch_increment_instruction_pointer(int32_t n) // XXX: Hack
+{
+    assert(n >= 0 && n < 128);
+    *(offset_increment_instruction_pointer+1) = n;
 }
 
 void gen_set_previous_eip()
@@ -131,6 +140,26 @@ void gen_set_previous_eip()
     push_i32(&cs, (int32_t)previous_ip); // store address of previous ip
     load_i32(&cs, (int32_t)instruction_pointer); // load ip
     store_i32(&cs); // store it as previous ip
+}
+
+void gen_clear_prefixes()
+{
+    push_i32(&cs, (int32_t)prefixes); // load address of prefixes
+    push_i32(&cs, 0);
+    store_i32(&cs);
+}
+
+void gen_add_prefix_bits(int32_t mask)
+{
+    assert(mask >= 0 && mask < 0x100);
+
+    push_i32(&cs, (int32_t)prefixes); // load address of prefixes
+
+    load_i32(&cs, (int32_t)prefixes); // load old value
+    push_i32(&cs, mask);
+    or_i32(&cs);
+
+    store_i32(&cs);
 }
 
 void gen_fn0(char* fn, uint8_t fn_len)
@@ -154,9 +183,13 @@ void gen_fn2(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
     call_fn(&cs, fn_idx);
 }
 
-void gen_drop()
+void gen_fn3(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2)
 {
-    write_raw_u8(&cs, OP_DROP);
+    int32_t fn_idx = get_fn_index(fn, fn_len, FN3_TYPE_INDEX);
+    push_i32(&cs, arg0);
+    push_i32(&cs, arg1);
+    push_i32(&cs, arg2);
+    call_fn(&cs, fn_idx);
 }
 
 #define MODRM_ENTRY(n, work)\
@@ -387,6 +420,44 @@ void gen_resolve_modrm32(int32_t modrm_byte)
 
 #undef MODRM_ENTRY
 
+void gen_modrm_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t arg1)
+{
+    // generates: fn( modrm_resolve( modrm_byte ), arg0, arg1 )
+    if(is_asize_32())
+    {
+        jit_resolve_modrm32_(modrm_byte);
+    }
+    else
+    {
+        jit_resolve_modrm16_(modrm_byte);
+    }
+
+    push_i32(&cs, arg0);
+    push_i32(&cs, arg1);
+
+    int32_t fn_idx = get_fn_index(fn, fn_len, FN3_TYPE_INDEX);
+    call_fn(&cs, fn_idx);
+}
+
+void gen_modrm_cb_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t (*arg1_cb) (void))
+{
+    // generates: fn( modrm_resolve( modrm_byte ), arg0, arg1_cb() )
+    if(is_asize_32())
+    {
+        jit_resolve_modrm32_(modrm_byte);
+    }
+    else
+    {
+        jit_resolve_modrm16_(modrm_byte);
+    }
+
+    push_i32(&cs, arg0);
+    push_i32(&cs, arg1_cb());
+
+    int32_t fn_idx = get_fn_index(fn, fn_len, FN3_TYPE_INDEX);
+    call_fn(&cs, fn_idx);
+}
+
 void gen_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0)
 {
     // generates: fn( modrm_resolve( modrm_byte ), arg0 )
@@ -401,7 +472,25 @@ void gen_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0)
 
     push_i32(&cs, arg0);
 
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN2_RET_TYPE_INDEX);
+    int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
+    call_fn(&cs, fn_idx);
+}
+
+void gen_modrm_cb_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int (*arg0_cb) (void))
+{
+    // generates: fn( modrm_resolve( modrm_byte ), arg0_cb() )
+    if(is_asize_32())
+    {
+        jit_resolve_modrm32_(modrm_byte);
+    }
+    else
+    {
+        jit_resolve_modrm16_(modrm_byte);
+    }
+
+    push_i32(&cs, arg0_cb());
+
+    int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
     call_fn(&cs, fn_idx);
 }
 
@@ -417,7 +506,7 @@ void gen_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte)
         jit_resolve_modrm16_(modrm_byte);
     }
 
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_RET_TYPE_INDEX);
+    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
     call_fn(&cs, fn_idx);
 }
 

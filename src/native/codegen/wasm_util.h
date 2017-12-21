@@ -52,6 +52,11 @@ static void inline and_i32(Buffer* buf)
     write_raw_u8(buf, OP_I32AND);
 }
 
+static void inline or_i32(Buffer* buf)
+{
+    write_raw_u8(buf, OP_I32OR);
+}
+
 static void inline shl_i32(Buffer* buf)
 {
     write_raw_u8(buf, OP_I32SHL);

@@ -29,6 +29,7 @@ const vals = {
     reg32s: 0,
     instruction_pointer: 0,
     previous_ip: 0,
+    prefixes: 0,
 };
 
 const wasm_test_funcs = {
@@ -40,12 +41,14 @@ const wasm_test_funcs = {
         _is_asize_32() { return vals.asize_32; },
         _printf(...args) { console.log(...args); },
         ___assert_fail(...args) { console.error(...args); console.assert(false); },
+        abort() { console.assert(false); },
 
         // static pointer imports
         g$_reg16() { return vals.reg16; },
         g$_reg32s() { return vals.reg32s; },
         g$_instruction_pointer() { return vals.instruction_pointer; },
         g$_previous_ip() { return vals.previous_ip; },
+        g$_prefixes() { return vals.prefixes; },
     },
 };
 
@@ -75,14 +78,10 @@ function test(gen)
     gen.increment_instruction_pointer(10);
     gen.set_previous_eip();
     gen.modrm_fn0("fn1r");
-    gen.drop();
     gen.modrm_fn1("fn2r", 2);
-    gen.drop();
     vals.asize_32 = !vals.asize_32;
     gen.modrm_fn0("fn1r");
-    gen.drop();
     gen.modrm_fn1("fn2r", 2);
-    gen.drop();
     gen.finish();
 
     let buf = gen.get_module_code();

@@ -82,11 +82,6 @@ Codegen.prototype.set_previous_eip = function()
     this.wm.exports["_gen_set_previous_eip"]();
 };
 
-Codegen.prototype.drop = function()
-{
-    this.wm.exports["_gen_drop"]();
-};
-
 Codegen.prototype.finish = function()
 {
     return this.wm.exports["_gen_finish"]();
