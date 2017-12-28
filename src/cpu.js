@@ -23,7 +23,7 @@ function CPU(bus, wm, codegen)
     {
         const imports = {
             "e": {
-                "m": this.wm.mem,
+                "m": this.wm.memory,
             },
         };
 
@@ -4222,7 +4222,7 @@ CPU.prototype.update_cs_size = function(new_size)
     if(Boolean(this.is_32[0]) !== new_size)
     {
         dbg_log("clear instruction cache", LOG_CPU);
-        this.wm.funcs["_jit_empty_cache"]();
+        this.wm.exports["_jit_empty_cache"]();
 
         this.is_32[0] = +new_size;
         this.update_operand_size();
