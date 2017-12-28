@@ -160,6 +160,7 @@ build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/
 	ls -lh build/v86.wasm
 
 build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h
+	mkdir -p build
 	emcc src/native/all.c src/native/codegen/codegen.c src/native/call-indirect.ll \
 	    -Isrc/native/ -Isrc/native/profiler/ \
 	    -Wall -Wpedantic -Wextra \
