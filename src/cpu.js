@@ -16,31 +16,9 @@ function CPU(bus, wm, codegen)
     this.wm = wm;
     this.codegen = codegen;
     this.wasm_patch(wm);
-    this.jit_patch();
+    this.create_jit_imports();
 
     this.memory_size = new Uint32Array(wm.memory.buffer, 812, 1);
-
-    {
-        const imports = {
-            "e": {
-                "m": this.wm.memory,
-            },
-        };
-
-        const exports = this.wm.instance.exports;
-
-        for(let name of Object.keys(exports))
-        {
-            if(name[0] !== "_")
-            {
-                continue;
-            }
-
-            imports["e"][name.slice(1)] = exports[name];
-        }
-
-        this.jit_imports = imports;
-    }
 
     // XXX: Replace with wasm table
     // XXX: Not garbage collected currently
@@ -260,7 +238,7 @@ function CPU(bus, wm, codegen)
     //Object.seal(this);
 }
 
-CPU.prototype.jit_patch = function()
+CPU.prototype.create_jit_imports = function()
 {
     // Set this.jit_imports as generated WASM modules will expect
     const imports = {
@@ -426,16 +404,6 @@ CPU.prototype.wasm_patch = function(wm)
 
     this.fxsave = this.wm.exports['_fxsave'];
     this.fxrstor = this.wm.exports['_fxrstor'];
-};
-
-CPU.prototype.jit_store_func = function(index)
-{
-    const gen = this.codegen;
-    let buf = gen.get_module_code();
-    const module = new WebAssembly.Module(buf);
-    const o = new WebAssembly.Instance(module, this.jit_imports);
-    // The following will throw if o.exports.f isn't an exported function
-    this.wm.imports.env.table.set(index, o["exports"]["f"]);
 };
 
 CPU.prototype.jit_clear_func = function(index)
@@ -1416,7 +1384,7 @@ CPU.prototype.codegen_call_cache = function(start)
     //dbg_log("cached code block from " + h(before) + " to " + h(after));
 };
 
-CPU.prototype.codegen_finalize = function(virtual_start, start, end)
+CPU.prototype.codegen_finalize = function(cache_index, virtual_start, start, end)
 {
     dbg_log("finalize");
     const code = this.codegen.get_module_code();
@@ -1466,6 +1434,9 @@ CPU.prototype.codegen_finalize = function(virtual_start, start, end)
     const f = instance.exports["f"];
 
     this.instr_cache[start] = f;
+
+    // The following will throw if o.exports.f isn't an exported function
+    this.wm.imports.env.table.set(cache_index, f);
 
     this.instruction_pointer[0] = virtual_start;
 
@@ -4221,8 +4192,8 @@ CPU.prototype.update_cs_size = function(new_size)
 
     if(Boolean(this.is_32[0]) !== new_size)
     {
-        dbg_log("clear instruction cache", LOG_CPU);
-        this.wm.exports["_jit_empty_cache"]();
+        //dbg_log("clear instruction cache", LOG_CPU);
+        //this.wm.exports["_jit_empty_cache"]();
 
         this.is_32[0] = +new_size;
         this.update_operand_size();

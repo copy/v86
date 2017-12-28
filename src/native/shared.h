@@ -53,6 +53,6 @@ int32_t hot_code_addresses[HASH_PRIME] = {0};
 uint32_t group_dirtiness[1 + (0xffffffff >> DIRTY_ARR_SHIFT)] = {0};
 
 void call_indirect(int32_t index);
-void jit_store_func(int32_t index);
 void jit_clear_func(int32_t index);
+
 #endif

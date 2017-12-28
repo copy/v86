@@ -251,7 +251,7 @@ uint32_t jit_hot_hash(uint32_t addr)
 }
 
 static void jit_instruction(int32_t);
-void codegen_finalize(int32_t, int32_t, int32_t);
+void codegen_finalize(int32_t, int32_t, int32_t, int32_t);
 void codegen_call_cache(int32_t);
 
 void generate_instruction(int32_t opcode)
@@ -297,9 +297,13 @@ void cycle_internal()
     const bool JIT_ALWAYS = false;
     const bool JIT_DONT_USE_CACHE = false;
 
+    if(cached && !clean)
+    {
+        //jit_clear_func(addr_index);
+    }
+
     if(!JIT_DONT_USE_CACHE &&
-       entry->group_status == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT] &&
-       entry->start_addr == phys_addr)
+       cached && clean)
     {
         // XXX: With the code-generation, we need to figure out how we
         // would call the function from the other module here; likely
@@ -318,7 +322,8 @@ void cycle_internal()
             (*timestamp_counter)++;
         }*/
 
-        codegen_call_cache(phys_addr);
+        //codegen_call_cache(phys_addr);
+        call_indirect(addr_index);
 
         // XXX: Try to find an assert to detect self-modifying code
         // JIT compiled self-modifying basic blocks may trigger this assert
@@ -368,7 +373,7 @@ void cycle_internal()
         gen_finish();
         jit_in_progress = false;
 
-        codegen_finalize(start_addr, entry->start_addr, entry->end_addr);
+        codegen_finalize(addr_index, start_addr, entry->start_addr, entry->end_addr);
 
         assert(*prefixes == 0);
 
