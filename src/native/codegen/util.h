@@ -1,7 +1,7 @@
-#ifndef _WASM_UTIL_H
-#define _WASM_UTIL_H
+#pragma once
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #define dbg_log(...) { if(DEBUG) { printf(__VA_ARGS__); } }
@@ -60,72 +60,3 @@ static void inline write_fixed_leb16_to_ptr(uint8_t* ptr, uint16_t x)
     *(ptr + 1) = x >> 7;
 }
 
-static void cs_write_u8(uint8_t);
-static void cs_write_u32(uint32_t);
-static void cs_write_i32(int32_t);
-
-static void inline push_i32(int32_t v)
-{
-    cs_write_u8(OP_I32CONST);
-    cs_write_i32(v);
-}
-
-static void inline push_u32(uint32_t v)
-{
-    cs_write_u8(OP_I32CONST);
-    cs_write_u32(v);
-}
-
-static void inline load_u16(uint32_t addr)
-{
-    cs_write_u8(OP_I32CONST);
-    cs_write_u32(addr);
-    cs_write_u8(OP_I32LOAD16U);
-    cs_write_u8(MEM_IMM_ALIGNMENT);
-    cs_write_u8(MEM_IMM_OFFSET);
-}
-
-static void inline load_i32(uint32_t addr)
-{
-    cs_write_u8(OP_I32CONST);
-    cs_write_u32(addr);
-    cs_write_u8(OP_I32LOAD);
-    cs_write_u8(MEM_IMM_ALIGNMENT);
-    cs_write_u8(MEM_IMM_OFFSET);
-}
-
-static void inline store_i32()
-{
-    cs_write_u8(OP_I32STORE);
-    cs_write_u8(MEM_IMM_ALIGNMENT);
-    cs_write_u8(MEM_IMM_OFFSET);
-}
-
-static void inline add_i32()
-{
-    cs_write_u8(OP_I32ADD);
-}
-
-static void inline and_i32()
-{
-    cs_write_u8(OP_I32AND);
-}
-
-static void inline shl_i32()
-{
-    cs_write_u8(OP_I32SHL);
-}
-
-static void inline call_fn(uint8_t fn_idx)
-{
-    cs_write_u8(OP_CALL);
-    cs_write_u8(fn_idx);
-}
-
-static void inline call_fn_with_arg(uint8_t fn_idx, int32_t arg0)
-{
-    push_i32(arg0);
-    call_fn(fn_idx);
-}
-
-#endif

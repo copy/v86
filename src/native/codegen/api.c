@@ -1,13 +1,15 @@
+#pragma once
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
 
-#include "cstring.h"
 #include "const.h"
 #include "wasm_opcodes.h"
 #include "util.h"
 #include "codegen.h"
+#include "wasm_util.h"
 
 // location in memory where we store the result of the computation for testing
 #define RESULT_LOC 1600
