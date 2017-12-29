@@ -305,100 +305,100 @@ void instr_0F0D() {
 void instr_0F0E() { undefined_instruction(); }
 void instr_0F0F() { undefined_instruction(); }
 
-static void instr_0F10(union reg128 source, int32_t r) {
+void instr_0F10(union reg128 source, int32_t r) {
     // movups xmm, xmm/m128
     mov_rm_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_0F10, safe_read128s, read_xmm128s)
 
-static void instr_F30F10_reg(int32_t r1, int32_t r2) {
+void instr_F30F10_reg(int32_t r1, int32_t r2) {
     // movss xmm, xmm/m32
     task_switch_test_mmx();
     union reg128 data = read_xmm128s(r1);
     union reg128 orig = read_xmm128s(r2);
     write_xmm128(r2, data.u32[0], orig.u32[1], orig.u32[2], orig.u32[3]);
 }
-static void instr_F30F10_mem(int32_t addr, int32_t r) {
+void instr_F30F10_mem(int32_t addr, int32_t r) {
     // movss xmm, xmm/m32
     task_switch_test_mmx();
     int32_t data = safe_read32s(addr);
     write_xmm128(r, data, 0, 0, 0);
 }
 
-static void instr_660F10(union reg128 source, int32_t r) {
+void instr_660F10(union reg128 source, int32_t r) {
     // movupd xmm, xmm/m128
     mov_rm_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_660F10, safe_read128s, read_xmm128s)
 
-static void instr_F20F10_reg(int32_t r1, int32_t r2) {
+void instr_F20F10_reg(int32_t r1, int32_t r2) {
     // movsd xmm, xmm/m64
     task_switch_test_mmx();
     union reg128 data = read_xmm128s(r1);
     union reg128 orig = read_xmm128s(r2);
     write_xmm128(r2, data.u32[0], data.u32[1], orig.u32[2], orig.u32[3]);
 }
-static void instr_F20F10_mem(int32_t addr, int32_t r) {
+void instr_F20F10_mem(int32_t addr, int32_t r) {
     // movsd xmm, xmm/m64
     task_switch_test_mmx();
     union reg64 data = safe_read64s(addr);
     write_xmm128(r, data.u32[0], data.u32[1], 0, 0);
 }
 
-static void instr_0F11_reg(int32_t r1, int32_t r2) {
+void instr_0F11_reg(int32_t r1, int32_t r2) {
     // movups xmm/m128, xmm
     mov_r_r128(r1, r2);
 }
-static void instr_0F11_mem(int32_t addr, int32_t r) {
+void instr_0F11_mem(int32_t addr, int32_t r) {
     // movups xmm/m128, xmm
     mov_r_m128(addr, r);
 }
 
-static void instr_F30F11_reg(int32_t rm_dest, int32_t reg_src) {
+void instr_F30F11_reg(int32_t rm_dest, int32_t reg_src) {
     // movss xmm/m32, xmm
     task_switch_test_mmx();
     union reg128 data = read_xmm128s(reg_src);
     union reg128 orig = read_xmm128s(rm_dest);
     write_xmm128(rm_dest, data.u32[0], orig.u32[1], orig.u32[2], orig.u32[3]);
 }
-static void instr_F30F11_mem(int32_t addr, int32_t r) {
+void instr_F30F11_mem(int32_t addr, int32_t r) {
     // movss xmm/m32, xmm
     task_switch_test_mmx();
     union reg128 data = read_xmm128s(r);
     safe_write32(addr, data.u32[0]);
 }
 
-static void instr_660F11_reg(int32_t r1, int32_t r2) {
+void instr_660F11_reg(int32_t r1, int32_t r2) {
     // movupd xmm/m128, xmm
     mov_r_r128(r1, r2);
 }
-static void instr_660F11_mem(int32_t addr, int32_t r) {
+void instr_660F11_mem(int32_t addr, int32_t r) {
     // movupd xmm/m128, xmm
     mov_r_m128(addr, r);
 }
 
-static void instr_F20F11_reg(int32_t r1, int32_t r2) {
+void instr_F20F11_reg(int32_t r1, int32_t r2) {
     // movsd xmm/m64, xmm
     task_switch_test_mmx();
     union reg128 data = read_xmm128s(r2);
     union reg128 orig = read_xmm128s(r1);
     write_xmm128(r1, data.u32[0], data.u32[1], orig.u32[2], orig.u32[3]);
 }
-static void instr_F20F11_mem(int32_t addr, int32_t r) {
+void instr_F20F11_mem(int32_t addr, int32_t r) {
     // movsd xmm/m64, xmm
     task_switch_test_mmx();
     union reg64 data = read_xmm64s(r);
     safe_write64(addr, data.u64[0]);
 }
 
-static void instr_0F12_mem(int32_t addr, int32_t r) {
+void instr_0F12_mem(int32_t addr, int32_t r) {
     // movlps xmm, m64
     task_switch_test_mmx();
     union reg64 data = safe_read64s(addr);
     union reg128 orig = read_xmm128s(r);
     write_xmm128(r, data.u32[0], data.u32[1], orig.u32[2], orig.u32[3]);
 }
-static void instr_0F12_reg(int32_t r1, int32_t r2) {
+void instr_0F12_reg(int32_t r1, int32_t r2) {
     // movhlps xmm, xmm
     task_switch_test_mmx();
     union reg128 data = read_xmm128s(r1);
@@ -431,7 +431,7 @@ void instr_660F13_mem(int32_t addr, int32_t r) {
     movl_r128_m64(addr, r);
 }
 
-static void instr_0F14(union reg64 source, int32_t r) {
+void instr_0F14(union reg64 source, int32_t r) {
     // unpcklps xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -463,7 +463,7 @@ void instr_660F14(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660F14, safe_read64s, read_xmm64s)
 
-static void instr_0F15(union reg128 source, int32_t r) {
+void instr_0F15(union reg128 source, int32_t r) {
     // unpckhps xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -479,7 +479,7 @@ static void instr_0F15(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0F15, safe_read128s, read_xmm128s)
 
-static void instr_660F15(union reg128 source, int32_t r) {
+void instr_660F15(union reg128 source, int32_t r) {
     // unpckhpd xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -495,11 +495,11 @@ static void instr_660F15(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660F15, safe_read128s, read_xmm128s)
 
-static void instr_0F16_mem(int32_t addr, int32_t r) {
+void instr_0F16_mem(int32_t addr, int32_t r) {
     // movhps xmm, m64
     movh_m64_r128(addr, r);
 }
-static void instr_0F16_reg(int32_t r1, int32_t r2) {
+void instr_0F16_reg(int32_t r1, int32_t r2) {
     // movlhps xmm, xmm
     task_switch_test_mmx();
     union reg128 data = read_xmm128s(r1);
@@ -507,23 +507,23 @@ static void instr_0F16_reg(int32_t r1, int32_t r2) {
     write_xmm128(r2, orig.u32[0], orig.u32[1], data.u32[0], data.u32[1]);
 }
 
-static void instr_660F16_mem(int32_t addr, int32_t r) {
+void instr_660F16_mem(int32_t addr, int32_t r) {
     // movhpd xmm, m64
     movh_m64_r128(addr, r);
 }
-static void instr_660F16_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+void instr_660F16_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
-static void instr_0F17_mem(int32_t addr, int32_t r) {
+void instr_0F17_mem(int32_t addr, int32_t r) {
     // movhps m64, xmm
     movh_r128_m64(addr, r);
 }
-static void instr_0F17_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+void instr_0F17_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
-static void instr_660F17_mem(int32_t addr, int32_t r) {
+void instr_660F17_mem(int32_t addr, int32_t r) {
     // movhpd m64, xmm
     movh_r128_m64(addr, r);
 }
-static void instr_660F17_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+void instr_660F17_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
 void instr_0F18_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 void instr_0F18_mem(int32_t addr, int32_t r) {
@@ -1096,7 +1096,7 @@ DEFINE_MODRM_INSTR_READ16(instr16_0F4F, cmovcc16(!test_le(), ___, r))
 DEFINE_MODRM_INSTR_READ32(instr32_0F4F, cmovcc32(!test_le(), ___, r))
 
 
-static void instr_0F50_reg(int32_t r1, int32_t r2) {
+void instr_0F50_reg(int32_t r1, int32_t r2) {
     // movmskps r, xmm
     task_switch_test_mmx();
     union reg128 source = read_xmm128s(r1);
@@ -1104,20 +1104,20 @@ static void instr_0F50_reg(int32_t r1, int32_t r2) {
         (source.u32[2] >> 31) << 2 | (source.u32[3] >> 31) << 3;
     write_reg32(r2, data);
 }
-static void instr_0F50_mem(int32_t addr, int32_t r1) { trigger_ud(); }
+void instr_0F50_mem(int32_t addr, int32_t r1) { trigger_ud(); }
 
-static void instr_660F50_reg(int32_t r1, int32_t r2) {
+void instr_660F50_reg(int32_t r1, int32_t r2) {
     // movmskpd r, xmm
     task_switch_test_mmx();
     union reg128 source = read_xmm128s(r1);
     int32_t data = (source.u32[1] >> 31) | (source.u32[3] >> 31) << 1;
     write_reg32(r2, data);
 }
-static void instr_660F50_mem(int32_t addr, int32_t r1) { trigger_ud(); }
+void instr_660F50_mem(int32_t addr, int32_t r1) { trigger_ud(); }
 
-static void instr_0F51() { unimplemented_sse(); }
-static void instr_0F52() { unimplemented_sse(); }
-static void instr_0F53() { unimplemented_sse(); }
+void instr_0F51() { unimplemented_sse(); }
+void instr_0F52() { unimplemented_sse(); }
+void instr_0F53() { unimplemented_sse(); }
 
 void instr_0F54(union reg128 source, int32_t r) {
     // andps xmm, xmm/mem128
@@ -1133,28 +1133,28 @@ void instr_660F54(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660F54, safe_read128s, read_xmm128s)
 
-static void instr_0F55(union reg128 source, int32_t r) {
+void instr_0F55(union reg128 source, int32_t r) {
     // andnps xmm, xmm/mem128
     // XXX: Aligned access or #gp
     pandn_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_0F55, safe_read128s, read_xmm128s)
 
-static void instr_660F55(union reg128 source, int32_t r) {
+void instr_660F55(union reg128 source, int32_t r) {
     // andnpd xmm, xmm/mem128
     // XXX: Aligned access or #gp
     pandn_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_660F55, safe_read128s, read_xmm128s)
 
-static void instr_0F56(union reg128 source, int32_t r) {
+void instr_0F56(union reg128 source, int32_t r) {
     // orps xmm, xmm/mem128
     // XXX: Aligned access or #gp
     por_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_0F56, safe_read128s, read_xmm128s)
 
-static void instr_660F56(union reg128 source, int32_t r) {
+void instr_660F56(union reg128 source, int32_t r) {
     // orpd xmm, xmm/mem128
     // XXX: Aligned access or #gp
     por_r128(source, r);
@@ -1206,7 +1206,7 @@ void instr_0F60(int32_t source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0F60, safe_read32s, read_mmx32s)
 
-static void instr_660F60(union reg64 source, int32_t r) {
+void instr_660F60(union reg64 source, int32_t r) {
     // punpcklbw xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -1261,7 +1261,7 @@ void instr_0F62(int32_t source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0F62, safe_read32s, read_mmx32s)
 
-static void instr_660F62(union reg128 source, int32_t r) {
+void instr_660F62(union reg128 source, int32_t r) {
     // punpckldq xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -1295,7 +1295,7 @@ void instr_0F63(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0F63, safe_read64s, read_mmx64s)
 
-static void instr_660F63(union reg128 source, int32_t r) {
+void instr_660F63(union reg128 source, int32_t r) {
     // packsswb xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -1340,7 +1340,7 @@ void instr_0F64(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0F64, safe_read64s, read_mmx64s)
 
-static void instr_660F64(union reg128 source, int32_t r) {
+void instr_660F64(union reg128 source, int32_t r) {
     // pcmpgtb xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -1373,7 +1373,7 @@ void instr_0F65(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0F65, safe_read64s, read_mmx64s)
 
-static void instr_660F65(union reg128 source, int32_t r) {
+void instr_660F65(union reg128 source, int32_t r) {
     // pcmpgtw xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -1401,7 +1401,7 @@ void instr_0F66(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0F66, safe_read64s, read_mmx64s)
 
-static void instr_660F66(union reg128 source, int32_t r) {
+void instr_660F66(union reg128 source, int32_t r) {
     // pcmpgtd xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -1508,7 +1508,7 @@ void instr_0F69(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0F69, safe_read64s, read_mmx64s)
 
-static void instr_660F69(union reg128 source, int32_t r) {
+void instr_660F69(union reg128 source, int32_t r) {
     // punpckhwd xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -1531,7 +1531,7 @@ void instr_0F6A(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0F6A, safe_read64s, read_mmx64s)
 
-static void instr_660F6A(union reg128 source, int32_t r) {
+void instr_660F6A(union reg128 source, int32_t r) {
     // punpckhdq xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -1554,7 +1554,7 @@ void instr_0F6B(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0F6B, safe_read64s, read_mmx64s)
 
-static void instr_660F6B(union reg128 source, int32_t r) {
+void instr_660F6B(union reg128 source, int32_t r) {
     // packssdw xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -1573,10 +1573,10 @@ static void instr_660F6B(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660F6B, safe_read128s, read_xmm128s)
 
-static void instr_0F6C_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_0F6C_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+void instr_0F6C_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_0F6C_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
-static void instr_660F6C(union reg128 source, int32_t r) {
+void instr_660F6C(union reg128 source, int32_t r) {
     // punpcklqdq xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -1586,10 +1586,10 @@ static void instr_660F6C(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660F6C, safe_read128s, read_xmm128s)
 
-static void instr_0F6D_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_0F6D_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+void instr_0F6D_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_0F6D_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
-static void instr_660F6D(union reg128 source, int32_t r) {
+void instr_660F6D(union reg128 source, int32_t r) {
     // punpckhqdq xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -1599,7 +1599,7 @@ static void instr_660F6D(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660F6D, safe_read128s, read_xmm128s)
 
-static void instr_0F6E(int32_t source, int32_t r) {
+void instr_0F6E(int32_t source, int32_t r) {
     // movd mm, r/m32
     task_switch_test_mmx();
     write_mmx64(r, source, 0);
@@ -1714,28 +1714,28 @@ void instr_0F71_6_reg(int32_t r, int32_t imm8) {
     psllw_r64(r, imm8);
 }
 
-static void instr_660F71_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_660F71_4_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_660F71_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_660F71_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_660F71_4_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_660F71_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
 
-static void instr_660F71_2_reg(int32_t r, int32_t imm8) {
+void instr_660F71_2_reg(int32_t r, int32_t imm8) {
     // psrlw xmm, imm8
     psrlw_r128(r, imm8);
 }
 
-static void instr_660F71_4_reg(int32_t r, int32_t imm8) {
+void instr_660F71_4_reg(int32_t r, int32_t imm8) {
     // psraw xmm, imm8
     psraw_r128(r, imm8);
 }
 
-static void instr_660F71_6_reg(int32_t r, int32_t imm8) {
+void instr_660F71_6_reg(int32_t r, int32_t imm8) {
     // psllw xmm, imm8
     psllw_r128(r, imm8);
 }
 
-static void instr_0F72_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_0F72_4_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_0F72_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_0F72_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_0F72_4_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_0F72_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
 
 void instr_0F72_2_reg(int32_t r, int32_t imm8) {
     // psrld mm, imm8
@@ -1752,21 +1752,21 @@ void instr_0F72_6_reg(int32_t r, int32_t imm8) {
     pslld_r64(r, imm8);
 }
 
-static void instr_660F72_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_660F72_4_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_660F72_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_660F72_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_660F72_4_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_660F72_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
 
-static void instr_660F72_2_reg(int32_t r, int32_t imm8) {
+void instr_660F72_2_reg(int32_t r, int32_t imm8) {
     // psrld xmm, imm8
     psrld_r128(r, imm8);
 }
 
-static void instr_660F72_4_reg(int32_t r, int32_t imm8) {
+void instr_660F72_4_reg(int32_t r, int32_t imm8) {
     // psrad xmm, imm8
     psrad_r128(r, imm8);
 }
 
-static void instr_660F72_6_reg(int32_t r, int32_t imm8) {
+void instr_660F72_6_reg(int32_t r, int32_t imm8) {
     // pslld xmm, imm8
     pslld_r128(r, imm8);
 }
@@ -1783,22 +1783,22 @@ void instr_0F73_2_reg(int32_t r, int32_t imm8) {
     psrlq_r64(r, imm8);
 }
 
-static void instr_0F73_6_reg(int32_t r, int32_t imm8) {
+void instr_0F73_6_reg(int32_t r, int32_t imm8) {
     // psllq mm, imm8
     psllq_r64(r, imm8);
 }
 
-static void instr_660F73_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_660F73_3_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_660F73_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_660F73_7_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_660F73_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_660F73_3_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_660F73_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_660F73_7_mem(int32_t addr, int32_t r) { trigger_ud(); }
 
-static void instr_660F73_2_reg(int32_t r, int32_t imm8) {
+void instr_660F73_2_reg(int32_t r, int32_t imm8) {
     // psrlq xmm, imm8
     psrlq_r128(r, imm8);
 }
 
-static void instr_660F73_3_reg(int32_t r, int32_t imm8) {
+void instr_660F73_3_reg(int32_t r, int32_t imm8) {
     // psrldq xmm, imm8
     task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
@@ -1825,13 +1825,13 @@ static void instr_660F73_3_reg(int32_t r, int32_t imm8) {
     write_xmm_reg128(r, result);
 }
 
-static void instr_660F73_6_reg(int32_t r, int32_t imm8) {
+void instr_660F73_6_reg(int32_t r, int32_t imm8) {
     // psllq xmm, imm8
     psllq_r128(r, imm8);
 }
 
 
-static void instr_660F73_7_reg(int32_t r, int32_t imm8) {
+void instr_660F73_7_reg(int32_t r, int32_t imm8) {
     // pslldq xmm, imm8
     task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
@@ -2436,7 +2436,7 @@ void instr_0FC3_mem(int32_t addr, int32_t r) {
     safe_write32(addr, read_reg32(r));
 }
 
-static void instr_0FC4(int32_t source, int32_t r, int32_t imm8) {
+void instr_0FC4(int32_t source, int32_t r, int32_t imm8) {
     // pinsrw mm, r32/m16, imm8
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
@@ -2448,7 +2448,7 @@ static void instr_0FC4(int32_t source, int32_t r, int32_t imm8) {
 }
 DEFINE_SSE_SPLIT_IMM(instr_0FC4, read16, read_reg32)
 
-static void instr_660FC4(int32_t source, int32_t r, int32_t imm8) {
+void instr_660FC4(int32_t source, int32_t r, int32_t imm8) {
     // pinsrw xmm, r32/m16, imm8
     task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
@@ -2460,8 +2460,8 @@ static void instr_660FC4(int32_t source, int32_t r, int32_t imm8) {
 }
 DEFINE_SSE_SPLIT_IMM(instr_660FC4, read16, read_reg32)
 
-static void instr_0FC5_mem(int32_t addr, int32_t r, int32_t imm8) { trigger_ud(); }
-static void instr_0FC5_reg(int32_t r1, int32_t r2, int32_t imm8) {
+void instr_0FC5_mem(int32_t addr, int32_t r, int32_t imm8) { trigger_ud(); }
+void instr_0FC5_reg(int32_t r1, int32_t r2, int32_t imm8) {
     // pextrw r32, mm, imm8
     task_switch_test_mmx();
 
@@ -2554,7 +2554,7 @@ void instr_0FD1(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FD1, safe_read64s, read_mmx64s)
 
-static void instr_660FD1(union reg128 source, int32_t r) {
+void instr_660FD1(union reg128 source, int32_t r) {
     // psrlw xmm, xmm/m128
     // XXX: Aligned access or #gp
     psrlw_r128(r, source.u32[0]);
@@ -2567,7 +2567,7 @@ void instr_0FD2(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FD2, safe_read64s, read_mmx64s)
 
-static void instr_660FD2(union reg128 source, int32_t r) {
+void instr_660FD2(union reg128 source, int32_t r) {
     // psrld xmm, xmm/m128
     // XXX: Aligned access or #gp
     psrld_r128(r, source.u32[0]);
@@ -2586,7 +2586,7 @@ void instr_660FD3(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FD3, safe_read128s, read_xmm128s)
 
-static void instr_0FD4(union reg64 source, int32_t r) {
+void instr_0FD4(union reg64 source, int32_t r) {
     // paddq mm, mm/m64
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
@@ -2595,7 +2595,7 @@ static void instr_0FD4(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FD4, safe_read64s, read_mmx64s)
 
-static void instr_660FD4(union reg128 source, int32_t r) {
+void instr_660FD4(union reg128 source, int32_t r) {
     // paddq xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -2640,10 +2640,10 @@ void instr_660FD5(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FD5, safe_read128s, read_xmm128s)
 
-static void instr_0FD6_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_0FD6_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+void instr_0FD6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_0FD6_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
-static void instr_660FD6_mem(int32_t addr, int32_t r) {
+void instr_660FD6_mem(int32_t addr, int32_t r) {
     // movq xmm/m64, xmm
     movl_r128_m64(addr, r);
 }
@@ -2654,24 +2654,24 @@ void instr_660FD6_reg(int32_t r1, int32_t r2) {
     write_xmm128(r1, data.u32[0], data.u32[1], 0, 0);
 }
 
-static void instr_F20FD6_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_F20FD6_reg(int32_t r1, int32_t r2) {
+void instr_F20FD6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_F20FD6_reg(int32_t r1, int32_t r2) {
     // movdq2q mm, xmm
     task_switch_test_mmx();
     union reg128 source = read_xmm128s(r1);
     write_mmx64(r2, source.u32[0], source.u32[1]);
 }
 
-static void instr_F30FD6_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_F30FD6_reg(int32_t r1, int32_t r2) {
+void instr_F30FD6_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_F30FD6_reg(int32_t r1, int32_t r2) {
     // movq2dq xmm, mm
     task_switch_test_mmx();
     union reg64 source = read_mmx64s(r1);
     write_xmm128(r2, source.u32[0], source.u32[1], 0, 0);
 }
 
-static void instr_0FD7_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_0FD7_reg(int32_t r1, int32_t r2) {
+void instr_0FD7_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_0FD7_reg(int32_t r1, int32_t r2) {
     // pmovmskb r, mm
     task_switch_test_mmx();
     union reg64 x = read_mmx64s(r1);
@@ -2681,8 +2681,8 @@ static void instr_0FD7_reg(int32_t r1, int32_t r2) {
     write_reg32(r2, result);
 }
 
-static void instr_660FD7_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_660FD7_reg(int32_t r1, int32_t r2) {
+void instr_660FD7_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_660FD7_reg(int32_t r1, int32_t r2) {
     // pmovmskb reg, xmm
     task_switch_test_mmx();
 
@@ -2711,7 +2711,7 @@ void instr_0FD8(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FD8, safe_read64s, read_mmx64s)
 
-static void instr_660FD8(union reg128 source, int32_t r) {
+void instr_660FD8(union reg128 source, int32_t r) {
     // psubusb xmm, xmm/m128
     task_switch_test_mmx();
 
@@ -2745,7 +2745,7 @@ void instr_0FD9(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FD9, safe_read64s, read_mmx64s)
 
-static void instr_660FD9(union reg128 source, int32_t r) {
+void instr_660FD9(union reg128 source, int32_t r) {
     // psubusw xmm, xmm/m128
     task_switch_test_mmx();
 
@@ -2761,7 +2761,7 @@ static void instr_660FD9(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FD9, safe_read128s, read_xmm128s)
 
-static void instr_0FDA(union reg64 source, int32_t r) {
+void instr_0FDA(union reg64 source, int32_t r) {
     // pminub mm, mm/m64
     task_switch_test_mmx();
 
@@ -2807,7 +2807,7 @@ void instr_0FDB(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FDB, safe_read64s, read_mmx64s)
 
-static void instr_660FDB(union reg128 source, int32_t r) {
+void instr_660FDB(union reg128 source, int32_t r) {
     // pand xmm, xmm/m128
     // XXX: Aligned access or #gp
     pand_r128(source, r);
@@ -2882,7 +2882,7 @@ void instr_660FDD(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FDD, safe_read128s, read_xmm128s)
 
-static void instr_0FDE(union reg64 source, int32_t r) {
+void instr_0FDE(union reg64 source, int32_t r) {
     // pmaxub mm, mm/m64
     task_switch_test_mmx();
 
@@ -2928,14 +2928,14 @@ void instr_0FDF(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FDF, safe_read64s, read_mmx64s)
 
-static void instr_660FDF(union reg128 source, int32_t r) {
+void instr_660FDF(union reg128 source, int32_t r) {
     // pandn xmm, xmm/m128
     // XXX: Aligned access or #gp
     pandn_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_660FDF, safe_read128s, read_xmm128s)
 
-static void instr_0FE0(union reg64 source, int32_t r) {
+void instr_0FE0(union reg64 source, int32_t r) {
     // pavgb mm, mm/m64
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
@@ -2950,7 +2950,7 @@ static void instr_0FE0(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FE0, safe_read64s, read_mmx64s)
 
-static void instr_660FE0(union reg128 source, int32_t r) {
+void instr_660FE0(union reg128 source, int32_t r) {
     // pavgb xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -2966,13 +2966,13 @@ static void instr_660FE0(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FE0, safe_read128s, read_xmm128s)
 
-static void instr_0FE1(union reg64 source, int32_t r) {
+void instr_0FE1(union reg64 source, int32_t r) {
     // psraw mm, mm/m64
     psraw_r64(r, source.u32[0]);
 }
 DEFINE_SSE_SPLIT(instr_0FE1, safe_read64s, read_mmx64s)
 
-static void instr_660FE1(union reg128 source, int32_t r) {
+void instr_660FE1(union reg128 source, int32_t r) {
     // psraw xmm, xmm/m128
     // XXX: Aligned access or #gp
     psraw_r128(r, source.u32[0]);
@@ -2985,14 +2985,14 @@ void instr_0FE2(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FE2, safe_read64s, read_mmx64s)
 
-static void instr_660FE2(union reg128 source, int32_t r) {
+void instr_660FE2(union reg128 source, int32_t r) {
     // psrad xmm, xmm/m128
     // XXX: Aligned access or #gp
     psrad_r128(r, source.u32[0]);
 }
 DEFINE_SSE_SPLIT(instr_660FE2, safe_read128s, read_xmm128s)
 
-static void instr_0FE3(union reg64 source, int32_t r) {
+void instr_0FE3(union reg64 source, int32_t r) {
     // pavgw mm, mm/m64
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
@@ -3006,7 +3006,7 @@ static void instr_0FE3(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FE3, safe_read64s, read_mmx64s)
 
-static void instr_660FE3(union reg128 source, int32_t r) {
+void instr_660FE3(union reg128 source, int32_t r) {
     // pavgw xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3025,7 +3025,7 @@ static void instr_660FE3(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FE3, safe_read128s, read_xmm128s)
 
-static void instr_0FE4(union reg64 source, int32_t r) {
+void instr_0FE4(union reg64 source, int32_t r) {
     // pmulhuw mm, mm/m64
     task_switch_test_mmx();
 
@@ -3074,7 +3074,7 @@ void instr_0FE5(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FE5, safe_read64s, read_mmx64s)
 
-static void instr_660FE5(union reg128 source, int32_t r) {
+void instr_660FE5(union reg128 source, int32_t r) {
     // pmulhw xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3094,23 +3094,23 @@ static void instr_660FE5(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FE5, safe_read128s, read_xmm128s)
 
-static void instr_0FE6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_0FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
-static void instr_660FE6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_660FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
-static void instr_F20FE6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_F20FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
-static void instr_F30FE6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-static void instr_F30FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+void instr_0FE6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+void instr_0FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+void instr_660FE6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+void instr_660FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+void instr_F20FE6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+void instr_F20FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+void instr_F30FE6_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
+void instr_F30FE6_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-static void instr_0FE7_mem(int32_t addr, int32_t r) {
+void instr_0FE7_mem(int32_t addr, int32_t r) {
     // movntq m64, mm
     mov_r_m64(addr, r);
 }
-static void instr_0FE7_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+void instr_0FE7_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
-static void instr_660FE7_reg(int32_t r1, int32_t r2) { trigger_ud(); }
-static void instr_660FE7_mem(int32_t addr, int32_t r) {
+void instr_660FE7_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+void instr_660FE7_mem(int32_t addr, int32_t r) {
     // movntdq m128, xmm
     mov_r_m128(addr, r);
 }
@@ -3131,7 +3131,7 @@ void instr_0FE8(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FE8, safe_read64s, read_mmx64s)
 
-static void instr_660FE8(union reg128 source, int32_t r) {
+void instr_660FE8(union reg128 source, int32_t r) {
     // psubsb xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3166,7 +3166,7 @@ void instr_0FE9(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FE9, safe_read64s, read_mmx64s)
 
-static void instr_660FE9(union reg128 source, int32_t r) {
+void instr_660FE9(union reg128 source, int32_t r) {
     // psubsw xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3186,7 +3186,7 @@ static void instr_660FE9(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FE9, safe_read128s, read_xmm128s)
 
-static void instr_0FEA(union reg64 source, int32_t r) {
+void instr_0FEA(union reg64 source, int32_t r) {
     // pminsw mm, mm/m64
     task_switch_test_mmx();
 
@@ -3202,7 +3202,7 @@ static void instr_0FEA(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FEA, safe_read64s, read_mmx64s)
 
-static void instr_660FEA(union reg128 source, int32_t r) {
+void instr_660FEA(union reg128 source, int32_t r) {
     // pminsw xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3255,7 +3255,7 @@ void instr_0FEC(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FEC, safe_read64s, read_mmx64s)
 
-static void instr_660FEC(union reg128 source, int32_t r) {
+void instr_660FEC(union reg128 source, int32_t r) {
     // paddsb xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3290,7 +3290,7 @@ void instr_0FED(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FED, safe_read64s, read_mmx64s)
 
-static void instr_660FED(union reg128 source, int32_t r) {
+void instr_660FED(union reg128 source, int32_t r) {
     // paddsw xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3310,7 +3310,7 @@ static void instr_660FED(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FED, safe_read128s, read_xmm128s)
 
-static void instr_0FEE(union reg64 source, int32_t r) {
+void instr_0FEE(union reg64 source, int32_t r) {
     // pmaxsw mm, mm/m64
     task_switch_test_mmx();
 
@@ -3326,7 +3326,7 @@ static void instr_0FEE(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FEE, safe_read64s, read_mmx64s)
 
-static void instr_660FEE(union reg128 source, int32_t r) {
+void instr_660FEE(union reg128 source, int32_t r) {
     // pmaxsw xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3343,7 +3343,7 @@ static void instr_660FEE(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FEE, safe_read128s, read_xmm128s)
 
-static void instr_0FEF(union reg64 source, int32_t r) {
+void instr_0FEF(union reg64 source, int32_t r) {
     // pxor mm, mm/m64
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
@@ -3355,22 +3355,22 @@ static void instr_0FEF(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FEF, safe_read64s, read_mmx64s)
 
-static void instr_660FEF(union reg128 source, int32_t r) {
+void instr_660FEF(union reg128 source, int32_t r) {
     // pxor xmm, xmm/m128
     // XXX: Aligned access or #gp
     pxor_r128(source, r);
 }
 DEFINE_SSE_SPLIT(instr_660FEF, safe_read128s, read_xmm128s)
 
-static void instr_0FF0() { unimplemented_sse(); }
+void instr_0FF0() { unimplemented_sse(); }
 
-static void instr_0FF1(union reg64 source, int32_t r) {
+void instr_0FF1(union reg64 source, int32_t r) {
     // psllw mm, mm/m64
     psllw_r64(r, source.u32[0]);
 }
 DEFINE_SSE_SPLIT(instr_0FF1, safe_read64s, read_mmx64s)
 
-static void instr_660FF1(union reg128 source, int32_t r) {
+void instr_660FF1(union reg128 source, int32_t r) {
     // psllw xmm, xmm/m128
     // XXX: Aligned access or #gp
     psllw_r128(r, source.u32[0]);
@@ -3383,7 +3383,7 @@ void instr_0FF2(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FF2, safe_read64s, read_mmx64s)
 
-static void instr_660FF2(union reg128 source, int32_t r) {
+void instr_660FF2(union reg128 source, int32_t r) {
     // pslld xmm, xmm/m128
     // XXX: Aligned access or #gp
     pslld_r128(r, source.u32[0]);
@@ -3403,7 +3403,7 @@ void instr_660FF3(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FF3, safe_read128s, read_xmm128s)
 
-static void instr_0FF4(union reg64 source, int32_t r) {
+void instr_0FF4(union reg64 source, int32_t r) {
     // pmuludq mm, mm/m64
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
@@ -3413,7 +3413,7 @@ static void instr_0FF4(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FF4, safe_read64s, read_mmx64s)
 
-static void instr_660FF4(union reg128 source, int32_t r) {
+void instr_660FF4(union reg128 source, int32_t r) {
     // pmuludq xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3443,7 +3443,7 @@ void instr_0FF5(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FF5, safe_read64s, read_mmx64s)
 
-static void instr_660FF5(union reg128 source, int32_t r) {
+void instr_660FF5(union reg128 source, int32_t r) {
     // pmaddwd xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3463,7 +3463,7 @@ static void instr_660FF5(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FF5, safe_read128s, read_xmm128s)
 
-static void instr_0FF6(union reg64 source, int32_t r) {
+void instr_0FF6(union reg64 source, int32_t r) {
     // psadbw mm, mm/m64
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
@@ -3478,7 +3478,7 @@ static void instr_0FF6(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FF6, safe_read64s, read_mmx64s)
 
-static void instr_660FF6(union reg128 source, int32_t r) {
+void instr_660FF6(union reg128 source, int32_t r) {
     // psadbw xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3496,8 +3496,8 @@ static void instr_660FF6(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FF6, safe_read128s, read_xmm128s)
 
-static void instr_0FF7_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_0FF7_reg(int32_t r1, int32_t r2) {
+void instr_0FF7_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_0FF7_reg(int32_t r1, int32_t r2) {
     // maskmovq mm, mm
     task_switch_test_mmx();
     union reg64 source = read_mmx64s(r2);
@@ -3514,8 +3514,8 @@ static void instr_0FF7_reg(int32_t r1, int32_t r2) {
     }
 }
 
-static void instr_660FF7_mem(int32_t addr, int32_t r) { trigger_ud(); }
-static void instr_660FF7_reg(int32_t r1, int32_t r2) {
+void instr_660FF7_mem(int32_t addr, int32_t r) { trigger_ud(); }
+void instr_660FF7_reg(int32_t r1, int32_t r2) {
     // maskmovdqu xmm, xmm
     task_switch_test_mmx();
     union reg128 source = read_xmm128s(r2);
@@ -3548,7 +3548,7 @@ void instr_0FF8(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FF8, safe_read64s, read_mmx64s)
 
-static void instr_660FF8(union reg128 source, int32_t r) {
+void instr_660FF8(union reg128 source, int32_t r) {
     // psubb xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3583,7 +3583,7 @@ void instr_0FF9(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FF9, safe_read64s, read_mmx64s)
 
-static void instr_660FF9(union reg128 source, int32_t r) {
+void instr_660FF9(union reg128 source, int32_t r) {
     // psubw xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3631,7 +3631,7 @@ void instr_660FFA(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660FFA, safe_read128s, read_xmm128s)
 
-static void instr_0FFB(union reg64 source, int32_t r) {
+void instr_0FFB(union reg64 source, int32_t r) {
     // psubq mm, mm/m64
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
@@ -3641,7 +3641,7 @@ static void instr_0FFB(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FFB, safe_read64s, read_mmx64s)
 
-static void instr_660FFB(union reg128 source, int32_t r) {
+void instr_660FFB(union reg128 source, int32_t r) {
     // psubq xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3670,7 +3670,7 @@ void instr_0FFC(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FFC, safe_read64s, read_mmx64s)
 
-static void instr_660FFC(union reg128 source, int32_t r) {
+void instr_660FFC(union reg128 source, int32_t r) {
     // paddb xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3705,7 +3705,7 @@ void instr_0FFD(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FFD, safe_read64s, read_mmx64s)
 
-static void instr_660FFD(union reg128 source, int32_t r) {
+void instr_660FFD(union reg128 source, int32_t r) {
     // paddw xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -3735,7 +3735,7 @@ void instr_0FFE(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_0FFE, safe_read64s, read_mmx64s)
 
-static void instr_660FFE(union reg128 source, int32_t r) {
+void instr_660FFE(union reg128 source, int32_t r) {
     // paddd xmm, xmm/m128
     // XXX: Aligned access or #gp
     task_switch_test_mmx();
@@ -13221,12 +13221,102 @@ switch(opcode)
     break;
     case 0x10:
     {
-        gen_fn0("instr_0F10", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F10_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F10_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_F20F10_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_F20F10_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_F30F10_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_F30F10_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F10_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F10_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x11:
     {
-        gen_fn0("instr_0F11", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F11_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F11_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_F20F11_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_F20F11_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_F30F11_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_F30F11_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F11_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F11_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x12:
@@ -13337,17 +13427,86 @@ switch(opcode)
     break;
     case 0x15:
     {
-        gen_fn0("instr_0F15", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F15_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F15_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F15_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F15_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x16:
     {
-        gen_fn0("instr_0F16", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F16_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F16_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F16_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F16_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x17:
     {
-        gen_fn0("instr_0F17", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F17_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F17_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F17_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F17_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x18:
@@ -13896,7 +14055,30 @@ switch(opcode)
     break;
     case 0x50:
     {
-        gen_fn0("instr_0F50", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F50_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F50_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F50_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F50_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x51:
@@ -13944,12 +14126,58 @@ switch(opcode)
     break;
     case 0x55:
     {
-        gen_fn0("instr_0F55", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F55_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F55_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F55_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F55_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x56:
     {
-        gen_fn0("instr_0F56", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F56_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F56_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F56_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F56_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x57:
@@ -15878,7 +16106,30 @@ switch(opcode)
     break;
     case 0xC4:
     {
-        gen_fn0("instr_0FC4", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_cb_fn2("instr_660FC4_mem", 16, modrm_byte, modrm_byte >> 3 & 7, read_imm8);
+            }
+            else
+            {
+                gen_fn3("instr_660FC4_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_cb_fn2("instr_0FC4_mem", 14, modrm_byte, modrm_byte >> 3 & 7, read_imm8);
+            }
+            else
+            {
+                gen_fn3("instr_0FC4_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
     }
     break;
     case 0xC5:
@@ -17584,12 +17835,102 @@ switch(opcode)
     break;
     case 0x10:
     {
-        gen_fn0("instr_0F10", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F10_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F10_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_F20F10_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_F20F10_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_F30F10_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_F30F10_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F10_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F10_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x11:
     {
-        gen_fn0("instr_0F11", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F11_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F11_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F2)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_F20F11_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_F20F11_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else if(prefixes_ & PREFIX_F3)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_F30F11_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_F30F11_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F11_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F11_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x12:
@@ -17700,17 +18041,86 @@ switch(opcode)
     break;
     case 0x15:
     {
-        gen_fn0("instr_0F15", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F15_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F15_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F15_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F15_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x16:
     {
-        gen_fn0("instr_0F16", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F16_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F16_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F16_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F16_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x17:
     {
-        gen_fn0("instr_0F17", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F17_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F17_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F17_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F17_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x18:
@@ -18259,7 +18669,30 @@ switch(opcode)
     break;
     case 0x50:
     {
-        gen_fn0("instr_0F50", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F50_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F50_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F50_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F50_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x51:
@@ -18307,12 +18740,58 @@ switch(opcode)
     break;
     case 0x55:
     {
-        gen_fn0("instr_0F55", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F55_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F55_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F55_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F55_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x56:
     {
-        gen_fn0("instr_0F56", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_660F56_mem", 16, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_660F56_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_fn1("instr_0F56_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            }
+            else
+            {
+                gen_fn2("instr_0F56_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            }
+        }
     }
     break;
     case 0x57:
@@ -20241,7 +20720,30 @@ switch(opcode)
     break;
     case 0xC4:
     {
-        gen_fn0("instr_0FC4", 10);
+        int32_t modrm_byte = read_imm8();
+        int32_t prefixes_ = *prefixes;
+        if(prefixes_ & PREFIX_66)
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_cb_fn2("instr_660FC4_mem", 16, modrm_byte, modrm_byte >> 3 & 7, read_imm8);
+            }
+            else
+            {
+                gen_fn3("instr_660FC4_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
+        else
+        {
+            if(modrm_byte < 0xC0)
+            {
+                gen_modrm_cb_fn2("instr_0FC4_mem", 14, modrm_byte, modrm_byte >> 3 & 7, read_imm8);
+            }
+            else
+            {
+                gen_fn3("instr_0FC4_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            }
+        }
     }
     break;
     case 0xC5:
