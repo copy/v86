@@ -1436,7 +1436,7 @@ CPU.prototype.codegen_finalize = function(cache_index, virtual_start, start, end
     this.instr_cache[start] = f;
 
     // The following will throw if o.exports.f isn't an exported function
-    this.wm.imports.env.table.set(cache_index, f);
+    this.wm.imports["env"].table.set(cache_index, f);
 
     this.instruction_pointer[0] = virtual_start;
 
