@@ -25,6 +25,7 @@ extern int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index);
 
 extern uint8_t* const prefixes;
 extern int32_t* const instruction_pointer;
+extern uint32_t* const timestamp_counter;
 extern int32_t* const previous_ip;
 extern uint8_t* const reg8;
 extern uint16_t* const reg16;
@@ -127,6 +128,17 @@ void gen_increment_instruction_pointer(int32_t n)
     add_i32(&cs);
 
     store_i32(&cs); // store it back in
+}
+
+void gen_increment_timestamp_counter(int32_t n)
+{
+    push_i32((int32_t)timestamp_counter); // store address of tsc
+
+    load_i32((int32_t)timestamp_counter); // load ip
+    push_i32(n); // load value to add to it
+    add_i32();
+
+    store_i32(); // store it back in
 }
 
 void gen_patch_increment_instruction_pointer(int32_t n) // XXX: Hack

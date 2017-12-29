@@ -373,6 +373,8 @@ void cycle_internal()
             entry->end_addr = *eip_phys ^ *instruction_pointer;
         }
 
+        gen_increment_timestamp_counter(entry->len);
+
         jit_jump = 0;
 
         gen_finish();

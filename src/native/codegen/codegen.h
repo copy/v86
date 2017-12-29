@@ -52,5 +52,7 @@ void gen_set_previous_eip(void);
 void gen_increment_instruction_pointer(int32_t);
 void gen_patch_increment_instruction_pointer(int32_t);
 
+void gen_increment_timestamp_counter(int32_t);
+
 void gen_clear_prefixes(void);
 void gen_add_prefix_bits(int32_t);
