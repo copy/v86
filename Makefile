@@ -135,7 +135,7 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
 
-build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h
+build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/*
 	mkdir -p build
 	-ls -lh build/v86.wasm
 	# --llvm-opts 3
@@ -159,7 +159,7 @@ build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/
 	    -s WASM=1 -s SIDE_MODULE=1 -o build/v86.wasm
 	ls -lh build/v86.wasm
 
-build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h
+build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/*
 	mkdir -p build
 	emcc src/native/all.c src/native/codegen/codegen.c src/native/call-indirect.ll \
 	    -Isrc/native/ -Isrc/native/profiler/ \

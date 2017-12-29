@@ -41,10 +41,11 @@ void profiler_end(enum profile_name name)
 void profiler_print()
 {
     double init_elapsed = get_time() - profiler_init_time;
-    printf("Elapsed: %d\n", (int32_t) init_elapsed);
-    for(uint32_t i = 0; i < PROFILER_NAME_COUNT; i++)
+    printf("\nElapsed: %d\n", (int32_t) init_elapsed);
+    for(int32_t i = 0; i < PROFILER_NAME_COUNT; i++)
     {
         double cur_total = profiler_arr[i].total;
+        printf(profiler_names[i]);
         printf(
             "\nIndex:\t%d"
             "\nTotal:\t%d"

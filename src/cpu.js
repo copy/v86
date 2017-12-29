@@ -1254,6 +1254,9 @@ CPU.prototype.do_many_cycles = function()
     }
 
     this.wm.exports["_profiler_end"](P_DO_MANY_CYCLES);
+    this.wm.exports["_profiler_end"](P_GEN_INSTR);
+    this.wm.exports["_profiler_end"](P_RUN_FROM_CACHE);
+    this.wm.exports["_profiler_end"](P_RUN_INTERPRETED);
 };
 
 CPU.prototype.do_many_cycles_unsafe = function()

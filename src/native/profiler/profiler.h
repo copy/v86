@@ -2,20 +2,30 @@
 #ifndef _PROFILER_H
 #define _PROFILER_H
 
+
+#define PROFILER_NAME_COUNT 5
+
 struct profiler_data {
     double total;
     double current_start;
     bool capturing;
-} profiler_arr[4] = {{0, 0, false}};
+} profiler_arr[PROFILER_NAME_COUNT] = {{0, 0, false}};
+
+const char *profiler_names[] = {
+    "IDLE",
+    "DO_MANY_CYCLES",
+    "GEN_INSTR",
+    "RUN_FROM_CACHE",
+    "RUN_INTERPRETED",
+};
 
 enum profile_name {
     P_IDLE,
-    P_GEN_INSTR,
     P_DO_MANY_CYCLES,
-    P_RUN_FROM_CACHE
+    P_GEN_INSTR,
+    P_RUN_FROM_CACHE,
+    P_RUN_INTERPRETED,
 };
-
-#define PROFILER_NAME_COUNT 4
 
 
 void profiler_init();

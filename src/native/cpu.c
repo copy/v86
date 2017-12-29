@@ -302,9 +302,10 @@ void cycle_internal()
         //jit_clear_func(addr_index);
     }
 
-    if(!JIT_DONT_USE_CACHE &&
-       cached && clean)
+    if(!JIT_DONT_USE_CACHE && cached && clean)
     {
+        profiler_start(P_RUN_FROM_CACHE);
+
         // XXX: With the code-generation, we need to figure out how we
         // would call the function from the other module here; likely
         // through a handler in JS. For now:
@@ -328,12 +329,16 @@ void cycle_internal()
         // XXX: Try to find an assert to detect self-modifying code
         // JIT compiled self-modifying basic blocks may trigger this assert
         // assert(entry->group_status != group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT]);
-        *cache_hit = *cache_hit + 1;
+
+        //*cache_hit = *cache_hit + 1;
+
+        profiler_end(P_RUN_FROM_CACHE);
     }
     // A jump just occured indicating the start of a basic block + the
     // address is hot; let's JIT compile it
     else if(JIT_ALWAYS || jit_jump == 1 && ++hot_code_addresses[jit_hot_hash(phys_addr)] > JIT_THRESHOLD)
     {
+        profiler_start(P_GEN_INSTR);
         int32_t start_addr = *instruction_pointer;
         jit_in_progress = false;
 
@@ -383,14 +388,18 @@ void cycle_internal()
         //{
         entry->group_status = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
         //}
+
+        profiler_end(P_GEN_INSTR);
     }
     // Regular un-hot code execution
     else
     {
+        profiler_start(P_RUN_INTERPRETED);
         jit_jump = 0;
         int32_t opcode = read_imm8();
         run_instruction(opcode | !!*is_32 << 8);
         (*timestamp_counter)++;
+        profiler_end(P_RUN_INTERPRETED);
     }
 
 #else
