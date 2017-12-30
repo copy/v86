@@ -305,6 +305,7 @@ void cycle_internal()
     if(!JIT_DONT_USE_CACHE && cached && clean)
     {
         profiler_start(P_RUN_FROM_CACHE);
+        profiler_stat_increment(S_RUN_FROM_CACHE);
 
         // XXX: With the code-generation, we need to figure out how we
         // would call the function from the other module here; likely
@@ -330,15 +331,22 @@ void cycle_internal()
         // JIT compiled self-modifying basic blocks may trigger this assert
         // assert(entry->group_status != group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT]);
 
-        //*cache_hit = *cache_hit + 1;
-
         profiler_end(P_RUN_FROM_CACHE);
     }
     // A jump just occured indicating the start of a basic block + the
     // address is hot; let's JIT compile it
     else if(JIT_ALWAYS || jit_jump == 1 && ++hot_code_addresses[jit_hot_hash(phys_addr)] > JIT_THRESHOLD)
     {
+        if(clean && entry->start_addr != 0 && entry->start_addr != phys_addr)
+        {
+            // contains still valid code from different address, about to be overwritten
+            //printf("%x %x", entry->start_addr, phys_addr);
+            profiler_stat_increment(S_CACHE_MISMATCH);
+        }
+
         profiler_start(P_GEN_INSTR);
+        profiler_stat_increment(S_COMPILE);
+
         int32_t start_addr = *instruction_pointer;
         jit_in_progress = false;
 
@@ -350,9 +358,9 @@ void cycle_internal()
         entry->start_addr = phys_addr;
         entry->end_addr = phys_addr + 1;
         entry->is_32 = *is_32;
-        jit_cache_arr[addr_index] = *entry;
 
-        *cache_compile = *cache_compile + 1;
+        //jit_cache_arr[addr_index] = *entry;
+        assert(&jit_cache_arr[addr_index] == entry);
 
         gen_reset();
 
@@ -391,16 +399,19 @@ void cycle_internal()
         entry->group_status = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
         //}
 
+        profiler_stat_increment(S_COMPILE_SUCCESS);
         profiler_end(P_GEN_INSTR);
     }
     // Regular un-hot code execution
     else
     {
         profiler_start(P_RUN_INTERPRETED);
-        jit_jump = 0;
+        profiler_stat_increment(S_RUN_INTERPRETED);
+
         int32_t opcode = read_imm8();
         run_instruction(opcode | !!*is_32 << 8);
         (*timestamp_counter)++;
+
         profiler_end(P_RUN_INTERPRETED);
     }
 

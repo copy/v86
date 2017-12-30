@@ -99,6 +99,4 @@ int32_t* const fpu_st32 = (int32_t* const) 968;
 
 union reg64* const reg_mmx = (union reg64* const) 1064; // length 64
 
-uint32_t* const cache_hit = (uint32_t* const) 1280;
-uint32_t* const cache_compile = (uint32_t* const) 1284;
 #endif

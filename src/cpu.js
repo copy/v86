@@ -204,9 +204,6 @@ function CPU(bus, wm, codegen)
     this.reg_mmx8s = new Int8Array(this.reg_mmxs.buffer, 1064, 64);
     this.reg_mmx8 = new Uint8Array(this.reg_mmxs.buffer, 1064, 64);
 
-    this.cache_hit = new Uint32Array(wm.memory.buffer, 1280, 1);
-    this.cache_compile = new Uint32Array(wm.memory.buffer, 1284, 1);
-
     this.reg_xmm32s = new Int32Array(wm.memory.buffer, 828, 8 * 4);
 
     this.mxcsr = new Int32Array(wm.memory.buffer, 824, 1);

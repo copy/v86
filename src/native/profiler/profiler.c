@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include "profiler.h"
 
 #if ENABLE_PROFILER
@@ -9,12 +10,18 @@ double profiler_init_time = 0;
 void profiler_init()
 {
     profiler_init_time = get_time();
+
     for(uint32_t i = 0; i < PROFILER_NAME_COUNT; i++)
     {
         struct profiler_data *entry = &profiler_arr[i];
         entry->total = 0;
         entry->current_start = 0;
         entry->capturing = false;
+    }
+
+    for(uint32_t i = 0; i < PROFILER_STAT_COUNT; i++)
+    {
+        profiler_stat_arr[i].count = 0;
     }
 }
 
@@ -57,12 +64,37 @@ void profiler_print()
     }
 }
 
+int32_t profiler_get_time(enum profile_name name)
+{
+    return profiler_arr[name].total;
+}
+
+int32_t profiler_get_total(void)
+{
+    return get_time() - profiler_init_time;
+}
+
+void profiler_stat_increment(enum stat_name stat)
+{
+    profiler_stat_arr[stat].count++;
+}
+
+int32_t profiler_stat_get(enum stat_name stat)
+{
+    return profiler_stat_arr[stat].count;
+}
+
 #else
 // Disable profiler
 
-void profiler_init() {}
+void profiler_init(void) {}
 void profiler_start(enum profile_name name) {}
 void profiler_end(enum profile_name name) {}
-void profiler_print() {}
+void profiler_print(void) {}
+int32_t profiler_get_time(enum profile_name name) { return 0; }
+int32_t profiler_get_total(void) { return 0; }
+void profiler_stat_increment(enum stat_name stat) {}
+int32_t profiler_stat_get(enum stat_name stat) { return 0; }
+
 
 #endif

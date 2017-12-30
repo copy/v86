@@ -1,4 +1,6 @@
 #include <stdbool.h>
+#include <stdint.h>
+
 #ifndef _PROFILER_H
 #define _PROFILER_H
 
@@ -28,10 +30,27 @@ enum profile_name {
 };
 
 
+#define PROFILER_STAT_COUNT 5
+
+enum stat_name {
+    S_COMPILE,
+    S_COMPILE_SUCCESS,
+    S_RUN_INTERPRETED,
+    S_RUN_FROM_CACHE,
+    S_CACHE_MISMATCH,
+};
+
+struct profiler_stat {
+    int32_t count;
+} profiler_stat_arr[PROFILER_NAME_COUNT] = {{0}};
+
 void profiler_init();
 void profiler_start(enum profile_name name);
 void profiler_end(enum profile_name name);
 void profiler_print();
+
+void profiler_stat_increment(enum stat_name stat);
+int32_t profiler_stat_get(enum stat_name stat);
 
 // JS import
 double get_time();
