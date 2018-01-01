@@ -7,7 +7,6 @@ global.v86util = {};
 require("../../src/browser/lib.js");
 
 const Codegen = require("../../src/codegen.js");
-console.assert(typeof Codegen === "function");
 
 const codegen_module_buffer = fs.readFileSync(__dirname + "/../../build/codegen-test.wasm");
 
@@ -30,7 +29,7 @@ v86util.load_wasm("build/codegen-test.wasm", {
         _read_imm16() { return vals.imm16; },
         _read_imm32s() { return vals.imm32s; },
         _is_asize_32() { return vals.asize_32; },
-        _printf() {},
+        _printf(...args) { console.log(...args); },
 
         // static pointer imports
         g$_reg16() { return vals.reg16; },
@@ -50,11 +49,6 @@ v86util.load_wasm("build/codegen-test.wasm", {
 function test(gen)
 {
     gen.reset();
-    gen.finish();
-
-    let buf = gen.get_module_code();
-
-    gen.reset();
     gen.fn0("fn0");
     gen.fn1("fn1", 0);
     gen.fn2("fn2", 0, 1);
@@ -71,7 +65,7 @@ function test(gen)
     gen.drop();
     gen.finish();
 
-    buf = gen.get_module_code();
+    let buf = gen.get_module_code();
     fs.writeFileSync(__dirname + "/../../build/codegen-test-output.wasm", buf);
 
     const module = new WebAssembly.Module(buf);
@@ -104,8 +98,8 @@ function test(gen)
     const o = new WebAssembly.Instance(module, imports);
     o.exports.f();
     const view = new Uint32Array(imports.e.m.buffer);
+    console.log(store);
     console.assert(view[vals.instruction_pointer] === 10);
     console.assert(view[vals.previous_ip] === 10);
-    console.log(store);
     console.assert(JSON.stringify(store) === JSON.stringify(expected));
 }

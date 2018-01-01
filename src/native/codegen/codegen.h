@@ -13,7 +13,7 @@ static uint8_t const fn_get_seg_prefix_ds_idx = 0;
 static uint8_t const fn_get_seg_prefix_ss_idx = 1;
 static uint8_t const fn_get_seg_prefix_idx = 2;
 
-static int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index);
+int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index);
 
 void gen_init(void);
 void gen_reset(void);

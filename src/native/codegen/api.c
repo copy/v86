@@ -1,5 +1,3 @@
-#pragma once
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -19,6 +17,7 @@ extern int32_t read_imm8();
 extern int32_t read_imm8s();
 extern int32_t read_imm16();
 extern int32_t read_imm32s();
+extern int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index);
 
 extern int32_t* const instruction_pointer;
 extern int32_t* const previous_ip;

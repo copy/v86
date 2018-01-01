@@ -10,7 +10,7 @@ static uint8_t* const output = (uint8_t* const) 2048;
 static uint8_t* op_ptr = output;
 
 static uint8_t* const code_section = output + 1024;
-static uint8_t* cs_ptr = code_section;
+extern uint8_t* cs_ptr;
 
 // JS can keep strings at this location for passing them to wasm
 //XXX: figure out a better location for this

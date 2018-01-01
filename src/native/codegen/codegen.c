@@ -1,5 +1,3 @@
-#pragma once
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -9,6 +7,8 @@
 #include "wasm_opcodes.h"
 #include "codegen_util.h"
 #include "codegen.h"
+
+uint8_t* cs_ptr = code_section;
 
 static void write_type_section()
 {
@@ -174,7 +174,7 @@ static void write_export_section()
     write_u8(*ptr_import_count - 1);
 }
 
-static int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index)
+int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index)
 {
     int32_t fn_idx = get_import_index(fn, fn_len);
     if (fn_idx == -1)
