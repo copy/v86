@@ -19,14 +19,7 @@
     "globals": {
         "Blob": false,
         "alert": false,
-        "console": false,
-
-        "Components": false,
-        "XPCOMUtils": false,
-        "vimfx": false,
-        "NetUtil": false,
-        "PlacesUtils": false,
-        "Preferences": false
+        "console": false
     },
     "browser": true
 }
