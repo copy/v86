@@ -248,4 +248,4 @@ node_modules/.bin/jshint:
 	npm install
 
 jshint: node_modules/.bin/jshint
-	./node_modules/.bin/jshint --config=./jshint.json src tests gen
+	./node_modules/.bin/jshint --config=./.jshint.json src tests gen
