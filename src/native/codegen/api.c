@@ -26,52 +26,53 @@ extern uint16_t* const reg16;
 extern int8_t* const reg8s;
 extern int16_t* const reg16s;
 extern int32_t* const reg32s;
+extern Writer cs;
 
 static void jit_resolve_modrm32_(int32_t);
 static void jit_resolve_modrm16_(int32_t);
 
 void gen_increment_instruction_pointer(int32_t n)
 {
-    push_i32((int32_t)instruction_pointer); // store address of ip
+    push_i32(&cs, (int32_t)instruction_pointer); // store address of ip
 
-    load_i32((int32_t)instruction_pointer); // load ip
-    push_i32(n); // load value to add to it
-    add_i32();
+    load_i32(&cs, (int32_t)instruction_pointer); // load ip
+    push_i32(&cs, n); // load value to add to it
+    add_i32(&cs);
 
-    store_i32(); // store it back in
+    store_i32(&cs); // store it back in
 }
 
 void gen_set_previous_eip()
 {
-    push_i32((int32_t)previous_ip); // store address of previous ip
-    load_i32((int32_t)instruction_pointer); // load ip
-    store_i32(); // store it as previous ip
+    push_i32(&cs, (int32_t)previous_ip); // store address of previous ip
+    load_i32(&cs, (int32_t)instruction_pointer); // load ip
+    store_i32(&cs); // store it as previous ip
 }
 
 void gen_fn0(char* fn, uint8_t fn_len)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN0_TYPE_INDEX);
-    call_fn(fn_idx);
+    call_fn(&cs, fn_idx);
 }
 
 void gen_fn1(char* fn, uint8_t fn_len, int32_t arg0)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
-    push_i32(arg0);
-    call_fn(fn_idx);
+    push_i32(&cs, arg0);
+    call_fn(&cs, fn_idx);
 }
 
 void gen_fn2(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
-    push_i32(arg0);
-    push_i32(arg1);
-    call_fn(fn_idx);
+    push_i32(&cs, arg0);
+    push_i32(&cs, arg1);
+    call_fn(&cs, fn_idx);
 }
 
 void gen_drop()
 {
-    cs_write_u8(OP_DROP);
+    write_raw_u8(&cs, OP_DROP);
 }
 
 #define MODRM_ENTRY(n, work)\
@@ -98,30 +99,30 @@ void gen_drop()
 static void inline gen_modrm_entry_0(int32_t fn_idx, int32_t reg16_idx_1, int32_t reg16_idx_2, int32_t imm)
 {
     // generates: fn( ( reg1 + reg2 + imm ) & 0xFFFF )
-    load_u16(reg16_idx_1);
-    load_u16(reg16_idx_2);
-    add_i32();
+    load_u16(&cs, reg16_idx_1);
+    load_u16(&cs, reg16_idx_2);
+    add_i32(&cs);
 
-    push_i32(imm);
-    add_i32();
+    push_i32(&cs, imm);
+    add_i32(&cs);
 
-    push_i32(0xFFFF);
-    and_i32();
+    push_i32(&cs, 0xFFFF);
+    and_i32(&cs);
 
-    call_fn(fn_idx);
+    call_fn(&cs, fn_idx);
 }
 
 static void gen_modrm_entry_1(int32_t fn_idx, int32_t reg16_idx, int32_t imm)
 {
     // generates: fn ( ( reg + imm ) & 0xFFFF )
-    load_u16(reg16_idx);
-    push_i32(imm);
-    add_i32();
+    load_u16(&cs, reg16_idx);
+    push_i32(&cs, imm);
+    add_i32(&cs);
 
-    push_i32(0xFFFF);
-    and_i32();
+    push_i32(&cs, 0xFFFF);
+    and_i32(&cs);
 
-    call_fn(fn_idx);
+    call_fn(&cs, fn_idx);
 }
 
 static void jit_resolve_modrm16_(int32_t modrm_byte)
@@ -141,7 +142,7 @@ static void jit_resolve_modrm16_(int32_t modrm_byte)
         MODRM_ENTRY16_1(5, ds, (int32_t)(reg16 + DI))
 
         // special case
-        MODRM_ENTRY(0x00 | 6, call_fn_with_arg(ds, read_imm16()))
+        MODRM_ENTRY(0x00 | 6, call_fn_with_arg(&cs, ds, read_imm16()))
         MODRM_ENTRY(0x40 | 6, gen_modrm_entry_1(ss, (int32_t)(reg16 + BP), read_imm8s()))
         MODRM_ENTRY(0x80 | 6, gen_modrm_entry_1(ss, (int32_t)(reg16 + BP), read_imm16()))
 
@@ -154,9 +155,9 @@ static void jit_resolve_modrm16_(int32_t modrm_byte)
 
 void gen_resolve_modrm16(int32_t modrm_byte)
 {
-    push_u32(RESULT_LOC);
+    push_u32(&cs, RESULT_LOC);
     jit_resolve_modrm16_(modrm_byte);
-    store_i32();
+    store_i32(&cs);
 }
 
 #define MODRM_ENTRY32_0(row, seg, reg)\
@@ -167,11 +168,11 @@ void gen_resolve_modrm16(int32_t modrm_byte)
 static void gen_modrm32_entry(int32_t fn_idx, int32_t reg32s_idx, int32_t imm)
 {
     // generates: fn ( reg + imm )
-    load_i32(reg32s_idx);
-    push_i32(imm);
-    add_i32();
+    load_i32(&cs, reg32s_idx);
+    push_i32(&cs, imm);
+    add_i32(&cs);
 
-    call_fn(fn_idx);
+    call_fn(&cs, fn_idx);
 }
 
 static void jit_resolve_sib(bool mod)
@@ -214,21 +215,21 @@ static void jit_resolve_sib(bool mod)
     // Where base is accessed from memory if base_is_mem_access or written as a constant otherwise
 
     dbg_assert(seg < 16);
-    cs_write_u8(OP_I32CONST);
-    cs_write_u8(seg);
+    write_raw_u8(&cs, OP_I32CONST);
+    write_raw_u8(&cs, seg);
 
-    call_fn(fn_get_seg_prefix_idx);
+    call_fn(&cs, fn_get_seg_prefix_idx);
 
     if(base_is_mem_access)
     {
-        load_i32(base_addr);
+        load_i32(&cs, base_addr);
     }
     else
     {
-        push_i32(base);
+        push_i32(&cs, base);
     }
 
-    add_i32();
+    add_i32(&cs);
 
     // We now have to generate an offset value to add
 
@@ -242,27 +243,27 @@ static void jit_resolve_sib(bool mod)
 
     uint8_t s = sib_byte >> 6 & 3;
 
-    load_i32((int32_t)(reg32s + m));
+    load_i32(&cs, (int32_t)(reg32s + m));
     // We don't use push_u32 here either since s will fit in 1 byte
-    cs_write_u8(OP_I32CONST);
-    cs_write_u8(s);
-    shl_i32();
+    write_raw_u8(&cs, OP_I32CONST);
+    write_raw_u8(&cs, s);
+    shl_i32(&cs);
 
-    add_i32();
+    add_i32(&cs);
 }
 
 static void modrm32_special_case_1()
 {
     jit_resolve_sib(true);
-    push_i32(read_imm8s());
-    add_i32();
+    push_i32(&cs, read_imm8s());
+    add_i32(&cs);
 }
 
 static void modrm32_special_case_2()
 {
     jit_resolve_sib(true);
-    push_i32(read_imm32s());
-    add_i32();
+    push_i32(&cs, read_imm32s());
+    add_i32(&cs);
 }
 
 static void jit_resolve_modrm32_(int32_t modrm_byte)
@@ -281,7 +282,7 @@ static void jit_resolve_modrm32_(int32_t modrm_byte)
         MODRM_ENTRY(0x00 | 4, jit_resolve_sib(false))
         MODRM_ENTRY(0x40 | 4, modrm32_special_case_1())
         MODRM_ENTRY(0x80 | 4, modrm32_special_case_2())
-        MODRM_ENTRY(0x00 | 5, call_fn_with_arg(ds, read_imm32s()))
+        MODRM_ENTRY(0x00 | 5, call_fn_with_arg(&cs, ds, read_imm32s()))
         MODRM_ENTRY(0x40 | 5, gen_modrm32_entry(ss, (int32_t)(reg32s + EBP), read_imm8s()))
         MODRM_ENTRY(0x80 | 5, gen_modrm32_entry(ss, (int32_t)(reg32s + EBP), read_imm32s()))
 
@@ -295,9 +296,9 @@ static void jit_resolve_modrm32_(int32_t modrm_byte)
 
 void gen_resolve_modrm32(int32_t modrm_byte)
 {
-    push_i32(RESULT_LOC);
+    push_i32(&cs, RESULT_LOC);
     jit_resolve_modrm32_(modrm_byte);
-    store_i32();
+    store_i32(&cs);
 }
 
 #undef MODRM_ENTRY
@@ -314,10 +315,10 @@ void gen_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0)
         jit_resolve_modrm16_(modrm_byte);
     }
 
-    push_i32(arg0);
+    push_i32(&cs, arg0);
 
     int32_t fn_idx = get_fn_index(fn, fn_len, FN2_RET_TYPE_INDEX);
-    call_fn(fn_idx);
+    call_fn(&cs, fn_idx);
 }
 
 void gen_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte)
@@ -333,6 +334,6 @@ void gen_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte)
     }
 
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_RET_TYPE_INDEX);
-    call_fn(fn_idx);
+    call_fn(&cs, fn_idx);
 }
 

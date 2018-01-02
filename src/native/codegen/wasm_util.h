@@ -3,69 +3,69 @@
 #include <stdint.h>
 
 #include "wasm_opcodes.h"
-#include "codegen_util.h"
+#include "util.h"
 
-static void inline push_i32(int32_t v)
+static void inline push_i32(Writer* w, int32_t v)
 {
-    cs_write_u8(OP_I32CONST);
-    cs_write_i32(v);
+    write_raw_u8(w, OP_I32CONST);
+    write_leb_i32(w, v);
 }
 
-static void inline push_u32(uint32_t v)
+static void inline push_u32(Writer* w, uint32_t v)
 {
-    cs_write_u8(OP_I32CONST);
-    cs_write_u32(v);
+    write_raw_u8(w, OP_I32CONST);
+    write_leb_u32(w, v);
 }
 
-static void inline load_u16(uint32_t addr)
+static void inline load_u16(Writer* w, uint32_t addr)
 {
-    cs_write_u8(OP_I32CONST);
-    cs_write_u32(addr);
-    cs_write_u8(OP_I32LOAD16U);
-    cs_write_u8(MEM_IMM_ALIGNMENT);
-    cs_write_u8(MEM_IMM_OFFSET);
+    write_raw_u8(w, OP_I32CONST);
+    write_leb_u32(w, addr);
+    write_raw_u8(w, OP_I32LOAD16U);
+    write_raw_u8(w, MEM_IMM_ALIGNMENT);
+    write_raw_u8(w, MEM_IMM_OFFSET);
 }
 
-static void inline load_i32(uint32_t addr)
+static void inline load_i32(Writer* w, uint32_t addr)
 {
-    cs_write_u8(OP_I32CONST);
-    cs_write_u32(addr);
-    cs_write_u8(OP_I32LOAD);
-    cs_write_u8(MEM_IMM_ALIGNMENT);
-    cs_write_u8(MEM_IMM_OFFSET);
+    write_raw_u8(w, OP_I32CONST);
+    write_leb_u32(w, addr);
+    write_raw_u8(w, OP_I32LOAD);
+    write_raw_u8(w, MEM_IMM_ALIGNMENT);
+    write_raw_u8(w, MEM_IMM_OFFSET);
 }
 
-static void inline store_i32()
+static void inline store_i32(Writer* w)
 {
-    cs_write_u8(OP_I32STORE);
-    cs_write_u8(MEM_IMM_ALIGNMENT);
-    cs_write_u8(MEM_IMM_OFFSET);
+    write_raw_u8(w, OP_I32STORE);
+    write_raw_u8(w, MEM_IMM_ALIGNMENT);
+    write_raw_u8(w, MEM_IMM_OFFSET);
 }
 
-static void inline add_i32()
+static void inline add_i32(Writer* w)
 {
-    cs_write_u8(OP_I32ADD);
+    write_raw_u8(w, OP_I32ADD);
 }
 
-static void inline and_i32()
+static void inline and_i32(Writer* w)
 {
-    cs_write_u8(OP_I32AND);
+    write_raw_u8(w, OP_I32AND);
 }
 
-static void inline shl_i32()
+static void inline shl_i32(Writer* w)
 {
-    cs_write_u8(OP_I32SHL);
+    write_raw_u8(w, OP_I32SHL);
 }
 
-static void inline call_fn(uint8_t fn_idx)
+static void inline call_fn(Writer* w, uint8_t fn_idx)
 {
-    cs_write_u8(OP_CALL);
-    cs_write_u8(fn_idx);
+    write_raw_u8(w, OP_CALL);
+    write_raw_u8(w, fn_idx);
 }
 
-static void inline call_fn_with_arg(uint8_t fn_idx, int32_t arg0)
+static void inline call_fn_with_arg(Writer* w, uint8_t fn_idx, int32_t arg0)
 {
-    push_i32(arg0);
-    call_fn(fn_idx);
+    push_i32(w, arg0);
+    call_fn(w, fn_idx);
 }
 

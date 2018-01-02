@@ -8,21 +8,13 @@
 #define dbg_assert(condition) { if(DEBUG) { if(!(condition)) dbg_log(#condition); assert(condition); } }
 #define dbg_assert_message(condition, message) { if(DEBUG && !(condition)) { dbg_log(message); assert(false); } }
 
-static uint8_t* _write_leb_u32(uint8_t* ptr, uint32_t v)
-{
-    do {
-        uint8_t byte = v & 0b1111111; // get last 7 bits
-        v >>= 7; // shift them away from the value
-        if (v != 0)
-        {
-            byte |= 0b10000000; // turn on MSB
-        }
-        *ptr++ = byte;
-    } while (v != 0);
-    return ptr;
-}
+typedef struct Writer {
+    uint8_t* const start;
+    uint8_t* ptr;
+    uint32_t const len;
+} Writer;
 
-static uint8_t* _write_leb_i32(uint8_t* ptr, int32_t v)
+static void write_leb_i32(Writer* writer, int32_t v)
 {
     // Super complex stuff. See the following:
     // https://en.wikipedia.org/wiki/LEB128#Encode_signed_integer
@@ -48,9 +40,26 @@ static uint8_t* _write_leb_i32(uint8_t* ptr, int32_t v)
         {
             byte |= 0b10000000; // turn on MSB
         }
-        *ptr++ = byte;
+        *(writer->ptr)++ = byte;
     }
-    return ptr;
+}
+
+static void write_leb_u32(Writer* writer, uint32_t v)
+{
+    do {
+        uint8_t byte = v & 0b1111111; // get last 7 bits
+        v >>= 7; // shift them away from the value
+        if (v != 0)
+        {
+            byte |= 0b10000000; // turn on MSB
+        }
+        *(writer->ptr)++ = byte;
+    } while (v != 0);
+}
+
+static void inline write_raw_u8(Writer* writer, uint8_t v)
+{
+    *(writer->ptr)++ = v;
 }
 
 static void inline write_fixed_leb16_to_ptr(uint8_t* ptr, uint16_t x)
@@ -59,4 +68,15 @@ static void inline write_fixed_leb16_to_ptr(uint8_t* ptr, uint16_t x)
     *ptr = (x & 0b1111111) | 0b10000000;
     *(ptr + 1) = x >> 7;
 }
+
+/*123456789012345678901234567890123456789012345678901234567890123456789012345
+0     @@@@@@@@   @@@@@@@@@   @@       @   @@@@@@@@@   @@@@@@@   @     @     0
+0     @              @       @ @      @       @       @         @     @     0
+0     @              @       @  @     @       @        @        @     @     0
+0     @@@@@@         @       @   @    @       @         @       @@@@@@@     0
+0     @              @       @    @   @       @          @      @     @     0
+0     @              @       @     @  @       @           @     @     @     0
+0     @              @       @      @ @       @            @    @     @     0
+0     @          @@@@@@@@@   @       @@   @@@@@@@@@   @@@@@@@   @     @     0
+123456789012345678901234567890123456789012345678901234567890123456789012345*/
 
