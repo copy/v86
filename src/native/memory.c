@@ -57,7 +57,7 @@ void jit_dirty_cache(uint32_t start_addr, uint32_t end_addr)
 
 void jit_empty_cache()
 {
-    for(uint32_t i = 0; i < CACHE_LEN; i++)
+    for(uint32_t i = 0; i < WASM_TABLE_SIZE; i++)
     {
         group_dirtiness[i]++;
     }

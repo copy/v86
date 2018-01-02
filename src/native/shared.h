@@ -41,7 +41,7 @@ struct code_cache {
     // DIRTY_ARR_SHIFT). Value only has meaning in relation with the
     // group_dirtiness value.
     uint32_t group_status;
-} jit_cache_arr[CACHE_LEN] = {{0, 0, {0}, 0, 0, 0}};
+} jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, {0}, 0, 0, 0}};
 
 // Flag indicating whether the instruction that just ran was a jump of some sort
 uint32_t jit_jump = 0;

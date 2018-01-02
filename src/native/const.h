@@ -165,7 +165,7 @@
 // Mask used to map physical address to index in cache array
 #define JIT_PHYS_MASK 0xFFFF
 
-#define CACHE_LEN 0x10000
+#define WASM_TABLE_SIZE 0x10000
 #define HASH_PRIME 6151
 #define JIT_THRESHOLD 10000
 // XXX: Consider making this the same as page size (12) during perf testing
