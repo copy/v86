@@ -94,7 +94,7 @@ var ASYNC_SAFE = false;
                     try
                     {
                         imports["env"]["memory"] = new WebAssembly.Memory({
-                            initial: total_mem_pages
+                            "initial": total_mem_pages
                         });
                     }
                     catch(e)
@@ -107,7 +107,8 @@ var ASYNC_SAFE = false;
                     }
                     imports["env"]["memoryBase"] = memory_size;
                     imports["env"]["table"] = new WebAssembly.Table({
-                        initial: dylink.table_size + table_size, element: "anyfunc"
+                        "initial": dylink.table_size + table_size,
+                        "element": "anyfunc"
                     });
                     imports["env"]["tableBase"] = table_size;
 
