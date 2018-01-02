@@ -1555,7 +1555,7 @@ CPU.prototype.set_cr0 = function(cr0)
 
     this.protected_mode[0] = +((this.cr[0] & CR0_PE) === CR0_PE);
 
-    this.wm.exports["_jit_empty_cache"]();
+    //this.wm.exports["_jit_empty_cache"]();
 };
 
 CPU.prototype.set_cr4 = function(cr4)

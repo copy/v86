@@ -55,8 +55,32 @@ void jit_dirty_cache(uint32_t start_addr, uint32_t end_addr)
 #endif
 }
 
+void jit_dirty_cache_small(uint32_t start_addr, uint32_t end_addr)
+{
+#if ENABLE_JIT
+    assert(start_addr <= end_addr);
+
+    uint32_t start_index = start_addr >> DIRTY_ARR_SHIFT;
+    uint32_t end_index = end_addr >> DIRTY_ARR_SHIFT;
+
+    group_dirtiness[start_index]++;
+
+    if(start_index != 0)
+    {
+        group_dirtiness[start_index - 1]++;
+    }
+
+    if(start_index != end_index)
+    {
+        assert(end_index == start_index + 1);
+        group_dirtiness[end_index]++;
+    }
+#endif
+}
+
 void jit_empty_cache()
 {
+    assert(false); // XXX: is WASM_TABLE_SIZE correct?
     for(uint32_t i = 0; i < WASM_TABLE_SIZE; i++)
     {
         group_dirtiness[i]++;
@@ -152,7 +176,7 @@ void write8(uint32_t addr, int32_t value)
 {
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK;
 
-    jit_dirty_cache(addr, addr + 1);
+    jit_dirty_cache_small(addr, addr + 1);
 
     if(in_mapped_range(addr))
     {
@@ -168,7 +192,7 @@ void write16(uint32_t addr, int32_t value)
 {
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK;
 
-    jit_dirty_cache(addr, addr + 2);
+    jit_dirty_cache_small(addr, addr + 2);
 
     if(in_mapped_range(addr))
     {
@@ -186,7 +210,7 @@ void write_aligned16(uint32_t addr, uint32_t value)
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK16;
 
     uint32_t phys_addr = addr << 1;
-    jit_dirty_cache(phys_addr, phys_addr + 2);
+    jit_dirty_cache_small(phys_addr, phys_addr + 2);
 
     if(in_mapped_range(phys_addr))
     {
@@ -202,7 +226,7 @@ void write32(uint32_t addr, int32_t value)
 {
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK;
 
-    jit_dirty_cache(addr, addr + 4);
+    jit_dirty_cache_small(addr, addr + 4);
 
     if(in_mapped_range(addr))
     {
@@ -219,7 +243,7 @@ void write_aligned32(int32_t addr, int32_t value)
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK32;
 
     uint32_t phys_addr = addr << 2;
-    jit_dirty_cache(phys_addr, phys_addr + 4);
+    jit_dirty_cache_small(phys_addr, phys_addr + 4);
 
     if(in_mapped_range(phys_addr))
     {
