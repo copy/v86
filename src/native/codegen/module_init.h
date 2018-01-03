@@ -4,8 +4,8 @@
 
 #include "util.h"
 
-static Writer op;
-extern Writer cs;
+static Buffer op;
+static Buffer cs;
 
 static void write_type_section()
 {

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <stdint.h>
-#include "util.h"
 
 #define FN0_TYPE_INDEX 0
 #define FN1_TYPE_INDEX 1
