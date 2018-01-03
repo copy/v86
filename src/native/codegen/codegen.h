@@ -6,14 +6,12 @@
 #define FN1_TYPE_INDEX 1
 #define FN2_TYPE_INDEX 2
 #define FN3_TYPE_INDEX 3
-#define FN4_TYPE_INDEX 4
-#define FN5_TYPE_INDEX 5
-#define FN6_TYPE_INDEX 6
 
-#define FN0_RET_TYPE_INDEX 7
-#define FN1_RET_TYPE_INDEX 8
-#define FN2_RET_TYPE_INDEX 9
-#define FN3_RET_TYPE_INDEX 10
+#define FN0_RET_TYPE_INDEX 4
+#define FN1_RET_TYPE_INDEX 5
+#define FN2_RET_TYPE_INDEX 6
+
+#define NR_FN_TYPE_INDEXES 7
 
 static uint8_t const fn_get_seg_prefix_ds_idx = 0;
 static uint8_t const fn_get_seg_prefix_ss_idx = 1;

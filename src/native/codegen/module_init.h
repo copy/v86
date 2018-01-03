@@ -14,7 +14,7 @@ static void write_type_section()
     uint8_t* ptr_section_size = op.ptr;
     write_raw_u8(&op, 0);
 
-    write_raw_u8(&op, 6); // number of type descriptors
+    write_raw_u8(&op, NR_FN_TYPE_INDEXES); // number of type descriptors
 
     // FN0
     write_raw_u8(&op, TYPE_FUNC);
@@ -30,6 +30,14 @@ static void write_type_section()
     // FN2
     write_raw_u8(&op, TYPE_FUNC);
     write_raw_u8(&op, 2);
+    write_raw_u8(&op, TYPE_I32);
+    write_raw_u8(&op, TYPE_I32);
+    write_raw_u8(&op, 0);
+
+    // FN3
+    write_raw_u8(&op, TYPE_FUNC);
+    write_raw_u8(&op, 3);
+    write_raw_u8(&op, TYPE_I32);
     write_raw_u8(&op, TYPE_I32);
     write_raw_u8(&op, TYPE_I32);
     write_raw_u8(&op, 0);
