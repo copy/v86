@@ -4,6 +4,15 @@
 const fs = require("fs");
 
 global.v86util = {};
+
+// copied from const.js
+global.WASM_TABLE_SIZE = 0x10000;
+// The space we need for misc internal state before the beginning of mem8; see global_pointers.h
+global.INTERNAL_MEM_SIZE = 4096 + 0x100000 * 6;
+global.WASM_PAGE_SIZE = 64 * 1024;
+
+global.dbg_assert = x => console.assert(x);
+
 require("../../src/browser/lib.js");
 
 const Codegen = require("../../src/codegen.js");
@@ -22,7 +31,7 @@ const vals = {
     previous_ip: 0,
 };
 
-v86util.load_wasm("build/codegen-test.wasm", {
+const wasm_test_funcs = {
     env: {
         _read_imm8() { return vals.imm8; },
         _read_imm8s() { return vals.imm8s; },
@@ -30,21 +39,32 @@ v86util.load_wasm("build/codegen-test.wasm", {
         _read_imm32s() { return vals.imm32s; },
         _is_asize_32() { return vals.asize_32; },
         _printf(...args) { console.log(...args); },
+        ___assert_fail(...args) { console.error(...args); console.assert(false); },
 
         // static pointer imports
         g$_reg16() { return vals.reg16; },
         g$_reg32s() { return vals.reg32s; },
         g$_instruction_pointer() { return vals.instruction_pointer; },
         g$_previous_ip() { return vals.previous_ip; },
+    },
+};
+
+const memory_size = 256 * 1024 * 1024;
+
+v86util.load_wasm(
+    "build/codegen-test.wasm",
+    wasm_test_funcs,
+    memory_size + INTERNAL_MEM_SIZE,
+    WASM_TABLE_SIZE,
+    wm => {
+        try {
+            test(new Codegen(wm));
+        } catch(er) {
+            console.error(er);
+            process.exit(1);
+        }
     }
-}, function(wm) {
-    try {
-        test(new Codegen(wm));
-    } catch(er) {
-        console.error(er);
-        process.exit(1);
-    }
-});
+);
 
 function test(gen)
 {
@@ -92,7 +112,7 @@ function test(gen)
             get_seg_prefix_ds() {},
             get_seg_prefix_ss() {},
             get_seg_prefix() {},
-            m: new WebAssembly.Memory({ initial: 256 * 1024 * 1024 / 64 / 1024 }),
+            m: new WebAssembly.Memory({ initial: memory_size / 64 / 1024 }),
         },
     };
     const o = new WebAssembly.Instance(module, imports);
@@ -103,3 +123,4 @@ function test(gen)
     console.assert(view[vals.previous_ip] === 10);
     console.assert(JSON.stringify(store) === JSON.stringify(expected));
 }
+
