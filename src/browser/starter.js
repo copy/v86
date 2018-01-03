@@ -245,7 +245,6 @@ function V86Starter(options)
         "_get_time": () => Date.now(),
 
         "_codegen_finalize": (cache_index, virt_start, start, end) => cpu.codegen_finalize(cache_index, virt_start, start, end),
-        "_codegen_call_cache": (start) => cpu.codegen_call_cache(start),
     };
 
     let wasm_file = DEBUG ? "v86-debug.wasm" : "v86.wasm";

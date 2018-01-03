@@ -267,7 +267,7 @@ void generate_instruction(int32_t opcode)
     int32_t instruction_length = end_eip - start_eip;
 
     assert(instruction_length >= 0 && instruction_length < 16);
-    dbg_log("instruction_length=%d", instruction_length);
+    //dbg_log("instruction_length=%d", instruction_length);
 
     gen_patch_increment_instruction_pointer(instruction_length);
 }
@@ -296,6 +296,7 @@ void cycle_internal()
 
     const bool JIT_ALWAYS = false;
     const bool JIT_DONT_USE_CACHE = false;
+    const bool JIT_COMPILE_ONLY_AFTER_JUMP = true;
 
     if(cached && !clean)
     {
@@ -323,6 +324,7 @@ void cycle_internal()
             run_instruction(entry->opcode[i] | !!*is_32 << 8);
             (*timestamp_counter)++;
         }*/
+        assert(entry->opcode[0] == read8(phys_addr));
 
         //codegen_call_cache(phys_addr);
         call_indirect(addr_index);
@@ -333,9 +335,7 @@ void cycle_internal()
 
         profiler_end(P_RUN_FROM_CACHE);
     }
-    // A jump just occured indicating the start of a basic block + the
-    // address is hot; let's JIT compile it
-    else if(JIT_ALWAYS || jit_jump == 1 && ++hot_code_addresses[jit_hot_hash(phys_addr)] > JIT_THRESHOLD)
+    else if(JIT_ALWAYS || (!JIT_COMPILE_ONLY_AFTER_JUMP || jit_jump == 1) && ++hot_code_addresses[jit_hot_hash(phys_addr)] > JIT_THRESHOLD)
     {
         if(clean && entry->start_addr != 0 && entry->start_addr != phys_addr)
         {
@@ -353,10 +353,14 @@ void cycle_internal()
         // Minimize collision based thrashing
         hot_code_addresses[jit_hot_hash(phys_addr)] = 0;
 
+        // invalidate now, in case generate_instruction raises
+        entry->group_status = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT] + 1;
+
+        int32_t len = 0;
         jit_jump = 0;
-        entry->len = 0;
+
         entry->start_addr = phys_addr;
-        entry->end_addr = phys_addr + 1;
+        int32_t end_addr = phys_addr + 1;
         entry->is_32 = *is_32;
 
         //jit_cache_arr[addr_index] = *entry;
@@ -367,37 +371,37 @@ void cycle_internal()
         // XXX: Artificial limit allows jit_dirty_cache to be
         // simplified by only dirtying 2 entries based on a mask
         // (instead of all possible entries)
-        while(jit_jump == 0 && entry->len < 100 &&
-              (entry->end_addr - entry->start_addr) < MAX_BLOCK_LENGTH)
+        while(jit_jump == 0 && len < 50 &&
+              (end_addr - entry->start_addr) < MAX_BLOCK_LENGTH)
         {
             *previous_ip = *instruction_pointer;
             int32_t opcode = read_imm8();
 
-            entry->opcode[entry->len] = opcode;
-            entry->len++;
+            if(len == 0)
+            {
+                entry->opcode[0] = opcode;
+            }
+            len++;
 
             generate_instruction(opcode | !!*is_32 << 8);
 
-            entry->end_addr = *eip_phys ^ *instruction_pointer;
+            end_addr = *eip_phys ^ *instruction_pointer;
         }
 
-        gen_increment_timestamp_counter(entry->len);
+        gen_increment_timestamp_counter(len);
+
+        entry->len = len;
 
         jit_jump = 0;
 
         gen_finish();
         jit_in_progress = false;
 
-        codegen_finalize(addr_index, start_addr, entry->start_addr, entry->end_addr);
+        codegen_finalize(addr_index, start_addr, entry->start_addr, end_addr);
 
         assert(*prefixes == 0);
 
-        // When the hot instruction is a jmp (backwards),
-        // leave its group_status unupdated, thereby invalidating it
-        //if (entry->end_addr > entry->start_addr)
-        //{
         entry->group_status = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
-        //}
 
         profiler_stat_increment(S_COMPILE_SUCCESS);
         profiler_end(P_GEN_INSTR);
@@ -438,7 +442,7 @@ static void run_prefix_instruction()
 
 static void jit_prefix_instruction()
 {
-    dbg_log("jit_prefix_instruction is32=%d", is_osize_32());
+    //dbg_log("jit_prefix_instruction is32=%d", is_osize_32());
     jit_instruction(read_imm8() | is_osize_32() << 8);
 }
 

@@ -162,14 +162,15 @@
 
 #define MXCSR_MASK (0xFFFF & ~(1 << 6))
 
-// Mask used to map physical address to index in cache array
-#define JIT_PHYS_MASK 0xFFFF
 
 #define WASM_TABLE_SIZE 0x10000
+
+// Mask used to map physical address to index in cache array
+#define JIT_PHYS_MASK (WASM_TABLE_SIZE - 1)
+
 #define HASH_PRIME 6151
 #define JIT_THRESHOLD 10000
-// XXX: Consider making this the same as page size (12) during perf testing
-#define DIRTY_ARR_SHIFT 16
+#define DIRTY_ARR_SHIFT 12
 #define MAX_INSTR_LEN 15
 #define MAX_BLOCK_LENGTH ((1 << DIRTY_ARR_SHIFT) - MAX_INSTR_LEN)
 
