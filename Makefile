@@ -225,6 +225,7 @@ tests: build/libv86.js build/v86.wasm
 
 nasmtests: build/libv86-debug.js build/v86-debug.wasm
 	$(MAKE) -C $(NASM_TEST_DIR) all
+	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js
 
 jitpagingtests: build/libv86.js build/v86.wasm

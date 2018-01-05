@@ -4,11 +4,10 @@ source_files += $(addprefix build/,$(wildcard *.asm))
 obj_files := $(patsubst %.asm,%.o,$(source_files))
 host_executables := $(patsubst %.asm,%.bin,$(source_files))
 v86_executables := $(patsubst %.asm,%.img,$(source_files))
-host_fixtures := $(patsubst %.asm,%.fixture,$(source_files))
 
 inc_files := $(addprefix build/,$(wildcard *.inc))
 
-all: $(source_files) $(obj_files) $(inc_files) $(host_executables) $(v86_executables) $(host_fixtures)
+all: $(source_files) $(obj_files) $(inc_files) $(host_executables) $(v86_executables)
 .PHONY: all
 
 build/%.o: build/%.asm $(inc_files)
@@ -17,10 +16,6 @@ build/%.o: build/%.asm $(inc_files)
 # To run / debug locally
 build/%.bin: build/%.o
 	ld -g $< -m elf_i386 --section-start=.bss=0x100000 -o $@
-
-# To generate a fixture using gdb
-build/%.fixture: build/%.bin
-	gdb -quiet -batch -x gdbauto $< > $@
 
 # To use as a multiboot kernel image for v86
 build/%.img: build/%.o
