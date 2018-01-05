@@ -30,6 +30,7 @@ const vals = {
     instruction_pointer: 0,
     previous_ip: 0,
     prefixes: 0,
+    timestamp_counter: 0,
 };
 
 const wasm_test_funcs = {
@@ -49,6 +50,7 @@ const wasm_test_funcs = {
         g$_instruction_pointer() { return vals.instruction_pointer; },
         g$_previous_ip() { return vals.previous_ip; },
         g$_prefixes() { return vals.prefixes; },
+        g$_timestamp_counter() { return vals.timestamp_counter; },
     },
 };
 
