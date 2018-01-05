@@ -1546,7 +1546,7 @@ CPU.prototype.set_cr0 = function(cr0)
 
     this.protected_mode[0] = +((this.cr[0] & CR0_PE) === CR0_PE);
 
-    //this.wm.exports["_jit_empty_cache"]();
+    //this.jit_empty_cache();
 };
 
 CPU.prototype.set_cr4 = function(cr4)
@@ -1683,7 +1683,8 @@ CPU.prototype.read_disp32s = CPU.prototype.read_imm32s;
 
 CPU.prototype.init2 = function () {};
 
-CPU.prototype.after_jump = function () {
+CPU.prototype.after_jump = function ()
+{
     // May be called through JS imports in the WASM module, such as loop or handle_irqs (through popf, sti)
     this.wm.exports["_after_jump"]();
 };
@@ -1695,6 +1696,11 @@ CPU.prototype.branch_not_taken = function () {
 };
 CPU.prototype.diverged = function () {
     this.after_jump();
+};
+
+CPU.prototype.jit_empty_cache = function()
+{
+    this.wm.exports["_jit_empty_cache"]();
 };
 
 CPU.prototype.modrm_resolve = function(modrm_byte)
@@ -3962,6 +3968,7 @@ CPU.prototype.pic_call_irq = function(int)
 CPU.prototype.handle_irqs = function()
 {
     dbg_assert(!this.page_fault);
+    //dbg_assert(this.prefixes[0] === 0);
 
     this.diverged();
 
@@ -4184,7 +4191,7 @@ CPU.prototype.update_cs_size = function(new_size)
     if(Boolean(this.is_32[0]) !== new_size)
     {
         //dbg_log("clear instruction cache", LOG_CPU);
-        //this.wm.exports["_jit_empty_cache"]();
+        //this.jit_empty_cache();
 
         this.is_32[0] = +new_size;
         this.update_operand_size();

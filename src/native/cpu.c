@@ -335,7 +335,13 @@ void cycle_internal()
 
         profiler_end(P_RUN_FROM_CACHE);
     }
-    else if(JIT_ALWAYS || (!JIT_COMPILE_ONLY_AFTER_JUMP || jit_jump == 1) && ++hot_code_addresses[jit_hot_hash(phys_addr)] > JIT_THRESHOLD)
+    else if(
+            JIT_ALWAYS ||
+            (
+                 (!JIT_COMPILE_ONLY_AFTER_JUMP || jit_jump == 1) &&
+                 ++hot_code_addresses[jit_hot_hash(phys_addr)] > JIT_THRESHOLD
+            )
+        )
     {
         if(clean && entry->start_addr != 0 && entry->start_addr != phys_addr)
         {
@@ -354,7 +360,7 @@ void cycle_internal()
         hot_code_addresses[jit_hot_hash(phys_addr)] = 0;
 
         // invalidate now, in case generate_instruction raises
-        entry->group_status = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT] + 1;
+        entry->group_status = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT] - 1;
 
         int32_t len = 0;
         jit_jump = 0;

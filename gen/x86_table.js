@@ -177,7 +177,7 @@ const encodings = [
     { opcode: 0xE2, imm8s: 1, skip: 1, jump: 1, },
     { opcode: 0xE3, imm8s: 1, skip: 1, jump: 1, },
 
-    // port functions aren't jumps, but they may modify eip
+    // port functions aren't jumps, but they may modify eip due to how they are implemented
     { opcode: 0xE4, jump: 1, imm8: 1, skip: 1, }, // in
     { opcode: 0xE5, jump: 1, os: 1, imm8: 1, skip: 1, },
     { opcode: 0xE6, jump: 1, imm8: 1, skip: 1, }, // out

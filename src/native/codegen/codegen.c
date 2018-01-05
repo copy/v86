@@ -118,6 +118,17 @@ uintptr_t gen_get_final_offset()
 }
 uint8_t* offset_increment_instruction_pointer;
 
+void gen_increment_variable(int32_t variable_address, int32_t n)
+{
+    push_i32(&cs, variable_address);
+
+    load_i32(&cs, variable_address);
+    push_i32(&cs, n);
+    add_i32(&cs);
+
+    store_i32(&cs);
+}
+
 void gen_increment_instruction_pointer(int32_t n)
 {
     push_i32(&cs, (int32_t)instruction_pointer); // store address of ip
@@ -132,13 +143,7 @@ void gen_increment_instruction_pointer(int32_t n)
 
 void gen_increment_timestamp_counter(int32_t n)
 {
-    push_i32(&cs, (int32_t)timestamp_counter); // store address of tsc
-
-    load_i32(&cs, (int32_t)timestamp_counter); // load ip
-    push_i32(&cs, n); // load value to add to it
-    add_i32(&cs);
-
-    store_i32(&cs); // store it back in
+    gen_increment_variable((int32_t)timestamp_counter, n);
 }
 
 void gen_patch_increment_instruction_pointer(int32_t n) // XXX: Hack

@@ -298,6 +298,7 @@ function gen_instruction_body(encodings, size)
         if(encoding.ignore_mod)
         {
             console.assert(!imm_read, "Unexpected instruction (ignore mod with immediate value)");
+            console.assert(!encoding.requires_prefix_call);
 
             // Has modrm byte, but the 2 mod bits are ignored and both
             // operands are always registers (0f20-0f24)
