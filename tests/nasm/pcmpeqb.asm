@@ -23,15 +23,15 @@ myaddress:
 	movq		mm3, [quad4]
 	movq		mm4, [quad1]
 
-	pand		mm1, [quad2]
-	pand		mm1, mm2
-	pand		mm2, [quad1]
-	pand		mm2, mm3
-	pand		mm3, [quad3]
-	pand		mm3, mm4
-	pand		mm4, [quad1]
-	pand		mm4, mm1
-	pand		mm4, mm3
+	pcmpeqb	mm1, [quad2]
+	pcmpeqb	mm1, mm2
+	pcmpeqb	mm2, [quad1]
+	pcmpeqb	mm2, mm3
+	pcmpeqb	mm3, [quad3]
+	pcmpeqb	mm3, mm4
+	pcmpeqb	mm4, [quad1]
+	pcmpeqb	mm4, mm1
+	pcmpeqb	mm4, mm3
 
 
 %include "footer.inc"
