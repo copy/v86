@@ -69,7 +69,7 @@ function test_arg_formatter(workload)
     });
 }
 
-function setProcHandlers(proc, n)
+function set_proc_handlers(proc, n)
 {
     proc.on("close", (code) => {
         console.log(`[+] child process ${n} exited with code ${code}`);
@@ -91,16 +91,15 @@ function setProcHandlers(proc, n)
     }
 }
 
-const gdb_args = [];
 for(let i = 0; i < nr_of_cpus; i++)
 {
-    gdb_args[i] = GDB_DEFAULT_ARGS.concat(test_arg_formatter(workloads[i]));
+    const gdb_args = GDB_DEFAULT_ARGS.concat(test_arg_formatter(workloads[i]));
 
     if(DEBUG)
     {
-        console.log(CYAN_FMT, "[DEBUG]", "gdb", gdb_args[i].join(" "));
+        console.log(CYAN_FMT, "[DEBUG]", "gdb", gdb_args.join(" "));
     }
 
-    const gdb = spawn("gdb", gdb_args[i]);
-    setProcHandlers(gdb, i);
+    const gdb = spawn("gdb", gdb_args);
+    set_proc_handlers(gdb, i);
 }
