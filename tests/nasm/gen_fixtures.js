@@ -21,14 +21,8 @@ const GDB_DEFAULT_ARGS = [
     `--command=${TEST_DIR}gdb-extract-def`
 ];
 
-/* Split up a string into semi-evenly sized chunks
- * Eg. chunk("0 0 1 1 2 2 2 3 3 3".split(" "), 4) ->
- * [ [ "0", "0" ],
- *   [ "1", "1" ],
- *   [ "2", "2", "2" ],
- *   [ "3", "3", "3" ] ]
- */
-function chunk(source, num_chunks=4)
+/* Split up an array into semi-evenly sized chunks */
+function chunk(source, num_chunks)
 {
     const arr = source.slice();
     const ret = [];
@@ -42,6 +36,14 @@ function chunk(source, num_chunks=4)
     }
     return ret;
 }
+console.assert(
+    JSON.stringify(chunk("0 0 1 1 2 2 2 3 3 3".split(" "), 4)) ===
+        JSON.stringify([["0", "0"],
+                        ["1", "1"],
+                        ["2", "2", "2"],
+                        ["3", "3", "3"]]),
+    "Chunk"
+);
 
 const dir_files = fs.readdirSync(BUILD_DIR);
 const test_files = dir_files.filter((name) => {
