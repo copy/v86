@@ -3,6 +3,7 @@
 
 const fs = require("fs");
 const os = require("os");
+const path = require("path");
 const { spawn } = require("child_process");
 
 const DEBUG = process.env.DEBUG || false;
@@ -14,7 +15,7 @@ const CYAN_FMT = "\x1b[36m%s\x1b[0m";
 const YELLOW_FMT = "\x1b[33m%s\x1b[0m";
 
 const TEST_DIR = __dirname + "/";
-const BUILD_DIR = TEST_DIR + "build/";
+const BUILD_DIR = path.join(TEST_DIR, "build");
 
 const GDB_DEFAULT_ARGS = [
     "-batch",
@@ -64,7 +65,7 @@ const workloads = chunk(test_files, nr_of_cpus);
 function test_arg_formatter(workload)
 {
     return workload.map(test => {
-        const test_path = BUILD_DIR + test;
+        const test_path = path.join(BUILD_DIR, test);
         return `--eval-command=extract-state ${test_path}.bin ${test_path}.fixture`;
     });
 }
