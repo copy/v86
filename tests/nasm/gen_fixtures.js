@@ -19,7 +19,10 @@ const BUILD_DIR = path.join(TEST_DIR, "build");
 
 const GDB_DEFAULT_ARGS = [
     "-batch",
-    `--command=${TEST_DIR}gdb-extract-def`
+    `--command=${TEST_DIR}gdb-extract-def`,
+    // Set a breakpoint "in the future", which all the test binaries can then share
+    "--eval-command=set breakpoint pending on",
+    "--eval-command=break loop",
 ];
 
 /* Split up an array into semi-evenly sized chunks */

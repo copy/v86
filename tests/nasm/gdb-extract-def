@@ -1,9 +1,5 @@
 # Invocation: gdb -x gdb-extract-def
 
-# Set a breakpoint "in the future", which all the test binaries can then share
-set breakpoint pending on
-break loop
-
 # extract-state /path/to/foo.bin /path/to/foo.fixture
 define extract-state
   file $arg0
