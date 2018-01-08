@@ -108,4 +108,4 @@ define extract-state
 
   set logging off
 
-  end
+end
