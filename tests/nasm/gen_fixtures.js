@@ -6,8 +6,6 @@ const os = require("os");
 const { spawn } = require("child_process");
 
 const DEBUG = process.env.DEBUG || false;
-// Limit the number of binaries for which fixtures are generated in DEBUG mode
-const DEBUG_FILE_LIMIT = 0;
 // Maximum number of gdb processes to spawn in parallel
 const MAX_PARALLEL_PROCS = +process.env.MAX_PARALLEL_PROCS || 32;
 
@@ -46,17 +44,11 @@ function chunk(source, num_chunks=4)
 }
 
 const dir_files = fs.readdirSync(BUILD_DIR);
-let test_files = dir_files.filter((name) => {
+const test_files = dir_files.filter((name) => {
     return name.endsWith(".bin");
 }).map(name => {
     return name.slice(0, -4);
 });
-
-if(DEBUG && DEBUG_FILE_LIMIT)
-{
-    console.log(CYAN_FMT, "[DEBUG]", `Limiting to ${DEBUG_FILE_LIMIT} fixtures`);
-    test_files = test_files.slice(0, DEBUG_FILE_LIMIT);
-}
 
 const nr_of_cpus = Math.min(
     os.cpus().length || 1,
