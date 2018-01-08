@@ -47,10 +47,18 @@ console.assert(
 );
 
 const dir_files = fs.readdirSync(BUILD_DIR);
-const test_files = dir_files.filter((name) => {
+const test_files = dir_files.filter(name => {
     return name.endsWith(".bin");
 }).map(name => {
     return name.slice(0, -4);
+}).filter(name => {
+    const bin_file = path.join(BUILD_DIR, `${name}.bin`);
+    const fixture_file = path.join(BUILD_DIR, `${name}.fixture`);
+    if(!fs.existsSync(fixture_file))
+    {
+        return true;
+    }
+    return fs.statSync(bin_file).mtime > fs.statSync(fixture_file).mtime;
 });
 
 const nr_of_cpus = Math.min(
@@ -58,7 +66,7 @@ const nr_of_cpus = Math.min(
     test_files.length,
     MAX_PARALLEL_PROCS
 );
-console.log("[+] Using %d cpus to generate fixtures", nr_of_cpus);
+console.log("[+] Using %d cpus to generate %d fixtures", nr_of_cpus, test_files.length);
 
 const workloads = chunk(test_files, nr_of_cpus);
 
