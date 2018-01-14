@@ -1954,10 +1954,25 @@ VGAScreen.prototype.port3DA_read = function()
 {
     dbg_log("3DA read - status 1 and clear attr index", LOG_VGA);
 
-    // status register, bit 3 set by update_vertical_retrace
     var value = this.port_3DA_value;
-    this.port_3DA_value ^= 1;
-    this.port_3DA_value &= 1;
+
+    // Status register, bit 3 set by update_vertical_retrace
+    // during screen-fill-buffer
+    if(!this.graphical_mode)
+    {
+        // But screen-fill-buffer may not get triggered in text mode
+        // so toggle it manually here
+        if(this.port_3DA_value & 1)
+        {
+            this.port_3DA_value ^= 8;
+        }
+        this.port_3DA_value ^= 1;
+    }
+    else
+    {
+        this.port_3DA_value ^= 1;
+        this.port_3DA_value &= 1;
+    }
     this.attribute_controller_index = -1;
     return value;
 };
@@ -2329,12 +2344,17 @@ VGAScreen.prototype.screen_fill_buffer = function()
     if(!this.graphical_mode)
     {
         // text mode
+        // Update anyway - programs waiting for signal before
+        // changing to graphical mode
+        this.update_vertical_retrace();
         return;
     }
 
     if(!this.dest_buffer)
     {
         dbg_log("Cannot fill buffer: No destination buffer", LOG_VGA);
+        // Update anyway
+        this.update_vertical_retrace();
         return;
     }
 
