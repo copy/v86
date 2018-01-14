@@ -202,9 +202,6 @@ function VGAScreen(cpu, bus, vga_memory_size)
     /** @type {number} */
     this.svga_height = 0;
 
-    /** @type {number} */
-    this.text_mode_width = 80;
-
     this.svga_enabled = false;
 
     /** @type {number} */
@@ -444,7 +441,7 @@ VGAScreen.prototype.get_state = function()
     // state[14]
     state[15] = this.svga_width;
     state[16] = this.svga_height;
-    state[17] = this.text_mode_width;
+    // state[17]
     state[18] = this.svga_enabled;
     state[19] = this.svga_bpp;
     state[20] = this.svga_bank_offset;
@@ -495,7 +492,7 @@ VGAScreen.prototype.set_state = function(state)
     // state[14]
     this.svga_width = state[15];
     this.svga_height = state[16];
-    this.text_mode_width = state[17];
+    // state[17]
     this.svga_enabled = state[18];
     this.svga_bpp = state[19];
     this.svga_bank_offset = state[20];
@@ -744,141 +741,6 @@ VGAScreen.prototype.vga_memory_write_graphical = function(addr, value)
     var pixel_addr = this.vga_addr_to_pixel(addr);
     this.partial_replot(pixel_addr, pixel_addr + 7);
 };
-
-//VGAScreen.prototype.single_plot = function(addr)
-//{
-//    // ## Step 3. Serialize plane bytes
-//    // Transfers plane data through the graphics controller to
-//    // the attribute controller, depending on the shift modes.
-//
-//    // Calculate the address base of the affected pixels
-//    if(this.underline_location_register & 0x40)
-//    {
-//        // Doubleword addressing. The CRT controller increments the
-//        // address by 4 bytes, so select the address concerned
-//        addr &= ~0x3;
-//    }
-//    else if(!(this.crtc_mode & 0x40))
-//    {
-//        // Word mode addressing. The CRT controller increments the address
-//        // by 2 bytes each time.
-//        addr &= ~0x1;
-//    }
-//
-//    var plane0_byte;
-//    var plane1_byte;
-//    var plane2_byte;
-//    var plane3_byte;
-//
-//    // TODO: If assuming that the programs are well behaved, this
-//    // may not be necessary
-//    if(this.sequencer_memory_mode & 0x8)
-//    {
-//        // Chain 4
-//        plane0_byte = this.plane0[addr];
-//        plane1_byte = this.plane1[addr + 1];
-//        plane2_byte = this.plane2[addr + 2];
-//        plane3_byte = this.plane3[addr + 3];
-//    }
-//    else if(this.planar_mode & 0x10)
-//    {
-//        // Odd/Even??????? CGA Emulation??
-//        plane0_byte = this.plane0[addr];
-//        plane1_byte = this.plane1[addr + 1];
-//        plane2_byte = this.plane2[addr];
-//        plane3_byte = this.plane3[addr + 1];
-//    }
-//    else
-//    {
-//        plane0_byte = this.plane0[addr];
-//        plane1_byte = this.plane1[addr];
-//        plane2_byte = this.plane2[addr];
-//        plane3_byte = this.plane3[addr];
-//    }
-//
-//    // TODO: Combine with the DAC stage below and
-//    // the plane selection stage above
-//    var shift_loads = new Uint8Array(8);
-//    switch(this.planar_mode & 0x60)
-//    {
-//        // Planar Shift Mode
-//        // See http://www.osdever.net/FreeVGA/vga/vgaseq.htm
-//        case 0x00:
-//            // Shift these, so that the bits for the color are in
-//            // the correct position in the for loop
-//            plane0_byte <<= 0;
-//            plane1_byte <<= 1;
-//            plane2_byte <<= 2;
-//            plane3_byte <<= 3;
-//
-//            for(var i = 7; i >= 0; i--)
-//            {
-//                shift_loads[7 - i] =
-//                        plane0_byte >> i & 1 |
-//                        plane1_byte >> i & 2 |
-//                        plane2_byte >> i & 4 |
-//                        plane3_byte >> i & 8;
-//            }
-//            break;
-//
-//        // Packed Shift Mode, aka Interleaved Shift Mode
-//        // Video Modes 4h and 5h
-//        case 0x20:
-//            shift_loads[0] = (plane0_byte >> 6 & 0x3) | (plane2_byte >> 4 & 0xC);
-//            shift_loads[1] = (plane0_byte >> 4 & 0x3) | (plane2_byte >> 2 & 0xC);
-//            shift_loads[2] = (plane0_byte >> 2 & 0x3) | (plane2_byte >> 0 & 0xC);
-//            shift_loads[3] = (plane0_byte >> 0 & 0x3) | (plane2_byte << 2 & 0xC);
-//
-//            shift_loads[4] = (plane1_byte >> 6 & 0x3) | (plane3_byte >> 4 & 0xC);
-//            shift_loads[5] = (plane1_byte >> 4 & 0x3) | (plane3_byte >> 2 & 0xC);
-//            shift_loads[6] = (plane1_byte >> 2 & 0x3) | (plane3_byte >> 0 & 0xC);
-//            shift_loads[7] = (plane1_byte >> 0 & 0x3) | (plane3_byte << 2 & 0xC);
-//            break;
-//
-//        // 256-Color Shift Mode
-//        // Video Modes 13h and unchained 256 color
-//        case 0x40:
-//        case 0x60:
-//            shift_loads[0] = plane0_byte >> 4 & 0xF;
-//            shift_loads[1] = plane0_byte >> 0 & 0xF;
-//            shift_loads[2] = plane1_byte >> 4 & 0xF;
-//            shift_loads[3] = plane1_byte >> 0 & 0xF;
-//            shift_loads[4] = plane2_byte >> 4 & 0xF;
-//            shift_loads[5] = plane2_byte >> 0 & 0xF;
-//            shift_loads[6] = plane3_byte >> 4 & 0xF;
-//            shift_loads[7] = plane3_byte >> 0 & 0xF;
-//            break;
-//    }
-//
-//    var pixel_addr = this.vga_addr_to_pixel(addr);
-//    var pixel_addr_max;
-//
-//    // Pixel Width, aka PEL Width, aka Clocking Mode
-//    if(this.attribute_mode & 0x40)
-//    {
-//        pixel_addr_max = pixel_addr + 3;
-//
-//        // Assemble from two sets of 4 bits.
-//        for(var i = 0, j = 0; i < 4; i++, j += 2)
-//        {
-//            var color256 = (shift_loads[j] << 4) | shift_loads[j + 1];
-//            this.pixel_buffer[pixel_addr + i] = color256;
-//            this.dac_color_use_set(pixel_addr + i, color256);
-//        }
-//    }
-//    else
-//    {
-//        pixel_addr_max = pixel_addr + 7;
-//
-//        for(var i = 0; i < 8; i++)
-//        {
-//            this.pixel_buffer[pixel_addr + i] = shift_loads[i];
-//            this.dac_color_use_set(pixel_addr + i, shift_loads[i]);
-//        }
-//    }
-//
-//    this.partial_redraw(pixel_addr, pixel_addr_max);
-//};
 
 /**
  * Copies data_byte into the four planes, with each plane
@@ -1176,15 +1038,15 @@ VGAScreen.prototype.dac_color_use_reset = function()
     this.dac_color_use_next.fill(VGA_UNUSED_COLOR_ID);
 };
 
-VGAScreen.prototype.get_bytes_per_row = function()
+VGAScreen.prototype.vga_bytes_per_line = function()
 {
-    var bytes_per_row = this.offset_register << 2;
-    if(this.underline_location_register & 0x40) bytes_per_row <<= 1;
-    else if(this.crtc_mode & 0x40) bytes_per_row >>>= 1;
-    return bytes_per_row;
+    var bytes_per_line = this.offset_register << 2;
+    if(this.underline_location_register & 0x40) bytes_per_line <<= 1;
+    else if(this.crtc_mode & 0x40) bytes_per_line >>>= 1;
+    return bytes_per_line;
 };
 
-VGAScreen.prototype.get_addr_shift_count = function()
+VGAScreen.prototype.vga_addr_shift_count = function()
 {
     // Count in multiples of 0x40 for convenience
     // Left shift 2 for word mode - 2 bytes per dot clock
@@ -1204,7 +1066,7 @@ VGAScreen.prototype.get_addr_shift_count = function()
 
 VGAScreen.prototype.vga_addr_to_pixel = function(addr)
 {
-    var shift_count = this.get_addr_shift_count();
+    var shift_count = this.vga_addr_shift_count();
 
     // Undo effects of substituted bits 13 and 14
     // Assumptions:
@@ -1350,7 +1212,7 @@ VGAScreen.prototype.update_vga_graphical_size = function()
 
         this.svga_height = this.scan_line_to_screen_row(vertical_scans);
 
-        // The virtual buffer height is however many rows of data that can fit
+        // The virtual buffer height is however many rows of data that can fit.
         // Previously drawn graphics outside of current memory address space can
         // still be drawn by setting start_address. The address at
         // VGA_HOST_MEMORY_SPACE_START[memory_space_select] is mapped to the first
@@ -1358,7 +1220,7 @@ VGAScreen.prototype.update_vga_graphical_size = function()
         // Depended on by: Windows 98 start screen
         var available_bytes = VGA_HOST_MEMORY_SPACE_SIZE[0];
 
-        this.virtual_height = available_bytes / this.get_bytes_per_row() | 0;
+        this.virtual_height = Math.ceil(available_bytes / this.vga_bytes_per_line());
 
         this.set_size_graphical(this.svga_width, this.svga_height, 8,
             this.virtual_width, this.virtual_height);
@@ -1466,62 +1328,12 @@ VGAScreen.prototype.update_cursor_scanline = function()
     this.bus.send("screen-update-cursor-scanline", [this.cursor_scanline_start, this.cursor_scanline_end]);
 };
 
-//VGAScreen.prototype.set_video_mode = function(mode)
-//{
-//    var is_graphical = false;
-//
-//    var width = 0;
-//    var height = 0;
-//
-//    switch(mode)
-//    {
-//        case 0x66:
-//            this.set_size_text(110, 46);
-//            break;
-//        case 0x03:
-//            this.set_size_text(this.text_mode_width, 25);
-//            break;
-//        case 0x10:
-//            width = 640;
-//            height = 350;
-//            is_graphical = true;
-//            this.graphical_mode_is_linear = false;
-//            break;
-//        case 0x12:
-//            width = 640;
-//            height = 480;
-//            is_graphical = true;
-//            this.graphical_mode_is_linear = false;
-//            break;
-//        case 0x13:
-//            width = 320;
-//            height = 200;
-//            is_graphical = true;
-//            this.graphical_mode_is_linear = true;
-//            break;
-//        default:
-//    }
-//
-//    this.bus.send("screen-set-mode", is_graphical);
-//    this.stats.is_graphical = is_graphical;
-//
-//    if(is_graphical)
-//    {
-//        /*
-//        this.svga_width = width;
-//        this.svga_height = height;
-//        this.set_size_graphical(width, height, 8, width, height);
-//
-//        // TODO: update with this instead
-//        this.update_vga_graphical_size();
-//        */
-//    }
-//
-//    this.graphical_mode = is_graphical;
-//
-//    dbg_log("Current video mode: " + h(mode), LOG_VGA);
-//};
-
+/**
+ * Attribute controller register / index write
+ * @see {@link http://www.osdever.net/FreeVGA/vga/attrreg.htm}
+ * @see {@link http://www.mcamafia.de/pdf/ibm_vgaxga_trm2.pdf} page 89
+ * @see {@link https://01.org/sites/default/files/documentation/intel-gfx-prm-osrc-hsw-display_0.pdf} page 48
+ */
 VGAScreen.prototype.port3C0_write = function(value)
 {
     if(this.attribute_controller_index === -1)
@@ -1578,6 +1390,8 @@ VGAScreen.prototype.port3C0_write = function(value)
                 if(this.color_plane_enable !== value)
                 {
                     this.color_plane_enable = value;
+
+                    // Data stored in image buffer are invalidated
                     this.complete_redraw();
                 }
                 break;
@@ -1594,6 +1408,8 @@ VGAScreen.prototype.port3C0_write = function(value)
                 if(this.color_select !== value)
                 {
                     this.color_select = value;
+
+                    // Data stored in image buffer are invalidated
                     this.complete_redraw();
                 }
                 break;
@@ -1609,7 +1425,6 @@ VGAScreen.prototype.port3C0_read = function()
 {
     dbg_log("3C0 read", LOG_VGA);
     var result = this.attribute_controller_index;
-    // this.attribute_controller_index = -1;
     return result;
 };
 
@@ -1621,34 +1436,29 @@ VGAScreen.prototype.port3C0_read16 = function()
 
 VGAScreen.prototype.port3C1_read = function()
 {
-    var index = this.attribute_controller_index;
-
-    // TODO: Should it reset the index? Some programs behave incorrectly.
-    // Manual says 3C1 does not toggle this flip flop.
-    // this.attribute_controller_index = -1;
-
-    if(index < 10)
+    if(this.attribute_controller_index < 10)
     {
-        dbg_log("3C1 / internal palette read " + h(index), LOG_VGA);
-        return this.dac_map[index];
+        dbg_log("3C1 / internal palette read: " + h(this.attribute_controller_index) +
+            " -> " + h(this.dac_map[this.attribute_controller_index]), LOG_VGA);
+        return this.dac_map[this.attribute_controller_index];
     }
 
-    switch(index)
+    switch(this.attribute_controller_index)
     {
         case 0x10:
-            dbg_log("3C1 / attribute mode read " + h(index), LOG_VGA);
+            dbg_log("3C1 / attribute mode read: " + h(this.attribute_mode), LOG_VGA);
             return this.attribute_mode;
         case 0x12:
-            dbg_log("3C1 / color plane enable read " + h(index), LOG_VGA);
+            dbg_log("3C1 / color plane enable read: " + h(this.color_plane_enable), LOG_VGA);
             return this.color_plane_enable;
         case 0x13:
-            dbg_log("3C1 / horizontal panning read " + h(index), LOG_VGA);
+            dbg_log("3C1 / horizontal panning read: " + h(this.horizontal_panning), LOG_VGA);
             return this.horizontal_panning;
         case 0x14:
-            dbg_log("3C1 / color select read " + h(index), LOG_VGA);
+            dbg_log("3C1 / color select read: " + h(this.color_select), LOG_VGA);
             return this.color_select;
         default:
-            dbg_log("3C1 / attribute controller read " + h(index), LOG_VGA);
+            dbg_log("3C1 / attribute controller read " + h(this.attribute_controller_index), LOG_VGA);
     }
     return -1;
 
@@ -1658,9 +1468,6 @@ VGAScreen.prototype.port3C2_write = function(value)
 {
     dbg_log("3C2 / miscellaneous output register = " + h(value), LOG_VGA);
     this.miscellaneous_output_register = value;
-
-    // cheat way to figure out which video mode is indended to be used
-    //this.switch_video_mode(value);
 };
 
 VGAScreen.prototype.port3C4_write = function(value)
@@ -1673,12 +1480,18 @@ VGAScreen.prototype.port3C4_read = function()
     return this.sequencer_index;
 };
 
+/**
+ * Sequencer register writes
+ * @see {@link http://www.osdever.net/FreeVGA/vga/seqreg.htm}
+ * @see {@link http://www.mcamafia.de/pdf/ibm_vgaxga_trm2.pdf} page 47
+ * @see {@link https://01.org/sites/default/files/documentation/intel-gfx-prm-osrc-hsw-display_0.pdf} page 19
+ */
 VGAScreen.prototype.port3C5_write = function(value)
 {
     switch(this.sequencer_index)
     {
         case 0x02:
-            //dbg_log("plane write mask: " + h(value), LOG_VGA);
+            dbg_log("plane write mask: " + h(value), LOG_VGA);
             this.plane_write_bm = value;
             break;
         case 0x04:
@@ -1719,6 +1532,12 @@ VGAScreen.prototype.port3C8_write = function(index)
     this.dac_color_index_write = index * 3;
 };
 
+/**
+ * DAC color palette register writes
+ * @see {@link http://www.osdever.net/FreeVGA/vga/colorreg.htm}
+ * @see {@link http://www.mcamafia.de/pdf/ibm_vgaxga_trm2.pdf} page 104
+ * @see {@link https://01.org/sites/default/files/documentation/intel-gfx-prm-osrc-hsw-display_0.pdf} page 57
+ */
 VGAScreen.prototype.port3C9_write = function(color_byte)
 {
     var index = this.dac_color_index_write / 3 | 0,
@@ -1765,7 +1584,7 @@ VGAScreen.prototype.port3C9_write = function(color_byte)
 
 VGAScreen.prototype.port3C9_read = function()
 {
-    //dbg_log("3C9 read", LOG_VGA);
+    dbg_log("3C9 read", LOG_VGA);
 
     var index = this.dac_color_index_read / 3 | 0;
     var offset = this.dac_color_index_read % 3;
@@ -1791,6 +1610,12 @@ VGAScreen.prototype.port3CE_read = function()
     return this.graphics_index;
 };
 
+/**
+ * Graphics controller register writes
+ * @see {@link http://www.osdever.net/FreeVGA/vga/graphreg.htm}
+ * @see {@link http://www.mcamafia.de/pdf/ibm_vgaxga_trm2.pdf} page 78
+ * @see {@link https://01.org/sites/default/files/documentation/intel-gfx-prm-osrc-hsw-display_0.pdf} page 29
+ */
 VGAScreen.prototype.port3CF_write = function(value)
 {
     switch(this.graphics_index)
@@ -1880,6 +1705,12 @@ VGAScreen.prototype.port3D4_write = function(register)
     this.index_crtc = register;
 };
 
+/**
+ * CRT controller register writes
+ * @see {@link http://www.osdever.net/FreeVGA/vga/crtcreg.htm}
+ * @see {@link http://www.mcamafia.de/pdf/ibm_vgaxga_trm2.pdf} page 55
+ * @see {@link https://01.org/sites/default/files/documentation/intel-gfx-prm-osrc-hsw-display_0.pdf} page 63
+ */
 VGAScreen.prototype.port3D5_write = function(value)
 {
     switch(this.index_crtc)
@@ -1898,8 +1729,6 @@ VGAScreen.prototype.port3D5_write = function(value)
                 this.horizontal_blank_start = value;
                 this.update_vga_graphical_size();
             }
-            // TODO
-            this.text_mode_width = value;
             break;
         case 0x7:
             dbg_log("3D5 / overflow register write: " + h(value), LOG_VGA);
@@ -2133,39 +1962,6 @@ VGAScreen.prototype.port3DA_read = function()
     return value;
 };
 
-//VGAScreen.prototype.switch_video_mode = function(mar)
-//{
-//    // Cheap way to figure this out, using the Miscellaneous Output Register
-//    // See: http://wiki.osdev.org/VGA_Hardware#List_of_register_settings
-//
-//    if(mar === 0x66)
-//    {
-//        this.set_video_mode(0x66);
-//    }
-//    else if(mar === 0x67)
-//    {
-//        this.set_video_mode(0x3);
-//    }
-//    else if(mar === 0xE3)
-//    {
-//        // also mode X
-//        this.set_video_mode(0x12);
-//    }
-//    else if(mar === 0x63)
-//    {
-//        this.set_video_mode(0x13);
-//    }
-//    else if(mar === 0xA3)
-//    {
-//        this.set_video_mode(0x10);
-//    }
-//    else
-//    {
-//        dbg_log("Unkown MAR value: " + h(mar, 2) + ", going back to text mode", LOG_VGA);
-//        this.set_video_mode(0x3);
-//    }
-//};
-
 VGAScreen.prototype.svga_bytes_per_line = function()
 {
     var bits = this.svga_bpp === 15 ? 16 : this.svga_bpp;
@@ -2306,7 +2102,7 @@ VGAScreen.prototype.vga_replot = function()
     var start = this.diff_plot_min & ~0xF;
     var end = (this.diff_plot_max | 0xF) + 1;
 
-    var addr_shift = this.get_addr_shift_count();
+    var addr_shift = this.vga_addr_shift_count();
     var addr_substitution = ~this.crtc_mode & 0x3;
 
     var shift_mode = this.planar_mode & 0x60
