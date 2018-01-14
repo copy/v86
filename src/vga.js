@@ -393,7 +393,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
         this.dac_color_use_root = this.dac_color_use_next.subarray(
             VGA_COLOR_USE_ROOT_OFFSET, VGA_COLOR_USE_ROOT_OFFSET + 256);
 
-        this.dac_changed_colors = new ByteQueue(1024);
+        this.dac_changed_colors = new ByteQueue(256);
         this.dac_color_use_reset();
     }
     else
@@ -404,6 +404,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
         this.dac_color_use_root = null;
         this.dac_changed_colors = new ByteQueue(1);
     }
+    this.dac_color_has_changed = new Uint8Array(256);
 
     var me = this;
     io.mmap_register(0xA0000, 0x20000,
@@ -991,7 +992,7 @@ VGAScreen.prototype.destroy = function()
 
 };
 
-VGAScreen.prototype.dac_color_use_set = function(addr, colorIndex)
+VGAScreen.prototype.dac_color_use_set = function(addr, color_index)
 {
     if(this.dac_color_use_disabled)
     {
@@ -1001,15 +1002,29 @@ VGAScreen.prototype.dac_color_use_set = function(addr, colorIndex)
     // Linked list remove
     var old_prev = this.dac_color_use_prev[addr];
     var old_next = this.dac_color_use_next[addr];
-    this.dac_color_use_prev[old_next] = old_prev;
-    this.dac_color_use_next[old_prev] = old_next;
+    if(old_next !== VGA_UNUSED_COLOR_ID) this.dac_color_use_prev[old_next] = old_prev;
+    if(old_prev !== VGA_UNUSED_COLOR_ID) this.dac_color_use_next[old_prev] = old_next;
 
     // Linked list insert front
-    var old_root = this.dac_color_use_root[colorIndex];
+    var old_root = this.dac_color_use_root[color_index];
     this.dac_color_use_prev[old_root] = addr;
-    this.dac_color_use_root[colorIndex] = addr;
-    this.dac_color_use_prev[addr] = colorIndex + VGA_COLOR_USE_ROOT_OFFSET;
+    this.dac_color_use_root[color_index] = addr;
+    this.dac_color_use_prev[addr] = color_index + VGA_COLOR_USE_ROOT_OFFSET;
     this.dac_color_use_next[addr] = old_root;
+
+    if(DEBUG)
+    {
+        if(old_next !== VGA_UNUSED_COLOR_ID && old_prev < VGA_PIXEL_BUFFER_SIZE)
+        {
+            dbg_assert(old_next < VGA_PIXEL_BUFFER_SIZE);
+            dbg_assert(this.pixel_buffer[old_prev] === this.pixel_buffer[old_next]);
+        }
+        if(old_root !== VGA_UNUSED_COLOR_ID)
+        {
+            dbg_assert(old_root < VGA_PIXEL_BUFFER_SIZE);
+            dbg_assert(this.pixel_buffer[old_root] === color_index);
+        }
+    }
 };
 
 VGAScreen.prototype.dac_color_use_reset = function()
@@ -1021,6 +1036,16 @@ VGAScreen.prototype.dac_color_use_reset = function()
 
     this.dac_color_use_prev.fill(VGA_UNUSED_COLOR_ID);
     this.dac_color_use_next.fill(VGA_UNUSED_COLOR_ID);
+};
+
+VGAScreen.prototype.dac_record_change = function(color_id)
+{
+    if(this.dac_color_has_changed[color_id])
+    {
+        return;
+    }
+    this.dac_color_has_changed[color_id] = 1;
+    this.dac_changed_colors.push(color_id);
 };
 
 VGAScreen.prototype.vga_bytes_per_line = function()
@@ -1336,7 +1361,7 @@ VGAScreen.prototype.port3C0_write = function(value)
 
             if(!(this.attribute_mode & 0x40))
             {
-                this.dac_changed_colors.push(this.attribute_controller_index);
+                this.dac_record_change(this.attribute_controller_index);
             }
         }
         else
@@ -1551,7 +1576,7 @@ VGAScreen.prototype.port3C9_write = function(color_byte)
 
         if(this.attribute_mode & 0x40)
         {
-            this.dac_changed_colors.push(index);
+            this.dac_record_change(index);
         }
         else
         {
@@ -1559,7 +1584,7 @@ VGAScreen.prototype.port3C9_write = function(color_byte)
             {
                 if(this.dac_map[i] === index)
                 {
-                    this.dac_changed_colors.push(index);
+                    this.dac_record_change(i);
                 }
             }
         }
@@ -2100,7 +2125,7 @@ VGAScreen.prototype.vga_replot = function()
 {
     // Round to multiple of 8 towards extreme
     var start = this.diff_plot_min & ~0xF;
-    var end = (this.diff_plot_max | 0xF) + 1;
+    var end = Math.min((this.diff_plot_max | 0xF), VGA_PIXEL_BUFFER_SIZE - 1);
 
     var addr_shift = this.vga_addr_shift_count();
     var addr_substitution = ~this.crtc_mode & 0x3;
@@ -2230,6 +2255,8 @@ VGAScreen.prototype.vga_redraw = function()
     var dac_changed = this.dac_changed_colors;
     var dac_root = this.dac_color_use_root;
     var dac_next = this.dac_color_use_next;
+
+    this.dac_color_has_changed.fill(0);
 
     if(this.dac_color_use_disabled && dac_changed.length)
     {
