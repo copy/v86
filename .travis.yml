@@ -14,3 +14,6 @@ env:
     - TEST_SUITE=integration
     - TEST_SUITE=unit-qemu
     - TEST_SUITE=nasm
+matrix:
+  allow_failures:
+    - env: TEST_SUITE=unit-qemu
