@@ -661,12 +661,6 @@ VGAScreen.prototype.vga_memory_write_graphical_linear = function(addr, value)
 
 VGAScreen.prototype.vga_memory_write_graphical = function(addr, value)
 {
-    // ## Step 1. Apply write logic
-    // Bitwise operations performed on the input values and the read-latches
-    // to calculate the actual bytes sent to the four planes.
-    // The exact type of operations depend on the write mode field set in
-    // the Graphics Mode register.
-
     var plane_dword;
     var write_mode = this.planar_mode & 3;
     var bitmask = this.apply_feed(this.planar_bitmap);
@@ -701,15 +695,8 @@ VGAScreen.prototype.vga_memory_write_graphical = function(addr, value)
             break;
     }
 
-    // ## Step 2. Update Planes
-    // Chained modes selects the planes to write to depending on the
-    // system address.
-
     var plane_select = 0xF;
 
-    // Note: If the programs are well behaved, this part is uneccessary as
-    // the behaviour will be 'masked' out by the serialize step.
-    // However, for OS developers, this step helps catch some bugs.
     switch(this.sequencer_memory_mode & 0xC)
     {
         // Odd/Even (aka chain 2)
@@ -842,7 +829,6 @@ VGAScreen.prototype.apply_bitmask = function(data_dword, bitmask_dword)
 
 VGAScreen.prototype.text_mode_redraw = function()
 {
-    // TODO: startaddress or startaddress << 1?
     var addr = this.start_address << 1,
         chr,
         color;
@@ -864,7 +850,6 @@ VGAScreen.prototype.text_mode_redraw = function()
 
 VGAScreen.prototype.vga_memory_write_text_mode = function(addr, value)
 {
-    // TODO: startaddress or startaddress >> 1?
     var memory_start = (addr >> 1) - this.start_address,
         row = memory_start / this.max_cols | 0,
         col = memory_start % this.max_cols,
@@ -1062,7 +1047,7 @@ VGAScreen.prototype.vga_addr_shift_count = function()
     shift_count -= this.attribute_mode & 0x40;
 
     return shift_count >>> 6;
-}
+};
 
 VGAScreen.prototype.vga_addr_to_pixel = function(addr)
 {
