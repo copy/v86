@@ -64,6 +64,8 @@ function ScreenAdapter(screen_container, bus)
         // number of rows
         text_mode_height;
 
+    var layers = [];
+
     var screen = this;
 
     // 0x12345 -> "#012345"
@@ -167,13 +169,27 @@ function ScreenAdapter(screen_container, bus)
         this.update_cursor_scanline(data[0], data[1]);
     }, this);
 
+    bus.register("screen-update-layers", function(data)
+    {
+        this.layers = data;
+    }, this);
+
     bus.register("screen-set-size-text", function(data)
     {
         this.set_size_text(data[0], data[1]);
     }, this);
     bus.register("screen-set-size-graphical", function(data)
     {
-        this.set_size_graphical(data[0], data[1]);
+        if(DEBUG_SCREEN_LAYERS)
+        {
+            data[0] = data[3];
+            data[1] = data[4];
+        }
+        if(!data[0]) data[0] = 1;
+        if(!data[1]) data[1] = 1;
+        if(!data[3]) data[3] = data[0];
+        if(!data[4]) data[4] = data[1];
+        this.set_size_graphical(data[0], data[1], data[3], data[4]);
     }, this);
 
 
@@ -294,7 +310,7 @@ function ScreenAdapter(screen_container, bus)
         update_scale_text();
     };
 
-    this.set_size_graphical = function(width, height)
+    this.set_size_graphical = function(width, height, buffer_width, buffer_height)
     {
         graphic_screen.style.display = "block";
 
@@ -307,12 +323,19 @@ function ScreenAdapter(screen_container, bus)
         // Make sure to call this here, because pixels are transparent otherwise
         //screen.clear_screen();
 
-        graphic_image_data = graphic_context.createImageData(width, height);
+        graphic_image_data = graphic_context.createImageData(buffer_width, buffer_height);
         graphic_buffer = new Uint8Array(graphic_image_data.data.buffer);
         graphic_buffer32 = new Int32Array(graphic_image_data.data.buffer);
 
         graphical_mode_width = width;
         graphical_mode_height = height;
+
+        this.layers =
+        [{
+            screen_x: 0, screen_y: 0,
+            buffer_x: 0, buffer_y: 0,
+            buffer_width: width, buffer_height: height
+        }];
 
         this.bus.send("screen-tell-buffer", [graphic_buffer32], [graphic_buffer32.buffer]);
         update_scale_graphic();
@@ -487,7 +510,7 @@ function ScreenAdapter(screen_container, bus)
 
     this.update_buffer = function(min, max)
     {
-        if(max < min)
+        /*if(max < min)
         {
             return;
         }
@@ -501,6 +524,40 @@ function ScreenAdapter(screen_container, bus)
             0, min_y,
             graphical_mode_width, max_y - min_y + 1
         );
+        */
+        this.clear_screen();
+        if(DEBUG_SCREEN_LAYERS)
+        {
+            graphic_context.putImageData(
+                graphic_image_data,
+                0, 0
+            );
+            graphic_context.strokeStyle = "#0F0";
+            graphic_context.lineWidth = 4;
+            this.layers.forEach((layer) =>
+            {
+                graphic_context.strokeRect(
+                    layer.buffer_x,
+                    layer.buffer_y,
+                    layer.buffer_width,
+                    layer.buffer_height
+                );
+            });
+            graphic_context.lineWidth = 1;
+            return;
+        }
+        this.layers.forEach((layer) =>
+        {
+            graphic_context.putImageData(
+                graphic_image_data,
+                layer.screen_x - layer.buffer_x,
+                layer.screen_y - layer.buffer_y,
+                layer.buffer_x,
+                layer.buffer_y,
+                layer.buffer_width,
+                layer.buffer_height
+            );
+        });
     };
 
     this.init();
