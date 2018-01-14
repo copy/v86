@@ -557,7 +557,7 @@ VGAScreen.prototype.vga_memory_read = function(addr)
     // VGA chip only decodes addresses within the selected memory space.
     if(addr < 0 || addr >= VGA_HOST_MEMORY_SPACE_SIZE[memory_space_select])
     {
-        dbg_log('vga read outside memory space: addr:' + h(addr), LOG_VGA);
+        dbg_log("vga read outside memory space: addr:" + h(addr), LOG_VGA);
         return 0;
     }
 
@@ -631,7 +631,7 @@ VGAScreen.prototype.vga_memory_write = function(addr, value)
 
     if(addr < 0 || addr >= VGA_HOST_MEMORY_SPACE_SIZE[memory_space_select])
     {
-        dbg_log('vga write outside memory space: addr:' + h(addr) + ', value:' + h(value), LOG_VGA);
+        dbg_log("vga write outside memory space: addr:" + h(addr) + ", value:" + h(value), LOG_VGA);
         return;
     }
 
