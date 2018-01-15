@@ -173,6 +173,9 @@ function VGAScreen(cpu, bus, vga_memory_size)
     /** @type {number} */
     this.offset_register = 0;
 
+    /** @type {number} */
+    this.line_compare = 0;
+
     // End of CRTC registers
 
     /**
@@ -281,6 +284,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.planar_bitmap = 0xFF;
     this.planar_setreset = 0;
     this.planar_setreset_enable = 0;
+    this.miscellaneous_graphics_register = 0;
 
     this.color_compare = 0;
     this.color_dont_care = 0;
@@ -441,10 +445,10 @@ VGAScreen.prototype.get_state = function()
     state[11] = this.latch_dword;
     state[12] = this.color_compare;
     state[13] = this.color_dont_care;
-    // state[14]
+    state[14] = this.virtual_width;
     state[15] = this.svga_width;
     state[16] = this.svga_height;
-    // state[17]
+    state[17] = this.virtual_height;
     state[18] = this.svga_enabled;
     state[19] = this.svga_bpp;
     state[20] = this.svga_bank_offset;
@@ -472,6 +476,24 @@ VGAScreen.prototype.get_state = function()
     state[42] = this.offset_register;
     state[43] = this.planar_setreset;
     state[44] = this.planar_setreset_enable;
+    state[45] = this.start_address_latched;
+    state[46] = this.crtc;
+    state[47] = this.horizontal_display_enable_end;
+    state[48] = this.horizontal_blank_start;
+    state[49] = this.vertical_display_enable_end;
+    state[50] = this.vertical_blank_start;
+    state[51] = this.underline_location_register;
+    state[52] = this.preset_row_scan;
+    state[53] = this.offset_register;
+    state[54] = this.palette_source;
+    state[55] = this.attribute_mode;
+    state[56] = this.color_plane_enable;
+    state[57] = this.horizontal_panning;
+    state[58] = this.color_select;
+    state[59] = this.clocking_mode;
+    state[60] = this.line_compare;
+    state[61] = this.crtc_mode;
+    state[62] = this.miscellaneous_graphics_register;
 
     return state;
 };
@@ -492,10 +514,10 @@ VGAScreen.prototype.set_state = function(state)
     this.latch_dword = state[11];
     this.color_compare = state[12];
     this.color_dont_care = state[13];
-    // state[14]
+    this.virtual_width = state[14];
     this.svga_width = state[15];
     this.svga_height = state[16];
-    // state[17]
+    this.virtual_height = state[17];
     this.svga_enabled = state[18];
     this.svga_bpp = state[19];
     this.svga_bank_offset = state[20];
@@ -523,15 +545,40 @@ VGAScreen.prototype.set_state = function(state)
     this.offset_register = state[42];
     this.planar_setreset = state[43];
     this.planar_setreset_enable = state[44];
+    this.start_address_latched = state[45];
+    this.crtc.set(state[46]);
+    this.horizontal_display_enable_end = state[47];
+    this.horizontal_blank_start = state[48];
+    this.vertical_display_enable_end = state[49];
+    this.vertical_blank_start = state[50];
+    this.underline_location_register = state[51];
+    this.preset_row_scan = state[52];
+    this.offset_register = state[53];
+    this.palette_source = state[54];
+    this.attribute_mode = state[55];
+    this.color_plane_enable = state[56];
+    this.horizontal_panning = state[57];
+    this.color_select = state[58];
+    this.clocking_mode = state[59];
+    this.line_compare = state[60];
+    this.crtc_mode = state[61];
+    this.miscellaneous_graphics_register = state[62];
 
     this.bus.send("screen-set-mode", this.graphical_mode);
 
     if(this.graphical_mode)
     {
-        // TODO: Check to see if there is anything else to do for non-svga mode
-        // TODO: ^^ yes. Logical / virtual buffer
-        var bpp = this.svga_enabled ? this.svga_bpp : 8;
-        this.set_size_graphical(this.svga_width, this.svga_height, bpp, this.svga_width, this.svga_height);
+        if(this.svga_enabled)
+        {
+            this.set_size_graphical(this.svga_width, this.svga_height,
+                8, this.svga_width, this.svga_height);
+        }
+        else
+        {
+            this.dac_color_use_reset();
+            this.update_vga_size();
+            this.complete_replot();
+        }
     }
     else
     {
@@ -539,7 +586,6 @@ VGAScreen.prototype.set_state = function(state)
         this.update_cursor_scanline();
         this.update_cursor();
     }
-
     this.complete_redraw();
 };
 
@@ -2308,7 +2354,7 @@ VGAScreen.prototype.vga_redraw = function()
     }
 
     var start = this.diff_addr_min;
-    var end = this.diff_addr_max;
+    var end = Math.min(this.diff_addr_max, VGA_PIXEL_BUFFER_SIZE - 1);
     var buffer = this.dest_buffer;
 
     // Closure compiler
