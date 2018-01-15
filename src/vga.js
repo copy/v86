@@ -260,6 +260,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     // index for setting colors through port 3C9h
     this.dac_color_index_write = 0;
     this.dac_color_index_read = 0;
+    this.dac_state = 0;
 
     this.dac_map = new Uint8Array(0x10);
 
@@ -314,7 +315,9 @@ function VGAScreen(cpu, bus, vga_memory_size)
     io.register_read(0x3CF, this, this.port3CF_read);
 
     io.register_write(0x3C7, this, this.port3C7_write);
+    io.register_read(0x3C7, this, this.port3C7_read);
     io.register_write(0x3C8, this, this.port3C8_write);
+    io.register_read(0x3C8, this, this.port3C8_read);
     io.register_write(0x3C9, this, this.port3C9_write);
     io.register_read(0x3C9, this, this.port3C9_read);
 
@@ -494,6 +497,7 @@ VGAScreen.prototype.get_state = function()
     state[60] = this.line_compare;
     state[61] = this.crtc_mode;
     state[62] = this.miscellaneous_graphics_register;
+    state[63] = this.dac_state;
 
     return state;
 };
@@ -563,6 +567,7 @@ VGAScreen.prototype.set_state = function(state)
     this.line_compare = state[60];
     this.crtc_mode = state[61];
     this.miscellaneous_graphics_register = state[62];
+    this.dac_state = state[63];
 
     this.bus.send("screen-set-mode", this.graphical_mode);
 
@@ -1613,11 +1618,24 @@ VGAScreen.prototype.port3C7_write = function(index)
     // index for reading the DAC
     dbg_log("3C7 write: " + h(index), LOG_VGA);
     this.dac_color_index_read = index * 3;
+    this.dac_state &= 0x0;
+};
+
+VGAScreen.prototype.port3C7_read = function()
+{
+    // prepared to accept reads or writes
+    return this.dac_state;
 };
 
 VGAScreen.prototype.port3C8_write = function(index)
 {
     this.dac_color_index_write = index * 3;
+    this.dac_state |= 0x3;
+};
+
+VGAScreen.prototype.port3C8_read = function()
+{
+    return this.dac_color_index_write;
 };
 
 /**
