@@ -380,7 +380,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.pixel_buffer = new Uint8Array(this.svga_memory.buffer,
         VGA_PIXEL_BUFFER_START, VGA_PIXEL_BUFFER_SIZE);
 
-    if(false && this.vga_memory_size >= VGA_MIN_MEMORY_SIZE + VGA_COLOR_USE_LIST_SIZE)
+    if(this.vga_memory_size >= VGA_MIN_MEMORY_SIZE + VGA_COLOR_USE_LIST_SIZE)
     {
         this.dac_color_use_disabled = false;
 
@@ -2258,11 +2258,20 @@ VGAScreen.prototype.vga_redraw = function()
 
     this.dac_color_has_changed.fill(0);
 
-    if(this.dac_color_use_disabled && dac_changed.length)
+    var color_use_disabled = this.dac_color_use_disabled;
+
+    // If half, or more than half the colors have changed, better to
+    // do a complete redraw than using the linked list.
+    color_use_disabled |= (this.attribute_mode & 0x40) && dac_changed.length > 127;
+    color_use_disabled |= !(this.attribute_mode & 0x40) && dac_changed.length > 7;
+
+    // If more than half the screen is already going to be redrawn,
+    // do a complete redraw instead of using the linked list.
+    color_use_disabled |= this.diff_addr_max - this.diff_addr_min > 0.5 * VGA_PIXEL_BUFFER_SIZE;
+
+    if(color_use_disabled && dac_changed.length)
     {
         dac_changed.clear();
-
-        // Alternative to using the linked list
         this.complete_redraw();
     }
 
@@ -2294,7 +2303,7 @@ VGAScreen.prototype.vga_redraw = function()
             buffer[pixel_addr] = color & 0xFF00 | color << 16 | color >> 16 | 0xFF000000;
         }
 
-        if(this.dac_color_use_disabled)
+        if(color_use_disabled)
         {
             return;
         }
@@ -2329,7 +2338,7 @@ VGAScreen.prototype.vga_redraw = function()
             buffer[pixel_addr] = color & 0xFF00 | color << 16 | color >> 16 | 0xFF000000;
         }
 
-        if(this.dac_color_use_disabled)
+        if(color_use_disabled)
         {
             return;
         }
