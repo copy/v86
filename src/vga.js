@@ -1191,7 +1191,7 @@ VGAScreen.prototype.set_size_graphical = function(width, height, bpp, virtual_wi
     this.bus.send("screen-set-size-graphical", [width, height, bpp, virtual_width, virtual_height]);
 };
 
-VGAScreen.prototype.update_vga_graphical_size = function()
+VGAScreen.prototype.update_vga_size = function()
 {
     if(this.svga_enabled)
     {
@@ -1409,7 +1409,7 @@ VGAScreen.prototype.port3C0_write = function(value)
                         this.complete_replot();
                     }
 
-                    this.update_vga_graphical_size();
+                    this.update_vga_size();
 
                     // Data stored in image buffer are invalidated
                     this.complete_redraw();
@@ -1697,7 +1697,7 @@ VGAScreen.prototype.port3CF_write = function(value)
             if(this.miscellaneous_graphics_register !== value)
             {
                 this.miscellaneous_graphics_register = value;
-                this.update_vga_graphical_size();
+                this.update_vga_size();
             }
             break;
         case 7:
@@ -1762,14 +1762,14 @@ VGAScreen.prototype.port3D5_write = function(value)
             if(this.horizontal_display_enable_end !== value)
             {
                 this.horizontal_display_enable_end = value;
-                this.update_vga_graphical_size();
+                this.update_vga_size();
             }
             break;
         case 0x2:
             if(this.horizontal_blank_start !== value)
             {
                 this.horizontal_blank_start = value;
-                this.update_vga_graphical_size();
+                this.update_vga_size();
             }
             break;
         case 0x7:
@@ -1779,7 +1779,7 @@ VGAScreen.prototype.port3D5_write = function(value)
             this.vertical_display_enable_end |= (value << 3 & 0x200) | (value << 7 & 0x100);
             if(previous_vertical_display_enable_end != this.vertical_display_enable_end)
             {
-                this.update_vga_graphical_size();
+                this.update_vga_size();
             }
             this.line_compare = (this.line_compare & 0x2FF) | (value << 4 & 0x100);
 
@@ -1787,7 +1787,7 @@ VGAScreen.prototype.port3D5_write = function(value)
             this.vertical_blank_start = (this.vertical_blank_start & 0x2FF) | (value << 5 & 0x100);
             if(previous_vertical_blank_start !== this.vertical_blank_start)
             {
-                this.update_vga_graphical_size();
+                this.update_vga_size();
             }
             this.update_vga_panning();
             break;
@@ -1805,7 +1805,7 @@ VGAScreen.prototype.port3D5_write = function(value)
             this.vertical_blank_start = (this.vertical_blank_start & 0x1FF) | (value << 4 & 0x200);
             if(previous_vertical_blank_start !== this.vertical_blank_start)
             {
-                this.update_vga_graphical_size();
+                this.update_vga_size();
             }
 
             this.update_vga_panning();
@@ -1863,7 +1863,7 @@ VGAScreen.prototype.port3D5_write = function(value)
             if((this.vertical_display_enable_end & 0xFF) !== value)
             {
                 this.vertical_display_enable_end = (this.vertical_display_enable_end & 0x300) | value;
-                this.update_vga_graphical_size();
+                this.update_vga_size();
             }
             break;
         case 0x13:
@@ -1871,7 +1871,7 @@ VGAScreen.prototype.port3D5_write = function(value)
             if(this.offset_register !== value)
             {
                 this.offset_register = value;
-                this.update_vga_graphical_size();
+                this.update_vga_size();
 
                 if(~this.crtc_mode & 0x3)
                 {
@@ -1888,7 +1888,7 @@ VGAScreen.prototype.port3D5_write = function(value)
                 var previous_underline = this.underline_location_register;
 
                 this.underline_location_register = value;
-                this.update_vga_graphical_size();
+                this.update_vga_size();
 
                 if((previous_underline ^ value) & 0x40)
                 {
@@ -1902,7 +1902,7 @@ VGAScreen.prototype.port3D5_write = function(value)
             if((this.vertical_blank_start & 0xFF) !== value)
             {
                 this.vertical_blank_start = (this.vertical_blank_start & 0x300) | value;
-                this.update_vga_graphical_size();
+                this.update_vga_size();
             }
             break;
         case 0x17:
@@ -1912,7 +1912,7 @@ VGAScreen.prototype.port3D5_write = function(value)
                 var previous_mode = this.crtc_mode;
 
                 this.crtc_mode = value;
-                this.update_vga_graphical_size();
+                this.update_vga_size();
 
                 if((previous_mode ^ value) & 0x43)
                 {
