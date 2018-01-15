@@ -261,6 +261,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.dac_map = new Uint8Array(0x10);
 
     this.attribute_controller_index = -1;
+    this.palette_source = 0x20;
     this.attribute_mode = 0;
     this.color_plane_enable = 0;
     this.horizontal_panning = 0;
@@ -271,6 +272,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     // bitmap of planes 0-3
     this.plane_write_bm = 0xF;
     this.sequencer_memory_mode = 0;
+    this.clocking_mode = 0;
     this.graphics_index = -1;
 
     this.plane_read = 0, // value 0-3, which plane to read
@@ -1262,9 +1264,19 @@ VGAScreen.prototype.update_vga_panning = function()
     {
         this.text_mode_redraw();
     }
+
     if(this.svga_enabled || !this.virtual_width || !this.svga_width)
     {
         // Skip for svga mode and avoid division by zero
+        return;
+    }
+
+    if(!this.palette_source || (this.clocking_mode & 0x20))
+    {
+        // Palette source and screen disable bits = draw nothing
+        // See http://www.phatcode.net/res/224/files/html/ch29/29-05.html#Heading6
+        // and http://www.osdever.net/FreeVGA/vga/seqreg.htm#01
+        this.bus.send("screen-update-layers", []);
         return;
     }
 
@@ -1351,6 +1363,14 @@ VGAScreen.prototype.port3C0_write = function(value)
         dbg_log("attribute controller index register: " + h(value), LOG_VGA);
         this.attribute_controller_index = value & 0x1F;
         dbg_log("attribute actual index: " + h(this.attribute_controller_index), LOG_VGA);
+
+        if(this.palette_source !== (value & 0x20))
+        {
+            // A method of blanking the screen.
+            // See http://www.phatcode.net/res/224/files/html/ch29/29-05.html#Heading6
+            this.palette_source = value & 0x20;
+            this.update_vga_panning();
+        }
     }
     else
     {
@@ -1434,7 +1454,7 @@ VGAScreen.prototype.port3C0_write = function(value)
 VGAScreen.prototype.port3C0_read = function()
 {
     dbg_log("3C0 read", LOG_VGA);
-    var result = this.attribute_controller_index;
+    var result = this.attribute_controller_index | this.palette_source;
     return result;
 };
 
@@ -1500,6 +1520,16 @@ VGAScreen.prototype.port3C5_write = function(value)
 {
     switch(this.sequencer_index)
     {
+        case 0x01:
+            dbg_log("clocking mode: " + h(value), LOG_VGA);
+            var previous_clocking_mode = this.clocking_mode;
+            this.clocking_mode = value;
+            if((previous_clocking_mode ^ value) & 0x20)
+            {
+                // Screen disable bit modified
+                this.update_vga_panning();
+            }
+            break;
         case 0x02:
             dbg_log("plane write mask: " + h(value), LOG_VGA);
             this.plane_write_bm = value;
@@ -1519,6 +1549,8 @@ VGAScreen.prototype.port3C5_read = function()
 
     switch(this.sequencer_index)
     {
+        case 0x01:
+            return this.clocking_mode;
         case 0x02:
             return this.plane_write_bm;
         case 0x04:
