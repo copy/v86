@@ -2350,7 +2350,7 @@ VGAScreen.prototype.vga_redraw = function()
             var color = this.vga256_palette[color256];
             color = color & 0xFF00 | color << 16 | color >> 16 | 0xFF000000;
 
-            var addr = dac_root[color256];
+            var addr = dac_root[color16];
             while(addr !== VGA_UNUSED_COLOR_ID)
             {
                 buffer[addr] = color;
