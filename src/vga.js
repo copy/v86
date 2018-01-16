@@ -1641,7 +1641,7 @@ VGAScreen.prototype.port3C8_write = function(index)
 
 VGAScreen.prototype.port3C8_read = function()
 {
-    return this.dac_color_index_write;
+    return this.dac_color_index_write / 3 | 0;
 };
 
 /**
