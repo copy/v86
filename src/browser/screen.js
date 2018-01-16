@@ -65,6 +65,7 @@ function ScreenAdapter(screen_container, bus)
         text_mode_height;
 
     var layers = [];
+    var layers_has_changed = false;
 
     var screen = this;
 
@@ -171,7 +172,8 @@ function ScreenAdapter(screen_container, bus)
 
     bus.register("screen-update-layers", function(data)
     {
-        this.layers = data;
+        layers = data;
+        layers_has_changed = true;
     }, this);
 
     bus.register("screen-set-size-text", function(data)
@@ -180,15 +182,6 @@ function ScreenAdapter(screen_container, bus)
     }, this);
     bus.register("screen-set-size-graphical", function(data)
     {
-        if(DEBUG_SCREEN_LAYERS)
-        {
-            data[0] = data[3];
-            data[1] = data[4];
-        }
-        if(!data[0]) data[0] = 1;
-        if(!data[1]) data[1] = 1;
-        if(!data[3]) data[3] = data[0];
-        if(!data[4]) data[4] = data[1];
         this.set_size_graphical(data[0], data[1], data[3], data[4]);
     }, this);
 
@@ -312,6 +305,15 @@ function ScreenAdapter(screen_container, bus)
 
     this.set_size_graphical = function(width, height, buffer_width, buffer_height)
     {
+        if(DEBUG_SCREEN_LAYERS)
+        {
+            // Draw the entire buffer. Useful for debugging
+            // panning / page flipping / screen splitting code for both
+            // v86 developers and os developers
+            width = buffer_width;
+            height = buffer_height;
+        }
+
         graphic_screen.style.display = "block";
 
         graphic_screen.width = width;
@@ -330,7 +332,7 @@ function ScreenAdapter(screen_container, bus)
         graphical_mode_width = width;
         graphical_mode_height = height;
 
-        this.layers =
+        layers =
         [{
             screen_x: 0, screen_y: 0,
             buffer_x: 0, buffer_y: 0,
@@ -510,31 +512,29 @@ function ScreenAdapter(screen_container, bus)
 
     this.update_buffer = function(min, max)
     {
-        /*if(max < min)
+        if(max < min && !layers_has_changed)
         {
             return;
         }
 
-        var min_y = min / graphical_mode_width | 0;
-        var max_y = max / graphical_mode_width | 0;
+        layers_has_changed = false;
 
-        graphic_context.putImageData(
-            graphic_image_data,
-            0, 0,
-            0, min_y,
-            graphical_mode_width, max_y - min_y + 1
-        );
-        */
         this.clear_screen();
         if(DEBUG_SCREEN_LAYERS)
         {
+            // Draw the entire buffer. Useful for debugging
+            // panning / page flipping / screen splitting code for both
+            // v86 developers and os developers
             graphic_context.putImageData(
                 graphic_image_data,
                 0, 0
             );
+
+            // For each visible layer that would've been drawn, draw a
+            // rectangle to visualise the layer instead.
             graphic_context.strokeStyle = "#0F0";
             graphic_context.lineWidth = 4;
-            this.layers.forEach((layer) =>
+            layers.forEach((layer) =>
             {
                 graphic_context.strokeRect(
                     layer.buffer_x,
@@ -546,7 +546,7 @@ function ScreenAdapter(screen_container, bus)
             graphic_context.lineWidth = 1;
             return;
         }
-        this.layers.forEach((layer) =>
+        layers.forEach((layer) =>
         {
             graphic_context.putImageData(
                 graphic_image_data,

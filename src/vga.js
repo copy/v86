@@ -1254,6 +1254,13 @@ VGAScreen.prototype.update_vga_size = function()
     var vertical_scans = Math.min(1 + this.vertical_display_enable_end,
         this.vertical_blank_start);
 
+    if(!horizontal_characters || !vertical_scans)
+    {
+        // Don't update if width or height is zero.
+        // These happen when registers are not fully configured yet.
+        return;
+    }
+
     if(this.graphical_mode)
     {
         this.svga_width = horizontal_characters << 3;
@@ -2461,7 +2468,7 @@ VGAScreen.prototype.screen_fill_buffer = function()
     if(!this.graphical_mode)
     {
         // text mode
-        // Update anyway - programs waiting for signal before
+        // Update retrace behaviour anyway - programs waiting for signal before
         // changing to graphical mode
         this.update_vertical_retrace();
         return;
@@ -2470,7 +2477,17 @@ VGAScreen.prototype.screen_fill_buffer = function()
     if(!this.dest_buffer)
     {
         dbg_log("Cannot fill buffer: No destination buffer", LOG_VGA);
-        // Update anyway
+        // Update retrace behaviour anyway
+        this.update_vertical_retrace();
+        return;
+    }
+
+    if(this.diff_addr_max < this.diff_addr_min &&
+        this.diff_plot_max < this.diff_plot_min &&
+        !this.dac_changed_colors.length)
+    {
+        // No pixels to update
+        this.bus.send("screen-fill-buffer-end", [1, 0]);
         this.update_vertical_retrace();
         return;
     }
