@@ -721,8 +721,6 @@ VGAScreen.prototype.vga_memory_write_graphical = function(addr, value)
     var setreset_dword = this.apply_expand(this.planar_setreset);
     var setreset_enable_dword = this.apply_expand(this.planar_setreset_enable);
 
-    // TODO: assert register consistency
-
     // Write modes - see http://www.osdever.net/FreeVGA/vga/graphreg.htm#05
     switch(write_mode)
     {
@@ -1265,12 +1263,11 @@ VGAScreen.prototype.update_vga_size = function()
     {
         this.svga_width = horizontal_characters << 3;
 
-        // Offset is the number of words or dwords (depending on clocking mode)
+        // Offset is half the number of bytes/words/dwords (depending on clocking mode)
         // of display memory that each logical line occupies.
         // However, the number of pixels latched, regardless of addressing mode,
-        // is always 8 pixels per character clock (except for 256 color, in which
+        // should always 8 pixels per character clock (except for 8 bit PEL width, in which
         // case 4 pixels).
-        // TODO: verify this calculation
         this.virtual_width = this.offset_register << 4;
 
         // Pixel Width / PEL Width / Clock Select
@@ -1340,9 +1337,11 @@ VGAScreen.prototype.update_vga_panning = function()
 
     var start_addr = this.start_address_latched;
 
-    // TODO: merge this with other logic?
     var pixel_panning = this.horizontal_panning;
-    if(this.attribute_mode & 0x40) pixel_panning >>>= 1;
+    if(this.attribute_mode & 0x40)
+    {
+        pixel_panning >>>= 1;
+    }
 
     var byte_panning = this.preset_row_scan >> 5 & 0x3;
     var pixel_addr_start = this.vga_addr_to_pixel(start_addr + byte_panning);
@@ -1352,7 +1351,6 @@ VGAScreen.prototype.update_vga_panning = function()
     start_buffer_col += pixel_panning;
 
     var split_screen_row = this.scan_line_to_screen_row(1 + this.line_compare);
-
     split_screen_row = Math.min(split_screen_row, this.svga_height);
 
     var split_buffer_height = this.svga_height - split_screen_row;
@@ -1374,6 +1372,7 @@ VGAScreen.prototype.update_vga_panning = function()
     var start_split_col = 0;
     if(!(this.attribute_mode & 0x20))
     {
+        // Pixel panning mode. Allow panning for the lower split screen
         start_split_col = this.vga_addr_to_pixel(byte_panning) + pixel_panning;
     }
 
