@@ -2422,6 +2422,9 @@ VGAScreen.prototype.vga_redraw = function()
                 buffer[addr] = color;
                 addr = dac_next[addr];
             }
+
+            // Tell screen adapter to redraw all via start and end pixel
+            this.complete_redraw();
         }
     }
     else
@@ -2458,6 +2461,9 @@ VGAScreen.prototype.vga_redraw = function()
                 buffer[addr] = color;
                 addr = dac_next[addr];
             }
+
+            // Tell screen adapter to redraw all via start and end pixel
+            this.complete_redraw();
         }
     }
 };
