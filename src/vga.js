@@ -1517,7 +1517,7 @@ VGAScreen.prototype.port3C0_read16 = function()
 
 VGAScreen.prototype.port3C1_read = function()
 {
-    if(this.attribute_controller_index < 10)
+    if(this.attribute_controller_index < 0x10)
     {
         dbg_log("3C1 / internal palette read: " + h(this.attribute_controller_index) +
             " -> " + h(this.dac_map[this.attribute_controller_index]), LOG_VGA);
