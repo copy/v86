@@ -325,11 +325,21 @@ function KeyboardAdapter(bus)
 
     function keyup_handler(e)
     {
+        if(!e.altKey && keys_pressed[0x38])
+        {
+            // trigger ALT keyup manually - some browsers don't
+            handle_code(0x38, false);
+        }
         return handler(e, false);
     }
 
     function keydown_handler(e)
     {
+        if(!e.altKey && keys_pressed[0x38])
+        {
+            // trigger ALT keyup manually - some browsers don't
+            handle_code(0x38, false);
+        }
         return handler(e, true);
     }
 
