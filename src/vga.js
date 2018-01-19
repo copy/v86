@@ -56,21 +56,6 @@ var VGA_HOST_MEMORY_SPACE_SIZE = Uint32Array.from([
     0x8000, // 32K
 ]);
 
-/** @const */
-var VGA_COLOR_USE_ROOT_OFFSET = VGA_PIXEL_BUFFER_SIZE;
-
-/** @const */
-var VGA_UNUSED_COLOR_ID = VGA_COLOR_USE_ROOT_OFFSET + 256;
-
-/** @const */
-var VGA_COLOR_USE_LIST_SIZE = VGA_UNUSED_COLOR_ID + 1;
-
-/** @const */
-var VGA_COLOR_USE_PREV_START_BYTE = VGA_MIN_MEMORY_SIZE;
-
-/** @const */
-var VGA_COLOR_USE_NEXT_START_BYTE = VGA_COLOR_USE_PREV_START_BYTE + VGA_COLOR_USE_LIST_SIZE * 4;
-
 /**
  * @constructor
  * @param {CPU} cpu
@@ -389,32 +374,6 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.pixel_buffer = new Uint8Array(this.svga_memory.buffer,
         VGA_PIXEL_BUFFER_START, VGA_PIXEL_BUFFER_SIZE);
 
-    if(this.vga_memory_size >= VGA_MIN_MEMORY_SIZE + VGA_COLOR_USE_LIST_SIZE)
-    {
-        this.dac_color_use_disabled = false;
-
-        this.dac_color_use_prev = new Int32Array(this.svga_memory.buffer,
-            VGA_COLOR_USE_PREV_START_BYTE, VGA_COLOR_USE_LIST_SIZE);
-
-        this.dac_color_use_next = new Int32Array(this.svga_memory.buffer,
-            VGA_COLOR_USE_NEXT_START_BYTE, VGA_COLOR_USE_LIST_SIZE);
-
-        this.dac_color_use_root = this.dac_color_use_next.subarray(
-            VGA_COLOR_USE_ROOT_OFFSET, VGA_COLOR_USE_ROOT_OFFSET + 256);
-
-        this.dac_changed_colors = new ByteQueue(256);
-        this.dac_color_use_reset();
-    }
-    else
-    {
-        this.dac_color_use_disabled = true;
-        this.dac_color_use_prev = null;
-        this.dac_color_use_next = null;
-        this.dac_color_use_root = null;
-        this.dac_changed_colors = new ByteQueue(1);
-    }
-    this.dac_color_has_changed = new Uint8Array(256);
-
     var me = this;
     io.mmap_register(0xA0000, 0x20000,
         function(addr) { return me.vga_memory_read(addr); },
@@ -580,7 +539,6 @@ VGAScreen.prototype.set_state = function(state)
         }
         else
         {
-            this.dac_color_use_reset();
             this.update_vga_size();
             this.complete_replot();
         }
@@ -1043,62 +1001,6 @@ VGAScreen.prototype.destroy = function()
 
 };
 
-VGAScreen.prototype.dac_color_use_set = function(addr, color_index)
-{
-    if(this.dac_color_use_disabled)
-    {
-        return;
-    }
-
-    // Linked list remove
-    var old_prev = this.dac_color_use_prev[addr];
-    var old_next = this.dac_color_use_next[addr];
-    if(old_next !== VGA_UNUSED_COLOR_ID) this.dac_color_use_prev[old_next] = old_prev;
-    if(old_prev !== VGA_UNUSED_COLOR_ID) this.dac_color_use_next[old_prev] = old_next;
-
-    // Linked list insert front
-    var old_root = this.dac_color_use_root[color_index];
-    this.dac_color_use_prev[old_root] = addr;
-    this.dac_color_use_root[color_index] = addr;
-    this.dac_color_use_prev[addr] = color_index + VGA_COLOR_USE_ROOT_OFFSET;
-    this.dac_color_use_next[addr] = old_root;
-
-    if(DEBUG)
-    {
-        if(old_next !== VGA_UNUSED_COLOR_ID && old_prev < VGA_PIXEL_BUFFER_SIZE)
-        {
-            dbg_assert(old_next < VGA_PIXEL_BUFFER_SIZE);
-            dbg_assert(this.pixel_buffer[old_prev] === this.pixel_buffer[old_next]);
-        }
-        if(old_root !== VGA_UNUSED_COLOR_ID)
-        {
-            dbg_assert(old_root < VGA_PIXEL_BUFFER_SIZE);
-            dbg_assert(this.pixel_buffer[old_root] === color_index);
-        }
-    }
-};
-
-VGAScreen.prototype.dac_color_use_reset = function()
-{
-    if(this.dac_color_use_disabled)
-    {
-        return;
-    }
-
-    this.dac_color_use_prev.fill(VGA_UNUSED_COLOR_ID);
-    this.dac_color_use_next.fill(VGA_UNUSED_COLOR_ID);
-};
-
-VGAScreen.prototype.dac_record_change = function(color_id)
-{
-    if(this.dac_color_has_changed[color_id])
-    {
-        return;
-    }
-    this.dac_color_has_changed[color_id] = 1;
-    this.dac_changed_colors.push(color_id);
-};
-
 VGAScreen.prototype.vga_bytes_per_line = function()
 {
     var bytes_per_line = this.offset_register << 2;
@@ -1438,7 +1340,7 @@ VGAScreen.prototype.port3C0_write = function(value)
 
             if(!(this.attribute_mode & 0x40))
             {
-                this.dac_record_change(this.attribute_controller_index);
+                this.complete_redraw();
             }
         }
         else
@@ -1460,9 +1362,7 @@ VGAScreen.prototype.port3C0_write = function(value)
 
                     if((previous_mode ^ value) & 0x40)
                     {
-                        // PEL width changed. Color Use List and Pixel
-                        // Buffer are now invalidated.
-                        this.dac_color_use_reset();
+                        // PEL width changed. Pixel Buffer now invalidated
                         this.complete_replot();
                     }
 
@@ -1675,21 +1575,7 @@ VGAScreen.prototype.port3C9_write = function(color_byte)
     if(this.vga256_palette[index] !== color)
     {
         this.vga256_palette[index] = color;
-
-        if(this.attribute_mode & 0x40)
-        {
-            this.dac_record_change(index);
-        }
-        else
-        {
-            for(var i = 0; i < 16; i++)
-            {
-                if(this.dac_map[i] === index)
-                {
-                    this.dac_record_change(i);
-                }
-            }
-        }
+        this.complete_redraw();
     }
     this.dac_color_index_write++;
 };
@@ -2330,9 +2216,7 @@ VGAScreen.prototype.vga_replot = function()
             // Assemble from two sets of 4 bits.
             for(var i = 0, j = 0; i < 4; i++, pixel_addr++, j += 2)
             {
-                var color256 = (shift_loads[j] << 4) | shift_loads[j + 1];
-                this.pixel_buffer[pixel_addr] = color256;
-                this.dac_color_use_set(pixel_addr, color256);
+                this.pixel_buffer[pixel_addr] = (shift_loads[j] << 4) | shift_loads[j + 1];
             }
         }
         else
@@ -2340,7 +2224,6 @@ VGAScreen.prototype.vga_replot = function()
             for(var i = 0; i < 8; i++, pixel_addr++)
             {
                 this.pixel_buffer[pixel_addr] = shift_loads[i];
-                this.dac_color_use_set(pixel_addr, shift_loads[i]);
             }
         }
     }
@@ -2354,29 +2237,6 @@ VGAScreen.prototype.vga_replot = function()
  */
 VGAScreen.prototype.vga_redraw = function()
 {
-    var dac_changed = this.dac_changed_colors;
-    var dac_root = this.dac_color_use_root;
-    var dac_next = this.dac_color_use_next;
-
-    this.dac_color_has_changed.fill(0);
-
-    var color_use_disabled = this.dac_color_use_disabled;
-
-    // If half, or more than half the colors have changed, better to
-    // do a complete redraw than using the linked list.
-    color_use_disabled |= (this.attribute_mode & 0x40) && dac_changed.length > 127;
-    color_use_disabled |= !(this.attribute_mode & 0x40) && dac_changed.length > 7;
-
-    // If more than half the screen is already going to be redrawn,
-    // do a complete redraw instead of using the linked list.
-    color_use_disabled |= this.diff_addr_max - this.diff_addr_min > 0.5 * VGA_PIXEL_BUFFER_SIZE;
-
-    if(color_use_disabled && dac_changed.length)
-    {
-        dac_changed.clear();
-        this.complete_redraw();
-    }
-
     var start = this.diff_addr_min;
     var end = Math.min(this.diff_addr_max, VGA_PIXEL_BUFFER_SIZE - 1);
     var buffer = this.dest_buffer;
@@ -2404,28 +2264,6 @@ VGAScreen.prototype.vga_redraw = function()
 
             buffer[pixel_addr] = color & 0xFF00 | color << 16 | color >> 16 | 0xFF000000;
         }
-
-        if(color_use_disabled)
-        {
-            return;
-        }
-
-        while(dac_changed.length)
-        {
-            var color256 = (dac_changed.shift() & mask) | colorset;
-            var color = this.vga256_palette[color256];
-            color = color & 0xFF00 | color << 16 | color >> 16 | 0xFF000000;
-
-            var addr = dac_root[color256];
-            while(addr !== VGA_UNUSED_COLOR_ID)
-            {
-                buffer[addr] = color;
-                addr = dac_next[addr];
-            }
-
-            // Tell screen adapter to redraw all via start and end pixel
-            this.complete_redraw();
-        }
     }
     else
     {
@@ -2434,6 +2272,7 @@ VGAScreen.prototype.vga_redraw = function()
         // Palette bits 7/6 select
         mask &= 0x3F;
         colorset |= this.color_select << 4 & 0xC0;
+
         for(var pixel_addr = start; pixel_addr <= end; pixel_addr++)
         {
             var color16 = this.pixel_buffer[pixel_addr] & this.color_plane_enable;
@@ -2441,29 +2280,6 @@ VGAScreen.prototype.vga_redraw = function()
             var color = this.vga256_palette[color256];
 
             buffer[pixel_addr] = color & 0xFF00 | color << 16 | color >> 16 | 0xFF000000;
-        }
-
-        if(color_use_disabled)
-        {
-            return;
-        }
-
-        while(dac_changed.length)
-        {
-            var color16 = dac_changed.shift() & this.color_plane_enable;
-            var color256 = (this.dac_map[color16] & mask) | colorset;
-            var color = this.vga256_palette[color256];
-            color = color & 0xFF00 | color << 16 | color >> 16 | 0xFF000000;
-
-            var addr = dac_root[color16];
-            while(addr !== VGA_UNUSED_COLOR_ID)
-            {
-                buffer[addr] = color;
-                addr = dac_next[addr];
-            }
-
-            // Tell screen adapter to redraw all via start and end pixel
-            this.complete_redraw();
         }
     }
 };
@@ -2487,9 +2303,7 @@ VGAScreen.prototype.screen_fill_buffer = function()
         return;
     }
 
-    if(this.diff_addr_max < this.diff_addr_min &&
-        this.diff_plot_max < this.diff_plot_min &&
-        !this.dac_changed_colors.length)
+    if(this.diff_addr_max < this.diff_addr_min && this.diff_plot_max < this.diff_plot_min)
     {
         // No pixels to update
         this.bus.send("screen-fill-buffer-end", [1, 0]);
