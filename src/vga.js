@@ -536,6 +536,7 @@ VGAScreen.prototype.set_state = function(state)
         {
             this.set_size_graphical(this.svga_width, this.svga_height,
                 8, this.svga_width, this.svga_height);
+            this.update_layers();
         }
         else
         {
@@ -1195,7 +1196,7 @@ VGAScreen.prototype.update_vga_size = function()
             this.virtual_width, this.virtual_height);
 
         this.update_vertical_retrace();
-        this.update_vga_panning();
+        this.update_layers();
     }
     else
     {
@@ -1215,16 +1216,26 @@ VGAScreen.prototype.update_vga_size = function()
     }
 };
 
-VGAScreen.prototype.update_vga_panning = function()
+VGAScreen.prototype.update_layers = function()
 {
     if(!this.graphical_mode)
     {
         this.text_mode_redraw();
     }
 
-    if(this.svga_enabled || !this.virtual_width || !this.svga_width)
+    if(this.svga_enabled && this.svga_width)
     {
-        // Skip for svga mode and avoid division by zero
+        this.bus.send("screen-update-layers", [{
+            screen_x: 0, screen_y: 0,
+            buffer_x: 0, buffer_y: 0,
+            buffer_width: this.svga_width, buffer_height: this.svga_height
+        }]);
+        return;
+    }
+
+    if(!this.virtual_width || !this.svga_width)
+    {
+        // Avoid division by zero
         return;
     }
 
@@ -1300,7 +1311,7 @@ VGAScreen.prototype.update_vertical_retrace = function()
     if(this.start_address_latched !== this.start_address)
     {
         this.start_address_latched = this.start_address;
-        this.update_vga_panning();
+        this.update_layers();
     }
 };
 
@@ -1328,7 +1339,7 @@ VGAScreen.prototype.port3C0_write = function(value)
             // A method of blanking the screen.
             // See http://www.phatcode.net/res/224/files/html/ch29/29-05.html#Heading6
             this.palette_source = value & 0x20;
-            this.update_vga_panning();
+            this.update_layers();
         }
     }
     else
@@ -1387,7 +1398,7 @@ VGAScreen.prototype.port3C0_write = function(value)
                 if(this.horizontal_panning !== value)
                 {
                     this.horizontal_panning = value & 0xF;
-                    this.update_vga_panning();
+                    this.update_layers();
                 }
                 break;
             case 0x14:
@@ -1484,7 +1495,7 @@ VGAScreen.prototype.port3C5_write = function(value)
             if((previous_clocking_mode ^ value) & 0x20)
             {
                 // Screen disable bit modified
-                this.update_vga_panning();
+                this.update_layers();
             }
             break;
         case 0x02:
@@ -1745,12 +1756,12 @@ VGAScreen.prototype.port3D5_write = function(value)
             {
                 this.update_vga_size();
             }
-            this.update_vga_panning();
+            this.update_layers();
             break;
         case 0x8:
             dbg_log("3D5 / preset row scan write: " + h(value), LOG_VGA);
             this.preset_row_scan = value;
-            this.update_vga_panning();
+            this.update_layers();
             break;
         case 0x9:
             dbg_log("3D5 / max scan line write: " + h(value), LOG_VGA);
@@ -1764,7 +1775,7 @@ VGAScreen.prototype.port3D5_write = function(value)
                 this.update_vga_size();
             }
 
-            this.update_vga_panning();
+            this.update_layers();
             break;
         case 0xA:
             dbg_log("3D5 / cursor scanline start write: " + h(value), LOG_VGA);
@@ -1780,7 +1791,7 @@ VGAScreen.prototype.port3D5_write = function(value)
             if((this.start_address >> 8 & 0xFF) !== value)
             {
                 this.start_address = this.start_address & 0xff | value << 8;
-                this.update_vga_panning();
+                this.update_layers();
                 if(~this.crtc_mode &  0x3)
                 {
                     // Address substitution implementation depends on the
@@ -1794,7 +1805,7 @@ VGAScreen.prototype.port3D5_write = function(value)
             if((this.start_address & 0xFF) !== value)
             {
                 this.start_address = this.start_address & 0xff00 | value;
-                this.update_vga_panning();
+                this.update_layers();
                 if(~this.crtc_mode &  0x3)
                 {
                     // Address substitution implementation depends on the
@@ -1881,7 +1892,7 @@ VGAScreen.prototype.port3D5_write = function(value)
         case 0x18:
             dbg_log("3D5 / line compare write: " + h(value), LOG_VGA);
             this.line_compare = (this.line_compare & 0x300) | value;
-            this.update_vga_panning();
+            this.update_layers();
             break;
         default:
             if(this.index_crtc < this.crtc.length)
@@ -2056,6 +2067,8 @@ VGAScreen.prototype.port1CF_write = function(value)
     {
         this.svga_bank_offset = 0;
     }
+
+    this.update_layers();
 };
 
 VGAScreen.prototype.port1CF_read = function()

@@ -332,12 +332,7 @@ function ScreenAdapter(screen_container, bus)
         graphical_mode_width = width;
         graphical_mode_height = height;
 
-        layers =
-        [{
-            screen_x: 0, screen_y: 0,
-            buffer_x: 0, buffer_y: 0,
-            buffer_width: width, buffer_height: height
-        }];
+        layers = [];
 
         this.bus.send("screen-tell-buffer", [graphic_buffer32], [graphic_buffer32.buffer]);
         update_scale_graphic();
