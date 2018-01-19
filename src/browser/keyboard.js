@@ -328,6 +328,7 @@ function KeyboardAdapter(bus)
         if(!e.altKey && keys_pressed[0x38])
         {
             // trigger ALT keyup manually - some browsers don't
+            // see issue #165
             handle_code(0x38, false);
         }
         return handler(e, false);
@@ -338,6 +339,7 @@ function KeyboardAdapter(bus)
         if(!e.altKey && keys_pressed[0x38])
         {
             // trigger ALT keyup manually - some browsers don't
+            // see issue #165
             handle_code(0x38, false);
         }
         return handler(e, true);
