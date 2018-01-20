@@ -1,5 +1,8 @@
 "use strict";
 
+/** @const */
+var PS2_NOTIFY_EXPIRY_MS = 1000;
+
 /**
  * @constructor
  * @param {CPU} cpu
@@ -191,7 +194,7 @@ PS2.prototype.mouse_notify = function()
     {
         dbg_log("mouse irq raise", LOG_PS2);
 
-        // ensure rising edge
+        // ensure rising edge - irq may not be lowered
         this.cpu.device_lower_irq(12);
         this.cpu.device_raise_irq(12);
     }
@@ -208,7 +211,7 @@ PS2.prototype.kbd_notify = function()
     {
         dbg_log("kbd irq raise", LOG_PS2);
 
-        // ensure rising edge
+        // ensure rising edge - irq may not be lowered
         this.cpu.device_lower_irq(1);
         this.cpu.device_raise_irq(1);
     }
@@ -216,7 +219,7 @@ PS2.prototype.kbd_notify = function()
 
 PS2.prototype.notify_has_expired = function()
 {
-    return Date.now() - this.last_notify > 1000;
+    return Date.now() - this.last_notify > PS2_NOTIFY_EXPIRY_MS;
 }
 
 PS2.prototype.kbd_send_code = function(code)
@@ -225,7 +228,6 @@ PS2.prototype.kbd_send_code = function(code)
     if(this.enable_keyboard_stream)
     {
         var notify_expired = this.notify_has_expired();
-
         var was_empty = !(this.kbd_buffer.length || this.mouse_buffer.length);
 
         dbg_log("kbd push", LOG_PS2);
@@ -233,8 +235,7 @@ PS2.prototype.kbd_send_code = function(code)
 
         if(notify_expired || was_empty)
         {
-            // restart chain if previous IRQ was not handled
-            // or start new chain
+            // previous IRQ not handled on time, or no previous IRQ
             this.kbd_notify();
         }
     }
@@ -322,8 +323,7 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
 
     if(notify_expired || was_empty)
     {
-        // restart chain if previous IRQ was not handled
-        // or start new chain
+        // previous IRQ not handled on time, or no previous IRQ
         this.mouse_notify();
     }
 };
