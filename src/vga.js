@@ -1226,9 +1226,12 @@ VGAScreen.prototype.update_layers = function()
     if(this.svga_enabled && this.svga_width)
     {
         this.bus.send("screen-update-layers", [{
-            screen_x: 0, screen_y: 0,
-            buffer_x: 0, buffer_y: 0,
-            buffer_width: this.svga_width, buffer_height: this.svga_height
+            screen_x: 0,
+            screen_y: 0,
+            buffer_x: 0,
+            buffer_width: this.svga_width,
+            buffer_min_y: 0,
+            buffer_max_y: this.svga_height,
         }]);
         return;
     }
@@ -1277,9 +1280,9 @@ VGAScreen.prototype.update_layers = function()
             screen_x: x,
             screen_y: 0,
             buffer_x: 0,
-            buffer_y: start_buffer_row + y,
             buffer_width: this.virtual_width,
-            buffer_height: split_screen_row,
+            buffer_min_y: start_buffer_row + y,
+            buffer_max_y: start_buffer_row + y + split_screen_row,
         });
     }
 
@@ -1296,9 +1299,9 @@ VGAScreen.prototype.update_layers = function()
             screen_x: x,
             screen_y: split_screen_row,
             buffer_x: 0,
-            buffer_y: y,
             buffer_width: this.virtual_width,
-            buffer_height: split_buffer_height,
+            buffer_min_y: y,
+            buffer_max_y: y + split_buffer_height,
         });
     }
 
