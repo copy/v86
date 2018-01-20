@@ -537,24 +537,33 @@ function ScreenAdapter(screen_container, bus)
             {
                 graphic_context.strokeRect(
                     layer.buffer_x,
-                    layer.buffer_y,
+                    layer.buffer_min_y,
                     layer.buffer_width,
-                    layer.buffer_height
+                    layer.buffer_max_y - layer.buffer_min_y
                 );
             });
             graphic_context.lineWidth = 1;
             return;
         }
+
+        var min_y = min / graphical_mode_width | 0;
+        var max_y = max / graphical_mode_width | 0;
+
         layers.forEach((layer) =>
         {
+            var buffer_min_y = Math.max(min_y, layer.buffer_min_y);
+            var buffer_max_y = Math.min(max_y, layer.buffer_max_y);
+
+            var buffer_height = Math.max(0, buffer_max_y - buffer_min_y);
+
             graphic_context.putImageData(
                 graphic_image_data,
                 layer.screen_x - layer.buffer_x,
-                layer.screen_y - layer.buffer_y,
+                layer.screen_y - layer.buffer_min_y,
                 layer.buffer_x,
-                layer.buffer_y,
+                layer.buffer_min_y,
                 layer.buffer_width,
-                layer.buffer_height
+                buffer_height
             );
         });
     };
