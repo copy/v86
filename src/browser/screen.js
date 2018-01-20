@@ -176,6 +176,11 @@ function ScreenAdapter(screen_container, bus)
         layers_has_changed = true;
     }, this);
 
+    bus.register("screen-clear", function()
+    {
+        this.clear_screen();
+    }, this);
+
     bus.register("screen-set-size-text", function(data)
     {
         this.set_size_text(data[0], data[1]);
@@ -514,7 +519,6 @@ function ScreenAdapter(screen_container, bus)
 
         layers_has_changed = false;
 
-        this.clear_screen();
         if(DEBUG_SCREEN_LAYERS)
         {
             // Draw the entire buffer. Useful for debugging

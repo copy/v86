@@ -1245,6 +1245,7 @@ VGAScreen.prototype.update_layers = function()
         // See http://www.phatcode.net/res/224/files/html/ch29/29-05.html#Heading6
         // and http://www.osdever.net/FreeVGA/vga/seqreg.htm#01
         this.bus.send("screen-update-layers", []);
+        this.bus.send("screen-clear", []);
         return;
     }
 
