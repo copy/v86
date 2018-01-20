@@ -53,6 +53,9 @@ function PS2(cpu, bus)
     /** @type {boolean} */
     this.next_read_resolution = false;
 
+    /** @type {boolean} */
+    this.next_byte_is_aux = false;
+
     /**
      * @type {ByteQueue}
      */
@@ -71,6 +74,9 @@ function PS2(cpu, bus)
 
     /** @type {number} */
     this.last_mouse_packet = -1;
+
+    /** @type {number} */
+    this.last_notify = 0;
 
     /**
      * @type {ByteQueue}
@@ -128,15 +134,17 @@ PS2.prototype.get_state = function()
     state[11] = this.next_handle_scan_code_set;
     state[12] = this.next_read_rate;
     state[13] = this.next_read_resolution;
-    //state[14] = this.kbd_buffer;
+    state[14] = this.next_byte_is_aux;
     state[15] = this.last_port60_byte;
     state[16] = this.sample_rate;
     state[17] = this.resolution;
     state[18] = this.scaling2;
-    //state[19] = this.mouse_buffer;
+    state[19] = this.last_notify;
     state[20] = this.command_register;
     state[21] = this.read_output_register;
     state[22] = this.read_command_register;
+    //state[23] = this.kbd_buffer;
+    //state[24] = this.mouse_buffer;
 
     return state;
 };
@@ -157,41 +165,78 @@ PS2.prototype.set_state = function(state)
     this.next_handle_scan_code_set = state[11];
     this.next_read_rate = state[12];
     this.next_read_resolution = state[13];
-    //this.kbd_buffer = state[14];
+    this.next_byte_is_aux = state[14];
     this.last_port60_byte = state[15];
     this.sample_rate = state[16];
     this.resolution = state[17];
     this.scaling2 = state[18];
-    //this.mouse_buffer = state[19];
+    this.last_notify = state[19];
     this.command_register = state[20];
     this.read_output_register = state[21];
     this.read_command_register = state[22];
+    //this.kbd_buffer = state[23];
+    //this.mouse_buffer = state[24];
 
     this.bus.send("mouse-enable", this.use_mouse);
 };
 
-PS2.prototype.mouse_irq = function()
+PS2.prototype.mouse_notify = function()
 {
+    this.last_notify = Date.now();
+
+    // ensure port 0x60 read returns mouse data
+    this.next_byte_is_aux = true;
+
     if(this.command_register & 2)
     {
+        dbg_log("mouse irq raise", LOG_PS2);
+
+        // ensure rising edge
+        this.cpu.device_lower_irq(12);
         this.cpu.device_raise_irq(12);
     }
 };
 
-PS2.prototype.kbd_irq = function()
+PS2.prototype.kbd_notify = function()
 {
+    this.last_notify = Date.now();
+
+    // ensure port 0x60 read returns kbd data
+    this.next_byte_is_aux = false;
+
     if(this.command_register & 1)
     {
+        dbg_log("kbd irq raise", LOG_PS2);
+
+        // ensure rising edge
+        this.cpu.device_lower_irq(1);
         this.cpu.device_raise_irq(1);
     }
 };
 
+PS2.prototype.notify_has_expired = function()
+{
+    return Date.now() - this.last_notify > 1000;
+}
+
 PS2.prototype.kbd_send_code = function(code)
 {
+    dbg_log("kbd send code", LOG_PS2);
     if(this.enable_keyboard_stream)
     {
+        var notify_expired = this.notify_has_expired();
+
+        var was_empty = !(this.kbd_buffer.length || this.mouse_buffer.length);
+
+        dbg_log("kbd push", LOG_PS2);
         this.kbd_buffer.push(code);
-        this.kbd_irq();
+
+        if(notify_expired || was_empty)
+        {
+            // restart chain if previous IRQ was not handled
+            // or start new chain
+            this.kbd_notify();
+        }
     }
 };
 
@@ -266,13 +311,21 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
     //    delta_y = this.apply_scaling2(delta_y);
     //}
 
+    var notify_expired = this.notify_has_expired();
+    var was_empty = !(this.kbd_buffer.length || this.mouse_buffer.length);
+
     this.mouse_buffer.push(info_byte);
     this.mouse_buffer.push(delta_x);
     this.mouse_buffer.push(delta_y);
 
     dbg_log("adding mouse packets: " + [info_byte, dx, dy], LOG_PS2);
 
-    this.mouse_irq();
+    if(notify_expired || was_empty)
+    {
+        // restart chain if previous IRQ was not handled
+        // or start new chain
+        this.mouse_notify();
+    }
 };
 
 PS2.prototype.apply_scaling2 = function(n)
@@ -298,11 +351,6 @@ PS2.prototype.apply_scaling2 = function(n)
     }
 };
 
-PS2.prototype.next_byte_is_aux = function()
-{
-    return this.mouse_buffer.length && !this.kbd_buffer.length;
-};
-
 PS2.prototype.port60_read = function()
 {
     //dbg_log("port 60 read: " + (buffer[0] || "(none)"));
@@ -314,28 +362,36 @@ PS2.prototype.port60_read = function()
         return this.last_port60_byte;
     }
 
-    var do_mouse_buffer = this.next_byte_is_aux();
-
-    if(do_mouse_buffer)
+    if(this.next_byte_is_aux)
     {
+        dbg_log("mouse irq lower", LOG_PS2);
         this.cpu.device_lower_irq(12);
         this.last_port60_byte = this.mouse_buffer.shift();
         dbg_log("Port 60 read (mouse): " + h(this.last_port60_byte), LOG_PS2);
 
-        if(this.mouse_buffer.length >= 1)
+        if(this.mouse_buffer.length)
         {
-            this.mouse_irq();
+            this.mouse_notify();
+        }
+        else if(this.kbd_buffer.length)
+        {
+            this.kbd_notify();
         }
     }
     else
     {
+        dbg_log("kbd irq lower", LOG_PS2);
         this.cpu.device_lower_irq(1);
         this.last_port60_byte = this.kbd_buffer.shift();
         dbg_log("Port 60 read (kbd)  : " + h(this.last_port60_byte), LOG_PS2);
 
-        if(this.kbd_buffer.length >= 1)
+        if(this.kbd_buffer.length)
         {
-            this.kbd_irq();
+            this.kbd_notify();
+        }
+        else if(this.mouse_buffer.length)
+        {
+            this.mouse_notify();
         }
     }
 
@@ -352,7 +408,7 @@ PS2.prototype.port64_read = function()
     {
         status_byte |= 1;
     }
-    if(this.next_byte_is_aux())
+    if(this.next_byte_is_aux)
     {
         status_byte |= 0x20;
     }
@@ -373,7 +429,7 @@ PS2.prototype.port60_write = function(write_byte)
 
         // not sure, causes "spurious ack" in Linux
         //this.kbd_buffer.push(0xFA);
-        //this.kbd_irq();
+        //this.kbd_notify();
 
         dbg_log("Keyboard command register = " + h(this.command_register), LOG_PS2);
     }
@@ -383,7 +439,7 @@ PS2.prototype.port60_write = function(write_byte)
 
         this.mouse_buffer.clear();
         this.mouse_buffer.push(write_byte);
-        this.mouse_irq();
+        this.mouse_notify();
     }
     else if(this.next_read_sample)
     {
@@ -398,7 +454,7 @@ PS2.prototype.port60_write = function(write_byte)
             dbg_log("invalid sample rate, reset to 100", LOG_PS2);
             this.sample_rate = 100;
         }
-        this.mouse_irq();
+        this.mouse_notify();
     }
     else if(this.next_read_resolution)
     {
@@ -416,21 +472,21 @@ PS2.prototype.port60_write = function(write_byte)
             this.resolution = 1 << write_byte;
             dbg_log("resolution: " + this.resolution, LOG_PS2);
         }
-        this.mouse_irq();
+        this.mouse_notify();
     }
     else if(this.next_read_led)
     {
         // nope
         this.next_read_led = false;
         this.kbd_buffer.push(0xFA);
-        this.kbd_irq();
+        this.kbd_notify();
     }
     else if(this.next_handle_scan_code_set)
     {
         this.next_handle_scan_code_set = false;
 
         this.kbd_buffer.push(0xFA);
-        this.kbd_irq();
+        this.kbd_notify();
 
         if(write_byte)
         {
@@ -446,7 +502,7 @@ PS2.prototype.port60_write = function(write_byte)
         // nope
         this.next_read_rate = false;
         this.kbd_buffer.push(0xFA);
-        this.kbd_irq();
+        this.kbd_notify();
     }
     else if(this.next_is_mouse_command)
     {
@@ -539,7 +595,7 @@ PS2.prototype.port60_write = function(write_byte)
             dbg_log("Unimplemented mouse command: " + h(write_byte), LOG_PS2);
         }
 
-        this.mouse_irq();
+        this.mouse_notify();
     }
     else
     {
@@ -592,7 +648,7 @@ PS2.prototype.port60_write = function(write_byte)
             dbg_log("Unimplemented keyboard command: " + h(write_byte), LOG_PS2);
         }
 
-        this.kbd_irq();
+        this.kbd_notify();
     }
 };
 
