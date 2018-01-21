@@ -3,10 +3,15 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include <stdio.h>
-
 #include "const.h"
 #include "global_pointers.h"
+#include "cpu.h"
+#include "misc_instr.h"
+#include "memory.h"
+#include "log.h"
+#include "arith.h"
+
+extern int32_t int_log2(int32_t);
 
 int32_t add(int32_t dest_operand, int32_t source_operand, int32_t op_size)
 {
@@ -1131,8 +1136,6 @@ int32_t shld32(int32_t dest_operand, int32_t source_operand, int32_t count)
 
     return *last_result;
 }
-
-int32_t int_log2(int32_t);
 
 void bt_reg(int32_t bit_base, int32_t bit_offset)
 {

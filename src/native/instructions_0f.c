@@ -5,121 +5,47 @@
 #include <stdlib.h>
 
 #include "const.h"
+#include "cpu.h"
+#include "log.h"
+#include "misc_instr.h"
+#include "arith.h"
+#include "fpu.h"
 #include "sse_instr.h"
 #include "global_pointers.h"
+#include "memory.h"
+#include "instructions.h"
+#include "instructions_0f.h"
+#include "codegen/codegen.h"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
 
-// XXX: Remove these declarations when they are implemented in C
-void cmovcc16(bool, int32_t, int32_t);
-void cmovcc32(bool, int32_t, int32_t);
-void jmpcc16(bool, int32_t);
-void jmpcc32(bool, int32_t);
-void setcc(bool);
-void cpuid();
-
-void bt_mem(int32_t, int32_t);
-void bt_reg(int32_t, int32_t);
-void bts_mem(int32_t, int32_t);
-int32_t bts_reg(int32_t, int32_t);
-void btc_mem(int32_t, int32_t);
-int32_t btc_reg(int32_t, int32_t);
-void btr_mem(int32_t, int32_t);
-int32_t btr_reg(int32_t, int32_t);
-int32_t bsf16(int32_t, int32_t);
-int32_t bsf32(int32_t, int32_t);
-int32_t bsr16(int32_t, int32_t);
-int32_t bsr32(int32_t, int32_t);
-
-int32_t popcnt(int32_t);
-int32_t bswap(int32_t);
-
-void cpl_changed(void);
-void update_cs_size(int32_t);
-void unimplemented_sse(void);
-
-int32_t shld16(int32_t, int32_t, int32_t);
-int32_t shld32(int32_t, int32_t, int32_t);
-int32_t shrd16(int32_t, int32_t, int32_t);
-int32_t shrd32(int32_t, int32_t, int32_t);
-
-bool has_rand_int(void);
-int32_t get_rand_int(void);
-
-void todo();
-void undefined_instruction();
-
-void clear_tlb();
-void full_clear_tlb();
-
-double_t microtick();
-
-int32_t lsl(int32_t, int32_t);
-int32_t lar(int32_t, int32_t);
-int32_t verw(int32_t);
-int32_t verr(int32_t);
-
-void invlpg(int32_t);
-void load_tr(int32_t);
-void load_ldt(int32_t);
-
-int32_t set_cr0(int32_t);
-void writable_or_pagefault(int32_t, int32_t);
+extern void setcc(bool);
+extern void cpuid();
+extern void cpl_changed(void);
+extern void update_cs_size(int32_t);
+extern void unimplemented_sse(void);
+extern bool has_rand_int(void);
+extern int32_t get_rand_int(void);
+extern void todo();
+extern void undefined_instruction();
+extern void full_clear_tlb();
+extern int32_t lsl(int32_t, int32_t);
+extern int32_t lar(int32_t, int32_t);
+extern int32_t verw(int32_t);
+extern int32_t verr(int32_t);
+extern void invlpg(int32_t);
+extern void load_tr(int32_t);
+extern void load_ldt(int32_t);
+extern int32_t set_cr0(int32_t);
+extern void writable_or_pagefault(int32_t, int32_t);
+extern void switch_seg(int32_t, int32_t);
+extern int32_t bswap(int32_t);
+extern bool vm86_mode(void);
+extern void lss16(int32_t, int32_t, int32_t);
+extern void lss32(int32_t, int32_t, int32_t);
 
 bool* const apic_enabled;
-
-
-void write_reg8(int32_t index, int32_t value);
-int32_t read_reg16(int32_t index);
-void write_reg16(int32_t index, int32_t value);
-int32_t read_reg32(int32_t index);
-void write_reg32(int32_t index, int32_t value);
-
-
-#define DEFINE_MODRM_INSTR_READ16(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read16(addr); fun; } \
-    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); fun; }
-
-#define DEFINE_MODRM_INSTR_READ32(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read32s(addr); fun; } \
-    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); fun; }
-
-
-#define DEFINE_MODRM_INSTR_IMM_READ_WRITE_16(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r, int32_t imm) { SAFE_READ_WRITE16(addr, fun) } \
-    void name ## _reg(int32_t r1, int32_t r, int32_t imm) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
-
-#define DEFINE_MODRM_INSTR_IMM_READ_WRITE_32(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r, int32_t imm) { SAFE_READ_WRITE32(addr, fun) } \
-    void name ## _reg(int32_t r1, int32_t r, int32_t imm) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
-
-
-#define DEFINE_MODRM_INSTR_READ_WRITE_8(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE8(addr, fun) } \
-    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
-
-#define DEFINE_MODRM_INSTR_READ_WRITE_16(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE16(addr, fun) } \
-    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
-
-#define DEFINE_MODRM_INSTR_READ_WRITE_32(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE32(addr, fun) } \
-    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
-
-
-#define DEFINE_SSE_SPLIT(name, mem_fn, reg_fn) \
-    void name ## _reg(int32_t r1, int32_t r2) { name(reg_fn(r1), r2); } \
-    void name ## _mem(int32_t addr, int32_t r) { name(mem_fn(addr), r); } \
-
-#define DEFINE_SSE_SPLIT_IMM(name, mem_fn, reg_fn) \
-    void name ## _reg(int32_t r1, int32_t r2, int32_t imm) { name(reg_fn(r1), r2, imm); } \
-    void name ## _mem(int32_t addr, int32_t r, int32_t imm) { name(mem_fn(addr), r, imm); } \
-
-#define DEFINE_SSE_SPLIT_WRITE(name, mem_fn, reg_fn) \
-    void name ## _reg(int32_t r1, int32_t r2) { reg_fn(r1, name(r2)); } \
-    void name ## _mem(int32_t addr, int32_t r) { mem_fn(addr, name(r)); } \
-
 
 void instr_0F00_0_mem(int32_t addr) {
     // sldt

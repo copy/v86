@@ -1,7 +1,9 @@
-#ifndef _SHARED_H
-#define _SHARED_H
+#pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <math.h>
+
 #include "const.h"
 
 union reg128 {
@@ -40,18 +42,22 @@ struct code_cache {
     // DIRTY_ARR_SHIFT). Value only has meaning in relation with the
     // group_dirtiness value.
     uint32_t group_status;
-} jit_cache_arr[WASM_TABLE_SIZE] = {{0, {0}, 0, 0, 0}};
+};
+
+extern struct code_cache jit_cache_arr[WASM_TABLE_SIZE];
 
 // Flag indicating whether the instruction that just ran was a jump of some sort
-uint32_t jit_jump = 0;
+extern uint32_t jit_jump;
 
 // Count of how many times prime_hash(address) has been called through a jump
-int32_t hot_code_addresses[HASH_PRIME] = {0};
+extern int32_t hot_code_addresses[HASH_PRIME];
 // An array indicating the current "initial group status" for entries that map
 // to the same group due to the shift
-uint32_t group_dirtiness[1 + (0xffffffff >> DIRTY_ARR_SHIFT)] = {0};
+extern uint32_t group_dirtiness[1 + (0xffffffff >> DIRTY_ARR_SHIFT)];
 
-void call_indirect(int32_t index);
-void jit_clear_func(int32_t index);
-
-#endif
+extern void call_indirect(int32_t index);
+extern void jit_clear_func(int32_t index);
+extern void call_interrupt_vector(int32_t interrupt_nr, bool is_software_int, bool has_error_code, int32_t error_code);
+extern void throw_cpu_exception(void);
+extern double_t math_pow(double_t, double_t);
+extern double_t microtick(void);

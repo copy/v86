@@ -3,14 +3,10 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include <stdio.h>
-
 #include "const.h"
 #include "global_pointers.h"
-
-// XXX: Remove these declarations when they are implemented in C
-static int32_t resolve_sib(bool);
-
+#include "cpu.h"
+#include "modrm.h"
 
 #define ds get_seg_prefix_ds
 #define ss get_seg_prefix_ss
@@ -31,7 +27,7 @@ static int32_t resolve_sib(bool);
     MODRM_ENTRY(0x40 | row, seg(((value) + read_imm8s() & 0xFFFF)))\
     MODRM_ENTRY(0x80 | row, seg(((value) + read_imm16() & 0xFFFF)))\
 
-static int32_t resolve_modrm16(int32_t modrm_byte)
+int32_t resolve_modrm16(int32_t modrm_byte)
 {
     switch(modrm_byte)
     {
@@ -63,7 +59,7 @@ static int32_t resolve_modrm16(int32_t modrm_byte)
     MODRM_ENTRY(0x40 | row, seg((value) + read_imm8s()))\
     MODRM_ENTRY(0x80 | row, seg((value) + read_imm32s()))\
 
-static int32_t resolve_modrm32(int32_t modrm_byte)
+int32_t resolve_modrm32(int32_t modrm_byte)
 {
     switch(modrm_byte)
     {

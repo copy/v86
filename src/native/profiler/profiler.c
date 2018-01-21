@@ -5,6 +5,8 @@
 
 #if ENABLE_PROFILER
 
+struct profiler_data profiler_arr[PROFILER_NAME_COUNT] = {{0, 0, false}};
+struct profiler_stat profiler_stat_arr[PROFILER_NAME_COUNT] = {{0}};
 double profiler_init_time = 0;
 
 void profiler_init()

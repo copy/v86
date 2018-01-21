@@ -1,12 +1,12 @@
 #include <stdint.h>
 #include <math.h>
-#include <assert.h>
 #include <stdbool.h>
-
-#include <stdio.h>
 
 #include "const.h"
 #include "global_pointers.h"
+#include "cpu.h"
+#include "log.h"
+#include "fpu.h"
 
 void fpu_set_tag_word(int32_t tag_word)
 {

@@ -1,20 +1,23 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
+
 #include "const.h"
 #include "global_pointers.h"
+#include "memory.h"
+#include "log.h"
+
+extern int32_t mmap_read8(uint32_t);
+extern int32_t mmap_read16(uint32_t);
+extern int32_t mmap_read32(uint32_t);
+extern void mmap_write8(uint32_t, int32_t);
+extern void mmap_write16(uint32_t, int32_t);
+extern void mmap_write32(uint32_t, int32_t);
 
 bool in_mapped_range(uint32_t addr)
 {
     return (addr >= 0xA0000 && addr < 0xC0000) || addr >= *memory_size;
 }
-
-int32_t mmap_read8(uint32_t);
-int32_t mmap_read16(uint32_t);
-int32_t mmap_read32(uint32_t);
-void mmap_write8(uint32_t, int32_t);
-void mmap_write16(uint32_t, int32_t);
-void mmap_write32(uint32_t, int32_t);
 
 /*
  * There are 3 primary ways a cached basic block will be dirtied:

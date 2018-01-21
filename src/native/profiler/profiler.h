@@ -1,9 +1,7 @@
+#pragma once
+
 #include <stdbool.h>
 #include <stdint.h>
-
-#ifndef _PROFILER_H
-#define _PROFILER_H
-
 
 #define PROFILER_NAME_COUNT 5
 
@@ -11,9 +9,11 @@ struct profiler_data {
     double total;
     double current_start;
     bool capturing;
-} profiler_arr[PROFILER_NAME_COUNT] = {{0, 0, false}};
+};
 
-const char *profiler_names[] = {
+extern struct profiler_data profiler_arr[PROFILER_NAME_COUNT];
+
+static const char *profiler_names[] = {
     "IDLE",
     "DO_MANY_CYCLES",
     "GEN_INSTR",
@@ -42,7 +42,9 @@ enum stat_name {
 
 struct profiler_stat {
     int32_t count;
-} profiler_stat_arr[PROFILER_NAME_COUNT] = {{0}};
+};
+
+extern struct profiler_stat profiler_stat_arr[PROFILER_NAME_COUNT];
 
 void profiler_init();
 void profiler_start(enum profile_name name);
@@ -53,6 +55,4 @@ void profiler_stat_increment(enum stat_name stat);
 int32_t profiler_stat_get(enum stat_name stat);
 
 // JS import
-double get_time();
-
-#endif
+extern double get_time();

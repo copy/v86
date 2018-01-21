@@ -3,304 +3,69 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include <stdio.h>
-
 #include "const.h"
 #include "global_pointers.h"
+#include "log.h"
+#include "arith.h"
+#include "cpu.h"
+#include "shared.h"
+#include "misc_instr.h"
+#include "string.h"
+#include "memory.h"
 #include "codegen/codegen.h"
+#include "instructions_0f.h"
+#include "instructions.h"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
 
-int32_t translate_address_write(int32_t);
-int32_t resolve_modrm(int32_t);
-
-
-#define SAFE_READ_WRITE8(addr, fun) \
-    int32_t phys_addr = translate_address_write(addr); \
-    int32_t ___ = read8(phys_addr); \
-    write8(phys_addr, fun);
-
-#define SAFE_READ_WRITE16(addr, fun) \
-    int32_t phys_addr = translate_address_write(addr); \
-    if((phys_addr & 0xFFF) == 0xFFF) \
-    { \
-        int32_t phys_addr_high = translate_address_write(addr + 1); \
-        int32_t ___ = virt_boundary_read16(phys_addr, phys_addr_high); \
-        virt_boundary_write16(phys_addr, phys_addr_high, fun); \
-    } \
-    else \
-    { \
-        int32_t ___ = read16(phys_addr); \
-        write16(phys_addr, fun); \
-    }
-
-#define SAFE_READ_WRITE32(addr, fun) \
-    int32_t phys_addr = translate_address_write(addr); \
-    if((phys_addr & 0xFFF) >= 0xFFD) \
-    { \
-        int32_t phys_addr_high = translate_address_write(addr + 3 & ~3) | (addr + 3) & 3; \
-        int32_t ___ = virt_boundary_read32s(phys_addr, phys_addr_high); \
-        virt_boundary_write32(phys_addr, phys_addr_high, fun); \
-    } \
-    else \
-    { \
-        int32_t ___ = read32s(phys_addr); \
-        write32(phys_addr, fun); \
-    }
-
-// XXX: Remove these declarations when they are implemented in C
-void push16(int32_t);
-void push32(int32_t);
-
-void pusha16(void);
-void pusha32(void);
-void popa16(void);
-void popa32(void);
-int32_t arpl(int32_t, int32_t);
-
-void trigger_ud(void);
-void trigger_nm(void);
-void run_prefix_instruction(void);
-
-int32_t pop16(void);
-int32_t pop32s(void);
-
-int32_t safe_read8(int32_t);
-int32_t safe_read16(int32_t);
-int32_t safe_read32s(int32_t);
-
-void safe_write8(int32_t, int32_t);
-void safe_write16(int32_t, int32_t);
-void safe_write32(int32_t, int32_t);
-
-void push32(int32_t);
-int32_t get_stack_pointer(int32_t);
-void adjust_stack_reg(int32_t);
-void set_stack_reg(int32_t);
-
-int32_t getiopl(void);
-int32_t get_eflags(void);
-int32_t getof(void);
-int32_t getzf(void);
-
-void switch_seg(int32_t, int32_t);
-
-bool vm86_mode(void);
-
-int32_t shl8(int32_t, int32_t);
-int32_t shr8(int32_t, int32_t);
-int32_t sar8(int32_t, int32_t);
-int32_t ror8(int32_t, int32_t);
-int32_t rol8(int32_t, int32_t);
-int32_t rcr8(int32_t, int32_t);
-int32_t rcl8(int32_t, int32_t);
-
-int32_t shl16(int32_t, int32_t);
-int32_t shr16(int32_t, int32_t);
-int32_t sar16(int32_t, int32_t);
-int32_t ror16(int32_t, int32_t);
-int32_t rol16(int32_t, int32_t);
-int32_t rcr16(int32_t, int32_t);
-int32_t rcl16(int32_t, int32_t);
-
-int32_t shl32(int32_t, int32_t);
-int32_t shr32(int32_t, int32_t);
-int32_t sar32(int32_t, int32_t);
-int32_t ror32(int32_t, int32_t);
-int32_t rol32(int32_t, int32_t);
-int32_t rcr32(int32_t, int32_t);
-int32_t rcl32(int32_t, int32_t);
-
-void idiv16(int32_t);
-void div32(uint32_t);
-void idiv32(int32_t);
-
-
-void insb(void);
-void insw(void);
-void insd(void);
-void outsb(void);
-void outsw(void);
-void outsd(void);
-void movsb(void);
-void movsw(void);
-void movsd(void);
-void cmpsb(void);
-void cmpsw(void);
-void cmpsd(void);
-void stosb(void);
-void stosw(void);
-void stosd(void);
-void lodsb(void);
-void lodsw(void);
-void lodsd(void);
-void scasb(void);
-void scasw(void);
-void scasd(void);
-
-void fpu_op_D8_mem(int32_t, int32_t);
-void fpu_op_D8_reg(int32_t);
-void fpu_op_D9_mem(int32_t, int32_t);
-void fpu_op_D9_reg(int32_t);
-void fpu_op_DA_mem(int32_t, int32_t);
-void fpu_op_DA_reg(int32_t);
-void fpu_op_DB_mem(int32_t, int32_t);
-void fpu_op_DB_reg(int32_t);
-void fpu_op_DC_mem(int32_t, int32_t);
-void fpu_op_DC_reg(int32_t);
-void fpu_op_DD_mem(int32_t, int32_t);
-void fpu_op_DD_reg(int32_t);
-void fpu_op_DE_mem(int32_t, int32_t);
-void fpu_op_DE_reg(int32_t);
-void fpu_op_DF_mem(int32_t, int32_t);
-void fpu_op_DF_reg(int32_t);
-
-int32_t test_o(void);
-int32_t test_b(void);
-int32_t test_z(void);
-int32_t test_s(void);
-int32_t test_p(void);
-int32_t test_be(void);
-int32_t test_l(void);
-int32_t test_le(void);
-
-void jmpcc8(bool, int32_t);
-
-void far_jump(int32_t, int32_t, int32_t);
-void far_return(int32_t, int32_t, int32_t);
-
-void iret16();
-void iret32();
-
-void lss16(int32_t, int32_t, int32_t);
-void lss32(int32_t, int32_t, int32_t);
-
-void enter16(int32_t, int32_t);
-void enter32(int32_t, int32_t);
-
-int32_t get_seg(int32_t);
-int32_t get_seg_prefix(int32_t);
-void update_eflags(int32_t);
-void handle_irqs(void);
-int32_t get_real_eip(void);
-void diverged(void);
-
-int32_t xchg8(int32_t, int32_t);
-int32_t xchg16(int32_t, int32_t);
-void xchg16r(int32_t);
-int32_t xchg32(int32_t, int32_t);
-void xchg32r(int32_t);
-
-int32_t loop(int32_t);
-int32_t loope(int32_t);
-int32_t loopne(int32_t);
-
-void bcd_aam(int32_t);
-void task_switch_test(void);
-void jcxz(int32_t);
-void test_privileges_for_io(int32_t, int32_t);
-int32_t io_port_read8(int32_t);
-int32_t io_port_read16(int32_t);
-int32_t io_port_read32(int32_t);
-void jmp_rel16(int32_t);
-void hlt_op(void);
-
-void io_port_write8(int32_t, int32_t);
-void io_port_write16(int32_t, int32_t);
-void io_port_write32(int32_t, int32_t);
-
-int32_t modrm_resolve(int32_t);
-
-void run_instruction0f_16(int32_t);
-void run_instruction0f_32(int32_t);
-
-void jit_instruction0f_16(int32_t);
-void jit_instruction0f_32(int32_t);
-
-void clear_prefixes(void);
-void cycle_internal(void);
-
-void fwait(void);
-
-
-#define DEFINE_MODRM_INSTR1_READ_WRITE_8(name, fun) \
-    void name ## _mem(int32_t addr) { SAFE_READ_WRITE8(addr, fun) } \
-    void name ## _reg(int32_t r1) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
-
-#define DEFINE_MODRM_INSTR1_READ_WRITE_16(name, fun) \
-    void name ## _mem(int32_t addr) { SAFE_READ_WRITE16(addr, fun) } \
-    void name ## _reg(int32_t r1) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
-
-#define DEFINE_MODRM_INSTR1_READ_WRITE_32(name, fun) \
-    void name ## _mem(int32_t addr) { SAFE_READ_WRITE32(addr, fun) } \
-    void name ## _reg(int32_t r1) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
-
-
-#define DEFINE_MODRM_INSTR2_READ_WRITE_8(name, fun) \
-    void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE8(addr, fun) } \
-    void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
-
-#define DEFINE_MODRM_INSTR2_READ_WRITE_16(name, fun) \
-    void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE16(addr, fun) } \
-    void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
-
-#define DEFINE_MODRM_INSTR2_READ_WRITE_32(name, fun) \
-    void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE32(addr, fun) } \
-    void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
-
-
-#define DEFINE_MODRM_INSTR_READ_WRITE_8(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE8(addr, fun) } \
-    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
-
-#define DEFINE_MODRM_INSTR_READ_WRITE_16(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE16(addr, fun) } \
-    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
-
-#define DEFINE_MODRM_INSTR_READ_WRITE_32(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE32(addr, fun) } \
-    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
-
-
-#define DEFINE_MODRM_INSTR1_READ8(name, fun) \
-    void name ## _mem(int32_t addr) { int32_t ___ = safe_read8(addr); fun; } \
-    void name ## _reg(int32_t r1) { int32_t ___ = read_reg8(r1); fun; }
-
-#define DEFINE_MODRM_INSTR1_READ16(name, fun) \
-    void name ## _mem(int32_t addr) { int32_t ___ = safe_read16(addr); fun; } \
-    void name ## _reg(int32_t r1) { int32_t ___ = read_reg16(r1); fun; }
-
-#define DEFINE_MODRM_INSTR1_READ32(name, fun) \
-    void name ## _mem(int32_t addr) { int32_t ___ = safe_read32s(addr); fun; } \
-    void name ## _reg(int32_t r1) { int32_t ___ = read_reg32(r1); fun; }
-
-
-#define DEFINE_MODRM_INSTR2_READ8(name, fun) \
-    void name ## _mem(int32_t addr, int32_t imm) { int32_t ___ = safe_read8(addr); fun; } \
-    void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg8(r1); fun; }
-
-#define DEFINE_MODRM_INSTR2_READ16(name, fun) \
-    void name ## _mem(int32_t addr, int32_t imm) { int32_t ___ = safe_read16(addr); fun; } \
-    void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg16(r1); fun; }
-
-#define DEFINE_MODRM_INSTR2_READ32(name, fun) \
-    void name ## _mem(int32_t addr, int32_t imm) { int32_t ___ = safe_read32s(addr); fun; } \
-    void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg32(r1); fun; }
-
-
-#define DEFINE_MODRM_INSTR_READ8(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read8(addr); fun; } \
-    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg8(r1); fun; }
-
-#define DEFINE_MODRM_INSTR_READ16(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read16(addr); fun; } \
-    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); fun; }
-
-#define DEFINE_MODRM_INSTR_READ32(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read32s(addr); fun; } \
-    void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); fun; }
-
+extern void far_jump(int32_t, int32_t, int32_t);
+extern void update_eflags(int32_t);
+extern void iret16(void);
+extern void iret32(void);
+extern void bcd_aam(int32_t);
+extern void task_switch_test(void);
+extern void far_return(int32_t, int32_t, int32_t);
+extern void switch_seg(int32_t, int32_t);
+extern int32_t arpl(int32_t, int32_t);
+extern void popa16(void);
+extern void popa32(void);
+extern int32_t getiopl(void);
+extern bool vm86_mode(void);
+extern void fwait(void);
+extern void fpu_op_D8_mem(int32_t, int32_t);
+extern void fpu_op_D8_reg(int32_t);
+extern void fpu_op_D9_mem(int32_t, int32_t);
+extern void fpu_op_D9_reg(int32_t);
+extern void fpu_op_DA_mem(int32_t, int32_t);
+extern void fpu_op_DA_reg(int32_t);
+extern void fpu_op_DB_mem(int32_t, int32_t);
+extern void fpu_op_DB_reg(int32_t);
+extern void fpu_op_DC_mem(int32_t, int32_t);
+extern void fpu_op_DC_reg(int32_t);
+extern void fpu_op_DD_mem(int32_t, int32_t);
+extern void fpu_op_DD_reg(int32_t);
+extern void fpu_op_DE_mem(int32_t, int32_t);
+extern void fpu_op_DE_reg(int32_t);
+extern void fpu_op_DF_mem(int32_t, int32_t);
+extern void fpu_op_DF_reg(int32_t);
+extern int32_t loop(int32_t);
+extern int32_t loope(int32_t);
+extern int32_t loopne(int32_t);
+extern void enter16(int32_t, int32_t);
+extern void enter32(int32_t, int32_t);
+extern void hlt_op(void);
+extern void test_privileges_for_io(int32_t, int32_t);
+extern void lss16(int32_t, int32_t, int32_t);
+extern void lss32(int32_t, int32_t, int32_t);
+extern int32_t io_port_read8(int32_t);
+extern int32_t io_port_read16(int32_t);
+extern int32_t io_port_read32(int32_t);
+extern void io_port_write8(int32_t, int32_t);
+extern void io_port_write16(int32_t, int32_t);
+extern void io_port_write32(int32_t, int32_t);
+extern void handle_irqs(void);
+extern void jcxz(int32_t);
 
 DEFINE_MODRM_INSTR_READ_WRITE_8(instr_00, add8(___, read_reg8(r)))
 DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_01, add16(___, read_reg16(r)))

@@ -142,7 +142,7 @@ build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/
 	# -Wno-extra-semi
 	# EMCC_DEBUG=1  EMCC_WASM_BACKEND=1
 	# -fno-inline
-	emcc src/native/all.c src/native/codegen/codegen.c src/native/call-indirect.ll \
+	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/call-indirect.ll \
 	    -Isrc/native/ -Isrc/native/profiler/ \
 	    -Wall -Wpedantic -Wextra \
 	    -DDEBUG=false \
@@ -161,7 +161,7 @@ build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/
 
 build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/*
 	mkdir -p build
-	emcc src/native/all.c src/native/codegen/codegen.c src/native/call-indirect.ll \
+	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/call-indirect.ll \
 	    -Isrc/native/ -Isrc/native/profiler/ \
 	    -Wall -Wpedantic -Wextra \
 	    -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \

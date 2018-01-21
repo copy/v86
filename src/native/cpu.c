@@ -8,48 +8,26 @@
 #include "global_pointers.h"
 #include "profiler.h"
 #include "codegen/codegen.h"
+#include "log.h"
+#include "instructions.h"
+#include "memory.h"
+#include "shared.h"
+#include "modrm.h"
+#include "misc_instr.h"
+#include "cpu.h"
 
 // like memcpy, but only efficient for large (approximately 10k) sizes
 // See memcpy in https://github.com/kripken/emscripten/blob/master/src/library.js
-void* memcpy_large(void* dest, const void* src, size_t n);
+extern void* memcpy_large(void* dest, const void* src, size_t n);
+extern void codegen_finalize(int32_t, int32_t, int32_t, int32_t);
+extern void codegen_finalize(int32_t, int32_t, int32_t, int32_t);
+extern int32_t do_page_translation(int32_t, bool, bool);
+extern bool cpu_exception_hook(int32_t);
 
-void writable_or_pagefault(int32_t, int32_t);
-int32_t translate_address_read(int32_t);
-int32_t translate_address_write(int32_t);
-int32_t read8(uint32_t);
-int32_t read16(uint32_t);
-int32_t read32s(uint32_t);
-int64_t read64s(uint32_t);
-int32_t read_aligned16(uint32_t addr);
-int32_t virt_boundary_read16(int32_t, int32_t);
-int32_t virt_boundary_read32s(int32_t, int32_t);
-void write8(uint32_t, int32_t);
-void write16(uint32_t, int32_t);
-void write32(uint32_t, int32_t);
-void write64(uint32_t, int64_t);
-void virt_boundary_write16(int32_t, int32_t, int32_t);
-void virt_boundary_write32(int32_t, int32_t, int32_t);
-
-bool cpu_exception_hook(int32_t);
-
-bool in_mapped_range(uint32_t);
-
-void trigger_gp(int32_t);
-void trigger_ud();
-void trigger_nm();
-
-int32_t safe_read8(int32_t);
-int32_t safe_read16(int32_t);
-int32_t safe_read32s(int32_t);
-
-void safe_write8(int32_t, int32_t);
-void safe_write16(int32_t, int32_t);
-void safe_write32(int32_t, int32_t);
-
-void fxsave(uint32_t);
-void fxrstor(uint32_t);
-
-int32_t do_page_translation(int32_t, bool, bool);
+struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, {0}, 0, 0, 0}};
+uint32_t jit_jump = 0;
+int32_t hot_code_addresses[HASH_PRIME] = {0};
+uint32_t group_dirtiness[1 + (0xffffffff >> DIRTY_ARR_SHIFT)] = {0};
 
 void after_jump()
 {
@@ -70,18 +48,6 @@ void branch_not_taken()
 {
     after_jump();
 }
-
-
-int32_t getcf(void);
-int32_t getpf(void);
-int32_t getaf(void);
-int32_t getzf(void);
-int32_t getsf(void);
-int32_t getof(void);
-
-
-double_t microtick();
-
 
 int32_t get_eflags()
 {
@@ -229,11 +195,7 @@ int32_t get_seg_prefix_ds(int32_t offset) { return get_seg_prefix(DS) + offset; 
 int32_t get_seg_prefix_ss(int32_t offset) { return get_seg_prefix(SS) + offset; }
 int32_t get_seg_prefix_cs(int32_t offset) { return get_seg_prefix(CS) + offset; }
 
-void run_instruction(int32_t);
-static int32_t resolve_modrm16(int32_t);
-static int32_t resolve_modrm32(int32_t);
-
-static int32_t modrm_resolve(int32_t modrm_byte)
+int32_t modrm_resolve(int32_t modrm_byte)
 {
     if(is_asize_32())
     {
@@ -249,10 +211,6 @@ uint32_t jit_hot_hash(uint32_t addr)
 {
     return addr % HASH_PRIME;
 }
-
-static void jit_instruction(int32_t);
-void codegen_finalize(int32_t, int32_t, int32_t, int32_t);
-void codegen_call_cache(int32_t);
 
 void generate_instruction(int32_t opcode)
 {
@@ -441,12 +399,12 @@ void cycle_internal()
 #endif
 }
 
-static void run_prefix_instruction()
+void run_prefix_instruction()
 {
     run_instruction(read_imm8() | is_osize_32() << 8);
 }
 
-static void jit_prefix_instruction()
+void jit_prefix_instruction()
 {
     //dbg_log("jit_prefix_instruction is32=%d", is_osize_32());
     jit_instruction(read_imm8() | is_osize_32() << 8);
@@ -737,42 +695,42 @@ void safe_write128(int32_t addr, union reg128 value)
     }
 }
 
-static int32_t get_reg8_index(int32_t index) { return index << 2 & 0xC | index >> 2 & 1; }
+int32_t get_reg8_index(int32_t index) { return index << 2 & 0xC | index >> 2 & 1; }
 
-static int32_t read_reg8(int32_t index)
+int32_t read_reg8(int32_t index)
 {
     return reg8[get_reg8_index(index)];
 }
 
-static void write_reg8(int32_t index, int32_t value)
+void write_reg8(int32_t index, int32_t value)
 {
     reg8[get_reg8_index(index)] = value;
 }
 
-static int32_t get_reg16_index(int32_t index) { return index << 1; }
+int32_t get_reg16_index(int32_t index) { return index << 1; }
 
-static int32_t read_reg16(int32_t index)
+int32_t read_reg16(int32_t index)
 {
     return reg16[get_reg16_index(index)];
 }
 
-static void write_reg16(int32_t index, int32_t value)
+void write_reg16(int32_t index, int32_t value)
 {
     reg16[get_reg16_index(index)] = value;
 }
 
 
-static int32_t read_reg32(int32_t index)
+int32_t read_reg32(int32_t index)
 {
     return reg32s[index];
 }
 
-static void write_reg32(int32_t index, int32_t value)
+void write_reg32(int32_t index, int32_t value)
 {
     reg32s[index] = value;
 }
 
-static void write_reg_osize(int32_t index, int32_t value)
+void write_reg_osize(int32_t index, int32_t value)
 {
     assert(index >= 0 && index < 8);
 

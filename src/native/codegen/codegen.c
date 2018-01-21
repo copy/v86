@@ -9,6 +9,7 @@
 #include "util.h"
 #include "wasm_util.h"
 #include "module_init.h"
+#include "global_pointers.h"
 
 static Buffer op = { .start = (uint8_t* const) 2048, .ptr = (uint8_t*) 2048, .len = 1024 };
 static Buffer cs = { .start = (uint8_t* const) 3072, .ptr = (uint8_t*) 3072, .len = 1024 };
@@ -22,16 +23,6 @@ extern int32_t read_imm8s();
 extern int32_t read_imm16();
 extern int32_t read_imm32s();
 extern int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index);
-
-extern uint8_t* const prefixes;
-extern int32_t* const instruction_pointer;
-extern uint32_t* const timestamp_counter;
-extern int32_t* const previous_ip;
-extern uint8_t* const reg8;
-extern uint16_t* const reg16;
-extern int8_t* const reg8s;
-extern int16_t* const reg16s;
-extern int32_t* const reg32s;
 
 static uint8_t* op_ptr_reset_location;
 static uint32_t import_table_size_reset_value;

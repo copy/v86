@@ -1,3 +1,9 @@
+#include <stdint.h>
+
+#include "shared.h"
+#include "sse_instr.h"
+#include "cpu.h"
+
 void mov_r_m64(int32_t addr, int32_t r)
 {
     // mov* m64, mm

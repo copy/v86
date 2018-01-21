@@ -7,20 +7,12 @@
 
 #include "const.h"
 #include "global_pointers.h"
+#include "fpu.h"
+#include "log.h"
+#include "cpu.h"
+#include "misc_instr.h"
 
-static int32_t get_stack_pointer(int32_t);
-static void adjust_stack_reg(int32_t);
-void branch_taken();
-void branch_not_taken();
-void writable_or_pagefault(int32_t, int32_t);
-
-
-static void write_reg8(int32_t index, int32_t value);
-static int32_t read_reg16(int32_t index);
-static void write_reg16(int32_t index, int32_t value);
-static int32_t read_reg32(int32_t index);
-static void write_reg32(int32_t index, int32_t value);
-
+extern void writable_or_pagefault(int32_t, int32_t);
 
 int32_t getcf()
 {
@@ -152,7 +144,7 @@ void jmpcc32(bool condition, int32_t imm32)
     }
 }
 
-static void cmovcc16(bool condition, int32_t value, int32_t r)
+void cmovcc16(bool condition, int32_t value, int32_t r)
 {
     if(condition)
     {
@@ -160,7 +152,7 @@ static void cmovcc16(bool condition, int32_t value, int32_t r)
     }
 }
 
-static void cmovcc32(bool condition, int32_t value, int32_t r)
+void cmovcc32(bool condition, int32_t value, int32_t r)
 {
     if(condition)
     {
@@ -168,7 +160,7 @@ static void cmovcc32(bool condition, int32_t value, int32_t r)
     }
 }
 
-static int32_t get_stack_pointer(int32_t offset)
+int32_t get_stack_pointer(int32_t offset)
 {
     if(*stack_size_32)
     {
@@ -180,7 +172,7 @@ static int32_t get_stack_pointer(int32_t offset)
     }
 }
 
-static void adjust_stack_reg(int32_t adjustment)
+void adjust_stack_reg(int32_t adjustment)
 {
     if(*stack_size_32)
     {
@@ -292,11 +284,6 @@ void setcc_reg(bool condition, int32_t r) {
 void setcc_mem(bool condition, int32_t addr) {
     safe_write8(addr, condition ? 1 : 0);
 }
-
-int32_t fpu_load_status_word();
-void fpu_set_status_word(int32_t);
-void fpu_store_m80(uint32_t, double_t);
-double_t fpu_load_m80(uint32_t);
 
 void fxsave(uint32_t addr)
 {
