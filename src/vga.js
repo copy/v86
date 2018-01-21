@@ -360,7 +360,7 @@ function VGAScreen(cpu, bus, vga_memory_size)
     {
         if(this.dest_buffer && data[0])
         {
-            data[0].set(this.dest_buffer.subarray(0,data[0].length));
+            data[0].set(this.dest_buffer.subarray(0, data[0].length));
         }
         this.dest_buffer = data[0];
     }, this);
@@ -1266,8 +1266,7 @@ VGAScreen.prototype.update_layers = function()
     var pixel_addr_start = this.vga_addr_to_pixel(start_addr + byte_panning);
 
     var start_buffer_row = pixel_addr_start / this.virtual_width | 0;
-    var start_buffer_col = pixel_addr_start % this.virtual_width;
-    start_buffer_col += pixel_panning;
+    var start_buffer_col = pixel_addr_start % this.virtual_width + pixel_panning;
 
     var split_screen_row = this.scan_line_to_screen_row(1 + this.line_compare);
     split_screen_row = Math.min(split_screen_row, this.svga_height);
@@ -2413,7 +2412,6 @@ VGAScreen.prototype.screen_fill_buffer = function()
         this.vga_redraw();
         this.bus.send("screen-fill-buffer-end", this.layers);
     }
-
 
     this.reset_diffs();
     this.update_vertical_retrace();

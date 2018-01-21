@@ -524,6 +524,7 @@ function ScreenAdapter(screen_container, bus)
             graphic_context.lineWidth = 1;
             return;
         }
+
         layers.forEach((layer) =>
         {
             graphic_context.putImageData(
