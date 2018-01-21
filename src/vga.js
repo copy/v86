@@ -2403,7 +2403,7 @@ VGAScreen.prototype.screen_fill_buffer = function()
             screen_x: 0, screen_y: min_y,
             buffer_x: 0, buffer_y: min_y,
             buffer_width: this.svga_width,
-            buffer_height: max_y - min_y,
+            buffer_height: max_y - min_y + 1,
         }]);
     }
     else
