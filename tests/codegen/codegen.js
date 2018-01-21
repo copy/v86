@@ -25,10 +25,10 @@ const vals = {
     imm16: 2,
     imm32s: 3,
     asize_32: false,
-    reg16: 0,
-    reg32s: 0,
-    instruction_pointer: 0,
-    previous_ip: 0,
+    reg16: 4,
+    reg32s: 4,
+    instruction_pointer: 556,
+    previous_ip: 560,
     prefixes: 0,
     timestamp_counter: 0,
 };
@@ -43,14 +43,6 @@ const wasm_test_funcs = {
         _printf(...args) { console.log(...args); },
         ___assert_fail(...args) { console.error(...args); console.assert(false); },
         abort() { console.assert(false); },
-
-        // static pointer imports
-        g$_reg16() { return vals.reg16; },
-        g$_reg32s() { return vals.reg32s; },
-        g$_instruction_pointer() { return vals.instruction_pointer; },
-        g$_previous_ip() { return vals.previous_ip; },
-        g$_prefixes() { return vals.prefixes; },
-        g$_timestamp_counter() { return vals.timestamp_counter; },
     },
 };
 
@@ -118,7 +110,7 @@ function test(gen)
     };
     const o = new WebAssembly.Instance(module, imports);
     o.exports.f();
-    const view = new Uint32Array(imports.e.m.buffer);
+    const view = new Uint8Array(imports.e.m.buffer);
     console.log(store);
     console.assert(view[vals.instruction_pointer] === 10);
     console.assert(view[vals.previous_ip] === 10);
