@@ -115,6 +115,13 @@ function VGAScreen(cpu, bus, vga_memory_size)
     this.virtual_height = 0;
 
     /**
+     * The rectangular fragments of the image buffer, and their destination
+     * locations, to be drawn every screen_fill_buffer during VGA modes.
+     * @type {Array<Object<string, number>>}
+     */
+    this.layers = [];
+
+    /**
      * video memory start address
      * @type {number}
      */
@@ -457,6 +464,7 @@ VGAScreen.prototype.get_state = function()
     state[61] = this.crtc_mode;
     state[62] = this.miscellaneous_graphics_register;
     state[63] = this.dac_state;
+    state[64] = this.layers;
 
     return state;
 };
@@ -527,6 +535,7 @@ VGAScreen.prototype.set_state = function(state)
     this.crtc_mode = state[61];
     this.miscellaneous_graphics_register = state[62];
     this.dac_state = state[63];
+    this.layers = state[64];
 
     this.bus.send("screen-set-mode", this.graphical_mode);
 
@@ -1223,16 +1232,9 @@ VGAScreen.prototype.update_layers = function()
         this.text_mode_redraw();
     }
 
-    if(this.svga_enabled && this.svga_width)
+    if(this.svga_enabled)
     {
-        this.bus.send("screen-update-layers", [{
-            screen_x: 0,
-            screen_y: 0,
-            buffer_x: 0,
-            buffer_width: this.svga_width,
-            buffer_min_y: 0,
-            buffer_max_y: this.svga_height,
-        }]);
+        this.layers = [];
         return;
     }
 
@@ -1247,8 +1249,8 @@ VGAScreen.prototype.update_layers = function()
         // Palette source and screen disable bits = draw nothing
         // See http://www.phatcode.net/res/224/files/html/ch29/29-05.html#Heading6
         // and http://www.osdever.net/FreeVGA/vga/seqreg.htm#01
-        this.bus.send("screen-update-layers", []);
-        this.bus.send("screen-clear", []);
+        this.layers = [];
+        this.bus.send("screen-clear");
         return;
     }
 
@@ -1272,17 +1274,17 @@ VGAScreen.prototype.update_layers = function()
 
     var split_buffer_height = this.svga_height - split_screen_row;
 
-    var layers = [];
+    this.layers = [];
 
     for(var x = -start_buffer_col, y = 0; x < this.svga_width; x += this.virtual_width, y++)
     {
-        layers.push({
+        this.layers.push({
             screen_x: x,
             screen_y: 0,
             buffer_x: 0,
+            buffer_y: start_buffer_row + y,
             buffer_width: this.virtual_width,
-            buffer_min_y: start_buffer_row + y,
-            buffer_max_y: start_buffer_row + y + split_screen_row,
+            buffer_height: split_screen_row,
         });
     }
 
@@ -1295,17 +1297,15 @@ VGAScreen.prototype.update_layers = function()
 
     for(var x = -start_split_col, y = 0; x < this.svga_width; x += this.virtual_width, y++)
     {
-        layers.push({
+        this.layers.push({
             screen_x: x,
             screen_y: split_screen_row,
             buffer_x: 0,
+            buffer_y: y,
             buffer_width: this.virtual_width,
-            buffer_min_y: y,
-            buffer_max_y: y + split_buffer_height,
+            buffer_height: split_buffer_height,
         });
     }
-
-    this.bus.send("screen-update-layers", layers);
 };
 
 VGAScreen.prototype.update_vertical_retrace = function()
@@ -2323,7 +2323,7 @@ VGAScreen.prototype.screen_fill_buffer = function()
     if(this.diff_addr_max < this.diff_addr_min && this.diff_plot_max < this.diff_plot_min)
     {
         // No pixels to update
-        this.bus.send("screen-fill-buffer-end", [1, 0]);
+        this.bus.send("screen-fill-buffer-end", this.layers);
         this.update_vertical_retrace();
         return;
     }
@@ -2396,18 +2396,25 @@ VGAScreen.prototype.screen_fill_buffer = function()
             default:
                 dbg_assert(false, "Unsupported BPP: " + bpp);
         }
+
+        var min_y = start_pixel / this.svga_width | 0;
+        var max_y = end_pixel / this.svga_width | 0;
+
+        this.bus.send("screen-fill-buffer-end", [{
+            screen_x: 0, screen_y: min_y,
+            buffer_x: 0, buffer_y: min_y,
+            buffer_width: this.svga_width,
+            buffer_height: max_y - min_y,
+        }]);
     }
     else
     {
         this.vga_replot();
         this.vga_redraw();
-        var start_pixel = this.diff_addr_min;
-        var end_pixel = this.diff_addr_max;
+        this.bus.send("screen-fill-buffer-end", this.layers);
     }
 
+
     this.reset_diffs();
-
-    this.bus.send("screen-fill-buffer-end", [start_pixel, end_pixel]);
-
     this.update_vertical_retrace();
 };

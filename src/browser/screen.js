@@ -64,9 +64,6 @@ function ScreenAdapter(screen_container, bus)
         // number of rows
         text_mode_height;
 
-    var layers = [];
-    var layers_has_changed = false;
-
     var screen = this;
 
     // 0x12345 -> "#012345"
@@ -149,10 +146,7 @@ function ScreenAdapter(screen_container, bus)
 
     bus.register("screen-fill-buffer-end", function(data)
     {
-        var min = data[0];
-        var max = data[1];
-
-        this.update_buffer(min, max);
+        this.update_buffer(data);
     }, this);
 
     bus.register("screen-put-char", function(data)
@@ -168,12 +162,6 @@ function ScreenAdapter(screen_container, bus)
     bus.register("screen-update-cursor-scanline", function(data)
     {
         this.update_cursor_scanline(data[0], data[1]);
-    }, this);
-
-    bus.register("screen-update-layers", function(data)
-    {
-        layers = data;
-        layers_has_changed = true;
     }, this);
 
     bus.register("screen-clear", function()
@@ -336,8 +324,6 @@ function ScreenAdapter(screen_container, bus)
 
         graphical_mode_width = width;
         graphical_mode_height = height;
-
-        layers = [];
 
         this.bus.send("screen-tell-buffer", [graphic_buffer32], [graphic_buffer32.buffer]);
         update_scale_graphic();
@@ -510,15 +496,8 @@ function ScreenAdapter(screen_container, bus)
         row_element.parentNode.replaceChild(fragment, row_element);
     };
 
-    this.update_buffer = function(min, max)
+    this.update_buffer = function(layers)
     {
-        if(max < min && !layers_has_changed)
-        {
-            return;
-        }
-
-        layers_has_changed = false;
-
         if(DEBUG_SCREEN_LAYERS)
         {
             // Draw the entire buffer. Useful for debugging
@@ -537,33 +516,24 @@ function ScreenAdapter(screen_container, bus)
             {
                 graphic_context.strokeRect(
                     layer.buffer_x,
-                    layer.buffer_min_y,
+                    layer.buffer_y,
                     layer.buffer_width,
-                    layer.buffer_max_y - layer.buffer_min_y
+                    layer.buffer_height
                 );
             });
             graphic_context.lineWidth = 1;
             return;
         }
-
-        var min_y = min / graphical_mode_width | 0;
-        var max_y = max / graphical_mode_width | 0;
-
         layers.forEach((layer) =>
         {
-            var buffer_min_y = Math.max(min_y, layer.buffer_min_y);
-            var buffer_max_y = Math.min(max_y, layer.buffer_max_y);
-
-            var buffer_height = Math.max(0, buffer_max_y - buffer_min_y);
-
             graphic_context.putImageData(
                 graphic_image_data,
                 layer.screen_x - layer.buffer_x,
-                layer.screen_y - layer.buffer_min_y,
+                layer.screen_y - layer.buffer_y,
                 layer.buffer_x,
-                layer.buffer_min_y,
+                layer.buffer_y,
                 layer.buffer_width,
-                buffer_height
+                layer.buffer_height
             );
         });
     };
