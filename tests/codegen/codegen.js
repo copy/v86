@@ -110,10 +110,10 @@ function test(gen)
     };
     const o = new WebAssembly.Instance(module, imports);
     o.exports.f();
-    const view = new Uint8Array(imports.e.m.buffer);
+    const view = new Uint32Array(imports.e.m.buffer);
     console.log(store);
-    console.assert(view[vals.instruction_pointer] === 10);
-    console.assert(view[vals.previous_ip] === 10);
+    console.assert(view[vals.instruction_pointer >> 2] === 10);
+    console.assert(view[vals.previous_ip >> 2] === 10);
     console.assert(JSON.stringify(store) === JSON.stringify(expected));
 }
 
