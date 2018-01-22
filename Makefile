@@ -27,7 +27,7 @@ CLOSURE_SOURCE_MAP=\
 		#--jscomp_error newCheckTypes\
 
 CLOSURE_FLAGS=\
-	        --js lib/closure-base.js\
+		--js lib/closure-base.js\
 		--generate_exports\
 		--externs src/externs.js\
 		--warning_level VERBOSE\
@@ -71,6 +71,17 @@ TRANSPILE_ES6_FLAGS=\
 		--language_in ECMASCRIPT6_STRICT\
 		--language_out ECMASCRIPT5_STRICT\
 
+CC_FLAGS=\
+		-Isrc/native/ -Isrc/native/profiler/ \
+		-Wall -Wpedantic -Wextra \
+		-Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \
+		-fcolor-diagnostics \
+		-fwrapv \
+		-g4 \
+		-s LEGALIZE_JS_FFI=0 \
+		-s "BINARYEN_TRAP_MODE='allow'" \
+		-s WASM=1 \
+		-s SIDE_MODULE=1
 
 CORE_FILES=const.js config.js io.js main.js lib.js fpu.js ide.js pci.js floppy.js memory.js \
 	   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js ioapic.js \
@@ -79,8 +90,8 @@ CORE_FILES=const.js config.js io.js main.js lib.js fpu.js ide.js pci.js floppy.j
 	   elf.js codegen.js
 LIB_FILES=9p.js filesystem.js jor1k.js marshall.js utf8.js
 BROWSER_FILES=screen.js \
-	      keyboard.js mouse.js serial.js \
-	      network.js lib.js starter.js worker_bus.js dummy_screen.js
+		  keyboard.js mouse.js serial.js \
+		  network.js lib.js starter.js worker_bus.js dummy_screen.js
 
 CORE_FILES:=$(addprefix src/,$(CORE_FILES))
 LIB_FILES:=$(addprefix lib/,$(LIB_FILES))
@@ -138,55 +149,32 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/*
 	mkdir -p build
 	-ls -lh build/v86.wasm
-	# --llvm-opts 3
-	# -Wno-extra-semi
-	# EMCC_DEBUG=1  EMCC_WASM_BACKEND=1
-	# -fno-inline
 	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/call-indirect.ll \
-	    -Isrc/native/ -Isrc/native/profiler/ \
-	    -Wall -Wpedantic -Wextra \
-	    -DDEBUG=false \
-	    -DNDEBUG \
-	    -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \
-	    -fcolor-diagnostics \
-	    -fwrapv \
-	    --llvm-opts 3 \
-	    --llvm-lto 3 \
-	    -O3 \
-	    -g4 \
-	    -s LEGALIZE_JS_FFI=0 \
-	    -s "BINARYEN_TRAP_MODE='allow'" \
-	    -s WASM=1 -s SIDE_MODULE=1 -o build/v86.wasm
+		$(CC_FLAGS) \
+		-DDEBUG=false \
+		-DNDEBUG \
+		-O3 \
+		--llvm-opts 3 \
+		--llvm-lto 3 \
+		-o build/v86.wasm
 	ls -lh build/v86.wasm
 
 build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/*
 	mkdir -p build
+	-ls -lh build/v86-debug.wasm
 	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/call-indirect.ll \
-	    -Isrc/native/ -Isrc/native/profiler/ \
-	    -Wall -Wpedantic -Wextra \
-	    -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \
-	    -fcolor-diagnostics \
-	    -fwrapv \
-	    -Os \
-	    -g4 \
-	    -s LEGALIZE_JS_FFI=0 \
-	    -s "BINARYEN_TRAP_MODE='allow'" \
-	    -s WASM=1 -s SIDE_MODULE=1 -o build/v86-debug.wasm
+		$(CC_FLAGS) \
+		-Os \
+		-o build/v86-debug.wasm
 	ls -lh build/v86-debug.wasm
 
 build/codegen-test.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h
 	mkdir -p build
+	-ls -lh build/codegen-test.wasm
 	emcc src/native/codegen/codegen.c \
-	    -Isrc/native/ -Isrc/native/profiler/ \
-	    -Wall -Wpedantic -Wextra \
-	    -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \
-	    -fcolor-diagnostics \
-	    -fwrapv \
-	    -Os \
-	    -g4 \
-	    -s LEGALIZE_JS_FFI=0 \
-	    -s "BINARYEN_TRAP_MODE='allow'" \
-	    -s WASM=1 -s SIDE_MODULE=1 -o build/codegen-test.wasm
+		$(CC_FLAGS) \
+		-Os \
+		-o build/codegen-test.wasm
 	ls -lh build/codegen-test.wasm
 
 clean:
@@ -195,6 +183,7 @@ clean:
 	-rm build/v86_all.js
 	-rm build/v86.wasm
 	-rm build/v86-debug.wasm
+	-rm build/codegen-test.wasm
 	-rm build/*.map
 	-rm build/*.wast
 	$(MAKE) -C $(NASM_TEST_DIR) clean
