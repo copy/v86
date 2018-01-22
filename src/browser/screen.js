@@ -175,7 +175,7 @@ function ScreenAdapter(screen_container, bus)
     }, this);
     bus.register("screen-set-size-graphical", function(data)
     {
-        this.set_size_graphical(data[0], data[1], data[3], data[4]);
+        this.set_size_graphical(data[0], data[1], data[2], data[3]);
     }, this);
 
 
