@@ -9,9 +9,8 @@
 #include "misc_instr.h"
 #include "memory.h"
 #include "log.h"
+#include "js_imports.h"
 #include "arith.h"
-
-extern int32_t int_log2(int32_t);
 
 int32_t add(int32_t dest_operand, int32_t source_operand, int32_t op_size)
 {
@@ -438,6 +437,27 @@ void bcd_aaa()
     reg8[AL] &= 0xF;
 
     *flags_changed &= ~FLAG_ADJUST & ~1;
+}
+
+void bcd_aam(int32_t imm8)
+{
+    // ascii adjust after multiplication
+
+    if(imm8 == 0)
+    {
+        trigger_de();
+    }
+    else
+    {
+        uint8_t temp = reg8[AL];
+        reg8[AH] = temp / imm8;
+        reg8[AL] = temp % imm8;
+
+        *last_result = reg8[AL];
+
+        *flags_changed = FLAGS_ALL & ~1 & ~FLAG_ADJUST & ~FLAG_OVERFLOW;
+        *flags &= ~1 & ~FLAG_ADJUST & ~FLAG_OVERFLOW;
+    }
 }
 
 void bcd_aas()

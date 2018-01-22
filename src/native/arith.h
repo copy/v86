@@ -47,6 +47,7 @@ int32_t xadd32(int32_t source_operand, int32_t reg);
 void bcd_daa(void);
 void bcd_das(void);
 void bcd_aad(int32_t imm8);
+void bcd_aam(int32_t imm8);
 void bcd_aaa(void);
 void bcd_aas(void);
 int32_t and(int32_t dest_operand, int32_t source_operand, int32_t op_size);

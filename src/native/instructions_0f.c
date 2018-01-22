@@ -14,36 +14,12 @@
 #include "global_pointers.h"
 #include "memory.h"
 #include "instructions.h"
-#include "instructions_0f.h"
 #include "codegen/codegen.h"
+#include "js_imports.h"
+#include "instructions_0f.h"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
-
-extern void setcc(bool);
-extern void cpuid();
-extern void cpl_changed(void);
-extern void update_cs_size(int32_t);
-extern void unimplemented_sse(void);
-extern bool has_rand_int(void);
-extern int32_t get_rand_int(void);
-extern void todo();
-extern void undefined_instruction();
-extern void full_clear_tlb();
-extern int32_t lsl(int32_t, int32_t);
-extern int32_t lar(int32_t, int32_t);
-extern int32_t verw(int32_t);
-extern int32_t verr(int32_t);
-extern void invlpg(int32_t);
-extern void load_tr(int32_t);
-extern void load_ldt(int32_t);
-extern int32_t set_cr0(int32_t);
-extern void writable_or_pagefault(int32_t, int32_t);
-extern void switch_seg(int32_t, int32_t);
-extern int32_t bswap(int32_t);
-extern bool vm86_mode(void);
-extern void lss16(int32_t, int32_t, int32_t);
-extern void lss32(int32_t, int32_t, int32_t);
 
 bool* const apic_enabled;
 

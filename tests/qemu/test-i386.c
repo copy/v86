@@ -3129,13 +3129,15 @@ void chunk_write128(uint8_t* addr, uint16_t offset)
 void test_page_boundaries()
 {
     // mmap 2 consecutive pages
-    uint8_t *const page0 = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    uint8_t *const page0 = mmap(NULL, PAGE_SIZE,
+            PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     // throwaway mmap to reduce likelhood of page0 and page1 mapping to consecutive physical frames
-    uint8_t *const throwaway = mmap(NULL, PAGE_SIZE, PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    uint8_t *const throwaway = mmap(NULL, PAGE_SIZE,
+            PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     uint8_t *const page1 = mmap(page0 + PAGE_SIZE, PAGE_SIZE,
-                                 PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+            PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
 
     if(page0 == MAP_FAILED || throwaway == MAP_FAILED || page1 == MAP_FAILED)
     {

@@ -4,15 +4,9 @@
 
 #include "const.h"
 #include "global_pointers.h"
-#include "memory.h"
 #include "log.h"
-
-extern int32_t mmap_read8(uint32_t);
-extern int32_t mmap_read16(uint32_t);
-extern int32_t mmap_read32(uint32_t);
-extern void mmap_write8(uint32_t, int32_t);
-extern void mmap_write16(uint32_t, int32_t);
-extern void mmap_write32(uint32_t, int32_t);
+#include "js_imports.h"
+#include "memory.h"
 
 bool in_mapped_range(uint32_t addr)
 {
@@ -42,18 +36,6 @@ void jit_dirty_cache(uint32_t start_addr, uint32_t end_addr)
         // re-compiled or evicted for 2^32 times that
         // another block in its group is dirtied
         group_dirtiness[idx]++;
-
-        // We currently limit basic blocks to a length of
-        // MAX_BLOCK_LENGTH, which may still cause an overlap of 1
-        // page. The ongoing write may write to a block with a
-        // starting address lower than the start_addr of the write,
-        // i.e. in the previous page.
-        // XXX: Consider not generating blocks across boundaries
-
-        if(idx != 0)
-        {
-            group_dirtiness[idx - 1]++;
-        }
     }
 #endif
 }
@@ -68,11 +50,8 @@ void jit_dirty_cache_small(uint32_t start_addr, uint32_t end_addr)
 
     group_dirtiness[start_index]++;
 
-    if(start_index != 0)
-    {
-        group_dirtiness[start_index - 1]++;
-    }
-
+    // Note: This can't happen when paging is enabled, as writes across
+    //       boundaries are split up on two pages
     if(start_index != end_index)
     {
         assert(end_index == start_index + 1);

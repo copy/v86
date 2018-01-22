@@ -1,51 +1,51 @@
 "use strict";
 
 
-/** @const */ var E8390_CMD = 0x00 /* The command register (for all pages) */
+/** @const */ var E8390_CMD = 0x00; /* The command register (for all pages) */
 
 /* Page 0 register offsets. */
-/** @const */ var EN0_CLDALO = 0x01 /* Low byte of current local dma addr RD */
-/** @const */ var EN0_STARTPG = 0x01 /* Starting page of ring bfr WR */
-/** @const */ var EN0_CLDAHI = 0x02 /* High byte of current local dma addr RD */
-/** @const */ var EN0_STOPPG = 0x02 /* Ending page +1 of ring bfr WR */
-/** @const */ var EN0_BOUNDARY = 0x03 /* Boundary page of ring bfr RD WR */
-/** @const */ var EN0_TSR = 0x04 /* Transmit status reg RD */
-/** @const */ var EN0_TPSR = 0x04 /* Transmit starting page WR */
-/** @const */ var EN0_NCR = 0x05 /* Number of collision reg RD */
-/** @const */ var EN0_TCNTLO = 0x05 /* Low byte of tx byte count WR */
-/** @const */ var EN0_FIFO = 0x06 /* FIFO RD */
-/** @const */ var EN0_TCNTHI = 0x06 /* High byte of tx byte count WR */
-/** @const */ var EN0_ISR = 0x07 /* Interrupt status reg RD WR */
-/** @const */ var EN0_CRDALO = 0x08 /* low byte of current remote dma address RD */
-/** @const */ var EN0_RSARLO = 0x08 /* Remote start address reg 0 */
-/** @const */ var EN0_CRDAHI = 0x09 /* high byte, current remote dma address RD */
-/** @const */ var EN0_RSARHI = 0x09 /* Remote start address reg 1 */
-/** @const */ var EN0_RCNTLO = 0x0a /* Remote byte count reg WR */
-/** @const */ var EN0_RCNTHI = 0x0b /* Remote byte count reg WR */
-/** @const */ var EN0_RSR = 0x0c /* rx status reg RD */
-/** @const */ var EN0_RXCR = 0x0c /* RX configuration reg WR */
-/** @const */ var EN0_TXCR = 0x0d /* TX configuration reg WR */
-/** @const */ var EN0_COUNTER0 = 0x0d /* Rcv alignment error counter RD */
-/** @const */ var EN0_DCFG = 0x0e /* Data configuration reg WR */
-/** @const */ var EN0_COUNTER1 = 0x0e /* Rcv CRC error counter RD */
-/** @const */ var EN0_IMR = 0x0f /* Interrupt mask reg WR */
-/** @const */ var EN0_COUNTER2 = 0x0f /* Rcv missed frame error counter RD */
+/** @const */ var EN0_CLDALO = 0x01; /* Low byte of current local dma addr RD */
+/** @const */ var EN0_STARTPG = 0x01; /* Starting page of ring bfr WR */
+/** @const */ var EN0_CLDAHI = 0x02; /* High byte of current local dma addr RD */
+/** @const */ var EN0_STOPPG = 0x02; /* Ending page +1 of ring bfr WR */
+/** @const */ var EN0_BOUNDARY = 0x03; /* Boundary page of ring bfr RD WR */
+/** @const */ var EN0_TSR = 0x04; /* Transmit status reg RD */
+/** @const */ var EN0_TPSR = 0x04; /* Transmit starting page WR */
+/** @const */ var EN0_NCR = 0x05; /* Number of collision reg RD */
+/** @const */ var EN0_TCNTLO = 0x05; /* Low byte of tx byte count WR */
+/** @const */ var EN0_FIFO = 0x06; /* FIFO RD */
+/** @const */ var EN0_TCNTHI = 0x06; /* High byte of tx byte count WR */
+/** @const */ var EN0_ISR = 0x07; /* Interrupt status reg RD WR */
+/** @const */ var EN0_CRDALO = 0x08; /* low byte of current remote dma address RD */
+/** @const */ var EN0_RSARLO = 0x08; /* Remote start address reg 0 */
+/** @const */ var EN0_CRDAHI = 0x09; /* high byte, current remote dma address RD */
+/** @const */ var EN0_RSARHI = 0x09; /* Remote start address reg 1 */
+/** @const */ var EN0_RCNTLO = 0x0a; /* Remote byte count reg WR */
+/** @const */ var EN0_RCNTHI = 0x0b; /* Remote byte count reg WR */
+/** @const */ var EN0_RSR = 0x0c; /* rx status reg RD */
+/** @const */ var EN0_RXCR = 0x0c; /* RX configuration reg WR */
+/** @const */ var EN0_TXCR = 0x0d; /* TX configuration reg WR */
+/** @const */ var EN0_COUNTER0 = 0x0d; /* Rcv alignment error counter RD */
+/** @const */ var EN0_DCFG = 0x0e; /* Data configuration reg WR */
+/** @const */ var EN0_COUNTER1 = 0x0e; /* Rcv CRC error counter RD */
+/** @const */ var EN0_IMR = 0x0f; /* Interrupt mask reg WR */
+/** @const */ var EN0_COUNTER2 = 0x0f; /* Rcv missed frame error counter RD */
 
-/** @const */ var NE_DATAPORT = 0x10 /* NatSemi-defined port window offset. */
-/** @const */ var NE_RESET = 0x1f /* Issue a read to reset, a write to clear. */
+/** @const */ var NE_DATAPORT = 0x10; /* NatSemi-defined port window offset. */
+/** @const */ var NE_RESET = 0x1f; /* Issue a read to reset, a write to clear. */
 
 /* Bits in EN0_ISR - Interrupt status register */
-/** @const */ var ENISR_RX = 0x01 /* Receiver, no error */
-/** @const */ var ENISR_TX = 0x02 /* Transmitter, no error */
-/** @const */ var ENISR_RX_ERR = 0x04 /* Receiver, with error */
-/** @const */ var ENISR_TX_ERR = 0x08 /* Transmitter, with error */
-/** @const */ var ENISR_OVER = 0x10 /* Receiver overwrote the ring */
-/** @const */ var ENISR_COUNTERS = 0x20 /* Counters need emptying */
-/** @const */ var ENISR_RDC = 0x40 /* remote dma complete */
-/** @const */ var ENISR_RESET = 0x80 /* Reset completed */
-/** @const */ var ENISR_ALL = 0x3f /* Interrupts we will enable */
+/** @const */ var ENISR_RX = 0x01; /* Receiver, no error */
+/** @const */ var ENISR_TX = 0x02; /* Transmitter, no error */
+/** @const */ var ENISR_RX_ERR = 0x04; /* Receiver, with error */
+/** @const */ var ENISR_TX_ERR = 0x08; /* Transmitter, with error */
+/** @const */ var ENISR_OVER = 0x10; /* Receiver overwrote the ring */
+/** @const */ var ENISR_COUNTERS = 0x20; /* Counters need emptying */
+/** @const */ var ENISR_RDC = 0x40; /* remote dma complete */
+/** @const */ var ENISR_RESET = 0x80; /* Reset completed */
+/** @const */ var ENISR_ALL = 0x3f; /* Interrupts we will enable */
 
-/** @const */ var ENRSR_RXOK = 0x01 /* Received a good packet */
+/** @const */ var ENRSR_RXOK = 0x01; /* Received a good packet */
 
 /** @const */ var START_PAGE = 0x40;
 /** @const */ var START_RX_PAGE = 0x40 + 12;
@@ -274,13 +274,13 @@ function Ne2k(cpu, bus)
         {
             // acknoledge interrupts where bit is set
             dbg_log("Write isr: " + h(data_byte, 2), LOG_NET);
-            this.isr &= ~data_byte
+            this.isr &= ~data_byte;
             this.update_irq();
         }
         else
         {
             dbg_log("Write curpg: " + h(data_byte, 2), LOG_NET);
-            this.curpg = data_byte
+            this.curpg = data_byte;
         }
     });
 

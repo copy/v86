@@ -30,7 +30,7 @@ enum profile_name {
 };
 
 
-#define PROFILER_STAT_COUNT 5
+#define PROFILER_STAT_COUNT 7
 
 enum stat_name {
     S_COMPILE,
@@ -38,13 +38,15 @@ enum stat_name {
     S_RUN_INTERPRETED,
     S_RUN_FROM_CACHE,
     S_CACHE_MISMATCH,
+    S_CACHE_DROP,
+    S_CACHE_SKIPPED,
 };
 
 struct profiler_stat {
     int32_t count;
 };
 
-extern struct profiler_stat profiler_stat_arr[PROFILER_NAME_COUNT];
+extern struct profiler_stat profiler_stat_arr[PROFILER_STAT_COUNT];
 
 void profiler_init();
 void profiler_start(enum profile_name name);

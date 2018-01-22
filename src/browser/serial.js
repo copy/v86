@@ -107,7 +107,7 @@ function SerialAdapter(element, bus)
             this.text_new_line = false;
             element.scrollTop = 1e9;
         }
-    }
+    };
 
     /**
      * @param {number} chr_code

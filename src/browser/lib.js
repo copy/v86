@@ -63,7 +63,7 @@ var ASYNC_SAFE = false;
         return {
             memory_size,
             table_size,
-        }
+        };
     };
 
     /**
@@ -124,7 +124,7 @@ var ASYNC_SAFE = false;
                         filename,
                     });
                 });
-        };
+        }
         v86util.load_file(filename, { done: load_cb });
     };
 

@@ -162,6 +162,7 @@
 
 #define MXCSR_MASK (0xFFFF & ~(1 << 6))
 
+#define JIT_MIN_BLOCK_LENGTH 3
 
 #define WASM_TABLE_SIZE 0x10000
 
@@ -177,3 +178,4 @@
 
 #define ENABLE_JIT 1
 #define ENABLE_PROFILER 0
+#define ENABLE_PROFILER_TIMES 0

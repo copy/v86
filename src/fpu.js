@@ -155,18 +155,18 @@ FPU.prototype.fpu_unimpl = function()
     dbg_trace();
     if(DEBUG) throw "fpu: unimplemented";
     else this.cpu.trigger_ud();
-}
+};
 
 FPU.prototype.stack_fault = function()
 {
     // TODO: Interrupt
     this.status_word[0] |= FPU_EX_SF | FPU_EX_I;
-}
+};
 
 FPU.prototype.invalid_arithmatic = function()
 {
     this.status_word[0] |= FPU_EX_I;
-}
+};
 
 FPU.prototype.fcom = function(y)
 {
@@ -189,13 +189,13 @@ FPU.prototype.fcom = function(y)
     {
         this.status_word[0] |= FPU_C0 | FPU_C2 | FPU_C3;
     }
-}
+};
 
 FPU.prototype.fucom = function(y)
 {
     // TODO
     this.fcom(y);
-}
+};
 
 
 FPU.prototype.fcomi = function(y)
@@ -220,13 +220,13 @@ FPU.prototype.fcomi = function(y)
     {
         this.cpu.flags[0] |= 1 | flag_parity | flag_zero;
     }
-}
+};
 
 FPU.prototype.fucomi = function(y)
 {
     // TODO
     this.fcomi(y);
-}
+};
 
 FPU.prototype.ftst = function(x)
 {
@@ -246,7 +246,7 @@ FPU.prototype.ftst = function(x)
     }
 
     // TODO: unordered (x is nan, etc)
-}
+};
 
 FPU.prototype.fxam = function(x)
 {
@@ -275,7 +275,7 @@ FPU.prototype.fxam = function(x)
     }
     // TODO:
     // Unsupported, Denormal
-}
+};
 
 FPU.prototype.finit = function()
 {
@@ -287,18 +287,18 @@ FPU.prototype.finit = function()
 
     this.stack_empty[0] = 0xFF;
     this.stack_ptr[0] = 0;
-}
+};
 
 FPU.prototype.load_status_word = function()
 {
     return this.status_word[0] & ~(7 << 11) | this.stack_ptr[0] << 11;
-}
+};
 
 FPU.prototype.set_status_word = function(sw)
 {
     this.status_word[0] = sw & ~(7 << 11);
     this.stack_ptr[0] = sw >> 11 & 7;
-}
+};
 
 FPU.prototype.load_tag_word = function()
 {
@@ -326,7 +326,7 @@ FPU.prototype.load_tag_word = function()
     //dbg_log("load  tw=" + h(tag_word) + " se=" + h(this.stack_empty[0]) + " sp=" + this.stack_ptr[0], LOG_FPU);
 
     return tag_word;
-}
+};
 
 FPU.prototype.set_tag_word = function(tag_word)
 {
@@ -338,7 +338,7 @@ FPU.prototype.set_tag_word = function(tag_word)
     }
 
     //dbg_log("set_tag_word  tw=" + h(tag_word) + " se=" + h(this.stack_empty), LOG_FPU);
-}
+};
 
 FPU.prototype.fstenv = function(addr)
 {
@@ -361,7 +361,7 @@ FPU.prototype.fstenv = function(addr)
     {
         this.fpu_unimpl();
     }
-}
+};
 
 FPU.prototype.fldenv = function(addr)
 {
@@ -382,7 +382,7 @@ FPU.prototype.fldenv = function(addr)
     {
         this.fpu_unimpl();
     }
-}
+};
 
 FPU.prototype.fsave = function(addr)
 {
@@ -400,7 +400,7 @@ FPU.prototype.fsave = function(addr)
     //dbg_log("save st=" + this.stack_ptr[0] + " " + [].slice.call(this.st), LOG_FPU);
 
     this.finit();
-}
+};
 
 FPU.prototype.frstor = function(addr)
 {
@@ -414,7 +414,7 @@ FPU.prototype.frstor = function(addr)
     }
 
     //dbg_log("rstor st=" + this.stack_ptr[0] + " " + [].slice.call(this.st), LOG_FPU);
-}
+};
 
 FPU.prototype.fxtract = function()
 {
@@ -456,12 +456,12 @@ FPU.prototype.integer_round = function(f)
     {
         return Math.ceil(f);
     }
-}
+};
 
 FPU.prototype.truncate = function(x)
 {
     return x > 0 ? Math.floor(x) : Math.ceil(x);
-}
+};
 
 FPU.prototype.push = function(x)
 {
@@ -479,13 +479,13 @@ FPU.prototype.push = function(x)
         this.stack_fault();
         this.st[this.stack_ptr[0]] = this.indefinite_nan;
     }
-}
+};
 
 FPU.prototype.pop = function()
 {
     this.stack_empty[0] |= 1 << this.stack_ptr[0];
     this.stack_ptr[0] = this.stack_ptr[0] + 1 & 7;
-}
+};
 
 FPU.prototype.get_sti = function(i)
 {
@@ -503,7 +503,7 @@ FPU.prototype.get_sti = function(i)
     {
         return this.st[i];
     }
-}
+};
 
 FPU.prototype.get_st0 = function()
 {
@@ -517,7 +517,7 @@ FPU.prototype.get_st0 = function()
     {
         return this.st[this.stack_ptr[0]];
     }
-}
+};
 
 FPU.prototype.load_m80 = function(addr)
 {
@@ -572,7 +572,7 @@ FPU.prototype.load_m80 = function(addr)
     // float64_byte and return float64[0]
 
     return mantissa * Math.pow(2, exponent - 63);
-}
+};
 
 FPU.prototype.store_m80 = function(addr, n)
 {
@@ -612,7 +612,7 @@ FPU.prototype.store_m80 = function(addr, n)
     this.cpu.safe_write32(addr + 4, high);
 
     this.cpu.safe_write16(addr + 8, sign << 8 | exponent);
-}
+};
 
 FPU.prototype.load_m64 = function(addr)
 {
@@ -673,7 +673,7 @@ FPU.prototype.dbg_log_fpu_op = function(op, imm8)
         dbg_log(h(op, 2) + " /" + imm8 +
                 "     @" + h(this.cpu.instruction_pointer[0] >>> 0, 8) + " sp=" + this.stack_ptr[0] + " st=" + h(this.stack_empty[0], 2), LOG_FPU);
     }
-}
+};
 
 
 FPU.prototype.fwait = function()

@@ -13,7 +13,7 @@ function ModemAdapter()
     this.enabled = true;
     this.socket = new WebSocket("ws://localhost:2080");
 
-    this.socket.onopen = this.onopen.bind(this);;
+    this.socket.onopen = this.onopen.bind(this);
     this.socket.onmessage = this.onmessage.bind(this);
     this.socket.onclose = this.onclose.bind(this);
     this.socket.onerror = this.onerror.bind(this);
@@ -60,4 +60,4 @@ ModemAdapter.prototype.put_chr = function(chr)
     {
         this.socket.send(chr);
     }
-}
+};

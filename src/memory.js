@@ -23,7 +23,7 @@ CPU.prototype.debug_write = function(addr, size, value)
     dbg_assert(value >= -0x80000000 && addr < 0x80000000);
 
     this.debug_read(addr, size, true);
-}
+};
 
 /**
  * @param {boolean=} is_write

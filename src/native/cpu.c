@@ -6,7 +6,7 @@
 
 #include "const.h"
 #include "global_pointers.h"
-#include "profiler.h"
+#include "profiler/profiler.h"
 #include "codegen/codegen.h"
 #include "log.h"
 #include "instructions.h"
@@ -14,24 +14,18 @@
 #include "shared.h"
 #include "modrm.h"
 #include "misc_instr.h"
+#include "js_imports.h"
 #include "cpu.h"
 
-// like memcpy, but only efficient for large (approximately 10k) sizes
-// See memcpy in https://github.com/kripken/emscripten/blob/master/src/library.js
-extern void* memcpy_large(void* dest, const void* src, size_t n);
-extern void codegen_finalize(int32_t, int32_t, int32_t, int32_t);
-extern void codegen_finalize(int32_t, int32_t, int32_t, int32_t);
-extern int32_t do_page_translation(int32_t, bool, bool);
-extern bool cpu_exception_hook(int32_t);
+struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, {0}, 0, 0, 0}};
 
-struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, {0}, 0, 0, 0}};
 uint32_t jit_jump = 0;
 int32_t hot_code_addresses[HASH_PRIME] = {0};
 uint32_t group_dirtiness[GROUP_DIRTINESS_LENGTH] = {0};
 
 void after_jump()
 {
-    jit_jump = 1;
+    jit_jump = true;
 }
 
 void diverged()
@@ -85,8 +79,6 @@ int32_t translate_address_write(int32_t address)
     }
 }
 
-bool jit_in_progress = false; // XXX: For debugging
-
 int32_t read_imm8()
 {
     int32_t eip = *instruction_pointer;
@@ -99,7 +91,6 @@ int32_t read_imm8()
 
     assert(!in_mapped_range(*eip_phys ^ eip));
     int32_t data8 = mem8[*eip_phys ^ eip];
-    if(jit_in_progress) dbg_log("%x/8/%x", eip, data8);
     *instruction_pointer = eip + 1;
 
     return data8;
@@ -121,7 +112,6 @@ int32_t read_imm16()
     }
 
     int32_t data16 = read16(*eip_phys ^ *instruction_pointer);
-    if(jit_in_progress) dbg_log("%x/16/%x", *instruction_pointer, data16);
     *instruction_pointer = *instruction_pointer + 2;
 
     return data16;
@@ -136,7 +126,6 @@ int32_t read_imm32s()
     }
 
     int32_t data32 = read32s(*eip_phys ^ *instruction_pointer);
-    if(jit_in_progress) dbg_log("%x/32/%x", *instruction_pointer, data32);
     *instruction_pointer = *instruction_pointer + 4;
 
     return data32;
@@ -230,13 +219,111 @@ void generate_instruction(int32_t opcode)
     gen_patch_increment_instruction_pointer(instruction_length);
 }
 
+static void jit_run_interpreted(int32_t phys_addr)
+{
+    profiler_start(P_RUN_INTERPRETED);
+    profiler_stat_increment(S_RUN_INTERPRETED);
+
+    jit_jump = false;
+
+    assert(!in_mapped_range(phys_addr));
+    int32_t opcode = mem8[phys_addr];
+    (*instruction_pointer)++;
+    (*timestamp_counter)++;
+    run_instruction(opcode | !!*is_32 << 8);
+
+    profiler_end(P_RUN_INTERPRETED);
+}
+
+static void jit_generate(int32_t address_hash, int32_t addr_index, uint32_t phys_addr, struct code_cache *entry, bool was_clean)
+{
+    profiler_start(P_GEN_INSTR);
+    profiler_stat_increment(S_COMPILE);
+
+    int32_t start_addr = *instruction_pointer;
+
+    // don't immediately retry to compile
+    hot_code_addresses[address_hash] = 0;
+
+    int32_t len = 0;
+    jit_jump = false;
+
+    int32_t end_addr = phys_addr + 1;
+    int32_t first_opcode = -1;
+
+    gen_reset();
+
+    while(!jit_jump && len < 50 && (*instruction_pointer & 0xFFF) < (0xFFF - 16))
+    {
+        *previous_ip = *instruction_pointer;
+        int32_t opcode = read_imm8();
+
+        if(len == 0)
+        {
+            first_opcode = opcode;
+        }
+        len++;
+
+        generate_instruction(opcode | !!*is_32 << 8);
+
+        end_addr = *eip_phys ^ *instruction_pointer;
+    }
+
+    // at this point no exceptions can be raised
+
+    if(len < JIT_MIN_BLOCK_LENGTH)
+    {
+        // abort, block is too short to be considered useful for compilation
+        profiler_stat_increment(S_CACHE_SKIPPED);
+        profiler_end(P_GEN_INSTR);
+        *instruction_pointer = start_addr;
+        return;
+    }
+
+    if(was_clean && entry->start_addr != 0 && entry->start_addr != phys_addr)
+    {
+        // contains still valid code from different address, about to be overwritten
+        //printf("%x %x", entry->start_addr, phys_addr);
+        profiler_stat_increment(S_CACHE_MISMATCH);
+    }
+    else if(!was_clean && entry->start_addr != 0)
+    {
+        profiler_stat_increment(S_CACHE_DROP);
+    }
+
+    assert(((end_addr ^ phys_addr) & ~0xFFF) == 0);
+
+    gen_increment_timestamp_counter(len);
+
+    assert(first_opcode != -1);
+
+    entry->opcode[0] = first_opcode;
+    entry->start_addr = phys_addr;
+    entry->is_32 = *is_32;
+    entry->end_addr = end_addr;
+    entry->len = len;
+
+    jit_jump = false;
+
+    gen_finish();
+
+    codegen_finalize(addr_index, start_addr, entry->start_addr, end_addr);
+
+    assert(*prefixes == 0);
+
+    entry->group_status = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
+
+    profiler_stat_increment(S_COMPILE_SUCCESS);
+    profiler_end(P_GEN_INSTR);
+}
+
 void cycle_internal()
 {
 #if ENABLE_JIT
 /* Use JIT mode */
     int32_t eip = *instruction_pointer;
     // Save previous_ip now since translate_address_read might trigger a page-fault
-    *previous_ip = *instruction_pointer;
+    *previous_ip = eip;
 
     if((eip & ~0xFFF) ^ *last_virt_eip)
     {
@@ -266,25 +353,8 @@ void cycle_internal()
         profiler_start(P_RUN_FROM_CACHE);
         profiler_stat_increment(S_RUN_FROM_CACHE);
 
-        // XXX: With the code-generation, we need to figure out how we
-        // would call the function from the other module here; likely
-        // through a handler in JS. For now:
-
-        // Confirm that cache is not dirtied (through page-writes,
-        // mode switch, or just cache eviction)
-        /*
-        for(int32_t i = 0; i < entry->len; i++)
-        {
-            *previous_ip = *instruction_pointer;
-            int32_t opcode = read_imm8();
-            phys_addr = *eip_phys ^ (*instruction_pointer - 1);
-            assert(opcode == entry->opcode[i]);
-            run_instruction(entry->opcode[i] | !!*is_32 << 8);
-            (*timestamp_counter)++;
-        }*/
         assert(entry->opcode[0] == read8(phys_addr));
 
-        //codegen_call_cache(phys_addr);
         call_indirect(addr_index);
 
         // XXX: Try to find an assert to detect self-modifying code
@@ -293,94 +363,25 @@ void cycle_internal()
 
         profiler_end(P_RUN_FROM_CACHE);
     }
-    else if(
-            JIT_ALWAYS ||
-            (
-                 (!JIT_COMPILE_ONLY_AFTER_JUMP || jit_jump == 1) &&
-                 ++hot_code_addresses[jit_hot_hash(phys_addr)] > JIT_THRESHOLD
-            )
-        )
-    {
-        if(clean && entry->start_addr != 0 && entry->start_addr != phys_addr)
-        {
-            // contains still valid code from different address, about to be overwritten
-            //printf("%x %x", entry->start_addr, phys_addr);
-            profiler_stat_increment(S_CACHE_MISMATCH);
-        }
-
-        profiler_start(P_GEN_INSTR);
-        profiler_stat_increment(S_COMPILE);
-
-        int32_t start_addr = *instruction_pointer;
-        jit_in_progress = false;
-
-        // Minimize collision based thrashing
-        hot_code_addresses[jit_hot_hash(phys_addr)] = 0;
-
-        // invalidate now, in case generate_instruction raises
-        entry->group_status = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT] - 1;
-
-        int32_t len = 0;
-        jit_jump = 0;
-
-        entry->start_addr = phys_addr;
-        int32_t end_addr = phys_addr + 1;
-        entry->is_32 = *is_32;
-
-        //jit_cache_arr[addr_index] = *entry;
-        assert(&jit_cache_arr[addr_index] == entry);
-
-        gen_reset();
-
-        // XXX: Artificial limit allows jit_dirty_cache to be
-        // simplified by only dirtying 2 entries based on a mask
-        // (instead of all possible entries)
-        while(jit_jump == 0 && len < 50 &&
-              (end_addr - entry->start_addr) < MAX_BLOCK_LENGTH)
-        {
-            *previous_ip = *instruction_pointer;
-            int32_t opcode = read_imm8();
-
-            if(len == 0)
-            {
-                entry->opcode[0] = opcode;
-            }
-            len++;
-
-            generate_instruction(opcode | !!*is_32 << 8);
-
-            end_addr = *eip_phys ^ *instruction_pointer;
-        }
-
-        gen_increment_timestamp_counter(len);
-
-        entry->len = len;
-
-        jit_jump = 0;
-
-        gen_finish();
-        jit_in_progress = false;
-
-        codegen_finalize(addr_index, start_addr, entry->start_addr, end_addr);
-
-        assert(*prefixes == 0);
-
-        entry->group_status = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
-
-        profiler_stat_increment(S_COMPILE_SUCCESS);
-        profiler_end(P_GEN_INSTR);
-    }
-    // Regular un-hot code execution
     else
     {
-        profiler_start(P_RUN_INTERPRETED);
-        profiler_stat_increment(S_RUN_INTERPRETED);
+        bool near_the_end_of_page = (phys_addr & 0xFFF) >= (0xFFF - 16);
+        bool did_jump = !JIT_COMPILE_ONLY_AFTER_JUMP || jit_jump;
+        const int32_t address_hash = jit_hot_hash(phys_addr);
 
-        int32_t opcode = read_imm8();
-        run_instruction(opcode | !!*is_32 << 8);
-        (*timestamp_counter)++;
-
-        profiler_end(P_RUN_INTERPRETED);
+        if(
+            !near_the_end_of_page && (
+                JIT_ALWAYS ||
+                (did_jump && ++hot_code_addresses[address_hash] > JIT_THRESHOLD)
+            )
+          )
+        {
+            jit_generate(address_hash, addr_index, phys_addr, entry, clean);
+        }
+        else
+        {
+            jit_run_interpreted(phys_addr);
+        }
     }
 
 #else

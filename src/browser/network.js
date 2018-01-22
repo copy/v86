@@ -107,7 +107,7 @@ NetworkAdapter.prototype.connect = function()
 
     this.socket.binaryType = "arraybuffer";
 
-    this.socket.onopen = this.handle_open.bind(this);;
+    this.socket.onopen = this.handle_open.bind(this);
     this.socket.onmessage = this.handle_message.bind(this);
     this.socket.onclose = this.handle_close.bind(this);
     this.socket.onerror = this.handle_error.bind(this);
@@ -132,4 +132,4 @@ NetworkAdapter.prototype.send = function(data)
     {
         this.socket.send(data);
     }
-}
+};

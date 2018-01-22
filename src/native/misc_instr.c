@@ -10,9 +10,8 @@
 #include "fpu.h"
 #include "log.h"
 #include "cpu.h"
+#include "js_imports.h"
 #include "misc_instr.h"
-
-extern void writable_or_pagefault(int32_t, int32_t);
 
 int32_t getcf()
 {

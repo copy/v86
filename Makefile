@@ -72,7 +72,7 @@ TRANSPILE_ES6_FLAGS=\
 		--language_out ECMASCRIPT5_STRICT\
 
 CC_FLAGS=\
-		-Isrc/native/ -Isrc/native/profiler/ \
+		-Isrc/native/ \
 		-Wall -Wpedantic -Wextra \
 		-Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \
 		-fcolor-diagnostics \
@@ -86,7 +86,7 @@ CC_FLAGS=\
 CORE_FILES=const.js config.js io.js main.js lib.js fpu.js ide.js pci.js floppy.js memory.js \
 	   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js ioapic.js \
 	   state.js ne2k.js virtio.js bus.js log.js \
-	   cpu.js translate.js modrm.js string.js arith.js misc_instr.js instructions.js debug.js \
+	   cpu.js translate.js debug.js \
 	   elf.js codegen.js
 LIB_FILES=9p.js filesystem.js jor1k.js marshall.js utf8.js
 BROWSER_FILES=screen.js \
@@ -217,7 +217,7 @@ nasmtests: build/libv86-debug.js build/v86-debug.wasm
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js
 
-jitpagingtests: build/libv86.js build/v86.wasm
+jitpagingtests: build/libv86-debug.js build/v86-debug.wasm
 	$(MAKE) -C tests/jit-paging test-jit
 	./tests/jit-paging/run.js
 

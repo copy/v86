@@ -1,3 +1,5 @@
+"use strict";
+
 /** @constructor */
 function DynamicTranslator(something)
 {

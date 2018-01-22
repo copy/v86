@@ -29,15 +29,18 @@ void profiler_init()
 
 void profiler_start(enum profile_name name)
 {
+#if ENABLE_PROFILER_TIMES
     struct profiler_data *entry = &profiler_arr[name];
     assert(!entry->capturing);
 
     entry->current_start = get_time();
     entry->capturing = true;
+#endif
 }
 
 void profiler_end(enum profile_name name)
 {
+#if ENABLE_PROFILER_TIMES
     struct profiler_data *entry = &profiler_arr[name];
     if(entry->capturing)
     {
@@ -45,10 +48,12 @@ void profiler_end(enum profile_name name)
         entry->current_start = 0;
         entry->capturing = false;
     }
+#endif
 }
 
 void profiler_print()
 {
+#if ENABLE_PROFILER_TIMES
     double init_elapsed = get_time() - profiler_init_time;
     printf("\nElapsed: %d\n", (int32_t) init_elapsed);
     for(int32_t i = 0; i < PROFILER_NAME_COUNT; i++)
@@ -64,6 +69,7 @@ void profiler_print()
             (int32_t) (100 * cur_total / init_elapsed)
         );
     }
+#endif
 }
 
 int32_t profiler_get_time(enum profile_name name)

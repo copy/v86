@@ -217,9 +217,6 @@ function CPU(bus, wm, codegen)
 
     this.bus = bus;
 
-    dbg_assert(this.table16 && this.table32);
-    dbg_assert(this.table0F_16 && this.table0F_32);
-
     this.update_operand_size();
 
     this.tsc_offset[0] = v86.microtick();
@@ -367,7 +364,6 @@ CPU.prototype.wasm_patch = function(wm)
     this.pusha32 = this.wm.exports['_pusha32'];
     this.pop16 = this.wm.exports['_pop16'];
     this.get_stack_reg = this.wm.exports['_get_stack_reg'];
-    this.setcc = this.wm.exports['_setcc'];
     this.set_stack_reg = this.wm.exports['_set_stack_reg'];
     this.get_reg_asize = this.wm.exports['_get_reg_asize'];
     this.set_ecx_asize = this.wm.exports['_set_ecx_asize'];
@@ -394,6 +390,19 @@ CPU.prototype.wasm_patch = function(wm)
     this.outsb = this.wm.exports['_outsb'];
     this.outsw = this.wm.exports['_outsw'];
     this.outsd = this.wm.exports['_outsd'];
+
+    this.getzf = this.wm.exports['_getzf'];
+    this.getsf = this.wm.exports['_getsf'];
+    this.getof = this.wm.exports['_getof'];
+    this.pop32s = this.wm.exports['_pop32s'];
+    this.test_o = this.wm.exports['_test_o'];
+    this.test_b = this.wm.exports['_test_b'];
+    this.test_z = this.wm.exports['_test_z'];
+    this.test_s = this.wm.exports['_test_s'];
+    this.test_p = this.wm.exports['_test_p'];
+    this.test_l = this.wm.exports['_test_l'];
+    this.test_be = this.wm.exports['_test_be'];
+    this.test_le = this.wm.exports['_test_le'];
 
     this.fxsave = this.wm.exports['_fxsave'];
     this.fxrstor = this.wm.exports['_fxrstor'];
@@ -1357,18 +1366,6 @@ CPU.prototype.cycle = function()
     }
 };
 
-CPU.prototype.run_instruction_0f = function()
-{
-    if(this.is_osize_32())
-    {
-        this.table0F_32[this.read_op0F()](this);
-    }
-    else
-    {
-        this.table0F_16[this.read_op0F()](this);
-    }
-};
-
 var seen_code = {};
 
 CPU.prototype.codegen_finalize = function(cache_index, virtual_start, start, end)
@@ -1447,26 +1444,6 @@ CPU.prototype.dbg_log = function()
 CPU.prototype.dbg_assert = function(x)
 {
     dbg_assert(x);
-};
-
-CPU.prototype.segment_prefix_op = function(sreg)
-{
-    dbg_assert(sreg <= 5);
-    this.prefixes[0] |= sreg + 1;
-    this.run_prefix_instruction();
-    this.prefixes[0] = 0;
-};
-
-CPU.prototype.run_prefix_instruction = function()
-{
-    if(this.is_osize_32())
-    {
-        this.table32[this.read_imm8()](this);
-    }
-    else
-    {
-        this.table16[this.read_imm8()](this);
-    }
 };
 
 CPU.prototype.hlt_loop = function()
@@ -1701,18 +1678,6 @@ CPU.prototype.diverged = function () {
 CPU.prototype.jit_empty_cache = function()
 {
     this.wm.exports["_jit_empty_cache"]();
-};
-
-CPU.prototype.modrm_resolve = function(modrm_byte)
-{
-    dbg_assert(modrm_byte < 0xC0);
-
-    return (this.is_asize_32() ? this.modrm_table32 : this.modrm_table16)[modrm_byte](this);
-};
-
-CPU.prototype.sib_resolve = function(mod)
-{
-    return this.sib_table[this.read_sib()](this, mod);
 };
 
 // read word from a page boundary, given 2 physical addresses
@@ -3604,172 +3569,6 @@ CPU.prototype.get_seg = function(segment /*, offset*/)
     return this.segment_offsets[segment];
 };
 
-CPU.prototype.read_e8 = function()
-{
-    var modrm_byte = this.modrm_byte[0];
-    if(modrm_byte < 0xC0) {
-        return this.safe_read8(this.modrm_resolve(modrm_byte));
-    } else {
-        return this.wm.exports['_read_e8_partial_branch']();
-    }
-};
-
-CPU.prototype.read_e8s = function()
-{
-    return this.read_e8() << 24 >> 24;
-};
-
-CPU.prototype.read_e16 = function()
-{
-    var modrm_byte = this.modrm_byte[0];
-    if(modrm_byte < 0xC0) {
-        return this.safe_read16(this.modrm_resolve(modrm_byte));
-    } else {
-        return this.reg16[modrm_byte << 1 & 14];
-    }
-};
-
-CPU.prototype.read_e16s = function()
-{
-    return this.read_e16() << 16 >> 16;
-};
-
-CPU.prototype.read_e32s = function()
-{
-    var modrm_byte = this.modrm_byte[0];
-    if(modrm_byte < 0xC0) {
-        return this.safe_read32s(this.modrm_resolve(modrm_byte));
-    } else {
-        return this.reg32s[modrm_byte & 7];
-    }
-};
-
-CPU.prototype.read_e32 = function()
-{
-    return this.read_e32s() >>> 0;
-};
-
-CPU.prototype.read_mmx_mem32s = function()
-{
-    if(this.modrm_byte[0] < 0xC0) {
-        return this.safe_read32s(this.modrm_resolve(this.modrm_byte[0]));
-    } else {
-        // Returning lower dword of qword
-        return this.reg_mmxs[2 * (this.modrm_byte[0] & 7)];
-    }
-};
-
-CPU.prototype.read_mmx_mem64s = function()
-{
-    if(this.modrm_byte[0] < 0xC0) {
-        return this.safe_read64s(this.modrm_resolve(this.modrm_byte[0]));
-    } else {
-        return this.create_atom64s(
-            this.reg_mmxs[2 * (this.modrm_byte[0] & 7)],
-            this.reg_mmxs[2 * (this.modrm_byte[0] & 7) + 1]
-        );
-    }
-};
-
-CPU.prototype.read_xmm_mem64s = function()
-{
-    if(this.modrm_byte[0] < 0xC0) {
-        return this.safe_read64s(this.modrm_resolve(this.modrm_byte[0]));
-    } else {
-        let i = (this.modrm_byte[0] & 7) << 2;
-        return this.create_atom64s(
-            this.reg_xmm32s[i],
-            this.reg_xmm32s[i | 1]
-        );
-    }
-};
-
-CPU.prototype.read_xmm_mem128s = function()
-{
-    if(this.modrm_byte[0] < 0xC0) {
-        return this.safe_read128s_aligned(this.modrm_resolve(this.modrm_byte[0]));
-    } else {
-        let i = (this.modrm_byte[0] & 7) << 2;
-        return this.create_atom128s(
-            this.reg_xmm32s[i],
-            this.reg_xmm32s[i | 1],
-            this.reg_xmm32s[i | 2],
-            this.reg_xmm32s[i | 3]
-        );
-    }
-};
-
-CPU.prototype.read_xmm_mem128s_unaligned = function()
-{
-    if(this.modrm_byte[0] < 0xC0) {
-        return this.safe_read128s_unaligned(this.modrm_resolve(this.modrm_byte[0]));
-    } else {
-        let i = (this.modrm_byte[0] & 7) << 2;
-        return this.create_atom128s(
-            this.reg_xmm32s[i],
-            this.reg_xmm32s[i | 1],
-            this.reg_xmm32s[i | 2],
-            this.reg_xmm32s[i | 3]
-        );
-    }
-};
-
-CPU.prototype.set_e8 = function(value)
-{
-    var modrm_byte = this.modrm_byte[0];
-    if(modrm_byte < 0xC0) {
-        var addr = this.modrm_resolve(modrm_byte);
-        this.safe_write8(addr, value);
-    } else {
-        this.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = value;
-    }
-};
-
-CPU.prototype.set_e16 = function(value)
-{
-    var modrm_byte = this.modrm_byte[0];
-    if(modrm_byte < 0xC0) {
-        var addr = this.modrm_resolve(modrm_byte);
-        this.safe_write16(addr, value);
-    } else {
-        this.reg16[modrm_byte << 1 & 14] = value;
-    }
-};
-
-CPU.prototype.set_e32 = function(value)
-{
-    var modrm_byte = this.modrm_byte[0];
-    if(modrm_byte < 0xC0) {
-        var addr = this.modrm_resolve(modrm_byte);
-        this.safe_write32(addr, value);
-    } else {
-        this.reg32s[modrm_byte & 7] = value;
-    }
-};
-
-CPU.prototype.set_mmx_mem64s = function(low, high)
-{
-    if(this.modrm_byte[0] < 0xC0) {
-        var addr = this.modrm_resolve(this.modrm_byte[0]);
-        this.safe_write64(addr, low, high);
-    } else {
-        this.reg_mmxs[2 * (this.modrm_byte[0] & 7)] = low;
-        this.reg_mmxs[2 * (this.modrm_byte[0] & 7) + 1] = high;
-    }
-};
-
-CPU.prototype.read_write_e8 = function()
-{
-    var modrm_byte = this.modrm_byte[0];
-    if(modrm_byte < 0xC0) {
-        var virt_addr = this.modrm_resolve(modrm_byte);
-        this.phys_addr[0] = this.translate_address_write(virt_addr);
-        return this.read8(this.phys_addr[0]);
-    } else {
-        return this.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1];
-    }
-};
-
 CPU.prototype.write_e8 = function(value)
 {
     var modrm_byte = this.modrm_byte[0];
@@ -3778,25 +3577,6 @@ CPU.prototype.write_e8 = function(value)
     }
     else {
         this.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = value;
-    }
-};
-
-CPU.prototype.read_write_e16 = function()
-{
-    var modrm_byte = this.modrm_byte[0];
-    if(modrm_byte < 0xC0) {
-        var virt_addr = this.modrm_resolve(modrm_byte);
-        this.phys_addr[0] = this.translate_address_write(virt_addr);
-        if(this.paging[0] && (virt_addr & 0xFFF) === 0xFFF) {
-            this.phys_addr_high[0] = this.translate_address_write(virt_addr + 1 | 0);
-            dbg_assert(this.phys_addr_high[0]);
-            return this.virt_boundary_read16(this.phys_addr[0], this.phys_addr_high[0]);
-        } else {
-            this.phys_addr_high[0] = 0;
-            return this.read16(this.phys_addr[0]);
-        }
-    } else {
-        return this.reg16[modrm_byte << 1 & 14];
     }
 };
 
@@ -3811,26 +3591,6 @@ CPU.prototype.write_e16 = function(value)
         }
     } else {
         this.reg16[modrm_byte << 1 & 14] = value;
-    }
-};
-
-CPU.prototype.read_write_e32 = function()
-{
-    var modrm_byte = this.modrm_byte[0];
-    if(modrm_byte < 0xC0) {
-        var virt_addr = this.modrm_resolve(modrm_byte);
-        this.phys_addr[0] = this.translate_address_write(virt_addr);
-        if(this.paging[0] && (virt_addr & 0xFFF) >= 0xFFD) {
-            //this.phys_addr_high[0] = this.translate_address_write(virt_addr + 3 | 0);
-            this.phys_addr_high[0] = this.translate_address_write(virt_addr + 3 & ~3) | (virt_addr + 3) & 3;
-            dbg_assert(this.phys_addr_high[0]);
-            return this.virt_boundary_read32s(this.phys_addr[0], this.phys_addr_high[0]);
-        } else {
-            this.phys_addr_high[0] = 0;
-            return this.read32s(this.phys_addr[0]);
-        }
-    } else {
-        return this.reg32s[modrm_byte & 7];
     }
 };
 
@@ -4198,7 +3958,7 @@ CPU.prototype.update_cs_size = function(new_size)
     }
 };
 
-CPU.prototype.update_operand_size = function()
+CPU.prototype.update_operand_size = function() {}; /*
 {
     if(this.is_32[0])
     {
@@ -4208,7 +3968,7 @@ CPU.prototype.update_operand_size = function()
     {
         this.table = this.table16;
     }
-};
+}; */
 
 /**
  * @param {number} selector
@@ -5074,6 +4834,185 @@ CPU.prototype.decr_ecx_asize = function()
     return this.is_asize_32() ? --this.reg32s[reg_ecx] : --this.reg16[reg_cx];
 };
 
+// moved from misc_instr.js (now deleted)
+CPU.prototype.loopne = function(imm8s)
+{
+    if(this.decr_ecx_asize() && !this.getzf())
+    {
+        this.instruction_pointer[0] = this.instruction_pointer[0] + imm8s | 0;
+        this.branch_taken();
+    }
+    else
+    {
+        this.branch_not_taken();
+    }
+};
+
+CPU.prototype.loope = function(imm8s)
+{
+    if(this.decr_ecx_asize() && this.getzf())
+    {
+        this.instruction_pointer[0] = this.instruction_pointer[0] + imm8s | 0;
+        this.branch_taken();
+    }
+    else
+    {
+        this.branch_not_taken();
+    }
+};
+
+CPU.prototype.loop = function(imm8s)
+{
+    if(this.decr_ecx_asize())
+    {
+        this.instruction_pointer[0] = this.instruction_pointer[0] + imm8s | 0;
+        this.branch_taken();
+    }
+    else
+    {
+        this.branch_not_taken();
+    }
+};
+
+CPU.prototype.jcxz = function(imm8s)
+{
+    if(this.get_reg_asize(reg_ecx) === 0)
+    {
+        this.instruction_pointer[0] = this.instruction_pointer[0] + imm8s | 0;
+        this.branch_taken();
+    }
+    else
+    {
+        this.branch_not_taken();
+    }
+};
+
+/** @return {number} */
+CPU.prototype.getpf = function()
+{
+    if(this.flags_changed[0] & flag_parity)
+    {
+        // inverted lookup table
+        return 0x9669 << 2 >> ((this.last_result[0] ^ this.last_result[0] >> 4) & 0xF) & flag_parity;
+    }
+    else
+    {
+        return this.flags[0] & flag_parity;
+    }
+};
+
+CPU.prototype.popa16 = function()
+{
+    this.translate_address_read(this.get_stack_pointer(0));
+    this.translate_address_read(this.get_stack_pointer(15));
+
+    this.reg16[reg_di] = this.pop16();
+    this.reg16[reg_si] = this.pop16();
+    this.reg16[reg_bp] = this.pop16();
+    this.adjust_stack_reg(2);
+    this.reg16[reg_bx] = this.pop16();
+    this.reg16[reg_dx] = this.pop16();
+    this.reg16[reg_cx] = this.pop16();
+    this.reg16[reg_ax] = this.pop16();
+};
+
+CPU.prototype.popa32 = function()
+{
+    this.translate_address_read(this.get_stack_pointer(0));
+    this.translate_address_read(this.get_stack_pointer(31));
+
+    this.reg32s[reg_edi] = this.pop32s();
+    this.reg32s[reg_esi] = this.pop32s();
+    this.reg32s[reg_ebp] = this.pop32s();
+    this.adjust_stack_reg(4);
+    this.reg32s[reg_ebx] = this.pop32s();
+    this.reg32s[reg_edx] = this.pop32s();
+    this.reg32s[reg_ecx] = this.pop32s();
+    this.reg32s[reg_eax] = this.pop32s();
+};
+
+CPU.prototype.lss16 = function(addr, reg, seg)
+{
+    var new_reg = this.safe_read16(addr),
+        new_seg = this.safe_read16(addr + 2 | 0);
+
+    this.switch_seg(seg, new_seg);
+
+    this.reg16[reg] = new_reg;
+};
+
+CPU.prototype.lss32 = function(addr, reg, seg)
+{
+    var new_reg = this.safe_read32s(addr),
+        new_seg = this.safe_read16(addr + 4 | 0);
+
+    this.switch_seg(seg, new_seg);
+
+    this.reg32s[reg] = new_reg;
+};
+
+CPU.prototype.enter16 = function(size, nesting_level)
+{
+    nesting_level &= 31;
+
+    if(nesting_level) dbg_log("enter16 stack=" + (this.stack_size_32[0] ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
+
+    var ss_mask = this.stack_size_32[0] ? -1 : 0xFFFF;
+    var ss = this.get_seg(reg_ss);
+    var frame_temp = this.reg32s[reg_esp] - 2;
+
+    if(nesting_level > 0)
+    {
+        var tmp_ebp = this.reg32s[reg_ebp];
+        for(var i = 1; i < nesting_level; i++)
+        {
+            tmp_ebp -= 2;
+            this.push16(this.safe_read16(ss + (tmp_ebp & ss_mask) | 0));
+        }
+        this.push16(frame_temp);
+    }
+
+    // check if write to final stack pointer would case a page fault
+    this.writable_or_pagefault(ss + (frame_temp - size & ss_mask), 2);
+    this.safe_write16(ss + (frame_temp & ss_mask) | 0, this.reg16[reg_bp]);
+    this.reg16[reg_bp] = frame_temp;
+    this.adjust_stack_reg(-size - 2);
+};
+
+CPU.prototype.enter32 = function(size, nesting_level)
+{
+    nesting_level &= 31;
+
+    if(nesting_level) dbg_log("enter32 stack=" + (this.stack_size_32[0] ? 32 : 16) + " size=" + size + " nest=" + nesting_level, LOG_CPU);
+
+    var ss_mask = this.stack_size_32[0] ? -1 : 0xFFFF;
+    var ss = this.get_seg(reg_ss);
+    var frame_temp = this.reg32s[reg_esp] - 4;
+
+    if(nesting_level > 0)
+    {
+        var tmp_ebp = this.reg32s[reg_ebp];
+        for(var i = 1; i < nesting_level; i++)
+        {
+            tmp_ebp -= 4;
+            this.push32(this.safe_read32s(ss + (tmp_ebp & ss_mask) | 0));
+        }
+        this.push32(frame_temp);
+    }
+
+    // check if write to final stack pointer would case a page fault
+    this.writable_or_pagefault(ss + (frame_temp - size & ss_mask), 4);
+    this.safe_write32(ss + (frame_temp & ss_mask) | 0, this.reg32s[reg_ebp]);
+    this.reg32s[reg_ebp] = frame_temp;
+    this.adjust_stack_reg(-size - 4);
+};
+
+CPU.prototype.bswap = function(reg)
+{
+    var temp = this.reg32s[reg];
+
+    this.reg32s[reg] = temp >>> 24 | temp << 24 | (temp >> 8 & 0xFF00) | (temp << 8 & 0xFF0000);
+};
 // Closure Compiler's way of exporting
 if(typeof window !== "undefined")
 {

@@ -228,7 +228,6 @@ function V86Starter(options)
         "_loop": function() { return cpu.loop.apply(cpu, arguments); },
         "_loope": function() { return cpu.loope.apply(cpu, arguments); },
         "_loopne": function() { return cpu.loopne.apply(cpu, arguments); },
-        "_bcd_aam": function() { return cpu.bcd_aam.apply(cpu, arguments); },
         "_task_switch_test": function() { return cpu.task_switch_test.apply(cpu, arguments); },
         "_jcxz": function() { return cpu.jcxz.apply(cpu, arguments); },
         "_test_privileges_for_io": function() { return cpu.test_privileges_for_io.apply(cpu, arguments); },
@@ -585,6 +584,11 @@ function V86Starter(options)
             if(settings.initial_state)
             {
                 emulator.restore_state(settings.initial_state);
+
+                // The GC can't free settings, since it is referenced from
+                // several closures. This isn't needed anymore, so we delete it
+                // here
+                settings.initial_state = undefined;
             }
 
             setTimeout(function()

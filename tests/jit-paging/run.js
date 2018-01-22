@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-var V86 = require("../../build/libv86.js").V86;
+var V86 = require("../../build/libv86-debug.js").V86;
 var fs = require("fs");
 
 var test_executable = new Uint8Array(fs.readFileSync(__dirname + "/test-jit"));
@@ -47,7 +47,7 @@ emulator.add_listener("serial0-output-char", function(chr)
     {
         ran_command = true;
         emulator.serial0_send("chmod +x /mnt/test-jit\n");
-        emulator.serial0_send("/mnt/test-jit > /mnt/result\n");
+        emulator.serial0_send("/mnt/test-jit 2>&1 | tee /mnt/result\n");
         emulator.serial0_send("echo test fini''shed\n");
     }
 
@@ -59,15 +59,15 @@ emulator.add_listener("serial0-output-char", function(chr)
             {
                 emulator.stop();
                 if(err) throw err;
-                let result = (new Buffer(data)).toString();
-                if(result !== 'test passed\n')
+                let result = new Buffer(data).toString();
+                if(result !== "test_shared passed\ntest_consecutive_written passed\n")
                 {
-                    console.error('[!] Error. Result was:', result);
+                    console.error("[!] Error. Result was:\n" + result);
                     process.exit(1);
                 }
                 else
                 {
-                    console.log('[+] Test passed');
+                    console.log("[+] Test passed");
                 }
             });
     }

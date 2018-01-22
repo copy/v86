@@ -15,7 +15,7 @@ function Codegen(wm)
 Codegen.prototype.reset = function()
 {
     this.wm.exports["_gen_reset"]();
-}
+};
 
 Codegen.OUTPUT_OFFSET = 2048;
 Codegen.STR_INPUT_OFFSET = Codegen.OUTPUT_OFFSET + 1024 - 32;

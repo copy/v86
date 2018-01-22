@@ -14,58 +14,11 @@
 #include "memory.h"
 #include "codegen/codegen.h"
 #include "instructions_0f.h"
+#include "js_imports.h"
 #include "instructions.h"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
-
-extern void far_jump(int32_t, int32_t, int32_t);
-extern void update_eflags(int32_t);
-extern void iret16(void);
-extern void iret32(void);
-extern void bcd_aam(int32_t);
-extern void task_switch_test(void);
-extern void far_return(int32_t, int32_t, int32_t);
-extern void switch_seg(int32_t, int32_t);
-extern int32_t arpl(int32_t, int32_t);
-extern void popa16(void);
-extern void popa32(void);
-extern int32_t getiopl(void);
-extern bool vm86_mode(void);
-extern void fwait(void);
-extern void fpu_op_D8_mem(int32_t, int32_t);
-extern void fpu_op_D8_reg(int32_t);
-extern void fpu_op_D9_mem(int32_t, int32_t);
-extern void fpu_op_D9_reg(int32_t);
-extern void fpu_op_DA_mem(int32_t, int32_t);
-extern void fpu_op_DA_reg(int32_t);
-extern void fpu_op_DB_mem(int32_t, int32_t);
-extern void fpu_op_DB_reg(int32_t);
-extern void fpu_op_DC_mem(int32_t, int32_t);
-extern void fpu_op_DC_reg(int32_t);
-extern void fpu_op_DD_mem(int32_t, int32_t);
-extern void fpu_op_DD_reg(int32_t);
-extern void fpu_op_DE_mem(int32_t, int32_t);
-extern void fpu_op_DE_reg(int32_t);
-extern void fpu_op_DF_mem(int32_t, int32_t);
-extern void fpu_op_DF_reg(int32_t);
-extern int32_t loop(int32_t);
-extern int32_t loope(int32_t);
-extern int32_t loopne(int32_t);
-extern void enter16(int32_t, int32_t);
-extern void enter32(int32_t, int32_t);
-extern void hlt_op(void);
-extern void test_privileges_for_io(int32_t, int32_t);
-extern void lss16(int32_t, int32_t, int32_t);
-extern void lss32(int32_t, int32_t, int32_t);
-extern int32_t io_port_read8(int32_t);
-extern int32_t io_port_read16(int32_t);
-extern int32_t io_port_read32(int32_t);
-extern void io_port_write8(int32_t, int32_t);
-extern void io_port_write16(int32_t, int32_t);
-extern void io_port_write32(int32_t, int32_t);
-extern void handle_irqs(void);
-extern void jcxz(int32_t);
 
 DEFINE_MODRM_INSTR_READ_WRITE_8(instr_00, add8(___, read_reg8(r)))
 DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_01, add16(___, read_reg16(r)))

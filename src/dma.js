@@ -93,12 +93,12 @@ DMA.prototype.portB_write = function(data_byte)
 DMA.prototype.portC_write = function(data_byte)
 {
     this.lsb_msb_flipflop = 0;
-}
+};
 
 DMA.prototype.port81_write = function(data_byte)
 {
     this.channel_addr[2] = this.channel_addr[2] & 0xFFFF | data_byte << 16;
-}
+};
 
 // read data, write to memory
 DMA.prototype.do_read = function(buffer, start, len, channel, fn)
@@ -162,7 +162,7 @@ DMA.prototype.do_write = function(buffer, start, len, channel, fn)
                 }
             );
     }
-}
+};
 
 DMA.prototype.flipflop_get = function(old_dword, new_byte)
 {
@@ -178,4 +178,4 @@ DMA.prototype.flipflop_get = function(old_dword, new_byte)
         // high byte
         return old_dword & ~0xFF00 | new_byte << 8;
     }
-}
+};

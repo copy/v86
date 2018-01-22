@@ -6,16 +6,8 @@
 #include "memory.h"
 #include "log.h"
 #include "arith.h"
+#include "js_imports.h"
 #include "string.h"
-
-extern void test_privileges_for_io(int32_t, int32_t);
-extern void writable_or_pagefault(int32_t, int32_t);
-extern int32_t io_port_read8(int32_t);
-extern int32_t io_port_read16(int32_t);
-extern int32_t io_port_read32(int32_t);
-extern void io_port_write8(int32_t, int32_t);
-extern void io_port_write16(int32_t, int32_t);
-extern void io_port_write32(int32_t, int32_t);
 
 #define MAX_COUNT_PER_CYCLE 0x1000
 #define MIN(x, y) (x < y ? x : y)

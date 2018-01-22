@@ -34,6 +34,7 @@ typedef char assertion_size_reg64[(sizeof(union reg64) == 8) * 2 - 1];
 struct code_cache {
     // Address of the start of the basic block
     uint32_t start_addr;
+    uint32_t end_addr;
     // Address of the instruction immediately after the basic block ends
     int32_t opcode[1]; // TODO: Remove in debug mode
     int32_t len;
@@ -43,8 +44,6 @@ struct code_cache {
     // group_dirtiness value.
     uint32_t group_status;
 };
-
-extern struct code_cache jit_cache_arr[WASM_TABLE_SIZE];
 
 // Flag indicating whether the instruction that just ran was a jump of some sort
 extern uint32_t jit_jump;

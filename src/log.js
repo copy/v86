@@ -156,7 +156,7 @@ function dbg_assert(cond, msg, level)
     {
         dbg_assert_failed(msg);
     }
-};
+}
 
 
 function dbg_assert_failed(msg)
