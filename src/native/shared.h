@@ -53,7 +53,7 @@ extern uint32_t jit_jump;
 extern int32_t hot_code_addresses[HASH_PRIME];
 // An array indicating the current "initial group status" for entries that map
 // to the same group due to the shift
-extern uint32_t group_dirtiness[1 + (0xffffffff >> DIRTY_ARR_SHIFT)];
+extern uint32_t group_dirtiness[GROUP_DIRTINESS_LENGTH];
 
 extern void call_indirect(int32_t index);
 extern void jit_clear_func(int32_t index);

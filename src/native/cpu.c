@@ -27,7 +27,7 @@ extern bool cpu_exception_hook(int32_t);
 struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, {0}, 0, 0, 0}};
 uint32_t jit_jump = 0;
 int32_t hot_code_addresses[HASH_PRIME] = {0};
-uint32_t group_dirtiness[1 + (0xffffffff >> DIRTY_ARR_SHIFT)] = {0};
+uint32_t group_dirtiness[GROUP_DIRTINESS_LENGTH] = {0};
 
 void after_jump()
 {
