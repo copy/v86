@@ -1149,7 +1149,7 @@ VGAScreen.prototype.set_size_graphical = function(width, height, bpp, virtual_wi
     this.stats.res_x = width;
     this.stats.res_y = height;
 
-    this.bus.send("screen-set-size-graphical", [width, height, bpp, virtual_width, virtual_height]);
+    this.bus.send("screen-set-size-graphical", [width, height, virtual_width, virtual_height]);
 };
 
 VGAScreen.prototype.update_vga_size = function()
