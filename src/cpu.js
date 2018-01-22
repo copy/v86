@@ -149,8 +149,6 @@ function CPU(bus, wm, codegen)
 
     this.tsc_offset = new Int32Array(wm.memory.buffer, 652, 1);
 
-    this.modrm_byte = new Int32Array(wm.memory.buffer, 540, 1);
-
     this.phys_addr = new Int32Array(wm.memory.buffer, 656, 1);
 
     this.phys_addr_high = new Int32Array(wm.memory.buffer, 660, 1);
@@ -346,8 +344,6 @@ CPU.prototype.wasm_patch = function(wm)
     this.read_imm8s = this.wm.exports['_read_imm8s'];
     this.read_imm16 = this.wm.exports['_read_imm16'];
     this.read_imm32s = this.wm.exports['_read_imm32s'];
-    this.read_write_e8 = this.wm.exports['_read_write_e8'];
-    this.write_e8 = this.wm.exports['_write_e8'];
     this.in_mapped_range = this.wm.exports['_in_mapped_range'];
     this.read16 = this.wm.exports['_read16'];
     this.read_aligned16 = this.wm.exports['_read_aligned16'];
@@ -448,7 +444,6 @@ CPU.prototype.get_state = function()
     state[29] = this.last_op2[0];
     state[30] = this.last_op_size[0];
     state[31] = this.last_add_result[0];
-    state[32] = this.modrm_byte[0];
 
     state[36] = this.paging[0];
     state[37] = this.instruction_pointer[0];
@@ -524,7 +519,6 @@ CPU.prototype.set_state = function(state)
     this.last_op2[0] = state[29];
     this.last_op_size[0] = state[30];
     this.last_add_result[0] = state[31];
-    this.modrm_byte[0] = state[32];
 
     this.paging[0] = state[36];
     this.instruction_pointer[0] = state[37];
@@ -1640,11 +1634,6 @@ CPU.prototype.create_atom128s = function(d0, d1, d2, d3)
     data[2] = d2;
     data[3] = d3;
     return data;
-};
-
-CPU.prototype.read_modrm_byte = function()
-{
-    this.modrm_byte[0] = this.read_imm8();
 };
 
 CPU.prototype.read_op0F = CPU.prototype.read_imm8;
@@ -3567,149 +3556,6 @@ CPU.prototype.get_seg = function(segment /*, offset*/)
     }
 
     return this.segment_offsets[segment];
-};
-
-CPU.prototype.write_e8 = function(value)
-{
-    var modrm_byte = this.modrm_byte[0];
-    if(modrm_byte < 0xC0) {
-        this.write8(this.phys_addr[0], value);
-    }
-    else {
-        this.reg8[modrm_byte << 2 & 0xC | modrm_byte >> 2 & 1] = value;
-    }
-};
-
-CPU.prototype.write_e16 = function(value)
-{
-    var modrm_byte = this.modrm_byte[0];
-    if(modrm_byte < 0xC0) {
-        if(this.phys_addr_high[0]) {
-            this.virt_boundary_write16(this.phys_addr[0], this.phys_addr_high[0], value);
-        } else {
-            this.write16(this.phys_addr[0], value);
-        }
-    } else {
-        this.reg16[modrm_byte << 1 & 14] = value;
-    }
-};
-
-CPU.prototype.write_e32 = function(value)
-{
-    var modrm_byte = this.modrm_byte[0];
-    if(modrm_byte < 0xC0) {
-        if(this.phys_addr_high[0]) {
-            this.virt_boundary_write32(this.phys_addr[0], this.phys_addr_high[0], value);
-        } else {
-            this.write32(this.phys_addr[0], value);
-        }
-    } else {
-        this.reg32s[modrm_byte & 7] = value;
-    }
-};
-
-CPU.prototype.read_reg_e16 = function()
-{
-    return this.reg16[this.modrm_byte[0] << 1 & 14];
-};
-
-CPU.prototype.write_reg_e16 = function(value)
-{
-    this.reg16[this.modrm_byte[0] << 1 & 14] = value;
-};
-
-CPU.prototype.read_reg_e32s = function()
-{
-    return this.reg32s[this.modrm_byte[0] & 7];
-};
-
-CPU.prototype.write_reg_e32 = function(value)
-{
-    this.reg32s[this.modrm_byte[0] & 7] = value;
-};
-
-CPU.prototype.read_g8 = function()
-{
-    return this.reg8[this.modrm_byte[0] >> 1 & 0xC | this.modrm_byte[0] >> 5 & 1];
-};
-
-CPU.prototype.write_g8 = function(value)
-{
-    this.reg8[this.modrm_byte[0] >> 1 & 0xC | this.modrm_byte[0] >> 5 & 1] = value;
-};
-
-CPU.prototype.read_g16 = function()
-{
-    return this.reg16[this.modrm_byte[0] >> 2 & 14];
-};
-
-CPU.prototype.read_g16s = function()
-{
-    return this.reg16s[this.modrm_byte[0] >> 2 & 14];
-};
-
-CPU.prototype.write_g16 = function(value)
-{
-    this.reg16[this.modrm_byte[0] >> 2 & 14] = value;
-};
-
-CPU.prototype.read_g32s = function()
-{
-    return this.reg32s[this.modrm_byte[0] >> 3 & 7];
-};
-
-CPU.prototype.write_g32 = function(value)
-{
-    this.reg32[this.modrm_byte[0] >> 3 & 7] = value;
-};
-
-CPU.prototype.read_xmm64s = function()
-{
-    return this.create_atom64s(
-        this.reg_xmm32s[(this.modrm_byte[0] >> 3 & 7) << 2],
-        this.reg_xmm32s[(this.modrm_byte[0] >> 3 & 7) << 2 | 1]
-    );
-};
-
-CPU.prototype.read_xmm128s = function()
-{
-    let i = (this.modrm_byte[0] >> 3 & 7) << 2;
-    return this.create_atom128s(
-        this.reg_xmm32s[i | 0],
-        this.reg_xmm32s[i | 1],
-        this.reg_xmm32s[i | 2],
-        this.reg_xmm32s[i | 3]
-    );
-};
-
-CPU.prototype.read_mmx64s = function()
-{
-    return this.create_atom64s(
-        this.reg_mmxs[2 * (this.modrm_byte[0] >> 3 & 7)],
-        this.reg_mmxs[2 * (this.modrm_byte[0] >> 3 & 7) + 1]
-    );
-};
-
-CPU.prototype.write_mmx64s = function(low, high)
-{
-    this.reg_mmxs[2 * (this.modrm_byte[0] >> 3 & 7)] = low;
-    this.reg_mmxs[2 * (this.modrm_byte[0] >> 3 & 7) + 1] = high;
-};
-
-CPU.prototype.write_xmm64 = function(low, high)
-{
-    let i = (this.modrm_byte[0] >> 3 & 7) << 2;
-    this.reg_xmm32s[i] = low;
-    this.reg_xmm32s[i + 1] = high;
-};
-
-CPU.prototype.write_xmm128s = function(d0, d1, d2, d3)
-{
-    let i = (this.modrm_byte[0] >> 3 & 7) << 2;
-    this.reg_xmm32s[i] = d0;
-    this.reg_xmm32s[i + 1] = d1;
-    this.reg_xmm32s[i + 2] = d2;
-    this.reg_xmm32s[i + 3] = d3;
 };
 
 CPU.prototype.pic_call_irq = function(int)
