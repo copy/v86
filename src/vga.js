@@ -544,7 +544,7 @@ VGAScreen.prototype.set_state = function(state)
         if(this.svga_enabled)
         {
             this.set_size_graphical(this.svga_width, this.svga_height,
-                8, this.svga_width, this.svga_height);
+                this.svga_bpp, this.svga_width, this.svga_height);
             this.update_layers();
         }
         else
