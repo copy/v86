@@ -24,7 +24,6 @@ int32_t get_seg_prefix_ss(int32_t offset);
 int32_t get_seg_prefix_cs(int32_t offset);
 int32_t modrm_resolve(int32_t modrm_byte);
 uint32_t jit_hot_hash(uint32_t addr);
-void generate_instruction(int32_t opcode);
 void cycle_internal(void);
 void run_prefix_instruction(void);
 void jit_prefix_instruction(void);

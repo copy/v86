@@ -201,7 +201,7 @@ uint32_t jit_hot_hash(uint32_t addr)
     return addr % HASH_PRIME;
 }
 
-void generate_instruction(int32_t opcode)
+static void generate_instruction(int32_t opcode)
 {
     gen_set_previous_eip();
     gen_increment_instruction_pointer(0);
@@ -235,7 +235,7 @@ static void jit_run_interpreted(int32_t phys_addr)
     profiler_end(P_RUN_INTERPRETED);
 }
 
-static void jit_generate(int32_t address_hash, int32_t addr_index, uint32_t phys_addr, struct code_cache *entry, bool was_clean)
+static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_cache* entry, bool was_clean)
 {
     profiler_start(P_GEN_INSTR);
     profiler_stat_increment(S_COMPILE);
@@ -280,13 +280,13 @@ static void jit_generate(int32_t address_hash, int32_t addr_index, uint32_t phys
         return;
     }
 
-    if(was_clean && entry->start_addr != 0 && entry->start_addr != phys_addr)
+    if(was_clean && entry && entry->start_addr != phys_addr)
     {
         // contains still valid code from different address, about to be overwritten
         //printf("%x %x", entry->start_addr, phys_addr);
         profiler_stat_increment(S_CACHE_MISMATCH);
     }
-    else if(!was_clean && entry->start_addr != 0)
+    else if(!was_clean && entry)
     {
         profiler_stat_increment(S_CACHE_DROP);
     }
@@ -296,6 +296,17 @@ static void jit_generate(int32_t address_hash, int32_t addr_index, uint32_t phys
     gen_increment_timestamp_counter(len);
 
     assert(first_opcode != -1);
+
+    if(!entry)
+    {
+        uint16_t addr_index = phys_addr & JIT_PHYS_MASK;
+        entry = &jit_cache_arr[addr_index];
+    }
+    else
+    {
+        assert(entry->start_addr == phys_addr);
+        assert(entry->is_32 == *is_32);
+    }
 
     entry->opcode[0] = first_opcode;
     entry->start_addr = phys_addr;
@@ -307,7 +318,8 @@ static void jit_generate(int32_t address_hash, int32_t addr_index, uint32_t phys
 
     gen_finish();
 
-    codegen_finalize(addr_index, start_addr, entry->start_addr, end_addr);
+    int32_t wasm_table_index = phys_addr & 0xFFFF;
+    codegen_finalize(wasm_table_index, start_addr, entry->start_addr, end_addr);
 
     assert(*prefixes == 0);
 
@@ -315,6 +327,21 @@ static void jit_generate(int32_t address_hash, int32_t addr_index, uint32_t phys
 
     profiler_stat_increment(S_COMPILE_SUCCESS);
     profiler_end(P_GEN_INSTR);
+}
+
+static struct code_cache* find_cache_entry(uint32_t phys_addr, bool is_32)
+{
+    uint16_t addr_index = phys_addr & JIT_PHYS_MASK;
+    struct code_cache* entry = &jit_cache_arr[addr_index];
+
+    if(entry->start_addr == phys_addr && entry->is_32 == is_32)
+    {
+        return entry;
+    }
+    else
+    {
+        return NULL;
+    }
 }
 
 void cycle_internal()
@@ -334,28 +361,28 @@ void cycle_internal()
     uint32_t phys_addr = *eip_phys ^ eip;
     assert(!in_mapped_range(phys_addr));
 
-    uint16_t addr_index = phys_addr & JIT_PHYS_MASK;
-    struct code_cache *entry = &jit_cache_arr[addr_index];
-    bool cached = entry->start_addr == phys_addr && entry->is_32 == *is_32;
-    bool clean = entry->group_status == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
+    struct code_cache* entry = find_cache_entry(phys_addr, *is_32);
+
+    bool clean = true;
+
+    if(entry)
+    {
+        clean = entry->group_status == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
+    }
 
     const bool JIT_ALWAYS = false;
     const bool JIT_DONT_USE_CACHE = false;
     const bool JIT_COMPILE_ONLY_AFTER_JUMP = true;
 
-    if(cached && !clean)
-    {
-        //jit_clear_func(addr_index);
-    }
-
-    if(!JIT_DONT_USE_CACHE && cached && clean)
+    if(!JIT_DONT_USE_CACHE && entry && clean)
     {
         profiler_start(P_RUN_FROM_CACHE);
         profiler_stat_increment(S_RUN_FROM_CACHE);
 
         assert(entry->opcode[0] == read8(phys_addr));
 
-        call_indirect(addr_index);
+        uint16_t wasm_table_index = phys_addr & JIT_PHYS_MASK;
+        call_indirect(wasm_table_index);
 
         // XXX: Try to find an assert to detect self-modifying code
         // JIT compiled self-modifying basic blocks may trigger this assert
@@ -376,7 +403,7 @@ void cycle_internal()
             )
           )
         {
-            jit_generate(address_hash, addr_index, phys_addr, entry, clean);
+            jit_generate(address_hash, phys_addr, entry, clean);
         }
         else
         {
