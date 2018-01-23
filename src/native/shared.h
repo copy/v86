@@ -44,6 +44,7 @@ struct code_cache {
     // group_dirtiness value.
     uint32_t group_status;
 };
+struct code_cache jit_cache_arr[WASM_TABLE_SIZE];
 
 // Flag indicating whether the instruction that just ran was a jump of some sort
 extern uint32_t jit_jump;
