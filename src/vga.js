@@ -1138,9 +1138,8 @@ VGAScreen.prototype.set_size_text = function(cols_count, rows_count)
 
 VGAScreen.prototype.set_size_graphical = function(width, height, bpp, virtual_width, virtual_height)
 {
-    this.stats.bpp = bpp;
-
     var needs_update = !this.stats.is_graphical ||
+        this.stats.bpp !== bpp ||
         this.screen_width !== width ||
         this.screen_height !== height ||
         this.virtual_width !== virtual_width ||
@@ -1153,11 +1152,12 @@ VGAScreen.prototype.set_size_graphical = function(width, height, bpp, virtual_wi
         this.virtual_width = virtual_width;
         this.virtual_height = virtual_height;
 
+        this.stats.bpp = bpp;
         this.stats.is_graphical = true;
         this.stats.res_x = width;
         this.stats.res_y = height;
 
-        this.bus.send("screen-set-size-graphical", [width, height, virtual_width, virtual_height]);
+        this.bus.send("screen-set-size-graphical", [width, height, virtual_width, virtual_height, bpp]);
     }
 };
 
