@@ -406,18 +406,18 @@ VGAScreen.prototype.get_state = function()
     state[3] = this.cursor_scanline_end;
     state[4] = this.max_cols;
     state[5] = this.max_rows;
-    state[6] = this.screen_width;
-    state[7] = this.screen_height;
+    state[6] = this.layers;
+    state[7] = this.dac_state;
     state[8] = this.start_address;
     state[9] = this.graphical_mode;
     state[10] = this.vga256_palette;
     state[11] = this.latch_dword;
     state[12] = this.color_compare;
     state[13] = this.color_dont_care;
-    state[14] = this.virtual_width;
+    state[14] = this.miscellaneous_graphics_register;
     state[15] = this.svga_width;
     state[16] = this.svga_height;
-    state[17] = this.virtual_height;
+    state[17] = this.crtc_mode;
     state[18] = this.svga_enabled;
     state[19] = this.svga_bpp;
     state[20] = this.svga_bank_offset;
@@ -461,10 +461,6 @@ VGAScreen.prototype.get_state = function()
     state[58] = this.color_select;
     state[59] = this.clocking_mode;
     state[60] = this.line_compare;
-    state[61] = this.crtc_mode;
-    state[62] = this.miscellaneous_graphics_register;
-    state[63] = this.dac_state;
-    state[64] = this.layers;
 
     return state;
 };
@@ -477,18 +473,18 @@ VGAScreen.prototype.set_state = function(state)
     this.cursor_scanline_end = state[3];
     this.max_cols = state[4];
     this.max_rows = state[5];
-    this.screen_width = state[6];
-    this.screen_height = state[7];
+    this.layers = state[6];
+    this.dac_state = state[7];
     this.start_address = state[8];
     this.graphical_mode = state[9];
     this.vga256_palette = state[10];
     this.latch_dword = state[11];
     this.color_compare = state[12];
     this.color_dont_care = state[13];
-    this.virtual_width = state[14];
+    this.miscellaneous_graphics_register = state[14];
     this.svga_width = state[15];
     this.svga_height = state[16];
-    this.virtual_height = state[17];
+    this.crtc_mode = state[17];
     this.svga_enabled = state[18];
     this.svga_bpp = state[19];
     this.svga_bank_offset = state[20];
@@ -532,15 +528,15 @@ VGAScreen.prototype.set_state = function(state)
     this.color_select = state[58];
     this.clocking_mode = state[59];
     this.line_compare = state[60];
-    this.crtc_mode = state[61];
-    this.miscellaneous_graphics_register = state[62];
-    this.dac_state = state[63];
-    this.layers = state[64];
 
     this.bus.send("screen-set-mode", this.graphical_mode);
 
     if(this.graphical_mode)
     {
+        // Ensure set_size_graphical will update
+        this.screen_width = 0;
+        this.screen_height = 0;
+
         if(this.svga_enabled)
         {
             this.set_size_graphical(this.svga_width, this.svga_height,
@@ -1141,15 +1137,27 @@ VGAScreen.prototype.set_size_text = function(cols_count, rows_count)
 
 VGAScreen.prototype.set_size_graphical = function(width, height, bpp, virtual_width, virtual_height)
 {
-    this.screen_width = width;
-    this.screen_height = height;
-
     this.stats.bpp = bpp;
-    this.stats.is_graphical = true;
-    this.stats.res_x = width;
-    this.stats.res_y = height;
 
-    this.bus.send("screen-set-size-graphical", [width, height, virtual_width, virtual_height]);
+    var needs_update = !this.stats.is_graphical ||
+        this.screen_width !== width ||
+        this.screen_height !== height ||
+        this.virtual_width !== virtual_width ||
+        this.virtual_height !== virtual_height;
+
+    if(needs_update)
+    {
+        this.screen_width = width;
+        this.screen_height = height;
+        this.virtual_width = virtual_width;
+        this.virtual_height = virtual_height;
+
+        this.stats.is_graphical = true;
+        this.stats.res_x = width;
+        this.stats.res_y = height;
+
+        this.bus.send("screen-set-size-graphical", [width, height, virtual_width, virtual_height]);
+    }
 };
 
 VGAScreen.prototype.update_vga_size = function()
@@ -1173,23 +1181,23 @@ VGAScreen.prototype.update_vga_size = function()
 
     if(this.graphical_mode)
     {
-        this.svga_width = horizontal_characters << 3;
+        var screen_width = horizontal_characters << 3;
 
         // Offset is half the number of bytes/words/dwords (depending on clocking mode)
         // of display memory that each logical line occupies.
         // However, the number of pixels latched, regardless of addressing mode,
         // should always 8 pixels per character clock (except for 8 bit PEL width, in which
         // case 4 pixels).
-        this.virtual_width = this.offset_register << 4;
+        var virtual_width = this.offset_register << 4;
 
         // Pixel Width / PEL Width / Clock Select
         if(this.attribute_mode & 0x40)
         {
-            this.svga_width >>>= 1;
-            this.virtual_width >>>= 1;
+            screen_width >>>= 1;
+            virtual_width >>>= 1;
         }
 
-        this.svga_height = this.scan_line_to_screen_row(vertical_scans);
+        var screen_height = this.scan_line_to_screen_row(vertical_scans);
 
         // The virtual buffer height is however many rows of data that can fit.
         // Previously drawn graphics outside of current memory address space can
@@ -1199,10 +1207,10 @@ VGAScreen.prototype.update_vga_size = function()
         // Depended on by: Windows 98 start screen
         var available_bytes = VGA_HOST_MEMORY_SPACE_SIZE[0];
 
-        this.virtual_height = Math.ceil(available_bytes / this.vga_bytes_per_line());
+        var virtual_height = Math.ceil(available_bytes / this.vga_bytes_per_line());
 
-        this.set_size_graphical(this.svga_width, this.svga_height, 8,
-            this.virtual_width, this.virtual_height);
+        this.set_size_graphical(screen_width, screen_height, 8,
+            virtual_width, virtual_height);
 
         this.update_vertical_retrace();
         this.update_layers();
@@ -1238,7 +1246,7 @@ VGAScreen.prototype.update_layers = function()
         return;
     }
 
-    if(!this.virtual_width || !this.svga_width)
+    if(!this.virtual_width || !this.screen_width)
     {
         // Avoid division by zero
         return;
@@ -1269,13 +1277,13 @@ VGAScreen.prototype.update_layers = function()
     var start_buffer_col = pixel_addr_start % this.virtual_width + pixel_panning;
 
     var split_screen_row = this.scan_line_to_screen_row(1 + this.line_compare);
-    split_screen_row = Math.min(split_screen_row, this.svga_height);
+    split_screen_row = Math.min(split_screen_row, this.screen_height);
 
-    var split_buffer_height = this.svga_height - split_screen_row;
+    var split_buffer_height = this.screen_height - split_screen_row;
 
     this.layers = [];
 
-    for(var x = -start_buffer_col, y = 0; x < this.svga_width; x += this.virtual_width, y++)
+    for(var x = -start_buffer_col, y = 0; x < this.screen_width; x += this.virtual_width, y++)
     {
         this.layers.push({
             screen_x: x,
@@ -1294,7 +1302,7 @@ VGAScreen.prototype.update_layers = function()
         start_split_col = this.vga_addr_to_pixel(byte_panning) + pixel_panning;
     }
 
-    for(var x = -start_split_col, y = 0; x < this.svga_width; x += this.virtual_width, y++)
+    for(var x = -start_split_col, y = 0; x < this.screen_width; x += this.virtual_width, y++)
     {
         this.layers.push({
             screen_x: x,
