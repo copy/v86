@@ -972,7 +972,7 @@
         emulator.add_listener("screen-set-size-graphical", function(args)
         {
             $("info_res").textContent = args[0] + "x" + args[1];
-            $("info_bpp").textContent = args[2];
+            $("info_bpp").textContent = args[4];
         });
 
 
