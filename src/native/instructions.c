@@ -1431,10 +1431,9 @@ void instr32_FF_5_mem(int32_t addr)
 }
 DEFINE_MODRM_INSTR1_READ32(instr32_FF_6, push32(___))
 
-
-
 void run_instruction(int32_t opcode)
 {
+    should_log_coverage[0] = 1;
     // XXX: This table is generated. Don't modify
 switch(opcode)
 {
@@ -6305,6 +6304,8 @@ switch(opcode)
     default:
         assert(false);
 }
+
+    should_log_coverage[0] = 0;
 }
 
 void jit_instruction(int32_t opcode)

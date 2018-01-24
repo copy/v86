@@ -17,6 +17,7 @@ function CPU(bus, wm, codegen)
     this.codegen = codegen;
     this.wasm_patch(wm);
     this.create_jit_imports();
+    this.coverage_init();
 
     this.memory_size = new Uint32Array(wm.memory.buffer, 812, 1);
 
@@ -270,6 +271,90 @@ CPU.prototype.create_jit_imports = function()
     }
 
     this.jit_imports = imports;
+};
+
+const is_env_node = v86util.check_env_node();
+const fs = is_env_node && require("fs");
+const path = is_env_node && require("path");
+const Buffer = is_env_node && require("buffer")["Buffer"];
+
+CPU.prototype.coverage_dump = function()
+{
+    if(!DEBUG)
+    {
+        return;
+    }
+
+    for(let fn_id of Object.keys(this.cov_fn_map))
+    {
+        if(this.cov_pos[fn_id])
+        {
+            const fn_name = this.cov_fn_map[fn_id];
+            const total_blocks = this.cov_total_blocks[fn_id];
+            const filename = path.join(
+                __dirname,
+                `${COVERAGE_FILE_PREFIX}_${fn_name}_${total_blocks}`
+            );
+            // XXX: Experiment more with async I/O - preliminarily it seemed to choke the nasm test
+            // even when limiting max files open simultaneously
+            fs["appendFileSync"](
+                filename,
+                Buffer.from(this.cov_visit_logs[fn_id].buffer, 0, this.cov_pos[fn_id])
+            );
+            this.cov_visit_logs[fn_id].fill(0);
+            this.cov_pos[fn_id] = 0;
+        }
+    }
+};
+
+CPU.prototype.coverage_dump_loop = function()
+{
+    if(!DEBUG)
+    {
+        return;
+    }
+
+    const self = this;
+    this.coverage_dump();
+    setTimeout(function()
+    {
+        self.coverage_dump_loop();
+    }, 2000);
+};
+
+CPU.prototype.coverage_init = function()
+{
+    if(!DEBUG)
+    {
+        return;
+    }
+
+    // fn_id -> func_name
+    this.cov_fn_map = {};
+    // fn_id -> block_covered ([0,2,3])
+    this.cov_visit_logs = {};
+    // Position within cov_visit_logs from where to append data
+    this.cov_pos = {};
+    // Total number of conditional blocks in fn_id
+    this.cov_total_blocks = {};
+
+    for(let name of Object.keys(this.wm.exports))
+    {
+        if(name.startsWith(COVERAGE_EXPORT_PREFIX))
+        {
+            const fn_id = this.wm.exports[name];
+            this.cov_fn_map[fn_id] = name.slice(COVERAGE_EXPORT_PREFIX.length);
+            this.cov_visit_logs[fn_id] = new Uint8Array(8);
+            this.cov_pos[fn_id] = 0;
+            this.cov_total_blocks[fn_id] = 0;
+        }
+    }
+
+    this.should_log_coverage = new Int32Array(this.wm.memory.buffer, 1128, 1);
+    this.should_log_coverage[0] = 0;
+
+    // XXX: Periodically dump all logs - this helps a speed longer tests up a bit, but it isn't enough
+    this.coverage_dump_loop();
 };
 
 CPU.prototype.wasm_patch = function(wm)

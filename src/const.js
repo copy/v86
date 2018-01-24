@@ -370,3 +370,8 @@ const INTERNAL_MEM_SIZE = 4096 + 0x100000 * 6;
 
 /** @const */
 const WASM_PAGE_SIZE = 64 * 1024;
+
+/** @const */
+const COVERAGE_EXPORT_PREFIX = "___profn_";
+/** @const */
+const COVERAGE_FILE_PREFIX = "cov_data";

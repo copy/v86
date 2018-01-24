@@ -94,4 +94,6 @@ static double_t* const fpu_st = (double_t* const) 968;
 static uint8_t* const fpu_st8 = (uint8_t* const) 968;
 static int32_t* const fpu_st32 = (int32_t* const) 968;
 
+static int32_t* const should_log_coverage = (int32_t* const) 1128;
+
 static union reg64* const reg_mmx = (union reg64* const) 1064; // length 64
