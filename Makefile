@@ -221,7 +221,7 @@ jitpagingtests: build/libv86-debug.js build/v86-debug.wasm
 	$(MAKE) -C tests/jit-paging test-jit
 	./tests/jit-paging/run.js
 
-qemutests: build/libv86.js build/v86.wasm
+qemutests: build/libv86-debug.js build/v86-debug.wasm
 	$(MAKE) -C tests/qemu test-i386
 	./tests/qemu/run.js > /tmp/v86-test-result
 	./tests/qemu/test-i386 > /tmp/v86-test-reference

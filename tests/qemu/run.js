@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-var V86 = require("../../build/libv86.js").V86;
+var V86 = require("../../build/libv86-debug.js").V86;
 var fs = require("fs");
 
 var test_executable = new Uint8Array(fs.readFileSync(__dirname + "/test-i386"));
@@ -13,6 +13,7 @@ var emulator = new V86({
     autostart: true,
     memory_size: 32 * 1024 * 1024,
     filesystem: {},
+    log_level: 0,
 });
 
 emulator.bus.register("emulator-started", function()
