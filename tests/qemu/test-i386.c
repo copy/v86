@@ -3187,7 +3187,7 @@ int main(int argc, char **argv)
     test_misc();
     test_lea();
 #ifdef TEST_SEGS
-    test_segs();
+    //test_segs(); // XXX: temporarily disabled
     test_code16();
 #endif
 #ifdef TEST_VM86
