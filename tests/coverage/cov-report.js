@@ -57,8 +57,8 @@ for(let file of data_files)
     };
 
     // When old cov_data is not deleted, and the number of conditional blocks in a function change,
-    // this may happen
-    assert.ok(seen_fns.indexOf(data.fn_name) === -1, `Conflicting data for ${data.fn_name}`);
+    // this may trigger
+    assert.ok(seen_fns.indexOf(data.fn_name) === -1, `Function from ${file} seen already`);
     seen_fns.push(data.fn_name);
 
     const buffer = fs.readFileSync(path.join(DATA_PATH, file));
@@ -82,7 +82,6 @@ for(let file of data_files)
     const log_str = `${percent}% | ${touched} / ${total}\ttouched in ${data.fn_name}; ` +
               `untouched: ${data.untouched}\n`;
 
-
     fs.appendFileSync(report_file, log_str);
 }
 
@@ -91,7 +90,7 @@ console.log("[+] Total functions:", count_fns);
 console.log("[+] Helpful commands:");
 
 console.log(`\tsort -n ${report_file} | less`);
-if(report_num !== 0)
+if(!first_report)
 {
     console.log(`\tgit diff --no-index ${prev_report_compare}`);
 }
