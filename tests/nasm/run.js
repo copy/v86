@@ -29,8 +29,9 @@ try {
     var V86 = require('../../build/libv86-debug.js').V86Starter;
 }
 catch(e) {
-    console.error('Failed to import build/libv86.js. Run ' +
-                  '`make build/libv86.js` first.');
+    console.error(e);
+    console.error('Failed to import build/libv86-debug.js. Run ' +
+                  '`make build/libv86-debug.js` first.');
     process.exit(1);
 }
 
