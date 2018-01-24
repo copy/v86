@@ -12,6 +12,7 @@ script:
 env:
     - TEST_SUITE=unit
     - TEST_SUITE=integration
+    - TEST_SUITE=integration-acpi
     - TEST_SUITE=unit-qemu
     - TEST_SUITE=nasm
 matrix:
