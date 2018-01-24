@@ -4,6 +4,7 @@
 
 #include "const.h"
 #include "global_pointers.h"
+#include "js_imports.h"
 #include "cpu.h"
 #include "log.h"
 #include "fpu.h"
@@ -85,9 +86,9 @@ void fpu_store_m80(uint32_t addr, double_t n)
 
     dbg_assert(exponent >= 0 && exponent < 0x8000);
 
+    writable_or_pagefault(addr, 10);
     safe_write32(addr, low);
     safe_write32(addr + 4, high);
-
     safe_write16(addr + 8, sign << 8 | exponent);
 }
 
