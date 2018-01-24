@@ -9,6 +9,13 @@
 #include "log.h"
 #include "fpu.h"
 
+
+union double_int {
+    uint8_t u8[8];
+    int32_t i32[2];
+    double_t f64;
+};
+
 void fpu_set_tag_word(int32_t tag_word)
 {
     *fpu_stack_empty = 0;
@@ -55,10 +62,10 @@ void fpu_set_status_word(int32_t sw)
 
 void fpu_store_m80(uint32_t addr, double_t n)
 {
-    *fpu_float64 = n;
+    union double_int double_int_view = { .f64 = n };
 
-    uint8_t sign = fpu_float64_byte[7] & 0x80;
-    int32_t exponent = (fpu_float64_byte[7] & 0x7f) << 4 | fpu_float64_byte[6] >> 4;
+    uint8_t sign = double_int_view.u8[7] & 0x80;
+    int32_t exponent = (double_int_view.u8[7] & 0x7f) << 4 | double_int_view.u8[6] >> 4;
     int32_t low, high;
 
     if(exponent == 0x7FF)
@@ -66,7 +73,7 @@ void fpu_store_m80(uint32_t addr, double_t n)
         // all bits set (NaN and infinity)
         exponent = 0x7FFF;
         low = 0;
-        high = 0x80000000 | (fpu_float64_int[1] & 0x80000) << 11;
+        high = 0x80000000 | (double_int_view.i32[1] & 0x80000) << 11;
     }
     else if(exponent == 0)
     {
@@ -80,8 +87,8 @@ void fpu_store_m80(uint32_t addr, double_t n)
         exponent += 0x3FFF - 0x3FF;
 
         // does the mantissa need to be adjusted?
-        low = fpu_float64_int[0] << 11;
-        high = 0x80000000 | (fpu_float64_int[1] & 0xFFFFF) << 11 | (((uint32_t)(fpu_float64_int[0])) >> 21);
+        low = double_int_view.i32[0] << 11;
+        high = 0x80000000 | (double_int_view.i32[1] & 0xFFFFF) << 11 | (((uint32_t)(double_int_view.i32[0])) >> 21);
     }
 
     dbg_assert(exponent >= 0 && exponent < 0x8000);
@@ -115,15 +122,18 @@ double_t fpu_load_m80(uint32_t addr)
     {
         // TODO: NaN, Infinity
         //dbg_log("Load m80 TODO", LOG_FPU);
-        fpu_float64_byte[7] = 0x7F | sign << 7;
-        fpu_float64_byte[6] = 0xF0 | high >> 30 << 3 & 0x08;
 
-        fpu_float64_byte[5] = 0;
-        fpu_float64_byte[4] = 0;
+        union double_int double_int_view;
 
-        fpu_float64_int[0] = 0;
+        double_int_view.u8[7] = 0x7F | sign << 7;
+        double_int_view.u8[6] = 0xF0 | high >> 30 << 3 & 0x08;
 
-        return *fpu_float64;
+        double_int_view.u8[5] = 0;
+        double_int_view.u8[4] = 0;
+
+        double_int_view.i32[0] = 0;
+
+        return double_int_view.f64;
     }
 
     // Note: some bits might be lost at this point

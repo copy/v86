@@ -76,13 +76,7 @@ static uint8_t* const mem8 = (uint8_t* const) (4096 + 0x100000 * 6);
 static uint16_t* const mem16 = (uint16_t* const) (4096 + 0x100000 * 6);
 static int32_t* const mem32s = (int32_t* const) (4096 + 0x100000 * 6);
 
-static float_t* const fpu_float32 = (float_t* const) 956;
-static uint8_t* const fpu_float32_byte = (uint8_t* const) 956;
-static int32_t* const fpu_float32_int = (int32_t* const) 956;
-
-static double_t* const fpu_float64 = (double_t* const) 960;
-static uint8_t* const fpu_float64_byte = (uint8_t* const) 960;
-static int32_t* const fpu_float64_int = (int32_t* const) 960;
+// gap
 
 static uint32_t* const fpu_stack_ptr = (uint32_t* const) 1032;
 static int32_t* const fpu_control_word = (int32_t* const) 1036;
