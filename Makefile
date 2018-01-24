@@ -2,6 +2,12 @@ CLOSURE_DIR=closure-compiler
 CLOSURE=$(CLOSURE_DIR)/compiler.jar
 BROWSER=chromium
 NASM_TEST_DIR=./tests/nasm
+COVERAGE_DIR=./tests/coverage
+
+# Enable manually and recompile v86-debug.wasm for coverage-enabled tests
+ifeq ($(ENABLE_COV), 1)
+COVERAGE=--coverage -fprofile-instr-generate
+endif
 
 all: build/v86_all.js
 browser: build/v86_all.js
@@ -146,7 +152,7 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
 
-build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/*
+build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/call-indirect.ll
 	mkdir -p build
 	-ls -lh build/v86.wasm
 	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/call-indirect.ll \
@@ -159,11 +165,12 @@ build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/
 		-o build/v86.wasm
 	ls -lh build/v86.wasm
 
-build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/*
+build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/*.ll
 	mkdir -p build
 	-ls -lh build/v86-debug.wasm
-	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/call-indirect.ll \
+	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/*.ll \
 		$(CC_FLAGS) \
+		$(COVERAGE) \
 		-Os \
 		-o build/v86-debug.wasm
 	ls -lh build/v86-debug.wasm
@@ -186,7 +193,9 @@ clean:
 	-rm build/codegen-test.wasm
 	-rm build/*.map
 	-rm build/*.wast
+	-rm build/cov_data*
 	$(MAKE) -C $(NASM_TEST_DIR) clean
+	-rm $(COVERAGE_DIR)/build/report_*
 
 run:
 	python2 -m SimpleHTTPServer 2> /dev/null
@@ -234,6 +243,10 @@ kvm-unit-test: build/libv86-debug.js build/v86-debug.wasm
 
 codegen-test: build/codegen-test.wasm
 	./tests/codegen/codegen.js
+
+covreport:
+	mkdir -p $(COVERAGE_DIR)/build/
+	$(COVERAGE_DIR)/cov-report.js
 
 node_modules/.bin/jshint:
 	npm install
