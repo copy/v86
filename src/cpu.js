@@ -307,21 +307,6 @@ CPU.prototype.coverage_dump = function()
     }
 };
 
-CPU.prototype.coverage_dump_loop = function()
-{
-    if(!DEBUG)
-    {
-        return;
-    }
-
-    const self = this;
-    this.coverage_dump();
-    setTimeout(function()
-    {
-        self.coverage_dump_loop();
-    }, 2000);
-};
-
 CPU.prototype.coverage_init = function()
 {
     if(!DEBUG)
@@ -352,9 +337,6 @@ CPU.prototype.coverage_init = function()
 
     this.should_log_coverage = new Int32Array(this.wm.memory.buffer, 1128, 1);
     this.should_log_coverage[0] = 0;
-
-    // XXX: Periodically dump all logs - this helps a speed longer tests up a bit, but it isn't enough
-    this.coverage_dump_loop();
 };
 
 CPU.prototype.wasm_patch = function(wm)
