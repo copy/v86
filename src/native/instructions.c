@@ -1057,7 +1057,7 @@ void instr32_E8(int32_t imm32s) {
     push32(get_real_eip());
 
     instruction_pointer[0] = instruction_pointer[0] + imm32s;
-    dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
+    //dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
 void instr16_E9(int32_t imm16) {
