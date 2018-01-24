@@ -362,6 +362,16 @@ PS2.prototype.apply_scaling2 = function(n)
     }
 };
 
+PS2.prototype.send_command_response = function(response_byte)
+{
+    this.kbd_buffer.clear();
+    this.mouse_buffer.clear();
+    this.kbd_buffer.push(response_byte);
+
+    // Ensure next 0x60 read receives response_byte
+    this.kbd_notify();
+};
+
 PS2.prototype.port60_read = function()
 {
     //dbg_log("port 60 read: " + (buffer[0] || "(none)"));
@@ -670,9 +680,7 @@ PS2.prototype.port64_write = function(write_byte)
     switch(write_byte)
     {
     case 0x20:
-        this.kbd_buffer.clear();
-        this.mouse_buffer.clear();
-        this.kbd_buffer.push(this.command_register);
+        this.send_command_response(this.command_register);
         break;
     case 0x60:
         this.read_command_register = true;
@@ -695,20 +703,14 @@ PS2.prototype.port64_write = function(write_byte)
         break;
     case 0xA9:
         // test second ps/2 port
-        this.kbd_buffer.clear();
-        this.mouse_buffer.clear();
-        this.kbd_buffer.push(0);
+        this.send_command_response(0);
         break;
     case 0xAA:
-        this.kbd_buffer.clear();
-        this.mouse_buffer.clear();
-        this.kbd_buffer.push(0x55);
+        this.send_command_response(0x55);
         break;
     case 0xAB:
         // Test first PS/2 port
-        this.kbd_buffer.clear();
-        this.mouse_buffer.clear();
-        this.kbd_buffer.push(0);
+        this.send_command_response(0);
         break;
     case 0xAD:
         // Disable Keyboard
