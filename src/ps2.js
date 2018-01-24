@@ -217,9 +217,22 @@ PS2.prototype.kbd_notify = function()
     }
 };
 
-PS2.prototype.notify_has_expired = function()
+PS2.prototype.should_notify = function()
 {
-    return Date.now() - this.last_notify > PS2_NOTIFY_EXPIRY_MS;
+    if(Date.now() - this.last_notify > PS2_NOTIFY_EXPIRY_MS)
+    {
+        // Buffer not read on time. IRQ handler may not be registered yet, or
+        // status port is not being polled.
+        this.kbd_buffer.clear();
+
+        // Maintain alignment in groups of 3
+        if(this.mouse_buffer.length % 3 === 0)
+        {
+            this.mouse_buffer.clear();
+        }
+    }
+
+    return !(this.kbd_buffer.length || this.mouse_buffer.length);
 }
 
 PS2.prototype.kbd_send_code = function(code)
@@ -227,13 +240,12 @@ PS2.prototype.kbd_send_code = function(code)
     dbg_log("kbd send code", LOG_PS2);
     if(this.enable_keyboard_stream)
     {
-        var notify_expired = this.notify_has_expired();
-        var was_empty = !(this.kbd_buffer.length || this.mouse_buffer.length);
+        var should_notify = this.should_notify();
 
         dbg_log("kbd push", LOG_PS2);
         this.kbd_buffer.push(code);
 
-        if(notify_expired || was_empty)
+        if(should_notify)
         {
             // previous IRQ not handled on time, or no previous IRQ
             this.kbd_notify();
@@ -312,8 +324,7 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
     //    delta_y = this.apply_scaling2(delta_y);
     //}
 
-    var notify_expired = this.notify_has_expired();
-    var was_empty = !(this.kbd_buffer.length || this.mouse_buffer.length);
+    var should_notify = this.should_notify();
 
     this.mouse_buffer.push(info_byte);
     this.mouse_buffer.push(delta_x);
@@ -321,7 +332,7 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
 
     dbg_log("adding mouse packets: " + [info_byte, dx, dy], LOG_PS2);
 
-    if(notify_expired || was_empty)
+    if(should_notify)
     {
         // previous IRQ not handled on time, or no previous IRQ
         this.mouse_notify();
