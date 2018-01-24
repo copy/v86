@@ -6,6 +6,11 @@ NASM_TEST_DIR=./tests/nasm
 all: build/v86_all.js
 browser: build/v86_all.js
 
+ACPI=false
+ifeq ($(useacpi),true)
+ACPI=true
+endif
+
 # Used for nodejs builds and in order to profile code.
 # `debug` gives identifiers a readable name, make sure it doesn't have any side effects.
 CLOSURE_READABLE=--formatting PRETTY_PRINT --debug
@@ -92,6 +97,7 @@ build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 	java -jar $(CLOSURE) \
 		--js_output_file build/v86_all.js\
 		--define=DEBUG=false\
+		--define=ENABLE_ACPI=$(ACPI)\
 		$(CLOSURE_SOURCE_MAP)\
 		$(CLOSURE_FLAGS)\
 		--compilation_level ADVANCED\
@@ -112,6 +118,7 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 	java -jar $(CLOSURE) \
 		--js_output_file build/libv86.js\
 		--define=DEBUG=false\
+		--define=ENABLE_ACPI=$(ACPI)\
 		$(CLOSURE_FLAGS)\
 		--compilation_level SIMPLE\
 		$(TRANSPILE_ES6_FLAGS)\

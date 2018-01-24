@@ -38,7 +38,10 @@ var DEBUG_SCREEN_LAYERS = DEBUG && false;
 /** @const */
 var ENABLE_HPET = DEBUG && false;
 
-/** @const */
+/**
+ * @define {boolean}
+ * Overridden by closure compiler
+ */
 var ENABLE_ACPI = false;
 
 
