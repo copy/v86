@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <math.h>
 
 // like memcpy, but only efficient for large (approximately 10k) sizes
 // See memcpy in https://github.com/kripken/emscripten/blob/master/src/library.js
@@ -64,3 +65,4 @@ extern int32_t io_port_read32(int32_t);
 extern void io_port_write8(int32_t, int32_t);
 extern void io_port_write16(int32_t, int32_t);
 extern void io_port_write32(int32_t, int32_t);
+extern int32_t convert_f64_to_i32(double_t);

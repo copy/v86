@@ -661,7 +661,6 @@ void instr_0F2C_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 void instr_660F2C_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
 void instr_660F2C_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
 
-int32_t convert_f64_to_i32(double_t);
 void instr_F20F2C(union reg64 source, int32_t r) {
     // cvttsd2si r32, xmm/m64
     // emscripten bug causes this ported instruction to throw "integer result unpresentable"

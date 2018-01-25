@@ -1108,8 +1108,6 @@ void fpu_op_DB_reg(int32_t imm8)
     }
 }
 
-int32_t convert_f64_to_i32(double_t);
-
 void fpu_op_DB_mem(int32_t mod, int32_t addr)
 {
     dbg_log_fpu_op(0xDB, mod);
