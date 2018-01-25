@@ -192,6 +192,29 @@ function CPU(bus, wm, codegen)
     this.reg8s = new Int8Array(this.reg32s.buffer, 4, 32);
     this.reg8 = new Uint8Array(this.reg32s.buffer, 4, 32);
 
+    // Why no Float80Array :-(
+    this.fpu_st = new Float64Array(wm.memory.buffer, 968, 8);
+
+    this.fpu_stack_empty = new Int32Array(wm.memory.buffer, 816, 1);
+    this.fpu_stack_empty[0] = 0xff;
+    this.fpu_stack_ptr = new Uint32Array(wm.memory.buffer, 1032, 1);
+    this.fpu_stack_ptr[0] = 0;
+
+    this.fpu_control_word = new Int32Array(wm.memory.buffer, 1036, 1);
+    this.fpu_control_word[0] = 0x37F;
+    this.fpu_status_word = new Int32Array(wm.memory.buffer, 1040, 1);
+    this.fpu_status_word[0] = 0;
+    this.fpu_ip = new Int32Array(wm.memory.buffer, 1048, 1);
+    this.fpu_ip[0] = 0;
+    this.fpu_ip_selector = new Int32Array(wm.memory.buffer, 1052, 1);
+    this.fpu_ip_selector[0] = 0;
+    this.fpu_opcode = new Int32Array(wm.memory.buffer, 1044, 1);
+    this.fpu_opcode[0] = 0;
+    this.fpu_dp = new Int32Array(wm.memory.buffer, 1056, 1);
+    this.fpu_dp[0] = 0;
+    this.fpu_dp_selector = new Int32Array(wm.memory.buffer, 1060, 1);
+    this.fpu_dp_selector[0] = 0;
+
     // mm0-mm7 split up into 32 bit pairs
     this.reg_mmxs = new Int32Array(wm.memory.buffer, 1064, 16);
     this.reg_mmx = new Uint32Array(this.reg_mmxs.buffer, 1064, 16);
@@ -211,7 +234,6 @@ function CPU(bus, wm, codegen)
     this.fw_value = new Int32Array(wm.memory.buffer, 720, 1);
 
     this.io = undefined;
-    this.fpu = undefined;
 
     this.bus = bus;
 
@@ -452,7 +474,6 @@ CPU.prototype.get_state = function()
     state[40] = this.sreg;
     state[41] = this.dreg;
     state[42] = this.mem8;
-    state[43] = this.fpu;
 
     state[45] = this.devices.virtio;
     state[46] = this.devices.apic;
@@ -480,6 +501,16 @@ CPU.prototype.get_state = function()
 
     state[65] = this.reg_mmxs;
     state[66] = this.reg_xmm32s;
+
+    state[67] = this.fpu_st;
+    state[68] = this.fpu_stack_empty[0];
+    state[69] = this.fpu_stack_ptr[0];
+    state[70] = this.fpu_control_word[0];
+    state[71] = this.fpu_ip[0];
+    state[72] = this.fpu_ip_selector[0];
+    state[73] = this.fpu_dp[0];
+    state[74] = this.fpu_dp_selector[0];
+    state[75] = this.fpu_opcode[0];
 
     return state;
 };
@@ -527,7 +558,6 @@ CPU.prototype.set_state = function(state)
     this.sreg.set(state[40]);
     this.dreg.set(state[41]);
     this.mem8.set(state[42]);
-    this.fpu = state[43];
 
     this.devices.virtio = state[45];
     this.devices.apic = state[46];
@@ -555,6 +585,16 @@ CPU.prototype.set_state = function(state)
 
     this.reg_mmxs.set(state[65]);
     this.reg_xmm32s.set(state[66]);
+
+    this.fpu_st.set(state[67]);
+    this.fpu_stack_empty[0] = state[68];
+    this.fpu_stack_ptr[0] = state[69];
+    this.fpu_control_word[0] = state[70];
+    this.fpu_ip[0] = state[71];
+    this.fpu_ip_selector[0] = state[72];
+    this.fpu_dp[0] = state[73];
+    this.fpu_dp_selector[0] = state[74];
+    this.fpu_opcode[0] = state[75];
 
     this.full_clear_tlb();
     // tsc_offset?
@@ -848,8 +888,6 @@ CPU.prototype.init = function(settings, device_bus)
 
         this.devices.vga = new VGAScreen(this, device_bus,
                 settings.vga_memory_size || 8 * 1024 * 1024);
-
-        this.fpu = new FPU(this);
 
         this.devices.ps2 = new PS2(this, device_bus);
 
@@ -1500,7 +1538,7 @@ CPU.prototype.set_cr0 = function(cr0)
 
     this.cr[0] = cr0;
 
-    if(!this.fpu)
+    if(false)
     {
         // if there's no FPU, keep emulation set
         this.cr[0] |= CR0_EM;
@@ -3703,7 +3741,7 @@ CPU.prototype.cpuid = function()
             ecx = 1 << 23 | 1 << 30; // popcnt, rdrand
             var vme = 0 << 1;
             if(VMWARE_HYPERVISOR_PORT) ecx |= 1 << 31; // hypervisor
-            edx = (this.fpu ? 1 : 0) |                // fpu
+            edx = (true /* have fpu */ ? 1 : 0) |      // fpu
                     vme | 1 << 3 | 1 << 4 | 1 << 5 |   // vme, pse, tsc, msr
                     1 << 8 | 1 << 11 | 1 << 13 | 1 << 15 | // cx8, sep, pge, cmov
                     1 << 23 | 1 << 24 | 1 << 25 | 1 << 26;   // mmx, fxsr, sse1, sse2

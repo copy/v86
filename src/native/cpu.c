@@ -827,6 +827,14 @@ void clear_tlb()
     memcpy_large(tlb_info, tlb_info_global, 0x100000);
 }
 
+void task_switch_test()
+{
+    if(cr[0] & (CR0_EM | CR0_TS))
+    {
+        trigger_nm();
+    }
+}
+
 void task_switch_test_mmx()
 {
     if(*cr & (CR0_EM | CR0_TS))

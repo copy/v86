@@ -172,25 +172,6 @@ function V86Starter(options)
         "_mmap_write16": function(addr, value) { return cpu.mmap_write16(addr, value); },
         "_mmap_write32": function(addr, value) { return cpu.mmap_write32(addr, value); },
 
-        "_fpu_op_D8_reg": function() { return cpu.fpu.op_D8_reg.apply(cpu.fpu, arguments); },
-        "_fpu_op_D9_reg": function() { return cpu.fpu.op_D9_reg.apply(cpu.fpu, arguments); },
-        "_fpu_op_DA_reg": function() { return cpu.fpu.op_DA_reg.apply(cpu.fpu, arguments); },
-        "_fpu_op_DB_reg": function() { return cpu.fpu.op_DB_reg.apply(cpu.fpu, arguments); },
-        "_fpu_op_DC_reg": function() { return cpu.fpu.op_DC_reg.apply(cpu.fpu, arguments); },
-        "_fpu_op_DD_reg": function() { return cpu.fpu.op_DD_reg.apply(cpu.fpu, arguments); },
-        "_fpu_op_DE_reg": function() { return cpu.fpu.op_DE_reg.apply(cpu.fpu, arguments); },
-        "_fpu_op_DF_reg": function() { return cpu.fpu.op_DF_reg.apply(cpu.fpu, arguments); },
-
-        "_fpu_op_D8_mem": function() { return cpu.fpu.op_D8_mem.apply(cpu.fpu, arguments); },
-        "_fpu_op_D9_mem": function() { return cpu.fpu.op_D9_mem.apply(cpu.fpu, arguments); },
-        "_fpu_op_DA_mem": function() { return cpu.fpu.op_DA_mem.apply(cpu.fpu, arguments); },
-        "_fpu_op_DB_mem": function() { return cpu.fpu.op_DB_mem.apply(cpu.fpu, arguments); },
-        "_fpu_op_DC_mem": function() { return cpu.fpu.op_DC_mem.apply(cpu.fpu, arguments); },
-        "_fpu_op_DD_mem": function() { return cpu.fpu.op_DD_mem.apply(cpu.fpu, arguments); },
-        "_fpu_op_DE_mem": function() { return cpu.fpu.op_DE_mem.apply(cpu.fpu, arguments); },
-        "_fpu_op_DF_mem": function() { return cpu.fpu.op_DF_mem.apply(cpu.fpu, arguments); },
-        "_fwait": function() { return cpu.fpu.fwait(); },
-
         "_int_log2": function(val) { return v86util.int_log2(val); },
         "_math_pow": function(x, y) { return Math.pow(x, y); },
 
@@ -244,6 +225,21 @@ function V86Starter(options)
         "_get_time": () => Date.now(),
 
         "_codegen_finalize": (cache_index, virt_start, start, end) => cpu.codegen_finalize(cache_index, virt_start, start, end),
+
+        "_atan2": Math.atan2,
+        "_sin": Math.sin,
+        "_cos": Math.cos,
+        "_tan": Math.tan,
+        "_trunc": Math.trunc,
+        "_fmod": (x, y) => x % y,
+        "_llvm_exp2_f64": (x) => Math.pow(2, x),
+        "_log": Math.log,
+        "_round": Math.round,
+    };
+
+    const wasm_globals = {
+        "Infinity": Infinity,
+        "NaN": NaN,
     };
 
     let wasm_file = DEBUG ? "v86-debug.wasm" : "v86.wasm";
@@ -259,7 +255,7 @@ function V86Starter(options)
 
     v86util.load_wasm(
         wasm_file,
-        { "env": wasm_shared_funcs },
+        { "env": wasm_shared_funcs, "global" : wasm_globals },
         options["memory_size"] + INTERNAL_MEM_SIZE,
         WASM_TABLE_SIZE,
         wm => {

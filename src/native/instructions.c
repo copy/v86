@@ -8,6 +8,7 @@
 #include "log.h"
 #include "arith.h"
 #include "cpu.h"
+#include "fpu.h"
 #include "shared.h"
 #include "misc_instr.h"
 #include "string.h"
