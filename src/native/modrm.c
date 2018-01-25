@@ -8,6 +8,10 @@
 #include "cpu.h"
 #include "modrm.h"
 
+//static int32_t resolve_sib_(bool mod);
+//static int32_t resolve_modrm32_(int32_t modrm_byte);
+static int32_t resolve_sib(bool mod);
+
 #define ds get_seg_prefix_ds
 #define ss get_seg_prefix_ss
 
@@ -109,6 +113,7 @@ int32_t resolve_modrm32(int32_t modrm_byte)
     SIB_ENTRY_LEVEL2(0x80 | (n) << 3, (reg1) << 2)\
     SIB_ENTRY_LEVEL2(0xC0 | (n) << 3, (reg1) << 3)
 
+#if 0
 static inline int32_t resolve_sib_(bool mod)
 {
     switch(read_imm8())
@@ -128,6 +133,7 @@ static inline int32_t resolve_sib_(bool mod)
 
     return 0;
 }
+#endif
 
 #undef SIB_ENTRY_LEVEL3
 #undef SIB_ENTRY_LEVEL2
@@ -184,6 +190,7 @@ static int32_t resolve_sib(bool mod)
     return get_seg_prefix(seg) + base + offset;
 }
 
+#if 0
 static inline int32_t resolve_modrm32_(int32_t modrm_byte)
 {
     uint8_t r = modrm_byte & 7;
@@ -223,3 +230,4 @@ static inline int32_t resolve_modrm32_(int32_t modrm_byte)
         }
     }
 }
+#endif
