@@ -3817,7 +3817,7 @@ CPU.prototype.cpuid = function()
     {
         dbg_log("cpuid: eax=" + h(this.reg32[reg_eax], 8) + " cl=" + h(this.reg8[reg_cl], 2), LOG_CPU);
     }
-    else
+    else if(level !== 0 && level !== 2 && level !== (0x80000000 | 0))
     {
         dbg_log("cpuid: eax=" + h(this.reg32[reg_eax], 8), LOG_CPU);
     }
