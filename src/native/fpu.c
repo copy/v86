@@ -18,8 +18,8 @@ const int32_t
     FPU_RESULT_FLAGS = FPU_C0 | FPU_C1 | FPU_C2 | FPU_C3,
     FPU_STACK_TOP = 0x3800;
 
+// precision, round & infinity control
 const int32_t
-    // precision, round & infinity control
     FPU_PC = 3 << 8,
     FPU_RC = 3 << 10,
     FPU_IF = 1 << 12;
@@ -34,11 +34,8 @@ const int32_t
     FPU_EX_D = 1 << 1,
     FPU_EX_I = 1 << 0;
 
-const double_t
-    TWO_POW_63 =  0x8000000000000000;
-
+const double_t TWO_POW_63 =  0x8000000000000000;
 const double_t INDEFINITE_NAN = NAN;
-
 
 union f64_int {
     uint8_t u8[8];
@@ -199,7 +196,7 @@ void fpu_stack_fault()
     fpu_status_word[0] |= FPU_EX_SF | FPU_EX_I;
 }
 
-void fpu_invalid_arithmatic()
+void fpu_invalid_arithmetic()
 {
     fpu_status_word[0] |= FPU_EX_I;
 }
@@ -1129,7 +1126,7 @@ void fpu_op_DB_mem(int32_t mod, int32_t addr)
                 if(i == (int32_t)0x80000000)
                 {
                     // XXX: Probably not correct if st0 == 0x80000000
-                    fpu_invalid_arithmatic();
+                    fpu_invalid_arithmetic();
                 }
                 safe_write32(addr, i);
             }
@@ -1143,7 +1140,7 @@ void fpu_op_DB_mem(int32_t mod, int32_t addr)
                 {
                     // XXX: Probably not correct if st0 == 0x80000000
                     //      (input fits, but same value as error value)
-                    fpu_invalid_arithmatic();
+                    fpu_invalid_arithmetic();
                 }
                 safe_write32(addr, i);
                 fpu_pop();
@@ -1526,7 +1523,7 @@ void fpu_op_DF_mem(int32_t mod, int32_t addr)
                 }
                 else
                 {
-                    fpu_invalid_arithmatic();
+                    fpu_invalid_arithmetic();
                     safe_write16(addr, 0x8000);
                 }
             }
@@ -1541,7 +1538,7 @@ void fpu_op_DF_mem(int32_t mod, int32_t addr)
                 }
                 else
                 {
-                    fpu_invalid_arithmatic();
+                    fpu_invalid_arithmetic();
                     safe_write16(addr, 0x8000);
                 }
                 fpu_pop();
@@ -1593,7 +1590,7 @@ void fpu_op_DF_mem(int32_t mod, int32_t addr)
                     // write 0x8000000000000000
                     st0_low  = 0;
                     st0_high = 0x80000000;
-                    fpu_invalid_arithmatic();
+                    fpu_invalid_arithmetic();
                 }
 
                 // XXX: Use safe_write64
