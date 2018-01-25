@@ -96,7 +96,7 @@ void fpu_set_status_word(int32_t sw)
 // sign of a number on the stack
 int32_t fpu_sign(int32_t i)
 {
-    return fpu_st8[(fpu_stack_ptr[0] + i & 7) << 3 | 7] >> 7;
+    return fpu_st8[(*fpu_stack_ptr + i & 7) << 3 | 7] >> 7;
 }
 
 void fpu_store_m80(uint32_t addr, double_t n)
@@ -193,25 +193,25 @@ double_t fpu_load_m80(uint32_t addr)
 void fpu_stack_fault()
 {
     // TODO: Interrupt
-    fpu_status_word[0] |= FPU_EX_SF | FPU_EX_I;
+    *fpu_status_word |= FPU_EX_SF | FPU_EX_I;
 }
 
 void fpu_invalid_arithmetic()
 {
-    fpu_status_word[0] |= FPU_EX_I;
+    *fpu_status_word |= FPU_EX_I;
 }
 
 double_t fpu_get_st0()
 {
-    if(fpu_stack_empty[0] >> fpu_stack_ptr[0] & 1)
+    if(*fpu_stack_empty >> *fpu_stack_ptr & 1)
     {
-        fpu_status_word[0] &= ~FPU_C1;
+        *fpu_status_word &= ~FPU_C1;
         fpu_stack_fault();
         return INDEFINITE_NAN;
     }
     else
     {
-        return fpu_st[fpu_stack_ptr[0]];
+        return fpu_st[*fpu_stack_ptr];
     }
 }
 
@@ -219,22 +219,22 @@ void fcom(double_t y)
 {
     double_t x = fpu_get_st0();
 
-    fpu_status_word[0] &= ~FPU_RESULT_FLAGS;
+    *fpu_status_word &= ~FPU_RESULT_FLAGS;
 
     if(x > y)
     {
     }
     else if(y > x)
     {
-        fpu_status_word[0] |= FPU_C0;
+        *fpu_status_word |= FPU_C0;
     }
     else if(x == y)
     {
-        fpu_status_word[0] |= FPU_C3;
+        *fpu_status_word |= FPU_C3;
     }
     else
     {
-        fpu_status_word[0] |= FPU_C0 | FPU_C2 | FPU_C3;
+        *fpu_status_word |= FPU_C0 | FPU_C2 | FPU_C3;
     }
 }
 
@@ -253,19 +253,19 @@ void fucomi(double_t y)
 
 void ftst(double_t x)
 {
-    fpu_status_word[0] &= ~FPU_RESULT_FLAGS;
+    *fpu_status_word &= ~FPU_RESULT_FLAGS;
 
     if(isnan(x))
     {
-        fpu_status_word[0] |= FPU_C3 | FPU_C2 | FPU_C0;
+        *fpu_status_word |= FPU_C3 | FPU_C2 | FPU_C0;
     }
     else if(x == 0)
     {
-        fpu_status_word[0] |= FPU_C3;
+        *fpu_status_word |= FPU_C3;
     }
     else if(x < 0)
     {
-        fpu_status_word[0] |= FPU_C0;
+        *fpu_status_word |= FPU_C0;
     }
 
     // TODO: unordered (x is nan, etc)
@@ -273,28 +273,28 @@ void ftst(double_t x)
 
 void fxam(double_t x)
 {
-    fpu_status_word[0] &= ~FPU_RESULT_FLAGS;
-    fpu_status_word[0] |= fpu_sign(0) << 9;
+    *fpu_status_word &= ~FPU_RESULT_FLAGS;
+    *fpu_status_word |= fpu_sign(0) << 9;
 
-    if(fpu_stack_empty[0] >> fpu_stack_ptr[0] & 1)
+    if(*fpu_stack_empty >> *fpu_stack_ptr & 1)
     {
-        fpu_status_word[0] |= FPU_C3 | FPU_C0;
+        *fpu_status_word |= FPU_C3 | FPU_C0;
     }
     else if(isnan(x))
     {
-        fpu_status_word[0] |= FPU_C0;
+        *fpu_status_word |= FPU_C0;
     }
     else if(x == 0)
     {
-        fpu_status_word[0] |= FPU_C3;
+        *fpu_status_word |= FPU_C3;
     }
     else if(x == INFINITY || x == -INFINITY)
     {
-        fpu_status_word[0] |= FPU_C2 | FPU_C0;
+        *fpu_status_word |= FPU_C2 | FPU_C0;
     }
     else
     {
-        fpu_status_word[0] |= FPU_C2;
+        *fpu_status_word |= FPU_C2;
     }
     // TODO:
     // Unsupported, Denormal
@@ -302,14 +302,14 @@ void fxam(double_t x)
 
 void finit()
 {
-    fpu_control_word[0] = 0x37F;
-    fpu_status_word[0] = 0;
+    *fpu_control_word = 0x37F;
+    *fpu_status_word = 0;
     fpu_ip[0] = 0;
     fpu_dp[0] = 0;
     fpu_opcode[0] = 0;
 
-    fpu_stack_empty[0] = 0xFF;
-    fpu_stack_ptr[0] = 0;
+    *fpu_stack_empty = 0xFF;
+    *fpu_stack_ptr = 0;
 }
 
 
@@ -321,7 +321,7 @@ int32_t fpu_load_tag_word()
     {
         double_t value = fpu_st[i];
 
-        if(fpu_stack_empty[0] >> i & 1)
+        if(*fpu_stack_empty >> i & 1)
         {
             tag_word |= 3 << (i << 1);
         }
@@ -335,7 +335,7 @@ int32_t fpu_load_tag_word()
         }
     }
 
-    //dbg_log("load  tw=" + h(tag_word) + " se=" + h(fpu_stack_empty[0]) + " sp=" + fpu_stack_ptr[0], LOG_FPU);
+    //dbg_log("load  tw=" + h(tag_word) + " se=" + h(*fpu_stack_empty) + " sp=" + *fpu_stack_ptr, LOG_FPU);
 
     return tag_word;
 }
@@ -358,7 +358,7 @@ void fstenv(int32_t addr)
     {
         writable_or_pagefault(addr, 26);
 
-        safe_write16(addr, fpu_control_word[0]);
+        safe_write16(addr, *fpu_control_word);
 
         safe_write16(addr + 4, fpu_load_status_word());
         safe_write16(addr + 8, fpu_load_tag_word());
@@ -380,7 +380,7 @@ void fldenv(int32_t addr)
 {
     if(is_osize_32())
     {
-        fpu_control_word[0] = safe_read16(addr);
+        *fpu_control_word = safe_read16(addr);
 
         fpu_set_status_word(safe_read16(addr + 4));
         fpu_set_tag_word(safe_read16(addr + 8));
@@ -407,11 +407,11 @@ void fsave(int32_t addr)
 
     for(int32_t i = 0; i < 8; i++)
     {
-        fpu_store_m80(addr, fpu_st[fpu_stack_ptr[0] + i & 7]);
+        fpu_store_m80(addr, fpu_st[*fpu_stack_ptr + i & 7]);
         addr += 10;
     }
 
-    //dbg_log("save st=" + fpu_stack_ptr[0] + " " + [].slice.call(this.st), LOG_FPU);
+    //dbg_log("save st=" + *fpu_stack_ptr + " " + [].slice.call(this.st), LOG_FPU);
 
     finit();
 }
@@ -423,46 +423,46 @@ void frstor(int32_t addr)
 
     for(int32_t i = 0; i < 8; i++)
     {
-        fpu_st[(i + fpu_stack_ptr[0]) & 7] = fpu_load_m80(addr);
+        fpu_st[(i + *fpu_stack_ptr) & 7] = fpu_load_m80(addr);
         addr += 10;
     }
 
-    //dbg_log("rstor st=" + fpu_stack_ptr[0] + " " + [].slice.call(this.st), LOG_FPU);
+    //dbg_log("rstor st=" + *fpu_stack_ptr + " " + [].slice.call(this.st), LOG_FPU);
 }
 
 void fpu_push(double_t x)
 {
-    fpu_stack_ptr[0] = fpu_stack_ptr[0] - 1 & 7;
+    *fpu_stack_ptr = *fpu_stack_ptr - 1 & 7;
 
-    if(fpu_stack_empty[0] >> fpu_stack_ptr[0] & 1)
+    if(*fpu_stack_empty >> *fpu_stack_ptr & 1)
     {
-        fpu_status_word[0] &= ~FPU_C1;
-        fpu_stack_empty[0] &= ~(1 << fpu_stack_ptr[0]);
-        fpu_st[fpu_stack_ptr[0]] = x;
+        *fpu_status_word &= ~FPU_C1;
+        *fpu_stack_empty &= ~(1 << *fpu_stack_ptr);
+        fpu_st[*fpu_stack_ptr] = x;
     }
     else
     {
-        fpu_status_word[0] |= FPU_C1;
+        *fpu_status_word |= FPU_C1;
         fpu_stack_fault();
-        fpu_st[fpu_stack_ptr[0]] = INDEFINITE_NAN;
+        fpu_st[*fpu_stack_ptr] = INDEFINITE_NAN;
     }
 }
 
 void fpu_pop()
 {
-    fpu_stack_empty[0] |= 1 << fpu_stack_ptr[0];
-    fpu_stack_ptr[0] = fpu_stack_ptr[0] + 1 & 7;
+    *fpu_stack_empty |= 1 << *fpu_stack_ptr;
+    *fpu_stack_ptr = *fpu_stack_ptr + 1 & 7;
 }
 
 double_t fpu_get_sti(int32_t i)
 {
     dbg_assert(i >= 0 && i < 8);
 
-    i = i + fpu_stack_ptr[0] & 7;
+    i = i + *fpu_stack_ptr & 7;
 
-    if(fpu_stack_empty[0] >> i & 1)
+    if(*fpu_stack_empty >> i & 1)
     {
-        fpu_status_word[0] &= ~FPU_C1;
+        *fpu_status_word &= ~FPU_C1;
         fpu_stack_fault();
         return INDEFINITE_NAN;
     }
@@ -481,13 +481,13 @@ void fxtract()
     double_int_view.u8[7] = 0x3F | (double_int_view.u8[7] & 0x80);
     double_int_view.u8[6] |= 0xF0;
 
-    fpu_st[fpu_stack_ptr[0]] = exponent;
+    fpu_st[*fpu_stack_ptr] = exponent;
     fpu_push(double_int_view.f64);
 }
 
 double_t fpu_integer_round(double_t f)
 {
-    int32_t rc = fpu_control_word[0] >> 10 & 3;
+    int32_t rc = *fpu_control_word >> 10 & 3;
 
     // XXX: See https://en.wikipedia.org/wiki/C_mathematical_functions
 
@@ -567,12 +567,12 @@ void dbg_log_fpu_op(int32_t op, int32_t imm8)
     if(imm8 >= 0xC0)
     {
         dbg_log(h(op, 2) + " " + h(imm8, 2) + "/" + (imm8 >> 3 & 7) + "/" + (imm8 & 7) +
-                " @" + h(this.cpu.instruction_pointer[0], 8) + " sp=" + fpu_stack_ptr[0] + " st=" + h(fpu_stack_empty[0], 2), LOG_FPU);
+                " @" + h(this.cpu.instruction_pointer[0], 8) + " sp=" + *fpu_stack_ptr + " st=" + h(*fpu_stack_empty, 2), LOG_FPU);
     }
     else
     {
         dbg_log(h(op, 2) + " /" + imm8 +
-                "     @" + h(this.cpu.instruction_pointer[0], 8) + " sp=" + fpu_stack_ptr[0] + " st=" + h(fpu_stack_empty[0], 2), LOG_FPU);
+                "     @" + h(this.cpu.instruction_pointer[0], 8) + " sp=" + *fpu_stack_ptr + " st=" + h(*fpu_stack_empty, 2), LOG_FPU);
     }
 #endif
 }
@@ -596,11 +596,11 @@ void fpu_op_D8_reg(int32_t imm8)
     {
         case 0:
             // fadd
-            fpu_st[fpu_stack_ptr[0]] = st0 + sti;
+            fpu_st[*fpu_stack_ptr] = st0 + sti;
             break;
         case 1:
             // fmul
-            fpu_st[fpu_stack_ptr[0]] = st0 * sti;
+            fpu_st[*fpu_stack_ptr] = st0 * sti;
             break;
         case 2:
             // fcom
@@ -613,19 +613,19 @@ void fpu_op_D8_reg(int32_t imm8)
             break;
         case 4:
             // fsub
-            fpu_st[fpu_stack_ptr[0]] = st0 - sti;
+            fpu_st[*fpu_stack_ptr] = st0 - sti;
             break;
         case 5:
             // fsubr
-            fpu_st[fpu_stack_ptr[0]] = sti - st0;
+            fpu_st[*fpu_stack_ptr] = sti - st0;
             break;
         case 6:
             // fdiv
-            fpu_st[fpu_stack_ptr[0]] = st0 / sti;
+            fpu_st[*fpu_stack_ptr] = st0 / sti;
             break;
         case 7:
             // fdivr
-            fpu_st[fpu_stack_ptr[0]] = sti / st0;
+            fpu_st[*fpu_stack_ptr] = sti / st0;
             break;
         default:
             dbg_assert(false);
@@ -643,11 +643,11 @@ void fpu_op_D8_mem(int32_t mod, int32_t addr)
     {
         case 0:
             // fadd
-            fpu_st[fpu_stack_ptr[0]] = st0 + m32;
+            fpu_st[*fpu_stack_ptr] = st0 + m32;
             break;
         case 1:
             // fmul
-            fpu_st[fpu_stack_ptr[0]] = st0 * m32;
+            fpu_st[*fpu_stack_ptr] = st0 * m32;
             break;
         case 2:
             // fcom
@@ -660,19 +660,19 @@ void fpu_op_D8_mem(int32_t mod, int32_t addr)
             break;
         case 4:
             // fsub
-            fpu_st[fpu_stack_ptr[0]] = st0 - m32;
+            fpu_st[*fpu_stack_ptr] = st0 - m32;
             break;
         case 5:
             // fsubr
-            fpu_st[fpu_stack_ptr[0]] = m32 - st0;
+            fpu_st[*fpu_stack_ptr] = m32 - st0;
             break;
         case 6:
             // fdiv
-            fpu_st[fpu_stack_ptr[0]] = st0 / m32;
+            fpu_st[*fpu_stack_ptr] = st0 / m32;
             break;
         case 7:
             // fdivr
-            fpu_st[fpu_stack_ptr[0]] = m32 / st0;
+            fpu_st[*fpu_stack_ptr] = m32 / st0;
             break;
         default:
             dbg_assert(false);
@@ -699,8 +699,8 @@ void fpu_op_D9_reg(int32_t imm8)
             // fxch
             {
                 double_t sti = fpu_get_sti(low);
-                fpu_st[fpu_stack_ptr[0] + low & 7] = fpu_get_st0();
-                fpu_st[fpu_stack_ptr[0]] = sti;
+                fpu_st[*fpu_stack_ptr + low & 7] = fpu_get_st0();
+                fpu_st[*fpu_stack_ptr] = sti;
             }
             break;
         case 2:
@@ -727,11 +727,11 @@ void fpu_op_D9_reg(int32_t imm8)
                 {
                     case 0:
                         // fchs
-                        fpu_st[fpu_stack_ptr[0]] = -st0;
+                        fpu_st[*fpu_stack_ptr] = -st0;
                         break;
                     case 1:
                         // fabs
-                        fpu_st[fpu_stack_ptr[0]] = fabs(st0);
+                        fpu_st[*fpu_stack_ptr] = fabs(st0);
                         break;
                     case 4:
                         ftst(st0);
@@ -767,21 +767,21 @@ void fpu_op_D9_reg(int32_t imm8)
                 {
                     case 0:
                         // f2xm1
-                        fpu_st[fpu_stack_ptr[0]] = pow(2, st0) - 1;
+                        fpu_st[*fpu_stack_ptr] = pow(2, st0) - 1;
                         break;
                     case 1:
                         // fyl2x
-                        fpu_st[fpu_stack_ptr[0] + 1 & 7] = fpu_get_sti(1) * log(st0) / M_LN2;
+                        fpu_st[*fpu_stack_ptr + 1 & 7] = fpu_get_sti(1) * log(st0) / M_LN2;
                         fpu_pop();
                         break;
                     case 2:
                         // fptan
-                        fpu_st[fpu_stack_ptr[0]] = tan(st0);
+                        fpu_st[*fpu_stack_ptr] = tan(st0);
                         fpu_push(1); // no bug: push constant 1
                         break;
                     case 3:
                         // fpatan
-                        fpu_st[fpu_stack_ptr[0] + 1 & 7] = atan2(fpu_get_sti(1), st0);
+                        fpu_st[*fpu_stack_ptr + 1 & 7] = atan2(fpu_get_sti(1), st0);
                         fpu_pop();
                         break;
                     case 4:
@@ -789,17 +789,17 @@ void fpu_op_D9_reg(int32_t imm8)
                         break;
                     case 5:
                         // fprem1
-                        fpu_st[fpu_stack_ptr[0]] = fmod(st0, fpu_get_sti(1));
+                        fpu_st[*fpu_stack_ptr] = fmod(st0, fpu_get_sti(1));
                         break;
                     case 6:
                         // fdecstp
-                        fpu_stack_ptr[0] = fpu_stack_ptr[0] - 1 & 7;
-                        fpu_status_word[0] &= ~FPU_C1;
+                        *fpu_stack_ptr = *fpu_stack_ptr - 1 & 7;
+                        *fpu_status_word &= ~FPU_C1;
                         break;
                     case 7:
                         // fincstp
-                        fpu_stack_ptr[0] = fpu_stack_ptr[0] + 1 & 7;
-                        fpu_status_word[0] &= ~FPU_C1;
+                        *fpu_stack_ptr = *fpu_stack_ptr + 1 & 7;
+                        *fpu_status_word &= ~FPU_C1;
                         break;
                     default:
                         dbg_assert(false);
@@ -817,47 +817,47 @@ void fpu_op_D9_reg(int32_t imm8)
                         {
                             double_t st1 = fpu_get_sti(1);
                             int32_t fprem_quotient = trunc(st0 / st1);
-                            fpu_st[fpu_stack_ptr[0]] = fmod(st0, st1);
+                            fpu_st[*fpu_stack_ptr] = fmod(st0, st1);
 
-                            fpu_status_word[0] &= ~(FPU_C0 | FPU_C1 | FPU_C3);
+                            *fpu_status_word &= ~(FPU_C0 | FPU_C1 | FPU_C3);
                             if (fprem_quotient & 1) {
-                                fpu_status_word[0] |= FPU_C1;
+                                *fpu_status_word |= FPU_C1;
                             }
                             if (fprem_quotient & (1 << 1)) {
-                                fpu_status_word[0] |= FPU_C3;
+                                *fpu_status_word |= FPU_C3;
                             }
                             if (fprem_quotient & (1 << 2)) {
-                                fpu_status_word[0] |= FPU_C0;
+                                *fpu_status_word |= FPU_C0;
                             }
 
-                            fpu_status_word[0] &= ~FPU_C2;
+                            *fpu_status_word &= ~FPU_C2;
                         }
                         break;
                     case 1:
                         // fyl2xp1: y * log2(x+1) and pop
-                        fpu_st[fpu_stack_ptr[0] + 1 & 7] = fpu_get_sti(1) * log(st0 + 1) / M_LN2;
+                        fpu_st[*fpu_stack_ptr + 1 & 7] = fpu_get_sti(1) * log(st0 + 1) / M_LN2;
                         fpu_pop();
                         break;
                     case 2:
-                        fpu_st[fpu_stack_ptr[0]] = sqrt(st0);
+                        fpu_st[*fpu_stack_ptr] = sqrt(st0);
                         break;
                     case 3:
-                        fpu_st[fpu_stack_ptr[0]] = sin(st0);
+                        fpu_st[*fpu_stack_ptr] = sin(st0);
                         fpu_push(cos(st0));
                         break;
                     case 4:
                         // frndint
-                        fpu_st[fpu_stack_ptr[0]] = fpu_integer_round(st0);
+                        fpu_st[*fpu_stack_ptr] = fpu_integer_round(st0);
                         break;
                     case 5:
                         // fscale
-                        fpu_st[fpu_stack_ptr[0]] = st0 * pow(2, fpu_truncate(fpu_get_sti(1)));
+                        fpu_st[*fpu_stack_ptr] = st0 * pow(2, fpu_truncate(fpu_get_sti(1)));
                         break;
                     case 6:
-                        fpu_st[fpu_stack_ptr[0]] = sin(st0);
+                        fpu_st[*fpu_stack_ptr] = sin(st0);
                         break;
                     case 7:
-                        fpu_st[fpu_stack_ptr[0]] = cos(st0);
+                        fpu_st[*fpu_stack_ptr] = cos(st0);
                         break;
                     default:
                         dbg_assert(false);
@@ -903,7 +903,7 @@ void fpu_op_D9_mem(int32_t mod, int32_t addr)
             // fldcw
             {
                 int32_t word = safe_read16(addr);
-                fpu_control_word[0] = word;
+                *fpu_control_word = word;
             }
             break;
         case 6:
@@ -911,7 +911,7 @@ void fpu_op_D9_mem(int32_t mod, int32_t addr)
             break;
         case 7:
             // fstcw
-            safe_write16(addr, fpu_control_word[0]);
+            safe_write16(addr, *fpu_control_word);
             break;
         default:
             dbg_assert(false);
@@ -931,32 +931,32 @@ void fpu_op_DA_reg(int32_t imm8)
             // fcmovb
             if(test_b())
             {
-                fpu_st[fpu_stack_ptr[0]] = fpu_get_sti(low);
-                fpu_stack_empty[0] &= ~(1 << fpu_stack_ptr[0]);
+                fpu_st[*fpu_stack_ptr] = fpu_get_sti(low);
+                *fpu_stack_empty &= ~(1 << *fpu_stack_ptr);
             }
             break;
         case 1:
             // fcmove
             if(test_z())
             {
-                fpu_st[fpu_stack_ptr[0]] = fpu_get_sti(low);
-                fpu_stack_empty[0] &= ~(1 << fpu_stack_ptr[0]);
+                fpu_st[*fpu_stack_ptr] = fpu_get_sti(low);
+                *fpu_stack_empty &= ~(1 << *fpu_stack_ptr);
             }
             break;
         case 2:
             // fcmovbe
             if(test_be())
             {
-                fpu_st[fpu_stack_ptr[0]] = fpu_get_sti(low);
-                fpu_stack_empty[0] &= ~(1 << fpu_stack_ptr[0]);
+                fpu_st[*fpu_stack_ptr] = fpu_get_sti(low);
+                *fpu_stack_empty &= ~(1 << *fpu_stack_ptr);
             }
             break;
         case 3:
             // fcmovu
             if(test_p())
             {
-                fpu_st[fpu_stack_ptr[0]] = fpu_get_sti(low);
-                fpu_stack_empty[0] &= ~(1 << fpu_stack_ptr[0]);
+                fpu_st[*fpu_stack_ptr] = fpu_get_sti(low);
+                *fpu_stack_empty &= ~(1 << *fpu_stack_ptr);
             }
             break;
         case 5:
@@ -990,11 +990,11 @@ void fpu_op_DA_mem(int32_t mod, int32_t addr)
     {
         case 0:
             // fadd
-            fpu_st[fpu_stack_ptr[0]] = st0 + m32;
+            fpu_st[*fpu_stack_ptr] = st0 + m32;
             break;
         case 1:
             // fmul
-            fpu_st[fpu_stack_ptr[0]] = st0 * m32;
+            fpu_st[*fpu_stack_ptr] = st0 * m32;
             break;
         case 2:
             // fcom
@@ -1007,19 +1007,19 @@ void fpu_op_DA_mem(int32_t mod, int32_t addr)
             break;
         case 4:
             // fsub
-            fpu_st[fpu_stack_ptr[0]] = st0 - m32;
+            fpu_st[*fpu_stack_ptr] = st0 - m32;
             break;
         case 5:
             // fsubr
-            fpu_st[fpu_stack_ptr[0]] = m32 - st0;
+            fpu_st[*fpu_stack_ptr] = m32 - st0;
             break;
         case 6:
             // fdiv
-            fpu_st[fpu_stack_ptr[0]] = st0 / m32;
+            fpu_st[*fpu_stack_ptr] = st0 / m32;
             break;
         case 7:
             // fdivr
-            fpu_st[fpu_stack_ptr[0]] = m32 / st0;
+            fpu_st[*fpu_stack_ptr] = m32 / st0;
             break;
         default:
             dbg_assert(false);
@@ -1039,32 +1039,32 @@ void fpu_op_DB_reg(int32_t imm8)
             // fcmovnb
             if(!test_b())
             {
-                fpu_st[fpu_stack_ptr[0]] = fpu_get_sti(low);
-                fpu_stack_empty[0] &= ~(1 << fpu_stack_ptr[0]);
+                fpu_st[*fpu_stack_ptr] = fpu_get_sti(low);
+                *fpu_stack_empty &= ~(1 << *fpu_stack_ptr);
             }
             break;
         case 1:
             // fcmovne
             if(!test_z())
             {
-                fpu_st[fpu_stack_ptr[0]] = fpu_get_sti(low);
-                fpu_stack_empty[0] &= ~(1 << fpu_stack_ptr[0]);
+                fpu_st[*fpu_stack_ptr] = fpu_get_sti(low);
+                *fpu_stack_empty &= ~(1 << *fpu_stack_ptr);
             }
             break;
         case 2:
             // fcmovnbe
             if(!test_be())
             {
-                fpu_st[fpu_stack_ptr[0]] = fpu_get_sti(low);
-                fpu_stack_empty[0] &= ~(1 << fpu_stack_ptr[0]);
+                fpu_st[*fpu_stack_ptr] = fpu_get_sti(low);
+                *fpu_stack_empty &= ~(1 << *fpu_stack_ptr);
             }
             break;
         case 3:
             // fcmovnu
             if(!test_p())
             {
-                fpu_st[fpu_stack_ptr[0]] = fpu_get_sti(low);
-                fpu_stack_empty[0] &= ~(1 << fpu_stack_ptr[0]);
+                fpu_st[*fpu_stack_ptr] = fpu_get_sti(low);
+                *fpu_stack_empty &= ~(1 << *fpu_stack_ptr);
             }
             break;
         case 4:
@@ -1085,7 +1085,7 @@ void fpu_op_DB_reg(int32_t imm8)
             else if(imm8 == 0xE2)
             {
                 // fclex
-                fpu_status_word[0] = 0;
+                *fpu_status_word = 0;
             }
             else
             {
@@ -1168,7 +1168,7 @@ void fpu_op_DC_reg(int32_t imm8)
 
     int32_t mod = imm8 >> 3 & 7;
     int32_t low = imm8 & 7;
-    int32_t low_ptr = fpu_stack_ptr[0] + low & 7;
+    int32_t low_ptr = *fpu_stack_ptr + low & 7;
     double_t sti = fpu_get_sti(low);
     double_t st0 = fpu_get_st0();
 
@@ -1223,11 +1223,11 @@ void fpu_op_DC_mem(int32_t mod, int32_t addr)
     {
         case 0:
             // fadd
-            fpu_st[fpu_stack_ptr[0]] = st0 + m64;
+            fpu_st[*fpu_stack_ptr] = st0 + m64;
             break;
         case 1:
             // fmul
-            fpu_st[fpu_stack_ptr[0]] = st0 * m64;
+            fpu_st[*fpu_stack_ptr] = st0 * m64;
             break;
         case 2:
             // fcom
@@ -1240,19 +1240,19 @@ void fpu_op_DC_mem(int32_t mod, int32_t addr)
             break;
         case 4:
             // fsub
-            fpu_st[fpu_stack_ptr[0]] = st0 - m64;
+            fpu_st[*fpu_stack_ptr] = st0 - m64;
             break;
         case 5:
             // fsubr
-            fpu_st[fpu_stack_ptr[0]] = m64 - st0;
+            fpu_st[*fpu_stack_ptr] = m64 - st0;
             break;
         case 6:
             // fdiv
-            fpu_st[fpu_stack_ptr[0]] = st0 / m64;
+            fpu_st[*fpu_stack_ptr] = st0 / m64;
             break;
         case 7:
             // fdivr
-            fpu_st[fpu_stack_ptr[0]] = m64 / st0;
+            fpu_st[*fpu_stack_ptr] = m64 / st0;
             break;
         default:
             dbg_assert(false);
@@ -1270,11 +1270,11 @@ void fpu_op_DD_reg(int32_t imm8)
     {
         case 0:
             // ffree
-            fpu_stack_empty[0] |= 1 << (fpu_stack_ptr[0] + low & 7);
+            *fpu_stack_empty |= 1 << (*fpu_stack_ptr + low & 7);
             break;
         case 2:
             // fst
-            fpu_st[fpu_stack_ptr[0] + low & 7] = fpu_get_st0();
+            fpu_st[*fpu_stack_ptr + low & 7] = fpu_get_st0();
             break;
         case 3:
             // fstp
@@ -1284,7 +1284,7 @@ void fpu_op_DD_reg(int32_t imm8)
             }
             else
             {
-                fpu_st[fpu_stack_ptr[0] + low & 7] = fpu_get_st0();
+                fpu_st[*fpu_stack_ptr + low & 7] = fpu_get_st0();
                 fpu_pop();
             }
             break;
@@ -1357,7 +1357,7 @@ void fpu_op_DE_reg(int32_t imm8)
 
     int32_t mod = imm8 >> 3 & 7;
     int32_t low = imm8 & 7;
-    int32_t low_ptr = fpu_stack_ptr[0] + low & 7;
+    int32_t low_ptr = *fpu_stack_ptr + low & 7;
     double_t sti = fpu_get_sti(low);
     double_t st0 = fpu_get_st0();
 
@@ -1423,11 +1423,11 @@ void fpu_op_DE_mem(int32_t mod, int32_t addr)
     {
         case 0:
             // fadd
-            fpu_st[fpu_stack_ptr[0]] = st0 + m16;
+            fpu_st[*fpu_stack_ptr] = st0 + m16;
             break;
         case 1:
             // fmul
-            fpu_st[fpu_stack_ptr[0]] = st0 * m16;
+            fpu_st[*fpu_stack_ptr] = st0 * m16;
             break;
         case 2:
             // fcom
@@ -1440,19 +1440,19 @@ void fpu_op_DE_mem(int32_t mod, int32_t addr)
             break;
         case 4:
             // fsub
-            fpu_st[fpu_stack_ptr[0]] = st0 - m16;
+            fpu_st[*fpu_stack_ptr] = st0 - m16;
             break;
         case 5:
             // fsubr
-            fpu_st[fpu_stack_ptr[0]] = m16 - st0;
+            fpu_st[*fpu_stack_ptr] = m16 - st0;
             break;
         case 6:
             // fdiv
-            fpu_st[fpu_stack_ptr[0]] = st0 / m16;
+            fpu_st[*fpu_stack_ptr] = st0 / m16;
             break;
         case 7:
             // fdivr
-            fpu_st[fpu_stack_ptr[0]] = m16 / st0;
+            fpu_st[*fpu_stack_ptr] = m16 / st0;
             break;
         default:
             dbg_assert(false);
