@@ -49,6 +49,209 @@ int32_t get_eflags()
                                   !!getzf() << 6 | !!getsf() << 7 | !!getof() << 11;
 }
 
+void trigger_pagefault(bool write, bool user, bool present)
+{
+    if(LOG_PAGE_FAULTS)
+    {
+        dbg_log("page fault w=%d u=%d p=%d eip=%x cr2=%x",
+                write, user, present, *previous_ip, cr[2]);
+        dbg_trace();
+    }
+
+    if(*page_fault)
+    {
+        dbg_log("double fault");
+        dbg_trace();
+        assert(false);
+    }
+
+    // invalidate tlb entry
+    int32_t page = (uint32_t)cr[2] >> 12;
+    tlb_info[page] = 0;
+    tlb_info_global[page] = 0;
+
+    instruction_pointer[0] = previous_ip[0];
+    *page_fault = true;
+    call_interrupt_vector(14, false, true, user << 2 | write << 1 | present);
+
+    throw_cpu_exception();
+}
+
+int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
+{
+    int32_t page = (uint32_t)addr >> 12;
+    int32_t page_dir_addr = ((uint32_t)cr[3] >> 2) + (page >> 10);
+    int32_t page_dir_entry = mem32s[page_dir_addr];
+    int32_t high;
+    bool can_write = true;
+    bool global;
+    bool allow_user = true;
+
+    if(!(page_dir_entry & 1))
+    {
+        // to do at this place:
+        //
+        // - set cr2 = addr (which caused the page fault)
+        // - call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)
+        // - prevent execution of the function that triggered this call
+        //dbg_log("#PF not present", LOG_CPU);
+
+        cr[2] = addr;
+        trigger_pagefault(for_writing, user, 0);
+
+        // never reached as trigger_pagefault throws
+        dbg_assert(false);
+    }
+
+    if((page_dir_entry & 2) == 0)
+    {
+        can_write = false;
+
+        if(for_writing && (user || (cr[0] & CR0_WP)))
+        {
+            cr[2] = addr;
+            trigger_pagefault(for_writing, user, 1);
+            dbg_assert(false);
+        }
+    }
+
+    if((page_dir_entry & 4) == 0)
+    {
+        allow_user = false;
+
+        if(user)
+        {
+            // "Page Fault: page table accessed by non-supervisor";
+            //dbg_log("#PF supervisor", LOG_CPU);
+            cr[2] = addr;
+            trigger_pagefault(for_writing, user, 1);
+            dbg_assert(false);
+        }
+    }
+
+    if(page_dir_entry & page_size_extensions[0])
+    {
+        // size bit is set
+
+        // set the accessed and dirty bits
+        mem32s[page_dir_addr] = page_dir_entry | 0x20 | for_writing << 6;
+
+        high = (page_dir_entry & 0xFFC00000) | (addr & 0x3FF000);
+        global = (page_dir_entry & 0x100) == 0x100;
+    }
+    else
+    {
+        int32_t page_table_addr = ((uint32_t)(page_dir_entry & 0xFFFFF000) >> 2) + (page & 0x3FF);
+        int32_t page_table_entry = mem32s[page_table_addr];
+
+        if((page_table_entry & 1) == 0)
+        {
+            //dbg_log("#PF not present table", LOG_CPU);
+            cr[2] = addr;
+            trigger_pagefault(for_writing, user, 0);
+            dbg_assert(false);
+        }
+
+        if((page_table_entry & 2) == 0)
+        {
+            can_write = false;
+
+            if(for_writing && (user || (cr[0] & CR0_WP)))
+            {
+                //dbg_log("#PF not writable page", LOG_CPU);
+                cr[2] = addr;
+                trigger_pagefault(for_writing, user, 1);
+                dbg_assert(false);
+            }
+        }
+
+        if((page_table_entry & 4) == 0)
+        {
+            allow_user = false;
+
+            if(user)
+            {
+                //dbg_log("#PF not supervisor page", LOG_CPU);
+                cr[2] = addr;
+                trigger_pagefault(for_writing, user, 1);
+                dbg_assert(false);
+            }
+        }
+
+        // set the accessed and dirty bits
+        write_aligned32(page_dir_addr, page_dir_entry | 0x20);
+        write_aligned32(page_table_addr, page_table_entry | 0x20 | for_writing << 6);
+
+        high = page_table_entry & 0xFFFFF000;
+        global = (page_table_entry & 0x100) == 0x100;
+    }
+
+    tlb_data[page] = high ^ page << 12;
+
+    int32_t allowed_flag;
+
+    if(allow_user)
+    {
+        if(can_write)
+        {
+            allowed_flag = TLB_SYSTEM_READ | TLB_SYSTEM_WRITE | TLB_USER_READ | TLB_USER_WRITE;
+        }
+        else
+        {
+            // TODO: Consider if cr0.wp is not set
+            allowed_flag = TLB_SYSTEM_READ | TLB_USER_READ;
+        }
+    }
+    else
+    {
+        if(can_write)
+        {
+            allowed_flag = TLB_SYSTEM_READ | TLB_SYSTEM_WRITE;
+        }
+        else
+        {
+            allowed_flag = TLB_SYSTEM_READ;
+        }
+    }
+
+    tlb_info[page] = allowed_flag;
+
+    if(global && (cr[4] & CR4_PGE))
+    {
+        tlb_info_global[page] = allowed_flag;
+    }
+
+    return high;
+}
+
+void writable_or_pagefault(int32_t addr, int32_t size)
+{
+    dbg_assert(size < 0x1000);
+    dbg_assert(size > 0);
+
+    if(!paging[0])
+    {
+        return;
+    }
+
+    bool user = cpl[0] == 3 ? true : false;
+    int32_t mask = user ? TLB_USER_WRITE : TLB_SYSTEM_WRITE;
+    int32_t page = (uint32_t)addr >> 12;
+
+    if((tlb_info[page] & mask) == 0)
+    {
+        do_page_translation(addr, true, user);
+    }
+
+    if((addr & 0xFFF) + size - 1 >= 0x1000)
+    {
+        if((tlb_info[page + 1] & mask) == 0)
+        {
+            do_page_translation(addr + size - 1, true, user);
+        }
+    }
+}
+
 int32_t translate_address_read(int32_t address)
 {
     if(!*paging) return address;
@@ -291,6 +494,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         profiler_stat_increment(S_CACHE_DROP);
     }
 
+    // no page was crossed
     assert(((end_addr ^ phys_addr) & ~0xFFF) == 0);
 
     gen_increment_timestamp_counter(len);

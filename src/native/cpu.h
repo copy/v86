@@ -11,6 +11,7 @@ void branch_not_taken(void);
 int32_t get_eflags(void);
 int32_t translate_address_read(int32_t address);
 int32_t translate_address_write(int32_t address);
+void writable_or_pagefault(int32_t addr, int32_t size);
 int32_t read_imm8(void);
 int32_t read_imm8s(void);
 int32_t read_imm16(void);

@@ -78,7 +78,7 @@ function CPU(bus, wm, codegen)
     /*
      * whether or not a page fault occured
      */
-    this.page_fault = false;
+    this.page_fault = new Uint32Array(wm.memory.buffer, 540, 8);
 
     this.cr = new Int32Array(wm.memory.buffer, 580, 8);
 
@@ -444,7 +444,7 @@ CPU.prototype.get_state = function()
     state[6] = this.idtr_size[0];
     state[7] = this.gdtr_offset[0];
     state[8] = this.gdtr_size[0];
-    state[9] = this.page_fault;
+    state[9] = this.page_fault[0];
     state[10] = this.cr;
     state[11] = this.cpl[0];
     state[12] = this.page_size_extensions[0];
@@ -526,7 +526,7 @@ CPU.prototype.set_state = function(state)
     this.idtr_size[0] = state[6];
     this.gdtr_offset[0] = state[7];
     this.gdtr_size[0] = state[8];
-    this.page_fault = state[9];
+    this.page_fault[0] = state[9];
     this.cr.set(state[10]);
     this.cpl[0] = state[11];
     this.page_size_extensions[0] = state[12];
@@ -639,7 +639,7 @@ CPU.prototype.exception_cleanup = function(e)
         // call_interrupt_vector has already been called at this point,
         // so we just need to reset some state
 
-        this.page_fault = false;
+        this.page_fault[0] = 0;
 
         // restore state from prefixes
         this.clear_prefixes();
@@ -698,7 +698,7 @@ CPU.prototype.reset = function()
     this.gdtr_size[0] = 0;
     this.gdtr_offset[0] = 0;
 
-    this.page_fault = false;
+    this.page_fault[0] = 0;
     this.cr[0] = 1 << 30 | 1 << 29 | 1 << 4;
     this.cr[2] = 0;
     this.cr[3] = 0;
@@ -2330,7 +2330,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, ha
         }
         else
         {
-            if(!this.page_fault) // XXX
+            if(!this.page_fault[0]) // XXX
             {
                 this.handle_irqs();
             }
@@ -3611,12 +3611,12 @@ CPU.prototype.pic_call_irq = function(int)
 
 CPU.prototype.handle_irqs = function()
 {
-    dbg_assert(!this.page_fault);
+    dbg_assert(!this.page_fault[0]);
     //dbg_assert(this.prefixes[0] === 0);
 
     this.diverged();
 
-    if((this.flags[0] & flag_interrupt) && !this.page_fault)
+    if((this.flags[0] & flag_interrupt) && !this.page_fault[0])
     {
         if(this.devices.pic)
         {
@@ -4645,7 +4645,7 @@ CPU.prototype.trigger_pagefault = function(write, user, present)
         dbg_trace(LOG_CPU);
     }
 
-    if(this.page_fault)
+    if(this.page_fault[0])
     {
         dbg_trace(LOG_CPU);
         throw this.debug.unimpl("Double fault");
@@ -4657,7 +4657,7 @@ CPU.prototype.trigger_pagefault = function(write, user, present)
     this.tlb_info_global[page] = 0;
 
     this.instruction_pointer[0] = this.previous_ip[0];
-    this.page_fault = true;
+    this.page_fault[0] = 1;
     this.call_interrupt_vector(14, false, true, user << 2 | write << 1 | present);
 
     throw MAGIC_CPU_EXCEPTION;

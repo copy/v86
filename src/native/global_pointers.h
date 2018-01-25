@@ -20,7 +20,10 @@ static int32_t* const last_add_result = (int32_t* const) 524;
 static int32_t* const last_result = (int32_t* const) 528;
 static int32_t* const flags_changed = (int32_t* const) 532;
 static int32_t* const flags = (int32_t* const) 536;
-// gap 16
+
+static bool* const page_fault = (bool* const) 540;
+
+// gap 12
 
 static bool* const a20_enabled = (bool* const) 552;
 static int32_t* const instruction_pointer = (int32_t* const) 556;

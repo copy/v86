@@ -175,7 +175,6 @@ function V86Starter(options)
         "_int_log2": function(val) { return v86util.int_log2(val); },
         "_math_pow": function(x, y) { return Math.pow(x, y); },
 
-        "_do_page_translation": function() { return cpu.do_page_translation.apply(cpu, arguments); },
         "_popa16": function() { return cpu.popa16.apply(cpu, arguments); },
         "_popa32": function() { return cpu.popa32.apply(cpu, arguments); },
         "_arpl": function() { return cpu.arpl.apply(cpu, arguments); },
@@ -191,7 +190,6 @@ function V86Starter(options)
 
         "_full_clear_tlb": function() { return cpu.full_clear_tlb.apply(cpu, arguments); },
         "_invlpg": function() { return cpu.invlpg.apply(cpu, arguments); },
-        "_writable_or_pagefault": function() { return cpu.writable_or_pagefault.apply(cpu, arguments); },
 
         "_cpl_changed": function() { return cpu.cpl_changed.apply(cpu, arguments); },
         "_set_cr0": function() { return cpu.set_cr0.apply(cpu, arguments); },
@@ -209,7 +207,6 @@ function V86Starter(options)
         "_loop": function() { return cpu.loop.apply(cpu, arguments); },
         "_loope": function() { return cpu.loope.apply(cpu, arguments); },
         "_loopne": function() { return cpu.loopne.apply(cpu, arguments); },
-        "_task_switch_test": function() { return cpu.task_switch_test.apply(cpu, arguments); },
         "_jcxz": function() { return cpu.jcxz.apply(cpu, arguments); },
         "_test_privileges_for_io": function() { return cpu.test_privileges_for_io.apply(cpu, arguments); },
 
