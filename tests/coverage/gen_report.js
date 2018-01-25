@@ -41,6 +41,7 @@ if(!first_report)
 
 let count_fns = 0;
 const seen_fns = [];
+
 for(let file of data_files)
 {
     const data_filename_fmt = file.match(data_regex);
@@ -52,11 +53,11 @@ for(let file of data_files)
     count_fns++;
     const data = {
         fn_name: data_filename_fmt[1],
-        total_blocks: data_filename_fmt[2],
+        total_blocks: Number(data_filename_fmt[2]),
         untouched: [],
     };
 
-    // When old cov_data is not deleted, and the number of conditional blocks in a function change,
+    // When old coverage_data is not deleted, and the number of conditional blocks in a function change,
     // this may trigger
     assert.ok(seen_fns.indexOf(data.fn_name) === -1, `Function from ${file} seen already`);
     seen_fns.push(data.fn_name);
