@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
+
 #include "profiler.h"
+#include "../shared.h"
 
 #if ENABLE_PROFILER
 
@@ -96,13 +98,13 @@ int32_t profiler_stat_get(enum stat_name stat)
 // Disable profiler
 
 void profiler_init(void) {}
-void profiler_start(enum profile_name name) {}
-void profiler_end(enum profile_name name) {}
+void profiler_start(enum profile_name name) { UNUSED(name); }
+void profiler_end(enum profile_name name) { UNUSED(name); }
 void profiler_print(void) {}
-int32_t profiler_get_time(enum profile_name name) { return 0; }
+int32_t profiler_get_time(enum profile_name name) { UNUSED(name); return 0; }
 int32_t profiler_get_total(void) { return 0; }
-void profiler_stat_increment(enum stat_name stat) {}
-int32_t profiler_stat_get(enum stat_name stat) { return 0; }
+void profiler_stat_increment(enum stat_name stat) { UNUSED(stat); }
+int32_t profiler_stat_get(enum stat_name stat) { UNUSED(stat); return 0; }
 
 
 #endif

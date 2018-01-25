@@ -558,6 +558,8 @@ void fpu_store_m32(int32_t addr, double_t x)
 
 void dbg_log_fpu_op(int32_t op, int32_t imm8)
 {
+    UNUSED(op);
+    UNUSED(imm8);
 #if 0
     if(!FPU_LOG_OP)
     {

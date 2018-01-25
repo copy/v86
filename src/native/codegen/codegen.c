@@ -3,13 +3,13 @@
 #include <assert.h>
 
 #include "cstring.h"
-#include "const.h"
+#include "../const.h"
 #include "wasm_opcodes.h"
 #include "codegen.h"
 #include "util.h"
 #include "wasm_util.h"
 #include "module_init.h"
-#include "global_pointers.h"
+#include "../global_pointers.h"
 
 static Buffer op = { .start = (uint8_t* const) 2048, .ptr = (uint8_t*) 2048, .len = 1024 };
 static Buffer cs = { .start = (uint8_t* const) 3072, .ptr = (uint8_t*) 3072, .len = 1024 };
@@ -45,14 +45,17 @@ void gen_init()
     uint8_t _fn_get_seg_prefix_ds_idx = write_import_entry(
             "get_seg_prefix_ds", 17, FN1_RET_TYPE_INDEX);
     assert(_fn_get_seg_prefix_ds_idx == fn_get_seg_prefix_ds_idx);
+    UNUSED(_fn_get_seg_prefix_ds_idx);
 
     uint8_t _fn_get_seg_prefix_ss_idx = write_import_entry(
             "get_seg_prefix_ss", 17, FN1_RET_TYPE_INDEX);
     assert(_fn_get_seg_prefix_ss_idx == fn_get_seg_prefix_ss_idx);
+    UNUSED(_fn_get_seg_prefix_ss_idx);
 
     uint8_t _fn_get_seg_prefix_idx = write_import_entry(
             "get_seg_prefix", 14, FN1_RET_TYPE_INDEX);
     assert(_fn_get_seg_prefix_idx == fn_get_seg_prefix_idx);
+    UNUSED(_fn_get_seg_prefix_idx);
 
     // store state of current pointers etc. so we can reset them later
     op_ptr_reset_location = op.ptr;
