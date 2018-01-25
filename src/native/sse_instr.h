@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-#include "shared.h"
+#include "cpu.h"
 
 void mov_r_m64(int32_t addr, int32_t r);
 void movl_r128_m64(int32_t addr, int32_t r);

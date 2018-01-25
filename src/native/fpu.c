@@ -187,7 +187,7 @@ double_t fpu_load_m80(uint32_t addr)
     // An alternative write the mantissa, sign and exponent in the
     // float64_byte and return float64[0]
 
-    return mantissa * math_pow(2, exponent - 63);
+    return mantissa * pow(2, exponent - 63);
 }
 
 void fpu_stack_fault()

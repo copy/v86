@@ -1,6 +1,8 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
+#include "cpu.h"
 
 bool in_mapped_range(uint32_t addr);
 void jit_dirty_cache(uint32_t start_addr, uint32_t end_addr);

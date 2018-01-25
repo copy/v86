@@ -173,7 +173,6 @@ function V86Starter(options)
         "_mmap_write32": function(addr, value) { return cpu.mmap_write32(addr, value); },
 
         "_int_log2": function(val) { return v86util.int_log2(val); },
-        "_math_pow": function(x, y) { return Math.pow(x, y); },
 
         "_popa16": function() { return cpu.popa16.apply(cpu, arguments); },
         "_popa32": function() { return cpu.popa32.apply(cpu, arguments); },
@@ -223,6 +222,7 @@ function V86Starter(options)
 
         "_codegen_finalize": (cache_index, virt_start, start, end) => cpu.codegen_finalize(cache_index, virt_start, start, end),
 
+        // see https://github.com/kripken/emscripten/blob/incoming/src/library.js
         "_atan2": Math.atan2,
         "_sin": Math.sin,
         "_cos": Math.cos,
@@ -232,6 +232,9 @@ function V86Starter(options)
         "_llvm_exp2_f64": (x) => Math.pow(2, x),
         "_log": Math.log,
         "_round": Math.round,
+        "_ldexp": function(x, exp) {
+            return x * Math.pow(2, exp);
+        },
     };
 
     const wasm_globals = {
