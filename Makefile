@@ -89,8 +89,8 @@ CC_FLAGS=\
 		-s WASM=1 \
 		-s SIDE_MODULE=1
 
-CORE_FILES=const.js config.js io.js main.js lib.js fpu.js ide.js pci.js floppy.js memory.js \
-	   dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js ioapic.js \
+CORE_FILES=const.js config.js io.js main.js lib.js coverage.js fpu.js ide.js pci.js floppy.js \
+	   memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js ioapic.js \
 	   state.js ne2k.js virtio.js bus.js log.js \
 	   cpu.js debug.js \
 	   elf.js codegen.js
@@ -167,6 +167,7 @@ build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/
 
 build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/*.ll
 	mkdir -p build
+	mkdir -p build/coverage
 	-ls -lh build/v86-debug.wasm
 	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/*.ll \
 		$(CC_FLAGS) \
@@ -194,8 +195,8 @@ clean:
 	-rm build/*.map
 	-rm build/*.wast
 	-rm build/cov_data*
-	$(MAKE) -C $(NASM_TEST_DIR) clean
 	-rm $(COVERAGE_DIR)/build/report_*
+	$(MAKE) -C $(NASM_TEST_DIR) clean
 
 run:
 	python2 -m SimpleHTTPServer 2> /dev/null
@@ -246,7 +247,7 @@ codegen-test: build/codegen-test.wasm
 
 covreport:
 	mkdir -p $(COVERAGE_DIR)/build/
-	$(COVERAGE_DIR)/cov-report.js
+	$(COVERAGE_DIR)/gen_report.js
 
 node_modules/.bin/jshint:
 	npm install

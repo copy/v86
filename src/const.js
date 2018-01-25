@@ -374,4 +374,4 @@ const WASM_PAGE_SIZE = 64 * 1024;
 /** @const */
 const COVERAGE_EXPORT_PREFIX = "___profn_";
 /** @const */
-const COVERAGE_FILE_PREFIX = "cov_data";
+const COVERAGE_FILE_PREFIX = "coverage_data";

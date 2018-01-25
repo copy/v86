@@ -96,48 +96,13 @@ function V86Starter(options)
     var cpu;
     var mem;
     var mem8;
+    const coverage_logger = new CoverageLogger();
 
-    const is_env_node = v86util.check_env_node();
-
-    function coverage_log(fn_name_offset, num_blocks, visited_block) {
-        // This may be called before cpu is even created, through the Codegen initialization
-        if(DEBUG && is_env_node && cpu && cpu.wm && cpu.should_log_coverage[0])
-        {
-            // fn_name_offset is an offset in the data section to where the string of the function
-            // name is stored, so it varies by memoryBase, whereas cov_* objects' fn_id doesn't
-            const fn_id = fn_name_offset - cpu.wm.imports.env["memoryBase"];
-            if(!(fn_id in cpu.cov_visit_logs))
-            {
-                // Static functions may not be "discovered" in coverage_init - we currently simply
-                // skip them
-                return;
-            }
-            const log_pos = cpu.cov_pos[fn_id];
-            const existing_entry = cpu.cov_visit_logs[fn_id].indexOf(visited_block);
-            if((existing_entry > -1 && existing_entry < log_pos) || num_blocks > 0xFF)
-            {
-                // If we'd like to profile frequency of code visited, we should be using counters
-                // instead. This approach was simply faster to measure coverage.
-                return;
-            }
-
-            cpu.cov_total_blocks[fn_id] = num_blocks;
-            cpu.cov_visit_logs[fn_id][log_pos] = visited_block;
-            cpu.cov_pos[fn_id]++;
-
-            if(log_pos >= cpu.cov_visit_logs[fn_id].length - 1)
-            {
-                cpu.coverage_dump();
-                cpu.cov_pos[fn_id] = 0;
-            }
-        }
-    }
-
-    if(DEBUG)
+    if(coverage_logger.ENABLED)
     {
         this.bus.register("emulator-stopped", function()
         {
-            cpu.coverage_dump();
+            coverage_logger.dump_to_files();
         }, this);
     }
 
@@ -266,7 +231,9 @@ function V86Starter(options)
         "_get_time": () => Date.now(),
 
         "_codegen_finalize": (cache_index, virt_start, start, end) => cpu.codegen_finalize(cache_index, virt_start, start, end),
-        "_coverage_log": coverage_log,
+        "_coverage_log": (fn_name_offset, num_blocks, visited_block) => {
+            coverage_logger.log(fn_name_offset, num_blocks, visited_block);
+        },
 
         // see https://github.com/kripken/emscripten/blob/incoming/src/library.js
         "_atan2": Math.atan2,
@@ -306,7 +273,8 @@ function V86Starter(options)
         WASM_TABLE_SIZE,
         wm => {
             wm.instance.exports["__post_instantiate"]();
-            emulator = this.v86 = new v86(this.emulator_bus, wm, new Codegen(wm));
+            coverage_logger.init(wm);
+            emulator = this.v86 = new v86(this.emulator_bus, wm, new Codegen(wm), coverage_logger);
             cpu = emulator.cpu;
             mem = wm.memory.buffer;
             mem8 = new Uint8Array(mem);

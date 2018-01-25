@@ -5,7 +5,7 @@
     "use strict";
 
     var CORE_FILES =
-        "const.js config.js log.js lib.js cpu.js debug.js codegen.js " +
+        "const.js config.js log.js lib.js coverage.js cpu.js debug.js codegen.js " +
         "io.js main.js ide.js fpu.js pci.js floppy.js " +
         "memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js acpi.js apic.js ioapic.js hpet.js " +
         "ne2k.js state.js virtio.js bus.js elf.js";

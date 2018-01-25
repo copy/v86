@@ -6,10 +6,10 @@ const fs = require("fs");
 const path = require("path");
 const assert = require("assert");
 
-const DATA_PATH = path.join(__dirname, "..", "..", "build");
+const DATA_PATH = path.join(__dirname, "..", "..", "build", "coverage");
 const REPORT_PATH = path.join(__dirname, "build");
 
-const data_regex = /^cov_data_(.*)_([0-9]+)$/;
+const data_regex = /^coverage_data_(.*)_([0-9]+)$/;
 const data_files = fs.readdirSync(DATA_PATH);
 const report_files = fs.readdirSync(REPORT_PATH);
 const report_regex = /^report_([0-9]+)$/;
@@ -84,6 +84,8 @@ for(let file of data_files)
 
     fs.appendFileSync(report_file, log_str);
 }
+
+assert.ok(count_fns > 0, "No coverage data files found");
 
 console.log("[+] Writing to", report_file);
 console.log("[+] Total functions:", count_fns);
