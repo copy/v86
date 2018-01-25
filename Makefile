@@ -195,7 +195,7 @@ clean:
 	-rm build/*.map
 	-rm build/*.wast
 	-rm build/cov_data*
-	-rm $(COVERAGE_DIR)/build/report_*
+	-rm $(COVERAGE_DIR)/build/*
 	$(MAKE) -C $(NASM_TEST_DIR) clean
 
 run:

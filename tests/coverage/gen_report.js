@@ -30,6 +30,8 @@ const prev_report_file = path.join(REPORT_PATH, `report_${report_num}`);
 const prev_report_compare = path.join(REPORT_PATH, `report_{${report_num},${report_num + 1}}`);
 const report_file = path.join(REPORT_PATH, `report_${report_num + 1}`);
 
+const raw_json_file = path.join(REPORT_PATH, "all_raw.json");
+
 if(!first_report)
 {
     // May fail if parsed Number != text number, such as report_001 vs. report_1
@@ -40,7 +42,7 @@ if(!first_report)
 }
 
 let count_fns = 0;
-const seen_fns = [];
+const all_data = [];
 
 for(let file of data_files)
 {
@@ -59,8 +61,8 @@ for(let file of data_files)
 
     // When old coverage_data is not deleted, and the number of conditional blocks in a function change,
     // this may trigger
-    assert.ok(seen_fns.indexOf(data.fn_name) === -1, `Function from ${file} seen already`);
-    seen_fns.push(data.fn_name);
+    assert.ok(!all_data.find(elem => elem.fn_name === data.fn_name), `Function from ${file} seen already`);
+    all_data.push(data);
 
     const buffer = fs.readFileSync(path.join(DATA_PATH, file));
     for(let block_index = 0; block_index < data.total_blocks; block_index++)
@@ -85,6 +87,7 @@ for(let file of data_files)
 
     fs.appendFileSync(report_file, log_str);
 }
+fs.writeFileSync(raw_json_file, JSON.stringify(all_data));
 
 assert.ok(count_fns > 0, "No coverage data files found");
 
