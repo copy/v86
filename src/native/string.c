@@ -1279,40 +1279,40 @@ void insd()
 }
 
 void outsb_rep()
-    {
+{
     int32_t port = reg16[DX];
     test_privileges_for_io(port, 1);
 
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
 
-        int32_t count = get_reg_asize(ECX);
+    int32_t count = get_reg_asize(ECX);
     diverged();
-        if(count == 0) return;
-        int32_t cont = false;
-        int32_t start_count = count;
-        int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
-        int32_t phys_src = translate_address_read(src);
-        if(*paging)
-        {
-            cycle_counter = string_get_cycle_count(size, src);
-        }
-        do
-        {
-            io_port_write8(port, read8(phys_src));
-            phys_src += size;
-            cont = --count != 0;
-        }
-        while(cont && cycle_counter--);
-        int32_t diff = size * (start_count - count);
-        add_reg_asize(ESI, diff);
-        set_ecx_asize(count);
-        *timestamp_counter += start_count - count;
-        if(cont)
-        {
-            *instruction_pointer = *previous_ip;
-        }
+    if(count == 0) return;
+    int32_t cont = false;
+    int32_t start_count = count;
+    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    int32_t phys_src = translate_address_read(src);
+    if(*paging)
+    {
+        cycle_counter = string_get_cycle_count(size, src);
     }
+    do
+    {
+        io_port_write8(port, read8(phys_src));
+        phys_src += size;
+        cont = --count != 0;
+    }
+    while(cont && cycle_counter--);
+    int32_t diff = size * (start_count - count);
+    add_reg_asize(ESI, diff);
+    set_ecx_asize(count);
+    *timestamp_counter += start_count - count;
+    if(cont)
+    {
+        *instruction_pointer = *previous_ip;
+    }
+}
 
 void outsb_no_rep()
 {
