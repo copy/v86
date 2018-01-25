@@ -13,14 +13,6 @@ struct profiler_data {
 
 extern struct profiler_data profiler_arr[PROFILER_NAME_COUNT];
 
-static const char *profiler_names[] = {
-    "IDLE",
-    "DO_MANY_CYCLES",
-    "GEN_INSTR",
-    "RUN_FROM_CACHE",
-    "RUN_INTERPRETED",
-};
-
 enum profile_name {
     P_IDLE,
     P_DO_MANY_CYCLES,

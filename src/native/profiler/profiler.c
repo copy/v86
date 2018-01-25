@@ -4,11 +4,13 @@
 
 #include "profiler.h"
 #include "../shared.h"
+#include "../const.h"
+#include "../log.h"
 
 #if ENABLE_PROFILER
 
 struct profiler_data profiler_arr[PROFILER_NAME_COUNT] = {{0, 0, false}};
-struct profiler_stat profiler_stat_arr[PROFILER_NAME_COUNT] = {{0}};
+struct profiler_stat profiler_stat_arr[PROFILER_STAT_COUNT] = {{0}};
 double profiler_init_time = 0;
 
 void profiler_init()
@@ -38,6 +40,7 @@ void profiler_start(enum profile_name name)
     entry->current_start = get_time();
     entry->capturing = true;
 #endif
+    UNUSED(name);
 }
 
 void profiler_end(enum profile_name name)
@@ -51,6 +54,7 @@ void profiler_end(enum profile_name name)
         entry->capturing = false;
     }
 #endif
+    UNUSED(name);
 }
 
 void profiler_print()
