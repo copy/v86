@@ -212,17 +212,17 @@ void gen_fn3(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2)
     case (n) | 5 << 3:\
     case (n) | 6 << 3:\
     case (n) | 7 << 3:\
-        work; break;
+        (work); break;
 
 #define MODRM_ENTRY16_0(row, seg, reg1, reg2)\
-    MODRM_ENTRY(0x00 | row, gen_modrm_entry_0(seg, reg1, reg2, 0))\
-    MODRM_ENTRY(0x40 | row, gen_modrm_entry_0(seg, reg1, reg2, read_imm8s()))\
-    MODRM_ENTRY(0x80 | row, gen_modrm_entry_0(seg, reg1, reg2, read_imm16()))
+    MODRM_ENTRY(0x00 | (row), gen_modrm_entry_0((seg), (reg1), (reg2), 0))\
+    MODRM_ENTRY(0x40 | (row), gen_modrm_entry_0((seg), (reg1), (reg2), read_imm8s()))\
+    MODRM_ENTRY(0x80 | (row), gen_modrm_entry_0((seg), (reg1), (reg2), read_imm16()))
 
 #define MODRM_ENTRY16_1(row, seg, reg)\
-    MODRM_ENTRY(0x00 | row, gen_modrm_entry_1(seg, reg, 0))\
-    MODRM_ENTRY(0x40 | row, gen_modrm_entry_1(seg, reg, read_imm8s()))\
-    MODRM_ENTRY(0x80 | row, gen_modrm_entry_1(seg, reg, read_imm16()))
+    MODRM_ENTRY(0x00 | (row), gen_modrm_entry_1(seg, reg, 0))\
+    MODRM_ENTRY(0x40 | (row), gen_modrm_entry_1(seg, reg, read_imm8s()))\
+    MODRM_ENTRY(0x80 | (row), gen_modrm_entry_1(seg, reg, read_imm16()))
 
 static void inline gen_modrm_entry_0(int32_t fn_idx, int32_t reg16_idx_1, int32_t reg16_idx_2, int32_t imm)
 {
@@ -289,9 +289,9 @@ void gen_resolve_modrm16(int32_t modrm_byte)
 }
 
 #define MODRM_ENTRY32_0(row, seg, reg)\
-    MODRM_ENTRY(0x00 | row, gen_modrm32_entry(seg, reg, 0))\
-    MODRM_ENTRY(0x40 | row, gen_modrm32_entry(seg, reg, read_imm8s()))\
-    MODRM_ENTRY(0x80 | row, gen_modrm32_entry(seg, reg, read_imm32s()))
+    MODRM_ENTRY(0x00 | (row), gen_modrm32_entry(seg, reg, 0))\
+    MODRM_ENTRY(0x40 | (row), gen_modrm32_entry(seg, reg, read_imm8s()))\
+    MODRM_ENTRY(0x80 | (row), gen_modrm32_entry(seg, reg, read_imm32s()))
 
 static void gen_modrm32_entry(int32_t fn_idx, int32_t reg32s_idx, int32_t imm)
 {

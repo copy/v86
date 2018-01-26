@@ -27,9 +27,9 @@ static int32_t resolve_sib(bool mod);
         return offset;
 
 #define MODRM_ENTRY16(row, seg, value)\
-    MODRM_ENTRY(0x00 | row, seg(((value) & 0xFFFF)))\
-    MODRM_ENTRY(0x40 | row, seg(((value) + read_imm8s() & 0xFFFF)))\
-    MODRM_ENTRY(0x80 | row, seg(((value) + read_imm16() & 0xFFFF)))\
+    MODRM_ENTRY(0x00 | (row), seg(((value) & 0xFFFF)))\
+    MODRM_ENTRY(0x40 | (row), seg(((value) + read_imm8s() & 0xFFFF)))\
+    MODRM_ENTRY(0x80 | (row), seg(((value) + read_imm16() & 0xFFFF)))\
 
 int32_t resolve_modrm16(int32_t modrm_byte)
 {
@@ -59,9 +59,9 @@ int32_t resolve_modrm16(int32_t modrm_byte)
 #undef MODRM_ENTRY16
 
 #define MODRM_ENTRY32(row, seg, value)\
-    MODRM_ENTRY(0x00 | row, seg((value)))\
-    MODRM_ENTRY(0x40 | row, seg((value) + read_imm8s()))\
-    MODRM_ENTRY(0x80 | row, seg((value) + read_imm32s()))\
+    MODRM_ENTRY(0x00 | (row), seg((value)))\
+    MODRM_ENTRY(0x40 | (row), seg((value) + read_imm8s()))\
+    MODRM_ENTRY(0x80 | (row), seg((value) + read_imm32s()))\
 
 int32_t resolve_modrm32(int32_t modrm_byte)
 {
@@ -98,14 +98,14 @@ int32_t resolve_modrm32(int32_t modrm_byte)
     case n: return offset;
 
 #define SIB_ENTRY_LEVEL2(n, offset)\
-    SIB_ENTRY_LEVEL3(n | 0, ds((offset) + reg32s[EAX]))\
-    SIB_ENTRY_LEVEL3(n | 1, ds((offset) + reg32s[ECX]))\
-    SIB_ENTRY_LEVEL3(n | 2, ds((offset) + reg32s[EDX]))\
-    SIB_ENTRY_LEVEL3(n | 3, ds((offset) + reg32s[EBX]))\
-    SIB_ENTRY_LEVEL3(n | 4, ss((offset) + reg32s[ESP]))\
-    SIB_ENTRY_LEVEL3(n | 5, (mod ? ss((offset) + reg32s[EBP]) : ds((offset) + read_imm32s())))\
-    SIB_ENTRY_LEVEL3(n | 6, ds((offset) + reg32s[ESI]))\
-    SIB_ENTRY_LEVEL3(n | 7, ds((offset) + reg32s[EDI]))
+    SIB_ENTRY_LEVEL3((n) | 0, ds((offset) + reg32s[EAX]))\
+    SIB_ENTRY_LEVEL3((n) | 1, ds((offset) + reg32s[ECX]))\
+    SIB_ENTRY_LEVEL3((n) | 2, ds((offset) + reg32s[EDX]))\
+    SIB_ENTRY_LEVEL3((n) | 3, ds((offset) + reg32s[EBX]))\
+    SIB_ENTRY_LEVEL3((n) | 4, ss((offset) + reg32s[ESP]))\
+    SIB_ENTRY_LEVEL3((n) | 5, (mod ? ss((offset) + reg32s[EBP]) : ds((offset) + read_imm32s())))\
+    SIB_ENTRY_LEVEL3((n) | 6, ds((offset) + reg32s[ESI]))\
+    SIB_ENTRY_LEVEL3((n) | 7, ds((offset) + reg32s[EDI]))
 
 #define SIB_ENTRY_LEVEL1(n, reg1)\
     SIB_ENTRY_LEVEL2(0x00 | (n) << 3, (reg1))\

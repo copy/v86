@@ -11,7 +11,7 @@
     int32_t phys_addr = translate_address_write(addr); \
     if((phys_addr & 0xFFF) == 0xFFF) \
     { \
-        int32_t phys_addr_high = translate_address_write(addr + 1); \
+        int32_t phys_addr_high = translate_address_write((addr) + 1); \
         int32_t ___ = virt_boundary_read16(phys_addr, phys_addr_high); \
         virt_boundary_write16(phys_addr, phys_addr_high, fun); \
     } \
@@ -25,7 +25,7 @@
     int32_t phys_addr = translate_address_write(addr); \
     if((phys_addr & 0xFFF) >= 0xFFD) \
     { \
-        int32_t phys_addr_high = translate_address_write(addr + 3 & ~3) | (addr + 3) & 3; \
+        int32_t phys_addr_high = translate_address_write((addr) + 3 & ~3) | ((addr) + 3) & 3; \
         int32_t ___ = virt_boundary_read32s(phys_addr, phys_addr_high); \
         virt_boundary_write32(phys_addr, phys_addr_high, fun); \
     } \

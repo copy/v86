@@ -10,7 +10,7 @@
 #include "string.h"
 
 #define MAX_COUNT_PER_CYCLE 0x1000
-#define MIN(x, y) (x < y ? x : y)
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 int32_t string_get_cycle_count(int32_t size, int32_t address)
 {
