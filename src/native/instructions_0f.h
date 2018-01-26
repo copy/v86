@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "shared.h"
+#include "cpu.h"
 
 #define DEFINE_MODRM_INSTR_READ16(name, fun) \
     void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read16(addr); fun; } \

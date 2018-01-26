@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <assert.h>
+
+#include "../const.h"
 
 #define dbg_log(...) { if(DEBUG) { printf(__VA_ARGS__); } }
 #define dbg_assert(condition) { if(DEBUG) { if(!(condition)) dbg_log(#condition); assert(condition); } }

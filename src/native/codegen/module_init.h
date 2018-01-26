@@ -1,8 +1,11 @@
 #pragma once
 
-#include<stdint.h>
+#include <stdint.h>
 
 #include "util.h"
+#include "wasm_opcodes.h"
+#include "codegen.h"
+#include "cstring.h"
 
 static Buffer op;
 static Buffer cs;

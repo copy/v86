@@ -3,6 +3,7 @@
 // everything here is copied from musl
 
 #include <stdint.h>
+#include <stddef.h>
 
 // from strncmp.c
 
