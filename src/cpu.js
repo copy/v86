@@ -1538,11 +1538,11 @@ CPU.prototype.set_cr0 = function(cr0)
 
     this.cr[0] = cr0;
 
-    if(false)
-    {
-        // if there's no FPU, keep emulation set
-        this.cr[0] |= CR0_EM;
-    }
+    //if(!have_fpu)
+    //{
+    //    // if there's no FPU, keep emulation set
+    //    this.cr[0] |= CR0_EM;
+    //}
     this.cr[0] |= CR0_ET;
 
     var new_paging = (this.cr[0] & CR0_PG) === CR0_PG;
