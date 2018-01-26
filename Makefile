@@ -248,3 +248,8 @@ build/capstone-x86.min.js:
 build/libwabt.js:
 	mkdir -p build
 	wget -P build https://raw.githubusercontent.com/WebAssembly/wabt/master/demo/libwabt.js
+
+clang-tidy:
+	clang-tidy \
+	     src/native/*.{c,h} src/native/profiler/*.{c,h} src/native/codegen/*.{c,h} \
+	     -- -I src/native/ -Wall -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal
