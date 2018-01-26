@@ -78,6 +78,14 @@
 
 #define PSE_ENABLED 128
 
+#define PAGE_TABLE_PRESENT_MASK (1 << 0)
+#define PAGE_TABLE_RW_MASK (1 << 1)
+#define PAGE_TABLE_USER_MASK (1 << 2)
+#define PAGE_TABLE_ACCESSED_MASK (1 << 5)
+#define PAGE_TABLE_DIRTY_MASK (1 << 6)
+#define PAGE_TABLE_PSE_MASK (1 << 7)
+#define PAGE_TABLE_GLOBAL_MASK (1 << 8)
+
 #define MMAP_BLOCK_BITS 17
 #define MMAP_BLOCK_SIZE = (1 << MMAP_BLOCK_BITS)
 

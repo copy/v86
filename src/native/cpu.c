@@ -87,7 +87,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
     bool global;
     bool allow_user = true;
 
-    if(!(page_dir_entry & 1))
+    if(!(page_dir_entry & PAGE_TABLE_PRESENT_MASK))
     {
         // to do at this place:
         //
@@ -103,7 +103,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
         dbg_assert(false);
     }
 
-    if((page_dir_entry & 2) == 0)
+    if((page_dir_entry & PAGE_TABLE_RW_MASK) == 0)
     {
         can_write = false;
 
@@ -115,7 +115,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
         }
     }
 
-    if((page_dir_entry & 4) == 0)
+    if((page_dir_entry & PAGE_TABLE_USER_MASK) == 0)
     {
         allow_user = false;
 
@@ -134,17 +134,18 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
         // size bit is set
 
         // set the accessed and dirty bits
-        mem32s[page_dir_addr] = page_dir_entry | 0x20 | for_writing << 6;
+        mem32s[page_dir_addr] = page_dir_entry | PAGE_TABLE_ACCESSED_MASK |
+            (for_writing ? PAGE_TABLE_DIRTY_MASK : 0);
 
         high = (page_dir_entry & 0xFFC00000) | (addr & 0x3FF000);
-        global = (page_dir_entry & 0x100) == 0x100;
+        global = (page_dir_entry & PAGE_TABLE_GLOBAL_MASK) == PAGE_TABLE_GLOBAL_MASK;
     }
     else
     {
         int32_t page_table_addr = ((uint32_t)(page_dir_entry & 0xFFFFF000) >> 2) + (page & 0x3FF);
         int32_t page_table_entry = mem32s[page_table_addr];
 
-        if((page_table_entry & 1) == 0)
+        if((page_table_entry & PAGE_TABLE_PRESENT_MASK) == 0)
         {
             //dbg_log("#PF not present table", LOG_CPU);
             cr[2] = addr;
@@ -152,7 +153,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
             dbg_assert(false);
         }
 
-        if((page_table_entry & 2) == 0)
+        if((page_table_entry & PAGE_TABLE_RW_MASK) == 0)
         {
             can_write = false;
 
@@ -165,7 +166,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
             }
         }
 
-        if((page_table_entry & 4) == 0)
+        if((page_table_entry & PAGE_TABLE_USER_MASK) == 0)
         {
             allow_user = false;
 
@@ -179,11 +180,13 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
         }
 
         // set the accessed and dirty bits
-        write_aligned32(page_dir_addr, page_dir_entry | 0x20);
-        write_aligned32(page_table_addr, page_table_entry | 0x20 | for_writing << 6);
+        write_aligned32(page_dir_addr, page_dir_entry | PAGE_TABLE_ACCESSED_MASK);
+        write_aligned32(page_table_addr,
+                page_table_entry | PAGE_TABLE_ACCESSED_MASK |
+                (for_writing ? PAGE_TABLE_DIRTY_MASK : 0));
 
         high = page_table_entry & 0xFFFFF000;
-        global = (page_table_entry & 0x100) == 0x100;
+        global = (page_table_entry & PAGE_TABLE_GLOBAL_MASK) == PAGE_TABLE_GLOBAL_MASK;
     }
 
     tlb_data[page] = high ^ page << 12;
