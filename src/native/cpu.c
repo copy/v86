@@ -81,7 +81,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
 {
     int32_t page = (uint32_t)addr >> 12;
     int32_t page_dir_addr = ((uint32_t)cr[3] >> 2) + (page >> 10);
-    int32_t page_dir_entry = mem32s[page_dir_addr];
+    int32_t page_dir_entry = read_aligned32(page_dir_addr);
     int32_t high;
     bool can_write = true;
     bool global;
@@ -134,8 +134,8 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
         // size bit is set
 
         // set the accessed and dirty bits
-        mem32s[page_dir_addr] = page_dir_entry | PAGE_TABLE_ACCESSED_MASK |
-            (for_writing ? PAGE_TABLE_DIRTY_MASK : 0);
+        write_aligned32(page_dir_addr, page_dir_entry | PAGE_TABLE_ACCESSED_MASK |
+            (for_writing ? PAGE_TABLE_DIRTY_MASK : 0));
 
         high = (page_dir_entry & 0xFFC00000) | (addr & 0x3FF000);
         global = (page_dir_entry & PAGE_TABLE_GLOBAL_MASK) == PAGE_TABLE_GLOBAL_MASK;
@@ -143,7 +143,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
     else
     {
         int32_t page_table_addr = ((uint32_t)(page_dir_entry & 0xFFFFF000) >> 2) + (page & 0x3FF);
-        int32_t page_table_entry = mem32s[page_table_addr];
+        int32_t page_table_entry = read_aligned32(page_table_addr);
 
         if((page_table_entry & PAGE_TABLE_PRESENT_MASK) == 0)
         {
