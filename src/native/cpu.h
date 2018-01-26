@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #include "shared.h"
 #include "const.h"
@@ -16,7 +17,7 @@ union reg128 {
     uint32_t  u32[4];
     uint64_t  u64[2];
 };
-typedef char assert_size_reg128[(sizeof(union reg128) == 16) * 2 - 1];
+_Static_assert(sizeof(union reg128) == 16, "reg128 is 16 bytes");
 
 union reg64 {
     int8_t   i8[8];
@@ -29,7 +30,7 @@ union reg64 {
     uint64_t  u64[1];
     double   f64[1];
 };
-typedef char assertion_size_reg64[(sizeof(union reg64) == 8) * 2 - 1];
+_Static_assert(sizeof(union reg64) == 8, "reg64 is 8 bytes");
 
 struct code_cache {
     // Address of the start of the basic block
