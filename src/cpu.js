@@ -1409,7 +1409,7 @@ CPU.prototype.codegen_finalize = function(cache_index, virtual_start, start, end
 
     if(DEBUG)
     {
-        if(true && !seen_code[start])
+        if(DUMP_GENERATED_WASM && !seen_code[start])
         {
             this.debug.dump_wasm(code);
 
