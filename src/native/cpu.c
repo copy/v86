@@ -70,7 +70,7 @@ void trigger_pagefault(bool write, bool user, bool present)
     tlb_info[page] = 0;
     tlb_info_global[page] = 0;
 
-    instruction_pointer[0] = previous_ip[0];
+    *instruction_pointer = *previous_ip;
     *page_fault = true;
     call_interrupt_vector(14, false, true, user << 2 | write << 1 | present);
 
@@ -129,7 +129,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
         }
     }
 
-    if(page_dir_entry & page_size_extensions[0])
+    if(page_dir_entry & *page_size_extensions)
     {
         // size bit is set
 
@@ -229,7 +229,7 @@ void writable_or_pagefault(int32_t addr, int32_t size)
     dbg_assert(size < 0x1000);
     dbg_assert(size > 0);
 
-    if(!paging[0])
+    if(!*paging)
     {
         return;
     }
