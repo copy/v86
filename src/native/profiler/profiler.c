@@ -60,6 +60,14 @@ void profiler_end(enum profile_name name)
 void profiler_print()
 {
 #if ENABLE_PROFILER_TIMES
+    static const char *profiler_names[] = {
+        "IDLE",
+        "DO_MANY_CYCLES",
+        "GEN_INSTR",
+        "RUN_FROM_CACHE",
+        "RUN_INTERPRETED",
+    };
+
     double init_elapsed = get_time() - profiler_init_time;
     printf("\nElapsed: %d\n", (int32_t) init_elapsed);
     for(int32_t i = 0; i < PROFILER_NAME_COUNT; i++)
