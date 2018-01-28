@@ -94,7 +94,8 @@ var ASYNC_SAFE = false;
                     try
                     {
                         imports["env"]["memory"] = new WebAssembly.Memory({
-                            "initial": total_mem_pages
+                            "initial": total_mem_pages,
+                            "maximum": total_mem_pages,
                         });
                     }
                     catch(e)
