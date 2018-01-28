@@ -187,8 +187,6 @@ function V86Starter(options)
         "_popa16": function() { return cpu.popa16.apply(cpu, arguments); },
         "_popa32": function() { return cpu.popa32.apply(cpu, arguments); },
         "_arpl": function() { return cpu.arpl.apply(cpu, arguments); },
-        "_getiopl": function() { return cpu.getiopl.apply(cpu, arguments); },
-        "_vm86_mode": function() { return cpu.vm86_mode.apply(cpu, arguments); },
 
         "_bswap": function() { return cpu.bswap.apply(cpu, arguments); },
 
@@ -212,11 +210,11 @@ function V86Starter(options)
         "_lss32": function() { return cpu.lss32.apply(cpu, arguments); },
         "_enter16": function() { return cpu.enter16.apply(cpu, arguments); },
         "_enter32": function() { return cpu.enter32.apply(cpu, arguments); },
-        "_update_eflags": function() { return cpu.update_eflags.apply(cpu, arguments); },
         "_loop": function() { return cpu.loop.apply(cpu, arguments); },
         "_loope": function() { return cpu.loope.apply(cpu, arguments); },
         "_loopne": function() { return cpu.loopne.apply(cpu, arguments); },
         "_jcxz": function() { return cpu.jcxz.apply(cpu, arguments); },
+
         "_test_privileges_for_io": function() { return cpu.test_privileges_for_io.apply(cpu, arguments); },
 
         "_convert_f64_to_i32": function(f) {

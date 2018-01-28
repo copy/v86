@@ -17,6 +17,8 @@
 #include "js_imports.h"
 #include "cpu.h"
 
+extern void call_indirect(int32_t index);
+
 struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, {0}, 0, 0, 0}};
 
 uint32_t jit_jump = 0;
@@ -47,6 +49,58 @@ int32_t get_eflags()
 {
     return (*flags & ~FLAGS_ALL) | !!getcf() | !!getpf() << 2 | !!getaf() << 4 |
                                   !!getzf() << 6 | !!getsf() << 7 | !!getof() << 11;
+}
+
+int32_t getiopl(void)
+{
+    return *flags >> 12 & 3;
+}
+
+bool vm86_mode(void)
+{
+    return (*flags & FLAG_VM) == FLAG_VM;
+}
+
+/*
+ * Update the flags register depending on iopl and cpl
+ */
+void update_eflags(int32_t new_flags)
+{
+    int32_t dont_update = FLAG_RF | FLAG_VM | FLAG_VIP | FLAG_VIF;
+    int32_t clear = ~FLAG_VIP & ~FLAG_VIF & FLAGS_MASK;
+
+    if(*flags & FLAG_VM)
+    {
+        // other case needs to be handled in popf or iret
+        dbg_assert(getiopl() == 3);
+
+        dont_update |= FLAG_IOPL;
+
+        // don't clear vip or vif
+        clear |= FLAG_VIP | FLAG_VIF;
+    }
+    else
+    {
+        if(!*protected_mode) dbg_assert(*cpl == 0);
+
+        if(*cpl)
+        {
+            // cpl > 0
+            // cannot update iopl
+            dont_update |= FLAG_IOPL;
+
+            if(*cpl > getiopl())
+            {
+                // cpl > iopl
+                // cannot update interrupt flag
+                dont_update |= FLAG_INTERRUPT;
+            }
+        }
+    }
+
+    *flags = (new_flags ^ ((*flags ^ new_flags) & dont_update)) & clear | FLAGS_DEFAULT;
+
+    *flags_changed = 0;
 }
 
 void trigger_pagefault(bool write, bool user, bool present)
@@ -266,7 +320,7 @@ int32_t translate_address_read(int32_t address)
     }
     else
     {
-        return do_page_translation(address, 0, *cpl == 3) | address & 0xFFF;
+        return do_page_translation(address, false, *cpl == 3) | address & 0xFFF;
     }
 }
 
@@ -281,7 +335,37 @@ int32_t translate_address_write(int32_t address)
     }
     else
     {
-        return do_page_translation(address, 1, *cpl == 3) | address & 0xFFF;
+        return do_page_translation(address, true, *cpl == 3) | address & 0xFFF;
+    }
+}
+
+int32_t translate_address_system_read(int32_t address)
+{
+    if(!*paging) return address;
+
+    int32_t base = (uint32_t)address >> 12;
+    if(tlb_info[base] & TLB_SYSTEM_READ)
+    {
+        return tlb_data[base] ^ address;
+    }
+    else
+    {
+        return do_page_translation(address, false, false) | address & 0xFFF;
+    }
+}
+
+int32_t translate_address_system_write(int32_t address)
+{
+    if(!*paging) return address;
+
+    int32_t base = (uint32_t)address >> 12;
+    if(tlb_info[base] & TLB_SYSTEM_WRITE)
+    {
+        return tlb_data[base] ^ address;
+    }
+    else
+    {
+        return do_page_translation(address, true, false) | address & 0xFFF;
     }
 }
 
@@ -718,6 +802,18 @@ void trigger_nm()
 {
     *instruction_pointer = *previous_ip;
     raise_exception(7);
+}
+
+void trigger_np(int32_t code)
+{
+    *instruction_pointer = *previous_ip;
+    raise_exception_with_code(11, code);
+}
+
+void trigger_ss(int32_t code)
+{
+    *instruction_pointer = *previous_ip;
+    raise_exception_with_code(12, code);
 }
 
 void trigger_gp(int32_t code)
