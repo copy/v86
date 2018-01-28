@@ -58,7 +58,7 @@ var TIME_PER_FRAME = 1;
  * @const
  * How many ticks the TSC does per millisecond
  */
-var TSC_RATE = 8 * 1024;
+var TSC_RATE = 50 * 1000;
 
 
 /** @const */

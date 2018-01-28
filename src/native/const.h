@@ -156,7 +156,7 @@
  */
 #define LOOP_COUNTER 20011
 
-#define TSC_RATE (8 * 1024)
+#define TSC_RATE (50 * 1000)
 
 #define LOG_CPU    0x000002
 #define CPU_LOG_VERBOSE    false
