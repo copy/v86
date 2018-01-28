@@ -32,7 +32,7 @@ static void write_leb_i32(Buffer* buf, int32_t v)
         v >>= 7; // shift them away from the value
         if (negative)
         {
-            v |= (~0 << (SIZE - 7)); // extend sign
+            v |= ((uint32_t)~0 << (SIZE - 7)); // extend sign
         }
         uint8_t sign_bit = byte & (1 << 6);
         if ((v == 0 && sign_bit == 0) || (v == -1 && sign_bit != 0))
