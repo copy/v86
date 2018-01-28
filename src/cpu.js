@@ -2993,7 +2993,7 @@ CPU.prototype.cpuid = function()
             }
             else
             {
-                eax = 5;
+                eax = 0x16;
             }
 
             ebx = 0x756E6547|0; // Genu
@@ -3074,6 +3074,19 @@ CPU.prototype.cpuid = function()
                 ecx = 0x4D566572|0; // reVM
                 edx = 0x65726177|0; // ware
             }
+            break;
+
+        case 0x15:
+            eax = 1; // denominator
+            ebx = 1; // numerator
+            ecx = TSC_RATE * 1000; // core crystal clock frequency in Hz
+            //  (TSC frequency = core crystal clock frequency * EBX/EAX)
+            break;
+
+        case 0x16:
+            eax = Math.floor(TSC_RATE / 1000); // core base frequency in MHz
+            ebx = Math.floor(TSC_RATE / 1000); // core maximum frequency in MHz
+            ecx = 10; // bus (reference) frequency in MHz
             break;
 
         default:
