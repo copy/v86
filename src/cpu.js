@@ -148,7 +148,8 @@ function CPU(bus, wm, codegen, coverage_logger)
     this.mul32_result = new Int32Array(wm.memory.buffer, 544, 2);
     this.div32_result = new Float64Array(2);
 
-    this.tsc_offset = new Int32Array(wm.memory.buffer, 652, 1);
+    this.tsc_offset = new Uint32Array(wm.memory.buffer, 544, 2); // 64 bit
+    this.current_tsc = new Uint32Array(wm.memory.buffer, 956, 2); // 64 bit
 
     this.phys_addr = new Int32Array(wm.memory.buffer, 656, 1);
 
@@ -240,7 +241,7 @@ function CPU(bus, wm, codegen, coverage_logger)
 
     this.update_operand_size();
 
-    this.tsc_offset[0] = v86.microtick();
+    wm.exports["_set_tsc"](0, 0);
 
     this.debug_init();
 
@@ -369,6 +370,9 @@ CPU.prototype.get_state = function()
     state[41] = this.dreg;
     state[42] = this.mem8;
 
+    this.wm.exports["_store_current_tsc"]();
+    state[43] = this.current_tsc;
+
     state[45] = this.devices.virtio;
     state[46] = this.devices.apic;
     state[47] = this.devices.rtc;
@@ -453,6 +457,8 @@ CPU.prototype.set_state = function(state)
     this.dreg.set(state[41]);
     this.mem8.set(state[42]);
 
+    this.wm.exports["_set_tsc"](state[43][0], state[43][1]);
+
     this.devices.virtio = state[45];
     this.devices.apic = state[46];
     this.devices.rtc = state[47];
@@ -491,7 +497,6 @@ CPU.prototype.set_state = function(state)
     this.fpu_opcode[0] = state[75];
 
     this.full_clear_tlb();
-    // tsc_offset?
 
     this.update_operand_size();
 };
@@ -628,7 +633,7 @@ CPU.prototype.reset = function()
     this.last_op2.fill(0);
     this.last_op_size.fill(0);
 
-    this.tsc_offset[0] = v86.microtick();
+    this.wm.exports["_set_tsc"](0, 0);
 
     this.instruction_pointer[0] = 0xFFFF0;
     this.switch_cs_real_mode(0xF000);

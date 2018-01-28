@@ -133,6 +133,7 @@ int32_t get_reg_asize(int32_t reg);
 void set_ecx_asize(int32_t value);
 void add_reg_asize(int32_t reg, int32_t value);
 int32_t decr_ecx_asize(void);
+void set_tsc(uint32_t, uint32_t);
 uint64_t read_tsc(void);
 bool vm86_mode(void);
 int32_t getiopl(void);

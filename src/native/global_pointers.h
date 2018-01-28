@@ -23,7 +23,7 @@ static int32_t* const flags = (int32_t* const) 536;
 
 static bool* const page_fault = (bool* const) 540;
 
-// gap 12
+static uint64_t* const tsc_offset = (uint64_t* const) 544;
 
 static bool* const a20_enabled = (bool* const) 552;
 static int32_t* const instruction_pointer = (int32_t* const) 556;
@@ -45,7 +45,7 @@ static int32_t* const sysenter_cs = (int32_t* const) 636;
 static int32_t* const sysenter_esp = (int32_t* const) 640;
 static int32_t* const sysenter_eip = (int32_t* const) 644;
 static uint8_t* const prefixes = (uint8_t* const) 648;
-static int32_t* const tsc_offset = (int32_t* const) 652;
+// gap
 static int32_t* const phys_addr = (int32_t* const) 656;
 static int32_t* const phys_addr_high = (int32_t* const) 660;
 static uint32_t* const timestamp_counter = (uint32_t* const) 664;
@@ -68,6 +68,8 @@ static bool* const paging = (bool* const) 820;
 static int32_t* const mxcsr = (int32_t* const) 824;
 
 static union reg128* const reg_xmm = (union reg128* const) 828; // length 128
+
+static uint64_t* const current_tsc = (uint64_t* const) 956;
 
 static uint8_t* const codegen_buffers = (uint8_t* const) 2048; // length 2048
 

@@ -1241,9 +1241,20 @@ int32_t decr_ecx_asize()
     return is_asize_32() ? --reg32s[ECX] : --reg16[CX];
 }
 
+void set_tsc(uint32_t low, uint32_t high)
+{
+    uint64_t new_value = low | (uint64_t)high << 32;
+    uint64_t current_value = read_tsc();
+    *tsc_offset = current_value - new_value;
+}
+
 uint64_t read_tsc()
 {
-    double_t n = microtick() - tsc_offset[0]; // XXX: float
-    n = n * TSC_RATE;
-    return n;
+    double_t n = microtick() * TSC_RATE;
+    return (uint64_t)n - *tsc_offset;
+}
+
+void store_current_tsc()
+{
+    *current_tsc = read_tsc();
 }

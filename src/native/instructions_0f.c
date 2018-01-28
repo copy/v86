@@ -736,10 +736,7 @@ void instr_0F30() {
             break;
 
         case IA32_TIME_STAMP_COUNTER:
-            {
-                uint64_t new_tick = (low) + 0x100000000 * (high);
-                tsc_offset[0] = microtick() - new_tick / TSC_RATE; // XXX: float
-            }
+            set_tsc(low, high);
             break;
 
         case IA32_BIOS_SIGN_ID:
@@ -768,13 +765,12 @@ void instr_0F31() {
 
     if(!cpl[0] || !(cr[4] & CR4_TSD))
     {
-        //dbg_assert(isFinite(n), "non-finite tsc: " + n);
         uint64_t tsc = read_tsc();
 
         reg32s[EAX] = tsc;
         reg32s[EDX] = tsc >> 32;
 
-        //dbg_log("rdtsc  edx:eax=" + h(reg32[EDX], 8) + ":" + h(reg32[EAX], 8));
+        //dbg_log("rdtsc  edx:eax=%x:%x", reg32s[EDX], reg32s[EAX]);
     }
     else
     {
