@@ -833,6 +833,7 @@ void instr_0F32() {
             break;
 
         case IA32_MISC_ENABLE: // Enable Misc. Processor Features
+            low = 1 << 0; // fast string
             break;
 
         case IA32_RTIT_CTL:

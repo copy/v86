@@ -3060,6 +3060,13 @@ CPU.prototype.cpuid = function()
             edx = 0x00142120;
             break;
 
+        case 7:
+            eax = 0; // maximum supported sub-level
+            ebx = 1 << 9; // enhanced REP MOVSB/STOSB
+            ecx = 0;
+            edx = 0;
+            break;
+
         case 0x80000000|0:
             // maximum supported extended level
             eax = 5;
