@@ -177,10 +177,7 @@ v86.prototype.restore_state = function(state)
 
 if(typeof performance === "object" && performance.now)
 {
-    v86.microtick = function()
-    {
-        return performance.now();
-    };
+    v86.microtick = performance.now.bind(performance);
 }
 //else if(typeof process === "object" && process.hrtime)
 //{

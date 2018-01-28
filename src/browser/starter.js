@@ -146,7 +146,7 @@ function V86Starter(options)
         "_todo": function() { return cpu.todo.apply(cpu, arguments); },
         "_undefined_instruction": function() { return cpu.undefined_instruction.apply(cpu, arguments); },
         "_unimplemented_sse": function() { return cpu.unimplemented_sse(); },
-        "_microtick": function() { return v86.microtick(); },
+        "_microtick": v86.microtick,
         "_get_rand_int": function() { return v86util.get_rand_int(); },
         "_has_rand_int": function() { return v86util.has_rand_int(); },
         "_printf": function(format_string_offset, stack_top) {
