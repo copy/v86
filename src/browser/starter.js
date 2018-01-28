@@ -226,7 +226,7 @@ function V86Starter(options)
 
             return f | 0;
         },
-        "_get_time": () => Date.now(),
+        "_get_time": Date.now,
 
         "_codegen_finalize": (cache_index, virt_start, start, end) => cpu.codegen_finalize(cache_index, virt_start, start, end),
         "_coverage_log": (fn_name_offset, num_blocks, visited_block) => {
