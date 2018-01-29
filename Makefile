@@ -194,7 +194,7 @@ clean:
 	-rm build/codegen-test.wasm
 	-rm build/*.map
 	-rm build/*.wast
-	-rm build/cov_data*
+	-rm build/coverage/coverage_data*
 	-rm $(COVERAGE_DIR)/build/*
 	$(MAKE) -C $(NASM_TEST_DIR) clean
 
