@@ -6,7 +6,7 @@ const Buffer = is_env_node && require("buffer")["Buffer"];
 /** @constructor */
 function CoverageLogger()
 {
-    this.ENABLED = DEBUG && is_env_node;
+    this.ENABLED = COVERAGE_LOGGER_ALLOW && DEBUG && is_env_node;
     if(!this.ENABLED)
     {
         return;
