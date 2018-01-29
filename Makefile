@@ -166,7 +166,6 @@ build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/
 	ls -lh build/v86.wasm
 
 build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/*.ll
-	mkdir -p build
 	mkdir -p build/coverage
 	-ls -lh build/v86-debug.wasm
 	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/*.ll \
