@@ -6,7 +6,7 @@ COVERAGE_DIR=./tests/coverage
 
 # Enable manually and recompile v86-debug.wasm for coverage-enabled tests
 ifeq ($(ENABLE_COV), 1)
-COVERAGE=--coverage -fprofile-instr-generate
+CC_COVERAGE_FLAGS=--coverage -fprofile-instr-generate
 endif
 
 all: build/v86_all.js
@@ -171,7 +171,7 @@ build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/n
 	-ls -lh build/v86-debug.wasm
 	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/*.ll \
 		$(CC_FLAGS) \
-		$(COVERAGE) \
+		$(CC_COVERAGE_FLAGS) \
 		-Os \
 		-o build/v86-debug.wasm
 	ls -lh build/v86-debug.wasm
