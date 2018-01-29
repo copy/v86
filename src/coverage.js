@@ -1,3 +1,5 @@
+"use strict";
+
 const is_env_node = v86util.check_env_node();
 const fs = is_env_node && require("fs");
 const path = is_env_node && require("path");
