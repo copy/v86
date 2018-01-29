@@ -126,7 +126,6 @@ CoverageLogger.prototype.dump_to_files = function()
                 filename,
                 Buffer.from(coverage_data.visit_logs.buffer, 0, coverage_data.pos)
             );
-            coverage_data.visit_logs.fill(0);
             coverage_data.pos = 0;
         }
     }
