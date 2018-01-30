@@ -558,7 +558,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
     gen_reset();
 
-    while(!jit_jump && len < 50 && (*instruction_pointer & 0xFFF) < (0xFFF - 16))
+    while(!jit_jump && len < 50 && (*instruction_pointer & 0xFFF) < (0x1000 - 16))
     {
         *previous_ip = *instruction_pointer;
         int32_t opcode = read_imm8();
@@ -684,7 +684,7 @@ void cycle_internal()
     }
     else
     {
-        bool near_the_end_of_page = (phys_addr & 0xFFF) >= (0xFFF - 16);
+        bool near_the_end_of_page = (phys_addr & 0xFFF) >= (0x1000 - 16);
         bool did_jump = !JIT_COMPILE_ONLY_AFTER_JUMP || jit_jump;
         const int32_t address_hash = jit_hot_hash(phys_addr);
 
