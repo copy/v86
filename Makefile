@@ -204,7 +204,7 @@ update_version:
 
 
 $(CLOSURE):
-	wget -P $(CLOSURE_DIR) http://dl.google.com/closure-compiler/compiler-latest.zip
+	wget -nv -P $(CLOSURE_DIR) http://dl.google.com/closure-compiler/compiler-latest.zip
 	unzip -d closure-compiler $(CLOSURE_DIR)/compiler-latest.zip \*.jar
 	mv $(CLOSURE_DIR)/*.jar $(CLOSURE)
 	rm $(CLOSURE_DIR)/compiler-latest.zip
