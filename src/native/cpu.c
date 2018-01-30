@@ -369,6 +369,21 @@ int32_t translate_address_system_write(int32_t address)
     }
 }
 
+int32_t get_phys_eip()
+{
+    int32_t eip = *instruction_pointer;
+
+    if((eip & ~0xFFF) ^ *last_virt_eip)
+    {
+        *eip_phys = translate_address_read(eip) ^ eip;
+        *last_virt_eip = eip & ~0xFFF;
+    }
+
+    uint32_t phys_addr = *eip_phys ^ eip;
+    assert(!in_mapped_range(phys_addr));
+    return phys_addr;
+}
+
 int32_t read_imm8()
 {
     int32_t eip = *instruction_pointer;
@@ -525,7 +540,7 @@ static void jit_run_interpreted(int32_t phys_addr)
     profiler_end(P_RUN_INTERPRETED);
 }
 
-static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_cache* entry, bool was_clean)
+static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_cache* entry, uint32_t page_dirtiness)
 {
     profiler_start(P_GEN_INSTR);
     profiler_stat_increment(S_COMPILE);
@@ -570,13 +585,13 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         return;
     }
 
-    if(was_clean && entry && entry->start_addr != phys_addr)
+    if(entry && entry->start_addr != phys_addr && entry->group_status == page_dirtiness)
     {
         // contains still valid code from different address, about to be overwritten
         //printf("%x %x", entry->start_addr, phys_addr);
         profiler_stat_increment(S_CACHE_MISMATCH);
     }
-    else if(!was_clean && entry)
+    else if(entry && entry->start_addr == phys_addr && entry->group_status != page_dirtiness)
     {
         profiler_stat_increment(S_CACHE_DROP);
     }
@@ -614,7 +629,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
     assert(*prefixes == 0);
 
-    entry->group_status = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
+    entry->group_status = page_dirtiness;
 
     profiler_stat_increment(S_COMPILE_SUCCESS);
     profiler_end(P_GEN_INSTR);
@@ -635,37 +650,23 @@ static struct code_cache* find_cache_entry(uint32_t phys_addr, bool is_32)
     }
 }
 
+
 void cycle_internal()
 {
 #if ENABLE_JIT
-/* Use JIT mode */
-    int32_t eip = *instruction_pointer;
-    // Save previous_ip now since translate_address_read might trigger a page-fault
-    *previous_ip = eip;
 
-    if((eip & ~0xFFF) ^ *last_virt_eip)
-    {
-        *eip_phys = translate_address_read(eip) ^ eip;
-        *last_virt_eip = eip & ~0xFFF;
-    }
-
-    uint32_t phys_addr = *eip_phys ^ eip;
-    assert(!in_mapped_range(phys_addr));
+    *previous_ip = *instruction_pointer;
+    uint32_t phys_addr = get_phys_eip();
 
     struct code_cache* entry = find_cache_entry(phys_addr, *is_32);
 
-    bool clean = true;
-
-    if(entry)
-    {
-        clean = entry->group_status == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
-    }
+    uint32_t page_dirtiness = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
 
     const bool JIT_ALWAYS = false;
     const bool JIT_DONT_USE_CACHE = false;
     const bool JIT_COMPILE_ONLY_AFTER_JUMP = true;
 
-    if(!JIT_DONT_USE_CACHE && entry && clean)
+    if(!JIT_DONT_USE_CACHE && entry && entry->group_status == page_dirtiness)
     {
         profiler_start(P_RUN_FROM_CACHE);
         profiler_stat_increment(S_RUN_FROM_CACHE);
@@ -694,7 +695,7 @@ void cycle_internal()
             )
           )
         {
-            jit_generate(address_hash, phys_addr, entry, clean);
+            jit_generate(address_hash, phys_addr, entry, page_dirtiness);
         }
         else
         {
