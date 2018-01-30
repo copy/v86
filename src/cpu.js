@@ -1294,7 +1294,7 @@ CPU.prototype.codegen_finalize = function(cache_index, virtual_start, start, end
             console.log(e);
             debugger;
 
-            //dump_file(code);
+            throw e;
         }
     }
     else
