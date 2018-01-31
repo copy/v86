@@ -7,6 +7,8 @@
 #include "shared.h"
 #include "const.h"
 
+#define CODE_CACHE_SEARCH_SIZE 8
+
 union reg128 {
     int8_t   i8[16];
     int16_t  i16[8];
@@ -44,6 +46,8 @@ struct code_cache {
     // DIRTY_ARR_SHIFT). Value only has meaning in relation with the
     // group_dirtiness value.
     uint32_t group_status;
+
+    uint16_t wasm_table_index;
 };
 struct code_cache jit_cache_arr[WASM_TABLE_SIZE];
 

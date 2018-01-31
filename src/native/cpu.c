@@ -19,7 +19,7 @@
 
 extern void call_indirect(int32_t index);
 
-struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, {0}, 0, 0, 0}};
+struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, {0}, 0, 0, 0, 0}};
 
 uint32_t jit_jump = 0;
 int32_t hot_code_addresses[HASH_PRIME] = {0};
@@ -540,6 +540,40 @@ static void jit_run_interpreted(int32_t phys_addr)
     profiler_end(P_RUN_INTERPRETED);
 }
 
+static struct code_cache* create_cache_entry(uint32_t phys_addr, bool is_32)
+{
+    for(int32_t i = 0; i < CODE_CACHE_SEARCH_SIZE; i++)
+    {
+        uint16_t addr_index = phys_addr + i & JIT_PHYS_MASK;
+        struct code_cache* entry = &jit_cache_arr[addr_index];
+
+        // there shouldn't be an already valid entry
+        assert(entry->start_addr != phys_addr || entry->is_32 != is_32);
+
+        uint32_t page_dirtiness = group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT];
+
+        if(!entry->start_addr || entry->group_status != page_dirtiness)
+        {
+            if(i > 0)
+            {
+                dbg_log("Inserted cache entry at %d for addr %x | 0=%x", i,
+                        phys_addr, jit_cache_arr[addr_index - 1].start_addr);
+            }
+
+            entry->wasm_table_index = addr_index;
+            return entry;
+        }
+    }
+
+    // no free slots, overwrite the first one
+    uint16_t addr_index = phys_addr & JIT_PHYS_MASK;
+    struct code_cache* entry = &jit_cache_arr[addr_index];
+    entry->wasm_table_index = addr_index;
+
+    profiler_stat_increment(S_CACHE_MISMATCH);
+    return entry;
+}
+
 static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_cache* entry, uint32_t page_dirtiness)
 {
     profiler_start(P_GEN_INSTR);
@@ -585,14 +619,9 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         return;
     }
 
-    if(entry && entry->start_addr != phys_addr && entry->group_status == page_dirtiness)
+    if(entry && entry->group_status != page_dirtiness)
     {
-        // contains still valid code from different address, about to be overwritten
-        //printf("%x %x", entry->start_addr, phys_addr);
-        profiler_stat_increment(S_CACHE_MISMATCH);
-    }
-    else if(entry && entry->start_addr == phys_addr && entry->group_status != page_dirtiness)
-    {
+        assert(entry->start_addr == phys_addr);
         profiler_stat_increment(S_CACHE_DROP);
     }
 
@@ -605,11 +634,11 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
     if(!entry)
     {
-        uint16_t addr_index = phys_addr & JIT_PHYS_MASK;
-        entry = &jit_cache_arr[addr_index];
+        entry = create_cache_entry(phys_addr, *is_32);
     }
     else
     {
+        assert(entry->group_status != page_dirtiness);
         assert(entry->start_addr == phys_addr);
         assert(entry->is_32 == *is_32);
     }
@@ -624,8 +653,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
     gen_finish();
 
-    int32_t wasm_table_index = phys_addr & 0xFFFF;
-    codegen_finalize(wasm_table_index, start_addr, entry->start_addr, end_addr);
+    codegen_finalize(entry->wasm_table_index, start_addr, entry->start_addr, end_addr);
 
     assert(*prefixes == 0);
 
@@ -637,19 +665,20 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
 static struct code_cache* find_cache_entry(uint32_t phys_addr, bool is_32)
 {
-    uint16_t addr_index = phys_addr & JIT_PHYS_MASK;
-    struct code_cache* entry = &jit_cache_arr[addr_index];
+#pragma clang loop unroll_count(CODE_CACHE_SEARCH_SIZE)
+    for(int32_t i = 0; i < CODE_CACHE_SEARCH_SIZE; i++)
+    {
+        uint16_t addr_index = phys_addr + i & JIT_PHYS_MASK;
+        struct code_cache* entry = &jit_cache_arr[addr_index];
 
-    if(entry->start_addr == phys_addr && entry->is_32 == is_32)
-    {
-        return entry;
+        if(entry->start_addr == phys_addr && entry->is_32 == is_32)
+        {
+            return entry;
+        }
     }
-    else
-    {
-        return NULL;
-    }
+
+    return NULL;
 }
-
 
 void cycle_internal()
 {
@@ -673,7 +702,7 @@ void cycle_internal()
 
         assert(entry->opcode[0] == read8(phys_addr));
 
-        uint16_t wasm_table_index = phys_addr & JIT_PHYS_MASK;
+        uint16_t wasm_table_index = entry->wasm_table_index;
         call_indirect(wasm_table_index);
 
         // XXX: Try to find an assert to detect self-modifying code
