@@ -3129,7 +3129,7 @@ void chunk_write128(uint8_t* addr, uint16_t offset)
 void test_page_boundaries()
 {
     // mmap 2 consecutive pages
-    uint8_t *const page0 = mmap(NULL, PAGE_SIZE,
+    uint8_t *const page0 = mmap(NULL, 2 * PAGE_SIZE,
             PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     // throwaway mmap to reduce likelhood of page0 and page1 mapping to consecutive physical frames
