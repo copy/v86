@@ -633,6 +633,9 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
     if(!entry)
     {
         entry = create_cache_entry(phys_addr, *is_32);
+
+        entry->start_addr = phys_addr;
+        entry->is_32 = *is_32;
     }
     else
     {
@@ -642,8 +645,6 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
     }
 
     entry->opcode[0] = first_opcode;
-    entry->start_addr = phys_addr;
-    entry->is_32 = *is_32;
     entry->end_addr = end_addr;
     entry->len = len;
 
