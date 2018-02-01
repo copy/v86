@@ -13,7 +13,7 @@ var emulator = new V86({
     autostart: true,
     memory_size: 32 * 1024 * 1024,
     filesystem: {},
-    log_level: 0
+    log_level: 0,
 });
 
 emulator.bus.register("emulator-started", function()
