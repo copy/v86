@@ -945,6 +945,7 @@ int32_t safe_read16(int32_t addr)
     }
 }
 
+__attribute__((always_inline))
 int32_t safe_read32s(int32_t addr)
 {
     if((addr & 0xFFF) >= 0xFFD)
@@ -1011,6 +1012,7 @@ void safe_write16(int32_t addr, int32_t value)
     }
 }
 
+__attribute__((always_inline))
 void safe_write32(int32_t addr, int32_t value)
 {
     int32_t phys_low = translate_address_write(addr);
