@@ -307,7 +307,7 @@ void writable_or_pagefault(int32_t addr, int32_t size)
     }
 }
 
-int32_t translate_address_read(int32_t address)
+uint32_t translate_address_read(int32_t address)
 {
     if(!*paging) return address;
 
@@ -322,7 +322,7 @@ int32_t translate_address_read(int32_t address)
     }
 }
 
-int32_t translate_address_write(int32_t address)
+uint32_t translate_address_write(int32_t address)
 {
     if(!*paging) return address;
 
@@ -337,7 +337,7 @@ int32_t translate_address_write(int32_t address)
     }
 }
 
-int32_t translate_address_system_read(int32_t address)
+uint32_t translate_address_system_read(int32_t address)
 {
     if(!*paging) return address;
 
@@ -352,7 +352,7 @@ int32_t translate_address_system_read(int32_t address)
     }
 }
 
-int32_t translate_address_system_write(int32_t address)
+uint32_t translate_address_system_write(int32_t address)
 {
     if(!*paging) return address;
 

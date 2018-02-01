@@ -100,7 +100,7 @@ int32_t read16(uint32_t addr)
 
 int32_t read_aligned16(uint32_t addr)
 {
-    dbg_assert(addr >= 0 && addr < 0x80000000);
+    dbg_assert(addr < 0x80000000);
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK16;
 
     if(in_mapped_range(addr << 1))
@@ -143,6 +143,7 @@ int64_t read64s(uint32_t addr)
 
 int32_t read_aligned32(uint32_t addr)
 {
+    dbg_assert(addr < 0x40000000);
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK32;
 
     if(in_mapped_range(addr << 2))
@@ -189,7 +190,7 @@ void write16(uint32_t addr, int32_t value)
 
 void write_aligned16(uint32_t addr, uint32_t value)
 {
-    dbg_assert(addr >= 0 && addr < 0x80000000);
+    dbg_assert(addr < 0x80000000);
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK16;
 
     uint32_t phys_addr = addr << 1;
@@ -201,7 +202,7 @@ void write_aligned16(uint32_t addr, uint32_t value)
     }
     else
     {
-        *(uint16_t*)(mem16 + addr) = value;
+        mem16[addr] = value;
     }
 }
 
@@ -221,8 +222,9 @@ void write32(uint32_t addr, int32_t value)
     }
 }
 
-void write_aligned32(int32_t addr, int32_t value)
+void write_aligned32(uint32_t addr, int32_t value)
 {
+    dbg_assert(addr < 0x40000000);
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK32;
 
     uint32_t phys_addr = addr << 2;

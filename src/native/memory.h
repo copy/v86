@@ -18,5 +18,5 @@ void write8(uint32_t addr, int32_t value);
 void write16(uint32_t addr, int32_t value);
 void write_aligned16(uint32_t addr, uint32_t value);
 void write32(uint32_t addr, int32_t value);
-void write_aligned32(int32_t addr, int32_t value);
+void write_aligned32(uint32_t addr, int32_t value);
 void write64(uint32_t addr, int64_t value);
