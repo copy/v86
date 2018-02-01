@@ -20,12 +20,6 @@ var LOG_ALL_IO = false;
 
 /**
  * @const
- * Enables logging of page faults, quite verbose
- */
-var LOG_PAGE_FAULTS = false;
-
-/**
- * @const
  */
 var DUMP_GENERATED_WASM = false;
 
