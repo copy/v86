@@ -197,7 +197,7 @@ const encodings = [
     { opcode: 0xF1, skip: 1, },
     { opcode: 0xF2, prefix: 1, },
     { opcode: 0xF3, prefix: 1, },
-    { opcode: 0xF4, skip: 1, },
+    { opcode: 0xF4, jump: 1, skip: 1, },
     { opcode: 0xF5, },
 
     { opcode: 0xF6, fixed_g: 0, imm8: 1, },
