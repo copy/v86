@@ -544,7 +544,7 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr, bool is_32)
 {
     for(int32_t i = 0; i < CODE_CACHE_SEARCH_SIZE; i++)
     {
-        uint16_t addr_index = phys_addr + i & JIT_PHYS_MASK;
+        uint16_t addr_index = (phys_addr + i) & JIT_PHYS_MASK;
         struct code_cache* entry = &jit_cache_arr[addr_index];
 
         // there shouldn't be an already valid entry
@@ -668,7 +668,7 @@ static struct code_cache* find_cache_entry(uint32_t phys_addr, bool is_32)
 #pragma clang loop unroll_count(CODE_CACHE_SEARCH_SIZE)
     for(int32_t i = 0; i < CODE_CACHE_SEARCH_SIZE; i++)
     {
-        uint16_t addr_index = phys_addr + i & JIT_PHYS_MASK;
+        uint16_t addr_index = (phys_addr + i) & JIT_PHYS_MASK;
         struct code_cache* entry = &jit_cache_arr[addr_index];
 
         if(entry->start_addr == phys_addr && entry->is_32 == is_32)
