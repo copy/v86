@@ -17,8 +17,6 @@
 #include "js_imports.h"
 #include "cpu.h"
 
-extern void call_indirect(int32_t index);
-
 struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, {0}, 0, 0, 0, 0}};
 
 uint32_t jit_jump = 0;

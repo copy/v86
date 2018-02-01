@@ -60,6 +60,10 @@ extern int32_t hot_code_addresses[HASH_PRIME];
 // to the same group due to the shift
 extern uint32_t group_dirtiness[GROUP_DIRTINESS_LENGTH];
 
+
+// defined in call-indirect.ll
+extern void call_indirect(int32_t index);
+
 void after_jump(void);
 void diverged(void);
 void branch_taken(void);
