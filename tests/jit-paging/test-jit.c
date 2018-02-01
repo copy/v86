@@ -89,7 +89,7 @@ void test_shared()
 void test_consecutive()
 {
     uint8_t *const page0 = mmap(NULL,
-            PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+            2 * PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     // throwaway mmap to reduce likelhood of page0 and page1 mapping to consecutive physical frames
     uint8_t *const throwaway = mmap(NULL,
@@ -103,6 +103,11 @@ void test_consecutive()
         fatal("mmap");
     }
 
+    // Attempt to influence virtual to physical mapping - we want page0->page1 to not be contiguous
+    // physically
+    page0[0] = 0;
+    throwaway[0] = 0;
+    page1[0] = 0;
 
     for(int32_t i = 0; i < 100; i++)
     {
@@ -125,7 +130,7 @@ void test_consecutive()
 void test_consecutive_written()
 {
     uint8_t *const page0 = mmap(NULL,
-            PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+            2 * PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     // throwaway mmap to reduce likelhood of page0 and page1 mapping to consecutive physical frames
     uint8_t *const throwaway = mmap(NULL,
@@ -138,6 +143,12 @@ void test_consecutive_written()
     {
         fatal("mmap");
     }
+
+    // Attempt to influence virtual to physical mapping - we want page0->page1 to not be contiguous
+    // physically
+    page0[0] = 0;
+    throwaway[0] = 0;
+    page1[0] = 0;
 
     uint8_t* start = page1 - 8;
     uint8_t* ptr = start;
