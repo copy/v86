@@ -37,18 +37,24 @@ _Static_assert(sizeof(union reg64) == 8, "reg64 is 8 bytes");
 struct code_cache {
     // Address of the start of the basic block
     uint32_t start_addr;
+#if DEBUG
     uint32_t end_addr;
     // Address of the instruction immediately after the basic block ends
     int32_t opcode[1]; // TODO: Remove in debug mode
     int32_t len;
-    int32_t is_32;
+#endif
     // Cleanliness status of the entry's "group" (based on
     // DIRTY_ARR_SHIFT). Value only has meaning in relation with the
     // group_dirtiness value.
     uint32_t group_status;
 
     uint16_t wasm_table_index;
+    bool is_32;
 };
+#if DEBUG
+#else
+_Static_assert(sizeof(struct code_cache) == 12, "code_cache uses 12 bytes");
+#endif
 struct code_cache jit_cache_arr[WASM_TABLE_SIZE];
 
 // Flag indicating whether the instruction that just ran was a jump of some sort

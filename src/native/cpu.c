@@ -17,7 +17,11 @@
 #include "js_imports.h"
 #include "cpu.h"
 
-struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, {0}, 0, 0, 0, 0}};
+#if DEBUG
+struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, {0}, 0, 0, 0, false}};
+#else
+struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, 0, false}};
+#endif
 
 uint32_t jit_jump = 0;
 int32_t hot_code_addresses[HASH_PRIME] = {0};
@@ -644,9 +648,11 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         assert(entry->is_32 == *is_32);
     }
 
+#if DEBUG
     entry->opcode[0] = first_opcode;
     entry->end_addr = end_addr;
     entry->len = len;
+#endif
 
     jit_jump = false;
 
