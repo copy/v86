@@ -520,4 +520,3 @@ void gen_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte)
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
     call_fn(&cs, fn_idx);
 }
-

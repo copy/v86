@@ -17,6 +17,13 @@ typedef struct Buffer {
     int32_t const len;
 } Buffer;
 
+
+static void inline write_raw_u8(Buffer* buf, uint8_t v)
+{
+    assert(buf->ptr < buf->start + buf->len);
+    *buf->ptr++ = v;
+}
+
 static void write_leb_i32(Buffer* buf, int32_t v)
 {
     // Super complex stuff. See the following:
@@ -43,7 +50,7 @@ static void write_leb_i32(Buffer* buf, int32_t v)
         {
             byte |= 0b10000000; // turn on MSB
         }
-        *(buf->ptr)++ = byte;
+        write_raw_u8(buf, byte);
     }
 }
 
@@ -56,13 +63,8 @@ static void write_leb_u32(Buffer* buf, uint32_t v)
         {
             byte |= 0b10000000; // turn on MSB
         }
-        *(buf->ptr)++ = byte;
+        write_raw_u8(buf, byte);
     } while (v != 0);
-}
-
-static void inline write_raw_u8(Buffer* buf, uint8_t v)
-{
-    *(buf->ptr)++ = v;
 }
 
 static void inline write_fixed_leb16_to_ptr(uint8_t* ptr, uint16_t x)
@@ -71,4 +73,3 @@ static void inline write_fixed_leb16_to_ptr(uint8_t* ptr, uint16_t x)
     *ptr = (x & 0b1111111) | 0b10000000;
     *(ptr + 1) = x >> 7;
 }
-
