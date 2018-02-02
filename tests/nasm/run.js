@@ -78,7 +78,7 @@ if(cluster.isMaster)
 
         if(fixture_text.includes("Program received signal") || fixture_text.includes("SIGILL"))
         {
-            throw new Error("Test was killed during execution by gdb: " + name);
+            throw new Error("Test was killed during execution by gdb: " + name + "\n" + fixture_text);
         }
 
         const json_regex = /---BEGIN JSON---([\s\[\]\w":\-,]*)---END JSON---/;
