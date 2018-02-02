@@ -63,10 +63,9 @@ void jit_dirty_cache_small(uint32_t start_addr, uint32_t end_addr)
 
 void jit_empty_cache()
 {
-    assert(false); // XXX: is WASM_TABLE_SIZE correct?
-    for(uint32_t i = 0; i < WASM_TABLE_SIZE; i++)
+    for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
     {
-        group_dirtiness[i]++;
+        jit_cache_arr[i].start_addr = 0;
     }
 }
 

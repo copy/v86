@@ -1470,6 +1470,13 @@ CPU.prototype.diverged = function () {
 CPU.prototype.jit_empty_cache = function()
 {
     this.wm.exports["_jit_empty_cache"]();
+
+    const table = this.wm.imports["env"].table;
+
+    for(let i = 0; i < WASM_TABLE_SIZE; i++)
+    {
+        table.set(i, null);
+    }
 };
 
 CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, has_error_code, error_code)
