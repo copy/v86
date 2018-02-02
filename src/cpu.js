@@ -326,6 +326,7 @@ CPU.prototype.wasm_patch = function(wm)
 
 CPU.prototype.jit_clear_func = function(index)
 {
+    dbg_assert(index >= 0 && index < WASM_TABLE_SIZE);
     this.wm.imports.env.table.set(index, null);
 };
 
@@ -1255,6 +1256,7 @@ var seen_code = {};
 
 CPU.prototype.codegen_finalize = function(cache_index, virtual_start, start, end)
 {
+    dbg_assert(cache_index >= 0 && cache_index < WASM_TABLE_SIZE);
     //dbg_log("finalize");
     const code = this.codegen.get_module_code();
 
