@@ -14,7 +14,7 @@
 typedef struct Buffer {
     uint8_t* const start;
     uint8_t* ptr;
-    uint32_t const len;
+    int32_t const len;
 } Buffer;
 
 static void write_leb_i32(Buffer* buf, int32_t v)
