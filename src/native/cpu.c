@@ -542,6 +542,11 @@ static void jit_run_interpreted(int32_t phys_addr)
     int32_t opcode = mem8[phys_addr];
     (*instruction_pointer)++;
     (*timestamp_counter)++;
+
+#if DEBUG
+    logop(previous_ip[0], opcode);
+#endif
+
     run_instruction(opcode | !!*is_32 << 8);
 
 #if DUMP_UNCOMPILED_ASSEMBLY
@@ -558,6 +563,10 @@ static void jit_run_interpreted(int32_t phys_addr)
         (*timestamp_counter)++;
 
         int32_t opcode = read_imm8();
+
+#if DEBUG
+    logop(previous_ip[0], opcode);
+#endif
         run_instruction(opcode | !!*is_32 << 8);
 
 #if DUMP_UNCOMPILED_ASSEMBLY
