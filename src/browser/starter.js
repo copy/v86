@@ -476,6 +476,11 @@ function V86Starter(options)
         }
     }
 
+    if(options["state"])
+    {
+        console.warn("Warning: Unknown option 'state'. Did you mean 'initial_state'?");
+    }
+
     var image_names = [
         "bios", "vga_bios",
         "cdrom", "hda", "hdb", "fda", "fdb",
