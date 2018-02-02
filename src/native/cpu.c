@@ -539,6 +539,15 @@ static void jit_run_interpreted(int32_t phys_addr)
     (*timestamp_counter)++;
     run_instruction(opcode | !!*is_32 << 8);
 
+    while(!jit_jump)
+    {
+        previous_ip[0] = instruction_pointer[0];
+        (*timestamp_counter)++;
+
+        int32_t opcode = read_imm8();
+        run_instruction(opcode | !!*is_32 << 8);
+    }
+
     profiler_end(P_RUN_INTERPRETED);
 }
 
