@@ -1253,6 +1253,7 @@ if(PROFILING)
 }
 
 var seen_code = {};
+var seen_code_uncompiled = {};
 
 CPU.prototype.codegen_finalize = function(cache_index, virtual_start, start, end)
 {
@@ -1272,7 +1273,7 @@ CPU.prototype.codegen_finalize = function(cache_index, virtual_start, start, end
 
             if((start ^ end) & ~0xFFF)
             {
-                dbg_log("truncated disassembly");
+                dbg_log("truncated disassembly start=" + h(start >>> 0) + " end=" + h(end >>> 0));
                 end = (start | 0xFFF) + 1; // until the end of the page
             }
 
@@ -1321,6 +1322,41 @@ CPU.prototype.codegen_finalize = function(cache_index, virtual_start, start, end
     f();
     //const after = this.instruction_pointer[0];
     //dbg_log("code block from " + h(before >>> 0) + " to " + h(after >>> 0));
+};
+
+CPU.prototype.log_uncompiled_code = function(start, end)
+{
+    if(!DEBUG || !DUMP_UNCOMPILED_ASSEMBLY)
+    {
+        return;
+    }
+
+    if((seen_code_uncompiled[start] || 0) < 100)
+    {
+        seen_code_uncompiled[start] = (seen_code_uncompiled[start] || 0) + 1;
+
+        end += 8; // final jump is not included
+
+        if((start ^ end) & ~0xFFF)
+        {
+            dbg_log("truncated disassembly start=" + h(start >>> 0) + " end=" + h(end >>> 0));
+            end = (start | 0xFFF) + 1; // until the end of the page
+        }
+
+        if(end < start) end = start;
+
+        dbg_assert(end >= start);
+
+        const buffer = new Uint8Array(end - start);
+
+        for(let i = start; i < end; i++)
+        {
+            buffer[i - start] = this.read8(i);
+        }
+
+        dbg_log("Uncompiled code:");
+        this.debug.dump_code(this.is_32[0] ? 1 : 0, buffer, start);
+    }
 };
 
 CPU.prototype.dbg_log = function()

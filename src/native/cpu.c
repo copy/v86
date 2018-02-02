@@ -533,11 +533,24 @@ static void jit_run_interpreted(int32_t phys_addr)
 
     jit_jump = false;
 
+#if DUMP_UNCOMPILED_ASSEMBLY
+    int32_t start_eip = phys_addr;
+    int32_t end_eip = start_eip;
+#endif
+
     assert(!in_mapped_range(phys_addr));
     int32_t opcode = mem8[phys_addr];
     (*instruction_pointer)++;
     (*timestamp_counter)++;
     run_instruction(opcode | !!*is_32 << 8);
+
+#if DUMP_UNCOMPILED_ASSEMBLY
+    if(!jit_jump)
+    {
+        *previous_ip = *instruction_pointer;
+        end_eip = get_phys_eip();
+    }
+#endif
 
     while(!jit_jump)
     {
@@ -546,8 +559,19 @@ static void jit_run_interpreted(int32_t phys_addr)
 
         int32_t opcode = read_imm8();
         run_instruction(opcode | !!*is_32 << 8);
+
+#if DUMP_UNCOMPILED_ASSEMBLY
+        if(!jit_jump)
+        {
+            *previous_ip = *instruction_pointer;
+            end_eip = get_phys_eip();
+        }
+#endif
     }
 
+#if DUMP_UNCOMPILED_ASSEMBLY
+    log_uncompiled_code(start_eip, end_eip);
+#endif
     profiler_end(P_RUN_INTERPRETED);
 }
 

@@ -232,6 +232,7 @@ function V86Starter(options)
         "_coverage_log": (fn_name_offset, num_blocks, visited_block) => {
             coverage_logger.log(fn_name_offset, num_blocks, visited_block);
         },
+        "_log_uncompiled_code": (start, end) => cpu.log_uncompiled_code(start, end),
 
         // see https://github.com/kripken/emscripten/blob/incoming/src/library.js
         "_atan2": Math.atan2,
