@@ -447,10 +447,10 @@ void instr16_8D_mem_pre()
     // override prefix, so modrm_resolve does not return the segment part
     *prefixes |= SEG_PREFIX_ZERO;
 }
-void instr16_8D_mem(int32_t addr, int32_t mod)
+void instr16_8D_mem(int32_t addr, int32_t r)
 {
     // lea
-    reg16[mod << 1] = addr;
+    write_reg16(r, addr);
     *prefixes = 0;
 }
 void instr32_8D_reg(int32_t r, int32_t r2)
@@ -463,9 +463,9 @@ void instr32_8D_mem_pre()
     // override prefix, so modrm_resolve does not return the segment part
     *prefixes |= SEG_PREFIX_ZERO;
 }
-void instr32_8D_mem(int32_t addr, int32_t mod) {
+void instr32_8D_mem(int32_t addr, int32_t r) {
     // lea
-    reg32s[mod] = addr;
+    write_reg32(r, addr);
     *prefixes = 0;
 }
 
@@ -511,7 +511,7 @@ void instr32_8F_0_mem_pre()
     // prevent page faults during modrm_resolve
     for(int32_t i = 0; i < 8; i++) { translate_address_read(*instruction_pointer + i); }; // XXX
 
-    // esp must be adjusted before calling modrm_resolved
+    // esp must be adjusted before calling modrm_resolve
     // The order of calls is: instr32_8F_0_mem_pre -> modrm_resolve -> instr32_8F_0_mem
     adjust_stack_reg(4);
 }
