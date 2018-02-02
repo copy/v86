@@ -701,12 +701,20 @@ void cycle_internal()
 
         assert(entry->opcode[0] == read8(phys_addr));
 
+        uint32_t old_group_status = entry->group_status;
+        uint32_t old_start_address = entry->start_addr;
+        uint32_t old_group_dirtiness = group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT];
+        assert(old_group_status == old_group_dirtiness);
+
         uint16_t wasm_table_index = entry->wasm_table_index;
         call_indirect(wasm_table_index);
 
-        // XXX: Try to find an assert to detect self-modifying code
-        // JIT compiled self-modifying basic blocks may trigger this assert
-        // assert(entry->group_status != group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT]);
+        // These shouldn't fail
+        assert(entry->group_status == old_group_status);
+        assert(entry->start_addr == old_start_address);
+
+        // JIT compiled self-modifying code may trigger this assert
+        assert(old_group_dirtiness == group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT]);
 
         profiler_end(P_RUN_FROM_CACHE);
     }
