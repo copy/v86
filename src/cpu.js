@@ -289,11 +289,14 @@ CPU.prototype.wasm_patch = function(wm)
     this.do_many_cycles_unsafe = this.wm.exports['_do_many_cycles_unsafe'];
     this.cycle_internal = this.wm.exports['_cycle_internal'];
 
+    this.read8 = this.wm.exports['_read8'];
     this.read16 = this.wm.exports['_read16'];
     this.read32s = this.wm.exports['_read32s'];
     this.write8 = this.wm.exports['_write8'];
     this.write16 = this.wm.exports['_write16'];
     this.write32 = this.wm.exports['_write32'];
+    this.in_mapped_range = this.wm.exports['_in_mapped_range'];
+
     this.push16 = this.wm.exports['_push16'];
     this.push32 = this.wm.exports['_push32'];
     this.pop16 = this.wm.exports['_pop16'];
