@@ -11,8 +11,8 @@
 #include "module_init.h"
 #include "../global_pointers.h"
 
-static Buffer op = { .start = (uint8_t* const) 2048, .ptr = (uint8_t*) 2048, .len = 1024 };
-static Buffer cs = { .start = (uint8_t* const) 3072, .ptr = (uint8_t*) 3072, .len = 1024 };
+static Buffer op = { .start = codegen_buffer_op, .ptr = codegen_buffer_op, .len = 0x1000 };
+static Buffer cs = { .start = codegen_buffer_cs, .ptr = codegen_buffer_cs, .len = 0x1000 };
 
 // location in memory where we store the result of the computation for testing
 #define RESULT_LOC 1600

@@ -71,17 +71,9 @@ static union reg128* const reg_xmm = (union reg128* const) 828; // length 128
 
 static uint64_t* const current_tsc = (uint64_t* const) 956;
 
-static uint8_t* const codegen_buffers = (uint8_t* const) 2048; // length 2048
-
-static uint8_t* const tlb_info = (uint8_t* const) 4096; // length 0x100000
-static uint8_t* const tlb_info_global = (uint8_t* const) (4096 + 0x100000); // length 0x100000
-static int32_t* const tlb_data = (int32_t* const) (4096 + 0x100000 + 0x100000); // length 0x100000*4
-
-static uint8_t* const mem8 = (uint8_t* const) (4096 + 0x100000 * 6);
-static uint16_t* const mem16 = (uint16_t* const) (4096 + 0x100000 * 6);
-static int32_t* const mem32s = (int32_t* const) (4096 + 0x100000 * 6);
-
-// gap
+static double_t* const fpu_st = (double_t* const) 968; // length 64
+static uint8_t* const fpu_st8 = (uint8_t* const) 968;
+static int32_t* const fpu_st32 = (int32_t* const) 968;
 
 static uint32_t* const fpu_stack_ptr = (uint32_t* const) 1032;
 static int32_t* const fpu_control_word = (int32_t* const) 1036;
@@ -92,8 +84,20 @@ static int32_t* const fpu_ip_selector = (int32_t* const) 1052;
 static int32_t* const fpu_dp = (int32_t* const) 1056;
 static int32_t* const fpu_dp_selector = (int32_t* const) 1060;
 
-static double_t* const fpu_st = (double_t* const) 968;
-static uint8_t* const fpu_st8 = (uint8_t* const) 968;
-static int32_t* const fpu_st32 = (int32_t* const) 968;
-
 static union reg64* const reg_mmx = (union reg64* const) 1064; // length 64
+
+// gap
+
+static uint8_t* const codegen_buffer_op = (uint8_t* const) 0x1000; // length 0x1000
+static uint8_t* const codegen_buffer_cs = (uint8_t* const) 0x2000; // length 0x1000
+static uint8_t* const codegen_string_input = (uint8_t* const) 0x3000; // length 32
+
+// gap
+
+static uint8_t* const tlb_info = (uint8_t* const) 0x10000; // length 0x100000
+static uint8_t* const tlb_info_global = (uint8_t* const) (0x10000 + 0x100000); // length 0x100000
+static int32_t* const tlb_data = (int32_t* const) (0x10000 + 0x100000 + 0x100000); // length 0x100000*4
+
+static uint8_t* const mem8 = (uint8_t* const) (0x10000 + 0x100000 * 6);
+static uint16_t* const mem16 = (uint16_t* const) (0x10000 + 0x100000 * 6);
+static int32_t* const mem32s = (int32_t* const) (0x10000 + 0x100000 * 6);

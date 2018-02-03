@@ -8,7 +8,7 @@ global.v86util = {};
 // copied from const.js
 global.WASM_TABLE_SIZE = 0x10000;
 // The space we need for misc internal state before the beginning of mem8; see global_pointers.h
-global.INTERNAL_MEM_SIZE = 4096 + 0x100000 * 6;
+global.GUEST_MEMORY_START = 0x10000 + 0x100000 * 6;
 global.WASM_PAGE_SIZE = 64 * 1024;
 
 global.dbg_assert = x => console.assert(x);
@@ -51,7 +51,7 @@ const memory_size = 256 * 1024 * 1024;
 v86util.load_wasm(
     "build/codegen-test.wasm",
     wasm_test_funcs,
-    memory_size + INTERNAL_MEM_SIZE,
+    memory_size + GUEST_MEMORY_START,
     WASM_TABLE_SIZE,
     wm => {
         try {
