@@ -1,7 +1,7 @@
 "use strict";
 
 /** @const */
-var STATE_VERSION = 5;
+var STATE_VERSION = 6;
 
 /** @const */
 var STATE_MAGIC = 0x86768676|0;
