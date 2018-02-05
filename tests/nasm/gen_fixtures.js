@@ -23,6 +23,8 @@ const GDB_DEFAULT_ARGS = [
     // Set a breakpoint "in the future", which all the test binaries can then share
     "--eval-command=set breakpoint pending on",
     "--eval-command=break loop",
+    "--eval-command=catch signal SIGFPE",
+    "--eval-command=catch signal SIGILL",
 ];
 
 /* Split up an array into semi-evenly sized chunks */

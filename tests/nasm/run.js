@@ -66,12 +66,12 @@ if(cluster.isMaster)
 {
     function extract_json(name, fixture_text)
     {
-        if(fixture_text.includes("SIGFPE, Arithmetic exception"))
+        if(fixture_text.includes("(signal SIGFPE)"))
         {
             return { exception: "DE", };
         }
 
-        if(fixture_text.includes("SIGILL, Illegal instruction"))
+        if(fixture_text.includes("(signal SIGILL)"))
         {
             return { exception: "UD", };
         }
