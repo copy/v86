@@ -6335,7 +6335,15 @@ switch(opcode)
 }
 }
 
-void jit_instruction(int32_t opcode)
+uint32_t jit_instr_ret_flags = 0;
+uint32_t jit_instruction(int32_t opcode)
+{
+    jit_instr_ret_flags = 0;
+    jit_opcode(opcode);
+    return jit_instr_ret_flags;
+}
+
+void jit_opcode(int32_t opcode)
 {
     // XXX: This table is generated. Don't modify
 switch(opcode)
@@ -7704,150 +7712,150 @@ switch(opcode)
     case 0x6C|0x100:
     {
         gen_fn0("instr_6C", 8);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x6D:
     {
         gen_fn0("instr16_6D", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x6D|0x100:
     {
         gen_fn0("instr32_6D", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x6E:
     case 0x6E|0x100:
     {
         gen_fn0("instr_6E", 8);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x6F:
     {
         gen_fn0("instr16_6F", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x6F|0x100:
     {
         gen_fn0("instr32_6F", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x70:
     case 0x70|0x100:
     {
         gen_fn1("instr_70", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x71:
     case 0x71|0x100:
     {
         gen_fn1("instr_71", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x72:
     case 0x72|0x100:
     {
         gen_fn1("instr_72", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x73:
     case 0x73|0x100:
     {
         gen_fn1("instr_73", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x74:
     case 0x74|0x100:
     {
         gen_fn1("instr_74", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x75:
     case 0x75|0x100:
     {
         gen_fn1("instr_75", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x76:
     case 0x76|0x100:
     {
         gen_fn1("instr_76", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x77:
     case 0x77|0x100:
     {
         gen_fn1("instr_77", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x78:
     case 0x78|0x100:
     {
         gen_fn1("instr_78", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x79:
     case 0x79|0x100:
     {
         gen_fn1("instr_79", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x7A:
     case 0x7A|0x100:
     {
         gen_fn1("instr_7A", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x7B:
     case 0x7B|0x100:
     {
         gen_fn1("instr_7B", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x7C:
     case 0x7C|0x100:
     {
         gen_fn1("instr_7C", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x7D:
     case 0x7D|0x100:
     {
         gen_fn1("instr_7D", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x7E:
     case 0x7E|0x100:
     {
         gen_fn1("instr_7E", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x7F:
     case 0x7F|0x100:
     {
         gen_fn1("instr_7F", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x80:
@@ -8869,13 +8877,13 @@ switch(opcode)
     case 0x9A:
     {
         gen_fn2("instr16_9A", 10, read_imm16(), read_imm16());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x9A|0x100:
     {
         gen_fn2("instr32_9A", 10, read_imm32s(), read_imm16());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x9B:
@@ -8897,13 +8905,13 @@ switch(opcode)
     case 0x9D:
     {
         gen_fn0("instr16_9D", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x9D|0x100:
     {
         gen_fn0("instr32_9D", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x9E:
@@ -8954,38 +8962,38 @@ switch(opcode)
     case 0xA4|0x100:
     {
         gen_fn0("instr_A4", 8);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xA5:
     {
         gen_fn0("instr16_A5", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xA5|0x100:
     {
         gen_fn0("instr32_A5", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xA6:
     case 0xA6|0x100:
     {
         gen_fn0("instr_A6", 8);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xA7:
     {
         gen_fn0("instr16_A7", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xA7|0x100:
     {
         gen_fn0("instr32_A7", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xA8:
@@ -9008,57 +9016,57 @@ switch(opcode)
     case 0xAA|0x100:
     {
         gen_fn0("instr_AA", 8);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAB:
     {
         gen_fn0("instr16_AB", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAB|0x100:
     {
         gen_fn0("instr32_AB", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAC:
     case 0xAC|0x100:
     {
         gen_fn0("instr_AC", 8);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAD:
     {
         gen_fn0("instr16_AD", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAD|0x100:
     {
         gen_fn0("instr32_AD", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAE:
     case 0xAE|0x100:
     {
         gen_fn0("instr_AE", 8);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAF:
     {
         gen_fn0("instr16_AF", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAF|0x100:
     {
         gen_fn0("instr32_AF", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xB0:
@@ -9514,25 +9522,25 @@ switch(opcode)
     case 0xC2:
     {
         gen_fn1("instr16_C2", 10, read_imm16());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xC2|0x100:
     {
         gen_fn1("instr32_C2", 10, read_imm16());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xC3:
     {
         gen_fn0("instr16_C3", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xC3|0x100:
     {
         gen_fn0("instr32_C3", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xC4:
@@ -9680,58 +9688,58 @@ switch(opcode)
     case 0xCA:
     {
         gen_fn1("instr16_CA", 10, read_imm16());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCA|0x100:
     {
         gen_fn1("instr32_CA", 10, read_imm16());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCB:
     {
         gen_fn0("instr16_CB", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCB|0x100:
     {
         gen_fn0("instr32_CB", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCC:
     case 0xCC|0x100:
     {
         gen_fn0("instr_CC", 8);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCD:
     case 0xCD|0x100:
     {
         gen_fn1("instr_CD", 8, read_imm8());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCE:
     case 0xCE|0x100:
     {
         gen_fn0("instr_CE", 8);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCF:
     {
         gen_fn0("instr16_CF", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCF|0x100:
     {
         gen_fn0("instr32_CF", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xD0:
@@ -10518,147 +10526,147 @@ switch(opcode)
     case 0xE0|0x100:
     {
         gen_fn1("instr_E0", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE1:
     case 0xE1|0x100:
     {
         gen_fn1("instr_E1", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE2:
     case 0xE2|0x100:
     {
         gen_fn1("instr_E2", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE3:
     case 0xE3|0x100:
     {
         gen_fn1("instr_E3", 8, read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE4:
     case 0xE4|0x100:
     {
         gen_fn1("instr_E4", 8, read_imm8());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE5:
     {
         gen_fn1("instr16_E5", 10, read_imm8());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE5|0x100:
     {
         gen_fn1("instr32_E5", 10, read_imm8());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE6:
     case 0xE6|0x100:
     {
         gen_fn1("instr_E6", 8, read_imm8());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE7:
     {
         gen_fn1("instr16_E7", 10, read_imm8());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE7|0x100:
     {
         gen_fn1("instr32_E7", 10, read_imm8());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE8:
     {
         instr16_E8_jit(read_imm16());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE8|0x100:
     {
         instr32_E8_jit(read_imm32s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE9:
     {
         instr16_E9_jit(read_imm16());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE9|0x100:
     {
         instr32_E9_jit(read_imm32s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xEA:
     {
         gen_fn2("instr16_EA", 10, read_imm16(), read_imm16());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xEA|0x100:
     {
         gen_fn2("instr32_EA", 10, read_imm32s(), read_imm16());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xEB:
     case 0xEB|0x100:
     {
         instr_EB_jit(read_imm8s());
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xEC:
     case 0xEC|0x100:
     {
         gen_fn0("instr_EC", 8);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xED:
     {
         gen_fn0("instr16_ED", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xED|0x100:
     {
         gen_fn0("instr32_ED", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xEE:
     case 0xEE|0x100:
     {
         gen_fn0("instr_EE", 8);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xEF:
     {
         gen_fn0("instr16_EF", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xEF|0x100:
     {
         gen_fn0("instr32_EF", 10);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xF0:
@@ -10689,6 +10697,7 @@ switch(opcode)
     case 0xF4|0x100:
     {
         gen_fn0("instr_F4", 8);
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xF5:
@@ -11041,7 +11050,7 @@ switch(opcode)
     case 0xFB|0x100:
     {
         gen_fn0("instr_FB", 8);
-        jit_jump = true;
+        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xFC:
@@ -11131,7 +11140,7 @@ switch(opcode)
                 {
                     gen_fn1("instr16_FF_2_reg", 16, modrm_byte & 7);
                 }
-                jit_jump = true;
+                jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
             break;
             case 3:
@@ -11144,7 +11153,7 @@ switch(opcode)
                 {
                     gen_fn1("instr16_FF_3_reg", 16, modrm_byte & 7);
                 }
-                jit_jump = true;
+                jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
             break;
             case 4:
@@ -11157,7 +11166,7 @@ switch(opcode)
                 {
                     gen_fn1("instr16_FF_4_reg", 16, modrm_byte & 7);
                 }
-                jit_jump = true;
+                jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
             break;
             case 5:
@@ -11170,7 +11179,7 @@ switch(opcode)
                 {
                     gen_fn1("instr16_FF_5_reg", 16, modrm_byte & 7);
                 }
-                jit_jump = true;
+                jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
             break;
             case 6:
@@ -11230,7 +11239,7 @@ switch(opcode)
                 {
                     gen_fn1("instr32_FF_2_reg", 16, modrm_byte & 7);
                 }
-                jit_jump = true;
+                jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
             break;
             case 3:
@@ -11243,7 +11252,7 @@ switch(opcode)
                 {
                     gen_fn1("instr32_FF_3_reg", 16, modrm_byte & 7);
                 }
-                jit_jump = true;
+                jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
             break;
             case 4:
@@ -11256,7 +11265,7 @@ switch(opcode)
                 {
                     gen_fn1("instr32_FF_4_reg", 16, modrm_byte & 7);
                 }
-                jit_jump = true;
+                jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
             break;
             case 5:
@@ -11269,7 +11278,7 @@ switch(opcode)
                 {
                     gen_fn1("instr32_FF_5_reg", 16, modrm_byte & 7);
                 }
-                jit_jump = true;
+                jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
             break;
             case 6:

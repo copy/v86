@@ -135,7 +135,7 @@ function gen_instruction_body(encodings, size)
         console.assert((encoding.opcode & 0xFF00) === 0x0F00);
     }
 
-    const instruction_postfix = encoding.jump ? ["jit_jump = true;"] : [];
+    const instruction_postfix = encoding.jump ? ["jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;"] : [];
 
     if(encoding.fixed_g !== undefined)
     {
@@ -157,7 +157,7 @@ function gen_instruction_body(encodings, size)
                 cases: cases.map(case_ => {
                     const fixed_g = case_.fixed_g;
                     const instruction_name = make_instruction_name(case_, size, undefined);
-                    const instruction_postfix = case_.jump ? ["jit_jump = true;"] : [];
+                    const instruction_postfix = case_.jump ? ["jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;"] : [];
 
                     let modrm_resolve_prefix = undefined;
 

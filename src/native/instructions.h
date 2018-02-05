@@ -2,6 +2,12 @@
 
 #include <stdint.h>
 
+// Since jit_opcode may be called multiple times for a single instruction, this global holds flags
+// for its return status
+extern uint32_t jit_instr_ret_flags;
+
+#define JIT_INSTR_JUMP_FLAG 0b1
+
 #define SAFE_READ_WRITE8(addr, fun) \
     int32_t phys_addr = translate_address_write(addr); \
     int32_t ___ = read8(phys_addr); \
@@ -910,4 +916,5 @@ void instr32_FF_5_mem(int32_t addr);
 void instr32_FF_6_mem(int32_t addr);
 void instr32_FF_6_reg(int32_t r1);
 void run_instruction(int32_t opcode);
-void jit_instruction(int32_t opcode);
+uint32_t jit_instruction(int32_t opcode);
+void jit_opcode(int32_t opcode);

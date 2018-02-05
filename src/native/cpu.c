@@ -518,14 +518,14 @@ uint32_t jit_hot_hash(uint32_t addr)
     return addr % HASH_PRIME;
 }
 
-static void generate_instruction(int32_t opcode)
+static uint32_t generate_instruction(int32_t opcode)
 {
     gen_set_previous_eip();
     gen_increment_instruction_pointer(0);
 
     int32_t start_eip = *instruction_pointer - 1;
 
-    jit_instruction(opcode);
+    uint32_t jit_ret = jit_instruction(opcode);
 
     int32_t end_eip = *instruction_pointer;
     int32_t instruction_length = end_eip - start_eip;
@@ -534,6 +534,8 @@ static void generate_instruction(int32_t opcode)
     //dbg_log("instruction_length=%d", instruction_length);
 
     gen_patch_increment_instruction_pointer(instruction_length);
+
+    return jit_ret;
 }
 
 static void jit_run_interpreted(int32_t phys_addr)
@@ -643,10 +645,12 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
     int32_t end_addr = phys_addr + 1;
     int32_t first_opcode = -1;
+    uint32_t jit_ret = 0;
+    bool was_jump = false;
 
     gen_reset();
 
-    while(!jit_jump && len < 50 && (*instruction_pointer & 0xFFF) < (0x1000 - 16))
+    while(!was_jump && len < 50 && (*instruction_pointer & 0xFFF) < (0x1000 - 16))
     {
         *previous_ip = *instruction_pointer;
         int32_t opcode = read_imm8();
@@ -657,7 +661,8 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         }
         len++;
 
-        generate_instruction(opcode | !!*is_32 << 8);
+        jit_ret = generate_instruction(opcode | !!*is_32 << 8);
+        was_jump = (jit_ret & JIT_INSTR_JUMP_FLAG) != 0;
 
         end_addr = *eip_phys ^ *instruction_pointer;
     }
@@ -840,7 +845,7 @@ void run_prefix_instruction()
 void jit_prefix_instruction()
 {
     //dbg_log("jit_prefix_instruction is32=%d", is_osize_32());
-    jit_instruction(read_imm8() | is_osize_32() << 8);
+    jit_opcode(read_imm8() | is_osize_32() << 8);
 }
 
 void clear_prefixes()
