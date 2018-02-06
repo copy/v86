@@ -518,7 +518,7 @@ uint32_t jit_hot_hash(uint32_t addr)
     return addr % HASH_PRIME;
 }
 
-static uint32_t generate_instruction(int32_t opcode)
+static uint32_t generate_instruction(int32_t opcode, int32_t opcode_idx)
 {
     int32_t start_eip = *instruction_pointer - 1;
     uint32_t jit_ret = jit_scratch_instruction(opcode);
@@ -528,8 +528,18 @@ static uint32_t generate_instruction(int32_t opcode)
 
     assert(instruction_length >= 0 && instruction_length < 16);
 
-    gen_set_previous_eip();
-    gen_increment_instruction_pointer(instruction_length);
+    if(opcode_idx == 0 || (jit_ret & JIT_INSTR_NONFAULTING_FLAG) == 0)
+    {
+        // Faulting instruction - update as normal
+        gen_set_previous_eip();
+        gen_increment_instruction_pointer(instruction_length);
+    }
+    else
+    {
+        // Non-faulting, so we skip setting previous_ip and patch the previous instruction_pointer
+        // increment
+        gen_patch_increment_instruction_pointer(instruction_length);
+    }
 
     gen_commit_scratch_to_cs();
 
@@ -661,12 +671,12 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         {
             first_opcode = opcode;
         }
-        len++;
-
-        jit_ret = generate_instruction(opcode | !!*is_32 << 8);
+        jit_ret = generate_instruction(opcode | !!*is_32 << 8, len);
         was_jump = (jit_ret & JIT_INSTR_JUMP_FLAG) != 0;
 
         end_addr = *eip_phys ^ *instruction_pointer;
+
+        len++;
     }
 
     // at this point no exceptions can be raised

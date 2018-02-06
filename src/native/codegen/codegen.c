@@ -26,6 +26,7 @@ extern int32_t read_imm32s();
 extern int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index);
 
 static uint8_t* op_ptr_reset_location;
+static uint32_t eip_delta = 0;
 static uint32_t import_table_size_reset_value;
 static uint32_t initial_import_count;
 static void jit_scratch_resolve_modrm32_(int32_t);
@@ -130,6 +131,7 @@ void gen_increment_instruction_pointer(int32_t n)
 
     load_i32(&cs, (int32_t)instruction_pointer); // load ip
     offset_increment_instruction_pointer = cs.ptr; // XXX: Hack
+    eip_delta = n;
     push_i32(&cs, n); // load value to add to it
     add_i32(&cs);
 
@@ -143,8 +145,13 @@ void gen_increment_timestamp_counter(int32_t n)
 
 void gen_patch_increment_instruction_pointer(int32_t n) // XXX: Hack
 {
-    assert(n >= 0 && n < 128);
-    *(offset_increment_instruction_pointer+1) = n;
+    assert(eip_delta > 0);
+
+    eip_delta += n;
+    uint8_t *bak_ptr = cs.ptr;
+    cs.ptr = offset_increment_instruction_pointer;
+    push_i32(&cs, eip_delta);
+    cs.ptr = bak_ptr;
 }
 
 void gen_set_previous_eip()
