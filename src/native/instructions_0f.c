@@ -12848,7 +12848,7 @@ switch(opcode)
 }
 }
 
-void jit_instruction0f_16(int32_t opcode)
+void jit_scratch_opcode0f_16(int32_t opcode)
 {
     // XXX: This table is generated. Don't modify
 switch(opcode)
@@ -17462,7 +17462,7 @@ switch(opcode)
 }
 }
 
-void jit_instruction0f_32(int32_t opcode)
+void jit_scratch_opcode0f_32(int32_t opcode)
 {
     // XXX: This table is generated. Don't modify
 switch(opcode)

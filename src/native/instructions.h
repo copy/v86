@@ -916,5 +916,5 @@ void instr32_FF_5_mem(int32_t addr);
 void instr32_FF_6_mem(int32_t addr);
 void instr32_FF_6_reg(int32_t r1);
 void run_instruction(int32_t opcode);
-uint32_t jit_instruction(int32_t opcode);
-void jit_opcode(int32_t opcode);
+uint32_t jit_scratch_instruction(int32_t opcode);
+void jit_scratch_opcode(int32_t opcode);
