@@ -520,21 +520,22 @@ uint32_t jit_hot_hash(uint32_t addr)
 
 static uint32_t generate_instruction(int32_t opcode)
 {
-    gen_set_previous_eip();
-    gen_increment_instruction_pointer(0);
-
     int32_t start_eip = *instruction_pointer - 1;
-
     uint32_t jit_ret = jit_scratch_instruction(opcode);
-    gen_commit_scratch_to_cs();
-
     int32_t end_eip = *instruction_pointer;
+
     int32_t instruction_length = end_eip - start_eip;
 
     assert(instruction_length >= 0 && instruction_length < 16);
+
+    gen_set_previous_eip();
+    gen_increment_instruction_pointer(instruction_length);
+
+    gen_commit_scratch_to_cs();
+
     //dbg_log("instruction_length=%d", instruction_length);
 
-    gen_patch_increment_instruction_pointer(instruction_length);
+    //gen_patch_increment_instruction_pointer(instruction_length);
 
     return jit_ret;
 }
