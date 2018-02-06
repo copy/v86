@@ -66,16 +66,24 @@ v86util.load_wasm(
 function test(gen)
 {
     gen.reset();
-    gen.fn0("fn0");
-    gen.fn1("fn1", 0);
-    gen.fn2("fn2", 0, 1);
+    gen.scratch_fn0("fn0");
+    gen.scratch_fn0("fn0_test_eip_order");
+    gen.scratch_fn1("fn1", 0);
+    gen.scratch_fn2("fn2", 0, 1);
     gen.increment_instruction_pointer(10);
     gen.set_previous_eip();
-    gen.modrm_fn0("fn1r");
-    gen.modrm_fn1("fn2r", 2);
+
+    gen.commit_scratch_to_cs();
+
+    gen.scratch_modrm_fn0("fn1r");
+    gen.scratch_modrm_fn1("fn2r", 2);
     vals.asize_32 = !vals.asize_32;
-    gen.modrm_fn0("fn1r");
-    gen.modrm_fn1("fn2r", 2);
+    gen.scratch_modrm_fn0("fn1r");
+    gen.scratch_modrm_fn1("fn2r", 2);
+
+    gen.commit_scratch_to_cs();
+    // Never written:
+    gen.scratch_fn0("fn0");
     gen.finish();
 
     let buf = gen.get_module_code();
@@ -85,6 +93,7 @@ function test(gen)
 
     const expected = [
         ["fn0"],
+        ["fn0_test_eip_order"],
         ["fn1", 0],
         ["fn2", 0, 1],
         ["fn1r", 0],
@@ -108,12 +117,17 @@ function test(gen)
             m: new WebAssembly.Memory({ initial: memory_size / 64 / 1024 }),
         },
     };
+    const view = new Uint32Array(imports.e.m.buffer);
+    imports.e.fn0_test_eip_order = function()
+    {
+        store.push(["fn0_test_eip_order"]);
+        // Since fn0 was commited from the scratch buffer _after_ the instruction pointer updates
+        console.assert(view[vals.instruction_pointer >> 2] === 10);
+        console.assert(view[vals.previous_ip >> 2] === 10);
+    };
+
     const o = new WebAssembly.Instance(module, imports);
     o.exports.f();
-    const view = new Uint32Array(imports.e.m.buffer);
     console.log(store);
-    console.assert(view[vals.instruction_pointer >> 2] === 10);
-    console.assert(view[vals.previous_ip >> 2] === 10);
     console.assert(JSON.stringify(store) === JSON.stringify(expected));
 }
-

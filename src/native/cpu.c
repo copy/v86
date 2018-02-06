@@ -526,6 +526,7 @@ static uint32_t generate_instruction(int32_t opcode)
     int32_t start_eip = *instruction_pointer - 1;
 
     uint32_t jit_ret = jit_instruction(opcode);
+    gen_commit_scratch_to_cs();
 
     int32_t end_eip = *instruction_pointer;
     int32_t instruction_length = end_eip - start_eip;
@@ -756,7 +757,7 @@ void jit_link_blocks(int32_t target)
         {
             profiler_stat_increment(S_COMPILE_WITH_LINK);
             set_jit_import_next_block(entry->wasm_table_index);
-            gen_fn0(JIT_NEXT_BLOCK_FUNCTION, sizeof(JIT_NEXT_BLOCK_FUNCTION) - 1);
+            gen_scratch_fn0(JIT_NEXT_BLOCK_FUNCTION, sizeof(JIT_NEXT_BLOCK_FUNCTION) - 1);
         }
     }
 }
@@ -864,9 +865,9 @@ void segment_prefix_op(int32_t seg)
 void segment_prefix_op_jit(int32_t seg)
 {
     assert(seg <= 5);
-    gen_add_prefix_bits(seg + 1);
+    gen_scratch_add_prefix_bits(seg + 1);
     jit_prefix_instruction();
-    gen_clear_prefixes();
+    gen_scratch_clear_prefixes();
 }
 
 void do_many_cycles_unsafe()

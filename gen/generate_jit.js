@@ -63,7 +63,7 @@ function gen_codegen_call(name, args)
     args = args || [];
     const args_count = args.length;
     args = [].concat([`"${name}"`, name.length], args);
-    return gen_call(`gen_fn${args_count}`, args);
+    return gen_call(`gen_scratch_fn${args_count}`, args);
 }
 
 function gen_codegen_call_modrm(name, args, is_cb)
@@ -71,7 +71,7 @@ function gen_codegen_call_modrm(name, args, is_cb)
     args = (args || []).slice();
     const args_count = args.length - 1; // minus 1 for the modrm_byte
     args = [].concat([`"${name}"`, name.length], args);
-    return gen_call(`gen_modrm${is_cb ? "_cb" : ""}_fn${args_count}`, args);
+    return gen_call(`gen_scratch_modrm${is_cb ? "_cb" : ""}_fn${args_count}`, args);
 }
 
 function gen_modrm_mem_reg_split(name, mem_prefix_call, mem_args, reg_args)

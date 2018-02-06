@@ -28,23 +28,23 @@ static uint8_t* op_ptr_reset_location;
 static uint32_t import_table_size_reset_value;
 static uint32_t initial_import_count;
 
-void gen_fn0(char* fn, uint8_t fn_len);
-void gen_fn1(char* fn, uint8_t fn_len, int32_t arg0);
-void gen_fn2(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1);
+void gen_scratch_fn0(char* fn, uint8_t fn_len);
+void gen_scratch_fn1(char* fn, uint8_t fn_len, int32_t arg0);
+void gen_scratch_fn2(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1);
 
-void gen_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte);
-void gen_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0);
-void gen_resolve_modrm16(int32_t modrm_byte);
-void gen_resolve_modrm32(int32_t modrm_byte);
-void gen_increment_instruction_pointer(int32_t n);
-void gen_set_previous_eip();
-void gen_fn3(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2);
+void gen_scratch_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte);
+void gen_scratch_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0);
+void gen_scratch_resolve_modrm16(int32_t modrm_byte);
+void gen_scratch_resolve_modrm32(int32_t modrm_byte);
+void gen_scratch_increment_instruction_pointer(int32_t n);
+void gen_scratch_set_previous_eip();
+void gen_scratch_fn3(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2);
 
-void gen_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte);
-void gen_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0);
-void gen_modrm_cb_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t (*) (void));
-void gen_modrm_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t arg1);
-void gen_modrm_cb_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t, int32_t (*) (void));
+void gen_scratch_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte);
+void gen_scratch_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0);
+void gen_scratch_modrm_cb_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t (*) (void));
+void gen_scratch_modrm_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t arg1);
+void gen_scratch_modrm_cb_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t, int32_t (*) (void));
 
 void gen_set_previous_eip(void);
 void gen_increment_instruction_pointer(int32_t);
@@ -52,5 +52,6 @@ void gen_patch_increment_instruction_pointer(int32_t);
 
 void gen_increment_timestamp_counter(int32_t);
 
-void gen_clear_prefixes(void);
-void gen_add_prefix_bits(int32_t);
+void gen_scratch_clear_prefixes(void);
+void gen_scratch_add_prefix_bits(int32_t);
+void gen_commit_scratch_to_cs(void);
