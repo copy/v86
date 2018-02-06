@@ -796,8 +796,10 @@ void jit_link_blocks(int32_t target)
 
     if(ENABLE_JIT_BLOCK_LINKING && ((eip ^ target) & ~0xFFF) == 0) // same page
     {
-        // should never pagefault
-        uint32_t phys_target = translate_address_read(target);
+        assert((eip & ~0xFFF) == *last_virt_eip);
+        assert((target & ~0xFFF) == *last_virt_eip);
+
+        uint32_t phys_target = *eip_phys ^ target;
         struct code_cache* entry = find_cache_entry(phys_target, *is_32);
 
         if(entry && entry->group_status == group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT])
