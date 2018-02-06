@@ -145,20 +145,11 @@ function CPU(bus, wm, codegen, coverage_logger)
 
     this.last_result = new Int32Array(wm.memory.buffer, 528, 1);
 
-    this.mul32_result = new Int32Array(wm.memory.buffer, 544, 2);
-    this.div32_result = new Float64Array(2);
-
     this.tsc_offset = new Uint32Array(wm.memory.buffer, 544, 2); // 64 bit
     this.current_tsc = new Uint32Array(wm.memory.buffer, 956, 2); // 64 bit
 
-    this.phys_addr = new Int32Array(wm.memory.buffer, 656, 1);
-
-    this.phys_addr_high = new Int32Array(wm.memory.buffer, 660, 1);
-
     /** @type {!Object} */
     this.devices = {};
-
-    this.table = [];
 
     // paging enabled
     this.paging = new Uint8Array(wm.memory.buffer, 820, 1);
@@ -3177,17 +3168,7 @@ CPU.prototype.update_cs_size = function(new_size)
     }
 };
 
-CPU.prototype.update_operand_size = function() {}; /*
-{
-    if(this.is_32[0])
-    {
-        this.table = this.table32;
-    }
-    else
-    {
-        this.table = this.table16;
-    }
-}; */
+CPU.prototype.update_operand_size = function() {};
 
 /**
  * @param {number} selector

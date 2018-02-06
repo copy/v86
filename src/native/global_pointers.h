@@ -46,8 +46,6 @@ static int32_t* const sysenter_esp = (int32_t* const) 640;
 static int32_t* const sysenter_eip = (int32_t* const) 644;
 static uint8_t* const prefixes = (uint8_t* const) 648;
 // gap
-static int32_t* const phys_addr = (int32_t* const) 656;
-static int32_t* const phys_addr_high = (int32_t* const) 660;
 static uint32_t* const timestamp_counter = (uint32_t* const) 664;
 
 static uint16_t* const sreg = (uint16_t* const) 668;
