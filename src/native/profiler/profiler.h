@@ -22,7 +22,7 @@ enum profile_name {
 };
 
 
-#define PROFILER_STAT_COUNT 7
+#define PROFILER_STAT_COUNT 8
 
 enum stat_name {
     S_COMPILE,
@@ -32,6 +32,7 @@ enum stat_name {
     S_CACHE_MISMATCH,
     S_CACHE_DROP,
     S_CACHE_SKIPPED,
+    S_COMPILE_WITH_LINK,
 };
 
 struct profiler_stat {

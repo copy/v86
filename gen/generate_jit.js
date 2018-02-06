@@ -332,14 +332,18 @@ function gen_instruction_body(encodings, size)
             ].concat(instruction_postfix);
         }
     }
-    else if(encoding.prefix)
+    else if(encoding.prefix || encoding.custom)
     {
         const instruction_name = make_instruction_name(encoding, size) + "_jit";
+        const imm_read = gen_read_imm_call(encoding, size);
         const args = [];
-        console.assert(instruction_postfix.length === 0);
 
-        return [gen_call(instruction_name)];
-        //return [gen_codegen_call(instruction_name, args)].concat(instruction_postfix);
+        if(imm_read)
+        {
+            args.push(imm_read);
+        }
+
+        return [gen_call(instruction_name, args)].concat(instruction_postfix);
     }
     else
     {

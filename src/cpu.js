@@ -263,6 +263,13 @@ CPU.prototype.create_jit_imports = function()
     this.jit_imports = imports;
 };
 
+CPU.prototype.set_jit_import_next_block = function(index)
+{
+    const fn = this.wm.imports["env"].table.get(index);
+    dbg_assert(fn);
+    this.jit_imports["e"][JIT_NEXT_BLOCK_FUNCTION] = fn;
+};
+
 CPU.prototype.wasm_patch = function(wm)
 {
     this.getzf = this.wm.exports['_getzf'];

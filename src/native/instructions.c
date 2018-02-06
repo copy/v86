@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "const.h"
+#include "profiler/profiler.h"
 #include "global_pointers.h"
 #include "log.h"
 #include "arith.h"
@@ -1061,6 +1062,17 @@ void instr32_E8(int32_t imm32s) {
     //dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
+void instr16_E8_jit(int32_t imm16) {
+    gen_fn1("instr16_E8", 10, imm16);
+}
+
+void instr32_E8_jit(int32_t imm32s) {
+    gen_fn1("instr32_E8", 10, imm32s);
+
+    int32_t target = *instruction_pointer + imm32s;
+    jit_link_blocks(target);
+}
+
 void instr16_E9(int32_t imm16) {
     // jmp
     jmp_rel16(imm16);
@@ -1072,6 +1084,16 @@ void instr32_E9(int32_t imm32s) {
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
+void instr16_E9_jit(int32_t imm16) {
+    gen_fn1("instr16_E9", 10, imm16);
+}
+void instr32_E9_jit(int32_t imm32s) {
+    gen_fn1("instr32_E9", 10, imm32s);
+
+    int32_t target = *instruction_pointer + imm32s;
+    jit_link_blocks(target);
+}
+
 void instr16_EA(int32_t new_ip, int32_t cs) {
     // jmpf
     far_jump(new_ip, cs, false);
@@ -1084,11 +1106,19 @@ void instr32_EA(int32_t new_ip, int32_t cs) {
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
+
 void instr_EB(int32_t imm8) {
     // jmp near
     instruction_pointer[0] = instruction_pointer[0] + imm8;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
+}
+
+void instr_EB_jit(int32_t imm8s) {
+    gen_fn1("instr_EB", 8, imm8s);
+
+    int32_t target = *instruction_pointer + imm8s;
+    jit_link_blocks(target);
 }
 
 void instr_EC() {
@@ -10552,25 +10582,25 @@ switch(opcode)
     break;
     case 0xE8:
     {
-        gen_fn1("instr16_E8", 10, read_imm16());
+        instr16_E8_jit(read_imm16());
         jit_jump = true;
     }
     break;
     case 0xE8|0x100:
     {
-        gen_fn1("instr32_E8", 10, read_imm32s());
+        instr32_E8_jit(read_imm32s());
         jit_jump = true;
     }
     break;
     case 0xE9:
     {
-        gen_fn1("instr16_E9", 10, read_imm16());
+        instr16_E9_jit(read_imm16());
         jit_jump = true;
     }
     break;
     case 0xE9|0x100:
     {
-        gen_fn1("instr32_E9", 10, read_imm32s());
+        instr32_E9_jit(read_imm32s());
         jit_jump = true;
     }
     break;
@@ -10589,7 +10619,7 @@ switch(opcode)
     case 0xEB:
     case 0xEB|0x100:
     {
-        gen_fn1("instr_EB", 8, read_imm8s());
+        instr_EB_jit(read_imm8s());
         jit_jump = true;
     }
     break;

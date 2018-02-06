@@ -371,6 +371,8 @@ const GUEST_MEMORY_START = 0x10000 + 0x100000 * 6;
 /** @const */
 const WASM_PAGE_SIZE = 64 * 1024;
 
+const JIT_NEXT_BLOCK_FUNCTION = "next_block";
+
 /** @const */
 const COVERAGE_EXPORT_PREFIX = "___profn_";
 /** @const */

@@ -727,6 +727,25 @@ static struct code_cache* find_cache_entry(uint32_t phys_addr, bool is_32)
     return NULL;
 }
 
+void jit_link_blocks(int32_t target)
+{
+    int32_t eip = *previous_ip;
+
+    if(ENABLE_JIT_BLOCK_LINKING && ((eip ^ target) & ~0xFFF) == 0) // same page
+    {
+        // should never pagefault
+        uint32_t phys_target = translate_address_read(target);
+        struct code_cache* entry = find_cache_entry(phys_target, *is_32);
+
+        if(entry && entry->group_status == group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT])
+        {
+            profiler_stat_increment(S_COMPILE_WITH_LINK);
+            set_jit_import_next_block(entry->wasm_table_index);
+            gen_fn0(JIT_NEXT_BLOCK_FUNCTION, sizeof(JIT_NEXT_BLOCK_FUNCTION) - 1);
+        }
+    }
+}
+
 void cycle_internal()
 {
 #if ENABLE_JIT

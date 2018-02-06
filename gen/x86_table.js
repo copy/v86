@@ -183,10 +183,10 @@ const encodings = [
     { opcode: 0xE6, jump: 1, imm8: 1, skip: 1, }, // out
     { opcode: 0xE7, jump: 1, os: 1, imm8: 1, skip: 1, },
 
-    { opcode: 0xE8, jump: 1, os: 1, imm1632: 1, skip: 1, },
-    { opcode: 0xE9, jump: 1, os: 1, imm1632: 1, skip: 1, },
+    { opcode: 0xE8, jump: 1, os: 1, imm1632: 1, custom: 1, skip: 1, },
+    { opcode: 0xE9, jump: 1, os: 1, imm1632: 1, custom: 1, skip: 1, },
     { opcode: 0xEA, jump: 1, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, }, // jmpf
-    { opcode: 0xEB, jump: 1, imm8s: 1, skip: 1, },
+    { opcode: 0xEB, jump: 1, imm8s: 1, custom: 1, skip: 1, },
 
     { opcode: 0xEC, jump: 1, skip: 1, },
     { opcode: 0xED, jump: 1, os: 1, skip: 1, },
