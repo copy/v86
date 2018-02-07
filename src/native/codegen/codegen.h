@@ -22,29 +22,29 @@ void gen_reset(void);
 uintptr_t gen_finish(void);
 uintptr_t gen_get_final_offset(void);
 
-int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index);
+int32_t get_fn_index(char const* fn, uint8_t fn_len, uint8_t type_index);
 
 static uint8_t* op_ptr_reset_location;
 static uint32_t import_table_size_reset_value;
 static uint32_t initial_import_count;
 
-void gen_fn0(char* fn, uint8_t fn_len);
-void gen_fn1(char* fn, uint8_t fn_len, int32_t arg0);
-void gen_fn2(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1);
+void gen_fn0(char const* fn, uint8_t fn_len);
+void gen_fn1(char const* fn, uint8_t fn_len, int32_t arg0);
+void gen_fn2(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1);
 
-void gen_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte);
-void gen_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0);
+void gen_modrm_fn0(char const* fn, uint8_t fn_len, int32_t modrm_byte);
+void gen_modrm_fn1(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0);
 void gen_resolve_modrm16(int32_t modrm_byte);
 void gen_resolve_modrm32(int32_t modrm_byte);
 void gen_increment_instruction_pointer(int32_t n);
 void gen_set_previous_eip();
-void gen_fn3(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2);
+void gen_fn3(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2);
 
-void gen_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte);
-void gen_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0);
-void gen_modrm_cb_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t (*) (void));
-void gen_modrm_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t arg1);
-void gen_modrm_cb_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t, int32_t (*) (void));
+void gen_modrm_fn0(char const* fn, uint8_t fn_len, int32_t modrm_byte);
+void gen_modrm_fn1(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0);
+void gen_modrm_cb_fn1(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t (*) (void));
+void gen_modrm_fn2(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t arg1);
+void gen_modrm_cb_fn2(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t, int32_t (*) (void));
 
 void gen_set_previous_eip_offset_from_eip(int32_t n);
 void gen_set_previous_eip(void);

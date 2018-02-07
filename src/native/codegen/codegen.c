@@ -27,7 +27,7 @@ extern int32_t read_imm8();
 extern int32_t read_imm8s();
 extern int32_t read_imm16();
 extern int32_t read_imm32s();
-extern int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index);
+extern int32_t get_fn_index(char const* fn, uint8_t fn_len, uint8_t type_index);
 
 static uint8_t* op_ptr_reset_location;
 static uint32_t import_table_size_reset_value;
@@ -183,20 +183,20 @@ void gen_add_prefix_bits(int32_t mask)
     store_i32(&instruction_body);
 }
 
-void gen_fn0(char* fn, uint8_t fn_len)
+void gen_fn0(char const* fn, uint8_t fn_len)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN0_TYPE_INDEX);
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_fn1(char* fn, uint8_t fn_len, int32_t arg0)
+void gen_fn1(char const* fn, uint8_t fn_len, int32_t arg0)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
     push_i32(&instruction_body, arg0);
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_fn2(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
+void gen_fn2(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
     push_i32(&instruction_body, arg0);
@@ -204,7 +204,7 @@ void gen_fn2(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_fn3(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2)
+void gen_fn3(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN3_TYPE_INDEX);
     push_i32(&instruction_body, arg0);
@@ -441,7 +441,7 @@ void gen_resolve_modrm32(int32_t modrm_byte)
 
 #undef MODRM_ENTRY
 
-void gen_modrm_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t arg1)
+void gen_modrm_fn2(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t arg1)
 {
     // generates: fn( modrm_resolve( modrm_byte ), arg0, arg1 )
     if(is_asize_32())
@@ -460,7 +460,7 @@ void gen_modrm_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, i
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_modrm_cb_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t (*arg1_cb) (void))
+void gen_modrm_cb_fn2(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t (*arg1_cb) (void))
 {
     // generates: fn( modrm_resolve( modrm_byte ), arg0, arg1_cb() )
     if(is_asize_32())
@@ -479,7 +479,7 @@ void gen_modrm_cb_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0)
+void gen_modrm_fn1(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0)
 {
     // generates: fn( modrm_resolve( modrm_byte ), arg0 )
     if(is_asize_32())
@@ -497,7 +497,7 @@ void gen_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0)
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_modrm_cb_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int (*arg0_cb) (void))
+void gen_modrm_cb_fn1(char const* fn, uint8_t fn_len, int32_t modrm_byte, int (*arg0_cb) (void))
 {
     // generates: fn( modrm_resolve( modrm_byte ), arg0_cb() )
     if(is_asize_32())
@@ -515,7 +515,7 @@ void gen_modrm_cb_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int (*arg0_c
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte)
+void gen_modrm_fn0(char const* fn, uint8_t fn_len, int32_t modrm_byte)
 {
     // generates: fn( modrm_resolve( modrm_byte ) )
     if(is_asize_32())

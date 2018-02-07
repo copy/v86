@@ -83,7 +83,7 @@ static uint32_t import_table_size = 1;
 
 // Goes over the import block to find index of an import entry by function name
 // Returns -1 if not found
-static int32_t get_import_index(char* fn, uint8_t fn_len)
+static int32_t get_import_index(char const* fn, uint8_t fn_len)
 {
     uint8_t* offset = ptr_import_entries;
     for(int32_t i = 0; i < *ptr_import_count; i++)
@@ -140,7 +140,7 @@ static void write_memory_import()
     set_import_table_size(import_table_size + 1 + 1 + 1 + 1 + 1 + 1 + 2);
 }
 
-static uint8_t write_import_entry(char* fn_name, uint8_t fn_name_len, uint8_t type_index)
+static uint8_t write_import_entry(char const* fn_name, uint8_t fn_name_len, uint8_t type_index)
 {
     write_raw_u8(&op, 1); // length of module name
     write_raw_u8(&op, 'e'); // module name
@@ -182,7 +182,7 @@ static void write_export_section()
     write_raw_u8(&op, *ptr_import_count - 1);
 }
 
-int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index)
+int32_t get_fn_index(char const* fn, uint8_t fn_len, uint8_t type_index)
 {
     int32_t fn_idx = get_import_index(fn, fn_len);
     if (fn_idx == -1)
