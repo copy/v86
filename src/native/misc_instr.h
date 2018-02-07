@@ -19,6 +19,15 @@ bool test_be(void);
 bool test_l(void);
 bool test_le(void);
 
+bool test_no(void);
+bool test_nb(void);
+bool test_nz(void);
+bool test_ns(void);
+bool test_np(void);
+bool test_nbe(void);
+bool test_nl(void);
+bool test_nle(void);
+
 void jmp_rel16(int32_t rel16);
 void jmpcc8(bool condition, int32_t imm8);
 void jmpcc16(bool condition, int32_t imm16);

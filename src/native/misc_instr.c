@@ -95,6 +95,15 @@ bool test_be() { return getcf() || getzf(); }
 bool test_l() { return getsf() != getof(); }
 bool test_le() { return getzf() || getsf() != getof(); }
 
+bool test_no() { return !test_o(); }
+bool test_nb() { return !test_b(); }
+bool test_nz() { return !test_z(); }
+bool test_ns() { return !test_s(); }
+bool test_np() { return !test_p(); }
+bool test_nbe() { return !test_be(); }
+bool test_nl() { return !test_l(); }
+bool test_nle() { return !test_le(); }
+
 void jmp_rel16(int32_t rel16)
 {
     int32_t cs_offset = get_seg_cs();
