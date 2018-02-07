@@ -13,7 +13,7 @@
 #include "js_imports.h"
 #include "misc_instr.h"
 
-int32_t getcf()
+bool getcf()
 {
     if(*flags_changed & 1)
     {
@@ -25,7 +25,7 @@ int32_t getcf()
     }
 }
 
-int32_t getpf()
+bool getpf()
 {
     if(*flags_changed & FLAG_PARITY)
     {
@@ -38,7 +38,7 @@ int32_t getpf()
     }
 }
 
-int32_t getaf()
+bool getaf()
 {
     if(*flags_changed & FLAG_ADJUST)
     {
@@ -50,7 +50,7 @@ int32_t getaf()
     }
 }
 
-int32_t getzf()
+bool getzf()
 {
     if(*flags_changed & FLAG_ZERO)
     {
@@ -62,7 +62,7 @@ int32_t getzf()
     }
 }
 
-int32_t getsf()
+bool getsf()
 {
     if(*flags_changed & FLAG_SIGN)
     {
@@ -74,7 +74,7 @@ int32_t getsf()
     }
 }
 
-int32_t getof()
+bool getof()
 {
     if(*flags_changed & FLAG_OVERFLOW)
     {
@@ -86,14 +86,14 @@ int32_t getof()
     }
 }
 
-int32_t test_o() { return getof(); }
-int32_t test_b() { return getcf(); }
-int32_t test_z() { return getzf(); }
-int32_t test_s() { return getsf(); }
-int32_t test_p() { return getpf(); }
-int32_t test_be() { return getcf() || getzf(); }
-int32_t test_l() { return !getsf() != !getof(); }
-int32_t test_le() { return getzf() || !getsf() != !getof(); }
+bool test_o() { return getof(); }
+bool test_b() { return getcf(); }
+bool test_z() { return getzf(); }
+bool test_s() { return getsf(); }
+bool test_p() { return getpf(); }
+bool test_be() { return getcf() || getzf(); }
+bool test_l() { return getsf() != getof(); }
+bool test_le() { return getzf() || getsf() != getof(); }
 
 void jmp_rel16(int32_t rel16)
 {

@@ -3,20 +3,21 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-int32_t getcf(void);
-int32_t getpf(void);
-int32_t getaf(void);
-int32_t getzf(void);
-int32_t getsf(void);
-int32_t getof(void);
-int32_t test_o(void);
-int32_t test_b(void);
-int32_t test_z(void);
-int32_t test_s(void);
-int32_t test_p(void);
-int32_t test_be(void);
-int32_t test_l(void);
-int32_t test_le(void);
+bool getcf(void);
+bool getpf(void);
+bool getaf(void);
+bool getzf(void);
+bool getsf(void);
+bool getof(void);
+
+bool test_o(void);
+bool test_b(void);
+bool test_z(void);
+bool test_s(void);
+bool test_p(void);
+bool test_be(void);
+bool test_l(void);
+bool test_le(void);
 
 void jmp_rel16(int32_t rel16);
 void jmpcc8(bool condition, int32_t imm8);
