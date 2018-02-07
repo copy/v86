@@ -21,7 +21,7 @@
 #define TYPE_F64        0x7c
 #define TYPE_ANYFUNC    0x70
 #define TYPE_FUNC       0x60
-#define TYPE_BLOCK_TYPE 0x40
+#define TYPE_VOID_BLOCK 0x40
 
 // https://github.com/WebAssembly/design/blob/master/BinaryEncoding.md#external_kind
 #define EXT_FUNCTION    0
