@@ -6,8 +6,8 @@
 // for its return status
 extern uint32_t jit_instr_ret_flags;
 
-#define JIT_INSTR_JUMP_FLAG 0b1
-#define JIT_INSTR_NONFAULTING_FLAG 0b10
+#define JIT_INSTR_JUMP_FLAG (1 << 0)
+#define JIT_INSTR_NONFAULTING_FLAG (1 << 1)
 
 #define SAFE_READ_WRITE8(addr, fun) \
     int32_t phys_addr = translate_address_write(addr); \
