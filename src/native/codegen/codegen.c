@@ -13,7 +13,7 @@
 
 static Buffer op = { .start = codegen_buffer_op, .ptr = codegen_buffer_op, .len = 0x1000 };
 static Buffer cs = { .start = codegen_buffer_cs, .ptr = codegen_buffer_cs, .len = 0x1000 };
-static Buffer scratch = { .start = codegen_buffer_scratch, .ptr = codegen_buffer_scratch, .len = 0x1000 };
+static Buffer instruction_body = { .start = codegen_buffer_instruction_body, .ptr = codegen_buffer_instruction_body, .len = 0x1000 };
 
 // location in memory where we store the result of the computation for testing
 #define RESULT_LOC 1600
@@ -163,52 +163,52 @@ void gen_set_previous_eip()
 
 void gen_clear_prefixes()
 {
-    push_i32(&scratch, (int32_t)prefixes); // load address of prefixes
-    push_i32(&scratch, 0);
-    store_i32(&scratch);
+    push_i32(&instruction_body, (int32_t)prefixes); // load address of prefixes
+    push_i32(&instruction_body, 0);
+    store_i32(&instruction_body);
 }
 
 void gen_add_prefix_bits(int32_t mask)
 {
     assert(mask >= 0 && mask < 0x100);
 
-    push_i32(&scratch, (int32_t)prefixes); // load address of prefixes
+    push_i32(&instruction_body, (int32_t)prefixes); // load address of prefixes
 
-    load_i32(&scratch, (int32_t)prefixes); // load old value
-    push_i32(&scratch, mask);
-    or_i32(&scratch);
+    load_i32(&instruction_body, (int32_t)prefixes); // load old value
+    push_i32(&instruction_body, mask);
+    or_i32(&instruction_body);
 
-    store_i32(&scratch);
+    store_i32(&instruction_body);
 }
 
 void gen_fn0(char* fn, uint8_t fn_len)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN0_TYPE_INDEX);
-    call_fn(&scratch, fn_idx);
+    call_fn(&instruction_body, fn_idx);
 }
 
 void gen_fn1(char* fn, uint8_t fn_len, int32_t arg0)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
-    push_i32(&scratch, arg0);
-    call_fn(&scratch, fn_idx);
+    push_i32(&instruction_body, arg0);
+    call_fn(&instruction_body, fn_idx);
 }
 
 void gen_fn2(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
-    push_i32(&scratch, arg0);
-    push_i32(&scratch, arg1);
-    call_fn(&scratch, fn_idx);
+    push_i32(&instruction_body, arg0);
+    push_i32(&instruction_body, arg1);
+    call_fn(&instruction_body, fn_idx);
 }
 
 void gen_fn3(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN3_TYPE_INDEX);
-    push_i32(&scratch, arg0);
-    push_i32(&scratch, arg1);
-    push_i32(&scratch, arg2);
-    call_fn(&scratch, fn_idx);
+    push_i32(&instruction_body, arg0);
+    push_i32(&instruction_body, arg1);
+    push_i32(&instruction_body, arg2);
+    call_fn(&instruction_body, fn_idx);
 }
 
 #define MODRM_ENTRY(n, work)\
@@ -235,30 +235,30 @@ void gen_fn3(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2)
 static void inline gen_modrm_entry_0(int32_t fn_idx, int32_t reg16_idx_1, int32_t reg16_idx_2, int32_t imm)
 {
     // generates: fn( ( reg1 + reg2 + imm ) & 0xFFFF )
-    load_u16(&scratch, reg16_idx_1);
-    load_u16(&scratch, reg16_idx_2);
-    add_i32(&scratch);
+    load_u16(&instruction_body, reg16_idx_1);
+    load_u16(&instruction_body, reg16_idx_2);
+    add_i32(&instruction_body);
 
-    push_i32(&scratch, imm);
-    add_i32(&scratch);
+    push_i32(&instruction_body, imm);
+    add_i32(&instruction_body);
 
-    push_i32(&scratch, 0xFFFF);
-    and_i32(&scratch);
+    push_i32(&instruction_body, 0xFFFF);
+    and_i32(&instruction_body);
 
-    call_fn(&scratch, fn_idx);
+    call_fn(&instruction_body, fn_idx);
 }
 
 static void gen_modrm_entry_1(int32_t fn_idx, int32_t reg16_idx, int32_t imm)
 {
     // generates: fn ( ( reg + imm ) & 0xFFFF )
-    load_u16(&scratch, reg16_idx);
-    push_i32(&scratch, imm);
-    add_i32(&scratch);
+    load_u16(&instruction_body, reg16_idx);
+    push_i32(&instruction_body, imm);
+    add_i32(&instruction_body);
 
-    push_i32(&scratch, 0xFFFF);
-    and_i32(&scratch);
+    push_i32(&instruction_body, 0xFFFF);
+    and_i32(&instruction_body);
 
-    call_fn(&scratch, fn_idx);
+    call_fn(&instruction_body, fn_idx);
 }
 
 static void jit_resolve_modrm16_(int32_t modrm_byte)
@@ -278,7 +278,7 @@ static void jit_resolve_modrm16_(int32_t modrm_byte)
         MODRM_ENTRY16_1(5, ds, (int32_t)(reg16 + DI))
 
         // special case
-        MODRM_ENTRY(0x00 | 6, call_fn_with_arg(&scratch, ds, read_imm16()))
+        MODRM_ENTRY(0x00 | 6, call_fn_with_arg(&instruction_body, ds, read_imm16()))
         MODRM_ENTRY(0x40 | 6, gen_modrm_entry_1(ss, (int32_t)(reg16 + BP), read_imm8s()))
         MODRM_ENTRY(0x80 | 6, gen_modrm_entry_1(ss, (int32_t)(reg16 + BP), read_imm16()))
 
@@ -291,9 +291,9 @@ static void jit_resolve_modrm16_(int32_t modrm_byte)
 
 void gen_resolve_modrm16(int32_t modrm_byte)
 {
-    push_u32(&scratch, RESULT_LOC);
+    push_u32(&instruction_body, RESULT_LOC);
     jit_resolve_modrm16_(modrm_byte);
-    store_i32(&scratch);
+    store_i32(&instruction_body);
 }
 
 #define MODRM_ENTRY32_0(row, seg, reg)\
@@ -304,11 +304,11 @@ void gen_resolve_modrm16(int32_t modrm_byte)
 static void gen_modrm32_entry(int32_t fn_idx, int32_t reg32s_idx, int32_t imm)
 {
     // generates: fn ( reg + imm )
-    load_i32(&scratch, reg32s_idx);
-    push_i32(&scratch, imm);
-    add_i32(&scratch);
+    load_i32(&instruction_body, reg32s_idx);
+    push_i32(&instruction_body, imm);
+    add_i32(&instruction_body);
 
-    call_fn(&scratch, fn_idx);
+    call_fn(&instruction_body, fn_idx);
 }
 
 static void jit_resolve_sib(bool mod)
@@ -351,21 +351,21 @@ static void jit_resolve_sib(bool mod)
     // Where base is accessed from memory if base_is_mem_access or written as a constant otherwise
 
     dbg_assert(seg < 16);
-    write_raw_u8(&scratch, OP_I32CONST);
-    write_raw_u8(&scratch, seg);
+    write_raw_u8(&instruction_body, OP_I32CONST);
+    write_raw_u8(&instruction_body, seg);
 
-    call_fn(&scratch, fn_get_seg_prefix_idx);
+    call_fn(&instruction_body, fn_get_seg_prefix_idx);
 
     if(base_is_mem_access)
     {
-        load_i32(&scratch, base_addr);
+        load_i32(&instruction_body, base_addr);
     }
     else
     {
-        push_i32(&scratch, base);
+        push_i32(&instruction_body, base);
     }
 
-    add_i32(&scratch);
+    add_i32(&instruction_body);
 
     // We now have to generate an offset value to add
 
@@ -379,27 +379,27 @@ static void jit_resolve_sib(bool mod)
 
     uint8_t s = sib_byte >> 6 & 3;
 
-    load_i32(&scratch, (int32_t)(reg32s + m));
+    load_i32(&instruction_body, (int32_t)(reg32s + m));
     // We don't use push_u32 here either since s will fit in 1 byte
-    write_raw_u8(&scratch, OP_I32CONST);
-    write_raw_u8(&scratch, s);
-    shl_i32(&scratch);
+    write_raw_u8(&instruction_body, OP_I32CONST);
+    write_raw_u8(&instruction_body, s);
+    shl_i32(&instruction_body);
 
-    add_i32(&scratch);
+    add_i32(&instruction_body);
 }
 
 static void modrm32_special_case_1()
 {
     jit_resolve_sib(true);
-    push_i32(&scratch, read_imm8s());
-    add_i32(&scratch);
+    push_i32(&instruction_body, read_imm8s());
+    add_i32(&instruction_body);
 }
 
 static void modrm32_special_case_2()
 {
     jit_resolve_sib(true);
-    push_i32(&scratch, read_imm32s());
-    add_i32(&scratch);
+    push_i32(&instruction_body, read_imm32s());
+    add_i32(&instruction_body);
 }
 
 static void jit_resolve_modrm32_(int32_t modrm_byte)
@@ -418,7 +418,7 @@ static void jit_resolve_modrm32_(int32_t modrm_byte)
         MODRM_ENTRY(0x00 | 4, jit_resolve_sib(false))
         MODRM_ENTRY(0x40 | 4, modrm32_special_case_1())
         MODRM_ENTRY(0x80 | 4, modrm32_special_case_2())
-        MODRM_ENTRY(0x00 | 5, call_fn_with_arg(&scratch, ds, read_imm32s()))
+        MODRM_ENTRY(0x00 | 5, call_fn_with_arg(&instruction_body, ds, read_imm32s()))
         MODRM_ENTRY(0x40 | 5, gen_modrm32_entry(ss, (int32_t)(reg32s + EBP), read_imm8s()))
         MODRM_ENTRY(0x80 | 5, gen_modrm32_entry(ss, (int32_t)(reg32s + EBP), read_imm32s()))
 
@@ -432,9 +432,9 @@ static void jit_resolve_modrm32_(int32_t modrm_byte)
 
 void gen_resolve_modrm32(int32_t modrm_byte)
 {
-    push_i32(&scratch, RESULT_LOC);
+    push_i32(&instruction_body, RESULT_LOC);
     jit_resolve_modrm32_(modrm_byte);
-    store_i32(&scratch);
+    store_i32(&instruction_body);
 }
 
 #undef MODRM_ENTRY
@@ -451,11 +451,11 @@ void gen_modrm_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, i
         jit_resolve_modrm16_(modrm_byte);
     }
 
-    push_i32(&scratch, arg0);
-    push_i32(&scratch, arg1);
+    push_i32(&instruction_body, arg0);
+    push_i32(&instruction_body, arg1);
 
     int32_t fn_idx = get_fn_index(fn, fn_len, FN3_TYPE_INDEX);
-    call_fn(&scratch, fn_idx);
+    call_fn(&instruction_body, fn_idx);
 }
 
 void gen_modrm_cb_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t (*arg1_cb) (void))
@@ -470,11 +470,11 @@ void gen_modrm_cb_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0
         jit_resolve_modrm16_(modrm_byte);
     }
 
-    push_i32(&scratch, arg0);
-    push_i32(&scratch, arg1_cb());
+    push_i32(&instruction_body, arg0);
+    push_i32(&instruction_body, arg1_cb());
 
     int32_t fn_idx = get_fn_index(fn, fn_len, FN3_TYPE_INDEX);
-    call_fn(&scratch, fn_idx);
+    call_fn(&instruction_body, fn_idx);
 }
 
 void gen_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0)
@@ -489,10 +489,10 @@ void gen_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0)
         jit_resolve_modrm16_(modrm_byte);
     }
 
-    push_i32(&scratch, arg0);
+    push_i32(&instruction_body, arg0);
 
     int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
-    call_fn(&scratch, fn_idx);
+    call_fn(&instruction_body, fn_idx);
 }
 
 void gen_modrm_cb_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int (*arg0_cb) (void))
@@ -507,10 +507,10 @@ void gen_modrm_cb_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int (*arg0_c
         jit_resolve_modrm16_(modrm_byte);
     }
 
-    push_i32(&scratch, arg0_cb());
+    push_i32(&instruction_body, arg0_cb());
 
     int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
-    call_fn(&scratch, fn_idx);
+    call_fn(&instruction_body, fn_idx);
 }
 
 void gen_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte)
@@ -526,17 +526,17 @@ void gen_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte)
     }
 
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
-    call_fn(&scratch, fn_idx);
+    call_fn(&instruction_body, fn_idx);
 }
 
-void gen_commit_scratch_to_cs()
+void gen_commit_instruction_body_to_cs()
 {
-    assert(cs.len - (cs.ptr - cs.start) >= (scratch.ptr - scratch.start));
+    assert(cs.len - (cs.ptr - cs.start) >= (instruction_body.ptr - instruction_body.start));
 
-    uint8_t* offset = scratch.start;
-    while(offset < scratch.ptr)
+    uint8_t* offset = instruction_body.start;
+    while(offset < instruction_body.ptr)
     {
         write_raw_u8(&cs, *offset++);
     }
-    scratch.ptr = scratch.start;
+    instruction_body.ptr = instruction_body.start;
 }

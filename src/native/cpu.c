@@ -542,7 +542,7 @@ static uint32_t generate_instruction(int32_t opcode, int32_t opcode_idx)
         gen_patch_increment_instruction_pointer(instruction_length);
     }
 
-    gen_commit_scratch_to_cs();
+    gen_commit_instruction_body_to_cs();
 
     //dbg_log("instruction_length=%d", instruction_length);
 

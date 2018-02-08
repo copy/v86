@@ -73,7 +73,7 @@ function test(gen)
     gen.increment_instruction_pointer(10);
     gen.set_previous_eip();
 
-    gen.commit_scratch_to_cs();
+    gen.commit_instruction_body_to_cs();
 
     gen.modrm_fn0("fn1r");
     gen.modrm_fn1("fn2r", 2);
@@ -81,7 +81,7 @@ function test(gen)
     gen.modrm_fn0("fn1r");
     gen.modrm_fn1("fn2r", 2);
 
-    gen.commit_scratch_to_cs();
+    gen.commit_instruction_body_to_cs();
     // Never written:
     gen.fn0("fn0");
     gen.finish();
@@ -121,7 +121,7 @@ function test(gen)
     imports.e.fn0_test_eip_order = function()
     {
         store.push(["fn0_test_eip_order"]);
-        // Since fn0 was commited from the scratch buffer _after_ the instruction pointer updates
+        // Since fn0 was commited from the instruction_body buffer _after_ the instruction pointer updates
         console.assert(view[vals.instruction_pointer >> 2] === 10);
         console.assert(view[vals.previous_ip >> 2] === 10);
     };

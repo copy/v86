@@ -87,9 +87,9 @@ Codegen.prototype.finish = function()
     return this.wm.exports["_gen_finish"]();
 };
 
-Codegen.prototype.commit_scratch_to_cs = function()
+Codegen.prototype.commit_instruction_body_to_cs = function()
 {
-    return this.wm.exports["_gen_commit_scratch_to_cs"]();
+    return this.wm.exports["_gen_commit_instruction_body_to_cs"]();
 };
 
 Codegen.prototype.get_module_code = function()
