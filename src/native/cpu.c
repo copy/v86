@@ -521,7 +521,8 @@ uint32_t jit_hot_hash(uint32_t addr)
 static uint32_t generate_instruction(int32_t opcode, int32_t opcode_idx)
 {
     int32_t start_eip = *instruction_pointer - 1;
-    uint32_t jit_ret = jit_instruction(opcode);
+    jit_instruction(opcode);
+    uint32_t jit_ret = jit_instr_ret_flags;
     int32_t end_eip = *instruction_pointer;
 
     int32_t instruction_length = end_eip - start_eip;
@@ -857,7 +858,7 @@ void run_prefix_instruction()
 void jit_prefix_instruction()
 {
     //dbg_log("jit_prefix_instruction is32=%d", is_osize_32());
-    jit_opcode(read_imm8() | is_osize_32() << 8);
+    jit_instruction(read_imm8() | is_osize_32() << 8);
 }
 
 void clear_prefixes()

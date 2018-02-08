@@ -6336,14 +6336,7 @@ switch(opcode)
 }
 
 uint32_t jit_instr_ret_flags = 0;
-uint32_t jit_instruction(int32_t opcode)
-{
-    jit_instr_ret_flags = 0;
-    jit_opcode(opcode);
-    return jit_instr_ret_flags;
-}
-
-void jit_opcode(int32_t opcode)
+void jit_instruction(int32_t opcode)
 {
     // XXX: This table is generated. Don't modify
 switch(opcode)
