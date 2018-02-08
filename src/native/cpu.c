@@ -769,7 +769,7 @@ void jit_link_blocks(int32_t target)
         {
             profiler_stat_increment(S_COMPILE_WITH_LINK);
             set_jit_import_next_block(entry->wasm_table_index);
-            gen_scratch_fn0(JIT_NEXT_BLOCK_FUNCTION, sizeof(JIT_NEXT_BLOCK_FUNCTION) - 1);
+            gen_fn0(JIT_NEXT_BLOCK_FUNCTION, sizeof(JIT_NEXT_BLOCK_FUNCTION) - 1);
         }
     }
 }
@@ -877,9 +877,9 @@ void segment_prefix_op(int32_t seg)
 void segment_prefix_op_jit(int32_t seg)
 {
     assert(seg <= 5);
-    gen_scratch_add_prefix_bits(seg + 1);
+    gen_add_prefix_bits(seg + 1);
     jit_prefix_instruction();
-    gen_scratch_clear_prefixes();
+    gen_clear_prefixes();
 }
 
 void do_many_cycles_unsafe()

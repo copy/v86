@@ -29,8 +29,8 @@ static uint8_t* op_ptr_reset_location;
 static uint32_t eip_delta = 0;
 static uint32_t import_table_size_reset_value;
 static uint32_t initial_import_count;
-static void jit_scratch_resolve_modrm32_(int32_t);
-static void jit_scratch_resolve_modrm16_(int32_t);
+static void jit_resolve_modrm32_(int32_t);
+static void jit_resolve_modrm16_(int32_t);
 
 void gen_init()
 {
@@ -161,14 +161,14 @@ void gen_set_previous_eip()
     store_i32(&cs); // store it as previous ip
 }
 
-void gen_scratch_clear_prefixes()
+void gen_clear_prefixes()
 {
     push_i32(&scratch, (int32_t)prefixes); // load address of prefixes
     push_i32(&scratch, 0);
     store_i32(&scratch);
 }
 
-void gen_scratch_add_prefix_bits(int32_t mask)
+void gen_add_prefix_bits(int32_t mask)
 {
     assert(mask >= 0 && mask < 0x100);
 
@@ -181,20 +181,20 @@ void gen_scratch_add_prefix_bits(int32_t mask)
     store_i32(&scratch);
 }
 
-void gen_scratch_fn0(char* fn, uint8_t fn_len)
+void gen_fn0(char* fn, uint8_t fn_len)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN0_TYPE_INDEX);
     call_fn(&scratch, fn_idx);
 }
 
-void gen_scratch_fn1(char* fn, uint8_t fn_len, int32_t arg0)
+void gen_fn1(char* fn, uint8_t fn_len, int32_t arg0)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
     push_i32(&scratch, arg0);
     call_fn(&scratch, fn_idx);
 }
 
-void gen_scratch_fn2(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
+void gen_fn2(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
     push_i32(&scratch, arg0);
@@ -202,7 +202,7 @@ void gen_scratch_fn2(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
     call_fn(&scratch, fn_idx);
 }
 
-void gen_scratch_fn3(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2)
+void gen_fn3(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN3_TYPE_INDEX);
     push_i32(&scratch, arg0);
@@ -223,16 +223,16 @@ void gen_scratch_fn3(char* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32
         (work); break;
 
 #define MODRM_ENTRY16_0(row, seg, reg1, reg2)\
-    MODRM_ENTRY(0x00 | (row), gen_scratch_modrm_entry_0((seg), (reg1), (reg2), 0))\
-    MODRM_ENTRY(0x40 | (row), gen_scratch_modrm_entry_0((seg), (reg1), (reg2), read_imm8s()))\
-    MODRM_ENTRY(0x80 | (row), gen_scratch_modrm_entry_0((seg), (reg1), (reg2), read_imm16()))
+    MODRM_ENTRY(0x00 | (row), gen_modrm_entry_0((seg), (reg1), (reg2), 0))\
+    MODRM_ENTRY(0x40 | (row), gen_modrm_entry_0((seg), (reg1), (reg2), read_imm8s()))\
+    MODRM_ENTRY(0x80 | (row), gen_modrm_entry_0((seg), (reg1), (reg2), read_imm16()))
 
 #define MODRM_ENTRY16_1(row, seg, reg)\
-    MODRM_ENTRY(0x00 | (row), gen_scratch_modrm_entry_1(seg, reg, 0))\
-    MODRM_ENTRY(0x40 | (row), gen_scratch_modrm_entry_1(seg, reg, read_imm8s()))\
-    MODRM_ENTRY(0x80 | (row), gen_scratch_modrm_entry_1(seg, reg, read_imm16()))
+    MODRM_ENTRY(0x00 | (row), gen_modrm_entry_1(seg, reg, 0))\
+    MODRM_ENTRY(0x40 | (row), gen_modrm_entry_1(seg, reg, read_imm8s()))\
+    MODRM_ENTRY(0x80 | (row), gen_modrm_entry_1(seg, reg, read_imm16()))
 
-static void inline gen_scratch_modrm_entry_0(int32_t fn_idx, int32_t reg16_idx_1, int32_t reg16_idx_2, int32_t imm)
+static void inline gen_modrm_entry_0(int32_t fn_idx, int32_t reg16_idx_1, int32_t reg16_idx_2, int32_t imm)
 {
     // generates: fn( ( reg1 + reg2 + imm ) & 0xFFFF )
     load_u16(&scratch, reg16_idx_1);
@@ -248,7 +248,7 @@ static void inline gen_scratch_modrm_entry_0(int32_t fn_idx, int32_t reg16_idx_1
     call_fn(&scratch, fn_idx);
 }
 
-static void gen_scratch_modrm_entry_1(int32_t fn_idx, int32_t reg16_idx, int32_t imm)
+static void gen_modrm_entry_1(int32_t fn_idx, int32_t reg16_idx, int32_t imm)
 {
     // generates: fn ( ( reg + imm ) & 0xFFFF )
     load_u16(&scratch, reg16_idx);
@@ -261,7 +261,7 @@ static void gen_scratch_modrm_entry_1(int32_t fn_idx, int32_t reg16_idx, int32_t
     call_fn(&scratch, fn_idx);
 }
 
-static void jit_scratch_resolve_modrm16_(int32_t modrm_byte)
+static void jit_resolve_modrm16_(int32_t modrm_byte)
 {
     int32_t const ds = fn_get_seg_prefix_ds_idx;
     int32_t const ss = fn_get_seg_prefix_ss_idx;
@@ -279,8 +279,8 @@ static void jit_scratch_resolve_modrm16_(int32_t modrm_byte)
 
         // special case
         MODRM_ENTRY(0x00 | 6, call_fn_with_arg(&scratch, ds, read_imm16()))
-        MODRM_ENTRY(0x40 | 6, gen_scratch_modrm_entry_1(ss, (int32_t)(reg16 + BP), read_imm8s()))
-        MODRM_ENTRY(0x80 | 6, gen_scratch_modrm_entry_1(ss, (int32_t)(reg16 + BP), read_imm16()))
+        MODRM_ENTRY(0x40 | 6, gen_modrm_entry_1(ss, (int32_t)(reg16 + BP), read_imm8s()))
+        MODRM_ENTRY(0x80 | 6, gen_modrm_entry_1(ss, (int32_t)(reg16 + BP), read_imm16()))
 
         MODRM_ENTRY16_1(7, ds, (int32_t)(reg16 + BX))
 
@@ -289,19 +289,19 @@ static void jit_scratch_resolve_modrm16_(int32_t modrm_byte)
     }
 }
 
-void gen_scratch_resolve_modrm16(int32_t modrm_byte)
+void gen_resolve_modrm16(int32_t modrm_byte)
 {
     push_u32(&scratch, RESULT_LOC);
-    jit_scratch_resolve_modrm16_(modrm_byte);
+    jit_resolve_modrm16_(modrm_byte);
     store_i32(&scratch);
 }
 
 #define MODRM_ENTRY32_0(row, seg, reg)\
-    MODRM_ENTRY(0x00 | (row), gen_scratch_modrm32_entry(seg, reg, 0))\
-    MODRM_ENTRY(0x40 | (row), gen_scratch_modrm32_entry(seg, reg, read_imm8s()))\
-    MODRM_ENTRY(0x80 | (row), gen_scratch_modrm32_entry(seg, reg, read_imm32s()))
+    MODRM_ENTRY(0x00 | (row), gen_modrm32_entry(seg, reg, 0))\
+    MODRM_ENTRY(0x40 | (row), gen_modrm32_entry(seg, reg, read_imm8s()))\
+    MODRM_ENTRY(0x80 | (row), gen_modrm32_entry(seg, reg, read_imm32s()))
 
-static void gen_scratch_modrm32_entry(int32_t fn_idx, int32_t reg32s_idx, int32_t imm)
+static void gen_modrm32_entry(int32_t fn_idx, int32_t reg32s_idx, int32_t imm)
 {
     // generates: fn ( reg + imm )
     load_i32(&scratch, reg32s_idx);
@@ -311,7 +311,7 @@ static void gen_scratch_modrm32_entry(int32_t fn_idx, int32_t reg32s_idx, int32_
     call_fn(&scratch, fn_idx);
 }
 
-static void jit_scratch_resolve_sib(bool mod)
+static void jit_resolve_sib(bool mod)
 {
     uint8_t sib_byte = read_imm8();
     uint8_t r = sib_byte & 7;
@@ -388,21 +388,21 @@ static void jit_scratch_resolve_sib(bool mod)
     add_i32(&scratch);
 }
 
-static void modrm32_scratch_special_case_1()
+static void modrm32_special_case_1()
 {
-    jit_scratch_resolve_sib(true);
+    jit_resolve_sib(true);
     push_i32(&scratch, read_imm8s());
     add_i32(&scratch);
 }
 
-static void modrm32_scratch_special_case_2()
+static void modrm32_special_case_2()
 {
-    jit_scratch_resolve_sib(true);
+    jit_resolve_sib(true);
     push_i32(&scratch, read_imm32s());
     add_i32(&scratch);
 }
 
-static void jit_scratch_resolve_modrm32_(int32_t modrm_byte)
+static void jit_resolve_modrm32_(int32_t modrm_byte)
 {
     int32_t const ds = fn_get_seg_prefix_ds_idx;
     int32_t const ss = fn_get_seg_prefix_ss_idx;
@@ -415,12 +415,12 @@ static void jit_scratch_resolve_modrm32_(int32_t modrm_byte)
         MODRM_ENTRY32_0(3, ds, (int32_t)(reg32s + EBX))
 
         // special cases
-        MODRM_ENTRY(0x00 | 4, jit_scratch_resolve_sib(false))
-        MODRM_ENTRY(0x40 | 4, modrm32_scratch_special_case_1())
-        MODRM_ENTRY(0x80 | 4, modrm32_scratch_special_case_2())
+        MODRM_ENTRY(0x00 | 4, jit_resolve_sib(false))
+        MODRM_ENTRY(0x40 | 4, modrm32_special_case_1())
+        MODRM_ENTRY(0x80 | 4, modrm32_special_case_2())
         MODRM_ENTRY(0x00 | 5, call_fn_with_arg(&scratch, ds, read_imm32s()))
-        MODRM_ENTRY(0x40 | 5, gen_scratch_modrm32_entry(ss, (int32_t)(reg32s + EBP), read_imm8s()))
-        MODRM_ENTRY(0x80 | 5, gen_scratch_modrm32_entry(ss, (int32_t)(reg32s + EBP), read_imm32s()))
+        MODRM_ENTRY(0x40 | 5, gen_modrm32_entry(ss, (int32_t)(reg32s + EBP), read_imm8s()))
+        MODRM_ENTRY(0x80 | 5, gen_modrm32_entry(ss, (int32_t)(reg32s + EBP), read_imm32s()))
 
         MODRM_ENTRY32_0(6, ds, (int32_t)(reg32s + ESI))
         MODRM_ENTRY32_0(7, ds, (int32_t)(reg32s + EDI))
@@ -430,25 +430,25 @@ static void jit_scratch_resolve_modrm32_(int32_t modrm_byte)
     }
 }
 
-void gen_scratch_resolve_modrm32(int32_t modrm_byte)
+void gen_resolve_modrm32(int32_t modrm_byte)
 {
     push_i32(&scratch, RESULT_LOC);
-    jit_scratch_resolve_modrm32_(modrm_byte);
+    jit_resolve_modrm32_(modrm_byte);
     store_i32(&scratch);
 }
 
 #undef MODRM_ENTRY
 
-void gen_scratch_modrm_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t arg1)
+void gen_modrm_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t arg1)
 {
     // generates: fn( modrm_resolve( modrm_byte ), arg0, arg1 )
     if(is_asize_32())
     {
-        jit_scratch_resolve_modrm32_(modrm_byte);
+        jit_resolve_modrm32_(modrm_byte);
     }
     else
     {
-        jit_scratch_resolve_modrm16_(modrm_byte);
+        jit_resolve_modrm16_(modrm_byte);
     }
 
     push_i32(&scratch, arg0);
@@ -458,16 +458,16 @@ void gen_scratch_modrm_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t
     call_fn(&scratch, fn_idx);
 }
 
-void gen_scratch_modrm_cb_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t (*arg1_cb) (void))
+void gen_modrm_cb_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t (*arg1_cb) (void))
 {
     // generates: fn( modrm_resolve( modrm_byte ), arg0, arg1_cb() )
     if(is_asize_32())
     {
-        jit_scratch_resolve_modrm32_(modrm_byte);
+        jit_resolve_modrm32_(modrm_byte);
     }
     else
     {
-        jit_scratch_resolve_modrm16_(modrm_byte);
+        jit_resolve_modrm16_(modrm_byte);
     }
 
     push_i32(&scratch, arg0);
@@ -477,16 +477,16 @@ void gen_scratch_modrm_cb_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int3
     call_fn(&scratch, fn_idx);
 }
 
-void gen_scratch_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0)
+void gen_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0)
 {
     // generates: fn( modrm_resolve( modrm_byte ), arg0 )
     if(is_asize_32())
     {
-        jit_scratch_resolve_modrm32_(modrm_byte);
+        jit_resolve_modrm32_(modrm_byte);
     }
     else
     {
-        jit_scratch_resolve_modrm16_(modrm_byte);
+        jit_resolve_modrm16_(modrm_byte);
     }
 
     push_i32(&scratch, arg0);
@@ -495,16 +495,16 @@ void gen_scratch_modrm_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t
     call_fn(&scratch, fn_idx);
 }
 
-void gen_scratch_modrm_cb_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int (*arg0_cb) (void))
+void gen_modrm_cb_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int (*arg0_cb) (void))
 {
     // generates: fn( modrm_resolve( modrm_byte ), arg0_cb() )
     if(is_asize_32())
     {
-        jit_scratch_resolve_modrm32_(modrm_byte);
+        jit_resolve_modrm32_(modrm_byte);
     }
     else
     {
-        jit_scratch_resolve_modrm16_(modrm_byte);
+        jit_resolve_modrm16_(modrm_byte);
     }
 
     push_i32(&scratch, arg0_cb());
@@ -513,16 +513,16 @@ void gen_scratch_modrm_cb_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int 
     call_fn(&scratch, fn_idx);
 }
 
-void gen_scratch_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte)
+void gen_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte)
 {
     // generates: fn( modrm_resolve( modrm_byte ) )
     if(is_asize_32())
     {
-        jit_scratch_resolve_modrm32_(modrm_byte);
+        jit_resolve_modrm32_(modrm_byte);
     }
     else
     {
-        jit_scratch_resolve_modrm16_(modrm_byte);
+        jit_resolve_modrm16_(modrm_byte);
     }
 
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);

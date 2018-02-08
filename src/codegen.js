@@ -32,44 +32,44 @@ Codegen.prototype.str_input = function(str)
     }
 };
 
-Codegen.prototype.scratch_fn0 = function(fn)
+Codegen.prototype.fn0 = function(fn)
 {
     this.str_input(fn);
-    this.wm.exports["_gen_scratch_fn0"](Codegen.STR_INPUT_OFFSET, fn.length);
+    this.wm.exports["_gen_fn0"](Codegen.STR_INPUT_OFFSET, fn.length);
 };
 
-Codegen.prototype.scratch_fn1 = function(fn, arg0)
+Codegen.prototype.fn1 = function(fn, arg0)
 {
     this.str_input(fn);
-    this.wm.exports["_gen_scratch_fn1"](Codegen.STR_INPUT_OFFSET, fn.length, arg0);
+    this.wm.exports["_gen_fn1"](Codegen.STR_INPUT_OFFSET, fn.length, arg0);
 };
 
-Codegen.prototype.scratch_fn2 = function(fn, arg0, arg1)
+Codegen.prototype.fn2 = function(fn, arg0, arg1)
 {
     this.str_input(fn);
-    this.wm.exports["_gen_scratch_fn2"](Codegen.STR_INPUT_OFFSET, fn.length, arg0, arg1);
+    this.wm.exports["_gen_fn2"](Codegen.STR_INPUT_OFFSET, fn.length, arg0, arg1);
 };
 
-Codegen.prototype.scratch_modrm_fn1 = function(fn, modrm_byte, arg)
+Codegen.prototype.modrm_fn1 = function(fn, modrm_byte, arg)
 {
     this.str_input(fn);
-    this.wm.exports["_gen_scratch_modrm_fn1"](Codegen.STR_INPUT_OFFSET, fn.length, modrm_byte, arg);
+    this.wm.exports["_gen_modrm_fn1"](Codegen.STR_INPUT_OFFSET, fn.length, modrm_byte, arg);
 };
 
-Codegen.prototype.scratch_modrm_fn0 = function(fn, modrm_byte)
+Codegen.prototype.modrm_fn0 = function(fn, modrm_byte)
 {
     this.str_input(fn);
-    this.wm.exports["_gen_scratch_modrm_fn1"](Codegen.STR_INPUT_OFFSET, fn.length, modrm_byte);
+    this.wm.exports["_gen_modrm_fn1"](Codegen.STR_INPUT_OFFSET, fn.length, modrm_byte);
 };
 
-Codegen.prototype.scratch_resolve_modrm16 = function(modrm_byte)
+Codegen.prototype.resolve_modrm16 = function(modrm_byte)
 {
-    this.wm.exports["_gen_scratch_resolve_modrm16"](modrm_byte);
+    this.wm.exports["_gen_resolve_modrm16"](modrm_byte);
 };
 
-Codegen.prototype.scratch_resolve_modrm32 = function(modrm_byte)
+Codegen.prototype.resolve_modrm32 = function(modrm_byte)
 {
-    this.wm.exports["_gen_scratch_resolve_modrm32"](modrm_byte);
+    this.wm.exports["_gen_resolve_modrm32"](modrm_byte);
 };
 
 Codegen.prototype.increment_instruction_pointer = function(n)

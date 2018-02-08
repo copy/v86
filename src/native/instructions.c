@@ -281,10 +281,10 @@ void instr_66_jit() {
     // This affects both decoding and instructions at runtime, so we set
     // prefixes directly *and* in the generated code
     *prefixes |= PREFIX_MASK_OPSIZE;
-    gen_scratch_add_prefix_bits(PREFIX_MASK_OPSIZE);
+    gen_add_prefix_bits(PREFIX_MASK_OPSIZE);
     jit_prefix_instruction();
     *prefixes = 0;
-    gen_scratch_clear_prefixes();
+    gen_clear_prefixes();
 }
 
 void instr_67() {
@@ -301,10 +301,10 @@ void instr_67_jit() {
     // prefixes directly *and* in the generated code
     dbg_assert(is_asize_32() == *is_32);
     *prefixes |= PREFIX_MASK_ADDRSIZE;
-    gen_scratch_add_prefix_bits(PREFIX_MASK_ADDRSIZE);
+    gen_add_prefix_bits(PREFIX_MASK_ADDRSIZE);
     jit_prefix_instruction();
     *prefixes = 0;
-    gen_scratch_clear_prefixes();
+    gen_clear_prefixes();
 }
 
 void instr16_68(int32_t imm16) { push16(imm16); }
@@ -1063,11 +1063,11 @@ void instr32_E8(int32_t imm32s) {
     diverged();
 }
 void instr16_E8_jit(int32_t imm16) {
-    gen_scratch_fn1("instr16_E8", 10, imm16);
+    gen_fn1("instr16_E8", 10, imm16);
 }
 
 void instr32_E8_jit(int32_t imm32s) {
-    gen_scratch_fn1("instr32_E8", 10, imm32s);
+    gen_fn1("instr32_E8", 10, imm32s);
 
     int32_t target = *instruction_pointer + imm32s;
     jit_link_blocks(target);
@@ -1085,10 +1085,10 @@ void instr32_E9(int32_t imm32s) {
     diverged();
 }
 void instr16_E9_jit(int32_t imm16) {
-    gen_scratch_fn1("instr16_E9", 10, imm16);
+    gen_fn1("instr16_E9", 10, imm16);
 }
 void instr32_E9_jit(int32_t imm32s) {
-    gen_scratch_fn1("instr32_E9", 10, imm32s);
+    gen_fn1("instr32_E9", 10, imm32s);
 
     int32_t target = *instruction_pointer + imm32s;
     jit_link_blocks(target);
@@ -1115,7 +1115,7 @@ void instr_EB(int32_t imm8) {
 }
 
 void instr_EB_jit(int32_t imm8s) {
-    gen_scratch_fn1("instr_EB", 8, imm8s);
+    gen_fn1("instr_EB", 8, imm8s);
 
     int32_t target = *instruction_pointer + imm8s;
     jit_link_blocks(target);
@@ -1193,10 +1193,10 @@ void instr_F2() {
 void instr_F2_jit() {
     // repnz
     dbg_assert((*prefixes & PREFIX_MASK_REP) == 0);
-    gen_scratch_add_prefix_bits(PREFIX_REPNZ);
+    gen_add_prefix_bits(PREFIX_REPNZ);
     *prefixes |= PREFIX_REPNZ;
     jit_prefix_instruction();
-    gen_scratch_clear_prefixes();
+    gen_clear_prefixes();
     *prefixes = 0;
 }
 
@@ -1211,10 +1211,10 @@ void instr_F3() {
 void instr_F3_jit() {
     // repz
     dbg_assert((*prefixes & PREFIX_MASK_REP) == 0);
-    gen_scratch_add_prefix_bits(PREFIX_REPZ);
+    gen_add_prefix_bits(PREFIX_REPZ);
     *prefixes |= PREFIX_REPZ;
     jit_prefix_instruction();
-    gen_scratch_clear_prefixes();
+    gen_clear_prefixes();
     *prefixes = 0;
 }
 
@@ -6347,11 +6347,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_00_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_00_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_00_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_00_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6360,11 +6360,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_01_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_01_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_01_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_01_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6373,11 +6373,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_01_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_01_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_01_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_01_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6387,11 +6387,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_02_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_02_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_02_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_02_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6400,11 +6400,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_03_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_03_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_03_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_03_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6413,48 +6413,48 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_03_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_03_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_03_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_03_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
     case 0x04:
     case 0x04|0x100:
     {
-        gen_scratch_fn1("instr_04", 8, read_imm8());
+        gen_fn1("instr_04", 8, read_imm8());
     }
     break;
     case 0x05:
     {
-        gen_scratch_fn1("instr16_05", 10, read_imm16());
+        gen_fn1("instr16_05", 10, read_imm16());
     }
     break;
     case 0x05|0x100:
     {
-        gen_scratch_fn1("instr32_05", 10, read_imm32s());
+        gen_fn1("instr32_05", 10, read_imm32s());
     }
     break;
     case 0x06:
     {
-        gen_scratch_fn0("instr16_06", 10);
+        gen_fn0("instr16_06", 10);
     }
     break;
     case 0x06|0x100:
     {
-        gen_scratch_fn0("instr32_06", 10);
+        gen_fn0("instr32_06", 10);
     }
     break;
     case 0x07:
     {
-        gen_scratch_fn0("instr16_07", 10);
+        gen_fn0("instr16_07", 10);
     }
     break;
     case 0x07|0x100:
     {
-        gen_scratch_fn0("instr32_07", 10);
+        gen_fn0("instr32_07", 10);
     }
     break;
     case 0x08:
@@ -6463,11 +6463,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_08_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_08_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_08_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_08_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6476,11 +6476,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_09_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_09_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_09_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_09_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6489,11 +6489,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_09_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_09_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_09_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_09_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6503,11 +6503,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_0A_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_0A_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_0A_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_0A_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6516,11 +6516,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_0B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_0B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_0B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_0B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6529,38 +6529,38 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_0B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_0B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_0B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_0B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
     case 0x0C:
     case 0x0C|0x100:
     {
-        gen_scratch_fn1("instr_0C", 8, read_imm8());
+        gen_fn1("instr_0C", 8, read_imm8());
     }
     break;
     case 0x0D:
     {
-        gen_scratch_fn1("instr16_0D", 10, read_imm16());
+        gen_fn1("instr16_0D", 10, read_imm16());
     }
     break;
     case 0x0D|0x100:
     {
-        gen_scratch_fn1("instr32_0D", 10, read_imm32s());
+        gen_fn1("instr32_0D", 10, read_imm32s());
     }
     break;
     case 0x0E:
     {
-        gen_scratch_fn0("instr16_0E", 10);
+        gen_fn0("instr16_0E", 10);
     }
     break;
     case 0x0E|0x100:
     {
-        gen_scratch_fn0("instr32_0E", 10);
+        gen_fn0("instr32_0E", 10);
     }
     break;
     case 0x0F:
@@ -6579,11 +6579,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_10_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_10_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_10_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_10_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6592,11 +6592,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_11_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_11_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_11_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_11_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6605,11 +6605,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_11_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_11_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_11_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_11_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6619,11 +6619,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_12_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_12_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_12_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_12_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6632,11 +6632,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_13_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_13_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_13_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_13_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6645,48 +6645,48 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_13_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_13_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_13_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_13_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
     case 0x14:
     case 0x14|0x100:
     {
-        gen_scratch_fn1("instr_14", 8, read_imm8());
+        gen_fn1("instr_14", 8, read_imm8());
     }
     break;
     case 0x15:
     {
-        gen_scratch_fn1("instr16_15", 10, read_imm16());
+        gen_fn1("instr16_15", 10, read_imm16());
     }
     break;
     case 0x15|0x100:
     {
-        gen_scratch_fn1("instr32_15", 10, read_imm32s());
+        gen_fn1("instr32_15", 10, read_imm32s());
     }
     break;
     case 0x16:
     {
-        gen_scratch_fn0("instr16_16", 10);
+        gen_fn0("instr16_16", 10);
     }
     break;
     case 0x16|0x100:
     {
-        gen_scratch_fn0("instr32_16", 10);
+        gen_fn0("instr32_16", 10);
     }
     break;
     case 0x17:
     {
-        gen_scratch_fn0("instr16_17", 10);
+        gen_fn0("instr16_17", 10);
     }
     break;
     case 0x17|0x100:
     {
-        gen_scratch_fn0("instr32_17", 10);
+        gen_fn0("instr32_17", 10);
     }
     break;
     case 0x18:
@@ -6695,11 +6695,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_18_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_18_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_18_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_18_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6708,11 +6708,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_19_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_19_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_19_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_19_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6721,11 +6721,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_19_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_19_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_19_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_19_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6735,11 +6735,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_1A_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_1A_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_1A_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_1A_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6748,11 +6748,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_1B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_1B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_1B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_1B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6761,48 +6761,48 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_1B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_1B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_1B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_1B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
     case 0x1C:
     case 0x1C|0x100:
     {
-        gen_scratch_fn1("instr_1C", 8, read_imm8());
+        gen_fn1("instr_1C", 8, read_imm8());
     }
     break;
     case 0x1D:
     {
-        gen_scratch_fn1("instr16_1D", 10, read_imm16());
+        gen_fn1("instr16_1D", 10, read_imm16());
     }
     break;
     case 0x1D|0x100:
     {
-        gen_scratch_fn1("instr32_1D", 10, read_imm32s());
+        gen_fn1("instr32_1D", 10, read_imm32s());
     }
     break;
     case 0x1E:
     {
-        gen_scratch_fn0("instr16_1E", 10);
+        gen_fn0("instr16_1E", 10);
     }
     break;
     case 0x1E|0x100:
     {
-        gen_scratch_fn0("instr32_1E", 10);
+        gen_fn0("instr32_1E", 10);
     }
     break;
     case 0x1F:
     {
-        gen_scratch_fn0("instr16_1F", 10);
+        gen_fn0("instr16_1F", 10);
     }
     break;
     case 0x1F|0x100:
     {
-        gen_scratch_fn0("instr32_1F", 10);
+        gen_fn0("instr32_1F", 10);
     }
     break;
     case 0x20:
@@ -6811,11 +6811,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_20_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_20_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_20_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_20_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6824,11 +6824,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_21_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_21_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_21_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_21_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6837,11 +6837,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_21_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_21_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_21_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_21_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6851,11 +6851,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_22_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_22_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_22_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_22_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6864,11 +6864,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_23_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_23_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_23_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_23_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6877,28 +6877,28 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_23_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_23_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_23_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_23_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
     case 0x24:
     case 0x24|0x100:
     {
-        gen_scratch_fn1("instr_24", 8, read_imm8());
+        gen_fn1("instr_24", 8, read_imm8());
     }
     break;
     case 0x25:
     {
-        gen_scratch_fn1("instr16_25", 10, read_imm16());
+        gen_fn1("instr16_25", 10, read_imm16());
     }
     break;
     case 0x25|0x100:
     {
-        gen_scratch_fn1("instr32_25", 10, read_imm32s());
+        gen_fn1("instr32_25", 10, read_imm32s());
     }
     break;
     case 0x26:
@@ -6910,7 +6910,7 @@ switch(opcode)
     case 0x27:
     case 0x27|0x100:
     {
-        gen_scratch_fn0("instr_27", 8);
+        gen_fn0("instr_27", 8);
     }
     break;
     case 0x28:
@@ -6919,11 +6919,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_28_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_28_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_28_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_28_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6932,11 +6932,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_29_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_29_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_29_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_29_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6945,11 +6945,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_29_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_29_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_29_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_29_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6959,11 +6959,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_2A_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_2A_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_2A_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_2A_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6972,11 +6972,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_2B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_2B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_2B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_2B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -6985,28 +6985,28 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_2B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_2B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_2B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_2B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
     case 0x2C:
     case 0x2C|0x100:
     {
-        gen_scratch_fn1("instr_2C", 8, read_imm8());
+        gen_fn1("instr_2C", 8, read_imm8());
     }
     break;
     case 0x2D:
     {
-        gen_scratch_fn1("instr16_2D", 10, read_imm16());
+        gen_fn1("instr16_2D", 10, read_imm16());
     }
     break;
     case 0x2D|0x100:
     {
-        gen_scratch_fn1("instr32_2D", 10, read_imm32s());
+        gen_fn1("instr32_2D", 10, read_imm32s());
     }
     break;
     case 0x2E:
@@ -7018,7 +7018,7 @@ switch(opcode)
     case 0x2F:
     case 0x2F|0x100:
     {
-        gen_scratch_fn0("instr_2F", 8);
+        gen_fn0("instr_2F", 8);
     }
     break;
     case 0x30:
@@ -7027,11 +7027,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_30_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_30_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_30_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_30_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -7040,11 +7040,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_31_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_31_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_31_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_31_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -7053,11 +7053,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_31_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_31_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_31_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_31_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -7067,11 +7067,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_32_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_32_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_32_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_32_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -7080,11 +7080,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_33_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_33_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_33_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_33_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -7093,28 +7093,28 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_33_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_33_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_33_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_33_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
     case 0x34:
     case 0x34|0x100:
     {
-        gen_scratch_fn1("instr_34", 8, read_imm8());
+        gen_fn1("instr_34", 8, read_imm8());
     }
     break;
     case 0x35:
     {
-        gen_scratch_fn1("instr16_35", 10, read_imm16());
+        gen_fn1("instr16_35", 10, read_imm16());
     }
     break;
     case 0x35|0x100:
     {
-        gen_scratch_fn1("instr32_35", 10, read_imm32s());
+        gen_fn1("instr32_35", 10, read_imm32s());
     }
     break;
     case 0x36:
@@ -7126,7 +7126,7 @@ switch(opcode)
     case 0x37:
     case 0x37|0x100:
     {
-        gen_scratch_fn0("instr_37", 8);
+        gen_fn0("instr_37", 8);
     }
     break;
     case 0x38:
@@ -7135,11 +7135,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_38_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_38_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_38_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_38_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -7148,11 +7148,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_39_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_39_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_39_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_39_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -7161,11 +7161,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_39_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_39_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_39_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_39_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -7175,11 +7175,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_3A_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_3A_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_3A_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_3A_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -7188,11 +7188,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_3B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_3B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_3B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_3B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -7201,28 +7201,28 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_3B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_3B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_3B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_3B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
     case 0x3C:
     case 0x3C|0x100:
     {
-        gen_scratch_fn1("instr_3C", 8, read_imm8());
+        gen_fn1("instr_3C", 8, read_imm8());
     }
     break;
     case 0x3D:
     {
-        gen_scratch_fn1("instr16_3D", 10, read_imm16());
+        gen_fn1("instr16_3D", 10, read_imm16());
     }
     break;
     case 0x3D|0x100:
     {
-        gen_scratch_fn1("instr32_3D", 10, read_imm32s());
+        gen_fn1("instr32_3D", 10, read_imm32s());
     }
     break;
     case 0x3E:
@@ -7234,347 +7234,347 @@ switch(opcode)
     case 0x3F:
     case 0x3F|0x100:
     {
-        gen_scratch_fn0("instr_3F", 8);
+        gen_fn0("instr_3F", 8);
     }
     break;
     case 0x40:
     {
-        gen_scratch_fn0("instr16_40", 10);
+        gen_fn0("instr16_40", 10);
     }
     break;
     case 0x40|0x100:
     {
-        gen_scratch_fn0("instr32_40", 10);
+        gen_fn0("instr32_40", 10);
     }
     break;
     case 0x41:
     {
-        gen_scratch_fn0("instr16_41", 10);
+        gen_fn0("instr16_41", 10);
     }
     break;
     case 0x41|0x100:
     {
-        gen_scratch_fn0("instr32_41", 10);
+        gen_fn0("instr32_41", 10);
     }
     break;
     case 0x42:
     {
-        gen_scratch_fn0("instr16_42", 10);
+        gen_fn0("instr16_42", 10);
     }
     break;
     case 0x42|0x100:
     {
-        gen_scratch_fn0("instr32_42", 10);
+        gen_fn0("instr32_42", 10);
     }
     break;
     case 0x43:
     {
-        gen_scratch_fn0("instr16_43", 10);
+        gen_fn0("instr16_43", 10);
     }
     break;
     case 0x43|0x100:
     {
-        gen_scratch_fn0("instr32_43", 10);
+        gen_fn0("instr32_43", 10);
     }
     break;
     case 0x44:
     {
-        gen_scratch_fn0("instr16_44", 10);
+        gen_fn0("instr16_44", 10);
     }
     break;
     case 0x44|0x100:
     {
-        gen_scratch_fn0("instr32_44", 10);
+        gen_fn0("instr32_44", 10);
     }
     break;
     case 0x45:
     {
-        gen_scratch_fn0("instr16_45", 10);
+        gen_fn0("instr16_45", 10);
     }
     break;
     case 0x45|0x100:
     {
-        gen_scratch_fn0("instr32_45", 10);
+        gen_fn0("instr32_45", 10);
     }
     break;
     case 0x46:
     {
-        gen_scratch_fn0("instr16_46", 10);
+        gen_fn0("instr16_46", 10);
     }
     break;
     case 0x46|0x100:
     {
-        gen_scratch_fn0("instr32_46", 10);
+        gen_fn0("instr32_46", 10);
     }
     break;
     case 0x47:
     {
-        gen_scratch_fn0("instr16_47", 10);
+        gen_fn0("instr16_47", 10);
     }
     break;
     case 0x47|0x100:
     {
-        gen_scratch_fn0("instr32_47", 10);
+        gen_fn0("instr32_47", 10);
     }
     break;
     case 0x48:
     {
-        gen_scratch_fn0("instr16_48", 10);
+        gen_fn0("instr16_48", 10);
     }
     break;
     case 0x48|0x100:
     {
-        gen_scratch_fn0("instr32_48", 10);
+        gen_fn0("instr32_48", 10);
     }
     break;
     case 0x49:
     {
-        gen_scratch_fn0("instr16_49", 10);
+        gen_fn0("instr16_49", 10);
     }
     break;
     case 0x49|0x100:
     {
-        gen_scratch_fn0("instr32_49", 10);
+        gen_fn0("instr32_49", 10);
     }
     break;
     case 0x4A:
     {
-        gen_scratch_fn0("instr16_4A", 10);
+        gen_fn0("instr16_4A", 10);
     }
     break;
     case 0x4A|0x100:
     {
-        gen_scratch_fn0("instr32_4A", 10);
+        gen_fn0("instr32_4A", 10);
     }
     break;
     case 0x4B:
     {
-        gen_scratch_fn0("instr16_4B", 10);
+        gen_fn0("instr16_4B", 10);
     }
     break;
     case 0x4B|0x100:
     {
-        gen_scratch_fn0("instr32_4B", 10);
+        gen_fn0("instr32_4B", 10);
     }
     break;
     case 0x4C:
     {
-        gen_scratch_fn0("instr16_4C", 10);
+        gen_fn0("instr16_4C", 10);
     }
     break;
     case 0x4C|0x100:
     {
-        gen_scratch_fn0("instr32_4C", 10);
+        gen_fn0("instr32_4C", 10);
     }
     break;
     case 0x4D:
     {
-        gen_scratch_fn0("instr16_4D", 10);
+        gen_fn0("instr16_4D", 10);
     }
     break;
     case 0x4D|0x100:
     {
-        gen_scratch_fn0("instr32_4D", 10);
+        gen_fn0("instr32_4D", 10);
     }
     break;
     case 0x4E:
     {
-        gen_scratch_fn0("instr16_4E", 10);
+        gen_fn0("instr16_4E", 10);
     }
     break;
     case 0x4E|0x100:
     {
-        gen_scratch_fn0("instr32_4E", 10);
+        gen_fn0("instr32_4E", 10);
     }
     break;
     case 0x4F:
     {
-        gen_scratch_fn0("instr16_4F", 10);
+        gen_fn0("instr16_4F", 10);
     }
     break;
     case 0x4F|0x100:
     {
-        gen_scratch_fn0("instr32_4F", 10);
+        gen_fn0("instr32_4F", 10);
     }
     break;
     case 0x50:
     {
-        gen_scratch_fn0("instr16_50", 10);
+        gen_fn0("instr16_50", 10);
     }
     break;
     case 0x50|0x100:
     {
-        gen_scratch_fn0("instr32_50", 10);
+        gen_fn0("instr32_50", 10);
     }
     break;
     case 0x51:
     {
-        gen_scratch_fn0("instr16_51", 10);
+        gen_fn0("instr16_51", 10);
     }
     break;
     case 0x51|0x100:
     {
-        gen_scratch_fn0("instr32_51", 10);
+        gen_fn0("instr32_51", 10);
     }
     break;
     case 0x52:
     {
-        gen_scratch_fn0("instr16_52", 10);
+        gen_fn0("instr16_52", 10);
     }
     break;
     case 0x52|0x100:
     {
-        gen_scratch_fn0("instr32_52", 10);
+        gen_fn0("instr32_52", 10);
     }
     break;
     case 0x53:
     {
-        gen_scratch_fn0("instr16_53", 10);
+        gen_fn0("instr16_53", 10);
     }
     break;
     case 0x53|0x100:
     {
-        gen_scratch_fn0("instr32_53", 10);
+        gen_fn0("instr32_53", 10);
     }
     break;
     case 0x54:
     {
-        gen_scratch_fn0("instr16_54", 10);
+        gen_fn0("instr16_54", 10);
     }
     break;
     case 0x54|0x100:
     {
-        gen_scratch_fn0("instr32_54", 10);
+        gen_fn0("instr32_54", 10);
     }
     break;
     case 0x55:
     {
-        gen_scratch_fn0("instr16_55", 10);
+        gen_fn0("instr16_55", 10);
     }
     break;
     case 0x55|0x100:
     {
-        gen_scratch_fn0("instr32_55", 10);
+        gen_fn0("instr32_55", 10);
     }
     break;
     case 0x56:
     {
-        gen_scratch_fn0("instr16_56", 10);
+        gen_fn0("instr16_56", 10);
     }
     break;
     case 0x56|0x100:
     {
-        gen_scratch_fn0("instr32_56", 10);
+        gen_fn0("instr32_56", 10);
     }
     break;
     case 0x57:
     {
-        gen_scratch_fn0("instr16_57", 10);
+        gen_fn0("instr16_57", 10);
     }
     break;
     case 0x57|0x100:
     {
-        gen_scratch_fn0("instr32_57", 10);
+        gen_fn0("instr32_57", 10);
     }
     break;
     case 0x58:
     {
-        gen_scratch_fn0("instr16_58", 10);
+        gen_fn0("instr16_58", 10);
     }
     break;
     case 0x58|0x100:
     {
-        gen_scratch_fn0("instr32_58", 10);
+        gen_fn0("instr32_58", 10);
     }
     break;
     case 0x59:
     {
-        gen_scratch_fn0("instr16_59", 10);
+        gen_fn0("instr16_59", 10);
     }
     break;
     case 0x59|0x100:
     {
-        gen_scratch_fn0("instr32_59", 10);
+        gen_fn0("instr32_59", 10);
     }
     break;
     case 0x5A:
     {
-        gen_scratch_fn0("instr16_5A", 10);
+        gen_fn0("instr16_5A", 10);
     }
     break;
     case 0x5A|0x100:
     {
-        gen_scratch_fn0("instr32_5A", 10);
+        gen_fn0("instr32_5A", 10);
     }
     break;
     case 0x5B:
     {
-        gen_scratch_fn0("instr16_5B", 10);
+        gen_fn0("instr16_5B", 10);
     }
     break;
     case 0x5B|0x100:
     {
-        gen_scratch_fn0("instr32_5B", 10);
+        gen_fn0("instr32_5B", 10);
     }
     break;
     case 0x5C:
     {
-        gen_scratch_fn0("instr16_5C", 10);
+        gen_fn0("instr16_5C", 10);
     }
     break;
     case 0x5C|0x100:
     {
-        gen_scratch_fn0("instr32_5C", 10);
+        gen_fn0("instr32_5C", 10);
     }
     break;
     case 0x5D:
     {
-        gen_scratch_fn0("instr16_5D", 10);
+        gen_fn0("instr16_5D", 10);
     }
     break;
     case 0x5D|0x100:
     {
-        gen_scratch_fn0("instr32_5D", 10);
+        gen_fn0("instr32_5D", 10);
     }
     break;
     case 0x5E:
     {
-        gen_scratch_fn0("instr16_5E", 10);
+        gen_fn0("instr16_5E", 10);
     }
     break;
     case 0x5E|0x100:
     {
-        gen_scratch_fn0("instr32_5E", 10);
+        gen_fn0("instr32_5E", 10);
     }
     break;
     case 0x5F:
     {
-        gen_scratch_fn0("instr16_5F", 10);
+        gen_fn0("instr16_5F", 10);
     }
     break;
     case 0x5F|0x100:
     {
-        gen_scratch_fn0("instr32_5F", 10);
+        gen_fn0("instr32_5F", 10);
     }
     break;
     case 0x60:
     {
-        gen_scratch_fn0("instr16_60", 10);
+        gen_fn0("instr16_60", 10);
     }
     break;
     case 0x60|0x100:
     {
-        gen_scratch_fn0("instr32_60", 10);
+        gen_fn0("instr32_60", 10);
     }
     break;
     case 0x61:
     {
-        gen_scratch_fn0("instr16_61", 10);
+        gen_fn0("instr16_61", 10);
     }
     break;
     case 0x61|0x100:
     {
-        gen_scratch_fn0("instr32_61", 10);
+        gen_fn0("instr32_61", 10);
     }
     break;
     case 0x62:
@@ -7583,11 +7583,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_62_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_62_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_62_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_62_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -7597,11 +7597,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_63_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_63_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_63_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_63_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -7631,12 +7631,12 @@ switch(opcode)
     break;
     case 0x68:
     {
-        gen_scratch_fn1("instr16_68", 10, read_imm16());
+        gen_fn1("instr16_68", 10, read_imm16());
     }
     break;
     case 0x68|0x100:
     {
-        gen_scratch_fn1("instr32_68", 10, read_imm32s());
+        gen_fn1("instr32_68", 10, read_imm32s());
     }
     break;
     case 0x69:
@@ -7644,11 +7644,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_cb_fn2("instr16_69_mem", 14, modrm_byte, modrm_byte >> 3 & 7, read_imm16);
+            gen_modrm_cb_fn2("instr16_69_mem", 14, modrm_byte, modrm_byte >> 3 & 7, read_imm16);
         }
         else
         {
-            gen_scratch_fn3("instr16_69_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm16());
+            gen_fn3("instr16_69_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm16());
         }
     }
     break;
@@ -7657,22 +7657,22 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_cb_fn2("instr32_69_mem", 14, modrm_byte, modrm_byte >> 3 & 7, read_imm32s);
+            gen_modrm_cb_fn2("instr32_69_mem", 14, modrm_byte, modrm_byte >> 3 & 7, read_imm32s);
         }
         else
         {
-            gen_scratch_fn3("instr32_69_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm32s());
+            gen_fn3("instr32_69_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm32s());
         }
     }
     break;
     case 0x6A:
     {
-        gen_scratch_fn1("instr16_6A", 10, read_imm8s());
+        gen_fn1("instr16_6A", 10, read_imm8s());
     }
     break;
     case 0x6A|0x100:
     {
-        gen_scratch_fn1("instr32_6A", 10, read_imm8s());
+        gen_fn1("instr32_6A", 10, read_imm8s());
     }
     break;
     case 0x6B:
@@ -7680,11 +7680,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_cb_fn2("instr16_6B_mem", 14, modrm_byte, modrm_byte >> 3 & 7, read_imm8s);
+            gen_modrm_cb_fn2("instr16_6B_mem", 14, modrm_byte, modrm_byte >> 3 & 7, read_imm8s);
         }
         else
         {
-            gen_scratch_fn3("instr16_6B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8s());
+            gen_fn3("instr16_6B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8s());
         }
     }
     break;
@@ -7693,161 +7693,161 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_cb_fn2("instr32_6B_mem", 14, modrm_byte, modrm_byte >> 3 & 7, read_imm8s);
+            gen_modrm_cb_fn2("instr32_6B_mem", 14, modrm_byte, modrm_byte >> 3 & 7, read_imm8s);
         }
         else
         {
-            gen_scratch_fn3("instr32_6B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8s());
+            gen_fn3("instr32_6B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8s());
         }
     }
     break;
     case 0x6C:
     case 0x6C|0x100:
     {
-        gen_scratch_fn0("instr_6C", 8);
+        gen_fn0("instr_6C", 8);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x6D:
     {
-        gen_scratch_fn0("instr16_6D", 10);
+        gen_fn0("instr16_6D", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x6D|0x100:
     {
-        gen_scratch_fn0("instr32_6D", 10);
+        gen_fn0("instr32_6D", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x6E:
     case 0x6E|0x100:
     {
-        gen_scratch_fn0("instr_6E", 8);
+        gen_fn0("instr_6E", 8);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x6F:
     {
-        gen_scratch_fn0("instr16_6F", 10);
+        gen_fn0("instr16_6F", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x6F|0x100:
     {
-        gen_scratch_fn0("instr32_6F", 10);
+        gen_fn0("instr32_6F", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x70:
     case 0x70|0x100:
     {
-        gen_scratch_fn1("instr_70", 8, read_imm8s());
+        gen_fn1("instr_70", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x71:
     case 0x71|0x100:
     {
-        gen_scratch_fn1("instr_71", 8, read_imm8s());
+        gen_fn1("instr_71", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x72:
     case 0x72|0x100:
     {
-        gen_scratch_fn1("instr_72", 8, read_imm8s());
+        gen_fn1("instr_72", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x73:
     case 0x73|0x100:
     {
-        gen_scratch_fn1("instr_73", 8, read_imm8s());
+        gen_fn1("instr_73", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x74:
     case 0x74|0x100:
     {
-        gen_scratch_fn1("instr_74", 8, read_imm8s());
+        gen_fn1("instr_74", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x75:
     case 0x75|0x100:
     {
-        gen_scratch_fn1("instr_75", 8, read_imm8s());
+        gen_fn1("instr_75", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x76:
     case 0x76|0x100:
     {
-        gen_scratch_fn1("instr_76", 8, read_imm8s());
+        gen_fn1("instr_76", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x77:
     case 0x77|0x100:
     {
-        gen_scratch_fn1("instr_77", 8, read_imm8s());
+        gen_fn1("instr_77", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x78:
     case 0x78|0x100:
     {
-        gen_scratch_fn1("instr_78", 8, read_imm8s());
+        gen_fn1("instr_78", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x79:
     case 0x79|0x100:
     {
-        gen_scratch_fn1("instr_79", 8, read_imm8s());
+        gen_fn1("instr_79", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x7A:
     case 0x7A|0x100:
     {
-        gen_scratch_fn1("instr_7A", 8, read_imm8s());
+        gen_fn1("instr_7A", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x7B:
     case 0x7B|0x100:
     {
-        gen_scratch_fn1("instr_7B", 8, read_imm8s());
+        gen_fn1("instr_7B", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x7C:
     case 0x7C|0x100:
     {
-        gen_scratch_fn1("instr_7C", 8, read_imm8s());
+        gen_fn1("instr_7C", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x7D:
     case 0x7D|0x100:
     {
-        gen_scratch_fn1("instr_7D", 8, read_imm8s());
+        gen_fn1("instr_7D", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x7E:
     case 0x7E|0x100:
     {
-        gen_scratch_fn1("instr_7E", 8, read_imm8s());
+        gen_fn1("instr_7E", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x7F:
     case 0x7F|0x100:
     {
-        gen_scratch_fn1("instr_7F", 8, read_imm8s());
+        gen_fn1("instr_7F", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
@@ -7861,11 +7861,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_80_0_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_80_0_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_80_0_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_80_0_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -7873,11 +7873,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_80_1_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_80_1_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_80_1_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_80_1_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -7885,11 +7885,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_80_2_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_80_2_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_80_2_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_80_2_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -7897,11 +7897,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_80_3_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_80_3_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_80_3_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_80_3_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -7909,11 +7909,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_80_4_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_80_4_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_80_4_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_80_4_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -7921,11 +7921,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_80_5_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_80_5_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_80_5_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_80_5_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -7933,11 +7933,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_80_6_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_80_6_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_80_6_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_80_6_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -7945,11 +7945,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_80_7_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_80_7_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_80_7_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_80_7_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -7968,11 +7968,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_81_0_mem", 16, modrm_byte, read_imm16);
+                    gen_modrm_cb_fn1("instr16_81_0_mem", 16, modrm_byte, read_imm16);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_81_0_reg", 16, modrm_byte & 7, read_imm16());
+                    gen_fn2("instr16_81_0_reg", 16, modrm_byte & 7, read_imm16());
                 }
             }
             break;
@@ -7980,11 +7980,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_81_1_mem", 16, modrm_byte, read_imm16);
+                    gen_modrm_cb_fn1("instr16_81_1_mem", 16, modrm_byte, read_imm16);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_81_1_reg", 16, modrm_byte & 7, read_imm16());
+                    gen_fn2("instr16_81_1_reg", 16, modrm_byte & 7, read_imm16());
                 }
             }
             break;
@@ -7992,11 +7992,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_81_2_mem", 16, modrm_byte, read_imm16);
+                    gen_modrm_cb_fn1("instr16_81_2_mem", 16, modrm_byte, read_imm16);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_81_2_reg", 16, modrm_byte & 7, read_imm16());
+                    gen_fn2("instr16_81_2_reg", 16, modrm_byte & 7, read_imm16());
                 }
             }
             break;
@@ -8004,11 +8004,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_81_3_mem", 16, modrm_byte, read_imm16);
+                    gen_modrm_cb_fn1("instr16_81_3_mem", 16, modrm_byte, read_imm16);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_81_3_reg", 16, modrm_byte & 7, read_imm16());
+                    gen_fn2("instr16_81_3_reg", 16, modrm_byte & 7, read_imm16());
                 }
             }
             break;
@@ -8016,11 +8016,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_81_4_mem", 16, modrm_byte, read_imm16);
+                    gen_modrm_cb_fn1("instr16_81_4_mem", 16, modrm_byte, read_imm16);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_81_4_reg", 16, modrm_byte & 7, read_imm16());
+                    gen_fn2("instr16_81_4_reg", 16, modrm_byte & 7, read_imm16());
                 }
             }
             break;
@@ -8028,11 +8028,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_81_5_mem", 16, modrm_byte, read_imm16);
+                    gen_modrm_cb_fn1("instr16_81_5_mem", 16, modrm_byte, read_imm16);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_81_5_reg", 16, modrm_byte & 7, read_imm16());
+                    gen_fn2("instr16_81_5_reg", 16, modrm_byte & 7, read_imm16());
                 }
             }
             break;
@@ -8040,11 +8040,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_81_6_mem", 16, modrm_byte, read_imm16);
+                    gen_modrm_cb_fn1("instr16_81_6_mem", 16, modrm_byte, read_imm16);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_81_6_reg", 16, modrm_byte & 7, read_imm16());
+                    gen_fn2("instr16_81_6_reg", 16, modrm_byte & 7, read_imm16());
                 }
             }
             break;
@@ -8052,11 +8052,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_81_7_mem", 16, modrm_byte, read_imm16);
+                    gen_modrm_cb_fn1("instr16_81_7_mem", 16, modrm_byte, read_imm16);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_81_7_reg", 16, modrm_byte & 7, read_imm16());
+                    gen_fn2("instr16_81_7_reg", 16, modrm_byte & 7, read_imm16());
                 }
             }
             break;
@@ -8075,11 +8075,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_81_0_mem", 16, modrm_byte, read_imm32s);
+                    gen_modrm_cb_fn1("instr32_81_0_mem", 16, modrm_byte, read_imm32s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_81_0_reg", 16, modrm_byte & 7, read_imm32s());
+                    gen_fn2("instr32_81_0_reg", 16, modrm_byte & 7, read_imm32s());
                 }
             }
             break;
@@ -8087,11 +8087,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_81_1_mem", 16, modrm_byte, read_imm32s);
+                    gen_modrm_cb_fn1("instr32_81_1_mem", 16, modrm_byte, read_imm32s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_81_1_reg", 16, modrm_byte & 7, read_imm32s());
+                    gen_fn2("instr32_81_1_reg", 16, modrm_byte & 7, read_imm32s());
                 }
             }
             break;
@@ -8099,11 +8099,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_81_2_mem", 16, modrm_byte, read_imm32s);
+                    gen_modrm_cb_fn1("instr32_81_2_mem", 16, modrm_byte, read_imm32s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_81_2_reg", 16, modrm_byte & 7, read_imm32s());
+                    gen_fn2("instr32_81_2_reg", 16, modrm_byte & 7, read_imm32s());
                 }
             }
             break;
@@ -8111,11 +8111,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_81_3_mem", 16, modrm_byte, read_imm32s);
+                    gen_modrm_cb_fn1("instr32_81_3_mem", 16, modrm_byte, read_imm32s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_81_3_reg", 16, modrm_byte & 7, read_imm32s());
+                    gen_fn2("instr32_81_3_reg", 16, modrm_byte & 7, read_imm32s());
                 }
             }
             break;
@@ -8123,11 +8123,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_81_4_mem", 16, modrm_byte, read_imm32s);
+                    gen_modrm_cb_fn1("instr32_81_4_mem", 16, modrm_byte, read_imm32s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_81_4_reg", 16, modrm_byte & 7, read_imm32s());
+                    gen_fn2("instr32_81_4_reg", 16, modrm_byte & 7, read_imm32s());
                 }
             }
             break;
@@ -8135,11 +8135,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_81_5_mem", 16, modrm_byte, read_imm32s);
+                    gen_modrm_cb_fn1("instr32_81_5_mem", 16, modrm_byte, read_imm32s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_81_5_reg", 16, modrm_byte & 7, read_imm32s());
+                    gen_fn2("instr32_81_5_reg", 16, modrm_byte & 7, read_imm32s());
                 }
             }
             break;
@@ -8147,11 +8147,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_81_6_mem", 16, modrm_byte, read_imm32s);
+                    gen_modrm_cb_fn1("instr32_81_6_mem", 16, modrm_byte, read_imm32s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_81_6_reg", 16, modrm_byte & 7, read_imm32s());
+                    gen_fn2("instr32_81_6_reg", 16, modrm_byte & 7, read_imm32s());
                 }
             }
             break;
@@ -8159,11 +8159,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_81_7_mem", 16, modrm_byte, read_imm32s);
+                    gen_modrm_cb_fn1("instr32_81_7_mem", 16, modrm_byte, read_imm32s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_81_7_reg", 16, modrm_byte & 7, read_imm32s());
+                    gen_fn2("instr32_81_7_reg", 16, modrm_byte & 7, read_imm32s());
                 }
             }
             break;
@@ -8183,11 +8183,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_82_0_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_82_0_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_82_0_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_82_0_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -8195,11 +8195,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_82_1_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_82_1_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_82_1_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_82_1_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -8207,11 +8207,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_82_2_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_82_2_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_82_2_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_82_2_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -8219,11 +8219,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_82_3_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_82_3_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_82_3_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_82_3_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -8231,11 +8231,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_82_4_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_82_4_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_82_4_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_82_4_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -8243,11 +8243,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_82_5_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_82_5_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_82_5_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_82_5_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -8255,11 +8255,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_82_6_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_82_6_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_82_6_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_82_6_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -8267,11 +8267,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_82_7_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_82_7_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_82_7_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_82_7_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -8290,11 +8290,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_83_0_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr16_83_0_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_83_0_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr16_83_0_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8302,11 +8302,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_83_1_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr16_83_1_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_83_1_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr16_83_1_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8314,11 +8314,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_83_2_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr16_83_2_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_83_2_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr16_83_2_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8326,11 +8326,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_83_3_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr16_83_3_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_83_3_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr16_83_3_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8338,11 +8338,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_83_4_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr16_83_4_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_83_4_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr16_83_4_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8350,11 +8350,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_83_5_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr16_83_5_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_83_5_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr16_83_5_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8362,11 +8362,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_83_6_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr16_83_6_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_83_6_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr16_83_6_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8374,11 +8374,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_83_7_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr16_83_7_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_83_7_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr16_83_7_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8397,11 +8397,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_83_0_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr32_83_0_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_83_0_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr32_83_0_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8409,11 +8409,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_83_1_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr32_83_1_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_83_1_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr32_83_1_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8421,11 +8421,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_83_2_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr32_83_2_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_83_2_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr32_83_2_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8433,11 +8433,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_83_3_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr32_83_3_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_83_3_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr32_83_3_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8445,11 +8445,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_83_4_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr32_83_4_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_83_4_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr32_83_4_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8457,11 +8457,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_83_5_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr32_83_5_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_83_5_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr32_83_5_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8469,11 +8469,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_83_6_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr32_83_6_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_83_6_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr32_83_6_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8481,11 +8481,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_83_7_mem", 16, modrm_byte, read_imm8s);
+                    gen_modrm_cb_fn1("instr32_83_7_mem", 16, modrm_byte, read_imm8s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_83_7_reg", 16, modrm_byte & 7, read_imm8s());
+                    gen_fn2("instr32_83_7_reg", 16, modrm_byte & 7, read_imm8s());
                 }
             }
             break;
@@ -8501,11 +8501,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_84_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_84_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_84_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_84_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8514,11 +8514,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_85_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_85_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_85_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_85_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8527,11 +8527,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_85_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_85_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_85_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_85_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8541,11 +8541,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_86_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_86_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_86_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_86_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8554,11 +8554,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_87_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_87_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_87_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_87_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8567,11 +8567,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_87_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_87_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_87_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_87_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8581,11 +8581,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_88_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_88_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_88_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_88_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8594,11 +8594,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_89_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_89_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_89_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_89_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8607,11 +8607,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_89_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_89_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_89_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_89_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8621,11 +8621,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_8A_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_8A_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_8A_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_8A_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8634,11 +8634,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_8B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_8B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_8B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_8B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8647,11 +8647,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_8B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_8B_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_8B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_8B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8660,11 +8660,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_8C_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_8C_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_8C_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_8C_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8673,11 +8673,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_8C_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_8C_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_8C_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_8C_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8686,12 +8686,12 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_fn0("instr16_8D_mem_pre", 18);
-            gen_scratch_modrm_fn1("instr16_8D_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_fn0("instr16_8D_mem_pre", 18);
+            gen_modrm_fn1("instr16_8D_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_8D_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_8D_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8700,12 +8700,12 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_fn0("instr32_8D_mem_pre", 18);
-            gen_scratch_modrm_fn1("instr32_8D_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_fn0("instr32_8D_mem_pre", 18);
+            gen_modrm_fn1("instr32_8D_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_8D_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_8D_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8715,11 +8715,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_8E_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_8E_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_8E_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_8E_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -8732,12 +8732,12 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_fn0("instr16_8F_0_mem_pre", 20);
-                    gen_scratch_modrm_fn0("instr16_8F_0_mem", 16, modrm_byte);
+                    gen_fn0("instr16_8F_0_mem_pre", 20);
+                    gen_modrm_fn0("instr16_8F_0_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_8F_0_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_8F_0_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -8756,12 +8756,12 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_fn0("instr32_8F_0_mem_pre", 20);
-                    gen_scratch_modrm_fn0("instr32_8F_0_mem", 16, modrm_byte);
+                    gen_fn0("instr32_8F_0_mem_pre", 20);
+                    gen_modrm_fn0("instr32_8F_0_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_8F_0_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_8F_0_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -8774,420 +8774,420 @@ switch(opcode)
     case 0x90:
     case 0x90|0x100:
     {
-        gen_scratch_fn0("instr_90", 8);
+        gen_fn0("instr_90", 8);
     }
     break;
     case 0x91:
     {
-        gen_scratch_fn0("instr16_91", 10);
+        gen_fn0("instr16_91", 10);
     }
     break;
     case 0x91|0x100:
     {
-        gen_scratch_fn0("instr32_91", 10);
+        gen_fn0("instr32_91", 10);
     }
     break;
     case 0x92:
     {
-        gen_scratch_fn0("instr16_92", 10);
+        gen_fn0("instr16_92", 10);
     }
     break;
     case 0x92|0x100:
     {
-        gen_scratch_fn0("instr32_92", 10);
+        gen_fn0("instr32_92", 10);
     }
     break;
     case 0x93:
     {
-        gen_scratch_fn0("instr16_93", 10);
+        gen_fn0("instr16_93", 10);
     }
     break;
     case 0x93|0x100:
     {
-        gen_scratch_fn0("instr32_93", 10);
+        gen_fn0("instr32_93", 10);
     }
     break;
     case 0x94:
     {
-        gen_scratch_fn0("instr16_94", 10);
+        gen_fn0("instr16_94", 10);
     }
     break;
     case 0x94|0x100:
     {
-        gen_scratch_fn0("instr32_94", 10);
+        gen_fn0("instr32_94", 10);
     }
     break;
     case 0x95:
     {
-        gen_scratch_fn0("instr16_95", 10);
+        gen_fn0("instr16_95", 10);
     }
     break;
     case 0x95|0x100:
     {
-        gen_scratch_fn0("instr32_95", 10);
+        gen_fn0("instr32_95", 10);
     }
     break;
     case 0x96:
     {
-        gen_scratch_fn0("instr16_96", 10);
+        gen_fn0("instr16_96", 10);
     }
     break;
     case 0x96|0x100:
     {
-        gen_scratch_fn0("instr32_96", 10);
+        gen_fn0("instr32_96", 10);
     }
     break;
     case 0x97:
     {
-        gen_scratch_fn0("instr16_97", 10);
+        gen_fn0("instr16_97", 10);
     }
     break;
     case 0x97|0x100:
     {
-        gen_scratch_fn0("instr32_97", 10);
+        gen_fn0("instr32_97", 10);
     }
     break;
     case 0x98:
     {
-        gen_scratch_fn0("instr16_98", 10);
+        gen_fn0("instr16_98", 10);
     }
     break;
     case 0x98|0x100:
     {
-        gen_scratch_fn0("instr32_98", 10);
+        gen_fn0("instr32_98", 10);
     }
     break;
     case 0x99:
     {
-        gen_scratch_fn0("instr16_99", 10);
+        gen_fn0("instr16_99", 10);
     }
     break;
     case 0x99|0x100:
     {
-        gen_scratch_fn0("instr32_99", 10);
+        gen_fn0("instr32_99", 10);
     }
     break;
     case 0x9A:
     {
-        gen_scratch_fn2("instr16_9A", 10, read_imm16(), read_imm16());
+        gen_fn2("instr16_9A", 10, read_imm16(), read_imm16());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x9A|0x100:
     {
-        gen_scratch_fn2("instr32_9A", 10, read_imm32s(), read_imm16());
+        gen_fn2("instr32_9A", 10, read_imm32s(), read_imm16());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x9B:
     case 0x9B|0x100:
     {
-        gen_scratch_fn0("instr_9B", 8);
+        gen_fn0("instr_9B", 8);
     }
     break;
     case 0x9C:
     {
-        gen_scratch_fn0("instr16_9C", 10);
+        gen_fn0("instr16_9C", 10);
     }
     break;
     case 0x9C|0x100:
     {
-        gen_scratch_fn0("instr32_9C", 10);
+        gen_fn0("instr32_9C", 10);
     }
     break;
     case 0x9D:
     {
-        gen_scratch_fn0("instr16_9D", 10);
+        gen_fn0("instr16_9D", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x9D|0x100:
     {
-        gen_scratch_fn0("instr32_9D", 10);
+        gen_fn0("instr32_9D", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x9E:
     case 0x9E|0x100:
     {
-        gen_scratch_fn0("instr_9E", 8);
+        gen_fn0("instr_9E", 8);
     }
     break;
     case 0x9F:
     case 0x9F|0x100:
     {
-        gen_scratch_fn0("instr_9F", 8);
+        gen_fn0("instr_9F", 8);
     }
     break;
     case 0xA0:
     case 0xA0|0x100:
     {
-        gen_scratch_fn1("instr_A0", 8, read_moffs());
+        gen_fn1("instr_A0", 8, read_moffs());
     }
     break;
     case 0xA1:
     {
-        gen_scratch_fn1("instr16_A1", 10, read_moffs());
+        gen_fn1("instr16_A1", 10, read_moffs());
     }
     break;
     case 0xA1|0x100:
     {
-        gen_scratch_fn1("instr32_A1", 10, read_moffs());
+        gen_fn1("instr32_A1", 10, read_moffs());
     }
     break;
     case 0xA2:
     case 0xA2|0x100:
     {
-        gen_scratch_fn1("instr_A2", 8, read_moffs());
+        gen_fn1("instr_A2", 8, read_moffs());
     }
     break;
     case 0xA3:
     {
-        gen_scratch_fn1("instr16_A3", 10, read_moffs());
+        gen_fn1("instr16_A3", 10, read_moffs());
     }
     break;
     case 0xA3|0x100:
     {
-        gen_scratch_fn1("instr32_A3", 10, read_moffs());
+        gen_fn1("instr32_A3", 10, read_moffs());
     }
     break;
     case 0xA4:
     case 0xA4|0x100:
     {
-        gen_scratch_fn0("instr_A4", 8);
+        gen_fn0("instr_A4", 8);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xA5:
     {
-        gen_scratch_fn0("instr16_A5", 10);
+        gen_fn0("instr16_A5", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xA5|0x100:
     {
-        gen_scratch_fn0("instr32_A5", 10);
+        gen_fn0("instr32_A5", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xA6:
     case 0xA6|0x100:
     {
-        gen_scratch_fn0("instr_A6", 8);
+        gen_fn0("instr_A6", 8);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xA7:
     {
-        gen_scratch_fn0("instr16_A7", 10);
+        gen_fn0("instr16_A7", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xA7|0x100:
     {
-        gen_scratch_fn0("instr32_A7", 10);
+        gen_fn0("instr32_A7", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xA8:
     case 0xA8|0x100:
     {
-        gen_scratch_fn1("instr_A8", 8, read_imm8());
+        gen_fn1("instr_A8", 8, read_imm8());
     }
     break;
     case 0xA9:
     {
-        gen_scratch_fn1("instr16_A9", 10, read_imm16());
+        gen_fn1("instr16_A9", 10, read_imm16());
     }
     break;
     case 0xA9|0x100:
     {
-        gen_scratch_fn1("instr32_A9", 10, read_imm32s());
+        gen_fn1("instr32_A9", 10, read_imm32s());
     }
     break;
     case 0xAA:
     case 0xAA|0x100:
     {
-        gen_scratch_fn0("instr_AA", 8);
+        gen_fn0("instr_AA", 8);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAB:
     {
-        gen_scratch_fn0("instr16_AB", 10);
+        gen_fn0("instr16_AB", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAB|0x100:
     {
-        gen_scratch_fn0("instr32_AB", 10);
+        gen_fn0("instr32_AB", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAC:
     case 0xAC|0x100:
     {
-        gen_scratch_fn0("instr_AC", 8);
+        gen_fn0("instr_AC", 8);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAD:
     {
-        gen_scratch_fn0("instr16_AD", 10);
+        gen_fn0("instr16_AD", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAD|0x100:
     {
-        gen_scratch_fn0("instr32_AD", 10);
+        gen_fn0("instr32_AD", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAE:
     case 0xAE|0x100:
     {
-        gen_scratch_fn0("instr_AE", 8);
+        gen_fn0("instr_AE", 8);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAF:
     {
-        gen_scratch_fn0("instr16_AF", 10);
+        gen_fn0("instr16_AF", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xAF|0x100:
     {
-        gen_scratch_fn0("instr32_AF", 10);
+        gen_fn0("instr32_AF", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xB0:
     case 0xB0|0x100:
     {
-        gen_scratch_fn1("instr_B0", 8, read_imm8());
+        gen_fn1("instr_B0", 8, read_imm8());
     }
     break;
     case 0xB1:
     case 0xB1|0x100:
     {
-        gen_scratch_fn1("instr_B1", 8, read_imm8());
+        gen_fn1("instr_B1", 8, read_imm8());
     }
     break;
     case 0xB2:
     case 0xB2|0x100:
     {
-        gen_scratch_fn1("instr_B2", 8, read_imm8());
+        gen_fn1("instr_B2", 8, read_imm8());
     }
     break;
     case 0xB3:
     case 0xB3|0x100:
     {
-        gen_scratch_fn1("instr_B3", 8, read_imm8());
+        gen_fn1("instr_B3", 8, read_imm8());
     }
     break;
     case 0xB4:
     case 0xB4|0x100:
     {
-        gen_scratch_fn1("instr_B4", 8, read_imm8());
+        gen_fn1("instr_B4", 8, read_imm8());
     }
     break;
     case 0xB5:
     case 0xB5|0x100:
     {
-        gen_scratch_fn1("instr_B5", 8, read_imm8());
+        gen_fn1("instr_B5", 8, read_imm8());
     }
     break;
     case 0xB6:
     case 0xB6|0x100:
     {
-        gen_scratch_fn1("instr_B6", 8, read_imm8());
+        gen_fn1("instr_B6", 8, read_imm8());
     }
     break;
     case 0xB7:
     case 0xB7|0x100:
     {
-        gen_scratch_fn1("instr_B7", 8, read_imm8());
+        gen_fn1("instr_B7", 8, read_imm8());
     }
     break;
     case 0xB8:
     {
-        gen_scratch_fn1("instr16_B8", 10, read_imm16());
+        gen_fn1("instr16_B8", 10, read_imm16());
     }
     break;
     case 0xB8|0x100:
     {
-        gen_scratch_fn1("instr32_B8", 10, read_imm32s());
+        gen_fn1("instr32_B8", 10, read_imm32s());
     }
     break;
     case 0xB9:
     {
-        gen_scratch_fn1("instr16_B9", 10, read_imm16());
+        gen_fn1("instr16_B9", 10, read_imm16());
     }
     break;
     case 0xB9|0x100:
     {
-        gen_scratch_fn1("instr32_B9", 10, read_imm32s());
+        gen_fn1("instr32_B9", 10, read_imm32s());
     }
     break;
     case 0xBA:
     {
-        gen_scratch_fn1("instr16_BA", 10, read_imm16());
+        gen_fn1("instr16_BA", 10, read_imm16());
     }
     break;
     case 0xBA|0x100:
     {
-        gen_scratch_fn1("instr32_BA", 10, read_imm32s());
+        gen_fn1("instr32_BA", 10, read_imm32s());
     }
     break;
     case 0xBB:
     {
-        gen_scratch_fn1("instr16_BB", 10, read_imm16());
+        gen_fn1("instr16_BB", 10, read_imm16());
     }
     break;
     case 0xBB|0x100:
     {
-        gen_scratch_fn1("instr32_BB", 10, read_imm32s());
+        gen_fn1("instr32_BB", 10, read_imm32s());
     }
     break;
     case 0xBC:
     {
-        gen_scratch_fn1("instr16_BC", 10, read_imm16());
+        gen_fn1("instr16_BC", 10, read_imm16());
     }
     break;
     case 0xBC|0x100:
     {
-        gen_scratch_fn1("instr32_BC", 10, read_imm32s());
+        gen_fn1("instr32_BC", 10, read_imm32s());
     }
     break;
     case 0xBD:
     {
-        gen_scratch_fn1("instr16_BD", 10, read_imm16());
+        gen_fn1("instr16_BD", 10, read_imm16());
     }
     break;
     case 0xBD|0x100:
     {
-        gen_scratch_fn1("instr32_BD", 10, read_imm32s());
+        gen_fn1("instr32_BD", 10, read_imm32s());
     }
     break;
     case 0xBE:
     {
-        gen_scratch_fn1("instr16_BE", 10, read_imm16());
+        gen_fn1("instr16_BE", 10, read_imm16());
     }
     break;
     case 0xBE|0x100:
     {
-        gen_scratch_fn1("instr32_BE", 10, read_imm32s());
+        gen_fn1("instr32_BE", 10, read_imm32s());
     }
     break;
     case 0xBF:
     {
-        gen_scratch_fn1("instr16_BF", 10, read_imm16());
+        gen_fn1("instr16_BF", 10, read_imm16());
     }
     break;
     case 0xBF|0x100:
     {
-        gen_scratch_fn1("instr32_BF", 10, read_imm32s());
+        gen_fn1("instr32_BF", 10, read_imm32s());
     }
     break;
     case 0xC0:
@@ -9200,11 +9200,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_C0_0_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_C0_0_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_C0_0_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_C0_0_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9212,11 +9212,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_C0_1_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_C0_1_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_C0_1_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_C0_1_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9224,11 +9224,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_C0_2_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_C0_2_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_C0_2_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_C0_2_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9236,11 +9236,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_C0_3_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_C0_3_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_C0_3_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_C0_3_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9248,11 +9248,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_C0_4_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_C0_4_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_C0_4_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_C0_4_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9260,11 +9260,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_C0_5_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_C0_5_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_C0_5_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_C0_5_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9272,11 +9272,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_C0_6_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_C0_6_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_C0_6_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_C0_6_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9284,11 +9284,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_C0_7_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_C0_7_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_C0_7_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_C0_7_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9307,11 +9307,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_C1_0_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr16_C1_0_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_C1_0_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr16_C1_0_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9319,11 +9319,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_C1_1_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr16_C1_1_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_C1_1_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr16_C1_1_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9331,11 +9331,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_C1_2_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr16_C1_2_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_C1_2_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr16_C1_2_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9343,11 +9343,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_C1_3_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr16_C1_3_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_C1_3_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr16_C1_3_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9355,11 +9355,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_C1_4_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr16_C1_4_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_C1_4_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr16_C1_4_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9367,11 +9367,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_C1_5_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr16_C1_5_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_C1_5_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr16_C1_5_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9379,11 +9379,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_C1_6_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr16_C1_6_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_C1_6_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr16_C1_6_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9391,11 +9391,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_C1_7_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr16_C1_7_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_C1_7_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr16_C1_7_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9414,11 +9414,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_C1_0_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr32_C1_0_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_C1_0_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr32_C1_0_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9426,11 +9426,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_C1_1_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr32_C1_1_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_C1_1_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr32_C1_1_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9438,11 +9438,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_C1_2_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr32_C1_2_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_C1_2_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr32_C1_2_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9450,11 +9450,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_C1_3_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr32_C1_3_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_C1_3_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr32_C1_3_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9462,11 +9462,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_C1_4_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr32_C1_4_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_C1_4_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr32_C1_4_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9474,11 +9474,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_C1_5_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr32_C1_5_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_C1_5_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr32_C1_5_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9486,11 +9486,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_C1_6_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr32_C1_6_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_C1_6_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr32_C1_6_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9498,11 +9498,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_C1_7_mem", 16, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr32_C1_7_mem", 16, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_C1_7_reg", 16, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr32_C1_7_reg", 16, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9514,25 +9514,25 @@ switch(opcode)
     break;
     case 0xC2:
     {
-        gen_scratch_fn1("instr16_C2", 10, read_imm16());
+        gen_fn1("instr16_C2", 10, read_imm16());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xC2|0x100:
     {
-        gen_scratch_fn1("instr32_C2", 10, read_imm16());
+        gen_fn1("instr32_C2", 10, read_imm16());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xC3:
     {
-        gen_scratch_fn0("instr16_C3", 10);
+        gen_fn0("instr16_C3", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xC3|0x100:
     {
-        gen_scratch_fn0("instr32_C3", 10);
+        gen_fn0("instr32_C3", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
@@ -9541,11 +9541,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_C4_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_C4_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_C4_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_C4_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -9554,11 +9554,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_C4_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_C4_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_C4_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_C4_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -9567,11 +9567,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr16_C5_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr16_C5_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr16_C5_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr16_C5_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -9580,11 +9580,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr32_C5_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr32_C5_mem", 14, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr32_C5_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr32_C5_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -9598,11 +9598,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_C6_0_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_C6_0_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_C6_0_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_C6_0_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -9621,11 +9621,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_C7_0_mem", 16, modrm_byte, read_imm16);
+                    gen_modrm_cb_fn1("instr16_C7_0_mem", 16, modrm_byte, read_imm16);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_C7_0_reg", 16, modrm_byte & 7, read_imm16());
+                    gen_fn2("instr16_C7_0_reg", 16, modrm_byte & 7, read_imm16());
                 }
             }
             break;
@@ -9644,11 +9644,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_C7_0_mem", 16, modrm_byte, read_imm32s);
+                    gen_modrm_cb_fn1("instr32_C7_0_mem", 16, modrm_byte, read_imm32s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_C7_0_reg", 16, modrm_byte & 7, read_imm32s());
+                    gen_fn2("instr32_C7_0_reg", 16, modrm_byte & 7, read_imm32s());
                 }
             }
             break;
@@ -9660,78 +9660,78 @@ switch(opcode)
     break;
     case 0xC8:
     {
-        gen_scratch_fn2("instr16_C8", 10, read_imm16(), read_imm8());
+        gen_fn2("instr16_C8", 10, read_imm16(), read_imm8());
     }
     break;
     case 0xC8|0x100:
     {
-        gen_scratch_fn2("instr32_C8", 10, read_imm16(), read_imm8());
+        gen_fn2("instr32_C8", 10, read_imm16(), read_imm8());
     }
     break;
     case 0xC9:
     {
-        gen_scratch_fn0("instr16_C9", 10);
+        gen_fn0("instr16_C9", 10);
     }
     break;
     case 0xC9|0x100:
     {
-        gen_scratch_fn0("instr32_C9", 10);
+        gen_fn0("instr32_C9", 10);
     }
     break;
     case 0xCA:
     {
-        gen_scratch_fn1("instr16_CA", 10, read_imm16());
+        gen_fn1("instr16_CA", 10, read_imm16());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCA|0x100:
     {
-        gen_scratch_fn1("instr32_CA", 10, read_imm16());
+        gen_fn1("instr32_CA", 10, read_imm16());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCB:
     {
-        gen_scratch_fn0("instr16_CB", 10);
+        gen_fn0("instr16_CB", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCB|0x100:
     {
-        gen_scratch_fn0("instr32_CB", 10);
+        gen_fn0("instr32_CB", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCC:
     case 0xCC|0x100:
     {
-        gen_scratch_fn0("instr_CC", 8);
+        gen_fn0("instr_CC", 8);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCD:
     case 0xCD|0x100:
     {
-        gen_scratch_fn1("instr_CD", 8, read_imm8());
+        gen_fn1("instr_CD", 8, read_imm8());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCE:
     case 0xCE|0x100:
     {
-        gen_scratch_fn0("instr_CE", 8);
+        gen_fn0("instr_CE", 8);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCF:
     {
-        gen_scratch_fn0("instr16_CF", 10);
+        gen_fn0("instr16_CF", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xCF|0x100:
     {
-        gen_scratch_fn0("instr32_CF", 10);
+        gen_fn0("instr32_CF", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
@@ -9745,11 +9745,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D0_0_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D0_0_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D0_0_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D0_0_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -9757,11 +9757,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D0_1_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D0_1_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D0_1_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D0_1_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -9769,11 +9769,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D0_2_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D0_2_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D0_2_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D0_2_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -9781,11 +9781,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D0_3_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D0_3_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D0_3_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D0_3_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -9793,11 +9793,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D0_4_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D0_4_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D0_4_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D0_4_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -9805,11 +9805,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D0_5_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D0_5_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D0_5_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D0_5_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -9817,11 +9817,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D0_6_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D0_6_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D0_6_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D0_6_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -9829,11 +9829,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D0_7_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D0_7_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D0_7_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D0_7_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -9852,11 +9852,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D1_0_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D1_0_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D1_0_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D1_0_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -9864,11 +9864,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D1_1_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D1_1_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D1_1_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D1_1_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -9876,11 +9876,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D1_2_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D1_2_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D1_2_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D1_2_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -9888,11 +9888,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D1_3_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D1_3_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D1_3_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D1_3_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -9900,11 +9900,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D1_4_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D1_4_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D1_4_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D1_4_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -9912,11 +9912,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D1_5_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D1_5_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D1_5_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D1_5_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -9924,11 +9924,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D1_6_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D1_6_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D1_6_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D1_6_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -9936,11 +9936,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D1_7_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D1_7_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D1_7_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D1_7_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -9959,11 +9959,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D1_0_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D1_0_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D1_0_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D1_0_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -9971,11 +9971,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D1_1_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D1_1_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D1_1_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D1_1_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -9983,11 +9983,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D1_2_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D1_2_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D1_2_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D1_2_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -9995,11 +9995,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D1_3_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D1_3_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D1_3_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D1_3_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10007,11 +10007,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D1_4_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D1_4_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D1_4_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D1_4_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10019,11 +10019,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D1_5_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D1_5_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D1_5_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D1_5_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10031,11 +10031,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D1_6_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D1_6_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D1_6_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D1_6_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10043,11 +10043,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D1_7_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D1_7_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D1_7_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D1_7_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10067,11 +10067,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D2_0_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D2_0_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D2_0_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D2_0_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10079,11 +10079,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D2_1_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D2_1_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D2_1_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D2_1_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10091,11 +10091,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D2_2_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D2_2_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D2_2_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D2_2_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10103,11 +10103,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D2_3_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D2_3_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D2_3_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D2_3_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10115,11 +10115,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D2_4_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D2_4_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D2_4_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D2_4_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10127,11 +10127,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D2_5_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D2_5_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D2_5_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D2_5_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10139,11 +10139,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D2_6_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D2_6_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D2_6_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D2_6_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10151,11 +10151,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_D2_7_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_D2_7_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_D2_7_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_D2_7_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10174,11 +10174,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D3_0_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D3_0_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D3_0_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D3_0_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10186,11 +10186,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D3_1_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D3_1_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D3_1_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D3_1_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10198,11 +10198,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D3_2_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D3_2_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D3_2_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D3_2_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10210,11 +10210,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D3_3_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D3_3_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D3_3_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D3_3_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10222,11 +10222,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D3_4_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D3_4_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D3_4_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D3_4_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10234,11 +10234,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D3_5_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D3_5_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D3_5_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D3_5_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10246,11 +10246,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D3_6_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D3_6_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D3_6_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D3_6_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10258,11 +10258,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_D3_7_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_D3_7_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_D3_7_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_D3_7_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10281,11 +10281,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D3_0_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D3_0_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D3_0_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D3_0_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10293,11 +10293,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D3_1_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D3_1_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D3_1_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D3_1_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10305,11 +10305,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D3_2_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D3_2_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D3_2_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D3_2_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10317,11 +10317,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D3_3_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D3_3_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D3_3_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D3_3_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10329,11 +10329,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D3_4_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D3_4_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D3_4_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D3_4_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10341,11 +10341,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D3_5_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D3_5_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D3_5_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D3_5_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10353,11 +10353,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D3_6_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D3_6_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D3_6_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D3_6_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10365,11 +10365,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_D3_7_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_D3_7_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_D3_7_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_D3_7_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10382,25 +10382,25 @@ switch(opcode)
     case 0xD4:
     case 0xD4|0x100:
     {
-        gen_scratch_fn1("instr_D4", 8, read_imm8());
+        gen_fn1("instr_D4", 8, read_imm8());
     }
     break;
     case 0xD5:
     case 0xD5|0x100:
     {
-        gen_scratch_fn1("instr_D5", 8, read_imm8());
+        gen_fn1("instr_D5", 8, read_imm8());
     }
     break;
     case 0xD6:
     case 0xD6|0x100:
     {
-        gen_scratch_fn0("instr_D6", 8);
+        gen_fn0("instr_D6", 8);
     }
     break;
     case 0xD7:
     case 0xD7|0x100:
     {
-        gen_scratch_fn0("instr_D7", 8);
+        gen_fn0("instr_D7", 8);
     }
     break;
     case 0xD8:
@@ -10409,11 +10409,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_D8_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_D8_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_D8_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_D8_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -10423,11 +10423,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_D9_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_D9_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_D9_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_D9_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -10437,11 +10437,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_DA_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_DA_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_DA_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_DA_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -10451,11 +10451,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_DB_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_DB_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_DB_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_DB_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -10465,11 +10465,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_DC_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_DC_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_DC_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_DC_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -10479,11 +10479,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_DD_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_DD_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_DD_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_DD_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -10493,11 +10493,11 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_DE_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_DE_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_DE_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_DE_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
@@ -10507,77 +10507,77 @@ switch(opcode)
         int32_t modrm_byte = read_imm8();
         if(modrm_byte < 0xC0)
         {
-            gen_scratch_modrm_fn1("instr_DF_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
+            gen_modrm_fn1("instr_DF_mem", 12, modrm_byte, modrm_byte >> 3 & 7);
         }
         else
         {
-            gen_scratch_fn2("instr_DF_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
+            gen_fn2("instr_DF_reg", 12, modrm_byte & 7, modrm_byte >> 3 & 7);
         }
     }
     break;
     case 0xE0:
     case 0xE0|0x100:
     {
-        gen_scratch_fn1("instr_E0", 8, read_imm8s());
+        gen_fn1("instr_E0", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE1:
     case 0xE1|0x100:
     {
-        gen_scratch_fn1("instr_E1", 8, read_imm8s());
+        gen_fn1("instr_E1", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE2:
     case 0xE2|0x100:
     {
-        gen_scratch_fn1("instr_E2", 8, read_imm8s());
+        gen_fn1("instr_E2", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE3:
     case 0xE3|0x100:
     {
-        gen_scratch_fn1("instr_E3", 8, read_imm8s());
+        gen_fn1("instr_E3", 8, read_imm8s());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE4:
     case 0xE4|0x100:
     {
-        gen_scratch_fn1("instr_E4", 8, read_imm8());
+        gen_fn1("instr_E4", 8, read_imm8());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE5:
     {
-        gen_scratch_fn1("instr16_E5", 10, read_imm8());
+        gen_fn1("instr16_E5", 10, read_imm8());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE5|0x100:
     {
-        gen_scratch_fn1("instr32_E5", 10, read_imm8());
+        gen_fn1("instr32_E5", 10, read_imm8());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE6:
     case 0xE6|0x100:
     {
-        gen_scratch_fn1("instr_E6", 8, read_imm8());
+        gen_fn1("instr_E6", 8, read_imm8());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE7:
     {
-        gen_scratch_fn1("instr16_E7", 10, read_imm8());
+        gen_fn1("instr16_E7", 10, read_imm8());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xE7|0x100:
     {
-        gen_scratch_fn1("instr32_E7", 10, read_imm8());
+        gen_fn1("instr32_E7", 10, read_imm8());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
@@ -10607,13 +10607,13 @@ switch(opcode)
     break;
     case 0xEA:
     {
-        gen_scratch_fn2("instr16_EA", 10, read_imm16(), read_imm16());
+        gen_fn2("instr16_EA", 10, read_imm16(), read_imm16());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xEA|0x100:
     {
-        gen_scratch_fn2("instr32_EA", 10, read_imm32s(), read_imm16());
+        gen_fn2("instr32_EA", 10, read_imm32s(), read_imm16());
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
@@ -10627,38 +10627,38 @@ switch(opcode)
     case 0xEC:
     case 0xEC|0x100:
     {
-        gen_scratch_fn0("instr_EC", 8);
+        gen_fn0("instr_EC", 8);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xED:
     {
-        gen_scratch_fn0("instr16_ED", 10);
+        gen_fn0("instr16_ED", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xED|0x100:
     {
-        gen_scratch_fn0("instr32_ED", 10);
+        gen_fn0("instr32_ED", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xEE:
     case 0xEE|0x100:
     {
-        gen_scratch_fn0("instr_EE", 8);
+        gen_fn0("instr_EE", 8);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xEF:
     {
-        gen_scratch_fn0("instr16_EF", 10);
+        gen_fn0("instr16_EF", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xEF|0x100:
     {
-        gen_scratch_fn0("instr32_EF", 10);
+        gen_fn0("instr32_EF", 10);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
@@ -10671,7 +10671,7 @@ switch(opcode)
     case 0xF1:
     case 0xF1|0x100:
     {
-        gen_scratch_fn0("instr_F1", 8);
+        gen_fn0("instr_F1", 8);
     }
     break;
     case 0xF2:
@@ -10689,14 +10689,14 @@ switch(opcode)
     case 0xF4:
     case 0xF4|0x100:
     {
-        gen_scratch_fn0("instr_F4", 8);
+        gen_fn0("instr_F4", 8);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xF5:
     case 0xF5|0x100:
     {
-        gen_scratch_fn0("instr_F5", 8);
+        gen_fn0("instr_F5", 8);
     }
     break;
     case 0xF6:
@@ -10709,11 +10709,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_F6_0_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_F6_0_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_F6_0_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_F6_0_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -10721,11 +10721,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr_F6_1_mem", 14, modrm_byte, read_imm8);
+                    gen_modrm_cb_fn1("instr_F6_1_mem", 14, modrm_byte, read_imm8);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr_F6_1_reg", 14, modrm_byte & 7, read_imm8());
+                    gen_fn2("instr_F6_1_reg", 14, modrm_byte & 7, read_imm8());
                 }
             }
             break;
@@ -10733,11 +10733,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_F6_2_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_F6_2_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_F6_2_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_F6_2_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10745,11 +10745,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_F6_3_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_F6_3_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_F6_3_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_F6_3_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10757,11 +10757,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_F6_4_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_F6_4_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_F6_4_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_F6_4_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10769,11 +10769,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_F6_5_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_F6_5_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_F6_5_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_F6_5_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10781,11 +10781,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_F6_6_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_F6_6_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_F6_6_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_F6_6_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10793,11 +10793,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_F6_7_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_F6_7_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_F6_7_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_F6_7_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -10816,11 +10816,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_F7_0_mem", 16, modrm_byte, read_imm16);
+                    gen_modrm_cb_fn1("instr16_F7_0_mem", 16, modrm_byte, read_imm16);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_F7_0_reg", 16, modrm_byte & 7, read_imm16());
+                    gen_fn2("instr16_F7_0_reg", 16, modrm_byte & 7, read_imm16());
                 }
             }
             break;
@@ -10828,11 +10828,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr16_F7_1_mem", 16, modrm_byte, read_imm16);
+                    gen_modrm_cb_fn1("instr16_F7_1_mem", 16, modrm_byte, read_imm16);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr16_F7_1_reg", 16, modrm_byte & 7, read_imm16());
+                    gen_fn2("instr16_F7_1_reg", 16, modrm_byte & 7, read_imm16());
                 }
             }
             break;
@@ -10840,11 +10840,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_F7_2_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_F7_2_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_F7_2_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_F7_2_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10852,11 +10852,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_F7_3_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_F7_3_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_F7_3_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_F7_3_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10864,11 +10864,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_F7_4_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_F7_4_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_F7_4_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_F7_4_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10876,11 +10876,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_F7_5_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_F7_5_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_F7_5_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_F7_5_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10888,11 +10888,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_F7_6_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_F7_6_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_F7_6_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_F7_6_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10900,11 +10900,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_F7_7_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_F7_7_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_F7_7_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_F7_7_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10923,11 +10923,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_F7_0_mem", 16, modrm_byte, read_imm32s);
+                    gen_modrm_cb_fn1("instr32_F7_0_mem", 16, modrm_byte, read_imm32s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_F7_0_reg", 16, modrm_byte & 7, read_imm32s());
+                    gen_fn2("instr32_F7_0_reg", 16, modrm_byte & 7, read_imm32s());
                 }
             }
             break;
@@ -10935,11 +10935,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_cb_fn1("instr32_F7_1_mem", 16, modrm_byte, read_imm32s);
+                    gen_modrm_cb_fn1("instr32_F7_1_mem", 16, modrm_byte, read_imm32s);
                 }
                 else
                 {
-                    gen_scratch_fn2("instr32_F7_1_reg", 16, modrm_byte & 7, read_imm32s());
+                    gen_fn2("instr32_F7_1_reg", 16, modrm_byte & 7, read_imm32s());
                 }
             }
             break;
@@ -10947,11 +10947,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_F7_2_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_F7_2_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_F7_2_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_F7_2_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10959,11 +10959,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_F7_3_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_F7_3_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_F7_3_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_F7_3_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10971,11 +10971,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_F7_4_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_F7_4_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_F7_4_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_F7_4_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10983,11 +10983,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_F7_5_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_F7_5_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_F7_5_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_F7_5_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -10995,11 +10995,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_F7_6_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_F7_6_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_F7_6_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_F7_6_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -11007,11 +11007,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_F7_7_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_F7_7_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_F7_7_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_F7_7_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -11024,38 +11024,38 @@ switch(opcode)
     case 0xF8:
     case 0xF8|0x100:
     {
-        gen_scratch_fn0("instr_F8", 8);
+        gen_fn0("instr_F8", 8);
     }
     break;
     case 0xF9:
     case 0xF9|0x100:
     {
-        gen_scratch_fn0("instr_F9", 8);
+        gen_fn0("instr_F9", 8);
     }
     break;
     case 0xFA:
     case 0xFA|0x100:
     {
-        gen_scratch_fn0("instr_FA", 8);
+        gen_fn0("instr_FA", 8);
     }
     break;
     case 0xFB:
     case 0xFB|0x100:
     {
-        gen_scratch_fn0("instr_FB", 8);
+        gen_fn0("instr_FB", 8);
         jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0xFC:
     case 0xFC|0x100:
     {
-        gen_scratch_fn0("instr_FC", 8);
+        gen_fn0("instr_FC", 8);
     }
     break;
     case 0xFD:
     case 0xFD|0x100:
     {
-        gen_scratch_fn0("instr_FD", 8);
+        gen_fn0("instr_FD", 8);
     }
     break;
     case 0xFE:
@@ -11068,11 +11068,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_FE_0_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_FE_0_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_FE_0_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_FE_0_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -11080,11 +11080,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr_FE_1_mem", 14, modrm_byte);
+                    gen_modrm_fn0("instr_FE_1_mem", 14, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr_FE_1_reg", 14, modrm_byte & 7);
+                    gen_fn1("instr_FE_1_reg", 14, modrm_byte & 7);
                 }
             }
             break;
@@ -11103,11 +11103,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_FF_0_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_FF_0_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_FF_0_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_FF_0_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -11115,11 +11115,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_FF_1_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_FF_1_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_FF_1_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_FF_1_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -11127,11 +11127,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_FF_2_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_FF_2_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_FF_2_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_FF_2_reg", 16, modrm_byte & 7);
                 }
                 jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
@@ -11140,11 +11140,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_FF_3_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_FF_3_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_FF_3_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_FF_3_reg", 16, modrm_byte & 7);
                 }
                 jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
@@ -11153,11 +11153,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_FF_4_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_FF_4_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_FF_4_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_FF_4_reg", 16, modrm_byte & 7);
                 }
                 jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
@@ -11166,11 +11166,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_FF_5_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_FF_5_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_FF_5_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_FF_5_reg", 16, modrm_byte & 7);
                 }
                 jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
@@ -11179,11 +11179,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr16_FF_6_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr16_FF_6_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr16_FF_6_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr16_FF_6_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -11202,11 +11202,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_FF_0_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_FF_0_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_FF_0_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_FF_0_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -11214,11 +11214,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_FF_1_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_FF_1_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_FF_1_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_FF_1_reg", 16, modrm_byte & 7);
                 }
             }
             break;
@@ -11226,11 +11226,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_FF_2_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_FF_2_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_FF_2_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_FF_2_reg", 16, modrm_byte & 7);
                 }
                 jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
@@ -11239,11 +11239,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_FF_3_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_FF_3_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_FF_3_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_FF_3_reg", 16, modrm_byte & 7);
                 }
                 jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
@@ -11252,11 +11252,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_FF_4_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_FF_4_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_FF_4_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_FF_4_reg", 16, modrm_byte & 7);
                 }
                 jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
@@ -11265,11 +11265,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_FF_5_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_FF_5_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_FF_5_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_FF_5_reg", 16, modrm_byte & 7);
                 }
                 jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
             }
@@ -11278,11 +11278,11 @@ switch(opcode)
             {
                 if(modrm_byte < 0xC0)
                 {
-                    gen_scratch_modrm_fn0("instr32_FF_6_mem", 16, modrm_byte);
+                    gen_modrm_fn0("instr32_FF_6_mem", 16, modrm_byte);
                 }
                 else
                 {
-                    gen_scratch_fn1("instr32_FF_6_reg", 16, modrm_byte & 7);
+                    gen_fn1("instr32_FF_6_reg", 16, modrm_byte & 7);
                 }
             }
             break;

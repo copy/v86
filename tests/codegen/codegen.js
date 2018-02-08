@@ -66,24 +66,24 @@ v86util.load_wasm(
 function test(gen)
 {
     gen.reset();
-    gen.scratch_fn0("fn0");
-    gen.scratch_fn0("fn0_test_eip_order");
-    gen.scratch_fn1("fn1", 0);
-    gen.scratch_fn2("fn2", 0, 1);
+    gen.fn0("fn0");
+    gen.fn0("fn0_test_eip_order");
+    gen.fn1("fn1", 0);
+    gen.fn2("fn2", 0, 1);
     gen.increment_instruction_pointer(10);
     gen.set_previous_eip();
 
     gen.commit_scratch_to_cs();
 
-    gen.scratch_modrm_fn0("fn1r");
-    gen.scratch_modrm_fn1("fn2r", 2);
+    gen.modrm_fn0("fn1r");
+    gen.modrm_fn1("fn2r", 2);
     vals.asize_32 = !vals.asize_32;
-    gen.scratch_modrm_fn0("fn1r");
-    gen.scratch_modrm_fn1("fn2r", 2);
+    gen.modrm_fn0("fn1r");
+    gen.modrm_fn1("fn2r", 2);
 
     gen.commit_scratch_to_cs();
     // Never written:
-    gen.scratch_fn0("fn0");
+    gen.fn0("fn0");
     gen.finish();
 
     let buf = gen.get_module_code();
