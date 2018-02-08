@@ -997,5 +997,5 @@ void instr_660FFE_mem(int32_t addr, int32_t r);
 void instr_0FFF(void);
 void run_instruction0f_16(int32_t opcode);
 void run_instruction0f_32(int32_t opcode);
-void jit_scratch_opcode0f_16(int32_t opcode);
-void jit_scratch_opcode0f_32(int32_t opcode);
+void jit_instruction0f_16(int32_t opcode);
+void jit_instruction0f_32(int32_t opcode);

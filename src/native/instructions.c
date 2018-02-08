@@ -64,10 +64,10 @@ void instr32_0F() {
 }
 
 void instr16_0F_jit() {
-    jit_scratch_opcode0f_16(read_imm8());
+    jit_instruction0f_16(read_imm8());
 }
 void instr32_0F_jit() {
-    jit_scratch_opcode0f_32(read_imm8());
+    jit_instruction0f_32(read_imm8());
 }
 
 
@@ -6336,14 +6336,14 @@ switch(opcode)
 }
 
 uint32_t jit_instr_ret_flags = 0;
-uint32_t jit_scratch_instruction(int32_t opcode)
+uint32_t jit_instruction(int32_t opcode)
 {
     jit_instr_ret_flags = 0;
-    jit_scratch_opcode(opcode);
+    jit_opcode(opcode);
     return jit_instr_ret_flags;
 }
 
-void jit_scratch_opcode(int32_t opcode)
+void jit_opcode(int32_t opcode)
 {
     // XXX: This table is generated. Don't modify
 switch(opcode)
