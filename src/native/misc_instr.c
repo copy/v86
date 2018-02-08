@@ -143,6 +143,59 @@ void jmpcc32(bool condition, int32_t imm32)
     }
 }
 
+void loopne(int32_t imm8s)
+{
+    if(decr_ecx_asize() && !getzf())
+    {
+        instruction_pointer[0] = instruction_pointer[0] + imm8s;
+        branch_taken();
+    }
+    else
+    {
+        branch_not_taken();
+    }
+}
+
+void loope(int32_t imm8s)
+{
+    if(decr_ecx_asize() && getzf())
+    {
+        instruction_pointer[0] = instruction_pointer[0] + imm8s;
+        branch_taken();
+    }
+    else
+    {
+        branch_not_taken();
+    }
+}
+
+void loop(int32_t imm8s)
+{
+    if(decr_ecx_asize())
+    {
+        instruction_pointer[0] = instruction_pointer[0] + imm8s;
+        branch_taken();
+    }
+    else
+    {
+        branch_not_taken();
+    }
+}
+
+void jcxz(int32_t imm8s)
+{
+    if(get_reg_asize(ECX) == 0)
+    {
+        instruction_pointer[0] = instruction_pointer[0] + imm8s;
+        branch_taken();
+    }
+    else
+    {
+        branch_not_taken();
+    }
+}
+
+
 void cmovcc16(bool condition, int32_t value, int32_t r)
 {
     if(condition)

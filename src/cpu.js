@@ -272,8 +272,6 @@ CPU.prototype.set_jit_import_next_block = function(index)
 
 CPU.prototype.wasm_patch = function(wm)
 {
-    this.getzf = this.wm.exports['_getzf'];
-
     this.getiopl = this.wm.exports['_getiopl'];
     this.vm86_mode = this.wm.exports['_vm86_mode'];
     this.get_eflags = this.wm.exports['_get_eflags'];
@@ -301,10 +299,6 @@ CPU.prototype.wasm_patch = function(wm)
     this.pop32s = this.wm.exports['_pop32s'];
 
     this.set_stack_reg = this.wm.exports['_set_stack_reg'];
-    this.get_reg_asize = this.wm.exports['_get_reg_asize'];
-    this.set_ecx_asize = this.wm.exports['_set_ecx_asize'];
-    this.add_reg_asize = this.wm.exports['_add_reg_asize'];
-    this.decr_ecx_asize = this.wm.exports['_decr_ecx_asize'];
 
     this.translate_address_read = this.wm.exports["_translate_address_read"];
     this.translate_address_system_read = this.wm.exports["_translate_address_system_read"];
@@ -3675,58 +3669,6 @@ CPU.prototype.is_osize_32 = function()
 CPU.prototype.is_asize_32 = function()
 {
     return Boolean(this.is_32[0]) !== ((this.prefixes[0] & PREFIX_MASK_ADDRSIZE) === PREFIX_MASK_ADDRSIZE);
-};
-
-CPU.prototype.loopne = function(imm8s)
-{
-    if(this.decr_ecx_asize() && !this.getzf())
-    {
-        this.instruction_pointer[0] = this.instruction_pointer[0] + imm8s | 0;
-        this.branch_taken();
-    }
-    else
-    {
-        this.branch_not_taken();
-    }
-};
-
-CPU.prototype.loope = function(imm8s)
-{
-    if(this.decr_ecx_asize() && this.getzf())
-    {
-        this.instruction_pointer[0] = this.instruction_pointer[0] + imm8s | 0;
-        this.branch_taken();
-    }
-    else
-    {
-        this.branch_not_taken();
-    }
-};
-
-CPU.prototype.loop = function(imm8s)
-{
-    if(this.decr_ecx_asize())
-    {
-        this.instruction_pointer[0] = this.instruction_pointer[0] + imm8s | 0;
-        this.branch_taken();
-    }
-    else
-    {
-        this.branch_not_taken();
-    }
-};
-
-CPU.prototype.jcxz = function(imm8s)
-{
-    if(this.get_reg_asize(reg_ecx) === 0)
-    {
-        this.instruction_pointer[0] = this.instruction_pointer[0] + imm8s | 0;
-        this.branch_taken();
-    }
-    else
-    {
-        this.branch_not_taken();
-    }
 };
 
 CPU.prototype.popa16 = function()

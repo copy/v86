@@ -211,10 +211,6 @@ function V86Starter(options)
         "_lss32": function() { return cpu.lss32.apply(cpu, arguments); },
         "_enter16": function() { return cpu.enter16.apply(cpu, arguments); },
         "_enter32": function() { return cpu.enter32.apply(cpu, arguments); },
-        "_loop": function() { return cpu.loop.apply(cpu, arguments); },
-        "_loope": function() { return cpu.loope.apply(cpu, arguments); },
-        "_loopne": function() { return cpu.loopne.apply(cpu, arguments); },
-        "_jcxz": function() { return cpu.jcxz.apply(cpu, arguments); },
 
         "_test_privileges_for_io": function() { return cpu.test_privileges_for_io.apply(cpu, arguments); },
 

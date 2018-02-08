@@ -17,10 +17,16 @@ int32_t test_p(void);
 int32_t test_be(void);
 int32_t test_l(void);
 int32_t test_le(void);
+
 void jmp_rel16(int32_t rel16);
 void jmpcc8(bool condition, int32_t imm8);
 void jmpcc16(bool condition, int32_t imm16);
 void jmpcc32(bool condition, int32_t imm32);
+void loope(int32_t imm8s);
+void loopne(int32_t imm8s);
+void loop(int32_t imm8s);
+void jcxz(int32_t imm8s);
+
 void cmovcc16(bool condition, int32_t value, int32_t r);
 void cmovcc32(bool condition, int32_t value, int32_t r);
 int32_t get_stack_pointer(int32_t offset);
