@@ -263,11 +263,23 @@ CPU.prototype.create_jit_imports = function()
     this.jit_imports = imports;
 };
 
-CPU.prototype.set_jit_import_next_block = function(index)
+CPU.prototype.set_jit_import = function(function_index, wasm_index)
 {
-    const fn = this.wm.imports["env"].table.get(index);
+    const fn = this.wm.imports["env"].table.get(wasm_index);
     dbg_assert(fn);
-    this.jit_imports["e"][JIT_NEXT_BLOCK_FUNCTION] = fn;
+
+    switch(function_index)
+    {
+        case JIT_NEXT_BLOCK_BRANCHED_IDX:
+            var function_name = JIT_NEXT_BLOCK_BRANCHED;
+            break;
+        case JIT_NEXT_BLOCK_NOT_BRANCHED_IDX:
+            var function_name = JIT_NEXT_BLOCK_NOT_BRANCHED;
+            break;
+    }
+    dbg_assert(function_name);
+
+    this.jit_imports["e"][function_name] = fn;
 };
 
 CPU.prototype.wasm_patch = function(wm)

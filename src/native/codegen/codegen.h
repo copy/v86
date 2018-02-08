@@ -32,11 +32,18 @@ void gen_fn0(char const* fn, uint8_t fn_len);
 void gen_fn1(char const* fn, uint8_t fn_len, int32_t arg0);
 void gen_fn2(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1);
 
+void gen_fn0_ret(char const* fn, uint8_t fn_len);
+
+void gen_if_void();
+void gen_else();
+void gen_block_end();
+
 void gen_modrm_fn0(char const* fn, uint8_t fn_len, int32_t modrm_byte);
 void gen_modrm_fn1(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0);
 void gen_resolve_modrm16(int32_t modrm_byte);
 void gen_resolve_modrm32(int32_t modrm_byte);
 void gen_increment_instruction_pointer(int32_t n);
+void gen_relative_jump(int32_t n);
 void gen_set_previous_eip();
 void gen_fn3(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2);
 

@@ -349,6 +349,23 @@ void instr_7D(int32_t imm8) { jmpcc8(!test_l(), imm8); }
 void instr_7E(int32_t imm8) { jmpcc8( test_le(), imm8); }
 void instr_7F(int32_t imm8) { jmpcc8(!test_le(), imm8); }
 
+void instr_70_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_o"); }
+void instr_71_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_no"); }
+void instr_72_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_b"); }
+void instr_73_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nb"); }
+void instr_74_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_z"); }
+void instr_75_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nz"); }
+void instr_76_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_be"); }
+void instr_77_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nbe"); }
+void instr_78_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_s"); }
+void instr_79_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_ns"); }
+void instr_7A_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_p"); }
+void instr_7B_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_np"); }
+void instr_7C_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_l"); }
+void instr_7D_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nl"); }
+void instr_7E_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_le"); }
+void instr_7F_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nle"); }
+
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_80_0, add8(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_80_1,  or8(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_80_2, adc8(___, imm))
@@ -1072,7 +1089,7 @@ void instr32_E8_jit(int32_t imm32s) {
     gen_fn1("instr32_E8", 10, imm32s);
 
     int32_t target = *instruction_pointer + imm32s;
-    jit_link_blocks(target);
+    jit_link_block(target);
 }
 
 void instr16_E9(int32_t imm16) {
@@ -1093,7 +1110,7 @@ void instr32_E9_jit(int32_t imm32s) {
     gen_fn1("instr32_E9", 10, imm32s);
 
     int32_t target = *instruction_pointer + imm32s;
-    jit_link_blocks(target);
+    jit_link_block(target);
 }
 
 void instr16_EA(int32_t new_ip, int32_t cs) {
@@ -1120,7 +1137,7 @@ void instr_EB_jit(int32_t imm8s) {
     gen_fn1("instr_EB", 8, imm8s);
 
     int32_t target = *instruction_pointer + imm8s;
-    jit_link_blocks(target);
+    jit_link_block(target);
 }
 
 void instr_EC() {

@@ -790,7 +790,7 @@ static struct code_cache* find_cache_entry(uint32_t phys_addr, bool is_32)
     return NULL;
 }
 
-void jit_link_blocks(int32_t target)
+struct code_cache* find_link_block_target(int32_t target)
 {
     int32_t eip = *previous_ip;
 
@@ -804,11 +804,61 @@ void jit_link_blocks(int32_t target)
 
         if(entry && entry->group_status == group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT])
         {
-            profiler_stat_increment(S_COMPILE_WITH_LINK);
-            set_jit_import_next_block(entry->wasm_table_index);
-            gen_fn0(JIT_NEXT_BLOCK_FUNCTION, sizeof(JIT_NEXT_BLOCK_FUNCTION) - 1);
+            return entry;
         }
     }
+
+    return NULL;
+}
+
+void jit_link_block(int32_t target)
+{
+    struct code_cache* entry = find_link_block_target(target);
+
+    if(entry)
+    {
+        profiler_stat_increment(S_COMPILE_WITH_LINK);
+        set_jit_import(JIT_NEXT_BLOCK_BRANCHED_IDX, entry->wasm_table_index);
+        gen_fn0(JIT_NEXT_BLOCK_BRANCHED, sizeof(JIT_NEXT_BLOCK_BRANCHED) - 1);
+    }
+}
+
+void jit_link_block_conditional(int32_t offset, const char* condition)
+{
+    // > Generate the following code:
+    // if(test_XX()) { *instruction_pointer += offset; JIT_NEXT_BLOCK_BRANCHED() }
+    // else { JIT_NEXT_BLOCK_NOT_BRANCHED() }
+
+    // Note: block linking cannot rely on the absolute value of eip, as blocks
+    // are stored at their *physical* address, which can be executed from
+    // multiple *virtual* addresses. Due to this, we cannot insert the value of
+    // eip into generated code
+
+    struct code_cache* entry_branch_taken = find_link_block_target(*instruction_pointer + offset);
+    struct code_cache* entry_branch_not_taken = find_link_block_target(*instruction_pointer);
+
+    gen_fn0_ret(condition, strlen(condition));
+
+    gen_if_void();
+    gen_relative_jump(offset);
+
+    if(entry_branch_taken)
+    {
+        profiler_stat_increment(S_COMPILE_WITH_LINK);
+        set_jit_import(JIT_NEXT_BLOCK_BRANCHED_IDX, entry_branch_taken->wasm_table_index);
+        gen_fn0(JIT_NEXT_BLOCK_BRANCHED, sizeof(JIT_NEXT_BLOCK_BRANCHED) - 1);
+    }
+
+    if(entry_branch_not_taken)
+    {
+        gen_else();
+
+        profiler_stat_increment(S_COMPILE_WITH_LINK);
+        set_jit_import(JIT_NEXT_BLOCK_NOT_BRANCHED_IDX, entry_branch_not_taken->wasm_table_index);
+        gen_fn0(JIT_NEXT_BLOCK_NOT_BRANCHED, sizeof(JIT_NEXT_BLOCK_NOT_BRANCHED) - 1);
+    }
+
+    gen_block_end();
 }
 
 void cycle_internal()

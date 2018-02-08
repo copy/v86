@@ -139,6 +139,16 @@ void gen_increment_instruction_pointer(int32_t n)
     store_i32(&cs); // store it back in
 }
 
+void gen_relative_jump(int32_t n)
+{
+    // add n to instruction_pointer (without setting the offset as above)
+    push_i32(&instruction_body, (int32_t)instruction_pointer);
+    load_i32(&instruction_body, (int32_t)instruction_pointer);
+    push_i32(&instruction_body, n);
+    add_i32(&instruction_body);
+    store_i32(&instruction_body);
+}
+
 void gen_increment_timestamp_counter(int32_t n)
 {
     gen_increment_variable((int32_t)timestamp_counter, n);
@@ -183,6 +193,12 @@ void gen_add_prefix_bits(int32_t mask)
     store_i32(&instruction_body);
 }
 
+void gen_fn0_ret(char const* fn, uint8_t fn_len)
+{
+    int32_t fn_idx = get_fn_index(fn, fn_len, FN0_RET_TYPE_INDEX);
+    call_fn(&instruction_body, fn_idx);
+}
+
 void gen_fn0(char const* fn, uint8_t fn_len)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN0_TYPE_INDEX);
@@ -211,6 +227,22 @@ void gen_fn3(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t
     push_i32(&instruction_body, arg1);
     push_i32(&instruction_body, arg2);
     call_fn(&instruction_body, fn_idx);
+}
+
+void gen_if_void()
+{
+    write_raw_u8(&instruction_body, OP_IF);
+    write_raw_u8(&instruction_body, TYPE_VOID_BLOCK);
+}
+
+void gen_else()
+{
+    write_raw_u8(&instruction_body, OP_ELSE);
+}
+
+void gen_block_end()
+{
+    write_raw_u8(&instruction_body, OP_END);
 }
 
 #define MODRM_ENTRY(n, work)\
