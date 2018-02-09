@@ -130,11 +130,15 @@ void gen_increment_instruction_pointer(int32_t n)
     push_i32(&cs, (int32_t)instruction_pointer); // store address of ip
 
     load_i32(&cs, (int32_t)instruction_pointer); // load ip
-    offset_increment_instruction_pointer = cs.ptr; // XXX: Hack
     eip_delta = n;
-    push_i32(&cs, n); // load value to add to it
-    add_i32(&cs);
 
+    // push const in fixed 2-byte encoding
+    write_raw_u8(&cs, OP_I32CONST);
+    offset_increment_instruction_pointer = cs.ptr;
+    write_fixed_leb16_to_ptr(cs.ptr, n);
+    cs.ptr += 2;
+
+    add_i32(&cs);
     store_i32(&cs); // store it back in
 }
 
@@ -148,10 +152,7 @@ void gen_patch_increment_instruction_pointer(int32_t n) // XXX: Hack
     assert(eip_delta > 0);
 
     eip_delta += n;
-    uint8_t *bak_ptr = cs.ptr;
-    cs.ptr = offset_increment_instruction_pointer;
-    push_i32(&cs, eip_delta);
-    cs.ptr = bak_ptr;
+    write_fixed_leb16_to_ptr(offset_increment_instruction_pointer, eip_delta);
 }
 
 void gen_set_previous_eip()

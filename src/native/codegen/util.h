@@ -67,7 +67,7 @@ static void write_leb_u32(Buffer* buf, uint32_t v)
     } while (v != 0);
 }
 
-static void inline write_fixed_leb16_to_ptr(uint8_t* ptr, uint16_t x)
+void write_fixed_leb16_to_ptr(uint8_t* ptr, uint16_t x)
 {
     dbg_assert(x < (1 << 14)); // we have 14 bits of available space in 2 bytes for leb
     *ptr = (x & 0b1111111) | 0b10000000;
