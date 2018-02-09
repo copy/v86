@@ -80,6 +80,14 @@ function PS2(cpu, bus)
      */
     this.mouse_buffer = new ByteQueue(1024);
 
+    /**
+     * @type {boolean}
+     * Also known as DBBOUT OBF - Output Buffer Full flag
+     */
+    this.next_byte_is_ready = false;
+
+    /** @type {boolean} */
+    this.next_byte_is_aux = false;
 
     this.bus.register("keyboard-code", function(code)
     {
@@ -170,21 +178,64 @@ PS2.prototype.set_state = function(state)
     this.read_output_register = state[21];
     this.read_command_register = state[22];
 
+    this.next_byte_is_ready = false;
+    this.next_byte_is_aux = false;
+    this.kbd_buffer.clear();
+    this.mouse_buffer.clear();
+
     this.bus.send("mouse-enable", this.use_mouse);
+};
+
+PS2.prototype.raise_irq = function()
+{
+    if(this.next_byte_is_ready)
+    {
+        // Wait until previous byte is read
+        // http://halicery.com/Hardware/8042/8042_1503033_TXT.htm
+        return;
+    }
+
+    // Kbd has priority over aux
+    if(this.kbd_buffer.length)
+    {
+        this.kbd_irq();
+    }
+    else if(this.mouse_buffer.length)
+    {
+        this.mouse_irq();
+    }
 };
 
 PS2.prototype.mouse_irq = function()
 {
+    this.next_byte_is_ready = true;
+    this.next_byte_is_aux = true;
+
     if(this.command_register & 2)
     {
+        dbg_log("Mouse irq", LOG_PS2);
+
+        // Pulse the irq line
+        // Note: can't lower immediately after rising, so lower before rising
+        // http://www.os2museum.com/wp/ibm-ps2-model-50-keyboard-controller/
+        this.cpu.device_lower_irq(12);
         this.cpu.device_raise_irq(12);
     }
 };
 
 PS2.prototype.kbd_irq = function()
 {
+    this.next_byte_is_ready = true;
+    this.next_byte_is_aux = false;
+
     if(this.command_register & 1)
     {
+        dbg_log("Keyboard irq", LOG_PS2);
+
+        // Pulse the irq line
+        // Note: can't lower immediately after rising, so lower before rising
+        // http://www.os2museum.com/wp/ibm-ps2-model-50-keyboard-controller/
+        this.cpu.device_lower_irq(1);
         this.cpu.device_raise_irq(1);
     }
 };
@@ -193,8 +244,9 @@ PS2.prototype.kbd_send_code = function(code)
 {
     if(this.enable_keyboard_stream)
     {
+        dbg_log("adding kbd code: " + h(code), LOG_PS2);
         this.kbd_buffer.push(code);
-        this.kbd_irq();
+        this.raise_irq();
     }
 };
 
@@ -278,7 +330,7 @@ PS2.prototype.send_mouse_packet = function(dx, dy)
         dbg_log("adding mouse packets: " + [info_byte, dx, dy], LOG_PS2);
     }
 
-    this.mouse_irq();
+    this.raise_irq();
 };
 
 PS2.prototype.apply_scaling2 = function(n)
@@ -304,14 +356,11 @@ PS2.prototype.apply_scaling2 = function(n)
     }
 };
 
-PS2.prototype.next_byte_is_aux = function()
-{
-    return this.mouse_buffer.length && !this.kbd_buffer.length;
-};
-
 PS2.prototype.port60_read = function()
 {
     //dbg_log("port 60 read: " + (buffer[0] || "(none)"));
+
+    this.next_byte_is_ready = false;
 
     if(!this.kbd_buffer.length && !this.mouse_buffer.length)
     {
@@ -320,33 +369,22 @@ PS2.prototype.port60_read = function()
         return this.last_port60_byte;
     }
 
-    var do_mouse_buffer = this.next_byte_is_aux();
-
-    if(do_mouse_buffer)
+    if(this.next_byte_is_aux)
     {
         this.cpu.device_lower_irq(12);
         this.last_port60_byte = this.mouse_buffer.shift();
-
-        if(PS2_LOG_VERBOSE)
-        {
-            dbg_log("Port 60 read (mouse): " + h(this.last_port60_byte), LOG_PS2);
-        }
-
-        if(this.mouse_buffer.length >= 1)
-        {
-            this.mouse_irq();
-        }
+        dbg_log("Port 60 read (mouse): " + h(this.last_port60_byte), LOG_PS2);
     }
     else
     {
         this.cpu.device_lower_irq(1);
         this.last_port60_byte = this.kbd_buffer.shift();
         dbg_log("Port 60 read (kbd)  : " + h(this.last_port60_byte), LOG_PS2);
+    }
 
-        if(this.kbd_buffer.length >= 1)
-        {
-            this.kbd_irq();
-        }
+    if(this.kbd_buffer.length || this.mouse_buffer.length)
+    {
+        this.raise_irq();
     }
 
     return this.last_port60_byte;
@@ -358,11 +396,11 @@ PS2.prototype.port64_read = function()
 
     var status_byte = 0x10;
 
-    if(this.mouse_buffer.length || this.kbd_buffer.length)
+    if(this.next_byte_is_ready)
     {
-        status_byte |= 1;
+        status_byte |= 0x1;
     }
-    if(this.next_byte_is_aux())
+    if(this.next_byte_is_aux)
     {
         status_byte |= 0x20;
     }
@@ -616,6 +654,7 @@ PS2.prototype.port64_write = function(write_byte)
         this.kbd_buffer.clear();
         this.mouse_buffer.clear();
         this.kbd_buffer.push(this.command_register);
+        this.kbd_irq();
         break;
     case 0x60:
         this.read_command_register = true;
@@ -641,17 +680,20 @@ PS2.prototype.port64_write = function(write_byte)
         this.kbd_buffer.clear();
         this.mouse_buffer.clear();
         this.kbd_buffer.push(0);
+        this.kbd_irq();
         break;
     case 0xAA:
         this.kbd_buffer.clear();
         this.mouse_buffer.clear();
         this.kbd_buffer.push(0x55);
+        this.kbd_irq();
         break;
     case 0xAB:
         // Test first PS/2 port
         this.kbd_buffer.clear();
         this.mouse_buffer.clear();
         this.kbd_buffer.push(0);
+        this.kbd_irq();
         break;
     case 0xAD:
         // Disable Keyboard
