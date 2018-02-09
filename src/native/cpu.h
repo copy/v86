@@ -6,6 +6,7 @@
 
 #include "shared.h"
 #include "const.h"
+#include "instructions.h"
 
 #define CODE_CACHE_SEARCH_SIZE 8
 
@@ -96,10 +97,10 @@ uint32_t jit_hot_hash(uint32_t addr);
 void jit_link_blocks(int32_t target);
 void cycle_internal(void);
 void run_prefix_instruction(void);
-void jit_prefix_instruction(void);
+jit_instr_flags jit_prefix_instruction(void);
 void clear_prefixes(void);
 void segment_prefix_op(int32_t seg);
-void segment_prefix_op_jit(int32_t seg);
+jit_instr_flags segment_prefix_op_jit(int32_t seg);
 void do_many_cycles_unsafe(void);
 void raise_exception(int32_t interrupt_nr);
 void raise_exception_with_code(int32_t interrupt_nr, int32_t error_code);

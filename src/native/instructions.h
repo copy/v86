@@ -2,9 +2,7 @@
 
 #include <stdint.h>
 
-// Since jit_instruction may be called multiple times for a single instruction, this global holds flags
-// for its return status
-extern uint32_t jit_instr_ret_flags;
+typedef uint32_t jit_instr_flags;
 
 #define JIT_INSTR_JUMP_FLAG (1 << 0)
 #define JIT_INSTR_NONFAULTING_FLAG (1 << 1)
@@ -157,8 +155,8 @@ void instr16_0E(void);
 void instr32_0E(void);
 void instr16_0F(void);
 void instr32_0F(void);
-void instr16_0F_jit(void);
-void instr32_0F_jit(void);
+jit_instr_flags instr16_0F_jit(void);
+jit_instr_flags instr32_0F_jit(void);
 void instr_10_mem(int32_t addr, int32_t r);
 void instr_10_reg(int32_t r1, int32_t r);
 void instr16_11_mem(int32_t addr, int32_t r);
@@ -213,7 +211,7 @@ void instr_24(int32_t imm8);
 void instr16_25(int32_t imm16);
 void instr32_25(int32_t imm32);
 void instr_26(void);
-void instr_26_jit(void);
+jit_instr_flags instr_26_jit(void);
 void instr_27(void);
 void instr_28_mem(int32_t addr, int32_t r);
 void instr_28_reg(int32_t r1, int32_t r);
@@ -231,7 +229,7 @@ void instr_2C(int32_t imm8);
 void instr16_2D(int32_t imm16);
 void instr32_2D(int32_t imm32);
 void instr_2E(void);
-void instr_2E_jit(void);
+jit_instr_flags instr_2E_jit(void);
 void instr_2F(void);
 void instr_30_mem(int32_t addr, int32_t r);
 void instr_30_reg(int32_t r1, int32_t r);
@@ -249,7 +247,7 @@ void instr_34(int32_t imm8);
 void instr16_35(int32_t imm16);
 void instr32_35(int32_t imm32);
 void instr_36(void);
-void instr_36_jit(void);
+jit_instr_flags instr_36_jit(void);
 void instr_37(void);
 void instr_38_mem(int32_t addr, int32_t r);
 void instr_38_reg(int32_t r1, int32_t r);
@@ -267,7 +265,7 @@ void instr_3C(int32_t imm8);
 void instr16_3D(int32_t imm16);
 void instr32_3D(int32_t imm32);
 void instr_3E(void);
-void instr_3E_jit(void);
+jit_instr_flags instr_3E_jit(void);
 void instr_3F(void);
 void instr16_40(void);
 void instr32_40(void);
@@ -342,13 +340,13 @@ void instr_62_mem(int32_t addr, int32_t r);
 void instr_63_mem(int32_t addr, int32_t r);
 void instr_63_reg(int32_t r1, int32_t r);
 void instr_64(void);
-void instr_64_jit(void);
+jit_instr_flags instr_64_jit(void);
 void instr_65(void);
-void instr_65_jit(void);
+jit_instr_flags instr_65_jit(void);
 void instr_66(void);
-void instr_66_jit(void);
+jit_instr_flags instr_66_jit(void);
 void instr_67(void);
-void instr_67_jit(void);
+jit_instr_flags instr_67_jit(void);
 void instr16_68(int32_t imm16);
 void instr32_68(int32_t imm32);
 void instr16_69_mem(int32_t addr, int32_t r, int32_t imm);
@@ -818,12 +816,12 @@ void instr_EE(void);
 void instr16_EF(void);
 void instr32_EF(void);
 void instr_F0(void);
-void instr_F0_jit(void);
+jit_instr_flags instr_F0_jit(void);
 void instr_F1(void);
 void instr_F2(void);
-void instr_F2_jit(void);
+jit_instr_flags instr_F2_jit(void);
 void instr_F3(void);
-void instr_F3_jit(void);
+jit_instr_flags instr_F3_jit(void);
 void instr_F4(void);
 void instr_F5(void);
 void instr_F6_0_mem(int32_t addr, int32_t imm);
@@ -917,4 +915,4 @@ void instr32_FF_5_mem(int32_t addr);
 void instr32_FF_6_mem(int32_t addr);
 void instr32_FF_6_reg(int32_t r1);
 void run_instruction(int32_t opcode);
-void jit_instruction(int32_t opcode);
+uint32_t jit_instruction(int32_t opcode);

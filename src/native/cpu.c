@@ -521,8 +521,7 @@ uint32_t jit_hot_hash(uint32_t addr)
 static uint32_t generate_instruction(int32_t opcode, int32_t opcode_idx)
 {
     int32_t start_eip = *instruction_pointer - 1;
-    jit_instruction(opcode);
-    uint32_t jit_ret = jit_instr_ret_flags;
+    uint32_t jit_ret = jit_instruction(opcode);
     int32_t end_eip = *instruction_pointer;
 
     int32_t instruction_length = end_eip - start_eip;
@@ -855,10 +854,10 @@ void run_prefix_instruction()
     run_instruction(read_imm8() | is_osize_32() << 8);
 }
 
-void jit_prefix_instruction()
+jit_instr_flags jit_prefix_instruction()
 {
     //dbg_log("jit_prefix_instruction is32=%d", is_osize_32());
-    jit_instruction(read_imm8() | is_osize_32() << 8);
+    return jit_instruction(read_imm8() | is_osize_32() << 8);
 }
 
 void clear_prefixes()
@@ -874,12 +873,13 @@ void segment_prefix_op(int32_t seg)
     *prefixes = 0;
 }
 
-void segment_prefix_op_jit(int32_t seg)
+jit_instr_flags segment_prefix_op_jit(int32_t seg)
 {
     assert(seg <= 5);
     gen_add_prefix_bits(seg + 1);
-    jit_prefix_instruction();
+    jit_instr_flags ret = jit_prefix_instruction();
     gen_clear_prefixes();
+    return ret;
 }
 
 void do_many_cycles_unsafe()

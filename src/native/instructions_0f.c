@@ -12848,8 +12848,9 @@ switch(opcode)
 }
 }
 
-void jit_instruction0f_16(int32_t opcode)
+jit_instr_flags jit_instruction0f_16(int32_t opcode)
 {
+    jit_instr_flags flags = 0;
     // XXX: This table is generated. Don't modify
 switch(opcode)
 {
@@ -13684,13 +13685,13 @@ switch(opcode)
     case 0x34:
     {
         gen_fn0("instr_0F34", 10);
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x35:
     {
         gen_fn0("instr_0F35", 10);
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x36:
@@ -15158,97 +15159,97 @@ switch(opcode)
     case 0x80:
     {
         gen_fn1("instr16_0F80", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x81:
     {
         gen_fn1("instr16_0F81", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x82:
     {
         gen_fn1("instr16_0F82", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x83:
     {
         gen_fn1("instr16_0F83", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x84:
     {
         gen_fn1("instr16_0F84", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x85:
     {
         gen_fn1("instr16_0F85", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x86:
     {
         gen_fn1("instr16_0F86", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x87:
     {
         gen_fn1("instr16_0F87", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x88:
     {
         gen_fn1("instr16_0F88", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x89:
     {
         gen_fn1("instr16_0F89", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x8A:
     {
         gen_fn1("instr16_0F8A", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x8B:
     {
         gen_fn1("instr16_0F8B", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x8C:
     {
         gen_fn1("instr16_0F8C", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x8D:
     {
         gen_fn1("instr16_0F8D", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x8E:
     {
         gen_fn1("instr16_0F8E", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x8F:
     {
         gen_fn1("instr16_0F8F", 12, read_imm16());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x90:
@@ -17460,10 +17461,12 @@ switch(opcode)
     default:
         assert(false);
 }
+return flags;
 }
 
-void jit_instruction0f_32(int32_t opcode)
+jit_instr_flags jit_instruction0f_32(int32_t opcode)
 {
+    jit_instr_flags flags = 0;
     // XXX: This table is generated. Don't modify
 switch(opcode)
 {
@@ -18298,13 +18301,13 @@ switch(opcode)
     case 0x34:
     {
         gen_fn0("instr_0F34", 10);
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x35:
     {
         gen_fn0("instr_0F35", 10);
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x36:
@@ -19772,97 +19775,97 @@ switch(opcode)
     case 0x80:
     {
         gen_fn1("instr32_0F80", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x81:
     {
         gen_fn1("instr32_0F81", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x82:
     {
         gen_fn1("instr32_0F82", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x83:
     {
         gen_fn1("instr32_0F83", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x84:
     {
         gen_fn1("instr32_0F84", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x85:
     {
         gen_fn1("instr32_0F85", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x86:
     {
         gen_fn1("instr32_0F86", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x87:
     {
         gen_fn1("instr32_0F87", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x88:
     {
         gen_fn1("instr32_0F88", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x89:
     {
         gen_fn1("instr32_0F89", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x8A:
     {
         gen_fn1("instr32_0F8A", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x8B:
     {
         gen_fn1("instr32_0F8B", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x8C:
     {
         gen_fn1("instr32_0F8C", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x8D:
     {
         gen_fn1("instr32_0F8D", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x8E:
     {
         gen_fn1("instr32_0F8E", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x8F:
     {
         gen_fn1("instr32_0F8F", 12, read_imm32s());
-        jit_instr_ret_flags |= JIT_INSTR_JUMP_FLAG;
+        flags |= JIT_INSTR_JUMP_FLAG;
     }
     break;
     case 0x90:
@@ -22074,6 +22077,7 @@ switch(opcode)
     default:
         assert(false);
 }
+return flags;
 }
 
 #pragma clang diagnostic pop

@@ -4,6 +4,7 @@
 
 #include "shared.h"
 #include "cpu.h"
+#include "instructions.h"
 
 #define DEFINE_MODRM_INSTR_READ16(name, fun) \
     void name ## _mem(int32_t addr, int32_t r) { int32_t ___ = safe_read16(addr); fun; } \
@@ -997,5 +998,5 @@ void instr_660FFE_mem(int32_t addr, int32_t r);
 void instr_0FFF(void);
 void run_instruction0f_16(int32_t opcode);
 void run_instruction0f_32(int32_t opcode);
-void jit_instruction0f_16(int32_t opcode);
-void jit_instruction0f_32(int32_t opcode);
+jit_instr_flags jit_instruction0f_16(int32_t opcode);
+jit_instr_flags jit_instruction0f_32(int32_t opcode);
