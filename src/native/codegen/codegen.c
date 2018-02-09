@@ -531,12 +531,6 @@ void gen_modrm_fn0(char* fn, uint8_t fn_len, int32_t modrm_byte)
 
 void gen_commit_instruction_body_to_cs()
 {
-    assert(cs.len - (cs.ptr - cs.start) >= (instruction_body.ptr - instruction_body.start));
-
-    uint8_t* offset = instruction_body.start;
-    while(offset < instruction_body.ptr)
-    {
-        write_raw_u8(&cs, *offset++);
-    }
+    append_buffer(&cs, &instruction_body);
     instruction_body.ptr = instruction_body.start;
 }

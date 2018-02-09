@@ -194,11 +194,5 @@ int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index)
 
 static void copy_code_section()
 {
-    assert(op.len - (op.ptr - op.start) >= (cs.ptr - cs.start));
-
-    uint8_t* offset = cs.start;
-    while (offset < cs.ptr)
-    {
-        write_raw_u8(&op, *offset++);
-    }
+    append_buffer(&op, &cs);
 }

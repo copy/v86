@@ -73,3 +73,14 @@ static void inline write_fixed_leb16_to_ptr(uint8_t* ptr, uint16_t x)
     *ptr = (x & 0b1111111) | 0b10000000;
     *(ptr + 1) = x >> 7;
 }
+
+void append_buffer(Buffer *dest, Buffer *src)
+{
+    assert(dest->len - (dest->ptr - dest->start) >= (src->ptr - src->start));
+
+    uint8_t* offset = src->start;
+    while (offset < src->ptr)
+    {
+        write_raw_u8(dest, *offset++);
+    }
+}
