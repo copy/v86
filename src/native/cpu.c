@@ -466,6 +466,16 @@ int32_t get_seg(int32_t segment)
     return segment_offsets[segment];
 }
 
+int32_t get_seg_cs()
+{
+    return segment_offsets[CS];
+}
+
+int32_t get_seg_ss()
+{
+    return segment_offsets[SS];
+}
+
 int32_t get_seg_prefix(int32_t default_segment)
 {
     int32_t prefix = *prefixes & PREFIX_MASK_SEGMENT;
@@ -1275,7 +1285,7 @@ int32_t read_moffs()
 // Returns the "real" instruction pointer, without segment offset
 int32_t get_real_eip()
 {
-    return *instruction_pointer - get_seg(CS);
+    return *instruction_pointer - get_seg_cs();
 }
 
 int32_t get_stack_reg()

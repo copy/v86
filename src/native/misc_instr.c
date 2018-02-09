@@ -97,7 +97,7 @@ int32_t test_le() { return getzf() || !getsf() != !getof(); }
 
 void jmp_rel16(int32_t rel16)
 {
-    int32_t cs_offset = get_seg(CS);
+    int32_t cs_offset = get_seg_cs();
 
     // limit ip to 16 bit
     *instruction_pointer = cs_offset + ((*instruction_pointer - cs_offset + rel16) & 0xFFFF);
@@ -216,11 +216,11 @@ int32_t get_stack_pointer(int32_t offset)
 {
     if(*stack_size_32)
     {
-        return get_seg(SS) + reg32s[ESP] + offset;
+        return get_seg_ss() + reg32s[ESP] + offset;
     }
     else
     {
-        return get_seg(SS) + (reg16[SP] + offset & 0xFFFF);
+        return get_seg_ss() + (reg16[SP] + offset & 0xFFFF);
     }
 }
 
@@ -240,13 +240,13 @@ void push16(int32_t imm16)
 {
     if(*stack_size_32)
     {
-        int32_t sp = get_seg(SS) + reg32s[ESP] - 2;
+        int32_t sp = get_seg_ss() + reg32s[ESP] - 2;
         safe_write16(sp, imm16);
         reg32s[ESP] += -2;
     }
     else
     {
-        int32_t sp = get_seg(SS) + (reg16[SP] - 2 & 0xFFFF);
+        int32_t sp = get_seg_ss() + (reg16[SP] - 2 & 0xFFFF);
         safe_write16(sp, imm16);
         reg16[SP] += -2;
     }
@@ -256,13 +256,13 @@ void push32(int32_t imm32)
 {
     if(*stack_size_32)
     {
-        int32_t sp = get_seg(SS) + reg32s[ESP] - 4;
+        int32_t sp = get_seg_ss() + reg32s[ESP] - 4;
         safe_write32(sp, imm32);
         reg32s[ESP] += -4;
     }
     else
     {
-        int32_t sp = get_seg(SS) + (reg16[SP] - 4 & 0xFFFF);
+        int32_t sp = get_seg_ss() + (reg16[SP] - 4 & 0xFFFF);
         safe_write32(sp, imm32);
         reg16[SP] += -4;
     }
@@ -270,7 +270,7 @@ void push32(int32_t imm32)
 
 int32_t pop16()
 {
-    int32_t sp = get_seg(SS) + get_stack_reg();
+    int32_t sp = get_seg_ss() + get_stack_reg();
     int32_t result = safe_read16(sp);
 
     adjust_stack_reg(2);
@@ -281,14 +281,14 @@ int32_t pop32s()
 {
     if(*stack_size_32)
     {
-        int32_t sp = get_seg(SS) + reg32s[ESP];
+        int32_t sp = get_seg_ss() + reg32s[ESP];
         int32_t result = safe_read32s(sp);
         reg32s[ESP] += 4;
         return result;
     }
     else
     {
-        int32_t sp = get_seg(SS) + reg16[SP];
+        int32_t sp = get_seg_ss() + reg16[SP];
         int32_t result = safe_read32s(sp);
         reg16[SP] += 4;
         return result;

@@ -776,7 +776,7 @@ DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_C1_7, sar32(___, imm & 31))
 
 void instr16_C2(int32_t imm16) {
     // retn
-    int32_t cs = get_seg(CS);
+    int32_t cs = get_seg_cs();
 
     instruction_pointer[0] = cs + pop16();
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
@@ -785,7 +785,7 @@ void instr16_C2(int32_t imm16) {
 }
 void instr32_C2(int32_t imm16) {
     // retn
-    int32_t cs = get_seg(CS);
+    int32_t cs = get_seg_cs();
     int32_t ip = pop32s();
 
     dbg_assert(is_asize_32() || ip < 0x10000);
@@ -795,13 +795,13 @@ void instr32_C2(int32_t imm16) {
 }
 void instr16_C3() {
     // retn
-    int32_t cs = get_seg(CS);
+    int32_t cs = get_seg_cs();
     instruction_pointer[0] = cs + pop16();
     diverged();
 }
 void instr32_C3() {
     // retn
-    int32_t cs = get_seg(CS);
+    int32_t cs = get_seg_cs();
     int32_t ip = pop32s();
     dbg_assert(is_asize_32() || ip < 0x10000);
     instruction_pointer[0] = cs + ip;
@@ -837,13 +837,13 @@ void instr32_C8(int32_t size, int32_t nesting) { enter32(size, nesting); }
 void instr16_C9() {
     // leave
     int32_t old_vbp = *stack_size_32 ? reg32s[EBP] : reg16[BP];
-    int32_t new_bp = safe_read16(get_seg(SS) + old_vbp);
+    int32_t new_bp = safe_read16(get_seg_ss() + old_vbp);
     set_stack_reg(old_vbp + 2);
     reg16[BP] = new_bp;
 }
 void instr32_C9() {
     int32_t old_vbp = *stack_size_32 ? reg32s[EBP] : reg16[BP];
-    int32_t new_ebp = safe_read32s(get_seg(SS) + old_vbp);
+    int32_t new_ebp = safe_read32s(get_seg_ss() + old_vbp);
     set_stack_reg(old_vbp + 4);
     reg32s[EBP] = new_ebp;
 }
@@ -1344,7 +1344,7 @@ DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_FF_1, dec16(___))
 void instr16_FF_2_helper(int32_t data)
 {
     // call near
-    int32_t cs = get_seg(CS);
+    int32_t cs = get_seg_cs();
     push16(get_real_eip());
     instruction_pointer[0] = cs + data;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
@@ -1369,7 +1369,7 @@ void instr16_FF_3_mem(int32_t addr)
 void instr16_FF_4_helper(int32_t data)
 {
     // jmp near
-    instruction_pointer[0] = get_seg(CS) + data;
+    instruction_pointer[0] = get_seg_cs() + data;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     diverged();
 }
@@ -1396,7 +1396,7 @@ DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_FF_1, dec32(___))
 void instr32_FF_2_helper(int32_t data)
 {
     // call near
-    int32_t cs = get_seg(CS);
+    int32_t cs = get_seg_cs();
     push32(get_real_eip());
     dbg_assert(is_asize_32() || data < 0x10000);
     instruction_pointer[0] = cs + data;
@@ -1431,7 +1431,7 @@ void instr32_FF_4_helper(int32_t data)
 {
     // jmp near
     dbg_assert(is_asize_32() || data < 0x10000);
-    instruction_pointer[0] = get_seg(CS) + data;
+    instruction_pointer[0] = get_seg_cs() + data;
     diverged();
 }
 DEFINE_MODRM_INSTR1_READ32(instr32_FF_4, instr32_FF_4_helper(___))
