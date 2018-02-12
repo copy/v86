@@ -647,6 +647,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
         assert(instruction_length >= 0 && instruction_length < 16);
 
+#if ENABLE_JIT_NONFAULTING_OPT
         if(len == 0 || (jit_ret & JIT_INSTR_NONFAULTING_FLAG) == 0)
         {
             // Faulting instruction - update as normal
@@ -659,6 +660,10 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
             // increment
             gen_patch_increment_instruction_pointer(instruction_length);
         }
+#else
+        gen_set_previous_eip();
+        gen_increment_instruction_pointer(instruction_length);
+#endif
 
         gen_commit_instruction_body_to_cs();
 
