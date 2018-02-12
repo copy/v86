@@ -26,7 +26,6 @@ extern int32_t read_imm32s();
 extern int32_t get_fn_index(char* fn, uint8_t fn_len, uint8_t type_index);
 
 static uint8_t* op_ptr_reset_location;
-static uint32_t eip_delta = 0;
 static uint32_t import_table_size_reset_value;
 static uint32_t initial_import_count;
 static void jit_resolve_modrm32_(int32_t);
@@ -130,7 +129,6 @@ void gen_increment_instruction_pointer(int32_t n)
     push_i32(&cs, (int32_t)instruction_pointer); // store address of ip
 
     load_i32(&cs, (int32_t)instruction_pointer); // load ip
-    eip_delta = n;
 
     // push const in fixed 2-byte encoding
     write_raw_u8(&cs, OP_I32CONST);
@@ -149,10 +147,8 @@ void gen_increment_timestamp_counter(int32_t n)
 
 void gen_patch_increment_instruction_pointer(int32_t n) // XXX: Hack
 {
-    assert(eip_delta > 0);
-
-    eip_delta += n;
-    write_fixed_leb16_to_ptr(offset_increment_instruction_pointer, eip_delta);
+    assert(n > 0);
+    write_fixed_leb16_to_ptr(offset_increment_instruction_pointer, n);
 }
 
 void gen_set_previous_eip()

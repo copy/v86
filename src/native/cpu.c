@@ -626,6 +626,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
     int32_t end_addr = phys_addr + 1;
     int32_t first_opcode = -1;
     bool was_jump = false;
+    int32_t eip_delta = 0;
 
     gen_reset();
 
@@ -653,12 +654,14 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
             // Faulting instruction - update as normal
             gen_set_previous_eip();
             gen_increment_instruction_pointer(instruction_length);
+            eip_delta = instruction_length;
         }
         else
         {
             // Non-faulting, so we skip setting previous_ip and patch the previous instruction_pointer
             // increment
-            gen_patch_increment_instruction_pointer(instruction_length);
+            eip_delta += instruction_length;
+            gen_patch_increment_instruction_pointer(eip_delta);
         }
 #else
         gen_set_previous_eip();
