@@ -1,7 +1,7 @@
 "use strict";
 
 /** @const */
-var CPU_LOG_VERBOSE = true;
+var CPU_LOG_VERBOSE = false;
 
 
 // Resources:
