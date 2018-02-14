@@ -147,8 +147,7 @@ function gen_instruction_body(encodings, size)
         // where the nonfaulting flags are set
         console.assert(
             !encodings.some(e => e.nonfaulting),
-            "Unsupported: marking instruction with 66/f2/f3 prefix variant as nonfaulting. Opcode: 0x"
-                + hex(encoding.opcode)
+            "Unsupported: instruction with 66/f2/f3 prefix marked as nonfaulting. Opcode: 0x" + hex(encoding.opcode)
         );
     }
 
