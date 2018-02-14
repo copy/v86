@@ -1,4 +1,4 @@
-[![Join the chat at https://gitter.im/copy/v86](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/copy/v86?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Join the chat at https://gitter.im/copy/v86](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/copy/v86)
 
 
 Demos
@@ -64,11 +64,12 @@ v86 emulates an x86-compatible CPU and hardware. Here's a list of emulated hardw
 - An 8254 Programmable Interval Timer (PIT).
 - An 8259 Programmable Interrupt Controller (PIC).
 - A CMOS Real Time Clock (RTC).
-- A VGA controller with SVGA support and Bochs VBE Extensions.
+- A generic VGA card with SVGA support and Bochs VBE Extensions.
 - A PCI bus. This one is partly incomplete and not used by every device.
 - An IDE disk controller.
 - An NE2000 (8390) PCI network card.
 - A virtio filesystem.
+- A SoundBlaster 16 sound card.
 
 
 Testing
@@ -122,23 +123,25 @@ Compatibility
 
 Here's an overview of the operating systems supported in v86:
 
-- Linux works pretty well. Graphical boot fails in many versions, but you
-  mostly get a shell. The mouse is often not detected automatically.
-  - Damn Small Linux (2.4 Kernel): Works, takes circa 10 minutes to boot.
-  - Tinycore (3.0 kernel): `udev` and `X` fail, but you get a
-    terminal.
+- Linux works pretty well.
+  - Tinycore (3.16, 4.8 kernel): `udev` and `X` fail, but you get a
   - Nanolinux works.
   - Archlinux works with some caveats. See [archlinux.md](docs/archlinux.md).
+  - Damn Small Linux (2.4 Kernel): Doesn't work.
 - ReactOS works
 - FreeDOS, Windows 1.01 and MS-DOS run very well.
 - KolibriOS works. A few applications need SSE.
 - Haiku boots, but takes very long (around 30 minutes).
 - No Android version seems to work, you still get a shell.
-- Windows 1, 95 and 98 work. Other versions currently don't.
+- Windows 1, 3, 95 and 98 work. Windows XP is unstable, but can work with some
+  tweaks ([see this issue](https://github.com/copy/v86/issues/86)). Other
+  versions might work but haven't been tested.
 - Many hobby operating systems work.
-- FreeBSD works
+- FreeBSD works.
+- OS/2 doesn't work.
 
 You can get some infos on the disk images here: https://github.com/copy/images.
+The Windows images are from [WinWorld](https://winworldpc.com/).
 
 
 How can I contribute?
@@ -152,7 +155,8 @@ How can I contribute?
 License
 -
 
-Simplified BSD License, see [LICENSE](LICENSE), unless otherwise noted.
+- Source code and most tests: Simplified BSD License, see [LICENSE](LICENSE).
+- QEMU test suite: See [tests/qemu/LICENSE](LICENSE).
 
 
 Credits
@@ -176,4 +180,3 @@ Author
 -
 
 Fabian Hemmer (http://copy.sh/, `copy@copy.sh`)
-
