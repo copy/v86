@@ -13468,24 +13468,28 @@ switch(opcode)
     {
         int32_t modrm_byte = read_imm8();
         gen_fn2("instr_0F20", 10, modrm_byte & 7, modrm_byte >> 3 & 7);
+
     }
     break;
     case 0x21:
     {
         int32_t modrm_byte = read_imm8();
         gen_fn2("instr_0F21", 10, modrm_byte & 7, modrm_byte >> 3 & 7);
+
     }
     break;
     case 0x22:
     {
         int32_t modrm_byte = read_imm8();
         gen_fn2("instr_0F22", 10, modrm_byte & 7, modrm_byte >> 3 & 7);
+
     }
     break;
     case 0x23:
     {
         int32_t modrm_byte = read_imm8();
         gen_fn2("instr_0F23", 10, modrm_byte & 7, modrm_byte >> 3 & 7);
+
     }
     break;
     case 0x24:
@@ -13754,6 +13758,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F40_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13767,6 +13772,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F41_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13780,6 +13786,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F42_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13793,6 +13800,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F43_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13806,6 +13814,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F44_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13819,6 +13828,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F45_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13832,6 +13842,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F46_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13845,6 +13856,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F47_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13858,6 +13870,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F48_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13871,6 +13884,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F49_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13884,6 +13898,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F4A_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13897,6 +13912,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F4B_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13910,6 +13926,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F4C_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13923,6 +13940,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F4D_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13936,6 +13954,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F4E_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -13949,6 +13968,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0F4F_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15262,6 +15282,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F90_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15275,6 +15296,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F91_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15288,6 +15310,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F92_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15301,6 +15324,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F93_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15314,6 +15338,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F94_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15327,6 +15352,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F95_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15340,6 +15366,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F96_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15353,6 +15380,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F97_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15366,6 +15394,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F98_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15379,6 +15408,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F99_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15392,6 +15422,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F9A_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15405,6 +15436,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F9B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15418,6 +15450,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F9C_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15431,6 +15464,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F9D_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15444,6 +15478,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F9E_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15457,6 +15492,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F9F_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15498,6 +15534,7 @@ switch(opcode)
         else
         {
             gen_fn3("instr16_0FA4_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15511,6 +15548,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0FA5_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15562,6 +15600,7 @@ switch(opcode)
         else
         {
             gen_fn3("instr16_0FAC_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15575,6 +15614,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0FAD_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15695,6 +15735,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0FAF_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15708,6 +15749,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0FB0_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15721,6 +15763,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0FB1_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15786,6 +15829,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0FB6_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15799,6 +15843,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0FB7_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15943,6 +15988,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0FBE_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15956,6 +16002,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0FBF_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15969,6 +16016,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0FC0_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -15982,6 +16030,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr16_0FC1_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -16102,41 +16151,49 @@ switch(opcode)
     case 0xC8:
     {
         gen_fn0("instr_0FC8", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xC9:
     {
         gen_fn0("instr_0FC9", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xCA:
     {
         gen_fn0("instr_0FCA", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xCB:
     {
         gen_fn0("instr_0FCB", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xCC:
     {
         gen_fn0("instr_0FCC", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xCD:
     {
         gen_fn0("instr_0FCD", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xCE:
     {
         gen_fn0("instr_0FCE", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xCF:
     {
         gen_fn0("instr_0FCF", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xD0:
@@ -18084,24 +18141,28 @@ switch(opcode)
     {
         int32_t modrm_byte = read_imm8();
         gen_fn2("instr_0F20", 10, modrm_byte & 7, modrm_byte >> 3 & 7);
+
     }
     break;
     case 0x21:
     {
         int32_t modrm_byte = read_imm8();
         gen_fn2("instr_0F21", 10, modrm_byte & 7, modrm_byte >> 3 & 7);
+
     }
     break;
     case 0x22:
     {
         int32_t modrm_byte = read_imm8();
         gen_fn2("instr_0F22", 10, modrm_byte & 7, modrm_byte >> 3 & 7);
+
     }
     break;
     case 0x23:
     {
         int32_t modrm_byte = read_imm8();
         gen_fn2("instr_0F23", 10, modrm_byte & 7, modrm_byte >> 3 & 7);
+
     }
     break;
     case 0x24:
@@ -18370,6 +18431,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F40_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18383,6 +18445,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F41_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18396,6 +18459,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F42_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18409,6 +18473,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F43_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18422,6 +18487,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F44_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18435,6 +18501,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F45_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18448,6 +18515,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F46_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18461,6 +18529,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F47_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18474,6 +18543,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F48_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18487,6 +18557,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F49_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18500,6 +18571,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F4A_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18513,6 +18585,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F4B_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18526,6 +18599,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F4C_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18539,6 +18613,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F4D_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18552,6 +18627,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F4E_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -18565,6 +18641,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0F4F_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -19878,6 +19955,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F90_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -19891,6 +19969,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F91_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -19904,6 +19983,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F92_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -19917,6 +19997,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F93_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -19930,6 +20011,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F94_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -19943,6 +20025,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F95_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -19956,6 +20039,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F96_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -19969,6 +20053,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F97_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -19982,6 +20067,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F98_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -19995,6 +20081,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F99_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20008,6 +20095,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F9A_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20021,6 +20109,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F9B_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20034,6 +20123,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F9C_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20047,6 +20137,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F9D_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20060,6 +20151,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F9E_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20073,6 +20165,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0F9F_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20114,6 +20207,7 @@ switch(opcode)
         else
         {
             gen_fn3("instr32_0FA4_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20127,6 +20221,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0FA5_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20178,6 +20273,7 @@ switch(opcode)
         else
         {
             gen_fn3("instr32_0FAC_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7, read_imm8());
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20191,6 +20287,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0FAD_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20311,6 +20408,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0FAF_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20324,6 +20422,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0FB0_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20337,6 +20436,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0FB1_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20402,6 +20502,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0FB6_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20415,6 +20516,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0FB7_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20559,6 +20661,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0FBE_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20572,6 +20675,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0FBF_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20585,6 +20689,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr_0FC0_reg", 14, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20598,6 +20703,7 @@ switch(opcode)
         else
         {
             gen_fn2("instr32_0FC1_reg", 16, modrm_byte & 7, modrm_byte >> 3 & 7);
+            flags |= JIT_INSTR_NONFAULTING_FLAG;
         }
     }
     break;
@@ -20718,41 +20824,49 @@ switch(opcode)
     case 0xC8:
     {
         gen_fn0("instr_0FC8", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xC9:
     {
         gen_fn0("instr_0FC9", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xCA:
     {
         gen_fn0("instr_0FCA", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xCB:
     {
         gen_fn0("instr_0FCB", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xCC:
     {
         gen_fn0("instr_0FCC", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xCD:
     {
         gen_fn0("instr_0FCD", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xCE:
     {
         gen_fn0("instr_0FCE", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xCF:
     {
         gen_fn0("instr_0FCF", 10);
+        flags |= JIT_INSTR_NONFAULTING_FLAG;
     }
     break;
     case 0xD0:

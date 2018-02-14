@@ -664,6 +664,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
             gen_patch_increment_instruction_pointer(eip_delta);
         }
 #else
+        UNUSED(eip_delta);
         gen_set_previous_eip();
         gen_increment_instruction_pointer(instruction_length);
 #endif
