@@ -63,6 +63,7 @@ emulator.add_listener("serial0-output-char", function(chr)
             "CACHE_DROP",
             "CACHE_SKIPPED",
             "COMPILE_WITH_LINK",
+            "NONFAULTING_OPTIMIZATION",
         ];
         const total = cpu.wm.exports["_profiler_get_total"]();
         let text = "";

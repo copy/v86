@@ -666,6 +666,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         {
             // Non-faulting, so we skip setting previous_ip and patch the previous instruction_pointer
             // increment
+            profiler_stat_increment(S_NONFAULTING_OPTIMIZATION);
             eip_delta += instruction_length;
             gen_patch_increment_instruction_pointer(eip_delta);
         }
