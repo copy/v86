@@ -653,7 +653,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
         assert(instruction_length >= 0 && instruction_length < 16);
 
-#if ENABLE_JIT_NONFAULTING_OPT
+#if ENABLE_JIT_NONFAULTING_OPTIMZATION
         if(len == 0 || (jit_ret & JIT_INSTR_NONFAULTING_FLAG) == 0)
         {
             // Faulting instruction - update as normal
