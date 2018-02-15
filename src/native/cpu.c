@@ -585,6 +585,7 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr, bool is_32)
 
         // there shouldn't be an already valid entry
         assert(entry->start_addr != phys_addr || entry->is_32 != is_32);
+        UNUSED(is_32);
 
         uint32_t page_dirtiness = group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT];
 
@@ -813,6 +814,10 @@ void cycle_internal()
 
         // JIT compiled self-modifying code may trigger this assert
         assert(old_group_dirtiness == group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT]);
+
+        UNUSED(old_group_status);
+        UNUSED(old_start_address);
+        UNUSED(old_group_dirtiness);
 
         profiler_end(P_RUN_FROM_CACHE);
     }
