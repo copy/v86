@@ -630,8 +630,13 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
     gen_reset();
 
-    while(!was_jump && len < 50 && (*instruction_pointer & 0xFFF) < (0x1000 - 16))
+    do
     {
+        if((*instruction_pointer & 0xFFF) >= (0x1000 - 16))
+        {
+            break;
+        }
+
         *previous_ip = *instruction_pointer;
         int32_t opcode = read_imm8();
 
@@ -675,6 +680,8 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         end_addr = *eip_phys ^ *instruction_pointer;
         len++;
     }
+    while(!was_jump && len < 50);
+
 
     // at this point no exceptions can be raised
 
