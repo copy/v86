@@ -76,9 +76,10 @@ function gen_codegen_call_modrm(name, args, is_cb)
     return gen_call(`gen_modrm${is_cb ? "_cb" : ""}_fn${args_count}`, args);
 }
 
-function gen_modrm_mem_reg_split(name, mem_prefix_call, mem_args, reg_args, encoding)
+function gen_modrm_mem_reg_split(name, mem_prefix_call, mem_args, reg_args, postfixes={})
 {
     let cb = false;
+    const { mem_postfix=[], reg_postfix=[] } = postfixes;
 
     if(mem_args[mem_args.length-1].endsWith("()"))
     {
@@ -86,10 +87,6 @@ function gen_modrm_mem_reg_split(name, mem_prefix_call, mem_args, reg_args, enco
         mem_args = mem_args.slice();
         mem_args[mem_args.length-1] = mem_args[mem_args.length-1].replace("()", "");
     }
-
-    const lea_special_case = encoding.opcode === 0x8D;
-    const mem_postfix = (encoding.nonfaulting && lea_special_case) ? [APPEND_NONFAULTING_FLAG] : [];
-    const reg_postfix = (encoding.nonfaulting && !lea_special_case) ? [APPEND_NONFAULTING_FLAG] : [];
 
     return {
         type: "if-else",
@@ -121,6 +118,18 @@ function make_instruction_name(encoding, size, prefix_variant)
     const fixed_g_suffix = encoding.fixed_g === undefined ? "" : `_${encoding.fixed_g}`;
 
     return `instr${suffix}_${prefix}${prefix_0f}${opcode_hex}${fixed_g_suffix}`;
+}
+
+function get_nonfaulting_mem_reg_postfix(encoding)
+{
+    const lea_special_case = encoding.opcode === 0x8D;
+    const mem_postfix = (encoding.nonfaulting && lea_special_case) ? [APPEND_NONFAULTING_FLAG] : [];
+    const reg_postfix = (encoding.nonfaulting && !lea_special_case) ? [APPEND_NONFAULTING_FLAG] : [];
+
+    return {
+        mem_postfix,
+        reg_postfix
+    };
 }
 
 function gen_instruction_body(encodings, size)
@@ -204,22 +213,22 @@ function gen_instruction_body(encodings, size)
 
                         if(has_66) {
                             const name = make_instruction_name(case_, size, 0x66);
-                            const body = [gen_modrm_mem_reg_split(name, modrm_resolve_prefix, mem_args, reg_args, case_)];
+                            const body = [gen_modrm_mem_reg_split(name, modrm_resolve_prefix, mem_args, reg_args, {})];
                             if_blocks.push({ condition: "prefixes_ & PREFIX_66", body, });
                         }
                         if(has_F2) {
                             const name = make_instruction_name(case_, size, 0xF2);
-                            const body = [gen_modrm_mem_reg_split(name, modrm_resolve_prefix, mem_args, reg_args, case_)];
+                            const body = [gen_modrm_mem_reg_split(name, modrm_resolve_prefix, mem_args, reg_args, {})];
                             if_blocks.push({ condition: "prefixes_ & PREFIX_F2", body, });
                         }
                         if(has_F3) {
                             const name = make_instruction_name(case_, size, 0xF3);
-                            const body = [gen_modrm_mem_reg_split(name, modrm_resolve_prefix, mem_args, reg_args, case_)];
+                            const body = [gen_modrm_mem_reg_split(name, modrm_resolve_prefix, mem_args, reg_args, {})];
                             if_blocks.push({ condition: "prefixes_ & PREFIX_F3", body, });
                         }
 
                         const else_block = {
-                            body: [gen_modrm_mem_reg_split(instruction_name, modrm_resolve_prefix, mem_args, reg_args, case_)],
+                            body: [gen_modrm_mem_reg_split(instruction_name, modrm_resolve_prefix, mem_args, reg_args, {})],
                         };
 
                         return {
@@ -237,7 +246,13 @@ function gen_instruction_body(encodings, size)
                     else
                     {
                         const body = [
-                            gen_modrm_mem_reg_split(instruction_name, modrm_resolve_prefix, mem_args, reg_args, case_)
+                            gen_modrm_mem_reg_split(
+                                instruction_name,
+                                modrm_resolve_prefix,
+                                mem_args,
+                                reg_args,
+                                get_nonfaulting_mem_reg_postfix(case_)
+                            )
                         ].concat(instruction_postfix);
 
                         return {
@@ -280,22 +295,22 @@ function gen_instruction_body(encodings, size)
 
         if(has_66) {
             const name = make_instruction_name(encoding, size, 0x66);
-            const body = [gen_modrm_mem_reg_split(name, modrm_resolve_prefix, mem_args, reg_args, encoding)];
+            const body = [gen_modrm_mem_reg_split(name, modrm_resolve_prefix, mem_args, reg_args, {})];
             if_blocks.push({ condition: "prefixes_ & PREFIX_66", body, });
         }
         if(has_F2) {
             const name = make_instruction_name(encoding, size, 0xF2);
-            const body = [gen_modrm_mem_reg_split(name, modrm_resolve_prefix, mem_args, reg_args, encoding)];
+            const body = [gen_modrm_mem_reg_split(name, modrm_resolve_prefix, mem_args, reg_args, {})];
             if_blocks.push({ condition: "prefixes_ & PREFIX_F2", body, });
         }
         if(has_F3) {
             const name = make_instruction_name(encoding, size, 0xF3);
-            const body = [gen_modrm_mem_reg_split(name, modrm_resolve_prefix, mem_args, reg_args, encoding)];
+            const body = [gen_modrm_mem_reg_split(name, modrm_resolve_prefix, mem_args, reg_args, {})];
             if_blocks.push({ condition: "prefixes_ & PREFIX_F3", body, });
         }
 
         const else_block = {
-            body: [gen_modrm_mem_reg_split(make_instruction_name(encoding, size), modrm_resolve_prefix, mem_args, reg_args, encoding)],
+            body: [gen_modrm_mem_reg_split(make_instruction_name(encoding, size), modrm_resolve_prefix, mem_args, reg_args, {})],
         };
 
         return [
@@ -355,7 +370,13 @@ function gen_instruction_body(encodings, size)
 
             return [
                 "int32_t modrm_byte = read_imm8();",
-                gen_modrm_mem_reg_split(instruction_name, modrm_resolve_prefix, mem_args, reg_args, encoding),
+                gen_modrm_mem_reg_split(
+                    instruction_name,
+                    modrm_resolve_prefix,
+                    mem_args,
+                    reg_args,
+                    get_nonfaulting_mem_reg_postfix(encoding)
+                ),
             ].concat(instruction_postfix);
         }
     }
