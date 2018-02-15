@@ -124,11 +124,11 @@ Compatibility
 Here's an overview of the operating systems supported in v86:
 
 - Linux works pretty well.
-  - Tinycore (3.16, 4.8 kernel): `udev` and `X` fail, but you get a
+  - Tinycore (3.16, 4.8 kernel): Works.
   - Nanolinux works.
   - Archlinux works with some caveats. See [archlinux.md](docs/archlinux.md).
   - Damn Small Linux (2.4 Kernel): Doesn't work.
-- ReactOS works
+- ReactOS works.
 - FreeDOS, Windows 1.01 and MS-DOS run very well.
 - KolibriOS works. A few applications need SSE.
 - Haiku boots, but takes very long (around 30 minutes).
