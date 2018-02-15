@@ -4,6 +4,9 @@ BROWSER=chromium
 NASM_TEST_DIR=./tests/nasm
 COVERAGE_DIR=./tests/coverage
 
+GEN_INSTRUCTION_TABLE_CMDS=./gen/generate_interpreter.js; ./gen/generate_jit.js;
+GEN_SCRIPTS := $(wildcard gen/*.js)
+
 # Enable manually and recompile v86-debug.wasm for coverage-enabled tests
 ifeq ($(ENABLE_COV), 1)
 CC_COVERAGE_FLAGS=--coverage -fprofile-instr-generate
@@ -152,8 +155,9 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
 
-build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/call-indirect.ll
+build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/call-indirect.ll $(GEN_SCRIPTS)
 	mkdir -p build
+	$(GEN_INSTRUCTION_TABLE_CMDS)
 	-ls -lh build/v86.wasm
 	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/call-indirect.ll \
 		$(CC_FLAGS) \
@@ -165,8 +169,9 @@ build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/
 		-o build/v86.wasm
 	ls -lh build/v86.wasm
 
-build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/*.ll
+build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/*.ll $(GEN_SCRIPTS)
 	mkdir -p build/coverage
+	$(GEN_INSTRUCTION_TABLE_CMDS)
 	-ls -lh build/v86-debug.wasm
 	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/*.ll \
 		$(CC_FLAGS) \
