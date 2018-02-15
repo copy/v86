@@ -82,7 +82,7 @@ function test(gen)
     gen.modrm_fn1("fn2r", 2);
 
     gen.commit_instruction_body_to_cs();
-    // Never written:
+    // Test instruction_body buffer separation by leaving the following uncomitted:
     gen.fn0("fn0");
     gen.finish();
 

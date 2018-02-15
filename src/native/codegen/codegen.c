@@ -13,7 +13,11 @@
 
 static Buffer op = { .start = codegen_buffer_op, .ptr = codegen_buffer_op, .len = 0x1000 };
 static Buffer cs = { .start = codegen_buffer_cs, .ptr = codegen_buffer_cs, .len = 0x1000 };
-static Buffer instruction_body = { .start = codegen_buffer_instruction_body, .ptr = codegen_buffer_instruction_body, .len = 0x1000 };
+static Buffer instruction_body = {
+    .start = codegen_buffer_instruction_body,
+    .ptr = codegen_buffer_instruction_body,
+    .len = 0x1000
+};
 
 // location in memory where we store the result of the computation for testing
 #define RESULT_LOC 1600
