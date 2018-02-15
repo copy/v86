@@ -874,9 +874,9 @@ jit_instr_flags segment_prefix_op_jit(int32_t seg)
 {
     assert(seg <= 5);
     gen_add_prefix_bits(seg + 1);
-    jit_instr_flags ret = jit_prefix_instruction();
+    jit_instr_flags instr_flags = jit_prefix_instruction();
     gen_clear_prefixes();
-    return ret;
+    return instr_flags;
 }
 
 void do_many_cycles_unsafe()

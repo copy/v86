@@ -6,7 +6,7 @@ const encodings = require("./x86_table");
 const c_ast = require("./c_ast");
 const { hex } = require("./util");
 
-const APPEND_NONFAULTING_FLAG = "flags |= JIT_INSTR_NONFAULTING_FLAG;";
+const APPEND_NONFAULTING_FLAG = "instr_flags |= JIT_INSTR_NONFAULTING_FLAG;";
 
 gen_table();
 
@@ -151,7 +151,7 @@ function gen_instruction_body(encodings, size)
         );
     }
 
-    const instruction_postfix = encoding.jump ? ["flags |= JIT_INSTR_JUMP_FLAG;"] : [];
+    const instruction_postfix = encoding.jump ? ["instr_flags |= JIT_INSTR_JUMP_FLAG;"] : [];
 
     if(encoding.fixed_g !== undefined)
     {
@@ -173,7 +173,7 @@ function gen_instruction_body(encodings, size)
                 cases: cases.map(case_ => {
                     const fixed_g = case_.fixed_g;
                     const instruction_name = make_instruction_name(case_, size, undefined);
-                    const instruction_postfix = case_.jump ? ["flags |=  JIT_INSTR_JUMP_FLAG;"] : [];
+                    const instruction_postfix = case_.jump ? ["instr_flags |=  JIT_INSTR_JUMP_FLAG;"] : [];
 
                     let modrm_resolve_prefix = undefined;
 
@@ -319,10 +319,14 @@ function gen_instruction_body(encodings, size)
             // Has modrm byte, but the 2 mod bits are ignored and both
             // operands are always registers (0f20-0f24)
 
+            if(encoding.nonfaulting)
+            {
+                instruction_postfix.push(APPEND_NONFAULTING_FLAG);
+            }
+
             return [
                 "int32_t modrm_byte = read_imm8();",
                 gen_codegen_call(instruction_name, ["modrm_byte & 7", "modrm_byte >> 3 & 7"]),
-                encoding.nonfaulting ? APPEND_NONFAULTING_FLAG : "",
             ].concat(instruction_postfix);
         }
         else
@@ -362,7 +366,7 @@ function gen_instruction_body(encodings, size)
             args.push(imm_read);
         }
 
-        const call_prefix = encoding.prefix ? "flags |= " : "";
+        const call_prefix = encoding.prefix ? "instr_flags |= " : "";
         // Prefix calls can add to the return flags
         return [call_prefix + gen_call(instruction_name, args)].concat(instruction_postfix);
     }
