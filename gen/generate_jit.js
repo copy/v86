@@ -2,9 +2,12 @@
 "use strict";
 
 const fs = require("fs");
+const path = require("path");
 const encodings = require("./x86_table");
 const c_ast = require("./c_ast");
-const { hex } = require("./util");
+const { hex, write_sync_if_changed } = require("./util");
+
+const OUT_DIR = path.join(__dirname, "..", "build");
 
 const APPEND_NONFAULTING_FLAG = "instr_flags |= JIT_INSTR_NONFAULTING_FLAG;";
 
@@ -490,7 +493,10 @@ function gen_table()
             body: ["assert(false);"]
         },
     };
-    fs.writeFileSync("/tmp/jit", c_ast.print_syntax_tree([table]).join("\n") + "\n");
+    write_sync_if_changed(
+        path.join(OUT_DIR, "jit"),
+        c_ast.print_syntax_tree([table]).join("\n") + "\n"
+    );
 
     const cases0f_16 = [];
     const cases0f_32 = [];
@@ -549,6 +555,12 @@ function gen_table()
             body: ["assert(false);"]
         },
     };
-    fs.writeFileSync("/tmp/jit0f_16", c_ast.print_syntax_tree([table0f_16]).join("\n") + "\n");
-    fs.writeFileSync("/tmp/jit0f_32", c_ast.print_syntax_tree([table0f_32]).join("\n") + "\n");
+    write_sync_if_changed(
+        path.join(OUT_DIR, "jit0f_16"),
+        c_ast.print_syntax_tree([table0f_16]).join("\n") + "\n"
+    );
+    write_sync_if_changed(
+        path.join(OUT_DIR, "jit0f_32"),
+        c_ast.print_syntax_tree([table0f_32]).join("\n") + "\n"
+    );
 }
