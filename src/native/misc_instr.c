@@ -252,6 +252,7 @@ void push16(int32_t imm16)
     }
 }
 
+__attribute__((always_inline))
 void push32(int32_t imm32)
 {
     if(*stack_size_32)
@@ -277,6 +278,7 @@ int32_t pop16()
     return result;
 }
 
+__attribute__((always_inline))
 int32_t pop32s()
 {
     if(*stack_size_32)
