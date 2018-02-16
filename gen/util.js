@@ -31,7 +31,6 @@ function write_sync_if_changed(filename, contents)
         fs.writeFileSync(filename, contents);
         console.log("[+] Writing", filename);
     }
-    return contents_changed;
 }
 
 module.exports = {
