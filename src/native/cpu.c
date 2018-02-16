@@ -245,7 +245,9 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
         global = (page_table_entry & PAGE_TABLE_GLOBAL_MASK) == PAGE_TABLE_GLOBAL_MASK;
     }
 
-    tlb_data[page] = high ^ page << 12;
+    int32_t info_bits = !can_write << 0 | !allow_user << 1 | in_mapped_range(high) << 2;
+
+    tlb_data[page] = high ^ page << 12 | info_bits;
 
     int32_t allowed_flag;
 
@@ -318,7 +320,7 @@ uint32_t translate_address_read(int32_t address)
     int32_t base = (uint32_t)address >> 12;
     if(tlb_info[base] & (*cpl == 3 ? TLB_USER_READ : TLB_SYSTEM_READ))
     {
-        return tlb_data[base] ^ address;
+        return tlb_data[base] & ~0xFFF ^ address;
     }
     else
     {
@@ -333,7 +335,7 @@ uint32_t translate_address_write(int32_t address)
     int32_t base = (uint32_t)address >> 12;
     if(tlb_info[base] & (*cpl == 3 ? TLB_USER_WRITE : TLB_SYSTEM_WRITE))
     {
-        return tlb_data[base] ^ address;
+        return tlb_data[base] & ~0xFFF ^ address;
     }
     else
     {
@@ -348,7 +350,7 @@ uint32_t translate_address_system_read(int32_t address)
     int32_t base = (uint32_t)address >> 12;
     if(tlb_info[base] & TLB_SYSTEM_READ)
     {
-        return tlb_data[base] ^ address;
+        return tlb_data[base] & ~0xFFF ^ address;
     }
     else
     {
@@ -363,7 +365,7 @@ uint32_t translate_address_system_write(int32_t address)
     int32_t base = (uint32_t)address >> 12;
     if(tlb_info[base] & TLB_SYSTEM_WRITE)
     {
-        return tlb_data[base] ^ address;
+        return tlb_data[base] & ~0xFFF ^ address;
     }
     else
     {
@@ -1149,7 +1151,7 @@ int32_t safe_read16(int32_t addr)
 }
 
 __attribute__((always_inline))
-int32_t safe_read32s(int32_t addr)
+int32_t safe_read32s_slow(int32_t addr)
 {
     if((addr & 0xFFF) >= 0xFFD)
     {
@@ -1158,6 +1160,33 @@ int32_t safe_read32s(int32_t addr)
     else
     {
         return read32s(translate_address_read(addr));
+    }
+}
+
+__attribute__((always_inline))
+int32_t safe_read32s(int32_t address)
+{
+#if 1
+    int32_t base = (uint32_t)address >> 12;
+    int32_t entry = tlb_data[base] & ~0x001;
+    int32_t info_bits = entry & 0xFFF;
+
+    // XXX: Paging check
+
+    if(tlb_info[base] && info_bits == 0 && (address & 0xFFF) <= (0x1000 - 4))
+    {
+        // - not in memory mapped area
+        // - can be accessed from any cpl
+
+        assert((entry & 0xFFF) == 0);
+        uint32_t phys_address = entry ^ address;
+        assert(!in_mapped_range(phys_address));
+        return *(int32_t*)(mem8 + phys_address);
+    }
+    else
+#endif
+    {
+        return safe_read32s_slow(address);
     }
 }
 
@@ -1216,7 +1245,7 @@ void safe_write16(int32_t addr, int32_t value)
 }
 
 __attribute__((always_inline))
-void safe_write32(int32_t addr, int32_t value)
+void safe_write32_slow(int32_t addr, int32_t value)
 {
     int32_t phys_low = translate_address_write(addr);
 
@@ -1227,6 +1256,35 @@ void safe_write32(int32_t addr, int32_t value)
     else
     {
         write32(phys_low, value);
+    }
+}
+
+__attribute__((always_inline))
+void safe_write32(int32_t address, int32_t value)
+{
+#if 1
+    int32_t base = (uint32_t)address >> 12;
+    int32_t entry = tlb_data[base];
+    int32_t info_bits = entry & 0xFFF;
+
+    // XXX: Paging check
+
+    if(tlb_info[base] && info_bits == 0 && (address & 0xFFF) <= (0x1000 - 4))
+    {
+        // - allowed to write in user-mode
+        // - not in memory mapped area
+        // - can be accessed from any cpl
+
+        assert((entry & 0xFFF) == 0);
+        uint32_t phys_address = entry ^ address;
+        jit_dirty_cache_small(phys_address, phys_address + 4);
+        assert(!in_mapped_range(phys_address));
+        *(int32_t*)(mem8 + phys_address) = value;
+    }
+    else
+#endif
+    {
+        safe_write32_slow(address, value);
     }
 }
 
