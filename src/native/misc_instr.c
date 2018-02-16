@@ -257,15 +257,15 @@ void push32(int32_t imm32)
 {
     if(*stack_size_32)
     {
-        int32_t sp = get_seg_ss() + reg32s[ESP] - 4;
-        safe_write32(sp, imm32);
-        reg32s[ESP] += -4;
+        int32_t new_esp = reg32s[ESP] - 4;
+        safe_write32(get_seg_ss() + new_esp, imm32);
+        reg32s[ESP] = new_esp;
     }
     else
     {
-        int32_t sp = get_seg_ss() + (reg16[SP] - 4 & 0xFFFF);
-        safe_write32(sp, imm32);
-        reg16[SP] += -4;
+        int32_t new_sp = reg16[SP] - 4 & 0xFFFF;
+        safe_write32(get_seg_ss() + new_sp, imm32);
+        reg16[SP] = new_sp;
     }
 }
 
@@ -283,16 +283,16 @@ int32_t pop32s()
 {
     if(*stack_size_32)
     {
-        int32_t sp = get_seg_ss() + reg32s[ESP];
-        int32_t result = safe_read32s(sp);
-        reg32s[ESP] += 4;
+        int32_t esp = reg32s[ESP];
+        int32_t result = safe_read32s(get_seg_ss() + esp);
+        reg32s[ESP] = esp + 4;
         return result;
     }
     else
     {
-        int32_t sp = get_seg_ss() + reg16[SP];
-        int32_t result = safe_read32s(sp);
-        reg16[SP] += 4;
+        int32_t sp = reg16[SP];
+        int32_t result = safe_read32s(get_seg_ss() + sp);
+        reg16[SP] = sp + 4;
         return result;
     }
 }
