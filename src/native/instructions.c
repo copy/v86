@@ -1467,13 +1467,13 @@ DEFINE_MODRM_INSTR1_READ32(instr32_FF_6, push32(___))
 
 void run_instruction(int32_t opcode)
 {
-#include "../../build/interpreter"
+#include "../../build/interpreter.c"
 }
 
 jit_instr_flags jit_instruction(int32_t opcode)
 {
     jit_instr_flags instr_flags = 0;
-#include "../../build/jit"
+#include "../../build/jit.c"
     return instr_flags;
 }
 

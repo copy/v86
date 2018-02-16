@@ -2,6 +2,7 @@
 
 const assert = require("assert");
 const fs = require("fs");
+const process = require("process");
 
 function hex(n, pad)
 {
@@ -11,29 +12,25 @@ function hex(n, pad)
     return s;
 }
 
-function write_sync_if_changed(filename, contents)
+function get_switch_value(arg_switch)
 {
-    assert.ok(typeof contents === "string", "Contents must be a string for comparison");
+    const argv = process.argv;
+    const switch_i = argv.indexOf(arg_switch);
+    const val_i = switch_i + 1;
+    if(switch_i > -1 && val_i < argv.length)
+    {
+        return argv[switch_i + 1];
+    }
+    return false;
+}
 
-    let existing_contents = null;
-    try
-    {
-        existing_contents = fs.readFileSync(filename).toString();
-    }
-    catch(e)
-    {
-        if(e.code !== "ENOENT") throw e;
-    }
-
-    const contents_changed = existing_contents !== contents;
-    if(contents_changed)
-    {
-        fs.writeFileSync(filename, contents);
-        console.log("[+] Writing", filename);
-    }
+function get_switch_exist(arg_switch)
+{
+    return process.argv.indexOf(arg_switch) > -1;
 }
 
 module.exports = {
     hex,
-    write_sync_if_changed
+    get_switch_value,
+    get_switch_exist,
 };

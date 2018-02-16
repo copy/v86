@@ -5,12 +5,25 @@ const fs = require("fs");
 const path = require("path");
 const encodings = require("./x86_table");
 const c_ast = require("./c_ast");
-const { hex, write_sync_if_changed } = require("./util");
+const { hex, get_switch_value, get_switch_exist } = require("./util");
 
-const OUT_DIR = path.join(__dirname, "..", "build");
+const OUT_DIR = get_switch_value("--output-dir") ||
+          path.join(__dirname, "..", "build");
+
+const table_arg = get_switch_value("--table");
+const gen_all = get_switch_exist("--all");
+const to_generate = {
+    interpreter: gen_all || table_arg === "interpreter",
+    interpreter0f_16: gen_all || table_arg === "interpreter0f_16",
+    interpreter0f_32: gen_all || table_arg === "interpreter0f_32",
+};
+
+console.assert(
+    Object.keys(to_generate).some(k => to_generate[k]),
+    "Pass --table [table_name] or --all to pick which tables to generate"
+);
 
 gen_table();
-
 
 function gen_read_imm_call(op, size_variant)
 {
@@ -393,10 +406,13 @@ function gen_table()
             body: ["assert(false);"]
         },
     };
-    write_sync_if_changed(
-        path.join(OUT_DIR, "interpreter"),
-        c_ast.print_syntax_tree([table]).join("\n") + "\n"
-    );
+    if(to_generate.interpreter)
+    {
+        fs.writeFileSync(
+            path.join(OUT_DIR, "interpreter.c"),
+            c_ast.print_syntax_tree([table]).join("\n") + "\n"
+        );
+    }
 
     const cases0f_16 = [];
     const cases0f_32 = [];
@@ -455,12 +471,20 @@ function gen_table()
             body: ["assert(false);"]
         },
     };
-    write_sync_if_changed(
-        path.join(OUT_DIR, "interpreter0f_16"),
-        c_ast.print_syntax_tree([table0f_16]).join("\n") + "\n"
-    );
-    write_sync_if_changed(
-        path.join(OUT_DIR, "interpreter0f_32"),
-        c_ast.print_syntax_tree([table0f_32]).join("\n") + "\n"
-    );
+
+    if(to_generate.interpreter0f_16)
+    {
+        fs.writeFileSync(
+            path.join(OUT_DIR, "interpreter0f_16.c"),
+            c_ast.print_syntax_tree([table0f_16]).join("\n") + "\n"
+        );
+    }
+
+    if(to_generate.interpreter0f_32)
+    {
+        fs.writeFileSync(
+            path.join(OUT_DIR, "interpreter0f_32.c"),
+            c_ast.print_syntax_tree([table0f_32]).join("\n") + "\n"
+        );
+    }
 }

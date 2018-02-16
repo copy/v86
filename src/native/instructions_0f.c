@@ -3657,25 +3657,25 @@ void instr_0FFF() {
 
 void run_instruction0f_16(int32_t opcode)
 {
-#include "../../build/interpreter0f_16"
+#include "../../build/interpreter0f_16.c"
 }
 
 void run_instruction0f_32(int32_t opcode)
 {
-#include "../../build/interpreter0f_32"
+#include "../../build/interpreter0f_32.c"
 }
 
 jit_instr_flags jit_instruction0f_16(int32_t opcode)
 {
     jit_instr_flags instr_flags = 0;
-#include "../../build/jit0f_16"
+#include "../../build/jit0f_16.c"
     return instr_flags;
 }
 
 jit_instr_flags jit_instruction0f_32(int32_t opcode)
 {
     jit_instr_flags instr_flags = 0;
-#include "../../build/jit0f_32"
+#include "../../build/jit0f_32.c"
     return instr_flags;
 }
 

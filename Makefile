@@ -4,8 +4,12 @@ BROWSER=chromium
 NASM_TEST_DIR=./tests/nasm
 COVERAGE_DIR=./tests/coverage
 
-GEN_INSTRUCTION_TABLE_CMDS=./gen/generate_interpreter.js; ./gen/generate_jit.js;
-GEN_SCRIPTS := $(wildcard gen/*.js)
+JIT_TABLES=$(addprefix build/,jit.c jit0f_16.c jit0f_32.c)
+INTERPRETER_TABLES=$(addprefix build/,interpreter.c interpreter0f_16.c interpreter0f_32.c)
+INSTRUCTION_TABLES=$(JIT_TABLES) $(INTERPRETER_TABLES)
+
+# Only the dependencies common to both generate_{jit,interpreter}.js
+GEN_DEPENDENCIES=$(filter-out $(wildcard gen/generate*.js), $(wildcard gen/*.js))
 
 # Enable manually and recompile v86-debug.wasm for coverage-enabled tests
 ifeq ($(ENABLE_COV), 1)
@@ -15,6 +19,15 @@ endif
 all: build/v86_all.js
 browser: build/v86_all.js
 wasm: build/v86.wasm
+
+.PHONY: instruction_tables
+instruction_tables: $(INSTRUCTION_TABLES)
+
+$(JIT_TABLES): $(GEN_DEPENDENCIES) gen/generate_jit.js
+	./gen/generate_jit.js --output-dir $(dir $@) --table $(basename $(notdir $@))
+
+$(INTERPRETER_TABLES): $(GEN_DEPENDENCIES) gen/generate_interpreter.js
+	./gen/generate_interpreter.js --output-dir $(dir $@) --table $(basename $(notdir $@))
 
 # Used for nodejs builds and in order to profile code.
 # `debug` gives identifiers a readable name, make sure it doesn't have any side effects.
@@ -155,9 +168,8 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
 
-build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/call-indirect.ll $(GEN_SCRIPTS)
+build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/call-indirect.ll $(INSTRUCTION_TABLES)
 	mkdir -p build
-	$(GEN_INSTRUCTION_TABLE_CMDS)
 	-ls -lh build/v86.wasm
 	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/call-indirect.ll \
 		$(CC_FLAGS) \
@@ -169,9 +181,8 @@ build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/
 		-o build/v86.wasm
 	ls -lh build/v86.wasm
 
-build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/*.ll $(GEN_SCRIPTS)
+build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/*.ll $(INSTRUCTION_TABLES)
 	mkdir -p build/coverage
-	$(GEN_INSTRUCTION_TABLE_CMDS)
 	-ls -lh build/v86-debug.wasm
 	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/*.ll \
 		$(CC_FLAGS) \
