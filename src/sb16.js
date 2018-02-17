@@ -1473,8 +1473,12 @@ SB16.prototype.dma_transfer_start = function()
     this.dma_bytes_count = this.dma_sample_count * this.bytes_per_sample;
     this.dma_bytes_block = SB_DMA_BLOCK_SAMPLES * this.bytes_per_sample;
 
-    // (2) Wait for unmask event.
+    // (2) Wait until channel is unmasked (if not already)
     this.dma_waiting_transfer = true;
+    if(!this.dma.channel_mask[this.dma_channel])
+    {
+        this.dma_on_unmask(this.dma_channel);
+    }
 };
 
 SB16.prototype.dma_on_unmask = function(channel)
