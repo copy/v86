@@ -47,7 +47,7 @@ void jit_dirty_cache_small(uint32_t start_addr, uint32_t end_addr)
     assert(start_addr <= end_addr);
 
     uint32_t start_index = start_addr >> DIRTY_ARR_SHIFT;
-    uint32_t end_index = end_addr >> DIRTY_ARR_SHIFT;
+    uint32_t end_index = (end_addr - 1) >> DIRTY_ARR_SHIFT;
 
     group_dirtiness[start_index]++;
 
