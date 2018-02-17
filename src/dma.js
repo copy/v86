@@ -197,7 +197,7 @@ DMA.prototype.port_page_read = function(channel)
 DMA.prototype.port_singlemask_write = function(channel_offset, data_byte)
 {
     var channel = (data_byte & 0x3) + channel_offset;
-    var value = !!(data_byte & 0x4);
+    var value = data_byte & 0x4 ? 1 : 0;
     dbg_log("singlechannel mask write [" + channel + "] = " + value, LOG_DMA);
     this.update_mask(channel, value);
 };
@@ -247,7 +247,7 @@ DMA.prototype.update_mask = function(channel, value)
 {
     if(this.channel_mask[channel] !== value)
     {
-        this.channel_mask[channel] ^= 1;
+        this.channel_mask[channel] = value;
 
         if(!value)
         {
