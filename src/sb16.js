@@ -192,33 +192,37 @@ function SB16(cpu, bus)
     // http://homepages.cae.wisc.edu/~brodskye/sb16doc/sb16doc.html#DSPPorts
     // https://pdos.csail.mit.edu/6.828/2011/readings/hardware/SoundBlaster.pdf
 
-    cpu.io.register_read(0x220, this, this.port2x0_read);
-    cpu.io.register_read(0x221, this, this.port2x1_read);
-    cpu.io.register_read(0x222, this, this.port2x2_read);
-    cpu.io.register_read(0x223, this, this.port2x3_read);
-    cpu.io.register_read(0x224, this, this.port2x4_read);
-    cpu.io.register_read(0x225, this, this.port2x5_read);
+    cpu.io.register_read_consecutive(0x220, this,
+        this.port2x0_read, this.port2x1_read, this.port2x2_read, this.port2x3_read);
+
+    cpu.io.register_read_consecutive(0x224, this,
+        this.port2x4_read, this.port2x5_read);
+
     cpu.io.register_read(0x226, this, this.port2x6_read);
     cpu.io.register_read(0x227, this, this.port2x7_read);
     cpu.io.register_read(0x228, this, this.port2x8_read);
     cpu.io.register_read(0x229, this, this.port2x9_read);
+
     cpu.io.register_read(0x22A, this, this.port2xA_read);
     cpu.io.register_read(0x22B, this, this.port2xB_read);
     cpu.io.register_read(0x22C, this, this.port2xC_read);
     cpu.io.register_read(0x22D, this, this.port2xD_read);
-    cpu.io.register_read(0x22E, this, this.port2xE_read);
-    cpu.io.register_read(0x22F, this, this.port2xF_read);
 
-    cpu.io.register_write(0x220, this, this.port2x0_write);
-    cpu.io.register_write(0x221, this, this.port2x1_write);
-    cpu.io.register_write(0x222, this, this.port2x2_write);
-    cpu.io.register_write(0x223, this, this.port2x3_write);
-    cpu.io.register_write(0x224, this, this.port2x4_write);
-    cpu.io.register_write(0x225, this, this.port2x5_write);
+    cpu.io.register_read_consecutive(0x22E, this,
+        this.port2xE_read, this.port2xF_read);
+
+    cpu.io.register_write_consecutive(0x220, this,
+        this.port2x0_write, this.port2x1_write, this.port2x2_write, this.port2x3_write);
+
+    cpu.io.register_write_consecutive(0x224, this,
+        this.port2x4_write, this.port2x5_write);
+
     cpu.io.register_write(0x226, this, this.port2x6_write);
     cpu.io.register_write(0x227, this, this.port2x7_write);
-    cpu.io.register_write(0x228, this, this.port2x8_write);
-    cpu.io.register_write(0x229, this, this.port2x9_write);
+
+    cpu.io.register_write_consecutive(0x228, this,
+        this.port2x8_write, this.port2x9_write);
+
     cpu.io.register_write(0x22A, this, this.port2xA_write);
     cpu.io.register_write(0x22B, this, this.port2xB_write);
     cpu.io.register_write(0x22C, this, this.port2xC_write);
@@ -226,10 +230,8 @@ function SB16(cpu, bus)
     cpu.io.register_write(0x22E, this, this.port2xE_write);
     cpu.io.register_write(0x22F, this, this.port2xF_write);
 
-    cpu.io.register_read(0x330, this, this.port3x0_read);
-    cpu.io.register_read(0x331, this, this.port3x1_read);
-    cpu.io.register_write(0x330, this, this.port3x0_write);
-    cpu.io.register_write(0x331, this, this.port3x1_write);
+    cpu.io.register_read_consecutive(0x330, this, this.port3x0_read, this.port3x1_read);
+    cpu.io.register_write_consecutive(0x330, this, this.port3x0_write, this.port3x1_write);
 
     this.dma.on_unmask(this.dma_on_unmask, this);
 
