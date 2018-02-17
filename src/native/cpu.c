@@ -1277,7 +1277,7 @@ void safe_write32(int32_t address, int32_t value)
 
         assert((entry & 0xFFF) == 0);
         uint32_t phys_address = entry ^ address;
-        jit_dirty_cache_small(phys_address, phys_address + 4);
+        jit_dirty_cache_single(phys_address);
         assert(!in_mapped_range(phys_address));
         *(int32_t*)(mem8 + phys_address) = value;
     }

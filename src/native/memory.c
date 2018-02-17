@@ -61,6 +61,15 @@ void jit_dirty_cache_small(uint32_t start_addr, uint32_t end_addr)
 #endif
 }
 
+void jit_dirty_cache_single(uint32_t addr)
+{
+#if ENABLE_JIT
+    uint32_t index = addr >> DIRTY_ARR_SHIFT;
+
+    group_dirtiness[index]++;
+#endif
+}
+
 void jit_empty_cache()
 {
     for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
@@ -159,7 +168,7 @@ void write8(uint32_t addr, int32_t value)
 {
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK;
 
-    jit_dirty_cache_small(addr, addr + 1);
+    jit_dirty_cache_single(addr);
 
     if(in_mapped_range(addr))
     {
