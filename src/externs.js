@@ -6,7 +6,7 @@ var performance = {};
 
 var global = {};
 var require = function(module) {};
-var process = {};
+var process = { hrtime: function() {} };
 var __dirname = "";
 
 var esprima = { tokenize: {}, parse: {} };
