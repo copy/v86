@@ -58,6 +58,8 @@ function SpeakerAdapter(bus)
         var counter_reload = data[1];
         this.pit_enabled = counter_mode == 3;
         this.beep_frequency = OSCILLATOR_FREQ * 1000 / counter_reload;
+        this.beep_frequency = Math.min(this.beep_frequency, this.beep_oscillator.frequency.maxValue);
+        this.beep_frequency = Math.max(this.beep_frequency, 0);
         this.beep_update();
     }, this);
 
