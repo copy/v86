@@ -128,7 +128,7 @@ SpeakerAdapter.prototype.beep_update = function()
         this.beep_oscillator.frequency.setValueAtTime(this.beep_frequency, current_time);
         if(!this.beep_playing)
         {
-            this.beep_gain.gain.setValueAtTime(1, current_time);
+            this.beep_gain.gain.setValueAtTime(0.05, current_time);
             this.beep_playing = true;
         }
     }
