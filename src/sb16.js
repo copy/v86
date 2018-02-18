@@ -1472,6 +1472,7 @@ SB16.prototype.dma_transfer_start = function()
 
     this.dma_bytes_count = this.dma_sample_count * this.bytes_per_sample;
     this.dma_bytes_block = SB_DMA_BLOCK_SAMPLES * this.bytes_per_sample;
+    this.dma_bytes_block = Math.min(this.dma_bytes_count >> 2, this.dma_bytes_block);
 
     // (2) Wait until channel is unmasked (if not already)
     this.dma_waiting_transfer = true;
