@@ -38,6 +38,7 @@ function SpeakerAdapter(bus)
     this.beep_enable = false;
     this.beep_frequency = 440;
     this.pit_enabled = false;
+    this.cpu_running = true;
 
     this.dac_processor = this.audio_context.createScriptProcessor(2048, 0, 2);
     this.dac_processor.onaudioprocess = this.dac_process.bind(this);
@@ -45,6 +46,18 @@ function SpeakerAdapter(bus)
     this.dac_buffer0 = new Float32Array(this.dac_processor.bufferSize);
     this.dac_buffer1 = new Float32Array(this.dac_processor.bufferSize);
     this.dac_enabled = true;
+
+    bus.register("emulator-stopped", function()
+    {
+        this.cpu_running = false;
+        this.beep_update();
+    }, this);
+
+    bus.register("emulator-started", function()
+    {
+        this.cpu_running = true;
+        this.beep_update();
+    }, this);
 
     bus.register("pcspeaker-enable", function(yesplease)
     {
@@ -110,7 +123,7 @@ SpeakerAdapter.prototype.beep_update = function()
 {
     var current_time = this.audio_context.currentTime;
 
-    if(this.pit_enabled && this.beep_enable)
+    if(this.pit_enabled && this.beep_enable && this.cpu_running)
     {
         this.beep_oscillator.frequency.setValueAtTime(this.beep_frequency, current_time);
         if(!this.beep_playing)
