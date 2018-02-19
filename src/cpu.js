@@ -326,6 +326,9 @@ CPU.prototype.wasm_patch = function(wm)
     this.safe_read32s = this.wm.exports["_safe_read32s"];
     this.safe_write16 = this.wm.exports["_safe_write16"];
     this.safe_read16 = this.wm.exports["_safe_read16"];
+
+    this.clear_tlb = this.wm.exports["_clear_tlb"];
+    this.full_clear_tlb = this.wm.exports["_full_clear_tlb"];
 };
 
 CPU.prototype.jit_clear_func = function(index)
@@ -3631,46 +3634,6 @@ CPU.prototype.verw = function(selector)
     {
         this.flags[0] |= flag_zero;
     }
-};
-
-CPU.prototype.clear_tlb = function()
-{
-    // clear tlb excluding global pages
-    this.last_virt_eip[0] = -1;
-    this.last_virt_esp[0] = -1;
-
-    this.tlb_info.set(this.tlb_info_global);
-
-    //dbg_log("page table loaded", LOG_CPU);
-};
-
-CPU.prototype.full_clear_tlb = function()
-{
-    //dbg_log("TLB full clear", LOG_CPU);
-
-    // clear tlb including global pages
-    var buf32 = new Int32Array(
-        this.tlb_info_global.buffer,
-        this.tlb_info_global.byteOffset,
-        this.tlb_info_global.length >>> 2);
-    for(var i = 0; i < (1 << 18); )
-    {
-        buf32[i++] = buf32[i++] = buf32[i++] = buf32[i++] = 0;
-    }
-
-    this.clear_tlb();
-};
-
-CPU.prototype.invlpg = function(addr)
-{
-    var page = addr >>> 12;
-    //dbg_log("invlpg: addr=" + h(addr >>> 0), LOG_CPU);
-
-    this.tlb_info[page] = 0;
-    this.tlb_info_global[page] = 0;
-
-    this.last_virt_eip[0] = -1;
-    this.last_virt_esp[0] = -1;
 };
 
 CPU.prototype.is_osize_32 = function()

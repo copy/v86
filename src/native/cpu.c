@@ -1418,7 +1418,32 @@ void write_xmm_reg128(int32_t r, union reg128 data)
 
 void clear_tlb()
 {
+    // clear tlb excluding global pages
+
+    *last_virt_eip = -1;
+    *last_virt_esp = -1;
+
     memcpy_large(tlb_info, tlb_info_global, 0x100000);
+}
+
+void full_clear_tlb()
+{
+    // clear tlb including global pages
+
+    memset(tlb_info_global, 0, 0x100000);
+    clear_tlb();
+}
+
+void invlpg(int32_t addr)
+{
+    //dbg_log("invlpg: addr=" + h(addr >>> 0), LOG_CPU);
+    int32_t page = (uint32_t)addr >> 12;
+
+    tlb_info[page] = 0;
+    tlb_info_global[page] = 0;
+
+    *last_virt_eip = -1;
+    *last_virt_esp = -1;
 }
 
 void task_switch_test()

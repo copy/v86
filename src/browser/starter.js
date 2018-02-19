@@ -198,9 +198,6 @@ function V86Starter(options)
         "_verw": function() { return cpu.verw.apply(cpu, arguments); },
         "_verr": function() { return cpu.verr.apply(cpu, arguments); },
 
-        "_full_clear_tlb": function() { return cpu.full_clear_tlb.apply(cpu, arguments); },
-        "_invlpg": function() { return cpu.invlpg.apply(cpu, arguments); },
-
         "_cpl_changed": function() { return cpu.cpl_changed.apply(cpu, arguments); },
         "_set_cr0": function() { return cpu.set_cr0.apply(cpu, arguments); },
         "_update_cs_size": function() { return cpu.update_cs_size.apply(cpu, arguments); },

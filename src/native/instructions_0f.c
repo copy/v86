@@ -530,7 +530,6 @@ void instr_0F22(int32_t r, int32_t creg) {
             clear_tlb();
 
             //dump_page_directory();
-            //dbg_log("page directory loaded at " + h(cr[3], 8));
             break;
 
         case 4:
