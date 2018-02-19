@@ -27,6 +27,10 @@ uint32_t jit_jump = 0;
 int32_t hot_code_addresses[HASH_PRIME] = {0};
 uint32_t group_dirtiness[GROUP_DIRTINESS_LENGTH] = {0};
 
+#define VALID_TLB_ENTRY_MAX 10000
+int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX] = {0};
+int32_t valid_tlb_entries_count = 0;
+
 void after_jump()
 {
     jit_jump = true;
@@ -123,8 +127,7 @@ void trigger_pagefault(bool write, bool user, bool present)
 
     // invalidate tlb entry
     int32_t page = (uint32_t)cr[2] >> 12;
-    tlb_info[page] = 0;
-    tlb_info_global[page] = 0;
+    tlb_data[page] = 0;
 
     *instruction_pointer = *previous_ip;
     *page_fault = true;
@@ -245,42 +248,28 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
         global = (page_table_entry & PAGE_TABLE_GLOBAL_MASK) == PAGE_TABLE_GLOBAL_MASK;
     }
 
-    int32_t info_bits = !can_write << 0 | !allow_user << 1 | in_mapped_range(high) << 2;
+    if(tlb_data[page] == 0)
+    {
+        // TODO: assert that page is in valid_tlb_entries
+
+        if(valid_tlb_entries_count == VALID_TLB_ENTRY_MAX)
+        {
+            clear_tlb();
+
+            if(valid_tlb_entries_count > VALID_TLB_ENTRY_MAX/2)
+            {
+                dbg_log("full clear tlb due to more than half the tlb being filled with global pages after clear_tlb()");
+                full_clear_tlb();
+            }
+        }
+
+        valid_tlb_entries[valid_tlb_entries_count++] = page;
+    }
+
+    // TODO: Consider if cr0.wp is not set
+    int32_t info_bits = !can_write << 0 | !allow_user << 1 | in_mapped_range(high) << 2 | 1 << 3 | (global && (cr[4] & CR4_PGE)) << 4;
 
     tlb_data[page] = high ^ page << 12 | info_bits;
-
-    int32_t allowed_flag;
-
-    if(allow_user)
-    {
-        if(can_write)
-        {
-            allowed_flag = TLB_SYSTEM_READ | TLB_SYSTEM_WRITE | TLB_USER_READ | TLB_USER_WRITE;
-        }
-        else
-        {
-            // TODO: Consider if cr0.wp is not set
-            allowed_flag = TLB_SYSTEM_READ | TLB_USER_READ;
-        }
-    }
-    else
-    {
-        if(can_write)
-        {
-            allowed_flag = TLB_SYSTEM_READ | TLB_SYSTEM_WRITE;
-        }
-        else
-        {
-            allowed_flag = TLB_SYSTEM_READ;
-        }
-    }
-
-    tlb_info[page] = allowed_flag;
-
-    if(global && (cr[4] & CR4_PGE))
-    {
-        tlb_info_global[page] = allowed_flag;
-    }
 
     return high;
 }
@@ -296,17 +285,19 @@ void writable_or_pagefault(int32_t addr, int32_t size)
     }
 
     bool user = cpl[0] == 3 ? true : false;
-    int32_t mask = user ? TLB_USER_WRITE : TLB_SYSTEM_WRITE;
+    int32_t mask = 1 << 3 | 1 << 0 | user << 1;
+    int32_t expect = 1 << 3 | 0 << 0 | 0 << 1;
     int32_t page = (uint32_t)addr >> 12;
 
-    if((tlb_info[page] & mask) == 0)
+    if((tlb_data[page] & mask) == expect)
     {
         do_page_translation(addr, true, user);
     }
 
     if((addr & 0xFFF) + size - 1 >= 0x1000)
     {
-        if((tlb_info[page + 1] & mask) == 0)
+        // XXX: possibly out of bounds
+        if((tlb_data[page + 1] & mask) == expect)
         {
             do_page_translation(addr + size - 1, true, user);
         }
@@ -318,9 +309,11 @@ uint32_t translate_address_read(int32_t address)
     if(!*paging) return address;
 
     int32_t base = (uint32_t)address >> 12;
-    if(tlb_info[base] & (*cpl == 3 ? TLB_USER_READ : TLB_SYSTEM_READ))
+    int32_t entry = tlb_data[base];
+    bool user = cpl[0] == 3 ? true : false;
+    if((entry & (1 << 3 | user << 1)) == (1 << 3 | 0 << 1))
     {
-        return tlb_data[base] & ~0xFFF ^ address;
+        return entry & ~0xFFF ^ address;
     }
     else
     {
@@ -333,9 +326,11 @@ uint32_t translate_address_write(int32_t address)
     if(!*paging) return address;
 
     int32_t base = (uint32_t)address >> 12;
-    if(tlb_info[base] & (*cpl == 3 ? TLB_USER_WRITE : TLB_SYSTEM_WRITE))
+    int32_t entry = tlb_data[base];
+    bool user = cpl[0] == 3 ? true : false;
+    if((entry & (1 << 3 | user << 1 | 1 << 0)) == (1 << 3 | 0 << 1 | 0 << 0))
     {
-        return tlb_data[base] & ~0xFFF ^ address;
+        return entry & ~0xFFF ^ address;
     }
     else
     {
@@ -348,9 +343,10 @@ uint32_t translate_address_system_read(int32_t address)
     if(!*paging) return address;
 
     int32_t base = (uint32_t)address >> 12;
-    if(tlb_info[base] & TLB_SYSTEM_READ)
+    int32_t entry = tlb_data[base];
+    if(entry & 1 << 3)
     {
-        return tlb_data[base] & ~0xFFF ^ address;
+        return entry & ~0xFFF ^ address;
     }
     else
     {
@@ -363,9 +359,10 @@ uint32_t translate_address_system_write(int32_t address)
     if(!*paging) return address;
 
     int32_t base = (uint32_t)address >> 12;
-    if(tlb_info[base] & TLB_SYSTEM_WRITE)
+    int32_t entry = tlb_data[base];
+    if((entry & (1 << 3 | 1 << 0)) == (1 << 3 | 0 << 0))
     {
-        return tlb_data[base] & ~0xFFF ^ address;
+        return entry & ~0xFFF ^ address;
     }
     else
     {
@@ -1173,13 +1170,13 @@ int32_t safe_read32s(int32_t address)
 
     // XXX: Paging check
 
-    if(tlb_info[base] && info_bits == 0 && (address & 0xFFF) <= (0x1000 - 4))
+    if(info_bits == (1 << 3) && (address & 0xFFF) <= (0x1000 - 4))
     {
         // - not in memory mapped area
         // - can be accessed from any cpl
 
-        assert((entry & 0xFFF) == 0);
-        uint32_t phys_address = entry ^ address;
+        assert((entry & 0xFFF) == (1 << 3));
+        uint32_t phys_address = entry & ~0xFFF ^ address;
         assert(!in_mapped_range(phys_address));
         return *(int32_t*)(mem8 + phys_address);
     }
@@ -1269,14 +1266,14 @@ void safe_write32(int32_t address, int32_t value)
 
     // XXX: Paging check
 
-    if(tlb_info[base] && info_bits == 0 && (address & 0xFFF) <= (0x1000 - 4))
+    if(info_bits == (1 << 3) && (address & 0xFFF) <= (0x1000 - 4))
     {
         // - allowed to write in user-mode
         // - not in memory mapped area
         // - can be accessed from any cpl
 
-        assert((entry & 0xFFF) == 0);
-        uint32_t phys_address = entry ^ address;
+        assert((entry & 0xFFF) == (1 << 3));
+        uint32_t phys_address = entry & ~0xFFF ^ address;
         jit_dirty_cache_single(phys_address);
         assert(!in_mapped_range(phys_address));
         *(int32_t*)(mem8 + phys_address) = value;
@@ -1423,15 +1420,55 @@ void clear_tlb()
     *last_virt_eip = -1;
     *last_virt_esp = -1;
 
-    memcpy_large(tlb_info, tlb_info_global, 0x100000);
+    int32_t global_page_offset = 0;
+
+    for(int32_t i = 0; i < valid_tlb_entries_count; i++)
+    {
+        int32_t page = valid_tlb_entries[i];
+        int32_t entry = tlb_data[page];
+
+        if(entry & 1 << 4)
+        {
+            // reinsert at the front
+            valid_tlb_entries[global_page_offset++] = page;
+        }
+        else
+        {
+            tlb_data[page] = 0;
+        }
+    }
+
+    valid_tlb_entries_count = global_page_offset;
+
+#if 1
+    for(int32_t i = 0; i < 0x100000; i++)
+    {
+        assert(tlb_data[i] == 0 || (tlb_data[i] & 1 << 4) == (1 << 4));
+    }
+#endif
 }
 
 void full_clear_tlb()
 {
     // clear tlb including global pages
 
-    memset(tlb_info_global, 0, 0x100000);
-    clear_tlb();
+    *last_virt_eip = -1;
+    *last_virt_esp = -1;
+
+    for(int32_t i = 0; i < valid_tlb_entries_count; i++)
+    {
+        int32_t page = valid_tlb_entries[i];
+        tlb_data[page] = 0;
+    }
+
+    valid_tlb_entries_count = 0;
+
+#if 1
+    for(int32_t i = 0; i < 0x100000; i++)
+    {
+        assert(tlb_data[i] == 0);
+    }
+#endif
 }
 
 void invlpg(int32_t addr)
@@ -1439,8 +1476,7 @@ void invlpg(int32_t addr)
     //dbg_log("invlpg: addr=" + h(addr >>> 0), LOG_CPU);
     int32_t page = (uint32_t)addr >> 12;
 
-    tlb_info[page] = 0;
-    tlb_info_global[page] = 0;
+    tlb_data[page] = 0;
 
     *last_virt_eip = -1;
     *last_virt_esp = -1;
