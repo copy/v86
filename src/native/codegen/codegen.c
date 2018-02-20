@@ -144,6 +144,19 @@ void gen_increment_timestamp_counter(int32_t n)
     gen_increment_variable((int32_t)timestamp_counter, n);
 }
 
+void gen_set_previous_eip_offset_from_eip(int32_t n)
+{
+    bool can_optimize = n == 0 && ENABLE_CODEGEN_ADD0_OPTIMIZATION;
+    push_i32(&cs, (int32_t)previous_ip); // store address of previous ip
+    load_i32(&cs, (int32_t)instruction_pointer); // load ip
+    if(!can_optimize)
+    {
+        push_i32(&cs, n);
+        add_i32(&cs); // add constant to ip value
+    }
+    store_i32(&cs); // store it as previous ip
+}
+
 void gen_set_previous_eip()
 {
     push_i32(&cs, (int32_t)previous_ip); // store address of previous ip

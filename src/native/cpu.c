@@ -669,11 +669,10 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         if(was_jump)
         {
             // eip += eip_delta, so that previous_ip points to the start of this instruction
-            gen_increment_instruction_pointer(eip_delta);
-            gen_set_previous_eip();
+            gen_set_previous_eip_offset_from_eip(eip_delta);
 
             // eip += len(jump) so instruction logic uses the correct eip
-            gen_increment_instruction_pointer(instruction_length);
+            gen_increment_instruction_pointer(eip_delta + instruction_length);
             gen_commit_instruction_body_to_cs();
 
             eip_delta = 0;
@@ -682,17 +681,12 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         {
             // Faulting instruction
 
-            // eip += eip_delta, so that previous_eip points to the start of this instruction
-            if(eip_delta > 0)
-            {
-                gen_increment_instruction_pointer(eip_delta);
-            }
-
-            gen_set_previous_eip();
+            // eip += eip_delta, so that previous_ip points to the start of this instruction
+            gen_set_previous_eip_offset_from_eip(eip_delta);
             gen_commit_instruction_body_to_cs();
 
             // Leave this instruction's length to be updated in the next batch, whatever it may be
-            eip_delta = instruction_length;
+            eip_delta += instruction_length;
         }
         else
         {

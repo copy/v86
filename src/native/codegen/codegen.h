@@ -46,6 +46,7 @@ void gen_modrm_cb_fn1(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t (*) 
 void gen_modrm_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t arg1);
 void gen_modrm_cb_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t, int32_t (*) (void));
 
+void gen_set_previous_eip_offset_from_eip(int32_t n);
 void gen_set_previous_eip(void);
 void gen_increment_instruction_pointer(int32_t);
 
