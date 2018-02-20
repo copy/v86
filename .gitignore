@@ -18,3 +18,4 @@ images/
 *.fuse_hidden*
 node_modules/
 package-lock.json
+profile*.json
