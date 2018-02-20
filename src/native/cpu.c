@@ -653,39 +653,74 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         int32_t end_eip = *instruction_pointer;
 
         int32_t instruction_length = end_eip - start_eip;
+        was_jump = (jit_ret & JIT_INSTR_JUMP_FLAG) != 0;
 
         assert(instruction_length >= 0 && instruction_length < 16);
 
 #if ENABLE_JIT_NONFAULTING_OPTIMZATION
-        if(len == 0 || (jit_ret & JIT_INSTR_NONFAULTING_FLAG) == 0)
+        /*
+         * There are a few conditions to keep in mind to optimize the update of previous_ip and
+         * instruction_pointer:
+         * - previous_ip MUST be updated just before a faulting instruction
+         * - instruction_pointer MUST be updated before jump instructions (since they use the EIP
+         * value for instruction logic)
+         * - Nonfaulting instructions don't need either to be updated
+         */
+        if(was_jump)
         {
-            // Faulting instruction - update as normal
+            // eip += eip_delta, so that previous_ip points to the start of this instruction
+            gen_increment_instruction_pointer(eip_delta);
             gen_set_previous_eip();
+
+            // eip += len(jump) so instruction logic uses the correct eip
             gen_increment_instruction_pointer(instruction_length);
+            gen_commit_instruction_body_to_cs();
+
+            eip_delta = 0;
+        }
+        else if(len == 0 || (jit_ret & JIT_INSTR_NONFAULTING_FLAG) == 0)
+        {
+            // Faulting instruction
+
+            // eip += eip_delta, so that previous_eip points to the start of this instruction
+            if(eip_delta > 0)
+            {
+                gen_increment_instruction_pointer(eip_delta);
+            }
+
+            gen_set_previous_eip();
+            gen_commit_instruction_body_to_cs();
+
+            // Leave this instruction's length to be updated in the next batch, whatever it may be
             eip_delta = instruction_length;
         }
         else
         {
-            // Non-faulting, so we skip setting previous_ip and patch the previous instruction_pointer
-            // increment
+            // Non-faulting, so we skip setting previous_ip and simply queue the instruction length
+            // for whenever eip is updated next
             profiler_stat_increment(S_NONFAULTING_OPTIMIZATION);
             eip_delta += instruction_length;
-            gen_patch_increment_instruction_pointer(eip_delta);
+
         }
 #else
         UNUSED(eip_delta);
         gen_set_previous_eip();
         gen_increment_instruction_pointer(instruction_length);
-#endif
-
         gen_commit_instruction_body_to_cs();
-
-        was_jump = (jit_ret & JIT_INSTR_JUMP_FLAG) != 0;
+#endif
         end_addr = *eip_phys ^ *instruction_pointer;
         len++;
     }
     while(!was_jump && len < 50 && !is_near_end_of_page(*instruction_pointer));
 
+#if ENABLE_JIT_NONFAULTING_OPTIMZATION
+    // When the block ends in a non-jump instruction, we may have uncommitted updates still
+    if(eip_delta > 0)
+    {
+        gen_commit_instruction_body_to_cs();
+        gen_increment_instruction_pointer(eip_delta);
+    }
+#endif
 
     // at this point no exceptions can be raised
 
