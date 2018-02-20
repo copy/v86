@@ -649,7 +649,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         }
 
         int32_t start_eip = *instruction_pointer - 1;
-        uint32_t jit_ret = jit_instruction(opcode | !!*is_32 << 8);
+        jit_instr_flags jit_ret = jit_instruction(opcode | !!*is_32 << 8);
         int32_t end_eip = *instruction_pointer;
 
         int32_t instruction_length = end_eip - start_eip;
