@@ -21,12 +21,12 @@ function get_switch_value(arg_switch)
     {
         return argv[switch_i + 1];
     }
-    return false;
+    return null;
 }
 
 function get_switch_exist(arg_switch)
 {
-    return process.argv.indexOf(arg_switch) > -1;
+    return process.argv.includes(arg_switch);
 }
 
 module.exports = {

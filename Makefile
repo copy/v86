@@ -4,12 +4,12 @@ BROWSER=chromium
 NASM_TEST_DIR=./tests/nasm
 COVERAGE_DIR=./tests/coverage
 
-JIT_TABLES=$(addprefix build/,jit.c jit0f_16.c jit0f_32.c)
-INTERPRETER_TABLES=$(addprefix build/,interpreter.c interpreter0f_16.c interpreter0f_32.c)
-INSTRUCTION_TABLES=$(JIT_TABLES) $(INTERPRETER_TABLES)
+INSTRUCTION_TABLES=build/jit.c build/jit0f_16.c build/jit0f_32.c build/interpreter.c build/interpreter0f_16.c build/interpreter0f_32.c
 
 # Only the dependencies common to both generate_{jit,interpreter}.js
-GEN_DEPENDENCIES=$(filter-out $(wildcard gen/generate*.js), $(wildcard gen/*.js))
+GEN_DEPENDENCIES=$(filter-out gen/generate_interpreter.js gen/generate_jit.js, $(wildcard gen/*.js))
+JIT_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_jit.js
+INTERPRETER_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_interpreter.js
 
 # Enable manually and recompile v86-debug.wasm for coverage-enabled tests
 ifeq ($(ENABLE_COV), 1)
@@ -19,15 +19,6 @@ endif
 all: build/v86_all.js
 browser: build/v86_all.js
 wasm: build/v86.wasm
-
-.PHONY: instruction_tables
-instruction_tables: $(INSTRUCTION_TABLES)
-
-$(JIT_TABLES): $(GEN_DEPENDENCIES) gen/generate_jit.js
-	./gen/generate_jit.js --output-dir $(dir $@) --table $(basename $(notdir $@))
-
-$(INTERPRETER_TABLES): $(GEN_DEPENDENCIES) gen/generate_interpreter.js
-	./gen/generate_interpreter.js --output-dir $(dir $@) --table $(basename $(notdir $@))
 
 # Used for nodejs builds and in order to profile code.
 # `debug` gives identifiers a readable name, make sure it doesn't have any side effects.
@@ -168,6 +159,25 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
 
+
+.PHONY: instruction_tables
+instruction_tables: $(INSTRUCTION_TABLES)
+
+build/jit.c: $(JIT_DEPENDENCIES)
+	./gen/generate_jit.js --output-dir build/ --table jit
+build/jit0f_16.c: $(JIT_DEPENDENCIES)
+	./gen/generate_jit.js --output-dir build/ --table jit0f_16
+build/jit0f_32.c: $(JIT_DEPENDENCIES)
+	./gen/generate_jit.js --output-dir build/ --table jit0f_32
+
+build/interpreter.c: $(INTERPRETER_DEPENDENCIES)
+	./gen/generate_interpreter.js --output-dir build/ --table interpreter
+build/interpreter0f_16.c: $(INTERPRETER_DEPENDENCIES)
+	./gen/generate_interpreter.js --output-dir build/ --table interpreter0f_16
+build/interpreter0f_32.c: $(INTERPRETER_DEPENDENCIES)
+	./gen/generate_interpreter.js --output-dir build/ --table interpreter0f_32
+
+
 build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/call-indirect.ll $(INSTRUCTION_TABLES)
 	mkdir -p build
 	-ls -lh build/v86.wasm
@@ -207,6 +217,7 @@ clean:
 	-rm build/v86.wasm
 	-rm build/v86-debug.wasm
 	-rm build/codegen-test.wasm
+	-rm $(INSTRUCTION_TABLES)
 	-rm build/*.map
 	-rm build/*.wast
 	-rm build/coverage/coverage_data*
