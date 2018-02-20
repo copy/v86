@@ -611,6 +611,11 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr, bool is_32)
     return entry;
 }
 
+static bool is_near_end_of_page(uint32_t addr)
+{
+    return (addr & 0xFFF) >= (0x1000 - 16);
+}
+
 static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_cache* entry, uint32_t page_dirtiness)
 {
     profiler_start(P_GEN_INSTR);
@@ -631,13 +636,10 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
     gen_reset();
 
+    // First iteration of do-while assumes the caller confirms this condition
+    assert(!is_near_end_of_page(phys_addr));
     do
     {
-        if((*instruction_pointer & 0xFFF) >= (0x1000 - 16))
-        {
-            break;
-        }
-
         *previous_ip = *instruction_pointer;
         int32_t opcode = read_imm8();
 
@@ -682,7 +684,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         end_addr = *eip_phys ^ *instruction_pointer;
         len++;
     }
-    while(!was_jump && len < 50);
+    while(!was_jump && len < 50 && !is_near_end_of_page(*instruction_pointer));
 
 
     // at this point no exceptions can be raised
@@ -824,12 +826,11 @@ void cycle_internal()
     }
     else
     {
-        bool near_the_end_of_page = (phys_addr & 0xFFF) >= (0x1000 - 16);
         bool did_jump = !JIT_COMPILE_ONLY_AFTER_JUMP || jit_jump;
         const int32_t address_hash = jit_hot_hash(phys_addr);
 
         if(
-            !near_the_end_of_page && (
+            !is_near_end_of_page(phys_addr) && (
                 JIT_ALWAYS ||
                 (did_jump && ++hot_code_addresses[address_hash] > JIT_THRESHOLD)
             )
