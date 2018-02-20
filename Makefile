@@ -163,19 +163,36 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 .PHONY: instruction_tables
 instruction_tables: $(INSTRUCTION_TABLES)
 
+# Back target file up if it exists; if not, create empty back up file
+BACKUP_EXISTING_TABLE_CMD=([ -e $@ ] && cp $@ $@.bak) || touch $@.bak
+GEN_DIFF_FROM_BACKUP_CMD=git diff --no-index $@.bak $@ > $@.diff || true
+
+# All of the following generate a specific instruction table and a diff compared to the existing table
 build/jit.c: $(JIT_DEPENDENCIES)
+	$(BACKUP_EXISTING_TABLE_CMD)
 	./gen/generate_jit.js --output-dir build/ --table jit
+	$(GEN_DIFF_FROM_BACKUP_CMD)
 build/jit0f_16.c: $(JIT_DEPENDENCIES)
+	$(BACKUP_EXISTING_TABLE_CMD)
 	./gen/generate_jit.js --output-dir build/ --table jit0f_16
+	$(GEN_DIFF_FROM_BACKUP_CMD)
 build/jit0f_32.c: $(JIT_DEPENDENCIES)
+	$(BACKUP_EXISTING_TABLE_CMD)
 	./gen/generate_jit.js --output-dir build/ --table jit0f_32
+	$(GEN_DIFF_FROM_BACKUP_CMD)
 
 build/interpreter.c: $(INTERPRETER_DEPENDENCIES)
+	$(BACKUP_EXISTING_TABLE_CMD)
 	./gen/generate_interpreter.js --output-dir build/ --table interpreter
+	$(GEN_DIFF_FROM_BACKUP_CMD)
 build/interpreter0f_16.c: $(INTERPRETER_DEPENDENCIES)
+	$(BACKUP_EXISTING_TABLE_CMD)
 	./gen/generate_interpreter.js --output-dir build/ --table interpreter0f_16
+	$(GEN_DIFF_FROM_BACKUP_CMD)
 build/interpreter0f_32.c: $(INTERPRETER_DEPENDENCIES)
+	$(BACKUP_EXISTING_TABLE_CMD)
 	./gen/generate_interpreter.js --output-dir build/ --table interpreter0f_32
+	$(GEN_DIFF_FROM_BACKUP_CMD)
 
 
 build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/call-indirect.ll $(INSTRUCTION_TABLES)
@@ -218,6 +235,8 @@ clean:
 	-rm build/v86-debug.wasm
 	-rm build/codegen-test.wasm
 	-rm $(INSTRUCTION_TABLES)
+	-rm $(addsuffix .bak,$(INSTRUCTION_TABLES))
+	-rm $(addsuffix .diff,$(INSTRUCTION_TABLES))
 	-rm build/*.map
 	-rm build/*.wast
 	-rm build/coverage/coverage_data*
