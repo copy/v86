@@ -128,7 +128,7 @@ function get_nonfaulting_mem_reg_postfix(encoding)
 
     return {
         mem_postfix,
-        reg_postfix
+        reg_postfix,
     };
 }
 
