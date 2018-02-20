@@ -254,10 +254,12 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
 
         if(valid_tlb_entries_count == VALID_TLB_ENTRY_MAX)
         {
+            profiler_stat_increment(S_TLB_FULL);
             clear_tlb();
 
-            if(valid_tlb_entries_count > VALID_TLB_ENTRY_MAX/2)
+            if(valid_tlb_entries_count > VALID_TLB_ENTRY_MAX * 3 / 4)
             {
+                profiler_stat_increment(S_TLB_GLOBAL_FULL);
                 dbg_log("full clear tlb due to more than half the tlb being filled with global pages after clear_tlb()");
                 full_clear_tlb();
             }
@@ -1415,6 +1417,7 @@ void write_xmm_reg128(int32_t r, union reg128 data)
 
 void clear_tlb()
 {
+    profiler_stat_increment(S_CLEAR_TLB);
     // clear tlb excluding global pages
 
     *last_virt_eip = -1;
@@ -1450,6 +1453,7 @@ void clear_tlb()
 
 void full_clear_tlb()
 {
+    profiler_stat_increment(S_FULL_CLEAR_TLB);
     // clear tlb including global pages
 
     *last_virt_eip = -1;
