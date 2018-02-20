@@ -22,7 +22,7 @@ const to_generate = {
 
 console.assert(
     Object.keys(to_generate).some(k => to_generate[k]),
-    "Pass --table [table_name] or --all to pick which tables to generate"
+    "Pass --table [jit|jit0f_16|jit0f_32] or --all to pick which tables to generate"
 );
 
 gen_table();
