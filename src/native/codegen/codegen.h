@@ -48,7 +48,6 @@ void gen_modrm_cb_fn2(char* fn, uint8_t fn_len, int32_t modrm_byte, int32_t, int
 
 void gen_set_previous_eip(void);
 void gen_increment_instruction_pointer(int32_t);
-void gen_patch_increment_instruction_pointer(int32_t);
 
 void gen_increment_timestamp_counter(int32_t);
 
