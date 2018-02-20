@@ -69,6 +69,15 @@ extern int32_t hot_code_addresses[HASH_PRIME];
 // to the same group due to the shift
 extern uint32_t group_dirtiness[GROUP_DIRTINESS_LENGTH];
 
+#define VALID_TLB_ENTRY_MAX 10000
+int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX];
+int32_t valid_tlb_entries_count;
+
+#define TLB_VALID (1 << 0)
+#define TLB_READONLY (1 << 1)
+#define TLB_NO_USER (1 << 2)
+#define TLB_IN_MAPPED_RANGE (1 << 3)
+#define TLB_GLOBAL (1 << 4)
 
 // defined in call-indirect.ll
 extern void call_indirect(int32_t index);
@@ -144,6 +153,7 @@ void write_xmm64(int32_t r, union reg64 data);
 void write_xmm128(int32_t r, int32_t i0, int32_t i1, int32_t i2, int32_t i3);
 void write_xmm_reg128(int32_t r, union reg128 data);
 void clear_tlb(void);
+void full_clear_tlb(void);
 void task_switch_test(void);
 void task_switch_test_mmx(void);
 int32_t read_moffs(void);

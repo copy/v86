@@ -30,7 +30,6 @@ extern void enter16(int32_t, int32_t);
 extern void enter32(int32_t, int32_t);
 extern void far_jump(int32_t, int32_t, int32_t);
 extern void far_return(int32_t, int32_t, int32_t);
-extern void full_clear_tlb(void);
 extern void handle_irqs(void);
 extern void hlt_op(void);
 extern void invlpg(int32_t);
