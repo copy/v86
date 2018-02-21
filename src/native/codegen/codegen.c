@@ -16,7 +16,7 @@ static Buffer cs = { .start = codegen_buffer_cs, .ptr = codegen_buffer_cs, .len 
 static Buffer instruction_body = {
     .start = codegen_buffer_instruction_body,
     .ptr = codegen_buffer_instruction_body,
-    .len = 0x1000
+    .len = 0x1000,
 };
 
 // location in memory where we store the result of the computation for testing
