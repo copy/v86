@@ -694,7 +694,6 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
             // for whenever eip is updated next
             profiler_stat_increment(S_NONFAULTING_OPTIMIZATION);
             eip_delta += instruction_length;
-
         }
 #else
         UNUSED(eip_delta);

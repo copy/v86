@@ -152,7 +152,6 @@ function gen_instruction_body(encodings, size)
         "Unsupported: instruction cannot be both a jump and nonfaulting. Opcode: 0x" + hex(encoding.opcode)
     );
 
-
     if(has_66 || has_F2 || has_F3)
     {
         console.assert((encoding.opcode & 0xFF00) === 0x0F00);
