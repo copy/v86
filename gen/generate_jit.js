@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const encodings = require("./x86_table");
 const c_ast = require("./c_ast");
-const { hex, get_switch_value, get_switch_exist } = require("./util");
+const { hex, get_switch_value, get_switch_exist, finalize_table } = require("./util");
 
 const OUT_DIR = get_switch_value("--output-dir") ||
           path.join(__dirname, "..", "build");
@@ -509,8 +509,9 @@ function gen_table()
 
     if(to_generate.jit)
     {
-        fs.writeFileSync(
-            path.join(OUT_DIR, "jit.c"),
+        finalize_table(
+            OUT_DIR,
+            "jit",
             c_ast.print_syntax_tree([table]).join("\n") + "\n"
         );
     }
@@ -575,16 +576,18 @@ function gen_table()
 
     if(to_generate.jit0f_16)
     {
-        fs.writeFileSync(
-            path.join(OUT_DIR, "jit0f_16.c"),
+        finalize_table(
+            OUT_DIR,
+            "jit0f_16",
             c_ast.print_syntax_tree([table0f_16]).join("\n") + "\n"
         );
     }
 
     if(to_generate.jit0f_32)
     {
-        fs.writeFileSync(
-            path.join(OUT_DIR, "jit0f_32.c"),
+        finalize_table(
+            OUT_DIR,
+            "jit0f_32",
             c_ast.print_syntax_tree([table0f_32]).join("\n") + "\n"
         );
     }
