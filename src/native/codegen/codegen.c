@@ -146,7 +146,7 @@ void gen_increment_timestamp_counter(int32_t n)
 
 void gen_set_previous_eip_offset_from_eip(int32_t n)
 {
-    bool can_optimize = n == 0 && ENABLE_CODEGEN_ADD0_OPTIMIZATION;
+    bool can_optimize = n == 0;
     push_i32(&cs, (int32_t)previous_ip); // store address of previous ip
     load_i32(&cs, (int32_t)instruction_pointer); // load ip
     if(!can_optimize)
