@@ -677,7 +677,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
             eip_delta = 0;
         }
-        else if(len == 0 || (jit_ret & JIT_INSTR_NONFAULTING_FLAG) == 0)
+        else if((jit_ret & JIT_INSTR_NONFAULTING_FLAG) == 0)
         {
             // Faulting instruction
 
