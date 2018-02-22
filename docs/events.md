@@ -6,19 +6,19 @@ the emulator (although it is internally implemented that way), use the
 
 ### Serial terminal
 
-See also: [serial.js](src/browser/serial.js).
+See also: [serial.js](../src/browser/serial.js).
 
 - `serial0-output-char` - `string chr`
 
 ### Network
 
-See also: [network.js](src/browser/network.js).
+See also: [network.js](../src/browser/network.js).
 
 - `net0-receive` - `Uint8Array buffer`
 
 ### Screen
 
-See also: [screen.js](src/browser/screen.js).
+See also: [screen.js](../src/browser/screen.js).
 
 - `screen-set-mode` - `boolean is_graphic`
 - `screen-put-char` - `[number row, number col, number chr, number bg_color, number fg_color]`
