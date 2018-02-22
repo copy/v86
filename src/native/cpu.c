@@ -576,7 +576,12 @@ static void jit_run_interpreted(int32_t phys_addr)
     profiler_end(P_RUN_INTERPRETED);
 }
 
-static struct code_cache* create_cache_entry(uint32_t phys_addr, bool is_32)
+static cached_state_flags pack_current_state_flags()
+{
+    return *is_32 << 0;
+}
+
+static struct code_cache* create_cache_entry(uint32_t phys_addr)
 {
     for(int32_t i = 0; i < CODE_CACHE_SEARCH_SIZE; i++)
     {
@@ -584,8 +589,10 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr, bool is_32)
         struct code_cache* entry = &jit_cache_arr[addr_index];
 
         // there shouldn't be an already valid entry
-        assert(entry->start_addr != phys_addr || entry->is_32 != is_32);
-        UNUSED(is_32);
+        assert(
+            entry->start_addr != phys_addr ||
+            entry->state_flags != pack_current_state_flags()
+        );
 
         uint32_t page_dirtiness = group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT];
 
@@ -598,6 +605,7 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr, bool is_32)
             }
 
             entry->wasm_table_index = addr_index;
+            entry->state_flags = 0;
             return entry;
         }
     }
@@ -606,6 +614,7 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr, bool is_32)
     uint16_t addr_index = phys_addr & JIT_PHYS_MASK;
     struct code_cache* entry = &jit_cache_arr[addr_index];
     entry->wasm_table_index = addr_index;
+    entry->state_flags = 0;
 
     profiler_stat_increment(S_CACHE_MISMATCH);
     return entry;
@@ -741,16 +750,16 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
     if(!entry)
     {
-        entry = create_cache_entry(phys_addr, *is_32);
+        entry = create_cache_entry(phys_addr);
 
         entry->start_addr = phys_addr;
-        entry->is_32 = *is_32;
+        entry->state_flags = pack_current_state_flags();
     }
     else
     {
         assert(entry->group_status != page_dirtiness);
         assert(entry->start_addr == phys_addr);
-        assert(entry->is_32 == *is_32);
+        assert(entry->state_flags == pack_current_state_flags());
     }
 
 #if DEBUG
@@ -773,7 +782,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
     profiler_end(P_GEN_INSTR);
 }
 
-static struct code_cache* find_cache_entry(uint32_t phys_addr, bool is_32)
+static struct code_cache* find_cache_entry(uint32_t phys_addr)
 {
 #pragma clang loop unroll_count(CODE_CACHE_SEARCH_SIZE)
     for(int32_t i = 0; i < CODE_CACHE_SEARCH_SIZE; i++)
@@ -781,7 +790,7 @@ static struct code_cache* find_cache_entry(uint32_t phys_addr, bool is_32)
         uint16_t addr_index = (phys_addr + i) & JIT_PHYS_MASK;
         struct code_cache* entry = &jit_cache_arr[addr_index];
 
-        if(entry->start_addr == phys_addr && entry->is_32 == is_32)
+        if(entry->start_addr == phys_addr && entry->state_flags == pack_current_state_flags())
         {
             return entry;
         }
@@ -800,7 +809,7 @@ struct code_cache* find_link_block_target(int32_t target)
         assert((target & ~0xFFF) == *last_virt_eip);
 
         uint32_t phys_target = *eip_phys ^ target;
-        struct code_cache* entry = find_cache_entry(phys_target, *is_32);
+        struct code_cache* entry = find_cache_entry(phys_target);
 
         if(entry && entry->group_status == group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT])
         {
@@ -868,7 +877,7 @@ void cycle_internal()
     *previous_ip = *instruction_pointer;
     uint32_t phys_addr = get_phys_eip();
 
-    struct code_cache* entry = find_cache_entry(phys_addr, *is_32);
+    struct code_cache* entry = find_cache_entry(phys_addr);
 
     uint32_t page_dirtiness = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
 

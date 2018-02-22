@@ -35,6 +35,8 @@ union reg64 {
 };
 _Static_assert(sizeof(union reg64) == 8, "reg64 is 8 bytes");
 
+typedef uint8_t cached_state_flags;
+
 struct code_cache {
     // Address of the start of the basic block
     uint32_t start_addr;
@@ -50,7 +52,7 @@ struct code_cache {
     uint32_t group_status;
 
     uint16_t wasm_table_index;
-    bool is_32;
+    cached_state_flags state_flags;
 };
 #if DEBUG
 #else
