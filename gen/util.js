@@ -16,6 +16,15 @@ function hex(n, pad)
     return s;
 }
 
+function mkdirpSync(dir)
+{
+    path.normalize(dir).split(path.sep).reduce((accum_path, dir) => {
+        const new_dir = accum_path + dir + path.sep;
+        if(!fs.existsSync(new_dir)) fs.mkdirSync(new_dir);
+        return new_dir;
+    }, "");
+}
+
 function get_switch_value(arg_switch)
 {
     const argv = process.argv;
@@ -67,6 +76,7 @@ function finalize_table(out_dir, name, contents)
 
 module.exports = {
     hex,
+    mkdirpSync,
     get_switch_value,
     get_switch_exist,
     finalize_table,

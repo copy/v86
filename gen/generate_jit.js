@@ -5,12 +5,14 @@ const fs = require("fs");
 const path = require("path");
 const encodings = require("./x86_table");
 const c_ast = require("./c_ast");
-const { hex, get_switch_value, get_switch_exist, finalize_table } = require("./util");
+const { hex, mkdirpSync, get_switch_value, get_switch_exist, finalize_table } = require("./util");
+
+const APPEND_NONFAULTING_FLAG = "instr_flags |= JIT_INSTR_NONFAULTING_FLAG;";
 
 const OUT_DIR = get_switch_value("--output-dir") ||
           path.join(__dirname, "..", "build");
 
-const APPEND_NONFAULTING_FLAG = "instr_flags |= JIT_INSTR_NONFAULTING_FLAG;";
+mkdirpSync(OUT_DIR);
 
 const table_arg = get_switch_value("--table");
 const gen_all = get_switch_exist("--all");
