@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 
+#include "codegen/codegen.h"
 #include "const.h"
 #include "global_pointers.h"
 #include "fpu.h"
@@ -273,6 +274,18 @@ void push16(int32_t imm16)
     }
 }
 
+void push16_jit(uint16_t *ptr)
+{
+    if(*stack_size_32)
+    {
+        gen_fn1_ptr("push16_ss32", 11, (int32_t*) ptr);
+    }
+    else
+    {
+        gen_fn1_ptr("push16_ss16", 11, (int32_t*) ptr);
+    }
+}
+
 __attribute__((always_inline))
 void push32_ss16(int32_t imm32)
 {
@@ -299,6 +312,18 @@ void push32(int32_t imm32)
     else
     {
         push32_ss16(imm32);
+    }
+}
+
+void push32_jit(int32_t *ptr)
+{
+    if(*stack_size_32)
+    {
+        gen_fn1_ptr("push32_ss32", 11, ptr);
+    }
+    else
+    {
+        gen_fn1_ptr("push32_ss16", 11, ptr);
     }
 }
 
@@ -335,6 +360,18 @@ int32_t pop16()
     }
 }
 
+void pop16_jit(uint16_t *ptr)
+{
+    if(*stack_size_32)
+    {
+        gen_fn0_store_ret("pop16_ss32", 10, (int32_t*) ptr);
+    }
+    else
+    {
+        gen_fn0_store_ret("pop16_ss16", 10, (int32_t*) ptr);
+    }
+}
+
 __attribute__((always_inline))
 int32_t pop32s_ss16()
 {
@@ -363,6 +400,18 @@ int32_t pop32s()
     else
     {
         return pop32s_ss16();
+    }
+}
+
+void pop32s_jit(int32_t *ptr)
+{
+    if(*stack_size_32)
+    {
+        gen_fn0_store_ret("pop32s_ss32", 11, ptr);
+    }
+    else
+    {
+        gen_fn0_store_ret("pop32s_ss16", 11, ptr);
     }
 }
 

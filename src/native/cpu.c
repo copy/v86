@@ -578,7 +578,7 @@ static void jit_run_interpreted(int32_t phys_addr)
 
 static cached_state_flags pack_current_state_flags()
 {
-    return *is_32 << 0;
+    return *is_32 << 0 | *stack_size_32 << 1;
 }
 
 static struct code_cache* create_cache_entry(uint32_t phys_addr)
