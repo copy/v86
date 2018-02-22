@@ -245,20 +245,48 @@ void adjust_stack_reg(int32_t adjustment)
     }
 }
 
+__attribute__((always_inline))
+void push16_ss16(int32_t imm16)
+{
+    int32_t sp = get_seg_ss() + (reg16[SP] - 2 & 0xFFFF);
+    safe_write16(sp, imm16);
+    reg16[SP] += -2;
+}
+
+__attribute__((always_inline))
+void push16_ss32(int32_t imm16)
+{
+    int32_t sp = get_seg_ss() + reg32s[ESP] - 2;
+    safe_write16(sp, imm16);
+    reg32s[ESP] += -2;
+}
+
 void push16(int32_t imm16)
 {
     if(*stack_size_32)
     {
-        int32_t sp = get_seg_ss() + reg32s[ESP] - 2;
-        safe_write16(sp, imm16);
-        reg32s[ESP] += -2;
+        push16_ss32(imm16);
     }
     else
     {
-        int32_t sp = get_seg_ss() + (reg16[SP] - 2 & 0xFFFF);
-        safe_write16(sp, imm16);
-        reg16[SP] += -2;
+        push16_ss16(imm16);
     }
+}
+
+__attribute__((always_inline))
+void push32_ss16(int32_t imm32)
+{
+    int32_t new_sp = reg16[SP] - 4 & 0xFFFF;
+    safe_write32(get_seg_ss() + new_sp, imm32);
+    reg16[SP] = new_sp;
+}
+
+__attribute__((always_inline))
+void push32_ss32(int32_t imm32)
+{
+    int32_t new_esp = reg32s[ESP] - 4;
+    safe_write32(get_seg_ss() + new_esp, imm32);
+    reg32s[ESP] = new_esp;
 }
 
 __attribute__((always_inline))
@@ -266,24 +294,62 @@ void push32(int32_t imm32)
 {
     if(*stack_size_32)
     {
-        int32_t new_esp = reg32s[ESP] - 4;
-        safe_write32(get_seg_ss() + new_esp, imm32);
-        reg32s[ESP] = new_esp;
+        push32_ss32(imm32);
     }
     else
     {
-        int32_t new_sp = reg16[SP] - 4 & 0xFFFF;
-        safe_write32(get_seg_ss() + new_sp, imm32);
-        reg16[SP] = new_sp;
+        push32_ss16(imm32);
     }
 }
 
-int32_t pop16()
+__attribute__((always_inline))
+int32_t pop16_ss16()
 {
-    int32_t sp = get_seg_ss() + get_stack_reg();
+    int32_t sp = get_seg_ss() + reg16[SP];
     int32_t result = safe_read16(sp);
 
-    adjust_stack_reg(2);
+    reg16[SP] += 2;
+    return result;
+}
+
+__attribute__((always_inline))
+int32_t pop16_ss32()
+{
+    int32_t esp = get_seg_ss() + reg32s[ESP];
+    int32_t result = safe_read16(esp);
+
+    reg32s[ESP] += 2;
+    return result;
+}
+
+__attribute__((always_inline))
+int32_t pop16()
+{
+    if(*stack_size_32)
+    {
+        return pop16_ss32();
+    }
+    else
+    {
+        return pop16_ss16();
+    }
+}
+
+__attribute__((always_inline))
+int32_t pop32s_ss16()
+{
+    int32_t sp = reg16[SP];
+    int32_t result = safe_read32s(get_seg_ss() + sp);
+    reg16[SP] = sp + 4;
+    return result;
+}
+
+__attribute__((always_inline))
+int32_t pop32s_ss32()
+{
+    int32_t esp = reg32s[ESP];
+    int32_t result = safe_read32s(get_seg_ss() + esp);
+    reg32s[ESP] = esp + 4;
     return result;
 }
 
@@ -292,17 +358,11 @@ int32_t pop32s()
 {
     if(*stack_size_32)
     {
-        int32_t esp = reg32s[ESP];
-        int32_t result = safe_read32s(get_seg_ss() + esp);
-        reg32s[ESP] = esp + 4;
-        return result;
+        return pop32s_ss32();
     }
     else
     {
-        int32_t sp = reg16[SP];
-        int32_t result = safe_read32s(get_seg_ss() + sp);
-        reg16[SP] = sp + 4;
-        return result;
+        return pop32s_ss16();
     }
 }
 
