@@ -150,6 +150,21 @@ function get_nonfaulting_mem_reg_postfix(encoding)
     };
 }
 
+function gen_custom_call(encoding, size, args)
+{
+    console.assert(!encoding.nonfaulting, "Prefix/custom instructions cannot be marked as nonfaulting.");
+
+    const instruction_name = make_instruction_name(encoding, size) + "_jit";
+    const imm_read = gen_read_imm_call(encoding, size);
+
+    if(imm_read)
+    {
+        args.push(imm_read);
+    }
+
+    return gen_call(instruction_name, args);
+}
+
 function gen_instruction_body(encodings, size)
 {
     const encoding = encodings[0];
@@ -207,19 +222,11 @@ function gen_instruction_body(encodings, size)
                     const instruction_postfix = case_.jump ? ["instr_flags |=  JIT_INSTR_JUMP_FLAG;"] : [];
                     if(case_.custom)
                     {
-                        console.assert(!case_.nonfaulting, "Unsupported: custom fixed_g instruction as nonfaulting");
-                        const instruction_name = make_instruction_name(case_, size) + "_jit";
-                        const imm_read = gen_read_imm_call(case_, size);
-                        const args = ["modrm_byte"];
-
-                        if(imm_read)
-                        {
-                            args.push(imm_read);
-                        }
+                        const custom_call = gen_custom_call(case_, size, ["modrm_byte"]);
 
                         return {
                             conditions: [fixed_g],
-                            body: [gen_call(instruction_name, args)].concat(instruction_postfix),
+                            body: [custom_call].concat(instruction_postfix),
                         };
                     }
 
@@ -417,20 +424,10 @@ function gen_instruction_body(encodings, size)
     }
     else if(encoding.prefix || encoding.custom)
     {
-        console.assert(!encoding.nonfaulting, "Prefix/custom instructions cannot be marked as nonfaulting.");
-
-        const instruction_name = make_instruction_name(encoding, size) + "_jit";
-        const imm_read = gen_read_imm_call(encoding, size);
-        const args = [];
-
-        if(imm_read)
-        {
-            args.push(imm_read);
-        }
-
+        const custom_call = gen_custom_call(encoding, size, []);
         const call_prefix = encoding.prefix ? "instr_flags |= " : "";
         // Prefix calls can add to the return flags
-        return [call_prefix + gen_call(instruction_name, args)].concat(instruction_postfix);
+        return [call_prefix + custom_call].concat(instruction_postfix);
     }
     else
     {
