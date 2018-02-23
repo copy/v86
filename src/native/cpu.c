@@ -726,7 +726,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
     // at this point no exceptions can be raised
 
-    if(len < JIT_MIN_BLOCK_LENGTH)
+    if(len < JIT_MIN_BLOCK_LENGTH && !ENABLE_JIT_ALWAYS)
     {
         // abort, block is too short to be considered useful for compilation
         profiler_stat_increment(S_CACHE_SKIPPED);
@@ -881,7 +881,6 @@ void cycle_internal()
 
     uint32_t page_dirtiness = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
 
-    const bool JIT_ALWAYS = false;
     const bool JIT_DONT_USE_CACHE = false;
     const bool JIT_COMPILE_ONLY_AFTER_JUMP = true;
 
@@ -920,7 +919,7 @@ void cycle_internal()
 
         if(
             !is_near_end_of_page(phys_addr) && (
-                JIT_ALWAYS ||
+                ENABLE_JIT_ALWAYS ||
                 (did_jump && ++hot_code_addresses[address_hash] > JIT_THRESHOLD)
             )
           )
