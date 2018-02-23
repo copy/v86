@@ -204,8 +204,26 @@ function gen_instruction_body(encodings, size)
                 condition: "modrm_byte >> 3 & 7",
                 cases: cases.map(case_ => {
                     const fixed_g = case_.fixed_g;
-                    const instruction_name = make_instruction_name(case_, size, undefined);
                     const instruction_postfix = case_.jump ? ["instr_flags |=  JIT_INSTR_JUMP_FLAG;"] : [];
+                    if(case_.custom)
+                    {
+                        console.assert(!case_.nonfaulting, "Unsupported: custom fixed_g instruction as nonfaulting");
+                        const instruction_name = make_instruction_name(case_, size) + "_jit";
+                        const imm_read = gen_read_imm_call(case_, size);
+                        const args = ["modrm_byte"];
+
+                        if(imm_read)
+                        {
+                            args.push(imm_read);
+                        }
+
+                        return {
+                            conditions: [fixed_g],
+                            body: [gen_call(instruction_name, args)].concat(instruction_postfix),
+                        };
+                    }
+
+                    const instruction_name = make_instruction_name(case_, size, undefined);
 
                     let modrm_resolve_prefix = undefined;
 
