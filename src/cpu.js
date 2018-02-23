@@ -1429,6 +1429,8 @@ CPU.prototype.set_cr0 = function(cr0)
         throw this.debug.unimpl("#GP handler");
     }
 
+    const old_cr0 = this.cr[0];
+
     this.cr[0] = cr0;
 
     //if(!have_fpu)
@@ -1438,11 +1440,9 @@ CPU.prototype.set_cr0 = function(cr0)
     //}
     this.cr[0] |= CR0_ET;
 
-    var new_paging = (this.cr[0] & CR0_PG) === CR0_PG;
-
-    if(new_paging !== Boolean(this.paging[0]))
+    if((old_cr0 & (CR0_PG | CR0_WP)) !== (cr0 & (CR0_PG | CR0_WP)))
     {
-        this.paging[0] = +new_paging;
+        this.paging[0] = +((this.cr[0] & CR0_PG) === CR0_PG);
         this.full_clear_tlb();
     }
 

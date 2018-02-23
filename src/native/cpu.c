@@ -145,6 +145,8 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
     bool global;
     bool allow_user = true;
 
+    const bool kernel_write_override = !user && !(cr[0] & CR0_WP);
+
     if(!(page_dir_entry & PAGE_TABLE_PRESENT_MASK))
     {
         // to do at this place:
@@ -161,11 +163,11 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
         dbg_assert(false);
     }
 
-    if((page_dir_entry & PAGE_TABLE_RW_MASK) == 0)
+    if((page_dir_entry & PAGE_TABLE_RW_MASK) == 0 && !kernel_write_override)
     {
         can_write = false;
 
-        if(for_writing && (user || (cr[0] & CR0_WP)))
+        if(for_writing)
         {
             cr[2] = addr;
             trigger_pagefault(for_writing, user, 1);
@@ -211,11 +213,11 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
             dbg_assert(false);
         }
 
-        if((page_table_entry & PAGE_TABLE_RW_MASK) == 0)
+        if((page_table_entry & PAGE_TABLE_RW_MASK) == 0 && !kernel_write_override)
         {
             can_write = false;
 
-            if(for_writing && (user || (cr[0] & CR0_WP)))
+            if(for_writing)
             {
                 //dbg_log("#PF not writable page", LOG_CPU);
                 cr[2] = addr;
@@ -265,8 +267,6 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
 
         valid_tlb_entries[valid_tlb_entries_count++] = page;
     }
-
-    // TODO: Consider if cr0.wp is not set
 
     int32_t info_bits =
         TLB_VALID |
