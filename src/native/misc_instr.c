@@ -262,6 +262,9 @@ void push16_ss32(int32_t imm16)
     reg32s[ESP] += -2;
 }
 
+void push16_ss16_mem(int32_t addr) { push16_ss16(safe_read16(addr)); }
+void push16_ss32_mem(int32_t addr) { push16_ss32(safe_read16(addr)); }
+
 void push16(int32_t imm16)
 {
     if(*stack_size_32)
@@ -298,6 +301,25 @@ void push16_imm_jit(int32_t imm)
     }
 }
 
+void push16_modrm_jit(int32_t modrm_byte)
+{
+    if(modrm_byte < 0xC0)
+    {
+        if(*stack_size_32)
+        {
+            gen_modrm_fn0("push16_ss32_mem", 15, modrm_byte);
+        }
+        else
+        {
+            gen_modrm_fn0("push16_ss16_mem", 15, modrm_byte);
+        }
+    }
+    else
+    {
+        push16_reg_jit(modrm_byte & 7);
+    }
+}
+
 __attribute__((always_inline))
 void push32_ss16(int32_t imm32)
 {
@@ -313,6 +335,9 @@ void push32_ss32(int32_t imm32)
     safe_write32(get_seg_ss() + new_esp, imm32);
     reg32s[ESP] = new_esp;
 }
+
+void push32_ss16_mem(int32_t addr) { push32_ss16(safe_read32s(addr)); }
+void push32_ss32_mem(int32_t addr) { push32_ss32(safe_read32s(addr)); }
 
 __attribute__((always_inline))
 void push32(int32_t imm32)
@@ -348,6 +373,25 @@ void push32_imm_jit(int32_t imm)
     else
     {
         gen_fn1("push32_ss16", 11, imm);
+    }
+}
+
+void push32_modrm_jit(int32_t modrm_byte)
+{
+    if(modrm_byte < 0xC0)
+    {
+        if(*stack_size_32)
+        {
+            gen_modrm_fn0("push32_ss32_mem", 15, modrm_byte);
+        }
+        else
+        {
+            gen_modrm_fn0("push32_ss16_mem", 15, modrm_byte);
+        }
+    }
+    else
+    {
+        push32_reg_jit(modrm_byte & 7);
     }
 }
 

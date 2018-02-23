@@ -234,7 +234,7 @@ const encodings = [
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 3, jump: 1, skip: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 4, jump: 1, skip: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 5, jump: 1, skip: 1, },
-    { opcode: 0xFF, os: 1, e: 1, fixed_g: 6, },
+    { opcode: 0xFF, custom: 1, os: 1, e: 1, fixed_g: 6, },
 
     { opcode: 0x0F00, fixed_g: 0, e: 1, skip: 1 },
     { opcode: 0x0F00, fixed_g: 1, e: 1, skip: 1 },
