@@ -4,11 +4,12 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 
 const DEBUG = process.env.DEBUG || false;
 // Maximum number of gdb processes to spawn in parallel
 const MAX_PARALLEL_PROCS = +process.env.MAX_PARALLEL_PROCS || 32;
+const SYNC_GDB_EXECUTION = process.env.SYNC_GDB_EXECUTION || false;
 
 // Usage: console.log(CYAN_FMT, "This shows up in cyan!")
 const CYAN_FMT = "\x1b[36m%s\x1b[0m";
@@ -85,13 +86,7 @@ function test_arg_formatter(workload)
 
 function set_proc_handlers(proc, n)
 {
-    proc.on("close", (code) => {
-        console.log(`[+] child process ${n} exited with code ${code}`);
-        if(code !== 0)
-        {
-            process.exit(code);
-        }
-    });
+    proc.on("close", (code) => on_proc_close(code, n));
 
     if(DEBUG)
     {
@@ -105,6 +100,15 @@ function set_proc_handlers(proc, n)
     }
 }
 
+function on_proc_close(code, n)
+{
+    console.log(`[+] child process ${n} exited with code ${code}`);
+    if(code !== 0)
+    {
+        process.exit(code);
+    }
+}
+
 for(let i = 0; i < nr_of_cpus; i++)
 {
     const gdb_args = GDB_DEFAULT_ARGS.concat(test_arg_formatter(workloads[i]));
@@ -114,6 +118,14 @@ for(let i = 0; i < nr_of_cpus; i++)
         console.log(CYAN_FMT, "[DEBUG]", "gdb", gdb_args.join(" "));
     }
 
-    const gdb = spawn("gdb", gdb_args);
-    set_proc_handlers(gdb, i);
+    if(SYNC_GDB_EXECUTION)
+    {
+        const { status: code } = spawnSync("gdb", gdb_args);
+        on_proc_close(code, i);
+    }
+    else
+    {
+        const gdb = spawn("gdb", gdb_args);
+        set_proc_handlers(gdb, i);
+    }
 }
