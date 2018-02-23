@@ -28,10 +28,12 @@ static uint8_t* op_ptr_reset_location;
 static uint32_t import_table_size_reset_value;
 static uint32_t initial_import_count;
 
+void gen_reg16_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg);
+void gen_reg32s_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_fn0(char const* fn, uint8_t fn_len);
-void gen_fn0_store_ret(char const* fn, uint8_t fn_len, int32_t *ptr);
 void gen_fn1(char const* fn, uint8_t fn_len, int32_t arg0);
-void gen_fn1_ptr(char const* fn, uint8_t fn_len, int32_t *ptr0);
+void gen_fn1_reg16(char const* fn, uint8_t fn_len, int32_t reg);
+void gen_fn1_reg32s(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_fn2(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1);
 
 void gen_fn0_ret(char const* fn, uint8_t fn_len);

@@ -274,15 +274,15 @@ void push16(int32_t imm16)
     }
 }
 
-void push16_jit(uint16_t *ptr)
+void push16_reg_jit(int32_t reg)
 {
     if(*stack_size_32)
     {
-        gen_fn1_ptr("push16_ss32", 11, (int32_t*) ptr);
+        gen_fn1_reg16("push16_ss32", 11, reg);
     }
     else
     {
-        gen_fn1_ptr("push16_ss16", 11, (int32_t*) ptr);
+        gen_fn1_reg16("push16_ss16", 11, reg);
     }
 }
 
@@ -315,15 +315,15 @@ void push32(int32_t imm32)
     }
 }
 
-void push32_jit(int32_t *ptr)
+void push32_reg_jit(int32_t reg)
 {
     if(*stack_size_32)
     {
-        gen_fn1_ptr("push32_ss32", 11, ptr);
+        gen_fn1_reg32s("push32_ss32", 11, reg);
     }
     else
     {
-        gen_fn1_ptr("push32_ss16", 11, ptr);
+        gen_fn1_reg32s("push32_ss16", 11, reg);
     }
 }
 
@@ -360,15 +360,15 @@ int32_t pop16()
     }
 }
 
-void pop16_jit(uint16_t *ptr)
+void pop16_reg_jit(int32_t reg)
 {
     if(*stack_size_32)
     {
-        gen_fn0_store_ret("pop16_ss32", 10, (int32_t*) ptr);
+        gen_reg16_eq_fn0("pop16_ss32", 10, reg);
     }
     else
     {
-        gen_fn0_store_ret("pop16_ss16", 10, (int32_t*) ptr);
+        gen_reg16_eq_fn0("pop16_ss16", 10, reg);
     }
 }
 
@@ -403,15 +403,15 @@ int32_t pop32s()
     }
 }
 
-void pop32s_jit(int32_t *ptr)
+void pop32s_reg_jit(int32_t reg)
 {
     if(*stack_size_32)
     {
-        gen_fn0_store_ret("pop32s_ss32", 11, ptr);
+        gen_reg32s_eq_fn0("pop32s_ss32", 11, reg);
     }
     else
     {
-        gen_fn0_store_ret("pop32s_ss16", 11, ptr);
+        gen_reg32s_eq_fn0("pop32s_ss16", 11, reg);
     }
 }
 

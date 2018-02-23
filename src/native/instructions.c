@@ -246,37 +246,37 @@ void instr32_5E() { reg32s[ESI] = pop32s(); }
 void instr16_5F() { reg16[DI] = pop16(); }
 void instr32_5F() { reg32s[EDI] = pop32s(); }
 
-void instr16_50_jit() { push16_jit(&reg16[AX]); }
-void instr32_50_jit() { push32_jit(&reg32s[EAX]); }
-void instr16_51_jit() { push16_jit(&reg16[CX]); }
-void instr32_51_jit() { push32_jit(&reg32s[ECX]); }
-void instr16_52_jit() { push16_jit(&reg16[DX]); }
-void instr32_52_jit() { push32_jit(&reg32s[EDX]); }
-void instr16_53_jit() { push16_jit(&reg16[BX]); }
-void instr32_53_jit() { push32_jit(&reg32s[EBX]); }
-void instr16_54_jit() { push16_jit(&reg16[SP]); }
-void instr32_54_jit() { push32_jit(&reg32s[ESP]); }
-void instr16_55_jit() { push16_jit(&reg16[BP]); }
-void instr32_55_jit() { push32_jit(&reg32s[EBP]); }
-void instr16_56_jit() { push16_jit(&reg16[SI]); }
-void instr32_56_jit() { push32_jit(&reg32s[ESI]); }
-void instr16_57_jit() { push16_jit(&reg16[DI]); }
-void instr32_57_jit() { push32_jit(&reg32s[EDI]); }
+void instr16_50_jit() { push16_reg_jit(AX); }
+void instr32_50_jit() { push32_reg_jit(EAX); }
+void instr16_51_jit() { push16_reg_jit(CX); }
+void instr32_51_jit() { push32_reg_jit(ECX); }
+void instr16_52_jit() { push16_reg_jit(DX); }
+void instr32_52_jit() { push32_reg_jit(EDX); }
+void instr16_53_jit() { push16_reg_jit(BX); }
+void instr32_53_jit() { push32_reg_jit(EBX); }
+void instr16_54_jit() { push16_reg_jit(SP); }
+void instr32_54_jit() { push32_reg_jit(ESP); }
+void instr16_55_jit() { push16_reg_jit(BP); }
+void instr32_55_jit() { push32_reg_jit(EBP); }
+void instr16_56_jit() { push16_reg_jit(SI); }
+void instr32_56_jit() { push32_reg_jit(ESI); }
+void instr16_57_jit() { push16_reg_jit(DI); }
+void instr32_57_jit() { push32_reg_jit(EDI); }
 
-void instr16_58_jit() { pop16_jit(&reg16[AX]); }
-void instr32_58_jit() { pop32s_jit(&reg32s[EAX]); }
-void instr16_59_jit() { pop16_jit(&reg16[CX]); }
-void instr32_59_jit() { pop32s_jit(&reg32s[ECX]); }
-void instr16_5A_jit() { pop16_jit(&reg16[DX]); }
-void instr32_5A_jit() { pop32s_jit(&reg32s[EDX]); }
-void instr16_5B_jit() { pop16_jit(&reg16[BX]); }
-void instr32_5B_jit() { pop32s_jit(&reg32s[EBX]); }
-void instr16_5D_jit() { pop16_jit(&reg16[BP]); }
-void instr32_5D_jit() { pop32s_jit(&reg32s[EBP]); }
-void instr16_5E_jit() { pop16_jit(&reg16[SI]); }
-void instr32_5E_jit() { pop32s_jit(&reg32s[ESI]); }
-void instr16_5F_jit() { pop16_jit(&reg16[DI]); }
-void instr32_5F_jit() { pop32s_jit(&reg32s[EDI]); }
+void instr16_58_jit() { pop16_reg_jit(AX); }
+void instr32_58_jit() { pop32s_reg_jit(EAX); }
+void instr16_59_jit() { pop16_reg_jit(CX); }
+void instr32_59_jit() { pop32s_reg_jit(ECX); }
+void instr16_5A_jit() { pop16_reg_jit(DX); }
+void instr32_5A_jit() { pop32s_reg_jit(EDX); }
+void instr16_5B_jit() { pop16_reg_jit(BX); }
+void instr32_5B_jit() { pop32s_reg_jit(EBX); }
+void instr16_5D_jit() { pop16_reg_jit(BP); }
+void instr32_5D_jit() { pop32s_reg_jit(EBP); }
+void instr16_5E_jit() { pop16_reg_jit(SI); }
+void instr32_5E_jit() { pop32s_reg_jit(ESI); }
+void instr16_5F_jit() { pop16_reg_jit(DI); }
+void instr32_5F_jit() { pop32s_reg_jit(EDI); }
 
 
 void instr16_60() { pusha16(); }
