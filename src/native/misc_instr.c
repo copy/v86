@@ -286,6 +286,18 @@ void push16_reg_jit(int32_t reg)
     }
 }
 
+void push16_imm_jit(int32_t imm)
+{
+    if(*stack_size_32)
+    {
+        gen_fn1("push16_ss32", 11, imm);
+    }
+    else
+    {
+        gen_fn1("push16_ss16", 11, imm);
+    }
+}
+
 __attribute__((always_inline))
 void push32_ss16(int32_t imm32)
 {
@@ -324,6 +336,18 @@ void push32_reg_jit(int32_t reg)
     else
     {
         gen_fn1_reg32s("push32_ss16", 11, reg);
+    }
+}
+
+void push32_imm_jit(int32_t imm)
+{
+    if(*stack_size_32)
+    {
+        gen_fn1("push32_ss32", 11, imm);
+    }
+    else
+    {
+        gen_fn1("push32_ss16", 11, imm);
     }
 }
 

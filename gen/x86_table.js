@@ -76,9 +76,9 @@ const encodings = [
     { opcode: 0x66, prefix: 1, },
     { opcode: 0x67, prefix: 1, },
 
-    { opcode: 0x68, os: 1, imm1632: 1, },
+    { opcode: 0x68, custom: 1, os: 1, imm1632: 1, },
     { opcode: 0x69, nonfaulting: 1, os: 1, e: 1, imm1632: 1, mask_flags: af, }, // zf?
-    { opcode: 0x6A, os: 1, imm8s: 1, },
+    { opcode: 0x6A, custom: 1, os: 1, imm8s: 1, },
     { opcode: 0x6B, nonfaulting: 1, os: 1, e: 1, imm8s: 1, mask_flags: af, }, // zf?
 
     { opcode: 0x6C, jump: 1, is_string: 1, skip: 1, },          // ins

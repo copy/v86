@@ -344,6 +344,9 @@ jit_instr_flags instr_67_jit() {
 void instr16_68(int32_t imm16) { push16(imm16); }
 void instr32_68(int32_t imm32) { push32(imm32); }
 
+void instr16_68_jit(int32_t imm16) { push16_imm_jit(imm16); }
+void instr32_68_jit(int32_t imm32) { push32_imm_jit(imm32); }
+
 void instr16_69_mem(int32_t addr, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(safe_read16(addr) << 16 >> 16, imm << 16 >> 16)); }
 void instr16_69_reg(int32_t r1, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(read_reg16(r1) << 16 >> 16, imm << 16 >> 16)); }
 void instr32_69_mem(int32_t addr, int32_t r, int32_t imm) { write_reg32(r, imul_reg32(safe_read32s(addr), imm)); }
@@ -351,6 +354,9 @@ void instr32_69_reg(int32_t r1, int32_t r, int32_t imm) { write_reg32(r, imul_re
 
 void instr16_6A(int32_t imm8) { push16(imm8); }
 void instr32_6A(int32_t imm8) { push32(imm8); }
+
+void instr16_6A_jit(int32_t imm8) { push16_imm_jit(imm8); }
+void instr32_6A_jit(int32_t imm8) { push32_imm_jit(imm8); }
 
 void instr16_6B_mem(int32_t addr, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(safe_read16(addr) << 16 >> 16, imm)); }
 void instr16_6B_reg(int32_t r1, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(read_reg16(r1) << 16 >> 16, imm)); }
