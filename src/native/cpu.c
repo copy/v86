@@ -731,7 +731,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
 
     // at this point no exceptions can be raised
 
-    if(len < JIT_MIN_BLOCK_LENGTH && !ENABLE_JIT_ALWAYS)
+    if(!ENABLE_JIT_ALWAYS && JIT_MIN_BLOCK_LENGTH != 0 && len < JIT_MIN_BLOCK_LENGTH)
     {
         // abort, block is too short to be considered useful for compilation
         profiler_stat_increment(S_CACHE_SKIPPED);
