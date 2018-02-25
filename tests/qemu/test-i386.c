@@ -31,7 +31,7 @@
 #include <sys/user.h>
 
 #if !defined(__x86_64__)
-//#define TEST_VM86
+#define TEST_VM86
 #define TEST_SEGS
 #endif
 //#define LINUX_VM86_IOPL_FIX
@@ -3171,6 +3171,9 @@ extern void *__stop_initcall;
 
 int main(int argc, char **argv)
 {
+    // Uncomment to disable buffering, useful for debugging segfaults
+    //setvbuf(stdout, NULL, _IONBF, 0);
+
     void **ptr;
     void (*func)(void);
 
