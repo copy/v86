@@ -1,7 +1,7 @@
 #pragma once
 
-#include <stdint.h>
 #include <math.h>
+#include <stdint.h>
 
 void fpu_set_tag_word(int32_t tag_word);
 void fpu_fcomi(double_t y);

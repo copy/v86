@@ -1,9 +1,9 @@
 #pragma once
 
-#include <stdint.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <math.h>
+#include <stdint.h>
 
 // like memcpy, but only efficient for large (approximately 10k) sizes
 // See memcpy in https://github.com/kripken/emscripten/blob/master/src/library.js

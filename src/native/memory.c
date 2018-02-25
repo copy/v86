@@ -1,12 +1,12 @@
+#include <assert.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <assert.h>
 
 #include "const.h"
 #include "global_pointers.h"
-#include "log.h"
 #include "js_imports.h"
+#include "log.h"
 #include "memory.h"
 
 bool in_mapped_range(uint32_t addr)

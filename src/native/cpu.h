@@ -1,12 +1,12 @@
 #pragma once
 
-#include <stdint.h>
-#include <stdbool.h>
 #include <assert.h>
+#include <stdbool.h>
+#include <stdint.h>
 
-#include "shared.h"
 #include "const.h"
 #include "instructions.h"
+#include "shared.h"
 
 #define CODE_CACHE_SEARCH_SIZE 8
 

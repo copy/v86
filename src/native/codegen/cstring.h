@@ -2,8 +2,8 @@
 
 // everything here is copied from musl
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 // from strncmp.c
 
@@ -14,4 +14,3 @@ static int strncmp(const char *_l, const char *_r, size_t n)
     for (; *l && *r && n && *l == *r ; l++, r++, n--);
     return *l - *r;
 }
-

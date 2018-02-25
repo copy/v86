@@ -1,16 +1,16 @@
-#include <stdint.h>
-#include <math.h>
 #include <assert.h>
+#include <math.h>
 #include <stdbool.h>
+#include <stdint.h>
 
-#include "const.h"
-#include "global_pointers.h"
-#include "cpu.h"
-#include "misc_instr.h"
-#include "memory.h"
-#include "log.h"
-#include "js_imports.h"
 #include "arith.h"
+#include "const.h"
+#include "cpu.h"
+#include "global_pointers.h"
+#include "js_imports.h"
+#include "log.h"
+#include "memory.h"
+#include "misc_instr.h"
 
 int32_t add(int32_t dest_operand, int32_t source_operand, int32_t op_size)
 {

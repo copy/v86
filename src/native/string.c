@@ -1,12 +1,12 @@
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
-#include "global_pointers.h"
-#include "cpu.h"
-#include "memory.h"
-#include "log.h"
 #include "arith.h"
+#include "cpu.h"
+#include "global_pointers.h"
 #include "js_imports.h"
+#include "log.h"
+#include "memory.h"
 #include "string.h"
 
 #define MAX_COUNT_PER_CYCLE 0x1000

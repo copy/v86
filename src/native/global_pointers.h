@@ -1,8 +1,8 @@
 #pragma once
 
-#include <stdint.h>
-#include <stdbool.h>
 #include <math.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 #include "const.h"
 #include "shared.h"

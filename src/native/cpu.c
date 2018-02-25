@@ -4,18 +4,18 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "const.h"
-#include "global_pointers.h"
-#include "profiler/profiler.h"
 #include "codegen/codegen.h"
-#include "log.h"
-#include "instructions.h"
-#include "memory.h"
-#include "shared.h"
-#include "modrm.h"
-#include "misc_instr.h"
-#include "js_imports.h"
+#include "const.h"
 #include "cpu.h"
+#include "global_pointers.h"
+#include "instructions.h"
+#include "js_imports.h"
+#include "log.h"
+#include "memory.h"
+#include "misc_instr.h"
+#include "modrm.h"
+#include "profiler/profiler.h"
+#include "shared.h"
 
 #if DEBUG
 struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, {0}, 0, 0, 0, false}};

@@ -1,8 +1,8 @@
 #include <stdint.h>
 
+#include "cpu.h"
 #include "shared.h"
 #include "sse_instr.h"
-#include "cpu.h"
 
 void mov_r_m64(int32_t addr, int32_t r)
 {

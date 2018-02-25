@@ -1,11 +1,11 @@
-#include <stdint.h>
-#include <math.h>
 #include <assert.h>
+#include <math.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "const.h"
-#include "global_pointers.h"
 #include "cpu.h"
+#include "global_pointers.h"
 #include "modrm.h"
 
 //static int32_t resolve_sib_(bool mod);

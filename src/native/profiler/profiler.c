@@ -1,11 +1,11 @@
-#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
-#include "profiler.h"
-#include "../shared.h"
 #include "../const.h"
 #include "../log.h"
+#include "../shared.h"
+#include "profiler.h"
 
 #if ENABLE_PROFILER
 

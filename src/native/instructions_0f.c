@@ -1,22 +1,22 @@
-#include <stdint.h>
-#include <math.h>
 #include <assert.h>
+#include <math.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 
+#include "arith.h"
+#include "codegen/codegen.h"
 #include "const.h"
 #include "cpu.h"
-#include "log.h"
-#include "misc_instr.h"
-#include "arith.h"
 #include "fpu.h"
-#include "sse_instr.h"
 #include "global_pointers.h"
-#include "memory.h"
 #include "instructions.h"
-#include "codegen/codegen.h"
-#include "js_imports.h"
 #include "instructions_0f.h"
+#include "js_imports.h"
+#include "log.h"
+#include "memory.h"
+#include "misc_instr.h"
+#include "sse_instr.h"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"

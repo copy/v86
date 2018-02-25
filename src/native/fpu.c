@@ -1,14 +1,14 @@
-#include <stdint.h>
 #include <math.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "const.h"
+#include "cpu.h"
+#include "fpu.h"
 #include "global_pointers.h"
 #include "js_imports.h"
-#include "cpu.h"
-#include "misc_instr.h"
 #include "log.h"
-#include "fpu.h"
+#include "misc_instr.h"
 
 const int32_t
     FPU_C0 = 0x100,

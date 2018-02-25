@@ -1,7 +1,8 @@
 #pragma once
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+
 #include "cpu.h"
 
 bool in_mapped_range(uint32_t addr);

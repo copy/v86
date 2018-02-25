@@ -1,17 +1,16 @@
-#include <stdint.h>
-#include <math.h>
 #include <assert.h>
+#include <math.h>
 #include <stdbool.h>
-
+#include <stdint.h>
 #include <stdio.h>
 
 #include "codegen/codegen.h"
 #include "const.h"
-#include "global_pointers.h"
-#include "fpu.h"
-#include "log.h"
 #include "cpu.h"
+#include "fpu.h"
+#include "global_pointers.h"
 #include "js_imports.h"
+#include "log.h"
 #include "misc_instr.h"
 
 bool getcf()

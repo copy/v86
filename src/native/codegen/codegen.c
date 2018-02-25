@@ -1,15 +1,15 @@
+#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <assert.h>
 
-#include "cstring.h"
 #include "../const.h"
-#include "wasm_opcodes.h"
-#include "codegen.h"
-#include "util.h"
-#include "wasm_util.h"
-#include "module_init.h"
 #include "../global_pointers.h"
+#include "codegen.h"
+#include "cstring.h"
+#include "module_init.h"
+#include "util.h"
+#include "wasm_opcodes.h"
+#include "wasm_util.h"
 
 static Buffer op = { .start = codegen_buffer_op, .ptr = codegen_buffer_op, .len = 0x1000 };
 static Buffer cs = { .start = codegen_buffer_cs, .ptr = codegen_buffer_cs, .len = 0x1000 };
