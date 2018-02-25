@@ -290,7 +290,7 @@ void writable_or_pagefault(int32_t addr, int32_t size)
         return;
     }
 
-    bool user = cpl[0] == 3 ? true : false;
+    bool user = cpl[0] == 3;
     int32_t mask = TLB_READONLY | TLB_VALID | (user ? TLB_NO_USER : 0);
     int32_t expect = TLB_VALID;
     int32_t page = (uint32_t)addr >> 12;
@@ -316,7 +316,7 @@ uint32_t translate_address_read(int32_t address)
 
     int32_t base = (uint32_t)address >> 12;
     int32_t entry = tlb_data[base];
-    bool user = cpl[0] == 3 ? true : false;
+    bool user = cpl[0] == 3;
     if((entry & (TLB_VALID | (user ? TLB_NO_USER : 0))) == TLB_VALID)
     {
         return entry & ~0xFFF ^ address;
@@ -333,7 +333,7 @@ uint32_t translate_address_write(int32_t address)
 
     int32_t base = (uint32_t)address >> 12;
     int32_t entry = tlb_data[base];
-    bool user = cpl[0] == 3 ? true : false;
+    bool user = cpl[0] == 3;
     if((entry & (TLB_VALID | (user ? TLB_NO_USER : 0) | TLB_READONLY)) == TLB_VALID)
     {
         return entry & ~0xFFF ^ address;
@@ -1185,11 +1185,9 @@ int32_t safe_read32s(int32_t address)
         assert(!in_mapped_range(phys_address));
         return *(int32_t*)(mem8 + phys_address);
     }
-    else
 #endif
-    {
-        return safe_read32s_slow(address);
-    }
+
+    return safe_read32s_slow(address);
 }
 
 union reg64 safe_read64s(int32_t addr)
@@ -1282,11 +1280,9 @@ void safe_write32(int32_t address, int32_t value)
         assert(!in_mapped_range(phys_address));
         *(int32_t*)(mem8 + phys_address) = value;
     }
-    else
 #endif
-    {
-        safe_write32_slow(address, value);
-    }
+
+    safe_write32_slow(address, value);
 }
 
 void safe_write64(int32_t addr, int64_t value)
