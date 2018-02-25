@@ -27,13 +27,13 @@ extern int32_t read_imm8();
 extern int32_t read_imm8s();
 extern int32_t read_imm16();
 extern int32_t read_imm32s();
-extern int32_t get_fn_index(char const* fn, uint8_t fn_len, uint8_t type_index);
 
 static uint8_t* op_ptr_reset_location;
 static uint32_t import_table_size_reset_value;
 static uint32_t initial_import_count;
-static void jit_resolve_modrm32_(int32_t);
-static void jit_resolve_modrm16_(int32_t);
+
+static void jit_resolve_modrm32_(int32_t modrm_byte);
+static void jit_resolve_modrm16_(int32_t modrm_byte);
 
 void gen_init()
 {
