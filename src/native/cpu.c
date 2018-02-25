@@ -251,13 +251,12 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
 
     if(tlb_data[page] == 0)
     {
-        // TODO: assert that page is in valid_tlb_entries
-
         if(valid_tlb_entries_count == VALID_TLB_ENTRY_MAX)
         {
             profiler_stat_increment(S_TLB_FULL);
             clear_tlb();
 
+            // also clear global entries if tlb is almost full after clearing non-global pages
             if(valid_tlb_entries_count > VALID_TLB_ENTRY_MAX * 3 / 4)
             {
                 profiler_stat_increment(S_TLB_GLOBAL_FULL);
@@ -265,7 +264,25 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
             }
         }
 
+        assert(valid_tlb_entries_count < VALID_TLB_ENTRY_MAX);
         valid_tlb_entries[valid_tlb_entries_count++] = page;
+    }
+    else
+    {
+#if 1
+        bool found = false;
+
+        for(int32_t i = 0; i < valid_tlb_entries_count; i++)
+        {
+            if(valid_tlb_entries[i] == page)
+            {
+                found = true;
+                break;
+            }
+        }
+
+        assert(found);
+#endif
     }
 
     int32_t info_bits =
