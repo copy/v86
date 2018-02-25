@@ -262,7 +262,8 @@ jitpagingtests: build/libv86-debug.js build/v86-debug.wasm
 qemutests: build/libv86-debug.js build/v86-debug.wasm
 	$(MAKE) -C tests/qemu test-i386
 	./tests/qemu/run.js > /tmp/v86-test-result
-	./tests/qemu/test-i386 > /tmp/v86-test-reference
+	#./tests/qemu/test-i386 > /tmp/v86-test-reference
+	./tests/qemu/run-qemu.js > /tmp/v86-test-reference
 	diff /tmp/v86-test-result /tmp/v86-test-reference
 
 kvm-unit-test: build/libv86-debug.js build/v86-debug.wasm
