@@ -660,7 +660,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
     int32_t len = 0;
     jit_jump = false;
 
-    int32_t end_addr = phys_addr + 1;
+    int32_t end_addr;
     int32_t first_opcode = -1;
     bool was_jump = false;
     int32_t eip_delta = 0;
