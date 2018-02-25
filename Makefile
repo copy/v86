@@ -16,6 +16,10 @@ ifeq ($(ENABLE_COV), 1)
 CC_COVERAGE_FLAGS=--coverage -fprofile-instr-generate
 endif
 
+ifeq ($(JIT_ALWAYS),)
+JIT_ALWAYS=false
+endif
+
 all: build/v86_all.js
 browser: build/v86_all.js
 wasm: build/v86.wasm
@@ -177,26 +181,33 @@ build/interpreter0f_16.c: $(INTERPRETER_DEPENDENCIES)
 build/interpreter0f_32.c: $(INTERPRETER_DEPENDENCIES)
 	./gen/generate_interpreter.js --output-dir build/ --table interpreter0f_32
 
+.PHONY: phony
+build/JIT_ALWAYS: phony
+	@if [[ `cat build/JIT_ALWAYS 2>&1` != '$(JIT_ALWAYS)' ]]; then \
+	    echo -n $(JIT_ALWAYS) > build/JIT_ALWAYS ; \
+	fi
 
-build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/call-indirect.ll $(INSTRUCTION_TABLES)
+build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/call-indirect.ll $(INSTRUCTION_TABLES) build/JIT_ALWAYS
 	mkdir -p build
 	-ls -lh build/v86.wasm
 	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/call-indirect.ll \
 		$(CC_FLAGS) \
 		-DDEBUG=false \
 		-DNDEBUG \
+		-D"ENABLE_JIT_ALWAYS=$(JIT_ALWAYS)" \
 		-O3 \
 		--llvm-opts 3 \
 		--llvm-lto 3 \
 		-o build/v86.wasm
 	ls -lh build/v86.wasm
 
-build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/*.ll $(INSTRUCTION_TABLES)
+build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/*.ll $(INSTRUCTION_TABLES) build/JIT_ALWAYS
 	mkdir -p build/coverage
 	-ls -lh build/v86-debug.wasm
 	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/*.ll \
 		$(CC_FLAGS) \
 		$(CC_COVERAGE_FLAGS) \
+		-D"ENABLE_JIT_ALWAYS=$(JIT_ALWAYS)" \
 		-Os \
 		-o build/v86-debug.wasm
 	ls -lh build/v86-debug.wasm
