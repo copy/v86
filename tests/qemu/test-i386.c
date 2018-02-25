@@ -1380,7 +1380,13 @@ void test_xchg(void)
 
 static inline int modify_ldt(int func, void * ptr, unsigned long bytecount)
 {
-    return syscall(__NR_modify_ldt, func, ptr, bytecount);
+    int result = syscall(__NR_modify_ldt, func, ptr, bytecount);
+    if(result == -1)
+    {
+        fprintf(stderr, "Error: modify_ldt not available on this kernel. Check MODIFY_LDT_SYSCALL in /proc/config.gz.\n");
+        exit(1);
+    }
+    return result;
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 5, 66)
@@ -3187,7 +3193,7 @@ int main(int argc, char **argv)
     test_misc();
     test_lea();
 #ifdef TEST_SEGS
-    //test_segs(); // XXX: temporarily disabled
+    test_segs();
     test_code16();
 #endif
 #ifdef TEST_VM86
