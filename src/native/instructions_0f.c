@@ -1710,12 +1710,12 @@ void instr_660F73_3_reg(int32_t r, int32_t imm8) {
 
     if(shift <= 63)
     {
-        result.u64[0] = (uint64_t) destination.u64[0] >> shift | destination.u64[1] >> (64 - shift);
-        result.u64[1] = (uint64_t) destination.u64[1] >> shift;
+        result.u64[0] = destination.u64[0] >> shift | destination.u64[1] >> (64 - shift);
+        result.u64[1] = destination.u64[1] >> shift;
     }
     else if(shift <= 127)
     {
-        result.u64[0] = (uint64_t) destination.u64[1] >> (shift - 64);
+        result.u64[0] = destination.u64[1] >> (shift - 64);
         result.u64[1] = 0;
     }
 
@@ -1743,13 +1743,13 @@ void instr_660F73_7_reg(int32_t r, int32_t imm8) {
 
     if(shift <= 63)
     {
-        result.u64[0] = (uint64_t) destination.u64[0] << shift;
-        result.u64[1] = (uint64_t) destination.u64[1] << shift | destination.u64[0] >> (64 - shift);
+        result.u64[0] = destination.u64[0] << shift;
+        result.u64[1] = destination.u64[1] << shift | destination.u64[0] >> (64 - shift);
     }
     else if(shift <= 127)
     {
         result.u64[0] = 0;
-        result.u64[1] = (uint64_t) destination.u64[0] << (shift - 64);
+        result.u64[1] = destination.u64[0] << (shift - 64);
     }
 
     write_xmm_reg128(r, result);
@@ -3567,7 +3567,7 @@ void instr_0FFB(union reg64 source, int32_t r) {
     task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
-    destination.u64[0] = (uint64_t) destination.u64[0] - (uint64_t) source.u64[0];
+    destination.u64[0] = destination.u64[0] - source.u64[0];
     write_mmx_reg64(r, destination);
 }
 DEFINE_SSE_SPLIT(instr_0FFB, safe_read64s, read_mmx64s)
@@ -3578,8 +3578,8 @@ void instr_660FFB(union reg128 source, int32_t r) {
     task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
-    destination.u64[0] = (uint64_t) destination.u64[0] - (uint64_t) source.u64[0];
-    destination.u64[1] = (uint64_t) destination.u64[1] - (uint64_t) source.u64[1];
+    destination.u64[0] = destination.u64[0] - source.u64[0];
+    destination.u64[1] = destination.u64[1] - source.u64[1];
 
     write_xmm_reg128(r, destination);
 }
