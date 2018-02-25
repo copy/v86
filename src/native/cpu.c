@@ -269,7 +269,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
     }
     else
     {
-#if 1
+#if CHECK_TLB_INVARIANTS
         bool found = false;
 
         for(int32_t i = 0; i < valid_tlb_entries_count; i++)
@@ -1458,7 +1458,7 @@ void clear_tlb()
 
     valid_tlb_entries_count = global_page_offset;
 
-#if 1
+#if CHECK_TLB_INVARIANTS
     for(int32_t i = 0; i < 0x100000; i++)
     {
         assert(tlb_data[i] == 0 || (tlb_data[i] & TLB_GLOBAL));
@@ -1482,7 +1482,7 @@ void full_clear_tlb()
 
     valid_tlb_entries_count = 0;
 
-#if 1
+#if CHECK_TLB_INVARIANTS
     for(int32_t i = 0; i < 0x100000; i++)
     {
         assert(tlb_data[i] == 0);
