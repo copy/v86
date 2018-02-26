@@ -35,6 +35,13 @@ static void inline load_i32(Buffer* buf, uint32_t addr)
     write_raw_u8(buf, MEM_IMM_OFFSET);
 }
 
+static void inline store_u16(Buffer* buf)
+{
+    write_raw_u8(buf, OP_I32STORE16);
+    write_raw_u8(buf, MEM_IMM_ALIGNMENT);
+    write_raw_u8(buf, MEM_IMM_OFFSET);
+}
+
 static void inline store_i32(Buffer* buf)
 {
     write_raw_u8(buf, OP_I32STORE);

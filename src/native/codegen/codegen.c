@@ -211,7 +211,7 @@ void gen_reg16_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg)
     int32_t fn_idx = get_fn_index(fn, fn_len, FN0_RET_TYPE_INDEX);
     push_i32(&instruction_body, (int32_t) &reg16[reg]);
     call_fn(&instruction_body, fn_idx);
-    store_i32(&instruction_body);
+    store_u16(&instruction_body);
 }
 
 void gen_reg32s_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg)
@@ -234,7 +234,7 @@ void gen_fn1_reg16(char const* fn, uint8_t fn_len, int32_t reg)
 {
     // generates: fn(reg16[reg])
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
-    load_i32(&instruction_body, (int32_t) &reg16[reg]);
+    load_u16(&instruction_body, (int32_t) &reg16[reg]);
     call_fn(&instruction_body, fn_idx);
 }
 
