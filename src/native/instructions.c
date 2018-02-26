@@ -1449,7 +1449,8 @@ void instr16_FF_5_mem(int32_t addr)
     diverged();
 }
 DEFINE_MODRM_INSTR1_READ16(instr16_FF_6, push16(___))
-void instr16_FF_6_jit(int32_t modrm_byte) { push16_modrm_jit(modrm_byte); }
+void instr16_FF_6_jit_reg(int32_t reg) { push16_reg_jit(reg); }
+void instr16_FF_6_jit_mem(int32_t modrm_byte) { push16_mem_jit(modrm_byte); }
 
 DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_FF_0, inc32(___))
 DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_FF_1, dec32(___))
@@ -1520,7 +1521,8 @@ void instr32_FF_5_mem(int32_t addr)
     diverged();
 }
 DEFINE_MODRM_INSTR1_READ32(instr32_FF_6, push32(___))
-void instr32_FF_6_jit(int32_t modrm_byte) { push32_modrm_jit(modrm_byte); }
+void instr32_FF_6_jit_reg(int32_t reg) { push32_reg_jit(reg); }
+void instr32_FF_6_jit_mem(int32_t modrm_byte) { push32_mem_jit(modrm_byte); }
 
 void run_instruction(int32_t opcode)
 {
