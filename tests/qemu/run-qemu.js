@@ -16,7 +16,7 @@ const qemu = spawn("qemu-system-x86_64",
         "-device", "virtio-9p-pci,fsdev=fs9p,mount_tag=host9p",
         "-fsdev", `local,id=fs9p,path=${share_dir_9p},security_model=none`,
         "-display", "none",
-        "-cpu", "max", // default doesn't support popcnt
+        "-cpu", "Westmere", // default doesn't support popcnt
 
         //"-monitor", "telnet:127.0.0.1:1235,server,nowait",
     ]
