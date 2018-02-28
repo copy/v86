@@ -305,5 +305,7 @@ build/libwabt.js:
 
 clang-tidy:
 	clang-tidy \
-	     src/native/*.{c,h} src/native/profiler/*.{c,h} src/native/codegen/*.{c,h} \
+	     src/native/*.c src/native/*.h \
+	     src/native/profiler/*.c src/native/profiler/*.h \
+	     src/native/codegen/*.c src/native/codegen/*.h \
 	     -- -I src/native/ -Wall -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal
