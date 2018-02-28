@@ -120,33 +120,33 @@ void gen_increment_variable(int32_t variable_address, int32_t n)
 {
     push_i32(&cs, variable_address);
 
-    load_i32(&cs, variable_address);
+    load_aligned_i32(&cs, variable_address);
     push_i32(&cs, n);
     add_i32(&cs);
 
-    store_i32(&cs);
+    store_aligned_i32(&cs);
 }
 
 void gen_increment_instruction_pointer(int32_t n)
 {
     push_i32(&cs, (int32_t)instruction_pointer); // store address of ip
 
-    load_i32(&cs, (int32_t)instruction_pointer); // load ip
+    load_aligned_i32(&cs, (int32_t)instruction_pointer); // load ip
 
     push_i32(&cs, n);
 
     add_i32(&cs);
-    store_i32(&cs); // store it back in
+    store_aligned_i32(&cs); // store it back in
 }
 
 void gen_relative_jump(int32_t n)
 {
     // add n to instruction_pointer (without setting the offset as above)
     push_i32(&instruction_body, (int32_t)instruction_pointer);
-    load_i32(&instruction_body, (int32_t)instruction_pointer);
+    load_aligned_i32(&instruction_body, (int32_t)instruction_pointer);
     push_i32(&instruction_body, n);
     add_i32(&instruction_body);
-    store_i32(&instruction_body);
+    store_aligned_i32(&instruction_body);
 }
 
 void gen_increment_timestamp_counter(int32_t n)
@@ -157,27 +157,27 @@ void gen_increment_timestamp_counter(int32_t n)
 void gen_set_previous_eip_offset_from_eip(int32_t n)
 {
     push_i32(&cs, (int32_t)previous_ip); // store address of previous ip
-    load_i32(&cs, (int32_t)instruction_pointer); // load ip
+    load_aligned_i32(&cs, (int32_t)instruction_pointer); // load ip
     if(n != 0)
     {
         push_i32(&cs, n);
         add_i32(&cs); // add constant to ip value
     }
-    store_i32(&cs); // store it as previous ip
+    store_aligned_i32(&cs); // store it as previous ip
 }
 
 void gen_set_previous_eip()
 {
     push_i32(&cs, (int32_t)previous_ip); // store address of previous ip
-    load_i32(&cs, (int32_t)instruction_pointer); // load ip
-    store_i32(&cs); // store it as previous ip
+    load_aligned_i32(&cs, (int32_t)instruction_pointer); // load ip
+    store_aligned_i32(&cs); // store it as previous ip
 }
 
 void gen_clear_prefixes()
 {
     push_i32(&instruction_body, (int32_t)prefixes); // load address of prefixes
     push_i32(&instruction_body, 0);
-    store_i32(&instruction_body);
+    store_aligned_i32(&instruction_body);
 }
 
 void gen_add_prefix_bits(int32_t mask)
@@ -186,11 +186,11 @@ void gen_add_prefix_bits(int32_t mask)
 
     push_i32(&instruction_body, (int32_t)prefixes); // load address of prefixes
 
-    load_i32(&instruction_body, (int32_t)prefixes); // load old value
+    load_aligned_i32(&instruction_body, (int32_t)prefixes); // load old value
     push_i32(&instruction_body, mask);
     or_i32(&instruction_body);
 
-    store_i32(&instruction_body);
+    store_aligned_i32(&instruction_body);
 }
 
 void gen_fn0_ret(char const* fn, uint8_t fn_len)
@@ -211,7 +211,7 @@ void gen_reg16_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg)
     int32_t fn_idx = get_fn_index(fn, fn_len, FN0_RET_TYPE_INDEX);
     push_i32(&instruction_body, (int32_t) &reg16[reg]);
     call_fn(&instruction_body, fn_idx);
-    store_u16(&instruction_body);
+    store_aligned_u16(&instruction_body);
 }
 
 void gen_reg32s_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg)
@@ -220,7 +220,7 @@ void gen_reg32s_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg)
     int32_t fn_idx = get_fn_index(fn, fn_len, FN0_RET_TYPE_INDEX);
     push_i32(&instruction_body, (int32_t) &reg32s[reg]);
     call_fn(&instruction_body, fn_idx);
-    store_i32(&instruction_body);
+    store_aligned_i32(&instruction_body);
 }
 
 void gen_fn1(char const* fn, uint8_t fn_len, int32_t arg0)
@@ -234,7 +234,7 @@ void gen_fn1_reg16(char const* fn, uint8_t fn_len, int32_t reg)
 {
     // generates: fn(reg16[reg])
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
-    load_u16(&instruction_body, (int32_t) &reg16[reg]);
+    load_aligned_u16(&instruction_body, (int32_t) &reg16[reg]);
     call_fn(&instruction_body, fn_idx);
 }
 
@@ -242,7 +242,7 @@ void gen_fn1_reg32s(char const* fn, uint8_t fn_len, int32_t reg)
 {
     // generates: fn(reg32s[reg])
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
-    load_i32(&instruction_body, (int32_t) &reg32s[reg]);
+    load_aligned_i32(&instruction_body, (int32_t) &reg32s[reg]);
     call_fn(&instruction_body, fn_idx);
 }
 
@@ -303,8 +303,8 @@ void gen_block_end()
 static void inline gen_modrm_entry_0(int32_t fn_idx, int32_t reg16_idx_1, int32_t reg16_idx_2, int32_t imm)
 {
     // generates: fn( ( reg1 + reg2 + imm ) & 0xFFFF )
-    load_u16(&instruction_body, reg16_idx_1);
-    load_u16(&instruction_body, reg16_idx_2);
+    load_aligned_u16(&instruction_body, reg16_idx_1);
+    load_aligned_u16(&instruction_body, reg16_idx_2);
     add_i32(&instruction_body);
 
     push_i32(&instruction_body, imm);
@@ -319,7 +319,7 @@ static void inline gen_modrm_entry_0(int32_t fn_idx, int32_t reg16_idx_1, int32_
 static void gen_modrm_entry_1(int32_t fn_idx, int32_t reg16_idx, int32_t imm)
 {
     // generates: fn ( ( reg + imm ) & 0xFFFF )
-    load_u16(&instruction_body, reg16_idx);
+    load_aligned_u16(&instruction_body, reg16_idx);
     push_i32(&instruction_body, imm);
     add_i32(&instruction_body);
 
@@ -361,7 +361,7 @@ void gen_resolve_modrm16(int32_t modrm_byte)
 {
     push_u32(&instruction_body, RESULT_LOC);
     jit_resolve_modrm16_(modrm_byte);
-    store_i32(&instruction_body);
+    store_aligned_i32(&instruction_body);
 }
 
 #define MODRM_ENTRY32_0(row, seg, reg)\
@@ -372,7 +372,7 @@ void gen_resolve_modrm16(int32_t modrm_byte)
 static void gen_modrm32_entry(int32_t fn_idx, int32_t reg32s_idx, int32_t imm)
 {
     // generates: fn ( reg + imm )
-    load_i32(&instruction_body, reg32s_idx);
+    load_aligned_i32(&instruction_body, reg32s_idx);
     push_i32(&instruction_body, imm);
     add_i32(&instruction_body);
 
@@ -426,7 +426,7 @@ static void jit_resolve_sib(bool mod)
 
     if(base_is_mem_access)
     {
-        load_i32(&instruction_body, base_addr);
+        load_aligned_i32(&instruction_body, base_addr);
     }
     else
     {
@@ -447,7 +447,7 @@ static void jit_resolve_sib(bool mod)
 
     uint8_t s = sib_byte >> 6 & 3;
 
-    load_i32(&instruction_body, (int32_t)(reg32s + m));
+    load_aligned_i32(&instruction_body, (int32_t)(reg32s + m));
     // We don't use push_u32 here either since s will fit in 1 byte
     write_raw_u8(&instruction_body, OP_I32CONST);
     write_raw_u8(&instruction_body, s);
@@ -502,7 +502,7 @@ void gen_resolve_modrm32(int32_t modrm_byte)
 {
     push_i32(&instruction_body, RESULT_LOC);
     jit_resolve_modrm32_(modrm_byte);
-    store_i32(&instruction_body);
+    store_aligned_i32(&instruction_body);
 }
 
 #undef MODRM_ENTRY

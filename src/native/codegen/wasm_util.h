@@ -17,35 +17,41 @@ static void inline push_u32(Buffer* buf, uint32_t v)
     write_leb_u32(buf, v);
 }
 
-static void inline load_u16(Buffer* buf, uint32_t addr)
+static void inline load_aligned_u16(Buffer* buf, uint32_t addr)
 {
+    // doesn't cause a failure in the generated code, but it will be much slower
+    assert((addr & 1) == 0);
+
     write_raw_u8(buf, OP_I32CONST);
     write_leb_u32(buf, addr);
     write_raw_u8(buf, OP_I32LOAD16U);
-    write_raw_u8(buf, MEM_IMM_ALIGNMENT);
+    write_raw_u8(buf, 1);
     write_raw_u8(buf, MEM_IMM_OFFSET);
 }
 
-static void inline load_i32(Buffer* buf, uint32_t addr)
+static void inline load_aligned_i32(Buffer* buf, uint32_t addr)
 {
+    // doesn't cause a failure in the generated code, but it will be much slower
+    assert((addr & 3) == 0);
+
     write_raw_u8(buf, OP_I32CONST);
     write_leb_u32(buf, addr);
     write_raw_u8(buf, OP_I32LOAD);
-    write_raw_u8(buf, MEM_IMM_ALIGNMENT);
+    write_raw_u8(buf, 2);
     write_raw_u8(buf, MEM_IMM_OFFSET);
 }
 
-static void inline store_u16(Buffer* buf)
+static void inline store_aligned_u16(Buffer* buf)
 {
     write_raw_u8(buf, OP_I32STORE16);
-    write_raw_u8(buf, MEM_IMM_ALIGNMENT);
+    write_raw_u8(buf, 1);
     write_raw_u8(buf, MEM_IMM_OFFSET);
 }
 
-static void inline store_i32(Buffer* buf)
+static void inline store_aligned_i32(Buffer* buf)
 {
     write_raw_u8(buf, OP_I32STORE);
-    write_raw_u8(buf, MEM_IMM_ALIGNMENT);
+    write_raw_u8(buf, 2);
     write_raw_u8(buf, MEM_IMM_OFFSET);
 }
 
