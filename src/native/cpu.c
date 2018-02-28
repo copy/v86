@@ -292,6 +292,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
         (in_mapped_range(high) ? TLB_IN_MAPPED_RANGE : 0) |
         (global && (cr[4] & CR4_PGE) ? TLB_GLOBAL : 0);
 
+    assert(((high ^ page << 12) & 0xFFF) == 0);
     tlb_data[page] = high ^ page << 12 | info_bits;
 
     return high;
@@ -1296,6 +1297,7 @@ void safe_write32(int32_t address, int32_t value)
         jit_dirty_cache_single(phys_address);
         assert(!in_mapped_range(phys_address));
         *(int32_t*)(mem8 + phys_address) = value;
+        return;
     }
 #endif
 
