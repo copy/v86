@@ -1,2 +1,1 @@
 Checks: '*,-llvm-header-guard,-readability-braces-around-statements,-readability-else-after-return,-google-readability-todo,-misc-unused-parameters,-*-function-size,-clang-diagnostic-unused-function'
-WarningsAsErrors: '*,-clang-diagnostic-unused-function'
