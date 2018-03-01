@@ -611,12 +611,6 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
         uint16_t addr_index = (phys_addr + i) & JIT_PHYS_MASK;
         struct code_cache* entry = &jit_cache_arr[addr_index];
 
-        // there shouldn't be an already valid entry
-        assert(
-            entry->start_addr != phys_addr ||
-            entry->state_flags != pack_current_state_flags()
-        );
-
         uint32_t page_dirtiness = group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT];
 
         if(!entry->start_addr || entry->group_status != page_dirtiness)
@@ -628,7 +622,6 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
             }
 
             entry->wasm_table_index = addr_index;
-            entry->state_flags = 0;
             return entry;
         }
     }
@@ -637,7 +630,6 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
     uint16_t addr_index = phys_addr & JIT_PHYS_MASK;
     struct code_cache* entry = &jit_cache_arr[addr_index];
     entry->wasm_table_index = addr_index;
-    entry->state_flags = 0;
 
     profiler_stat_increment(S_CACHE_MISMATCH);
     return entry;
@@ -648,7 +640,7 @@ static bool is_near_end_of_page(uint32_t addr)
     return (addr & 0xFFF) >= (0x1000 - 16);
 }
 
-static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_cache* entry, uint32_t page_dirtiness)
+static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page_dirtiness)
 {
     profiler_start(P_GEN_INSTR);
     profiler_stat_increment(S_COMPILE);
@@ -747,6 +739,9 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
     }
 #endif
 
+    // no page was crossed
+    assert(((end_addr ^ phys_addr) & ~0xFFF) == 0);
+
     // at this point no exceptions can be raised
 
     if(!ENABLE_JIT_ALWAYS && JIT_MIN_BLOCK_LENGTH != 0 && len < JIT_MIN_BLOCK_LENGTH)
@@ -758,48 +753,28 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, struct code_c
         return;
     }
 
-    if(entry && entry->group_status != page_dirtiness)
-    {
-        assert(entry->start_addr == phys_addr);
-        profiler_stat_increment(S_CACHE_DROP);
-    }
-
-    // no page was crossed
-    assert(((end_addr ^ phys_addr) & ~0xFFF) == 0);
-
     gen_increment_timestamp_counter(len);
 
-    assert(first_opcode != -1);
+    struct code_cache* entry = create_cache_entry(phys_addr);
 
-    if(!entry)
-    {
-        entry = create_cache_entry(phys_addr);
+    jit_jump = false;
+    gen_finish();
+    codegen_finalize(entry->wasm_table_index, entry->start_addr, end_addr);
+    assert(*prefixes == 0);
 
-        entry->start_addr = phys_addr;
-        entry->state_flags = pack_current_state_flags();
-    }
-    else
-    {
-        assert(entry->group_status != page_dirtiness);
-        assert(entry->start_addr == phys_addr);
-        assert(entry->state_flags == pack_current_state_flags());
-    }
+    entry->start_addr = phys_addr;
+    entry->state_flags = pack_current_state_flags();
+    entry->group_status = page_dirtiness;
 
 #if DEBUG
+    assert(first_opcode != -1);
     entry->opcode[0] = first_opcode;
     entry->end_addr = end_addr;
     entry->len = len;
 #endif
 
-    jit_jump = false;
-
-    gen_finish();
-
-    codegen_finalize(entry->wasm_table_index, start_addr, entry->start_addr, end_addr);
-
-    assert(*prefixes == 0);
-
-    entry->group_status = page_dirtiness;
+    // start execution at the newly generated code
+    *instruction_pointer = start_addr;
 
     profiler_stat_increment(S_COMPILE_SUCCESS);
     profiler_end(P_GEN_INSTR);
@@ -927,7 +902,7 @@ void cycle_internal()
         assert(entry->start_addr == old_start_address);
 
         // JIT compiled self-modifying code may trigger this assert
-        assert(old_group_dirtiness == group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT]);
+        //assert(old_group_dirtiness == group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT]);
 
         UNUSED(old_group_status);
         UNUSED(old_start_address);
@@ -947,7 +922,7 @@ void cycle_internal()
             )
           )
         {
-            jit_generate(address_hash, phys_addr, entry, page_dirtiness);
+            jit_generate(address_hash, phys_addr, page_dirtiness);
         }
         else
         {

@@ -1262,7 +1262,7 @@ if(PROFILING)
 var seen_code = {};
 var seen_code_uncompiled = {};
 
-CPU.prototype.codegen_finalize = function(cache_index, virtual_start, start, end)
+CPU.prototype.codegen_finalize = function(cache_index, start, end)
 {
     dbg_assert(cache_index >= 0 && cache_index < WASM_TABLE_SIZE);
     //dbg_log("finalize");
@@ -1318,17 +1318,8 @@ CPU.prototype.codegen_finalize = function(cache_index, virtual_start, start, end
     const instance = new WebAssembly.Instance(module, this.jit_imports);
     const f = instance.exports["f"];
 
-    // The following will throw if o.exports.f isn't an exported function
+    // The following will throw if f isn't an exported function
     this.wm.imports["env"].table.set(cache_index, f);
-
-    this.instruction_pointer[0] = virtual_start;
-
-    //const before = this.instruction_pointer[0];
-    //dbg_log("calling generated code at " + h(before >>> 0));
-    //debugger;
-    f();
-    //const after = this.instruction_pointer[0];
-    //dbg_log("code block from " + h(before >>> 0) + " to " + h(after >>> 0));
 };
 
 CPU.prototype.log_uncompiled_code = function(start, end)

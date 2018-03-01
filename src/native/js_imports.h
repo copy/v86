@@ -22,7 +22,7 @@ extern int32_t mmap_read8(uint32_t);
 extern int32_t set_cr0(int32_t);
 extern int32_t verr(int32_t);
 extern int32_t verw(int32_t);
-extern void codegen_finalize(int32_t, int32_t, int32_t, int32_t);
+extern void codegen_finalize(int32_t, int32_t, int32_t);
 extern void log_uncompiled_code(int32_t, int32_t);
 extern void cpl_changed(void);
 extern void cpuid(void);

@@ -224,7 +224,7 @@ function V86Starter(options)
         },
         "_get_time": Date.now,
 
-        "_codegen_finalize": (cache_index, virt_start, start, end) => cpu.codegen_finalize(cache_index, virt_start, start, end),
+        "_codegen_finalize": (cache_index, start, end) => cpu.codegen_finalize(cache_index, start, end),
         "_coverage_log": (fn_name_offset, num_blocks, visited_block) => {
             coverage_logger.log(fn_name_offset, num_blocks, visited_block);
         },
