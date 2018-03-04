@@ -18,9 +18,9 @@
 #include "shared.h"
 
 #if DEBUG
-struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, {0}, 0, 0, 0, false}};
+struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, {0}, 0, 0, 0, 0, false}};
 #else
-struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, 0, false}};
+struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, 0, 0, false}};
 #endif
 
 uint32_t jit_jump = 0;
@@ -645,7 +645,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page
     profiler_start(P_GEN_INSTR);
     profiler_stat_increment(S_COMPILE);
 
-    int32_t start_addr = *instruction_pointer;
+    int32_t virt_start_addr = *instruction_pointer;
 
     // don't immediately retry to compile
     hot_code_addresses[address_hash] = 0;
@@ -728,7 +728,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page
         end_addr = *eip_phys ^ *instruction_pointer;
         len++;
     }
-    while(!was_jump && len < 50 && !is_near_end_of_page(*instruction_pointer));
+    while(!was_jump && !is_near_end_of_page(*instruction_pointer));
 
 #if ENABLE_JIT_NONFAULTING_OPTIMZATION
     // When the block ends in a non-jump instruction, we may have uncommitted updates still
@@ -742,6 +742,9 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page
     // no page was crossed
     assert(((end_addr ^ phys_addr) & ~0xFFF) == 0);
 
+    jit_jump = false;
+    assert(*prefixes == 0);
+
     // at this point no exceptions can be raised
 
     if(!ENABLE_JIT_ALWAYS && JIT_MIN_BLOCK_LENGTH != 0 && len < JIT_MIN_BLOCK_LENGTH)
@@ -749,22 +752,19 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page
         // abort, block is too short to be considered useful for compilation
         profiler_stat_increment(S_CACHE_SKIPPED);
         profiler_end(P_GEN_INSTR);
-        *instruction_pointer = start_addr;
+        *instruction_pointer = virt_start_addr;
         return;
     }
 
     gen_increment_timestamp_counter(len);
+    gen_finish();
 
     struct code_cache* entry = create_cache_entry(phys_addr);
-
-    jit_jump = false;
-    gen_finish();
-    codegen_finalize(entry->wasm_table_index, entry->start_addr, end_addr);
-    assert(*prefixes == 0);
 
     entry->start_addr = phys_addr;
     entry->state_flags = pack_current_state_flags();
     entry->group_status = page_dirtiness;
+    entry->pending = true;
 
 #if DEBUG
     assert(first_opcode != -1);
@@ -773,11 +773,41 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page
     entry->len = len;
 #endif
 
-    // start execution at the newly generated code
-    *instruction_pointer = start_addr;
+    // will call codegen_finalize_finished asynchronously when finished
+    codegen_finalize(
+            entry->wasm_table_index, phys_addr, end_addr,
+            first_opcode, entry->state_flags, page_dirtiness);
+
+    // start execution at the beginning
+    *instruction_pointer = virt_start_addr;
 
     profiler_stat_increment(S_COMPILE_SUCCESS);
     profiler_end(P_GEN_INSTR);
+}
+
+void codegen_finalize_finished(
+        int32_t wasm_table_index, uint32_t phys_addr, uint32_t end_addr,
+        int32_t first_opcode, cached_state_flags state_flags, uint32_t page_dirtiness)
+{
+    if(page_dirtiness == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT])
+    {
+        struct code_cache* entry = &jit_cache_arr[wasm_table_index];
+
+        // XXX: May end up in this branch when entry is overwritten due to full
+        //      cache, causing the assertions below to fail
+
+        // sanity check that we're looking at the right entry
+        assert(entry->pending);
+        assert(entry->group_status == page_dirtiness);
+        assert(entry->state_flags == state_flags);
+        assert(entry->start_addr == phys_addr);
+
+        entry->pending = false;
+    }
+    else
+    {
+        // the page has been written, drop this entry
+    }
 }
 
 static struct code_cache* find_cache_entry(uint32_t phys_addr)
@@ -809,7 +839,9 @@ struct code_cache* find_link_block_target(int32_t target)
         uint32_t phys_target = *eip_phys ^ target;
         struct code_cache* entry = find_cache_entry(phys_target);
 
-        if(entry && entry->group_status == group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT])
+        if(entry &&
+                !entry->pending &&
+                entry->group_status == group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT])
         {
             return entry;
         }
@@ -882,7 +914,7 @@ void cycle_internal()
     const bool JIT_DONT_USE_CACHE = false;
     const bool JIT_COMPILE_ONLY_AFTER_JUMP = true;
 
-    if(!JIT_DONT_USE_CACHE && entry && entry->group_status == page_dirtiness)
+    if(!JIT_DONT_USE_CACHE && entry && entry->group_status == page_dirtiness && !entry->pending)
     {
         profiler_start(P_RUN_FROM_CACHE);
         profiler_stat_increment(S_RUN_FROM_CACHE);
@@ -915,7 +947,16 @@ void cycle_internal()
         bool did_jump = !JIT_COMPILE_ONLY_AFTER_JUMP || jit_jump;
         const int32_t address_hash = jit_hot_hash(phys_addr);
 
+        // exists | pending | written -> should generate
+        // -------+---------+---------++---------------------
+        // 0      | x       | x       -> yes
+        // 1      | 0       | 0       -> impossible (handled above)
+        // 1      | 1       | 0       -> no
+        // 1      | 0       | 1       -> yes
+        // 1      | 1       | 1       -> yes
+
         if(
+            (!entry || entry->group_status != page_dirtiness) &&
             !is_near_end_of_page(phys_addr) && (
                 ENABLE_JIT_ALWAYS ||
                 (did_jump && ++hot_code_addresses[address_hash] > JIT_THRESHOLD)

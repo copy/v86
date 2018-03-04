@@ -242,11 +242,17 @@ function CPU(bus, wm, codegen, coverage_logger)
 CPU.prototype.create_jit_imports = function()
 {
     // Set this.jit_imports as generated WASM modules will expect
-    const imports = {
-        "e": {
-            "m": this.wm.memory,
-        },
-    };
+
+    /** @constructor */
+    function JITImports()
+    {
+        // put all imports that change here
+        this["next_block_branched"] = null;
+        this["next_block_not_branched"] = null;
+    }
+
+    // put all imports that don't change on the prototype
+    JITImports.prototype["m"] = this.wm.memory;
 
     const exports = this.wm.instance.exports;
 
@@ -257,10 +263,10 @@ CPU.prototype.create_jit_imports = function()
             continue;
         }
 
-        imports["e"][name.slice(1)] = exports[name];
+        JITImports.prototype[name.slice(1)] = exports[name];
     }
 
-    this.jit_imports = imports;
+    this.jit_imports = new JITImports();
 };
 
 CPU.prototype.set_jit_import = function(function_index, wasm_index)
@@ -279,7 +285,7 @@ CPU.prototype.set_jit_import = function(function_index, wasm_index)
     }
     dbg_assert(function_name);
 
-    this.jit_imports["e"][function_name] = fn;
+    this.jit_imports[function_name] = fn;
 };
 
 CPU.prototype.wasm_patch = function(wm)
@@ -1262,13 +1268,11 @@ if(PROFILING)
 var seen_code = {};
 var seen_code_uncompiled = {};
 
-CPU.prototype.codegen_finalize = function(cache_index, start, end)
+CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_opcode, state_flags, page_dirtiness)
 {
-    dbg_assert(cache_index >= 0 && cache_index < WASM_TABLE_SIZE);
+    dbg_assert(wasm_table_index >= 0 && wasm_table_index < WASM_TABLE_SIZE);
     //dbg_log("finalize");
     const code = this.codegen.get_module_code();
-
-    let module;
 
     if(DEBUG)
     {
@@ -1295,31 +1299,32 @@ CPU.prototype.codegen_finalize = function(cache_index, start, end)
 
             this.debug.dump_code(this.is_32[0] ? 1 : 0, buffer, start);
         }
+    }
 
-        try
-        {
-            module = new WebAssembly.Module(code);
-        }
-        catch(e)
-        {
-            //debugger;
+    // Make a copy of jit_imports, since some imports change and
+    // WebAssembly.instantiate looks them up asynchronously
+    const jit_imports = new this.jit_imports.constructor();
+    jit_imports["next_block_branched"] = this.jit_imports["next_block_branched"];
+    jit_imports["next_block_not_branched"] = this.jit_imports["next_block_not_branched"];
 
+    const result = WebAssembly.instantiate(code, { "e": jit_imports }).then(result => {
+        const f = result["instance"].exports["f"];
+
+        this.wm.exports["_codegen_finalize_finished"](
+            wasm_table_index, start, first_opcode, state_flags, page_dirtiness);
+
+        // The following will throw if f isn't an exported function
+        this.wm.imports["env"].table.set(wasm_table_index, f);
+    });
+
+    if(DEBUG)
+    {
+        result.catch(e => {
             console.log(e);
             debugger;
-
             throw e;
-        }
+        });
     }
-    else
-    {
-        module = new WebAssembly.Module(code);
-    }
-
-    const instance = new WebAssembly.Instance(module, this.jit_imports);
-    const f = instance.exports["f"];
-
-    // The following will throw if f isn't an exported function
-    this.wm.imports["env"].table.set(cache_index, f);
 };
 
 CPU.prototype.log_uncompiled_code = function(start, end)

@@ -53,6 +53,7 @@ struct code_cache {
 
     uint16_t wasm_table_index;
     cached_state_flags state_flags;
+    bool pending;
 };
 #if DEBUG
 #else
