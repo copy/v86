@@ -41,9 +41,9 @@ struct code_cache {
     // Address of the start of the basic block
     uint32_t start_addr;
 #if DEBUG
-    uint32_t end_addr;
     // Address of the instruction immediately after the basic block ends
-    int32_t opcode[1]; // TODO: Remove in debug mode
+    uint32_t end_addr;
+    int32_t opcode[1];
     int32_t len;
 #endif
     // Cleanliness status of the entry's "group" (based on
