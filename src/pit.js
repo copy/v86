@@ -46,7 +46,14 @@ function PIT(cpu, bus)
     });
     cpu.io.register_write(0x61, this, function(data)
     {
-        this.bus.send("pcspeaker-enable", data & 1);
+        if(data & 1)
+        {
+            this.bus.send("pcspeaker-enable");
+        }
+        else
+        {
+            this.bus.send("pcspeaker-disable");
+        }
     });
 
     cpu.io.register_read(0x40, this, function() { return this.counter_read(0); });
