@@ -16,7 +16,14 @@ var exports = {};
 var define = {};
 var module = {};
 
-var WebAssembly = { Memory() {}, Table() {}, instantiate() {}, compile() {}, Instance() {}, Module() {} };
+var WebAssembly = {
+    Memory() {},
+    Table() {},
+    instantiate() { return { instance: null, module: null }; },
+    compile() {},
+    Instance() {},
+    Module() {},
+};
 WebAssembly.Module.customSections = function(module, section) {};
 
 var wabt = {

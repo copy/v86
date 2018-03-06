@@ -1308,7 +1308,7 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
     jit_imports["next_block_not_branched"] = this.jit_imports["next_block_not_branched"];
 
     const result = WebAssembly.instantiate(code, { "e": jit_imports }).then(result => {
-        const f = result["instance"].exports["f"];
+        const f = result.instance.exports["f"];
 
         this.wm.exports["_codegen_finalize_finished"](
             wasm_table_index, start, first_opcode, state_flags, page_dirtiness);
