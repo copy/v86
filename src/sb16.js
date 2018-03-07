@@ -135,12 +135,6 @@ function SB16(cpu, bus)
       new FloatQueue(DSP_DACSIZE),
     ];
 
-    // Number of repeated samples needed to approximate the
-    // emulated sample rate. TODO: This can be improved by
-    // doing some sort of sample rate conversion, or detuning,
-    // as it currently changes the pitch of every audio (slightly sharper).
-    this.dac_rate_ratio = 2;
-
     // Number of samples requested on each audio-process.
     this.dac_process_samples = SB_DMA_BLOCK_SAMPLES;
 
@@ -164,6 +158,7 @@ function SB16(cpu, bus)
     this.dma_waiting_transfer = false;
     this.dma_paused = false;
     this.sampling_rate = 22050;
+    bus.send("dac-tell-sampling-rate", this.sampling_rate);
     this.bytes_per_sample = 1;
 
     // DMA identification data.
@@ -185,9 +180,6 @@ function SB16(cpu, bus)
     // Interrupts.
     this.irq = SB_IRQ;
     this.irq_triggered = new Uint8Array(0x10);
-
-    // Sample rate of the receiving end, i.e. the Web Audio Context.
-    this.audio_samplerate = 48000;
 
     // IO Ports.
     // http://homepages.cae.wisc.edu/~brodskye/sb16doc/sb16doc.html#DSPPorts
@@ -240,13 +232,6 @@ function SB16(cpu, bus)
 
     this.dma.on_unmask(this.dma_on_unmask, this);
 
-    bus.register("dac-tell-samplerate", function(rate)
-    {
-        this.audio_samplerate = rate;
-    }, this);
-
-    bus.send("dac-request-samplerate");
-
     bus.register("dac-request-data", function(size)
     {
         this.audio_send(size);
@@ -288,7 +273,6 @@ SB16.prototype.dsp_reset = function()
 
     this.dac_buffers[0].clear();
     this.dac_buffers[1].clear();
-    this.dac_rate_ratio = 2;
 
     this.dma_sample_count = 0;
     this.dma_bytes_count = 0;
@@ -338,7 +322,7 @@ SB16.prototype.get_state = function()
     state[12] = this.dsp_signed;
 
     // state[13] = this.dac_buffers;
-    state[14] = this.dac_rate_ratio;
+    //state[14]
 
     state[15] = this.dma_sample_count;
     state[16] = this.dma_bytes_count;
@@ -365,7 +349,7 @@ SB16.prototype.get_state = function()
 
     state[34] = this.irq;
     state[35] = this.irq_triggered;
-    state[36] = this.audio_samplerate;
+    //state[36]
 
     return state;
 };
@@ -392,7 +376,7 @@ SB16.prototype.set_state = function(state)
     this.dsp_signed = state[12];
 
     // this.dac_buffers = state[13];
-    this.dac_rate_ratio = state[14];
+    //state[14]
 
     this.dma_sample_count = state[15];
     this.dma_bytes_count = state[16];
@@ -419,7 +403,7 @@ SB16.prototype.set_state = function(state)
 
     this.irq = state[34];
     this.irq_triggered = state[35];
-    this.audio_samplerate = state[36];
+    //state[36];
 
     this.dma_buffer = this.dma_buffer_uint8.buffer;
     this.dma_buffer_int8 = new Int8Array(this.dma_buffer);
@@ -1692,6 +1676,7 @@ SB16.prototype.fm_update_waveforms = function()
 SB16.prototype.sampling_rate_change = function(rate)
 {
     this.sampling_rate = rate;
+    this.bus.send("dac-tell-sampling-rate", rate);
 };
 
 SB16.prototype.get_channel_count = function()
@@ -1718,8 +1703,6 @@ SB16.prototype.dma_transfer_start = function()
     // especially double buffering autoinit mode.
     // Learnt the hard way.
     // if(this.dsp_stereo) this.bytes_per_sample *= 2;
-
-    this.dac_rate_ratio = Math.round(this.audio_samplerate / this.sampling_rate);
 
     this.dma_bytes_count = this.dma_sample_count * this.bytes_per_sample;
     this.dma_bytes_block = SB_DMA_BLOCK_SAMPLES * this.bytes_per_sample;
@@ -1797,7 +1780,7 @@ SB16.prototype.dma_to_dac = function(sample_count)
 {
     var amplitude = this.dsp_16bit ? 32767.5 : 127.5;
     var offset = this.dsp_signed ? 0 : -1;
-    var repeats = (this.dsp_stereo ? 1 : 2) * this.dac_rate_ratio;
+    var repeats = this.dsp_stereo ? 1 : 2;
 
     var buffer;
     if(this.dsp_16bit)
@@ -1834,7 +1817,7 @@ SB16.prototype.audio_send = function(size)
 
     var out0 = this.dac_buffers[0].shift_block(size);
     var out1 = this.dac_buffers[1].shift_block(size);
-    this.bus.send("dac-update-data", [out0, out1], [out0.buffer, out1.buffer]);
+    this.bus.send("dac-send-data", [out0, out1], [out0.buffer, out1.buffer]);
 
     setTimeout(() => { this.dma_transfer_next(); }, 0);
 };
