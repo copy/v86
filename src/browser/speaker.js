@@ -1,11 +1,13 @@
 "use strict";
 
+/** @const */
+var DAC_BLOCK_SIZE = 1024;
+/** @const */
+var DAC_QUEUE_RESERVE = 0.2;
+
 /**
- * Note: Uses AudioContext.createScriptProcessor, which is deprecated,
- * but which no satisfactory substitute is availble.
  * @constructor
  * @param {BusConnector} bus
- * @suppress {deprecated}
  */
 function SpeakerAdapter(bus)
 {
@@ -32,15 +34,15 @@ function SpeakerAdapter(bus)
     this.beep_gain = this.audio_context.createGain();
     this.beep_gain.gain.setValueAtTime(0, this.audio_context.currentTime);
 
-    this.dac_processor = this.audio_context.createScriptProcessor(2048, 0, 2);
-    this.dac_processor.onaudioprocess = this.dac_process.bind(this);
     this.dac_gain_left = this.audio_context.createGain();
     this.dac_gain_left.gain.setValueAtTime(1, this.audio_context.currentTime);
     this.dac_gain_right = this.audio_context.createGain();
     this.dac_gain_right.gain.setValueAtTime(1, this.audio_context.currentTime);
     this.dac_splitter = this.audio_context.createChannelSplitter(2);
-    this.dac_buffer0 = new Float32Array(this.dac_processor.bufferSize);
-    this.dac_buffer1 = new Float32Array(this.dac_processor.bufferSize);
+    this.dac_enabled = false;
+    this.dac_sampling_rate = 22050;
+    this.dac_buffered_time = 0;
+    this.dac_block_duration = this.dac_sampling_rate / DAC_BLOCK_SIZE;
 
     this.master_splitter = this.audio_context.createChannelSplitter(2);
 
@@ -70,8 +72,6 @@ function SpeakerAdapter(bus)
     // Don't initially connect beep oscillator
     this.beep_gain
         .connect(this.master_splitter);
-    this.dac_processor
-        .connect(this.dac_splitter);
     this.dac_splitter
         .connect(this.dac_gain_left, 0)
         .connect(this.master_volume_left);
@@ -208,58 +208,76 @@ function SpeakerAdapter(bus)
     }, this);
 
     // DAC
-    bus.register("dac-update-data", function(data)
+    bus.register("dac-send-data", function(data)
     {
-        this.dac_buffer0 = data[0];
-        this.dac_buffer1 = data[1];
+        this.dac_queue(data);
     }, this);
-    bus.register("dac-request-samplerate", function()
-    {
-        bus.send("dac-tell-samplerate", this.audio_context.sampleRate);
-    }, this);
-    bus.send("dac-tell-samplerate", this.audio_context.sampleRate);
     bus.register("dac-enable", function(enabled)
     {
-        this.dac_processor.connect(this.dac_splitter);
+        this.dac_enabled = true;
+        this.dac_pump();
     }, this);
     bus.register("dac-disable", function()
     {
-        this.dac_processor.disconnect();
+        this.dac_enabled = false;
     }, this);
-
-    if(DEBUG)
+    bus.register("dac-tell-sampling-rate",
+        /**
+         * Closure compiler doesn't like (DAC_BLOCK_SIZE / rate)
+         * @suppress {checkTypes}
+         */
+        function(rate)
     {
-        this.debug_dac = false;
-        this.debug_dac_out = [];
-        window["speaker_debug_dac_out"] = this.debug_dac_out;
-        window["speaker_debug_start"] = () =>
-        {
-            this.debug_dac = true;
-            setTimeout(() =>
-            {
-                this.debug_dac = false;
-            },250);
-        }
-    }
+        this.dac_sampling_rate = rate;
+        this.dac_block_duration = DAC_BLOCK_SIZE / rate;
+    }, this);
 
     // Start Nodes
     this.beep_oscillator.start();
 }
 
-SpeakerAdapter.prototype.dac_process = function(event)
+SpeakerAdapter.prototype.dac_queue = function(data)
 {
-    var out = event.outputBuffer;
+    var buffer = this.audio_context.createBuffer(2, DAC_BLOCK_SIZE, this.dac_sampling_rate);
+    buffer.copyToChannel(data[0], 0);
+    buffer.copyToChannel(data[1], 1);
 
-    out.copyToChannel(this.dac_buffer0, 0);
-    out.copyToChannel(this.dac_buffer1, 1);
+    var source = this.audio_context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.dac_splitter);
+    source.addEventListener("ended", this.dac_pump.bind(this));
 
-    this.bus.send("dac-request-data", out.length);
-
-    if(DEBUG)
+    var current_time = this.audio_context.currentTime;
+    if(this.dac_buffered_time < current_time)
     {
-        if(this.debug_dac)
+        // Recreate reserve
+        // Schedule pump() to queue evenly, starting from current time
+        this.dac_buffered_time = current_time;
+        var silence_duration = 0;
+        while(silence_duration <= DAC_QUEUE_RESERVE)
         {
-            this.debug_dac_out.push(event.outputBuffer.getChannelData(0).slice());
+            silence_duration += this.dac_block_duration;
+            this.dac_buffered_time += this.dac_block_duration;
+            setTimeout(() => this.dac_pump(), silence_duration);
         }
     }
+
+    source.start(this.dac_buffered_time);
+    this.dac_buffered_time += this.dac_block_duration;
+
+    // Ensure reserve is full
+    setTimeout(() => this.dac_pump(), 0);
+};
+
+SpeakerAdapter.prototype.dac_pump = function()
+{
+    if(!this.dac_enabled)
+    {
+        return;
+    }
+    if(this.dac_buffered_time - this.audio_context.currentTime > DAC_QUEUE_RESERVE)
+    {
+        return;
+    }
+    this.bus.send("dac-request-data", DAC_BLOCK_SIZE);
 };
