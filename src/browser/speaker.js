@@ -80,7 +80,7 @@ function SpeakerAdapter(bus)
         .connect(this.master_volume_right);
     this.master_splitter
         .connect(this.master_volume_left, 0)
-    /* Treble and bass disabled: leads not lag and noise
+    /* Treble and bass disabled: leads to lag and noise
         .connect(this.master_treble_left)
         .connect(this.master_bass_left)
         .connect(this.master_gain_left)
@@ -88,7 +88,7 @@ function SpeakerAdapter(bus)
         .connect(this.master_merger, 0, 0);
     this.master_splitter
         .connect(this.master_volume_right, 1)
-    /* Treble and bass disabled: leads not lag and noise
+    /* Treble and bass disabled: leads to lag and noise
         .connect(this.master_treble_right)
         .connect(this.master_bass_right)
         .connect(this.master_gain_right)
