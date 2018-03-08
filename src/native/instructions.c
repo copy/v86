@@ -5,6 +5,7 @@
 
 #include "arith.h"
 #include "codegen/codegen.h"
+#include "codegen/wasm_util.h"
 #include "const.h"
 #include "cpu.h"
 #include "fpu.h"
@@ -524,6 +525,28 @@ void instr32_8D_mem_pre()
 void instr32_8D_mem(int32_t addr, int32_t r) {
     // lea
     write_reg32(r, addr);
+    *prefixes = 0;
+}
+
+void instr16_8D_mem_jit(int32_t modrm_byte)
+{
+    int32_t loc = (int32_t) &reg16[get_reg16_index(modrm_byte >> 3 & 7)];
+    push_u32(&instruction_body, loc);
+    // override prefix, so modrm_resolve does not return the segment part
+    *prefixes |= SEG_PREFIX_ZERO;
+    gen_modrm_resolve(modrm_byte);
+    store_aligned_u16(&instruction_body);
+    *prefixes = 0;
+}
+
+void instr32_8D_mem_jit(int32_t modrm_byte)
+{
+    int32_t loc = (int32_t) &reg32s[modrm_byte >> 3 & 7];
+    push_u32(&instruction_body, loc);
+    // override prefix, so modrm_resolve does not return the segment part
+    *prefixes |= SEG_PREFIX_ZERO;
+    gen_modrm_resolve(modrm_byte);
+    store_aligned_i32(&instruction_body);
     *prefixes = 0;
 }
 

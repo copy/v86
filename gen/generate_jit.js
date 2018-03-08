@@ -99,6 +99,11 @@ function gen_codegen_call_modrm(name, args)
     ].join(" ");
 }
 
+function gen_custom_jit_call(name, args)
+{
+    return gen_call(`${name}_jit`, args);
+}
+
 function gen_modrm_mem_reg_split(name, gen_call_fns, mem_prefix_call, mem_args, reg_args, postfixes={})
 {
     const { mem_call_fn, reg_call_fn } = gen_call_fns;
@@ -397,6 +402,23 @@ function gen_instruction_body(encodings, size)
             return [
                 "int32_t modrm_byte = read_imm8();",
                 gen_codegen_call(instruction_name, ["modrm_byte & 7", "modrm_byte >> 3 & 7"]),
+            ].concat(instruction_postfix);
+        }
+        else if(encoding.opcode === 0x8D) // lea
+        {
+            const mem_args = ["modrm_byte"];
+            const reg_args = ["0", "0"];
+            gen_call_fns.mem_call_fn = gen_custom_jit_call;
+            return [
+                "int32_t modrm_byte = read_imm8();",
+                gen_modrm_mem_reg_split(
+                    instruction_name,
+                    gen_call_fns,
+                    undefined,
+                    mem_args,
+                    reg_args,
+                    get_nonfaulting_mem_reg_postfix(encoding)
+                ),
             ].concat(instruction_postfix);
         }
         else

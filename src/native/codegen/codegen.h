@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 
+#include "util.h"
+
 #define FN0_TYPE_INDEX 0
 #define FN1_TYPE_INDEX 1
 #define FN2_TYPE_INDEX 2
@@ -13,9 +15,9 @@
 
 #define NR_FN_TYPE_INDEXES 7
 
-static uint8_t const fn_get_seg_prefix_ds_idx = 0;
-static uint8_t const fn_get_seg_prefix_ss_idx = 1;
-static uint8_t const fn_get_seg_prefix_idx = 2;
+extern Buffer instruction_body;
+
+static uint8_t const fn_get_seg_idx = 0;
 
 void gen_init(void);
 void gen_reset(void);

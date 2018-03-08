@@ -1014,9 +1014,11 @@ void segment_prefix_op(int32_t seg)
 jit_instr_flags segment_prefix_op_jit(int32_t seg)
 {
     assert(seg <= 5);
+    *prefixes |= seg + 1;
     gen_add_prefix_bits(seg + 1);
     jit_instr_flags instr_flags = jit_prefix_instruction();
     gen_clear_prefixes();
+    *prefixes = 0;
     return instr_flags;
 }
 

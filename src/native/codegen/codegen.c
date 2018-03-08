@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "../const.h"
+#include "../cpu.h"
 #include "../global_pointers.h"
 #include "codegen.h"
 #include "cstring.h"
@@ -13,22 +14,17 @@
 
 static Buffer op = { .start = codegen_buffer_op, .ptr = codegen_buffer_op, .len = 0x1000 };
 static Buffer cs = { .start = codegen_buffer_cs, .ptr = codegen_buffer_cs, .len = 0x1000 };
-static Buffer instruction_body = {
+Buffer instruction_body = {
     .start = codegen_buffer_instruction_body,
     .ptr = codegen_buffer_instruction_body,
     .len = 0x1000,
 };
 
-extern bool is_asize_32(void);
-extern int32_t read_imm8();
-extern int32_t read_imm8s();
-extern int32_t read_imm16();
-extern int32_t read_imm32s();
-
 static uint8_t* op_ptr_reset_location;
 static uint32_t import_table_size_reset_value;
 static uint32_t initial_import_count;
 
+static void jit_get_seg_prefix(int32_t default_segment);
 static void jit_resolve_modrm32_(int32_t modrm_byte);
 static void jit_resolve_modrm16_(int32_t modrm_byte);
 
@@ -44,20 +40,9 @@ void gen_init()
     write_import_section_preamble();
 
     // add initial imports
-    uint8_t _fn_get_seg_prefix_ds_idx = write_import_entry(
-            "get_seg_prefix_ds", 17, FN1_RET_TYPE_INDEX);
-    assert(_fn_get_seg_prefix_ds_idx == fn_get_seg_prefix_ds_idx);
-    UNUSED(_fn_get_seg_prefix_ds_idx);
-
-    uint8_t _fn_get_seg_prefix_ss_idx = write_import_entry(
-            "get_seg_prefix_ss", 17, FN1_RET_TYPE_INDEX);
-    assert(_fn_get_seg_prefix_ss_idx == fn_get_seg_prefix_ss_idx);
-    UNUSED(_fn_get_seg_prefix_ss_idx);
-
-    uint8_t _fn_get_seg_prefix_idx = write_import_entry(
-            "get_seg_prefix", 14, FN1_RET_TYPE_INDEX);
-    assert(_fn_get_seg_prefix_idx == fn_get_seg_prefix_idx);
-    UNUSED(_fn_get_seg_prefix_idx);
+    uint8_t _fn_get_seg_idx = write_import_entry("get_seg", 7, FN1_RET_TYPE_INDEX);
+    assert(_fn_get_seg_idx == fn_get_seg_idx);
+    UNUSED(_fn_get_seg_idx);
 
     // store state of current pointers etc. so we can reset them later
     op_ptr_reset_location = op.ptr;
@@ -297,7 +282,7 @@ void gen_block_end()
     MODRM_ENTRY(0x40 | (row), gen_modrm_entry_1(seg, reg, read_imm8s()))\
     MODRM_ENTRY(0x80 | (row), gen_modrm_entry_1(seg, reg, read_imm16()))
 
-static void inline gen_modrm_entry_0(int32_t fn_idx, int32_t reg16_idx_1, int32_t reg16_idx_2, int32_t imm)
+static void inline gen_modrm_entry_0(int32_t segment, int32_t reg16_idx_1, int32_t reg16_idx_2, int32_t imm)
 {
     // generates: fn( ( reg1 + reg2 + imm ) & 0xFFFF )
     load_aligned_u16(&instruction_body, reg16_idx_1);
@@ -310,10 +295,11 @@ static void inline gen_modrm_entry_0(int32_t fn_idx, int32_t reg16_idx_1, int32_
     push_i32(&instruction_body, 0xFFFF);
     and_i32(&instruction_body);
 
-    call_fn(&instruction_body, fn_idx);
+    jit_get_seg_prefix(segment);
+    add_i32(&instruction_body);
 }
 
-static void gen_modrm_entry_1(int32_t fn_idx, int32_t reg16_idx, int32_t imm)
+static void gen_modrm_entry_1(int32_t segment, int32_t reg16_idx, int32_t imm)
 {
     // generates: fn ( ( reg + imm ) & 0xFFFF )
     load_aligned_u16(&instruction_body, reg16_idx);
@@ -323,31 +309,61 @@ static void gen_modrm_entry_1(int32_t fn_idx, int32_t reg16_idx, int32_t imm)
     push_i32(&instruction_body, 0xFFFF);
     and_i32(&instruction_body);
 
-    call_fn(&instruction_body, fn_idx);
+    jit_get_seg_prefix(segment);
+    add_i32(&instruction_body);
+}
+
+static void jit_get_seg_prefix(int32_t default_segment)
+{
+    int32_t prefix = *prefixes & PREFIX_MASK_SEGMENT;
+
+    if(prefix)
+    {
+        if(prefix == SEG_PREFIX_ZERO)
+        {
+            // TODO: Remove this special case
+            push_i32(&instruction_body, 0);
+        }
+        else
+        {
+            push_i32(&instruction_body, prefix - 1);
+            call_fn(&instruction_body, fn_get_seg_idx);
+        }
+    }
+    else
+    {
+        write_raw_u8(&instruction_body, OP_I32CONST);
+        write_raw_u8(&instruction_body, default_segment);
+        call_fn(&instruction_body, fn_get_seg_idx);
+    }
+}
+
+static void gen_modrm_entry_2()
+{
+    push_i32(&instruction_body, read_imm16());
+    jit_get_seg_prefix(DS);
+    add_i32(&instruction_body);
 }
 
 static void jit_resolve_modrm16_(int32_t modrm_byte)
 {
-    int32_t const ds = fn_get_seg_prefix_ds_idx;
-    int32_t const ss = fn_get_seg_prefix_ss_idx;
-
     switch(modrm_byte)
     {
         // The following casts cause some weird issue with emscripten and cause
         // a performance hit. XXX: look into this later.
-        MODRM_ENTRY16_0(0, ds, (int32_t)(reg16 + BX), (int32_t)(reg16 + SI))
-        MODRM_ENTRY16_0(1, ds, (int32_t)(reg16 + BX), (int32_t)(reg16 + DI))
-        MODRM_ENTRY16_0(2, ss, (int32_t)(reg16 + BP), (int32_t)(reg16 + SI))
-        MODRM_ENTRY16_0(3, ss, (int32_t)(reg16 + BP), (int32_t)(reg16 + DI))
-        MODRM_ENTRY16_1(4, ds, (int32_t)(reg16 + SI))
-        MODRM_ENTRY16_1(5, ds, (int32_t)(reg16 + DI))
+        MODRM_ENTRY16_0(0, DS, (int32_t)(reg16 + BX), (int32_t)(reg16 + SI))
+        MODRM_ENTRY16_0(1, DS, (int32_t)(reg16 + BX), (int32_t)(reg16 + DI))
+        MODRM_ENTRY16_0(2, SS, (int32_t)(reg16 + BP), (int32_t)(reg16 + SI))
+        MODRM_ENTRY16_0(3, SS, (int32_t)(reg16 + BP), (int32_t)(reg16 + DI))
+        MODRM_ENTRY16_1(4, DS, (int32_t)(reg16 + SI))
+        MODRM_ENTRY16_1(5, DS, (int32_t)(reg16 + DI))
 
         // special case
-        MODRM_ENTRY(0x00 | 6, call_fn_with_arg(&instruction_body, ds, read_imm16()))
-        MODRM_ENTRY(0x40 | 6, gen_modrm_entry_1(ss, (int32_t)(reg16 + BP), read_imm8s()))
-        MODRM_ENTRY(0x80 | 6, gen_modrm_entry_1(ss, (int32_t)(reg16 + BP), read_imm16()))
+        MODRM_ENTRY(0x00 | 6, gen_modrm_entry_2())
+        MODRM_ENTRY(0x40 | 6, gen_modrm_entry_1(SS, (int32_t)(reg16 + BP), read_imm8s()))
+        MODRM_ENTRY(0x80 | 6, gen_modrm_entry_1(SS, (int32_t)(reg16 + BP), read_imm16()))
 
-        MODRM_ENTRY16_1(7, ds, (int32_t)(reg16 + BX))
+        MODRM_ENTRY16_1(7, DS, (int32_t)(reg16 + BX))
 
         default:
             assert(false);
@@ -359,14 +375,15 @@ static void jit_resolve_modrm16_(int32_t modrm_byte)
     MODRM_ENTRY(0x40 | (row), gen_modrm32_entry(seg, reg, read_imm8s()))\
     MODRM_ENTRY(0x80 | (row), gen_modrm32_entry(seg, reg, read_imm32s()))
 
-static void gen_modrm32_entry(int32_t fn_idx, int32_t reg32s_idx, int32_t imm)
+static void gen_modrm32_entry(int32_t segment, int32_t reg32s_idx, int32_t imm)
 {
     // generates: fn ( reg + imm )
     load_aligned_i32(&instruction_body, reg32s_idx);
     push_i32(&instruction_body, imm);
     add_i32(&instruction_body);
 
-    call_fn(&instruction_body, fn_idx);
+    jit_get_seg_prefix(segment);
+    add_i32(&instruction_body);
 }
 
 static void jit_resolve_sib(bool mod)
@@ -408,11 +425,7 @@ static void jit_resolve_sib(bool mod)
     // generate: get_seg_prefix(seg) + base
     // Where base is accessed from memory if base_is_mem_access or written as a constant otherwise
 
-    dbg_assert(seg < 16);
-    write_raw_u8(&instruction_body, OP_I32CONST);
-    write_raw_u8(&instruction_body, seg);
-
-    call_fn(&instruction_body, fn_get_seg_prefix_idx);
+    jit_get_seg_prefix(seg);
 
     if(base_is_mem_access)
     {
@@ -460,28 +473,32 @@ static void modrm32_special_case_2()
     add_i32(&instruction_body);
 }
 
+static void gen_modrm32_entry_1()
+{
+    push_i32(&instruction_body, read_imm32s());
+    jit_get_seg_prefix(DS);
+    add_i32(&instruction_body);
+}
+
 static void jit_resolve_modrm32_(int32_t modrm_byte)
 {
-    int32_t const ds = fn_get_seg_prefix_ds_idx;
-    int32_t const ss = fn_get_seg_prefix_ss_idx;
-
     switch(modrm_byte)
     {
-        MODRM_ENTRY32_0(0, ds, (int32_t)(reg32s + EAX))
-        MODRM_ENTRY32_0(1, ds, (int32_t)(reg32s + ECX))
-        MODRM_ENTRY32_0(2, ds, (int32_t)(reg32s + EDX))
-        MODRM_ENTRY32_0(3, ds, (int32_t)(reg32s + EBX))
+        MODRM_ENTRY32_0(0, DS, (int32_t)(reg32s + EAX))
+        MODRM_ENTRY32_0(1, DS, (int32_t)(reg32s + ECX))
+        MODRM_ENTRY32_0(2, DS, (int32_t)(reg32s + EDX))
+        MODRM_ENTRY32_0(3, DS, (int32_t)(reg32s + EBX))
 
         // special cases
         MODRM_ENTRY(0x00 | 4, jit_resolve_sib(false))
         MODRM_ENTRY(0x40 | 4, modrm32_special_case_1())
         MODRM_ENTRY(0x80 | 4, modrm32_special_case_2())
-        MODRM_ENTRY(0x00 | 5, call_fn_with_arg(&instruction_body, ds, read_imm32s()))
-        MODRM_ENTRY(0x40 | 5, gen_modrm32_entry(ss, (int32_t)(reg32s + EBP), read_imm8s()))
-        MODRM_ENTRY(0x80 | 5, gen_modrm32_entry(ss, (int32_t)(reg32s + EBP), read_imm32s()))
+        MODRM_ENTRY(0x00 | 5, gen_modrm32_entry_1())
+        MODRM_ENTRY(0x40 | 5, gen_modrm32_entry(SS, (int32_t)(reg32s + EBP), read_imm8s()))
+        MODRM_ENTRY(0x80 | 5, gen_modrm32_entry(SS, (int32_t)(reg32s + EBP), read_imm32s()))
 
-        MODRM_ENTRY32_0(6, ds, (int32_t)(reg32s + ESI))
-        MODRM_ENTRY32_0(7, ds, (int32_t)(reg32s + EDI))
+        MODRM_ENTRY32_0(6, DS, (int32_t)(reg32s + ESI))
+        MODRM_ENTRY32_0(7, DS, (int32_t)(reg32s + EDI))
 
         default:
             assert(false);

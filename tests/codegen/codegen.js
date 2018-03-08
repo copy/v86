@@ -111,9 +111,7 @@ function test(gen)
             fn2(arg0, arg1) { store.push(["fn2", arg0, arg1]); },
             fn1r(arg0) { store.push(["fn1r", arg0]); },
             fn2r(arg0, arg1) { store.push(["fn2r", arg0, arg1]); },
-            get_seg_prefix_ds() {},
-            get_seg_prefix_ss() {},
-            get_seg_prefix() {},
+            get_seg() {},
             m: new WebAssembly.Memory({ initial: memory_size / 64 / 1024 }),
         },
     };
