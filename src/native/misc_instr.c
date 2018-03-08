@@ -304,11 +304,13 @@ void push16_mem_jit(int32_t modrm_byte)
 {
     if(*stack_size_32)
     {
-        gen_modrm_fn0("push16_ss32_mem", 15, modrm_byte);
+        gen_modrm_resolve(modrm_byte);
+        gen_modrm_fn0("push16_ss32_mem", 15);
     }
     else
     {
-        gen_modrm_fn0("push16_ss16_mem", 15, modrm_byte);
+        gen_modrm_resolve(modrm_byte);
+        gen_modrm_fn0("push16_ss16_mem", 15);
     }
 }
 
@@ -372,11 +374,13 @@ void push32_mem_jit(int32_t modrm_byte)
 {
     if(*stack_size_32)
     {
-        gen_modrm_fn0("push32_ss32_mem", 15, modrm_byte);
+        gen_modrm_resolve(modrm_byte);
+        gen_modrm_fn0("push32_ss32_mem", 15);
     }
     else
     {
-        gen_modrm_fn0("push32_ss16_mem", 15, modrm_byte);
+        gen_modrm_resolve(modrm_byte);
+        gen_modrm_fn0("push32_ss16_mem", 15);
     }
 }
 

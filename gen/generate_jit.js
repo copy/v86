@@ -89,18 +89,14 @@ function gen_codegen_call(name, args)
 function gen_codegen_call_modrm(name, args)
 {
     args = (args || []).slice();
-    const args_count = args.length - 1; // minus 1 for the modrm_byte
-    let is_cb = false;
-
-    if(args[args.length-1].endsWith("()"))
-    {
-        is_cb = true;
-        args = args.slice();
-        args[args.length-1] = args[args.length-1].replace("()", "");
-    }
+    const args_count = args.length;
 
     args = [].concat([`"${name}"`, name.length], args);
-    return gen_call(`gen_modrm${is_cb ? "_cb" : ""}_fn${args_count}`, args);
+
+    return [
+        gen_call(`gen_modrm_resolve`, ["modrm_byte"]),
+        gen_call(`gen_modrm_fn${args_count}`, args),
+    ].join(" ");
 }
 
 function gen_modrm_mem_reg_split(name, gen_call_fns, mem_prefix_call, mem_args, reg_args, postfixes={})
@@ -222,7 +218,7 @@ function gen_instruction_body(encodings, size)
                         modrm_resolve_prefix = gen_codegen_call(instruction_name + "_mem_pre");
                     }
 
-                    const mem_args = ["modrm_byte"];
+                    const mem_args = [];
                     const reg_args = ["modrm_byte & 7"];
 
                     const imm_read = gen_read_imm_call(case_, size);
@@ -236,6 +232,7 @@ function gen_instruction_body(encodings, size)
                     {
                         console.assert(!case_.nonfaulting, "Unsupported: custom fixed_g instruction as nonfaulting");
                         instruction_name += "_jit";
+                        mem_args.push("modrm_byte");
                         gen_call_fns.mem_call_fn = gen_call;
                         gen_call_fns.reg_call_fn = gen_call;
                     }
@@ -325,7 +322,7 @@ function gen_instruction_body(encodings, size)
         const imm_read = gen_read_imm_call(encoding, size);
         const modrm_resolve_prefix = undefined;
 
-        const mem_args = ["modrm_byte", "modrm_byte >> 3 & 7"];
+        const mem_args = ["modrm_byte >> 3 & 7"];
         const reg_args = ["modrm_byte & 7", "modrm_byte >> 3 & 7"];
 
         if(imm_read)
@@ -411,7 +408,7 @@ function gen_instruction_body(encodings, size)
                 modrm_resolve_prefix = gen_codegen_call(instruction_name + "_mem_pre");
             }
 
-            const mem_args = ["modrm_byte", "modrm_byte >> 3 & 7"];
+            const mem_args = ["modrm_byte >> 3 & 7"];
             const reg_args = ["modrm_byte & 7", "modrm_byte >> 3 & 7"];
 
             if(imm_read)

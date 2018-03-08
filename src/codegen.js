@@ -53,23 +53,15 @@ Codegen.prototype.fn2 = function(fn, arg0, arg1)
 Codegen.prototype.modrm_fn1 = function(fn, modrm_byte, arg)
 {
     this.str_input(fn);
-    this.wm.exports["_gen_modrm_fn1"](Codegen.STR_INPUT_OFFSET, fn.length, modrm_byte, arg);
+    this.wm.exports["_gen_modrm_resolve"](modrm_byte);
+    this.wm.exports["_gen_modrm_fn1"](Codegen.STR_INPUT_OFFSET, fn.length, arg);
 };
 
 Codegen.prototype.modrm_fn0 = function(fn, modrm_byte)
 {
     this.str_input(fn);
-    this.wm.exports["_gen_modrm_fn1"](Codegen.STR_INPUT_OFFSET, fn.length, modrm_byte);
-};
-
-Codegen.prototype.resolve_modrm16 = function(modrm_byte)
-{
-    this.wm.exports["_gen_resolve_modrm16"](modrm_byte);
-};
-
-Codegen.prototype.resolve_modrm32 = function(modrm_byte)
-{
-    this.wm.exports["_gen_resolve_modrm32"](modrm_byte);
+    this.wm.exports["_gen_modrm_resolve"](modrm_byte);
+    this.wm.exports["_gen_modrm_fn1"](Codegen.STR_INPUT_OFFSET, fn.length);
 };
 
 Codegen.prototype.increment_instruction_pointer = function(n)

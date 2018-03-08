@@ -19,9 +19,6 @@ static Buffer instruction_body = {
     .len = 0x1000,
 };
 
-// location in memory where we store the result of the computation for testing
-#define RESULT_LOC 1600
-
 extern bool is_asize_32(void);
 extern int32_t read_imm8();
 extern int32_t read_imm8s();
@@ -357,13 +354,6 @@ static void jit_resolve_modrm16_(int32_t modrm_byte)
     }
 }
 
-void gen_resolve_modrm16(int32_t modrm_byte)
-{
-    push_u32(&instruction_body, RESULT_LOC);
-    jit_resolve_modrm16_(modrm_byte);
-    store_aligned_i32(&instruction_body);
-}
-
 #define MODRM_ENTRY32_0(row, seg, reg)\
     MODRM_ENTRY(0x00 | (row), gen_modrm32_entry(seg, reg, 0))\
     MODRM_ENTRY(0x40 | (row), gen_modrm32_entry(seg, reg, read_imm8s()))\
@@ -498,18 +488,12 @@ static void jit_resolve_modrm32_(int32_t modrm_byte)
     }
 }
 
-void gen_resolve_modrm32(int32_t modrm_byte)
-{
-    push_i32(&instruction_body, RESULT_LOC);
-    jit_resolve_modrm32_(modrm_byte);
-    store_aligned_i32(&instruction_body);
-}
-
 #undef MODRM_ENTRY
 
-void gen_modrm_fn2(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t arg1)
+// This function leaves a value on the wasm stack, to be consumed by one of the
+// gen_modrm_fn* functions below
+void gen_modrm_resolve(int32_t modrm_byte)
 {
-    // generates: fn( modrm_resolve( modrm_byte ), arg0, arg1 )
     if(is_asize_32())
     {
         jit_resolve_modrm32_(modrm_byte);
@@ -518,6 +502,11 @@ void gen_modrm_fn2(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t a
     {
         jit_resolve_modrm16_(modrm_byte);
     }
+}
+
+void gen_modrm_fn2(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
+{
+    // generates: fn( _, arg0, arg1 )
 
     push_i32(&instruction_body, arg0);
     push_i32(&instruction_body, arg1);
@@ -526,36 +515,9 @@ void gen_modrm_fn2(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t a
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_modrm_cb_fn2(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0, int32_t (*arg1_cb) (void))
+void gen_modrm_fn1(char const* fn, uint8_t fn_len, int32_t arg0)
 {
-    // generates: fn( modrm_resolve( modrm_byte ), arg0, arg1_cb() )
-    if(is_asize_32())
-    {
-        jit_resolve_modrm32_(modrm_byte);
-    }
-    else
-    {
-        jit_resolve_modrm16_(modrm_byte);
-    }
-
-    push_i32(&instruction_body, arg0);
-    push_i32(&instruction_body, arg1_cb());
-
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN3_TYPE_INDEX);
-    call_fn(&instruction_body, fn_idx);
-}
-
-void gen_modrm_fn1(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t arg0)
-{
-    // generates: fn( modrm_resolve( modrm_byte ), arg0 )
-    if(is_asize_32())
-    {
-        jit_resolve_modrm32_(modrm_byte);
-    }
-    else
-    {
-        jit_resolve_modrm16_(modrm_byte);
-    }
+    // generates: fn( _, arg0 )
 
     push_i32(&instruction_body, arg0);
 
@@ -563,35 +525,9 @@ void gen_modrm_fn1(char const* fn, uint8_t fn_len, int32_t modrm_byte, int32_t a
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_modrm_cb_fn1(char const* fn, uint8_t fn_len, int32_t modrm_byte, int (*arg0_cb) (void))
+void gen_modrm_fn0(char const* fn, uint8_t fn_len)
 {
-    // generates: fn( modrm_resolve( modrm_byte ), arg0_cb() )
-    if(is_asize_32())
-    {
-        jit_resolve_modrm32_(modrm_byte);
-    }
-    else
-    {
-        jit_resolve_modrm16_(modrm_byte);
-    }
-
-    push_i32(&instruction_body, arg0_cb());
-
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
-    call_fn(&instruction_body, fn_idx);
-}
-
-void gen_modrm_fn0(char const* fn, uint8_t fn_len, int32_t modrm_byte)
-{
-    // generates: fn( modrm_resolve( modrm_byte ) )
-    if(is_asize_32())
-    {
-        jit_resolve_modrm32_(modrm_byte);
-    }
-    else
-    {
-        jit_resolve_modrm16_(modrm_byte);
-    }
+    // generates: fn( _ )
 
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
     call_fn(&instruction_body, fn_idx);
