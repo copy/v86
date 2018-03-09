@@ -253,7 +253,7 @@ SpeakerAdapter.prototype.dac_queue = function(data)
         {
             current_silence_duration += block_duration;
             this.dac_buffered_time += block_duration;
-            setTimeout(() => this.dac_pump(), current_silence_duration);
+            setTimeout(() => this.dac_pump(), current_silence_duration * 1000);
         }
     }
 
