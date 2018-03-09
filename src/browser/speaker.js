@@ -1,8 +1,6 @@
 "use strict";
 
 /** @const */
-var DAC_BLOCK_SIZE = 1024;
-/** @const */
 var DAC_QUEUE_RESERVE = 0.2;
 
 /**
@@ -42,7 +40,6 @@ function SpeakerAdapter(bus)
     this.dac_enabled = false;
     this.dac_sampling_rate = 22050;
     this.dac_buffered_time = 0;
-    this.dac_block_duration = this.dac_sampling_rate / DAC_BLOCK_SIZE;
 
     this.master_splitter = this.audio_context.createChannelSplitter(2);
 
@@ -221,15 +218,9 @@ function SpeakerAdapter(bus)
     {
         this.dac_enabled = false;
     }, this);
-    bus.register("dac-tell-sampling-rate",
-        /**
-         * Closure compiler doesn't like (DAC_BLOCK_SIZE / rate)
-         * @suppress {checkTypes}
-         */
-        function(rate)
+    bus.register("dac-tell-sampling-rate", function(rate)
     {
         this.dac_sampling_rate = rate;
-        this.dac_block_duration = DAC_BLOCK_SIZE / rate;
     }, this);
 
     // Start Nodes
@@ -238,7 +229,10 @@ function SpeakerAdapter(bus)
 
 SpeakerAdapter.prototype.dac_queue = function(data)
 {
-    var buffer = this.audio_context.createBuffer(2, DAC_BLOCK_SIZE, this.dac_sampling_rate);
+    var sample_count = data[0].length;
+    var block_duration = sample_count / this.dac_sampling_rate;
+
+    var buffer = this.audio_context.createBuffer(2, sample_count, this.dac_sampling_rate);
     buffer.copyToChannel(data[0], 0);
     buffer.copyToChannel(data[1], 1);
 
@@ -253,17 +247,18 @@ SpeakerAdapter.prototype.dac_queue = function(data)
         // Recreate reserve
         // Schedule pump() to queue evenly, starting from current time
         this.dac_buffered_time = current_time;
-        var silence_duration = 0;
-        while(silence_duration <= DAC_QUEUE_RESERVE)
+        var target_silence_duration = DAC_QUEUE_RESERVE - block_duration;
+        var current_silence_duration = 0;
+        while(current_silence_duration <= target_silence_duration)
         {
-            silence_duration += this.dac_block_duration;
-            this.dac_buffered_time += this.dac_block_duration;
-            setTimeout(() => this.dac_pump(), silence_duration);
+            current_silence_duration += block_duration;
+            this.dac_buffered_time += block_duration;
+            setTimeout(() => this.dac_pump(), current_silence_duration);
         }
     }
 
     source.start(this.dac_buffered_time);
-    this.dac_buffered_time += this.dac_block_duration;
+    this.dac_buffered_time += block_duration;
 
     // Ensure reserve is full
     setTimeout(() => this.dac_pump(), 0);
@@ -279,5 +274,5 @@ SpeakerAdapter.prototype.dac_pump = function()
     {
         return;
     }
-    this.bus.send("dac-request-data", DAC_BLOCK_SIZE);
+    this.bus.send("dac-request-data");
 };
