@@ -96,8 +96,6 @@ function SB16(cpu, bus)
     /** @const @type {CPU} */
     this.cpu = cpu;
 
-    this.cpu_paused = false;
-
     /** @const @type {BusConnector} */
     this.bus = bus;
 
@@ -134,9 +132,6 @@ function SB16(cpu, bus)
       new FloatQueue(DSP_DACSIZE),
       new FloatQueue(DSP_DACSIZE),
     ];
-
-    // Number of samples requested on each audio-process.
-    this.dac_process_samples = SB_DMA_BLOCK_SAMPLES;
 
     // Direct Memory Access transfer info.
     this.dma = cpu.devices.dma;
@@ -232,19 +227,9 @@ function SB16(cpu, bus)
 
     this.dma.on_unmask(this.dma_on_unmask, this);
 
-    bus.register("dac-request-data", function(size)
+    bus.register("dac-request-data", function()
     {
-        this.audio_send(size);
-    }, this);
-
-    bus.register("cpu-stop", function()
-    {
-        this.cpu_paused = true;
-    }, this);
-
-    bus.register("cpu-run", function()
-    {
-        this.cpu_paused = false;
+        this.dac_handle_request();
     }, this);
 
     this.dsp_reset();
@@ -1726,29 +1711,16 @@ SB16.prototype.dma_on_unmask = function(channel)
         return;
     }
 
-    // (3) Configure amount of bytes left to transfer and begin first
-    // block of transfer when the DMA channel has been unmasked.
+    // (3) Configure amount of bytes left to transfer and tell speaker adapter
+    // to start requesting transfers
     this.dma_waiting_transfer = false;
     this.dma_bytes_left = this.dma_bytes_count;
     this.dma_paused = false;
     this.bus.send("dac-enable");
-    this.dma_transfer_next();
 };
 
 SB16.prototype.dma_transfer_next = function()
 {
-    // No more data to transfer.
-    if(!this.dma_bytes_left) return;
-
-    // DAC has enough samples buffered for now.
-    // Don't transfer too much too early, or else the DMA counters will not
-    // accurately reflect the amount of audio that has already been
-    // played back by the Web Audio API.
-    if(this.dac_buffers[0].length > this.dac_process_samples * 2) return;
-
-    // Do not transfer if paused.
-    if(this.cpu_paused || this.dma_paused) return;
-
     dbg_log("dma transfering next block", LOG_SB16);
 
     var size = Math.min(this.dma_bytes_left, this.dma_bytes_block);
@@ -1773,9 +1745,6 @@ SB16.prototype.dma_transfer_next = function()
                 this.dma_bytes_left = this.dma_bytes_count;
             }
         }
-
-        // Keep transfering until dac_buffer contains enough data.
-        setTimeout(() => { this.dma_transfer_next(); }, 0);
     });
 };
 
@@ -1805,24 +1774,33 @@ SB16.prototype.dma_to_dac = function(sample_count)
             channel ^= 1;
         }
     }
+
+    this.dac_send();
 };
 
-SB16.prototype.audio_send = function(size)
+SB16.prototype.dac_handle_request = function()
 {
-    this.dac_process_samples = size;
-
-    if(this.dac_buffers[0].length && this.dac_buffers[0].length < this.dac_process_samples * 2)
+    if(!this.dma_bytes_left || this.dma_paused)
     {
-        dbg_log("dac_buffer contains only " +
-            (this.dac_buffers[0].length / 2) +
-            " samples out of " + this.dac_process_samples + " needed", LOG_SB16);
+        // No more data to transfer or is paused. Send whatever is in the buffers.
+        this.dac_send();
+    }
+    else
+    {
+        this.dma_transfer_next();
+    }
+};
+
+SB16.prototype.dac_send = function()
+{
+    if(!this.dac_buffers[0].length)
+    {
+        return;
     }
 
-    var out0 = this.dac_buffers[0].shift_block(size);
-    var out1 = this.dac_buffers[1].shift_block(size);
+    var out0 = this.dac_buffers[0].shift_block(this.dac_buffers[0].length);
+    var out1 = this.dac_buffers[1].shift_block(this.dac_buffers[1].length);
     this.bus.send("dac-send-data", [out0, out1], [out0.buffer, out1.buffer]);
-
-    setTimeout(() => { this.dma_transfer_next(); }, 0);
 };
 
 SB16.prototype.raise_irq = function(type)
