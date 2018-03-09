@@ -153,7 +153,7 @@ function SB16(cpu, bus)
     this.dma_waiting_transfer = false;
     this.dma_paused = false;
     this.sampling_rate = 22050;
-    bus.send("dac-tell-sampling-rate", this.sampling_rate);
+    bus.send("dac-tell-sampling-rate", [this.sampling_rate]);
     this.bytes_per_sample = 1;
 
     // DMA identification data.
@@ -1662,7 +1662,7 @@ SB16.prototype.fm_update_waveforms = function()
 SB16.prototype.sampling_rate_change = function(rate)
 {
     this.sampling_rate = rate;
-    this.bus.send("dac-tell-sampling-rate", rate);
+    this.bus.send("dac-tell-sampling-rate", [rate]);
 };
 
 SB16.prototype.get_channel_count = function()

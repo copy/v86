@@ -2,6 +2,7 @@
 
 /** @const */
 var DAC_QUEUE_RESERVE = 0.2;
+var DAC_MINIMUM_SAMPLING_RATE = 8000;
 
 /**
  * @constructor
@@ -37,9 +38,12 @@ function SpeakerAdapter(bus)
     this.dac_gain_right = this.audio_context.createGain();
     this.dac_gain_right.gain.setValueAtTime(1, this.audio_context.currentTime);
     this.dac_splitter = this.audio_context.createChannelSplitter(2);
+    this.dac_lowpass = this.audio_context.createBiquadFilter();
+    this.dac_lowpass.type = "lowpass";
     this.dac_enabled = false;
     this.dac_sampling_rate = 22050;
     this.dac_buffered_time = 0;
+    this.dac_rate_ratio = 1;
 
     this.master_splitter = this.audio_context.createChannelSplitter(2);
 
@@ -69,6 +73,8 @@ function SpeakerAdapter(bus)
     // Don't initially connect beep oscillator
     this.beep_gain
         .connect(this.master_splitter);
+    this.dac_lowpass
+        .connect(this.dac_splitter);
     this.dac_splitter
         .connect(this.dac_gain_left, 0)
         .connect(this.master_volume_left);
@@ -218,9 +224,11 @@ function SpeakerAdapter(bus)
     {
         this.dac_enabled = false;
     }, this);
-    bus.register("dac-tell-sampling-rate", function(rate)
+    bus.register("dac-tell-sampling-rate", function(data)
     {
-        this.dac_sampling_rate = rate;
+        this.dac_sampling_rate = data[0];
+        this.dac_rate_ratio = Math.ceil(DAC_MINIMUM_SAMPLING_RATE / data[0]);
+        this.dac_lowpass.frequency.setValueAtTime(data[0] / 2, this.audio_context.currentTime);
     }, this);
 
     // Start Nodes
@@ -232,13 +240,30 @@ SpeakerAdapter.prototype.dac_queue = function(data)
     var sample_count = data[0].length;
     var block_duration = sample_count / this.dac_sampling_rate;
 
-    var buffer = this.audio_context.createBuffer(2, sample_count, this.dac_sampling_rate);
-    buffer.copyToChannel(data[0], 0);
-    buffer.copyToChannel(data[1], 1);
+    var buffer;
+    if(this.dac_rate_ratio > 1)
+    {
+        var new_sample_count = sample_count * this.dac_rate_ratio;
+        var new_sampling_rate = this.dac_sampling_rate * this.dac_rate_ratio;
+        buffer = this.audio_context.createBuffer(2, new_sample_count, new_sampling_rate);
+        var buffer_data0 = buffer.getChannelData(0);
+        var buffer_data1 = buffer.getChannelData(1);
+        for(var i = 0; i < sample_count; i++)
+        {
+            buffer_data0[i << 1] = buffer_data0[(i << 1) + 1] = data[0][i];
+            buffer_data1[i << 1] = buffer_data1[(i << 1) + 1] = data[1][i];
+        }
+    }
+    else
+    {
+        buffer = this.audio_context.createBuffer(2, sample_count, this.dac_sampling_rate);
+        buffer.copyToChannel(data[0], 0);
+        buffer.copyToChannel(data[1], 1);
+    }
 
     var source = this.audio_context.createBufferSource();
     source.buffer = buffer;
-    source.connect(this.dac_splitter);
+    source.connect(this.dac_lowpass);
     source.addEventListener("ended", this.dac_pump.bind(this));
 
     var current_time = this.audio_context.currentTime;
