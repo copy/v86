@@ -863,9 +863,10 @@ register_dsp_command([0x38], 0);
 // Set digitized sound transfer Time Constant.
 register_dsp_command([0x40], 1, function()
 {
+    // Note: bTimeConstant = 256 * time constant
     this.sampling_rate_change(
-        256000000
-        / (65536 - this.write_buffer.shift())
+        1000000
+        / (256 - this.write_buffer.shift())
         / this.get_channel_count()
     );
 });
