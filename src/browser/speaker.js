@@ -272,11 +272,12 @@ function SpeakerMixerSource(audio_context, source_node, destination_node)
 /** @param {string=} channel */
 SpeakerMixerSource.prototype.connect = function(channel)
 {
-    if(!channel || channel === "left")
+    var both = !channel || channel === "both";
+    if(both || channel === "left")
     {
         this.node_gain_left.connect(this.node_merger, 0, 0);
     }
-    if(!channel || channel === "right")
+    if(both || channel === "right")
     {
         this.node_gain_right.connect(this.node_merger, 0, 1);
     }
@@ -285,11 +286,12 @@ SpeakerMixerSource.prototype.connect = function(channel)
 /** @param {string=} channel */
 SpeakerMixerSource.prototype.disconnect = function(channel)
 {
-    if(!channel || channel === "left")
+    var both = !channel || channel === "both";
+    if(both || channel === "left")
     {
         this.node_gain_left.disconnect();
     }
-    if(!channel || channel === "right")
+    if(both || channel === "right")
     {
         this.node_gain_right.disconnect();
     }
