@@ -397,11 +397,12 @@ function SpeakerDAC(bus, audio_context, mixer)
     {
         this.enabled = false;
     }, this);
-    bus.register("dac-tell-sampling-rate", function(data)
+    bus.register("dac-tell-sampling-rate", function(rate)
     {
-        this.sampling_rate = data[0];
-        this.rate_ratio = Math.ceil(DAC_MINIMUM_SAMPLING_RATE / data[0]);
-        this.node_lowpass.frequency.setValueAtTime(data[0] / 2, this.audio_context.currentTime);
+        rate = /** @type{number} */(rate);
+        this.sampling_rate = rate;
+        this.rate_ratio = Math.ceil(DAC_MINIMUM_SAMPLING_RATE / rate);
+        this.node_lowpass.frequency.setValueAtTime(rate / 2, this.audio_context.currentTime);
     }, this);
 
     if(DEBUG)
