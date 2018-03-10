@@ -233,10 +233,103 @@ function SpeakerAdapter(bus)
 
     // Start Nodes
     this.beep_oscillator.start();
+
+    if(DEBUG)
+    {
+        this.debug_dac = false;
+        this.debug_dac_queued_history = [];
+        this.debug_dac_output_history = [];
+    }
+}
+
+if(DEBUG)
+{
+    /** @suppress {deprecated} */
+    SpeakerAdapter.prototype.debug_dac_start = function()
+    {
+        this.debug_dac = true;
+        this.debug_dac_queued = [[], []];
+        this.debug_dac_output = [[], []];
+        this.debug_dac_queued_history.push(this.debug_dac_queued);
+        this.debug_dac_output_history.push(this.debug_dac_output);
+
+        this.debug_dac_processor = this.audio_context.createScriptProcessor(1024, 2, 2);
+        this.debug_dac_processor.onaudioprocess = (event) =>
+        {
+            this.debug_dac_output[0].push(event.inputBuffer.getChannelData(0).slice());
+            this.debug_dac_output[1].push(event.inputBuffer.getChannelData(1).slice());
+        };
+
+        this.debug_dac_gain = this.audio_context.createGain();
+        this.debug_dac_gain.gain.value = 0;
+
+        this.dac_lowpass
+            .connect(this.debug_dac_processor)
+            .connect(this.debug_dac_gain)
+            .connect(this.audio_context.destination);
+
+        setTimeout(() =>
+        {
+            this.debug_dac_stop();
+        }, 1000);
+    };
+
+    SpeakerAdapter.prototype.debug_dac_stop = function()
+    {
+        this.debug_dac = false;
+        this.dac_lowpass.disconnect(this.debug_dac_processor);
+        this.debug_dac_processor.disconnect();
+        this.debug_dac_processor = null;
+    };
+
+    // Useful for Audacity imports
+    SpeakerAdapter.prototype.debug_dac_download_txt = function(history_id, channel)
+    {
+        var txt = this.debug_dac_output_history[history_id][channel]
+            .map((v) => v.join(" "))
+            .join(" ");
+
+        this.debug_download(txt, "dacdata.txt", "text/plain");
+    };
+
+    // Useful for general plotting
+    SpeakerAdapter.prototype.debug_dac_download_csv = function(history_id)
+    {
+        var buffers = this.debug_dac_output_history[history_id];
+        var csv_rows = [];
+        for(var buffer_id = 0; buffer_id < buffers[0].length; buffer_id++)
+        {
+            for(var i = 0; i < buffers[0][buffer_id].length; i++)
+            {
+                csv_rows.push(`${buffers[0][buffer_id][i]},${buffers[1][buffer_id][i]}`);
+            }
+        }
+        this.debug_download(csv_rows.join("\n"), "dacdata.csv", "text/csv");
+    };
+
+    SpeakerAdapter.prototype.debug_download = function(str, filename, mime)
+    {
+        var blob = new Blob([str], { type: mime });
+        var a = document.createElement("a");
+        a["download"] = filename;
+        a.href = window.URL.createObjectURL(blob);
+        a.dataset["downloadurl"] = [mime, a["download"], a.href].join(":");
+        a.click();
+        window.URL.revokeObjectURL(a.href);
+    };
 }
 
 SpeakerAdapter.prototype.dac_queue = function(data)
 {
+    if(DEBUG)
+    {
+        if(this.debug_dac)
+        {
+            this.debug_dac_queued[0].push(data[0].slice());
+            this.debug_dac_queued[1].push(data[1].slice());
+        }
+    }
+
     var sample_count = data[0].length;
     var block_duration = sample_count / this.dac_sampling_rate;
 
@@ -267,9 +360,14 @@ SpeakerAdapter.prototype.dac_queue = function(data)
     source.addEventListener("ended", this.dac_pump.bind(this));
 
     var current_time = this.audio_context.currentTime;
+
     if(this.dac_buffered_time < current_time)
     {
-        // Recreate reserve
+        if(DEBUG)
+        {
+            console.log("Speaker DAC - Creating/Recreating reserve - shouldn't occur frequently during playback");
+        }
+
         // Schedule pump() to queue evenly, starting from current time
         this.dac_buffered_time = current_time;
         var target_silence_duration = DAC_QUEUE_RESERVE - block_duration;
@@ -285,7 +383,7 @@ SpeakerAdapter.prototype.dac_queue = function(data)
     source.start(this.dac_buffered_time);
     this.dac_buffered_time += block_duration;
 
-    // Ensure reserve is full
+    // Chase the schedule - ensure reserve is full
     setTimeout(() => this.dac_pump(), 0);
 };
 
