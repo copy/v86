@@ -1243,7 +1243,7 @@ function register_mixer_legacy(address_old, address_new_left, address_new_right)
     };
 }
 
-function register_mixer_volume(address, bus_message)
+function register_mixer_volume(address, mixer_source, channel)
 {
     MIXER_READ_HANDLERS[address] = SB16.prototype.mixer_default_read;
 
@@ -1251,7 +1251,12 @@ function register_mixer_volume(address, bus_message)
     MIXER_WRITE_HANDLERS[address] = function(data)
     {
         this.mixer_registers[address] = data;
-        this.bus.send(bus_message, (data >>> 2) - 62);
+        this.bus.send("mixer-volume",
+        [
+            mixer_source,
+            channel,
+            (data >>> 2) - 62
+        ]);
     };
 };
 
@@ -1285,34 +1290,34 @@ register_mixer_legacy(0x28, 0x36, 0x37);
 register_mixer_legacy(0x2E, 0x38, 0x39);
 
 // Master Volume Left.
-register_mixer_volume(0x30, "mixer-master-volume-left");
+register_mixer_volume(0x30, "master", "left");
 // Master Volume Right.
-register_mixer_volume(0x31, "mixer-master-volume-right");
+register_mixer_volume(0x31, "master", "right");
 // Voice Volume Left.
-register_mixer_volume(0x32, "mixer-dac-volume-left");
+register_mixer_volume(0x32, "dac", "left");
 // Voice Volume Right.
-register_mixer_volume(0x33, "mixer-dac-volume-right");
+register_mixer_volume(0x33, "dac", "right");
 // MIDI Volume Left. TODO.
-//register_mixer_volume(0x34, "mixer-synth-volume-left");
+//register_mixer_volume(0x34, "synth", "left");
 // MIDI Volume Right. TODO.
-//register_mixer_volume(0x35, "mixer-synth-volume-right");
+//register_mixer_volume(0x35, "synth", "right);
 // CD Volume Left. TODO.
-//register_mixer_volume(0x36, "mixer-cd-volume-left");
+//register_mixer_volume(0x36, "cd", "left);
 // CD Volume Right. TODO.
-//register_mixer_volume(0x37, "mixer-cd-volume-right");
+//register_mixer_volume(0x37, "cd", "right);
 // Line Volume Left. TODO.
-//register_mixer_volume(0x38, "mixer-line-volume-left");
+//register_mixer_volume(0x38, "line", "left");
 // Line Volume Right. TODO.
-//register_mixer_volume(0x39, "mixer-line-volume-right");
+//register_mixer_volume(0x39, "line", "right");
 // Mic Volume. TODO.
-//register_mixer_volume(0x3A, "mixer-mic-volume");
+//register_mixer_volume(0x3A, "mic", "both");
 
 // PC Speaker Volume.
 register_mixer_read(0x3B);
 register_mixer_write(0x3B, function(data)
 {
     this.mixer_registers[0x3B] = data;
-    this.bus.send("mixer-pcspeaker-volume", (data >>> 6) * 6 - 18);
+    this.bus.send("mixer-volume", ["pcspeaker", "both", (data >>> 6) * 6 - 18]);
 });
 
 // Output Mixer Switches.
@@ -1321,20 +1326,20 @@ register_mixer_write(0x3C, function(data)
 {
     this.mixer_registers[0x3C] = data;
 
-    if(data & 0x01) this.bus.send("mixer-mic-connect");
-    else this.bus.send("mixer-mic-disconnect");
+    if(data & 0x01) this.bus.send("mixer-connect", ["mic", "both"]);
+    else this.bus.send("mixer-disconnect", ["mic", "both"]);
 
-    if(data & 0x02) this.bus.send("mixer-cd-connect-right");
-    else this.bus.send("mixer-cd-disconnect-right");
+    if(data & 0x02) this.bus.send("mixer-connect", ["cd", "right"]);
+    else this.bus.send("mixer-disconnect", ["cd", "right"]);
 
-    if(data & 0x04) this.bus.send("mixer-cd-connect-left");
-    else this.bus.send("mixer-cd-disconnect-left");
+    if(data & 0x04) this.bus.send("mixer-connect", ["cd", "left"]);
+    else this.bus.send("mixer-disconnect", ["cd", "left"]);
 
-    if(data & 0x08) this.bus.send("mixer-line-connect-right");
-    else this.bus.send("mixer-line-disconnect-right");
+    if(data & 0x08) this.bus.send("mixer-connect", ["line", "right"]);
+    else this.bus.send("mixer-disconnect", ["line", "right"]);
 
-    if(data & 0x10) this.bus.send("mixer-line-connect-left");
-    else this.bus.send("mixer-line-disconnect-left");
+    if(data & 0x10) this.bus.send("mixer-connect", ["line", "left"]);
+    else this.bus.send("mixer-disconnect", ["line", "left"]);
 });
 
 // Input Mixer Left Switches. TODO.
@@ -1358,7 +1363,7 @@ register_mixer_read(0x41);
 register_mixer_write(0x41, function(data)
 {
     this.mixer_registers[0x41] = data;
-    this.bus.send("mixer-master-gain-left", (data >>> 6) * 6);
+    this.bus.send("mixer-gain-left", (data >>> 6) * 6);
 });
 
 // Output Gain Right.
@@ -1366,7 +1371,7 @@ register_mixer_read(0x42);
 register_mixer_write(0x42, function(data)
 {
     this.mixer_registers[0x42] = data;
-    this.bus.send("mixer-master-gain-right", (data >>> 6) * 6);
+    this.bus.send("mixer-gain-right", (data >>> 6) * 6);
 });
 
 // Mic AGC. TODO.
@@ -1378,7 +1383,7 @@ register_mixer_read(0x44);
 register_mixer_write(0x44, function(data)
 {
     this.mixer_registers[0x44] = data;
-    this.bus.send("mixer-master-treble-left", (data >>> 3) - (data >>> 7) - 14);
+    this.bus.send("mixer-treble-left", (data >>> 3) - (data >>> 7) - 14);
 });
 
 // Treble Right.
@@ -1386,7 +1391,7 @@ register_mixer_read(0x45);
 register_mixer_write(0x45, function(data)
 {
     this.mixer_registers[0x45] = data;
-    this.bus.send("mixer-master-treble-right", (data >>> 3) - (data >>> 7) - 14);
+    this.bus.send("mixer-treble-right", (data >>> 3) - (data >>> 7) - 14);
 });
 
 // Bass Left.
@@ -1394,7 +1399,7 @@ register_mixer_read(0x46);
 register_mixer_write(0x46, function(data)
 {
     this.mixer_registers[0x46] = data;
-    this.bus.send("mixer-master-bass-right", (data >>> 3) - (data >>> 7) - 14);
+    this.bus.send("mixer-bass-right", (data >>> 3) - (data >>> 7) - 14);
 });
 
 // Bass Right.
@@ -1402,7 +1407,7 @@ register_mixer_read(0x47);
 register_mixer_write(0x47, function(data)
 {
     this.mixer_registers[0x47] = data;
-    this.bus.send("mixer-master-bass-right", (data >>> 3) - (data >>> 7) - 14);
+    this.bus.send("mixer-bass-right", (data >>> 3) - (data >>> 7) - 14);
 });
 
 // IRQ Select.
