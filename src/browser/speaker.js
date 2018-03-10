@@ -432,10 +432,15 @@ SpeakerDAC.prototype.queue = function(data)
         buffer = this.audio_context.createBuffer(2, new_sample_count, new_sampling_rate);
         var buffer_data0 = buffer.getChannelData(0);
         var buffer_data1 = buffer.getChannelData(1);
+
+        var buffer_index = 0;
         for(var i = 0; i < sample_count; i++)
         {
-            buffer_data0[i << 1] = buffer_data0[(i << 1) + 1] = data[0][i];
-            buffer_data1[i << 1] = buffer_data1[(i << 1) + 1] = data[1][i];
+            for(var j = 0; j < this.rate_ratio; j++, buffer_index++)
+            {
+                buffer_data0[buffer_index] = data[0][i];
+                buffer_data1[buffer_index] = data[1][i];
+            }
         }
     }
     else
