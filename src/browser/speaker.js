@@ -59,15 +59,16 @@ function SpeakerMixer(bus, audio_context)
 
     this.sources = new Map();
 
+    // States
+
+    this.volume_both = 1;
+    this.volume_left = 1;
+    this.volume_right = 1;
+    this.gain_left = 1;
+    this.gain_right = 1;
+
     // Nodes
     // TODO: Find / calibrate / verify the filter frequencies
-
-    this.node_volume = this.audio_context.createGain();
-
-    this.node_splitter = this.audio_context.createChannelSplitter(2);
-
-    this.node_volume_left = this.audio_context.createGain();
-    this.node_volume_right = this.audio_context.createGain();
 
     this.node_treble_left = this.audio_context.createBiquadFilter();
     this.node_treble_right = this.audio_context.createBiquadFilter();
@@ -90,19 +91,14 @@ function SpeakerMixer(bus, audio_context)
 
     // Graph
 
-    this.input = this.node_volume;
+    this.input_left = this.node_treble_left;
+    this.input_right = this.node_treble_right;
 
-    this.node_volume
-        .connect(this.node_splitter);
-    this.node_splitter
-        .connect(this.node_volume_left, 0)
-        .connect(this.node_treble_left)
+    this.node_treble_left
         .connect(this.node_bass_left)
         .connect(this.node_gain_left)
         .connect(this.node_merger, 0, 0);
-    this.node_splitter
-        .connect(this.node_volume_right, 1)
-        .connect(this.node_treble_right)
+    this.node_treble_right
         .connect(this.node_bass_right)
         .connect(this.node_gain_right)
         .connect(this.node_merger, 0, 1);
@@ -110,13 +106,6 @@ function SpeakerMixer(bus, audio_context)
         .connect(this.audio_context.destination);
 
     // Interface
-
-    this.master_as_a_source =
-    {
-        node_gain_left: this.node_volume_left,
-        node_gain_right: this.node_volume_right,
-        node_gain: this.node_volume,
-    };
 
     bus.register("mixer-connect", function(data)
     {
@@ -143,7 +132,7 @@ function SpeakerMixer(bus, audio_context)
         var source;
         if(source_name === "master")
         {
-            source = this.master_as_a_source;
+            source = this;
         }
         else
         {
@@ -156,45 +145,49 @@ function SpeakerMixer(bus, audio_context)
             return;
         }
 
-        var node;
-        switch(channel)
-        {
-            case "left":
-                node = source.node_gain_left;
-                break;
-            case "right":
-                node = source.node_gain_right;
-                break;
-            case "both":
-                node = source.node_gain;
-                break;
-            default:
-                console.warn("Mixer set volume - unknown channel: " + channel);
-                return;
-        }
-
-        node.gain.setValueAtTime(gain, this.audio_context.currentTime);
+        source.set_volume(gain);
     }, this);
 
-    function create_gain_handler(audio_node, in_decibels)
+    bus.register("mixer-gain-left", function(decibels)
+    {
+        decibels = /** @type{number} */(decibels);
+        this.gain_left = Math.pow(10, decibels / 20);
+        this.update();
+    }, this);
+
+    bus.register("mixer-gain-right", function(decibels)
+    {
+        decibels = /** @type{number} */(decibels);
+        this.gain_right = Math.pow(10, decibels / 20);
+        this.update();
+    }, this);
+
+    function create_gain_handler(audio_node)
     {
         return function(decibels)
         {
-            var gain = in_decibels ? decibels : Math.pow(10, decibels / 20);
-            audio_node.gain.setValueAtTime(gain, this.audio_context.currentTime);
+            audio_node.gain.setValueAtTime(decibels, this.audio_context.currentTime);
         };
     };
-    bus.register("mixer-gain-left", create_gain_handler(this.node_gain_left, false), this);
-    bus.register("mixer-gain-right", create_gain_handler(this.node_gain_right, false), this);
-    bus.register("mixer-treble-left", create_gain_handler(this.node_treble_left, false), this);
-    bus.register("mixer-treble-right", create_gain_handler(this.node_treble_right, false), this);
-    bus.register("mixer-bass-left", create_gain_handler(this.node_bass_left, false), this);
-    bus.register("mixer-bass-right", create_gain_handler(this.node_bass_right, false), this);
+    bus.register("mixer-treble-left", create_gain_handler(this.node_treble_left), this);
+    bus.register("mixer-treble-right", create_gain_handler(this.node_treble_right), this);
+    bus.register("mixer-bass-left", create_gain_handler(this.node_bass_left), this);
+    bus.register("mixer-bass-right", create_gain_handler(this.node_bass_right), this);
 }
 
+/**
+ * @param {!AudioNode} source_node
+ * @param {string} source_name
+ * @return {SpeakerMixerSource}
+ */
 SpeakerMixer.prototype.add_source = function(source_node, source_name)
 {
-    var source = new SpeakerMixerSource(this.audio_context, source_node, this.input);
+    var source = new SpeakerMixerSource(
+        this.audio_context,
+        source_node,
+        this.input_left,
+        this.input_right
+    );
 
     if(this.sources.has(source_name))
     {
@@ -202,6 +195,7 @@ SpeakerMixer.prototype.add_source = function(source_node, source_name)
     }
 
     this.sources.set(source_name, source);
+    return source;
 };
 
 /**
@@ -239,35 +233,107 @@ SpeakerMixer.prototype.disconnect_source = function(source_name, channel)
 };
 
 /**
+ * @param {number} value
+ * @param {string=} channel
+ */
+SpeakerMixer.prototype.set_volume = function(value, channel)
+{
+    if(!channel)
+    {
+        channel = "both";
+    }
+
+    switch(channel)
+    {
+        case "left":
+            this.volume_left = value;
+            break;
+        case "right":
+            this.volume_right = value;
+            break;
+        case "both":
+            this.volume_both = value;
+            break;
+        default:
+            console.warn("Mixer set master volume - unknown channel: " + channel);
+            return;
+    }
+
+    this.update();
+};
+
+SpeakerMixer.prototype.update = function()
+{
+    var net_gain_left =
+        this.volume_both *
+        this.volume_left *
+        this.gain_left;
+
+    var net_gain_right =
+        this.volume_both *
+        this.volume_right *
+        this.gain_right;
+
+    this.node_gain_left.gain.setValueAtTime(net_gain_left, this.audio_context.currentTime);
+    this.node_gain_right.gain.setValueAtTime(net_gain_right, this.audio_context.currentTime);
+};
+
+/**
  * @constructor
  * @param {!AudioContext} audio_context
  * @param {!AudioNode} source_node
- * @param {!AudioNode} destination_node
+ * @param {!AudioNode} destination_left
+ * @param {!AudioNode} destination_right
  */
-function SpeakerMixerSource(audio_context, source_node, destination_node)
+function SpeakerMixerSource(audio_context, source_node, destination_left, destination_right)
 {
+    /** @const */
+    this.audio_context = audio_context;
+
+    // States
+
+    this.connected_left = true;
+    this.connected_right = true;
+    this.gain_hidden = 1;
+    this.volume_both = 1;
+    this.volume_left = 1;
+    this.volume_right = 1;
+
     // Nodes
 
-    this.node_gain = audio_context.createGain();
     this.node_splitter = audio_context.createChannelSplitter(2);
     this.node_gain_left = audio_context.createGain();
     this.node_gain_right = audio_context.createGain();
-    this.node_merger = audio_context.createChannelMerger(2);
 
     // Graph
 
     source_node
-        .connect(this.node_gain)
         .connect(this.node_splitter);
     this.node_splitter
         .connect(this.node_gain_left, 0)
-        .connect(this.node_merger, 0, 0);
+        .connect(destination_left);
     this.node_splitter
         .connect(this.node_gain_right, 1)
-        .connect(this.node_merger, 0, 1);
-    this.node_merger
-        .connect(destination_node);
+        .connect(destination_right);
 }
+
+SpeakerMixerSource.prototype.update = function()
+{
+    var net_gain_left =
+        this.connected_left *
+        this.gain_hidden *
+        this.volume_both *
+        this.volume_left;
+
+    var net_gain_right =
+        this.connected_right *
+        this.gain_hidden *
+        this.volume_both *
+        this.volume_right;
+
+    this.node_gain_left.gain.setValueAtTime(net_gain_left, this.audio_context.currentTime);
+    this.node_gain_right.gain.setValueAtTime(net_gain_right, this.audio_context.currentTime);
+};
 
 /** @param {string=} channel */
 SpeakerMixerSource.prototype.connect = function(channel)
@@ -275,12 +341,13 @@ SpeakerMixerSource.prototype.connect = function(channel)
     var both = !channel || channel === "both";
     if(both || channel === "left")
     {
-        this.node_gain_left.connect(this.node_merger, 0, 0);
+        this.connected_left = true;
     }
     if(both || channel === "right")
     {
-        this.node_gain_right.connect(this.node_merger, 0, 1);
+        this.connected_right = true;
     }
+    this.update();
 };
 
 /** @param {string=} channel */
@@ -289,12 +356,48 @@ SpeakerMixerSource.prototype.disconnect = function(channel)
     var both = !channel || channel === "both";
     if(both || channel === "left")
     {
-        this.node_gain_left.disconnect();
+        this.connected_left = false;
     }
     if(both || channel === "right")
     {
-        this.node_gain_right.disconnect();
+        this.connected_right = false;
     }
+    this.update();
+};
+
+/**
+ * @param {number} value
+ * @param {string=} channel
+ */
+SpeakerMixerSource.prototype.set_volume = function(value, channel)
+{
+    if(!channel)
+    {
+        channel = "both";
+    }
+
+    switch(channel)
+    {
+        case "left":
+            this.volume_left = value;
+            break;
+        case "right":
+            this.volume_right = value;
+            break;
+        case "both":
+            this.volume_both = value;
+            break;
+        default:
+            console.warn("Mixer set volume - unknown channel: " + channel);
+            return;
+    }
+
+    this.update();
+};
+
+SpeakerMixerSource.prototype.set_gain_hidden = function(value)
+{
+    this.gain_hidden = value;
 };
 
 /**
@@ -312,8 +415,8 @@ function PCSpeaker(bus, audio_context, mixer)
 
     // Interface
 
-    mixer.add_source(this.node_oscillator, "pcspeaker");
-    mixer.disconnect_source("pcspeaker");
+    this.mixer_connection = mixer.add_source(this.node_oscillator, "pcspeaker");
+    this.mixer_connection.disconnect();
 
     bus.register("pcspeaker-enable", function()
     {
@@ -372,17 +475,10 @@ function SpeakerDAC(bus, audio_context, mixer)
     this.node_lowpass = this.audio_context.createBiquadFilter();
     this.node_lowpass.type = "lowpass";
 
-    this.node_gain = this.audio_context.createGain();
-    this.node_gain.gain.setValueAtTime(3, this.audio_context.currentTime);
-
-    // Graph
-
-    this.node_lowpass
-        .connect(this.node_gain);
-
     // Interface
 
-    mixer.add_source(this.node_gain, "dac");
+    this.mixer_connection = mixer.add_source(this.node_lowpass, "dac");
+    this.mixer_connection.set_gain_hidden(3);
 
     bus.register("dac-send-data", function(data)
     {
