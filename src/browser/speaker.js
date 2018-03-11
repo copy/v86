@@ -469,7 +469,6 @@ function SpeakerDAC(bus, audio_context, mixer)
     this.sampling_rate = 22050;
     this.buffered_time = 0;
     this.rate_ratio = 1;
-    this.free_buffers_of_length = new Map();
 
     // Nodes
 
@@ -493,20 +492,13 @@ function SpeakerDAC(bus, audio_context, mixer)
     bus.register("dac-disable", function()
     {
         this.enabled = false;
-
-        // Prevent growth if block size changes
-        this.free_buffers_of_length.clear();
     }, this);
     bus.register("dac-tell-sampling-rate", function(rate)
     {
         rate = /** @type{number} */(rate);
         this.sampling_rate = rate;
         this.rate_ratio = Math.ceil(DAC_MINIMUM_SAMPLING_RATE / rate);
-        this.buffer_sampling_rate = rate * this.rate_ratio;
         this.node_lowpass.frequency.setValueAtTime(rate / 2, this.audio_context.currentTime);
-
-        // Previous buffers were only valid for a given sample rate
-        this.free_buffers_of_length.clear();
     }, this);
 
     if(DEBUG)
@@ -516,26 +508,6 @@ function SpeakerDAC(bus, audio_context, mixer)
         this.debug_output_history = [];
     }
 }
-
-SpeakerDAC.prototype.get_audio_buffer = function(sample_count)
-{
-    var buffers = this.free_buffers_of_length.get(sample_count);
-
-    if(!buffers)
-    {
-        buffers = [];
-        this.free_buffers_of_length.set(sample_count, buffers);
-    }
-
-    if(!buffers.length)
-    {
-        return this.audio_context.createBuffer(2, sample_count, this.buffer_sampling_rate);
-    }
-    else
-    {
-        return buffers.pop();
-    }
-};
 
 SpeakerDAC.prototype.queue = function(data)
 {
@@ -550,11 +522,13 @@ SpeakerDAC.prototype.queue = function(data)
 
     var sample_count = data[0].length;
     var block_duration = sample_count / this.sampling_rate;
-    var buffer_sample_count = sample_count * this.rate_ratio;
 
-    var buffer = this.get_audio_buffer(buffer_sample_count);
+    var buffer;
     if(this.rate_ratio > 1)
     {
+        var new_sample_count = sample_count * this.rate_ratio;
+        var new_sampling_rate = this.sampling_rate * this.rate_ratio;
+        buffer = this.audio_context.createBuffer(2, new_sample_count, new_sampling_rate);
         var buffer_data0 = buffer.getChannelData(0);
         var buffer_data1 = buffer.getChannelData(1);
 
@@ -570,6 +544,9 @@ SpeakerDAC.prototype.queue = function(data)
     }
     else
     {
+        // Allocating new AudioBuffer every block
+        // - Memory profiles show insignificant improvements if recycling old buffers.
+        buffer = this.audio_context.createBuffer(2, sample_count, this.sampling_rate);
         buffer.copyToChannel(data[0], 0);
         buffer.copyToChannel(data[1], 1);
     }
@@ -577,18 +554,7 @@ SpeakerDAC.prototype.queue = function(data)
     var source = this.audio_context.createBufferSource();
     source.buffer = buffer;
     source.connect(this.node_lowpass);
-    source.addEventListener("ended", () =>
-    {
-        var buffers = this.free_buffers_of_length.get(buffer_sample_count);
-
-        if(buffers)
-        {
-            buffers.push(buffer);
-        }
-        buffer = null;
-
-        this.pump();
-    });
+    source.addEventListener("ended", this.pump.bind(this));
 
     var current_time = this.audio_context.currentTime;
 
