@@ -484,15 +484,18 @@ function SpeakerDAC(bus, audio_context, mixer)
     {
         this.queue(data);
     }, this);
+
     bus.register("dac-enable", function(enabled)
     {
         this.enabled = true;
         this.pump();
     }, this);
+
     bus.register("dac-disable", function()
     {
         this.enabled = false;
     }, this);
+
     bus.register("dac-tell-sampling-rate", function(rate)
     {
         rate = /** @type{number} */(rate);
