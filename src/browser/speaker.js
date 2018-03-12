@@ -20,6 +20,16 @@ function SpeakerAdapter(bus)
         return;
     }
 
+    var SpeakerDAC;
+    if(window.AudioWorklet)
+    {
+        SpeakerDAC = SpeakerWorkletDAC;
+    }
+    else
+    {
+        SpeakerDAC = SpeakerBufferSourceDAC;
+    }
+
     /** @const */
     this.bus = bus;
 
@@ -404,6 +414,7 @@ SpeakerMixerSource.prototype.set_gain_hidden = function(value)
  * @constructor
  * @param {!BusConnector} bus
  * @param {!AudioContext} audio_context
+ * @param {!SpeakerMixer} mixer
  */
 function PCSpeaker(bus, audio_context, mixer)
 {
@@ -454,8 +465,377 @@ function PCSpeaker(bus, audio_context, mixer)
  * @constructor
  * @param {!BusConnector} bus
  * @param {!AudioContext} audio_context
+ * @param {!SpeakerMixer} mixer
  */
-function SpeakerDAC(bus, audio_context, mixer)
+function SpeakerWorkletDAC(bus, audio_context, mixer)
+{
+    this.bus = bus;
+    this.audio_context = audio_context;
+
+    // State
+
+    this.enabled = false;
+    this.sampling_rate = 48000;
+
+    // Worklet
+
+    var worklet_string = `
+    function worklet()
+    {
+        /** @const */
+        var RENDER_QUANTUM = 128;
+
+        /** @const */
+        var QUEUE_RESERVE = 1024;
+
+        function sinc(x)
+        {
+            if(x === 0) return 1;
+            x *= Math.PI;
+            return Math.sin(x) / x;
+        }
+
+        function create_empty_buffer()
+        {
+            var buffer = new Float32Array(RENDER_QUANTUM);
+            return [buffer, buffer];
+        }
+
+        class DACProcessor extends AudioWorkletProcessor
+        {
+            constructor()
+            {
+                super();
+
+                // Params
+
+                this.kernel_size = 3;
+
+                // States
+
+                // Buffers waiting for their turn to be consumed
+                this.queue_data = new Array(1024);
+                this.queue_start = 0;
+                this.queue_end = 0;
+                this.queue_length = 0;
+                this.queue_size = this.queue_data.length;
+                this.queued_samples = 0;
+
+                // Buffers being actively consumed
+                /** @type{Array<Float32Array>} */
+                this.source_buffer_previous = create_empty_buffer();
+                /** @type{Array<Float32Array>} */
+                this.source_buffer_current = create_empty_buffer();
+
+                // Cached length of source_buffer_previous
+                this.source_length_previous = RENDER_QUANTUM;
+
+                // Ratio of alienland sample rate to homeland sample rate.
+                this.source_samples_per_destination = 1.0;
+
+                // Integer representing the position of the first destination sample
+                // for the current block, relative to source_buffer_current.
+                this.source_block_start = 0;
+
+                // Real number representing the position of the current destination
+                // sample relative to source_buffer_current, since source_block_index.
+                this.source_time = 0.0;
+
+                // Same as source_time but rounded down to an index.
+                this.source_offset = 0;
+
+                // Interface
+
+                this.port.onmessage = (event) =>
+                {
+                    switch(event.data.type)
+                    {
+                        case "queue":
+                            this.queue_push(event.data.value);
+                            break;
+                        case "sampling-rate":
+                            this.source_samples_per_destination = event.data.value / sampleRate;
+                            break;
+                    }
+                };
+            }
+
+            static get parameterDescriptors()
+            {
+                return [{ name: "gain", defaultValue: 1 }];
+            }
+
+            process(inputs, outputs, parameters)
+            {
+                for(var i = 0; i < outputs[0][0].length; i++)
+                {
+                    // Resolve index
+                    var source_index = this.source_offset + this.source_block_start;
+
+                    // Lanczos resampling
+                    var sum0 = 0;
+                    var sum1 = 0;
+
+                    var start = this.source_offset - this.kernel_size + 1;
+                    var end = this.source_offset + this.kernel_size;
+
+                    for(var j = start; j <= end; j++)
+                    {
+                        var convolute_index = source_index + j;
+                        sum0 += this.get_sample(convolute_index, 0) * this.kernel(this.source_time - j);
+                        sum1 += this.get_sample(convolute_index, 1) * this.kernel(this.source_time - j);
+                    }
+
+                    sum0 *= parameters.gain[i];
+                    sum1 *= parameters.gain[i];
+
+                    outputs[0][0][i] = sum0;
+                    outputs[0][1][i] = sum1;
+
+                    this.source_time += this.source_samples_per_destination;
+                    this.source_offset = Math.floor(this.source_time);
+                }
+
+                // +2 to safeguard against rounding variations
+                var samples_needed_per_block = this.source_offset;
+                samples_needed_per_block += this.kernel_size + 2;
+                this.ensure_enough_data(samples_needed_per_block);
+
+                this.source_time -= this.source_offset;
+                this.source_block_start += this.source_offset;
+                this.source_offset = 0;
+
+                return true;
+            }
+
+            kernel(x)
+            {
+                return sinc(x) * sinc(x / this.kernel_size);
+            }
+
+            get_sample(index, channel)
+            {
+                if(index < 0)
+                {
+                    index += this.source_length_previous;
+                    return this.source_buffer_previous[channel][index];
+                }
+                else
+                {
+                    return this.source_buffer_current[channel][index];
+                }
+            }
+
+            ensure_enough_data(needed)
+            {
+                var current_length = this.source_buffer_current[0].length;
+                var remaining = current_length - this.source_block_start;
+
+                if(remaining < needed)
+                {
+                    this.prepare_next_buffer();
+                    this.source_block_start -= current_length;
+                    this.source_length_previous = current_length;
+                }
+            }
+
+            prepare_next_buffer()
+            {
+                this.source_buffer_previous = this.source_buffer_current;
+                this.source_buffer_current = this.queue_shift();
+
+                var sample_count = this.source_buffer_current[0].length;
+
+                if(sample_count < RENDER_QUANTUM)
+                {
+                    // Unfortunately, this single buffer is too small :(
+
+                    var queue_pos = this.queue_start;
+                    var buffer_count = 0;
+
+                    // Figure out how many small buffers to combine.
+                    while(sample_count < RENDER_QUANTUM && buffer_count < this.queue_length)
+                    {
+                        sample_count += this.queue_data[queue_pos][0].length;
+
+                        queue_pos = queue_pos + 1 & this.queue_size - 1;
+                        buffer_count++;
+                    }
+
+                    // Note: if not enough buffers, this will be end-padded with zeros:
+                    var new_big_buffer_size = Math.max(sample_count, RENDER_QUANTUM);
+                    var new_big_buffer =
+                    [
+                        new Float32Array(new_big_buffer_size),
+                        new Float32Array(new_big_buffer_size)
+                    ];
+
+                    // Copy the first, already-shifted, small buffer into the new buffer.
+                    new_big_buffer[0].set(this.source_buffer_current[0]);
+                    new_big_buffer[1].set(this.source_buffer_current[1]);
+                    var new_big_buffer_pos = this.source_buffer_current[0].length;
+
+                    // Copy the rest.
+                    for(var i = 0; i < buffer_count; i++)
+                    {
+                        var small_buffer = this.queue_shift();
+                        new_big_buffer[0].set(small_buffer[0], new_big_buffer_pos);
+                        new_big_buffer[1].set(small_buffer[1], new_big_buffer_pos);
+                        new_big_buffer_pos += small_buffer[0].length;
+                    }
+
+                    // Pretend that everything's just fine.
+                    this.source_buffer_current = new_big_buffer;
+                }
+
+                this.pump();
+            }
+
+            pump()
+            {
+                if(this.queued_samples / this.source_samples_per_destination < QUEUE_RESERVE)
+                {
+                    this.port.postMessage("pump");
+                }
+            }
+
+            queue_push(item)
+            {
+                if(this.queue_length < this.queue_size)
+                {
+                    this.queue_data[this.queue_end] = item;
+                    this.queue_end = this.queue_end + 1 & this.queue_size - 1;
+                    this.queue_length++;
+
+                    this.queued_samples += item[0].length;
+
+                    this.pump();
+                }
+            }
+
+            queue_shift()
+            {
+                if(!this.queue_length)
+                {
+                    return create_empty_buffer();
+                }
+
+                var item = this.queue_data[this.queue_start];
+
+                this.queue_data[this.queue_start] = null;
+                this.queue_start = this.queue_start + 1 & this.queue_size - 1;
+                this.queue_length--;
+
+                this.queued_samples -= item[0].length;
+
+                return item;
+            }
+        }
+
+        registerProcessor("dac-processor", DACProcessor);
+    }`;
+
+    //var worklet_string = worklet.toString();
+
+    var worklet_code_start = worklet_string.indexOf("{") + 1;
+    var worklet_code_end = worklet_string.lastIndexOf("}");
+    var worklet_code = worklet_string.substring(worklet_code_start, worklet_code_end);
+
+    var worklet_blob = new Blob([worklet_code], { type: "application/javascript" });
+    var worklet_url = URL.createObjectURL(worklet_blob);
+
+    /** @type {AudioWorkletNode} */
+    this.node_processor = null;
+
+    this.audio_context
+        .audioWorklet
+        .addModule(worklet_url)
+        .then(() =>
+    {
+        this.node_processor = new AudioWorkletNode(this.audio_context, "dac-processor",
+        {
+            "numberOfInputs": 0,
+            "numberOfOutputs": 1,
+            "outputChannelCount": [2]
+        });
+        this.node_processor.port.postMessage(
+        {
+            type: "sampling-rate",
+            value: this.sampling_rate
+        });
+        this.node_processor.port.onmessage = (event) =>
+        {
+            switch(event.data)
+            {
+                case "pump":
+                    this.pump();
+                    break;
+            }
+        };
+
+        this.mixer_connection = mixer.add_source(this.node_processor, "dac");
+        this.mixer_connection.set_gain_hidden(3);
+    });
+
+    // Interface
+
+    bus.register("dac-send-data", function(data)
+    {
+        if(!this.node_processor)
+        {
+            return;
+        }
+
+        this.node_processor.port.postMessage(
+        {
+            type: "queue",
+            value: data
+        }, [data[0].buffer, data[1].buffer]);
+    }, this);
+
+    bus.register("dac-enable", function(enabled)
+    {
+        this.enabled = true;
+    }, this);
+
+    bus.register("dac-disable", function()
+    {
+        this.enabled = false;
+    }, this);
+
+    bus.register("dac-tell-sampling-rate", function(rate)
+    {
+        this.sampling_rate = rate;
+
+        if(!this.node_processor)
+        {
+            return;
+        }
+
+        this.node_processor.port.postMessage(
+        {
+            type: "sampling-rate",
+            value: rate
+        });
+    }, this);
+}
+
+SpeakerWorkletDAC.prototype.pump = function()
+{
+    if(!this.enabled)
+    {
+        return;
+    }
+    this.bus.send("dac-request-data");
+};
+
+/**
+ * @constructor
+ * @param {!BusConnector} bus
+ * @param {!AudioContext} audio_context
+ * @param {!SpeakerMixer} mixer
+ */
+function SpeakerBufferSourceDAC(bus, audio_context, mixer)
 {
     /** @const */
     this.bus = bus;
@@ -512,7 +892,7 @@ function SpeakerDAC(bus, audio_context, mixer)
     }
 }
 
-SpeakerDAC.prototype.queue = function(data)
+SpeakerBufferSourceDAC.prototype.queue = function(data)
 {
     if(DEBUG)
     {
@@ -587,7 +967,7 @@ SpeakerDAC.prototype.queue = function(data)
     setTimeout(() => this.pump(), 0);
 };
 
-SpeakerDAC.prototype.pump = function()
+SpeakerBufferSourceDAC.prototype.pump = function()
 {
     if(!this.enabled)
     {
@@ -603,7 +983,7 @@ SpeakerDAC.prototype.pump = function()
 if(DEBUG)
 {
     /** @suppress {deprecated} */
-    SpeakerDAC.prototype.debug_start = function(durationMs)
+    SpeakerBufferSourceDAC.prototype.debug_start = function(durationMs)
     {
         this.debug = true;
         this.debug_queued = [[], []];
@@ -632,7 +1012,7 @@ if(DEBUG)
         }, durationMs);
     };
 
-    SpeakerDAC.prototype.debug_stop = function()
+    SpeakerBufferSourceDAC.prototype.debug_stop = function()
     {
         this.debug = false;
         this.node_lowpass.disconnect(this.debug_processor);
@@ -641,7 +1021,7 @@ if(DEBUG)
     };
 
     // Useful for Audacity imports
-    SpeakerDAC.prototype.debug_download_txt = function(history_id, channel)
+    SpeakerBufferSourceDAC.prototype.debug_download_txt = function(history_id, channel)
     {
         var txt = this.debug_output_history[history_id][channel]
             .map((v) => v.join(" "))
@@ -651,7 +1031,7 @@ if(DEBUG)
     };
 
     // Useful for general plotting
-    SpeakerDAC.prototype.debug_download_csv = function(history_id)
+    SpeakerBufferSourceDAC.prototype.debug_download_csv = function(history_id)
     {
         var buffers = this.debug_output_history[history_id];
         var csv_rows = [];
@@ -665,7 +1045,7 @@ if(DEBUG)
         this.debug_download(csv_rows.join("\n"), "dacdata.csv", "text/csv");
     };
 
-    SpeakerDAC.prototype.debug_download = function(str, filename, mime)
+    SpeakerBufferSourceDAC.prototype.debug_download = function(str, filename, mime)
     {
         var blob = new Blob([str], { type: mime });
         var a = document.createElement("a");
