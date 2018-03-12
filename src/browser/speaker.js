@@ -805,14 +805,12 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
         this.node_processor
             .connect(this.node_output);
-
-        // Interface
-
-        this.mixer_connection = mixer.add_source(this.node_output, "dac");
-        this.mixer_connection.set_gain_hidden(3);
     });
 
     // Interface
+
+    this.mixer_connection = mixer.add_source(this.node_output, "dac");
+    this.mixer_connection.set_gain_hidden(3);
 
     bus.register("dac-send-data", function(data)
     {
