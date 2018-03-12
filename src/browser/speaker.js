@@ -486,6 +486,9 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
         var RENDER_QUANTUM = 128;
 
         /** @const */
+        var MINIMUM_BUFFER_SIZE = 2 * RENDER_QUANTUM;
+
+        /** @const */
         var QUEUE_RESERVE = 1024;
 
         function sinc(x)
@@ -497,7 +500,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
         function create_empty_buffer()
         {
-            var buffer = new Float32Array(RENDER_QUANTUM);
+            var buffer = new Float32Array(MINIMUM_BUFFER_SIZE);
             return [buffer, buffer];
         }
 
@@ -528,7 +531,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
                 this.source_buffer_current = create_empty_buffer();
 
                 // Cached length of source_buffer_previous
-                this.source_length_previous = RENDER_QUANTUM;
+                this.source_length_previous = this.source_buffer_previous.length;
 
                 // Ratio of alienland sample rate to homeland sample rate.
                 this.source_samples_per_destination = 1.0;
@@ -569,9 +572,6 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
             {
                 for(var i = 0; i < outputs[0][0].length; i++)
                 {
-                    // Resolve index
-                    var source_index = this.source_offset + this.source_block_start;
-
                     // Lanczos resampling
                     var sum0 = 0;
                     var sum1 = 0;
@@ -581,13 +581,20 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
                     for(var j = start; j <= end; j++)
                     {
-                        var convolute_index = source_index + j;
+                        var convolute_index = this.source_block_start + j;
                         sum0 += this.get_sample(convolute_index, 0) * this.kernel(this.source_time - j);
                         sum1 += this.get_sample(convolute_index, 1) * this.kernel(this.source_time - j);
                     }
 
                     sum0 *= parameters.gain[i];
                     sum1 *= parameters.gain[i];
+
+                    if(isNaN(sum0) || isNaN(sum1))
+                    {
+                        // NaN values cause entire audio graph to cease functioning.
+                        sum0 = sum1 = 0;
+                        this.dbg_log("ERROR: NaN values! Ignoring for now.");
+                    }
 
                     outputs[0][0][i] = sum0;
                     outputs[0][1][i] = sum1;
@@ -599,11 +606,13 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
                 // +2 to safeguard against rounding variations
                 var samples_needed_per_block = this.source_offset;
                 samples_needed_per_block += this.kernel_size + 2;
-                this.ensure_enough_data(samples_needed_per_block);
 
                 this.source_time -= this.source_offset;
                 this.source_block_start += this.source_offset;
                 this.source_offset = 0;
+
+                // Note: This needs to be done after source_block_start is updated.
+                this.ensure_enough_data(samples_needed_per_block);
 
                 return true;
             }
@@ -641,7 +650,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
             prepare_next_buffer()
             {
-                if(this.queued_samples < RENDER_QUANTUM && this.queue_length)
+                if(this.queued_samples < MINIMUM_BUFFER_SIZE && this.queue_length)
                 {
                     this.dbg_log("Not enough samples - should not happen during midway of playback");
                 }
@@ -651,7 +660,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
                 var sample_count = this.source_buffer_current[0].length;
 
-                if(sample_count < RENDER_QUANTUM)
+                if(sample_count < MINIMUM_BUFFER_SIZE)
                 {
                     // Unfortunately, this single buffer is too small :(
 
@@ -659,7 +668,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
                     var buffer_count = 0;
 
                     // Figure out how many small buffers to combine.
-                    while(sample_count < RENDER_QUANTUM && buffer_count < this.queue_length)
+                    while(sample_count < MINIMUM_BUFFER_SIZE && buffer_count < this.queue_length)
                     {
                         sample_count += this.queue_data[queue_pos][0].length;
 
@@ -668,7 +677,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
                     }
 
                     // Note: if not enough buffers, this will be end-padded with zeros:
-                    var new_big_buffer_size = Math.max(sample_count, RENDER_QUANTUM);
+                    var new_big_buffer_size = Math.max(sample_count, MINIMUM_BUFFER_SIZE);
                     var new_big_buffer =
                     [
                         new Float32Array(new_big_buffer_size),
