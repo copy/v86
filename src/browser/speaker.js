@@ -641,6 +641,11 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
             prepare_next_buffer()
             {
+                if(this.queued_samples < RENDER_QUANTUM && this.queue_length)
+                {
+                    this.dbg_log("Not enough samples - should not happen during midway of playback");
+                }
+
                 this.source_buffer_previous = this.source_buffer_current;
                 this.source_buffer_current = this.queue_shift();
 
@@ -695,7 +700,10 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
             {
                 if(this.queued_samples / this.source_samples_per_destination < QUEUE_RESERVE)
                 {
-                    this.port.postMessage("pump");
+                    this.port.postMessage(
+                    {
+                        type: "pump"
+                    });
                 }
             }
 
@@ -729,6 +737,15 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
                 this.queued_samples -= item[0].length;
 
                 return item;
+            }
+
+            dbg_log(message)
+            {
+                this.port.postMessage(
+                {
+                    type: "debug-log",
+                    value: message
+                });
             }
         }
 
@@ -765,10 +782,16 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
         });
         this.node_processor.port.onmessage = (event) =>
         {
-            switch(event.data)
+            switch(event.data.type)
             {
                 case "pump":
                     this.pump();
+                    break;
+                case "debug-log":
+                    if(DEBUG)
+                    {
+                        console.log("SpeakerWorkletDAC - Worklet: " + event.data.value);
+                    }
                     break;
             }
         };
