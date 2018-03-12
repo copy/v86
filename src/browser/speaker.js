@@ -764,6 +764,9 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
     /** @type {AudioWorkletNode} */
     this.node_processor = null;
 
+    // Placeholder pass-through node to connect to, when worklet node is not ready yet.
+    this.node_output = this.audio_context.createGain();
+
     this.audio_context
         .audioWorklet
         .addModule(worklet_url)
@@ -775,11 +778,13 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
             "numberOfOutputs": 1,
             "outputChannelCount": [2]
         });
+
         this.node_processor.port.postMessage(
         {
             type: "sampling-rate",
             value: this.sampling_rate
         });
+
         this.node_processor.port.onmessage = (event) =>
         {
             switch(event.data.type)
@@ -796,7 +801,14 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
             }
         };
 
-        this.mixer_connection = mixer.add_source(this.node_processor, "dac");
+        // Graph
+
+        this.node_processor
+            .connect(this.node_output);
+
+        // Interface
+
+        this.mixer_connection = mixer.add_source(this.node_output, "dac");
         this.mixer_connection.set_gain_hidden(3);
     });
 
@@ -804,16 +816,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
     bus.register("dac-send-data", function(data)
     {
-        if(!this.node_processor)
-        {
-            return;
-        }
-
-        this.node_processor.port.postMessage(
-        {
-            type: "queue",
-            value: data
-        }, [data[0].buffer, data[1].buffer]);
+        this.queue(data);
     }, this);
 
     bus.register("dac-enable", function(enabled)
@@ -841,7 +844,31 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
             value: rate
         });
     }, this);
+
+    if(DEBUG)
+    {
+        this.debugger = new SpeakerDACDebugger(this.audio_context, this.node_output);
+    }
 }
+
+SpeakerWorkletDAC.prototype.queue = function(data)
+{
+    if(!this.node_processor)
+    {
+        return;
+    }
+
+    if(DEBUG)
+    {
+        this.debugger.push_queued_data(data);
+    }
+
+    this.node_processor.port.postMessage(
+    {
+        type: "queue",
+        value: data
+    }, [data[0].buffer, data[1].buffer]);
+};
 
 SpeakerWorkletDAC.prototype.pump = function()
 {
@@ -880,7 +907,9 @@ function SpeakerBufferSourceDAC(bus, audio_context, mixer)
 
     // Interface
 
-    this.mixer_connection = mixer.add_source(this.node_lowpass, "dac");
+    this.node_output = this.node_lowpass;
+
+    this.mixer_connection = mixer.add_source(this.node_output, "dac");
     this.mixer_connection.set_gain_hidden(3);
 
     bus.register("dac-send-data", function(data)
@@ -909,9 +938,7 @@ function SpeakerBufferSourceDAC(bus, audio_context, mixer)
 
     if(DEBUG)
     {
-        this.debug = false;
-        this.debug_queued_history = [];
-        this.debug_output_history = [];
+        this.debugger = new SpeakerDACDebugger(this.audio_context, this.node_output);
     }
 }
 
@@ -919,11 +946,7 @@ SpeakerBufferSourceDAC.prototype.queue = function(data)
 {
     if(DEBUG)
     {
-        if(this.debug)
-        {
-            this.debug_queued[0].push(data[0].slice());
-            this.debug_queued[1].push(data[1].slice());
-        }
+        this.debugger.push_queued_data(data);
     }
 
     var sample_count = data[0].length;
@@ -1003,79 +1026,108 @@ SpeakerBufferSourceDAC.prototype.pump = function()
     this.bus.send("dac-request-data");
 };
 
-if(DEBUG)
+/**
+ * @constructor
+ */
+function SpeakerDACDebugger(audio_context, source_node)
 {
-    /** @suppress {deprecated} */
-    SpeakerBufferSourceDAC.prototype.debug_start = function(durationMs)
-    {
-        this.debug = true;
-        this.debug_queued = [[], []];
-        this.debug_output = [[], []];
-        this.debug_queued_history.push(this.debug_queued);
-        this.debug_output_history.push(this.debug_output);
+    /** @const */
+    this.audio_context = audio_context;
 
-        this.debug_processor = this.audio_context.createScriptProcessor(1024, 2, 2);
-        this.debug_processor.onaudioprocess = (event) =>
-        {
-            this.debug_output[0].push(event.inputBuffer.getChannelData(0).slice());
-            this.debug_output[1].push(event.inputBuffer.getChannelData(1).slice());
-        };
+    /** @const */
+    this.node_source = source_node;
 
-        this.debug_gain = this.audio_context.createGain();
-        this.debug_gain.gain.setValueAtTime(0, this.audio_context.currentTime);
+    this.node_processor = null;
+    this.node_gain = this.audio_context.createGain();
 
-        this.node_lowpass
-            .connect(this.debug_processor)
-            .connect(this.debug_gain)
-            .connect(this.audio_context.destination);
+    this.node_gain
+        .connect(this.audio_context.destination);
 
-        setTimeout(() =>
-        {
-            this.debug_stop();
-        }, durationMs);
-    };
-
-    SpeakerBufferSourceDAC.prototype.debug_stop = function()
-    {
-        this.debug = false;
-        this.node_lowpass.disconnect(this.debug_processor);
-        this.debug_processor.disconnect();
-        this.debug_processor = null;
-    };
-
-    // Useful for Audacity imports
-    SpeakerBufferSourceDAC.prototype.debug_download_txt = function(history_id, channel)
-    {
-        var txt = this.debug_output_history[history_id][channel]
-            .map((v) => v.join(" "))
-            .join(" ");
-
-        this.debug_download(txt, "dacdata.txt", "text/plain");
-    };
-
-    // Useful for general plotting
-    SpeakerBufferSourceDAC.prototype.debug_download_csv = function(history_id)
-    {
-        var buffers = this.debug_output_history[history_id];
-        var csv_rows = [];
-        for(var buffer_id = 0; buffer_id < buffers[0].length; buffer_id++)
-        {
-            for(var i = 0; i < buffers[0][buffer_id].length; i++)
-            {
-                csv_rows.push(`${buffers[0][buffer_id][i]},${buffers[1][buffer_id][i]}`);
-            }
-        }
-        this.debug_download(csv_rows.join("\n"), "dacdata.csv", "text/csv");
-    };
-
-    SpeakerBufferSourceDAC.prototype.debug_download = function(str, filename, mime)
-    {
-        var blob = new Blob([str], { type: mime });
-        var a = document.createElement("a");
-        a["download"] = filename;
-        a.href = window.URL.createObjectURL(blob);
-        a.dataset["downloadurl"] = [mime, a["download"], a.href].join(":");
-        a.click();
-        window.URL.revokeObjectURL(a.href);
-    };
+    this.is_active = false;
+    this.queued_history = [];
+    this.output_history = [];
+    this.queued = [[], []];
+    this.output = [[], []];
 }
+
+/** @suppress {deprecated} */
+SpeakerDACDebugger.prototype.start = function(durationMs)
+{
+    this.is_active = true;
+    this.queued = [[], []];
+    this.output = [[], []];
+    this.queued_history.push(this.queued);
+    this.output_history.push(this.output);
+
+    this.node_processor = this.audio_context.createScriptProcessor(1024, 2, 2);
+    this.node_processor.onaudioprocess = (event) =>
+    {
+        this.output[0].push(event.inputBuffer.getChannelData(0).slice());
+        this.output[1].push(event.inputBuffer.getChannelData(1).slice());
+    };
+
+    this.node_gain = this.audio_context.createGain();
+    this.node_gain.gain.setValueAtTime(0, this.audio_context.currentTime);
+
+    this.node_source
+        .connect(this.node_processor)
+        .connect(this.node_gain);
+
+    setTimeout(() =>
+    {
+        this.stop();
+    }, durationMs);
+};
+
+SpeakerDACDebugger.prototype.stop = function()
+{
+    this.is_active = false;
+    this.node_source.disconnect(this.node_processor);
+    this.node_processor.disconnect();
+    this.node_processor = null;
+};
+
+SpeakerDACDebugger.prototype.push_queued_data = function(data)
+{
+    if(this.is_active)
+    {
+        this.queued[0].push(data[0].slice());
+        this.queued[1].push(data[1].slice());
+    }
+};
+
+// Useful for Audacity imports
+SpeakerDACDebugger.prototype.download_txt = function(history_id, channel)
+{
+    var txt = this.output_history[history_id][channel]
+        .map((v) => v.join(" "))
+        .join(" ");
+
+    this.download(txt, "dacdata.txt", "text/plain");
+};
+
+// Useful for general plotting
+SpeakerDACDebugger.prototype.download_csv = function(history_id)
+{
+    var buffers = this.output_history[history_id];
+    var csv_rows = [];
+    for(var buffer_id = 0; buffer_id < buffers[0].length; buffer_id++)
+    {
+        for(var i = 0; i < buffers[0][buffer_id].length; i++)
+        {
+            csv_rows.push(`${buffers[0][buffer_id][i]},${buffers[1][buffer_id][i]}`);
+        }
+    }
+    this.download(csv_rows.join("\n"), "dacdata.csv", "text/csv");
+};
+
+SpeakerDACDebugger.prototype.download = function(str, filename, mime)
+{
+    var blob = new Blob([str], { type: mime });
+    var a = document.createElement("a");
+    a["download"] = filename;
+    a.href = window.URL.createObjectURL(blob);
+    a.dataset["downloadurl"] = [mime, a["download"], a.href].join(":");
+    a.click();
+    window.URL.revokeObjectURL(a.href);
+};
