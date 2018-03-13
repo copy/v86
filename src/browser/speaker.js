@@ -835,8 +835,9 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
     bus.register("dac-tell-sampling-rate", function(rate)
     {
-        dbg_assert(rate > 0, "Sampling rate should be nonzero");
+        rate = /** @type{number} */(rate);
 
+        dbg_assert(rate > 0, "Sampling rate should be nonzero");
         this.sampling_rate = rate;
 
         if(!this.node_processor)
@@ -936,9 +937,9 @@ function SpeakerBufferSourceDAC(bus, audio_context, mixer)
 
     bus.register("dac-tell-sampling-rate", function(rate)
     {
-        dbg_assert(rate > 0, "Sampling rate should be nonzero");
-
         rate = /** @type{number} */(rate);
+
+        dbg_assert(rate > 0, "Sampling rate should be nonzero");
         this.sampling_rate = rate;
         this.rate_ratio = Math.ceil(AUDIOBUFFER_MINIMUM_SAMPLING_RATE / rate);
         this.node_lowpass.frequency.setValueAtTime(rate / 2, this.audio_context.currentTime);
