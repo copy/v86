@@ -585,6 +585,48 @@ void fwait()
     // NOP unless FPU instructions run in parallel with CPU instructions
 }
 
+void fpu_fadd(double_t val)
+{
+    double_t st0 = fpu_get_st0();
+    fpu_st[*fpu_stack_ptr] = st0 + val;
+}
+
+void fpu_fmul(double_t val)
+{
+    double_t st0 = fpu_get_st0();
+    fpu_st[*fpu_stack_ptr] = st0 * val;
+}
+
+void fpu_fcomp(double_t val)
+{
+    fpu_fcom(val);
+    fpu_pop();
+}
+
+void fpu_fsub(double_t val)
+{
+    double_t st0 = fpu_get_st0();
+    fpu_st[*fpu_stack_ptr] = st0 - val;
+}
+
+void fpu_fsubr(double_t val)
+{
+    double_t st0 = fpu_get_st0();
+    fpu_st[*fpu_stack_ptr] = val - st0;
+}
+
+void fpu_fdiv(double_t val)
+{
+    double_t st0 = fpu_get_st0();
+    fpu_st[*fpu_stack_ptr] = st0 / val;
+}
+
+void fpu_fdivr(double_t val)
+{
+    double_t st0 = fpu_get_st0();
+    fpu_st[*fpu_stack_ptr] = val / st0;
+}
+
 void fpu_op_D8_reg(int32_t imm8)
 {
     dbg_log_fpu_op(0xD8, imm8);
