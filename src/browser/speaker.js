@@ -2,7 +2,9 @@
 
 /** @const */
 var DAC_QUEUE_RESERVE = 0.2;
-var DAC_MINIMUM_SAMPLING_RATE = 8000;
+
+/** @const */
+var AUDIOBUFFER_MINIMUM_SAMPLING_RATE = 8000;
 
 /**
  * @constructor
@@ -469,7 +471,10 @@ function PCSpeaker(bus, audio_context, mixer)
  */
 function SpeakerWorkletDAC(bus, audio_context, mixer)
 {
+    /** @const */
     this.bus = bus;
+
+    /** @const */
     this.audio_context = audio_context;
 
     // State
@@ -563,11 +568,6 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
                 };
             }
 
-            static get parameterDescriptors()
-            {
-                return [{ name: "gain", defaultValue: 1 }];
-            }
-
             process(inputs, outputs, parameters)
             {
                 for(var i = 0; i < outputs[0][0].length; i++)
@@ -585,9 +585,6 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
                         sum0 += this.get_sample(convolute_index, 0) * this.kernel(this.source_time - j);
                         sum1 += this.get_sample(convolute_index, 1) * this.kernel(this.source_time - j);
                     }
-
-                    sum0 *= parameters.gain[i];
-                    sum1 *= parameters.gain[i];
 
                     if(isNaN(sum0) || isNaN(sum1))
                     {
@@ -838,6 +835,8 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
     bus.register("dac-tell-sampling-rate", function(rate)
     {
+        dbg_assert(rate > 0, "Sampling rate should be nonzero");
+
         this.sampling_rate = rate;
 
         if(!this.node_processor)
@@ -937,9 +936,11 @@ function SpeakerBufferSourceDAC(bus, audio_context, mixer)
 
     bus.register("dac-tell-sampling-rate", function(rate)
     {
+        dbg_assert(rate > 0, "Sampling rate should be nonzero");
+
         rate = /** @type{number} */(rate);
         this.sampling_rate = rate;
-        this.rate_ratio = Math.ceil(DAC_MINIMUM_SAMPLING_RATE / rate);
+        this.rate_ratio = Math.ceil(AUDIOBUFFER_MINIMUM_SAMPLING_RATE / rate);
         this.node_lowpass.frequency.setValueAtTime(rate / 2, this.audio_context.currentTime);
     }, this);
 
