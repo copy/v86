@@ -215,7 +215,7 @@ double_t fpu_get_st0()
     }
 }
 
-void fcom(double_t y)
+void fpu_fcom(double_t y)
 {
     double_t x = fpu_get_st0();
 
@@ -241,7 +241,7 @@ void fcom(double_t y)
 void fucom(double_t y)
 {
     // TODO
-    fcom(y);
+    fpu_fcom(y);
 }
 
 
@@ -606,11 +606,11 @@ void fpu_op_D8_reg(int32_t imm8)
             break;
         case 2:
             // fcom
-            fcom(sti);
+            fpu_fcom(sti);
             break;
         case 3:
             // fcomp
-            fcom(sti);
+            fpu_fcom(sti);
             fpu_pop();
             break;
         case 4:
@@ -653,11 +653,11 @@ void fpu_op_D8_mem(int32_t mod, int32_t addr)
             break;
         case 2:
             // fcom
-            fcom(m32);
+            fpu_fcom(m32);
             break;
         case 3:
             // fcomp
-            fcom(m32);
+            fpu_fcom(m32);
             fpu_pop();
             break;
         case 4:
@@ -1000,11 +1000,11 @@ void fpu_op_DA_mem(int32_t mod, int32_t addr)
             break;
         case 2:
             // fcom
-            fcom(m32);
+            fpu_fcom(m32);
             break;
         case 3:
             // fcomp
-            fcom(m32);
+            fpu_fcom(m32);
             fpu_pop();
             break;
         case 4:
@@ -1186,11 +1186,11 @@ void fpu_op_DC_reg(int32_t imm8)
             break;
         case 2:
             // fcom
-            fcom(sti);
+            fpu_fcom(sti);
             break;
         case 3:
             // fcomp
-            fcom(sti);
+            fpu_fcom(sti);
             fpu_pop();
             break;
         case 4:
@@ -1233,11 +1233,11 @@ void fpu_op_DC_mem(int32_t mod, int32_t addr)
             break;
         case 2:
             // fcom
-            fcom(m64);
+            fpu_fcom(m64);
             break;
         case 3:
             // fcomp
-            fcom(m64);
+            fpu_fcom(m64);
             fpu_pop();
             break;
         case 4:
@@ -1375,13 +1375,13 @@ void fpu_op_DE_reg(int32_t imm8)
             break;
         case 2:
             // fcomp
-            fcom(sti);
+            fpu_fcom(sti);
             break;
         case 3:
             // fcompp
             if(low == 1)
             {
-                fcom(fpu_st[low_ptr]);
+                fpu_fcom(fpu_st[low_ptr]);
                 fpu_pop();
             }
             else
@@ -1433,11 +1433,11 @@ void fpu_op_DE_mem(int32_t mod, int32_t addr)
             break;
         case 2:
             // fcom
-            fcom(m16);
+            fpu_fcom(m16);
             break;
         case 3:
             // fcomp
-            fcom(m16);
+            fpu_fcom(m16);
             fpu_pop();
             break;
         case 4:
