@@ -12,6 +12,10 @@ void fpu_store_m80(uint32_t addr, double_t n);
 double_t fpu_load_m80(uint32_t addr);
 void fwait();
 
+double_t fpu_get_sti(int32_t i);
+double_t fpu_load_m32(int32_t addr);
+double_t fpu_load_m64(int32_t addr);
+
 void fpu_fadd(double_t val);
 void fpu_fmul(double_t val);
 void fpu_fcomp(double_t val);
