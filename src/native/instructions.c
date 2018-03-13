@@ -1073,8 +1073,15 @@ void instr_D7() {
     }
 }
 
-void instr_D8_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_D8_mem(r, addr); }
-void instr_D8_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_D8_reg(0xC0 | r2 | r << 3); }
+DEFINE_MODRM_INSTR_FPU_READ32(instr_D8_0, fpu_fadd(___))
+DEFINE_MODRM_INSTR_FPU_READ32(instr_D8_1, fpu_fmul(___))
+DEFINE_MODRM_INSTR_FPU_READ32(instr_D8_2, fpu_fcom(___))
+DEFINE_MODRM_INSTR_FPU_READ32(instr_D8_3, fpu_fcomp(___))
+DEFINE_MODRM_INSTR_FPU_READ32(instr_D8_4, fpu_fsub(___))
+DEFINE_MODRM_INSTR_FPU_READ32(instr_D8_5, fpu_fsubr(___))
+DEFINE_MODRM_INSTR_FPU_READ32(instr_D8_6, fpu_fdiv(___))
+DEFINE_MODRM_INSTR_FPU_READ32(instr_D8_7, fpu_fdivr(___))
+
 void instr_D9_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_D9_mem(r, addr); }
 void instr_D9_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_D9_reg(0xC0 | r2 | r << 3); }
 void instr_DA_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DA_mem(r, addr); }
