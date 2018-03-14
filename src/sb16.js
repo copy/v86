@@ -1320,27 +1320,27 @@ register_mixer_write(0x3B, function(data)
     this.bus.send("mixer-volume", ["pcspeaker", "both", (data >>> 6) * 6 - 18]);
 });
 
-// Output Mixer Switches.
-register_mixer_read(0x3C);
-register_mixer_write(0x3C, function(data)
-{
-    this.mixer_registers[0x3C] = data;
-
-    if(data & 0x01) this.bus.send("mixer-connect", ["mic", "both"]);
-    else this.bus.send("mixer-disconnect", ["mic", "both"]);
-
-    if(data & 0x02) this.bus.send("mixer-connect", ["cd", "right"]);
-    else this.bus.send("mixer-disconnect", ["cd", "right"]);
-
-    if(data & 0x04) this.bus.send("mixer-connect", ["cd", "left"]);
-    else this.bus.send("mixer-disconnect", ["cd", "left"]);
-
-    if(data & 0x08) this.bus.send("mixer-connect", ["line", "right"]);
-    else this.bus.send("mixer-disconnect", ["line", "right"]);
-
-    if(data & 0x10) this.bus.send("mixer-connect", ["line", "left"]);
-    else this.bus.send("mixer-disconnect", ["line", "left"]);
-});
+// Output Mixer Switches. TODO.
+//register_mixer_read(0x3C);
+//register_mixer_write(0x3C, function(data)
+//{
+//    this.mixer_registers[0x3C] = data;
+//
+//    if(data & 0x01) this.bus.send("mixer-connect", ["mic", "both"]);
+//    else this.bus.send("mixer-disconnect", ["mic", "both"]);
+//
+//    if(data & 0x02) this.bus.send("mixer-connect", ["cd", "right"]);
+//    else this.bus.send("mixer-disconnect", ["cd", "right"]);
+//
+//    if(data & 0x04) this.bus.send("mixer-connect", ["cd", "left"]);
+//    else this.bus.send("mixer-disconnect", ["cd", "left"]);
+//
+//    if(data & 0x08) this.bus.send("mixer-connect", ["line", "right"]);
+//    else this.bus.send("mixer-disconnect", ["line", "right"]);
+//
+//    if(data & 0x10) this.bus.send("mixer-connect", ["line", "left"]);
+//    else this.bus.send("mixer-disconnect", ["line", "left"]);
+//});
 
 // Input Mixer Left Switches. TODO.
 //register_mixer_read(0x3D);
