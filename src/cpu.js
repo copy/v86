@@ -1311,7 +1311,8 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
         const f = result.instance.exports["f"];
 
         this.wm.exports["_codegen_finalize_finished"](
-            wasm_table_index, start, first_opcode, state_flags, page_dirtiness);
+            wasm_table_index, start, end,
+            first_opcode, state_flags, page_dirtiness);
 
         // The following will throw if f isn't an exported function
         this.wm.imports["env"].table.set(wasm_table_index, f);
