@@ -797,10 +797,8 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
         this.enabled = false;
     }, this);
 
-    bus.register("dac-tell-sampling-rate", function(rate)
+    bus.register("dac-tell-sampling-rate", function(/** number */ rate)
     {
-        rate = /** @type{number} */(rate);
-
         dbg_assert(rate > 0, "Sampling rate should be nonzero");
         this.sampling_rate = rate;
 
@@ -899,10 +897,8 @@ function SpeakerBufferSourceDAC(bus, audio_context, mixer)
         this.enabled = false;
     }, this);
 
-    bus.register("dac-tell-sampling-rate", function(rate)
+    bus.register("dac-tell-sampling-rate", function(/** number */ rate)
     {
-        rate = /** @type{number} */(rate);
-
         dbg_assert(rate > 0, "Sampling rate should be nonzero");
         this.sampling_rate = rate;
         this.rate_ratio = Math.ceil(AUDIOBUFFER_MINIMUM_SAMPLING_RATE / rate);
