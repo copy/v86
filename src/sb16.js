@@ -1258,7 +1258,7 @@ function register_mixer_volume(address, mixer_source, channel)
             (data >>> 2) - 62
         ]);
     };
-};
+}
 
 // Reset.
 register_mixer_read(0x00, function()
