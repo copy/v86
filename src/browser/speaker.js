@@ -1071,7 +1071,7 @@ SpeakerDACDebugger.prototype.download_txt = function(history_id, channel)
         .map((v) => v.join(" "))
         .join(" ");
 
-    this.download(txt, "dacdata.txt", "text/plain");
+    dump_file(txt, "dacdata.txt");
 };
 
 // Useful for general plotting
@@ -1086,16 +1086,5 @@ SpeakerDACDebugger.prototype.download_csv = function(history_id)
             csv_rows.push(`${buffers[0][buffer_id][i]},${buffers[1][buffer_id][i]}`);
         }
     }
-    this.download(csv_rows.join("\n"), "dacdata.csv", "text/csv");
-};
-
-SpeakerDACDebugger.prototype.download = function(str, filename, mime)
-{
-    var blob = new Blob([str], { type: mime });
-    var a = document.createElement("a");
-    a["download"] = filename;
-    a.href = window.URL.createObjectURL(blob);
-    a.dataset["downloadurl"] = [mime, a["download"], a.href].join(":");
-    a.click();
-    window.URL.revokeObjectURL(a.href);
+    dump_file(csv_rows.join("\n"), "dacdata.csv");
 };
