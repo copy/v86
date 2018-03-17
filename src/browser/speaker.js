@@ -113,31 +113,31 @@ function SpeakerMixer(bus, audio_context)
 
     bus.register("mixer-connect", function(data)
     {
-        var source_name = data[0];
+        var source_id = data[0];
         var channel = data[1];
-        this.connect_source(source_name, channel);
+        this.connect_source(source_id, channel);
     }, this);
 
     bus.register("mixer-disconnect", function(data)
     {
-        var source_name = data[0];
+        var source_id = data[0];
         var channel = data[1];
-        this.disconnect_source(source_name, channel);
+        this.disconnect_source(source_id, channel);
     }, this);
 
     bus.register("mixer-volume", function(data)
     {
-        var source_name = data[0];
+        var source_id = data[0];
         var channel = data[1];
         var decibels = data[2];
 
         var gain = Math.pow(10, decibels / 20);
 
-        var source = source_name === "master" ? this : this.sources.get(source_name);
+        var source = source_id === MIXER_SRC_MASTER ? this : this.sources.get(source_id);
 
         if(source === undefined)
         {
-            dbg_assert(false, "Mixer set volume - cannot set volume for undefined source: " + source_name);
+            dbg_assert(false, "Mixer set volume - cannot set volume for undefined source: " + source_id);
             return;
         }
 
@@ -173,10 +173,10 @@ function SpeakerMixer(bus, audio_context)
 
 /**
  * @param {!AudioNode} source_node
- * @param {string} source_name
+ * @param {number} source_id
  * @return {SpeakerMixerSource}
  */
-SpeakerMixer.prototype.add_source = function(source_node, source_name)
+SpeakerMixer.prototype.add_source = function(source_node, source_id)
 {
     var source = new SpeakerMixerSource(
         this.audio_context,
@@ -185,23 +185,23 @@ SpeakerMixer.prototype.add_source = function(source_node, source_name)
         this.input_right
     );
 
-    dbg_assert(!this.sources.has(source_name), "Mixer add source - overwritting source: " + source_name);
+    dbg_assert(!this.sources.has(source_id), "Mixer add source - overwritting source: " + source_id);
 
-    this.sources.set(source_name, source);
+    this.sources.set(source_id, source);
     return source;
 };
 
 /**
- * @param {string} source_name
- * @param {string=} channel
+ * @param {number} source_id
+ * @param {number=} channel
  */
-SpeakerMixer.prototype.connect_source = function(source_name, channel)
+SpeakerMixer.prototype.connect_source = function(source_id, channel)
 {
-    var source = this.sources.get(source_name);
+    var source = this.sources.get(source_id);
 
     if(source === undefined)
     {
-        dbg_assert(false, "Mixer connect - cannot connect undefined source: " + source_name);
+        dbg_assert(false, "Mixer connect - cannot connect undefined source: " + source_id);
         return;
     }
 
@@ -209,16 +209,16 @@ SpeakerMixer.prototype.connect_source = function(source_name, channel)
 };
 
 /**
- * @param {string} source_name
- * @param {string=} channel
+ * @param {number} source_id
+ * @param {number=} channel
  */
-SpeakerMixer.prototype.disconnect_source = function(source_name, channel)
+SpeakerMixer.prototype.disconnect_source = function(source_id, channel)
 {
-    var source = this.sources.get(source_name);
+    var source = this.sources.get(source_id);
 
     if(source === undefined)
     {
-        dbg_assert(false, "Mixer disconnect - cannot disconnect undefined source: " + source_name);
+        dbg_assert(false, "Mixer disconnect - cannot disconnect undefined source: " + source_id);
         return;
     }
 
@@ -227,24 +227,24 @@ SpeakerMixer.prototype.disconnect_source = function(source_name, channel)
 
 /**
  * @param {number} value
- * @param {string=} channel
+ * @param {number=} channel
  */
 SpeakerMixer.prototype.set_volume = function(value, channel)
 {
     if(!channel)
     {
-        channel = "both";
+        channel = MIXER_CHANNEL_BOTH;
     }
 
     switch(channel)
     {
-        case "left":
+        case MIXER_CHANNEL_LEFT:
             this.volume_left = value;
             break;
-        case "right":
+        case MIXER_CHANNEL_RIGHT:
             this.volume_right = value;
             break;
-        case "both":
+        case MIXER_CHANNEL_BOTH:
             this.volume_both = value;
             break;
         default:
@@ -312,30 +312,30 @@ SpeakerMixerSource.prototype.update = function()
     this.node_gain_right.gain.setValueAtTime(net_gain_right, this.audio_context.currentTime);
 };
 
-/** @param {string=} channel */
+/** @param {number=} channel */
 SpeakerMixerSource.prototype.connect = function(channel)
 {
-    var both = !channel || channel === "both";
-    if(both || channel === "left")
+    var both = !channel || channel === MIXER_CHANNEL_BOTH;
+    if(both || channel === MIXER_CHANNEL_LEFT)
     {
         this.connected_left = true;
     }
-    if(both || channel === "right")
+    if(both || channel === MIXER_CHANNEL_RIGHT)
     {
         this.connected_right = true;
     }
     this.update();
 };
 
-/** @param {string=} channel */
+/** @param {number=} channel */
 SpeakerMixerSource.prototype.disconnect = function(channel)
 {
-    var both = !channel || channel === "both";
-    if(both || channel === "left")
+    var both = !channel || channel === MIXER_CHANNEL_BOTH;
+    if(both || channel === MIXER_CHANNEL_LEFT)
     {
         this.connected_left = false;
     }
-    if(both || channel === "right")
+    if(both || channel === MIXER_CHANNEL_RIGHT)
     {
         this.connected_right = false;
     }
@@ -344,24 +344,24 @@ SpeakerMixerSource.prototype.disconnect = function(channel)
 
 /**
  * @param {number} value
- * @param {string=} channel
+ * @param {number=} channel
  */
 SpeakerMixerSource.prototype.set_volume = function(value, channel)
 {
     if(!channel)
     {
-        channel = "both";
+        channel = MIXER_CHANNEL_BOTH;
     }
 
     switch(channel)
     {
-        case "left":
+        case MIXER_CHANNEL_LEFT:
             this.volume_left = value;
             break;
-        case "right":
+        case MIXER_CHANNEL_RIGHT:
             this.volume_right = value;
             break;
-        case "both":
+        case MIXER_CHANNEL_BOTH:
             this.volume_both = value;
             break;
         default:
@@ -393,17 +393,17 @@ function PCSpeaker(bus, audio_context, mixer)
 
     // Interface
 
-    this.mixer_connection = mixer.add_source(this.node_oscillator, "pcspeaker");
+    this.mixer_connection = mixer.add_source(this.node_oscillator, MIXER_SRC_PCSPEAKER);
     this.mixer_connection.disconnect();
 
     bus.register("pcspeaker-enable", function()
     {
-        mixer.connect_source("pcspeaker");
+        mixer.connect_source(MIXER_SRC_PCSPEAKER);
     }, this);
 
     bus.register("pcspeaker-disable", function()
     {
-        mixer.disconnect_source("pcspeaker");
+        mixer.disconnect_source(MIXER_SRC_PCSPEAKER);
     }, this);
 
     bus.register("pcspeaker-update", function(data)
@@ -779,7 +779,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
     // Interface
 
-    this.mixer_connection = mixer.add_source(this.node_output, "dac");
+    this.mixer_connection = mixer.add_source(this.node_output, MIXER_SRC_DAC);
     this.mixer_connection.set_gain_hidden(3);
 
     bus.register("dac-send-data", function(data)
@@ -878,7 +878,7 @@ function SpeakerBufferSourceDAC(bus, audio_context, mixer)
 
     this.node_output = this.node_lowpass;
 
-    this.mixer_connection = mixer.add_source(this.node_output, "dac");
+    this.mixer_connection = mixer.add_source(this.node_output, MIXER_SRC_DAC);
     this.mixer_connection.set_gain_hidden(3);
 
     bus.register("dac-send-data", function(data)
