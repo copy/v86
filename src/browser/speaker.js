@@ -151,9 +151,9 @@ function SpeakerMixer(bus, audio_context)
             source = this.sources.get(source_name);
         }
 
-        if(typeof source === "undefined")
+        if(source === undefined)
         {
-            console.warn("Mixer set volume - cannot set volume for undefined source: " + source_name);
+            dbg_assert(false, "Mixer set volume - cannot set volume for undefined source: " + source_name);
             return;
         }
 
@@ -201,10 +201,7 @@ SpeakerMixer.prototype.add_source = function(source_node, source_name)
         this.input_right
     );
 
-    if(this.sources.has(source_name))
-    {
-        console.warn("Mixer add source - overwritting source: " + source_name);
-    }
+    dbg_assert(!this.sources.has(source_name), "Mixer add source - overwritting source: " + source_name);
 
     this.sources.set(source_name, source);
     return source;
@@ -218,9 +215,9 @@ SpeakerMixer.prototype.connect_source = function(source_name, channel)
 {
     var source = this.sources.get(source_name);
 
-    if(typeof source === "undefined")
+    if(source === undefined)
     {
-        console.warn("Mixer connect - cannot connect undefined source: " + source_name);
+        dbg_assert(false, "Mixer connect - cannot connect undefined source: " + source_name);
         return;
     }
 
@@ -235,9 +232,9 @@ SpeakerMixer.prototype.disconnect_source = function(source_name, channel)
 {
     var source = this.sources.get(source_name);
 
-    if(typeof source === "undefined")
+    if(source === undefined)
     {
-        console.warn("Mixer disconnect - cannot disconnect undefined source: " + source_name);
+        dbg_assert(false, "Mixer disconnect - cannot disconnect undefined source: " + source_name);
         return;
     }
 
@@ -267,7 +264,7 @@ SpeakerMixer.prototype.set_volume = function(value, channel)
             this.volume_both = value;
             break;
         default:
-            console.warn("Mixer set master volume - unknown channel: " + channel);
+            dbg_assert(false, "Mixer set master volume - unknown channel: " + channel);
             return;
     }
 
@@ -400,7 +397,7 @@ SpeakerMixerSource.prototype.set_volume = function(value, channel)
             this.volume_both = value;
             break;
         default:
-            console.warn("Mixer set volume - unknown channel: " + channel);
+            dbg_assert(false, "Mixer set volume - unknown channel: " + channel);
             return;
     }
 
@@ -799,10 +796,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
                     this.pump();
                     break;
                 case "debug-log":
-                    if(DEBUG)
-                    {
-                        console.log("SpeakerWorkletDAC - Worklet: " + event.data.value);
-                    }
+                    dbg_log("SpeakerWorkletDAC - Worklet: " + event.data.value);
                     break;
             }
         };
@@ -998,10 +992,7 @@ SpeakerBufferSourceDAC.prototype.queue = function(data)
 
     if(this.buffered_time < current_time)
     {
-        if(DEBUG)
-        {
-            console.log("Speaker DAC - Creating/Recreating reserve - shouldn't occur frequently during playback");
-        }
+        dbg_log("Speaker DAC - Creating/Recreating reserve - shouldn't occur frequently during playback");
 
         // Schedule pump() to queue evenly, starting from current time
         this.buffered_time = current_time;
