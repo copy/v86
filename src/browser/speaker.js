@@ -468,11 +468,11 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
             return Math.sin(x) / x;
         }
 
-        function create_empty_buffer()
-        {
-            var buffer = new Float32Array(MINIMUM_BUFFER_SIZE);
-            return [buffer, buffer];
-        }
+        var EMPTY_BUFFER =
+        [
+            new Float32Array(MINIMUM_BUFFER_SIZE),
+            new Float32Array(MINIMUM_BUFFER_SIZE),
+        ];
 
         class DACProcessor extends AudioWorkletProcessor
         {
@@ -496,9 +496,9 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
                 // Buffers being actively consumed
                 /** @type{Array<Float32Array>} */
-                this.source_buffer_previous = create_empty_buffer();
+                this.source_buffer_previous = EMPTY_BUFFER;
                 /** @type{Array<Float32Array>} */
-                this.source_buffer_current = create_empty_buffer();
+                this.source_buffer_current = EMPTY_BUFFER;
 
                 // Cached length of source_buffer_previous
                 this.source_length_previous = this.source_buffer_previous.length;
@@ -696,7 +696,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
             {
                 if(!this.queue_length)
                 {
-                    return create_empty_buffer();
+                    return EMPTY_BUFFER;
                 }
 
                 var item = this.queue_data[this.queue_start];
