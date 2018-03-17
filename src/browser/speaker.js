@@ -1006,7 +1006,9 @@ function SpeakerDACDebugger(audio_context, source_node)
     this.node_source = source_node;
 
     this.node_processor = null;
+
     this.node_gain = this.audio_context.createGain();
+    this.node_gain.gain.setValueAtTime(0, this.audio_context.currentTime);
 
     this.node_gain
         .connect(this.audio_context.destination);
@@ -1033,9 +1035,6 @@ SpeakerDACDebugger.prototype.start = function(duration_ms)
         this.output[0].push(event.inputBuffer.getChannelData(0).slice());
         this.output[1].push(event.inputBuffer.getChannelData(1).slice());
     };
-
-    this.node_gain = this.audio_context.createGain();
-    this.node_gain.gain.setValueAtTime(0, this.audio_context.currentTime);
 
     this.node_source
         .connect(this.node_processor)
