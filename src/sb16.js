@@ -1388,7 +1388,8 @@ register_mixer_read(0x44);
 register_mixer_write(0x44, function(data)
 {
     this.mixer_registers[0x44] = data;
-    this.bus.send("mixer-treble-left", (data >>> 3) - (data >>> 7) - 14);
+    data >>>= 3;
+    this.bus.send("mixer-treble-left", data - (data < 16 ? 14 : 16));
 });
 
 // Treble Right.
@@ -1396,7 +1397,8 @@ register_mixer_read(0x45);
 register_mixer_write(0x45, function(data)
 {
     this.mixer_registers[0x45] = data;
-    this.bus.send("mixer-treble-right", (data >>> 3) - (data >>> 7) - 14);
+    data >>>= 3;
+    this.bus.send("mixer-treble-right", data - (data < 16 ? 14 : 16));
 });
 
 // Bass Left.
@@ -1404,7 +1406,8 @@ register_mixer_read(0x46);
 register_mixer_write(0x46, function(data)
 {
     this.mixer_registers[0x46] = data;
-    this.bus.send("mixer-bass-right", (data >>> 3) - (data >>> 7) - 14);
+    data >>>= 3;
+    this.bus.send("mixer-bass-right", data - (data < 16 ? 14 : 16));
 });
 
 // Bass Right.
@@ -1412,7 +1415,8 @@ register_mixer_read(0x47);
 register_mixer_write(0x47, function(data)
 {
     this.mixer_registers[0x47] = data;
-    this.bus.send("mixer-bass-right", (data >>> 3) - (data >>> 7) - 14);
+    data >>>= 3;
+    this.bus.send("mixer-bass-right", data - (data < 16 ? 14 : 16));
 });
 
 // IRQ Select.
