@@ -349,3 +349,17 @@ var PREFIX_66 = PREFIX_MASK_OPSIZE; // alias
 
 /** @const */
 var MXCSR_MASK = (0xFFFF & ~(1 << 6));
+
+
+/** @const */
+var MIXER_CHANNEL_LEFT = 0;
+/** @const */
+var MIXER_CHANNEL_RIGHT = 1;
+/** @const */
+var MIXER_CHANNEL_BOTH = 2;
+/** @const */
+var MIXER_SRC_MASTER = 0;
+/** @const */
+var MIXER_SRC_PCSPEAKER = 1;
+/** @const */
+var MIXER_SRC_DAC = 2;

@@ -1243,6 +1243,11 @@ function register_mixer_legacy(address_old, address_new_left, address_new_right)
     };
 }
 
+/**
+ * @param {number} address
+ * @param {number} mixer_source
+ * @param {number} channel
+ */
 function register_mixer_volume(address, mixer_source, channel)
 {
     MIXER_READ_HANDLERS[address] = SB16.prototype.mixer_default_read;
@@ -1290,34 +1295,34 @@ register_mixer_legacy(0x28, 0x36, 0x37);
 register_mixer_legacy(0x2E, 0x38, 0x39);
 
 // Master Volume Left.
-register_mixer_volume(0x30, "master", "left");
+register_mixer_volume(0x30, MIXER_SRC_MASTER, MIXER_CHANNEL_LEFT);
 // Master Volume Right.
-register_mixer_volume(0x31, "master", "right");
+register_mixer_volume(0x31, MIXER_SRC_MASTER, MIXER_CHANNEL_RIGHT);
 // Voice Volume Left.
-register_mixer_volume(0x32, "dac", "left");
+register_mixer_volume(0x32, MIXER_SRC_DAC, MIXER_CHANNEL_LEFT);
 // Voice Volume Right.
-register_mixer_volume(0x33, "dac", "right");
+register_mixer_volume(0x33, MIXER_SRC_DAC, MIXER_CHANNEL_RIGHT);
 // MIDI Volume Left. TODO.
-//register_mixer_volume(0x34, "synth", "left");
+//register_mixer_volume(0x34, MIXER_SRC_SYNTH, MIXER_CHANNEL_LEFT);
 // MIDI Volume Right. TODO.
-//register_mixer_volume(0x35, "synth", "right);
+//register_mixer_volume(0x35, MIXER_SRC_SYNTH, MIXER_CHANNEL_RIGHT);
 // CD Volume Left. TODO.
-//register_mixer_volume(0x36, "cd", "left);
+//register_mixer_volume(0x36, MIXER_SRC_CD, MIXER_CHANNEL_LEFT);
 // CD Volume Right. TODO.
-//register_mixer_volume(0x37, "cd", "right);
+//register_mixer_volume(0x37, MIXER_SRC_CD, MIXER_CHANNEL_RIGHT);
 // Line Volume Left. TODO.
-//register_mixer_volume(0x38, "line", "left");
+//register_mixer_volume(0x38, MIXER_SRC_LINE, MIXER_CHANNEL_LEFT);
 // Line Volume Right. TODO.
-//register_mixer_volume(0x39, "line", "right");
+//register_mixer_volume(0x39, MIXER_SRC_LINE, MIXER_CHANNEL_RIGHT);
 // Mic Volume. TODO.
-//register_mixer_volume(0x3A, "mic", "both");
+//register_mixer_volume(0x3A, MIXER_SRC_MIC, MIXER_CHANNEL_BOTH);
 
 // PC Speaker Volume.
 register_mixer_read(0x3B);
 register_mixer_write(0x3B, function(data)
 {
     this.mixer_registers[0x3B] = data;
-    this.bus.send("mixer-volume", ["pcspeaker", "both", (data >>> 6) * 6 - 18]);
+    this.bus.send("mixer-volume", [MIXER_SRC_PCSPEAKER, MIXER_CHANNEL_BOTH, (data >>> 6) * 6 - 18]);
 });
 
 // Output Mixer Switches. TODO.
@@ -1326,20 +1331,20 @@ register_mixer_write(0x3B, function(data)
 //{
 //    this.mixer_registers[0x3C] = data;
 //
-//    if(data & 0x01) this.bus.send("mixer-connect", ["mic", "both"]);
-//    else this.bus.send("mixer-disconnect", ["mic", "both"]);
+//    if(data & 0x01) this.bus.send("mixer-connect", [MIXER_SRC_MIC, MIXER_CHANNEL_BOTH]);
+//    else this.bus.send("mixer-disconnect", [MIXER_SRC_MIC, MIXER_CHANNEL_BOTH]);
 //
-//    if(data & 0x02) this.bus.send("mixer-connect", ["cd", "right"]);
-//    else this.bus.send("mixer-disconnect", ["cd", "right"]);
+//    if(data & 0x02) this.bus.send("mixer-connect", [MIXER_SRC_CD, MIXER_CHANNEL_RIGHT]);
+//    else this.bus.send("mixer-disconnect", [MIXER_SRC_CD, MIXER_CHANNEL_RIGHT]);
 //
-//    if(data & 0x04) this.bus.send("mixer-connect", ["cd", "left"]);
-//    else this.bus.send("mixer-disconnect", ["cd", "left"]);
+//    if(data & 0x04) this.bus.send("mixer-connect", [MIXER_SRC_CD, MIXER_CHANNEL_LEFT]);
+//    else this.bus.send("mixer-disconnect", [MIXER_SRC_CD, MIXER_CHANNEL_LEFT]);
 //
-//    if(data & 0x08) this.bus.send("mixer-connect", ["line", "right"]);
-//    else this.bus.send("mixer-disconnect", ["line", "right"]);
+//    if(data & 0x08) this.bus.send("mixer-connect", [MIXER_SRC_LINE, MIXER_CHANNEL_RIGHT]);
+//    else this.bus.send("mixer-disconnect", [MIXER_SRC_LINE, MIXER_CHANNEL_RIGHT]);
 //
-//    if(data & 0x10) this.bus.send("mixer-connect", ["line", "left"]);
-//    else this.bus.send("mixer-disconnect", ["line", "left"]);
+//    if(data & 0x10) this.bus.send("mixer-connect", [MIXER_SRC_LINE, MIXER_CHANNEL_LEFT]);
+//    else this.bus.send("mixer-disconnect", [MIXER_SRC_LINE, MIXER_CHANNEL_LEFT]);
 //});
 
 // Input Mixer Left Switches. TODO.
