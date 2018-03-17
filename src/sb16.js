@@ -1658,7 +1658,7 @@ register_fm_write(between(0xE0, 0xF5), function(bits, register, address)
 SB16.prototype.fm_update_waveforms = function()
 {
     // To be implemented.
-}
+};
 
 //
 // General behaviours
