@@ -743,6 +743,8 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
         .addModule(worklet_url)
         .then(() =>
     {
+        URL.revokeObjectURL(worklet_url);
+
         this.node_processor = new AudioWorkletNode(this.audio_context, "dac-processor",
         {
             "numberOfInputs": 0,
