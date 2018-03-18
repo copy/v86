@@ -489,7 +489,6 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
         function DACProcessor()
         {
             var self = Reflect.construct(AudioWorkletProcessor, [], DACProcessor);
-            self = /** @type{DACProcessor} */(self);
 
             // Params
 
