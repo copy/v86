@@ -39,6 +39,8 @@ function SpeakerAdapter(bus)
     /** @const */
     this.dac = new SpeakerDAC(bus, this.audio_context, this.mixer);
 
+    this.pcspeaker.start();
+
     bus.register("emulator-stopped", function()
     {
         this.audio_context.suspend();
@@ -49,6 +51,11 @@ function SpeakerAdapter(bus)
         this.audio_context.resume();
     }, this);
 
+    bus.register("speaker-confirm-initialized", function()
+    {
+        bus.send("speaker-has-initialized");
+    }, this);
+    bus.send("speaker-has-initialized");
 }
 
 /**
@@ -423,10 +430,12 @@ function PCSpeaker(bus, audio_context, mixer)
 
         this.node_oscillator.frequency.setValueAtTime(frequency, audio_context.currentTime);
     }, this);
-
-    // Start after configuration
-    setTimeout(() => this.node_oscillator.start(), 0);
 }
+
+PCSpeaker.prototype.start = function()
+{
+    this.node_oscillator.start();
+};
 
 /**
  * @constructor
