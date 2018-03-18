@@ -458,7 +458,6 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
 
     // Worklet
 
-    var worklet_string = `
     function worklet()
     {
         /** @const */
@@ -483,243 +482,254 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
             new Float32Array(MINIMUM_BUFFER_SIZE),
         ];
 
-        class DACProcessor extends AudioWorkletProcessor
+        /**
+         * @constructor
+         * @extends AudioWorkletProcessor
+         */
+        function DACProcessor()
         {
-            constructor()
+            var self = Reflect.construct(AudioWorkletProcessor, [], DACProcessor);
+            self = /** @type{DACProcessor} */(self);
+
+            // Params
+
+            self.kernel_size = 3;
+
+            // States
+
+            // Buffers waiting for their turn to be consumed
+            self.queue_data = new Array(1024);
+            self.queue_start = 0;
+            self.queue_end = 0;
+            self.queue_length = 0;
+            self.queue_size = self.queue_data.length;
+            self.queued_samples = 0;
+
+            // Buffers being actively consumed
+            /** @type{Array<Float32Array>} */
+            self.source_buffer_previous = EMPTY_BUFFER;
+            /** @type{Array<Float32Array>} */
+            self.source_buffer_current = EMPTY_BUFFER;
+
+            // Cached length of source_buffer_previous
+            self.source_length_previous = self.source_buffer_previous.length;
+
+            // Ratio of alienland sample rate to homeland sample rate.
+            self.source_samples_per_destination = 1.0;
+
+            // Integer representing the position of the first destination sample
+            // for the current block, relative to source_buffer_current.
+            self.source_block_start = 0;
+
+            // Real number representing the position of the current destination
+            // sample relative to source_buffer_current, since source_block_index.
+            self.source_time = 0.0;
+
+            // Same as source_time but rounded down to an index.
+            self.source_offset = 0;
+
+            // Interface
+
+            self.port.onmessage = (event) =>
             {
-                super();
-
-                // Params
-
-                this.kernel_size = 3;
-
-                // States
-
-                // Buffers waiting for their turn to be consumed
-                this.queue_data = new Array(1024);
-                this.queue_start = 0;
-                this.queue_end = 0;
-                this.queue_length = 0;
-                this.queue_size = this.queue_data.length;
-                this.queued_samples = 0;
-
-                // Buffers being actively consumed
-                /** @type{Array<Float32Array>} */
-                this.source_buffer_previous = EMPTY_BUFFER;
-                /** @type{Array<Float32Array>} */
-                this.source_buffer_current = EMPTY_BUFFER;
-
-                // Cached length of source_buffer_previous
-                this.source_length_previous = this.source_buffer_previous.length;
-
-                // Ratio of alienland sample rate to homeland sample rate.
-                this.source_samples_per_destination = 1.0;
-
-                // Integer representing the position of the first destination sample
-                // for the current block, relative to source_buffer_current.
-                this.source_block_start = 0;
-
-                // Real number representing the position of the current destination
-                // sample relative to source_buffer_current, since source_block_index.
-                this.source_time = 0.0;
-
-                // Same as source_time but rounded down to an index.
-                this.source_offset = 0;
-
-                // Interface
-
-                this.port.onmessage = (event) =>
+                switch(event.data.type)
                 {
-                    switch(event.data.type)
-                    {
-                        case "queue":
-                            this.queue_push(event.data.value);
-                            break;
-                        case "sampling-rate":
-                            this.source_samples_per_destination = event.data.value / sampleRate;
-                            break;
-                    }
-                };
+                    case "queue":
+                        self.queue_push(event.data.value);
+                        break;
+                    case "sampling-rate":
+                        self.source_samples_per_destination = event.data.value / sampleRate;
+                        break;
+                }
+            };
+
+            return self;
+        }
+
+        Reflect.setPrototypeOf(DACProcessor.prototype, AudioWorkletProcessor.prototype);
+        Reflect.setPrototypeOf(DACProcessor, AudioWorkletProcessor);
+
+        DACProcessor.prototype["process"] =
+        DACProcessor.prototype.process = function(inputs, outputs, parameters)
+        {
+            for(var i = 0; i < outputs[0][0].length; i++)
+            {
+                // Lanczos resampling
+                var sum0 = 0;
+                var sum1 = 0;
+
+                var start = this.source_offset - this.kernel_size + 1;
+                var end = this.source_offset + this.kernel_size;
+
+                for(var j = start; j <= end; j++)
+                {
+                    var convolute_index = this.source_block_start + j;
+                    sum0 += this.get_sample(convolute_index, 0) * this.kernel(this.source_time - j);
+                    sum1 += this.get_sample(convolute_index, 1) * this.kernel(this.source_time - j);
+                }
+
+                if(isNaN(sum0) || isNaN(sum1))
+                {
+                    // NaN values cause entire audio graph to cease functioning.
+                    sum0 = sum1 = 0;
+                    this.dbg_log("ERROR: NaN values! Ignoring for now.");
+                }
+
+                outputs[0][0][i] = sum0;
+                outputs[0][1][i] = sum1;
+
+                this.source_time += this.source_samples_per_destination;
+                this.source_offset = Math.floor(this.source_time);
             }
 
-            process(inputs, outputs, parameters)
+            // +2 to safeguard against rounding variations
+            var samples_needed_per_block = this.source_offset;
+            samples_needed_per_block += this.kernel_size + 2;
+
+            this.source_time -= this.source_offset;
+            this.source_block_start += this.source_offset;
+            this.source_offset = 0;
+
+            // Note: This needs to be done after source_block_start is updated.
+            this.ensure_enough_data(samples_needed_per_block);
+
+            return true;
+        };
+
+        DACProcessor.prototype.kernel = function(x)
+        {
+            return sinc(x) * sinc(x / this.kernel_size);
+        };
+
+        DACProcessor.prototype.get_sample = function(index, channel)
+        {
+            if(index < 0)
             {
-                for(var i = 0; i < outputs[0][0].length; i++)
-                {
-                    // Lanczos resampling
-                    var sum0 = 0;
-                    var sum1 = 0;
+                index += this.source_length_previous;
+                return this.source_buffer_previous[channel][index];
+            }
+            else
+            {
+                return this.source_buffer_current[channel][index];
+            }
+        };
 
-                    var start = this.source_offset - this.kernel_size + 1;
-                    var end = this.source_offset + this.kernel_size;
+        DACProcessor.prototype.ensure_enough_data = function(needed)
+        {
+            var current_length = this.source_buffer_current[0].length;
+            var remaining = current_length - this.source_block_start;
 
-                    for(var j = start; j <= end; j++)
-                    {
-                        var convolute_index = this.source_block_start + j;
-                        sum0 += this.get_sample(convolute_index, 0) * this.kernel(this.source_time - j);
-                        sum1 += this.get_sample(convolute_index, 1) * this.kernel(this.source_time - j);
-                    }
+            if(remaining < needed)
+            {
+                this.prepare_next_buffer();
+                this.source_block_start -= current_length;
+                this.source_length_previous = current_length;
+            }
+        };
 
-                    if(isNaN(sum0) || isNaN(sum1))
-                    {
-                        // NaN values cause entire audio graph to cease functioning.
-                        sum0 = sum1 = 0;
-                        this.dbg_log("ERROR: NaN values! Ignoring for now.");
-                    }
-
-                    outputs[0][0][i] = sum0;
-                    outputs[0][1][i] = sum1;
-
-                    this.source_time += this.source_samples_per_destination;
-                    this.source_offset = Math.floor(this.source_time);
-                }
-
-                // +2 to safeguard against rounding variations
-                var samples_needed_per_block = this.source_offset;
-                samples_needed_per_block += this.kernel_size + 2;
-
-                this.source_time -= this.source_offset;
-                this.source_block_start += this.source_offset;
-                this.source_offset = 0;
-
-                // Note: This needs to be done after source_block_start is updated.
-                this.ensure_enough_data(samples_needed_per_block);
-
-                return true;
+        DACProcessor.prototype.prepare_next_buffer = function()
+        {
+            if(this.queued_samples < MINIMUM_BUFFER_SIZE && this.queue_length)
+            {
+                this.dbg_log("Not enough samples - should not happen during midway of playback");
             }
 
-            kernel(x)
+            this.source_buffer_previous = this.source_buffer_current;
+            this.source_buffer_current = this.queue_shift();
+
+            var sample_count = this.source_buffer_current[0].length;
+
+            if(sample_count < MINIMUM_BUFFER_SIZE)
             {
-                return sinc(x) * sinc(x / this.kernel_size);
+                // Unfortunately, this single buffer is too small :(
+
+                var queue_pos = this.queue_start;
+                var buffer_count = 0;
+
+                // Figure out how many small buffers to combine.
+                while(sample_count < MINIMUM_BUFFER_SIZE && buffer_count < this.queue_length)
+                {
+                    sample_count += this.queue_data[queue_pos][0].length;
+
+                    queue_pos = queue_pos + 1 & this.queue_size - 1;
+                    buffer_count++;
+                }
+
+                // Note: if not enough buffers, this will be end-padded with zeros:
+                var new_big_buffer_size = Math.max(sample_count, MINIMUM_BUFFER_SIZE);
+                var new_big_buffer =
+                [
+                    new Float32Array(new_big_buffer_size),
+                    new Float32Array(new_big_buffer_size),
+                ];
+
+                // Copy the first, already-shifted, small buffer into the new buffer.
+                new_big_buffer[0].set(this.source_buffer_current[0]);
+                new_big_buffer[1].set(this.source_buffer_current[1]);
+                var new_big_buffer_pos = this.source_buffer_current[0].length;
+
+                // Copy the rest.
+                for(var i = 0; i < buffer_count; i++)
+                {
+                    var small_buffer = this.queue_shift();
+                    new_big_buffer[0].set(small_buffer[0], new_big_buffer_pos);
+                    new_big_buffer[1].set(small_buffer[1], new_big_buffer_pos);
+                    new_big_buffer_pos += small_buffer[0].length;
+                }
+
+                // Pretend that everything's just fine.
+                this.source_buffer_current = new_big_buffer;
             }
 
-            get_sample(index, channel)
+            this.pump();
+        };
+
+        DACProcessor.prototype.pump = function()
+        {
+            if(this.queued_samples / this.source_samples_per_destination < QUEUE_RESERVE)
             {
-                if(index < 0)
+                this.port.postMessage(
                 {
-                    index += this.source_length_previous;
-                    return this.source_buffer_previous[channel][index];
-                }
-                else
-                {
-                    return this.source_buffer_current[channel][index];
-                }
+                    type: "pump",
+                });
             }
+        };
 
-            ensure_enough_data(needed)
+        DACProcessor.prototype.queue_push = function(item)
+        {
+            if(this.queue_length < this.queue_size)
             {
-                var current_length = this.source_buffer_current[0].length;
-                var remaining = current_length - this.source_block_start;
+                this.queue_data[this.queue_end] = item;
+                this.queue_end = this.queue_end + 1 & this.queue_size - 1;
+                this.queue_length++;
 
-                if(remaining < needed)
-                {
-                    this.prepare_next_buffer();
-                    this.source_block_start -= current_length;
-                    this.source_length_previous = current_length;
-                }
-            }
-
-            prepare_next_buffer()
-            {
-                if(this.queued_samples < MINIMUM_BUFFER_SIZE && this.queue_length)
-                {
-                    this.dbg_log("Not enough samples - should not happen during midway of playback");
-                }
-
-                this.source_buffer_previous = this.source_buffer_current;
-                this.source_buffer_current = this.queue_shift();
-
-                var sample_count = this.source_buffer_current[0].length;
-
-                if(sample_count < MINIMUM_BUFFER_SIZE)
-                {
-                    // Unfortunately, this single buffer is too small :(
-
-                    var queue_pos = this.queue_start;
-                    var buffer_count = 0;
-
-                    // Figure out how many small buffers to combine.
-                    while(sample_count < MINIMUM_BUFFER_SIZE && buffer_count < this.queue_length)
-                    {
-                        sample_count += this.queue_data[queue_pos][0].length;
-
-                        queue_pos = queue_pos + 1 & this.queue_size - 1;
-                        buffer_count++;
-                    }
-
-                    // Note: if not enough buffers, this will be end-padded with zeros:
-                    var new_big_buffer_size = Math.max(sample_count, MINIMUM_BUFFER_SIZE);
-                    var new_big_buffer =
-                    [
-                        new Float32Array(new_big_buffer_size),
-                        new Float32Array(new_big_buffer_size),
-                    ];
-
-                    // Copy the first, already-shifted, small buffer into the new buffer.
-                    new_big_buffer[0].set(this.source_buffer_current[0]);
-                    new_big_buffer[1].set(this.source_buffer_current[1]);
-                    var new_big_buffer_pos = this.source_buffer_current[0].length;
-
-                    // Copy the rest.
-                    for(var i = 0; i < buffer_count; i++)
-                    {
-                        var small_buffer = this.queue_shift();
-                        new_big_buffer[0].set(small_buffer[0], new_big_buffer_pos);
-                        new_big_buffer[1].set(small_buffer[1], new_big_buffer_pos);
-                        new_big_buffer_pos += small_buffer[0].length;
-                    }
-
-                    // Pretend that everything's just fine.
-                    this.source_buffer_current = new_big_buffer;
-                }
+                this.queued_samples += item[0].length;
 
                 this.pump();
             }
+        };
 
-            pump()
+        DACProcessor.prototype.queue_shift = function()
+        {
+            if(!this.queue_length)
             {
-                if(this.queued_samples / this.source_samples_per_destination < QUEUE_RESERVE)
-                {
-                    this.port.postMessage(
-                    {
-                        type: "pump",
-                    });
-                }
+                return EMPTY_BUFFER;
             }
 
-            queue_push(item)
-            {
-                if(this.queue_length < this.queue_size)
-                {
-                    this.queue_data[this.queue_end] = item;
-                    this.queue_end = this.queue_end + 1 & this.queue_size - 1;
-                    this.queue_length++;
+            var item = this.queue_data[this.queue_start];
 
-                    this.queued_samples += item[0].length;
+            this.queue_data[this.queue_start] = null;
+            this.queue_start = this.queue_start + 1 & this.queue_size - 1;
+            this.queue_length--;
 
-                    this.pump();
-                }
-            }
+            this.queued_samples -= item[0].length;
 
-            queue_shift()
-            {
-                if(!this.queue_length)
-                {
-                    return EMPTY_BUFFER;
-                }
+            return item;
+        };
 
-                var item = this.queue_data[this.queue_start];
-
-                this.queue_data[this.queue_start] = null;
-                this.queue_start = this.queue_start + 1 & this.queue_size - 1;
-                this.queue_length--;
-
-                this.queued_samples -= item[0].length;
-
-                return item;
-            }
-
-            dbg_log(message)
+        DACProcessor.prototype.dbg_log = function(message)
+        {
+            if(DEBUG)
             {
                 this.port.postMessage(
                 {
@@ -730,9 +740,9 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
         }
 
         registerProcessor("dac-processor", DACProcessor);
-    }`;
+    }
 
-    //var worklet_string = worklet.toString();
+    var worklet_string = worklet.toString();
 
     var worklet_code_start = worklet_string.indexOf("{") + 1;
     var worklet_code_end = worklet_string.lastIndexOf("}");
