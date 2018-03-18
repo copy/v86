@@ -11,27 +11,27 @@
 #define CODE_CACHE_SEARCH_SIZE 8
 
 union reg128 {
-    int8_t   i8[16];
-    int16_t  i16[8];
-    int32_t  i32[4];
-    int64_t  i64[2];
-    uint8_t   u8[16];
-    uint16_t  u16[8];
-    uint32_t  u32[4];
-    uint64_t  u64[2];
+    int8_t i8[16];
+    int16_t i16[8];
+    int32_t i32[4];
+    int64_t i64[2];
+    uint8_t u8[16];
+    uint16_t u16[8];
+    uint32_t u32[4];
+    uint64_t u64[2];
 };
 _Static_assert(sizeof(union reg128) == 16, "reg128 is 16 bytes");
 
 union reg64 {
-    int8_t   i8[8];
-    int16_t  i16[4];
-    int32_t  i32[2];
-    int64_t  i64[1];
-    uint8_t   u8[8];
-    uint16_t  u16[4];
-    uint32_t  u32[2];
-    uint64_t  u64[1];
-    double   f64[1];
+    int8_t i8[8];
+    int16_t i16[4];
+    int32_t i32[2];
+    int64_t i64[1];
+    uint8_t u8[8];
+    uint16_t u16[4];
+    uint32_t u32[2];
+    uint64_t u64[1];
+    double f64[1];
 };
 _Static_assert(sizeof(union reg64) == 8, "reg64 is 8 bytes");
 
