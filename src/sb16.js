@@ -231,9 +231,13 @@ function SB16(cpu, bus)
     {
         this.dac_handle_request();
     }, this);
+    bus.register("speaker-has-initialized", function()
+    {
+        this.mixer_reset();
+    }, this);
+    bus.send("speaker-confirm-initialized");
 
     this.dsp_reset();
-    this.mixer_reset();
 }
 
 //
@@ -1179,8 +1183,7 @@ SB16.prototype.mixer_reset = function()
     this.mixer_registers[0x46] = 8 << 4;
     this.mixer_registers[0x47] = 8 << 4;
 
-    // Ensure speaker is loaded during startup before sending bus messages.
-    setTimeout(() => this.mixer_full_update(), 0);
+    this.mixer_full_update();
 };
 
 SB16.prototype.mixer_full_update = function()
