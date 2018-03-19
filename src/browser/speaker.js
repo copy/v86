@@ -510,9 +510,6 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
             /** @type{Array<Float32Array>} */
             self.source_buffer_current = EMPTY_BUFFER;
 
-            // Cached length of source_buffer_previous
-            self.source_length_previous = self.source_buffer_previous.length;
-
             // Ratio of alienland sample rate to homeland sample rate.
             self.source_samples_per_destination = 1.0;
 
@@ -521,7 +518,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
             self.source_block_start = 0;
 
             // Real number representing the position of the current destination
-            // sample relative to source_buffer_current, since source_block_index.
+            // sample relative to source_buffer_current, since source_block_start.
             self.source_time = 0.0;
 
             // Same as source_time but rounded down to an index.
@@ -604,7 +601,10 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
         {
             if(index < 0)
             {
-                index += this.source_length_previous;
+                // -ve index represents previous buffer
+                //          <-------|
+                // [Previous buffer][Current buffer]
+                index += this.source_buffer_previous[0].length;
                 return this.source_buffer_previous[channel][index];
             }
             else
@@ -622,7 +622,6 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
             {
                 this.prepare_next_buffer();
                 this.source_block_start -= current_length;
-                this.source_length_previous = current_length;
             }
         };
 
