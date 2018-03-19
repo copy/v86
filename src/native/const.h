@@ -189,7 +189,7 @@
 #define JIT_NEXT_BLOCK_BRANCHED "next_block_branched"
 #define JIT_NEXT_BLOCK_NOT_BRANCHED "next_block_not_branched"
 
-#define CHECK_TLB_INVARIANTS 1
+#define CHECK_TLB_INVARIANTS 0
 
 #define JIT_NEXT_BLOCK_BRANCHED_IDX 0
 #define JIT_NEXT_BLOCK_NOT_BRANCHED_IDX 1
