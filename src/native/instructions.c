@@ -1082,8 +1082,76 @@ DEFINE_MODRM_INSTR_FPU_READ32(instr_D8_5, fpu_fsubr(___))
 DEFINE_MODRM_INSTR_FPU_READ32(instr_D8_6, fpu_fdiv(___))
 DEFINE_MODRM_INSTR_FPU_READ32(instr_D8_7, fpu_fdivr(___))
 
-void instr_D9_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_D9_mem(r, addr); }
-void instr_D9_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_D9_reg(0xC0 | r2 | r << 3); }
+DEFINE_MODRM_INSTR_FPU_READ32(instr_D9_0, fpu_push(___))
+void instr_D9_1_mem(int32_t addr) {
+    task_switch_test();
+    dbg_log("d9/1");
+    trigger_ud();
+}
+void instr_D9_1_reg(int32_t r) {
+    task_switch_test();
+    fpu_fxch(r);
+}
+
+void instr_D9_2_mem(int32_t addr) {
+    task_switch_test();
+    fpu_fst(addr);
+}
+void instr_D9_2_reg(int32_t r) {
+    task_switch_test();
+    // r==0 -> fnop
+    if(r != 0)
+    {
+        trigger_ud();
+    }
+}
+
+void instr_D9_3_mem(int32_t addr) {
+    task_switch_test();
+    fpu_fstp(addr);
+}
+void instr_D9_3_reg(int32_t r) {
+    task_switch_test();
+    dbg_log("fstp1");
+    trigger_ud();
+}
+
+void instr_D9_4_mem(int32_t addr) {
+    task_switch_test();
+    fpu_fldenv(addr);
+}
+void instr_D9_4_reg(int32_t r) {
+    task_switch_test();
+    fpu_op_D9_4_reg(r);
+}
+
+void instr_D9_5_mem(int32_t addr) {
+    task_switch_test();
+    fpu_fldcw(addr);
+}
+void instr_D9_5_reg(int32_t r) {
+    task_switch_test();
+    fpu_op_D9_5_reg(r);
+}
+
+void instr_D9_6_mem(int32_t addr) {
+    task_switch_test();
+    fpu_fstenv(addr);
+}
+void instr_D9_6_reg(int32_t r) {
+    task_switch_test();
+    fpu_op_D9_6_reg(r);
+}
+
+void instr_D9_7_mem(int32_t addr) {
+    task_switch_test();
+    fpu_fstcw(addr);
+}
+void instr_D9_7_reg(int32_t r) {
+    task_switch_test();
+    fpu_op_D9_7_reg(r);
+}
+
 void instr_DA_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DA_mem(r, addr); }
 void instr_DA_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DA_reg(0xC0 | r2 | r << 3); }
 void instr_DB_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DB_mem(r, addr); }

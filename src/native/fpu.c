@@ -352,7 +352,7 @@ void fpu_unimpl()
     }
 }
 
-void fstenv(int32_t addr)
+void fpu_fstenv(int32_t addr)
 {
     if(is_osize_32())
     {
@@ -376,7 +376,7 @@ void fstenv(int32_t addr)
     }
 }
 
-void fldenv(int32_t addr)
+void fpu_fldenv(int32_t addr)
 {
     if(is_osize_32())
     {
@@ -402,7 +402,7 @@ void fsave(int32_t addr)
 {
     writable_or_pagefault(addr, 108);
 
-    fstenv(addr);
+    fpu_fstenv(addr);
     addr += 28;
 
     for(int32_t i = 0; i < 8; i++)
@@ -418,7 +418,7 @@ void fsave(int32_t addr)
 
 void frstor(int32_t addr)
 {
-    fldenv(addr);
+    fpu_fldenv(addr);
     addr += 28;
 
     for(int32_t i = 0; i < 8; i++)
@@ -627,243 +627,182 @@ void fpu_fdivr(double_t val)
     fpu_st[*fpu_stack_ptr] = val / st0;
 }
 
-void fpu_op_D9_reg(int32_t imm8)
+void fpu_fxch(int32_t i)
 {
-    dbg_log_fpu_op(0xD9, imm8);
+    double_t sti = fpu_get_sti(i);
+    fpu_st[*fpu_stack_ptr + i] = fpu_get_st0();
+    fpu_st[*fpu_stack_ptr] = sti;
+}
 
-    int32_t mod = imm8 >> 3 & 7;
-    int32_t low = imm8 & 7;
+void fpu_fst(int32_t addr)
+{
+    fpu_store_m32(addr, fpu_get_st0());
+}
 
-    switch(mod)
+void fpu_fstp(int32_t addr)
+{
+    fpu_fst(addr);
+    fpu_pop();
+}
+
+void fpu_op_D9_4_reg(int32_t r)
+{
+    double_t st0 = fpu_get_st0();
+    switch(r)
     {
         case 0:
-            // fld
-            {
-                double_t sti = fpu_get_sti(low);
-                fpu_push(sti);
-            }
+            // fchs
+            fpu_st[*fpu_stack_ptr] = -st0;
             break;
         case 1:
-            // fxch
-            {
-                double_t sti = fpu_get_sti(low);
-                fpu_st[*fpu_stack_ptr + low & 7] = fpu_get_st0();
-                fpu_st[*fpu_stack_ptr] = sti;
-            }
-            break;
-        case 2:
-            switch(low)
-            {
-                case 0:
-                    // fnop
-                    break;
-                default:
-                    dbg_log("%x", low);
-                    fpu_unimpl();
-            }
-            break;
-        case 3:
-            // fstp1
-            dbg_log("fstp1");
-            fpu_unimpl();
+            // fabs
+            fpu_st[*fpu_stack_ptr] = fabs(st0);
             break;
         case 4:
-            {
-                double_t st0 = fpu_get_st0();
-
-                switch(low)
-                {
-                    case 0:
-                        // fchs
-                        fpu_st[*fpu_stack_ptr] = -st0;
-                        break;
-                    case 1:
-                        // fabs
-                        fpu_st[*fpu_stack_ptr] = fabs(st0);
-                        break;
-                    case 4:
-                        ftst(st0);
-                        break;
-                    case 5:
-                        fxam(st0);
-                        break;
-                    default:
-                        dbg_log("%x", low);
-                        fpu_unimpl();
-                }
-            }
+            ftst(st0);
             break;
         case 5:
-            // fld1/fldl2t/fldl2e/fldpi/fldlg2/fldln2/fldz
-            switch(low)
-            {
-                case 0: fpu_push(1); break;
-                case 1: fpu_push(M_LN10 / M_LN2); break;
-                case 2: fpu_push(M_LOG2E); break;
-                case 3: fpu_push(M_PI); break;
-                case 4: fpu_push(M_LN2 / M_LN10); break;
-                case 5: fpu_push(M_LN2); break;
-                case 6: fpu_push(0); break;
-                case 7: dbg_log("d9/5/7"); fpu_unimpl(); break;
-            }
+            fxam(st0);
+            break;
+        default:
+            dbg_log("%x", r);
+            fpu_unimpl();
+    }
+
+}
+
+void fpu_op_D9_5_reg(int32_t r)
+{
+    // fld1/fldl2t/fldl2e/fldpi/fldlg2/fldln2/fldz
+    switch(r)
+    {
+        case 0: fpu_push(1); break;
+        case 1: fpu_push(M_LN10 / M_LN2); break;
+        case 2: fpu_push(M_LOG2E); break;
+        case 3: fpu_push(M_PI); break;
+        case 4: fpu_push(M_LN2 / M_LN10); break;
+        case 5: fpu_push(M_LN2); break;
+        case 6: fpu_push(0); break;
+        case 7: dbg_log("d9/5/7"); fpu_unimpl(); break;
+    }
+}
+
+void fpu_op_D9_6_reg(int32_t r)
+{
+    double_t st0 = fpu_get_st0();
+
+    switch(r)
+    {
+        case 0:
+            // f2xm1
+            fpu_st[*fpu_stack_ptr] = pow(2, st0) - 1;
+            break;
+        case 1:
+            // fyl2x
+            fpu_st[*fpu_stack_ptr + 1 & 7] = fpu_get_sti(1) * log(st0) / M_LN2;
+            fpu_pop();
+            break;
+        case 2:
+            // fptan
+            fpu_st[*fpu_stack_ptr] = tan(st0);
+            fpu_push(1); // no bug: push constant 1
+            break;
+        case 3:
+            // fpatan
+            fpu_st[*fpu_stack_ptr + 1 & 7] = atan2(fpu_get_sti(1), st0);
+            fpu_pop();
+            break;
+        case 4:
+            fxtract();
+            break;
+        case 5:
+            // fprem1
+            fpu_st[*fpu_stack_ptr] = fmod(st0, fpu_get_sti(1));
             break;
         case 6:
-            {
-                double_t st0 = fpu_get_st0();
-
-                switch(low)
-                {
-                    case 0:
-                        // f2xm1
-                        fpu_st[*fpu_stack_ptr] = pow(2, st0) - 1;
-                        break;
-                    case 1:
-                        // fyl2x
-                        fpu_st[*fpu_stack_ptr + 1 & 7] = fpu_get_sti(1) * log(st0) / M_LN2;
-                        fpu_pop();
-                        break;
-                    case 2:
-                        // fptan
-                        fpu_st[*fpu_stack_ptr] = tan(st0);
-                        fpu_push(1); // no bug: push constant 1
-                        break;
-                    case 3:
-                        // fpatan
-                        fpu_st[*fpu_stack_ptr + 1 & 7] = atan2(fpu_get_sti(1), st0);
-                        fpu_pop();
-                        break;
-                    case 4:
-                        fxtract();
-                        break;
-                    case 5:
-                        // fprem1
-                        fpu_st[*fpu_stack_ptr] = fmod(st0, fpu_get_sti(1));
-                        break;
-                    case 6:
-                        // fdecstp
-                        *fpu_stack_ptr = *fpu_stack_ptr - 1 & 7;
-                        *fpu_status_word &= ~FPU_C1;
-                        break;
-                    case 7:
-                        // fincstp
-                        *fpu_stack_ptr = *fpu_stack_ptr + 1 & 7;
-                        *fpu_status_word &= ~FPU_C1;
-                        break;
-                    default:
-                        dbg_assert(false);
-                }
-            }
+            // fdecstp
+            *fpu_stack_ptr = *fpu_stack_ptr - 1 & 7;
+            *fpu_status_word &= ~FPU_C1;
             break;
         case 7:
-            {
-                double_t st0 = fpu_get_st0();
-
-                switch(low)
-                {
-                    case 0:
-                        // fprem
-                        {
-                            double_t st1 = fpu_get_sti(1);
-                            int32_t fprem_quotient = trunc(st0 / st1);
-                            fpu_st[*fpu_stack_ptr] = fmod(st0, st1);
-
-                            *fpu_status_word &= ~(FPU_C0 | FPU_C1 | FPU_C3);
-                            if (fprem_quotient & 1) {
-                                *fpu_status_word |= FPU_C1;
-                            }
-                            if (fprem_quotient & (1 << 1)) {
-                                *fpu_status_word |= FPU_C3;
-                            }
-                            if (fprem_quotient & (1 << 2)) {
-                                *fpu_status_word |= FPU_C0;
-                            }
-
-                            *fpu_status_word &= ~FPU_C2;
-                        }
-                        break;
-                    case 1:
-                        // fyl2xp1: y * log2(x+1) and pop
-                        fpu_st[*fpu_stack_ptr + 1 & 7] = fpu_get_sti(1) * log(st0 + 1) / M_LN2;
-                        fpu_pop();
-                        break;
-                    case 2:
-                        fpu_st[*fpu_stack_ptr] = sqrt(st0);
-                        break;
-                    case 3:
-                        fpu_st[*fpu_stack_ptr] = sin(st0);
-                        fpu_push(cos(st0));
-                        break;
-                    case 4:
-                        // frndint
-                        fpu_st[*fpu_stack_ptr] = fpu_integer_round(st0);
-                        break;
-                    case 5:
-                        // fscale
-                        fpu_st[*fpu_stack_ptr] = st0 * pow(2, fpu_truncate(fpu_get_sti(1)));
-                        break;
-                    case 6:
-                        fpu_st[*fpu_stack_ptr] = sin(st0);
-                        break;
-                    case 7:
-                        fpu_st[*fpu_stack_ptr] = cos(st0);
-                        break;
-                    default:
-                        dbg_assert(false);
-                }
-            }
+            // fincstp
+            *fpu_stack_ptr = *fpu_stack_ptr + 1 & 7;
+            *fpu_status_word &= ~FPU_C1;
             break;
         default:
             dbg_assert(false);
     }
 }
 
-void fpu_op_D9_mem(int32_t mod, int32_t addr)
+void fpu_op_D9_7_reg(int32_t r)
 {
-    dbg_log_fpu_op(0xD9, mod);
-
-    switch(mod)
     {
-        case 0:
-            // fld
+        double_t st0 = fpu_get_st0();
+
+        switch(r)
+        {
+            case 0:
+                // fprem
             {
-                double_t data = fpu_load_m32(addr);
-                fpu_push(data);
+                double_t st1 = fpu_get_sti(1);
+                int32_t fprem_quotient = trunc(st0 / st1);
+                fpu_st[*fpu_stack_ptr] = fmod(st0, st1);
+
+                *fpu_status_word &= ~(FPU_C0 | FPU_C1 | FPU_C3);
+                if (fprem_quotient & 1) {
+                    *fpu_status_word |= FPU_C1;
+                }
+                if (fprem_quotient & (1 << 1)) {
+                    *fpu_status_word |= FPU_C3;
+                }
+                if (fprem_quotient & (1 << 2)) {
+                    *fpu_status_word |= FPU_C0;
+                }
+
+                *fpu_status_word &= ~FPU_C2;
             }
             break;
-        case 1:
-            // not defined
-            dbg_log("d9/1");
-            fpu_unimpl();
-            break;
-        case 2:
-            // fst
-            fpu_store_m32(addr, fpu_get_st0());
-            break;
-        case 3:
-            // fstp
-            fpu_store_m32(addr, fpu_get_st0());
-            fpu_pop();
-            break;
-        case 4:
-            fldenv(addr);
-            break;
-        case 5:
-            // fldcw
-            {
-                int32_t word = safe_read16(addr);
-                *fpu_control_word = word;
+            case 1:
+                // fyl2xp1: y * log2(x+1) and pop
+                fpu_st[*fpu_stack_ptr + 1 & 7] = fpu_get_sti(1) * log(st0 + 1) / M_LN2;
+                fpu_pop();
+                break;
+            case 2:
+                fpu_st[*fpu_stack_ptr] = sqrt(st0);
+                break;
+            case 3:
+                fpu_st[*fpu_stack_ptr] = sin(st0);
+                fpu_push(cos(st0));
+                break;
+            case 4:
+                // frndint
+                fpu_st[*fpu_stack_ptr] = fpu_integer_round(st0);
+                break;
+            case 5:
+                // fscale
+                fpu_st[*fpu_stack_ptr] = st0 * pow(2, fpu_truncate(fpu_get_sti(1)));
+                break;
+            case 6:
+                fpu_st[*fpu_stack_ptr] = sin(st0);
+                break;
+            case 7:
+                fpu_st[*fpu_stack_ptr] = cos(st0);
+                break;
+            default:
+                dbg_assert(false);
             }
-            break;
-        case 6:
-            fstenv(addr);
-            break;
-        case 7:
-            // fstcw
-            safe_write16(addr, *fpu_control_word);
-            break;
-        default:
-            dbg_assert(false);
     }
+}
+
+void fpu_fldcw(int32_t addr)
+{
+    int32_t word = safe_read16(addr);
+    *fpu_control_word = word;
+}
+
+void fpu_fstcw(int32_t addr)
+{
+    safe_write16(addr, *fpu_control_word);
 }
 
 void fpu_op_DA_reg(int32_t imm8)
