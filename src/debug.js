@@ -735,7 +735,7 @@ CPU.prototype.debug_init = function()
             const instructions = capstone_decoder[is_32].disasm(buffer, start);
 
             instructions.forEach(function (instr) {
-                dbg_log(h(instr.address) + ": " +
+                dbg_log(h(instr.address >>> 0) + ": " +
                     v86util.pads(instr.bytes.map(x => h(x, 2).slice(-2)).join(" "), 20) + " " +
                     instr.mnemonic + " " + instr.op_str);
             });
