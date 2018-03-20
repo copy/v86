@@ -12,12 +12,12 @@
 #include "wasm_opcodes.h"
 #include "wasm_util.h"
 
-static Buffer op = { .start = codegen_buffer_op, .ptr = codegen_buffer_op, .len = 0x1000 };
-static Buffer cs = { .start = codegen_buffer_cs, .ptr = codegen_buffer_cs, .len = 0x1000 };
+static Buffer op = { .start = codegen_buffer_op, .ptr = codegen_buffer_op, .len = 0x10000 };
+static Buffer cs = { .start = codegen_buffer_cs, .ptr = codegen_buffer_cs, .len = 0x10000 };
 Buffer instruction_body = {
     .start = codegen_buffer_instruction_body,
     .ptr = codegen_buffer_instruction_body,
-    .len = 0x1000,
+    .len = 0x10000,
 };
 
 static uint8_t* op_ptr_reset_location;

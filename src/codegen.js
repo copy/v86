@@ -18,7 +18,7 @@ Codegen.prototype.reset = function()
 };
 
 Codegen.OUTPUT_OFFSET = 0x1000;
-Codegen.STR_INPUT_OFFSET = 0x4000;
+Codegen.STR_INPUT_OFFSET = 0x31000;
 
 Codegen.prototype.str_input = function(str)
 {

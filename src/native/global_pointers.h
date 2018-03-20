@@ -86,10 +86,10 @@ static union reg64* const reg_mmx = (union reg64* const) 1064; // length 64
 
 // gap
 
-static uint8_t* const codegen_buffer_op = (uint8_t* const) 0x1000; // length 0x1000
-static uint8_t* const codegen_buffer_cs = (uint8_t* const) 0x2000; // length 0x1000
-static uint8_t* const codegen_buffer_instruction_body = (uint8_t* const) 0x3000; // length 0x1000
-static uint8_t* const codegen_string_input = (uint8_t* const) 0x4000; // length 32
+static uint8_t* const codegen_buffer_op = (uint8_t* const) 0x1000; // length 0x10000
+static uint8_t* const codegen_buffer_cs = (uint8_t* const) 0x11000; // length 0x10000
+static uint8_t* const codegen_buffer_instruction_body = (uint8_t* const) 0x21000; // length 0x10000
+static uint8_t* const codegen_string_input = (uint8_t* const) 0x31000; // length 32
 
 // gap
 
