@@ -236,7 +236,7 @@ SpeakerMixer.prototype.disconnect_source = function(source_id, channel)
  */
 SpeakerMixer.prototype.set_volume = function(value, channel)
 {
-    if(!channel)
+    if(channel === undefined)
     {
         channel = MIXER_CHANNEL_BOTH;
     }
@@ -353,7 +353,7 @@ SpeakerMixerSource.prototype.disconnect = function(channel)
  */
 SpeakerMixerSource.prototype.set_volume = function(value, channel)
 {
-    if(!channel)
+    if(channel === undefined)
     {
         channel = MIXER_CHANNEL_BOTH;
     }
