@@ -153,7 +153,7 @@ if(cluster.isMaster)
             actions: [
                 {
                     on_text: "~%",
-                    run: "echo test pas''sed\n"
+                    run: "head -c 10000 /dev/urandom > rand; echo test pas''sed\n"
                 },
             ],
         },
