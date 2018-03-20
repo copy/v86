@@ -41,7 +41,7 @@ function CPU(bus, wm, codegen, coverage_logger)
      * Translation Lookaside Buffer
      * @const
      */
-    this.tlb_data = new Int32Array(wm.memory.buffer, 0x10000 + 0x100000*2, 0x100000);
+    this.tlb_data = new Int32Array(wm.memory.buffer, 0x40000 + 0x100000*2, 0x100000);
 
     /**
      * Information about which pages are cached in the tlb.
@@ -52,13 +52,13 @@ function CPU(bus, wm, codegen, coverage_logger)
      *   3 user, write
      * @const
      */
-    this.tlb_info = new Uint8Array(wm.memory.buffer, 0x10000, 0x100000);
+    this.tlb_info = new Uint8Array(wm.memory.buffer, 0x40000, 0x100000);
 
     /**
      * Same as tlb_info, except it only contains global pages
      * @const
      */
-    this.tlb_info_global = new Uint8Array(wm.memory.buffer, 0x10000 + 0x100000, 0x100000);
+    this.tlb_info_global = new Uint8Array(wm.memory.buffer, 0x40000 + 0x100000, 0x100000);
 
     /**
      * Wheter or not in protected mode
