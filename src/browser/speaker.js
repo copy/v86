@@ -151,16 +151,14 @@ function SpeakerMixer(bus, audio_context)
         source.set_volume(gain);
     }, this);
 
-    bus.register("mixer-gain-left", function(decibels)
+    bus.register("mixer-gain-left", function(/** number */ decibels)
     {
-        decibels = /** @type{number} */(decibels);
         this.gain_left = Math.pow(10, decibels / 20);
         this.update();
     }, this);
 
-    bus.register("mixer-gain-right", function(decibels)
+    bus.register("mixer-gain-right", function(/** number */ decibels)
     {
-        decibels = /** @type{number} */(decibels);
         this.gain_right = Math.pow(10, decibels / 20);
         this.update();
     }, this);
