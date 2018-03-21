@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 #include "const.h"
-#include "instructions.h"
 #include "shared.h"
 
 #define CODE_CACHE_SEARCH_SIZE 8
@@ -65,6 +64,32 @@ struct code_cache jit_cache_arr[WASM_TABLE_SIZE];
 // state-altering, etc.)
 extern uint32_t jit_block_boundary;
 
+typedef uint32_t jit_instr_flags;
+
+#define JIT_INSTR_BLOCK_BOUNDARY_FLAG (1 << 0)
+#define JIT_INSTR_NONFAULTING_FLAG (1 << 1)
+
+struct analysis {
+    jit_instr_flags flags;
+    int32_t jump_target;
+    int32_t condition_index;
+};
+
+struct basic_block {
+    int32_t addr;
+    int32_t end_addr;
+    int32_t next_block_addr; // if 0 this is an exit block
+    int32_t next_block_branch_taken_addr;
+    int32_t condition_index; // if not -1 this block ends with a conditional jump
+};
+
+#define BASIC_BLOCK_LIST_MAX 1000
+
+struct basic_block_list {
+    int32_t length;
+    struct basic_block blocks[BASIC_BLOCK_LIST_MAX];
+};
+
 // Count of how many times prime_hash(address) has been called through a jump
 extern int32_t hot_code_addresses[HASH_PRIME];
 // An array indicating the current "initial group status" for entries that map
@@ -85,6 +110,13 @@ int32_t valid_tlb_entries_count;
 extern void call_indirect(int32_t index);
 
 void after_block_boundary(void);
+struct analysis analyze_step(int32_t);
+
+void after_jump(void);
+void diverged(void);
+void branch_taken(void);
+void branch_not_taken(void);
+
 int32_t get_eflags(void);
 uint32_t translate_address_read(int32_t address);
 uint32_t translate_address_write(int32_t address);
@@ -103,6 +135,8 @@ int32_t get_seg_prefix_ds(int32_t offset);
 int32_t get_seg_prefix_ss(int32_t offset);
 int32_t get_seg_prefix_cs(int32_t offset);
 int32_t modrm_resolve(int32_t modrm_byte);
+void modrm_skip(int32_t modrm_byte);
+
 uint32_t jit_hot_hash(uint32_t addr);
 void jit_link_block(int32_t target);
 void jit_link_block_conditional(int32_t offset, const char* condition);

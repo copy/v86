@@ -524,6 +524,12 @@ int32_t modrm_resolve(int32_t modrm_byte)
     }
 }
 
+void modrm_skip(int32_t modrm_byte)
+{
+    // TODO: More efficient implementation is possible
+    modrm_resolve(modrm_byte);
+}
+
 uint32_t jit_hot_hash(uint32_t addr)
 {
     return addr % HASH_PRIME;
@@ -634,37 +640,31 @@ static bool is_near_end_of_page(uint32_t addr)
     return (addr & 0xFFF) >= (0x1000 - 16);
 }
 
-static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page_dirtiness)
+static bool same_page(int32_t addr1, int32_t addr2)
 {
-    profiler_start(P_GEN_INSTR);
-    profiler_stat_increment(S_COMPILE);
+    return (addr1 & ~0xFFF) == (addr2 & ~0xFFF);
+}
 
-    int32_t virt_start_addr = *instruction_pointer;
-
-    // don't immediately retry to compile
-    hot_code_addresses[address_hash] = 0;
-
+static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
+{
     uint32_t len = 0;
     jit_block_boundary = false;
 
     int32_t end_addr;
-    int32_t first_opcode = -1;
     bool was_block_boundary = false;
     int32_t eip_delta = 0;
 
-    gen_reset();
+    *instruction_pointer = start_addr;
+    uint32_t phys_addr = translate_address_read(start_addr);
 
     // First iteration of do-while assumes the caller confirms this condition
-    assert(!is_near_end_of_page(phys_addr));
+    assert(!is_near_end_of_page(start_addr));
+    UNUSED(phys_addr);
+
     do
     {
         *previous_ip = *instruction_pointer;
         int32_t opcode = read_imm8();
-
-        if(len == 0)
-        {
-            first_opcode = opcode;
-        }
 
         int32_t start_eip = *instruction_pointer - 1;
         jit_instr_flags jit_ret = jit_instruction(opcode | !!*is_32 << 8);
@@ -724,7 +724,9 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page
         end_addr = *eip_phys ^ *instruction_pointer;
         len++;
     }
-    while(!was_block_boundary && !is_near_end_of_page(*instruction_pointer));
+    while(!was_block_boundary &&
+            !is_near_end_of_page(*instruction_pointer) &&
+            *instruction_pointer != stop_addr);
 
 #if ENABLE_JIT_NONFAULTING_OPTIMZATION
     // When the block ends in a non-jump instruction, we may have uncommitted updates still
@@ -735,50 +737,13 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page
     }
 #endif
 
+    gen_increment_timestamp_counter(len);
+
     // no page was crossed
     assert(((end_addr ^ phys_addr) & ~0xFFF) == 0);
 
     jit_block_boundary = false;
     assert(*prefixes == 0);
-
-    // at this point no exceptions can be raised
-
-    if(!ENABLE_JIT_ALWAYS && JIT_MIN_BLOCK_LENGTH != 0 && len < JIT_MIN_BLOCK_LENGTH)
-    {
-        // abort, block is too short to be considered useful for compilation
-        profiler_stat_increment(S_CACHE_SKIPPED);
-        profiler_end(P_GEN_INSTR);
-        *instruction_pointer = virt_start_addr;
-        return;
-    }
-
-    gen_increment_timestamp_counter(len);
-    gen_finish();
-
-    struct code_cache* entry = create_cache_entry(phys_addr);
-
-    entry->start_addr = phys_addr;
-    entry->state_flags = pack_current_state_flags();
-    entry->group_status = page_dirtiness;
-    entry->pending = true;
-
-#if DEBUG
-    assert(first_opcode != -1);
-    entry->opcode[0] = first_opcode;
-    entry->end_addr = end_addr;
-    entry->len = len;
-#endif
-
-    // will call codegen_finalize_finished asynchronously when finished
-    codegen_finalize(
-            entry->wasm_table_index, phys_addr, end_addr,
-            first_opcode, entry->state_flags, page_dirtiness);
-
-    // start execution at the beginning
-    *instruction_pointer = virt_start_addr;
-
-    profiler_stat_increment(S_COMPILE_SUCCESS);
-    profiler_end(P_GEN_INSTR);
 }
 
 void codegen_finalize_finished(
@@ -795,8 +760,13 @@ void codegen_finalize_finished(
         // sanity check that we're looking at the right entry
         assert(entry->pending);
         assert(entry->group_status == page_dirtiness);
-        assert(entry->state_flags == state_flags);
         assert(entry->start_addr == phys_addr);
+        assert(entry->state_flags == state_flags);
+        UNUSED(page_dirtiness);
+        UNUSED(phys_addr);
+        UNUSED(state_flags);
+        UNUSED(end_addr);
+        UNUSED(first_opcode);
 
         entry->pending = false;
     }
@@ -808,13 +778,15 @@ void codegen_finalize_finished(
 
 static struct code_cache* find_cache_entry(uint32_t phys_addr)
 {
+    cached_state_flags state_flags = pack_current_state_flags();
+
 #pragma clang loop unroll_count(CODE_CACHE_SEARCH_SIZE)
     for(int32_t i = 0; i < CODE_CACHE_SEARCH_SIZE; i++)
     {
         uint16_t addr_index = (phys_addr + i) & JIT_PHYS_MASK;
         struct code_cache* entry = &jit_cache_arr[addr_index];
 
-        if(entry->start_addr == phys_addr && entry->state_flags == pack_current_state_flags())
+        if(entry->start_addr == phys_addr && entry->state_flags == state_flags)
         {
             return entry;
         }
@@ -827,7 +799,7 @@ struct code_cache* find_link_block_target(int32_t target)
 {
     int32_t eip = *previous_ip;
 
-    if(ENABLE_JIT_BLOCK_LINKING && ((eip ^ target) & ~0xFFF) == 0) // same page
+    if(same_page(eip, target))
     {
         assert((eip & ~0xFFF) == *last_virt_eip);
         assert((target & ~0xFFF) == *last_virt_eip);
@@ -846,54 +818,543 @@ struct code_cache* find_link_block_target(int32_t target)
     return NULL;
 }
 
-void jit_link_block(int32_t target)
-{
-    struct code_cache* entry = find_link_block_target(target);
-
-    if(entry)
-    {
-        profiler_stat_increment(S_COMPILE_WITH_LINK);
-        set_jit_import(JIT_NEXT_BLOCK_BRANCHED_IDX, entry->wasm_table_index);
-        gen_fn0(JIT_NEXT_BLOCK_BRANCHED, sizeof(JIT_NEXT_BLOCK_BRANCHED) - 1);
-    }
-}
-
 void jit_link_block_conditional(int32_t offset, const char* condition)
 {
-    // > Generate the following code:
-    // if(test_XX()) { *instruction_pointer += offset; JIT_NEXT_BLOCK_BRANCHED() }
-    // else { JIT_NEXT_BLOCK_NOT_BRANCHED() }
-
     // Note: block linking cannot rely on the absolute value of eip, as blocks
     // are stored at their *physical* address, which can be executed from
     // multiple *virtual* addresses. Due to this, we cannot insert the value of
     // eip into generated code
 
-    struct code_cache* entry_branch_taken = find_link_block_target(*instruction_pointer + offset);
-    struct code_cache* entry_branch_not_taken = find_link_block_target(*instruction_pointer);
-
     gen_fn0_ret(condition, strlen(condition));
 
     gen_if_void();
     gen_relative_jump(offset);
-
-    if(entry_branch_taken)
-    {
-        profiler_stat_increment(S_COMPILE_WITH_LINK);
-        set_jit_import(JIT_NEXT_BLOCK_BRANCHED_IDX, entry_branch_taken->wasm_table_index);
-        gen_fn0(JIT_NEXT_BLOCK_BRANCHED, sizeof(JIT_NEXT_BLOCK_BRANCHED) - 1);
-    }
-
-    if(entry_branch_not_taken)
-    {
-        gen_else();
-
-        profiler_stat_increment(S_COMPILE_WITH_LINK);
-        set_jit_import(JIT_NEXT_BLOCK_NOT_BRANCHED_IDX, entry_branch_not_taken->wasm_table_index);
-        gen_fn0(JIT_NEXT_BLOCK_NOT_BRANCHED, sizeof(JIT_NEXT_BLOCK_NOT_BRANCHED) - 1);
-    }
-
     gen_block_end();
+}
+
+struct analysis analyze_prefix_instruction()
+{
+    return analyze_step(read_imm8() | is_osize_32() << 8);
+}
+
+struct analysis instr_26_analyze() { return analyze_prefix_instruction(); }
+struct analysis instr_2E_analyze() { return analyze_prefix_instruction(); }
+struct analysis instr_36_analyze() { return analyze_prefix_instruction(); }
+struct analysis instr_3E_analyze() { return analyze_prefix_instruction(); }
+struct analysis instr_64_analyze() { return analyze_prefix_instruction(); }
+struct analysis instr_65_analyze() { return analyze_prefix_instruction(); }
+struct analysis instr_66_analyze() {
+    *prefixes |= PREFIX_MASK_OPSIZE;
+    struct analysis result = analyze_prefix_instruction();
+    *prefixes = 0;
+    return result;
+}
+struct analysis instr_67_analyze() {
+    *prefixes |= PREFIX_MASK_ADDRSIZE;
+    struct analysis result = analyze_prefix_instruction();
+    *prefixes = 0;
+    return result;
+}
+struct analysis instr_F0_analyze() { return analyze_prefix_instruction(); }
+struct analysis instr_F2_analyze() {
+    *prefixes |= PREFIX_F2;
+    struct analysis result = analyze_prefix_instruction();
+    *prefixes = 0;
+    return result;
+}
+struct analysis instr_F3_analyze() {
+    *prefixes |= PREFIX_F3;
+    struct analysis result = analyze_prefix_instruction();
+    *prefixes = 0;
+    return result;
+}
+
+struct analysis instr16_0F_analyze()
+{
+    int32_t opcode = read_imm8();
+    struct analysis analysis = { .flags = 0, .jump_target = 0, .condition_index = -1 };
+#include "../../build/analyzer0f_16.c"
+    return analysis;
+}
+struct analysis instr32_0F_analyze()
+{
+    int32_t opcode = read_imm8();
+    struct analysis analysis = { .flags = 0, .jump_target = 0, .condition_index = -1 };
+#include "../../build/analyzer0f_32.c"
+    return analysis;
+}
+
+struct analysis analyze_step(int32_t opcode)
+{
+    struct analysis analysis = { .flags = 0, .jump_target = 0, .condition_index = -1 };
+#include "../../build/analyzer.c"
+    return analysis;
+}
+
+int32_t find_basic_block_index(const struct basic_block_list* basic_blocks, int32_t addr)
+{
+    for(int32_t i = 0; i < basic_blocks->length; i++)
+    {
+        if(basic_blocks->blocks[i].addr == addr)
+        {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+bool is_sorted_and_unique(const struct basic_block_list* basic_blocks)
+{
+    for(int32_t i = 0; i < basic_blocks->length - 1; i++)
+    {
+        if(basic_blocks->blocks[i].addr >= basic_blocks->blocks[i + 1].addr)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+struct basic_block* add_basic_block_start(struct basic_block_list* basic_blocks, int32_t addr)
+{
+    assert(basic_blocks->length < BASIC_BLOCK_LIST_MAX);
+    assert(find_basic_block_index(basic_blocks, addr) == -1);
+
+    // sorted insert
+    int32_t index_to_insert = -1;
+
+    for(int32_t i = 0; i < basic_blocks->length; i++)
+    {
+        assert(basic_blocks->blocks[i].addr != addr);
+
+        if(basic_blocks->blocks[i].addr > addr)
+        {
+            // make space
+            for(int32_t j = basic_blocks->length - 1; j >= i; j--)
+            {
+                basic_blocks->blocks[j + 1] = basic_blocks->blocks[j];
+            }
+
+            assert(basic_blocks->blocks[i].addr == basic_blocks->blocks[i + 1].addr);
+
+            index_to_insert = i;
+            break;
+        }
+    }
+
+    if(index_to_insert == -1)
+    {
+        // if we're here addr is larger than all existing basic blocks or basic blocks is empty
+        assert(basic_blocks->length == 0 ||
+                basic_blocks->blocks[basic_blocks->length - 1].addr < addr);
+
+        index_to_insert = basic_blocks->length;
+    }
+
+    basic_blocks->blocks[index_to_insert].addr = addr;
+    basic_blocks->length++;
+
+    assert(is_sorted_and_unique(basic_blocks));
+
+    if(index_to_insert != 0)
+    {
+        struct basic_block* previous_block = &basic_blocks->blocks[index_to_insert - 1];
+
+        if(previous_block->end_addr > addr)
+        {
+            // Split the previous block as it would overlap otherwise; change
+            // it to continue at this block
+
+            previous_block->end_addr = addr;
+            previous_block->next_block_addr = addr;
+            previous_block->condition_index = -1;
+            previous_block->next_block_branch_taken_addr = 0;
+        }
+    }
+
+    return &basic_blocks->blocks[index_to_insert];
+}
+
+static const char* condition_functions[] = {
+    "test_o",
+    "test_no",
+    "test_b",
+    "test_nb",
+    "test_z",
+    "test_nz",
+    "test_be",
+    "test_nbe",
+    "test_s",
+    "test_ns",
+    "test_p",
+    "test_np",
+    "test_l",
+    "test_nl",
+    "test_le",
+    "test_nle",
+};
+
+struct basic_block_list basic_blocks = {
+    .length = 0,
+    .blocks = {
+        {
+            .addr = 0,
+            .end_addr = 0,
+            .next_block_addr = 0,
+            .next_block_branch_taken_addr = 0,
+            .condition_index = 0,
+        }
+    }
+};
+int32_t to_visit_stack[1000];
+
+// populates the basic_blocks global variable
+static void jit_find_basic_blocks()
+{
+    int32_t start = *instruction_pointer;
+
+    basic_blocks.length = 0;
+
+    // keep a stack of locations to visit that are part of the current control flow
+
+    int32_t to_visit_stack_count = 0;
+    to_visit_stack[to_visit_stack_count++] = *instruction_pointer;
+
+    while(to_visit_stack_count)
+    {
+        int32_t to_visit = to_visit_stack[--to_visit_stack_count];
+
+        assert((*instruction_pointer & ~0xFFF) == (to_visit & ~0xFFF));
+        *instruction_pointer = *instruction_pointer & ~0xFFF | to_visit & 0xFFF;
+
+        if(find_basic_block_index(&basic_blocks, *instruction_pointer) != -1)
+        {
+            // been here already, next
+            continue;
+        }
+
+        struct basic_block* current_block = add_basic_block_start(&basic_blocks, *instruction_pointer);
+
+        current_block->next_block_branch_taken_addr = 0;
+
+        while(true)
+        {
+            int32_t phys_eip = translate_address_read(*instruction_pointer);
+
+            if(is_near_end_of_page(phys_eip))
+            {
+                current_block->next_block_branch_taken_addr = 0;
+                current_block->next_block_addr = 0;
+                current_block->end_addr = *instruction_pointer;
+                current_block->condition_index = -1;
+                break;
+            }
+
+            assert(!in_mapped_range(phys_eip));
+            int32_t opcode = mem8[phys_eip];
+            (*instruction_pointer)++;
+            struct analysis analysis = analyze_step(opcode | is_osize_32() << 8);
+
+            assert(*prefixes == 0);
+
+            int32_t jump_target = analysis.jump_target;
+
+            if((analysis.flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG) == 0)
+            {
+                // ordinary instruction, continue at next
+
+                if(find_basic_block_index(&basic_blocks, *instruction_pointer) != -1)
+                {
+                    current_block->next_block_branch_taken_addr = 0;
+                    assert(*instruction_pointer);
+                    current_block->next_block_addr = *instruction_pointer;
+                    current_block->end_addr = *instruction_pointer;
+                    current_block->condition_index = -1;
+                    break;
+                }
+            }
+            else if(jump_target && analysis.condition_index == -1)
+            {
+                // non-conditional jump: continue at jump target
+
+                if(same_page(jump_target, *instruction_pointer))
+                {
+                    assert(jump_target);
+                    current_block->next_block_addr = jump_target;
+
+                    assert(to_visit_stack_count != 1000);
+                    to_visit_stack[to_visit_stack_count++] = jump_target;
+                }
+                else
+                {
+                    current_block->next_block_addr = 0;
+                }
+
+                current_block->next_block_branch_taken_addr = 0;
+                current_block->condition_index = -1;
+                current_block->end_addr = *instruction_pointer;
+
+                break;
+            }
+            else if(jump_target && analysis.condition_index != -1)
+            {
+                // conditional jump: continue at next and continue at jump target
+
+                assert(to_visit_stack_count != 1000);
+                to_visit_stack[to_visit_stack_count++] = *instruction_pointer;
+
+                if(same_page(jump_target, *instruction_pointer))
+                {
+                    assert(to_visit_stack_count != 1000);
+                    to_visit_stack[to_visit_stack_count++] = jump_target;
+
+                    assert(jump_target);
+                    current_block->next_block_branch_taken_addr = jump_target;
+                }
+                else
+                {
+                    current_block->next_block_branch_taken_addr = 0;
+                }
+
+                assert(*instruction_pointer);
+                current_block->next_block_addr = *instruction_pointer;
+                current_block->end_addr = *instruction_pointer;
+
+                assert(analysis.condition_index >= 0 && analysis.condition_index < 0x10);
+                current_block->condition_index = analysis.condition_index;
+
+                break;
+            }
+            else
+            {
+                // a block boundary but not a jump, get out
+
+                assert((analysis.flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG) && !jump_target);
+
+                current_block->next_block_branch_taken_addr = 0;
+                current_block->next_block_addr = 0;
+                current_block->condition_index = -1;
+                current_block->end_addr = *instruction_pointer;
+                break;
+            }
+        }
+    }
+
+    if(DEBUG)
+    {
+        int32_t end = basic_blocks.blocks[basic_blocks.length - 1].end_addr;
+
+        dbg_log("Function with %d basic blocks, start at %x end at %x",
+                basic_blocks.length, start, end);
+
+        //for(int32_t i = 0; i < basic_blocks.length; i++)
+        //{
+        //    dbg_log("%x", basic_blocks.blocks[i].addr);
+        //}
+
+        dump_function_code(basic_blocks.blocks, basic_blocks.length, end);
+    }
+}
+
+static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
+{
+    profiler_stat_increment(S_COMPILE);
+    profiler_start(P_GEN_INSTR);
+
+    int32_t start = *instruction_pointer;
+
+    int32_t first_opcode = read8(get_phys_eip());
+
+    // populate basic_blocks
+    jit_find_basic_blocks();
+
+    // Code generation starts here
+
+    // local variables used by the generated wasm module
+    const int32_t STATE = 0;
+    const int32_t ITERATION_COUNTER = 1;
+
+    const int32_t NO_OF_LOCALS = 2;
+
+    gen_reset();
+
+    {
+        int32_t first_basic_block_index = find_basic_block_index(&basic_blocks, start);
+        assert(first_basic_block_index != -1);
+
+        // Set state variable to first basic block; in most cases the first
+        // basic block, but a jump may lead to before the function start, which
+        // is currently accepted as long as it is in the same page
+        gen_const_i32(first_basic_block_index);
+        gen_set_local(0);
+    }
+
+    // initialise max_iterations
+    gen_const_i32(JIT_MAX_ITERATIONS_PER_FUNCTION);
+    gen_set_local(ITERATION_COUNTER);
+
+    // main state machine loop
+    gen_loop_void();
+
+    // decrement max_iterations
+    gen_get_local(ITERATION_COUNTER);
+    gen_const_i32(-1);
+    gen_add_i32();
+    gen_set_local(ITERATION_COUNTER);
+
+
+    // if max_iterations == 0: return
+    gen_get_local(ITERATION_COUNTER);
+    gen_eqz_i32();
+    gen_if_void();
+    gen_return();
+    gen_block_end();
+
+    gen_block_void(); // for the default case
+
+    // generate the opening blocks for the cases
+
+    for(int32_t i = 0; i < basic_blocks.length; i++)
+    {
+        gen_block_void();
+    }
+
+    gen_get_local(STATE);
+    gen_switch(basic_blocks.length);
+
+    for(int32_t i = 0; i < basic_blocks.length; i++)
+    {
+        // Case [i] will jump after the [i]th block, so we first generate the
+        // block end opcode and then the code for that block
+
+        gen_block_end();
+
+        struct basic_block block = basic_blocks.blocks[i];
+
+        int32_t next_block_start = block.end_addr;
+
+        if(block.addr == next_block_start)
+        {
+            // Empty basic block, generate no code (for example, jump to block
+            // that is near end of page)
+            assert(!block.next_block_addr);
+        }
+        else
+        {
+            gen_commit_instruction_body_to_cs();
+            jit_generate_basic_block(block.addr, next_block_start);
+            gen_commit_instruction_body_to_cs();
+        }
+
+        if(block.next_block_addr)
+        {
+            if(block.condition_index == -1)
+            {
+                assert(!block.next_block_branch_taken_addr);
+
+                // Unconditional jump to next basic block
+                // - All instructions that don't change eip
+                // - Unconditional jump
+
+                int32_t next_bb_index = find_basic_block_index(&basic_blocks, block.next_block_addr);
+                assert(next_bb_index != -1);
+
+                // set state variable to next basic block
+                gen_const_i32(next_bb_index);
+                gen_set_local(STATE);
+
+                gen_br(basic_blocks.length - i); // to the loop
+            }
+            else
+            {
+                // Conditional jump to next basic block
+                // - jnz, jc, etc.
+
+                assert(block.condition_index >= 0 && block.condition_index < 16);
+                const char* condition = condition_functions[block.condition_index];
+                gen_fn0_ret(condition, strlen(condition));
+
+                gen_if_void();
+
+                if(block.next_block_branch_taken_addr)
+                {
+                    // Branch taken
+                    int32_t next_basic_block_branch_taken_index = find_basic_block_index(
+                            &basic_blocks, block.next_block_branch_taken_addr);
+                    assert(next_basic_block_branch_taken_index != -1);
+
+                    gen_const_i32(next_basic_block_branch_taken_index);
+                    gen_set_local(STATE);
+                }
+                else
+                {
+                    // Jump to different page
+                    gen_return();
+                }
+
+                gen_else();
+
+                {
+                    // Branch not taken
+                    // TODO: Could use fall-through here
+                    int32_t next_basic_block_index = find_basic_block_index(
+                            &basic_blocks, block.next_block_addr);
+                    assert(next_basic_block_index != -1);
+
+                    gen_const_i32(next_basic_block_index);
+                    gen_set_local(STATE);
+                }
+
+                gen_block_end();
+
+                gen_br(basic_blocks.length - i); // to the loop
+            }
+        }
+        else
+        {
+            assert(!block.next_block_branch_taken_addr);
+            assert(block.condition_index == -1);
+
+            // Exit this function
+            gen_return();
+        }
+    }
+
+    gen_block_end(); // default case
+    gen_unreachable();
+
+    gen_block_end(); // loop
+
+    gen_commit_instruction_body_to_cs();
+    gen_finish(NO_OF_LOCALS);
+
+    struct code_cache* entry = create_cache_entry(phys_addr);
+
+    entry->start_addr = phys_addr;
+    entry->state_flags = pack_current_state_flags();
+    entry->group_status = page_dirtiness;
+    entry->pending = true;
+
+#if DEBUG
+    entry->opcode[0] = first_opcode;
+    //entry->end_addr = end_addr;
+    //entry->len = len;
+#endif
+    UNUSED(first_opcode);
+
+    int32_t end_addr = 0;
+
+    // will call codegen_finalize_finished asynchronously when finished
+    codegen_finalize(
+            entry->wasm_table_index, phys_addr, end_addr,
+            first_opcode, entry->state_flags, page_dirtiness);
+
+    profiler_stat_increment(S_COMPILE_SUCCESS);
+    profiler_end(P_GEN_INSTR);
+
+    *instruction_pointer = start;
 }
 
 void cycle_internal()
@@ -958,7 +1419,10 @@ void cycle_internal()
             )
           )
         {
-            jit_generate(address_hash, phys_addr, page_dirtiness);
+            // don't immediately retry to compile
+            hot_code_addresses[address_hash] = 0;
+
+            jit_generate(phys_addr, page_dirtiness);
         }
         else
         {

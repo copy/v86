@@ -172,8 +172,6 @@
 
 #define MXCSR_MASK (0xFFFF & ~(1 << 6))
 
-#define JIT_MIN_BLOCK_LENGTH 3
-
 #define WASM_TABLE_SIZE 0x10000
 
 // Mask used to map physical address to index in cache array
@@ -194,8 +192,9 @@
 #define JIT_NEXT_BLOCK_BRANCHED_IDX 0
 #define JIT_NEXT_BLOCK_NOT_BRANCHED_IDX 1
 
+#define JIT_MAX_ITERATIONS_PER_FUNCTION 10000
+
 #define ENABLE_JIT 1
-#define ENABLE_JIT_BLOCK_LINKING 1
 #define ENABLE_JIT_NONFAULTING_OPTIMZATION 1
 
 #ifndef ENABLE_JIT_ALWAYS

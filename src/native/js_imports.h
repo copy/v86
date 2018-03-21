@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "cpu.h"
+
 // like memcpy, but only efficient for large (approximately 10k) sizes
 // See memcpy in https://github.com/kripken/emscripten/blob/master/src/library.js
 extern void* memcpy_large(void* dest, const void* src, size_t n);
@@ -22,8 +24,11 @@ extern int32_t mmap_read8(uint32_t);
 extern int32_t set_cr0(int32_t);
 extern int32_t verr(int32_t);
 extern int32_t verw(int32_t);
+
 extern void codegen_finalize(int32_t, int32_t, int32_t, int32_t, int32_t, int32_t);
 extern void log_uncompiled_code(int32_t, int32_t);
+extern void dump_function_code(const struct basic_block* basic_block, int32_t basic_block_count, int32_t end);
+
 extern void cpl_changed(void);
 extern void cpuid(void);
 extern void enter16(int32_t, int32_t);

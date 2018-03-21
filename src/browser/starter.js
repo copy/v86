@@ -230,6 +230,9 @@ function V86Starter(options)
             coverage_logger.log(fn_name_offset, num_blocks, visited_block);
         },
         "_log_uncompiled_code": (start, end) => cpu.log_uncompiled_code(start, end),
+        "_dump_function_code": (blocks_ptr, count, end) => {
+            cpu.dump_function_code(blocks_ptr, count, end);
+        },
 
         // see https://github.com/kripken/emscripten/blob/incoming/src/library.js
         "_atan2": Math.atan2,

@@ -4,12 +4,15 @@ BROWSER=chromium
 NASM_TEST_DIR=./tests/nasm
 COVERAGE_DIR=./tests/coverage
 
-INSTRUCTION_TABLES=build/jit.c build/jit0f_16.c build/jit0f_32.c build/interpreter.c build/interpreter0f_16.c build/interpreter0f_32.c
+INSTRUCTION_TABLES=build/jit.c build/jit0f_16.c build/jit0f_32.c \
+		   build/interpreter.c build/interpreter0f_16.c build/interpreter0f_32.c \
+		   build/analyzer.c build/analyzer0f_16.c build/analyzer0f_32.c \
 
 # Only the dependencies common to both generate_{jit,interpreter}.js
 GEN_DEPENDENCIES=$(filter-out gen/generate_interpreter.js gen/generate_jit.js, $(wildcard gen/*.js))
 JIT_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_jit.js
 INTERPRETER_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_interpreter.js
+ANALYZER_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_analyzer.js
 
 # Enable manually and recompile v86-debug.wasm for coverage-enabled tests
 ifeq ($(ENABLE_COV), 1)
@@ -180,6 +183,13 @@ build/interpreter0f_16.c: $(INTERPRETER_DEPENDENCIES)
 	./gen/generate_interpreter.js --output-dir build/ --table interpreter0f_16
 build/interpreter0f_32.c: $(INTERPRETER_DEPENDENCIES)
 	./gen/generate_interpreter.js --output-dir build/ --table interpreter0f_32
+
+build/analyzer.c: $(ANALYZER_DEPENDENCIES)
+	./gen/generate_analyzer.js --output-dir build/ --table analyzer
+build/analyzer0f_16.c: $(ANALYZER_DEPENDENCIES)
+	./gen/generate_analyzer.js --output-dir build/ --table analyzer0f_16
+build/analyzer0f_32.c: $(ANALYZER_DEPENDENCIES)
+	./gen/generate_analyzer.js --output-dir build/ --table analyzer0f_32
 
 .PHONY: phony
 build/JIT_ALWAYS: phony

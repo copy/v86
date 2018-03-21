@@ -1383,9 +1383,6 @@ void instr16_E8_jit(int32_t imm16) {
 
 void instr32_E8_jit(int32_t imm32s) {
     gen_fn1("instr32_E8", 10, imm32s);
-
-    int32_t target = *instruction_pointer + imm32s;
-    jit_link_block(target);
 }
 
 void instr16_E9(int32_t imm16) {
@@ -1402,9 +1399,6 @@ void instr16_E9_jit(int32_t imm16) {
 }
 void instr32_E9_jit(int32_t imm32s) {
     gen_fn1("instr32_E9", 10, imm32s);
-
-    int32_t target = *instruction_pointer + imm32s;
-    jit_link_block(target);
 }
 
 void instr16_EA(int32_t new_ip, int32_t cs) {
@@ -1426,9 +1420,6 @@ void instr_EB(int32_t imm8) {
 
 void instr_EB_jit(int32_t imm8s) {
     gen_fn1("instr_EB", 8, imm8s);
-
-    int32_t target = *instruction_pointer + imm8s;
-    jit_link_block(target);
 }
 
 void instr_EC() {

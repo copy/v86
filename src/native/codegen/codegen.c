@@ -58,10 +58,10 @@ void gen_reset(void)
     import_table_size = import_table_size_reset_value;
 }
 
-uintptr_t gen_finish(void)
+uintptr_t gen_finish(int32_t no_of_locals_i32)
 {
     write_memory_import();
-    write_function_section();
+    write_function_section(1);
     write_export_section();
 
     uint8_t* ptr_code_section_size = (uint8_t*) 0; // initialized below
@@ -69,16 +69,20 @@ uintptr_t gen_finish(void)
 
     // write code section preamble
     write_raw_u8(&op, SC_CODE);
+
     ptr_code_section_size = op.ptr; // we will write to this location later
-    write_raw_u8(&op, 0); write_raw_u8(&op, 0); // write temp val for now using 2 bytes
+    write_raw_u8(&op, 0); write_raw_u8(&op, 0); // write temp val for now using 4 bytes
+    write_raw_u8(&op, 0); write_raw_u8(&op, 0);
 
     write_raw_u8(&op, 1); // number of function bodies: just 1
 
     // same as above but for body size of the function
     ptr_fn_body_size = op.ptr;
     write_raw_u8(&op, 0); write_raw_u8(&op, 0);
+    write_raw_u8(&op, 0); write_raw_u8(&op, 0);
 
-    write_raw_u8(&op, 0); // count of locals, none
+    write_raw_u8(&op, 1); // count of local blocks
+    write_raw_u8(&op, no_of_locals_i32); write_raw_u8(&op, TYPE_I32); // 2 locals of type i32
 
     copy_code_section();
 
@@ -87,8 +91,8 @@ uintptr_t gen_finish(void)
 
     // write the actual sizes to the pointer locations stored above. We subtract 1 from the actual
     // value because the ptr itself points to two bytes
-    write_fixed_leb16_to_ptr(ptr_fn_body_size, ((op.ptr - 1) - ptr_fn_body_size) - 1);
-    write_fixed_leb16_to_ptr(ptr_code_section_size, ((op.ptr - 1) - ptr_code_section_size) - 1);
+    write_fixed_leb32_to_ptr(ptr_fn_body_size, ((op.ptr - 1) - ptr_fn_body_size) - 3);
+    write_fixed_leb32_to_ptr(ptr_code_section_size, ((op.ptr - 1) - ptr_code_section_size) - 3);
 
     return (uintptr_t) op.ptr;
 }
@@ -245,20 +249,88 @@ void gen_fn3(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_if_void()
+void gen_add_i32(void)
+{
+    add_i32(&instruction_body);
+}
+
+void gen_eqz_i32(void)
+{
+    write_raw_u8(&instruction_body, OP_I32EQZ);
+}
+
+void gen_if_void(void)
 {
     write_raw_u8(&instruction_body, OP_IF);
     write_raw_u8(&instruction_body, TYPE_VOID_BLOCK);
 }
 
-void gen_else()
+void gen_else(void)
 {
     write_raw_u8(&instruction_body, OP_ELSE);
 }
 
-void gen_block_end()
+void gen_loop_void(void)
+{
+    write_raw_u8(&instruction_body, OP_LOOP);
+    write_raw_u8(&instruction_body, TYPE_VOID_BLOCK);
+}
+
+void gen_block_void(void)
+{
+    write_raw_u8(&instruction_body, OP_BLOCK);
+    write_raw_u8(&instruction_body, TYPE_VOID_BLOCK);
+}
+
+void gen_block_end(void)
 {
     write_raw_u8(&instruction_body, OP_END);
+}
+
+void gen_return(void)
+{
+    write_raw_u8(&instruction_body, OP_RETURN);
+}
+
+// Generate a br_table where an input of [i] will branch [i]th outer block,
+// where [i] is passed on the wasm stack
+void gen_switch(int32_t cases_count)
+{
+    write_raw_u8(&instruction_body, OP_BRTABLE);
+    write_leb_u32(&instruction_body, cases_count);
+
+    for(int32_t i = 0; i < cases_count + 1; i++)
+    {
+        write_leb_u32(&instruction_body, i);
+    }
+}
+
+void gen_br(int32_t depth)
+{
+    write_raw_u8(&instruction_body, OP_BR);
+    write_leb_i32(&instruction_body, depth);
+}
+
+void gen_get_local(int32_t idx)
+{
+    write_raw_u8(&instruction_body, OP_GETLOCAL);
+    write_leb_i32(&instruction_body, idx);
+}
+
+void gen_set_local(int32_t idx)
+{
+    write_raw_u8(&instruction_body, OP_SETLOCAL);
+    write_leb_i32(&instruction_body, idx);
+}
+
+void gen_const_i32(int32_t v)
+{
+    push_i32(&instruction_body, v);
+}
+
+void gen_unreachable(void)
+{
+    write_raw_u8(&instruction_body, OP_UNREACHABLE);
 }
 
 #define MODRM_ENTRY(n, work)\

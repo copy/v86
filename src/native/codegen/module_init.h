@@ -158,12 +158,16 @@ static uint8_t write_import_entry(char const* fn_name, uint8_t fn_name_len, uint
     return *ptr_import_count - 1;
 }
 
-static void write_function_section()
+static void write_function_section(int32_t count)
 {
     write_raw_u8(&op, SC_FUNCTION);
-    write_raw_u8(&op, 2); // length of this section
-    write_raw_u8(&op, 1); // count of signature indices
-    write_raw_u8(&op, FN0_TYPE_INDEX); // we export one function which is nullary
+    write_raw_u8(&op, 1 + count); // length of this section
+    write_raw_u8(&op, count); // count of signature indices
+
+    for(int32_t i = 0; i < count; i++)
+    {
+        write_raw_u8(&op, FN0_TYPE_INDEX);
+    }
 }
 
 static void write_export_section()
