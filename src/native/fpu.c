@@ -59,8 +59,9 @@ void fpu_set_tag_word(int32_t tag_word)
     }
 }
 
-void fcomi(double_t y)
+void fpu_fcomi(int32_t r)
 {
+    double y = fpu_get_sti(r);
     double_t x = fpu_st[*fpu_stack_ptr];
     *flags_changed &= ~(1 | FLAG_PARITY | FLAG_ZERO);
     *flags &= ~(1 | FLAG_PARITY | FLAG_ZERO);
@@ -245,10 +246,10 @@ void fucom(double_t y)
 }
 
 
-void fucomi(double_t y)
+void fpu_fucomi(int32_t r)
 {
     // TODO
-    fcomi(y);
+    fpu_fcomi(r);
 }
 
 void ftst(double_t x)
@@ -889,10 +890,10 @@ void fpu_op_DB_reg(int32_t imm8)
             }
             break;
         case 5:
-            fucomi(fpu_get_sti(low));
+            fpu_fucomi(low);
             break;
         case 6:
-            fcomi(fpu_get_sti(low));
+            fpu_fcomi(low);
             break;
         default:
             dbg_log("%x", mod);
@@ -1277,12 +1278,12 @@ void fpu_op_DF_reg(int32_t imm8)
             break;
         case 5:
             // fucomip
-            fucomi(fpu_get_sti(low));
+            fpu_fucomi(low);
             fpu_pop();
             break;
         case 6:
             // fcomip
-            fcomi(fpu_get_sti(low));
+            fpu_fcomi(low);
             fpu_pop();
             break;
         default:

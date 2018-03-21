@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 void fpu_set_tag_word(int32_t tag_word);
-void fpu_fcomi(double_t y);
 void fpu_fcom(double_t y);
 int32_t fpu_load_status_word(void);
 void fpu_set_status_word(int32_t sw);
@@ -17,6 +16,7 @@ double_t fpu_load_m32(int32_t addr);
 double_t fpu_load_m64(int32_t addr);
 void fpu_fadd(double_t val);
 void fpu_fcmovcc(bool condition, int32_t r);
+void fpu_fcomi(int32_t r);
 void fpu_fcomp(double_t val);
 void fpu_fdiv(double_t val);
 void fpu_fdivr(double_t val);
@@ -30,6 +30,7 @@ void fpu_fstenv(int32_t addr);
 void fpu_fstp(int32_t addr);
 void fpu_fsub(double_t val);
 void fpu_fsubr(double_t val);
+void fpu_fucomi(int32_t r);
 void fpu_fucompp(void);
 void fpu_fxch(int32_t i);
 void fpu_op_D9_4_reg(int32_t r);
