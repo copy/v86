@@ -673,4 +673,4 @@ encodings.sort((e1, e2) => {
     return o1 - o2 || e1.fixed_g - e2.fixed_g;
 });
 
-module.exports = Object.freeze(encodings);
+module.exports = Object.freeze(encodings.map(entry => Object.freeze(entry)));
