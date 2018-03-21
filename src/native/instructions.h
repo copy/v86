@@ -121,10 +121,6 @@ typedef uint32_t jit_instr_flags;
     void name ## _mem(int32_t addr) { task_switch_test(); double_t ___ = fpu_load_m32(addr); fun; } \
     void name ## _reg(int32_t r) { task_switch_test(); double_t ___ = fpu_get_sti(r); fun; }
 
-#define DEFINE_MODRM_INSTR_FPU_READ64(name, fun) \
-    void name ## _mem(int32_t addr) { task_switch_test(); double_t ___ = fpu_load_m64(addr); fun; } \
-    void name ## _reg(int32_t r) { task_switch_test(); double_t ___ = fpu_get_sti(r); fun; }
-
 void instr_00_mem(int32_t addr, int32_t r);
 void instr_00_reg(int32_t r1, int32_t r);
 void instr16_01_mem(int32_t addr, int32_t r);

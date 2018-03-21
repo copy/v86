@@ -1216,8 +1216,24 @@ void instr_DB_5_reg(int32_t r) { task_switch_test(); fpu_fucomi(r); }
 void instr_DB_6_reg(int32_t r) { task_switch_test(); fpu_fcomi(r); }
 void instr_DB_7_reg(int32_t r) { trigger_ud(); }
 
-void instr_DC_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DC_mem(r, addr); }
-void instr_DC_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DC_reg(0xC0 | r2 | r << 3); }
+void instr_DC_0_mem(int32_t addr) { task_switch_test(); fpu_fadd(fpu_load_m64(addr), 0); }
+void instr_DC_1_mem(int32_t addr) { task_switch_test(); fpu_fmul(fpu_load_m64(addr), 0); }
+void instr_DC_2_mem(int32_t addr) { task_switch_test(); fpu_fcom(fpu_load_m64(addr)); }
+void instr_DC_3_mem(int32_t addr) { task_switch_test(); fpu_fcomp(fpu_load_m64(addr)); }
+void instr_DC_4_mem(int32_t addr) { task_switch_test(); fpu_fsub(fpu_load_m64(addr), 0); }
+void instr_DC_5_mem(int32_t addr) { task_switch_test(); fpu_fsubr(fpu_load_m64(addr), 0); }
+void instr_DC_6_mem(int32_t addr) { task_switch_test(); fpu_fdiv(fpu_load_m64(addr), 0); }
+void instr_DC_7_mem(int32_t addr) { task_switch_test(); fpu_fdivr(fpu_load_m64(addr), 0); }
+
+void instr_DC_0_reg(int32_t r) { task_switch_test(); fpu_fadd(fpu_get_sti(r), r); }
+void instr_DC_1_reg(int32_t r) { task_switch_test(); fpu_fmul(fpu_get_sti(r), r); }
+void instr_DC_2_reg(int32_t r) { task_switch_test(); fpu_fcom(fpu_get_sti(r)); }
+void instr_DC_3_reg(int32_t r) { task_switch_test(); fpu_fcomp(fpu_get_sti(r)); }
+void instr_DC_4_reg(int32_t r) { task_switch_test(); fpu_fsub(fpu_get_sti(r), r); }
+void instr_DC_5_reg(int32_t r) { task_switch_test(); fpu_fsubr(fpu_get_sti(r), r); }
+void instr_DC_6_reg(int32_t r) { task_switch_test(); fpu_fdiv(fpu_get_sti(r), r); }
+void instr_DC_7_reg(int32_t r) { task_switch_test(); fpu_fdivr(fpu_get_sti(r), r); }
+
 void instr_DD_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DD_mem(r, addr); }
 void instr_DD_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DD_reg(0xC0 | r2 | r << 3); }
 void instr_DE_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DE_mem(r, addr); }
