@@ -1307,7 +1307,7 @@
 
         $("dump_log").onclick = function()
         {
-            dump_file(log_data, "v86.log");
+            dump_file(log_data.join(""), "v86.log");
         };
 
         $("dump_instructions_file").onclick = function()
