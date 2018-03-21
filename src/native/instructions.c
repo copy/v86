@@ -1180,8 +1180,42 @@ void instr_DA_5_reg(int32_t r) {
 void instr_DA_6_reg(int32_t r) { trigger_ud(); }
 void instr_DA_7_reg(int32_t r) { trigger_ud(); }
 
-void instr_DB_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DB_mem(r, addr); }
-void instr_DB_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DB_reg(0xC0 | r2 | r << 3); }
+void instr_DB_0_mem(int32_t addr) { task_switch_test(); fpu_push(safe_read32s(addr)); }
+void instr_DB_1_mem(int32_t addr) { trigger_ud(); }
+void instr_DB_2_mem(int32_t addr) { task_switch_test(); fpu_fistm32(addr); }
+void instr_DB_3_mem(int32_t addr) { task_switch_test(); fpu_fistm32p(addr); }
+void instr_DB_4_mem(int32_t addr) { trigger_ud(); }
+void instr_DB_5_mem(int32_t addr) { task_switch_test(); fpu_push(fpu_load_m80(addr)); }
+void instr_DB_6_mem(int32_t addr) { trigger_ud(); }
+void instr_DB_7_mem(int32_t addr) { task_switch_test(); fpu_fst80p(addr); }
+
+void instr_DB_0_reg(int32_t r) { task_switch_test(); fpu_fcmovcc(!test_b(), r); }
+void instr_DB_1_reg(int32_t r) { task_switch_test(); fpu_fcmovcc(!test_z(), r); }
+void instr_DB_2_reg(int32_t r) { task_switch_test(); fpu_fcmovcc(!test_be(), r); }
+void instr_DB_3_reg(int32_t r) { task_switch_test(); fpu_fcmovcc(!test_p(), r); }
+void instr_DB_4_reg(int32_t r) {
+    task_switch_test();
+    if(r == 3)
+    {
+        fpu_finit();
+    }
+    else if(r == 4 || r == 1)
+    {
+        // fsetpm and fdisi; treated as nop
+    }
+    else if(r == 2)
+    {
+        fpu_fclex();
+    }
+    else
+    {
+        trigger_ud();
+    }
+}
+void instr_DB_5_reg(int32_t r) { task_switch_test(); fpu_fucomi(r); }
+void instr_DB_6_reg(int32_t r) { task_switch_test(); fpu_fcomi(r); }
+void instr_DB_7_reg(int32_t r) { trigger_ud(); }
+
 void instr_DC_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DC_mem(r, addr); }
 void instr_DC_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DC_reg(0xC0 | r2 | r << 3); }
 void instr_DD_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DD_mem(r, addr); }
