@@ -47,13 +47,13 @@ struct profiler_stat {
 
 extern struct profiler_stat profiler_stat_arr[PROFILER_STAT_COUNT];
 
-void profiler_init();
+void profiler_init(void);
 void profiler_start(enum profile_name name);
 void profiler_end(enum profile_name name);
-void profiler_print();
+void profiler_print(void);
 
 void profiler_stat_increment(enum stat_name stat);
 int32_t profiler_stat_get(enum stat_name stat);
 
 // JS import
-extern double get_time();
+extern double get_time(void);

@@ -28,7 +28,7 @@ static void jit_add_seg_offset(int32_t default_segment);
 static void jit_resolve_modrm32_(int32_t modrm_byte);
 static void jit_resolve_modrm16_(int32_t modrm_byte);
 
-void gen_init()
+void gen_init(void)
 {
     // wasm magic header
     write_raw_u8(&op, 0); write_raw_u8(&op, 'a'); write_raw_u8(&op, 's'); write_raw_u8(&op, 'm');
@@ -50,7 +50,7 @@ void gen_init()
     import_table_size_reset_value = import_table_size;
 }
 
-void gen_reset()
+void gen_reset(void)
 {
     op.ptr = op_ptr_reset_location;
     cs.ptr = cs.start;
@@ -58,7 +58,7 @@ void gen_reset()
     import_table_size = import_table_size_reset_value;
 }
 
-uintptr_t gen_finish()
+uintptr_t gen_finish(void)
 {
     write_memory_import();
     write_function_section();
@@ -93,7 +93,7 @@ uintptr_t gen_finish()
     return (uintptr_t) op.ptr;
 }
 
-uintptr_t gen_get_final_offset()
+uintptr_t gen_get_final_offset(void)
 {
     return (uintptr_t) op.ptr;
 }
@@ -148,14 +148,14 @@ void gen_set_previous_eip_offset_from_eip(int32_t n)
     store_aligned_i32(&cs); // store it as previous ip
 }
 
-void gen_set_previous_eip()
+void gen_set_previous_eip(void)
 {
     push_i32(&cs, (int32_t)previous_ip); // store address of previous ip
     load_aligned_i32(&cs, (int32_t)instruction_pointer); // load ip
     store_aligned_i32(&cs); // store it as previous ip
 }
 
-void gen_clear_prefixes()
+void gen_clear_prefixes(void)
 {
     push_i32(&instruction_body, (int32_t)prefixes); // load address of prefixes
     push_i32(&instruction_body, 0);
@@ -462,7 +462,7 @@ static void jit_resolve_sib(bool mod)
     add_i32(&instruction_body);
 }
 
-static void modrm32_special_case_1()
+static void modrm32_special_case_1(void)
 {
     jit_resolve_sib(true);
 
@@ -475,7 +475,7 @@ static void modrm32_special_case_1()
     }
 }
 
-static void modrm32_special_case_2()
+static void modrm32_special_case_2(void)
 {
     jit_resolve_sib(true);
 
@@ -566,7 +566,7 @@ void gen_modrm_fn0(char const* fn, uint8_t fn_len)
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_commit_instruction_body_to_cs()
+void gen_commit_instruction_body_to_cs(void)
 {
     append_buffer(&cs, &instruction_body);
     instruction_body.ptr = instruction_body.start;

@@ -569,7 +569,7 @@ void fpu_store_m32(int32_t addr, double_t x)
     safe_write32(addr, v.i32);
 }
 
-void fwait()
+void fwait(void)
 {
     // NOP unless FPU instructions run in parallel with CPU instructions
 }

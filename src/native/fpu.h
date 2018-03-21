@@ -71,4 +71,4 @@ void fpu_push(double_t x);
 void fpu_set_status_word(int32_t sw);
 void fpu_set_tag_word(int32_t tag_word);
 void fpu_store_m80(uint32_t addr, double_t n);
-void fwait();
+void fwait(void);

@@ -477,12 +477,12 @@ int32_t get_seg(int32_t segment)
     return segment_offsets[segment];
 }
 
-int32_t get_seg_cs()
+int32_t get_seg_cs(void)
 {
     return segment_offsets[CS];
 }
 
-int32_t get_seg_ss()
+int32_t get_seg_ss(void)
 {
     return segment_offsets[SS];
 }

@@ -13,7 +13,7 @@ struct profiler_data profiler_arr[PROFILER_NAME_COUNT] = {{0, 0, false}};
 struct profiler_stat profiler_stat_arr[PROFILER_STAT_COUNT] = {{0}};
 double profiler_init_time = 0;
 
-void profiler_init()
+void profiler_init(void)
 {
     profiler_init_time = get_time();
 
@@ -57,7 +57,7 @@ void profiler_end(enum profile_name name)
     UNUSED(name);
 }
 
-void profiler_print()
+void profiler_print(void)
 {
 #if ENABLE_PROFILER_TIMES
     static const char *profiler_names[] = {
