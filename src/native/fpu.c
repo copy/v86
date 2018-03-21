@@ -822,6 +822,30 @@ void fpu_fucompp(void)
     fpu_pop();
 }
 
+void fpu_fclex(void) { *fpu_status_word = 0; }
+
+void fpu_fistm32(int32_t addr)
+{
+    double_t st0 = fpu_integer_round(fpu_get_st0());
+    int32_t i = convert_f64_to_i32(st0);
+    if(i == (int32_t)0x80000000)
+    {
+        // XXX: Probably not correct if st0 == 0x80000000
+        //      (input fits, but same value as error value)
+        fpu_invalid_arithmetic();
+    }
+    safe_write32(addr, i);
+}
+
+void fpu_fistm32p(int32_t addr) { fpu_fistm32(addr); fpu_pop(); }
+
+void fpu_fst80p(int32_t addr)
+{
+    writable_or_pagefault(addr, 10);
+    fpu_store_m80(addr, fpu_get_st0());
+    fpu_pop();
+}
+
 void fpu_op_DB_reg(int32_t imm8)
 {
     dbg_log_fpu_op(0xDB, imm8);
