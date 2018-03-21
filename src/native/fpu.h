@@ -20,6 +20,7 @@ void fpu_fcmovcc(bool condition, int32_t r);
 void fpu_fcomp(double_t val);
 void fpu_fdiv(double_t val);
 void fpu_fdivr(double_t val);
+void fpu_finit(void);
 void fpu_fldcw(int32_t addr);
 void fpu_fldenv(int32_t addr);
 void fpu_fmul(double_t val);

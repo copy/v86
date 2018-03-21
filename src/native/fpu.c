@@ -300,7 +300,7 @@ void fxam(double_t x)
     // Unsupported, Denormal
 }
 
-void finit()
+void fpu_finit(void)
 {
     *fpu_control_word = 0x37F;
     *fpu_status_word = 0;
@@ -413,7 +413,7 @@ void fsave(int32_t addr)
 
     //dbg_log("save st=" + *fpu_stack_ptr + " " + [].slice.call(this.st), LOG_FPU);
 
-    finit();
+    fpu_finit();
 }
 
 void frstor(int32_t addr)
@@ -865,7 +865,7 @@ void fpu_op_DB_reg(int32_t imm8)
         case 4:
             if(imm8 == 0xE3)
             {
-                finit();
+                fpu_finit();
             }
             else if(imm8 == 0xE4)
             {
