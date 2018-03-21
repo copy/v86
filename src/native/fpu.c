@@ -805,6 +805,22 @@ void fpu_fstcw(int32_t addr)
     safe_write16(addr, *fpu_control_word);
 }
 
+void fpu_fcmovcc(bool condition, int32_t r)
+{
+    if(condition)
+    {
+        fpu_st[*fpu_stack_ptr] = fpu_get_sti(r);
+        *fpu_stack_empty &= ~(1 << *fpu_stack_ptr);
+    }
+}
+
+void fpu_fucompp(void)
+{
+    fucom(fpu_get_sti(1));
+    fpu_pop();
+    fpu_pop();
+}
+
 void fpu_op_DA_reg(int32_t imm8)
 {
     dbg_log_fpu_op(0xDA, imm8);
