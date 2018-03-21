@@ -1095,7 +1095,7 @@ void instr_D9_1_reg(int32_t r) {
 
 void instr_D9_2_mem(int32_t addr) {
     task_switch_test();
-    fpu_fst(addr);
+    fpu_fstm32(addr);
 }
 void instr_D9_2_reg(int32_t r) {
     task_switch_test();
@@ -1108,7 +1108,7 @@ void instr_D9_2_reg(int32_t r) {
 
 void instr_D9_3_mem(int32_t addr) {
     task_switch_test();
-    fpu_fstp(addr);
+    fpu_fstm32p(addr);
 }
 void instr_D9_3_reg(int32_t r) {
     task_switch_test();

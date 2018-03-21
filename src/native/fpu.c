@@ -635,14 +635,14 @@ void fpu_fxch(int32_t i)
     fpu_st[*fpu_stack_ptr] = sti;
 }
 
-void fpu_fst(int32_t addr)
+void fpu_fstm32(int32_t addr)
 {
     fpu_store_m32(addr, fpu_get_st0());
 }
 
-void fpu_fstp(int32_t addr)
+void fpu_fstm32p(int32_t addr)
 {
-    fpu_fst(addr);
+    fpu_fstm32(addr);
     fpu_pop();
 }
 
