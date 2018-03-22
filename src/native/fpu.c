@@ -83,6 +83,8 @@ void fpu_fcomi(int32_t r)
     }
 }
 
+void fpu_fcomip(int32_t r) { fpu_fcomi(r); fpu_pop(); }
+
 int32_t fpu_load_status_word()
 {
     return *fpu_status_word & ~(7 << 11) | *fpu_stack_ptr << 11;
@@ -251,6 +253,8 @@ void fpu_fucomi(int32_t r)
     // TODO
     fpu_fcomi(r);
 }
+
+void fpu_fucomip(int32_t r) { fpu_fucomi(r); fpu_pop(); }
 
 void ftst(double_t x)
 {
@@ -672,6 +676,11 @@ void fpu_fnstsw_mem(int32_t addr)
     safe_write16(addr, fpu_load_status_word());
 }
 
+void fpu_fnstsw_reg(void)
+{
+    reg16[AX] = fpu_load_status_word();
+}
+
 void fpu_op_D9_4_reg(int32_t r)
 {
     double_t st0 = fpu_get_st0();
@@ -856,6 +865,21 @@ void fpu_fucompp(void)
 
 void fpu_fclex(void) { *fpu_status_word = 0; }
 
+void fpu_fistm16(int32_t addr)
+{
+    double_t st0 = fpu_integer_round(fpu_get_st0());
+    if(st0 <= 0x7FFF && st0 >= -0x8000)
+    {
+        safe_write16(addr, st0);
+    }
+    else
+    {
+        fpu_invalid_arithmetic();
+        safe_write16(addr, 0x8000);
+    }
+}
+void fpu_fistm16p(int32_t addr) { fpu_fistm16(addr); fpu_pop(); }
+
 void fpu_fistm32(int32_t addr)
 {
     double_t st0 = fpu_integer_round(fpu_get_st0());
@@ -896,6 +920,50 @@ void fpu_fst(int32_t r)
 void fpu_fstp(int32_t r)
 {
     fpu_fst(r);
+    fpu_pop();
+}
+
+void fpu_fild(int32_t addr)
+{
+    // XXX: Use safe_read64s
+    uint32_t low = safe_read32s(addr);
+    int32_t high = safe_read32s(addr + 4);
+
+    double_t m64 = (double_t)low + 0x100000000 * (double_t)high;
+
+    fpu_push(m64);
+}
+
+void fpu_fistp(int32_t addr)
+{
+    writable_or_pagefault(addr, 8);
+
+    double_t st0 = fpu_integer_round(fpu_get_st0());
+
+    //union f64_int v = { .f64 = st0 };
+    //dbg_log("fistp %x %x", v.i32[0], v.i32[1]);
+
+    int32_t st0_low;
+    int32_t st0_high;
+
+    if(st0 < TWO_POW_63 && st0 >= -TWO_POW_63)
+    {
+        int64_t st0_int = st0;
+        st0_low = st0_int;
+        st0_high = st0_int >> 32;
+    }
+    else
+    {
+        // write 0x8000000000000000
+        st0_low  = 0;
+        st0_high = 0x80000000;
+        fpu_invalid_arithmetic();
+    }
+
+    // XXX: Use safe_write64
+    safe_write32(addr, st0_low);
+    safe_write32(addr + 4, st0_high);
+
     fpu_pop();
 }
 
