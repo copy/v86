@@ -1234,8 +1234,24 @@ void instr_DC_5_reg(int32_t r) { task_switch_test(); fpu_fsubr(fpu_get_sti(r), r
 void instr_DC_6_reg(int32_t r) { task_switch_test(); fpu_fdiv(fpu_get_sti(r), r); }
 void instr_DC_7_reg(int32_t r) { task_switch_test(); fpu_fdivr(fpu_get_sti(r), r); }
 
-void instr_DD_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DD_mem(r, addr); }
-void instr_DD_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DD_reg(0xC0 | r2 | r << 3); }
+void instr_DD_0_mem(int32_t addr) { task_switch_test(); fpu_fldm64(addr); }
+void instr_DD_1_mem(int32_t addr) { dbg_log("fisttp"); trigger_ud(); }
+void instr_DD_2_mem(int32_t addr) { task_switch_test(); fpu_fstm64(addr); }
+void instr_DD_3_mem(int32_t addr) { task_switch_test(); fpu_fstm64p(addr); }
+void instr_DD_4_mem(int32_t addr) { task_switch_test(); fpu_frstor(addr); }
+void instr_DD_5_mem(int32_t addr) { dbg_log("dd/5"); trigger_ud(); }
+void instr_DD_6_mem(int32_t addr) { task_switch_test(); fpu_fsave(addr); }
+void instr_DD_7_mem(int32_t addr) { task_switch_test(); fpu_fnstsw(addr); }
+
+void instr_DD_0_reg(int32_t r) { task_switch_test(); fpu_ffree(r); }
+void instr_DD_1_reg(int32_t r) { trigger_ud(); }
+void instr_DD_2_reg(int32_t r) { task_switch_test(); fpu_fst(r); }
+void instr_DD_3_reg(int32_t r) { task_switch_test(); fpu_fstp(r); }
+void instr_DD_4_reg(int32_t r) { task_switch_test(); fpu_fucom(r); }
+void instr_DD_5_reg(int32_t r) { task_switch_test(); fpu_fucomp(r); }
+void instr_DD_6_reg(int32_t r) { trigger_ud(); }
+void instr_DD_7_reg(int32_t r) { trigger_ud(); }
+
 void instr_DE_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DE_mem(r, addr); }
 void instr_DE_reg(int32_t r2, int32_t r) { task_switch_test(); fpu_op_DE_reg(0xC0 | r2 | r << 3); }
 void instr_DF_mem(int32_t addr, int32_t r) { task_switch_test(); fpu_op_DF_mem(r, addr); }
