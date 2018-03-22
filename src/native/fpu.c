@@ -667,7 +667,7 @@ void fpu_fstm64p(int32_t addr)
     fpu_pop();
 }
 
-void fpu_fnstsw(int32_t addr)
+void fpu_fnstsw_mem(int32_t addr)
 {
     safe_write16(addr, fpu_load_status_word());
 }

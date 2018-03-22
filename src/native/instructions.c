@@ -1257,7 +1257,7 @@ void instr_DD_3_mem(int32_t addr) { task_switch_test(); fpu_fstm64p(addr); }
 void instr_DD_4_mem(int32_t addr) { task_switch_test(); fpu_frstor(addr); }
 void instr_DD_5_mem(int32_t addr) { dbg_log("dd/5"); trigger_ud(); }
 void instr_DD_6_mem(int32_t addr) { task_switch_test(); fpu_fsave(addr); }
-void instr_DD_7_mem(int32_t addr) { task_switch_test(); fpu_fnstsw(addr); }
+void instr_DD_7_mem(int32_t addr) { task_switch_test(); fpu_fnstsw_mem(addr); }
 
 void instr_DD_0_reg(int32_t r) { task_switch_test(); fpu_ffree(r); }
 void instr_DD_1_reg(int32_t r) { trigger_ud(); }

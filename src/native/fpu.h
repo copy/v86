@@ -31,7 +31,7 @@ void fpu_fldm32(int32_t addr);
 void fpu_fldm64(int32_t addr);
 void fpu_fldm80(int32_t addr);
 void fpu_fmul(double_t val, int32_t target_index);
-void fpu_fnstsw(int32_t addr);
+void fpu_fnstsw_mem(int32_t addr);
 void fpu_frstor(int32_t addr);
 void fpu_fsave(int32_t addr);
 void fpu_fst(int32_t r);
