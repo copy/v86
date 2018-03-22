@@ -1180,12 +1180,12 @@ void instr_DA_5_reg(int32_t r) {
 void instr_DA_6_reg(int32_t r) { trigger_ud(); }
 void instr_DA_7_reg(int32_t r) { trigger_ud(); }
 
-void instr_DB_0_mem(int32_t addr) { task_switch_test(); fpu_push(safe_read32s(addr)); }
+void instr_DB_0_mem(int32_t addr) { task_switch_test(); fpu_fldm32(addr); }
 void instr_DB_1_mem(int32_t addr) { trigger_ud(); }
 void instr_DB_2_mem(int32_t addr) { task_switch_test(); fpu_fistm32(addr); }
 void instr_DB_3_mem(int32_t addr) { task_switch_test(); fpu_fistm32p(addr); }
 void instr_DB_4_mem(int32_t addr) { trigger_ud(); }
-void instr_DB_5_mem(int32_t addr) { task_switch_test(); fpu_push(fpu_load_m80(addr)); }
+void instr_DB_5_mem(int32_t addr) { task_switch_test(); fpu_fldm80(addr); }
 void instr_DB_6_mem(int32_t addr) { trigger_ud(); }
 void instr_DB_7_mem(int32_t addr) { task_switch_test(); fpu_fst80p(addr); }
 

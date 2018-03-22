@@ -26,6 +26,8 @@ void fpu_fistm32(int32_t addr);
 void fpu_fistm32p(int32_t addr);
 void fpu_fldcw(int32_t addr);
 void fpu_fldenv(int32_t addr);
+void fpu_fldm32(int32_t addr);
+void fpu_fldm80(int32_t addr);
 void fpu_fmul(double_t val, int32_t target_index);
 void fpu_fst80p(int32_t addr);
 void fpu_fstcw(int32_t addr);

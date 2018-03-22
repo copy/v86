@@ -635,6 +635,11 @@ void fpu_fxch(int32_t i)
     fpu_st[*fpu_stack_ptr] = sti;
 }
 
+void fpu_fldm32(int32_t addr)
+{
+    fpu_push(safe_read32s(addr));
+}
+
 void fpu_fstm32(int32_t addr)
 {
     fpu_store_m32(addr, fpu_get_st0());
@@ -838,6 +843,11 @@ void fpu_fistm32(int32_t addr)
 }
 
 void fpu_fistm32p(int32_t addr) { fpu_fistm32(addr); fpu_pop(); }
+
+void fpu_fldm80(int32_t addr)
+{
+    fpu_push(fpu_load_m80(addr));
+}
 
 void fpu_fst80p(int32_t addr)
 {
