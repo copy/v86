@@ -533,12 +533,12 @@ double_t fpu_load_m64(int32_t addr)
     return v.f64;
 }
 
-void fpu_store_m64(int32_t addr, int32_t i)
+void fpu_store_m64(int32_t addr, double_t x)
 {
     // XXX: Use safe_write64
     writable_or_pagefault(addr, 8);
 
-    union f64_int v = { .f64 = fpu_get_sti(i) };
+    union f64_int v = { .f64 = x };
 
     safe_write32(addr, v.i32[0]);
     safe_write32(addr + 4, v.i32[1]);
@@ -909,11 +909,11 @@ void fpu_op_DD_mem(int32_t mod, int32_t addr)
             break;
         case 2:
             // fst
-            fpu_store_m64(addr, 0);
+            fpu_store_m64(addr, fpu_get_st0());
             break;
         case 3:
             // fstp
-            fpu_store_m64(addr, 0);
+            fpu_store_m64(addr, fpu_get_st0());
             fpu_pop();
             break;
         case 4:
