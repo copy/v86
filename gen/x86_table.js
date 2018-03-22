@@ -163,8 +163,6 @@ const encodings = [
     { opcode: 0xD6, nonfaulting: 1, },
     { opcode: 0xD7, skip: 1, },
 
-    { opcode: 0xDF, e: 1, skip: 1, },
-
     { opcode: 0xE0, imm8s: 1, skip: 1, jump: 1, },
     { opcode: 0xE1, imm8s: 1, skip: 1, jump: 1, },
     { opcode: 0xE2, imm8s: 1, skip: 1, jump: 1, },
@@ -665,6 +663,7 @@ for(let i = 0; i < 8; i++)
         { opcode: 0xDC, e: 1, fixed_g: i, skip: 1, },
         { opcode: 0xDD, e: 1, fixed_g: i, skip: 1, },
         { opcode: 0xDE, e: 1, fixed_g: i, skip: 1, },
+        { opcode: 0xDF, e: 1, fixed_g: i, skip: 1, },
     ]);
 }
 
