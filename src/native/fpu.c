@@ -651,6 +651,27 @@ void fpu_fstm32p(int32_t addr)
     fpu_pop();
 }
 
+void fpu_fldm64(int32_t addr)
+{
+    fpu_push(fpu_load_m64(addr));
+}
+
+void fpu_fstm64(int32_t addr)
+{
+    fpu_store_m64(addr, fpu_get_st0());
+}
+
+void fpu_fstm64p(int32_t addr)
+{
+    fpu_fstm64(addr);
+    fpu_pop();
+}
+
+void fpu_fnstsw(int32_t addr)
+{
+    safe_write16(addr, fpu_load_status_word());
+}
+
 void fpu_op_D9_4_reg(int32_t r)
 {
     double_t st0 = fpu_get_st0();
@@ -820,6 +841,12 @@ void fpu_fcmovcc(bool condition, int32_t r)
     }
 }
 
+void fpu_fucomp(int32_t r)
+{
+    fpu_fucom(r);
+    fpu_pop();
+}
+
 void fpu_fucompp(void)
 {
     fpu_fucom(1);
@@ -853,6 +880,22 @@ void fpu_fst80p(int32_t addr)
 {
     writable_or_pagefault(addr, 10);
     fpu_store_m80(addr, fpu_get_st0());
+    fpu_pop();
+}
+
+void fpu_ffree(int32_t r)
+{
+    *fpu_stack_empty |= 1 << (*fpu_stack_ptr + r);
+}
+
+void fpu_fst(int32_t r)
+{
+    fpu_st[*fpu_stack_ptr + r] = fpu_get_st0();
+}
+
+void fpu_fstp(int32_t r)
+{
+    fpu_fst(r);
     fpu_pop();
 }
 
