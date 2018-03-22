@@ -3,20 +3,15 @@
 #include <math.h>
 #include <stdint.h>
 
-void fpu_set_tag_word(int32_t tag_word);
-void fpu_fcom(double_t y);
-int32_t fpu_load_status_word(void);
-void fpu_set_status_word(int32_t sw);
-void fpu_store_m80(uint32_t addr, double_t n);
-double_t fpu_load_m80(uint32_t addr);
-void fwait();
-
 double_t fpu_get_sti(int32_t i);
 double_t fpu_load_m32(int32_t addr);
 double_t fpu_load_m64(int32_t addr);
+double_t fpu_load_m80(uint32_t addr);
+int32_t fpu_load_status_word(void);
 void fpu_fadd(double_t val, int32_t target_index);
 void fpu_fclex(void);
 void fpu_fcmovcc(bool condition, int32_t r);
+void fpu_fcom(double_t y);
 void fpu_fcomi(int32_t r);
 void fpu_fcomip(int32_t r);
 void fpu_fcomp(double_t val);
@@ -63,3 +58,7 @@ void fpu_op_D9_6_reg(int32_t r);
 void fpu_op_D9_7_reg(int32_t r);
 void fpu_pop(void);
 void fpu_push(double_t x);
+void fpu_set_status_word(int32_t sw);
+void fpu_set_tag_word(int32_t tag_word);
+void fpu_store_m80(uint32_t addr, double_t n);
+void fwait();
