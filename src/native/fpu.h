@@ -63,16 +63,3 @@ void fpu_op_D9_6_reg(int32_t r);
 void fpu_op_D9_7_reg(int32_t r);
 void fpu_pop(void);
 void fpu_push(double_t x);
-
-void fpu_op_DA_mem(int32_t, int32_t);
-void fpu_op_DA_reg(int32_t);
-void fpu_op_DB_mem(int32_t, int32_t);
-void fpu_op_DB_reg(int32_t);
-void fpu_op_DC_mem(int32_t, int32_t);
-void fpu_op_DC_reg(int32_t);
-void fpu_op_DD_mem(int32_t, int32_t);
-void fpu_op_DD_reg(int32_t);
-void fpu_op_DE_mem(int32_t, int32_t);
-void fpu_op_DE_reg(int32_t);
-void fpu_op_DF_mem(int32_t, int32_t);
-void fpu_op_DF_reg(int32_t);
