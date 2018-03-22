@@ -239,10 +239,10 @@ void fpu_fcom(double_t y)
     }
 }
 
-void fucom(double_t y)
+void fpu_fucom(int32_t r)
 {
     // TODO
-    fpu_fcom(y);
+    fpu_fcom(fpu_get_sti(r));
 }
 
 
@@ -817,7 +817,7 @@ void fpu_fcmovcc(bool condition, int32_t r)
 
 void fpu_fucompp(void)
 {
-    fucom(fpu_get_sti(1));
+    fpu_fucom(1);
     fpu_pop();
     fpu_pop();
 }
@@ -876,11 +876,11 @@ void fpu_op_DD_reg(int32_t imm8)
             }
             break;
         case 4:
-            fucom(fpu_get_sti(low));
+            fpu_fucom(low);
             break;
         case 5:
             // fucomp
-            fucom(fpu_get_sti(low));
+            fpu_fucom(low);
             fpu_pop();
             break;
         default:

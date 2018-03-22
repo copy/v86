@@ -34,6 +34,7 @@ void fpu_fstm32(int32_t addr);
 void fpu_fstm32p(int32_t addr);
 void fpu_fsub(double_t val, int32_t target_index);
 void fpu_fsubr(double_t val, int32_t target_index);
+void fpu_fucom(int32_t r);
 void fpu_fucomi(int32_t r);
 void fpu_fucompp(void);
 void fpu_fxch(int32_t i);
