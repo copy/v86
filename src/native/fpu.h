@@ -54,6 +54,7 @@ void fpu_op_D9_4_reg(int32_t r);
 void fpu_op_D9_5_reg(int32_t r);
 void fpu_op_D9_6_reg(int32_t r);
 void fpu_op_D9_7_reg(int32_t r);
+void fpu_pop(void);
 void fpu_push(double_t x);
 
 void fpu_op_DA_mem(int32_t, int32_t);
