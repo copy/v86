@@ -399,7 +399,7 @@ void fpu_fldenv(int32_t addr)
     }
 }
 
-void fsave(int32_t addr)
+void fpu_fsave(int32_t addr)
 {
     writable_or_pagefault(addr, 108);
 
@@ -417,7 +417,7 @@ void fsave(int32_t addr)
     fpu_finit();
 }
 
-void frstor(int32_t addr)
+void fpu_frstor(int32_t addr)
 {
     fpu_fldenv(addr);
     addr += 28;
@@ -927,7 +927,7 @@ void fpu_op_DD_mem(int32_t mod, int32_t addr)
             fpu_pop();
             break;
         case 4:
-            frstor(addr);
+            fpu_frstor(addr);
             break;
         case 5:
             // nothing
@@ -936,7 +936,7 @@ void fpu_op_DD_mem(int32_t mod, int32_t addr)
             break;
         case 6:
             // fsave
-            fsave(addr);
+            fpu_fsave(addr);
             break;
         case 7:
             // fnstsw / store status word
