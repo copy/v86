@@ -1371,9 +1371,9 @@ void instr_DF_1_mem(int32_t addr) { dbg_log("df/fisttp"); trigger_ud(); }
 void instr_DF_2_mem(int32_t addr) { task_switch_test(); fpu_fistm16(addr); }
 void instr_DF_3_mem(int32_t addr) { task_switch_test(); fpu_fistm16p(addr); }
 void instr_DF_4_mem(int32_t addr) { dbg_log("fbld"); trigger_ud(); }
-void instr_DF_5_mem(int32_t addr) { task_switch_test(); fpu_fild(addr); }
+void instr_DF_5_mem(int32_t addr) { task_switch_test(); fpu_fildm64(addr); }
 void instr_DF_6_mem(int32_t addr) { dbg_log("fbstp"); trigger_ud(); }
-void instr_DF_7_mem(int32_t addr) { task_switch_test(); fpu_fistp(addr); }
+void instr_DF_7_mem(int32_t addr) { task_switch_test(); fpu_fistm64p(addr); }
 
 void instr_DF_0_reg(int32_t r) { trigger_ud(); }
 void instr_DF_1_reg(int32_t r) { trigger_ud(); }

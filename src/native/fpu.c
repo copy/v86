@@ -317,7 +317,6 @@ void fpu_finit(void)
     *fpu_stack_ptr = 0;
 }
 
-
 int32_t fpu_load_tag_word()
 {
     int32_t tag_word = 0;
@@ -559,7 +558,6 @@ void fpu_store_m32(int32_t addr, double_t x)
     union f32_int v = { .f32 = x };
     safe_write32(addr, v.i32);
 }
-
 
 void dbg_log_fpu_op(int32_t op, int32_t imm8)
 {
@@ -923,7 +921,7 @@ void fpu_fstp(int32_t r)
     fpu_pop();
 }
 
-void fpu_fild(int32_t addr)
+void fpu_fildm64(int32_t addr)
 {
     // XXX: Use safe_read64s
     uint32_t low = safe_read32s(addr);
@@ -934,7 +932,7 @@ void fpu_fild(int32_t addr)
     fpu_push(m64);
 }
 
-void fpu_fistp(int32_t addr)
+void fpu_fistm64p(int32_t addr)
 {
     writable_or_pagefault(addr, 8);
 
