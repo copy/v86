@@ -586,16 +586,16 @@ void fwait()
     // NOP unless FPU instructions run in parallel with CPU instructions
 }
 
-void fpu_fadd(double_t val)
+void fpu_fadd(double_t val, int32_t target_index)
 {
     double_t st0 = fpu_get_st0();
-    fpu_st[*fpu_stack_ptr] = st0 + val;
+    fpu_st[*fpu_stack_ptr + target_index & 7] = st0 + val;
 }
 
-void fpu_fmul(double_t val)
+void fpu_fmul(double_t val, int32_t target_index)
 {
     double_t st0 = fpu_get_st0();
-    fpu_st[*fpu_stack_ptr] = st0 * val;
+    fpu_st[*fpu_stack_ptr + target_index & 7] = st0 * val;
 }
 
 void fpu_fcomp(double_t val)
@@ -604,28 +604,28 @@ void fpu_fcomp(double_t val)
     fpu_pop();
 }
 
-void fpu_fsub(double_t val)
+void fpu_fsub(double_t val, int32_t target_index)
 {
     double_t st0 = fpu_get_st0();
-    fpu_st[*fpu_stack_ptr] = st0 - val;
+    fpu_st[*fpu_stack_ptr + target_index & 7] = st0 - val;
 }
 
-void fpu_fsubr(double_t val)
+void fpu_fsubr(double_t val, int32_t target_index)
 {
     double_t st0 = fpu_get_st0();
-    fpu_st[*fpu_stack_ptr] = val - st0;
+    fpu_st[*fpu_stack_ptr + target_index & 7] = val - st0;
 }
 
-void fpu_fdiv(double_t val)
+void fpu_fdiv(double_t val, int32_t target_index)
 {
     double_t st0 = fpu_get_st0();
-    fpu_st[*fpu_stack_ptr] = st0 / val;
+    fpu_st[*fpu_stack_ptr + target_index & 7] = st0 / val;
 }
 
-void fpu_fdivr(double_t val)
+void fpu_fdivr(double_t val, int32_t target_index)
 {
     double_t st0 = fpu_get_st0();
-    fpu_st[*fpu_stack_ptr] = val / st0;
+    fpu_st[*fpu_stack_ptr + target_index & 7] = val / st0;
 }
 
 void fpu_fxch(int32_t i)
