@@ -1090,13 +1090,137 @@ void instr_D9_2_reg(int32_t r) { task_switch_test(); if(r != 0) { trigger_ud(); 
 void instr_D9_3_mem(int32_t addr) { task_switch_test(); fpu_fstm32p(addr); }
 void instr_D9_3_reg(int32_t r) { task_switch_test(); dbg_log("fstp1"); trigger_ud(); }
 void instr_D9_4_mem(int32_t addr) { task_switch_test(); fpu_fldenv(addr); }
-void instr_D9_4_reg(int32_t r) { task_switch_test(); fpu_op_D9_4_reg(r); }
+void instr_D9_4_reg(int32_t r)
+{
+    task_switch_test();
+    double_t st0 = fpu_get_st0();
+    switch(r)
+    {
+        case 0:
+            // fchs
+            fpu_st[*fpu_stack_ptr] = -st0;
+            break;
+        case 1:
+            // fabs
+            fpu_st[*fpu_stack_ptr] = fabs(st0);
+            break;
+        case 4:
+            fpu_ftst(st0);
+            break;
+        case 5:
+            fpu_fxam(st0);
+            break;
+        default:
+            dbg_log("%x", r);
+            trigger_ud();
+    }
+}
 void instr_D9_5_mem(int32_t addr) { task_switch_test(); fpu_fldcw(addr); }
-void instr_D9_5_reg(int32_t r) { task_switch_test(); fpu_op_D9_5_reg(r); }
+void instr_D9_5_reg(int32_t r)
+{
+    // fld1/fldl2t/fldl2e/fldpi/fldlg2/fldln2/fldz
+    task_switch_test();
+    switch(r)
+    {
+        case 0: fpu_push(1); break;
+        case 1: fpu_push(M_LN10 / M_LN2); break;
+        case 2: fpu_push(M_LOG2E); break;
+        case 3: fpu_push(M_PI); break;
+        case 4: fpu_push(M_LN2 / M_LN10); break;
+        case 5: fpu_push(M_LN2); break;
+        case 6: fpu_push(0); break;
+        case 7: dbg_log("d9/5/7"); trigger_ud(); break;
+    }
+}
 void instr_D9_6_mem(int32_t addr) { task_switch_test(); fpu_fstenv(addr); }
-void instr_D9_6_reg(int32_t r) { task_switch_test(); fpu_op_D9_6_reg(r); }
+void instr_D9_6_reg(int32_t r)
+{
+    task_switch_test();
+    double_t st0 = fpu_get_st0();
+
+    switch(r)
+    {
+        case 0:
+            // f2xm1
+            fpu_st[*fpu_stack_ptr] = pow(2, st0) - 1;
+            break;
+        case 1:
+            // fyl2x
+            fpu_st[*fpu_stack_ptr + 1 & 7] = fpu_get_sti(1) * log(st0) / M_LN2;
+            fpu_pop();
+            break;
+        case 2:
+            // fptan
+            fpu_st[*fpu_stack_ptr] = tan(st0);
+            fpu_push(1); // no bug: push constant 1
+            break;
+        case 3:
+            // fpatan
+            fpu_st[*fpu_stack_ptr + 1 & 7] = atan2(fpu_get_sti(1), st0);
+            fpu_pop();
+            break;
+        case 4:
+            fpu_fxtract();
+            break;
+        case 5:
+            // fprem1
+            fpu_st[*fpu_stack_ptr] = fmod(st0, fpu_get_sti(1));
+            break;
+        case 6:
+            // fdecstp
+            *fpu_stack_ptr = *fpu_stack_ptr - 1 & 7;
+            *fpu_status_word &= ~FPU_C1;
+            break;
+        case 7:
+            // fincstp
+            *fpu_stack_ptr = *fpu_stack_ptr + 1 & 7;
+            *fpu_status_word &= ~FPU_C1;
+            break;
+        default:
+            dbg_assert(false);
+    }
+}
 void instr_D9_7_mem(int32_t addr) { task_switch_test(); fpu_fstcw(addr); }
-void instr_D9_7_reg(int32_t r) { task_switch_test(); fpu_op_D9_7_reg(r); }
+void instr_D9_7_reg(int32_t r)
+{
+    task_switch_test();
+    double_t st0 = fpu_get_st0();
+
+    switch(r)
+    {
+        case 0:
+            fpu_fprem();
+            break;
+        case 1:
+            // fyl2xp1: y * log2(x+1) and pop
+            fpu_st[*fpu_stack_ptr + 1 & 7] = fpu_get_sti(1) * log(st0 + 1) / M_LN2;
+            fpu_pop();
+            break;
+        case 2:
+            fpu_st[*fpu_stack_ptr] = sqrt(st0);
+            break;
+        case 3:
+            fpu_st[*fpu_stack_ptr] = sin(st0);
+            fpu_push(cos(st0));
+            break;
+        case 4:
+            // frndint
+            fpu_st[*fpu_stack_ptr] = fpu_integer_round(st0);
+            break;
+        case 5:
+            // fscale
+            fpu_st[*fpu_stack_ptr] = st0 * pow(2, fpu_truncate(fpu_get_sti(1)));
+            break;
+        case 6:
+            fpu_st[*fpu_stack_ptr] = sin(st0);
+            break;
+        case 7:
+            fpu_st[*fpu_stack_ptr] = cos(st0);
+            break;
+        default:
+            dbg_assert(false);
+        }
+}
 
 void instr_DA_0_mem(int32_t addr) { task_switch_test(); fpu_fadd(0, safe_read32s(addr)); }
 void instr_DA_1_mem(int32_t addr) { task_switch_test(); fpu_fmul(0, safe_read32s(addr)); }
