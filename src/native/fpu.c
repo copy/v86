@@ -559,30 +559,6 @@ void fpu_store_m32(int32_t addr, double_t x)
     safe_write32(addr, v.i32);
 }
 
-void dbg_log_fpu_op(int32_t op, int32_t imm8)
-{
-    UNUSED(op);
-    UNUSED(imm8);
-#if 0
-    if(!FPU_LOG_OP)
-    {
-        return;
-    }
-
-    if(imm8 >= 0xC0)
-    {
-        dbg_log(h(op, 2) + " " + h(imm8, 2) + "/" + (imm8 >> 3 & 7) + "/" + (imm8 & 7) +
-                " @" + h(this.cpu.instruction_pointer[0], 8) + " sp=" + *fpu_stack_ptr + " st=" + h(*fpu_stack_empty, 2), LOG_FPU);
-    }
-    else
-    {
-        dbg_log(h(op, 2) + " /" + imm8 +
-                "     @" + h(this.cpu.instruction_pointer[0], 8) + " sp=" + *fpu_stack_ptr + " st=" + h(*fpu_stack_empty, 2), LOG_FPU);
-    }
-#endif
-}
-
-
 void fwait()
 {
     // NOP unless FPU instructions run in parallel with CPU instructions
