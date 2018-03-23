@@ -10,14 +10,6 @@
 #include "log.h"
 #include "misc_instr.h"
 
-const int32_t
-    FPU_C0 = 0x100,
-    FPU_C1 = 0x200,
-    FPU_C2 = 0x400,
-    FPU_C3 = 0x4000,
-    FPU_RESULT_FLAGS = FPU_C0 | FPU_C1 | FPU_C2 | FPU_C3,
-    FPU_STACK_TOP = 0x3800;
-
 // precision, round & infinity control
 const int32_t
     FPU_PC = 3 << 8,
@@ -256,7 +248,7 @@ void fpu_fucomi(int32_t r)
 
 void fpu_fucomip(int32_t r) { fpu_fucomi(r); fpu_pop(); }
 
-void ftst(double_t x)
+void fpu_ftst(double_t x)
 {
     *fpu_status_word &= ~FPU_RESULT_FLAGS;
 
@@ -276,7 +268,7 @@ void ftst(double_t x)
     // TODO: unordered (x is nan, etc)
 }
 
-void fxam(double_t x)
+void fpu_fxam(double_t x)
 {
     *fpu_status_word &= ~FPU_RESULT_FLAGS;
     *fpu_status_word |= fpu_sign(0) << 9;
@@ -476,7 +468,7 @@ double_t fpu_get_sti(int32_t i)
     }
 }
 
-void fxtract()
+void fpu_fxtract(void)
 {
     union f64_int double_int_view = { .f64 = fpu_get_st0() };
 
@@ -487,6 +479,27 @@ void fxtract()
 
     fpu_st[*fpu_stack_ptr] = exponent;
     fpu_push(double_int_view.f64);
+}
+
+void fpu_fprem(void)
+{
+    double_t st0 = fpu_get_st0();
+    double_t st1 = fpu_get_sti(1);
+    int32_t fprem_quotient = trunc(st0 / st1);
+    fpu_st[*fpu_stack_ptr] = fmod(st0, st1);
+
+    *fpu_status_word &= ~(FPU_C0 | FPU_C1 | FPU_C3);
+    if (fprem_quotient & 1) {
+        *fpu_status_word |= FPU_C1;
+    }
+    if (fprem_quotient & (1 << 1)) {
+        *fpu_status_word |= FPU_C3;
+    }
+    if (fprem_quotient & (1 << 2)) {
+        *fpu_status_word |= FPU_C0;
+    }
+
+    *fpu_status_word &= ~FPU_C2;
 }
 
 double_t fpu_integer_round(double_t f)
@@ -669,10 +682,10 @@ void fpu_op_D9_4_reg(int32_t r)
             fpu_st[*fpu_stack_ptr] = fabs(st0);
             break;
         case 4:
-            ftst(st0);
+            fpu_ftst(st0);
             break;
         case 5:
-            fxam(st0);
+            fpu_fxam(st0);
             break;
         default:
             dbg_log("%x", r);
@@ -723,7 +736,7 @@ void fpu_op_D9_6_reg(int32_t r)
             fpu_pop();
             break;
         case 4:
-            fxtract();
+            fpu_fxtract();
             break;
         case 5:
             // fprem1
