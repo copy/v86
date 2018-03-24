@@ -483,9 +483,11 @@ void fpu_fxtract(void)
 
 void fpu_fprem(void)
 {
+    // XXX: This implementation differs from the description in Intel's manuals
+
     double_t st0 = fpu_get_st0();
     double_t st1 = fpu_get_sti(1);
-    int32_t fprem_quotient = trunc(st0 / st1);
+    int32_t fprem_quotient = convert_f64_to_i32(trunc(st0 / st1));
     fpu_st[*fpu_stack_ptr] = fmod(st0, st1);
 
     *fpu_status_word &= ~(FPU_C0 | FPU_C1 | FPU_C3);
