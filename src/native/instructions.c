@@ -1209,7 +1209,7 @@ void instr_D9_7_reg(int32_t r)
             break;
         case 5:
             // fscale
-            fpu_st[*fpu_stack_ptr] = st0 * pow(2, fpu_truncate(fpu_get_sti(1)));
+            fpu_st[*fpu_stack_ptr] = st0 * pow(2, trunc(fpu_get_sti(1)));
             break;
         case 6:
             fpu_st[*fpu_stack_ptr] = sin(st0);

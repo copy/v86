@@ -533,11 +533,6 @@ double_t fpu_integer_round(double_t f)
     }
 }
 
-double_t fpu_truncate(double_t x)
-{
-    return x > 0 ? floor(x) : ceil(x);
-}
-
 double_t fpu_load_m64(int32_t addr)
 {
     // XXX: Use safe_read64s
