@@ -907,10 +907,9 @@ void cycle_internal()
 
     uint32_t page_dirtiness = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
 
-    const bool JIT_DONT_USE_CACHE = false;
     const bool JIT_COMPILE_ONLY_AFTER_BLOCK_BOUNDARY = true;
 
-    if(!JIT_DONT_USE_CACHE && entry && entry->group_status == page_dirtiness && !entry->pending)
+    if(entry && entry->group_status == page_dirtiness && !entry->pending)
     {
         profiler_start(P_RUN_FROM_CACHE);
         profiler_stat_increment(S_RUN_FROM_CACHE);
