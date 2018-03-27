@@ -23,6 +23,8 @@ struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, {0}, 0, 0, 0, 0, fals
 struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, 0, 0, false}};
 #endif
 
+uint64_t tsc_offset = 0;
+
 uint32_t jit_jump = 0;
 int32_t hot_code_addresses[HASH_PRIME] = {0};
 uint32_t group_dirtiness[GROUP_DIRTINESS_LENGTH] = {0};
@@ -1636,13 +1638,13 @@ void set_tsc(uint32_t low, uint32_t high)
 {
     uint64_t new_value = low | (uint64_t)high << 32;
     uint64_t current_value = read_tsc();
-    *tsc_offset = current_value - new_value;
+    tsc_offset = current_value - new_value;
 }
 
 uint64_t read_tsc()
 {
     double_t n = microtick() * TSC_RATE;
-    return (uint64_t)n - *tsc_offset;
+    return (uint64_t)n - tsc_offset;
 }
 
 void store_current_tsc()

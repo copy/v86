@@ -145,7 +145,6 @@ function CPU(bus, wm, codegen, coverage_logger)
 
     this.last_result = new Int32Array(wm.memory.buffer, 528, 1);
 
-    this.tsc_offset = new Uint32Array(wm.memory.buffer, 544, 2); // 64 bit
     this.current_tsc = new Uint32Array(wm.memory.buffer, 956, 2); // 64 bit
 
     /** @type {!Object} */

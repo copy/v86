@@ -23,7 +23,7 @@ static int32_t* const flags = (int32_t* const) 536;
 
 static bool* const page_fault = (bool* const) 540;
 
-static uint64_t* const tsc_offset = (uint64_t* const) 544;
+// gap
 
 static bool* const a20_enabled = (bool* const) 552;
 static int32_t* const instruction_pointer = (int32_t* const) 556;
