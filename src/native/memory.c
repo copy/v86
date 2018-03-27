@@ -252,6 +252,8 @@ void write64(uint32_t addr, int64_t value)
 {
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK;
 
+    jit_dirty_cache_small(addr, addr + 8);
+
     if(in_mapped_range(addr))
     {
         mmap_write32(addr + 0, value & 0xFFFFFFFF);
