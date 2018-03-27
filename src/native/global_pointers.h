@@ -93,10 +93,6 @@ static uint8_t* const codegen_string_input = (uint8_t* const) 0x31000; // length
 
 // gap
 
-static uint8_t* const tlb_info = (uint8_t* const) 0x40000; // length 0x100000
-static uint8_t* const tlb_info_global = (uint8_t* const) (0x40000 + 0x100000); // length 0x100000
-static int32_t* const tlb_data = (int32_t* const) (0x40000 + 0x100000 + 0x100000); // length 0x100000*4
-
 static uint8_t* const mem8 = (uint8_t* const) (0x40000 + 0x100000 * 6);
 static uint16_t* const mem16 = (uint16_t* const) (0x40000 + 0x100000 * 6);
 static int32_t* const mem32s = (int32_t* const) (0x40000 + 0x100000 * 6);

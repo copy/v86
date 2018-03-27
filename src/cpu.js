@@ -38,29 +38,6 @@ function CPU(bus, wm, codegen, coverage_logger)
     //this.segment_infos = [];
 
     /**
-     * Translation Lookaside Buffer
-     * @const
-     */
-    this.tlb_data = new Int32Array(wm.memory.buffer, 0x40000 + 0x100000*2, 0x100000);
-
-    /**
-     * Information about which pages are cached in the tlb.
-     * By bit:
-     *   0 system, read
-     *   1 system, write
-     *   2 user, read
-     *   3 user, write
-     * @const
-     */
-    this.tlb_info = new Uint8Array(wm.memory.buffer, 0x40000, 0x100000);
-
-    /**
-     * Same as tlb_info, except it only contains global pages
-     * @const
-     */
-    this.tlb_info_global = new Uint8Array(wm.memory.buffer, 0x40000 + 0x100000, 0x100000);
-
-    /**
      * Wheter or not in protected mode
      */
     this.protected_mode = new Int32Array(wm.memory.buffer, 800, 1);
