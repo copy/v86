@@ -22,3 +22,4 @@ void write_aligned16(uint32_t addr, uint32_t value);
 void write32(uint32_t addr, int32_t value);
 void write_aligned32(uint32_t addr, int32_t value);
 void write64(uint32_t addr, int64_t value);
+void write128(uint32_t addr, union reg128 value);

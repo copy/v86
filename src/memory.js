@@ -40,6 +40,14 @@ CPU.prototype.mmap_write32 = function(addr, value)
     this.memory_map_write32[aligned_addr](addr, value);
 };
 
+CPU.prototype.mmap_write128 = function(addr, value0, value1, value2, value3)
+{
+    this.mmap_write32(addr, value0);
+    this.mmap_write32(addr + 4, value1);
+    this.mmap_write32(addr + 8, value2);
+    this.mmap_write32(addr + 12, value3);
+};
+
 /**
  * @param {Array.<number>|Uint8Array} blob
  * @param {number} offset

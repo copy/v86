@@ -1349,8 +1349,7 @@ void safe_write128(int32_t addr, union reg128 value)
     else
     {
         int32_t phys = translate_address_write(addr);
-        write64(phys, value.u64[0]);
-        write64(phys + 8, value.u64[1]);
+        write128(phys, value);
     }
 }
 

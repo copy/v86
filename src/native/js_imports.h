@@ -37,6 +37,7 @@ extern void iret16(void);
 extern void iret32(void);
 extern void load_ldt(int32_t);
 extern void load_tr(int32_t);
+extern void mmap_write128(uint32_t, int32_t, int32_t, int32_t, int32_t);
 extern void mmap_write16(uint32_t, int32_t);
 extern void mmap_write32(uint32_t, int32_t);
 extern void mmap_write8(uint32_t, int32_t);

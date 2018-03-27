@@ -264,3 +264,20 @@ void write64(uint32_t addr, int64_t value)
         *(int64_t*)(mem8 + addr) = value;
     }
 }
+
+void write128(uint32_t addr, union reg128 value)
+{
+    if(USE_A20 && !*a20_enabled) addr &= A20_MASK;
+
+    jit_dirty_cache_small(addr, addr + 16);
+
+    if(in_mapped_range(addr))
+    {
+        mmap_write128(addr, value.i32[0], value.i32[1], value.i32[2], value.i32[3]);
+    }
+    else
+    {
+        *(int64_t*)(mem8 + addr) = value.i64[0];
+        *(int64_t*)(mem8 + addr + 8) = value.i64[1];
+    }
+}

@@ -184,6 +184,7 @@ function V86Starter(options)
         "_mmap_write8": function(addr, value) { return cpu.mmap_write8(addr, value); },
         "_mmap_write16": function(addr, value) { return cpu.mmap_write16(addr, value); },
         "_mmap_write32": function(addr, value) { return cpu.mmap_write32(addr, value); },
+        "_mmap_write128": function(addr, value0, value1, value2, value3) { return cpu.mmap_write128(addr, value0, value1, value2, value3); },
 
         "_int_log2": function(val) { return v86util.int_log2(val); },
 
