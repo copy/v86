@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-'use strict';
+"use strict";
 
 // Mapping between signals and x86 exceptions:
 // "Program received signal SIGILL, Illegal instruction." -> #UD (6)
@@ -13,25 +13,25 @@
 
 // A #UD might indicate a bug in the test generation
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const cluster = require('cluster');
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
+const cluster = require("cluster");
 
 const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 99;
 const TEST_DIR = __dirname + "/build/";
-const DONE_MSG = 'DONE';
-const TERMINATE_MSG = 'DONE';
+const DONE_MSG = "DONE";
+const TERMINATE_MSG = "DONE";
 
 const MASK_ARITH = 1 | 1 << 2 | 1 << 4 | 1 << 6 | 1 << 7 | 1 << 11;
 
 try {
-    var V86 = require('../../build/libv86-debug.js').V86Starter;
+    var V86 = require("../../build/libv86-debug.js").V86Starter;
 }
 catch(e) {
     console.error(e);
-    console.error('Failed to import build/libv86-debug.js. Run ' +
-                  '`make build/libv86-debug.js` first.');
+    console.error("Failed to import build/libv86-debug.js. Run " +
+                  "`make build/libv86-debug.js` first.");
     process.exit(1);
 }
 
@@ -84,7 +84,7 @@ if(cluster.isMaster)
         const json_regex = /---BEGIN JSON---([\s\[\]\w":\-,]*)---END JSON---/;
         const regex_match = json_regex.exec(fixture_text);
         if (!regex_match || regex_match.length < 2) {
-            throw new Error('Could not find JSON in fixture text: ' + fixture_text + "\nTest: " + name);
+            throw new Error("Could not find JSON in fixture text: " + fixture_text + "\nTest: " + name);
         }
 
         try {
@@ -145,7 +145,7 @@ if(cluster.isMaster)
         tests.length,
         MAX_PARALLEL_TESTS
     );
-    console.log('Using %d cpus', nr_of_cpus);
+    console.log("Using %d cpus", nr_of_cpus);
 
     let current_test = 0;
 
@@ -156,24 +156,24 @@ if(cluster.isMaster)
     {
         let worker = cluster.fork();
 
-        worker.on('message', function(message) {
+        worker.on("message", function(message) {
             if (message !== DONE_MSG) {
                 failed_tests.push(message);
             }
             send_work_to_worker(this);
         });
 
-        worker.on('online', send_work_to_worker.bind(null, worker));
+        worker.on("online", send_work_to_worker.bind(null, worker));
 
-        worker.on('exit', function(code, signal) {
+        worker.on("exit", function(code, signal) {
             if(code !== 0 &&  code !== null) {
-                console.log('Worker error code:', code);
+                console.log("Worker error code:", code);
                 process.exit(code);
             }
         });
 
-        worker.on('error', function(error) {
-            console.error('Worker error: ', error.toString(), error);
+        worker.on("error", function(error) {
+            console.error("Worker error: ", error.toString(), error);
             process.exit(1);
         });
     }
@@ -181,15 +181,15 @@ if(cluster.isMaster)
     function test_finished()
     {
         console.log(
-            '\n[+] Passed %d/%d tests.',
+            "\n[+] Passed %d/%d tests.",
             tests.length - failed_tests.length,
             tests.length
         );
         if (failed_tests.length > 0) {
-            console.log('[-] Failed %d test(s).', failed_tests.length);
+            console.log("[-] Failed %d test(s).", failed_tests.length);
             failed_tests.forEach(function(test_failure) {
 
-                console.error('\n[-] %s:', test_failure.img_name);
+                console.error("\n[-] %s:", test_failure.img_name);
 
                 test_failure.failures.forEach(function(failure) {
                     function format_value(v) {
@@ -218,7 +218,7 @@ else {
 
         waiting_for_test = false;
         current_test = test;
-        console.info('Testing', test.img_name);
+        console.info("Testing", test.img_name);
 
         var cpu = emulator.v86.cpu;
 
@@ -292,7 +292,7 @@ else {
         return true;
     };
 
-    emulator.bus.register('cpu-event-halt', function() {
+    emulator.bus.register("cpu-event-halt", function() {
         console.assert(!waiting_for_test);
         waiting_for_test = true;
         emulator.stop();
@@ -383,7 +383,7 @@ else {
         }
     });
 
-    cluster.worker.on('message', function(message) {
+    cluster.worker.on("message", function(message) {
         if(message === TERMINATE_MSG)
         {
             emulator.stop();
