@@ -164,6 +164,26 @@ int32_t read_aligned32(uint32_t addr)
     }
 }
 
+union reg128 read128(uint32_t addr)
+{
+    if(USE_A20 && *a20_enabled) addr &= A20_MASK;
+    union reg128 value = { { 0 } };
+
+    if(in_mapped_range(addr))
+    {
+        value.i32[0] = mmap_read32(addr);
+        value.i32[1] = mmap_read32(addr + 4);
+        value.i32[2] = mmap_read32(addr + 8);
+        value.i32[3] = mmap_read32(addr + 12);
+    }
+    else
+    {
+        value.i64[0] = *(int64_t*)(mem8 + addr);
+        value.i64[1] = *(int64_t*)(mem8 + addr + 8);
+    }
+    return value;
+}
+
 void write8(uint32_t addr, int32_t value)
 {
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK;

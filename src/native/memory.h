@@ -16,6 +16,7 @@ int32_t read_aligned16(uint32_t addr);
 int32_t read32s(uint32_t addr);
 int64_t read64s(uint32_t addr);
 int32_t read_aligned32(uint32_t addr);
+union reg128 read128(uint32_t addr);
 void write8(uint32_t addr, int32_t value);
 void write16(uint32_t addr, int32_t value);
 void write_aligned16(uint32_t addr, uint32_t value);

@@ -1258,8 +1258,7 @@ union reg128 safe_read128s(int32_t addr)
     else
     {
         int32_t addr_phys = translate_address_read(addr);
-        x.u64[0] = read64s(addr_phys);
-        x.u64[1] = read64s(addr_phys + 8);
+        x = read128(addr_phys);
     }
     return x;
 }
