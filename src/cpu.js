@@ -290,33 +290,33 @@ CPU.prototype.set_jit_import = function(function_index, wasm_index)
 
 CPU.prototype.wasm_patch = function(wm)
 {
-    this.getiopl = this.wm.exports['_getiopl'];
-    this.vm86_mode = this.wm.exports['_vm86_mode'];
-    this.get_eflags = this.wm.exports['_get_eflags'];
-    this.update_eflags = this.wm.exports['_update_eflags'];
+    this.getiopl = this.wm.exports["_getiopl"];
+    this.vm86_mode = this.wm.exports["_vm86_mode"];
+    this.get_eflags = this.wm.exports["_get_eflags"];
+    this.update_eflags = this.wm.exports["_update_eflags"];
 
-    this.trigger_gp = this.wm.exports['_trigger_gp'];
-    this.trigger_ud = this.wm.exports['_trigger_ud'];
-    this.trigger_np = this.wm.exports['_trigger_np'];
-    this.trigger_ss = this.wm.exports['_trigger_ss'];
+    this.trigger_gp = this.wm.exports["_trigger_gp"];
+    this.trigger_ud = this.wm.exports["_trigger_ud"];
+    this.trigger_np = this.wm.exports["_trigger_np"];
+    this.trigger_ss = this.wm.exports["_trigger_ss"];
 
-    this.do_many_cycles_unsafe = this.wm.exports['_do_many_cycles_unsafe'];
-    this.cycle_internal = this.wm.exports['_cycle_internal'];
+    this.do_many_cycles_unsafe = this.wm.exports["_do_many_cycles_unsafe"];
+    this.cycle_internal = this.wm.exports["_cycle_internal"];
 
-    this.read8 = this.wm.exports['_read8'];
-    this.read16 = this.wm.exports['_read16'];
-    this.read32s = this.wm.exports['_read32s'];
-    this.write8 = this.wm.exports['_write8'];
-    this.write16 = this.wm.exports['_write16'];
-    this.write32 = this.wm.exports['_write32'];
-    this.in_mapped_range = this.wm.exports['_in_mapped_range'];
+    this.read8 = this.wm.exports["_read8"];
+    this.read16 = this.wm.exports["_read16"];
+    this.read32s = this.wm.exports["_read32s"];
+    this.write8 = this.wm.exports["_write8"];
+    this.write16 = this.wm.exports["_write16"];
+    this.write32 = this.wm.exports["_write32"];
+    this.in_mapped_range = this.wm.exports["_in_mapped_range"];
 
-    this.push16 = this.wm.exports['_push16'];
-    this.push32 = this.wm.exports['_push32'];
-    this.pop16 = this.wm.exports['_pop16'];
-    this.pop32s = this.wm.exports['_pop32s'];
+    this.push16 = this.wm.exports["_push16"];
+    this.push32 = this.wm.exports["_push32"];
+    this.pop16 = this.wm.exports["_pop16"];
+    this.pop32s = this.wm.exports["_pop32s"];
 
-    this.set_stack_reg = this.wm.exports['_set_stack_reg'];
+    this.set_stack_reg = this.wm.exports["_set_stack_reg"];
 
     this.translate_address_read = this.wm.exports["_translate_address_read"];
     this.translate_address_system_read = this.wm.exports["_translate_address_system_read"];
