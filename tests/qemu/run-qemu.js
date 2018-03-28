@@ -38,7 +38,7 @@ qemu.stdout.on("data", data => {
         qemu.stdin.write("echo test fini''shed\n");
     }
 
-    if(ran_command && !finished && qemu_output.endsWith("test finished\n"))
+    if(ran_command && !finished && qemu_output.includes("test finished\n"))
     {
         const result_file = path.join(share_dir_9p, "result");
 
