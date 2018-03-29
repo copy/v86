@@ -607,9 +607,15 @@ static void jit_run_interpreted(int32_t phys_addr)
     profiler_end(P_RUN_INTERPRETED);
 }
 
+bool has_flat_segmentation(void)
+{
+    return !segment_is_null[SS] && segment_offsets[SS] == 0 &&
+        !segment_is_null[DS] && segment_offsets[DS] == 0;
+}
+
 static cached_state_flags pack_current_state_flags()
 {
-    return *is_32 << 0 | *stack_size_32 << 1;
+    return *is_32 << 0 | *stack_size_32 << 1 | has_flat_segmentation() << 2;
 }
 
 static struct code_cache* create_cache_entry(uint32_t phys_addr)

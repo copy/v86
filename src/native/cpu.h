@@ -116,6 +116,7 @@ jit_instr_flags jit_prefix_instruction(void);
 void clear_prefixes(void);
 void segment_prefix_op(int32_t seg);
 jit_instr_flags segment_prefix_op_jit(int32_t seg);
+bool has_flat_segmentation(void);
 void do_many_cycles_unsafe(void);
 void raise_exception(int32_t interrupt_nr);
 void raise_exception_with_code(int32_t interrupt_nr, int32_t error_code);

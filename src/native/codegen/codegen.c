@@ -313,22 +313,27 @@ static void gen_modrm_entry_1(int32_t segment, int32_t reg16_idx, int32_t imm)
     add_i32(&instruction_body);
 }
 
+static bool can_optimize_get_seg(int32_t segment)
+{
+    return (segment == DS || segment == SS) && has_flat_segmentation();
+}
+
 static void jit_get_seg_prefix(int32_t default_segment)
 {
     int32_t prefix = *prefixes & PREFIX_MASK_SEGMENT;
 
-    if(prefix)
+    bool optimize_prefix = prefix && (prefix == SEG_PREFIX_ZERO || can_optimize_get_seg(prefix - 1));
+    bool optimize_default = !prefix && can_optimize_get_seg(default_segment);
+
+    if(optimize_prefix || optimize_default)
     {
-        if(prefix == SEG_PREFIX_ZERO)
-        {
-            // TODO: Remove this special case
-            push_i32(&instruction_body, 0);
-        }
-        else
-        {
-            push_i32(&instruction_body, prefix - 1);
-            call_fn(&instruction_body, fn_get_seg_idx);
-        }
+        // XXX: Adding 0 can be optimized away too, through callers - consider a return status here?
+        push_i32(&instruction_body, 0);
+    }
+    else if(prefix)
+    {
+        push_i32(&instruction_body, prefix - 1);
+        call_fn(&instruction_body, fn_get_seg_idx);
     }
     else
     {
