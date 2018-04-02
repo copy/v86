@@ -25,7 +25,7 @@ struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, 0, 0, false}};
 
 uint64_t tsc_offset = 0;
 
-uint32_t jit_jump = 0;
+uint32_t jit_block_boundary = 0;
 int32_t hot_code_addresses[HASH_PRIME] = {0};
 uint32_t group_dirtiness[GROUP_DIRTINESS_LENGTH] = {0};
 
@@ -33,24 +33,29 @@ int32_t tlb_data[0x100000] = {0};
 int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX] = {0};
 int32_t valid_tlb_entries_count = 0;
 
-void after_jump()
+void after_block_boundary()
 {
-    jit_jump = true;
+    jit_block_boundary = true;
+}
+
+void altered_state()
+{
+    after_block_boundary();
 }
 
 void diverged()
 {
-    after_jump();
+    after_block_boundary();
 }
 
 void branch_taken()
 {
-    after_jump();
+    after_block_boundary();
 }
 
 void branch_not_taken()
 {
-    after_jump();
+    after_block_boundary();
 }
 
 int32_t get_eflags()
@@ -549,7 +554,7 @@ static void jit_run_interpreted(int32_t phys_addr)
     profiler_start(P_RUN_INTERPRETED);
     profiler_stat_increment(S_RUN_INTERPRETED);
 
-    jit_jump = false;
+    jit_block_boundary = false;
 
 #if DUMP_UNCOMPILED_ASSEMBLY
     int32_t start_eip = phys_addr;
@@ -568,14 +573,14 @@ static void jit_run_interpreted(int32_t phys_addr)
     run_instruction(opcode | !!*is_32 << 8);
 
 #if DUMP_UNCOMPILED_ASSEMBLY
-    if(!jit_jump)
+    if(!jit_block_boundary)
     {
         *previous_ip = *instruction_pointer;
         end_eip = get_phys_eip();
     }
 #endif
 
-    while(!jit_jump)
+    while(!jit_block_boundary)
     {
         previous_ip[0] = instruction_pointer[0];
         (*timestamp_counter)++;
@@ -588,7 +593,7 @@ static void jit_run_interpreted(int32_t phys_addr)
         run_instruction(opcode | !!*is_32 << 8);
 
 #if DUMP_UNCOMPILED_ASSEMBLY
-        if(!jit_jump)
+        if(!jit_block_boundary)
         {
             *previous_ip = *instruction_pointer;
             end_eip = get_phys_eip();
@@ -654,11 +659,11 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page
     hot_code_addresses[address_hash] = 0;
 
     int32_t len = 0;
-    jit_jump = false;
+    jit_block_boundary = false;
 
     int32_t end_addr;
     int32_t first_opcode = -1;
-    bool was_jump = false;
+    bool was_block_boundary = false;
     int32_t eip_delta = 0;
 
     gen_reset();
@@ -680,7 +685,9 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page
         int32_t end_eip = *instruction_pointer;
 
         int32_t instruction_length = end_eip - start_eip;
-        was_jump = (jit_ret & JIT_INSTR_JUMP_FLAG) != 0;
+        // XXX: There may be more instructions that form a block boundary than just jumps, but the
+        // granularity isn't very important since jumps are the majority
+        was_block_boundary = (jit_ret & JIT_INSTR_BLOCK_BOUNDARY_FLAG) != 0;
 
         assert(instruction_length >= 0 && instruction_length < 16);
 
@@ -693,7 +700,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page
          * value for instruction logic)
          * - Nonfaulting instructions don't need either to be updated
          */
-        if(was_jump)
+        if(was_block_boundary)
         {
             // prev_ip = eip + eip_delta, so that previous_ip points to the start of this instruction
             gen_set_previous_eip_offset_from_eip(eip_delta);
@@ -731,7 +738,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page
         end_addr = *eip_phys ^ *instruction_pointer;
         len++;
     }
-    while(!was_jump && !is_near_end_of_page(*instruction_pointer));
+    while(!was_block_boundary && !is_near_end_of_page(*instruction_pointer));
 
 #if ENABLE_JIT_NONFAULTING_OPTIMZATION
     // When the block ends in a non-jump instruction, we may have uncommitted updates still
@@ -745,7 +752,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page
     // no page was crossed
     assert(((end_addr ^ phys_addr) & ~0xFFF) == 0);
 
-    jit_jump = false;
+    jit_block_boundary = false;
     assert(*prefixes == 0);
 
     // at this point no exceptions can be raised
@@ -915,7 +922,7 @@ void cycle_internal()
     uint32_t page_dirtiness = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
 
     const bool JIT_DONT_USE_CACHE = false;
-    const bool JIT_COMPILE_ONLY_AFTER_JUMP = true;
+    const bool JIT_COMPILE_ONLY_AFTER_BLOCK_BOUNDARY = true;
 
     if(!JIT_DONT_USE_CACHE && entry && entry->group_status == page_dirtiness && !entry->pending)
     {
@@ -947,7 +954,7 @@ void cycle_internal()
     }
     else
     {
-        bool did_jump = !JIT_COMPILE_ONLY_AFTER_JUMP || jit_jump;
+        bool did_block_boundary = !JIT_COMPILE_ONLY_AFTER_BLOCK_BOUNDARY || jit_block_boundary;
         const int32_t address_hash = jit_hot_hash(phys_addr);
 
         // exists | pending | written -> should generate
@@ -962,7 +969,7 @@ void cycle_internal()
             (!entry || entry->group_status != page_dirtiness) &&
             !is_near_end_of_page(phys_addr) && (
                 ENABLE_JIT_ALWAYS ||
-                (did_jump && ++hot_code_addresses[address_hash] > JIT_THRESHOLD)
+                (did_block_boundary && ++hot_code_addresses[address_hash] > JIT_THRESHOLD)
             )
           )
         {

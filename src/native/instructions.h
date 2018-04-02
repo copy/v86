@@ -4,7 +4,7 @@
 
 typedef uint32_t jit_instr_flags;
 
-#define JIT_INSTR_JUMP_FLAG (1 << 0)
+#define JIT_INSTR_BLOCK_BOUNDARY_FLAG (1 << 0)
 #define JIT_INSTR_NONFAULTING_FLAG (1 << 1)
 
 #define SAFE_READ_WRITE8(addr, fun) \

@@ -61,8 +61,9 @@ _Static_assert(sizeof(struct code_cache) == 12, "code_cache uses 12 bytes");
 #endif
 struct code_cache jit_cache_arr[WASM_TABLE_SIZE];
 
-// Flag indicating whether the instruction that just ran was a jump of some sort
-extern uint32_t jit_jump;
+// Flag indicating whether the instruction that just ran was at a block's boundary (jump,
+// state-altering, etc.)
+extern uint32_t jit_block_boundary;
 
 // Count of how many times prime_hash(address) has been called through a jump
 extern int32_t hot_code_addresses[HASH_PRIME];
@@ -83,7 +84,8 @@ int32_t valid_tlb_entries_count;
 // defined in call-indirect.ll
 extern void call_indirect(int32_t index);
 
-void after_jump(void);
+void after_block_boundary(void);
+void altered_state(void);
 void diverged(void);
 void branch_taken(void);
 void branch_not_taken(void);

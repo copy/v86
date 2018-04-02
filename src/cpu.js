@@ -1470,19 +1470,19 @@ CPU.prototype.cpl_changed = function()
     this.last_virt_esp[0] = -1;
 };
 
-CPU.prototype.after_jump = function ()
+CPU.prototype.after_block_boundary = function ()
 {
     // May be called through JS imports in the WASM module, such as loop or handle_irqs (through popf, sti)
-    this.wm.exports["_after_jump"]();
+    this.wm.exports["_after_block_boundary"]();
 };
 CPU.prototype.branch_taken = function () {
-    this.after_jump();
+    this.after_block_boundary();
 };
 CPU.prototype.branch_not_taken = function () {
-    this.after_jump();
+    this.after_block_boundary();
 };
 CPU.prototype.diverged = function () {
-    this.after_jump();
+    this.after_block_boundary();
 };
 
 CPU.prototype.jit_empty_cache = function()
