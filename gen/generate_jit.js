@@ -169,8 +169,8 @@ function gen_instruction_body(encodings, size)
     }
 
     console.assert(
-        !encodings.some(e => e.nonfaulting && e.jump),
-        "Unsupported: instruction cannot be both a jump and nonfaulting. Opcode: 0x" + hex(encoding.opcode)
+        !encodings.some(e => e.nonfaulting && e.block_boundary),
+        "Unsupported: instruction cannot be both a block boundary and nonfaulting. Opcode: 0x" + hex(encoding.opcode)
     );
 
     if(has_66 || has_F2 || has_F3)
@@ -186,7 +186,7 @@ function gen_instruction_body(encodings, size)
         );
     }
 
-    const instruction_postfix = encoding.jump ? ["instr_flags |= JIT_INSTR_JUMP_FLAG;"] : [];
+    const instruction_postfix = encoding.block_boundary ? ["instr_flags |= JIT_INSTR_BLOCK_BOUNDARY_FLAG;"] : [];
 
     // May be overridden for custom encodings
     const gen_call_fns = {
@@ -214,7 +214,7 @@ function gen_instruction_body(encodings, size)
                 cases: cases.map(case_ => {
                     const fixed_g = case_.fixed_g;
                     let instruction_name = make_instruction_name(case_, size, undefined);
-                    const instruction_postfix = case_.jump ? ["instr_flags |=  JIT_INSTR_JUMP_FLAG;"] : [];
+                    const instruction_postfix = case_.block_boundary ? ["instr_flags |=  JIT_INSTR_BLOCK_BOUNDARY_FLAG;"] : [];
 
                     let modrm_resolve_prefix = undefined;
 
