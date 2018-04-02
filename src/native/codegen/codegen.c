@@ -24,7 +24,7 @@ static uint8_t* op_ptr_reset_location;
 static uint32_t import_table_size_reset_value;
 static uint32_t initial_import_count;
 
-static void jit_get_seg_prefix(int32_t default_segment);
+static bool jit_get_seg_prefix(int32_t default_segment);
 static void jit_resolve_modrm32_(int32_t modrm_byte);
 static void jit_resolve_modrm16_(int32_t modrm_byte);
 
@@ -295,8 +295,10 @@ static void inline gen_modrm_entry_0(int32_t segment, int32_t reg16_idx_1, int32
     push_i32(&instruction_body, 0xFFFF);
     and_i32(&instruction_body);
 
-    jit_get_seg_prefix(segment);
-    add_i32(&instruction_body);
+    if(jit_get_seg_prefix(segment))
+    {
+        add_i32(&instruction_body);
+    }
 }
 
 static void gen_modrm_entry_1(int32_t segment, int32_t reg16_idx, int32_t imm)
@@ -309,8 +311,10 @@ static void gen_modrm_entry_1(int32_t segment, int32_t reg16_idx, int32_t imm)
     push_i32(&instruction_body, 0xFFFF);
     and_i32(&instruction_body);
 
-    jit_get_seg_prefix(segment);
-    add_i32(&instruction_body);
+    if(jit_get_seg_prefix(segment))
+    {
+        add_i32(&instruction_body);
+    }
 }
 
 static bool can_optimize_get_seg(int32_t segment)
@@ -318,7 +322,11 @@ static bool can_optimize_get_seg(int32_t segment)
     return (segment == DS || segment == SS) && has_flat_segmentation();
 }
 
-static void jit_get_seg_prefix(int32_t default_segment)
+/*
+ * Returns whether the get_seg prefix call will be pushed to the stack or not, based on optimization
+ * conditions
+ */
+static bool jit_get_seg_prefix(int32_t default_segment)
 {
     int32_t prefix = *prefixes & PREFIX_MASK_SEGMENT;
 
@@ -327,10 +335,10 @@ static void jit_get_seg_prefix(int32_t default_segment)
 
     if(optimize_prefix || optimize_default)
     {
-        // XXX: Adding 0 can be optimized away too, through callers - consider a return status here?
-        push_i32(&instruction_body, 0);
+        return false;
     }
-    else if(prefix)
+
+    if(prefix)
     {
         push_i32(&instruction_body, prefix - 1);
         call_fn(&instruction_body, fn_get_seg_idx);
@@ -341,13 +349,16 @@ static void jit_get_seg_prefix(int32_t default_segment)
         write_raw_u8(&instruction_body, default_segment);
         call_fn(&instruction_body, fn_get_seg_idx);
     }
+    return true;
 }
 
 static void gen_modrm_entry_2()
 {
     push_i32(&instruction_body, read_imm16());
-    jit_get_seg_prefix(DS);
-    add_i32(&instruction_body);
+    if(jit_get_seg_prefix(DS))
+    {
+        add_i32(&instruction_body);
+    }
 }
 
 static void jit_resolve_modrm16_(int32_t modrm_byte)
@@ -387,8 +398,10 @@ static void gen_modrm32_entry(int32_t segment, int32_t reg32s_idx, int32_t imm)
     push_i32(&instruction_body, imm);
     add_i32(&instruction_body);
 
-    jit_get_seg_prefix(segment);
-    add_i32(&instruction_body);
+    if(jit_get_seg_prefix(segment))
+    {
+        add_i32(&instruction_body);
+    }
 }
 
 static void jit_resolve_sib(bool mod)
@@ -429,9 +442,6 @@ static void jit_resolve_sib(bool mod)
 
     // generate: get_seg_prefix(seg) + base
     // Where base is accessed from memory if base_is_mem_access or written as a constant otherwise
-
-    jit_get_seg_prefix(seg);
-
     if(base_is_mem_access)
     {
         load_aligned_i32(&instruction_body, base_addr);
@@ -441,7 +451,10 @@ static void jit_resolve_sib(bool mod)
         push_i32(&instruction_body, base);
     }
 
-    add_i32(&instruction_body);
+    if(jit_get_seg_prefix(seg))
+    {
+        add_i32(&instruction_body);
+    }
 
     // We now have to generate an offset value to add
 
@@ -481,8 +494,10 @@ static void modrm32_special_case_2()
 static void gen_modrm32_entry_1()
 {
     push_i32(&instruction_body, read_imm32s());
-    jit_get_seg_prefix(DS);
-    add_i32(&instruction_body);
+    if(jit_get_seg_prefix(DS))
+    {
+        add_i32(&instruction_body);
+    }
 }
 
 static void jit_resolve_modrm32_(int32_t modrm_byte)
