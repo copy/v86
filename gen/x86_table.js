@@ -19,9 +19,9 @@ const encodings = [
     { opcode: 0x0E, os: 1, skip: 1, },
     { opcode: 0x0F, os: 1, prefix: 1, },
     { opcode: 0x16, os: 1, skip: 1, },
-    { opcode: 0x17, os: 1, skip: 1, },
+    { opcode: 0x17, block_boundary: 1, os: 1, skip: 1, },
     { opcode: 0x1E, os: 1, skip: 1, },
-    { opcode: 0x1F, os: 1, skip: 1, },
+    { opcode: 0x1F, block_boundary: 1, os: 1, skip: 1, },
     { opcode: 0x26, prefix: 1, },
     { opcode: 0x27, nonfaulting: 1, mask_flags: of, },
     { opcode: 0x2E, prefix: 1, },
@@ -97,7 +97,7 @@ const encodings = [
 
     { opcode: 0x8C, os: 1, e: 1, skip: 1, },
     { opcode: 0x8D, nonfaulting: 1, os: 1, e: 1, only_mem: 1, requires_prefix_call: 1, custom: 1, }, // lea
-    { opcode: 0x8E, e: 1, skip: 1, },
+    { opcode: 0x8E, block_boundary: 1, e: 1, skip: 1, },
     { opcode: 0x8F, os: 1, e: 1, fixed_g: 0, requires_prefix_call: 1, }, // pop r/m
 
     { opcode: 0x90, nonfaulting: 1, },
@@ -144,7 +144,7 @@ const encodings = [
     { opcode: 0xC3, block_boundary: 1, os: 1, skip: 1, },
 
     { opcode: 0xC4, os: 1, e: 1, skip: 1, },
-    { opcode: 0xC5, os: 1, e: 1, skip: 1, },
+    { opcode: 0xC5, block_boundary: 1, os: 1, e: 1, skip: 1, },
 
     { opcode: 0xC6, e: 1, fixed_g: 0, nonfaulting: 1, imm8: 1, },
     { opcode: 0xC7, os: 1, e: 1, fixed_g: 0, nonfaulting: 1, imm1632: 1, },
@@ -367,7 +367,7 @@ const encodings = [
     { opcode: 0x0FC7, e: 1, fixed_g: 1, only_mem: 1, }, // cmpxchg8b (memory)
     { opcode: 0x0FC7, e: 1, fixed_g: 6, only_reg: 1, skip: 1, }, // rdrand
 
-    { opcode: 0x0FB2, os: 1, e: 1, skip: 1, }, // lss, lfs, lgs
+    { opcode: 0x0FB2, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lss, lfs, lgs
     { opcode: 0x0FB4, os: 1, e: 1, skip: 1, },
     { opcode: 0x0FB5, os: 1, e: 1, skip: 1, },
 

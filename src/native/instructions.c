@@ -89,12 +89,14 @@ void instr16_17() {
     adjust_stack_reg(2);
     //clear_prefixes();
     //cycle_internal();
+    altered_state();
 }
 void instr32_17() {
     switch_seg(SS, safe_read32s(get_stack_pointer(0)) & 0xFFFF);
     adjust_stack_reg(4);
     //clear_prefixes();
     //cycle_internal();
+    altered_state();
 }
 
 DEFINE_MODRM_INSTR_READ_WRITE_8(instr_18, sbb8(___, read_reg8(r)))
@@ -113,10 +115,12 @@ void instr32_1E() { push32(sreg[DS]); }
 void instr16_1F() {
     switch_seg(DS, safe_read16(get_stack_pointer(0)));
     adjust_stack_reg(2);
+    altered_state();
 }
 void instr32_1F() {
     switch_seg(DS, safe_read32s(get_stack_pointer(0)) & 0xFFFF);
     adjust_stack_reg(4);
+    altered_state();
 }
 
 DEFINE_MODRM_INSTR_READ_WRITE_8(instr_20, and8(___, read_reg8(r)))
@@ -567,6 +571,7 @@ void instr_8E_helper(int32_t data, int32_t mod)
     {
         dbg_log("mov sreg #ud");
     }
+    altered_state();
 }
 DEFINE_MODRM_INSTR_READ16(instr_8E, instr_8E_helper(___, r))
 
@@ -899,10 +904,12 @@ void instr32_C4_mem(int32_t addr, int32_t r) {
 void instr16_C5_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
 void instr16_C5_mem(int32_t addr, int32_t r) {
     lss16(addr, get_reg16_index(r), DS);
+    altered_state();
 }
 void instr32_C5_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
 void instr32_C5_mem(int32_t addr, int32_t r) {
     lss32(addr, r, DS);
+    altered_state();
 }
 
 void instr_C6_0_reg(int32_t r, int32_t imm) { write_reg8(r, imm); }
