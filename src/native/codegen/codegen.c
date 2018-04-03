@@ -24,7 +24,7 @@ static uint8_t* op_ptr_reset_location;
 static uint32_t import_table_size_reset_value;
 static uint32_t initial_import_count;
 
-static bool jit_get_seg_prefix(int32_t default_segment);
+static void jit_add_seg_offset(int32_t default_segment);
 static void jit_resolve_modrm32_(int32_t modrm_byte);
 static void jit_resolve_modrm16_(int32_t modrm_byte);
 
@@ -295,10 +295,7 @@ static void inline gen_modrm_entry_0(int32_t segment, int32_t reg16_idx_1, int32
     push_i32(&instruction_body, 0xFFFF);
     and_i32(&instruction_body);
 
-    if(jit_get_seg_prefix(segment))
-    {
-        add_i32(&instruction_body);
-    }
+    jit_add_seg_offset(segment);
 }
 
 static void gen_modrm_entry_1(int32_t segment, int32_t reg16_idx, int32_t imm)
@@ -311,10 +308,7 @@ static void gen_modrm_entry_1(int32_t segment, int32_t reg16_idx, int32_t imm)
     push_i32(&instruction_body, 0xFFFF);
     and_i32(&instruction_body);
 
-    if(jit_get_seg_prefix(segment))
-    {
-        add_i32(&instruction_body);
-    }
+    jit_add_seg_offset(segment);
 }
 
 static bool can_optimize_get_seg(int32_t segment)
@@ -323,10 +317,10 @@ static bool can_optimize_get_seg(int32_t segment)
 }
 
 /*
- * Returns whether the get_seg prefix call will be pushed to the stack or not, based on optimization
- * conditions
+ * Note: Requires an existing value to be on the WASM stack! Based on optimization possibilities,
+ * the value will be consumed and added to get_seg(segment), or it'll be left as-is
  */
-static bool jit_get_seg_prefix(int32_t default_segment)
+static void jit_add_seg_offset(int32_t default_segment)
 {
     int32_t prefix = *prefixes & PREFIX_MASK_SEGMENT;
 
@@ -349,16 +343,14 @@ static bool jit_get_seg_prefix(int32_t default_segment)
         write_raw_u8(&instruction_body, default_segment);
         call_fn(&instruction_body, fn_get_seg_idx);
     }
+    add_i32(&instruction_body);
     return true;
 }
 
 static void gen_modrm_entry_2()
 {
     push_i32(&instruction_body, read_imm16());
-    if(jit_get_seg_prefix(DS))
-    {
-        add_i32(&instruction_body);
-    }
+    jit_add_seg_offset(DS);
 }
 
 static void jit_resolve_modrm16_(int32_t modrm_byte)
@@ -398,10 +390,7 @@ static void gen_modrm32_entry(int32_t segment, int32_t reg32s_idx, int32_t imm)
     push_i32(&instruction_body, imm);
     add_i32(&instruction_body);
 
-    if(jit_get_seg_prefix(segment))
-    {
-        add_i32(&instruction_body);
-    }
+    jit_add_seg_offset(segment);
 }
 
 static void jit_resolve_sib(bool mod)
@@ -451,10 +440,7 @@ static void jit_resolve_sib(bool mod)
         push_i32(&instruction_body, base);
     }
 
-    if(jit_get_seg_prefix(seg))
-    {
-        add_i32(&instruction_body);
-    }
+    jit_add_seg_offset(seg);
 
     // We now have to generate an offset value to add
 
@@ -494,10 +480,7 @@ static void modrm32_special_case_2()
 static void gen_modrm32_entry_1()
 {
     push_i32(&instruction_body, read_imm32s());
-    if(jit_get_seg_prefix(DS))
-    {
-        add_i32(&instruction_body);
-    }
+    jit_add_seg_offset(DS);
 }
 
 static void jit_resolve_modrm32_(int32_t modrm_byte)
