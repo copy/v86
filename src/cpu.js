@@ -1470,21 +1470,6 @@ CPU.prototype.cpl_changed = function()
     this.last_virt_esp[0] = -1;
 };
 
-CPU.prototype.after_block_boundary = function ()
-{
-    // May be called through JS imports in the WASM module, such as loop or handle_irqs (through popf, sti)
-    this.wm.exports["_after_block_boundary"]();
-};
-CPU.prototype.branch_taken = function () {
-    this.after_block_boundary();
-};
-CPU.prototype.branch_not_taken = function () {
-    this.after_block_boundary();
-};
-CPU.prototype.diverged = function () {
-    this.after_block_boundary();
-};
-
 CPU.prototype.jit_empty_cache = function()
 {
     this.wm.exports["_jit_empty_cache"]();
@@ -2852,7 +2837,6 @@ CPU.prototype.hlt_op = function()
     //if(false) // possibly unsafe, test in safari
     //{
     //    this.hlt_loop();
-    //    this.diverged();
     //    if(this.in_hlt)
     //    {
     //        throw MAGIC_CPU_EXCEPTION;
@@ -2908,8 +2892,6 @@ CPU.prototype.handle_irqs = function()
 {
     dbg_assert(!this.page_fault[0]);
     //dbg_assert(this.prefixes[0] === 0);
-
-    this.diverged();
 
     if((this.flags[0] & flag_interrupt) && !this.page_fault[0])
     {

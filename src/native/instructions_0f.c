@@ -899,7 +899,6 @@ void instr_0F34() {
     segment_offsets[SS] = 0;
 
     stack_size_32[0] = true;
-    diverged();
 }
 
 void instr_0F35() {
@@ -937,7 +936,6 @@ void instr_0F35() {
     segment_offsets[SS] = 0;
 
     stack_size_32[0] = true;
-    diverged();
 }
 
 void instr_0F36() { undefined_instruction(); }

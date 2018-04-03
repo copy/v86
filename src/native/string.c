@@ -41,7 +41,6 @@ void movsb_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -80,7 +79,6 @@ void movsb_no_rep()
     safe_write8(dest, safe_read8(src));
     add_reg_asize(EDI, size);
     add_reg_asize(ESI, size);
-    diverged();
 }
 
 void movsb()
@@ -102,7 +100,6 @@ void movsw_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -158,7 +155,6 @@ void movsw_no_rep()
     safe_write16(dest, safe_read16(src));
     add_reg_asize(EDI, size);
     add_reg_asize(ESI, size);
-    diverged();
 }
 
 void movsw()
@@ -180,7 +176,6 @@ void movsd_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -236,7 +231,6 @@ void movsd_no_rep()
     safe_write32(dest, safe_read32s(src));
     add_reg_asize(EDI, size);
     add_reg_asize(ESI, size);
-    diverged();
 }
 
 void movsd()
@@ -259,7 +253,6 @@ void cmpsb_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -306,7 +299,6 @@ void cmpsb_no_rep()
     add_reg_asize(ESI, size);
 
     cmp8(data_src, data_dest);
-    diverged();
 }
 
 void cmpsb()
@@ -329,7 +321,6 @@ void cmpsw_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -394,7 +385,6 @@ void cmpsw_no_rep()
     add_reg_asize(ESI, size);
 
     cmp16(data_src, data_dest);
-    diverged();
 }
 
 void cmpsw()
@@ -417,7 +407,6 @@ void cmpsd_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -482,7 +471,6 @@ void cmpsd_no_rep()
     add_reg_asize(ESI, size);
 
     cmp32(data_src, data_dest);
-    diverged();
 }
 
 void cmpsd()
@@ -504,7 +492,6 @@ void stosb_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -539,7 +526,6 @@ void stosb_no_rep()
 
     safe_write8(dest, data);
     add_reg_asize(EDI, size);
-    diverged();
 }
 
 void stosb()
@@ -561,7 +547,6 @@ void stosw_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -611,7 +596,6 @@ void stosw_no_rep()
 
     safe_write16(dest, data);
     add_reg_asize(EDI, size);
-    diverged();
 }
 
 void stosw()
@@ -633,7 +617,6 @@ void stosd_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -683,7 +666,6 @@ void stosd_no_rep()
 
     safe_write32(dest, data);
     add_reg_asize(EDI, size);
-    diverged();
 }
 
 void stosd()
@@ -703,7 +685,6 @@ void lodsb_rep()
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -736,7 +717,6 @@ void lodsb_no_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
     reg8[AL] = safe_read8(src);
     add_reg_asize(ESI, size);
-    diverged();
 }
 
 
@@ -758,7 +738,6 @@ void lodsw_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
 
     uint32_t count = ((uint32_t) get_reg_asize(ECX));
-    diverged();
     if(count == 0) return;
     bool cont = false;
     uint32_t cycle_counter = MAX_COUNT_PER_CYCLE;
@@ -784,7 +763,6 @@ void lodsw_no_rep()
     reg16[AX] = safe_read16(src);
     add_reg_asize(ESI, size);
 
-    diverged();
 }
 
 void lodsw()
@@ -805,7 +783,6 @@ void lodsd_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
@@ -830,7 +807,6 @@ void lodsd_no_rep()
 
     reg32s[EAX] = safe_read32s(src);
     add_reg_asize(ESI, size);
-    diverged();
 }
 
 void lodsd()
@@ -853,7 +829,6 @@ void scasb_rep()
     int32_t data_src = reg8[AL];
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -892,7 +867,6 @@ void scasb_no_rep()
     data_dest = safe_read8(dest);
     add_reg_asize(EDI, size);
     cmp8(data_src, data_dest);
-    diverged();
 }
 
 void scasb()
@@ -915,7 +889,6 @@ void scasw_rep()
     int32_t data_src = reg16[AL];
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -969,7 +942,6 @@ void scasw_no_rep()
     data_dest = safe_read16(dest);
     add_reg_asize(EDI, size);
     cmp16(data_src, data_dest);
-    diverged();
 }
 
 void scasw()
@@ -992,7 +964,6 @@ void scasd_rep()
     int32_t data_src = reg32s[EAX];
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -1046,7 +1017,6 @@ void scasd_no_rep()
     data_dest = safe_read32s(dest);
     add_reg_asize(EDI, size);
     cmp32(data_src, data_dest);
-    diverged();
 }
 
 
@@ -1071,7 +1041,6 @@ void insb_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -1109,7 +1078,6 @@ void insb_no_rep()
     writable_or_pagefault(dest, 1);
     safe_write8(dest, io_port_read8(port));
     add_reg_asize(EDI, size);
-    diverged();
 }
 
 void insb()
@@ -1133,7 +1101,6 @@ void insw_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -1186,7 +1153,6 @@ void insw_no_rep()
     writable_or_pagefault(dest, 2);
     safe_write16(dest, io_port_read16(port));
     add_reg_asize(EDI, size);
-    diverged();
 }
 
 void insw()
@@ -1210,7 +1176,6 @@ void insd_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -1263,7 +1228,6 @@ void insd_no_rep()
     writable_or_pagefault(dest, 4);
     safe_write32(dest, io_port_read32(port));
     add_reg_asize(EDI, size);
-    diverged();
 }
 
 void insd()
@@ -1287,7 +1251,6 @@ void outsb_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -1324,7 +1287,6 @@ void outsb_no_rep()
 
     io_port_write8(port, safe_read8(src));
     add_reg_asize(ESI, size);
-    diverged();
 }
 
 void outsb()
@@ -1348,7 +1310,6 @@ void outsw_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -1400,7 +1361,6 @@ void outsw_no_rep()
 
     io_port_write16(port, safe_read16(src));
     add_reg_asize(ESI, size);
-    diverged();
 }
 
 void outsw()
@@ -1424,7 +1384,6 @@ void outsd_rep()
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
 
     int32_t count = get_reg_asize(ECX);
-    diverged();
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
@@ -1476,7 +1435,6 @@ void outsd_no_rep()
 
     io_port_write32(port, safe_read32s(src));
     add_reg_asize(ESI, size);
-    diverged();
 }
 
 void outsd()

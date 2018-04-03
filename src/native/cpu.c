@@ -38,21 +38,6 @@ void after_block_boundary()
     jit_block_boundary = true;
 }
 
-void diverged()
-{
-    after_block_boundary();
-}
-
-void branch_taken()
-{
-    after_block_boundary();
-}
-
-void branch_not_taken()
-{
-    after_block_boundary();
-}
-
 int32_t get_eflags()
 {
     return (*flags & ~FLAGS_ALL) | !!getcf() | !!getpf() << 2 | !!getaf() << 4 |

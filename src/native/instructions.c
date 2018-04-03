@@ -636,7 +636,6 @@ void instr16_9A(int32_t new_ip, int32_t new_cs) {
     // callf
     far_jump(new_ip, new_cs, true);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 void instr32_9A(int32_t new_ip, int32_t new_cs) {
     if(!*protected_mode || vm86_mode())
@@ -650,7 +649,6 @@ void instr32_9A(int32_t new_ip, int32_t new_cs) {
 
     far_jump(new_ip, new_cs, true);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 
 void instr_9B() {
@@ -861,7 +859,6 @@ void instr16_C2(int32_t imm16) {
     instruction_pointer[0] = cs + pop16();
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
     adjust_stack_reg(imm16);
-    diverged();
 }
 void instr32_C2(int32_t imm16) {
     // retn
@@ -871,13 +868,11 @@ void instr32_C2(int32_t imm16) {
     dbg_assert(is_asize_32() || ip < 0x10000);
     instruction_pointer[0] = cs + ip;
     adjust_stack_reg(imm16);
-    diverged();
 }
 void instr16_C3() {
     // retn
     int32_t cs = get_seg_cs();
     instruction_pointer[0] = cs + pop16();
-    diverged();
 }
 void instr32_C3() {
     // retn
@@ -885,7 +880,6 @@ void instr32_C3() {
     int32_t ip = pop32s();
     dbg_assert(is_asize_32() || ip < 0x10000);
     instruction_pointer[0] = cs + ip;
-    diverged();
 }
 
 void instr16_C4_reg(int32_t _unused1, int32_t _unused2) { trigger_ud(); }
@@ -933,7 +927,6 @@ void instr16_CA(int32_t imm16) {
     int32_t cs = safe_read16(get_stack_pointer(2));
 
     far_return(ip, cs, imm16);
-    diverged();
 }
 void instr32_CA(int32_t imm16) {
     // retf
@@ -942,7 +935,6 @@ void instr32_CA(int32_t imm16) {
 
     far_return(ip, cs, imm16);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 void instr16_CB() {
     // retf
@@ -951,7 +943,6 @@ void instr16_CB() {
 
     far_return(ip, cs, 0);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 void instr32_CB() {
     // retf
@@ -960,7 +951,6 @@ void instr32_CB() {
 
     far_return(ip, cs, 0);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 
 void instr_CC() {
@@ -968,12 +958,10 @@ void instr_CC() {
     // TODO: inhibit iopl checks
     dbg_log("INT3");
     call_interrupt_vector(3, true, false, 0);
-    diverged();
 }
 void instr_CD(int32_t imm8) {
     // INT
     call_interrupt_vector(imm8, true, false, 0);
-    diverged();
 }
 void instr_CE() {
     // INTO
@@ -983,17 +971,14 @@ void instr_CE() {
         // TODO: inhibit iopl checks
         call_interrupt_vector(4, true, false, 0);
     }
-    diverged();
 }
 
 void instr16_CF() {
     // iret
     iret16();
-    diverged();
 }
 void instr32_CF() {
     iret32();
-    diverged();
 }
 
 DEFINE_MODRM_INSTR1_READ_WRITE_8(instr_D0_0, rol8(___, 1))
@@ -1357,32 +1342,26 @@ void instr_E3(int32_t off) { jcxz(off); }
 void instr_E4(int32_t port) {
     test_privileges_for_io(port, 1);
     reg8[AL] = io_port_read8(port);
-    diverged();
 }
 void instr16_E5(int32_t port) {
     test_privileges_for_io(port, 2);
     reg16[AX] = io_port_read16(port);
-    diverged();
 }
 void instr32_E5(int32_t port) {
     test_privileges_for_io(port, 4);
     reg32s[EAX] = io_port_read32(port);
-    diverged();
 }
 void instr_E6(int32_t port) {
     test_privileges_for_io(port, 1);
     io_port_write8(port, reg8[AL]);
-    diverged();
 }
 void instr16_E7(int32_t port) {
     test_privileges_for_io(port, 2);
     io_port_write16(port, reg16[AX]);
-    diverged();
 }
 void instr32_E7(int32_t port) {
     test_privileges_for_io(port, 4);
     io_port_write32(port, reg32s[EAX]);
-    diverged();
 }
 
 void instr16_E8(int32_t imm16) {
@@ -1390,7 +1369,6 @@ void instr16_E8(int32_t imm16) {
     push16(get_real_eip());
 
     jmp_rel16(imm16);
-    diverged();
 }
 void instr32_E8(int32_t imm32s) {
     // call
@@ -1398,7 +1376,6 @@ void instr32_E8(int32_t imm32s) {
 
     instruction_pointer[0] = instruction_pointer[0] + imm32s;
     //dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 void instr16_E8_jit(int32_t imm16) {
     gen_fn1("instr16_E8", 10, imm16);
@@ -1414,13 +1391,11 @@ void instr32_E8_jit(int32_t imm32s) {
 void instr16_E9(int32_t imm16) {
     // jmp
     jmp_rel16(imm16);
-    diverged();
 }
 void instr32_E9(int32_t imm32s) {
     // jmp
     instruction_pointer[0] = instruction_pointer[0] + imm32s;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 void instr16_E9_jit(int32_t imm16) {
     gen_fn1("instr16_E9", 10, imm16);
@@ -1436,20 +1411,17 @@ void instr16_EA(int32_t new_ip, int32_t cs) {
     // jmpf
     far_jump(new_ip, cs, false);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 void instr32_EA(int32_t new_ip, int32_t cs) {
     // jmpf
     far_jump(new_ip, cs, false);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 
 void instr_EB(int32_t imm8) {
     // jmp near
     instruction_pointer[0] = instruction_pointer[0] + imm8;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 
 void instr_EB_jit(int32_t imm8s) {
@@ -1463,37 +1435,31 @@ void instr_EC() {
     int32_t port = reg16[DX];
     test_privileges_for_io(port, 1);
     reg8[AL] = io_port_read8(port);
-    diverged();
 }
 void instr16_ED() {
     int32_t port = reg16[DX];
     test_privileges_for_io(port, 2);
     reg16[AX] = io_port_read16(port);
-    diverged();
 }
 void instr32_ED() {
     int32_t port = reg16[DX];
     test_privileges_for_io(port, 4);
     reg32s[EAX] = io_port_read32(port);
-    diverged();
 }
 void instr_EE() {
     int32_t port = reg16[DX];
     test_privileges_for_io(port, 1);
     io_port_write8(port, reg8[AL]);
-    diverged();
 }
 void instr16_EF() {
     int32_t port = reg16[DX];
     test_privileges_for_io(port, 2);
     io_port_write16(port, reg16[AX]);
-    diverged();
 }
 void instr32_EF() {
     int32_t port = reg16[DX];
     test_privileges_for_io(port, 4);
     io_port_write32(port, reg32s[EAX]);
-    diverged();
 }
 
 void instr_F0() {
@@ -1688,7 +1654,6 @@ void instr16_FF_2_helper(int32_t data)
     push16(get_real_eip());
     instruction_pointer[0] = cs + data;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 DEFINE_MODRM_INSTR1_READ16(instr16_FF_2, instr16_FF_2_helper(___))
 void instr16_FF_3_reg(int32_t r)
@@ -1704,14 +1669,12 @@ void instr16_FF_3_mem(int32_t addr)
 
     far_jump(new_ip, new_cs, true);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 void instr16_FF_4_helper(int32_t data)
 {
     // jmp near
     instruction_pointer[0] = get_seg_cs() + data;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 DEFINE_MODRM_INSTR1_READ16(instr16_FF_4, instr16_FF_4_helper(___))
 void instr16_FF_5_reg(int32_t r)
@@ -1727,7 +1690,6 @@ void instr16_FF_5_mem(int32_t addr)
 
     far_jump(new_ip, new_cs, false);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-    diverged();
 }
 DEFINE_MODRM_INSTR1_READ16(instr16_FF_6, push16(___))
 void instr16_FF_6_jit_reg(int32_t reg) { push16_reg_jit(reg); }
@@ -1742,7 +1704,6 @@ void instr32_FF_2_helper(int32_t data)
     push32(get_real_eip());
     dbg_assert(is_asize_32() || data < 0x10000);
     instruction_pointer[0] = cs + data;
-    diverged();
 }
 DEFINE_MODRM_INSTR1_READ32(instr32_FF_2, instr32_FF_2_helper(___))
 void instr32_FF_3_reg(int32_t r)
@@ -1767,14 +1728,12 @@ void instr32_FF_3_mem(int32_t addr)
 
     far_jump(new_ip, new_cs, true);
     dbg_assert(is_asize_32() || new_ip < 0x10000);
-    diverged();
 }
 void instr32_FF_4_helper(int32_t data)
 {
     // jmp near
     dbg_assert(is_asize_32() || data < 0x10000);
     instruction_pointer[0] = get_seg_cs() + data;
-    diverged();
 }
 DEFINE_MODRM_INSTR1_READ32(instr32_FF_4, instr32_FF_4_helper(___))
 void instr32_FF_5_reg(int32_t r)
@@ -1799,7 +1758,6 @@ void instr32_FF_5_mem(int32_t addr)
 
     far_jump(new_ip, new_cs, false);
     dbg_assert(is_asize_32() || new_ip < 0x10000);
-    diverged();
 }
 DEFINE_MODRM_INSTR1_READ32(instr32_FF_6, push32(___))
 void instr32_FF_6_jit_reg(int32_t reg) { push32_reg_jit(reg); }

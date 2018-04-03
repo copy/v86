@@ -110,7 +110,6 @@ void jmp_rel16(int32_t rel16)
 
     // limit ip to 16 bit
     *instruction_pointer = cs_offset + ((*instruction_pointer - cs_offset + rel16) & 0xFFFF);
-    branch_taken();
 }
 
 void jmpcc8(bool condition, int32_t imm8)
@@ -118,11 +117,6 @@ void jmpcc8(bool condition, int32_t imm8)
     if(condition)
     {
         *instruction_pointer += imm8;
-        branch_taken();
-    }
-    else
-    {
-        branch_not_taken();
     }
 }
 
@@ -131,11 +125,6 @@ void jmpcc16(bool condition, int32_t imm16)
     if(condition)
     {
         jmp_rel16(imm16);
-        branch_taken();
-    }
-    else
-    {
-        branch_not_taken();
     }
 }
 
@@ -144,11 +133,6 @@ void jmpcc32(bool condition, int32_t imm32)
     if(condition)
     {
         *instruction_pointer += imm32;
-        branch_taken();
-    }
-    else
-    {
-        branch_not_taken();
     }
 }
 
@@ -157,11 +141,6 @@ void loopne(int32_t imm8s)
     if(decr_ecx_asize() && !getzf())
     {
         instruction_pointer[0] = instruction_pointer[0] + imm8s;
-        branch_taken();
-    }
-    else
-    {
-        branch_not_taken();
     }
 }
 
@@ -170,11 +149,6 @@ void loope(int32_t imm8s)
     if(decr_ecx_asize() && getzf())
     {
         instruction_pointer[0] = instruction_pointer[0] + imm8s;
-        branch_taken();
-    }
-    else
-    {
-        branch_not_taken();
     }
 }
 
@@ -183,11 +157,6 @@ void loop(int32_t imm8s)
     if(decr_ecx_asize())
     {
         instruction_pointer[0] = instruction_pointer[0] + imm8s;
-        branch_taken();
-    }
-    else
-    {
-        branch_not_taken();
     }
 }
 
@@ -196,11 +165,6 @@ void jcxz(int32_t imm8s)
     if(get_reg_asize(ECX) == 0)
     {
         instruction_pointer[0] = instruction_pointer[0] + imm8s;
-        branch_taken();
-    }
-    else
-    {
-        branch_not_taken();
     }
 }
 
