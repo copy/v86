@@ -323,28 +323,16 @@ static bool can_optimize_get_seg(int32_t segment)
 static void jit_add_seg_offset(int32_t default_segment)
 {
     int32_t prefix = *prefixes & PREFIX_MASK_SEGMENT;
+    int32_t seg = prefix ? prefix - 1 : default_segment;
 
-    bool optimize_prefix = prefix && (prefix == SEG_PREFIX_ZERO || can_optimize_get_seg(prefix - 1));
-    bool optimize_default = !prefix && can_optimize_get_seg(default_segment);
-
-    if(optimize_prefix || optimize_default)
+    if(can_optimize_get_seg(seg) || (prefix && prefix == SEG_PREFIX_ZERO))
     {
-        return false;
+        return;
     }
 
-    if(prefix)
-    {
-        push_i32(&instruction_body, prefix - 1);
-        call_fn(&instruction_body, fn_get_seg_idx);
-    }
-    else
-    {
-        write_raw_u8(&instruction_body, OP_I32CONST);
-        write_raw_u8(&instruction_body, default_segment);
-        call_fn(&instruction_body, fn_get_seg_idx);
-    }
+    push_i32(&instruction_body, seg);
+    call_fn(&instruction_body, fn_get_seg_idx);
     add_i32(&instruction_body);
-    return true;
 }
 
 static void gen_modrm_entry_2()
