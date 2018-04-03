@@ -85,7 +85,6 @@ int32_t valid_tlb_entries_count;
 extern void call_indirect(int32_t index);
 
 void after_block_boundary(void);
-void altered_state(void);
 void diverged(void);
 void branch_taken(void);
 void branch_not_taken(void);

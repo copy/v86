@@ -126,6 +126,8 @@ function gen_instruction_body(encodings, size)
         console.assert((encoding.opcode & 0xFF00) === 0x0F00);
     }
 
+    const instruction_postfix = encoding.block_boundary ? ["after_block_boundary();"] : [];
+
     if(encoding.fixed_g !== undefined)
     {
         // instruction with modrm byte where the middle 3 bits encode the instruction
@@ -146,6 +148,7 @@ function gen_instruction_body(encodings, size)
                 cases: cases.map(case_ => {
                     const fixed_g = case_.fixed_g;
                     const instruction_name = make_instruction_name(case_, size, undefined);
+                    const instruction_postfix = case_.block_boundary ? ["after_block_boundary();"] : [];
 
                     let modrm_resolve_prefix = undefined;
 
@@ -197,12 +200,12 @@ function gen_instruction_body(encodings, size)
                                     if_blocks,
                                     else_block,
                                 },
-                            ],
+                            ].concat(instruction_postfix),
                         };
                     }
                     else
                     {
-                        const body = [gen_modrm_mem_reg_split(instruction_name, modrm_resolve_prefix, mem_args, reg_args)];
+                        const body = [gen_modrm_mem_reg_split(instruction_name, modrm_resolve_prefix, mem_args, reg_args)].concat(instruction_postfix);
 
                         return {
                             conditions: [fixed_g],
@@ -218,7 +221,7 @@ function gen_instruction_body(encodings, size)
                     ],
                 }
             }
-        ];
+        ].concat(instruction_postfix);
     }
     else if(has_66 || has_F2 || has_F3)
     {
@@ -270,7 +273,7 @@ function gen_instruction_body(encodings, size)
                 if_blocks,
                 else_block,
             }
-        ];
+        ].concat(instruction_postfix);
     }
     else if(encoding.fixed_g === undefined && encoding.e)
     {
@@ -300,7 +303,7 @@ function gen_instruction_body(encodings, size)
             return [
                 "int32_t modrm_byte = read_imm8();",
                 gen_call(instruction_name, ["modrm_byte & 7", "modrm_byte >> 3 & 7"]),
-            ];
+            ].concat(instruction_postfix);
         }
         else
         {
@@ -316,7 +319,7 @@ function gen_instruction_body(encodings, size)
             return [
                 "int32_t modrm_byte = read_imm8();",
                 gen_modrm_mem_reg_split(instruction_name, modrm_resolve_prefix, mem_args, reg_args),
-            ];
+            ].concat(instruction_postfix);
         }
     }
     else
@@ -344,7 +347,7 @@ function gen_instruction_body(encodings, size)
             args.push("read_imm8()");
         }
 
-        return [gen_call(instruction_name, args)];
+        return [gen_call(instruction_name, args)].concat(instruction_postfix);
     }
 }
 

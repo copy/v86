@@ -38,11 +38,6 @@ void after_block_boundary()
     jit_block_boundary = true;
 }
 
-void altered_state()
-{
-    after_block_boundary();
-}
-
 void diverged()
 {
     after_block_boundary();

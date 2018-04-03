@@ -2241,12 +2241,10 @@ void instr32_0FB1_mem(int32_t addr, int32_t r) {
 void instr16_0FB2_reg(int32_t unused, int32_t unused2) { trigger_ud(); }
 void instr16_0FB2_mem(int32_t addr, int32_t r) {
     lss16(addr, get_reg16_index(r), SS);
-    altered_state();
 }
 void instr32_0FB2_reg(int32_t unused, int32_t unused2) { trigger_ud(); }
 void instr32_0FB2_mem(int32_t addr, int32_t r) {
     lss32(addr, r, SS);
-    altered_state();
 }
 
 void instr16_0FB3_reg(int32_t r1, int32_t r2) { write_reg16(r1, btr_reg(read_reg16(r1), read_reg16(r2) & 15)); }
