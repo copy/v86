@@ -325,7 +325,7 @@ static void jit_add_seg_offset(int32_t default_segment)
     int32_t prefix = *prefixes & PREFIX_MASK_SEGMENT;
     int32_t seg = prefix ? prefix - 1 : default_segment;
 
-    if(can_optimize_get_seg(seg) || (prefix && prefix == SEG_PREFIX_ZERO))
+    if(can_optimize_get_seg(seg) || prefix == SEG_PREFIX_ZERO)
     {
         return;
     }
