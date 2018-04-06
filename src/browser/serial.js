@@ -13,6 +13,8 @@ function SerialAdapter(element, bus)
     this.bus = bus;
     this.text = "";
     this.text_new_line = false;
+    this.control_mode = false;
+    this.control_buffer = "";
 
     this.last_update = 0;
 
@@ -42,28 +44,57 @@ function SerialAdapter(element, bus)
     };
     this.init();
 
-
     this.show_char = function(chr)
     {
-        if(chr === "\x08")
-        {
-            this.text = this.text.slice(0, -1);
-            this.update();
-        }
-        else if(chr === "\r")
-        {
-            // do nothing
+        if(this.control_mode === false) {
+            if(chr === "\x08")
+            {
+                this.text = this.text.slice(0, -1);
+                this.update();
+            }
+            else if(chr === "\x1b") {
+               this.control_mode = true;
+               this.control_buffer = "";
+            }
+            else if(chr === "\r")
+            {
+                // do nothing
+            }
+            else
+            {
+               this.text += chr;
+
+               if(chr === "\n")
+               {
+                  this.text_new_line = true;
+               }
+
+               this.update();
+            }
         }
         else
         {
-            this.text += chr;
-
-            if(chr === "\n")
+            this.control_buffer += chr;
+            var cmds = {
+                bksp: /$\[.J^/,
+                clr: /$\[.H\x1B\[.J^/,
+                invalid: /$*[^HJ]^/
+            };
+            if(cmds.bksp.test(this.control_buffer))
             {
-                this.text_new_line = true;
+                //just ignore it, backspace handled above
+                this.control_mode = false;
             }
-
-            this.update();
+            else if(cmds.clr.test(this.control_buffer))
+            {
+                this.text = "";
+                this.control_mode = false;
+                this.update();
+            }
+            else if(cmds.invalid.test(this.control_buffer))
+            {
+                this.control_mode = false;
+            }
         }
     };
 
