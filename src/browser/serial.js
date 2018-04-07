@@ -46,7 +46,8 @@ function SerialAdapter(element, bus)
 
     this.show_char = function(chr)
     {
-        if(this.control_mode === false) {
+        if(this.control_mode === false)
+        {
             if(chr === "\x08")
             {
                 this.text = this.text.slice(0, -1);
@@ -76,9 +77,9 @@ function SerialAdapter(element, bus)
         {
             this.control_buffer += chr;
             var cmds = {
-                bksp: /$\[.J^/,
-                clr: /$\[.H\x1B\[.J^/,
-                invalid: /$*[^HJ]^/
+                bksp: /^\[.J$/,
+                clr: /^\[.H\x1B\[.J$/,
+                invalid: /^.*[^HJ]$/
             };
             if(cmds.bksp.test(this.control_buffer))
             {
@@ -93,6 +94,7 @@ function SerialAdapter(element, bus)
             }
             else if(cmds.invalid.test(this.control_buffer))
             {
+                this.text = this.text + "^" + this.control_buffer;
                 this.control_mode = false;
             }
         }
