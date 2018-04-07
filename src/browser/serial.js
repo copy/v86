@@ -77,9 +77,9 @@ function SerialAdapter(element, bus)
         {
             this.control_buffer += chr;
             var cmds = {
-                bksp: /^\[.J$/,
-                clr: /^\[.H\x1B\[.J$/,
-                invalid: /^.*[^HJ]$/
+                bksp: /^\[[0-2]?J$/,
+                clr: /^\[[0-9;]{0,5}H\x1b\[[0-2]?J$/,
+                invalid: /[hl=>0-2M-OmrA-Efg3-8KnRc8qy]/
             };
             if(cmds.bksp.test(this.control_buffer))
             {
@@ -92,7 +92,7 @@ function SerialAdapter(element, bus)
                 this.control_mode = false;
                 this.update();
             }
-            else if(cmds.invalid.test(this.control_buffer))
+            else if(cmds.invalid.test(this.control_buffer.substr(this.control_buffer.length - 1)))
             {
                 this.text = this.text + "^" + this.control_buffer;
                 this.control_mode = false;
