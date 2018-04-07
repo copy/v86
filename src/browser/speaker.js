@@ -733,7 +733,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
                     value: message,
                 });
             }
-        }
+        };
 
         registerProcessor("dac-processor", DACProcessor);
     }
