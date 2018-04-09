@@ -292,17 +292,24 @@ function PIC(cpu, master)
                 return;
             }
 
-            if(PIC_LOG_VERBOSE)
-            {
-                dbg_log("master> set irq " + irq_number, LOG_PIC);
-            }
-
             var irq_mask = 1 << irq_number;
             if((this.irq_value & irq_mask) === 0)
             {
+                if(PIC_LOG_VERBOSE)
+                {
+                    dbg_log("master> set irq " + irq_number, LOG_PIC);
+                }
+
                 this.irr |= irq_mask;
                 this.irq_value |= irq_mask;
                 this.check_irqs();
+            }
+            else
+            {
+                if(PIC_LOG_VERBOSE)
+                {
+                    dbg_log("master> set irq " + irq_number + ": already set!", LOG_PIC);
+                }
             }
         };
 
@@ -334,17 +341,25 @@ function PIC(cpu, master)
         this.set_irq = function(irq_number)
         {
             dbg_assert(irq_number >= 0 && irq_number < 8);
-            if(PIC_LOG_VERBOSE)
-            {
-                dbg_log("slave > set irq " + irq_number, LOG_PIC);
-            }
 
             var irq_mask = 1 << irq_number;
             if((this.irq_value & irq_mask) === 0)
             {
+                if(PIC_LOG_VERBOSE)
+                {
+                    dbg_log("slave > set irq " + irq_number, LOG_PIC);
+                }
+
                 this.irr |= irq_mask;
                 this.irq_value |= irq_mask;
                 this.check_irqs();
+            }
+            else
+            {
+                if(PIC_LOG_VERBOSE)
+                {
+                    dbg_log("slave > set irq " + irq_number + ": already set!", LOG_PIC);
+                }
             }
         };
 
