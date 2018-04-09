@@ -1638,10 +1638,52 @@ void set_tsc(uint32_t low, uint32_t high)
     tsc_offset = current_value - new_value;
 }
 
+
+uint64_t rdtsc_last_value = 0;
+uint64_t rdtsc_imprecision_offset = 0;
+
 uint64_t read_tsc()
 {
     double_t n = microtick() * TSC_RATE;
-    return (uint64_t)n - tsc_offset;
+    uint64_t value = (uint64_t)n - tsc_offset;
+
+#if 1
+    return value;
+#else
+
+    if(value == rdtsc_last_value)
+    {
+        // don't go past 1ms
+
+        if(rdtsc_imprecision_offset < TSC_RATE)
+        {
+            rdtsc_imprecision_offset++;
+        }
+    }
+    else
+    {
+        uint64_t previous_value = rdtsc_last_value + rdtsc_imprecision_offset;
+
+        if(previous_value <= value)
+        {
+            rdtsc_last_value = value;
+            rdtsc_imprecision_offset = 0;
+        }
+        else
+        {
+            dbg_log("XXX: Overshot tsc prev=%x:%x offset=%x:%x curr=%x:%x",
+                    (uint32_t)(rdtsc_last_value >> 32), (uint32_t)rdtsc_last_value,
+                    (uint32_t)(rdtsc_imprecision_offset >> 32), (uint32_t)rdtsc_imprecision_offset,
+                    (uint32_t)(value >> 32), (uint32_t)value
+                    );
+            dbg_assert(false);
+
+            // Keep current value until time catches up
+        }
+    }
+
+    return rdtsc_last_value + rdtsc_imprecision_offset;
+#endif
 }
 
 void store_current_tsc()
