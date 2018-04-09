@@ -1248,10 +1248,8 @@ union reg128 safe_read128s(int32_t addr)
     union reg128 x;
     if((addr & 0xFFF) > (0x1000 - 16))
     {
-        x.u32[0] = safe_read32s(addr);
-        x.u32[1] = safe_read32s(addr + 4);
-        x.u32[2] = safe_read32s(addr + 8);
-        x.u32[3] = safe_read32s(addr + 12);
+        x.u64[0] = safe_read64s(addr).u64[0];
+        x.u64[1] = safe_read64s(addr + 8).u64[0];
     }
     else
     {
