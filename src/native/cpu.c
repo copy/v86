@@ -1057,12 +1057,14 @@ void raise_exception_with_code(int32_t interrupt_nr, int32_t error_code)
     throw_cpu_exception();
 }
 
+__attribute__((noinline))
 void trigger_de()
 {
     *instruction_pointer = *previous_ip;
     raise_exception(0);
 }
 
+__attribute__((noinline))
 void trigger_ud()
 {
     dbg_log("#ud");
@@ -1071,24 +1073,28 @@ void trigger_ud()
     raise_exception(6);
 }
 
+__attribute__((noinline))
 void trigger_nm()
 {
     *instruction_pointer = *previous_ip;
     raise_exception(7);
 }
 
+__attribute__((noinline))
 void trigger_np(int32_t code)
 {
     *instruction_pointer = *previous_ip;
     raise_exception_with_code(11, code);
 }
 
+__attribute__((noinline))
 void trigger_ss(int32_t code)
 {
     *instruction_pointer = *previous_ip;
     raise_exception_with_code(12, code);
 }
 
+__attribute__((noinline))
 void trigger_gp(int32_t code)
 {
     *instruction_pointer = *previous_ip;
@@ -1190,7 +1196,7 @@ int32_t safe_read16(int32_t addr)
     }
 }
 
-__attribute__((always_inline))
+__attribute__((noinline))
 int32_t safe_read32s_slow(int32_t addr)
 {
     if((addr & 0xFFF) >= 0xFFD)
@@ -1243,6 +1249,7 @@ union reg64 safe_read64s(int32_t addr)
     return x;
 }
 
+__attribute__((always_inline))
 union reg128 safe_read128s(int32_t addr)
 {
     union reg128 x;
@@ -1278,7 +1285,7 @@ void safe_write16(int32_t addr, int32_t value)
     }
 }
 
-__attribute__((always_inline))
+__attribute__((noinline))
 void safe_write32_slow(int32_t addr, int32_t value)
 {
     int32_t phys_low = translate_address_write(addr);
@@ -1334,6 +1341,7 @@ void safe_write64(int32_t addr, int64_t value)
     }
 }
 
+__attribute__((always_inline))
 void safe_write128(int32_t addr, union reg128 value)
 {
     if((addr & 0xFFF) > (0x1000 - 16))
