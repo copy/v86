@@ -289,8 +289,11 @@ static void inline gen_modrm_entry_0(int32_t segment, int32_t reg16_idx_1, int32
     load_aligned_u16(&instruction_body, reg16_idx_2);
     add_i32(&instruction_body);
 
-    push_i32(&instruction_body, imm);
-    add_i32(&instruction_body);
+    if(imm)
+    {
+        push_i32(&instruction_body, imm);
+        add_i32(&instruction_body);
+    }
 
     push_i32(&instruction_body, 0xFFFF);
     and_i32(&instruction_body);
@@ -302,8 +305,12 @@ static void gen_modrm_entry_1(int32_t segment, int32_t reg16_idx, int32_t imm)
 {
     // generates: fn ( ( reg + imm ) & 0xFFFF )
     load_aligned_u16(&instruction_body, reg16_idx);
-    push_i32(&instruction_body, imm);
-    add_i32(&instruction_body);
+
+    if(imm)
+    {
+        push_i32(&instruction_body, imm);
+        add_i32(&instruction_body);
+    }
 
     push_i32(&instruction_body, 0xFFFF);
     and_i32(&instruction_body);
@@ -375,8 +382,12 @@ static void gen_modrm32_entry(int32_t segment, int32_t reg32s_idx, int32_t imm)
 {
     // generates: fn ( reg + imm )
     load_aligned_i32(&instruction_body, reg32s_idx);
-    push_i32(&instruction_body, imm);
-    add_i32(&instruction_body);
+
+    if(imm)
+    {
+        push_i32(&instruction_body, imm);
+        add_i32(&instruction_body);
+    }
 
     jit_add_seg_offset(segment);
 }
@@ -454,20 +465,34 @@ static void jit_resolve_sib(bool mod)
 static void modrm32_special_case_1()
 {
     jit_resolve_sib(true);
-    push_i32(&instruction_body, read_imm8s());
-    add_i32(&instruction_body);
+
+    int32_t imm = read_imm8s();
+
+    if(imm)
+    {
+        push_i32(&instruction_body, imm);
+        add_i32(&instruction_body);
+    }
 }
 
 static void modrm32_special_case_2()
 {
     jit_resolve_sib(true);
-    push_i32(&instruction_body, read_imm32s());
-    add_i32(&instruction_body);
+
+    int32_t imm = read_imm32s();
+
+    if(imm)
+    {
+        push_i32(&instruction_body, imm);
+        add_i32(&instruction_body);
+    }
 }
 
 static void gen_modrm32_entry_1()
 {
-    push_i32(&instruction_body, read_imm32s());
+    int32_t imm = read_imm32s();
+
+    push_i32(&instruction_body, imm);
     jit_add_seg_offset(DS);
 }
 
