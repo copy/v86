@@ -100,6 +100,11 @@ PIT.prototype.timer = function(now, no_irq)
 
             dbg_log("pit interrupt. new value: " + this.counter_start_value[0], LOG_PIT);
 
+            // This isn't strictly correct, but it's necessary since browsers
+            // may sleep longer than necessary to trigger the else branch below
+            // and clear the irq
+            this.cpu.device_lower_irq(0);
+
             this.cpu.device_raise_irq(0);
             var mode = this.counter_mode[0];
 
