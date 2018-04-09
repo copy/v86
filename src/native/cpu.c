@@ -644,7 +644,7 @@ static void jit_generate(int32_t address_hash, uint32_t phys_addr, uint32_t page
     // don't immediately retry to compile
     hot_code_addresses[address_hash] = 0;
 
-    int32_t len = 0;
+    uint32_t len = 0;
     jit_block_boundary = false;
 
     int32_t end_addr;
@@ -1019,7 +1019,13 @@ jit_instr_flags segment_prefix_op_jit(int32_t seg)
 
 void do_many_cycles_unsafe()
 {
+#if 0
     for(int32_t k = 0; k < LOOP_COUNTER; k++)
+#else
+    uint32_t initial_timestamp_counter = *timestamp_counter;
+
+    for(; *timestamp_counter - initial_timestamp_counter < LOOP_COUNTER; )
+#endif
     {
         cycle_internal();
     }

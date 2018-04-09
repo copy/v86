@@ -52,7 +52,7 @@ void gen_set_previous_eip_offset_from_eip(int32_t n);
 void gen_set_previous_eip(void);
 void gen_increment_instruction_pointer(int32_t);
 
-void gen_increment_timestamp_counter(int32_t);
+void gen_increment_timestamp_counter(uint32_t);
 
 void gen_commit_instruction_body_to_cs(void);
 void gen_clear_prefixes(void);

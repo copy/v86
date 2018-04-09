@@ -131,7 +131,7 @@ void gen_relative_jump(int32_t n)
     store_aligned_i32(&instruction_body);
 }
 
-void gen_increment_timestamp_counter(int32_t n)
+void gen_increment_timestamp_counter(uint32_t n)
 {
     gen_increment_variable((int32_t)timestamp_counter, n);
 }
