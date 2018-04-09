@@ -53,7 +53,8 @@ function SerialAdapter(element, bus)
                 this.text = this.text.slice(0, -1);
                 this.update();
             }
-            else if(chr === "\x1b") {
+            else if(chr === "\x1b")
+            {
                this.control_mode = true;
                this.control_buffer = "";
             }
