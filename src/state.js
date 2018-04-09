@@ -32,9 +32,15 @@ StateLoadError.prototype = new Error;
 
 function save_object(obj, saved_buffers)
 {
-    if(typeof obj !== "object" || obj === null || obj instanceof Array)
+    if(typeof obj !== "object" || obj === null)
     {
+        dbg_assert(typeof obj !== "function");
         return obj;
+    }
+
+    if(obj instanceof Array)
+    {
+        return obj.map(x => save_object(x, saved_buffers));
     }
 
     dbg_assert(obj.constructor !== Object);
@@ -70,18 +76,21 @@ function save_object(obj, saved_buffers)
     return result;
 }
 
+const NO_BASE = Object.freeze({});
+
 function restore_object(base, obj, buffers)
 {
     // recursively restore obj into base
 
     if(typeof obj !== "object" || obj === null)
     {
+        dbg_assert(typeof obj !== "function");
         return obj;
     }
 
-    if(base instanceof Array)
+    if(base instanceof Array || base === NO_BASE && obj instanceof Array)
     {
-        return obj;
+        return obj.map(x => restore_object(NO_BASE, x, buffers));
     }
 
     var type = obj["__state_type__"];
@@ -129,9 +138,6 @@ function restore_object(base, obj, buffers)
         dbg_assert(constructor, "Unkown type: " + type);
 
         var info = buffers.infos[obj["buffer_id"]];
-
-        dbg_assert(base);
-        dbg_assert(base.constructor === constructor);
 
         // restore large buffers by just returning a view on the state blob
         if(info.length >= 1024 * 1024 && constructor === Uint8Array)

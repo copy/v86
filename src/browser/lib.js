@@ -317,7 +317,7 @@ var ASYNC_SAFE = false;
         this.block_size = 256;
         this.byteLength = size;
 
-        this.loaded_blocks = {};
+        this.loaded_blocks = Object.create(null);
 
         this.onload = undefined;
         this.onprogress = undefined;
@@ -327,7 +327,7 @@ var ASYNC_SAFE = false;
     {
         if(this.byteLength !== undefined)
         {
-            this.onload && this.onload({});
+            this.onload && this.onload(Object.create(null));
             return;
         }
 
@@ -343,7 +343,7 @@ var ASYNC_SAFE = false;
             {
                 dbg_assert(size >= 0);
                 this.byteLength = size;
-                this.onload && this.onload({});
+                this.onload && this.onload(Object.create(null));
             }
         });
     };
@@ -528,6 +528,30 @@ var ASYNC_SAFE = false;
         };
     };
 
+    AsyncXHRBuffer.prototype.get_state = function()
+    {
+        const state = [];
+
+        const loaded_blocks = [];
+        for(let index in this.loaded_blocks)
+        {
+            dbg_assert(isFinite(+index));
+            loaded_blocks.push([+index, this.loaded_blocks[index]]);
+        }
+        state[0] = loaded_blocks;
+
+        return state;
+    };
+    AsyncXHRBuffer.prototype.set_state = function(state)
+    {
+        const loaded_blocks = state[0];
+        this.loaded_blocks = Object.create(null);
+        for(let [index, block] of loaded_blocks)
+        {
+            this.loaded_blocks[index] = block;
+        }
+    };
+
     /**
      * Synchronous access to File, loading blocks from the input type=file
      * The whole file is loaded into memory during initialisation
@@ -634,7 +658,7 @@ var ASYNC_SAFE = false;
 
         /** @const */
         this.block_size = 256;
-        this.loaded_blocks = {};
+        this.loaded_blocks = Object.create(null);
 
         this.onload = undefined;
         this.onprogress = undefined;
@@ -642,7 +666,7 @@ var ASYNC_SAFE = false;
 
     AsyncFileBuffer.prototype.load = function()
     {
-        this.onload && this.onload({});
+        this.onload && this.onload(Object.create(null));
     };
 
     /**

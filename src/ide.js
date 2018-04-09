@@ -2041,6 +2041,7 @@ IDEInterface.prototype.get_state = function()
     state[25] = this.current_command;
     state[26] = this.data_end;
     state[27] = this.current_atapi_command;
+    state[28] = this.buffer;
     return state;
 };
 
@@ -2075,4 +2076,6 @@ IDEInterface.prototype.set_state = function(state)
 
     this.data16 = new Uint16Array(this.data.buffer);
     this.data32 = new Int32Array(this.data.buffer);
+
+    this.buffer = state[28];
 };
