@@ -1,15 +1,22 @@
 #!/usr/bin/env node
 "use strict";
 
+const QEMU = "qemu-system-x86_64";
+
 const fs = require("fs");
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const path = require("path");
 
 const share_dir_9p = fs.mkdtempSync("/tmp/v86-test-qemu-9p");
 
 fs.copyFileSync(path.join(__dirname, "/test-i386"), path.join(share_dir_9p, "/test-i386"));
 
-const qemu = spawn("qemu-system-x86_64",
+const qemu_version = spawnSync(QEMU, ["--version"]);
+console.assert(qemu_version.status === 0, "QEMU not found, return code: " + qemu_version.status);
+console.error("Using QEMU:");
+console.error(qemu_version.stdout.toString("utf8"));
+
+const qemu = spawn(QEMU,
     [
         "-serial", "stdio",
         "-cdrom", path.join(__dirname, "/../../images/linux3.iso"),
@@ -53,7 +60,6 @@ qemu.stdout.on("data", data => {
         qemu.kill();
     }
 });
-
 
 qemu.stderr.on("data", data => {
     process.stderr.write(data);
