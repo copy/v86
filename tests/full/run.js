@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 "use strict";
 
+process.on("unhandledRejection", exn => { throw exn; });
+
 var TIMEOUT_EXTRA_FACTOR = +process.env.TIMEOUT_EXTRA_FACTOR || 1;
 var MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
 var TEST_NAME = process.env.TEST_NAME;

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 "use strict";
 
+process.on("unhandledRejection", exn => { throw exn; });
+
 // Mapping between signals and x86 exceptions:
 // "Program received signal SIGILL, Illegal instruction." -> #UD (6)
 // "Program received signal SIGFPE, Arithmetic exception." -> #DE (0)

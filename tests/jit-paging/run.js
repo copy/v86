@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 "use strict";
 
+process.on("unhandledRejection", exn => { throw exn; });
+
 var V86 = require("../../build/libv86-debug.js").V86;
 var fs = require("fs");
 
