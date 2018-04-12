@@ -825,11 +825,9 @@ void jit_link_block_conditional(int32_t offset, const char* condition)
     // multiple *virtual* addresses. Due to this, we cannot insert the value of
     // eip into generated code
 
-    gen_fn0_ret(condition, strlen(condition));
-
-    gen_if_void();
-    gen_relative_jump(offset);
-    gen_block_end();
+    // This is currently unused, the jump is generated in after analysis
+    UNUSED(offset);
+    UNUSED(condition);
 }
 
 struct analysis analyze_prefix_instruction()
@@ -872,21 +870,21 @@ struct analysis instr_F3_analyze() {
 struct analysis instr16_0F_analyze()
 {
     int32_t opcode = read_imm8();
-    struct analysis analysis = { .flags = 0, .jump_target = 0, .condition_index = -1 };
+    struct analysis analysis = { .flags = 0, .jump_offset = 0, .condition_index = -1 };
 #include "../../build/analyzer0f_16.c"
     return analysis;
 }
 struct analysis instr32_0F_analyze()
 {
     int32_t opcode = read_imm8();
-    struct analysis analysis = { .flags = 0, .jump_target = 0, .condition_index = -1 };
+    struct analysis analysis = { .flags = 0, .jump_offset = 0, .condition_index = -1 };
 #include "../../build/analyzer0f_32.c"
     return analysis;
 }
 
 struct analysis analyze_step(int32_t opcode)
 {
-    struct analysis analysis = { .flags = 0, .jump_target = 0, .condition_index = -1 };
+    struct analysis analysis = { .flags = 0, .jump_offset = 0, .condition_index = -1 };
 #include "../../build/analyzer.c"
     return analysis;
 }
@@ -1059,7 +1057,9 @@ static void jit_find_basic_blocks()
 
             assert(*prefixes == 0);
 
-            int32_t jump_target = analysis.jump_target;
+            bool has_jump_target = analysis.flags & (JIT_INSTR_IMM_JUMP16_FLAG | JIT_INSTR_IMM_JUMP32_FLAG);
+
+            int32_t instruction_end = *instruction_pointer;
 
             if((analysis.flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG) == 0)
             {
@@ -1075,9 +1075,13 @@ static void jit_find_basic_blocks()
                     break;
                 }
             }
-            else if(jump_target && analysis.condition_index == -1)
+            else if(has_jump_target && analysis.condition_index == -1)
             {
                 // non-conditional jump: continue at jump target
+
+                int32_t jump_target = analysis.flags & JIT_INSTR_IMM_JUMP32_FLAG ?
+                    instruction_end + analysis.jump_offset :
+                    get_seg_cs() + ((instruction_end - get_seg_cs() + analysis.jump_offset) & 0xFFFF);
 
                 if(same_page(jump_target, *instruction_pointer))
                 {
@@ -1098,9 +1102,13 @@ static void jit_find_basic_blocks()
 
                 break;
             }
-            else if(jump_target && analysis.condition_index != -1)
+            else if(has_jump_target && analysis.condition_index != -1)
             {
                 // conditional jump: continue at next and continue at jump target
+
+                int32_t jump_target = analysis.flags & JIT_INSTR_IMM_JUMP32_FLAG ?
+                    instruction_end + analysis.jump_offset :
+                    get_seg_cs() + ((instruction_end - get_seg_cs() + analysis.jump_offset) & 0xFFFF);
 
                 assert(to_visit_stack_count != 1000);
                 to_visit_stack[to_visit_stack_count++] = *instruction_pointer;
@@ -1118,6 +1126,9 @@ static void jit_find_basic_blocks()
                     current_block->next_block_branch_taken_addr = 0;
                 }
 
+                current_block->jump_offset = analysis.jump_offset;
+                current_block->jump_offset_is_32 = analysis.flags & JIT_INSTR_IMM_JUMP32_FLAG;
+
                 assert(*instruction_pointer);
                 current_block->next_block_addr = *instruction_pointer;
                 current_block->end_addr = *instruction_pointer;
@@ -1131,7 +1142,7 @@ static void jit_find_basic_blocks()
             {
                 // a block boundary but not a jump, get out
 
-                assert((analysis.flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG) && !jump_target);
+                assert((analysis.flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG) && !has_jump_target);
 
                 current_block->next_block_branch_taken_addr = 0;
                 current_block->next_block_addr = 0;
@@ -1278,9 +1289,19 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
 
                 gen_if_void();
 
+                // Branch taken
+
+                if(block.jump_offset_is_32)
+                {
+                    gen_relative_jump(block.jump_offset);
+                }
+                else
+                {
+                    gen_fn1("jmp_rel16", strlen("jmp_rel16"), block.jump_offset);
+                }
+
                 if(block.next_block_branch_taken_addr)
                 {
-                    // Branch taken
                     int32_t next_basic_block_branch_taken_index = find_basic_block_index(
                             &basic_blocks, block.next_block_branch_taken_addr);
                     assert(next_basic_block_branch_taken_index != -1);

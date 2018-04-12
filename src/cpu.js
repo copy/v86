@@ -1344,7 +1344,7 @@ CPU.prototype.log_uncompiled_code = function(start, end)
 
 CPU.prototype.dump_function_code = function(block_ptr, count)
 {
-    const SIZEOF_BASIC_BLOCK_IN_DWORDS = 5;
+    const SIZEOF_BASIC_BLOCK_IN_DWORDS = 7;
 
     const mem32 = new Int32Array(this.wm.memory.buffer);
 

@@ -389,12 +389,9 @@ function gen_instruction_body(encodings, size)
             if(encoding.jump_offset_imm)
             {
                 args.push("int32_t jump_offset = " + imm_read + ";");
-                args.push(`
-                    analysis.jump_target = is_osize_32() ?
-                        *instruction_pointer + jump_offset :
-                        get_seg_cs() + ((*instruction_pointer - get_seg_cs() + jump_offset) & 0xFFFF);`);
+                args.push("analysis.jump_offset = jump_offset;");
+                args.push("analysis.flags |= is_osize_32() ? JIT_INSTR_IMM_JUMP32_FLAG : JIT_INSTR_IMM_JUMP16_FLAG;");
             }
-
             else
             {
                 args.push(imm_read + ";");

@@ -1958,22 +1958,23 @@ void instr32_0F8E(int32_t imm) { jmpcc32( test_le(), imm); }
 void instr16_0F8F(int32_t imm) { jmpcc16(!test_le(), imm); }
 void instr32_0F8F(int32_t imm) { jmpcc32(!test_le(), imm); }
 
-void instr16_0F80_jit(int32_t imm) { gen_fn1("instr16_0F80", 12, imm); }
-void instr16_0F81_jit(int32_t imm) { gen_fn1("instr16_0F81", 12, imm); }
-void instr16_0F82_jit(int32_t imm) { gen_fn1("instr16_0F82", 12, imm); }
-void instr16_0F83_jit(int32_t imm) { gen_fn1("instr16_0F83", 12, imm); }
-void instr16_0F84_jit(int32_t imm) { gen_fn1("instr16_0F84", 12, imm); }
-void instr16_0F85_jit(int32_t imm) { gen_fn1("instr16_0F85", 12, imm); }
-void instr16_0F86_jit(int32_t imm) { gen_fn1("instr16_0F86", 12, imm); }
-void instr16_0F87_jit(int32_t imm) { gen_fn1("instr16_0F87", 12, imm); }
-void instr16_0F88_jit(int32_t imm) { gen_fn1("instr16_0F88", 12, imm); }
-void instr16_0F89_jit(int32_t imm) { gen_fn1("instr16_0F89", 12, imm); }
-void instr16_0F8A_jit(int32_t imm) { gen_fn1("instr16_0F8A", 12, imm); }
-void instr16_0F8B_jit(int32_t imm) { gen_fn1("instr16_0F8B", 12, imm); }
-void instr16_0F8C_jit(int32_t imm) { gen_fn1("instr16_0F8C", 12, imm); }
-void instr16_0F8D_jit(int32_t imm) { gen_fn1("instr16_0F8D", 12, imm); }
-void instr16_0F8E_jit(int32_t imm) { gen_fn1("instr16_0F8E", 12, imm); }
-void instr16_0F8F_jit(int32_t imm) { gen_fn1("instr16_0F8F", 12, imm); }
+void instr16_0F80_jit(int32_t imm) { jit_link_block_conditional(imm, "test_o"); }
+void instr16_0F81_jit(int32_t imm) { jit_link_block_conditional(imm, "test_no"); }
+void instr16_0F82_jit(int32_t imm) { jit_link_block_conditional(imm, "test_b"); }
+void instr16_0F83_jit(int32_t imm) { jit_link_block_conditional(imm, "test_nb"); }
+void instr16_0F84_jit(int32_t imm) { jit_link_block_conditional(imm, "test_z"); }
+void instr16_0F85_jit(int32_t imm) { jit_link_block_conditional(imm, "test_nz"); }
+void instr16_0F86_jit(int32_t imm) { jit_link_block_conditional(imm, "test_be"); }
+void instr16_0F87_jit(int32_t imm) { jit_link_block_conditional(imm, "test_nbe"); }
+void instr16_0F88_jit(int32_t imm) { jit_link_block_conditional(imm, "test_s"); }
+void instr16_0F89_jit(int32_t imm) { jit_link_block_conditional(imm, "test_ns"); }
+void instr16_0F8A_jit(int32_t imm) { jit_link_block_conditional(imm, "test_p"); }
+void instr16_0F8B_jit(int32_t imm) { jit_link_block_conditional(imm, "test_np"); }
+void instr16_0F8C_jit(int32_t imm) { jit_link_block_conditional(imm, "test_l"); }
+void instr16_0F8D_jit(int32_t imm) { jit_link_block_conditional(imm, "test_nl"); }
+void instr16_0F8E_jit(int32_t imm) { jit_link_block_conditional(imm, "test_le"); }
+void instr16_0F8F_jit(int32_t imm) { jit_link_block_conditional(imm, "test_nle"); }
+
 
 void instr32_0F80_jit(int32_t imm) { jit_link_block_conditional(imm, "test_o"); }
 void instr32_0F81_jit(int32_t imm) { jit_link_block_conditional(imm, "test_no"); }

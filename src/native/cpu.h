@@ -68,10 +68,12 @@ typedef uint32_t jit_instr_flags;
 
 #define JIT_INSTR_BLOCK_BOUNDARY_FLAG (1 << 0)
 #define JIT_INSTR_NONFAULTING_FLAG (1 << 1)
+#define JIT_INSTR_IMM_JUMP16_FLAG (1 << 2)
+#define JIT_INSTR_IMM_JUMP32_FLAG (1 << 3)
 
 struct analysis {
     jit_instr_flags flags;
-    int32_t jump_target;
+    int32_t jump_offset;
     int32_t condition_index;
 };
 
@@ -81,6 +83,8 @@ struct basic_block {
     int32_t next_block_addr; // if 0 this is an exit block
     int32_t next_block_branch_taken_addr;
     int32_t condition_index; // if not -1 this block ends with a conditional jump
+    int32_t jump_offset;
+    bool jump_offset_is_32;
 };
 
 #define BASIC_BLOCK_LIST_MAX 1000
