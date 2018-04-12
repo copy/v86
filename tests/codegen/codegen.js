@@ -40,6 +40,7 @@ const wasm_test_funcs = {
         _read_imm16() { return vals.imm16; },
         _read_imm32s() { return vals.imm32s; },
         _is_asize_32() { return vals.asize_32; },
+        _has_flat_segmentation() { return false; },
         _printf(...args) { console.log(...args); },
         ___assert_fail(...args) { console.error(...args); console.assert(false); },
         abort() { console.assert(false); },
