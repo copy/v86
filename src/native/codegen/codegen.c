@@ -89,10 +89,10 @@ uintptr_t gen_finish(int32_t no_of_locals_i32)
     // write code section epilogue
     write_raw_u8(&op, OP_END);
 
-    // write the actual sizes to the pointer locations stored above. We subtract 1 from the actual
-    // value because the ptr itself points to two bytes
-    write_fixed_leb32_to_ptr(ptr_fn_body_size, ((op.ptr - 1) - ptr_fn_body_size) - 3);
-    write_fixed_leb32_to_ptr(ptr_code_section_size, ((op.ptr - 1) - ptr_code_section_size) - 3);
+    // write the actual sizes to the pointer locations stored above. We subtract 4 from the actual
+    // value because the ptr itself points to four bytes
+    write_fixed_leb32_to_ptr(ptr_fn_body_size, op.ptr - ptr_fn_body_size - 4);
+    write_fixed_leb32_to_ptr(ptr_code_section_size, op.ptr - ptr_code_section_size - 4);
 
     return (uintptr_t) op.ptr;
 }
