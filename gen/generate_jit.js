@@ -168,11 +168,6 @@ function gen_instruction_body(encodings, size)
         if((e.opcode >>> 16) === 0xF3) has_F3 = true;
     }
 
-    console.assert(
-        !encodings.some(e => e.nonfaulting && e.block_boundary),
-        "Unsupported: instruction cannot be both a block boundary and nonfaulting. Opcode: 0x" + hex(encoding.opcode)
-    );
-
     if(has_66 || has_F2 || has_F3)
     {
         console.assert((encoding.opcode & 0xFF00) === 0x0F00);

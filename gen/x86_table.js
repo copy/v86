@@ -1,5 +1,7 @@
 "use strict";
 
+const { hex } = require("./util");
+
 // http://ref.x86asm.net/coder32.html
 
 const zf = 1 << 6;
@@ -677,5 +679,19 @@ encodings.sort((e1, e2) => {
     let o2 = (e2.opcode & 0xFF00) === 0x0F00 ? e2.opcode & 0xFFFF : e2.opcode & 0xFF;
     return o1 - o2 || e1.fixed_g - e2.fixed_g;
 });
+
+function test_encodings()
+{
+    const invalid = encodings.find(e => e.nonfaulting && e.block_boundary);
+
+    if(invalid)
+    {
+        console.assert(
+            false,
+            "Unsupported: instruction cannot be both a block boundary and nonfaulting. Opcode: " + hex(invalid.opcode)
+        );
+    }
+}
+test_encodings();
 
 module.exports = Object.freeze(encodings.map(entry => Object.freeze(entry)));

@@ -296,6 +296,8 @@ void gen_return(void)
 // where [i] is passed on the wasm stack
 void gen_switch(int32_t cases_count)
 {
+    assert(cases_count >= 0);
+
     write_raw_u8(&instruction_body, OP_BRTABLE);
     write_leb_u32(&instruction_body, cases_count);
 

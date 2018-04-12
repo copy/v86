@@ -1024,7 +1024,7 @@ static void jit_find_basic_blocks()
     {
         int32_t to_visit = to_visit_stack[--to_visit_stack_count];
 
-        assert((*instruction_pointer & ~0xFFF) == (to_visit & ~0xFFF));
+        assert(same_page(*instruction_pointer, to_visit));
         *instruction_pointer = *instruction_pointer & ~0xFFF | to_visit & 0xFFF;
 
         if(find_basic_block_index(&basic_blocks, *instruction_pointer) != -1)
