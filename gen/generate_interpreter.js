@@ -426,15 +426,6 @@ function gen_table()
     {
         let encoding = by_opcode0f[opcode];
 
-        if(!encoding)
-        {
-            encoding = [
-                {
-                    opcode: 0x0F00 | opcode,
-                },
-            ];
-        }
-
         console.assert(encoding && encoding.length);
 
         let opcode_hex = hex(opcode, 2);

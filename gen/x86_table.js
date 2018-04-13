@@ -257,7 +257,6 @@ const encodings = [
     { opcode: 0x0F07, skip: 1 },
     { opcode: 0x0F08, skip: 1 },
     { opcode: 0x0F09, skip: 1 },
-    { opcode: 0x0F09, skip: 1 },
     { opcode: 0x0F0A, skip: 1 },
     { opcode: 0x0F0B, skip: 1 },
     { opcode: 0x0F0C, skip: 1 },
@@ -266,12 +265,22 @@ const encodings = [
     { opcode: 0x0F0F, skip: 1 },
 
     { opcode: 0x0F18, only_mem: 1, e: 1, },
+    { opcode: 0x0F19, skip: 1 },
+    { opcode: 0x0F1A, skip: 1 },
+    { opcode: 0x0F1B, skip: 1 },
+    { opcode: 0x0F1C, skip: 1 },
+    { opcode: 0x0F1D, skip: 1 },
+    { opcode: 0x0F1E, skip: 1 },
     { opcode: 0x0F1F, e: 1, },
 
     { opcode: 0x0F20, ignore_mod: 1, e: 1, skip: 1 },
     { opcode: 0x0F21, ignore_mod: 1, e: 1, skip: 1 },
     { opcode: 0x0F22, ignore_mod: 1, e: 1, skip: 1 },
     { opcode: 0x0F23, ignore_mod: 1, e: 1, skip: 1 },
+    { opcode: 0x0F24, skip: 1 },
+    { opcode: 0x0F25, skip: 1 },
+    { opcode: 0x0F26, skip: 1 },
+    { opcode: 0x0F27, skip: 1 },
 
     { opcode: 0x0F30, skip: 1 },
     { opcode: 0x0F31, skip: 1 },
@@ -279,6 +288,16 @@ const encodings = [
     { opcode: 0x0F33, skip: 1 },
     { opcode: 0x0F34, skip: 1, block_boundary: 1, }, // sysenter
     { opcode: 0x0F35, skip: 1, block_boundary: 1, no_next_instruction: 1, }, // sysexit
+    { opcode: 0x0F36, skip: 1 },
+    { opcode: 0x0F37, skip: 1 },
+    { opcode: 0x0F38, skip: 1 },
+    { opcode: 0x0F39, skip: 1 },
+    { opcode: 0x0F3A, skip: 1 },
+    { opcode: 0x0F3B, skip: 1 },
+    { opcode: 0x0F3C, skip: 1 },
+    { opcode: 0x0F3D, skip: 1 },
+    { opcode: 0x0F3E, skip: 1 },
+    { opcode: 0x0F3F, skip: 1 },
 
     { opcode: 0x0F40, nonfaulting: 1, e: 1, os: 1, },
     { opcode: 0x0F41, nonfaulting: 1, e: 1, os: 1, },
@@ -357,6 +376,11 @@ const encodings = [
     { opcode: 0x0FAC, nonfaulting: 1, os: 1, e: 1, imm8: 1, mask_flags: af | of, },
     { opcode: 0x0FAD, nonfaulting: 1, os: 1, e: 1, mask_flags: af | of, },
 
+    { opcode: 0x0FA6, skip: 1 },
+    { opcode: 0x0FA7, skip: 1 },
+
+    { opcode: 0x0FAA, skip: 1 },
+
     { opcode: 0x0FAE, e: 1, fixed_g: 0, only_mem: 1, skip: 1, }, // fxsave, ...
     { opcode: 0x0FAE, e: 1, fixed_g: 1, only_mem: 1, skip: 1, },
     { opcode: 0x0FAE, e: 1, fixed_g: 2, only_mem: 1, skip: 1, },
@@ -382,6 +406,8 @@ const encodings = [
     { opcode: 0x0FB7, nonfaulting: 1, os: 1, e: 1, },
 
     { opcode: 0xF30FB8, os: 1, e: 1 }, // popcnt
+
+    { opcode: 0x0FB9, }, // ud2
 
     { opcode: 0x0FBE, nonfaulting: 1, os: 1, e: 1, }, // movsx
     { opcode: 0x0FBF, nonfaulting: 1, os: 1, e: 1, },
@@ -430,6 +456,7 @@ const encodings = [
     { opcode: 0x660F28, e: 1 },
     { opcode: 0x0F29, e: 1 },
     { opcode: 0x660F29, e: 1 },
+    { opcode: 0x0F2A, skip: 1 },
     { opcode: 0x0F2B, only_mem: 1, e: 1 },
     { opcode: 0x660F2B, only_mem: 1, e: 1 },
 
@@ -437,9 +464,15 @@ const encodings = [
     { opcode: 0x0F2C, e: 1, skip: 1, },
     { opcode: 0xF30F2C, e: 1, skip: 1, },
     { opcode: 0x660F2C, e: 1, skip: 1, },
+    { opcode: 0x0F2D, skip: 1 },
+    { opcode: 0x0F2E, skip: 1 },
+    { opcode: 0x0F2F, skip: 1 },
 
     { opcode: 0x0F50, only_reg: 1, e: 1 },
     { opcode: 0x660F50, only_reg: 1, e: 1 },
+    { opcode: 0x0F51, skip: 1 },
+    { opcode: 0x0F52, skip: 1 },
+    { opcode: 0x0F53, skip: 1 },
     { opcode: 0x0F54, e: 1 },
     { opcode: 0x660F54, e: 1 },
     { opcode: 0x0F55, e: 1 },
@@ -448,6 +481,15 @@ const encodings = [
     { opcode: 0x660F56, e: 1 },
     { opcode: 0x0F57, e: 1 },
     { opcode: 0x660F57, e: 1 },
+
+    { opcode: 0x0F58, skip: 1 },
+    { opcode: 0x0F59, skip: 1 },
+    { opcode: 0x0F5A, skip: 1 },
+    { opcode: 0x0F5B, skip: 1 },
+    { opcode: 0x0F5C, skip: 1 },
+    { opcode: 0x0F5D, skip: 1 },
+    { opcode: 0x0F5E, skip: 1 },
+    { opcode: 0x0F5F, skip: 1 },
 
     { opcode: 0x660F60, e: 1 },
     { opcode: 0x0F60, e: 1 },
@@ -516,6 +558,13 @@ const encodings = [
     { opcode: 0x660F76, e: 1, },
     { opcode: 0x0F77 },
 
+    { opcode: 0x0F78, skip: 1 },
+    { opcode: 0x0F79, skip: 1 },
+    { opcode: 0x0F7A, skip: 1 },
+    { opcode: 0x0F7B, skip: 1 },
+    { opcode: 0x0F7C, skip: 1 },
+    { opcode: 0x0F7D, skip: 1 },
+
     { opcode: 0x0F7E, e: 1 },
     { opcode: 0x660F7E, e: 1 },
     { opcode: 0xF30F7E, e: 1 },
@@ -523,12 +572,18 @@ const encodings = [
     { opcode: 0x660F7F, e: 1 },
     { opcode: 0xF30F7F, e: 1 },
 
+    { opcode: 0x0FC2, skip: 1, },
+
     { opcode: 0x0FC3, e: 1, only_mem: 1, },
     { opcode: 0x0FC4, e: 1, imm8: 1 },
     { opcode: 0x660FC4, e: 1, imm8: 1 },
 
     { opcode: 0x0FC5, e: 1, only_reg: 1, imm8: 1 },
     { opcode: 0x660FC5, e: 1, only_reg: 1, imm8: 1, },
+
+    { opcode: 0x0FC6, skip: 1, },
+
+    { opcode: 0x0FD0, skip: 1, },
 
     { opcode: 0x0FD1, e: 1 },
     { opcode: 0x660FD1, e: 1 },
@@ -600,6 +655,8 @@ const encodings = [
     { opcode: 0x0FEF, e: 1 },
     { opcode: 0x660FEF, e: 1 },
 
+    { opcode: 0x0FF0, skip: 1, },
+
     { opcode: 0x0FF1, e: 1 },
     { opcode: 0x660FF1, e: 1 },
     { opcode: 0x0FF2, e: 1 },
@@ -631,6 +688,8 @@ const encodings = [
     { opcode: 0x660FFD, e: 1 },
     { opcode: 0x0FFE, e: 1 },
     { opcode: 0x660FFE, e: 1 },
+
+    { opcode: 0x0FFF, },
 ];
 
 for(let i = 0; i < 8; i++)
