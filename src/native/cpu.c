@@ -655,11 +655,9 @@ static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
     int32_t eip_delta = 0;
 
     *instruction_pointer = start_addr;
-    uint32_t phys_addr = translate_address_read(start_addr);
 
     // First iteration of do-while assumes the caller confirms this condition
     assert(!is_near_end_of_page(start_addr));
-    UNUSED(phys_addr);
 
     do
     {
@@ -721,7 +719,7 @@ static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
         gen_increment_instruction_pointer(instruction_length);
         gen_commit_instruction_body_to_cs();
 #endif
-        end_addr = *eip_phys ^ *instruction_pointer;
+        end_addr = *instruction_pointer;
         len++;
     }
     while(!was_block_boundary &&
@@ -740,7 +738,7 @@ static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
     gen_increment_timestamp_counter(len);
 
     // no page was crossed
-    assert(((end_addr ^ phys_addr) & ~0xFFF) == 0);
+    assert(same_page(end_addr, start_addr));
 
     jit_block_boundary = false;
     assert(*prefixes == 0);
