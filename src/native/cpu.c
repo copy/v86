@@ -1073,68 +1073,67 @@ static void jit_find_basic_blocks()
                     break;
                 }
             }
-            else if(has_jump_target && analysis.condition_index == -1)
+            else if(has_jump_target)
             {
-                // non-conditional jump: continue at jump target
-
                 int32_t jump_target = analysis.flags & JIT_INSTR_IMM_JUMP32_FLAG ?
                     instruction_end + analysis.jump_offset :
                     get_seg_cs() + ((instruction_end - get_seg_cs() + analysis.jump_offset) & 0xFFFF);
 
-                if(same_page(jump_target, *instruction_pointer))
+                if(analysis.condition_index == -1)
                 {
-                    assert(jump_target);
-                    current_block->next_block_addr = jump_target;
+                    // non-conditional jump: continue at jump target
 
-                    assert(to_visit_stack_count != 1000);
-                    to_visit_stack[to_visit_stack_count++] = jump_target;
-                }
-                else
-                {
-                    current_block->next_block_addr = 0;
-                }
+                    if(same_page(jump_target, *instruction_pointer))
+                    {
+                        assert(jump_target);
+                        current_block->next_block_addr = jump_target;
 
-                current_block->next_block_branch_taken_addr = 0;
-                current_block->condition_index = -1;
-                current_block->end_addr = *instruction_pointer;
+                        assert(to_visit_stack_count != 1000);
+                        to_visit_stack[to_visit_stack_count++] = jump_target;
+                    }
+                    else
+                    {
+                        current_block->next_block_addr = 0;
+                    }
 
-                break;
-            }
-            else if(has_jump_target && analysis.condition_index != -1)
-            {
-                // conditional jump: continue at next and continue at jump target
-
-                int32_t jump_target = analysis.flags & JIT_INSTR_IMM_JUMP32_FLAG ?
-                    instruction_end + analysis.jump_offset :
-                    get_seg_cs() + ((instruction_end - get_seg_cs() + analysis.jump_offset) & 0xFFFF);
-
-                assert(to_visit_stack_count != 1000);
-                to_visit_stack[to_visit_stack_count++] = *instruction_pointer;
-
-                if(same_page(jump_target, *instruction_pointer))
-                {
-                    assert(to_visit_stack_count != 1000);
-                    to_visit_stack[to_visit_stack_count++] = jump_target;
-
-                    assert(jump_target);
-                    current_block->next_block_branch_taken_addr = jump_target;
-                }
-                else
-                {
                     current_block->next_block_branch_taken_addr = 0;
+                    current_block->condition_index = -1;
+                    current_block->end_addr = *instruction_pointer;
+
+                    break;
                 }
+                else
+                {
+                    // conditional jump: continue at next and continue at jump target
 
-                current_block->jump_offset = analysis.jump_offset;
-                current_block->jump_offset_is_32 = analysis.flags & JIT_INSTR_IMM_JUMP32_FLAG;
+                    assert(to_visit_stack_count != 1000);
+                    to_visit_stack[to_visit_stack_count++] = *instruction_pointer;
 
-                assert(*instruction_pointer);
-                current_block->next_block_addr = *instruction_pointer;
-                current_block->end_addr = *instruction_pointer;
+                    if(same_page(jump_target, *instruction_pointer))
+                    {
+                        assert(to_visit_stack_count != 1000);
+                        to_visit_stack[to_visit_stack_count++] = jump_target;
 
-                assert(analysis.condition_index >= 0 && analysis.condition_index < 0x10);
-                current_block->condition_index = analysis.condition_index;
+                        assert(jump_target);
+                        current_block->next_block_branch_taken_addr = jump_target;
+                    }
+                    else
+                    {
+                        current_block->next_block_branch_taken_addr = 0;
+                    }
 
-                break;
+                    current_block->jump_offset = analysis.jump_offset;
+                    current_block->jump_offset_is_32 = analysis.flags & JIT_INSTR_IMM_JUMP32_FLAG;
+
+                    assert(*instruction_pointer);
+                    current_block->next_block_addr = *instruction_pointer;
+                    current_block->end_addr = *instruction_pointer;
+
+                    assert(analysis.condition_index >= 0 && analysis.condition_index < 0x10);
+                    current_block->condition_index = analysis.condition_index;
+
+                    break;
+                }
             }
             else
             {
@@ -1197,7 +1196,7 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
         // basic block, but a jump may lead to before the function start, which
         // is currently accepted as long as it is in the same page
         gen_const_i32(first_basic_block_index);
-        gen_set_local(0);
+        gen_set_local(STATE);
     }
 
     // initialise max_iterations
