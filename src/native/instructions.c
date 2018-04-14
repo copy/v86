@@ -611,6 +611,30 @@ void instr32_8F_0_reg(int32_t r)
     write_reg32(r, pop32s());
 }
 
+void instr16_8F_0_jit_mem(int32_t modrm_byte)
+{
+    gen_fn0("instr16_8F_0_mem_pre", 20);
+    gen_modrm_resolve(modrm_byte);
+    gen_modrm_fn0("instr16_8F_0_mem", 16);
+}
+
+void instr16_8F_0_jit_reg(int32_t r)
+{
+    gen_fn1("instr16_8F_0_reg", 16, r);
+}
+
+void instr32_8F_0_jit_mem(int32_t modrm_byte)
+{
+    gen_fn0("instr32_8F_0_mem_pre", 20);
+    gen_modrm_resolve(modrm_byte);
+    gen_modrm_fn0("instr32_8F_0_mem", 16);
+}
+
+void instr32_8F_0_jit_reg(int32_t r)
+{
+    gen_fn1("instr32_8F_0_reg", 16, r);
+}
+
 void instr_90() { }
 void instr16_91() { xchg16r(CX); }
 void instr32_91() { xchg32r(ECX); }

@@ -225,7 +225,7 @@ function gen_instruction_body(encodings, size)
     }
     else if(has_66 || has_F2 || has_F3)
     {
-        // instruction withoud modrm byte but with prefix
+        // instruction without modrm byte but with prefix
 
         console.assert(encoding.e);
         console.assert(!encoding.ignore_mod);

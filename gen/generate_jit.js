@@ -104,7 +104,7 @@ function gen_custom_jit_call(name, args)
     return gen_call(`${name}_jit`, args);
 }
 
-function gen_modrm_mem_reg_split(name, gen_call_fns, mem_prefix_call, mem_args, reg_args, postfixes={})
+function gen_modrm_mem_reg_split(name, gen_call_fns, mem_args, reg_args, postfixes={})
 {
     const { mem_call_fn, reg_call_fn } = gen_call_fns;
     const { mem_postfix=[], reg_postfix=[] } = postfixes;
@@ -113,7 +113,7 @@ function gen_modrm_mem_reg_split(name, gen_call_fns, mem_prefix_call, mem_args, 
         type: "if-else",
         if_blocks: [{
             condition: "modrm_byte < 0xC0",
-            body: (mem_prefix_call ? [mem_prefix_call] : [])
+            body: []
                 .concat([mem_call_fn(`${name}_mem`, mem_args)])
                 .concat(mem_postfix),
         }],
@@ -211,13 +211,6 @@ function gen_instruction_body(encodings, size)
                     let instruction_name = make_instruction_name(case_, size, undefined);
                     const instruction_postfix = case_.block_boundary ? ["instr_flags |=  JIT_INSTR_BLOCK_BOUNDARY_FLAG;"] : [];
 
-                    let modrm_resolve_prefix = undefined;
-
-                    if(case_.requires_prefix_call)
-                    {
-                        modrm_resolve_prefix = gen_codegen_call(instruction_name + "_mem_pre");
-                    }
-
                     const mem_args = [];
                     const reg_args = ["modrm_byte & 7"];
 
@@ -243,17 +236,17 @@ function gen_instruction_body(encodings, size)
 
                         if(has_66) {
                             const name = make_instruction_name(case_, size, 0x66);
-                            const body = [gen_modrm_mem_reg_split(name, gen_call_fns, modrm_resolve_prefix, mem_args, reg_args, {})];
+                            const body = [gen_modrm_mem_reg_split(name, gen_call_fns, mem_args, reg_args, {})];
                             if_blocks.push({ condition: "prefixes_ & PREFIX_66", body, });
                         }
                         if(has_F2) {
                             const name = make_instruction_name(case_, size, 0xF2);
-                            const body = [gen_modrm_mem_reg_split(name, gen_call_fns, modrm_resolve_prefix, mem_args, reg_args, {})];
+                            const body = [gen_modrm_mem_reg_split(name, gen_call_fns, mem_args, reg_args, {})];
                             if_blocks.push({ condition: "prefixes_ & PREFIX_F2", body, });
                         }
                         if(has_F3) {
                             const name = make_instruction_name(case_, size, 0xF3);
-                            const body = [gen_modrm_mem_reg_split(name, gen_call_fns, modrm_resolve_prefix, mem_args, reg_args, {})];
+                            const body = [gen_modrm_mem_reg_split(name, gen_call_fns, mem_args, reg_args, {})];
                             if_blocks.push({ condition: "prefixes_ & PREFIX_F3", body, });
                         }
 
@@ -262,7 +255,6 @@ function gen_instruction_body(encodings, size)
                                 gen_modrm_mem_reg_split(
                                     instruction_name,
                                     gen_call_fns,
-                                    modrm_resolve_prefix,
                                     mem_args,
                                     reg_args,
                                     {}
@@ -288,7 +280,6 @@ function gen_instruction_body(encodings, size)
                             gen_modrm_mem_reg_split(
                                 instruction_name,
                                 gen_call_fns,
-                                modrm_resolve_prefix,
                                 mem_args,
                                 reg_args,
                                 get_nonfaulting_mem_reg_postfix(case_)
@@ -317,10 +308,8 @@ function gen_instruction_body(encodings, size)
 
         console.assert(encoding.e);
         console.assert(!encoding.ignore_mod);
-        console.assert(!encoding.requires_prefix_call, "Unexpected instruction (66/f2/f3 with prefix call)");
 
         const imm_read = gen_read_imm_call(encoding, size);
-        const modrm_resolve_prefix = undefined;
 
         const mem_args = ["modrm_byte >> 3 & 7"];
         const reg_args = ["modrm_byte & 7", "modrm_byte >> 3 & 7"];
@@ -335,17 +324,17 @@ function gen_instruction_body(encodings, size)
 
         if(has_66) {
             const name = make_instruction_name(encoding, size, 0x66);
-            const body = [gen_modrm_mem_reg_split(name, gen_call_fns, modrm_resolve_prefix, mem_args, reg_args, {})];
+            const body = [gen_modrm_mem_reg_split(name, gen_call_fns, mem_args, reg_args, {})];
             if_blocks.push({ condition: "prefixes_ & PREFIX_66", body, });
         }
         if(has_F2) {
             const name = make_instruction_name(encoding, size, 0xF2);
-            const body = [gen_modrm_mem_reg_split(name, gen_call_fns, modrm_resolve_prefix, mem_args, reg_args, {})];
+            const body = [gen_modrm_mem_reg_split(name, gen_call_fns, mem_args, reg_args, {})];
             if_blocks.push({ condition: "prefixes_ & PREFIX_F2", body, });
         }
         if(has_F3) {
             const name = make_instruction_name(encoding, size, 0xF3);
-            const body = [gen_modrm_mem_reg_split(name, gen_call_fns, modrm_resolve_prefix, mem_args, reg_args, {})];
+            const body = [gen_modrm_mem_reg_split(name, gen_call_fns, mem_args, reg_args, {})];
             if_blocks.push({ condition: "prefixes_ & PREFIX_F3", body, });
         }
 
@@ -354,7 +343,6 @@ function gen_instruction_body(encodings, size)
                 gen_modrm_mem_reg_split(
                     make_instruction_name(encoding, size),
                     gen_call_fns,
-                    modrm_resolve_prefix,
                     mem_args,
                     reg_args,
                     {}
@@ -384,7 +372,6 @@ function gen_instruction_body(encodings, size)
         if(encoding.ignore_mod)
         {
             console.assert(!imm_read, "Unexpected instruction (ignore mod with immediate value)");
-            console.assert(!encoding.requires_prefix_call);
 
             // Has modrm byte, but the 2 mod bits are ignored and both
             // operands are always registers (0f20-0f24)
@@ -409,7 +396,6 @@ function gen_instruction_body(encodings, size)
                 gen_modrm_mem_reg_split(
                     instruction_name,
                     gen_call_fns,
-                    undefined,
                     mem_args,
                     reg_args,
                     get_nonfaulting_mem_reg_postfix(encoding)
@@ -418,13 +404,6 @@ function gen_instruction_body(encodings, size)
         }
         else
         {
-            let modrm_resolve_prefix = undefined;
-
-            if(encoding.requires_prefix_call)
-            {
-                modrm_resolve_prefix = gen_codegen_call(instruction_name + "_mem_pre");
-            }
-
             const mem_args = ["modrm_byte >> 3 & 7"];
             const reg_args = ["modrm_byte & 7", "modrm_byte >> 3 & 7"];
 
@@ -439,7 +418,6 @@ function gen_instruction_body(encodings, size)
                 gen_modrm_mem_reg_split(
                     instruction_name,
                     gen_call_fns,
-                    modrm_resolve_prefix,
                     mem_args,
                     reg_args,
                     get_nonfaulting_mem_reg_postfix(encoding)
