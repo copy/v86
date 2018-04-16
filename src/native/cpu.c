@@ -1230,7 +1230,7 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
     }
 
     gen_get_local(STATE);
-    gen_switch(basic_blocks.length);
+    gen_brtable_and_cases(basic_blocks.length);
 
     for(int32_t i = 0; i < basic_blocks.length; i++)
     {

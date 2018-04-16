@@ -294,7 +294,7 @@ void gen_return(void)
 
 // Generate a br_table where an input of [i] will branch [i]th outer block,
 // where [i] is passed on the wasm stack
-void gen_switch(int32_t cases_count)
+void gen_brtable_and_cases(int32_t cases_count)
 {
     assert(cases_count >= 0);
 

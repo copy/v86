@@ -47,7 +47,7 @@ void gen_block_void(void);
 void gen_block_end(void);
 void gen_return(void);
 
-void gen_switch(int32_t);
+void gen_brtable_and_cases(int32_t);
 
 void gen_br(int32_t depth);
 
