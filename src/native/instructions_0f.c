@@ -2284,8 +2284,8 @@ void instr32_0FB8_mem(int32_t addr, int32_t r) { trigger_ud(); }
 DEFINE_MODRM_INSTR_READ32(instr32_F30FB8, write_reg32(r, popcnt(___)))
 
 void instr_0FB9() {
-    // UD
-    todo();
+    // UD2
+    trigger_ud();
 }
 
 void instr16_0FBA_4_reg(int32_t r, int32_t imm) {
