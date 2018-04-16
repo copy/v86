@@ -9,7 +9,7 @@ INSTRUCTION_TABLES=build/jit.c build/jit0f_16.c build/jit0f_32.c \
 		   build/analyzer.c build/analyzer0f_16.c build/analyzer0f_32.c \
 
 # Only the dependencies common to both generate_{jit,interpreter}.js
-GEN_DEPENDENCIES=$(filter-out gen/generate_interpreter.js gen/generate_jit.js, $(wildcard gen/*.js))
+GEN_DEPENDENCIES=$(filter-out gen/generate_interpreter.js gen/generate_jit.js gen/generate_analyzer.js, $(wildcard gen/*.js))
 JIT_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_jit.js
 INTERPRETER_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_interpreter.js
 ANALYZER_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_analyzer.js
