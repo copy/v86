@@ -296,6 +296,10 @@ kvm-unit-test: build/libv86-debug.js build/v86-debug.wasm
 codegen-test: build/codegen-test.wasm
 	./tests/codegen/codegen.js
 
+expect-tests: build/libv86-debug.js build/libwabt.js
+	make -C tests/expect/tests
+	./tests/expect/run.js
+
 covreport:
 	mkdir -p $(COVERAGE_DIR)/build/
 	$(COVERAGE_DIR)/gen_report.js

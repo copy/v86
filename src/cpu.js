@@ -311,6 +311,8 @@ CPU.prototype.wasm_patch = function(wm)
 
     this.clear_tlb = this.wm.exports["_clear_tlb"];
     this.full_clear_tlb = this.wm.exports["_full_clear_tlb"];
+
+    this.jit_force_generate_unsafe = this.wm.exports["_jit_force_generate_unsafe"];
 };
 
 CPU.prototype.jit_clear_func = function(index)
@@ -1278,6 +1280,11 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
         }
 
         seen_code[start] = (seen_code[start] || 0) + 1;
+
+        if(this.test_hook_did_generate_wasm)
+        {
+            this.test_hook_did_generate_wasm(code);
+        }
     }
 
     // Make a copy of jit_imports, since some imports change and
