@@ -92,6 +92,7 @@ TRANSPILE_ES6_FLAGS=\
 		--language_out ECMASCRIPT5_STRICT\
 
 CC_FLAGS=\
+	        -std=c11 \
 		-Isrc/native/ \
 		-Wall -Wpedantic -Wextra \
 		-Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \
