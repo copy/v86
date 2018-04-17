@@ -276,7 +276,8 @@ var ASYNC_SAFE = false;
                     }
                     else
                     {
-                        cb({ header });
+                        const error = "`Range: bytes=...` header not supported (Got `" + header + "`)";
+                        cb(error);
                     }
                 },
                 headers: {
@@ -329,9 +330,7 @@ var ASYNC_SAFE = false;
         {
             if(error)
             {
-                console.assert(false,
-                    "Cannot use: " + this.filename + ". " +
-                    "`Range: bytes=...` header not supported (Got `" + error.header + "`)");
+                console.assert(false, "Cannot use: " + this.filename + ". " + error);
             }
             else
             {
