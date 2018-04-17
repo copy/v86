@@ -3,6 +3,22 @@
 #include <math.h>
 #include <stdint.h>
 
+#ifndef M_LOG2E
+#define M_LOG2E 1.44269504088896340736
+#endif
+
+#ifndef M_LN2
+#define M_LN2 0.693147180559945309417
+#endif
+
+#ifndef M_LN10
+#define M_LN10 2.30258509299404568402
+#endif
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #define FPU_C0 0x100
 #define FPU_C1 0x200
 #define FPU_C2 0x400
