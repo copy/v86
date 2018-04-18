@@ -642,6 +642,8 @@ CPU.prototype.reset = function()
     }
 
     this.fw_value[0] = 0;
+
+    this.jit_empty_cache();
 };
 
 CPU.prototype.reset_memory = function()
