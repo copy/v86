@@ -296,7 +296,7 @@ kvm-unit-test: build/libv86-debug.js build/v86-debug.wasm
 codegen-test: build/codegen-test.wasm
 	./tests/codegen/codegen.js
 
-expect-tests: build/libv86-debug.js build/libwabt.js
+expect-tests: build/libv86-debug.js build/v86-debug.wasm build/libwabt.js
 	make -C tests/expect/tests
 	./tests/expect/run.js
 
