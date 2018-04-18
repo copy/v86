@@ -28,7 +28,7 @@ const TERMINATE_MSG = "DONE";
 const MASK_ARITH = 1 | 1 << 2 | 1 << 4 | 1 << 6 | 1 << 7 | 1 << 11;
 
 try {
-    var V86 = require("../../build/libv86-debug.js").V86Starter;
+    var V86 = require("../../build/libv86-debug.js").V86;
 }
 catch(e) {
     console.error(e);
@@ -224,9 +224,11 @@ else {
 
         var cpu = emulator.v86.cpu;
 
+        console.assert(!emulator.running);
+
         cpu.reset();
         cpu.reset_memory();
-        cpu.load_multiboot(new Uint8Array(fs.readFileSync(TEST_DIR + current_test.img_name)).buffer);
+        cpu.load_multiboot(fs.readFileSync(TEST_DIR + current_test.img_name).buffer);
 
         emulator.run();
     }
