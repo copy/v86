@@ -1304,6 +1304,11 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
 
         // The following will throw if f isn't an exported function
         this.wm.imports["env"].table.set(wasm_table_index, f);
+
+        if(this.test_hook_did_finalize_wasm)
+        {
+            this.test_hook_did_finalize_wasm(code);
+        }
     });
 
     if(DEBUG)

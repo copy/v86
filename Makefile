@@ -277,6 +277,11 @@ nasmtests: build/libv86-debug.js build/v86-debug.wasm
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js
 
+nasmtests-force-jit: build/libv86-debug.js build/v86-debug.wasm
+	$(MAKE) -C $(NASM_TEST_DIR) all
+	$(NASM_TEST_DIR)/gen_fixtures.js
+	$(NASM_TEST_DIR)/run.js --force-jit
+
 jitpagingtests: build/libv86-debug.js build/v86-debug.wasm
 	$(MAKE) -C tests/jit-paging test-jit
 	./tests/jit-paging/run.js

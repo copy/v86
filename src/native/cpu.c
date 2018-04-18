@@ -1380,7 +1380,8 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
 void jit_force_generate_unsafe(uint32_t phys_addr)
 {
     *instruction_pointer = phys_addr;
-    jit_generate(phys_addr, 0);
+    uint32_t page_dirtiness = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
+    jit_generate(phys_addr, page_dirtiness);
 }
 #endif
 

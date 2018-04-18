@@ -25,6 +25,8 @@ const TEST_DIR = __dirname + "/build/";
 const DONE_MSG = "DONE";
 const TERMINATE_MSG = "DONE";
 
+const FORCE_JIT = process.argv.includes("--force-jit");
+
 const MASK_ARITH = 1 | 1 << 2 | 1 << 4 | 1 << 6 | 1 << 7 | 1 << 11;
 
 try {
@@ -230,7 +232,24 @@ else {
         cpu.reset_memory();
         cpu.load_multiboot(fs.readFileSync(TEST_DIR + current_test.img_name).buffer);
 
-        emulator.run();
+        if(FORCE_JIT)
+        {
+            cpu.jit_force_generate_unsafe(cpu.instruction_pointer[0]);
+
+            cpu.test_hook_did_finalize_wasm = function()
+            {
+                cpu.test_hook_did_finalize_wasm = null;
+
+                // don't synchronously call into the emulator from this callback
+                setTimeout(() => {
+                    emulator.run();
+                }, 0);
+            };
+        }
+        else
+        {
+            emulator.run();
+        }
     }
 
     let loaded = false;
