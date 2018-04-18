@@ -17,5 +17,8 @@ In order to add a new expect test:
 2. Run make `expect-tests`
 3. Verify the generated code and use the printed cp command to accept the test
 
+Note that .asm files are translated to flat binaries, not elf files, so a .data
+section may be meaningless.
+
 
 For more information, see https://blog.janestreet.com/testing-with-expectations/
