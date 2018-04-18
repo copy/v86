@@ -1,9 +1,12 @@
-
+build_dir := build
 source_files := $(wildcard *.asm)
-executable_files := $(patsubst %.asm,build/%.bin,$(source_files))
+executable_files := $(patsubst %.asm,$(build_dir)/%.bin,$(source_files))
 
-all: $(executable_files)
-	mkdir -p build
+.PHONY: all
+all: $(build_dir) $(executable_files)
 
-build/%.bin: %.asm
+$(build_dir):
+	mkdir -p $@
+
+$(build_dir)/%.bin: %.asm
 	nasm $< -o $@
