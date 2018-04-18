@@ -480,9 +480,53 @@ void instr16_89_mem(int32_t addr, int32_t r) { safe_write16(addr, read_reg16(r))
 void instr32_89_reg(int32_t r2, int32_t r) { write_reg32(r2, read_reg32(r)); }
 void instr32_89_mem(int32_t addr, int32_t r) { safe_write32(addr, read_reg32(r)); }
 
+__attribute__((always_inline))
+static void gen_mov16_r(int32_t r_src, int32_t r_dest)
+{
+    // Effectively:
+    // reg16[get_reg16_index(r_dest)] = read_reg16(r_src);
+    gen_reg16_eq_fn1("read_reg16", 10, r_src, get_reg16_index(r_dest));
+}
+
+__attribute__((always_inline))
+static void gen_mov32_r(int32_t r_src, int32_t r_dest)
+{
+    // Effectively:
+    // reg32s[r_dest] = read_reg32(r_src);
+    gen_reg32s_eq_fn1("read_reg32", 10, r_src, r_dest);
+}
+
+void instr16_89_reg_jit(int32_t r_dest, int32_t r_src) { gen_mov16_r(r_src, r_dest); }
+void instr32_89_reg_jit(int32_t r_dest, int32_t r_src) { gen_mov32_r(r_src, r_dest); }
+
+void instr16_89_mem_jit(int32_t modrm_byte, int32_t r)
+{
+    // XXX
+    gen_modrm_resolve(modrm_byte); gen_modrm_fn1("instr16_89_mem", 14, modrm_byte >> 3 & 7);
+}
+void instr32_89_mem_jit(int32_t modrm_byte, int32_t r)
+{
+    // XXX
+    gen_modrm_resolve(modrm_byte); gen_modrm_fn1("instr32_89_mem", 14, modrm_byte >> 3 & 7);
+}
+
 DEFINE_MODRM_INSTR_READ8(instr_8A, write_reg8(r, ___))
 DEFINE_MODRM_INSTR_READ16(instr16_8B, write_reg16(r, ___))
 DEFINE_MODRM_INSTR_READ32(instr32_8B, write_reg32(r, ___))
+
+void instr16_8B_reg_jit(int32_t r_src, int32_t r_dest) { gen_mov16_r(r_src, r_dest); }
+void instr32_8B_reg_jit(int32_t r_src, int32_t r_dest) { gen_mov32_r(r_src, r_dest); }
+
+void instr16_8B_mem_jit(int32_t modrm_byte, int32_t r)
+{
+    // XXX
+    gen_modrm_resolve(modrm_byte); gen_modrm_fn1("instr16_8B_mem", 14, modrm_byte >> 3 & 7);
+}
+void instr32_8B_mem_jit(int32_t modrm_byte, int32_t r)
+{
+    // XXX
+    gen_modrm_resolve(modrm_byte); gen_modrm_fn1("instr32_8B_mem", 14, modrm_byte >> 3 & 7);
+}
 
 void instr_8C_check_sreg(int32_t sreg) {
     if(sreg >= 6)

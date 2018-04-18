@@ -209,11 +209,45 @@ void gen_reg32s_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg)
     store_aligned_i32(&instruction_body);
 }
 
+void gen_fn1_ret(char const* fn, uint8_t fn_len, int32_t arg0)
+{
+    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_RET_TYPE_INDEX);
+    push_i32(&instruction_body, arg0);
+    call_fn(&instruction_body, fn_idx);
+}
+
+void gen_call_fn1_ret(char const* fn, uint8_t fn_len)
+{
+    // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
+    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_RET_TYPE_INDEX);
+    call_fn(&instruction_body, fn_idx);
+}
+
 void gen_fn1(char const* fn, uint8_t fn_len, int32_t arg0)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
     push_i32(&instruction_body, arg0);
     call_fn(&instruction_body, fn_idx);
+}
+
+void gen_reg16_eq_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg)
+{
+    // generates: reg16[reg] = fn(arg0)
+    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_RET_TYPE_INDEX);
+    push_i32(&instruction_body, (int32_t) &reg16[reg]);
+    push_i32(&instruction_body, arg0);
+    call_fn(&instruction_body, fn_idx);
+    store_aligned_u16(&instruction_body);
+}
+
+void gen_reg32s_eq_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg)
+{
+    // generates: reg32s[reg] = fn(arg0)
+    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_RET_TYPE_INDEX);
+    push_i32(&instruction_body, (int32_t) &reg32s[reg]);
+    push_i32(&instruction_body, arg0);
+    call_fn(&instruction_body, fn_idx);
+    store_aligned_i32(&instruction_body);
 }
 
 void gen_fn1_reg16(char const* fn, uint8_t fn_len, int32_t reg)
@@ -229,6 +263,14 @@ void gen_fn1_reg32s(char const* fn, uint8_t fn_len, int32_t reg)
     // generates: fn(reg32s[reg])
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
     load_aligned_i32(&instruction_body, (int32_t) &reg32s[reg]);
+    call_fn(&instruction_body, fn_idx);
+}
+
+
+void gen_call_fn2(char const* fn, uint8_t fn_len)
+{
+    // generates: fn( _, _ ) where _ must be left on the stack before calling this
+    int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
     call_fn(&instruction_body, fn_idx);
 }
 

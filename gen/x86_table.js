@@ -93,9 +93,9 @@ const encodings = [
     { opcode: 0x86, nonfaulting: 1, e: 1, },
     { opcode: 0x87, nonfaulting: 1, os: 1, e: 1, },
     { opcode: 0x88, nonfaulting: 1, e: 1, },
-    { opcode: 0x89, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x89, custom: 1, nonfaulting: 1, os: 1, e: 1, },
     { opcode: 0x8A, nonfaulting: 1, e: 1, },
-    { opcode: 0x8B, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x8B, custom: 1, nonfaulting: 1, os: 1, e: 1, },
 
     { opcode: 0x8C, os: 1, e: 1, skip: 1, },
     { opcode: 0x8D, nonfaulting: 1, os: 1, e: 1, only_mem: 1, requires_prefix_call: 1, custom: 1, }, // lea

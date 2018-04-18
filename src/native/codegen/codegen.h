@@ -30,12 +30,19 @@ void gen_reg16_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_reg32s_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_fn0(char const* fn, uint8_t fn_len);
 void gen_fn1(char const* fn, uint8_t fn_len, int32_t arg0);
+void gen_reg16_eq_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg);
+void gen_reg32s_eq_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg);
 void gen_fn1_reg16(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_fn1_reg32s(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_fn2(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1);
 void gen_fn3(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2);
 
 void gen_fn0_ret(char const* fn, uint8_t fn_len);
+void gen_fn1_ret(char const* fn, uint8_t fn_len, int32_t arg0);
+
+void gen_call_fn1_ret(char const* fn, uint8_t fn_len);
+
+void gen_call_fn2(char const* fn, uint8_t fn_len);
 
 void gen_add_i32(void);
 void gen_eqz_i32(void);
