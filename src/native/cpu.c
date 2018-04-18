@@ -1375,12 +1375,14 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
     *instruction_pointer = start;
 }
 
+#if DEBUG
 // for testing
 void jit_force_generate_unsafe(uint32_t phys_addr)
 {
     *instruction_pointer = phys_addr;
     jit_generate(phys_addr, 0);
 }
+#endif
 
 void cycle_internal()
 {
