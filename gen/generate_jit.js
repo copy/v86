@@ -144,6 +144,8 @@ function make_instruction_name(encoding, size, prefix_variant)
 function get_nonfaulting_mem_reg_postfix(encoding)
 {
     const lea_special_case = encoding.opcode === 0x8D;
+    // In general only reg_postfixes will append the nonfaulting flag, except in the special case
+    // for LEA - it doesn't actually access memory, so the memory variant can be nonfaulting
     const mem_postfix = (encoding.nonfaulting && lea_special_case) ? [APPEND_NONFAULTING_FLAG] : [];
     const reg_postfix = (encoding.nonfaulting && !lea_special_case) ? [APPEND_NONFAULTING_FLAG] : [];
 
