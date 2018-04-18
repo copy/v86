@@ -415,6 +415,15 @@ function gen_instruction_body(encodings, size)
                 reg_args.push(imm_read);
             }
 
+            if(encoding.custom)
+            {
+                // The default mem_call_fn adds a modrm_resolve call, but since we override it,
+                // we also need to pass it in to our custom function to resolve it however it wishes
+                mem_args.unshift("modrm_byte");
+                gen_call_fns.mem_call_fn = gen_custom_jit_call;
+                gen_call_fns.reg_call_fn = gen_custom_jit_call;
+            }
+
             return [
                 "int32_t modrm_byte = read_imm8();",
                 gen_modrm_mem_reg_split(
