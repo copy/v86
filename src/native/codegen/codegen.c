@@ -230,23 +230,20 @@ void gen_fn1_const(char const* fn, uint8_t fn_len, int32_t arg0)
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_set_reg16_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg)
+void gen_set_reg16_r(int32_t r_dest, int32_t r_src)
 {
-    // generates: reg16[reg] = fn(arg0)
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_RET_TYPE_INDEX);
-    push_i32(&instruction_body, (int32_t) &reg16[reg]);
-    push_i32(&instruction_body, arg0);
-    call_fn(&instruction_body, fn_idx);
+    // generates: reg16[r_dest] = reg16[r_src]
+    // NOTE: r_{dest,src} need to be indices into reg16, _NOT_ reg32s, for eg. AX, CX, etc.
+    push_i32(&instruction_body, (int32_t) &reg16[r_dest]);
+    load_aligned_u16(&instruction_body, (int32_t) &reg16[r_src]);
     store_aligned_u16(&instruction_body);
 }
 
-void gen_set_reg32s_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg)
+void gen_set_reg32_r(int32_t r_dest, int32_t r_src)
 {
-    // generates: reg32s[reg] = fn(arg0)
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_RET_TYPE_INDEX);
-    push_i32(&instruction_body, (int32_t) &reg32s[reg]);
-    push_i32(&instruction_body, arg0);
-    call_fn(&instruction_body, fn_idx);
+    // generates: reg32s[r_dest] = reg32s[r_src]
+    push_i32(&instruction_body, (int32_t) &reg32s[r_dest]);
+    load_aligned_i32(&instruction_body, (int32_t) &reg32s[r_src]);
     store_aligned_i32(&instruction_body);
 }
 

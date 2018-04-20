@@ -480,22 +480,22 @@ void instr16_89_mem(int32_t addr, int32_t r) { safe_write16(addr, read_reg16(r))
 void instr32_89_reg(int32_t r2, int32_t r) { write_reg32(r2, read_reg32(r)); }
 void instr32_89_mem(int32_t addr, int32_t r) { safe_write32(addr, read_reg32(r)); }
 
-static void gen_mov16_r(int32_t r_src, int32_t r_dest)
+static void gen_mov16_r(int32_t r_dest, int32_t r_src)
 {
     // Effectively:
     // reg16[get_reg16_index(r_dest)] = read_reg16(r_src);
-    gen_set_reg16_fn1("read_reg16", 10, r_src, get_reg16_index(r_dest));
+    gen_set_reg16_r(get_reg16_index(r_dest), get_reg16_index(r_src));
 }
 
-static void gen_mov32_r(int32_t r_src, int32_t r_dest)
+static void gen_mov32_r(int32_t r_dest, int32_t r_src)
 {
     // Effectively:
     // reg32s[r_dest] = read_reg32(r_src);
-    gen_set_reg32s_fn1("read_reg32", 10, r_src, r_dest);
+    gen_set_reg32_r(r_dest, r_src);
 }
 
-void instr16_89_reg_jit(int32_t r_dest, int32_t r_src) { gen_mov16_r(r_src, r_dest); }
-void instr32_89_reg_jit(int32_t r_dest, int32_t r_src) { gen_mov32_r(r_src, r_dest); }
+void instr16_89_reg_jit(int32_t r_dest, int32_t r_src) { gen_mov16_r(r_dest, r_src); }
+void instr32_89_reg_jit(int32_t r_dest, int32_t r_src) { gen_mov32_r(r_dest, r_src); }
 
 void instr16_89_mem_jit(int32_t modrm_byte, int32_t r)
 {
@@ -512,8 +512,8 @@ DEFINE_MODRM_INSTR_READ8(instr_8A, write_reg8(r, ___))
 DEFINE_MODRM_INSTR_READ16(instr16_8B, write_reg16(r, ___))
 DEFINE_MODRM_INSTR_READ32(instr32_8B, write_reg32(r, ___))
 
-void instr16_8B_reg_jit(int32_t r_src, int32_t r_dest) { gen_mov16_r(r_src, r_dest); }
-void instr32_8B_reg_jit(int32_t r_src, int32_t r_dest) { gen_mov32_r(r_src, r_dest); }
+void instr16_8B_reg_jit(int32_t r_src, int32_t r_dest) { gen_mov16_r(r_dest, r_src); }
+void instr32_8B_reg_jit(int32_t r_src, int32_t r_dest) { gen_mov32_r(r_dest, r_src); }
 
 void instr16_8B_mem_jit(int32_t modrm_byte, int32_t r)
 {

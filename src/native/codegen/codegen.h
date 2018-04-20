@@ -35,8 +35,10 @@ void gen_fn3_const(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, i
 // Generate code to set register value to result of function call
 void gen_set_reg16_fn0(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_set_reg32s_fn0(char const* fn, uint8_t fn_len, int32_t reg);
-void gen_set_reg16_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg);
-void gen_set_reg32s_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg);
+
+// Generate code for "mov reg, reg"
+void gen_set_reg16_r(int32_t r_dest, int32_t r_src);
+void gen_set_reg32_r(int32_t r_dest, int32_t r_src);
 
 // Generate function call with register value as argument (reg is index of register)
 void gen_fn1_reg16(char const* fn, uint8_t fn_len, int32_t reg);
