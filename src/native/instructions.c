@@ -480,7 +480,6 @@ void instr16_89_mem(int32_t addr, int32_t r) { safe_write16(addr, read_reg16(r))
 void instr32_89_reg(int32_t r2, int32_t r) { write_reg32(r2, read_reg32(r)); }
 void instr32_89_mem(int32_t addr, int32_t r) { safe_write32(addr, read_reg32(r)); }
 
-__attribute__((always_inline))
 static void gen_mov16_r(int32_t r_src, int32_t r_dest)
 {
     // Effectively:
@@ -488,7 +487,6 @@ static void gen_mov16_r(int32_t r_src, int32_t r_dest)
     gen_reg16_eq_fn1("read_reg16", 10, r_src, get_reg16_index(r_dest));
 }
 
-__attribute__((always_inline))
 static void gen_mov32_r(int32_t r_src, int32_t r_dest)
 {
     // Effectively:
