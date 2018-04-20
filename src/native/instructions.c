@@ -484,14 +484,14 @@ static void gen_mov16_r(int32_t r_src, int32_t r_dest)
 {
     // Effectively:
     // reg16[get_reg16_index(r_dest)] = read_reg16(r_src);
-    gen_reg16_eq_fn1("read_reg16", 10, r_src, get_reg16_index(r_dest));
+    gen_set_reg16_fn1("read_reg16", 10, r_src, get_reg16_index(r_dest));
 }
 
 static void gen_mov32_r(int32_t r_src, int32_t r_dest)
 {
     // Effectively:
     // reg32s[r_dest] = read_reg32(r_src);
-    gen_reg32s_eq_fn1("read_reg32", 10, r_src, r_dest);
+    gen_set_reg32s_fn1("read_reg32", 10, r_src, r_dest);
 }
 
 void instr16_89_reg_jit(int32_t r_dest, int32_t r_src) { gen_mov16_r(r_src, r_dest); }

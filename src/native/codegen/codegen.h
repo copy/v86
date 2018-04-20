@@ -26,12 +26,12 @@ uintptr_t gen_get_final_offset(void);
 
 int32_t get_fn_index(char const* fn, uint8_t fn_len, uint8_t type_index);
 
-void gen_reg16_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg);
-void gen_reg32s_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg);
+void gen_set_reg16_fn0(char const* fn, uint8_t fn_len, int32_t reg);
+void gen_set_reg32s_fn0(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_fn0(char const* fn, uint8_t fn_len);
 void gen_fn1(char const* fn, uint8_t fn_len, int32_t arg0);
-void gen_reg16_eq_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg);
-void gen_reg32s_eq_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg);
+void gen_set_reg16_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg);
+void gen_set_reg32s_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg);
 void gen_fn1_reg16(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_fn1_reg32s(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_fn2(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1);

@@ -385,11 +385,11 @@ void pop16_reg_jit(int32_t reg)
 {
     if(*stack_size_32)
     {
-        gen_reg16_eq_fn0("pop16_ss32", 10, reg);
+        gen_set_reg16_fn0("pop16_ss32", 10, reg);
     }
     else
     {
-        gen_reg16_eq_fn0("pop16_ss16", 10, reg);
+        gen_set_reg16_fn0("pop16_ss16", 10, reg);
     }
 }
 
@@ -428,11 +428,11 @@ void pop32s_reg_jit(int32_t reg)
 {
     if(*stack_size_32)
     {
-        gen_reg32s_eq_fn0("pop32s_ss32", 11, reg);
+        gen_set_reg32s_fn0("pop32s_ss32", 11, reg);
     }
     else
     {
-        gen_reg32s_eq_fn0("pop32s_ss16", 11, reg);
+        gen_set_reg32s_fn0("pop32s_ss16", 11, reg);
     }
 }
 

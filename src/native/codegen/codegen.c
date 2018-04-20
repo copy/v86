@@ -191,7 +191,7 @@ void gen_fn0(char const* fn, uint8_t fn_len)
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_reg16_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg)
+void gen_set_reg16_fn0(char const* fn, uint8_t fn_len, int32_t reg)
 {
     // generates: reg16[reg] = fn()
     int32_t fn_idx = get_fn_index(fn, fn_len, FN0_RET_TYPE_INDEX);
@@ -200,7 +200,7 @@ void gen_reg16_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg)
     store_aligned_u16(&instruction_body);
 }
 
-void gen_reg32s_eq_fn0(char const* fn, uint8_t fn_len, int32_t reg)
+void gen_set_reg32s_fn0(char const* fn, uint8_t fn_len, int32_t reg)
 {
     // generates: reg32s[reg] = fn()
     int32_t fn_idx = get_fn_index(fn, fn_len, FN0_RET_TYPE_INDEX);
@@ -230,7 +230,7 @@ void gen_fn1(char const* fn, uint8_t fn_len, int32_t arg0)
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_reg16_eq_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg)
+void gen_set_reg16_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg)
 {
     // generates: reg16[reg] = fn(arg0)
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_RET_TYPE_INDEX);
@@ -240,7 +240,7 @@ void gen_reg16_eq_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg)
     store_aligned_u16(&instruction_body);
 }
 
-void gen_reg32s_eq_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg)
+void gen_set_reg32s_fn1(char const* fn, uint8_t fn_len, int32_t arg0, int32_t reg)
 {
     // generates: reg32s[reg] = fn(arg0)
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_RET_TYPE_INDEX);
