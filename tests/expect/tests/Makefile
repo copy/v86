@@ -10,3 +10,7 @@ $(build_dir):
 
 $(build_dir)/%.bin: %.asm
 	nasm $< -o $@
+
+.PHONY: clean
+clean:
+	rm $(build_dir)/*

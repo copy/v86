@@ -54,7 +54,7 @@ function run_test({ name, executable_file, expect_file, actual_file, actual_wasm
     const executable = fs.readFileSync(executable_file);
     const asm = fs.readFileSync(asm_file);
 
-    const is_32 = asm.includes("BITS 32");
+    const is_32 = asm.includes("BITS 32\n");
 
     emulator.add_listener("emulator-loaded", function()
         {
@@ -101,12 +101,16 @@ function run_test({ name, executable_file, expect_file, actual_file, actual_wasm
                 {
                     console.log(result.stdout);
                     console.log(result.stderr);
+                    const fail_str = `%s.asm failed:
+The code generator produced different code. If you believe this change is intentional,
+verify the diff above and run the following command to accept the change:
 
-                    console.log(
-                        "%s.asm failed:\n" +
-                        "The code generator produced different code. If you believe this change is intentional,\n" +
-                        "verify the diff above and run the following command to accept the change:\n\n" +
-                        "    cp %s %s", name, actual_file, expect_file);
+    cp %s %s
+
+When done, re-run this test to confirm that all expect-tests pass.
+`;
+
+                    console.log(fail_str, name, actual_file, expect_file);
 
                     process.exit(1);
                 }
