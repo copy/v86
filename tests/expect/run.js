@@ -34,6 +34,7 @@ function run_all()
             name,
             expect_file: path.relative(".", path.join(TEST_DIR, name + ".wast")),
             actual_file: path.relative(".", path.join(BUILD_DIR, name + ".actual.wast")),
+            actual_wasm: path.relative(".", path.join(BUILD_DIR, name + ".wasm")),
             asm_file: path.join(TEST_DIR, name + ".asm"),
             executable_file: path.join(BUILD_DIR, name + ".bin"),
         };
@@ -42,7 +43,7 @@ function run_all()
     files.forEach(run_test);
 }
 
-function run_test({ name, executable_file, expect_file, actual_file, asm_file })
+function run_test({ name, executable_file, expect_file, actual_file, actual_wasm, asm_file })
 {
     const emulator = new V86({
         autostart: false,
@@ -69,6 +70,7 @@ function run_test({ name, executable_file, expect_file, actual_file, asm_file })
 
                 clearTimeout(hook_not_called_timeout);
                 fs.writeFileSync(actual_file, wast);
+                fs.writeFileSync(actual_wasm, wasm);
 
                 cpu.test_hook_did_generate_wasm = function()
                 {
