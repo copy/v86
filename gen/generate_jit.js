@@ -83,7 +83,7 @@ function gen_codegen_call(name, args)
     args = args || [];
     const args_count = args.length;
     args = [].concat([`"${name}"`, name.length], args);
-    return gen_call(`gen_fn${args_count}`, args);
+    return gen_call(`gen_fn${args_count}_const`, args);
 }
 
 function gen_codegen_call_modrm(name, args)
@@ -298,7 +298,7 @@ function gen_instruction_body(encodings, size)
                 default_case: {
                     body: [
                         "assert(false);",
-                        `gen_fn0("trigger_ud", 10);`,
+                        `gen_fn0_const("trigger_ud", 10);`,
                     ],
                 }
             },

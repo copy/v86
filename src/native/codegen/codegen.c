@@ -185,7 +185,7 @@ void gen_fn0_ret(char const* fn, uint8_t fn_len)
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_fn0(char const* fn, uint8_t fn_len)
+void gen_fn0_const(char const* fn, uint8_t fn_len)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN0_TYPE_INDEX);
     call_fn(&instruction_body, fn_idx);
@@ -223,7 +223,7 @@ void gen_call_fn1_ret(char const* fn, uint8_t fn_len)
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_fn1(char const* fn, uint8_t fn_len, int32_t arg0)
+void gen_fn1_const(char const* fn, uint8_t fn_len, int32_t arg0)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
     push_i32(&instruction_body, arg0);
@@ -274,7 +274,7 @@ void gen_call_fn2(char const* fn, uint8_t fn_len)
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_fn2(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
+void gen_fn2_const(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
     push_i32(&instruction_body, arg0);
@@ -282,7 +282,7 @@ void gen_fn2(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_fn3(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2)
+void gen_fn3_const(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN3_TYPE_INDEX);
     push_i32(&instruction_body, arg0);

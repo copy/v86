@@ -256,11 +256,11 @@ void push16_imm_jit(int32_t imm)
 {
     if(*stack_size_32)
     {
-        gen_fn1("push16_ss32", 11, imm);
+        gen_fn1_const("push16_ss32", 11, imm);
     }
     else
     {
-        gen_fn1("push16_ss16", 11, imm);
+        gen_fn1_const("push16_ss16", 11, imm);
     }
 }
 
@@ -326,11 +326,11 @@ void push32_imm_jit(int32_t imm)
 {
     if(*stack_size_32)
     {
-        gen_fn1("push32_ss32", 11, imm);
+        gen_fn1_const("push32_ss32", 11, imm);
     }
     else
     {
-        gen_fn1("push32_ss16", 11, imm);
+        gen_fn1_const("push32_ss16", 11, imm);
     }
 }
 

@@ -1294,7 +1294,7 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
                 }
                 else
                 {
-                    gen_fn1("jmp_rel16", strlen("jmp_rel16"), block.jump_offset);
+                    gen_fn1_const("jmp_rel16", strlen("jmp_rel16"), block.jump_offset);
                 }
 
                 if(block.next_block_branch_taken_addr)

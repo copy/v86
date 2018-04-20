@@ -35,19 +35,19 @@ Codegen.prototype.str_input = function(str)
 Codegen.prototype.fn0 = function(fn)
 {
     this.str_input(fn);
-    this.wm.exports["_gen_fn0"](Codegen.STR_INPUT_OFFSET, fn.length);
+    this.wm.exports["_gen_fn0_const"](Codegen.STR_INPUT_OFFSET, fn.length);
 };
 
 Codegen.prototype.fn1 = function(fn, arg0)
 {
     this.str_input(fn);
-    this.wm.exports["_gen_fn1"](Codegen.STR_INPUT_OFFSET, fn.length, arg0);
+    this.wm.exports["_gen_fn1_const"](Codegen.STR_INPUT_OFFSET, fn.length, arg0);
 };
 
 Codegen.prototype.fn2 = function(fn, arg0, arg1)
 {
     this.str_input(fn);
-    this.wm.exports["_gen_fn2"](Codegen.STR_INPUT_OFFSET, fn.length, arg0, arg1);
+    this.wm.exports["_gen_fn2_const"](Codegen.STR_INPUT_OFFSET, fn.length, arg0, arg1);
 };
 
 Codegen.prototype.modrm_fn1 = function(fn, modrm_byte, arg)

@@ -655,26 +655,26 @@ void instr32_8F_0_reg(int32_t r)
 
 void instr16_8F_0_jit_mem(int32_t modrm_byte)
 {
-    gen_fn0("instr16_8F_0_mem_pre", 20);
+    gen_fn0_const("instr16_8F_0_mem_pre", 20);
     gen_modrm_resolve(modrm_byte);
     gen_modrm_fn0("instr16_8F_0_mem", 16);
 }
 
 void instr16_8F_0_jit_reg(int32_t r)
 {
-    gen_fn1("instr16_8F_0_reg", 16, r);
+    gen_fn1_const("instr16_8F_0_reg", 16, r);
 }
 
 void instr32_8F_0_jit_mem(int32_t modrm_byte)
 {
-    gen_fn0("instr32_8F_0_mem_pre", 20);
+    gen_fn0_const("instr32_8F_0_mem_pre", 20);
     gen_modrm_resolve(modrm_byte);
     gen_modrm_fn0("instr32_8F_0_mem", 16);
 }
 
 void instr32_8F_0_jit_reg(int32_t r)
 {
-    gen_fn1("instr32_8F_0_reg", 16, r);
+    gen_fn1_const("instr32_8F_0_reg", 16, r);
 }
 
 void instr_90() { }
@@ -1444,11 +1444,11 @@ void instr32_E8(int32_t imm32s) {
     //dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 void instr16_E8_jit(int32_t imm16) {
-    gen_fn1("instr16_E8", 10, imm16);
+    gen_fn1_const("instr16_E8", 10, imm16);
 }
 
 void instr32_E8_jit(int32_t imm32s) {
-    gen_fn1("instr32_E8", 10, imm32s);
+    gen_fn1_const("instr32_E8", 10, imm32s);
 }
 
 void instr16_E9(int32_t imm16) {
@@ -1461,10 +1461,10 @@ void instr32_E9(int32_t imm32s) {
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 void instr16_E9_jit(int32_t imm16) {
-    gen_fn1("instr16_E9", 10, imm16);
+    gen_fn1_const("instr16_E9", 10, imm16);
 }
 void instr32_E9_jit(int32_t imm32s) {
-    gen_fn1("instr32_E9", 10, imm32s);
+    gen_fn1_const("instr32_E9", 10, imm32s);
 }
 
 void instr16_EA(int32_t new_ip, int32_t cs) {
@@ -1485,7 +1485,7 @@ void instr_EB(int32_t imm8) {
 }
 
 void instr_EB_jit(int32_t imm8s) {
-    gen_fn1("instr_EB", 8, imm8s);
+    gen_fn1_const("instr_EB", 8, imm8s);
 }
 
 void instr_EC() {
