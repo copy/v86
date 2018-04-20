@@ -1282,7 +1282,7 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
 
                 assert(block.condition_index >= 0 && block.condition_index < 16);
                 const char* condition = condition_functions[block.condition_index];
-                gen_fn0_ret(condition, strlen(condition));
+                gen_fn0_const_ret(condition, strlen(condition));
 
                 gen_if_void();
 

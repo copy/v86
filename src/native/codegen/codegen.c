@@ -179,7 +179,7 @@ void gen_add_prefix_bits(int32_t mask)
     store_aligned_i32(&instruction_body);
 }
 
-void gen_fn0_ret(char const* fn, uint8_t fn_len)
+void gen_fn0_const_ret(char const* fn, uint8_t fn_len)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN0_RET_TYPE_INDEX);
     call_fn(&instruction_body, fn_idx);
@@ -209,7 +209,7 @@ void gen_set_reg32s_fn0(char const* fn, uint8_t fn_len, int32_t reg)
     store_aligned_i32(&instruction_body);
 }
 
-void gen_fn1_ret(char const* fn, uint8_t fn_len, int32_t arg0)
+void gen_fn1_const_ret(char const* fn, uint8_t fn_len, int32_t arg0)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_RET_TYPE_INDEX);
     push_i32(&instruction_body, arg0);

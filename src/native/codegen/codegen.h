@@ -32,6 +32,9 @@ void gen_fn1_const(char const* fn, uint8_t fn_len, int32_t arg0);
 void gen_fn2_const(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1);
 void gen_fn3_const(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2);
 
+void gen_fn0_const_ret(char const* fn, uint8_t fn_len);
+void gen_fn1_const_ret(char const* fn, uint8_t fn_len, int32_t arg0);
+
 // Generate code to set register value to result of function call
 void gen_set_reg16_fn0(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_set_reg32s_fn0(char const* fn, uint8_t fn_len, int32_t reg);
@@ -44,11 +47,8 @@ void gen_set_reg32_r(int32_t r_dest, int32_t r_src);
 void gen_fn1_reg16(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_fn1_reg32s(char const* fn, uint8_t fn_len, int32_t reg);
 
-void gen_fn0_ret(char const* fn, uint8_t fn_len);
-void gen_fn1_ret(char const* fn, uint8_t fn_len, int32_t arg0);
-
+// Generate a function call with arguments pushed to the stack separately
 void gen_call_fn1_ret(char const* fn, uint8_t fn_len);
-
 void gen_call_fn2(char const* fn, uint8_t fn_len);
 
 void gen_add_i32(void);
