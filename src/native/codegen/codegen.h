@@ -77,6 +77,8 @@ void gen_modrm_fn0(char const* fn, uint8_t fn_len);
 void gen_modrm_fn1(char const* fn, uint8_t fn_len, int32_t arg0);
 void gen_modrm_fn2(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1);
 
+void gen_increment_mem32(int32_t addr);
+
 void gen_relative_jump(int32_t n);
 
 void gen_set_previous_eip_offset_from_eip(int32_t n);

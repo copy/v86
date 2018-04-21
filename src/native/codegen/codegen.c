@@ -102,6 +102,17 @@ uintptr_t gen_get_final_offset(void)
     return (uintptr_t) op.ptr;
 }
 
+void gen_increment_mem32(int32_t addr)
+{
+    push_i32(&cs, addr);
+
+    load_aligned_i32(&cs, addr);
+    push_i32(&cs, 1);
+    add_i32(&cs);
+
+    store_aligned_i32(&cs);
+}
+
 void gen_increment_variable(int32_t variable_address, int32_t n)
 {
     push_i32(&cs, variable_address);

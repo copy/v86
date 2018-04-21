@@ -15,6 +15,7 @@
 #include "misc_instr.h"
 #include "modrm.h"
 #include "profiler/profiler.h"
+#include "profiler/opstats.h"
 #include "shared.h"
 
 #if DEBUG
@@ -662,6 +663,9 @@ static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
     do
     {
         *previous_ip = *instruction_pointer;
+#if ENABLE_PROFILER_OPSTATS
+        gen_opstats(safe_read32s(*instruction_pointer));
+#endif
         int32_t opcode = read_imm8();
 
         int32_t start_eip = *instruction_pointer - 1;

@@ -198,10 +198,10 @@ build/JIT_ALWAYS: phony
 	    echo -n $(JIT_ALWAYS) > build/JIT_ALWAYS ; \
 	fi
 
-build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/call-indirect.ll $(INSTRUCTION_TABLES) build/JIT_ALWAYS
+build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/*.ll $(INSTRUCTION_TABLES) build/JIT_ALWAYS
 	mkdir -p build
 	-ls -lh build/v86.wasm
-	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/call-indirect.ll \
+	emcc src/native/*.c src/native/profiler/*.c src/native/codegen/codegen.c src/native/*.ll \
 		$(CC_FLAGS) \
 		-DDEBUG=false \
 		-DNDEBUG \
@@ -215,7 +215,7 @@ build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/
 build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/*.ll $(INSTRUCTION_TABLES) build/JIT_ALWAYS
 	mkdir -p build/coverage
 	-ls -lh build/v86-debug.wasm
-	emcc src/native/*.c src/native/profiler/profiler.c src/native/codegen/codegen.c src/native/*.ll \
+	emcc src/native/*.c src/native/profiler/*.c src/native/codegen/codegen.c src/native/*.ll \
 		$(CC_FLAGS) \
 		$(CC_COVERAGE_FLAGS) \
 		-D"ENABLE_JIT_ALWAYS=$(JIT_ALWAYS)" \
