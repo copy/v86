@@ -233,7 +233,6 @@ void gen_fn1_const(char const* fn, uint8_t fn_len, int32_t arg0)
 void gen_set_reg16_r(int32_t r_dest, int32_t r_src)
 {
     // generates: reg16[r_dest] = reg16[r_src]
-    // NOTE: r_{dest,src} need to be indices into reg16, _NOT_ reg32s, for eg. AX, CX, etc.
     push_i32(&instruction_body, (int32_t) &reg16[r_dest]);
     load_aligned_u16(&instruction_body, (int32_t) &reg16[r_src]);
     store_aligned_u16(&instruction_body);
