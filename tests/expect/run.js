@@ -101,16 +101,16 @@ function run_test({ name, executable_file, expect_file, actual_file, actual_wasm
                 {
                     console.log(result.stdout);
                     console.log(result.stderr);
-                    const fail_str = `%s.asm failed:
+                    const failure_message = `${name}.asm failed:
 The code generator produced different code. If you believe this change is intentional,
 verify the diff above and run the following command to accept the change:
 
-    cp %s %s
+    cp ${actual_file} ${expect_file}
 
 When done, re-run this test to confirm that all expect-tests pass.
 `;
 
-                    console.log(fail_str, name, actual_file, expect_file);
+                    console.log(failure_message);
 
                     process.exit(1);
                 }
