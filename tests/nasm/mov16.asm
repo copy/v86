@@ -18,11 +18,8 @@ myaddress:
     mov ecx, [mydword]
     mov edx, [myaddress]
 
-    ;; Skipping 16-bit 0x89 mem tests since they cause seg faults in gdb:
-    ;; lea di, [myaddress]
-    ;; lea si, [mydword]
-    ;; mov [di+bx], ax
-    ;; mov [si+bx], cx
+    mov [myaddress], cx
+    mov [mydword], dx
 
     ;; The following db's are used since mov reg, reg can be accomplished with several opcodes but
     ;; we want to test these specific ones
