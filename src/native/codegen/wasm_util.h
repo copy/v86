@@ -23,7 +23,7 @@ static void inline load_aligned_u16(Buffer* buf, uint32_t addr)
     assert((addr & 1) == 0);
 
     write_raw_u8(buf, OP_I32CONST);
-    write_leb_u32(buf, addr);
+    write_leb_i32(buf, addr);
     write_raw_u8(buf, OP_I32LOAD16U);
     write_raw_u8(buf, MEM_ALIGN16);
     write_raw_u8(buf, MEM_IMM_OFFSET);
@@ -35,7 +35,7 @@ static void inline load_aligned_i32(Buffer* buf, uint32_t addr)
     assert((addr & 3) == 0);
 
     write_raw_u8(buf, OP_I32CONST);
-    write_leb_u32(buf, addr);
+    write_leb_i32(buf, addr);
     write_raw_u8(buf, OP_I32LOAD);
     write_raw_u8(buf, MEM_ALIGN32);
     write_raw_u8(buf, MEM_IMM_OFFSET);
