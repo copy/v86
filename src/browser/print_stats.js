@@ -40,7 +40,7 @@ const print_stats = {
         for(let i = 0; i < stat_names.length; i++)
         {
             let stat = cpu.wm.exports["_profiler_stat_get"](i);
-            stat = stat > 99999999 ? Math.round(stat / 1e6) + "m" : stat > 99999 ? Math.round(stat / 1e3) + "k" : stat;
+            stat = stat >= 100e6 ? Math.round(stat / 1e6) + "m" : stat >= 100e3 ? Math.round(stat / 1e3) + "k" : stat;
             text += stat_names[i] + "=" + stat + " ";
         }
 

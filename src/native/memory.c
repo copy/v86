@@ -120,6 +120,7 @@ int32_t jit_get_entry_length(int32_t i)
 #if DEBUG
     return jit_cache_arr[i].len;
 #else
+    UNUSED(i);
     return 0;
 #endif
 }

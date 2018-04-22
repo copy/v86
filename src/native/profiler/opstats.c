@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #include "../codegen/codegen.h"
+#include "../shared.h"
 
 #if ENABLE_PROFILER_OPSTATS
 
@@ -55,6 +56,8 @@ void gen_opstats(uint32_t instruction)
             }
         }
     }
+#else
+    UNUSED(instruction);
 #endif
 }
 
@@ -72,6 +75,7 @@ int32_t get_opstats_buffer(int32_t index)
         return opstats_buffer.opcode_0f[index - 0x100];
     }
 #else
+    UNUSED(index);
     return 0;
 #endif
 }
