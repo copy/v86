@@ -9,7 +9,7 @@ var TEST_NAME = process.env.TEST_NAME;
 
 try
 {
-    var V86 = require("../../build/libv86.js").V86Starter;
+    var V86 = require("../../build/libv86.js").V86;
 }
 catch(e)
 {
