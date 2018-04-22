@@ -5,7 +5,7 @@ var v86util = v86util || {};
 // pad string with spaces on the right
 v86util.pads = function(str, len)
 {
-    str = str ? str + "" : "";
+    str = (str || str === 0) ? str + "" : "";
 
     while(str.length < len)
     {
@@ -23,7 +23,7 @@ v86util.check_env_node = function()
 // pad string with zeros on the left
 v86util.pad0 = function(str, len)
 {
-    str = str ? str + "" : "";
+    str = (str || str === 0) ? str + "" : "";
 
     while(str.length < len)
     {

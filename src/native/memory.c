@@ -78,6 +78,52 @@ void jit_empty_cache()
     }
 }
 
+int32_t jit_invalid_cache_stat()
+{
+    int32_t count = 0;
+
+    for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
+    {
+        struct code_cache* entry = &jit_cache_arr[i];
+        int32_t phys_addr = entry->start_addr;
+
+        if(phys_addr != 0 && entry->group_status != group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT])
+        {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+int32_t jit_unused_cache_stat()
+{
+    int32_t count = 0;
+
+    for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
+    {
+        struct code_cache* entry = &jit_cache_arr[i];
+        int32_t phys_addr = entry->start_addr;
+
+        if(phys_addr == 0)
+        {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+int32_t jit_get_entry_length(int32_t i)
+{
+    assert(i >= 0 && i < WASM_TABLE_SIZE);
+#if DEBUG
+    return jit_cache_arr[i].len;
+#else
+    return 0;
+#endif
+}
+
 int32_t read8(uint32_t addr)
 {
     if(USE_A20 && *a20_enabled) addr &= A20_MASK;
