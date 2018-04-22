@@ -13,8 +13,11 @@ static struct {
     .opcode_0f = { 0 },
 };
 
+#endif
+
 void gen_opstats(uint32_t instruction)
 {
+#if ENABLE_PROFILER_OPSTATS
     bool is_0f = false;
 
     for(int32_t i = 0; i < 4; i++)
@@ -52,12 +55,14 @@ void gen_opstats(uint32_t instruction)
             }
         }
     }
+#endif
 }
 
 int32_t get_opstats_buffer(int32_t index)
 {
     assert(index >= 0 && index < 0x200);
 
+#if ENABLE_PROFILER_OPSTATS
     if(index < 0x100)
     {
         return opstats_buffer.opcode[index];
@@ -66,19 +71,7 @@ int32_t get_opstats_buffer(int32_t index)
     {
         return opstats_buffer.opcode_0f[index - 0x100];
     }
-}
-
 #else
-
-void gen_opstats(uint32_t instruction)
-{
-}
-
-int32_t get_opstats_buffer(int32_t index)
-{
-    assert(index >= 0 && index < 0x200);
-
     return 0;
-}
-
 #endif
+}
