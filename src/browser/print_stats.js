@@ -3,6 +3,15 @@
 const print_stats = {
     stats_to_string: function(cpu)
     {
+        return this.print_misc_stats(cpu) +
+            this.print_wasm_basic_block_count_histogram(cpu) +
+            this.print_instruction_counts(cpu);
+    },
+
+    print_misc_stats: function(cpu)
+    {
+        let text = "";
+
         const names = [
             "IDLE",
             "DO_MANY_CYCLES",
@@ -27,7 +36,6 @@ const print_stats = {
         ];
 
         const total = cpu.wm.exports["_profiler_get_total"]();
-        let text = "";
 
         for(let i = 0; i < names.length; i++)
         {
@@ -49,11 +57,17 @@ const print_stats = {
         text += " CACHE_UNUSED=" + cpu.wm.exports["_jit_unused_cache_stat"]();
         text += "\n";
 
+        return text;
+    },
+
+    print_wasm_basic_block_count_histogram: function(cpu)
+    {
+        let text = "";
         const histogram = Object.create(null);
 
         for(let i = 0; i < 0x10000; i++)
         {
-            let length = cpu.wm.exports["_jit_get_entry_length"](i);
+            const length = cpu.wm.exports["_jit_get_entry_length"](i);
             histogram[length] = (histogram[length] || 0) + 1;
         }
 
@@ -75,6 +89,12 @@ const print_stats = {
 
         text += "32+:" + above + "\n";
 
+        return text;
+    },
+
+    print_instruction_counts: function(cpu)
+    {
+        let text = "";
 
         const counts = [];
 
