@@ -39,33 +39,6 @@ catch(e) {
     process.exit(1);
 }
 
-function h(n, len)
-{
-    // pad string with zeros on the left
-    function pad0(str, len)
-    {
-        str = str ? str + "" : "";
-
-        while(str.length < len)
-        {
-            str = "0" + str;
-        }
-
-        return str;
-    }
-
-    if(!n)
-    {
-        var str = "";
-    }
-    else
-    {
-        var str = n.toString(16);
-    }
-
-    return "0x" + pad0(str.toUpperCase(), len || 1);
-}
-
 if(cluster.isMaster)
 {
     function extract_json(name, fixture_text)

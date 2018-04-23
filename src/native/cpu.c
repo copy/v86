@@ -1361,6 +1361,7 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
 
 #if DEBUG
     entry->opcode[0] = first_opcode;
+    // XXX: Restore these
     //entry->end_addr = end_addr;
     //entry->len = len;
 #endif

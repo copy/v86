@@ -6,13 +6,7 @@ var v86util = v86util || {};
 v86util.pads = function(str, len)
 {
     str = (str || str === 0) ? str + "" : "";
-
-    while(str.length < len)
-    {
-        str = str + " ";
-    }
-
-    return str;
+    return str.padEnd(len, " ");
 };
 
 v86util.check_env_node = function()
@@ -24,13 +18,7 @@ v86util.check_env_node = function()
 v86util.pad0 = function(str, len)
 {
     str = (str || str === 0) ? str + "" : "";
-
-    while(str.length < len)
-    {
-        str = "0" + str;
-    }
-
-    return str;
+    return str.padStart(len, "0");
 };
 
 /**
