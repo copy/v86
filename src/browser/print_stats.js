@@ -73,7 +73,7 @@ const print_stats = {
 
         let above = 0;
 
-        for(let i in histogram)
+        for(let i of Object.keys(histogram))
         {
             i = +i;
             if(i >= 32)
