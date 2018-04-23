@@ -18,11 +18,21 @@
 #include "profiler/opstats.h"
 #include "shared.h"
 
+struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {
+    {
+        .start_addr = 0,
 #if DEBUG
-struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, {0}, 0, 0, 0, 0, false}};
-#else
-struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {{0, 0, 0, 0, false}};
+        .end_addr = 0,
+        .opcode = {0},
+        .len = 0,
 #endif
+        .group_status = 0,
+        .wasm_table_index = 0,
+        .initial_state = 0,
+        .state_flags = 0,
+        .pending = false,
+    }
+};
 
 uint64_t tsc_offset = 0;
 
@@ -30,9 +40,17 @@ uint32_t jit_block_boundary = 0;
 int32_t hot_code_addresses[HASH_PRIME] = {0};
 uint32_t group_dirtiness[GROUP_DIRTINESS_LENGTH] = {0};
 
+uint16_t wasm_table_index_free_list[0x10000] = { 0 };
+int32_t wasm_table_index_free_list_count = 0;
+
 int32_t tlb_data[0x100000] = {0};
 int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX] = {0};
 int32_t valid_tlb_entries_count = 0;
+
+int32_t get_wasm_table_index_free_list_count(void)
+{
+    return wasm_table_index_free_list_count;
+}
 
 void after_block_boundary()
 {
@@ -622,7 +640,6 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
                         phys_addr, jit_cache_arr[addr_index - 1].start_addr);
             }
 
-            entry->wasm_table_index = addr_index;
             return entry;
         }
     }
@@ -630,7 +647,6 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
     // no free slots, overwrite the first one
     uint16_t addr_index = phys_addr & JIT_PHYS_MASK;
     struct code_cache* entry = &jit_cache_arr[addr_index];
-    entry->wasm_table_index = addr_index;
 
     profiler_stat_increment(S_CACHE_MISMATCH);
     return entry;
@@ -754,8 +770,19 @@ void codegen_finalize_finished(
 {
     if(page_dirtiness == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT])
     {
-        struct code_cache* entry = &jit_cache_arr[wasm_table_index];
+        // XXX: Avoid looping through entire table here (requires different data structure)
 
+        for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
+        {
+            struct code_cache* entry = &jit_cache_arr[i];
+
+            if(entry->wasm_table_index == wasm_table_index)
+            {
+                entry->pending = false;
+            }
+        }
+
+#if 0
         // XXX: May end up in this branch when entry is overwritten due to full
         //      cache, causing the assertions below to fail
 
@@ -764,13 +791,12 @@ void codegen_finalize_finished(
         assert(entry->group_status == page_dirtiness);
         assert(entry->start_addr == phys_addr);
         assert(entry->state_flags == state_flags);
+#endif
         UNUSED(page_dirtiness);
         UNUSED(phys_addr);
         UNUSED(state_flags);
         UNUSED(end_addr);
         UNUSED(first_opcode);
-
-        entry->pending = false;
     }
     else
     {
@@ -1005,10 +1031,15 @@ struct basic_block_list basic_blocks = {
             .next_block_addr = 0,
             .next_block_branch_taken_addr = 0,
             .condition_index = 0,
+            .jump_offset_is_32 = false,
+            .is_entry_block = false,
         }
     }
 };
+
+// temporary variables used only by jit_find_basic_blocks
 int32_t to_visit_stack[1000];
+int32_t marked_as_entry[1000];
 
 // populates the basic_blocks global variable
 static void jit_find_basic_blocks()
@@ -1021,6 +1052,9 @@ static void jit_find_basic_blocks()
 
     int32_t to_visit_stack_count = 0;
     to_visit_stack[to_visit_stack_count++] = *instruction_pointer;
+
+    int32_t marked_as_entry_count = 0;
+    marked_as_entry[marked_as_entry_count++] = *instruction_pointer;
 
     while(to_visit_stack_count)
     {
@@ -1038,12 +1072,11 @@ static void jit_find_basic_blocks()
         struct basic_block* current_block = add_basic_block_start(&basic_blocks, *instruction_pointer);
 
         current_block->next_block_branch_taken_addr = 0;
+        current_block->is_entry_block = false;
 
         while(true)
         {
-            int32_t phys_eip = translate_address_read(*instruction_pointer);
-
-            if(is_near_end_of_page(phys_eip))
+            if(is_near_end_of_page(*instruction_pointer))
             {
                 current_block->next_block_branch_taken_addr = 0;
                 current_block->next_block_addr = 0;
@@ -1052,9 +1085,7 @@ static void jit_find_basic_blocks()
                 break;
             }
 
-            assert(!in_mapped_range(phys_eip));
-            int32_t opcode = mem8[phys_eip];
-            (*instruction_pointer)++;
+            int32_t opcode = read_imm8();
             struct analysis analysis = analyze_step(opcode | is_osize_32() << 8);
 
             assert(*prefixes == 0);
@@ -1066,6 +1097,7 @@ static void jit_find_basic_blocks()
             if((analysis.flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG) == 0)
             {
                 // ordinary instruction, continue at next
+                assert(!has_jump_target);
 
                 if(find_basic_block_index(&basic_blocks, *instruction_pointer) != -1)
                 {
@@ -1145,10 +1177,40 @@ static void jit_find_basic_blocks()
 
                 assert((analysis.flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG) && !has_jump_target);
 
+                bool has_next_instruction = (analysis.flags & JIT_INSTR_NO_NEXT_INSTRUCTION_FLAG) == 0;
+
+                if(has_next_instruction)
+                {
+                    // block boundary, but execution will eventually come back
+                    // to the next instruction. Create a new basic block
+                    // starting at the next instruction and register it as an
+                    // entry point
+
+                    marked_as_entry[marked_as_entry_count++] = *instruction_pointer;
+
+                    assert(to_visit_stack_count != 1000);
+                    to_visit_stack[to_visit_stack_count++] = *instruction_pointer;
+                }
+
                 current_block->next_block_branch_taken_addr = 0;
                 current_block->next_block_addr = 0;
                 current_block->condition_index = -1;
                 current_block->end_addr = *instruction_pointer;
+                break;
+            }
+        }
+    }
+
+    // Note: O(no_of_basic_blocks * no_of_entry_blocks)
+    for(int32_t basic_block_index = 0; basic_block_index < basic_blocks.length; basic_block_index++)
+    {
+        struct basic_block* basic_block = &basic_blocks.blocks[basic_block_index];
+
+        for(int32_t i = 0; i < marked_as_entry_count; i++)
+        {
+            if(basic_block->addr == marked_as_entry[i])
+            {
+                basic_block->is_entry_block = true;
                 break;
             }
         }
@@ -1184,24 +1246,20 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
 
     // Code generation starts here
 
-    // local variables used by the generated wasm module
-    const int32_t STATE = 0;
-    const int32_t ITERATION_COUNTER = 1;
+    // parameters used by the generated wasm module
+    const int32_t ARG_INITIAL_STATE = 0;
+
+    // local variables used by the generated wasm module (after parameter index space)
+    const int32_t STATE = 1;
+    const int32_t ITERATION_COUNTER = 2;
 
     const int32_t NO_OF_LOCALS = 2;
 
     gen_reset();
 
-    {
-        int32_t first_basic_block_index = find_basic_block_index(&basic_blocks, start);
-        assert(first_basic_block_index != -1);
-
-        // Set state variable to first basic block; in most cases the first
-        // basic block, but a jump may lead to before the function start, which
-        // is currently accepted as long as it is in the same page
-        gen_const_i32(first_basic_block_index);
-        gen_set_local(STATE);
-    }
+    // set state local variable to the initial state passed as the first argument
+    gen_get_local(ARG_INITIAL_STATE);
+    gen_set_local(STATE);
 
     // initialise max_iterations
     gen_const_i32(JIT_MAX_ITERATIONS_PER_FUNCTION);
@@ -1352,16 +1410,41 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
     gen_commit_instruction_body_to_cs();
     gen_finish(NO_OF_LOCALS);
 
-    struct code_cache* entry = create_cache_entry(phys_addr);
+    cached_state_flags state_flags = pack_current_state_flags();
 
-    entry->start_addr = phys_addr;
-    entry->state_flags = pack_current_state_flags();
-    entry->group_status = page_dirtiness;
-    entry->pending = true;
+    // allocate an index in the wasm table
+    assert(wasm_table_index_free_list_count > 0);
+    uint32_t wasm_table_index = wasm_table_index_free_list[--wasm_table_index_free_list_count];
+
+    // create entries for each basic block that is marked as an entry point
+    int32_t entry_point_count = 0;
+
+    for(int32_t i = 0; i < basic_blocks.length; i++)
+    {
+        struct basic_block* block = &basic_blocks.blocks[i];
+
+        if(block->is_entry_block && block->addr != block->end_addr)
+        {
+            uint32_t phys_addr = translate_address_read(block->addr);
+
+            struct code_cache* entry = create_cache_entry(phys_addr);
+
+            entry->start_addr = phys_addr;
+            entry->state_flags = state_flags;
+            entry->group_status = page_dirtiness;
+            entry->pending = true;
+            entry->initial_state = i;
+            entry->wasm_table_index = wasm_table_index;
+
+            entry_point_count++;
+        }
+    }
+
+    assert(entry_point_count > 0);
 
 #if DEBUG
-    entry->opcode[0] = first_opcode;
     // XXX: Restore these
+    //entry->opcode[0] = first_opcode;
     //entry->end_addr = end_addr;
     //entry->len = len;
 #endif
@@ -1371,8 +1454,8 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
 
     // will call codegen_finalize_finished asynchronously when finished
     codegen_finalize(
-            entry->wasm_table_index, phys_addr, end_addr,
-            first_opcode, entry->state_flags, page_dirtiness);
+            wasm_table_index, phys_addr, end_addr,
+            first_opcode, state_flags, page_dirtiness);
 
     profiler_stat_increment(S_COMPILE_SUCCESS);
     profiler_end(P_GEN_INSTR);
@@ -1408,7 +1491,7 @@ void cycle_internal()
         profiler_start(P_RUN_FROM_CACHE);
         profiler_stat_increment(S_RUN_FROM_CACHE);
 
-        assert(entry->opcode[0] == read8(phys_addr));
+        //assert(entry->opcode[0] == read8(phys_addr));
 
         uint32_t old_group_status = entry->group_status;
         uint32_t old_start_address = entry->start_addr;
@@ -1416,7 +1499,8 @@ void cycle_internal()
         assert(old_group_status == old_group_dirtiness);
 
         uint16_t wasm_table_index = entry->wasm_table_index;
-        call_indirect(wasm_table_index);
+        uint16_t initial_state = entry->initial_state;
+        call_indirect1(wasm_table_index, initial_state);
 
         // These shouldn't fail
         assert(entry->group_status == old_group_status);

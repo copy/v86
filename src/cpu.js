@@ -1371,6 +1371,7 @@ CPU.prototype.dump_function_code = function(block_ptr, count)
         const struct_start = (block_ptr >> 2) + i * SIZEOF_BASIC_BLOCK_IN_DWORDS;
         const start = mem32[struct_start + 0];
         const end = mem32[struct_start + 1];
+        const is_entry_block = mem32[struct_start + 6] & 0xFF00;
 
         const buffer = new Uint8Array(end - start);
 
@@ -1379,8 +1380,8 @@ CPU.prototype.dump_function_code = function(block_ptr, count)
             buffer[i - start] = this.read8(this.translate_address_read(i));
         }
 
+        dbg_log("---" + (is_entry_block ? " entry" : ""));
         this.debug.dump_code(is_32 ? 1 : 0, buffer, start);
-        dbg_log("---");
     }
 };
 

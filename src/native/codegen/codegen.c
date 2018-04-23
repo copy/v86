@@ -82,7 +82,7 @@ uintptr_t gen_finish(int32_t no_of_locals_i32)
     write_raw_u8(&op, 0); write_raw_u8(&op, 0);
 
     write_raw_u8(&op, 1); // count of local blocks
-    write_raw_u8(&op, no_of_locals_i32); write_raw_u8(&op, TYPE_I32); // 2 locals of type i32
+    write_raw_u8(&op, no_of_locals_i32); write_raw_u8(&op, TYPE_I32); // locals of type i32
 
     copy_code_section();
 

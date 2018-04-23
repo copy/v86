@@ -51,12 +51,13 @@ struct code_cache {
     uint32_t group_status;
 
     uint16_t wasm_table_index;
+    uint16_t initial_state;
     cached_state_flags state_flags;
     bool pending;
 };
 #if DEBUG
 #else
-_Static_assert(sizeof(struct code_cache) == 12, "code_cache uses 12 bytes");
+_Static_assert(sizeof(struct code_cache) == 16, "code_cache uses 16 bytes");
 #endif
 struct code_cache jit_cache_arr[WASM_TABLE_SIZE];
 
@@ -67,9 +68,10 @@ extern uint32_t jit_block_boundary;
 typedef uint32_t jit_instr_flags;
 
 #define JIT_INSTR_BLOCK_BOUNDARY_FLAG (1 << 0)
-#define JIT_INSTR_NONFAULTING_FLAG (1 << 1)
-#define JIT_INSTR_IMM_JUMP16_FLAG (1 << 2)
-#define JIT_INSTR_IMM_JUMP32_FLAG (1 << 3)
+#define JIT_INSTR_NO_NEXT_INSTRUCTION_FLAG (1 << 1)
+#define JIT_INSTR_NONFAULTING_FLAG (1 << 2)
+#define JIT_INSTR_IMM_JUMP16_FLAG (1 << 3)
+#define JIT_INSTR_IMM_JUMP32_FLAG (1 << 4)
 
 struct analysis {
     jit_instr_flags flags;
@@ -85,6 +87,7 @@ struct basic_block {
     int32_t condition_index; // if not -1 this block ends with a conditional jump
     int32_t jump_offset;
     bool jump_offset_is_32;
+    bool is_entry_block;
 };
 
 #define BASIC_BLOCK_LIST_MAX 1000
@@ -100,6 +103,9 @@ extern int32_t hot_code_addresses[HASH_PRIME];
 // to the same group due to the shift
 extern uint32_t group_dirtiness[GROUP_DIRTINESS_LENGTH];
 
+uint16_t wasm_table_index_free_list[0x10000];
+int32_t wasm_table_index_free_list_count;
+
 #define VALID_TLB_ENTRY_MAX 10000
 int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX];
 int32_t valid_tlb_entries_count;
@@ -112,6 +118,7 @@ int32_t valid_tlb_entries_count;
 
 // defined in call-indirect.ll
 extern void call_indirect(int32_t index);
+extern void call_indirect1(int32_t index, int32_t arg);
 
 void after_block_boundary(void);
 struct analysis analyze_step(int32_t);

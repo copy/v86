@@ -166,7 +166,7 @@ static void write_function_section(int32_t count)
 
     for(int32_t i = 0; i < count; i++)
     {
-        write_raw_u8(&op, FN0_TYPE_INDEX);
+        write_raw_u8(&op, FN1_TYPE_INDEX);
     }
 }
 

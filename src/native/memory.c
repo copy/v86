@@ -76,6 +76,14 @@ void jit_empty_cache()
     {
         jit_cache_arr[i].start_addr = 0;
     }
+
+    for(int32_t i = 0; i < 0xFFFF; i++)
+    {
+        // don't assign 0 (XXX: Check)
+        wasm_table_index_free_list[i] = i + 1;
+    }
+
+    wasm_table_index_free_list_count = 0xFFFF;
 }
 
 int32_t jit_invalid_cache_stat()

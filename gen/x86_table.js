@@ -186,16 +186,16 @@ const encodings = [
     { opcode: 0xEA, block_boundary: 1, no_next_instruction: 1, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, }, // jmpf
     { opcode: 0xEB, block_boundary: 1, jump_offset_imm: 1, no_next_instruction: 1, imm8s: 1, custom: 1, skip: 1, },
 
-    { opcode: 0xEC, block_boundary: 1, skip: 1, },
+    { opcode: 0xEC, block_boundary: 1, skip: 1, }, // in
     { opcode: 0xED, block_boundary: 1, os: 1, skip: 1, },
-    { opcode: 0xEE, block_boundary: 1, skip: 1, },
+    { opcode: 0xEE, block_boundary: 1, skip: 1, }, // out
     { opcode: 0xEF, block_boundary: 1, os: 1, skip: 1, },
 
     { opcode: 0xF0, prefix: 1, },
     { opcode: 0xF1, skip: 1, },
     { opcode: 0xF2, prefix: 1, },
     { opcode: 0xF3, prefix: 1, },
-    { opcode: 0xF4, block_boundary: 1, skip: 1, },
+    { opcode: 0xF4, block_boundary: 1, no_next_instruction: 1, skip: 1, }, // hlt
     { opcode: 0xF5, nonfaulting: 1, },
 
     { opcode: 0xF6, fixed_g: 0, nonfaulting: 1, imm8: 1, },
@@ -286,7 +286,7 @@ const encodings = [
     { opcode: 0x0F31, skip: 1 },
     { opcode: 0x0F32, skip: 1 },
     { opcode: 0x0F33, skip: 1 },
-    { opcode: 0x0F34, skip: 1, block_boundary: 1, }, // sysenter
+    { opcode: 0x0F34, skip: 1, block_boundary: 1, no_next_instruction: 1, }, // sysenter
     { opcode: 0x0F35, skip: 1, block_boundary: 1, no_next_instruction: 1, }, // sysexit
     { opcode: 0x0F36, skip: 1 },
     { opcode: 0x0F37, skip: 1 },

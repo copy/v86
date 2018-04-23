@@ -5,3 +5,8 @@ define void @call_indirect(void ()* %callee) {
   call void %callee()
   ret void
 }
+
+define void @call_indirect1(void (i32)* %callee, i32 %arg) {
+  call void %callee(i32 %arg)
+  ret void
+}

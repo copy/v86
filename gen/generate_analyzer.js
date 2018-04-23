@@ -134,6 +134,14 @@ function get_nonfaulting_mem_reg_postfix(encoding)
     };
 }
 
+function create_instruction_postfix(encoding)
+{
+    return [].concat(
+        encoding.block_boundary ? ["analysis.flags |= JIT_INSTR_BLOCK_BOUNDARY_FLAG;"] : [],
+        encoding.no_next_instruction ? ["analysis.flags |= JIT_INSTR_NO_NEXT_INSTRUCTION_FLAG;"] : []
+    );
+}
+
 function gen_instruction_body(encodings, size)
 {
     const encoding = encodings[0];
@@ -154,8 +162,6 @@ function gen_instruction_body(encodings, size)
         console.assert((encoding.opcode & 0xFF00) === 0x0F00);
     }
 
-    const instruction_postfix = encoding.block_boundary ? ["analysis.flags |= JIT_INSTR_BLOCK_BOUNDARY_FLAG;"] : [];
-
     if(encoding.fixed_g !== undefined)
     {
         // instruction with modrm byte where the middle 3 bits encode the instruction
@@ -175,7 +181,7 @@ function gen_instruction_body(encodings, size)
                 condition: "modrm_byte >> 3 & 7",
                 cases: cases.map(case_ => {
                     const fixed_g = case_.fixed_g;
-                    const instruction_postfix = case_.block_boundary ? ["analysis.flags |=  JIT_INSTR_BLOCK_BOUNDARY_FLAG;"] : [];
+                    const instruction_postfix = create_instruction_postfix(case_);
 
                     const mem_args = [];
                     const reg_args = [];
@@ -251,10 +257,11 @@ function gen_instruction_body(encodings, size)
                     body: [
                         "assert(false);",
                         "analysis.flags |= JIT_INSTR_BLOCK_BOUNDARY_FLAG;",
+                        "analysis.flags |= JIT_INSTR_NO_NEXT_INSTRUCTION_FLAG;",
                     ],
                 }
             },
-        ].concat(instruction_postfix);
+        ];
     }
     else if(has_66 || has_F2 || has_F3)
     {
@@ -262,6 +269,8 @@ function gen_instruction_body(encodings, size)
 
         console.assert(encoding.e);
         console.assert(!encoding.ignore_mod);
+
+        const instruction_postfix = create_instruction_postfix(encoding);
 
         const imm_read = gen_read_imm_call(encoding, size);
 
@@ -315,6 +324,8 @@ function gen_instruction_body(encodings, size)
 
         console.assert(encodings.length === 1);
 
+        const instruction_postfix = create_instruction_postfix(encoding);
+
         const imm_read = gen_read_imm_call(encoding, size);
 
         if(encoding.ignore_mod)
@@ -358,6 +369,8 @@ function gen_instruction_body(encodings, size)
     {
         console.assert(!encoding.nonfaulting, "Prefix/custom instructions cannot be marked as nonfaulting.");
 
+        const instruction_postfix = create_instruction_postfix(encoding);
+
         const instruction_name = make_instruction_name(encoding, size) + "_analyze";
         const imm_read = gen_read_imm_call(encoding, size);
         const args = [];
@@ -374,6 +387,8 @@ function gen_instruction_body(encodings, size)
     else
     {
         // instruction without modrm byte or prefix
+
+        const instruction_postfix = create_instruction_postfix(encoding);
 
         const imm_read = gen_read_imm_call(encoding, size);
 
