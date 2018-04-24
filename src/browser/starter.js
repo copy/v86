@@ -223,8 +223,8 @@ function V86Starter(options)
         },
         "_get_time": Date.now,
 
-        "_codegen_finalize": (wasm_table_index, start, end, first_opcode, state_flags, page_dirtiness) => {
-            cpu.codegen_finalize(wasm_table_index, start, end, first_opcode, state_flags, page_dirtiness);
+        "_codegen_finalize": (wasm_table_index, start, end, first_opcode, state_flags) => {
+            cpu.codegen_finalize(wasm_table_index, start, end, first_opcode, state_flags);
         },
         "_coverage_log": (fn_name_offset, num_blocks, visited_block) => {
             coverage_logger.log(fn_name_offset, num_blocks, visited_block);

@@ -26,7 +26,8 @@ struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {
         .opcode = {0},
         .len = 0,
 #endif
-        .group_status = 0,
+        .next_index_same_page = 0,
+
         .wasm_table_index = 0,
         .initial_state = 0,
         .state_flags = 0,
@@ -38,7 +39,8 @@ uint64_t tsc_offset = 0;
 
 uint32_t jit_block_boundary = 0;
 int32_t hot_code_addresses[HASH_PRIME] = {0};
-uint32_t group_dirtiness[GROUP_DIRTINESS_LENGTH] = {0};
+
+int32_t page_first_jit_cache_entry[GROUP_DIRTINESS_LENGTH] = {0};
 
 uint16_t wasm_table_index_free_list[0x10000] = { 0 };
 int32_t wasm_table_index_free_list_count = 0;
@@ -630,15 +632,29 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
         uint16_t addr_index = (phys_addr + i) & JIT_PHYS_MASK;
         struct code_cache* entry = &jit_cache_arr[addr_index];
 
-        uint32_t page_dirtiness = group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT];
-
-        if(!entry->start_addr || entry->group_status != page_dirtiness)
+        if(!entry->start_addr)
         {
             if(i > 0)
             {
                 dbg_log("Inserted cache entry at %d for addr %x | 0=%x", i,
                         phys_addr, jit_cache_arr[addr_index - 1].start_addr);
             }
+
+            uint32_t page = phys_addr >> 12;
+            int32_t previous_entry_index = page_first_jit_cache_entry[page];
+
+            if(previous_entry_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+            {
+                struct code_cache* previous_entry = &jit_cache_arr[previous_entry_index];
+
+                if(previous_entry->start_addr)
+                {
+                    assert(same_page(previous_entry->start_addr, phys_addr));
+                }
+            }
+
+            page_first_jit_cache_entry[page] = addr_index;
+            entry->next_index_same_page = previous_entry_index;
 
             return entry;
         }
@@ -647,6 +663,8 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
     // no free slots, overwrite the first one
     uint16_t addr_index = phys_addr & JIT_PHYS_MASK;
     struct code_cache* entry = &jit_cache_arr[addr_index];
+
+    // TODO: Free wasm table index
 
     profiler_stat_increment(S_CACHE_MISMATCH);
     return entry;
@@ -657,7 +675,7 @@ static bool is_near_end_of_page(uint32_t addr)
     return (addr & 0xFFF) >= (0x1000 - 16);
 }
 
-static bool same_page(int32_t addr1, int32_t addr2)
+bool same_page(int32_t addr1, int32_t addr2)
 {
     return (addr1 & ~0xFFF) == (addr2 & ~0xFFF);
 }
@@ -766,9 +784,8 @@ static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
 
 void codegen_finalize_finished(
         int32_t wasm_table_index, uint32_t phys_addr, uint32_t end_addr,
-        int32_t first_opcode, cached_state_flags state_flags, uint32_t page_dirtiness)
+        int32_t first_opcode, cached_state_flags state_flags)
 {
-    if(page_dirtiness == group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT])
     {
         // XXX: Avoid looping through entire table here (requires different data structure)
 
@@ -788,19 +805,13 @@ void codegen_finalize_finished(
 
         // sanity check that we're looking at the right entry
         assert(entry->pending);
-        assert(entry->group_status == page_dirtiness);
         assert(entry->start_addr == phys_addr);
         assert(entry->state_flags == state_flags);
 #endif
-        UNUSED(page_dirtiness);
         UNUSED(phys_addr);
         UNUSED(state_flags);
         UNUSED(end_addr);
         UNUSED(first_opcode);
-    }
-    else
-    {
-        // the page has been written, drop this entry
     }
 }
 
@@ -815,29 +826,6 @@ static struct code_cache* find_cache_entry(uint32_t phys_addr)
         struct code_cache* entry = &jit_cache_arr[addr_index];
 
         if(entry->start_addr == phys_addr && entry->state_flags == state_flags)
-        {
-            return entry;
-        }
-    }
-
-    return NULL;
-}
-
-struct code_cache* find_link_block_target(int32_t target)
-{
-    int32_t eip = *previous_ip;
-
-    if(same_page(eip, target))
-    {
-        assert((eip & ~0xFFF) == *last_virt_eip);
-        assert((target & ~0xFFF) == *last_virt_eip);
-
-        uint32_t phys_target = *eip_phys ^ target;
-        struct code_cache* entry = find_cache_entry(phys_target);
-
-        if(entry &&
-                !entry->pending &&
-                entry->group_status == group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT])
         {
             return entry;
         }
@@ -1232,7 +1220,7 @@ static void jit_find_basic_blocks()
     }
 }
 
-static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
+static void jit_generate(uint32_t phys_addr)
 {
     profiler_stat_increment(S_COMPILE);
     profiler_start(P_GEN_INSTR);
@@ -1431,7 +1419,6 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
 
             entry->start_addr = phys_addr;
             entry->state_flags = state_flags;
-            entry->group_status = page_dirtiness;
             entry->pending = true;
             entry->initial_state = i;
             entry->wasm_table_index = wasm_table_index;
@@ -1455,7 +1442,7 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
     // will call codegen_finalize_finished asynchronously when finished
     codegen_finalize(
             wasm_table_index, phys_addr, end_addr,
-            first_opcode, state_flags, page_dirtiness);
+            first_opcode, state_flags);
 
     profiler_stat_increment(S_COMPILE_SUCCESS);
     profiler_end(P_GEN_INSTR);
@@ -1468,8 +1455,7 @@ static void jit_generate(uint32_t phys_addr, uint32_t page_dirtiness)
 void jit_force_generate_unsafe(uint32_t phys_addr)
 {
     *instruction_pointer = phys_addr;
-    uint32_t page_dirtiness = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
-    jit_generate(phys_addr, page_dirtiness);
+    jit_generate(phys_addr);
 }
 #endif
 
@@ -1482,36 +1468,25 @@ void cycle_internal()
 
     struct code_cache* entry = find_cache_entry(phys_addr);
 
-    uint32_t page_dirtiness = group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT];
-
     const bool JIT_COMPILE_ONLY_AFTER_BLOCK_BOUNDARY = true;
 
-    if(entry && entry->group_status == page_dirtiness && !entry->pending)
+    if(entry && !entry->pending)
     {
         profiler_start(P_RUN_FROM_CACHE);
         profiler_stat_increment(S_RUN_FROM_CACHE);
 
         //assert(entry->opcode[0] == read8(phys_addr));
 
-        uint32_t old_group_status = entry->group_status;
         uint32_t old_start_address = entry->start_addr;
-        uint32_t old_group_dirtiness = group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT];
-        assert(old_group_status == old_group_dirtiness);
 
         uint16_t wasm_table_index = entry->wasm_table_index;
         uint16_t initial_state = entry->initial_state;
         call_indirect1(wasm_table_index, initial_state);
 
-        // These shouldn't fail
-        assert(entry->group_status == old_group_status);
-        assert(entry->start_addr == old_start_address);
+        // XXX: New clearing: This should fail on self-modifying code
+        //assert(entry->start_addr == old_start_address);
 
-        // JIT compiled self-modifying code may trigger this assert
-        //assert(old_group_dirtiness == group_dirtiness[entry->start_addr >> DIRTY_ARR_SHIFT]);
-
-        UNUSED(old_group_status);
         UNUSED(old_start_address);
-        UNUSED(old_group_dirtiness);
 
         profiler_end(P_RUN_FROM_CACHE);
     }
@@ -1520,16 +1495,14 @@ void cycle_internal()
         bool did_block_boundary = !JIT_COMPILE_ONLY_AFTER_BLOCK_BOUNDARY || jit_block_boundary;
         const int32_t address_hash = jit_hot_hash(phys_addr);
 
-        // exists | pending | written -> should generate
-        // -------+---------+---------++---------------------
-        // 0      | x       | x       -> yes
-        // 1      | 0       | 0       -> impossible (handled above)
-        // 1      | 1       | 0       -> no
-        // 1      | 0       | 1       -> yes
-        // 1      | 1       | 1       -> yes
+        // exists | pending -> should generate
+        // -------+---------++---------------------
+        // 0      | x       -> yes
+        // 1      | 0       -> impossible (handled above)
+        // 1      | 1       -> no
 
         if(
-            (!entry || entry->group_status != page_dirtiness) &&
+            !entry &&
             !is_near_end_of_page(phys_addr) && (
                 ENABLE_JIT_ALWAYS ||
                 (did_block_boundary && ++hot_code_addresses[address_hash] > JIT_THRESHOLD)
@@ -1539,7 +1512,7 @@ void cycle_internal()
             // don't immediately retry to compile
             hot_code_addresses[address_hash] = 0;
 
-            jit_generate(phys_addr, page_dirtiness);
+            jit_generate(phys_addr);
         }
         else
         {

@@ -14,6 +14,32 @@ bool in_mapped_range(uint32_t addr)
     return (addr >= 0xA0000 && addr < 0xC0000) || addr >= *memory_size;
 }
 
+void jit_dirty_index(uint32_t index)
+{
+    int32_t cache_array_index = page_first_jit_cache_entry[index];
+
+    if(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+    {
+        page_first_jit_cache_entry[index] = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
+
+        do
+        {
+            struct code_cache* entry = &jit_cache_arr[cache_array_index];
+
+            assert(same_page(index << DIRTY_ARR_SHIFT, entry->start_addr));
+            entry->start_addr = 0;
+            entry->wasm_table_index = 0;
+
+            // TODO: Free wasm table index
+
+            cache_array_index = entry->next_index_same_page;
+
+            entry->next_index_same_page = 0;
+        }
+        while(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+    }
+}
+
 /*
  * There are 3 primary ways a cached basic block will be dirtied:
  * 1. A write dirties basic block A independently (A is clean and
@@ -30,13 +56,9 @@ void jit_dirty_cache(uint32_t start_addr, uint32_t end_addr)
     assert(start_addr <= end_addr);
     for(uint32_t i = start_addr; i < end_addr; i++)
     {
-        uint32_t idx = i >> DIRTY_ARR_SHIFT;
-        // XXX: Overflow _can_ cause a stale cache (with
-        // group_status=0) to be mistakenly run, but the odds are low
-        // since it depends on a compiled block never being
-        // re-compiled or evicted for 2^32 times that
-        // another block in its group is dirtied
-        group_dirtiness[idx]++;
+        uint32_t index = i >> DIRTY_ARR_SHIFT;
+        // XXX: Should only call once per index
+        jit_dirty_index(index);
     }
 #endif
 }
@@ -49,14 +71,14 @@ void jit_dirty_cache_small(uint32_t start_addr, uint32_t end_addr)
     uint32_t start_index = start_addr >> DIRTY_ARR_SHIFT;
     uint32_t end_index = (end_addr - 1) >> DIRTY_ARR_SHIFT;
 
-    group_dirtiness[start_index]++;
+    jit_dirty_index(start_index);
 
     // Note: This can't happen when paging is enabled, as writes across
     //       boundaries are split up on two pages
     if(start_index != end_index)
     {
         assert(end_index == start_index + 1);
-        group_dirtiness[end_index]++;
+        jit_dirty_index(end_index);
     }
 #endif
 }
@@ -66,7 +88,7 @@ void jit_dirty_cache_single(uint32_t addr)
 #if ENABLE_JIT
     uint32_t index = addr >> DIRTY_ARR_SHIFT;
 
-    group_dirtiness[index]++;
+    jit_dirty_index(index);
 #endif
 }
 
@@ -75,6 +97,13 @@ void jit_empty_cache()
     for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
     {
         jit_cache_arr[i].start_addr = 0;
+        jit_cache_arr[i].next_index_same_page = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
+        jit_cache_arr[i].wasm_table_index = 0;
+    }
+
+    for(int32_t i = 0; i < GROUP_DIRTINESS_LENGTH; i++)
+    {
+        page_first_jit_cache_entry[i] = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
     }
 
     for(int32_t i = 0; i < 0xFFFF; i++)
@@ -88,20 +117,7 @@ void jit_empty_cache()
 
 int32_t jit_invalid_cache_stat()
 {
-    int32_t count = 0;
-
-    for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
-    {
-        struct code_cache* entry = &jit_cache_arr[i];
-        int32_t phys_addr = entry->start_addr;
-
-        if(phys_addr != 0 && entry->group_status != group_dirtiness[phys_addr >> DIRTY_ARR_SHIFT])
-        {
-            count++;
-        }
-    }
-
-    return count;
+    return 0; // XXX: This stat doesn't make sense anymore after immediate cleaning
 }
 
 int32_t jit_unused_cache_stat()

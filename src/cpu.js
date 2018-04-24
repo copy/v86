@@ -1248,7 +1248,7 @@ if(PROFILING)
 var seen_code = {};
 var seen_code_uncompiled = {};
 
-CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_opcode, state_flags, page_dirtiness)
+CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_opcode, state_flags)
 {
     dbg_assert(wasm_table_index >= 0 && wasm_table_index < WASM_TABLE_SIZE);
     //dbg_log("finalize");
@@ -1300,7 +1300,7 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
 
         this.wm.exports["_codegen_finalize_finished"](
             wasm_table_index, start, end,
-            first_opcode, state_flags, page_dirtiness);
+            first_opcode, state_flags);
 
         // The following will throw if f isn't an exported function
         this.wm.imports["env"].table.set(wasm_table_index, f);

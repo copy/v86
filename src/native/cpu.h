@@ -45,10 +45,9 @@ struct code_cache {
     int32_t opcode[1];
     int32_t len;
 #endif
-    // Cleanliness status of the entry's "group" (based on
-    // DIRTY_ARR_SHIFT). Value only has meaning in relation with the
-    // group_dirtiness value.
-    uint32_t group_status;
+
+    // an index into jit_cache_arr for the next code_cache entry within the same physical page
+    int32_t next_index_same_page;
 
     uint16_t wasm_table_index;
     uint16_t initial_state;
@@ -99,9 +98,11 @@ struct basic_block_list {
 
 // Count of how many times prime_hash(address) has been called through a jump
 extern int32_t hot_code_addresses[HASH_PRIME];
-// An array indicating the current "initial group status" for entries that map
-// to the same group due to the shift
-extern uint32_t group_dirtiness[GROUP_DIRTINESS_LENGTH];
+
+// A mapping from physical page to index into jit_cache_arr
+int32_t page_first_jit_cache_entry[GROUP_DIRTINESS_LENGTH];
+
+#define JIT_CACHE_ARRAY_NO_NEXT_ENTRY (-1)
 
 uint16_t wasm_table_index_free_list[0x10000];
 int32_t wasm_table_index_free_list_count;
@@ -127,6 +128,8 @@ void after_jump(void);
 void diverged(void);
 void branch_taken(void);
 void branch_not_taken(void);
+
+bool same_page(int32_t, int32_t);
 
 int32_t get_eflags(void);
 uint32_t translate_address_read(int32_t address);
