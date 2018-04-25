@@ -625,8 +625,90 @@ static cached_state_flags pack_current_state_flags()
     return *is_32 << 0 | *stack_size_32 << 1 | has_flat_segmentation() << 2;
 }
 
+static void check_jit_cache_array_invariants(void)
+{
+#if DEBUG
+    int32_t wasm_table_index_to_jit_cache_index[0x10000] = { 0 };
+
+    for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
+    {
+        struct code_cache* entry = &jit_cache_arr[i];
+
+        // an invalid entry has both its start_addr and wasm_table_index set to 0
+        // neither start_addr nor wasm_table_index are 0 for any valid entry
+        assert((entry->start_addr == 0) == (entry->wasm_table_index == 0));
+
+        // any valid wasm_table_index can only be used within a single page
+        if(entry->wasm_table_index)
+        {
+            int32_t j = wasm_table_index_to_jit_cache_index[entry->wasm_table_index];
+
+            if(j)
+            {
+                struct code_cache* other_entry = &jit_cache_arr[j];
+                assert(other_entry->wasm_table_index == entry->wasm_table_index);
+                assert(same_page(other_entry->start_addr, entry->start_addr));
+            }
+            else
+            {
+                wasm_table_index_to_jit_cache_index[entry->wasm_table_index] = i;
+            }
+        }
+    }
+
+    // there are no loops in the linked lists
+    // https://en.wikipedia.org/wiki/Cycle_detection#Floyd's_Tortoise_and_Hare
+    for(int32_t i = 0; i < GROUP_DIRTINESS_LENGTH; i++)
+    {
+        int32_t slow = page_first_jit_cache_entry[i];
+        int32_t fast = page_first_jit_cache_entry[i];
+
+        while(fast != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+        {
+            slow = jit_cache_arr[slow].next_index_same_page;
+            fast = jit_cache_arr[fast].next_index_same_page;
+
+            if(fast == JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+            {
+                break;
+            }
+
+            fast = jit_cache_arr[fast].next_index_same_page;
+
+            assert(slow != fast);
+        }
+    }
+#endif
+}
+
+static void remove_jit_cache_entry(int32_t addr_index)
+{
+    uint32_t page = jit_cache_arr[addr_index].start_addr >> 12;
+    int32_t page_index = page_first_jit_cache_entry[page];
+
+    if(page_index == addr_index)
+    {
+        page_first_jit_cache_entry[page] = jit_cache_arr[addr_index].next_index_same_page;
+    }
+    else
+    {
+        while(page_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+        {
+            int32_t next_index = jit_cache_arr[page_index].next_index_same_page;
+            if(next_index == addr_index)
+            {
+                jit_cache_arr[page_index].next_index_same_page = jit_cache_arr[addr_index].next_index_same_page;
+                break;
+            }
+            page_index = next_index;
+        }
+    }
+}
+
 static struct code_cache* create_cache_entry(uint32_t phys_addr)
 {
+    int32_t found_entry_index = -1;
+
     for(int32_t i = 0; i < CODE_CACHE_SEARCH_SIZE; i++)
     {
         uint16_t addr_index = (phys_addr + i) & JIT_PHYS_MASK;
@@ -640,33 +722,42 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
                         phys_addr, jit_cache_arr[addr_index - 1].start_addr);
             }
 
-            uint32_t page = phys_addr >> 12;
-            int32_t previous_entry_index = page_first_jit_cache_entry[page];
-
-            if(previous_entry_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
-            {
-                struct code_cache* previous_entry = &jit_cache_arr[previous_entry_index];
-
-                if(previous_entry->start_addr)
-                {
-                    assert(same_page(previous_entry->start_addr, phys_addr));
-                }
-            }
-
-            page_first_jit_cache_entry[page] = addr_index;
-            entry->next_index_same_page = previous_entry_index;
-
-            return entry;
+            found_entry_index = addr_index;
+            break;
         }
     }
 
-    // no free slots, overwrite the first one
-    uint16_t addr_index = phys_addr & JIT_PHYS_MASK;
-    struct code_cache* entry = &jit_cache_arr[addr_index];
+    uint32_t page = phys_addr >> 12;
 
-    // TODO: Free wasm table index
+    if(found_entry_index == -1)
+    {
+        // no free slots, overwrite the first one
+        found_entry_index = phys_addr & JIT_PHYS_MASK;
+        remove_jit_cache_entry(found_entry_index);
 
-    profiler_stat_increment(S_CACHE_MISMATCH);
+        profiler_stat_increment(S_CACHE_MISMATCH);
+
+        // TODO: Free wasm table index
+    }
+
+    int32_t previous_entry_index = page_first_jit_cache_entry[page];
+
+    if(previous_entry_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+    {
+        struct code_cache* previous_entry = &jit_cache_arr[previous_entry_index];
+
+        if(previous_entry->start_addr)
+        {
+            assert(same_page(previous_entry->start_addr, phys_addr));
+        }
+    }
+
+    page_first_jit_cache_entry[page] = found_entry_index;
+    struct code_cache* entry = &jit_cache_arr[found_entry_index];
+    entry->next_index_same_page = previous_entry_index;
+
+    check_jit_cache_array_invariants();
+
     return entry;
 }
 
@@ -786,33 +877,51 @@ void codegen_finalize_finished(
         int32_t wasm_table_index, uint32_t phys_addr, uint32_t end_addr,
         int32_t first_opcode, cached_state_flags state_flags)
 {
+    uint32_t index = phys_addr >> 12;
+    int32_t cache_array_index = page_first_jit_cache_entry[index];
+
+    while(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
     {
-        // XXX: Avoid looping through entire table here (requires different data structure)
+        struct code_cache* entry = &jit_cache_arr[cache_array_index];
 
-        for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
+        if(entry->wasm_table_index == wasm_table_index)
         {
-            struct code_cache* entry = &jit_cache_arr[i];
-
-            if(entry->wasm_table_index == wasm_table_index)
-            {
-                entry->pending = false;
-            }
+            assert(entry->pending);
+            entry->pending = false;
         }
 
-#if 0
-        // XXX: May end up in this branch when entry is overwritten due to full
-        //      cache, causing the assertions below to fail
-
-        // sanity check that we're looking at the right entry
-        assert(entry->pending);
-        assert(entry->start_addr == phys_addr);
-        assert(entry->state_flags == state_flags);
-#endif
-        UNUSED(phys_addr);
-        UNUSED(state_flags);
-        UNUSED(end_addr);
-        UNUSED(first_opcode);
+        cache_array_index = entry->next_index_same_page;
     }
+
+    check_jit_cache_array_invariants();
+
+#if DEBUG
+    // sanity check that the above iteration marked all entries as not pending
+
+    for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
+    {
+        struct code_cache* entry = &jit_cache_arr[i];
+
+        if(entry->wasm_table_index == wasm_table_index)
+        {
+            assert(!entry->pending);
+        }
+    }
+#endif
+
+#if 0
+    // XXX: May end up in this branch when entry is overwritten due to full
+    //      cache, causing the assertions below to fail
+
+    // sanity check that we're looking at the right entry
+    assert(entry->pending);
+    assert(entry->start_addr == phys_addr);
+    assert(entry->state_flags == state_flags);
+#endif
+    UNUSED(phys_addr);
+    UNUSED(state_flags);
+    UNUSED(end_addr);
+    UNUSED(first_opcode);
 }
 
 static struct code_cache* find_cache_entry(uint32_t phys_addr)
