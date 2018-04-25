@@ -3,9 +3,9 @@
 const print_stats = {
     stats_to_string: function(cpu)
     {
-        return this.print_misc_stats(cpu) +
-            this.print_wasm_basic_block_count_histogram(cpu) +
-            this.print_instruction_counts(cpu);
+        return print_stats.print_misc_stats(cpu) +
+            print_stats.print_wasm_basic_block_count_histogram(cpu) +
+            print_stats.print_instruction_counts(cpu);
     },
 
     print_misc_stats: function(cpu)
