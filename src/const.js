@@ -362,7 +362,12 @@ const P_RUN_FROM_CACHE = 3;
 const P_RUN_INTERPRETED = 4;
 
 
+/** @const */
 var WASM_TABLE_SIZE = 0x10000;
+
+/** @const */
+var JIT_CACHE_ARRAY_SIZE = 0x10000;
+
 
 /** @const */
 // The space we need for misc internal state before the beginning of mem8; see global_pointers.h

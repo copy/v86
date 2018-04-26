@@ -4,6 +4,7 @@ const print_stats = {
     stats_to_string: function(cpu)
     {
         return print_stats.print_misc_stats(cpu) +
+            print_stats.print_basic_block_duplication(cpu) +
             print_stats.print_wasm_basic_block_count_histogram(cpu) +
             print_stats.print_instruction_counts(cpu);
     },
@@ -50,10 +51,44 @@ const print_stats = {
         }
 
         text += "\n";
-        text += "CACHE_UNUSED=" + cpu.wm.exports["_jit_unused_cache_stat"]();
-        text += "\n";
 
+        text += "CACHE_UNUSED=" + cpu.wm.exports["_jit_unused_cache_stat"]() + "\n";
         text += "WASM_TABLE_FREE=" + cpu.wm.exports["_get_wasm_table_index_free_list_count"]() + "\n";
+
+        return text;
+    },
+
+    print_basic_block_duplication: function(cpu)
+    {
+        let unique = 0;
+        let total = 0;
+        let duplicates = 0;
+        const histogram = [];
+        const addresses = {};
+
+        for(let i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
+        {
+            const address = cpu.wm.exports["_jit_get_entry_address"](i);
+
+            if(address !== 0)
+            {
+                addresses[address] = (addresses[address] || 0) + 1;
+            }
+        }
+
+        for(let [address, count] of Object.entries(addresses))
+        {
+            dbg_assert(count >= 1);
+            unique++;
+            total += count;
+            duplicates += count - 1;
+
+            //for(let i = histogram.length; i < count + 1; i++) histogram.push(0);
+            //histogram[count]++;
+        }
+
+        let text = "";
+        text += "UNIQUE=" + unique + " DUPLICATES=" + duplicates + " TOTAL=" + total + "\n";
 
         return text;
     },

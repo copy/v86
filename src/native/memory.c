@@ -144,6 +144,12 @@ int32_t jit_get_entry_length(int32_t i)
 #endif
 }
 
+int32_t jit_get_entry_address(int32_t i)
+{
+    assert(i >= 0 && i < JIT_CACHE_ARRAY_SIZE);
+    return jit_cache_arr[i].start_addr;
+}
+
 int32_t read8(uint32_t addr)
 {
     if(USE_A20 && *a20_enabled) addr &= A20_MASK;
