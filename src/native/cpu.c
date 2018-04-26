@@ -683,7 +683,7 @@ static void check_jit_cache_array_invariants(void)
 
 static void remove_jit_cache_entry(int32_t addr_index)
 {
-    uint32_t page = jit_cache_arr[addr_index].start_addr >> 12;
+    uint32_t page = jit_cache_arr[addr_index].start_addr >> DIRTY_ARR_SHIFT;
     int32_t page_index = page_first_jit_cache_entry[page];
 
     if(page_index == addr_index)
@@ -727,7 +727,7 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
         }
     }
 
-    uint32_t page = phys_addr >> 12;
+    uint32_t page = phys_addr >> DIRTY_ARR_SHIFT;
 
     if(found_entry_index == -1)
     {
@@ -877,7 +877,7 @@ void codegen_finalize_finished(
         int32_t wasm_table_index, uint32_t phys_addr, uint32_t end_addr,
         int32_t first_opcode, cached_state_flags state_flags)
 {
-    uint32_t index = phys_addr >> 12;
+    uint32_t index = phys_addr >> DIRTY_ARR_SHIFT;
     int32_t cache_array_index = page_first_jit_cache_entry[index];
 
     while(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
