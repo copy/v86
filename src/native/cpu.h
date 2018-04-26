@@ -58,7 +58,7 @@ struct code_cache {
 #else
 _Static_assert(sizeof(struct code_cache) == 16, "code_cache uses 16 bytes");
 #endif
-struct code_cache jit_cache_arr[WASM_TABLE_SIZE];
+struct code_cache jit_cache_arr[JIT_CACHE_ARRAY_SIZE];
 
 // Flag indicating whether the instruction that just ran was at a block's boundary (jump,
 // state-altering, etc.)
@@ -104,7 +104,7 @@ int32_t page_first_jit_cache_entry[GROUP_DIRTINESS_LENGTH];
 
 #define JIT_CACHE_ARRAY_NO_NEXT_ENTRY (-1)
 
-uint16_t wasm_table_index_free_list[0x10000];
+uint16_t wasm_table_index_free_list[WASM_TABLE_SIZE];
 int32_t wasm_table_index_free_list_count;
 
 #define VALID_TLB_ENTRY_MAX 10000

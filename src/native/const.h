@@ -175,13 +175,12 @@
 #define WASM_TABLE_SIZE 0x10000
 
 // Mask used to map physical address to index in cache array
-#define JIT_PHYS_MASK (WASM_TABLE_SIZE - 1)
+#define JIT_CACHE_ARRAY_SIZE 0x10000
+#define JIT_CACHE_ARRAY_MASK (JIT_CACHE_ARRAY_SIZE - 1)
 
 #define HASH_PRIME 6151
 #define JIT_THRESHOLD 2500
 #define DIRTY_ARR_SHIFT 12
-#define MAX_INSTR_LEN 15
-#define MAX_BLOCK_LENGTH ((1 << DIRTY_ARR_SHIFT) - MAX_INSTR_LEN)
 #define GROUP_DIRTINESS_LENGTH (1 + (0xffffffff >> DIRTY_ARR_SHIFT))
 
 #define JIT_NEXT_BLOCK_BRANCHED "next_block_branched"

@@ -94,7 +94,7 @@ void jit_dirty_cache_single(uint32_t addr)
 
 void jit_empty_cache()
 {
-    for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
+    for(int32_t i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
     {
         jit_cache_arr[i].start_addr = 0;
         jit_cache_arr[i].next_index_same_page = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
@@ -124,7 +124,7 @@ int32_t jit_unused_cache_stat()
 {
     int32_t count = 0;
 
-    for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
+    for(int32_t i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
     {
         struct code_cache* entry = &jit_cache_arr[i];
         int32_t phys_addr = entry->start_addr;
@@ -140,7 +140,7 @@ int32_t jit_unused_cache_stat()
 
 int32_t jit_get_entry_length(int32_t i)
 {
-    assert(i >= 0 && i < WASM_TABLE_SIZE);
+    assert(i >= 0 && i < JIT_CACHE_ARRAY_SIZE);
 #if DEBUG
     return jit_cache_arr[i].len;
 #else

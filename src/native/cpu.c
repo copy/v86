@@ -18,7 +18,7 @@
 #include "profiler/profiler.h"
 #include "shared.h"
 
-struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {
+struct code_cache jit_cache_arr[JIT_CACHE_ARRAY_SIZE] = {
     {
         .start_addr = 0,
 #if DEBUG
@@ -42,7 +42,7 @@ int32_t hot_code_addresses[HASH_PRIME] = {0};
 
 int32_t page_first_jit_cache_entry[GROUP_DIRTINESS_LENGTH] = {0};
 
-uint16_t wasm_table_index_free_list[0x10000] = { 0 };
+uint16_t wasm_table_index_free_list[WASM_TABLE_SIZE] = { 0 };
 int32_t wasm_table_index_free_list_count = 0;
 
 int32_t tlb_data[0x100000] = {0};
@@ -628,9 +628,9 @@ static cached_state_flags pack_current_state_flags()
 static void check_jit_cache_array_invariants(void)
 {
 #if DEBUG
-    int32_t wasm_table_index_to_jit_cache_index[0x10000] = { 0 };
+    int32_t wasm_table_index_to_jit_cache_index[WASM_TABLE_SIZE] = { 0 };
 
-    for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
+    for(int32_t i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
     {
         struct code_cache* entry = &jit_cache_arr[i];
 
@@ -711,7 +711,7 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
 
     for(int32_t i = 0; i < CODE_CACHE_SEARCH_SIZE; i++)
     {
-        uint16_t addr_index = (phys_addr + i) & JIT_PHYS_MASK;
+        int32_t addr_index = (phys_addr + i) & JIT_CACHE_ARRAY_MASK;
         struct code_cache* entry = &jit_cache_arr[addr_index];
 
         if(!entry->start_addr)
@@ -732,7 +732,7 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
     if(found_entry_index == -1)
     {
         // no free slots, overwrite the first one
-        found_entry_index = phys_addr & JIT_PHYS_MASK;
+        found_entry_index = phys_addr & JIT_CACHE_ARRAY_MASK;
         remove_jit_cache_entry(found_entry_index);
 
         profiler_stat_increment(S_CACHE_MISMATCH);
@@ -898,7 +898,7 @@ void codegen_finalize_finished(
 #if DEBUG
     // sanity check that the above iteration marked all entries as not pending
 
-    for(int32_t i = 0; i < WASM_TABLE_SIZE; i++)
+    for(int32_t i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
     {
         struct code_cache* entry = &jit_cache_arr[i];
 
@@ -931,7 +931,7 @@ static struct code_cache* find_cache_entry(uint32_t phys_addr)
 #pragma clang loop unroll_count(CODE_CACHE_SEARCH_SIZE)
     for(int32_t i = 0; i < CODE_CACHE_SEARCH_SIZE; i++)
     {
-        uint16_t addr_index = (phys_addr + i) & JIT_PHYS_MASK;
+        int32_t addr_index = (phys_addr + i) & JIT_CACHE_ARRAY_MASK;
         struct code_cache* entry = &jit_cache_arr[addr_index];
 
         if(entry->start_addr == phys_addr && entry->state_flags == state_flags)
