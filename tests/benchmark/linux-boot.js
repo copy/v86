@@ -60,10 +60,11 @@ emulator.add_listener("serial0-output-char", function(chr)
             "RUN_INTERPRETED",
             "RUN_FROM_CACHE",
             "CACHE_MISMATCH",
-            "CACHE_DROP",
-            "CACHE_SKIPPED",
-            "COMPILE_WITH_LINK",
             "NONFAULTING_OPTIMIZATION",
+            "CLEAR_TLB",
+            "FULL_CLEAR_TLB",
+            "TLB_FULL",
+            "TLB_GLOBAL_FULL",
         ];
         const total = cpu.wm.exports["_profiler_get_total"]();
         let text = "";
