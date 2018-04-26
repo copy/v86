@@ -14,8 +14,8 @@
 #include "memory.h"
 #include "misc_instr.h"
 #include "modrm.h"
-#include "profiler/profiler.h"
 #include "profiler/opstats.h"
+#include "profiler/profiler.h"
 #include "shared.h"
 
 struct code_cache jit_cache_arr[WASM_TABLE_SIZE] = {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <math.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifndef M_LOG2E
