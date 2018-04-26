@@ -115,11 +115,6 @@ void jit_empty_cache()
     wasm_table_index_free_list_count = 0xFFFF;
 }
 
-int32_t jit_invalid_cache_stat()
-{
-    return 0; // XXX: This stat doesn't make sense anymore after immediate cleaning
-}
-
 int32_t jit_unused_cache_stat()
 {
     int32_t count = 0;

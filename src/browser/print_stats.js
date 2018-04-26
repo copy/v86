@@ -53,8 +53,7 @@ const print_stats = {
         }
 
         text += "\n";
-        text += "CACHE_INVALID=" + cpu.wm.exports["_jit_invalid_cache_stat"]();
-        text += " CACHE_UNUSED=" + cpu.wm.exports["_jit_unused_cache_stat"]();
+        text += "CACHE_UNUSED=" + cpu.wm.exports["_jit_unused_cache_stat"]();
         text += "\n";
 
         text += "WASM_TABLE_FREE=" + cpu.wm.exports["_get_wasm_table_index_free_list_count"]() + "\n";
