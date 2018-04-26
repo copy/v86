@@ -1532,18 +1532,18 @@ static void jit_generate(uint32_t phys_addr)
             entry->initial_state = i;
             entry->wasm_table_index = wasm_table_index;
 
+#if DEBUG
+            entry->opcode[0] = read8(phys_addr);
+            entry->end_addr = block->end_addr;
+            entry->len = block->end_addr - block->addr;
+#endif
+
             entry_point_count++;
         }
     }
 
     assert(entry_point_count > 0);
 
-#if DEBUG
-    // XXX: Restore these
-    //entry->opcode[0] = first_opcode;
-    //entry->end_addr = end_addr;
-    //entry->len = len;
-#endif
     UNUSED(first_opcode);
 
     int32_t end_addr = 0;
@@ -1584,7 +1584,7 @@ void cycle_internal()
         profiler_start(P_RUN_FROM_CACHE);
         profiler_stat_increment(S_RUN_FROM_CACHE);
 
-        //assert(entry->opcode[0] == read8(phys_addr));
+        assert(entry->opcode[0] == read8(phys_addr));
 
         uint32_t old_start_address = entry->start_addr;
 
