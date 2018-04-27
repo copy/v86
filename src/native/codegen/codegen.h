@@ -53,11 +53,18 @@ void gen_call_fn2(char const* fn, uint8_t fn_len);
 
 void gen_add_i32(void);
 void gen_eqz_i32(void);
+void gen_eq_i32(void);
+void gen_le_i32(void);
+void gen_lt_i32(void);
+void gen_ge_i32(void);
+void gen_gt_i32(void);
 
 void gen_if_void(void);
+void gen_if_i32(void);
 void gen_else(void);
 void gen_loop_void(void);
 void gen_block_void(void);
+void gen_block_i32(void);
 void gen_block_end(void);
 void gen_return(void);
 
@@ -69,6 +76,7 @@ void gen_const_i32(int32_t);
 
 void gen_get_local(int32_t);
 void gen_set_local(int32_t);
+void gen_tee_local(int32_t);
 
 void gen_unreachable(void);
 

@@ -308,10 +308,41 @@ void gen_eqz_i32(void)
     write_raw_u8(&instruction_body, OP_I32EQZ);
 }
 
+void gen_eq_i32(void)
+{
+    write_raw_u8(&instruction_body, OP_I32EQ);
+}
+
+void gen_le_i32(void)
+{
+    write_raw_u8(&instruction_body, OP_I32LES);
+}
+
+void gen_lt_i32(void)
+{
+    write_raw_u8(&instruction_body, OP_I32LTS);
+}
+
+void gen_ge_i32(void)
+{
+    write_raw_u8(&instruction_body, OP_I32GES);
+}
+
+void gen_gt_i32(void)
+{
+    write_raw_u8(&instruction_body, OP_I32GTS);
+}
+
 void gen_if_void(void)
 {
     write_raw_u8(&instruction_body, OP_IF);
     write_raw_u8(&instruction_body, TYPE_VOID_BLOCK);
+}
+
+void gen_if_i32(void)
+{
+    write_raw_u8(&instruction_body, OP_IF);
+    write_raw_u8(&instruction_body, TYPE_I32);
 }
 
 void gen_else(void)
@@ -329,6 +360,12 @@ void gen_block_void(void)
 {
     write_raw_u8(&instruction_body, OP_BLOCK);
     write_raw_u8(&instruction_body, TYPE_VOID_BLOCK);
+}
+
+void gen_block_i32(void)
+{
+    write_raw_u8(&instruction_body, OP_BLOCK);
+    write_raw_u8(&instruction_body, TYPE_I32);
 }
 
 void gen_block_end(void)
@@ -371,6 +408,12 @@ void gen_get_local(int32_t idx)
 void gen_set_local(int32_t idx)
 {
     write_raw_u8(&instruction_body, OP_SETLOCAL);
+    write_leb_i32(&instruction_body, idx);
+}
+
+void gen_tee_local(int32_t idx)
+{
+    write_raw_u8(&instruction_body, OP_TEELOCAL);
     write_leb_i32(&instruction_body, idx);
 }
 
