@@ -35,6 +35,7 @@ union reg64 {
 _Static_assert(sizeof(union reg64) == 8, "reg64 is 8 bytes");
 
 typedef uint8_t cached_state_flags;
+int32_t tlb_data[0x100000];
 
 struct code_cache {
     // Address of the start of the basic block

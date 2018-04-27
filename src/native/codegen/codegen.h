@@ -39,6 +39,8 @@ void gen_fn1_const_ret(char const* fn, uint8_t fn_len, int32_t arg0);
 void gen_set_reg16_fn0(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_set_reg32s_fn0(char const* fn, uint8_t fn_len, int32_t reg);
 
+void gen_set_reg32_from_stack(int32_t r_dest);
+
 // Generate code for "mov reg, reg"
 void gen_set_reg16_r(int32_t r_dest, int32_t r_src);
 void gen_set_reg32_r(int32_t r_dest, int32_t r_src);
@@ -50,6 +52,9 @@ void gen_fn1_reg32s(char const* fn, uint8_t fn_len, int32_t reg);
 // Generate a function call with arguments pushed to the stack separately
 void gen_call_fn1_ret(char const* fn, uint8_t fn_len);
 void gen_call_fn2(char const* fn, uint8_t fn_len);
+
+// Generate code for safe_read32s inline
+void gen_safe_read32(void);
 
 void gen_add_i32(void);
 void gen_eqz_i32(void);

@@ -241,6 +241,16 @@ void gen_fn1_const(char const* fn, uint8_t fn_len, int32_t arg0)
     call_fn(&instruction_body, fn_idx);
 }
 
+void gen_set_reg32_from_stack(int32_t r_dest)
+{
+    // generates: reg32s[r_dest] = _
+    const int32_t temp = GEN_SCRATCH_LOCAL0;
+    gen_set_local(temp);
+    push_i32(&instruction_body, (int32_t) &reg32s[r_dest]);
+    gen_get_local(temp);
+    store_aligned_i32(&instruction_body);
+}
+
 void gen_set_reg16_r(int32_t r_dest, int32_t r_src)
 {
     // generates: reg16[r_dest] = reg16[r_src]
@@ -296,6 +306,63 @@ void gen_fn3_const(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, i
     push_i32(&instruction_body, arg1);
     push_i32(&instruction_body, arg2);
     call_fn(&instruction_body, fn_idx);
+}
+
+void gen_safe_read32(void)
+{
+    // Assumes virtual address has been pushed to the stack, and generates safe_read32s' fast-path
+    // inline, bailing to safe_read32s_slow if necessary
+
+    const int32_t address_local = GEN_SCRATCH_LOCAL0;
+    gen_tee_local(address_local);
+
+    // Pseudo: base = (uint32_t)address >> 12;
+    gen_const_i32(12);
+    shr_u32(&instruction_body);
+
+    // Psuedo: entry = tlb_data[base];
+    const int32_t entry_local = GEN_SCRATCH_LOCAL1;
+    gen_const_i32((uint32_t) &tlb_data);
+    add_i32(&instruction_body);
+    load_aligned_i32_from_stack(&instruction_body);
+    gen_tee_local(entry_local);
+
+    // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL == TLB_VALID &&
+    //                                   (address & 0xFFF) <= (0x1000 - 4));
+    gen_const_i32(0xFFF);
+    and_i32(&instruction_body);
+    gen_const_i32(~TLB_GLOBAL);
+    and_i32(&instruction_body);
+
+    gen_const_i32(TLB_VALID);
+    gen_eq_i32();
+
+    gen_get_local(address_local);
+    gen_const_i32(0xFFF);
+    and_i32(&instruction_body);
+    gen_const_i32(0x1000 - 4);
+    gen_le_i32();
+
+    and_i32(&instruction_body);
+
+    // Pseudo:
+    // if(can_use_fast_path) leave_on_stack(mem8[entry & ~0xFFF ^ address]);
+    gen_if_i32();
+    gen_get_local(entry_local);
+    gen_const_i32(~0xFFF);
+    and_i32(&instruction_body);
+    gen_get_local(address_local);
+    xor_i32(&instruction_body);
+
+    gen_const_i32((int32_t) &mem8);
+    add_i32(&instruction_body);
+    load_aligned_i32_from_stack(&instruction_body);
+
+    // else { leave_on_stack(safe_read32s_slow(address)); }
+    gen_else();
+    gen_get_local(address_local);
+    gen_call_fn1_ret("safe_read32s_slow", 17);
+    gen_block_end();
 }
 
 void gen_add_i32(void)
