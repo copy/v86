@@ -12,7 +12,7 @@
   (import "e" "instr32_BA" (func $e.instr32_BA (type $t1)))
   (import "e" "instr32_BB" (func $e.instr32_BB (type $t1)))
   (import "e" "instr32_89_mem" (func $e.instr32_89_mem (type $t2)))
-  (import "e" "instr32_8B_mem" (func $e.instr32_8B_mem (type $t2)))
+  (import "e" "safe_read32s_slow" (func $e.safe_read32s_slow (type $t5)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
   (import "e" "m" (memory $e.m 256))
   (func $f (export "f") (type $t1) (param $p0 i32)
@@ -79,30 +79,98 @@
             (i32.load
               (i32.const 556))
             (i32.const 32)))
-        (call $e.instr32_8B_mem
-          (i32.add
-            (i32.add
+        (set_local $l2
+          (if $I4 (result i32)
+            (i32.and
+              (i32.eq
+                (i32.and
+                  (i32.and
+                    (tee_local $l3
+                      (i32.load
+                        (i32.add
+                          (i32.shr_u
+                            (tee_local $l2
+                              (i32.add
+                                (i32.add
+                                  (i32.load
+                                    (i32.const 16))
+                                  (i32.const 56))
+                                (call $e.get_seg
+                                  (i32.const 3))))
+                            (i32.const 12))
+                          (i32.const 19977116))))
+                    (i32.const 4095))
+                  (i32.const -17))
+                (i32.const 1))
+              (i32.le_s
+                (i32.and
+                  (get_local $l2)
+                  (i32.const 4095))
+                (i32.const 4092)))
+            (then
               (i32.load
-                (i32.const 16))
-              (i32.const 56))
-            (call $e.get_seg
-              (i32.const 3)))
-          (i32.const 6))
+                (i32.add
+                  (i32.xor
+                    (i32.and
+                      (get_local $l3)
+                      (i32.const -4096))
+                    (get_local $l2))
+                  (i32.const 8650912))))
+            (else
+              (call $e.safe_read32s_slow
+                (get_local $l2)))))
+        (i32.store
+          (i32.const 28)
+          (get_local $l2))
         (i32.store
           (i32.const 560)
           (i32.add
             (i32.load
               (i32.const 556))
             (i32.const 38)))
-        (call $e.instr32_8B_mem
-          (i32.add
-            (i32.add
+        (set_local $l2
+          (if $I5 (result i32)
+            (i32.and
+              (i32.eq
+                (i32.and
+                  (i32.and
+                    (tee_local $l3
+                      (i32.load
+                        (i32.add
+                          (i32.shr_u
+                            (tee_local $l2
+                              (i32.add
+                                (i32.add
+                                  (i32.load
+                                    (i32.const 12))
+                                  (i32.const 60))
+                                (call $e.get_seg
+                                  (i32.const 3))))
+                            (i32.const 12))
+                          (i32.const 19977116))))
+                    (i32.const 4095))
+                  (i32.const -17))
+                (i32.const 1))
+              (i32.le_s
+                (i32.and
+                  (get_local $l2)
+                  (i32.const 4095))
+                (i32.const 4092)))
+            (then
               (i32.load
-                (i32.const 12))
-              (i32.const 60))
-            (call $e.get_seg
-              (i32.const 3)))
-          (i32.const 7))
+                (i32.add
+                  (i32.xor
+                    (i32.and
+                      (get_local $l3)
+                      (i32.const -4096))
+                    (get_local $l2))
+                  (i32.const 8650912))))
+            (else
+              (call $e.safe_read32s_slow
+                (get_local $l2)))))
+        (i32.store
+          (i32.const 32)
+          (get_local $l2))
         (i32.store
           (i32.const 560)
           (i32.add

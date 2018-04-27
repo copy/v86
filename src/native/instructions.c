@@ -520,8 +520,10 @@ void instr16_8B_mem_jit(int32_t modrm_byte, int32_t r)
 }
 void instr32_8B_mem_jit(int32_t modrm_byte, int32_t r)
 {
-    // XXX
-    gen_modrm_resolve(modrm_byte); gen_modrm_fn1("instr32_8B_mem", 14, modrm_byte >> 3 & 7);
+    // Pseudo: write_reg32(r, safe_read32s(modrm_resolve(modrm_byte)));
+    gen_modrm_resolve(modrm_byte);
+    gen_safe_read32();
+    gen_set_reg32_from_stack(r);
 }
 
 void instr_8C_check_sreg(int32_t sreg) {
