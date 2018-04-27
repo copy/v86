@@ -1341,16 +1341,6 @@ static void jit_generate(uint32_t phys_addr)
     jit_find_basic_blocks();
 
     // Code generation starts here
-
-    // parameters used by the generated wasm module
-    const int32_t ARG_INITIAL_STATE = 0;
-
-    // local variables used by the generated wasm module (after parameter index space)
-    const int32_t STATE = 1;
-    const int32_t ITERATION_COUNTER = 2;
-
-    const int32_t NO_OF_LOCALS = 2;
-
     gen_reset();
 
     // set state local variable to the initial state passed as the first argument
