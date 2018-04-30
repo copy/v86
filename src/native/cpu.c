@@ -727,8 +727,6 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
         }
     }
 
-    uint32_t page = phys_addr >> DIRTY_ARR_SHIFT;
-
     if(found_entry_index == -1)
     {
         // no free slots, overwrite the first one
@@ -740,6 +738,7 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
         // TODO: Free wasm table index
     }
 
+    uint32_t page = phys_addr >> DIRTY_ARR_SHIFT;
     int32_t previous_entry_index = page_first_jit_cache_entry[page];
 
     if(previous_entry_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
