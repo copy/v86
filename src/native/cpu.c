@@ -773,7 +773,6 @@ bool same_page(int32_t addr1, int32_t addr2)
 static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
 {
     uint32_t len = 0;
-    jit_block_boundary = false;
 
     int32_t end_addr;
     bool was_block_boundary = false;
@@ -868,7 +867,6 @@ static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
     // no page was crossed
     assert(same_page(end_addr, start_addr));
 
-    jit_block_boundary = false;
     assert(*prefixes == 0);
 }
 
@@ -1619,6 +1617,7 @@ void cycle_internal()
         {
             // don't immediately retry to compile
             hot_code_addresses[address_hash] = 0;
+            jit_block_boundary = false;
 
             jit_generate(phys_addr);
         }
