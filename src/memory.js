@@ -66,3 +66,10 @@ CPU.prototype.write_blob = function(blob, offset)
     this.wm.exports["_jit_dirty_cache"](offset, offset + blob.length);
     this.mem8.set(blob, offset);
 };
+
+CPU.prototype.read_blob = function(offset, length)
+{
+    dbg_assert(!this.in_mapped_range(offset));
+    dbg_assert(!this.in_mapped_range(offset + length));
+    return this.mem8.subarray(offset, offset + length);
+};

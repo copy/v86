@@ -292,35 +292,30 @@ VirtIO.prototype.handle_descriptor = function(idx)
     }
     while(true);
 
-    var buffer_len = -1;
-    var pointer = 0;
-
     var infos = {
         start: idx,
         next: next,
     };
 
-    this.device.ReceiveRequest(infos, function()
+    let total_length = 0;
+
+    for(let i = 0; i < buffers.length; i++)
     {
-        // return one byte
+        total_length += buffers[i].len;
+    }
 
-        if(pointer >= buffer_len)
-        {
-            if(buffer_idx === buffers.length)
-            {
-                dbg_log("Read more data than descriptor has", LOG_VIRTIO);
-                return 0;
-            }
+    // TODO: Remove this unnecessary copy. Instead, pass list of memory views
+    const memory_buffer = new Uint8Array(total_length);
+    let pointer = 0;
 
-            var buf = buffers[buffer_idx++];
+    for(let i = 0; i < buffers.length; i++)
+    {
+        const buf = buffers[i];
+        memory_buffer.set(this.cpu.read_blob(buf.addr_low, buf.len), pointer);
+        pointer += buf.len;
+    }
 
-            addr_low = buf.addr_low;
-            buffer_len = buf.len;
-            pointer = 0;
-        }
-
-        return this.cpu.read8(addr_low + pointer++);
-    }.bind(this));
+    this.device.ReceiveRequest(infos, memory_buffer);
 };
 
 VirtIO.prototype.device_reply = function(queueidx, infos)
