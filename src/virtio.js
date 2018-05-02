@@ -337,7 +337,6 @@ VirtIO.prototype.device_reply = function(queueidx, infos)
     var next = infos.next;
     var desc_start = this.queue_address << 12;
 
-    var buffer_idx = 0;
     var buffers = [];
 
     do
@@ -376,29 +375,21 @@ VirtIO.prototype.device_reply = function(queueidx, infos)
     }
     while(true);
 
-    var buffer_len = -1;
-    var pointer = 0;
+    var buffer_idx = 0;
 
-    for(var i = 0; i < result_length; i++)
+    for(var i = 0; i < result_length; )
     {
-        var data = this.device.replybuffer[i];
-
-        if(pointer >= buffer_len)
+        if(buffer_idx === buffers.length)
         {
-            if(buffer_idx === buffers.length)
-            {
-                dbg_log("Write more data than descriptor has", LOG_VIRTIO);
-                return 0;
-            }
-
-            var buf = buffers[buffer_idx++];
-
-            addr_low = buf.addr_low;
-            buffer_len = buf.len;
-            pointer = 0;
+            dbg_log("Write more data than descriptor has", LOG_VIRTIO);
+            return 0;
         }
 
-        this.cpu.write8(addr_low + pointer++, data);
+        const buf = buffers[buffer_idx++];
+        const slice = this.device.replybuffer.subarray(i, i + buf.len);
+
+        this.cpu.write_blob(slice, buf.addr_low);
+        i += buf.len;
     }
 
     var used_desc_start = (this.queue_address << 12) + 16 * this.queue_size + 4 + 2 * this.queue_size;
