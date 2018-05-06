@@ -43,12 +43,6 @@ var ENABLE_ACPI = false;
 
 /**
  * @const
- * How many cycles the CPU does at a time before running hardware timers
- */
-var LOOP_COUNTER = 11001;
-
-/**
- * @const
  * How often, in milliseconds, to yield to the browser for rendering and
  * running events
  */
