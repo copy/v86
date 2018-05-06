@@ -208,7 +208,7 @@ var ASYNC_SAFE = false;
                 if(err) throw err;
 
                 let length = options.range.length;
-                var buffer = new global["Buffer"](length);
+                var buffer = Buffer.allocUnsafe(length);
 
                 fs["read"](fd, buffer, 0, length, options.range.start, (err, bytes_read) =>
                 {

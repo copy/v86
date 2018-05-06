@@ -39,3 +39,8 @@ var cs = {
     MODE_32: 0,
     disasm: { bytes: "", mnemonic: "", op_str: "", },
 };
+
+const Buffer = {
+    allocUnsafe : function(length) {},
+    from : function(arrayBuffer, byteOffset, length) {},
+};
