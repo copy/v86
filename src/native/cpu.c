@@ -1326,6 +1326,7 @@ static void jit_find_basic_blocks()
     }
 }
 
+__attribute__((noinline))
 static void jit_generate(uint32_t phys_addr)
 {
     profiler_stat_increment(S_COMPILE);
