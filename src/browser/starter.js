@@ -600,21 +600,21 @@ function V86Starter(options)
 
         setTimeout(function()
         {
-            if(settings.initial_state)
+            if(settings.fs9p && settings.fs9p_json)
             {
-                emulator.restore_state(settings.initial_state);
-
-                // The GC can't free settings, since it is referenced from
-                // several closures. This isn't needed anymore, so we delete it
-                // here
-                settings.initial_state = undefined;
+                settings.fs9p.OnJSONLoaded(settings.fs9p_json);
             }
 
             setTimeout(function()
             {
-                if(settings.fs9p && settings.fs9p_json)
+                if(settings.initial_state)
                 {
-                    settings.fs9p.OnJSONLoaded(settings.fs9p_json);
+                    emulator.restore_state(settings.initial_state);
+
+                    // The GC can't free settings, since it is referenced from
+                    // several closures. This isn't needed anymore, so we delete it
+                    // here
+                    settings.initial_state = undefined;
                 }
 
                 if(options["autostart"])
