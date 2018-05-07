@@ -8,6 +8,7 @@
 #include "js_imports.h"
 #include "log.h"
 #include "memory.h"
+#include "profiler/profiler.h"
 
 bool in_mapped_range(uint32_t addr)
 {
@@ -21,9 +22,11 @@ void jit_dirty_index(uint32_t index)
     if(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
     {
         page_first_jit_cache_entry[index] = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
+        profiler_stat_increment(S_INVALIDATE_PAGE);
 
         do
         {
+            profiler_stat_increment(S_INVALIDATE_CACHE_ENTRY);
             struct code_cache* entry = &jit_cache_arr[cache_array_index];
 
             assert(same_page(index << DIRTY_ARR_SHIFT, entry->start_addr));
@@ -148,6 +151,12 @@ int32_t jit_get_entry_address(int32_t i)
 {
     assert(i >= 0 && i < JIT_CACHE_ARRAY_SIZE);
     return jit_cache_arr[i].start_addr;
+}
+
+int32_t jit_get_entry_pending(int32_t i)
+{
+    assert(i >= 0 && i < JIT_CACHE_ARRAY_SIZE);
+    return jit_cache_arr[i].pending;
 }
 
 int32_t read8(uint32_t addr)

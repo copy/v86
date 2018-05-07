@@ -23,9 +23,21 @@ const print_stats = {
         const stat_names = [
             "COMPILE",
             "COMPILE_SUCCESS",
+            "COMPILE_CUT_OFF_AT_END_OF_PAGE",
+            "COMPILE_BASIC_BLOCK",
+            "COMPILE_ENTRY_POINT",
             "RUN_INTERPRETED",
+            "RUN_INTERPRETED_PENDING",
+            "RUN_INTERPRETED_NEAR_END_OF_PAGE",
+            "RUN_INTERPRETED_NO_BLOCK_BOUNDARY",
+            "RUN_INTERPRETED_NOT_HOT",
             "RUN_FROM_CACHE",
             "CACHE_MISMATCH",
+            "DO_RUN",
+            "DO_MANY_CYCLES",
+            "CYCLE_INTERNAL",
+            "INVALIDATE_PAGE",
+            "INVALIDATE_CACHE_ENTRY",
             "NONFAULTING_OPTIMIZATION",
             "CLEAR_TLB",
             "FULL_CLEAR_TLB",
@@ -48,12 +60,19 @@ const print_stats = {
             let stat = cpu.wm.exports["_profiler_stat_get"](i);
             stat = stat >= 100e6 ? Math.round(stat / 1e6) + "m" : stat >= 100e3 ? Math.round(stat / 1e3) + "k" : stat;
             text += stat_names[i] + "=" + stat + " ";
+
+            if(i % Math.floor(stat_names.length / 3) === Math.floor(stat_names.length / 3) - 1)
+            {
+                text += "\n";
+            }
         }
 
         text += "\n";
 
         text += "CACHE_UNUSED=" + cpu.wm.exports["_jit_unused_cache_stat"]() + "\n";
         text += "WASM_TABLE_FREE=" + cpu.wm.exports["_get_wasm_table_index_free_list_count"]() + "\n";
+
+        text += "do_many_cycles avg: " + do_many_cycles_total / do_many_cycles_count + "\n";
 
         return text;
     },
@@ -96,11 +115,13 @@ const print_stats = {
     print_wasm_basic_block_count_histogram: function(cpu)
     {
         let text = "";
+        let pending_count = 0;
         const histogram = Object.create(null);
 
         for(let i = 0; i < 0x10000; i++)
         {
             const length = cpu.wm.exports["_jit_get_entry_length"](i);
+            pending_count += cpu.wm.exports["_jit_get_entry_pending"](i);
             histogram[length] = (histogram[length] || 0) + 1;
         }
 
@@ -121,6 +142,8 @@ const print_stats = {
         }
 
         text += "32+:" + above + "\n";
+
+        text += "Pending: " + pending_count + "\n";
 
         return text;
     },
@@ -146,6 +169,17 @@ const print_stats = {
         const pad_length = String(max_count).length;
 
         text += "Instruction counts (in 1000):\n";
+        let total = 0;
+        const prefixes = new Set([
+            0x26, 0x2E, 0x36, 0x3E,
+            0x64, 0x65, 0x66, 0x67,
+            0xF0, 0xF2, 0xF3,
+        ]);
+        for(let [i, count] of counts)
+        {
+            total += i < 0x100 && !prefixes.has(i) ? count : 0;
+        }
+        text += "Total: " + total + "\n";
 
         for(let [i, count] of counts)
         {
@@ -181,7 +215,7 @@ const print_stats = {
 
         for(let [opcode, count] of top_counts.slice(0, 100))
         {
-            text += opcode.toString(16) + ":" + count + " ";
+            text += opcode.toString(16) + ":" + (count / total * 100).toFixed(1) + " ";
         }
         text += "\n";
 

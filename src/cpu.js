@@ -1141,6 +1141,8 @@ CPU.prototype.load_bios = function()
 
 CPU.prototype.do_run = function()
 {
+    this.wm.exports["_profiler_stat_increment_do_run"]();
+
     // Idle time is when no instructions are being executed
     this.wm.exports["_profiler_end"](P_IDLE);
 
@@ -1170,11 +1172,19 @@ CPU.prototype.do_run = function()
     this.wm.exports["_profiler_start"](P_IDLE);
 };
 
+let do_many_cycles_count = 0;
+let do_many_cycles_total = 0;
+
 CPU.prototype.do_many_cycles = function()
 {
     // Capture the total time we were executing instructions
     this.wm.exports["_profiler_start"](P_DO_MANY_CYCLES);
     this.coverage_logger.log_start();
+
+    if(ENABLE_PROFILER)
+    {
+        var start_time = v86.microtick();
+    }
 
     try {
         this.do_many_cycles_unsafe();
@@ -1182,6 +1192,12 @@ CPU.prototype.do_many_cycles = function()
     catch(e)
     {
         this.exception_cleanup(e);
+    }
+
+    if(ENABLE_PROFILER)
+    {
+        do_many_cycles_total += v86.microtick() - start_time;
+        do_many_cycles_count++;
     }
 
     this.coverage_logger.log_end();

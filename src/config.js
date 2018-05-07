@@ -10,6 +10,9 @@
 var DEBUG = true;
 
 /** @const */
+var ENABLE_PROFILER = true;
+
+/** @const */
 var LOG_TO_FILE = false;
 
 /**

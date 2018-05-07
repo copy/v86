@@ -1176,6 +1176,7 @@ static void jit_find_basic_blocks()
                 current_block->next_block_addr = 0;
                 current_block->end_addr = *instruction_pointer;
                 current_block->condition_index = -1;
+                profiler_stat_increment(S_COMPILE_CUT_OFF_AT_END_OF_PAGE);
                 break;
             }
 
@@ -1518,6 +1519,8 @@ static void jit_generate(uint32_t phys_addr)
     {
         struct basic_block* block = &basic_blocks.blocks[i];
 
+        profiler_stat_increment(S_COMPILE_BASIC_BLOCK);
+
         if(block->is_entry_block && block->addr != block->end_addr)
         {
             uint32_t phys_addr = translate_address_read(block->addr);
@@ -1537,6 +1540,7 @@ static void jit_generate(uint32_t phys_addr)
 #endif
 
             entry_point_count++;
+            profiler_stat_increment(S_COMPILE_ENTRY_POINT);
         }
     }
 
@@ -1568,6 +1572,7 @@ void jit_force_generate_unsafe(uint32_t phys_addr)
 
 void cycle_internal()
 {
+    profiler_stat_increment(S_CYCLE_INTERNAL);
 #if ENABLE_JIT
 
     *previous_ip = *instruction_pointer;
@@ -1624,6 +1629,24 @@ void cycle_internal()
         }
         else
         {
+            if(entry)
+            {
+                assert(entry->pending);
+                profiler_stat_increment(S_RUN_INTERPRETED_PENDING);
+            }
+            else if(is_near_end_of_page(phys_addr))
+            {
+                profiler_stat_increment(S_RUN_INTERPRETED_NEAR_END_OF_PAGE);
+            }
+            else if(!did_block_boundary)
+            {
+                profiler_stat_increment(S_RUN_INTERPRETED_NO_BLOCK_BOUNDARY);
+            }
+            else
+            {
+                profiler_stat_increment(S_RUN_INTERPRETED_NOT_HOT);
+            }
+
             jit_run_interpreted(phys_addr);
         }
     }
@@ -1681,6 +1704,8 @@ jit_instr_flags segment_prefix_op_jit(int32_t seg)
 
 void do_many_cycles_unsafe()
 {
+    profiler_stat_increment(S_DO_MANY_CYCLES);
+
 #if 0
     for(int32_t k = 0; k < LOOP_COUNTER; k++)
 #else

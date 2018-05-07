@@ -101,6 +101,12 @@ void profiler_stat_increment(enum stat_name stat)
     profiler_stat_arr[stat].count++;
 }
 
+// to be called from JS
+void profiler_stat_increment_do_run()
+{
+    profiler_stat_increment(S_DO_RUN);
+}
+
 int32_t profiler_stat_get(enum stat_name stat)
 {
     return profiler_stat_arr[stat].count;
@@ -116,6 +122,7 @@ void profiler_print(void) {}
 int32_t profiler_get_time(enum profile_name name) { UNUSED(name); return 0; }
 int32_t profiler_get_total(void) { return 0; }
 void profiler_stat_increment(enum stat_name stat) { UNUSED(stat); }
+void profiler_stat_increment_do_run() {}
 int32_t profiler_stat_get(enum stat_name stat) { UNUSED(stat); return 0; }
 
 
