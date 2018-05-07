@@ -88,7 +88,7 @@ function restore_object(base, obj, buffers)
         return obj;
     }
 
-    if(base instanceof Array || base === NO_BASE && obj instanceof Array)
+    if((base instanceof Array || base === NO_BASE) && obj instanceof Array)
     {
         return obj.map(x => restore_object(NO_BASE, x, buffers));
     }

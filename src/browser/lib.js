@@ -533,10 +533,10 @@ var ASYNC_SAFE = false;
         const state = [];
 
         const loaded_blocks = [];
-        for(let index in this.loaded_blocks)
+        for(let [index, block] in Object.values(this.loaded_blocks))
         {
             dbg_assert(isFinite(+index));
-            loaded_blocks.push([+index, this.loaded_blocks[index]]);
+            loaded_blocks.push([+index, block]);
         }
         state[0] = loaded_blocks;
 
