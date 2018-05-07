@@ -107,8 +107,15 @@ var ASYNC_SAFE = false;
                         throw e;
                     }
                     imports["env"]["memoryBase"] = memory_size;
+
+                    // XXX: Emscripten forces EMULATED_FUNCTION_POINTERS when
+                    //      using SIDE_MODULE=1, which we use. Newer versions of emscripten add
+                    //      all exported functions to the WebAssembly.Table, so we need extra space
+                    //      here
+                    const EXTRA_TABLE_SPACE_FOR_EMULATED_FP = 10000;
+
                     imports["env"]["table"] = new WebAssembly.Table({
-                        "initial": dylink.table_size + table_size,
+                        "initial": dylink.table_size + table_size + EXTRA_TABLE_SPACE_FOR_EMULATED_FP,
                         "element": "anyfunc"
                     });
                     imports["env"]["tableBase"] = table_size;
