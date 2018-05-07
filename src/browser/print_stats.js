@@ -61,7 +61,7 @@ const print_stats = {
             stat = stat >= 100e6 ? Math.round(stat / 1e6) + "m" : stat >= 100e3 ? Math.round(stat / 1e3) + "k" : stat;
             text += stat_names[i] + "=" + stat + " ";
 
-            if(i % Math.floor(stat_names.length / 3) === Math.floor(stat_names.length / 3) - 1)
+            if(((i + 1) % Math.floor(stat_names.length / 3) === 0))
             {
                 text += "\n";
             }
