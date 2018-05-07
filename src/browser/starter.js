@@ -247,6 +247,11 @@ function V86Starter(options)
         "_ldexp": function(x, exp) {
             return x * Math.pow(2, exp);
         },
+        "_llvm_round_f64": function(d) {
+            d = +d;
+            return d >= +0 ? +Math.floor(d + 0.5) : +Math.ceil(d - 0.5);
+        },
+        "_llvm_trunc_f64": Math.trunc,
     };
 
     const wasm_globals = {
