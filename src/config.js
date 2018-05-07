@@ -9,7 +9,9 @@
  */
 var DEBUG = true;
 
-/** @const */
+/** @const
+ * Also needs to be set in const.h
+ */
 var ENABLE_PROFILER = true;
 
 /** @const */
