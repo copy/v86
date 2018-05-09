@@ -7,11 +7,6 @@ BITS 32
     mov edx, 0
     mov ebx, 0
 
-    mov [myaddress+ebx], eax
-    mov [mydword+edx], ecx
-    mov esi, [mydword+ebx]
-    mov edi, [myaddress+edx]
-
     ;; The following db's are used since "mov reg, reg" can be accomplished with several opcodes but
     ;; we want to test these specific ones
 
@@ -30,9 +25,3 @@ BITS 32
     db 0xc1
 
     hlt
-
-section .data
-mydword:
-    dd  0xcafebabe
-myaddress:
-    dd  0xdeadbeef
