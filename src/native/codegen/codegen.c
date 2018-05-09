@@ -327,9 +327,7 @@ void gen_safe_read32(void)
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL == TLB_VALID &&
     //                                   (address & 0xFFF) <= (0x1000 - 4));
-    gen_const_i32(0xFFF);
-    and_i32(&instruction_body);
-    gen_const_i32(~TLB_GLOBAL);
+    gen_const_i32(0xFFF & ~TLB_GLOBAL);
     and_i32(&instruction_body);
 
     gen_const_i32(TLB_VALID);

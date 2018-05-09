@@ -84,21 +84,19 @@
             (i32.and
               (i32.eq
                 (i32.and
-                  (i32.and
-                    (tee_local $l3
-                      (i32.load offset=19977100
-                        (i32.shr_u
-                          (tee_local $l2
+                  (tee_local $l3
+                    (i32.load offset=19977100
+                      (i32.shr_u
+                        (tee_local $l2
+                          (i32.add
                             (i32.add
-                              (i32.add
-                                (i32.load
-                                  (i32.const 16))
-                                (i32.const 56))
-                              (call $e.get_seg
-                                (i32.const 3))))
-                          (i32.const 12))))
-                    (i32.const 4095))
-                  (i32.const -17))
+                              (i32.load
+                                (i32.const 16))
+                              (i32.const 56))
+                            (call $e.get_seg
+                              (i32.const 3))))
+                        (i32.const 12))))
+                  (i32.const 4079))
                 (i32.const 1))
               (i32.le_s
                 (i32.and
@@ -129,21 +127,19 @@
             (i32.and
               (i32.eq
                 (i32.and
-                  (i32.and
-                    (tee_local $l3
-                      (i32.load offset=19977100
-                        (i32.shr_u
-                          (tee_local $l2
+                  (tee_local $l3
+                    (i32.load offset=19977100
+                      (i32.shr_u
+                        (tee_local $l2
+                          (i32.add
                             (i32.add
-                              (i32.add
-                                (i32.load
-                                  (i32.const 12))
-                                (i32.const 60))
-                              (call $e.get_seg
-                                (i32.const 3))))
-                          (i32.const 12))))
-                    (i32.const 4095))
-                  (i32.const -17))
+                              (i32.load
+                                (i32.const 12))
+                              (i32.const 60))
+                            (call $e.get_seg
+                              (i32.const 3))))
+                        (i32.const 12))))
+                  (i32.const 4079))
                 (i32.const 1))
               (i32.le_s
                 (i32.and
