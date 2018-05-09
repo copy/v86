@@ -352,7 +352,7 @@ void gen_safe_read32(void)
     gen_get_local(address_local);
     xor_i32(&instruction_body);
 
-    load_aligned_i32_from_stack(&instruction_body, (uint32_t) mem8);
+    load_unaligned_i32_from_stack(&instruction_body, (uint32_t) mem8);
 
     // Pseudo:
     // else { leave_on_stack(safe_read32s_slow(address)); }

@@ -106,7 +106,7 @@
                   (i32.const 4095))
                 (i32.const 4092)))
             (then
-              (i32.load offset=6553600
+              (i32.load offset=6553600 align=1
                 (i32.xor
                   (i32.and
                     (get_local $l3)
@@ -151,7 +151,7 @@
                   (i32.const 4095))
                 (i32.const 4092)))
             (then
-              (i32.load offset=6553600
+              (i32.load offset=6553600 align=1
                 (i32.xor
                   (i32.and
                     (get_local $l3)
