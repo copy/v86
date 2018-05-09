@@ -86,19 +86,17 @@
                 (i32.and
                   (i32.and
                     (tee_local $l3
-                      (i32.load
-                        (i32.add
-                          (i32.shr_u
-                            (tee_local $l2
+                      (i32.load offset=19977100
+                        (i32.shr_u
+                          (tee_local $l2
+                            (i32.add
                               (i32.add
-                                (i32.add
-                                  (i32.load
-                                    (i32.const 16))
-                                  (i32.const 56))
-                                (call $e.get_seg
-                                  (i32.const 3))))
-                            (i32.const 12))
-                          (i32.const 19977116))))
+                                (i32.load
+                                  (i32.const 16))
+                                (i32.const 56))
+                              (call $e.get_seg
+                                (i32.const 3))))
+                          (i32.const 12))))
                     (i32.const 4095))
                   (i32.const -17))
                 (i32.const 1))
@@ -108,14 +106,12 @@
                   (i32.const 4095))
                 (i32.const 4092)))
             (then
-              (i32.load
-                (i32.add
-                  (i32.xor
-                    (i32.and
-                      (get_local $l3)
-                      (i32.const -4096))
-                    (get_local $l2))
-                  (i32.const 8650912))))
+              (i32.load offset=6553600
+                (i32.xor
+                  (i32.and
+                    (get_local $l3)
+                    (i32.const -4096))
+                  (get_local $l2))))
             (else
               (call $e.safe_read32s_slow
                 (get_local $l2)))))
@@ -135,19 +131,17 @@
                 (i32.and
                   (i32.and
                     (tee_local $l3
-                      (i32.load
-                        (i32.add
-                          (i32.shr_u
-                            (tee_local $l2
+                      (i32.load offset=19977100
+                        (i32.shr_u
+                          (tee_local $l2
+                            (i32.add
                               (i32.add
-                                (i32.add
-                                  (i32.load
-                                    (i32.const 12))
-                                  (i32.const 60))
-                                (call $e.get_seg
-                                  (i32.const 3))))
-                            (i32.const 12))
-                          (i32.const 19977116))))
+                                (i32.load
+                                  (i32.const 12))
+                                (i32.const 60))
+                              (call $e.get_seg
+                                (i32.const 3))))
+                          (i32.const 12))))
                     (i32.const 4095))
                   (i32.const -17))
                 (i32.const 1))
@@ -157,14 +151,12 @@
                   (i32.const 4095))
                 (i32.const 4092)))
             (then
-              (i32.load
-                (i32.add
-                  (i32.xor
-                    (i32.and
-                      (get_local $l3)
-                      (i32.const -4096))
-                    (get_local $l2))
-                  (i32.const 8650912))))
+              (i32.load offset=6553600
+                (i32.xor
+                  (i32.and
+                    (get_local $l3)
+                    (i32.const -4096))
+                  (get_local $l2))))
             (else
               (call $e.safe_read32s_slow
                 (get_local $l2)))))

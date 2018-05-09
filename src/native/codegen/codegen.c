@@ -322,9 +322,7 @@ void gen_safe_read32(void)
 
     // Psuedo: entry = tlb_data[base];
     const int32_t entry_local = GEN_SCRATCH_LOCAL1;
-    gen_const_i32((uint32_t) &tlb_data);
-    add_i32(&instruction_body);
-    load_aligned_i32_from_stack(&instruction_body);
+    load_aligned_i32_from_stack(&instruction_body, (uint32_t) tlb_data);
     gen_tee_local(entry_local);
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL == TLB_VALID &&
@@ -354,10 +352,9 @@ void gen_safe_read32(void)
     gen_get_local(address_local);
     xor_i32(&instruction_body);
 
-    gen_const_i32((int32_t) &mem8);
-    add_i32(&instruction_body);
-    load_aligned_i32_from_stack(&instruction_body);
+    load_aligned_i32_from_stack(&instruction_body, (uint32_t) mem8);
 
+    // Pseudo:
     // else { leave_on_stack(safe_read32s_slow(address)); }
     gen_else();
     gen_get_local(address_local);
