@@ -39,8 +39,6 @@ void gen_fn1_const_ret(char const* fn, uint8_t fn_len, int32_t arg0);
 void gen_set_reg16_fn0(char const* fn, uint8_t fn_len, int32_t reg);
 void gen_set_reg32s_fn0(char const* fn, uint8_t fn_len, int32_t reg);
 
-void gen_set_reg32_from_stack(int32_t r_dest);
-
 // Generate code for "mov reg, reg"
 void gen_set_reg16_r(int32_t r_dest, int32_t r_src);
 void gen_set_reg32_r(int32_t r_dest, int32_t r_src);
@@ -84,6 +82,8 @@ void gen_set_local(int32_t);
 void gen_tee_local(int32_t);
 
 void gen_unreachable(void);
+
+void gen_store_aligned_i32(void);
 
 void gen_modrm_resolve(int32_t modrm_byte);
 void gen_modrm_fn0(char const* fn, uint8_t fn_len);

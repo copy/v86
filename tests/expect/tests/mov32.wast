@@ -79,7 +79,8 @@
             (i32.load
               (i32.const 556))
             (i32.const 32)))
-        (set_local $l2
+        (i32.store
+          (i32.const 28)
           (if $I4 (result i32)
             (i32.and
               (i32.eq
@@ -114,15 +115,13 @@
               (call $e.safe_read32s_slow
                 (get_local $l2)))))
         (i32.store
-          (i32.const 28)
-          (get_local $l2))
-        (i32.store
           (i32.const 560)
           (i32.add
             (i32.load
               (i32.const 556))
             (i32.const 38)))
-        (set_local $l2
+        (i32.store
+          (i32.const 32)
           (if $I5 (result i32)
             (i32.and
               (i32.eq
@@ -156,9 +155,6 @@
             (else
               (call $e.safe_read32s_slow
                 (get_local $l2)))))
-        (i32.store
-          (i32.const 32)
-          (get_local $l2))
         (i32.store
           (i32.const 560)
           (i32.add

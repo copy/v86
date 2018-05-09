@@ -241,16 +241,6 @@ void gen_fn1_const(char const* fn, uint8_t fn_len, int32_t arg0)
     call_fn(&instruction_body, fn_idx);
 }
 
-void gen_set_reg32_from_stack(int32_t r_dest)
-{
-    // generates: reg32s[r_dest] = _
-    const int32_t temp = GEN_SCRATCH_LOCAL0;
-    gen_set_local(temp);
-    push_i32(&instruction_body, (int32_t) &reg32s[r_dest]);
-    gen_get_local(temp);
-    store_aligned_i32(&instruction_body);
-}
-
 void gen_set_reg16_r(int32_t r_dest, int32_t r_src)
 {
     // generates: reg16[r_dest] = reg16[r_src]
@@ -487,6 +477,11 @@ void gen_const_i32(int32_t v)
 void gen_unreachable(void)
 {
     write_raw_u8(&instruction_body, OP_UNREACHABLE);
+}
+
+void gen_store_aligned_i32(void)
+{
+    store_aligned_i32(&instruction_body);
 }
 
 #define MODRM_ENTRY(n, work)\
