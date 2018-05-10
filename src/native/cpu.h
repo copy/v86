@@ -126,8 +126,9 @@ int32_t valid_tlb_entries_count;
 // local scratch variables for use wherever required
 #define GEN_SCRATCH_LOCAL0 3
 #define GEN_SCRATCH_LOCAL1 4
+#define GEN_SCRATCH_LOCAL2 5
 // Function arguments are not included in the local variable count
-#define NO_OF_LOCALS 4
+#define NO_OF_LOCALS 5
 
 // defined in call-indirect.ll
 extern void call_indirect(int32_t index);
