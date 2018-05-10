@@ -234,6 +234,13 @@ void gen_call_fn1_ret(char const* fn, uint8_t fn_len)
     call_fn(&instruction_body, fn_idx);
 }
 
+void gen_call_fn1(char const* fn, uint8_t fn_len)
+{
+    // generates: fn( _ ) where _ must be left on the stack before calling this
+    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
+    call_fn(&instruction_body, fn_idx);
+}
+
 void gen_fn1_const(char const* fn, uint8_t fn_len, int32_t arg0)
 {
     int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
@@ -309,6 +316,7 @@ void gen_safe_read32(void)
     // Pseudo: base = (uint32_t)address >> 12;
     gen_const_i32(12);
     shr_u32(&instruction_body);
+    SCALE_INDEX_FOR_ARR(tlb_data, 2);
 
     // Psuedo: entry = tlb_data[base];
     const int32_t entry_local = GEN_SCRATCH_LOCAL1;
@@ -350,6 +358,95 @@ void gen_safe_read32(void)
     gen_block_end();
 }
 
+void gen_safe_write32(void)
+{
+    // Generates safe_write32' fast-path inline, bailing to safe_write32_slow if necessary.
+
+    // Usage:
+    // push_to_stack(virtual_addr);
+    // push_to_stack(value);
+    // gen_safe_write32();
+
+    // Store value locally for later
+    const int32_t value_local = GEN_SCRATCH_LOCAL0;
+    gen_set_local(value_local);
+
+    const int32_t address_local = GEN_SCRATCH_LOCAL1;
+    gen_tee_local(address_local);
+
+    // Pseudo: base = (uint32_t)address >> 12;
+    gen_const_i32(12);
+    shr_u32(&instruction_body);
+    SCALE_INDEX_FOR_ARR(tlb_data, 2);
+
+    // Psuedo: entry = tlb_data[base];
+    const int32_t entry_local = GEN_SCRATCH_LOCAL2;
+    load_aligned_i32_from_stack(&instruction_body, (uint32_t) tlb_data);
+    gen_tee_local(entry_local);
+
+    // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL == TLB_VALID &&
+    //                                   (address & 0xFFF) <= (0x1000 - 4));
+    gen_const_i32(0xFFF & ~TLB_GLOBAL);
+    and_i32(&instruction_body);
+
+    gen_const_i32(TLB_VALID);
+    gen_eq_i32();
+
+    gen_get_local(address_local);
+    gen_const_i32(0xFFF);
+    and_i32(&instruction_body);
+    gen_const_i32(0x1000 - 4);
+    gen_le_i32();
+
+    and_i32(&instruction_body);
+
+    // Pseudo:
+    // if(can_use_fast_path)
+    // {
+    //     mem8[entry & ~0xFFF ^ address] = value;
+    gen_if_void();
+
+    gen_get_local(entry_local);
+    gen_const_i32(~0xFFF);
+    and_i32(&instruction_body);
+    gen_get_local(address_local);
+    xor_i32(&instruction_body);
+
+    // entry_local isn't needed anymore, so we overwrite it
+    const int32_t phys_addr_local = entry_local;
+    gen_tee_local(phys_addr_local);
+    gen_get_local(value_local);
+    store_unaligned_i32_with_offset(&instruction_body, (uint32_t) mem8);
+
+    // Only call jit_dirty_cache_single if absolutely necessary
+    // Pseudo:
+    //     /* continued within can_use_fast_path branch */
+    //     if(page_first_jit_cache_entry[phys_address >> 12]) jit_dirty_cache_single(phys_address);
+    // }
+
+    gen_get_local(phys_addr_local);
+    gen_const_i32(12);
+    shr_u32(&instruction_body);
+
+    SCALE_INDEX_FOR_ARR(page_first_jit_cache_entry, 2);
+    load_aligned_i32_from_stack(&instruction_body, (uint32_t) page_first_jit_cache_entry);
+
+    gen_const_i32(JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+    gen_ne_i32();
+    gen_if_void();
+    gen_get_local(phys_addr_local);
+    gen_call_fn1("jit_dirty_cache_single", 22);
+    gen_block_end();
+
+    // Pseudo:
+    // else { safe_read32_slow(address, value); }
+    gen_else();
+    gen_get_local(address_local);
+    gen_get_local(value_local);
+    gen_call_fn2("safe_write32_slow", 17);
+    gen_block_end();
+}
+
 void gen_add_i32(void)
 {
     add_i32(&instruction_body);
@@ -363,6 +460,11 @@ void gen_eqz_i32(void)
 void gen_eq_i32(void)
 {
     write_raw_u8(&instruction_body, OP_I32EQ);
+}
+
+void gen_ne_i32(void)
+{
+    write_raw_u8(&instruction_body, OP_I32NE);
 }
 
 void gen_le_i32(void)
@@ -477,6 +579,13 @@ void gen_const_i32(int32_t v)
 void gen_unreachable(void)
 {
     write_raw_u8(&instruction_body, OP_UNREACHABLE);
+}
+
+void gen_load_aligned_i32_from_stack(uint32_t offset)
+{
+    // NOTE: If you use offset to index into an array, remember that the array's elements' sizes
+    // matter: &arr32[i] == arr32 + sizeof(arr32[0])*i
+    load_aligned_i32_from_stack(&instruction_body, offset);
 }
 
 void gen_store_aligned_i32(void)

@@ -496,8 +496,11 @@ void instr16_89_mem_jit(int32_t modrm_byte, int32_t r)
 }
 void instr32_89_mem_jit(int32_t modrm_byte, int32_t r)
 {
-    // XXX
-    gen_modrm_resolve(modrm_byte); gen_modrm_fn1("instr32_89_mem", 14, modrm_byte >> 3 & 7);
+    // Pseudo: safe_write32(modrm_resolve(modrm_byte), reg32s[r]);
+    gen_modrm_resolve(modrm_byte);
+    gen_const_i32((uint32_t) &reg32s[r]);
+    gen_load_aligned_i32_from_stack(0);
+    gen_safe_write32();
 }
 
 DEFINE_MODRM_INSTR_READ8(instr_8A, write_reg8(r, ___))

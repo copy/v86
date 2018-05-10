@@ -15,6 +15,18 @@
 
 #define NR_FN_TYPE_INDEXES 7
 
+// We'll need to scale the index on the stack to access arr32[i] correctly, for eg.
+// &arr32[i] == (arr32 + i*4)
+// This macro simply does the "i*4" part of the address calculation
+#define SCALE_INDEX_FOR_ARR(arr, scale_by)                              \
+    _Static_assert(                                                     \
+        sizeof(arr[0]) == 1 << scale_by,                                \
+        "codegen: Array element size different from expected bytes."    \
+    );                                                                  \
+    /* Shift the index to make it byte-indexed, not array-indexed */    \
+    gen_const_i32(scale_by);                                            \
+    shl_i32(&instruction_body);
+
 extern Buffer instruction_body;
 
 static uint8_t const fn_get_seg_idx = 0;
@@ -49,14 +61,17 @@ void gen_fn1_reg32s(char const* fn, uint8_t fn_len, int32_t reg);
 
 // Generate a function call with arguments pushed to the stack separately
 void gen_call_fn1_ret(char const* fn, uint8_t fn_len);
+void gen_call_fn1(char const* fn, uint8_t fn_len);
 void gen_call_fn2(char const* fn, uint8_t fn_len);
 
-// Generate code for safe_read32s inline
+// Generate code for safe_read32s and safe_write32 inline
 void gen_safe_read32(void);
+void gen_safe_write32(void);
 
 void gen_add_i32(void);
 void gen_eqz_i32(void);
 void gen_eq_i32(void);
+void gen_ne_i32(void);
 void gen_le_i32(void);
 void gen_lt_i32(void);
 void gen_ge_i32(void);
@@ -83,6 +98,7 @@ void gen_tee_local(int32_t);
 
 void gen_unreachable(void);
 
+void gen_load_aligned_i32_from_stack(uint32_t offset);
 void gen_store_aligned_i32(void);
 
 void gen_modrm_resolve(int32_t modrm_byte);

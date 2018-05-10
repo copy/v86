@@ -66,6 +66,15 @@ static void inline store_aligned_i32(Buffer* buf)
     write_raw_u8(buf, MEM_IMM_OFFSET);
 }
 
+// XXX: Function naming should be consistent regarding both alignment and accepting an
+// offset. Leaving as-is for the Rust port to cleanup
+static void inline store_unaligned_i32_with_offset(Buffer* buf, uint32_t offset)
+{
+    write_raw_u8(buf, OP_I32STORE);
+    write_raw_u8(buf, MEM_NO_ALIGN);
+    write_leb_u32(buf, offset);
+}
+
 static void inline add_i32(Buffer* buf)
 {
     write_raw_u8(buf, OP_I32ADD);
