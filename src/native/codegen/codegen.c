@@ -315,9 +315,9 @@ void gen_safe_read32(void)
     load_aligned_i32_from_stack(&instruction_body, (uint32_t) tlb_data);
     gen_tee_local(entry_local);
 
-    // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL == TLB_VALID &&
+    // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL == TLB_VALID &&
     //                                   (address & 0xFFF) <= (0x1000 - 4));
-    gen_const_i32(0xFFF & ~TLB_GLOBAL);
+    gen_const_i32(0xFFF & ~TLB_READONLY & ~TLB_GLOBAL);
     and_i32(&instruction_body);
 
     gen_const_i32(TLB_VALID);
