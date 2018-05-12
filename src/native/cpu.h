@@ -35,7 +35,6 @@ union reg64 {
 _Static_assert(sizeof(union reg64) == 8, "reg64 is 8 bytes");
 
 typedef uint8_t cached_state_flags;
-int32_t tlb_data[0x100000];
 
 struct code_cache {
     // Address of the start of the basic block
@@ -99,9 +98,6 @@ struct basic_block_list {
 
 // Count of how many times prime_hash(address) has been called through a jump
 extern int32_t hot_code_addresses[HASH_PRIME];
-
-// A mapping from physical page to index into jit_cache_arr
-int32_t page_first_jit_cache_entry[GROUP_DIRTINESS_LENGTH];
 
 #define JIT_CACHE_ARRAY_NO_NEXT_ENTRY (-1)
 

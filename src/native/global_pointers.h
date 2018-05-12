@@ -93,6 +93,10 @@ static uint8_t* const codegen_string_input = (uint8_t* const) 0x31000; // length
 
 // gap
 
-static uint8_t* const mem8 = (uint8_t* const) (0x40000 + 0x100000 * 6);
-static uint16_t* const mem16 = (uint16_t* const) (0x40000 + 0x100000 * 6);
-static int32_t* const mem32s = (int32_t* const) (0x40000 + 0x100000 * 6);
+static int32_t* const tlb_data = (int32_t* const) (0x40000); // length 0x100000*4
+// A mapping from physical page to index into jit_cache_arr
+static int32_t* const page_first_jit_cache_entry = (int32_t* const) (0x440000); // length 0x100000*4
+
+static uint8_t* const mem8 = (uint8_t* const) (0x40000 + 0x100000 * 8);
+static uint16_t* const mem16 = (uint16_t* const) (0x40000 + 0x100000 * 8);
+static int32_t* const mem32s = (int32_t* const) (0x40000 + 0x100000 * 8);

@@ -51,7 +51,7 @@
         (i32.shr_u)
         (i32.const 2)
         (i32.shl)
-        (i32.load offset=19977132)
+        (i32.load offset=262144)
         (tee_local $l4)
         (i32.const 4079)
         (i32.and)
@@ -65,7 +65,7 @@
         (i32.and)
         (if $I4
           (then
-            (i32.store offset=6553600 align=1
+            (i32.store offset=8650752 align=1
               (tee_local $l4
                 (i32.xor
                   (i32.and
@@ -75,7 +75,7 @@
               (get_local $l2))
             (if $I5
               (i32.ne
-                (i32.load offset=15782824
+                (i32.load offset=4456448
                   (i32.shl
                     (i32.shr_u
                       (get_local $l4)
@@ -110,7 +110,7 @@
         (i32.shr_u)
         (i32.const 2)
         (i32.shl)
-        (i32.load offset=19977132)
+        (i32.load offset=262144)
         (tee_local $l4)
         (i32.const 4079)
         (i32.and)
@@ -124,7 +124,7 @@
         (i32.and)
         (if $I6
           (then
-            (i32.store offset=6553600 align=1
+            (i32.store offset=8650752 align=1
               (tee_local $l4
                 (i32.xor
                   (i32.and
@@ -134,7 +134,7 @@
               (get_local $l2))
             (if $I7
               (i32.ne
-                (i32.load offset=15782824
+                (i32.load offset=4456448
                   (i32.shl
                     (i32.shr_u
                       (get_local $l4)
@@ -161,7 +161,7 @@
               (i32.eq
                 (i32.and
                   (tee_local $l3
-                    (i32.load offset=19977132
+                    (i32.load offset=262144
                       (i32.shl
                         (i32.shr_u
                           (tee_local $l2
@@ -182,7 +182,7 @@
                   (i32.const 4095))
                 (i32.const 4092)))
             (then
-              (i32.load offset=6553600 align=1
+              (i32.load offset=8650752 align=1
                 (i32.xor
                   (i32.and
                     (get_local $l3)
@@ -204,7 +204,7 @@
               (i32.eq
                 (i32.and
                   (tee_local $l3
-                    (i32.load offset=19977132
+                    (i32.load offset=262144
                       (i32.shl
                         (i32.shr_u
                           (tee_local $l2
@@ -225,7 +225,7 @@
                   (i32.const 4095))
                 (i32.const 4092)))
             (then
-              (i32.load offset=6553600 align=1
+              (i32.load offset=8650752 align=1
                 (i32.xor
                   (i32.and
                     (get_local $l3)

@@ -40,12 +40,9 @@ uint64_t tsc_offset = 0;
 uint32_t jit_block_boundary = 0;
 int32_t hot_code_addresses[HASH_PRIME] = {0};
 
-int32_t page_first_jit_cache_entry[GROUP_DIRTINESS_LENGTH] = {0};
-
 uint16_t wasm_table_index_free_list[WASM_TABLE_SIZE] = { 0 };
 int32_t wasm_table_index_free_list_count = 0;
 
-int32_t tlb_data[0x100000] = {0};
 int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX] = {0};
 int32_t valid_tlb_entries_count = 0;
 
