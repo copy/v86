@@ -120,15 +120,15 @@ int32_t valid_tlb_entries_count;
 
 // Indices for local variables and function arguments (which are accessed as local variables) for
 // the generated WASM function
-#define ARG_INITIAL_STATE 0
-#define STATE 1
-#define ITERATION_COUNTER 2
+#define GEN_LOCAL_ARG_INITIAL_STATE 0
+#define GEN_LOCAL_STATE 1
+#define GEN_LOCAL_ITERATION_COUNTER 2
 // local scratch variables for use wherever required
-#define GEN_SCRATCH_LOCAL0 3
-#define GEN_SCRATCH_LOCAL1 4
-#define GEN_SCRATCH_LOCAL2 5
+#define GEN_LOCAL_SCRATCH0 3
+#define GEN_LOCAL_SCRATCH1 4
+#define GEN_LOCAL_SCRATCH2 5
 // Function arguments are not included in the local variable count
-#define NO_OF_LOCALS 5
+#define GEN_NO_OF_LOCALS 5
 
 // defined in call-indirect.ll
 extern void call_indirect(int32_t index);

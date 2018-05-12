@@ -310,7 +310,7 @@ void gen_safe_read32(void)
     // Assumes virtual address has been pushed to the stack, and generates safe_read32s' fast-path
     // inline, bailing to safe_read32s_slow if necessary
 
-    const int32_t address_local = GEN_SCRATCH_LOCAL0;
+    const int32_t address_local = GEN_LOCAL_SCRATCH0;
     gen_tee_local(address_local);
 
     // Pseudo: base = (uint32_t)address >> 12;
@@ -319,7 +319,7 @@ void gen_safe_read32(void)
     SCALE_INDEX_FOR_ARR(tlb_data, 2);
 
     // Psuedo: entry = tlb_data[base];
-    const int32_t entry_local = GEN_SCRATCH_LOCAL1;
+    const int32_t entry_local = GEN_LOCAL_SCRATCH1;
     load_aligned_i32_from_stack(&instruction_body, (uint32_t) tlb_data);
     gen_tee_local(entry_local);
 
@@ -368,10 +368,10 @@ void gen_safe_write32(void)
     // gen_safe_write32();
 
     // Store value locally for later
-    const int32_t value_local = GEN_SCRATCH_LOCAL0;
+    const int32_t value_local = GEN_LOCAL_SCRATCH0;
     gen_set_local(value_local);
 
-    const int32_t address_local = GEN_SCRATCH_LOCAL1;
+    const int32_t address_local = GEN_LOCAL_SCRATCH1;
     gen_tee_local(address_local);
 
     // Pseudo: base = (uint32_t)address >> 12;
@@ -380,7 +380,7 @@ void gen_safe_write32(void)
     SCALE_INDEX_FOR_ARR(tlb_data, 2);
 
     // Psuedo: entry = tlb_data[base];
-    const int32_t entry_local = GEN_SCRATCH_LOCAL2;
+    const int32_t entry_local = GEN_LOCAL_SCRATCH2;
     load_aligned_i32_from_stack(&instruction_body, (uint32_t) tlb_data);
     gen_tee_local(entry_local);
 

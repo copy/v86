@@ -1344,25 +1344,25 @@ static void jit_generate(uint32_t phys_addr)
     gen_reset();
 
     // set state local variable to the initial state passed as the first argument
-    gen_get_local(ARG_INITIAL_STATE);
-    gen_set_local(STATE);
+    gen_get_local(GEN_LOCAL_ARG_INITIAL_STATE);
+    gen_set_local(GEN_LOCAL_STATE);
 
     // initialise max_iterations
     gen_const_i32(JIT_MAX_ITERATIONS_PER_FUNCTION);
-    gen_set_local(ITERATION_COUNTER);
+    gen_set_local(GEN_LOCAL_ITERATION_COUNTER);
 
     // main state machine loop
     gen_loop_void();
 
     // decrement max_iterations
-    gen_get_local(ITERATION_COUNTER);
+    gen_get_local(GEN_LOCAL_ITERATION_COUNTER);
     gen_const_i32(-1);
     gen_add_i32();
-    gen_set_local(ITERATION_COUNTER);
+    gen_set_local(GEN_LOCAL_ITERATION_COUNTER);
 
 
     // if max_iterations == 0: return
-    gen_get_local(ITERATION_COUNTER);
+    gen_get_local(GEN_LOCAL_ITERATION_COUNTER);
     gen_eqz_i32();
     gen_if_void();
     gen_return();
@@ -1377,7 +1377,7 @@ static void jit_generate(uint32_t phys_addr)
         gen_block_void();
     }
 
-    gen_get_local(STATE);
+    gen_get_local(GEN_LOCAL_STATE);
     gen_brtable_and_cases(basic_blocks.length);
 
     for(int32_t i = 0; i < basic_blocks.length; i++)
@@ -1419,7 +1419,7 @@ static void jit_generate(uint32_t phys_addr)
 
                 // set state variable to next basic block
                 gen_const_i32(next_bb_index);
-                gen_set_local(STATE);
+                gen_set_local(GEN_LOCAL_STATE);
 
                 gen_br(basic_blocks.length - i); // to the loop
             }
@@ -1452,7 +1452,7 @@ static void jit_generate(uint32_t phys_addr)
                     assert(next_basic_block_branch_taken_index != -1);
 
                     gen_const_i32(next_basic_block_branch_taken_index);
-                    gen_set_local(STATE);
+                    gen_set_local(GEN_LOCAL_STATE);
                 }
                 else
                 {
@@ -1470,7 +1470,7 @@ static void jit_generate(uint32_t phys_addr)
                     assert(next_basic_block_index != -1);
 
                     gen_const_i32(next_basic_block_index);
-                    gen_set_local(STATE);
+                    gen_set_local(GEN_LOCAL_STATE);
                 }
 
                 gen_block_end();
@@ -1494,7 +1494,7 @@ static void jit_generate(uint32_t phys_addr)
     gen_block_end(); // loop
 
     gen_commit_instruction_body_to_cs();
-    gen_finish(NO_OF_LOCALS);
+    gen_finish(GEN_NO_OF_LOCALS);
 
     cached_state_flags state_flags = pack_current_state_flags();
 
