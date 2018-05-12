@@ -211,4 +211,3 @@
 #define MEM_NO_ALIGN 0
 #define MEM_ALIGN16 1
 #define MEM_ALIGN32 2
-#define MEM_IMM_OFFSET 0

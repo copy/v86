@@ -26,7 +26,8 @@ static void inline load_aligned_u16(Buffer* buf, uint32_t addr)
     write_leb_i32(buf, addr);
     write_raw_u8(buf, OP_I32LOAD16U);
     write_raw_u8(buf, MEM_ALIGN16);
-    write_raw_u8(buf, MEM_IMM_OFFSET);
+    // Immediate offset
+    write_raw_u8(buf, 0);
 }
 
 static void inline load_unaligned_i32_from_stack(Buffer* buf, uint32_t offset)
@@ -49,21 +50,23 @@ static void inline load_aligned_i32(Buffer* buf, uint32_t addr)
     assert((addr & 3) == 0);
 
     push_i32(buf, addr);
-    load_aligned_i32_from_stack(buf, MEM_IMM_OFFSET);
+    load_aligned_i32_from_stack(buf, 0);
 }
 
 static void inline store_aligned_u16(Buffer* buf)
 {
     write_raw_u8(buf, OP_I32STORE16);
     write_raw_u8(buf, MEM_ALIGN16);
-    write_raw_u8(buf, MEM_IMM_OFFSET);
+    // Immediate offset
+    write_raw_u8(buf, 0);
 }
 
 static void inline store_aligned_i32(Buffer* buf)
 {
     write_raw_u8(buf, OP_I32STORE);
     write_raw_u8(buf, MEM_ALIGN32);
-    write_raw_u8(buf, MEM_IMM_OFFSET);
+    // Immediate offset
+    write_raw_u8(buf, 0);
 }
 
 // XXX: Function naming should be consistent regarding both alignment and accepting an
