@@ -379,41 +379,44 @@ void gen_safe_write32(void)
     shr_u32(&instruction_body);
     SCALE_INDEX_FOR_ARR(tlb_data, 2);
 
-    // Psuedo: entry = tlb_data[base];
-    const int32_t entry_local = GEN_LOCAL_SCRATCH2;
-    load_aligned_i32_from_stack(&instruction_body, (uint32_t) tlb_data);
-    gen_tee_local(entry_local);
+    // entry_local is only used in the following block, so the scratch variable can be reused later
+    {
+        // Psuedo: entry = tlb_data[base];
+        const int32_t entry_local = GEN_LOCAL_SCRATCH2;
+        load_aligned_i32_from_stack(&instruction_body, (uint32_t) tlb_data);
+        gen_tee_local(entry_local);
 
-    // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL == TLB_VALID &&
-    //                                   (address & 0xFFF) <= (0x1000 - 4));
-    gen_const_i32(0xFFF & ~TLB_GLOBAL);
-    and_i32(&instruction_body);
+        // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL == TLB_VALID &&
+        //                                   (address & 0xFFF) <= (0x1000 - 4));
+        gen_const_i32(0xFFF & ~TLB_GLOBAL);
+        and_i32(&instruction_body);
 
-    gen_const_i32(TLB_VALID);
-    gen_eq_i32();
+        gen_const_i32(TLB_VALID);
+        gen_eq_i32();
 
-    gen_get_local(address_local);
-    gen_const_i32(0xFFF);
-    and_i32(&instruction_body);
-    gen_const_i32(0x1000 - 4);
-    gen_le_i32();
+        gen_get_local(address_local);
+        gen_const_i32(0xFFF);
+        and_i32(&instruction_body);
+        gen_const_i32(0x1000 - 4);
+        gen_le_i32();
 
-    and_i32(&instruction_body);
+        and_i32(&instruction_body);
 
-    // Pseudo:
-    // if(can_use_fast_path)
-    // {
-    //     mem8[entry & ~0xFFF ^ address] = value;
-    gen_if_void();
+        // Pseudo:
+        // if(can_use_fast_path)
+        // {
+        //     mem8[entry & ~0xFFF ^ address] = value;
+        gen_if_void();
 
-    gen_get_local(entry_local);
-    gen_const_i32(~0xFFF);
-    and_i32(&instruction_body);
-    gen_get_local(address_local);
-    xor_i32(&instruction_body);
+        gen_get_local(entry_local);
+        gen_const_i32(~0xFFF);
+        and_i32(&instruction_body);
+        gen_get_local(address_local);
+        xor_i32(&instruction_body);
+    }
 
     // entry_local isn't needed anymore, so we overwrite it
-    const int32_t phys_addr_local = entry_local;
+    const int32_t phys_addr_local = GEN_LOCAL_SCRATCH2;
     gen_tee_local(phys_addr_local);
     gen_get_local(value_local);
     store_unaligned_i32_with_offset(&instruction_body, (uint32_t) mem8);
