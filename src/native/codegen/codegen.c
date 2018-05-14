@@ -358,21 +358,23 @@ void gen_safe_read32(void)
     gen_block_end();
 }
 
-void gen_safe_write32(void)
+void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
 {
     // Generates safe_write32' fast-path inline, bailing to safe_write32_slow if necessary.
 
+    // local_for_{address,value} are the numbers of the local variables which contain the virtual
+    // address and value for safe_write32
     // Usage:
-    // push_to_stack(virtual_addr);
-    // push_to_stack(value);
+    // set_local(0, value);
+    // set_local(1, v_addr);
     // gen_safe_write32();
 
-    // Store value locally for later
-    const int32_t value_local = GEN_LOCAL_SCRATCH0;
-    gen_set_local(value_local);
+    // Since this function clobbers other variables, we confirm that the caller uses the local
+    // variables we expect them to
+    assert(local_for_address == GEN_LOCAL_SCRATCH0);
+    assert(local_for_value == GEN_LOCAL_SCRATCH1);
 
-    const int32_t address_local = GEN_LOCAL_SCRATCH1;
-    gen_tee_local(address_local);
+    gen_get_local(local_for_address);
 
     // Pseudo: base = (uint32_t)address >> 12;
     gen_const_i32(12);
@@ -394,7 +396,7 @@ void gen_safe_write32(void)
         gen_const_i32(TLB_VALID);
         gen_eq_i32();
 
-        gen_get_local(address_local);
+        gen_get_local(local_for_address);
         gen_const_i32(0xFFF);
         and_i32(&instruction_body);
         gen_const_i32(0x1000 - 4);
@@ -411,14 +413,14 @@ void gen_safe_write32(void)
         gen_get_local(entry_local);
         gen_const_i32(~0xFFF);
         and_i32(&instruction_body);
-        gen_get_local(address_local);
+        gen_get_local(local_for_address);
         xor_i32(&instruction_body);
     }
 
     // entry_local isn't needed anymore, so we overwrite it
     const int32_t phys_addr_local = GEN_LOCAL_SCRATCH2;
     gen_tee_local(phys_addr_local);
-    gen_get_local(value_local);
+    gen_get_local(local_for_value);
     store_unaligned_i32_with_offset(&instruction_body, (uint32_t) mem8);
 
     // Only call jit_dirty_cache_single if absolutely necessary
@@ -444,8 +446,8 @@ void gen_safe_write32(void)
     // Pseudo:
     // else { safe_read32_slow(address, value); }
     gen_else();
-    gen_get_local(address_local);
-    gen_get_local(value_local);
+    gen_get_local(local_for_address);
+    gen_get_local(local_for_value);
     gen_call_fn2("safe_write32_slow", 17);
     gen_block_end();
 }

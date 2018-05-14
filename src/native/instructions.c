@@ -497,10 +497,17 @@ void instr16_89_mem_jit(int32_t modrm_byte, int32_t r)
 void instr32_89_mem_jit(int32_t modrm_byte, int32_t r)
 {
     // Pseudo: safe_write32(modrm_resolve(modrm_byte), reg32s[r]);
+    const int32_t address_local = GEN_LOCAL_SCRATCH0;
+    const int32_t value_local = GEN_LOCAL_SCRATCH1;
+
     gen_modrm_resolve(modrm_byte);
+    gen_set_local(address_local);
+
     gen_const_i32((uint32_t) &reg32s[r]);
     gen_load_aligned_i32_from_stack(0);
-    gen_safe_write32();
+    gen_set_local(value_local);
+
+    gen_safe_write32(address_local, value_local);
 }
 
 DEFINE_MODRM_INSTR_READ8(instr_8A, write_reg8(r, ___))

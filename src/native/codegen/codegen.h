@@ -66,7 +66,7 @@ void gen_call_fn2(char const* fn, uint8_t fn_len);
 
 // Generate code for safe_read32s and safe_write32 inline
 void gen_safe_read32(void);
-void gen_safe_write32(void);
+void gen_safe_write32(int32_t local_for_address, int32_t local_for_value);
 
 void gen_add_i32(void);
 void gen_eqz_i32(void);

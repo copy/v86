@@ -36,34 +36,35 @@
           (i32.const 560)
           (i32.load
             (i32.const 556)))
-        (i32.add
-          (i32.add
-            (i32.load
-              (i32.const 16))
-            (i32.const 32))
-          (call $e.get_seg
-            (i32.const 3)))
         (set_local $l2
+          (i32.add
+            (i32.add
+              (i32.load
+                (i32.const 16))
+              (i32.const 32))
+            (call $e.get_seg
+              (i32.const 3))))
+        (set_local $l3
           (i32.load
             (i32.const 4)))
-        (tee_local $l3)
-        (i32.const 12)
-        (i32.shr_u)
-        (i32.const 2)
-        (i32.shl)
-        (i32.load offset=262144)
-        (tee_local $l4)
-        (i32.const 4079)
-        (i32.and)
-        (i32.const 1)
-        (i32.eq)
-        (i32.le_s
-          (i32.and
-            (get_local $l3)
-            (i32.const 4095))
-          (i32.const 4092))
-        (i32.and)
         (if $I4
+          (i32.and
+            (i32.eq
+              (i32.and
+                (tee_local $l4
+                  (i32.load offset=262144
+                    (i32.shl
+                      (i32.shr_u
+                        (get_local $l2)
+                        (i32.const 12))
+                      (i32.const 2))))
+                (i32.const 4079))
+              (i32.const 1))
+            (i32.le_s
+              (i32.and
+                (get_local $l2)
+                (i32.const 4095))
+              (i32.const 4092)))
           (then
             (i32.store offset=8650752 align=1
               (tee_local $l4
@@ -71,8 +72,8 @@
                   (i32.and
                     (get_local $l4)
                     (i32.const -4096))
-                  (get_local $l3)))
-              (get_local $l2))
+                  (get_local $l2)))
+              (get_local $l3))
             (if $I5
               (i32.ne
                 (i32.load offset=4456448
@@ -87,42 +88,43 @@
                   (get_local $l4)))))
           (else
             (call $e.safe_write32_slow
-              (get_local $l3)
-              (get_local $l2))))
+              (get_local $l2)
+              (get_local $l3))))
         (i32.store
           (i32.const 560)
           (i32.add
             (i32.load
               (i32.const 556))
             (i32.const 6)))
-        (i32.add
-          (i32.add
-            (i32.load
-              (i32.const 12))
-            (i32.const 28))
-          (call $e.get_seg
-            (i32.const 3)))
         (set_local $l2
+          (i32.add
+            (i32.add
+              (i32.load
+                (i32.const 12))
+              (i32.const 28))
+            (call $e.get_seg
+              (i32.const 3))))
+        (set_local $l3
           (i32.load
             (i32.const 8)))
-        (tee_local $l3)
-        (i32.const 12)
-        (i32.shr_u)
-        (i32.const 2)
-        (i32.shl)
-        (i32.load offset=262144)
-        (tee_local $l4)
-        (i32.const 4079)
-        (i32.and)
-        (i32.const 1)
-        (i32.eq)
-        (i32.le_s
-          (i32.and
-            (get_local $l3)
-            (i32.const 4095))
-          (i32.const 4092))
-        (i32.and)
         (if $I6
+          (i32.and
+            (i32.eq
+              (i32.and
+                (tee_local $l4
+                  (i32.load offset=262144
+                    (i32.shl
+                      (i32.shr_u
+                        (get_local $l2)
+                        (i32.const 12))
+                      (i32.const 2))))
+                (i32.const 4079))
+              (i32.const 1))
+            (i32.le_s
+              (i32.and
+                (get_local $l2)
+                (i32.const 4095))
+              (i32.const 4092)))
           (then
             (i32.store offset=8650752 align=1
               (tee_local $l4
@@ -130,8 +132,8 @@
                   (i32.and
                     (get_local $l4)
                     (i32.const -4096))
-                  (get_local $l3)))
-              (get_local $l2))
+                  (get_local $l2)))
+              (get_local $l3))
             (if $I7
               (i32.ne
                 (i32.load offset=4456448
@@ -146,8 +148,8 @@
                   (get_local $l4)))))
           (else
             (call $e.safe_write32_slow
-              (get_local $l3)
-              (get_local $l2))))
+              (get_local $l2)
+              (get_local $l3))))
         (i32.store
           (i32.const 560)
           (i32.add
