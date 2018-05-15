@@ -18,14 +18,13 @@
 // We'll need to scale the index on the stack to access arr32[i] correctly, for eg.
 // &arr32[i] == (arr32 + i*4)
 // This macro simply does the "i*4" part of the address calculation
-#define SCALE_INDEX_FOR_ARR(arr, scale_by)                              \
-    _Static_assert(                                                     \
-        sizeof(arr[0]) == 1 << scale_by,                                \
-        "codegen: Array element size different from expected bytes."    \
-    );                                                                  \
-    /* Shift the index to make it byte-indexed, not array-indexed */    \
-    gen_const_i32(scale_by);                                            \
-    shl_i32(&instruction_body);
+#define SCALE_INDEX_FOR_ARR(arr)                                        \
+    if(sizeof(arr[0]) > 1)                                              \
+    {                                                                   \
+        /* Shift the index to make it byte-indexed, not array-indexed */ \
+        gen_const_i32(log2(sizeof(arr[0])));                            \
+        shl_i32(&instruction_body);                                     \
+    }
 
 extern Buffer instruction_body;
 

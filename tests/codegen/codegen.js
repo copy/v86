@@ -46,6 +46,7 @@ const wasm_test_funcs = {
         _printf(...args) { console.log(...args); },
         ___assert_fail(...args) { console.error(...args); console.assert(false); },
         abort() { console.assert(false); },
+        _log2: Math.log2,
     },
 };
 
