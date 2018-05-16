@@ -586,11 +586,9 @@ void gen_unreachable(void)
     write_raw_u8(&instruction_body, OP_UNREACHABLE);
 }
 
-void gen_load_aligned_i32_from_stack(uint32_t offset)
+void gen_load_aligned_i32_from_stack(uint32_t byte_offset)
 {
-    // NOTE: If you use offset to index into an array, remember that the array's elements' sizes
-    // matter: &arr32[i] == arr32 + sizeof(arr32[0])*i
-    load_aligned_i32_from_stack(&instruction_body, offset);
+    load_aligned_i32_from_stack(&instruction_body, byte_offset);
 }
 
 void gen_store_aligned_i32(void)

@@ -98,7 +98,7 @@ void gen_tee_local(int32_t);
 
 void gen_unreachable(void);
 
-void gen_load_aligned_i32_from_stack(uint32_t offset);
+void gen_load_aligned_i32_from_stack(uint32_t byte_offset);
 void gen_store_aligned_i32(void);
 
 void gen_modrm_resolve(int32_t modrm_byte);

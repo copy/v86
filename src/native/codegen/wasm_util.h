@@ -30,18 +30,18 @@ static void inline load_aligned_u16(Buffer* buf, uint32_t addr)
     write_raw_u8(buf, 0);
 }
 
-static void inline load_unaligned_i32_from_stack(Buffer* buf, uint32_t offset)
+static void inline load_unaligned_i32_from_stack(Buffer* buf, uint32_t byte_offset)
 {
     write_raw_u8(buf, OP_I32LOAD);
     write_raw_u8(buf, MEM_NO_ALIGN);
-    write_leb_u32(buf, offset);
+    write_leb_u32(buf, byte_offset);
 }
 
-static void inline load_aligned_i32_from_stack(Buffer* buf, uint32_t offset)
+static void inline load_aligned_i32_from_stack(Buffer* buf, uint32_t byte_offset)
 {
     write_raw_u8(buf, OP_I32LOAD);
     write_raw_u8(buf, MEM_ALIGN32);
-    write_leb_u32(buf, offset);
+    write_leb_u32(buf, byte_offset);
 }
 
 static void inline load_aligned_i32(Buffer* buf, uint32_t addr)
@@ -71,11 +71,11 @@ static void inline store_aligned_i32(Buffer* buf)
 
 // XXX: Function naming should be consistent regarding both alignment and accepting an
 // offset. Leaving as-is for the Rust port to cleanup
-static void inline store_unaligned_i32_with_offset(Buffer* buf, uint32_t offset)
+static void inline store_unaligned_i32_with_offset(Buffer* buf, uint32_t byte_offset)
 {
     write_raw_u8(buf, OP_I32STORE);
     write_raw_u8(buf, MEM_NO_ALIGN);
-    write_leb_u32(buf, offset);
+    write_leb_u32(buf, byte_offset);
 }
 
 static void inline add_i32(Buffer* buf)
