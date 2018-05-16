@@ -313,12 +313,12 @@ void gen_safe_read32(void)
     const int32_t address_local = GEN_LOCAL_SCRATCH0;
     gen_tee_local(address_local);
 
-    // Pseudo: base = (uint32_t)address >> 12;
+    // Pseudo: base_on_stack = (uint32_t)address >> 12;
     gen_const_i32(12);
     shr_u32(&instruction_body);
     SCALE_INDEX_FOR_ARRAY32(tlb_data);
 
-    // Psuedo: entry = tlb_data[base];
+    // Pseudo: entry = tlb_data[base_on_stack];
     const int32_t entry_local = GEN_LOCAL_SCRATCH1;
     load_aligned_i32_from_stack(&instruction_body, (uint32_t) tlb_data);
     gen_tee_local(entry_local);
@@ -376,14 +376,14 @@ void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
 
     gen_get_local(local_for_address);
 
-    // Pseudo: base = (uint32_t)address >> 12;
+    // Pseudo: base_on_stack = (uint32_t)address >> 12;
     gen_const_i32(12);
     shr_u32(&instruction_body);
     SCALE_INDEX_FOR_ARRAY32(tlb_data);
 
     // entry_local is only used in the following block, so the scratch variable can be reused later
     {
-        // Psuedo: entry = tlb_data[base];
+        // Pseudo: entry = tlb_data[base_on_stack];
         const int32_t entry_local = GEN_LOCAL_SCRATCH2;
         load_aligned_i32_from_stack(&instruction_body, (uint32_t) tlb_data);
         gen_tee_local(entry_local);
@@ -407,7 +407,7 @@ void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
         // Pseudo:
         // if(can_use_fast_path)
         // {
-        //     mem8[entry & ~0xFFF ^ address] = value;
+        //     phys_addr = entry & ~0xFFF ^ address;
         gen_if_void();
 
         gen_get_local(entry_local);
@@ -419,6 +419,10 @@ void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
 
     // entry_local isn't needed anymore, so we overwrite it
     const int32_t phys_addr_local = GEN_LOCAL_SCRATCH2;
+    // Pseudo:
+    //     /* continued within can_use_fast_path branch */
+    //     mem8[phys_addr] = value;
+
     gen_tee_local(phys_addr_local);
     gen_get_local(local_for_value);
     store_unaligned_i32_with_offset(&instruction_body, (uint32_t) mem8);
@@ -426,7 +430,10 @@ void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
     // Only call jit_dirty_cache_single if absolutely necessary
     // Pseudo:
     //     /* continued within can_use_fast_path branch */
-    //     if(page_first_jit_cache_entry[phys_address >> 12]) jit_dirty_cache_single(phys_address);
+    //     if(page_first_jit_cache_entry[phys_address >> 12] != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+    //     {
+    //         jit_dirty_cache_single(phys_address);
+    //     }
     // }
 
     gen_get_local(phys_addr_local);
