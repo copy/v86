@@ -243,7 +243,6 @@ function V86Starter(options)
         "_fmod": (x, y) => x % y,
         "_llvm_exp2_f64": (x) => Math.pow(2, x),
         "_log": Math.log,
-        "_log2": Math.log2,
         "_round": Math.round,
         "_ldexp": function(x, exp) {
             return x * Math.pow(2, exp);

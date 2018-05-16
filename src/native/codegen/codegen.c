@@ -316,7 +316,7 @@ void gen_safe_read32(void)
     // Pseudo: base = (uint32_t)address >> 12;
     gen_const_i32(12);
     shr_u32(&instruction_body);
-    SCALE_INDEX_FOR_ARR(tlb_data);
+    SCALE_INDEX_FOR_ARRAY32(tlb_data);
 
     // Psuedo: entry = tlb_data[base];
     const int32_t entry_local = GEN_LOCAL_SCRATCH1;
@@ -379,7 +379,7 @@ void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
     // Pseudo: base = (uint32_t)address >> 12;
     gen_const_i32(12);
     shr_u32(&instruction_body);
-    SCALE_INDEX_FOR_ARR(tlb_data);
+    SCALE_INDEX_FOR_ARRAY32(tlb_data);
 
     // entry_local is only used in the following block, so the scratch variable can be reused later
     {
@@ -433,7 +433,7 @@ void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
     gen_const_i32(12);
     shr_u32(&instruction_body);
 
-    SCALE_INDEX_FOR_ARR(page_first_jit_cache_entry);
+    SCALE_INDEX_FOR_ARRAY32(page_first_jit_cache_entry);
     load_aligned_i32_from_stack(&instruction_body, (uint32_t) page_first_jit_cache_entry);
 
     gen_const_i32(JIT_CACHE_ARRAY_NO_NEXT_ENTRY);

@@ -16,15 +16,16 @@
 #define NR_FN_TYPE_INDEXES 7
 
 // We'll need to scale the index on the stack to access arr32[i] correctly, for eg.
-// &arr32[i] == (arr32 + i*4)
+// &array32[i]'s byte address is "array32 + i*4"
 // This macro simply does the "i*4" part of the address calculation
-#define SCALE_INDEX_FOR_ARR(arr)                                        \
-    if(sizeof(arr[0]) > 1)                                              \
-    {                                                                   \
-        /* Shift the index to make it byte-indexed, not array-indexed */ \
-        gen_const_i32(log2(sizeof(arr[0])));                            \
-        shl_i32(&instruction_body);                                     \
-    }
+#define SCALE_INDEX_FOR_ARRAY32(array)                                  \
+    _Static_assert(                                                     \
+        sizeof(array[0]) == 4,                                          \
+        "codegen: Elements assumed to be 4 bytes."                      \
+    );                                                                  \
+    /* Shift the index to make it byte-indexed, not array-indexed */    \
+    gen_const_i32(2);                                                   \
+    shl_i32(&instruction_body);
 
 extern Buffer instruction_body;
 
