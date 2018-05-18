@@ -7,7 +7,7 @@ then
     exit 1
 fi
 
-OUTFILE=$(dirname "$0")/../../build/debian-bench.img
+OUTFILE=$(dirname "$0")/../../images/debian-bench.img
 CONTAINER_NAME=debian-bench
 
 dd if=/dev/zero of=$OUTFILE bs=1k count=600k
