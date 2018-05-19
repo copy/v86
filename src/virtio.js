@@ -135,7 +135,7 @@ var VirtIO_CommonCapabilityOptions;
  * @typedef {
  * {
  *     initial_port: number,
- *     share_handler: boolean,
+ *     single_handler: boolean,
  *     handlers: !Array<function()>,
  * }}
  */
@@ -303,6 +303,22 @@ function VirtIO(cpu, options)
     capabilities.push(this.create_common_capability(options.common));
     if(options.notification)
     {
+        if(DEBUG)
+        {
+            var offsets = new Set();
+            for(var offset of this.queues.map(q => q.notify_offset))
+            {
+                offset.add(offset);
+                offset *= options.notification.single_handler ? 0 : 1;
+                dbg_assert(options.notification.handlers[offset],
+                    "VirtIO device<" + this.name + "> every queue's notifier must exist");
+            }
+            options.notification.handlers.forEach((handler, index) =>
+            {
+                dbg_assert(!handler || offsets.has(index),
+                    "VirtIO device<" + this.name +"> no defined notify handler should be unused");
+            });
+        }
         capabilities.push(this.create_notification_capability(options.notification));
     }
     if(options.isr_status)
@@ -573,20 +589,16 @@ VirtIO.prototype.create_notification_capability = function(options)
     var notify_struct = [];
     var notify_off_multiplier;
 
-    if(options.share_handler)
+    if(options.single_handler)
     {
         dbg_assert(options.handlers.length === 1,
             "VirtIO device<" + this.name + "> too many notify handlers specified: expected single handler");
 
-        // All queues use the same address for notifying.
+        // Forces all queues use the same address for notifying.
         notify_off_multiplier = 0;
     }
     else
     {
-        dbg_assert(options.handlers.length === this.queues.length,
-            "Virtio device<" + this.name + "> each queue has exactly one notify handler");
-
-        // Each queue uses its own 2 bytes for notifying.
         notify_off_multiplier = 2;
     }
 
@@ -596,8 +608,8 @@ VirtIO.prototype.create_notification_capability = function(options)
         {
             bytes: 2,
             name: "notify" + i,
-            read: () => 0xFFFF, // Write only? TODO
-            write: options.handlers[i],
+            read: () => 0xFFFF,
+            write: options.handlers[i] || (data => {}),
         });
     }
 
