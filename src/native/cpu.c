@@ -17,6 +17,7 @@
 #include "profiler/opstats.h"
 #include "profiler/profiler.h"
 #include "shared.h"
+#include "jit.h"
 
 struct code_cache jit_cache_arr[JIT_CACHE_ARRAY_SIZE] = {
     {
