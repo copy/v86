@@ -624,7 +624,7 @@ static cached_state_flags pack_current_state_flags()
 
 static void check_jit_cache_array_invariants(void)
 {
-#if DEBUG
+#if CHECK_JIT_CACHE_ARRAY_INVARIANTS
     int32_t wasm_table_index_to_jit_cache_index[WASM_TABLE_SIZE] = { 0 };
 
     for(int32_t i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
