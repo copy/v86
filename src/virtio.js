@@ -13,11 +13,11 @@ var VIRTIO_PCI_CAP_VENDOR = 0x09;
 
 /**
  * @const
- * Length (bytes) of VIRTIO_PCI_CAP linked list entry
+ * Length (bytes) of VIRTIO_PCI_CAP linked list entry.
  */
 var VIRTIO_PCI_CAP_LENGTH = 16;
 
-// Capability types
+// Capability types.
 
 /** @const */
 var VIRTIO_PCI_CAP_COMMON_CFG = 1;
@@ -30,7 +30,7 @@ var VIRTIO_PCI_CAP_DEVICE_CFG = 4;
 /** @const */
 var VIRTIO_PCI_CAP_PCI_CFG = 5;
 
-// Status bits (device_status values)
+// Status bits (device_status values).
 
 /** @const */
 var VIRTIO_STATUS_ACKNOWLEDGE = 1;
@@ -45,19 +45,19 @@ var VIRTIO_STATUS_DEVICE_NEEDS_RESET = 64;
 /** @const */
 var VIRTIO_STATUS_FAILED = 128;
 
-// ISR bits (isr_status values)
+// ISR bits (isr_status values).
 
 /** @const */
 var VIRTIO_ISR_QUEUE = 1;
 /** @const */
 var VIRTIO_ISR_DEVICE_CFG = 2;
 
-// Feature bits (bit positions)
+// Feature bits (bit positions).
 
 /** @const */
 var VIRTIO_F_VERSION_1 = 32;
 
-// Queue struct sizes
+// Queue struct sizes.
 
 /**
  * @const
@@ -85,7 +85,7 @@ var VIRTQ_USED_BASESIZE = 6;
  */
 var VIRTQ_USED_ENTRYSIZE = 8;
 
-// Closure Compiler Types
+// Closure Compiler Types.
 
 /**
  * @typedef {!Array<{
@@ -266,8 +266,10 @@ function VirtIO(cpu, options)
     this.driver_feature = new Uint32Array(4);
     options.common.features.forEach((f) =>
     {
-        dbg_assert(f >= 0, "Virtio feature bit numbers must be non-negative");
-        dbg_assert(f < 128, "Virtio feature bit numbers assumed less than 128 in implementation");
+        dbg_assert(f >= 0,
+            "VirtIO device<" + this.name + "> feature bit numbers must be non-negative");
+        dbg_assert(f < 128,
+            "VirtIO device<" + this.name + "> feature bit numbers assumed less than 128 in implementation");
 
         // Feature bits are grouped in 32 bits.
         this.device_feature[f >>> 5] |= 1 << (f & 0x1F);
@@ -275,7 +277,7 @@ function VirtIO(cpu, options)
     });
 
     dbg_assert(options.common.features.indexOf(VIRTIO_F_VERSION_1) !== -1,
-        "Virtio - only non-transitional devices are supported");
+        "VirtIO device<" + this.name + "> only non-transitional devices are supported");
 
     // Indicates whether driver_feature bits is subset of device_feature bits.
     this.features_ok = true;
@@ -290,7 +292,7 @@ function VirtIO(cpu, options)
     for(var queue_options of options.common.queues)
     {
         this.queues.push(new VirtQueue(cpu, queue_options));
-    };
+    }
 
     this.isr_status = 0;
 
@@ -298,7 +300,6 @@ function VirtIO(cpu, options)
 
     /** @type {!Array<VirtIO_CapabilityInfo>} */
     var capabilities = [];
-
     capabilities.push(this.create_common_capability(options.common));
     if(options.notification)
     {
@@ -369,7 +370,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 bytes: 4,
                 name: "device_feature_select",
                 read: () => this.device_feature_select,
-                write: (data) =>
+                write: data =>
                 {
                     this.device_feature_select = data;
                 },
@@ -378,7 +379,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 bytes: 4,
                 name: "device_feature",
                 read: () => this.device_feature[this.device_feature_select],
-                write: (data) =>
+                write: data =>
                 {
                     this.device_feature[this.device_feature_select] = data;
                 },
@@ -387,7 +388,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 bytes: 4,
                 name: "driver_feature_select",
                 read: () => this.driver_feature_select,
-                write: (data) =>
+                write: data =>
                 {
                     this.driver_feature_select = data;
                 },
@@ -396,12 +397,12 @@ VirtIO.prototype.create_common_capability = function(options)
                 bytes: 4,
                 name: "driver_feature",
                 read: () => this.driver_feature[this.driver_feature_select],
-                write: (data) =>
+                write: data =>
                 {
                     var supported_feature = this.device_feature[this.driver_feature_select];
                     this.driver_feature[this.driver_feature_select] = data & supported_feature;
 
-                    // Check that driver features is an inclusive subset of device features
+                    // Check that driver features is an inclusive subset of device features.
                     var invalid_bits = data & ~supported_feature;
                     this.features_ok = this.features_ok && !invalid_bits;
                 },
@@ -414,7 +415,7 @@ VirtIO.prototype.create_common_capability = function(options)
                     dbg_log("No msi-x capability supported.", LOG_VIRTIO);
                     return 0xFFFF;
                 },
-                write: (data) =>
+                write: data =>
                 {
                     dbg_log("No msi-x capability supported.", LOG_VIRTIO);
                 },
@@ -423,13 +424,13 @@ VirtIO.prototype.create_common_capability = function(options)
                 bytes: 2,
                 name: "num_queues",
                 read: () => this.queues.length,
-                write: (data) => { /* read only */ },
+                write: data => { /* read only */ },
             },
             {
                 bytes: 1,
                 name: "device_status",
                 read: () => this.device_status,
-                write: (data) =>
+                write: data =>
                 {
                     if(data === 0)
                     {
@@ -468,13 +469,13 @@ VirtIO.prototype.create_common_capability = function(options)
                 bytes: 1,
                 name: "config_generation",
                 read: () => this.config_generation,
-                write: (data) => { /* read only */ },
+                write: data => { /* read only */ },
             },
             {
                 bytes: 2,
                 name: "queue_select",
                 read: () => this.queue_select,
-                write: (data) =>
+                write: data =>
                 {
                     this.queue_select = data;
 
@@ -484,7 +485,7 @@ VirtIO.prototype.create_common_capability = function(options)
                     }
                     else
                     {
-                        // Allow queue_select >= num_queues
+                        // Allow queue_select >= num_queues.
                         this.queue_selected = null;
                         // Drivers can then detect that the queue is not available
                         // using the below fields.
@@ -495,10 +496,10 @@ VirtIO.prototype.create_common_capability = function(options)
                 bytes: 2,
                 name: "queue_size",
                 read: () => this.queue_selected ? this.queue_selected.size : 0,
-                write: (data) =>
+                write: data =>
                 {
                     dbg_assert((data & data - 1) === 0,
-                        "Virtio queue size needs to be power of 2 or zero");
+                        "VirtIO device<" + this.name + "> queue size needs to be power of 2 or zero");
                     if(this.queue_selected) this.queue_selected.size = data;
                 },
             },
@@ -510,7 +511,7 @@ VirtIO.prototype.create_common_capability = function(options)
                     dbg_log("No msi-x capability supported.", LOG_VIRTIO);
                     return 0xFFFF;
                 },
-                write: (data) =>
+                write: data =>
                 {
                     dbg_log("No msi-x capability supported.", LOG_VIRTIO);
                 },
@@ -519,7 +520,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 bytes: 2,
                 name: "queue_enable",
                 read: () => this.queue_selected ? this.queue_selected.enable : 0,
-                write: (data) =>
+                write: data =>
                 {
                     if(this.queue_selected) this.queue_selected.enable = data;
                 },
@@ -528,13 +529,13 @@ VirtIO.prototype.create_common_capability = function(options)
                 bytes: 2,
                 name: "queue_notify_off",
                 read: () => this.queue_selected ? this.queue_selected.notify_offset : 0,
-                write: (data) => { /* read only */ },
+                write: data => { /* read only */ },
             },
             {
                 bytes: 2,
                 name: "queue_desc",
                 read: () => this.queue_selected ? this.queue_selected.desc_table_addr : 0,
-                write: (data) =>
+                write: data =>
                 {
                     if(this.queue_selected) this.queue_selected.set_desc_table_addr(data);
                 },
@@ -543,7 +544,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 bytes: 2,
                 name: "queue_avail",
                 read: () => this.queue_selected ? this.queue_selected.avail_ring_addr : 0,
-                write: (data) =>
+                write: data =>
                 {
                     if(this.queue_selected) this.queue_selected.set_avail_ring_addr(data);
                 },
@@ -552,7 +553,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 bytes: 2,
                 name: "queue_used",
                 read: () => this.queue_selected ? this.queue_selected.used_ring_addr : 0,
-                write: (data) =>
+                write: data =>
                 {
                     if(this.queue_selected) this.queue_selected.set_used_ring_addr(data);
                 },
@@ -575,7 +576,7 @@ VirtIO.prototype.create_notification_capability = function(options)
     if(options.share_handler)
     {
         dbg_assert(options.handlers.length === 1,
-            "Virtio too many notify handlers specified: expected single handler");
+            "VirtIO device<" + this.name + "> too many notify handlers specified: expected single handler");
 
         // All queues use the same address for notifying.
         notify_off_multiplier = 0;
@@ -583,7 +584,7 @@ VirtIO.prototype.create_notification_capability = function(options)
     else
     {
         dbg_assert(options.handlers.length === this.queues.length,
-            "Virtio each queue has exactly one notify handler");
+            "Virtio device<" + this.name + "> each queue has exactly one notify handler");
 
         // Each queue uses its own 2 bytes for notifying.
         notify_off_multiplier = 2;
@@ -598,7 +599,7 @@ VirtIO.prototype.create_notification_capability = function(options)
             read: () => 0xFFFF, // Write only? TODO
             write: options.handlers[i],
         });
-    };
+    }
 
     var cap =
     {
@@ -647,7 +648,7 @@ VirtIO.prototype.create_isr_capability = function(options)
                     this.lower_irq();
                     return isr_status;
                 },
-                write: (data) => { /* read only */ },
+                write: data => { /* read only */ },
             },
         ],
     };
@@ -678,7 +679,7 @@ VirtIO.prototype.create_device_specific_capability = function(options)
 
 /**
  * Writes capabilities into pci_space and hook up IO/MMIO handlers.
- * Only call within constructor.
+ * Call only within constructor.
  * @param {!Array<VirtIO_CapabilityInfo>} capabilities
  */
 VirtIO.prototype.init_capabilities = function(capabilities)
@@ -697,19 +698,19 @@ VirtIO.prototype.init_capabilities = function(capabilities)
         cap_next = cap_ptr + cap_len;
 
         dbg_assert(cap_next <= 256,
-            "Virtio can't fit all capabilities into 256byte configspace");
+            "VirtIO device<" + this.name + "> can't fit all capabilities into 256byte configspace");
 
         dbg_assert(0 <= cap.bar && cap.bar < 6,
-            "Virtio capability invalid bar number");
+            "VirtIO device<" + this.name + "> capability invalid bar number");
 
         var bar_size = cap.struct.reduce((field) => field.bytes, 0);
         bar_size += cap.offset;
 
-        // Round up to next power of 2
+        // Round up to next power of 2.
         bar_size = 1 << (v86util.int_log2(bar_size - 1) + 1);
 
         dbg_assert((cap.port & (bar_size - 1)) === 0,
-            "Virtio capability port should be aligned to pci bar size");
+            "VirtIO device<" + this.name + "> capability port should be aligned to pci bar size");
 
         this.pci_bars[cap.bar] =
         {
@@ -722,9 +723,9 @@ VirtIO.prototype.init_capabilities = function(capabilities)
         this.pci_space[cap_ptr + 3] = cap.type;
         this.pci_space[cap_ptr + 4] = cap.bar;
 
-        this.pci_space[cap_ptr + 5] = 0; // Padding
-        this.pci_space[cap_ptr + 6] = 0; // Padding
-        this.pci_space[cap_ptr + 7] = 0; // Padding
+        this.pci_space[cap_ptr + 5] = 0; // Padding.
+        this.pci_space[cap_ptr + 6] = 0; // Padding.
+        this.pci_space[cap_ptr + 7] = 0; // Padding.
 
         this.pci_space[cap_ptr + 8] = cap.offset & 0xFF;
         this.pci_space[cap_ptr + 9] = (cap.offset >>> 8) & 0xFF;
@@ -768,7 +769,7 @@ VirtIO.prototype.init_capabilities = function(capabilities)
 
                     return val;
                 };
-                write = (data) =>
+                write = data =>
                 {
                     field.write(data);
 
@@ -782,7 +783,7 @@ VirtIO.prototype.init_capabilities = function(capabilities)
 
             if(cap.use_mmio)
             {
-                dbg_assert(false, "Virtio - mmio capability not implemented.");
+                dbg_assert(false, "VirtIO device <" + this.name + "> mmio capability not implemented.");
             }
             else
             {
@@ -801,7 +802,8 @@ VirtIO.prototype.init_capabilities = function(capabilities)
                         this.cpu.io.register_write(port, this, write);
                         break;
                     default:
-                        dbg_assert(false, "Virtio invalid capability field width");
+                        dbg_assert(false,
+                            "VirtIO device <" + this.name + "> invalid capability field width");
                         break;
                 }
             }
@@ -894,7 +896,7 @@ VirtIO.prototype.notify_config_changes = function()
     else
     {
         dbg_assert(false,
-            "Virtio device<" + this.name + "> attempted to notify driver before DRIVER_OK");
+            "VirtIO device<" + this.name + "> attempted to notify driver before DRIVER_OK");
     }
 };
 
@@ -1175,11 +1177,11 @@ VirtQueue.prototype.set_desc_table_address = function(address)
     this.desc_table_addr = address;
     this.desc_table =
     {
-        get_addr_low: (i) => data_view.getUint32(i * VIRTQ_DESC_ENTRYSIZE, true),
-        get_addr_high: (i) => data_view.getUint32(i * VIRTQ_DESC_ENTRYSIZE + 4, true),
-        get_len: (i) => data_view.getUint32(i * VIRTQ_DESC_ENTRYSIZE + 8, true),
-        get_flags: (i) => data_view.getUint16(i * VIRTQ_DESC_ENTRYSIZE + 12, true),
-        get_next: (i) => data_view.getUint16(i * VIRTQ_DESC_ENTRYSIZE + 14, true),
+        get_addr_low: i => data_view.getUint32(i * VIRTQ_DESC_ENTRYSIZE, true),
+        get_addr_high: i => data_view.getUint32(i * VIRTQ_DESC_ENTRYSIZE + 4, true),
+        get_len: i => data_view.getUint32(i * VIRTQ_DESC_ENTRYSIZE + 8, true),
+        get_flags: i => data_view.getUint16(i * VIRTQ_DESC_ENTRYSIZE + 12, true),
+        get_next: i => data_view.getUint16(i * VIRTQ_DESC_ENTRYSIZE + 14, true),
     };
 };
 
@@ -1195,7 +1197,7 @@ VirtQueue.prototype.set_avail_ring_address = function(address)
     {
         get_flags: () => data_view.getUint16(0, true),
         get_idx: () => data_view.getUint16(2, true),
-        get_entry: (i) => data_view.getUint16(2 + VIRTQ_AVAIL_ENTRYSIZE * i, true),
+        get_entry: i => data_view.getUint16(2 + VIRTQ_AVAIL_ENTRYSIZE * i, true),
         get_used_event: () => data_view.getUint16(2 + VIRTQ_AVAIL_ENTRYSIZE * this.size, true),
     };
 };
@@ -1212,133 +1214,10 @@ VirtQueue.prototype.set_used_ring_address = function(address)
     {
         get_flags: () => data_view.getUint16(0, true),
         get_idx: () => data_view.getUint16(2, true),
-        get_entry_id: (i) => data_view.getUint16(2 + VIRTQ_USED_ENTRYSIZE * i, true),
+        get_entry_id: i => data_view.getUint16(2 + VIRTQ_USED_ENTRYSIZE * i, true),
         set_entry_id: (i, value) => data_view.setUint32(2 + VIRTQ_USED_ENTRYSIZE * i, value, true),
-        get_entry_len: (i) => data_view.getUint16(6 + VIRTQ_USED_ENTRYSIZE * i, true),
+        get_entry_len: i => data_view.getUint16(6 + VIRTQ_USED_ENTRYSIZE * i, true),
         set_entry_len: (i, value) => data_view.setUint32(6 + VIRTQ_USED_ENTRYSIZE * i, value, true),
         get_avail_event: () => data_view.getUint16(2 + VIRTQ_AVAIL_ENTRYSIZE * this.size, true),
     };
 };
-
-// TODO: to remove the following after commit.
-// The following is an alternative to the above.
-/*
-VirtQueue.prototype.get_descriptor_address_low = function(entry_id)
-{
-    dbg_assert(0 < entry_id && entry_id < this.num_entries,
-        "VirtQueue descriptor id out of bounds");
-    return this.descriptor_table.getUint32(entry_id * VIRTQ_DESC_ENTRYSIZE, true);
-};
-
-VirtQueue.prototype.get_descriptor_address_high = function(entry_id)
-{
-    dbg_assert(0 < entry_id && entry_id < this.num_entries,
-        "VirtQueue descriptor id out of bounds");
-    return this.descriptor_table.getUint32(entry_id * VIRTQ_DESC_ENTRYSIZE + 4, true);
-};
-
-VirtQueue.prototype.get_descriptor_length = function(entry_id)
-{
-    dbg_assert(0 < entry_id && entry_id < this.num_entries,
-        "VirtQueue descriptor id out of bounds");
-    return this.descriptor_table.getUint32(entry_id * VIRTQ_DESC_ENTRYSIZE + 8, true);
-};
-
-VirtQueue.prototype.get_descriptor_flags = function(entry_id)
-{
-    dbg_assert(0 < entry_id && entry_id < this.num_entries,
-        "VirtQueue descriptor id out of bounds");
-    return this.descriptor_table.getUint16(entry_id * VIRTQ_DESC_ENTRYSIZE + 12, true);
-};
-
-VirtQueue.prototype.get_descriptor_next = function(entry_id)
-{
-    dbg_assert(0 < entry_id && entry_id < this.num_entries,
-        "VirtQueue descriptor id out of bounds");
-    return this.descriptor_table.getUint16(entry_id * VIRTQ_DESC_ENTRYSIZE + 14, true);
-};
-
-VirtQueue.prototype.set_available_ring_address = function(address)
-{
-    var ring_size = VIRTQ_AVAIL_BASESIZE + this.num_entries * VIRTQ_AVAIL_ENTRYSIZE;
-    this.available_ring = new DataView(this.cpu.mem8.buffer, address, address + ring_size);
-    this.available_ring_address = address;
-};
-
-VirtQueue.prototype.get_available_ring_flags = function()
-{
-    return this.available_ring.getUint16(0, true);
-};
-
-VirtQueue.prototype.get_available_ring_next_idx = function()
-{
-    return this.available_ring.getUint16(2, true);
-};
-
-VirtQueue.prototype.get_available_ring_entry = function(entry_id)
-{
-    dbg_assert(0 < entry_id && entry_id < this.num_entries,
-        "VirtQueue descriptor id out of bounds");
-    return this.available_ring.getUint16(2 + VIRTQ_AVAIL_ENTRYSIZE * entry_id, true);
-};
-
-VirtQueue.prototype.get_available_ring_used_event = function()
-{
-    return this.available_ring.getUin16(2 + this.num_entries * VIRTQ_AVAIL_ENTRYSIZE, true);
-};
-
-VirtQueue.prototype.set_used_ring_address = function(address)
-{
-    var ring_size = VIRTQ_USED_BASESIZE + this.num_entries * VIRTQ_USED_ENTRYSIZE;
-    this.used_ring = new DataView(this.cpu.mem8.buffer, address, address + ring_size);
-    this.used_ring_address = address;
-};
-
-VirtQueue.prototype.get_used_ring_flags = function()
-{
-    return this.used_ring.getUint16(0, true);
-};
-
-VirtQueue.prototype.get_used_ring_next_idx = function()
-{
-    return this.used_ring.getUint16(2, true);
-};
-
-VirtQueue.prototype.set_used_ring_next_idx = function(value)
-{
-    this.used_ring.setUint16(2, value, true);
-};
-
-VirtQueue.prototype.get_available_ring_entry_len = function(entry_id)
-{
-    dbg_assert(0 < entry_id && entry_id < this.num_entries,
-        "VirtQueue descriptor id out of bounds");
-    return this.used_ring.getUint32(2 + VIRTQ_USED_ENTRYSIZE * entry_id, true);
-};
-
-VirtQueue.prototype.set_available_ring_entry_len = function(entry_id)
-{
-    dbg_assert(0 < entry_id && entry_id < this.num_entries,
-        "VirtQueue descriptor id out of bounds");
-    this.used_ring.getUint32(2 + VIRTQ_USED_ENTRYSIZE * entry_id, true);
-};
-
-VirtQueue.prototype.get_available_ring_entry_id = function(entry_id)
-{
-    dbg_assert(0 < entry_id && entry_id < this.num_entries,
-        "VirtQueue descriptor id out of bounds");
-    return this.used_ring.getUint32(6 + VIRTQ_USED_ENTRYSIZE * entry_id, true);
-};
-
-VirtQueue.prototype.set_available_ring_entry_id = function(entry_id, value)
-{
-    dbg_assert(0 < entry_id && entry_id < this.num_entries,
-        "VirtQueue descriptor id out of bounds");
-    this.used_ring.getUint32(6 + VIRTQ_USED_ENTRYSIZE * entry_id, value, true);
-};
-
-VirtQueue.prototype.get_used_ring_avail_event = function()
-{
-    return this.used_ring.getUin16(2 + this.num_entries * VIRTQ_USED_ENTRYSIZE, true);
-};
-*/
