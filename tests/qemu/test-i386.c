@@ -1169,6 +1169,11 @@ void test_floats(void)
     test_fcvt(1.0/7.0);
     test_fcvt(-1.0/9.0);
     test_fcvt(32768);
+    // largest and smallest, odd and even numbers that have one bit left for the fractional part (2**52-1)
+    test_fcvt(4503599627370494.5);
+    test_fcvt(4503599627370495.5);
+    test_fcvt(-4503599627370494.5);
+    test_fcvt(-4503599627370495.5);
     test_fcvt(-1e20);
     test_fcvt(-1.0/0.0);
     test_fcvt(1.0/0.0);
