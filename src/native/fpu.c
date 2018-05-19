@@ -513,13 +513,13 @@ double_t fpu_integer_round(double_t f)
     if(rc == 0)
     {
         // Round to nearest, or even if equidistant
-        double_t rounded = round(f);
 
-        if(rounded - f == 0.5 && (fmod(rounded, 2)))
+        double_t rounded = round(f);
+        double_t diff = rounded - f;
+
+        if(diff == 0.5 || diff == -0.5)
         {
-            // Special case: Math.round rounds to positive infinity
-            // if equidistant
-            rounded--;
+            rounded = 2.0 * round(f * 0.5);
         }
 
         return rounded;
