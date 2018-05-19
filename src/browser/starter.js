@@ -137,9 +137,6 @@ function V86Starter(options)
             return this["cpu_exception_hook"] && this["cpu_exception_hook"](n);
         },
         "_jit_clear_func": function(index) { return cpu.jit_clear_func(index); },
-        "_set_jit_import": function(function_index, wasm_index) {
-            return cpu.set_jit_import(function_index, wasm_index);
-        },
         "_hlt_op": function() { return cpu.hlt_op(); },
         "abort": function() { dbg_assert(false); },
         "__dbg_trace": function() { return dbg_trace(); },

@@ -223,8 +223,6 @@ CPU.prototype.create_jit_imports = function()
     function JITImports()
     {
         // put all imports that change here
-        this["next_block_branched"] = null;
-        this["next_block_not_branched"] = null;
     }
 
     // put all imports that don't change on the prototype
@@ -243,25 +241,6 @@ CPU.prototype.create_jit_imports = function()
     }
 
     this.jit_imports = new JITImports();
-};
-
-CPU.prototype.set_jit_import = function(function_index, wasm_index)
-{
-    const fn = this.wm.imports["env"].table.get(wasm_index);
-    dbg_assert(fn);
-
-    switch(function_index)
-    {
-        case JIT_NEXT_BLOCK_BRANCHED_IDX:
-            var function_name = JIT_NEXT_BLOCK_BRANCHED;
-            break;
-        case JIT_NEXT_BLOCK_NOT_BRANCHED_IDX:
-            var function_name = JIT_NEXT_BLOCK_NOT_BRANCHED;
-            break;
-    }
-    dbg_assert(function_name);
-
-    this.jit_imports[function_name] = fn;
 };
 
 CPU.prototype.wasm_patch = function(wm)
@@ -1308,8 +1287,6 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
     // Make a copy of jit_imports, since some imports change and
     // WebAssembly.instantiate looks them up asynchronously
     const jit_imports = new this.jit_imports.constructor();
-    jit_imports["next_block_branched"] = this.jit_imports["next_block_branched"];
-    jit_imports["next_block_not_branched"] = this.jit_imports["next_block_not_branched"];
 
     const result = WebAssembly.instantiate(code, { "e": jit_imports }).then(result => {
         const f = result.instance.exports["f"];
