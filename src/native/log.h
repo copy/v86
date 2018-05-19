@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "const.h"
+#include "config.h"
 
 extern void logop(int32_t, int32_t);
 extern void _dbg_trace(void);

@@ -1,9 +1,5 @@
 #pragma once
 
-#ifndef DEBUG
-#define DEBUG true
-#endif
-
 #define FLAG_CARRY 1
 #define FLAG_PARITY 4
 #define FLAG_ADJUST 16
@@ -152,60 +148,20 @@
 #define PREFIX_F3 PREFIX_REPZ
 #define PREFIX_66 PREFIX_MASK_OPSIZE
 
-
-/**
- * How many cycles the CPU does at a time before running hardware timers
- */
-#define LOOP_COUNTER 20011
-
-#define TSC_RATE (50 * 1000)
-
 #define LOG_CPU    0x000002
-#define CPU_LOG_VERBOSE    false
-#define ENABLE_ACPI    false
 
 #define A20_MASK (~(1 << 20))
 #define A20_MASK16 (~(1 << (20 - 1)))
 #define A20_MASK32 (~(1 << (20 - 2)))
 
-#define USE_A20 false
-
 #define MXCSR_MASK (0xFFFF & ~(1 << 6))
 
 #define WASM_TABLE_SIZE 0x10000
-
-// Mask used to map physical address to index in cache array
-#define JIT_CACHE_ARRAY_SIZE 0x10000
-#define JIT_CACHE_ARRAY_MASK (JIT_CACHE_ARRAY_SIZE - 1)
-
-#define HASH_PRIME 6151
-#define JIT_THRESHOLD 2500
 #define DIRTY_ARR_SHIFT 12
 #define GROUP_DIRTINESS_LENGTH (1 + (0xffffffff >> DIRTY_ARR_SHIFT))
 
 #define JIT_NEXT_BLOCK_BRANCHED "next_block_branched"
 #define JIT_NEXT_BLOCK_NOT_BRANCHED "next_block_not_branched"
 
-#define CHECK_JIT_CACHE_ARRAY_INVARIANTS 0
-#define CHECK_TLB_INVARIANTS 0
-
 #define JIT_NEXT_BLOCK_BRANCHED_IDX 0
 #define JIT_NEXT_BLOCK_NOT_BRANCHED_IDX 1
-
-#define JIT_MAX_ITERATIONS_PER_FUNCTION 10000
-
-#define ENABLE_JIT 1
-#define ENABLE_JIT_NONFAULTING_OPTIMZATION 1
-
-#ifndef ENABLE_JIT_ALWAYS
-#define ENABLE_JIT_ALWAYS 0
-#endif
-
-#define ENABLE_PROFILER 0
-#define ENABLE_PROFILER_TIMES 0
-#define ENABLE_PROFILER_OPSTATS 0
-
-// Note: needs to be enabled here and in config.js
-#define DUMP_UNCOMPILED_ASSEMBLY 0
-
-#define LOG_PAGE_FAULTS 0

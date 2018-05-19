@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "const.h"
+#include "config.h"
 #include "shared.h"
 
 #define CODE_CACHE_SEARCH_SIZE 8
