@@ -890,7 +890,7 @@ void codegen_finalize_finished(
 
     check_jit_cache_array_invariants();
 
-#if DEBUG
+#if CHECK_JIT_CACHE_ARRAY_INVARIANTS
     // sanity check that the above iteration marked all entries as not pending
 
     for(int32_t i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
