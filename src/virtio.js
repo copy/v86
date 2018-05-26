@@ -314,8 +314,6 @@ function VirtIO(cpu, options)
 
     this.isr_status = 0;
 
-    this.reset();
-
     /** @type {!Array<VirtIO_CapabilityInfo>} */
     var capabilities = [];
     capabilities.push(this.create_common_capability(options.common));
@@ -350,6 +348,7 @@ function VirtIO(cpu, options)
     this.init_capabilities(capabilities);
 
     cpu.devices.pci.register_device(this);
+    this.reset();
 }
 
 /**
