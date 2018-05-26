@@ -4,13 +4,11 @@
 
 /** @const */
 var VIRTIO_PCI_VENDOR_ID = 0x1AF4;
-
 /**
  * @const
  * Identifies vendor-specific PCI capability.
  */
 var VIRTIO_PCI_CAP_VENDOR = 0x09;
-
 /**
  * @const
  * Length (bytes) of VIRTIO_PCI_CAP linked list entry.
@@ -55,35 +53,56 @@ var VIRTIO_ISR_DEVICE_CFG = 2;
 // Feature bits (bit positions).
 
 /** @const */
+var VIRTIO_F_RING_INDIRECT_DESC = 28;
+/** @const */
+var VIRTIO_F_RING_EVENT_IDX = 29;
+/** @const */
 var VIRTIO_F_VERSION_1 = 32;
 
 // Queue struct sizes.
 
 /**
  * @const
- * Size (bytes) of the virtq_desc struct per queue size
+ * Size (bytes) of the virtq_desc struct per queue size.
  */
 var VIRTQ_DESC_ENTRYSIZE = 16;
 /**
  * @const
- * Size (bytes) of the virtq_avail struct ignoring ring entries
+ * Size (bytes) of the virtq_avail struct ignoring ring entries.
  */
 var VIRTQ_AVAIL_BASESIZE = 6;
 /**
  * @const
- * Size (bytes) of the virtq_avail struct per queue size
+ * Size (bytes) of the virtq_avail struct per queue size.
  */
 var VIRTQ_AVAIL_ENTRYSIZE = 2;
 /**
  * @const
- * Size (bytes) of the virtq_used struct ignoring ring entries
+ * Size (bytes) of the virtq_used struct ignoring ring entries.
  */
 var VIRTQ_USED_BASESIZE = 6;
 /**
  * @const
- * Size (bytes) of the virtq_desc struct per queue size
+ * Size (bytes) of the virtq_desc struct per queue size.
  */
 var VIRTQ_USED_ENTRYSIZE = 8;
+/**
+ * @const
+ * Mask for wrapping the idx field of the virtq_used struct so that the value
+ * naturally overflows after 65535 (idx is a word).
+ */
+var VIRTQ_IDX_MASK = 0xFFFF;
+
+// Queue flags.
+
+/** @const */
+var VIRTQ_DESC_F_NEXT = 1;
+/** @const */
+var VIRTQ_DESC_F_WRITE = 2;
+/** @const */
+var VIRTQ_DESC_F_INDIRECT = 4;
+/** @const */
+var VIRTQ_USED_F_NO_NOTIFY = 1;
 
 // Closure Compiler Types.
 
@@ -170,6 +189,7 @@ var VirtIO_DeviceSpecificCapabilityOptions;
  *     notification: (undefined | VirtIO_NotificationCapabilityOptions),
  *     isr_status: (undefined | VirtIO_ISRCapabilityOptions),
  *     device_specific: (undefined | VirtIO_DeviceSpecificCapabilityOptions),
+ *     on_driver_ok: function(),
  * }}
  */
 var VirtIO_Options;
@@ -291,7 +311,7 @@ function VirtIO(cpu, options)
     this.queues = [];
     for(var queue_options of options.common.queues)
     {
-        this.queues.push(new VirtQueue(cpu, queue_options));
+        this.queues.push(new VirtQueue(cpu, this, queue_options));
     }
 
     this.isr_status = 0;
@@ -330,37 +350,6 @@ function VirtIO(cpu, options)
         capabilities.push(this.create_device_specific_capability(options.device_specific));
     }
     this.init_capabilities(capabilities);
-
-    // TODO: upgrade the following.
-    io.register_write(0xA810, this, undefined, function(data)
-    {
-        dbg_log("Write queue notify: " + h(data, 4), LOG_VIRTIO);
-
-        // only queue 0 supported
-        dbg_assert(data === 0);
-
-        var queue_start = this.queue_address << 12;
-        var ring_start = queue_start + 16 * this.queue_size;
-        var ring_desc_start = ring_start + 4;
-
-        var //flags = this.cpu.read16(ring_start),
-            // index of the next free ring
-            idx = this.cpu.read16(ring_start + 2);
-
-        dbg_log("idx=" + h(idx, 4), LOG_VIRTIO);
-        //dbg_assert(idx < this.queue_size);
-
-        var mask = this.queue_size - 1;
-        idx &= mask;
-
-        while(this.last_idx !== idx)
-        {
-            var desc_idx = this.cpu.read16(ring_desc_start + this.last_idx * 2);
-            this.handle_descriptor(desc_idx);
-
-            this.last_idx = this.last_idx + 1 & mask;
-        }
-    });
 
     cpu.devices.pci.register_device(this);
 }
@@ -416,6 +405,9 @@ VirtIO.prototype.create_common_capability = function(options)
                 write: data =>
                 {
                     var supported_feature = this.device_feature[this.driver_feature_select];
+
+                    // Note: only set subset of device_features.
+                    // Required for is_feature_negotiated().
                     this.driver_feature[this.driver_feature_select] = data & supported_feature;
 
                     // Check that driver features is an inclusive subset of device features.
@@ -453,18 +445,14 @@ VirtIO.prototype.create_common_capability = function(options)
                         dbg_log("Reset device<" + this.name + ">", LOG_VIRTIO);
                         this.reset();
                     }
-                    else if(data | VIRTIO_STATUS_FAILED)
+                    else if(data & VIRTIO_STATUS_FAILED)
                     {
                         dbg_log("Warning: Device<" + this.name + "> status failed", LOG_VIRTIO);
                     }
-                    else if(((data & ~this.device_status) | VIRTIO_STATUS_DRIVER_OK) &&
-                        (this.device_status & VIRTIO_STATUS_DEVICE_NEEDS_RESET))
-                    {
-                        this.notify_config_changes();
-                    }
                     else
                     {
-                        dbg_log(((data & VIRTIO_STATUS_ACKNOWLEDGE) ? "ACKNOWLEDGE " : "") +
+                        dbg_log("Device<" + this.name +"> status:" +
+                                ((data & VIRTIO_STATUS_ACKNOWLEDGE) ? "ACKNOWLEDGE " : "") +
                                 ((data & VIRTIO_STATUS_DRIVER) ? "DRIVER " : "") +
                                 ((data & VIRTIO_STATUS_DRIVER_OK) ? "DRIVER_OK" : "") +
                                 ((data & VIRTIO_STATUS_FEATURES_OK) ? "FEATURES_OK" : "") +
@@ -472,13 +460,44 @@ VirtIO.prototype.create_common_capability = function(options)
                                 LOG_VIRTIO);
                     }
 
+                    if((data & ~this.device_status & VIRTIO_STATUS_DRIVER_OK) &&
+                        (this.device_status & VIRTIO_STATUS_DEVICE_NEEDS_RESET))
+                    {
+                        // We couldn't notify NEEDS_RESET earlier because DRIVER_OK was not set.
+                        // Now it has been set, notify now.
+                        this.notify_config_changes();
+                    }
+
                     // Don't set FEATURES_OK if our device doesn't support requested features.
                     if(!this.features_ok)
                     {
+                        if(DEBUG && (data & VIRTIO_STATUS_FEATURES_OK))
+                        {
+                            dbg_log("Removing FEATURES_OK", LOG_VIRTIO);
+                        }
                         data &= ~VIRTIO_STATUS_FEATURES_OK;
                     }
 
-                    this.device_status = data;
+                    if(data & ~this.device_status & VIRTIO_STATUS_DRIVER_OK)
+                    {
+                        // TODO:
+                        // check that everything has been set up
+                        // if everything is ok
+                        this.device_status = data & ~VIRTIO_STATUS_DRIVER_OK;
+                        if(this.config_is_ready())
+                        {
+                            options.on_driver_ok();
+                        }
+                        else
+                        {
+                            // TODO
+                            // what to do here?
+                        }
+                    }
+                    else
+                    {
+                        this.device_status = data;
+                    }
                 },
             },
             {
@@ -514,9 +533,25 @@ VirtIO.prototype.create_common_capability = function(options)
                 read: () => this.queue_selected ? this.queue_selected.size : 0,
                 write: data =>
                 {
-                    dbg_assert((data & data - 1) === 0,
-                        "VirtIO device<" + this.name + "> queue size needs to be power of 2 or zero");
-                    if(this.queue_selected) this.queue_selected.size = data;
+                    if(!this.queue_selected)
+                    {
+                        return;
+                    }
+                    if(data & data - 1)
+                    {
+                        dbg_log("Warning: dev<" + this.name +"> " +
+                                "Given queue size was not a power of 2." +
+                                "Rounding up to next power of 2.", LOG_VIRTIO);
+                        data = 1 << (v86util.int_log2(data - 1) + 1);
+                    }
+                    if(data > this.queue_selected.size_supported)
+                    {
+                        dbg_log("Warning: dev<" + this.name +"> " +
+                                "Trying to set queue size greater than supported." +
+                                "Clamping to supported size.", LOG_VIRTIO);
+                        data = this.queue_selected.size_supported;
+                    }
+                    this.queue_selected.set_size(data);
                 },
             },
             {
@@ -535,10 +570,21 @@ VirtIO.prototype.create_common_capability = function(options)
             {
                 bytes: 2,
                 name: "queue_enable",
-                read: () => this.queue_selected ? this.queue_selected.enable : 0,
+                read: () => this.queue_selected ? this.queue_selected.enabled | 0 : 0,
                 write: data =>
                 {
-                    if(this.queue_selected) this.queue_selected.enable = data;
+                    if(!this.queue_selected)
+                    {
+                        return;
+                    }
+                    if(data === 1)
+                    {
+                        this.queue_selected.enable();
+                    }
+                    else if (data === 0)
+                    {
+                        this.queue_selected.disable();
+                    }
                 },
             },
             {
@@ -548,8 +594,8 @@ VirtIO.prototype.create_common_capability = function(options)
                 write: data => { /* read only */ },
             },
             {
-                bytes: 2,
-                name: "queue_desc",
+                bytes: 4,
+                name: "queue_desc (low dword)",
                 read: () => this.queue_selected ? this.queue_selected.desc_table_addr : 0,
                 write: data =>
                 {
@@ -557,8 +603,17 @@ VirtIO.prototype.create_common_capability = function(options)
                 },
             },
             {
-                bytes: 2,
-                name: "queue_avail",
+                bytes: 4,
+                name: "queue_desc (high dword)",
+                read: () => 0, // TODO: 64 bit addresses?
+                write: data =>
+                {
+                    dbg_log("Warning: High dword of 64 bit queue_desc ignored", LOG_VIRTIO);
+                },
+            },
+            {
+                bytes: 4,
+                name: "queue_avail (low dword)",
                 read: () => this.queue_selected ? this.queue_selected.avail_ring_addr : 0,
                 write: data =>
                 {
@@ -566,12 +621,30 @@ VirtIO.prototype.create_common_capability = function(options)
                 },
             },
             {
-                bytes: 2,
-                name: "queue_used",
+                bytes: 4,
+                name: "queue_avail (high dword)",
+                read: () => 0, // TODO: 64 bit addresses?
+                write: data =>
+                {
+                    dbg_log("Warning: High dword of 64 bit queue_avail ignored", LOG_VIRTIO);
+                },
+            },
+            {
+                bytes: 4,
+                name: "queue_used (low dword)",
                 read: () => this.queue_selected ? this.queue_selected.used_ring_addr : 0,
                 write: data =>
                 {
                     if(this.queue_selected) this.queue_selected.set_used_ring_addr(data);
+                },
+            },
+            {
+                bytes: 4,
+                name: "queue_used (high dword)",
+                read: () => 0, // TODO: 64 bit addresses?
+                write: data =>
+                {
+                    dbg_log("Warning: High dword of 64 bit queue_used ignored", LOG_VIRTIO);
                 },
             },
         ],
@@ -594,7 +667,7 @@ VirtIO.prototype.create_notification_capability = function(options)
         dbg_assert(options.handlers.length === 1,
             "VirtIO device<" + this.name + "> too many notify handlers specified: expected single handler");
 
-        // Forces all queues use the same address for notifying.
+        // Forces all queues to use the same address for notifying.
         notify_off_multiplier = 0;
     }
     else
@@ -832,6 +905,7 @@ VirtIO.prototype.init_capabilities = function(capabilities)
 
 VirtIO.prototype.get_state = function()
 {
+    /*
     var state = [];
 
     // TODO: Upgrade
@@ -845,11 +919,13 @@ VirtIO.prototype.get_state = function()
     state[7] = this.device;
 
     return state;
+    */
 };
 
 VirtIO.prototype.set_state = function(state)
 {
     // TODO: Upgrade
+    /*
     this.queue_select = state[1];
     this.device_status = state[2];
     this.isr = state[3];
@@ -858,7 +934,7 @@ VirtIO.prototype.set_state = function(state)
     this.queue_address = state[6];
 
     this.device = state[7];
-    this.device.SendReply = this.device_reply.bind(this);
+    */
 };
 
 VirtIO.prototype.reset = function()
@@ -925,9 +1001,10 @@ VirtIO.prototype.update_config_generation = function()
     }
 };
 
-VirtIO.prototype.does_driver_support = function(feature)
+VirtIO.prototype.is_feature_negotiated = function(feature)
 {
     // Feature bits are grouped in 32 bits.
+    // Note: earlier we chose not to set invalid features into driver_feature.
     return this.driver_feature[feature >>> 5] & (1 << (feature & 0x1F)) === 1;
 };
 
@@ -968,268 +1045,418 @@ VirtIO.prototype.lower_irq = function()
     this.pci.lower_irq(this.pci_id);
 };
 
-// TODO: upgrade the following.
-VirtIO.prototype.handle_descriptor = function(idx)
-{
-    var next = idx;
-    var desc_start = this.queue_address << 12;
-
-    var buffer_idx = 0;
-    var buffers = [];
-
-    do
-    {
-        var addr = desc_start + next * 16;
-        var flags = this.cpu.read16(addr + 12);
-
-        if(flags & VRING_DESC_F_WRITE)
-        {
-            break;
-        }
-
-        if(flags & VRING_DESC_F_INDIRECT) {
-            dbg_assert(false, "unsupported");
-        }
-
-        var addr_low = this.cpu.read32s(addr);
-        var addr_high = this.cpu.read32s(addr + 4);
-        var len = this.cpu.read32s(addr + 8) >>> 0;
-
-        buffers.push({
-            addr_low: addr_low,
-            addr_high: addr_high,
-            len: len,
-        });
-
-        dbg_log("descriptor: addr=" + h(addr_high, 8) + ":" + h(addr_low, 8) +
-                             " len=" + h(len, 8) + " flags=" + h(flags, 4) + " next=" + h(next, 4), LOG_VIRTIO);
-
-        if(flags & VRING_DESC_F_NEXT)
-        {
-            next = this.cpu.read16(addr + 14);
-            dbg_assert(next < this.queue_size);
-        }
-        else
-        {
-            next = -1;
-            break;
-        }
-    }
-    while(true);
-
-    var infos = {
-        start: idx,
-        next: next,
-    };
-
-    let total_length = 0;
-
-    for(let i = 0; i < buffers.length; i++)
-    {
-        total_length += buffers[i].len;
-    }
-
-    // TODO: Remove this unnecessary copy. Instead, pass list of memory views
-    const memory_buffer = new Uint8Array(total_length);
-    let pointer = 0;
-
-    for(let i = 0; i < buffers.length; i++)
-    {
-        const buf = buffers[i];
-        memory_buffer.set(this.cpu.read_blob(buf.addr_low, buf.len), pointer);
-        pointer += buf.len;
-    }
-
-    this.device.ReceiveRequest(infos, memory_buffer);
-};
-
-// TODO: upgrade the following.
-VirtIO.prototype.device_reply = function(queueidx, infos)
-{
-    if(infos.next === -1)
-    {
-        dbg_log("Reply to invalid index", LOG_VIRTIO);
-        return;
-    }
-
-    var mask = this.queue_size - 1;
-    var result_length = this.device.replybuffersize;
-
-    var next = infos.next;
-    var desc_start = this.queue_address << 12;
-
-    var buffers = [];
-
-    do
-    {
-        var addr = desc_start + next * 16;
-        var flags = this.cpu.read16(addr + 12);
-
-        if((flags & VRING_DESC_F_WRITE) === 0)
-        {
-            dbg_log("Bug: Readonly ring after writeonly ring", LOG_VIRTIO);
-            break;
-        }
-
-        var addr_low = this.cpu.read32s(addr);
-        var addr_high = this.cpu.read32s(addr + 4);
-        var len = this.cpu.read32s(addr + 8) >>> 0;
-
-        buffers.push({
-            addr_low: addr_low,
-            addr_high: addr_high,
-            len: len,
-        });
-
-        dbg_log("descriptor: addr=" + h(addr_high, 8) + ":" + h(addr_low, 8) +
-                             " len=" + h(len, 8) + " flags=" + h(flags, 4) + " next=" + h(next, 4), LOG_VIRTIO);
-
-        if(flags & VRING_DESC_F_NEXT)
-        {
-            next = this.cpu.read16(addr + 14);
-            dbg_assert(next < this.queue_size);
-        }
-        else
-        {
-            break;
-        }
-    }
-    while(true);
-
-    var buffer_idx = 0;
-
-    for(var i = 0; i < result_length; )
-    {
-        if(buffer_idx === buffers.length)
-        {
-            dbg_log("Write more data than descriptor has", LOG_VIRTIO);
-            return 0;
-        }
-
-        const buf = buffers[buffer_idx++];
-        const slice = this.device.replybuffer.subarray(i, i + buf.len);
-
-        this.cpu.write_blob(slice, buf.addr_low);
-        i += buf.len;
-    }
-
-    var used_desc_start = (this.queue_address << 12) + 16 * this.queue_size + 4 + 2 * this.queue_size;
-    used_desc_start = used_desc_start + 4095 & ~4095;
-
-    var flags = this.cpu.read16(used_desc_start);
-    var used_idx = this.cpu.read16(used_desc_start + 2);
-    this.cpu.write16(used_desc_start + 2, used_idx + 1);
-
-    dbg_log("used descriptor: addr=" + h(used_desc_start, 8) + " flags=" + h(flags, 4) + " idx=" + h(used_idx, 4), LOG_VIRTIO);
-
-    used_idx &= mask;
-    var used_desc_offset = used_desc_start + 4 + used_idx * 8;
-    this.cpu.write32(used_desc_offset, infos.start);
-    this.cpu.write32(used_desc_offset + 4, result_length);
-
-    this.isr |= 1;
-    this.pci.raise_irq(this.pci_id);
-};
-
 /**
  * @constructor
  * @param {CPU} cpu
  * @param {VirtQueue_Options} options
  */
-function VirtQueue(cpu, options)
+function VirtQueue(cpu, virtio, options)
 {
-    /** @type {CPU} */
+    /** @const @type {CPU} */
     this.cpu = cpu;
+
+    /** @const @type {VirtIO} */
+    this.virtio = virtio;
 
     // Number of entries.
     this.size = options.size_supported;
     this.size_supported = options.size_supported;
-    this.enable = 0;
+    this.mask = this.size - 1;
+    this.enabled = false;
     this.notify_offset = options.notify_offset;
 
-    this.desc_table = null;
-    this.desc_table_addr = 0;
-    this.avail_ring = null;
-    this.avail_ring_addr = 0;
-    this.used_ring = null;
-    this.used_ring_addr = 0;
+    this.desc = null;
+    this.desc_addr = 0;
+
+    this.avail = null;
+    this.avail_addr = 0;
+    this.avail_last_idx = 0;
+
+    this.used = null;
+    this.used_addr = 0;
+    this.num_staged_replies = 0;
 
     this.reset();
 }
 
 VirtQueue.prototype.reset = function()
 {
-    this.size = this.size_supported;
-    this.enable = 0;
-    this.desc_table = null;
-    this.desc_table_addr = 0;
-    this.avail_ring = null;
-    this.avail_ring_addr = 0;
-    this.used_ring = null;
-    this.used_ring_addr = 0;
+    this.set_size(this.size_supported);
+    this.enabled = false;
+    this.desc = null;
+    this.desc_addr = 0;
+    this.avail = null;
+    this.avail_addr = 0;
+    this.avail_last_idx = 0;
+    this.used = null;
+    this.used_addr = 0;
+    this.num_staged_replies = 0;
 };
 
-VirtQueue.prototype.push_reply = function()
+VirtQueue.prototype.is_configured = function()
 {
-    // TODO
+    return this.desc && this.avail && this.used;
 };
 
+VirtQueue.prototype.enable = function()
+{
+    dbg_assert(this.is_configured(), "VirtQueue must be configured before enabled");
+    this.enabled = true;
+};
+
+VirtQueue.prototype.disable = function()
+{
+    this.enabled = false;
+};
+
+VirtQueue.prototype.set_size = function(size)
+{
+    dbg_assert((size & size - 1) === 0, "VirtQueue size must be power of 2 or zero");
+    dbg_assert(size <= this.size_supported, "VirtQueue size must be within supported size");
+    this.size = size;
+    this.mask = size - 1;
+
+    // Data views are now invalidated. Update if already set.
+    if(this.desc) this.set_desc_address(this.desc_addr);
+    if(this.avail) this.set_avail_address(this.avail_addr);
+    if(this.used) this.set_used_address(this.used_addr);
+};
+
+/**
+ * @return {number}
+ */
+VirtQueue.prototype.count_requests = function()
+{
+    dbg_assert(this.avail, "VirtQueue addresses must be configured before use");
+    return (this.avail.get_idx() - this.avail_last_idx) & this.mask;
+};
+
+/**
+ * @return {boolean}
+ */
+VirtQueue.prototype.has_request = function()
+{
+    dbg_assert(this.avail, "VirtQueue addresses must be configured before use");
+    return (this.avail.get_idx() & this.mask) !== this.avail_last_idx;
+};
+
+/**
+ * @return {VirtQueueBufferChain}
+ */
 VirtQueue.prototype.pop_request = function()
 {
-    // TODO
+    dbg_assert(this.avail, "VirtQueue addresses must be configured before use");
+    dbg_assert(this.has_request(), "VirtQueue must not pop nonexistent request");
+
+    var desc_idx = this.avail.get_entry(this.avail_last_idx);
+    var bufchain = new VirtQueueBufferChain(this, desc_idx);
+
+    this.avail_last_idx = this.avail_last_idx + 1 & this.mask;
+
+    return bufchain;
+};
+
+/**
+ * Stage a buffer chain into the used ring.
+ * Can call push_reply many times before flushing to batch replies together.
+ * Note: this reply is not visible to driver until flush_replies is called.
+ * @param {VirtQueueBufferChain} bufchain
+ */
+VirtQueue.prototype.push_reply = function(bufchain)
+{
+    dbg_assert(this.num_staged_replies < this.size, "VirtQueue replies must not exceed queue size");
+
+    var used_idx = this.used.get_idx() + this.num_staged_replies & this.mask;
+    this.used.set_entry_id(used_idx, bufchain.head_idx);
+    this.used.set_entry_len(used_idx, bufchain.written_length);
+    this.num_staged_replies++;
+};
+
+/**
+ * Makes replies visible to driver by updating the used ring idx and
+ * firing appropriate interrupt if needed.
+ */
+VirtQueue.prototype.flush_replies = function()
+{
+    if(this.num_staged_replies === 0)
+    {
+        // Nothing to flush.
+        return;
+    }
+
+    var old_idx = this.used.get_idx();
+    var new_idx = old_idx + this.num_staged_replies & VIRTQ_IDX_MASK;
+    this.used.set_idx(new_idx);
+
+    this.num_staged_replies = 0;
+
+    if(this.virtio.is_feature_negotiated(VIRTIO_F_RING_EVENT_IDX))
+    {
+        var used_event = this.avail.get_used_event();
+
+        // Fire irq when idx has reached or gone past used_event.
+        var has_passed = old_idx < used_event && used_event <= new_idx;
+
+        // Has overflowed? Assumes num_staged_replies > 0.
+        if(new_idx < old_idx)
+        {
+            has_passed = used_event <= new_idx || old_idx < used_event;
+        }
+
+        if(has_passed)
+        {
+            this.virtio.raise_irq(VIRTIO_ISR_QUEUE);
+        }
+    }
+    else
+    {
+        if(~this.avail.get_flags() & VIRTQ_USED_F_NO_NOTIFY)
+        {
+            this.virtio.raise_irq(VIRTIO_ISR_QUEUE);
+        }
+    }
 };
 
 /**
  * @param {number} address
  */
-VirtQueue.prototype.set_desc_table_address = function(address)
+VirtQueue.prototype.set_desc_address = function(address)
 {
-    var table_size = this.size * VIRTQ_DESC_ENTRYSIZE;
-    var data_view = new DataView(this.cpu.mem8.buffer, address, address + table_size);
-    this.desc_table_addr = address;
-    this.desc_table =
+    this.desc_addr = address;
+    this.desc = this.create_desc_table(address);
+};
+
+/**
+ * @param {number} address
+ */
+VirtQueue.prototype.create_desc_table = function(address)
+{
+    var desc_table =
     {
-        get_addr_low: i => data_view.getUint32(i * VIRTQ_DESC_ENTRYSIZE, true),
-        get_addr_high: i => data_view.getUint32(i * VIRTQ_DESC_ENTRYSIZE + 4, true),
-        get_len: i => data_view.getUint32(i * VIRTQ_DESC_ENTRYSIZE + 8, true),
-        get_flags: i => data_view.getUint16(i * VIRTQ_DESC_ENTRYSIZE + 12, true),
-        get_next: i => data_view.getUint16(i * VIRTQ_DESC_ENTRYSIZE + 14, true),
+        get_addr_low: i => this.cpu.read32s(address + i * VIRTQ_DESC_ENTRYSIZE),
+        get_addr_high: i => this.cpu.read32s(address + i * VIRTQ_DESC_ENTRYSIZE + 4),
+        get_len: i => this.cpu.read32s(address + i * VIRTQ_DESC_ENTRYSIZE + 8),
+        get_flags: i => this.cpu.read16(address + i * VIRTQ_DESC_ENTRYSIZE + 12),
+        get_next: i => this.cpu.read16(address + i * VIRTQ_DESC_ENTRYSIZE + 14),
+    };
+    return desc_table;
+};
+
+/**
+ * @param {number} address
+ */
+VirtQueue.prototype.set_avail_address = function(address)
+{
+    this.avail_addr = address;
+    this.avail =
+    {
+        get_flags: () => this.cpu.read16(address),
+        get_idx: () => this.cpu.read16(address + 2),
+        get_entry: i => this.cpu.read16(address + 2 + VIRTQ_AVAIL_ENTRYSIZE * i),
+        get_used_event: () => this.cpu.read16(address + 2 + VIRTQ_AVAIL_ENTRYSIZE * this.size),
     };
 };
 
 /**
  * @param {number} address
  */
-VirtQueue.prototype.set_avail_ring_address = function(address)
+VirtQueue.prototype.set_used_address = function(address)
 {
-    var ring_size = VIRTQ_AVAIL_BASESIZE + this.size * VIRTQ_AVAIL_ENTRYSIZE;
-    var data_view = new DataView(this.cpu.mem8.buffer, address, address + ring_size);
-    this.avail_ring_addr = address;
-    this.avail_ring =
+    this.used_addr = address;
+    this.used =
     {
-        get_flags: () => data_view.getUint16(0, true),
-        get_idx: () => data_view.getUint16(2, true),
-        get_entry: i => data_view.getUint16(2 + VIRTQ_AVAIL_ENTRYSIZE * i, true),
-        get_used_event: () => data_view.getUint16(2 + VIRTQ_AVAIL_ENTRYSIZE * this.size, true),
+        get_flags: () => this.cpu.read16(address + 0),
+        get_idx: () => this.cpu.read16(address + 2),
+        get_entry_id: i => this.cpu.read32s(address + 2 + VIRTQ_USED_ENTRYSIZE * i),
+        set_entry_id: (i, value) => this.cpu.write32(2 + VIRTQ_USED_ENTRYSIZE * i, value),
+        get_entry_len: i => this.cpu.read32s(address + 6 + VIRTQ_USED_ENTRYSIZE * i),
+        set_entry_len: (i, value) => this.cpu.write32(6 + VIRTQ_USED_ENTRYSIZE * i, value),
+        get_avail_event: () => this.cpu.read16(address + 2 + VIRTQ_AVAIL_ENTRYSIZE * this.size),
     };
 };
 
 /**
- * @param {number} address
+ * Traverses through descriptor chain starting at head_id.
+ * Provides means to read/write to buffers represented by the descriptors.
+ * @constructor
+ * @param {VirtQueue} virtqueue
+ * @param {number} head_idx
  */
-VirtQueue.prototype.set_used_ring_address = function(address)
+function VirtQueueBufferChain(virtqueue, head_idx)
 {
-    var ring_size = VIRTQ_USED_BASESIZE + this.size * VIRTQ_USED_ENTRYSIZE;
-    var data_view = new DataView(this.cpu.mem8.buffer, address, address + ring_size);
-    this.used_ring_addr = address;
-    this.used_ring =
+    /** @const @type {CPU} */
+    this.cpu = virtqueue.cpu;
+
+    /** @const @type {VirtIO} */
+    this.virtio = virtqueue.virtio;
+
+    this.head_idx = head_idx;
+
+    this.read_buffers = [];
+    // Pointers for sequential consumption via get_next_blob.
+    this.read_buffer_idx = 0;
+    this.read_buffer_offset = 0;
+
+    this.write_buffers = [];
+    // Pointers for sequential write via set_next_blob.
+    this.write_buffer_idx = 0;
+    this.write_buffer_offset = 0;
+    this.written_length = 0;
+
+    // Traverse chain to discover buffers.
+    // - There shouldn't be an excessive amount of descriptor elements.
+    var table = virtqueue.desc;
+    var desc_idx = head_idx;
+    var chain_length = 0;
+    var chain_max = virtqueue.size;
+    var writable_region = false;
+    var has_indirect_feature = this.virtio.is_feature_negotiated(VIRTIO_F_RING_INDIRECT_DESC);
+    do
     {
-        get_flags: () => data_view.getUint16(0, true),
-        get_idx: () => data_view.getUint16(2, true),
-        get_entry_id: i => data_view.getUint16(2 + VIRTQ_USED_ENTRYSIZE * i, true),
-        set_entry_id: (i, value) => data_view.setUint32(2 + VIRTQ_USED_ENTRYSIZE * i, value, true),
-        get_entry_len: i => data_view.getUint16(6 + VIRTQ_USED_ENTRYSIZE * i, true),
-        set_entry_len: (i, value) => data_view.setUint32(6 + VIRTQ_USED_ENTRYSIZE * i, value, true),
-        get_avail_event: () => data_view.getUint16(2 + VIRTQ_AVAIL_ENTRYSIZE * this.size, true),
-    };
+        var flags = table.get_flags(desc_idx);
+
+        if(has_indirect_feature && (flags & VIRTQ_DESC_F_INDIRECT))
+        {
+            if(DEBUG && (flags & VIRTQ_DESC_F_NEXT))
+            {
+                dbg_log("Driver bug: has set VIRTQ_DESC_F_NEXT flag in an indirect table descriptor", LOG_VIRTIO);
+            }
+
+            var table_address = table.get_addr_low(desc_idx);
+            var table_length = table.get_len(desc_idx);
+
+            // Carry on using indirect table, starting at first entry.
+            table = virtqueue.create_desc_table(table_address);
+            desc_idx = 0;
+            chain_length = 0;
+            chain_max = table_length / VIRTQ_DESC_ENTRYSIZE;
+            continue;
+        }
+
+        var buf =
+        {
+            addr_low: table.get_addr_low(desc_idx),
+            addr_high: table.get_addr_high(desc_idx),
+            len: table.get_len(desc_idx),
+        };
+
+        if(flags & VIRTQ_DESC_F_WRITE)
+        {
+            writable_region = true;
+            this.read_buffers.push(buf);
+        }
+        else
+        {
+            if(writable_region)
+            {
+                dbg_log("Driver bug: readonly buffer after writeonly buffer within chain", LOG_VIRTIO);
+                break;
+            }
+            this.write_buffers.push(buf);
+        }
+
+        chain_length++;
+        if(chain_length > chain_max)
+        {
+            dbg_log("Driver bug: descriptor chain cycle detected", LOG_VIRTIO);
+            break;
+        }
+
+        if(flags & VIRTQ_DESC_F_NEXT)
+        {
+            desc_idx = table.get_next(desc_idx);
+        }
+        else
+        {
+            break;
+        }
+    }
+    while(true);
+}
+
+/**
+ * Reads the next blob of memory represented by the buffer chain into dest_buffer.
+ * @param {Uint8Array} dest_buffer
+ * @return {number} Number of bytes successfully read.
+ */
+VirtQueueBufferChain.prototype.get_next_blob = function(dest_buffer)
+{
+    var dest_offset = 0;
+    var remaining = dest_buffer.length;
+
+    while(remaining)
+    {
+        if(this.read_buffer_idx === this.read_buffers.length)
+        {
+            dbg_log("Device<" + this.virtio.name + "> Read more than device-readable buffers has", LOG_VIRTIO);
+            break;
+        }
+        var buf = this.read_buffers[this.read_buffer_idx];
+        var read_address = buf.addr_low + this.read_buffer_offset;
+        var read_length = buf.len - this.read_buffer_offset;
+
+        if(read_length > remaining)
+        {
+            read_length = remaining;
+            this.read_buffer_offset += remaining;
+        }
+        else
+        {
+            this.read_buffer_idx++;
+            this.read_buffer_offset = 0;
+        }
+
+        dest_buffer.set(this.cpu.read_blob(read_address, read_length), dest_offset);
+
+        dest_offset += read_length;
+        remaining -= read_length;
+    }
+
+    return dest_offset;
+};
+
+/**
+ * Appends contents of src_buffer into the memory represented by the buffer chain.
+ * @param {Uint8Array} src_buffer
+ * @return {number} Number of bytes successfully written.
+ */
+VirtQueueBufferChain.prototype.set_next_blob = function(src_buffer)
+{
+    var src_offset = 0;
+    var remaining = src_buffer.length;
+
+    while(remaining)
+    {
+        if(this.write_buffer_idx === this.write_buffers.length)
+        {
+            dbg_log("Device<" + this.virtio.name + "> Write more than device-writable capacity", LOG_VIRTIO);
+            break;
+        }
+
+        var buf = this.write_buffers[this.write_buffer_idx];
+
+        var write_address = buf.addr_low + this.write_buffer_offset;
+        var write_length = buf.len - this.write_buffer_offset;
+        var next_offset = 0;
+
+        if(write_length > remaining)
+        {
+            write_length = remaining;
+            this.write_buffer_offset += remaining;
+        }
+        else
+        {
+            this.write_buffer_idx++;
+            this.write_buffer_offset = 0;
+        }
+
+        var src_end = src_offset + write_length;
+        this.cpu.write_blob(src_buffer.subarray(src_offset, src_end), write_address);
+
+        src_offset += write_length;
+        remaining -= write_length;
+    }
+
+    this.written_length += src_offset;
+    return src_offset;
 };
