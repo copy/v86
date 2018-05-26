@@ -324,7 +324,7 @@ function VirtIO(cpu, options)
             var offsets = new Set();
             for(var offset of this.queues.map(q => q.notify_offset))
             {
-                offset.add(offset);
+                offsets.add(offset);
                 offset *= options.notification.single_handler ? 0 : 1;
                 dbg_assert(options.notification.handlers[offset],
                     "VirtIO device<" + this.name + "> every queue's notifier must exist");
@@ -777,11 +777,11 @@ VirtIO.prototype.init_capabilities = function(capabilities)
         dbg_assert(0 <= cap.bar && cap.bar < 6,
             "VirtIO device<" + this.name + "> capability invalid bar number");
 
-        var bar_size = cap.struct.reduce((field) => field.bytes, 0);
+        var bar_size = cap.struct.reduce((bytes, field) => bytes + field.bytes, 0);
         bar_size += cap.offset;
 
         // Round up to next power of 2.
-        bar_size = 1 << (v86util.int_log2(bar_size - 1) + 1);
+        bar_size = bar_size < 2 ? bar_size : 1 << (v86util.int_log2(bar_size - 1) + 1);
 
         dbg_assert((cap.port & (bar_size - 1)) === 0,
             "VirtIO device<" + this.name + "> capability port should be aligned to pci bar size");
