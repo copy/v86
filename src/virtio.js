@@ -124,7 +124,6 @@ var VirtIO_CapabilityStruct;
  *     port: number,
  *     use_mmio: boolean,
  *     offset: number,
- *     length: number,
  *     extra: Uint8Array,
  *     struct: VirtIO_CapabilityStruct,
  * }}
@@ -146,6 +145,7 @@ var VirtQueue_Options;
  *     initial_port: number,
  *     queues: !Array<VirtQueue_Options>,
  *     features: !Array<number>,
+ *     on_driver_ok: function(),
  * }}
  */
 var VirtIO_CommonCapabilityOptions;
@@ -172,7 +172,6 @@ var VirtIO_ISRCapabilityOptions;
  * @typedef {
  * {
  *     initial_port: number,
- *     length: number,
  *     struct: VirtIO_CapabilityStruct,
  * }}
  */
@@ -189,7 +188,6 @@ var VirtIO_DeviceSpecificCapabilityOptions;
  *     notification: (undefined | VirtIO_NotificationCapabilityOptions),
  *     isr_status: (undefined | VirtIO_ISRCapabilityOptions),
  *     device_specific: (undefined | VirtIO_DeviceSpecificCapabilityOptions),
- *     on_driver_ok: function(),
  * }}
  */
 var VirtIO_Options;
@@ -367,7 +365,6 @@ VirtIO.prototype.create_common_capability = function(options)
         port: options.initial_port,
         use_mmio: false,
         offset: 0,
-        length: 0,
         extra: new Uint8Array(0),
         struct:
         [
@@ -478,25 +475,11 @@ VirtIO.prototype.create_common_capability = function(options)
                         data &= ~VIRTIO_STATUS_FEATURES_OK;
                     }
 
+                    this.device_status = data;
+
                     if(data & ~this.device_status & VIRTIO_STATUS_DRIVER_OK)
                     {
-                        // TODO:
-                        // check that everything has been set up
-                        // if everything is ok
-                        this.device_status = data & ~VIRTIO_STATUS_DRIVER_OK;
-                        if(this.config_is_ready())
-                        {
-                            options.on_driver_ok();
-                        }
-                        else
-                        {
-                            // TODO
-                            // what to do here?
-                        }
-                    }
-                    else
-                    {
-                        this.device_status = data;
+                        options.on_driver_ok();
                     }
                 },
             },
@@ -579,11 +562,18 @@ VirtIO.prototype.create_common_capability = function(options)
                     }
                     if(data === 1)
                     {
-                        this.queue_selected.enable();
+                        if(this.queue_selected.is_configured())
+                        {
+                            this.queue_selected.enable();
+                        }
+                        else
+                        {
+                            dbg_log("Driver bug: tried enabling unconfigured queue", LOG_VIRTIO);
+                        }
                     }
                     else if (data === 0)
                     {
-                        this.queue_selected.disable();
+                        dbg_log("Driver bug: tried writing 0 to queue_enable", LOG_VIRTIO);
                     }
                 },
             },
@@ -693,7 +683,6 @@ VirtIO.prototype.create_notification_capability = function(options)
         port: options.initial_port,
         use_mmio: false,
         offset: 0,
-        length: notify_struct.length * 2,
         extra: new Uint8Array(
         [
             notify_off_multiplier & 0xFF,
@@ -720,7 +709,6 @@ VirtIO.prototype.create_isr_capability = function(options)
         port: options.initial_port,
         use_mmio: false,
         offset: 0,
-        length: 1,
         extra: new Uint8Array(0),
         struct:
         [
@@ -747,6 +735,9 @@ VirtIO.prototype.create_isr_capability = function(options)
  */
 VirtIO.prototype.create_device_specific_capability = function(options)
 {
+    dbg_assert(~options.offset & 0x3,
+            "VirtIO device<" + this.name + "> device specific cap offset must be 4-byte aligned");
+
     var cap =
     {
         type: VIRTIO_PCI_CAP_DEVICE_CFG,
@@ -754,7 +745,6 @@ VirtIO.prototype.create_device_specific_capability = function(options)
         port: options.initial_port,
         use_mmio: false,
         offset: 0,
-        length: options.length,
         extra: new Uint8Array(0),
         struct: options.struct,
     };
@@ -1008,16 +998,6 @@ VirtIO.prototype.is_feature_negotiated = function(feature)
     return this.driver_feature[feature >>> 5] & (1 << (feature & 0x1F)) === 1;
 };
 
-VirtIO.prototype.pop_request = function(queue_id)
-{
-    // TODO
-};
-
-VirtIO.prototype.push_reply = function()
-{
-    // TODO
-};
-
 /**
  * Call this if an irrecoverable error has been occured.
  * Notifies driver if DRIVER_OK, or when DRIVER_OK gets set.
@@ -1104,11 +1084,6 @@ VirtQueue.prototype.enable = function()
     this.enabled = true;
 };
 
-VirtQueue.prototype.disable = function()
-{
-    this.enabled = false;
-};
-
 VirtQueue.prototype.set_size = function(size)
 {
     dbg_assert((size & size - 1) === 0, "VirtQueue size must be power of 2 or zero");
@@ -1164,11 +1139,12 @@ VirtQueue.prototype.pop_request = function()
  */
 VirtQueue.prototype.push_reply = function(bufchain)
 {
+    dbg_assert(this.used, "VirtQueue addresses must be configured before use");
     dbg_assert(this.num_staged_replies < this.size, "VirtQueue replies must not exceed queue size");
 
     var used_idx = this.used.get_idx() + this.num_staged_replies & this.mask;
     this.used.set_entry_id(used_idx, bufchain.head_idx);
-    this.used.set_entry_len(used_idx, bufchain.written_length);
+    this.used.set_entry_len(used_idx, bufchain.length_written);
     this.num_staged_replies++;
 };
 
@@ -1178,6 +1154,8 @@ VirtQueue.prototype.push_reply = function(bufchain)
  */
 VirtQueue.prototype.flush_replies = function()
 {
+    dbg_assert(this.used, "VirtQueue addresses must be configured before use");
+
     if(this.num_staged_replies === 0)
     {
         // Nothing to flush.
@@ -1296,12 +1274,14 @@ function VirtQueueBufferChain(virtqueue, head_idx)
     // Pointers for sequential consumption via get_next_blob.
     this.read_buffer_idx = 0;
     this.read_buffer_offset = 0;
+    this.length_readable = 0;
 
     this.write_buffers = [];
     // Pointers for sequential write via set_next_blob.
     this.write_buffer_idx = 0;
     this.write_buffer_offset = 0;
-    this.written_length = 0;
+    this.length_written = 0;
+    this.length_writable = 0;
 
     // Traverse chain to discover buffers.
     // - There shouldn't be an excessive amount of descriptor elements.
@@ -1344,6 +1324,7 @@ function VirtQueueBufferChain(virtqueue, head_idx)
         {
             writable_region = true;
             this.read_buffers.push(buf);
+            this.length_readable += buf.len;
         }
         else
         {
@@ -1353,6 +1334,7 @@ function VirtQueueBufferChain(virtqueue, head_idx)
                 break;
             }
             this.write_buffers.push(buf);
+            this.length_writable += buf.len;
         }
 
         chain_length++;
@@ -1457,6 +1439,6 @@ VirtQueueBufferChain.prototype.set_next_blob = function(src_buffer)
         remaining -= write_length;
     }
 
-    this.written_length += src_offset;
+    this.length_written += src_offset;
     return src_offset;
 };
