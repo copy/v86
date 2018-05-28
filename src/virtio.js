@@ -948,15 +948,6 @@ VirtIO.prototype.reset = function()
     this.config_generation = 0;
 
     this.lower_irq();
-
-    // Old:
-    this.queue_select = 0;
-    this.device_status = 0;
-    this.isr = 0;
-
-    this.last_idx = 0;
-    this.queue_size = 32;
-    this.queue_address = 0;
 };
 
 /**
@@ -1176,7 +1167,7 @@ VirtQueue.prototype.flush_replies = function()
         var has_passed = old_idx < used_event && used_event <= new_idx;
 
         // Has overflowed? Assumes num_staged_replies > 0.
-        if(new_idx < old_idx)
+        if(new_idx <= old_idx)
         {
             has_passed = used_event <= new_idx || old_idx < used_event;
         }
