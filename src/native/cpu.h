@@ -105,6 +105,9 @@ extern int32_t hot_code_addresses[HASH_PRIME];
 uint16_t wasm_table_index_free_list[WASM_TABLE_SIZE];
 int32_t wasm_table_index_free_list_count;
 
+uint16_t wasm_table_index_pending_free[WASM_TABLE_SIZE];
+int32_t wasm_table_index_pending_free_count;
+
 #define VALID_TLB_ENTRY_MAX 10000
 int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX];
 int32_t valid_tlb_entries_count;
@@ -160,6 +163,8 @@ int32_t get_seg_prefix_ss(int32_t offset);
 int32_t get_seg_prefix_cs(int32_t offset);
 int32_t modrm_resolve(int32_t modrm_byte);
 void modrm_skip(int32_t modrm_byte);
+
+void check_jit_cache_array_invariants();
 
 uint32_t jit_hot_hash(uint32_t addr);
 void jit_link_block(int32_t target);

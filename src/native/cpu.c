@@ -41,8 +41,14 @@ uint64_t tsc_offset = 0;
 uint32_t jit_block_boundary = 0;
 int32_t hot_code_addresses[HASH_PRIME] = {0};
 
+// indices to the wasm table that can be used
 uint16_t wasm_table_index_free_list[WASM_TABLE_SIZE] = { 0 };
 int32_t wasm_table_index_free_list_count = 0;
+
+// indices to the wasm table that can be used but the compilation is still pending
+// will be moved to the above table by codegen_finalize_finished
+uint16_t wasm_table_index_pending_free[WASM_TABLE_SIZE] = { 0 };
+int32_t wasm_table_index_pending_free_count = 0;
 
 int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX] = {0};
 int32_t valid_tlb_entries_count = 0;
@@ -623,7 +629,7 @@ static cached_state_flags pack_current_state_flags()
     return *is_32 << 0 | *stack_size_32 << 1 | has_flat_segmentation() << 2;
 }
 
-static void check_jit_cache_array_invariants(void)
+void check_jit_cache_array_invariants(void)
 {
 #if CHECK_JIT_CACHE_ARRAY_INVARIANTS
     int32_t wasm_table_index_to_jit_cache_index[WASM_TABLE_SIZE] = { 0 };
@@ -632,9 +638,24 @@ static void check_jit_cache_array_invariants(void)
     {
         struct code_cache* entry = &jit_cache_arr[i];
 
-        // an invalid entry has both its start_addr and wasm_table_index set to 0
-        // neither start_addr nor wasm_table_index are 0 for any valid entry
-        assert((entry->start_addr == 0) == (entry->wasm_table_index == 0));
+        assert(entry->next_index_same_page == JIT_CACHE_ARRAY_NO_NEXT_ENTRY ||
+                entry->next_index_same_page >= 0 && entry->next_index_same_page < JIT_CACHE_ARRAY_SIZE);
+
+        if(entry->pending)
+        {
+            assert(entry->start_addr);
+            assert(entry->wasm_table_index);
+        }
+        else
+        {
+            // an invalid entry has both its start_addr and wasm_table_index set to 0
+            // neither start_addr nor wasm_table_index are 0 for any valid entry
+
+            assert((entry->start_addr == 0) == (entry->wasm_table_index == 0));
+        }
+
+        // having a next entry implies validity
+        assert(entry->next_index_same_page == JIT_CACHE_ARRAY_NO_NEXT_ENTRY || entry->start_addr);
 
         // any valid wasm_table_index can only be used within a single page
         if(entry->wasm_table_index)
@@ -679,30 +700,6 @@ static void check_jit_cache_array_invariants(void)
 #endif
 }
 
-static void remove_jit_cache_entry(int32_t addr_index)
-{
-    uint32_t page = jit_cache_arr[addr_index].start_addr >> DIRTY_ARR_SHIFT;
-    int32_t page_index = page_first_jit_cache_entry[page];
-
-    if(page_index == addr_index)
-    {
-        page_first_jit_cache_entry[page] = jit_cache_arr[addr_index].next_index_same_page;
-    }
-    else
-    {
-        while(page_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
-        {
-            int32_t next_index = jit_cache_arr[page_index].next_index_same_page;
-            if(next_index == addr_index)
-            {
-                jit_cache_arr[page_index].next_index_same_page = jit_cache_arr[addr_index].next_index_same_page;
-                break;
-            }
-            page_index = next_index;
-        }
-    }
-}
-
 static struct code_cache* create_cache_entry(uint32_t phys_addr)
 {
     int32_t found_entry_index = -1;
@@ -725,15 +722,32 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
         }
     }
 
+    check_jit_cache_array_invariants();
+
     if(found_entry_index == -1)
     {
-        // no free slots, overwrite the first one
-        found_entry_index = phys_addr & JIT_CACHE_ARRAY_MASK;
-        remove_jit_cache_entry(found_entry_index);
-
         profiler_stat_increment(S_CACHE_MISMATCH);
 
-        // TODO: Free wasm table index
+        // no free slots, overwrite the first one
+        found_entry_index = phys_addr & JIT_CACHE_ARRAY_MASK;
+
+        struct code_cache* entry = &jit_cache_arr[found_entry_index];
+
+        // if we're here, we expect to overwrite a valid index
+        assert(entry->start_addr);
+        assert(entry->wasm_table_index);
+
+        uint16_t wasm_table_index = entry->wasm_table_index;
+        uint32_t page = entry->start_addr >> DIRTY_ARR_SHIFT;
+
+        remove_jit_cache_wasm_index(page, wasm_table_index);
+
+        // entry should be removed after calling remove_jit_cache_wasm_index
+
+        assert(!entry->pending);
+        assert(!entry->start_addr);
+        assert(!entry->wasm_table_index);
+        assert(entry->next_index_same_page == JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
     }
 
     uint32_t page = phys_addr >> DIRTY_ARR_SHIFT;
@@ -752,8 +766,6 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
     page_first_jit_cache_entry[page] = found_entry_index;
     struct code_cache* entry = &jit_cache_arr[found_entry_index];
     entry->next_index_same_page = previous_entry_index;
-
-    check_jit_cache_array_invariants();
 
     return entry;
 }
@@ -872,20 +884,52 @@ void codegen_finalize_finished(
         int32_t wasm_table_index, uint32_t phys_addr, uint32_t end_addr,
         int32_t first_opcode, cached_state_flags state_flags)
 {
-    uint32_t index = phys_addr >> DIRTY_ARR_SHIFT;
-    int32_t cache_array_index = page_first_jit_cache_entry[index];
+    assert(wasm_table_index);
 
-    while(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+    bool was_already_invalid = false;
+
+    for(int32_t i = 0; i < wasm_table_index_pending_free_count; i++)
     {
-        struct code_cache* entry = &jit_cache_arr[cache_array_index];
+        uint16_t index = wasm_table_index_pending_free[i];
 
-        if(entry->wasm_table_index == wasm_table_index)
+        if(index == wasm_table_index)
         {
-            assert(entry->pending);
-            entry->pending = false;
-        }
+            if(i == wasm_table_index_pending_free_count - 1)
+            {
+                wasm_table_index_pending_free_count--;
+                wasm_table_index_pending_free[wasm_table_index_pending_free_count] = 0;
+            }
+            else
+            {
+                wasm_table_index_pending_free_count--;
+                wasm_table_index_pending_free[i] =
+                    wasm_table_index_pending_free[wasm_table_index_pending_free_count];
+                wasm_table_index_pending_free[wasm_table_index_pending_free_count] = 0;
+            }
 
-        cache_array_index = entry->next_index_same_page;
+            was_already_invalid = true;
+            free_wasm_table_index(wasm_table_index);
+            break;
+        }
+    }
+
+    if(!was_already_invalid)
+    {
+        uint32_t index = phys_addr >> DIRTY_ARR_SHIFT;
+        int32_t cache_array_index = page_first_jit_cache_entry[index];
+
+        while(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+        {
+            struct code_cache* entry = &jit_cache_arr[cache_array_index];
+
+            if(entry->wasm_table_index == wasm_table_index)
+            {
+                assert(entry->pending);
+                entry->pending = false;
+            }
+
+            cache_array_index = entry->next_index_same_page;
+        }
     }
 
     check_jit_cache_array_invariants();
@@ -909,7 +953,6 @@ void codegen_finalize_finished(
     //      cache, causing the assertions below to fail
 
     // sanity check that we're looking at the right entry
-    assert(entry->pending);
     assert(entry->start_addr == phys_addr);
     assert(entry->state_flags == state_flags);
 #endif
@@ -1499,6 +1542,7 @@ static void jit_generate(uint32_t phys_addr)
     // allocate an index in the wasm table
     assert(wasm_table_index_free_list_count > 0);
     uint32_t wasm_table_index = wasm_table_index_free_list[--wasm_table_index_free_list_count];
+    assert(wasm_table_index);
 
     // create entries for each basic block that is marked as an entry point
     int32_t entry_point_count = 0;
@@ -1515,6 +1559,12 @@ static void jit_generate(uint32_t phys_addr)
 
             struct code_cache* entry = create_cache_entry(phys_addr);
 
+            if(!entry)
+            {
+                continue;
+            }
+
+            assert(phys_addr);
             entry->start_addr = phys_addr;
             entry->state_flags = state_flags;
             entry->pending = true;
@@ -1531,6 +1581,8 @@ static void jit_generate(uint32_t phys_addr)
             profiler_stat_increment(S_COMPILE_ENTRY_POINT);
         }
     }
+
+    check_jit_cache_array_invariants();
 
     assert(entry_point_count > 0);
 

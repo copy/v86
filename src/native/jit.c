@@ -4,8 +4,189 @@
 #include "cpu.h"
 #include "global_pointers.h"
 #include "jit.h"
+#include "js_imports.h"
 #include "log.h"
 #include "profiler/profiler.h"
+
+
+void free_wasm_table_index(uint16_t wasm_table_index)
+{
+#if DEBUG
+    for(int32_t i = 0; i < wasm_table_index_free_list_count; i++)
+    {
+        assert(wasm_table_index_free_list[i] != wasm_table_index);
+    }
+#endif
+
+    assert(wasm_table_index_free_list_count != WASM_TABLE_SIZE);
+    wasm_table_index_free_list[wasm_table_index_free_list_count++] = wasm_table_index;
+
+    // It is not strictly necessary to clear the function, but it will fail
+    // more predictably if we accidentally use the function
+    // XXX: This fails in Chromium:
+    //   RangeError: WebAssembly.Table.set(): Modifying existing entry in table not supported.
+    //jit_clear_func(wasm_table_index);
+}
+
+// remove the entry with the given index from the jit_cache_arr structure
+void remove_jit_cache_entry(uint32_t page, int32_t addr_index)
+{
+    assert(addr_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+
+    int32_t page_index = page_first_jit_cache_entry[page];
+
+    if(page_index == addr_index)
+    {
+        page_first_jit_cache_entry[page] = jit_cache_arr[addr_index].next_index_same_page;
+    }
+    else
+    {
+        while(page_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+        {
+            int32_t next_index = jit_cache_arr[page_index].next_index_same_page;
+            if(next_index == addr_index)
+            {
+                jit_cache_arr[page_index].next_index_same_page = jit_cache_arr[addr_index].next_index_same_page;
+                break;
+            }
+            page_index = next_index;
+        }
+    }
+}
+
+// remove all entries with the given wasm_table_index from the jit_cache_arr structure
+void remove_jit_cache_wasm_index(int32_t page, uint16_t wasm_table_index)
+{
+    int32_t cache_array_index = page_first_jit_cache_entry[page];
+
+    assert(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+
+    bool pending = false;
+
+    do
+    {
+        struct code_cache* entry = &jit_cache_arr[cache_array_index];
+        int32_t next_cache_array_index = entry->next_index_same_page;
+
+        if(entry->wasm_table_index == wasm_table_index)
+        {
+            // if one entry is pending, all must be pending
+            dbg_assert(!pending || entry->pending);
+
+            pending = entry->pending;
+
+            remove_jit_cache_entry(page, cache_array_index);
+
+            entry->next_index_same_page = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
+            entry->wasm_table_index = 0;
+            entry->start_addr = 0;
+            entry->pending = false;
+        }
+
+        cache_array_index = next_cache_array_index;
+    }
+    while(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+
+    if(pending)
+    {
+        assert(wasm_table_index_pending_free_count < WASM_TABLE_SIZE);
+        wasm_table_index_pending_free[wasm_table_index_pending_free_count++] = wasm_table_index;
+    }
+    else
+    {
+        free_wasm_table_index(wasm_table_index);
+    }
+}
+
+__attribute__((noinline))
+void jit_clear_page(uint32_t index)
+{
+    int32_t cache_array_index = page_first_jit_cache_entry[index];
+
+    assert(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+
+    uint16_t wasm_table_index_to_free[100];
+    int32_t wasm_table_index_to_free_length = 0;
+
+    uint16_t wasm_table_index_to_pending_free[100];
+    int32_t wasm_table_index_to_pending_free_length = 0;
+
+    page_first_jit_cache_entry[index] = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
+    profiler_stat_increment(S_INVALIDATE_PAGE);
+
+    do
+    {
+        profiler_stat_increment(S_INVALIDATE_CACHE_ENTRY);
+        struct code_cache* entry = &jit_cache_arr[cache_array_index];
+        uint16_t wasm_table_index = entry->wasm_table_index;
+
+        assert(same_page(index << DIRTY_ARR_SHIFT, entry->start_addr));
+
+        int32_t next_cache_array_index = entry->next_index_same_page;
+
+        entry->next_index_same_page = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
+        entry->start_addr = 0;
+        entry->wasm_table_index = 0;
+
+        if(entry->pending)
+        {
+            entry->pending = false;
+
+            bool already_inserted = false;
+
+            for(int32_t i = 0; i < wasm_table_index_to_pending_free_length; i++)
+            {
+                if(wasm_table_index_to_pending_free[i] == wasm_table_index)
+                {
+                    already_inserted = true;
+                    break;
+                }
+            }
+
+            if(!already_inserted)
+            {
+                assert(wasm_table_index_to_pending_free_length != 100);
+                wasm_table_index_to_pending_free[wasm_table_index_to_pending_free_length++] = wasm_table_index;
+            }
+        }
+        else
+        {
+            bool already_inserted = false;
+
+            for(int32_t i = 0; i < wasm_table_index_to_free_length; i++)
+            {
+                if(wasm_table_index_to_free[i] == wasm_table_index)
+                {
+                    already_inserted = true;
+                    break;
+                }
+            }
+
+            if(!already_inserted)
+            {
+                assert(wasm_table_index_to_free_length != 100);
+                wasm_table_index_to_free[wasm_table_index_to_free_length++] = wasm_table_index;
+            }
+        }
+
+        cache_array_index = next_cache_array_index;
+    }
+    while(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+
+    for(int32_t i = 0; i < wasm_table_index_to_free_length; i++)
+    {
+        free_wasm_table_index(wasm_table_index_to_free[i]);
+    }
+
+    for(int32_t i = 0; i < wasm_table_index_to_pending_free_length; i++)
+    {
+        uint16_t wasm_table_index = wasm_table_index_to_pending_free[i];
+        assert(wasm_table_index_pending_free_count < WASM_TABLE_SIZE);
+        wasm_table_index_pending_free[wasm_table_index_pending_free_count++] = wasm_table_index;
+    }
+
+    check_jit_cache_array_invariants();
+}
 
 void jit_dirty_index(uint32_t index)
 {
@@ -13,25 +194,7 @@ void jit_dirty_index(uint32_t index)
 
     if(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
     {
-        page_first_jit_cache_entry[index] = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
-        profiler_stat_increment(S_INVALIDATE_PAGE);
-
-        do
-        {
-            profiler_stat_increment(S_INVALIDATE_CACHE_ENTRY);
-            struct code_cache* entry = &jit_cache_arr[cache_array_index];
-
-            assert(same_page(index << DIRTY_ARR_SHIFT, entry->start_addr));
-            entry->start_addr = 0;
-            entry->wasm_table_index = 0;
-
-            // TODO: Free wasm table index
-
-            cache_array_index = entry->next_index_same_page;
-
-            entry->next_index_same_page = 0;
-        }
-        while(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+        jit_clear_page(index);
     }
 }
 
@@ -94,6 +257,7 @@ void jit_empty_cache()
         jit_cache_arr[i].start_addr = 0;
         jit_cache_arr[i].next_index_same_page = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
         jit_cache_arr[i].wasm_table_index = 0;
+        jit_cache_arr[i].pending = false;
     }
 
     for(int32_t i = 0; i < GROUP_DIRTINESS_LENGTH; i++)
