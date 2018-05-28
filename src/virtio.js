@@ -780,8 +780,9 @@ VirtIO.prototype.init_capabilities = function(capabilities)
         var bar_size = cap.struct.reduce((bytes, field) => bytes + field.bytes, 0);
         bar_size += cap.offset;
 
-        // Round up to next power of 2.
-        bar_size = bar_size < 2 ? bar_size : 1 << (v86util.int_log2(bar_size - 1) + 1);
+        // Round up to next power of 2,
+        // Minimum 16 bytes for its size to be detectable in general (esp. mmio).
+        bar_size = bar_size < 16 ? 16 : 1 << (v86util.int_log2(bar_size - 1) + 1);
 
         dbg_assert((cap.port & (bar_size - 1)) === 0,
             "VirtIO device<" + this.name + "> capability port should be aligned to pci bar size");
