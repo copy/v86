@@ -897,36 +897,37 @@ VirtIO.prototype.init_capabilities = function(capabilities)
 
 VirtIO.prototype.get_state = function()
 {
-    /*
     var state = [];
 
-    // TODO: Upgrade
-    state[0] = 0; // unused
-    state[1] = this.queue_select;
-    state[2] = this.device_status;
-    state[3] = this.isr;
-    state[4] = this.last_idx;
-    state[5] = this.queue_size;
-    state[6] = this.queue_address;
-    state[7] = this.device;
+    state[0] = this.device_feature_select;
+    state[1] = this.driver_feature_select;
+    state[2] = this.device_feature;
+    state[3] = this.driver_feature;
+    state[4] = this.features_ok;
+    state[5] = this.device_status;
+    state[6] = this.config_has_changed;
+    state[7] = this.config_generation;
+    state[8] = this.queues;
+    state[9] = this.queue_select;
+    state[10] = this.isr_status;
 
     return state;
-    */
 };
 
 VirtIO.prototype.set_state = function(state)
 {
-    // TODO: Upgrade
-    /*
-    this.queue_select = state[1];
-    this.device_status = state[2];
-    this.isr = state[3];
-    this.last_idx = state[4];
-    this.queue_size = state[5];
-    this.queue_address = state[6];
-
-    this.device = state[7];
-    */
+    this.device_feature_select = state[0];
+    this.driver_feature_select = state[1];
+    this.device_feature = state[2];
+    this.driver_feature = state[3];
+    this.features_ok = state[4];
+    this.device_status = state[5];
+    this.config_has_changed = state[6];
+    this.config_generation = state[7];
+    this.queues = state[8];
+    this.queue_select = state[9];
+    this.queue_selected = this.queues[this.queue_select] || null;
+    this.isr_status = state[10];
 };
 
 VirtIO.prototype.reset = function()
