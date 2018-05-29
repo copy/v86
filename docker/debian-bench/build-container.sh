@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -e
 
 docker build . --rm --tag i386/debian-bench
