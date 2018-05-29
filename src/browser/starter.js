@@ -155,6 +155,10 @@ function V86Starter(options)
             mem8.set(mem8.subarray(source, source + length), dest);
             return dest;
         },
+        "_memcpy": function(dest, source, length) {
+            mem8.set(mem8.subarray(source, source + length), dest);
+            return dest;
+        },
 
         "_call_interrupt_vector": function(interrupt_nr, is_software_int, has_error_code, error_code) {
             cpu.call_interrupt_vector(interrupt_nr, is_software_int, !!has_error_code, error_code);
