@@ -311,6 +311,8 @@ function VirtIO(cpu, options)
     {
         this.queues.push(new VirtQueue(cpu, this, queue_options));
     }
+    this.queue_select = 0;
+    this.queue_selected = this.queues[0];
 
     this.isr_status = 0;
 
@@ -585,10 +587,10 @@ VirtIO.prototype.create_common_capability = function(options)
             {
                 bytes: 4,
                 name: "queue_desc (low dword)",
-                read: () => this.queue_selected ? this.queue_selected.desc_table_addr : 0,
+                read: () => this.queue_selected ? this.queue_selected.desc_addr : 0,
                 write: data =>
                 {
-                    if(this.queue_selected) this.queue_selected.set_desc_table_addr(data);
+                    if(this.queue_selected) this.queue_selected.set_desc_addr(data);
                 },
             },
             {
@@ -603,10 +605,10 @@ VirtIO.prototype.create_common_capability = function(options)
             {
                 bytes: 4,
                 name: "queue_avail (low dword)",
-                read: () => this.queue_selected ? this.queue_selected.avail_ring_addr : 0,
+                read: () => this.queue_selected ? this.queue_selected.avail_addr : 0,
                 write: data =>
                 {
-                    if(this.queue_selected) this.queue_selected.set_avail_ring_addr(data);
+                    if(this.queue_selected) this.queue_selected.set_avail_addr(data);
                 },
             },
             {
@@ -621,10 +623,10 @@ VirtIO.prototype.create_common_capability = function(options)
             {
                 bytes: 4,
                 name: "queue_used (low dword)",
-                read: () => this.queue_selected ? this.queue_selected.used_ring_addr : 0,
+                read: () => this.queue_selected ? this.queue_selected.used_addr : 0,
                 write: data =>
                 {
-                    if(this.queue_selected) this.queue_selected.set_used_ring_addr(data);
+                    if(this.queue_selected) this.queue_selected.set_used_addr(data);
                 },
             },
             {
@@ -1083,9 +1085,9 @@ VirtQueue.prototype.set_size = function(size)
     this.mask = size - 1;
 
     // Data views are now invalidated. Update if already set.
-    if(this.desc) this.set_desc_address(this.desc_addr);
-    if(this.avail) this.set_avail_address(this.avail_addr);
-    if(this.used) this.set_used_address(this.used_addr);
+    if(this.desc) this.set_desc_addr(this.desc_addr);
+    if(this.avail) this.set_avail_addr(this.avail_addr);
+    if(this.used) this.set_used_addr(this.used_addr);
 };
 
 /**
@@ -1189,7 +1191,7 @@ VirtQueue.prototype.flush_replies = function()
 /**
  * @param {number} address
  */
-VirtQueue.prototype.set_desc_address = function(address)
+VirtQueue.prototype.set_desc_addr = function(address)
 {
     this.desc_addr = address;
     this.desc = this.create_desc_table(address);
@@ -1214,7 +1216,7 @@ VirtQueue.prototype.create_desc_table = function(address)
 /**
  * @param {number} address
  */
-VirtQueue.prototype.set_avail_address = function(address)
+VirtQueue.prototype.set_avail_addr = function(address)
 {
     this.avail_addr = address;
     this.avail =
@@ -1229,7 +1231,7 @@ VirtQueue.prototype.set_avail_address = function(address)
 /**
  * @param {number} address
  */
-VirtQueue.prototype.set_used_address = function(address)
+VirtQueue.prototype.set_used_addr = function(address)
 {
     this.used_addr = address;
     this.used =
