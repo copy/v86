@@ -907,9 +907,9 @@ VirtIO.prototype.get_state = function()
     state[5] = this.device_status;
     state[6] = this.config_has_changed;
     state[7] = this.config_generation;
-    state[8] = this.queues;
+    state[8] = this.isr_status;
     state[9] = this.queue_select;
-    state[10] = this.isr_status;
+    state = state.concat(this.queues);
 
     return state;
 };
@@ -924,10 +924,10 @@ VirtIO.prototype.set_state = function(state)
     this.device_status = state[5];
     this.config_has_changed = state[6];
     this.config_generation = state[7];
-    this.queues = state[8];
+    this.isr_status = state[8];
     this.queue_select = state[9];
+    this.queues = state.slice(10);
     this.queue_selected = this.queues[this.queue_select] || null;
-    this.isr_status = state[10];
 };
 
 VirtIO.prototype.reset = function()
@@ -1052,6 +1052,44 @@ function VirtQueue(cpu, virtio, options)
 
     this.reset();
 }
+
+VirtQueue.prototype.get_state = function()
+{
+    var state = [];
+
+    state[0] = this.size;
+    state[1] = this.size_supported;
+    state[2] = this.enabled;
+    state[3] = this.notify_offset;
+    state[4] = this.desc_addr;
+    state[5] = this.avail_addr;
+    state[6] = this.avail_last_idx;
+    state[7] = this.used_addr;
+    state[8] = this.num_staged_replies;
+
+    return state;
+};
+
+VirtQueue.prototype.set_state = function(state)
+{
+    this.size = state[0];
+    this.size_supported = state[1];
+    this.enabled = state[2];
+    this.notify_offset = state[3];
+    this.desc_addr = state[4];
+    this.avail_addr = state[5];
+    this.avail_last_idx = state[6];
+    this.used_addr = state[7];
+    this.num_staged_replies = state[8];
+
+    this.mask = this.size - 1;
+    this.desc = null;
+    this.avail = null;
+    this.used = null;
+    if(this.desc_addr) this.set_desc_addr(this.desc_addr);
+    if(this.avail_addr) this.set_avail_addr(this.avail_addr);
+    if(this.used_addr) this.set_used_addr(this.used_addr);
+};
 
 VirtQueue.prototype.reset = function()
 {

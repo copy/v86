@@ -347,7 +347,7 @@ CPU.prototype.get_state = function()
     this.wm.exports["_store_current_tsc"]();
     state[43] = this.current_tsc;
 
-    state[45] = this.devices.virtio;
+    state[45] = this.devices.virtio_9p;
     state[46] = this.devices.apic;
     state[47] = this.devices.rtc;
     state[48] = this.devices.pci;
@@ -433,7 +433,7 @@ CPU.prototype.set_state = function(state)
 
     this.wm.exports["_set_tsc"](state[43][0], state[43][1]);
 
-    this.devices.virtio = state[45];
+    this.devices.virtio_9p = state[45];
     this.devices.apic = state[46];
     this.devices.rtc = state[47];
     this.devices.pci = state[48];
