@@ -449,11 +449,11 @@ VirtIO.prototype.create_common_capability = function(options)
                     }
                     else
                     {
-                        dbg_log("Device<" + this.name +"> status:" +
+                        dbg_log("Device<" + this.name +"> status: " +
                                 ((data & VIRTIO_STATUS_ACKNOWLEDGE) ? "ACKNOWLEDGE " : "") +
                                 ((data & VIRTIO_STATUS_DRIVER) ? "DRIVER " : "") +
                                 ((data & VIRTIO_STATUS_DRIVER_OK) ? "DRIVER_OK" : "") +
-                                ((data & VIRTIO_STATUS_FEATURES_OK) ? "FEATURES_OK" : "") +
+                                ((data & VIRTIO_STATUS_FEATURES_OK) ? "FEATURES_OK " : "") +
                                 ((data & VIRTIO_STATUS_DEVICE_NEEDS_RESET) ? "DEVICE_NEEDS_RESET" : ""),
                                 LOG_VIRTIO);
                     }
@@ -524,14 +524,14 @@ VirtIO.prototype.create_common_capability = function(options)
                     if(data & data - 1)
                     {
                         dbg_log("Warning: dev<" + this.name +"> " +
-                                "Given queue size was not a power of 2." +
+                                "Given queue size was not a power of 2. " +
                                 "Rounding up to next power of 2.", LOG_VIRTIO);
                         data = 1 << (v86util.int_log2(data - 1) + 1);
                     }
                     if(data > this.queue_selected.size_supported)
                     {
                         dbg_log("Warning: dev<" + this.name +"> " +
-                                "Trying to set queue size greater than supported." +
+                                "Trying to set queue size greater than supported. " +
                                 "Clamping to supported size.", LOG_VIRTIO);
                         data = this.queue_selected.size_supported;
                     }
@@ -572,7 +572,7 @@ VirtIO.prototype.create_common_capability = function(options)
                             dbg_log("Driver bug: tried enabling unconfigured queue", LOG_VIRTIO);
                         }
                     }
-                    else if (data === 0)
+                    else if(data === 0)
                     {
                         dbg_log("Driver bug: tried writing 0 to queue_enable", LOG_VIRTIO);
                     }
@@ -666,7 +666,7 @@ VirtIO.prototype.create_notification_capability = function(options)
         notify_off_multiplier = 2;
     }
 
-    for (var i = 0; i < options.handlers.length; i++)
+    for(var i = 0; i < options.handlers.length; i++)
     {
         notify_struct.push(
         {
@@ -1262,8 +1262,8 @@ VirtQueue.prototype.set_avail_addr = function(address)
     {
         get_flags: () => this.cpu.read16(address),
         get_idx: () => this.cpu.read16(address + 2),
-        get_entry: i => this.cpu.read16(address + 2 + VIRTQ_AVAIL_ENTRYSIZE * i),
-        get_used_event: () => this.cpu.read16(address + 2 + VIRTQ_AVAIL_ENTRYSIZE * this.size),
+        get_entry: i => this.cpu.read16(address + 4 + VIRTQ_AVAIL_ENTRYSIZE * i),
+        get_used_event: () => this.cpu.read16(address + 4 + VIRTQ_AVAIL_ENTRYSIZE * this.size),
     };
 };
 
@@ -1275,13 +1275,13 @@ VirtQueue.prototype.set_used_addr = function(address)
     this.used_addr = address;
     this.used =
     {
-        get_flags: () => this.cpu.read16(address + 0),
+        get_flags: () => this.cpu.read16(address),
         get_idx: () => this.cpu.read16(address + 2),
-        get_entry_id: i => this.cpu.read32s(address + 2 + VIRTQ_USED_ENTRYSIZE * i),
-        set_entry_id: (i, value) => this.cpu.write32(2 + VIRTQ_USED_ENTRYSIZE * i, value),
-        get_entry_len: i => this.cpu.read32s(address + 6 + VIRTQ_USED_ENTRYSIZE * i),
-        set_entry_len: (i, value) => this.cpu.write32(6 + VIRTQ_USED_ENTRYSIZE * i, value),
-        get_avail_event: () => this.cpu.read16(address + 2 + VIRTQ_AVAIL_ENTRYSIZE * this.size),
+        get_entry_id: i => this.cpu.read32s(address + 4 + VIRTQ_USED_ENTRYSIZE * i),
+        set_entry_id: (i, value) => this.cpu.write32(address + 4 + VIRTQ_USED_ENTRYSIZE * i, value),
+        get_entry_len: i => this.cpu.read32s(address + 8 + VIRTQ_USED_ENTRYSIZE * i),
+        set_entry_len: (i, value) => this.cpu.write32(address + 8 + VIRTQ_USED_ENTRYSIZE * i, value),
+        get_avail_event: () => this.cpu.read16(address + 4 + VIRTQ_AVAIL_ENTRYSIZE * this.size),
     };
 };
 
@@ -1323,9 +1323,17 @@ function VirtQueueBufferChain(virtqueue, head_idx)
     var chain_max = virtqueue.size;
     var writable_region = false;
     var has_indirect_feature = this.virtio.is_feature_negotiated(VIRTIO_F_RING_INDIRECT_DESC);
+    dbg_log("<<< Descriptor chain start", LOG_VIRTIO);
     do
     {
         var flags = table.get_flags(desc_idx);
+        var addr_low = table.get_addr_low(desc_idx);
+        var addr_high = table.get_addr_high(desc_idx);
+        var len = table.get_len(desc_idx);
+        var next = table.get_next(desc_idx);
+
+        dbg_log("descriptor: idx=" + desc_idx + " addr=" + h(addr_high, 8) + ":" + h(addr_low, 8) +
+            " len=" + h(len, 8) + " flags=" + h(flags, 4) + " next=" + h(next, 4), LOG_VIRTIO);
 
         if(has_indirect_feature && (flags & VIRTQ_DESC_F_INDIRECT))
         {
@@ -1342,14 +1350,15 @@ function VirtQueueBufferChain(virtqueue, head_idx)
             desc_idx = 0;
             chain_length = 0;
             chain_max = table_length / VIRTQ_DESC_ENTRYSIZE;
+            dbg_log("start indirect", LOG_VIRTIO);
             continue;
         }
 
         var buf =
         {
-            addr_low: table.get_addr_low(desc_idx),
-            addr_high: table.get_addr_high(desc_idx),
-            len: table.get_len(desc_idx),
+            addr_low: addr_low,
+            addr_high: addr_high,
+            len: len,
         };
 
         if(flags & VIRTQ_DESC_F_WRITE)
@@ -1378,7 +1387,7 @@ function VirtQueueBufferChain(virtqueue, head_idx)
 
         if(flags & VIRTQ_DESC_F_NEXT)
         {
-            desc_idx = table.get_next(desc_idx);
+            desc_idx = next;
         }
         else
         {
@@ -1386,6 +1395,7 @@ function VirtQueueBufferChain(virtqueue, head_idx)
         }
     }
     while(true);
+    dbg_log("Descriptor chain end >>>", LOG_VIRTIO);
 }
 
 /**
