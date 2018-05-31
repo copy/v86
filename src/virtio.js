@@ -1238,6 +1238,20 @@ VirtQueue.prototype.flush_replies = function()
 };
 
 /**
+ * If using VIRTIO_F_RING_EVENT_IDX, device must tell driver when
+ * to get notifications or else driver won't notify regularly.
+ * @param {number} num_skipped_requests Zero = get notified in the next request.
+ */
+VirtQueue.prototype.notify_me_after = function(num_skipped_requests)
+{
+    dbg_assert(num_skipped_requests >= 0, "Must skip a non-negative number of requests");
+
+    // The 16 bit idx field wraps around after 2^16
+    var avail_event = this.avail.get_idx() + num_skipped_requests & 0xFFFF;
+    this.used.set_avail_event(avail_event);
+};
+
+/**
  * @param {number} address
  */
 VirtQueue.prototype.set_desc_addr = function(address)
