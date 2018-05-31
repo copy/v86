@@ -1213,13 +1213,14 @@ VirtQueue.prototype.flush_replies = function()
     {
         var used_event = this.avail.get_used_event();
 
-        // Fire irq when idx has reached or gone past used_event.
-        var has_passed = old_idx < used_event && used_event <= new_idx;
+        // Fire irq when idx values associated with the pushed reply buffers
+        // has reached or gone past used_event.
+        var has_passed = old_idx <= used_event && used_event < new_idx;
 
         // Has overflowed? Assumes num_staged_replies > 0.
         if(new_idx <= old_idx)
         {
-            has_passed = used_event <= new_idx || old_idx < used_event;
+            has_passed = used_event < new_idx || old_idx <= used_event;
         }
 
         if(has_passed)
