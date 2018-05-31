@@ -848,13 +848,13 @@ VirtIO.prototype.init_capabilities = function(capabilities)
                 };
                 write = data =>
                 {
-                    field.write(data);
-
                     dbg_log("Device<" + this.name + "> " +
                             "cap[" + cap.type + "] " +
                             "write[" + field.name + "] " +
                             "<= " + h(data, field.bytes * 8),
                         LOG_VIRTIO);
+
+                    field.write(data);
                 };
             }
 
@@ -1009,12 +1009,14 @@ VirtIO.prototype.needs_reset = function()
 
 VirtIO.prototype.raise_irq = function(type)
 {
+    dbg_log("Raise irq " + h(type), LOG_VIRTIO);
     this.isr_status |= type;
     this.pci.raise_irq(this.pci_id);
 };
 
 VirtIO.prototype.lower_irq = function()
 {
+    dbg_log("Lower irq ", LOG_VIRTIO);
     this.isr_status = 0;
     this.pci.lower_irq(this.pci_id);
 };
@@ -1156,6 +1158,9 @@ VirtQueue.prototype.pop_request = function()
     dbg_assert(this.has_request(), "VirtQueue must not pop nonexistent request");
 
     var desc_idx = this.avail.get_entry(this.avail_last_idx);
+    dbg_log("Pop request: avail_last_idx=" + this.avail_last_idx +
+        " desc_idx=" + desc_idx, LOG_VIRTIO);
+
     var bufchain = new VirtQueueBufferChain(this, desc_idx);
 
     this.avail_last_idx = this.avail_last_idx + 1 & this.mask;
@@ -1175,6 +1180,9 @@ VirtQueue.prototype.push_reply = function(bufchain)
     dbg_assert(this.num_staged_replies < this.size, "VirtQueue replies must not exceed queue size");
 
     var used_idx = this.used.get_idx() + this.num_staged_replies & this.mask;
+    dbg_log("Push reply: used_idx=" + used_idx +
+        " desc_idx=" + bufchain.head_idx, LOG_VIRTIO);
+
     this.used.set_entry_id(used_idx, bufchain.head_idx);
     this.used.set_entry_len(used_idx, bufchain.length_written);
     this.num_staged_replies++;
@@ -1190,10 +1198,11 @@ VirtQueue.prototype.flush_replies = function()
 
     if(this.num_staged_replies === 0)
     {
-        // Nothing to flush.
+        dbg_log("flush_replies: Nothing to flush", LOG_VIRTIO);
         return;
     }
 
+    dbg_log("Flushing " + this.num_staged_replies + " replies", LOG_VIRTIO);
     var old_idx = this.used.get_idx();
     var new_idx = old_idx + this.num_staged_replies & VIRTQ_IDX_MASK;
     this.used.set_idx(new_idx);
