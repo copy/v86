@@ -1287,11 +1287,13 @@ VirtQueue.prototype.set_used_addr = function(address)
     {
         get_flags: () => this.cpu.read16(address),
         get_idx: () => this.cpu.read16(address + 2),
+        set_idx: value  => this.cpu.write16(address + 2, value),
         get_entry_id: i => this.cpu.read32s(address + 4 + VIRTQ_USED_ENTRYSIZE * i),
         set_entry_id: (i, value) => this.cpu.write32(address + 4 + VIRTQ_USED_ENTRYSIZE * i, value),
         get_entry_len: i => this.cpu.read32s(address + 8 + VIRTQ_USED_ENTRYSIZE * i),
         set_entry_len: (i, value) => this.cpu.write32(address + 8 + VIRTQ_USED_ENTRYSIZE * i, value),
-        get_avail_event: () => this.cpu.read16(address + 4 + VIRTQ_AVAIL_ENTRYSIZE * this.size),
+        get_avail_event: () => this.cpu.read16(address + 4 + VIRTQ_USED_ENTRYSIZE * this.size),
+        set_avail_event: value => this.cpu.write16(address + 4 + VIRTQ_USED_ENTRYSIZE * this.size, value),
     };
 };
 
@@ -1374,8 +1376,8 @@ function VirtQueueBufferChain(virtqueue, head_idx)
         if(flags & VIRTQ_DESC_F_WRITE)
         {
             writable_region = true;
-            this.read_buffers.push(buf);
-            this.length_readable += buf.len;
+            this.write_buffers.push(buf);
+            this.length_writable += buf.len;
         }
         else
         {
@@ -1384,8 +1386,8 @@ function VirtQueueBufferChain(virtqueue, head_idx)
                 dbg_log("Driver bug: readonly buffer after writeonly buffer within chain", LOG_VIRTIO);
                 break;
             }
-            this.write_buffers.push(buf);
-            this.length_writable += buf.len;
+            this.read_buffers.push(buf);
+            this.length_readable += buf.len;
         }
 
         chain_length++;
