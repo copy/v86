@@ -18,7 +18,7 @@ void free_wasm_table_index(uint16_t wasm_table_index)
     }
 #endif
 
-    assert(wasm_table_index_free_list_count != WASM_TABLE_SIZE);
+    assert(wasm_table_index_free_list_count < WASM_TABLE_SIZE);
     wasm_table_index_free_list[wasm_table_index_free_list_count++] = wasm_table_index;
 
     // It is not strictly necessary to clear the function, but it will fail
@@ -34,10 +34,12 @@ void remove_jit_cache_entry(uint32_t page, int32_t addr_index)
     assert(addr_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
 
     int32_t page_index = page_first_jit_cache_entry[page];
+    bool did_remove = false;
 
     if(page_index == addr_index)
     {
         page_first_jit_cache_entry[page] = jit_cache_arr[addr_index].next_index_same_page;
+        did_remove = true;
     }
     else
     {
@@ -47,11 +49,14 @@ void remove_jit_cache_entry(uint32_t page, int32_t addr_index)
             if(next_index == addr_index)
             {
                 jit_cache_arr[page_index].next_index_same_page = jit_cache_arr[addr_index].next_index_same_page;
+                did_remove = true;
                 break;
             }
             page_index = next_index;
         }
     }
+
+    assert(did_remove);
 }
 
 // remove all entries with the given wasm_table_index from the jit_cache_arr structure
@@ -98,6 +103,19 @@ void remove_jit_cache_wasm_index(int32_t page, uint16_t wasm_table_index)
     }
 }
 
+bool find_u16(uint16_t* array, uint16_t value, int32_t length)
+{
+    for(int32_t i = 0; i < length; i++)
+    {
+        if(array[i] == value)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 __attribute__((noinline))
 void jit_clear_page(uint32_t index)
 {
@@ -105,11 +123,11 @@ void jit_clear_page(uint32_t index)
 
     assert(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
 
-    uint16_t wasm_table_index_to_free[100];
-    int32_t wasm_table_index_to_free_length = 0;
+    uint16_t index_to_free[100];
+    int32_t index_to_free_length = 0;
 
-    uint16_t wasm_table_index_to_pending_free[100];
-    int32_t wasm_table_index_to_pending_free_length = 0;
+    uint16_t index_to_pending_free[100];
+    int32_t index_to_pending_free_length = 0;
 
     page_first_jit_cache_entry[index] = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
     profiler_stat_increment(S_INVALIDATE_PAGE);
@@ -132,40 +150,18 @@ void jit_clear_page(uint32_t index)
         {
             entry->pending = false;
 
-            bool already_inserted = false;
-
-            for(int32_t i = 0; i < wasm_table_index_to_pending_free_length; i++)
+            if(!find_u16(index_to_pending_free, wasm_table_index, index_to_pending_free_length))
             {
-                if(wasm_table_index_to_pending_free[i] == wasm_table_index)
-                {
-                    already_inserted = true;
-                    break;
-                }
-            }
-
-            if(!already_inserted)
-            {
-                assert(wasm_table_index_to_pending_free_length != 100);
-                wasm_table_index_to_pending_free[wasm_table_index_to_pending_free_length++] = wasm_table_index;
+                assert(index_to_pending_free_length < 100);
+                index_to_pending_free[index_to_pending_free_length++] = wasm_table_index;
             }
         }
         else
         {
-            bool already_inserted = false;
-
-            for(int32_t i = 0; i < wasm_table_index_to_free_length; i++)
+            if(!find_u16(index_to_free, wasm_table_index, index_to_free_length))
             {
-                if(wasm_table_index_to_free[i] == wasm_table_index)
-                {
-                    already_inserted = true;
-                    break;
-                }
-            }
-
-            if(!already_inserted)
-            {
-                assert(wasm_table_index_to_free_length != 100);
-                wasm_table_index_to_free[wasm_table_index_to_free_length++] = wasm_table_index;
+                assert(index_to_free_length < 100);
+                index_to_free[index_to_free_length++] = wasm_table_index;
             }
         }
 
@@ -173,14 +169,14 @@ void jit_clear_page(uint32_t index)
     }
     while(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
 
-    for(int32_t i = 0; i < wasm_table_index_to_free_length; i++)
+    for(int32_t i = 0; i < index_to_free_length; i++)
     {
-        free_wasm_table_index(wasm_table_index_to_free[i]);
+        free_wasm_table_index(index_to_free[i]);
     }
 
-    for(int32_t i = 0; i < wasm_table_index_to_pending_free_length; i++)
+    for(int32_t i = 0; i < index_to_pending_free_length; i++)
     {
-        uint16_t wasm_table_index = wasm_table_index_to_pending_free[i];
+        uint16_t wasm_table_index = index_to_pending_free[i];
         assert(wasm_table_index_pending_free_count < WASM_TABLE_SIZE);
         wasm_table_index_pending_free[wasm_table_index_pending_free_count++] = wasm_table_index;
     }
