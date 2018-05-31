@@ -989,7 +989,7 @@ VirtIO.prototype.is_feature_negotiated = function(feature)
 {
     // Feature bits are grouped in 32 bits.
     // Note: earlier we chose not to set invalid features into driver_feature.
-    return this.driver_feature[feature >>> 5] & (1 << (feature & 0x1F)) === 1;
+    return (this.driver_feature[feature >>> 5] & (1 << (feature & 0x1F))) > 0;
 };
 
 /**
