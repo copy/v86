@@ -102,6 +102,8 @@ var VIRTQ_DESC_F_WRITE = 2;
 /** @const */
 var VIRTQ_DESC_F_INDIRECT = 4;
 /** @const */
+var VIRTQ_AVAIL_F_NO_INTERRUPT = 1;
+/** @const */
 var VIRTQ_USED_F_NO_NOTIFY = 1;
 
 // Closure Compiler Types.
@@ -1095,7 +1097,6 @@ VirtQueue.prototype.set_state = function(state)
 
 VirtQueue.prototype.reset = function()
 {
-    this.set_size(this.size_supported);
     this.enabled = false;
     this.desc = null;
     this.desc_addr = 0;
@@ -1105,6 +1106,7 @@ VirtQueue.prototype.reset = function()
     this.used = null;
     this.used_addr = 0;
     this.num_staged_replies = 0;
+    this.set_size(this.size_supported);
 };
 
 VirtQueue.prototype.is_configured = function()
@@ -1230,7 +1232,7 @@ VirtQueue.prototype.flush_replies = function()
     }
     else
     {
-        if(~this.avail.get_flags() & VIRTQ_USED_F_NO_NOTIFY)
+        if(~this.avail.get_flags() & VIRTQ_AVAIL_F_NO_INTERRUPT)
         {
             this.virtio.raise_irq(VIRTIO_ISR_QUEUE);
         }
