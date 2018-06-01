@@ -187,8 +187,8 @@ var VirtIO_DeviceSpecificCapabilityOptions;
  *     device_id: number,
  *     subsystem_device_id: number,
  *     common: VirtIO_CommonCapabilityOptions,
- *     notification: (undefined | VirtIO_NotificationCapabilityOptions),
- *     isr_status: (undefined | VirtIO_ISRCapabilityOptions),
+ *     notification: VirtIO_NotificationCapabilityOptions,
+ *     isr_status: VirtIO_ISRCapabilityOptions,
  *     device_specific: (undefined | VirtIO_DeviceSpecificCapabilityOptions),
  * }}
  */
@@ -222,7 +222,7 @@ function VirtIO(cpu, options)
         // Status - enable capabilities list
         0x10, 0x00,
         // Revision ID
-        0x00,
+        0x01,
         // Prof IF, Subclass, Class code
         0x00, 0x02, 0x00,
         // Cache line size
@@ -268,11 +268,11 @@ function VirtIO(cpu, options)
         // Max latency
         0x00,
     ];
-    // Remaining PCI space is appended by capabilities below.
+    // Remaining PCI space is appended by capabilities further below.
 
     this.pci_id = options.pci_id;
 
-    // PCI bars gets filled in by capabilities below.
+    // PCI bars gets filled in by capabilities further below.
     this.pci_bars = [];
 
     this.name = options.name;
@@ -318,33 +318,29 @@ function VirtIO(cpu, options)
 
     this.isr_status = 0;
 
+    // Verify notification options.
+    if(DEBUG)
+    {
+        var offsets = new Set();
+        for(var offset of this.queues.map(q => q.notify_offset))
+        {
+            offset *= options.notification.single_handler ? 0 : 1;
+            offsets.add(offset);
+            dbg_assert(options.notification.handlers[offset],
+                "VirtIO device<" + this.name + "> every queue's notifier must exist");
+        }
+        options.notification.handlers.forEach((handler, index) =>
+        {
+            dbg_assert(!handler || offsets.has(index),
+                "VirtIO device<" + this.name +"> no defined notify handler should be unused");
+        });
+    }
+
     /** @type {!Array<VirtIO_CapabilityInfo>} */
     var capabilities = [];
     capabilities.push(this.create_common_capability(options.common));
-    if(options.notification)
-    {
-        if(DEBUG)
-        {
-            var offsets = new Set();
-            for(var offset of this.queues.map(q => q.notify_offset))
-            {
-                offsets.add(offset);
-                offset *= options.notification.single_handler ? 0 : 1;
-                dbg_assert(options.notification.handlers[offset],
-                    "VirtIO device<" + this.name + "> every queue's notifier must exist");
-            }
-            options.notification.handlers.forEach((handler, index) =>
-            {
-                dbg_assert(!handler || offsets.has(index),
-                    "VirtIO device<" + this.name +"> no defined notify handler should be unused");
-            });
-        }
-        capabilities.push(this.create_notification_capability(options.notification));
-    }
-    if(options.isr_status)
-    {
-        capabilities.push(this.create_isr_capability(options.isr_status));
-    }
+    capabilities.push(this.create_notification_capability(options.notification));
+    capabilities.push(this.create_isr_capability(options.isr_status));
     if(options.device_specific)
     {
         capabilities.push(this.create_device_specific_capability(options.device_specific));
@@ -383,11 +379,8 @@ VirtIO.prototype.create_common_capability = function(options)
             {
                 bytes: 4,
                 name: "device_feature",
-                read: () => this.device_feature[this.device_feature_select],
-                write: data =>
-                {
-                    this.device_feature[this.device_feature_select] = data;
-                },
+                read: () => this.device_feature[this.device_feature_select] || 0,
+                write: data => { /** read only **/ },
             },
             {
                 bytes: 4,
@@ -401,14 +394,17 @@ VirtIO.prototype.create_common_capability = function(options)
             {
                 bytes: 4,
                 name: "driver_feature",
-                read: () => this.driver_feature[this.driver_feature_select],
+                read: () => this.driver_feature[this.driver_feature_select] || 0,
                 write: data =>
                 {
                     var supported_feature = this.device_feature[this.driver_feature_select];
 
-                    // Note: only set subset of device_features.
-                    // Required for is_feature_negotiated().
-                    this.driver_feature[this.driver_feature_select] = data & supported_feature;
+                    if(this.driver_feature_select < this.driver_feature.length)
+                    {
+                        // Note: only set subset of device_features is set.
+                        // Required in our implementation for is_feature_negotiated().
+                        this.driver_feature[this.driver_feature_select] = data & supported_feature;
+                    }
 
                     // Check that driver features is an inclusive subset of device features.
                     var invalid_bits = data & ~supported_feature;
@@ -598,7 +594,7 @@ VirtIO.prototype.create_common_capability = function(options)
             {
                 bytes: 4,
                 name: "queue_desc (high dword)",
-                read: () => 0, // TODO: 64 bit addresses?
+                read: () => 0,
                 write: data =>
                 {
                     dbg_log("Warning: High dword of 64 bit queue_desc ignored", LOG_VIRTIO);
@@ -616,7 +612,7 @@ VirtIO.prototype.create_common_capability = function(options)
             {
                 bytes: 4,
                 name: "queue_avail (high dword)",
-                read: () => 0, // TODO: 64 bit addresses?
+                read: () => 0,
                 write: data =>
                 {
                     dbg_log("Warning: High dword of 64 bit queue_avail ignored", LOG_VIRTIO);
@@ -634,7 +630,7 @@ VirtIO.prototype.create_common_capability = function(options)
             {
                 bytes: 4,
                 name: "queue_used (high dword)",
-                read: () => 0, // TODO: 64 bit addresses?
+                read: () => 0,
                 write: data =>
                 {
                     dbg_log("Warning: High dword of 64 bit queue_used ignored", LOG_VIRTIO);
@@ -744,7 +740,7 @@ VirtIO.prototype.create_device_specific_capability = function(options)
     var cap =
     {
         type: VIRTIO_PCI_CAP_DEVICE_CFG,
-        bar: 5,
+        bar: 3,
         port: options.initial_port,
         use_mmio: false,
         offset: 0,
@@ -891,11 +887,52 @@ VirtIO.prototype.init_capabilities = function(capabilities)
         });
     });
 
-    // Terminate linked list with null pointer.
-    // The field cap_next is at offset 1.
-    this.pci_space[cap_ptr + 1] = 0;
-};
+    // Terminate linked list with the pci config access capability.
 
+    var cap_len = VIRTIO_PCI_CAP_LENGTH + 4;
+    dbg_assert(cap_next + cap_len <= 256,
+        "VirtIO device<" + this.name + "> can't fit all capabilities into 256byte configspace");
+    this.pci_space[cap_next] = VIRTIO_PCI_CAP_VENDOR;
+    this.pci_space[cap_next + 1] = 0; // cap next (null terminator)
+    this.pci_space[cap_next + 2] = cap_len;
+    this.pci_space[cap_next + 3] = VIRTIO_PCI_CAP_PCI_CFG; // cap type
+    this.pci_space[cap_next + 4] = 0; // bar (written by device)
+    this.pci_space[cap_next + 5] = 0; // Padding.
+    this.pci_space[cap_next + 6] = 0; // Padding.
+    this.pci_space[cap_next + 7] = 0; // Padding.
+
+    // Remaining fields are configured by driver when needed.
+
+    // offset
+    this.pci_space[cap_next + 8] = 0;
+    this.pci_space[cap_next + 9] = 0;
+    this.pci_space[cap_next + 10] = 0;
+    this.pci_space[cap_next + 11] = 0;
+
+    // bar size
+    this.pci_space[cap_next + 12] = 0;
+    this.pci_space[cap_next + 13] = 0;
+    this.pci_space[cap_next + 14] = 0;
+    this.pci_space[cap_next + 15] = 0;
+
+    // cfg_data
+    this.pci_space[cap_next + 16] = 0;
+    this.pci_space[cap_next + 17] = 0;
+    this.pci_space[cap_next + 18] = 0;
+    this.pci_space[cap_next + 19] = 0;
+
+    //
+    // TODO
+    // The pci config access capability is required by spec, but so far, devices
+    // seem to work well without it.
+    // This capability provides a cfg_data field (at cap_next + 16 for 4 bytes)
+    // that acts like a window to the previous bars. The driver writes the bar number,
+    // offset, and length values in this capability, and the cfg_data field should
+    // mirror the data referred by the bar, offset and length. Here, length can be
+    // 1, 2, or 4.
+    //
+    // This requires some sort of pci devicespace read and write handlers.
+};
 
 VirtIO.prototype.get_state = function()
 {
@@ -1242,13 +1279,15 @@ VirtQueue.prototype.flush_replies = function()
 /**
  * If using VIRTIO_F_RING_EVENT_IDX, device must tell driver when
  * to get notifications or else driver won't notify regularly.
+ * If not using VIRTIO_F_RING_EVENT_IDX, driver will ignore avail_event
+ * and notify every request regardless unless NO_NOTIFY is set (TODO implement when needed).
  * @param {number} num_skipped_requests Zero = get notified in the next request.
  */
 VirtQueue.prototype.notify_me_after = function(num_skipped_requests)
 {
     dbg_assert(num_skipped_requests >= 0, "Must skip a non-negative number of requests");
 
-    // The 16 bit idx field wraps around after 2^16
+    // The 16 bit idx field wraps around after 2^16.
     var avail_event = this.avail.get_idx() + num_skipped_requests & 0xFFFF;
     this.used.set_avail_event(avail_event);
 };
