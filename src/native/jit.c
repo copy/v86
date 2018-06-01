@@ -32,6 +32,7 @@ void free_wasm_table_index(uint16_t wasm_table_index)
 void remove_jit_cache_entry(uint32_t page, int32_t addr_index)
 {
     assert(addr_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+    assert(page == (jit_cache_arr[addr_index].start_addr >> 12));
 
     int32_t page_index = page_first_jit_cache_entry[page];
     bool did_remove = false;
