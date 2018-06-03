@@ -296,7 +296,7 @@ function VirtIO(cpu, options)
         this.driver_feature[f >>> 5] |= 1 << (f & 0x1F);
     });
 
-    dbg_assert(options.common.features.indexOf(VIRTIO_F_VERSION_1) !== -1,
+    dbg_assert(options.common.features.includes(VIRTIO_F_VERSION_1),
         "VirtIO device<" + this.name + "> only non-transitional devices are supported");
 
     // Indicates whether driver_feature bits is subset of device_feature bits.
@@ -324,7 +324,7 @@ function VirtIO(cpu, options)
         var offsets = new Set();
         for(var offset of this.queues.map(q => q.notify_offset))
         {
-            offset *= options.notification.single_handler ? 0 : 1;
+            offset = options.notification.single_handler ? 0 : offset;
             offsets.add(offset);
             dbg_assert(options.notification.handlers[offset],
                 "VirtIO device<" + this.name + "> every queue's notifier must exist");
@@ -357,8 +357,7 @@ function VirtIO(cpu, options)
  */
 VirtIO.prototype.create_common_capability = function(options)
 {
-    var cap =
-    {
+    return {
         type: VIRTIO_PCI_CAP_COMMON_CFG,
         bar: 0,
         port: options.initial_port,
@@ -380,7 +379,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 bytes: 4,
                 name: "device_feature",
                 read: () => this.device_feature[this.device_feature_select] || 0,
-                write: data => { /** read only **/ },
+                write: data => { /* read only */ },
             },
             {
                 bytes: 4,
@@ -638,8 +637,6 @@ VirtIO.prototype.create_common_capability = function(options)
             },
         ],
     };
-
-    return cap;
 };
 
 /**
@@ -675,8 +672,7 @@ VirtIO.prototype.create_notification_capability = function(options)
         });
     }
 
-    var cap =
-    {
+    return {
         type: VIRTIO_PCI_CAP_NOTIFY_CFG,
         bar: 1,
         port: options.initial_port,
@@ -691,8 +687,6 @@ VirtIO.prototype.create_notification_capability = function(options)
         ]),
         struct: notify_struct,
     };
-
-    return cap;
 };
 
 /**
@@ -701,8 +695,7 @@ VirtIO.prototype.create_notification_capability = function(options)
  */
 VirtIO.prototype.create_isr_capability = function(options)
 {
-    var cap =
-    {
+    return {
         type: VIRTIO_PCI_CAP_ISR_CFG,
         bar: 2,
         port: options.initial_port,
@@ -724,8 +717,6 @@ VirtIO.prototype.create_isr_capability = function(options)
             },
         ],
     };
-
-    return cap;
 };
 
 /**
@@ -737,8 +728,7 @@ VirtIO.prototype.create_device_specific_capability = function(options)
     dbg_assert(~options.offset & 0x3,
             "VirtIO device<" + this.name + "> device specific cap offset must be 4-byte aligned");
 
-    var cap =
-    {
+    return {
         type: VIRTIO_PCI_CAP_DEVICE_CFG,
         bar: 3,
         port: options.initial_port,
@@ -747,8 +737,6 @@ VirtIO.prototype.create_device_specific_capability = function(options)
         extra: new Uint8Array(0),
         struct: options.struct,
     };
-
-    return cap;
 };
 
 /**
@@ -878,7 +866,8 @@ VirtIO.prototype.init_capabilities = function(capabilities)
                         break;
                     default:
                         dbg_assert(false,
-                            "VirtIO device <" + this.name + "> invalid capability field width");
+                            "VirtIO device <" + this.name + "> invalid capability field width of " +
+                            field.bytes + " bytes");
                         break;
                 }
             }

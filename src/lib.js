@@ -21,6 +21,12 @@ v86util.pad0 = function(str, len)
     return str.padStart(len, "0");
 };
 
+// generates [0, 1, 2, ..., size-1]
+v86util.range = function(size)
+{
+    return Array.from(Array(size).keys());
+};
+
 /**
  * number to hex
  * @param {number} n
