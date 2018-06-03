@@ -268,6 +268,9 @@ function VirtIO(cpu, options)
         // Max latency
         0x00,
     ];
+
+    // Prevent sparse arrays by preallocating.
+    this.pci_space = this.pci_space.concat(v86util.zeros(256 - this.pci_space.length));
     // Remaining PCI space is appended by capabilities further below.
 
     this.pci_id = options.pci_id;
