@@ -5,7 +5,7 @@ process.on("unhandledRejection", exn => { throw exn; });
 const V86 = require("../../build/libv86-debug.js").V86;
 const fs = require("fs");
 
-const test_file = new Uint8Array(fs.readFileSync(__dirname + "/test-file"));
+const test_file = (new Uint8Array(1024*512)).map(v => Math.random() * 256);
 const tests =
 [
     {
@@ -17,7 +17,7 @@ const tests =
         },
         capture_trigger: "start-capture",
         end_trigger: "done-read-existing",
-        end: expected =>
+        end: capture =>
         {
             emulator.read_file("read-existing", function(err, data)
             {
@@ -26,10 +26,13 @@ const tests =
                     console.log("Reading read-existing failed: " + err);
                     process.exit(1);
                 }
+                const expected = capture.replace(/\s/g,'');
                 const actual = Buffer.from(data).toString('base64');
                 if(actual !== expected)
                 {
                     console.log("Fail: Incorrect data");
+                    console.log("Expected:\n", expected);
+                    console.log("Actual:\n", actual);
                     process.exit(1);
                 }
             });
@@ -59,7 +62,7 @@ const tests =
                 }
                 if(data.find(v => v !== 0))
                 {
-                    console.log("Fail: Incorrect data");
+                    console.log("Fail: Incorrect data. Expected all zeros.");
                     process.exit(1);
                 }
             });
@@ -73,12 +76,15 @@ const tests =
         },
         capture_trigger: "start-capture",
         end_trigger: "done-write-new",
-        end: actual  =>
+        end: capture  =>
         {
+            const actual = capture.replace(/\s/g,'');
             const expected = Buffer.from(test_file).toString('base64');
             if(actual !== expected)
             {
                 console.log("Fail: Incorrect data");
+                console.log("Expected:\n", expected);
+                console.log("Actual:\n", actual);
                 process.exit(1);
             }
         },
@@ -150,7 +156,6 @@ emulator.add_listener("serial0-output-char", function(chr)
     if(new_line === tests[test_num].end_trigger)
     {
         const capture_result = capture.slice(0, -1 - tests[test_num].end_trigger.length);
-        console.log("Captured:\n" + capture_result);
 
         tests[test_num].end(capture_result);
         console.log("Passed: " + tests[test_num].name);
@@ -159,7 +164,7 @@ emulator.add_listener("serial0-output-char", function(chr)
         capture = "";
         capturing = false;
 
-        if(test_num > tests.length)
+        if(test_num >= tests.length)
         {
             console.log("Tests finished");
             emulator.stop();
