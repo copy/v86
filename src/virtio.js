@@ -590,7 +590,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 read: () => this.queue_selected ? this.queue_selected.desc_addr : 0,
                 write: data =>
                 {
-                    if(this.queue_selected) this.queue_selected.set_desc_addr(data);
+                    if(this.queue_selected) this.queue_selected.desc_addr = data;
                 },
             },
             {
@@ -608,7 +608,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 read: () => this.queue_selected ? this.queue_selected.avail_addr : 0,
                 write: data =>
                 {
-                    if(this.queue_selected) this.queue_selected.set_avail_addr(data);
+                    if(this.queue_selected) this.queue_selected.avail_addr = data;
                 },
             },
             {
@@ -626,7 +626,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 read: () => this.queue_selected ? this.queue_selected.used_addr : 0,
                 write: data =>
                 {
-                    if(this.queue_selected) this.queue_selected.set_used_addr(data);
+                    if(this.queue_selected) this.queue_selected.used_addr = data;
                 },
             },
             {
@@ -1072,14 +1072,11 @@ function VirtQueue(cpu, virtio, options)
     this.enabled = false;
     this.notify_offset = options.notify_offset;
 
-    this.desc = null;
     this.desc_addr = 0;
 
-    this.avail = null;
     this.avail_addr = 0;
     this.avail_last_idx = 0;
 
-    this.used = null;
     this.used_addr = 0;
     this.num_staged_replies = 0;
 
@@ -1116,23 +1113,14 @@ VirtQueue.prototype.set_state = function(state)
     this.num_staged_replies = state[8];
 
     this.mask = this.size - 1;
-    this.desc = null;
-    this.avail = null;
-    this.used = null;
-    if(this.desc_addr) this.set_desc_addr(this.desc_addr);
-    if(this.avail_addr) this.set_avail_addr(this.avail_addr);
-    if(this.used_addr) this.set_used_addr(this.used_addr);
 };
 
 VirtQueue.prototype.reset = function()
 {
     this.enabled = false;
-    this.desc = null;
     this.desc_addr = 0;
-    this.avail = null;
     this.avail_addr = 0;
     this.avail_last_idx = 0;
-    this.used = null;
     this.used_addr = 0;
     this.num_staged_replies = 0;
     this.set_size(this.size_supported);
@@ -1140,7 +1128,7 @@ VirtQueue.prototype.reset = function()
 
 VirtQueue.prototype.is_configured = function()
 {
-    return this.desc && this.avail && this.used;
+    return this.desc_addr && this.avail_addr && this.used_addr;
 };
 
 VirtQueue.prototype.enable = function()
@@ -1155,11 +1143,6 @@ VirtQueue.prototype.set_size = function(size)
     dbg_assert(size <= this.size_supported, "VirtQueue size must be within supported size");
     this.size = size;
     this.mask = size - 1;
-
-    // Data views are now invalidated. Update if already set.
-    if(this.desc) this.set_desc_addr(this.desc_addr);
-    if(this.avail) this.set_avail_addr(this.avail_addr);
-    if(this.used) this.set_used_addr(this.used_addr);
 };
 
 /**
@@ -1167,8 +1150,8 @@ VirtQueue.prototype.set_size = function(size)
  */
 VirtQueue.prototype.count_requests = function()
 {
-    dbg_assert(this.avail, "VirtQueue addresses must be configured before use");
-    return (this.avail.get_idx() - this.avail_last_idx) & this.mask;
+    dbg_assert(this.avail_addr, "VirtQueue addresses must be configured before use");
+    return (this.avail_get_idx() - this.avail_last_idx) & this.mask;
 };
 
 /**
@@ -1176,8 +1159,8 @@ VirtQueue.prototype.count_requests = function()
  */
 VirtQueue.prototype.has_request = function()
 {
-    dbg_assert(this.avail, "VirtQueue addresses must be configured before use");
-    return (this.avail.get_idx() & this.mask) !== this.avail_last_idx;
+    dbg_assert(this.avail_addr, "VirtQueue addresses must be configured before use");
+    return (this.avail_get_idx() & this.mask) !== this.avail_last_idx;
 };
 
 /**
@@ -1185,10 +1168,10 @@ VirtQueue.prototype.has_request = function()
  */
 VirtQueue.prototype.pop_request = function()
 {
-    dbg_assert(this.avail, "VirtQueue addresses must be configured before use");
+    dbg_assert(this.avail_addr, "VirtQueue addresses must be configured before use");
     dbg_assert(this.has_request(), "VirtQueue must not pop nonexistent request");
 
-    var desc_idx = this.avail.get_entry(this.avail_last_idx);
+    var desc_idx = this.avail_get_entry(this.avail_last_idx);
     dbg_log("Pop request: avail_last_idx=" + this.avail_last_idx +
         " desc_idx=" + desc_idx, LOG_VIRTIO);
 
@@ -1207,15 +1190,14 @@ VirtQueue.prototype.pop_request = function()
  */
 VirtQueue.prototype.push_reply = function(bufchain)
 {
-    dbg_assert(this.used, "VirtQueue addresses must be configured before use");
+    dbg_assert(this.used_addr, "VirtQueue addresses must be configured before use");
     dbg_assert(this.num_staged_replies < this.size, "VirtQueue replies must not exceed queue size");
 
-    var used_idx = this.used.get_idx() + this.num_staged_replies & this.mask;
+    var used_idx = this.used_get_idx() + this.num_staged_replies & this.mask;
     dbg_log("Push reply: used_idx=" + used_idx +
         " desc_idx=" + bufchain.head_idx, LOG_VIRTIO);
 
-    this.used.set_entry_id(used_idx, bufchain.head_idx);
-    this.used.set_entry_len(used_idx, bufchain.length_written);
+    this.used_set_entry(used_idx, bufchain.head_idx, bufchain.length_written);
     this.num_staged_replies++;
 };
 
@@ -1225,7 +1207,7 @@ VirtQueue.prototype.push_reply = function(bufchain)
  */
 VirtQueue.prototype.flush_replies = function()
 {
-    dbg_assert(this.used, "VirtQueue addresses must be configured before use");
+    dbg_assert(this.used_addr, "VirtQueue addresses must be configured before use");
 
     if(this.num_staged_replies === 0)
     {
@@ -1234,15 +1216,15 @@ VirtQueue.prototype.flush_replies = function()
     }
 
     dbg_log("Flushing " + this.num_staged_replies + " replies", LOG_VIRTIO);
-    var old_idx = this.used.get_idx();
+    var old_idx = this.used_get_idx();
     var new_idx = old_idx + this.num_staged_replies & VIRTQ_IDX_MASK;
-    this.used.set_idx(new_idx);
+    this.used_set_idx(new_idx);
 
     this.num_staged_replies = 0;
 
     if(this.virtio.is_feature_negotiated(VIRTIO_F_RING_EVENT_IDX))
     {
-        var used_event = this.avail.get_used_event();
+        var used_event = this.avail_get_used_event();
 
         // Fire irq when idx values associated with the pushed reply buffers
         // has reached or gone past used_event.
@@ -1261,7 +1243,7 @@ VirtQueue.prototype.flush_replies = function()
     }
     else
     {
-        if(~this.avail.get_flags() & VIRTQ_AVAIL_F_NO_INTERRUPT)
+        if(~this.avail_get_flags() & VIRTQ_AVAIL_F_NO_INTERRUPT)
         {
             this.virtio.raise_irq(VIRTIO_ISR_QUEUE);
         }
@@ -1280,68 +1262,78 @@ VirtQueue.prototype.notify_me_after = function(num_skipped_requests)
     dbg_assert(num_skipped_requests >= 0, "Must skip a non-negative number of requests");
 
     // The 16 bit idx field wraps around after 2^16.
-    var avail_event = this.avail.get_idx() + num_skipped_requests & 0xFFFF;
-    this.used.set_avail_event(avail_event);
+    var avail_event = this.avail_get_idx() + num_skipped_requests & 0xFFFF;
+    this.used_set_avail_event(avail_event);
 };
 
 /**
- * @param {number} address
+ * @param {number} table_address The physical address of the start of the desc table.
+ * @param {number} i
  */
-VirtQueue.prototype.set_desc_addr = function(address)
+VirtQueue.prototype.get_descriptor = function(table_address, i)
 {
-    this.desc_addr = address;
-    this.desc = this.create_desc_table(address);
-};
-
-/**
- * @param {number} address
- */
-VirtQueue.prototype.create_desc_table = function(address)
-{
-    var desc_table =
-    {
-        get_addr_low: i => this.cpu.read32s(address + i * VIRTQ_DESC_ENTRYSIZE),
-        get_addr_high: i => this.cpu.read32s(address + i * VIRTQ_DESC_ENTRYSIZE + 4),
-        get_len: i => this.cpu.read32s(address + i * VIRTQ_DESC_ENTRYSIZE + 8),
-        get_flags: i => this.cpu.read16(address + i * VIRTQ_DESC_ENTRYSIZE + 12),
-        get_next: i => this.cpu.read16(address + i * VIRTQ_DESC_ENTRYSIZE + 14),
-    };
-    return desc_table;
-};
-
-/**
- * @param {number} address
- */
-VirtQueue.prototype.set_avail_addr = function(address)
-{
-    this.avail_addr = address;
-    this.avail =
-    {
-        get_flags: () => this.cpu.read16(address),
-        get_idx: () => this.cpu.read16(address + 2),
-        get_entry: i => this.cpu.read16(address + 4 + VIRTQ_AVAIL_ENTRYSIZE * i),
-        get_used_event: () => this.cpu.read16(address + 4 + VIRTQ_AVAIL_ENTRYSIZE * this.size),
+    return {
+        addr_low: this.cpu.read32s(table_address + i * VIRTQ_DESC_ENTRYSIZE),
+        addr_high: this.cpu.read32s(table_address + i * VIRTQ_DESC_ENTRYSIZE + 4),
+        len: this.cpu.read32s(table_address + i * VIRTQ_DESC_ENTRYSIZE + 8),
+        flags: this.cpu.read16(table_address + i * VIRTQ_DESC_ENTRYSIZE + 12),
+        next: this.cpu.read16(table_address + i * VIRTQ_DESC_ENTRYSIZE + 14),
     };
 };
 
-/**
- * @param {number} address
- */
-VirtQueue.prototype.set_used_addr = function(address)
+// Avail ring fields
+
+VirtQueue.prototype.avail_get_flags = function()
 {
-    this.used_addr = address;
-    this.used =
-    {
-        get_flags: () => this.cpu.read16(address),
-        get_idx: () => this.cpu.read16(address + 2),
-        set_idx: value  => this.cpu.write16(address + 2, value),
-        get_entry_id: i => this.cpu.read32s(address + 4 + VIRTQ_USED_ENTRYSIZE * i),
-        set_entry_id: (i, value) => this.cpu.write32(address + 4 + VIRTQ_USED_ENTRYSIZE * i, value),
-        get_entry_len: i => this.cpu.read32s(address + 8 + VIRTQ_USED_ENTRYSIZE * i),
-        set_entry_len: (i, value) => this.cpu.write32(address + 8 + VIRTQ_USED_ENTRYSIZE * i, value),
-        get_avail_event: () => this.cpu.read16(address + 4 + VIRTQ_USED_ENTRYSIZE * this.size),
-        set_avail_event: value => this.cpu.write16(address + 4 + VIRTQ_USED_ENTRYSIZE * this.size, value),
-    };
+    return this.cpu.read16(this.avail_addr);
+};
+
+VirtQueue.prototype.avail_get_idx = function()
+{
+    return this.cpu.read16(this.avail_addr + 2);
+};
+
+VirtQueue.prototype.avail_get_entry = function(i)
+{
+    return this.cpu.read16(this.avail_addr + 4 + VIRTQ_AVAIL_ENTRYSIZE * i);
+};
+
+VirtQueue.prototype.avail_get_used_event = function()
+{
+    return this.cpu.read16(this.avail_addr + 4 + VIRTQ_AVAIL_ENTRYSIZE * this.size);
+};
+
+// Used ring fields
+
+VirtQueue.prototype.used_get_flags = function()
+{
+    return this.cpu.read16(this.used_addr);
+};
+
+VirtQueue.prototype.used_set_flags = function(value)
+{
+    this.cpu.write16(this.used_addr, value);
+};
+
+VirtQueue.prototype.used_get_idx = function()
+{
+    return this.cpu.read16(this.used_addr + 2);
+};
+
+VirtQueue.prototype.used_set_idx = function(value)
+{
+    this.cpu.write16(this.used_addr + 2, value);
+};
+
+VirtQueue.prototype.used_set_entry = function(i, desc_idx, length_written)
+{
+    this.cpu.write32(this.used_addr + 4 + VIRTQ_USED_ENTRYSIZE * i, desc_idx);
+    this.cpu.write32(this.used_addr + 8 + VIRTQ_USED_ENTRYSIZE * i, length_written);
+};
+
+VirtQueue.prototype.used_set_avail_event = function(value)
+{
+    this.cpu.write16(this.used_addr + 4 + VIRTQ_USED_ENTRYSIZE * this.size, value);
 };
 
 /**
@@ -1376,7 +1368,7 @@ function VirtQueueBufferChain(virtqueue, head_idx)
 
     // Traverse chain to discover buffers.
     // - There shouldn't be an excessive amount of descriptor elements.
-    var table = virtqueue.desc;
+    var table_address = virtqueue.desc_addr;
     var desc_idx = head_idx;
     var chain_length = 0;
     var chain_max = virtqueue.size;
@@ -1385,46 +1377,32 @@ function VirtQueueBufferChain(virtqueue, head_idx)
     dbg_log("<<< Descriptor chain start", LOG_VIRTIO);
     do
     {
-        var flags = table.get_flags(desc_idx);
-        var addr_low = table.get_addr_low(desc_idx);
-        var addr_high = table.get_addr_high(desc_idx);
-        var len = table.get_len(desc_idx);
-        var next = table.get_next(desc_idx);
+        var desc = virtqueue.get_descriptor(table_address, desc_idx);
 
-        dbg_log("descriptor: idx=" + desc_idx + " addr=" + h(addr_high, 8) + ":" + h(addr_low, 8) +
-            " len=" + h(len, 8) + " flags=" + h(flags, 4) + " next=" + h(next, 4), LOG_VIRTIO);
+        dbg_log("descriptor: idx=" + desc_idx + " addr=" + h(desc.addr_high, 8) + ":" + h(desc.addr_low, 8) +
+            " len=" + h(desc.len, 8) + " flags=" + h(desc.flags, 4) + " next=" + h(desc.next, 4), LOG_VIRTIO);
 
-        if(has_indirect_feature && (flags & VIRTQ_DESC_F_INDIRECT))
+        if(has_indirect_feature && (desc.flags & VIRTQ_DESC_F_INDIRECT))
         {
-            if(DEBUG && (flags & VIRTQ_DESC_F_NEXT))
+            if(DEBUG && (desc.flags & VIRTQ_DESC_F_NEXT))
             {
                 dbg_log("Driver bug: has set VIRTQ_DESC_F_NEXT flag in an indirect table descriptor", LOG_VIRTIO);
             }
 
-            var table_address = table.get_addr_low(desc_idx);
-            var table_length = table.get_len(desc_idx);
-
             // Carry on using indirect table, starting at first entry.
-            table = virtqueue.create_desc_table(table_address);
+            table_address = desc.addr_low;
             desc_idx = 0;
             chain_length = 0;
-            chain_max = table_length / VIRTQ_DESC_ENTRYSIZE;
+            chain_max = desc.len / VIRTQ_DESC_ENTRYSIZE;
             dbg_log("start indirect", LOG_VIRTIO);
             continue;
         }
 
-        var buf =
-        {
-            addr_low: addr_low,
-            addr_high: addr_high,
-            len: len,
-        };
-
-        if(flags & VIRTQ_DESC_F_WRITE)
+        if(desc.flags & VIRTQ_DESC_F_WRITE)
         {
             writable_region = true;
-            this.write_buffers.push(buf);
-            this.length_writable += buf.len;
+            this.write_buffers.push(desc);
+            this.length_writable += desc.len;
         }
         else
         {
@@ -1433,8 +1411,8 @@ function VirtQueueBufferChain(virtqueue, head_idx)
                 dbg_log("Driver bug: readonly buffer after writeonly buffer within chain", LOG_VIRTIO);
                 break;
             }
-            this.read_buffers.push(buf);
-            this.length_readable += buf.len;
+            this.read_buffers.push(desc);
+            this.length_readable += desc.len;
         }
 
         chain_length++;
@@ -1444,9 +1422,9 @@ function VirtQueueBufferChain(virtqueue, head_idx)
             break;
         }
 
-        if(flags & VIRTQ_DESC_F_NEXT)
+        if(desc.flags & VIRTQ_DESC_F_NEXT)
         {
-            desc_idx = next;
+            desc_idx = desc.next;
         }
         else
         {
