@@ -2,109 +2,63 @@
 
 // http://docs.oasis-open.org/virtio/virtio/v1.0/virtio-v1.0.html
 
-/** @const */
-var VIRTIO_PCI_VENDOR_ID = 0x1AF4;
-/**
- * @const
- * Identifies vendor-specific PCI capability.
- */
-var VIRTIO_PCI_CAP_VENDOR = 0x09;
-/**
- * @const
- * Length (bytes) of VIRTIO_PCI_CAP linked list entry.
- */
-var VIRTIO_PCI_CAP_LENGTH = 16;
+const VIRTIO_PCI_VENDOR_ID = 0x1AF4;
+// Identifies vendor-specific PCI capability.
+const VIRTIO_PCI_CAP_VENDOR = 0x09;
+// Length (bytes) of VIRTIO_PCI_CAP linked list entry.
+const VIRTIO_PCI_CAP_LENGTH = 16;
 
 // Capability types.
 
-/** @const */
-var VIRTIO_PCI_CAP_COMMON_CFG = 1;
-/** @const */
-var VIRTIO_PCI_CAP_NOTIFY_CFG = 2;
-/** @const */
-var VIRTIO_PCI_CAP_ISR_CFG = 3;
-/** @const */
-var VIRTIO_PCI_CAP_DEVICE_CFG = 4;
-/** @const */
-var VIRTIO_PCI_CAP_PCI_CFG = 5;
+const VIRTIO_PCI_CAP_COMMON_CFG = 1;
+const VIRTIO_PCI_CAP_NOTIFY_CFG = 2;
+const VIRTIO_PCI_CAP_ISR_CFG = 3;
+const VIRTIO_PCI_CAP_DEVICE_CFG = 4;
+const VIRTIO_PCI_CAP_PCI_CFG = 5;
 
 // Status bits (device_status values).
 
-/** @const */
-var VIRTIO_STATUS_ACKNOWLEDGE = 1;
-/** @const */
-var VIRTIO_STATUS_DRIVER = 2;
-/** @const */
-var VIRTIO_STATUS_DRIVER_OK = 4;
-/** @const */
-var VIRTIO_STATUS_FEATURES_OK = 8;
-/** @const */
-var VIRTIO_STATUS_DEVICE_NEEDS_RESET = 64;
-/** @const */
-var VIRTIO_STATUS_FAILED = 128;
+const VIRTIO_STATUS_ACKNOWLEDGE = 1;
+const VIRTIO_STATUS_DRIVER = 2;
+const VIRTIO_STATUS_DRIVER_OK = 4;
+const VIRTIO_STATUS_FEATURES_OK = 8;
+const VIRTIO_STATUS_DEVICE_NEEDS_RESET = 64;
+const VIRTIO_STATUS_FAILED = 128;
 
 // ISR bits (isr_status values).
 
-/** @const */
-var VIRTIO_ISR_QUEUE = 1;
-/** @const */
-var VIRTIO_ISR_DEVICE_CFG = 2;
+const VIRTIO_ISR_QUEUE = 1;
+const VIRTIO_ISR_DEVICE_CFG = 2;
 
 // Feature bits (bit positions).
 
-/** @const */
-var VIRTIO_F_RING_INDIRECT_DESC = 28;
-/** @const */
-var VIRTIO_F_RING_EVENT_IDX = 29;
-/** @const */
-var VIRTIO_F_VERSION_1 = 32;
+const VIRTIO_F_RING_INDIRECT_DESC = 28;
+const VIRTIO_F_RING_EVENT_IDX = 29;
+const VIRTIO_F_VERSION_1 = 32;
 
 // Queue struct sizes.
 
-/**
- * @const
- * Size (bytes) of the virtq_desc struct per queue size.
- */
-var VIRTQ_DESC_ENTRYSIZE = 16;
-/**
- * @const
- * Size (bytes) of the virtq_avail struct ignoring ring entries.
- */
-var VIRTQ_AVAIL_BASESIZE = 6;
-/**
- * @const
- * Size (bytes) of the virtq_avail struct per queue size.
- */
-var VIRTQ_AVAIL_ENTRYSIZE = 2;
-/**
- * @const
- * Size (bytes) of the virtq_used struct ignoring ring entries.
- */
-var VIRTQ_USED_BASESIZE = 6;
-/**
- * @const
- * Size (bytes) of the virtq_desc struct per queue size.
- */
-var VIRTQ_USED_ENTRYSIZE = 8;
-/**
- * @const
- * Mask for wrapping the idx field of the virtq_used struct so that the value
- * naturally overflows after 65535 (idx is a word).
- */
-var VIRTQ_IDX_MASK = 0xFFFF;
+// Size (bytes) of the virtq_desc struct per queue size.
+const VIRTQ_DESC_ENTRYSIZE = 16;
+// Size (bytes) of the virtq_avail struct ignoring ring entries.
+const VIRTQ_AVAIL_BASESIZE = 6;
+// Size (bytes) of the virtq_avail struct per queue size.
+const VIRTQ_AVAIL_ENTRYSIZE = 2;
+// Size (bytes) of the virtq_used struct ignoring ring entries.
+const VIRTQ_USED_BASESIZE = 6;
+// Size (bytes) of the virtq_desc struct per queue size.
+const VIRTQ_USED_ENTRYSIZE = 8;
+// Mask for wrapping the idx field of the virtq_used struct so that the value
+// naturally overflows after 65535 (idx is a word).
+const VIRTQ_IDX_MASK = 0xFFFF;
 
 // Queue flags.
 
-/** @const */
-var VIRTQ_DESC_F_NEXT = 1;
-/** @const */
-var VIRTQ_DESC_F_WRITE = 2;
-/** @const */
-var VIRTQ_DESC_F_INDIRECT = 4;
-/** @const */
-var VIRTQ_AVAIL_F_NO_INTERRUPT = 1;
-/** @const */
-var VIRTQ_USED_F_NO_NOTIFY = 1;
+const VIRTQ_DESC_F_NEXT = 1;
+const VIRTQ_DESC_F_WRITE = 2;
+const VIRTQ_DESC_F_INDIRECT = 4;
+const VIRTQ_AVAIL_F_NO_INTERRUPT = 1;
+const VIRTQ_USED_F_NO_NOTIFY = 1;
 
 // Closure Compiler Types.
 
@@ -201,7 +155,7 @@ var VirtIO_Options;
  */
 function VirtIO(cpu, options)
 {
-    var io = cpu.io;
+    const io = cpu.io;
 
     /** @const @type {CPU} */
     this.cpu = cpu;
@@ -287,7 +241,7 @@ function VirtIO(cpu, options)
     // Unspecified upper bound. Assume 4*32=128 bits.
     this.device_feature = new Uint32Array(4);
     this.driver_feature = new Uint32Array(4);
-    options.common.features.forEach((f) =>
+    for(const f of options.common.features)
     {
         dbg_assert(f >= 0,
             "VirtIO device<" + this.name + "> feature bit numbers must be non-negative");
@@ -297,7 +251,7 @@ function VirtIO(cpu, options)
         // Feature bits are grouped in 32 bits.
         this.device_feature[f >>> 5] |= 1 << (f & 0x1F);
         this.driver_feature[f >>> 5] |= 1 << (f & 0x1F);
-    });
+    }
 
     dbg_assert(options.common.features.includes(VIRTIO_F_VERSION_1),
         "VirtIO device<" + this.name + "> only non-transitional devices are supported");
@@ -312,7 +266,7 @@ function VirtIO(cpu, options)
 
     /** @type {!Array<VirtQueue>} */
     this.queues = [];
-    for(var queue_options of options.common.queues)
+    for(const queue_options of options.common.queues)
     {
         this.queues.push(new VirtQueue(cpu, this, queue_options));
     }
@@ -324,23 +278,23 @@ function VirtIO(cpu, options)
     // Verify notification options.
     if(DEBUG)
     {
-        var offsets = new Set();
-        for(var offset of this.queues.map(q => q.notify_offset))
+        const offsets = new Set();
+        for(const offset of this.queues.map(q => q.notify_offset))
         {
-            offset = options.notification.single_handler ? 0 : offset;
-            offsets.add(offset);
-            dbg_assert(options.notification.handlers[offset],
+            const effective_offset = options.notification.single_handler ? 0 : offset;
+            offsets.add(effective_offset);
+            dbg_assert(options.notification.handlers[effective_offset],
                 "VirtIO device<" + this.name + "> every queue's notifier must exist");
         }
-        options.notification.handlers.forEach((handler, index) =>
+        for(const [index, handler] of options.notification.handlers.entries())
         {
             dbg_assert(!handler || offsets.has(index),
                 "VirtIO device<" + this.name +"> no defined notify handler should be unused");
-        });
+        }
     }
 
     /** @type {!Array<VirtIO_CapabilityInfo>} */
-    var capabilities = [];
+    const capabilities = [];
     capabilities.push(this.create_common_capability(options.common));
     capabilities.push(this.create_notification_capability(options.notification));
     capabilities.push(this.create_isr_capability(options.isr_status));
@@ -399,7 +353,7 @@ VirtIO.prototype.create_common_capability = function(options)
                 read: () => this.driver_feature[this.driver_feature_select] || 0,
                 write: data =>
                 {
-                    var supported_feature = this.device_feature[this.driver_feature_select];
+                    const supported_feature = this.device_feature[this.driver_feature_select];
 
                     if(this.driver_feature_select < this.driver_feature.length)
                     {
@@ -409,7 +363,7 @@ VirtIO.prototype.create_common_capability = function(options)
                     }
 
                     // Check that driver features is an inclusive subset of device features.
-                    var invalid_bits = data & ~supported_feature;
+                    const invalid_bits = data & ~supported_feature;
                     this.features_ok = this.features_ok && !invalid_bits;
                 },
             },
@@ -648,8 +602,8 @@ VirtIO.prototype.create_common_capability = function(options)
  */
 VirtIO.prototype.create_notification_capability = function(options)
 {
-    var notify_struct = [];
-    var notify_off_multiplier;
+    const notify_struct = [];
+    let notify_off_multiplier;
 
     if(options.single_handler)
     {
@@ -664,14 +618,14 @@ VirtIO.prototype.create_notification_capability = function(options)
         notify_off_multiplier = 2;
     }
 
-    for(var i = 0; i < options.handlers.length; i++)
+    for(const [i, handler] of options.handlers.entries())
     {
         notify_struct.push(
         {
             bytes: 2,
             name: "notify" + i,
             read: () => 0xFFFF,
-            write: options.handlers[i] || (data => {}),
+            write: handler || (data => {}),
         });
     }
 
@@ -712,7 +666,7 @@ VirtIO.prototype.create_isr_capability = function(options)
                 name: "isr_status",
                 read: () =>
                 {
-                    var isr_status = this.isr_status;
+                    const isr_status = this.isr_status;
                     this.lower_irq();
                     return isr_status;
                 },
@@ -750,14 +704,14 @@ VirtIO.prototype.create_device_specific_capability = function(options)
 VirtIO.prototype.init_capabilities = function(capabilities)
 {
     // Next available offset for capabilities linked list.
-    var cap_next = this.pci_space[0x34] = 0x40;
+    let cap_next = this.pci_space[0x34] = 0x40;
 
     // Current offset.
-    var cap_ptr = cap_next;
+    let cap_ptr = cap_next;
 
-    capabilities.forEach((cap) =>
+    for(const cap of capabilities)
     {
-        var cap_len = VIRTIO_PCI_CAP_LENGTH + cap.extra.length;
+        const cap_len = VIRTIO_PCI_CAP_LENGTH + cap.extra.length;
 
         cap_ptr = cap_next;
         cap_next = cap_ptr + cap_len;
@@ -768,7 +722,7 @@ VirtIO.prototype.init_capabilities = function(capabilities)
         dbg_assert(0 <= cap.bar && cap.bar < 6,
             "VirtIO device<" + this.name + "> capability invalid bar number");
 
-        var bar_size = cap.struct.reduce((bytes, field) => bytes + field.bytes, 0);
+        let bar_size = cap.struct.reduce((bytes, field) => bytes + field.bytes, 0);
         bar_size += cap.offset;
 
         // Round up to next power of 2,
@@ -803,29 +757,29 @@ VirtIO.prototype.init_capabilities = function(capabilities)
         this.pci_space[cap_ptr + 14] = (bar_size >>> 16) & 0xFF;
         this.pci_space[cap_ptr + 15] = bar_size >>> 24;
 
-        for(var i = 0; i < cap.extra.length; i++)
+        for(const [i, extra_byte] of cap.extra.entries())
         {
-            this.pci_space[cap_ptr + 16 + i] = cap.extra[i];
+            this.pci_space[cap_ptr + 16 + i] = extra_byte;
         }
 
-        var bar_offset = 0x10 + 4 * cap.bar;
+        const bar_offset = 0x10 + 4 * cap.bar;
         this.pci_space[bar_offset] = (cap.port & 0xFE) | !cap.use_mmio;
         this.pci_space[bar_offset + 1] = (cap.port >>> 8) & 0xFF;
         this.pci_space[bar_offset + 2] = (cap.port >>> 16) & 0xFF;
         this.pci_space[bar_offset + 3] = (cap.port >>> 24) & 0xFF;
 
-        var port = cap.port + cap.offset;
+        let port = cap.port + cap.offset;
 
-        cap.struct.forEach((field) =>
+        for(const field of cap.struct)
         {
-            var read = field.read;
-            var write = field.write;
+            let read = field.read;
+            let write = field.write;
 
             if(DEBUG)
             {
                 read = () =>
                 {
-                    var val = field.read();
+                    const val = field.read();
 
                     dbg_log("Device<" + this.name + "> " +
                             "cap[" + cap.type + "] " +
@@ -876,12 +830,12 @@ VirtIO.prototype.init_capabilities = function(capabilities)
             }
 
             port += field.bytes;
-        });
-    });
+        }
+    }
 
     // Terminate linked list with the pci config access capability.
 
-    var cap_len = VIRTIO_PCI_CAP_LENGTH + 4;
+    const cap_len = VIRTIO_PCI_CAP_LENGTH + 4;
     dbg_assert(cap_next + cap_len <= 256,
         "VirtIO device<" + this.name + "> can't fit all capabilities into 256byte configspace");
     this.pci_space[cap_next] = VIRTIO_PCI_CAP_VENDOR;
@@ -928,7 +882,7 @@ VirtIO.prototype.init_capabilities = function(capabilities)
 
 VirtIO.prototype.get_state = function()
 {
-    var state = [];
+    let state = [];
 
     state[0] = this.device_feature_select;
     state[1] = this.driver_feature_select;
@@ -973,7 +927,7 @@ VirtIO.prototype.reset = function()
     this.queue_select = 0;
     this.queue_selected = this.queues[0];
 
-    for(var queue of this.queues)
+    for(const queue of this.queues)
     {
         queue.reset();
     }
@@ -1085,7 +1039,7 @@ function VirtQueue(cpu, virtio, options)
 
 VirtQueue.prototype.get_state = function()
 {
-    var state = [];
+    const state = [];
 
     state[0] = this.size;
     state[1] = this.size_supported;
@@ -1171,11 +1125,11 @@ VirtQueue.prototype.pop_request = function()
     dbg_assert(this.avail_addr, "VirtQueue addresses must be configured before use");
     dbg_assert(this.has_request(), "VirtQueue must not pop nonexistent request");
 
-    var desc_idx = this.avail_get_entry(this.avail_last_idx);
+    const desc_idx = this.avail_get_entry(this.avail_last_idx);
     dbg_log("Pop request: avail_last_idx=" + this.avail_last_idx +
         " desc_idx=" + desc_idx, LOG_VIRTIO);
 
-    var bufchain = new VirtQueueBufferChain(this, desc_idx);
+    const bufchain = new VirtQueueBufferChain(this, desc_idx);
 
     this.avail_last_idx = this.avail_last_idx + 1 & this.mask;
 
@@ -1193,7 +1147,7 @@ VirtQueue.prototype.push_reply = function(bufchain)
     dbg_assert(this.used_addr, "VirtQueue addresses must be configured before use");
     dbg_assert(this.num_staged_replies < this.size, "VirtQueue replies must not exceed queue size");
 
-    var used_idx = this.used_get_idx() + this.num_staged_replies & this.mask;
+    const used_idx = this.used_get_idx() + this.num_staged_replies & this.mask;
     dbg_log("Push reply: used_idx=" + used_idx +
         " desc_idx=" + bufchain.head_idx, LOG_VIRTIO);
 
@@ -1216,19 +1170,19 @@ VirtQueue.prototype.flush_replies = function()
     }
 
     dbg_log("Flushing " + this.num_staged_replies + " replies", LOG_VIRTIO);
-    var old_idx = this.used_get_idx();
-    var new_idx = old_idx + this.num_staged_replies & VIRTQ_IDX_MASK;
+    const old_idx = this.used_get_idx();
+    const new_idx = old_idx + this.num_staged_replies & VIRTQ_IDX_MASK;
     this.used_set_idx(new_idx);
 
     this.num_staged_replies = 0;
 
     if(this.virtio.is_feature_negotiated(VIRTIO_F_RING_EVENT_IDX))
     {
-        var used_event = this.avail_get_used_event();
+        const used_event = this.avail_get_used_event();
 
         // Fire irq when idx values associated with the pushed reply buffers
         // has reached or gone past used_event.
-        var has_passed = old_idx <= used_event && used_event < new_idx;
+        let has_passed = old_idx <= used_event && used_event < new_idx;
 
         // Has overflowed? Assumes num_staged_replies > 0.
         if(new_idx <= old_idx)
@@ -1262,7 +1216,7 @@ VirtQueue.prototype.notify_me_after = function(num_skipped_requests)
     dbg_assert(num_skipped_requests >= 0, "Must skip a non-negative number of requests");
 
     // The 16 bit idx field wraps around after 2^16.
-    var avail_event = this.avail_get_idx() + num_skipped_requests & 0xFFFF;
+    const avail_event = this.avail_get_idx() + num_skipped_requests & 0xFFFF;
     this.used_set_avail_event(avail_event);
 };
 
@@ -1368,16 +1322,16 @@ function VirtQueueBufferChain(virtqueue, head_idx)
 
     // Traverse chain to discover buffers.
     // - There shouldn't be an excessive amount of descriptor elements.
-    var table_address = virtqueue.desc_addr;
-    var desc_idx = head_idx;
-    var chain_length = 0;
-    var chain_max = virtqueue.size;
-    var writable_region = false;
-    var has_indirect_feature = this.virtio.is_feature_negotiated(VIRTIO_F_RING_INDIRECT_DESC);
+    let table_address = virtqueue.desc_addr;
+    let desc_idx = head_idx;
+    let chain_length = 0;
+    let chain_max = virtqueue.size;
+    let writable_region = false;
+    const has_indirect_feature = this.virtio.is_feature_negotiated(VIRTIO_F_RING_INDIRECT_DESC);
     dbg_log("<<< Descriptor chain start", LOG_VIRTIO);
     do
     {
-        var desc = virtqueue.get_descriptor(table_address, desc_idx);
+        const desc = virtqueue.get_descriptor(table_address, desc_idx);
 
         dbg_log("descriptor: idx=" + desc_idx + " addr=" + h(desc.addr_high, 8) + ":" + h(desc.addr_low, 8) +
             " len=" + h(desc.len, 8) + " flags=" + h(desc.flags, 4) + " next=" + h(desc.next, 4), LOG_VIRTIO);
@@ -1442,8 +1396,8 @@ function VirtQueueBufferChain(virtqueue, head_idx)
  */
 VirtQueueBufferChain.prototype.get_next_blob = function(dest_buffer)
 {
-    var dest_offset = 0;
-    var remaining = dest_buffer.length;
+    let dest_offset = 0;
+    let remaining = dest_buffer.length;
 
     while(remaining)
     {
@@ -1452,9 +1406,10 @@ VirtQueueBufferChain.prototype.get_next_blob = function(dest_buffer)
             dbg_log("Device<" + this.virtio.name + "> Read more than device-readable buffers has", LOG_VIRTIO);
             break;
         }
-        var buf = this.read_buffers[this.read_buffer_idx];
-        var read_address = buf.addr_low + this.read_buffer_offset;
-        var read_length = buf.len - this.read_buffer_offset;
+
+        const buf = this.read_buffers[this.read_buffer_idx];
+        const read_address = buf.addr_low + this.read_buffer_offset;
+        let read_length = buf.len - this.read_buffer_offset;
 
         if(read_length > remaining)
         {
@@ -1483,8 +1438,8 @@ VirtQueueBufferChain.prototype.get_next_blob = function(dest_buffer)
  */
 VirtQueueBufferChain.prototype.set_next_blob = function(src_buffer)
 {
-    var src_offset = 0;
-    var remaining = src_buffer.length;
+    let src_offset = 0;
+    let remaining = src_buffer.length;
 
     while(remaining)
     {
@@ -1494,11 +1449,9 @@ VirtQueueBufferChain.prototype.set_next_blob = function(src_buffer)
             break;
         }
 
-        var buf = this.write_buffers[this.write_buffer_idx];
-
-        var write_address = buf.addr_low + this.write_buffer_offset;
-        var write_length = buf.len - this.write_buffer_offset;
-        var next_offset = 0;
+        const buf = this.write_buffers[this.write_buffer_idx];
+        const write_address = buf.addr_low + this.write_buffer_offset;
+        let write_length = buf.len - this.write_buffer_offset;
 
         if(write_length > remaining)
         {
@@ -1511,7 +1464,7 @@ VirtQueueBufferChain.prototype.set_next_blob = function(src_buffer)
             this.write_buffer_offset = 0;
         }
 
-        var src_end = src_offset + write_length;
+        const src_end = src_offset + write_length;
         this.cpu.write_blob(src_buffer.subarray(src_offset, src_end), write_address);
 
         src_offset += write_length;
