@@ -277,12 +277,12 @@ function V86Starter(options)
         options["memory_size"] + GUEST_MEMORY_START,
         WASM_TABLE_SIZE,
         wm => {
+            mem = wm.memory.buffer;
+            mem8 = new Uint8Array(mem);
             wm.instance.exports["__post_instantiate"]();
             coverage_logger.init(wm);
             emulator = this.v86 = new v86(this.emulator_bus, wm, new Codegen(wm), coverage_logger);
             cpu = emulator.cpu;
-            mem = wm.memory.buffer;
-            mem8 = new Uint8Array(mem);
 
     // XXX: Leaving unindented to minimize diff; still a part of the cb to load_wasm!
     this.bus.register("emulator-stopped", function()
