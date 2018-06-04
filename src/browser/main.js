@@ -288,6 +288,14 @@
                 filesystem: {},
             },
             {
+                id: "linux4",
+                cdrom: {
+                    "url": HOST + "images/linux4.iso",
+                },
+                name: "Linux",
+                filesystem: {},
+            },
+            {
                 id: "kolibrios",
                 fda: {
                     "url": (ON_LOCALHOST || ON_HTTPS) ?
