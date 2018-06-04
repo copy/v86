@@ -741,6 +741,10 @@ void instr_0F30() {
         case IA32_BIOS_SIGN_ID:
             break;
 
+        case MSR_MISC_FEATURE_ENABLES:
+            // Linux 4, see: https://patchwork.kernel.org/patch/9528279/
+            break;
+
         case IA32_MISC_ENABLE: // Enable Misc. Processor Features
             break;
 
@@ -831,6 +835,13 @@ void instr_0F32() {
         case IA32_BIOS_SIGN_ID:
             break;
 
+        case MSR_PLATFORM_INFO:
+            low = 1 << 8;
+            break;
+
+        case MSR_MISC_FEATURE_ENABLES:
+            break;
+
         case IA32_MISC_ENABLE: // Enable Misc. Processor Features
             low = 1 << 0; // fast string
             break;
@@ -850,8 +861,8 @@ void instr_0F32() {
             break;
 
         default:
+            dbg_log("Unknown msr: %x", index);
             assert(false);
-            //dbg_assert(false, "Unknown msr: " + h(index, 8));
     }
 
     reg32s[EAX] = low;
