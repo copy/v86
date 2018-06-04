@@ -19,7 +19,7 @@ console.error(qemu_version.stdout.toString("utf8"));
 const qemu = spawn(QEMU,
     [
         "-serial", "stdio",
-        "-cdrom", path.join(__dirname, "/../../images/linux3.iso"),
+        "-cdrom", path.join(__dirname, "/../../images/linux4.iso"),
         "-device", "virtio-9p-pci,fsdev=fs9p,mount_tag=host9p",
         "-fsdev", `local,id=fs9p,path=${share_dir_9p},security_model=none`,
         "-display", "none",

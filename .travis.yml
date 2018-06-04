@@ -18,3 +18,4 @@ env:
     - TEST_SUITE=jshint
     - TEST_SUITE=jit-paging
     - TEST_SUITE=expect
+    - TEST_SUITE=devices

@@ -305,6 +305,9 @@ expect-tests: build/libv86-debug.js build/v86-debug.wasm build/libwabt.js
 	make -C tests/expect/tests
 	./tests/expect/run.js
 
+devices-test: build/libv86-debug.js build/v86-debug.wasm
+	./tests/devices/virtio_9p.js
+
 covreport:
 	mkdir -p $(COVERAGE_DIR)/build/
 	$(COVERAGE_DIR)/gen_report.js

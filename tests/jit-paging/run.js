@@ -11,7 +11,7 @@ var test_executable = new Uint8Array(fs.readFileSync(__dirname + "/test-jit"));
 var emulator = new V86({
     bios: { url: __dirname + "/../../bios/seabios.bin" },
     vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
-    cdrom: { url: __dirname + "/../../images/linux3.iso" },
+    cdrom: { url: __dirname + "/../../images/linux4.iso" },
     autostart: true,
     memory_size: 32 * 1024 * 1024,
     filesystem: {},
