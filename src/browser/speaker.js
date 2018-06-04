@@ -148,7 +148,7 @@ function SpeakerMixer(bus, audio_context)
             return;
         }
 
-        source.set_volume(gain);
+        source.set_volume(gain, channel);
     }, this);
 
     bus.register("mixer-gain-left", function(/** number */ decibels)
