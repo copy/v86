@@ -1559,11 +1559,6 @@ static void jit_generate(uint32_t phys_addr)
 
             struct code_cache* entry = create_cache_entry(phys_addr);
 
-            if(!entry)
-            {
-                continue;
-            }
-
             assert(phys_addr);
             entry->start_addr = phys_addr;
             entry->state_flags = state_flags;
