@@ -61,7 +61,7 @@ emulator.add_listener("serial0-output-char", function(chr)
             {
                 emulator.stop();
                 if(err) throw err;
-                let result = new Buffer(data).toString();
+                let result = Buffer.from(data).toString();
                 if(result !== "test_shared passed\ntest_consecutive_written passed\n")
                 {
                     console.error("[!] Error. Result was:\n" + result);

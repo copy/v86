@@ -65,7 +65,7 @@ emulator.add_listener("serial0-output-char", function(chr)
                     process.exit(1);
                 }
                 console.error("Got result, writing to stdout");
-                process.stdout.write(new Buffer(data));
+                process.stdout.write(Buffer.from(data));
                 emulator.stop();
             });
     }
