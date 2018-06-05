@@ -11,7 +11,6 @@
         "ne2k.js state.js virtio.js bus.js elf.js";
 
     var BROWSER_FILES = "main.js screen.js keyboard.js mouse.js serial.js lib.js network.js starter.js worker_bus.js print_stats.js";
-    //var LIB_FILES = "esprima.js walk.js";
     var LIB_FILES = "";
 
     // jor1k stuff
