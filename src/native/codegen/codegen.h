@@ -20,7 +20,7 @@
 // This macro simply does the "i*4" part of the address calculation
 #define SCALE_INDEX_FOR_ARRAY32(array)                                  \
     _Static_assert(                                                     \
-        sizeof(array[0]) == 4,                                          \
+        sizeof((array)[0]) == 4,                                        \
         "codegen: Elements assumed to be 4 bytes."                      \
     );                                                                  \
     /* Shift the index to make it byte-indexed, not array-indexed */    \

@@ -21,8 +21,8 @@ Buffer instruction_body = {
 };
 
 static uint8_t* op_ptr_reset_location;
-static uint32_t import_table_size_reset_value;
-static uint32_t initial_import_count;
+static int32_t import_table_size_reset_value;
+static int32_t import_table_count_reset_value;
 
 static void jit_add_seg_offset(int32_t default_segment);
 static void jit_resolve_modrm32_(int32_t modrm_byte);
@@ -46,16 +46,16 @@ void gen_init(void)
 
     // store state of current pointers etc. so we can reset them later
     op_ptr_reset_location = op.ptr;
-    initial_import_count = *ptr_import_count;
     import_table_size_reset_value = import_table_size;
+    import_table_count_reset_value = import_table_count;
 }
 
 void gen_reset(void)
 {
     op.ptr = op_ptr_reset_location;
     cs.ptr = cs.start;
-    *ptr_import_count = initial_import_count;
     import_table_size = import_table_size_reset_value;
+    import_table_count = import_table_count_reset_value;
 }
 
 uintptr_t gen_finish(int32_t no_of_locals_i32)

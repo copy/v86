@@ -15,8 +15,9 @@ typedef struct Buffer {
 } Buffer;
 
 
-static void inline write_raw_u8(Buffer* buf, uint8_t v)
+static void inline write_raw_u8(Buffer* buf, int32_t v)
 {
+    assert(v >= 0 && v < 0x100);
     assert(buf->ptr < buf->start + buf->len);
     *buf->ptr++ = v;
 }
@@ -64,9 +65,16 @@ static void write_leb_u32(Buffer* buf, uint32_t v)
     } while (v != 0);
 }
 
-static void inline write_fixed_leb16_to_ptr(uint8_t* ptr, uint16_t x)
+static void write_fixed_leb16(Buffer* buf, int32_t x)
 {
-    dbg_assert(x < (1 << 14)); // we have 14 bits of available space in 2 bytes for leb
+    dbg_assert(x >= 0 && x < (1 << 14)); // we have 14 bits of available space in 2 bytes for leb
+    write_raw_u8(buf, (x & 0b1111111) | 0b10000000);
+    write_raw_u8(buf, x >> 7);
+}
+
+static void inline write_fixed_leb16_to_ptr(uint8_t* ptr, int32_t x)
+{
+    dbg_assert(x >= 0 && x < (1 << 14)); // we have 14 bits of available space in 2 bytes for leb
     *(ptr    ) = (x & 0b1111111) | 0b10000000;
     *(ptr + 1) = x >> 7;
 }

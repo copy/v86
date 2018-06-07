@@ -78,15 +78,17 @@ static uint8_t* ptr_import_table_size = (uint8_t*) 0;
 // The import table size is written in leb encoding, which we can't read by simple dereferencing so
 // we store the actual value separately. This is needed since we reserve two bytes for the import
 // table size as it can exceed 127
-// Default value is one as the section starts with containing one byte for the import count
-static uint32_t import_table_size = 1;
+// Default value is two as the section starts with containing two bytes for the import count
+static int32_t import_table_size = 2;
+
+static int32_t import_table_count = 0;
 
 // Goes over the import block to find index of an import entry by function name
 // Returns -1 if not found
 static int32_t get_import_index(char const* fn, uint8_t fn_len)
 {
     uint8_t* offset = ptr_import_entries;
-    for(int32_t i = 0; i < *ptr_import_count; i++)
+    for(int32_t i = 0; i < import_table_count; i++)
     {
         offset += 1; // skip length of module name
         offset += 1; // skip module name itself
@@ -103,10 +105,18 @@ static int32_t get_import_index(char const* fn, uint8_t fn_len)
     return -1;
 }
 
-static void set_import_table_size(uint16_t size)
+static void set_import_table_size(int32_t size)
 {
+    assert(size < 0x4000);
     import_table_size = size;
     write_fixed_leb16_to_ptr(ptr_import_table_size, size);
+}
+
+static void set_import_table_count(int32_t count)
+{
+    assert(count < 0x4000);
+    import_table_count = count;
+    write_fixed_leb16_to_ptr(ptr_import_count, import_table_count);
 }
 
 static void write_import_section_preamble()
@@ -118,6 +128,7 @@ static void write_import_section_preamble()
 
     // same as above but for count of entries
     ptr_import_count = op.ptr;
+    write_raw_u8(&op, 0);
     write_raw_u8(&op, 0);
 
     // here after starts the actual list of imports
@@ -136,31 +147,35 @@ static void write_memory_import()
     write_raw_u8(&op, 0); // memory flag, 0 for no maximum memory limit present
     write_leb_u32(&op, 256); // initial memory length of 256 pages, takes 2 bytes in leb128
 
-    *ptr_import_count += 1;
+    set_import_table_count(import_table_count + 1);
     set_import_table_size(import_table_size + 1 + 1 + 1 + 1 + 1 + 1 + 2);
 }
 
-static uint8_t write_import_entry(char const* fn_name, uint8_t fn_name_len, uint8_t type_index)
+static int32_t write_import_entry(char const* fn_name, uint8_t fn_name_len, uint8_t type_index)
 {
     write_raw_u8(&op, 1); // length of module name
     write_raw_u8(&op, 'e'); // module name
     write_raw_u8(&op, fn_name_len);
+    assert(fn_name_len < 0x80);
     for (uint8_t i = 0; i < fn_name_len; i++)
     {
+        assert(fn_name[i] >= 0);
         write_raw_u8(&op, fn_name[i]);
     }
     write_raw_u8(&op, EXT_FUNCTION);
+    assert(type_index < 0x80);
     write_raw_u8(&op, type_index);
-    *ptr_import_count += 1;
+    set_import_table_count(import_table_count + 1);
 
     set_import_table_size(import_table_size + 1 + 1 + 1 + fn_name_len + 1 + 1);
 
-    return *ptr_import_count - 1;
+    return import_table_count - 1;
 }
 
 static void write_function_section(int32_t count)
 {
     write_raw_u8(&op, SC_FUNCTION);
+    assert(1 + count < 0x80 && count >= 0);
     write_raw_u8(&op, 1 + count); // length of this section
     write_raw_u8(&op, count); // count of signature indices
 
@@ -173,7 +188,7 @@ static void write_function_section(int32_t count)
 static void write_export_section()
 {
     write_raw_u8(&op, SC_EXPORT);
-    write_raw_u8(&op, 1 + 1 + 1 + 1 + 1); // size of this section
+    write_raw_u8(&op, 1 + 1 + 1 + 1 + 2); // size of this section
     write_raw_u8(&op, 1); // count of table: just one function exported
 
     write_raw_u8(&op, 1); // length of exported function name
@@ -183,7 +198,8 @@ static void write_export_section()
     // index of the exported function
     // function space starts with imports. index of last import is import count - 1
     // the last import however is a memory, so we subtract one from that
-    write_raw_u8(&op, *ptr_import_count - 1);
+    assert(import_table_count - 1 < 0x4000 && import_table_count >= 1);
+    write_fixed_leb16(&op, import_table_count - 1);
 }
 
 int32_t get_fn_index(char const* fn, uint8_t fn_len, uint8_t type_index)

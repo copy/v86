@@ -113,13 +113,14 @@ static void inline shr_i32(Buffer* buf)
     write_raw_u8(buf, OP_I32SHRS);
 }
 
-static void inline call_fn(Buffer* buf, uint8_t fn_idx)
+static void inline call_fn(Buffer* buf, int32_t fn_idx)
 {
     write_raw_u8(buf, OP_CALL);
-    write_raw_u8(buf, fn_idx);
+    assert(fn_idx >= 0);
+    write_leb_u32(buf, fn_idx);
 }
 
-static void inline call_fn_with_arg(Buffer* buf, uint8_t fn_idx, int32_t arg0)
+static void inline call_fn_with_arg(Buffer* buf, int32_t fn_idx, int32_t arg0)
 {
     push_i32(buf, arg0);
     call_fn(buf, fn_idx);
