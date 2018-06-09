@@ -513,17 +513,17 @@ void instr_0F22(int32_t r, int32_t creg) {
     switch(creg)
     {
         case 0:
+            //dbg_log("cr0 <- %x", data);
             set_cr0(data);
-            //dbg_log("cr0=" + h(data));
             break;
 
         case 2:
+            dbg_log("cr2 <- %x", data);
             cr[2] = data;
-            //dbg_log("cr2=" + h(data));
             break;
 
         case 3:
-            //dbg_log("cr3=" + h(data));
+            //dbg_log("cr3 <- %x", data);
             data &= ~0b111111100111;
             dbg_assert_message((data & 0xFFF) == 0, "TODO");
             cr[3] = data;
@@ -533,6 +533,8 @@ void instr_0F22(int32_t r, int32_t creg) {
             break;
 
         case 4:
+            dbg_log("cr4 <- %d", cr[4]);
+
             if(data & (1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19 | 0xFFC00000))
             {
                 trigger_gp(0);
@@ -562,7 +564,6 @@ void instr_0F22(int32_t r, int32_t creg) {
                 assert(false);
             }
 
-            //dbg_log("cr4=%d", cr[4]);
             break;
 
         default:
@@ -706,8 +707,7 @@ void instr_0F30() {
 
     if(index != IA32_SYSENTER_ESP)
     {
-        //dbg_log("wrmsr ecx=" + h(index, 8) +
-        //            " data=" + h(high, 8) + ":" + h(low, 8));
+        dbg_log("wrmsr ecx=%x data=%x:%x", index, high, low);
     }
 
     switch(index)
@@ -758,8 +758,8 @@ void instr_0F30() {
             break;
 
         default:
+            dbg_log("Unknown msr: %x", index);
             assert(false);
-            //dbg_assert(false, "Unknown msr: " + h(index, 8));
     }
 }
 
@@ -790,7 +790,7 @@ void instr_0F32() {
 
     int32_t index = reg32s[ECX];
 
-    //dbg_log("rdmsr ecx=" + h(index, 8));
+    dbg_log("rdmsr ecx=%x", index);
 
     int32_t low = 0;
     int32_t high = 0;
