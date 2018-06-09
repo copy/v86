@@ -255,7 +255,6 @@ function gen_instruction_body(encodings, size)
 
                 default_case: {
                     body: [
-                        "assert(false);",
                         "analysis.flags |= JIT_INSTR_BLOCK_BOUNDARY_FLAG;",
                         "analysis.flags |= JIT_INSTR_NO_NEXT_INSTRUCTION_FLAG;",
                     ],

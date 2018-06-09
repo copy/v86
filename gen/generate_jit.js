@@ -297,7 +297,6 @@ function gen_instruction_body(encodings, size)
 
                 default_case: {
                     body: [
-                        "assert(false);",
                         gen_codegen_call("trigger_ud"),
                     ],
                 }
