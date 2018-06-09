@@ -1260,7 +1260,7 @@ static void jit_find_basic_blocks()
                         assert(jump_target);
                         current_block->next_block_addr = jump_target;
 
-                        assert(to_visit_stack_count != 1000);
+                        assert(to_visit_stack_count < 1000);
                         to_visit_stack[to_visit_stack_count++] = jump_target;
                     }
                     else
@@ -1278,12 +1278,12 @@ static void jit_find_basic_blocks()
                 {
                     // conditional jump: continue at next and continue at jump target
 
-                    assert(to_visit_stack_count != 1000);
+                    assert(to_visit_stack_count < 1000);
                     to_visit_stack[to_visit_stack_count++] = *instruction_pointer;
 
                     if(same_page(jump_target, *instruction_pointer))
                     {
-                        assert(to_visit_stack_count != 1000);
+                        assert(to_visit_stack_count < 1000);
                         to_visit_stack[to_visit_stack_count++] = jump_target;
 
                         assert(jump_target);
@@ -1322,9 +1322,10 @@ static void jit_find_basic_blocks()
                     // starting at the next instruction and register it as an
                     // entry point
 
+                    assert(marked_as_entry_count < 1000);
                     marked_as_entry[marked_as_entry_count++] = *instruction_pointer;
 
-                    assert(to_visit_stack_count != 1000);
+                    assert(to_visit_stack_count < 1000);
                     to_visit_stack[to_visit_stack_count++] = *instruction_pointer;
                 }
 
