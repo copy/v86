@@ -18,12 +18,16 @@ int32_t string_get_cycle_count(int32_t size, int32_t address)
 
     if(size < 0)
     {
-        return (address & 0xFFF) >> (-size >> 1);
+        size = -size;
+        address = 0x1000 - address - size;
     }
-    else
-    {
-        return (~address & 0xFFF) >> size;
-    }
+
+    assert((address & (size - 1)) == 0);
+
+    // 1 -> 0; 2 -> 1; 4 -> 2
+    int32_t shift = size >> 1;
+
+    return (0x1000 - (address & 0xFFF)) >> shift;
 }
 
 int32_t string_get_cycle_count2(int32_t size, int32_t addr1, int32_t addr2)
@@ -58,7 +62,7 @@ void movsb_rep()
         phys_src += size;
         cont = --count != 0;
     }
-    while(cont && cycle_counter--);
+    while(cont && --cycle_counter);
     int32_t diff = size * (start_count - count);
     add_reg_asize(EDI, diff);
     add_reg_asize(ESI, diff);
@@ -120,7 +124,7 @@ void movsw_rep()
             phys_src += single_size;
             cont = --count != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
         int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         add_reg_asize(ESI, diff);
@@ -138,7 +142,7 @@ void movsw_rep()
             add_reg_asize(ESI, size);
             cont = decr_ecx_asize() != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
     }
     if(cont)
     {
@@ -196,7 +200,7 @@ void movsd_rep()
             phys_src += single_size;
             cont = --count != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
         int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         add_reg_asize(ESI, diff);
@@ -214,7 +218,7 @@ void movsd_rep()
             add_reg_asize(ESI, size);
             cont = decr_ecx_asize() != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
     }
     if(cont)
     {
@@ -272,7 +276,7 @@ void cmpsb_rep()
         phys_src += size;
         cont = --count != 0 && (data_src == data_dest) == is_repz;
     }
-    while(cont && cycle_counter--);
+    while(cont && --cycle_counter);
     int32_t diff = size * (start_count - count);
     add_reg_asize(EDI, diff);
     add_reg_asize(ESI, diff);
@@ -343,7 +347,7 @@ void cmpsw_rep()
             phys_src += single_size;
             cont = --count != 0 && (data_src == data_dest) == is_repz;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
         int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         add_reg_asize(ESI, diff);
@@ -362,7 +366,7 @@ void cmpsw_rep()
             add_reg_asize(ESI, size);
             cont = decr_ecx_asize() != 0 && (data_src == data_dest) == is_repz;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
     }
     if(cont)
     {
@@ -429,7 +433,7 @@ void cmpsd_rep()
             phys_src += single_size;
             cont = --count != 0 && (data_src == data_dest) == is_repz;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
         int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         add_reg_asize(ESI, diff);
@@ -448,7 +452,7 @@ void cmpsd_rep()
             add_reg_asize(ESI, size);
             cont = decr_ecx_asize() != 0 && (data_src == data_dest) == is_repz;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
     }
     if(cont)
     {
@@ -507,7 +511,7 @@ void stosb_rep()
         phys_dest += size;
         cont = --count != 0;
     }
-    while(cont && cycle_counter--);
+    while(cont && --cycle_counter);
     int32_t diff = size * (start_count - count);
     add_reg_asize(EDI, diff);
     set_ecx_asize(count);
@@ -565,7 +569,7 @@ void stosw_rep()
             phys_dest += single_size;
             cont = --count != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
         int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         set_ecx_asize(count);
@@ -580,7 +584,7 @@ void stosw_rep()
             add_reg_asize(EDI, size);
             cont = decr_ecx_asize() != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
     }
     if(cont)
     {
@@ -635,7 +639,7 @@ void stosd_rep()
             phys_dest += single_size;
             cont = --count != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
         int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         set_ecx_asize(count);
@@ -650,7 +654,7 @@ void stosd_rep()
             add_reg_asize(EDI, size);
             cont = decr_ecx_asize() != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
     }
     if(cont)
     {
@@ -700,7 +704,7 @@ void lodsb_rep()
         phys_src += size;
         cont = --count != 0;
     }
-    while(cont && cycle_counter--);
+    while(cont && --cycle_counter);
     int32_t diff = size * (start_count - count);
     add_reg_asize(ESI, diff);
     set_ecx_asize(count);
@@ -748,7 +752,7 @@ void lodsw_rep()
         add_reg_asize(ESI, size);
         cont = decr_ecx_asize() != 0;
     }
-    while(cont && cycle_counter--);
+    while(cont && --cycle_counter);
     if(cont)
     {
         *instruction_pointer = *previous_ip;
@@ -793,7 +797,7 @@ void lodsd_rep()
         add_reg_asize(ESI, size);
         cont = decr_ecx_asize() != 0;
     }
-    while(cont && cycle_counter--);
+    while(cont && --cycle_counter);
     if(cont)
     {
         *instruction_pointer = *previous_ip;
@@ -845,7 +849,7 @@ void scasb_rep()
         phys_dest += size;
         cont = --count != 0 && (data_src == data_dest) == is_repz;
     }
-    while(cont && cycle_counter--);
+    while(cont && --cycle_counter);
     int32_t diff = size * (start_count - count);
     add_reg_asize(EDI, diff);
     set_ecx_asize(count);
@@ -908,7 +912,7 @@ void scasw_rep()
             phys_dest += single_size;
             cont = --count != 0 && (data_src == data_dest) == is_repz;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
         int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         set_ecx_asize(count);
@@ -923,7 +927,7 @@ void scasw_rep()
             add_reg_asize(EDI, size);
             cont = decr_ecx_asize() != 0 && (data_src == data_dest) == is_repz;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
     }
     if(cont)
     {
@@ -983,7 +987,7 @@ void scasd_rep()
             phys_dest += single_size;
             cont = --count != 0 && (data_src == data_dest) == is_repz;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
         int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         set_ecx_asize(count);
@@ -998,7 +1002,7 @@ void scasd_rep()
             add_reg_asize(EDI, size);
             cont = decr_ecx_asize() != 0 && (data_src == data_dest) == is_repz;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
     }
     if(cont)
     {
@@ -1056,7 +1060,7 @@ void insb_rep()
         phys_dest += size;
         cont = --count != 0;
     }
-    while(cont && cycle_counter--);
+    while(cont && --cycle_counter);
     int32_t diff = size * (start_count - count);
     add_reg_asize(EDI, diff);
     set_ecx_asize(count);
@@ -1119,7 +1123,7 @@ void insw_rep()
             phys_dest += single_size;
             cont = --count != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
         int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         set_ecx_asize(count);
@@ -1134,7 +1138,7 @@ void insw_rep()
             add_reg_asize(EDI, size);
             cont = decr_ecx_asize() != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
     }
     if(cont)
     {
@@ -1194,7 +1198,7 @@ void insd_rep()
             phys_dest += single_size;
             cont = --count != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
         int32_t diff = size * (start_count - count);
         add_reg_asize(EDI, diff);
         set_ecx_asize(count);
@@ -1209,7 +1213,7 @@ void insd_rep()
             add_reg_asize(EDI, size);
             cont = decr_ecx_asize() != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
     }
     if(cont)
     {
@@ -1266,7 +1270,7 @@ void outsb_rep()
         phys_src += size;
         cont = --count != 0;
     }
-    while(cont && cycle_counter--);
+    while(cont && --cycle_counter);
     int32_t diff = size * (start_count - count);
     add_reg_asize(ESI, diff);
     set_ecx_asize(count);
@@ -1328,7 +1332,7 @@ void outsw_rep()
             phys_src += single_size;
             cont = --count != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
         int32_t diff = size * (start_count - count);
         add_reg_asize(ESI, diff);
         set_ecx_asize(count);
@@ -1343,7 +1347,7 @@ void outsw_rep()
             add_reg_asize(ESI, size);
             cont = decr_ecx_asize() != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
     }
     if(cont)
     {
@@ -1402,7 +1406,7 @@ void outsd_rep()
             phys_src += single_size;
             cont = --count != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
         int32_t diff = size * (start_count - count);
         add_reg_asize(ESI, diff);
         set_ecx_asize(count);
@@ -1417,7 +1421,7 @@ void outsd_rep()
             add_reg_asize(ESI, size);
             cont = decr_ecx_asize() != 0;
         }
-        while(cont && cycle_counter--);
+        while(cont && --cycle_counter);
     }
     if(cont)
     {
