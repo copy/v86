@@ -155,7 +155,8 @@ if(cluster.isMaster)
             actions: [
                 {
                     on_text: "~%",
-                    run: "head -c 10000 /dev/urandom > rand; echo test pas''sed\n"
+                    run: "head -c 10000 /dev/urandom > rand; echo test pas''sed\n",
+                    after: 1000,
                 },
             ],
         },
@@ -191,7 +192,7 @@ if(cluster.isMaster)
         {
             name: "Windows 3.0",
             skip_if_disk_image_missing: true,
-            timeout: 120,
+            timeout: 5 * 60,
             cdrom: root_path + "/../v86-images/os/Win30.iso",
             expected_texts: [
                 "Press any key to continue",
