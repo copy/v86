@@ -7,6 +7,8 @@ var TIMEOUT_EXTRA_FACTOR = +process.env.TIMEOUT_EXTRA_FACTOR || 1;
 var MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
 var TEST_NAME = process.env.TEST_NAME;
 
+const VERBOSE = false;
+
 try
 {
     var V86 = require("../../build/libv86.js").V86;
@@ -537,6 +539,7 @@ function run_test(test, done)
                 }
                 else
                 {
+                    if(VERBOSE) console.error("Sending '%s'", action.run);
                     emulator.keyboard_send_text(action.run);
                 }
             }
