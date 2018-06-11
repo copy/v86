@@ -324,7 +324,7 @@ PCI.prototype.pci_write8 = function(address, written)
     }
 
     dbg_assert(!(addr >= 0x10 && addr < 0x2C || addr >= 0x30 && addr < 0x34),
-               "PCI: Expected 32-bit write");
+               "PCI: Expected 32-bit write, got 8-bit (addr: " + h(addr) + ")");
 
     dbg_log("PCI write8 dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
             " value=" + h(written, 2), LOG_PCI);
@@ -348,7 +348,7 @@ PCI.prototype.pci_write16 = function(address, written)
     }
 
     dbg_assert(!(addr >= 0x10 && addr < 0x2C || addr >= 0x30 && addr < 0x34),
-               "PCI: Expected 32-bit write");
+               "PCI: Expected 32-bit write, got 16-bit (addr: " + h(addr) + ")");
 
     dbg_log("PCI writ16 dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
             " value=" + h(written, 4), LOG_PCI);
