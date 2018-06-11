@@ -1623,6 +1623,8 @@ void cycle_internal()
         profiler_start(P_RUN_FROM_CACHE);
         profiler_stat_increment(S_RUN_FROM_CACHE);
 
+        int32_t initial_tsc = *timestamp_counter;
+
         assert(entry->opcode[0] == read8(phys_addr));
 
         uint32_t old_start_address = entry->start_addr;
@@ -1635,6 +1637,8 @@ void cycle_internal()
         //assert(entry->start_addr == old_start_address);
 
         UNUSED(old_start_address);
+
+        profiler_stat_increment_by(S_RUN_FROM_CACHE_STEPS, *timestamp_counter - initial_tsc);
 
         profiler_end(P_RUN_FROM_CACHE);
     }
@@ -1683,7 +1687,11 @@ void cycle_internal()
                 profiler_stat_increment(S_RUN_INTERPRETED_NOT_HOT);
             }
 
+            int32_t initial_tsc = *timestamp_counter;
+
             jit_run_interpreted(phys_addr);
+
+            profiler_stat_increment_by(S_RUN_INTERPRETED_STEPS, *timestamp_counter - initial_tsc);
         }
     }
 

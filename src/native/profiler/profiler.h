@@ -35,7 +35,10 @@ enum stat_name {
     S_RUN_INTERPRETED_NO_BLOCK_BOUNDARY,
     S_RUN_INTERPRETED_NOT_HOT,
 
+    S_RUN_INTERPRETED_STEPS,
+
     S_RUN_FROM_CACHE,
+    S_RUN_FROM_CACHE_STEPS,
     S_CACHE_MISMATCH,
 
     S_DO_RUN,
@@ -66,6 +69,7 @@ void profiler_end(enum profile_name name);
 void profiler_print(void);
 
 void profiler_stat_increment(enum stat_name stat);
+void profiler_stat_increment_by(enum stat_name stat, int32_t by);
 int32_t profiler_stat_get(enum stat_name stat);
 
 // JS import
