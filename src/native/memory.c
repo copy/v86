@@ -126,14 +126,13 @@ void write8(uint32_t addr, int32_t value)
 {
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK;
 
-    jit_dirty_cache_single(addr);
-
     if(in_mapped_range(addr))
     {
         mmap_write8(addr, value);
     }
     else
     {
+        jit_dirty_cache_single(addr);
         mem8[addr] = value;
     }
 }
@@ -142,14 +141,13 @@ void write16(uint32_t addr, int32_t value)
 {
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK;
 
-    jit_dirty_cache_small(addr, addr + 2);
-
     if(in_mapped_range(addr))
     {
         mmap_write16(addr, value);
     }
     else
     {
+        jit_dirty_cache_small(addr, addr + 2);
         *(uint16_t*)(mem8 + addr) = value;
     }
 }
@@ -160,7 +158,6 @@ void write_aligned16(uint32_t addr, uint32_t value)
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK16;
 
     uint32_t phys_addr = addr << 1;
-    jit_dirty_cache_small(phys_addr, phys_addr + 2);
 
     if(in_mapped_range(phys_addr))
     {
@@ -168,6 +165,7 @@ void write_aligned16(uint32_t addr, uint32_t value)
     }
     else
     {
+        jit_dirty_cache_small(phys_addr, phys_addr + 2);
         mem16[addr] = value;
     }
 }
@@ -176,14 +174,13 @@ void write32(uint32_t addr, int32_t value)
 {
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK;
 
-    jit_dirty_cache_small(addr, addr + 4);
-
     if(in_mapped_range(addr))
     {
         mmap_write32(addr, value);
     }
     else
     {
+        jit_dirty_cache_small(addr, addr + 4);
         *(int32_t*)(mem8 + addr) = value;
     }
 }
@@ -194,7 +191,6 @@ void write_aligned32(uint32_t addr, int32_t value)
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK32;
 
     uint32_t phys_addr = addr << 2;
-    jit_dirty_cache_small(phys_addr, phys_addr + 4);
 
     if(in_mapped_range(phys_addr))
     {
@@ -202,6 +198,7 @@ void write_aligned32(uint32_t addr, int32_t value)
     }
     else
     {
+        jit_dirty_cache_small(phys_addr, phys_addr + 4);
         mem32s[addr] = value;
     }
 }
@@ -210,8 +207,6 @@ void write64(uint32_t addr, int64_t value)
 {
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK;
 
-    jit_dirty_cache_small(addr, addr + 8);
-
     if(in_mapped_range(addr))
     {
         mmap_write32(addr + 0, value & 0xFFFFFFFF);
@@ -219,6 +214,7 @@ void write64(uint32_t addr, int64_t value)
     }
     else
     {
+        jit_dirty_cache_small(addr, addr + 8);
         *(int64_t*)(mem8 + addr) = value;
     }
 }
@@ -227,14 +223,13 @@ void write128(uint32_t addr, union reg128 value)
 {
     if(USE_A20 && !*a20_enabled) addr &= A20_MASK;
 
-    jit_dirty_cache_small(addr, addr + 16);
-
     if(in_mapped_range(addr))
     {
         mmap_write128(addr, value.i32[0], value.i32[1], value.i32[2], value.i32[3]);
     }
     else
     {
+        jit_dirty_cache_small(addr, addr + 16);
         *(int64_t*)(mem8 + addr) = value.i64[0];
         *(int64_t*)(mem8 + addr + 8) = value.i64[1];
     }
