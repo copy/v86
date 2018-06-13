@@ -9,6 +9,7 @@
 #include "cpu.h"
 #include "global_pointers.h"
 #include "instructions.h"
+#include "jit.h"
 #include "js_imports.h"
 #include "log.h"
 #include "memory.h"
@@ -17,7 +18,6 @@
 #include "profiler/opstats.h"
 #include "profiler/profiler.h"
 #include "shared.h"
-#include "jit.h"
 
 struct code_cache jit_cache_arr[JIT_CACHE_ARRAY_SIZE] = {
     {
