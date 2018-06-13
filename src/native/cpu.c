@@ -808,7 +808,6 @@ static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
 
     do
     {
-        *previous_ip = *instruction_pointer;
 #if ENABLE_PROFILER_OPSTATS
         gen_opstats(safe_read32s(*instruction_pointer));
 #endif
