@@ -19,6 +19,10 @@
 #include "profiler/profiler.h"
 #include "shared.h"
 
+#if DEBUG
+bool must_not_fault = false;
+#endif
+
 struct code_cache jit_cache_arr[JIT_CACHE_ARRAY_SIZE] = {
     {
         .start_addr = 0,
@@ -129,6 +133,15 @@ void trigger_pagefault(bool write, bool user, bool present)
                 write, user, present, *previous_ip, cr[2]);
         dbg_trace();
     }
+
+#if DEBUG
+    if(must_not_fault)
+    {
+        dbg_log("Unexpected page fault");
+        dbg_trace();
+        assert(false);
+    }
+#endif
 
     if(*page_fault)
     {
@@ -1661,11 +1674,17 @@ void cycle_internal()
             )
           )
         {
+#if DEBUG
+        assert(!must_not_fault); must_not_fault = true;
+#endif
             // don't immediately retry to compile
             hot_code_addresses[address_hash] = 0;
             jit_block_boundary = false;
 
             jit_generate(phys_addr);
+#if DEBUG
+        assert(must_not_fault); must_not_fault = false;
+#endif
         }
         else
         {
