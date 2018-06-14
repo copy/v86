@@ -1189,8 +1189,9 @@ int32_t to_visit_stack[1000];
 int32_t marked_as_entry[1000];
 
 // populates the basic_blocks global variable
-static void jit_find_basic_blocks()
+static void jit_find_basic_blocks(bool* requires_loop_limit)
 {
+    *requires_loop_limit = false;
     int32_t start = *instruction_pointer;
 
     basic_blocks.length = 0;
@@ -1300,6 +1301,14 @@ static void jit_find_basic_blocks()
 
                         assert(jump_target);
                         current_block->next_block_branch_taken_addr = jump_target;
+
+                        // Very simple heuristic for "infinite loops": This
+                        // detects Linux's "calibrating delay loop"
+                        if(jump_target == current_block->addr)
+                        {
+                            dbg_log("Basic block looping back to front");
+                            *requires_loop_limit = true;
+                        }
                     }
                     else
                     {
@@ -1391,8 +1400,10 @@ static void jit_generate(uint32_t phys_addr)
 
     int32_t first_opcode = read8(get_phys_eip());
 
+    bool requires_loop_limit = false;
+
     // populate basic_blocks
-    jit_find_basic_blocks();
+    jit_find_basic_blocks(&requires_loop_limit);
 
     // Code generation starts here
     gen_reset();
@@ -1408,19 +1419,23 @@ static void jit_generate(uint32_t phys_addr)
     // main state machine loop
     gen_loop_void();
 
-    // decrement max_iterations
-    gen_get_local(GEN_LOCAL_ITERATION_COUNTER);
-    gen_const_i32(-1);
-    gen_add_i32();
-    gen_set_local(GEN_LOCAL_ITERATION_COUNTER);
+    if(JIT_ALWAYS_USE_LOOP_SAFETY || requires_loop_limit)
+    {
+        profiler_stat_increment(S_COMPILE_WITH_LOOP_SAFETY);
 
+        // decrement max_iterations
+        gen_get_local(GEN_LOCAL_ITERATION_COUNTER);
+        gen_const_i32(-1);
+        gen_add_i32();
+        gen_set_local(GEN_LOCAL_ITERATION_COUNTER);
 
-    // if max_iterations == 0: return
-    gen_get_local(GEN_LOCAL_ITERATION_COUNTER);
-    gen_eqz_i32();
-    gen_if_void();
-    gen_return();
-    gen_block_end();
+        // if max_iterations == 0: return
+        gen_get_local(GEN_LOCAL_ITERATION_COUNTER);
+        gen_eqz_i32();
+        gen_if_void();
+        gen_return();
+        gen_block_end();
+    }
 
     gen_block_void(); // for the default case
 

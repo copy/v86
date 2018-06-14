@@ -24,6 +24,7 @@ const print_stats = {
             "COMPILE",
             "COMPILE_SUCCESS",
             "COMPILE_CUT_OFF_AT_END_OF_PAGE",
+            "COMPILE_WITH_LOOP_SAFETY",
             "COMPILE_BASIC_BLOCK",
             "COMPILE_ENTRY_POINT",
             "RUN_INTERPRETED",
