@@ -1798,6 +1798,13 @@ void do_many_cycles_unsafe()
 void raise_exception(int32_t interrupt_nr)
 {
 #if DEBUG
+    if(must_not_fault)
+    {
+        dbg_log("Unexpected fault: 0x%x", interrupt_nr);
+        dbg_trace();
+        assert(false);
+    }
+
     if(cpu_exception_hook(interrupt_nr))
     {
         throw_cpu_exception();
@@ -1811,6 +1818,13 @@ void raise_exception(int32_t interrupt_nr)
 void raise_exception_with_code(int32_t interrupt_nr, int32_t error_code)
 {
 #if DEBUG
+    if(must_not_fault)
+    {
+        dbg_log("Unexpected fault: 0x%x with code 0x%x", interrupt_nr, error_code);
+        dbg_trace();
+        assert(false);
+    }
+
     if(cpu_exception_hook(interrupt_nr))
     {
         throw_cpu_exception();
