@@ -612,7 +612,9 @@ int32_t modrm_resolve(int32_t modrm_byte)
 void modrm_skip(int32_t modrm_byte)
 {
     // TODO: More efficient implementation is possible
+    *prefixes |= SEG_PREFIX_ZERO;
     modrm_resolve(modrm_byte);
+    *prefixes &= ~SEG_PREFIX_ZERO;
 }
 
 uint32_t jit_hot_hash_page(uint32_t page)
