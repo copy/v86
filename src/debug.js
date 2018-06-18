@@ -533,6 +533,7 @@ CPU.prototype.debug_init = function()
 
             if(!entry)
             {
+                dbg_log("Not present: " + h((i << 22) >>> 0, 8));
                 continue;
             }
 

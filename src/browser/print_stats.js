@@ -185,6 +185,11 @@ const print_stats = {
         }
         text += "Total: " + total + "\n";
 
+        if(total === 0)
+        {
+            return "";
+        }
+
         for(let [i, count] of counts)
         {
             if((i & 0xFF00) === 0)

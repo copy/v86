@@ -10,7 +10,7 @@
 var DEBUG = true;
 
 /** @const
- * Also needs to be set in const.h
+ * Also needs to be set in config.h
  */
 var ENABLE_PROFILER = true;
 

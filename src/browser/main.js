@@ -762,18 +762,21 @@
             var panel = document.createElement("pre");
             document.body.appendChild(panel);
 
-            setInterval(function()
-                {
-                    if(!emulator.is_running())
+            if(ENABLE_PROFILER)
+            {
+                setInterval(function()
                     {
-                        return;
-                    }
+                        if(!emulator.is_running())
+                        {
+                            return;
+                        }
 
-                    const text = print_stats.stats_to_string(emulator.v86.cpu);
-                    panel.textContent = text;
+                        const text = print_stats.stats_to_string(emulator.v86.cpu);
+                        panel.textContent = text;
 
-                    CLEAR_STATS && emulator.v86.cpu.wm.exports["_profiler_init"]();
-                }, CLEAR_STATS ? 5000 : 1000);
+                        CLEAR_STATS && emulator.v86.cpu.wm.exports["_profiler_init"]();
+                    }, CLEAR_STATS ? 5000 : 1000);
+            }
 
             init_ui(settings, emulator);
 
