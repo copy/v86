@@ -17,7 +17,7 @@
 #define USE_A20 false
 
 // Mask used to map physical address to index in cache array
-#define JIT_CACHE_ARRAY_SIZE 0x10000
+#define JIT_CACHE_ARRAY_SIZE 0x40000
 #define JIT_CACHE_ARRAY_MASK (JIT_CACHE_ARRAY_SIZE - 1)
 
 #define HASH_PRIME 6151

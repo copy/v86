@@ -366,7 +366,7 @@ const P_RUN_INTERPRETED = 4;
 var WASM_TABLE_SIZE = 0x10000;
 
 /** @const */
-var JIT_CACHE_ARRAY_SIZE = 0x10000;
+var JIT_CACHE_ARRAY_SIZE = 0x40000;
 
 
 /** @const */
