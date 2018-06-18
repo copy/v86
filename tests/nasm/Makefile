@@ -19,7 +19,7 @@ build/%.bin: build/%.o
 
 # To use as a multiboot kernel image for v86
 build/%.img: build/%.o
-	ld -g $< -m elf_i386 --section-start=.bss=0x100000 --section-start=.text=0x8000 -o $@
+	ld -g $< -m elf_i386 --section-start=.bss=0x100000 --section-start=.text=0x8000 --section-start=.multiboot=0x200 -o $@
 
 build/%.asm: %.asm
 	mkdir -p build; cp $< $@
