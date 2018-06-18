@@ -104,7 +104,7 @@ void remove_jit_cache_wasm_index(int32_t page, uint16_t wasm_table_index)
     }
 }
 
-bool find_u16(uint16_t* array, uint16_t value, int32_t length)
+bool find_u16(const uint16_t* array, uint16_t value, int32_t length)
 {
     for(int32_t i = 0; i < length; i++)
     {
