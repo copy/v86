@@ -158,6 +158,7 @@ void trigger_pagefault(bool write, bool user, bool present)
     *page_fault = true;
     call_interrupt_vector(14, false, true, user << 2 | write << 1 | present);
 
+    profiler_stat_increment(S_TRIGGER_CPU_EXCEPTION);
     throw_cpu_exception();
 }
 
@@ -1812,6 +1813,7 @@ void raise_exception(int32_t interrupt_nr)
         return;
     }
 #endif
+    profiler_stat_increment(S_TRIGGER_CPU_EXCEPTION);
     call_interrupt_vector(interrupt_nr, false, false, 0);
     throw_cpu_exception();
 }
@@ -1832,6 +1834,7 @@ void raise_exception_with_code(int32_t interrupt_nr, int32_t error_code)
         return;
     }
 #endif
+    profiler_stat_increment(S_TRIGGER_CPU_EXCEPTION);
     call_interrupt_vector(interrupt_nr, false, true, error_code);
     throw_cpu_exception();
 }
