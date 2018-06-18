@@ -21,6 +21,8 @@ const os = require("os");
 const cluster = require("cluster");
 
 const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 99;
+const TEST_NAME = process.env.TEST_NAME;
+
 const TEST_DIR = __dirname + "/build/";
 const DONE_MSG = "DONE";
 const TERMINATE_MSG = "DONE";
@@ -103,6 +105,8 @@ if(cluster.isMaster)
         return name.endsWith(".asm");
     }).map(name => {
         return name.slice(0, -4);
+    }).filter(name => {
+        return !TEST_NAME || name === TEST_NAME;
     });
 
     const tests = files.map(name => {
