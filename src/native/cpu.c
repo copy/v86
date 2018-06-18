@@ -164,6 +164,8 @@ void trigger_pagefault(bool write, bool user, bool present)
 
 int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
 {
+    assert(*paging);
+
     int32_t page = (uint32_t)addr >> 12;
     int32_t page_dir_addr = ((uint32_t)cr[3] >> 2) + (page >> 10);
     int32_t page_dir_entry = read_aligned32(page_dir_addr);
