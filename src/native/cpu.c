@@ -1598,6 +1598,7 @@ static void jit_generate(uint32_t phys_addr)
             entry->opcode[0] = read8(phys_addr);
             entry->end_addr = block->end_addr;
             entry->len = block->end_addr - block->addr;
+            entry->virt_addr = *instruction_pointer & ~0xFFF | phys_addr & 0xFFF;
 #endif
 
             entry_point_count++;

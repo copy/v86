@@ -45,6 +45,7 @@ struct code_cache {
     uint32_t end_addr;
     int32_t opcode[1];
     int32_t len;
+    int32_t virt_addr;
 #endif
 
     // an index into jit_cache_arr for the next code_cache entry within the same physical page
