@@ -120,6 +120,7 @@ bool find_u16(const uint16_t* array, uint16_t value, int32_t length)
 __attribute__((noinline))
 void jit_clear_page(uint32_t index)
 {
+    assert(index < MAX_PHYSICAL_PAGES);
     int32_t cache_array_index = page_first_jit_cache_entry[index];
 
     assert(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
@@ -187,11 +188,37 @@ void jit_clear_page(uint32_t index)
 
 void jit_dirty_index(uint32_t index)
 {
+    assert(index < MAX_PHYSICAL_PAGES);
     int32_t cache_array_index = page_first_jit_cache_entry[index];
 
     if(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
     {
         jit_clear_page(index);
+    }
+
+    uint16_t* entry_points = page_entry_points[index];
+
+    if(entry_points[0] != ENTRY_POINT_END)
+    {
+        // don't try to compile code in this page anymore until it's hot again
+        hot_code_addresses[jit_hot_hash_page(index)] = 0;
+
+        for(int32_t i = 0; i < MAX_ENTRIES_PER_PAGE; i++)
+        {
+            if(entry_points[i] == ENTRY_POINT_END)
+            {
+                break;
+            }
+
+            entry_points[i] = ENTRY_POINT_END;
+        }
+
+#if DEBUG
+        for(int32_t i = 0; i < MAX_ENTRIES_PER_PAGE; i++)
+        {
+            assert(entry_points[i] == ENTRY_POINT_END);
+        }
+#endif
     }
 }
 
@@ -260,6 +287,16 @@ void jit_empty_cache()
     for(int32_t i = 0; i < GROUP_DIRTINESS_LENGTH; i++)
     {
         page_first_jit_cache_entry[i] = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
+    }
+
+    for(int32_t i = 0; i < MAX_PHYSICAL_PAGES; i++)
+    {
+        uint16_t* entry_points = page_entry_points[i];
+
+        for(int32_t j = 0; j < MAX_ENTRIES_PER_PAGE; j++)
+        {
+            entry_points[j] = ENTRY_POINT_END;
+        }
     }
 
     for(int32_t i = 0; i < 0xFFFF; i++)

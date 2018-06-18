@@ -19,6 +19,9 @@
 #include "profiler/profiler.h"
 #include "shared.h"
 
+// TODO: Use sparse structure
+uint16_t page_entry_points[MAX_PHYSICAL_PAGES][MAX_ENTRIES_PER_PAGE] = { { 0 } };
+
 #if DEBUG
 bool must_not_fault = false;
 #endif
@@ -56,6 +59,47 @@ int32_t wasm_table_index_pending_free_count = 0;
 
 int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX] = {0};
 int32_t valid_tlb_entries_count = 0;
+
+static bool is_near_end_of_page(uint32_t addr);
+
+void record_page_entry(uint32_t phys_addr)
+{
+    if(is_near_end_of_page(phys_addr))
+    {
+        return;
+    }
+
+    uint32_t page = phys_addr >> 12;
+
+    assert(page < MAX_PHYSICAL_PAGES);
+    uint16_t* entry_points = page_entry_points[page];
+
+    uint16_t entry_point = phys_addr & 0xFFF;
+    assert(entry_point != ENTRY_POINT_END);
+
+    bool did_insert_or_find = false;
+
+    for(int32_t i = 0; i < MAX_ENTRIES_PER_PAGE; i++)
+    {
+        if(entry_points[i] == ENTRY_POINT_END)
+        {
+            entry_points[i] = entry_point;
+            did_insert_or_find = true;
+            break;
+        }
+        else if(entry_points[i] == entry_point)
+        {
+            did_insert_or_find = true;
+            break;
+        }
+    }
+
+    if(!did_insert_or_find)
+    {
+        // page entry list full :(
+        //assert(false);
+    }
+}
 
 int32_t get_wasm_table_index_free_list_count(void)
 {
@@ -571,9 +615,9 @@ void modrm_skip(int32_t modrm_byte)
     modrm_resolve(modrm_byte);
 }
 
-uint32_t jit_hot_hash(uint32_t addr)
+uint32_t jit_hot_hash_page(uint32_t page)
 {
-    return addr % HASH_PRIME;
+    return page % HASH_PRIME;
 }
 
 static void jit_run_interpreted(int32_t phys_addr)
@@ -583,31 +627,14 @@ static void jit_run_interpreted(int32_t phys_addr)
 
     jit_block_boundary = false;
 
-#if DUMP_UNCOMPILED_ASSEMBLY
-    int32_t start_eip = phys_addr;
-    int32_t end_eip = start_eip;
-#endif
-
     assert(!in_mapped_range(phys_addr));
     int32_t opcode = mem8[phys_addr];
     (*instruction_pointer)++;
     (*timestamp_counter)++;
 
-#if DEBUG
-    logop(previous_ip[0], opcode);
-#endif
-
     run_instruction(opcode | !!*is_32 << 8);
 
-#if DUMP_UNCOMPILED_ASSEMBLY
-    if(!jit_block_boundary)
-    {
-        *previous_ip = *instruction_pointer;
-        end_eip = get_phys_eip();
-    }
-#endif
-
-    while(!jit_block_boundary)
+    while(!jit_block_boundary && same_page(*previous_ip, *instruction_pointer))
     {
         previous_ip[0] = instruction_pointer[0];
         (*timestamp_counter)++;
@@ -618,19 +645,8 @@ static void jit_run_interpreted(int32_t phys_addr)
     logop(previous_ip[0], opcode);
 #endif
         run_instruction(opcode | !!*is_32 << 8);
-
-#if DUMP_UNCOMPILED_ASSEMBLY
-        if(!jit_block_boundary)
-        {
-            *previous_ip = *instruction_pointer;
-            end_eip = get_phys_eip();
-        }
-#endif
     }
 
-#if DUMP_UNCOMPILED_ASSEMBLY
-    log_uncompiled_code(start_eip, end_eip);
-#endif
     profiler_end(P_RUN_INTERPRETED);
 }
 
@@ -876,7 +892,17 @@ static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
     }
     while(!was_block_boundary &&
             !is_near_end_of_page(*instruction_pointer) &&
-            *instruction_pointer != stop_addr);
+            *instruction_pointer < stop_addr);
+
+    if(*instruction_pointer != stop_addr)
+    {
+        // Overlapping basic blocks: This can happen as we only track basic
+        // blocks, not individual instructions, and basic blocks sometimes need
+        // to be split.
+        // Happens for example when a jump is performed into the middle of an instruction
+        dbg_log("Overlapping basic blocks: start %x eip %x stop %x",
+                start_addr, *instruction_pointer, stop_addr);
+    }
 
 #if ENABLE_JIT_NONFAULTING_OPTIMZATION
     // When the block ends in a non-jump instruction, we may have uncommitted updates still
@@ -1143,6 +1169,8 @@ struct basic_block* add_basic_block_start(struct basic_block_list* basic_blocks,
             // Split the previous block as it would overlap otherwise; change
             // it to continue at this block
 
+            // XXX: May do invalid split here. For example, a jump into the middle of an instruction
+            //      jit_generate_basic_block handles this correctly
             previous_block->end_addr = addr;
             previous_block->next_block_addr = addr;
             previous_block->condition_index = -1;
@@ -1192,20 +1220,47 @@ int32_t to_visit_stack[1000];
 int32_t marked_as_entry[1000];
 
 // populates the basic_blocks global variable
-static void jit_find_basic_blocks(bool* requires_loop_limit)
+static bool jit_find_basic_blocks(uint32_t phys_addr, bool* requires_loop_limit)
 {
     *requires_loop_limit = false;
-    int32_t start = *instruction_pointer;
-
     basic_blocks.length = 0;
 
     // keep a stack of locations to visit that are part of the current control flow
 
     int32_t to_visit_stack_count = 0;
-    to_visit_stack[to_visit_stack_count++] = *instruction_pointer;
-
     int32_t marked_as_entry_count = 0;
-    marked_as_entry[marked_as_entry_count++] = *instruction_pointer;
+
+    uint32_t page = phys_addr >> 12;
+    int32_t base_address = *instruction_pointer & ~0xFFF;
+    uint16_t* entry_points = page_entry_points[page];
+
+    for(int32_t i = 0; i < MAX_ENTRIES_PER_PAGE; i++)
+    {
+        if(entry_points[i] == ENTRY_POINT_END)
+        {
+            if(i == 0)
+            {
+                return false;
+            }
+
+            break;
+        }
+
+        assert((entry_points[i] & ~0xFFF) == 0);
+
+        int32_t address = base_address | entry_points[i];
+
+        assert(!is_near_end_of_page(address));
+
+        assert(to_visit_stack_count < 1000);
+        to_visit_stack[to_visit_stack_count++] = address;
+        assert(marked_as_entry_count < 1000);
+        marked_as_entry[marked_as_entry_count++] = address;
+
+        entry_points[i] = ENTRY_POINT_END;
+    }
+
+    assert(to_visit_stack_count >= 1);
 
     while(to_visit_stack_count)
     {
@@ -1379,18 +1434,24 @@ static void jit_find_basic_blocks(bool* requires_loop_limit)
 
     if(DEBUG)
     {
+        int32_t start = basic_blocks.blocks[0].addr;
         int32_t end = basic_blocks.blocks[basic_blocks.length - 1].end_addr;
 
-        dbg_log("Function with %d basic blocks, start at %x end at %x",
-                basic_blocks.length, start, end);
+        if(true)
+        {
+            dbg_log("Function with %d basic blocks, start at %x end at %x",
+                    basic_blocks.length, start, end);
+        }
 
         //for(int32_t i = 0; i < basic_blocks.length; i++)
         //{
-        //    dbg_log("%x", basic_blocks.blocks[i].addr);
+        //    dbg_log("- addr=%x end_addr=%x", basic_blocks.blocks[i].addr, basic_blocks.blocks[i].end_addr);
         //}
 
         dump_function_code(basic_blocks.blocks, basic_blocks.length, end);
     }
+
+    return true;
 }
 
 __attribute__((noinline))
@@ -1399,6 +1460,9 @@ static void jit_generate(uint32_t phys_addr)
     profiler_stat_increment(S_COMPILE);
     profiler_start(P_GEN_INSTR);
 
+    // don't immediately retry to compile
+    hot_code_addresses[jit_hot_hash_page(phys_addr >> 12)] = 0;
+
     int32_t start = *instruction_pointer;
 
     int32_t first_opcode = read8(get_phys_eip());
@@ -1406,7 +1470,13 @@ static void jit_generate(uint32_t phys_addr)
     bool requires_loop_limit = false;
 
     // populate basic_blocks
-    jit_find_basic_blocks(&requires_loop_limit);
+    if(!jit_find_basic_blocks(phys_addr, &requires_loop_limit))
+    {
+        profiler_end(P_GEN_INSTR);
+        dbg_log("No basic blocks, not generating code");
+        *instruction_pointer = start;
+        return;
+    }
 
     // Code generation starts here
     gen_reset();
@@ -1476,7 +1546,9 @@ static void jit_generate(uint32_t phys_addr)
             gen_commit_instruction_body_to_cs();
         }
 
-        if(block.next_block_addr)
+        bool invalid_connection_to_next_block = next_block_start != *instruction_pointer;
+
+        if(!invalid_connection_to_next_block && block.next_block_addr)
         {
             if(block.condition_index == -1)
             {
@@ -1633,6 +1705,7 @@ static void jit_generate(uint32_t phys_addr)
 void jit_force_generate_unsafe(uint32_t phys_addr)
 {
     *instruction_pointer = phys_addr;
+    record_page_entry(phys_addr);
     jit_generate(phys_addr);
 }
 #endif
@@ -1646,8 +1719,6 @@ void cycle_internal()
     uint32_t phys_addr = get_phys_eip();
 
     struct code_cache* entry = find_cache_entry(phys_addr);
-
-    const bool JIT_COMPILE_ONLY_AFTER_BLOCK_BOUNDARY = true;
 
     if(entry && !entry->pending)
     {
@@ -1670,66 +1741,57 @@ void cycle_internal()
         UNUSED(old_start_address);
 
         profiler_stat_increment_by(S_RUN_FROM_CACHE_STEPS, *timestamp_counter - initial_tsc);
-
         profiler_end(P_RUN_FROM_CACHE);
     }
     else
     {
-        bool did_block_boundary = !JIT_COMPILE_ONLY_AFTER_BLOCK_BOUNDARY || jit_block_boundary;
-        const int32_t address_hash = jit_hot_hash(phys_addr);
-
-        // exists | pending -> should generate
-        // -------+---------++---------------------
-        // 0      | x       -> yes
-        // 1      | 0       -> impossible (handled above)
-        // 1      | 1       -> no
-
-        if(
-            !entry &&
-            !is_near_end_of_page(phys_addr) && (
-                ENABLE_JIT_ALWAYS ||
-                (did_block_boundary && ++hot_code_addresses[address_hash] > JIT_THRESHOLD)
-            )
-          )
+        if(!entry) // not pending
         {
-#if DEBUG
-        assert(!must_not_fault); must_not_fault = true;
-#endif
-            // don't immediately retry to compile
-            hot_code_addresses[address_hash] = 0;
-            jit_block_boundary = false;
+            const int32_t address_hash = jit_hot_hash_page(phys_addr >> 12);
 
-            jit_generate(phys_addr);
+            hot_code_addresses[address_hash]++;
+
+            record_page_entry(phys_addr);
+
+            if(ENABLE_JIT_ALWAYS || hot_code_addresses[address_hash] >= JIT_THRESHOLD)
+            {
 #if DEBUG
-        assert(must_not_fault); must_not_fault = false;
+                assert(!must_not_fault); must_not_fault = true;
 #endif
+
+                int32_t old_previous_ip = *previous_ip;
+                int32_t old_instruction_pointer = *instruction_pointer;
+
+                jit_generate(phys_addr);
+
+                // jit_generate must not change previous_ip or instruction_pointer
+                assert(*previous_ip == old_previous_ip);
+                assert(*instruction_pointer == old_instruction_pointer);
+#if DEBUG
+                assert(must_not_fault); must_not_fault = false;
+#endif
+            }
+        }
+
+        if(entry)
+        {
+            assert(entry->pending);
+            profiler_stat_increment(S_RUN_INTERPRETED_PENDING);
+        }
+        else if(is_near_end_of_page(phys_addr))
+        {
+            profiler_stat_increment(S_RUN_INTERPRETED_NEAR_END_OF_PAGE);
         }
         else
         {
-            if(entry)
-            {
-                assert(entry->pending);
-                profiler_stat_increment(S_RUN_INTERPRETED_PENDING);
-            }
-            else if(is_near_end_of_page(phys_addr))
-            {
-                profiler_stat_increment(S_RUN_INTERPRETED_NEAR_END_OF_PAGE);
-            }
-            else if(!did_block_boundary)
-            {
-                profiler_stat_increment(S_RUN_INTERPRETED_NO_BLOCK_BOUNDARY);
-            }
-            else
-            {
-                profiler_stat_increment(S_RUN_INTERPRETED_NOT_HOT);
-            }
-
-            int32_t initial_tsc = *timestamp_counter;
-
-            jit_run_interpreted(phys_addr);
-
-            profiler_stat_increment_by(S_RUN_INTERPRETED_STEPS, *timestamp_counter - initial_tsc);
+            profiler_stat_increment(S_RUN_INTERPRETED_NOT_HOT);
         }
+
+        int32_t initial_tsc = *timestamp_counter;
+
+        jit_run_interpreted(phys_addr);
+
+        profiler_stat_increment_by(S_RUN_INTERPRETED_STEPS, *timestamp_counter - initial_tsc);
     }
 
 #else

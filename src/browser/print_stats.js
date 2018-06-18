@@ -31,7 +31,6 @@ const print_stats = {
             "RUN_INTERPRETED",
             "RUN_INTERPRETED_PENDING",
             "RUN_INTERPRETED_NEAR_END_OF_PAGE",
-            "RUN_INTERPRETED_NO_BLOCK_BOUNDARY",
             "RUN_INTERPRETED_NOT_HOT",
             "RUN_INTERPRETED_STEPS",
             "RUN_FROM_CACHE",

@@ -30,6 +30,13 @@ static void inline load_aligned_u16(Buffer* buf, uint32_t addr)
     write_raw_u8(buf, 0);
 }
 
+static void inline load_aligned_u16_from_stack(Buffer* buf, uint32_t byte_offset)
+{
+    write_raw_u8(buf, OP_I32LOAD16U);
+    write_raw_u8(buf, MEM_ALIGN16);
+    write_leb_u32(buf, byte_offset);
+}
+
 static void inline load_unaligned_i32_from_stack(Buffer* buf, uint32_t byte_offset)
 {
     write_raw_u8(buf, OP_I32LOAD);

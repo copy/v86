@@ -62,6 +62,14 @@ _Static_assert(sizeof(struct code_cache) == 16, "code_cache uses 16 bytes");
 #endif
 struct code_cache jit_cache_arr[JIT_CACHE_ARRAY_SIZE];
 
+// XXX: Remove this limitation when page_entry_points is sparse
+#define MAX_PHYSICAL_PAGES (512 << 20 >> 12)
+
+#define MAX_ENTRIES_PER_PAGE 128
+#define ENTRY_POINT_END 0xFFFF
+
+uint16_t page_entry_points[MAX_PHYSICAL_PAGES][MAX_ENTRIES_PER_PAGE];
+
 // Flag indicating whether the instruction that just ran was at a block's boundary (jump,
 // state-altering, etc.)
 extern uint32_t jit_block_boundary;
@@ -167,7 +175,7 @@ void modrm_skip(int32_t modrm_byte);
 
 void check_jit_cache_array_invariants();
 
-uint32_t jit_hot_hash(uint32_t addr);
+uint32_t jit_hot_hash_page(uint32_t page);
 void jit_link_block(int32_t target);
 void jit_link_block_conditional(int32_t offset, const char* condition);
 void cycle_internal(void);

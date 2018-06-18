@@ -430,7 +430,8 @@ void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
     // Only call jit_dirty_cache_single if absolutely necessary
     // Pseudo:
     //     /* continued within can_use_fast_path branch */
-    //     if(page_first_jit_cache_entry[phys_address >> 12] != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+    //     if(page_first_jit_cache_entry[phys_address >> 12] != JIT_CACHE_ARRAY_NO_NEXT_ENTRY ||
+    //        page_entry_points[phys_address >> 12] != ENTRY_POINT_END)
     //     {
     //         jit_dirty_cache_single(phys_address);
     //     }
@@ -445,6 +446,19 @@ void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
 
     gen_const_i32(JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
     gen_ne_i32();
+
+    gen_get_local(phys_addr_local);
+    gen_const_i32(12);
+    shr_u32(&instruction_body);
+    gen_const_i32(1);
+    shl_i32(&instruction_body);
+    load_aligned_u16_from_stack(&instruction_body, (uint32_t) page_entry_points);
+
+    gen_const_i32(ENTRY_POINT_END);
+    gen_ne_i32();
+
+    or_i32(&instruction_body);
+
     gen_if_void();
     gen_get_local(phys_addr_local);
     gen_call_fn1("jit_dirty_cache_single", 22);
