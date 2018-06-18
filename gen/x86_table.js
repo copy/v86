@@ -179,9 +179,7 @@ const encodings = [
     { opcode: 0xE6, block_boundary: 1, imm8: 1, skip: 1, }, // out
     { opcode: 0xE7, block_boundary: 1, os: 1, imm8: 1, skip: 1, },
 
-    // E8 call: Has immediate jump offset, but we don't really want to follow
-    //          into other functions while generating code
-    { opcode: 0xE8, block_boundary: 1, /* jump_offset_imm: 1, */ os: 1, imm1632: 1, custom: 1, skip: 1, },
+    { opcode: 0xE8, block_boundary: 1, jump_offset_imm: 1, os: 1, imm1632: 1, custom: 1, skip: 1, }, // call
     { opcode: 0xE9, block_boundary: 1, jump_offset_imm: 1, no_next_instruction: 1, os: 1, imm1632: 1, custom: 1, skip: 1, },
     { opcode: 0xEA, block_boundary: 1, no_next_instruction: 1, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, }, // jmpf
     { opcode: 0xEB, block_boundary: 1, jump_offset_imm: 1, no_next_instruction: 1, imm8s: 1, custom: 1, skip: 1, },

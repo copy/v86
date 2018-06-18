@@ -1301,10 +1301,13 @@ static bool jit_find_basic_blocks(uint32_t phys_addr, bool* requires_loop_limit)
 
             int32_t instruction_end = *instruction_pointer;
 
+            bool has_next_instruction = (analysis.flags & JIT_INSTR_NO_NEXT_INSTRUCTION_FLAG) == 0;
+
             if((analysis.flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG) == 0)
             {
                 // ordinary instruction, continue at next
                 assert(!has_jump_target);
+                assert(has_next_instruction);
 
                 if(find_basic_block_index(&basic_blocks, *instruction_pointer) != -1)
                 {
@@ -1325,6 +1328,17 @@ static bool jit_find_basic_blocks(uint32_t phys_addr, bool* requires_loop_limit)
                 if(analysis.condition_index == -1)
                 {
                     // non-conditional jump: continue at jump target
+
+                    if(has_next_instruction)
+                    {
+                        // Execution will eventually come back to the next instruction (CALL)
+
+                        assert(marked_as_entry_count < 1000);
+                        marked_as_entry[marked_as_entry_count++] = *instruction_pointer;
+
+                        assert(to_visit_stack_count < 1000);
+                        to_visit_stack[to_visit_stack_count++] = *instruction_pointer;
+                    }
 
                     if(same_page(jump_target, *instruction_pointer))
                     {
@@ -1348,6 +1362,7 @@ static bool jit_find_basic_blocks(uint32_t phys_addr, bool* requires_loop_limit)
                 else
                 {
                     // conditional jump: continue at next and continue at jump target
+                    assert(has_next_instruction);
 
                     assert(to_visit_stack_count < 1000);
                     to_visit_stack[to_visit_stack_count++] = *instruction_pointer;
@@ -1391,8 +1406,6 @@ static bool jit_find_basic_blocks(uint32_t phys_addr, bool* requires_loop_limit)
                 // a block boundary but not a jump, get out
 
                 assert((analysis.flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG) && !has_jump_target);
-
-                bool has_next_instruction = (analysis.flags & JIT_INSTR_NO_NEXT_INSTRUCTION_FLAG) == 0;
 
                 if(has_next_instruction)
                 {
