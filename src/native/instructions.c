@@ -371,39 +371,73 @@ void instr_6E() { outsb(); }
 void instr16_6F() { outsw(); }
 void instr32_6F() { outsd(); }
 
-void instr_70(int32_t imm8) { jmpcc8( test_o(), imm8); }
-void instr_71(int32_t imm8) { jmpcc8(!test_o(), imm8); }
-void instr_72(int32_t imm8) { jmpcc8( test_b(), imm8); }
-void instr_73(int32_t imm8) { jmpcc8(!test_b(), imm8); }
-void instr_74(int32_t imm8) { jmpcc8( test_z(), imm8); }
-void instr_75(int32_t imm8) { jmpcc8(!test_z(), imm8); }
-void instr_76(int32_t imm8) { jmpcc8( test_be(), imm8); }
-void instr_77(int32_t imm8) { jmpcc8(!test_be(), imm8); }
-void instr_78(int32_t imm8) { jmpcc8( test_s(), imm8); }
-void instr_79(int32_t imm8) { jmpcc8(!test_s(), imm8); }
-void instr_7A(int32_t imm8) { jmpcc8( test_p(), imm8); }
-void instr_7B(int32_t imm8) { jmpcc8(!test_p(), imm8); }
-void instr_7C(int32_t imm8) { jmpcc8( test_l(), imm8); }
-void instr_7D(int32_t imm8) { jmpcc8(!test_l(), imm8); }
-void instr_7E(int32_t imm8) { jmpcc8( test_le(), imm8); }
-void instr_7F(int32_t imm8) { jmpcc8(!test_le(), imm8); }
+void instr16_70(int32_t imm8) { jmpcc16( test_o(), imm8); }
+void instr16_71(int32_t imm8) { jmpcc16(!test_o(), imm8); }
+void instr16_72(int32_t imm8) { jmpcc16( test_b(), imm8); }
+void instr16_73(int32_t imm8) { jmpcc16(!test_b(), imm8); }
+void instr16_74(int32_t imm8) { jmpcc16( test_z(), imm8); }
+void instr16_75(int32_t imm8) { jmpcc16(!test_z(), imm8); }
+void instr16_76(int32_t imm8) { jmpcc16( test_be(), imm8); }
+void instr16_77(int32_t imm8) { jmpcc16(!test_be(), imm8); }
+void instr16_78(int32_t imm8) { jmpcc16( test_s(), imm8); }
+void instr16_79(int32_t imm8) { jmpcc16(!test_s(), imm8); }
+void instr16_7A(int32_t imm8) { jmpcc16( test_p(), imm8); }
+void instr16_7B(int32_t imm8) { jmpcc16(!test_p(), imm8); }
+void instr16_7C(int32_t imm8) { jmpcc16( test_l(), imm8); }
+void instr16_7D(int32_t imm8) { jmpcc16(!test_l(), imm8); }
+void instr16_7E(int32_t imm8) { jmpcc16( test_le(), imm8); }
+void instr16_7F(int32_t imm8) { jmpcc16(!test_le(), imm8); }
 
-void instr_70_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_o"); }
-void instr_71_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_no"); }
-void instr_72_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_b"); }
-void instr_73_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nb"); }
-void instr_74_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_z"); }
-void instr_75_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nz"); }
-void instr_76_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_be"); }
-void instr_77_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nbe"); }
-void instr_78_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_s"); }
-void instr_79_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_ns"); }
-void instr_7A_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_p"); }
-void instr_7B_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_np"); }
-void instr_7C_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_l"); }
-void instr_7D_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nl"); }
-void instr_7E_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_le"); }
-void instr_7F_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nle"); }
+void instr32_70(int32_t imm8) { jmpcc32( test_o(), imm8); }
+void instr32_71(int32_t imm8) { jmpcc32(!test_o(), imm8); }
+void instr32_72(int32_t imm8) { jmpcc32( test_b(), imm8); }
+void instr32_73(int32_t imm8) { jmpcc32(!test_b(), imm8); }
+void instr32_74(int32_t imm8) { jmpcc32( test_z(), imm8); }
+void instr32_75(int32_t imm8) { jmpcc32(!test_z(), imm8); }
+void instr32_76(int32_t imm8) { jmpcc32( test_be(), imm8); }
+void instr32_77(int32_t imm8) { jmpcc32(!test_be(), imm8); }
+void instr32_78(int32_t imm8) { jmpcc32( test_s(), imm8); }
+void instr32_79(int32_t imm8) { jmpcc32(!test_s(), imm8); }
+void instr32_7A(int32_t imm8) { jmpcc32( test_p(), imm8); }
+void instr32_7B(int32_t imm8) { jmpcc32(!test_p(), imm8); }
+void instr32_7C(int32_t imm8) { jmpcc32( test_l(), imm8); }
+void instr32_7D(int32_t imm8) { jmpcc32(!test_l(), imm8); }
+void instr32_7E(int32_t imm8) { jmpcc32( test_le(), imm8); }
+void instr32_7F(int32_t imm8) { jmpcc32(!test_le(), imm8); }
+
+void instr16_70_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_o"); }
+void instr16_71_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_no"); }
+void instr16_72_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_b"); }
+void instr16_73_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nb"); }
+void instr16_74_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_z"); }
+void instr16_75_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nz"); }
+void instr16_76_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_be"); }
+void instr16_77_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nbe"); }
+void instr16_78_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_s"); }
+void instr16_79_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_ns"); }
+void instr16_7A_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_p"); }
+void instr16_7B_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_np"); }
+void instr16_7C_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_l"); }
+void instr16_7D_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nl"); }
+void instr16_7E_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_le"); }
+void instr16_7F_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nle"); }
+
+void instr32_70_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_o"); }
+void instr32_71_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_no"); }
+void instr32_72_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_b"); }
+void instr32_73_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nb"); }
+void instr32_74_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_z"); }
+void instr32_75_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nz"); }
+void instr32_76_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_be"); }
+void instr32_77_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nbe"); }
+void instr32_78_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_s"); }
+void instr32_79_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_ns"); }
+void instr32_7A_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_p"); }
+void instr32_7B_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_np"); }
+void instr32_7C_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_l"); }
+void instr32_7D_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nl"); }
+void instr32_7E_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_le"); }
+void instr32_7F_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nle"); }
 
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_80_0, add8(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_80_1,  or8(___, imm))
@@ -1413,10 +1447,15 @@ void instr_DF_5_reg(int32_t r) { task_switch_test(); fpu_fucomip(r); }
 void instr_DF_6_reg(int32_t r) { task_switch_test(); fpu_fcomip(r); }
 void instr_DF_7_reg(int32_t r) { trigger_ud(); }
 
-void instr_E0(int32_t off) { loopne(off); }
-void instr_E1(int32_t off) { loope(off); }
-void instr_E2(int32_t off) { loop(off); }
-void instr_E3(int32_t off) { jcxz(off); }
+void instr16_E0(int32_t imm8s) { loopne16(imm8s); }
+void instr16_E1(int32_t imm8s) { loope16(imm8s); }
+void instr16_E2(int32_t imm8s) { loop16(imm8s); }
+void instr16_E3(int32_t imm8s) { jcxz16(imm8s); }
+
+void instr32_E0(int32_t imm8s) { loopne32(imm8s); }
+void instr32_E1(int32_t imm8s) { loope32(imm8s); }
+void instr32_E2(int32_t imm8s) { loop32(imm8s); }
+void instr32_E3(int32_t imm8s) { jcxz32(imm8s); }
 
 void instr_E4(int32_t port) {
     test_privileges_for_io(port, 1);
@@ -1491,14 +1530,22 @@ void instr32_EA(int32_t new_ip, int32_t cs) {
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 
-void instr_EB(int32_t imm8) {
+void instr16_EB(int32_t imm8) {
+    // jmp near
+    jmp_rel16(imm8);
+    dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
+}
+void instr32_EB(int32_t imm8) {
     // jmp near
     instruction_pointer[0] = instruction_pointer[0] + imm8;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 
-void instr_EB_jit(int32_t imm8s) {
-    gen_fn1_const("instr_EB", 8, imm8s);
+void instr16_EB_jit(int32_t imm8s) {
+    gen_fn1_const("instr16_EB", 10, imm8s);
+}
+void instr32_EB_jit(int32_t imm8s) {
+    gen_fn1_const("instr32_EB", 10, imm8s);
 }
 
 void instr_EC() {

@@ -112,14 +112,6 @@ void jmp_rel16(int32_t rel16)
     *instruction_pointer = cs_offset + ((*instruction_pointer - cs_offset + rel16) & 0xFFFF);
 }
 
-void jmpcc8(bool condition, int32_t imm8)
-{
-    if(condition)
-    {
-        *instruction_pointer += imm8;
-    }
-}
-
 void jmpcc16(bool condition, int32_t imm16)
 {
     if(condition)
@@ -136,38 +128,15 @@ void jmpcc32(bool condition, int32_t imm32)
     }
 }
 
-void loopne(int32_t imm8s)
-{
-    if(decr_ecx_asize() && !getzf())
-    {
-        instruction_pointer[0] = instruction_pointer[0] + imm8s;
-    }
-}
+void loopne16(int32_t imm8s) { jmpcc16(decr_ecx_asize() && !getzf(), imm8s); }
+void loope16(int32_t imm8s) { jmpcc16(decr_ecx_asize() && getzf(), imm8s); }
+void loop16(int32_t imm8s) { jmpcc16(decr_ecx_asize(), imm8s); }
+void jcxz16(int32_t imm8s) { jmpcc16(get_reg_asize(ECX) == 0, imm8s); }
 
-void loope(int32_t imm8s)
-{
-    if(decr_ecx_asize() && getzf())
-    {
-        instruction_pointer[0] = instruction_pointer[0] + imm8s;
-    }
-}
-
-void loop(int32_t imm8s)
-{
-    if(decr_ecx_asize())
-    {
-        instruction_pointer[0] = instruction_pointer[0] + imm8s;
-    }
-}
-
-void jcxz(int32_t imm8s)
-{
-    if(get_reg_asize(ECX) == 0)
-    {
-        instruction_pointer[0] = instruction_pointer[0] + imm8s;
-    }
-}
-
+void loopne32(int32_t imm8s) { jmpcc32(decr_ecx_asize() && !getzf(), imm8s); }
+void loope32(int32_t imm8s) { jmpcc32(decr_ecx_asize() && getzf(), imm8s); }
+void loop32(int32_t imm8s) { jmpcc32(decr_ecx_asize(), imm8s); }
+void jcxz32(int32_t imm8s) { jmpcc32(get_reg_asize(ECX) == 0, imm8s); }
 
 void cmovcc16(bool condition, int32_t value, int32_t r)
 {

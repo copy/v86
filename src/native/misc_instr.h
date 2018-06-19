@@ -29,13 +29,17 @@ bool test_nl(void);
 bool test_nle(void);
 
 void jmp_rel16(int32_t rel16);
-void jmpcc8(bool condition, int32_t imm8);
 void jmpcc16(bool condition, int32_t imm16);
 void jmpcc32(bool condition, int32_t imm32);
-void loope(int32_t imm8s);
-void loopne(int32_t imm8s);
-void loop(int32_t imm8s);
-void jcxz(int32_t imm8s);
+
+void loope16(int32_t imm8s);
+void loopne16(int32_t imm8s);
+void loop16(int32_t imm8s);
+void jcxz16(int32_t imm8s);
+void loope32(int32_t imm8s);
+void loopne32(int32_t imm8s);
+void loop32(int32_t imm8s);
+void jcxz32(int32_t imm8s);
 
 void cmovcc16(bool condition, int32_t value, int32_t r);
 void cmovcc32(bool condition, int32_t value, int32_t r);
