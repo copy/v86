@@ -660,7 +660,7 @@ bool has_flat_segmentation(void)
 
 static cached_state_flags pack_current_state_flags()
 {
-    return *is_32 << 0 | *stack_size_32 << 1 | has_flat_segmentation() << 2;
+    return *is_32 << 0 | *stack_size_32 << 1 | (*cpl == 3) << 2 | has_flat_segmentation() << 3;
 }
 
 void check_jit_cache_array_invariants(void)
