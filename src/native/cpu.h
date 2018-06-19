@@ -173,7 +173,7 @@ int32_t get_seg_prefix_cs(int32_t offset);
 int32_t modrm_resolve(int32_t modrm_byte);
 void modrm_skip(int32_t modrm_byte);
 
-void check_jit_cache_array_invariants();
+void check_jit_cache_array_invariants(void);
 
 uint32_t jit_hot_hash_page(uint32_t page);
 void jit_link_block(int32_t target);
