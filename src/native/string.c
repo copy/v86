@@ -1133,6 +1133,7 @@ void insw_rep()
     {
         do
         {
+            writable_or_pagefault(dest, 2);
             safe_write16(dest, io_port_read16(port));
             dest += size;
             add_reg_asize(EDI, size);
@@ -1208,6 +1209,7 @@ void insd_rep()
     {
         do
         {
+            writable_or_pagefault(dest, 4);
             safe_write32(dest, io_port_read32(port));
             dest += size;
             add_reg_asize(EDI, size);
