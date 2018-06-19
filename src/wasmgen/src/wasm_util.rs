@@ -82,3 +82,33 @@ pub fn call_fn_with_arg(buf: &mut Vec<u8>, fn_idx: u8, arg0: i32) {
     push_i32(buf, arg0);
     call_fn(buf, fn_idx);
 }
+
+#[no_mangle]
+pub fn eq_i32(buf: &mut Vec<u8>) {
+    buf.push(OP_I32EQ);
+}
+
+#[no_mangle]
+pub fn ne_i32(buf: &mut Vec<u8>) {
+    buf.push(OP_I32NE);
+}
+
+#[no_mangle]
+pub fn le_i32(buf: &mut Vec<u8>) {
+    buf.push(OP_I32LES);
+}
+
+#[no_mangle]
+pub fn lt_i32(buf: &mut Vec<u8>) {
+    buf.push(OP_I32LTS);
+}
+
+#[no_mangle]
+pub fn ge_i32(buf: &mut Vec<u8>) {
+    buf.push(OP_I32GES);
+}
+
+#[no_mangle]
+pub fn gt_i32(buf: &mut Vec<u8>) {
+    buf.push(OP_I32GTS);
+}
