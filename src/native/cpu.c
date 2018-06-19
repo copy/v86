@@ -707,6 +707,30 @@ void check_jit_cache_array_invariants(void)
                 wasm_table_index_to_jit_cache_index[entry->wasm_table_index] = i;
             }
         }
+
+        if(entry->start_addr)
+        {
+            // valid entries can be reached from page_first_jit_cache_entry
+            bool reached = false;
+
+            uint32_t index = entry->start_addr >> DIRTY_ARR_SHIFT;
+            int32_t cache_array_index = page_first_jit_cache_entry[index];
+
+            while(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+            {
+                struct code_cache* other_entry = &jit_cache_arr[cache_array_index];
+
+                if(entry == other_entry)
+                {
+                    reached = true;
+                    break;
+                }
+
+                cache_array_index = other_entry->next_index_same_page;
+            }
+
+            assert(reached);
+        }
     }
 
     // there are no loops in the linked lists
