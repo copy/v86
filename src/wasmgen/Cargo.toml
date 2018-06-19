@@ -1,0 +1,19 @@
+[package]
+name = "wasmgen"
+version = "0.1.0"
+authors = ["Awal Garg <awalgarg@gmail.com>"]
+publish = false
+
+[dependencies]
+lazy_static = "1.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+lto = true
+incremental = false
+panic = "abort"
