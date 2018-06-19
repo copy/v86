@@ -780,8 +780,6 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
         }
     }
 
-    check_jit_cache_array_invariants();
-
     if(found_entry_index == -1)
     {
         profiler_stat_increment(S_CACHE_MISMATCH);
