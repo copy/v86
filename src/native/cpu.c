@@ -654,8 +654,8 @@ static void jit_run_interpreted(int32_t phys_addr)
 
 bool has_flat_segmentation(void)
 {
-    return !segment_is_null[SS] && segment_offsets[SS] == 0 &&
-        !segment_is_null[DS] && segment_offsets[DS] == 0;
+    // ss can't be null
+    return segment_offsets[SS] == 0 && !segment_is_null[DS] && segment_offsets[DS] == 0;
 }
 
 static cached_state_flags pack_current_state_flags()
