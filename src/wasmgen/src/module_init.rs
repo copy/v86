@@ -43,6 +43,7 @@ pub struct WasmBuilder {
     idx_import_entries: usize, // for searching the imports
 
     import_table_size: usize, // the current import table size (to avoid reading 2 byte leb)
+    import_count: u16, // same as above
 
     initial_static_size: usize, // size of module after initialization, rest is drained on reset
 }
@@ -57,7 +58,8 @@ impl WasmBuilder {
             idx_import_count: 0,
             idx_import_entries: 0,
 
-            import_table_size: 1,
+            import_table_size: 2,
+            import_count: 0,
 
             initial_static_size: 0,
         }
@@ -78,7 +80,7 @@ impl WasmBuilder {
 
     pub fn reset(&mut self) {
         self.op.drain(self.initial_static_size..);
-        self.set_import_table_size(1);
+        self.set_import_table_size(2);
         self.set_import_count(0);
         self.buffers.drain(..);
     }
@@ -118,10 +120,10 @@ impl WasmBuilder {
         // write the actual sizes to the pointer locations stored above. We subtract 4 from the actual
         // value because the ptr itself points to four bytes
         let fn_body_size = (self.op.len() - idx_fn_body_size - 4) as u32;
-        write_fixed_leb32_to_buf(&mut self.op, idx_fn_body_size, fn_body_size);
+        write_fixed_leb32_at_idx(&mut self.op, idx_fn_body_size, fn_body_size);
 
         let code_section_size = (self.op.len() - idx_code_section_size - 4) as u32;
-        write_fixed_leb32_to_buf(&mut self.op, idx_code_section_size, code_section_size);
+        write_fixed_leb32_at_idx(&mut self.op, idx_code_section_size, code_section_size);
 
         self.op.len()
     }
@@ -187,10 +189,10 @@ impl WasmBuilder {
     }
 
     /// Goes over the import block to find index of an import entry by function name
-    pub fn get_import_index(&self, fn_name: PackedStr) -> Option<u8> {
+    pub fn get_import_index(&self, fn_name: PackedStr) -> Option<u16> {
         let fn_name = unpack_str(fn_name);
         let mut offset = self.idx_import_entries;
-        for i in 0..self.get_import_count() {
+        for i in 0..self.import_count {
             offset += 1; // skip length of module name
             offset += 1; // skip module name itself
             let len = self.op[offset];
@@ -206,29 +208,28 @@ impl WasmBuilder {
         None
     }
 
-    pub fn get_import_count(&self) -> u8 {
-        dbg_assert!(self.idx_import_count < self.op.len());
-        self.op[self.idx_import_count]
-    }
-
-    pub fn set_import_count(&mut self, count: u8) {
-        self.op[self.idx_import_count] = count;
+    pub fn set_import_count(&mut self, count: u16) {
+        dbg_assert!(count < 0x4000);
+        self.import_count = count;
+        let idx_import_count = self.idx_import_count;
+        write_fixed_leb16_at_idx(&mut self.op, idx_import_count, count as u16);
     }
 
     pub fn set_import_table_size(&mut self, size: usize) {
+        dbg_assert!(size < 0x4000);
         self.import_table_size = size;
         let idx_import_table_size = self.idx_import_table_size;
-        write_fixed_leb16_to_buf(&mut self.op, idx_import_table_size, size as u16);
+        write_fixed_leb16_at_idx(&mut self.op, idx_import_table_size, size as u16);
     }
 
     pub fn write_import_section_preamble(&mut self) {
         self.op.push(SC_IMPORT);
 
         self.idx_import_table_size = self.op.len();
-        self.op.push(1 | 0b10000000); self.op.push(0); // 1 in 2 byte leb
+        self.op.push(1 | 0b10000000); self.op.push(2); // 2 in 2 byte leb
 
         self.idx_import_count = self.op.len();
-        self.op.push(0);
+        self.op.push(1 | 0b10000000); self.op.push(0); // 0 in 2 byte leb
 
         // here after starts the actual list of imports
         self.idx_import_entries = self.op.len();
@@ -245,14 +246,14 @@ impl WasmBuilder {
         self.op.push(0); // memory flag, 0 for no maximum memory limit present
         write_leb_u32(&mut self.op, 256); // initial memory length of 256 pages, takes 2 bytes in leb128
 
-        let idx_import_count = self.idx_import_count;
-        self.op[idx_import_count] += 1;
+        let new_import_count = self.import_count + 1;
+        self.set_import_count(new_import_count);
 
         let new_table_size = self.import_table_size + 8;
         self.set_import_table_size(new_table_size);
     }
 
-    pub fn write_import_entry(&mut self, fn_name: PackedStr, type_index: u8) -> u8 {
+    pub fn write_import_entry(&mut self, fn_name: PackedStr, type_index: u8) -> u16 {
         self.op.push(1); // length of module name
         self.op.push('e' as u8); // module name
         let fn_name = unpack_str(fn_name);
@@ -261,13 +262,13 @@ impl WasmBuilder {
         self.op.push(EXT_FUNCTION);
         self.op.push(type_index);
 
-        let idx_import_count = self.idx_import_count;
-        self.op[idx_import_count] += 1;
+        let new_import_count = self.import_count + 1;
+        self.set_import_count(new_import_count);
 
         let new_table_size = self.import_table_size + 1 + 1 + 1 + fn_name.len() + 1 + 1;
         self.set_import_table_size(new_table_size);
 
-        return self.op[idx_import_count] - 1;
+        self.import_count - 1
     }
 
     pub fn write_function_section(&mut self, count: u8) {
@@ -281,7 +282,7 @@ impl WasmBuilder {
 
     pub fn write_export_section(&mut self) {
         self.op.push(SC_EXPORT);
-        self.op.push(1 + 1 + 1 + 1 + 1); // size of this section
+        self.op.push(1 + 1 + 1 + 1 + 2); // size of this section
         self.op.push(1); // count of table: just one function exported
 
         self.op.push(1); // length of exported function name
@@ -291,11 +292,12 @@ impl WasmBuilder {
         // index of the exported function
         // function space starts with imports. index of last import is import count - 1
         // the last import however is a memory, so we subtract one from that
-        let import_count = self.get_import_count();
-        self.op.push(import_count - 1);
+        let next_op_idx = self.op.len();
+        self.op.push(0); self.op.push(0); // add 2 bytes for writing 16 byte val
+        write_fixed_leb16_at_idx(&mut self.op, next_op_idx, self.import_count - 1);
     }
 
-    pub fn get_fn_index(&mut self, fn_name: PackedStr, type_index: u8) -> u8 {
+    pub fn get_fn_index(&mut self, fn_name: PackedStr, type_index: u8) -> u16 {
         dbg_log!("getting fn idx for '{}'", unpack_str(fn_name));
         match self.get_import_index(fn_name) {
             Some(idx) => {

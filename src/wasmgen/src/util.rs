@@ -39,15 +39,13 @@ pub fn write_leb_u32(buf: &mut Vec<u8>, mut v: u32) {
     }
 }
 
-#[inline]
-pub fn write_fixed_leb16_to_buf(vec: &mut Vec<u8>, idx: usize, x: u16) {
+pub fn write_fixed_leb16_at_idx(vec: &mut Vec<u8>, idx: usize, x: u16) {
     dbg_assert!(x < (1 << 14)); // we have 14 bits of available space in 2 bytes for leb
-    vec[idx] = ((x & 0b1111111) | 0b10000000) as u8;
+    vec[idx    ] = ((x & 0b1111111) | 0b10000000) as u8;
     vec[idx + 1] = (x >> 7) as u8;
 }
 
-#[inline]
-pub fn write_fixed_leb32_to_buf(vec: &mut Vec<u8>, idx: usize, x: u32) {
+pub fn write_fixed_leb32_at_idx(vec: &mut Vec<u8>, idx: usize, x: u32) {
     dbg_assert!(x < (1 << 28)); // we have 28 bits of available space in 4 bytes for leb
     vec[idx    ] = (x       & 0b1111111) as u8 | 0b10000000;
     vec[idx + 1] = (x >> 7  & 0b1111111) as u8 | 0b10000000;
