@@ -47,13 +47,6 @@ emulator.add_listener("serial0-output-char", function(chr)
         emulator.stop();
 
         const cpu = emulator.v86.cpu;
-        const names = [
-            "IDLE",
-            "DO_MANY_CYCLES",
-            "GEN_INSTR",
-            "RUN_FROM_CACHE",
-            "RUN_INTERPRETED",
-        ];
         const stat_names = [
             "COMPILE",
             "COMPILE_SUCCESS",
@@ -66,21 +59,7 @@ emulator.add_listener("serial0-output-char", function(chr)
             "TLB_FULL",
             "TLB_GLOBAL_FULL",
         ];
-        const total = cpu.wm.exports["_profiler_get_total"]();
         let text = "";
-
-        if(!total)
-        {
-            console.error("Warning: No elapsed time measured, did you set ENABLE_PROFILER?");
-        }
-
-        for(let i = 0; i < names.length; i++)
-        {
-            let stat = cpu.wm.exports["_profiler_get_time"](i) / total;
-            text += names[i] + "=" + stat.toFixed(2) + " ";
-        }
-
-        text += "\n";
 
         for(let i = 0; i < stat_names.length; i++)
         {

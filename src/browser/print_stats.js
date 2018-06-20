@@ -48,16 +48,6 @@ const print_stats = {
             "TLB_GLOBAL_FULL",
         ];
 
-        const total = cpu.wm.exports["_profiler_get_total"]();
-
-        for(let i = 0; i < names.length; i++)
-        {
-            let stat = cpu.wm.exports["_profiler_get_time"](i) / total;
-            text += names[i] + "=" + stat.toFixed(2) + " ";
-        }
-
-        text += "\n";
-
         for(let i = 0; i < stat_names.length; i++)
         {
             let stat = cpu.wm.exports["_profiler_stat_get"](i);

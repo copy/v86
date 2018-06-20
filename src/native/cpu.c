@@ -624,7 +624,6 @@ uint32_t jit_hot_hash_page(uint32_t page)
 
 static void jit_run_interpreted(int32_t phys_addr)
 {
-    profiler_start(P_RUN_INTERPRETED);
     profiler_stat_increment(S_RUN_INTERPRETED);
 
     jit_block_boundary = false;
@@ -648,8 +647,6 @@ static void jit_run_interpreted(int32_t phys_addr)
 #endif
         run_instruction(opcode | !!*is_32 << 8);
     }
-
-    profiler_end(P_RUN_INTERPRETED);
 }
 
 bool has_flat_segmentation(void)
@@ -1495,7 +1492,6 @@ __attribute__((noinline))
 static void jit_generate(uint32_t phys_addr)
 {
     profiler_stat_increment(S_COMPILE);
-    profiler_start(P_GEN_INSTR);
 
     // don't immediately retry to compile
     hot_code_addresses[jit_hot_hash_page(phys_addr >> 12)] = 0;
@@ -1509,7 +1505,6 @@ static void jit_generate(uint32_t phys_addr)
     // populate basic_blocks
     if(!jit_find_basic_blocks(phys_addr, &requires_loop_limit))
     {
-        profiler_end(P_GEN_INSTR);
         dbg_log("No basic blocks, not generating code");
         *instruction_pointer = start;
         return;
@@ -1732,7 +1727,6 @@ static void jit_generate(uint32_t phys_addr)
             first_opcode, state_flags);
 
     profiler_stat_increment(S_COMPILE_SUCCESS);
-    profiler_end(P_GEN_INSTR);
 
     *instruction_pointer = start;
 }
@@ -1759,7 +1753,6 @@ void cycle_internal()
 
     if(entry && !entry->pending)
     {
-        profiler_start(P_RUN_FROM_CACHE);
         profiler_stat_increment(S_RUN_FROM_CACHE);
 
         int32_t initial_tsc = *timestamp_counter;
@@ -1778,7 +1771,6 @@ void cycle_internal()
         UNUSED(old_start_address);
 
         profiler_stat_increment_by(S_RUN_FROM_CACHE_STEPS, *timestamp_counter - initial_tsc);
-        profiler_end(P_RUN_FROM_CACHE);
     }
     else
     {
