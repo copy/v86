@@ -357,7 +357,7 @@
                 id: "reactos",
                 memory_size: 256 * 1024 * 1024,
                 cdrom: {
-                    "url": HOST + "images/ReactOS-0.4.4-live.iso",
+                    "url": HOST + "images/ReactOS-0.4.9-RC-Live.iso",
                     "async": true,
                 },
                 state: {
