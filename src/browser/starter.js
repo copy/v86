@@ -259,17 +259,110 @@ function V86Starter(options)
         "Infinity": Infinity,
         "NaN": NaN,
     };
+    
+    const wasmgen_mem = new WebAssembly.Memory({ initial: 10000 });
+    const wasmgen_externs = {
+        "memory": wasmgen_mem,
+        "log_from_wasm": function(offset, len) {
+            const str = v86util.read_sized_string_from_mem(wasmgen_mem, offset, len);
+            dbg_log(str, LOG_CPU);
+        },
+        "abort": function() {
+            dbg_assert(false);
+        },
+    };
 
     let wasm_file = DEBUG ? "v86-debug.wasm" : "v86.wasm";
+    let wasmgen_bin = DEBUG ? "wasmgen-debug.wasm" : "wasmgen.wasm";
 
     if(typeof window === "undefined" && typeof __dirname === "string")
     {
         wasm_file = __dirname + "/" + wasm_file;
+        wasmgen_bin = __dirname + "/" + wasmgen_bin;
     }
     else
     {
         wasm_file = "build/" + wasm_file;
+        wasmgen_bin = "build/" + wasmgen_bin;
     }
+
+    const wasmgen_exports = [
+        // these are used by C as is
+        "gen_eqz_i32",
+        "gen_if_void",
+        "gen_else",
+        "gen_loop_void",
+        "gen_block_void",
+        "gen_block_end",
+        "gen_return",
+        "gen_brtable_and_cases",
+        "gen_br",
+        "gen_get_local",
+        "gen_set_local",
+        "gen_const_i32",
+        "gen_unreachable",
+        "gen_drop",
+        "gen_increment_mem32",
+        "gen_increment_variable",
+
+        // these are wrapped around without the rs_ prefix by C
+        "rs_gen_fn0_const",
+        "rs_gen_fn0_const_ret",
+        "rs_gen_fn1_const",
+        "rs_gen_fn1_const_ret",
+        "rs_gen_fn2_const",
+        "rs_gen_fn3_const",
+        "rs_gen_call_fn1_ret",
+        "rs_gen_call_fn2",
+        "rs_get_fn_idx",
+
+        // these are exported to C with the gen_ prefix attached via JS
+        "new_buf",
+        "reset",
+        "finish",
+        "get_op_ptr",
+        "get_op_len",
+        "include_buffer",
+        "push_i32",
+        "push_u32",
+        "load_aligned_u16",
+        "load_aligned_i32",
+        "store_aligned_u16",
+        "store_aligned_i32",
+        "add_i32",
+        "and_i32",
+        "or_i32",
+        "shl_i32",
+        "call_fn",
+        "call_fn_with_arg",
+    ];
+
+    function reexport_wasmgen_functions(wasmgen) {
+        for(const fn_name of wasmgen_exports)
+        {
+            if(fn_name.startsWith("gen_"))
+            {
+                // used as is via C
+                wasm_shared_funcs[`_${fn_name}`] = wasmgen.exports[fn_name];
+            }
+            else if(fn_name.startsWith("rs_"))
+            {
+                // wrapped around by C
+                wasm_shared_funcs[`_${fn_name}`] = wasmgen.exports[fn_name.replace("rs_", "")];
+            }
+            else
+            {
+                // prefix "gen_" attached by JS
+                wasm_shared_funcs[`_gen_${fn_name}`] = wasmgen.exports[fn_name];
+            }
+        }
+    }
+
+    v86util.minimal_load_wasm(wasmgen_bin, { "env": wasmgen_externs }, (wasmgen) => {
+        reexport_wasmgen_functions(wasmgen);
+        wasmgen.exports["setup"]();
+
+    //XXX: fix indentation break
 
     v86util.load_wasm(
         wasm_file,
@@ -281,7 +374,7 @@ function V86Starter(options)
             mem8 = new Uint8Array(mem);
             wm.instance.exports["__post_instantiate"]();
             coverage_logger.init(wm);
-            emulator = this.v86 = new v86(this.emulator_bus, wm, new Codegen(wm), coverage_logger);
+            emulator = this.v86 = new v86(this.emulator_bus, wm, wasmgen, coverage_logger);
             cpu = emulator.cpu;
 
     // XXX: Leaving unindented to minimize diff; still a part of the cb to load_wasm!
@@ -628,6 +721,7 @@ function V86Starter(options)
         }.bind(this), 0);
     }
 
+    });
     });
 }
 

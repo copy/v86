@@ -11,10 +11,10 @@ var CPU_LOG_VERBOSE = false;
 
 
 /** @constructor */
-function CPU(bus, wm, codegen, coverage_logger)
+function CPU(bus, wm, wasmgen, coverage_logger)
 {
     this.wm = wm;
-    this.codegen = codegen;
+    this.wasmgen = wasmgen;
     this.coverage_logger = coverage_logger;
     this.wasm_patch(wm);
     this.create_jit_imports();
@@ -214,6 +214,15 @@ function CPU(bus, wm, codegen, coverage_logger)
 
     //Object.seal(this);
 }
+
+CPU.prototype.wasmgen_get_module_code = function()
+{
+    const ptr = this.wasmgen.exports["get_op_ptr"]();
+    const len = this.wasmgen.exports["get_op_len"]();
+
+    const output_buffer_view = new Uint8Array(this.wasmgen.memory.buffer, ptr, len);
+    return output_buffer_view;
+};
 
 CPU.prototype.create_jit_imports = function()
 {
@@ -1237,7 +1246,7 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
 {
     dbg_assert(wasm_table_index >= 0 && wasm_table_index < WASM_TABLE_SIZE);
     //dbg_log("finalize");
-    const code = this.codegen.get_module_code();
+    const code = this.wasmgen_get_module_code();
 
     if(DEBUG)
     {
