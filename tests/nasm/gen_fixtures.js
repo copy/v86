@@ -26,6 +26,7 @@ const GDB_DEFAULT_ARGS = [
     "--eval-command=break loop",
     "--eval-command=catch signal SIGFPE",
     "--eval-command=catch signal SIGILL",
+    "--eval-command=catch signal SIGSEGV",
 ];
 
 /* Split up an array into semi-evenly sized chunks */

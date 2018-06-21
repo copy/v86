@@ -55,6 +55,11 @@ if(cluster.isMaster)
             return { exception: "UD", };
         }
 
+        if(fixture_text.includes("(signal SIGSEGV)"))
+        {
+            return { exception: "GP", };
+        }
+
         if(fixture_text.includes("Program received signal") || fixture_text.includes("SIGILL"))
         {
             throw new Error("Test was killed during execution by gdb: " + name + "\n" + fixture_text);
@@ -263,6 +268,7 @@ else {
         const exceptions = {
             0: "DE",
             6: "UD",
+            13: "GP",
         };
 
         const exception = exceptions[n];
