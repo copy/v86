@@ -748,6 +748,19 @@ CPU.prototype.debug_init = function()
         }
     };
 
+    function dump_file(ab, name)
+    {
+        var blob = new Blob([ab]);
+
+        var a = document.createElement("a");
+        a["download"] = name;
+        a.href = window.URL.createObjectURL(blob);
+        a.dataset["downloadurl"] = ["application/octet-stream", a["download"], a.href].join(":");
+
+        a.click();
+        window.URL.revokeObjectURL(a.src);
+    }
+
     debug.dump_wasm = function(buffer)
     {
         if(typeof wabt === "undefined")
@@ -770,6 +783,7 @@ CPU.prototype.debug_init = function()
         }
         catch(e)
         {
+            dump_file(buffer, "failed.wasm");
             console.log(e.toString());
         }
         finally

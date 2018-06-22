@@ -273,7 +273,7 @@ impl WasmBuilder {
         self.op.push(1 + count); // length of this section
         self.op.push(count); // count of signature indices
         for _ in 0..count {
-            self.op.push(FN0_TYPE_INDEX);
+            self.op.push(FN1_TYPE_INDEX);
         }
     }
 
