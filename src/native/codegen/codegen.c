@@ -31,11 +31,11 @@ void add_get_seg_import(void)
 
 PackedStr pack_str(char const* fn_name, uint8_t fn_len)
 {
-    assert(fn_len <= 16);
+    assert(fn_len <= 24);
 
     union {
         PackedStr pstr;
-        uint8_t u8s[16];
+        uint8_t u8s[24];
     } ret = { { 0 } };
     
     for(int i = 0; i < fn_len; i++)
@@ -48,7 +48,7 @@ PackedStr pack_str(char const* fn_name, uint8_t fn_len)
 uint16_t get_fn_idx(char const* fn, uint8_t fn_len, uint8_t fn_type)
 {
     PackedStr pstr = pack_str(fn, fn_len);
-    return wg_get_fn_idx(pstr.a, pstr.b, fn_type);
+    return wg_get_fn_idx(pstr.a, pstr.b, pstr.c, fn_type);
 }
 
 void gen_increment_mem32(int32_t addr)

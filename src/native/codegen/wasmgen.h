@@ -5,9 +5,10 @@
 typedef struct PackedStr {
     uint64_t a;
     uint64_t b;
+    uint64_t c;
 } PackedStr;
 
-#define PSTR_TY uint64_t, uint64_t
+#define PSTR_TY uint64_t, uint64_t, uint64_t
 
 extern uint8_t* wg_get_cs(void);
 extern uint8_t* wg_get_instruction_body(void);

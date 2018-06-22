@@ -25,7 +25,8 @@ pub fn finish(no_of_locals_i32: u8) {
 }
 
 #[no_mangle]
-pub fn get_fn_idx(fn_name: PackedStr, type_idx: u8) -> u16 {
+pub fn get_fn_idx(fn_name_a: u64, fn_name_b: u64, fn_name_c: u64, type_idx: u8) -> u16 {
+    let fn_name: PackedStr = (fn_name_a, fn_name_b, fn_name_c);
     let m = get_module();
     m.get_fn_index(fn_name, type_idx)
 }

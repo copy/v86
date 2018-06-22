@@ -53,12 +53,12 @@ pub fn write_fixed_leb32_at_idx(vec: &mut Vec<u8>, idx: usize, x: u32) {
     vec[idx + 3] = (x >> 21 & 0b1111111) as u8;
 }
 
-pub type PackedStr = (u64, u64);
+pub type PackedStr = (u64, u64, u64);
 
 #[allow(dead_code)]
 pub fn pack_str(s: &str) -> PackedStr {
     assert!(s.len() <= 16);
-    let mut a: [u8; 16] = [0; 16];
+    let mut a: [u8; 24] = [0; 24];
     for (i, ch) in s.char_indices() {
         a[i] = ch as u8;
     }
@@ -67,9 +67,9 @@ pub fn pack_str(s: &str) -> PackedStr {
 }
 
 pub fn unpack_str(s: PackedStr) -> String {
-    let mut buf = String::with_capacity(16);
-    let bytes: [u8; 16] = unsafe { ::std::mem::transmute(s) };
-    for i in 0..16 {
+    let mut buf = String::with_capacity(24);
+    let bytes: [u8; 24] = unsafe { ::std::mem::transmute(s) };
+    for i in 0..24 {
         if bytes[i] == 0 {
             break;
         }
