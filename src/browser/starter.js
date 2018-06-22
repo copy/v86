@@ -259,7 +259,7 @@ function V86Starter(options)
         "Infinity": Infinity,
         "NaN": NaN,
     };
-    
+
     const wasmgen_mem = new WebAssembly.Memory({ initial: 10000 });
     const wasmgen_externs = {
         "memory": wasmgen_mem,
@@ -287,7 +287,9 @@ function V86Starter(options)
     }
 
     const wasmgen_exports = [
-        "new_buf",
+        "get_cs",
+        "get_instruction_body",
+        "commit_instruction_body_to_cs",
         "finish",
         "reset",
         "get_fn_idx",

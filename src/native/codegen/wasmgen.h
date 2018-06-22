@@ -9,7 +9,9 @@ typedef struct PackedStr {
 
 #define PSTR_TY uint64_t, uint64_t
 
-extern uint8_t* wg_new_buf(void);
+extern uint8_t* wg_get_cs(void);
+extern uint8_t* wg_get_instruction_body(void);
+extern void wg_commit_instruction_body_to_cs(void);
 extern void wg_finish(uint8_t no_of_locals_i32);
 extern void wg_reset(void);
 extern uint16_t wg_get_fn_idx(PSTR_TY, uint8_t fn_type);

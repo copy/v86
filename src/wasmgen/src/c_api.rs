@@ -3,9 +3,13 @@ use ::util::PackedStr;
 pub use ::module_init::{ setup, get_module };
 
 #[no_mangle]
-pub fn new_buf() -> *mut Vec<u8> {
-    let b = Box::new(Vec::with_capacity(256));
-    Box::into_raw(b)
+pub fn get_cs() -> *mut Vec<u8> {
+    &mut get_module().cs
+}
+
+#[no_mangle]
+pub fn get_instruction_body() -> *mut Vec<u8> {
+    &mut get_module().instruction_body
 }
 
 #[no_mangle]
@@ -27,12 +31,6 @@ pub fn get_fn_idx(fn_name: PackedStr, type_idx: u8) -> u16 {
 }
 
 #[no_mangle]
-pub fn include_buffer(buf: *mut Vec<u8>) {
-    let m = get_module();
-    m.include_buffer(buf);
-}
-
-#[no_mangle]
 pub fn get_op_ptr() -> *const u8 {
     let m = get_module();
     m.get_op_ptr()
@@ -42,6 +40,12 @@ pub fn get_op_ptr() -> *const u8 {
 pub fn get_op_len() -> usize {
     let m = get_module();
     m.get_op_len()
+}
+
+#[no_mangle]
+pub fn commit_instruction_body_to_cs() {
+    let m = get_module();
+    m.commit_instruction_body_cs();
 }
 
 #[cfg(test)]
@@ -56,23 +60,20 @@ mod tests {
     #[test]
     fn c_api_test() {
         setup();
-        let buf1 = unsafe { new_buf().as_mut().expect("get buf1") };
-        let buf2 = unsafe { new_buf().as_mut().expect("get buf2") };
+        let cs = &mut get_module().cs;
+        let instruction_body = &mut get_module().instruction_body;
 
-        wg_fn0_const_ret(buf1, pack_str("foo"));
-        wg_fn0_const_ret(buf1, pack_str("bar"));
-
-        include_buffer(buf1);
+        wg_fn0_const_ret(cs, pack_str("foo"));
+        wg_fn0_const_ret(cs, pack_str("bar"));
 
         finish(2);
         reset();
 
-        wg_push_i32(buf1, 2);
-        wg_call_fn1_ret(buf2, pack_str("baz"));
-        wg_drop(buf2);
+        wg_push_i32(cs, 2);
+        wg_call_fn1_ret(instruction_body, pack_str("baz"));
+        wg_drop(instruction_body);
 
-        include_buffer(buf1);
-        include_buffer(buf2);
+        commit_instruction_body_to_cs();
 
         finish(1);
 

@@ -4,6 +4,7 @@
 
 #include "../const.h"
 #include "../cpu.h"
+#include "../log.h"
 #include "../global_pointers.h"
 #include "wasmgen.h"
 #include "codegen.h"
@@ -16,8 +17,8 @@ PackedStr pack_str(char const* fn_name, uint8_t fn_len);
 void gen_reset(void)
 {
     wg_reset();
-    cs = wg_new_buf();
-    instruction_body = wg_new_buf();
+    cs = wg_get_cs();
+    instruction_body = wg_get_instruction_body();
     add_get_seg_import();
 }
 
@@ -710,11 +711,5 @@ void gen_modrm_fn0(char const* fn, uint8_t fn_len)
 
     int32_t fn_idx = get_fn_idx(fn, fn_len, FN1_TYPE_INDEX);
     wg_call_fn(instruction_body, fn_idx);
-}
-
-void gen_commit_instruction_body_to_cs(void)
-{
-    wg_include_buffer(cs);
-    wg_include_buffer(instruction_body);
 }
 

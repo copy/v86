@@ -36,7 +36,8 @@ pub fn get_module<'a>() -> &'a mut WasmBuilder {
 
 pub struct WasmBuilder {
     pub op: Vec<u8>,
-    pub buffers: Vec<*mut Vec<u8>>,
+    pub cs: Vec<u8>,
+    pub instruction_body: Vec<u8>,
 
     idx_import_table_size: usize, // for rewriting once finished
     idx_import_count: usize, // for rewriting once finished
@@ -52,7 +53,8 @@ impl WasmBuilder {
     pub fn new() -> Self {
         WasmBuilder {
             op: Vec::with_capacity(256),
-            buffers: Vec::with_capacity(64),
+            cs: Vec::with_capacity(256),
+            instruction_body: Vec::with_capacity(256),
 
             idx_import_table_size: 0,
             idx_import_count: 0,
@@ -82,11 +84,8 @@ impl WasmBuilder {
         self.op.drain(self.initial_static_size..);
         self.set_import_table_size(2);
         self.set_import_count(0);
-        self.buffers.drain(..);
-    }
-
-    pub fn include_buffer(&mut self, buf: *mut Vec<u8>) {
-        self.buffers.push(buf);
+        self.cs.drain(..);
+        self.instruction_body.drain(..);
     }
 
     pub fn finish(&mut self, no_of_locals_i32: u8) -> usize {
@@ -111,9 +110,7 @@ impl WasmBuilder {
         self.op.push(1); // count of local blocks
         self.op.push(no_of_locals_i32); self.op.push(TYPE_I32);
 
-        for buf_ptr in &mut self.buffers {
-            self.op.append(unsafe { buf_ptr.as_mut().expect("unloading buffer") });
-        }
+        self.op.append(&mut self.cs);
 
         self.op.push(OP_END);
 
@@ -318,6 +315,10 @@ impl WasmBuilder {
 
     pub fn get_op_len(&self) -> usize {
         self.op.len()
+    }
+
+    pub fn commit_instruction_body_cs(&mut self) {
+        self.cs.append(&mut self.instruction_body);
     }
 
 }

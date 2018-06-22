@@ -83,6 +83,5 @@ void gen_increment_instruction_pointer(int32_t);
 
 void gen_increment_timestamp_counter(uint32_t);
 
-void gen_commit_instruction_body_to_cs(void);
 void gen_clear_prefixes(void);
 void gen_add_prefix_bits(int32_t);

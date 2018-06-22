@@ -881,7 +881,7 @@ static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
 
             // eip += eip_delta + len(jump) so instruction logic uses the correct eip
             gen_increment_instruction_pointer(eip_delta + instruction_length);
-            gen_commit_instruction_body_to_cs();
+            wg_commit_instruction_body_to_cs();
 
             eip_delta = 0;
         }
@@ -891,7 +891,7 @@ static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
 
             // prev_ip = eip + eip_delta, so that previous_ip points to the start of this instruction
             gen_set_previous_eip_offset_from_eip(eip_delta);
-            gen_commit_instruction_body_to_cs();
+            wg_commit_instruction_body_to_cs();
 
             // Leave this instruction's length to be updated in the next batch, whatever it may be
             eip_delta += instruction_length;
@@ -907,7 +907,7 @@ static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
         UNUSED(eip_delta);
         gen_set_previous_eip();
         gen_increment_instruction_pointer(instruction_length);
-        gen_commit_instruction_body_to_cs();
+        wg_commit_instruction_body_to_cs();
 #endif
         end_addr = *instruction_pointer;
         len++;
@@ -930,7 +930,7 @@ static void jit_generate_basic_block(int32_t start_addr, int32_t stop_addr)
     // When the block ends in a non-jump instruction, we may have uncommitted updates still
     if(eip_delta > 0)
     {
-        gen_commit_instruction_body_to_cs();
+        wg_commit_instruction_body_to_cs();
         gen_increment_instruction_pointer(eip_delta);
     }
 #endif
@@ -1574,9 +1574,9 @@ static void jit_generate(uint32_t phys_addr)
         }
         else
         {
-            gen_commit_instruction_body_to_cs();
+            wg_commit_instruction_body_to_cs();
             jit_generate_basic_block(block.addr, next_block_start);
-            gen_commit_instruction_body_to_cs();
+            wg_commit_instruction_body_to_cs();
         }
 
         bool invalid_connection_to_next_block = next_block_start != *instruction_pointer;
@@ -1670,7 +1670,7 @@ static void jit_generate(uint32_t phys_addr)
 
     wg_block_end(instruction_body); // loop
 
-    gen_commit_instruction_body_to_cs();
+    wg_commit_instruction_body_to_cs();
     wg_finish(GEN_NO_OF_LOCALS);
 
     cached_state_flags state_flags = pack_current_state_flags();
