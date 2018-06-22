@@ -59,17 +59,17 @@ mod tests {
         let buf1 = unsafe { new_buf().as_mut().expect("get buf1") };
         let buf2 = unsafe { new_buf().as_mut().expect("get buf2") };
 
-        gen_fn0_const_ret(buf1, pack_str("foo"));
-        gen_fn0_const_ret(buf1, pack_str("bar"));
+        wg_fn0_const_ret(buf1, pack_str("foo"));
+        wg_fn0_const_ret(buf1, pack_str("bar"));
 
         include_buffer(buf1);
 
         finish(2);
         reset();
 
-        push_i32(buf1, 2);
-        gen_call_fn1_ret(buf2, pack_str("baz"));
-        gen_drop(buf2);
+        wg_push_i32(buf1, 2);
+        wg_call_fn1_ret(buf2, pack_str("baz"));
+        wg_drop(buf2);
 
         include_buffer(buf1);
         include_buffer(buf2);

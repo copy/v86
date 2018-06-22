@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <assert.h>
 
 #include "../codegen/codegen.h"
 #include "../shared.h"

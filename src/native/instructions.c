@@ -5,7 +5,7 @@
 
 #include "arith.h"
 #include "codegen/codegen.h"
-#include "codegen/wasm_util.h"
+#include "codegen/wasmgen.h"
 #include "const.h"
 #include "cpu.h"
 #include "fpu.h"
@@ -535,11 +535,11 @@ void instr32_89_mem_jit(int32_t modrm_byte, int32_t r)
     const int32_t value_local = GEN_LOCAL_SCRATCH1;
 
     gen_modrm_resolve(modrm_byte);
-    gen_set_local(address_local);
+    wg_set_local(instruction_body, address_local);
 
-    gen_const_i32((uint32_t) &reg32s[r]);
-    gen_load_aligned_i32_from_stack(0);
-    gen_set_local(value_local);
+    wg_push_i32(instruction_body, (uint32_t) &reg32s[r]);
+    wg_load_aligned_i32_from_stack(instruction_body, 0);
+    wg_set_local(instruction_body, value_local);
 
     gen_safe_write32(address_local, value_local);
 }
@@ -565,12 +565,12 @@ void instr16_8B_mem_jit(int32_t modrm_byte, int32_t r)
 void instr32_8B_mem_jit(int32_t modrm_byte, int32_t r)
 {
     // Pseudo: reg32s[r] = safe_read32s(modrm_resolve(modrm_byte));
-    gen_const_i32((int32_t) &reg32s[r]);
+    wg_push_i32(instruction_body, (int32_t) &reg32s[r]);
 
     gen_modrm_resolve(modrm_byte);
     gen_safe_read32();
 
-    gen_store_aligned_i32();
+    wg_store_aligned_i32(instruction_body);
 }
 
 void instr_8C_check_sreg(int32_t sreg) {
@@ -620,22 +620,22 @@ void instr32_8D_mem(int32_t addr, int32_t r) {
 void instr16_8D_mem_jit(int32_t modrm_byte)
 {
     int32_t loc = (int32_t) &reg16[get_reg16_index(modrm_byte >> 3 & 7)];
-    push_u32(&instruction_body, loc);
+    wg_push_u32(instruction_body, loc);
     // override prefix, so modrm_resolve does not return the segment part
     *prefixes |= SEG_PREFIX_ZERO;
     gen_modrm_resolve(modrm_byte);
-    store_aligned_u16(&instruction_body);
+    wg_store_aligned_u16(instruction_body);
     *prefixes = 0;
 }
 
 void instr32_8D_mem_jit(int32_t modrm_byte)
 {
     int32_t loc = (int32_t) &reg32s[modrm_byte >> 3 & 7];
-    push_u32(&instruction_body, loc);
+    wg_push_u32(instruction_body, loc);
     // override prefix, so modrm_resolve does not return the segment part
     *prefixes |= SEG_PREFIX_ZERO;
     gen_modrm_resolve(modrm_byte);
-    store_aligned_i32(&instruction_body);
+    wg_store_aligned_i32(instruction_body);
     *prefixes = 0;
 }
 

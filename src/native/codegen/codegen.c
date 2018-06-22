@@ -5,145 +5,81 @@
 #include "../const.h"
 #include "../cpu.h"
 #include "../global_pointers.h"
+#include "wasmgen.h"
 #include "codegen.h"
-#include "cstring.h"
-#include "module_init.h"
-#include "util.h"
-#include "wasm_opcodes.h"
-#include "wasm_util.h"
-
-static Buffer op = { .start = codegen_buffer_op, .ptr = codegen_buffer_op, .len = 0x100000 };
-static Buffer cs = { .start = codegen_buffer_cs, .ptr = codegen_buffer_cs, .len = 0x100000 };
-Buffer instruction_body = {
-    .start = codegen_buffer_instruction_body,
-    .ptr = codegen_buffer_instruction_body,
-    .len = 0x100000,
-};
-
-static uint8_t* op_ptr_reset_location;
-static int32_t import_table_size_reset_value;
-static int32_t import_table_count_reset_value;
 
 static void jit_add_seg_offset(int32_t default_segment);
 static void jit_resolve_modrm32_(int32_t modrm_byte);
 static void jit_resolve_modrm16_(int32_t modrm_byte);
-
-void gen_init(void)
-{
-    // wasm magic header
-    write_raw_u8(&op, 0); write_raw_u8(&op, 'a'); write_raw_u8(&op, 's'); write_raw_u8(&op, 'm');
-
-    // wasm version in leb128, 4 bytes
-    write_raw_u8(&op, WASM_VERSION); write_raw_u8(&op, 0); write_raw_u8(&op, 0); write_raw_u8(&op, 0);
-
-    write_type_section();
-    write_import_section_preamble();
-
-    // add initial imports
-    uint8_t _fn_get_seg_idx = write_import_entry("get_seg", 7, FN1_RET_TYPE_INDEX);
-    assert(_fn_get_seg_idx == fn_get_seg_idx);
-    UNUSED(_fn_get_seg_idx);
-
-    // store state of current pointers etc. so we can reset them later
-    op_ptr_reset_location = op.ptr;
-    import_table_size_reset_value = import_table_size;
-    import_table_count_reset_value = import_table_count;
-}
+PackedStr pack_str(char const* fn_name, uint8_t fn_len);
 
 void gen_reset(void)
 {
-    op.ptr = op_ptr_reset_location;
-    cs.ptr = cs.start;
-    import_table_size = import_table_size_reset_value;
-    import_table_count = import_table_count_reset_value;
+    wg_reset();
+    cs = wg_new_buf();
+    instruction_body = wg_new_buf();
+    add_get_seg_import();
 }
 
-uintptr_t gen_finish(int32_t no_of_locals_i32)
+void add_get_seg_import(void)
 {
-    write_memory_import();
-    write_function_section(1);
-    write_export_section();
-
-    uint8_t* ptr_code_section_size = (uint8_t*) 0; // initialized below
-    uint8_t* ptr_fn_body_size = (uint8_t*) 0; // this as well
-
-    // write code section preamble
-    write_raw_u8(&op, SC_CODE);
-
-    ptr_code_section_size = op.ptr; // we will write to this location later
-    write_raw_u8(&op, 0); write_raw_u8(&op, 0); // write temp val for now using 4 bytes
-    write_raw_u8(&op, 0); write_raw_u8(&op, 0);
-
-    write_raw_u8(&op, 1); // number of function bodies: just 1
-
-    // same as above but for body size of the function
-    ptr_fn_body_size = op.ptr;
-    write_raw_u8(&op, 0); write_raw_u8(&op, 0);
-    write_raw_u8(&op, 0); write_raw_u8(&op, 0);
-
-    write_raw_u8(&op, 1); // count of local blocks
-    write_raw_u8(&op, no_of_locals_i32); write_raw_u8(&op, TYPE_I32); // locals of type i32
-
-    copy_code_section();
-
-    // write code section epilogue
-    write_raw_u8(&op, OP_END);
-
-    // write the actual sizes to the pointer locations stored above. We subtract 4 from the actual
-    // value because the ptr itself points to four bytes
-    write_fixed_leb32_to_ptr(ptr_fn_body_size, op.ptr - ptr_fn_body_size - 4);
-    write_fixed_leb32_to_ptr(ptr_code_section_size, op.ptr - ptr_code_section_size - 4);
-
-    return (uintptr_t) op.ptr;
+    uint16_t _fn_get_seg_idx = get_fn_idx("get_seg", 7, FN1_RET_TYPE_INDEX);
+    assert(_fn_get_seg_idx == fn_get_seg_idx);
+    UNUSED(_fn_get_seg_idx);
 }
 
-uintptr_t gen_get_final_offset(void)
+PackedStr pack_str(char const* fn_name, uint8_t fn_len)
 {
-    return (uintptr_t) op.ptr;
+    assert(fn_len <= 16);
+
+    union {
+        PackedStr pstr;
+        uint8_t u8s[16];
+    } ret = { { 0 } };
+    
+    for(int i = 0; i < fn_len; i++)
+    {
+        ret.u8s[i] = fn_name[i];
+    }
+    return ret.pstr;
+}
+
+uint16_t get_fn_idx(char const* fn, uint8_t fn_len, uint8_t fn_type)
+{
+    PackedStr pstr = pack_str(fn, fn_len);
+    return wg_get_fn_idx(pstr.a, pstr.b, fn_type);
 }
 
 void gen_increment_mem32(int32_t addr)
 {
-    push_i32(&cs, addr);
-
-    load_aligned_i32(&cs, addr);
-    push_i32(&cs, 1);
-    add_i32(&cs);
-
-    store_aligned_i32(&cs);
+    wg_increment_mem32(cs, addr);
 }
 
 void gen_increment_variable(int32_t variable_address, int32_t n)
 {
-    push_i32(&cs, variable_address);
-
-    load_aligned_i32(&cs, variable_address);
-    push_i32(&cs, n);
-    add_i32(&cs);
-
-    store_aligned_i32(&cs);
+    wg_increment_variable(cs, variable_address, n);
 }
 
 void gen_increment_instruction_pointer(int32_t n)
 {
-    push_i32(&cs, (int32_t)instruction_pointer); // store address of ip
+    wg_push_i32(cs, (int32_t)instruction_pointer); // store address of ip
 
-    load_aligned_i32(&cs, (int32_t)instruction_pointer); // load ip
+    wg_load_aligned_i32(cs, (int32_t)instruction_pointer); // load ip
 
-    push_i32(&cs, n);
+    wg_push_i32(cs, n);
 
-    add_i32(&cs);
-    store_aligned_i32(&cs); // store it back in
+    wg_add_i32(cs);
+    wg_store_aligned_i32(cs); // store it back in
 }
 
 void gen_relative_jump(int32_t n)
 {
     // add n to instruction_pointer (without setting the offset as above)
-    push_i32(&instruction_body, (int32_t)instruction_pointer);
-    load_aligned_i32(&instruction_body, (int32_t)instruction_pointer);
-    push_i32(&instruction_body, n);
-    add_i32(&instruction_body);
-    store_aligned_i32(&instruction_body);
+    wg_push_i32(instruction_body, (int32_t)instruction_pointer);
+    wg_load_aligned_i32(instruction_body, (int32_t)instruction_pointer);
+    wg_push_i32(instruction_body, n);
+    wg_add_i32(instruction_body);
+    wg_store_aligned_i32(instruction_body);
 }
 
 void gen_increment_timestamp_counter(uint32_t n)
@@ -153,156 +89,156 @@ void gen_increment_timestamp_counter(uint32_t n)
 
 void gen_set_previous_eip_offset_from_eip(int32_t n)
 {
-    push_i32(&cs, (int32_t)previous_ip); // store address of previous ip
-    load_aligned_i32(&cs, (int32_t)instruction_pointer); // load ip
+    wg_push_i32(cs, (int32_t)previous_ip); // store address of previous ip
+    wg_load_aligned_i32(cs, (int32_t)instruction_pointer); // load ip
     if(n != 0)
     {
-        push_i32(&cs, n);
-        add_i32(&cs); // add constant to ip value
+        wg_push_i32(cs, n);
+        wg_add_i32(cs); // add constant to ip value
     }
-    store_aligned_i32(&cs); // store it as previous ip
+    wg_store_aligned_i32(cs); // store it as previous ip
 }
 
 void gen_set_previous_eip(void)
 {
-    push_i32(&cs, (int32_t)previous_ip); // store address of previous ip
-    load_aligned_i32(&cs, (int32_t)instruction_pointer); // load ip
-    store_aligned_i32(&cs); // store it as previous ip
+    wg_push_i32(cs, (int32_t)previous_ip); // store address of previous ip
+    wg_load_aligned_i32(cs, (int32_t)instruction_pointer); // load ip
+    wg_store_aligned_i32(cs); // store it as previous ip
 }
 
 void gen_clear_prefixes(void)
 {
-    push_i32(&instruction_body, (int32_t)prefixes); // load address of prefixes
-    push_i32(&instruction_body, 0);
-    store_aligned_i32(&instruction_body);
+    wg_push_i32(instruction_body, (int32_t)prefixes); // load address of prefixes
+    wg_push_i32(instruction_body, 0);
+    wg_store_aligned_i32(instruction_body);
 }
 
 void gen_add_prefix_bits(int32_t mask)
 {
     assert(mask >= 0 && mask < 0x100);
 
-    push_i32(&instruction_body, (int32_t)prefixes); // load address of prefixes
+    wg_push_i32(instruction_body, (int32_t)prefixes); // load address of prefixes
 
-    load_aligned_i32(&instruction_body, (int32_t)prefixes); // load old value
-    push_i32(&instruction_body, mask);
-    or_i32(&instruction_body);
+    wg_load_aligned_i32(instruction_body, (int32_t)prefixes); // load old value
+    wg_push_i32(instruction_body, mask);
+    wg_or_i32(instruction_body);
 
-    store_aligned_i32(&instruction_body);
+    wg_store_aligned_i32(instruction_body);
 }
 
 void gen_fn0_const_ret(char const* fn, uint8_t fn_len)
 {
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN0_RET_TYPE_INDEX);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN0_RET_TYPE_INDEX);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 void gen_fn0_const(char const* fn, uint8_t fn_len)
 {
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN0_TYPE_INDEX);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN0_TYPE_INDEX);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 void gen_set_reg16_fn0(char const* fn, uint8_t fn_len, int32_t reg)
 {
     // generates: reg16[reg] = fn()
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN0_RET_TYPE_INDEX);
-    push_i32(&instruction_body, (int32_t) &reg16[reg]);
-    call_fn(&instruction_body, fn_idx);
-    store_aligned_u16(&instruction_body);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN0_RET_TYPE_INDEX);
+    wg_push_i32(instruction_body, (int32_t) &reg16[reg]);
+    wg_call_fn(instruction_body, fn_idx);
+    wg_store_aligned_u16(instruction_body);
 }
 
 void gen_set_reg32s_fn0(char const* fn, uint8_t fn_len, int32_t reg)
 {
     // generates: reg32s[reg] = fn()
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN0_RET_TYPE_INDEX);
-    push_i32(&instruction_body, (int32_t) &reg32s[reg]);
-    call_fn(&instruction_body, fn_idx);
-    store_aligned_i32(&instruction_body);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN0_RET_TYPE_INDEX);
+    wg_push_i32(instruction_body, (int32_t) &reg32s[reg]);
+    wg_call_fn(instruction_body, fn_idx);
+    wg_store_aligned_i32(instruction_body);
 }
 
 void gen_fn1_const_ret(char const* fn, uint8_t fn_len, int32_t arg0)
 {
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_RET_TYPE_INDEX);
-    push_i32(&instruction_body, arg0);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN1_RET_TYPE_INDEX);
+    wg_push_i32(instruction_body, arg0);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 void gen_call_fn1_ret(char const* fn, uint8_t fn_len)
 {
     // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_RET_TYPE_INDEX);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN1_RET_TYPE_INDEX);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 void gen_call_fn1(char const* fn, uint8_t fn_len)
 {
     // generates: fn( _ ) where _ must be left on the stack before calling this
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN1_TYPE_INDEX);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 void gen_fn1_const(char const* fn, uint8_t fn_len, int32_t arg0)
 {
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
-    push_i32(&instruction_body, arg0);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN1_TYPE_INDEX);
+    wg_push_i32(instruction_body, arg0);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 void gen_set_reg16_r(int32_t r_dest, int32_t r_src)
 {
     // generates: reg16[r_dest] = reg16[r_src]
-    push_i32(&instruction_body, (int32_t) &reg16[r_dest]);
-    load_aligned_u16(&instruction_body, (int32_t) &reg16[r_src]);
-    store_aligned_u16(&instruction_body);
+    wg_push_i32(instruction_body, (int32_t) &reg16[r_dest]);
+    wg_load_aligned_u16(instruction_body, (int32_t) &reg16[r_src]);
+    wg_store_aligned_u16(instruction_body);
 }
 
 void gen_set_reg32_r(int32_t r_dest, int32_t r_src)
 {
     // generates: reg32s[r_dest] = reg32s[r_src]
-    push_i32(&instruction_body, (int32_t) &reg32s[r_dest]);
-    load_aligned_i32(&instruction_body, (int32_t) &reg32s[r_src]);
-    store_aligned_i32(&instruction_body);
+    wg_push_i32(instruction_body, (int32_t) &reg32s[r_dest]);
+    wg_load_aligned_i32(instruction_body, (int32_t) &reg32s[r_src]);
+    wg_store_aligned_i32(instruction_body);
 }
 
 void gen_fn1_reg16(char const* fn, uint8_t fn_len, int32_t reg)
 {
     // generates: fn(reg16[reg])
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
-    load_aligned_u16(&instruction_body, (int32_t) &reg16[reg]);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN1_TYPE_INDEX);
+    wg_load_aligned_u16(instruction_body, (int32_t) &reg16[reg]);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 void gen_fn1_reg32s(char const* fn, uint8_t fn_len, int32_t reg)
 {
     // generates: fn(reg32s[reg])
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
-    load_aligned_i32(&instruction_body, (int32_t) &reg32s[reg]);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN1_TYPE_INDEX);
+    wg_load_aligned_i32(instruction_body, (int32_t) &reg32s[reg]);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 
 void gen_call_fn2(char const* fn, uint8_t fn_len)
 {
     // generates: fn( _, _ ) where _ must be left on the stack before calling this
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN2_TYPE_INDEX);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 void gen_fn2_const(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
 {
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
-    push_i32(&instruction_body, arg0);
-    push_i32(&instruction_body, arg1);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN2_TYPE_INDEX);
+    wg_push_i32(instruction_body, arg0);
+    wg_push_i32(instruction_body, arg1);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 void gen_fn3_const(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1, int32_t arg2)
 {
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN3_TYPE_INDEX);
-    push_i32(&instruction_body, arg0);
-    push_i32(&instruction_body, arg1);
-    push_i32(&instruction_body, arg2);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN3_TYPE_INDEX);
+    wg_push_i32(instruction_body, arg0);
+    wg_push_i32(instruction_body, arg1);
+    wg_push_i32(instruction_body, arg2);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 void gen_safe_read32(void)
@@ -311,51 +247,51 @@ void gen_safe_read32(void)
     // inline, bailing to safe_read32s_slow if necessary
 
     const int32_t address_local = GEN_LOCAL_SCRATCH0;
-    gen_tee_local(address_local);
+    wg_tee_local(instruction_body, address_local);
 
     // Pseudo: base_on_stack = (uint32_t)address >> 12;
-    gen_const_i32(12);
-    shr_u32(&instruction_body);
+    wg_push_i32(instruction_body, 12);
+    wg_shr_u32(instruction_body);
     SCALE_INDEX_FOR_ARRAY32(tlb_data);
 
     // Pseudo: entry = tlb_data[base_on_stack];
     const int32_t entry_local = GEN_LOCAL_SCRATCH1;
-    load_aligned_i32_from_stack(&instruction_body, (uint32_t) tlb_data);
-    gen_tee_local(entry_local);
+    wg_load_aligned_i32_from_stack(instruction_body, (uint32_t) tlb_data);
+    wg_tee_local(instruction_body, entry_local);
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
     //                                   (address & 0xFFF) <= (0x1000 - 4));
-    gen_const_i32(0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~(*cpl == 3 ? 0 : TLB_NO_USER));
-    and_i32(&instruction_body);
+    wg_push_i32(instruction_body, 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~(*cpl == 3 ? 0 : TLB_NO_USER));
+    wg_and_i32(instruction_body);
 
-    gen_const_i32(TLB_VALID);
-    gen_eq_i32();
+    wg_push_i32(instruction_body, TLB_VALID);
+    wg_eq_i32(instruction_body);
 
-    gen_get_local(address_local);
-    gen_const_i32(0xFFF);
-    and_i32(&instruction_body);
-    gen_const_i32(0x1000 - 4);
-    gen_le_i32();
+    wg_get_local(instruction_body, address_local);
+    wg_push_i32(instruction_body, 0xFFF);
+    wg_and_i32(instruction_body);
+    wg_push_i32(instruction_body, 0x1000 - 4);
+    wg_le_i32(instruction_body);
 
-    and_i32(&instruction_body);
+    wg_and_i32(instruction_body);
 
     // Pseudo:
     // if(can_use_fast_path) leave_on_stack(mem8[entry & ~0xFFF ^ address]);
-    gen_if_i32();
-    gen_get_local(entry_local);
-    gen_const_i32(~0xFFF);
-    and_i32(&instruction_body);
-    gen_get_local(address_local);
-    xor_i32(&instruction_body);
+    wg_if_i32(instruction_body);
+    wg_get_local(instruction_body, entry_local);
+    wg_push_i32(instruction_body, ~0xFFF);
+    wg_and_i32(instruction_body);
+    wg_get_local(instruction_body, address_local);
+    wg_xor_i32(instruction_body);
 
-    load_unaligned_i32_from_stack(&instruction_body, (uint32_t) mem8);
+    wg_load_unaligned_i32_from_stack(instruction_body, (uint32_t) mem8);
 
     // Pseudo:
     // else { leave_on_stack(safe_read32s_slow(address)); }
-    gen_else();
-    gen_get_local(address_local);
+    wg_else(instruction_body);
+    wg_get_local(instruction_body, address_local);
     gen_call_fn1_ret("safe_read32s_slow", 17);
-    gen_block_end();
+    wg_block_end(instruction_body);
 }
 
 void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
@@ -374,47 +310,47 @@ void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
     assert(local_for_address == GEN_LOCAL_SCRATCH0);
     assert(local_for_value == GEN_LOCAL_SCRATCH1);
 
-    gen_get_local(local_for_address);
+    wg_get_local(instruction_body, local_for_address);
 
     // Pseudo: base_on_stack = (uint32_t)address >> 12;
-    gen_const_i32(12);
-    shr_u32(&instruction_body);
+    wg_push_i32(instruction_body, 12);
+    wg_shr_u32(instruction_body);
     SCALE_INDEX_FOR_ARRAY32(tlb_data);
 
     // entry_local is only used in the following block, so the scratch variable can be reused later
     {
         // Pseudo: entry = tlb_data[base_on_stack];
         const int32_t entry_local = GEN_LOCAL_SCRATCH2;
-        load_aligned_i32_from_stack(&instruction_body, (uint32_t) tlb_data);
-        gen_tee_local(entry_local);
+        wg_load_aligned_i32_from_stack(instruction_body, (uint32_t) tlb_data);
+        wg_tee_local(instruction_body, entry_local);
 
         // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
         //                                   (address & 0xFFF) <= (0x1000 - 4));
-        gen_const_i32(0xFFF & ~TLB_GLOBAL & ~(*cpl == 3 ? 0 : TLB_NO_USER));
-        and_i32(&instruction_body);
+        wg_push_i32(instruction_body, 0xFFF & ~TLB_GLOBAL & ~(*cpl == 3 ? 0 : TLB_NO_USER));
+        wg_and_i32(instruction_body);
 
-        gen_const_i32(TLB_VALID);
-        gen_eq_i32();
+        wg_push_i32(instruction_body, TLB_VALID);
+        wg_eq_i32(instruction_body);
 
-        gen_get_local(local_for_address);
-        gen_const_i32(0xFFF);
-        and_i32(&instruction_body);
-        gen_const_i32(0x1000 - 4);
-        gen_le_i32();
+        wg_get_local(instruction_body, local_for_address);
+        wg_push_i32(instruction_body, 0xFFF);
+        wg_and_i32(instruction_body);
+        wg_push_i32(instruction_body, 0x1000 - 4);
+        wg_le_i32(instruction_body);
 
-        and_i32(&instruction_body);
+        wg_and_i32(instruction_body);
 
         // Pseudo:
         // if(can_use_fast_path)
         // {
         //     phys_addr = entry & ~0xFFF ^ address;
-        gen_if_void();
+        wg_if_void(instruction_body);
 
-        gen_get_local(entry_local);
-        gen_const_i32(~0xFFF);
-        and_i32(&instruction_body);
-        gen_get_local(local_for_address);
-        xor_i32(&instruction_body);
+        wg_get_local(instruction_body, entry_local);
+        wg_push_i32(instruction_body, ~0xFFF);
+        wg_and_i32(instruction_body);
+        wg_get_local(instruction_body, local_for_address);
+        wg_xor_i32(instruction_body);
     }
 
     // entry_local isn't needed anymore, so we overwrite it
@@ -423,9 +359,9 @@ void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
     //     /* continued within can_use_fast_path branch */
     //     mem8[phys_addr] = value;
 
-    gen_tee_local(phys_addr_local);
-    gen_get_local(local_for_value);
-    store_unaligned_i32_with_offset(&instruction_body, (uint32_t) mem8);
+    wg_tee_local(instruction_body, phys_addr_local);
+    wg_get_local(instruction_body, local_for_value);
+    wg_store_unaligned_i32(instruction_body, (uint32_t) mem8);
 
     // Only call jit_dirty_cache_single if absolutely necessary
     // Pseudo:
@@ -437,184 +373,40 @@ void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
     //     }
     // }
 
-    gen_get_local(phys_addr_local);
-    gen_const_i32(12);
-    shr_u32(&instruction_body);
+    wg_get_local(instruction_body, phys_addr_local);
+    wg_push_i32(instruction_body, 12);
+    wg_shr_u32(instruction_body);
 
     SCALE_INDEX_FOR_ARRAY32(page_first_jit_cache_entry);
-    load_aligned_i32_from_stack(&instruction_body, (uint32_t) page_first_jit_cache_entry);
+    wg_load_aligned_i32_from_stack(instruction_body, (uint32_t) page_first_jit_cache_entry);
 
-    gen_const_i32(JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
-    gen_ne_i32();
+    wg_push_i32(instruction_body, JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+    wg_ne_i32(instruction_body);
 
-    gen_get_local(phys_addr_local);
-    gen_const_i32(12);
-    shr_u32(&instruction_body);
-    gen_const_i32(1);
-    shl_i32(&instruction_body);
-    load_aligned_u16_from_stack(&instruction_body, (uint32_t) page_entry_points);
+    wg_get_local(instruction_body, phys_addr_local);
+    wg_push_i32(instruction_body, 12);
+    wg_shr_u32(instruction_body);
+    wg_push_i32(instruction_body, 1);
+    wg_shl_i32(instruction_body);
+    wg_load_aligned_u16_from_stack(instruction_body, (uint32_t) page_entry_points);
 
-    gen_const_i32(ENTRY_POINT_END);
-    gen_ne_i32();
+    wg_push_i32(instruction_body, ENTRY_POINT_END);
+    wg_ne_i32(instruction_body);
 
-    or_i32(&instruction_body);
+    wg_or_i32(instruction_body);
 
-    gen_if_void();
-    gen_get_local(phys_addr_local);
+    wg_if_void(instruction_body);
+    wg_get_local(instruction_body, phys_addr_local);
     gen_call_fn1("jit_dirty_cache_single", 22);
-    gen_block_end();
+    wg_block_end(instruction_body);
 
     // Pseudo:
     // else { safe_read32_slow(address, value); }
-    gen_else();
-    gen_get_local(local_for_address);
-    gen_get_local(local_for_value);
+    wg_else(instruction_body);
+    wg_get_local(instruction_body, local_for_address);
+    wg_get_local(instruction_body, local_for_value);
     gen_call_fn2("safe_write32_slow", 17);
-    gen_block_end();
-}
-
-void gen_add_i32(void)
-{
-    add_i32(&instruction_body);
-}
-
-void gen_eqz_i32(void)
-{
-    write_raw_u8(&instruction_body, OP_I32EQZ);
-}
-
-void gen_eq_i32(void)
-{
-    write_raw_u8(&instruction_body, OP_I32EQ);
-}
-
-void gen_ne_i32(void)
-{
-    write_raw_u8(&instruction_body, OP_I32NE);
-}
-
-void gen_le_i32(void)
-{
-    write_raw_u8(&instruction_body, OP_I32LES);
-}
-
-void gen_lt_i32(void)
-{
-    write_raw_u8(&instruction_body, OP_I32LTS);
-}
-
-void gen_ge_i32(void)
-{
-    write_raw_u8(&instruction_body, OP_I32GES);
-}
-
-void gen_gt_i32(void)
-{
-    write_raw_u8(&instruction_body, OP_I32GTS);
-}
-
-void gen_if_void(void)
-{
-    write_raw_u8(&instruction_body, OP_IF);
-    write_raw_u8(&instruction_body, TYPE_VOID_BLOCK);
-}
-
-void gen_if_i32(void)
-{
-    write_raw_u8(&instruction_body, OP_IF);
-    write_raw_u8(&instruction_body, TYPE_I32);
-}
-
-void gen_else(void)
-{
-    write_raw_u8(&instruction_body, OP_ELSE);
-}
-
-void gen_loop_void(void)
-{
-    write_raw_u8(&instruction_body, OP_LOOP);
-    write_raw_u8(&instruction_body, TYPE_VOID_BLOCK);
-}
-
-void gen_block_void(void)
-{
-    write_raw_u8(&instruction_body, OP_BLOCK);
-    write_raw_u8(&instruction_body, TYPE_VOID_BLOCK);
-}
-
-void gen_block_i32(void)
-{
-    write_raw_u8(&instruction_body, OP_BLOCK);
-    write_raw_u8(&instruction_body, TYPE_I32);
-}
-
-void gen_block_end(void)
-{
-    write_raw_u8(&instruction_body, OP_END);
-}
-
-void gen_return(void)
-{
-    write_raw_u8(&instruction_body, OP_RETURN);
-}
-
-// Generate a br_table where an input of [i] will branch [i]th outer block,
-// where [i] is passed on the wasm stack
-void gen_brtable_and_cases(int32_t cases_count)
-{
-    assert(cases_count >= 0);
-
-    write_raw_u8(&instruction_body, OP_BRTABLE);
-    write_leb_u32(&instruction_body, cases_count);
-
-    for(int32_t i = 0; i < cases_count + 1; i++)
-    {
-        write_leb_u32(&instruction_body, i);
-    }
-}
-
-void gen_br(int32_t depth)
-{
-    write_raw_u8(&instruction_body, OP_BR);
-    write_leb_i32(&instruction_body, depth);
-}
-
-void gen_get_local(int32_t idx)
-{
-    write_raw_u8(&instruction_body, OP_GETLOCAL);
-    write_leb_i32(&instruction_body, idx);
-}
-
-void gen_set_local(int32_t idx)
-{
-    write_raw_u8(&instruction_body, OP_SETLOCAL);
-    write_leb_i32(&instruction_body, idx);
-}
-
-void gen_tee_local(int32_t idx)
-{
-    write_raw_u8(&instruction_body, OP_TEELOCAL);
-    write_leb_i32(&instruction_body, idx);
-}
-
-void gen_const_i32(int32_t v)
-{
-    push_i32(&instruction_body, v);
-}
-
-void gen_unreachable(void)
-{
-    write_raw_u8(&instruction_body, OP_UNREACHABLE);
-}
-
-void gen_load_aligned_i32_from_stack(uint32_t byte_offset)
-{
-    load_aligned_i32_from_stack(&instruction_body, byte_offset);
-}
-
-void gen_store_aligned_i32(void)
-{
-    store_aligned_i32(&instruction_body);
+    wg_block_end(instruction_body);
 }
 
 #define MODRM_ENTRY(n, work)\
@@ -641,18 +433,18 @@ void gen_store_aligned_i32(void)
 static void inline gen_modrm_entry_0(int32_t segment, int32_t reg16_idx_1, int32_t reg16_idx_2, int32_t imm)
 {
     // generates: fn( ( reg1 + reg2 + imm ) & 0xFFFF )
-    load_aligned_u16(&instruction_body, reg16_idx_1);
-    load_aligned_u16(&instruction_body, reg16_idx_2);
-    add_i32(&instruction_body);
+    wg_load_aligned_u16(instruction_body, reg16_idx_1);
+    wg_load_aligned_u16(instruction_body, reg16_idx_2);
+    wg_add_i32(instruction_body);
 
     if(imm)
     {
-        push_i32(&instruction_body, imm);
-        add_i32(&instruction_body);
+        wg_push_i32(instruction_body, imm);
+        wg_add_i32(instruction_body);
     }
 
-    push_i32(&instruction_body, 0xFFFF);
-    and_i32(&instruction_body);
+    wg_push_i32(instruction_body, 0xFFFF);
+    wg_and_i32(instruction_body);
 
     jit_add_seg_offset(segment);
 }
@@ -660,16 +452,16 @@ static void inline gen_modrm_entry_0(int32_t segment, int32_t reg16_idx_1, int32
 static void gen_modrm_entry_1(int32_t segment, int32_t reg16_idx, int32_t imm)
 {
     // generates: fn ( ( reg + imm ) & 0xFFFF )
-    load_aligned_u16(&instruction_body, reg16_idx);
+    wg_load_aligned_u16(instruction_body, reg16_idx);
 
     if(imm)
     {
-        push_i32(&instruction_body, imm);
-        add_i32(&instruction_body);
+        wg_push_i32(instruction_body, imm);
+        wg_add_i32(instruction_body);
     }
 
-    push_i32(&instruction_body, 0xFFFF);
-    and_i32(&instruction_body);
+    wg_push_i32(instruction_body, 0xFFFF);
+    wg_and_i32(instruction_body);
 
     jit_add_seg_offset(segment);
 }
@@ -693,14 +485,14 @@ static void jit_add_seg_offset(int32_t default_segment)
         return;
     }
 
-    push_i32(&instruction_body, seg);
-    call_fn(&instruction_body, fn_get_seg_idx);
-    add_i32(&instruction_body);
+    wg_push_i32(instruction_body, seg);
+    wg_call_fn(instruction_body, fn_get_seg_idx);
+    wg_add_i32(instruction_body);
 }
 
 static void gen_modrm_entry_2()
 {
-    push_i32(&instruction_body, read_imm16());
+    wg_push_i32(instruction_body, read_imm16());
     jit_add_seg_offset(DS);
 }
 
@@ -737,12 +529,12 @@ static void jit_resolve_modrm16_(int32_t modrm_byte)
 static void gen_modrm32_entry(int32_t segment, int32_t reg32s_idx, int32_t imm)
 {
     // generates: fn ( reg + imm )
-    load_aligned_i32(&instruction_body, reg32s_idx);
+    wg_load_aligned_i32(instruction_body, reg32s_idx);
 
     if(imm)
     {
-        push_i32(&instruction_body, imm);
-        add_i32(&instruction_body);
+        wg_push_i32(instruction_body, imm);
+        wg_add_i32(instruction_body);
     }
 
     jit_add_seg_offset(segment);
@@ -788,11 +580,11 @@ static void jit_resolve_sib(bool mod)
     // Where base is accessed from memory if base_is_mem_access or written as a constant otherwise
     if(base_is_mem_access)
     {
-        load_aligned_i32(&instruction_body, base_addr);
+        wg_load_aligned_i32(instruction_body, base_addr);
     }
     else
     {
-        push_i32(&instruction_body, base);
+        wg_push_i32(instruction_body, base);
     }
 
     jit_add_seg_offset(seg);
@@ -809,13 +601,11 @@ static void jit_resolve_sib(bool mod)
 
     uint8_t s = sib_byte >> 6 & 3;
 
-    load_aligned_i32(&instruction_body, (int32_t)(reg32s + m));
-    // We don't use push_u32 here either since s will fit in 1 byte
-    write_raw_u8(&instruction_body, OP_I32CONST);
-    write_raw_u8(&instruction_body, s);
-    shl_i32(&instruction_body);
+    wg_load_aligned_i32(instruction_body, (int32_t)(reg32s + m));
+    wg_push_i32(instruction_body, s);
+    wg_shl_i32(instruction_body);
 
-    add_i32(&instruction_body);
+    wg_add_i32(instruction_body);
 }
 
 static void modrm32_special_case_1(void)
@@ -826,8 +616,8 @@ static void modrm32_special_case_1(void)
 
     if(imm)
     {
-        push_i32(&instruction_body, imm);
-        add_i32(&instruction_body);
+        wg_push_i32(instruction_body, imm);
+        wg_add_i32(instruction_body);
     }
 }
 
@@ -839,8 +629,8 @@ static void modrm32_special_case_2(void)
 
     if(imm)
     {
-        push_i32(&instruction_body, imm);
-        add_i32(&instruction_body);
+        wg_push_i32(instruction_body, imm);
+        wg_add_i32(instruction_body);
     }
 }
 
@@ -848,7 +638,7 @@ static void gen_modrm32_entry_1()
 {
     int32_t imm = read_imm32s();
 
-    push_i32(&instruction_body, imm);
+    wg_push_i32(instruction_body, imm);
     jit_add_seg_offset(DS);
 }
 
@@ -897,33 +687,34 @@ void gen_modrm_fn2(char const* fn, uint8_t fn_len, int32_t arg0, int32_t arg1)
 {
     // generates: fn( _, arg0, arg1 )
 
-    push_i32(&instruction_body, arg0);
-    push_i32(&instruction_body, arg1);
+    wg_push_i32(instruction_body, arg0);
+    wg_push_i32(instruction_body, arg1);
 
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN3_TYPE_INDEX);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN3_TYPE_INDEX);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 void gen_modrm_fn1(char const* fn, uint8_t fn_len, int32_t arg0)
 {
     // generates: fn( _, arg0 )
 
-    push_i32(&instruction_body, arg0);
+    wg_push_i32(instruction_body, arg0);
 
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN2_TYPE_INDEX);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN2_TYPE_INDEX);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 void gen_modrm_fn0(char const* fn, uint8_t fn_len)
 {
     // generates: fn( _ )
 
-    int32_t fn_idx = get_fn_index(fn, fn_len, FN1_TYPE_INDEX);
-    call_fn(&instruction_body, fn_idx);
+    int32_t fn_idx = get_fn_idx(fn, fn_len, FN1_TYPE_INDEX);
+    wg_call_fn(instruction_body, fn_idx);
 }
 
 void gen_commit_instruction_body_to_cs(void)
 {
-    append_buffer(&cs, &instruction_body);
-    instruction_body.ptr = instruction_body.start;
+    wg_include_buffer(cs);
+    wg_include_buffer(instruction_body);
 }
+

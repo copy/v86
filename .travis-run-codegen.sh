@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -e
-make codegen-test
+make wasmgen-test

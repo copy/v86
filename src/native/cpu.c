@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include "codegen/codegen.h"
+#include "codegen/wasmgen.h"
 #include "const.h"
 #include "cpu.h"
 #include "global_pointers.h"
@@ -1514,52 +1515,52 @@ static void jit_generate(uint32_t phys_addr)
     gen_reset();
 
     // set state local variable to the initial state passed as the first argument
-    gen_get_local(GEN_LOCAL_ARG_INITIAL_STATE);
-    gen_set_local(GEN_LOCAL_STATE);
+    wg_get_local(instruction_body, GEN_LOCAL_ARG_INITIAL_STATE);
+    wg_set_local(instruction_body, GEN_LOCAL_STATE);
 
     // initialise max_iterations
-    gen_const_i32(JIT_MAX_ITERATIONS_PER_FUNCTION);
-    gen_set_local(GEN_LOCAL_ITERATION_COUNTER);
+    wg_push_i32(instruction_body, JIT_MAX_ITERATIONS_PER_FUNCTION);
+    wg_set_local(instruction_body, GEN_LOCAL_ITERATION_COUNTER);
 
     // main state machine loop
-    gen_loop_void();
+    wg_loop_void(instruction_body);
 
     if(JIT_ALWAYS_USE_LOOP_SAFETY || requires_loop_limit)
     {
         profiler_stat_increment(S_COMPILE_WITH_LOOP_SAFETY);
 
         // decrement max_iterations
-        gen_get_local(GEN_LOCAL_ITERATION_COUNTER);
-        gen_const_i32(-1);
-        gen_add_i32();
-        gen_set_local(GEN_LOCAL_ITERATION_COUNTER);
+        wg_get_local(instruction_body, GEN_LOCAL_ITERATION_COUNTER);
+        wg_push_i32(instruction_body, -1);
+        wg_add_i32(instruction_body);
+        wg_set_local(instruction_body, GEN_LOCAL_ITERATION_COUNTER);
 
         // if max_iterations == 0: return
-        gen_get_local(GEN_LOCAL_ITERATION_COUNTER);
-        gen_eqz_i32();
-        gen_if_void();
-        gen_return();
-        gen_block_end();
+        wg_get_local(instruction_body, GEN_LOCAL_ITERATION_COUNTER);
+        wg_eqz_i32(instruction_body);
+        wg_if_void(instruction_body);
+        wg_return(instruction_body);
+        wg_block_end(instruction_body);
     }
 
-    gen_block_void(); // for the default case
+    wg_block_void(instruction_body); // for the default case
 
     // generate the opening blocks for the cases
 
     for(int32_t i = 0; i < basic_blocks.length; i++)
     {
-        gen_block_void();
+        wg_block_void(instruction_body);
     }
 
-    gen_get_local(GEN_LOCAL_STATE);
-    gen_brtable_and_cases(basic_blocks.length);
+    wg_get_local(instruction_body, GEN_LOCAL_STATE);
+    wg_brtable_and_cases(instruction_body, basic_blocks.length);
 
     for(int32_t i = 0; i < basic_blocks.length; i++)
     {
         // Case [i] will jump after the [i]th block, so we first generate the
         // block end opcode and then the code for that block
 
-        gen_block_end();
+        wg_block_end(instruction_body);
 
         struct basic_block block = basic_blocks.blocks[i];
 
@@ -1594,10 +1595,10 @@ static void jit_generate(uint32_t phys_addr)
                 assert(next_bb_index != -1);
 
                 // set state variable to next basic block
-                gen_const_i32(next_bb_index);
-                gen_set_local(GEN_LOCAL_STATE);
+                wg_push_i32(instruction_body, next_bb_index);
+                wg_set_local(instruction_body, GEN_LOCAL_STATE);
 
-                gen_br(basic_blocks.length - i); // to the loop
+                wg_br(instruction_body, basic_blocks.length - i); // to the loop
             }
             else
             {
@@ -1608,7 +1609,7 @@ static void jit_generate(uint32_t phys_addr)
                 const char* condition = condition_functions[block.condition_index];
                 gen_fn0_const_ret(condition, strlen(condition));
 
-                gen_if_void();
+                wg_if_void(instruction_body);
 
                 // Branch taken
 
@@ -1627,16 +1628,16 @@ static void jit_generate(uint32_t phys_addr)
                             &basic_blocks, block.next_block_branch_taken_addr);
                     assert(next_basic_block_branch_taken_index != -1);
 
-                    gen_const_i32(next_basic_block_branch_taken_index);
-                    gen_set_local(GEN_LOCAL_STATE);
+                    wg_push_i32(instruction_body, next_basic_block_branch_taken_index);
+                    wg_set_local(instruction_body, GEN_LOCAL_STATE);
                 }
                 else
                 {
                     // Jump to different page
-                    gen_return();
+                    wg_return(instruction_body);
                 }
 
-                gen_else();
+                wg_else(instruction_body);
 
                 {
                     // Branch not taken
@@ -1645,13 +1646,13 @@ static void jit_generate(uint32_t phys_addr)
                             &basic_blocks, block.next_block_addr);
                     assert(next_basic_block_index != -1);
 
-                    gen_const_i32(next_basic_block_index);
-                    gen_set_local(GEN_LOCAL_STATE);
+                    wg_push_i32(instruction_body, next_basic_block_index);
+                    wg_set_local(instruction_body, GEN_LOCAL_STATE);
                 }
 
-                gen_block_end();
+                wg_block_end(instruction_body);
 
-                gen_br(basic_blocks.length - i); // to the loop
+                wg_br(instruction_body, basic_blocks.length - i); // to the loop
             }
         }
         else
@@ -1660,17 +1661,17 @@ static void jit_generate(uint32_t phys_addr)
             assert(block.condition_index == -1);
 
             // Exit this function
-            gen_return();
+            wg_return(instruction_body);
         }
     }
 
-    gen_block_end(); // default case
-    gen_unreachable();
+    wg_block_end(instruction_body); // default case
+    wg_unreachable(instruction_body);
 
-    gen_block_end(); // loop
+    wg_block_end(instruction_body); // loop
 
     gen_commit_instruction_body_to_cs();
-    gen_finish(GEN_NO_OF_LOCALS);
+    wg_finish(GEN_NO_OF_LOCALS);
 
     cached_state_flags state_flags = pack_current_state_flags();
 

@@ -287,73 +287,77 @@ function V86Starter(options)
     }
 
     const wasmgen_exports = [
-        // these are used by C as is
-        "gen_eqz_i32",
-        "gen_if_void",
-        "gen_else",
-        "gen_loop_void",
-        "gen_block_void",
-        "gen_block_end",
-        "gen_return",
-        "gen_brtable_and_cases",
-        "gen_br",
-        "gen_get_local",
-        "gen_set_local",
-        "gen_const_i32",
-        "gen_unreachable",
-        "gen_drop",
-        "gen_increment_mem32",
-        "gen_increment_variable",
-
-        // these are wrapped around without the rs_ prefix by C
-        "rs_gen_fn0_const",
-        "rs_gen_fn0_const_ret",
-        "rs_gen_fn1_const",
-        "rs_gen_fn1_const_ret",
-        "rs_gen_fn2_const",
-        "rs_gen_fn3_const",
-        "rs_gen_call_fn1_ret",
-        "rs_gen_call_fn2",
-        "rs_get_fn_idx",
-
-        // these are exported to C with the gen_ prefix attached via JS
         "new_buf",
-        "reset",
         "finish",
-        "get_op_ptr",
-        "get_op_len",
+        "reset",
+        "get_fn_idx",
         "include_buffer",
-        "push_i32",
-        "push_u32",
-        "load_aligned_u16",
-        "load_aligned_i32",
-        "store_aligned_u16",
-        "store_aligned_i32",
-        "add_i32",
-        "and_i32",
-        "or_i32",
-        "shl_i32",
-        "call_fn",
-        "call_fn_with_arg",
+
+        "wg_push_i32",
+        "wg_push_u32",
+        "wg_load_aligned_u16",
+        "wg_load_aligned_i32",
+        "wg_store_aligned_u16",
+        "wg_store_aligned_i32",
+        "wg_add_i32",
+        "wg_and_i32",
+        "wg_or_i32",
+        "wg_shl_i32",
+        "wg_call_fn",
+        "wg_call_fn_with_arg",
+        "wg_eq_i32",
+        "wg_ne_i32",
+        "wg_le_i32",
+        "wg_lt_i32",
+        "wg_ge_i32",
+        "wg_gt_i32",
+        "wg_if_i32",
+        "wg_block_i32",
+        "wg_tee_local",
+        "wg_xor_i32",
+        "wg_load_unaligned_i32_from_stack",
+        "wg_load_aligned_i32_from_stack",
+        "wg_store_unaligned_i32",
+        "wg_shr_u32",
+        "wg_shr_i32",
+        "wg_eqz_i32",
+        "wg_if_void",
+        "wg_else",
+        "wg_loop_void",
+        "wg_block_void",
+        "wg_block_end",
+        "wg_return",
+        "wg_drop",
+        "wg_brtable_and_cases",
+        "wg_br",
+        "wg_get_local",
+        "wg_set_local",
+        "wg_unreachable",
+        "wg_increment_mem32",
+        "wg_increment_variable",
+        "wg_load_aligned_u16_from_stack",
+        "wg_fn0_const",
+        "wg_fn0_const_ret",
+        "wg_fn1_const",
+        "wg_fn1_const_ret",
+        "wg_fn2_const",
+        "wg_fn3_const",
+        "wg_call_fn1_ret",
+        "wg_call_fn2",
     ];
 
     function reexport_wasmgen_functions(wasmgen) {
         for(const fn_name of wasmgen_exports)
         {
-            if(fn_name.startsWith("gen_"))
+            if(fn_name.startsWith("wg_"))
             {
                 // used as is via C
                 wasm_shared_funcs[`_${fn_name}`] = wasmgen.exports[fn_name];
             }
-            else if(fn_name.startsWith("rs_"))
-            {
-                // wrapped around by C
-                wasm_shared_funcs[`_${fn_name}`] = wasmgen.exports[fn_name.replace("rs_", "")];
-            }
             else
             {
-                // prefix "gen_" attached by JS
-                wasm_shared_funcs[`_gen_${fn_name}`] = wasmgen.exports[fn_name];
+                // prefix "wg_" attached by JS
+                wasm_shared_funcs[`_wg_${fn_name}`] = wasmgen.exports[fn_name];
             }
         }
     }
