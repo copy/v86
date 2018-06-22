@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+
+//XXX: this file is currently unused, fold these tests into the wasmgen tests
+
 "use strict";
 
 process.on("unhandledRejection", exn => { throw exn; });

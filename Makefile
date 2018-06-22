@@ -237,14 +237,8 @@ build/wasmgen-debug.wasm: src/wasmgen/src/*.rs src/wasmgen/Cargo.toml
 	mv src/wasmgen/target/wasm32-unknown-unknown/debug/wasmgen.wasm build/wasmgen-debug.wasm
 	ls -lh build/wasmgen-debug.wasm
 
-build/codegen-test.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h
-	mkdir -p build
-	-ls -lh build/codegen-test.wasm
-	emcc src/native/codegen/codegen.c \
-		$(CC_FLAGS) \
-		-Os \
-		-o build/codegen-test.wasm
-	ls -lh build/codegen-test.wasm
+wasmgen-test:
+	(cd src/wasmgen && env RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture)
 
 clean:
 	-rm build/libv86.js
@@ -252,7 +246,8 @@ clean:
 	-rm build/v86_all.js
 	-rm build/v86.wasm
 	-rm build/v86-debug.wasm
-	-rm build/codegen-test.wasm
+	-rm build/wasmgen.wasm
+	-rm build/wasmgen-debug.wasm
 	-rm $(INSTRUCTION_TABLES)
 	-rm $(addsuffix .bak,$(INSTRUCTION_TABLES))
 	-rm $(addsuffix .diff,$(INSTRUCTION_TABLES))
@@ -311,9 +306,6 @@ kvm-unit-test: build/libv86-debug.js build/v86-debug.wasm
 	(cd tests/kvm-unit-tests && ./configure)
 	$(MAKE) -C tests/kvm-unit-tests
 	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
-
-codegen-test: build/codegen-test.wasm
-	./tests/codegen/codegen.js
 
 expect-tests: build/libv86-debug.js build/v86-debug.wasm build/libwabt.js
 	make -C tests/expect/tests
