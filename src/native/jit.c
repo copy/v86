@@ -102,6 +102,17 @@ void remove_jit_cache_wasm_index(int32_t page, uint16_t wasm_table_index)
     {
         free_wasm_table_index(wasm_table_index);
     }
+
+#if CHECK_JIT_CACHE_ARRAY_INVARIANTS
+    // sanity check that the above iteration deleted all entries
+
+    for(int32_t i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
+    {
+        struct code_cache* entry = &jit_cache_arr[i];
+
+        assert(entry->wasm_table_index != wasm_table_index);
+    }
+#endif
 }
 
 bool find_u16(const uint16_t* array, uint16_t value, int32_t length)
