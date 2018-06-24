@@ -666,6 +666,29 @@ void check_jit_cache_array_invariants(void)
 #if CHECK_JIT_CACHE_ARRAY_INVARIANTS
     int32_t wasm_table_index_to_jit_cache_index[WASM_TABLE_SIZE] = { 0 };
 
+    // there are no loops in the linked lists
+    // https://en.wikipedia.org/wiki/Cycle_detection#Floyd's_Tortoise_and_Hare
+    for(int32_t i = 0; i < GROUP_DIRTINESS_LENGTH; i++)
+    {
+        int32_t slow = page_first_jit_cache_entry[i];
+        int32_t fast = page_first_jit_cache_entry[i];
+
+        while(fast != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+        {
+            slow = jit_cache_arr[slow].next_index_same_page;
+            fast = jit_cache_arr[fast].next_index_same_page;
+
+            if(fast == JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
+            {
+                break;
+            }
+
+            fast = jit_cache_arr[fast].next_index_same_page;
+
+            assert(slow != fast);
+        }
+    }
+
     for(int32_t i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
     {
         struct code_cache* entry = &jit_cache_arr[i];
@@ -728,29 +751,6 @@ void check_jit_cache_array_invariants(void)
             }
 
             assert(reached);
-        }
-    }
-
-    // there are no loops in the linked lists
-    // https://en.wikipedia.org/wiki/Cycle_detection#Floyd's_Tortoise_and_Hare
-    for(int32_t i = 0; i < GROUP_DIRTINESS_LENGTH; i++)
-    {
-        int32_t slow = page_first_jit_cache_entry[i];
-        int32_t fast = page_first_jit_cache_entry[i];
-
-        while(fast != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
-        {
-            slow = jit_cache_arr[slow].next_index_same_page;
-            fast = jit_cache_arr[fast].next_index_same_page;
-
-            if(fast == JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
-            {
-                break;
-            }
-
-            fast = jit_cache_arr[fast].next_index_same_page;
-
-            assert(slow != fast);
         }
     }
 #endif
