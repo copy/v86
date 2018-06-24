@@ -57,6 +57,8 @@ void remove_jit_cache_entry(uint32_t page, int32_t addr_index)
         }
     }
 
+    jit_cache_arr[addr_index].next_index_same_page = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
+
     assert(did_remove);
 }
 
@@ -83,7 +85,7 @@ void remove_jit_cache_wasm_index(int32_t page, uint16_t wasm_table_index)
 
             remove_jit_cache_entry(page, cache_array_index);
 
-            entry->next_index_same_page = JIT_CACHE_ARRAY_NO_NEXT_ENTRY;
+            assert(entry->next_index_same_page == JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
             entry->wasm_table_index = 0;
             entry->start_addr = 0;
             entry->pending = false;

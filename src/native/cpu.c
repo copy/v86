@@ -756,7 +756,7 @@ void check_jit_cache_array_invariants(void)
 #endif
 }
 
-static struct code_cache* create_cache_entry(uint32_t phys_addr)
+static struct code_cache* create_cache_entry(uint32_t phys_addr, uint16_t wasm_table_index)
 {
     int32_t found_entry_index = -1;
 
@@ -791,17 +791,39 @@ static struct code_cache* create_cache_entry(uint32_t phys_addr)
         assert(entry->start_addr);
         assert(entry->wasm_table_index);
 
-        uint16_t wasm_table_index = entry->wasm_table_index;
-        uint32_t page = entry->start_addr >> DIRTY_ARR_SHIFT;
+        if(entry->wasm_table_index == wasm_table_index)
+        {
+            assert(entry->pending);
+            assert(same_page(entry->start_addr, phys_addr));
 
-        remove_jit_cache_wasm_index(page, wasm_table_index);
+            // The entry belongs to the same wasm table index as this entry.
+            // *Don't* free the wasm table index, instead just delete the entry
+            // and use its slot for this entry.
+            // TODO: Optimally, we should pick another slot instead of dropping
+            // an entry has just been created.
+            uint32_t old_page = entry->start_addr >> DIRTY_ARR_SHIFT;
+            remove_jit_cache_entry(old_page, found_entry_index);
 
-        // entry should be removed after calling remove_jit_cache_wasm_index
+            assert(entry->next_index_same_page == JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+            entry->pending = false;
+            entry->start_addr = 0;
+        }
+        else
+        {
+            uint16_t old_wasm_table_index = entry->wasm_table_index;
+            uint32_t old_page = entry->start_addr >> DIRTY_ARR_SHIFT;
 
-        assert(!entry->pending);
-        assert(!entry->start_addr);
-        assert(!entry->wasm_table_index);
-        assert(entry->next_index_same_page == JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+            remove_jit_cache_wasm_index(old_page, old_wasm_table_index);
+
+            check_jit_cache_array_invariants();
+
+            // entry should be removed after calling remove_jit_cache_wasm_index
+
+            assert(!entry->pending);
+            assert(!entry->start_addr);
+            assert(!entry->wasm_table_index);
+            assert(entry->next_index_same_page == JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+        }
     }
 
     uint32_t page = phys_addr >> DIRTY_ARR_SHIFT;
@@ -1693,7 +1715,7 @@ static void jit_generate(uint32_t phys_addr)
         {
             uint32_t phys_addr = translate_address_read(block->addr);
 
-            struct code_cache* entry = create_cache_entry(phys_addr);
+            struct code_cache* entry = create_cache_entry(phys_addr, wasm_table_index);
 
             assert(phys_addr);
             entry->start_addr = phys_addr;
