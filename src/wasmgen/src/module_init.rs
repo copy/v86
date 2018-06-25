@@ -1,4 +1,4 @@
-use std::ptr;
+use std::ptr::{NonNull, null_mut};
 
 use ::util::{PackedStr, pack_str, unpack_str, write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_u32};
 use ::wasm_opcodes as op;
@@ -16,13 +16,13 @@ pub const FN2_RET_TYPE_INDEX: u8 = 6;
 
 pub const NR_FN_TYPE_INDEXES: u8 = 7;
 
-static mut MODULE_PTR: *mut WasmBuilder = ptr::null_mut();
+static mut MODULE_PTR: NonNull<WasmBuilder> = unsafe { NonNull::new_unchecked(null_mut()) };
 
 #[no_mangle]
 pub fn setup() {
     let wm = Box::new(WasmBuilder::new());
     unsafe {
-        MODULE_PTR = Box::into_raw(wm);
+        MODULE_PTR = NonNull::new(Box::into_raw(wm)).expect("assigning module ptr");
     }
     get_module().init();
 }
@@ -30,7 +30,7 @@ pub fn setup() {
 #[no_mangle]
 pub fn get_module<'a>() -> &'a mut WasmBuilder {
     unsafe {
-        MODULE_PTR.as_mut().expect("getting module")
+        MODULE_PTR.as_mut()
     }
 }
 
