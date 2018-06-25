@@ -260,7 +260,7 @@ function V86Starter(options)
         "NaN": NaN,
     };
 
-    const wasmgen_mem = new WebAssembly.Memory({ initial: 10000 });
+    const wasmgen_mem = new WebAssembly.Memory({ "initial": 10 });
     const wasmgen_externs = {
         "memory": wasmgen_mem,
         "log_from_wasm": function(offset, len) {
