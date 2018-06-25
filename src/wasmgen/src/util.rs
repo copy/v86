@@ -1,5 +1,3 @@
-pub use ::dbg::*;
-
 pub fn write_leb_i32(buf: &mut Vec<u8>, mut v: i32) {
     // Super complex stuff. See the following:
     // https://en.wikipedia.org/wiki/LEB128#Encode_signed_integer
@@ -76,6 +74,25 @@ pub fn unpack_str(s: PackedStr) -> String {
         buf.push(bytes[i] as char);
     }
     buf
+}
+
+#[allow(dead_code)]
+pub const DEBUG: bool = true;
+
+#[cfg(target_arch = "wasm32")]
+extern "C" {
+    pub fn log_from_wasm(ptr: *const u8, len: usize);
+    pub fn abort();
+}
+
+#[cfg(target_arch = "wasm32")]
+use std::string::ToString;
+
+#[cfg(target_arch = "wasm32")]
+pub fn _log_to_js_console<T: ToString>(s: T) {
+    let s: String = s.to_string();
+    let len = s.len();
+    unsafe { log_from_wasm(s.as_bytes().as_ptr(), len); }
 }
 
 #[cfg(test)]

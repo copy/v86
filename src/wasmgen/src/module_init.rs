@@ -1,6 +1,9 @@
 use std::ptr::{NonNull, null_mut};
 
-use ::util::{PackedStr, pack_str, unpack_str, write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_u32};
+use ::util::{
+    PackedStr, unpack_str,
+    write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_u32,
+};
 use ::wasm_opcodes as op;
 
 pub const FN0_TYPE_INDEX: u8 = 0;
@@ -10,8 +13,6 @@ pub const FN3_TYPE_INDEX: u8 = 3;
 
 pub const FN0_RET_TYPE_INDEX: u8 = 4;
 pub const FN1_RET_TYPE_INDEX: u8 = 5;
-
-#[allow(dead_code)]
 pub const FN2_RET_TYPE_INDEX: u8 = 6;
 
 pub const NR_FN_TYPE_INDEXES: u8 = 7;
@@ -295,7 +296,7 @@ impl WasmBuilder {
         write_fixed_leb16_at_idx(&mut self.op, next_op_idx, self.import_count - 1);
     }
 
-    pub fn get_fn_index(&mut self, fn_name: PackedStr, type_index: u8) -> u16 {
+    pub fn get_fn_idx(&mut self, fn_name: PackedStr, type_index: u8) -> u16 {
         dbg_log!("getting fn idx for '{}'", unpack_str(fn_name));
         match self.get_import_index(fn_name) {
             Some(idx) => {
@@ -327,15 +328,16 @@ impl WasmBuilder {
 #[cfg(test)]
 mod tests {
     use ::module_init::*;
+    use ::util::pack_str;
 
     #[test]
     fn import_table_management() {
         let mut w = WasmBuilder::new();
         w.init();
-        assert_eq!(0, w.get_fn_index(pack_str("foo"), FN0_TYPE_INDEX));
-        assert_eq!(1, w.get_fn_index(pack_str("bar"), FN1_TYPE_INDEX));
-        assert_eq!(0, w.get_fn_index(pack_str("foo"), FN0_TYPE_INDEX));
-        assert_eq!(2, w.get_fn_index(pack_str("baz"), FN2_TYPE_INDEX));
+        assert_eq!(0, w.get_fn_idx(pack_str("foo"), FN0_TYPE_INDEX));
+        assert_eq!(1, w.get_fn_idx(pack_str("bar"), FN1_TYPE_INDEX));
+        assert_eq!(0, w.get_fn_idx(pack_str("foo"), FN0_TYPE_INDEX));
+        assert_eq!(2, w.get_fn_idx(pack_str("baz"), FN2_TYPE_INDEX));
     }
 
 }

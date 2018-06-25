@@ -28,7 +28,7 @@ pub fn wg_finish(no_of_locals_i32: u8) {
 pub fn wg_get_fn_idx(fn_name_a: u64, fn_name_b: u64, fn_name_c: u64, type_idx: u8) -> u16 {
     let fn_name: PackedStr = (fn_name_a, fn_name_b, fn_name_c);
     let m = get_module();
-    m.get_fn_index(fn_name, type_idx)
+    m.get_fn_idx(fn_name, type_idx)
 }
 
 #[no_mangle]
@@ -53,25 +53,26 @@ pub fn wg_commit_instruction_body_to_cs() {
 mod tests {
     use std::io::prelude::*;
     use std::fs::File;
-    use ::codegen::*;
     use ::c_api::*;
     use ::util::*;
     use ::wasm_util::*;
+    use ::module_init::*;
 
     #[test]
     fn c_api_test() {
         setup();
+        let m = get_module();
         let cs = &mut get_module().cs;
         let instruction_body = &mut get_module().instruction_body;
 
-        wg_fn0_const_ret(cs, pack_str("foo"));
-        wg_fn0_const_ret(cs, pack_str("bar"));
+        wg_call_fn(cs, m.get_fn_idx(pack_str("foo"), FN0_TYPE_INDEX));
+        wg_call_fn(cs, m.get_fn_idx(pack_str("bar"), FN0_TYPE_INDEX));
 
         wg_finish(2);
         wg_reset();
 
         wg_push_i32(cs, 2);
-        wg_call_fn1_ret(instruction_body, pack_str("baz"));
+        wg_call_fn(instruction_body, m.get_fn_idx(pack_str("baz"), FN1_RET_TYPE_INDEX));
         wg_drop(instruction_body);
 
         wg_commit_instruction_body_to_cs();

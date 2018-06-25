@@ -1,5 +1,5 @@
 use ::wasm_opcodes as op;
-use ::util::{write_fixed_leb16_at_idx, write_leb_i32, write_leb_u32};
+use ::util::{ write_fixed_leb16_at_idx, write_leb_i32, write_leb_u32 };
 
 #[no_mangle]
 pub fn wg_push_i32(buf: &mut Vec<u8>, v: i32) {
