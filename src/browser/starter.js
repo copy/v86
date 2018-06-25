@@ -293,7 +293,6 @@ function V86Starter(options)
         "wg_finish",
         "wg_reset",
         "wg_get_fn_idx",
-        "wg_include_buffer",
 
         "wg_push_i32",
         "wg_push_u32",
@@ -351,6 +350,7 @@ function V86Starter(options)
     v86util.minimal_load_wasm(wasmgen_bin, { "env": wasmgen_externs }, (wasmgen) => {
         for(const fn_name of wasmgen_exports)
         {
+            dbg_assert(typeof wasmgen.exports[fn_name] === "function");
             wasm_shared_funcs[`_${fn_name}`] = wasmgen.exports[fn_name];
         }
         wasmgen.exports["setup"]();
