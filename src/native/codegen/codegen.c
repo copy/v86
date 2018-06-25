@@ -17,7 +17,7 @@ PackedStr pack_str(char const* fn_name, uint8_t fn_len);
 void gen_reset(void)
 {
     wg_reset();
-    cs = wg_get_cs();
+    cs = wg_get_code_section();
     instruction_body = wg_get_instruction_body();
     add_get_seg_import();
 }

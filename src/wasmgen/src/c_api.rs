@@ -3,7 +3,7 @@ use ::util::PackedStr;
 pub use ::module_init::{ setup, get_module };
 
 #[no_mangle]
-pub fn wg_get_cs() -> *mut Vec<u8> {
+pub fn wg_get_code_section() -> *mut Vec<u8> {
     &mut get_module().cs
 }
 

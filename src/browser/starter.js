@@ -287,7 +287,7 @@ function V86Starter(options)
     }
 
     const wasmgen_exports = [
-        "wg_get_cs",
+        "wg_get_code_section",
         "wg_get_instruction_body",
         "wg_commit_instruction_body_to_cs",
         "wg_finish",

@@ -10,13 +10,12 @@ typedef struct PackedStr {
 
 #define PSTR_TY uint64_t, uint64_t, uint64_t
 
-extern uint8_t* wg_get_cs(void);
+extern uint8_t* wg_get_code_section(void);
 extern uint8_t* wg_get_instruction_body(void);
 extern void wg_commit_instruction_body_to_cs(void);
 extern void wg_finish(uint8_t no_of_locals_i32);
 extern void wg_reset(void);
 extern uint16_t wg_get_fn_idx(PSTR_TY, uint8_t fn_type);
-extern void wg_include_buffer(uint8_t* buf);
 
 extern void wg_push_i32(uint8_t* buf, int32_t v);
 extern void wg_push_u32(uint8_t* buf, uint32_t v);
