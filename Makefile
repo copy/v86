@@ -227,14 +227,14 @@ build/wasmgen.wasm: src/wasmgen/src/*.rs src/wasmgen/Cargo.toml
 	mkdir -p build/
 	-ls -lh build/wasmgen.wasm
 	(cd src/wasmgen && cargo +nightly rustc --release --target wasm32-unknown-unknown -- -Clink-args="--import-memory")
-	mv src/wasmgen/target/wasm32-unknown-unknown/release/wasmgen.wasm build/wasmgen.wasm
+	cp src/wasmgen/target/wasm32-unknown-unknown/release/wasmgen.wasm build/wasmgen.wasm
 	ls -lh build/wasmgen.wasm
 
 build/wasmgen-debug.wasm: src/wasmgen/src/*.rs src/wasmgen/Cargo.toml
 	mkdir -p build/
 	-ls -lh build/wasmgen-debug.wasm
 	(cd src/wasmgen && cargo +nightly rustc --target wasm32-unknown-unknown -- -Clink-args="--import-memory")
-	mv src/wasmgen/target/wasm32-unknown-unknown/debug/wasmgen.wasm build/wasmgen-debug.wasm
+	cp src/wasmgen/target/wasm32-unknown-unknown/debug/wasmgen.wasm build/wasmgen-debug.wasm
 	ls -lh build/wasmgen-debug.wasm
 
 wasmgen-test:
