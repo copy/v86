@@ -4,6 +4,7 @@ use std::mem;
 use ::util::{
     PackedStr, unpack_str,
     write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_u32,
+    SafeToU8, SafeToU16, SafeToI32,
 };
 use ::wasm_opcodes as op;
 
@@ -187,7 +188,7 @@ impl WasmBuilder {
 
         let new_len = self.op.len();
         let size = (new_len - 1) - idx_section_size;
-        self.op[idx_section_size] = size as u8;
+        self.op[idx_section_size] = size.safe_to_u8();
     }
 
     /// Goes over the import block to find index of an import entry by function name
@@ -221,7 +222,7 @@ impl WasmBuilder {
         dbg_assert!(size < 0x4000);
         self.import_table_size = size;
         let idx_import_table_size = self.idx_import_table_size;
-        write_fixed_leb16_at_idx(&mut self.op, idx_import_table_size, size as u16);
+        write_fixed_leb16_at_idx(&mut self.op, idx_import_table_size, size.safe_to_u16());
     }
 
     pub fn write_import_section_preamble(&mut self) {
@@ -259,7 +260,7 @@ impl WasmBuilder {
         self.op.push(1); // length of module name
         self.op.push('e' as u8); // module name
         let fn_name = unpack_str(fn_name);
-        self.op.push(fn_name.len() as u8);
+        self.op.push(fn_name.len().safe_to_u8());
         self.op.extend(fn_name.as_bytes());
         self.op.push(op::EXT_FUNCTION);
         self.op.push(type_index);
