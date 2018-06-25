@@ -60,13 +60,6 @@ var LOG_NAMES = [
 ];
 
 var
-/** @const */ TLB_SYSTEM_READ = 1,
-/** @const */ TLB_SYSTEM_WRITE = 2,
-/** @const */ TLB_USER_READ = 4,
-/** @const */ TLB_USER_WRITE = 8;
-
-
-var
 
 // flags register bitflags
 /** @const */ flag_carry = 1,

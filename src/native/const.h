@@ -68,12 +68,6 @@
 #define LDTR 7
 
 
-#define TLB_SYSTEM_READ 1
-#define TLB_SYSTEM_WRITE 2
-#define TLB_USER_READ 4
-#define TLB_USER_WRITE 8
-
-
 #define PSE_ENABLED 128
 
 #define PAGE_TABLE_PRESENT_MASK (1 << 0)
