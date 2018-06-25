@@ -3,48 +3,48 @@ use ::util::PackedStr;
 pub use ::module_init::{ setup, get_module };
 
 #[no_mangle]
-pub fn get_cs() -> *mut Vec<u8> {
+pub fn wg_get_cs() -> *mut Vec<u8> {
     &mut get_module().cs
 }
 
 #[no_mangle]
-pub fn get_instruction_body() -> *mut Vec<u8> {
+pub fn wg_get_instruction_body() -> *mut Vec<u8> {
     &mut get_module().instruction_body
 }
 
 #[no_mangle]
-pub fn reset() {
+pub fn wg_reset() {
     let m = get_module();
     m.reset();
 }
 
 #[no_mangle]
-pub fn finish(no_of_locals_i32: u8) {
+pub fn wg_finish(no_of_locals_i32: u8) {
     let m = get_module();
     m.finish(no_of_locals_i32);
 }
 
 #[no_mangle]
-pub fn get_fn_idx(fn_name_a: u64, fn_name_b: u64, fn_name_c: u64, type_idx: u8) -> u16 {
+pub fn wg_get_fn_idx(fn_name_a: u64, fn_name_b: u64, fn_name_c: u64, type_idx: u8) -> u16 {
     let fn_name: PackedStr = (fn_name_a, fn_name_b, fn_name_c);
     let m = get_module();
     m.get_fn_index(fn_name, type_idx)
 }
 
 #[no_mangle]
-pub fn get_op_ptr() -> *const u8 {
+pub fn wg_get_op_ptr() -> *const u8 {
     let m = get_module();
     m.get_op_ptr()
 }
 
 #[no_mangle]
-pub fn get_op_len() -> usize {
+pub fn wg_get_op_len() -> usize {
     let m = get_module();
     m.get_op_len()
 }
 
 #[no_mangle]
-pub fn commit_instruction_body_to_cs() {
+pub fn wg_commit_instruction_body_to_cs() {
     let m = get_module();
     m.commit_instruction_body_cs();
 }
@@ -67,19 +67,19 @@ mod tests {
         wg_fn0_const_ret(cs, pack_str("foo"));
         wg_fn0_const_ret(cs, pack_str("bar"));
 
-        finish(2);
-        reset();
+        wg_finish(2);
+        wg_reset();
 
         wg_push_i32(cs, 2);
         wg_call_fn1_ret(instruction_body, pack_str("baz"));
         wg_drop(instruction_body);
 
-        commit_instruction_body_to_cs();
+        wg_commit_instruction_body_to_cs();
 
-        finish(1);
+        wg_finish(1);
 
-        let op_ptr = get_op_ptr();
-        let op_len = get_op_len();
+        let op_ptr = wg_get_op_ptr();
+        let op_len = wg_get_op_len();
         dbg_log!("op_ptr: {:?}, op_len: {:?}", op_ptr, op_len);
 
         // XXX: move file path

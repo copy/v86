@@ -260,7 +260,7 @@ function V86Starter(options)
         "NaN": NaN,
     };
 
-    const wasmgen_mem = new WebAssembly.Memory({ "initial": 10 });
+    const wasmgen_mem = new WebAssembly.Memory({ "initial": 100 });
     const wasmgen_externs = {
         "memory": wasmgen_mem,
         "log_from_wasm": function(offset, len) {
@@ -287,13 +287,13 @@ function V86Starter(options)
     }
 
     const wasmgen_exports = [
-        "get_cs",
-        "get_instruction_body",
-        "commit_instruction_body_to_cs",
-        "finish",
-        "reset",
-        "get_fn_idx",
-        "include_buffer",
+        "wg_get_cs",
+        "wg_get_instruction_body",
+        "wg_commit_instruction_body_to_cs",
+        "wg_finish",
+        "wg_reset",
+        "wg_get_fn_idx",
+        "wg_include_buffer",
 
         "wg_push_i32",
         "wg_push_u32",
@@ -348,24 +348,11 @@ function V86Starter(options)
         "wg_call_fn2",
     ];
 
-    function reexport_wasmgen_functions(wasmgen) {
+    v86util.minimal_load_wasm(wasmgen_bin, { "env": wasmgen_externs }, (wasmgen) => {
         for(const fn_name of wasmgen_exports)
         {
-            if(fn_name.startsWith("wg_"))
-            {
-                // used as is via C
-                wasm_shared_funcs[`_${fn_name}`] = wasmgen.exports[fn_name];
-            }
-            else
-            {
-                // prefix "wg_" attached by JS
-                wasm_shared_funcs[`_wg_${fn_name}`] = wasmgen.exports[fn_name];
-            }
+            wasm_shared_funcs[`_${fn_name}`] = wasmgen.exports[fn_name];
         }
-    }
-
-    v86util.minimal_load_wasm(wasmgen_bin, { "env": wasmgen_externs }, (wasmgen) => {
-        reexport_wasmgen_functions(wasmgen);
         wasmgen.exports["setup"]();
 
     //XXX: fix indentation break

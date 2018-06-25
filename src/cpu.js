@@ -217,8 +217,8 @@ function CPU(bus, wm, wasmgen, coverage_logger)
 
 CPU.prototype.wasmgen_get_module_code = function()
 {
-    const ptr = this.wasmgen.exports["get_op_ptr"]();
-    const len = this.wasmgen.exports["get_op_len"]();
+    const ptr = this.wasmgen.exports["wg_get_op_ptr"]();
+    const len = this.wasmgen.exports["wg_get_op_len"]();
 
     const output_buffer_view = new Uint8Array(this.wasmgen.memory.buffer, ptr, len);
     return output_buffer_view;
