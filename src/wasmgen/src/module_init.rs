@@ -1,4 +1,5 @@
-use std::ptr::{NonNull, null_mut};
+use std::ptr::NonNull;
+use std::mem;
 
 use ::util::{
     PackedStr, unpack_str,
@@ -17,7 +18,9 @@ pub const FN2_RET_TYPE_INDEX: u8 = 6;
 
 pub const NR_FN_TYPE_INDEXES: u8 = 7;
 
-static mut MODULE_PTR: NonNull<WasmBuilder> = unsafe { NonNull::new_unchecked(null_mut()) };
+static mut MODULE_PTR: NonNull<WasmBuilder> = unsafe {
+    NonNull::new_unchecked(mem::align_of::<WasmBuilder>() as *mut _)
+};
 
 #[no_mangle]
 pub fn setup() {
