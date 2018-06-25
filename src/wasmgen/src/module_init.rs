@@ -84,8 +84,8 @@ impl WasmBuilder {
         self.op.drain(self.initial_static_size..);
         self.set_import_table_size(2);
         self.set_import_count(0);
-        self.cs.drain(..);
-        self.instruction_body.drain(..);
+        self.cs.clear();
+        self.instruction_body.clear();
     }
 
     pub fn finish(&mut self, no_of_locals_i32: u8) -> usize {
@@ -108,6 +108,7 @@ impl WasmBuilder {
         self.op.push(0); self.op.push(0);
 
         self.op.push(1); // count of local blocks
+        dbg_assert!(no_of_locals_i32 < 128);
         self.op.push(no_of_locals_i32); self.op.push(TYPE_I32);
 
         self.op.append(&mut self.cs);
@@ -192,13 +193,13 @@ impl WasmBuilder {
         for i in 0..self.import_count {
             offset += 1; // skip length of module name
             offset += 1; // skip module name itself
-            let len = self.op[offset];
+            let len = self.op[offset] as usize;
             offset += 1;
-            let name = self.op.get(offset..(offset + len as usize)).expect("get function name");
+            let name = self.op.get(offset..(offset + len)).expect("get function name");
             if name == fn_name.as_bytes() {
                 return Some(i);
             }
-            offset += len as usize; // skip the string
+            offset += len; // skip the string
             offset += 1; // skip import kind
             offset += 1; // skip type index
         }
@@ -209,7 +210,7 @@ impl WasmBuilder {
         dbg_assert!(count < 0x4000);
         self.import_count = count;
         let idx_import_count = self.idx_import_count;
-        write_fixed_leb16_at_idx(&mut self.op, idx_import_count, count as u16);
+        write_fixed_leb16_at_idx(&mut self.op, idx_import_count, count);
     }
 
     pub fn set_import_table_size(&mut self, size: usize) {
