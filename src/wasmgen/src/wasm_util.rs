@@ -1,15 +1,15 @@
-use ::wasm_opcodes::*;
-use ::util::*;
+use ::wasm_opcodes as op;
+use ::util::{write_fixed_leb16_at_idx, write_leb_i32, write_leb_u32};
 
 #[no_mangle]
 pub fn wg_push_i32(buf: &mut Vec<u8>, v: i32) {
-    buf.push(OP_I32CONST);
+    buf.push(op::OP_I32CONST);
     write_leb_i32(buf, v);
 }
 
 #[no_mangle]
 pub fn wg_push_u32(buf: &mut Vec<u8>, v: u32) {
-    buf.push(OP_I32CONST);
+    buf.push(op::OP_I32CONST);
     write_leb_u32(buf, v);
 }
 
@@ -18,10 +18,10 @@ pub fn wg_load_aligned_u16(buf: &mut Vec<u8>, addr: u32) {
     // doesn't cause a failure in the generated code, but it will be much slower
     dbg_assert!((addr & 1) == 0);
 
-    buf.push(OP_I32CONST);
+    buf.push(op::OP_I32CONST);
     write_leb_u32(buf, addr);
-    buf.push(OP_I32LOAD16U);
-    buf.push(MEM_ALIGN16);
+    buf.push(op::OP_I32LOAD16U);
+    buf.push(op::MEM_ALIGN16);
     buf.push(0); // immediate offset
 }
 
@@ -36,41 +36,41 @@ pub fn wg_load_aligned_i32(buf: &mut Vec<u8>, addr: u32) {
 
 #[no_mangle]
 pub fn wg_store_aligned_u16(buf: &mut Vec<u8>) {
-    buf.push(OP_I32STORE16);
-    buf.push(MEM_ALIGN16);
+    buf.push(op::OP_I32STORE16);
+    buf.push(op::MEM_ALIGN16);
     buf.push(0); // immediate offset
 }
 
 #[no_mangle]
 pub fn wg_store_aligned_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32STORE);
-    buf.push(MEM_ALIGN32);
+    buf.push(op::OP_I32STORE);
+    buf.push(op::MEM_ALIGN32);
     buf.push(0); // immediate offset
 }
 
 #[no_mangle]
 pub fn wg_add_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32ADD);
+    buf.push(op::OP_I32ADD);
 }
 
 #[no_mangle]
 pub fn wg_and_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32AND);
+    buf.push(op::OP_I32AND);
 }
 
 #[no_mangle]
 pub fn wg_or_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32OR);
+    buf.push(op::OP_I32OR);
 }
 
 #[no_mangle]
 pub fn wg_shl_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32SHL);
+    buf.push(op::OP_I32SHL);
 }
 
 #[no_mangle]
 pub fn wg_call_fn(buf: &mut Vec<u8>, fn_idx: u16) {
-    buf.push(OP_CALL);
+    buf.push(op::OP_CALL);
     let buf_len = buf.len();
     buf.push(0); buf.push(0);
     write_fixed_leb16_at_idx(buf, buf_len, fn_idx);
@@ -84,68 +84,68 @@ pub fn wg_call_fn_with_arg(buf: &mut Vec<u8>, fn_idx: u16, arg0: i32) {
 
 #[no_mangle]
 pub fn wg_eq_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32EQ);
+    buf.push(op::OP_I32EQ);
 }
 
 #[no_mangle]
 pub fn wg_ne_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32NE);
+    buf.push(op::OP_I32NE);
 }
 
 #[no_mangle]
 pub fn wg_le_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32LES);
+    buf.push(op::OP_I32LES);
 }
 
 #[no_mangle]
 pub fn wg_lt_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32LTS);
+    buf.push(op::OP_I32LTS);
 }
 
 #[no_mangle]
 pub fn wg_ge_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32GES);
+    buf.push(op::OP_I32GES);
 }
 
 #[no_mangle]
 pub fn wg_gt_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32GTS);
+    buf.push(op::OP_I32GTS);
 }
 
 #[no_mangle]
 pub fn wg_if_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_IF);
-    buf.push(TYPE_I32);
+    buf.push(op::OP_IF);
+    buf.push(op::TYPE_I32);
 }
 
 #[no_mangle]
 pub fn wg_block_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_BLOCK);
-    buf.push(TYPE_I32);
+    buf.push(op::OP_BLOCK);
+    buf.push(op::TYPE_I32);
 }
 
 #[no_mangle]
 pub fn wg_tee_local(buf: &mut Vec<u8>, idx: i32) {
-    buf.push(OP_TEELOCAL);
+    buf.push(op::OP_TEELOCAL);
     write_leb_i32(buf, idx);
 }
 
 #[no_mangle]
 pub fn wg_xor_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32XOR);
+    buf.push(op::OP_I32XOR);
 }
 
 #[no_mangle]
 pub fn wg_load_unaligned_i32_from_stack(buf: &mut Vec<u8>, byte_offset: u32) {
-    buf.push(OP_I32LOAD);
-    buf.push(MEM_NO_ALIGN);
+    buf.push(op::OP_I32LOAD);
+    buf.push(op::MEM_NO_ALIGN);
     write_leb_u32(buf, byte_offset);
 }
 
 #[no_mangle]
 pub fn wg_load_aligned_i32_from_stack(buf: &mut Vec<u8>, byte_offset: u32) {
-    buf.push(OP_I32LOAD);
-    buf.push(MEM_ALIGN32);
+    buf.push(op::OP_I32LOAD);
+    buf.push(op::MEM_ALIGN32);
     write_leb_u32(buf, byte_offset);
 }
 
@@ -153,62 +153,62 @@ pub fn wg_load_aligned_i32_from_stack(buf: &mut Vec<u8>, byte_offset: u32) {
 // offset. Leaving as-is for the Rust port to cleanup
 #[no_mangle]
 pub fn wg_store_unaligned_i32(buf: &mut Vec<u8>, byte_offset: u32) {
-    buf.push(OP_I32STORE);
-    buf.push(MEM_NO_ALIGN);
+    buf.push(op::OP_I32STORE);
+    buf.push(op::MEM_NO_ALIGN);
     write_leb_u32(buf, byte_offset);
 }
 
 #[no_mangle]
 pub fn wg_shr_u32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32SHRU);
+    buf.push(op::OP_I32SHRU);
 }
 
 #[no_mangle]
 pub fn wg_shr_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32SHRS);
+    buf.push(op::OP_I32SHRS);
 }
 
 #[no_mangle]
 pub fn wg_eqz_i32(buf: &mut Vec<u8>) {
-    buf.push(OP_I32EQZ);
+    buf.push(op::OP_I32EQZ);
 }
 
 #[no_mangle]
 pub fn wg_if_void(buf: &mut Vec<u8>) {
-    buf.push(OP_IF);
-    buf.push(TYPE_VOID_BLOCK);
+    buf.push(op::OP_IF);
+    buf.push(op::TYPE_VOID_BLOCK);
 }
 
 #[no_mangle]
 pub fn wg_else(buf: &mut Vec<u8>) {
-    buf.push(OP_ELSE);
+    buf.push(op::OP_ELSE);
 }
 
 #[no_mangle]
 pub fn wg_loop_void(buf: &mut Vec<u8>) {
-    buf.push(OP_LOOP);
-    buf.push(TYPE_VOID_BLOCK);
+    buf.push(op::OP_LOOP);
+    buf.push(op::TYPE_VOID_BLOCK);
 }
 
 #[no_mangle]
 pub fn wg_block_void(buf: &mut Vec<u8>) {
-    buf.push(OP_BLOCK);
-    buf.push(TYPE_VOID_BLOCK);
+    buf.push(op::OP_BLOCK);
+    buf.push(op::TYPE_VOID_BLOCK);
 }
 
 #[no_mangle]
 pub fn wg_block_end(buf: &mut Vec<u8>) {
-    buf.push(OP_END);
+    buf.push(op::OP_END);
 }
 
 #[no_mangle]
 pub fn wg_return(buf: &mut Vec<u8>) {
-    buf.push(OP_RETURN);
+    buf.push(op::OP_RETURN);
 }
 
 #[no_mangle]
 pub fn wg_drop(buf: &mut Vec<u8>) {
-    buf.push(OP_DROP);
+    buf.push(op::OP_DROP);
 }
 
 // Generate a br_table where an input of [i] will branch [i]th outer block,
@@ -217,7 +217,7 @@ pub fn wg_drop(buf: &mut Vec<u8>) {
 pub fn wg_brtable_and_cases(buf: &mut Vec<u8>, cases_count: i32) {
     assert!(cases_count >= 0);
 
-    buf.push(OP_BRTABLE);
+    buf.push(op::OP_BRTABLE);
     write_leb_u32(buf, cases_count as u32);
 
     for i in 0..(cases_count + 1) {
@@ -227,25 +227,25 @@ pub fn wg_brtable_and_cases(buf: &mut Vec<u8>, cases_count: i32) {
 
 #[no_mangle]
 pub fn wg_br(buf: &mut Vec<u8>, depth: i32) {
-    buf.push(OP_BR);
+    buf.push(op::OP_BR);
     write_leb_i32(buf, depth);
 }
 
 #[no_mangle]
 pub fn wg_get_local(buf: &mut Vec<u8>, idx: i32) {
-    buf.push(OP_GETLOCAL);
+    buf.push(op::OP_GETLOCAL);
     write_leb_i32(buf, idx);
 }
 
 #[no_mangle]
 pub fn wg_set_local(buf: &mut Vec<u8>, idx: i32) {
-    buf.push(OP_SETLOCAL);
+    buf.push(op::OP_SETLOCAL);
     write_leb_i32(buf, idx);
 }
 
 #[no_mangle]
 pub fn wg_unreachable(buf: &mut Vec<u8>) {
-    buf.push(OP_UNREACHABLE);
+    buf.push(op::OP_UNREACHABLE);
 }
 
 #[no_mangle]
@@ -264,7 +264,7 @@ pub fn wg_increment_variable(buf: &mut Vec<u8>, addr: i32, n: i32) {
 
 #[no_mangle]
 pub fn wg_load_aligned_u16_from_stack(buf: &mut Vec<u8>, byte_offset: u32) {
-    buf.push(OP_I32LOAD16U);
-    buf.push(MEM_ALIGN16);
+    buf.push(op::OP_I32LOAD16U);
+    buf.push(op::MEM_ALIGN16);
     write_leb_u32(buf, byte_offset);
 }

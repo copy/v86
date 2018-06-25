@@ -1,7 +1,7 @@
 use std::ptr;
 
-use ::util::*;
-use ::wasm_opcodes::*;
+use ::util::{PackedStr, pack_str, unpack_str, write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_u32};
+use ::wasm_opcodes as op;
 
 pub const FN0_TYPE_INDEX: u8 = 0;
 pub const FN1_TYPE_INDEX: u8 = 1;
@@ -71,7 +71,7 @@ impl WasmBuilder {
         self.op.extend("\0asm".as_bytes());
 
         // wasm version in leb128, 4 bytes
-        self.op.push(WASM_VERSION); self.op.push(0); self.op.push(0); self.op.push(0);
+        self.op.push(op::WASM_VERSION); self.op.push(0); self.op.push(0); self.op.push(0);
 
         self.write_type_section();
         self.write_import_section_preamble();
@@ -94,7 +94,7 @@ impl WasmBuilder {
         self.write_export_section();
 
         // write code section preamble
-        self.op.push(SC_CODE);
+        self.op.push(op::SC_CODE);
 
         let idx_code_section_size = self.op.len(); // we will write to this location later
         self.op.push(0); self.op.push(0); // write temp val for now using 4 bytes
@@ -109,11 +109,11 @@ impl WasmBuilder {
 
         self.op.push(1); // count of local blocks
         dbg_assert!(no_of_locals_i32 < 128);
-        self.op.push(no_of_locals_i32); self.op.push(TYPE_I32);
+        self.op.push(no_of_locals_i32); self.op.push(op::TYPE_I32);
 
         self.op.append(&mut self.cs);
 
-        self.op.push(OP_END);
+        self.op.push(op::OP_END);
 
         // write the actual sizes to the pointer locations stored above. We subtract 4 from the actual
         // value because the ptr itself points to four bytes
@@ -127,7 +127,7 @@ impl WasmBuilder {
     }
 
     pub fn write_type_section(&mut self) {
-        self.op.push(SC_TYPE);
+        self.op.push(op::SC_TYPE);
 
         let idx_section_size = self.op.len();
         self.op.push(0);
@@ -135,51 +135,51 @@ impl WasmBuilder {
         self.op.push(NR_FN_TYPE_INDEXES); // number of type descriptors
 
         // FN0
-        self.op.push(TYPE_FUNC);
+        self.op.push(op::TYPE_FUNC);
         self.op.push(0); // no args
         self.op.push(0); // no return val
 
         // FN1
-        self.op.push(TYPE_FUNC);
+        self.op.push(op::TYPE_FUNC);
         self.op.push(1);
-        self.op.push(TYPE_I32);
+        self.op.push(op::TYPE_I32);
         self.op.push(0);
 
         // FN2
-        self.op.push(TYPE_FUNC);
+        self.op.push(op::TYPE_FUNC);
         self.op.push(2);
-        self.op.push(TYPE_I32);
-        self.op.push(TYPE_I32);
+        self.op.push(op::TYPE_I32);
+        self.op.push(op::TYPE_I32);
         self.op.push(0);
 
         // FN3
-        self.op.push(TYPE_FUNC);
+        self.op.push(op::TYPE_FUNC);
         self.op.push(3);
-        self.op.push(TYPE_I32);
-        self.op.push(TYPE_I32);
-        self.op.push(TYPE_I32);
+        self.op.push(op::TYPE_I32);
+        self.op.push(op::TYPE_I32);
+        self.op.push(op::TYPE_I32);
         self.op.push(0);
 
         // FN0_RET
-        self.op.push(TYPE_FUNC);
+        self.op.push(op::TYPE_FUNC);
         self.op.push(0);
         self.op.push(1);
-        self.op.push(TYPE_I32);
+        self.op.push(op::TYPE_I32);
 
         // FN1_RET
-        self.op.push(TYPE_FUNC);
+        self.op.push(op::TYPE_FUNC);
         self.op.push(1);
-        self.op.push(TYPE_I32);
+        self.op.push(op::TYPE_I32);
         self.op.push(1);
-        self.op.push(TYPE_I32);
+        self.op.push(op::TYPE_I32);
 
         // FN2_RET
-        self.op.push(TYPE_FUNC);
+        self.op.push(op::TYPE_FUNC);
         self.op.push(2);
-        self.op.push(TYPE_I32);
-        self.op.push(TYPE_I32);
+        self.op.push(op::TYPE_I32);
+        self.op.push(op::TYPE_I32);
         self.op.push(1);
-        self.op.push(TYPE_I32);
+        self.op.push(op::TYPE_I32);
 
         let new_len = self.op.len();
         let size = (new_len - 1) - idx_section_size;
@@ -221,7 +221,7 @@ impl WasmBuilder {
     }
 
     pub fn write_import_section_preamble(&mut self) {
-        self.op.push(SC_IMPORT);
+        self.op.push(op::SC_IMPORT);
 
         self.idx_import_table_size = self.op.len();
         self.op.push(1 | 0b10000000); self.op.push(2); // 2 in 2 byte leb
@@ -239,7 +239,7 @@ impl WasmBuilder {
         self.op.push(1);
         self.op.push('m' as u8);
 
-        self.op.push(EXT_MEMORY);
+        self.op.push(op::EXT_MEMORY);
 
         self.op.push(0); // memory flag, 0 for no maximum memory limit present
         write_leb_u32(&mut self.op, 256); // initial memory length of 256 pages, takes 2 bytes in leb128
@@ -257,7 +257,7 @@ impl WasmBuilder {
         let fn_name = unpack_str(fn_name);
         self.op.push(fn_name.len() as u8);
         self.op.extend(fn_name.as_bytes());
-        self.op.push(EXT_FUNCTION);
+        self.op.push(op::EXT_FUNCTION);
         self.op.push(type_index);
 
         let new_import_count = self.import_count + 1;
@@ -270,7 +270,7 @@ impl WasmBuilder {
     }
 
     pub fn write_function_section(&mut self, count: u8) {
-        self.op.push(SC_FUNCTION);
+        self.op.push(op::SC_FUNCTION);
         self.op.push(1 + count); // length of this section
         self.op.push(count); // count of signature indices
         for _ in 0..count {
@@ -279,13 +279,13 @@ impl WasmBuilder {
     }
 
     pub fn write_export_section(&mut self) {
-        self.op.push(SC_EXPORT);
+        self.op.push(op::SC_EXPORT);
         self.op.push(1 + 1 + 1 + 1 + 2); // size of this section
         self.op.push(1); // count of table: just one function exported
 
         self.op.push(1); // length of exported function name
         self.op.push('f' as u8); // function name
-        self.op.push(EXT_FUNCTION);
+        self.op.push(op::EXT_FUNCTION);
 
         // index of the exported function
         // function space starts with imports. index of last import is import count - 1

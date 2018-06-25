@@ -1,6 +1,6 @@
-use ::util::*;
-use ::wasm_util::*;
-use ::module_init::*;
+use ::util::PackedStr;
+use ::wasm_util::{wg_call_fn, wg_push_i32};
+use ::module_init::{FN0_RET_TYPE_INDEX, FN0_TYPE_INDEX, FN1_RET_TYPE_INDEX, FN1_TYPE_INDEX, FN2_TYPE_INDEX, FN3_TYPE_INDEX, get_module};
 
 // for functions using the global module singleton
 
