@@ -4,10 +4,10 @@
 
 #include "../const.h"
 #include "../cpu.h"
-#include "../log.h"
 #include "../global_pointers.h"
-#include "wasmgen.h"
+#include "../log.h"
 #include "codegen.h"
+#include "wasmgen.h"
 
 static void jit_add_seg_offset(int32_t default_segment);
 static void jit_resolve_modrm32_(int32_t modrm_byte);
@@ -36,7 +36,7 @@ PackedStr pack_str(char const* fn_name, uint8_t fn_len)
     union {
         PackedStr pstr;
         uint8_t u8s[24];
-    } ret = { { 0 } };
+    } ret = { { 0, 0, 0 } };
     
     for(int i = 0; i < fn_len; i++)
     {
