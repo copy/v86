@@ -13,13 +13,6 @@ const print_stats = {
     {
         let text = "";
 
-        const names = [
-            "IDLE",
-            "DO_MANY_CYCLES",
-            "GEN_INSTR",
-            "RUN_FROM_CACHE",
-            "RUN_INTERPRETED",
-        ];
         const stat_names = [
             "COMPILE",
             "COMPILE_SUCCESS",
