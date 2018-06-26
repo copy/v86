@@ -1,74 +1,66 @@
-pub trait SafeToU8 {
-    fn safe_to_u8(self) -> u8;
-}
-
-pub trait SafeToU16 {
-    fn safe_to_u16(self) -> u16;
-}
-
-pub trait SafeToI32 {
-    fn safe_to_i32(self) -> i32;
-}
+pub trait SafeToU8 { fn safe_to_u8(self) -> u8; }
+pub trait SafeToU16 { fn safe_to_u16(self) -> u16; }
+pub trait SafeToI32 { fn safe_to_i32(self) -> i32; }
 
 impl SafeToU8 for u16 {
     fn safe_to_u8(self) -> u8 {
-        dbg_assert!(self < ::std::u8::MAX as u16);
+        dbg_assert!(self <= ::std::u8::MAX as u16);
         self as u8
     }
 }
 
 impl SafeToU8 for u32 {
     fn safe_to_u8(self) -> u8 {
-        dbg_assert!(self < ::std::u8::MAX as u32);
+        dbg_assert!(self <= ::std::u8::MAX as u32);
         self as u8
     }
 }
 
 impl SafeToU8 for i32 {
     fn safe_to_u8(self) -> u8 {
-        dbg_assert!(self < ::std::u8::MAX as i32);
+        dbg_assert!(self >= 0 && self <= ::std::u8::MAX as i32);
         self as u8
     }
 }
 
 impl SafeToU8 for usize {
     fn safe_to_u8(self) -> u8 {
-        dbg_assert!(self < ::std::u8::MAX as usize);
+        dbg_assert!(self <= ::std::u8::MAX as usize);
         self as u8
     }
 }
 
 impl SafeToU16 for u32 {
     fn safe_to_u16(self) -> u16 {
-        dbg_assert!(self < ::std::u16::MAX as u32);
+        dbg_assert!(self <= ::std::u16::MAX as u32);
         self as u16
     }
 }
 
 impl SafeToU16 for i32 {
     fn safe_to_u16(self) -> u16 {
-        dbg_assert!(self < ::std::u16::MAX as i32);
+        dbg_assert!(self >= 0 && self <= ::std::u16::MAX as i32);
         self as u16
     }
 }
 
 impl SafeToU16 for usize {
     fn safe_to_u16(self) -> u16 {
-        dbg_assert!(self < ::std::u16::MAX as usize);
+        dbg_assert!(self <= ::std::u16::MAX as usize);
         self as u16
     }
 }
 
 impl SafeToI32 for u32 {
     fn safe_to_i32(self) -> i32 {
-        dbg_assert!(self < ::std::i32::MAX as u32);
+        dbg_assert!(self <= ::std::i32::MAX as u32);
         self as i32
     }
 }
 
 impl SafeToI32 for usize {
     fn safe_to_i32(self) -> i32 {
-        dbg_assert!(self < ::std::i32::MAX as usize);
+        dbg_assert!(self <= ::std::i32::MAX as usize);
         self as i32
     }
 }
