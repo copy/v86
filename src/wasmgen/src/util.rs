@@ -152,7 +152,7 @@ pub fn unpack_str(s: PackedStr) -> String {
 }
 
 #[allow(dead_code)]
-pub const DEBUG: bool = true;
+pub const DEBUG: bool = cfg!(debug_assertions);
 
 #[cfg(target_arch = "wasm32")]
 extern "C" {
