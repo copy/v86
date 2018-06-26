@@ -337,20 +337,12 @@ function V86Starter(options)
         "wg_increment_mem32",
         "wg_increment_variable",
         "wg_load_aligned_u16_from_stack",
-        "wg_fn0_const",
-        "wg_fn0_const_ret",
-        "wg_fn1_const",
-        "wg_fn1_const_ret",
-        "wg_fn2_const",
-        "wg_fn3_const",
-        "wg_call_fn1_ret",
-        "wg_call_fn2",
     ];
 
     v86util.minimal_load_wasm(wasmgen_bin, { "env": wasmgen_externs }, (wasmgen) => {
         for(const fn_name of wasmgen_exports)
         {
-            dbg_assert(typeof wasmgen.exports[fn_name] === "function");
+            dbg_assert(typeof wasmgen.exports[fn_name] === "function", `Function ${fn_name} not found in wasmgen exports`);
             wasm_shared_funcs[`_${fn_name}`] = wasmgen.exports[fn_name];
         }
         wasmgen.exports["setup"]();
