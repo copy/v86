@@ -37,7 +37,7 @@ PackedStr pack_str(char const* fn_name, uint8_t fn_len)
         PackedStr pstr;
         uint8_t u8s[24];
     } ret = { { 0, 0, 0 } };
-    
+
     for(int i = 0; i < fn_len; i++)
     {
         ret.u8s[i] = fn_name[i];

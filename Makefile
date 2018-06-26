@@ -23,9 +23,9 @@ ifeq ($(JIT_ALWAYS),)
 JIT_ALWAYS=false
 endif
 
-all: build/v86_all.js
+all: build/v86_all.js build/v86.wasm build/wasmgen.wasm
 browser: build/v86_all.js
-wasm: build/v86.wasm
+wasm: build/v86.wasm build/wasmgen.wasm
 
 # Used for nodejs builds and in order to profile code.
 # `debug` gives identifiers a readable name, make sure it doesn't have any side effects.
@@ -237,9 +237,6 @@ build/wasmgen-debug.wasm: src/wasmgen/src/*.rs src/wasmgen/Cargo.toml
 	cp src/wasmgen/target/wasm32-unknown-unknown/debug/wasmgen.wasm build/wasmgen-debug.wasm
 	ls -lh build/wasmgen-debug.wasm
 
-wasmgen-test:
-	(cd src/wasmgen && env RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture)
-
 clean:
 	-rm build/libv86.js
 	-rm build/libv86-debug.js
@@ -278,41 +275,44 @@ $(CLOSURE):
 	mv $(CLOSURE_DIR)/*.jar $(CLOSURE)
 	rm $(CLOSURE_DIR)/compiler-latest.zip
 
-tests: build/libv86.js build/v86.wasm
+tests: build/libv86.js build/v86.wasm build/wasmgen.wasm
 	./tests/full/run.js
 
-nasmtests: build/libv86-debug.js build/v86-debug.wasm
+nasmtests: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm
 	$(MAKE) -C $(NASM_TEST_DIR) all
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js
 
-nasmtests-force-jit: build/libv86-debug.js build/v86-debug.wasm
+nasmtests-force-jit: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm
 	$(MAKE) -C $(NASM_TEST_DIR) all
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js --force-jit
 
-jitpagingtests: build/libv86-debug.js build/v86-debug.wasm
+jitpagingtests: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm
 	$(MAKE) -C tests/jit-paging test-jit
 	./tests/jit-paging/run.js
 
-qemutests: build/libv86-debug.js build/v86-debug.wasm
+qemutests: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm
 	$(MAKE) -C tests/qemu test-i386
 	./tests/qemu/run.js > /tmp/v86-test-result
 	#./tests/qemu/test-i386 > /tmp/v86-test-reference
 	./tests/qemu/run-qemu.js > /tmp/v86-test-reference
 	diff /tmp/v86-test-result /tmp/v86-test-reference
 
-kvm-unit-test: build/libv86-debug.js build/v86-debug.wasm
+kvm-unit-test: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm
 	(cd tests/kvm-unit-tests && ./configure)
 	$(MAKE) -C tests/kvm-unit-tests
 	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
 
-expect-tests: build/libv86-debug.js build/v86-debug.wasm build/libwabt.js
+expect-tests: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm build/libwabt.js
 	make -C tests/expect/tests
 	./tests/expect/run.js
 
-devices-test: build/libv86-debug.js build/v86-debug.wasm
+devices-test: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm
 	./tests/devices/virtio_9p.js
+
+wasmgen-test:
+	(cd src/wasmgen && env RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture)
 
 covreport:
 	mkdir -p $(COVERAGE_DIR)/build/
