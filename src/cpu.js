@@ -1210,35 +1210,6 @@ if(typeof window !== "undefined")
     ];
 }
 
-/** @const */
-var PROFILING = false;
-
-if(PROFILING)
-{
-    var instruction_total = new Float64Array(256);
-    var instruction_count = new Float64Array(256);
-
-    window["print_profiling"] = function print_profiling()
-    {
-        var prof_instructions = [];
-        for(var i = 0; i < 256; i++) prof_instructions[i] = {
-            n: h(i, 2),
-            total: instruction_total[i],
-            count: instruction_count[i],
-            per: (instruction_total[i] / instruction_count[i]) || 0,
-        };
-
-        console.log("count:");
-        console.table(prof_instructions.sort((p0, p1) => p1.count - p0.count));
-
-        console.log("time:");
-        console.table(prof_instructions.sort((p0, p1) => p1.total - p0.total));
-
-        console.log("time/count:");
-        console.table(prof_instructions.sort((p0, p1) => p1.per - p0.per));
-    };
-}
-
 var seen_code = {};
 var seen_code_uncompiled = {};
 
