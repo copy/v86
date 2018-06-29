@@ -80,6 +80,12 @@ void record_page_entry(uint32_t phys_addr)
 
     bool did_insert_or_find = false;
 
+    if(entry_points[0] == ENTRY_POINT_END)
+    {
+        // first entry in this page
+        tlb_set_has_code(page, true);
+    }
+
     for(int32_t i = 0; i < MAX_ENTRIES_PER_PAGE; i++)
     {
         if(entry_points[i] == ENTRY_POINT_END)
@@ -359,17 +365,47 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
 #endif
     }
 
+    bool is_in_mapped_range = in_mapped_range(high);
+    int32_t physical_page = (uint32_t)high >> 12;
+
+    bool has_code = !is_in_mapped_range && (
+            page_first_jit_cache_entry[physical_page] != JIT_CACHE_ARRAY_NO_NEXT_ENTRY ||
+            page_entry_points[physical_page][0] != ENTRY_POINT_END
+        );
+
     int32_t info_bits =
         TLB_VALID |
         (can_write ? 0 : TLB_READONLY) |
         (allow_user ? 0 : TLB_NO_USER) |
-        (in_mapped_range(high) ? TLB_IN_MAPPED_RANGE : 0) |
-        (global && (cr[4] & CR4_PGE) ? TLB_GLOBAL : 0);
+        (is_in_mapped_range ? TLB_IN_MAPPED_RANGE : 0) |
+        (global && (cr[4] & CR4_PGE) ? TLB_GLOBAL : 0) |
+        (has_code ? TLB_HAS_CODE : 0);
 
     assert(((high ^ page << 12) & 0xFFF) == 0);
     tlb_data[page] = high ^ page << 12 | info_bits;
 
     return high;
+}
+
+void tlb_set_has_code(uint32_t physical_page, bool has_code)
+{
+    assert(physical_page < (1 << 20));
+
+    for(int32_t i = 0; i < valid_tlb_entries_count; i++)
+    {
+        int32_t page = valid_tlb_entries[i];
+        int32_t entry = tlb_data[page];
+
+        if(entry)
+        {
+            uint32_t tlb_physical_page = (uint32_t)entry >> 12 ^ page;
+
+            if(physical_page == tlb_physical_page)
+            {
+                tlb_data[page] = has_code ? entry | TLB_HAS_CODE : entry & ~TLB_HAS_CODE;
+            }
+        }
+    }
 }
 
 void writable_or_pagefault(int32_t addr, int32_t size)
@@ -752,6 +788,33 @@ void check_jit_cache_array_invariants(void)
 
             assert(reached);
         }
+    }
+
+    for(int32_t i = 0; i < valid_tlb_entries_count; i++)
+    {
+        int32_t page = valid_tlb_entries[i];
+        int32_t entry = tlb_data[page];
+
+        if(!entry || (entry & TLB_IN_MAPPED_RANGE)) // there's no code in mapped memory
+        {
+            continue;
+        }
+
+        int32_t physical_page = (uint32_t)entry >> 12 ^ page;
+        assert(!in_mapped_range(physical_page << 12));
+
+        bool entry_has_code = entry & TLB_HAS_CODE;
+        bool has_code =
+            page_first_jit_cache_entry[physical_page] != JIT_CACHE_ARRAY_NO_NEXT_ENTRY ||
+            page_entry_points[physical_page][0] != ENTRY_POINT_END;
+
+        // If some code has been created in a page, the corresponding tlb entries must be marked
+        assert(!has_code || entry_has_code);
+
+        // If a tlb entry is marked to have code, the physical page should
+        // contain code (the converse is not a bug, but indicates a cleanup
+        // problem when clearing code from a page)
+        assert(!entry_has_code || has_code);
     }
 #endif
 }
@@ -2113,7 +2176,7 @@ int32_t safe_read32s(int32_t address)
 #if 1
     int32_t base = (uint32_t)address >> 12;
     int32_t entry = tlb_data[base];
-    int32_t info_bits = entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL;
+    int32_t info_bits = entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~TLB_HAS_CODE;
 
     // XXX: Paging check
 
@@ -2213,9 +2276,11 @@ void safe_write32(int32_t address, int32_t value)
         // - allowed to write in user-mode
         // - not in memory mapped area
         // - can be accessed from any cpl
+        // - does not contain code
 
         uint32_t phys_address = entry & ~0xFFF ^ address;
-        jit_dirty_cache_single(phys_address);
+        assert(page_first_jit_cache_entry[phys_address >> 12] == JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
+        assert(page_entry_points[phys_address >> 12][0] == ENTRY_POINT_END);
         assert(!in_mapped_range(phys_address));
         *(int32_t*)(mem8 + phys_address) = value;
         return;

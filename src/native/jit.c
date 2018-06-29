@@ -105,6 +105,12 @@ void remove_jit_cache_wasm_index(int32_t page, uint16_t wasm_table_index)
         free_wasm_table_index(wasm_table_index);
     }
 
+    if(page_first_jit_cache_entry[page] == JIT_CACHE_ARRAY_NO_NEXT_ENTRY &&
+        page_entry_points[page][0] == ENTRY_POINT_END)
+    {
+        tlb_set_has_code(page, false);
+    }
+
 #if CHECK_JIT_CACHE_ARRAY_INVARIANTS
     // sanity check that the above iteration deleted all entries
 
@@ -195,17 +201,18 @@ void jit_clear_page(uint32_t index)
         assert(wasm_table_index_pending_free_count < WASM_TABLE_SIZE);
         wasm_table_index_pending_free[wasm_table_index_pending_free_count++] = wasm_table_index;
     }
-
-    check_jit_cache_array_invariants();
 }
 
 void jit_dirty_index(uint32_t index)
 {
     assert(index < MAX_PHYSICAL_PAGES);
+
+    bool did_have_code = false;
     int32_t cache_array_index = page_first_jit_cache_entry[index];
 
     if(cache_array_index != JIT_CACHE_ARRAY_NO_NEXT_ENTRY)
     {
+        did_have_code = true;
         jit_clear_page(index);
     }
 
@@ -213,6 +220,8 @@ void jit_dirty_index(uint32_t index)
 
     if(entry_points[0] != ENTRY_POINT_END)
     {
+        did_have_code = true;
+
         // don't try to compile code in this page anymore until it's hot again
         hot_code_addresses[jit_hot_hash_page(index)] = 0;
 
@@ -232,6 +241,11 @@ void jit_dirty_index(uint32_t index)
             assert(entry_points[i] == ENTRY_POINT_END);
         }
 #endif
+    }
+
+    if(did_have_code)
+    {
+        tlb_set_has_code(index, false);
     }
 }
 

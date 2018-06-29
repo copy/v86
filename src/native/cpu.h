@@ -126,6 +126,7 @@ int32_t valid_tlb_entries_count;
 #define TLB_NO_USER (1 << 2)
 #define TLB_IN_MAPPED_RANGE (1 << 3)
 #define TLB_GLOBAL (1 << 4)
+#define TLB_HAS_CODE (1 << 5)
 
 // Indices for local variables and function arguments (which are accessed as local variables) for
 // the generated WASM function
@@ -156,6 +157,8 @@ bool same_page(int32_t, int32_t);
 int32_t get_eflags(void);
 uint32_t translate_address_read(int32_t address);
 uint32_t translate_address_write(int32_t address);
+void tlb_set_has_code(uint32_t physical_page, bool has_code);
+
 void writable_or_pagefault(int32_t addr, int32_t size);
 int32_t read_imm8(void);
 int32_t read_imm8s(void);

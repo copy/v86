@@ -364,43 +364,6 @@ void gen_safe_write32(int32_t local_for_address, int32_t local_for_value)
     wg_get_local(instruction_body, local_for_value);
     wg_store_unaligned_i32(instruction_body, (uint32_t) mem8);
 
-    // Only call jit_dirty_cache_single if absolutely necessary
-    // Pseudo:
-    //     /* continued within can_use_fast_path branch */
-    //     if(page_first_jit_cache_entry[phys_address >> 12] != JIT_CACHE_ARRAY_NO_NEXT_ENTRY ||
-    //        page_entry_points[phys_address >> 12] != ENTRY_POINT_END)
-    //     {
-    //         jit_dirty_cache_single(phys_address);
-    //     }
-    // }
-
-    wg_get_local(instruction_body, phys_addr_local);
-    wg_push_i32(instruction_body, 12);
-    wg_shr_u32(instruction_body);
-
-    SCALE_INDEX_FOR_ARRAY32(page_first_jit_cache_entry);
-    wg_load_aligned_i32_from_stack(instruction_body, (uint32_t) page_first_jit_cache_entry);
-
-    wg_push_i32(instruction_body, JIT_CACHE_ARRAY_NO_NEXT_ENTRY);
-    wg_ne_i32(instruction_body);
-
-    wg_get_local(instruction_body, phys_addr_local);
-    wg_push_i32(instruction_body, 12);
-    wg_shr_u32(instruction_body);
-    wg_push_i32(instruction_body, 1);
-    wg_shl_i32(instruction_body);
-    wg_load_aligned_u16_from_stack(instruction_body, (uint32_t) page_entry_points);
-
-    wg_push_i32(instruction_body, ENTRY_POINT_END);
-    wg_ne_i32(instruction_body);
-
-    wg_or_i32(instruction_body);
-
-    wg_if_void(instruction_body);
-    wg_get_local(instruction_body, phys_addr_local);
-    gen_call_fn1("jit_dirty_cache_single", 22);
-    wg_block_end(instruction_body);
-
     // Pseudo:
     // else { safe_read32_slow(address, value); }
     wg_else(instruction_body);
