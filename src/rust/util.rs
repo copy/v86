@@ -122,7 +122,7 @@ pub type PackedStr = (u64, u64, u64);
 
 #[allow(dead_code)]
 pub fn pack_str(s: &str) -> PackedStr {
-    assert!(s.len() <= 16);
+    assert!(s.len() <= 24);
     let mut a: [u8; 24] = [0; 24];
     for (i, ch) in s.char_indices() {
         a[i] = ch as u8;
@@ -173,6 +173,14 @@ mod tests {
 
         let pstr = pack_str("abcdefghijkl");
         assert_eq!("abcdefghijkl", unpack_str(pstr));
+    }
+
+    quickcheck! {
+        fn prop(xs: Vec<u8>) -> bool {
+            if xs.len() > 24 || xs.contains(&0) { return true; }
+            let xs = String::from_utf8(xs).expect("get string");
+            xs == unpack_str(pack_str(&xs))
+        }
     }
 
 }
