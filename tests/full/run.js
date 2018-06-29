@@ -11,7 +11,7 @@ const VERBOSE = false;
 
 try
 {
-    var V86 = require("../../build/libv86.js").V86;
+    var V86 = require("../../build/libv86-debug.js").V86;
 }
 catch(e)
 {

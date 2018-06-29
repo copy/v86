@@ -281,7 +281,7 @@ $(CLOSURE):
 	mv $(CLOSURE_DIR)/*.jar $(CLOSURE)
 	rm $(CLOSURE_DIR)/compiler-latest.zip
 
-tests: build/libv86.js build/v86.wasm build/v86oxide.wasm
+tests: all-debug
 	./tests/full/run.js
 
 nasmtests: all-debug
