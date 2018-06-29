@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -e
-make wasmgen-test
+make rust-test

@@ -1,20 +1,27 @@
 use std::ptr::NonNull;
 use std::mem;
 
-use ::util::{
+use util::{
     PackedStr, unpack_str,
     write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_u32,
-    SafeToU8, SafeToU16, SafeToI32,
+    SafeToU8, SafeToU16,
 };
-use ::wasm_opcodes as op;
+use wasmgen::wasm_opcodes as op;
 
+#[allow(dead_code)]
 pub const FN0_TYPE_INDEX: u8 = 0;
+#[allow(dead_code)]
 pub const FN1_TYPE_INDEX: u8 = 1;
+#[allow(dead_code)]
 pub const FN2_TYPE_INDEX: u8 = 2;
+#[allow(dead_code)]
 pub const FN3_TYPE_INDEX: u8 = 3;
 
+#[allow(dead_code)]
 pub const FN0_RET_TYPE_INDEX: u8 = 4;
+#[allow(dead_code)]
 pub const FN1_RET_TYPE_INDEX: u8 = 5;
+#[allow(dead_code)]
 pub const FN2_RET_TYPE_INDEX: u8 = 6;
 
 pub const NR_FN_TYPE_INDEXES: u8 = 7;
@@ -24,7 +31,7 @@ static mut MODULE_PTR: NonNull<WasmBuilder> = unsafe {
 };
 
 #[no_mangle]
-pub fn setup() {
+pub fn wg_setup() {
     let wm = Box::new(WasmBuilder::new());
     unsafe {
         MODULE_PTR = NonNull::new(Box::into_raw(wm)).expect("assigning module ptr");
@@ -32,7 +39,6 @@ pub fn setup() {
     get_module().init();
 }
 
-#[no_mangle]
 pub fn get_module<'a>() -> &'a mut WasmBuilder {
     unsafe {
         MODULE_PTR.as_mut()
@@ -301,15 +307,12 @@ impl WasmBuilder {
     }
 
     pub fn get_fn_idx(&mut self, fn_name: PackedStr, type_index: u8) -> u16 {
-        dbg_log!("getting fn idx for '{}'", unpack_str(fn_name));
         match self.get_import_index(fn_name) {
             Some(idx) => {
-                dbg_log!("found existing entry at idx {}", idx);
                 idx
             },
             None => {
                 let idx = self.write_import_entry(fn_name, type_index);
-                dbg_log!("wrote new import entry at idx {}", idx);
                 idx
             },
         }
@@ -331,8 +334,8 @@ impl WasmBuilder {
 
 #[cfg(test)]
 mod tests {
-    use ::module_init::*;
-    use ::util::pack_str;
+    use wasmgen::module_init::*;
+    use util::pack_str;
 
     #[test]
     fn import_table_management() {

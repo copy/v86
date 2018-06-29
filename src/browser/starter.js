@@ -260,11 +260,11 @@ function V86Starter(options)
         "NaN": NaN,
     };
 
-    const wasmgen_mem = new WebAssembly.Memory({ "initial": 100 });
-    const wasmgen_externs = {
-        "memory": wasmgen_mem,
+    const v86oxide_mem = new WebAssembly.Memory({ "initial": 100 });
+    const v86oxide_externs = {
+        "memory": v86oxide_mem,
         "log_from_wasm": function(offset, len) {
-            const str = v86util.read_sized_string_from_mem(wasmgen_mem, offset, len);
+            const str = v86util.read_sized_string_from_mem(v86oxide_mem, offset, len);
             dbg_log(str, LOG_CPU);
         },
         "abort": function() {
@@ -273,20 +273,20 @@ function V86Starter(options)
     };
 
     let wasm_file = DEBUG ? "v86-debug.wasm" : "v86.wasm";
-    let wasmgen_bin = DEBUG ? "wasmgen-debug.wasm" : "wasmgen.wasm";
+    let v86oxide_bin = DEBUG ? "v86oxide-debug.wasm" : "v86oxide.wasm";
 
     if(typeof window === "undefined" && typeof __dirname === "string")
     {
         wasm_file = __dirname + "/" + wasm_file;
-        wasmgen_bin = __dirname + "/" + wasmgen_bin;
+        v86oxide_bin = __dirname + "/" + v86oxide_bin;
     }
     else
     {
         wasm_file = "build/" + wasm_file;
-        wasmgen_bin = "build/" + wasmgen_bin;
+        v86oxide_bin = "build/" + v86oxide_bin;
     }
 
-    const wasmgen_exports = [
+    const v86oxide_exports = [
         "wg_get_code_section",
         "wg_get_instruction_body",
         "wg_commit_instruction_body_to_cs",
@@ -339,13 +339,13 @@ function V86Starter(options)
         "wg_load_aligned_u16_from_stack",
     ];
 
-    v86util.minimal_load_wasm(wasmgen_bin, { "env": wasmgen_externs }, (wasmgen) => {
-        for(const fn_name of wasmgen_exports)
+    v86util.minimal_load_wasm(v86oxide_bin, { "env": v86oxide_externs }, (v86oxide) => {
+        for(const fn_name of v86oxide_exports)
         {
-            dbg_assert(typeof wasmgen.exports[fn_name] === "function", `Function ${fn_name} not found in wasmgen exports`);
-            wasm_shared_funcs[`_${fn_name}`] = wasmgen.exports[fn_name];
+            dbg_assert(typeof v86oxide.exports[fn_name] === "function", `Function ${fn_name} not found in v86oxide exports`);
+            wasm_shared_funcs[`_${fn_name}`] = v86oxide.exports[fn_name];
         }
-        wasmgen.exports["setup"]();
+        v86oxide.exports["wg_setup"]();
 
     //XXX: fix indentation break
 
@@ -359,7 +359,7 @@ function V86Starter(options)
             mem8 = new Uint8Array(mem);
             wm.instance.exports["__post_instantiate"]();
             coverage_logger.init(wm);
-            emulator = this.v86 = new v86(this.emulator_bus, wm, wasmgen, coverage_logger);
+            emulator = this.v86 = new v86(this.emulator_bus, wm, v86oxide, coverage_logger);
             cpu = emulator.cpu;
 
     // XXX: Leaving unindented to minimize diff; still a part of the cb to load_wasm!

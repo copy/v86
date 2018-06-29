@@ -14,8 +14,8 @@ env:
     - TEST_SUITE=integration
     - TEST_SUITE=unit-qemu
     - TEST_SUITE=nasm
-    - TEST_SUITE=codegen
-    - TEST_SUITE=jshint
+    - TEST_SUITE=rust
+    - TEST_SUITE=lint
     - TEST_SUITE=jit-paging
     - TEST_SUITE=expect
     - TEST_SUITE=devices

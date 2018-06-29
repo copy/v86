@@ -12,4 +12,6 @@ RUN \
         rm ./rustup.sh && \
         export PATH="$HOME/.cargo/bin:$PATH" && \
         rustup toolchain install nightly && \
-        rustup target add wasm32-unknown-unknown --toolchain nightly
+        rustup target add wasm32-unknown-unknown --toolchain nightly && \
+        rustup component add rustfmt-preview --toolchain nightly
+

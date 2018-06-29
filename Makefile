@@ -23,9 +23,9 @@ ifeq ($(JIT_ALWAYS),)
 JIT_ALWAYS=false
 endif
 
-all: build/v86_all.js build/v86.wasm build/wasmgen.wasm
+all: build/v86_all.js build/libv86.js build/v86.wasm build/v86oxide.wasm
+all-debug: build/libv86-debug.js build/v86-debug.wasm build/v86oxide-debug.wasm
 browser: build/v86_all.js
-wasm: build/v86.wasm build/wasmgen.wasm
 
 # Used for nodejs builds and in order to profile code.
 # `debug` gives identifiers a readable name, make sure it doesn't have any side effects.
@@ -104,6 +104,11 @@ CC_FLAGS=\
 		-s WASM=1 \
 		-s SIDE_MODULE=1
 
+CARGO_FLAGS=\
+			--target wasm32-unknown-unknown \
+			--target-dir build/ \
+			-- -Clink-args="--import-memory"
+
 CORE_FILES=const.js config.js io.js main.js lib.js coverage.js ide.js pci.js floppy.js \
 	   memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js ioapic.js \
 	   state.js ne2k.js virtio.js bus.js log.js \
@@ -113,6 +118,8 @@ LIB_FILES=9p.js filesystem.js jor1k.js marshall.js utf8.js
 BROWSER_FILES=screen.js \
 		  keyboard.js mouse.js serial.js \
 		  network.js lib.js starter.js worker_bus.js dummy_screen.js print_stats.js
+
+RUST_FILES=$(shell find src/rust/ -name '*.rs')
 
 CORE_FILES:=$(addprefix src/,$(CORE_FILES))
 LIB_FILES:=$(addprefix lib/,$(LIB_FILES))
@@ -223,19 +230,19 @@ build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/n
 		-o build/v86-debug.wasm
 	ls -lh build/v86-debug.wasm
 
-build/wasmgen.wasm: src/wasmgen/src/*.rs src/wasmgen/Cargo.toml
+build/v86oxide.wasm: $(RUST_FILES) Cargo.toml
 	mkdir -p build/
-	-ls -lh build/wasmgen.wasm
-	(cd src/wasmgen && cargo +nightly rustc --release --target wasm32-unknown-unknown -- -Clink-args="--import-memory")
-	cp src/wasmgen/target/wasm32-unknown-unknown/release/wasmgen.wasm build/wasmgen.wasm
-	ls -lh build/wasmgen.wasm
+	-ls -lh build/v86oxide.wasm
+	cargo +nightly rustc --release $(CARGO_FLAGS)
+	cp build/wasm32-unknown-unknown/release/v86oxide.wasm build/v86oxide.wasm
+	ls -lh build/v86oxide.wasm
 
-build/wasmgen-debug.wasm: src/wasmgen/src/*.rs src/wasmgen/Cargo.toml
+build/v86oxide-debug.wasm: $(RUST_FILES) Cargo.toml
 	mkdir -p build/
-	-ls -lh build/wasmgen-debug.wasm
-	(cd src/wasmgen && cargo +nightly rustc --target wasm32-unknown-unknown -- -Clink-args="--import-memory")
-	cp src/wasmgen/target/wasm32-unknown-unknown/debug/wasmgen.wasm build/wasmgen-debug.wasm
-	ls -lh build/wasmgen-debug.wasm
+	-ls -lh build/v86oxide-debug.wasm
+	cargo +nightly rustc $(CARGO_FLAGS)
+	cp build/wasm32-unknown-unknown/debug/v86oxide.wasm build/v86oxide-debug.wasm
+	ls -lh build/v86oxide-debug.wasm
 
 clean:
 	-rm build/libv86.js
@@ -243,8 +250,8 @@ clean:
 	-rm build/v86_all.js
 	-rm build/v86.wasm
 	-rm build/v86-debug.wasm
-	-rm build/wasmgen.wasm
-	-rm build/wasmgen-debug.wasm
+	-rm build/v86oxide.wasm
+	-rm build/v86oxide-debug.wasm
 	-rm $(INSTRUCTION_TABLES)
 	-rm $(addsuffix .bak,$(INSTRUCTION_TABLES))
 	-rm $(addsuffix .diff,$(INSTRUCTION_TABLES))
@@ -275,44 +282,45 @@ $(CLOSURE):
 	mv $(CLOSURE_DIR)/*.jar $(CLOSURE)
 	rm $(CLOSURE_DIR)/compiler-latest.zip
 
-tests: build/libv86.js build/v86.wasm build/wasmgen.wasm
+tests: build/libv86.js build/v86.wasm build/v86oxide.wasm
 	./tests/full/run.js
 
-nasmtests: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm
+nasmtests: all-debug
 	$(MAKE) -C $(NASM_TEST_DIR) all
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js
 
-nasmtests-force-jit: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm
+nasmtests-force-jit: all-debug
 	$(MAKE) -C $(NASM_TEST_DIR) all
 	$(NASM_TEST_DIR)/gen_fixtures.js
 	$(NASM_TEST_DIR)/run.js --force-jit
 
-jitpagingtests: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm
+jitpagingtests: all-debug
 	$(MAKE) -C tests/jit-paging test-jit
 	./tests/jit-paging/run.js
 
-qemutests: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm
+qemutests: all-debug
 	$(MAKE) -C tests/qemu test-i386
 	./tests/qemu/run.js > /tmp/v86-test-result
 	#./tests/qemu/test-i386 > /tmp/v86-test-reference
 	./tests/qemu/run-qemu.js > /tmp/v86-test-reference
 	diff /tmp/v86-test-result /tmp/v86-test-reference
 
-kvm-unit-test: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm
+kvm-unit-test: all-debug
 	(cd tests/kvm-unit-tests && ./configure)
 	$(MAKE) -C tests/kvm-unit-tests
 	tests/kvm-unit-tests/run.js tests/kvm-unit-tests/x86/realmode.flat
 
-expect-tests: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm build/libwabt.js
+expect-tests: all-debug build/libwabt.js
 	make -C tests/expect/tests
 	./tests/expect/run.js
 
-devices-test: build/libv86-debug.js build/v86-debug.wasm build/wasmgen-debug.wasm
+devices-test: all-debug
 	./tests/devices/virtio_9p.js
 
-wasmgen-test:
-	(cd src/wasmgen && env RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture)
+rust-test:
+	env RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test --target-dir build -- --nocapture
+	./tests/rust/verify-wasmgen-dummy-output.js
 
 covreport:
 	mkdir -p $(COVERAGE_DIR)/build/
@@ -323,6 +331,9 @@ node_modules/.bin/jshint:
 
 jshint: node_modules/.bin/jshint
 	./node_modules/.bin/jshint --config=./.jshint.json src tests gen
+
+rustfmt: $(RUST_FILES)
+	cargo fmt --all -- --write-mode check
 
 build/capstone-x86.min.js:
 	mkdir -p build

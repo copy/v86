@@ -1,6 +1,7 @@
-use ::util::PackedStr;
+use util::PackedStr;
 
-pub use ::module_init::{ setup, get_module };
+pub use wasmgen::module_init::wg_setup;
+use wasmgen::module_init::get_module;
 
 #[no_mangle]
 pub fn wg_get_code_section() -> *mut Vec<u8> {
@@ -53,14 +54,14 @@ pub fn wg_commit_instruction_body_to_cs() {
 mod tests {
     use std::io::prelude::*;
     use std::fs::File;
-    use ::c_api::*;
-    use ::util::*;
-    use ::wasm_util::*;
-    use ::module_init::*;
+    use util::*;
+    use wasmgen::c_api::*;
+    use wasmgen::wasm_util::*;
+    use wasmgen::module_init::*;
 
     #[test]
     fn c_api_test() {
-        setup();
+        wg_setup();
         let m = get_module();
         let cs = &mut get_module().cs;
         let instruction_body = &mut get_module().instruction_body;
@@ -73,19 +74,19 @@ mod tests {
 
         wg_push_i32(cs, 2);
         wg_call_fn(instruction_body, m.get_fn_idx(pack_str("baz"), FN1_RET_TYPE_INDEX));
-        wg_drop(instruction_body);
+        wg_call_fn(instruction_body, m.get_fn_idx(pack_str("foo"), FN1_TYPE_INDEX));
 
         wg_commit_instruction_body_to_cs();
 
-        wg_finish(1);
+        wg_finish(0);
 
         let op_ptr = wg_get_op_ptr();
         let op_len = wg_get_op_len();
         dbg_log!("op_ptr: {:?}, op_len: {:?}", op_ptr, op_len);
 
-        // XXX: move file path
-        let mut f = File::create("c_api_test.wasm").expect("creating c_api_test.wasm");
-        f.write_all(&get_module().op).expect("write c_api_test.wasm");
+        let mut f = File::create("build/wg_dummy_output.wasm").expect("creating wg_dummy_output.wasm");
+        f.write_all(&get_module().op).expect("write wg_dummy_output.wasm");
     }
 
 }
+

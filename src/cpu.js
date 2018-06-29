@@ -11,10 +11,10 @@ var CPU_LOG_VERBOSE = false;
 
 
 /** @constructor */
-function CPU(bus, wm, wasmgen, coverage_logger)
+function CPU(bus, wm, v86oxide, coverage_logger)
 {
     this.wm = wm;
-    this.wasmgen = wasmgen;
+    this.v86oxide = v86oxide;
     this.coverage_logger = coverage_logger;
     this.wasm_patch(wm);
     this.create_jit_imports();
@@ -217,10 +217,10 @@ function CPU(bus, wm, wasmgen, coverage_logger)
 
 CPU.prototype.wasmgen_get_module_code = function()
 {
-    const ptr = this.wasmgen.exports["wg_get_op_ptr"]();
-    const len = this.wasmgen.exports["wg_get_op_len"]();
+    const ptr = this.v86oxide.exports["wg_get_op_ptr"]();
+    const len = this.v86oxide.exports["wg_get_op_len"]();
 
-    const output_buffer_view = new Uint8Array(this.wasmgen.memory.buffer, ptr, len);
+    const output_buffer_view = new Uint8Array(this.v86oxide.memory.buffer, ptr, len);
     return output_buffer_view;
 };
 

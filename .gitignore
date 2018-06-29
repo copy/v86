@@ -19,5 +19,4 @@ images/
 node_modules/
 package-lock.json
 profile*.json
-src/wasmgen/target
-src/wasmgen/Cargo.lock
+Cargo.lock
