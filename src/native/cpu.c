@@ -346,6 +346,10 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
 
         assert(valid_tlb_entries_count < VALID_TLB_ENTRY_MAX);
         valid_tlb_entries[valid_tlb_entries_count++] = page;
+
+        // TODO: Check that there are no duplicates in valid_tlb_entries
+        // XXX: There will probably be duplicates due to invlpg deleting
+        //      entries from tlb_data but not from valid_tlb_entries
     }
     else
     {
@@ -2483,6 +2487,10 @@ void invlpg(int32_t addr)
     //dbg_log("invlpg: addr=" + h(addr >>> 0), LOG_CPU);
     int32_t page = (uint32_t)addr >> 12;
 
+    // Note: Doesn't remove this page from valid_tlb_entries: This isn't
+    // necessary, because when valid_tlb_entries grows too large, it will be
+    // empties by calling clear_tlb, which removes this entry as it isn't global.
+    // This however means that valid_tlb_entries can contain some invalid entries
     tlb_data[page] = 0;
 
     *last_virt_eip = -1;
