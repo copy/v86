@@ -142,7 +142,7 @@ var ASYNC_SAFE = false;
 
                     imports["env"]["table"] = new WebAssembly.Table({
                         "initial": dylink.table_size + table_size + EXTRA_TABLE_SPACE_FOR_EMULATED_FP,
-                        "element": "anyfunc"
+                        "element": "anyfunc",
                     });
                     imports["env"]["tableBase"] = table_size;
 
