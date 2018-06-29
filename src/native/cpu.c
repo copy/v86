@@ -2186,12 +2186,40 @@ int32_t safe_read32s(int32_t address)
 
     if(info_bits == TLB_VALID && (address & 0xFFF) <= (0x1000 - 4))
     {
+#if ENABLE_PROFILER_SAFE_READ_WRITE
+        profiler_stat_increment(S_SAFE_READ32_FAST);
+#endif
         // - not in memory mapped area
         // - can be accessed from any cpl
 
         uint32_t phys_address = entry & ~0xFFF ^ address;
         assert(!in_mapped_range(phys_address));
         return *(int32_t*)(mem8 + phys_address);
+    }
+    else
+    {
+#if ENABLE_PROFILER_SAFE_READ_WRITE
+        if((address & 0xFFF) > 0x1000 - 4)
+        {
+            profiler_stat_increment(S_SAFE_READ32_SLOW_PAGE_CROSSED);
+        }
+        else if((info_bits & TLB_VALID) == 0)
+        {
+            profiler_stat_increment(S_SAFE_READ32_SLOW_NOT_VALID);
+        }
+        else if(info_bits & TLB_NO_USER)
+        {
+            profiler_stat_increment(S_SAFE_READ32_SLOW_NOT_USER);
+        }
+        else if(info_bits & TLB_IN_MAPPED_RANGE)
+        {
+            profiler_stat_increment(S_SAFE_READ32_SLOW_IN_MAPPED_RANGE);
+        }
+        else
+        {
+            dbg_assert(false);
+        }
+#endif
     }
 #endif
 
@@ -2277,6 +2305,9 @@ void safe_write32(int32_t address, int32_t value)
 
     if(info_bits == TLB_VALID && (address & 0xFFF) <= (0x1000 - 4))
     {
+#if ENABLE_PROFILER_SAFE_READ_WRITE
+        profiler_stat_increment(S_SAFE_WRITE32_FAST);
+#endif
         // - allowed to write in user-mode
         // - not in memory mapped area
         // - can be accessed from any cpl
@@ -2288,6 +2319,39 @@ void safe_write32(int32_t address, int32_t value)
         assert(!in_mapped_range(phys_address));
         *(int32_t*)(mem8 + phys_address) = value;
         return;
+    }
+    else
+    {
+#if ENABLE_PROFILER_SAFE_READ_WRITE
+        if((address & 0xFFF) > 0x1000 - 4)
+        {
+            profiler_stat_increment(S_SAFE_WRITE32_SLOW_PAGE_CROSSED);
+        }
+        else if((info_bits & TLB_VALID) == 0)
+        {
+            profiler_stat_increment(S_SAFE_WRITE32_SLOW_NOT_VALID);
+        }
+        else if(info_bits & TLB_NO_USER)
+        {
+            profiler_stat_increment(S_SAFE_WRITE32_SLOW_NOT_USER);
+        }
+        else if(info_bits & TLB_IN_MAPPED_RANGE)
+        {
+            profiler_stat_increment(S_SAFE_WRITE32_SLOW_IN_MAPPED_RANGE);
+        }
+        else if(info_bits & TLB_READONLY)
+        {
+            profiler_stat_increment(S_SAFE_WRITE32_SLOW_READ_ONLY);
+        }
+        else if(info_bits & TLB_HAS_CODE)
+        {
+            profiler_stat_increment(S_SAFE_WRITE32_SLOW_HAS_CODE);
+        }
+        else
+        {
+            dbg_assert(false);
+        }
+#endif
     }
 #endif
 

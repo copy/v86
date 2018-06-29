@@ -39,6 +39,7 @@
 
 #define ENABLE_PROFILER 0
 #define ENABLE_PROFILER_OPSTATS 0
+#define ENABLE_PROFILER_SAFE_READ_WRITE 0
 
 // Note: needs to be enabled here and in config.js
 #define DUMP_UNCOMPILED_ASSEMBLY 0
