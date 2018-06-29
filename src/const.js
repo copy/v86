@@ -361,6 +361,9 @@ var WASM_TABLE_SIZE = 0x10000;
 /** @const */
 var JIT_CACHE_ARRAY_SIZE = 0x40000;
 
+/** @const */
+const WASM_EXPORT_TABLE_NAME = "table";
+
 
 /** @const */
 // The space we need for misc internal state before the beginning of mem8; see global_pointers.h

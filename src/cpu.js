@@ -306,7 +306,7 @@ CPU.prototype.wasm_patch = function(wm)
 CPU.prototype.jit_clear_func = function(index)
 {
     dbg_assert(index >= 0 && index < WASM_TABLE_SIZE);
-    this.wm.imports.env.table.set(index, null);
+    this.wm.imports.env[WASM_EXPORT_TABLE_NAME].set(index, null);
 };
 
 CPU.prototype.get_state = function()
@@ -1295,7 +1295,7 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
             first_opcode, state_flags);
 
         // The following will throw if f isn't an exported function
-        this.wm.imports["env"].table.set(wasm_table_index, f);
+        this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(wasm_table_index, f);
 
         if(this.test_hook_did_finalize_wasm)
         {
@@ -1517,7 +1517,7 @@ CPU.prototype.jit_empty_cache = function()
 {
     this.wm.exports["_jit_empty_cache"]();
 
-    const table = this.wm.imports["env"].table;
+    const table = this.wm.imports["env"][WASM_EXPORT_TABLE_NAME];
 
     for(let i = 0; i < WASM_TABLE_SIZE; i++)
     {

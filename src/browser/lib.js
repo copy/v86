@@ -140,7 +140,7 @@ var ASYNC_SAFE = false;
                     //      here
                     const EXTRA_TABLE_SPACE_FOR_EMULATED_FP = 10000;
 
-                    imports["env"]["table"] = new WebAssembly.Table({
+                    imports["env"][WASM_EXPORT_TABLE_NAME] = new WebAssembly.Table({
                         "initial": dylink.table_size + table_size + EXTRA_TABLE_SPACE_FOR_EMULATED_FP,
                         "element": "anyfunc",
                     });
