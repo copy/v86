@@ -412,6 +412,11 @@ void tlb_set_has_code(uint32_t physical_page, bool has_code)
     }
 }
 
+int32_t get_valid_tlb_entries_count(void)
+{
+    return valid_tlb_entries_count;
+}
+
 void writable_or_pagefault(int32_t addr, int32_t size)
 {
     dbg_assert(size < 0x1000);

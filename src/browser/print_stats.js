@@ -67,6 +67,7 @@ const print_stats = {
 
         text += "\n";
 
+        text += "TLB_ENTRIES=" + cpu.wm.exports["_get_valid_tlb_entries_count"]() + "\n";
         text += "CACHE_UNUSED=" + cpu.wm.exports["_jit_unused_cache_stat"]() + "\n";
         text += "WASM_TABLE_FREE=" + cpu.wm.exports["_get_wasm_table_index_free_list_count"]() + "\n";
 
