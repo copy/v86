@@ -81,7 +81,7 @@ if(cluster.isMaster)
         {
             name: "FreeDOS boot",
             fda: root_path + "/images/freedos722.img",
-            timeout: 10,
+            timeout: 20,
             expected_texts: [
                 "Welcome to FreeDOS",
             ],
@@ -89,7 +89,7 @@ if(cluster.isMaster)
         {
             name: "FreeDOS boot with Bochs BIOS",
             fda: root_path + "/images/freedos722.img",
-            timeout: 10,
+            timeout: 20,
             alternative_bios: true,
             expected_texts: [
                 "Welcome to FreeDOS",
