@@ -16,6 +16,7 @@ macro_rules! dbg_assert {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[allow(unused_macros)]
 macro_rules! dbg_log {
     ($fmt:expr) => {
         use ::util::{ DEBUG, _log_to_js_console };
@@ -28,6 +29,7 @@ macro_rules! dbg_log {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[allow(unused_macros)]
 macro_rules! dbg_assert {
     ($cond:expr) => {
         use ::util::{ DEBUG, _log_to_js_console, abort };
