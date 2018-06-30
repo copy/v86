@@ -165,6 +165,7 @@ pub fn _log_to_js_console<T: ToString>(s: T) {
 #[cfg(test)]
 mod tests {
     use ::util::*;
+    use quickcheck::TestResult;
 
     #[test]
     fn packed_strs() {
@@ -176,10 +177,13 @@ mod tests {
     }
 
     quickcheck! {
-        fn prop(xs: Vec<u8>) -> bool {
-            if xs.len() > 24 || xs.contains(&0) { return true; }
-            let xs = String::from_utf8(xs).expect("get string");
-            xs == unpack_str(pack_str(&xs))
+        fn prop(xs: Vec<u8>) -> TestResult {
+            if xs.len() > 24 || xs.contains(&0) { return TestResult::discard(); }
+            let xs = match String::from_utf8(xs) {
+                Ok(x) => x,
+                Err(_) => { return TestResult::discard(); },
+            };
+            TestResult::from_bool(xs == unpack_str(pack_str(&xs)))
         }
     }
 

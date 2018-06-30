@@ -106,7 +106,6 @@ CC_FLAGS=\
 
 CARGO_FLAGS=\
 			--target wasm32-unknown-unknown \
-			--target-dir build/ \
 			-- -Clink-args="--import-memory"
 
 CORE_FILES=const.js config.js io.js main.js lib.js coverage.js ide.js pci.js floppy.js \
@@ -319,7 +318,7 @@ devices-test: all-debug
 	./tests/devices/virtio_9p.js
 
 rust-test:
-	env RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test --target-dir build -- --nocapture
+	env RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
 	./tests/rust/verify-wasmgen-dummy-output.js
 
 covreport:

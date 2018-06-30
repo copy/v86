@@ -3,10 +3,10 @@
 
 process.on("unhandledRejection", exn => { throw exn; });
 
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
-const DUMMY_MODULE_PATH = path.resolve(__dirname, '../../build/wg_dummy_output.wasm');
+const DUMMY_MODULE_PATH = path.resolve(__dirname, "../../build/wg_dummy_output.wasm");
 const dummy_module = fs.readFileSync(DUMMY_MODULE_PATH);
 
 const wm = new WebAssembly.Module(dummy_module);
@@ -26,9 +26,8 @@ function foo(arg) {
     foo_recd_arg = arg;
 }
 
-const i = new WebAssembly.Instance(wm, { 'e': { m: mem, baz, foo } });
+const i = new WebAssembly.Instance(wm, { "e": { m: mem, baz, foo } });
 i.exports.f();
 
 console.assert(baz_recd_arg === 2, `baz returned: "${baz_recd_arg}"`);
 console.assert(foo_recd_arg === 456, `foo returned: "${foo_recd_arg}"`);
-

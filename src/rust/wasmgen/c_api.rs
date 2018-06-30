@@ -5,7 +5,7 @@ use wasmgen::module_init::get_module;
 
 #[no_mangle]
 pub fn wg_get_code_section() -> *mut Vec<u8> {
-    &mut get_module().cs
+    &mut get_module().code_section
 }
 
 #[no_mangle]
@@ -63,7 +63,7 @@ mod tests {
     fn c_api_test() {
         wg_setup();
         let m = get_module();
-        let cs = &mut get_module().cs;
+        let cs = &mut get_module().code_section;
         let instruction_body = &mut get_module().instruction_body;
 
         wg_call_fn(cs, m.get_fn_idx(pack_str("foo"), FN0_TYPE_INDEX));
@@ -85,7 +85,7 @@ mod tests {
         dbg_log!("op_ptr: {:?}, op_len: {:?}", op_ptr, op_len);
 
         let mut f = File::create("build/wg_dummy_output.wasm").expect("creating wg_dummy_output.wasm");
-        f.write_all(&get_module().op).expect("write wg_dummy_output.wasm");
+        f.write_all(&get_module().output).expect("write wg_dummy_output.wasm");
     }
 
 }
