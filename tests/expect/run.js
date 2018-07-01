@@ -3,6 +3,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const process = require("process");
 const { spawnSync } = require("child_process");
 
 const libwabt = require("../../build/libwabt.js");
@@ -40,10 +41,39 @@ function run_all()
         };
     });
 
-    files.forEach(run_test);
+    next_test(0);
+
+    function next_test(i)
+    {
+        if(files[i])
+        {
+            run_test(files[i], () => next_test(i + 1));
+        }
+    }
 }
 
-function run_test({ name, executable_file, expect_file, actual_file, actual_wasm, asm_file })
+let stdin_data = "";
+let stdin_buffer = Buffer.alloc(100);
+const stdin = fs.openSync("/dev/stdin", "r");
+
+function readline()
+{
+    const bytesRead = fs.readSync(stdin, stdin_buffer, 0, stdin_buffer.length, null);
+    stdin_data += stdin_buffer.slice(0, bytesRead).toString();
+
+    const nl = stdin_data.indexOf("\n");
+
+    if(nl === -1)
+    {
+        return readline();
+    }
+
+    const line = stdin_data.slice(0, nl);
+    stdin_data = stdin_data.slice(nl + 1);
+    return line;
+}
+
+function run_test({ name, executable_file, expect_file, actual_file, actual_wasm, asm_file }, onfinished)
 {
     const emulator = new V86({
         autostart: false,
@@ -101,18 +131,47 @@ function run_test({ name, executable_file, expect_file, actual_file, actual_wasm
                 {
                     console.log(result.stdout);
                     console.log(result.stderr);
-                    const failure_message = `${name}.asm failed:
+
+                    if(process.argv.includes("--interactive"))
+                    {
+                        while(true)
+                        {
+                            console.log("Pick: [y] Accept this change and overwrite, [n] Don't accept this change, [q] Quit");
+                            const choice = readline();
+
+                            if(choice === "y")
+                            {
+                                console.log(`Running: cp ${actual_file} ${expect_file}`);
+                                fs.copyFileSync(actual_file, expect_file);
+                                break;
+                            }
+                            else if(choice === "n")
+                            {
+                                break;
+                            }
+                            else if(choice === "q")
+                            {
+                                process.exit(1);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        const failure_message = `${name}.asm failed:
 The code generator produced different code. If you believe this change is intentional,
 verify the diff above and run the following command to accept the change:
 
     cp ${actual_file} ${expect_file}
 
 When done, re-run this test to confirm that all expect-tests pass.
+
+Hint: Use tests/expect/run.js --interactive to interactively accept changes.
 `;
 
-                    console.log(failure_message);
+                        console.log(failure_message);
 
-                    process.exit(1);
+                        process.exit(1);
+                    }
                 }
                 else
                 {
@@ -120,6 +179,8 @@ When done, re-run this test to confirm that all expect-tests pass.
                     console.assert(!result.stdout);
                     console.assert(!result.stderr);
                 }
+
+                onfinished();
             };
 
             if(is_32)
