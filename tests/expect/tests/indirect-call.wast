@@ -17,19 +17,10 @@
     (set_local $l1
       (i32.const 10000))
     (loop $L0
-      (set_local $l1
-        (i32.add
-          (get_local $l1)
-          (i32.const -1)))
-      (if $I1
-        (i32.eqz
-          (get_local $l1))
-        (then
-          (return)))
-      (block $B2
-        (block $B3
-          (block $B4
-            (br_table $B4 $B3 $B2
+      (block $B1
+        (block $B2
+          (block $B3
+            (br_table $B3 $B2 $B1
               (get_local $l0)))
           (i32.store
             (i32.const 560)
