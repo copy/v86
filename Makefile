@@ -332,7 +332,7 @@ jshint: node_modules/.bin/jshint
 	./node_modules/.bin/jshint --config=./.jshint.json src tests gen
 
 rustfmt: $(RUST_FILES)
-	cargo fmt --all -- --write-mode check
+	cargo +nightly fmt --all -- --check
 
 build/capstone-x86.min.js:
 	mkdir -p build
