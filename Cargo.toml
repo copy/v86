@@ -12,6 +12,7 @@ path = "src/rust/lib.rs"
 
 [profile.dev]
 lto = false
+opt-level=2
 panic = "abort"
 
 [profile.release]

@@ -1,0 +1,74 @@
+use cpu;
+use prefix::{PREFIX_MASK_ADDRSIZE, PREFIX_MASK_OPSIZE};
+use state_flags::CachedStateFlags;
+
+#[derive(Clone)]
+pub struct CpuContext {
+    pub eip: u32,
+    pub prefixes: u32,
+    pub cs_offset: u32,
+    pub state_flags: CachedStateFlags,
+}
+
+impl CpuContext {
+    pub fn advance8(&mut self) {
+        assert!(self.eip & 0xFFF < 0xFFF);
+        self.eip += 1;
+    }
+    pub fn advance16(&mut self) {
+        assert!(self.eip & 0xFFF < 0xFFE);
+        self.eip += 2;
+    }
+    pub fn advance32(&mut self) {
+        assert!(self.eip & 0xFFF < 0xFFC);
+        self.eip += 4;
+    }
+    #[allow(unused)]
+    pub fn advance_moffs(&mut self) {
+        if self.asize_32() {
+            self.advance32()
+        }
+        else {
+            self.advance16()
+        }
+    }
+
+    pub fn read_imm8(&mut self) -> u8 {
+        assert!(self.eip & 0xFFF < 0xFFF);
+        let v = cpu::read8(self.eip);
+        self.eip += 1;
+        v
+    }
+    pub fn read_imm8s(&mut self) -> i8 { self.read_imm8() as i8 }
+    pub fn read_imm16(&mut self) -> u16 {
+        assert!(self.eip & 0xFFF < 0xFFE);
+        let v = cpu::read16(self.eip);
+        self.eip += 2;
+        v
+    }
+    pub fn read_imm16s(&mut self) -> i16 { self.read_imm16() as i16 }
+    pub fn read_imm32(&mut self) -> u32 {
+        assert!(self.eip & 0xFFF < 0xFFC);
+        let v = cpu::read32(self.eip);
+        self.eip += 4;
+        v
+    }
+    pub fn read_moffs(&mut self) -> u32 {
+        if self.asize_32() {
+            self.read_imm32()
+        }
+        else {
+            self.read_imm16() as u32
+        }
+    }
+
+    pub fn cpl3(&self) -> bool { self.state_flags.cpl3() }
+    pub fn has_flat_segmentation(&self) -> bool { self.state_flags.has_flat_segmentation() }
+    pub fn osize_32(&self) -> bool {
+        self.state_flags.is_32() != (self.prefixes & PREFIX_MASK_OPSIZE != 0)
+    }
+    pub fn asize_32(&self) -> bool {
+        self.state_flags.is_32() != (self.prefixes & PREFIX_MASK_ADDRSIZE != 0)
+    }
+    pub fn ssize_32(&self) -> bool { self.state_flags.ssize_32() }
+}

@@ -1,9 +1,6 @@
-#pragma once
-
-#include <stdbool.h>
-#include <stdint.h>
-
-enum stat_name {
+#[repr(C)]
+#[allow(non_camel_case_types, dead_code)]
+pub enum stat {
     S_COMPILE,
     S_COMPILE_SUCCESS,
     S_COMPILE_CUT_OFF_AT_END_OF_PAGE,
@@ -50,20 +47,17 @@ enum stat_name {
     S_FULL_CLEAR_TLB,
     S_TLB_FULL,
     S_TLB_GLOBAL_FULL,
-};
-#define PROFILER_STAT_COUNT (S_TLB_GLOBAL_FULL - S_COMPILE + 1)
+}
 
-struct profiler_stat {
-    int32_t count;
-};
+#[cfg(debug_assertions)]
+mod unsafe_extern {
+    extern "C" {
+        pub fn profiler_stat_increment(stat: ::profiler::stat);
+    }
+}
 
-extern struct profiler_stat profiler_stat_arr[PROFILER_STAT_COUNT];
+#[cfg(debug_assertions)]
+pub fn stat_increment(stat: stat) { unsafe { unsafe_extern::profiler_stat_increment(stat) } }
 
-void profiler_init(void);
-
-void profiler_stat_increment(enum stat_name stat);
-void profiler_stat_increment_by(enum stat_name stat, int32_t by);
-int32_t profiler_stat_get(enum stat_name stat);
-
-// JS import
-extern double get_time(void);
+#[cfg(not(debug_assertions))]
+pub fn stat_increment(_stat: stat) {}

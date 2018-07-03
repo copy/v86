@@ -86,17 +86,13 @@ static union reg64* const reg_mmx = (union reg64* const) 1064; // length 64
 
 // gap
 
-static uint8_t* const codegen_buffer_op = (uint8_t* const) 0x1000; // length 0x100000
-static uint8_t* const codegen_buffer_cs = (uint8_t* const) 0x101000; // length 0x100000
-static uint8_t* const codegen_buffer_instruction_body = (uint8_t* const) 0x201000; // length 0x100000
-static uint8_t* const codegen_string_input = (uint8_t* const) 0x301000; // length 32
+static uint32_t* const opstats_buffer = (uint32_t* const) 0x1000; // length 0x400
+static uint32_t* const opstats_buffer_0f = (uint32_t* const) 0x1400; // length 0x400
 
 // gap
 
-static int32_t* const tlb_data = (int32_t* const) (0x400000); // length 0x100000*4
-// A mapping from physical page to index into jit_cache_arr
-static int32_t* const page_first_jit_cache_entry = (int32_t* const) (0x800000); // length 0x100000*4
+static int32_t* const tlb_data = (int32_t* const) 0x400000; // length 0x100000*4
 
-static uint8_t* const mem8 = (uint8_t* const) (0x400000 + 0x100000 * 8);
-static uint16_t* const mem16 = (uint16_t* const) (0x400000 + 0x100000 * 8);
-static int32_t* const mem32s = (int32_t* const) (0x400000 + 0x100000 * 8);
+static uint8_t* const mem8 = (uint8_t* const) 0x800000;
+static uint16_t* const mem16 = (uint16_t* const) 0x800000;
+static int32_t* const mem32s = (int32_t* const) 0x800000;

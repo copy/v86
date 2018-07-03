@@ -98,7 +98,7 @@ const encodings = [
     { opcode: 0x8B, custom: 1, nonfaulting: 1, os: 1, e: 1, },
 
     { opcode: 0x8C, os: 1, e: 1, skip: 1, },
-    { opcode: 0x8D, nonfaulting: 1, os: 1, e: 1, only_mem: 1, requires_prefix_call: 1, custom: 1, }, // lea
+    { opcode: 0x8D, memory_nonfaulting: 1, os: 1, e: 1, only_mem: 1, requires_prefix_call: 1, custom: 1, }, // lea
     { opcode: 0x8E, block_boundary: 1, e: 1, skip: 1, }, // mov sreg
     { opcode: 0x8F, os: 1, e: 1, fixed_g: 0, requires_prefix_call: 1, custom: 1, }, // pop r/m
 
@@ -196,23 +196,23 @@ const encodings = [
     { opcode: 0xF4, block_boundary: 1, no_next_instruction: 1, skip: 1, }, // hlt
     { opcode: 0xF5, nonfaulting: 1, },
 
-    { opcode: 0xF6, fixed_g: 0, nonfaulting: 1, imm8: 1, },
-    { opcode: 0xF6, fixed_g: 1, nonfaulting: 1, imm8: 1, },
-    { opcode: 0xF6, fixed_g: 2, nonfaulting: 1, },
-    { opcode: 0xF6, fixed_g: 3, nonfaulting: 1, },
-    { opcode: 0xF6, fixed_g: 4, nonfaulting: 1, mask_flags: af | zf, },
-    { opcode: 0xF6, fixed_g: 5, nonfaulting: 1, mask_flags: af | zf, },
-    { opcode: 0xF6, fixed_g: 6, },
-    { opcode: 0xF6, fixed_g: 7, },
+    { opcode: 0xF6, e: 1, fixed_g: 0, nonfaulting: 1, imm8: 1, },
+    { opcode: 0xF6, e: 1, fixed_g: 1, nonfaulting: 1, imm8: 1, },
+    { opcode: 0xF6, e: 1, fixed_g: 2, nonfaulting: 1, },
+    { opcode: 0xF6, e: 1, fixed_g: 3, nonfaulting: 1, },
+    { opcode: 0xF6, e: 1, fixed_g: 4, nonfaulting: 1, mask_flags: af | zf, },
+    { opcode: 0xF6, e: 1, fixed_g: 5, nonfaulting: 1, mask_flags: af | zf, },
+    { opcode: 0xF6, e: 1, fixed_g: 6, },
+    { opcode: 0xF6, e: 1, fixed_g: 7, },
 
-    { opcode: 0xF7, os: 1, fixed_g: 0, nonfaulting: 1, imm1632: 1, },
-    { opcode: 0xF7, os: 1, fixed_g: 1, nonfaulting: 1, imm1632: 1, },
-    { opcode: 0xF7, os: 1, fixed_g: 2, nonfaulting: 1, },
-    { opcode: 0xF7, os: 1, fixed_g: 3, nonfaulting: 1, },
-    { opcode: 0xF7, os: 1, fixed_g: 4, nonfaulting: 1, mask_flags: zf | af, },
-    { opcode: 0xF7, os: 1, fixed_g: 5, nonfaulting: 1, mask_flags: zf | af, },
-    { opcode: 0xF7, os: 1, fixed_g: 6, },
-    { opcode: 0xF7, os: 1, fixed_g: 7, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 0, nonfaulting: 1, imm1632: 1, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 1, nonfaulting: 1, imm1632: 1, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 2, nonfaulting: 1, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 3, nonfaulting: 1, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 4, nonfaulting: 1, mask_flags: zf | af, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 5, nonfaulting: 1, mask_flags: zf | af, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 6, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 7, },
 
     { opcode: 0xF8, nonfaulting: 1, },
     { opcode: 0xF9, nonfaulting: 1, },
@@ -408,6 +408,7 @@ const encodings = [
     { opcode: 0x0FB7, nonfaulting: 1, os: 1, e: 1, },
 
     { opcode: 0xF30FB8, os: 1, e: 1 }, // popcnt
+    { opcode: 0x0FB8, os: 1, e: 1, }, // ud
 
     { opcode: 0x0FB9, }, // ud2
 
@@ -519,7 +520,9 @@ const encodings = [
     { opcode: 0x660F6B, e: 1 },
     { opcode: 0x0F6B, e: 1 },
     { opcode: 0x660F6C, e: 1 },
+    { opcode: 0x0F6C, e: 1, }, // ud
     { opcode: 0x660F6D, e: 1 },
+    { opcode: 0x0F6D, e: 1, }, // ud
     { opcode: 0x660F6E, e: 1 },
     { opcode: 0x0F6E, e: 1 },
     { opcode: 0xF30F6F, e: 1 },
@@ -601,6 +604,7 @@ const encodings = [
     { opcode: 0x660FD6, e: 1 },
     { opcode: 0xF20FD6, only_reg: 1, e: 1 },
     { opcode: 0xF30FD6, only_reg: 1, e: 1 },
+    { opcode: 0x0FD6, e: 1, }, // ud
     { opcode: 0x0FD7, e: 1, only_reg: 1 },
     { opcode: 0x660FD7, e: 1, only_reg: 1, },
 
@@ -637,6 +641,7 @@ const encodings = [
     { opcode: 0x660FE6, e: 1, skip: 1, },
     { opcode: 0xF20FE6, e: 1, skip: 1, },
     { opcode: 0xF30FE6, e: 1, skip: 1, },
+    { opcode: 0x0FE6, e: 1, }, // ud
     { opcode: 0x0FE7, e: 1, only_mem: 1 },
     { opcode: 0x660FE7, e: 1, only_mem: 1, },
 

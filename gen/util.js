@@ -74,10 +74,20 @@ function finalize_table(out_dir, name, contents)
     console.log(CYAN_FMT, `[+] Wrote table ${name}. Remember to check ${diff_file_path}`);
 }
 
+function finalize_table_rust(out_dir, name, contents)
+{
+    const file_path = path.join(out_dir, name);
+
+    fs.writeFileSync(file_path, contents);
+
+    console.log(CYAN_FMT, `[+] Wrote table ${name}.`);
+}
+
 module.exports = {
     hex,
     mkdirpSync,
     get_switch_value,
     get_switch_exist,
     finalize_table,
+    finalize_table_rust,
 };

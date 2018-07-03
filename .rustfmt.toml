@@ -1,4 +1,3 @@
-normalize_comments = true
 use_field_init_shorthand = true
 match_block_trailing_comma = true
 fn_single_line = true

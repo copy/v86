@@ -367,7 +367,7 @@ const WASM_EXPORT_TABLE_NAME = "table";
 
 /** @const */
 // The space we need for misc internal state before the beginning of mem8; see global_pointers.h
-const GUEST_MEMORY_START = 0x400000 + 0x100000 * 8;
+const GUEST_MEMORY_START = 0x800000;
 
 /** @const */
 const WASM_PAGE_SIZE = 64 * 1024;

@@ -113,9 +113,12 @@ var ASYNC_SAFE = false;
             WebAssembly.compile(buffer)
                 .then(module => {
                     const dylink = v86util.decode_dylink(module);
-                    const total_mem_pages = Math.ceil(
+                    let total_mem_pages = Math.ceil(
                         (dylink.memory_size + memory_size) / WASM_PAGE_SIZE
                     );
+
+                    // emscripten seems to require a minimum of 256 pages (16 MB)
+                    total_mem_pages = Math.max(256, total_mem_pages);
 
                     try
                     {

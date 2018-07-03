@@ -4,9 +4,9 @@ BROWSER=chromium
 NASM_TEST_DIR=./tests/nasm
 COVERAGE_DIR=./tests/coverage
 
-INSTRUCTION_TABLES=build/jit.c build/jit0f_16.c build/jit0f_32.c \
+INSTRUCTION_TABLES=src/rust/gen/jit.rs src/rust/gen/jit0f_16.rs src/rust/gen/jit0f_32.rs \
 		   build/interpreter.c build/interpreter0f_16.c build/interpreter0f_32.c \
-		   build/analyzer.c build/analyzer0f_16.c build/analyzer0f_32.c \
+		   src/rust/gen/analyzer.rs src/rust/gen/analyzer0f_16.rs src/rust/gen/analyzer0f_32.rs \
 
 # Only the dependencies common to both generate_{jit,interpreter}.js
 GEN_DEPENDENCIES=$(filter-out gen/generate_interpreter.js gen/generate_jit.js gen/generate_analyzer.js, $(wildcard gen/*.js))
@@ -17,10 +17,6 @@ ANALYZER_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_analyzer.js
 # Enable manually and recompile v86-debug.wasm for coverage-enabled tests
 ifeq ($(ENABLE_COV), 1)
 CC_COVERAGE_FLAGS=--coverage -fprofile-instr-generate
-endif
-
-ifeq ($(JIT_ALWAYS),)
-JIT_ALWAYS=false
 endif
 
 all: build/v86_all.js build/libv86.js build/v86.wasm build/v86oxide.wasm
@@ -118,7 +114,9 @@ BROWSER_FILES=screen.js \
 		  keyboard.js mouse.js serial.js \
 		  network.js lib.js starter.js worker_bus.js dummy_screen.js print_stats.js
 
-RUST_FILES=$(shell find src/rust/ -name '*.rs')
+RUST_FILES=$(shell find src/rust/ -name '*.rs') \
+	   src/rust/gen/jit.rs src/rust/gen/jit0f_16.rs src/rust/gen/jit0f_32.rs \
+	   src/rust/gen/analyzer.rs src/rust/gen/analyzer0f_16.rs src/rust/gen/analyzer0f_32.rs
 
 CORE_FILES:=$(addprefix src/,$(CORE_FILES))
 LIB_FILES:=$(addprefix lib/,$(LIB_FILES))
@@ -177,11 +175,11 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 .PHONY: instruction_tables
 instruction_tables: $(INSTRUCTION_TABLES)
 
-build/jit.c: $(JIT_DEPENDENCIES)
+src/rust/gen/jit.rs: $(JIT_DEPENDENCIES)
 	./gen/generate_jit.js --output-dir build/ --table jit
-build/jit0f_16.c: $(JIT_DEPENDENCIES)
+src/rust/gen/jit0f_16.rs: $(JIT_DEPENDENCIES)
 	./gen/generate_jit.js --output-dir build/ --table jit0f_16
-build/jit0f_32.c: $(JIT_DEPENDENCIES)
+src/rust/gen/jit0f_32.rs: $(JIT_DEPENDENCIES)
 	./gen/generate_jit.js --output-dir build/ --table jit0f_32
 
 build/interpreter.c: $(INTERPRETER_DEPENDENCIES)
@@ -191,40 +189,32 @@ build/interpreter0f_16.c: $(INTERPRETER_DEPENDENCIES)
 build/interpreter0f_32.c: $(INTERPRETER_DEPENDENCIES)
 	./gen/generate_interpreter.js --output-dir build/ --table interpreter0f_32
 
-build/analyzer.c: $(ANALYZER_DEPENDENCIES)
+src/rust/gen/analyzer.rs: $(ANALYZER_DEPENDENCIES)
 	./gen/generate_analyzer.js --output-dir build/ --table analyzer
-build/analyzer0f_16.c: $(ANALYZER_DEPENDENCIES)
+src/rust/gen/analyzer0f_16.rs: $(ANALYZER_DEPENDENCIES)
 	./gen/generate_analyzer.js --output-dir build/ --table analyzer0f_16
-build/analyzer0f_32.c: $(ANALYZER_DEPENDENCIES)
+src/rust/gen/analyzer0f_32.rs: $(ANALYZER_DEPENDENCIES)
 	./gen/generate_analyzer.js --output-dir build/ --table analyzer0f_32
 
-.PHONY: phony
-build/JIT_ALWAYS: phony
-	@if [[ `cat build/JIT_ALWAYS 2>&1` != '$(JIT_ALWAYS)' ]]; then \
-	    echo -n $(JIT_ALWAYS) > build/JIT_ALWAYS ; \
-	fi
-
-build/v86.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/*.ll $(INSTRUCTION_TABLES) build/JIT_ALWAYS
+build/v86.wasm: src/native/*.c src/native/*.h src/native/profiler/* src/native/*.ll $(INSTRUCTION_TABLES)
 	mkdir -p build
 	-ls -lh build/v86.wasm
-	emcc src/native/*.c src/native/profiler/*.c src/native/codegen/codegen.c src/native/*.ll \
+	emcc src/native/*.c src/native/profiler/*.c src/native/*.ll \
 		$(CC_FLAGS) \
 		-DDEBUG=false \
 		-DNDEBUG \
-		-D"ENABLE_JIT_ALWAYS=$(JIT_ALWAYS)" \
 		-O3 \
 		--llvm-opts 3 \
 		--llvm-lto 3 \
 		-o build/v86.wasm
 	ls -lh build/v86.wasm
 
-build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/codegen/*.c src/native/codegen/*.h src/native/profiler/* src/native/*.ll $(INSTRUCTION_TABLES) build/JIT_ALWAYS
+build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/profiler/* src/native/*.ll $(INSTRUCTION_TABLES)
 	mkdir -p build/coverage
 	-ls -lh build/v86-debug.wasm
-	emcc src/native/*.c src/native/profiler/*.c src/native/codegen/codegen.c src/native/*.ll \
+	emcc src/native/*.c src/native/profiler/*.c src/native/*.ll \
 		$(CC_FLAGS) \
 		$(CC_COVERAGE_FLAGS) \
-		-D"ENABLE_JIT_ALWAYS=$(JIT_ALWAYS)" \
 		-Os \
 		-o build/v86-debug.wasm
 	ls -lh build/v86-debug.wasm
@@ -317,7 +307,7 @@ expect-tests: all-debug build/libwabt.js
 devices-test: all-debug
 	./tests/devices/virtio_9p.js
 
-rust-test:
+rust-test: $(RUST_FILES)
 	env RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
 	./tests/rust/verify-wasmgen-dummy-output.js
 
@@ -348,5 +338,4 @@ clang-tidy:
 	clang-tidy \
 	     src/native/*.c src/native/*.h \
 	     src/native/profiler/*.c src/native/profiler/*.h \
-	     src/native/codegen/*.c src/native/codegen/*.h \
 	     -- -I src/native/ -Wall -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal

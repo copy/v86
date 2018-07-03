@@ -208,7 +208,7 @@ function CPU(bus, wm, v86oxide, coverage_logger)
 
     this.update_operand_size();
 
-    wm.exports["_set_tsc"](0, 0);
+    this.set_tsc(0, 0);
 
     this.debug_init();
 
@@ -217,8 +217,8 @@ function CPU(bus, wm, v86oxide, coverage_logger)
 
 CPU.prototype.wasmgen_get_module_code = function()
 {
-    const ptr = this.v86oxide.exports["wg_get_op_ptr"]();
-    const len = this.v86oxide.exports["wg_get_op_len"]();
+    const ptr = this.jit_get_op_ptr();
+    const len = this.jit_get_op_len();
 
     const output_buffer_view = new Uint8Array(this.v86oxide.memory.buffer, ptr, len);
     return output_buffer_view;
@@ -300,7 +300,25 @@ CPU.prototype.wasm_patch = function(wm)
     this.clear_tlb = this.wm.exports["_clear_tlb"];
     this.full_clear_tlb = this.wm.exports["_full_clear_tlb"];
 
-    this.jit_force_generate_unsafe = this.wm.exports["_jit_force_generate_unsafe"];
+    this.set_tsc = this.wm.exports["_set_tsc"];
+    this.store_current_tsc = this.wm.exports["_store_current_tsc"];
+
+    this.pack_current_state_flags = this.wm.exports["_pack_current_state_flags"];
+
+    this.jit_force_generate_unsafe = this.v86oxide.exports["jit_force_generate_unsafe"];
+    this.jit_empty_cache = this.v86oxide.exports["jit_empty_cache"];
+    this.jit_dirty_cache = this.v86oxide.exports["jit_dirty_cache"];
+    this.codegen_finalize_finished = this.v86oxide.exports["codegen_finalize_finished"];
+
+    this.jit_get_op_ptr = this.v86oxide.exports["jit_get_op_ptr"];
+    this.jit_get_op_len = this.v86oxide.exports["jit_get_op_len"];
+};
+
+CPU.prototype.jit_force_generate = function(addr)
+{
+    const cs_offset = this.get_seg(reg_cs);
+    const state_flags = this.pack_current_state_flags();
+    this.jit_force_generate_unsafe(addr, cs_offset, state_flags);
 };
 
 CPU.prototype.jit_clear_func = function(index)
@@ -353,7 +371,7 @@ CPU.prototype.get_state = function()
     state[41] = this.dreg;
     state[42] = this.mem8;
 
-    this.wm.exports["_store_current_tsc"]();
+    this.store_current_tsc();
     state[43] = this.current_tsc;
 
     state[45] = this.devices.virtio_9p;
@@ -440,7 +458,7 @@ CPU.prototype.set_state = function(state)
     this.dreg.set(state[41]);
     this.mem8.set(state[42]);
 
-    this.wm.exports["_set_tsc"](state[43][0], state[43][1]);
+    this.set_tsc(state[43][0], state[43][1]);
 
     this.devices.virtio_9p = state[45];
     this.devices.apic = state[46];
@@ -616,7 +634,7 @@ CPU.prototype.reset = function()
     this.last_op2.fill(0);
     this.last_op_size.fill(0);
 
-    this.wm.exports["_set_tsc"](0, 0);
+    this.set_tsc(0, 0);
 
     this.instruction_pointer[0] = 0xFFFF0;
     this.switch_cs_real_mode(0xF000);
@@ -631,7 +649,7 @@ CPU.prototype.reset = function()
 
     this.fw_value[0] = 0;
 
-    this.jit_empty_cache();
+    this.jit_clear_cache();
 };
 
 CPU.prototype.reset_memory = function()
@@ -1261,7 +1279,7 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
     const result = WebAssembly.instantiate(code, { "e": jit_imports }).then(result => {
         const f = result.instance.exports["f"];
 
-        this.wm.exports["_codegen_finalize_finished"](
+        this.codegen_finalize_finished(
             wasm_table_index, start, end,
             first_opcode, state_flags);
 
@@ -1434,8 +1452,6 @@ CPU.prototype.set_cr0 = function(cr0)
     }
 
     this.protected_mode[0] = +((this.cr[0] & CR0_PE) === CR0_PE);
-
-    //this.jit_empty_cache();
 };
 
 CPU.prototype.set_cr4 = function(cr4)
@@ -1484,9 +1500,9 @@ CPU.prototype.cpl_changed = function()
     this.last_virt_esp[0] = -1;
 };
 
-CPU.prototype.jit_empty_cache = function()
+CPU.prototype.jit_clear_cache = function()
 {
-    this.wm.exports["_jit_empty_cache"]();
+    this.jit_empty_cache();
 
     const table = this.wm.imports["env"][WASM_EXPORT_TABLE_NAME];
 
@@ -3145,9 +3161,6 @@ CPU.prototype.update_cs_size = function(new_size)
 
     if(Boolean(this.is_32[0]) !== new_size)
     {
-        //dbg_log("clear instruction cache", LOG_CPU);
-        //this.jit_empty_cache();
-
         this.is_32[0] = +new_size;
         this.update_operand_size();
     }

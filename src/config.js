@@ -12,7 +12,7 @@ var DEBUG = true;
 /** @const
  * Also needs to be set in config.h
  */
-var ENABLE_PROFILER = true;
+var ENABLE_PROFILER = false;
 
 /** @const */
 var LOG_TO_FILE = false;

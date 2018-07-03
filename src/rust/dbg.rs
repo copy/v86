@@ -19,19 +19,23 @@ macro_rules! dbg_assert {
 #[allow(unused_macros)]
 macro_rules! dbg_log {
     ($fmt:expr) => {
-        use ::util::{ DEBUG, _log_to_js_console };
-        if DEBUG { _log_to_js_console($fmt); }
+        {
+            use ::util::{ DEBUG, _log_to_js_console };
+            if DEBUG { _log_to_js_console($fmt); }
+        }
     };
     ($fmt:expr, $($arg:tt)*) => {
-        use ::util::{ DEBUG, _log_to_js_console };
-        if DEBUG { _log_to_js_console(format!($fmt, $($arg)*)); }
+        {
+            use ::util::{ DEBUG, _log_to_js_console };
+            if DEBUG { _log_to_js_console(format!($fmt, $($arg)*)); }
+        }
     };
 }
 
 #[cfg(target_arch = "wasm32")]
 #[allow(unused_macros)]
 macro_rules! dbg_assert {
-    ($cond:expr) => {
+    ($cond:expr) => {{
         use util::{_log_to_js_console, abort, DEBUG};
         if DEBUG && !$cond {
             _log_to_js_console(format!(
@@ -45,8 +49,8 @@ macro_rules! dbg_assert {
                 abort();
             }
         }
-    };
-    ($cond:expr, $desc:expr) => {
+    }};
+    ($cond:expr, $desc:expr) => {{
         use util::{_log_to_js_console, abort, DEBUG};
         if DEBUG && !$cond {
             _log_to_js_console(format!(
@@ -61,5 +65,5 @@ macro_rules! dbg_assert {
                 abort();
             }
         }
-    };
+    }};
 }

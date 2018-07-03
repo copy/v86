@@ -8,8 +8,6 @@
 #include "config.h"
 #include "shared.h"
 
-#define CODE_CACHE_SEARCH_SIZE 8
-
 union reg128 {
     int8_t i8[16];
     int16_t i16[8];
@@ -37,85 +35,9 @@ _Static_assert(sizeof(union reg64) == 8, "reg64 is 8 bytes");
 
 typedef uint8_t cached_state_flags;
 
-struct code_cache {
-    // Address of the start of the basic block
-    uint32_t start_addr;
-#if DEBUG
-    // Address of the instruction immediately after the basic block ends
-    uint32_t end_addr;
-    int32_t opcode[1];
-    int32_t len;
-    int32_t virt_addr;
-#endif
-
-    // an index into jit_cache_arr for the next code_cache entry within the same physical page
-    int32_t next_index_same_page;
-
-    uint16_t wasm_table_index;
-    uint16_t initial_state;
-    cached_state_flags state_flags;
-    bool pending;
-};
-#if DEBUG
-#else
-_Static_assert(sizeof(struct code_cache) == 16, "code_cache uses 16 bytes");
-#endif
-struct code_cache jit_cache_arr[JIT_CACHE_ARRAY_SIZE];
-
-// XXX: Remove this limitation when page_entry_points is sparse
-#define MAX_PHYSICAL_PAGES (512 << 20 >> 12)
-
-#define MAX_ENTRIES_PER_PAGE 128
-#define ENTRY_POINT_END 0xFFFF
-
-uint16_t page_entry_points[MAX_PHYSICAL_PAGES][MAX_ENTRIES_PER_PAGE];
-
 // Flag indicating whether the instruction that just ran was at a block's boundary (jump,
 // state-altering, etc.)
 extern uint32_t jit_block_boundary;
-
-typedef uint32_t jit_instr_flags;
-
-#define JIT_INSTR_BLOCK_BOUNDARY_FLAG (1 << 0)
-#define JIT_INSTR_NO_NEXT_INSTRUCTION_FLAG (1 << 1)
-#define JIT_INSTR_NONFAULTING_FLAG (1 << 2)
-#define JIT_INSTR_IMM_JUMP16_FLAG (1 << 3)
-#define JIT_INSTR_IMM_JUMP32_FLAG (1 << 4)
-
-struct analysis {
-    jit_instr_flags flags;
-    int32_t jump_offset;
-    int32_t condition_index;
-};
-
-struct basic_block {
-    int32_t addr;
-    int32_t end_addr;
-    int32_t next_block_addr; // if 0 this is an exit block
-    int32_t next_block_branch_taken_addr;
-    int32_t condition_index; // if not -1 this block ends with a conditional jump
-    int32_t jump_offset;
-    bool jump_offset_is_32;
-    bool is_entry_block;
-};
-
-#define BASIC_BLOCK_LIST_MAX 1000
-
-struct basic_block_list {
-    int32_t length;
-    struct basic_block blocks[BASIC_BLOCK_LIST_MAX];
-};
-
-// Count of how many times prime_hash(address) has been called through a jump
-extern int32_t hot_code_addresses[HASH_PRIME];
-
-#define JIT_CACHE_ARRAY_NO_NEXT_ENTRY (-1)
-
-uint16_t wasm_table_index_free_list[WASM_TABLE_SIZE];
-int32_t wasm_table_index_free_list_count;
-
-uint16_t wasm_table_index_pending_free[WASM_TABLE_SIZE];
-int32_t wasm_table_index_pending_free_count;
 
 #define VALID_TLB_ENTRY_MAX 10000
 int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX];
@@ -128,29 +50,11 @@ int32_t valid_tlb_entries_count;
 #define TLB_GLOBAL (1 << 4)
 #define TLB_HAS_CODE (1 << 5)
 
-// Indices for local variables and function arguments (which are accessed as local variables) for
-// the generated WASM function
-#define GEN_LOCAL_ARG_INITIAL_STATE 0
-#define GEN_LOCAL_STATE 1
-#define GEN_LOCAL_ITERATION_COUNTER 2
-// local scratch variables for use wherever required
-#define GEN_LOCAL_SCRATCH0 3
-#define GEN_LOCAL_SCRATCH1 4
-#define GEN_LOCAL_SCRATCH2 5
-// Function arguments are not included in the local variable count
-#define GEN_NO_OF_LOCALS 5
-
 // defined in call-indirect.ll
 extern void call_indirect(int32_t index);
 extern void call_indirect1(int32_t index, int32_t arg);
 
 void after_block_boundary(void);
-struct analysis analyze_step(int32_t);
-
-void after_jump(void);
-void diverged(void);
-void branch_taken(void);
-void branch_not_taken(void);
 
 bool same_page(int32_t, int32_t);
 
@@ -158,6 +62,7 @@ int32_t get_eflags(void);
 uint32_t translate_address_read(int32_t address);
 uint32_t translate_address_write(int32_t address);
 void tlb_set_has_code(uint32_t physical_page, bool has_code);
+void check_tlb_invariants(void);
 
 void writable_or_pagefault(int32_t addr, int32_t size);
 int32_t read_imm8(void);
@@ -174,19 +79,12 @@ int32_t get_seg_prefix_ds(int32_t offset);
 int32_t get_seg_prefix_ss(int32_t offset);
 int32_t get_seg_prefix_cs(int32_t offset);
 int32_t modrm_resolve(int32_t modrm_byte);
-void modrm_skip(int32_t modrm_byte);
 
-void check_jit_cache_array_invariants(void);
-
-uint32_t jit_hot_hash_page(uint32_t page);
-void jit_link_block(int32_t target);
-void jit_link_block_conditional(int32_t offset, const char* condition);
 void cycle_internal(void);
 void run_prefix_instruction(void);
-jit_instr_flags jit_prefix_instruction(void);
 void clear_prefixes(void);
 void segment_prefix_op(int32_t seg);
-jit_instr_flags segment_prefix_op_jit(int32_t seg);
+
 bool has_flat_segmentation(void);
 void do_many_cycles_unsafe(void);
 void raise_exception(int32_t interrupt_nr);
@@ -243,3 +141,5 @@ void set_tsc(uint32_t, uint32_t);
 uint64_t read_tsc(void);
 bool vm86_mode(void);
 int32_t getiopl(void);
+
+int32_t get_opstats_buffer(int32_t index);

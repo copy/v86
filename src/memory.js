@@ -63,7 +63,7 @@ CPU.prototype.write_blob = function(blob, offset)
     dbg_assert(!this.in_mapped_range(offset));
     dbg_assert(!this.in_mapped_range(offset + blob.length));
 
-    this.wm.exports["_jit_dirty_cache"](offset, offset + blob.length);
+    this.jit_dirty_cache(offset, offset + blob.length);
     this.mem8.set(blob, offset);
 };
 

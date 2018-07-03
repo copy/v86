@@ -136,7 +136,6 @@ function V86Starter(options)
         "_cpu_exception_hook": (n) => {
             return this["cpu_exception_hook"] && this["cpu_exception_hook"](n);
         },
-        "_jit_clear_func": function(index) { return cpu.jit_clear_func(index); },
         "_hlt_op": function() { return cpu.hlt_op(); },
         "abort": function() { dbg_assert(false); },
         "__dbg_trace": function() { return dbg_trace(); },
@@ -224,15 +223,8 @@ function V86Starter(options)
         },
         "_get_time": Date.now,
 
-        "_codegen_finalize": (wasm_table_index, start, end, first_opcode, state_flags) => {
-            cpu.codegen_finalize(wasm_table_index, start, end, first_opcode, state_flags);
-        },
         "_coverage_log": (fn_name_offset, num_blocks, visited_block) => {
             coverage_logger.log(fn_name_offset, num_blocks, visited_block);
-        },
-        "_log_uncompiled_code": (start, end) => cpu.log_uncompiled_code(start, end),
-        "_dump_function_code": (blocks_ptr, count, end) => {
-            cpu.dump_function_code(blocks_ptr, count, end);
         },
 
         // see https://github.com/kripken/emscripten/blob/incoming/src/library.js
@@ -260,7 +252,7 @@ function V86Starter(options)
         "NaN": NaN,
     };
 
-    const v86oxide_mem = new WebAssembly.Memory({ "initial": 100 });
+    const v86oxide_mem = new WebAssembly.Memory({ "initial": 250 });
     const v86oxide_externs = {
         "memory": v86oxide_mem,
         "log_from_wasm": function(offset, len) {
@@ -270,6 +262,14 @@ function V86Starter(options)
         "abort": function() {
             dbg_assert(false);
         },
+
+        "read8": addr => cpu.read8(addr),
+        "read16": addr => cpu.read16(addr),
+        "read32": addr => cpu.read32s(addr),
+        "tlb_set_has_code": (page, has_code) => cpu.wm.exports["_tlb_set_has_code"](page, has_code),
+        "check_tlb_invariants": () => cpu.wm.exports["_check_tlb_invariants"](),
+        "codegen_finalize": (wasm_table_index, start, end, first_opcode, state_flags) => cpu.codegen_finalize(wasm_table_index, start, end, first_opcode, state_flags),
+        "profiler_stat_increment": (name) => cpu.wm.exports["_profiler_stat_increment"](name),
     };
 
     let wasm_file = DEBUG ? "v86-debug.wasm" : "v86.wasm";
@@ -287,56 +287,22 @@ function V86Starter(options)
     }
 
     const v86oxide_exports = [
-        "wg_get_code_section",
-        "wg_get_instruction_body",
-        "wg_commit_instruction_body_to_cs",
-        "wg_finish",
-        "wg_reset",
-        "wg_get_fn_idx",
+        // For C:
+        "jit_get_entry_pending",
+        "jit_get_entry_address",
+        "jit_get_entry_length",
+        "jit_unused_cache_stat",
+        "jit_dirty_cache_single",
+        "jit_dirty_cache_small",
+        "jit_page_has_code",
+        "jit_increase_hotness_and_maybe_compile",
+        "jit_find_cache_entry",
 
-        "wg_push_i32",
-        "wg_push_u32",
-        "wg_load_aligned_u16",
-        "wg_load_aligned_i32",
-        "wg_store_aligned_u16",
-        "wg_store_aligned_i32",
-        "wg_add_i32",
-        "wg_and_i32",
-        "wg_or_i32",
-        "wg_shl_i32",
-        "wg_call_fn",
-        "wg_call_fn_with_arg",
-        "wg_eq_i32",
-        "wg_ne_i32",
-        "wg_le_i32",
-        "wg_lt_i32",
-        "wg_ge_i32",
-        "wg_gt_i32",
-        "wg_if_i32",
-        "wg_block_i32",
-        "wg_tee_local",
-        "wg_xor_i32",
-        "wg_load_unaligned_i32_from_stack",
-        "wg_load_aligned_i32_from_stack",
-        "wg_store_unaligned_i32",
-        "wg_shr_u32",
-        "wg_shr_i32",
-        "wg_eqz_i32",
-        "wg_if_void",
-        "wg_else",
-        "wg_loop_void",
-        "wg_block_void",
-        "wg_block_end",
-        "wg_return",
-        "wg_drop",
-        "wg_brtable_and_cases",
-        "wg_br",
-        "wg_get_local",
-        "wg_set_local",
-        "wg_unreachable",
-        "wg_increment_mem32",
-        "wg_increment_variable",
-        "wg_load_aligned_u16_from_stack",
+        // For JS:
+        "jit_empty_cache",
+        "codegen_finalize_finished",
+        "rust_setup",
+        "jit_dirty_cache",
     ];
 
     v86util.minimal_load_wasm(v86oxide_bin, { "env": v86oxide_externs }, (v86oxide) => {
@@ -345,7 +311,7 @@ function V86Starter(options)
             dbg_assert(typeof v86oxide.exports[fn_name] === "function", `Function ${fn_name} not found in v86oxide exports`);
             wasm_shared_funcs[`_${fn_name}`] = v86oxide.exports[fn_name];
         }
-        v86oxide.exports["wg_setup"]();
+        v86oxide.exports["rust_setup"]();
 
     //XXX: fix indentation break
 

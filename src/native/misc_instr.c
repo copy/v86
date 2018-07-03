@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "codegen/codegen.h"
 #include "const.h"
 #include "cpu.h"
 #include "fpu.h"
@@ -209,44 +208,6 @@ void push16(int32_t imm16)
     }
 }
 
-void push16_reg_jit(int32_t reg)
-{
-    if(*stack_size_32)
-    {
-        gen_fn1_reg16("push16_ss32", 11, reg);
-    }
-    else
-    {
-        gen_fn1_reg16("push16_ss16", 11, reg);
-    }
-}
-
-void push16_imm_jit(int32_t imm)
-{
-    if(*stack_size_32)
-    {
-        gen_fn1_const("push16_ss32", 11, imm);
-    }
-    else
-    {
-        gen_fn1_const("push16_ss16", 11, imm);
-    }
-}
-
-void push16_mem_jit(int32_t modrm_byte)
-{
-    if(*stack_size_32)
-    {
-        gen_modrm_resolve(modrm_byte);
-        gen_modrm_fn0("push16_ss32_mem", 15);
-    }
-    else
-    {
-        gen_modrm_resolve(modrm_byte);
-        gen_modrm_fn0("push16_ss16_mem", 15);
-    }
-}
-
 __attribute__((always_inline))
 void push32_ss16(int32_t imm32)
 {
@@ -276,44 +237,6 @@ void push32(int32_t imm32)
     else
     {
         push32_ss16(imm32);
-    }
-}
-
-void push32_reg_jit(int32_t reg)
-{
-    if(*stack_size_32)
-    {
-        gen_fn1_reg32s("push32_ss32", 11, reg);
-    }
-    else
-    {
-        gen_fn1_reg32s("push32_ss16", 11, reg);
-    }
-}
-
-void push32_imm_jit(int32_t imm)
-{
-    if(*stack_size_32)
-    {
-        gen_fn1_const("push32_ss32", 11, imm);
-    }
-    else
-    {
-        gen_fn1_const("push32_ss16", 11, imm);
-    }
-}
-
-void push32_mem_jit(int32_t modrm_byte)
-{
-    if(*stack_size_32)
-    {
-        gen_modrm_resolve(modrm_byte);
-        gen_modrm_fn0("push32_ss32_mem", 15);
-    }
-    else
-    {
-        gen_modrm_resolve(modrm_byte);
-        gen_modrm_fn0("push32_ss16_mem", 15);
     }
 }
 
@@ -350,18 +273,6 @@ int32_t pop16()
     }
 }
 
-void pop16_reg_jit(int32_t reg)
-{
-    if(*stack_size_32)
-    {
-        gen_set_reg16_fn0("pop16_ss32", 10, reg);
-    }
-    else
-    {
-        gen_set_reg16_fn0("pop16_ss16", 10, reg);
-    }
-}
-
 __attribute__((always_inline))
 int32_t pop32s_ss16()
 {
@@ -390,18 +301,6 @@ int32_t pop32s()
     else
     {
         return pop32s_ss16();
-    }
-}
-
-void pop32s_reg_jit(int32_t reg)
-{
-    if(*stack_size_32)
-    {
-        gen_set_reg32s_fn0("pop32s_ss32", 11, reg);
-    }
-    else
-    {
-        gen_set_reg32s_fn0("pop32s_ss16", 11, reg);
     }
 }
 

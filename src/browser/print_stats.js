@@ -24,23 +24,23 @@ const print_stats = {
             "RUN_INTERPRETED",
             "RUN_INTERPRETED_PENDING",
             "RUN_INTERPRETED_NEAR_END_OF_PAGE",
-            "RUN_INTERPRETED_NOT_HOT",
+            "RUN_INTERPRETED_DIFFERENT_STATE",
             "RUN_INTERPRETED_STEPS",
             "RUN_FROM_CACHE",
             "RUN_FROM_CACHE_STEPS",
             "TRIGGER_CPU_EXCEPTION",
-            "S_SAFE_READ32_FAST",
-            "S_SAFE_READ32_SLOW_PAGE_CROSSED",
-            "S_SAFE_READ32_SLOW_NOT_VALID",
-            "S_SAFE_READ32_SLOW_NOT_USER",
-            "S_SAFE_READ32_SLOW_IN_MAPPED_RANGE",
-            "S_SAFE_WRITE32_FAST",
-            "S_SAFE_WRITE32_SLOW_PAGE_CROSSED",
-            "S_SAFE_WRITE32_SLOW_NOT_VALID",
-            "S_SAFE_WRITE32_SLOW_NOT_USER",
-            "S_SAFE_WRITE32_SLOW_IN_MAPPED_RANGE",
-            "S_SAFE_WRITE32_SLOW_READ_ONLY",
-            "S_SAFE_WRITE32_SLOW_HAS_CODE",
+            "SAFE_READ32_FAST",
+            "SAFE_READ32_SLOW_PAGE_CROSSED",
+            "SAFE_READ32_SLOW_NOT_VALID",
+            "SAFE_READ32_SLOW_NOT_USER",
+            "SAFE_READ32_SLOW_IN_MAPPED_RANGE",
+            "SAFE_WRITE32_FAST",
+            "SAFE_WRITE32_SLOW_PAGE_CROSSED",
+            "SAFE_WRITE32_SLOW_NOT_VALID",
+            "SAFE_WRITE32_SLOW_NOT_USER",
+            "SAFE_WRITE32_SLOW_IN_MAPPED_RANGE",
+            "SAFE_WRITE32_SLOW_READ_ONLY",
+            "SAFE_WRITE32_SLOW_HAS_CODE",
             "DO_RUN",
             "DO_MANY_CYCLES",
             "CYCLE_INTERNAL",
@@ -68,8 +68,8 @@ const print_stats = {
         text += "\n";
 
         text += "TLB_ENTRIES=" + cpu.wm.exports["_get_valid_tlb_entries_count"]() + "\n";
-        text += "CACHE_UNUSED=" + cpu.wm.exports["_jit_unused_cache_stat"]() + "\n";
-        text += "WASM_TABLE_FREE=" + cpu.wm.exports["_get_wasm_table_index_free_list_count"]() + "\n";
+        text += "CACHE_UNUSED=" + cpu.v86oxide.exports["jit_unused_cache_stat"]() + "\n";
+        text += "WASM_TABLE_FREE=" + cpu.v86oxide.exports["jit_get_wasm_table_index_free_list_count"]() + "\n";
 
         text += "do_many_cycles avg: " + do_many_cycles_total / do_many_cycles_count + "\n";
 
@@ -86,7 +86,7 @@ const print_stats = {
 
         for(let i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
         {
-            const address = cpu.wm.exports["_jit_get_entry_address"](i);
+            const address = cpu.v86oxide.exports["jit_get_entry_address"](i);
 
             if(address !== 0)
             {
@@ -117,10 +117,10 @@ const print_stats = {
         let pending_count = 0;
         const histogram = Object.create(null);
 
-        for(let i = 0; i < 0x10000; i++)
+        for(let i = 0; i < JIT_CACHE_ARRAY_SIZE; i++)
         {
-            const length = cpu.wm.exports["_jit_get_entry_length"](i);
-            pending_count += cpu.wm.exports["_jit_get_entry_pending"](i);
+            const length = cpu.v86oxide.exports["jit_get_entry_length"](i);
+            pending_count += cpu.v86oxide.exports["jit_get_entry_pending"](i);
             histogram[length] = (histogram[length] || 0) + 1;
         }
 

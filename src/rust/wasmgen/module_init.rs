@@ -1,10 +1,5 @@
-use std::mem;
-use std::ptr::NonNull;
-
-use util::{
-    unpack_str, write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_u32, PackedStr,
-    SafeToU16, SafeToU8,
-};
+use leb::{write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_u32};
+use util::{SafeToU16, SafeToU8};
 use wasmgen::wasm_opcodes as op;
 
 #[allow(dead_code)]
@@ -24,20 +19,6 @@ pub const FN1_RET_TYPE_INDEX: u8 = 5;
 pub const FN2_RET_TYPE_INDEX: u8 = 6;
 
 pub const NR_FN_TYPE_INDEXES: u8 = 7;
-
-static mut MODULE_PTR: NonNull<WasmBuilder> =
-    unsafe { NonNull::new_unchecked(mem::align_of::<WasmBuilder>() as *mut _) };
-
-#[no_mangle]
-pub fn wg_setup() {
-    let wm = Box::new(WasmBuilder::new());
-    unsafe {
-        MODULE_PTR = NonNull::new(Box::into_raw(wm)).expect("assigning module ptr");
-    }
-    get_module().init();
-}
-
-pub fn get_module<'a>() -> &'a mut WasmBuilder { unsafe { MODULE_PTR.as_mut() } }
 
 pub struct WasmBuilder {
     pub output: Vec<u8>,
@@ -200,8 +181,7 @@ impl WasmBuilder {
     }
 
     /// Goes over the import block to find index of an import entry by function name
-    pub fn get_import_index(&self, fn_name: PackedStr) -> Option<u16> {
-        let fn_name = unpack_str(fn_name);
+    pub fn get_import_index(&self, fn_name: &str) -> Option<u16> {
         let mut offset = self.idx_import_entries;
         for i in 0..self.import_count {
             offset += 1; // skip length of module name
@@ -269,10 +249,9 @@ impl WasmBuilder {
         self.set_import_table_size(new_table_size);
     }
 
-    pub fn write_import_entry(&mut self, fn_name: PackedStr, type_index: u8) -> u16 {
+    pub fn write_import_entry(&mut self, fn_name: &str, type_index: u8) -> u16 {
         self.output.push(1); // length of module name
         self.output.push('e' as u8); // module name
-        let fn_name = unpack_str(fn_name);
         self.output.push(fn_name.len().safe_to_u8());
         self.output.extend(fn_name.as_bytes());
         self.output.push(op::EXT_FUNCTION);
@@ -314,7 +293,7 @@ impl WasmBuilder {
         write_fixed_leb16_at_idx(&mut self.output, next_op_idx, self.import_count - 1);
     }
 
-    pub fn get_fn_idx(&mut self, fn_name: PackedStr, type_index: u8) -> u16 {
+    pub fn get_fn_idx(&mut self, fn_name: &str, type_index: u8) -> u16 {
         match self.get_import_index(fn_name) {
             Some(idx) => idx,
             None => {
@@ -326,26 +305,60 @@ impl WasmBuilder {
 
     pub fn get_op_ptr(&self) -> *const u8 { self.output.as_ptr() }
 
-    pub fn get_op_len(&self) -> usize { self.output.len() }
+    pub fn get_op_len(&self) -> u32 { self.output.len() as u32 }
 
-    pub fn commit_instruction_body_cs(&mut self) {
+    pub fn commit_instruction_body_to_cs(&mut self) {
         self.code_section.append(&mut self.instruction_body);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use util::pack_str;
+    use std::fs::File;
+    use std::io::prelude::*;
     use wasmgen::module_init::*;
+    use wasmgen::wasm_util::*;
 
     #[test]
     fn import_table_management() {
         let mut w = WasmBuilder::new();
         w.init();
-        assert_eq!(0, w.get_fn_idx(pack_str("foo"), FN0_TYPE_INDEX));
-        assert_eq!(1, w.get_fn_idx(pack_str("bar"), FN1_TYPE_INDEX));
-        assert_eq!(0, w.get_fn_idx(pack_str("foo"), FN0_TYPE_INDEX));
-        assert_eq!(2, w.get_fn_idx(pack_str("baz"), FN2_TYPE_INDEX));
+        assert_eq!(0, w.get_fn_idx("foo", FN0_TYPE_INDEX));
+        assert_eq!(1, w.get_fn_idx("bar", FN1_TYPE_INDEX));
+        assert_eq!(0, w.get_fn_idx("foo", FN0_TYPE_INDEX));
+        assert_eq!(2, w.get_fn_idx("baz", FN2_TYPE_INDEX));
     }
 
+    #[test]
+    fn builder_test() {
+        let mut m = WasmBuilder::new();
+        m.init();
+
+        let mut foo_index = m.get_fn_idx("foo", FN0_TYPE_INDEX);
+        call_fn(&mut m.code_section, foo_index);
+
+        let bar_index = m.get_fn_idx("bar", FN0_TYPE_INDEX);
+        call_fn(&mut m.code_section, bar_index);
+
+        m.finish(2);
+        m.reset();
+
+        push_i32(&mut m.code_section, 2);
+
+        let baz_index = m.get_fn_idx("baz", FN1_RET_TYPE_INDEX);
+        call_fn(&mut m.instruction_body, baz_index);
+        foo_index = m.get_fn_idx("foo", FN1_TYPE_INDEX);
+        call_fn(&mut m.instruction_body, foo_index);
+
+        m.commit_instruction_body_to_cs();
+
+        m.finish(0);
+
+        let op_ptr = m.get_op_ptr();
+        let op_len = m.get_op_len();
+        dbg_log!("op_ptr: {:?}, op_len: {:?}", op_ptr, op_len);
+
+        let mut f = File::create("build/dummy_output.wasm").expect("creating dummy_output.wasm");
+        f.write_all(&m.output).expect("write dummy_output.wasm");
+    }
 }

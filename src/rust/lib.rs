@@ -5,7 +5,24 @@ extern crate quickcheck;
 #[macro_use]
 mod dbg;
 
-#[macro_use]
-mod util;
+pub mod c_api;
 
-pub mod wasmgen;
+mod analysis;
+mod codegen;
+mod cpu;
+mod cpu_context;
+mod gen;
+mod global_pointers;
+mod jit;
+mod jit_instructions;
+mod leb;
+mod modrm;
+mod opstats;
+mod page;
+mod prefix;
+mod profiler;
+mod regs;
+mod state_flags;
+mod tlb;
+mod util;
+mod wasmgen;

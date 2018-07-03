@@ -45,28 +45,24 @@ void cmovcc16(bool condition, int32_t value, int32_t r);
 void cmovcc32(bool condition, int32_t value, int32_t r);
 int32_t get_stack_pointer(int32_t offset);
 void adjust_stack_reg(int32_t adjustment);
+
 void push16_ss16(int32_t imm16);
 void push16_ss32(int32_t imm16);
 void push16_ss16_mem(int32_t addr);
 void push16_ss32_mem(int32_t addr);
 void push16(int32_t imm16);
-void push16_reg_jit(int32_t reg);
-void push16_imm_jit(int32_t imm);
-void push16_mem_jit(int32_t modrm_byte);
+
 void push32_ss16(int32_t imm32);
 void push32_ss32(int32_t imm32);
 void push32_ss16_mem(int32_t addr);
 void push32_ss32_mem(int32_t addr);
 void push32(int32_t imm32);
-void push32_reg_jit(int32_t reg);
-void push32_imm_jit(int32_t imm);
-void push32_mem_jit(int32_t modrm_byte);
+
 int32_t pop16(void);
-void pop16_reg_jit(int32_t reg);
 int32_t pop32_ss16(void);
 int32_t pop32_ss32(void);
 int32_t pop32s(void);
-void pop32s_reg_jit(int32_t reg);
+
 void pusha16(void);
 void pusha32(void);
 void setcc_reg(bool condition, int32_t r);

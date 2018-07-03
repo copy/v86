@@ -5,11 +5,11 @@
 
 #include "const.h"
 #include "global_pointers.h"
-#include "jit.h"
 #include "js_imports.h"
 #include "log.h"
 #include "memory.h"
 #include "profiler/profiler.h"
+#include "rust_imports.h"
 
 bool in_mapped_range(uint32_t addr)
 {

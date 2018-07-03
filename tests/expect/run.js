@@ -192,7 +192,7 @@ Hint: Use tests/expect/run.js --interactive to interactively accept changes.
             const START_ADDRESS = 0x1000;
 
             cpu.mem8.set(executable, START_ADDRESS);
-            cpu.jit_force_generate_unsafe(START_ADDRESS);
+            cpu.jit_force_generate(START_ADDRESS);
         });
 }
 

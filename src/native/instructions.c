@@ -4,8 +4,6 @@
 #include <stdint.h>
 
 #include "arith.h"
-#include "codegen/codegen.h"
-#include "codegen/wasmgen.h"
 #include "const.h"
 #include "cpu.h"
 #include "fpu.h"
@@ -62,13 +60,6 @@ void instr16_0F() {
 }
 void instr32_0F() {
     run_instruction0f_32(read_imm8());
-}
-
-jit_instr_flags instr16_0F_jit() {
-    return jit_instruction0f_16(read_imm8());
-}
-jit_instr_flags instr32_0F_jit() {
-    return jit_instruction0f_32(read_imm8());
 }
 
 
@@ -131,7 +122,6 @@ void instr32_25(int32_t imm32) { reg32s[EAX] = and32(reg32s[EAX], imm32); }
 
 
 void instr_26() { segment_prefix_op(ES); }
-jit_instr_flags instr_26_jit() { return segment_prefix_op_jit(ES); }
 void instr_27() { bcd_daa(); }
 
 DEFINE_MODRM_INSTR_READ_WRITE_8(instr_28, sub8(___, read_reg8(r)))
@@ -145,7 +135,6 @@ void instr16_2D(int32_t imm16) { reg16[AX] = sub16(reg16[AX], imm16); }
 void instr32_2D(int32_t imm32) { reg32s[EAX] = sub32(reg32s[EAX], imm32); }
 
 void instr_2E() { segment_prefix_op(CS); }
-jit_instr_flags instr_2E_jit() { return segment_prefix_op_jit(CS); }
 void instr_2F() { bcd_das(); }
 
 DEFINE_MODRM_INSTR_READ_WRITE_8(instr_30, xor8(___, read_reg8(r)))
@@ -159,7 +148,6 @@ void instr16_35(int32_t imm16) { reg16[AX] = xor16(reg16[AX], imm16); }
 void instr32_35(int32_t imm32) { reg32s[EAX] = xor32(reg32s[EAX], imm32); }
 
 void instr_36() { segment_prefix_op(SS); }
-jit_instr_flags instr_36_jit() { return segment_prefix_op_jit(SS); }
 void instr_37() { bcd_aaa(); }
 
 DEFINE_MODRM_INSTR_READ8(instr_38, cmp8(___, read_reg8(r)))
@@ -173,7 +161,6 @@ void instr16_3D(int32_t imm16) { cmp16(reg16[AX], imm16); }
 void instr32_3D(int32_t imm32) { cmp32(reg32s[EAX], imm32); }
 
 void instr_3E() { segment_prefix_op(DS); }
-jit_instr_flags instr_3E_jit() { return segment_prefix_op_jit(DS); }
 void instr_3F() { bcd_aas(); }
 
 
@@ -247,39 +234,6 @@ void instr32_5E() { reg32s[ESI] = pop32s(); }
 void instr16_5F() { reg16[DI] = pop16(); }
 void instr32_5F() { reg32s[EDI] = pop32s(); }
 
-void instr16_50_jit() { push16_reg_jit(AX); }
-void instr32_50_jit() { push32_reg_jit(EAX); }
-void instr16_51_jit() { push16_reg_jit(CX); }
-void instr32_51_jit() { push32_reg_jit(ECX); }
-void instr16_52_jit() { push16_reg_jit(DX); }
-void instr32_52_jit() { push32_reg_jit(EDX); }
-void instr16_53_jit() { push16_reg_jit(BX); }
-void instr32_53_jit() { push32_reg_jit(EBX); }
-void instr16_54_jit() { push16_reg_jit(SP); }
-void instr32_54_jit() { push32_reg_jit(ESP); }
-void instr16_55_jit() { push16_reg_jit(BP); }
-void instr32_55_jit() { push32_reg_jit(EBP); }
-void instr16_56_jit() { push16_reg_jit(SI); }
-void instr32_56_jit() { push32_reg_jit(ESI); }
-void instr16_57_jit() { push16_reg_jit(DI); }
-void instr32_57_jit() { push32_reg_jit(EDI); }
-
-void instr16_58_jit() { pop16_reg_jit(AX); }
-void instr32_58_jit() { pop32s_reg_jit(EAX); }
-void instr16_59_jit() { pop16_reg_jit(CX); }
-void instr32_59_jit() { pop32s_reg_jit(ECX); }
-void instr16_5A_jit() { pop16_reg_jit(DX); }
-void instr32_5A_jit() { pop32s_reg_jit(EDX); }
-void instr16_5B_jit() { pop16_reg_jit(BX); }
-void instr32_5B_jit() { pop32s_reg_jit(EBX); }
-void instr16_5D_jit() { pop16_reg_jit(BP); }
-void instr32_5D_jit() { pop32s_reg_jit(EBP); }
-void instr16_5E_jit() { pop16_reg_jit(SI); }
-void instr32_5E_jit() { pop32s_reg_jit(ESI); }
-void instr16_5F_jit() { pop16_reg_jit(DI); }
-void instr32_5F_jit() { pop32s_reg_jit(EDI); }
-
-
 void instr16_60() { pusha16(); }
 void instr32_60() { pusha32(); }
 void instr16_61() { popa16(); }
@@ -298,27 +252,13 @@ void instr_62_mem(int32_t addr, int32_t r) {
 DEFINE_MODRM_INSTR_READ_WRITE_16(instr_63, arpl(___, read_reg16(r)))
 
 void instr_64() { segment_prefix_op(FS); }
-jit_instr_flags instr_64_jit() { return segment_prefix_op_jit(FS); }
 void instr_65() { segment_prefix_op(GS); }
-jit_instr_flags instr_65_jit() { return segment_prefix_op_jit(GS); }
 
 void instr_66() {
     // Operand-size override prefix
     *prefixes |= PREFIX_MASK_OPSIZE;
     run_prefix_instruction();
     *prefixes = 0;
-}
-jit_instr_flags instr_66_jit() {
-    // Operand-size override prefix
-
-    // This affects both decoding and instructions at runtime, so we set
-    // prefixes directly *and* in the generated code
-    *prefixes |= PREFIX_MASK_OPSIZE;
-    gen_add_prefix_bits(PREFIX_MASK_OPSIZE);
-    jit_instr_flags instr_flags = jit_prefix_instruction();
-    *prefixes = 0;
-    gen_clear_prefixes();
-    return instr_flags;
 }
 
 void instr_67() {
@@ -328,25 +268,9 @@ void instr_67() {
     run_prefix_instruction();
     *prefixes = 0;
 }
-jit_instr_flags instr_67_jit() {
-    // Address-size override prefix
-
-    // This affects both decoding and instructions at runtime, so we set
-    // prefixes directly *and* in the generated code
-    dbg_assert(is_asize_32() == *is_32);
-    *prefixes |= PREFIX_MASK_ADDRSIZE;
-    gen_add_prefix_bits(PREFIX_MASK_ADDRSIZE);
-    jit_instr_flags instr_flags = jit_prefix_instruction();
-    *prefixes = 0;
-    gen_clear_prefixes();
-    return instr_flags;
-}
 
 void instr16_68(int32_t imm16) { push16(imm16); }
 void instr32_68(int32_t imm32) { push32(imm32); }
-
-void instr16_68_jit(int32_t imm16) { push16_imm_jit(imm16); }
-void instr32_68_jit(int32_t imm32) { push32_imm_jit(imm32); }
 
 void instr16_69_mem(int32_t addr, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(safe_read16(addr) << 16 >> 16, imm << 16 >> 16)); }
 void instr16_69_reg(int32_t r1, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(read_reg16(r1) << 16 >> 16, imm << 16 >> 16)); }
@@ -355,9 +279,6 @@ void instr32_69_reg(int32_t r1, int32_t r, int32_t imm) { write_reg32(r, imul_re
 
 void instr16_6A(int32_t imm8) { push16(imm8); }
 void instr32_6A(int32_t imm8) { push32(imm8); }
-
-void instr16_6A_jit(int32_t imm8) { push16_imm_jit(imm8); }
-void instr32_6A_jit(int32_t imm8) { push32_imm_jit(imm8); }
 
 void instr16_6B_mem(int32_t addr, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(safe_read16(addr) << 16 >> 16, imm)); }
 void instr16_6B_reg(int32_t r1, int32_t r, int32_t imm) { write_reg16(r, imul_reg16(read_reg16(r1) << 16 >> 16, imm)); }
@@ -404,40 +325,6 @@ void instr32_7C(int32_t imm8) { jmpcc32( test_l(), imm8); }
 void instr32_7D(int32_t imm8) { jmpcc32(!test_l(), imm8); }
 void instr32_7E(int32_t imm8) { jmpcc32( test_le(), imm8); }
 void instr32_7F(int32_t imm8) { jmpcc32(!test_le(), imm8); }
-
-void instr16_70_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_o"); }
-void instr16_71_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_no"); }
-void instr16_72_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_b"); }
-void instr16_73_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nb"); }
-void instr16_74_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_z"); }
-void instr16_75_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nz"); }
-void instr16_76_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_be"); }
-void instr16_77_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nbe"); }
-void instr16_78_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_s"); }
-void instr16_79_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_ns"); }
-void instr16_7A_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_p"); }
-void instr16_7B_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_np"); }
-void instr16_7C_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_l"); }
-void instr16_7D_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nl"); }
-void instr16_7E_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_le"); }
-void instr16_7F_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nle"); }
-
-void instr32_70_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_o"); }
-void instr32_71_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_no"); }
-void instr32_72_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_b"); }
-void instr32_73_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nb"); }
-void instr32_74_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_z"); }
-void instr32_75_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nz"); }
-void instr32_76_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_be"); }
-void instr32_77_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nbe"); }
-void instr32_78_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_s"); }
-void instr32_79_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_ns"); }
-void instr32_7A_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_p"); }
-void instr32_7B_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_np"); }
-void instr32_7C_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_l"); }
-void instr32_7D_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nl"); }
-void instr32_7E_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_le"); }
-void instr32_7F_jit(int32_t imm8) { jit_link_block_conditional(imm8, "test_nle"); }
 
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_80_0, add8(___, imm))
 DEFINE_MODRM_INSTR2_READ_WRITE_8(instr_80_1,  or8(___, imm))
@@ -514,64 +401,9 @@ void instr16_89_mem(int32_t addr, int32_t r) { safe_write16(addr, read_reg16(r))
 void instr32_89_reg(int32_t r2, int32_t r) { write_reg32(r2, read_reg32(r)); }
 void instr32_89_mem(int32_t addr, int32_t r) { safe_write32(addr, read_reg32(r)); }
 
-void instr16_89_reg_jit(int32_t r_dest, int32_t r_src)
-{
-    gen_set_reg16_r(get_reg16_index(r_dest), get_reg16_index(r_src));
-}
-void instr32_89_reg_jit(int32_t r_dest, int32_t r_src)
-{
-    gen_set_reg32_r(r_dest, r_src);
-}
-
-void instr16_89_mem_jit(int32_t modrm_byte, int32_t r)
-{
-    // XXX
-    gen_modrm_resolve(modrm_byte); gen_modrm_fn1("instr16_89_mem", 14, modrm_byte >> 3 & 7);
-}
-void instr32_89_mem_jit(int32_t modrm_byte, int32_t r)
-{
-    // Pseudo: safe_write32(modrm_resolve(modrm_byte), reg32s[r]);
-    const int32_t address_local = GEN_LOCAL_SCRATCH0;
-    const int32_t value_local = GEN_LOCAL_SCRATCH1;
-
-    gen_modrm_resolve(modrm_byte);
-    wg_set_local(instruction_body, address_local);
-
-    wg_push_i32(instruction_body, (uint32_t) &reg32s[r]);
-    wg_load_aligned_i32_from_stack(instruction_body, 0);
-    wg_set_local(instruction_body, value_local);
-
-    gen_safe_write32(address_local, value_local);
-}
-
 DEFINE_MODRM_INSTR_READ8(instr_8A, write_reg8(r, ___))
 DEFINE_MODRM_INSTR_READ16(instr16_8B, write_reg16(r, ___))
 DEFINE_MODRM_INSTR_READ32(instr32_8B, write_reg32(r, ___))
-
-void instr16_8B_reg_jit(int32_t r_src, int32_t r_dest)
-{
-    gen_set_reg16_r(get_reg16_index(r_dest), get_reg16_index(r_src));
-}
-void instr32_8B_reg_jit(int32_t r_src, int32_t r_dest)
-{
-    gen_set_reg32_r(r_dest, r_src);
-}
-
-void instr16_8B_mem_jit(int32_t modrm_byte, int32_t r)
-{
-    // XXX
-    gen_modrm_resolve(modrm_byte); gen_modrm_fn1("instr16_8B_mem", 14, modrm_byte >> 3 & 7);
-}
-void instr32_8B_mem_jit(int32_t modrm_byte, int32_t r)
-{
-    // Pseudo: reg32s[r] = safe_read32s(modrm_resolve(modrm_byte));
-    wg_push_i32(instruction_body, (int32_t) &reg32s[r]);
-
-    gen_modrm_resolve(modrm_byte);
-    gen_safe_read32();
-
-    wg_store_aligned_i32(instruction_body);
-}
 
 void instr_8C_check_sreg(int32_t sreg) {
     if(sreg >= 6)
@@ -614,28 +446,6 @@ void instr32_8D_mem_pre()
 void instr32_8D_mem(int32_t addr, int32_t r) {
     // lea
     write_reg32(r, addr);
-    *prefixes = 0;
-}
-
-void instr16_8D_mem_jit(int32_t modrm_byte)
-{
-    int32_t loc = (int32_t) &reg16[get_reg16_index(modrm_byte >> 3 & 7)];
-    wg_push_u32(instruction_body, loc);
-    // override prefix, so modrm_resolve does not return the segment part
-    *prefixes |= SEG_PREFIX_ZERO;
-    gen_modrm_resolve(modrm_byte);
-    wg_store_aligned_u16(instruction_body);
-    *prefixes = 0;
-}
-
-void instr32_8D_mem_jit(int32_t modrm_byte)
-{
-    int32_t loc = (int32_t) &reg32s[modrm_byte >> 3 & 7];
-    wg_push_u32(instruction_body, loc);
-    // override prefix, so modrm_resolve does not return the segment part
-    *prefixes |= SEG_PREFIX_ZERO;
-    gen_modrm_resolve(modrm_byte);
-    wg_store_aligned_i32(instruction_body);
     *prefixes = 0;
 }
 
@@ -698,30 +508,6 @@ void instr32_8F_0_mem(int32_t addr)
 void instr32_8F_0_reg(int32_t r)
 {
     write_reg32(r, pop32s());
-}
-
-void instr16_8F_0_jit_mem(int32_t modrm_byte)
-{
-    gen_fn0_const("instr16_8F_0_mem_pre", 20);
-    gen_modrm_resolve(modrm_byte);
-    gen_modrm_fn0("instr16_8F_0_mem", 16);
-}
-
-void instr16_8F_0_jit_reg(int32_t r)
-{
-    gen_fn1_const("instr16_8F_0_reg", 16, r);
-}
-
-void instr32_8F_0_jit_mem(int32_t modrm_byte)
-{
-    gen_fn0_const("instr32_8F_0_mem_pre", 20);
-    gen_modrm_resolve(modrm_byte);
-    gen_modrm_fn0("instr32_8F_0_mem", 16);
-}
-
-void instr32_8F_0_jit_reg(int32_t r)
-{
-    gen_fn1_const("instr32_8F_0_reg", 16, r);
 }
 
 void instr_90() { }
@@ -1495,13 +1281,6 @@ void instr32_E8(int32_t imm32s) {
     instruction_pointer[0] = instruction_pointer[0] + imm32s;
     //dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
-void instr16_E8_jit(int32_t imm16) {
-    gen_fn1_const("instr16_E8", 10, imm16);
-}
-
-void instr32_E8_jit(int32_t imm32s) {
-    gen_fn1_const("instr32_E8", 10, imm32s);
-}
 
 void instr16_E9(int32_t imm16) {
     // jmp
@@ -1511,12 +1290,6 @@ void instr32_E9(int32_t imm32s) {
     // jmp
     instruction_pointer[0] = instruction_pointer[0] + imm32s;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
-}
-void instr16_E9_jit(int32_t imm16) {
-    gen_fn1_const("instr16_E9", 10, imm16);
-}
-void instr32_E9_jit(int32_t imm32s) {
-    gen_fn1_const("instr32_E9", 10, imm32s);
 }
 
 void instr16_EA(int32_t new_ip, int32_t cs) {
@@ -1541,12 +1314,6 @@ void instr32_EB(int32_t imm8) {
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 
-void instr16_EB_jit(int32_t imm8s) {
-    gen_fn1_const("instr16_EB", 10, imm8s);
-}
-void instr32_EB_jit(int32_t imm8s) {
-    gen_fn1_const("instr32_EB", 10, imm8s);
-}
 
 void instr_EC() {
     int32_t port = reg16[DX];
@@ -1588,15 +1355,6 @@ void instr_F0() {
     // some instructions that don't write to memory
     run_prefix_instruction();
 }
-jit_instr_flags instr_F0_jit() {
-    // lock
-    //dbg_log("lock");
-
-    // TODO
-    // This triggers UD when used with
-    // some instructions that don't write to memory
-    return jit_prefix_instruction();
-}
 void instr_F1() {
     // INT1
     // https://code.google.com/p/corkami/wiki/x86oddities#IceBP
@@ -1611,16 +1369,6 @@ void instr_F2() {
     run_prefix_instruction();
     *prefixes = 0;
 }
-jit_instr_flags instr_F2_jit() {
-    // repnz
-    dbg_assert((*prefixes & PREFIX_MASK_REP) == 0);
-    gen_add_prefix_bits(PREFIX_REPNZ);
-    *prefixes |= PREFIX_REPNZ;
-    jit_instr_flags instr_flags = jit_prefix_instruction();
-    gen_clear_prefixes();
-    *prefixes = 0;
-    return instr_flags;
-}
 
 void instr_F3() {
     // repz
@@ -1628,17 +1376,6 @@ void instr_F3() {
     *prefixes |= PREFIX_REPZ;
     run_prefix_instruction();
     *prefixes = 0;
-}
-
-jit_instr_flags instr_F3_jit() {
-    // repz
-    dbg_assert((*prefixes & PREFIX_MASK_REP) == 0);
-    gen_add_prefix_bits(PREFIX_REPZ);
-    *prefixes |= PREFIX_REPZ;
-    jit_instr_flags instr_flags = jit_prefix_instruction();
-    gen_clear_prefixes();
-    *prefixes = 0;
-    return instr_flags;
 }
 
 void instr_F4() {
@@ -1809,8 +1546,6 @@ void instr16_FF_5_mem(int32_t addr)
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 DEFINE_MODRM_INSTR1_READ16(instr16_FF_6, push16(___))
-void instr16_FF_6_jit_reg(int32_t reg) { push16_reg_jit(reg); }
-void instr16_FF_6_jit_mem(int32_t modrm_byte) { push16_mem_jit(modrm_byte); }
 
 DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_FF_0, inc32(___))
 DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_FF_1, dec32(___))
@@ -1877,19 +1612,10 @@ void instr32_FF_5_mem(int32_t addr)
     dbg_assert(is_asize_32() || new_ip < 0x10000);
 }
 DEFINE_MODRM_INSTR1_READ32(instr32_FF_6, push32(___))
-void instr32_FF_6_jit_reg(int32_t reg) { push32_reg_jit(reg); }
-void instr32_FF_6_jit_mem(int32_t modrm_byte) { push32_mem_jit(modrm_byte); }
 
 void run_instruction(int32_t opcode)
 {
 #include "../../build/interpreter.c"
-}
-
-jit_instr_flags jit_instruction(int32_t opcode)
-{
-    jit_instr_flags instr_flags = 0;
-#include "../../build/jit.c"
-    return instr_flags;
 }
 
 #pragma clang diagnostic pop

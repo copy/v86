@@ -151,7 +151,3 @@
 #define A20_MASK32 (~(1 << (20 - 2)))
 
 #define MXCSR_MASK (0xFFFF & ~(1 << 6))
-
-#define WASM_TABLE_SIZE 0x10000
-#define DIRTY_ARR_SHIFT 12
-#define GROUP_DIRTINESS_LENGTH (1 << (32 - DIRTY_ARR_SHIFT))
