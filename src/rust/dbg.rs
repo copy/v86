@@ -32,26 +32,34 @@ macro_rules! dbg_log {
 #[allow(unused_macros)]
 macro_rules! dbg_assert {
     ($cond:expr) => {
-        use ::util::{ DEBUG, _log_to_js_console, abort };
+        use util::{_log_to_js_console, abort, DEBUG};
         if DEBUG && !$cond {
             _log_to_js_console(format!(
                 "Assertion failed at {}:{}:{}: '{}'",
-                file!(), line!(), column!(),
+                file!(),
+                line!(),
+                column!(),
                 stringify!($cond),
             ));
-            unsafe { abort(); }
+            unsafe {
+                abort();
+            }
         }
     };
     ($cond:expr, $desc:expr) => {
-        use ::util::{ DEBUG, _log_to_js_console, abort };
+        use util::{_log_to_js_console, abort, DEBUG};
         if DEBUG && !$cond {
             _log_to_js_console(format!(
                 "Assertion failed at {}:{}:{}: '{}' - '{}'",
-                file!(), line!(), column!(),
+                file!(),
+                line!(),
+                column!(),
                 stringify!($cond),
                 $desc,
             ));
-            unsafe { abort(); }
+            unsafe {
+                abort();
+            }
         }
     };
 }

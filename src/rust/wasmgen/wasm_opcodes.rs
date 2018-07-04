@@ -1,8 +1,8 @@
 macro_rules! c {
-    ($x:ident, $y: expr) => {
+    ($x:ident, $y:expr) => {
         #[allow(dead_code)]
         pub const $x: u8 = $y;
-    }
+    };
 }
 
 // https://github.com/WebAssembly/design/blob/master/BinaryEncoding.md#high-level-structure

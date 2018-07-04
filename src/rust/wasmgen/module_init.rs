@@ -1,10 +1,9 @@
-use std::ptr::NonNull;
 use std::mem;
+use std::ptr::NonNull;
 
 use util::{
-    PackedStr, unpack_str,
-    write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_u32,
-    SafeToU8, SafeToU16,
+    unpack_str, write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_u32, PackedStr,
+    SafeToU16, SafeToU8,
 };
 use wasmgen::wasm_opcodes as op;
 
@@ -26,9 +25,8 @@ pub const FN2_RET_TYPE_INDEX: u8 = 6;
 
 pub const NR_FN_TYPE_INDEXES: u8 = 7;
 
-static mut MODULE_PTR: NonNull<WasmBuilder> = unsafe {
-    NonNull::new_unchecked(mem::align_of::<WasmBuilder>() as *mut _)
-};
+static mut MODULE_PTR: NonNull<WasmBuilder> =
+    unsafe { NonNull::new_unchecked(mem::align_of::<WasmBuilder>() as *mut _) };
 
 #[no_mangle]
 pub fn wg_setup() {
@@ -40,9 +38,7 @@ pub fn wg_setup() {
 }
 
 pub fn get_module<'a>() -> &'a mut WasmBuilder {
-    unsafe {
-        MODULE_PTR.as_mut()
-    }
+    unsafe { MODULE_PTR.as_mut() }
 }
 
 pub struct WasmBuilder {
@@ -51,11 +47,11 @@ pub struct WasmBuilder {
     pub instruction_body: Vec<u8>,
 
     idx_import_table_size: usize, // for rewriting once finished
-    idx_import_count: usize, // for rewriting once finished
-    idx_import_entries: usize, // for searching the imports
+    idx_import_count: usize,      // for rewriting once finished
+    idx_import_entries: usize,    // for searching the imports
 
     import_table_size: usize, // the current import table size (to avoid reading 2 byte leb)
-    import_count: u16, // same as above
+    import_count: u16,        // same as above
 
     initial_static_size: usize, // size of module after initialization, rest is drained on reset
 }
@@ -82,7 +78,10 @@ impl WasmBuilder {
         self.output.extend("\0asm".as_bytes());
 
         // wasm version in leb128, 4 bytes
-        self.output.push(op::WASM_VERSION); self.output.push(0); self.output.push(0); self.output.push(0);
+        self.output.push(op::WASM_VERSION);
+        self.output.push(0);
+        self.output.push(0);
+        self.output.push(0);
 
         self.write_type_section();
         self.write_import_section_preamble();
@@ -108,19 +107,24 @@ impl WasmBuilder {
         self.output.push(op::SC_CODE);
 
         let idx_code_section_size = self.output.len(); // we will write to this location later
-        self.output.push(0); self.output.push(0); // write temp val for now using 4 bytes
-        self.output.push(0); self.output.push(0);
+        self.output.push(0);
+        self.output.push(0); // write temp val for now using 4 bytes
+        self.output.push(0);
+        self.output.push(0);
 
         self.output.push(1); // number of function bodies: just 1
 
         // same as above but for body size of the function
         let idx_fn_body_size = self.output.len();
-        self.output.push(0); self.output.push(0);
-        self.output.push(0); self.output.push(0);
+        self.output.push(0);
+        self.output.push(0);
+        self.output.push(0);
+        self.output.push(0);
 
         self.output.push(1); // count of local blocks
         dbg_assert!(no_of_locals_i32 < 128);
-        self.output.push(no_of_locals_i32); self.output.push(op::TYPE_I32);
+        self.output.push(no_of_locals_i32);
+        self.output.push(op::TYPE_I32);
 
         self.output.append(&mut self.code_section);
 
@@ -206,7 +210,10 @@ impl WasmBuilder {
             offset += 1; // skip module name itself
             let len = self.output[offset] as usize;
             offset += 1;
-            let name = self.output.get(offset..(offset + len)).expect("get function name");
+            let name = self
+                .output
+                .get(offset..(offset + len))
+                .expect("get function name");
             if name == fn_name.as_bytes() {
                 return Some(i);
             }
@@ -235,10 +242,12 @@ impl WasmBuilder {
         self.output.push(op::SC_IMPORT);
 
         self.idx_import_table_size = self.output.len();
-        self.output.push(1 | 0b10000000); self.output.push(2); // 2 in 2 byte leb
+        self.output.push(1 | 0b10000000);
+        self.output.push(2); // 2 in 2 byte leb
 
         self.idx_import_count = self.output.len();
-        self.output.push(1 | 0b10000000); self.output.push(0); // 0 in 2 byte leb
+        self.output.push(1 | 0b10000000);
+        self.output.push(0); // 0 in 2 byte leb
 
         // here after starts the actual list of imports
         self.idx_import_entries = self.output.len();
@@ -302,19 +311,18 @@ impl WasmBuilder {
         // function space starts with imports. index of last import is import count - 1
         // the last import however is a memory, so we subtract one from that
         let next_op_idx = self.output.len();
-        self.output.push(0); self.output.push(0); // add 2 bytes for writing 16 byte val
+        self.output.push(0);
+        self.output.push(0); // add 2 bytes for writing 16 byte val
         write_fixed_leb16_at_idx(&mut self.output, next_op_idx, self.import_count - 1);
     }
 
     pub fn get_fn_idx(&mut self, fn_name: PackedStr, type_index: u8) -> u16 {
         match self.get_import_index(fn_name) {
-            Some(idx) => {
-                idx
-            },
+            Some(idx) => idx,
             None => {
                 let idx = self.write_import_entry(fn_name, type_index);
                 idx
-            },
+            }
         }
     }
 
@@ -329,13 +337,12 @@ impl WasmBuilder {
     pub fn commit_instruction_body_cs(&mut self) {
         self.code_section.append(&mut self.instruction_body);
     }
-
 }
 
 #[cfg(test)]
 mod tests {
-    use wasmgen::module_init::*;
     use util::pack_str;
+    use wasmgen::module_init::*;
 
     #[test]
     fn import_table_management() {

@@ -1,5 +1,5 @@
+use util::{write_fixed_leb16_at_idx, write_leb_i32, write_leb_u32};
 use wasmgen::wasm_opcodes as op;
-use util::{ write_fixed_leb16_at_idx, write_leb_i32, write_leb_u32 };
 
 #[no_mangle]
 pub fn wg_push_i32(buf: &mut Vec<u8>, v: i32) {
@@ -72,7 +72,8 @@ pub fn wg_shl_i32(buf: &mut Vec<u8>) {
 pub fn wg_call_fn(buf: &mut Vec<u8>, fn_idx: u16) {
     buf.push(op::OP_CALL);
     let buf_len = buf.len();
-    buf.push(0); buf.push(0);
+    buf.push(0);
+    buf.push(0);
     write_fixed_leb16_at_idx(buf, buf_len, fn_idx);
 }
 

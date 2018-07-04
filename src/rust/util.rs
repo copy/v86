@@ -1,6 +1,12 @@
-pub trait SafeToU8 { fn safe_to_u8(self) -> u8; }
-pub trait SafeToU16 { fn safe_to_u16(self) -> u16; }
-pub trait SafeToI32 { fn safe_to_i32(self) -> i32; }
+pub trait SafeToU8 {
+    fn safe_to_u8(self) -> u8;
+}
+pub trait SafeToU16 {
+    fn safe_to_u16(self) -> u16;
+}
+pub trait SafeToI32 {
+    fn safe_to_i32(self) -> i32;
+}
 
 impl SafeToU8 for u16 {
     fn safe_to_u8(self) -> u8 {
@@ -82,8 +88,7 @@ pub fn write_leb_i32(buf: &mut Vec<u8>, mut v: i32) {
         let sign_bit = byte & (1 << 6);
         if (v == 0 && sign_bit == 0) || (v == -1 && sign_bit != 0) {
             more = false;
-        }
-        else {
+        } else {
             byte |= 0b10000000; // turn on MSB
         }
         buf.push(byte);
@@ -106,14 +111,14 @@ pub fn write_leb_u32(buf: &mut Vec<u8>, mut v: u32) {
 
 pub fn write_fixed_leb16_at_idx(vec: &mut Vec<u8>, idx: usize, x: u16) {
     dbg_assert!(x < (1 << 14)); // we have 14 bits of available space in 2 bytes for leb
-    vec[idx    ] = ((x & 0b1111111) | 0b10000000) as u8;
+    vec[idx] = ((x & 0b1111111) | 0b10000000) as u8;
     vec[idx + 1] = (x >> 7) as u8;
 }
 
 pub fn write_fixed_leb32_at_idx(vec: &mut Vec<u8>, idx: usize, x: u32) {
     dbg_assert!(x < (1 << 28)); // we have 28 bits of available space in 4 bytes for leb
-    vec[idx    ] = (x       & 0b1111111) as u8 | 0b10000000;
-    vec[idx + 1] = (x >> 7  & 0b1111111) as u8 | 0b10000000;
+    vec[idx] = (x & 0b1111111) as u8 | 0b10000000;
+    vec[idx + 1] = (x >> 7 & 0b1111111) as u8 | 0b10000000;
     vec[idx + 2] = (x >> 14 & 0b1111111) as u8 | 0b10000000;
     vec[idx + 3] = (x >> 21 & 0b1111111) as u8;
 }
@@ -159,13 +164,15 @@ use std::string::ToString;
 pub fn _log_to_js_console<T: ToString>(s: T) {
     let s: String = s.to_string();
     let len = s.len();
-    unsafe { log_from_wasm(s.as_bytes().as_ptr(), len); }
+    unsafe {
+        log_from_wasm(s.as_bytes().as_ptr(), len);
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use ::util::*;
     use quickcheck::TestResult;
+    use util::*;
 
     #[test]
     fn packed_strs() {
