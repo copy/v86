@@ -49,24 +49,16 @@ pub fn wg_store_aligned_i32(buf: &mut Vec<u8>) {
 }
 
 #[no_mangle]
-pub fn wg_add_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32ADD);
-}
+pub fn wg_add_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32ADD); }
 
 #[no_mangle]
-pub fn wg_and_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32AND);
-}
+pub fn wg_and_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32AND); }
 
 #[no_mangle]
-pub fn wg_or_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32OR);
-}
+pub fn wg_or_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32OR); }
 
 #[no_mangle]
-pub fn wg_shl_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32SHL);
-}
+pub fn wg_shl_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32SHL); }
 
 #[no_mangle]
 pub fn wg_call_fn(buf: &mut Vec<u8>, fn_idx: u16) {
@@ -84,34 +76,22 @@ pub fn wg_call_fn_with_arg(buf: &mut Vec<u8>, fn_idx: u16, arg0: i32) {
 }
 
 #[no_mangle]
-pub fn wg_eq_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32EQ);
-}
+pub fn wg_eq_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32EQ); }
 
 #[no_mangle]
-pub fn wg_ne_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32NE);
-}
+pub fn wg_ne_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32NE); }
 
 #[no_mangle]
-pub fn wg_le_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32LES);
-}
+pub fn wg_le_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32LES); }
 
 #[no_mangle]
-pub fn wg_lt_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32LTS);
-}
+pub fn wg_lt_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32LTS); }
 
 #[no_mangle]
-pub fn wg_ge_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32GES);
-}
+pub fn wg_ge_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32GES); }
 
 #[no_mangle]
-pub fn wg_gt_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32GTS);
-}
+pub fn wg_gt_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32GTS); }
 
 #[no_mangle]
 pub fn wg_if_i32(buf: &mut Vec<u8>) {
@@ -132,9 +112,7 @@ pub fn wg_tee_local(buf: &mut Vec<u8>, idx: i32) {
 }
 
 #[no_mangle]
-pub fn wg_xor_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32XOR);
-}
+pub fn wg_xor_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32XOR); }
 
 #[no_mangle]
 pub fn wg_load_unaligned_i32_from_stack(buf: &mut Vec<u8>, byte_offset: u32) {
@@ -160,19 +138,13 @@ pub fn wg_store_unaligned_i32(buf: &mut Vec<u8>, byte_offset: u32) {
 }
 
 #[no_mangle]
-pub fn wg_shr_u32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32SHRU);
-}
+pub fn wg_shr_u32(buf: &mut Vec<u8>) { buf.push(op::OP_I32SHRU); }
 
 #[no_mangle]
-pub fn wg_shr_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32SHRS);
-}
+pub fn wg_shr_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32SHRS); }
 
 #[no_mangle]
-pub fn wg_eqz_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32EQZ);
-}
+pub fn wg_eqz_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32EQZ); }
 
 #[no_mangle]
 pub fn wg_if_void(buf: &mut Vec<u8>) {
@@ -181,9 +153,7 @@ pub fn wg_if_void(buf: &mut Vec<u8>) {
 }
 
 #[no_mangle]
-pub fn wg_else(buf: &mut Vec<u8>) {
-    buf.push(op::OP_ELSE);
-}
+pub fn wg_else(buf: &mut Vec<u8>) { buf.push(op::OP_ELSE); }
 
 #[no_mangle]
 pub fn wg_loop_void(buf: &mut Vec<u8>) {
@@ -198,19 +168,13 @@ pub fn wg_block_void(buf: &mut Vec<u8>) {
 }
 
 #[no_mangle]
-pub fn wg_block_end(buf: &mut Vec<u8>) {
-    buf.push(op::OP_END);
-}
+pub fn wg_block_end(buf: &mut Vec<u8>) { buf.push(op::OP_END); }
 
 #[no_mangle]
-pub fn wg_return(buf: &mut Vec<u8>) {
-    buf.push(op::OP_RETURN);
-}
+pub fn wg_return(buf: &mut Vec<u8>) { buf.push(op::OP_RETURN); }
 
 #[no_mangle]
-pub fn wg_drop(buf: &mut Vec<u8>) {
-    buf.push(op::OP_DROP);
-}
+pub fn wg_drop(buf: &mut Vec<u8>) { buf.push(op::OP_DROP); }
 
 // Generate a br_table where an input of [i] will branch [i]th outer block,
 // where [i] is passed on the wasm stack
@@ -245,14 +209,10 @@ pub fn wg_set_local(buf: &mut Vec<u8>, idx: i32) {
 }
 
 #[no_mangle]
-pub fn wg_unreachable(buf: &mut Vec<u8>) {
-    buf.push(op::OP_UNREACHABLE);
-}
+pub fn wg_unreachable(buf: &mut Vec<u8>) { buf.push(op::OP_UNREACHABLE); }
 
 #[no_mangle]
-pub fn wg_increment_mem32(buf: &mut Vec<u8>, addr: i32) {
-    wg_increment_variable(buf, addr, 1)
-}
+pub fn wg_increment_mem32(buf: &mut Vec<u8>, addr: i32) { wg_increment_variable(buf, addr, 1) }
 
 #[no_mangle]
 pub fn wg_increment_variable(buf: &mut Vec<u8>, addr: i32, n: i32) {

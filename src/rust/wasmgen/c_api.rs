@@ -4,14 +4,10 @@ use wasmgen::module_init::get_module;
 pub use wasmgen::module_init::wg_setup;
 
 #[no_mangle]
-pub fn wg_get_code_section() -> *mut Vec<u8> {
-    &mut get_module().code_section
-}
+pub fn wg_get_code_section() -> *mut Vec<u8> { &mut get_module().code_section }
 
 #[no_mangle]
-pub fn wg_get_instruction_body() -> *mut Vec<u8> {
-    &mut get_module().instruction_body
-}
+pub fn wg_get_instruction_body() -> *mut Vec<u8> { &mut get_module().instruction_body }
 
 #[no_mangle]
 pub fn wg_reset() {

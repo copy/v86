@@ -88,7 +88,8 @@ pub fn write_leb_i32(buf: &mut Vec<u8>, mut v: i32) {
         let sign_bit = byte & (1 << 6);
         if (v == 0 && sign_bit == 0) || (v == -1 && sign_bit != 0) {
             more = false;
-        } else {
+        }
+        else {
             byte |= 0b10000000; // turn on MSB
         }
         buf.push(byte);

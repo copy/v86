@@ -37,9 +37,7 @@ pub fn wg_setup() {
     get_module().init();
 }
 
-pub fn get_module<'a>() -> &'a mut WasmBuilder {
-    unsafe { MODULE_PTR.as_mut() }
-}
+pub fn get_module<'a>() -> &'a mut WasmBuilder { unsafe { MODULE_PTR.as_mut() } }
 
 pub struct WasmBuilder {
     pub output: Vec<u8>,
@@ -322,17 +320,13 @@ impl WasmBuilder {
             None => {
                 let idx = self.write_import_entry(fn_name, type_index);
                 idx
-            }
+            },
         }
     }
 
-    pub fn get_op_ptr(&self) -> *const u8 {
-        self.output.as_ptr()
-    }
+    pub fn get_op_ptr(&self) -> *const u8 { self.output.as_ptr() }
 
-    pub fn get_op_len(&self) -> usize {
-        self.output.len()
-    }
+    pub fn get_op_len(&self) -> usize { self.output.len() }
 
     pub fn commit_instruction_body_cs(&mut self) {
         self.code_section.append(&mut self.instruction_body);
