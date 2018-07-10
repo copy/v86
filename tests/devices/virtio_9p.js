@@ -237,15 +237,20 @@ const tests =
             emulator.serial0_send("echo start-capture;");
 
             emulator.serial0_send("rm /mnt/new-file;");
+            emulator.serial0_send("test ! -e /mnt/new-file && echo new-file-unlinked;");
             emulator.serial0_send("cat /mnt/new-file 2>/dev/null || echo read-failed;");
 
             emulator.serial0_send("rm /mnt/existing-file;");
+            emulator.serial0_send("test ! -e /mnt/existing-file && echo existing-file-unlinked;");
             emulator.serial0_send("cat /mnt/existing-file 2>/dev/null || echo read-failed;");
 
             emulator.serial0_send("rmdir /mnt/new-dir 2>/dev/null || echo rmdir-failed;");
+            emulator.serial0_send("test -e /mnt/new-dir && echo new-dir-exist;");
 
             emulator.serial0_send("rm /mnt/new-dir/file;");
             emulator.serial0_send("rmdir /mnt/new-dir;");
+            emulator.serial0_send("test ! -e /mnt/new-dir/file && echo new-dir-file-unlinked;");
+            emulator.serial0_send("test ! -e /mnt/new-dir && echo new-dir-unlinked;");
             emulator.serial0_send("ls /mnt/new-dir 2>/dev/null || echo read-failed;");
 
             emulator.serial0_send("echo done-unlink\n");
@@ -255,9 +260,14 @@ const tests =
         end: (capture, done)  =>
         {
             assert_equal(capture,
+                "new-file-unlinked" +
                 "read-failed" +
+                "existing-file-unlinked" +
                 "read-failed" +
                 "rmdir-failed" +
+                "new-dir-exist" +
+                "new-dir-file-unlinked" +
+                "new-dir-unlinked" +
                 "read-failed");
             done();
         },
@@ -283,9 +293,12 @@ const tests =
             // "foo" should be added to the target.
             emulator.serial0_send("cat /mnt/target;");
 
+            // Both should have the same inode number
+            emulator.serial0_send("test -ef /mnt/target /mnt/link && echo same-inode;");
+
             // File should still exist after one is renamed.
             emulator.serial0_send("mv /mnt/target /mnt/renamed;");
-            emulator.serial0_send("echo bar >> /mnt/renamed\n");
+            emulator.serial0_send("echo bar >> /mnt/renamed;");
             emulator.serial0_send("cat /mnt/link;");
 
             // File should still exist after one of the names are unlinked.
@@ -300,6 +313,7 @@ const tests =
         {
             assert_equal(capture,
                 test_file_small_string + "foo" +
+                "same-inode" +
                 test_file_small_string + "foobar" +
                 test_file_small_string + "foobar");
             done();
@@ -618,19 +632,48 @@ const tests =
         name: "Support for Full Security Capabilities",
         timeout: 10,
         allow_failure: true,
+        // The following doesn't work with linux4.img yet.
+        // Host machine also requires package libcap-dev:i386 to compile this.
+        //files:
+        //[
+        //    {
+        //        file: "test",
+        //        data: new Uint8Array(child_process.execSync("gcc -xc -m32 -o /dev/stdout -static - -lcap",
+        //            {
+        //                input: `
+        //                    #include <sys/capability.h>
+        //                    #include <stdio.h>
+        //                    int main(int argc, char *argv[])
+        //                    {
+        //                        cap_t cap = cap_get_file(argv[1]);
+        //                        if(cap == NULL)
+        //                        {
+        //                            perror("Error accessing capabilities");
+        //                            return 1;
+        //                        }
+        //                        char *text = cap_to_text(cap, NULL);
+        //                        puts(text);
+        //                        cap_free(cap);
+        //                        cap_free(text);
+        //                        return 0;
+        //                    }
+        //                `,
+        //            }).buffer),
+        //    },
+        //],
         start: () =>
         {
             emulator.serial0_send("touch /mnt/file\n");
+            emulator.serial0_send("chmod +x /mnt/test\n");
             emulator.serial0_send("echo start-capture\n");
-            emulator.serial0_send("getfattr /mnt/file\n");
+            emulator.serial0_send("/mnt/test /mnt/file\n");
             emulator.serial0_send("echo done-xattr\n");
         },
         capture_trigger: "start-capture",
         end_trigger: "done-xattr",
         end: (capture, done) =>
         {
-            log_warn("Security Capability test unimplemented");
-            test_fail();
+            assert_equal(capture, "= cap_chown,cap_dac_override,cap_dac_read_search,cap_fowner,cap_fsetid,cap_kill,cap_setgid,cap_setuid,cap_setpcap,cap_linux_immutable,cap_net_bind_service,cap_net_broadcast,cap_net_admin,cap_net_raw,cap_ipc_lock,cap_ipc_owner,cap_sys_module,cap_sys_rawio,cap_sys_chroot,cap_sys_ptrace,cap_sys_pacct,cap_sys_admin,cap_sys_boot,cap_sys_nice,cap_sys_resource,cap_sys_time,cap_sys_tty_config,cap_mknod,cap_lease,cap_audit_write,cap_audit_control,cap_setfcap+ip");
             done();
         },
     },
