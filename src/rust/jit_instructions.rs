@@ -24,9 +24,6 @@ pub fn jit_instruction(cpu: &mut CpuContext, builder: &mut WasmBuilder, instr_fl
 }
 
 pub fn jit_handle_prefix(ctx: &mut JitContext, instr_flags: &mut u32) {
-    // TODO: Could avoid repeatedly generating prefix updates
-    let prefixes = ctx.cpu.prefixes;
-    codegen::gen_add_prefix_bits(ctx, prefixes);
     ::gen::jit::jit(
         ctx.cpu.read_imm8() as u32 | (ctx.cpu.osize_32() as u32) << 8,
         ctx,
@@ -38,6 +35,8 @@ pub fn jit_handle_prefix(ctx: &mut JitContext, instr_flags: &mut u32) {
 pub fn jit_handle_segment_prefix(segment: u32, ctx: &mut JitContext, instr_flags: &mut u32) {
     assert!(segment <= 5);
     ctx.cpu.prefixes |= segment + 1;
+    // TODO: Could merge multiple prefix updates into one
+    codegen::gen_add_prefix_bits(ctx, segment + 1);
     jit_handle_prefix(ctx, instr_flags)
 }
 
@@ -69,10 +68,14 @@ pub fn instr_65_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
 
 pub fn instr_66_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
     ctx.cpu.prefixes |= PREFIX_66;
+    // TODO: Could merge multiple prefix updates into one
+    codegen::gen_add_prefix_bits(ctx, PREFIX_66);
     jit_handle_prefix(ctx, instr_flags)
 }
 pub fn instr_67_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
     ctx.cpu.prefixes |= PREFIX_67;
+    // TODO: Could merge multiple prefix updates into one
+    codegen::gen_add_prefix_bits(ctx, PREFIX_67);
     jit_handle_prefix(ctx, instr_flags)
 }
 pub fn instr_F0_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
@@ -81,10 +84,14 @@ pub fn instr_F0_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
 }
 pub fn instr_F2_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
     ctx.cpu.prefixes |= PREFIX_F2;
+    // string/sse prefix: Don't generate code to update prefixes at runtime. This means runtime
+    // instructions can't inspect the prefixes for this flags
     jit_handle_prefix(ctx, instr_flags)
 }
 pub fn instr_F3_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
     ctx.cpu.prefixes |= PREFIX_F3;
+    // string/sse prefix: Don't generate code to update prefixes at runtime. This means runtime
+    // instructions can't inspect the prefixes for this flags
     jit_handle_prefix(ctx, instr_flags)
 }
 
