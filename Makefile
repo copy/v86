@@ -101,8 +101,9 @@ CC_FLAGS=\
 		-s SIDE_MODULE=1
 
 CARGO_FLAGS=\
-			--target wasm32-unknown-unknown \
-			-- -Clink-args="--import-memory"
+		--target wasm32-unknown-unknown \
+		-- -Clink-args="--import-memory" \
+		--verbose
 
 CORE_FILES=const.js config.js io.js main.js lib.js coverage.js ide.js pci.js floppy.js \
 	   memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js ioapic.js \
