@@ -34,9 +34,9 @@ function assert_equal(actual, expected)
 }
 
 // Random printable characters.
-const test_file = (new Uint8Array(512)).map(v => 0x20 + Math.random() * 0x5e);
+const test_file = new Uint8Array(512).map(v => 0x20 + Math.random() * 0x5e);
 const test_file_string = Buffer.from(test_file).toString().replace(/\n/g, '');
-const test_file_small = (new Uint8Array(16)).map(v => 0x20 + Math.random() * 0x5e);
+const test_file_small = new Uint8Array(16).map(v => 0x20 + Math.random() * 0x5e);
 const test_file_small_string = Buffer.from(test_file_small).toString().replace(/\n/g, '');
 
 const tests =
@@ -549,13 +549,13 @@ const tests =
             emulator.serial0_send("dd if=/dev/zero of=/mnt/file bs=1 count=137 status=none;");
             emulator.serial0_send("touch -t 200002022222 /mnt/file;");
             emulator.serial0_send("chmod =rw /mnt/file;");
-            emulator.serial0_send("ls -l --full-time /mnt/file;");
+            emulator.serial0_send("ls -l --full-time --color=never /mnt/file;");
 
             emulator.serial0_send("echo next;");
 
             emulator.serial0_send("chmod +x /mnt/file;");
             emulator.serial0_send("chmod -w /mnt/file;");
-            emulator.serial0_send("ls -l --full-time /mnt/file;");
+            emulator.serial0_send("ls -l --full-time --color=never /mnt/file;");
 
             emulator.serial0_send("echo next;");
 
@@ -563,7 +563,7 @@ const tests =
             emulator.serial0_send("truncate -s 100 /mnt/file;");
             emulator.serial0_send("touch -t 201011220344 /mnt/file;");
             emulator.serial0_send("ln /mnt/file /mnt/file-link;");
-            emulator.serial0_send("ls -l --full-time /mnt/file;");
+            emulator.serial0_send("ls -l --full-time --color=never /mnt/file;");
 
             emulator.serial0_send("echo done-file-attr\n");
         },
@@ -594,6 +594,8 @@ const tests =
             assert_equal(outputs[0][5], "2000-02-02");
             assert_equal(outputs[0][6], "22:22:00");
             assert_equal(outputs[0][7], "+0000");
+            // pathname
+            assert_equal(outputs[0][8], "/mnt/file");
 
             // mode
             assert_equal(outputs[1][0], "-r-xr-xr-x");
@@ -609,6 +611,8 @@ const tests =
             assert_equal(outputs[1][5], "2000-02-02");
             assert_equal(outputs[1][6], "22:22:00");
             assert_equal(outputs[1][7], "+0000");
+            // pathname
+            assert_equal(outputs[1][8], "/mnt/file");
 
             // mode
             assert_equal(outputs[2][0], "-r--r--r--");
@@ -624,6 +628,8 @@ const tests =
             assert_equal(outputs[2][5], "2010-11-22");
             assert_equal(outputs[2][6], "03:44:00");
             assert_equal(outputs[2][7], "+0000");
+            // pathname
+            assert_equal(outputs[2][8], "/mnt/file");
 
             done();
         },
@@ -632,6 +638,7 @@ const tests =
         name: "Support for Full Security Capabilities",
         timeout: 10,
         allow_failure: true,
+        // TODO: Delete the following. Better to use getfattr or getcap commands if available.
         // The following doesn't work with linux4.img yet.
         // Host machine also requires package libcap-dev:i386 to compile this.
         //files:
@@ -673,7 +680,54 @@ const tests =
         end_trigger: "done-xattr",
         end: (capture, done) =>
         {
-            assert_equal(capture, "= cap_chown,cap_dac_override,cap_dac_read_search,cap_fowner,cap_fsetid,cap_kill,cap_setgid,cap_setuid,cap_setpcap,cap_linux_immutable,cap_net_bind_service,cap_net_broadcast,cap_net_admin,cap_net_raw,cap_ipc_lock,cap_ipc_owner,cap_sys_module,cap_sys_rawio,cap_sys_chroot,cap_sys_ptrace,cap_sys_pacct,cap_sys_admin,cap_sys_boot,cap_sys_nice,cap_sys_resource,cap_sys_time,cap_sys_tty_config,cap_mknod,cap_lease,cap_audit_write,cap_audit_control,cap_setfcap+ip");
+            const EXPECTED_CAPABILITIES =
+            [
+                // In order of their values defined in linux/capability.h
+                "cap_chown",
+                "cap_dac_override",
+                "cap_dac_read_search",
+                "cap_fowner",
+                "cap_fsetid",
+                "cap_kill",
+                "cap_setgid",
+                "cap_setuid",
+                "cap_setcap",
+                "cap_linux_immutable",
+                "cap_net_bind_service",
+                "cap_net_broadcast",
+                "cap_net_admin",
+                "cap_net_raw",
+                "cap_ipc_lock",
+                "cap_ipc_owner",
+                "cap_sys_module",
+                "cap_sys_rawio",
+                "cap_sys_chroot",
+                "cap_sys_ptrace",
+                "cap_sys_pacct",
+                "cap_sys_admin",
+                "cap_sys_boot",
+                "cap_sys_nice",
+                "cap_sys_resource",
+                "cap_sys_time",
+                "cap_sys_tty_config",
+                "cap_mknod",
+                "cap_lease",
+                "cap_audit_write",
+                "cap_audit_control",
+                "cap_setfcap",
+
+                // VFS_CAP_REVISION_1 can only set the first 32 capabilities
+                // The rest is accessible via VFS_CAP_REVISION_2 or 3
+
+                //"cap_mac_override",
+                //"cap_mac_admin",
+                //"cap_syslog",
+                //"cap_wake_alarm",
+                //"cap_block_suspend",
+                //"cap_audit_read",
+            ];
+            const expected = "= " + EXPECTED_CAPABILITIES.join(",") + "+ip";
+            assert_equal(capture, expected);
             done();
         },
     },
