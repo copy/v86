@@ -32,6 +32,7 @@ const double_t INDEFINITE_NAN = NAN;
 union f64_int {
     uint8_t u8[8];
     int32_t i32[2];
+    uint64_t u64[1];
     double_t f64;
 };
 
@@ -128,16 +129,16 @@ void fpu_store_m80(uint32_t addr, double_t n)
     dbg_assert(exponent >= 0 && exponent < 0x8000);
 
     // writable_or_pagefault must have checked called by the caller!
-    safe_write32(addr, low);
-    safe_write32(addr + 4, high);
+    safe_write64(addr, (uint64_t)low & 0xFFFFFFFF | (uint64_t)high << 32);
     safe_write16(addr + 8, sign << 8 | exponent);
 }
 
 double_t fpu_load_m80(uint32_t addr)
 {
+    uint64_t value = safe_read64s(addr).u64[0];
+    uint32_t low = value;
+    uint32_t high = value >> 32;
     int32_t exponent = safe_read16(addr + 8);
-    uint32_t low = ((uint32_t)(safe_read32s(addr)));
-    uint32_t high = ((uint32_t)(safe_read32s(addr + 4)));
 
     int32_t sign = exponent >> 15;
     exponent &= ~0x8000;
@@ -537,24 +538,18 @@ double_t fpu_integer_round(double_t f)
 
 double_t fpu_load_m64(int32_t addr)
 {
-    // XXX: Use safe_read64s
-    int32_t low = safe_read32s(addr);
-    int32_t high = safe_read32s(addr + 4);
+    uint64_t value = safe_read64s(addr).u64[0];
 
-    union f64_int v = { .i32 = { low, high } };
+    union f64_int v = { .u64 = { value } };
 
     return v.f64;
 }
 
 void fpu_store_m64(int32_t addr, double_t x)
 {
-    // XXX: Use safe_write64
-    writable_or_pagefault(addr, 8);
-
     union f64_int v = { .f64 = x };
 
-    safe_write32(addr, v.i32[0]);
-    safe_write32(addr + 4, v.i32[1]);
+    safe_write64(addr, v.u64[0]);
 }
 
 double_t fpu_load_m32(int32_t addr)
@@ -760,44 +755,32 @@ void fpu_fstp(int32_t r)
 
 void fpu_fildm64(int32_t addr)
 {
-    // XXX: Use safe_read64s
-    uint32_t low = safe_read32s(addr);
-    int32_t high = safe_read32s(addr + 4);
+    int64_t value = safe_read64s(addr).i64[0];
 
-    double_t m64 = (double_t)low + 0x100000000 * (double_t)high;
+    double_t m64 = (double_t)value;
 
     fpu_push(m64);
 }
 
 void fpu_fistm64p(int32_t addr)
 {
-    writable_or_pagefault(addr, 8);
-
     double_t st0 = fpu_integer_round(fpu_get_st0());
 
-    //union f64_int v = { .f64 = st0 };
     //dbg_log("fistp %x %x", v.i32[0], v.i32[1]);
 
-    int32_t st0_low;
-    int32_t st0_high;
+    int64_t value;
 
     if(st0 < TWO_POW_63 && st0 >= -TWO_POW_63)
     {
-        int64_t st0_int = st0;
-        st0_low = st0_int;
-        st0_high = st0_int >> 32;
+        value = st0;
     }
     else
     {
-        // write 0x8000000000000000
-        st0_low  = 0;
-        st0_high = 0x80000000;
+        value = 0x8000000000000000;
         fpu_invalid_arithmetic();
     }
 
-    // XXX: Use safe_write64
-    safe_write32(addr, st0_low);
-    safe_write32(addr + 4, st0_high);
+    safe_write64(addr, value);
 
     fpu_pop();
 }
