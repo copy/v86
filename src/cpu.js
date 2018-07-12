@@ -72,9 +72,6 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     // current privilege level
     this.cpl = new Int32Array(wm.memory.buffer, 612, 1);
 
-    // if false, pages are 4 KiB, else 4 Mib
-    this.page_size_extensions = new Int32Array(wm.memory.buffer, 616, 1);
-
     // current operand/address size
     this.is_32 = new Int32Array(wm.memory.buffer, 804, 1);
 
@@ -343,7 +340,7 @@ CPU.prototype.get_state = function()
     state[9] = this.page_fault[0];
     state[10] = this.cr;
     state[11] = this.cpl[0];
-    state[12] = this.page_size_extensions[0];
+
     state[13] = this.is_32[0];
 
     state[16] = this.stack_size_32[0];
@@ -428,7 +425,7 @@ CPU.prototype.set_state = function(state)
     this.page_fault[0] = state[9];
     this.cr.set(state[10]);
     this.cpl[0] = state[11];
-    this.page_size_extensions[0] = state[12];
+
     this.is_32[0] = state[13];
 
     this.stack_size_32[0] = state[16];
@@ -607,7 +604,6 @@ CPU.prototype.reset = function()
     this.dreg[7] = 0x400;
     this.cpl[0] = 0;
     this.paging[0] = 0;
-    this.page_size_extensions[0] = 0;
     this.is_32[0] = +false;
     this.stack_size_32[0] = +false;
     this.prefixes[0] = 0;

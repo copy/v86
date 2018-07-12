@@ -546,7 +546,6 @@ void instr_0F22(int32_t r, int32_t creg) {
             }
 
             cr[4] = data;
-            page_size_extensions[0] = (cr[4] & CR4_PSE) ? PSE_ENABLED : 0;
 
             if(cr[4] & CR4_PAE)
             {

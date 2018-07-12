@@ -193,7 +193,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
             }
         }
 
-        if(page_dir_entry & *page_size_extensions)
+        if((page_dir_entry & PAGE_TABLE_PSE_MASK) && (cr[4] & CR4_PSE))
         {
             // size bit is set
 

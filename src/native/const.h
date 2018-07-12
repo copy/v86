@@ -68,8 +68,6 @@
 #define LDTR 7
 
 
-#define PSE_ENABLED 128
-
 #define PAGE_TABLE_PRESENT_MASK (1 << 0)
 #define PAGE_TABLE_RW_MASK (1 << 1)
 #define PAGE_TABLE_USER_MASK (1 << 2)
