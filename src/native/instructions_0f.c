@@ -536,22 +536,13 @@ void instr_0F22(int32_t r, int32_t creg) {
 
             if(data & (1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19 | 0xFFC00000))
             {
+                dbg_log("trigger_gp: Invalid cr4 bit");
                 trigger_gp(0);
             }
 
-            if((cr[4] ^ data) & CR4_PGE)
+            if((cr[4] ^ data) & (CR4_PGE | CR4_PSE))
             {
-                if(data & CR4_PGE)
-                {
-                    // The PGE bit has been enabled. The global TLB is
-                    // still empty, so we only have to copy it over
-                    clear_tlb();
-                }
-                else
-                {
-                    // Clear the global TLB
-                    full_clear_tlb();
-                }
+                full_clear_tlb();
             }
 
             cr[4] = data;
