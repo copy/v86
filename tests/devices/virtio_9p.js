@@ -27,17 +27,17 @@ function assert_equal(actual, expected)
     if(actual !== expected)
     {
         log_warn("Failed assert equal (Test: %s)", tests[test_num].name);
-        log_warn("Expected:\n", expected);
-        log_warn("Actual:\n", actual);
+        log_warn("Expected:\n" + expected);
+        log_warn("Actual:\n" + actual);
         test_fail();
     }
 }
 
 // Random printable characters.
 const test_file = new Uint8Array(512).map(v => 0x20 + Math.random() * 0x5e);
-const test_file_string = Buffer.from(test_file).toString().replace(/\n/g, '');
+const test_file_string = Buffer.from(test_file).toString();
 const test_file_small = new Uint8Array(16).map(v => 0x20 + Math.random() * 0x5e);
-const test_file_small_string = Buffer.from(test_file_small).toString().replace(/\n/g, '');
+const test_file_small_string = Buffer.from(test_file_small).toString();
 
 const tests =
 [
@@ -62,7 +62,7 @@ const tests =
                     done();
                     return;
                 }
-                assert_equal(capture, Buffer.from(data).toString().replace(/\n/g, ""));
+                assert_equal(capture, Buffer.from(data).toString());
                 done();
             });
         },
@@ -114,7 +114,7 @@ const tests =
         end_trigger: "done-read-async",
         end: (capture, done) =>
         {
-            assert_equal(capture, "bar");
+            assert_equal(capture, "bar\n");
             emulator.read_file("foo", function(err, data)
             {
                 if(err)
@@ -147,7 +147,14 @@ const tests =
         end_trigger: "done-write-new",
         end: (capture, done)  =>
         {
-            assert_equal(capture, test_file_string);
+            // Handle word wrapping.
+            const lines = capture.split("\n");
+            let pos = 0;
+            for(const line of lines)
+            {
+                assert_equal(line, test_file_string.slice(pos, line.length));
+                pos += line.length;
+            }
             done();
         },
     },
@@ -204,17 +211,27 @@ const tests =
         {
             assert_equal(capture,
                 test_file_string +
-                "/mnt" + "/mnt/test-file" +
+                "/mnt\n" +
+                "/mnt/test-file\n" +
                 test_file_string +
-                "/mnt" + "/mnt/renamed" +
+                "/mnt\n" +
+                "/mnt/renamed\n" +
                 test_file_string +
-                "/mnt" + "/mnt/somedir" + "/mnt/somedir/file" +
+                "/mnt\n" +
+                "/mnt/somedir\n" +
+                "/mnt/somedir/file\n" +
                 test_file_string +
-                "/mnt" + "/mnt/otherdir" + "/mnt/otherdir/file" +
+                "/mnt\n" +
+                "/mnt/otherdir\n" +
+                "/mnt/otherdir/file\n" +
                 test_file_string +
-                "/mnt" + "/mnt/thirddir" + "/mnt/thirddir/otherdir" + "/mnt/thirddir/otherdir/file" +
+                "/mnt\n" +
+                "/mnt/thirddir\n" +
+                "/mnt/thirddir/otherdir\n" +
+                "/mnt/thirddir/otherdir/file\n" +
                 test_file_string +
-                "/mnt" + "/mnt/thirddir");
+                "/mnt\n" +
+                "/mnt/thirddir\n");
             done();
         },
     },
@@ -260,15 +277,15 @@ const tests =
         end: (capture, done)  =>
         {
             assert_equal(capture,
-                "new-file-unlinked" +
-                "read-failed" +
-                "existing-file-unlinked" +
-                "read-failed" +
-                "rmdir-failed" +
-                "new-dir-exist" +
-                "new-dir-file-unlinked" +
-                "new-dir-unlinked" +
-                "read-failed");
+                "new-file-unlinked\n" +
+                "read-failed\n" +
+                "existing-file-unlinked\n" +
+                "read-failed\n" +
+                "rmdir-failed\n" +
+                "new-dir-exist\n" +
+                "new-dir-file-unlinked\n" +
+                "new-dir-unlinked\n" +
+                "read-failed\n");
             done();
         },
     },
@@ -294,7 +311,7 @@ const tests =
             emulator.serial0_send("cat /mnt/target;");
 
             // Both should have the same inode number
-            emulator.serial0_send("test -ef /mnt/target /mnt/link && echo same-inode;");
+            emulator.serial0_send("test /mnt/target -ef /mnt/link && echo same-inode;");
 
             // File should still exist after one is renamed.
             emulator.serial0_send("mv /mnt/target /mnt/renamed;");
@@ -312,10 +329,10 @@ const tests =
         end: (capture, done) =>
         {
             assert_equal(capture,
-                test_file_small_string + "foo" +
-                "same-inode" +
-                test_file_small_string + "foobar" +
-                test_file_small_string + "foobar");
+                test_file_small_string + "foo\n" +
+                "same-inode\n" +
+                test_file_small_string + "foo\nbar\n" +
+                test_file_small_string + "foo\nbar\n");
             done();
         },
     },
@@ -356,8 +373,10 @@ const tests =
         end_trigger: "done-symlinks",
         end: (capture, done) =>
         {
-            assert_equal(capture, test_file_small_string + "appended" +
-                test_file_small_string + "appended" + "otherdata");
+            assert_equal(capture,
+                test_file_small_string + "appended\n" +
+                test_file_small_string + "appended\n" +
+                "otherdata\n");
             done();
         },
     },
@@ -402,7 +421,7 @@ const tests =
         end_trigger: "done-readlink",
         end: (capture, done) =>
         {
-            assert_equal(capture, "/mnt/target");
+            assert_equal(capture, "/mnt/target\n");
             done();
         },
     },
@@ -458,17 +477,17 @@ const tests =
         {
             const actual = capture;
             const expected =
-                "/mnt/walk" +
-                "/mnt/walk/a" +
-                "/mnt/walk/a/aa" +
-                "/mnt/walk/a/aa/aaa" +
-                "/mnt/walk/a/aa/aaa/aaaa" +
-                "/mnt/walk/a/aa/aab" +
-                "/mnt/walk/a/aa/aab/aabfile" +
-                "/mnt/walk/a/aa/aac" +
-                "/mnt/walk/b" +
-                "/mnt/walk/b/ba" +
-                "/mnt/walk/b/bfile";
+                "/mnt/walk\n" +
+                "/mnt/walk/a\n" +
+                "/mnt/walk/a/aa\n" +
+                "/mnt/walk/a/aa/aaa\n" +
+                "/mnt/walk/a/aa/aaa/aaaa\n" +
+                "/mnt/walk/a/aa/aab\n" +
+                "/mnt/walk/a/aa/aab/aabfile\n" +
+                "/mnt/walk/a/aa/aac\n" +
+                "/mnt/walk/b\n" +
+                "/mnt/walk/b/ba\n" +
+                "/mnt/walk/b/bfile\n";
             assert_equal(actual, expected);
             done();
         },
@@ -485,12 +504,10 @@ const tests =
 
             // Grow file and verify space usage.
             emulator.serial0_send("dd if=/dev/zero of=/mnt/file bs=1k count=4 status=none;");
-            emulator.serial0_send("echo next;");
             emulator.serial0_send("df -PTk /mnt | tail -n 1;");
 
             // Shrink file and verify space usage.
             emulator.serial0_send("truncate -s 0 /mnt/file;");
-            emulator.serial0_send("echo next;");
             emulator.serial0_send("df -PTk /mnt | tail -n 1;");
 
             emulator.serial0_send("echo done-statfs\n");
@@ -499,8 +516,8 @@ const tests =
         end_trigger: "done-statfs",
         end: (capture, done) =>
         {
-            const outputs = capture.split("next").map(output => output.split(/\s+/));
-            if(outputs.length !== 3)
+            const outputs = capture.split("\n").map(output => output.split(/\s+/));
+            if(outputs.length < 3)
             {
                 log_warn("Wrong format: %s", capture);
                 test_fail();
@@ -551,13 +568,9 @@ const tests =
             emulator.serial0_send("chmod =rw /mnt/file;");
             emulator.serial0_send("ls -l --full-time --color=never /mnt/file;");
 
-            emulator.serial0_send("echo next;");
-
             emulator.serial0_send("chmod +x /mnt/file;");
             emulator.serial0_send("chmod -w /mnt/file;");
             emulator.serial0_send("ls -l --full-time --color=never /mnt/file;");
-
-            emulator.serial0_send("echo next;");
 
             emulator.serial0_send("chmod -x /mnt/file;");
             emulator.serial0_send("truncate -s 100 /mnt/file;");
@@ -571,12 +584,13 @@ const tests =
         end_trigger: "done-file-attr",
         end: (capture, done) =>
         {
-            const outputs = capture.split("next").map(output => output.split(/\s+/));
+            const outputs = capture.split("\n").map(output => output.split(/\s+/));
 
-            if(outputs.length !== 3)
+            if(outputs.length < 3)
             {
                 log_warn("Wrong format (expected 3 rows): %s", capture);
                 test_fail();
+                done();
                 return;
             }
 
@@ -672,8 +686,8 @@ const tests =
         {
             emulator.serial0_send("touch /mnt/file\n");
             emulator.serial0_send("chmod +x /mnt/test\n");
-            emulator.serial0_send("echo start-capture\n");
-            emulator.serial0_send("/mnt/test /mnt/file\n");
+            emulator.serial0_send("echo start-capture;");
+            emulator.serial0_send("/mnt/test /mnt/file;");
             emulator.serial0_send("echo done-xattr\n");
         },
         capture_trigger: "start-capture",
@@ -773,14 +787,14 @@ const tests =
             let expected = "";
             for(let i = 0; i < 1000; i += 31)
             {
-                expected += i.toString().padStart(3, "0");
+                expected += i.toString().padStart(3, "0") + "\n";
             }
-            expected += "/mnt/stress-files";
+            expected += "/mnt/stress-files\n";
             for(let i = 0; i < 1000; i ++)
             {
-                expected += "/mnt/stress-files/file-" + i.toString().padStart(3, "0");
+                expected += "/mnt/stress-files/file-" + i.toString().padStart(3, "0") + "\n";
             }
-            expected += "delete-success";
+            expected += "delete-success\n";
             assert_equal(capture, expected);
             done();
         },
@@ -828,14 +842,12 @@ const tests =
         end_trigger: "done-stress-dirs",
         end: (capture, done) =>
         {
-            let pos = 0;
-            for(let i = 80; i < 100; i++)
+            const outputs = capture.split("\n");
+            for(let i = 0; i < 20; i++)
             {
-                const str = "" + i;
-                assert_equal(capture.substr(pos, str.length), str);
-                pos += str.length;
+                assert_equal(outputs[i], `${i + 80}`);
             }
-            assert_equal(capture.slice(pos), "delete-success");
+            assert_equal(outputs[20], "delete-success");
             done();
         },
     },
@@ -858,10 +870,13 @@ const tests =
         end_trigger: "done-read-exceed",
         end: (capture, done) =>
         {
-            assert_equal(capture,
-                "0+0 records in" + "0+0 records out" +
-                "0+0 records in" + "0+0 records out" +
-                "0+0 records in" + "0+0 records out");
+            const outputs = capture.split("\n");
+            assert_equal(outputs[0], "0+0 records in");
+            assert_equal(outputs[1], "0+0 records out");
+            assert_equal(outputs[2], "0+0 records in");
+            assert_equal(outputs[3], "0+0 records out");
+            assert_equal(outputs[4], "0+0 records in");
+            assert_equal(outputs[5], "0+0 records out");
             done();
         },
     },
@@ -1079,8 +1094,10 @@ emulator.add_listener("serial0-output-char", function(chr)
     }
 
     let new_line = "";
+    let is_new_line = false;
     if(chr === "\n")
     {
+        is_new_line = true;
         new_line = line;
         line = "";
     }
@@ -1098,12 +1115,12 @@ emulator.add_listener("serial0-output-char", function(chr)
     {
         next_trigger_handler();
     }
-    else if(new_line && capturing)
+    else if(is_new_line && capturing)
     {
-        capture += new_line;
+        capture += new_line + "\n";
         console.log("    Captured: %s", new_line);
     }
-    else if(new_line)
+    else if(is_new_line)
     {
         console.log("    Serial: %s", new_line);
     }
