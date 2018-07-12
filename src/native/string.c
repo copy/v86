@@ -48,13 +48,9 @@ void movsb_rep()
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
-    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    int32_t cycle_counter = string_get_cycle_count2(size, src, dest);
     int32_t phys_src = translate_address_read(src);
     int32_t phys_dest = translate_address_write(dest);
-    if(*paging)
-    {
-        cycle_counter = string_get_cycle_count2(size, src, dest);
-    }
     do
     {
         write8(phys_dest, read8(phys_src));
@@ -101,10 +97,7 @@ void movsw_rep()
         int32_t single_size = size < 0 ? -1 : 1;
         int32_t phys_src = translate_address_read(src) >> 1;
         int32_t phys_dest = translate_address_write(dest) >> 1;
-        if(*paging)
-        {
-            cycle_counter = string_get_cycle_count2(size, src, dest);
-        }
+        cycle_counter = string_get_cycle_count2(size, src, dest);
         do
         {
             write_aligned16(phys_dest, read_aligned16(phys_src));
@@ -165,10 +158,7 @@ void movsd_rep()
         int32_t single_size = size < 0 ? -1 : 1;
         int32_t phys_src = translate_address_read(src) >> 2;
         int32_t phys_dest = translate_address_write(dest) >> 2;
-        if(*paging)
-        {
-            cycle_counter = string_get_cycle_count2(size, src, dest);
-        }
+        cycle_counter = string_get_cycle_count2(size, src, dest);
         do
         {
             write_aligned32(phys_dest, read_aligned32(phys_src));
@@ -225,13 +215,9 @@ void cmpsb_rep(int32_t prefix_flag)
     int32_t cont = false;
     int32_t start_count = count;
     int32_t is_repz = prefix_flag == PREFIX_REPZ;
-    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    int32_t cycle_counter = string_get_cycle_count2(size, src, dest);
     int32_t phys_src = translate_address_read(src);
     int32_t phys_dest = translate_address_read(dest);
-    if(*paging)
-    {
-        cycle_counter = string_get_cycle_count2(size, src, dest);
-    }
     do
     {
         data_dest = read8(phys_dest);
@@ -287,10 +273,7 @@ void cmpsw_rep(int32_t prefix_flag)
         int32_t single_size = size < 0 ? -1 : 1;
         int32_t phys_src = translate_address_read(src) >> 1;
         int32_t phys_dest = translate_address_read(dest) >> 1;
-        if(*paging)
-        {
-            cycle_counter = string_get_cycle_count2(size, src, dest);
-        }
+        cycle_counter = string_get_cycle_count2(size, src, dest);
         do
         {
             data_dest = read_aligned16(phys_dest);
@@ -361,10 +344,7 @@ void cmpsd_rep(int32_t prefix_flag)
         int32_t single_size = size < 0 ? -1 : 1;
         int32_t phys_src = translate_address_read(src) >> 2;
         int32_t phys_dest = translate_address_read(dest) >> 2;
-        if(*paging)
-        {
-            cycle_counter = string_get_cycle_count2(size, src, dest);
-        }
+        cycle_counter = string_get_cycle_count2(size, src, dest);
         do
         {
             data_dest = read_aligned32(phys_dest);
@@ -427,12 +407,8 @@ void stosb_rep()
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
-    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    int32_t cycle_counter = string_get_cycle_count(size, dest);
     int32_t phys_dest = translate_address_write(dest);
-    if(*paging)
-    {
-        cycle_counter = string_get_cycle_count(size, dest);
-    }
     do
     {
         write8(phys_dest, data);
@@ -475,10 +451,7 @@ void stosw_rep()
     {
         int32_t single_size = size < 0 ? -1 : 1;
         int32_t phys_dest = translate_address_write(dest) >> 1;
-        if(*paging)
-        {
-            cycle_counter = string_get_cycle_count(size, dest);
-        }
+        cycle_counter = string_get_cycle_count(size, dest);
         do
         {
             write_aligned16(phys_dest, data);
@@ -533,10 +506,7 @@ void stosd_rep()
     {
         int32_t single_size = size < 0 ? -1 : 1;
         int32_t phys_dest = translate_address_write(dest) >> 2;
-        if(*paging)
-        {
-            cycle_counter = string_get_cycle_count(size, dest);
-        }
+        cycle_counter = string_get_cycle_count(size, dest);
         do
         {
             write_aligned32(phys_dest, data);
@@ -584,12 +554,8 @@ void lodsb_rep()
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
-    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    int32_t cycle_counter = string_get_cycle_count(size, src);
     int32_t phys_src = translate_address_read(src);
-    if(*paging)
-    {
-        cycle_counter = string_get_cycle_count(size, src);
-    }
     do
     {
         reg8[AL] = read8(phys_src);
@@ -692,12 +658,8 @@ void scasb_rep(int32_t prefix_flag)
     int32_t cont = false;
     int32_t start_count = count;
     int32_t is_repz = prefix_flag == PREFIX_REPZ;
-    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    int32_t cycle_counter = string_get_cycle_count(size, dest);
     int32_t phys_dest = translate_address_read(dest);
-    if(*paging)
-    {
-        cycle_counter = string_get_cycle_count(size, dest);
-    }
     do
     {
         data_dest = read8(phys_dest);
@@ -745,10 +707,7 @@ void scasw_rep(int32_t prefix_flag)
     {
         int32_t single_size = size < 0 ? -1 : 1;
         int32_t phys_dest = translate_address_read(dest) >> 1;
-        if(*paging)
-        {
-            cycle_counter = string_get_cycle_count(size, dest);
-        }
+        cycle_counter = string_get_cycle_count(size, dest);
         do
         {
             data_dest = read_aligned16(phys_dest);
@@ -808,10 +767,7 @@ void scasd_rep(int32_t prefix_flag)
     {
         int32_t single_size = size < 0 ? -1 : 1;
         int32_t phys_dest = translate_address_read(dest) >> 2;
-        if(*paging)
-        {
-            cycle_counter = string_get_cycle_count(size, dest);
-        }
+        cycle_counter = string_get_cycle_count(size, dest);
         do
         {
             data_dest = read_aligned32(phys_dest);
@@ -867,12 +823,8 @@ void insb_rep()
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
-    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    int32_t cycle_counter = string_get_cycle_count(size, dest);
     int32_t phys_dest = translate_address_write(dest);
-    if(*paging)
-    {
-        cycle_counter = string_get_cycle_count(size, dest);
-    }
     do
     {
         write8(phys_dest, io_port_read8(port));
@@ -920,10 +872,7 @@ void insw_rep()
     {
         int32_t single_size = size < 0 ? -1 : 1;
         int32_t phys_dest = translate_address_write(dest) >> 1;
-        if(*paging)
-        {
-            cycle_counter = string_get_cycle_count(size, dest);
-        }
+        cycle_counter = string_get_cycle_count(size, dest);
         do
         {
             write_aligned16(phys_dest, io_port_read16(port));
@@ -984,10 +933,7 @@ void insd_rep()
     {
         int32_t single_size = size < 0 ? -1 : 1;
         int32_t phys_dest = translate_address_write(dest) >> 2;
-        if(*paging)
-        {
-            cycle_counter = string_get_cycle_count(size, dest);
-        }
+        cycle_counter = string_get_cycle_count(size, dest);
         do
         {
             write_aligned32(phys_dest, io_port_read32(port));
@@ -1043,12 +989,8 @@ void outsb_rep()
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
-    int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
+    int32_t cycle_counter = string_get_cycle_count(size, src);
     int32_t phys_src = translate_address_read(src);
-    if(*paging)
-    {
-        cycle_counter = string_get_cycle_count(size, src);
-    }
     do
     {
         io_port_write8(port, read8(phys_src));
@@ -1096,10 +1038,7 @@ void outsw_rep()
     {
         int32_t single_size = size < 0 ? -1 : 1;
         int32_t phys_src = translate_address_read(src) >> 1;
-        if(*paging)
-        {
-            cycle_counter = string_get_cycle_count(size, src);
-        }
+        cycle_counter = string_get_cycle_count(size, src);
         do
         {
             io_port_write16(port, read_aligned16(phys_src));
@@ -1158,10 +1097,7 @@ void outsd_rep()
     {
         int32_t single_size = size < 0 ? -1 : 1;
         int32_t phys_src = translate_address_read(src) >> 2;
-        if(*paging)
-        {
-            cycle_counter = string_get_cycle_count(size, src);
-        }
+        cycle_counter = string_get_cycle_count(size, src);
         do
         {
             io_port_write32(port, read_aligned32(phys_src));
