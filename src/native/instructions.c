@@ -285,12 +285,25 @@ void instr16_6B_reg(int32_t r1, int32_t r, int32_t imm) { write_reg16(r, imul_re
 void instr32_6B_mem(int32_t addr, int32_t r, int32_t imm) { write_reg32(r, imul_reg32(safe_read32s(addr), imm)); }
 void instr32_6B_reg(int32_t r1, int32_t r, int32_t imm) { write_reg32(r, imul_reg32(read_reg32(r1), imm)); }
 
-void instr_6C() { insb(); }
-void instr16_6D() { insw(); }
-void instr32_6D() { insd(); }
-void instr_6E() { outsb(); }
-void instr16_6F() { outsw(); }
-void instr32_6F() { outsd(); }
+void instr_6C() { insb_no_rep(); }
+void instr_F26C() { insb_rep(); }
+void instr_F36C() { insb_rep(); }
+void instr16_6D() { insw_no_rep(); }
+void instr16_F26D() { insw_rep(); }
+void instr16_F36D() { insw_rep(); }
+void instr32_6D() { insd_no_rep(); }
+void instr32_F26D() { insd_rep(); }
+void instr32_F36D() { insd_rep(); }
+
+void instr_6E() { outsb_no_rep(); }
+void instr_F26E() { outsb_rep(); }
+void instr_F36E() { outsb_rep(); }
+void instr16_6F() { outsw_no_rep(); }
+void instr16_F26F() { outsw_rep(); }
+void instr16_F36F() { outsw_rep(); }
+void instr32_6F() { outsd_no_rep(); }
+void instr32_F26F() { outsd_rep(); }
+void instr32_F36F() { outsd_rep(); }
 
 void instr16_70(int32_t imm8) { jmpcc16( test_o(), imm8); }
 void instr16_71(int32_t imm8) { jmpcc16(!test_o(), imm8); }
@@ -670,12 +683,25 @@ void instr32_A3(int32_t moffs) {
     safe_write32(get_seg_prefix_ds(moffs), reg32s[EAX]);
 }
 
-void instr_A4() { movsb(); }
-void instr16_A5() { movsw(); }
-void instr32_A5() { movsd(); }
-void instr_A6() { cmpsb(); }
-void instr16_A7() { cmpsw(); }
-void instr32_A7() { cmpsd(); }
+void instr_A4() { movsb_no_rep(); }
+void instr_F2A4() { movsb_rep(); }
+void instr_F3A4() { movsb_rep(); }
+void instr16_A5() { movsw_no_rep(); }
+void instr16_F2A5() { movsw_rep(); }
+void instr16_F3A5() { movsw_rep(); }
+void instr32_A5() { movsd_no_rep(); }
+void instr32_F2A5() { movsd_rep(); }
+void instr32_F3A5() { movsd_rep(); }
+
+void instr_A6() { cmpsb_no_rep(); }
+void instr_F2A6() { cmpsb_rep(PREFIX_F2); }
+void instr_F3A6() { cmpsb_rep(PREFIX_F3); }
+void instr16_A7() { cmpsw_no_rep(); }
+void instr16_F2A7() { cmpsw_rep(PREFIX_F2); }
+void instr16_F3A7() { cmpsw_rep(PREFIX_F3); }
+void instr32_A7() { cmpsd_no_rep(); }
+void instr32_F2A7() { cmpsd_rep(PREFIX_F2); }
+void instr32_F3A7() { cmpsd_rep(PREFIX_F3); }
 
 void instr_A8(int32_t imm8) {
     test8(reg8[AL], imm8);
@@ -687,15 +713,35 @@ void instr32_A9(int32_t imm32) {
     test32(reg32s[EAX], imm32);
 }
 
-void instr_AA() { stosb(); }
-void instr16_AB() { stosw(); }
-void instr32_AB() { stosd(); }
-void instr_AC() { lodsb(); }
-void instr16_AD() { lodsw(); }
-void instr32_AD() { lodsd(); }
-void instr_AE() { scasb(); }
-void instr16_AF() { scasw(); }
-void instr32_AF() { scasd(); }
+void instr_AA() { stosb_no_rep(); }
+void instr_F2AA() { stosb_rep(); }
+void instr_F3AA() { stosb_rep(); }
+void instr16_AB() { stosw_no_rep(); }
+void instr16_F2AB() { stosw_rep(); }
+void instr16_F3AB() { stosw_rep(); }
+void instr32_AB() { stosd_no_rep(); }
+void instr32_F2AB() { stosd_rep(); }
+void instr32_F3AB() { stosd_rep(); }
+
+void instr_AC() { lodsb_no_rep(); }
+void instr_F2AC() { lodsb_rep(); }
+void instr_F3AC() { lodsb_rep(); }
+void instr16_AD() { lodsw_no_rep(); }
+void instr16_F2AD() { lodsw_rep(); }
+void instr16_F3AD() { lodsw_rep(); }
+void instr32_AD() { lodsd_no_rep(); }
+void instr32_F2AD() { lodsd_rep(); }
+void instr32_F3AD() { lodsd_rep(); }
+
+void instr_AE() { scasb_no_rep(); }
+void instr_F2AE() { scasb_rep(PREFIX_F2); }
+void instr_F3AE() { scasb_rep(PREFIX_F3); }
+void instr16_AF() { scasw_no_rep(); }
+void instr16_F2AF() { scasw_rep(PREFIX_F2); }
+void instr16_F3AF() { scasw_rep(PREFIX_F3); }
+void instr32_AF() { scasd_no_rep(); }
+void instr32_F2AF() { scasd_rep(PREFIX_F2); }
+void instr32_F3AF() { scasd_rep(PREFIX_F3); }
 
 
 void instr_B0(int32_t imm8) { reg8[AL] = imm8; }

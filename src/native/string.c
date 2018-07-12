@@ -85,18 +85,6 @@ void movsb_no_rep()
     add_reg_asize(ESI, size);
 }
 
-void movsb()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        movsb_rep();
-    }
-    else
-    {
-        movsb_no_rep();
-    }
-}
-
 void movsw_rep()
 {
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
@@ -159,18 +147,6 @@ void movsw_no_rep()
     safe_write16(dest, safe_read16(src));
     add_reg_asize(EDI, size);
     add_reg_asize(ESI, size);
-}
-
-void movsw()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        movsw_rep();
-    }
-    else
-    {
-        movsw_no_rep();
-    }
 }
 
 void movsd_rep()
@@ -237,19 +213,7 @@ void movsd_no_rep()
     add_reg_asize(ESI, size);
 }
 
-void movsd()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        movsd_rep();
-    }
-    else
-    {
-        movsd_no_rep();
-    }
-}
-
-void cmpsb_rep()
+void cmpsb_rep(int32_t prefix_flag)
 {
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
@@ -260,7 +224,7 @@ void cmpsb_rep()
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
-    int32_t is_repz = (*prefixes & PREFIX_MASK_REP) == PREFIX_REPZ;
+    int32_t is_repz = prefix_flag == PREFIX_REPZ;
     int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
     int32_t phys_src = translate_address_read(src);
     int32_t phys_dest = translate_address_read(dest);
@@ -305,19 +269,7 @@ void cmpsb_no_rep()
     cmp8(data_src, data_dest);
 }
 
-void cmpsb()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        cmpsb_rep();
-    }
-    else
-    {
-        cmpsb_no_rep();
-    }
-}
-
-void cmpsw_rep()
+void cmpsw_rep(int32_t prefix_flag)
 {
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
@@ -328,7 +280,7 @@ void cmpsw_rep()
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
-    int32_t is_repz = (*prefixes & PREFIX_MASK_REP) == PREFIX_REPZ;
+    int32_t is_repz = prefix_flag == PREFIX_REPZ;
     int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
     if(!(dest & 1) && !(src & 1))
     {
@@ -391,19 +343,7 @@ void cmpsw_no_rep()
     cmp16(data_src, data_dest);
 }
 
-void cmpsw()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        cmpsw_rep();
-    }
-    else
-    {
-        cmpsw_no_rep();
-    }
-}
-
-void cmpsd_rep()
+void cmpsd_rep(int32_t prefix_flag)
 {
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
@@ -414,7 +354,7 @@ void cmpsd_rep()
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
-    int32_t is_repz = (*prefixes & PREFIX_MASK_REP) == PREFIX_REPZ;
+    int32_t is_repz = prefix_flag == PREFIX_REPZ;
     int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
     if(!(dest & 3) && !(src & 3))
     {
@@ -477,18 +417,6 @@ void cmpsd_no_rep()
     cmp32(data_src, data_dest);
 }
 
-void cmpsd()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        cmpsd_rep();
-    }
-    else
-    {
-        cmpsd_no_rep();
-    }
-}
-
 void stosb_rep()
 {
     int32_t data = reg8[AL];
@@ -530,18 +458,6 @@ void stosb_no_rep()
 
     safe_write8(dest, data);
     add_reg_asize(EDI, size);
-}
-
-void stosb()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        stosb_rep();
-    }
-    else
-    {
-        stosb_no_rep();
-    }
 }
 
 void stosw_rep()
@@ -602,18 +518,6 @@ void stosw_no_rep()
     add_reg_asize(EDI, size);
 }
 
-void stosw()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        stosw_rep();
-    }
-    else
-    {
-        stosw_no_rep();
-    }
-}
-
 void stosd_rep()
 {
     int32_t data = reg32s[EAX];
@@ -672,18 +576,6 @@ void stosd_no_rep()
     add_reg_asize(EDI, size);
 }
 
-void stosd()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        stosd_rep();
-    }
-    else
-    {
-        stosd_no_rep();
-    }
-}
-
 void lodsb_rep()
 {
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
@@ -723,19 +615,6 @@ void lodsb_no_rep()
     add_reg_asize(ESI, size);
 }
 
-
-void lodsb()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        lodsb_rep();
-    }
-    else
-    {
-        lodsb_no_rep();
-    }
-}
-
 void lodsw_rep()
 {
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
@@ -767,18 +646,6 @@ void lodsw_no_rep()
     reg16[AX] = safe_read16(src);
     add_reg_asize(ESI, size);
 
-}
-
-void lodsw()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        lodsw_rep();
-    }
-    else
-    {
-        lodsw_no_rep();
-    }
 }
 
 void lodsd_rep()
@@ -813,19 +680,7 @@ void lodsd_no_rep()
     add_reg_asize(ESI, size);
 }
 
-void lodsd()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        lodsd_rep();
-    }
-    else
-    {
-        lodsd_no_rep();
-    }
-}
-
-void scasb_rep()
+void scasb_rep(int32_t prefix_flag)
 {
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
@@ -836,7 +691,7 @@ void scasb_rep()
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
-    int32_t is_repz = (*prefixes & PREFIX_MASK_REP) == PREFIX_REPZ;
+    int32_t is_repz = prefix_flag == PREFIX_REPZ;
     int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
     int32_t phys_dest = translate_address_read(dest);
     if(*paging)
@@ -873,19 +728,7 @@ void scasb_no_rep()
     cmp8(data_src, data_dest);
 }
 
-void scasb()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        scasb_rep();
-    }
-    else
-    {
-        scasb_no_rep();
-    }
-}
-
-void scasw_rep()
+void scasw_rep(int32_t prefix_flag)
 {
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
@@ -896,7 +739,7 @@ void scasw_rep()
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
-    int32_t is_repz = (*prefixes & PREFIX_MASK_REP) == PREFIX_REPZ;
+    int32_t is_repz = prefix_flag == PREFIX_REPZ;
     int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
     if(!(dest & 1))
     {
@@ -948,19 +791,7 @@ void scasw_no_rep()
     cmp16(data_src, data_dest);
 }
 
-void scasw()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        scasw_rep();
-    }
-    else
-    {
-        scasw_no_rep();
-    }
-}
-
-void scasd_rep()
+void scasd_rep(int32_t prefix_flag)
 {
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
@@ -971,7 +802,7 @@ void scasd_rep()
     if(count == 0) return;
     int32_t cont = false;
     int32_t start_count = count;
-    int32_t is_repz = (*prefixes & PREFIX_MASK_REP) == PREFIX_REPZ;
+    int32_t is_repz = prefix_flag == PREFIX_REPZ;
     int32_t cycle_counter = MAX_COUNT_PER_CYCLE;
     if(!(dest & 3))
     {
@@ -1024,18 +855,6 @@ void scasd_no_rep()
 }
 
 
-void scasd()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        scasd_rep();
-    }
-    else
-    {
-        scasd_no_rep();
-    }
-}
-
 void insb_rep()
 {
     int32_t port = reg16[DX];
@@ -1082,18 +901,6 @@ void insb_no_rep()
     writable_or_pagefault(dest, 1);
     safe_write8(dest, io_port_read8(port));
     add_reg_asize(EDI, size);
-}
-
-void insb()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        insb_rep();
-    }
-    else
-    {
-        insb_no_rep();
-    }
 }
 
 void insw_rep()
@@ -1160,18 +967,6 @@ void insw_no_rep()
     add_reg_asize(EDI, size);
 }
 
-void insw()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        insw_rep();
-    }
-    else
-    {
-        insw_no_rep();
-    }
-}
-
 void insd_rep()
 {
     int32_t port = reg16[DX];
@@ -1236,18 +1031,6 @@ void insd_no_rep()
     add_reg_asize(EDI, size);
 }
 
-void insd()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        insd_rep();
-    }
-    else
-    {
-        insd_no_rep();
-    }
-}
-
 void outsb_rep()
 {
     int32_t port = reg16[DX];
@@ -1295,17 +1078,6 @@ void outsb_no_rep()
     add_reg_asize(ESI, size);
 }
 
-void outsb()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        outsb_rep();
-    }
-    else
-    {
-        outsb_no_rep();
-    }
-}
 
 void outsw_rep()
 {
@@ -1369,18 +1141,6 @@ void outsw_no_rep()
     add_reg_asize(ESI, size);
 }
 
-void outsw()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        outsw_rep();
-    }
-    else
-    {
-        outsw_no_rep();
-    }
-}
-
 void outsd_rep()
 {
     int32_t port = reg16[DX];
@@ -1441,16 +1201,4 @@ void outsd_no_rep()
 
     io_port_write32(port, safe_read32s(src));
     add_reg_asize(ESI, size);
-}
-
-void outsd()
-{
-    if(*prefixes & PREFIX_MASK_REP)
-    {
-        outsd_rep();
-    }
-    else
-    {
-        outsd_no_rep();
-    }
 }

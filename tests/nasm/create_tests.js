@@ -247,7 +247,6 @@ function create_nasm(op, config)
         codes.push("mov ecx, 3");
         codes.push("mov edi, (120000h-16)");
         codes.push("mov esi, (120000h-20)");
-        codes.push(["", "db 0f2h", "db 0f3h"]);
     }
 
     if(size === 16)
@@ -280,7 +279,7 @@ function create_nasm(op, config)
         if(opcode >= 0x100)
         {
             let c = opcode >> 8;
-            console.assert(c === 0x0F, "Expected 0f prefix, got " + c.toString(16));
+            console.assert(c === 0x0F || c === 0xF2 || c === 0xF3, "Expected 0F, F2, or F3 prefix, got " + c.toString(16));
             codes.push("db " + c);
             opcode &= ~0xFF00;
         }

@@ -75,45 +75,22 @@ function gen_call(name, args)
     return `${name}(${args.join(", ")});`;
 }
 
-function gen_codegen_call(name, args)
-{
-    const IMM_VAR_NAME = "imm";
-    let imm_read;
-
-    args = (args || []).map(arg => {
-        if(arg.includes("read_imm"))
-        {
-            imm_read = arg;
-            return IMM_VAR_NAME;
-        }
-        else
-        {
-            return arg;
-        }
-    });
-    const args_count = args.length;
-
-    args = [].concat(["ctx", `"${name}"`], args);
-    return [].concat(
-        imm_read ? `let ${IMM_VAR_NAME} = ${imm_read};` : [],
-        gen_call(`::codegen::gen_fn${args_count}_const`, args)
-    );
-}
-
 /*
  * Current naming scheme:
- * instr(16|32|)_((66|F2|F3)?0F)?[0-9a-f]{2}(_[0-7])?(_mem|_reg|)
+ * instr(16|32|)_(66|F2|F3)?0F?[0-9a-f]{2}(_[0-7])?(_mem|_reg|)
  */
-
 function make_instruction_name(encoding, size)
 {
     const suffix = encoding.os ? String(size) : "";
     const opcode_hex = hex(encoding.opcode & 0xFF, 2);
-    const prefix_0f = (encoding.opcode & 0xFF00) === 0x0F00 ? "0F" : "";
-    const prefix = (encoding.opcode & 0xFF0000) === 0 ? "" : hex(encoding.opcode >> 16 & 0xFF, 2);
+    const first_prefix = (encoding.opcode & 0xFF00) === 0 ? "" : hex(encoding.opcode >> 8 & 0xFF, 2);
+    const second_prefix = (encoding.opcode & 0xFF0000) === 0 ? "" : hex(encoding.opcode >> 16 & 0xFF, 2);
     const fixed_g_suffix = encoding.fixed_g === undefined ? "" : `_${encoding.fixed_g}`;
 
-    return `instr${suffix}_${prefix}${prefix_0f}${opcode_hex}${fixed_g_suffix}`;
+    console.assert(first_prefix === "" || first_prefix === "0F" || first_prefix === "F2" || first_prefix === "F3");
+    console.assert(second_prefix === "" || second_prefix === "66" || second_prefix === "F2" || second_prefix === "F3");
+
+    return `instr${suffix}_${second_prefix}${first_prefix}${opcode_hex}${fixed_g_suffix}`;
 }
 
 function gen_instruction_body(encodings, size)
@@ -128,12 +105,17 @@ function gen_instruction_body(encodings, size)
     for(let e of encodings)
     {
         if((e.opcode >>> 16) === 0x66) has_66.push(e);
-        else if((e.opcode >>> 16) === 0xF2) has_F2.push(e);
-        else if((e.opcode >>> 16) === 0xF3) has_F3.push(e);
+        else if((e.opcode >>> 8 & 0xFF) === 0xF2 || (e.opcode >>> 16) === 0xF2) has_F2.push(e);
+        else if((e.opcode >>> 8 & 0xFF) === 0xF3 || (e.opcode >>> 16) === 0xF3) has_F3.push(e);
         else no_prefix.push(e);
     }
 
-    if(has_66.length || has_F2.length || has_F3.length)
+    if(has_F2.length || has_F3.length)
+    {
+        console.assert((encoding.opcode & 0xFF0000) === 0 || (encoding.opcode & 0xFF00) === 0x0F00);
+    }
+
+    if(has_66.length)
     {
         console.assert((encoding.opcode & 0xFF00) === 0x0F00);
     }
@@ -424,17 +406,15 @@ function gen_table()
     {
         let opcode = o.opcode;
 
-        if(opcode >= 0x100)
+        if((opcode & 0xFF00) === 0x0F00)
         {
-            if((opcode & 0xFF00) === 0x0F00)
-            {
-                opcode &= 0xFF;
-                by_opcode0f[opcode] = by_opcode0f[opcode] || [];
-                by_opcode0f[opcode].push(o);
-            }
+            opcode &= 0xFF;
+            by_opcode0f[opcode] = by_opcode0f[opcode] || [];
+            by_opcode0f[opcode].push(o);
         }
         else
         {
+            opcode &= 0xFF;
             by_opcode[opcode] = by_opcode[opcode] || [];
             by_opcode[opcode].push(o);
         }
