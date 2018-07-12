@@ -688,7 +688,7 @@ const tests =
 
             // Create files.
             // Ensure directory inode data exceeds maximum message size for 9p.
-            emulator.serial0_send("for f in $(seq 0 999)\n");
+            emulator.serial0_send("for f in $(seq -w 0 999)\n");
             emulator.serial0_send("do\n");
             emulator.serial0_send('    echo "$f" > "/mnt/stress-files/file-$f"\n');
             emulator.serial0_send("done\n");
@@ -696,10 +696,13 @@ const tests =
             emulator.serial0_send("echo start-capture\n");
 
             // Read some of them.
-            emulator.serial0_send("for f in $(seq 0 31 999)\n");
+            emulator.serial0_send("for f in $(seq -w 0 31 999)\n");
             emulator.serial0_send("do\n");
             emulator.serial0_send('    cat "/mnt/stress-files/file-$f"\n');
             emulator.serial0_send("done\n");
+
+            // Walk.
+            emulator.serial0_send("find /mnt/stress-files | sort\n");
 
             // Delete and verify.
             // Using glob checks readdir.
@@ -716,7 +719,12 @@ const tests =
             let expected = "";
             for(let i = 0; i < 1000; i += 31)
             {
-                expected += i;
+                expected += i.toString().padStart(3, "0");
+            }
+            expected += "/mnt/stress-files";
+            for(let i = 0; i < 1000; i ++)
+            {
+                expected += "/mnt/stress-files/file-" + i.toString().padStart(3, "0");
             }
             expected += "delete-success";
             assert_equal(capture, expected);
