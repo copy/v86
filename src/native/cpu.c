@@ -130,118 +130,128 @@ void trigger_pagefault(bool write, bool user, bool present)
 
 int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
 {
-    assert(*paging);
-
-    int32_t page = (uint32_t)addr >> 12;
-    int32_t page_dir_addr = ((uint32_t)cr[3] >> 2) + (page >> 10);
-    int32_t page_dir_entry = read_aligned32(page_dir_addr);
-    int32_t high;
     bool can_write = true;
     bool global;
     bool allow_user = true;
 
-    const bool kernel_write_override = !user && !(cr[0] & CR0_WP);
+    int32_t page = (uint32_t)addr >> 12;
+    int32_t high;
 
-    if(!(page_dir_entry & PAGE_TABLE_PRESENT_MASK))
+    if(!*paging)
     {
-        // to do at this place:
-        //
-        // - set cr2 = addr (which caused the page fault)
-        // - call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)
-        // - prevent execution of the function that triggered this call
-        //dbg_log("#PF not present", LOG_CPU);
-
-        cr[2] = addr;
-        trigger_pagefault(for_writing, user, 0);
-
-        // never reached as trigger_pagefault throws
-        dbg_assert(false);
-    }
-
-    if((page_dir_entry & PAGE_TABLE_RW_MASK) == 0 && !kernel_write_override)
-    {
-        can_write = false;
-
-        if(for_writing)
-        {
-            cr[2] = addr;
-            trigger_pagefault(for_writing, user, 1);
-            dbg_assert(false);
-        }
-    }
-
-    if((page_dir_entry & PAGE_TABLE_USER_MASK) == 0)
-    {
-        allow_user = false;
-
-        if(user)
-        {
-            // "Page Fault: page table accessed by non-supervisor";
-            //dbg_log("#PF supervisor", LOG_CPU);
-            cr[2] = addr;
-            trigger_pagefault(for_writing, user, 1);
-            dbg_assert(false);
-        }
-    }
-
-    if(page_dir_entry & *page_size_extensions)
-    {
-        // size bit is set
-
-        // set the accessed and dirty bits
-        write_aligned32(page_dir_addr, page_dir_entry | PAGE_TABLE_ACCESSED_MASK |
-            (for_writing ? PAGE_TABLE_DIRTY_MASK : 0));
-
-        high = (page_dir_entry & 0xFFC00000) | (addr & 0x3FF000);
-        global = (page_dir_entry & PAGE_TABLE_GLOBAL_MASK) == PAGE_TABLE_GLOBAL_MASK;
+        // paging disabled
+        high = addr & 0xFFFFF000;
+        global = false;
     }
     else
     {
-        int32_t page_table_addr = ((uint32_t)(page_dir_entry & 0xFFFFF000) >> 2) + (page & 0x3FF);
-        int32_t page_table_entry = read_aligned32(page_table_addr);
+        int32_t page_dir_addr = ((uint32_t)cr[3] >> 2) + (page >> 10);
+        int32_t page_dir_entry = read_aligned32(page_dir_addr);
 
-        if((page_table_entry & PAGE_TABLE_PRESENT_MASK) == 0)
+        // XXX
+        const bool kernel_write_override = !user && !(cr[0] & CR0_WP);
+
+        if(!(page_dir_entry & PAGE_TABLE_PRESENT_MASK))
         {
-            //dbg_log("#PF not present table", LOG_CPU);
+            // to do at this place:
+            //
+            // - set cr2 = addr (which caused the page fault)
+            // - call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)
+            // - prevent execution of the function that triggered this call
+            //dbg_log("#PF not present", LOG_CPU);
+
             cr[2] = addr;
             trigger_pagefault(for_writing, user, 0);
+
+            // never reached as trigger_pagefault throws
             dbg_assert(false);
         }
 
-        if((page_table_entry & PAGE_TABLE_RW_MASK) == 0 && !kernel_write_override)
+        if((page_dir_entry & PAGE_TABLE_RW_MASK) == 0 && !kernel_write_override)
         {
             can_write = false;
 
             if(for_writing)
             {
-                //dbg_log("#PF not writable page", LOG_CPU);
                 cr[2] = addr;
                 trigger_pagefault(for_writing, user, 1);
                 dbg_assert(false);
             }
         }
 
-        if((page_table_entry & PAGE_TABLE_USER_MASK) == 0)
+        if((page_dir_entry & PAGE_TABLE_USER_MASK) == 0)
         {
             allow_user = false;
 
             if(user)
             {
-                //dbg_log("#PF not supervisor page", LOG_CPU);
+                // "Page Fault: page table accessed by non-supervisor";
+                //dbg_log("#PF supervisor", LOG_CPU);
                 cr[2] = addr;
                 trigger_pagefault(for_writing, user, 1);
                 dbg_assert(false);
             }
         }
 
-        // set the accessed and dirty bits
-        write_aligned32(page_dir_addr, page_dir_entry | PAGE_TABLE_ACCESSED_MASK);
-        write_aligned32(page_table_addr,
-                page_table_entry | PAGE_TABLE_ACCESSED_MASK |
+        if(page_dir_entry & *page_size_extensions)
+        {
+            // size bit is set
+
+            // set the accessed and dirty bits
+            write_aligned32(page_dir_addr, page_dir_entry | PAGE_TABLE_ACCESSED_MASK |
                 (for_writing ? PAGE_TABLE_DIRTY_MASK : 0));
 
-        high = page_table_entry & 0xFFFFF000;
-        global = (page_table_entry & PAGE_TABLE_GLOBAL_MASK) == PAGE_TABLE_GLOBAL_MASK;
+            high = (page_dir_entry & 0xFFC00000) | (addr & 0x3FF000);
+            global = (page_dir_entry & PAGE_TABLE_GLOBAL_MASK) == PAGE_TABLE_GLOBAL_MASK;
+        }
+        else
+        {
+            int32_t page_table_addr = ((uint32_t)(page_dir_entry & 0xFFFFF000) >> 2) + (page & 0x3FF);
+            int32_t page_table_entry = read_aligned32(page_table_addr);
+
+            if((page_table_entry & PAGE_TABLE_PRESENT_MASK) == 0)
+            {
+                //dbg_log("#PF not present table", LOG_CPU);
+                cr[2] = addr;
+                trigger_pagefault(for_writing, user, 0);
+                dbg_assert(false);
+            }
+
+            if((page_table_entry & PAGE_TABLE_RW_MASK) == 0 && !kernel_write_override)
+            {
+                can_write = false;
+
+                if(for_writing)
+                {
+                    //dbg_log("#PF not writable page", LOG_CPU);
+                    cr[2] = addr;
+                    trigger_pagefault(for_writing, user, 1);
+                    dbg_assert(false);
+                }
+            }
+
+            if((page_table_entry & PAGE_TABLE_USER_MASK) == 0)
+            {
+                allow_user = false;
+
+                if(user)
+                {
+                    //dbg_log("#PF not supervisor page", LOG_CPU);
+                    cr[2] = addr;
+                    trigger_pagefault(for_writing, user, 1);
+                    dbg_assert(false);
+                }
+            }
+
+            // set the accessed and dirty bits
+            write_aligned32(page_dir_addr, page_dir_entry | PAGE_TABLE_ACCESSED_MASK);
+            write_aligned32(page_table_addr,
+                    page_table_entry | PAGE_TABLE_ACCESSED_MASK |
+                    (for_writing ? PAGE_TABLE_DIRTY_MASK : 0));
+
+            high = page_table_entry & 0xFFFFF000;
+            global = (page_table_entry & PAGE_TABLE_GLOBAL_MASK) == PAGE_TABLE_GLOBAL_MASK;
+        }
     }
 
     if(tlb_data[page] == 0)
@@ -393,8 +403,6 @@ void writable_or_pagefault(int32_t addr, int32_t size)
 
 uint32_t translate_address_read(int32_t address)
 {
-    if(!*paging) return address;
-
     int32_t base = (uint32_t)address >> 12;
     int32_t entry = tlb_data[base];
     bool user = cpl[0] == 3;
@@ -410,8 +418,6 @@ uint32_t translate_address_read(int32_t address)
 
 uint32_t translate_address_write(int32_t address)
 {
-    if(!*paging) return address;
-
     int32_t base = (uint32_t)address >> 12;
     int32_t entry = tlb_data[base];
     bool user = cpl[0] == 3;
@@ -427,8 +433,6 @@ uint32_t translate_address_write(int32_t address)
 
 uint32_t translate_address_system_read(int32_t address)
 {
-    if(!*paging) return address;
-
     int32_t base = (uint32_t)address >> 12;
     int32_t entry = tlb_data[base];
     if(entry & TLB_VALID)
@@ -443,8 +447,6 @@ uint32_t translate_address_system_read(int32_t address)
 
 uint32_t translate_address_system_write(int32_t address)
 {
-    if(!*paging) return address;
-
     int32_t base = (uint32_t)address >> 12;
     int32_t entry = tlb_data[base];
     if((entry & (TLB_VALID | TLB_READONLY)) == TLB_VALID)
@@ -942,8 +944,6 @@ int32_t safe_read32s(int32_t address)
     int32_t entry = tlb_data[base];
     int32_t info_bits = entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~TLB_HAS_CODE;
 
-    // XXX: Paging check
-
     if(info_bits == TLB_VALID && (address & 0xFFF) <= (0x1000 - 4))
     {
 #if ENABLE_PROFILER_SAFE_READ_WRITE
@@ -1060,8 +1060,6 @@ void safe_write32(int32_t address, int32_t value)
     int32_t base = (uint32_t)address >> 12;
     int32_t entry = tlb_data[base];
     int32_t info_bits = entry & 0xFFF & ~TLB_GLOBAL;
-
-    // XXX: Paging check
 
     if(info_bits == TLB_VALID && (address & 0xFFF) <= (0x1000 - 4))
     {
