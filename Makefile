@@ -319,7 +319,7 @@ node_modules/.bin/jshint:
 	npm install
 
 jshint: node_modules/.bin/jshint
-	./node_modules/.bin/jshint --config=./.jshint.json src tests gen
+	./node_modules/.bin/jshint --config=./.jshint.json src tests gen lib --exclude lib/closure-base.js
 
 rustfmt: $(RUST_FILES)
 	cargo +nightly fmt --all -- --check
