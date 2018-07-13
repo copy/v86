@@ -14,8 +14,6 @@
     (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32)
     (set_local $l0
       (get_local $p0))
-    (set_local $l1
-      (i32.const 10000))
     (loop $L0
       (block $B1
         (block $B2

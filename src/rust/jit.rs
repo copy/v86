@@ -881,12 +881,13 @@ fn jit_generate_module(
     wasm_util::set_local(&mut builder.instruction_body, GEN_LOCAL_STATE);
 
     // initialise max_iterations
-    // TODO: Remove if not requires_loop_limit
-    wasm_util::push_i32(
-        &mut builder.instruction_body,
-        JIT_MAX_ITERATIONS_PER_FUNCTION as i32,
-    );
-    wasm_util::set_local(&mut builder.instruction_body, GEN_LOCAL_ITERATION_COUNTER);
+    if JIT_ALWAYS_USE_LOOP_SAFETY || requires_loop_limit {
+        wasm_util::push_i32(
+            &mut builder.instruction_body,
+            JIT_MAX_ITERATIONS_PER_FUNCTION as i32,
+        );
+        wasm_util::set_local(&mut builder.instruction_body, GEN_LOCAL_ITERATION_COUNTER);
+    }
 
     // main state machine loop
     wasm_util::loop_void(&mut builder.instruction_body);
