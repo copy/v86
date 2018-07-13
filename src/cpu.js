@@ -1755,9 +1755,12 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, ha
         }
         else
         {
-            if(!this.page_fault[0]) // XXX
+            if((this.flags[0] & flag_interrupt) && !(old_flags & flag_interrupt))
             {
-                this.handle_irqs();
+                if(!this.page_fault[0]) // XXX
+                {
+                    this.handle_irqs();
+                }
             }
         }
     }
