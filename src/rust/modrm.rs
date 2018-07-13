@@ -16,7 +16,7 @@ pub fn skip(ctx: &mut CpuContext, modrm_byte: u8) {
 }
 
 fn skip16(ctx: &mut CpuContext, modrm_byte: u8) {
-    assert!(modrm_byte < 0xC0);
+    dbg_assert!(modrm_byte < 0xC0);
     let r = modrm_byte & 7;
 
     if modrm_byte < 0x40 {
@@ -33,7 +33,7 @@ fn skip16(ctx: &mut CpuContext, modrm_byte: u8) {
 }
 
 fn skip32(ctx: &mut CpuContext, modrm_byte: u8) {
-    assert!(modrm_byte < 0xC0);
+    dbg_assert!(modrm_byte < 0xC0);
     let r = modrm_byte & 7;
 
     if r == 4 {

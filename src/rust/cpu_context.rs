@@ -12,15 +12,15 @@ pub struct CpuContext {
 
 impl CpuContext {
     pub fn advance8(&mut self) {
-        assert!(self.eip & 0xFFF < 0xFFF);
+        dbg_assert!(self.eip & 0xFFF < 0xFFF);
         self.eip += 1;
     }
     pub fn advance16(&mut self) {
-        assert!(self.eip & 0xFFF < 0xFFE);
+        dbg_assert!(self.eip & 0xFFF < 0xFFE);
         self.eip += 2;
     }
     pub fn advance32(&mut self) {
-        assert!(self.eip & 0xFFF < 0xFFC);
+        dbg_assert!(self.eip & 0xFFF < 0xFFC);
         self.eip += 4;
     }
     #[allow(unused)]
@@ -34,21 +34,21 @@ impl CpuContext {
     }
 
     pub fn read_imm8(&mut self) -> u8 {
-        assert!(self.eip & 0xFFF < 0xFFF);
+        dbg_assert!(self.eip & 0xFFF < 0xFFF);
         let v = cpu::read8(self.eip);
         self.eip += 1;
         v
     }
     pub fn read_imm8s(&mut self) -> i8 { self.read_imm8() as i8 }
     pub fn read_imm16(&mut self) -> u16 {
-        assert!(self.eip & 0xFFF < 0xFFE);
+        dbg_assert!(self.eip & 0xFFF < 0xFFE);
         let v = cpu::read16(self.eip);
         self.eip += 2;
         v
     }
     pub fn read_imm16s(&mut self) -> i16 { self.read_imm16() as i16 }
     pub fn read_imm32(&mut self) -> u32 {
-        assert!(self.eip & 0xFFF < 0xFFC);
+        dbg_assert!(self.eip & 0xFFF < 0xFFC);
         let v = cpu::read32(self.eip);
         self.eip += 4;
         v

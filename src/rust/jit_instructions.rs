@@ -33,7 +33,7 @@ pub fn jit_handle_prefix(ctx: &mut JitContext, instr_flags: &mut u32) {
 }
 
 pub fn jit_handle_segment_prefix(segment: u32, ctx: &mut JitContext, instr_flags: &mut u32) {
-    assert!(segment <= 5);
+    dbg_assert!(segment <= 5);
     ctx.cpu.prefixes |= segment + 1;
     // TODO: Could merge multiple prefix updates into one
     codegen::gen_add_prefix_bits(ctx, segment + 1);

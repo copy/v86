@@ -416,7 +416,7 @@ pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) ->
             }
 
             if is_near_end_of_page(phys_address) {
-                assert!(entry.start_addr != phys_address);
+                dbg_assert!(entry.start_addr != phys_address);
                 profiler::stat_increment(stat::S_RUN_INTERPRETED_NEAR_END_OF_PAGE);
             }
         }
@@ -424,7 +424,7 @@ pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) ->
         if !entry.pending && entry.start_addr == phys_address && entry.state_flags == state_flags {
             #[cfg(debug_assertions)]
             {
-                assert!(cpu::read32(entry.start_addr) == entry.opcode)
+                dbg_assert!(cpu::read32(entry.start_addr) == entry.opcode)
             }
             return cached_code {
                 wasm_table_index: entry.wasm_table_index,
@@ -817,7 +817,7 @@ pub fn codegen_finalize_finished(
     _first_opcode: u32,
     _state_flags: CachedStateFlags,
 ) {
-    assert!(wasm_table_index != 0);
+    dbg_assert!(wasm_table_index != 0);
 
     match ctx
         .wasm_table_index_pending_free
@@ -852,7 +852,7 @@ pub fn codegen_finalize_finished(
 
         for entry in jit_cache_array::iter() {
             if entry.wasm_table_index == wasm_table_index {
-                assert!(!entry.pending);
+                dbg_assert!(!entry.pending);
             }
         }
     }
@@ -1241,7 +1241,7 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
             let entry = jit_cache_array::get_mut(cache_array_index);
             let wasm_table_index = entry.wasm_table_index;
 
-            assert!(page == Page::page_of(entry.start_addr));
+            dbg_assert!(page == Page::page_of(entry.start_addr));
 
             let next_cache_array_index = entry.next_index_same_page();
 
@@ -1291,7 +1291,7 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
 }
 
 pub fn jit_dirty_cache(ctx: &mut JitState, start_addr: u32, end_addr: u32) {
-    assert!(start_addr < end_addr);
+    dbg_assert!(start_addr < end_addr);
 
     let start_page = Page::page_of(start_addr);
     let end_page = Page::page_of(end_addr - 1);
@@ -1302,7 +1302,7 @@ pub fn jit_dirty_cache(ctx: &mut JitState, start_addr: u32, end_addr: u32) {
 }
 
 pub fn jit_dirty_cache_small(ctx: &mut JitState, start_addr: u32, end_addr: u32) {
-    assert!(start_addr < end_addr);
+    dbg_assert!(start_addr < end_addr);
 
     let start_page = Page::page_of(start_addr);
     let end_page = Page::page_of(end_addr - 1);
@@ -1312,7 +1312,7 @@ pub fn jit_dirty_cache_small(ctx: &mut JitState, start_addr: u32, end_addr: u32)
     // Note: This can't happen when paging is enabled, as writes across
     //       boundaries are split up on two pages
     if start_page != end_page {
-        assert!(start_page.to_u32() + 1 == end_page.to_u32());
+        dbg_assert!(start_page.to_u32() + 1 == end_page.to_u32());
         jit_dirty_page(ctx, end_page);
     }
 }

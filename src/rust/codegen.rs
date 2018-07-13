@@ -265,8 +265,8 @@ pub fn gen_safe_write32(ctx: &mut JitContext, local_for_address: u32, local_for_
 
     // Since this function clobbers other variables, we confirm that the caller uses the local
     // variables we expect them to
-    assert!(local_for_address == GEN_LOCAL_SCRATCH0);
-    assert!(local_for_value == GEN_LOCAL_SCRATCH1);
+    dbg_assert!(local_for_address == GEN_LOCAL_SCRATCH0);
+    dbg_assert!(local_for_value == GEN_LOCAL_SCRATCH1);
 
     let builder = &mut ctx.builder;
     //let instruction_body = &mut ctx.builder.instruction_body;
@@ -369,7 +369,7 @@ pub fn gen_clear_prefixes(ctx: &mut JitContext) {
 }
 
 pub fn gen_add_prefix_bits(ctx: &mut JitContext, mask: u32) {
-    assert!(mask < 0x100);
+    dbg_assert!(mask < 0x100);
 
     let instruction_body = &mut ctx.builder.instruction_body;
     wasm_util::push_i32(instruction_body, global_pointers::PREFIXES as i32); // load address of prefixes

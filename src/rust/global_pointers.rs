@@ -9,10 +9,10 @@ pub const TLB_DATA: u32 = 0x400000;
 pub const MEMORY: u32 = 0x800000;
 
 pub fn get_reg16_offset(r: u32) -> u32 {
-    assert!(r < 8);
+    dbg_assert!(r < 8);
     REG + 4 * r
 }
 pub fn get_reg32_offset(r: u32) -> u32 {
-    assert!(r < 8);
+    dbg_assert!(r < 8);
     REG + 4 * r
 }
