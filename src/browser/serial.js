@@ -13,6 +13,8 @@ function SerialAdapter(element, bus)
     this.bus = bus;
     this.text = "";
     this.text_new_line = false;
+    this.control_mode = false;
+    this.control_buffer = "";
 
     this.last_update = 0;
 
@@ -42,28 +44,60 @@ function SerialAdapter(element, bus)
     };
     this.init();
 
-
     this.show_char = function(chr)
     {
-        if(chr === "\x08")
+        if(this.control_mode === false)
         {
-            this.text = this.text.slice(0, -1);
-            this.update();
-        }
-        else if(chr === "\r")
-        {
-            // do nothing
+            if(chr === "\x08")
+            {
+                this.text = this.text.slice(0, -1);
+                this.update();
+            }
+            else if(chr === "\x1b")
+            {
+               this.control_mode = true;
+               this.control_buffer = "";
+            }
+            else if(chr === "\r")
+            {
+                // do nothing
+            }
+            else
+            {
+               this.text += chr;
+
+               if(chr === "\n")
+               {
+                  this.text_new_line = true;
+               }
+
+               this.update();
+            }
         }
         else
         {
-            this.text += chr;
-
-            if(chr === "\n")
+            this.control_buffer += chr;
+            var cmds = {
+                bksp: /^\[[0-2]?J$/,
+                clr: /^\[[0-9;]{0,5}H\x1b\[[0-2]?J$/,
+                invalid: /[hl=>0-2M-OmrA-Efg3-8KnRc8qy]/
+            };
+            if(cmds.bksp.test(this.control_buffer))
             {
-                this.text_new_line = true;
+                //just ignore it, backspace handled above
+                this.control_mode = false;
             }
-
-            this.update();
+            else if(cmds.clr.test(this.control_buffer))
+            {
+                this.text = "";
+                this.control_mode = false;
+                this.update();
+            }
+            else if(cmds.invalid.test(this.control_buffer.substr(this.control_buffer.length - 1)))
+            {
+                this.text = this.text + "^" + this.control_buffer;
+                this.control_mode = false;
+            }
         }
     };
 
