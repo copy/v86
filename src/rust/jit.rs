@@ -705,6 +705,7 @@ pub fn jit_force_generate_unsafe(
     jit_analyze_and_generate(ctx, Page::page_of(phys_addr), cs_offset, state_flags);
 }
 
+#[inline(never)]
 fn jit_analyze_and_generate(
     ctx: &mut JitState,
     page: Page,
