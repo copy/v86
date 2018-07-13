@@ -20,6 +20,7 @@ const BUILD_DIR = path.join(TEST_DIR, "build");
 
 const GDB_DEFAULT_ARGS = [
     "-batch",
+    "--eval-command=set disable-randomization off", // allow execution on docker
     `--command=${TEST_DIR}gdb-extract-def`,
     // Set a breakpoint "in the future", which all the test binaries can then share
     "--eval-command=set breakpoint pending on",
