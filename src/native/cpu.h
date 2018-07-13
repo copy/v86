@@ -37,7 +37,7 @@ typedef uint8_t cached_state_flags;
 
 // Flag indicating whether the instruction that just ran was at a block's boundary (jump,
 // state-altering, etc.)
-extern uint32_t jit_block_boundary;
+extern bool jit_block_boundary;
 
 #define VALID_TLB_ENTRY_MAX 10000
 int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX];

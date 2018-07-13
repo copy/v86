@@ -23,7 +23,7 @@ bool must_not_fault = false;
 
 uint64_t tsc_offset = 0;
 
-uint32_t jit_block_boundary = 0;
+bool jit_block_boundary = false;
 
 int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX] = {0};
 int32_t valid_tlb_entries_count = 0;
