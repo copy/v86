@@ -257,7 +257,7 @@ CPU.prototype.debug_init = function()
             }
         }
 
-        return ("mode=" + mode + "/" + op_size + " paging=" + (+cpu.paging[0]) +
+        return ("mode=" + mode + "/" + op_size + " paging=" + (+((cpu.cr[0] & CR0_PG) !== 0)) +
                 " iopl=" + iopl + " cpl=" + cpl + " if=" + if_ + " cs:eip=" + cs_eip +
                 " cs_off=" + h(cpu.get_seg(reg_cs) >>> 0, 8) +
                 " flgs=" + h(cpu.get_eflags() >>> 0, 6) + " (" + flag_string + ")" +

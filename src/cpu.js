@@ -124,9 +124,6 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     /** @type {!Object} */
     this.devices = {};
 
-    // paging enabled
-    this.paging = new Uint8Array(wm.memory.buffer, 820, 1);
-
     this.instruction_pointer = new Int32Array(wm.memory.buffer, 556, 1);
 
     this.previous_ip = new Int32Array(wm.memory.buffer, 560, 1);
@@ -360,7 +357,6 @@ CPU.prototype.get_state = function()
     state[30] = this.last_op_size[0];
     state[31] = this.last_add_result[0];
 
-    state[36] = this.paging[0];
     state[37] = this.instruction_pointer[0];
     state[38] = this.previous_ip[0];
     state[39] = this.reg32s;
@@ -447,7 +443,6 @@ CPU.prototype.set_state = function(state)
     this.last_op_size[0] = state[30];
     this.last_add_result[0] = state[31];
 
-    this.paging[0] = state[36];
     this.instruction_pointer[0] = state[37];
     this.previous_ip[0] = state[38];
     this.reg32s.set(state[39]);
@@ -603,7 +598,7 @@ CPU.prototype.reset = function()
     this.dreg[6] = 0xFFFF0FF0|0;
     this.dreg[7] = 0x400;
     this.cpl[0] = 0;
-    this.paging[0] = 0;
+
     this.is_32[0] = +false;
     this.stack_size_32[0] = +false;
     this.prefixes[0] = 0;
@@ -1443,7 +1438,6 @@ CPU.prototype.set_cr0 = function(cr0)
 
     if((old_cr0 & (CR0_PG | CR0_WP)) !== (cr0 & (CR0_PG | CR0_WP)))
     {
-        this.paging[0] = +((this.cr[0] & CR0_PG) === CR0_PG);
         this.full_clear_tlb();
     }
 
@@ -1509,7 +1503,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, ha
         var addr = this.idtr_offset[0] + (interrupt_nr << 3) | 0;
         dbg_assert((addr & 0xFFF) < 0xFF8);
 
-        if(this.paging[0])
+        if(this.cr[0] & CR0_PG)
         {
             addr = this.translate_address_system_read(addr);
         }
@@ -2585,7 +2579,7 @@ CPU.prototype.get_tss_stack_addr = function(dpl)
         dbg_assert((tss_stack_addr & 0xFFF) <= 0x1000 - 4);
     }
 
-    if(this.paging[0])
+    if(this.cr[0] & CR0_PG)
     {
         tss_stack_addr = this.translate_address_system_read(tss_stack_addr);
     }
@@ -3196,7 +3190,7 @@ CPU.prototype.lookup_segment_selector = function(selector)
 
     table_offset = table_offset + selector_offset | 0;
 
-    if(this.paging[0])
+    if(this.cr[0] & CR0_PG)
     {
         table_offset = this.translate_address_system_read(table_offset);
     }

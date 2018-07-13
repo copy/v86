@@ -137,7 +137,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
     int32_t page = (uint32_t)addr >> 12;
     int32_t high;
 
-    if(!*paging)
+    if((cr[0] & CR0_PG) == 0)
     {
         // paging disabled
         high = addr & 0xFFFFF000;
@@ -376,7 +376,7 @@ void writable_or_pagefault(int32_t addr, int32_t size)
     dbg_assert(size < 0x1000);
     dbg_assert(size > 0);
 
-    if(!*paging)
+    if((cr[0] & CR0_PG) == 0)
     {
         return;
     }

@@ -61,7 +61,7 @@ static bool* const stack_size_32 = (bool* const) 808;
 static uint32_t* const memory_size = (uint32_t* const) 812;
 static int32_t* const fpu_stack_empty = (int32_t* const) 816;
 
-static bool* const paging = (bool* const) 820;
+// gap
 
 static int32_t* const mxcsr = (int32_t* const) 824;
 
