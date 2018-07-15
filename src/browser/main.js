@@ -9,10 +9,10 @@
     var HOST = ON_LOCALHOST ? "" : "//i.copy.sh/";
 
     /** @const */
-    var OTHER_HOST = ON_LOCALHOST ? "" : "//j.copy.sh:8880/";
+    var ON_HTTPS = location.protocol === "https:";
 
     /** @const */
-    var ON_HTTPS = location.protocol === "https:";
+    var OTHER_HOST = ON_LOCALHOST ? "" : ON_HTTPS ? "//j.copy.sh:8443/" : "//j.copy.sh:8880/";
 
     /**
      * @return {Object.<string, string>}
