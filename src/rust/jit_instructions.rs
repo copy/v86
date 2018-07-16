@@ -401,3 +401,9 @@ pub fn instr32_0F8C_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr32_0F8D_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr32_0F8E_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr32_0F8F_jit(_ctx: &mut JitContext, _imm: u32) {}
+
+pub fn instr_90_jit(_ctx: &mut JitContext) {}
+pub fn instr_0F1F_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+}
+pub fn instr_0F1F_reg_jit(_ctx: &mut JitContext, _r1: u32, _r2: u32) {}

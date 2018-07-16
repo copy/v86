@@ -111,7 +111,7 @@ const encodings = [
     { opcode: 0x8E, block_boundary: 1, e: 1, skip: 1, }, // mov sreg
     { opcode: 0x8F, os: 1, e: 1, fixed_g: 0, requires_prefix_call: 1, custom: 1, }, // pop r/m
 
-    { opcode: 0x90, nonfaulting: 1, },
+    { opcode: 0x90, custom: 1, nonfaulting: 1, },
     { opcode: 0x91, nonfaulting: 1, os: 1, },
     { opcode: 0x92, nonfaulting: 1, os: 1, },
     { opcode: 0x93, nonfaulting: 1, os: 1, },
@@ -305,7 +305,7 @@ const encodings = [
     { opcode: 0x0F1C, skip: 1 },
     { opcode: 0x0F1D, skip: 1 },
     { opcode: 0x0F1E, skip: 1 },
-    { opcode: 0x0F1F, e: 1, },
+    { opcode: 0x0F1F, custom: 1, e: 1, },
 
     { opcode: 0x0F20, ignore_mod: 1, e: 1, skip: 1 },
     { opcode: 0x0F21, ignore_mod: 1, e: 1, skip: 1 },
