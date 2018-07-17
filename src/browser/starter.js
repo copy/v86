@@ -1149,11 +1149,12 @@ V86Starter.prototype.read_file = function(file, callback)
             id,
             function()
             {
-                var data = fs.inodedata[id];
+                const size = fs.GetInode(id).size;
+                const data = fs.Read(id, 0, size);
 
                 if(data)
                 {
-                    callback(null, data.subarray(0, fs.inodes[id].size));
+                    callback(null, data);
                 }
                 else
                 {
