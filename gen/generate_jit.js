@@ -263,23 +263,25 @@ function gen_instruction_body_after_fixed_g(encoding, size)
 
             if(imm_read)
             {
-                mem_args.push("imm");
                 reg_args.push("imm");
             }
 
             return [].concat(
-                imm_read_bindings,
                 {
                     type: "if-else",
                     if_blocks: [{
                         condition: "modrm_byte < 0xC0",
                         body: [].concat(
+                            // Note: Custom function is responsible for calling
+                            //       the proper read_imm function after calling
+                            //       gen_modrm_resolve
                             gen_call(`::jit_instructions::${instruction_name}_mem_jit`, mem_args),
                             mem_postfix
                         ),
                     }],
                     else_block: {
                         body: [].concat(
+                            imm_read_bindings,
                             gen_call(`::jit_instructions::${instruction_name}_reg_jit`, reg_args),
                             reg_postfix
                         ),

@@ -181,7 +181,7 @@ const encodings = [
     { opcode: 0xC5, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lds
 
     { opcode: 0xC6, e: 1, fixed_g: 0, nonfaulting: 1, imm8: 1, },
-    { opcode: 0xC7, os: 1, e: 1, fixed_g: 0, nonfaulting: 1, imm1632: 1, },
+    { opcode: 0xC7, custom: 1, os: 1, e: 1, fixed_g: 0, nonfaulting: 1, imm1632: 1, },
 
     { opcode: 0xC8, os: 1, imm16: 1, extra_imm8: 1, }, // enter
     { opcode: 0xC9, os: 1, skip: 1, }, // leave: requires valid ebp
