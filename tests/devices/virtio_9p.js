@@ -33,6 +33,16 @@ function assert_equal(actual, expected)
     }
 }
 
+function assert_not_equal(actual, expected)
+{
+    if(actual === expected)
+    {
+        log_warn("Failed assert not equal (Test: %s)", tests[test_num].name);
+        log_warn("Expected something different than:\n" + expected);
+        test_fail();
+    }
+}
+
 // Random printable characters.
 const test_file = new Uint8Array(512).map(v => 0x20 + Math.random() * 0x5e);
 const test_file_string = Buffer.from(test_file).toString();
@@ -155,6 +165,26 @@ const tests =
                 assert_equal(line, test_file_string.slice(pos, line.length));
                 pos += line.length;
             }
+            done();
+        },
+    },
+    {
+        name: "New file time",
+        timeout: 10,
+        start: () =>
+        {
+            emulator.serial0_send("echo start-capture; echo foo > /mnt/bar; ls  -l --full-time --color=never /mnt/bar; echo; echo done-write-new\n");
+        },
+        capture_trigger: "start-capture",
+        end_trigger: "done-write-new",
+        end: (capture, done)  =>
+        {
+            const outputs = capture.split("\n").map(output => output.split(/\s+/));
+
+            // atime: Should be fresh
+            const [year, month, day] = outputs[0][5].split("-");
+            assert_not_equal(year, "1970");
+
             done();
         },
     },
