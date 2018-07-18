@@ -53,7 +53,7 @@ const tests =
 [
     {
         name: "Read Existing",
-        timeout: 10,
+        timeout: 60,
         start: () =>
         {
             emulator.serial0_send("cp /etc/profile /mnt/read-existing\n");
@@ -79,7 +79,7 @@ const tests =
     },
     {
         name: "Read New",
-        timeout: 10,
+        timeout: 60,
         start: () =>
         {
             emulator.serial0_send("dd if=/dev/zero of=/mnt/read-new bs=1k count=512\n");
@@ -110,7 +110,7 @@ const tests =
     {
         name: "Read Async",
         use_fsjson: true,
-        timeout: 10,
+        timeout: 60,
         start: () =>
         {
             emulator.serial0_send("echo start-capture;");
@@ -141,7 +141,7 @@ const tests =
     },
     {
         name: "Write New",
-        timeout: 10,
+        timeout: 60,
         files:
         [
             {
@@ -190,7 +190,7 @@ const tests =
     },
     {
         name: "Move",
-        timeout: 10,
+        timeout: 60,
         files:
         [
             {
@@ -267,7 +267,7 @@ const tests =
     },
     {
         name: "Unlink",
-        timeout: 10,
+        timeout: 60,
         files:
         [
             {
@@ -321,7 +321,7 @@ const tests =
     },
     {
         name: "Hard Links",
-        timeout: 10,
+        timeout: 60,
         allow_failure: true,
         files:
         [
@@ -368,7 +368,7 @@ const tests =
     },
     {
         name: "Symlinks",
-        timeout: 10,
+        timeout: 60,
         files:
         [
             {
@@ -412,7 +412,7 @@ const tests =
     },
     {
         name: "Mknod - fifo",
-        timeout: 10,
+        timeout: 60,
         start: () =>
         {
             emulator.serial0_send("mkfifo /mnt/testfifo\n");
@@ -438,7 +438,7 @@ const tests =
     },
     {
         name: "Readlink",
-        timeout: 10,
+        timeout: 60,
         start: () =>
         {
             emulator.serial0_send("touch /mnt/target\n");
@@ -457,7 +457,7 @@ const tests =
     },
     {
         name: "Mkdir",
-        timeout: 10,
+        timeout: 60,
         start: () =>
         {
             emulator.serial0_send("echo notfoobar > /mnt/e-file\n");
@@ -487,7 +487,7 @@ const tests =
     },
     {
         name: "Walk",
-        timeout: 10,
+        timeout: 60,
         start: () =>
         {
             emulator.serial0_send("mkdir -p /mnt/walk/a/aa/aaa/aaaa\n");
@@ -524,7 +524,7 @@ const tests =
     },
     {
         name: "Statfs",
-        timeout: 10,
+        timeout: 60,
         allow_failure: true,
         start: () =>
         {
@@ -587,7 +587,7 @@ const tests =
     },
     {
         name: "File Attributes",
-        timeout: 10,
+        timeout: 60,
         allow_failure: true,
         start: () =>
         {
@@ -680,7 +680,7 @@ const tests =
     },
     {
         name: "Support for Full Security Capabilities",
-        timeout: 10,
+        timeout: 60,
         allow_failure: true,
         // TODO: Delete the following. Better to use getfattr or getcap commands if available.
         // The following doesn't work with linux4.img yet.
@@ -777,7 +777,7 @@ const tests =
     },
     {
         name: "Stress Files",
-        timeout: 120,
+        timeout: 360,
         start: () =>
         {
             emulator.serial0_send("mkdir /mnt/stress-files\n");
@@ -831,7 +831,7 @@ const tests =
     },
     {
         name: "Stress Directories",
-        timeout: 120,
+        timeout: 360,
         start: () =>
         {
             emulator.serial0_send('cat << "EOF" | sh\n');
@@ -883,7 +883,7 @@ const tests =
     },
     {
         name: "Read Past Available",
-        timeout: 10,
+        timeout: 60,
         start: () =>
         {
             emulator.serial0_send("echo a > /mnt/small-file\n");
