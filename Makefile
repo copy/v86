@@ -312,6 +312,9 @@ rust-test: $(RUST_FILES)
 	env RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
 	./tests/rust/verify-wasmgen-dummy-output.js
 
+api-tests: all-debug
+	./tests/api/state.js
+
 covreport:
 	mkdir -p $(COVERAGE_DIR)/build/
 	$(COVERAGE_DIR)/gen_report.js
