@@ -192,7 +192,7 @@ const encodings = [
     { opcode: 0xCE, block_boundary: 1, skip: 1, },
     { opcode: 0xCF, block_boundary: 1, no_next_instruction: 1, os: 1, skip: 1, }, // iret
 
-    { opcode: 0xD4, imm8: 1, }, // aam, may trigger #de
+    { opcode: 0xD4, imm8: 1, block_boundary: 1, }, // aam, may trigger #de
     { opcode: 0xD5, nonfaulting: 1, imm8: 1, mask_flags: of | cf | af, },
     { opcode: 0xD6, nonfaulting: 1, },
     { opcode: 0xD7, skip: 1, },
@@ -234,8 +234,8 @@ const encodings = [
     { opcode: 0xF6, e: 1, fixed_g: 3, nonfaulting: 1, },
     { opcode: 0xF6, e: 1, fixed_g: 4, nonfaulting: 1, mask_flags: af | zf, },
     { opcode: 0xF6, e: 1, fixed_g: 5, nonfaulting: 1, mask_flags: af | zf, },
-    { opcode: 0xF6, e: 1, fixed_g: 6, },
-    { opcode: 0xF6, e: 1, fixed_g: 7, },
+    { opcode: 0xF6, e: 1, fixed_g: 6, block_boundary: 1, }, // div/idiv: Not a block boundary, but doesn't use control flow exceptions
+    { opcode: 0xF6, e: 1, fixed_g: 7, block_boundary: 1, },
 
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 0, nonfaulting: 1, imm1632: 1, },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 1, nonfaulting: 1, imm1632: 1, },
@@ -243,8 +243,8 @@ const encodings = [
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 3, nonfaulting: 1, },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 4, nonfaulting: 1, mask_flags: zf | af, },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 5, nonfaulting: 1, mask_flags: zf | af, },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 6, },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 7, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 6, block_boundary: 1, }, // div/idiv: Not a block boundary, but doesn't use control flow exceptions
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 7, block_boundary: 1, },
 
     { opcode: 0xF8, nonfaulting: 1, },
     { opcode: 0xF9, nonfaulting: 1, },

@@ -238,6 +238,7 @@ else {
     let current_test = undefined;
     let first_test = undefined;
     let waiting_for_test = false;
+    let recorded_exceptions = [];
 
     let emulator = new V86({
         autostart: false,
@@ -262,9 +263,6 @@ else {
             return true;
         }
 
-        waiting_for_test = true;
-        emulator.stop();
-
         const exceptions = {
             0: "DE",
             6: "UD",
@@ -278,6 +276,15 @@ else {
             console.error("Unexpected CPU exception: " + n);
             process.exit(1);
         }
+
+        if(exception === "DE")
+        {
+            recorded_exceptions.push(exception);
+            return true;
+        }
+
+        waiting_for_test = true;
+        emulator.stop();
 
         if(current_test.fixture.exception !== exception)
         {
@@ -311,12 +318,8 @@ else {
         const evaluated_memory = new Int32Array(cpu.mem8.slice(0x120000 - 16 * 4, 0x120000).buffer);
         let individual_failures = [];
 
-        if(current_test.exception)
-        {
-            throw "TODO: Handle exceptions";
-        }
+        console.assert(current_test.fixture.array || current_test.fixture.exception);
 
-        console.assert(current_test.fixture.array);
         if(current_test.fixture.array)
         {
             let offset = 0;
@@ -377,6 +380,17 @@ else {
                 });
             }
         }
+
+        if(current_test.fixture.exception !== recorded_exceptions[0])
+        {
+            individual_failures.push({
+                name: "Exception",
+                actual: recorded_exceptions[0] || "(none)",
+                expected: current_test.fixture.exception,
+            });
+        }
+
+        recorded_exceptions = [];
 
         if (individual_failures.length > 0) {
             process.send({

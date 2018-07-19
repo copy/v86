@@ -787,8 +787,14 @@ void raise_exception_with_code(int32_t interrupt_nr, int32_t error_code)
 __attribute__((noinline))
 void trigger_de()
 {
+#if DEBUG
+    if(cpu_exception_hook(0))
+    {
+        return;
+    }
+#endif
     *instruction_pointer = *previous_ip;
-    raise_exception(0);
+    call_interrupt_vector(0, false, false, 0);
 }
 
 __attribute__((noinline))
