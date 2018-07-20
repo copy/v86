@@ -50,6 +50,26 @@ int32_t valid_tlb_entries_count;
 #define TLB_GLOBAL (1 << 4)
 #define TLB_HAS_CODE (1 << 5)
 
+static const int32_t CPU_EXCEPTION_DE = 0;  // Divide Error
+static const int32_t CPU_EXCEPTION_DB = 1;  // Debug Exception
+static const int32_t CPU_EXCEPTION_NMI = 2; // NMI Interrupt
+static const int32_t CPU_EXCEPTION_BP = 3;  // Breakpoint
+static const int32_t CPU_EXCEPTION_OF = 4;  // Overflow
+static const int32_t CPU_EXCEPTION_BR = 5;  // BOUND Range Exceeded
+static const int32_t CPU_EXCEPTION_UD = 6;  // Invalid Opcode
+static const int32_t CPU_EXCEPTION_NM = 7;  // Device Not Available
+static const int32_t CPU_EXCEPTION_DF = 8;  // Double Fault
+static const int32_t CPU_EXCEPTION_TS = 10; // Invalid TSS
+static const int32_t CPU_EXCEPTION_NP = 11; // Segment Not Present
+static const int32_t CPU_EXCEPTION_SS = 12; // Stack-Segment Fault
+static const int32_t CPU_EXCEPTION_GP = 13; // General Protection
+static const int32_t CPU_EXCEPTION_PF = 14; // Page Fault
+static const int32_t CPU_EXCEPTION_MF = 16; // x87 FPU Floating-Point Error
+static const int32_t CPU_EXCEPTION_AC = 17; // Alignment Check
+static const int32_t CPU_EXCEPTION_MC = 18; // Machine Check Abort
+static const int32_t CPU_EXCEPTION_XM = 19; // SIMD Floating-Point Exception
+static const int32_t CPU_EXCEPTION_VE = 20; // Virtualization Exception
+
 // defined in call-indirect.ll
 extern void call_indirect(int32_t index);
 extern void call_indirect1(int32_t index, int32_t arg);

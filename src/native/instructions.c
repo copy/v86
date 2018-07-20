@@ -914,7 +914,7 @@ void instr_CE() {
     if(getof())
     {
         // TODO: inhibit iopl checks
-        call_interrupt_vector(4, true, false, 0);
+        call_interrupt_vector(CPU_EXCEPTION_OF, true, false, 0);
     }
 }
 

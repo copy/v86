@@ -122,7 +122,7 @@ void trigger_pagefault(bool write, bool user, bool present)
 
     *instruction_pointer = *previous_ip;
     *page_fault = true;
-    call_interrupt_vector(14, false, true, user << 2 | write << 1 | present);
+    call_interrupt_vector(CPU_EXCEPTION_PF, false, true, user << 2 | write << 1 | present);
 
     profiler_stat_increment(S_TRIGGER_CPU_EXCEPTION);
     throw_cpu_exception();
@@ -788,13 +788,13 @@ __attribute__((noinline))
 void trigger_de()
 {
 #if DEBUG
-    if(cpu_exception_hook(0))
+    if(cpu_exception_hook(CPU_EXCEPTION_DE))
     {
         return;
     }
 #endif
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(0, false, false, 0);
+    call_interrupt_vector(CPU_EXCEPTION_DE, false, false, 0);
 }
 
 __attribute__((noinline))
@@ -803,41 +803,41 @@ void trigger_ud()
     dbg_log("#ud");
     dbg_trace();
     *instruction_pointer = *previous_ip;
-    raise_exception(6);
+    raise_exception(CPU_EXCEPTION_UD);
 }
 
 __attribute__((noinline))
 void trigger_nm()
 {
     *instruction_pointer = *previous_ip;
-    raise_exception(7);
+    raise_exception(CPU_EXCEPTION_NM);
 }
 
 __attribute__((noinline))
 void trigger_np(int32_t code)
 {
     *instruction_pointer = *previous_ip;
-    raise_exception_with_code(11, code);
+    raise_exception_with_code(CPU_EXCEPTION_NP, code);
 }
 
 __attribute__((noinline))
 void trigger_ss(int32_t code)
 {
 #if DEBUG
-    if(cpu_exception_hook(12))
+    if(cpu_exception_hook(CPU_EXCEPTION_SS))
     {
         return;
     }
 #endif
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(12, false, true, code);
+    call_interrupt_vector(CPU_EXCEPTION_SS, false, true, code);
 }
 
 __attribute__((noinline))
 void trigger_gp(int32_t code)
 {
     *instruction_pointer = *previous_ip;
-    raise_exception_with_code(13, code);
+    raise_exception_with_code(CPU_EXCEPTION_GP, code);
 }
 
 int32_t virt_boundary_read16(int32_t low, int32_t high)
