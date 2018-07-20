@@ -478,6 +478,7 @@ void instr_8E_helper(int32_t data, int32_t mod)
     else
     {
         dbg_log("mov sreg #ud");
+        trigger_ud();
     }
 }
 DEFINE_MODRM_INSTR_READ16(instr_8E, instr_8E_helper(___, r))
