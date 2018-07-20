@@ -1997,11 +1997,11 @@ void instr_0F9F_mem(int32_t addr, int32_t unused) { setcc_mem(!test_le(), addr);
 void instr16_0FA0() { push16(sreg[FS]); }
 void instr32_0FA0() { push32(sreg[FS]); }
 void instr16_0FA1() {
-    switch_seg(FS, safe_read16(get_stack_pointer(0)));
+    if(switch_seg(FS, safe_read16(get_stack_pointer(0)))) return;
     adjust_stack_reg(2);
 }
 void instr32_0FA1() {
-    switch_seg(FS, safe_read32s(get_stack_pointer(0)) & 0xFFFF);
+    if(switch_seg(FS, safe_read32s(get_stack_pointer(0)) & 0xFFFF)) return;
     adjust_stack_reg(4);
 }
 
@@ -2026,11 +2026,11 @@ void instr_0FA7() { undefined_instruction(); }
 void instr16_0FA8() { push16(sreg[GS]); }
 void instr32_0FA8() { push32(sreg[GS]); }
 void instr16_0FA9() {
-    switch_seg(GS, safe_read16(get_stack_pointer(0)));
+    if(switch_seg(GS, safe_read16(get_stack_pointer(0)))) return;
     adjust_stack_reg(2);
 }
 void instr32_0FA9() {
-    switch_seg(GS, safe_read32s(get_stack_pointer(0)) & 0xFFFF);
+    if(switch_seg(GS, safe_read32s(get_stack_pointer(0)) & 0xFFFF)) return;
     adjust_stack_reg(4);
 }
 

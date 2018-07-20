@@ -164,7 +164,7 @@ function V86Starter(options)
         },
         "_far_jump": function(eip, selector, is_call) { return cpu.far_jump(eip, selector, !!is_call); },
         "_far_return": function(eip, selector, stack_adjust) { return cpu.far_return(eip, selector, stack_adjust); },
-        "_switch_seg": function(reg, selector) { cpu.switch_seg(reg, selector); },
+        "_switch_seg": function(reg, selector) { return cpu.switch_seg(reg, selector); },
         "_iret16": function() { return cpu.iret16(); },
         "_iret32": function() { return cpu.iret32(); },
         "_handle_irqs": function() { return cpu.handle_irqs(); },

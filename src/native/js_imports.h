@@ -49,7 +49,7 @@ extern void undefined_instruction(void);
 extern void unimplemented_sse(void);
 extern void update_cs_size(int32_t);
 extern void update_eflags(int32_t);
-extern void switch_seg(int32_t, int32_t);
+extern bool switch_seg(int32_t, int32_t);
 extern void lss16(int32_t, int32_t, int32_t);
 extern void lss32(int32_t, int32_t, int32_t);
 extern void test_privileges_for_io(int32_t, int32_t);

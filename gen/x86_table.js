@@ -17,7 +17,7 @@ const sf = 1 << 7;
 // os: the instruction behaves differently depending on the operand size
 const encodings = [
     { opcode: 0x06, os: 1, skip: 1, },
-    { opcode: 0x07, os: 1, skip: 1, },
+    { opcode: 0x07, os: 1, skip: 1, block_boundary: 1, }, // pop es: block_boundary since it uses non-raising cpu exceptions
     { opcode: 0x0E, os: 1, skip: 1, },
     { opcode: 0x0F, os: 1, prefix: 1, },
     { opcode: 0x16, os: 1, skip: 1, },
@@ -177,7 +177,7 @@ const encodings = [
     { opcode: 0xC2, block_boundary: 1, no_next_instruction: 1, os: 1, imm16: 1, skip: 1, }, // ret
     { opcode: 0xC3, custom: 1, block_boundary: 1, no_next_instruction: 1, os: 1, skip: 1, },
 
-    { opcode: 0xC4, os: 1, e: 1, skip: 1, },
+    { opcode: 0xC4, block_boundary: 1, os: 1, e: 1, skip: 1, }, // les
     { opcode: 0xC5, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lds
 
     { opcode: 0xC6, e: 1, fixed_g: 0, nonfaulting: 1, imm8: 1, },
@@ -385,11 +385,11 @@ const encodings = [
     { opcode: 0x0F9F, nonfaulting: 1, e: 1, },
 
     { opcode: 0x0FA0, os: 1, skip: 1, },
-    { opcode: 0x0FA1, os: 1, skip: 1, },
+    { opcode: 0x0FA1, os: 1, block_boundary: 1, skip: 1, }, // pop fs: block_boundary since it uses non-raising cpu exceptions
     { opcode: 0x0FA2, skip: 1, },
 
     { opcode: 0x0FA8, os: 1, skip: 1, },
-    { opcode: 0x0FA9, os: 1, skip: 1, },
+    { opcode: 0x0FA9, os: 1, block_boundary: 1, skip: 1, }, // pop gs
 
     { opcode: 0x0FA3, os: 1, e: 1, only_reg: 1, }, // bt (can also index memory, but not supported by test right now)
     { opcode: 0x0FAB, os: 1, e: 1, only_reg: 1, },
@@ -432,9 +432,9 @@ const encodings = [
     { opcode: 0x0FC7, e: 1, fixed_g: 1, only_mem: 1, }, // cmpxchg8b (memory)
     { opcode: 0x0FC7, e: 1, fixed_g: 6, only_reg: 1, skip: 1, }, // rdrand
 
-    { opcode: 0x0FB2, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lss, lfs, lgs
-    { opcode: 0x0FB4, os: 1, e: 1, skip: 1, },
-    { opcode: 0x0FB5, os: 1, e: 1, skip: 1, },
+    { opcode: 0x0FB2, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lss
+    { opcode: 0x0FB4, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lfs
+    { opcode: 0x0FB5, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lgs
 
     { opcode: 0x0FB6, nonfaulting: 1, os: 1, e: 1, }, // movzx
     { opcode: 0x0FB7, nonfaulting: 1, os: 1, e: 1, },

@@ -823,8 +823,14 @@ void trigger_np(int32_t code)
 __attribute__((noinline))
 void trigger_ss(int32_t code)
 {
+#if DEBUG
+    if(cpu_exception_hook(12))
+    {
+        return;
+    }
+#endif
     *instruction_pointer = *previous_ip;
-    raise_exception_with_code(12, code);
+    call_interrupt_vector(12, false, true, code);
 }
 
 __attribute__((noinline))
