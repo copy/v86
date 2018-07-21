@@ -1570,6 +1570,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, ha
             // kvm-unit-test
             dbg_log("not present");
             this.trigger_np(interrupt_nr << 3 | 2);
+            return;
         }
 
         var old_flags = this.get_eflags();
@@ -2160,6 +2161,7 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
         dbg_log("#NP for loading not-present in cs sel=" + h(selector, 4), LOG_CPU);
         dbg_trace(LOG_CPU);
         this.trigger_np(selector & ~3);
+        return;
     }
 
     if(info.rpl > this.cpl[0])
@@ -2296,6 +2298,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             {
                 dbg_log("#NP for loading not-present in gate cs sel=" + h(selector, 4), LOG_CPU);
                 this.trigger_np(selector & ~3);
+                return;
             }
 
             var cs_selector = info.raw0 >>> 16;
@@ -2329,6 +2332,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             {
                 dbg_log("#NP for loading not-present in cs sel=" + h(cs_selector, 4), LOG_CPU);
                 this.trigger_np(cs_selector & ~3);
+                return;
             }
 
             if(!cs_info.dc_bit && cs_info.dpl < this.cpl[0])
@@ -2532,6 +2536,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             dbg_log("#NP for loading not-present in cs sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
             this.trigger_np(selector & ~3);
+            return;
         }
 
         if(is_call)
@@ -3355,6 +3360,7 @@ CPU.prototype.switch_seg = function(reg, selector)
             dbg_log("#NP for loading not-present in seg " + reg + " sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
             this.trigger_np(selector & ~3);
+            return true;
         }
     }
 

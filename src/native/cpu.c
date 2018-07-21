@@ -816,8 +816,14 @@ void trigger_nm()
 __attribute__((noinline))
 void trigger_np(int32_t code)
 {
+#if DEBUG
+    if(cpu_exception_hook(CPU_EXCEPTION_NP))
+    {
+        return;
+    }
+#endif
     *instruction_pointer = *previous_ip;
-    raise_exception_with_code(CPU_EXCEPTION_NP, code);
+    call_interrupt_vector(CPU_EXCEPTION_NP, false, true, code);
 }
 
 __attribute__((noinline))
