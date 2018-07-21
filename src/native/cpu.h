@@ -113,6 +113,7 @@ void trigger_de(void);
 void trigger_ud(void);
 void trigger_nm(void);
 void trigger_gp(int32_t code);
+void trigger_gp_non_raising(int32_t code);
 int32_t virt_boundary_read16(int32_t low, int32_t high);
 int32_t virt_boundary_read32s(int32_t low, int32_t high);
 void virt_boundary_write16(int32_t low, int32_t high, int32_t value);

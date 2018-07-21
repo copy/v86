@@ -253,7 +253,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.get_eflags = this.wm.exports["_get_eflags"];
     this.update_eflags = this.wm.exports["_update_eflags"];
 
-    this.trigger_gp = this.wm.exports["_trigger_gp"];
+    this.trigger_gp_non_raising = this.wm.exports["_trigger_gp_non_raising"];
     this.trigger_ud = this.wm.exports["_trigger_ud"];
     this.trigger_np = this.wm.exports["_trigger_np"];
     this.trigger_ss = this.wm.exports["_trigger_ss"];
@@ -1490,7 +1490,8 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, ha
         {
             dbg_log("call_interrupt_vector #GP. vm86 && software int && iopl < 3", LOG_CPU);
             dbg_trace(LOG_CPU);
-            this.trigger_gp(0);
+            this.trigger_gp_non_raising(0);
+            return;
         }
 
         if((interrupt_nr << 3 | 7) > this.idtr_size[0])
@@ -1524,7 +1525,8 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, ha
         {
             dbg_log("#gp software interrupt (" + h(interrupt_nr, 2) + ") and dpl < cpl", LOG_CPU);
             dbg_trace(LOG_CPU);
-            this.trigger_gp(interrupt_nr << 3 | 2);
+            this.trigger_gp_non_raising(interrupt_nr << 3 | 2);
+            return;
         }
 
         if(type === 5)
@@ -1689,7 +1691,8 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, ha
             if(this.flags[0] & flag_vm)
             {
                 dbg_assert(false, "check error code");
-                this.trigger_gp(selector & ~3);
+                this.trigger_gp_non_raising(selector & ~3);
+                return;
             }
 
             var stack_space = (is_16 ? 2 : 4) * (3 + (has_error_code === true));
@@ -1814,7 +1817,8 @@ CPU.prototype.iret = function(is_16)
     {
         // vm86 mode, iopl != 3
         dbg_log("#gp iret vm86 mode, iopl != 3", LOG_CPU);
-        this.trigger_gp(0);
+        this.trigger_gp_non_raising(0);
+        return;
     }
 
     if(is_16)
@@ -1863,7 +1867,8 @@ CPU.prototype.iret = function(is_16)
     if(this.flags[0] & flag_nt)
     {
         if(DEBUG) throw this.debug.unimpl("nt");
-        this.trigger_gp(0);
+        this.trigger_gp_non_raising(0);
+        return;
     }
 
     if(new_flags & flag_vm)
@@ -1963,7 +1968,8 @@ CPU.prototype.iret = function(is_16)
     if(!info.dc_bit && info.rpl !== info.dpl)
     {
         dbg_log("#gp iret: non-conforming cs and rpl != dpl, dpl=" + info.dpl + " rpl=" + info.rpl, LOG_CPU);
-        this.trigger_gp(new_cs & ~3);
+        this.trigger_gp_non_raising(new_cs & ~3);
+        return;
     }
 
     if(info.rpl > this.cpl[0])
@@ -1987,7 +1993,8 @@ CPU.prototype.iret = function(is_16)
         {
             dbg_log("#GP for loading 0 in SS sel=" + h(temp_ss, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
-            this.trigger_gp(0);
+            this.trigger_gp_non_raising(0);
+            return;
         }
 
         if(!ss_info.is_valid ||
@@ -1998,7 +2005,8 @@ CPU.prototype.iret = function(is_16)
         {
             dbg_log("#GP for loading invalid in SS sel=" + h(temp_ss, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
-            this.trigger_gp(temp_ss & ~3);
+            this.trigger_gp_non_raising(temp_ss & ~3);
+            return;
         }
 
         if(!ss_info.is_present)
@@ -2117,43 +2125,50 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
     if(info.is_null)
     {
         dbg_log("null cs", LOG_CPU);
-        this.trigger_gp(0);
+        this.trigger_gp_non_raising(0);
+        return;
     }
 
     if(!info.is_valid)
     {
         dbg_log("invalid cs: " + h(selector), LOG_CPU);
-        this.trigger_gp(selector & ~3);
+        this.trigger_gp_non_raising(selector & ~3);
+        return;
     }
 
     if(info.is_system)
     {
         dbg_assert(false, "is system in far return");
-        this.trigger_gp(selector & ~3);
+        this.trigger_gp_non_raising(selector & ~3);
+        return;
     }
 
     if(!info.is_executable)
     {
         dbg_log("non-executable cs: " + h(selector), LOG_CPU);
-        this.trigger_gp(selector & ~3);
+        this.trigger_gp_non_raising(selector & ~3);
+        return;
     }
 
     if(info.rpl < this.cpl[0])
     {
         dbg_log("cs rpl < cpl: " + h(selector), LOG_CPU);
-        this.trigger_gp(selector & ~3);
+        this.trigger_gp_non_raising(selector & ~3);
+        return;
     }
 
     if(info.dc_bit && info.dpl > info.rpl)
     {
         dbg_log("cs conforming and dpl > rpl: " + h(selector), LOG_CPU);
-        this.trigger_gp(selector & ~3);
+        this.trigger_gp_non_raising(selector & ~3);
+        return;
     }
 
     if(!info.dc_bit && info.dpl !== info.rpl)
     {
         dbg_log("cs non-conforming and dpl != rpl: " + h(selector), LOG_CPU);
-        this.trigger_gp(selector & ~3);
+        this.trigger_gp_non_raising(selector & ~3);
+        return;
     }
 
     if(!info.is_present)
@@ -2268,13 +2283,15 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
     if(info.is_null)
     {
         dbg_log("#gp null cs", LOG_CPU);
-        this.trigger_gp(0);
+        this.trigger_gp_non_raising(0);
+        return;
     }
 
     if(!info.is_valid)
     {
         dbg_log("#gp invalid cs: " + h(selector), LOG_CPU);
-        this.trigger_gp(selector & ~3);
+        this.trigger_gp_non_raising(selector & ~3);
+        return;
     }
 
     if(info.is_system)
@@ -2291,7 +2308,8 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             if(info.dpl < this.cpl[0] || info.dpl < info.rpl)
             {
                 dbg_log("#gp cs gate dpl < cpl or dpl < rpl: " + h(selector), LOG_CPU);
-                this.trigger_gp(selector & ~3);
+                this.trigger_gp_non_raising(selector & ~3);
+                return;
             }
 
             if(!info.is_present)
@@ -2307,25 +2325,29 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             if(cs_info.is_null)
             {
                 dbg_log("#gp null cs", LOG_CPU);
-                this.trigger_gp(0);
+                this.trigger_gp_non_raising(0);
+                return;
             }
 
             if(!cs_info.is_valid)
             {
                 dbg_log("#gp invalid cs: " + h(cs_selector), LOG_CPU);
-                this.trigger_gp(cs_selector & ~3);
+                this.trigger_gp_non_raising(cs_selector & ~3);
+                return;
             }
 
             if(!cs_info.is_executable)
             {
                 dbg_log("#gp non-executable cs: " + h(cs_selector), LOG_CPU);
-                this.trigger_gp(cs_selector & ~3);
+                this.trigger_gp_non_raising(cs_selector & ~3);
+                return;
             }
 
             if(cs_info.dpl > this.cpl[0])
             {
                 dbg_log("#gp dpl > cpl: " + h(cs_selector), LOG_CPU);
-                this.trigger_gp(cs_selector & ~3);
+                this.trigger_gp_non_raising(cs_selector & ~3);
+                return;
             }
 
             if(!cs_info.is_present)
@@ -2508,7 +2530,8 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
         if(!info.is_executable)
         {
             dbg_log("#gp non-executable cs: " + h(selector), LOG_CPU);
-            this.trigger_gp(selector & ~3);
+            this.trigger_gp_non_raising(selector & ~3);
+            return;
         }
 
         if(info.dc_bit)
@@ -2517,7 +2540,8 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             if(info.dpl > this.cpl[0])
             {
                 dbg_log("#gp cs dpl > cpl: " + h(selector), LOG_CPU);
-                this.trigger_gp(selector & ~3);
+                this.trigger_gp_non_raising(selector & ~3);
+                return;
             }
         }
         else
@@ -2527,7 +2551,8 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             if(info.rpl > this.cpl[0] || info.dpl !== this.cpl[0])
             {
                 dbg_log("#gp cs rpl > cpl or dpl != cpl: " + h(selector), LOG_CPU);
-                this.trigger_gp(selector & ~3);
+                this.trigger_gp_non_raising(selector & ~3);
+                return;
             }
         }
 
@@ -2830,7 +2855,8 @@ CPU.prototype.hlt_op = function()
     if(this.cpl[0])
     {
         dbg_log("#gp hlt with cpl != 0", LOG_CPU);
-        this.trigger_gp(0);
+        this.trigger_gp_non_raising(0);
+        return;
     }
 
     if((this.flags[0] & flag_interrupt) === 0)
@@ -2950,7 +2976,8 @@ CPU.prototype.test_privileges_for_io = function(port, size)
         {
             dbg_log("#GP for port io, 16-bit TSS  port=" + h(port) + " size=" + size, LOG_CPU);
             CPU_LOG_VERBOSE && this.debug.dump_state();
-            this.trigger_gp(0);
+            this.trigger_gp_non_raising(0);
+            return;
         }
 
         var tsr_size = this.segment_limits[reg_tr];
@@ -2981,7 +3008,7 @@ CPU.prototype.test_privileges_for_io = function(port, size)
 
         dbg_log("#GP for port io  port=" + h(port) + " size=" + size, LOG_CPU);
         CPU_LOG_VERBOSE && this.debug.dump_state();
-        this.trigger_gp(0);
+        this.trigger_gp_non_raising(0);
     }
 };
 
@@ -3301,7 +3328,8 @@ CPU.prototype.switch_seg = function(reg, selector)
         {
             dbg_log("#GP for loading 0 in SS sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
-            this.trigger_gp(0);
+            this.trigger_gp_non_raising(0);
+            return;
         }
 
         if(!info.is_valid ||
@@ -3312,7 +3340,8 @@ CPU.prototype.switch_seg = function(reg, selector)
         {
             dbg_log("#GP for loading invalid in SS sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
-            this.trigger_gp(selector & ~3);
+            this.trigger_gp_non_raising(selector & ~3);
+            return;
         }
 
         if(!info.is_present)
@@ -3352,7 +3381,8 @@ CPU.prototype.switch_seg = function(reg, selector)
             this.debug.dump_state();
             this.debug.dump_regs();
             dbg_trace(LOG_CPU);
-            this.trigger_gp(selector & ~3);
+            this.trigger_gp_non_raising(selector & ~3);
+            return;
         }
 
         if(!info.is_present)
