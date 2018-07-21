@@ -277,8 +277,11 @@ else {
             process.exit(1);
         }
 
-        if(exception === "DE")
+        if(exception === "DE" || exception === "GP")
         {
+            // XXX: On gdb execution is stopped at this point. On v86 we
+            // currently don't have this ability, so we record the exception
+            // and continue execution
             recorded_exceptions.push(exception);
             return true;
         }

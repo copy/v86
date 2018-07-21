@@ -590,7 +590,7 @@ void instr16_9C() {
     {
         dbg_assert(*protected_mode);
         dbg_log("pushf #gp");
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
     }
     else
     {
@@ -604,7 +604,7 @@ void instr32_9C() {
         // trap to virtual 8086 monitor
         dbg_assert(*protected_mode);
         dbg_log("pushf #gp");
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
     }
     else
     {
@@ -617,7 +617,8 @@ void instr16_9D() {
     if((flags[0] & FLAG_VM) && getiopl() < 3)
     {
         dbg_log("popf #gp");
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
+        return;
     }
 
     update_eflags((flags[0] & ~0xFFFF) | pop16());
@@ -641,7 +642,8 @@ void instr32_9D() {
     if((flags[0] & FLAG_VM) && getiopl() < 3)
     {
         dbg_log("popf #gp");
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
+        return;
     }
 
     update_eflags(pop32s());
@@ -1493,7 +1495,7 @@ void instr_FA() {
         //else
         {
             dbg_log("cli #gp");
-            trigger_gp(0);
+            trigger_gp_non_raising(0);
         }
     }
 }
@@ -1527,7 +1529,7 @@ void instr_FB() {
         //else
         {
             dbg_log("sti #gp");
-            trigger_gp(0);
+            trigger_gp_non_raising(0);
         }
     }
 

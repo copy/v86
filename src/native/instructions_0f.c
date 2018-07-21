@@ -43,23 +43,23 @@ void instr_0F00_1_reg(int32_t r) {
 void instr_0F00_2_mem(int32_t addr) {
     // lldt
     if(!protected_mode[0] || vm86_mode()) trigger_ud();
-    if(cpl[0]) trigger_gp(0);
+    if(cpl[0]) { trigger_gp_non_raising(0); return; }
     load_ldt(safe_read16(addr));
 }
 void instr_0F00_2_reg(int32_t r) {
     if(!protected_mode[0] || vm86_mode()) trigger_ud();
-    if(cpl[0]) trigger_gp(0);
+    if(cpl[0]) { trigger_gp_non_raising(0); return; }
     load_ldt(read_reg16(r));
 }
 void instr_0F00_3_mem(int32_t addr) {
     // ltr
     if(!protected_mode[0] || vm86_mode()) trigger_ud();
-    if(cpl[0]) trigger_gp(0);
+    if(cpl[0]) { trigger_gp_non_raising(0); return; }
     load_tr(safe_read16(addr));
 }
 void instr_0F00_3_reg(int32_t r) {
     if(!protected_mode[0] || vm86_mode()) trigger_ud();
-    if(cpl[0]) trigger_gp(0);
+    if(cpl[0]) { trigger_gp_non_raising(0); return; }
     load_tr(read_reg16(r));
 }
 void instr_0F00_4_mem(int32_t addr) {
@@ -99,7 +99,7 @@ void instr_0F01_1_mem(int32_t addr) {
 void instr_0F01_2_reg(int32_t r) { trigger_ud(); }
 void instr_0F01_2_mem(int32_t addr) {
     // lgdt
-    if(cpl[0]) trigger_gp(0);
+    if(cpl[0]) { trigger_gp_non_raising(0); return; }
     int32_t size = safe_read16(addr);
     int32_t offset = safe_read32s(addr + 2);
     int32_t mask = is_osize_32() ? -1 : 0x00FFFFFF;
@@ -109,7 +109,7 @@ void instr_0F01_2_mem(int32_t addr) {
 void instr_0F01_3_reg(int32_t r) { trigger_ud(); }
 void instr_0F01_3_mem(int32_t addr) {
     // lidt
-    if(cpl[0]) trigger_gp(0);
+    if(cpl[0]) { trigger_gp_non_raising(0); return; }
     int32_t size = safe_read16(addr);
     int32_t offset = safe_read32s(addr + 2);
     int32_t mask = is_osize_32() ? -1 : 0x00FFFFFF;
@@ -137,18 +137,18 @@ void lmsw(int32_t new_cr0) {
     set_cr0(new_cr0);
 }
 void instr_0F01_6_reg(int32_t r) {
-    if(cpl[0]) trigger_gp(0);
+    if(cpl[0]) { trigger_gp_non_raising(0); return; }
     lmsw(read_reg16(r));
 }
 void instr_0F01_6_mem(int32_t addr) {
-    if(cpl[0]) trigger_gp(0);
+    if(cpl[0]) { trigger_gp_non_raising(0); return; }
     lmsw(safe_read16(addr));
 }
 
 void instr_0F01_7_reg(int32_t r) { trigger_ud(); }
 void instr_0F01_7_mem(int32_t addr) {
     // invlpg
-    if(cpl[0]) trigger_gp(0);
+    if(cpl[0]) { trigger_gp_non_raising(0); return; }
     invlpg(addr);
 }
 
@@ -166,7 +166,7 @@ void instr_0F06() {
     if(cpl[0])
     {
         dbg_log("clts #gp");
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
     }
     else
     {
@@ -185,9 +185,12 @@ void instr_0F09() {
     if(cpl[0])
     {
         dbg_log("wbinvd #gp");
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
     }
-    // wbinvd
+    else
+    {
+        // wbinvd
+    }
 }
 
 
@@ -450,7 +453,8 @@ void instr_0F20(int32_t r, int32_t creg) {
 
     if(cpl[0])
     {
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
+        return;
     }
 
     switch(creg)
@@ -477,7 +481,8 @@ void instr_0F20(int32_t r, int32_t creg) {
 void instr_0F21(int32_t r, int32_t dreg_index) {
     if(cpl[0])
     {
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
+        return;
     }
 
     if(dreg_index == 4 || dreg_index == 5)
@@ -503,7 +508,8 @@ void instr_0F22(int32_t r, int32_t creg) {
 
     if(cpl[0])
     {
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
+        return;
     }
 
     int32_t data = read_reg32(r);
@@ -537,7 +543,8 @@ void instr_0F22(int32_t r, int32_t creg) {
             if(data & (1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19 | 0xFFC00000))
             {
                 dbg_log("trigger_gp: Invalid cr4 bit");
-                trigger_gp(0);
+                trigger_gp_non_raising(0);
+                return;
             }
 
             if((cr[4] ^ data) & (CR4_PGE | CR4_PSE))
@@ -564,7 +571,8 @@ void instr_0F22(int32_t r, int32_t creg) {
 void instr_0F23(int32_t r, int32_t dreg_index) {
     if(cpl[0])
     {
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
+        return;
     }
 
     if(dreg_index == 4 || dreg_index == 5)
@@ -687,7 +695,8 @@ void instr_0F30() {
 
     if(cpl[0])
     {
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
+        return;
     }
 
     int32_t index = reg32s[ECX];
@@ -766,7 +775,7 @@ void instr_0F31() {
     }
     else
     {
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
     }
 }
 
@@ -774,7 +783,8 @@ void instr_0F32() {
     // rdmsr - read maschine specific register
     if(cpl[0])
     {
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
+        return;
     }
 
     int32_t index = reg32s[ECX];
@@ -869,7 +879,8 @@ void instr_0F34() {
 
     if(!protected_mode[0] || seg == 0)
     {
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
+        return;
     }
 
     if(CPU_LOG_VERBOSE)
@@ -907,7 +918,8 @@ void instr_0F35() {
 
     if(!protected_mode[0] || cpl[0] || seg == 0)
     {
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
+        return;
     }
 
     if(CPU_LOG_VERBOSE)
@@ -2066,7 +2078,8 @@ void instr_0FAE_2_mem(int32_t addr) {
     {
         dbg_log("Invalid mxcsr bits: %x", (new_mxcsr & ~MXCSR_MASK));
         assert(false);
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
+        return;
     }
     *mxcsr = new_mxcsr;
 }

@@ -849,8 +849,14 @@ void trigger_gp(int32_t code)
 __attribute__((noinline))
 void trigger_gp_non_raising(int32_t code)
 {
+#if DEBUG
+    if(cpu_exception_hook(CPU_EXCEPTION_GP))
+    {
+        return;
+    }
+#endif
     *instruction_pointer = *previous_ip;
-    raise_exception_with_code(CPU_EXCEPTION_GP, code);
+    call_interrupt_vector(CPU_EXCEPTION_GP, false, true, code);
 }
 
 int32_t virt_boundary_read16(int32_t low, int32_t high)

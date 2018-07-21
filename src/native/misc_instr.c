@@ -389,7 +389,8 @@ void fxrstor(uint32_t addr)
     if(new_mxcsr & ~MXCSR_MASK)
     {
         dbg_log("#gp Invalid mxcsr bits");
-        trigger_gp(0);
+        trigger_gp_non_raising(0);
+        return;
     }
 
     *fpu_control_word = safe_read16(addr + 0);

@@ -14,6 +14,7 @@ align 0x10000
     ; force a #gp if the code section is re-entered
     mov eax, -1
     mov cr4, eax
+    hlt
 
 ok:
     mov byte [re_entered], 1

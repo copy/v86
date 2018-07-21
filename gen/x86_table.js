@@ -124,7 +124,8 @@ const encodings = [
     { opcode: 0x99, nonfaulting: 1, os: 1, },
     { opcode: 0x9A, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, block_boundary: 1, }, // callf
     { opcode: 0x9B, skip: 1, },
-    { opcode: 0x9C, os: 1, },
+    // pushf: block_boundary since it uses non-raising cpu exceptions
+    { opcode: 0x9C, os: 1, block_boundary: 1, },
     // popf: not a jump, but can cause an eip change due to updating the interrupt flag
     { opcode: 0x9D, os: 1, block_boundary: 1, skip: 1, },
     { opcode: 0x9E, },
@@ -248,7 +249,8 @@ const encodings = [
 
     { opcode: 0xF8, nonfaulting: 1, },
     { opcode: 0xF9, nonfaulting: 1, },
-    { opcode: 0xFA, skip: 1, },
+    // cli: block_boundary since it uses non-raising cpu exceptions
+    { opcode: 0xFA, block_boundary: 1, skip: 1, },
     // sti: not a jump, but can cause a change in eip
     { opcode: 0xFB, block_boundary: 1, skip: 1, },
     { opcode: 0xFC, nonfaulting: 1, },
@@ -264,29 +266,29 @@ const encodings = [
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 5, block_boundary: 1, no_next_instruction: 1, skip: 1, },
     { opcode: 0xFF, custom: 1, os: 1, e: 1, fixed_g: 6, },
 
-    { opcode: 0x0F00, fixed_g: 0, e: 1, skip: 1 },
-    { opcode: 0x0F00, fixed_g: 1, e: 1, skip: 1 },
-    { opcode: 0x0F00, fixed_g: 2, e: 1, skip: 1 },
-    { opcode: 0x0F00, fixed_g: 3, e: 1, skip: 1 },
-    { opcode: 0x0F00, fixed_g: 4, e: 1, skip: 1 },
-    { opcode: 0x0F00, fixed_g: 5, e: 1, skip: 1 },
+    { opcode: 0x0F00, fixed_g: 0, e: 1, skip: 1, block_boundary: 1, }, // sldt, ...
+    { opcode: 0x0F00, fixed_g: 1, e: 1, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F00, fixed_g: 2, e: 1, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F00, fixed_g: 3, e: 1, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F00, fixed_g: 4, e: 1, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F00, fixed_g: 5, e: 1, skip: 1, block_boundary: 1, },
 
-    { opcode: 0x0F01, fixed_g: 0, e: 1, skip: 1 },
-    { opcode: 0x0F01, fixed_g: 1, e: 1, skip: 1 },
-    { opcode: 0x0F01, fixed_g: 2, e: 1, skip: 1 },
-    { opcode: 0x0F01, fixed_g: 3, e: 1, skip: 1 },
-    { opcode: 0x0F01, fixed_g: 4, e: 1, skip: 1 },
-    { opcode: 0x0F01, fixed_g: 6, e: 1, skip: 1 },
-    { opcode: 0x0F01, fixed_g: 7, e: 1, skip: 1 },
+    { opcode: 0x0F01, fixed_g: 0, e: 1, skip: 1, block_boundary: 1, }, // sgdt, ...
+    { opcode: 0x0F01, fixed_g: 1, e: 1, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F01, fixed_g: 2, e: 1, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F01, fixed_g: 3, e: 1, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F01, fixed_g: 4, e: 1, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F01, fixed_g: 6, e: 1, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F01, fixed_g: 7, e: 1, skip: 1, block_boundary: 1, },
 
     { opcode: 0x0F02, os: 1, e: 1, skip: 1 },
     { opcode: 0x0F03, os: 1, e: 1, skip: 1 },
     { opcode: 0x0F04, skip: 1 },
     { opcode: 0x0F05, skip: 1 },
-    { opcode: 0x0F06, skip: 1 },
+    { opcode: 0x0F06, skip: 1, block_boundary: 1, }, // clts
     { opcode: 0x0F07, skip: 1 },
     { opcode: 0x0F08, skip: 1 },
-    { opcode: 0x0F09, skip: 1 },
+    { opcode: 0x0F09, skip: 1, block_boundary: 1, }, // wbinvd
     { opcode: 0x0F0A, skip: 1 },
     // ud2
     // Technically has a next instruction, but Linux uses this for assertions
@@ -307,18 +309,18 @@ const encodings = [
     { opcode: 0x0F1E, skip: 1 },
     { opcode: 0x0F1F, custom: 1, e: 1, },
 
-    { opcode: 0x0F20, ignore_mod: 1, e: 1, skip: 1 },
-    { opcode: 0x0F21, ignore_mod: 1, e: 1, skip: 1 },
-    { opcode: 0x0F22, ignore_mod: 1, e: 1, skip: 1 },
-    { opcode: 0x0F23, ignore_mod: 1, e: 1, skip: 1 },
+    { opcode: 0x0F20, ignore_mod: 1, e: 1, skip: 1, block_boundary: 1, }, // mov reg, creg
+    { opcode: 0x0F21, ignore_mod: 1, e: 1, skip: 1, block_boundary: 1, }, // mov reg, dreg
+    { opcode: 0x0F22, ignore_mod: 1, e: 1, skip: 1, block_boundary: 1, }, // mov creg, reg
+    { opcode: 0x0F23, ignore_mod: 1, e: 1, skip: 1, block_boundary: 1, }, // mov dreg, reg
     { opcode: 0x0F24, skip: 1 },
     { opcode: 0x0F25, skip: 1 },
     { opcode: 0x0F26, skip: 1 },
     { opcode: 0x0F27, skip: 1 },
 
-    { opcode: 0x0F30, skip: 1 },
-    { opcode: 0x0F31, skip: 1 },
-    { opcode: 0x0F32, skip: 1 },
+    { opcode: 0x0F30, skip: 1, block_boundary: 1, }, // wrmsr
+    { opcode: 0x0F31, skip: 1, block_boundary: 1, }, // rdtsc
+    { opcode: 0x0F32, skip: 1, block_boundary: 1, }, // rdmsr
     { opcode: 0x0F33, skip: 1 },
     { opcode: 0x0F34, skip: 1, block_boundary: 1, no_next_instruction: 1, }, // sysenter
     { opcode: 0x0F35, skip: 1, block_boundary: 1, no_next_instruction: 1, }, // sysexit
@@ -415,10 +417,10 @@ const encodings = [
 
     { opcode: 0x0FAA, skip: 1 },
 
-    { opcode: 0x0FAE, e: 1, fixed_g: 0, only_mem: 1, skip: 1, }, // fxsave, ...
-    { opcode: 0x0FAE, e: 1, fixed_g: 1, only_mem: 1, skip: 1, },
-    { opcode: 0x0FAE, e: 1, fixed_g: 2, only_mem: 1, skip: 1, },
-    { opcode: 0x0FAE, e: 1, fixed_g: 3, only_mem: 1, skip: 1, },
+    { opcode: 0x0FAE, e: 1, fixed_g: 0, only_mem: 1, skip: 1, }, // fxsave
+    { opcode: 0x0FAE, e: 1, fixed_g: 1, only_mem: 1, skip: 1, block_boundary: 1, }, // fxrstor: block_boundary since it uses non-raising cpu exceptions
+    { opcode: 0x0FAE, e: 1, fixed_g: 2, only_mem: 1, skip: 1, block_boundary: 1, }, // ldmxcsr
+    { opcode: 0x0FAE, e: 1, fixed_g: 3, only_mem: 1, skip: 1, block_boundary: 1, }, // stmxcsr
     { opcode: 0x0FAE, e: 1, fixed_g: 4, only_mem: 1, skip: 1, },
 
     { opcode: 0x0FAE, e: 1, fixed_g: 5, only_reg: 1, skip: 1, }, // lfence (reg, only 0), xrstor (mem)

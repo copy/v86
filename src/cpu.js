@@ -3329,7 +3329,7 @@ CPU.prototype.switch_seg = function(reg, selector)
             dbg_log("#GP for loading 0 in SS sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
             this.trigger_gp_non_raising(0);
-            return;
+            return true;
         }
 
         if(!info.is_valid ||
@@ -3341,7 +3341,7 @@ CPU.prototype.switch_seg = function(reg, selector)
             dbg_log("#GP for loading invalid in SS sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
             this.trigger_gp_non_raising(selector & ~3);
-            return;
+            return true;
         }
 
         if(!info.is_present)
@@ -3368,7 +3368,7 @@ CPU.prototype.switch_seg = function(reg, selector)
             //dbg_trace(LOG_CPU);
             this.sreg[reg] = selector;
             this.segment_is_null[reg] = 1;
-            return;
+            return false;
         }
 
         if(!info.is_valid ||
@@ -3382,7 +3382,7 @@ CPU.prototype.switch_seg = function(reg, selector)
             this.debug.dump_regs();
             dbg_trace(LOG_CPU);
             this.trigger_gp_non_raising(selector & ~3);
-            return;
+            return true;
         }
 
         if(!info.is_present)
