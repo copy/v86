@@ -346,11 +346,10 @@ pub fn instr16_E8_jit(ctx: &mut JitContext, imm: u32) {
 pub fn instr32_E8_jit(ctx: &mut JitContext, imm: u32) {
     codegen::gen_fn1_const(ctx, "instr32_E8", imm);
 }
-pub fn instr16_E9_jit(ctx: &mut JitContext, imm: u32) {
-    codegen::gen_fn1_const(ctx, "instr16_E9", imm);
-}
+
+pub fn instr16_E9_jit(ctx: &mut JitContext, imm: u32) { codegen::gen_jmp_rel16(ctx, imm as u16); }
 pub fn instr32_E9_jit(ctx: &mut JitContext, imm: u32) {
-    codegen::gen_fn1_const(ctx, "instr32_E9", imm);
+    codegen::gen_relative_jump(ctx.builder, imm as i32);
 }
 
 pub fn instr16_EB_jit(ctx: &mut JitContext, imm8: u32) {
