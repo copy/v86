@@ -10,7 +10,6 @@
   (import "e" "instr32_83_7_reg" (func $e.instr32_83_7_reg (type $t2)))
   (import "e" "test_z" (func $e.test_z (type $t4)))
   (import "e" "instr32_43" (func $e.instr32_43 (type $t0)))
-  (import "e" "instr32_EB" (func $e.instr32_EB (type $t1)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
   (import "e" "m" (memory $e.m 256))
   (func $f (export "f") (type $t1) (param $p0 i32)
@@ -73,8 +72,12 @@
                 (i32.const 556))
               (i32.const 3)))
           (call $e.instr32_43)
-          (call $e.instr32_EB
-            (i32.const -8))
+          (i32.store
+            (i32.const 556)
+            (i32.add
+              (i32.load
+                (i32.const 556))
+              (i32.const -8)))
           (i32.store
             (i32.const 664)
             (i32.add

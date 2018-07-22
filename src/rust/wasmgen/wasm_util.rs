@@ -38,6 +38,7 @@ pub fn store_aligned_i32(buf: &mut Vec<u8>) {
 }
 
 pub fn add_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32ADD); }
+pub fn sub_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32SUB); }
 
 pub fn and_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32AND); }
 

@@ -352,11 +352,16 @@ pub fn instr16_E9_jit(ctx: &mut JitContext, imm: u32) {
 pub fn instr32_E9_jit(ctx: &mut JitContext, imm: u32) {
     codegen::gen_fn1_const(ctx, "instr32_E9", imm);
 }
-pub fn instr16_EB_jit(ctx: &mut JitContext, imm: u32) {
-    codegen::gen_fn1_const(ctx, "instr16_EB", imm);
+
+pub fn instr16_EB_jit(ctx: &mut JitContext, imm8: u32) {
+    codegen::gen_jmp_rel16(ctx, imm8 as u16);
+    // dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
-pub fn instr32_EB_jit(ctx: &mut JitContext, imm: u32) {
-    codegen::gen_fn1_const(ctx, "instr32_EB", imm);
+
+pub fn instr32_EB_jit(ctx: &mut JitContext, imm8: u32) {
+    // jmp near
+    codegen::gen_relative_jump(ctx.builder, imm8 as i32);
+    // dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 
 pub fn instr16_FF_6_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {

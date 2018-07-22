@@ -2,6 +2,7 @@ use global_pointers;
 use jit::JitContext;
 use jit::{GEN_LOCAL_SCRATCH0, GEN_LOCAL_SCRATCH1, GEN_LOCAL_SCRATCH2};
 use modrm;
+use regs;
 use tlb::{TLB_GLOBAL, TLB_NO_USER, TLB_READONLY, TLB_VALID};
 use wasmgen::module_init::WasmBuilder;
 use wasmgen::{module_init, wasm_util};
@@ -377,6 +378,38 @@ pub fn gen_add_prefix_bits(ctx: &mut JitContext, mask: u32) {
     wasm_util::load_aligned_i32(instruction_body, global_pointers::PREFIXES); // load old value
     wasm_util::push_i32(instruction_body, mask as i32);
     wasm_util::or_i32(instruction_body);
+
+    wasm_util::store_aligned_i32(instruction_body);
+}
+
+pub fn gen_jmp_rel16(ctx: &mut JitContext, rel16: u16) {
+    let cs_offset_addr = global_pointers::get_seg_offset(regs::CS);
+
+    // generate:
+    // *instruction_pointer = cs_offset + ((*instruction_pointer - cs_offset + rel16) & 0xFFFF);
+
+    let instruction_body = &mut ctx.builder.instruction_body;
+
+    wasm_util::load_aligned_i32(instruction_body, cs_offset_addr);
+    wasm_util::set_local(instruction_body, GEN_LOCAL_SCRATCH0);
+
+    wasm_util::push_i32(
+        instruction_body,
+        global_pointers::INSTRUCTION_POINTER as i32,
+    );
+
+    wasm_util::load_aligned_i32(instruction_body, global_pointers::INSTRUCTION_POINTER);
+    wasm_util::get_local(instruction_body, GEN_LOCAL_SCRATCH0);
+    wasm_util::sub_i32(instruction_body);
+
+    wasm_util::push_i32(instruction_body, rel16 as i32);
+    wasm_util::add_i32(instruction_body);
+
+    wasm_util::push_i32(instruction_body, 0xFFFF);
+    wasm_util::and_i32(instruction_body);
+
+    wasm_util::get_local(instruction_body, GEN_LOCAL_SCRATCH0);
+    wasm_util::add_i32(instruction_body);
 
     wasm_util::store_aligned_i32(instruction_body);
 }
