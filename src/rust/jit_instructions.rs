@@ -352,6 +352,44 @@ pub fn instr32_E9_jit(ctx: &mut JitContext, imm: u32) {
     codegen::gen_relative_jump(ctx.builder, imm as i32);
 }
 
+pub fn instr16_C3_jit(ctx: &mut JitContext) {
+    let cs_addr = global_pointers::get_seg_offset(CS);
+
+    wasm_util::push_i32(
+        &mut ctx.builder.instruction_body,
+        global_pointers::INSTRUCTION_POINTER as i32,
+    );
+
+    wasm_util::load_aligned_i32(&mut ctx.builder.instruction_body, cs_addr);
+    codegen::gen_pop16(ctx);
+    wasm_util::add_i32(&mut ctx.builder.instruction_body);
+
+    wasm_util::store_aligned_i32(&mut ctx.builder.instruction_body);
+}
+
+pub fn instr32_C3_jit(ctx: &mut JitContext) {
+    wasm_util::push_i32(
+        &mut ctx.builder.instruction_body,
+        global_pointers::INSTRUCTION_POINTER as i32,
+    );
+
+    // cs = segment_offsets[CS]
+    wasm_util::load_aligned_i32(
+        &mut ctx.builder.instruction_body,
+        global_pointers::get_seg_offset(CS),
+    );
+
+    // ip = pop32s()
+    codegen::gen_pop32s(ctx);
+
+    // cs + ip
+    wasm_util::add_i32(&mut ctx.builder.instruction_body);
+
+    // dbg_assert(is_asize_32() || ip < 0x10000);
+
+    wasm_util::store_aligned_i32(&mut ctx.builder.instruction_body);
+}
+
 pub fn instr16_EB_jit(ctx: &mut JitContext, imm8: u32) {
     codegen::gen_jmp_rel16(ctx, imm8 as u16);
     // dbg_assert(is_asize_32() || get_real_eip() < 0x10000);

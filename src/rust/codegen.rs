@@ -413,3 +413,151 @@ pub fn gen_jmp_rel16(ctx: &mut JitContext, rel16: u16) {
 
     wasm_util::store_aligned_i32(instruction_body);
 }
+
+pub fn gen_pop16_ss16(ctx: &mut JitContext) {
+    let safe_read16_idx = ctx
+        .builder
+        .get_fn_idx("safe_read16", module_init::FN1_RET_TYPE_INDEX);
+    let instruction_body = &mut ctx.builder.instruction_body;
+
+    // sp = segment_offsets[SS] + reg16[SP]
+    wasm_util::load_aligned_i32(instruction_body, global_pointers::get_seg_offset(regs::SS));
+    wasm_util::load_aligned_i32(
+        instruction_body,
+        global_pointers::get_reg16_offset(regs::SP),
+    );
+    wasm_util::add_i32(instruction_body);
+
+    // result = safe_read16(sp)
+    // XXX: inline safe_read16
+    wasm_util::call_fn(instruction_body, safe_read16_idx);
+
+    // reg16[SP] += 2;
+    wasm_util::push_i32(
+        instruction_body,
+        global_pointers::get_reg16_offset(regs::SP) as i32,
+    );
+    wasm_util::load_aligned_i32(
+        instruction_body,
+        global_pointers::get_reg16_offset(regs::SP),
+    );
+    wasm_util::push_i32(instruction_body, 2);
+    wasm_util::add_i32(instruction_body);
+    wasm_util::store_aligned_i32(instruction_body);
+
+    // return value is already on stack
+}
+
+pub fn gen_pop16_ss32(ctx: &mut JitContext) {
+    let safe_read16_idx = ctx
+        .builder
+        .get_fn_idx("safe_read16", module_init::FN1_RET_TYPE_INDEX);
+    let instruction_body = &mut ctx.builder.instruction_body;
+
+    // esp = segment_offsets[SS] + reg32s[ESP]
+    wasm_util::load_aligned_i32(instruction_body, global_pointers::get_seg_offset(regs::SS));
+    wasm_util::load_aligned_i32(
+        instruction_body,
+        global_pointers::get_reg32_offset(regs::ESP),
+    );
+    wasm_util::add_i32(instruction_body);
+
+    // result = safe_read16(esp)
+    // XXX: inline safe_read16
+    wasm_util::call_fn(instruction_body, safe_read16_idx);
+
+    // reg32s[ESP] += 2;
+    wasm_util::push_i32(
+        instruction_body,
+        global_pointers::get_reg32_offset(regs::ESP) as i32,
+    );
+    wasm_util::load_aligned_i32(
+        instruction_body,
+        global_pointers::get_reg32_offset(regs::ESP),
+    );
+    wasm_util::push_i32(instruction_body, 2);
+    wasm_util::add_i32(instruction_body);
+    wasm_util::store_aligned_i32(instruction_body);
+
+    // return value is already on stack
+}
+
+pub fn gen_pop16(ctx: &mut JitContext) {
+    if ctx.cpu.ssize_32() {
+        gen_pop16_ss32(ctx);
+    }
+    else {
+        gen_pop16_ss16(ctx);
+    }
+}
+
+pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
+    let local_sp = GEN_LOCAL_SCRATCH2; // gen_safe_read32 uses local0 and local1
+
+    // sp = reg16[SP]
+    wasm_util::load_aligned_i32(
+        &mut ctx.builder.instruction_body,
+        global_pointers::get_reg16_offset(regs::SP),
+    );
+    wasm_util::tee_local(&mut ctx.builder.instruction_body, local_sp);
+
+    // result = safe_read32s(segment_offsets[SS] + sp)
+    wasm_util::load_aligned_i32(
+        &mut ctx.builder.instruction_body,
+        global_pointers::SEGMENT_OFFSETS + (regs::SS * 4),
+    );
+    wasm_util::add_i32(&mut ctx.builder.instruction_body);
+    gen_safe_read32(ctx);
+
+    // reg16[SP] = sp + 4;
+    wasm_util::push_i32(
+        &mut ctx.builder.instruction_body,
+        global_pointers::get_reg16_offset(regs::SP) as i32,
+    );
+    wasm_util::get_local(&mut ctx.builder.instruction_body, local_sp);
+    wasm_util::push_i32(&mut ctx.builder.instruction_body, 4);
+    wasm_util::add_i32(&mut ctx.builder.instruction_body);
+    wasm_util::store_aligned_i32(&mut ctx.builder.instruction_body);
+
+    // return value is already on stack
+}
+
+pub fn gen_pop32s_ss32(ctx: &mut JitContext) {
+    let local_esp = GEN_LOCAL_SCRATCH2; // gen_safe_read32 uses local0 and local1
+
+    // esp = reg32s[ESP]
+    wasm_util::load_aligned_i32(
+        &mut ctx.builder.instruction_body,
+        global_pointers::get_reg32_offset(regs::ESP),
+    );
+    wasm_util::tee_local(&mut ctx.builder.instruction_body, local_esp);
+
+    // result = safe_read32s(segment_offsets[SS] + esp)
+    wasm_util::load_aligned_i32(
+        &mut ctx.builder.instruction_body,
+        global_pointers::SEGMENT_OFFSETS + (regs::SS * 4),
+    );
+    wasm_util::add_i32(&mut ctx.builder.instruction_body);
+    gen_safe_read32(ctx);
+
+    // reg32s[ESP] = esp + 4;
+    wasm_util::push_i32(
+        &mut ctx.builder.instruction_body,
+        global_pointers::get_reg32_offset(regs::ESP) as i32,
+    );
+    wasm_util::get_local(&mut ctx.builder.instruction_body, local_esp);
+    wasm_util::push_i32(&mut ctx.builder.instruction_body, 4);
+    wasm_util::add_i32(&mut ctx.builder.instruction_body);
+    wasm_util::store_aligned_i32(&mut ctx.builder.instruction_body);
+
+    // return value is already on stack
+}
+
+pub fn gen_pop32s(ctx: &mut JitContext) {
+    if ctx.cpu.ssize_32() {
+        gen_pop32s_ss32(ctx);
+    }
+    else {
+        gen_pop32s_ss16(ctx);
+    }
+}
