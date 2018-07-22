@@ -679,99 +679,124 @@ const tests =
         },
     },
     {
-        name: "Support for Full Security Capabilities",
+        name: "Xattrwalk and Listxattr",
         timeout: 60,
         allow_failure: true,
-        // TODO: Delete the following. Better to use getfattr or getcap commands if available.
-        // The following doesn't work with linux4.img yet.
-        // Host machine also requires package libcap-dev:i386 to compile this.
-        //files:
-        //[
-        //    {
-        //        file: "test",
-        //        data: new Uint8Array(child_process.execSync("gcc -xc -m32 -o /dev/stdout -static - -lcap",
-        //            {
-        //                input: `
-        //                    #include <sys/capability.h>
-        //                    #include <stdio.h>
-        //                    int main(int argc, char *argv[])
-        //                    {
-        //                        cap_t cap = cap_get_file(argv[1]);
-        //                        if(cap == NULL)
-        //                        {
-        //                            perror("Error accessing capabilities");
-        //                            return 1;
-        //                        }
-        //                        char *text = cap_to_text(cap, NULL);
-        //                        puts(text);
-        //                        cap_free(cap);
-        //                        cap_free(text);
-        //                        return 0;
-        //                    }
-        //                `,
-        //            }).buffer),
-        //    },
-        //],
+        start: () =>
+        {
+            emulator.serial0_send("echo originalvalue > /mnt/file\n");
+            emulator.serial0_send("echo start-capture;");
+
+            emulator.serial0_send('setfattr --name=user.attr1 --value="val1" /mnt/file;');
+            emulator.serial0_send('setfattr --name=user.attr2 --value="val2" /mnt/file;');
+            emulator.serial0_send('setfattr --name=user.mime_type --value="text/plain" /mnt/file;');
+            emulator.serial0_send('setfattr --name=user.nested.attr --value="foobar" /mnt/file;');
+
+            // Unrecognized attribute name under other namespaces should be allowed.
+            emulator.serial0_send('setfattr --name=security.not_an_attr --value="val3" /mnt/file;');
+
+            // Remove the caps attribute we've automatically put in. Tested later.
+            emulator.serial0_send('setfattr --remove=security.capability /mnt/file;');
+
+            emulator.serial0_send("getfattr --encoding=text --absolute-names --dump /mnt/file | sort;");
+            emulator.serial0_send("getfattr --encoding=text --absolute-names --name=user.nested.attr /mnt/file;");
+            emulator.serial0_send("getfattr --encoding=text --absolute-names --name=security.not_an_attr /mnt/file;");
+            emulator.serial0_send("getfattr --encoding=text --absolute-names --name=user.attr2 /mnt/file;");
+            emulator.serial0_send("echo done-listxattr\n");
+        },
+        capture_trigger: "start-capture",
+        end_trigger: "done-listxattr",
+        end: (capture, done) =>
+        {
+            assert_equal(capture,
+                "# file: /mnt/file\n" +
+                'security.not_an_attr="val3"\n' +
+                'user.attr1="val1"\n' +
+                'user.attr2="val2"\n' +
+                'user.mime_type="text/plain"\n' +
+                'user.nested.attr="foobar"\n' +
+                "\n" +
+                "# file: /mnt/file\n" +
+                'user.nested.attr="foobar"\n' +
+                "\n" +
+                "# file: /mnt/file\n" +
+                'security.not_an_attr="val3"\n' +
+                "\n" +
+                "# file: /mnt/file\n" +
+                'user.attr2="val2"\n');
+            done();
+        },
+    },
+    {
+        name: "Xattrcreate",
+        timeout: 60,
+        allow_failure: true,
+        start: () =>
+        {
+            emulator.serial0_send("echo originalvalue > /mnt/file\n");
+            // Remove the caps attribute we've automatically put in. Tested later.
+            emulator.serial0_send('setfattr --remove=security.capability /mnt/file\n');
+
+            emulator.serial0_send("echo start-capture;");
+
+            // Creation of new xattr using xattrcreate.
+            emulator.serial0_send("setfattr --name=user.foo --value=bar /mnt/file;");
+            // File contents should not be overriden.
+            emulator.serial0_send("cat /mnt/file;");
+            emulator.serial0_send("getfattr --encoding=hex --absolute-names --name=user.foo /mnt/file;");
+
+            // Overwriting of xattr using xattrcreate.
+            emulator.serial0_send("setfattr --name=user.foo --value=baz /mnt/file;");
+            // File contents should not be overriden.
+            emulator.serial0_send("cat /mnt/file;");
+            emulator.serial0_send("getfattr --encoding=hex --absolute-names --name=user.foo /mnt/file;");
+
+            emulator.serial0_send("echo done-xattrcreate\n");
+        },
+        capture_trigger: "start-capture",
+        end_trigger: "done-xattrcreate",
+        end: (capture, done) =>
+        {
+            assert_equal(capture,
+                "originalvalue\n" +
+                "# file: /mnt/file\n" +
+                'user.foo="bar"\n' +
+                "\n" +
+                "originalvalue\n" +
+                "# file: /mnt/file\n" +
+                'user.foo="baz"\n' +
+                "\n");
+            done();
+        },
+    },
+    {
+        name: "Report All Security Capabilities",
+        timeout: 60,
         start: () =>
         {
             emulator.serial0_send("touch /mnt/file\n");
-            emulator.serial0_send("chmod +x /mnt/test\n");
             emulator.serial0_send("echo start-capture;");
-            emulator.serial0_send("/mnt/test /mnt/file;");
+            emulator.serial0_send("getfattr --encoding=hex --absolute-names --name=security.capability /mnt/file;");
             emulator.serial0_send("echo done-xattr\n");
         },
         capture_trigger: "start-capture",
         end_trigger: "done-xattr",
         end: (capture, done) =>
         {
-            const EXPECTED_CAPABILITIES =
-            [
-                // In order of their values defined in linux/capability.h
-                "cap_chown",
-                "cap_dac_override",
-                "cap_dac_read_search",
-                "cap_fowner",
-                "cap_fsetid",
-                "cap_kill",
-                "cap_setgid",
-                "cap_setuid",
-                "cap_setcap",
-                "cap_linux_immutable",
-                "cap_net_bind_service",
-                "cap_net_broadcast",
-                "cap_net_admin",
-                "cap_net_raw",
-                "cap_ipc_lock",
-                "cap_ipc_owner",
-                "cap_sys_module",
-                "cap_sys_rawio",
-                "cap_sys_chroot",
-                "cap_sys_ptrace",
-                "cap_sys_pacct",
-                "cap_sys_admin",
-                "cap_sys_boot",
-                "cap_sys_nice",
-                "cap_sys_resource",
-                "cap_sys_time",
-                "cap_sys_tty_config",
-                "cap_mknod",
-                "cap_lease",
-                "cap_audit_write",
-                "cap_audit_control",
-                "cap_setfcap",
-
-                // VFS_CAP_REVISION_1 can only set the first 32 capabilities
-                // The rest is accessible via VFS_CAP_REVISION_2 or 3
-
-                //"cap_mac_override",
-                //"cap_mac_admin",
-                //"cap_syslog",
-                //"cap_wake_alarm",
-                //"cap_block_suspend",
-                //"cap_audit_read",
-            ];
-            const expected = "= " + EXPECTED_CAPABILITIES.join(",") + "+ip";
-            assert_equal(capture, expected);
+            assert_equal(capture,
+                "# file: /mnt/file\n" +
+                "security.capability=0x" +
+                // magic and revision number
+                "00000002" +
+                // lower permitted
+                "ffffffff" +
+                // lower inheritable
+                "ffffffff" +
+                // higher permitted
+                "3f000000" +
+                // higher inheritable
+                "3f000000" +
+                "\n\n");
             done();
         },
     },
