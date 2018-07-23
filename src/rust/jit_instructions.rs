@@ -5,6 +5,7 @@ use cpu_context::CpuContext;
 use global_pointers;
 use jit::JitContext;
 use jit::{GEN_LOCAL_SCRATCH0, GEN_LOCAL_SCRATCH1};
+use modrm;
 use prefix::SEG_PREFIX_ZERO;
 use prefix::{PREFIX_66, PREFIX_67, PREFIX_F2, PREFIX_F3};
 use regs::{AX, BP, BX, CX, DI, DX, SI, SP};
@@ -445,8 +446,33 @@ pub fn instr32_0F8E_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr32_0F8F_jit(_ctx: &mut JitContext, _imm: u32) {}
 
 pub fn instr_90_jit(_ctx: &mut JitContext) {}
+
+pub fn instr_0F19_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
+    modrm::skip(ctx.cpu, modrm_byte);
+}
+pub fn instr_0F19_reg_jit(_ctx: &mut JitContext, _r1: u32, _r2: u32) {}
+pub fn instr_0F1A_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
+    modrm::skip(ctx.cpu, modrm_byte);
+}
+pub fn instr_0F1A_reg_jit(_ctx: &mut JitContext, _r1: u32, _r2: u32) {}
+pub fn instr_0F1B_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
+    modrm::skip(ctx.cpu, modrm_byte);
+}
+pub fn instr_0F1B_reg_jit(_ctx: &mut JitContext, _r1: u32, _r2: u32) {}
+pub fn instr_0F1C_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
+    modrm::skip(ctx.cpu, modrm_byte);
+}
+pub fn instr_0F1C_reg_jit(_ctx: &mut JitContext, _r1: u32, _r2: u32) {}
+pub fn instr_0F1D_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
+    modrm::skip(ctx.cpu, modrm_byte);
+}
+pub fn instr_0F1D_reg_jit(_ctx: &mut JitContext, _r1: u32, _r2: u32) {}
+pub fn instr_0F1E_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
+    modrm::skip(ctx.cpu, modrm_byte);
+}
+pub fn instr_0F1E_reg_jit(_ctx: &mut JitContext, _r1: u32, _r2: u32) {}
 pub fn instr_0F1F_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    modrm::skip(ctx.cpu, modrm_byte);
 }
 pub fn instr_0F1F_reg_jit(_ctx: &mut JitContext, _r1: u32, _r2: u32) {}
 

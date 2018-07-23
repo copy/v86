@@ -435,18 +435,21 @@ void instr_0F18_mem(int32_t addr, int32_t r) {
     // nop for us
 }
 
-void instr_0F19() { unimplemented_sse(); }
-void instr_0F1A() { unimplemented_sse(); }
-void instr_0F1B() { unimplemented_sse(); }
-void instr_0F1C() { unimplemented_sse(); }
-void instr_0F1D() { unimplemented_sse(); }
-void instr_0F1E() { unimplemented_sse(); }
-void instr_0F1F_reg(int32_t r1, int32_t r2) {
-    // multi-byte nop
-}
-void instr_0F1F_mem(int32_t addr, int32_t r) {
-    // multi-byte nop
-}
+// hintable nops
+void instr_0F19_reg(int32_t r1, int32_t r2) { }
+void instr_0F19_mem(int32_t addr, int32_t r) { }
+void instr_0F1A_reg(int32_t r1, int32_t r2) { }
+void instr_0F1A_mem(int32_t addr, int32_t r) { }
+void instr_0F1B_reg(int32_t r1, int32_t r2) { }
+void instr_0F1B_mem(int32_t addr, int32_t r) { }
+void instr_0F1C_reg(int32_t r1, int32_t r2) { }
+void instr_0F1C_mem(int32_t addr, int32_t r) { }
+void instr_0F1D_reg(int32_t r1, int32_t r2) { }
+void instr_0F1D_mem(int32_t addr, int32_t r) { }
+void instr_0F1E_reg(int32_t r1, int32_t r2) { }
+void instr_0F1E_mem(int32_t addr, int32_t r) { }
+void instr_0F1F_reg(int32_t r1, int32_t r2) { }
+void instr_0F1F_mem(int32_t addr, int32_t r) { }
 
 
 void instr_0F20(int32_t r, int32_t creg) {

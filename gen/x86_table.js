@@ -301,12 +301,12 @@ const encodings = [
     { opcode: 0x0F0F, skip: 1 },
 
     { opcode: 0x0F18, only_mem: 1, e: 1, },
-    { opcode: 0x0F19, skip: 1 },
-    { opcode: 0x0F1A, skip: 1 },
-    { opcode: 0x0F1B, skip: 1 },
-    { opcode: 0x0F1C, skip: 1 },
-    { opcode: 0x0F1D, skip: 1 },
-    { opcode: 0x0F1E, skip: 1 },
+    { opcode: 0x0F19, custom: 1, e: 1, },
+    { opcode: 0x0F1A, custom: 1, e: 1, },
+    { opcode: 0x0F1B, custom: 1, e: 1, },
+    { opcode: 0x0F1C, custom: 1, e: 1, },
+    { opcode: 0x0F1D, custom: 1, e: 1, },
+    { opcode: 0x0F1E, custom: 1, e: 1, },
     { opcode: 0x0F1F, custom: 1, e: 1, },
 
     { opcode: 0x0F20, ignore_mod: 1, e: 1, skip: 1, block_boundary: 1, }, // mov reg, creg
