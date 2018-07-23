@@ -422,14 +422,17 @@ pub fn gen_pop16_ss16(ctx: &mut JitContext) {
 
     let sp_local = GEN_LOCAL_SCRATCH0;
 
-    // sp = segment_offsets[SS] + reg16[SP]
-    wasm_util::load_aligned_i32(instruction_body, global_pointers::get_seg_offset(regs::SS));
+    // sp = segment_offsets[SS] + reg16[SP] (or just reg16[SP] if has_flat_segmentation)
     wasm_util::load_aligned_i32(
         instruction_body,
         global_pointers::get_reg16_offset(regs::SP),
     );
     wasm_util::tee_local(instruction_body, sp_local);
-    wasm_util::add_i32(instruction_body);
+
+    if !ctx.cpu.has_flat_segmentation() {
+        wasm_util::load_aligned_i32(instruction_body, global_pointers::get_seg_offset(regs::SS));
+        wasm_util::add_i32(instruction_body);
+    }
 
     // result = safe_read16(sp)
     // XXX: inline safe_read16
@@ -456,14 +459,17 @@ pub fn gen_pop16_ss32(ctx: &mut JitContext) {
 
     let esp_local = GEN_LOCAL_SCRATCH0;
 
-    // esp = segment_offsets[SS] + reg32s[ESP]
-    wasm_util::load_aligned_i32(instruction_body, global_pointers::get_seg_offset(regs::SS));
+    // esp = segment_offsets[SS] + reg32s[ESP] (or just reg32s[ESP] if has_flat_segmentation)
     wasm_util::load_aligned_i32(
         instruction_body,
         global_pointers::get_reg32_offset(regs::ESP),
     );
     wasm_util::tee_local(instruction_body, esp_local);
-    wasm_util::add_i32(instruction_body);
+
+    if !ctx.cpu.has_flat_segmentation() {
+        wasm_util::load_aligned_i32(instruction_body, global_pointers::get_seg_offset(regs::SS));
+        wasm_util::add_i32(instruction_body);
+    }
 
     // result = safe_read16(esp)
     // XXX: inline safe_read16
@@ -501,12 +507,15 @@ pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
     );
     wasm_util::tee_local(&mut ctx.builder.instruction_body, local_sp);
 
-    // result = safe_read32s(segment_offsets[SS] + sp)
-    wasm_util::load_aligned_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::SEGMENT_OFFSETS + (regs::SS * 4),
-    );
-    wasm_util::add_i32(&mut ctx.builder.instruction_body);
+    // result = safe_read32s(segment_offsets[SS] + sp) (or just sp if has_flat_segmentation)
+    if !ctx.cpu.has_flat_segmentation() {
+        wasm_util::load_aligned_i32(
+            &mut ctx.builder.instruction_body,
+            global_pointers::get_seg_offset(regs::SS),
+        );
+        wasm_util::add_i32(&mut ctx.builder.instruction_body);
+    }
+
     gen_safe_read32(ctx);
 
     // reg16[SP] = sp + 4;
@@ -532,12 +541,14 @@ pub fn gen_pop32s_ss32(ctx: &mut JitContext) {
     );
     wasm_util::tee_local(&mut ctx.builder.instruction_body, local_esp);
 
-    // result = safe_read32s(segment_offsets[SS] + esp)
-    wasm_util::load_aligned_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::SEGMENT_OFFSETS + (regs::SS * 4),
-    );
-    wasm_util::add_i32(&mut ctx.builder.instruction_body);
+    // result = safe_read32s(segment_offsets[SS] + esp) (or just esp if has_flat_segmentation)
+    if !ctx.cpu.has_flat_segmentation() {
+        wasm_util::load_aligned_i32(
+            &mut ctx.builder.instruction_body,
+            global_pointers::get_seg_offset(regs::SS),
+        );
+        wasm_util::add_i32(&mut ctx.builder.instruction_body);
+    }
     gen_safe_read32(ctx);
 
     // reg32s[ESP] = esp + 4;
