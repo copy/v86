@@ -420,12 +420,15 @@ pub fn gen_pop16_ss16(ctx: &mut JitContext) {
         .get_fn_idx("safe_read16", module_init::FN1_RET_TYPE_INDEX);
     let instruction_body = &mut ctx.builder.instruction_body;
 
+    let sp_local = GEN_LOCAL_SCRATCH0;
+
     // sp = segment_offsets[SS] + reg16[SP]
     wasm_util::load_aligned_i32(instruction_body, global_pointers::get_seg_offset(regs::SS));
     wasm_util::load_aligned_i32(
         instruction_body,
         global_pointers::get_reg16_offset(regs::SP),
     );
+    wasm_util::tee_local(instruction_body, sp_local);
     wasm_util::add_i32(instruction_body);
 
     // result = safe_read16(sp)
@@ -437,10 +440,7 @@ pub fn gen_pop16_ss16(ctx: &mut JitContext) {
         instruction_body,
         global_pointers::get_reg16_offset(regs::SP) as i32,
     );
-    wasm_util::load_aligned_i32(
-        instruction_body,
-        global_pointers::get_reg16_offset(regs::SP),
-    );
+    wasm_util::get_local(instruction_body, sp_local);
     wasm_util::push_i32(instruction_body, 2);
     wasm_util::add_i32(instruction_body);
     wasm_util::store_aligned_i32(instruction_body);
@@ -454,12 +454,15 @@ pub fn gen_pop16_ss32(ctx: &mut JitContext) {
         .get_fn_idx("safe_read16", module_init::FN1_RET_TYPE_INDEX);
     let instruction_body = &mut ctx.builder.instruction_body;
 
+    let esp_local = GEN_LOCAL_SCRATCH0;
+
     // esp = segment_offsets[SS] + reg32s[ESP]
     wasm_util::load_aligned_i32(instruction_body, global_pointers::get_seg_offset(regs::SS));
     wasm_util::load_aligned_i32(
         instruction_body,
         global_pointers::get_reg32_offset(regs::ESP),
     );
+    wasm_util::tee_local(instruction_body, esp_local);
     wasm_util::add_i32(instruction_body);
 
     // result = safe_read16(esp)
@@ -471,10 +474,7 @@ pub fn gen_pop16_ss32(ctx: &mut JitContext) {
         instruction_body,
         global_pointers::get_reg32_offset(regs::ESP) as i32,
     );
-    wasm_util::load_aligned_i32(
-        instruction_body,
-        global_pointers::get_reg32_offset(regs::ESP),
-    );
+    wasm_util::get_local(instruction_body, esp_local);
     wasm_util::push_i32(instruction_body, 2);
     wasm_util::add_i32(instruction_body);
     wasm_util::store_aligned_i32(instruction_body);
