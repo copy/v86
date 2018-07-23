@@ -34,11 +34,11 @@ void instr32_05(int32_t imm32) { reg32s[EAX] = add32(reg32s[EAX], imm32); }
 void instr16_06() { push16(sreg[ES]); }
 void instr32_06() { push32(sreg[ES]); }
 void instr16_07() {
-    if(switch_seg(ES, safe_read16(get_stack_pointer(0)))) return;
+    if(!switch_seg(ES, safe_read16(get_stack_pointer(0)))) return;
     adjust_stack_reg(2);
 }
 void instr32_07() {
-    if(switch_seg(ES, safe_read32s(get_stack_pointer(0)) & 0xFFFF)) return;
+    if(!switch_seg(ES, safe_read32s(get_stack_pointer(0)) & 0xFFFF)) return;
     adjust_stack_reg(4);
 }
 
@@ -76,13 +76,13 @@ void instr32_15(int32_t imm32) { reg32s[EAX] = adc32(reg32s[EAX], imm32); }
 void instr16_16() { push16(sreg[SS]); }
 void instr32_16() { push32(sreg[SS]); }
 void instr16_17() {
-    if(switch_seg(SS, safe_read16(get_stack_pointer(0)))) return;
+    if(!switch_seg(SS, safe_read16(get_stack_pointer(0)))) return;
     adjust_stack_reg(2);
     //clear_prefixes();
     //cycle_internal();
 }
 void instr32_17() {
-    if(switch_seg(SS, safe_read32s(get_stack_pointer(0)) & 0xFFFF)) return;
+    if(!switch_seg(SS, safe_read32s(get_stack_pointer(0)) & 0xFFFF)) return;
     adjust_stack_reg(4);
     //clear_prefixes();
     //cycle_internal();
@@ -102,11 +102,11 @@ void instr32_1D(int32_t imm32) { reg32s[EAX] = sbb32(reg32s[EAX], imm32); }
 void instr16_1E() { push16(sreg[DS]); }
 void instr32_1E() { push32(sreg[DS]); }
 void instr16_1F() {
-    if(switch_seg(DS, safe_read16(get_stack_pointer(0)))) return;
+    if(!switch_seg(DS, safe_read16(get_stack_pointer(0)))) return;
     adjust_stack_reg(2);
 }
 void instr32_1F() {
-    if(switch_seg(DS, safe_read32s(get_stack_pointer(0)) & 0xFFFF)) return;
+    if(!switch_seg(DS, safe_read32s(get_stack_pointer(0)) & 0xFFFF)) return;
     adjust_stack_reg(4);
 }
 
@@ -466,7 +466,7 @@ void instr_8E_helper(int32_t data, int32_t mod)
 {
     if(mod == ES || mod == SS || mod == DS || mod == FS || mod == GS)
     {
-        if(switch_seg(mod, data)) return;
+        if(!switch_seg(mod, data)) return;
 
         if(mod == SS)
         {

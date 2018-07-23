@@ -630,7 +630,7 @@ CPU.prototype.reset = function()
     this.instruction_pointer[0] = 0xFFFF0;
     this.switch_cs_real_mode(0xF000);
 
-    if(this.switch_seg(reg_ss, 0x30)) dbg_assert(false);
+    if(!this.switch_seg(reg_ss, 0x30)) dbg_assert(false);
     this.reg16[reg_sp] = 0x100;
 
     if(this.devices.virtio)
@@ -1650,7 +1650,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, ha
 
             this.flags[0] &= ~flag_vm & ~flag_rf;
 
-            if(this.switch_seg(reg_ss, new_ss)) dbg_assert(false); // XXX
+            if(!this.switch_seg(reg_ss, new_ss)) dbg_assert(false); // XXX
             this.set_stack_reg(new_esp);
 
             if(old_flags & flag_vm)
@@ -1735,10 +1735,10 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, ha
         if(old_flags & flag_vm)
         {
             if(
-                this.switch_seg(reg_gs, 0) ||
-                this.switch_seg(reg_fs, 0) ||
-                this.switch_seg(reg_ds, 0) ||
-                this.switch_seg(reg_es, 0)
+                !this.switch_seg(reg_gs, 0) ||
+                !this.switch_seg(reg_fs, 0) ||
+                !this.switch_seg(reg_ds, 0) ||
+                !this.switch_seg(reg_es, 0)
             )
             {
                 // can't fail
@@ -1904,10 +1904,10 @@ CPU.prototype.iret = function(is_16)
             this.instruction_pointer[0] = (new_eip & 0xFFFF) + this.get_seg(reg_cs) | 0;
 
             if(
-                this.switch_seg(reg_es, new_es) ||
-                this.switch_seg(reg_ds, new_ds) ||
-                this.switch_seg(reg_fs, new_fs) ||
-                this.switch_seg(reg_gs, new_gs)
+                !this.switch_seg(reg_es, new_es) ||
+                !this.switch_seg(reg_ds, new_ds) ||
+                !this.switch_seg(reg_fs, new_fs) ||
+                !this.switch_seg(reg_gs, new_gs)
             )
             {
                 // XXX: Should be checked before side effects
@@ -1917,7 +1917,7 @@ CPU.prototype.iret = function(is_16)
             this.adjust_stack_reg(9 * 4); // 9 dwords: eip, cs, flags, esp, ss, es, ds, fs, gs
 
             this.reg32s[reg_esp] = temp_esp;
-            if(this.switch_seg(reg_ss, temp_ss)) dbg_assert(false); // XXX
+            if(!this.switch_seg(reg_ss, temp_ss)) dbg_assert(false); // XXX
 
             this.cpl[0] = 3;
             this.cpl_changed();
@@ -2033,7 +2033,7 @@ CPU.prototype.iret = function(is_16)
 
         //dbg_log("outer privilege return: from=" + this.cpl[0] + " to=" + info.rpl + " ss:esp=" + h(temp_ss, 4) + ":" + h(temp_esp >>> 0, 8), LOG_CPU);
 
-        if(this.switch_seg(reg_ss, temp_ss)) dbg_assert(false); // XXX
+        if(!this.switch_seg(reg_ss, temp_ss)) dbg_assert(false); // XXX
 
         this.set_stack_reg(temp_esp);
 
@@ -2046,7 +2046,7 @@ CPU.prototype.iret = function(is_16)
         // XXX: Set segment to 0 if it's not usable in the new cpl
         // XXX: Use cached segment information
         //var ds_info = this.lookup_segment_selector(this.sreg[reg_ds]);
-        //if(this.cpl[0] > ds_info.dpl && (!ds_info.is_executable || !ds_info.dc_bit)) if(this.switch_seg(reg_ds, 0)) ...;
+        //if(this.cpl[0] > ds_info.dpl && (!ds_info.is_executable || !ds_info.dc_bit)) if(!this.switch_seg(reg_ds, 0)) ...;
         // ...
     }
     else if(info.rpl === this.cpl[0])
@@ -2202,7 +2202,7 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
         this.cpl_changed();
 
         // XXX: This failure should be checked before side effects
-        if(this.switch_seg(reg_ss, temp_ss)) dbg_assert(false);
+        if(!this.switch_seg(reg_ss, temp_ss)) dbg_assert(false);
         this.set_stack_reg(temp_esp + stack_adjust);
 
         //if(this.is_osize_32())
@@ -2429,7 +2429,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
                 this.update_cs_size(cs_info.size);
 
                 // XXX: Should be checked before side effects
-                if(this.switch_seg(reg_ss, new_ss)) dbg_assert(false);
+                if(!this.switch_seg(reg_ss, new_ss)) dbg_assert(false);
                 this.set_stack_reg(new_esp);
 
                 //dbg_log("parameter_count=" + parameter_count);
@@ -2814,11 +2814,11 @@ CPU.prototype.do_task_switch = function(selector, error_code)
     this.reg32s[reg_edi] = this.safe_read32s(new_tsr_offset + TSR_EDI);
 
     if(
-        this.switch_seg(reg_es, this.safe_read16(new_tsr_offset + TSR_ES)) ||
-        this.switch_seg(reg_ss, this.safe_read16(new_tsr_offset + TSR_SS)) ||
-        this.switch_seg(reg_ds, this.safe_read16(new_tsr_offset + TSR_DS)) ||
-        this.switch_seg(reg_fs, this.safe_read16(new_tsr_offset + TSR_FS)) ||
-        this.switch_seg(reg_gs, this.safe_read16(new_tsr_offset + TSR_GS))
+        !this.switch_seg(reg_es, this.safe_read16(new_tsr_offset + TSR_ES)) ||
+        !this.switch_seg(reg_ss, this.safe_read16(new_tsr_offset + TSR_SS)) ||
+        !this.switch_seg(reg_ds, this.safe_read16(new_tsr_offset + TSR_DS)) ||
+        !this.switch_seg(reg_fs, this.safe_read16(new_tsr_offset + TSR_FS)) ||
+        !this.switch_seg(reg_gs, this.safe_read16(new_tsr_offset + TSR_GS))
     )
     {
         // XXX: Should be checked before side effects
@@ -3297,7 +3297,7 @@ CPU.prototype.lookup_segment_selector = function(selector)
 };
 
 /**
- * Returns true if changing was aborted due to an exception
+ * Returns false if changing was aborted due to an exception
  *
  * @param {number} reg
  * @param {number} selector
@@ -3317,7 +3317,7 @@ CPU.prototype.switch_seg = function(reg, selector)
         {
             this.stack_size_32[0] = +false;
         }
-        return false;
+        return true;
     }
 
     var info = this.lookup_segment_selector(selector);
@@ -3329,7 +3329,7 @@ CPU.prototype.switch_seg = function(reg, selector)
             dbg_log("#GP for loading 0 in SS sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
             this.trigger_gp_non_raising(0);
-            return true;
+            return false;
         }
 
         if(!info.is_valid ||
@@ -3341,7 +3341,7 @@ CPU.prototype.switch_seg = function(reg, selector)
             dbg_log("#GP for loading invalid in SS sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
             this.trigger_gp_non_raising(selector & ~3);
-            return true;
+            return false;
         }
 
         if(!info.is_present)
@@ -3349,7 +3349,7 @@ CPU.prototype.switch_seg = function(reg, selector)
             dbg_log("#SS for loading non-present in SS sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
             this.trigger_ss(selector & ~3);
-            return true;
+            return false;
         }
 
         this.stack_size_32[0] = info.size;
@@ -3368,7 +3368,7 @@ CPU.prototype.switch_seg = function(reg, selector)
             //dbg_trace(LOG_CPU);
             this.sreg[reg] = selector;
             this.segment_is_null[reg] = 1;
-            return false;
+            return true;
         }
 
         if(!info.is_valid ||
@@ -3382,7 +3382,7 @@ CPU.prototype.switch_seg = function(reg, selector)
             this.debug.dump_regs();
             dbg_trace(LOG_CPU);
             this.trigger_gp_non_raising(selector & ~3);
-            return true;
+            return false;
         }
 
         if(!info.is_present)
@@ -3390,7 +3390,7 @@ CPU.prototype.switch_seg = function(reg, selector)
             dbg_log("#NP for loading not-present in seg " + reg + " sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
             this.trigger_np(selector & ~3);
-            return true;
+            return false;
         }
     }
 
@@ -3401,7 +3401,7 @@ CPU.prototype.switch_seg = function(reg, selector)
     this.segment_offsets[reg] = info.base;
     this.sreg[reg] = selector;
 
-    return false;
+    return true;
 };
 
 CPU.prototype.load_tr = function(selector)
@@ -3677,7 +3677,7 @@ CPU.prototype.lss16 = function(addr, reg, seg)
     var new_reg = this.safe_read16(addr),
         new_seg = this.safe_read16(addr + 2 | 0);
 
-    if(this.switch_seg(seg, new_seg)) return;
+    if(!this.switch_seg(seg, new_seg)) return;
 
     this.reg16[reg] = new_reg;
 };
@@ -3687,7 +3687,7 @@ CPU.prototype.lss32 = function(addr, reg, seg)
     var new_reg = this.safe_read32s(addr),
         new_seg = this.safe_read16(addr + 4 | 0);
 
-    if(this.switch_seg(seg, new_seg)) return;
+    if(!this.switch_seg(seg, new_seg)) return;
 
     this.reg32s[reg] = new_reg;
 };
