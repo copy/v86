@@ -22,6 +22,7 @@ const cluster = require("cluster");
 
 const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 99;
 const TEST_NAME = process.env.TEST_NAME;
+const SINGLE_TEST_TIMEOUT = 10000;
 
 const TEST_DIR = __dirname + "/build/";
 const DONE_MSG = "DONE";
@@ -202,7 +203,7 @@ else {
             return;
         }
 
-        waiting_for_test = false;
+        waiting_to_receive_next_test = false;
         current_test = test;
         console.info("Testing", test.img_name);
 
@@ -213,6 +214,11 @@ else {
         cpu.reset();
         cpu.reset_memory();
         cpu.load_multiboot(fs.readFileSync(TEST_DIR + current_test.img_name).buffer);
+
+        test_timeout = setTimeout(() => {
+            console.error("Test " + test.img_name + " timed out after " + (SINGLE_TEST_TIMEOUT / 1000) + " seconds.");
+            process.exit(2);
+        }, SINGLE_TEST_TIMEOUT);
 
         if(FORCE_JIT)
         {
@@ -237,8 +243,9 @@ else {
     let loaded = false;
     let current_test = undefined;
     let first_test = undefined;
-    let waiting_for_test = false;
+    let waiting_to_receive_next_test = false;
     let recorded_exceptions = [];
+    let test_timeout;
 
     let emulator = new V86({
         autostart: false,
@@ -258,7 +265,7 @@ else {
 
     emulator.cpu_exception_hook = function(n)
     {
-        if(waiting_for_test)
+        if(waiting_to_receive_next_test)
         {
             return true;
         }
@@ -286,7 +293,9 @@ else {
             return true;
         }
 
-        waiting_for_test = true;
+        clearTimeout(test_timeout);
+
+        waiting_to_receive_next_test = true;
         emulator.stop();
 
         if(current_test.fixture.exception !== exception)
@@ -309,8 +318,10 @@ else {
     };
 
     emulator.bus.register("cpu-event-halt", function() {
-        console.assert(!waiting_for_test);
-        waiting_for_test = true;
+        console.assert(!waiting_to_receive_next_test);
+        waiting_to_receive_next_test = true;
+        clearTimeout(test_timeout);
+
         emulator.stop();
         var cpu = emulator.v86.cpu;
 
