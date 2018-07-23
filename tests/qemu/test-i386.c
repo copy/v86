@@ -2081,7 +2081,6 @@ void test_exceptions(void)
 #endif
 }
 
-
 #if !defined(__x86_64__)
 /* specific precise single step test */
 void sig_trap_handler(int sig, siginfo_t *info, void *puc)
@@ -2281,8 +2280,8 @@ static void test_enter(void)
 
 #ifdef TEST_SSE
 
-typedef int __m64 __attribute__ ((__mode__ (__V2SI__)));
-typedef float __m128 __attribute__ ((__mode__(__V4SF__)));
+typedef int __m64 __attribute__ ((vector_size(8)));
+typedef float __m128 __attribute__ ((vector_size(16)));
 
 typedef union {
     double d[2];
@@ -2299,8 +2298,7 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     { 0x0f76255a085427f8, 0xc233e9e8c4c9439a },
 };
 
-#define SSE_OP(op) {}
-/*                                              \
+#define SSE_OP(op)\
 {\
     asm volatile (#op " %2, %0" : "=x" (r.dq) : "0" (a.dq), "x" (b.dq));\
     printf("%-9s: a=" FMT64X "" FMT64X " b=" FMT64X "" FMT64X " r=" FMT64X "" FMT64X "\n",\
@@ -2309,10 +2307,8 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
            b.q[1], b.q[0],\
            r.q[1], r.q[0]);\
 }
-*/
 
-#define SSE_OP2(op) {}
-/*                                              \
+#define SSE_OP2(op)\
 {\
     int i;\
     for(i=0;i<2;i++) {\
@@ -2323,7 +2319,6 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     SSE_OP(op);\
     }\
 }
-*/
 
 #define MMX_OP2(op)\
 {\
@@ -2342,7 +2337,7 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
 }
 
 
-#define SHUF_OP(op, ib)\
+#define SHUF_OP_MMX(op, ib)\
 {\
     int i;\
     for(i=0;i<2;i++) {\
@@ -2358,7 +2353,6 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     }\
 }
 
-/*
 #define SHUF_OP(op, ib)\
 {\
     a.q[0] = test_values[0][0];\
@@ -2373,7 +2367,6 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
            ib,\
            r.q[1], r.q[0]);\
 }
-*/
 
 #define PSHUF_OP(op, ib)\
 {\
@@ -2391,7 +2384,7 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
 }
 
 // To use mm0-7 registers instead of xmm registers
-#define SHIFT_IM(op, ib)                        \
+#define SHIFT_IM_MMX(op, ib)                        \
 {\
     int i;\
     for(i=0;i<2;i++) {\
@@ -2405,7 +2398,6 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     }\
 }
 
-/*
 #define SHIFT_IM(op, ib)\
 {\
     int i;\
@@ -2420,13 +2412,12 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
            r.q[1], r.q[0]);\
     }\
 }
-*/
 
 // To use mm0-7 registers instead of xmm registers
-#define SHIFT_OP(op, ib)\
+#define SHIFT_OP_MMX(op, ib)\
 {\
     int i;\
-    SHIFT_IM(op, ib);\
+    SHIFT_IM_MMX(op, ib);\
     for(i=0;i<2;i++) {\
     a.q[0] = test_values[2*i][0];\
     b.q[0] = ib;\
@@ -2440,8 +2431,8 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     }\
 }
 
-/*
 #define SHIFT_OP(op, ib)\
+SHIFT_OP_MMX(op, ib)\
 {\
     int i;\
     SHIFT_IM(op, ib);\
@@ -2458,7 +2449,6 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
            r.q[1], r.q[0]);\
     }\
 }
-*/
 
 #define MOVMSK(op)\
 {\
@@ -2484,16 +2474,16 @@ SSE_OP(a ## sd);
 
 #define SSE_COMI(op, field)\
 {\
-    unsigned int eflags;\
+    unsigned long eflags;\
     XMMReg a, b;\
     a.field[0] = a1;\
     b.field[0] = b1;\
     asm volatile (#op " %2, %1\n"\
         "pushf\n"\
         "pop %0\n"\
-        : "=m" (eflags)\
+        : "=rm" (eflags)\
         : "x" (a.dq), "x" (b.dq));\
-    printf("%-9s: a=%f b=%f cc=%04x\n",\
+    printf("%-9s: a=%f b=%f cc=%04lx\n",\
            #op, a1, b1,\
            eflags & (CC_C | CC_P | CC_Z | CC_S | CC_O | CC_A));\
 }
@@ -2648,41 +2638,40 @@ void test_sse(void)
     MMX_OP2(pcmpeqw);
     MMX_OP2(pcmpeqd);
 
-    // MMX_OP2(paddq);
+    MMX_OP2(paddq);
     MMX_OP2(pmullw);
     MMX_OP2(psubusb);
     MMX_OP2(psubusw);
-    // MMX_OP2(pminub);
+    MMX_OP2(pminub);
     MMX_OP2(pand);
     MMX_OP2(paddusb);
     MMX_OP2(paddusw);
-    // MMX_OP2(pmaxub);
+    MMX_OP2(pmaxub);
     MMX_OP2(pandn);
 
-    // MMX_OP2(pmulhuw);
+    MMX_OP2(pmulhuw);
     MMX_OP2(pmulhw);
 
     MMX_OP2(psubsb);
     MMX_OP2(psubsw);
-    // MMX_OP2(pminsw);
+    MMX_OP2(pminsw);
     MMX_OP2(por);
     MMX_OP2(paddsb);
     MMX_OP2(paddsw);
-    // MMX_OP2(pmaxsw);
+    MMX_OP2(pmaxsw);
     MMX_OP2(pxor);
-    // MMX_OP2(pmuludq);
+    MMX_OP2(pmuludq);
     MMX_OP2(pmaddwd);
-    // MMX_OP2(psadbw);
+    MMX_OP2(psadbw);
     MMX_OP2(psubb);
     MMX_OP2(psubw);
     MMX_OP2(psubd);
-    // MMX_OP2(psubq);
+    MMX_OP2(psubq);
     MMX_OP2(paddb);
     MMX_OP2(paddw);
     MMX_OP2(psrlw);
     MMX_OP2(paddd);
 
-    /*
     MMX_OP2(pavgb);
     MMX_OP2(pavgw);
 
@@ -2750,17 +2739,15 @@ void test_sse(void)
     SSE_OP2(unpckhps);
     SSE_OP2(unpckhpd);
 
-    SHUF_OP(shufps, 0x78);
-    SHUF_OP(shufpd, 0x02);
-    */
-    SHUF_OP(pshufw, 0x78);
-    SHUF_OP(pshufw, 0x02);
-    /*
+    // TODO: These instructions pull in some other unimplemented instructions on v86
+    //SHUF_OP(shufps, 0x78);
+    //SHUF_OP(shufpd, 0x02);
+    SHUF_OP_MMX(pshufw, 0x78);
+    SHUF_OP_MMX(pshufw, 0x02);
 
     PSHUF_OP(pshufd, 0x78);
     PSHUF_OP(pshuflw, 0x78);
     PSHUF_OP(pshufhw, 0x78);
-    */
 
     SHIFT_OP(psrlw, 7);
     SHIFT_OP(psrlw, 16);
@@ -2781,7 +2768,6 @@ void test_sse(void)
     SHIFT_OP(psllq, 7);
     SHIFT_OP(psllq, 32);
 
-    /*
     SHIFT_IM(psrldq, 16);
     SHIFT_IM(psrldq, 7);
     SHIFT_IM(pslldq, 16);
@@ -2789,7 +2775,6 @@ void test_sse(void)
 
     MOVMSK(movmskps);
     MOVMSK(movmskpd);
-    */
 
     /* FPU specific ops */
     /*
@@ -2911,7 +2896,7 @@ void test_sse(void)
     */
     /* XXX: test PNI insns */
 #if 0
-    // SSE_OP2(movshdup);
+    SSE_OP2(movshdup);
 #endif
     asm volatile ("emms");
 }
@@ -3216,7 +3201,7 @@ int main(int argc, char **argv)
     test_conv();
 #ifdef TEST_SSE
     test_sse();
-    //test_fxsave();
+    test_fxsave();
 #endif
     test_page_boundaries();
     return 0;
