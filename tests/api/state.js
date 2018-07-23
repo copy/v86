@@ -35,7 +35,11 @@ function run_test(name, config, done)
             console.log("Saving: %s", name);
             emulator.save_state(function(error, state)
                 {
-                    console.assert(!error);
+                    if(error)
+                    {
+                        console.error(error);
+                        console.assert(false);
+                    }
 
                     setTimeout(function()
                         {
