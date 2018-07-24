@@ -1723,7 +1723,7 @@ void instr_660F73_3_reg(int32_t r, int32_t imm8) {
 
     if(shift <= 63)
     {
-        result.u64[0] = destination.u64[0] >> shift | destination.u64[1] >> (64 - shift);
+        result.u64[0] = destination.u64[0] >> shift | destination.u64[1] << (64 - shift);
         result.u64[1] = destination.u64[1] >> shift;
     }
     else if(shift <= 127)
