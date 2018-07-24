@@ -18,6 +18,7 @@
  */
 #define _GNU_SOURCE
 #include "compiler.h"
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -2976,14 +2977,33 @@ void fatal(char *msg)
 
 void byte_read(uint8_t* buffer, uint16_t offset, size_t num_bytes)
 {
-    printf("%-12s: offset=%x value=", "byte_r", offset);
-    size_t i = num_bytes;
-    while(i > 0)
+    uint64_t v1 = 0;
+    for(size_t i = 0; i < num_bytes && i < 8; i++)
     {
-        i--;
-        printf("%02" PRIx8, buffer[offset + i]);
+        if(setjmp(jmp_env) == 0)
+        {
+            v1 |= (uint64_t)buffer[offset + i] << (i * 8);
+        }
     }
-    printf("\n");
+
+    uint64_t v2 = 0;
+    for(size_t i = 8; i < num_bytes; i++)
+    {
+        if(setjmp(jmp_env) == 0)
+        {
+            v2 |= (uint64_t)buffer[offset + i] << ((i - 8) * 8);
+        }
+
+    }
+
+    if(num_bytes > 8)
+    {
+        printf("%-12s: offset=%x value=%08llx%08llx\n", "byte_r", offset, v2, v1);
+    }
+    else
+    {
+        printf("%-12s: offset=%x value=%llx\n", "byte_r", offset, v1);
+    }
 }
 
 uint64_t seq_counter = 0x8070605040302010;
@@ -2995,25 +3015,36 @@ uint64_t get_seq64()
 
 void byte_write_seq(uint8_t* target, uint16_t offset, size_t num_bytes)
 {
-    printf("%-12s: offset=%x value=", "byte_w", offset);
-    size_t i = num_bytes;
-    while(i > 0)
+    uint64_t v = get_seq64();
+    if(num_bytes < 8) v &= (1LL << (num_bytes * 8)) - 1;
+
+    for(size_t i = 0; i < num_bytes; i++)
     {
-        i--;
-        uint8_t byte = get_seq64();
-        target[offset + i] = byte;
-        printf("%02" PRIx8, byte);
+        if(setjmp(jmp_env) == 0)
+        {
+            target[offset + i] = (v >> (i * 8 % 64)) & 0xFF;
+        }
     }
-    printf("\n");
+
+    if(num_bytes > 8)
+    {
+        printf("%-12s: offset=%x value=%08llx%08llx\n", "byte_w", offset, v, v);
+    }
+    else
+    {
+        printf("%-12s: offset=%x value=%llx\n", "byte_w", offset, v);
+    }
 }
 
 #define GENERATE_CHUNK_READ(INSTR, BITS, CONSTR)                    \
     void chunk_read ## BITS(uint8_t* addr, uint16_t offset)         \
     {                                                               \
         uint ## BITS ## _t chunk = 0;                               \
-        asm volatile(INSTR " %1, %0" :                              \
-                     "=" CONSTR (chunk) :                           \
-                     "m" (*(addr + offset)), "0" (chunk));          \
+        if(setjmp(jmp_env) == 0) {                                  \
+            asm volatile(INSTR " %1, %0" :                          \
+                         "=" CONSTR (chunk) :                       \
+                         "m" (*(addr + offset)), "0" (chunk));      \
+        }                                                           \
         printf("%-12s: offset=%x value=%" PRIx ## BITS "\n",        \
                "chunk" #BITS "_r",                                  \
                offset,                                              \
@@ -3024,9 +3055,11 @@ void byte_write_seq(uint8_t* target, uint16_t offset, size_t num_bytes)
     void chunk_write ## BITS(uint8_t* addr, uint16_t offset)        \
     {                                                               \
         uint ## BITS ## _t chunk = get_seq64();                     \
-        asm volatile(INSTR " %0, %1" :                              \
-                     "=" CONSTR (chunk) :                           \
-                     "m" (*(addr + offset)), "0" (chunk));          \
+        if(setjmp(jmp_env) == 0) {                                  \
+            asm volatile(INSTR " %0, %1" :                          \
+                         "=" CONSTR (chunk) :                       \
+                         "m" (*(addr + offset)), "0" (chunk));      \
+        }                                                           \
         printf("%-12s: offset=%x value=%" PRIx ## BITS "\n",        \
                "chunk" #BITS "_w",                                  \
                offset,                                              \
@@ -3042,13 +3075,16 @@ void byte_write_seq(uint8_t* target, uint16_t offset, size_t num_bytes)
     chunk_read ## BITS(ADDR, OFFSET);
 
 #define TEST_CHUNK_WRITE(BITS, ADDR, OFFSET)    \
+    byte_write_seq(ADDR, OFFSET, (BITS) >> 3);  \
     chunk_write ## BITS(ADDR, OFFSET);          \
     byte_read(ADDR, OFFSET, (BITS) >> 3);
 
-#define TEST_CHUNK_READ_WRITE(BITS, ADDR, OFFSET)   \
-    byte_write_seq(ADDR, OFFSET, (BITS) >> 3);      \
-    chunk_read_write ## BITS(ADDR, OFFSET);         \
-    byte_read(ADDR, OFFSET, (BITS) >> 3);           \
+#define TEST_CHUNK_READ_WRITE(BITS, ADDR, OFFSET)         \
+    if(BITS <= 32) {                                      \
+        byte_write_seq(ADDR, OFFSET, (BITS) >> 3);        \
+        chunk_read_write ## BITS(ADDR, OFFSET);           \
+        byte_read(ADDR, OFFSET, (BITS) >> 3);             \
+    }
 
 // Based on BITS, we calculate the offset where cross-page reads/writes would begin
 #define TEST_CROSS_PAGE(BITS, ADDR)                                     \
@@ -3069,9 +3105,12 @@ GENERATE_CHUNK_FNS("movq", 64, "y");
 void chunk_read_write16(uint8_t* addr, uint16_t offset)
 {
     uint16_t chunk = get_seq64();
-    asm volatile("addw %0, %1" :
-                 "=r" (chunk) :
-                 "m" (*(addr + offset)), "0" (chunk));
+    if(setjmp(jmp_env) == 0)
+    {
+        asm volatile("addw %0, %1" :
+                     "=r" (chunk) :
+                     "m" (*(addr + offset)), "0" (chunk));
+    }
     printf("%-12s: offset=%x value=%" PRIx16 "\n",
            "chunk16_rw",
            offset,
@@ -3081,9 +3120,12 @@ void chunk_read_write16(uint8_t* addr, uint16_t offset)
 void chunk_read_write32(uint8_t* addr, uint16_t offset)
 {
     uint32_t chunk = get_seq64();
-    asm volatile("add %0, %1" :
-                 "=r" (chunk) :
-                 "m" (*(addr + offset)), "0" (chunk));
+    if(setjmp(jmp_env) == 0)
+    {
+        asm volatile("add %0, %1" :
+                     "=r" (chunk) :
+                     "m" (*(addr + offset)), "0" (chunk));
+    }
     printf("%-12s: offset=%x value=%" PRIx32 "\n",
            "chunk32_rw",
            offset,
@@ -3103,14 +3145,18 @@ void chunk_read_write128(uint8_t* addr, uint16_t offset)
     UNUSED(offset);
 }
 
+
 void chunk_read128(uint8_t* addr, uint16_t offset)
 {
     XMMReg chunk;
     chunk.q[0] = chunk.q[1] = 0.0;
-    asm volatile("movdqu %1, %0" :
-                 "=x" (chunk.dq) :
-                 "m" (*(addr + offset)), "0" (chunk.dq)
-        );
+    if(setjmp(jmp_env) == 0)
+    {
+        asm volatile("movdqu %1, %0" :
+                     "=x" (chunk.dq) :
+                     "m" (*(addr + offset)), "0" (chunk.dq)
+            );
+    }
     printf("%-12s: offset=%x value=" FMT64X FMT64X "\n",
            "chunk128_r",
            offset,
@@ -3123,10 +3169,13 @@ void chunk_write128(uint8_t* addr, uint16_t offset)
     XMMReg chunk;
     chunk.q[0] = get_seq64();
     chunk.q[1] = get_seq64();
-    asm volatile("movdqu %0, %1" :
-                 "=x" (chunk.dq) :
-                 "m" (*(addr + offset)), "0" (chunk.dq)
-        );
+    if(setjmp(jmp_env) == 0)
+    {
+        asm volatile("movdqu %0, %1" :
+                     "=x" (chunk.dq) :
+                     "m" (*(addr + offset)), "0" (chunk.dq)
+            );
+    }
     printf("%-12s: offset=%x value=" FMT64X FMT64X "\n",
            "chunk128_w",
            offset,
@@ -3135,38 +3184,141 @@ void chunk_write128(uint8_t* addr, uint16_t offset)
 }
 #endif
 
-void test_page_boundaries()
+void* const TEST_ADDRESS = (void *)0x70000000;
+uint8_t* first_page = NULL;
+uint8_t* second_page = NULL;
+uint8_t* throwaway_page = NULL;
+
+void setup_pages(int first_page_type, int second_page_type)
 {
-    // mmap 2 consecutive pages
-    uint8_t *const page0 = mmap(NULL, 2 * PAGE_SIZE,
-            PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    const int prot = PROT_READ | PROT_WRITE;
 
-    // throwaway mmap to reduce likelhood of page0 and page1 mapping to consecutive physical frames
-    uint8_t *const throwaway = mmap(NULL, PAGE_SIZE,
-            PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-
-    uint8_t *const page1 = mmap(page0 + PAGE_SIZE, PAGE_SIZE,
-            PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-
-    if(page0 == MAP_FAILED || throwaway == MAP_FAILED || page1 == MAP_FAILED)
+    if(first_page_type)
     {
-        fatal("mmap");
+        // mmap 2 consecutive pages
+        first_page = mmap(TEST_ADDRESS, 2 * PAGE_SIZE, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        assert(first_page == TEST_ADDRESS);
+    }
+    else
+    {
+        first_page = NULL;
+    }
+
+    // throwaway mmap to reduce likelhood of first_page and second_page mapping to consecutive physical frames
+    throwaway_page = mmap(NULL, PAGE_SIZE, prot, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    assert(throwaway_page != MAP_FAILED && throwaway_page != TEST_ADDRESS && throwaway_page != TEST_ADDRESS + PAGE_SIZE);
+
+    if(second_page_type)
+    {
+        second_page = mmap(TEST_ADDRESS + PAGE_SIZE, PAGE_SIZE, prot, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+        assert(second_page == TEST_ADDRESS + PAGE_SIZE);
+    }
+    else
+    {
+        munmap(TEST_ADDRESS + PAGE_SIZE, PAGE_SIZE);
+        second_page = NULL;
     }
 
     // Trigger page-faults causing virtual pages to be allocated to physical frames
-    page0[0] = 0x42;
-    throwaway[0] = 0x42;
-    page1[0] = 0x42;
+    if(first_page != NULL) memset(first_page, 0x42, PAGE_SIZE);
+    memset(throwaway_page, 0x42, PAGE_SIZE);
+    if(second_page != NULL) memset(second_page, 0x42, PAGE_SIZE);
 
-    TEST_CROSS_PAGE(16, page0);
-    TEST_CROSS_PAGE(32, page0);
+    if(first_page_type == PROT_READ)
+    {
+        mprotect(first_page, PAGE_SIZE, PROT_READ);
+    }
+
+    if(second_page_type == PROT_READ)
+    {
+        mprotect(second_page, PAGE_SIZE, PROT_READ);
+    }
+}
+
+void free_pages()
+{
+    munmap(TEST_ADDRESS, PAGE_SIZE);
+    munmap(TEST_ADDRESS + PAGE_SIZE, PAGE_SIZE);
+    munmap(throwaway_page, PAGE_SIZE);
+}
+
+void pagefault_handler(int sig, siginfo_t *info, void *puc)
+{
+    ucontext_t *uc = puc;
+
+    printf("page fault: addr=0x%08lx err=0x%lx eip=0x%08lx\n",
+            (unsigned long)info->si_addr,
+            (long)uc->uc_mcontext.gregs[REG_ERR],
+            (long)uc->uc_mcontext.gregs[REG_EIP]);
+
+    assert(info->si_addr >= TEST_ADDRESS && info->si_addr < TEST_ADDRESS + 2 * PAGE_SIZE);
+
+    longjmp(jmp_env, 1);
+}
+
+void test_page_boundaries()
+{
+    const int prot_rw = PROT_READ | PROT_WRITE;
+    const int prot_ronly = PROT_READ;
+
+    setup_pages(prot_rw, prot_rw);
+
+    TEST_CROSS_PAGE(16, TEST_ADDRESS);
+    TEST_CROSS_PAGE(32, TEST_ADDRESS);
 #ifdef TEST_SSE
-    TEST_CROSS_PAGE(64, page0);
-    TEST_CROSS_PAGE(128, page0);
+    TEST_CROSS_PAGE(64, TEST_ADDRESS);
+    TEST_CROSS_PAGE(128, TEST_ADDRESS);
 #endif
 
-    munmap(page0, PAGE_SIZE);
-    munmap(page1, PAGE_SIZE);
+    struct sigaction act;
+    act.sa_sigaction = pagefault_handler;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = SA_SIGINFO | SA_NODEFER;
+    sigaction(SIGSEGV, &act, NULL);
+
+    free_pages();
+    printf("With non-present page faults in first page:\n");
+    setup_pages(0, prot_rw);
+
+    TEST_CROSS_PAGE(16, TEST_ADDRESS);
+    TEST_CROSS_PAGE(32, TEST_ADDRESS);
+#ifdef TEST_SSE
+    TEST_CROSS_PAGE(64, TEST_ADDRESS);
+    TEST_CROSS_PAGE(128, TEST_ADDRESS);
+#endif
+
+    free_pages();
+    printf("With read-only page faults in first page:\n");
+    setup_pages(prot_ronly, prot_rw);
+
+    TEST_CROSS_PAGE(16, TEST_ADDRESS);
+    TEST_CROSS_PAGE(32, TEST_ADDRESS);
+#ifdef TEST_SSE
+    TEST_CROSS_PAGE(64, TEST_ADDRESS);
+    TEST_CROSS_PAGE(128, TEST_ADDRESS);
+#endif
+
+    free_pages();
+    printf("With non-present page faults in second page:\n");
+    setup_pages(prot_rw, 0);
+
+    TEST_CROSS_PAGE(16, TEST_ADDRESS);
+    TEST_CROSS_PAGE(32, TEST_ADDRESS);
+#ifdef TEST_SSE
+    TEST_CROSS_PAGE(64, TEST_ADDRESS);
+    TEST_CROSS_PAGE(128, TEST_ADDRESS);
+#endif
+
+    free_pages();
+    printf("With read-only page faults in second page:\n");
+    setup_pages(prot_rw, prot_ronly);
+
+    TEST_CROSS_PAGE(16, TEST_ADDRESS);
+    TEST_CROSS_PAGE(32, TEST_ADDRESS);
+#ifdef TEST_SSE
+    TEST_CROSS_PAGE(64, TEST_ADDRESS);
+    TEST_CROSS_PAGE(128, TEST_ADDRESS);
+#endif
 }
 
 extern void *__start_initcall;
