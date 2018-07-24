@@ -386,17 +386,21 @@ void writable_or_pagefault(int32_t addr, int32_t size)
     int32_t expect = TLB_VALID;
     int32_t page = (uint32_t)addr >> 12;
 
-    if((tlb_data[page] & mask) == expect)
+    if((tlb_data[page] & mask) != expect)
     {
         do_page_translation(addr, true, user);
     }
 
-    if((addr & 0xFFF) + size - 1 >= 0x1000)
+    int32_t next_page = (uint32_t)(addr + size - 1) >> 12;
+
+    if(page != next_page)
     {
+        assert(next_page == page + 1);
+
         // XXX: possibly out of bounds
-        if((tlb_data[page + 1] & mask) == expect)
+        if((tlb_data[next_page] & mask) != expect)
         {
-            do_page_translation(addr + size - 1, true, user);
+            do_page_translation(next_page << 12, true, user);
         }
     }
 }
