@@ -309,7 +309,7 @@ devices-test: all-debug
 	./tests/devices/virtio_9p.js
 
 rust-test: $(RUST_FILES)
-	env RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo test -- --nocapture
+	env RUST_BACKTRACE=full RUST_TEST_THREADS=1 cargo +nightly test -- --nocapture
 	./tests/rust/verify-wasmgen-dummy-output.js
 
 api-tests: all-debug
