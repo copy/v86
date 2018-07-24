@@ -372,10 +372,7 @@ void fxsave(uint32_t addr)
     // implementation dependent.
     for(int32_t i = 0; i < 8; i++)
     {
-        safe_write32(addr + 160 + (i << 4) +  0, reg_xmm[i].u32[0]);
-        safe_write32(addr + 160 + (i << 4) +  4, reg_xmm[i].u32[1]);
-        safe_write32(addr + 160 + (i << 4) +  8, reg_xmm[i].u32[2]);
-        safe_write32(addr + 160 + (i << 4) + 12, reg_xmm[i].u32[3]);
+        safe_write128(addr + 160 + (i << 4), reg_xmm[i]);
     }
 }
 
