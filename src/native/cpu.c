@@ -998,7 +998,8 @@ int32_t safe_read8(int32_t addr)
     return read8(translate_address_read(addr));
 }
 
-int32_t safe_read16(int32_t addr)
+__attribute__((noinline))
+int32_t safe_read16_slow(int32_t addr)
 {
     assert_no_cpu_exception();
     if((addr & 0xFFF) == 0xFFF)
@@ -1009,6 +1010,28 @@ int32_t safe_read16(int32_t addr)
     {
         return read16(translate_address_read(addr));
     }
+}
+
+__attribute__((always_inline))
+int32_t safe_read16(int32_t address)
+{
+#if 1
+    int32_t base = (uint32_t)address >> 12;
+    int32_t entry = tlb_data[base];
+    int32_t info_bits = entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~TLB_HAS_CODE;
+
+    if(info_bits == TLB_VALID && (address & 0xFFF) <= (0x1000 - 2))
+    {
+        // - not in memory mapped area
+        // - can be accessed from any cpl
+
+        uint32_t phys_address = entry & ~0xFFF ^ address;
+        assert(!in_mapped_range(phys_address));
+        return *(uint16_t*)(mem8 + phys_address);
+    }
+#endif
+
+    return safe_read16_slow(address);
 }
 
 __attribute__((noinline))
