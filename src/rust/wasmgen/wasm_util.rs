@@ -85,6 +85,12 @@ pub fn load_unaligned_i32_from_stack(buf: &mut Vec<u8>, byte_offset: u32) {
     write_leb_u32(buf, byte_offset);
 }
 
+pub fn load_unaligned_u16_from_stack(buf: &mut Vec<u8>, byte_offset: u32) {
+    buf.push(op::OP_I32LOAD16U);
+    buf.push(op::MEM_NO_ALIGN);
+    write_leb_u32(buf, byte_offset);
+}
+
 pub fn load_aligned_i32_from_stack(buf: &mut Vec<u8>, byte_offset: u32) {
     buf.push(op::OP_I32LOAD);
     buf.push(op::MEM_ALIGN32);
