@@ -471,7 +471,7 @@ pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     wasm_util::store_unaligned_u16(&mut builder.instruction_body, global_pointers::MEMORY);
 
     // Pseudo:
-    // else { safe_read16_slow(address, value); }
+    // else { safe_write16_slow(address, value); }
     wasm_util::else_(&mut builder.instruction_body);
     wasm_util::get_local(&mut builder.instruction_body, &address_local);
     wasm_util::get_local(&mut builder.instruction_body, &value_local);
