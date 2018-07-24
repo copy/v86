@@ -1119,7 +1119,8 @@ void safe_write8(int32_t addr, int32_t value)
     write8(translate_address_write(addr), value);
 }
 
-void safe_write16(int32_t addr, int32_t value)
+__attribute__((noinline))
+void safe_write16_slow(int32_t addr, int32_t value)
 {
     assert_no_cpu_exception();
 
@@ -1133,6 +1134,32 @@ void safe_write16(int32_t addr, int32_t value)
     {
         write16(phys_low, value);
     }
+}
+
+__attribute__((always_inline))
+void safe_write16(int32_t address, int32_t value)
+{
+#if 1
+    int32_t base = (uint32_t)address >> 12;
+    int32_t entry = tlb_data[base];
+    int32_t info_bits = entry & 0xFFF & ~TLB_GLOBAL;
+
+    if(info_bits == TLB_VALID && (address & 0xFFF) <= (0x1000 - 2))
+    {
+        // - allowed to write in user-mode
+        // - not in memory mapped area
+        // - can be accessed from any cpl
+        // - does not contain code
+
+        uint32_t phys_address = entry & ~0xFFF ^ address;
+        assert(!jit_page_has_code(phys_address >> 12));
+        assert(!in_mapped_range(phys_address));
+        *(uint16_t*)(mem8 + phys_address) = value;
+        return;
+    }
+#endif
+
+    safe_write16_slow(address, value);
 }
 
 __attribute__((noinline))
