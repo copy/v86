@@ -380,16 +380,6 @@ pub struct JitContext<'a> {
     pub builder: &'a mut WasmBuilder,
 }
 
-pub const GEN_LOCAL_ARG_INITIAL_STATE: u32 = 0;
-pub const GEN_LOCAL_STATE: u32 = 1;
-pub const GEN_LOCAL_ITERATION_COUNTER: u32 = 2;
-// local scratch variables for use wherever required
-pub const GEN_LOCAL_SCRATCH0: u32 = 3;
-pub const GEN_LOCAL_SCRATCH1: u32 = 4;
-pub const GEN_LOCAL_SCRATCH2: u32 = 5;
-// Function arguments are not included in the local variable count
-pub const GEN_NO_OF_LOCALS: u32 = 5;
-
 pub const JIT_INSTR_BLOCK_BOUNDARY_FLAG: u32 = 1 << 0;
 pub const JIT_INSTR_NONFAULTING_FLAG: u32 = 1 << 1;
 
@@ -870,6 +860,14 @@ fn jit_generate_module(
     let fn_get_seg_idx = builder.get_fn_idx("get_seg", module_init::FN1_RET_TYPE_INDEX);
     dbg_assert!(fn_get_seg_idx == FN_GET_SEG_IDX);
 
+    let gen_local_state = builder.alloc_local();
+    let gen_local_iteration_counter = if JIT_ALWAYS_USE_LOOP_SAFETY || requires_loop_limit {
+        Some(builder.alloc_local())
+    }
+    else {
+        None
+    };
+
     let basic_block_indices: HashMap<u32, u32> = basic_blocks
         .iter()
         .enumerate()
@@ -877,16 +875,22 @@ fn jit_generate_module(
         .collect();
 
     // set state local variable to the initial state passed as the first argument
-    wasm_util::get_local(&mut builder.instruction_body, GEN_LOCAL_ARG_INITIAL_STATE);
-    wasm_util::set_local(&mut builder.instruction_body, GEN_LOCAL_STATE);
+    wasm_util::get_local(
+        &mut builder.instruction_body,
+        &builder.arg_local_initial_state,
+    );
+    wasm_util::set_local(&mut builder.instruction_body, &gen_local_state);
 
     // initialise max_iterations
     if JIT_ALWAYS_USE_LOOP_SAFETY || requires_loop_limit {
+        let gen_local_iteration_counter = gen_local_iteration_counter
+            .as_ref()
+            .expect("iteration counter");
         wasm_util::push_i32(
             &mut builder.instruction_body,
             JIT_MAX_ITERATIONS_PER_FUNCTION as i32,
         );
-        wasm_util::set_local(&mut builder.instruction_body, GEN_LOCAL_ITERATION_COUNTER);
+        wasm_util::set_local(&mut builder.instruction_body, gen_local_iteration_counter);
     }
 
     // main state machine loop
@@ -894,15 +898,18 @@ fn jit_generate_module(
 
     if JIT_ALWAYS_USE_LOOP_SAFETY || requires_loop_limit {
         profiler::stat_increment(stat::S_COMPILE_WITH_LOOP_SAFETY);
+        let gen_local_iteration_counter = gen_local_iteration_counter
+            .as_ref()
+            .expect("iteration counter");
 
         // decrement max_iterations
-        wasm_util::get_local(&mut builder.instruction_body, GEN_LOCAL_ITERATION_COUNTER);
+        wasm_util::get_local(&mut builder.instruction_body, gen_local_iteration_counter);
         wasm_util::push_i32(&mut builder.instruction_body, -1);
         wasm_util::add_i32(&mut builder.instruction_body);
-        wasm_util::set_local(&mut builder.instruction_body, GEN_LOCAL_ITERATION_COUNTER);
+        wasm_util::set_local(&mut builder.instruction_body, gen_local_iteration_counter);
 
         // if max_iterations == 0: return
-        wasm_util::get_local(&mut builder.instruction_body, GEN_LOCAL_ITERATION_COUNTER);
+        wasm_util::get_local(&mut builder.instruction_body, gen_local_iteration_counter);
         wasm_util::eqz_i32(&mut builder.instruction_body);
         wasm_util::if_void(&mut builder.instruction_body);
         wasm_util::return_(&mut builder.instruction_body);
@@ -917,7 +924,7 @@ fn jit_generate_module(
         wasm_util::block_void(&mut builder.instruction_body);
     }
 
-    wasm_util::get_local(&mut builder.instruction_body, GEN_LOCAL_STATE);
+    wasm_util::get_local(&mut builder.instruction_body, &gen_local_state);
     wasm_util::brtable_and_cases(&mut builder.instruction_body, basic_blocks.len() as u32);
 
     for (i, block) in basic_blocks.iter().enumerate() {
@@ -953,7 +960,7 @@ fn jit_generate_module(
 
                 // set state variable to next basic block
                 wasm_util::push_i32(&mut builder.instruction_body, next_bb_index as i32);
-                wasm_util::set_local(&mut builder.instruction_body, GEN_LOCAL_STATE);
+                wasm_util::set_local(&mut builder.instruction_body, &gen_local_state);
 
                 wasm_util::br(
                     &mut builder.instruction_body,
@@ -1003,7 +1010,7 @@ fn jit_generate_module(
                         &mut builder.instruction_body,
                         next_basic_block_branch_taken_index as i32,
                     );
-                    wasm_util::set_local(&mut builder.instruction_body, GEN_LOCAL_STATE);
+                    wasm_util::set_local(&mut builder.instruction_body, &gen_local_state);
                 }
                 else {
                     // Jump to different page
@@ -1022,7 +1029,7 @@ fn jit_generate_module(
                         &mut builder.instruction_body,
                         next_basic_block_index as i32,
                     );
-                    wasm_util::set_local(&mut builder.instruction_body, GEN_LOCAL_STATE);
+                    wasm_util::set_local(&mut builder.instruction_body, &gen_local_state);
                 }
 
                 wasm_util::block_end(&mut builder.instruction_body);
@@ -1041,7 +1048,7 @@ fn jit_generate_module(
     wasm_util::block_end(&mut builder.instruction_body); // loop
 
     builder.commit_instruction_body_to_cs();
-    builder.finish(GEN_NO_OF_LOCALS as u8);
+    builder.finish();
 }
 
 fn jit_generate_basic_block(

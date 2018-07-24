@@ -33,6 +33,15 @@ pub struct WasmBuilder {
     import_count: u16,        // same as above
 
     initial_static_size: usize, // size of module after initialization, rest is drained on reset
+
+    free_locals: Vec<WasmLocal>,
+    local_count: u8,
+    pub arg_local_initial_state: WasmLocal,
+}
+
+pub struct WasmLocal(u8);
+impl WasmLocal {
+    pub fn idx(&self) -> u8 { self.0 }
 }
 
 impl WasmBuilder {
@@ -50,6 +59,10 @@ impl WasmBuilder {
             import_count: 0,
 
             initial_static_size: 0,
+
+            free_locals: Vec::with_capacity(8),
+            local_count: 1, // for the argument
+            arg_local_initial_state: WasmLocal(0),
         }
     }
 
@@ -75,11 +88,13 @@ impl WasmBuilder {
         self.set_import_count(0);
         self.code_section.clear();
         self.instruction_body.clear();
+        self.free_locals.clear();
+        self.local_count = 0;
     }
 
-    pub fn finish(&mut self, no_of_locals_i32: u8) -> usize {
+    pub fn finish(&mut self) -> usize {
         self.write_memory_import();
-        self.write_function_section(1);
+        self.write_function_section();
         self.write_export_section();
 
         // write code section preamble
@@ -101,8 +116,8 @@ impl WasmBuilder {
         self.output.push(0);
 
         self.output.push(1); // count of local blocks
-        dbg_assert!(no_of_locals_i32 < 128);
-        self.output.push(no_of_locals_i32);
+        dbg_assert!(self.local_count < 128);
+        self.output.push(self.local_count);
         self.output.push(op::TYPE_I32);
 
         self.output.append(&mut self.code_section);
@@ -266,13 +281,11 @@ impl WasmBuilder {
         self.import_count - 1
     }
 
-    pub fn write_function_section(&mut self, count: u8) {
+    pub fn write_function_section(&mut self) {
         self.output.push(op::SC_FUNCTION);
-        self.output.push(1 + count); // length of this section
-        self.output.push(count); // count of signature indices
-        for _ in 0..count {
-            self.output.push(FN1_TYPE_INDEX);
-        }
+        self.output.push(2); // length of this section
+        self.output.push(1); // count of signature indices
+        self.output.push(FN1_TYPE_INDEX);
     }
 
     pub fn write_export_section(&mut self) {
@@ -310,6 +323,22 @@ impl WasmBuilder {
     pub fn commit_instruction_body_to_cs(&mut self) {
         self.code_section.append(&mut self.instruction_body);
     }
+
+    pub fn alloc_local(&mut self) -> WasmLocal {
+        match self.free_locals.pop() {
+            Some(local) => local,
+            None => {
+                let new_idx = self.local_count;
+                self.local_count += 1;
+                WasmLocal(new_idx)
+            },
+        }
+    }
+
+    pub fn free_local(&mut self, local: WasmLocal) {
+        dbg_assert!(local.0 < self.local_count);
+        self.free_locals.push(local)
+    }
 }
 
 #[cfg(test)]
@@ -340,7 +369,9 @@ mod tests {
         let bar_index = m.get_fn_idx("bar", FN0_TYPE_INDEX);
         call_fn(&mut m.code_section, bar_index);
 
-        m.finish(2);
+        let _ = m.alloc_local(); // for ensuring that reset clears previous locals
+
+        m.finish();
         m.reset();
 
         push_i32(&mut m.code_section, 2);
@@ -350,9 +381,32 @@ mod tests {
         foo_index = m.get_fn_idx("foo", FN1_TYPE_INDEX);
         call_fn(&mut m.instruction_body, foo_index);
 
+        push_i32(&mut m.code_section, 10);
+        let local1 = m.alloc_local();
+        tee_local(&mut m.code_section, &local1); // local1 = 10
+
+        push_i32(&mut m.code_section, 20);
+        add_i32(&mut m.code_section);
+        let local2 = m.alloc_local();
+        tee_local(&mut m.code_section, &local2); // local2 = 30
+
+        m.free_local(local1);
+
+        let local3 = m.alloc_local();
+        assert_eq!(local3.idx(), 0);
+
+        m.free_local(local2);
+        m.free_local(local3);
+
+        push_i32(&mut m.code_section, 30);
+        ne_i32(&mut m.code_section);
+        if_void(&mut m.code_section);
+        unreachable(&mut m.code_section);
+        block_end(&mut m.code_section);
+
         m.commit_instruction_body_to_cs();
 
-        m.finish(0);
+        m.finish();
 
         let op_ptr = m.get_op_ptr();
         let op_len = m.get_op_len();

@@ -4,7 +4,6 @@ use codegen;
 use cpu_context::CpuContext;
 use global_pointers;
 use jit::JitContext;
-use jit::{GEN_LOCAL_SCRATCH0, GEN_LOCAL_SCRATCH1};
 use modrm;
 use prefix::SEG_PREFIX_ZERO;
 use prefix::{PREFIX_66, PREFIX_67, PREFIX_F2, PREFIX_F3};
@@ -258,20 +257,22 @@ pub fn instr16_89_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 }
 pub fn instr32_89_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     // Pseudo: safe_write32(modrm_resolve(modrm_byte), reg32s[r]);
-    let address_local = GEN_LOCAL_SCRATCH0;
-    let value_local = GEN_LOCAL_SCRATCH1;
+    let address_local = ctx.builder.alloc_local();
+    let value_local = ctx.builder.alloc_local();
 
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    wasm_util::set_local(&mut ctx.builder.instruction_body, address_local);
+    wasm_util::set_local(&mut ctx.builder.instruction_body, &address_local);
 
     wasm_util::push_i32(
         &mut ctx.builder.instruction_body,
         global_pointers::get_reg32_offset(r) as i32,
     );
     wasm_util::load_aligned_i32_from_stack(&mut ctx.builder.instruction_body, 0);
-    wasm_util::set_local(&mut ctx.builder.instruction_body, value_local);
+    wasm_util::set_local(&mut ctx.builder.instruction_body, &value_local);
 
-    codegen::gen_safe_write32(ctx, address_local, value_local);
+    codegen::gen_safe_write32(ctx, &address_local, &value_local);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local(value_local);
 }
 pub fn instr32_89_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_set_reg32_r(ctx, r1, r2);
@@ -497,10 +498,14 @@ pub fn instr32_C7_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
 }
 
 pub fn instr32_C7_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    let address_local = ctx.builder.alloc_local();
+    let value_local = ctx.builder.alloc_local();
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    wasm_util::set_local(&mut ctx.builder.instruction_body, GEN_LOCAL_SCRATCH0);
+    wasm_util::set_local(&mut ctx.builder.instruction_body, &address_local);
     let imm = ctx.cpu.read_imm32();
     wasm_util::push_i32(&mut ctx.builder.instruction_body, imm as i32);
-    wasm_util::set_local(&mut ctx.builder.instruction_body, GEN_LOCAL_SCRATCH1);
-    codegen::gen_safe_write32(ctx, GEN_LOCAL_SCRATCH0, GEN_LOCAL_SCRATCH1);
+    wasm_util::set_local(&mut ctx.builder.instruction_body, &value_local);
+    codegen::gen_safe_write32(ctx, &address_local, &value_local);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local(value_local);
 }
