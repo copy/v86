@@ -2749,29 +2749,42 @@ void test_sse(void)
     PSHUF_OP(pshuflw, 0x78);
     PSHUF_OP(pshufhw, 0x78);
 
+    SHIFT_OP(psrlw, 0);
     SHIFT_OP(psrlw, 7);
     SHIFT_OP(psrlw, 16);
+    SHIFT_OP(psraw, 0);
     SHIFT_OP(psraw, 7);
     SHIFT_OP(psraw, 16);
+    SHIFT_OP(psllw, 0);
     SHIFT_OP(psllw, 7);
     SHIFT_OP(psllw, 16);
 
+    SHIFT_OP(psrld, 0);
     SHIFT_OP(psrld, 7);
     SHIFT_OP(psrld, 32);
+    SHIFT_OP(psrad, 0);
     SHIFT_OP(psrad, 7);
     SHIFT_OP(psrad, 32);
+    SHIFT_OP(pslld, 0);
     SHIFT_OP(pslld, 7);
     SHIFT_OP(pslld, 32);
 
+    SHIFT_OP(psrlq, 0);
     SHIFT_OP(psrlq, 7);
     SHIFT_OP(psrlq, 32);
+    SHIFT_OP(psllq, 0);
     SHIFT_OP(psllq, 7);
     SHIFT_OP(psllq, 32);
 
-    SHIFT_IM(psrldq, 16);
+    // byte-wise shifts
+    SHIFT_IM(psrldq, 0);
     SHIFT_IM(psrldq, 7);
-    SHIFT_IM(pslldq, 16);
+    SHIFT_IM(psrldq, 11);
+    SHIFT_IM(psrldq, 16);
     SHIFT_IM(pslldq, 7);
+    SHIFT_IM(pslldq, 0);
+    SHIFT_IM(pslldq, 11);
+    SHIFT_IM(pslldq, 16);
 
     MOVMSK(movmskps);
     MOVMSK(movmskpd);
