@@ -2968,13 +2968,6 @@ void test_conv(void)
 }
 
 
-void fatal(char *msg)
-{
-    fprintf(stderr, "*** FATAL ERROR: %s\n", (msg ? msg : "no message"));
-    fflush(stderr);
-    abort();
-}
-
 void byte_read(uint8_t* buffer, uint16_t offset, size_t num_bytes)
 {
     uint64_t v1 = 0;
@@ -3074,26 +3067,34 @@ void byte_write_seq(uint8_t* target, uint16_t offset, size_t num_bytes)
     byte_write_seq(ADDR, OFFSET, (BITS) >> 3);      \
     chunk_read ## BITS(ADDR, OFFSET);
 
-#define TEST_CHUNK_WRITE(BITS, ADDR, OFFSET)    \
-    byte_write_seq(ADDR, OFFSET, (BITS) >> 3);  \
-    chunk_write ## BITS(ADDR, OFFSET);          \
-    byte_read(ADDR, OFFSET, (BITS) >> 3);
+#define TEST_CHUNK_WRITE(BITS, ADDR, OFFSET)        \
+    if(!skip_write_test) {                          \
+        byte_write_seq(ADDR, OFFSET, (BITS) >> 3);  \
+        mask_pf_address = 1;                        \
+        chunk_write ## BITS(ADDR, OFFSET);          \
+        mask_pf_address = 0;                        \
+        byte_read(ADDR, OFFSET, (BITS) >> 3);       \
+    }
 
 #define TEST_CHUNK_READ_WRITE(BITS, ADDR, OFFSET)         \
     if(BITS <= 32) {                                      \
         byte_write_seq(ADDR, OFFSET, (BITS) >> 3);        \
+        mask_pf_error = 1;                                \
+        mask_pf_address = 1;                              \
         chunk_read_write ## BITS(ADDR, OFFSET);           \
+        mask_pf_address = 0;                              \
+        mask_pf_error = 0;                                \
         byte_read(ADDR, OFFSET, (BITS) >> 3);             \
     }
 
 // Based on BITS, we calculate the offset where cross-page reads/writes would begin
-#define TEST_CROSS_PAGE(BITS, ADDR)                                     \
-    for(size_t offset = (PAGE_SIZE + 1 - (BITS >> 3));                  \
-        offset < PAGE_SIZE; offset++)                                   \
-    {                                                                   \
-        TEST_CHUNK_READ(BITS, ADDR, offset);                            \
-        TEST_CHUNK_WRITE(BITS, ADDR, offset);                           \
-        TEST_CHUNK_READ_WRITE(BITS, ADDR, offset);                      \
+#define TEST_CROSS_PAGE(BITS, ADDR)                     \
+    for(size_t offset = (PAGE_SIZE + 1 - (BITS >> 3));  \
+        offset < PAGE_SIZE; offset++)                   \
+    {                                                   \
+        TEST_CHUNK_READ(BITS, ADDR, offset);            \
+        TEST_CHUNK_WRITE(BITS, ADDR, offset);           \
+        TEST_CHUNK_READ_WRITE(BITS, ADDR, offset);      \
     }
 
 GENERATE_CHUNK_FNS("movw", 16, "r");
@@ -3242,13 +3243,18 @@ void free_pages()
     munmap(throwaway_page, PAGE_SIZE);
 }
 
+// XXX: Workarounds for qemu bugs: Can be removed when running tests in kvm mode
+int mask_pf_error = 0;
+int mask_pf_address = 0;
+int skip_write_test = 0;
+
 void pagefault_handler(int sig, siginfo_t *info, void *puc)
 {
     ucontext_t *uc = puc;
 
     printf("page fault: addr=0x%08lx err=0x%lx eip=0x%08lx\n",
-            (unsigned long)info->si_addr,
-            (long)uc->uc_mcontext.gregs[REG_ERR],
+            (unsigned long)info->si_addr & (mask_pf_address ? ~0xfff : ~0),
+            (long)uc->uc_mcontext.gregs[REG_ERR] & (mask_pf_error ? ~2 : ~0),
             (long)uc->uc_mcontext.gregs[REG_EIP]);
 
     assert(info->si_addr >= TEST_ADDRESS && info->si_addr < TEST_ADDRESS + 2 * PAGE_SIZE);
@@ -3306,7 +3312,9 @@ void test_page_boundaries()
     TEST_CROSS_PAGE(32, TEST_ADDRESS);
 #ifdef TEST_SSE
     TEST_CROSS_PAGE(64, TEST_ADDRESS);
+    skip_write_test = 1;
     TEST_CROSS_PAGE(128, TEST_ADDRESS);
+    skip_write_test = 0;
 #endif
 
     free_pages();
@@ -3317,7 +3325,9 @@ void test_page_boundaries()
     TEST_CROSS_PAGE(32, TEST_ADDRESS);
 #ifdef TEST_SSE
     TEST_CROSS_PAGE(64, TEST_ADDRESS);
+    skip_write_test = 1;
     TEST_CROSS_PAGE(128, TEST_ADDRESS);
+    skip_write_test = 0;
 #endif
 }
 
