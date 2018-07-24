@@ -1154,6 +1154,7 @@ void safe_write64(int32_t addr, int64_t value)
 {
     if((addr & 0xFFF) > (0x1000 - 8))
     {
+        writable_or_pagefault(addr, 8);
         safe_write32(addr, value);
         safe_write32(addr + 4, value >> 32);
     }
@@ -1169,6 +1170,7 @@ void safe_write128(int32_t addr, union reg128 value)
 {
     if((addr & 0xFFF) > (0x1000 - 16))
     {
+        writable_or_pagefault(addr, 16);
         safe_write64(addr, value.u64[0]);
         safe_write64(addr + 8, value.u64[1]);
     }
