@@ -334,6 +334,84 @@ pub fn gen_safe_write32(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     builder.free_local(phys_addr_local);
 }
 
+pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_local: &WasmLocal) {
+    // Generates safe_write16' fast-path inline, bailing to safe_write16_slow if necessary.
+
+    let builder = &mut ctx.builder;
+    //let instruction_body = &mut ctx.builder.instruction_body;
+    //let cpu = &mut ctx.cpu;
+
+    wasm_util::get_local(&mut builder.instruction_body, &address_local);
+
+    // Pseudo: base_on_stack = (uint32_t)address >> 12;
+    wasm_util::push_i32(&mut builder.instruction_body, 12);
+    wasm_util::shr_u32(&mut builder.instruction_body);
+
+    // scale index
+    wasm_util::push_i32(&mut builder.instruction_body, 2);
+    wasm_util::shl_i32(&mut builder.instruction_body);
+
+    // Pseudo: entry = tlb_data[base_on_stack];
+    let entry_local = builder.alloc_local();
+    wasm_util::load_aligned_i32_from_stack(
+        &mut builder.instruction_body,
+        global_pointers::TLB_DATA,
+    );
+    wasm_util::tee_local(&mut builder.instruction_body, &entry_local);
+
+    // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
+    //                                   (address & 0xFFF) <= (0x1000 - 4));
+    wasm_util::push_i32(
+        &mut builder.instruction_body,
+        (0xFFF & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER })) as i32,
+    );
+    wasm_util::and_i32(&mut builder.instruction_body);
+
+    wasm_util::push_i32(&mut builder.instruction_body, TLB_VALID as i32);
+    wasm_util::eq_i32(&mut builder.instruction_body);
+
+    wasm_util::get_local(&mut builder.instruction_body, &address_local);
+    wasm_util::push_i32(&mut builder.instruction_body, 0xFFF);
+    wasm_util::and_i32(&mut builder.instruction_body);
+    wasm_util::push_i32(&mut builder.instruction_body, 0x1000 - 2);
+    wasm_util::le_i32(&mut builder.instruction_body);
+
+    wasm_util::and_i32(&mut builder.instruction_body);
+
+    // Pseudo:
+    // if(can_use_fast_path)
+    // {
+    //     phys_addr = entry & ~0xFFF ^ address;
+    wasm_util::if_void(&mut builder.instruction_body);
+
+    wasm_util::get_local(&mut builder.instruction_body, &entry_local);
+    wasm_util::push_i32(&mut builder.instruction_body, !0xFFF);
+    wasm_util::and_i32(&mut builder.instruction_body);
+    wasm_util::get_local(&mut builder.instruction_body, &address_local);
+    wasm_util::xor_i32(&mut builder.instruction_body);
+
+    builder.free_local(entry_local);
+
+    let phys_addr_local = builder.alloc_local();
+    // Pseudo:
+    //     /* continued within can_use_fast_path branch */
+    //     mem8[phys_addr] = value;
+
+    wasm_util::tee_local(&mut builder.instruction_body, &phys_addr_local);
+    wasm_util::get_local(&mut builder.instruction_body, &value_local);
+    wasm_util::store_unaligned_u16(&mut builder.instruction_body, global_pointers::MEMORY);
+
+    // Pseudo:
+    // else { safe_read16_slow(address, value); }
+    wasm_util::else_(&mut builder.instruction_body);
+    wasm_util::get_local(&mut builder.instruction_body, &address_local);
+    wasm_util::get_local(&mut builder.instruction_body, &value_local);
+    gen_call_fn2(builder, "safe_write16_slow");
+    wasm_util::block_end(&mut builder.instruction_body);
+
+    builder.free_local(phys_addr_local);
+}
+
 pub fn gen_fn1_reg16(ctx: &mut JitContext, name: &str, r: u32) {
     let fn_idx = ctx.builder.get_fn_idx(name, module_init::FN1_TYPE_INDEX);
     wasm_util::load_aligned_u16(

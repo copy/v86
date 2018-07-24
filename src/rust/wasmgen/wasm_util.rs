@@ -99,6 +99,12 @@ pub fn store_unaligned_i32(buf: &mut Vec<u8>, byte_offset: u32) {
     write_leb_u32(buf, byte_offset);
 }
 
+pub fn store_unaligned_u16(buf: &mut Vec<u8>, byte_offset: u32) {
+    buf.push(op::OP_I32STORE16);
+    buf.push(op::MEM_NO_ALIGN);
+    write_leb_u32(buf, byte_offset);
+}
+
 pub fn shr_u32(buf: &mut Vec<u8>) { buf.push(op::OP_I32SHRU); }
 
 pub fn shr_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32SHRS); }
