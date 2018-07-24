@@ -54,7 +54,7 @@ function run_test(name, config, done)
                                 }, 1000);
                         }, 1000);
                 });
-        }, 1000);
+        }, 5000);
 }
 
 run_test("async cdrom", config_async_cdrom, function()
