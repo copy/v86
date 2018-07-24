@@ -572,3 +572,42 @@ pub fn gen_pop32s(ctx: &mut JitContext) {
         gen_pop32s_ss16(ctx);
     }
 }
+
+pub fn gen_task_switch_test(ctx: &mut JitContext) {
+    // generate if(cr[0] & (CR0_EM | CR0_TS)) { task_switch_test_void(); return; }
+
+    let cr0_offset = global_pointers::get_creg_offset(0);
+
+    wasm_util::load_aligned_i32(&mut ctx.builder.instruction_body, cr0_offset);
+    wasm_util::push_i32(
+        &mut ctx.builder.instruction_body,
+        (regs::CR0_EM | regs::CR0_TS) as i32,
+    );
+    wasm_util::and_i32(&mut ctx.builder.instruction_body);
+
+    wasm_util::if_void(&mut ctx.builder.instruction_body);
+
+    gen_fn0_const(ctx, "task_switch_test_void");
+    wasm_util::return_(&mut ctx.builder.instruction_body);
+
+    wasm_util::block_end(&mut ctx.builder.instruction_body);
+}
+
+pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
+    // generate if(cr[0] & (CR0_EM | CR0_TS)) { task_switch_test_mmx_void(); return; }
+    let cr0_offset = global_pointers::get_creg_offset(0);
+
+    wasm_util::load_aligned_i32(&mut ctx.builder.instruction_body, cr0_offset);
+    wasm_util::push_i32(
+        &mut ctx.builder.instruction_body,
+        (regs::CR0_EM | regs::CR0_TS) as i32,
+    );
+    wasm_util::and_i32(&mut ctx.builder.instruction_body);
+
+    wasm_util::if_void(&mut ctx.builder.instruction_body);
+
+    gen_fn0_const(ctx, "task_switch_test_mmx_void");
+    wasm_util::return_(&mut ctx.builder.instruction_body);
+
+    wasm_util::block_end(&mut ctx.builder.instruction_body);
+}

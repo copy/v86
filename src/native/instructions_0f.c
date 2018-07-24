@@ -217,14 +217,12 @@ DEFINE_SSE_SPLIT(instr_0F10, safe_read128s, read_xmm128s)
 
 void instr_F30F10_reg(int32_t r1, int32_t r2) {
     // movss xmm, xmm/m32
-    task_switch_test_mmx();
     union reg128 data = read_xmm128s(r1);
     union reg128 orig = read_xmm128s(r2);
     write_xmm128(r2, data.u32[0], orig.u32[1], orig.u32[2], orig.u32[3]);
 }
 void instr_F30F10_mem(int32_t addr, int32_t r) {
     // movss xmm, xmm/m32
-    task_switch_test_mmx();
     int32_t data = safe_read32s(addr);
     write_xmm128(r, data, 0, 0, 0);
 }
@@ -237,14 +235,12 @@ DEFINE_SSE_SPLIT(instr_660F10, safe_read128s, read_xmm128s)
 
 void instr_F20F10_reg(int32_t r1, int32_t r2) {
     // movsd xmm, xmm/m64
-    task_switch_test_mmx();
     union reg128 data = read_xmm128s(r1);
     union reg128 orig = read_xmm128s(r2);
     write_xmm128(r2, data.u32[0], data.u32[1], orig.u32[2], orig.u32[3]);
 }
 void instr_F20F10_mem(int32_t addr, int32_t r) {
     // movsd xmm, xmm/m64
-    task_switch_test_mmx();
     union reg64 data = safe_read64s(addr);
     write_xmm128(r, data.u32[0], data.u32[1], 0, 0);
 }
@@ -260,14 +256,12 @@ void instr_0F11_mem(int32_t addr, int32_t r) {
 
 void instr_F30F11_reg(int32_t rm_dest, int32_t reg_src) {
     // movss xmm/m32, xmm
-    task_switch_test_mmx();
     union reg128 data = read_xmm128s(reg_src);
     union reg128 orig = read_xmm128s(rm_dest);
     write_xmm128(rm_dest, data.u32[0], orig.u32[1], orig.u32[2], orig.u32[3]);
 }
 void instr_F30F11_mem(int32_t addr, int32_t r) {
     // movss xmm/m32, xmm
-    task_switch_test_mmx();
     union reg128 data = read_xmm128s(r);
     safe_write32(addr, data.u32[0]);
 }
@@ -283,28 +277,24 @@ void instr_660F11_mem(int32_t addr, int32_t r) {
 
 void instr_F20F11_reg(int32_t r1, int32_t r2) {
     // movsd xmm/m64, xmm
-    task_switch_test_mmx();
     union reg128 data = read_xmm128s(r2);
     union reg128 orig = read_xmm128s(r1);
     write_xmm128(r1, data.u32[0], data.u32[1], orig.u32[2], orig.u32[3]);
 }
 void instr_F20F11_mem(int32_t addr, int32_t r) {
     // movsd xmm/m64, xmm
-    task_switch_test_mmx();
     union reg64 data = read_xmm64s(r);
     safe_write64(addr, data.u64[0]);
 }
 
 void instr_0F12_mem(int32_t addr, int32_t r) {
     // movlps xmm, m64
-    task_switch_test_mmx();
     union reg64 data = safe_read64s(addr);
     union reg128 orig = read_xmm128s(r);
     write_xmm128(r, data.u32[0], data.u32[1], orig.u32[2], orig.u32[3]);
 }
 void instr_0F12_reg(int32_t r1, int32_t r2) {
     // movhlps xmm, xmm
-    task_switch_test_mmx();
     union reg128 data = read_xmm128s(r1);
     union reg128 orig = read_xmm128s(r2);
     write_xmm128(r2, data.u32[2], data.u32[3], orig.u32[2], orig.u32[3]);
@@ -313,7 +303,6 @@ void instr_0F12_reg(int32_t r1, int32_t r2) {
 void instr_660F12_reg(int32_t r1, int32_t r) { trigger_ud(); }
 void instr_660F12_mem(int32_t addr, int32_t r) {
     // movlpd xmm, m64
-    task_switch_test_mmx();
     union reg64 data = safe_read64s(addr);
     write_xmm64(r, data);
 }
@@ -338,7 +327,6 @@ void instr_660F13_mem(int32_t addr, int32_t r) {
 void instr_0F14(union reg64 source, int32_t r) {
     // unpcklps xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg64 destination = read_xmm64s(r);
 
     write_xmm128(
@@ -354,7 +342,6 @@ DEFINE_SSE_SPLIT(instr_0F14, safe_read64s, read_xmm64s)
 void instr_660F14(union reg64 source, int32_t r) {
     // unpcklpd xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg64 destination = read_xmm64s(r);
 
     write_xmm128(
@@ -370,7 +357,6 @@ DEFINE_SSE_SPLIT(instr_660F14, safe_read64s, read_xmm64s)
 void instr_0F15(union reg128 source, int32_t r) {
     // unpckhps xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     write_xmm128(
@@ -386,7 +372,6 @@ DEFINE_SSE_SPLIT(instr_0F15, safe_read128s, read_xmm128s)
 void instr_660F15(union reg128 source, int32_t r) {
     // unpckhpd xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     write_xmm128(
@@ -405,7 +390,6 @@ void instr_0F16_mem(int32_t addr, int32_t r) {
 }
 void instr_0F16_reg(int32_t r1, int32_t r2) {
     // movlhps xmm, xmm
-    task_switch_test_mmx();
     union reg128 data = read_xmm128s(r1);
     union reg128 orig = read_xmm128s(r2);
     write_xmm128(r2, orig.u32[0], orig.u32[1], data.u32[0], data.u32[1]);
@@ -619,7 +603,6 @@ DEFINE_SSE_SPLIT(instr_660F28, safe_read128s, read_xmm128s)
 
 void instr_0F29_mem(int32_t addr, int32_t r) {
     // movaps m128, xmm
-    task_switch_test_mmx();
     union reg128 data = read_xmm128s(r);
     // XXX: Aligned write or #gp
     safe_write128(addr, data);
@@ -630,7 +613,6 @@ void instr_0F29_reg(int32_t r1, int32_t r2) {
 }
 void instr_660F29_mem(int32_t addr, int32_t r) {
     // movapd m128, xmm
-    task_switch_test_mmx();
     union reg128 data = read_xmm128s(r);
     // XXX: Aligned write or #gp
     safe_write128(addr, data);
@@ -665,7 +647,6 @@ void instr_F20F2C(union reg64 source, int32_t r) {
     // cvttsd2si r32, xmm/m64
     // emscripten bug causes this ported instruction to throw "integer result unpresentable"
     // https://github.com/kripken/emscripten/issues/5433
-    task_switch_test_mmx();
 #if 0
     union reg64 source = read_xmm_mem64s();
     double f = source.f64[0];
@@ -1008,7 +989,6 @@ DEFINE_MODRM_INSTR_READ32(instr32_0F4F, cmovcc32(!test_le(), ___, r))
 
 void instr_0F50_reg(int32_t r1, int32_t r2) {
     // movmskps r, xmm
-    task_switch_test_mmx();
     union reg128 source = read_xmm128s(r1);
     int32_t data = source.u32[0] >> 31 | (source.u32[1] >> 31) << 1 |
         (source.u32[2] >> 31) << 2 | (source.u32[3] >> 31) << 3;
@@ -1018,7 +998,6 @@ void instr_0F50_mem(int32_t addr, int32_t r1) { trigger_ud(); }
 
 void instr_660F50_reg(int32_t r1, int32_t r2) {
     // movmskpd r, xmm
-    task_switch_test_mmx();
     union reg128 source = read_xmm128s(r1);
     int32_t data = (source.u32[1] >> 31) | (source.u32[3] >> 31) << 1;
     write_reg32(r2, data);
@@ -1097,7 +1076,6 @@ void instr_0F5F() { unimplemented_sse(); }
 
 void instr_0F60(int32_t source, int32_t r) {
     // punpcklbw mm, mm/m32
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     int32_t byte0 = destination.u8[0];
@@ -1119,7 +1097,6 @@ DEFINE_SSE_SPLIT(instr_0F60, safe_read32s, read_mmx32s)
 void instr_660F60(union reg64 source, int32_t r) {
     // punpcklbw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg64 destination = read_xmm64s(r);
     write_xmm128(
         r,
@@ -1133,7 +1110,6 @@ DEFINE_SSE_SPLIT(instr_660F60, safe_read64s, read_xmm64s)
 
 void instr_0F61(int32_t source, int32_t r) {
     // punpcklwd mm, mm/m32
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     int32_t word0 = destination.u16[0];
@@ -1151,7 +1127,6 @@ DEFINE_SSE_SPLIT(instr_0F61, safe_read32s, read_mmx32s)
 void instr_660F61(union reg64 source, int32_t r) {
     // punpcklwd xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg64 destination = read_xmm64s(r);
     write_xmm128(
         r,
@@ -1165,7 +1140,6 @@ DEFINE_SSE_SPLIT(instr_660F61, safe_read64s, read_xmm64s)
 
 void instr_0F62(int32_t source, int32_t r) {
     // punpckldq mm, mm/m32
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
     write_mmx64(r, destination.u32[0], source);
 }
@@ -1174,7 +1148,6 @@ DEFINE_SSE_SPLIT(instr_0F62, safe_read32s, read_mmx32s)
 void instr_660F62(union reg128 source, int32_t r) {
     // punpckldq xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
     write_xmm128(
         r,
@@ -1188,7 +1161,6 @@ DEFINE_SSE_SPLIT(instr_660F62, safe_read128s, read_xmm128s)
 
 void instr_0F63(union reg64 source, int32_t r) {
     // packsswb mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     int32_t low = saturate_sw_to_sb(destination.u16[0]) |
@@ -1208,7 +1180,6 @@ DEFINE_SSE_SPLIT(instr_0F63, safe_read64s, read_mmx64s)
 void instr_660F63(union reg128 source, int32_t r) {
     // packsswb xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     int32_t dword0 = saturate_sw_to_sb(destination.u16[0]) |
@@ -1237,7 +1208,6 @@ DEFINE_SSE_SPLIT(instr_660F63, safe_read128s, read_xmm128s)
 
 void instr_0F64(union reg64 source, int32_t r) {
     // pcmpgtb mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
 
@@ -1253,7 +1223,6 @@ DEFINE_SSE_SPLIT(instr_0F64, safe_read64s, read_mmx64s)
 void instr_660F64(union reg128 source, int32_t r) {
     // pcmpgtb xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
     union reg128 result = { { 0 } };
 
@@ -1268,7 +1237,6 @@ DEFINE_SSE_SPLIT(instr_660F64, safe_read128s, read_xmm128s)
 
 void instr_0F65(union reg64 source, int32_t r) {
     // pcmpgtw mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     int32_t word0 = destination.i16[0] > source.i16[0] ? 0xFFFF : 0;
@@ -1286,7 +1254,6 @@ DEFINE_SSE_SPLIT(instr_0F65, safe_read64s, read_mmx64s)
 void instr_660F65(union reg128 source, int32_t r) {
     // pcmpgtw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
     union reg128 result = { { 0 } };
 
@@ -1301,7 +1268,6 @@ DEFINE_SSE_SPLIT(instr_660F65, safe_read128s, read_xmm128s)
 
 void instr_0F66(union reg64 source, int32_t r) {
     // pcmpgtd mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     int32_t low = destination.i32[0] > source.i32[0] ? -1 : 0;
@@ -1314,7 +1280,6 @@ DEFINE_SSE_SPLIT(instr_0F66, safe_read64s, read_mmx64s)
 void instr_660F66(union reg128 source, int32_t r) {
     // pcmpgtd xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     write_xmm128(
@@ -1329,7 +1294,6 @@ DEFINE_SSE_SPLIT(instr_660F66, safe_read128s, read_xmm128s)
 
 void instr_0F67(union reg64 source, int32_t r) {
     // packuswb mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     uint32_t low = saturate_sw_to_ub(destination.u16[0]) |
@@ -1349,7 +1313,6 @@ DEFINE_SSE_SPLIT(instr_0F67, safe_read64s, read_mmx64s)
 void instr_660F67(union reg128 source, int32_t r) {
     // packuswb xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
     union reg128 result;
 
@@ -1366,7 +1329,6 @@ DEFINE_SSE_SPLIT(instr_660F67, safe_read128s, read_xmm128s)
 
 void instr_0F68(union reg64 source, int32_t r) {
     // punpckhbw mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     int32_t byte0 = destination.u8[4];
@@ -1388,7 +1350,6 @@ DEFINE_SSE_SPLIT(instr_0F68, safe_read64s, read_mmx64s)
 void instr_660F68(union reg128 source, int32_t r) {
     // punpckhbw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     write_xmm128(
@@ -1403,7 +1364,6 @@ DEFINE_SSE_SPLIT(instr_660F68, safe_read128s, read_xmm128s)
 
 void instr_0F69(union reg64 source, int32_t r) {
     // punpckhwd mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     int32_t word0 = destination.u16[2];
@@ -1421,7 +1381,6 @@ DEFINE_SSE_SPLIT(instr_0F69, safe_read64s, read_mmx64s)
 void instr_660F69(union reg128 source, int32_t r) {
     // punpckhwd xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     int32_t dword0 = destination.u16[4] | source.u16[4] << 16;
@@ -1435,7 +1394,6 @@ DEFINE_SSE_SPLIT(instr_660F69, safe_read128s, read_xmm128s)
 
 void instr_0F6A(union reg64 source, int32_t r) {
     // punpckhdq mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
     write_mmx64(r, destination.u32[1], source.u32[1]);
 }
@@ -1444,7 +1402,6 @@ DEFINE_SSE_SPLIT(instr_0F6A, safe_read64s, read_mmx64s)
 void instr_660F6A(union reg128 source, int32_t r) {
     // punpckhdq xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
     write_xmm128(r, destination.u32[2], source.u32[2], destination.u32[3], source.u32[3]);
 }
@@ -1452,7 +1409,6 @@ DEFINE_SSE_SPLIT(instr_660F6A, safe_read128s, read_xmm128s)
 
 void instr_0F6B(union reg64 source, int32_t r) {
     // packssdw mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     int32_t low = saturate_sd_to_sw(destination.u32[0]) |
@@ -1467,7 +1423,6 @@ DEFINE_SSE_SPLIT(instr_0F6B, safe_read64s, read_mmx64s)
 void instr_660F6B(union reg128 source, int32_t r) {
     // packssdw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     int32_t dword0 = saturate_sd_to_sw(destination.u32[0]) |
@@ -1489,7 +1444,6 @@ void instr_0F6C_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 void instr_660F6C(union reg128 source, int32_t r) {
     // punpcklqdq xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     write_xmm128(r, destination.u32[0], destination.u32[1], source.u32[0], source.u32[1]);
@@ -1502,7 +1456,6 @@ void instr_0F6D_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 void instr_660F6D(union reg128 source, int32_t r) {
     // punpckhqdq xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     write_xmm128(r, destination.u32[2], destination.u32[3], source.u32[2], source.u32[3]);
@@ -1511,21 +1464,18 @@ DEFINE_SSE_SPLIT(instr_660F6D, safe_read128s, read_xmm128s)
 
 void instr_0F6E(int32_t source, int32_t r) {
     // movd mm, r/m32
-    task_switch_test_mmx();
     write_mmx64(r, source, 0);
 }
 DEFINE_SSE_SPLIT(instr_0F6E, safe_read32s, read_reg32)
 
 void instr_660F6E(int32_t source, int32_t r) {
     // movd mm, r/m32
-    task_switch_test_mmx();
     write_xmm128(r, source, 0, 0, 0);
 }
 DEFINE_SSE_SPLIT(instr_660F6E, safe_read32s, read_reg32)
 
 void instr_0F6F(union reg64 source, int32_t r) {
     // movq mm, mm/m64
-    task_switch_test_mmx();
     write_mmx64(r, source.u32[0], source.u32[1]);
 }
 DEFINE_SSE_SPLIT(instr_0F6F, safe_read64s, read_mmx64s)
@@ -1545,7 +1495,6 @@ DEFINE_SSE_SPLIT(instr_F30F6F, safe_read128s, read_xmm128s)
 
 void instr_0F70(union reg64 source, int32_t r, int32_t imm8) {
     // pshufw mm1, mm2/m64, imm8
-    task_switch_test_mmx();
 
     int32_t word0_shift = imm8 & 0b11;
     uint32_t word0 = source.u32[word0_shift >> 1] >> ((word0_shift & 1) << 4) & 0xFFFF;
@@ -1566,7 +1515,6 @@ DEFINE_SSE_SPLIT_IMM(instr_0F70, safe_read64s, read_mmx64s)
 void instr_660F70(union reg128 source, int32_t r, int32_t imm8) {
     // pshufd xmm, xmm/mem128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     write_xmm128(
         r,
         source.u32[imm8 & 3],
@@ -1580,7 +1528,6 @@ DEFINE_SSE_SPLIT_IMM(instr_660F70, safe_read128s, read_xmm128s)
 void instr_F20F70(union reg128 source, int32_t r, int32_t imm8) {
     // pshuflw xmm, xmm/m128, imm8
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     write_xmm128(
         r,
         source.u16[imm8 & 3] | source.u16[imm8 >> 2 & 3] << 16,
@@ -1594,7 +1541,6 @@ DEFINE_SSE_SPLIT_IMM(instr_F20F70, safe_read128s, read_xmm128s)
 void instr_F30F70(union reg128 source, int32_t r, int32_t imm8) {
     // pshufhw xmm, xmm/m128, imm8
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     write_xmm128(
         r,
         source.u32[0],
@@ -1710,7 +1656,6 @@ void instr_660F73_2_reg(int32_t r, int32_t imm8) {
 
 void instr_660F73_3_reg(int32_t r, int32_t imm8) {
     // psrldq xmm, imm8
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     if(imm8 == 0)
@@ -1743,7 +1688,6 @@ void instr_660F73_6_reg(int32_t r, int32_t imm8) {
 
 void instr_660F73_7_reg(int32_t r, int32_t imm8) {
     // pslldq xmm, imm8
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     if(imm8 == 0)
@@ -1770,7 +1714,6 @@ void instr_660F73_7_reg(int32_t r, int32_t imm8) {
 
 void instr_0F74(union reg64 source, int32_t r) {
     // pcmpeqb mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
 
@@ -1786,7 +1729,6 @@ DEFINE_SSE_SPLIT(instr_0F74, safe_read64s, read_mmx64s)
 void instr_660F74(union reg128 source, int32_t r) {
     // pcmpeqb xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result;
@@ -1802,7 +1744,6 @@ DEFINE_SSE_SPLIT(instr_660F74, safe_read128s, read_xmm128s)
 
 void instr_0F75(union reg64 source, int32_t r) {
     // pcmpeqw mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     int32_t word0 = destination.u16[0] == source.u16[0] ? 0xFFFF : 0;
@@ -1820,7 +1761,6 @@ DEFINE_SSE_SPLIT(instr_0F75, safe_read64s, read_mmx64s)
 void instr_660F75(union reg128 source, int32_t r) {
     // pcmpeqw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
     union reg128 result;
 
@@ -1835,7 +1775,6 @@ DEFINE_SSE_SPLIT(instr_660F75, safe_read128s, read_xmm128s)
 
 void instr_0F76(union reg64 source, int32_t r) {
     // pcmpeqd mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     int32_t low = destination.u32[0] == source.u32[0] ? -1 : 0;
@@ -1848,7 +1787,6 @@ DEFINE_SSE_SPLIT(instr_0F76, safe_read64s, read_mmx64s)
 void instr_660F76(union reg128 source, int32_t r) {
     // pcmpeqd xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     write_xmm128(
@@ -1863,16 +1801,6 @@ DEFINE_SSE_SPLIT(instr_660F76, safe_read128s, read_xmm128s)
 
 void instr_0F77() {
     // emms
-
-    if(cr[0] & (CR0_EM | CR0_TS)) {
-        if(cr[0] & CR0_TS) {
-            trigger_nm();
-        }
-        else {
-            trigger_ud();
-        }
-    }
-
     fpu_set_tag_word(0xFFFF);
 }
 
@@ -1885,27 +1813,23 @@ void instr_0F7D() { unimplemented_sse(); }
 
 int32_t instr_0F7E(int32_t r) {
     // movd r/m32, mm
-    task_switch_test_mmx();
     union reg64 data = read_mmx64s(r);
     return data.u32[0];
 }
 DEFINE_SSE_SPLIT_WRITE(instr_0F7E, safe_write32, write_reg32)
 int32_t instr_660F7E(int32_t r) {
     // movd r/m32, xmm
-    task_switch_test_mmx();
     union reg64 data = read_xmm64s(r);
     return data.u32[0];
 }
 DEFINE_SSE_SPLIT_WRITE(instr_660F7E, safe_write32, write_reg32)
 void instr_F30F7E_mem(int32_t addr, int32_t r) {
     // movq xmm, xmm/mem64
-    task_switch_test_mmx();
     union reg64 data = safe_read64s(addr);
     write_xmm128(r, data.u32[0], data.u32[1], 0, 0);
 }
 void instr_F30F7E_reg(int32_t r1, int32_t r2) {
     // movq xmm, xmm/mem64
-    task_switch_test_mmx();
     union reg64 data = read_xmm64s(r1);
     write_xmm128(r2, data.u32[0], data.u32[1], 0, 0);
 }
@@ -1916,7 +1840,6 @@ void instr_0F7F_mem(int32_t addr, int32_t r) {
 }
 void instr_0F7F_reg(int32_t r1, int32_t r2) {
     // movq mm/m64, mm
-    task_switch_test_mmx();
     union reg64 data = read_mmx64s(r2);
     write_mmx64(r1, data.u32[0], data.u32[1]);
 }
@@ -2349,7 +2272,6 @@ void instr_0FC3_mem(int32_t addr, int32_t r) {
 
 void instr_0FC4(int32_t source, int32_t r, int32_t imm8) {
     // pinsrw mm, r32/m16, imm8
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     uint32_t index = imm8 & 3;
@@ -2361,7 +2283,6 @@ DEFINE_SSE_SPLIT_IMM(instr_0FC4, read16, read_reg32)
 
 void instr_660FC4(int32_t source, int32_t r, int32_t imm8) {
     // pinsrw xmm, r32/m16, imm8
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     uint32_t index = imm8 & 7;
@@ -2374,7 +2295,6 @@ DEFINE_SSE_SPLIT_IMM(instr_660FC4, read16, read_reg32)
 void instr_0FC5_mem(int32_t addr, int32_t r, int32_t imm8) { trigger_ud(); }
 void instr_0FC5_reg(int32_t r1, int32_t r2, int32_t imm8) {
     // pextrw r32, mm, imm8
-    task_switch_test_mmx();
 
     union reg64 data = read_mmx64s(r1);
     uint32_t index = imm8 & 3;
@@ -2386,7 +2306,6 @@ void instr_0FC5_reg(int32_t r1, int32_t r2, int32_t imm8) {
 void instr_660FC5_mem(int32_t addr, int32_t r, int32_t imm8) { trigger_ud(); }
 void instr_660FC5_reg(int32_t r1, int32_t r2, int32_t imm8) {
     // pextrw r32, xmm, imm8
-    task_switch_test_mmx();
 
     union reg128 data = read_xmm128s(r1);
     uint32_t index = imm8 & 7;
@@ -2499,7 +2418,6 @@ DEFINE_SSE_SPLIT(instr_660FD3, safe_read128s, read_xmm128s)
 
 void instr_0FD4(union reg64 source, int32_t r) {
     // paddq mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
     destination.u64[0] += source.u64[0];
     write_mmx_reg64(r, destination);
@@ -2509,7 +2427,6 @@ DEFINE_SSE_SPLIT(instr_0FD4, safe_read64s, read_mmx64s)
 void instr_660FD4(union reg128 source, int32_t r) {
     // paddq xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
     destination.u64[0] += source.u64[0];
     destination.u64[1] += source.u64[1];
@@ -2519,7 +2436,6 @@ DEFINE_SSE_SPLIT(instr_660FD4, safe_read128s, read_xmm128s)
 
 void instr_0FD5(union reg64 source, int32_t r) {
     // pmullw mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
 
@@ -2538,7 +2454,6 @@ DEFINE_SSE_SPLIT(instr_0FD5, safe_read64s, read_mmx64s)
 void instr_660FD5(union reg128 source, int32_t r) {
     // pmullw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     write_xmm128(
@@ -2560,7 +2475,6 @@ void instr_660FD6_mem(int32_t addr, int32_t r) {
 }
 void instr_660FD6_reg(int32_t r1, int32_t r2) {
     // movq xmm/m64, xmm
-    task_switch_test_mmx();
     union reg64 data = read_xmm64s(r2);
     write_xmm128(r1, data.u32[0], data.u32[1], 0, 0);
 }
@@ -2568,7 +2482,6 @@ void instr_660FD6_reg(int32_t r1, int32_t r2) {
 void instr_F20FD6_mem(int32_t addr, int32_t r) { trigger_ud(); }
 void instr_F20FD6_reg(int32_t r1, int32_t r2) {
     // movdq2q mm, xmm
-    task_switch_test_mmx();
     union reg128 source = read_xmm128s(r1);
     write_mmx64(r2, source.u32[0], source.u32[1]);
 }
@@ -2576,7 +2489,6 @@ void instr_F20FD6_reg(int32_t r1, int32_t r2) {
 void instr_F30FD6_mem(int32_t addr, int32_t r) { trigger_ud(); }
 void instr_F30FD6_reg(int32_t r1, int32_t r2) {
     // movq2dq xmm, mm
-    task_switch_test_mmx();
     union reg64 source = read_mmx64s(r1);
     write_xmm128(r2, source.u32[0], source.u32[1], 0, 0);
 }
@@ -2584,7 +2496,6 @@ void instr_F30FD6_reg(int32_t r1, int32_t r2) {
 void instr_0FD7_mem(int32_t addr, int32_t r) { trigger_ud(); }
 void instr_0FD7_reg(int32_t r1, int32_t r2) {
     // pmovmskb r, mm
-    task_switch_test_mmx();
     union reg64 x = read_mmx64s(r1);
     uint32_t result =
         x.u8[0] >> 7 << 0 | x.u8[1] >> 7 << 1 | x.u8[2] >> 7 << 2 | x.u8[3] >> 7 << 3 |
@@ -2595,7 +2506,6 @@ void instr_0FD7_reg(int32_t r1, int32_t r2) {
 void instr_660FD7_mem(int32_t addr, int32_t r) { trigger_ud(); }
 void instr_660FD7_reg(int32_t r1, int32_t r2) {
     // pmovmskb reg, xmm
-    task_switch_test_mmx();
 
     union reg128 x = read_xmm128s(r1);
     int32_t result =
@@ -2608,7 +2518,6 @@ void instr_660FD7_reg(int32_t r1, int32_t r2) {
 
 void instr_0FD8(union reg64 source, int32_t r) {
     // psubusb mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
@@ -2624,7 +2533,6 @@ DEFINE_SSE_SPLIT(instr_0FD8, safe_read64s, read_mmx64s)
 
 void instr_660FD8(union reg128 source, int32_t r) {
     // psubusb xmm, xmm/m128
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result;
@@ -2640,7 +2548,6 @@ DEFINE_SSE_SPLIT(instr_660FD8, safe_read128s, read_xmm128s)
 
 void instr_0FD9(union reg64 source, int32_t r) {
     // psubusw mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
 
@@ -2658,7 +2565,6 @@ DEFINE_SSE_SPLIT(instr_0FD9, safe_read64s, read_mmx64s)
 
 void instr_660FD9(union reg128 source, int32_t r) {
     // psubusw xmm, xmm/m128
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result;
@@ -2674,7 +2580,6 @@ DEFINE_SSE_SPLIT(instr_660FD9, safe_read128s, read_xmm128s)
 
 void instr_0FDA(union reg64 source, int32_t r) {
     // pminub mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
     union reg64 result;
@@ -2691,7 +2596,6 @@ DEFINE_SSE_SPLIT(instr_0FDA, safe_read64s, read_mmx64s)
 void instr_660FDA(union reg128 source, int32_t r) {
     // pminub xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result;
@@ -2707,7 +2611,6 @@ DEFINE_SSE_SPLIT(instr_660FDA, safe_read128s, read_xmm128s)
 
 void instr_0FDB(union reg64 source, int32_t r) {
     // pand mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
@@ -2727,7 +2630,6 @@ DEFINE_SSE_SPLIT(instr_660FDB, safe_read128s, read_xmm128s)
 
 void instr_0FDC(union reg64 source, int32_t r) {
     // paddusb mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
@@ -2744,7 +2646,6 @@ DEFINE_SSE_SPLIT(instr_0FDC, safe_read64s, read_mmx64s)
 void instr_660FDC(union reg128 source, int32_t r) {
     // paddusb xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result;
@@ -2760,7 +2661,6 @@ DEFINE_SSE_SPLIT(instr_660FDC, safe_read128s, read_xmm128s)
 
 void instr_0FDD(union reg64 source, int32_t r) {
     // paddusw mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
 
@@ -2779,7 +2679,6 @@ DEFINE_SSE_SPLIT(instr_0FDD, safe_read64s, read_mmx64s)
 void instr_660FDD(union reg128 source, int32_t r) {
     // paddusw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
 
@@ -2795,7 +2694,6 @@ DEFINE_SSE_SPLIT(instr_660FDD, safe_read128s, read_xmm128s)
 
 void instr_0FDE(union reg64 source, int32_t r) {
     // pmaxub mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
     union reg64 result;
@@ -2812,7 +2710,6 @@ DEFINE_SSE_SPLIT(instr_0FDE, safe_read64s, read_mmx64s)
 void instr_660FDE(union reg128 source, int32_t r) {
     // pmaxub xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result;
@@ -2828,7 +2725,6 @@ DEFINE_SSE_SPLIT(instr_660FDE, safe_read128s, read_xmm128s)
 
 void instr_0FDF(union reg64 source, int32_t r) {
     // pandn mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
@@ -2848,7 +2744,6 @@ DEFINE_SSE_SPLIT(instr_660FDF, safe_read128s, read_xmm128s)
 
 void instr_0FE0(union reg64 source, int32_t r) {
     // pavgb mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
 
@@ -2864,7 +2759,6 @@ DEFINE_SSE_SPLIT(instr_0FE0, safe_read64s, read_mmx64s)
 void instr_660FE0(union reg128 source, int32_t r) {
     // pavgb xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
     union reg128 result;
 
@@ -2905,7 +2799,6 @@ DEFINE_SSE_SPLIT(instr_660FE2, safe_read128s, read_xmm128s)
 
 void instr_0FE3(union reg64 source, int32_t r) {
     // pavgw mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     destination.u16[0] = (destination.u16[0] + source.u16[0] + 1) >> 1;
@@ -2920,7 +2813,6 @@ DEFINE_SSE_SPLIT(instr_0FE3, safe_read64s, read_mmx64s)
 void instr_660FE3(union reg128 source, int32_t r) {
     // pavgw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     destination.u16[0] = (destination.u16[0] + source.u16[0] + 1) >> 1;
@@ -2938,7 +2830,6 @@ DEFINE_SSE_SPLIT(instr_660FE3, safe_read128s, read_xmm128s)
 
 void instr_0FE4(union reg64 source, int32_t r) {
     // pmulhuw mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
 
@@ -2953,7 +2844,6 @@ DEFINE_SSE_SPLIT(instr_0FE4, safe_read64s, read_mmx64s)
 void instr_660FE4(union reg128 source, int32_t r) {
     // pmulhuw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
 
@@ -2969,7 +2859,6 @@ DEFINE_SSE_SPLIT(instr_660FE4, safe_read128s, read_xmm128s)
 
 void instr_0FE5(union reg64 source, int32_t r) {
     // pmulhw mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
 
@@ -2988,7 +2877,6 @@ DEFINE_SSE_SPLIT(instr_0FE5, safe_read64s, read_mmx64s)
 void instr_660FE5(union reg128 source, int32_t r) {
     // pmulhw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
 
@@ -3028,7 +2916,6 @@ void instr_660FE7_mem(int32_t addr, int32_t r) {
 
 void instr_0FE8(union reg64 source, int32_t r) {
     // psubsb mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
@@ -3045,7 +2932,6 @@ DEFINE_SSE_SPLIT(instr_0FE8, safe_read64s, read_mmx64s)
 void instr_660FE8(union reg128 source, int32_t r) {
     // psubsb xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result;
@@ -3061,7 +2947,6 @@ DEFINE_SSE_SPLIT(instr_660FE8, safe_read128s, read_xmm128s)
 
 void instr_0FE9(union reg64 source, int32_t r) {
     // psubsw mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
 
@@ -3080,7 +2965,6 @@ DEFINE_SSE_SPLIT(instr_0FE9, safe_read64s, read_mmx64s)
 void instr_660FE9(union reg128 source, int32_t r) {
     // psubsw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
 
@@ -3099,7 +2983,6 @@ DEFINE_SSE_SPLIT(instr_660FE9, safe_read128s, read_xmm128s)
 
 void instr_0FEA(union reg64 source, int32_t r) {
     // pminsw mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
     union reg64 result;
@@ -3116,7 +2999,6 @@ DEFINE_SSE_SPLIT(instr_0FEA, safe_read64s, read_mmx64s)
 void instr_660FEA(union reg128 source, int32_t r) {
     // pminsw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result;
@@ -3132,7 +3014,6 @@ DEFINE_SSE_SPLIT(instr_660FEA, safe_read128s, read_xmm128s)
 
 void instr_0FEB(union reg64 source, int32_t r) {
     // por mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
@@ -3152,7 +3033,6 @@ DEFINE_SSE_SPLIT(instr_660FEB, safe_read128s, read_xmm128s)
 
 void instr_0FEC(union reg64 source, int32_t r) {
     // paddsb mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
@@ -3169,7 +3049,6 @@ DEFINE_SSE_SPLIT(instr_0FEC, safe_read64s, read_mmx64s)
 void instr_660FEC(union reg128 source, int32_t r) {
     // paddsb xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result;
@@ -3185,7 +3064,6 @@ DEFINE_SSE_SPLIT(instr_660FEC, safe_read128s, read_xmm128s)
 
 void instr_0FED(union reg64 source, int32_t r) {
     // paddsw mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
 
@@ -3204,7 +3082,6 @@ DEFINE_SSE_SPLIT(instr_0FED, safe_read64s, read_mmx64s)
 void instr_660FED(union reg128 source, int32_t r) {
     // paddsw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
 
@@ -3223,7 +3100,6 @@ DEFINE_SSE_SPLIT(instr_660FED, safe_read128s, read_xmm128s)
 
 void instr_0FEE(union reg64 source, int32_t r) {
     // pmaxsw mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
     union reg64 result;
@@ -3240,7 +3116,6 @@ DEFINE_SSE_SPLIT(instr_0FEE, safe_read64s, read_mmx64s)
 void instr_660FEE(union reg128 source, int32_t r) {
     // pmaxsw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result;
@@ -3256,7 +3131,6 @@ DEFINE_SSE_SPLIT(instr_660FEE, safe_read128s, read_xmm128s)
 
 void instr_0FEF(union reg64 source, int32_t r) {
     // pxor mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
 
@@ -3316,7 +3190,6 @@ DEFINE_SSE_SPLIT(instr_660FF3, safe_read128s, read_xmm128s)
 
 void instr_0FF4(union reg64 source, int32_t r) {
     // pmuludq mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     destination.u64[0] = (uint64_t) source.u32[0] * (uint64_t) destination.u32[0];
@@ -3327,7 +3200,6 @@ DEFINE_SSE_SPLIT(instr_0FF4, safe_read64s, read_mmx64s)
 void instr_660FF4(union reg128 source, int32_t r) {
     // pmuludq xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     destination.u64[0] = (uint64_t) source.u32[0] * (uint64_t) destination.u32[0];
@@ -3338,7 +3210,6 @@ DEFINE_SSE_SPLIT(instr_660FF4, safe_read128s, read_xmm128s)
 
 void instr_0FF5(union reg64 source, int32_t r) {
     // pmaddwd mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
 
@@ -3357,7 +3228,6 @@ DEFINE_SSE_SPLIT(instr_0FF5, safe_read64s, read_mmx64s)
 void instr_660FF5(union reg128 source, int32_t r) {
     // pmaddwd xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
 
@@ -3376,7 +3246,6 @@ DEFINE_SSE_SPLIT(instr_660FF5, safe_read128s, read_xmm128s)
 
 void instr_0FF6(union reg64 source, int32_t r) {
     // psadbw mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
     uint32_t sum = 0;
 
@@ -3392,7 +3261,6 @@ DEFINE_SSE_SPLIT(instr_0FF6, safe_read64s, read_mmx64s)
 void instr_660FF6(union reg128 source, int32_t r) {
     // psadbw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
     uint32_t sum0 = 0;
     uint32_t sum1 = 0;
@@ -3410,7 +3278,6 @@ DEFINE_SSE_SPLIT(instr_660FF6, safe_read128s, read_xmm128s)
 void instr_0FF7_mem(int32_t addr, int32_t r) { trigger_ud(); }
 void instr_0FF7_reg(int32_t r1, int32_t r2) {
     // maskmovq mm, mm
-    task_switch_test_mmx();
     union reg64 source = read_mmx64s(r2);
     union reg64 mask = read_mmx64s(r1);
     int32_t addr = get_seg_prefix(DS) + get_reg_asize(EDI);
@@ -3428,7 +3295,6 @@ void instr_0FF7_reg(int32_t r1, int32_t r2) {
 void instr_660FF7_mem(int32_t addr, int32_t r) { trigger_ud(); }
 void instr_660FF7_reg(int32_t r1, int32_t r2) {
     // maskmovdqu xmm, xmm
-    task_switch_test_mmx();
     union reg128 source = read_xmm128s(r2);
     union reg128 mask = read_xmm128s(r1);
     int32_t addr = get_seg_prefix(DS) + get_reg_asize(EDI);
@@ -3445,7 +3311,6 @@ void instr_660FF7_reg(int32_t r1, int32_t r2) {
 
 void instr_0FF8(union reg64 source, int32_t r) {
     // psubb mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
@@ -3462,7 +3327,6 @@ DEFINE_SSE_SPLIT(instr_0FF8, safe_read64s, read_mmx64s)
 void instr_660FF8(union reg128 source, int32_t r) {
     // psubb xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result = { { 0 } };
@@ -3478,7 +3342,6 @@ DEFINE_SSE_SPLIT(instr_660FF8, safe_read128s, read_xmm128s)
 
 void instr_0FF9(union reg64 source, int32_t r) {
     // psubw mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
 
@@ -3497,7 +3360,6 @@ DEFINE_SSE_SPLIT(instr_0FF9, safe_read64s, read_mmx64s)
 void instr_660FF9(union reg128 source, int32_t r) {
     // psubw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result = { { 0 } };
@@ -3513,7 +3375,6 @@ DEFINE_SSE_SPLIT(instr_660FF9, safe_read128s, read_xmm128s)
 
 void instr_0FFA(union reg64 source, int32_t r) {
     // psubd mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
 
@@ -3528,7 +3389,6 @@ DEFINE_SSE_SPLIT(instr_0FFA, safe_read64s, read_mmx64s)
 void instr_660FFA(union reg128 source, int32_t r) {
     // psubd xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
 
@@ -3544,7 +3404,6 @@ DEFINE_SSE_SPLIT(instr_660FFA, safe_read128s, read_xmm128s)
 
 void instr_0FFB(union reg64 source, int32_t r) {
     // psubq mm, mm/m64
-    task_switch_test_mmx();
     union reg64 destination = read_mmx64s(r);
 
     destination.u64[0] = destination.u64[0] - source.u64[0];
@@ -3555,7 +3414,6 @@ DEFINE_SSE_SPLIT(instr_0FFB, safe_read64s, read_mmx64s)
 void instr_660FFB(union reg128 source, int32_t r) {
     // psubq xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
     union reg128 destination = read_xmm128s(r);
 
     destination.u64[0] = destination.u64[0] - source.u64[0];
@@ -3567,7 +3425,6 @@ DEFINE_SSE_SPLIT(instr_660FFB, safe_read128s, read_xmm128s)
 
 void instr_0FFC(union reg64 source, int32_t r) {
     // paddb mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
     union reg64 result = { { 0 } };
@@ -3584,7 +3441,6 @@ DEFINE_SSE_SPLIT(instr_0FFC, safe_read64s, read_mmx64s)
 void instr_660FFC(union reg128 source, int32_t r) {
     // paddb xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result = { { 0 } };
@@ -3600,7 +3456,6 @@ DEFINE_SSE_SPLIT(instr_660FFC, safe_read128s, read_xmm128s)
 
 void instr_0FFD(union reg64 source, int32_t r) {
     // paddw mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
 
@@ -3619,7 +3474,6 @@ DEFINE_SSE_SPLIT(instr_0FFD, safe_read64s, read_mmx64s)
 void instr_660FFD(union reg128 source, int32_t r) {
     // paddw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result = { { 0 } };
@@ -3635,7 +3489,6 @@ DEFINE_SSE_SPLIT(instr_660FFD, safe_read128s, read_xmm128s)
 
 void instr_0FFE(union reg64 source, int32_t r) {
     // paddd mm, mm/m64
-    task_switch_test_mmx();
 
     union reg64 destination = read_mmx64s(r);
 
@@ -3649,7 +3502,6 @@ DEFINE_SSE_SPLIT(instr_0FFE, safe_read64s, read_mmx64s)
 void instr_660FFE(union reg128 source, int32_t r) {
     // paddd xmm, xmm/m128
     // XXX: Aligned access or #gp
-    task_switch_test_mmx();
 
     union reg128 destination = read_xmm128s(r);
 

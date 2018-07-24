@@ -220,6 +220,15 @@ function gen_instruction_body_after_fixed_g(encoding, size)
         instruction_postfix.push("*instr_flags |= ::jit::JIT_INSTR_BLOCK_BOUNDARY_FLAG;");
     }
 
+    const instruction_prefix = [];
+
+    if(encoding.task_switch_test || encoding.sse)
+    {
+        instruction_prefix.push(
+            gen_call(encoding.sse ? "::codegen::gen_task_switch_test_mmx" : "::codegen::gen_task_switch_test", ["ctx"])
+        );
+    }
+
     const APPEND_NONFAULTING_FLAG = "*instr_flags |= ::jit::JIT_INSTR_NONFAULTING_FLAG;";
 
     const imm_read = gen_read_imm_call(encoding, size);
@@ -245,6 +254,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
             const args = ["ctx", `"${instruction_name}"`, "(modrm_byte & 7) as u32", "(modrm_byte >> 3 & 7) as u32"];
 
             return [].concat(
+                instruction_prefix,
                 gen_call(`::codegen::gen_fn${args.length - 2}_const`, args),
                 reg_postfix,
                 instruction_postfix
@@ -267,6 +277,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
             }
 
             return [].concat(
+                instruction_prefix,
                 {
                     type: "if-else",
                     if_blocks: [{
@@ -307,6 +318,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
             }
 
             return [].concat(
+                instruction_prefix,
                 {
                     type: "if-else",
                     if_blocks: [{
@@ -357,6 +369,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
         }
 
         return [].concat(
+            instruction_prefix,
             imm_read_bindings,
             gen_call(`::jit_instructions::${instruction_name}_jit`, args),
             instruction_postfix
@@ -392,6 +405,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
         }
 
         return [].concat(
+            instruction_prefix,
             imm_read_bindings,
             gen_call(`::codegen::gen_fn${args.length - 2}_const`, args),
             instruction_postfix

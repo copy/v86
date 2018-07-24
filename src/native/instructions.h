@@ -114,8 +114,8 @@
     void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); fun; }
 
 #define DEFINE_MODRM_INSTR_FPU_READ32(name, fun) \
-    void name ## _mem(int32_t addr) { task_switch_test(); double_t ___ = fpu_load_m32(addr); fun; } \
-    void name ## _reg(int32_t r) { task_switch_test(); double_t ___ = fpu_get_sti(r); fun; }
+    void name ## _mem(int32_t addr) { double_t ___ = fpu_load_m32(addr); fun; } \
+    void name ## _reg(int32_t r) { double_t ___ = fpu_get_sti(r); fun; }
 
 void instr_00_mem(int32_t addr, int32_t r);
 void instr_00_reg(int32_t r1, int32_t r);

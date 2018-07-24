@@ -23,3 +23,6 @@ pub const SP: u32 = 4;
 pub const BP: u32 = 5;
 pub const SI: u32 = 6;
 pub const DI: u32 = 7;
+
+pub const CR0_EM: u32 = 1 << 2;
+pub const CR0_TS: u32 = 1 << 3;

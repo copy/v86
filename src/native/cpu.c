@@ -811,10 +811,31 @@ void trigger_ud()
 }
 
 __attribute__((noinline))
+void trigger_ud_non_raising()
+{
+    dbg_log("#ud");
+    dbg_trace();
+#if DEBUG
+    if(cpu_exception_hook(CPU_EXCEPTION_UD))
+    {
+        return;
+    }
+#endif
+    *instruction_pointer = *previous_ip;
+    call_interrupt_vector(CPU_EXCEPTION_UD, false, false, 0);
+}
+
+__attribute__((noinline))
 void trigger_nm()
 {
+#if DEBUG
+    if(cpu_exception_hook(CPU_EXCEPTION_NM))
+    {
+        return;
+    }
+#endif
     *instruction_pointer = *previous_ip;
-    raise_exception(CPU_EXCEPTION_NM);
+    call_interrupt_vector(CPU_EXCEPTION_NM, false, false, 0);
 }
 
 __attribute__((noinline))
@@ -1355,28 +1376,34 @@ void invlpg(int32_t addr)
     *last_virt_esp = -1;
 }
 
-void task_switch_test()
+bool task_switch_test()
 {
     if(cr[0] & (CR0_EM | CR0_TS))
     {
         trigger_nm();
+        return false;
     }
-}
 
-void task_switch_test_mmx()
-{
-    if(*cr & (CR0_EM | CR0_TS))
-    {
-        if(*cr & CR0_TS)
-        {
-            trigger_nm();
-        }
-        else
-        {
-            trigger_ud();
-        }
-    }
+    return true;
 }
+void task_switch_test_void() { task_switch_test(); }
+
+bool task_switch_test_mmx()
+{
+    if(*cr & CR0_TS)
+    {
+        trigger_nm();
+        return false;
+    }
+    else if(*cr & CR0_EM)
+    {
+        trigger_ud_non_raising();
+        return false;
+    }
+
+    return true;
+}
+void task_switch_test_mmx_void() { task_switch_test_mmx(); }
 
 // read 2 or 4 byte from ip, depending on address size attribute
 int32_t read_moffs()

@@ -216,7 +216,23 @@ function gen_instruction_body_after_prefix(encodings, size)
 
 function gen_instruction_body_after_fixed_g(encoding, size)
 {
+    const instruction_prefix = [];
     const instruction_postfix = encoding.block_boundary ? ["after_block_boundary();"] : [];
+
+    if(encoding.task_switch_test || encoding.sse)
+    {
+        instruction_prefix.push(
+            {
+                type: "if-else",
+                if_blocks: [
+                    {
+                        condition: encoding.sse ? "!task_switch_test_mmx()" : "!task_switch_test()",
+                        body: ["return;"],
+                    }
+                ],
+            });
+    }
+
     const imm_read = gen_read_imm_call(encoding, size);
     const instruction_name = make_instruction_name(encoding, size);
 
@@ -244,6 +260,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
             // operands are always registers (0f20-0f24)
 
             return [].concat(
+                instruction_prefix,
                 gen_call(instruction_name, ["modrm_byte & 7", "modrm_byte >> 3 & 7"]),
                 instruction_postfix
             );
@@ -266,6 +283,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
             }
 
             return [].concat(
+                instruction_prefix,
                 {
                     type: "if-else",
                     if_blocks: [
@@ -306,6 +324,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
         }
 
         return [].concat(
+            instruction_prefix,
             gen_call(instruction_name, args),
             instruction_postfix
         );
