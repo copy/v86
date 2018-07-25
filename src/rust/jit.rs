@@ -1072,6 +1072,18 @@ fn jit_generate_basic_block(
         jit_instructions::jit_instruction(&mut cpu, builder, &mut instruction_flags);
         let end_eip = cpu.eip;
 
+        #[cfg(debug_assertions)]
+        {
+            if ::config::CHECK_CPU_EXCEPTIONS {
+                // only the last instruction in each basic block is allowed to raise
+                if end_eip < stop_addr {
+                    let fn_idx =
+                        builder.get_fn_idx("assert_no_cpu_exception", module_init::FN0_TYPE_INDEX);
+                    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
+                }
+            }
+        }
+
         let instruction_length = end_eip - start_eip;
         was_block_boundary = instruction_flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG != 0;
 

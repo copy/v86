@@ -21,6 +21,24 @@
 bool must_not_fault = false;
 #endif
 
+#if CHECK_CPU_EXCEPTIONS
+int32_t current_cpu_exception = -1;
+void assert_no_cpu_exception() {
+    if(current_cpu_exception != -1)
+    {
+        dbg_log("Expected no cpu exception, got %d", current_cpu_exception);
+        dbg_trace();
+        assert(false);
+    }
+}
+void set_current_cpu_exception(int32_t n) { current_cpu_exception = n; }
+void clear_current_cpu_exception() { current_cpu_exception = -1; }
+#else
+void assert_no_cpu_exception() {}
+void set_current_cpu_exception(int32_t n) { UNUSED(n); }
+void clear_current_cpu_exception() {  }
+#endif
+
 uint64_t tsc_offset = 0;
 
 bool jit_block_boundary = false;
@@ -618,6 +636,8 @@ static void jit_run_interpreted(int32_t phys_addr)
 
     run_instruction(opcode | !!*is_32 << 8);
 
+    clear_current_cpu_exception();
+
     while(!jit_block_boundary && same_page(*previous_ip, *instruction_pointer))
     {
         previous_ip[0] = instruction_pointer[0];
@@ -626,9 +646,11 @@ static void jit_run_interpreted(int32_t phys_addr)
         int32_t opcode = read_imm8();
 
 #if DEBUG
-    logop(previous_ip[0], opcode);
+        logop(previous_ip[0], opcode);
 #endif
         run_instruction(opcode | !!*is_32 << 8);
+
+        clear_current_cpu_exception();
     }
 }
 
@@ -670,6 +692,8 @@ void cycle_internal()
         uint16_t wasm_table_index = entry & 0xFFFF;
         uint16_t initial_state = entry >> 16;
         call_indirect1(wasm_table_index, initial_state);
+
+        clear_current_cpu_exception();
 
         // XXX: New clearing: This should fail on self-modifying code
         //assert(entry->start_addr == old_start_address);
@@ -799,6 +823,7 @@ void trigger_de()
 #endif
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_DE, false, false, 0);
+    set_current_cpu_exception(CPU_EXCEPTION_DE);
 }
 
 __attribute__((noinline))
@@ -823,6 +848,7 @@ void trigger_ud_non_raising()
 #endif
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_UD, false, false, 0);
+    set_current_cpu_exception(CPU_EXCEPTION_UD);
 }
 
 __attribute__((noinline))
@@ -836,6 +862,7 @@ void trigger_nm()
 #endif
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_NM, false, false, 0);
+    set_current_cpu_exception(CPU_EXCEPTION_NM);
 }
 
 __attribute__((noinline))
@@ -849,6 +876,7 @@ void trigger_np(int32_t code)
 #endif
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_NP, false, true, code);
+    set_current_cpu_exception(CPU_EXCEPTION_NP);
 }
 
 __attribute__((noinline))
@@ -862,6 +890,7 @@ void trigger_ss(int32_t code)
 #endif
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_SS, false, true, code);
+    set_current_cpu_exception(CPU_EXCEPTION_SS);
 }
 
 __attribute__((noinline))
@@ -882,6 +911,7 @@ void trigger_gp_non_raising(int32_t code)
 #endif
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_GP, false, true, code);
+    set_current_cpu_exception(CPU_EXCEPTION_GP);
 }
 
 int32_t virt_boundary_read16(int32_t low, int32_t high)
@@ -964,11 +994,13 @@ void virt_boundary_write32(int32_t low, int32_t high, int32_t value)
 
 int32_t safe_read8(int32_t addr)
 {
+    assert_no_cpu_exception();
     return read8(translate_address_read(addr));
 }
 
 int32_t safe_read16(int32_t addr)
 {
+    assert_no_cpu_exception();
     if((addr & 0xFFF) == 0xFFF)
     {
         return safe_read8(addr) | safe_read8(addr + 1) << 8;
@@ -995,6 +1027,7 @@ int32_t safe_read32s_slow(int32_t addr)
 __attribute__((always_inline))
 int32_t safe_read32s(int32_t address)
 {
+    assert_no_cpu_exception();
 #if 1
     int32_t base = (uint32_t)address >> 12;
     int32_t entry = tlb_data[base];
@@ -1044,6 +1077,8 @@ int32_t safe_read32s(int32_t address)
 
 union reg64 safe_read64s(int32_t addr)
 {
+    assert_no_cpu_exception();
+
     union reg64 x;
     if((addr & 0xFFF) > (0x1000 - 8))
     {
@@ -1061,6 +1096,8 @@ union reg64 safe_read64s(int32_t addr)
 __attribute__((always_inline))
 union reg128 safe_read128s(int32_t addr)
 {
+    assert_no_cpu_exception();
+
     union reg128 x;
     if((addr & 0xFFF) > (0x1000 - 16))
     {
@@ -1077,11 +1114,15 @@ union reg128 safe_read128s(int32_t addr)
 
 void safe_write8(int32_t addr, int32_t value)
 {
+    assert_no_cpu_exception();
+
     write8(translate_address_write(addr), value);
 }
 
 void safe_write16(int32_t addr, int32_t value)
 {
+    assert_no_cpu_exception();
+
     int32_t phys_low = translate_address_write(addr);
 
     if((addr & 0xFFF) == 0xFFF)
@@ -1112,6 +1153,8 @@ void safe_write32_slow(int32_t addr, int32_t value)
 __attribute__((always_inline))
 void safe_write32(int32_t address, int32_t value)
 {
+    assert_no_cpu_exception();
+
 #if 1
     int32_t base = (uint32_t)address >> 12;
     int32_t entry = tlb_data[base];
@@ -1173,6 +1216,8 @@ void safe_write32(int32_t address, int32_t value)
 
 void safe_write64(int32_t addr, int64_t value)
 {
+    assert_no_cpu_exception();
+
     if((addr & 0xFFF) > (0x1000 - 8))
     {
         writable_or_pagefault(addr, 8);
@@ -1189,6 +1234,8 @@ void safe_write64(int32_t addr, int64_t value)
 __attribute__((always_inline))
 void safe_write128(int32_t addr, union reg128 value)
 {
+    assert_no_cpu_exception();
+
     if((addr & 0xFFF) > (0x1000 - 16))
     {
         writable_or_pagefault(addr, 16);

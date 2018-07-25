@@ -9,6 +9,7 @@ pub mod c_api;
 
 mod analysis;
 mod codegen;
+mod config;
 mod cpu;
 mod cpu_context;
 mod gen;
