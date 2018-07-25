@@ -1281,27 +1281,27 @@ void instr32_E2(int32_t imm8s) { loop32(imm8s); }
 void instr32_E3(int32_t imm8s) { jcxz32(imm8s); }
 
 void instr_E4(int32_t port) {
-    test_privileges_for_io(port, 1);
+    if(!test_privileges_for_io(port, 1)) return;
     reg8[AL] = io_port_read8(port);
 }
 void instr16_E5(int32_t port) {
-    test_privileges_for_io(port, 2);
+    if(!test_privileges_for_io(port, 2)) return;
     reg16[AX] = io_port_read16(port);
 }
 void instr32_E5(int32_t port) {
-    test_privileges_for_io(port, 4);
+    if(!test_privileges_for_io(port, 4)) return;
     reg32s[EAX] = io_port_read32(port);
 }
 void instr_E6(int32_t port) {
-    test_privileges_for_io(port, 1);
+    if(!test_privileges_for_io(port, 1)) return;
     io_port_write8(port, reg8[AL]);
 }
 void instr16_E7(int32_t port) {
-    test_privileges_for_io(port, 2);
+    if(!test_privileges_for_io(port, 2)) return;
     io_port_write16(port, reg16[AX]);
 }
 void instr32_E7(int32_t port) {
-    test_privileges_for_io(port, 4);
+    if(!test_privileges_for_io(port, 4)) return;
     io_port_write32(port, reg32s[EAX]);
 }
 
@@ -1354,32 +1354,32 @@ void instr32_EB(int32_t imm8) {
 
 void instr_EC() {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 1);
+    if(!test_privileges_for_io(port, 1)) return;
     reg8[AL] = io_port_read8(port);
 }
 void instr16_ED() {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 2);
+    if(!test_privileges_for_io(port, 2)) return;
     reg16[AX] = io_port_read16(port);
 }
 void instr32_ED() {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 4);
+    if(!test_privileges_for_io(port, 4)) return;
     reg32s[EAX] = io_port_read32(port);
 }
 void instr_EE() {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 1);
+    if(!test_privileges_for_io(port, 1)) return;
     io_port_write8(port, reg8[AL]);
 }
 void instr16_EF() {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 2);
+    if(!test_privileges_for_io(port, 2)) return;
     io_port_write16(port, reg16[AX]);
 }
 void instr32_EF() {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 4);
+    if(!test_privileges_for_io(port, 4)) return;
     io_port_write32(port, reg32s[EAX]);
 }
 

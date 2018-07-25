@@ -814,7 +814,7 @@ void scasd_no_rep()
 void insb_rep()
 {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 1);
+    if(!test_privileges_for_io(port, 1)) return;
 
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
@@ -845,7 +845,7 @@ void insb_rep()
 void insb_no_rep()
 {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 1);
+    if(!test_privileges_for_io(port, 1)) return;
 
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
@@ -858,7 +858,7 @@ void insb_no_rep()
 void insw_rep()
 {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 2);
+    if(!test_privileges_for_io(port, 2)) return;
 
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
@@ -906,7 +906,7 @@ void insw_rep()
 void insw_no_rep()
 {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 2);
+    if(!test_privileges_for_io(port, 2)) return;
 
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
@@ -919,7 +919,7 @@ void insw_no_rep()
 void insd_rep()
 {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 4);
+    if(!test_privileges_for_io(port, 4)) return;
 
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
@@ -967,7 +967,7 @@ void insd_rep()
 void insd_no_rep()
 {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 4);
+    if(!test_privileges_for_io(port, 4)) return;
 
     int32_t dest = get_seg(ES) + get_reg_asize(EDI);
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
@@ -980,7 +980,7 @@ void insd_no_rep()
 void outsb_rep()
 {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 1);
+    if(!test_privileges_for_io(port, 1)) return;
 
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
@@ -1011,7 +1011,7 @@ void outsb_rep()
 void outsb_no_rep()
 {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 1);
+    if(!test_privileges_for_io(port, 1)) return;
 
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -1 : 1;
@@ -1024,7 +1024,7 @@ void outsb_no_rep()
 void outsw_rep()
 {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 2);
+    if(!test_privileges_for_io(port, 2)) return;
 
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
@@ -1071,7 +1071,7 @@ void outsw_rep()
 void outsw_no_rep()
 {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 2);
+    if(!test_privileges_for_io(port, 2)) return;
 
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -2 : 2;
@@ -1083,7 +1083,7 @@ void outsw_no_rep()
 void outsd_rep()
 {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 4);
+    if(!test_privileges_for_io(port, 4)) return;
 
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;
@@ -1130,7 +1130,7 @@ void outsd_rep()
 void outsd_no_rep()
 {
     int32_t port = reg16[DX];
-    test_privileges_for_io(port, 4);
+    if(!test_privileges_for_io(port, 4)) return;
 
     int32_t src = get_seg_prefix(DS) + get_reg_asize(ESI);
     int32_t size = *flags & FLAG_DIRECTION ? -4 : 4;

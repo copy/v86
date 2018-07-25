@@ -2977,7 +2977,7 @@ CPU.prototype.test_privileges_for_io = function(port, size)
             dbg_log("#GP for port io, 16-bit TSS  port=" + h(port) + " size=" + size, LOG_CPU);
             CPU_LOG_VERBOSE && this.debug.dump_state();
             this.trigger_gp_non_raising(0);
-            return;
+            return false;
         }
 
         var tsr_size = this.segment_limits[reg_tr];
@@ -3001,7 +3001,7 @@ CPU.prototype.test_privileges_for_io = function(port, size)
 
                 if(!(port_info & mask))
                 {
-                    return;
+                    return true;
                 }
             }
         }
@@ -3009,7 +3009,10 @@ CPU.prototype.test_privileges_for_io = function(port, size)
         dbg_log("#GP for port io  port=" + h(port) + " size=" + size, LOG_CPU);
         CPU_LOG_VERBOSE && this.debug.dump_state();
         this.trigger_gp_non_raising(0);
+        return false;
     }
+
+    return true;
 };
 
 CPU.prototype.cpuid = function()
