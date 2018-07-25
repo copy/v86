@@ -451,14 +451,7 @@ pub fn instr_0F19_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
     modrm::skip(ctx.cpu, modrm_byte);
 }
 pub fn instr_0F19_reg_jit(_ctx: &mut JitContext, _r1: u32, _r2: u32) {}
-pub fn instr_0F1A_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
-    modrm::skip(ctx.cpu, modrm_byte);
-}
-pub fn instr_0F1A_reg_jit(_ctx: &mut JitContext, _r1: u32, _r2: u32) {}
-pub fn instr_0F1B_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
-    modrm::skip(ctx.cpu, modrm_byte);
-}
-pub fn instr_0F1B_reg_jit(_ctx: &mut JitContext, _r1: u32, _r2: u32) {}
+
 pub fn instr_0F1C_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
     modrm::skip(ctx.cpu, modrm_byte);
 }

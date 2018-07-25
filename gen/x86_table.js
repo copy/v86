@@ -302,8 +302,8 @@ const encodings = [
 
     { opcode: 0x0F18, only_mem: 1, e: 1, },
     { opcode: 0x0F19, non_faulting: 1, custom: 1, e: 1, },
-    { opcode: 0x0F1A, non_faulting: 1, custom: 1, e: 1, },
-    { opcode: 0x0F1B, non_faulting: 1, custom: 1, e: 1, },
+    { opcode: 0x0F1A, skip: 1, },
+    { opcode: 0x0F1B, skip: 1, },
     { opcode: 0x0F1C, non_faulting: 1, custom: 1, e: 1, },
     { opcode: 0x0F1D, non_faulting: 1, custom: 1, e: 1, },
     { opcode: 0x0F1E, non_faulting: 1, custom: 1, e: 1, },

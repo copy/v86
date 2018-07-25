@@ -422,10 +422,8 @@ void instr_0F18_mem(int32_t addr, int32_t r) {
 // hintable nops
 void instr_0F19_reg(int32_t r1, int32_t r2) { }
 void instr_0F19_mem(int32_t addr, int32_t r) { }
-void instr_0F1A_reg(int32_t r1, int32_t r2) { }
-void instr_0F1A_mem(int32_t addr, int32_t r) { }
-void instr_0F1B_reg(int32_t r1, int32_t r2) { }
-void instr_0F1B_mem(int32_t addr, int32_t r) { }
+void instr_0F1A() { todo(); trigger_ud(); }
+void instr_0F1B() { todo(); trigger_ud(); }
 void instr_0F1C_reg(int32_t r1, int32_t r2) { }
 void instr_0F1C_mem(int32_t addr, int32_t r) { }
 void instr_0F1D_reg(int32_t r1, int32_t r2) { }
