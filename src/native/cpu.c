@@ -1208,7 +1208,7 @@ void safe_write32(int32_t address, int32_t value)
 #if 1
     int32_t base = (uint32_t)address >> 12;
     int32_t entry = tlb_data[base];
-    int32_t info_bits = entry & 0xFFF & ~TLB_GLOBAL;
+    int32_t info_bits = entry & 0xFFF & ~TLB_GLOBAL & ~(*cpl == 3 ? 0 : TLB_NO_USER);
 
     if(info_bits == TLB_VALID && (address & 0xFFF) <= (0x1000 - 4))
     {
@@ -1217,7 +1217,6 @@ void safe_write32(int32_t address, int32_t value)
 #endif
         // - allowed to write in user-mode
         // - not in memory mapped area
-        // - can be accessed from any cpl
         // - does not contain code
 
         uint32_t phys_address = entry & ~0xFFF ^ address;
