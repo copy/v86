@@ -8,6 +8,7 @@ var MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
 var TEST_NAME = process.env.TEST_NAME;
 
 const VERBOSE = false;
+const RUN_SLOW_TESTS = false;
 
 try
 {
@@ -140,6 +141,15 @@ if(cluster.isMaster)
         //    skip_if_disk_image_missing: true,
         //},
         //{
+        //    name: "Windows 95",
+        //    hda: root_path + "/images/windows95.img",
+        //    timeout: 60,
+        //    expect_graphical_mode: true,
+        //    expect_graphical_size: [800, 600],
+        //    expect_mouse_registered: true,
+        //    skip_if_disk_image_missing: true,
+        //},
+        //{
         //    name: "Oberon",
         //    hda: root_path + "/images/oberon.dsk",
         //    fda: root_path + "/images/oberon-boot.dsk",
@@ -186,6 +196,27 @@ if(cluster.isMaster)
             ],
         },
         {
+            name: "MS-DOS",
+            skip_if_disk_image_missing: true,
+            hda: root_path + "/images/msdos.img",
+            timeout: 90,
+            expected_texts: [
+                "C:\\>",
+            ],
+        },
+        {
+            name: "Linux 4",
+            skip_if_disk_image_missing: true,
+            cdrom: root_path + "/images/linux4.iso",
+            timeout: 200,
+            // TODO: Check serial
+            expected_texts: [
+                "~%",
+                "Files send via emulator appear in",
+            ],
+            expect_mouse_registered: true,
+        },
+        {
             name: "OpenBSD",
             fda: root_path + "/images/openbsd.img",
             timeout: 180,
@@ -223,13 +254,41 @@ if(cluster.isMaster)
         {
             name: "FreeBSD",
             skip_if_disk_image_missing: true,
-            timeout: 240,
+            timeout: 5 * 60,
             hda: root_path + "/../v86-images/os/freebsd.img",
             expected_texts: ["FreeBSD/i386 (nyu) (ttyv0)"],
             actions: [
                 {
                     on_text: "   Autoboot in ",
                     run: "\n",
+                }
+            ],
+        },
+        {
+            name: "FreeBSD cdrom",
+            skip_if_disk_image_missing: true,
+            slow: 1,
+            timeout: 10 * 60,
+            cdrom: root_path + "/../v86-images/os/FreeBSD-11.0-RELEASE-i386-bootonly.iso",
+            expected_texts: ["Welcome to FreeBSD!"],
+            actions: [
+                {
+                    on_text: "   Autoboot in ",
+                    run: "\n",
+                }
+            ],
+        },
+        {
+            name: "FreeGEM",
+            skip_if_disk_image_missing: true,
+            timeout: 60,
+            hda: root_path + "/../v86-images/os/freegem.bin",
+            expect_graphical_mode: true,
+            expect_mouse_registered: true,
+            actions: [
+                {
+                    on_text: "   Select from Menu",
+                    run: "3",
                 }
             ],
         },
@@ -246,7 +305,7 @@ if(cluster.isMaster)
         {
             name: "HelenOS",
             skip_if_disk_image_missing: true,
-            timeout: 2 * 60,
+            timeout: 3 * 60,
             cdrom: root_path + "/../v86-images/os/HelenOS-0.5.0-ia32.iso",
             expect_graphical_mode: true,
             expect_mouse_registered: true,
@@ -280,6 +339,54 @@ if(cluster.isMaster)
                     run: "\n",
                 },
             ],
+        },
+        {
+            name: "Core 9",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/../v86-images/os/Core-9.0.iso",
+            expected_texts: ["tc@box"],
+            actions: [{ on_text: "boot:", run: "\n" }],
+        },
+        {
+            name: "Core 8",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/../v86-images/os/Core-8.0.iso",
+            expected_texts: ["tc@box"],
+            actions: [{ on_text: "boot:", run: "\n" }],
+        },
+        {
+            name: "Core 7",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/../v86-images/os/Core-7.2.iso",
+            expected_texts: ["tc@box"],
+            actions: [{ on_text: "boot:", run: "\n" }],
+        },
+        {
+            name: "Core 6",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/../v86-images/os/Core-6.4.1.iso",
+            expected_texts: ["tc@box"],
+            actions: [{ on_text: "boot:", run: "\n" }],
+        },
+        {
+            name: "Core 5",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/../v86-images/os/Core-5.4.iso",
+            expected_texts: ["tc@box"],
+            actions: [{ on_text: "boot:", run: "\n" }],
+        },
+        {
+            name: "Core 4",
+            skip_if_disk_image_missing: 1,
+            timeout: 5 * 60,
+            cdrom: root_path + "/../v86-images/os/Core-4.7.7.iso",
+            expected_texts: ["tc@box"],
+            actions: [{ on_text: "boot:", run: "\n" }],
         },
     ];
 
@@ -362,6 +469,13 @@ function run_test(test, done)
         }
     }
 
+    if(test.slow && !RUN_SLOW_TESTS)
+    {
+        console.warn("Slow test: " + test.name + ", skipped");
+        console.warn();
+        done();
+        return;
+    }
 
     if(test.alternative_bios)
     {
