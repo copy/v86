@@ -130,3 +130,19 @@ pub fn jit_get_entry_pending(i: u32) -> bool { ::jit::jit_get_entry_pending(i) }
 pub fn jit_get_wasm_table_index_free_list_count() -> u32 {
     ::jit::jit_get_wasm_table_index_free_list_count(get_module())
 }
+
+#[no_mangle]
+#[cfg(not(debug_assertions))]
+pub fn jit_unused_cache_stat() -> u32 { 0 }
+#[no_mangle]
+#[cfg(not(debug_assertions))]
+pub fn jit_get_entry_length(_: u32) -> u32 { 0 }
+#[no_mangle]
+#[cfg(not(debug_assertions))]
+pub fn jit_get_entry_address(_: u32) -> u32 { 0 }
+#[no_mangle]
+#[cfg(not(debug_assertions))]
+pub fn jit_get_entry_pending(_: u32) -> bool { false }
+#[no_mangle]
+#[cfg(not(debug_assertions))]
+pub fn jit_get_wasm_table_index_free_list_count() -> u32 { 0 }
