@@ -577,56 +577,62 @@
 
         var log_levels = $("log_levels");
 
-        for(var i = 0; i < LOG_NAMES.length; i++)
+        if(log_levels)
         {
-            var mask = LOG_NAMES[i][0];
-
-            if(mask === 1)
-                continue;
-
-            var name = LOG_NAMES[i][1].toLowerCase(),
-                input = document.createElement("input"),
-                label = document.createElement("label");
-
-            input.type = "checkbox";
-
-            label.htmlFor = input.id = "log_" + name;
-
-            if(LOG_LEVEL & mask)
+            for(var i = 0; i < LOG_NAMES.length; i++)
             {
-                input.checked = true;
+                var mask = LOG_NAMES[i][0];
+
+                if(mask === 1)
+                    continue;
+
+                var name = LOG_NAMES[i][1].toLowerCase(),
+                    input = document.createElement("input"),
+                    label = document.createElement("label");
+
+                input.type = "checkbox";
+
+                label.htmlFor = input.id = "log_" + name;
+
+                if(LOG_LEVEL & mask)
+                {
+                    input.checked = true;
+                }
+                input.mask = mask;
+
+                label.appendChild(input);
+                label.appendChild(document.createTextNode(v86util.pads(name, 4) + " "));
+                log_levels.appendChild(label);
+
+                if(i === Math.floor(LOG_NAMES.length / 2))
+                {
+                    log_levels.appendChild(document.createTextNode("\n"));
+                }
             }
-            input.mask = mask;
 
-            label.appendChild(input);
-            label.appendChild(document.createTextNode(v86util.pads(name, 4) + " "));
-            log_levels.appendChild(label);
-
-            if(i === Math.floor(LOG_NAMES.length / 2))
+            log_levels.onchange = function(e)
             {
-                log_levels.appendChild(document.createTextNode("\n"));
-            }
+                var target = e.target,
+                    mask = target.mask;
+
+                if(target.checked)
+                {
+                    LOG_LEVEL |= mask;
+                }
+                else
+                {
+                    LOG_LEVEL &= ~mask;
+                }
+
+                target.blur();
+            };
         }
 
-        log_levels.onchange = function(e)
-        {
-            var target = e.target,
-                mask = target.mask;
-
-            if(target.checked)
-            {
-                LOG_LEVEL |= mask;
-            }
-            else
-            {
-                LOG_LEVEL &= ~mask;
-            }
-
-            target.blur();
-        };
-
         var debug_infos = $("debug_infos");
-        debug_infos.textContent = "ACPI: " + (ENABLE_ACPI ? "enabled" : "disabled");
+        if(debug_infos)
+        {
+            debug_infos.textContent = "ACPI: " + (ENABLE_ACPI ? "enabled" : "disabled");
+        }
     }
 
     window.addEventListener("load", onload, false);
@@ -1323,6 +1329,12 @@
         var debug = emulator.v86.cpu.debug;
 
         var debug_infos = $("debug_infos");
+        if(!debug_infos)
+        {
+            dbg_log("Element debug_infos not found, disabling debug UI");
+            return;
+        }
+
         debug_infos.textContent += " | logging ops: " +
             (debug.step_mode || debug.trace_all ? "yes" : "no");
 
