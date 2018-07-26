@@ -400,6 +400,7 @@ void instr_660F16_mem(int32_t addr, int32_t r) {
     movh_m64_r128(addr, r);
 }
 void instr_660F16_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+void instr_F30F16() { unimplemented_sse(); }
 
 void instr_0F17_mem(int32_t addr, int32_t r) {
     // movhps m64, xmm

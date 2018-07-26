@@ -476,8 +476,8 @@ const encodings = [
     { sse: 1, opcode: 0xF20F11, e: 1 },
     { sse: 1, opcode: 0x0F12, e: 1 },
     { sse: 1, opcode: 0x660F12, only_mem: 1, e: 1 },
-    { sse: 1, opcode: 0xF20F12, e: 1, skip: 1, },
-    { sse: 1, opcode: 0xF30F12, e: 1, skip: 1, },
+    { sse: 1, opcode: 0xF20F12, e: 1, skip: 1, }, // sse3
+    { sse: 1, opcode: 0xF30F12, e: 1, skip: 1, }, // sse3
     { sse: 1, opcode: 0x0F13, only_mem: 1, e: 1 },
     { sse: 1, opcode: 0x660F13, only_mem: 1, e: 1 },
     { sse: 1, opcode: 0x0F14, e: 1 },
@@ -486,6 +486,7 @@ const encodings = [
     { sse: 1, opcode: 0x660F15, e: 1 },
     { sse: 1, opcode: 0x0F16, e: 1 },
     { sse: 1, opcode: 0x660F16, only_mem: 1, e: 1 },
+    { sse: 1, opcode: 0xF30F16, skip: 1, }, // sse3
     { sse: 1, opcode: 0x0F17, only_mem: 1, e: 1 },
     { sse: 1, opcode: 0x660F17, only_mem: 1, e: 1 },
 
@@ -597,12 +598,14 @@ const encodings = [
     { sse: 1, opcode: 0x660F76, e: 1, },
     { sse: 1, opcode: 0x0F77 },
 
-    { sse: 1, opcode: 0x0F78, skip: 1 },
-    { sse: 1, opcode: 0x0F79, skip: 1 },
-    { sse: 1, opcode: 0x0F7A, skip: 1 },
-    { sse: 1, opcode: 0x0F7B, skip: 1 },
-    { sse: 1, opcode: 0x0F7C, skip: 1 },
-    { sse: 1, opcode: 0x0F7D, skip: 1 },
+    // vmx instructions
+    { opcode: 0x0F78, skip: 1 },
+    { opcode: 0x0F79, skip: 1 },
+
+    { opcode: 0x0F7A, skip: 1 }, // ud
+    { opcode: 0x0F7B, skip: 1 }, // ud
+    { sse: 1, opcode: 0x0F7C, skip: 1 }, // sse3
+    { sse: 1, opcode: 0x0F7D, skip: 1 }, // sse3
 
     { sse: 1, opcode: 0x0F7E, e: 1 },
     { sse: 1, opcode: 0x660F7E, e: 1 },
@@ -614,15 +617,15 @@ const encodings = [
     { sse: 1, opcode: 0x0FC2, skip: 1, },
 
     { opcode: 0x0FC3, e: 1, only_mem: 1, }, // movnti: Uses normal registers, hence not marked as sse
+
     { sse: 1, opcode: 0x0FC4, e: 1, imm8: 1 },
     { sse: 1, opcode: 0x660FC4, e: 1, imm8: 1 },
-
     { sse: 1, opcode: 0x0FC5, e: 1, only_reg: 1, imm8: 1 },
     { sse: 1, opcode: 0x660FC5, e: 1, only_reg: 1, imm8: 1, },
 
     { sse: 1, opcode: 0x0FC6, skip: 1, },
 
-    { sse: 1, opcode: 0x0FD0, skip: 1, },
+    { sse: 1, opcode: 0x0FD0, skip: 1, }, // sse3
 
     { sse: 1, opcode: 0x0FD1, e: 1 },
     { sse: 1, opcode: 0x660FD1, e: 1 },
@@ -696,7 +699,7 @@ const encodings = [
     { sse: 1, opcode: 0x0FEF, e: 1 },
     { sse: 1, opcode: 0x660FEF, e: 1 },
 
-    { sse: 1, opcode: 0x0FF0, skip: 1, },
+    { sse: 1, opcode: 0x0FF0, skip: 1, }, // sse3
 
     { sse: 1, opcode: 0x0FF1, e: 1 },
     { sse: 1, opcode: 0x660FF1, e: 1 },
