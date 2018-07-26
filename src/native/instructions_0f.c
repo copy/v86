@@ -20,7 +20,7 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
 
-bool* const apic_enabled;
+bool apic_enabled = false;
 
 void instr_0F00_0_mem(int32_t addr) {
     // sldt
@@ -711,7 +711,7 @@ void instr_0F30() {
                 int32_t address = low & ~(IA32_APIC_BASE_BSP | IA32_APIC_BASE_EXTD | IA32_APIC_BASE_EN);
                 dbg_assert_message(address == APIC_ADDRESS, "Changing APIC address not supported");
                 dbg_assert_message((low & IA32_APIC_BASE_EXTD) == 0, "x2apic not supported");
-                *apic_enabled = (low & IA32_APIC_BASE_EN) == IA32_APIC_BASE_EN;
+                apic_enabled = (low & IA32_APIC_BASE_EN) == IA32_APIC_BASE_EN;
             }
             break;
 
@@ -807,7 +807,7 @@ void instr_0F32() {
             {
                 low = APIC_ADDRESS;
 
-                if(*apic_enabled)
+                if(apic_enabled)
                 {
                     low |= IA32_APIC_BASE_EN;
                 }
