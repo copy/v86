@@ -145,8 +145,13 @@ function gen_instruction_body(encodings, size)
             if_blocks.push({ condition: "prefixes_ & PREFIX_F3", body, });
         }
 
+        const check_prefixes = encoding.sse ? "(PREFIX_66 | PREFIX_F2 | PREFIX_F3)" : "(PREFIX_F2 | PREFIX_F3)";
+
         const else_block = {
-            body: gen_instruction_body_after_prefix(no_prefix, size),
+            body: [].concat(
+                "dbg_assert((prefixes_ & " + check_prefixes + ") == 0);",
+                gen_instruction_body_after_prefix(no_prefix, size)
+            )
         };
 
         return [].concat(
