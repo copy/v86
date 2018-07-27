@@ -2908,18 +2908,8 @@ CPU.prototype.unimplemented_sse = function()
 
 CPU.prototype.pic_call_irq = function(int)
 {
-    //dbg_log("pic_call_irq", LOG_CPU);
-
-    try
-    {
-        this.previous_ip[0] = this.instruction_pointer[0];
-        this.call_interrupt_vector(int, false, false, 0);
-        //dbg_log("to " + h(this.instruction_pointer[0] >>> 0), LOG_CPU);
-    }
-    catch(e)
-    {
-        this.exception_cleanup(e);
-    }
+    this.previous_ip[0] = this.instruction_pointer[0]; // XXX: What if called after instruction (port IO)
+    this.call_interrupt_vector(int, false, false, 0);
 };
 
 CPU.prototype.handle_irqs = function()
