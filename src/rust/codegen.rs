@@ -314,12 +314,10 @@ pub fn gen_safe_write32(ctx: &mut JitContext, address_local: &WasmLocal, value_l
 
     builder.free_local(entry_local);
 
-    let phys_addr_local = builder.alloc_local();
     // Pseudo:
     //     /* continued within can_use_fast_path branch */
     //     mem8[phys_addr] = value;
 
-    wasm_util::tee_local(&mut builder.instruction_body, &phys_addr_local);
     wasm_util::get_local(&mut builder.instruction_body, &value_local);
     wasm_util::store_unaligned_i32(&mut builder.instruction_body, global_pointers::MEMORY);
 
@@ -330,8 +328,6 @@ pub fn gen_safe_write32(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     wasm_util::get_local(&mut builder.instruction_body, &value_local);
     gen_call_fn2(builder, "safe_write32_slow");
     wasm_util::block_end(&mut builder.instruction_body);
-
-    builder.free_local(phys_addr_local);
 }
 
 pub fn gen_safe_read16(ctx: &mut JitContext) {
@@ -461,12 +457,10 @@ pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_l
 
     builder.free_local(entry_local);
 
-    let phys_addr_local = builder.alloc_local();
     // Pseudo:
     //     /* continued within can_use_fast_path branch */
     //     mem8[phys_addr] = value;
 
-    wasm_util::tee_local(&mut builder.instruction_body, &phys_addr_local);
     wasm_util::get_local(&mut builder.instruction_body, &value_local);
     wasm_util::store_unaligned_u16(&mut builder.instruction_body, global_pointers::MEMORY);
 
@@ -477,8 +471,6 @@ pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     wasm_util::get_local(&mut builder.instruction_body, &value_local);
     gen_call_fn2(builder, "safe_write16_slow");
     wasm_util::block_end(&mut builder.instruction_body);
-
-    builder.free_local(phys_addr_local);
 }
 
 pub fn gen_fn1_reg16(ctx: &mut JitContext, name: &str, r: u32) {
