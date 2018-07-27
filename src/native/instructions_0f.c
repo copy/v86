@@ -2278,7 +2278,7 @@ void instr_0FC4(int32_t source, int32_t r, int32_t imm8) {
 
     write_mmx_reg64(r, destination);
 }
-DEFINE_SSE_SPLIT_IMM(instr_0FC4, read16, read_reg32)
+DEFINE_SSE_SPLIT_IMM(instr_0FC4, safe_read16, read_reg32)
 
 void instr_660FC4(int32_t source, int32_t r, int32_t imm8) {
     // pinsrw xmm, r32/m16, imm8
@@ -2289,7 +2289,7 @@ void instr_660FC4(int32_t source, int32_t r, int32_t imm8) {
 
     write_xmm_reg128(r, destination);
 }
-DEFINE_SSE_SPLIT_IMM(instr_660FC4, read16, read_reg32)
+DEFINE_SSE_SPLIT_IMM(instr_660FC4, safe_read16, read_reg32)
 
 void instr_0FC5_mem(int32_t addr, int32_t r, int32_t imm8) { trigger_ud(); }
 void instr_0FC5_reg(int32_t r1, int32_t r2, int32_t imm8) {
