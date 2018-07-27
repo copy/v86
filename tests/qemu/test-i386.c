@@ -2791,7 +2791,6 @@ void test_sse(void)
     MOVMSK(movmskpd);
 
     /* FPU specific ops */
-    /*
     {
         uint32_t mxcsr;
         asm volatile("stmxcsr %0" : "=m" (mxcsr));
@@ -2822,10 +2821,10 @@ void test_sse(void)
         SSE_OPS(add);
         SSE_OPS(mul);
         SSE_OPS(sub);
-        SSE_OPS(min);
-        SSE_OPS(div);
-        SSE_OPS(max);
-        SSE_OPS(sqrt);
+        //SSE_OPS(min);
+        //SSE_OPS(div);
+        //SSE_OPS(max);
+        //SSE_OPS(sqrt);
         SSE_OPS(cmpeq);
         SSE_OPS(cmplt);
         SSE_OPS(cmple);
@@ -2847,10 +2846,10 @@ void test_sse(void)
         SSE_OPD(add);
         SSE_OPD(mul);
         SSE_OPD(sub);
-        SSE_OPD(min);
-        SSE_OPD(div);
-        SSE_OPD(max);
-        SSE_OPD(sqrt);
+        //SSE_OPD(min);
+        //SSE_OPD(div);
+        //SSE_OPD(max);
+        //SSE_OPD(sqrt);
         SSE_OPD(cmpeq);
         SSE_OPD(cmplt);
         SSE_OPD(cmple);
@@ -2860,7 +2859,6 @@ void test_sse(void)
         SSE_OPD(cmpnle);
         SSE_OPD(cmpord);
     }
-    */
 
     /* float to float/int */
     /*

@@ -621,7 +621,48 @@ void instr_660F29_reg(int32_t r1, int32_t r2) {
     mov_r_r128(r1, r2);
 }
 
-void instr_0F2A() { unimplemented_sse(); }
+void instr_0F2A(union reg64 source, int32_t r) {
+    // cvtpi2ps xmm, mm/m64
+    // XXX: The non-memory variant causes a transition from x87 FPU to MMX technology operation
+    union reg64 result = {
+        .f32 = {
+            // Note: Casts here can fail
+            source.i32[0],
+            source.i32[1],
+        }
+    };
+    write_xmm64(r, result);
+}
+DEFINE_SSE_SPLIT(instr_0F2A, safe_read64s, read_mmx64s)
+void instr_660F2A(union reg64 source, int32_t r) {
+    // cvtpi2pd xmm, xmm/m64
+    // XXX: The non-memory variant causes a transition from x87 FPU to MMX technology operation
+    union reg128 result = {
+        .f64 = {
+            // These casts can't fail
+            source.i32[0],
+            source.i32[1],
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_660F2A, safe_read64s, read_mmx64s)
+void instr_F20F2A(int32_t source, int32_t r) {
+    // cvtsi2sd xmm, r32/m32
+    union reg64 result = {
+        // This cast can't fail
+        .f64 = { source }
+    };
+    write_xmm64(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F20F2A, safe_read32s, read_reg32)
+void instr_F30F2A(int32_t source, int32_t r) {
+    // cvtsi2ss xmm, r/m32
+    // Note: This cast can fail
+    float_t result = source;
+    write_xmm_f32(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F30F2A, safe_read32s, read_reg32)
 
 void instr_0F2B_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 void instr_0F2B_mem(int32_t addr, int32_t r) {
@@ -1005,7 +1046,26 @@ void instr_660F50_mem(int32_t addr, int32_t r1) { trigger_ud(); }
 
 void instr_0F51() { unimplemented_sse(); }
 void instr_0F52() { unimplemented_sse(); }
-void instr_0F53() { unimplemented_sse(); }
+
+void instr_0F53(union reg128 source, int32_t r) {
+    // rcpps xmm, xmm/m128
+    union reg128 result = {
+        .f32 = {
+            1 / source.f32[0],
+            1 / source.f32[1],
+            1 / source.f32[2],
+            1 / source.f32[3],
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_0F53, safe_read128s, read_xmm128s)
+
+void instr_F30F53(float_t source, int32_t r) {
+    // rcpss xmm, xmm/m32
+    write_xmm_f32(r, 1 / source);
+}
+DEFINE_SSE_SPLIT(instr_F30F53, fpu_load_m32, read_xmm_f32)
 
 void instr_0F54(union reg128 source, int32_t r) {
     // andps xmm, xmm/mem128
@@ -1063,11 +1123,138 @@ void instr_660F57(union reg128 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_660F57, safe_read128s, read_xmm128s)
 
-void instr_0F58() { unimplemented_sse(); }
-void instr_0F59() { unimplemented_sse(); }
+void instr_0F58(union reg128 source, int32_t r) {
+    // addps xmm, xmm/mem128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .f32 = {
+            source.f32[0] + destination.f32[0],
+            source.f32[1] + destination.f32[1],
+            source.f32[2] + destination.f32[2],
+            source.f32[3] + destination.f32[3],
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_0F58, safe_read128s, read_xmm128s)
+void instr_660F58(union reg128 source, int32_t r) {
+    // addpd xmm, xmm/mem128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .f64 = {
+            source.f64[0] + destination.f64[0],
+            source.f64[1] + destination.f64[1],
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_660F58, safe_read128s, read_xmm128s)
+void instr_F20F58(union reg64 source, int32_t r) {
+    // addsd xmm, xmm/mem64
+    union reg64 destination = read_xmm64s(r);
+    union reg64 result = {
+        .f64 = { source.f64[0] + destination.f64[0], }
+    };
+    write_xmm64(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F20F58, safe_read64s, read_xmm64s)
+void instr_F30F58(float_t source, int32_t r) {
+    // addss xmm, xmm/mem32
+    float_t destination = read_xmm_f32(r);
+    float result = source + destination;
+    write_xmm_f32(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F30F58, fpu_load_m32, read_xmm_f32)
+
+void instr_0F59(union reg128 source, int32_t r) {
+    // mulps xmm, xmm/mem128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .f32 = {
+            source.f32[0] * destination.f32[0],
+            source.f32[1] * destination.f32[1],
+            source.f32[2] * destination.f32[2],
+            source.f32[3] * destination.f32[3],
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_0F59, safe_read128s, read_xmm128s)
+void instr_660F59(union reg128 source, int32_t r) {
+    // mulpd xmm, xmm/mem128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .f64 = {
+            source.f64[0] * destination.f64[0],
+            source.f64[1] * destination.f64[1],
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_660F59, safe_read128s, read_xmm128s)
+void instr_F20F59(union reg64 source, int32_t r) {
+    // mulsd xmm, xmm/mem64
+    union reg64 destination = read_xmm64s(r);
+    union reg64 result = {
+        .f64 = { source.f64[0] * destination.f64[0], }
+    };
+    write_xmm64(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F20F59, safe_read64s, read_xmm64s)
+void instr_F30F59(float_t source, int32_t r) {
+    // mulss xmm, xmm/mem32
+    float_t destination = read_xmm_f32(r);
+    float result = source * destination;
+    write_xmm_f32(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F30F59, fpu_load_m32, read_xmm_f32)
+
 void instr_0F5A() { unimplemented_sse(); }
 void instr_0F5B() { unimplemented_sse(); }
-void instr_0F5C() { unimplemented_sse(); }
+
+void instr_0F5C(union reg128 source, int32_t r) {
+    // subps xmm, xmm/mem128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .f32 = {
+            destination.f32[0] - source.f32[0],
+            destination.f32[1] - source.f32[1],
+            destination.f32[2] - source.f32[2],
+            destination.f32[3] - source.f32[3],
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_0F5C, safe_read128s, read_xmm128s)
+void instr_660F5C(union reg128 source, int32_t r) {
+    // subpd xmm, xmm/mem128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .f64 = {
+            destination.f64[0] - source.f64[0],
+            destination.f64[1] - source.f64[1],
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_660F5C, safe_read128s, read_xmm128s)
+void instr_F20F5C(union reg64 source, int32_t r) {
+    // subsd xmm, xmm/mem64
+    union reg64 destination = read_xmm64s(r);
+    union reg64 result = {
+        .f64 = { destination.f64[0] - source.f64[0], }
+    };
+    write_xmm64(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F20F5C, safe_read64s, read_xmm64s)
+void instr_F30F5C(float_t source, int32_t r) {
+    // subss xmm, xmm/mem32
+    float_t destination = read_xmm_f32(r);
+    float result = destination - source;
+    write_xmm_f32(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F30F5C, fpu_load_m32, read_xmm_f32)
+
 void instr_0F5D() { unimplemented_sse(); }
 void instr_0F5E() { unimplemented_sse(); }
 void instr_0F5F() { unimplemented_sse(); }
@@ -2261,7 +2448,49 @@ DEFINE_MODRM_INSTR_READ_WRITE_8(instr_0FC0, xadd8(___, get_reg8_index(r)))
 DEFINE_MODRM_INSTR_READ_WRITE_16(instr16_0FC1, xadd16(___, get_reg16_index(r)))
 DEFINE_MODRM_INSTR_READ_WRITE_32(instr32_0FC1, xadd32(___, r))
 
-void instr_0FC2() { unimplemented_sse(); }
+void instr_0FC2(union reg128 source, int32_t r, int32_t imm8) {
+    // cmpps xmm, xmm/m128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .i32 = {
+            sse_comparison(imm8, destination.f32[0], source.f32[0]) ? -1 : 0,
+            sse_comparison(imm8, destination.f32[1], source.f32[1]) ? -1 : 0,
+            sse_comparison(imm8, destination.f32[2], source.f32[2]) ? -1 : 0,
+            sse_comparison(imm8, destination.f32[3], source.f32[3]) ? -1 : 0,
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT_IMM(instr_0FC2, safe_read128s, read_xmm128s)
+
+void instr_660FC2(union reg128 source, int32_t r, int32_t imm8) {
+    // cmppd xmm, xmm/m128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .i64 = {
+            sse_comparison(imm8, destination.f64[0], source.f64[0]) ? -1 : 0,
+            sse_comparison(imm8, destination.f64[1], source.f64[1]) ? -1 : 0,
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT_IMM(instr_660FC2, safe_read128s, read_xmm128s)
+void instr_F20FC2(union reg64 source, int32_t r, int32_t imm8) {
+    // cmpsd xmm, xmm/m64
+    union reg64 destination = read_xmm64s(r);
+    union reg64 result = {
+        .i64 = { sse_comparison(imm8, destination.f64[0], source.f64[0]) ? -1 : 0, }
+    };
+    write_xmm64(r, result);
+}
+DEFINE_SSE_SPLIT_IMM(instr_F20FC2, safe_read64s, read_xmm64s)
+void instr_F30FC2(float_t source, int32_t r, int32_t imm8) {
+    // cmpss xmm, xmm/m32
+    float_t destination = read_xmm_f32(r);
+    int32_t result = sse_comparison(imm8, destination, source) ? -1 : 0;
+    write_xmm32(r, result);
+}
+DEFINE_SSE_SPLIT_IMM(instr_F30FC2, fpu_load_m32, read_xmm_f32)
 
 void instr_0FC3_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 void instr_0FC3_mem(int32_t addr, int32_t r) {

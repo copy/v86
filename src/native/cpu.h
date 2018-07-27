@@ -1,6 +1,7 @@
 #pragma once
 
 #include <assert.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -17,6 +18,8 @@ union reg128 {
     uint16_t u16[8];
     uint32_t u32[4];
     uint64_t u64[2];
+    float_t f32[4];
+    double_t f64[2];
 };
 _Static_assert(sizeof(union reg128) == 16, "reg128 is 16 bytes");
 
@@ -29,6 +32,7 @@ union reg64 {
     uint16_t u16[4];
     uint32_t u32[2];
     uint64_t u64[1];
+    float_t f32[2];
     double f64[1];
 };
 _Static_assert(sizeof(union reg64) == 8, "reg64 is 8 bytes");
@@ -141,8 +145,12 @@ int32_t read_mmx32s(int32_t r);
 union reg64 read_mmx64s(int32_t r);
 void write_mmx64(int32_t r, int32_t low, int32_t high);
 void write_mmx_reg64(int32_t r, union reg64 data);
+float_t read_xmm_f32(int32_t r);
+int32_t read_xmm32(int32_t r);
 union reg64 read_xmm64s(int32_t r);
 union reg128 read_xmm128s(int32_t r);
+void write_xmm_f32(int32_t r, float_t data);
+void write_xmm32(int32_t r, int32_t);
 void write_xmm64(int32_t r, union reg64 data);
 void write_xmm128(int32_t r, int32_t i0, int32_t i1, int32_t i2, int32_t i3);
 void write_xmm_reg128(int32_t r, union reg128 data);

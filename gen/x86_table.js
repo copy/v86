@@ -494,7 +494,10 @@ const encodings = [
     { sse: 1, opcode: 0x660F28, e: 1 },
     { sse: 1, opcode: 0x0F29, e: 1 },
     { sse: 1, opcode: 0x660F29, e: 1 },
-    { sse: 1, opcode: 0x0F2A, skip: 1 },
+    { sse: 1, opcode: 0x0F2A, e: 1, },
+    { sse: 1, opcode: 0x660F2A, e: 1, },
+    { sse: 1, opcode: 0xF20F2A, e: 1, },
+    { sse: 1, opcode: 0xF30F2A, e: 1, },
     { sse: 1, opcode: 0x0F2B, only_mem: 1, e: 1 },
     { sse: 1, opcode: 0x660F2B, only_mem: 1, e: 1 },
 
@@ -510,7 +513,11 @@ const encodings = [
     { sse: 1, opcode: 0x660F50, only_reg: 1, e: 1 },
     { sse: 1, opcode: 0x0F51, skip: 1 },
     { sse: 1, opcode: 0x0F52, skip: 1 },
-    { sse: 1, opcode: 0x0F53, skip: 1 },
+
+    // reciprocal: approximation of 1/x. Skipped because our approximation doesn't match intel's
+    { sse: 1, opcode: 0x0F53, e: 1, skip: 1, },
+    { sse: 1, opcode: 0xF30F53, e: 1, skip: 1, },
+
     { sse: 1, opcode: 0x0F54, e: 1 },
     { sse: 1, opcode: 0x660F54, e: 1 },
     { sse: 1, opcode: 0x0F55, e: 1 },
@@ -520,14 +527,26 @@ const encodings = [
     { sse: 1, opcode: 0x0F57, e: 1 },
     { sse: 1, opcode: 0x660F57, e: 1 },
 
-    { sse: 1, opcode: 0x0F58, skip: 1 },
-    { sse: 1, opcode: 0x0F59, skip: 1 },
+    { sse: 1, opcode: 0x0F58, e: 1, },
+    { sse: 1, opcode: 0x660F58, e: 1,  },
+    { sse: 1, opcode: 0xF20F58, e: 1, },
+    { sse: 1, opcode: 0xF30F58, e: 1, },
+
+    { sse: 1, opcode: 0x0F59, e: 1, },
+    { sse: 1, opcode: 0x660F59, e: 1,  },
+    { sse: 1, opcode: 0xF20F59, e: 1, },
+    { sse: 1, opcode: 0xF30F59, e: 1, },
+
     { sse: 1, opcode: 0x0F5A, skip: 1 },
     { sse: 1, opcode: 0x0F5B, skip: 1 },
-    { sse: 1, opcode: 0x0F5C, skip: 1 },
-    { sse: 1, opcode: 0x0F5D, skip: 1 },
-    { sse: 1, opcode: 0x0F5E, skip: 1 },
-    { sse: 1, opcode: 0x0F5F, skip: 1 },
+
+    { sse: 1, opcode: 0x0F5C, e: 1, },
+    { sse: 1, opcode: 0x660F5C, e: 1,  },
+    { sse: 1, opcode: 0xF20F5C, e: 1, },
+    { sse: 1, opcode: 0xF30F5C, e: 1, },
+    { sse: 1, opcode: 0x0F5D, skip: 1, },
+    { sse: 1, opcode: 0x0F5E, skip: 1, },
+    { sse: 1, opcode: 0x0F5F, skip: 1, },
 
     { sse: 1, opcode: 0x660F60, e: 1 },
     { sse: 1, opcode: 0x0F60, e: 1 },
@@ -614,7 +633,10 @@ const encodings = [
     { sse: 1, opcode: 0x660F7F, e: 1 },
     { sse: 1, opcode: 0xF30F7F, e: 1 },
 
-    { sse: 1, opcode: 0x0FC2, skip: 1, },
+    { sse: 1, opcode: 0x0FC2, e: 1, imm8: 1 },
+    { sse: 1, opcode: 0x660FC2, e: 1, imm8: 1 },
+    { sse: 1, opcode: 0xF20FC2, e: 1, imm8: 1 },
+    { sse: 1, opcode: 0xF30FC2, e: 1, imm8: 1 },
 
     { opcode: 0x0FC3, e: 1, only_mem: 1, }, // movnti: Uses normal registers, hence not marked as sse
 

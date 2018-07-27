@@ -1368,6 +1368,16 @@ void write_mmx_reg64(int32_t r, union reg64 data)
     reg_mmx[r].u64[0] = data.u64[0];
 }
 
+float_t read_xmm_f32(int32_t r)
+{
+    return reg_xmm[r].f32[0];
+}
+
+int32_t read_xmm32(int32_t r)
+{
+    return reg_xmm[r].u32[0];
+}
+
 union reg64 read_xmm64s(int32_t r)
 {
     union reg64 x;
@@ -1378,6 +1388,16 @@ union reg64 read_xmm64s(int32_t r)
 union reg128 read_xmm128s(int32_t r)
 {
     return reg_xmm[r];
+}
+
+void write_xmm_f32(int32_t r, float_t data)
+{
+    reg_xmm[r].f32[0] = data;
+}
+
+void write_xmm32(int32_t r, int32_t data)
+{
+    reg_xmm[r].i32[0] = data;
 }
 
 void write_xmm64(int32_t r, union reg64 data)

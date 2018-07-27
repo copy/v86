@@ -398,3 +398,22 @@ void psllq_r128(int32_t r, uint32_t shift)
 
     write_xmm_reg128(r, result);
 }
+
+bool sse_comparison(int32_t op, double_t x, double_t y)
+{
+    // TODO: Signaling
+
+    switch(op & 7)
+    {
+        case 0: return x == y;
+        case 1: return x < y;
+        case 2: return x <= y;
+        case 3: return isnan(x) || isnan(y);
+        case 4: return x != y || isnan(x) || isnan(y);
+        case 5: return x >= y || isnan(x) || isnan(y);
+        case 6: return x > y || isnan(x) || isnan(y);
+        case 7: return !isnan(x) && !isnan(y);
+    }
+
+    assert(false);
+}
