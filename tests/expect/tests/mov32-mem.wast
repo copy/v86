@@ -55,12 +55,11 @@
               (i32.const 4092)))
           (then
             (i32.store offset=8388608 align=1
-              (tee_local $l2
-                (i32.xor
-                  (i32.and
-                    (get_local $l2)
-                    (i32.const -4096))
-                  (get_local $l0)))
+              (i32.xor
+                (i32.and
+                  (get_local $l2)
+                  (i32.const -4096))
+                (get_local $l0))
               (get_local $l1)))
           (else
             (call $e.safe_write32_slow
@@ -103,12 +102,11 @@
               (i32.const 4092)))
           (then
             (i32.store offset=8388608 align=1
-              (tee_local $l2
-                (i32.xor
-                  (i32.and
-                    (get_local $l2)
-                    (i32.const -4096))
-                  (get_local $l1)))
+              (i32.xor
+                (i32.and
+                  (get_local $l2)
+                  (i32.const -4096))
+                (get_local $l1))
               (get_local $l0)))
           (else
             (call $e.safe_write32_slow

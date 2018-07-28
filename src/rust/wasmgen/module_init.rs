@@ -324,7 +324,13 @@ impl WasmBuilder {
         self.code_section.append(&mut self.instruction_body);
     }
 
-    pub fn alloc_local(&mut self) -> WasmLocal {
+    // XXX: This should not be marked pub and not be prefixed with "_",
+    //      but we need to share it with wasm_util so it is pub for now
+    //      Moving set_local and tee_local to builder further complicate
+    //      things. We should be able to fix this by better structuring the
+    //      builder methods and wasm methods in the future.
+    //      Currently only wasm_utils and the tests of this module use it.
+    pub fn _alloc_local(&mut self) -> WasmLocal {
         match self.free_locals.pop() {
             Some(local) => local,
             None => {
@@ -369,7 +375,7 @@ mod tests {
         let bar_index = m.get_fn_idx("bar", FN0_TYPE_INDEX);
         call_fn(&mut m.code_section, bar_index);
 
-        let _ = m.alloc_local(); // for ensuring that reset clears previous locals
+        let _ = m._alloc_local(); // for ensuring that reset clears previous locals
 
         m.finish();
         m.reset();
@@ -382,17 +388,17 @@ mod tests {
         call_fn(&mut m.instruction_body, foo_index);
 
         push_i32(&mut m.code_section, 10);
-        let local1 = m.alloc_local();
+        let local1 = m._alloc_local();
         tee_local(&mut m.code_section, &local1); // local1 = 10
 
         push_i32(&mut m.code_section, 20);
         add_i32(&mut m.code_section);
-        let local2 = m.alloc_local();
+        let local2 = m._alloc_local();
         tee_local(&mut m.code_section, &local2); // local2 = 30
 
         m.free_local(local1);
 
-        let local3 = m.alloc_local();
+        let local3 = m._alloc_local();
         assert_eq!(local3.idx(), 0);
 
         m.free_local(local2);

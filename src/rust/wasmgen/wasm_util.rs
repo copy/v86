@@ -1,5 +1,5 @@
 use leb::{write_fixed_leb16_at_idx, write_leb_i32, write_leb_u32};
-use wasmgen::module_init::WasmLocal;
+use wasmgen::module_init::{WasmBuilder, WasmLocal};
 use wasmgen::wasm_opcodes as op;
 
 pub fn push_i32(buf: &mut Vec<u8>, v: i32) {
@@ -159,6 +159,20 @@ pub fn br(buf: &mut Vec<u8>, depth: u32) {
 pub fn get_local(buf: &mut Vec<u8>, local: &WasmLocal) {
     buf.push(op::OP_GETLOCAL);
     buf.push(local.idx());
+}
+
+pub fn set_new_local(builder: &mut WasmBuilder) -> WasmLocal {
+    let local = builder._alloc_local();
+    builder.instruction_body.push(op::OP_SETLOCAL);
+    builder.instruction_body.push(local.idx());
+    local
+}
+
+pub fn tee_new_local(builder: &mut WasmBuilder) -> WasmLocal {
+    let local = builder._alloc_local();
+    builder.instruction_body.push(op::OP_TEELOCAL);
+    builder.instruction_body.push(local.idx());
+    local
 }
 
 pub fn set_local(buf: &mut Vec<u8>, local: &WasmLocal) {

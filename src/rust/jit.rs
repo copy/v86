@@ -860,13 +860,7 @@ fn jit_generate_module(
     let fn_get_seg_idx = builder.get_fn_idx("get_seg", module_init::FN1_RET_TYPE_INDEX);
     dbg_assert!(fn_get_seg_idx == FN_GET_SEG_IDX);
 
-    let gen_local_state = builder.alloc_local();
-    let gen_local_iteration_counter = if JIT_ALWAYS_USE_LOOP_SAFETY || requires_loop_limit {
-        Some(builder.alloc_local())
-    }
-    else {
-        None
-    };
+    let mut gen_local_iteration_counter = None;
 
     let basic_block_indices: HashMap<u32, u32> = basic_blocks
         .iter()
@@ -879,18 +873,15 @@ fn jit_generate_module(
         &mut builder.instruction_body,
         &builder.arg_local_initial_state,
     );
-    wasm_util::set_local(&mut builder.instruction_body, &gen_local_state);
+    let gen_local_state = wasm_util::set_new_local(builder);
 
     // initialise max_iterations
     if JIT_ALWAYS_USE_LOOP_SAFETY || requires_loop_limit {
-        let gen_local_iteration_counter = gen_local_iteration_counter
-            .as_ref()
-            .expect("iteration counter");
         wasm_util::push_i32(
             &mut builder.instruction_body,
             JIT_MAX_ITERATIONS_PER_FUNCTION as i32,
         );
-        wasm_util::set_local(&mut builder.instruction_body, gen_local_iteration_counter);
+        gen_local_iteration_counter = Some(wasm_util::set_new_local(builder));
     }
 
     // main state machine loop
