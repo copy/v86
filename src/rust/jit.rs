@@ -11,6 +11,7 @@ use profiler::stat;
 use state_flags::CachedStateFlags;
 use util::SafeToU16;
 use wasmgen::module_init::WasmBuilder;
+use wasmgen::wasm_util::WasmBuf;
 use wasmgen::{module_init, wasm_util};
 
 pub const WASM_TABLE_SIZE: u32 = 0x10000;
@@ -869,23 +870,21 @@ fn jit_generate_module(
         .collect();
 
     // set state local variable to the initial state passed as the first argument
-    wasm_util::get_local(
-        &mut builder.instruction_body,
-        &builder.arg_local_initial_state,
-    );
+    builder
+        .instruction_body
+        .get_local(&builder.arg_local_initial_state);
     let gen_local_state = wasm_util::set_new_local(builder);
 
     // initialise max_iterations
     if JIT_ALWAYS_USE_LOOP_SAFETY || requires_loop_limit {
-        wasm_util::push_i32(
-            &mut builder.instruction_body,
-            JIT_MAX_ITERATIONS_PER_FUNCTION as i32,
-        );
+        builder
+            .instruction_body
+            .push_i32(JIT_MAX_ITERATIONS_PER_FUNCTION as i32);
         gen_local_iteration_counter = Some(wasm_util::set_new_local(builder));
     }
 
     // main state machine loop
-    wasm_util::loop_void(&mut builder.instruction_body);
+    builder.instruction_body.loop_void();
 
     if JIT_ALWAYS_USE_LOOP_SAFETY || requires_loop_limit {
         profiler::stat_increment(stat::S_COMPILE_WITH_LOOP_SAFETY);
@@ -894,34 +893,42 @@ fn jit_generate_module(
             .expect("iteration counter");
 
         // decrement max_iterations
-        wasm_util::get_local(&mut builder.instruction_body, gen_local_iteration_counter);
-        wasm_util::push_i32(&mut builder.instruction_body, -1);
-        wasm_util::add_i32(&mut builder.instruction_body);
-        wasm_util::set_local(&mut builder.instruction_body, gen_local_iteration_counter);
+        builder
+            .instruction_body
+            .get_local(gen_local_iteration_counter);
+        builder.instruction_body.push_i32(-1);
+        builder.instruction_body.add_i32();
+        builder
+            .instruction_body
+            .set_local(gen_local_iteration_counter);
 
         // if max_iterations == 0: return
-        wasm_util::get_local(&mut builder.instruction_body, gen_local_iteration_counter);
-        wasm_util::eqz_i32(&mut builder.instruction_body);
-        wasm_util::if_void(&mut builder.instruction_body);
-        wasm_util::return_(&mut builder.instruction_body);
-        wasm_util::block_end(&mut builder.instruction_body);
+        builder
+            .instruction_body
+            .get_local(gen_local_iteration_counter);
+        builder.instruction_body.eqz_i32();
+        builder.instruction_body.if_void();
+        builder.instruction_body.return_();
+        builder.instruction_body.block_end();
     }
 
-    wasm_util::block_void(&mut builder.instruction_body); // for the default case
+    builder.instruction_body.block_void(); // for the default case
 
     // generate the opening blocks for the cases
 
     for _ in 0..basic_blocks.len() {
-        wasm_util::block_void(&mut builder.instruction_body);
+        builder.instruction_body.block_void();
     }
 
-    wasm_util::get_local(&mut builder.instruction_body, &gen_local_state);
-    wasm_util::brtable_and_cases(&mut builder.instruction_body, basic_blocks.len() as u32);
+    builder.instruction_body.get_local(&gen_local_state);
+    builder
+        .instruction_body
+        .brtable_and_cases(basic_blocks.len() as u32);
 
     for (i, block) in basic_blocks.iter().enumerate() {
         // Case [i] will jump after the [i]th block, so we first generate the
         // block end opcode and then the code for that block
-        wasm_util::block_end(&mut builder.instruction_body);
+        builder.instruction_body.block_end();
 
         if block.addr == block.end_addr {
             // Empty basic block, generate no code (for example, jump to block
@@ -939,7 +946,7 @@ fn jit_generate_module(
         match (&block.ty, invalid_connection_to_next_block) {
             (_, true) | (BasicBlockType::Exit, _) => {
                 // Exit this function
-                wasm_util::return_(&mut builder.instruction_body);
+                builder.instruction_body.return_();
             },
             (BasicBlockType::Normal { next_block_addr }, _) => {
                 // Unconditional jump to next basic block
@@ -950,13 +957,12 @@ fn jit_generate_module(
                 //dbg_assert!(next_bb_index != -1);
 
                 // set state variable to next basic block
-                wasm_util::push_i32(&mut builder.instruction_body, next_bb_index as i32);
-                wasm_util::set_local(&mut builder.instruction_body, &gen_local_state);
+                builder.instruction_body.push_i32(next_bb_index as i32);
+                builder.instruction_body.set_local(&gen_local_state);
 
-                wasm_util::br(
-                    &mut builder.instruction_body,
-                    basic_blocks.len() as u32 - i as u32,
-                ); // to the loop
+                builder
+                    .instruction_body
+                    .br(basic_blocks.len() as u32 - i as u32); // to the loop
             },
             (
                 &BasicBlockType::ConditionalJump {
@@ -976,7 +982,7 @@ fn jit_generate_module(
 
                 codegen::gen_fn0_const_ret(builder, condition);
 
-                wasm_util::if_void(&mut builder.instruction_body);
+                builder.instruction_body.if_void();
 
                 // Branch taken
 
@@ -997,18 +1003,17 @@ fn jit_generate_module(
                         .get(&next_block_branch_taken_addr)
                         .expect("");
 
-                    wasm_util::push_i32(
-                        &mut builder.instruction_body,
-                        next_basic_block_branch_taken_index as i32,
-                    );
-                    wasm_util::set_local(&mut builder.instruction_body, &gen_local_state);
+                    builder
+                        .instruction_body
+                        .push_i32(next_basic_block_branch_taken_index as i32);
+                    builder.instruction_body.set_local(&gen_local_state);
                 }
                 else {
                     // Jump to different page
-                    wasm_util::return_(&mut builder.instruction_body);
+                    builder.instruction_body.return_();
                 }
 
-                wasm_util::else_(&mut builder.instruction_body);
+                builder.instruction_body.else_();
 
                 {
                     // Branch not taken
@@ -1016,27 +1021,25 @@ fn jit_generate_module(
                     let next_basic_block_index =
                         *basic_block_indices.get(&next_block_addr).expect("");
 
-                    wasm_util::push_i32(
-                        &mut builder.instruction_body,
-                        next_basic_block_index as i32,
-                    );
-                    wasm_util::set_local(&mut builder.instruction_body, &gen_local_state);
+                    builder
+                        .instruction_body
+                        .push_i32(next_basic_block_index as i32);
+                    builder.instruction_body.set_local(&gen_local_state);
                 }
 
-                wasm_util::block_end(&mut builder.instruction_body);
+                builder.instruction_body.block_end();
 
-                wasm_util::br(
-                    &mut builder.instruction_body,
-                    basic_blocks.len() as u32 - i as u32,
-                ); // to the loop
+                builder
+                    .instruction_body
+                    .br(basic_blocks.len() as u32 - i as u32); // to the loop
             },
         }
     }
 
-    wasm_util::block_end(&mut builder.instruction_body); // default case
-    wasm_util::unreachable(&mut builder.instruction_body);
+    builder.instruction_body.block_end(); // default case
+    builder.instruction_body.unreachable();
 
-    wasm_util::block_end(&mut builder.instruction_body); // loop
+    builder.instruction_body.block_end(); // loop
 
     builder.commit_instruction_body_to_cs();
     builder.finish();
@@ -1077,7 +1080,7 @@ fn jit_generate_basic_block(
                 if end_eip < stop_addr {
                     let fn_idx =
                         builder.get_fn_idx("assert_no_cpu_exception", module_init::FN0_TYPE_INDEX);
-                    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
+                    builder.instruction_body.call_fn(fn_idx);
                 }
             }
         }

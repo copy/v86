@@ -4,7 +4,7 @@ use prefix::{PREFIX_MASK_SEGMENT, SEG_PREFIX_ZERO};
 use regs::{BP, BX, DI, SI};
 use regs::{DS, SS};
 use regs::{EAX, EBP, EBX, ECX, EDI, EDX, ESI, ESP};
-use wasmgen::wasm_util;
+use wasmgen::wasm_util::WasmBuf;
 
 pub fn skip(ctx: &mut CpuContext, modrm_byte: u8) {
     if ctx.asize_32() {
@@ -103,40 +103,39 @@ fn gen16_case(ctx: &mut JitContext, seg: u32, offset: Offset16, imm: Imm16) {
 
     match offset {
         Offset16::Zero => {
-            wasm_util::push_i32(&mut ctx.builder.instruction_body, immediate_value & 0xFFFF);
+            ctx.builder
+                .instruction_body
+                .push_i32(immediate_value & 0xFFFF);
         },
         Offset16::One(r) => {
-            wasm_util::load_aligned_u16(
-                &mut ctx.builder.instruction_body,
-                ::global_pointers::get_reg16_offset(r),
-            );
+            ctx.builder
+                .instruction_body
+                .load_aligned_u16(::global_pointers::get_reg16_offset(r));
 
             if immediate_value != 0 {
-                wasm_util::push_i32(&mut ctx.builder.instruction_body, immediate_value);
-                wasm_util::add_i32(&mut ctx.builder.instruction_body);
+                ctx.builder.instruction_body.push_i32(immediate_value);
+                ctx.builder.instruction_body.add_i32();
 
-                wasm_util::push_i32(&mut ctx.builder.instruction_body, 0xFFFF);
-                wasm_util::and_i32(&mut ctx.builder.instruction_body);
+                ctx.builder.instruction_body.push_i32(0xFFFF);
+                ctx.builder.instruction_body.and_i32();
             }
         },
         Offset16::Two(r1, r2) => {
-            wasm_util::load_aligned_u16(
-                &mut ctx.builder.instruction_body,
-                ::global_pointers::get_reg16_offset(r1),
-            );
-            wasm_util::load_aligned_u16(
-                &mut ctx.builder.instruction_body,
-                ::global_pointers::get_reg16_offset(r2),
-            );
-            wasm_util::add_i32(&mut ctx.builder.instruction_body);
+            ctx.builder
+                .instruction_body
+                .load_aligned_u16(::global_pointers::get_reg16_offset(r1));
+            ctx.builder
+                .instruction_body
+                .load_aligned_u16(::global_pointers::get_reg16_offset(r2));
+            ctx.builder.instruction_body.add_i32();
 
             if immediate_value != 0 {
-                wasm_util::push_i32(&mut ctx.builder.instruction_body, immediate_value);
-                wasm_util::add_i32(&mut ctx.builder.instruction_body);
+                ctx.builder.instruction_body.push_i32(immediate_value);
+                ctx.builder.instruction_body.add_i32();
             }
 
-            wasm_util::push_i32(&mut ctx.builder.instruction_body, 0xFFFF);
-            wasm_util::and_i32(&mut ctx.builder.instruction_body);
+            ctx.builder.instruction_body.push_i32(0xFFFF);
+            ctx.builder.instruction_body.and_i32();
         },
     }
 
@@ -201,8 +200,8 @@ fn gen32_case(ctx: &mut JitContext, seg: u32, offset: Offset, imm: Imm32) {
             };
 
             if immediate_value != 0 {
-                wasm_util::push_i32(&mut ctx.builder.instruction_body, immediate_value);
-                wasm_util::add_i32(&mut ctx.builder.instruction_body);
+                ctx.builder.instruction_body.push_i32(immediate_value);
+                ctx.builder.instruction_body.add_i32();
             }
         },
         Offset::Reg(r) => {
@@ -211,13 +210,12 @@ fn gen32_case(ctx: &mut JitContext, seg: u32, offset: Offset, imm: Imm32) {
                 Imm32::Imm8 => ctx.cpu.read_imm8s() as i32,
                 Imm32::Imm32 => ctx.cpu.read_imm32() as i32,
             };
-            wasm_util::load_aligned_i32(
-                &mut ctx.builder.instruction_body,
-                ::global_pointers::get_reg32_offset(r),
-            );
+            ctx.builder
+                .instruction_body
+                .load_aligned_i32(::global_pointers::get_reg32_offset(r));
             if immediate_value != 0 {
-                wasm_util::push_i32(&mut ctx.builder.instruction_body, immediate_value);
-                wasm_util::add_i32(&mut ctx.builder.instruction_body);
+                ctx.builder.instruction_body.push_i32(immediate_value);
+                ctx.builder.instruction_body.add_i32();
             }
             jit_add_seg_offset(ctx, seg);
         },
@@ -227,7 +225,7 @@ fn gen32_case(ctx: &mut JitContext, seg: u32, offset: Offset, imm: Imm32) {
                 Imm32::Imm8 => ctx.cpu.read_imm8s() as i32,
                 Imm32::Imm32 => ctx.cpu.read_imm32() as i32,
             };
-            wasm_util::push_i32(&mut ctx.builder.instruction_body, immediate_value);
+            ctx.builder.instruction_body.push_i32(immediate_value);
             jit_add_seg_offset(ctx, seg);
         },
     }
@@ -279,24 +277,24 @@ fn gen_sib(ctx: &mut JitContext, mod_is_nonzero: bool) {
     if r == 4 {
         seg = SS;
         let base_addr = ::global_pointers::get_reg32_offset(ESP);
-        wasm_util::load_aligned_i32(&mut ctx.builder.instruction_body, base_addr);
+        ctx.builder.instruction_body.load_aligned_i32(base_addr);
     }
     else if r == 5 {
         if mod_is_nonzero {
             seg = SS;
             let base_addr = ::global_pointers::get_reg32_offset(EBP);
-            wasm_util::load_aligned_i32(&mut ctx.builder.instruction_body, base_addr);
+            ctx.builder.instruction_body.load_aligned_i32(base_addr);
         }
         else {
             seg = DS;
             let base = ctx.cpu.read_imm32();
-            wasm_util::push_i32(&mut ctx.builder.instruction_body, base as i32);
+            ctx.builder.instruction_body.push_i32(base as i32);
         }
     }
     else {
         seg = DS;
         let base_addr = ::global_pointers::get_reg32_offset(r as u32);
-        wasm_util::load_aligned_i32(&mut ctx.builder.instruction_body, base_addr);
+        ctx.builder.instruction_body.load_aligned_i32(base_addr);
     }
 
     jit_add_seg_offset(ctx, seg);
@@ -312,14 +310,13 @@ fn gen_sib(ctx: &mut JitContext, mod_is_nonzero: bool) {
 
     let s = sib_byte >> 6 & 3;
 
-    wasm_util::load_aligned_i32(
-        &mut ctx.builder.instruction_body,
-        ::global_pointers::get_reg32_offset(m as u32),
-    );
-    wasm_util::push_i32(&mut ctx.builder.instruction_body, s as i32);
-    wasm_util::shl_i32(&mut ctx.builder.instruction_body);
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(::global_pointers::get_reg32_offset(m as u32));
+    ctx.builder.instruction_body.push_i32(s as i32);
+    ctx.builder.instruction_body.shl_i32();
 
-    wasm_util::add_i32(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.add_i32();
 }
 
 fn can_optimize_get_seg(ctx: &mut JitContext, segment: u32) -> bool {
@@ -339,7 +336,7 @@ fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
         return;
     }
 
-    wasm_util::push_i32(&mut ctx.builder.instruction_body, seg as i32);
-    wasm_util::call_fn(&mut ctx.builder.instruction_body, ::jit::FN_GET_SEG_IDX);
-    wasm_util::add_i32(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.push_i32(seg as i32);
+    ctx.builder.instruction_body.call_fn(::jit::FN_GET_SEG_IDX);
+    ctx.builder.instruction_body.add_i32();
 }

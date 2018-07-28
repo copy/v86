@@ -12,6 +12,7 @@ use regs::{CS, DS, ES, FS, GS, SS};
 use regs::{EAX, EBP, EBX, ECX, EDI, EDX, ESI, ESP};
 use wasmgen::module_init::WasmBuilder;
 use wasmgen::wasm_util;
+use wasmgen::wasm_util::WasmBuf;
 
 pub fn jit_instruction(cpu: &mut CpuContext, builder: &mut WasmBuilder, instr_flags: &mut u32) {
     cpu.prefixes = 0;
@@ -260,11 +261,10 @@ pub fn instr32_89_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = wasm_util::set_new_local(ctx.builder);
 
-    wasm_util::push_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg32_offset(r) as i32,
-    );
-    wasm_util::load_aligned_i32_from_stack(&mut ctx.builder.instruction_body, 0);
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg32_offset(r) as i32);
+    ctx.builder.instruction_body.load_aligned_i32_from_stack(0);
     let value_local = wasm_util::set_new_local(ctx.builder);
 
     codegen::gen_safe_write32(ctx, &address_local, &value_local);
@@ -285,15 +285,14 @@ pub fn instr16_8B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 }
 pub fn instr32_8B_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     // Pseudo: reg32s[r] = safe_read32s(modrm_resolve(modrm_byte));
-    wasm_util::push_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg32_offset(r) as i32,
-    );
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg32_offset(r) as i32);
 
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     codegen::gen_safe_read32(ctx);
 
-    wasm_util::store_aligned_i32(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.store_aligned_i32();
 }
 pub fn instr32_8B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_set_reg32_r(ctx, r2, r1);
@@ -301,17 +300,17 @@ pub fn instr32_8B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
 
 pub fn instr16_8D_mem_jit(ctx: &mut JitContext, modrm_byte: u8, reg: u32) {
     let loc = global_pointers::get_reg16_offset(reg);
-    wasm_util::push_i32(&mut ctx.builder.instruction_body, loc as i32);
+    ctx.builder.instruction_body.push_i32(loc as i32);
     ctx.cpu.prefixes |= SEG_PREFIX_ZERO;
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    wasm_util::store_aligned_u16(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.store_aligned_u16();
 }
 pub fn instr32_8D_mem_jit(ctx: &mut JitContext, modrm_byte: u8, reg: u32) {
     let loc = global_pointers::get_reg32_offset(reg);
-    wasm_util::push_i32(&mut ctx.builder.instruction_body, loc as i32);
+    ctx.builder.instruction_body.push_i32(loc as i32);
     ctx.cpu.prefixes |= SEG_PREFIX_ZERO;
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    wasm_util::store_aligned_i32(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.store_aligned_i32();
 }
 
 pub fn instr16_8D_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
@@ -354,39 +353,36 @@ pub fn instr32_E9_jit(ctx: &mut JitContext, imm: u32) {
 pub fn instr16_C3_jit(ctx: &mut JitContext) {
     let cs_addr = global_pointers::get_seg_offset(CS);
 
-    wasm_util::push_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::INSTRUCTION_POINTER as i32,
-    );
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::INSTRUCTION_POINTER as i32);
 
-    wasm_util::load_aligned_i32(&mut ctx.builder.instruction_body, cs_addr);
+    ctx.builder.instruction_body.load_aligned_i32(cs_addr);
     codegen::gen_pop16(ctx);
-    wasm_util::add_i32(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.add_i32();
 
-    wasm_util::store_aligned_i32(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.store_aligned_i32();
 }
 
 pub fn instr32_C3_jit(ctx: &mut JitContext) {
-    wasm_util::push_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::INSTRUCTION_POINTER as i32,
-    );
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::INSTRUCTION_POINTER as i32);
 
     // cs = segment_offsets[CS]
-    wasm_util::load_aligned_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_seg_offset(CS),
-    );
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_seg_offset(CS));
 
     // ip = pop32s()
     codegen::gen_pop32s(ctx);
 
     // cs + ip
-    wasm_util::add_i32(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.add_i32();
 
     // dbg_assert(is_asize_32() || ip < 0x10000);
 
-    wasm_util::store_aligned_i32(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.store_aligned_i32();
 }
 
 pub fn instr16_EB_jit(ctx: &mut JitContext, imm8: u32) {
@@ -469,19 +465,18 @@ pub fn instr_0F1F_reg_jit(_ctx: &mut JitContext, _r1: u32, _r2: u32) {}
 
 pub fn instr16_C7_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     // reg16[r] = imm;
-    wasm_util::push_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg16_offset(r) as i32,
-    );
-    wasm_util::push_i32(&mut ctx.builder.instruction_body, imm as i32);
-    wasm_util::store_aligned_u16(&mut ctx.builder.instruction_body);
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg16_offset(r) as i32);
+    ctx.builder.instruction_body.push_i32(imm as i32);
+    ctx.builder.instruction_body.store_aligned_u16();
 }
 
 pub fn instr16_C7_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = wasm_util::set_new_local(ctx.builder);
     let imm = ctx.cpu.read_imm16();
-    wasm_util::push_i32(&mut ctx.builder.instruction_body, imm as i32);
+    ctx.builder.instruction_body.push_i32(imm as i32);
     let value_local = wasm_util::set_new_local(ctx.builder);
     codegen::gen_safe_write16(ctx, &address_local, &value_local);
     ctx.builder.free_local(address_local);
@@ -490,19 +485,18 @@ pub fn instr16_C7_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
 
 pub fn instr32_C7_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     // reg32s[r] = imm;
-    wasm_util::push_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg32_offset(r) as i32,
-    );
-    wasm_util::push_i32(&mut ctx.builder.instruction_body, imm as i32);
-    wasm_util::store_aligned_i32(&mut ctx.builder.instruction_body);
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg32_offset(r) as i32);
+    ctx.builder.instruction_body.push_i32(imm as i32);
+    ctx.builder.instruction_body.store_aligned_i32();
 }
 
 pub fn instr32_C7_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = wasm_util::set_new_local(ctx.builder);
     let imm = ctx.cpu.read_imm32();
-    wasm_util::push_i32(&mut ctx.builder.instruction_body, imm as i32);
+    ctx.builder.instruction_body.push_i32(imm as i32);
     let value_local = wasm_util::set_new_local(ctx.builder);
     codegen::gen_safe_write32(ctx, &address_local, &value_local);
     ctx.builder.free_local(address_local);

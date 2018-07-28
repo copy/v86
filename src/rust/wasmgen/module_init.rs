@@ -1,6 +1,6 @@
-use leb::{write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_u32};
 use util::{SafeToU16, SafeToU8};
 use wasmgen::wasm_opcodes as op;
+use wasmgen::wasm_util::WasmBuf;
 
 #[allow(dead_code)]
 pub const FN0_TYPE_INDEX: u8 = 0;
@@ -127,10 +127,12 @@ impl WasmBuilder {
         // write the actual sizes to the pointer locations stored above. We subtract 4 from the actual
         // value because the ptr itself points to four bytes
         let fn_body_size = (self.output.len() - idx_fn_body_size - 4) as u32;
-        write_fixed_leb32_at_idx(&mut self.output, idx_fn_body_size, fn_body_size);
+        self.output
+            .write_fixed_leb32_at_idx(idx_fn_body_size, fn_body_size);
 
         let code_section_size = (self.output.len() - idx_code_section_size - 4) as u32;
-        write_fixed_leb32_at_idx(&mut self.output, idx_code_section_size, code_section_size);
+        self.output
+            .write_fixed_leb32_at_idx(idx_code_section_size, code_section_size);
 
         self.output.len()
     }
@@ -221,14 +223,16 @@ impl WasmBuilder {
         dbg_assert!(count < 0x4000);
         self.import_count = count;
         let idx_import_count = self.idx_import_count;
-        write_fixed_leb16_at_idx(&mut self.output, idx_import_count, count);
+        self.output
+            .write_fixed_leb16_at_idx(idx_import_count, count);
     }
 
     pub fn set_import_table_size(&mut self, size: usize) {
         dbg_assert!(size < 0x4000);
         self.import_table_size = size;
         let idx_import_table_size = self.idx_import_table_size;
-        write_fixed_leb16_at_idx(&mut self.output, idx_import_table_size, size.safe_to_u16());
+        self.output
+            .write_fixed_leb16_at_idx(idx_import_table_size, size.safe_to_u16());
     }
 
     pub fn write_import_section_preamble(&mut self) {
@@ -255,7 +259,7 @@ impl WasmBuilder {
         self.output.push(op::EXT_MEMORY);
 
         self.output.push(0); // memory flag, 0 for no maximum memory limit present
-        write_leb_u32(&mut self.output, 256); // initial memory length of 256 pages, takes 2 bytes in leb128
+        self.output.write_leb_u32(256); // initial memory length of 256 pages, takes 2 bytes in leb128
 
         let new_import_count = self.import_count + 1;
         self.set_import_count(new_import_count);
@@ -303,7 +307,8 @@ impl WasmBuilder {
         let next_op_idx = self.output.len();
         self.output.push(0);
         self.output.push(0); // add 2 bytes for writing 16 byte val
-        write_fixed_leb16_at_idx(&mut self.output, next_op_idx, self.import_count - 1);
+        self.output
+            .write_fixed_leb16_at_idx(next_op_idx, self.import_count - 1);
     }
 
     pub fn get_fn_idx(&mut self, fn_name: &str, type_index: u8) -> u16 {
@@ -352,7 +357,6 @@ mod tests {
     use std::fs::File;
     use std::io::prelude::*;
     use wasmgen::module_init::*;
-    use wasmgen::wasm_util::*;
 
     #[test]
     fn import_table_management() {
@@ -370,31 +374,31 @@ mod tests {
         m.init();
 
         let mut foo_index = m.get_fn_idx("foo", FN0_TYPE_INDEX);
-        call_fn(&mut m.code_section, foo_index);
+        m.code_section.call_fn(foo_index);
 
         let bar_index = m.get_fn_idx("bar", FN0_TYPE_INDEX);
-        call_fn(&mut m.code_section, bar_index);
+        m.code_section.call_fn(bar_index);
 
         let _ = m._alloc_local(); // for ensuring that reset clears previous locals
 
         m.finish();
         m.reset();
 
-        push_i32(&mut m.code_section, 2);
+        m.code_section.push_i32(2);
 
         let baz_index = m.get_fn_idx("baz", FN1_RET_TYPE_INDEX);
-        call_fn(&mut m.instruction_body, baz_index);
+        m.instruction_body.call_fn(baz_index);
         foo_index = m.get_fn_idx("foo", FN1_TYPE_INDEX);
-        call_fn(&mut m.instruction_body, foo_index);
+        m.instruction_body.call_fn(foo_index);
 
-        push_i32(&mut m.code_section, 10);
+        m.code_section.push_i32(10);
         let local1 = m._alloc_local();
-        tee_local(&mut m.code_section, &local1); // local1 = 10
+        m.code_section.tee_local(&local1); // local1 = 10
 
-        push_i32(&mut m.code_section, 20);
-        add_i32(&mut m.code_section);
+        m.code_section.push_i32(20);
+        m.code_section.add_i32();
         let local2 = m._alloc_local();
-        tee_local(&mut m.code_section, &local2); // local2 = 30
+        m.code_section.tee_local(&local2); // local2 = 30
 
         m.free_local(local1);
 
@@ -404,11 +408,11 @@ mod tests {
         m.free_local(local2);
         m.free_local(local3);
 
-        push_i32(&mut m.code_section, 30);
-        ne_i32(&mut m.code_section);
-        if_void(&mut m.code_section);
-        unreachable(&mut m.code_section);
-        block_end(&mut m.code_section);
+        m.code_section.push_i32(30);
+        m.code_section.ne_i32();
+        m.code_section.if_void();
+        m.code_section.unreachable();
+        m.code_section.block_end();
 
         m.commit_instruction_body_to_cs();
 

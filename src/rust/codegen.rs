@@ -4,53 +4,51 @@ use modrm;
 use regs;
 use tlb::{TLB_GLOBAL, TLB_NO_USER, TLB_READONLY, TLB_VALID};
 use wasmgen::module_init::{WasmBuilder, WasmLocal};
+use wasmgen::wasm_util::WasmBuf;
 use wasmgen::{module_init, wasm_util};
 
 pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
     let cs = &mut builder.code_section;
-    wasm_util::push_i32(cs, global_pointers::PREVIOUS_IP as i32); // store address of previous ip
-    wasm_util::load_aligned_i32(cs, global_pointers::INSTRUCTION_POINTER); // load ip
+    cs.push_i32(global_pointers::PREVIOUS_IP as i32); // store address of previous ip
+    cs.load_aligned_i32(global_pointers::INSTRUCTION_POINTER); // load ip
     if n != 0 {
-        wasm_util::push_i32(cs, n as i32);
-        wasm_util::add_i32(cs); // add constant to ip value
+        cs.push_i32(n as i32);
+        cs.add_i32(); // add constant to ip value
     }
-    wasm_util::store_aligned_i32(cs); // store it as previous ip
+    cs.store_aligned_i32(); // store it as previous ip
 }
 
 pub fn gen_increment_instruction_pointer(builder: &mut WasmBuilder, n: u32) {
     let cs = &mut builder.code_section;
-    wasm_util::push_i32(cs, global_pointers::INSTRUCTION_POINTER as i32); // store address of ip
+    cs.push_i32(global_pointers::INSTRUCTION_POINTER as i32); // store address of ip
 
-    wasm_util::load_aligned_i32(cs, global_pointers::INSTRUCTION_POINTER); // load ip
+    cs.load_aligned_i32(global_pointers::INSTRUCTION_POINTER); // load ip
 
-    wasm_util::push_i32(cs, n as i32);
+    cs.push_i32(n as i32);
 
-    wasm_util::add_i32(cs);
-    wasm_util::store_aligned_i32(cs); // store it back in
+    cs.add_i32();
+    cs.store_aligned_i32(); // store it back in
 }
 
 pub fn gen_set_previous_eip(builder: &mut WasmBuilder) {
     let cs = &mut builder.code_section;
-    wasm_util::push_i32(cs, global_pointers::PREVIOUS_IP as i32); // store address of previous ip
-    wasm_util::load_aligned_i32(cs, global_pointers::INSTRUCTION_POINTER); // load ip
-    wasm_util::store_aligned_i32(cs); // store it as previous ip
+    cs.push_i32(global_pointers::PREVIOUS_IP as i32); // store address of previous ip
+    cs.load_aligned_i32(global_pointers::INSTRUCTION_POINTER); // load ip
+    cs.store_aligned_i32(); // store it as previous ip
 }
 
 pub fn gen_relative_jump(builder: &mut WasmBuilder, n: i32) {
     // add n to instruction_pointer (without setting the offset as above)
     let instruction_body = &mut builder.instruction_body;
-    wasm_util::push_i32(
-        instruction_body,
-        global_pointers::INSTRUCTION_POINTER as i32,
-    );
-    wasm_util::load_aligned_i32(instruction_body, global_pointers::INSTRUCTION_POINTER);
-    wasm_util::push_i32(instruction_body, n);
-    wasm_util::add_i32(instruction_body);
-    wasm_util::store_aligned_i32(instruction_body);
+    instruction_body.push_i32(global_pointers::INSTRUCTION_POINTER as i32);
+    instruction_body.load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    instruction_body.push_i32(n);
+    instruction_body.add_i32();
+    instruction_body.store_aligned_i32();
 }
 
 pub fn gen_increment_variable(builder: &mut WasmBuilder, variable_address: u32, n: i32) {
-    wasm_util::increment_variable(&mut builder.code_section, variable_address, n);
+    builder.code_section.increment_variable(variable_address, n);
 }
 
 pub fn gen_increment_timestamp_counter(builder: &mut WasmBuilder, n: i32) {
@@ -58,78 +56,78 @@ pub fn gen_increment_timestamp_counter(builder: &mut WasmBuilder, n: i32) {
 }
 
 pub fn gen_increment_mem32(builder: &mut WasmBuilder, addr: u32) {
-    wasm_util::increment_mem32(&mut builder.code_section, addr)
+    builder.code_section.increment_mem32(addr)
 }
 
 pub fn gen_fn0_const(ctx: &mut JitContext, name: &str) {
     let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN0_TYPE_INDEX);
-    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
+    builder.instruction_body.call_fn(fn_idx);
 }
 
 pub fn gen_fn0_const_ret(builder: &mut WasmBuilder, name: &str) {
     let fn_idx = builder.get_fn_idx(name, module_init::FN0_RET_TYPE_INDEX);
-    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
+    builder.instruction_body.call_fn(fn_idx);
 }
 
 pub fn gen_fn1_const(ctx: &mut JitContext, name: &str, arg0: u32) {
     let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN1_TYPE_INDEX);
-    wasm_util::push_i32(&mut builder.instruction_body, arg0 as i32);
-    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
+    builder.instruction_body.push_i32(arg0 as i32);
+    builder.instruction_body.call_fn(fn_idx);
 }
 
 pub fn gen_call_fn1_ret(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
     let fn_idx = builder.get_fn_idx(name, module_init::FN1_RET_TYPE_INDEX);
-    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
+    builder.instruction_body.call_fn(fn_idx);
 }
 
 pub fn gen_fn2_const(ctx: &mut JitContext, name: &str, arg0: u32, arg1: u32) {
     let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN2_TYPE_INDEX);
-    wasm_util::push_i32(&mut builder.instruction_body, arg0 as i32);
-    wasm_util::push_i32(&mut builder.instruction_body, arg1 as i32);
-    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
+    builder.instruction_body.push_i32(arg0 as i32);
+    builder.instruction_body.push_i32(arg1 as i32);
+    builder.instruction_body.call_fn(fn_idx);
 }
 
 pub fn gen_call_fn2(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _, _ ) where _ must be left on the stack before calling this
     let fn_idx = builder.get_fn_idx(name, module_init::FN2_TYPE_INDEX);
-    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
+    builder.instruction_body.call_fn(fn_idx);
 }
 
 pub fn gen_fn3_const(ctx: &mut JitContext, name: &str, arg0: u32, arg1: u32, arg2: u32) {
     let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN3_TYPE_INDEX);
-    wasm_util::push_i32(&mut builder.instruction_body, arg0 as i32);
-    wasm_util::push_i32(&mut builder.instruction_body, arg1 as i32);
-    wasm_util::push_i32(&mut builder.instruction_body, arg2 as i32);
-    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
+    builder.instruction_body.push_i32(arg0 as i32);
+    builder.instruction_body.push_i32(arg1 as i32);
+    builder.instruction_body.push_i32(arg2 as i32);
+    builder.instruction_body.call_fn(fn_idx);
 }
 
 pub fn gen_modrm_fn0(ctx: &mut JitContext, name: &str) {
     // generates: fn( _ )
     let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN1_TYPE_INDEX);
-    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
+    builder.instruction_body.call_fn(fn_idx);
 }
 
 pub fn gen_modrm_fn1(ctx: &mut JitContext, name: &str, arg0: u32) {
     // generates: fn( _, arg0 )
     let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN2_TYPE_INDEX);
-    wasm_util::push_i32(&mut builder.instruction_body, arg0 as i32);
-    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
+    builder.instruction_body.push_i32(arg0 as i32);
+    builder.instruction_body.call_fn(fn_idx);
 }
 
 pub fn gen_modrm_fn2(ctx: &mut JitContext, name: &str, arg0: u32, arg1: u32) {
     // generates: fn( _, arg0, arg1 )
     let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN3_TYPE_INDEX);
-    wasm_util::push_i32(&mut builder.instruction_body, arg0 as i32);
-    wasm_util::push_i32(&mut builder.instruction_body, arg1 as i32);
-    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
+    builder.instruction_body.push_i32(arg0 as i32);
+    builder.instruction_body.push_i32(arg1 as i32);
+    builder.instruction_body.call_fn(fn_idx);
 }
 
 pub fn gen_modrm_resolve(ctx: &mut JitContext, modrm_byte: u8) { modrm::gen(ctx, modrm_byte) }
@@ -137,52 +135,46 @@ pub fn gen_modrm_resolve(ctx: &mut JitContext, modrm_byte: u8) { modrm::gen(ctx,
 pub fn gen_set_reg16_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg16[r_dest] = reg16[r_src]
     let builder = &mut ctx.builder;
-    wasm_util::push_i32(
-        &mut builder.instruction_body,
-        global_pointers::get_reg16_offset(dest) as i32,
-    );
-    wasm_util::load_aligned_u16(
-        &mut builder.instruction_body,
-        global_pointers::get_reg16_offset(src),
-    );
-    wasm_util::store_aligned_u16(&mut builder.instruction_body);
+    builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg16_offset(dest) as i32);
+    builder
+        .instruction_body
+        .load_aligned_u16(global_pointers::get_reg16_offset(src));
+    builder.instruction_body.store_aligned_u16();
 }
 pub fn gen_set_reg32_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg32s[r_dest] = reg32s[r_src]
     let builder = &mut ctx.builder;
-    wasm_util::push_i32(
-        &mut builder.instruction_body,
-        global_pointers::get_reg32_offset(dest) as i32,
-    );
-    wasm_util::load_aligned_i32(
-        &mut builder.instruction_body,
-        global_pointers::get_reg32_offset(src),
-    );
-    wasm_util::store_aligned_i32(&mut builder.instruction_body);
+    builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg32_offset(dest) as i32);
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_reg32_offset(src));
+    builder.instruction_body.store_aligned_i32();
 }
 
 pub fn gen_set_reg16_fn0(ctx: &mut JitContext, name: &str, reg: u32) {
     // generates: reg16[reg] = fn()
     let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN0_RET_TYPE_INDEX);
-    wasm_util::push_i32(
-        &mut builder.instruction_body,
-        global_pointers::get_reg16_offset(reg) as i32,
-    );
-    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
-    wasm_util::store_aligned_u16(&mut builder.instruction_body);
+    builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg16_offset(reg) as i32);
+    builder.instruction_body.call_fn(fn_idx);
+    builder.instruction_body.store_aligned_u16();
 }
 
 pub fn gen_set_reg32s_fn0(ctx: &mut JitContext, name: &str, reg: u32) {
     // generates: reg32s[reg] = fn()
     let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN0_RET_TYPE_INDEX);
-    wasm_util::push_i32(
-        &mut builder.instruction_body,
-        global_pointers::get_reg32_offset(reg) as i32,
-    );
-    wasm_util::call_fn(&mut builder.instruction_body, fn_idx);
-    wasm_util::store_aligned_i32(&mut builder.instruction_body);
+    builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg32_offset(reg) as i32);
+    builder.instruction_body.call_fn(fn_idx);
+    builder.instruction_body.store_aligned_i32();
 }
 
 pub fn gen_safe_read32(ctx: &mut JitContext) {
@@ -195,60 +187,57 @@ pub fn gen_safe_read32(ctx: &mut JitContext) {
     let address_local = wasm_util::tee_new_local(builder);
 
     // Pseudo: base_on_stack = (uint32_t)address >> 12;
-    wasm_util::push_i32(&mut builder.instruction_body, 12);
-    wasm_util::shr_u32(&mut builder.instruction_body);
+    builder.instruction_body.push_i32(12);
+    builder.instruction_body.shr_u32();
 
     // scale index
-    wasm_util::push_i32(&mut builder.instruction_body, 2);
-    wasm_util::shl_i32(&mut builder.instruction_body);
+    builder.instruction_body.push_i32(2);
+    builder.instruction_body.shl_i32();
 
     // Pseudo: entry = tlb_data[base_on_stack];
-    wasm_util::load_aligned_i32_from_stack(
-        &mut builder.instruction_body,
-        global_pointers::TLB_DATA,
-    );
+    builder
+        .instruction_body
+        .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
     let entry_local = wasm_util::tee_new_local(builder);
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
     //                                   (address & 0xFFF) <= (0x1000 - 4));
-    wasm_util::push_i32(
-        &mut builder.instruction_body,
+    builder.instruction_body.push_i32(
         (0xFFF & !TLB_READONLY & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER }))
             as i32,
     );
-    wasm_util::and_i32(&mut builder.instruction_body);
+    builder.instruction_body.and_i32();
 
-    wasm_util::push_i32(&mut builder.instruction_body, TLB_VALID as i32);
-    wasm_util::eq_i32(&mut builder.instruction_body);
+    builder.instruction_body.push_i32(TLB_VALID as i32);
+    builder.instruction_body.eq_i32();
 
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
-    wasm_util::push_i32(&mut builder.instruction_body, 0xFFF);
-    wasm_util::and_i32(&mut builder.instruction_body);
-    wasm_util::push_i32(&mut builder.instruction_body, 0x1000 - 4);
-    wasm_util::le_i32(&mut builder.instruction_body);
+    builder.instruction_body.get_local(&address_local);
+    builder.instruction_body.push_i32(0xFFF);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.push_i32(0x1000 - 4);
+    builder.instruction_body.le_i32();
 
-    wasm_util::and_i32(&mut builder.instruction_body);
+    builder.instruction_body.and_i32();
 
     // Pseudo:
     // if(can_use_fast_path) leave_on_stack(mem8[entry & ~0xFFF ^ address]);
-    wasm_util::if_i32(&mut builder.instruction_body);
-    wasm_util::get_local(&mut builder.instruction_body, &entry_local);
-    wasm_util::push_i32(&mut builder.instruction_body, !0xFFF);
-    wasm_util::and_i32(&mut builder.instruction_body);
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
-    wasm_util::xor_i32(&mut builder.instruction_body);
+    builder.instruction_body.if_i32();
+    builder.instruction_body.get_local(&entry_local);
+    builder.instruction_body.push_i32(!0xFFF);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.get_local(&address_local);
+    builder.instruction_body.xor_i32();
 
-    wasm_util::load_unaligned_i32_from_stack(
-        &mut builder.instruction_body,
-        global_pointers::MEMORY,
-    );
+    builder
+        .instruction_body
+        .load_unaligned_i32_from_stack(global_pointers::MEMORY);
 
     // Pseudo:
     // else { leave_on_stack(safe_read32s_slow(address)); }
-    wasm_util::else_(&mut builder.instruction_body);
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
+    builder.instruction_body.else_();
+    builder.instruction_body.get_local(&address_local);
     gen_call_fn1_ret(builder, "safe_read32s_slow");
-    wasm_util::block_end(&mut builder.instruction_body);
+    builder.instruction_body.block_end();
 
     builder.free_local(address_local);
     builder.free_local(entry_local);
@@ -261,53 +250,51 @@ pub fn gen_safe_write32(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     //let instruction_body = &mut ctx.builder.instruction_body;
     //let cpu = &mut ctx.cpu;
 
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
+    builder.instruction_body.get_local(&address_local);
 
     // Pseudo: base_on_stack = (uint32_t)address >> 12;
-    wasm_util::push_i32(&mut builder.instruction_body, 12);
-    wasm_util::shr_u32(&mut builder.instruction_body);
+    builder.instruction_body.push_i32(12);
+    builder.instruction_body.shr_u32();
 
     // scale index
-    wasm_util::push_i32(&mut builder.instruction_body, 2);
-    wasm_util::shl_i32(&mut builder.instruction_body);
+    builder.instruction_body.push_i32(2);
+    builder.instruction_body.shl_i32();
 
     // Pseudo: entry = tlb_data[base_on_stack];
-    wasm_util::load_aligned_i32_from_stack(
-        &mut builder.instruction_body,
-        global_pointers::TLB_DATA,
-    );
+    builder
+        .instruction_body
+        .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
     let entry_local = wasm_util::tee_new_local(builder);
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
     //                                   (address & 0xFFF) <= (0x1000 - 4));
-    wasm_util::push_i32(
-        &mut builder.instruction_body,
-        (0xFFF & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER })) as i32,
-    );
-    wasm_util::and_i32(&mut builder.instruction_body);
+    builder
+        .instruction_body
+        .push_i32((0xFFF & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER })) as i32);
+    builder.instruction_body.and_i32();
 
-    wasm_util::push_i32(&mut builder.instruction_body, TLB_VALID as i32);
-    wasm_util::eq_i32(&mut builder.instruction_body);
+    builder.instruction_body.push_i32(TLB_VALID as i32);
+    builder.instruction_body.eq_i32();
 
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
-    wasm_util::push_i32(&mut builder.instruction_body, 0xFFF);
-    wasm_util::and_i32(&mut builder.instruction_body);
-    wasm_util::push_i32(&mut builder.instruction_body, 0x1000 - 4);
-    wasm_util::le_i32(&mut builder.instruction_body);
+    builder.instruction_body.get_local(&address_local);
+    builder.instruction_body.push_i32(0xFFF);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.push_i32(0x1000 - 4);
+    builder.instruction_body.le_i32();
 
-    wasm_util::and_i32(&mut builder.instruction_body);
+    builder.instruction_body.and_i32();
 
     // Pseudo:
     // if(can_use_fast_path)
     // {
     //     phys_addr = entry & ~0xFFF ^ address;
-    wasm_util::if_void(&mut builder.instruction_body);
+    builder.instruction_body.if_void();
 
-    wasm_util::get_local(&mut builder.instruction_body, &entry_local);
-    wasm_util::push_i32(&mut builder.instruction_body, !0xFFF);
-    wasm_util::and_i32(&mut builder.instruction_body);
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
-    wasm_util::xor_i32(&mut builder.instruction_body);
+    builder.instruction_body.get_local(&entry_local);
+    builder.instruction_body.push_i32(!0xFFF);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.get_local(&address_local);
+    builder.instruction_body.xor_i32();
 
     builder.free_local(entry_local);
 
@@ -315,16 +302,18 @@ pub fn gen_safe_write32(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     //     /* continued within can_use_fast_path branch */
     //     mem8[phys_addr] = value;
 
-    wasm_util::get_local(&mut builder.instruction_body, &value_local);
-    wasm_util::store_unaligned_i32(&mut builder.instruction_body, global_pointers::MEMORY);
+    builder.instruction_body.get_local(&value_local);
+    builder
+        .instruction_body
+        .store_unaligned_i32(global_pointers::MEMORY);
 
     // Pseudo:
     // else { safe_read32_slow(address, value); }
-    wasm_util::else_(&mut builder.instruction_body);
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
-    wasm_util::get_local(&mut builder.instruction_body, &value_local);
+    builder.instruction_body.else_();
+    builder.instruction_body.get_local(&address_local);
+    builder.instruction_body.get_local(&value_local);
     gen_call_fn2(builder, "safe_write32_slow");
-    wasm_util::block_end(&mut builder.instruction_body);
+    builder.instruction_body.block_end();
 }
 
 pub fn gen_safe_read16(ctx: &mut JitContext) {
@@ -335,60 +324,57 @@ pub fn gen_safe_read16(ctx: &mut JitContext) {
     let address_local = wasm_util::tee_new_local(builder);
 
     // Pseudo: base_on_stack = (uint32_t)address >> 12;
-    wasm_util::push_i32(&mut builder.instruction_body, 12);
-    wasm_util::shr_u32(&mut builder.instruction_body);
+    builder.instruction_body.push_i32(12);
+    builder.instruction_body.shr_u32();
 
     // scale index
-    wasm_util::push_i32(&mut builder.instruction_body, 2);
-    wasm_util::shl_i32(&mut builder.instruction_body);
+    builder.instruction_body.push_i32(2);
+    builder.instruction_body.shl_i32();
 
     // Pseudo: entry = tlb_data[base_on_stack];
-    wasm_util::load_aligned_i32_from_stack(
-        &mut builder.instruction_body,
-        global_pointers::TLB_DATA,
-    );
+    builder
+        .instruction_body
+        .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
     let entry_local = wasm_util::tee_new_local(builder);
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
     //                                   (address & 0xFFF) <= (0x1000 - 2));
-    wasm_util::push_i32(
-        &mut builder.instruction_body,
+    builder.instruction_body.push_i32(
         (0xFFF & !TLB_READONLY & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER }))
             as i32,
     );
-    wasm_util::and_i32(&mut builder.instruction_body);
+    builder.instruction_body.and_i32();
 
-    wasm_util::push_i32(&mut builder.instruction_body, TLB_VALID as i32);
-    wasm_util::eq_i32(&mut builder.instruction_body);
+    builder.instruction_body.push_i32(TLB_VALID as i32);
+    builder.instruction_body.eq_i32();
 
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
-    wasm_util::push_i32(&mut builder.instruction_body, 0xFFF);
-    wasm_util::and_i32(&mut builder.instruction_body);
-    wasm_util::push_i32(&mut builder.instruction_body, 0x1000 - 2);
-    wasm_util::le_i32(&mut builder.instruction_body);
+    builder.instruction_body.get_local(&address_local);
+    builder.instruction_body.push_i32(0xFFF);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.push_i32(0x1000 - 2);
+    builder.instruction_body.le_i32();
 
-    wasm_util::and_i32(&mut builder.instruction_body);
+    builder.instruction_body.and_i32();
 
     // Pseudo:
     // if(can_use_fast_path) leave_on_stack(mem8[entry & ~0xFFF ^ address]);
-    wasm_util::if_i32(&mut builder.instruction_body);
-    wasm_util::get_local(&mut builder.instruction_body, &entry_local);
-    wasm_util::push_i32(&mut builder.instruction_body, !0xFFF);
-    wasm_util::and_i32(&mut builder.instruction_body);
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
-    wasm_util::xor_i32(&mut builder.instruction_body);
+    builder.instruction_body.if_i32();
+    builder.instruction_body.get_local(&entry_local);
+    builder.instruction_body.push_i32(!0xFFF);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.get_local(&address_local);
+    builder.instruction_body.xor_i32();
 
-    wasm_util::load_unaligned_u16_from_stack(
-        &mut builder.instruction_body,
-        global_pointers::MEMORY,
-    );
+    builder
+        .instruction_body
+        .load_unaligned_u16_from_stack(global_pointers::MEMORY);
 
     // Pseudo:
     // else { leave_on_stack(safe_read16_slow(address)); }
-    wasm_util::else_(&mut builder.instruction_body);
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
+    builder.instruction_body.else_();
+    builder.instruction_body.get_local(&address_local);
     gen_call_fn1_ret(builder, "safe_read16_slow");
-    wasm_util::block_end(&mut builder.instruction_body);
+    builder.instruction_body.block_end();
 
     builder.free_local(address_local);
     builder.free_local(entry_local);
@@ -401,53 +387,51 @@ pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     //let instruction_body = &mut ctx.builder.instruction_body;
     //let cpu = &mut ctx.cpu;
 
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
+    builder.instruction_body.get_local(&address_local);
 
     // Pseudo: base_on_stack = (uint32_t)address >> 12;
-    wasm_util::push_i32(&mut builder.instruction_body, 12);
-    wasm_util::shr_u32(&mut builder.instruction_body);
+    builder.instruction_body.push_i32(12);
+    builder.instruction_body.shr_u32();
 
     // scale index
-    wasm_util::push_i32(&mut builder.instruction_body, 2);
-    wasm_util::shl_i32(&mut builder.instruction_body);
+    builder.instruction_body.push_i32(2);
+    builder.instruction_body.shl_i32();
 
     // Pseudo: entry = tlb_data[base_on_stack];
-    wasm_util::load_aligned_i32_from_stack(
-        &mut builder.instruction_body,
-        global_pointers::TLB_DATA,
-    );
+    builder
+        .instruction_body
+        .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
     let entry_local = wasm_util::tee_new_local(builder);
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
     //                                   (address & 0xFFF) <= (0x1000 - 2));
-    wasm_util::push_i32(
-        &mut builder.instruction_body,
-        (0xFFF & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER })) as i32,
-    );
-    wasm_util::and_i32(&mut builder.instruction_body);
+    builder
+        .instruction_body
+        .push_i32((0xFFF & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER })) as i32);
+    builder.instruction_body.and_i32();
 
-    wasm_util::push_i32(&mut builder.instruction_body, TLB_VALID as i32);
-    wasm_util::eq_i32(&mut builder.instruction_body);
+    builder.instruction_body.push_i32(TLB_VALID as i32);
+    builder.instruction_body.eq_i32();
 
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
-    wasm_util::push_i32(&mut builder.instruction_body, 0xFFF);
-    wasm_util::and_i32(&mut builder.instruction_body);
-    wasm_util::push_i32(&mut builder.instruction_body, 0x1000 - 2);
-    wasm_util::le_i32(&mut builder.instruction_body);
+    builder.instruction_body.get_local(&address_local);
+    builder.instruction_body.push_i32(0xFFF);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.push_i32(0x1000 - 2);
+    builder.instruction_body.le_i32();
 
-    wasm_util::and_i32(&mut builder.instruction_body);
+    builder.instruction_body.and_i32();
 
     // Pseudo:
     // if(can_use_fast_path)
     // {
     //     phys_addr = entry & ~0xFFF ^ address;
-    wasm_util::if_void(&mut builder.instruction_body);
+    builder.instruction_body.if_void();
 
-    wasm_util::get_local(&mut builder.instruction_body, &entry_local);
-    wasm_util::push_i32(&mut builder.instruction_body, !0xFFF);
-    wasm_util::and_i32(&mut builder.instruction_body);
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
-    wasm_util::xor_i32(&mut builder.instruction_body);
+    builder.instruction_body.get_local(&entry_local);
+    builder.instruction_body.push_i32(!0xFFF);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.get_local(&address_local);
+    builder.instruction_body.xor_i32();
 
     builder.free_local(entry_local);
 
@@ -455,59 +439,61 @@ pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     //     /* continued within can_use_fast_path branch */
     //     mem8[phys_addr] = value;
 
-    wasm_util::get_local(&mut builder.instruction_body, &value_local);
-    wasm_util::store_unaligned_u16(&mut builder.instruction_body, global_pointers::MEMORY);
+    builder.instruction_body.get_local(&value_local);
+    builder
+        .instruction_body
+        .store_unaligned_u16(global_pointers::MEMORY);
 
     // Pseudo:
     // else { safe_write16_slow(address, value); }
-    wasm_util::else_(&mut builder.instruction_body);
-    wasm_util::get_local(&mut builder.instruction_body, &address_local);
-    wasm_util::get_local(&mut builder.instruction_body, &value_local);
+    builder.instruction_body.else_();
+    builder.instruction_body.get_local(&address_local);
+    builder.instruction_body.get_local(&value_local);
     gen_call_fn2(builder, "safe_write16_slow");
-    wasm_util::block_end(&mut builder.instruction_body);
+    builder.instruction_body.block_end();
 }
 
 pub fn gen_fn1_reg16(ctx: &mut JitContext, name: &str, r: u32) {
     let fn_idx = ctx.builder.get_fn_idx(name, module_init::FN1_TYPE_INDEX);
-    wasm_util::load_aligned_u16(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg16_offset(r),
-    );
-    wasm_util::call_fn(&mut ctx.builder.instruction_body, fn_idx)
+    ctx.builder
+        .instruction_body
+        .load_aligned_u16(global_pointers::get_reg16_offset(r));
+    ctx.builder.instruction_body.call_fn(fn_idx)
 }
 
 pub fn gen_fn1_reg32(ctx: &mut JitContext, name: &str, r: u32) {
     let fn_idx = ctx.builder.get_fn_idx(name, module_init::FN1_TYPE_INDEX);
-    wasm_util::load_aligned_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg32_offset(r),
-    );
-    wasm_util::call_fn(&mut ctx.builder.instruction_body, fn_idx)
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_reg32_offset(r));
+    ctx.builder.instruction_body.call_fn(fn_idx)
 }
 
 pub fn gen_clear_prefixes(ctx: &mut JitContext) {
     let instruction_body = &mut ctx.builder.instruction_body;
-    wasm_util::push_i32(instruction_body, global_pointers::PREFIXES as i32); // load address of prefixes
-    wasm_util::push_i32(instruction_body, 0);
-    wasm_util::store_aligned_i32(instruction_body);
+    instruction_body.push_i32(global_pointers::PREFIXES as i32); // load address of prefixes
+    instruction_body.push_i32(0);
+    instruction_body.store_aligned_i32();
 }
 
 pub fn gen_add_prefix_bits(ctx: &mut JitContext, mask: u32) {
     dbg_assert!(mask < 0x100);
 
     let instruction_body = &mut ctx.builder.instruction_body;
-    wasm_util::push_i32(instruction_body, global_pointers::PREFIXES as i32); // load address of prefixes
+    instruction_body.push_i32(global_pointers::PREFIXES as i32); // load address of prefixes
 
-    wasm_util::load_aligned_i32(instruction_body, global_pointers::PREFIXES); // load old value
-    wasm_util::push_i32(instruction_body, mask as i32);
-    wasm_util::or_i32(instruction_body);
+    instruction_body.load_aligned_i32(global_pointers::PREFIXES); // load old value
+    instruction_body.push_i32(mask as i32);
+    instruction_body.or_i32();
 
-    wasm_util::store_aligned_i32(instruction_body);
+    instruction_body.store_aligned_i32();
 }
 
 pub fn gen_jmp_rel16(ctx: &mut JitContext, rel16: u16) {
     let cs_offset_addr = global_pointers::get_seg_offset(regs::CS);
-    wasm_util::load_aligned_i32(&mut ctx.builder.instruction_body, cs_offset_addr);
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(cs_offset_addr);
     let local = wasm_util::set_new_local(ctx.builder);
 
     // generate:
@@ -515,57 +501,51 @@ pub fn gen_jmp_rel16(ctx: &mut JitContext, rel16: u16) {
     {
         let instruction_body = &mut ctx.builder.instruction_body;
 
-        wasm_util::push_i32(
-            instruction_body,
-            global_pointers::INSTRUCTION_POINTER as i32,
-        );
+        instruction_body.push_i32(global_pointers::INSTRUCTION_POINTER as i32);
 
-        wasm_util::load_aligned_i32(instruction_body, global_pointers::INSTRUCTION_POINTER);
-        wasm_util::get_local(instruction_body, &local);
-        wasm_util::sub_i32(instruction_body);
+        instruction_body.load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+        instruction_body.get_local(&local);
+        instruction_body.sub_i32();
 
-        wasm_util::push_i32(instruction_body, rel16 as i32);
-        wasm_util::add_i32(instruction_body);
+        instruction_body.push_i32(rel16 as i32);
+        instruction_body.add_i32();
 
-        wasm_util::push_i32(instruction_body, 0xFFFF);
-        wasm_util::and_i32(instruction_body);
+        instruction_body.push_i32(0xFFFF);
+        instruction_body.and_i32();
 
-        wasm_util::get_local(instruction_body, &local);
-        wasm_util::add_i32(instruction_body);
+        instruction_body.get_local(&local);
+        instruction_body.add_i32();
 
-        wasm_util::store_aligned_i32(instruction_body);
+        instruction_body.store_aligned_i32();
     }
     ctx.builder.free_local(local);
 }
 
 pub fn gen_pop16_ss16(ctx: &mut JitContext) {
     // sp = segment_offsets[SS] + reg16[SP] (or just reg16[SP] if has_flat_segmentation)
-    wasm_util::load_aligned_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg16_offset(regs::SP),
-    );
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_reg16_offset(regs::SP));
     let sp_local = wasm_util::tee_new_local(ctx.builder);
 
     if !ctx.cpu.has_flat_segmentation() {
-        wasm_util::load_aligned_i32(
-            &mut ctx.builder.instruction_body,
-            global_pointers::get_seg_offset(regs::SS),
-        );
-        wasm_util::add_i32(&mut ctx.builder.instruction_body);
+        ctx.builder
+            .instruction_body
+            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+        ctx.builder.instruction_body.add_i32();
     }
 
     // result = safe_read16(sp)
     gen_safe_read16(ctx);
 
     // reg16[SP] += 2;
-    wasm_util::push_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg16_offset(regs::SP) as i32,
-    );
-    wasm_util::get_local(&mut ctx.builder.instruction_body, &sp_local);
-    wasm_util::push_i32(&mut ctx.builder.instruction_body, 2);
-    wasm_util::add_i32(&mut ctx.builder.instruction_body);
-    wasm_util::store_aligned_i32(&mut ctx.builder.instruction_body);
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg16_offset(regs::SP) as i32);
+    ctx.builder.instruction_body.get_local(&sp_local);
+    ctx.builder.instruction_body.push_i32(2);
+    ctx.builder.instruction_body.add_i32();
+    ctx.builder.instruction_body.store_aligned_i32();
 
     ctx.builder.free_local(sp_local);
 
@@ -574,32 +554,29 @@ pub fn gen_pop16_ss16(ctx: &mut JitContext) {
 
 pub fn gen_pop16_ss32(ctx: &mut JitContext) {
     // esp = segment_offsets[SS] + reg32s[ESP] (or just reg32s[ESP] if has_flat_segmentation)
-    wasm_util::load_aligned_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg32_offset(regs::ESP),
-    );
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_reg32_offset(regs::ESP));
     let esp_local = wasm_util::tee_new_local(ctx.builder);
 
     if !ctx.cpu.has_flat_segmentation() {
-        wasm_util::load_aligned_i32(
-            &mut ctx.builder.instruction_body,
-            global_pointers::get_seg_offset(regs::SS),
-        );
-        wasm_util::add_i32(&mut ctx.builder.instruction_body);
+        ctx.builder
+            .instruction_body
+            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+        ctx.builder.instruction_body.add_i32();
     }
 
     // result = safe_read16(esp)
     gen_safe_read16(ctx);
 
     // reg32s[ESP] += 2;
-    wasm_util::push_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg32_offset(regs::ESP) as i32,
-    );
-    wasm_util::get_local(&mut ctx.builder.instruction_body, &esp_local);
-    wasm_util::push_i32(&mut ctx.builder.instruction_body, 2);
-    wasm_util::add_i32(&mut ctx.builder.instruction_body);
-    wasm_util::store_aligned_i32(&mut ctx.builder.instruction_body);
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg32_offset(regs::ESP) as i32);
+    ctx.builder.instruction_body.get_local(&esp_local);
+    ctx.builder.instruction_body.push_i32(2);
+    ctx.builder.instruction_body.add_i32();
+    ctx.builder.instruction_body.store_aligned_i32();
     ctx.builder.free_local(esp_local);
 
     // return value is already on stack
@@ -616,32 +593,29 @@ pub fn gen_pop16(ctx: &mut JitContext) {
 
 pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
     // sp = reg16[SP]
-    wasm_util::load_aligned_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg16_offset(regs::SP),
-    );
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_reg16_offset(regs::SP));
     let local_sp = wasm_util::tee_new_local(ctx.builder);
 
     // result = safe_read32s(segment_offsets[SS] + sp) (or just sp if has_flat_segmentation)
     if !ctx.cpu.has_flat_segmentation() {
-        wasm_util::load_aligned_i32(
-            &mut ctx.builder.instruction_body,
-            global_pointers::get_seg_offset(regs::SS),
-        );
-        wasm_util::add_i32(&mut ctx.builder.instruction_body);
+        ctx.builder
+            .instruction_body
+            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+        ctx.builder.instruction_body.add_i32();
     }
 
     gen_safe_read32(ctx);
 
     // reg16[SP] = sp + 4;
-    wasm_util::push_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg16_offset(regs::SP) as i32,
-    );
-    wasm_util::get_local(&mut ctx.builder.instruction_body, &local_sp);
-    wasm_util::push_i32(&mut ctx.builder.instruction_body, 4);
-    wasm_util::add_i32(&mut ctx.builder.instruction_body);
-    wasm_util::store_aligned_i32(&mut ctx.builder.instruction_body);
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg16_offset(regs::SP) as i32);
+    ctx.builder.instruction_body.get_local(&local_sp);
+    ctx.builder.instruction_body.push_i32(4);
+    ctx.builder.instruction_body.add_i32();
+    ctx.builder.instruction_body.store_aligned_i32();
 
     ctx.builder.free_local(local_sp);
 
@@ -650,31 +624,28 @@ pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
 
 pub fn gen_pop32s_ss32(ctx: &mut JitContext) {
     // esp = reg32s[ESP]
-    wasm_util::load_aligned_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg32_offset(regs::ESP),
-    );
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_reg32_offset(regs::ESP));
     let local_esp = wasm_util::tee_new_local(ctx.builder);
 
     // result = safe_read32s(segment_offsets[SS] + esp) (or just esp if has_flat_segmentation)
     if !ctx.cpu.has_flat_segmentation() {
-        wasm_util::load_aligned_i32(
-            &mut ctx.builder.instruction_body,
-            global_pointers::get_seg_offset(regs::SS),
-        );
-        wasm_util::add_i32(&mut ctx.builder.instruction_body);
+        ctx.builder
+            .instruction_body
+            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+        ctx.builder.instruction_body.add_i32();
     }
     gen_safe_read32(ctx);
 
     // reg32s[ESP] = esp + 4;
-    wasm_util::push_i32(
-        &mut ctx.builder.instruction_body,
-        global_pointers::get_reg32_offset(regs::ESP) as i32,
-    );
-    wasm_util::get_local(&mut ctx.builder.instruction_body, &local_esp);
-    wasm_util::push_i32(&mut ctx.builder.instruction_body, 4);
-    wasm_util::add_i32(&mut ctx.builder.instruction_body);
-    wasm_util::store_aligned_i32(&mut ctx.builder.instruction_body);
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg32_offset(regs::ESP) as i32);
+    ctx.builder.instruction_body.get_local(&local_esp);
+    ctx.builder.instruction_body.push_i32(4);
+    ctx.builder.instruction_body.add_i32();
+    ctx.builder.instruction_body.store_aligned_i32();
 
     ctx.builder.free_local(local_esp);
 
@@ -695,36 +666,34 @@ pub fn gen_task_switch_test(ctx: &mut JitContext) {
 
     let cr0_offset = global_pointers::get_creg_offset(0);
 
-    wasm_util::load_aligned_i32(&mut ctx.builder.instruction_body, cr0_offset);
-    wasm_util::push_i32(
-        &mut ctx.builder.instruction_body,
-        (regs::CR0_EM | regs::CR0_TS) as i32,
-    );
-    wasm_util::and_i32(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.load_aligned_i32(cr0_offset);
+    ctx.builder
+        .instruction_body
+        .push_i32((regs::CR0_EM | regs::CR0_TS) as i32);
+    ctx.builder.instruction_body.and_i32();
 
-    wasm_util::if_void(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.if_void();
 
     gen_fn0_const(ctx, "task_switch_test_void");
-    wasm_util::return_(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.return_();
 
-    wasm_util::block_end(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.block_end();
 }
 
 pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
     // generate if(cr[0] & (CR0_EM | CR0_TS)) { task_switch_test_mmx_void(); return; }
     let cr0_offset = global_pointers::get_creg_offset(0);
 
-    wasm_util::load_aligned_i32(&mut ctx.builder.instruction_body, cr0_offset);
-    wasm_util::push_i32(
-        &mut ctx.builder.instruction_body,
-        (regs::CR0_EM | regs::CR0_TS) as i32,
-    );
-    wasm_util::and_i32(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.load_aligned_i32(cr0_offset);
+    ctx.builder
+        .instruction_body
+        .push_i32((regs::CR0_EM | regs::CR0_TS) as i32);
+    ctx.builder.instruction_body.and_i32();
 
-    wasm_util::if_void(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.if_void();
 
     gen_fn0_const(ctx, "task_switch_test_mmx_void");
-    wasm_util::return_(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.return_();
 
-    wasm_util::block_end(&mut ctx.builder.instruction_body);
+    ctx.builder.instruction_body.block_end();
 }

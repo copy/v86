@@ -1,164 +1,257 @@
-use leb::{write_fixed_leb16_at_idx, write_leb_i32, write_leb_u32};
+use leb::{write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_i32, write_leb_u32};
 use wasmgen::module_init::{WasmBuilder, WasmLocal};
 use wasmgen::wasm_opcodes as op;
 
-pub fn push_i32(buf: &mut Vec<u8>, v: i32) {
-    buf.push(op::OP_I32CONST);
-    write_leb_i32(buf, v);
+pub trait WasmBuf {
+    fn write_leb_i32(&mut self, v: i32);
+    fn write_leb_u32(&mut self, v: u32);
+    fn write_fixed_leb16_at_idx(&mut self, idx: usize, x: u16);
+    fn write_fixed_leb32_at_idx(&mut self, idx: usize, x: u32);
+    fn push_i32(&mut self, v: i32);
+    fn load_aligned_u16(&mut self, addr: u32);
+    fn load_aligned_i32(&mut self, addr: u32);
+    fn store_aligned_u16(&mut self);
+    fn store_aligned_i32(&mut self);
+    fn add_i32(&mut self);
+    fn sub_i32(&mut self);
+    fn and_i32(&mut self);
+    fn or_i32(&mut self);
+    fn shl_i32(&mut self);
+    fn call_fn(&mut self, fn_idx: u16);
+    fn eq_i32(&mut self);
+    fn ne_i32(&mut self);
+    fn le_i32(&mut self);
+    fn lt_i32(&mut self);
+    fn ge_i32(&mut self);
+    fn gt_i32(&mut self);
+    fn if_i32(&mut self);
+    fn block_i32(&mut self);
+    fn xor_i32(&mut self);
+    fn load_unaligned_i32_from_stack(&mut self, byte_offset: u32);
+    fn load_unaligned_u16_from_stack(&mut self, byte_offset: u32);
+    fn load_aligned_i32_from_stack(&mut self, byte_offset: u32);
+    fn store_unaligned_i32(&mut self, byte_offset: u32);
+    fn store_unaligned_u16(&mut self, byte_offset: u32);
+    fn shr_u32(&mut self);
+    fn shr_i32(&mut self);
+    fn eqz_i32(&mut self);
+    fn if_void(&mut self);
+    fn else_(&mut self);
+    fn loop_void(&mut self);
+    fn block_void(&mut self);
+    fn block_end(&mut self);
+    fn return_(&mut self);
+    fn drop(&mut self);
+    fn brtable_and_cases(&mut self, cases_count: u32);
+    fn br(&mut self, depth: u32);
+    fn get_local(&mut self, local: &WasmLocal);
+    fn set_local(&mut self, local: &WasmLocal);
+    fn tee_local(&mut self, local: &WasmLocal);
+    fn unreachable(&mut self);
+    fn increment_mem32(&mut self, addr: u32);
+    fn increment_variable(&mut self, addr: u32, n: i32);
+    fn load_aligned_u16_from_stack(&mut self, byte_offset: u32);
 }
 
-pub fn load_aligned_u16(buf: &mut Vec<u8>, addr: u32) {
-    // doesn't cause a failure in the generated code, but it will be much slower
-    dbg_assert!((addr & 1) == 0);
+impl WasmBuf for Vec<u8> {
+    fn write_leb_i32(&mut self, v: i32) { write_leb_i32(self, v) }
 
-    buf.push(op::OP_I32CONST);
-    write_leb_u32(buf, addr);
-    buf.push(op::OP_I32LOAD16U);
-    buf.push(op::MEM_ALIGN16);
-    buf.push(0); // immediate offset
-}
+    fn write_leb_u32(&mut self, v: u32) { write_leb_u32(self, v) }
 
-pub fn load_aligned_i32(buf: &mut Vec<u8>, addr: u32) {
-    // doesn't cause a failure in the generated code, but it will be much slower
-    dbg_assert!((addr & 3) == 0);
-
-    push_i32(buf, addr as i32);
-    load_aligned_i32_from_stack(buf, 0);
-}
-
-pub fn store_aligned_u16(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32STORE16);
-    buf.push(op::MEM_ALIGN16);
-    buf.push(0); // immediate offset
-}
-
-pub fn store_aligned_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_I32STORE);
-    buf.push(op::MEM_ALIGN32);
-    buf.push(0); // immediate offset
-}
-
-pub fn add_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32ADD); }
-pub fn sub_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32SUB); }
-
-pub fn and_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32AND); }
-
-pub fn or_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32OR); }
-
-pub fn shl_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32SHL); }
-
-pub fn call_fn(buf: &mut Vec<u8>, fn_idx: u16) {
-    buf.push(op::OP_CALL);
-    let buf_len = buf.len();
-    buf.push(0);
-    buf.push(0);
-    write_fixed_leb16_at_idx(buf, buf_len, fn_idx);
-}
-
-pub fn eq_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32EQ); }
-
-pub fn ne_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32NE); }
-
-pub fn le_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32LES); }
-
-pub fn lt_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32LTS); }
-
-pub fn ge_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32GES); }
-
-pub fn gt_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32GTS); }
-
-pub fn if_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_IF);
-    buf.push(op::TYPE_I32);
-}
-
-pub fn block_i32(buf: &mut Vec<u8>) {
-    buf.push(op::OP_BLOCK);
-    buf.push(op::TYPE_I32);
-}
-
-pub fn xor_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32XOR); }
-
-pub fn load_unaligned_i32_from_stack(buf: &mut Vec<u8>, byte_offset: u32) {
-    buf.push(op::OP_I32LOAD);
-    buf.push(op::MEM_NO_ALIGN);
-    write_leb_u32(buf, byte_offset);
-}
-
-pub fn load_unaligned_u16_from_stack(buf: &mut Vec<u8>, byte_offset: u32) {
-    buf.push(op::OP_I32LOAD16U);
-    buf.push(op::MEM_NO_ALIGN);
-    write_leb_u32(buf, byte_offset);
-}
-
-pub fn load_aligned_i32_from_stack(buf: &mut Vec<u8>, byte_offset: u32) {
-    buf.push(op::OP_I32LOAD);
-    buf.push(op::MEM_ALIGN32);
-    write_leb_u32(buf, byte_offset);
-}
-
-// XXX: Function naming should be consistent regarding both alignment and accepting an
-// offset. Leaving as-is for the Rust port to cleanup
-pub fn store_unaligned_i32(buf: &mut Vec<u8>, byte_offset: u32) {
-    buf.push(op::OP_I32STORE);
-    buf.push(op::MEM_NO_ALIGN);
-    write_leb_u32(buf, byte_offset);
-}
-
-pub fn store_unaligned_u16(buf: &mut Vec<u8>, byte_offset: u32) {
-    buf.push(op::OP_I32STORE16);
-    buf.push(op::MEM_NO_ALIGN);
-    write_leb_u32(buf, byte_offset);
-}
-
-pub fn shr_u32(buf: &mut Vec<u8>) { buf.push(op::OP_I32SHRU); }
-
-pub fn shr_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32SHRS); }
-
-pub fn eqz_i32(buf: &mut Vec<u8>) { buf.push(op::OP_I32EQZ); }
-
-pub fn if_void(buf: &mut Vec<u8>) {
-    buf.push(op::OP_IF);
-    buf.push(op::TYPE_VOID_BLOCK);
-}
-
-pub fn else_(buf: &mut Vec<u8>) { buf.push(op::OP_ELSE); }
-
-pub fn loop_void(buf: &mut Vec<u8>) {
-    buf.push(op::OP_LOOP);
-    buf.push(op::TYPE_VOID_BLOCK);
-}
-
-pub fn block_void(buf: &mut Vec<u8>) {
-    buf.push(op::OP_BLOCK);
-    buf.push(op::TYPE_VOID_BLOCK);
-}
-
-pub fn block_end(buf: &mut Vec<u8>) { buf.push(op::OP_END); }
-
-pub fn return_(buf: &mut Vec<u8>) { buf.push(op::OP_RETURN); }
-
-pub fn drop(buf: &mut Vec<u8>) { buf.push(op::OP_DROP); }
-
-// Generate a br_table where an input of [i] will branch [i]th outer block,
-// where [i] is passed on the wasm stack
-pub fn brtable_and_cases(buf: &mut Vec<u8>, cases_count: u32) {
-    buf.push(op::OP_BRTABLE);
-    write_leb_u32(buf, cases_count);
-
-    for i in 0..(cases_count + 1) {
-        write_leb_u32(buf, i);
+    fn write_fixed_leb16_at_idx(&mut self, idx: usize, x: u16) {
+        write_fixed_leb16_at_idx(self, idx, x)
     }
-}
 
-pub fn br(buf: &mut Vec<u8>, depth: u32) {
-    buf.push(op::OP_BR);
-    write_leb_u32(buf, depth);
-}
+    fn write_fixed_leb32_at_idx(&mut self, idx: usize, x: u32) {
+        write_fixed_leb32_at_idx(self, idx, x)
+    }
 
-pub fn get_local(buf: &mut Vec<u8>, local: &WasmLocal) {
-    buf.push(op::OP_GETLOCAL);
-    buf.push(local.idx());
+    fn push_i32(&mut self, v: i32) {
+        self.push(op::OP_I32CONST);
+        self.write_leb_i32(v);
+    }
+
+    fn load_aligned_u16(&mut self, addr: u32) {
+        // doesn't cause a failure in the generated code, but it will be much slower
+        dbg_assert!((addr & 1) == 0);
+
+        self.push(op::OP_I32CONST);
+        self.write_leb_u32(addr);
+        self.push(op::OP_I32LOAD16U);
+        self.push(op::MEM_ALIGN16);
+        self.push(0); // immediate offset
+    }
+
+    fn load_aligned_i32(&mut self, addr: u32) {
+        // doesn't cause a failure in the generated code, but it will be much slower
+        dbg_assert!((addr & 3) == 0);
+
+        self.push_i32(addr as i32);
+        self.load_aligned_i32_from_stack(0);
+    }
+
+    fn store_aligned_u16(&mut self) {
+        self.push(op::OP_I32STORE16);
+        self.push(op::MEM_ALIGN16);
+        self.push(0); // immediate offset
+    }
+
+    fn store_aligned_i32(&mut self) {
+        self.push(op::OP_I32STORE);
+        self.push(op::MEM_ALIGN32);
+        self.push(0); // immediate offset
+    }
+
+    fn add_i32(&mut self) { self.push(op::OP_I32ADD); }
+    fn sub_i32(&mut self) { self.push(op::OP_I32SUB); }
+
+    fn and_i32(&mut self) { self.push(op::OP_I32AND); }
+
+    fn or_i32(&mut self) { self.push(op::OP_I32OR); }
+
+    fn shl_i32(&mut self) { self.push(op::OP_I32SHL); }
+
+    fn call_fn(&mut self, fn_idx: u16) {
+        self.push(op::OP_CALL);
+        let buf_len = self.len();
+        self.push(0);
+        self.push(0);
+        self.write_fixed_leb16_at_idx(buf_len, fn_idx);
+    }
+
+    fn eq_i32(&mut self) { self.push(op::OP_I32EQ); }
+
+    fn ne_i32(&mut self) { self.push(op::OP_I32NE); }
+
+    fn le_i32(&mut self) { self.push(op::OP_I32LES); }
+
+    fn lt_i32(&mut self) { self.push(op::OP_I32LTS); }
+
+    fn ge_i32(&mut self) { self.push(op::OP_I32GES); }
+
+    fn gt_i32(&mut self) { self.push(op::OP_I32GTS); }
+
+    fn if_i32(&mut self) {
+        self.push(op::OP_IF);
+        self.push(op::TYPE_I32);
+    }
+
+    fn block_i32(&mut self) {
+        self.push(op::OP_BLOCK);
+        self.push(op::TYPE_I32);
+    }
+
+    fn xor_i32(&mut self) { self.push(op::OP_I32XOR); }
+
+    fn load_unaligned_i32_from_stack(&mut self, byte_offset: u32) {
+        self.push(op::OP_I32LOAD);
+        self.push(op::MEM_NO_ALIGN);
+        self.write_leb_u32(byte_offset);
+    }
+
+    fn load_unaligned_u16_from_stack(&mut self, byte_offset: u32) {
+        self.push(op::OP_I32LOAD16U);
+        self.push(op::MEM_NO_ALIGN);
+        self.write_leb_u32(byte_offset);
+    }
+
+    fn load_aligned_i32_from_stack(&mut self, byte_offset: u32) {
+        self.push(op::OP_I32LOAD);
+        self.push(op::MEM_ALIGN32);
+        self.write_leb_u32(byte_offset);
+    }
+
+    // XXX: Function naming should be consistent regarding both alignment and accepting an
+    // offset. Leaving as-is for the Rust port to cleanup
+    fn store_unaligned_i32(&mut self, byte_offset: u32) {
+        self.push(op::OP_I32STORE);
+        self.push(op::MEM_NO_ALIGN);
+        self.write_leb_u32(byte_offset);
+    }
+
+    fn store_unaligned_u16(&mut self, byte_offset: u32) {
+        self.push(op::OP_I32STORE16);
+        self.push(op::MEM_NO_ALIGN);
+        self.write_leb_u32(byte_offset);
+    }
+
+    fn shr_u32(&mut self) { self.push(op::OP_I32SHRU); }
+
+    fn shr_i32(&mut self) { self.push(op::OP_I32SHRS); }
+
+    fn eqz_i32(&mut self) { self.push(op::OP_I32EQZ); }
+
+    fn if_void(&mut self) {
+        self.push(op::OP_IF);
+        self.push(op::TYPE_VOID_BLOCK);
+    }
+
+    fn else_(&mut self) { self.push(op::OP_ELSE); }
+
+    fn loop_void(&mut self) {
+        self.push(op::OP_LOOP);
+        self.push(op::TYPE_VOID_BLOCK);
+    }
+
+    fn block_void(&mut self) {
+        self.push(op::OP_BLOCK);
+        self.push(op::TYPE_VOID_BLOCK);
+    }
+
+    fn block_end(&mut self) { self.push(op::OP_END); }
+
+    fn return_(&mut self) { self.push(op::OP_RETURN); }
+
+    fn drop(&mut self) { self.push(op::OP_DROP); }
+
+    // Generate a br_table where an input of [i] will branch [i]th outer block,
+    // where [i] is passed on the wasm stack
+    fn brtable_and_cases(&mut self, cases_count: u32) {
+        self.push(op::OP_BRTABLE);
+        self.write_leb_u32(cases_count);
+
+        for i in 0..(cases_count + 1) {
+            self.write_leb_u32(i);
+        }
+    }
+
+    fn br(&mut self, depth: u32) {
+        self.push(op::OP_BR);
+        self.write_leb_u32(depth);
+    }
+
+    fn get_local(&mut self, local: &WasmLocal) {
+        self.push(op::OP_GETLOCAL);
+        self.push(local.idx());
+    }
+
+    fn set_local(&mut self, local: &WasmLocal) {
+        self.push(op::OP_SETLOCAL);
+        self.push(local.idx());
+    }
+
+    fn tee_local(&mut self, local: &WasmLocal) {
+        self.push(op::OP_TEELOCAL);
+        self.push(local.idx());
+    }
+
+    fn unreachable(&mut self) { self.push(op::OP_UNREACHABLE); }
+
+    fn increment_mem32(&mut self, addr: u32) { self.increment_variable(addr, 1) }
+
+    fn increment_variable(&mut self, addr: u32, n: i32) {
+        self.push_i32(addr as i32);
+        self.load_aligned_i32(addr);
+        self.push_i32(n);
+        self.add_i32();
+        self.store_aligned_i32();
+    }
+
+    fn load_aligned_u16_from_stack(&mut self, byte_offset: u32) {
+        self.push(op::OP_I32LOAD16U);
+        self.push(op::MEM_ALIGN16);
+        self.write_leb_u32(byte_offset);
+    }
 }
 
 pub fn set_new_local(builder: &mut WasmBuilder) -> WasmLocal {
@@ -173,32 +266,4 @@ pub fn tee_new_local(builder: &mut WasmBuilder) -> WasmLocal {
     builder.instruction_body.push(op::OP_TEELOCAL);
     builder.instruction_body.push(local.idx());
     local
-}
-
-pub fn set_local(buf: &mut Vec<u8>, local: &WasmLocal) {
-    buf.push(op::OP_SETLOCAL);
-    buf.push(local.idx());
-}
-
-pub fn tee_local(buf: &mut Vec<u8>, local: &WasmLocal) {
-    buf.push(op::OP_TEELOCAL);
-    buf.push(local.idx());
-}
-
-pub fn unreachable(buf: &mut Vec<u8>) { buf.push(op::OP_UNREACHABLE); }
-
-pub fn increment_mem32(buf: &mut Vec<u8>, addr: u32) { increment_variable(buf, addr, 1) }
-
-pub fn increment_variable(buf: &mut Vec<u8>, addr: u32, n: i32) {
-    push_i32(buf, addr as i32);
-    load_aligned_i32(buf, addr);
-    push_i32(buf, n);
-    add_i32(buf);
-    store_aligned_i32(buf);
-}
-
-pub fn load_aligned_u16_from_stack(buf: &mut Vec<u8>, byte_offset: u32) {
-    buf.push(op::OP_I32LOAD16U);
-    buf.push(op::MEM_ALIGN16);
-    write_leb_u32(buf, byte_offset);
 }
