@@ -1812,11 +1812,7 @@ void instr_660F72_6_reg(int32_t r, int32_t imm8) {
 }
 
 void instr_0F73_2_mem(int32_t addr, int32_t r) { trigger_ud(); }
-void instr_0F73_3_mem(int32_t addr, int32_t r) { trigger_ud(); }
-void instr_0F73_3_reg(int32_t addr, int32_t r) { trigger_ud(); }
 void instr_0F73_6_mem(int32_t addr, int32_t r) { trigger_ud(); }
-void instr_0F73_7_mem(int32_t addr, int32_t r) { trigger_ud(); }
-void instr_0F73_7_reg(int32_t addr, int32_t r) { trigger_ud(); }
 
 void instr_0F73_2_reg(int32_t r, int32_t imm8) {
     // psrlq mm, imm8
