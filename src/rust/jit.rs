@@ -10,9 +10,9 @@ use profiler;
 use profiler::stat;
 use state_flags::CachedStateFlags;
 use util::SafeToU16;
+use wasmgen::module_init;
 use wasmgen::module_init::WasmBuilder;
 use wasmgen::wasm_util::WasmBuf;
-use wasmgen::{module_init, wasm_util};
 
 pub const WASM_TABLE_SIZE: u32 = 0x10000;
 
@@ -871,14 +871,14 @@ fn jit_generate_module(
     builder
         .instruction_body
         .get_local(&builder.arg_local_initial_state);
-    let gen_local_state = wasm_util::set_new_local(builder);
+    let gen_local_state = builder.set_new_local();
 
     // initialise max_iterations
     let gen_local_iteration_counter = if JIT_ALWAYS_USE_LOOP_SAFETY || requires_loop_limit {
         builder
             .instruction_body
             .push_i32(JIT_MAX_ITERATIONS_PER_FUNCTION as i32);
-        Some(wasm_util::set_new_local(builder))
+        Some(builder.set_new_local())
     }
     else {
         None

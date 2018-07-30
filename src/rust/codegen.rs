@@ -3,9 +3,9 @@ use jit::JitContext;
 use modrm;
 use regs;
 use tlb::{TLB_GLOBAL, TLB_NO_USER, TLB_READONLY, TLB_VALID};
+use wasmgen::module_init;
 use wasmgen::module_init::{WasmBuilder, WasmLocal};
 use wasmgen::wasm_util::WasmBuf;
-use wasmgen::{module_init, wasm_util};
 
 pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
     let cs = &mut builder.code_section;
@@ -184,7 +184,7 @@ pub fn gen_safe_read32(ctx: &mut JitContext) {
     //let instruction_body = &mut ctx.builder.instruction_body;
     //let cpu = &mut ctx.cpu;
 
-    let address_local = wasm_util::tee_new_local(builder);
+    let address_local = builder.tee_new_local();
 
     // Pseudo: base_on_stack = (uint32_t)address >> 12;
     builder.instruction_body.push_i32(12);
@@ -198,7 +198,7 @@ pub fn gen_safe_read32(ctx: &mut JitContext) {
     builder
         .instruction_body
         .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
-    let entry_local = wasm_util::tee_new_local(builder);
+    let entry_local = builder.tee_new_local();
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
     //                                   (address & 0xFFF) <= (0x1000 - 4));
@@ -264,7 +264,7 @@ pub fn gen_safe_write32(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     builder
         .instruction_body
         .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
-    let entry_local = wasm_util::tee_new_local(builder);
+    let entry_local = builder.tee_new_local();
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
     //                                   (address & 0xFFF) <= (0x1000 - 4));
@@ -321,7 +321,7 @@ pub fn gen_safe_read16(ctx: &mut JitContext) {
     // inline, bailing to safe_read16_slow if necessary
     let builder = &mut ctx.builder;
 
-    let address_local = wasm_util::tee_new_local(builder);
+    let address_local = builder.tee_new_local();
 
     // Pseudo: base_on_stack = (uint32_t)address >> 12;
     builder.instruction_body.push_i32(12);
@@ -335,7 +335,7 @@ pub fn gen_safe_read16(ctx: &mut JitContext) {
     builder
         .instruction_body
         .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
-    let entry_local = wasm_util::tee_new_local(builder);
+    let entry_local = builder.tee_new_local();
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
     //                                   (address & 0xFFF) <= (0x1000 - 2));
@@ -401,7 +401,7 @@ pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     builder
         .instruction_body
         .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
-    let entry_local = wasm_util::tee_new_local(builder);
+    let entry_local = builder.tee_new_local();
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
     //                                   (address & 0xFFF) <= (0x1000 - 2));
@@ -494,7 +494,7 @@ pub fn gen_jmp_rel16(ctx: &mut JitContext, rel16: u16) {
     ctx.builder
         .instruction_body
         .load_aligned_i32(cs_offset_addr);
-    let local = wasm_util::set_new_local(ctx.builder);
+    let local = ctx.builder.set_new_local();
 
     // generate:
     // *instruction_pointer = cs_offset + ((*instruction_pointer - cs_offset + rel16) & 0xFFFF);
@@ -526,7 +526,7 @@ pub fn gen_pop16_ss16(ctx: &mut JitContext) {
     ctx.builder
         .instruction_body
         .load_aligned_i32(global_pointers::get_reg16_offset(regs::SP));
-    let sp_local = wasm_util::tee_new_local(ctx.builder);
+    let sp_local = ctx.builder.tee_new_local();
 
     if !ctx.cpu.has_flat_segmentation() {
         ctx.builder
@@ -557,7 +557,7 @@ pub fn gen_pop16_ss32(ctx: &mut JitContext) {
     ctx.builder
         .instruction_body
         .load_aligned_i32(global_pointers::get_reg32_offset(regs::ESP));
-    let esp_local = wasm_util::tee_new_local(ctx.builder);
+    let esp_local = ctx.builder.tee_new_local();
 
     if !ctx.cpu.has_flat_segmentation() {
         ctx.builder
@@ -596,7 +596,7 @@ pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
     ctx.builder
         .instruction_body
         .load_aligned_i32(global_pointers::get_reg16_offset(regs::SP));
-    let local_sp = wasm_util::tee_new_local(ctx.builder);
+    let local_sp = ctx.builder.tee_new_local();
 
     // result = safe_read32s(segment_offsets[SS] + sp) (or just sp if has_flat_segmentation)
     if !ctx.cpu.has_flat_segmentation() {
@@ -627,7 +627,7 @@ pub fn gen_pop32s_ss32(ctx: &mut JitContext) {
     ctx.builder
         .instruction_body
         .load_aligned_i32(global_pointers::get_reg32_offset(regs::ESP));
-    let local_esp = wasm_util::tee_new_local(ctx.builder);
+    let local_esp = ctx.builder.tee_new_local();
 
     // result = safe_read32s(segment_offsets[SS] + esp) (or just esp if has_flat_segmentation)
     if !ctx.cpu.has_flat_segmentation() {

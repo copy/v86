@@ -1,5 +1,5 @@
 use leb::{write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_i32, write_leb_u32};
-use wasmgen::module_init::{WasmBuilder, WasmLocal};
+use wasmgen::module_init::WasmLocal;
 use wasmgen::wasm_opcodes as op;
 
 pub trait WasmBuf {
@@ -252,18 +252,4 @@ impl WasmBuf for Vec<u8> {
         self.push(op::MEM_ALIGN16);
         self.write_leb_u32(byte_offset);
     }
-}
-
-pub fn set_new_local(builder: &mut WasmBuilder) -> WasmLocal {
-    let local = builder._alloc_local();
-    builder.instruction_body.push(op::OP_SETLOCAL);
-    builder.instruction_body.push(local.idx());
-    local
-}
-
-pub fn tee_new_local(builder: &mut WasmBuilder) -> WasmLocal {
-    let local = builder._alloc_local();
-    builder.instruction_body.push(op::OP_TEELOCAL);
-    builder.instruction_body.push(local.idx());
-    local
 }

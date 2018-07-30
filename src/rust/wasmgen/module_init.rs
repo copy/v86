@@ -329,13 +329,8 @@ impl WasmBuilder {
         self.code_section.append(&mut self.instruction_body);
     }
 
-    // XXX: This should not be marked pub and not be prefixed with "_",
-    //      but we need to share it with wasm_util so it is pub for now
-    //      Moving set_local and tee_local to builder further complicate
-    //      things. We should be able to fix this by better structuring the
-    //      builder methods and wasm methods in the future.
-    //      Currently only wasm_utils and the tests of this module use it.
-    pub fn _alloc_local(&mut self) -> WasmLocal {
+    #[must_use = "local allocated but not used"]
+    fn alloc_local(&mut self) -> WasmLocal {
         match self.free_locals.pop() {
             Some(local) => local,
             None => {
@@ -349,6 +344,22 @@ impl WasmBuilder {
     pub fn free_local(&mut self, local: WasmLocal) {
         dbg_assert!(local.0 < self.local_count);
         self.free_locals.push(local)
+    }
+
+    #[must_use = "local allocated but not used"]
+    pub fn set_new_local(&mut self) -> WasmLocal {
+        let local = self.alloc_local();
+        self.instruction_body.push(op::OP_SETLOCAL);
+        self.instruction_body.push(local.idx());
+        local
+    }
+
+    #[must_use = "local allocated but not used"]
+    pub fn tee_new_local(&mut self) -> WasmLocal {
+        let local = self.alloc_local();
+        self.instruction_body.push(op::OP_TEELOCAL);
+        self.instruction_body.push(local.idx());
+        local
     }
 }
 
@@ -379,7 +390,7 @@ mod tests {
         let bar_index = m.get_fn_idx("bar", FN0_TYPE_INDEX);
         m.code_section.call_fn(bar_index);
 
-        let _ = m._alloc_local(); // for ensuring that reset clears previous locals
+        let _ = m.alloc_local(); // for ensuring that reset clears previous locals
 
         m.finish();
         m.reset();
@@ -392,17 +403,17 @@ mod tests {
         m.instruction_body.call_fn(foo_index);
 
         m.code_section.push_i32(10);
-        let local1 = m._alloc_local();
+        let local1 = m.alloc_local();
         m.code_section.tee_local(&local1); // local1 = 10
 
         m.code_section.push_i32(20);
         m.code_section.add_i32();
-        let local2 = m._alloc_local();
+        let local2 = m.alloc_local();
         m.code_section.tee_local(&local2); // local2 = 30
 
         m.free_local(local1);
 
-        let local3 = m._alloc_local();
+        let local3 = m.alloc_local();
         assert_eq!(local3.idx(), 0);
 
         m.free_local(local2);
