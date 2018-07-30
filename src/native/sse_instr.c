@@ -417,3 +417,15 @@ bool sse_comparison(int32_t op, double_t x, double_t y)
 
     assert(false);
 }
+
+double_t sse_min(double_t x, double_t y)
+{
+    // if both x and y are 0 or x is nan, y is returned
+    return x < y ? x : y;
+}
+
+double_t sse_max(double_t x, double_t y)
+{
+    // if both x and y are 0 or x is nan, y is returned
+    return x > y ? x : y;
+}

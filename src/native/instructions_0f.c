@@ -1294,9 +1294,134 @@ void instr_F30F5C(float_t source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_F30F5C, fpu_load_m32, read_xmm_f32)
 
-void instr_0F5D() { unimplemented_sse(); }
-void instr_0F5E() { unimplemented_sse(); }
-void instr_0F5F() { unimplemented_sse(); }
+void instr_0F5D(union reg128 source, int32_t r) {
+    // minps xmm, xmm/mem128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .f32 = {
+            sse_min(destination.f32[0], source.f32[0]),
+            sse_min(destination.f32[1], source.f32[1]),
+            sse_min(destination.f32[2], source.f32[2]),
+            sse_min(destination.f32[3], source.f32[3]),
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_0F5D, safe_read128s, read_xmm128s)
+void instr_660F5D(union reg128 source, int32_t r) {
+    // minpd xmm, xmm/mem128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .f64 = {
+            sse_min(destination.f64[0], source.f64[0]),
+            sse_min(destination.f64[1], source.f64[1]),
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_660F5D, safe_read128s, read_xmm128s)
+void instr_F20F5D(union reg64 source, int32_t r) {
+    // minsd xmm, xmm/mem64
+    union reg64 destination = read_xmm64s(r);
+    union reg64 result = {
+        .f64 = { sse_min(destination.f64[0], source.f64[0]), }
+    };
+    write_xmm64(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F20F5D, safe_read64s, read_xmm64s)
+void instr_F30F5D(float_t source, int32_t r) {
+    // minss xmm, xmm/mem32
+    float_t destination = read_xmm_f32(r);
+    float result = sse_min(destination, source);
+    write_xmm_f32(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F30F5D, fpu_load_m32, read_xmm_f32)
+
+void instr_0F5E(union reg128 source, int32_t r) {
+    // divps xmm, xmm/mem128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .f32 = {
+            destination.f32[0] / source.f32[0],
+            destination.f32[1] / source.f32[1],
+            destination.f32[2] / source.f32[2],
+            destination.f32[3] / source.f32[3],
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_0F5E, safe_read128s, read_xmm128s)
+void instr_660F5E(union reg128 source, int32_t r) {
+    // divpd xmm, xmm/mem128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .f64 = {
+            destination.f64[0] / source.f64[0],
+            destination.f64[1] / source.f64[1],
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_660F5E, safe_read128s, read_xmm128s)
+void instr_F20F5E(union reg64 source, int32_t r) {
+    // divsd xmm, xmm/mem64
+    union reg64 destination = read_xmm64s(r);
+    union reg64 result = {
+        .f64 = { destination.f64[0] / source.f64[0], }
+    };
+    write_xmm64(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F20F5E, safe_read64s, read_xmm64s)
+void instr_F30F5E(float_t source, int32_t r) {
+    // divss xmm, xmm/mem32
+    float_t destination = read_xmm_f32(r);
+    float result = destination / source;
+    write_xmm_f32(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F30F5E, fpu_load_m32, read_xmm_f32)
+
+void instr_0F5F(union reg128 source, int32_t r) {
+    // maxps xmm, xmm/mem128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .f32 = {
+            sse_max(destination.f32[0], source.f32[0]),
+            sse_max(destination.f32[1], source.f32[1]),
+            sse_max(destination.f32[2], source.f32[2]),
+            sse_max(destination.f32[3], source.f32[3]),
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_0F5F, safe_read128s, read_xmm128s)
+void instr_660F5F(union reg128 source, int32_t r) {
+    // maxpd xmm, xmm/mem128
+    union reg128 destination = read_xmm128s(r);
+    union reg128 result = {
+        .f64 = {
+            sse_max(destination.f64[0], source.f64[0]),
+            sse_max(destination.f64[1], source.f64[1]),
+        }
+    };
+    write_xmm_reg128(r, result);
+}
+DEFINE_SSE_SPLIT(instr_660F5F, safe_read128s, read_xmm128s)
+void instr_F20F5F(union reg64 source, int32_t r) {
+    // maxsd xmm, xmm/mem64
+    union reg64 destination = read_xmm64s(r);
+    union reg64 result = {
+        .f64 = { sse_max(destination.f64[0], source.f64[0]), }
+    };
+    write_xmm64(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F20F5F, safe_read64s, read_xmm64s)
+void instr_F30F5F(float_t source, int32_t r) {
+    // maxss xmm, xmm/mem32
+    float_t destination = read_xmm_f32(r);
+    float result = sse_max(destination, source);
+    write_xmm_f32(r, result);
+}
+DEFINE_SSE_SPLIT(instr_F30F5F, fpu_load_m32, read_xmm_f32)
 
 
 void instr_0F60(int32_t source, int32_t r) {

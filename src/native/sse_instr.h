@@ -33,3 +33,5 @@ void psrlq_r128(int32_t r, uint32_t shift);
 void psllq_r128(int32_t r, uint32_t shift);
 
 bool sse_comparison(int32_t op, double_t x, double_t y);
+double_t sse_min(double_t x, double_t y);
+double_t sse_max(double_t x, double_t y);
