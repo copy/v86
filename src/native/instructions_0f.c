@@ -178,7 +178,7 @@ void instr_0F06() {
 void instr_0F07() { undefined_instruction(); }
 void instr_0F08() {
     // invd
-    todo();
+    undefined_instruction();
 }
 
 void instr_0F09() {
@@ -203,7 +203,7 @@ void instr_0F0C() { undefined_instruction(); }
 
 void instr_0F0D() {
     // nop
-    todo();
+    undefined_instruction();
 }
 
 void instr_0F0E() { undefined_instruction(); }
@@ -423,8 +423,8 @@ void instr_0F18_mem(int32_t addr, int32_t r) {
 // hintable nops
 void instr_0F19_reg(int32_t r1, int32_t r2) { }
 void instr_0F19_mem(int32_t addr, int32_t r) { }
-void instr_0F1A() { todo(); trigger_ud(); }
-void instr_0F1B() { todo(); trigger_ud(); }
+void instr_0F1A() { undefined_instruction(); }
+void instr_0F1B() { undefined_instruction(); }
 void instr_0F1C_reg(int32_t r1, int32_t r2) { }
 void instr_0F1C_mem(int32_t addr, int32_t r) { }
 void instr_0F1D_reg(int32_t r1, int32_t r2) { }
@@ -459,8 +459,7 @@ void instr_0F20(int32_t r, int32_t creg) {
             break;
         default:
             dbg_log("%d", creg);
-            todo();
-            trigger_ud();
+            undefined_instruction();
     }
 }
 
@@ -550,8 +549,7 @@ void instr_0F22(int32_t r, int32_t creg) {
 
         default:
             dbg_log("%d", creg);
-            todo();
-            trigger_ud();
+            undefined_instruction();
     }
 }
 void instr_0F23(int32_t r, int32_t dreg_index) {
@@ -894,7 +892,7 @@ void instr_0F32() {
 
 void instr_0F33() {
     // rdpmc
-    todo();
+    undefined_instruction();
 }
 
 void instr_0F34() {
@@ -978,7 +976,7 @@ void instr_0F36() { undefined_instruction(); }
 
 void instr_0F37() {
     // getsec
-    todo();
+    undefined_instruction();
 }
 
 // sse3+
@@ -2161,7 +2159,7 @@ void instr32_0FA9() {
 
 void instr_0FAA() {
     // rsm
-    todo();
+    undefined_instruction();
 }
 
 void instr16_0FAB_reg(int32_t r1, int32_t r2) { write_reg16(r1, bts_reg(read_reg16(r1), read_reg16(r2) & 15)); }
@@ -2203,7 +2201,7 @@ void instr_0FAE_3_mem(int32_t addr) {
 void instr_0FAE_4_reg(int32_t r) { trigger_ud(); }
 void instr_0FAE_4_mem(int32_t addr) {
     // xsave
-    todo();
+    undefined_instruction();
 }
 void instr_0FAE_5_reg(int32_t r) {
     // lfence
@@ -2211,7 +2209,7 @@ void instr_0FAE_5_reg(int32_t r) {
 }
 void instr_0FAE_5_mem(int32_t addr) {
     // xrstor
-    todo();
+    undefined_instruction();
 }
 void instr_0FAE_6_reg(int32_t r) {
     // mfence
@@ -2227,7 +2225,7 @@ void instr_0FAE_7_reg(int32_t r) {
 }
 void instr_0FAE_7_mem(int32_t addr) {
     // clflush
-    todo();
+    undefined_instruction();
 }
 
 DEFINE_MODRM_INSTR_READ16(instr16_0FAF, write_reg16(r, imul_reg16(read_reg16(r) << 16 >> 16, ___ << 16 >> 16)))
@@ -2591,8 +2589,7 @@ void instr_0FC7_6_reg(int32_t r) {
     flags_changed[0] = 0;
 }
 void instr_0FC7_6_mem(int32_t addr) {
-    todo();
-    trigger_ud();
+    undefined_instruction();
 }
 
 void instr_0FC8() { bswap(EAX); }

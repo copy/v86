@@ -140,7 +140,6 @@ function V86Starter(options)
         "abort": function() { dbg_assert(false); },
         "__dbg_trace": function() { return dbg_trace(); },
         "_logop": function(eip, op) { return cpu.debug.logop(eip, op); },
-        "_todo": function() { return cpu.todo.apply(cpu, arguments); },
         "_undefined_instruction": function() { return cpu.undefined_instruction.apply(cpu, arguments); },
         "_unimplemented_sse": function() { return cpu.unimplemented_sse(); },
         "_microtick": v86.microtick,

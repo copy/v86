@@ -2882,17 +2882,6 @@ CPU.prototype.hlt_op = function()
     }
 };
 
-CPU.prototype.todo = function()
-{
-    if(DEBUG)
-    {
-        dbg_trace();
-        throw "TODO";
-    }
-
-    this.trigger_ud();
-};
-
 CPU.prototype.undefined_instruction = function()
 {
     dbg_assert(false, "Possible fault: undefined instruction");
