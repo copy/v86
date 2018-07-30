@@ -21,6 +21,12 @@ mod unsafe_cpu {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum BitSize {
+    WORD,
+    DWORD,
+}
+
 pub fn read8(addr: u32) -> u8 { unsafe { unsafe_cpu::read8(addr) } }
 pub fn read16(addr: u32) -> u16 { unsafe { unsafe_cpu::read16(addr) } }
 pub fn read32(addr: u32) -> u32 { unsafe { unsafe_cpu::read32(addr) } }

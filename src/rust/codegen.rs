@@ -1,3 +1,4 @@
+use cpu::BitSize;
 use global_pointers;
 use jit::JitContext;
 use modrm;
@@ -177,144 +178,19 @@ pub fn gen_set_reg32s_fn0(ctx: &mut JitContext, name: &str, reg: u32) {
     builder.instruction_body.store_aligned_i32();
 }
 
-pub fn gen_safe_read32(ctx: &mut JitContext) {
-    // Assumes virtual address has been pushed to the stack, and generates safe_read32s' fast-path
-    // inline, bailing to safe_read32s_slow if necessary
-    let builder = &mut ctx.builder;
+pub fn gen_safe_read16(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::WORD) }
+pub fn gen_safe_read32(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::DWORD) }
 
-    let address_local = builder.tee_new_local();
-
-    // Pseudo: base_on_stack = (uint32_t)address >> 12;
-    builder.instruction_body.push_i32(12);
-    builder.instruction_body.shr_u32();
-
-    // scale index
-    builder.instruction_body.push_i32(2);
-    builder.instruction_body.shl_i32();
-
-    // Pseudo: entry = tlb_data[base_on_stack];
-    builder
-        .instruction_body
-        .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
-    let entry_local = builder.tee_new_local();
-
-    // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
-    //                                   (address & 0xFFF) <= (0x1000 - 4));
-    builder.instruction_body.push_i32(
-        (0xFFF & !TLB_READONLY & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER }))
-            as i32,
-    );
-    builder.instruction_body.and_i32();
-
-    builder.instruction_body.push_i32(TLB_VALID as i32);
-    builder.instruction_body.eq_i32();
-
-    builder.instruction_body.get_local(&address_local);
-    builder.instruction_body.push_i32(0xFFF);
-    builder.instruction_body.and_i32();
-    builder.instruction_body.push_i32(0x1000 - 4);
-    builder.instruction_body.le_i32();
-
-    builder.instruction_body.and_i32();
-
-    // Pseudo:
-    // if(can_use_fast_path) leave_on_stack(mem8[entry & ~0xFFF ^ address]);
-    builder.instruction_body.if_i32();
-    builder.instruction_body.get_local(&entry_local);
-    builder.instruction_body.push_i32(!0xFFF);
-    builder.instruction_body.and_i32();
-    builder.instruction_body.get_local(&address_local);
-    builder.instruction_body.xor_i32();
-
-    builder
-        .instruction_body
-        .load_unaligned_i32_from_stack(global_pointers::MEMORY);
-
-    // Pseudo:
-    // else { leave_on_stack(safe_read32s_slow(address)); }
-    builder.instruction_body.else_();
-    builder.instruction_body.get_local(&address_local);
-    gen_call_fn1_ret(builder, "safe_read32s_slow");
-    builder.instruction_body.block_end();
-
-    builder.free_local(address_local);
-    builder.free_local(entry_local);
+pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_local: &WasmLocal) {
+    gen_safe_write(ctx, BitSize::WORD, address_local, value_local)
 }
-
 pub fn gen_safe_write32(ctx: &mut JitContext, address_local: &WasmLocal, value_local: &WasmLocal) {
-    // Generates safe_write32' fast-path inline, bailing to safe_write32_slow if necessary.
-
-    let builder = &mut ctx.builder;
-
-    builder.instruction_body.get_local(&address_local);
-
-    // Pseudo: base_on_stack = (uint32_t)address >> 12;
-    builder.instruction_body.push_i32(12);
-    builder.instruction_body.shr_u32();
-
-    // scale index
-    builder.instruction_body.push_i32(2);
-    builder.instruction_body.shl_i32();
-
-    // Pseudo: entry = tlb_data[base_on_stack];
-    builder
-        .instruction_body
-        .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
-    let entry_local = builder.tee_new_local();
-
-    // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
-    //                                   (address & 0xFFF) <= (0x1000 - 4));
-    builder
-        .instruction_body
-        .push_i32((0xFFF & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER })) as i32);
-    builder.instruction_body.and_i32();
-
-    builder.instruction_body.push_i32(TLB_VALID as i32);
-    builder.instruction_body.eq_i32();
-
-    builder.instruction_body.get_local(&address_local);
-    builder.instruction_body.push_i32(0xFFF);
-    builder.instruction_body.and_i32();
-    builder.instruction_body.push_i32(0x1000 - 4);
-    builder.instruction_body.le_i32();
-
-    builder.instruction_body.and_i32();
-
-    // Pseudo:
-    // if(can_use_fast_path)
-    // {
-    //     phys_addr = entry & ~0xFFF ^ address;
-    builder.instruction_body.if_void();
-
-    builder.instruction_body.get_local(&entry_local);
-    builder.instruction_body.push_i32(!0xFFF);
-    builder.instruction_body.and_i32();
-    builder.instruction_body.get_local(&address_local);
-    builder.instruction_body.xor_i32();
-
-    builder.free_local(entry_local);
-
-    // Pseudo:
-    //     /* continued within can_use_fast_path branch */
-    //     mem8[phys_addr] = value;
-
-    builder.instruction_body.get_local(&value_local);
-    builder
-        .instruction_body
-        .store_unaligned_i32(global_pointers::MEMORY);
-
-    // Pseudo:
-    // else { safe_read32_slow(address, value); }
-    builder.instruction_body.else_();
-    builder.instruction_body.get_local(&address_local);
-    builder.instruction_body.get_local(&value_local);
-    gen_call_fn2(builder, "safe_write32_slow");
-    builder.instruction_body.block_end();
+    gen_safe_write(ctx, BitSize::DWORD, address_local, value_local)
 }
 
-pub fn gen_safe_read16(ctx: &mut JitContext) {
-    // Assumes virtual address has been pushed to the stack, and generates safe_read16's fast-path
-    // inline, bailing to safe_read16_slow if necessary
+fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
+    // Assumes virtual address has been pushed to the stack, and generates safe_readXX's fast-path
+    // inline, bailing to safe_readXX_slow if necessary
     let builder = &mut ctx.builder;
 
     let address_local = builder.tee_new_local();
@@ -334,7 +210,7 @@ pub fn gen_safe_read16(ctx: &mut JitContext) {
     let entry_local = builder.tee_new_local();
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
-    //                                   (address & 0xFFF) <= (0x1000 - 2));
+    //                                   (address & 0xFFF) <= (0x1000 - (bitsize / 8));
     builder.instruction_body.push_i32(
         (0xFFF & !TLB_READONLY & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER }))
             as i32,
@@ -347,7 +223,9 @@ pub fn gen_safe_read16(ctx: &mut JitContext) {
     builder.instruction_body.get_local(&address_local);
     builder.instruction_body.push_i32(0xFFF);
     builder.instruction_body.and_i32();
-    builder.instruction_body.push_i32(0x1000 - 2);
+    builder
+        .instruction_body
+        .push_i32(0x1000 - if bits == BitSize::WORD { 2 } else { 4 });
     builder.instruction_body.le_i32();
 
     builder.instruction_body.and_i32();
@@ -361,23 +239,44 @@ pub fn gen_safe_read16(ctx: &mut JitContext) {
     builder.instruction_body.get_local(&address_local);
     builder.instruction_body.xor_i32();
 
-    builder
-        .instruction_body
-        .load_unaligned_u16_from_stack(global_pointers::MEMORY);
+    match bits {
+        BitSize::WORD => {
+            builder
+                .instruction_body
+                .load_unaligned_u16_from_stack(global_pointers::MEMORY);
+        },
+        BitSize::DWORD => {
+            builder
+                .instruction_body
+                .load_unaligned_i32_from_stack(global_pointers::MEMORY);
+        },
+    }
 
     // Pseudo:
     // else { leave_on_stack(safe_read16_slow(address)); }
     builder.instruction_body.else_();
     builder.instruction_body.get_local(&address_local);
-    gen_call_fn1_ret(builder, "safe_read16_slow");
+    match bits {
+        BitSize::WORD => {
+            gen_call_fn1_ret(builder, "safe_read16_slow");
+        },
+        BitSize::DWORD => {
+            gen_call_fn1_ret(builder, "safe_read32s_slow");
+        },
+    }
     builder.instruction_body.block_end();
 
     builder.free_local(address_local);
     builder.free_local(entry_local);
 }
 
-pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_local: &WasmLocal) {
-    // Generates safe_write16' fast-path inline, bailing to safe_write16_slow if necessary.
+fn gen_safe_write(
+    ctx: &mut JitContext,
+    bits: BitSize,
+    address_local: &WasmLocal,
+    value_local: &WasmLocal,
+) {
+    // Generates safe_writeXX' fast-path inline, bailing to safe_writeXX_slow if necessary.
 
     let builder = &mut ctx.builder;
 
@@ -398,7 +297,7 @@ pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     let entry_local = builder.tee_new_local();
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
-    //                                   (address & 0xFFF) <= (0x1000 - 2));
+    //                                   (address & 0xFFF) <= (0x1000 - bitsize / 8));
     builder
         .instruction_body
         .push_i32((0xFFF & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER })) as i32);
@@ -410,7 +309,9 @@ pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     builder.instruction_body.get_local(&address_local);
     builder.instruction_body.push_i32(0xFFF);
     builder.instruction_body.and_i32();
-    builder.instruction_body.push_i32(0x1000 - 2);
+    builder
+        .instruction_body
+        .push_i32(0x1000 - if bits == BitSize::WORD { 2 } else { 4 });
     builder.instruction_body.le_i32();
 
     builder.instruction_body.and_i32();
@@ -434,16 +335,32 @@ pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     //     mem8[phys_addr] = value;
 
     builder.instruction_body.get_local(&value_local);
-    builder
-        .instruction_body
-        .store_unaligned_u16(global_pointers::MEMORY);
+    match bits {
+        BitSize::WORD => {
+            builder
+                .instruction_body
+                .store_unaligned_u16(global_pointers::MEMORY);
+        },
+        BitSize::DWORD => {
+            builder
+                .instruction_body
+                .store_unaligned_i32(global_pointers::MEMORY);
+        },
+    }
 
     // Pseudo:
     // else { safe_write16_slow(address, value); }
     builder.instruction_body.else_();
     builder.instruction_body.get_local(&address_local);
     builder.instruction_body.get_local(&value_local);
-    gen_call_fn2(builder, "safe_write16_slow");
+    match bits {
+        BitSize::WORD => {
+            gen_call_fn2(builder, "safe_write16_slow");
+        },
+        BitSize::DWORD => {
+            gen_call_fn2(builder, "safe_write32_slow");
+        },
+    }
     builder.instruction_body.block_end();
 }
 
