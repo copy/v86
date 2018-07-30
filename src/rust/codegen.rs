@@ -181,8 +181,6 @@ pub fn gen_safe_read32(ctx: &mut JitContext) {
     // Assumes virtual address has been pushed to the stack, and generates safe_read32s' fast-path
     // inline, bailing to safe_read32s_slow if necessary
     let builder = &mut ctx.builder;
-    //let instruction_body = &mut ctx.builder.instruction_body;
-    //let cpu = &mut ctx.cpu;
 
     let address_local = builder.tee_new_local();
 
@@ -247,8 +245,6 @@ pub fn gen_safe_write32(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     // Generates safe_write32' fast-path inline, bailing to safe_write32_slow if necessary.
 
     let builder = &mut ctx.builder;
-    //let instruction_body = &mut ctx.builder.instruction_body;
-    //let cpu = &mut ctx.cpu;
 
     builder.instruction_body.get_local(&address_local);
 
@@ -384,8 +380,6 @@ pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_l
     // Generates safe_write16' fast-path inline, bailing to safe_write16_slow if necessary.
 
     let builder = &mut ctx.builder;
-    //let instruction_body = &mut ctx.builder.instruction_body;
-    //let cpu = &mut ctx.cpu;
 
     builder.instruction_body.get_local(&address_local);
 
