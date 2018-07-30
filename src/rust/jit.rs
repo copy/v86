@@ -655,7 +655,6 @@ fn create_cache_entry(ctx: &mut JitState, entry: jit_cache_array::Entry) {
                 // and use its slot for this entry.
                 // TODO: Optimally, we should pick another slot instead of dropping
                 // an entry has just been created.
-                //let old_page = Page::page_of(old_entry.start_addr);
                 jit_cache_array::remove(found_entry_index);
 
                 dbg_assert!(old_entry.next_index_same_page() == None);
@@ -952,7 +951,6 @@ fn jit_generate_module(
                 // - Unconditional jump
 
                 let next_bb_index = *basic_block_indices.get(&next_block_addr).expect("");
-                //dbg_assert!(next_bb_index != -1);
 
                 // set state variable to next basic block
                 builder.instruction_body.push_i32(next_bb_index as i32);
@@ -1054,8 +1052,6 @@ fn jit_generate_basic_block(
     let mut end_addr;
     let mut was_block_boundary;
     let mut eip_delta = 0;
-
-    //*instruction_pointer = start_addr;
 
     // First iteration of do-while assumes the caller confirms this condition
     dbg_assert!(!is_near_end_of_page(start_addr));
