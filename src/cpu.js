@@ -3486,6 +3486,7 @@ CPU.prototype.arpl = function(seg, r16)
     if(!this.protected_mode[0] || this.vm86_mode())
     {
         this.trigger_ud();
+        return;
     }
 
     this.flags_changed[0] &= ~flag_zero;
@@ -3513,6 +3514,7 @@ CPU.prototype.lar = function(selector, original)
     {
         dbg_log("lar #ud");
         this.trigger_ud();
+        return;
     }
 
     /** @const */
@@ -3550,6 +3552,7 @@ CPU.prototype.lsl = function(selector, original)
     {
         dbg_log("lsl #ud");
         this.trigger_ud();
+        return;
     }
 
     /** @const */

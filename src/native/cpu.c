@@ -831,15 +831,6 @@ void trigger_ud()
 {
     dbg_log("#ud");
     dbg_trace();
-    *instruction_pointer = *previous_ip;
-    raise_exception(CPU_EXCEPTION_UD);
-}
-
-__attribute__((noinline))
-void trigger_ud_non_raising()
-{
-    dbg_log("#ud");
-    dbg_trace();
 #if DEBUG
     if(cpu_exception_hook(CPU_EXCEPTION_UD))
     {
@@ -1513,7 +1504,7 @@ bool task_switch_test_mmx()
     }
     else if(*cr & CR0_EM)
     {
-        trigger_ud_non_raising();
+        trigger_ud();
         return false;
     }
 

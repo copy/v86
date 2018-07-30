@@ -199,7 +199,8 @@ function gen_instruction_body_after_prefix(encodings, size)
 
                 default_case: {
                     body: [].concat(
-                        gen_call(`::codegen::gen_fn0_const`, ["ctx", '"trigger_ud"'])
+                        gen_call(`::codegen::gen_fn0_const`, ["ctx", '"trigger_ud"']),
+                        "*instr_flags |= ::jit::JIT_INSTR_BLOCK_BOUNDARY_FLAG;"
                     ),
                 }
             },
@@ -244,6 +245,20 @@ function gen_instruction_body_after_fixed_g(encoding, size)
     {
         const reg_postfix = encoding.nonfaulting ? [APPEND_NONFAULTING_FLAG] : [];
         const mem_postfix = encoding.memory_nonfaulting ? [APPEND_NONFAULTING_FLAG] : [];
+
+        if(encoding.mem_ud)
+        {
+            mem_postfix.push(
+                "*instr_flags |= ::jit::JIT_INSTR_BLOCK_BOUNDARY_FLAG;"
+            );
+        }
+
+        if(encoding.reg_ud)
+        {
+            reg_postfix.push(
+                "*instr_flags |= ::jit::JIT_INSTR_BLOCK_BOUNDARY_FLAG;"
+            );
+        }
 
         if(encoding.ignore_mod)
         {

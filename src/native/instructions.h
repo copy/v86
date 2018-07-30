@@ -491,7 +491,7 @@ void instr16_8B_mem(int32_t addr, int32_t r);
 void instr16_8B_reg(int32_t r1, int32_t r);
 void instr32_8B_mem(int32_t addr, int32_t r);
 void instr32_8B_reg(int32_t r1, int32_t r);
-void instr_8C_check_sreg(int32_t sreg);
+bool instr_8C_check_sreg(int32_t sreg);
 void instr16_8C_reg(int32_t r, int32_t seg);
 void instr16_8C_mem(int32_t addr, int32_t seg);
 void instr32_8C_reg(int32_t r, int32_t seg);

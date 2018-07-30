@@ -418,17 +418,20 @@ DEFINE_MODRM_INSTR_READ8(instr_8A, write_reg8(r, ___))
 DEFINE_MODRM_INSTR_READ16(instr16_8B, write_reg16(r, ___))
 DEFINE_MODRM_INSTR_READ32(instr32_8B, write_reg32(r, ___))
 
-void instr_8C_check_sreg(int32_t sreg) {
+bool instr_8C_check_sreg(int32_t sreg) {
     if(sreg >= 6)
     {
         dbg_log("mov sreg #ud");
         trigger_ud();
+        return false;
     }
+
+    return true;
 }
-void instr16_8C_reg(int32_t r, int32_t seg) { instr_8C_check_sreg(seg); write_reg16(r, sreg[seg]); }
-void instr16_8C_mem(int32_t addr, int32_t seg) { instr_8C_check_sreg(seg); safe_write16(addr, sreg[seg]); }
-void instr32_8C_reg(int32_t r, int32_t seg) { instr_8C_check_sreg(seg); write_reg32(r, sreg[seg]); }
-void instr32_8C_mem(int32_t addr, int32_t seg) { instr_8C_check_sreg(seg); safe_write32(addr, sreg[seg]); }
+void instr16_8C_reg(int32_t r, int32_t seg) { if(instr_8C_check_sreg(seg)) write_reg16(r, sreg[seg]); }
+void instr16_8C_mem(int32_t addr, int32_t seg) { if(instr_8C_check_sreg(seg)) safe_write16(addr, sreg[seg]); }
+void instr32_8C_reg(int32_t r, int32_t seg) { if(instr_8C_check_sreg(seg)) write_reg32(r, sreg[seg]); }
+void instr32_8C_mem(int32_t addr, int32_t seg) { if(instr_8C_check_sreg(seg)) safe_write32(addr, sreg[seg]); }
 
 void instr16_8D_reg(int32_t r, int32_t r2)
 {

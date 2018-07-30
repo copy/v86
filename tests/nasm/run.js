@@ -284,36 +284,11 @@ else {
             process.exit(1);
         }
 
-        if(exception === "DE" || exception === "GP")
-        {
-            // XXX: On gdb execution is stopped at this point. On v86 we
-            // currently don't have this ability, so we record the exception
-            // and continue execution
-            recorded_exceptions.push(exception);
-            return true;
-        }
-
-        clearTimeout(test_timeout);
-
-        waiting_to_receive_next_test = true;
-        emulator.stop();
-
-        if(current_test.fixture.exception !== exception)
-        {
-            process.send({
-                failures: [{
-                    name: "Exception",
-                    actual: exception,
-                    expected: current_test.fixture.exception || "(none)",
-                }],
-                img_name: current_test.img_name,
-            });
-        }
-        else
-        {
-            process.send(DONE_MSG);
-        }
-
+        // XXX: On gdb execution is stopped at this point. On v86 we
+        // currently don't have this ability, so we record the exception
+        // and continue execution
+        console.log("recorded", exception);
+        recorded_exceptions.push(exception);
         return true;
     };
 

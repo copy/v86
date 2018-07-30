@@ -24,58 +24,58 @@ bool apic_enabled = false;
 
 void instr_0F00_0_mem(int32_t addr) {
     // sldt
-    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(!protected_mode[0] || vm86_mode()) { trigger_ud(); return; }
     safe_write16(addr, sreg[LDTR]);
 }
 void instr_0F00_0_reg(int32_t r) {
-    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(!protected_mode[0] || vm86_mode()) { trigger_ud(); return; }
     write_reg_osize(r, sreg[LDTR]);
 }
 void instr_0F00_1_mem(int32_t addr) {
     // str
-    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(!protected_mode[0] || vm86_mode()) { trigger_ud(); return; }
     safe_write16(addr, sreg[TR]);
 }
 void instr_0F00_1_reg(int32_t r) {
-    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(!protected_mode[0] || vm86_mode()) { trigger_ud(); return; }
     write_reg_osize(r, sreg[TR]);
 }
 void instr_0F00_2_mem(int32_t addr) {
     // lldt
-    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(!protected_mode[0] || vm86_mode()) { trigger_ud(); return; }
     if(cpl[0]) { trigger_gp_non_raising(0); return; }
     load_ldt(safe_read16(addr));
 }
 void instr_0F00_2_reg(int32_t r) {
-    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(!protected_mode[0] || vm86_mode()) { trigger_ud(); return; }
     if(cpl[0]) { trigger_gp_non_raising(0); return; }
     load_ldt(read_reg16(r));
 }
 void instr_0F00_3_mem(int32_t addr) {
     // ltr
-    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(!protected_mode[0] || vm86_mode()) { trigger_ud(); return; }
     if(cpl[0]) { trigger_gp_non_raising(0); return; }
     load_tr(safe_read16(addr));
 }
 void instr_0F00_3_reg(int32_t r) {
-    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(!protected_mode[0] || vm86_mode()) { trigger_ud(); return; }
     if(cpl[0]) { trigger_gp_non_raising(0); return; }
     load_tr(read_reg16(r));
 }
 void instr_0F00_4_mem(int32_t addr) {
-    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(!protected_mode[0] || vm86_mode()) { trigger_ud(); return; }
     verr(safe_read16(addr));
 }
 void instr_0F00_4_reg(int32_t r) {
-    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(!protected_mode[0] || vm86_mode()) { trigger_ud(); return; }
     verr(read_reg16(r));
 }
 void instr_0F00_5_mem(int32_t addr) {
-    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(!protected_mode[0] || vm86_mode()) { trigger_ud(); return; }
     verw(safe_read16(addr));
 }
 void instr_0F00_5_reg(int32_t r) {
-    if(!protected_mode[0] || vm86_mode()) trigger_ud();
+    if(!protected_mode[0] || vm86_mode()) { trigger_ud(); return; }
     verw(read_reg16(r));
 }
 
@@ -316,7 +316,7 @@ void instr_0F13_mem(int32_t addr, int32_t r) {
     movl_r128_m64(addr, r);
 }
 
-void instr_0F13_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+void instr_0F13_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
 void instr_660F13_reg(int32_t r1, int32_t r) { trigger_ud(); }
 void instr_660F13_mem(int32_t addr, int32_t r) {
@@ -414,7 +414,9 @@ void instr_660F17_mem(int32_t addr, int32_t r) {
 }
 void instr_660F17_reg(int32_t r1, int32_t r2) { trigger_ud(); }
 
-void instr_0F18_reg(int32_t r1, int32_t r2) { trigger_ud(); }
+void instr_0F18_reg(int32_t r1, int32_t r2) {
+    //  reserved nop
+}
 void instr_0F18_mem(int32_t addr, int32_t r) {
     // prefetch
     // nop for us
@@ -476,6 +478,7 @@ void instr_0F21(int32_t r, int32_t dreg_index) {
         {
             dbg_log("#ud mov dreg 4/5 with cr4.DE set");
             trigger_ud();
+            return;
         }
         else
         {
@@ -565,6 +568,7 @@ void instr_0F23(int32_t r, int32_t dreg_index) {
         {
             dbg_log("#ud mov dreg 4/5 with cr4.DE set");
             trigger_ud();
+            return;
         }
         else
         {
@@ -2176,7 +2180,7 @@ void instr_0FAE_1_reg(int32_t r) { trigger_ud(); }
 void instr_0FAE_1_mem(int32_t addr) {
     fxrstor(addr);
 }
-void instr_0FAE_2_reg(int32_t r) { trigger_ud(); }
+void instr_0FAE_2_reg(int32_t r) { unimplemented_sse(); }
 void instr_0FAE_2_mem(int32_t addr) {
     // ldmxcsr
     int32_t new_mxcsr = safe_read32s(addr);
@@ -2212,8 +2216,8 @@ void instr_0FAE_6_reg(int32_t r) {
     dbg_assert_message(r == 0, "Unexpected mfence encoding");
 }
 void instr_0FAE_6_mem(int32_t addr) {
-    dbg_assert_message(false, "0fae/5 #ud");
-    trigger_ud();
+    // xsaveopt
+    undefined_instruction();
 }
 void instr_0FAE_7_reg(int32_t r) {
     // sfence
@@ -2585,7 +2589,7 @@ void instr_0FC7_6_reg(int32_t r) {
     flags_changed[0] = 0;
 }
 void instr_0FC7_6_mem(int32_t addr) {
-    undefined_instruction();
+    trigger_ud();
 }
 
 void instr_0FC8() { bswap(EAX); }
