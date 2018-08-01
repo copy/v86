@@ -2888,10 +2888,8 @@ void test_sse(void)
     */
 
     /* sse/mmx moves */
-    /*
     CVT_OP_XMM2MMX(movdq2q);
     CVT_OP_MMX2XMM(movq2dq);
-    */
 
     /* int to float */
     /*
