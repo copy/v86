@@ -680,10 +680,11 @@ void instr_660F2B_mem(int32_t addr, int32_t r) {
     mov_r_m128(addr, r);
 }
 
-void instr_0F2C_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-void instr_0F2C_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
-void instr_660F2C_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-void instr_660F2C_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+void instr_0F2C(union reg64 source, int32_t r) { unimplemented_sse(); }
+DEFINE_SSE_SPLIT(instr_0F2C, safe_read64s, read_mmx64s)
+
+void instr_660F2C(union reg128 source, int32_t r) { unimplemented_sse(); }
+DEFINE_SSE_SPLIT(instr_660F2C, safe_read128s, read_xmm128s)
 
 void instr_F20F2C(union reg64 source, int32_t r) {
     // cvttsd2si r32, xmm/m64
@@ -708,10 +709,24 @@ void instr_F20F2C(union reg64 source, int32_t r) {
 }
 DEFINE_SSE_SPLIT(instr_F20F2C, safe_read64s, read_xmm64s)
 
-void instr_F30F2C_mem(int32_t addr, int32_t r) { unimplemented_sse(); }
-void instr_F30F2C_reg(int32_t r1, int32_t r2) { unimplemented_sse(); }
+void instr_F30F2C(float_t source, int32_t r) { unimplemented_sse(); }
+DEFINE_SSE_SPLIT(instr_F30F2C, fpu_load_m32, read_xmm_f32)
 
-void instr_0F2D() { unimplemented_sse(); }
+void instr_0F2D(union reg64 source, int32_t r) { unimplemented_sse(); }
+DEFINE_SSE_SPLIT(instr_0F2D, safe_read64s, read_mmx64s)
+
+void instr_660F2D(union reg128 source, int32_t r) { unimplemented_sse(); }
+DEFINE_SSE_SPLIT(instr_660F2D, safe_read128s, read_xmm128s)
+
+void instr_F20F2D(union reg64 source, int32_t r) {
+    // cvtsd2si r32, xmm/m64
+    write_reg32(r, sse_convert_f64_to_i32(source.f64[0]));
+}
+DEFINE_SSE_SPLIT(instr_F20F2D, safe_read64s, read_xmm64s)
+
+void instr_F30F2D(float_t source, int32_t r) { unimplemented_sse(); }
+DEFINE_SSE_SPLIT(instr_F30F2D, fpu_load_m32, read_xmm_f32)
+
 void instr_0F2E() { unimplemented_sse(); }
 void instr_0F2F() { unimplemented_sse(); }
 

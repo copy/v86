@@ -501,11 +501,15 @@ const encodings = [
     { sse: 1, opcode: 0x0F2B, reg_ud: 1, e: 1 },
     { sse: 1, opcode: 0x660F2B, reg_ud: 1, e: 1 },
 
-    { sse: 1, opcode: 0xF20F2C, e: 1, },
     { sse: 1, opcode: 0x0F2C, e: 1, skip: 1, },
-    { sse: 1, opcode: 0xF30F2C, e: 1, skip: 1, },
     { sse: 1, opcode: 0x660F2C, e: 1, skip: 1, },
-    { sse: 1, opcode: 0x0F2D, skip: 1 },
+    { sse: 1, opcode: 0xF20F2C, e: 1, },
+    { sse: 1, opcode: 0xF30F2C, e: 1, skip: 1, },
+    { sse: 1, opcode: 0x0F2D, e: 1, skip: 1, },
+    { sse: 1, opcode: 0x660F2D, e: 1, skip: 1, },
+    { sse: 1, opcode: 0xF20F2D, e: 1, },
+    { sse: 1, opcode: 0xF30F2D, e: 1, skip: 1, },
+
     { sse: 1, opcode: 0x0F2E, skip: 1 },
     { sse: 1, opcode: 0x0F2F, skip: 1 },
 

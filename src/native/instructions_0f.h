@@ -187,7 +187,6 @@ void instr_F20F2C_reg(int32_t r1, int32_t r2);
 void instr_F20F2C_mem(int32_t addr, int32_t r);
 void instr_F30F2C_mem(int32_t addr, int32_t r);
 void instr_F30F2C_reg(int32_t r1, int32_t r2);
-void instr_0F2D(void);
 void instr_0F2E(void);
 void instr_0F2F(void);
 void instr_0F30(void);

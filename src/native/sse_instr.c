@@ -429,3 +429,17 @@ double_t sse_max(double_t x, double_t y)
     // if both x and y are 0 or x is nan, y is returned
     return x > y ? x : y;
 }
+
+int32_t sse_convert_f64_to_i32(double_t x)
+{
+    // TODO: Rounding modes
+    if(x >= -0x80000000 && x < 0x80000000)
+    {
+        return (int64_t)x;
+    }
+    else
+    {
+        // TODO: Signal
+        return -0x80000000;
+    }
+}
