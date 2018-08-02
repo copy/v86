@@ -10,6 +10,29 @@
 #include "log.h"
 #include "misc_instr.h"
 
+//#ifndef M_LOG2E
+const double_t M_LOG2E = 1.44269504088896340736;
+//#endif
+
+//#ifndef M_LN2
+const double_t M_LN2 = 0.693147180559945309417;
+//#endif
+
+//#ifndef M_LN10
+const double_t M_LN10 = 2.30258509299404568402;
+//#endif
+
+//#ifndef M_PI
+const double_t M_PI = 3.14159265358979323846;
+//#endif
+
+const int32_t FPU_C0 = 0x100;
+const int32_t FPU_C1 = 0x200;
+const int32_t FPU_C2 = 0x400;
+const int32_t FPU_C3 = 0x4000;
+const int32_t FPU_RESULT_FLAGS = (FPU_C0 | FPU_C1 | FPU_C2 | FPU_C3);
+const int32_t FPU_STACK_TOP = 0x3800;
+
 // precision, round & infinity control
 const int32_t
     FPU_PC = 3 << 8,
@@ -253,7 +276,7 @@ void fpu_ftst(double_t x)
 {
     *fpu_status_word &= ~FPU_RESULT_FLAGS;
 
-    if(isnan(x))
+    if(isnan_XXX(x))
     {
         *fpu_status_word |= FPU_C3 | FPU_C2 | FPU_C0;
     }
@@ -278,7 +301,7 @@ void fpu_fxam(double_t x)
     {
         *fpu_status_word |= FPU_C3 | FPU_C0;
     }
-    else if(isnan(x))
+    else if(isnan_XXX(x))
     {
         *fpu_status_word |= FPU_C0;
     }
@@ -326,7 +349,7 @@ int32_t fpu_load_tag_word()
         {
             tag_word |= 1 << (i << 1);
         }
-        else if(!isfinite(value))
+        else if(!isfinite_XXX(value))
         {
             tag_word |= 2 << (i << 1);
         }

@@ -3,75 +3,81 @@
 #include "cpu.h"
 #include <stdint.h>
 
-#define SAFE_READ_WRITE8(addr, fun) \
-    int32_t phys_addr = translate_address_write(addr); \
-    int32_t ___ = read8(phys_addr); \
-    write8(phys_addr, fun);
+extern void SAFE_READ_WRITE8();
+extern void SAFE_READ_WRITE16();
+extern void SAFE_READ_WRITE32();
 
-#define SAFE_READ_WRITE16(addr, fun) \
-    int32_t phys_addr = translate_address_write(addr); \
-    if((phys_addr & 0xFFF) == 0xFFF) \
-    { \
-        int32_t phys_addr_high = translate_address_write((addr) + 1); \
-        int32_t ___ = virt_boundary_read16(phys_addr, phys_addr_high); \
-        virt_boundary_write16(phys_addr, phys_addr_high, fun); \
-    } \
-    else \
-    { \
-        int32_t ___ = read16(phys_addr); \
-        write16(phys_addr, fun); \
-    }
+extern int32_t ___;
 
-#define SAFE_READ_WRITE32(addr, fun) \
-    int32_t phys_addr = translate_address_write(addr); \
-    if((phys_addr & 0xFFF) >= 0xFFD) \
-    { \
-        int32_t phys_addr_high = translate_address_write((addr) + 3 & ~3) | ((addr) + 3) & 3; \
-        int32_t ___ = virt_boundary_read32s(phys_addr, phys_addr_high); \
-        virt_boundary_write32(phys_addr, phys_addr_high, fun); \
-    } \
-    else \
-    { \
-        int32_t ___ = read32s(phys_addr); \
-        write32(phys_addr, fun); \
-    }
+//#define SAFE_READ_WRITE8(addr, fun) \
+//    int32_t phys_addr = translate_address_write(addr); \
+//    int32_t ___ = read8(phys_addr); \
+//    write8(phys_addr, fun);
+//
+//#define SAFE_READ_WRITE16(addr, fun) \
+//    int32_t phys_addr = translate_address_write(addr); \
+//    if((phys_addr & 0xFFF) == 0xFFF) \
+//    { \
+//        int32_t phys_addr_high = translate_address_write((addr) + 1); \
+//        int32_t ___ = virt_boundary_read16(phys_addr, phys_addr_high); \
+//        virt_boundary_write16(phys_addr, phys_addr_high, fun); \
+//    } \
+//    else \
+//    { \
+//        int32_t ___ = read16(phys_addr); \
+//        write16(phys_addr, fun); \
+//    }
+//
+//#define SAFE_READ_WRITE32(addr, fun) \
+//    int32_t phys_addr = translate_address_write(addr); \
+//    if((phys_addr & 0xFFF) >= 0xFFD) \
+//    { \
+//        int32_t phys_addr_high = translate_address_write((addr) + 3 & ~3) | ((addr) + 3) & 3; \
+//        int32_t ___ = virt_boundary_read32s(phys_addr, phys_addr_high); \
+//        virt_boundary_write32(phys_addr, phys_addr_high, fun); \
+//    } \
+//    else \
+//    { \
+//        int32_t ___ = read32s(phys_addr); \
+//        write32(phys_addr, fun); \
+//    }
 
 #define DEFINE_MODRM_INSTR1_READ_WRITE_8(name, fun) \
-    void name ## _mem(int32_t addr) { SAFE_READ_WRITE8(addr, fun) } \
+    void name ## _mem(int32_t addr) { SAFE_READ_WRITE8(addr, fun); } \
     void name ## _reg(int32_t r1) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
 
 #define DEFINE_MODRM_INSTR1_READ_WRITE_16(name, fun) \
-    void name ## _mem(int32_t addr) { SAFE_READ_WRITE16(addr, fun) } \
+    void name ## _mem(int32_t addr) { SAFE_READ_WRITE16(addr, fun); } \
     void name ## _reg(int32_t r1) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
 
 #define DEFINE_MODRM_INSTR1_READ_WRITE_32(name, fun) \
-    void name ## _mem(int32_t addr) { SAFE_READ_WRITE32(addr, fun) } \
+    void name ## _mem(int32_t addr) { SAFE_READ_WRITE32(addr, fun); } \
     void name ## _reg(int32_t r1) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
 
 
 #define DEFINE_MODRM_INSTR2_READ_WRITE_8(name, fun) \
-    void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE8(addr, fun) } \
+    void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE8(addr, fun); } \
     void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
 
 #define DEFINE_MODRM_INSTR2_READ_WRITE_16(name, fun) \
-    void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE16(addr, fun) } \
+    void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE16(addr, fun); } \
     void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
 
 #define DEFINE_MODRM_INSTR2_READ_WRITE_32(name, fun) \
-    void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE32(addr, fun) } \
+    void name ## _mem(int32_t addr, int32_t imm) { SAFE_READ_WRITE32(addr, fun); } \
     void name ## _reg(int32_t r1, int32_t imm) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
 
 
 #define DEFINE_MODRM_INSTR_READ_WRITE_8(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE8(addr, fun) } \
+    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE8(addr, fun); } \
     void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
 
 #define DEFINE_MODRM_INSTR_READ_WRITE_16(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE16(addr, fun) } \
+    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE16(addr, fun); } \
     void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
 
 #define DEFINE_MODRM_INSTR_READ_WRITE_32(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE32(addr, fun) } \
+    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE32(addr, fun); } \
     void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
 
 

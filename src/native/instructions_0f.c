@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -19,6 +18,9 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
+
+const bool CPU_LOG_VERBOSE = false;
+const bool ENABLE_ACPI = true;
 
 bool apic_enabled = false;
 
@@ -460,7 +462,7 @@ void instr_0F20(int32_t r, int32_t creg) {
             write_reg32(r, cr[4]);
             break;
         default:
-            dbg_log("%d", creg);
+            dbg_log1("%d", creg);
             undefined_instruction();
     }
 }
@@ -511,7 +513,7 @@ void instr_0F22(int32_t r, int32_t creg) {
             break;
 
         case 2:
-            dbg_log("cr2 <- %x", data);
+            dbg_log1("cr2 <- %x", data);
             cr[2] = data;
             break;
 
@@ -526,7 +528,7 @@ void instr_0F22(int32_t r, int32_t creg) {
             break;
 
         case 4:
-            dbg_log("cr4 <- %d", cr[4]);
+            dbg_log1("cr4 <- %d", cr[4]);
 
             if(data & (1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19 | 0xFFC00000))
             {
@@ -551,7 +553,7 @@ void instr_0F22(int32_t r, int32_t creg) {
             break;
 
         default:
-            dbg_log("%d", creg);
+            dbg_log1("%d", creg);
             undefined_instruction();
     }
 }
@@ -746,24 +748,25 @@ void instr_0F30() {
 
     if(index != IA32_SYSENTER_ESP)
     {
-        dbg_log("wrmsr ecx=%x data=%x:%x", index, high, low);
+        dbg_log3("wrmsr ecx=%x data=%x:%x", index, high, low);
     }
 
-    switch(index)
-    {
-        case IA32_SYSENTER_CS:
+        if(index == IA32_SYSENTER_CS)
+        {
             sysenter_cs[0] = low & 0xFFFF;
-            break;
-
-        case IA32_SYSENTER_EIP:
+        }
+        else if(index == IA32_SYSENTER_EIP)
+        {
             sysenter_eip[0] = low;
-            break;
 
-        case IA32_SYSENTER_ESP:
+        }
+        else if(index == IA32_SYSENTER_ESP)
+        {
             sysenter_esp[0] = low;
-            break;
 
-        case IA32_APIC_BASE_MSR:
+        }
+        else if(index == IA32_APIC_BASE_MSR)
+        {
             {
                 dbg_assert_message(high == 0, "Changing APIC address (high 32 bits) not supported");
                 int32_t address = low & ~(IA32_APIC_BASE_BSP | IA32_APIC_BASE_EXTD | IA32_APIC_BASE_EN);
@@ -771,35 +774,40 @@ void instr_0F30() {
                 dbg_assert_message((low & IA32_APIC_BASE_EXTD) == 0, "x2apic not supported");
                 apic_enabled = (low & IA32_APIC_BASE_EN) == IA32_APIC_BASE_EN;
             }
-            break;
 
-        case IA32_TIME_STAMP_COUNTER:
+        }
+        else if(index == IA32_TIME_STAMP_COUNTER)
+        {
             set_tsc(low, high);
-            break;
 
-        case IA32_BIOS_SIGN_ID:
-            break;
+        }
+        else if(index == IA32_BIOS_SIGN_ID)
+        {
 
-        case MSR_MISC_FEATURE_ENABLES:
+        }
+        else if(index == MSR_MISC_FEATURE_ENABLES)
+        {
             // Linux 4, see: https://patchwork.kernel.org/patch/9528279/
-            break;
 
-        case IA32_MISC_ENABLE: // Enable Misc. Processor Features
-            break;
+        }
+        else if(index == IA32_MISC_ENABLE)
+        { // Enable Misc. Processor Features
 
-        case IA32_MCG_CAP:
+        }
+        else if(index == IA32_MCG_CAP)
+        {
             // netbsd
-            break;
-
-        case IA32_KERNEL_GS_BASE:
+        }
+        else if(index == IA32_KERNEL_GS_BASE)
+        {
             // Only used in 64 bit mode (by SWAPGS), but set by kvm-unit-test
             dbg_log("GS Base written");
-            break;
-
-        default:
-            dbg_log("Unknown msr: %x", index);
+        }
+        else
+        {
+            dbg_log1("Unknown msr: %x", index);
             assert(false);
-    }
+        }
 }
 
 void instr_0F31() {
@@ -830,37 +838,41 @@ void instr_0F32() {
 
     int32_t index = reg32s[ECX];
 
-    dbg_log("rdmsr ecx=%x", index);
+    dbg_log1("rdmsr ecx=%x", index);
 
     int32_t low = 0;
     int32_t high = 0;
 
-    switch(index)
-    {
-        case IA32_SYSENTER_CS:
+        if(index == IA32_SYSENTER_CS)
+        {
             low = sysenter_cs[0];
-            break;
 
-        case IA32_SYSENTER_EIP:
+        }
+        else if(index == IA32_SYSENTER_EIP)
+        {
             low = sysenter_eip[0];
-            break;
 
-        case IA32_SYSENTER_ESP:
+        }
+        else if(index == IA32_SYSENTER_ESP)
+        {
             low = sysenter_esp[0];
-            break;
 
-        case IA32_TIME_STAMP_COUNTER:
+        }
+        else if(index == IA32_TIME_STAMP_COUNTER)
+        {
             {
                 uint64_t tsc = read_tsc();
                 low = tsc;
                 high = tsc >> 32;
             }
-            break;
 
-        case IA32_PLATFORM_ID:
-            break;
+        }
+        else if(index == IA32_PLATFORM_ID)
+        {
 
-        case IA32_APIC_BASE_MSR:
+        }
+        else if(index == IA32_APIC_BASE_MSR)
+        {
             if(ENABLE_ACPI)
             {
                 low = APIC_ADDRESS;
@@ -870,40 +882,48 @@ void instr_0F32() {
                     low |= IA32_APIC_BASE_EN;
                 }
             }
-            break;
 
-        case IA32_BIOS_SIGN_ID:
-            break;
+        }
+        else if(index == IA32_BIOS_SIGN_ID)
+        {
 
-        case MSR_PLATFORM_INFO:
+        }
+        else if(index == MSR_PLATFORM_INFO)
+        {
             low = 1 << 8;
-            break;
 
-        case MSR_MISC_FEATURE_ENABLES:
-            break;
+        }
+        else if(index == MSR_MISC_FEATURE_ENABLES)
+        {
 
-        case IA32_MISC_ENABLE: // Enable Misc. Processor Features
+        }
+        else if(index == IA32_MISC_ENABLE)
+        { // Enable Misc. Processor Features
             low = 1 << 0; // fast string
-            break;
 
-        case IA32_RTIT_CTL:
+        }
+        else if(index == IA32_RTIT_CTL)
+        {
             // linux4
-            break;
 
-        case MSR_SMI_COUNT:
-            break;
+        }
+        else if(index == MSR_SMI_COUNT)
+        {
 
-        case IA32_MCG_CAP:
+        }
+        else if(index == IA32_MCG_CAP)
+        {
             // netbsd
-            break;
 
-        case MSR_PKG_C2_RESIDENCY:
-            break;
-
-        default:
-            dbg_log("Unknown msr: %x", index);
+        }
+        else if(index == MSR_PKG_C2_RESIDENCY)
+        {
+        }
+        else
+        {
+            dbg_log1("Unknown msr: %x", index);
             assert(false);
-    }
+        }
 
     reg32s[EAX] = low;
     reg32s[EDX] = high;
@@ -2363,7 +2383,7 @@ void instr_0FAE_2_mem(int32_t addr) {
     int32_t new_mxcsr = safe_read32s(addr);
     if(new_mxcsr & ~MXCSR_MASK)
     {
-        dbg_log("Invalid mxcsr bits: %x", (new_mxcsr & ~MXCSR_MASK));
+        dbg_log1("Invalid mxcsr bits: %x", (new_mxcsr & ~MXCSR_MASK));
         assert(false);
         trigger_gp_non_raising(0);
         return;
@@ -3922,14 +3942,14 @@ void instr_0FFF() {
     trigger_ud();
 }
 
-void run_instruction0f_16(int32_t opcode)
-{
-#include "../../build/interpreter0f_16.c"
-}
+//void run_instruction0f_16(int32_t opcode)
+//{
+//#include "../../build/interpreter0f_16.c"
+//}
 
-void run_instruction0f_32(int32_t opcode)
-{
-#include "../../build/interpreter0f_32.c"
-}
+//void run_instruction0f_32(int32_t opcode)
+//{
+//#include "../../build/interpreter0f_32.c"
+//}
 
 #pragma clang diagnostic pop

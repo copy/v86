@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -10,6 +9,8 @@
 #include "memory.h"
 #include "profiler/profiler.h"
 #include "rust_imports.h"
+
+const bool USE_A20 = false;
 
 bool in_mapped_range(uint32_t addr)
 {

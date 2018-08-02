@@ -4,28 +4,28 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#ifndef M_LOG2E
-#define M_LOG2E 1.44269504088896340736
-#endif
+//#ifndef M_LOG2E
+extern const double_t M_LOG2E;
+//#endif
 
-#ifndef M_LN2
-#define M_LN2 0.693147180559945309417
-#endif
+//#ifndef M_LN2
+extern const double_t M_LN2;
+//#endif
 
-#ifndef M_LN10
-#define M_LN10 2.30258509299404568402
-#endif
+//#ifndef M_LN10
+extern const double_t M_LN10;
+//#endif
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+//#ifndef M_PI
+extern const double_t M_PI;
+//#endif
 
-#define FPU_C0 0x100
-#define FPU_C1 0x200
-#define FPU_C2 0x400
-#define FPU_C3 0x4000
-#define FPU_RESULT_FLAGS (FPU_C0 | FPU_C1 | FPU_C2 | FPU_C3)
-#define FPU_STACK_TOP 0x3800
+extern const int32_t FPU_C0;
+extern const int32_t FPU_C1;
+extern const int32_t FPU_C2;
+extern const int32_t FPU_C3;
+extern const int32_t FPU_RESULT_FLAGS;
+extern const int32_t FPU_STACK_TOP;
 
 double_t fpu_get_st0(void);
 double_t fpu_get_sti(int32_t i);

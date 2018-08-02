@@ -1,5 +1,3 @@
-#include <assert.h>
-#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -418,8 +416,8 @@ DEFINE_MODRM_INSTR_READ8(instr_8A, write_reg8(r, ___))
 DEFINE_MODRM_INSTR_READ16(instr16_8B, write_reg16(r, ___))
 DEFINE_MODRM_INSTR_READ32(instr32_8B, write_reg32(r, ___))
 
-bool instr_8C_check_sreg(int32_t sreg) {
-    if(sreg >= 6)
+bool instr_8C_check_sreg(int32_t seg) {
+    if(seg >= 6)
     {
         dbg_log("mov sreg #ud");
         trigger_ud();
@@ -1039,7 +1037,7 @@ void instr_D9_4_reg(int32_t r)
             fpu_fxam(st0);
             break;
         default:
-            dbg_log("%x", r);
+            dbg_log1("%x", r);
             trigger_ud();
     }
 }
@@ -1653,9 +1651,9 @@ void instr32_FF_5_mem(int32_t addr)
 }
 DEFINE_MODRM_INSTR1_READ32(instr32_FF_6, push32(___))
 
-void run_instruction(int32_t opcode)
-{
-#include "../../build/interpreter.c"
-}
+//void run_instruction(int32_t opcode)
+//{
+//#include "../../build/interpreter.c"
+//}
 
 #pragma clang diagnostic pop

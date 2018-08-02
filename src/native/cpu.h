@@ -1,6 +1,5 @@
 #pragma once
 
-#include <assert.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -21,7 +20,7 @@ union reg128 {
     float_t f32[4];
     double_t f64[2];
 };
-_Static_assert(sizeof(union reg128) == 16, "reg128 is 16 bytes");
+//_Static_assert(sizeof(union reg128) == 16, "reg128 is 16 bytes");
 
 union reg64 {
     int8_t i8[8];
@@ -35,7 +34,7 @@ union reg64 {
     float_t f32[2];
     double f64[1];
 };
-_Static_assert(sizeof(union reg64) == 8, "reg64 is 8 bytes");
+//_Static_assert(sizeof(union reg64) == 8, "reg64 is 8 bytes");
 
 typedef uint8_t cached_state_flags;
 
@@ -43,36 +42,36 @@ typedef uint8_t cached_state_flags;
 // state-altering, etc.)
 extern bool jit_block_boundary;
 
-#define VALID_TLB_ENTRY_MAX 10000
-int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX];
-int32_t valid_tlb_entries_count;
+extern const int32_t VALID_TLB_ENTRY_MAX;
+extern int32_t valid_tlb_entries[10000];
+extern int32_t valid_tlb_entries_count;
 
-#define TLB_VALID (1 << 0)
-#define TLB_READONLY (1 << 1)
-#define TLB_NO_USER (1 << 2)
-#define TLB_IN_MAPPED_RANGE (1 << 3)
-#define TLB_GLOBAL (1 << 4)
-#define TLB_HAS_CODE (1 << 5)
+extern const int32_t TLB_VALID;
+extern const int32_t TLB_READONLY;
+extern const int32_t TLB_NO_USER;
+extern const int32_t TLB_IN_MAPPED_RANGE;
+extern const int32_t TLB_GLOBAL;
+extern const int32_t TLB_HAS_CODE;
 
-static const int32_t CPU_EXCEPTION_DE = 0;  // Divide Error
-static const int32_t CPU_EXCEPTION_DB = 1;  // Debug Exception
-static const int32_t CPU_EXCEPTION_NMI = 2; // NMI Interrupt
-static const int32_t CPU_EXCEPTION_BP = 3;  // Breakpoint
-static const int32_t CPU_EXCEPTION_OF = 4;  // Overflow
-static const int32_t CPU_EXCEPTION_BR = 5;  // BOUND Range Exceeded
-static const int32_t CPU_EXCEPTION_UD = 6;  // Invalid Opcode
-static const int32_t CPU_EXCEPTION_NM = 7;  // Device Not Available
-static const int32_t CPU_EXCEPTION_DF = 8;  // Double Fault
-static const int32_t CPU_EXCEPTION_TS = 10; // Invalid TSS
-static const int32_t CPU_EXCEPTION_NP = 11; // Segment Not Present
-static const int32_t CPU_EXCEPTION_SS = 12; // Stack-Segment Fault
-static const int32_t CPU_EXCEPTION_GP = 13; // General Protection
-static const int32_t CPU_EXCEPTION_PF = 14; // Page Fault
-static const int32_t CPU_EXCEPTION_MF = 16; // x87 FPU Floating-Point Error
-static const int32_t CPU_EXCEPTION_AC = 17; // Alignment Check
-static const int32_t CPU_EXCEPTION_MC = 18; // Machine Check Abort
-static const int32_t CPU_EXCEPTION_XM = 19; // SIMD Floating-Point Exception
-static const int32_t CPU_EXCEPTION_VE = 20; // Virtualization Exception
+extern const int32_t CPU_EXCEPTION_DE;  // Divide Error
+extern const int32_t CPU_EXCEPTION_DB;  // Debug Exception
+extern const int32_t CPU_EXCEPTION_NMI; // NMI Interrupt
+extern const int32_t CPU_EXCEPTION_BP;  // Breakpoint
+extern const int32_t CPU_EXCEPTION_OF;  // Overflow
+extern const int32_t CPU_EXCEPTION_BR;  // BOUND Range Exceeded
+extern const int32_t CPU_EXCEPTION_UD;  // Invalid Opcode
+extern const int32_t CPU_EXCEPTION_NM;  // Device Not Available
+extern const int32_t CPU_EXCEPTION_DF;  // Double Fault
+extern const int32_t CPU_EXCEPTION_TS; // Invalid TSS
+extern const int32_t CPU_EXCEPTION_NP; // Segment Not Present
+extern const int32_t CPU_EXCEPTION_SS; // Stack-Segment Fault
+extern const int32_t CPU_EXCEPTION_GP; // General Protection
+extern const int32_t CPU_EXCEPTION_PF; // Page Fault
+extern const int32_t CPU_EXCEPTION_MF; // x87 FPU Floating-Point Error
+extern const int32_t CPU_EXCEPTION_AC; // Alignment Check
+extern const int32_t CPU_EXCEPTION_MC; // Machine Check Abort
+extern const int32_t CPU_EXCEPTION_XM; // SIMD Floating-Point Exception
+extern const int32_t CPU_EXCEPTION_VE; // Virtualization Exception
 
 // defined in call-indirect.ll
 extern void call_indirect(int32_t index);

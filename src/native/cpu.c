@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -17,16 +16,198 @@
 #include "rust_imports.h"
 #include "shared.h"
 
+const int32_t FLAG_CARRY = 1;
+const int32_t FLAG_PARITY = 4;
+const int32_t FLAG_ADJUST = 16;
+const int32_t FLAG_ZERO = 64;
+const int32_t FLAG_SIGN = 128;
+const int32_t FLAG_TRAP = 256;
+const int32_t FLAG_INTERRUPT = 512;
+const int32_t FLAG_DIRECTION = 1024;
+const int32_t FLAG_OVERFLOW = 2048;
+const int32_t FLAG_IOPL = (1 << 12 | 1 << 13);
+const int32_t FLAG_NT = (1 << 14);
+const int32_t FLAG_RF = (1 << 16);
+const int32_t FLAG_VM = (1 << 17);
+const int32_t FLAG_AC = (1 << 18);
+const int32_t FLAG_VIF = (1 << 19);
+const int32_t FLAG_VIP = (1 << 20);
+const int32_t FLAG_ID = (1 << 21);
+const int32_t FLAGS_DEFAULT = (1 << 1);
+
+const int32_t FLAGS_MASK = (
+    FLAG_CARRY | FLAG_PARITY | FLAG_ADJUST | FLAG_ZERO | FLAG_SIGN | FLAG_TRAP | FLAG_INTERRUPT |
+    FLAG_DIRECTION | FLAG_OVERFLOW | FLAG_IOPL | FLAG_NT | FLAG_RF | FLAG_VM | FLAG_AC |
+    FLAG_VIF | FLAG_VIP | FLAG_ID);
+
+const int32_t FLAGS_ALL = (FLAG_CARRY | FLAG_PARITY | FLAG_ADJUST | FLAG_ZERO | FLAG_SIGN | FLAG_OVERFLOW);
+
+const int32_t OPSIZE_8 = 7;
+const int32_t OPSIZE_16 = 15;
+const int32_t OPSIZE_32 = 31;
+
+const int32_t EAX = 0;
+const int32_t ECX = 1;
+const int32_t EDX = 2;
+const int32_t EBX = 3;
+const int32_t ESP = 4;
+const int32_t EBP = 5;
+const int32_t ESI = 6;
+const int32_t EDI = 7;
+
+const int32_t AX = 0;
+const int32_t CX = 2;
+const int32_t DX = 4;
+const int32_t BX = 6;
+const int32_t SP = 8;
+const int32_t BP = 10;
+const int32_t SI = 12;
+const int32_t DI = 14;
+
+const int32_t AL = 0;
+const int32_t CL = 4;
+const int32_t DL = 8;
+const int32_t BL = 12;
+const int32_t AH = 1;
+const int32_t CH = 5;
+const int32_t DH = 9;
+const int32_t BH = 13;
+
+const int32_t ES = 0;
+const int32_t CS = 1;
+const int32_t SS = 2;
+const int32_t DS = 3;
+const int32_t FS = 4;
+const int32_t GS = 5;
+
+const int32_t TR = 6;
+const int32_t LDTR = 7;
+
+
+const int32_t PAGE_TABLE_PRESENT_MASK = (1 << 0);
+const int32_t PAGE_TABLE_RW_MASK = (1 << 1);
+const int32_t PAGE_TABLE_USER_MASK = (1 << 2);
+const int32_t PAGE_TABLE_ACCESSED_MASK = (1 << 5);
+const int32_t PAGE_TABLE_DIRTY_MASK = (1 << 6);
+const int32_t PAGE_TABLE_PSE_MASK = (1 << 7);
+const int32_t PAGE_TABLE_GLOBAL_MASK = (1 << 8);
+
+const int32_t MMAP_BLOCK_BITS = 17;
+const int32_t MMAP_BLOCK_SIZE = (1 << MMAP_BLOCK_BITS);
+
+const int32_t CR0_PE = 1;
+const int32_t CR0_MP = (1 << 1);
+const int32_t CR0_EM = (1 << 2);
+const int32_t CR0_TS = (1 << 3);
+const int32_t CR0_ET = (1 << 4);
+const int32_t CR0_WP = (1 << 16);
+const int32_t CR0_NW = (1 << 29);
+const int32_t CR0_CD = (1 << 30);
+const int32_t CR0_PG = (1 << 31);
+
+const int32_t CR4_VME = (1);
+const int32_t CR4_PVI = (1 << 1);
+const int32_t CR4_TSD = (1 << 2);
+const int32_t CR4_PSE = (1 << 4);
+const int32_t CR4_DE = (1 << 3);
+const int32_t CR4_PAE = (1 << 5);
+const int32_t CR4_PGE = (1 << 7);
+
+
+const int32_t IA32_SYSENTER_CS = 0x174;
+const int32_t IA32_SYSENTER_ESP = 0x175;
+const int32_t IA32_SYSENTER_EIP = 0x176;
+
+const int32_t IA32_TIME_STAMP_COUNTER = 0x10;
+const int32_t IA32_PLATFORM_ID = 0x17;
+const int32_t IA32_APIC_BASE_MSR = 0x1B;
+const int32_t IA32_BIOS_SIGN_ID = 0x8B;
+const int32_t MSR_PLATFORM_INFO = 0xCE;
+const int32_t MSR_MISC_FEATURE_ENABLES = 0x140;
+const int32_t IA32_MISC_ENABLE = 0x1A0;
+const int32_t IA32_RTIT_CTL = 0x570;
+const int32_t MSR_SMI_COUNT = 0x34;
+const int32_t IA32_MCG_CAP = 0x179;
+const int32_t IA32_KERNEL_GS_BASE = 0xC0000101;
+const int32_t MSR_PKG_C2_RESIDENCY = 0x60D;
+
+const int32_t IA32_APIC_BASE_BSP = (1 << 8);
+const int32_t IA32_APIC_BASE_EXTD = (1 << 10);
+const int32_t IA32_APIC_BASE_EN = (1 << 11);
+
+
+// Note: Duplicated in apic.js
+const int32_t APIC_ADDRESS = ((int32_t)0xFEE00000);
+
+
+// Segment prefixes must not collide with reg_*s variables
+// _ZERO is a special zero offset segment
+const int32_t SEG_PREFIX_NONE = (-1);
+const int32_t SEG_PREFIX_ZERO = 7;
+
+const int32_t PREFIX_MASK_REP = 0b11000;
+const int32_t PREFIX_REPZ = 0b01000;
+const int32_t PREFIX_REPNZ = 0b10000;
+
+const int32_t PREFIX_MASK_SEGMENT = 0b111;
+const int32_t PREFIX_MASK_OPSIZE = 0b100000;
+const int32_t PREFIX_MASK_ADDRSIZE = 0b1000000;
+
+// aliases
+const int32_t PREFIX_F2 = PREFIX_REPNZ;
+const int32_t PREFIX_F3 = PREFIX_REPZ;
+const int32_t PREFIX_66 = PREFIX_MASK_OPSIZE;
+
+const int32_t LOG_CPU =    0x000002;
+
+const int32_t A20_MASK = (~(1 << 20));
+const int32_t A20_MASK16 = (~(1 << (20 - 1)));
+const int32_t A20_MASK32 = (~(1 << (20 - 2)));
+
+const int32_t MXCSR_MASK = (0xFFFF & ~(1 << 6));
+
+const int32_t CPU_EXCEPTION_DE = 0;  // Divide Error
+const int32_t CPU_EXCEPTION_DB = 1;  // Debug Exception
+const int32_t CPU_EXCEPTION_NMI = 2; // NMI Interrupt
+const int32_t CPU_EXCEPTION_BP = 3;  // Breakpoint
+const int32_t CPU_EXCEPTION_OF = 4;  // Overflow
+const int32_t CPU_EXCEPTION_BR = 5;  // BOUND Range Exceeded
+const int32_t CPU_EXCEPTION_UD = 6;  // Invalid Opcode
+const int32_t CPU_EXCEPTION_NM = 7;  // Device Not Available
+const int32_t CPU_EXCEPTION_DF = 8;  // Double Fault
+const int32_t CPU_EXCEPTION_TS = 10; // Invalid TSS
+const int32_t CPU_EXCEPTION_NP = 11; // Segment Not Present
+const int32_t CPU_EXCEPTION_SS = 12; // Stack-Segment Fault
+const int32_t CPU_EXCEPTION_GP = 13; // General Protection
+const int32_t CPU_EXCEPTION_PF = 14; // Page Fault
+const int32_t CPU_EXCEPTION_MF = 16; // x87 FPU Floating-Point Error
+const int32_t CPU_EXCEPTION_AC = 17; // Alignment Check
+const int32_t CPU_EXCEPTION_MC = 18; // Machine Check Abort
+const int32_t CPU_EXCEPTION_XM = 19; // SIMD Floating-Point Exception
+const int32_t CPU_EXCEPTION_VE = 20; // Virtualization Exception
+
+const int32_t LOOP_COUNTER = 20011;
+const double_t TSC_RATE = (50 * 1000);
+
+const bool CHECK_TLB_INVARIANTS = false;
+
+const int32_t TLB_VALID = (1 << 0);
+const int32_t TLB_READONLY = (1 << 1);
+const int32_t TLB_NO_USER = (1 << 2);
+const int32_t TLB_IN_MAPPED_RANGE = (1 << 3);
+const int32_t TLB_GLOBAL = (1 << 4);
+const int32_t TLB_HAS_CODE = (1 << 5);
+
 #if DEBUG
 bool must_not_fault = false;
 #endif
 
-#if CHECK_CPU_EXCEPTIONS
+#if 1
 int32_t current_cpu_exception = -1;
 void assert_no_cpu_exception() {
     if(current_cpu_exception != -1)
     {
-        dbg_log("Expected no cpu exception, got %d", current_cpu_exception);
+        dbg_log1("Expected no cpu exception, got %d", current_cpu_exception);
         dbg_trace();
         assert(false);
     }
@@ -43,6 +224,7 @@ uint64_t tsc_offset = 0;
 
 bool jit_block_boundary = false;
 
+const int32_t VALID_TLB_ENTRY_MAX = 10000;
 int32_t valid_tlb_entries[VALID_TLB_ENTRY_MAX] = {0};
 int32_t valid_tlb_entries_count = 0;
 
@@ -111,9 +293,9 @@ void update_eflags(int32_t new_flags)
 
 void trigger_pagefault(bool write, bool user, bool present)
 {
-    if(LOG_PAGE_FAULTS)
+    if(false)
     {
-        dbg_log("page fault w=%d u=%d p=%d eip=%x cr2=%x",
+        dbg_log5("page fault w=%d u=%d p=%d eip=%x cr2=%x",
                 write, user, present, *previous_ip, cr[2]);
         dbg_trace();
     }
@@ -296,20 +478,21 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
     }
     else
     {
-#if CHECK_TLB_INVARIANTS
-        bool found = false;
-
-        for(int32_t i = 0; i < valid_tlb_entries_count; i++)
+        if(CHECK_TLB_INVARIANTS)
         {
-            if(valid_tlb_entries[i] == page)
-            {
-                found = true;
-                break;
-            }
-        }
+            bool found = false;
 
-        assert(found);
-#endif
+            for(int32_t i = 0; i < valid_tlb_entries_count; i++)
+            {
+                if(valid_tlb_entries[i] == page)
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            assert(found);
+        }
     }
 
     bool is_in_mapped_range = in_mapped_range(high);
@@ -356,7 +539,8 @@ void tlb_set_has_code(uint32_t physical_page, bool has_code)
 
 void check_tlb_invariants(void)
 {
-#if CHECK_TLB_INVARIANTS
+    if(!CHECK_TLB_INVARIANTS) return;
+
     for(int32_t i = 0; i < valid_tlb_entries_count; i++)
     {
         int32_t page = valid_tlb_entries[i];
@@ -381,7 +565,6 @@ void check_tlb_invariants(void)
         // problem when clearing code from a page)
         dbg_assert(!entry_has_code || has_code);
     }
-#endif
 }
 
 int32_t get_valid_tlb_entries_count(void)
@@ -704,7 +887,7 @@ bool same_page(int32_t addr1, int32_t addr2)
 void cycle_internal()
 {
     profiler_stat_increment(S_CYCLE_INTERNAL);
-#if ENABLE_JIT
+    if(true) {
 
     *previous_ip = *instruction_pointer;
     uint32_t phys_addr = get_phys_eip();
@@ -722,7 +905,7 @@ void cycle_internal()
 
         uint16_t wasm_table_index = entry & 0xFFFF;
         uint16_t initial_state = entry >> 16;
-        call_indirect1(wasm_table_index, initial_state);
+        call_indirect1((uint32_t)wasm_table_index + 0x100, initial_state);
 
         clear_current_cpu_exception();
 
@@ -751,7 +934,9 @@ void cycle_internal()
         profiler_stat_increment_by(S_RUN_INTERPRETED_STEPS, *timestamp_counter - initial_tsc);
     }
 
-#else
+    }
+    else
+    {
 /* Use non-JIT mode */
     previous_ip[0] = instruction_pointer[0];
 
@@ -764,7 +949,7 @@ void cycle_internal()
 #endif
 
     run_instruction(opcode | !!*is_32 << 8);
-#endif
+    }
 }
 
 void run_prefix_instruction()
@@ -806,7 +991,7 @@ void raise_exception(int32_t interrupt_nr)
 #if DEBUG
     if(must_not_fault)
     {
-        dbg_log("Unexpected fault: 0x%x", interrupt_nr);
+        dbg_log1("Unexpected fault: 0x%x", interrupt_nr);
         dbg_trace();
         assert(false);
     }
@@ -827,7 +1012,7 @@ void raise_exception_with_code(int32_t interrupt_nr, int32_t error_code)
 #if DEBUG
     if(must_not_fault)
     {
-        dbg_log("Unexpected fault: 0x%x with code 0x%x", interrupt_nr, error_code);
+        dbg_log2("Unexpected fault: 0x%x with code 0x%x", interrupt_nr, error_code);
         dbg_trace();
         assert(false);
     }
@@ -1467,12 +1652,13 @@ void clear_tlb()
 
     valid_tlb_entries_count = global_page_offset;
 
-#if CHECK_TLB_INVARIANTS
-    for(int32_t i = 0; i < 0x100000; i++)
+    if(CHECK_TLB_INVARIANTS)
     {
-        assert(tlb_data[i] == 0 || (tlb_data[i] & TLB_GLOBAL));
+        for(int32_t i = 0; i < 0x100000; i++)
+        {
+            assert(tlb_data[i] == 0 || (tlb_data[i] & TLB_GLOBAL));
+        }
     }
-#endif
 }
 
 void full_clear_tlb()
@@ -1491,12 +1677,13 @@ void full_clear_tlb()
 
     valid_tlb_entries_count = 0;
 
-#if CHECK_TLB_INVARIANTS
-    for(int32_t i = 0; i < 0x100000; i++)
+    if(CHECK_TLB_INVARIANTS)
     {
-        assert(tlb_data[i] == 0);
+        for(int32_t i = 0; i < 0x100000; i++)
+        {
+            assert(tlb_data[i] == 0);
+        }
     }
-#endif
 }
 
 void invlpg(int32_t addr)

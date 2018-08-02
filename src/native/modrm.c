@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -14,6 +13,11 @@ static int32_t resolve_sib(bool mod);
 
 #define ds get_seg_prefix_ds
 #define ss get_seg_prefix_ss
+
+int32_t MODRM_ENTRY() { return 0; }
+int32_t MODRM_ENTRY16() { return 0; }
+int32_t MODRM_ENTRY32() { return 0; }
+
 
 #define MODRM_ENTRY(n, offset)\
     case (n) | 0 << 3:\
@@ -35,19 +39,19 @@ int32_t resolve_modrm16(int32_t modrm_byte)
 {
     switch(modrm_byte)
     {
-        MODRM_ENTRY16(0, ds, reg16[BX] + reg16[SI])
-        MODRM_ENTRY16(1, ds, reg16[BX] + reg16[DI])
-        MODRM_ENTRY16(2, ss, reg16[BP] + reg16[SI])
-        MODRM_ENTRY16(3, ss, reg16[BP] + reg16[DI])
-        MODRM_ENTRY16(4, ds, reg16[SI])
-        MODRM_ENTRY16(5, ds, reg16[DI])
+        MODRM_ENTRY16(0, ds, reg16[BX] + reg16[SI]);
+        MODRM_ENTRY16(1, ds, reg16[BX] + reg16[DI]);
+        MODRM_ENTRY16(2, ss, reg16[BP] + reg16[SI]);
+        MODRM_ENTRY16(3, ss, reg16[BP] + reg16[DI]);
+        MODRM_ENTRY16(4, ds, reg16[SI]);
+        MODRM_ENTRY16(5, ds, reg16[DI]);
 
         // special case
-        MODRM_ENTRY(0x00 | 6, ds(read_imm16()))
-        MODRM_ENTRY(0x40 | 6, ss(reg16[BP] + read_imm8s() & 0xFFFF))
-        MODRM_ENTRY(0x80 | 6, ss(reg16[BP] + read_imm16() & 0xFFFF))
+        MODRM_ENTRY(0x00 | 6, ds(read_imm16()));
+        MODRM_ENTRY(0x40 | 6, ss(reg16[BP] + read_imm8s() & 0xFFFF));
+        MODRM_ENTRY(0x80 | 6, ss(reg16[BP] + read_imm16() & 0xFFFF));
 
-        MODRM_ENTRY16(7, ds, reg16[BX])
+        MODRM_ENTRY16(7, ds, reg16[BX]);
 
         default:
             assert(false);
@@ -63,25 +67,25 @@ int32_t resolve_modrm16(int32_t modrm_byte)
     MODRM_ENTRY(0x40 | (row), seg((value) + read_imm8s()))\
     MODRM_ENTRY(0x80 | (row), seg((value) + read_imm32s()))\
 
-int32_t resolve_modrm32(int32_t modrm_byte)
+int32_t resolve_modrm32_(int32_t modrm_byte)
 {
     switch(modrm_byte)
     {
-        MODRM_ENTRY32(0, ds, reg32s[EAX])
-        MODRM_ENTRY32(1, ds, reg32s[ECX])
-        MODRM_ENTRY32(2, ds, reg32s[EDX])
-        MODRM_ENTRY32(3, ds, reg32s[EBX])
+        MODRM_ENTRY32(0, ds, reg32s[EAX]);
+        MODRM_ENTRY32(1, ds, reg32s[ECX]);
+        MODRM_ENTRY32(2, ds, reg32s[EDX]);
+        MODRM_ENTRY32(3, ds, reg32s[EBX]);
 
         // special cases
-        MODRM_ENTRY(0x00 | 4, resolve_sib(false))
-        MODRM_ENTRY(0x40 | 4, resolve_sib(true) + read_imm8s())
-        MODRM_ENTRY(0x80 | 4, resolve_sib(true) + read_imm32s())
-        MODRM_ENTRY(0x00 | 5, ds(read_imm32s()))
-        MODRM_ENTRY(0x40 | 5, ss(reg32s[EBP] + read_imm8s()))
-        MODRM_ENTRY(0x80 | 5, ss(reg32s[EBP] + read_imm32s()))
+        MODRM_ENTRY(0x00 | 4, resolve_sib(false));
+        MODRM_ENTRY(0x40 | 4, resolve_sib(true) + read_imm8s());
+        MODRM_ENTRY(0x80 | 4, resolve_sib(true) + read_imm32s());
+        MODRM_ENTRY(0x00 | 5, ds(read_imm32s()));
+        MODRM_ENTRY(0x40 | 5, ss(reg32s[EBP] + read_imm8s()));
+        MODRM_ENTRY(0x80 | 5, ss(reg32s[EBP] + read_imm32s()));
 
-        MODRM_ENTRY32(6, ds, reg32s[ESI])
-        MODRM_ENTRY32(7, ds, reg32s[EDI])
+        MODRM_ENTRY32(6, ds, reg32s[ESI]);
+        MODRM_ENTRY32(7, ds, reg32s[EDI]);
 
         default:
             assert(false);
@@ -190,8 +194,7 @@ static int32_t resolve_sib(bool mod)
     return get_seg_prefix(seg) + base + offset;
 }
 
-#if 0
-static inline int32_t resolve_modrm32_(int32_t modrm_byte)
+int32_t resolve_modrm32(int32_t modrm_byte)
 {
     uint8_t r = modrm_byte & 7;
     assert(modrm_byte < 0xC0);
@@ -230,4 +233,3 @@ static inline int32_t resolve_modrm32_(int32_t modrm_byte)
         }
     }
 }
-#endif

@@ -408,14 +408,15 @@ bool sse_comparison(int32_t op, double_t x, double_t y)
         case 0: return x == y;
         case 1: return x < y;
         case 2: return x <= y;
-        case 3: return isnan(x) || isnan(y);
-        case 4: return x != y || isnan(x) || isnan(y);
-        case 5: return x >= y || isnan(x) || isnan(y);
-        case 6: return x > y || isnan(x) || isnan(y);
-        case 7: return !isnan(x) && !isnan(y);
+        case 3: return isnan_XXX(x) || isnan_XXX(y);
+        case 4: return x != y || isnan_XXX(x) || isnan_XXX(y);
+        case 5: return x >= y || isnan_XXX(x) || isnan_XXX(y);
+        case 6: return x > y || isnan_XXX(x) || isnan_XXX(y);
+        case 7: return !isnan_XXX(x) && !isnan_XXX(y);
     }
 
     assert(false);
+    return false;
 }
 
 double_t sse_min(double_t x, double_t y)

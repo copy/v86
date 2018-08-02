@@ -16,24 +16,24 @@
 
 
 #define DEFINE_MODRM_INSTR_IMM_READ_WRITE_16(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r, int32_t imm) { SAFE_READ_WRITE16(addr, fun) } \
+    void name ## _mem(int32_t addr, int32_t r, int32_t imm) { SAFE_READ_WRITE16(addr, fun); } \
     void name ## _reg(int32_t r1, int32_t r, int32_t imm) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
 
 #define DEFINE_MODRM_INSTR_IMM_READ_WRITE_32(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r, int32_t imm) { SAFE_READ_WRITE32(addr, fun) } \
+    void name ## _mem(int32_t addr, int32_t r, int32_t imm) { SAFE_READ_WRITE32(addr, fun); } \
     void name ## _reg(int32_t r1, int32_t r, int32_t imm) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
 
 
 #define DEFINE_MODRM_INSTR_READ_WRITE_8(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE8(addr, fun) } \
+    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE8(addr, fun); } \
     void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg8(r1); write_reg8(r1, fun); }
 
 #define DEFINE_MODRM_INSTR_READ_WRITE_16(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE16(addr, fun) } \
+    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE16(addr, fun); } \
     void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg16(r1); write_reg16(r1, fun); }
 
 #define DEFINE_MODRM_INSTR_READ_WRITE_32(name, fun) \
-    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE32(addr, fun) } \
+    void name ## _mem(int32_t addr, int32_t r) { SAFE_READ_WRITE32(addr, fun); } \
     void name ## _reg(int32_t r1, int32_t r) { int32_t ___ = read_reg32(r1); write_reg32(r1, fun); }
 
 

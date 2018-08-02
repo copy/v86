@@ -7,6 +7,8 @@ extern crate quickcheck;
 #[macro_use]
 mod dbg;
 
+mod cpu2;
+
 pub mod c_api;
 
 mod analysis;

@@ -8,8 +8,9 @@
 #include "log.h"
 #include "memory.h"
 #include "string.h"
+#include "shared.h"
 
-#define MAX_COUNT_PER_CYCLE 0x1000
+const int32_t MAX_COUNT_PER_CYCLE = 0x1000;
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 int32_t string_get_cycle_count(int32_t size, int32_t address)
