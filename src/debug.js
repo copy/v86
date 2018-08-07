@@ -713,16 +713,29 @@ CPU.prototype.debug_init = function()
         //}
     };
 
+    let cs;
     let capstone_decoder;
 
     debug.dump_code = function(is_32, buffer, start)
     {
         if(!capstone_decoder)
         {
-            if(typeof cs === "undefined")
+            if(cs === undefined)
             {
-                dbg_log("Warning: Missing capstone library, disassembly not available");
-                return;
+                if(typeof require === "function")
+                {
+                    cs = require("./capstone-x86.min.js");
+                }
+                else
+                {
+                    cs = window.cs;
+                }
+
+                if(cs === undefined)
+                {
+                    dbg_log("Warning: Missing capstone library, disassembly not available");
+                    return;
+                }
             }
 
             capstone_decoder = [
@@ -761,12 +774,26 @@ CPU.prototype.debug_init = function()
         window.URL.revokeObjectURL(a.src);
     }
 
+    let wabt;
+
     debug.dump_wasm = function(buffer)
     {
-        if(typeof wabt === "undefined")
+        if(wabt === undefined)
         {
-            dbg_log("Warning: Missing libwabt, wasm dump not available");
-            return;
+            if(typeof require === "function")
+            {
+                wabt = require("./libwabt.js");
+            }
+            else
+            {
+                wabt = window.wabt;
+            }
+
+            if(wabt === undefined)
+            {
+                dbg_log("Warning: Missing libwabt, wasm dump not available");
+                return;
+            }
         }
 
         // Need to make a small copy otherwise libwabt goes nuts trying to copy
