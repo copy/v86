@@ -1161,7 +1161,12 @@ CPU.prototype.do_run = function()
 
         if(this.in_hlt[0])
         {
-            return;
+            let t = this.hlt_loop();
+
+            if(this.in_hlt[0])
+            {
+                return t;
+            }
         }
 
         now = v86.microtick();
