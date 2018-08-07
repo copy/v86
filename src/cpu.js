@@ -448,6 +448,11 @@ CPU.prototype.set_state = function(state)
     this.reg32s.set(state[39]);
     this.sreg.set(state[40]);
     this.dreg.set(state[41]);
+
+    if(this.mem8.length !== state[42].length)
+    {
+        console.warn("Note: Memory size mismatch. we=" + this.mem8.length + " state=" + state[42].length);
+    }
     this.mem8.set(state[42]);
 
     this.set_tsc(state[43][0], state[43][1]);
