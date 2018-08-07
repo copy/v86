@@ -67,7 +67,11 @@ const print_stats = {
 
         text += "\n";
 
-        text += "TLB_ENTRIES=" + cpu.wm.exports["_get_valid_tlb_entries_count"]() + "\n";
+        const tlb_entries = cpu.wm.exports["_get_valid_tlb_entries_count"]();
+        const global_tlb_entries = cpu.wm.exports["_get_valid_global_tlb_entries_count"]();
+        const nonglobal_tlb_entries = tlb_entries - global_tlb_entries;
+
+        text += "TLB_ENTRIES=" + tlb_entries + " (" + global_tlb_entries + " global, " + nonglobal_tlb_entries + " non-global)\n";
         text += "CACHE_UNUSED=" + cpu.v86oxide.exports["jit_unused_cache_stat"]() + "\n";
         text += "WASM_TABLE_FREE=" + cpu.v86oxide.exports["jit_get_wasm_table_index_free_list_count"]() + "\n";
 

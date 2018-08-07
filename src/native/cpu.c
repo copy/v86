@@ -386,7 +386,38 @@ void check_tlb_invariants(void)
 
 int32_t get_valid_tlb_entries_count(void)
 {
-    return valid_tlb_entries_count;
+    int32_t result = 0;
+
+    for(int32_t i = 0; i < valid_tlb_entries_count; i++)
+    {
+        int32_t page = valid_tlb_entries[i];
+        int32_t entry = tlb_data[page];
+
+        if(entry)
+        {
+            result++;
+        }
+    }
+
+    return result;
+}
+
+int32_t get_valid_global_tlb_entries_count(void)
+{
+    int32_t result = 0;
+
+    for(int32_t i = 0; i < valid_tlb_entries_count; i++)
+    {
+        int32_t page = valid_tlb_entries[i];
+        int32_t entry = tlb_data[page];
+
+        if(entry & TLB_GLOBAL)
+        {
+            result++;
+        }
+    }
+
+    return result;
 }
 
 void writable_or_pagefault(int32_t addr, int32_t size)
