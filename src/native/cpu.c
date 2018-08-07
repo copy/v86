@@ -794,7 +794,7 @@ void do_many_cycles_unsafe()
 #else
     uint32_t initial_timestamp_counter = *timestamp_counter;
 
-    for(; *timestamp_counter - initial_timestamp_counter < LOOP_COUNTER; )
+    for(; *timestamp_counter - initial_timestamp_counter < LOOP_COUNTER && !in_hlt[0]; )
 #endif
     {
         cycle_internal();

@@ -36,7 +36,7 @@ static int32_t* const gdtr_offset = (int32_t* const) 576;
 static int32_t* const cr = (int32_t* const) 580; // length 32
 
 static uint8_t* const cpl = (uint8_t* const) 612;
-// gap
+static bool* const in_hlt = (bool* const) 616;
 static int32_t* const last_virt_eip = (int32_t* const) 620;
 static int32_t* const eip_phys = (int32_t* const) 624;
 static int32_t* const last_virt_esp = (int32_t* const) 628;

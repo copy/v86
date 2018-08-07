@@ -79,9 +79,8 @@ function CPU(bus, wm, v86oxide, coverage_logger)
 
     /**
      * Was the last instruction a hlt?
-     * @type {boolean}
      */
-    this.in_hlt = false;
+    this.in_hlt = new Uint8Array(wm.memory.buffer, 616, 1);
 
     this.last_virt_eip = new Int32Array(wm.memory.buffer, 620, 1);
 
@@ -341,7 +340,7 @@ CPU.prototype.get_state = function()
     state[13] = this.is_32[0];
 
     state[16] = this.stack_size_32[0];
-    state[17] = this.in_hlt;
+    state[17] = this.in_hlt[0];
     state[18] = this.last_virt_eip[0];
     state[19] = this.eip_phys[0];
     state[20] = this.last_virt_esp[0];
@@ -426,7 +425,7 @@ CPU.prototype.set_state = function(state)
 
     this.stack_size_32[0] = state[16];
 
-    this.in_hlt = state[17];
+    this.in_hlt[0] = state[17];
     this.last_virt_eip[0] = state[18];
     this.eip_phys[0] = state[19];
     this.last_virt_esp[0] = state[20];
@@ -505,7 +504,7 @@ CPU.prototype.set_state = function(state)
  */
 CPU.prototype.main_run = function()
 {
-    if(this.in_hlt)
+    if(this.in_hlt[0])
     {
         //if(false)
         //{
@@ -517,7 +516,7 @@ CPU.prototype.main_run = function()
             var t = this.hlt_loop();
         //}
 
-        if(this.in_hlt)
+        if(this.in_hlt[0])
         {
             return t;
         }
@@ -615,7 +614,7 @@ CPU.prototype.reset = function()
 
     this.timestamp_counter[0] = 0;
     this.previous_ip[0] = 0;
-    this.in_hlt = false;
+    this.in_hlt[0] = +false;
 
     this.sysenter_cs[0] = 0;
     this.sysenter_esp[0] = 0;
@@ -1160,7 +1159,7 @@ CPU.prototype.do_run = function()
 
         this.do_many_cycles();
 
-        if(this.in_hlt)
+        if(this.in_hlt[0])
         {
             return;
         }
@@ -1482,7 +1481,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, ha
     // we have to leave hlt_loop at some point, this is a
     // good place to do it
     //this.in_hlt && dbg_log("Leave HLT loop", LOG_CPU);
-    this.in_hlt = false;
+    this.in_hlt[0] = +false;
 
     if(this.protected_mode[0])
     {
@@ -2871,20 +2870,7 @@ CPU.prototype.hlt_op = function()
     }
 
     // get out of here and into hlt_loop
-    this.in_hlt = true;
-
-    //if(false) // possibly unsafe, test in safari
-    //{
-    //    this.hlt_loop();
-    //    if(this.in_hlt)
-    //    {
-    //        throw MAGIC_CPU_EXCEPTION;
-    //    }
-    //}
-    //else
-    {
-        throw MAGIC_CPU_EXCEPTION;
-    }
+    this.in_hlt[0] = +true;
 };
 
 CPU.prototype.undefined_instruction = function()
