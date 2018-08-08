@@ -45,6 +45,7 @@ macro_rules! dbg_assert {
                 column!(),
                 stringify!($cond),
             ));
+            #[allow(unused_unsafe)]
             unsafe {
                 abort();
             }
@@ -61,6 +62,7 @@ macro_rules! dbg_assert {
                 stringify!($cond),
                 $desc,
             ));
+            #[allow(unused_unsafe)]
             unsafe {
                 abort();
             }

@@ -1,4 +1,5 @@
 #![feature(const_fn)]
+#![feature(extern_types)]
 
 #[cfg(test)]
 #[macro_use]
@@ -7,7 +8,7 @@ extern crate quickcheck;
 #[macro_use]
 mod dbg;
 
-mod cpu2;
+pub mod cpu2;
 
 pub mod c_api;
 

@@ -12,8 +12,11 @@ path = "src/rust/lib.rs"
 
 [profile.dev]
 lto = false
-opt-level=2
+# XXX: 2 -> removes debug information in later rust verions
+#      0 -> requires more imports that are optimised away
+opt-level = 2
 panic = "abort"
+overflow-checks = false
 
 [profile.release]
 lto = true

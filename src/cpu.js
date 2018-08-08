@@ -19,46 +19,64 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     this.wasm_patch(wm);
     this.create_jit_imports();
 
-    this.memory_size = new Uint32Array(wm.memory.buffer, 812, 1);
+    const memory = v86oxide.instance.exports.memory;
+
+    Object.defineProperty(this, "memory_size", { get: () => { return new Uint32Array(memory.buffer, 812, 1); } });
+    if(false) this.memory_size = new Uint32Array(memory.buffer, 812, 1);
 
     // Note: Currently unused (degrades performance and not required by any OS
     //       that we support)
-    this.a20_enabled = new Int32Array(wm.memory.buffer, 552, 1);
+    if(false) this.a20_enabled = new Int32Array(memory.buffer, 552, 1);
+    Object.defineProperty(this, "a20_enabled", { get: () => { return new Int32Array(memory.buffer, 552, 1); } });
     this.a20_enabled[0] = +true;
 
-    this.mem_page_infos = undefined;
+    if(false) this.mem8 = new Uint8Array(0);
+    if(false) this.mem16 = new Uint16Array(this.mem8.buffer);
+    if(false) this.mem32s = new Int32Array(this.mem8.buffer);
 
-    this.mem8 = new Uint8Array(0);
-    this.mem16 = new Uint16Array(this.mem8.buffer);
-    this.mem32s = new Int32Array(this.mem8.buffer);
+    Object.defineProperty(this, "mem8", { get: () => { return new Uint8Array(memory.buffer, GUEST_MEMORY_START, this.memory_size[0]); } });
+    Object.defineProperty(this, "mem16", { get: () => { return new Uint16Array(memory.buffer, GUEST_MEMORY_START, this.memory_size[0] >> 1); } });
+    Object.defineProperty(this, "mem32s", { get: () => { return new Int32Array(memory.buffer, GUEST_MEMORY_START, this.memory_size[0] >> 2); } });
 
-    this.segment_is_null = new Uint8Array(wm.memory.buffer, 724, 8);
-    this.segment_offsets = new Int32Array(wm.memory.buffer, 736, 8);
-    this.segment_limits = new Uint32Array(wm.memory.buffer, 768, 8);
-    //this.segment_infos = [];
+    if(false) this.segment_is_null = new Uint8Array(memory.buffer, 724, 8);
+    Object.defineProperty(this, "segment_is_null", { get: () => { return new Uint8Array(memory.buffer, 724, 8); } });
+
+    if(false) this.segment_offsets = new Int32Array(memory.buffer, 736, 8);
+    Object.defineProperty(this, "segment_offsets", { get: () => { return new Int32Array(memory.buffer, 736, 8); } });
+
+    if(false) this.segment_limits = new Uint32Array(memory.buffer, 768, 8);
+    Object.defineProperty(this, "segment_limits", { get: () => { return new Uint32Array(memory.buffer, 768, 8); } });
 
     /**
      * Wheter or not in protected mode
      */
-    this.protected_mode = new Int32Array(wm.memory.buffer, 800, 1);
+    if(false) this.protected_mode = new Int32Array(memory.buffer, 800, 1);
+    Object.defineProperty(this, "protected_mode", { get: () => { return new Int32Array(memory.buffer, 800, 1); } });
 
-    this.idtr_size = new Int32Array(wm.memory.buffer, 564, 1);
-    this.idtr_offset = new Int32Array(wm.memory.buffer, 568, 1);
+    if(false) this.idtr_size = new Int32Array(memory.buffer, 564, 1);
+    if(false) this.idtr_offset = new Int32Array(memory.buffer, 568, 1);
+    Object.defineProperty(this, "idtr_size", { get: () => { return new Int32Array(memory.buffer, 564, 1); } });
+    Object.defineProperty(this, "idtr_offset", { get: () => { return new Int32Array(memory.buffer, 568, 1); } });
 
     /**
      * global descriptor table register
      */
-    this.gdtr_size = new Int32Array(wm.memory.buffer, 572, 1);
-    this.gdtr_offset = new Int32Array(wm.memory.buffer, 576, 1);
+    if(false) this.gdtr_size = new Int32Array(memory.buffer, 572, 1);
+    if(false) this.gdtr_offset = new Int32Array(memory.buffer, 576, 1);
+
+    Object.defineProperty(this, "gdtr_size", { get: () => { return new Int32Array(memory.buffer, 572, 1); } });
+    Object.defineProperty(this, "gdtr_offset", { get: () => { return new Int32Array(memory.buffer, 576, 1); } });
 
     this.tss_size_32 = false;
 
     /*
      * whether or not a page fault occured
      */
-    this.page_fault = new Uint32Array(wm.memory.buffer, 540, 8);
+    if(false) this.page_fault = new Uint32Array(memory.buffer, 540, 8);
+    Object.defineProperty(this, "page_fault", { get: () => { return new Uint32Array(memory.buffer, 540, 8); } });
 
-    this.cr = new Int32Array(wm.memory.buffer, 580, 8);
+    if(false) this.cr = new Int32Array(memory.buffer, 580, 8);
+    Object.defineProperty(this, "cr", { get: () => { return new Int32Array(memory.buffer, 580, 8); } });
 
     /** @type {number} */
     this.cr[0] = 0;
@@ -70,62 +88,76 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     this.cr[4] = 0;
 
     // current privilege level
-    this.cpl = new Int32Array(wm.memory.buffer, 612, 1);
+    if(false) this.cpl = new Int32Array(memory.buffer, 612, 1);
+    Object.defineProperty(this, "cpl", { get: () => { return new Int32Array(memory.buffer, 612, 1); } });
 
     // current operand/address size
-    this.is_32 = new Int32Array(wm.memory.buffer, 804, 1);
+    if(false) this.is_32 = new Int32Array(memory.buffer, 804, 1);
+    Object.defineProperty(this, "is_32", { get: () => { return new Int32Array(memory.buffer, 804, 1); } });
 
-    this.stack_size_32 = new Int32Array(wm.memory.buffer, 808, 1);
+    if(false) this.stack_size_32 = new Int32Array(memory.buffer, 808, 1);
+    Object.defineProperty(this, "stack_size_32", { get: () => { return new Int32Array(memory.buffer, 808, 1); } });
 
     /**
      * Was the last instruction a hlt?
      */
-    this.in_hlt = new Uint8Array(wm.memory.buffer, 616, 1);
+    if(false) this.in_hlt = new Uint8Array(memory.buffer, 616, 1);
+    Object.defineProperty(this, "in_hlt", { get: () => { return new Uint8Array(memory.buffer, 616, 1); } });
 
-    this.last_virt_eip = new Int32Array(wm.memory.buffer, 620, 1);
+    this.last_virt_eip = new Int32Array(memory.buffer, 620, 1);
 
-    this.eip_phys = new Int32Array(wm.memory.buffer, 624, 1);
+    this.eip_phys = new Int32Array(memory.buffer, 624, 1);
 
-    this.last_virt_esp = new Int32Array(wm.memory.buffer, 628, 1);
+    this.last_virt_esp = new Int32Array(memory.buffer, 628, 1);
 
-    this.esp_phys = new Int32Array(wm.memory.buffer, 632, 1);
+    this.esp_phys = new Int32Array(memory.buffer, 632, 1);
 
 
-    this.sysenter_cs = new Int32Array(wm.memory.buffer, 636, 1);
+    this.sysenter_cs = new Int32Array(memory.buffer, 636, 1);
 
-    this.sysenter_esp = new Int32Array(wm.memory.buffer, 640, 1);
+    this.sysenter_esp = new Int32Array(memory.buffer, 640, 1);
 
-    this.sysenter_eip = new Int32Array(wm.memory.buffer, 644, 1);
+    this.sysenter_eip = new Int32Array(memory.buffer, 644, 1);
 
-    this.prefixes = new Int32Array(wm.memory.buffer, 648, 1);
+    if(false) this.prefixes = new Int32Array(memory.buffer, 648, 1);
+    Object.defineProperty(this, "prefixes", { get: () => { return new Int32Array(memory.buffer, 648, 1); } });
 
-    this.flags = new Int32Array(wm.memory.buffer, 536, 1);
+    if(false) this.flags = new Int32Array(memory.buffer, 536, 1);
+    Object.defineProperty(this, "flags", { get: () => { return new Int32Array(memory.buffer, 536, 1); } });
 
     /**
      * bitmap of flags which are not updated in the flags variable
      * changed by arithmetic instructions, so only relevant to arithmetic flags
      */
-    this.flags_changed = new Int32Array(wm.memory.buffer, 532, 1);
+    if(false) this.flags_changed = new Int32Array(memory.buffer, 532, 1);
+    Object.defineProperty(this, "flags_changed", { get: () => { return new Int32Array(memory.buffer, 532, 1); } });
 
     /**
      * the last 2 operators and the result and size of the last arithmetic operation
      */
-    this.last_op1 = new Int32Array(wm.memory.buffer, 512, 1);
-    this.last_op2 = new Int32Array(wm.memory.buffer, 516, 1);
-    this.last_op_size = new Int32Array(wm.memory.buffer, 520, 1);
+    if(false) this.last_op1 = new Int32Array(memory.buffer, 512, 1);
+    Object.defineProperty(this, "last_op1", { get: () => { return new Int32Array(memory.buffer, 512, 1); } });
+    if(false) this.last_op2 = new Int32Array(memory.buffer, 516, 1);
+    Object.defineProperty(this, "last_op2", { get: () => { return new Int32Array(memory.buffer, 516, 1); } });
+    if(false) this.last_op_size = new Int32Array(memory.buffer, 520, 1);
+    Object.defineProperty(this, "last_op_size", { get: () => { return new Int32Array(memory.buffer, 520, 1); } });
 
-    this.last_add_result = new Int32Array(wm.memory.buffer, 524, 1);
+    if(false) this.last_add_result = new Int32Array(memory.buffer, 524, 1);
+    Object.defineProperty(this, "last_add_result", { get: () => { return new Int32Array(memory.buffer, 524, 1); } });
 
-    this.last_result = new Int32Array(wm.memory.buffer, 528, 1);
+    if(false) this.last_result = new Int32Array(memory.buffer, 528, 1);
+    Object.defineProperty(this, "last_result", { get: () => { return new Int32Array(memory.buffer, 528, 1); } });
 
-    this.current_tsc = new Uint32Array(wm.memory.buffer, 956, 2); // 64 bit
+    this.current_tsc = new Uint32Array(memory.buffer, 956, 2); // 64 bit
 
     /** @type {!Object} */
     this.devices = {};
 
-    this.instruction_pointer = new Int32Array(wm.memory.buffer, 556, 1);
+    if(false) this.instruction_pointer = new Int32Array(memory.buffer, 556, 1);
+    Object.defineProperty(this, "instruction_pointer", { get: () => { return new Int32Array(memory.buffer, 556, 1); } });
 
-    this.previous_ip = new Int32Array(wm.memory.buffer, 560, 1);
+    if(false) this.previous_ip = new Int32Array(memory.buffer, 560, 1);
+    Object.defineProperty(this, "previous_ip", { get: () => { return new Int32Array(memory.buffer, 560, 1); } });
 
     this.apic_enabled = true;
 
@@ -144,56 +176,64 @@ function CPU(bus, wm, v86oxide, coverage_logger)
         vga: null,
     };
 
-    this.timestamp_counter = new Uint32Array(wm.memory.buffer, 664, 1);
+    Object.defineProperty(this, "timestamp_counter", { get: () => { return new Int32Array(memory.buffer, 664, 1); } });
+    if(false) this.timestamp_counter = new Uint32Array(memory.buffer, 664, 1);
 
     // registers
-    this.reg32s = new Int32Array(wm.memory.buffer, 4, 8);
-    this.reg32 = new Uint32Array(this.reg32s.buffer, 4, 8);
-    this.reg16s = new Int16Array(this.reg32s.buffer, 4, 16);
-    this.reg16 = new Uint16Array(this.reg32s.buffer, 4, 16);
-    this.reg8s = new Int8Array(this.reg32s.buffer, 4, 32);
-    this.reg8 = new Uint8Array(this.reg32s.buffer, 4, 32);
+    if(false) this.reg32s = new Int32Array(memory.buffer, 4, 8);
+    if(false) this.reg32 = new Uint32Array(this.reg32s.buffer, 4, 8);
+    if(false) this.reg16s = new Int16Array(this.reg32s.buffer, 4, 16);
+    if(false) this.reg16 = new Uint16Array(this.reg32s.buffer, 4, 16);
+    if(false) this.reg8s = new Int8Array(this.reg32s.buffer, 4, 32);
+    if(false) this.reg8 = new Uint8Array(this.reg32s.buffer, 4, 32);
+    Object.defineProperty(this, "reg32s", { get: () => { return new Int32Array(memory.buffer, 4, 8); } });
+    Object.defineProperty(this, "reg32", { get: () => { return new Uint32Array(memory.buffer, 4, 8); } });
+    Object.defineProperty(this, "reg16s", { get: () => { return new Int16Array(memory.buffer, 4, 16); } });
+    Object.defineProperty(this, "reg16", { get: () => { return new Uint16Array(memory.buffer, 4, 16); } });
+    Object.defineProperty(this, "reg8s", { get: () => { return new Int8Array(memory.buffer, 4, 32); } });
+    Object.defineProperty(this, "reg8", { get: () => { return new Uint8Array(memory.buffer, 4, 32); } });
 
     // Why no Float80Array :-(
-    this.fpu_st = new Float64Array(wm.memory.buffer, 968, 8);
+    this.fpu_st = new Float64Array(memory.buffer, 968, 8);
 
-    this.fpu_stack_empty = new Int32Array(wm.memory.buffer, 816, 1);
+    this.fpu_stack_empty = new Int32Array(memory.buffer, 816, 1);
     this.fpu_stack_empty[0] = 0xff;
-    this.fpu_stack_ptr = new Uint32Array(wm.memory.buffer, 1032, 1);
+    this.fpu_stack_ptr = new Uint32Array(memory.buffer, 1032, 1);
     this.fpu_stack_ptr[0] = 0;
 
-    this.fpu_control_word = new Int32Array(wm.memory.buffer, 1036, 1);
+    this.fpu_control_word = new Int32Array(memory.buffer, 1036, 1);
     this.fpu_control_word[0] = 0x37F;
-    this.fpu_status_word = new Int32Array(wm.memory.buffer, 1040, 1);
+    this.fpu_status_word = new Int32Array(memory.buffer, 1040, 1);
     this.fpu_status_word[0] = 0;
-    this.fpu_ip = new Int32Array(wm.memory.buffer, 1048, 1);
+    this.fpu_ip = new Int32Array(memory.buffer, 1048, 1);
     this.fpu_ip[0] = 0;
-    this.fpu_ip_selector = new Int32Array(wm.memory.buffer, 1052, 1);
+    this.fpu_ip_selector = new Int32Array(memory.buffer, 1052, 1);
     this.fpu_ip_selector[0] = 0;
-    this.fpu_opcode = new Int32Array(wm.memory.buffer, 1044, 1);
+    this.fpu_opcode = new Int32Array(memory.buffer, 1044, 1);
     this.fpu_opcode[0] = 0;
-    this.fpu_dp = new Int32Array(wm.memory.buffer, 1056, 1);
+    this.fpu_dp = new Int32Array(memory.buffer, 1056, 1);
     this.fpu_dp[0] = 0;
-    this.fpu_dp_selector = new Int32Array(wm.memory.buffer, 1060, 1);
+    this.fpu_dp_selector = new Int32Array(memory.buffer, 1060, 1);
     this.fpu_dp_selector[0] = 0;
 
     // mm0-mm7 split up into 32 bit pairs
-    this.reg_mmxs = new Int32Array(wm.memory.buffer, 1064, 16);
+    this.reg_mmxs = new Int32Array(memory.buffer, 1064, 16);
     this.reg_mmx = new Uint32Array(this.reg_mmxs.buffer, 1064, 16);
     this.reg_mmx8s = new Int8Array(this.reg_mmxs.buffer, 1064, 64);
     this.reg_mmx8 = new Uint8Array(this.reg_mmxs.buffer, 1064, 64);
 
-    this.reg_xmm32s = new Int32Array(wm.memory.buffer, 828, 8 * 4);
+    this.reg_xmm32s = new Int32Array(memory.buffer, 828, 8 * 4);
 
-    this.mxcsr = new Int32Array(wm.memory.buffer, 824, 1);
+    this.mxcsr = new Int32Array(memory.buffer, 824, 1);
 
     // segment registers, tr and ldtr
-    this.sreg = new Uint16Array(wm.memory.buffer, 668, 8);
+    if(false) this.sreg = new Uint16Array(memory.buffer, 668, 8);
+    Object.defineProperty(this, "sreg", { get: () => { return new Uint16Array(memory.buffer, 668, 8); } });
 
     // debug registers
-    this.dreg = new Int32Array(wm.memory.buffer, 684, 8);
+    this.dreg = new Int32Array(memory.buffer, 684, 8);
 
-    this.fw_value = new Int32Array(wm.memory.buffer, 720, 1);
+    this.fw_value = new Int32Array(memory.buffer, 720, 1);
 
     this.io = undefined;
 
@@ -213,7 +253,7 @@ CPU.prototype.wasmgen_get_module_code = function()
     const ptr = this.jit_get_op_ptr();
     const len = this.jit_get_op_len();
 
-    const output_buffer_view = new Uint8Array(this.v86oxide.memory.buffer, ptr, len);
+    const output_buffer_view = new Uint8Array(this.v86oxide.instance.exports.memory.buffer, ptr, len);
     return output_buffer_view;
 };
 
@@ -228,18 +268,21 @@ CPU.prototype.create_jit_imports = function()
     }
 
     // put all imports that don't change on the prototype
-    JITImports.prototype["m"] = this.wm.memory;
+    JITImports.prototype["m"] = this.v86oxide.memory;
 
-    const exports = this.wm.instance.exports;
+    const exports = this.v86oxide.instance.exports;
+
+    JITImports.prototype["m"] = exports["memory"];
 
     for(let name of Object.keys(exports))
     {
-        if(name[0] !== "_")
-        {
-            continue;
-        }
+        //if(name[0] !== "_")
+        //{
+        //    continue;
+        //}
 
-        JITImports.prototype[name.slice(1)] = exports[name];
+        //JITImports.prototype[name.slice(1)] = exports[name];
+        JITImports.prototype[name] = exports[name];
     }
 
     this.jit_imports = new JITImports();
@@ -247,56 +290,57 @@ CPU.prototype.create_jit_imports = function()
 
 CPU.prototype.wasm_patch = function(wm)
 {
-    this.getiopl = this.wm.exports["_getiopl"];
-    this.vm86_mode = this.wm.exports["_vm86_mode"];
-    this.get_eflags = this.wm.exports["_get_eflags"];
-    this.update_eflags = this.wm.exports["_update_eflags"];
+    this.getiopl = this.v86oxide.exports["getiopl"];
+    this.vm86_mode = this.v86oxide.exports["vm86_mode"];
+    this.get_eflags = this.v86oxide.exports["get_eflags"];
+    this.update_eflags = this.v86oxide.exports["update_eflags"];
 
-    this.trigger_gp_non_raising = this.wm.exports["_trigger_gp_non_raising"];
-    this.trigger_ud = this.wm.exports["_trigger_ud"];
-    this.trigger_np = this.wm.exports["_trigger_np"];
-    this.trigger_ss = this.wm.exports["_trigger_ss"];
+    this.trigger_gp_non_raising = this.v86oxide.exports["trigger_gp_non_raising"];
+    this.trigger_ud = this.v86oxide.exports["trigger_ud"];
+    this.trigger_np = this.v86oxide.exports["trigger_np"];
+    this.trigger_ss = this.v86oxide.exports["trigger_ss"];
 
-    this.do_many_cycles_unsafe = this.wm.exports["_do_many_cycles_unsafe"];
-    this.cycle_internal = this.wm.exports["_cycle_internal"];
+    //this.do_many_cycles_unsafe = this.wm.exports["_do_many_cycles_unsafe"];
+    this.do_many_cycles_unsafe = this.v86oxide.exports["do_many_cycles_unsafe"];
+    this.cycle_internal = this.v86oxide.exports["cycle_internal"];
 
-    this.read8 = this.wm.exports["_read8"];
-    this.read16 = this.wm.exports["_read16"];
-    this.read32s = this.wm.exports["_read32s"];
-    this.write8 = this.wm.exports["_write8"];
-    this.write16 = this.wm.exports["_write16"];
-    this.write32 = this.wm.exports["_write32"];
-    this.in_mapped_range = this.wm.exports["_in_mapped_range"];
+    this.read8 = this.v86oxide.exports["read8"];
+    this.read16 = this.v86oxide.exports["read16"];
+    this.read32s = this.v86oxide.exports["read32s"];
+    this.write8 = this.v86oxide.exports["write8"];
+    this.write16 = this.v86oxide.exports["write16"];
+    this.write32 = this.v86oxide.exports["write32"];
+    this.in_mapped_range = this.v86oxide.exports["in_mapped_range"];
 
-    this.push16 = this.wm.exports["_push16"];
-    this.push32 = this.wm.exports["_push32"];
-    this.pop16 = this.wm.exports["_pop16"];
-    this.pop32s = this.wm.exports["_pop32s"];
+    this.push16 = this.v86oxide.exports["push16"];
+    this.push32 = this.v86oxide.exports["push32"];
+    this.pop16 = this.v86oxide.exports["pop16"];
+    this.pop32s = this.v86oxide.exports["pop32s"];
 
-    this.set_stack_reg = this.wm.exports["_set_stack_reg"];
+    this.set_stack_reg = this.v86oxide.exports["set_stack_reg"];
 
-    this.translate_address_read = this.wm.exports["_translate_address_read"];
-    this.translate_address_system_read = this.wm.exports["_translate_address_system_read"];
-    this.translate_address_system_write = this.wm.exports["_translate_address_system_write"];
+    this.translate_address_read = this.v86oxide.exports["translate_address_read"];
+    this.translate_address_system_read = this.v86oxide.exports["translate_address_system_read"];
+    this.translate_address_system_write = this.v86oxide.exports["translate_address_system_write"];
 
-    this.get_seg = this.wm.exports["_get_seg"];
-    this.adjust_stack_reg = this.wm.exports["_adjust_stack_reg"];
-    this.get_real_eip = this.wm.exports["_get_real_eip"];
-    this.get_stack_pointer = this.wm.exports["_get_stack_pointer"];
+    this.get_seg = this.v86oxide.exports["get_seg"];
+    this.adjust_stack_reg = this.v86oxide.exports["adjust_stack_reg"];
+    this.get_real_eip = this.v86oxide.exports["get_real_eip"];
+    this.get_stack_pointer = this.v86oxide.exports["get_stack_pointer"];
 
-    this.writable_or_pagefault = this.wm.exports["_writable_or_pagefault"];
-    this.safe_write32 = this.wm.exports["_safe_write32"];
-    this.safe_read32s = this.wm.exports["_safe_read32s"];
-    this.safe_write16 = this.wm.exports["_safe_write16"];
-    this.safe_read16 = this.wm.exports["_safe_read16"];
+    this.writable_or_pagefault = this.v86oxide.exports["writable_or_pagefault"];
+    this.safe_write32 = this.v86oxide.exports["safe_write32"];
+    this.safe_read32s = this.v86oxide.exports["safe_read32s"];
+    this.safe_write16 = this.v86oxide.exports["safe_write16"];
+    this.safe_read16 = this.v86oxide.exports["safe_read16"];
 
-    this.clear_tlb = this.wm.exports["_clear_tlb"];
-    this.full_clear_tlb = this.wm.exports["_full_clear_tlb"];
+    this.clear_tlb = this.v86oxide.exports["clear_tlb"];
+    this.full_clear_tlb = this.v86oxide.exports["full_clear_tlb"];
 
-    this.set_tsc = this.wm.exports["_set_tsc"];
-    this.store_current_tsc = this.wm.exports["_store_current_tsc"];
+    this.set_tsc = this.v86oxide.exports["set_tsc"];
+    this.store_current_tsc = this.v86oxide.exports["store_current_tsc"];
 
-    this.pack_current_state_flags = this.wm.exports["_pack_current_state_flags"];
+    this.pack_current_state_flags = this.v86oxide.exports["pack_current_state_flags"];
 
     this.jit_force_generate_unsafe = this.v86oxide.exports["jit_force_generate_unsafe"];
     this.jit_empty_cache = this.v86oxide.exports["jit_empty_cache"];
@@ -317,7 +361,7 @@ CPU.prototype.jit_force_generate = function(addr)
 CPU.prototype.jit_clear_func = function(index)
 {
     dbg_assert(index >= 0 && index < WASM_TABLE_SIZE);
-    this.wm.imports.env[WASM_EXPORT_TABLE_NAME].set(index, null);
+    this.wm.imports.env[WASM_EXPORT_TABLE_NAME + 0x100].set(index, null);
 };
 
 CPU.prototype.get_state = function()
@@ -670,11 +714,11 @@ CPU.prototype.create_memory = function(size)
 
     this.memory_size[0] = size;
 
-    var buffer = this.wm.memory.buffer;
+    //var buffer = this.wm.memory.buffer;
 
-    this.mem8 = new Uint8Array(buffer, GUEST_MEMORY_START, size);
-    this.mem16 = new Uint16Array(buffer, GUEST_MEMORY_START, size >> 1);
-    this.mem32s = new Int32Array(buffer, GUEST_MEMORY_START, size >> 2);
+    //this.mem8 = new Uint8Array(buffer, GUEST_MEMORY_START, size);
+    //this.mem16 = new Uint16Array(buffer, GUEST_MEMORY_START, size >> 1);
+    //this.mem32s = new Int32Array(buffer, GUEST_MEMORY_START, size >> 2);
 };
 
 CPU.prototype.init = function(settings, device_bus)
@@ -833,7 +877,7 @@ CPU.prototype.init = function(settings, device_bus)
         this.debug.init();
     }
 
-    this.wm.exports["_profiler_init"]();
+    //this.wm.exports["_profiler_init"]();
 };
 
 CPU.prototype.load_multiboot = function(buffer)
@@ -1142,7 +1186,7 @@ CPU.prototype.load_bios = function()
 
 CPU.prototype.do_run = function()
 {
-    this.wm.exports["_profiler_stat_increment_do_run"]();
+    //this.wm.exports["_profiler_stat_increment_do_run"]();
 
     /** @type {number} */
     var start = v86.microtick();
@@ -1179,7 +1223,7 @@ let do_many_cycles_total = 0;
 CPU.prototype.do_many_cycles = function()
 {
     // Capture the total time we were executing instructions
-    this.coverage_logger.log_start();
+    //this.coverage_logger.log_start();
 
     if(ENABLE_PROFILER)
     {
@@ -1200,7 +1244,7 @@ CPU.prototype.do_many_cycles = function()
         do_many_cycles_count++;
     }
 
-    this.coverage_logger.log_end();
+    //this.coverage_logger.log_end();
 };
 
 /** @export */
@@ -1284,7 +1328,7 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
             first_opcode, state_flags);
 
         // The following will throw if f isn't an exported function
-        this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(wasm_table_index, f);
+        this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(wasm_table_index + 0x100, f);
 
         if(this.test_hook_did_finalize_wasm)
         {
@@ -1346,7 +1390,7 @@ CPU.prototype.dump_function_code = function(block_ptr, count)
 
     const SIZEOF_BASIC_BLOCK_IN_DWORDS = 7;
 
-    const mem32 = new Int32Array(this.wm.memory.buffer);
+    const mem32 = new Int32Array(this.v86oxide.instance.exports.memory.buffer);
 
     dbg_assert((block_ptr & 3) === 0);
 
@@ -1463,11 +1507,12 @@ CPU.prototype.jit_clear_cache = function()
 {
     this.jit_empty_cache();
 
-    const table = this.wm.imports["env"][WASM_EXPORT_TABLE_NAME];
+    const table = this.wm.exports[WASM_EXPORT_TABLE_NAME] || this.wm.imports["env"][WASM_EXPORT_TABLE_NAME];
+    const offset = 0x100;
 
     for(let i = 0; i < WASM_TABLE_SIZE; i++)
     {
-        table.set(i, null);
+        table.set(offset + i, null);
     }
 };
 

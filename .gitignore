@@ -21,6 +21,9 @@ package-lock.json
 profile*.json
 Cargo.lock
 build-head
+src/rust/gen/interpreter.rs
+src/rust/gen/interpreter0f_16.rs
+src/rust/gen/interpreter0f_32.rs
 src/rust/gen/analyzer.rs
 src/rust/gen/analyzer0f_16.rs
 src/rust/gen/analyzer0f_32.rs

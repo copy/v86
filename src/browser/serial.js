@@ -79,7 +79,7 @@ function SerialAdapter(element, bus)
                 this.update_timer = setTimeout(() => {
                     this.update_timer = undefined;
                     var now = Date.now();
-                    dbg_assert(now - this.last_update >= 16);
+                    dbg_assert(now - this.last_update >= 15);
                     this.last_update = now;
                     this.render();
                 }, 16 - delta);

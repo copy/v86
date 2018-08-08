@@ -1,0 +1,86 @@
+ALL:= arith.rs cpu.rs fpu.rs instructions_0f.rs instructions.rs \
+    memory.rs misc_instr.rs modrm.rs shared.rs sse_instr.rs string.rs \
+    global_pointers.rs profiler.rs
+
+all: $(ALL)
+
+profiler.rs: profiler/profiler.rs
+	cp profiler/profiler.rs profiler.rs
+
+%.rs:
+	#citrus --api=rust $< -I ../../native/ ../../native/profiler/ > $@.tmp
+	#cat import-prefix $@.tmp | grep -v cpu2::$(basename $@):: > $@
+	#rm $@.tmp
+	#sed -i 's/assert(/assert!(/' $@
+	#sed -i 's/dbg_assert(/dbg_assert!(/' $@
+	#sed -i 's/dbg_log(/dbg_log!(/' $@
+	#sed -i 's/%x/{:x}/g' $@
+	#sed -i 's/%d/{}/g' $@
+	#sed -i '/:.*= ()/d' $@
+	#sed -i 's/!= 0 != 0//' $@
+	#sed -i 's/fn(,/fn(i32,/' $@
+	#sed -i 's/is_32 != 0/is_32/' $@
+	#sed -i 's/SAFE_READ_WRITE8/SAFE_READ_WRITE8!/' $@
+	#sed -i 's/SAFE_READ_WRITE16/SAFE_READ_WRITE16!/' $@
+	#sed -i 's/SAFE_READ_WRITE32/SAFE_READ_WRITE32!/' $@
+	#sed -i 's/pub fn SAFE_READ_WRITE8!();//' $@
+	#sed -i 's/pub fn SAFE_READ_WRITE16!();//' $@
+	#sed -i 's/pub fn SAFE_READ_WRITE32!();//' $@
+
+	cp ~/DL/c2rust/scripts/v86/src/native/$@ $@
+	#cat import-prefix $@.tmp | grep -v cpu2::$(basename $@):: > $@
+	#cat $@.tmp | grep -v cpu2::$(basename $@):: > $@
+	-rm $@.tmp
+	sed -i 's/assert(/assert_c!(/' $@
+	#sed -i 's/dbg_assert(/dbg_assert!(/' $@
+	sed -i 's/dbg_log(/dbg_log_c!(/' $@
+	#sed -i 's/pub unsafe extern "C" fn assert_c!() -> () { }//' $@
+	#sed -i 's/pub unsafe extern "C" fn dbg_assert_c!() -> () { }//' $@
+	#sed -i 's/pub unsafe extern "C" fn dbg_log_c!() -> () { }//' $@
+
+	sed -i 's/fn assert_c!() -> ();//' $@
+	sed -i 's/fn dbg_assert_c!() -> ();//' $@
+	sed -i 's/fn dbg_log_c!() -> ();//' $@
+
+	sed -i 's/fn assert_c!/fn assert_c/' $@
+	sed -i 's/fn dbg_assert_c!/fn dbg_assert_c/' $@
+	sed -i 's/fn dbg_log_c!/fn dbg_log_c/' $@
+
+	sed -i 's/libc::c_char/i8/g' $@
+	sed -i 's/libc::c_double/f64/g' $@
+	sed -i 's/libc::c_float/f32/g' $@
+	sed -i 's/libc::c_int/i32/g' $@
+	sed -i 's/libc::c_longlong/i64/g' $@
+	sed -i 's/libc::c_long/i64/g' $@
+	sed -i 's/libc::c_schar/i8/g' $@
+	sed -i 's/libc::c_short/i16/g' $@
+	sed -i 's/libc::c_uchar/u8/g' $@
+	sed -i 's/libc::c_uint/u32/g' $@
+	sed -i 's/libc::c_ulonglong/u64/g' $@
+	sed -i 's/libc::c_ulong/u64/g' $@
+	sed -i 's/libc::c_ushort/u16/g' $@
+
+	sed -i 's/SAFE_READ_WRITE8/SAFE_READ_WRITE8!/' $@
+	sed -i 's/SAFE_READ_WRITE16/SAFE_READ_WRITE16!/' $@
+	sed -i 's/SAFE_READ_WRITE32/SAFE_READ_WRITE32!/' $@
+	sed -i 's/fn SAFE_READ_WRITE8!() -> ();//' $@
+	sed -i 's/fn SAFE_READ_WRITE16!() -> ();//' $@
+	sed -i 's/fn SAFE_READ_WRITE32!() -> ();//' $@
+
+	sed -i 's/pub type _IO_FILE;//' $@
+	sed -i 's/pub type FILE = _IO_FILE;//' $@
+	sed -i ':a;N;$$!ba;s/#\[no_mangle]\n    static stdin: \*mut FILE;//' $@
+	sed -i ':a;N;$$!ba;s/#\[no_mangle]\n    static stdout: \*mut FILE;//' $@
+	sed -i ':a;N;$$!ba;s/#\[no_mangle]\n    static stderr: \*mut FILE;//' $@
+
+	sed -i ':a;N;$$!ba;s/#\[no_mangle]\n    static mut ___: int32_t;//' $@
+
+	sed -i 's/SAFE_READ_WRITE8!(/SAFE_READ_WRITE8!(___, /' $@
+	sed -i 's/SAFE_READ_WRITE16!(/SAFE_READ_WRITE16!(___, /' $@
+	sed -i 's/SAFE_READ_WRITE32!(/SAFE_READ_WRITE32!(___, /' $@
+
+	sed -i 's/extern crate libc;//' $@
+
+clean:
+	-rm $(ALL)
+	-rm profiler/profiler.rs

@@ -4,11 +4,10 @@
 const fs = require("fs");
 const path = require("path");
 const x86_table = require("./x86_table");
-const c_ast = require("./c_ast");
-const { hex, mkdirpSync, get_switch_value, get_switch_exist, finalize_table } = require("./util");
+const rust_ast = require("./rust_ast");
+const { hex, mkdirpSync, get_switch_value, get_switch_exist, finalize_table_rust } = require("./util");
 
-const OUT_DIR = get_switch_value("--output-dir") ||
-          path.join(__dirname, "..", "build");
+const OUT_DIR = path.join(__dirname, "..", "src/rust/gen/");
 
 mkdirpSync(OUT_DIR);
 
@@ -125,7 +124,7 @@ function gen_instruction_body(encodings, size)
 
     if(encoding.e)
     {
-        code.push("int32_t modrm_byte = read_imm8();");
+        code.push("let modrm_byte = read_imm8();");
     }
 
     if(has_66.length || has_F2.length || has_F3.length)
@@ -134,28 +133,28 @@ function gen_instruction_body(encodings, size)
 
         if(has_66.length) {
             const body = gen_instruction_body_after_prefix(has_66, size);
-            if_blocks.push({ condition: "prefixes_ & PREFIX_66", body, });
+            if_blocks.push({ condition: "prefixes_ & PREFIX_66 != 0", body, });
         }
         if(has_F2.length) {
             const body = gen_instruction_body_after_prefix(has_F2, size);
-            if_blocks.push({ condition: "prefixes_ & PREFIX_F2", body, });
+            if_blocks.push({ condition: "prefixes_ & PREFIX_F2 != 0", body, });
         }
         if(has_F3.length) {
             const body = gen_instruction_body_after_prefix(has_F3, size);
-            if_blocks.push({ condition: "prefixes_ & PREFIX_F3", body, });
+            if_blocks.push({ condition: "prefixes_ & PREFIX_F3 != 0", body, });
         }
 
         const check_prefixes = encoding.sse ? "(PREFIX_66 | PREFIX_F2 | PREFIX_F3)" : "(PREFIX_F2 | PREFIX_F3)";
 
         const else_block = {
             body: [].concat(
-                "dbg_assert((prefixes_ & " + check_prefixes + ") == 0);",
+                "dbg_assert!((prefixes_ & " + check_prefixes + ") == 0);",
                 gen_instruction_body_after_prefix(no_prefix, size)
             )
         };
 
         return [].concat(
-	    "int32_t prefixes_ = *prefixes;",
+	    "let prefixes_ = *prefixes as i32;",
             code,
             {
                 type: "if-else",
@@ -206,7 +205,7 @@ function gen_instruction_body_after_prefix(encodings, size)
 
                 default_case: {
                     body: [
-                        "assert(false);",
+                        "assert!(false);",
                         "trigger_ud();",
                     ],
                 }
@@ -366,6 +365,7 @@ function gen_table()
         console.assert(encoding && encoding.length);
 
         let opcode_hex = hex(opcode, 2);
+        let opcode_high_hex = hex(opcode | 0x100, 2);
 
         if(encoding[0].os)
         {
@@ -374,14 +374,14 @@ function gen_table()
                 body: gen_instruction_body(encoding, 16),
             });
             cases.push({
-                conditions: [`0x${opcode_hex}|0x100`],
+                conditions: [`0x${opcode_high_hex}`],
                 body: gen_instruction_body(encoding, 32),
             });
         }
         else
         {
             cases.push({
-                conditions: [`0x${opcode_hex}`, `0x${opcode_hex}|0x100`],
+                conditions: [`0x${opcode_hex}`, `0x${opcode_high_hex}`],
                 body: gen_instruction_body(encoding, undefined),
             });
         }
@@ -391,15 +391,28 @@ function gen_table()
         condition: "opcode",
         cases,
         default_case: {
-            body: ["assert(false);"]
+            body: ["assert!(false);"]
         },
     };
     if(to_generate.interpreter)
     {
-        finalize_table(
+        const code = [
+            "use cpu2::cpu::*;",
+            "use cpu2::instructions::*;",
+            "use cpu2::instructions_0f::*;",
+            "use cpu2::modrm::*;",
+            "use cpu2::global_pointers::*;",
+
+            "#[cfg_attr(rustfmt, rustfmt_skip)]",
+            "pub unsafe fn run(opcode: u32) {",
+            table,
+            "}",
+        ];
+
+        finalize_table_rust(
             OUT_DIR,
-            "interpreter",
-            c_ast.print_syntax_tree([table]).join("\n") + "\n"
+            "interpreter.rs",
+            rust_ast.print_syntax_tree([].concat(code)).join("\n") + "\n"
         );
     }
 
@@ -440,7 +453,7 @@ function gen_table()
         condition: "opcode",
         cases: cases0f_16,
         default_case: {
-            body: ["assert(false);"]
+            body: ["assert!(false);"]
         },
     };
     const table0f_32 = {
@@ -448,25 +461,51 @@ function gen_table()
         condition: "opcode",
         cases: cases0f_32,
         default_case: {
-            body: ["assert(false);"]
+            body: ["assert!(false);"]
         },
     };
 
     if(to_generate.interpreter0f_16)
     {
-        finalize_table(
+        const code = [
+            "use cpu2::cpu::*;",
+            "use cpu2::instructions::*;",
+            "use cpu2::instructions_0f::*;",
+            "use cpu2::modrm::*;",
+            "use cpu2::global_pointers::*;",
+
+            "#[cfg_attr(rustfmt, rustfmt_skip)]",
+            "pub unsafe fn run(opcode: u8) {",
+            table0f_16,
+            "}",
+        ];
+
+        finalize_table_rust(
             OUT_DIR,
-            "interpreter0f_16",
-            c_ast.print_syntax_tree([table0f_16]).join("\n") + "\n"
+            "interpreter0f_16.rs",
+            rust_ast.print_syntax_tree([].concat(code)).join("\n") + "\n"
         );
     }
 
     if(to_generate.interpreter0f_32)
     {
-        finalize_table(
+        const code = [
+            "use cpu2::cpu::*;",
+            "use cpu2::instructions::*;",
+            "use cpu2::instructions_0f::*;",
+            "use cpu2::modrm::*;",
+            "use cpu2::global_pointers::*;",
+
+            "#[cfg_attr(rustfmt, rustfmt_skip)]",
+            "pub unsafe fn run(opcode: u8) {",
+            table0f_32,
+            "}",
+        ];
+
+        finalize_table_rust(
             OUT_DIR,
-            "interpreter0f_32",
-            c_ast.print_syntax_tree([table0f_32]).join("\n") + "\n"
+            "interpreter0f_32.rs",
+            rust_ast.print_syntax_tree([].concat(code)).join("\n") + "\n"
         );
     }
 }

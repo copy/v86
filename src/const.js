@@ -362,7 +362,7 @@ var WASM_TABLE_SIZE = 0x10000;
 var JIT_CACHE_ARRAY_SIZE = 0x40000;
 
 /** @const */
-const WASM_EXPORT_TABLE_NAME = "table";
+const WASM_EXPORT_TABLE_NAME = "__indirect_function_table";
 
 
 /** @const */

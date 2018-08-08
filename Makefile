@@ -5,7 +5,7 @@ NASM_TEST_DIR=./tests/nasm
 COVERAGE_DIR=./tests/coverage
 
 INSTRUCTION_TABLES=src/rust/gen/jit.rs src/rust/gen/jit0f_16.rs src/rust/gen/jit0f_32.rs \
-		   build/interpreter.c build/interpreter0f_16.c build/interpreter0f_32.c \
+		   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f_16.rs src/rust/gen/interpreter0f_32.rs \
 		   src/rust/gen/analyzer.rs src/rust/gen/analyzer0f_16.rs src/rust/gen/analyzer0f_32.rs \
 
 # Only the dependencies common to both generate_{jit,interpreter}.js
@@ -102,7 +102,9 @@ CC_FLAGS=\
 
 CARGO_FLAGS=\
 		--target wasm32-unknown-unknown \
-		-- -Clink-args="--import-memory" \
+		-- \
+		-C linker=tools/rust-lld-wrapper \
+		-C link-args="--import-table --global-base=142606336" \
 		--verbose
 
 CORE_FILES=const.js config.js io.js main.js lib.js coverage.js ide.js pci.js floppy.js \
@@ -116,6 +118,7 @@ BROWSER_FILES=screen.js \
 		  network.js lib.js starter.js worker_bus.js dummy_screen.js print_stats.js
 
 RUST_FILES=$(shell find src/rust/ -name '*.rs') \
+	   src/rust/gen/interpreter.rs src/rust/gen/interpreter0f_16.rs src/rust/gen/interpreter0f_32.rs \
 	   src/rust/gen/jit.rs src/rust/gen/jit0f_16.rs src/rust/gen/jit0f_32.rs \
 	   src/rust/gen/analyzer.rs src/rust/gen/analyzer0f_16.rs src/rust/gen/analyzer0f_32.rs
 
@@ -183,11 +186,11 @@ src/rust/gen/jit0f_16.rs: $(JIT_DEPENDENCIES)
 src/rust/gen/jit0f_32.rs: $(JIT_DEPENDENCIES)
 	./gen/generate_jit.js --output-dir build/ --table jit0f_32
 
-build/interpreter.c: $(INTERPRETER_DEPENDENCIES)
+src/rust/gen/interpreter.rs: $(INTERPRETER_DEPENDENCIES)
 	./gen/generate_interpreter.js --output-dir build/ --table interpreter
-build/interpreter0f_16.c: $(INTERPRETER_DEPENDENCIES)
+src/rust/gen/interpreter0f_16.rs: $(INTERPRETER_DEPENDENCIES)
 	./gen/generate_interpreter.js --output-dir build/ --table interpreter0f_16
-build/interpreter0f_32.c: $(INTERPRETER_DEPENDENCIES)
+src/rust/gen/interpreter0f_32.rs: $(INTERPRETER_DEPENDENCIES)
 	./gen/generate_interpreter.js --output-dir build/ --table interpreter0f_32
 
 src/rust/gen/analyzer.rs: $(ANALYZER_DEPENDENCIES)
@@ -200,38 +203,38 @@ src/rust/gen/analyzer0f_32.rs: $(ANALYZER_DEPENDENCIES)
 build/v86.wasm: src/native/*.c src/native/*.h src/native/profiler/* src/native/*.ll $(INSTRUCTION_TABLES)
 	mkdir -p build
 	-ls -lh build/v86.wasm
-	emcc src/native/*.c src/native/profiler/*.c src/native/*.ll \
-		$(CC_FLAGS) \
-		-DDEBUG=false \
-		-DNDEBUG \
-		-O3 \
-		--llvm-opts 3 \
-		--llvm-lto 3 \
-		-o build/v86.wasm
+	#emcc src/native/*.c src/native/profiler/*.c src/native/*.ll \
+	#	$(CC_FLAGS) \
+	#	-DDEBUG=false \
+	#	-DNDEBUG \
+	#	-O3 \
+	#	--llvm-opts 3 \
+	#	--llvm-lto 3 \
+	#	-o build/v86.wasm
 	ls -lh build/v86.wasm
 
 build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/profiler/* src/native/*.ll $(INSTRUCTION_TABLES)
 	mkdir -p build/coverage
 	-ls -lh build/v86-debug.wasm
-	emcc src/native/*.c src/native/profiler/*.c src/native/*.ll \
-		$(CC_FLAGS) \
-		$(CC_COVERAGE_FLAGS) \
-		-Os \
-		-o build/v86-debug.wasm
-	ls -lh build/v86-debug.wasm
+	#emcc src/native/*.c src/native/profiler/*.c src/native/*.ll \
+	#	$(CC_FLAGS) \
+	#	$(CC_COVERAGE_FLAGS) \
+	#	-Os \
+	#	-o build/v86-debug.wasm
+	#ls -lh build/v86-debug.wasm
 
 build/v86oxide.wasm: $(RUST_FILES) Cargo.toml
 	mkdir -p build/
 	-ls -lh build/v86oxide.wasm
 	cargo +nightly rustc --release $(CARGO_FLAGS)
-	cp build/wasm32-unknown-unknown/release/v86oxide.wasm build/v86oxide.wasm
+	./tools/wasm-patch-indirect-function-table.js < build/wasm32-unknown-unknown/release/v86oxide.wasm > build/v86oxide.wasm
 	ls -lh build/v86oxide.wasm
 
 build/v86oxide-debug.wasm: $(RUST_FILES) Cargo.toml
 	mkdir -p build/
 	-ls -lh build/v86oxide-debug.wasm
 	cargo +nightly rustc $(CARGO_FLAGS)
-	cp build/wasm32-unknown-unknown/debug/v86oxide.wasm build/v86oxide-debug.wasm
+	./tools/wasm-patch-indirect-function-table.js < build/wasm32-unknown-unknown/debug/v86oxide.wasm > build/v86oxide-debug.wasm
 	ls -lh build/v86oxide-debug.wasm
 
 clean:
