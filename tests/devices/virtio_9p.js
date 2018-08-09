@@ -5,7 +5,8 @@ process.on("unhandledRejection", exn => { throw exn; });
 const V86 = require("../../build/libv86-debug.js").V86;
 const fs = require("fs");
 
-const testfsjson = require('./testfs.json');
+const testfsjson = JSON.stringify(require('./testfs.json'));
+const SHOW_LOGS = false;
 
 function log_pass(msg, ...args)
 {
@@ -960,7 +961,7 @@ const emulator = new V86({
     filesystem: {
         "baseurl": __dirname + "/testfs/",
     },
-    log_level: 0,
+    log_level: SHOW_LOGS ? 0x400000 : 0,
 });
 
 let ran_command = false;
@@ -984,7 +985,7 @@ function nuke_fs()
 function reload_fsjson()
 {
     console.log("    Reloading files from json");
-    emulator.fs9p.OnJSONLoaded(JSON.stringify(testfsjson));
+    emulator.fs9p.OnJSONLoaded(testfsjson);
     emulator.fs9p.OnLoaded = () =>
     {
         emulator.serial0_send("echo prep-fs-loaded\n");
