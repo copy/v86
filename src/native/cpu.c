@@ -198,6 +198,11 @@ const int32_t TLB_IN_MAPPED_RANGE = (1 << 3);
 const int32_t TLB_GLOBAL = (1 << 4);
 const int32_t TLB_HAS_CODE = (1 << 5);
 
+
+uint8_t* mem8 = NULL;
+uint16_t* mem16 = NULL;
+int32_t* mem32s = NULL;
+
 #if DEBUG
 bool must_not_fault = false;
 #endif

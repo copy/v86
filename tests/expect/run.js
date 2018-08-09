@@ -20,7 +20,7 @@ catch(e) {
 
 const LOG_LEVEL = 0;
 
-const GIT_DIFF_FLAGS = [ "--no-index", "--patience", "--color=always"];
+const GIT_DIFF_FLAGS = ["--no-index", "--patience", "--color=always"];
 
 const TEST_DIR = path.join(__dirname, "tests");
 const BUILD_DIR = path.join(TEST_DIR, "build");

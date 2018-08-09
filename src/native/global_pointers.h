@@ -92,7 +92,3 @@ extern uint32_t* const opstats_buffer_0f; // length 0x400
 // gap
 
 extern int32_t* const tlb_data; // length 0x100000*4
-
-extern uint8_t* const mem8;
-extern uint16_t* const mem16;
-extern int32_t* const mem32s;

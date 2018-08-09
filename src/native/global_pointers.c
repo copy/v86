@@ -90,7 +90,3 @@ uint32_t* const opstats_buffer_0f = (uint32_t* const) 0x1400; // length 0x400
 // gap
 
 int32_t* const tlb_data = (int32_t* const) 0x400000; // length 0x100000*4
-
-uint8_t* const mem8 = (uint8_t* const) 0x800000;
-uint16_t* const mem16 = (uint16_t* const) 0x800000;
-int32_t* const mem32s = (int32_t* const) 0x800000;

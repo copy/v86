@@ -104,7 +104,7 @@ CARGO_FLAGS=\
 		--target wasm32-unknown-unknown \
 		-- \
 		-C linker=tools/rust-lld-wrapper \
-		-C link-args="--import-table --global-base=142606336" \
+		-C link-args="--import-table --global-base=8388608" \
 		--verbose
 
 CORE_FILES=const.js config.js io.js main.js lib.js coverage.js ide.js pci.js floppy.js \

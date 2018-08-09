@@ -8,6 +8,11 @@ use wasmgen::module_init;
 use wasmgen::module_init::{WasmBuilder, WasmLocal};
 use wasmgen::wasm_util::WasmBuf;
 
+extern "C" {
+    #[no_mangle]
+    static mut mem8: *mut u8;
+}
+
 pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
     let cs = &mut builder.code_section;
     cs.push_i32(global_pointers::PREVIOUS_IP as i32); // store address of previous ip
@@ -221,12 +226,12 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
         BitSize::WORD => {
             builder
                 .instruction_body
-                .load_unaligned_u16_from_stack(global_pointers::MEMORY);
+                .load_unaligned_u16_from_stack(unsafe { mem8 } as u32);
         },
         BitSize::DWORD => {
             builder
                 .instruction_body
-                .load_unaligned_i32_from_stack(global_pointers::MEMORY);
+                .load_unaligned_i32_from_stack(unsafe { mem8 } as u32);
         },
     }
 
@@ -317,12 +322,12 @@ fn gen_safe_write(
         BitSize::WORD => {
             builder
                 .instruction_body
-                .store_unaligned_u16(global_pointers::MEMORY);
+                .store_unaligned_u16(unsafe { mem8 } as u32);
         },
         BitSize::DWORD => {
             builder
                 .instruction_body
-                .store_unaligned_i32(global_pointers::MEMORY);
+                .store_unaligned_i32(unsafe { mem8 } as u32);
         },
     }
 

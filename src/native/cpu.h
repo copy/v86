@@ -8,6 +8,10 @@
 #include "config.h"
 #include "shared.h"
 
+extern uint8_t* mem8;
+extern uint16_t* mem16;
+extern int32_t* mem32s;
+
 union reg128 {
     int8_t i8[16];
     int16_t i16[8];

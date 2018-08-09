@@ -34,10 +34,6 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     this.mem16 = new Uint16Array(this.mem8.buffer);
     this.mem32s = new Int32Array(this.mem8.buffer);
 
-    if(false) Object.defineProperty(this, "mem8", { get: () => { return new Uint8Array(memory.buffer, GUEST_MEMORY_START, this.memory_size[0]); } });
-    if(false) Object.defineProperty(this, "mem16", { get: () => { return new Uint16Array(memory.buffer, GUEST_MEMORY_START, this.memory_size[0] >> 1); } });
-    if(false) Object.defineProperty(this, "mem32s", { get: () => { return new Int32Array(memory.buffer, GUEST_MEMORY_START, this.memory_size[0] >> 2); } });
-
     this.segment_is_null = v86util.view(Uint8Array, memory, 724, 8);
     if(false) Object.defineProperty(this, "segment_is_null", { get: () => { return new Uint8Array(memory.buffer, 724, 8); } });
 
@@ -349,6 +345,8 @@ CPU.prototype.wasm_patch = function(wm)
 
     this.jit_get_op_ptr = this.v86oxide.exports["jit_get_op_ptr"];
     this.jit_get_op_len = this.v86oxide.exports["jit_get_op_len"];
+
+    this.allocate_memory = this.v86oxide.exports["allocate_memory"];
 };
 
 CPU.prototype.jit_force_generate = function(addr)
@@ -712,16 +710,15 @@ CPU.prototype.create_memory = function(size)
     dbg_assert((size | 0) > 0);
     dbg_assert((size & MMAP_BLOCK_SIZE - 1) === 0);
 
+    console.assert(this.memory_size[0] === 0);
+
     this.memory_size[0] = size;
 
-    //var buffer = this.wm.memory.buffer;
+    const memory_offset = this.allocate_memory(size);
 
-    this.mem8 = v86util.view(Uint8Array, this.v86oxide.instance.exports.memory, GUEST_MEMORY_START, size);
-    this.mem16 = v86util.view(Uint16Array, this.v86oxide.instance.exports.memory, GUEST_MEMORY_START, size >> 1);
-    this.mem32s = v86util.view(Uint32Array, this.v86oxide.instance.exports.memory, GUEST_MEMORY_START, size >> 2);
-    //this.mem8 = new Uint8Array(buffer, GUEST_MEMORY_START, size);
-    //this.mem16 = new Uint16Array(buffer, GUEST_MEMORY_START, size >> 1);
-    //this.mem32s = new Int32Array(buffer, GUEST_MEMORY_START, size >> 2);
+    this.mem8 = v86util.view(Uint8Array, this.v86oxide.instance.exports.memory, memory_offset, size);
+    this.mem16 = v86util.view(Uint16Array, this.v86oxide.instance.exports.memory, memory_offset, size >> 1);
+    this.mem32s = v86util.view(Uint32Array, this.v86oxide.instance.exports.memory, memory_offset, size >> 2);
 };
 
 CPU.prototype.init = function(settings, device_bus)
