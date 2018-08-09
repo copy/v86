@@ -105,7 +105,7 @@ function V86Starter(options)
     //    }, this);
     //}
 
-    const wasm_table = new WebAssembly.Table({ element: "anyfunc", initial: 0x10000 + 0x100 });
+    const wasm_table = new WebAssembly.Table({ element: "anyfunc", "initial": 0x10000 + 0x100 });
 
     var wasm_shared_funcs = {
         "__assert_fail": (condition, file, line, fun) => {
@@ -254,6 +254,10 @@ function V86Starter(options)
         },
         "codegen_finalize": (wasm_table_index, start, end, first_opcode, state_flags) => cpu.codegen_finalize(wasm_table_index, start, end, first_opcode, state_flags),
         "__indirect_function_table": wasm_table,
+        "floor": Math.floor,
+        "ceil": Math.ceil,
+        "fabs": Math.abs,
+        "abs": Math.abs,
     };
 
     const wasm_globals = {
