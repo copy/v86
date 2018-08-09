@@ -1072,6 +1072,45 @@ V86Starter.prototype.serial0_send = function(data)
 };
 
 /**
+ * Mount another filesystem to the current filesystem.
+ * @param {string} path Path for the mount point
+ * @param {string|undefined} baseurl
+ * @param {string|undefined} basefs As a JSON string
+ * @param {function(Object)=} callback
+ * @export
+ */
+V86Starter.prototype.mount_fs = function(path, baseurl, basefs, callback)
+{
+    const newfs = new FS(baseurl);
+    const mount = () =>
+    {
+        const idx = this.fs9p.Mount(path, newfs);
+        if(!callback)
+        {
+            return;
+        }
+        if(idx === -1)
+        {
+            callback(new FileNotFoundError());
+        }
+        else
+        {
+            callback(null);
+        }
+    };
+    if(baseurl)
+    {
+        dbg_assert(typeof basefs === "string", "Filesystem: basefs must be a JSON string");
+        newfs.OnJSONLoaded(basefs);
+        newfs.OnLoaded = mount;
+    }
+    else
+    {
+        mount();
+    }
+};
+
+/**
  * Write to a file in the 9p filesystem. Nothing happens if no filesystem has
  * been initialized. First argument to the callback is an error object if
  * something went wrong and null otherwise.

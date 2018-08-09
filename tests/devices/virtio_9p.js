@@ -936,6 +936,245 @@ const tests =
             done();
         },
     },
+    {
+        name: "Read Mounted",
+        timeout: 60,
+        mounts:
+        [
+            { path: "/a/b/fs2", baseurl: __dirname + "/testfs/", basefs: testfsjson },
+        ],
+        start: () =>
+        {
+            emulator.serial0_send("echo start-capture;");
+            emulator.serial0_send("cat /mnt/a/b/fs2/foo;");
+            emulator.serial0_send("cat /mnt/a/b/fs2/dir/bar;");
+            emulator.serial0_send("echo done-read-mounted\n");
+        },
+        capture_trigger: "start-capture",
+        end_trigger: "done-read-mounted",
+        end: (capture, done) =>
+        {
+            assert_equal(capture, "bar\nfoobaz\n");
+            emulator.read_file("/a/b/fs2/dir/bar", function(err, data)
+            {
+                if(err)
+                {
+                    log_warn("Reading /a/b/fs2/dir/bar failed: %s", err);
+                    test_fail();
+                    done();
+                    return;
+                }
+                assert_equal(Buffer.from(data).toString(), "foobaz\n");
+                done();
+            });
+        },
+    },
+    {
+        name: "Write Mounted",
+        timeout: 60,
+        mounts:
+        [
+            { path: "/a/b/fs2" },
+        ],
+        files:
+        [
+            {
+                file: "/a/b/fs2/write-new-host",
+                data: test_file,
+            },
+        ],
+        start: () =>
+        {
+            emulator.serial0_send("mkdir /mnt/a/b/fs2/c\n");
+            emulator.serial0_send("echo foobar > /mnt/a/b/fs2/c/write-new-guest\n");
+
+            emulator.serial0_send("echo start-capture;");
+            emulator.serial0_send("cat /mnt/a/b/fs2/c/write-new-guest;");
+            emulator.serial0_send("cat /mnt/a/b/fs2/write-new-host; echo;");
+            emulator.serial0_send("echo done-write-mounted\n");
+        },
+        capture_trigger: "start-capture",
+        end_trigger: "done-write-mounted",
+        end: (capture, done) =>
+        {
+            const lines = capture.split("\n");
+            assert_equal(lines.shift(), "foobar");
+            let pos = 0;
+            for(const line of lines)
+            {
+                assert_equal(line, test_file_string.slice(pos, line.length));
+                pos += line.length;
+            }
+            emulator.read_file("a/b/fs2/c/write-new-guest", function(err, data)
+            {
+                if(err)
+                {
+                    log_warn("Reading a/b/fs2/c/write-new-guest failed: %s", err);
+                    test_fail();
+                    done();
+                    return;
+                }
+                assert_equal(Buffer.from(data).toString(), "foobar\n");
+                done();
+            });
+        },
+    },
+    {
+        name: "Walk Mounted",
+        timeout: 180,
+        mounts:
+        [
+            { path: "/a/fs2" },
+            { path: "/fs3" },
+            { path: "/fs3/fs4" },
+        ],
+        start: () =>
+        {
+            emulator.serial0_send("echo start-capture;");
+            emulator.serial0_send("mkdir -p /mnt/a/fs2/aa/aaa/aaaa;");
+            emulator.serial0_send("mkdir -p /mnt/a/fs2/aa/aab;");
+            emulator.serial0_send("mkdir -p /mnt/a/fs2/ab/aba;");
+            emulator.serial0_send("touch /mnt/a/fs2/ab/aba/abafile;");
+            emulator.serial0_send("mkdir -p /mnt/a/fs2/ab/abb;");
+            emulator.serial0_send("mkdir -p /mnt/fs3/a/aa/aaa;");
+            emulator.serial0_send("mkdir -p /mnt/fs3/a/ab/aba;");
+            emulator.serial0_send("touch /mnt/fs3/a/afile;");
+            emulator.serial0_send("mkdir -p /mnt/fs3/b;");
+            emulator.serial0_send("mkdir -p /mnt/fs3/fs4/a/aa/aaa;");
+            emulator.serial0_send("mkdir -p /mnt/fs3/fs4/a/ab/;");
+            emulator.serial0_send("mkdir -p /mnt/fs3/fs4/a/ac/aca;");
+            emulator.serial0_send("touch /mnt/fs3/fs4/a/ac/aca/acafile;");
+            emulator.serial0_send("find /mnt | sort;"); // order agnostic
+            emulator.serial0_send("echo done-walk-mounted\n");
+        },
+        capture_trigger: "start-capture",
+        end_trigger: "done-walk-mounted",
+        end: (capture, done) =>
+        {
+            const lines = capture.split("\n");
+            const expected_lines =
+            [
+                "/mnt",
+                "/mnt/a",
+                "/mnt/a/fs2",
+                "/mnt/a/fs2/aa",
+                "/mnt/a/fs2/aa/aaa",
+                "/mnt/a/fs2/aa/aaa/aaaa",
+                "/mnt/a/fs2/aa/aab",
+                "/mnt/a/fs2/ab",
+                "/mnt/a/fs2/ab/aba",
+                "/mnt/a/fs2/ab/aba/abafile",
+                "/mnt/a/fs2/ab/abb",
+                "/mnt/fs3",
+                "/mnt/fs3/a",
+                "/mnt/fs3/a/aa",
+                "/mnt/fs3/a/aa/aaa",
+                "/mnt/fs3/a/ab",
+                "/mnt/fs3/a/ab/aba",
+                "/mnt/fs3/a/afile",
+                "/mnt/fs3/b",
+                "/mnt/fs3/fs4",
+                "/mnt/fs3/fs4/a",
+                "/mnt/fs3/fs4/a/aa",
+                "/mnt/fs3/fs4/a/aa/aaa",
+                "/mnt/fs3/fs4/a/ab",
+                "/mnt/fs3/fs4/a/ac",
+                "/mnt/fs3/fs4/a/ac/aca",
+                "/mnt/fs3/fs4/a/ac/aca/acafile",
+            ];
+            for(const expected of expected_lines)
+            {
+                assert_equal(lines.shift(), expected);
+            }
+            done();
+        },
+    },
+    {
+        name: "Move Mounted",
+        timeout: 60,
+        mounts:
+        [
+            { path: "/a/b/fs2" },
+            { path: "/fs3" },
+            { path: "/fs3/fs4" },
+            { path: "/fs3/fs4/fs5" },
+        ],
+        start: () =>
+        {
+            emulator.serial0_send("echo foobar > /mnt/file\n");
+            emulator.serial0_send("mkdir /mnt/a/b/fs2/dir\n");
+            emulator.serial0_send("echo contents > /mnt/a/b/fs2/dir/child\n");
+
+            // Using tail -f to keep 'file' open for modification in bg while it is being moved.
+            // Using fifo to send data from fg job to bg job to write to file.
+            emulator.serial0_send("mkfifo /mnt/fs3/fifo\n");
+            emulator.serial0_send("mkfifo /mnt/fs3/fifo_intermediate\n");
+            emulator.serial0_send("tail -f /mnt/fs3/fifo > /mnt/fs3/fifo_intermediate &\n");
+            emulator.serial0_send('echo "$!" > /mnt/tailpid\n');
+            emulator.serial0_send('{ sed "/EOF/q" < /mnt/fs3/fifo_intermediate && kill "$(cat /mnt/tailpid)"; } >> /mnt/file &\n');
+
+            emulator.serial0_send("echo start-capture; \\\n");
+            emulator.serial0_send("echo untouched > /mnt/fs3/fifo; \\\n");
+
+            emulator.serial0_send("{ mv /mnt/file /mnt/renamed && ");
+            emulator.serial0_send("  echo renamed > /mnt/fs3/fifo; }; \\\n");
+
+            emulator.serial0_send("{ mv /mnt/renamed /mnt/fs3/file &&");
+            emulator.serial0_send("  echo file jump filesystems > /mnt/fs3/fifo; }; \\\n");
+
+            emulator.serial0_send("{ mv /mnt/fs3/file /mnt/a/b/fs2/dir/file && ");
+            emulator.serial0_send("  echo moved to dir > /mnt/fs3/fifo; }; \\\n");
+
+            emulator.serial0_send("{ mv /mnt/a/b/fs2/dir /mnt/fs3/fs4/fs5/dir && ");
+            emulator.serial0_send("  echo dir jump filesystems > /mnt/fs3/fifo; }; \\\n");
+
+            emulator.serial0_send("{ mv /mnt/fs3/fs4 /mnt/a/b/fs2/fs4 2>/dev/null || ");
+            emulator.serial0_send("  echo move mount point across - fails > /mnt/fs3/fifo; }; \\\n");
+
+            emulator.serial0_send("{ mv /mnt/fs3/fs4/fs5 /mnt/fs5 2>/dev/null || ");
+            emulator.serial0_send("  echo move mount point upwards - fails > /mnt/fs3/fifo; }; \\\n");
+
+            emulator.serial0_send("{ mv /mnt/fs3/fs4/fs5/dir /mnt/dir && ");
+            emulator.serial0_send("  echo jump to root > /mnt/fs3/fifo; }; \\\n");
+
+            emulator.serial0_send('printf "EOF\\n\\n" > /mnt/fs3/fifo & wait "$(cat /mnt/tailpid)" 2>/dev/null; \\\n');
+            emulator.serial0_send("cat /mnt/dir/file; \\\n");
+            emulator.serial0_send("cat /mnt/dir/child; \\\n");
+            emulator.serial0_send("find /mnt | sort; \\\n");
+            emulator.serial0_send("echo done-move-mounted\n");
+        },
+        capture_trigger: "start-capture",
+        end_trigger: "done-move-mounted",
+        end: (capture, done) =>
+        {
+            assert_equal(capture,
+                "foobar\n" +
+                "untouched\n" +
+                "renamed\n" +
+                "file jump filesystems\n" +
+                "moved to dir\n" +
+                "dir jump filesystems\n" +
+                "move mount point across - fails\n" +
+                "move mount point upwards - fails\n" +
+                "jump to root\n" +
+                "EOF\n" +
+                "contents\n" +
+                "/mnt\n" +
+                "/mnt/a\n" +
+                "/mnt/a/b\n" +
+                "/mnt/a/b/fs2\n" +
+                "/mnt/dir\n" +
+                "/mnt/dir/child\n" +
+                "/mnt/dir/file\n" +
+                "/mnt/fs3\n" +
+                "/mnt/fs3/fifo\n" +
+                "/mnt/fs3/fifo_intermediate\n" +
+                "/mnt/fs3/fs4\n" +
+                "/mnt/fs3/fs4/fs5\n" +
+                "/mnt/tailpid\n");
+            done();
+        },
+    },
 ];
 
 let test_num = 0;
@@ -993,7 +1232,7 @@ function nuke_fs()
     emulator.serial0_send("echo prep-nuke-done\n");
 
     next_trigger = "prep-nuke-done";
-    next_trigger_handler = tests[test_num].use_fsjson ? reload_fsjson : load_files;
+    next_trigger_handler = tests[test_num].use_fsjson ? reload_fsjson : do_mounts;
 }
 
 function reload_fsjson()
@@ -1002,15 +1241,64 @@ function reload_fsjson()
     emulator.fs9p.OnJSONLoaded(testfsjson);
     emulator.fs9p.OnLoaded = () =>
     {
-        emulator.serial0_send("echo prep-fs-loaded\n");
+        do_mounts();
     };
+}
 
-    next_trigger = "prep-fs-loaded";
-    next_trigger_handler = load_files;
+function do_mounts()
+{
+    console.log("    Configuring mounts");
+    if(tests[test_num].mounts && tests[test_num].mounts.length > 0)
+    {
+        premount(0);
+
+        function premount(mount_num)
+        {
+            const path = tests[test_num].mounts[mount_num].path;
+            emulator.serial0_send("mkdir -p /mnt" +  path + "\n");
+            emulator.serial0_send("echo done-premount\n");
+            next_trigger = "done-premount";
+            next_trigger_handler = () => mount(mount_num);
+        }
+
+        function mount(mount_num)
+        {
+            const { path, baseurl, basefs } = tests[test_num].mounts[mount_num];
+            emulator.mount_fs(path, baseurl, basefs, err =>
+            {
+                if(err)
+                {
+                    log_warn("Failed to mount fs required for test %s: %s",
+                        tests[test_num].name, err);
+                    test_fail();
+                }
+                if(mount_num + 1 < tests[test_num].mounts.length)
+                {
+                    premount(mount_num + 1);
+                }
+                else
+                {
+                    if(test_has_failed)
+                    {
+                        report_test();
+                    }
+                    else
+                    {
+                        load_files();
+                    }
+                }
+            });
+        }
+    }
+    else
+    {
+        load_files();
+    }
 }
 
 function load_files()
 {
+    console.log("    Loading additional files");
     if(tests[test_num].files)
     {
         let remaining = tests[test_num].files.length;
@@ -1022,12 +1310,19 @@ function load_files()
                 {
                     log_warn("Failed to add file required for test %s: %s",
                         tests[test_num].name, err);
-                    process.exit(1);
+                    test_fail();
                 }
                 remaining--;
                 if(!remaining)
                 {
-                    start_test();
+                    if(test_has_failed)
+                    {
+                        report_test();
+                    }
+                    else
+                    {
+                        start_test();
+                    }
                 }
             });
         }
@@ -1077,36 +1372,38 @@ function end_test()
         clearTimeout(test_timeout);
     }
 
-    tests[test_num].end(capture, () =>
+    tests[test_num].end(capture, report_test);
+}
+
+function report_test()
+{
+    if(!test_has_failed)
     {
-        if(!test_has_failed)
+        log_pass("Test #%d passed: %s", test_num, tests[test_num].name);
+    }
+    else
+    {
+        if(tests[test_num].allow_failure)
         {
-            log_pass("Test #%d passed: %s", test_num, tests[test_num].name);
+            log_warn("Test #%d failed: %s (failure allowed)", test_num, tests[test_num].name);
         }
         else
         {
-            if(tests[test_num].allow_failure)
-            {
-                log_warn("Test #%d failed: %s (failure allowed)", test_num, tests[test_num].name);
-            }
-            else
-            {
-                log_fail("Test #%d failed: %s", test_num, tests[test_num].name);
-            }
-            test_has_failed = false;
+            log_fail("Test #%d failed: %s", test_num, tests[test_num].name);
         }
+        test_has_failed = false;
+    }
 
-        test_num++;
+    test_num++;
 
-        if(test_num < tests.length)
-        {
-            nuke_fs();
-        }
-        else
-        {
-            finish_tests();
-        }
-    });
+    if(test_num < tests.length)
+    {
+        nuke_fs();
+    }
+    else
+    {
+        finish_tests();
+    }
 }
 
 function finish_tests()
