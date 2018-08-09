@@ -33,6 +33,30 @@ v86util.range = function(size)
     return Array.from(Array(size).keys());
 };
 
+v86util.view = function(constructor, memory, offset, length)
+{
+    return new Proxy({},
+        {
+            get: function(target, property, receiver)
+            {
+                const b = new constructor(memory.buffer, offset, length);
+                const x = b[property];
+                if(typeof x === "function")
+                {
+                    return x.bind(b);
+                }
+                dbg_assert(/^\d+$/.test(property) || property === "buffer" || property === "length");
+                return x;
+            },
+            set: function(target, property, value, receiver)
+            {
+                dbg_assert(/^\d+$/.test(property));
+                new constructor(memory.buffer, offset, length)[property] = value;
+                return true;
+            },
+        });
+};
+
 /**
  * number to hex
  * @param {number} n

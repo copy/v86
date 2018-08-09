@@ -21,62 +21,62 @@ function CPU(bus, wm, v86oxide, coverage_logger)
 
     const memory = v86oxide.instance.exports.memory;
 
-    Object.defineProperty(this, "memory_size", { get: () => { return new Uint32Array(memory.buffer, 812, 1); } });
-    if(false) this.memory_size = new Uint32Array(memory.buffer, 812, 1);
+    if(false) Object.defineProperty(this, "memory_size", { get: () => { return new Uint32Array(memory.buffer, 812, 1); } });
+    this.memory_size = v86util.view(Uint32Array, memory, 812, 1);
 
     // Note: Currently unused (degrades performance and not required by any OS
     //       that we support)
-    if(false) this.a20_enabled = new Int32Array(memory.buffer, 552, 1);
-    Object.defineProperty(this, "a20_enabled", { get: () => { return new Int32Array(memory.buffer, 552, 1); } });
+    this.a20_enabled = v86util.view(Int32Array, memory, 552, 1);
+    if(false) Object.defineProperty(this, "a20_enabled", { get: () => { return new Int32Array(memory.buffer, 552, 1); } });
     this.a20_enabled[0] = +true;
 
-    if(false) this.mem8 = new Uint8Array(0);
-    if(false) this.mem16 = new Uint16Array(this.mem8.buffer);
-    if(false) this.mem32s = new Int32Array(this.mem8.buffer);
+    this.mem8 = new Uint8Array(0);
+    this.mem16 = new Uint16Array(this.mem8.buffer);
+    this.mem32s = new Int32Array(this.mem8.buffer);
 
-    Object.defineProperty(this, "mem8", { get: () => { return new Uint8Array(memory.buffer, GUEST_MEMORY_START, this.memory_size[0]); } });
-    Object.defineProperty(this, "mem16", { get: () => { return new Uint16Array(memory.buffer, GUEST_MEMORY_START, this.memory_size[0] >> 1); } });
-    Object.defineProperty(this, "mem32s", { get: () => { return new Int32Array(memory.buffer, GUEST_MEMORY_START, this.memory_size[0] >> 2); } });
+    if(false) Object.defineProperty(this, "mem8", { get: () => { return new Uint8Array(memory.buffer, GUEST_MEMORY_START, this.memory_size[0]); } });
+    if(false) Object.defineProperty(this, "mem16", { get: () => { return new Uint16Array(memory.buffer, GUEST_MEMORY_START, this.memory_size[0] >> 1); } });
+    if(false) Object.defineProperty(this, "mem32s", { get: () => { return new Int32Array(memory.buffer, GUEST_MEMORY_START, this.memory_size[0] >> 2); } });
 
-    if(false) this.segment_is_null = new Uint8Array(memory.buffer, 724, 8);
-    Object.defineProperty(this, "segment_is_null", { get: () => { return new Uint8Array(memory.buffer, 724, 8); } });
+    this.segment_is_null = v86util.view(Uint8Array, memory, 724, 8);
+    if(false) Object.defineProperty(this, "segment_is_null", { get: () => { return new Uint8Array(memory.buffer, 724, 8); } });
 
-    if(false) this.segment_offsets = new Int32Array(memory.buffer, 736, 8);
-    Object.defineProperty(this, "segment_offsets", { get: () => { return new Int32Array(memory.buffer, 736, 8); } });
+    this.segment_offsets = v86util.view(Int32Array, memory, 736, 8);
+    if(false) Object.defineProperty(this, "segment_offsets", { get: () => { return new Int32Array(memory.buffer, 736, 8); } });
 
-    if(false) this.segment_limits = new Uint32Array(memory.buffer, 768, 8);
-    Object.defineProperty(this, "segment_limits", { get: () => { return new Uint32Array(memory.buffer, 768, 8); } });
+    this.segment_limits = v86util.view(Uint32Array, memory, 768, 8);
+    if(false) Object.defineProperty(this, "segment_limits", { get: () => { return new Uint32Array(memory.buffer, 768, 8); } });
 
     /**
      * Wheter or not in protected mode
      */
-    if(false) this.protected_mode = new Int32Array(memory.buffer, 800, 1);
-    Object.defineProperty(this, "protected_mode", { get: () => { return new Int32Array(memory.buffer, 800, 1); } });
+    this.protected_mode = v86util.view(Int32Array, memory, 800, 1);
+    if(false) Object.defineProperty(this, "protected_mode", { get: () => { return new Int32Array(memory.buffer, 800, 1); } });
 
-    if(false) this.idtr_size = new Int32Array(memory.buffer, 564, 1);
-    if(false) this.idtr_offset = new Int32Array(memory.buffer, 568, 1);
-    Object.defineProperty(this, "idtr_size", { get: () => { return new Int32Array(memory.buffer, 564, 1); } });
-    Object.defineProperty(this, "idtr_offset", { get: () => { return new Int32Array(memory.buffer, 568, 1); } });
+    this.idtr_size = v86util.view(Int32Array, memory, 564, 1);
+    this.idtr_offset = v86util.view(Int32Array, memory, 568, 1);
+    if(false) Object.defineProperty(this, "idtr_size", { get: () => { return new Int32Array(memory.buffer, 564, 1); } });
+    if(false) Object.defineProperty(this, "idtr_offset", { get: () => { return new Int32Array(memory.buffer, 568, 1); } });
 
     /**
      * global descriptor table register
      */
-    if(false) this.gdtr_size = new Int32Array(memory.buffer, 572, 1);
-    if(false) this.gdtr_offset = new Int32Array(memory.buffer, 576, 1);
+    this.gdtr_size = v86util.view(Int32Array, memory, 572, 1);
+    this.gdtr_offset = v86util.view(Int32Array, memory, 576, 1);
 
-    Object.defineProperty(this, "gdtr_size", { get: () => { return new Int32Array(memory.buffer, 572, 1); } });
-    Object.defineProperty(this, "gdtr_offset", { get: () => { return new Int32Array(memory.buffer, 576, 1); } });
+    if(false) Object.defineProperty(this, "gdtr_size", { get: () => { return new Int32Array(memory.buffer, 572, 1); } });
+    if(false) Object.defineProperty(this, "gdtr_offset", { get: () => { return new Int32Array(memory.buffer, 576, 1); } });
 
     this.tss_size_32 = false;
 
     /*
      * whether or not a page fault occured
      */
-    if(false) this.page_fault = new Uint32Array(memory.buffer, 540, 8);
-    Object.defineProperty(this, "page_fault", { get: () => { return new Uint32Array(memory.buffer, 540, 8); } });
+    this.page_fault = v86util.view(Uint32Array, memory, 540, 8);
+    if(false) Object.defineProperty(this, "page_fault", { get: () => { return new Uint32Array(memory.buffer, 540, 8); } });
 
-    if(false) this.cr = new Int32Array(memory.buffer, 580, 8);
-    Object.defineProperty(this, "cr", { get: () => { return new Int32Array(memory.buffer, 580, 8); } });
+    this.cr = v86util.view(Int32Array, memory, 580, 8);
+    if(false) Object.defineProperty(this, "cr", { get: () => { return new Int32Array(memory.buffer, 580, 8); } });
 
     /** @type {number} */
     this.cr[0] = 0;
@@ -88,76 +88,76 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     this.cr[4] = 0;
 
     // current privilege level
-    if(false) this.cpl = new Int32Array(memory.buffer, 612, 1);
-    Object.defineProperty(this, "cpl", { get: () => { return new Int32Array(memory.buffer, 612, 1); } });
+    this.cpl = v86util.view(Int32Array, memory, 612, 1);
+    if(false) Object.defineProperty(this, "cpl", { get: () => { return new Int32Array(memory.buffer, 612, 1); } });
 
     // current operand/address size
-    if(false) this.is_32 = new Int32Array(memory.buffer, 804, 1);
-    Object.defineProperty(this, "is_32", { get: () => { return new Int32Array(memory.buffer, 804, 1); } });
+    this.is_32 = v86util.view(Int32Array, memory, 804, 1);
+    if(false) Object.defineProperty(this, "is_32", { get: () => { return new Int32Array(memory.buffer, 804, 1); } });
 
-    if(false) this.stack_size_32 = new Int32Array(memory.buffer, 808, 1);
-    Object.defineProperty(this, "stack_size_32", { get: () => { return new Int32Array(memory.buffer, 808, 1); } });
+    this.stack_size_32 = v86util.view(Int32Array, memory, 808, 1);
+    if(false) Object.defineProperty(this, "stack_size_32", { get: () => { return new Int32Array(memory.buffer, 808, 1); } });
 
     /**
      * Was the last instruction a hlt?
      */
-    if(false) this.in_hlt = new Uint8Array(memory.buffer, 616, 1);
-    Object.defineProperty(this, "in_hlt", { get: () => { return new Uint8Array(memory.buffer, 616, 1); } });
+    this.in_hlt = v86util.view(Uint8Array, memory, 616, 1);
+    if(false) Object.defineProperty(this, "in_hlt", { get: () => { return new Uint8Array(memory.buffer, 616, 1); } });
 
-    this.last_virt_eip = new Int32Array(memory.buffer, 620, 1);
+    this.last_virt_eip = v86util.view(Int32Array, memory, 620, 1);
 
-    this.eip_phys = new Int32Array(memory.buffer, 624, 1);
+    this.eip_phys = v86util.view(Int32Array, memory, 624, 1);
 
-    this.last_virt_esp = new Int32Array(memory.buffer, 628, 1);
+    this.last_virt_esp = v86util.view(Int32Array, memory, 628, 1);
 
-    this.esp_phys = new Int32Array(memory.buffer, 632, 1);
+    this.esp_phys = v86util.view(Int32Array, memory, 632, 1);
 
 
-    this.sysenter_cs = new Int32Array(memory.buffer, 636, 1);
+    this.sysenter_cs = v86util.view(Int32Array, memory, 636, 1);
 
-    this.sysenter_esp = new Int32Array(memory.buffer, 640, 1);
+    this.sysenter_esp = v86util.view(Int32Array, memory, 640, 1);
 
-    this.sysenter_eip = new Int32Array(memory.buffer, 644, 1);
+    this.sysenter_eip = v86util.view(Int32Array, memory, 644, 1);
 
-    if(false) this.prefixes = new Int32Array(memory.buffer, 648, 1);
-    Object.defineProperty(this, "prefixes", { get: () => { return new Int32Array(memory.buffer, 648, 1); } });
+    this.prefixes = v86util.view(Int32Array, memory, 648, 1);
+    if(false) Object.defineProperty(this, "prefixes", { get: () => { return new Int32Array(memory.buffer, 648, 1); } });
 
-    if(false) this.flags = new Int32Array(memory.buffer, 536, 1);
-    Object.defineProperty(this, "flags", { get: () => { return new Int32Array(memory.buffer, 536, 1); } });
+    this.flags = v86util.view(Int32Array, memory, 536, 1);
+    if(false) Object.defineProperty(this, "flags", { get: () => { return new Int32Array(memory.buffer, 536, 1); } });
 
     /**
      * bitmap of flags which are not updated in the flags variable
      * changed by arithmetic instructions, so only relevant to arithmetic flags
      */
-    if(false) this.flags_changed = new Int32Array(memory.buffer, 532, 1);
-    Object.defineProperty(this, "flags_changed", { get: () => { return new Int32Array(memory.buffer, 532, 1); } });
+    this.flags_changed = v86util.view(Int32Array, memory, 532, 1);
+    if(false) Object.defineProperty(this, "flags_changed", { get: () => { return new Int32Array(memory.buffer, 532, 1); } });
 
     /**
      * the last 2 operators and the result and size of the last arithmetic operation
      */
-    if(false) this.last_op1 = new Int32Array(memory.buffer, 512, 1);
-    Object.defineProperty(this, "last_op1", { get: () => { return new Int32Array(memory.buffer, 512, 1); } });
-    if(false) this.last_op2 = new Int32Array(memory.buffer, 516, 1);
-    Object.defineProperty(this, "last_op2", { get: () => { return new Int32Array(memory.buffer, 516, 1); } });
-    if(false) this.last_op_size = new Int32Array(memory.buffer, 520, 1);
-    Object.defineProperty(this, "last_op_size", { get: () => { return new Int32Array(memory.buffer, 520, 1); } });
+    this.last_op1 = v86util.view(Int32Array, memory, 512, 1);
+    if(false) Object.defineProperty(this, "last_op1", { get: () => { return new Int32Array(memory.buffer, 512, 1); } });
+    this.last_op2 = v86util.view(Int32Array, memory, 516, 1);
+    if(false) Object.defineProperty(this, "last_op2", { get: () => { return new Int32Array(memory.buffer, 516, 1); } });
+    this.last_op_size = v86util.view(Int32Array, memory, 520, 1);
+    if(false) Object.defineProperty(this, "last_op_size", { get: () => { return new Int32Array(memory.buffer, 520, 1); } });
 
-    if(false) this.last_add_result = new Int32Array(memory.buffer, 524, 1);
-    Object.defineProperty(this, "last_add_result", { get: () => { return new Int32Array(memory.buffer, 524, 1); } });
+    this.last_add_result = v86util.view(Int32Array, memory, 524, 1);
+    if(false) Object.defineProperty(this, "last_add_result", { get: () => { return new Int32Array(memory.buffer, 524, 1); } });
 
-    if(false) this.last_result = new Int32Array(memory.buffer, 528, 1);
-    Object.defineProperty(this, "last_result", { get: () => { return new Int32Array(memory.buffer, 528, 1); } });
+    this.last_result = v86util.view(Int32Array, memory, 528, 1);
+    if(false) Object.defineProperty(this, "last_result", { get: () => { return new Int32Array(memory.buffer, 528, 1); } });
 
-    this.current_tsc = new Uint32Array(memory.buffer, 956, 2); // 64 bit
+    this.current_tsc = v86util.view(Uint32Array, memory, 956, 2); // 64 bit
 
     /** @type {!Object} */
     this.devices = {};
 
-    if(false) this.instruction_pointer = new Int32Array(memory.buffer, 556, 1);
-    Object.defineProperty(this, "instruction_pointer", { get: () => { return new Int32Array(memory.buffer, 556, 1); } });
+    this.instruction_pointer = v86util.view(Int32Array, memory, 556, 1);
+    if(false) Object.defineProperty(this, "instruction_pointer", { get: () => { return new Int32Array(memory.buffer, 556, 1); } });
 
-    if(false) this.previous_ip = new Int32Array(memory.buffer, 560, 1);
-    Object.defineProperty(this, "previous_ip", { get: () => { return new Int32Array(memory.buffer, 560, 1); } });
+    this.previous_ip = v86util.view(Int32Array, memory, 560, 1);
+    if(false) Object.defineProperty(this, "previous_ip", { get: () => { return new Int32Array(memory.buffer, 560, 1); } });
 
     this.apic_enabled = true;
 
@@ -176,64 +176,64 @@ function CPU(bus, wm, v86oxide, coverage_logger)
         vga: null,
     };
 
-    Object.defineProperty(this, "timestamp_counter", { get: () => { return new Int32Array(memory.buffer, 664, 1); } });
-    if(false) this.timestamp_counter = new Uint32Array(memory.buffer, 664, 1);
+    if(false) Object.defineProperty(this, "timestamp_counter", { get: () => { return new Int32Array(memory.buffer, 664, 1); } });
+    this.timestamp_counter = v86util.view(Uint32Array, memory, 664, 1);
 
     // registers
-    if(false) this.reg32s = new Int32Array(memory.buffer, 4, 8);
-    if(false) this.reg32 = new Uint32Array(this.reg32s.buffer, 4, 8);
-    if(false) this.reg16s = new Int16Array(this.reg32s.buffer, 4, 16);
-    if(false) this.reg16 = new Uint16Array(this.reg32s.buffer, 4, 16);
-    if(false) this.reg8s = new Int8Array(this.reg32s.buffer, 4, 32);
-    if(false) this.reg8 = new Uint8Array(this.reg32s.buffer, 4, 32);
-    Object.defineProperty(this, "reg32s", { get: () => { return new Int32Array(memory.buffer, 4, 8); } });
-    Object.defineProperty(this, "reg32", { get: () => { return new Uint32Array(memory.buffer, 4, 8); } });
-    Object.defineProperty(this, "reg16s", { get: () => { return new Int16Array(memory.buffer, 4, 16); } });
-    Object.defineProperty(this, "reg16", { get: () => { return new Uint16Array(memory.buffer, 4, 16); } });
-    Object.defineProperty(this, "reg8s", { get: () => { return new Int8Array(memory.buffer, 4, 32); } });
-    Object.defineProperty(this, "reg8", { get: () => { return new Uint8Array(memory.buffer, 4, 32); } });
+    this.reg32s = v86util.view(Int32Array, memory, 4, 8);
+    this.reg32 = v86util.view(Uint32Array, memory, 4, 8);
+    this.reg16s = v86util.view(Int16Array, memory, 4, 16);
+    this.reg16 = v86util.view(Uint16Array, memory, 4, 16);
+    this.reg8s = v86util.view(Int8Array, memory, 4, 32);
+    this.reg8 = v86util.view(Uint8Array, memory, 4, 32);
+    if(false) Object.defineProperty(this, "reg32s", { get: () => { return new Int32Array(memory.buffer, 4, 8); } });
+    if(false) Object.defineProperty(this, "reg32", { get: () => { return new Uint32Array(memory.buffer, 4, 8); } });
+    if(false) Object.defineProperty(this, "reg16s", { get: () => { return new Int16Array(memory.buffer, 4, 16); } });
+    if(false) Object.defineProperty(this, "reg16", { get: () => { return new Uint16Array(memory.buffer, 4, 16); } });
+    if(false) Object.defineProperty(this, "reg8s", { get: () => { return new Int8Array(memory.buffer, 4, 32); } });
+    if(false) Object.defineProperty(this, "reg8", { get: () => { return new Uint8Array(memory.buffer, 4, 32); } });
 
     // Why no Float80Array :-(
-    this.fpu_st = new Float64Array(memory.buffer, 968, 8);
+    this.fpu_st = v86util.view(Float64Array, memory, 968, 8);
 
-    this.fpu_stack_empty = new Int32Array(memory.buffer, 816, 1);
+    this.fpu_stack_empty = v86util.view(Int32Array, memory, 816, 1);
     this.fpu_stack_empty[0] = 0xff;
-    this.fpu_stack_ptr = new Uint32Array(memory.buffer, 1032, 1);
+    this.fpu_stack_ptr = v86util.view(Uint32Array, memory, 1032, 1);
     this.fpu_stack_ptr[0] = 0;
 
-    this.fpu_control_word = new Int32Array(memory.buffer, 1036, 1);
+    this.fpu_control_word = v86util.view(Int32Array, memory, 1036, 1);
     this.fpu_control_word[0] = 0x37F;
-    this.fpu_status_word = new Int32Array(memory.buffer, 1040, 1);
+    this.fpu_status_word = v86util.view(Int32Array, memory, 1040, 1);
     this.fpu_status_word[0] = 0;
-    this.fpu_ip = new Int32Array(memory.buffer, 1048, 1);
+    this.fpu_ip = v86util.view(Int32Array, memory, 1048, 1);
     this.fpu_ip[0] = 0;
-    this.fpu_ip_selector = new Int32Array(memory.buffer, 1052, 1);
+    this.fpu_ip_selector = v86util.view(Int32Array, memory, 1052, 1);
     this.fpu_ip_selector[0] = 0;
-    this.fpu_opcode = new Int32Array(memory.buffer, 1044, 1);
+    this.fpu_opcode = v86util.view(Int32Array, memory, 1044, 1);
     this.fpu_opcode[0] = 0;
-    this.fpu_dp = new Int32Array(memory.buffer, 1056, 1);
+    this.fpu_dp = v86util.view(Int32Array, memory, 1056, 1);
     this.fpu_dp[0] = 0;
-    this.fpu_dp_selector = new Int32Array(memory.buffer, 1060, 1);
+    this.fpu_dp_selector = v86util.view(Int32Array, memory, 1060, 1);
     this.fpu_dp_selector[0] = 0;
 
     // mm0-mm7 split up into 32 bit pairs
-    this.reg_mmxs = new Int32Array(memory.buffer, 1064, 16);
-    this.reg_mmx = new Uint32Array(this.reg_mmxs.buffer, 1064, 16);
-    this.reg_mmx8s = new Int8Array(this.reg_mmxs.buffer, 1064, 64);
-    this.reg_mmx8 = new Uint8Array(this.reg_mmxs.buffer, 1064, 64);
+    this.reg_mmxs = v86util.view(Int32Array, memory, 1064, 16);
+    this.reg_mmx = v86util.view(Uint32Array, this.reg_mmxs.buffer, 1064, 16);
+    this.reg_mmx8s = v86util.view(Int8Array, this.reg_mmxs.buffer, 1064, 64);
+    this.reg_mmx8 = v86util.view(Uint8Array, this.reg_mmxs.buffer, 1064, 64);
 
-    this.reg_xmm32s = new Int32Array(memory.buffer, 828, 8 * 4);
+    this.reg_xmm32s = v86util.view(Int32Array, memory, 828, 8 * 4);
 
-    this.mxcsr = new Int32Array(memory.buffer, 824, 1);
+    this.mxcsr = v86util.view(Int32Array, memory, 824, 1);
 
     // segment registers, tr and ldtr
-    if(false) this.sreg = new Uint16Array(memory.buffer, 668, 8);
-    Object.defineProperty(this, "sreg", { get: () => { return new Uint16Array(memory.buffer, 668, 8); } });
+    this.sreg = v86util.view(Uint16Array, memory, 668, 8);
+    if(false) Object.defineProperty(this, "sreg", { get: () => { return new Uint16Array(memory.buffer, 668, 8); } });
 
     // debug registers
-    this.dreg = new Int32Array(memory.buffer, 684, 8);
+    this.dreg = v86util.view(Int32Array, memory, 684, 8);
 
-    this.fw_value = new Int32Array(memory.buffer, 720, 1);
+    this.fw_value = v86util.view(Int32Array, memory, 720, 1);
 
     this.io = undefined;
 
@@ -716,6 +716,9 @@ CPU.prototype.create_memory = function(size)
 
     //var buffer = this.wm.memory.buffer;
 
+    this.mem8 = v86util.view(Uint8Array, this.v86oxide.instance.exports.memory, GUEST_MEMORY_START, size);
+    this.mem16 = v86util.view(Uint16Array, this.v86oxide.instance.exports.memory, GUEST_MEMORY_START, size >> 1);
+    this.mem32s = v86util.view(Uint32Array, this.v86oxide.instance.exports.memory, GUEST_MEMORY_START, size >> 2);
     //this.mem8 = new Uint8Array(buffer, GUEST_MEMORY_START, size);
     //this.mem16 = new Uint16Array(buffer, GUEST_MEMORY_START, size >> 1);
     //this.mem32s = new Int32Array(buffer, GUEST_MEMORY_START, size >> 2);
