@@ -971,8 +971,22 @@ let capture = "";
 let next_trigger;
 let next_trigger_handler;
 
+function start_timeout()
+{
+    if(tests[test_num].timeout)
+    {
+        test_timeout = setTimeout(() =>
+        {
+            log_fail("Test #%d (%s) took longer than %s sec. Timing out and terminating.", test_num, tests[test_num].name, tests[test_num].timeout);
+            process.exit(1);
+        }, tests[test_num].timeout * 1000);
+    }
+}
+
 function nuke_fs()
 {
+    start_timeout();
+
     console.log("\nPreparing test #%d: %s", test_num, tests[test_num].name);
     console.log("    Nuking /mnt");
     emulator.serial0_send("rm -rf /mnt/*\n");
@@ -1027,15 +1041,6 @@ function load_files()
 function start_test()
 {
     console.log("Starting test #%d: %s", test_num, tests[test_num].name);
-
-    if(tests[test_num].timeout)
-    {
-        test_timeout = setTimeout(() =>
-        {
-            log_fail("Test #%d (%s) took longer than %s sec. Timing out and terminating.", test_num, tests[test_num].name, tests[test_num].timeout);
-            process.exit(1);
-        }, tests[test_num].timeout * 1000);
-    }
 
     capture = "";
 
