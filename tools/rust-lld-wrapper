@@ -11,7 +11,10 @@ def main():
     args = sys.argv[1:]
 
     # filter out args inserted by rustc
-    TO_REMOVE = {"--stack-first"}
+    TO_REMOVE = {
+        "--stack-first",
+        "--strip-debug", # TODO: Make this configurable
+    }
     args = list(filter(lambda arg: arg not in TO_REMOVE, args))
 
     lld = find_rust_lld()
