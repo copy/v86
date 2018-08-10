@@ -23,22 +23,22 @@ function log_fail(msg, ...args)
     console.error(`\x1b[91m[-] ${msg}\x1b[0m`, ...args);
 }
 
-function assert_equal(actual, expected)
+function assert_equal(actual, expected, message)
 {
     if(actual !== expected)
     {
-        log_warn("Failed assert equal (Test: %s)", tests[test_num].name);
+        log_warn("Failed assert equal (Test: %s). %s", tests[test_num].name, message || "");
         log_warn("Expected:\n" + expected);
         log_warn("Actual:\n" + actual);
         test_fail();
     }
 }
 
-function assert_not_equal(actual, expected)
+function assert_not_equal(actual, expected, message)
 {
     if(actual === expected)
     {
-        log_warn("Failed assert not equal (Test: %s)", tests[test_num].name);
+        log_warn("Failed assert not equal (Test: %s). %s", tests[test_num].name, message || "");
         log_warn("Expected something different than:\n" + expected);
         test_fail();
     }
@@ -52,6 +52,82 @@ const test_file_small_string = Buffer.from(test_file_small).toString();
 
 const tests =
 [
+    {
+        name: "API SearchPath",
+        timeout: 60,
+        mounts:
+        [
+            { path: "/x/fs2" },
+        ],
+        start: () =>
+        {
+            emulator.serial0_send("mkdir -p /mnt/a/b/c\n");
+            emulator.serial0_send("touch /mnt/a/b/c/file1\n");
+            emulator.serial0_send("touch /mnt/file2\n");
+            emulator.serial0_send("mkdir -p /mnt/x/fs2/y/z\n");
+            emulator.serial0_send("echo done-searchpath\n");
+        },
+        end_trigger: "done-searchpath",
+        end: (capture, done) =>
+        {
+            const root1 = emulator.fs9p.SearchPath("");
+            assert_equal(root1.id, 0, "root1 id");
+            assert_equal(root1.parentid, -1, "root1 parentid");
+
+            const root2 = emulator.fs9p.SearchPath("/");
+            assert_equal(root2.id, 0, "root2 / id");
+            assert_equal(root2.parentid, -1, "root2 / parentid");
+
+            const notfound1 = emulator.fs9p.SearchPath("c");
+            assert_equal(notfound1.id, -1, "notfound1 c id");
+            assert_equal(notfound1.parentid, 0, "notfound1 c parentid");
+
+            const notfound2 = emulator.fs9p.SearchPath("c/d");
+            assert_equal(notfound2.id, -1, "notfound2 c/d id");
+            assert_equal(notfound2.parentid, -1, "notfound2 c/d parentid");
+
+            const notfound3 = emulator.fs9p.SearchPath("a/d");
+            assert_equal(notfound3.id, -1, "notfound3 a/d id");
+            assert_equal(emulator.fs9p.GetInode(notfound3.parentid).name, "a", "notfound3 a/d parent name");
+            const idx_a = notfound3.parentid;
+
+            const notfound4 = emulator.fs9p.SearchPath("a/d/e");
+            assert_equal(notfound4.id, -1, "notfound4 a/d/e id");
+            assert_equal(notfound4.parentid, -1, "notfound4 a/d/e parentid");
+
+            const dir1 = emulator.fs9p.SearchPath("a");
+            assert_equal(dir1.id, idx_a, "dir1 a id");
+            assert_equal(dir1.parentid, 0, "dir1 a parentid");
+
+            const dir2 = emulator.fs9p.SearchPath("a/b/c");
+            assert_equal(emulator.fs9p.GetInode(dir2.id).name, "c", "dir2 a/b/c name");
+            assert_equal(emulator.fs9p.GetInode(dir2.parentid).name, "b", "dir2 a/b/c parent name");
+            const idx_b = dir2.parentid;
+            const idx_c = dir2.id;
+
+            const file1 = emulator.fs9p.SearchPath("a/b/c/file1");
+            assert_equal(emulator.fs9p.GetInode(file1.id).name, "file1", "file1 a/b/c/file1 name");
+            assert_equal(file1.parentid, idx_c, "file1 a/b/c/file1 parentid");
+
+            const file2 = emulator.fs9p.SearchPath("file2");
+            assert_equal(emulator.fs9p.GetInode(file2.id).name, "file2", "file2 name");
+            assert_equal(file2.parentid, 0, "file2 parentid");
+
+            const fwdpath1 = emulator.fs9p.SearchPath("x/fs2");
+            assert_equal(fwdpath1.forward_path, null, "fwdpath1 x/fs2");
+
+            const fwdpath2 = emulator.fs9p.SearchPath("x/fs2/y");
+            assert_equal(fwdpath2.forward_path, "/y", "fwdpath2 x/fs2/y");
+
+            const fwdpath3 = emulator.fs9p.SearchPath("x/fs2/y/z");
+            assert_equal(fwdpath3.forward_path, "/y/z", "fwdpath3 x/fs2/y/z");
+
+            const fwdpath4 = emulator.fs9p.SearchPath("x/fs2/nonexistent");
+            assert_equal(fwdpath4.forward_path, "/nonexistent", "fwdpath4 x/fs2/nonexistent");
+
+            done();
+        },
+    },
     {
         name: "Read Existing",
         timeout: 60,
