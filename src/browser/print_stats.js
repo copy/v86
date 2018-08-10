@@ -55,7 +55,7 @@ const print_stats = {
 
         for(let i = 0; i < stat_names.length; i++)
         {
-            let stat = cpu.wm.exports["_profiler_stat_get"](i);
+            let stat = cpu.v86oxide.exports["profiler_stat_get"](i);
             stat = stat >= 100e6 ? Math.round(stat / 1e6) + "m" : stat >= 100e3 ? Math.round(stat / 1e3) + "k" : stat;
             text += stat_names[i] + "=" + stat + " ";
 
@@ -67,8 +67,8 @@ const print_stats = {
 
         text += "\n";
 
-        const tlb_entries = cpu.wm.exports["_get_valid_tlb_entries_count"]();
-        const global_tlb_entries = cpu.wm.exports["_get_valid_global_tlb_entries_count"]();
+        const tlb_entries = cpu.v86oxide.exports["get_valid_tlb_entries_count"]();
+        const global_tlb_entries = cpu.v86oxide.exports["get_valid_global_tlb_entries_count"]();
         const nonglobal_tlb_entries = tlb_entries - global_tlb_entries;
 
         text += "TLB_ENTRIES=" + tlb_entries + " (" + global_tlb_entries + " global, " + nonglobal_tlb_entries + " non-global)\n";
@@ -159,10 +159,10 @@ const print_stats = {
 
         for(let i = 0; i < 0x100; i++)
         {
-            const count = cpu.wm.exports["_get_opstats_buffer"](i) / 1000 | 0;
+            const count = cpu.v86oxide.exports["get_opstats_buffer"](i) / 1000 | 0;
             counts.push([i, count]);
 
-            const count_0f = cpu.wm.exports["_get_opstats_buffer"](i + 0x100) / 1000 | 0;
+            const count_0f = cpu.v86oxide.exports["get_opstats_buffer"](i + 0x100) / 1000 | 0;
             counts.push([0x0f00 | i, count_0f]);
         }
 
