@@ -60,6 +60,28 @@ profiler.rs: profiler/profiler.rs
 	sed -i 's/libc::c_ulong/u64/g' $@
 	sed -i 's/libc::c_ushort/u16/g' $@
 
+	sed -i 's/pub type double_t = f64;//' $@
+	sed -i 's/pub type float_t = f32;//' $@
+	sed -i 's/pub type uint64_t = u64;//' $@
+	sed -i 's/pub type int64_t = i64;//' $@
+	sed -i 's/pub type int32_t = i32;//' $@
+	sed -i 's/pub type uint32_t = u32;//' $@
+	sed -i 's/pub type int16_t = i16;//' $@
+	sed -i 's/pub type uint16_t = u16;//' $@
+	sed -i 's/pub type int8_t = i8;//' $@
+	sed -i 's/pub type uint8_t = u8;//' $@
+
+	sed -i 's/double_t/f64/g' $@
+	sed -i 's/float_t/f32/g' $@
+	sed -i 's/uint64_t/u64/g' $@
+	sed -i 's/int64_t/i64/g' $@
+	sed -i 's/uint32_t/u32/g' $@
+	sed -i 's/int32_t/i32/g' $@
+	sed -i 's/uint16_t/u16/g' $@
+	sed -i 's/int16_t/i16/g' $@
+	sed -i 's/uint8_t/u8/g' $@
+	sed -i 's/int8_t/i8/g' $@
+
 	sed -i 's/SAFE_READ_WRITE8/SAFE_READ_WRITE8!/' $@
 	sed -i 's/SAFE_READ_WRITE16/SAFE_READ_WRITE16!/' $@
 	sed -i 's/SAFE_READ_WRITE32/SAFE_READ_WRITE32!/' $@
@@ -73,7 +95,7 @@ profiler.rs: profiler/profiler.rs
 	sed -i ':a;N;$$!ba;s/#\[no_mangle]\n    static stdout: \*mut FILE;//' $@
 	sed -i ':a;N;$$!ba;s/#\[no_mangle]\n    static stderr: \*mut FILE;//' $@
 
-	sed -i ':a;N;$$!ba;s/#\[no_mangle]\n    static mut ___: int32_t;//' $@
+	sed -i ':a;N;$$!ba;s/#\[no_mangle]\n    static mut ___: i32;//' $@
 
 	sed -i 's/SAFE_READ_WRITE8!(/SAFE_READ_WRITE8!(___, /' $@
 	sed -i 's/SAFE_READ_WRITE16!(/SAFE_READ_WRITE16!(___, /' $@
