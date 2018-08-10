@@ -45,7 +45,8 @@ v86util.view = function(constructor, memory, offset, length)
                 {
                     return x.bind(b);
                 }
-                dbg_assert(/^\d+$/.test(property) || property === "buffer" || property === "length");
+                dbg_assert(/^\d+$/.test(property) || property === "buffer" || property === "length" ||
+                    property === "BYTES_PER_ELEMENT" || property === "byteOffset");
                 return x;
             },
             set: function(target, property, value, receiver)

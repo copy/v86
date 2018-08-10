@@ -29,6 +29,16 @@ function StateLoadError(msg)
 }
 StateLoadError.prototype = new Error;
 
+const CONSTRUCTOR_TABLE = {
+    "Uint8Array": Uint8Array,
+    "Int8Array": Int8Array,
+    "Uint16Array": Uint16Array,
+    "Int16Array": Int16Array,
+    "Uint32Array": Uint32Array,
+    "Int32Array": Int32Array,
+    "Float32Array": Float32Array,
+    "Float64Array": Float64Array,
+};
 
 function save_object(obj, saved_buffers)
 {
@@ -50,8 +60,12 @@ function save_object(obj, saved_buffers)
         // Uint8Array, etc.
         var buffer = new Uint8Array(obj.buffer, obj.byteOffset, obj.length * obj.BYTES_PER_ELEMENT);
 
+        const constructor = obj.constructor.name.replace("bound ", "");
+
+        dbg_assert(CONSTRUCTOR_TABLE[constructor]);
+
         return {
-            "__state_type__": obj.constructor.name,
+            "__state_type__": constructor,
             "buffer_id": saved_buffers.push(buffer) - 1,
         };
     }
@@ -123,18 +137,7 @@ function restore_object(base, obj, buffers)
     }
     else
     {
-        var table = {
-            "Uint8Array": Uint8Array,
-            "Int8Array": Int8Array,
-            "Uint16Array": Uint16Array,
-            "Int16Array": Int16Array,
-            "Uint32Array": Uint32Array,
-            "Int32Array": Int32Array,
-            "Float32Array": Float32Array,
-            "Float64Array": Float64Array,
-        };
-
-        var constructor = table[type];
+        var constructor = CONSTRUCTOR_TABLE[type];
         dbg_assert(constructor, "Unkown type: " + type);
 
         var info = buffers.infos[obj["buffer_id"]];
