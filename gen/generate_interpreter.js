@@ -399,8 +399,6 @@ function gen_table()
         const code = [
             "use cpu2::cpu::*;",
             "use cpu2::instructions::*;",
-            "use cpu2::instructions_0f::*;",
-            "use cpu2::modrm::*;",
             "use cpu2::global_pointers::*;",
 
             "#[cfg_attr(rustfmt, rustfmt_skip)]",
@@ -469,9 +467,7 @@ function gen_table()
     {
         const code = [
             "use cpu2::cpu::*;",
-            "use cpu2::instructions::*;",
             "use cpu2::instructions_0f::*;",
-            "use cpu2::modrm::*;",
             "use cpu2::global_pointers::*;",
 
             "#[cfg_attr(rustfmt, rustfmt_skip)]",
@@ -491,9 +487,7 @@ function gen_table()
     {
         const code = [
             "use cpu2::cpu::*;",
-            "use cpu2::instructions::*;",
             "use cpu2::instructions_0f::*;",
-            "use cpu2::modrm::*;",
             "use cpu2::global_pointers::*;",
 
             "#[cfg_attr(rustfmt, rustfmt_skip)]",
