@@ -146,10 +146,29 @@ function V86Starter(options)
         "microtick": v86.microtick,
         "get_rand_int": function() { return v86util.get_rand_int(); },
         "has_rand_int": function() { return v86util.has_rand_int(); },
-        "printf": function(format_string_offset, stack_top) {
-            dbg_assert(arguments.length === 2);
-            dbg_log_wasm(v86oxide.exports.memory.buffer, format_string_offset, stack_top);
+        "dbg_log": function(string_offset)
+        {
         },
+        "dbg_log1": function(string_offset)
+        {
+        },
+        "dbg_log2": function(string_offset)
+        {
+        },
+        "dbg_log3": function(string_offset)
+        {
+        },
+        "dbg_log5": function(string_offset)
+        {
+        },
+        "dbg_trace": function()
+        {
+            dbg_trace();
+        },
+        //"printf": function(format_string_offset, stack_top) {
+        //    dbg_assert(arguments.length === 2);
+        //    dbg_log_wasm(v86oxide.exports.memory.buffer, format_string_offset, stack_top);
+        //},
         "memcpy_large": function(dest, source, length) {
             const mem8 = new Uint8Array(v86oxide.exports.memory.buffer);
             mem8.set(mem8.subarray(source, source + length), dest);

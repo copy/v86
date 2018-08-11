@@ -31,20 +31,21 @@ profiler.rs: profiler/profiler.rs
 	#cat import-prefix $@.tmp | grep -v cpu2::$(basename $@):: > $@
 	#cat $@.tmp | grep -v cpu2::$(basename $@):: > $@
 	-rm $@.tmp
-	sed -i 's/assert(/assert_c!(/' $@
-	#sed -i 's/dbg_assert(/dbg_assert!(/' $@
-	sed -i 's/dbg_log(/dbg_log_c!(/' $@
-	#sed -i 's/pub unsafe extern "C" fn assert_c!() -> () { }//' $@
-	#sed -i 's/pub unsafe extern "C" fn dbg_assert_c!() -> () { }//' $@
-	#sed -i 's/pub unsafe extern "C" fn dbg_log_c!() -> () { }//' $@
 
-	sed -i 's/fn assert_c!() -> ();//' $@
-	sed -i 's/fn dbg_assert_c!() -> ();//' $@
-	sed -i 's/fn dbg_log_c!() -> ();//' $@
+	#sed -i 's/assert(/assert_c!(/' $@
+	##sed -i 's/dbg_assert(/dbg_assert!(/' $@
+	#sed -i 's/dbg_log(/dbg_log_c!(/' $@
+	##sed -i 's/pub unsafe extern "C" fn assert_c!() -> () { }//' $@
+	##sed -i 's/pub unsafe extern "C" fn dbg_assert_c!() -> () { }//' $@
+	##sed -i 's/pub unsafe extern "C" fn dbg_log_c!() -> () { }//' $@
 
-	sed -i 's/fn assert_c!/fn assert_c/' $@
-	sed -i 's/fn dbg_assert_c!/fn dbg_assert_c/' $@
-	sed -i 's/fn dbg_log_c!/fn dbg_log_c/' $@
+	#sed -i 's/fn assert_c!() -> ();//' $@
+	#sed -i 's/fn dbg_assert_c!() -> ();//' $@
+	#sed -i 's/fn dbg_log_c!() -> ();//' $@
+
+	#sed -i 's/fn assert_c!/fn assert_c/' $@
+	#sed -i 's/fn dbg_assert_c!/fn dbg_assert_c/' $@
+	#sed -i 's/fn dbg_log_c!/fn dbg_log_c/' $@
 
 	sed -i 's/libc::c_char/i8/g' $@
 	sed -i 's/libc::c_double/f64/g' $@

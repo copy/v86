@@ -40,24 +40,3 @@ pub fn allocate_memory(size: u32) -> u32 {
     };
     ptr
 }
-
-macro_rules! dbg_assert_c {
-    ($fmt:expr) => {
-        dbg_assert!($fmt != 0);
-    };
-    ($fmt:expr, $($arg:tt)*) => {
-        dbg_assert!($fmt != 0, $arg);
-    };
-}
-macro_rules! dbg_log_c {
-    ($fmt:expr) => {};
-    ($fmt:expr, $($arg:tt)*) => {};
-}
-macro_rules! assert_c {
-    ($fmt:expr) => {
-        assert!($fmt != 0);
-    };
-    ($fmt:expr, $($arg:tt)*) => {
-        assert!($fmt != 0, $arg);
-    };
-}
