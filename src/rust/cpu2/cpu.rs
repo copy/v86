@@ -1,0 +1,2736 @@
+#![allow(
+    dead_code,
+    mutable_transmutes,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_mut
+)]
+#![feature(extern_types, libc)]
+
+extern "C" {
+
+    #[no_mangle]
+    fn __fpclassifyl(_: f64) -> i32;
+
+    #[no_mangle]
+    fn dbg_log(m: *const i8) -> ();
+    #[no_mangle]
+    fn dbg_log1(m: *const i8, x: i32) -> ();
+    #[no_mangle]
+    fn dbg_log2(m: *const i8, x: i32, y: i32) -> ();
+    #[no_mangle]
+    fn dbg_log5(m: *const i8, x: i32, y: i32, z: i32, i: i32, j: i32) -> ();
+    #[no_mangle]
+    fn dbg_log6(m: *const i8, x: i32, y: i32, z: i32, i: i32, j: i32, k: i32) -> ();
+    #[no_mangle]
+    fn dbg_trace() -> ();
+    #[no_mangle]
+    fn c_comment(m: *const i8) -> ();
+    #[no_mangle]
+    fn call_indirect1(index: i32, arg: i32) -> ();
+    #[no_mangle]
+    fn getof() -> bool;
+    #[no_mangle]
+    fn getsf() -> bool;
+    #[no_mangle]
+    fn getzf() -> bool;
+    #[no_mangle]
+    fn getaf() -> bool;
+    #[no_mangle]
+    fn getpf() -> bool;
+    #[no_mangle]
+    fn getcf() -> bool;
+    #[no_mangle]
+    static flags: *mut i32;
+    #[no_mangle]
+    static cpl: *mut u8;
+    #[no_mangle]
+    fn jit_page_has_code(physical_page: u32) -> bool;
+    #[no_mangle]
+    fn in_mapped_range(addr: u32) -> bool;
+    #[no_mangle]
+    static cr: *mut i32;
+    #[no_mangle]
+    static tlb_data: *mut i32;
+    #[no_mangle]
+    static last_virt_esp: *mut i32;
+    #[no_mangle]
+    static last_virt_eip: *mut i32;
+    #[no_mangle]
+    fn profiler_stat_increment(stat: stat_name) -> ();
+    #[no_mangle]
+    fn read_aligned32(addr: u32) -> i32;
+    #[no_mangle]
+    fn write_aligned32(addr: u32, value: i32) -> ();
+    #[no_mangle]
+    fn throw_cpu_exception() -> ();
+    #[no_mangle]
+    fn call_interrupt_vector(
+        interrupt_nr: i32,
+        is_software_int: bool,
+        has_error_code: bool,
+        error_code: i32,
+    ) -> ();
+    #[no_mangle]
+    static page_fault: *mut bool;
+    #[no_mangle]
+    static previous_ip: *mut i32;
+    #[no_mangle]
+    static instruction_pointer: *mut i32;
+    #[no_mangle]
+    static eip_phys: *mut i32;
+    #[no_mangle]
+    fn read16(addr: u32) -> i32;
+    #[no_mangle]
+    fn read32s(addr: u32) -> i32;
+    #[no_mangle]
+    static prefixes: *mut u8;
+    #[no_mangle]
+    static is_32: *mut bool;
+    #[no_mangle]
+    static segment_offsets: *mut i32;
+    #[no_mangle]
+    fn cpu_exception_hook(_: i32) -> bool;
+    #[no_mangle]
+    static segment_is_null: *mut bool;
+    #[no_mangle]
+    static protected_mode: *mut bool;
+    #[no_mangle]
+    fn resolve_modrm16(modrm_byte: i32) -> i32;
+    #[no_mangle]
+    fn resolve_modrm32(modrm_byte: i32) -> i32;
+    #[no_mangle]
+    fn run_instruction(opcode: i32) -> ();
+    #[no_mangle]
+    fn logop(_: i32, _: i32) -> ();
+    #[no_mangle]
+    static timestamp_counter: *mut u32;
+    #[no_mangle]
+    fn profiler_stat_increment_by(stat: stat_name, by: i32) -> ();
+    #[no_mangle]
+    static stack_size_32: *mut bool;
+    #[no_mangle]
+    fn jit_increase_hotness_and_maybe_compile(
+        phys_addr: u32,
+        cs_offset: u32,
+        flags_0: cached_state_flags,
+    ) -> ();
+    #[no_mangle]
+    fn jit_find_cache_entry(phys_addr: u32, flags_0: cached_state_flags) -> u32;
+    #[no_mangle]
+    static in_hlt: *mut bool;
+    #[no_mangle]
+    fn read8(addr: u32) -> i32;
+    #[no_mangle]
+    fn read_aligned16(addr: u32) -> i32;
+    #[no_mangle]
+    fn write8(addr: u32, value: i32) -> ();
+    #[no_mangle]
+    fn read64s(addr: u32) -> i64;
+    #[no_mangle]
+    fn read128(addr: u32) -> reg128;
+    #[no_mangle]
+    fn write16(addr: u32, value: i32) -> ();
+    #[no_mangle]
+    fn write32(addr: u32, value: i32) -> ();
+    #[no_mangle]
+    fn write64(addr: u32, value: i64) -> ();
+    #[no_mangle]
+    fn write128(addr: u32, value: reg128) -> ();
+    #[no_mangle]
+    static reg8: *mut u8;
+    #[no_mangle]
+    static reg16: *mut u16;
+    #[no_mangle]
+    static reg32s: *mut i32;
+    #[no_mangle]
+    static reg_mmx: *mut reg64;
+    #[no_mangle]
+    static reg_xmm: *mut reg128;
+    #[no_mangle]
+    fn microtick() -> f64;
+    #[no_mangle]
+    static opstats_buffer_0f: *mut u32;
+    #[no_mangle]
+    static opstats_buffer: *mut u32;
+    #[no_mangle]
+    static reg8s: *mut i8;
+    #[no_mangle]
+    static reg16s: *mut i16;
+    #[no_mangle]
+    static last_op1: *mut i32;
+    #[no_mangle]
+    static last_op2: *mut i32;
+    #[no_mangle]
+    static last_op_size: *mut i32;
+    #[no_mangle]
+    static last_add_result: *mut i32;
+    #[no_mangle]
+    static last_result: *mut i32;
+    #[no_mangle]
+    static flags_changed: *mut i32;
+    #[no_mangle]
+    static a20_enabled: *mut bool;
+    #[no_mangle]
+    static idtr_size: *mut i32;
+    #[no_mangle]
+    static idtr_offset: *mut i32;
+    #[no_mangle]
+    static gdtr_size: *mut i32;
+    #[no_mangle]
+    static gdtr_offset: *mut i32;
+    #[no_mangle]
+    static esp_phys: *mut i32;
+    #[no_mangle]
+    static sysenter_cs: *mut i32;
+    #[no_mangle]
+    static sysenter_esp: *mut i32;
+    #[no_mangle]
+    static sysenter_eip: *mut i32;
+    #[no_mangle]
+    static sreg: *mut u16;
+    #[no_mangle]
+    static dreg: *mut i32;
+    #[no_mangle]
+    static fw_value: *mut i32;
+    #[no_mangle]
+    static segment_limits: *mut u32;
+    #[no_mangle]
+    static memory_size: *mut u32;
+    #[no_mangle]
+    static fpu_stack_empty: *mut i32;
+    #[no_mangle]
+    static mxcsr: *mut i32;
+    #[no_mangle]
+    static current_tsc: *mut u64;
+    #[no_mangle]
+    static fpu_st: *mut f64;
+    #[no_mangle]
+    static fpu_st8: *mut u8;
+    #[no_mangle]
+    static fpu_st32: *mut i32;
+    #[no_mangle]
+    static fpu_stack_ptr: *mut u32;
+    #[no_mangle]
+    static fpu_control_word: *mut i32;
+    #[no_mangle]
+    static fpu_status_word: *mut i32;
+    #[no_mangle]
+    static fpu_opcode: *mut i32;
+    #[no_mangle]
+    static fpu_ip: *mut i32;
+    #[no_mangle]
+    static fpu_ip_selector: *mut i32;
+    #[no_mangle]
+    static fpu_dp: *mut i32;
+    #[no_mangle]
+    static fpu_dp_selector: *mut i32;
+
+    #[no_mangle]
+    static mut profiler_stat_arr: [profiler_stat; 37];
+}
+pub const S_TRIGGER_CPU_EXCEPTION: stat_name = 14;
+
+pub const S_CACHE_MISMATCH: stat_name = 6;
+pub const S_RUN_FROM_CACHE_STEPS: stat_name = 13;
+pub type stat_name = u32;
+
+pub const S_COMPILE_SUCCESS: stat_name = 1;
+pub const S_TLB_GLOBAL_FULL: stat_name = 36;
+pub const S_COMPILE: stat_name = 0;
+pub const S_DO_MANY_CYCLES: stat_name = 28;
+pub const S_CYCLE_INTERNAL: stat_name = 29;
+pub const S_COMPILE_BASIC_BLOCK: stat_name = 4;
+pub const S_SAFE_WRITE32_SLOW_PAGE_CROSSED: stat_name = 21;
+pub const S_SAFE_READ32_SLOW_NOT_USER: stat_name = 18;
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union reg64 {
+    i8_0: [i8; 8],
+    i16_0: [i16; 4],
+    i32_0: [i32; 2],
+    i64_0: [i64; 1],
+    u8_0: [u8; 8],
+    u16_0: [u16; 4],
+    u32_0: [u32; 2],
+    u64_0: [u64; 1],
+    f32_0: [f32; 2],
+    f64_0: [f64; 1],
+}
+pub const S_SAFE_READ32_SLOW_IN_MAPPED_RANGE: stat_name = 19;
+
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union unnamed {
+    __f: f64,
+    __i: u64,
+}
+pub const S_RUN_INTERPRETED_STEPS: stat_name = 11;
+pub const S_RUN_FROM_CACHE: stat_name = 12;
+
+pub const S_TLB_FULL: stat_name = 35;
+pub type cached_state_flags = u8;
+pub const S_SAFE_WRITE32_SLOW_HAS_CODE: stat_name = 26;
+
+pub const S_DO_RUN: stat_name = 27;
+pub const S_FULL_CLEAR_TLB: stat_name = 34;
+pub const S_RUN_INTERPRETED_PENDING: stat_name = 8;
+pub const S_NONFAULTING_OPTIMIZATION: stat_name = 32;
+
+pub const S_SAFE_WRITE32_FAST: stat_name = 20;
+pub const S_SAFE_WRITE32_SLOW_NOT_USER: stat_name = 23;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union reg128 {
+    i8_0: [i8; 16],
+    i16_0: [i16; 8],
+    i32_0: [i32; 4],
+    i64_0: [i64; 2],
+    u8_0: [u8; 16],
+    u16_0: [u16; 8],
+    u32_0: [u32; 4],
+    u64_0: [u64; 2],
+    f32_0: [f32; 4],
+    f64_0: [f64; 2],
+}
+pub const S_SAFE_WRITE32_SLOW_IN_MAPPED_RANGE: stat_name = 24;
+pub const S_SAFE_WRITE32_SLOW_NOT_VALID: stat_name = 22;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct profiler_stat {
+    pub count: i32,
+}
+pub const S_COMPILE_CUT_OFF_AT_END_OF_PAGE: stat_name = 2;
+pub const S_RUN_INTERPRETED_DIFFERENT_STATE: stat_name = 10;
+pub const S_COMPILE_ENTRY_POINT: stat_name = 5;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union unnamed_0 {
+    __f: f32,
+    __i: u32,
+}
+pub const S_CLEAR_TLB: stat_name = 33;
+pub const S_RUN_INTERPRETED_NEAR_END_OF_PAGE: stat_name = 9;
+pub const S_COMPILE_WITH_LOOP_SAFETY: stat_name = 3;
+pub const S_INVALIDATE_CACHE_ENTRY: stat_name = 31;
+pub const S_SAFE_WRITE32_SLOW_READ_ONLY: stat_name = 25;
+
+pub const S_SAFE_READ32_SLOW_NOT_VALID: stat_name = 17;
+pub const S_RUN_INTERPRETED: stat_name = 7;
+pub const S_INVALIDATE_PAGE: stat_name = 30;
+pub const S_SAFE_READ32_FAST: stat_name = 15;
+
+pub const S_SAFE_READ32_SLOW_PAGE_CROSSED: stat_name = 16;
+unsafe extern "C" fn __FLOAT_BITS(mut __f: f32) -> u32 {
+    let mut __u: unnamed_0 = unnamed_0 { __f: 0. };
+    __u.__f = __f;
+    return __u.__i;
+}
+unsafe extern "C" fn __DOUBLE_BITS(mut __f: f64) -> u64 {
+    let mut __u: unnamed = unnamed { __f: 0. };
+    __u.__f = __f;
+    return __u.__i;
+}
+unsafe extern "C" fn __islessf(mut __x: f32, mut __y: f32) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f32>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x as f64) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y as f64) == 0i32) as i32
+    } && __x < __y) as i32;
+}
+unsafe extern "C" fn __isless(mut __x: f64, mut __y: f64) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x as f64) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y as f64) == 0i32) as i32
+    } && __x < __y) as i32;
+}
+unsafe extern "C" fn __islessl(mut __x: f64, mut __y: f64) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y) == 0i32) as i32
+    } && __x < __y) as i32;
+}
+unsafe extern "C" fn __islessequalf(mut __x: f32, mut __y: f32) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f32>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x as f64) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y as f64) == 0i32) as i32
+    } && __x <= __y) as i32;
+}
+unsafe extern "C" fn __islessequal(mut __x: f64, mut __y: f64) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x as f64) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y as f64) == 0i32) as i32
+    } && __x <= __y) as i32;
+}
+unsafe extern "C" fn __islessequall(mut __x: f64, mut __y: f64) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y) == 0i32) as i32
+    } && __x <= __y) as i32;
+}
+unsafe extern "C" fn __islessgreaterf(mut __x: f32, mut __y: f32) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f32>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x as f64) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y as f64) == 0i32) as i32
+    } && __x != __y) as i32;
+}
+unsafe extern "C" fn __islessgreater(mut __x: f64, mut __y: f64) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x as f64) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y as f64) == 0i32) as i32
+    } && __x != __y) as i32;
+}
+unsafe extern "C" fn __islessgreaterl(mut __x: f64, mut __y: f64) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y) == 0i32) as i32
+    } && __x != __y) as i32;
+}
+unsafe extern "C" fn __isgreaterf(mut __x: f32, mut __y: f32) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f32>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x as f64) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y as f64) == 0i32) as i32
+    } && __x > __y) as i32;
+}
+unsafe extern "C" fn __isgreater(mut __x: f64, mut __y: f64) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x as f64) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y as f64) == 0i32) as i32
+    } && __x > __y) as i32;
+}
+unsafe extern "C" fn __isgreaterl(mut __x: f64, mut __y: f64) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y) == 0i32) as i32
+    } && __x > __y) as i32;
+}
+unsafe extern "C" fn __isgreaterequalf(mut __x: f32, mut __y: f32) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f32>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x as f64) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y as f64) == 0i32) as i32
+    } && __x >= __y) as i32;
+}
+unsafe extern "C" fn __isgreaterequal(mut __x: f64, mut __y: f64) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x as f64) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y as f64) == 0i32) as i32
+    } && __x >= __y) as i32;
+}
+unsafe extern "C" fn __isgreaterequall(mut __x: f64, mut __y: f64) -> i32 {
+    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
+        == ::std::mem::size_of::<f32>() as u64
+    {
+        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__x) == 0i32) as i32
+    } {
+        1i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
+        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
+    }
+    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
+        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
+    }
+    else {
+        (__fpclassifyl(__y) == 0i32) as i32
+    } && __x >= __y) as i32;
+}
+#[no_mangle]
+pub static mut FLAG_CARRY: i32 = unsafe { 1i32 };
+#[no_mangle]
+pub static mut FLAG_PARITY: i32 = unsafe { 4i32 };
+#[no_mangle]
+pub static mut FLAG_ADJUST: i32 = unsafe { 16i32 };
+#[no_mangle]
+pub static mut FLAG_ZERO: i32 = unsafe { 64i32 };
+#[no_mangle]
+pub static mut FLAG_SIGN: i32 = unsafe { 128i32 };
+#[no_mangle]
+pub static mut FLAG_TRAP: i32 = unsafe { 256i32 };
+#[no_mangle]
+pub static mut FLAG_INTERRUPT: i32 = unsafe { 512i32 };
+#[no_mangle]
+pub static mut FLAG_DIRECTION: i32 = unsafe { 1024i32 };
+#[no_mangle]
+pub static mut FLAG_OVERFLOW: i32 = unsafe { 2048i32 };
+#[no_mangle]
+pub static mut FLAG_IOPL: i32 = unsafe { 1i32 << 12i32 | 1i32 << 13i32 };
+#[no_mangle]
+pub static mut FLAG_NT: i32 = unsafe { 1i32 << 14i32 };
+#[no_mangle]
+pub static mut FLAG_RF: i32 = unsafe { 1i32 << 16i32 };
+#[no_mangle]
+pub static mut FLAG_VM: i32 = unsafe { 1i32 << 17i32 };
+#[no_mangle]
+pub static mut FLAG_AC: i32 = unsafe { 1i32 << 18i32 };
+#[no_mangle]
+pub static mut FLAG_VIF: i32 = unsafe { 1i32 << 19i32 };
+#[no_mangle]
+pub static mut FLAG_VIP: i32 = unsafe { 1i32 << 20i32 };
+#[no_mangle]
+pub static mut FLAG_ID: i32 = unsafe { 1i32 << 21i32 };
+#[no_mangle]
+pub static mut FLAGS_DEFAULT: i32 = unsafe { 1i32 << 1i32 };
+#[no_mangle]
+pub static mut FLAGS_MASK: i32 = unsafe {
+    FLAG_CARRY
+        | FLAG_PARITY
+        | FLAG_ADJUST
+        | FLAG_ZERO
+        | FLAG_SIGN
+        | FLAG_TRAP
+        | FLAG_INTERRUPT
+        | FLAG_DIRECTION
+        | FLAG_OVERFLOW
+        | FLAG_IOPL
+        | FLAG_NT
+        | FLAG_RF
+        | FLAG_VM
+        | FLAG_AC
+        | FLAG_VIF
+        | FLAG_VIP
+        | FLAG_ID
+};
+#[no_mangle]
+pub static mut FLAGS_ALL: i32 =
+    unsafe { FLAG_CARRY | FLAG_PARITY | FLAG_ADJUST | FLAG_ZERO | FLAG_SIGN | FLAG_OVERFLOW };
+#[no_mangle]
+pub static mut OPSIZE_8: i32 = unsafe { 7i32 };
+#[no_mangle]
+pub static mut OPSIZE_16: i32 = unsafe { 15i32 };
+#[no_mangle]
+pub static mut OPSIZE_32: i32 = unsafe { 31i32 };
+#[no_mangle]
+pub static mut EAX: i32 = unsafe { 0i32 };
+#[no_mangle]
+pub static mut ECX: i32 = unsafe { 1i32 };
+#[no_mangle]
+pub static mut EDX: i32 = unsafe { 2i32 };
+#[no_mangle]
+pub static mut EBX: i32 = unsafe { 3i32 };
+#[no_mangle]
+pub static mut ESP: i32 = unsafe { 4i32 };
+#[no_mangle]
+pub static mut EBP: i32 = unsafe { 5i32 };
+#[no_mangle]
+pub static mut ESI: i32 = unsafe { 6i32 };
+#[no_mangle]
+pub static mut EDI: i32 = unsafe { 7i32 };
+#[no_mangle]
+pub static mut AX: i32 = unsafe { 0i32 };
+#[no_mangle]
+pub static mut CX: i32 = unsafe { 2i32 };
+#[no_mangle]
+pub static mut DX: i32 = unsafe { 4i32 };
+#[no_mangle]
+pub static mut BX: i32 = unsafe { 6i32 };
+#[no_mangle]
+pub static mut SP: i32 = unsafe { 8i32 };
+#[no_mangle]
+pub static mut BP: i32 = unsafe { 10i32 };
+#[no_mangle]
+pub static mut SI: i32 = unsafe { 12i32 };
+#[no_mangle]
+pub static mut DI: i32 = unsafe { 14i32 };
+#[no_mangle]
+pub static mut AL: i32 = unsafe { 0i32 };
+#[no_mangle]
+pub static mut CL: i32 = unsafe { 4i32 };
+#[no_mangle]
+pub static mut DL: i32 = unsafe { 8i32 };
+#[no_mangle]
+pub static mut BL: i32 = unsafe { 12i32 };
+#[no_mangle]
+pub static mut AH: i32 = unsafe { 1i32 };
+#[no_mangle]
+pub static mut CH: i32 = unsafe { 5i32 };
+#[no_mangle]
+pub static mut DH: i32 = unsafe { 9i32 };
+#[no_mangle]
+pub static mut BH: i32 = unsafe { 13i32 };
+#[no_mangle]
+pub static mut ES: i32 = unsafe { 0i32 };
+#[no_mangle]
+pub static mut CS: i32 = unsafe { 1i32 };
+#[no_mangle]
+pub static mut SS: i32 = unsafe { 2i32 };
+#[no_mangle]
+pub static mut DS: i32 = unsafe { 3i32 };
+#[no_mangle]
+pub static mut FS: i32 = unsafe { 4i32 };
+#[no_mangle]
+pub static mut GS: i32 = unsafe { 5i32 };
+#[no_mangle]
+pub static mut TR: i32 = unsafe { 6i32 };
+#[no_mangle]
+pub static mut LDTR: i32 = unsafe { 7i32 };
+#[no_mangle]
+pub static mut PAGE_TABLE_PRESENT_MASK: i32 = unsafe { 1i32 << 0i32 };
+#[no_mangle]
+pub static mut PAGE_TABLE_RW_MASK: i32 = unsafe { 1i32 << 1i32 };
+#[no_mangle]
+pub static mut PAGE_TABLE_USER_MASK: i32 = unsafe { 1i32 << 2i32 };
+#[no_mangle]
+pub static mut PAGE_TABLE_ACCESSED_MASK: i32 = unsafe { 1i32 << 5i32 };
+#[no_mangle]
+pub static mut PAGE_TABLE_DIRTY_MASK: i32 = unsafe { 1i32 << 6i32 };
+#[no_mangle]
+pub static mut PAGE_TABLE_PSE_MASK: i32 = unsafe { 1i32 << 7i32 };
+#[no_mangle]
+pub static mut PAGE_TABLE_GLOBAL_MASK: i32 = unsafe { 1i32 << 8i32 };
+#[no_mangle]
+pub static mut MMAP_BLOCK_BITS: i32 = unsafe { 17i32 };
+#[no_mangle]
+pub static mut MMAP_BLOCK_SIZE: i32 = unsafe { 1i32 << MMAP_BLOCK_BITS };
+#[no_mangle]
+pub static mut CR0_PE: i32 = unsafe { 1i32 };
+#[no_mangle]
+pub static mut CR0_MP: i32 = unsafe { 1i32 << 1i32 };
+#[no_mangle]
+pub static mut CR0_EM: i32 = unsafe { 1i32 << 2i32 };
+#[no_mangle]
+pub static mut CR0_TS: i32 = unsafe { 1i32 << 3i32 };
+#[no_mangle]
+pub static mut CR0_ET: i32 = unsafe { 1i32 << 4i32 };
+#[no_mangle]
+pub static mut CR0_WP: i32 = unsafe { 1i32 << 16i32 };
+#[no_mangle]
+pub static mut CR0_NW: i32 = unsafe { 1i32 << 29i32 };
+#[no_mangle]
+pub static mut CR0_CD: i32 = unsafe { 1i32 << 30i32 };
+#[no_mangle]
+pub static mut CR0_PG: i32 = unsafe { 1i32 << 31i32 };
+#[no_mangle]
+pub static mut CR4_VME: i32 = unsafe { 1i32 };
+#[no_mangle]
+pub static mut CR4_PVI: i32 = unsafe { 1i32 << 1i32 };
+#[no_mangle]
+pub static mut CR4_TSD: i32 = unsafe { 1i32 << 2i32 };
+#[no_mangle]
+pub static mut CR4_PSE: i32 = unsafe { 1i32 << 4i32 };
+#[no_mangle]
+pub static mut CR4_DE: i32 = unsafe { 1i32 << 3i32 };
+#[no_mangle]
+pub static mut CR4_PAE: i32 = unsafe { 1i32 << 5i32 };
+#[no_mangle]
+pub static mut CR4_PGE: i32 = unsafe { 1i32 << 7i32 };
+#[no_mangle]
+pub static mut IA32_SYSENTER_CS: i32 = unsafe { 372i32 };
+#[no_mangle]
+pub static mut IA32_SYSENTER_ESP: i32 = unsafe { 373i32 };
+#[no_mangle]
+pub static mut IA32_SYSENTER_EIP: i32 = unsafe { 374i32 };
+#[no_mangle]
+pub static mut IA32_TIME_STAMP_COUNTER: i32 = unsafe { 16i32 };
+#[no_mangle]
+pub static mut IA32_PLATFORM_ID: i32 = unsafe { 23i32 };
+#[no_mangle]
+pub static mut IA32_APIC_BASE_MSR: i32 = unsafe { 27i32 };
+#[no_mangle]
+pub static mut IA32_BIOS_SIGN_ID: i32 = unsafe { 139i32 };
+#[no_mangle]
+pub static mut MSR_PLATFORM_INFO: i32 = unsafe { 206i32 };
+#[no_mangle]
+pub static mut MSR_MISC_FEATURE_ENABLES: i32 = unsafe { 320i32 };
+#[no_mangle]
+pub static mut IA32_MISC_ENABLE: i32 = unsafe { 416i32 };
+#[no_mangle]
+pub static mut IA32_RTIT_CTL: i32 = unsafe { 1392i32 };
+#[no_mangle]
+pub static mut MSR_SMI_COUNT: i32 = unsafe { 52i32 };
+#[no_mangle]
+pub static mut IA32_MCG_CAP: i32 = unsafe { 377i32 };
+#[no_mangle]
+pub static mut IA32_KERNEL_GS_BASE: i32 = unsafe { 3221225729u32 as i32 };
+#[no_mangle]
+pub static mut MSR_PKG_C2_RESIDENCY: i32 = unsafe { 1549i32 };
+#[no_mangle]
+pub static mut IA32_APIC_BASE_BSP: i32 = unsafe { 1i32 << 8i32 };
+#[no_mangle]
+pub static mut IA32_APIC_BASE_EXTD: i32 = unsafe { 1i32 << 10i32 };
+#[no_mangle]
+pub static mut IA32_APIC_BASE_EN: i32 = unsafe { 1i32 << 11i32 };
+#[no_mangle]
+pub static mut APIC_ADDRESS: i32 = unsafe { 4276092928u32 as i32 };
+#[no_mangle]
+pub static mut SEG_PREFIX_NONE: i32 = unsafe { -1i32 };
+#[no_mangle]
+pub static mut SEG_PREFIX_ZERO: i32 = unsafe { 7i32 };
+#[no_mangle]
+pub static mut PREFIX_MASK_REP: i32 = unsafe { 24i32 };
+#[no_mangle]
+pub static mut PREFIX_REPZ: i32 = unsafe { 8i32 };
+#[no_mangle]
+pub static mut PREFIX_REPNZ: i32 = unsafe { 16i32 };
+#[no_mangle]
+pub static mut PREFIX_MASK_SEGMENT: i32 = unsafe { 7i32 };
+#[no_mangle]
+pub static mut PREFIX_MASK_OPSIZE: i32 = unsafe { 32i32 };
+#[no_mangle]
+pub static mut PREFIX_MASK_ADDRSIZE: i32 = unsafe { 64i32 };
+#[no_mangle]
+pub static mut PREFIX_F2: i32 = unsafe { PREFIX_REPNZ };
+#[no_mangle]
+pub static mut PREFIX_F3: i32 = unsafe { PREFIX_REPZ };
+#[no_mangle]
+pub static mut PREFIX_66: i32 = unsafe { PREFIX_MASK_OPSIZE };
+#[no_mangle]
+pub static mut LOG_CPU: i32 = unsafe { 2i32 };
+#[no_mangle]
+pub static mut A20_MASK: i32 = unsafe { !(1i32 << 20i32) };
+#[no_mangle]
+pub static mut A20_MASK16: i32 = unsafe { !(1i32 << 20i32 - 1i32) };
+#[no_mangle]
+pub static mut A20_MASK32: i32 = unsafe { !(1i32 << 20i32 - 2i32) };
+#[no_mangle]
+pub static mut MXCSR_MASK: i32 = unsafe { 65535i32 & !(1i32 << 6i32) };
+#[no_mangle]
+pub static mut mem8: *mut u8 = unsafe { 0 as *const u8 as *mut u8 };
+#[no_mangle]
+pub static mut mem16: *mut u16 = unsafe { 0 as *const u16 as *mut u16 };
+#[no_mangle]
+pub static mut mem32s: *mut i32 = unsafe { 0 as *const i32 as *mut i32 };
+#[no_mangle]
+pub static mut jit_block_boundary: bool = unsafe { 0 != 0i32 };
+#[no_mangle]
+pub static mut VALID_TLB_ENTRY_MAX: i32 = unsafe { 10000i32 };
+#[no_mangle]
+pub static mut valid_tlb_entries: [i32; 10000] = unsafe {
+    [
+        0i32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]
+};
+#[no_mangle]
+pub static mut valid_tlb_entries_count: i32 = unsafe { 0i32 };
+#[no_mangle]
+pub static mut TLB_VALID: i32 = unsafe { 1i32 << 0i32 };
+#[no_mangle]
+pub static mut TLB_READONLY: i32 = unsafe { 1i32 << 1i32 };
+#[no_mangle]
+pub static mut TLB_NO_USER: i32 = unsafe { 1i32 << 2i32 };
+#[no_mangle]
+pub static mut TLB_IN_MAPPED_RANGE: i32 = unsafe { 1i32 << 3i32 };
+#[no_mangle]
+pub static mut TLB_GLOBAL: i32 = unsafe { 1i32 << 4i32 };
+#[no_mangle]
+pub static mut TLB_HAS_CODE: i32 = unsafe { 1i32 << 5i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_DE: i32 = unsafe { 0i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_DB: i32 = unsafe { 1i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_NMI: i32 = unsafe { 2i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_BP: i32 = unsafe { 3i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_OF: i32 = unsafe { 4i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_BR: i32 = unsafe { 5i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_UD: i32 = unsafe { 6i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_NM: i32 = unsafe { 7i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_DF: i32 = unsafe { 8i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_TS: i32 = unsafe { 10i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_NP: i32 = unsafe { 11i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_SS: i32 = unsafe { 12i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_GP: i32 = unsafe { 13i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_PF: i32 = unsafe { 14i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_MF: i32 = unsafe { 16i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_AC: i32 = unsafe { 17i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_MC: i32 = unsafe { 18i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_XM: i32 = unsafe { 19i32 };
+#[no_mangle]
+pub static mut CPU_EXCEPTION_VE: i32 = unsafe { 20i32 };
+#[no_mangle]
+pub unsafe extern "C" fn after_block_boundary() -> () { jit_block_boundary = 0 != 1i32; }
+#[no_mangle]
+pub unsafe extern "C" fn same_page(mut addr1: i32, mut addr2: i32) -> bool {
+    return addr1 & !4095i32 == addr2 & !4095i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_eflags() -> i32 {
+    return *flags & !FLAGS_ALL
+        | getcf() as i32
+        | (getpf() as i32) << 2i32
+        | (getaf() as i32) << 4i32
+        | (getzf() as i32) << 6i32
+        | (getsf() as i32) << 7i32
+        | (getof() as i32) << 11i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn translate_address_read(mut address: i32) -> u32 {
+    let mut base: i32 = (address as u32 >> 12i32) as i32;
+    let mut entry: i32 = *tlb_data.offset(base as isize);
+    let mut user: bool = *cpl.offset(0isize) as i32 == 3i32;
+    if entry & (TLB_VALID | if 0 != user as i32 { TLB_NO_USER } else { 0i32 }) == TLB_VALID {
+        return (entry & !4095i32 ^ address) as u32;
+    }
+    else {
+        return (do_page_translation(address, 0 != 0i32, user) | address & 4095i32) as u32;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn do_page_translation(
+    mut addr: i32,
+    mut for_writing: bool,
+    mut user: bool,
+) -> i32 {
+    let mut can_write: bool = 0 != 1i32;
+    let mut global: bool = false;
+    let mut allow_user: bool = 0 != 1i32;
+    let mut page: i32 = (addr as u32 >> 12i32) as i32;
+    let mut high: i32 = 0;
+    if *cr.offset(0isize) & CR0_PG == 0i32 {
+        c_comment!(("paging disabled"));
+        high = (addr as u32 & 4294963200u32) as i32;
+        global = 0 != 0i32
+    }
+    else {
+        let mut page_dir_addr: i32 =
+            (*cr.offset(3isize) as u32 >> 2i32).wrapping_add((page >> 10i32) as u32) as i32;
+        let mut page_dir_entry: i32 = read_aligned32(page_dir_addr as u32);
+        c_comment!(("XXX"));
+        let kernel_write_override: bool = !user && 0 == *cr.offset(0isize) & CR0_WP;
+        if 0 == page_dir_entry & PAGE_TABLE_PRESENT_MASK {
+            c_comment!(("to do at this place:"));
+            c_comment!((""));
+            c_comment!(("- set cr2 = addr (which caused the page fault)"));
+            c_comment!((("- call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)")));
+            c_comment!(("- prevent execution of the function that triggered this call"));
+            *cr.offset(2isize) = addr;
+            trigger_pagefault(for_writing, user, 0 != 0i32);
+            c_comment!(("never reached as trigger_pagefault throws"));
+            dbg_assert!(0 != 0i32);
+        }
+        if page_dir_entry & PAGE_TABLE_RW_MASK == 0i32 && !kernel_write_override {
+            can_write = 0 != 0i32;
+            if for_writing {
+                *cr.offset(2isize) = addr;
+                trigger_pagefault(for_writing, user, 0 != 1i32);
+                dbg_assert!(0 != 0i32);
+            }
+        }
+        if page_dir_entry & PAGE_TABLE_USER_MASK == 0i32 {
+            allow_user = 0 != 0i32;
+            if user {
+                c_comment!(("Page Fault: page table accessed by non-supervisor"));
+                *cr.offset(2isize) = addr;
+                trigger_pagefault(for_writing, user, 0 != 1i32);
+                dbg_assert!(0 != 0i32);
+            }
+        }
+        if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && 0 != *cr.offset(4isize) & CR4_PSE {
+            c_comment!(("size bit is set"));
+            c_comment!(("set the accessed and dirty bits"));
+            write_aligned32(
+                page_dir_addr as u32,
+                page_dir_entry | PAGE_TABLE_ACCESSED_MASK | if 0 != for_writing as i32 {
+                    PAGE_TABLE_DIRTY_MASK
+                }
+                else {
+                    0i32
+                },
+            );
+            high = (page_dir_entry as u32 & 4290772992u32 | (addr & 4190208i32) as u32) as i32;
+            global = page_dir_entry & PAGE_TABLE_GLOBAL_MASK == PAGE_TABLE_GLOBAL_MASK
+        }
+        else {
+            let mut page_table_addr: i32 = ((page_dir_entry as u32 & 4294963200u32) >> 2i32)
+                .wrapping_add((page & 1023i32) as u32)
+                as i32;
+            let mut page_table_entry: i32 = read_aligned32(page_table_addr as u32);
+            if page_table_entry & PAGE_TABLE_PRESENT_MASK == 0i32 {
+                *cr.offset(2isize) = addr;
+                trigger_pagefault(for_writing, user, 0 != 0i32);
+                dbg_assert!(0 != 0i32);
+            }
+            if page_table_entry & PAGE_TABLE_RW_MASK == 0i32 && !kernel_write_override {
+                can_write = 0 != 0i32;
+                if for_writing {
+                    *cr.offset(2isize) = addr;
+                    trigger_pagefault(for_writing, user, 0 != 1i32);
+                    dbg_assert!(0 != 0i32);
+                }
+            }
+            if page_table_entry & PAGE_TABLE_USER_MASK == 0i32 {
+                allow_user = 0 != 0i32;
+                if user {
+                    *cr.offset(2isize) = addr;
+                    trigger_pagefault(for_writing, user, 0 != 1i32);
+                    dbg_assert!(0 != 0i32);
+                }
+            }
+            c_comment!(("set the accessed and dirty bits"));
+            write_aligned32(
+                page_dir_addr as u32,
+                page_dir_entry | PAGE_TABLE_ACCESSED_MASK,
+            );
+            write_aligned32(
+                page_table_addr as u32,
+                page_table_entry | PAGE_TABLE_ACCESSED_MASK | if 0 != for_writing as i32 {
+                    PAGE_TABLE_DIRTY_MASK
+                }
+                else {
+                    0i32
+                },
+            );
+            high = (page_table_entry as u32 & 4294963200u32) as i32;
+            global = page_table_entry & PAGE_TABLE_GLOBAL_MASK == PAGE_TABLE_GLOBAL_MASK
+        }
+    }
+    if *tlb_data.offset(page as isize) == 0i32 {
+        if valid_tlb_entries_count == VALID_TLB_ENTRY_MAX {
+            profiler_stat_increment(S_TLB_FULL);
+            clear_tlb();
+            c_comment!(
+                ("also clear global entries if tlb is almost full after clearing non-global pages")
+            );
+            if valid_tlb_entries_count > VALID_TLB_ENTRY_MAX * 3i32 / 4i32 {
+                profiler_stat_increment(S_TLB_GLOBAL_FULL);
+                full_clear_tlb();
+            }
+        }
+        dbg_assert!(valid_tlb_entries_count < VALID_TLB_ENTRY_MAX);
+        let fresh0 = valid_tlb_entries_count;
+        valid_tlb_entries_count = valid_tlb_entries_count + 1;
+        valid_tlb_entries[fresh0 as usize] = page;
+        c_comment!(("TODO: Check that there are no duplicates in valid_tlb_entries"));
+        c_comment!(("XXX: There will probably be duplicates due to invlpg deleting"));
+        c_comment!(("entries from tlb_data but not from valid_tlb_entries"));
+    }
+    else if CHECK_TLB_INVARIANTS {
+        let mut found: bool = 0 != 0i32;
+        let mut i: i32 = 0i32;
+        while i < valid_tlb_entries_count {
+            if valid_tlb_entries[i as usize] == page {
+                found = 0 != 1i32;
+                break;
+            }
+            else {
+                i += 1
+            }
+        }
+        dbg_assert!(found);
+    }
+    let mut is_in_mapped_range: bool = in_mapped_range(high as u32);
+    let mut physical_page: i32 = (high as u32 >> 12i32) as i32;
+    let mut has_code: bool =
+        !is_in_mapped_range && 0 != jit_page_has_code(physical_page as u32) as i32;
+    let mut info_bits: i32 = TLB_VALID
+        | if 0 != can_write as i32 {
+            0i32
+        }
+        else {
+            TLB_READONLY
+        }
+        | if 0 != allow_user as i32 {
+            0i32
+        }
+        else {
+            TLB_NO_USER
+        }
+        | if 0 != is_in_mapped_range as i32 {
+            TLB_IN_MAPPED_RANGE
+        }
+        else {
+            0i32
+        }
+        | if 0 != global as i32 && 0 != *cr.offset(4isize) & CR4_PGE {
+            TLB_GLOBAL
+        }
+        else {
+            0i32
+        }
+        | if 0 != has_code as i32 {
+            TLB_HAS_CODE
+        }
+        else {
+            0i32
+        };
+    dbg_assert!((high ^ page << 12i32) & 4095i32 == 0i32);
+    *tlb_data.offset(page as isize) = high ^ page << 12i32 | info_bits;
+    return high;
+}
+#[no_mangle]
+pub static mut CHECK_TLB_INVARIANTS: bool = unsafe { 0 != 0i32 };
+#[no_mangle]
+pub unsafe extern "C" fn full_clear_tlb() -> () {
+    profiler_stat_increment(S_FULL_CLEAR_TLB);
+    c_comment!(("clear tlb including global pages"));
+    *last_virt_eip = -1i32;
+    *last_virt_esp = -1i32;
+    let mut i: i32 = 0i32;
+    while i < valid_tlb_entries_count {
+        let mut page: i32 = valid_tlb_entries[i as usize];
+        *tlb_data.offset(page as isize) = 0i32;
+        i += 1
+    }
+    valid_tlb_entries_count = 0i32;
+    if CHECK_TLB_INVARIANTS {
+        let mut i_0: i32 = 0i32;
+        while i_0 < 1048576i32 {
+            dbg_assert!(*tlb_data.offset(i_0 as isize) == 0i32);
+            i_0 += 1
+        }
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn clear_tlb() -> () {
+    profiler_stat_increment(S_CLEAR_TLB);
+    c_comment!(("clear tlb excluding global pages"));
+    *last_virt_eip = -1i32;
+    *last_virt_esp = -1i32;
+    let mut global_page_offset: i32 = 0i32;
+    let mut i: i32 = 0i32;
+    while i < valid_tlb_entries_count {
+        let mut page: i32 = valid_tlb_entries[i as usize];
+        let mut entry: i32 = *tlb_data.offset(page as isize);
+        if 0 != entry & TLB_GLOBAL {
+            c_comment!(("reinsert at the front"));
+            let fresh1 = global_page_offset;
+            global_page_offset = global_page_offset + 1;
+            valid_tlb_entries[fresh1 as usize] = page
+        }
+        else {
+            *tlb_data.offset(page as isize) = 0i32
+        }
+        i += 1
+    }
+    valid_tlb_entries_count = global_page_offset;
+    if CHECK_TLB_INVARIANTS {
+        let mut i_0: i32 = 0i32;
+        while i_0 < 1048576i32 {
+            dbg_assert!(
+                *tlb_data.offset(i_0 as isize) == 0i32
+                    || 0 != *tlb_data.offset(i_0 as isize) & TLB_GLOBAL
+            );
+            i_0 += 1
+        }
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn trigger_pagefault(
+    mut write: bool,
+    mut user: bool,
+    mut present: bool,
+) -> () {
+    if 0 != 0i32 * 0i32 {
+        dbg_log_c!(
+            ("page fault w=%d u=%d p=%d eip=%x cr2=%x"),
+            write as i32,
+            user as i32,
+            present as i32,
+            *previous_ip,
+            *cr.offset(2isize)
+        );
+        dbg_trace();
+    }
+    if DEBUG {
+        if must_not_fault {
+            dbg_log_c!(("Unexpected page fault"));
+            dbg_trace();
+            dbg_assert!(0 != 0i32);
+        }
+    }
+    if *page_fault {
+        dbg_log_c!(("double fault"));
+        dbg_trace();
+        dbg_assert!(0 != 0i32);
+    }
+    c_comment!(("invalidate tlb entry"));
+    let mut page: i32 = (*cr.offset(2isize) as u32 >> 12i32) as i32;
+    *tlb_data.offset(page as isize) = 0i32;
+    *instruction_pointer = *previous_ip;
+    *page_fault = 0 != 1i32;
+    call_interrupt_vector(
+        CPU_EXCEPTION_PF,
+        0 != 0i32,
+        0 != 1i32,
+        (user as i32) << 2i32 | (write as i32) << 1i32 | present as i32,
+    );
+    profiler_stat_increment(S_TRIGGER_CPU_EXCEPTION);
+    throw_cpu_exception();
+}
+#[no_mangle]
+pub static mut must_not_fault: bool = unsafe { 0 != 0i32 };
+#[no_mangle]
+pub static mut DEBUG: bool = unsafe { 0 != 1i32 };
+#[no_mangle]
+pub unsafe extern "C" fn translate_address_write(mut address: i32) -> u32 {
+    let mut base: i32 = (address as u32 >> 12i32) as i32;
+    let mut entry: i32 = *tlb_data.offset(base as isize);
+    let mut user: bool = *cpl.offset(0isize) as i32 == 3i32;
+    if entry & (TLB_VALID | if 0 != user as i32 { TLB_NO_USER } else { 0i32 } | TLB_READONLY)
+        == TLB_VALID
+    {
+        return (entry & !4095i32 ^ address) as u32;
+    }
+    else {
+        return (do_page_translation(address, 0 != 1i32, user) | address & 4095i32) as u32;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn tlb_set_has_code(mut physical_page: u32, mut has_code: bool) -> () {
+    dbg_assert!(physical_page < (1i32 << 20i32) as u32);
+    let mut i: i32 = 0i32;
+    while i < valid_tlb_entries_count {
+        let mut page: i32 = valid_tlb_entries[i as usize];
+        let mut entry: i32 = *tlb_data.offset(page as isize);
+        if 0 != entry {
+            let mut tlb_physical_page: u32 = entry as u32 >> 12i32 ^ page as u32;
+            if physical_page == tlb_physical_page {
+                *tlb_data.offset(page as isize) = if 0 != has_code as i32 {
+                    entry | TLB_HAS_CODE
+                }
+                else {
+                    entry & !TLB_HAS_CODE
+                }
+            }
+        }
+        i += 1
+    }
+    check_tlb_invariants();
+}
+#[no_mangle]
+pub unsafe extern "C" fn check_tlb_invariants() -> () {
+    let mut physical_page: u32 = 0;
+    let mut entry_has_code: bool = false;
+    let mut has_code: bool = false;
+    if !CHECK_TLB_INVARIANTS {
+        return;
+    }
+    else {
+        let mut i: i32 = 0i32;
+        while i < valid_tlb_entries_count {
+            let mut page: i32 = valid_tlb_entries[i as usize];
+            let mut entry: i32 = *tlb_data.offset(page as isize);
+            if 0 == entry || 0 != entry & TLB_IN_MAPPED_RANGE {
+                c_comment!(("there\'s no code in mapped memory"));
+            }
+            i += 1
+        }
+        return;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn writable_or_pagefault(mut addr: i32, mut size: i32) -> () {
+    dbg_assert!(size < 4096i32);
+    dbg_assert!(size > 0i32);
+    if *cr.offset(0isize) & CR0_PG == 0i32 {
+        return;
+    }
+    else {
+        let mut user: bool = *cpl.offset(0isize) as i32 == 3i32;
+        let mut mask: i32 =
+            TLB_READONLY | TLB_VALID | if 0 != user as i32 { TLB_NO_USER } else { 0i32 };
+        let mut expect: i32 = TLB_VALID;
+        let mut page: i32 = (addr as u32 >> 12i32) as i32;
+        if *tlb_data.offset(page as isize) & mask != expect {
+            do_page_translation(addr, 0 != 1i32, user);
+        }
+        let mut next_page: i32 = ((addr + size - 1i32) as u32 >> 12i32) as i32;
+        if page != next_page {
+            dbg_assert!(next_page == page + 1i32);
+            c_comment!(("XXX: possibly out of bounds"));
+            if *tlb_data.offset(next_page as isize) & mask != expect {
+                do_page_translation(next_page << 12i32, 0 != 1i32, user);
+            }
+        }
+        return;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn read_imm8() -> i32 {
+    let mut eip: i32 = *instruction_pointer;
+    if 0 != eip & !4095i32 ^ *last_virt_eip {
+        *eip_phys = (translate_address_read(eip) ^ eip as u32) as i32;
+        *last_virt_eip = eip & !4095i32
+    }
+    dbg_assert!(!in_mapped_range((*eip_phys ^ eip) as u32));
+    let mut data8: i32 = *mem8.offset((*eip_phys ^ eip) as isize) as i32;
+    *instruction_pointer = eip + 1i32;
+    return data8;
+}
+#[no_mangle]
+pub unsafe extern "C" fn read_imm8s() -> i32 { return read_imm8() << 24i32 >> 24i32; }
+#[no_mangle]
+pub unsafe extern "C" fn read_imm16() -> i32 {
+    c_comment!(("Two checks in one comparison:"));
+    c_comment!(("1. Did the high 20 bits of eip change"));
+    c_comment!(("or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)"));
+    if (*instruction_pointer ^ *last_virt_eip) as u32 > 4094i32 as u32 {
+        return read_imm8() | read_imm8() << 8i32;
+    }
+    else {
+        let mut data16: i32 = read16((*eip_phys ^ *instruction_pointer) as u32);
+        *instruction_pointer = *instruction_pointer + 2i32;
+        return data16;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn read_imm32s() -> i32 {
+    c_comment!(("Analogue to the above comment"));
+    if (*instruction_pointer ^ *last_virt_eip) as u32 > 4092i32 as u32 {
+        return read_imm16() | read_imm16() << 16i32;
+    }
+    else {
+        let mut data32: i32 = read32s((*eip_phys ^ *instruction_pointer) as u32);
+        *instruction_pointer = *instruction_pointer + 4i32;
+        return data32;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn is_osize_32() -> bool {
+    return *is_32 as i32 != (*prefixes as i32 & PREFIX_MASK_OPSIZE == PREFIX_MASK_OPSIZE) as i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn is_asize_32() -> bool {
+    return *is_32 as i32
+        != (*prefixes as i32 & PREFIX_MASK_ADDRSIZE == PREFIX_MASK_ADDRSIZE) as i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_seg(mut segment: i32) -> i32 {
+    dbg_assert!(segment >= 0i32 && segment < 8i32);
+    c_comment!(("TODO: Remove protected_mode check"));
+    if *protected_mode {
+        if *segment_is_null.offset(segment as isize) {
+            dbg_assert!(segment != CS && segment != SS);
+            dbg_log_c!(("#gp: Access null segment"));
+            trigger_gp(0i32);
+        }
+    }
+    return *segment_offsets.offset(segment as isize);
+}
+#[no_mangle]
+pub unsafe extern "C" fn trigger_gp(mut code: i32) -> () {
+    *instruction_pointer = *previous_ip;
+    raise_exception_with_code(CPU_EXCEPTION_GP, code);
+}
+#[no_mangle]
+pub unsafe extern "C" fn raise_exception_with_code(
+    mut interrupt_nr: i32,
+    mut error_code: i32,
+) -> () {
+    if DEBUG {
+        if must_not_fault {
+            dbg_log_c!(
+                ("Unexpected fault: 0x%x with code 0x%x"),
+                interrupt_nr,
+                error_code
+            );
+            dbg_trace();
+            dbg_assert!(0 != 0i32);
+        }
+        if cpu_exception_hook(interrupt_nr) {
+            throw_cpu_exception();
+            return;
+        }
+    }
+    profiler_stat_increment(S_TRIGGER_CPU_EXCEPTION);
+    call_interrupt_vector(interrupt_nr, 0 != 0i32, 0 != 1i32, error_code);
+    throw_cpu_exception();
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_seg_cs() -> i32 { return *segment_offsets.offset(CS as isize); }
+#[no_mangle]
+pub unsafe extern "C" fn get_seg_ss() -> i32 { return *segment_offsets.offset(SS as isize); }
+#[no_mangle]
+pub unsafe extern "C" fn get_seg_prefix(mut default_segment: i32) -> i32 {
+    let mut prefix: i32 = *prefixes as i32 & PREFIX_MASK_SEGMENT;
+    if 0 != prefix {
+        if prefix == SEG_PREFIX_ZERO {
+            return 0i32;
+        }
+        else {
+            return get_seg(prefix - 1i32);
+        }
+    }
+    else {
+        return get_seg(default_segment);
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_seg_prefix_ds(mut offset: i32) -> i32 {
+    return get_seg_prefix(DS) + offset;
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_seg_prefix_ss(mut offset: i32) -> i32 {
+    return get_seg_prefix(SS) + offset;
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_seg_prefix_cs(mut offset: i32) -> i32 {
+    return get_seg_prefix(CS) + offset;
+}
+#[no_mangle]
+pub unsafe extern "C" fn modrm_resolve(mut modrm_byte: i32) -> i32 {
+    if is_asize_32() {
+        return resolve_modrm32(modrm_byte);
+    }
+    else {
+        return resolve_modrm16(modrm_byte);
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn cycle_internal() -> () {
+    let mut wasm_table_index: u16 = 0;
+    let mut initial_tsc: i32 = 0;
+    let mut initial_state: u16 = 0;
+    profiler_stat_increment(S_CYCLE_INTERNAL);
+    *previous_ip = *instruction_pointer;
+    let mut phys_addr: u32 = get_phys_eip() as u32;
+    let mut state_flags: cached_state_flags = pack_current_state_flags();
+    let mut entry: u32 = jit_find_cache_entry(phys_addr, state_flags);
+    if 0 != entry {
+        profiler_stat_increment(S_RUN_FROM_CACHE);
+        initial_tsc = *timestamp_counter as i32;
+        wasm_table_index = (entry & 65535i32 as u32) as u16;
+        initial_state = (entry >> 16i32) as u16;
+        call_indirect1(
+            (wasm_table_index as u32).wrapping_add(256i32 as u32) as i32,
+            initial_state as i32,
+        );
+        clear_current_cpu_exception();
+        profiler_stat_increment_by(
+            S_RUN_FROM_CACHE_STEPS,
+            (*timestamp_counter).wrapping_sub(initial_tsc as u32) as i32,
+        );
+    }
+    else {
+        if DEBUG {
+            dbg_assert!(!must_not_fault);
+            must_not_fault = 0 != 1i32
+        }
+        jit_increase_hotness_and_maybe_compile(phys_addr, get_seg_cs() as u32, state_flags);
+        if DEBUG {
+            dbg_assert!(must_not_fault);
+            must_not_fault = 0 != 0i32
+        }
+        let mut initial_tsc_0: i32 = *timestamp_counter as i32;
+        jit_run_interpreted(phys_addr as i32);
+        profiler_stat_increment_by(
+            S_RUN_INTERPRETED_STEPS,
+            (*timestamp_counter).wrapping_sub(initial_tsc_0 as u32) as i32,
+        );
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_phys_eip() -> i32 {
+    let mut eip: i32 = *instruction_pointer;
+    if 0 != eip & !4095i32 ^ *last_virt_eip {
+        *eip_phys = (translate_address_read(eip) ^ eip as u32) as i32;
+        *last_virt_eip = eip & !4095i32
+    }
+    let mut phys_addr: u32 = (*eip_phys ^ eip) as u32;
+    dbg_assert!(!in_mapped_range(phys_addr));
+    return phys_addr as i32;
+}
+unsafe extern "C" fn jit_run_interpreted(mut phys_addr: i32) -> () {
+    profiler_stat_increment(S_RUN_INTERPRETED);
+    jit_block_boundary = 0 != 0i32;
+    dbg_assert!(!in_mapped_range(phys_addr as u32));
+    let mut opcode: i32 = *mem8.offset(phys_addr as isize) as i32;
+    *instruction_pointer += 1;
+    *timestamp_counter = (*timestamp_counter).wrapping_add(1);
+    run_instruction(opcode | (*is_32 as i32) << 8i32);
+    clear_current_cpu_exception();
+    while !jit_block_boundary && 0 != same_page(*previous_ip, *instruction_pointer) as i32 {
+        *previous_ip.offset(0isize) = *instruction_pointer.offset(0isize);
+        *timestamp_counter = (*timestamp_counter).wrapping_add(1);
+        let mut opcode_0: i32 = read_imm8();
+        if DEBUG {
+            logop(*previous_ip.offset(0isize), opcode_0);
+        }
+        run_instruction(opcode_0 | (*is_32 as i32) << 8i32);
+        clear_current_cpu_exception();
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn clear_current_cpu_exception() -> () { current_cpu_exception = -1i32; }
+#[no_mangle]
+pub static mut current_cpu_exception: i32 = unsafe { -1i32 };
+#[no_mangle]
+pub unsafe extern "C" fn pack_current_state_flags() -> cached_state_flags {
+    return ((*is_32 as i32) << 0i32
+        | (*stack_size_32 as i32) << 1i32
+        | ((*cpl as i32 == 3i32) as i32) << 2i32
+        | (has_flat_segmentation() as i32) << 3i32) as cached_state_flags;
+}
+#[no_mangle]
+pub unsafe extern "C" fn has_flat_segmentation() -> bool {
+    c_comment!(("ss can\'t be null"));
+    return *segment_offsets.offset(SS as isize) == 0i32
+        && !*segment_is_null.offset(DS as isize)
+        && *segment_offsets.offset(DS as isize) == 0i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn run_prefix_instruction() -> () {
+    run_instruction(read_imm8() | (is_osize_32() as i32) << 8i32);
+}
+#[no_mangle]
+pub unsafe extern "C" fn clear_prefixes() -> () { *prefixes = 0i32 as u8; }
+#[no_mangle]
+pub unsafe extern "C" fn segment_prefix_op(mut seg: i32) -> () {
+    dbg_assert!(seg <= 5i32);
+    *prefixes = (*prefixes as i32 | seg + 1i32) as u8;
+    run_prefix_instruction();
+    *prefixes = 0i32 as u8;
+}
+#[no_mangle]
+pub unsafe extern "C" fn do_many_cycles_unsafe() -> () {
+    profiler_stat_increment(S_DO_MANY_CYCLES);
+    let mut initial_timestamp_counter: u32 = *timestamp_counter;
+    while (*timestamp_counter).wrapping_sub(initial_timestamp_counter) < LOOP_COUNTER as u32
+        && !*in_hlt.offset(0isize)
+    {
+        cycle_internal();
+    }
+}
+#[no_mangle]
+pub static mut LOOP_COUNTER: i32 = unsafe { 20011i32 };
+#[no_mangle]
+pub unsafe extern "C" fn raise_exception(mut interrupt_nr: i32) -> () {
+    if DEBUG {
+        if must_not_fault {
+            dbg_log_c!(("Unexpected fault: 0x%x"), interrupt_nr);
+            dbg_trace();
+            dbg_assert!(0 != 0i32);
+        }
+        if cpu_exception_hook(interrupt_nr) {
+            throw_cpu_exception();
+            return;
+        }
+    }
+    profiler_stat_increment(S_TRIGGER_CPU_EXCEPTION);
+    call_interrupt_vector(interrupt_nr, 0 != 0i32, 0 != 0i32, 0i32);
+    throw_cpu_exception();
+}
+#[no_mangle]
+pub unsafe extern "C" fn trigger_de() -> () {
+    if DEBUG {
+        if cpu_exception_hook(CPU_EXCEPTION_DE) {
+            return;
+        }
+    }
+    *instruction_pointer = *previous_ip;
+    call_interrupt_vector(CPU_EXCEPTION_DE, 0 != 0i32, 0 != 0i32, 0i32);
+    set_current_cpu_exception(CPU_EXCEPTION_DE);
+}
+#[no_mangle]
+pub unsafe extern "C" fn set_current_cpu_exception(mut n: i32) -> () { current_cpu_exception = n; }
+#[no_mangle]
+pub unsafe extern "C" fn trigger_ud() -> () {
+    dbg_log_c!(("#ud"));
+    dbg_trace();
+    if DEBUG {
+        if cpu_exception_hook(CPU_EXCEPTION_UD) {
+            return;
+        }
+    }
+    *instruction_pointer = *previous_ip;
+    call_interrupt_vector(CPU_EXCEPTION_UD, 0 != 0i32, 0 != 0i32, 0i32);
+    set_current_cpu_exception(CPU_EXCEPTION_UD);
+}
+#[no_mangle]
+pub unsafe extern "C" fn trigger_nm() -> () {
+    if DEBUG {
+        if cpu_exception_hook(CPU_EXCEPTION_NM) {
+            return;
+        }
+    }
+    *instruction_pointer = *previous_ip;
+    call_interrupt_vector(CPU_EXCEPTION_NM, 0 != 0i32, 0 != 0i32, 0i32);
+    set_current_cpu_exception(CPU_EXCEPTION_NM);
+}
+#[no_mangle]
+pub unsafe extern "C" fn trigger_gp_non_raising(mut code: i32) -> () {
+    if DEBUG {
+        if cpu_exception_hook(CPU_EXCEPTION_GP) {
+            return;
+        }
+    }
+    *instruction_pointer = *previous_ip;
+    call_interrupt_vector(CPU_EXCEPTION_GP, 0 != 0i32, 0 != 1i32, code);
+    set_current_cpu_exception(CPU_EXCEPTION_GP);
+}
+#[no_mangle]
+pub unsafe extern "C" fn virt_boundary_read16(mut low: i32, mut high: i32) -> i32 {
+    dbg_assert!(low & 4095i32 == 4095i32);
+    dbg_assert!(high & 4095i32 == 0i32);
+    return read8(low as u32) | read8(high as u32) << 8i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn virt_boundary_read32s(mut low: i32, mut high: i32) -> i32 {
+    dbg_assert!(low & 4095i32 >= 4093i32);
+    dbg_assert!(high - 3i32 & 4095i32 == low & 4095i32);
+    let mut mid: i32 = 0i32;
+    if 0 != low & 1i32 {
+        if 0 != low & 2i32 {
+            c_comment!(("0xFFF"));
+            mid = read_aligned16((high - 2i32 >> 1i32) as u32)
+        }
+        else {
+            c_comment!(("0xFFD"));
+            mid = read_aligned16((low + 1i32 >> 1i32) as u32)
+        }
+    }
+    else {
+        c_comment!(("0xFFE"));
+        mid = virt_boundary_read16(low + 1i32, high - 1i32)
+    }
+    return read8(low as u32) | mid << 8i32 | read8(high as u32) << 24i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn virt_boundary_write16(mut low: i32, mut high: i32, mut value: i32) -> () {
+    dbg_assert!(low & 4095i32 == 4095i32);
+    dbg_assert!(high & 4095i32 == 0i32);
+    write8(low as u32, value);
+    write8(high as u32, value >> 8i32);
+}
+#[no_mangle]
+pub unsafe extern "C" fn virt_boundary_write32(mut low: i32, mut high: i32, mut value: i32) -> () {
+    dbg_assert!(low & 4095i32 >= 4093i32);
+    dbg_assert!(high - 3i32 & 4095i32 == low & 4095i32);
+    write8(low as u32, value);
+    if 0 != low & 1i32 {
+        if 0 != low & 2i32 {
+            c_comment!(("0xFFF"));
+            write8((high - 2i32) as u32, value >> 8i32);
+            write8((high - 1i32) as u32, value >> 16i32);
+        }
+        else {
+            c_comment!(("0xFFD"));
+            write8((low + 1i32) as u32, value >> 8i32);
+            write8((low + 2i32) as u32, value >> 16i32);
+        }
+    }
+    else {
+        c_comment!(("0xFFE"));
+        write8((low + 1i32) as u32, value >> 8i32);
+        write8((high - 1i32) as u32, value >> 16i32);
+    }
+    write8(high as u32, value >> 24i32);
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_read8(mut addr: i32) -> i32 {
+    assert_no_cpu_exception();
+    return read8(translate_address_read(addr));
+}
+#[no_mangle]
+pub unsafe extern "C" fn assert_no_cpu_exception() -> () {
+    if current_cpu_exception != -1i32 {
+        dbg_log_c!(("Expected no cpu exception, got %d"), current_cpu_exception);
+        dbg_trace();
+        dbg_assert!(0 != 0i32);
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_read16(mut address: i32) -> i32 {
+    let mut base: i32 = (address as u32 >> 12i32) as i32;
+    let mut entry: i32 = *tlb_data.offset(base as isize);
+    let mut info_bits: i32 = entry & 4095i32 & !TLB_READONLY & !TLB_GLOBAL & !TLB_HAS_CODE;
+    if info_bits == TLB_VALID && address & 4095i32 <= 4096i32 - 2i32 {
+        c_comment!(("- not in memory mapped area"));
+        c_comment!(("- can be accessed from any cpl"));
+        let mut phys_address: u32 = (entry & !4095i32 ^ address) as u32;
+        dbg_assert!(!in_mapped_range(phys_address));
+        return *(mem8.offset(phys_address as isize) as *mut u16) as i32;
+    }
+    else {
+        return safe_read16_slow(address);
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_read16_slow(mut addr: i32) -> i32 {
+    assert_no_cpu_exception();
+    if addr & 4095i32 == 4095i32 {
+        return safe_read8(addr) | safe_read8(addr + 1i32) << 8i32;
+    }
+    else {
+        return read16(translate_address_read(addr));
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_read32s(mut address: i32) -> i32 {
+    assert_no_cpu_exception();
+    let mut base: i32 = (address as u32 >> 12i32) as i32;
+    let mut entry: i32 = *tlb_data.offset(base as isize);
+    let mut info_bits: i32 = entry & 4095i32 & !TLB_READONLY & !TLB_GLOBAL & !TLB_HAS_CODE;
+    if info_bits == TLB_VALID && address & 4095i32 <= 4096i32 - 4i32 {
+        profiler_stat_increment(S_SAFE_READ32_FAST);
+        c_comment!(("- not in memory mapped area"));
+        c_comment!(("- can be accessed from any cpl"));
+        let mut phys_address: u32 = (entry & !4095i32 ^ address) as u32;
+        dbg_assert!(!in_mapped_range(phys_address));
+        return *(mem8.offset(phys_address as isize) as *mut i32);
+    }
+    else {
+        if address & 4095i32 > 4096i32 - 4i32 {
+            profiler_stat_increment(S_SAFE_READ32_SLOW_PAGE_CROSSED);
+        }
+        else if info_bits & TLB_VALID == 0i32 {
+            profiler_stat_increment(S_SAFE_READ32_SLOW_NOT_VALID);
+        }
+        else if 0 != info_bits & TLB_NO_USER {
+            profiler_stat_increment(S_SAFE_READ32_SLOW_NOT_USER);
+        }
+        else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
+            profiler_stat_increment(S_SAFE_READ32_SLOW_IN_MAPPED_RANGE);
+        }
+        else {
+            dbg_assert!(0 != 0i32);
+        }
+        return safe_read32s_slow(address);
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_read32s_slow(mut addr: i32) -> i32 {
+    if addr & 4095i32 >= 4093i32 {
+        return safe_read16(addr) | safe_read16(addr + 2i32) << 16i32;
+    }
+    else {
+        return read32s(translate_address_read(addr));
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_read64s(mut addr: i32) -> reg64 {
+    let mut addr_phys: i32 = 0;
+    assert_no_cpu_exception();
+    let mut x: reg64 = reg64 { i8_0: [0; 8] };
+    if addr & 4095i32 > 4096i32 - 8i32 {
+        x.u32_0[0usize] = safe_read32s(addr) as u32;
+        x.u32_0[1usize] = safe_read32s(addr + 4i32) as u32
+    }
+    else {
+        addr_phys = translate_address_read(addr) as i32;
+        x.u64_0[0usize] = read64s(addr_phys as u32) as u64
+    }
+    return x;
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_read128s(mut addr: i32) -> reg128 {
+    let mut addr_phys: i32 = 0;
+    assert_no_cpu_exception();
+    let mut x: reg128 = reg128 { i8_0: [0; 16] };
+    if addr & 4095i32 > 4096i32 - 16i32 {
+        x.u64_0[0usize] = safe_read64s(addr).u64_0[0usize];
+        x.u64_0[1usize] = safe_read64s(addr + 8i32).u64_0[0usize]
+    }
+    else {
+        addr_phys = translate_address_read(addr) as i32;
+        x = read128(addr_phys as u32)
+    }
+    return x;
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_write8(mut addr: i32, mut value: i32) -> () {
+    assert_no_cpu_exception();
+    write8(translate_address_write(addr), value);
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_write16(mut address: i32, mut value: i32) -> () {
+    let mut base: i32 = (address as u32 >> 12i32) as i32;
+    let mut entry: i32 = *tlb_data.offset(base as isize);
+    let mut info_bits: i32 = entry & 4095i32 & !TLB_GLOBAL;
+    if info_bits == TLB_VALID && address & 4095i32 <= 4096i32 - 2i32 {
+        c_comment!(("- allowed to write in user-mode"));
+        c_comment!(("- not in memory mapped area"));
+        c_comment!(("- can be accessed from any cpl"));
+        c_comment!(("- does not contain code"));
+        let mut phys_address: u32 = (entry & !4095i32 ^ address) as u32;
+        dbg_assert!(!jit_page_has_code(phys_address >> 12i32));
+        dbg_assert!(!in_mapped_range(phys_address));
+        *(mem8.offset(phys_address as isize) as *mut u16) = value as u16;
+        return;
+    }
+    else {
+        safe_write16_slow(address, value);
+        return;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_write16_slow(mut addr: i32, mut value: i32) -> () {
+    assert_no_cpu_exception();
+    let mut phys_low: i32 = translate_address_write(addr) as i32;
+    if addr & 4095i32 == 4095i32 {
+        virt_boundary_write16(phys_low, translate_address_write(addr + 1i32) as i32, value);
+    }
+    else {
+        write16(phys_low as u32, value);
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_write32(mut address: i32, mut value: i32) -> () {
+    assert_no_cpu_exception();
+    let mut base: i32 = (address as u32 >> 12i32) as i32;
+    let mut entry: i32 = *tlb_data.offset(base as isize);
+    let mut info_bits: i32 = entry & 4095i32 & !TLB_GLOBAL & !if *cpl as i32 == 3i32 {
+        0i32
+    }
+    else {
+        TLB_NO_USER
+    };
+    if info_bits == TLB_VALID && address & 4095i32 <= 4096i32 - 4i32 {
+        profiler_stat_increment(S_SAFE_WRITE32_FAST);
+        c_comment!(("- allowed to write in user-mode"));
+        c_comment!(("- not in memory mapped area"));
+        c_comment!(("- does not contain code"));
+        let mut phys_address: u32 = (entry & !4095i32 ^ address) as u32;
+        dbg_assert!(!jit_page_has_code(phys_address >> 12i32));
+        dbg_assert!(!in_mapped_range(phys_address));
+        *(mem8.offset(phys_address as isize) as *mut i32) = value;
+        return;
+    }
+    else {
+        if address & 4095i32 > 4096i32 - 4i32 {
+            profiler_stat_increment(S_SAFE_WRITE32_SLOW_PAGE_CROSSED);
+        }
+        else if info_bits & TLB_VALID == 0i32 {
+            profiler_stat_increment(S_SAFE_WRITE32_SLOW_NOT_VALID);
+        }
+        else if 0 != info_bits & TLB_NO_USER {
+            profiler_stat_increment(S_SAFE_WRITE32_SLOW_NOT_USER);
+        }
+        else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
+            profiler_stat_increment(S_SAFE_WRITE32_SLOW_IN_MAPPED_RANGE);
+        }
+        else if 0 != info_bits & TLB_READONLY {
+            profiler_stat_increment(S_SAFE_WRITE32_SLOW_READ_ONLY);
+        }
+        else if 0 != info_bits & TLB_HAS_CODE {
+            profiler_stat_increment(S_SAFE_WRITE32_SLOW_HAS_CODE);
+        }
+        else {
+            dbg_assert!(0 != 0i32);
+        }
+        safe_write32_slow(address, value);
+        return;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_write32_slow(mut addr: i32, mut value: i32) -> () {
+    let mut phys_low: i32 = translate_address_write(addr) as i32;
+    if addr & 4095i32 > 4096i32 - 4i32 {
+        virt_boundary_write32(
+            phys_low,
+            (translate_address_write(addr + 3i32 & !3i32) | (addr + 3i32 & 3i32) as u32) as i32,
+            value,
+        );
+    }
+    else {
+        write32(phys_low as u32, value);
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_write64(mut addr: i32, mut value: i64) -> () {
+    assert_no_cpu_exception();
+    if addr & 4095i32 > 4096i32 - 8i32 {
+        writable_or_pagefault(addr, 8i32);
+        safe_write32(addr, value as i32);
+        safe_write32(addr + 4i32, (value >> 32i32) as i32);
+    }
+    else {
+        let mut phys: i32 = translate_address_write(addr) as i32;
+        write64(phys as u32, value);
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn safe_write128(mut addr: i32, mut value: reg128) -> () {
+    assert_no_cpu_exception();
+    if addr & 4095i32 > 4096i32 - 16i32 {
+        writable_or_pagefault(addr, 16i32);
+        safe_write64(addr, value.u64_0[0usize] as i64);
+        safe_write64(addr + 8i32, value.u64_0[1usize] as i64);
+    }
+    else {
+        let mut phys: i32 = translate_address_write(addr) as i32;
+        write128(phys as u32, value);
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_reg8_index(mut index: i32) -> i32 {
+    return index << 2i32 & 12i32 | index >> 2i32 & 1i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn read_reg8(mut index: i32) -> i32 {
+    return *reg8.offset(get_reg8_index(index) as isize) as i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn write_reg8(mut index: i32, mut value: i32) -> () {
+    *reg8.offset(get_reg8_index(index) as isize) = value as u8;
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_reg16_index(mut index: i32) -> i32 { return index << 1i32; }
+#[no_mangle]
+pub unsafe extern "C" fn read_reg16(mut index: i32) -> i32 {
+    return *reg16.offset(get_reg16_index(index) as isize) as i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn write_reg16(mut index: i32, mut value: i32) -> () {
+    *reg16.offset(get_reg16_index(index) as isize) = value as u16;
+}
+#[no_mangle]
+pub unsafe extern "C" fn read_reg32(mut index: i32) -> i32 {
+    return *reg32s.offset(index as isize);
+}
+#[no_mangle]
+pub unsafe extern "C" fn write_reg32(mut index: i32, mut value: i32) -> () {
+    *reg32s.offset(index as isize) = value;
+}
+#[no_mangle]
+pub unsafe extern "C" fn write_reg_osize(mut index: i32, mut value: i32) -> () {
+    dbg_assert!(index >= 0i32 && index < 8i32);
+    if is_osize_32() {
+        write_reg32(index, value);
+    }
+    else {
+        write_reg16(index, value & 65535i32);
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn read_mmx32s(mut r: i32) -> i32 {
+    return (*reg_mmx.offset(r as isize)).u32_0[0usize] as i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn read_mmx64s(mut r: i32) -> reg64 { return *reg_mmx.offset(r as isize); }
+#[no_mangle]
+pub unsafe extern "C" fn write_mmx64(mut r: i32, mut low: i32, mut high: i32) -> () {
+    (*reg_mmx.offset(r as isize)).u32_0[0usize] = low as u32;
+    (*reg_mmx.offset(r as isize)).u32_0[1usize] = high as u32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn write_mmx_reg64(mut r: i32, mut data: reg64) -> () {
+    (*reg_mmx.offset(r as isize)).u64_0[0usize] = data.u64_0[0usize];
+}
+#[no_mangle]
+pub unsafe extern "C" fn read_xmm_f32(mut r: i32) -> f32 {
+    return (*reg_xmm.offset(r as isize)).f32_0[0usize];
+}
+#[no_mangle]
+pub unsafe extern "C" fn read_xmm32(mut r: i32) -> i32 {
+    return (*reg_xmm.offset(r as isize)).u32_0[0usize] as i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn read_xmm64s(mut r: i32) -> reg64 {
+    let mut x: reg64 = reg64 { i8_0: [0; 8] };
+    x.u64_0[0usize] = (*reg_xmm.offset(r as isize)).u64_0[0usize];
+    return x;
+}
+#[no_mangle]
+pub unsafe extern "C" fn read_xmm128s(mut r: i32) -> reg128 { return *reg_xmm.offset(r as isize); }
+#[no_mangle]
+pub unsafe extern "C" fn write_xmm_f32(mut r: i32, mut data: f32) -> () {
+    (*reg_xmm.offset(r as isize)).f32_0[0usize] = data;
+}
+#[no_mangle]
+pub unsafe extern "C" fn write_xmm32(mut r: i32, mut data: i32) -> () {
+    (*reg_xmm.offset(r as isize)).i32_0[0usize] = data;
+}
+#[no_mangle]
+pub unsafe extern "C" fn write_xmm64(mut r: i32, mut data: reg64) -> () {
+    (*reg_xmm.offset(r as isize)).u64_0[0usize] = data.u64_0[0usize];
+}
+#[no_mangle]
+pub unsafe extern "C" fn write_xmm128(
+    mut r: i32,
+    mut i0: i32,
+    mut i1: i32,
+    mut i2: i32,
+    mut i3: i32,
+) -> () {
+    let mut x: reg128 = reg128 {
+        u32_0: [i0 as u32, i1 as u32, i2 as u32, i3 as u32],
+    };
+    *reg_xmm.offset(r as isize) = x;
+}
+#[no_mangle]
+pub unsafe extern "C" fn write_xmm_reg128(mut r: i32, mut data: reg128) -> () {
+    (*reg_xmm.offset(r as isize)).u64_0[0usize] = data.u64_0[0usize];
+    (*reg_xmm.offset(r as isize)).u64_0[1usize] = data.u64_0[1usize];
+}
+#[no_mangle]
+pub unsafe extern "C" fn task_switch_test() -> bool {
+    if 0 != *cr.offset(0isize) & (CR0_EM | CR0_TS) {
+        trigger_nm();
+        return 0 != 0i32;
+    }
+    else {
+        return 0 != 1i32;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn task_switch_test_void() -> () { task_switch_test(); }
+#[no_mangle]
+pub unsafe extern "C" fn task_switch_test_mmx() -> bool {
+    if 0 != *cr & CR0_TS {
+        trigger_nm();
+        return 0 != 0i32;
+    }
+    else if 0 != *cr & CR0_EM {
+        trigger_ud();
+        return 0 != 0i32;
+    }
+    else {
+        return 0 != 1i32;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn task_switch_test_mmx_void() -> () { task_switch_test_mmx(); }
+#[no_mangle]
+pub unsafe extern "C" fn read_moffs() -> i32 {
+    c_comment!(("read 2 or 4 byte from ip, depending on address size attribute"));
+    if is_asize_32() {
+        return read_imm32s();
+    }
+    else {
+        return read_imm16();
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_real_eip() -> i32 {
+    c_comment!(("Returns the \'real\' instruction pointer, without segment offset"));
+    return *instruction_pointer - get_seg_cs();
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_stack_reg() -> i32 {
+    if *stack_size_32 {
+        return *reg32s.offset(ESP as isize);
+    }
+    else {
+        return *reg16.offset(SP as isize) as i32;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn set_stack_reg(mut value: i32) -> () {
+    if *stack_size_32 {
+        *reg32s.offset(ESP as isize) = value
+    }
+    else {
+        *reg16.offset(SP as isize) = value as u16
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_reg_asize(mut reg: i32) -> i32 {
+    dbg_assert!(reg == ECX || reg == ESI || reg == EDI);
+    let mut r: i32 = *reg32s.offset(reg as isize);
+    if is_asize_32() {
+        return r;
+    }
+    else {
+        return r & 65535i32;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn set_ecx_asize(mut value: i32) -> () {
+    if is_asize_32() {
+        *reg32s.offset(ECX as isize) = value
+    }
+    else {
+        *reg16.offset(CX as isize) = value as u16
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn add_reg_asize(mut reg: i32, mut value: i32) -> () {
+    dbg_assert!(reg == ECX || reg == ESI || reg == EDI);
+    if is_asize_32() {
+        let ref mut fresh2 = *reg32s.offset(reg as isize);
+        *fresh2 += value
+    }
+    else {
+        let ref mut fresh3 = *reg16.offset((reg << 1i32) as isize);
+        *fresh3 = (*fresh3 as i32 + value) as u16
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn decr_ecx_asize() -> i32 {
+    return if 0 != is_asize_32() as i32 {
+        let ref mut fresh4 = *reg32s.offset(ECX as isize);
+        *fresh4 -= 1;
+        *fresh4
+    }
+    else {
+        let ref mut fresh5 = *reg16.offset(CX as isize);
+        *fresh5 = (*fresh5).wrapping_sub(1);
+        *fresh5 as i32
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn set_tsc(mut low: u32, mut high: u32) -> () {
+    let mut new_value: u64 = low as u64 | (high as u64) << 32i32;
+    let mut current_value: u64 = read_tsc();
+    tsc_offset = current_value.wrapping_sub(new_value);
+}
+#[no_mangle]
+pub unsafe extern "C" fn read_tsc() -> u64 {
+    let mut n: f64 = microtick() * TSC_RATE;
+    let mut value: u64 = (n as u64).wrapping_sub(tsc_offset);
+    if 0 != 1i32 + 1i32 {
+        return value;
+    }
+    else {
+        if value == rdtsc_last_value {
+            c_comment!(("don\'t go past 1ms"));
+            if (rdtsc_imprecision_offset as f64) < TSC_RATE {
+                rdtsc_imprecision_offset = rdtsc_imprecision_offset.wrapping_add(1)
+            }
+        }
+        else {
+            let mut previous_value: u64 = rdtsc_last_value.wrapping_add(rdtsc_imprecision_offset);
+            if previous_value <= value {
+                rdtsc_last_value = value;
+                rdtsc_imprecision_offset = 0i32 as u64
+            }
+            else {
+                dbg_log_c!(
+                    ("XXX: Overshot tsc prev=%x:%x offset=%x:%x curr=%x:%x"),
+                    (rdtsc_last_value >> 32i32) as u32 as i32,
+                    rdtsc_last_value as u32 as i32,
+                    (rdtsc_imprecision_offset >> 32i32) as u32 as i32,
+                    rdtsc_imprecision_offset as u32 as i32,
+                    (value >> 32i32) as u32 as i32,
+                    value as u32 as i32
+                );
+                dbg_assert!(0 != 0i32);
+                c_comment!(("Keep current value until time catches up"));
+            }
+        }
+        return rdtsc_last_value.wrapping_add(rdtsc_imprecision_offset);
+    };
+}
+#[no_mangle]
+pub static mut rdtsc_imprecision_offset: u64 = unsafe { 0i32 as u64 };
+#[no_mangle]
+pub static mut rdtsc_last_value: u64 = unsafe { 0i32 as u64 };
+#[no_mangle]
+pub static mut tsc_offset: u64 = unsafe { 0i32 as u64 };
+#[no_mangle]
+pub static mut TSC_RATE: f64 = unsafe { (50i32 * 1000i32) as f64 };
+#[no_mangle]
+pub unsafe extern "C" fn vm86_mode() -> bool { return *flags & FLAG_VM == FLAG_VM; }
+#[no_mangle]
+pub unsafe extern "C" fn getiopl() -> i32 { return *flags >> 12i32 & 3i32; }
+#[no_mangle]
+pub unsafe extern "C" fn get_opstats_buffer(mut index: i32) -> i32 {
+    dbg_assert!(index >= 0i32 && index < 512i32);
+    if index < 256i32 {
+        return *opstats_buffer.offset(index as isize) as i32;
+    }
+    else {
+        return *opstats_buffer_0f.offset((index - 256i32) as isize) as i32;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn invlpg(mut addr: i32) -> () {
+    let mut page: i32 = (addr as u32 >> 12i32) as i32;
+    c_comment!(("Note: Doesn\'t remove this page from valid_tlb_entries: This isn\'t"));
+    c_comment!(("necessary, because when valid_tlb_entries grows too large, it will be"));
+    c_comment!(("empties by calling clear_tlb, which removes this entry as it isn\'t global."));
+    c_comment!(("This however means that valid_tlb_entries can contain some invalid entries"));
+    *tlb_data.offset(page as isize) = 0i32;
+    *last_virt_eip = -1i32;
+    *last_virt_esp = -1i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn update_eflags(mut new_flags: i32) -> () {
+    let mut dont_update: i32 = FLAG_RF | FLAG_VM | FLAG_VIP | FLAG_VIF;
+    let mut clear: i32 = !FLAG_VIP & !FLAG_VIF & FLAGS_MASK;
+    if 0 != *flags & FLAG_VM {
+        c_comment!(("other case needs to be handled in popf or iret"));
+        dbg_assert!(getiopl() == 3i32);
+        dont_update |= FLAG_IOPL;
+        c_comment!(("don\'t clear vip or vif"));
+        clear |= FLAG_VIP | FLAG_VIF
+    }
+    else {
+        if !*protected_mode {
+            dbg_assert!(*cpl as i32 == 0i32);
+        }
+        if 0 != *cpl {
+            c_comment!(("cpl > 0"));
+            c_comment!(("cannot update iopl"));
+            dont_update |= FLAG_IOPL;
+            if *cpl as i32 > getiopl() {
+                c_comment!(("cpl > iopl"));
+                c_comment!(("cannot update interrupt flag"));
+                dont_update |= FLAG_INTERRUPT
+            }
+        }
+    }
+    *flags = (new_flags ^ (*flags ^ new_flags) & dont_update) & clear | FLAGS_DEFAULT;
+    *flags_changed = 0i32;
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_valid_tlb_entries_count() -> i32 {
+    let mut result: i32 = 0i32;
+    let mut i: i32 = 0i32;
+    while i < valid_tlb_entries_count {
+        let mut page: i32 = valid_tlb_entries[i as usize];
+        let mut entry: i32 = *tlb_data.offset(page as isize);
+        if 0 != entry {
+            result += 1
+        }
+        i += 1
+    }
+    return result;
+}
+#[no_mangle]
+pub unsafe extern "C" fn get_valid_global_tlb_entries_count() -> i32 {
+    let mut result: i32 = 0i32;
+    let mut i: i32 = 0i32;
+    while i < valid_tlb_entries_count {
+        let mut page: i32 = valid_tlb_entries[i as usize];
+        let mut entry: i32 = *tlb_data.offset(page as isize);
+        if 0 != entry & TLB_GLOBAL {
+            result += 1
+        }
+        i += 1
+    }
+    return result;
+}
+#[no_mangle]
+pub unsafe extern "C" fn translate_address_system_read(mut address: i32) -> u32 {
+    let mut base: i32 = (address as u32 >> 12i32) as i32;
+    let mut entry: i32 = *tlb_data.offset(base as isize);
+    if 0 != entry & TLB_VALID {
+        return (entry & !4095i32 ^ address) as u32;
+    }
+    else {
+        return (do_page_translation(address, 0 != 0i32, 0 != 0i32) | address & 4095i32) as u32;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn translate_address_system_write(mut address: i32) -> u32 {
+    let mut base: i32 = (address as u32 >> 12i32) as i32;
+    let mut entry: i32 = *tlb_data.offset(base as isize);
+    if entry & (TLB_VALID | TLB_READONLY) == TLB_VALID {
+        return (entry & !4095i32 ^ address) as u32;
+    }
+    else {
+        return (do_page_translation(address, 0 != 1i32, 0 != 0i32) | address & 4095i32) as u32;
+    };
+}
+#[no_mangle]
+pub unsafe extern "C" fn trigger_np(mut code: i32) -> () {
+    if DEBUG {
+        if cpu_exception_hook(CPU_EXCEPTION_NP) {
+            return;
+        }
+    }
+    *instruction_pointer = *previous_ip;
+    call_interrupt_vector(CPU_EXCEPTION_NP, 0 != 0i32, 0 != 1i32, code);
+    set_current_cpu_exception(CPU_EXCEPTION_NP);
+}
+#[no_mangle]
+pub unsafe extern "C" fn trigger_ss(mut code: i32) -> () {
+    if DEBUG {
+        if cpu_exception_hook(CPU_EXCEPTION_SS) {
+            return;
+        }
+    }
+    *instruction_pointer = *previous_ip;
+    call_interrupt_vector(CPU_EXCEPTION_SS, 0 != 0i32, 0 != 1i32, code);
+    set_current_cpu_exception(CPU_EXCEPTION_SS);
+}
+#[no_mangle]
+pub unsafe extern "C" fn store_current_tsc() -> () { *current_tsc = read_tsc(); }
