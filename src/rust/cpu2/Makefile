@@ -104,6 +104,14 @@ profiler.rs: profiler/profiler.rs
 
 	sed -i 's/extern crate libc;//' $@
 
+	sed -i 's/.as_mut_ptr()//' $@
+	sed -i ':a;N;$$!ba;s/\*::std::mem::transmute::<&\[u8; [0-9]\+],[ \n]\+&mut \[i8; [0-9]\+]>//g' $@
+	sed -i 's/\\x00//' $@
+
+	sed -i 's/dbg_log[0-9]\?((/dbg_log_c!((/' $@
+	sed -i 's/    dbg_assert_message(/    dbg_assert_message!(/' $@
+
+
 clean:
 	-rm $(ALL)
 	-rm profiler/profiler.rs
