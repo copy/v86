@@ -1304,21 +1304,26 @@ function nuke_fs()
 
     console.log("\nPreparing test #%d: %s", test_num, tests[test_num].name);
     console.log("    Nuking /mnt");
-    emulator.serial0_send("rm -rf /mnt/*\n");
-    emulator.serial0_send("echo prep-nuke-done\n");
 
-    next_trigger = "prep-nuke-done";
-    next_trigger_handler = tests[test_num].use_fsjson ? reload_fsjson : do_mounts;
+    emulator.fs9p.RecursiveDelete("");
+    reload_fsjson();
 }
 
 function reload_fsjson()
 {
-    console.log("    Reloading files from json");
-    emulator.fs9p.OnJSONLoaded(testfsjson);
-    emulator.fs9p.OnLoaded = () =>
+    if(tests[test_num].use_fsjson)
+    {
+        console.log("    Reloading files from json");
+        emulator.fs9p.OnJSONLoaded(testfsjson);
+        emulator.fs9p.OnLoaded = () =>
+        {
+            do_mounts();
+        };
+    }
+    else
     {
         do_mounts();
-    };
+    }
 }
 
 function do_mounts()
