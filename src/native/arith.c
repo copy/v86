@@ -440,7 +440,7 @@ void bcd_aaa()
 
 void bcd_aam(int32_t imm8)
 {
-    // ascii adjust after multiplication
+    c_comment("ascii adjust after multiplication");
 
     if(imm8 == 0)
     {
@@ -938,7 +938,7 @@ int32_t shl32(int32_t dest_operand, int32_t count)
 
     *last_op_size = OPSIZE_32;
     *flags_changed = FLAGS_ALL & ~1 & ~FLAG_OVERFLOW;
-    // test this
+    c_comment("test this");
     *flags = (*flags & ~1 & ~FLAG_OVERFLOW) | (dest_operand >> (32 - count) & 1);
     *flags |= ((*flags & 1) ^ (*last_result >> 31 & 1)) << 11 & FLAG_OVERFLOW;
 
@@ -1009,7 +1009,7 @@ int32_t sar8(int32_t dest_operand, int32_t count)
     if(count < 8)
     {
         *last_result = dest_operand << 24 >> (count + 24);
-        // of is zero
+        c_comment("of is zero");
         *flags = (*flags & ~1 & ~FLAG_OVERFLOW) | (dest_operand >> (count - 1) & 1);
     }
     else
@@ -1244,14 +1244,13 @@ int32_t bsf16(int32_t old, int32_t bit_base)
         *flags |= FLAG_ZERO;
         *last_result = bit_base;
 
-        // not defined in the docs, but value doesn't change on my intel machine
+        c_comment("not defined in the docs, but value doesn't change on my intel machine");
         return old;
     }
     else
     {
         *flags &= ~FLAG_ZERO;
 
-        // http://jsperf.com/lowest-bit-index
         return *last_result = int_log2(-bit_base & bit_base);
     }
 }
@@ -1322,7 +1321,7 @@ int32_t popcnt(int32_t v)
 
     if(v)
     {
-        // http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+        c_comment("http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel");
         v = v - ((v >> 1) & 0x55555555);
         v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
         return ((v + (v >> 4) & 0xF0F0F0F) * 0x1010101) >> 24;

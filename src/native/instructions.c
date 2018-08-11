@@ -238,7 +238,7 @@ void instr16_61() { popa16(); }
 void instr32_61() { popa32(); }
 
 void instr_62_reg(int32_t r2, int32_t r) {
-    // bound
+    c_comment("bound");
     dbg_log("Unimplemented BOUND instruction");
     dbg_assert(false);
 }
@@ -253,14 +253,14 @@ void instr_64() { segment_prefix_op(FS); }
 void instr_65() { segment_prefix_op(GS); }
 
 void instr_66() {
-    // Operand-size override prefix
+    c_comment("Operand-size override prefix");
     *prefixes |= PREFIX_MASK_OPSIZE;
     run_prefix_instruction();
     *prefixes = 0;
 }
 
 void instr_67() {
-    // Address-size override prefix
+    c_comment("Address-size override prefix");
     dbg_assert(is_asize_32() == *is_32);
     *prefixes |= PREFIX_MASK_ADDRSIZE;
     run_prefix_instruction();
@@ -438,12 +438,12 @@ void instr16_8D_reg(int32_t r, int32_t r2)
 }
 void instr16_8D_mem_pre()
 {
-    // override prefix, so modrm_resolve does not return the segment part
+    c_comment("override prefix, so modrm_resolve does not return the segment part");
     *prefixes |= SEG_PREFIX_ZERO;
 }
 void instr16_8D_mem(int32_t addr, int32_t r)
 {
-    // lea
+    c_comment("lea");
     write_reg16(r, addr);
     *prefixes = 0;
 }
@@ -454,11 +454,11 @@ void instr32_8D_reg(int32_t r, int32_t r2)
 }
 void instr32_8D_mem_pre()
 {
-    // override prefix, so modrm_resolve does not return the segment part
+    c_comment("override prefix, so modrm_resolve does not return the segment part");
     *prefixes |= SEG_PREFIX_ZERO;
 }
 void instr32_8D_mem(int32_t addr, int32_t r) {
-    // lea
+    c_comment("lea");
     write_reg32(r, addr);
     *prefixes = 0;
 }
@@ -486,12 +486,12 @@ DEFINE_MODRM_INSTR_READ16(instr_8E, instr_8E_helper(___, r))
 
 void instr16_8F_0_mem_pre()
 {
-    for(int32_t i = 0; i < 8; i++) { translate_address_read(*instruction_pointer + i); }; // XXX
+    for(int32_t i = 0; i < 8; i++) { translate_address_read(*instruction_pointer + i); }; c_comment("XXX");
     adjust_stack_reg(2);
 }
 void instr16_8F_0_mem(int32_t addr)
 {
-    // pop
+    c_comment("pop");
     adjust_stack_reg(-2);
     int32_t sp = safe_read16(get_stack_pointer(0));
     safe_write16(addr, sp);
@@ -503,17 +503,17 @@ void instr16_8F_0_reg(int32_t r)
 }
 void instr32_8F_0_mem_pre()
 {
-    // prevent page faults during modrm_resolve
-    for(int32_t i = 0; i < 8; i++) { translate_address_read(*instruction_pointer + i); }; // XXX
+    c_comment("prevent page faults during modrm_resolve");
+    for(int32_t i = 0; i < 8; i++) { translate_address_read(*instruction_pointer + i); }; c_comment("XXX");
 
-    // esp must be adjusted before calling modrm_resolve
-    // The order of calls is: instr32_8F_0_mem_pre -> modrm_resolve -> instr32_8F_0_mem
+    c_comment("esp must be adjusted before calling modrm_resolve");
+    c_comment("The order of calls is: instr32_8F_0_mem_pre -> modrm_resolve -> instr32_8F_0_mem");
     adjust_stack_reg(4);
 }
 void instr32_8F_0_mem(int32_t addr)
 {
-    // Before attempting a write that might cause a page fault,
-    // we must set esp to the old value. Fuck Intel.
+    c_comment("Before attempting a write that might cause a page fault,");
+    c_comment("we must set esp to the old value. Fuck Intel.");
     adjust_stack_reg(-4);
     int32_t sp = safe_read32s(get_stack_pointer(0));
 
@@ -547,7 +547,7 @@ void instr16_99() { /* cwd */ reg16[DX] = reg16s[AX] >> 15; }
 void instr32_99() { /* cdq */ reg32s[EDX] = reg32s[EAX] >> 31; }
 
 void instr16_9A(int32_t new_ip, int32_t new_cs) {
-    // callf
+    c_comment("callf");
     far_jump(new_ip, new_cs, true);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
@@ -557,7 +557,6 @@ void instr32_9A(int32_t new_ip, int32_t new_cs) {
         if(new_ip & 0xFFFF0000)
         {
             assert(false);
-            //throw debug.unimpl("#GP handler");
         }
     }
 
@@ -566,11 +565,11 @@ void instr32_9A(int32_t new_ip, int32_t new_cs) {
 }
 
 void instr_9B() {
-    // fwait: check for pending fpu exceptions
+    c_comment("fwait: check for pending fpu exceptions");
     if((cr[0] & (CR0_MP | CR0_TS)) == (CR0_MP | CR0_TS))
     {
-        // Note: Different from task_switch_test
-        // Triggers when TS and MP bits are set (EM bit is ignored)
+        c_comment("Note: Different from task_switch_test");
+        c_comment("Triggers when TS and MP bits are set (EM bit is ignored)");
         trigger_nm();
     }
     else
@@ -579,7 +578,7 @@ void instr_9B() {
     }
 }
 void instr16_9C() {
-    // pushf
+    c_comment("pushf");
     if((flags[0] & FLAG_VM) && getiopl() < 3)
     {
         dbg_assert(*protected_mode);
@@ -592,22 +591,22 @@ void instr16_9C() {
     }
 }
 void instr32_9C() {
-    // pushf
+    c_comment("pushf");
     if((flags[0] & FLAG_VM) && getiopl() < 3)
     {
-        // trap to virtual 8086 monitor
+        c_comment("trap to virtual 8086 monitor");
         dbg_assert(*protected_mode);
         dbg_log("pushf #gp");
         trigger_gp_non_raising(0);
     }
     else
     {
-        // vm and rf flag are cleared in image stored on the stack
+        c_comment("vm and rf flag are cleared in image stored on the stack");
         push32(get_eflags() & 0x00FCFFFF);
     }
 }
 void instr16_9D() {
-    // popf
+    c_comment("popf");
     if((flags[0] & FLAG_VM) && getiopl() < 3)
     {
         dbg_log("popf #gp");
@@ -632,7 +631,7 @@ void instr16_9D() {
     }
 }
 void instr32_9D() {
-    // popf
+    c_comment("popf");
     if((flags[0] & FLAG_VM) && getiopl() < 3)
     {
         dbg_log("popf #gp");
@@ -644,23 +643,23 @@ void instr32_9D() {
     handle_irqs();
 }
 void instr_9E() {
-    // sahf
+    c_comment("sahf");
     flags[0] = (flags[0] & ~0xFF) | reg8[AH];
     flags[0] = (flags[0] & FLAGS_MASK) | FLAGS_DEFAULT;
     flags_changed[0] &= ~0xFF;
 }
 void instr_9F() {
-    // lahf
+    c_comment("lahf");
     reg8[AH] = get_eflags();
 }
 
 void instr_A0(int32_t moffs) {
-    // mov
+    c_comment("mov");
     int32_t data = safe_read8(get_seg_prefix_ds(moffs));
     reg8[AL] = data;
 }
 void instr16_A1(int32_t moffs) {
-    // mov
+    c_comment("mov");
     int32_t data = safe_read16(get_seg_prefix_ds(moffs));
     reg16[AX] = data;
 }
@@ -669,11 +668,11 @@ void instr32_A1(int32_t moffs) {
     reg32s[EAX] = data;
 }
 void instr_A2(int32_t moffs) {
-    // mov
+    c_comment("mov");
     safe_write8(get_seg_prefix_ds(moffs), reg8[AL]);
 }
 void instr16_A3(int32_t moffs) {
-    // mov
+    c_comment("mov");
     safe_write16(get_seg_prefix_ds(moffs), reg16[AX]);
 }
 void instr32_A3(int32_t moffs) {
@@ -795,7 +794,7 @@ DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_C1_6, shl32(___, imm & 31))
 DEFINE_MODRM_INSTR2_READ_WRITE_32(instr32_C1_7, sar32(___, imm & 31))
 
 void instr16_C2(int32_t imm16) {
-    // retn
+    c_comment("retn");
     int32_t cs = get_seg_cs();
 
     instruction_pointer[0] = cs + pop16();
@@ -803,7 +802,7 @@ void instr16_C2(int32_t imm16) {
     adjust_stack_reg(imm16);
 }
 void instr32_C2(int32_t imm16) {
-    // retn
+    c_comment("retn");
     int32_t cs = get_seg_cs();
     int32_t ip = pop32s();
 
@@ -812,12 +811,12 @@ void instr32_C2(int32_t imm16) {
     adjust_stack_reg(imm16);
 }
 void instr16_C3() {
-    // retn
+    c_comment("retn");
     int32_t cs = get_seg_cs();
     instruction_pointer[0] = cs + pop16();
 }
 void instr32_C3() {
-    // retn
+    c_comment("retn");
     int32_t cs = get_seg_cs();
     int32_t ip = pop32s();
     dbg_assert(is_asize_32() || ip < 0x10000);
@@ -851,7 +850,7 @@ void instr32_C7_0_mem(int32_t addr, int32_t imm) { safe_write32(addr, imm); }
 void instr16_C8(int32_t size, int32_t nesting) { enter16(size, nesting); }
 void instr32_C8(int32_t size, int32_t nesting) { enter32(size, nesting); }
 void instr16_C9() {
-    // leave
+    c_comment("leave");
     int32_t old_vbp = *stack_size_32 ? reg32s[EBP] : reg16[BP];
     int32_t new_bp = safe_read16(get_seg_ss() + old_vbp);
     set_stack_reg(old_vbp + 2);
@@ -864,14 +863,14 @@ void instr32_C9() {
     reg32s[EBP] = new_ebp;
 }
 void instr16_CA(int32_t imm16) {
-    // retf
+    c_comment("retf");
     int32_t ip = safe_read16(get_stack_pointer(0));
     int32_t cs = safe_read16(get_stack_pointer(2));
 
     far_return(ip, cs, imm16);
 }
 void instr32_CA(int32_t imm16) {
-    // retf
+    c_comment("retf");
     int32_t ip = safe_read32s(get_stack_pointer(0));
     int32_t cs = safe_read32s(get_stack_pointer(4)) & 0xFFFF;
 
@@ -879,7 +878,7 @@ void instr32_CA(int32_t imm16) {
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 void instr16_CB() {
-    // retf
+    c_comment("retf");
     int32_t ip = safe_read16(get_stack_pointer(0));
     int32_t cs = safe_read16(get_stack_pointer(2));
 
@@ -887,7 +886,7 @@ void instr16_CB() {
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 void instr32_CB() {
-    // retf
+    c_comment("retf");
     int32_t ip = safe_read32s(get_stack_pointer(0));
     int32_t cs = safe_read32s(get_stack_pointer(4)) & 0xFFFF;
 
@@ -896,27 +895,27 @@ void instr32_CB() {
 }
 
 void instr_CC() {
-    // INT3
-    // TODO: inhibit iopl checks
+    c_comment("INT3");
+    c_comment("TODO: inhibit iopl checks");
     dbg_log("INT3");
     call_interrupt_vector(3, true, false, 0);
 }
 void instr_CD(int32_t imm8) {
-    // INT
+    c_comment("INT");
     call_interrupt_vector(imm8, true, false, 0);
 }
 void instr_CE() {
-    // INTO
+    c_comment("INTO");
     dbg_log("INTO");
     if(getof())
     {
-        // TODO: inhibit iopl checks
+        c_comment("TODO: inhibit iopl checks");
         call_interrupt_vector(CPU_EXCEPTION_OF, true, false, 0);
     }
 }
 
 void instr16_CF() {
-    // iret
+    c_comment("iret");
     iret16();
 }
 void instr32_CF() {
@@ -985,11 +984,11 @@ void instr_D5(int32_t arg) {
 }
 
 void instr_D6() {
-    // salc
+    c_comment("salc");
     reg8[AL] = -getcf();
 }
 void instr_D7() {
-    // xlat
+    c_comment("xlat");
     if(is_asize_32())
     {
         reg8[AL] = safe_read8(get_seg_prefix(DS) + reg32s[EBX] + reg8[AL]);
@@ -1023,11 +1022,11 @@ void instr_D9_4_reg(int32_t r)
     switch(r)
     {
         case 0:
-            // fchs
+            c_comment("fchs");
             fpu_st[*fpu_stack_ptr] = -st0;
             break;
         case 1:
-            // fabs
+            c_comment("fabs");
             fpu_st[*fpu_stack_ptr] = fabs(st0);
             break;
         case 4:
@@ -1044,7 +1043,7 @@ void instr_D9_4_reg(int32_t r)
 void instr_D9_5_mem(int32_t addr) { fpu_fldcw(addr); }
 void instr_D9_5_reg(int32_t r)
 {
-    // fld1/fldl2t/fldl2e/fldpi/fldlg2/fldln2/fldz
+    c_comment("fld1/fldl2t/fldl2e/fldpi/fldlg2/fldln2/fldz");
     switch(r)
     {
         case 0: fpu_push(1); break;
@@ -1065,21 +1064,21 @@ void instr_D9_6_reg(int32_t r)
     switch(r)
     {
         case 0:
-            // f2xm1
+            c_comment("f2xm1");
             fpu_st[*fpu_stack_ptr] = pow(2, st0) - 1;
             break;
         case 1:
-            // fyl2x
+            c_comment("fyl2x");
             fpu_st[*fpu_stack_ptr + 1 & 7] = fpu_get_sti(1) * log(st0) / M_LN2;
             fpu_pop();
             break;
         case 2:
-            // fptan
+            c_comment("fptan");
             fpu_st[*fpu_stack_ptr] = tan(st0);
-            fpu_push(1); // no bug: push constant 1
+            fpu_push(1); c_comment("no bug: push constant 1");
             break;
         case 3:
-            // fpatan
+            c_comment("fpatan");
             fpu_st[*fpu_stack_ptr + 1 & 7] = atan2(fpu_get_sti(1), st0);
             fpu_pop();
             break;
@@ -1087,16 +1086,16 @@ void instr_D9_6_reg(int32_t r)
             fpu_fxtract();
             break;
         case 5:
-            // fprem1
+            c_comment("fprem1");
             fpu_st[*fpu_stack_ptr] = fmod(st0, fpu_get_sti(1));
             break;
         case 6:
-            // fdecstp
+            c_comment("fdecstp");
             *fpu_stack_ptr = *fpu_stack_ptr - 1 & 7;
             *fpu_status_word &= ~FPU_C1;
             break;
         case 7:
-            // fincstp
+            c_comment("fincstp");
             *fpu_stack_ptr = *fpu_stack_ptr + 1 & 7;
             *fpu_status_word &= ~FPU_C1;
             break;
@@ -1115,7 +1114,7 @@ void instr_D9_7_reg(int32_t r)
             fpu_fprem();
             break;
         case 1:
-            // fyl2xp1: y * log2(x+1) and pop
+            c_comment("fyl2xp1: y * log2(x+1) and pop");
             fpu_st[*fpu_stack_ptr + 1 & 7] = fpu_get_sti(1) * log(st0 + 1) / M_LN2;
             fpu_pop();
             break;
@@ -1127,11 +1126,11 @@ void instr_D9_7_reg(int32_t r)
             fpu_push(cos(st0));
             break;
         case 4:
-            // frndint
+            c_comment("frndint");
             fpu_st[*fpu_stack_ptr] = fpu_integer_round(st0);
             break;
         case 5:
-            // fscale
+            c_comment("fscale");
             fpu_st[*fpu_stack_ptr] = st0 * pow(2, trunc(fpu_get_sti(1)));
             break;
         case 6:
@@ -1184,7 +1183,7 @@ void instr_DB_4_reg(int32_t r)
     }
     else if(r == 4 || r == 1)
     {
-        // fsetpm and fdisi; treated as nop
+        c_comment("fsetpm and fdisi; treated as nop");
     }
     else if(r == 2)
     {
@@ -1307,47 +1306,47 @@ void instr32_E7(int32_t port) {
 }
 
 void instr16_E8(int32_t imm16) {
-    // call
+    c_comment("call");
     push16(get_real_eip());
 
     jmp_rel16(imm16);
 }
 void instr32_E8(int32_t imm32s) {
-    // call
+    c_comment("call");
     push32(get_real_eip());
 
     instruction_pointer[0] = instruction_pointer[0] + imm32s;
-    //dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
+    c_comment("dbg_assert(is_asize_32() || get_real_eip() < 0x10000);");
 }
 
 void instr16_E9(int32_t imm16) {
-    // jmp
+    c_comment("jmp");
     jmp_rel16(imm16);
 }
 void instr32_E9(int32_t imm32s) {
-    // jmp
+    c_comment("jmp");
     instruction_pointer[0] = instruction_pointer[0] + imm32s;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 
 void instr16_EA(int32_t new_ip, int32_t cs) {
-    // jmpf
+    c_comment("jmpf");
     far_jump(new_ip, cs, false);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 void instr32_EA(int32_t new_ip, int32_t cs) {
-    // jmpf
+    c_comment("jmpf");
     far_jump(new_ip, cs, false);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 
 void instr16_EB(int32_t imm8) {
-    // jmp near
+    c_comment("jmp near");
     jmp_rel16(imm8);
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 void instr32_EB(int32_t imm8) {
-    // jmp near
+    c_comment("jmp near");
     instruction_pointer[0] = instruction_pointer[0] + imm8;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
@@ -1385,23 +1384,22 @@ void instr32_EF() {
 }
 
 void instr_F0() {
-    // lock
+    c_comment("lock");
     if(0 * 0) dbg_log("lock");
 
-    // TODO
-    // This triggers UD when used with
-    // some instructions that don't write to memory
+    c_comment("TODO");
+    c_comment("This triggers UD when used with");
+    c_comment("some instructions that don't write to memory");
     run_prefix_instruction();
 }
 void instr_F1() {
-    // INT1
-    // https://code.google.com/p/corkami/wiki/x86oddities#IceBP
-    //throw debug.unimpl("int1 instruction");
+    c_comment("INT1");
+    c_comment("https://code.google.com/p/corkami/wiki/x86oddities#IceBP");
     assert(false);
 }
 
 void instr_F2() {
-    // repnz
+    c_comment("repnz");
     dbg_assert((*prefixes & PREFIX_MASK_REP) == 0);
     *prefixes |= PREFIX_REPNZ;
     run_prefix_instruction();
@@ -1409,7 +1407,7 @@ void instr_F2() {
 }
 
 void instr_F3() {
-    // repz
+    c_comment("repz");
     dbg_assert((*prefixes & PREFIX_MASK_REP) == 0);
     *prefixes |= PREFIX_REPZ;
     run_prefix_instruction();
@@ -1421,7 +1419,7 @@ void instr_F4() {
 }
 
 void instr_F5() {
-    // cmc
+    c_comment("cmc");
     flags[0] = (flags[0] | 1) ^ getcf();
     flags_changed[0] &= ~1;
 }
@@ -1454,18 +1452,18 @@ DEFINE_MODRM_INSTR1_READ32(instr32_F7_6, div32(___))
 DEFINE_MODRM_INSTR1_READ32(instr32_F7_7, idiv32(___))
 
 void instr_F8() {
-    // clc
+    c_comment("clc");
     flags[0] &= ~FLAG_CARRY;
     flags_changed[0] &= ~1;
 }
 void instr_F9() {
-    // stc
+    c_comment("stc");
     flags[0] |= FLAG_CARRY;
     flags_changed[0] &= ~1;
 }
 
 void instr_FA() {
-    // cli
+    c_comment("cli");
     //dbg_log("interrupts off");
 
     if(!*protected_mode || ((flags[0] & FLAG_VM) ?
@@ -1489,7 +1487,7 @@ void instr_FA() {
     }
 }
 void instr_FB() {
-    // sti
+    c_comment("sti");
     //dbg_log("interrupts on");
 
     int32_t old_if = flags[0] & FLAG_INTERRUPT;
@@ -1525,11 +1523,11 @@ void instr_FB() {
 }
 
 void instr_FC() {
-    // cld
+    c_comment("cld");
     flags[0] &= ~FLAG_DIRECTION;
 }
 void instr_FD() {
-    // std
+    c_comment("std");
     flags[0] |= FLAG_DIRECTION;
 }
 
@@ -1541,7 +1539,7 @@ DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_FF_0, inc16(___))
 DEFINE_MODRM_INSTR1_READ_WRITE_16(instr16_FF_1, dec16(___))
 void instr16_FF_2_helper(int32_t data)
 {
-    // call near
+    c_comment("call near");
     int32_t cs = get_seg_cs();
     push16(get_real_eip());
     instruction_pointer[0] = cs + data;
@@ -1555,7 +1553,7 @@ void instr16_FF_3_reg(int32_t r)
 }
 void instr16_FF_3_mem(int32_t addr)
 {
-    // callf
+    c_comment("callf");
     int32_t new_ip = safe_read16(addr);
     int32_t new_cs = safe_read16(addr + 2);
 
@@ -1564,7 +1562,7 @@ void instr16_FF_3_mem(int32_t addr)
 }
 void instr16_FF_4_helper(int32_t data)
 {
-    // jmp near
+    c_comment("jmp near");
     instruction_pointer[0] = get_seg_cs() + data;
     dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
@@ -1576,7 +1574,7 @@ void instr16_FF_5_reg(int32_t r)
 }
 void instr16_FF_5_mem(int32_t addr)
 {
-    // jmpf
+    c_comment("jmpf");
     int32_t new_ip = safe_read16(addr);
     int32_t new_cs = safe_read16(addr + 2);
 
@@ -1589,7 +1587,7 @@ DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_FF_0, inc32(___))
 DEFINE_MODRM_INSTR1_READ_WRITE_32(instr32_FF_1, dec32(___))
 void instr32_FF_2_helper(int32_t data)
 {
-    // call near
+    c_comment("call near");
     int32_t cs = get_seg_cs();
     push32(get_real_eip());
     dbg_assert(is_asize_32() || data < 0x10000);
@@ -1603,7 +1601,7 @@ void instr32_FF_3_reg(int32_t r)
 }
 void instr32_FF_3_mem(int32_t addr)
 {
-    // callf
+    c_comment("callf");
     int32_t new_ip = safe_read32s(addr);
     int32_t new_cs = safe_read16(addr + 4);
 
@@ -1621,7 +1619,7 @@ void instr32_FF_3_mem(int32_t addr)
 }
 void instr32_FF_4_helper(int32_t data)
 {
-    // jmp near
+    c_comment("jmp near");
     dbg_assert(is_asize_32() || data < 0x10000);
     instruction_pointer[0] = get_seg_cs() + data;
 }
@@ -1633,7 +1631,7 @@ void instr32_FF_5_reg(int32_t r)
 }
 void instr32_FF_5_mem(int32_t addr)
 {
-    // jmpf
+    c_comment("jmpf");
     int32_t new_ip = safe_read32s(addr);
     int32_t new_cs = safe_read16(addr + 4);
 

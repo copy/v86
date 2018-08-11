@@ -110,6 +110,7 @@ profiler.rs: profiler/profiler.rs
 
 	sed -i 's/dbg_log[0-9]\?((/dbg_log_c!((/' $@
 	sed -i 's/    dbg_assert_message(/    dbg_assert_message!(/' $@
+	sed -i 's/    c_comment(/    c_comment!(/' $@
 
 
 clean:

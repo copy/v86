@@ -264,12 +264,12 @@ void update_eflags(int32_t new_flags)
 
     if(*flags & FLAG_VM)
     {
-        // other case needs to be handled in popf or iret
+        c_comment("other case needs to be handled in popf or iret");
         dbg_assert(getiopl() == 3);
 
         dont_update |= FLAG_IOPL;
 
-        // don't clear vip or vif
+        c_comment("don't clear vip or vif");
         clear |= FLAG_VIP | FLAG_VIF;
     }
     else
@@ -278,14 +278,14 @@ void update_eflags(int32_t new_flags)
 
         if(*cpl)
         {
-            // cpl > 0
-            // cannot update iopl
+            c_comment("cpl > 0");
+            c_comment("cannot update iopl");
             dont_update |= FLAG_IOPL;
 
             if(*cpl > getiopl())
             {
-                // cpl > iopl
-                // cannot update interrupt flag
+                c_comment("cpl > iopl");
+                c_comment("cannot update interrupt flag");
                 dont_update |= FLAG_INTERRUPT;
             }
         }
@@ -321,7 +321,7 @@ if( DEBUG) {
         assert(false);
     }
 
-    // invalidate tlb entry
+    c_comment("invalidate tlb entry");
     int32_t page = (uint32_t)cr[2] >> 12;
     tlb_data[page] = 0;
 
@@ -344,7 +344,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
 
     if((cr[0] & CR0_PG) == 0)
     {
-        // paging disabled
+        c_comment("paging disabled");
         high = addr & 0xFFFFF000;
         global = false;
     }
@@ -353,22 +353,22 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
         int32_t page_dir_addr = ((uint32_t)cr[3] >> 2) + (page >> 10);
         int32_t page_dir_entry = read_aligned32(page_dir_addr);
 
-        // XXX
+        c_comment("XXX");
         const bool kernel_write_override = !user && !(cr[0] & CR0_WP);
 
         if(!(page_dir_entry & PAGE_TABLE_PRESENT_MASK))
         {
-            // to do at this place:
-            //
-            // - set cr2 = addr (which caused the page fault)
-            // - call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)
-            // - prevent execution of the function that triggered this call
+            c_comment("to do at this place:");
+            c_comment("");
+            c_comment("- set cr2 = addr (which caused the page fault)");
+            c_comment("- call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)");
+            c_comment("- prevent execution of the function that triggered this call");
             //dbg_log("#PF not present", LOG_CPU);
 
             cr[2] = addr;
             trigger_pagefault(for_writing, user, 0);
 
-            // never reached as trigger_pagefault throws
+            c_comment("never reached as trigger_pagefault throws");
             dbg_assert(false);
         }
 
@@ -390,7 +390,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
 
             if(user)
             {
-                // "Page Fault: page table accessed by non-supervisor";
+                c_comment("Page Fault: page table accessed by non-supervisor");
                 //dbg_log("#PF supervisor", LOG_CPU);
                 cr[2] = addr;
                 trigger_pagefault(for_writing, user, 1);
@@ -400,9 +400,9 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
 
         if((page_dir_entry & PAGE_TABLE_PSE_MASK) && (cr[4] & CR4_PSE))
         {
-            // size bit is set
+            c_comment("size bit is set");
 
-            // set the accessed and dirty bits
+            c_comment("set the accessed and dirty bits");
             write_aligned32(page_dir_addr, page_dir_entry | PAGE_TABLE_ACCESSED_MASK |
                 (for_writing ? PAGE_TABLE_DIRTY_MASK : 0));
 
@@ -448,7 +448,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
                 }
             }
 
-            // set the accessed and dirty bits
+            c_comment("set the accessed and dirty bits");
             write_aligned32(page_dir_addr, page_dir_entry | PAGE_TABLE_ACCESSED_MASK);
             write_aligned32(page_table_addr,
                     page_table_entry | PAGE_TABLE_ACCESSED_MASK |
@@ -466,7 +466,7 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
             profiler_stat_increment(S_TLB_FULL);
             clear_tlb();
 
-            // also clear global entries if tlb is almost full after clearing non-global pages
+            c_comment("also clear global entries if tlb is almost full after clearing non-global pages");
             if(valid_tlb_entries_count > VALID_TLB_ENTRY_MAX * 3 / 4)
             {
                 profiler_stat_increment(S_TLB_GLOBAL_FULL);
@@ -477,9 +477,9 @@ int32_t do_page_translation(int32_t addr, bool for_writing, bool user)
         assert(valid_tlb_entries_count < VALID_TLB_ENTRY_MAX);
         valid_tlb_entries[valid_tlb_entries_count++] = page;
 
-        // TODO: Check that there are no duplicates in valid_tlb_entries
-        // XXX: There will probably be duplicates due to invlpg deleting
-        //      entries from tlb_data but not from valid_tlb_entries
+        c_comment("TODO: Check that there are no duplicates in valid_tlb_entries");
+        c_comment("XXX: There will probably be duplicates due to invlpg deleting");
+        c_comment("entries from tlb_data but not from valid_tlb_entries");
     }
     else
     {
@@ -551,7 +551,7 @@ void check_tlb_invariants(void)
         int32_t page = valid_tlb_entries[i];
         int32_t entry = tlb_data[page];
 
-        if(!entry || (entry & TLB_IN_MAPPED_RANGE)) // there's no code in mapped memory
+        if(!entry || (entry & TLB_IN_MAPPED_RANGE)) c_comment("there's no code in mapped memory");
         {
             continue;
         }
@@ -562,12 +562,12 @@ void check_tlb_invariants(void)
         bool entry_has_code = entry & TLB_HAS_CODE;
         bool has_code = jit_page_has_code(physical_page);
 
-        // If some code has been created in a page, the corresponding tlb entries must be marked
+        c_comment("If some code has been created in a page, the corresponding tlb entries must be marked");
         dbg_assert(!has_code || entry_has_code);
 
-        // If a tlb entry is marked to have code, the physical page should
-        // contain code (the converse is not a bug, but indicates a cleanup
-        // problem when clearing code from a page)
+        c_comment("If a tlb entry is marked to have code, the physical page should");
+        c_comment("contain code (the converse is not a bug, but indicates a cleanup");
+        c_comment("problem when clearing code from a page)");
         dbg_assert(!entry_has_code || has_code);
     }
 }
@@ -634,7 +634,7 @@ void writable_or_pagefault(int32_t addr, int32_t size)
     {
         assert(next_page == page + 1);
 
-        // XXX: possibly out of bounds
+        c_comment("XXX: possibly out of bounds");
         if((tlb_data[next_page] & mask) != expect)
         {
             do_page_translation(next_page << 12, true, user);
@@ -739,9 +739,9 @@ int32_t read_imm8s()
 
 int32_t read_imm16()
 {
-    // Two checks in one comparison:
-    //    1. Did the high 20 bits of eip change
-    // or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)
+    c_comment("Two checks in one comparison:");
+    c_comment("1. Did the high 20 bits of eip change");
+    c_comment("or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)");
     if((uint32_t)(*instruction_pointer ^ *last_virt_eip) > 0xFFE)
     {
         return read_imm8() | read_imm8() << 8;
@@ -755,7 +755,7 @@ int32_t read_imm16()
 
 int32_t read_imm32s()
 {
-    // Analogue to the above comment
+    c_comment("Analogue to the above comment");
     if((uint32_t)(*instruction_pointer ^ *last_virt_eip) > 0xFFC)
     {
         return read_imm16() | read_imm16() << 16;
@@ -781,7 +781,7 @@ int32_t get_seg(int32_t segment)
 {
     assert(segment >= 0 && segment < 8);
 
-    // TODO: Remove protected_mode check
+    c_comment("TODO: Remove protected_mode check");
     if(*protected_mode)
     {
         if(segment_is_null[segment])
@@ -813,7 +813,7 @@ int32_t get_seg_prefix(int32_t default_segment)
     {
         if(prefix == SEG_PREFIX_ZERO)
         {
-            return 0; // TODO: Remove this special case
+            return 0; c_comment("TODO: Remove this special case");
         }
         else
         {
@@ -875,7 +875,7 @@ static void jit_run_interpreted(int32_t phys_addr)
 
 bool has_flat_segmentation(void)
 {
-    // ss can't be null
+    c_comment("ss can't be null");
     return segment_offsets[SS] == 0 && !segment_is_null[DS] && segment_offsets[DS] == 0;
 }
 
@@ -1141,18 +1141,18 @@ int32_t virt_boundary_read32s(int32_t low, int32_t high)
     {
         if(low & 2)
         {
-            // 0xFFF
+            c_comment("0xFFF");
             mid = read_aligned16((high - 2) >> 1);
         }
         else
         {
-            // 0xFFD
+            c_comment("0xFFD");
             mid = read_aligned16((low + 1) >> 1);
         }
     }
     else
     {
-        // 0xFFE
+        c_comment("0xFFE");
         mid = virt_boundary_read16(low + 1, high - 1);
     }
 
@@ -1179,20 +1179,20 @@ void virt_boundary_write32(int32_t low, int32_t high, int32_t value)
     {
         if(low & 2)
         {
-            // 0xFFF
+            c_comment("0xFFF");
             write8(high - 2, value >> 8);
             write8(high - 1, value >> 16);
         }
         else
         {
-            // 0xFFD
+            c_comment("0xFFD");
             write8(low + 1, value >> 8);
             write8(low + 2, value >> 16);
         }
     }
     else
     {
-        // 0xFFE
+        c_comment("0xFFE");
         write8(low + 1, value >> 8);
         write8(high - 1, value >> 16);
     }
@@ -1230,8 +1230,8 @@ int32_t safe_read16(int32_t address)
 
     if(info_bits == TLB_VALID && (address & 0xFFF) <= (0x1000 - 2))
     {
-        // - not in memory mapped area
-        // - can be accessed from any cpl
+        c_comment("- not in memory mapped area");
+        c_comment("- can be accessed from any cpl");
 
         uint32_t phys_address = entry & ~0xFFF ^ address;
         assert(!in_mapped_range(phys_address));
@@ -1269,8 +1269,8 @@ int32_t safe_read32s(int32_t address)
 if( ENABLE_PROFILER_SAFE_READ_WRITE)
         profiler_stat_increment(S_SAFE_READ32_FAST);
 
-        // - not in memory mapped area
-        // - can be accessed from any cpl
+        c_comment("- not in memory mapped area");
+        c_comment("- can be accessed from any cpl");
 
         uint32_t phys_address = entry & ~0xFFF ^ address;
         assert(!in_mapped_range(phys_address));
@@ -1377,10 +1377,10 @@ void safe_write16(int32_t address, int32_t value)
 
     if(info_bits == TLB_VALID && (address & 0xFFF) <= (0x1000 - 2))
     {
-        // - allowed to write in user-mode
-        // - not in memory mapped area
-        // - can be accessed from any cpl
-        // - does not contain code
+        c_comment("- allowed to write in user-mode");
+        c_comment("- not in memory mapped area");
+        c_comment("- can be accessed from any cpl");
+        c_comment("- does not contain code");
 
         uint32_t phys_address = entry & ~0xFFF ^ address;
         assert(!jit_page_has_code(phys_address >> 12));
@@ -1422,9 +1422,9 @@ void safe_write32(int32_t address, int32_t value)
     {
 if( ENABLE_PROFILER_SAFE_READ_WRITE)
         profiler_stat_increment(S_SAFE_WRITE32_FAST);
-        // - allowed to write in user-mode
-        // - not in memory mapped area
-        // - does not contain code
+        c_comment("- allowed to write in user-mode");
+        c_comment("- not in memory mapped area");
+        c_comment("- does not contain code");
 
         uint32_t phys_address = entry & ~0xFFF ^ address;
         assert(!jit_page_has_code(phys_address >> 12));
@@ -1627,7 +1627,7 @@ void write_xmm_reg128(int32_t r, union reg128 data)
 void clear_tlb()
 {
     profiler_stat_increment(S_CLEAR_TLB);
-    // clear tlb excluding global pages
+    c_comment("clear tlb excluding global pages");
 
     *last_virt_eip = -1;
     *last_virt_esp = -1;
@@ -1641,7 +1641,7 @@ void clear_tlb()
 
         if(entry & TLB_GLOBAL)
         {
-            // reinsert at the front
+            c_comment("reinsert at the front");
             valid_tlb_entries[global_page_offset++] = page;
         }
         else
@@ -1664,7 +1664,7 @@ void clear_tlb()
 void full_clear_tlb()
 {
     profiler_stat_increment(S_FULL_CLEAR_TLB);
-    // clear tlb including global pages
+    c_comment("clear tlb including global pages");
 
     *last_virt_eip = -1;
     *last_virt_esp = -1;
@@ -1691,10 +1691,10 @@ void invlpg(int32_t addr)
     //dbg_log("invlpg: addr=" + h(addr >>> 0), LOG_CPU);
     int32_t page = (uint32_t)addr >> 12;
 
-    // Note: Doesn't remove this page from valid_tlb_entries: This isn't
-    // necessary, because when valid_tlb_entries grows too large, it will be
-    // empties by calling clear_tlb, which removes this entry as it isn't global.
-    // This however means that valid_tlb_entries can contain some invalid entries
+    c_comment("Note: Doesn't remove this page from valid_tlb_entries: This isn't");
+    c_comment("necessary, because when valid_tlb_entries grows too large, it will be");
+    c_comment("empties by calling clear_tlb, which removes this entry as it isn't global.");
+    c_comment("This however means that valid_tlb_entries can contain some invalid entries");
     tlb_data[page] = 0;
 
     *last_virt_eip = -1;
@@ -1730,9 +1730,9 @@ bool task_switch_test_mmx()
 }
 void task_switch_test_mmx_void() { task_switch_test_mmx(); }
 
-// read 2 or 4 byte from ip, depending on address size attribute
 int32_t read_moffs()
 {
+    c_comment("read 2 or 4 byte from ip, depending on address size attribute");
     if(is_asize_32())
     {
         return read_imm32s();
@@ -1743,9 +1743,9 @@ int32_t read_moffs()
     }
 }
 
-// Returns the "real" instruction pointer, without segment offset
 int32_t get_real_eip()
 {
+    c_comment("Returns the 'real' instruction pointer, without segment offset");
     return *instruction_pointer - get_seg_cs();
 }
 
@@ -1841,7 +1841,7 @@ uint64_t read_tsc()
 
     if(value == rdtsc_last_value)
     {
-        // don't go past 1ms
+        c_comment("don't go past 1ms");
 
         if(rdtsc_imprecision_offset < TSC_RATE)
         {
@@ -1866,7 +1866,7 @@ uint64_t read_tsc()
                     );
             dbg_assert(false);
 
-            // Keep current value until time catches up
+            c_comment("Keep current value until time catches up");
         }
     }
 

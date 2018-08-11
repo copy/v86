@@ -58,3 +58,7 @@ macro_rules! dbg_assert_message {
         // TODO
     }};
 }
+
+macro_rules! c_comment {
+    ($fmt:expr) => {{}};
+}

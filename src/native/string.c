@@ -25,7 +25,7 @@ int32_t string_get_cycle_count(int32_t size, int32_t address)
 
     assert((address & (size - 1)) == 0);
 
-    // 1 -> 0; 2 -> 1; 4 -> 2
+    c_comment("1 -> 0; 2 -> 1; 4 -> 2");
     int32_t shift = size >> 1;
 
     return (0x1000 - (address & 0xFFF)) >> shift;

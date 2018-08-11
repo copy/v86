@@ -27,7 +27,7 @@ bool getpf()
 {
     if(*flags_changed & FLAG_PARITY)
     {
-        // inverted lookup table
+        c_comment("inverted lookup table");
         return 0x9669 << 2 >> ((*last_result ^ *last_result >> 4) & 0xF) & FLAG_PARITY;
     }
     else
@@ -106,7 +106,7 @@ void jmp_rel16(int32_t rel16)
 {
     int32_t cs_offset = get_seg_cs();
 
-    // limit ip to 16 bit
+    c_comment("limit ip to 16 bit");
     *instruction_pointer = cs_offset + ((*instruction_pointer - cs_offset + rel16) & 0xFFFF);
 }
 
@@ -307,8 +307,8 @@ void pusha16()
 {
     uint16_t temp = reg16[SP];
 
-    // make sure we don't get a pagefault after having
-    // pushed several registers already
+    c_comment("make sure we don't get a pagefault after having");
+    c_comment("pushed several registers already");
     writable_or_pagefault(get_stack_pointer(-16), 16);
 
     push16(reg16[AX]);
@@ -366,9 +366,9 @@ void fxsave(uint32_t addr)
         fpu_store_m80(addr + 32 + (i << 4), fpu_st[*fpu_stack_ptr + i & 7]);
     }
 
-    // If the OSFXSR bit in control register CR4 is not set, the FXSAVE
-    // instruction may not save these registers. This behavior is
-    // implementation dependent.
+    c_comment("If the OSFXSR bit in control register CR4 is not set, the FXSAVE");
+    c_comment("instruction may not save these registers. This behavior is");
+    c_comment("implementation dependent.");
     for(int32_t i = 0; i < 8; i++)
     {
         safe_write128(addr + 160 + (i << 4), reg_xmm[i]);

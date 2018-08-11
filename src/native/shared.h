@@ -18,5 +18,6 @@ void dbg_log3(const char* m, int32_t x, int32_t y, int32_t z);
 void dbg_log5(const char* m, int32_t x, int32_t y, int32_t z, int32_t i, int32_t j);
 void dbg_log6(const char* m, int32_t x, int32_t y, int32_t z, int32_t i, int32_t j, int32_t k);
 void dbg_trace();
+void c_comment(const char* m);
 bool isnan_XXX(double f);
 bool isfinite_XXX(double f);

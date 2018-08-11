@@ -114,9 +114,9 @@ void fpu_set_status_word(int32_t sw)
     *fpu_stack_ptr = sw >> 11 & 7;
 }
 
-// sign of a number on the stack
 int32_t fpu_sign(int32_t i)
 {
+    c_comment("sign of a number on the stack");
     return fpu_st8[(*fpu_stack_ptr + i & 7) << 3 | 7] >> 7;
 }
 
@@ -130,15 +130,15 @@ void fpu_store_m80(uint32_t addr, double_t n)
 
     if(exponent == 0x7FF)
     {
-        // all bits set (NaN and infinity)
+        c_comment("all bits set (NaN and infinity)");
         exponent = 0x7FFF;
         low = 0;
         high = 0x80000000 | (double_int_view.i32[1] & 0x80000) << 11;
     }
     else if(exponent == 0)
     {
-        // zero and denormal numbers
-        // Just assume zero for now
+        c_comment("zero and denormal numbers");
+        c_comment("Just assume zero for now");
         low = 0;
         high = 0;
     }
@@ -146,14 +146,14 @@ void fpu_store_m80(uint32_t addr, double_t n)
     {
         exponent += 0x3FFF - 0x3FF;
 
-        // does the mantissa need to be adjusted?
+        c_comment("does the mantissa need to be adjusted?");
         low = double_int_view.i32[0] << 11;
         high = 0x80000000 | (double_int_view.i32[1] & 0xFFFFF) << 11 | (((uint32_t)(double_int_view.i32[0])) >> 21);
     }
 
     dbg_assert(exponent >= 0 && exponent < 0x8000);
 
-    // writable_or_pagefault must have checked called by the caller!
+    c_comment("writable_or_pagefault must have checked called by the caller!");
     safe_write64(addr, (uint64_t)low & 0xFFFFFFFF | (uint64_t)high << 32);
     safe_write16(addr + 8, sign << 8 | exponent);
 }
@@ -170,7 +170,7 @@ double_t fpu_load_m80(uint32_t addr)
 
     if(exponent == 0)
     {
-        // TODO: denormal numbers
+        c_comment("TODO: denormal numbers");
         return 0;
     }
 
@@ -180,7 +180,7 @@ double_t fpu_load_m80(uint32_t addr)
     }
     else
     {
-        // TODO: NaN, Infinity
+        c_comment("TODO: NaN, Infinity");
         if(0 * 0) dbg_log("Load m80 TODO");
 
         union f64_int double_int_view;
@@ -196,7 +196,7 @@ double_t fpu_load_m80(uint32_t addr)
         return double_int_view.f64;
     }
 
-    // Note: some bits might be lost at this point
+    c_comment("Note: some bits might be lost at this point");
     double_t mantissa = ((double_t)(low)) + 0x100000000 * ((double_t)(high));
 
     if(sign)
@@ -204,16 +204,16 @@ double_t fpu_load_m80(uint32_t addr)
         mantissa = -mantissa;
     }
 
-    // Simply compute the 64 bit floating point number.
-    // An alternative write the mantissa, sign and exponent in the
-    // float64_byte and return float64[0]
+    c_comment("Simply compute the 64 bit floating point number.");
+    c_comment("An alternative write the mantissa, sign and exponent in the");
+    c_comment("float64_byte and return float64[0]");
 
     return mantissa * pow(2, exponent - 63);
 }
 
 void fpu_stack_fault()
 {
-    // TODO: Interrupt
+    c_comment("TODO: Interrupt");
     *fpu_status_word |= FPU_EX_SF | FPU_EX_I;
 }
 
@@ -261,14 +261,14 @@ void fpu_fcom(double_t y)
 
 void fpu_fucom(int32_t r)
 {
-    // TODO
+    c_comment("TODO");
     fpu_fcom(fpu_get_sti(r));
 }
 
 
 void fpu_fucomi(int32_t r)
 {
-    // TODO
+    c_comment("TODO");
     fpu_fcomi(r);
 }
 
@@ -291,7 +291,7 @@ void fpu_ftst(double_t x)
         *fpu_status_word |= FPU_C0;
     }
 
-    // TODO: unordered (x is nan, etc)
+    c_comment("TODO: unordered (x is nan, etc)");
 }
 
 void fpu_fxam(double_t x)
@@ -319,8 +319,8 @@ void fpu_fxam(double_t x)
     {
         *fpu_status_word |= FPU_C2;
     }
-    // TODO:
-    // Unsupported, Denormal
+    c_comment("TODO:");
+    c_comment("Unsupported, Denormal");
 }
 
 void fpu_finit(void)
@@ -503,7 +503,7 @@ void fpu_fxtract(void)
 
 void fpu_fprem(void)
 {
-    // XXX: This implementation differs from the description in Intel's manuals
+    c_comment("XXX: This implementation differs from the description in Intel's manuals");
 
     double_t st0 = fpu_get_st0();
     double_t st1 = fpu_get_sti(1);
@@ -528,11 +528,11 @@ double_t fpu_integer_round(double_t f)
 {
     int32_t rc = *fpu_control_word >> 10 & 3;
 
-    // XXX: See https://en.wikipedia.org/wiki/C_mathematical_functions
+    c_comment("XXX: See https://en.wikipedia.org/wiki/C_mathematical_functions");
 
     if(rc == 0)
     {
-        // Round to nearest, or even if equidistant
+        c_comment("Round to nearest, or even if equidistant");
 
         double_t rounded = round(f);
         double_t diff = rounded - f;
@@ -544,9 +544,9 @@ double_t fpu_integer_round(double_t f)
 
         return rounded;
     }
-        // rc=3 is truncate -> floor for positive numbers
     else if(rc == 1 || (rc == 3 && f > 0))
     {
+        c_comment("rc=3 is truncate -> floor for positive numbers");
         return floor(f);
     }
     else
@@ -585,7 +585,7 @@ void fpu_store_m32(int32_t addr, double_t x)
 
 void fwait(void)
 {
-    // NOP unless FPU instructions run in parallel with CPU instructions
+    c_comment("NOP unless FPU instructions run in parallel with CPU instructions");
 }
 
 void fpu_fadd(int32_t target_index, double_t val)
@@ -735,8 +735,8 @@ void fpu_fistm32(int32_t addr)
     int32_t i = convert_f64_to_i32(st0);
     if(i == (int32_t)0x80000000)
     {
-        // XXX: Probably not correct if st0 == 0x80000000
-        //      (input fits, but same value as error value)
+        c_comment("XXX: Probably not correct if st0 == 0x80000000");
+        c_comment("(input fits, but same value as error value)");
         fpu_invalid_arithmetic();
     }
     safe_write32(addr, i);

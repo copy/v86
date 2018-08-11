@@ -6,41 +6,41 @@
 
 void mov_r_m64(int32_t addr, int32_t r)
 {
-    // mov* m64, mm
+    c_comment("mov* m64, mm");
     union reg64 data = read_mmx64s(r);
     safe_write64(addr, data.u64[0]);
 }
 
 void movl_r128_m64(int32_t addr, int32_t r)
 {
-    // mov* m64, xmm
+    c_comment("mov* m64, xmm");
     union reg64 data = read_xmm64s(r);
     safe_write64(addr, data.u64[0]);
 }
 
 void mov_r_r128(int32_t r1, int32_t r2)
 {
-    // mov* xmm, xmm
+    c_comment("mov* xmm, xmm");
     union reg128 data = read_xmm128s(r2);
     write_xmm_reg128(r1, data);
 }
 
 void mov_r_m128(int32_t addr, int32_t r)
 {
-    // mov* m128, xmm
+    c_comment("mov* m128, xmm");
     union reg128 data = read_xmm128s(r);
     safe_write128(addr, data);
 }
 
 void mov_rm_r128(union reg128 source, int32_t r)
 {
-    // mov* xmm, xmm/m128
+    c_comment("mov* xmm, xmm/m128");
     write_xmm_reg128(r, source);
 }
 
 void movh_m64_r128(int32_t addr, int32_t r)
 {
-    // movhp* xmm, m64
+    c_comment("movhp* xmm, m64");
     union reg64 data = safe_read64s(addr);
     union reg128 orig = read_xmm128s(r);
     write_xmm128(r, orig.u32[0], orig.u32[1], data.u32[0], data.u32[1]);
@@ -48,15 +48,15 @@ void movh_m64_r128(int32_t addr, int32_t r)
 
 void movh_r128_m64(int32_t addr, int32_t r)
 {
-    // movhp* m64, xmm
+    c_comment("movhp* m64, xmm");
     union reg128 data = read_xmm128s(r);
     safe_write64(addr, data.u64[1]);
 }
 
 void pand_r128(union reg128 source, int32_t r)
 {
-    // pand xmm, xmm/m128
-    // XXX: Aligned access or #gp
+    c_comment("pand xmm, xmm/m128");
+    c_comment("XXX: Aligned access or #gp");
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result = { { 0 } };
@@ -69,8 +69,8 @@ void pand_r128(union reg128 source, int32_t r)
 
 void pandn_r128(union reg128 source, int32_t r)
 {
-    // pandn xmm, xmm/m128
-    // XXX: Aligned access or #gp
+    c_comment("pandn xmm, xmm/m128");
+    c_comment("XXX: Aligned access or #gp");
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result = { { 0 } };
@@ -83,8 +83,8 @@ void pandn_r128(union reg128 source, int32_t r)
 
 void pxor_r128(union reg128 source, int32_t r)
 {
-    // pxor xmm, xmm/m128
-    // XXX: Aligned access or #gp
+    c_comment("pxor xmm, xmm/m128");
+    c_comment("XXX: Aligned access or #gp");
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result = { { 0 } };
@@ -97,8 +97,8 @@ void pxor_r128(union reg128 source, int32_t r)
 
 void por_r128(union reg128 source, int32_t r)
 {
-    // por xmm, xmm/m128
-    // XXX: Aligned access or #gp
+    c_comment("por xmm, xmm/m128");
+    c_comment("XXX: Aligned access or #gp");
 
     union reg128 destination = read_xmm128s(r);
     union reg128 result = { { 0 } };
@@ -111,7 +111,7 @@ void por_r128(union reg128 source, int32_t r)
 
 void psrlw_r64(int32_t r, uint32_t shift)
 {
-    // psrlw mm, {shift}
+    c_comment("psrlw mm, {shift}");
     union reg64 destination = read_mmx64s(r);
     int32_t dword0 = 0;
     int32_t dword1 = 0;
@@ -127,7 +127,7 @@ void psrlw_r64(int32_t r, uint32_t shift)
 
 void psraw_r64(int32_t r, uint32_t shift)
 {
-    // psraw mm, {shift}
+    c_comment("psraw mm, {shift}");
     union reg64 destination = read_mmx64s(r);
     int32_t shift_clamped = shift > 15 ? 16 : shift;
 
@@ -140,7 +140,7 @@ void psraw_r64(int32_t r, uint32_t shift)
 
 void psllw_r64(int32_t r, uint32_t shift)
 {
-    // psllw mm, {shift}
+    c_comment("psllw mm, {shift}");
     union reg64 destination = read_mmx64s(r);
 
     int32_t dword0 = 0;
@@ -159,7 +159,7 @@ void psllw_r64(int32_t r, uint32_t shift)
 
 void psrld_r64(int32_t r, uint32_t shift)
 {
-    // psrld mm, {shift}
+    c_comment("psrld mm, {shift}");
     union reg64 destination = read_mmx64s(r);
 
     int32_t dword0 = 0;
@@ -176,7 +176,7 @@ void psrld_r64(int32_t r, uint32_t shift)
 
 void psrad_r64(int32_t r, uint32_t shift)
 {
-    // psrad mm, {shift}
+    c_comment("psrad mm, {shift}");
     union reg64 destination = read_mmx64s(r);
     int32_t shift_clamped = shift > 31 ? 31 : shift;
 
@@ -188,7 +188,7 @@ void psrad_r64(int32_t r, uint32_t shift)
 
 void pslld_r64(int32_t r, uint32_t shift)
 {
-    // pslld mm, {shift}
+    c_comment("pslld mm, {shift}");
     union reg64 destination = read_mmx64s(r);
 
     int32_t dword0 = 0;
@@ -205,7 +205,7 @@ void pslld_r64(int32_t r, uint32_t shift)
 
 void psrlq_r64(int32_t r, uint32_t shift)
 {
-    // psrlq mm, {shift}
+    c_comment("psrlq mm, {shift}");
 
     if(shift == 0)
     {
@@ -225,7 +225,7 @@ void psrlq_r64(int32_t r, uint32_t shift)
 
 void psllq_r64(int32_t r, uint32_t shift)
 {
-    // psllq mm, {shift}
+    c_comment("psllq mm, {shift}");
     union reg64 destination = read_mmx64s(r);
 
     if(shift == 0)
@@ -245,7 +245,7 @@ void psllq_r64(int32_t r, uint32_t shift)
 
 void psrlw_r128(int32_t r, uint32_t shift)
 {
-    // psrlw xmm, {shift}
+    c_comment("psrlw xmm, {shift}");
     union reg128 destination = read_xmm128s(r);
     int32_t dword0 = 0;
     int32_t dword1 = 0;
@@ -265,7 +265,7 @@ void psrlw_r128(int32_t r, uint32_t shift)
 
 void psraw_r128(int32_t r, uint32_t shift)
 {
-    // psraw xmm, {shift}
+    c_comment("psraw xmm, {shift}");
     union reg128 destination = read_xmm128s(r);
     int32_t shift_clamped = shift > 15 ? 16 : shift;
 
@@ -282,7 +282,7 @@ void psraw_r128(int32_t r, uint32_t shift)
 
 void psllw_r128(int32_t r, uint32_t shift)
 {
-    // psllw xmm, {shift}
+    c_comment("psllw xmm, {shift}");
     union reg128 destination = read_xmm128s(r);
 
     int32_t dword0 = 0;
@@ -303,7 +303,7 @@ void psllw_r128(int32_t r, uint32_t shift)
 
 void psrld_r128(int32_t r, uint32_t shift)
 {
-    // psrld xmm, {shift}
+    c_comment("psrld xmm, {shift}");
     union reg128 destination = read_xmm128s(r);
 
     int32_t dword0 = 0;
@@ -324,7 +324,7 @@ void psrld_r128(int32_t r, uint32_t shift)
 
 void psrad_r128(int32_t r, uint32_t shift)
 {
-    // psrad xmm, {shift}
+    c_comment("psrad xmm, {shift}");
     union reg128 destination = read_xmm128s(r);
     int32_t shift_clamped = shift > 31 ? 31 : shift;
 
@@ -338,7 +338,7 @@ void psrad_r128(int32_t r, uint32_t shift)
 
 void pslld_r128(int32_t r, uint32_t shift)
 {
-    // pslld xmm, {shift}
+    c_comment("pslld xmm, {shift}");
     union reg128 destination = read_xmm128s(r);
 
     int32_t dword0 = 0;
@@ -359,7 +359,7 @@ void pslld_r128(int32_t r, uint32_t shift)
 
 void psrlq_r128(int32_t r, uint32_t shift)
 {
-    // psrlq xmm, {shift}
+    c_comment("psrlq xmm, {shift}");
 
     if(shift == 0)
     {
@@ -380,7 +380,7 @@ void psrlq_r128(int32_t r, uint32_t shift)
 
 void psllq_r128(int32_t r, uint32_t shift)
 {
-    // psllq xmm, {shift}
+    c_comment("psllq xmm, {shift}");
     union reg128 destination = read_xmm128s(r);
 
     if(shift == 0)
@@ -401,7 +401,7 @@ void psllq_r128(int32_t r, uint32_t shift)
 
 bool sse_comparison(int32_t op, double_t x, double_t y)
 {
-    // TODO: Signaling
+    c_comment("TODO: Signaling");
 
     switch(op & 7)
     {
@@ -421,26 +421,26 @@ bool sse_comparison(int32_t op, double_t x, double_t y)
 
 double_t sse_min(double_t x, double_t y)
 {
-    // if both x and y are 0 or x is nan, y is returned
+    c_comment("if both x and y are 0 or x is nan, y is returned");
     return x < y ? x : y;
 }
 
 double_t sse_max(double_t x, double_t y)
 {
-    // if both x and y are 0 or x is nan, y is returned
+    c_comment("if both x and y are 0 or x is nan, y is returned");
     return x > y ? x : y;
 }
 
 int32_t sse_convert_f64_to_i32(double_t x)
 {
-    // TODO: Rounding modes
+    c_comment("TODO: Rounding modes");
     if(x >= -0x80000000 && x < 0x80000000)
     {
         return (int64_t)x;
     }
     else
     {
-        // TODO: Signal
+        c_comment("TODO: Signal");
         return -0x80000000;
     }
 }
