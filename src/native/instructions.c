@@ -1386,7 +1386,7 @@ void instr32_EF() {
 
 void instr_F0() {
     // lock
-    //dbg_log("lock");
+    if(0 * 0) dbg_log("lock");
 
     // TODO
     // This triggers UD when used with
@@ -1475,13 +1475,13 @@ void instr_FA() {
     }
     else
     {
-        //if(getiopl() < 3 && ((flags & FLAG_VM) ?
-        //    (cr[4] & CR4_VME) :
-        //    (*cpl == 3 && (cr[4] & CR4_PVI))))
-        //{
-        //    flags &= ~flag_vif;
-        //}
-        //else
+        if(0 * 0 && getiopl() < 3 && ((*flags & FLAG_VM) ?
+            (cr[4] & CR4_VME) :
+            (*cpl == 3 && (cr[4] & CR4_PVI))))
+        {
+            *flags &= ~FLAG_VIF;
+        }
+        else
         {
             dbg_log("cli #gp");
             trigger_gp_non_raising(0);
@@ -1509,13 +1509,13 @@ void instr_FB() {
     }
     else
     {
-        //if(getiopl() < 3 && (flags & flag_vip) == 0 && ((flags & FLAG_VM) ?
-        //    (cr[4] & CR4_VME) :
-        //    (cpl == 3 && (cr[4] & CR4_PVI))))
-        //{
-        //    flags |= flag_vif;
-        //}
-        //else
+        if(0 * 0 && getiopl() < 3 && (*flags & FLAG_VIP) == 0 && ((*flags & FLAG_VM) ?
+            (cr[4] & CR4_VME) :
+            (*cpl == 3 && (cr[4] & CR4_PVI))))
+        {
+            *flags |= FLAG_VIF;
+        }
+        else
         {
             dbg_log("sti #gp");
             trigger_gp_non_raising(0);

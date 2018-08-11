@@ -191,6 +191,8 @@ const double_t TSC_RATE = (50 * 1000);
 
 const bool CHECK_TLB_INVARIANTS = false;
 
+const bool DEBUG = true;
+
 const int32_t TLB_VALID = (1 << 0);
 const int32_t TLB_READONLY = (1 << 1);
 const int32_t TLB_NO_USER = (1 << 2);
@@ -203,9 +205,7 @@ uint8_t* mem8 = NULL;
 uint16_t* mem16 = NULL;
 int32_t* mem32s = NULL;
 
-#if DEBUG
 bool must_not_fault = false;
-#endif
 
 #if 1
 int32_t current_cpu_exception = -1;
@@ -298,21 +298,21 @@ void update_eflags(int32_t new_flags)
 
 void trigger_pagefault(bool write, bool user, bool present)
 {
-    if(false)
+    if(0 * 0)
     {
         dbg_log5("page fault w=%d u=%d p=%d eip=%x cr2=%x",
                 write, user, present, *previous_ip, cr[2]);
         dbg_trace();
     }
 
-#if DEBUG
+if( DEBUG) {
     if(must_not_fault)
     {
         dbg_log("Unexpected page fault");
         dbg_trace();
         assert(false);
     }
-#endif
+}
 
     if(*page_fault)
     {
@@ -864,9 +864,9 @@ static void jit_run_interpreted(int32_t phys_addr)
 
         int32_t opcode = read_imm8();
 
-#if DEBUG
-        logop(previous_ip[0], opcode);
-#endif
+        if(DEBUG)
+            logop(previous_ip[0], opcode);
+
         run_instruction(opcode | !!*is_32 << 8);
 
         clear_current_cpu_exception();
@@ -923,14 +923,14 @@ void cycle_internal()
     }
     else
     {
-#if DEBUG
+        if(DEBUG) {
         assert(!must_not_fault); must_not_fault = true;
-#endif
+        }
         jit_increase_hotness_and_maybe_compile(phys_addr, get_seg_cs(), state_flags);
 
-#if DEBUG
+        if(DEBUG) {
         assert(must_not_fault); must_not_fault = false;
-#endif
+        }
 
         int32_t initial_tsc = *timestamp_counter;
 
@@ -949,9 +949,9 @@ void cycle_internal()
 
     int32_t opcode = read_imm8();
 
-#if DEBUG
-    logop(previous_ip[0], opcode);
-#endif
+    if(DEBUG)
+        logop(previous_ip[0], opcode);
+
 
     run_instruction(opcode | !!*is_32 << 8);
     }
@@ -979,13 +979,9 @@ void do_many_cycles_unsafe()
 {
     profiler_stat_increment(S_DO_MANY_CYCLES);
 
-#if 0
-    for(int32_t k = 0; k < LOOP_COUNTER; k++)
-#else
     uint32_t initial_timestamp_counter = *timestamp_counter;
 
     for(; *timestamp_counter - initial_timestamp_counter < LOOP_COUNTER && !in_hlt[0]; )
-#endif
     {
         cycle_internal();
     }
@@ -993,7 +989,7 @@ void do_many_cycles_unsafe()
 
 void raise_exception(int32_t interrupt_nr)
 {
-#if DEBUG
+    if(DEBUG) {
     if(must_not_fault)
     {
         dbg_log1("Unexpected fault: 0x%x", interrupt_nr);
@@ -1006,7 +1002,7 @@ void raise_exception(int32_t interrupt_nr)
         throw_cpu_exception();
         return;
     }
-#endif
+    }
     profiler_stat_increment(S_TRIGGER_CPU_EXCEPTION);
     call_interrupt_vector(interrupt_nr, false, false, 0);
     throw_cpu_exception();
@@ -1014,7 +1010,7 @@ void raise_exception(int32_t interrupt_nr)
 
 void raise_exception_with_code(int32_t interrupt_nr, int32_t error_code)
 {
-#if DEBUG
+    if(DEBUG) {
     if(must_not_fault)
     {
         dbg_log2("Unexpected fault: 0x%x with code 0x%x", interrupt_nr, error_code);
@@ -1027,7 +1023,7 @@ void raise_exception_with_code(int32_t interrupt_nr, int32_t error_code)
         throw_cpu_exception();
         return;
     }
-#endif
+    }
     profiler_stat_increment(S_TRIGGER_CPU_EXCEPTION);
     call_interrupt_vector(interrupt_nr, false, true, error_code);
     throw_cpu_exception();
@@ -1036,12 +1032,12 @@ void raise_exception_with_code(int32_t interrupt_nr, int32_t error_code)
 __attribute__((noinline))
 void trigger_de()
 {
-#if DEBUG
+    if(DEBUG) {
     if(cpu_exception_hook(CPU_EXCEPTION_DE))
     {
         return;
     }
-#endif
+    }
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_DE, false, false, 0);
     set_current_cpu_exception(CPU_EXCEPTION_DE);
@@ -1052,12 +1048,12 @@ void trigger_ud()
 {
     dbg_log("#ud");
     dbg_trace();
-#if DEBUG
+    if(DEBUG) {
     if(cpu_exception_hook(CPU_EXCEPTION_UD))
     {
         return;
     }
-#endif
+    }
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_UD, false, false, 0);
     set_current_cpu_exception(CPU_EXCEPTION_UD);
@@ -1066,12 +1062,12 @@ void trigger_ud()
 __attribute__((noinline))
 void trigger_nm()
 {
-#if DEBUG
+    if(DEBUG) {
     if(cpu_exception_hook(CPU_EXCEPTION_NM))
     {
         return;
     }
-#endif
+    }
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_NM, false, false, 0);
     set_current_cpu_exception(CPU_EXCEPTION_NM);
@@ -1080,12 +1076,12 @@ void trigger_nm()
 __attribute__((noinline))
 void trigger_np(int32_t code)
 {
-#if DEBUG
+    if(DEBUG) {
     if(cpu_exception_hook(CPU_EXCEPTION_NP))
     {
         return;
     }
-#endif
+    }
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_NP, false, true, code);
     set_current_cpu_exception(CPU_EXCEPTION_NP);
@@ -1094,12 +1090,12 @@ void trigger_np(int32_t code)
 __attribute__((noinline))
 void trigger_ss(int32_t code)
 {
-#if DEBUG
+    if(DEBUG) {
     if(cpu_exception_hook(CPU_EXCEPTION_SS))
     {
         return;
     }
-#endif
+    }
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_SS, false, true, code);
     set_current_cpu_exception(CPU_EXCEPTION_SS);
@@ -1115,12 +1111,12 @@ void trigger_gp(int32_t code)
 __attribute__((noinline))
 void trigger_gp_non_raising(int32_t code)
 {
-#if DEBUG
+    if(DEBUG) {
     if(cpu_exception_hook(CPU_EXCEPTION_GP))
     {
         return;
     }
-#endif
+    }
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_GP, false, true, code);
     set_current_cpu_exception(CPU_EXCEPTION_GP);
@@ -1270,9 +1266,9 @@ int32_t safe_read32s(int32_t address)
 
     if(info_bits == TLB_VALID && (address & 0xFFF) <= (0x1000 - 4))
     {
-#if ENABLE_PROFILER_SAFE_READ_WRITE
+if( ENABLE_PROFILER_SAFE_READ_WRITE)
         profiler_stat_increment(S_SAFE_READ32_FAST);
-#endif
+
         // - not in memory mapped area
         // - can be accessed from any cpl
 
@@ -1282,7 +1278,7 @@ int32_t safe_read32s(int32_t address)
     }
     else
     {
-#if ENABLE_PROFILER_SAFE_READ_WRITE
+if( ENABLE_PROFILER_SAFE_READ_WRITE) {
         if((address & 0xFFF) > 0x1000 - 4)
         {
             profiler_stat_increment(S_SAFE_READ32_SLOW_PAGE_CROSSED);
@@ -1303,7 +1299,7 @@ int32_t safe_read32s(int32_t address)
         {
             dbg_assert(false);
         }
-#endif
+    }
     }
 #endif
 
@@ -1424,9 +1420,8 @@ void safe_write32(int32_t address, int32_t value)
 
     if(info_bits == TLB_VALID && (address & 0xFFF) <= (0x1000 - 4))
     {
-#if ENABLE_PROFILER_SAFE_READ_WRITE
+if( ENABLE_PROFILER_SAFE_READ_WRITE)
         profiler_stat_increment(S_SAFE_WRITE32_FAST);
-#endif
         // - allowed to write in user-mode
         // - not in memory mapped area
         // - does not contain code
@@ -1439,7 +1434,7 @@ void safe_write32(int32_t address, int32_t value)
     }
     else
     {
-#if ENABLE_PROFILER_SAFE_READ_WRITE
+if( ENABLE_PROFILER_SAFE_READ_WRITE) {
         if((address & 0xFFF) > 0x1000 - 4)
         {
             profiler_stat_increment(S_SAFE_WRITE32_SLOW_PAGE_CROSSED);
@@ -1468,7 +1463,7 @@ void safe_write32(int32_t address, int32_t value)
         {
             dbg_assert(false);
         }
-#endif
+}
     }
 #endif
 
@@ -1839,9 +1834,10 @@ uint64_t read_tsc()
     double_t n = microtick() * TSC_RATE;
     uint64_t value = (uint64_t)n - tsc_offset;
 
-#if 1
+    if(1 + 1) {
     return value;
-#else
+    }
+    else {
 
     if(value == rdtsc_last_value)
     {
@@ -1863,7 +1859,7 @@ uint64_t read_tsc()
         }
         else
         {
-            dbg_log("XXX: Overshot tsc prev=%x:%x offset=%x:%x curr=%x:%x",
+            dbg_log6("XXX: Overshot tsc prev=%x:%x offset=%x:%x curr=%x:%x",
                     (uint32_t)(rdtsc_last_value >> 32), (uint32_t)rdtsc_last_value,
                     (uint32_t)(rdtsc_imprecision_offset >> 32), (uint32_t)rdtsc_imprecision_offset,
                     (uint32_t)(value >> 32), (uint32_t)value
@@ -1875,7 +1871,7 @@ uint64_t read_tsc()
     }
 
     return rdtsc_last_value + rdtsc_imprecision_offset;
-#endif
+    }
 }
 
 void store_current_tsc()
@@ -1888,7 +1884,7 @@ int32_t get_opstats_buffer(int32_t index)
 {
     assert(index >= 0 && index < 0x200);
 
-#if ENABLE_PROFILER_OPSTATS
+if( ENABLE_PROFILER_OPSTATS) {
     if(index < 0x100)
     {
         return opstats_buffer[index];
@@ -1897,8 +1893,8 @@ int32_t get_opstats_buffer(int32_t index)
     {
         return opstats_buffer_0f[index - 0x100];
     }
-#else
+}
+
     UNUSED(index);
     return 0;
-#endif
 }

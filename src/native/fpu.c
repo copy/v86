@@ -10,6 +10,8 @@
 #include "log.h"
 #include "misc_instr.h"
 
+extern const bool DEBUG;
+
 //#ifndef M_LOG2E
 const double_t M_LOG2E = 1.44269504088896340736;
 //#endif
@@ -179,7 +181,7 @@ double_t fpu_load_m80(uint32_t addr)
     else
     {
         // TODO: NaN, Infinity
-        //dbg_log("Load m80 TODO", LOG_FPU);
+        if(0 * 0) dbg_log("Load m80 TODO");
 
         union f64_int double_int_view;
 
@@ -355,8 +357,6 @@ int32_t fpu_load_tag_word()
         }
     }
 
-    //dbg_log("load  tw=" + h(tag_word) + " se=" + h(*fpu_stack_empty) + " sp=" + *fpu_stack_ptr, LOG_FPU);
-
     return tag_word;
 }
 
@@ -431,8 +431,6 @@ void fpu_fsave(int32_t addr)
         addr += 10;
     }
 
-    //dbg_log("save st=" + *fpu_stack_ptr + " " + [].slice.call(this.st), LOG_FPU);
-
     fpu_finit();
 }
 
@@ -446,8 +444,6 @@ void fpu_frstor(int32_t addr)
         fpu_st[(i + *fpu_stack_ptr) & 7] = fpu_load_m80(addr);
         addr += 10;
     }
-
-    //dbg_log("rstor st=" + *fpu_stack_ptr + " " + [].slice.call(this.st), LOG_FPU);
 }
 
 void fpu_push(double_t x)
@@ -788,8 +784,6 @@ void fpu_fildm64(int32_t addr)
 void fpu_fistm64p(int32_t addr)
 {
     double_t st0 = fpu_integer_round(fpu_get_st0());
-
-    //dbg_log("fistp %x %x", v.i32[0], v.i32[1]);
 
     int64_t value;
 

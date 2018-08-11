@@ -172,7 +172,7 @@ void instr_0F06() {
     }
     else
     {
-        //dbg_log("clts");
+        if(0 * 0) dbg_log("clts");
         cr[0] &= ~CR0_TS;
     }
 }
@@ -491,7 +491,7 @@ void instr_0F21(int32_t r, int32_t dreg_index) {
 
     write_reg32(r, dreg[dreg_index]);
 
-    //dbg_log("read dr%d: %x", dreg_index, dreg[dreg_index]);
+    if(0 * 0) dbg_log2("read dr%d: %x", dreg_index, dreg[dreg_index]);
 }
 
 void instr_0F22(int32_t r, int32_t creg) {
@@ -508,7 +508,7 @@ void instr_0F22(int32_t r, int32_t creg) {
     switch(creg)
     {
         case 0:
-            //dbg_log("cr0 <- %x", data);
+            if(0 * 0) dbg_log1("cr0 <- %x", data);
             set_cr0(data);
             break;
 
@@ -518,13 +518,11 @@ void instr_0F22(int32_t r, int32_t creg) {
             break;
 
         case 3:
-            //dbg_log("cr3 <- %x", data);
+            if(0 * 0) dbg_log1("cr3 <- %x", data);
             data &= ~0b111111100111;
             dbg_assert_message((data & 0xFFF) == 0, "TODO");
             cr[3] = data;
             clear_tlb();
-
-            //dump_page_directory();
             break;
 
         case 4:
@@ -546,7 +544,6 @@ void instr_0F22(int32_t r, int32_t creg) {
 
             if(cr[4] & CR4_PAE)
             {
-                //throw debug.unimpl("PAE");
                 assert(false);
             }
 
@@ -581,7 +578,7 @@ void instr_0F23(int32_t r, int32_t dreg_index) {
 
     dreg[dreg_index] = read_reg32(r);
 
-    //dbg_log("write dr%d: %x", dreg_index, dreg[dreg_index]);
+    if(0 * 0) dbg_log2("write dr%d: %x", dreg_index, dreg[dreg_index]);
 }
 
 void instr_0F24() { undefined_instruction(); }
@@ -692,22 +689,24 @@ void instr_F20F2C(union reg64 source, int32_t r) {
     // cvttsd2si r32, xmm/m64
     // emscripten bug causes this ported instruction to throw "integer result unpresentable"
     // https://github.com/kripken/emscripten/issues/5433
-#if 0
-    union reg64 source = read_xmm_mem64s();
-    double f = source.f64[0];
-
-    if(f <= 0x7FFFFFFF && f >= -0x80000000)
+    if(0 * 0)
     {
-        int32_t si = (int32_t) f;
-        write_g32(si);
+        double f = source.f64[0];
+
+        if(f <= 0x7FFFFFFF && f >= -0x80000000)
+        {
+            int32_t si = (int32_t) f;
+            write_reg32(r, si);
+        }
+        else
+        {
+            write_reg32(r, 0x80000000);
+        }
     }
     else
     {
-        write_g32(0x80000000);
+        write_reg32(r, convert_f64_to_i32(source.f64[0]));
     }
-#else
-    write_reg32(r, convert_f64_to_i32(source.f64[0]));
-#endif
 }
 DEFINE_SSE_SPLIT(instr_F20F2C, safe_read64s, read_xmm64s)
 
@@ -820,7 +819,7 @@ void instr_0F31() {
         reg32s[EAX] = tsc;
         reg32s[EDX] = tsc >> 32;
 
-        //dbg_log("rdtsc  edx:eax=%x:%x", reg32s[EDX], reg32s[EAX]);
+        if(0 * 0) dbg_log2("rdtsc  edx:eax=%x:%x", reg32s[EDX], reg32s[EAX]);
     }
     else
     {
@@ -944,12 +943,6 @@ void instr_0F34() {
         return;
     }
 
-    if(CPU_LOG_VERBOSE)
-    {
-        //dbg_log("sysenter  cs:eip=" + h(seg    , 4) + ":" + h(sysenter_eip[0], 8) +
-        //                 " ss:esp=" + h(seg + 8, 4) + ":" + h(sysenter_esp[0], 8));
-    }
-
     flags[0] &= ~FLAG_VM & ~FLAG_INTERRUPT;
 
     instruction_pointer[0] = sysenter_eip[0];
@@ -981,12 +974,6 @@ void instr_0F35() {
     {
         trigger_gp_non_raising(0);
         return;
-    }
-
-    if(CPU_LOG_VERBOSE)
-    {
-        //dbg_log("sysexit  cs:eip=" + h(seg + 16, 4) + ":" + h(reg32s[EDX], 8) +
-        //                 " ss:esp=" + h(seg + 24, 4) + ":" + h(reg32s[ECX], 8));
     }
 
     instruction_pointer[0] = reg32s[EDX];
