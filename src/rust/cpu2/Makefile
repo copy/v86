@@ -107,10 +107,21 @@ profiler.rs: profiler/profiler.rs
 	sed -i 's/.as_mut_ptr()//' $@
 	sed -i ':a;N;$$!ba;s/\*::std::mem::transmute::<&\[u8; [0-9]\+],[ \n]\+&mut \[i8; [0-9]\+]>//g' $@
 	sed -i 's/\\x00//' $@
+	sed -i 's/b"/"/' $@
 
 	sed -i 's/dbg_log[0-9]\?((/dbg_log_c!((/' $@
-	sed -i 's/    dbg_assert_message(/    dbg_assert_message!(/' $@
+
+	sed -i ':a;N;$$!ba;s/#\[no_mangle]\n    fn dbg_assert[^\n]*//' $@
+	sed -i ':a;N;$$!ba;s/#\[no_mangle]\n    fn assert[^\n]*//' $@
+
+	sed -i 's/dbg_assert_message(/dbg_assert!(/' $@
+	sed -i 's/dbg_assert(/dbg_assert!(/' $@
+	sed -i 's/assert(/dbg_assert!(/' $@
+
 	sed -i 's/    c_comment(/    c_comment!(/' $@
+
+	# This works, but requires manual cleanup afterwards
+	#sed -i 's/\([0-9]\)[i]32/\1/' $@
 
 
 clean:

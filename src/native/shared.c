@@ -4,9 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-void assert(bool x) {}
-void dbg_assert(bool x) {}
-void dbg_assert_message(bool x, const char* msg) {}
+//void assert(bool x) {}
+//void dbg_assert(bool x) {}
+//void dbg_assert_message(bool x, const char* msg) {}
 //void dbg_log(const char* m) {}
 //void dbg_log1(const char* m, int32_t x) {}
 //void dbg_log2(const char* m, int32_t x, int32_t y) {}

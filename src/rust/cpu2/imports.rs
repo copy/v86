@@ -43,19 +43,11 @@ pub fn allocate_memory(size: u32) -> u32 {
 
 macro_rules! dbg_log_c {
     ($fmt:expr) => {{
-        // TODO
+        dbg_log!($fmt);
     }};
     ($fmt:expr, $($arg:tt)*) => {{
-        // TODO
-    }};
-}
-
-macro_rules! dbg_assert_message {
-    ($fmt:expr) => {{
-        // TODO
-    }};
-    ($fmt:expr, $($arg:tt)*) => {{
-        // TODO
+        // TODO: Arguments
+        dbg_log!($fmt);
     }};
 }
 
