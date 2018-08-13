@@ -1081,7 +1081,7 @@ V86Starter.prototype.serial0_send = function(data)
  */
 V86Starter.prototype.mount_fs = function(path, baseurl, basefs, callback)
 {
-    const newfs = new FS(baseurl);
+    const newfs = new FS(baseurl, this.fs9p.qidcounter);
     const mount = () =>
     {
         const idx = this.fs9p.Mount(path, newfs);
