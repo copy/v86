@@ -1089,9 +1089,17 @@ V86Starter.prototype.mount_fs = function(path, baseurl, basefs, callback)
         {
             return;
         }
-        if(idx === -1)
+        if(idx === -ENOENT)
         {
             callback(new FileNotFoundError());
+        }
+        if(idx === -EEXIST)
+        {
+            callback(new FileExistsError());
+        }
+        if(idx < 0)
+        {
+            callback(new Error("Failed to mount. Error number: " + (-idx)));
         }
         else
         {
@@ -1203,6 +1211,18 @@ V86Starter.prototype.read_file = function(file, callback)
         );
     }
 };
+
+/**
+ * @ignore
+ * @constructor
+ *
+ * @param {string=} message
+ */
+function FileExistsError(message)
+{
+    this.message = message || "File already exists";
+}
+FileNotFoundError.prototype = Error.prototype;
 
 /**
  * @ignore

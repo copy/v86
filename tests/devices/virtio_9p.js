@@ -1337,6 +1337,7 @@ function do_mounts()
         {
             const path = tests[test_num].mounts[mount_num].path;
             emulator.serial0_send("mkdir -p /mnt" +  path + "\n");
+            emulator.serial0_send("rmdir /mnt" +  path + "\n");
             emulator.serial0_send("echo done-premount\n");
             next_trigger = "done-premount";
             next_trigger_handler = () => mount(mount_num);
