@@ -1251,6 +1251,45 @@ const tests =
             done();
         },
     },
+    {
+        name: "Using '..' across filesystems",
+        timeout: 60,
+        mounts:
+        [
+            { path: "/a/fs2" },
+        ],
+        start: () =>
+        {
+            emulator.serial0_send("mkdir /mnt/a/fs2/c\n");
+            emulator.serial0_send("echo foobar > /mnt/a/fs2/../file\n");
+            emulator.serial0_send("cd /mnt/a/fs2/c\n");
+            emulator.serial0_send("echo baz >> ../../file\n");
+            emulator.serial0_send("mv /mnt/a/file ../../renamed\n");
+            emulator.serial0_send("cp /mnt/a/renamed ../../file\n");
+
+            emulator.serial0_send("echo start-capture;\\\n");
+
+            emulator.serial0_send("cat /mnt/a/file;\\\n");
+            emulator.serial0_send("cat /mnt/a/renamed;\\\n");
+            emulator.serial0_send("rm ../../renamed;\\\n");
+            emulator.serial0_send("test ! -e /mnt/a/renamed && echo removed;\\\n");
+
+            emulator.serial0_send("cd /;\\\n");
+            emulator.serial0_send("echo done-readdir-parent-mount\n");
+        },
+        capture_trigger: "start-capture",
+        end_trigger:"done-readdir-parent-mount",
+        end: (capture, done) =>
+        {
+            assert_equal(capture,
+                "foobar\n" +
+                "baz\n" +
+                "foobar\n" +
+                "baz\n" +
+                "removed\n");
+            done();
+        },
+    },
 ];
 
 let test_num = 0;
