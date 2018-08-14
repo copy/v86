@@ -1,7 +1,15 @@
-#![allow
-( dead_code , mutable_transmutes , non_camel_case_types , non_snake_case ,
-non_upper_case_globals , unused_mut )]
-#![feature ( extern_types , libc )]
+#![allow(
+    dead_code,
+    mutable_transmutes,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_mut
+)]
+#![feature(extern_types, libc)]
+
+use cpu2::cpu::*;
+use cpu2::fpu::fpu_load_m80;
 
 extern "C" {
 
@@ -342,8 +350,6 @@ extern "C" {
     static FPU_RESULT_FLAGS: i32;
     #[no_mangle]
     static FPU_STACK_TOP: i32;
-    #[no_mangle]
-    fn fpu_load_m80(addr: u32) -> f64;
     #[no_mangle]
     fn fpu_load_status_word() -> i32;
     #[no_mangle]
@@ -1190,28 +1196,28 @@ pub unsafe extern "C" fn pusha16() -> () {
     let mut temp: u16 = *reg16.offset(SP as isize);
     c_comment!(("make sure we don\'t get a pagefault after having"));
     c_comment!(("pushed several registers already"));
-    writable_or_pagefault(get_stack_pointer(-16i32), 16i32);
-    push16(*reg16.offset(AX as isize) as i32);
-    push16(*reg16.offset(CX as isize) as i32);
-    push16(*reg16.offset(DX as isize) as i32);
-    push16(*reg16.offset(BX as isize) as i32);
-    push16(temp as i32);
-    push16(*reg16.offset(BP as isize) as i32);
-    push16(*reg16.offset(SI as isize) as i32);
-    push16(*reg16.offset(DI as isize) as i32);
+    return_on_pagefault!(writable_or_pagefault(get_stack_pointer(-16i32), 16i32));
+    push16(*reg16.offset(AX as isize) as i32).unwrap();
+    push16(*reg16.offset(CX as isize) as i32).unwrap();
+    push16(*reg16.offset(DX as isize) as i32).unwrap();
+    push16(*reg16.offset(BX as isize) as i32).unwrap();
+    push16(temp as i32).unwrap();
+    push16(*reg16.offset(BP as isize) as i32).unwrap();
+    push16(*reg16.offset(SI as isize) as i32).unwrap();
+    push16(*reg16.offset(DI as isize) as i32).unwrap();
 }
 #[no_mangle]
 pub unsafe extern "C" fn pusha32() -> () {
     let mut temp: i32 = *reg32s.offset(ESP as isize);
-    writable_or_pagefault(get_stack_pointer(-32i32), 32i32);
-    push32(*reg32s.offset(EAX as isize));
-    push32(*reg32s.offset(ECX as isize));
-    push32(*reg32s.offset(EDX as isize));
-    push32(*reg32s.offset(EBX as isize));
-    push32(temp);
-    push32(*reg32s.offset(EBP as isize));
-    push32(*reg32s.offset(ESI as isize));
-    push32(*reg32s.offset(EDI as isize));
+    return_on_pagefault!(writable_or_pagefault(get_stack_pointer(-32i32), 32i32));
+    push32(*reg32s.offset(EAX as isize)).unwrap();
+    push32(*reg32s.offset(ECX as isize)).unwrap();
+    push32(*reg32s.offset(EDX as isize)).unwrap();
+    push32(*reg32s.offset(EBX as isize)).unwrap();
+    push32(temp).unwrap();
+    push32(*reg32s.offset(EBP as isize)).unwrap();
+    push32(*reg32s.offset(ESI as isize)).unwrap();
+    push32(*reg32s.offset(EDI as isize)).unwrap();
 }
 #[no_mangle]
 pub unsafe extern "C" fn setcc_reg(mut condition: bool, mut r: i32) -> () {
@@ -1219,27 +1225,30 @@ pub unsafe extern "C" fn setcc_reg(mut condition: bool, mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe extern "C" fn setcc_mem(mut condition: bool, mut addr: i32) -> () {
-    safe_write8(addr, if 0 != condition as i32 { 1i32 } else { 0i32 });
+    return_on_pagefault!(safe_write8(
+        addr,
+        if 0 != condition as i32 { 1i32 } else { 0i32 }
+    ));
 }
 #[no_mangle]
 pub unsafe extern "C" fn fxsave(mut addr: u32) -> () {
-    writable_or_pagefault(addr as i32, 512i32);
-    safe_write16(addr.wrapping_add(0i32 as u32) as i32, *fpu_control_word);
+    return_on_pagefault!(writable_or_pagefault(addr as i32, 512i32));
+    safe_write16(addr.wrapping_add(0i32 as u32) as i32, *fpu_control_word).unwrap();
     safe_write16(
         addr.wrapping_add(2i32 as u32) as i32,
         fpu_load_status_word(),
-    );
+    ).unwrap();
     safe_write8(
         addr.wrapping_add(4i32 as u32) as i32,
         !*fpu_stack_empty & 255i32,
-    );
-    safe_write16(addr.wrapping_add(6i32 as u32) as i32, *fpu_opcode);
-    safe_write32(addr.wrapping_add(8i32 as u32) as i32, *fpu_ip);
-    safe_write16(addr.wrapping_add(12i32 as u32) as i32, *fpu_ip_selector);
-    safe_write32(addr.wrapping_add(16i32 as u32) as i32, *fpu_dp);
-    safe_write16(addr.wrapping_add(20i32 as u32) as i32, *fpu_dp_selector);
-    safe_write32(addr.wrapping_add(24i32 as u32) as i32, *mxcsr);
-    safe_write32(addr.wrapping_add(28i32 as u32) as i32, MXCSR_MASK);
+    ).unwrap();
+    safe_write16(addr.wrapping_add(6i32 as u32) as i32, *fpu_opcode).unwrap();
+    safe_write32(addr.wrapping_add(8i32 as u32) as i32, *fpu_ip).unwrap();
+    safe_write16(addr.wrapping_add(12i32 as u32) as i32, *fpu_ip_selector).unwrap();
+    safe_write32(addr.wrapping_add(16i32 as u32) as i32, *fpu_dp).unwrap();
+    safe_write16(addr.wrapping_add(20i32 as u32) as i32, *fpu_dp_selector).unwrap();
+    safe_write32(addr.wrapping_add(24i32 as u32) as i32, *mxcsr).unwrap();
+    safe_write32(addr.wrapping_add(28i32 as u32) as i32, MXCSR_MASK).unwrap();
     let mut i: i32 = 0i32;
     while i < 8i32 {
         fpu_store_m80(
@@ -1258,29 +1267,32 @@ pub unsafe extern "C" fn fxsave(mut addr: u32) -> () {
             addr.wrapping_add(160i32 as u32)
                 .wrapping_add((i_0 << 4i32) as u32) as i32,
             *reg_xmm.offset(i_0 as isize),
-        );
+        ).unwrap();
         i_0 += 1
     }
 }
 #[no_mangle]
 pub unsafe extern "C" fn fxrstor(mut addr: u32) -> () {
-    translate_address_read(addr as i32);
-    translate_address_read(addr.wrapping_add(511i32 as u32) as i32);
-    let mut new_mxcsr: i32 = safe_read32s(addr.wrapping_add(24i32 as u32) as i32);
+    // TODO: Add readable_or_pagefault
+    return_on_pagefault!(translate_address_read(addr as i32));
+    return_on_pagefault!(translate_address_read(
+        addr.wrapping_add(511i32 as u32) as i32
+    ));
+    let mut new_mxcsr: i32 = safe_read32s(addr.wrapping_add(24i32 as u32) as i32).unwrap();
     if 0 != new_mxcsr & !MXCSR_MASK {
         dbg_log_c!(("#gp Invalid mxcsr bits"));
         trigger_gp_non_raising(0i32);
         return;
     }
     else {
-        *fpu_control_word = safe_read16(addr.wrapping_add(0i32 as u32) as i32);
-        fpu_set_status_word(safe_read16(addr.wrapping_add(2i32 as u32) as i32));
-        *fpu_stack_empty = !safe_read8(addr.wrapping_add(4i32 as u32) as i32) & 255i32;
-        *fpu_opcode = safe_read16(addr.wrapping_add(6i32 as u32) as i32);
-        *fpu_ip = safe_read32s(addr.wrapping_add(8i32 as u32) as i32);
-        *fpu_ip = safe_read16(addr.wrapping_add(12i32 as u32) as i32);
-        *fpu_dp = safe_read32s(addr.wrapping_add(16i32 as u32) as i32);
-        *fpu_dp_selector = safe_read16(addr.wrapping_add(20i32 as u32) as i32);
+        *fpu_control_word = safe_read16(addr.wrapping_add(0i32 as u32) as i32).unwrap();
+        fpu_set_status_word(safe_read16(addr.wrapping_add(2i32 as u32) as i32).unwrap());
+        *fpu_stack_empty = !safe_read8(addr.wrapping_add(4i32 as u32) as i32).unwrap() & 255i32;
+        *fpu_opcode = safe_read16(addr.wrapping_add(6i32 as u32) as i32).unwrap();
+        *fpu_ip = safe_read32s(addr.wrapping_add(8i32 as u32) as i32).unwrap();
+        *fpu_ip = safe_read16(addr.wrapping_add(12i32 as u32) as i32).unwrap();
+        *fpu_dp = safe_read32s(addr.wrapping_add(16i32 as u32) as i32).unwrap();
+        *fpu_dp_selector = safe_read16(addr.wrapping_add(20i32 as u32) as i32).unwrap();
         *mxcsr = new_mxcsr;
         let mut i: i32 = 0i32;
         while i < 8i32 {
@@ -1288,7 +1300,7 @@ pub unsafe extern "C" fn fxrstor(mut addr: u32) -> () {
                 fpu_load_m80(
                     addr.wrapping_add(32i32 as u32)
                         .wrapping_add((i << 4i32) as u32),
-                );
+                ).unwrap();
             i += 1
         }
         let mut i_0: i32 = 0i32;
@@ -1297,22 +1309,22 @@ pub unsafe extern "C" fn fxrstor(mut addr: u32) -> () {
                 addr.wrapping_add(160i32 as u32)
                     .wrapping_add((i_0 << 4i32) as u32)
                     .wrapping_add(0i32 as u32) as i32,
-            ) as u32;
+            ).unwrap() as u32;
             (*reg_xmm.offset(i_0 as isize)).u32_0[1usize] = safe_read32s(
                 addr.wrapping_add(160i32 as u32)
                     .wrapping_add((i_0 << 4i32) as u32)
                     .wrapping_add(4i32 as u32) as i32,
-            ) as u32;
+            ).unwrap() as u32;
             (*reg_xmm.offset(i_0 as isize)).u32_0[2usize] = safe_read32s(
                 addr.wrapping_add(160i32 as u32)
                     .wrapping_add((i_0 << 4i32) as u32)
                     .wrapping_add(8i32 as u32) as i32,
-            ) as u32;
+            ).unwrap() as u32;
             (*reg_xmm.offset(i_0 as isize)).u32_0[3usize] = safe_read32s(
                 addr.wrapping_add(160i32 as u32)
                     .wrapping_add((i_0 << 4i32) as u32)
                     .wrapping_add(12i32 as u32) as i32,
-            ) as u32;
+            ).unwrap() as u32;
             i_0 += 1
         }
         return;

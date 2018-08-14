@@ -1,7 +1,14 @@
-#![allow
-( dead_code , mutable_transmutes , non_camel_case_types , non_snake_case ,
-non_upper_case_globals , unused_mut )]
-#![feature ( extern_types , libc )]
+#![allow(
+    dead_code,
+    mutable_transmutes,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_mut
+)]
+#![feature(extern_types, libc)]
+
+use cpu2::cpu::*;
 
 extern "C" {
 
@@ -311,27 +318,9 @@ extern "C" {
     #[no_mangle]
     static CPU_EXCEPTION_VE: i32;
     #[no_mangle]
-    fn translate_address_read(address: i32) -> u32;
-    #[no_mangle]
-    fn translate_address_write(address: i32) -> u32;
-    #[no_mangle]
-    fn writable_or_pagefault(addr: i32, size: i32) -> ();
-    #[no_mangle]
     fn get_seg(segment: i32) -> i32;
     #[no_mangle]
     fn get_seg_prefix(default_segment: i32) -> i32;
-    #[no_mangle]
-    fn safe_read8(addr: i32) -> i32;
-    #[no_mangle]
-    fn safe_read16(addr: i32) -> i32;
-    #[no_mangle]
-    fn safe_read32s(address: i32) -> i32;
-    #[no_mangle]
-    fn safe_write8(addr: i32, value: i32) -> ();
-    #[no_mangle]
-    fn safe_write16(addr: i32, value: i32) -> ();
-    #[no_mangle]
-    fn safe_write32(address: i32, value: i32) -> ();
     #[no_mangle]
     fn get_reg_asize(reg: i32) -> i32;
     #[no_mangle]
@@ -942,8 +931,8 @@ pub unsafe extern "C" fn movsb_rep() -> () {
         let mut cont: i32 = 0i32;
         let mut start_count: i32 = count;
         let mut cycle_counter: i32 = string_get_cycle_count2(size, src, dest);
-        let mut phys_src: i32 = translate_address_read(src) as i32;
-        let mut phys_dest: i32 = translate_address_write(dest) as i32;
+        let mut phys_src: i32 = return_on_pagefault!(translate_address_read(src)) as i32;
+        let mut phys_dest: i32 = return_on_pagefault!(translate_address_write(dest)) as i32;
         loop {
             write8(phys_dest as u32, read8(phys_src as u32));
             phys_dest += size;
@@ -979,7 +968,7 @@ pub unsafe extern "C" fn movsb_no_rep() -> () {
     else {
         1i32
     };
-    safe_write8(dest, safe_read8(src));
+    return_on_pagefault!(safe_write8(dest, return_on_pagefault!(safe_read8(src))));
     add_reg_asize(EDI, size);
     add_reg_asize(ESI, size);
 }
@@ -1004,8 +993,10 @@ pub unsafe extern "C" fn movsw_rep() -> () {
         let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
         if 0 == dest & 1i32 && 0 == src & 1i32 {
             let mut single_size: i32 = if size < 0i32 { -1i32 } else { 1i32 };
-            let mut phys_src: i32 = (translate_address_read(src) >> 1i32) as i32;
-            let mut phys_dest: i32 = (translate_address_write(dest) >> 1i32) as i32;
+            let mut phys_src: i32 =
+                (return_on_pagefault!(translate_address_read(src)) >> 1i32) as i32;
+            let mut phys_dest: i32 =
+                (return_on_pagefault!(translate_address_write(dest)) >> 1i32) as i32;
             cycle_counter = string_get_cycle_count2(size, src, dest);
             loop {
                 write_aligned16(phys_dest as u32, read_aligned16(phys_src as u32) as u32);
@@ -1029,7 +1020,7 @@ pub unsafe extern "C" fn movsw_rep() -> () {
         }
         else {
             loop {
-                safe_write16(dest, safe_read16(src));
+                return_on_pagefault!(safe_write16(dest, return_on_pagefault!(safe_read16(src))));
                 dest += size;
                 add_reg_asize(EDI, size);
                 src += size;
@@ -1061,7 +1052,7 @@ pub unsafe extern "C" fn movsw_no_rep() -> () {
     else {
         2i32
     };
-    safe_write16(dest, safe_read16(src));
+    return_on_pagefault!(safe_write16(dest, return_on_pagefault!(safe_read16(src))));
     add_reg_asize(EDI, size);
     add_reg_asize(ESI, size);
 }
@@ -1086,8 +1077,10 @@ pub unsafe extern "C" fn movsd_rep() -> () {
         let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
         if 0 == dest & 3i32 && 0 == src & 3i32 {
             let mut single_size: i32 = if size < 0i32 { -1i32 } else { 1i32 };
-            let mut phys_src: i32 = (translate_address_read(src) >> 2i32) as i32;
-            let mut phys_dest: i32 = (translate_address_write(dest) >> 2i32) as i32;
+            let mut phys_src: i32 =
+                (return_on_pagefault!(translate_address_read(src)) >> 2i32) as i32;
+            let mut phys_dest: i32 =
+                (return_on_pagefault!(translate_address_write(dest)) >> 2i32) as i32;
             cycle_counter = string_get_cycle_count2(size, src, dest);
             loop {
                 write_aligned32(phys_dest as u32, read_aligned32(phys_src as u32));
@@ -1111,7 +1104,7 @@ pub unsafe extern "C" fn movsd_rep() -> () {
         }
         else {
             loop {
-                safe_write32(dest, safe_read32s(src));
+                return_on_pagefault!(safe_write32(dest, return_on_pagefault!(safe_read32s(src))));
                 dest += size;
                 add_reg_asize(EDI, size);
                 src += size;
@@ -1141,7 +1134,7 @@ pub unsafe extern "C" fn movsd_no_rep() -> () {
     else {
         4i32
     };
-    safe_write32(dest, safe_read32s(src));
+    return_on_pagefault!(safe_write32(dest, return_on_pagefault!(safe_read32s(src))));
     add_reg_asize(EDI, size);
     add_reg_asize(ESI, size);
 }
@@ -1166,8 +1159,8 @@ pub unsafe extern "C" fn cmpsb_rep(mut prefix_flag: i32) -> () {
         let mut start_count: i32 = count;
         let mut is_repz: i32 = (prefix_flag == PREFIX_REPZ) as i32;
         let mut cycle_counter: i32 = string_get_cycle_count2(size, src, dest);
-        let mut phys_src: i32 = translate_address_read(src) as i32;
-        let mut phys_dest: i32 = translate_address_read(dest) as i32;
+        let mut phys_src: i32 = return_on_pagefault!(translate_address_read(src)) as i32;
+        let mut phys_dest: i32 = return_on_pagefault!(translate_address_read(dest)) as i32;
         loop {
             data_dest = read8(phys_dest as u32);
             data_src = read8(phys_src as u32);
@@ -1207,8 +1200,8 @@ pub unsafe extern "C" fn cmpsb_no_rep() -> () {
     else {
         1i32
     };
-    data_src = safe_read8(src);
-    data_dest = safe_read8(dest);
+    data_src = return_on_pagefault!(safe_read8(src));
+    data_dest = return_on_pagefault!(safe_read8(dest));
     add_reg_asize(EDI, size);
     add_reg_asize(ESI, size);
     cmp8(data_src, data_dest);
@@ -1237,8 +1230,10 @@ pub unsafe extern "C" fn cmpsw_rep(mut prefix_flag: i32) -> () {
         let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
         if 0 == dest & 1i32 && 0 == src & 1i32 {
             let mut single_size: i32 = if size < 0i32 { -1i32 } else { 1i32 };
-            let mut phys_src: i32 = (translate_address_read(src) >> 1i32) as i32;
-            let mut phys_dest: i32 = (translate_address_read(dest) >> 1i32) as i32;
+            let mut phys_src: i32 =
+                (return_on_pagefault!(translate_address_read(src)) >> 1i32) as i32;
+            let mut phys_dest: i32 =
+                (return_on_pagefault!(translate_address_read(dest)) >> 1i32) as i32;
             cycle_counter = string_get_cycle_count2(size, src, dest);
             loop {
                 data_dest = read_aligned16(phys_dest as u32);
@@ -1263,8 +1258,8 @@ pub unsafe extern "C" fn cmpsw_rep(mut prefix_flag: i32) -> () {
         }
         else {
             loop {
-                data_dest = safe_read16(dest);
-                data_src = safe_read16(src);
+                data_dest = return_on_pagefault!(safe_read16(dest));
+                data_src = return_on_pagefault!(safe_read16(src));
                 dest += size;
                 add_reg_asize(EDI, size);
                 src += size;
@@ -1298,8 +1293,8 @@ pub unsafe extern "C" fn cmpsw_no_rep() -> () {
     else {
         2i32
     };
-    data_dest = safe_read16(dest);
-    data_src = safe_read16(src);
+    data_dest = return_on_pagefault!(safe_read16(dest));
+    data_src = return_on_pagefault!(safe_read16(src));
     add_reg_asize(EDI, size);
     add_reg_asize(ESI, size);
     cmp16(data_src, data_dest);
@@ -1328,8 +1323,10 @@ pub unsafe extern "C" fn cmpsd_rep(mut prefix_flag: i32) -> () {
         let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
         if 0 == dest & 3i32 && 0 == src & 3i32 {
             let mut single_size: i32 = if size < 0i32 { -1i32 } else { 1i32 };
-            let mut phys_src: i32 = (translate_address_read(src) >> 2i32) as i32;
-            let mut phys_dest: i32 = (translate_address_read(dest) >> 2i32) as i32;
+            let mut phys_src: i32 =
+                (return_on_pagefault!(translate_address_read(src)) >> 2i32) as i32;
+            let mut phys_dest: i32 =
+                (return_on_pagefault!(translate_address_read(dest)) >> 2i32) as i32;
             cycle_counter = string_get_cycle_count2(size, src, dest);
             loop {
                 data_dest = read_aligned32(phys_dest as u32);
@@ -1354,8 +1351,8 @@ pub unsafe extern "C" fn cmpsd_rep(mut prefix_flag: i32) -> () {
         }
         else {
             loop {
-                data_dest = safe_read32s(dest);
-                data_src = safe_read32s(src);
+                data_dest = return_on_pagefault!(safe_read32s(dest));
+                data_src = return_on_pagefault!(safe_read32s(src));
                 dest += size;
                 add_reg_asize(EDI, size);
                 src += size;
@@ -1389,8 +1386,8 @@ pub unsafe extern "C" fn cmpsd_no_rep() -> () {
     else {
         4i32
     };
-    data_dest = safe_read32s(dest);
-    data_src = safe_read32s(src);
+    data_dest = return_on_pagefault!(safe_read32s(dest));
+    data_src = return_on_pagefault!(safe_read32s(src));
     add_reg_asize(EDI, size);
     add_reg_asize(ESI, size);
     cmp32(data_src, data_dest);
@@ -1413,7 +1410,7 @@ pub unsafe extern "C" fn stosb_rep() -> () {
         let mut cont: i32 = 0i32;
         let mut start_count: i32 = count;
         let mut cycle_counter: i32 = string_get_cycle_count(size, dest);
-        let mut phys_dest: i32 = translate_address_write(dest) as i32;
+        let mut phys_dest: i32 = return_on_pagefault!(translate_address_write(dest)) as i32;
         loop {
             write8(phys_dest as u32, data);
             phys_dest += size;
@@ -1447,7 +1444,7 @@ pub unsafe extern "C" fn stosb_no_rep() -> () {
     else {
         1i32
     };
-    safe_write8(dest, data);
+    return_on_pagefault!(safe_write8(dest, data));
     add_reg_asize(EDI, size);
 }
 #[no_mangle]
@@ -1471,7 +1468,8 @@ pub unsafe extern "C" fn stosw_rep() -> () {
         let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
         if 0 == dest & 1i32 {
             let mut single_size: i32 = if size < 0i32 { -1i32 } else { 1i32 };
-            let mut phys_dest: i32 = (translate_address_write(dest) >> 1i32) as i32;
+            let mut phys_dest: i32 =
+                (return_on_pagefault!(translate_address_write(dest)) >> 1i32) as i32;
             cycle_counter = string_get_cycle_count(size, dest);
             loop {
                 write_aligned16(phys_dest as u32, data as u32);
@@ -1493,7 +1491,7 @@ pub unsafe extern "C" fn stosw_rep() -> () {
         }
         else {
             loop {
-                safe_write16(dest, data);
+                return_on_pagefault!(safe_write16(dest, data));
                 dest += size;
                 add_reg_asize(EDI, size);
                 cont = (decr_ecx_asize() != 0i32) as i32;
@@ -1521,7 +1519,7 @@ pub unsafe extern "C" fn stosw_no_rep() -> () {
     else {
         2i32
     };
-    safe_write16(dest, data);
+    return_on_pagefault!(safe_write16(dest, data));
     add_reg_asize(EDI, size);
 }
 #[no_mangle]
@@ -1545,7 +1543,8 @@ pub unsafe extern "C" fn stosd_rep() -> () {
         let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
         if 0 == dest & 3i32 {
             let mut single_size: i32 = if size < 0i32 { -1i32 } else { 1i32 };
-            let mut phys_dest: i32 = (translate_address_write(dest) >> 2i32) as i32;
+            let mut phys_dest: i32 =
+                (return_on_pagefault!(translate_address_write(dest)) >> 2i32) as i32;
             cycle_counter = string_get_cycle_count(size, dest);
             loop {
                 write_aligned32(phys_dest as u32, data);
@@ -1567,7 +1566,7 @@ pub unsafe extern "C" fn stosd_rep() -> () {
         }
         else {
             loop {
-                safe_write32(dest, data);
+                return_on_pagefault!(safe_write32(dest, data));
                 dest += size;
                 add_reg_asize(EDI, size);
                 cont = (decr_ecx_asize() != 0i32) as i32;
@@ -1595,7 +1594,7 @@ pub unsafe extern "C" fn stosd_no_rep() -> () {
     else {
         4i32
     };
-    safe_write32(dest, data);
+    return_on_pagefault!(safe_write32(dest, data));
     add_reg_asize(EDI, size);
 }
 #[no_mangle]
@@ -1615,7 +1614,7 @@ pub unsafe extern "C" fn lodsb_rep() -> () {
         let mut cont: i32 = 0i32;
         let mut start_count: i32 = count;
         let mut cycle_counter: i32 = string_get_cycle_count(size, src);
-        let mut phys_src: i32 = translate_address_read(src) as i32;
+        let mut phys_src: i32 = return_on_pagefault!(translate_address_read(src)) as i32;
         loop {
             *reg8.offset(AL as isize) = read8(phys_src as u32) as u8;
             phys_src += size;
@@ -1648,7 +1647,7 @@ pub unsafe extern "C" fn lodsb_no_rep() -> () {
     else {
         1i32
     };
-    *reg8.offset(AL as isize) = safe_read8(src) as u8;
+    *reg8.offset(AL as isize) = return_on_pagefault!(safe_read8(src)) as u8;
     add_reg_asize(ESI, size);
 }
 #[no_mangle]
@@ -1668,7 +1667,7 @@ pub unsafe extern "C" fn lodsw_rep() -> () {
         let mut cont: bool = 0 != 0i32;
         let mut cycle_counter: u32 = MAX_COUNT_PER_CYCLE as u32;
         loop {
-            *reg16.offset(AX as isize) = safe_read16(src) as u16;
+            *reg16.offset(AX as isize) = return_on_pagefault!(safe_read16(src)) as u16;
             src += size;
             add_reg_asize(ESI, size);
             cont = decr_ecx_asize() != 0i32;
@@ -1694,7 +1693,7 @@ pub unsafe extern "C" fn lodsw_no_rep() -> () {
     else {
         2i32
     };
-    *reg16.offset(AX as isize) = safe_read16(src) as u16;
+    *reg16.offset(AX as isize) = return_on_pagefault!(safe_read16(src)) as u16;
     add_reg_asize(ESI, size);
 }
 #[no_mangle]
@@ -1714,7 +1713,7 @@ pub unsafe extern "C" fn lodsd_rep() -> () {
         let mut cont: i32 = 0i32;
         let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
         loop {
-            *reg32s.offset(EAX as isize) = safe_read32s(src);
+            *reg32s.offset(EAX as isize) = return_on_pagefault!(safe_read32s(src));
             src += size;
             add_reg_asize(ESI, size);
             cont = (decr_ecx_asize() != 0i32) as i32;
@@ -1740,7 +1739,7 @@ pub unsafe extern "C" fn lodsd_no_rep() -> () {
     else {
         4i32
     };
-    *reg32s.offset(EAX as isize) = safe_read32s(src);
+    *reg32s.offset(EAX as isize) = return_on_pagefault!(safe_read32s(src));
     add_reg_asize(ESI, size);
 }
 #[no_mangle]
@@ -1763,7 +1762,7 @@ pub unsafe extern "C" fn scasb_rep(mut prefix_flag: i32) -> () {
         let mut start_count: i32 = count;
         let mut is_repz: i32 = (prefix_flag == PREFIX_REPZ) as i32;
         let mut cycle_counter: i32 = string_get_cycle_count(size, dest);
-        let mut phys_dest: i32 = translate_address_read(dest) as i32;
+        let mut phys_dest: i32 = return_on_pagefault!(translate_address_read(dest)) as i32;
         loop {
             data_dest = read8(phys_dest as u32);
             phys_dest += size;
@@ -1799,7 +1798,7 @@ pub unsafe extern "C" fn scasb_no_rep() -> () {
     };
     let mut data_dest: i32 = 0;
     let mut data_src: i32 = *reg8.offset(AL as isize) as i32;
-    data_dest = safe_read8(dest);
+    data_dest = return_on_pagefault!(safe_read8(dest));
     add_reg_asize(EDI, size);
     cmp8(data_src, data_dest);
 }
@@ -1826,7 +1825,8 @@ pub unsafe extern "C" fn scasw_rep(mut prefix_flag: i32) -> () {
         let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
         if 0 == dest & 1i32 {
             let mut single_size: i32 = if size < 0i32 { -1i32 } else { 1i32 };
-            let mut phys_dest: i32 = (translate_address_read(dest) >> 1i32) as i32;
+            let mut phys_dest: i32 =
+                (return_on_pagefault!(translate_address_read(dest)) >> 1i32) as i32;
             cycle_counter = string_get_cycle_count(size, dest);
             loop {
                 data_dest = read_aligned16(phys_dest as u32);
@@ -1848,7 +1848,7 @@ pub unsafe extern "C" fn scasw_rep(mut prefix_flag: i32) -> () {
         }
         else {
             loop {
-                data_dest = safe_read16(dest);
+                data_dest = return_on_pagefault!(safe_read16(dest));
                 dest += size;
                 add_reg_asize(EDI, size);
                 cont =
@@ -1879,7 +1879,7 @@ pub unsafe extern "C" fn scasw_no_rep() -> () {
     };
     let mut data_dest: i32 = 0;
     let mut data_src: i32 = *reg16.offset(AL as isize) as i32;
-    data_dest = safe_read16(dest);
+    data_dest = return_on_pagefault!(safe_read16(dest));
     add_reg_asize(EDI, size);
     cmp16(data_src, data_dest);
 }
@@ -1906,7 +1906,8 @@ pub unsafe extern "C" fn scasd_rep(mut prefix_flag: i32) -> () {
         let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
         if 0 == dest & 3i32 {
             let mut single_size: i32 = if size < 0i32 { -1i32 } else { 1i32 };
-            let mut phys_dest: i32 = (translate_address_read(dest) >> 2i32) as i32;
+            let mut phys_dest: i32 =
+                (return_on_pagefault!(translate_address_read(dest)) >> 2i32) as i32;
             cycle_counter = string_get_cycle_count(size, dest);
             loop {
                 data_dest = read_aligned32(phys_dest as u32);
@@ -1928,7 +1929,7 @@ pub unsafe extern "C" fn scasd_rep(mut prefix_flag: i32) -> () {
         }
         else {
             loop {
-                data_dest = safe_read32s(dest);
+                data_dest = return_on_pagefault!(safe_read32s(dest));
                 dest += size;
                 add_reg_asize(EDI, size);
                 cont =
@@ -1959,7 +1960,7 @@ pub unsafe extern "C" fn scasd_no_rep() -> () {
     };
     let mut data_dest: i32 = 0;
     let mut data_src: i32 = *reg32s.offset(EAX as isize);
-    data_dest = safe_read32s(dest);
+    data_dest = return_on_pagefault!(safe_read32s(dest));
     add_reg_asize(EDI, size);
     cmp32(data_src, data_dest);
 }
@@ -1985,7 +1986,7 @@ pub unsafe extern "C" fn insb_rep() -> () {
             let mut cont: i32 = 0i32;
             let mut start_count: i32 = count;
             let mut cycle_counter: i32 = string_get_cycle_count(size, dest);
-            let mut phys_dest: i32 = translate_address_write(dest) as i32;
+            let mut phys_dest: i32 = return_on_pagefault!(translate_address_write(dest)) as i32;
             loop {
                 write8(phys_dest as u32, io_port_read8(port));
                 phys_dest += size;
@@ -2025,8 +2026,8 @@ pub unsafe extern "C" fn insb_no_rep() -> () {
         else {
             1i32
         };
-        writable_or_pagefault(dest, 1i32);
-        safe_write8(dest, io_port_read8(port));
+        return_on_pagefault!(writable_or_pagefault(dest, 1i32));
+        return_on_pagefault!(safe_write8(dest, io_port_read8(port)));
         add_reg_asize(EDI, size);
         return;
     };
@@ -2056,7 +2057,8 @@ pub unsafe extern "C" fn insw_rep() -> () {
             let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
             if 0 == dest & 1i32 {
                 let mut single_size: i32 = if size < 0i32 { -1i32 } else { 1i32 };
-                let mut phys_dest: i32 = (translate_address_write(dest) >> 1i32) as i32;
+                let mut phys_dest: i32 =
+                    (return_on_pagefault!(translate_address_write(dest)) >> 1i32) as i32;
                 cycle_counter = string_get_cycle_count(size, dest);
                 loop {
                     write_aligned16(phys_dest as u32, io_port_read16(port) as u32);
@@ -2079,8 +2081,8 @@ pub unsafe extern "C" fn insw_rep() -> () {
             }
             else {
                 loop {
-                    writable_or_pagefault(dest, 2i32);
-                    safe_write16(dest, io_port_read16(port));
+                    return_on_pagefault!(writable_or_pagefault(dest, 2i32));
+                    return_on_pagefault!(safe_write16(dest, io_port_read16(port)));
                     dest += size;
                     add_reg_asize(EDI, size);
                     cont = (decr_ecx_asize() != 0i32) as i32;
@@ -2113,8 +2115,8 @@ pub unsafe extern "C" fn insw_no_rep() -> () {
         else {
             2i32
         };
-        writable_or_pagefault(dest, 2i32);
-        safe_write16(dest, io_port_read16(port));
+        return_on_pagefault!(writable_or_pagefault(dest, 2i32));
+        return_on_pagefault!(safe_write16(dest, io_port_read16(port)));
         add_reg_asize(EDI, size);
         return;
     };
@@ -2144,7 +2146,8 @@ pub unsafe extern "C" fn insd_rep() -> () {
             let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
             if 0 == dest & 3i32 {
                 let mut single_size: i32 = if size < 0i32 { -1i32 } else { 1i32 };
-                let mut phys_dest: i32 = (translate_address_write(dest) >> 2i32) as i32;
+                let mut phys_dest: i32 =
+                    (return_on_pagefault!(translate_address_write(dest)) >> 2i32) as i32;
                 cycle_counter = string_get_cycle_count(size, dest);
                 loop {
                     write_aligned32(phys_dest as u32, io_port_read32(port));
@@ -2167,8 +2170,8 @@ pub unsafe extern "C" fn insd_rep() -> () {
             }
             else {
                 loop {
-                    writable_or_pagefault(dest, 4i32);
-                    safe_write32(dest, io_port_read32(port));
+                    return_on_pagefault!(writable_or_pagefault(dest, 4i32));
+                    return_on_pagefault!(safe_write32(dest, io_port_read32(port)));
                     dest += size;
                     add_reg_asize(EDI, size);
                     cont = (decr_ecx_asize() != 0i32) as i32;
@@ -2201,8 +2204,8 @@ pub unsafe extern "C" fn insd_no_rep() -> () {
         else {
             4i32
         };
-        writable_or_pagefault(dest, 4i32);
-        safe_write32(dest, io_port_read32(port));
+        return_on_pagefault!(writable_or_pagefault(dest, 4i32));
+        return_on_pagefault!(safe_write32(dest, io_port_read32(port)));
         add_reg_asize(EDI, size);
         return;
     };
@@ -2229,7 +2232,7 @@ pub unsafe extern "C" fn outsb_rep() -> () {
             let mut cont: i32 = 0i32;
             let mut start_count: i32 = count;
             let mut cycle_counter: i32 = string_get_cycle_count(size, src);
-            let mut phys_src: i32 = translate_address_read(src) as i32;
+            let mut phys_src: i32 = return_on_pagefault!(translate_address_read(src)) as i32;
             loop {
                 io_port_write8(port, read8(phys_src as u32));
                 phys_src += size;
@@ -2269,7 +2272,7 @@ pub unsafe extern "C" fn outsb_no_rep() -> () {
         else {
             1i32
         };
-        io_port_write8(port, safe_read8(src));
+        io_port_write8(port, return_on_pagefault!(safe_read8(src)));
         add_reg_asize(ESI, size);
         return;
     };
@@ -2299,7 +2302,8 @@ pub unsafe extern "C" fn outsw_rep() -> () {
             let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
             if 0 == src & 1i32 {
                 let mut single_size: i32 = if size < 0i32 { -1i32 } else { 1i32 };
-                let mut phys_src: i32 = (translate_address_read(src) >> 1i32) as i32;
+                let mut phys_src: i32 =
+                    (return_on_pagefault!(translate_address_read(src)) >> 1i32) as i32;
                 cycle_counter = string_get_cycle_count(size, src);
                 loop {
                     io_port_write16(port, read_aligned16(phys_src as u32));
@@ -2322,7 +2326,7 @@ pub unsafe extern "C" fn outsw_rep() -> () {
             }
             else {
                 loop {
-                    io_port_write16(port, safe_read16(src));
+                    io_port_write16(port, return_on_pagefault!(safe_read16(src)));
                     src += size;
                     add_reg_asize(ESI, size);
                     cont = (decr_ecx_asize() != 0i32) as i32;
@@ -2355,7 +2359,7 @@ pub unsafe extern "C" fn outsw_no_rep() -> () {
         else {
             2i32
         };
-        io_port_write16(port, safe_read16(src));
+        io_port_write16(port, return_on_pagefault!(safe_read16(src)));
         add_reg_asize(ESI, size);
         return;
     };
@@ -2385,7 +2389,8 @@ pub unsafe extern "C" fn outsd_rep() -> () {
             let mut cycle_counter: i32 = MAX_COUNT_PER_CYCLE;
             if 0 == src & 3i32 {
                 let mut single_size: i32 = if size < 0i32 { -1i32 } else { 1i32 };
-                let mut phys_src: i32 = (translate_address_read(src) >> 2i32) as i32;
+                let mut phys_src: i32 =
+                    (return_on_pagefault!(translate_address_read(src)) >> 2i32) as i32;
                 cycle_counter = string_get_cycle_count(size, src);
                 loop {
                     io_port_write32(port, read_aligned32(phys_src as u32));
@@ -2408,7 +2413,7 @@ pub unsafe extern "C" fn outsd_rep() -> () {
             }
             else {
                 loop {
-                    io_port_write32(port, safe_read32s(src));
+                    io_port_write32(port, return_on_pagefault!(safe_read32s(src)));
                     src += size;
                     add_reg_asize(ESI, size);
                     cont = (decr_ecx_asize() != 0i32) as i32;
@@ -2441,7 +2446,7 @@ pub unsafe extern "C" fn outsd_no_rep() -> () {
         else {
             4i32
         };
-        io_port_write32(port, safe_read32s(src));
+        io_port_write32(port, return_on_pagefault!(safe_read32s(src)));
         add_reg_asize(ESI, size);
         return;
     };

@@ -8,6 +8,8 @@
 )]
 #![feature(extern_types, libc)]
 
+use cpu2::cpu::*;
+
 extern "C" {
 
     #[no_mangle]
@@ -69,10 +71,6 @@ extern "C" {
     fn trigger_de() -> ();
     #[no_mangle]
     fn c_comment(m: *const i8) -> ();
-    #[no_mangle]
-    fn safe_read8(addr: i32) -> i32;
-    #[no_mangle]
-    fn translate_address_write(address: i32) -> u32;
     #[no_mangle]
     fn read8(addr: u32) -> i32;
     #[no_mangle]
@@ -1910,14 +1908,15 @@ pub unsafe extern "C" fn btr_reg(mut bit_base: i32, mut bit_offset: i32) -> i32 
 }
 #[no_mangle]
 pub unsafe extern "C" fn bt_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
-    let mut bit_base: i32 = safe_read8(virt_addr + (bit_offset >> 3i32));
+    let mut bit_base: i32 = return_on_pagefault!(safe_read8(virt_addr + (bit_offset >> 3i32)));
     bit_offset &= 7i32;
     *flags = *flags & !1i32 | bit_base >> bit_offset & 1i32;
     *flags_changed &= !1i32;
 }
 #[no_mangle]
 pub unsafe extern "C" fn btc_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
-    let mut phys_addr: i32 = translate_address_write(virt_addr + (bit_offset >> 3i32)) as i32;
+    let mut phys_addr: i32 =
+        return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3i32))) as i32;
     let mut bit_base: i32 = read8(phys_addr as u32);
     bit_offset &= 7i32;
     *flags = *flags & !1i32 | bit_base >> bit_offset & 1i32;
@@ -1926,7 +1925,8 @@ pub unsafe extern "C" fn btc_mem(mut virt_addr: i32, mut bit_offset: i32) -> () 
 }
 #[no_mangle]
 pub unsafe extern "C" fn btr_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
-    let mut phys_addr: i32 = translate_address_write(virt_addr + (bit_offset >> 3i32)) as i32;
+    let mut phys_addr: i32 =
+        return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3i32))) as i32;
     let mut bit_base: i32 = read8(phys_addr as u32);
     bit_offset &= 7i32;
     *flags = *flags & !1i32 | bit_base >> bit_offset & 1i32;
@@ -1935,7 +1935,8 @@ pub unsafe extern "C" fn btr_mem(mut virt_addr: i32, mut bit_offset: i32) -> () 
 }
 #[no_mangle]
 pub unsafe extern "C" fn bts_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
-    let mut phys_addr: i32 = translate_address_write(virt_addr + (bit_offset >> 3i32)) as i32;
+    let mut phys_addr: i32 =
+        return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3i32))) as i32;
     let mut bit_base: i32 = read8(phys_addr as u32);
     bit_offset &= 7i32;
     *flags = *flags & !1i32 | bit_base >> bit_offset & 1i32;

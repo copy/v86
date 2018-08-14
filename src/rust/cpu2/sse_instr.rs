@@ -1,7 +1,14 @@
-#![allow
-( dead_code , mutable_transmutes , non_camel_case_types , non_snake_case ,
-non_upper_case_globals , unused_mut )]
-#![feature ( extern_types , libc )]
+#![allow(
+    dead_code,
+    mutable_transmutes,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_mut
+)]
+#![feature(extern_types, libc)]
+
+use cpu2::cpu::*;
 
 extern "C" {
 
@@ -307,12 +314,6 @@ extern "C" {
     #[no_mangle]
     static CPU_EXCEPTION_VE: i32;
     #[no_mangle]
-    fn safe_read64s(addr: i32) -> reg64;
-    #[no_mangle]
-    fn safe_write64(addr: i32, value: i64) -> ();
-    #[no_mangle]
-    fn safe_write128(addr: i32, value: reg128) -> ();
-    #[no_mangle]
     fn read_mmx64s(r: i32) -> reg64;
     #[no_mangle]
     fn write_mmx64(r: i32, low: i32, high: i32) -> ();
@@ -326,35 +327,6 @@ extern "C" {
     fn write_xmm128(r: i32, i0: i32, i1: i32, i2: i32, i3: i32) -> ();
     #[no_mangle]
     fn write_xmm_reg128(r: i32, data: reg128) -> ();
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union reg64 {
-    i8_0: [i8; 8],
-    i16_0: [i16; 4],
-    i32_0: [i32; 2],
-    i64_0: [i64; 1],
-    u8_0: [u8; 8],
-    u16_0: [u16; 4],
-    u32_0: [u32; 2],
-    u64_0: [u64; 1],
-    f32_0: [f32; 2],
-    f64_0: [f64; 1],
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union reg128 {
-    i8_0: [i8; 16],
-    i16_0: [i16; 8],
-    i32_0: [i32; 4],
-    i64_0: [i64; 2],
-    u8_0: [u8; 16],
-    u16_0: [u16; 8],
-    u32_0: [u32; 4],
-    u64_0: [u64; 2],
-    f32_0: [f32; 4],
-    f64_0: [f64; 2],
 }
 
 #[derive(Copy, Clone)]
@@ -744,13 +716,13 @@ unsafe extern "C" fn __isgreaterequall(mut __x: f64, mut __y: f64) -> i32 {
 pub unsafe extern "C" fn mov_r_m64(mut addr: i32, mut r: i32) -> () {
     c_comment!(("mov* m64, mm"));
     let mut data: reg64 = read_mmx64s(r);
-    safe_write64(addr, data.u64_0[0usize] as i64);
+    return_on_pagefault!(safe_write64(addr, data.u64_0[0usize] as i64));
 }
 #[no_mangle]
 pub unsafe extern "C" fn movl_r128_m64(mut addr: i32, mut r: i32) -> () {
     c_comment!(("mov* m64, xmm"));
     let mut data: reg64 = read_xmm64s(r);
-    safe_write64(addr, data.u64_0[0usize] as i64);
+    return_on_pagefault!(safe_write64(addr, data.u64_0[0usize] as i64));
 }
 #[no_mangle]
 pub unsafe extern "C" fn mov_r_r128(mut r1: i32, mut r2: i32) -> () {
@@ -762,7 +734,7 @@ pub unsafe extern "C" fn mov_r_r128(mut r1: i32, mut r2: i32) -> () {
 pub unsafe extern "C" fn mov_r_m128(mut addr: i32, mut r: i32) -> () {
     c_comment!(("mov* m128, xmm"));
     let mut data: reg128 = read_xmm128s(r);
-    safe_write128(addr, data);
+    return_on_pagefault!(safe_write128(addr, data));
 }
 #[no_mangle]
 pub unsafe extern "C" fn mov_rm_r128(mut source: reg128, mut r: i32) -> () {
@@ -772,7 +744,7 @@ pub unsafe extern "C" fn mov_rm_r128(mut source: reg128, mut r: i32) -> () {
 #[no_mangle]
 pub unsafe extern "C" fn movh_m64_r128(mut addr: i32, mut r: i32) -> () {
     c_comment!(("movhp* xmm, m64"));
-    let mut data: reg64 = safe_read64s(addr);
+    let mut data: reg64 = return_on_pagefault!(safe_read64s(addr));
     let mut orig: reg128 = read_xmm128s(r);
     write_xmm128(
         r,
@@ -786,7 +758,7 @@ pub unsafe extern "C" fn movh_m64_r128(mut addr: i32, mut r: i32) -> () {
 pub unsafe extern "C" fn movh_r128_m64(mut addr: i32, mut r: i32) -> () {
     c_comment!(("movhp* m64, xmm"));
     let mut data: reg128 = read_xmm128s(r);
-    safe_write64(addr, data.u64_0[1usize] as i64);
+    return_on_pagefault!(safe_write64(addr, data.u64_0[1usize] as i64));
 }
 #[no_mangle]
 pub unsafe extern "C" fn pand_r128(mut source: reg128, mut r: i32) -> () {

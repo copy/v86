@@ -1,7 +1,14 @@
-#![allow
-( dead_code , mutable_transmutes , non_camel_case_types , non_snake_case ,
-non_upper_case_globals , unused_mut )]
-#![feature ( extern_types , libc )]
+#![allow(
+    dead_code,
+    mutable_transmutes,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_mut
+)]
+#![feature(extern_types, libc)]
+
+use cpu2::cpu::*;
 
 extern "C" {
 
@@ -323,23 +330,9 @@ extern "C" {
     #[no_mangle]
     static CPU_EXCEPTION_VE: i32;
     #[no_mangle]
-    fn writable_or_pagefault(addr: i32, size: i32) -> ();
-    #[no_mangle]
     fn is_osize_32() -> bool;
     #[no_mangle]
     fn trigger_ud() -> ();
-    #[no_mangle]
-    fn safe_read16(addr: i32) -> i32;
-    #[no_mangle]
-    fn safe_read32s(address: i32) -> i32;
-    #[no_mangle]
-    fn safe_read64s(addr: i32) -> reg64;
-    #[no_mangle]
-    fn safe_write16(addr: i32, value: i32) -> ();
-    #[no_mangle]
-    fn safe_write32(address: i32, value: i32) -> ();
-    #[no_mangle]
-    fn safe_write64(addr: i32, value: i64) -> ();
     #[no_mangle]
     static fpu_stack_ptr: *mut u32;
     #[no_mangle]
@@ -974,29 +967,29 @@ pub unsafe extern "C" fn fpu_integer_round(mut f: f64) -> f64 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn fpu_load_m32(mut addr: i32) -> f64 {
+pub unsafe extern "C" fn fpu_load_m32(mut addr: i32) -> Result<f64, ()> {
     let mut v: f32_int = f32_int {
-        i32_0: safe_read32s(addr),
+        i32_0: safe_read32s(addr)?,
     };
-    return v.f32_0 as f64;
+    Ok(v.f32_0 as f64)
 }
 #[no_mangle]
-pub unsafe extern "C" fn fpu_load_m64(mut addr: i32) -> f64 {
-    let mut value: u64 = safe_read64s(addr).u64_0[0usize];
+pub unsafe extern "C" fn fpu_load_m64(mut addr: i32) -> Result<f64, ()> {
+    let mut value: u64 = safe_read64s(addr)?.u64_0[0usize];
     let mut v: f64_int = f64_int { u64_0: [value] };
-    return v.f64_0;
+    Ok(v.f64_0)
 }
 #[no_mangle]
-pub unsafe extern "C" fn fpu_load_m80(mut addr: u32) -> f64 {
-    let mut value: u64 = safe_read64s(addr as i32).u64_0[0usize];
+pub unsafe extern "C" fn fpu_load_m80(mut addr: u32) -> Result<f64, ()> {
+    let mut value: u64 = safe_read64s(addr as i32)?.u64_0[0usize];
     let mut low: u32 = value as u32;
     let mut high: u32 = (value >> 32i32) as u32;
-    let mut exponent: i32 = safe_read16(addr.wrapping_add(8i32 as u32) as i32);
+    let mut exponent: i32 = safe_read16(addr.wrapping_add(8i32 as u32) as i32)?;
     let mut sign: i32 = exponent >> 15i32;
     exponent &= !32768i32;
     if exponent == 0i32 {
         c_comment!(("TODO: denormal numbers"));
-        return 0i32 as f64;
+        Ok(0i32 as f64)
     }
     else if exponent < 32767i32 {
         exponent -= 16383i32;
@@ -1008,7 +1001,7 @@ pub unsafe extern "C" fn fpu_load_m80(mut addr: u32) -> f64 {
         c_comment!(("Simply compute the 64 bit floating point number."));
         c_comment!(("An alternative write the mantissa, sign and exponent in the"));
         c_comment!(("float64_byte and return float64[0]"));
-        return mantissa * pow(2i32 as f64, (exponent - 63i32) as f64);
+        Ok(mantissa * pow(2i32 as f64, (exponent - 63i32) as f64))
     }
     else {
         c_comment!(("TODO: NaN, Infinity"));
@@ -1021,8 +1014,8 @@ pub unsafe extern "C" fn fpu_load_m80(mut addr: u32) -> f64 {
         double_int_view.u8_0[5usize] = 0i32 as u8;
         double_int_view.u8_0[4usize] = 0i32 as u8;
         double_int_view.i32_0[0usize] = 0i32;
-        return double_int_view.f64_0;
-    };
+        Ok(double_int_view.f64_0)
+    }
 }
 #[no_mangle]
 pub unsafe extern "C" fn fpu_load_status_word() -> i32 {
@@ -1110,7 +1103,7 @@ pub unsafe extern "C" fn fpu_ffree(mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe extern "C" fn fpu_fildm64(mut addr: i32) -> () {
-    let mut value: i64 = safe_read64s(addr).i64_0[0usize];
+    let mut value: i64 = return_on_pagefault!(safe_read64s(addr)).i64_0[0usize];
     let mut m64: f64 = value as f64;
     fpu_push(m64);
 }
@@ -1142,11 +1135,11 @@ pub unsafe extern "C" fn fpu_finit() -> () {
 pub unsafe extern "C" fn fpu_fistm16(mut addr: i32) -> () {
     let mut st0: f64 = fpu_integer_round(fpu_get_st0());
     if st0 <= 32767i32 as f64 && st0 >= -32768i32 as f64 {
-        safe_write16(addr, st0 as i32);
+        return_on_pagefault!(safe_write16(addr, st0 as i32));
     }
     else {
         fpu_invalid_arithmetic();
-        safe_write16(addr, 32768i32);
+        return_on_pagefault!(safe_write16(addr, 32768i32));
     };
 }
 #[no_mangle]
@@ -1165,7 +1158,7 @@ pub unsafe extern "C" fn fpu_fistm32(mut addr: i32) -> () {
         c_comment!(("(input fits, but same value as error value)"));
         fpu_invalid_arithmetic();
     }
-    safe_write32(addr, i);
+    return_on_pagefault!(safe_write32(addr, i));
 }
 #[no_mangle]
 pub unsafe extern "C" fn fpu_fistm32p(mut addr: i32) -> () {
@@ -1183,27 +1176,30 @@ pub unsafe extern "C" fn fpu_fistm64p(mut addr: i32) -> () {
         value = 9223372036854775808u64 as i64;
         fpu_invalid_arithmetic();
     }
-    safe_write64(addr, value);
+    return_on_pagefault!(safe_write64(addr, value));
     fpu_pop();
 }
 #[no_mangle]
 pub static mut TWO_POW_63: f64 = unsafe { 9223372036854775808u64 as f64 };
 #[no_mangle]
 pub unsafe extern "C" fn fpu_fldcw(mut addr: i32) -> () {
-    let mut word: i32 = safe_read16(addr);
+    let mut word: i32 = return_on_pagefault!(safe_read16(addr));
     *fpu_control_word = word;
 }
 #[no_mangle]
 pub unsafe extern "C" fn fpu_fldenv(mut addr: i32) -> () {
     if is_osize_32() {
-        *fpu_control_word = safe_read16(addr);
-        fpu_set_status_word(safe_read16(addr + 4i32));
-        fpu_set_tag_word(safe_read16(addr + 8i32));
-        *fpu_ip.offset(0isize) = safe_read32s(addr + 12i32);
-        *fpu_ip_selector.offset(0isize) = safe_read16(addr + 16i32);
-        *fpu_opcode.offset(0isize) = safe_read16(addr + 18i32);
-        *fpu_dp.offset(0isize) = safe_read32s(addr + 20i32);
-        *fpu_dp_selector.offset(0isize) = safe_read16(addr + 24i32)
+        // TODO: Add readable_or_pagefault
+        return_on_pagefault!(translate_address_read(addr));
+        return_on_pagefault!(translate_address_read(addr + 28));
+        *fpu_control_word = safe_read16(addr).unwrap();
+        fpu_set_status_word(safe_read16(addr + 4i32).unwrap());
+        fpu_set_tag_word(safe_read16(addr + 8i32).unwrap());
+        *fpu_ip.offset(0isize) = safe_read32s(addr + 12i32).unwrap();
+        *fpu_ip_selector.offset(0isize) = safe_read16(addr + 16i32).unwrap();
+        *fpu_opcode.offset(0isize) = safe_read16(addr + 18i32).unwrap();
+        *fpu_dp.offset(0isize) = safe_read32s(addr + 20i32).unwrap();
+        *fpu_dp_selector.offset(0isize) = safe_read16(addr + 24i32).unwrap()
     }
     else {
         dbg_log_c!(("fldenv16"));
@@ -1234,11 +1230,17 @@ pub unsafe extern "C" fn fpu_set_status_word(mut sw: i32) -> () {
     *fpu_stack_ptr = (sw >> 11i32 & 7i32) as u32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn fpu_fldm32(mut addr: i32) -> () { fpu_push(safe_read32s(addr) as f64); }
+pub unsafe extern "C" fn fpu_fldm32(mut addr: i32) -> () {
+    fpu_push(return_on_pagefault!(safe_read32s(addr)) as f64);
+}
 #[no_mangle]
-pub unsafe extern "C" fn fpu_fldm64(mut addr: i32) -> () { fpu_push(fpu_load_m64(addr)); }
+pub unsafe extern "C" fn fpu_fldm64(mut addr: i32) -> () {
+    fpu_push(return_on_pagefault!(fpu_load_m64(addr)));
+}
 #[no_mangle]
-pub unsafe extern "C" fn fpu_fldm80(mut addr: i32) -> () { fpu_push(fpu_load_m80(addr as u32)); }
+pub unsafe extern "C" fn fpu_fldm80(mut addr: i32) -> () {
+    fpu_push(return_on_pagefault!(fpu_load_m80(addr as u32)));
+}
 #[no_mangle]
 pub unsafe extern "C" fn fpu_fmul(mut target_index: i32, mut val: f64) -> () {
     let mut st0: f64 = fpu_get_st0();
@@ -1247,7 +1249,7 @@ pub unsafe extern "C" fn fpu_fmul(mut target_index: i32, mut val: f64) -> () {
 }
 #[no_mangle]
 pub unsafe extern "C" fn fpu_fnstsw_mem(mut addr: i32) -> () {
-    safe_write16(addr, fpu_load_status_word());
+    return_on_pagefault!(safe_write16(addr, fpu_load_status_word()));
 }
 #[no_mangle]
 pub unsafe extern "C" fn fpu_fnstsw_reg() -> () {
@@ -1274,19 +1276,22 @@ pub unsafe extern "C" fn fpu_fprem() -> () {
 }
 #[no_mangle]
 pub unsafe extern "C" fn fpu_frstor(mut addr: i32) -> () {
+    // TODO: Add readable_or_pagefault
+    return_on_pagefault!(translate_address_read(addr));
+    return_on_pagefault!(translate_address_read(addr + 28 + 8 * 10));
     fpu_fldenv(addr);
     addr += 28i32;
     let mut i: i32 = 0i32;
     while i < 8i32 {
         *fpu_st.offset(((i as u32).wrapping_add(*fpu_stack_ptr) & 7i32 as u32) as isize) =
-            fpu_load_m80(addr as u32);
+            fpu_load_m80(addr as u32).unwrap();
         addr += 10i32;
         i += 1
     }
 }
 #[no_mangle]
 pub unsafe extern "C" fn fpu_fsave(mut addr: i32) -> () {
-    writable_or_pagefault(addr, 108i32);
+    return_on_pagefault!(writable_or_pagefault(addr, 108i32));
     fpu_fstenv(addr);
     addr += 28i32;
     let mut i: i32 = 0i32;
@@ -1334,24 +1339,24 @@ pub unsafe extern "C" fn fpu_store_m80(mut addr: u32, mut n: f64) -> () {
     safe_write64(
         addr as i32,
         (low as u64 & 4294967295u32 as u64 | (high as u64) << 32i32) as i64,
-    );
+    ).unwrap();
     safe_write16(
         addr.wrapping_add(8i32 as u32) as i32,
         (sign as i32) << 8i32 | exponent,
-    );
+    ).unwrap();
 }
 #[no_mangle]
 pub unsafe extern "C" fn fpu_fstenv(mut addr: i32) -> () {
     if is_osize_32() {
-        writable_or_pagefault(addr, 26i32);
-        safe_write16(addr, *fpu_control_word);
-        safe_write16(addr + 4i32, fpu_load_status_word());
-        safe_write16(addr + 8i32, fpu_load_tag_word());
-        safe_write32(addr + 12i32, *fpu_ip.offset(0isize));
-        safe_write16(addr + 16i32, *fpu_ip_selector.offset(0isize));
-        safe_write16(addr + 18i32, *fpu_opcode.offset(0isize));
-        safe_write32(addr + 20i32, *fpu_dp.offset(0isize));
-        safe_write16(addr + 24i32, *fpu_dp_selector.offset(0isize));
+        return_on_pagefault!(writable_or_pagefault(addr, 26i32));
+        safe_write16(addr, *fpu_control_word).unwrap();
+        safe_write16(addr + 4i32, fpu_load_status_word()).unwrap();
+        safe_write16(addr + 8i32, fpu_load_tag_word()).unwrap();
+        safe_write32(addr + 12i32, *fpu_ip.offset(0isize)).unwrap();
+        safe_write16(addr + 16i32, *fpu_ip_selector.offset(0isize)).unwrap();
+        safe_write16(addr + 18i32, *fpu_opcode.offset(0isize)).unwrap();
+        safe_write32(addr + 20i32, *fpu_dp.offset(0isize)).unwrap();
+        safe_write16(addr + 24i32, *fpu_dp_selector.offset(0isize)).unwrap();
     }
     else {
         dbg_log_c!(("fstenv16"));
@@ -1383,18 +1388,22 @@ pub unsafe extern "C" fn fpu_fst(mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe extern "C" fn fpu_fst80p(mut addr: i32) -> () {
-    writable_or_pagefault(addr, 10i32);
+    return_on_pagefault!(writable_or_pagefault(addr, 10i32));
     fpu_store_m80(addr as u32, fpu_get_st0());
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe extern "C" fn fpu_fstcw(mut addr: i32) -> () { safe_write16(addr, *fpu_control_word); }
+pub unsafe extern "C" fn fpu_fstcw(mut addr: i32) -> () {
+    return_on_pagefault!(safe_write16(addr, *fpu_control_word));
+}
 #[no_mangle]
-pub unsafe extern "C" fn fpu_fstm32(mut addr: i32) -> () { fpu_store_m32(addr, fpu_get_st0()); }
+pub unsafe extern "C" fn fpu_fstm32(mut addr: i32) -> () {
+    return_on_pagefault!(fpu_store_m32(addr, fpu_get_st0()));
+}
 #[no_mangle]
-pub unsafe extern "C" fn fpu_store_m32(mut addr: i32, mut x: f64) -> () {
+pub unsafe extern "C" fn fpu_store_m32(mut addr: i32, mut x: f64) -> Result<(), ()> {
     let mut v: f32_int = f32_int { f32_0: x as f32 };
-    safe_write32(addr, v.i32_0);
+    safe_write32(addr, v.i32_0)
 }
 #[no_mangle]
 pub unsafe extern "C" fn fpu_fstm32p(mut addr: i32) -> () {
@@ -1402,11 +1411,13 @@ pub unsafe extern "C" fn fpu_fstm32p(mut addr: i32) -> () {
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe extern "C" fn fpu_fstm64(mut addr: i32) -> () { fpu_store_m64(addr, fpu_get_st0()); }
+pub unsafe extern "C" fn fpu_fstm64(mut addr: i32) -> () {
+    return_on_pagefault!(fpu_store_m64(addr, fpu_get_st0()));
+}
 #[no_mangle]
-pub unsafe extern "C" fn fpu_store_m64(mut addr: i32, mut x: f64) -> () {
+pub unsafe extern "C" fn fpu_store_m64(mut addr: i32, mut x: f64) -> Result<(), ()> {
     let mut v: f64_int = f64_int { f64_0: x };
-    safe_write64(addr, v.u64_0[0usize] as i64);
+    safe_write64(addr, v.u64_0[0usize] as i64)
 }
 #[no_mangle]
 pub unsafe extern "C" fn fpu_fstm64p(mut addr: i32) -> () {
