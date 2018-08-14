@@ -1874,46 +1874,54 @@ pub unsafe extern "C" fn modrm_resolve(mut modrm_byte: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn cycle_internal() -> () {
-    let mut wasm_table_index: u16 = 0;
-    let mut initial_tsc: i32 = 0;
-    let mut initial_state: u16 = 0;
     profiler_stat_increment(S_CYCLE_INTERNAL);
-    *previous_ip = *instruction_pointer;
-    let mut phys_addr: u32 = get_phys_eip() as u32;
-    let mut state_flags: cached_state_flags = pack_current_state_flags();
-    let mut entry: u32 = jit_find_cache_entry(phys_addr, state_flags);
-    if 0 != entry {
-        profiler_stat_increment(S_RUN_FROM_CACHE);
-        initial_tsc = *timestamp_counter as i32;
-        wasm_table_index = (entry & 65535i32 as u32) as u16;
-        initial_state = (entry >> 16i32) as u16;
-        call_indirect1(
-            (wasm_table_index as u32).wrapping_add(256i32 as u32) as i32,
-            initial_state as i32,
-        );
-        clear_current_cpu_exception();
-        profiler_stat_increment_by(
-            S_RUN_FROM_CACHE_STEPS,
-            (*timestamp_counter).wrapping_sub(initial_tsc as u32) as i32,
-        );
+    if false {
+        let mut wasm_table_index: u16 = 0;
+        let mut initial_tsc: i32 = 0;
+        let mut initial_state: u16 = 0;
+        *previous_ip = *instruction_pointer;
+        let mut phys_addr: u32 = return_on_pagefault!(get_phys_eip()) as u32;
+        let mut state_flags: cached_state_flags = pack_current_state_flags();
+        let mut entry: u32 = jit_find_cache_entry(phys_addr, state_flags);
+        if 0 != entry {
+            profiler_stat_increment(S_RUN_FROM_CACHE);
+            initial_tsc = *timestamp_counter as i32;
+            wasm_table_index = (entry & 65535i32 as u32) as u16;
+            initial_state = (entry >> 16i32) as u16;
+            call_indirect1(
+                (wasm_table_index as u32).wrapping_add(256i32 as u32) as i32,
+                initial_state as i32,
+            );
+            clear_current_cpu_exception();
+            profiler_stat_increment_by(
+                S_RUN_FROM_CACHE_STEPS,
+                (*timestamp_counter).wrapping_sub(initial_tsc as u32) as i32,
+            );
+        }
+        else {
+            if DEBUG {
+                dbg_assert!(!must_not_fault);
+                must_not_fault = 0 != 1i32
+            }
+            jit_increase_hotness_and_maybe_compile(phys_addr, get_seg_cs() as u32, state_flags);
+            if DEBUG {
+                dbg_assert!(must_not_fault);
+                must_not_fault = 0 != 0i32
+            }
+            let mut initial_tsc_0: i32 = *timestamp_counter as i32;
+            jit_run_interpreted(phys_addr as i32);
+            profiler_stat_increment_by(
+                S_RUN_INTERPRETED_STEPS,
+                (*timestamp_counter).wrapping_sub(initial_tsc_0 as u32) as i32,
+            );
+        };
     }
     else {
-        if DEBUG {
-            dbg_assert!(!must_not_fault);
-            must_not_fault = 0 != 1i32
-        }
-        jit_increase_hotness_and_maybe_compile(phys_addr, get_seg_cs() as u32, state_flags);
-        if DEBUG {
-            dbg_assert!(must_not_fault);
-            must_not_fault = 0 != 0i32
-        }
-        let mut initial_tsc_0: i32 = *timestamp_counter as i32;
-        jit_run_interpreted(phys_addr as i32);
-        profiler_stat_increment_by(
-            S_RUN_INTERPRETED_STEPS,
-            (*timestamp_counter).wrapping_sub(initial_tsc_0 as u32) as i32,
-        );
-    };
+        *previous_ip = *instruction_pointer;
+        *timestamp_counter += 1;
+        let opcode = return_on_pagefault!(read_imm8());
+        run_instruction(opcode | (*is_32 as i32) << 8);
+    }
 }
 #[no_mangle]
 pub unsafe extern "C" fn get_phys_eip() -> i32 {

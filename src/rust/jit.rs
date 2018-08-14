@@ -1157,6 +1157,7 @@ pub fn jit_increase_hotness_and_maybe_compile(
     cs_offset: u32,
     state_flags: CachedStateFlags,
 ) {
+    return;
     record_entry_point(ctx, phys_address);
     let page = Page::page_of(phys_address);
     let address_hash = jit_hot_hash_page(page) as usize;
