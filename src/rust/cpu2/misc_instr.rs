@@ -307,29 +307,11 @@ extern "C" {
     #[no_mangle]
     static CPU_EXCEPTION_VE: i32;
     #[no_mangle]
-    fn translate_address_read(address: i32) -> u32;
-    #[no_mangle]
-    fn writable_or_pagefault(addr: i32, size: i32) -> ();
-    #[no_mangle]
     fn get_seg_cs() -> i32;
     #[no_mangle]
     fn get_seg_ss() -> i32;
     #[no_mangle]
     fn trigger_gp_non_raising(code: i32) -> ();
-    #[no_mangle]
-    fn safe_read8(addr: i32) -> i32;
-    #[no_mangle]
-    fn safe_read16(addr: i32) -> i32;
-    #[no_mangle]
-    fn safe_read32s(address: i32) -> i32;
-    #[no_mangle]
-    fn safe_write8(addr: i32, value: i32) -> ();
-    #[no_mangle]
-    fn safe_write16(addr: i32, value: i32) -> ();
-    #[no_mangle]
-    fn safe_write32(address: i32, value: i32) -> ();
-    #[no_mangle]
-    fn safe_write128(addr: i32, value: reg128) -> ();
     #[no_mangle]
     fn write_reg8(index: i32, value: i32) -> ();
     #[no_mangle]
@@ -501,38 +483,9 @@ pub union unnamed {
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub union reg64 {
-    i8_0: [i8; 8],
-    i16_0: [i16; 4],
-    i32_0: [i32; 2],
-    i64_0: [i64; 1],
-    u8_0: [u8; 8],
-    u16_0: [u16; 4],
-    u32_0: [u32; 2],
-    u64_0: [u64; 1],
-    f32_0: [f32; 2],
-    f64_0: [f64; 1],
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub union unnamed_0 {
     __f: f32,
     __i: u32,
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union reg128 {
-    i8_0: [i8; 16],
-    i16_0: [i16; 8],
-    i32_0: [i32; 4],
-    i64_0: [i64; 2],
-    u8_0: [u8; 16],
-    u16_0: [u16; 8],
-    u32_0: [u32; 4],
-    u64_0: [u64; 2],
-    f32_0: [f32; 4],
-    f64_0: [f64; 2],
 }
 
 unsafe extern "C" fn __FLOAT_BITS(mut __f: f32) -> u32 {
@@ -1078,105 +1031,159 @@ pub unsafe extern "C" fn adjust_stack_reg(mut adjustment: i32) -> () {
         *fresh1 = (*fresh1 as i32 + adjustment) as u16
     };
 }
+
 #[no_mangle]
-pub unsafe extern "C" fn push16_ss16(mut imm16: i32) -> () {
+pub unsafe extern "C" fn push16_ss16(mut imm16: i32) -> Result<(), ()> {
     let mut sp: i32 = get_seg_ss() + (*reg16.offset(SP as isize) as i32 - 2i32 & 65535i32);
-    safe_write16(sp, imm16);
+    safe_write16(sp, imm16)?;
     let ref mut fresh2 = *reg16.offset(SP as isize);
     *fresh2 = (*fresh2 as i32 + -2i32) as u16;
+    Ok(())
 }
 #[no_mangle]
-pub unsafe extern "C" fn push16_ss32(mut imm16: i32) -> () {
+pub unsafe extern "C" fn push16_ss32(mut imm16: i32) -> Result<(), ()> {
     let mut sp: i32 = get_seg_ss() + *reg32s.offset(ESP as isize) - 2i32;
-    safe_write16(sp, imm16);
+    safe_write16(sp, imm16)?;
     let ref mut fresh3 = *reg32s.offset(ESP as isize);
     *fresh3 += -2i32;
+    Ok(())
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn push16_ss16_jit(mut imm16: i32) {
+    return_on_pagefault!(push16_ss16(imm16))
 }
 #[no_mangle]
-pub unsafe extern "C" fn push16_ss16_mem(mut addr: i32) -> () { push16_ss16(safe_read16(addr)); }
+pub unsafe extern "C" fn push16_ss32_jit(mut imm16: i32) {
+    return_on_pagefault!(push16_ss32(imm16))
+}
+
 #[no_mangle]
-pub unsafe extern "C" fn push16_ss32_mem(mut addr: i32) -> () { push16_ss32(safe_read16(addr)); }
+pub unsafe extern "C" fn push16_ss16_mem(mut addr: i32) -> Result<(), ()> {
+    push16_ss16(safe_read16(addr)?)
+}
 #[no_mangle]
-pub unsafe extern "C" fn push16(mut imm16: i32) -> () {
+pub unsafe extern "C" fn push16_ss32_mem(mut addr: i32) -> Result<(), ()> {
+    push16_ss32(safe_read16(addr)?)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn push16_ss16_mem_jit(mut addr: i32) {
+    return_on_pagefault!(push16_ss16(addr))
+}
+#[no_mangle]
+pub unsafe extern "C" fn push16_ss32_mem_jit(mut addr: i32) {
+    return_on_pagefault!(push16_ss32(addr))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn push16(mut imm16: i32) -> Result<(), ()> {
     if *stack_size_32 {
-        push16_ss32(imm16);
+        push16_ss32(imm16)
     }
     else {
-        push16_ss16(imm16);
-    };
+        push16_ss16(imm16)
+    }
 }
+
 #[no_mangle]
-pub unsafe extern "C" fn push32_ss16(mut imm32: i32) -> () {
+pub unsafe extern "C" fn push32_ss16(mut imm32: i32) -> Result<(), ()> {
     let mut new_sp: i32 = *reg16.offset(SP as isize) as i32 - 4i32 & 65535i32;
-    safe_write32(get_seg_ss() + new_sp, imm32);
+    safe_write32(get_seg_ss() + new_sp, imm32)?;
     *reg16.offset(SP as isize) = new_sp as u16;
+    Ok(())
 }
 #[no_mangle]
-pub unsafe extern "C" fn push32_ss32(mut imm32: i32) -> () {
+pub unsafe extern "C" fn push32_ss32(mut imm32: i32) -> Result<(), ()> {
     let mut new_esp: i32 = *reg32s.offset(ESP as isize) - 4i32;
-    safe_write32(get_seg_ss() + new_esp, imm32);
+    safe_write32(get_seg_ss() + new_esp, imm32)?;
     *reg32s.offset(ESP as isize) = new_esp;
+    Ok(())
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn push32_ss16_jit(mut imm32: i32) {
+    return_on_pagefault!(push32_ss16(imm32))
 }
 #[no_mangle]
-pub unsafe extern "C" fn push32_ss16_mem(mut addr: i32) -> () { push32_ss16(safe_read32s(addr)); }
+pub unsafe extern "C" fn push32_ss32_jit(mut imm32: i32) {
+    return_on_pagefault!(push32_ss32(imm32))
+}
+
 #[no_mangle]
-pub unsafe extern "C" fn push32_ss32_mem(mut addr: i32) -> () { push32_ss32(safe_read32s(addr)); }
+pub unsafe extern "C" fn push32_ss16_mem(mut addr: i32) -> Result<(), ()> {
+    push32_ss16(safe_read32s(addr)?)
+}
 #[no_mangle]
-pub unsafe extern "C" fn push32(mut imm32: i32) -> () {
+pub unsafe extern "C" fn push32_ss32_mem(mut addr: i32) -> Result<(), ()> {
+    push32_ss32(safe_read32s(addr)?)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn push32_ss16_mem_jit(mut addr: i32) {
+    return_on_pagefault!(push32_ss16_mem(addr))
+}
+#[no_mangle]
+pub unsafe extern "C" fn push32_ss32_mem_jit(mut addr: i32) {
+    return_on_pagefault!(push32_ss32_mem(addr))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn push32(mut imm32: i32) -> Result<(), ()> {
     if *stack_size_32 {
-        push32_ss32(imm32);
+        push32_ss32(imm32)
     }
     else {
-        push32_ss16(imm32);
-    };
+        push32_ss16(imm32)
+    }
 }
 #[no_mangle]
-pub unsafe extern "C" fn pop16() -> i32 {
+pub unsafe extern "C" fn pop16() -> Result<i32, ()> {
     if *stack_size_32 {
-        return pop16_ss32();
+        pop16_ss32()
     }
     else {
-        return pop16_ss16();
-    };
+        pop16_ss16()
+    }
 }
 #[no_mangle]
-pub unsafe extern "C" fn pop16_ss16() -> i32 {
+pub unsafe extern "C" fn pop16_ss16() -> Result<i32, ()> {
     let mut sp: i32 = get_seg_ss() + *reg16.offset(SP as isize) as i32;
-    let mut result: i32 = safe_read16(sp);
+    let mut result: i32 = safe_read16(sp)?;
     let ref mut fresh4 = *reg16.offset(SP as isize);
     *fresh4 = (*fresh4 as i32 + 2i32) as u16;
-    return result;
+    Ok(result)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pop16_ss32() -> i32 {
+pub unsafe extern "C" fn pop16_ss32() -> Result<i32, ()> {
     let mut esp: i32 = get_seg_ss() + *reg32s.offset(ESP as isize);
-    let mut result: i32 = safe_read16(esp);
+    let mut result: i32 = safe_read16(esp)?;
     let ref mut fresh5 = *reg32s.offset(ESP as isize);
     *fresh5 += 2i32;
-    return result;
+    Ok(result)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pop32s() -> i32 {
+pub unsafe extern "C" fn pop32s() -> Result<i32, ()> {
     if *stack_size_32 {
-        return pop32s_ss32();
+        pop32s_ss32()
     }
     else {
-        return pop32s_ss16();
-    };
+        pop32s_ss16()
+    }
 }
 #[no_mangle]
-pub unsafe extern "C" fn pop32s_ss16() -> i32 {
+pub unsafe extern "C" fn pop32s_ss16() -> Result<i32, ()> {
     let mut sp: i32 = *reg16.offset(SP as isize) as i32;
-    let mut result: i32 = safe_read32s(get_seg_ss() + sp);
+    let mut result: i32 = safe_read32s(get_seg_ss() + sp)?;
     *reg16.offset(SP as isize) = (sp + 4i32) as u16;
-    return result;
+    Ok(result)
 }
 #[no_mangle]
-pub unsafe extern "C" fn pop32s_ss32() -> i32 {
+pub unsafe extern "C" fn pop32s_ss32() -> Result<i32, ()> {
     let mut esp: i32 = *reg32s.offset(ESP as isize);
-    let mut result: i32 = safe_read32s(get_seg_ss() + esp);
+    let mut result: i32 = safe_read32s(get_seg_ss() + esp)?;
     *reg32s.offset(ESP as isize) = esp + 4i32;
-    return result;
+    Ok(result)
 }
 #[no_mangle]
 pub unsafe extern "C" fn pusha16() -> () {

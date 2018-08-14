@@ -26,6 +26,11 @@ console.assert(
 
 gen_table();
 
+function wrap_imm_call(imm)
+{
+    return `match ${imm} { Ok(o) => o, Err(()) => return }`;
+}
+
 function gen_read_imm_call(op, size_variant)
 {
     let size = (op.os || op.opcode % 2 === 1) ? size_variant : 8;
@@ -34,18 +39,18 @@ function gen_read_imm_call(op, size_variant)
     {
         if(op.imm8)
         {
-            return "read_imm8()";
+            return wrap_imm_call("read_imm8()");
         }
         else if(op.imm8s)
         {
-            return "read_imm8s()";
+            return wrap_imm_call("read_imm8s()");
         }
         else
         {
             if(op.immaddr)
             {
                 // immaddr: depends on address size
-                return "read_moffs()";
+                return wrap_imm_call("read_moffs()");
             }
             else
             {
@@ -53,12 +58,12 @@ function gen_read_imm_call(op, size_variant)
 
                 if(op.imm1632 && size === 16 || op.imm16)
                 {
-                    return "read_imm16()";
+                    return wrap_imm_call("read_imm16()");
                 }
                 else
                 {
                     console.assert(op.imm1632 && size === 32 || op.imm32);
-                    return "read_imm32s()";
+                    return wrap_imm_call("read_imm32s()");
                 }
             }
         }
@@ -124,7 +129,7 @@ function gen_instruction_body(encodings, size)
 
     if(encoding.e)
     {
-        code.push("let modrm_byte = read_imm8();");
+        code.push(`let modrm_byte = ${wrap_imm_call("read_imm8()")};`);
     }
 
     if(has_66.length || has_F2.length || has_F3.length)
@@ -246,19 +251,11 @@ function gen_instruction_body_after_fixed_g(encoding, size)
 
         const instruction_name = make_instruction_name(encoding, size);
 
-        let modrm_resolve_prefix = undefined;
-
-        if(encoding.requires_prefix_call)
-        {
-            modrm_resolve_prefix = gen_call(instruction_name + "_mem_pre");
-        }
-
         const imm_read = gen_read_imm_call(encoding, size);
 
         if(encoding.ignore_mod)
         {
             console.assert(!imm_read, "Unexpected instruction (ignore mod with immediate value)");
-            console.assert(!modrm_resolve_prefix, "Unexpected instruction (ignore mod with prefix call)");
 
             // Has modrm byte, but the 2 mod bits are ignored and both
             // operands are always registers (0f20-0f24)
@@ -271,7 +268,18 @@ function gen_instruction_body_after_fixed_g(encoding, size)
         }
         else
         {
-            const mem_args = ["modrm_resolve(modrm_byte)"];
+            let mem_args;
+
+            if(encoding.custom_modrm_resolve)
+            {
+                // requires special handling around modrm_resolve
+                mem_args = ["modrm_byte"];
+            }
+            else
+            {
+                mem_args = ["match modrm_resolve(modrm_byte) { Ok(a) => a, Err(()) => return }"];
+            }
+
             const reg_args = ["modrm_byte & 7"];
 
             if(encoding.fixed_g === undefined)
@@ -294,7 +302,6 @@ function gen_instruction_body_after_fixed_g(encoding, size)
                         {
                             condition: "modrm_byte < 0xC0",
                             body: [].concat(
-                                modrm_resolve_prefix ? [modrm_resolve_prefix] : [],
                                 gen_call(`${instruction_name}_mem`, mem_args)
                             ),
                         }
@@ -319,12 +326,12 @@ function gen_instruction_body_after_fixed_g(encoding, size)
         if(encoding.extra_imm16)
         {
             console.assert(imm_read);
-            args.push("read_imm16()");
+            args.push(wrap_imm_call("read_imm16()"));
         }
         else if(encoding.extra_imm8)
         {
             console.assert(imm_read);
-            args.push("read_imm8()");
+            args.push(wrap_imm_call("read_imm8()"));
         }
 
         return [].concat(
@@ -397,11 +404,12 @@ function gen_table()
     if(to_generate.interpreter)
     {
         const code = [
+            "#![cfg_attr(rustfmt, rustfmt_skip)]",
+
             "use cpu2::cpu::*;",
             "use cpu2::instructions::*;",
             "use cpu2::global_pointers::*;",
 
-            "#[cfg_attr(rustfmt, rustfmt_skip)]",
             "pub unsafe fn run(opcode: u32) {",
             table,
             "}",
@@ -466,11 +474,12 @@ function gen_table()
     if(to_generate.interpreter0f_16)
     {
         const code = [
+            "#![cfg_attr(rustfmt, rustfmt_skip)]",
+
             "use cpu2::cpu::*;",
             "use cpu2::instructions_0f::*;",
             "use cpu2::global_pointers::*;",
 
-            "#[cfg_attr(rustfmt, rustfmt_skip)]",
             "pub unsafe fn run(opcode: u8) {",
             table0f_16,
             "}",
@@ -486,11 +495,12 @@ function gen_table()
     if(to_generate.interpreter0f_32)
     {
         const code = [
+            "#![cfg_attr(rustfmt, rustfmt_skip)]",
+
             "use cpu2::cpu::*;",
             "use cpu2::instructions_0f::*;",
             "use cpu2::global_pointers::*;",
 
-            "#[cfg_attr(rustfmt, rustfmt_skip)]",
             "pub unsafe fn run(opcode: u8) {",
             table0f_32,
             "}",

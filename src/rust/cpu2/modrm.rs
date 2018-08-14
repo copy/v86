@@ -1,7 +1,14 @@
-#![allow
-( dead_code , mutable_transmutes , non_camel_case_types , non_snake_case ,
-non_upper_case_globals , unused_mut )]
-#![feature ( extern_types , libc )]
+#![allow(
+    dead_code,
+    mutable_transmutes,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_mut
+)]
+#![feature(extern_types, libc)]
+
+use cpu2::cpu::*;
 
 extern "C" {
 
@@ -302,14 +309,6 @@ extern "C" {
     static CPU_EXCEPTION_XM: i32;
     #[no_mangle]
     static CPU_EXCEPTION_VE: i32;
-    #[no_mangle]
-    fn read_imm8() -> i32;
-    #[no_mangle]
-    fn read_imm8s() -> i32;
-    #[no_mangle]
-    fn read_imm16() -> i32;
-    #[no_mangle]
-    fn read_imm32s() -> i32;
     #[no_mangle]
     fn get_seg_prefix(default_segment: i32) -> i32;
     #[no_mangle]
@@ -853,181 +852,141 @@ unsafe extern "C" fn __isgreaterequall(mut __x: f64, mut __y: f64) -> i32 {
     } && __x >= __y) as i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn resolve_modrm16(mut modrm_byte: i32) -> i32 {
-    match modrm_byte {
-        0 | 8 | 16 | 24 | 32 | 40 | 48 | 56 => {
-            return get_seg_prefix_ds(
-                *reg16.offset(BX as isize) as i32 + *reg16.offset(SI as isize) as i32 & 65535i32,
-            )
-        },
-        64 | 72 | 80 | 88 | 96 | 104 | 112 | 120 => {
-            return get_seg_prefix_ds(
-                *reg16.offset(BX as isize) as i32
-                    + *reg16.offset(SI as isize) as i32
-                    + read_imm8s()
-                    & 65535i32,
-            )
-        },
-        128 | 136 | 144 | 152 | 160 | 168 | 176 | 184 => {
-            return get_seg_prefix_ds(
-                *reg16.offset(BX as isize) as i32
-                    + *reg16.offset(SI as isize) as i32
-                    + read_imm16()
-                    & 65535i32,
-            )
-        },
-        1 | 9 | 17 | 25 | 33 | 41 | 49 | 57 => {
-            return get_seg_prefix_ds(
-                *reg16.offset(BX as isize) as i32 + *reg16.offset(DI as isize) as i32 & 65535i32,
-            )
-        },
-        65 | 73 | 81 | 89 | 97 | 105 | 113 | 121 => {
-            return get_seg_prefix_ds(
-                *reg16.offset(BX as isize) as i32
-                    + *reg16.offset(DI as isize) as i32
-                    + read_imm8s()
-                    & 65535i32,
-            )
-        },
-        129 | 137 | 145 | 153 | 161 | 169 | 177 | 185 => {
-            return get_seg_prefix_ds(
-                *reg16.offset(BX as isize) as i32
-                    + *reg16.offset(DI as isize) as i32
-                    + read_imm16()
-                    & 65535i32,
-            )
-        },
-        2 | 10 | 18 | 26 | 34 | 42 | 50 | 58 => {
-            return get_seg_prefix_ss(
-                *reg16.offset(BP as isize) as i32 + *reg16.offset(SI as isize) as i32 & 65535i32,
-            )
-        },
-        66 | 74 | 82 | 90 | 98 | 106 | 114 | 122 => {
-            return get_seg_prefix_ss(
-                *reg16.offset(BP as isize) as i32
-                    + *reg16.offset(SI as isize) as i32
-                    + read_imm8s()
-                    & 65535i32,
-            )
-        },
-        130 | 138 | 146 | 154 | 162 | 170 | 178 | 186 => {
-            return get_seg_prefix_ss(
-                *reg16.offset(BP as isize) as i32
-                    + *reg16.offset(SI as isize) as i32
-                    + read_imm16()
-                    & 65535i32,
-            )
-        },
-        3 | 11 | 19 | 27 | 35 | 43 | 51 | 59 => {
-            return get_seg_prefix_ss(
-                *reg16.offset(BP as isize) as i32 + *reg16.offset(DI as isize) as i32 & 65535i32,
-            )
-        },
-        67 | 75 | 83 | 91 | 99 | 107 | 115 | 123 => {
-            return get_seg_prefix_ss(
-                *reg16.offset(BP as isize) as i32
-                    + *reg16.offset(DI as isize) as i32
-                    + read_imm8s()
-                    & 65535i32,
-            )
-        },
-        131 | 139 | 147 | 155 | 163 | 171 | 179 | 187 => {
-            return get_seg_prefix_ss(
-                *reg16.offset(BP as isize) as i32
-                    + *reg16.offset(DI as isize) as i32
-                    + read_imm16()
-                    & 65535i32,
-            )
-        },
+pub unsafe extern "C" fn resolve_modrm16(mut modrm_byte: i32) -> Result<i32, ()> {
+    Ok(match modrm_byte {
+        0 | 8 | 16 | 24 | 32 | 40 | 48 | 56 => get_seg_prefix_ds(
+            *reg16.offset(BX as isize) as i32 + *reg16.offset(SI as isize) as i32 & 65535i32,
+        ),
+        64 | 72 | 80 | 88 | 96 | 104 | 112 | 120 => get_seg_prefix_ds(
+            *reg16.offset(BX as isize) as i32 + *reg16.offset(SI as isize) as i32 + read_imm8s()?
+                & 65535i32,
+        ),
+        128 | 136 | 144 | 152 | 160 | 168 | 176 | 184 => get_seg_prefix_ds(
+            *reg16.offset(BX as isize) as i32 + *reg16.offset(SI as isize) as i32 + read_imm16()?
+                & 65535i32,
+        ),
+        1 | 9 | 17 | 25 | 33 | 41 | 49 | 57 => get_seg_prefix_ds(
+            *reg16.offset(BX as isize) as i32 + *reg16.offset(DI as isize) as i32 & 65535i32,
+        ),
+        65 | 73 | 81 | 89 | 97 | 105 | 113 | 121 => get_seg_prefix_ds(
+            *reg16.offset(BX as isize) as i32 + *reg16.offset(DI as isize) as i32 + read_imm8s()?
+                & 65535i32,
+        ),
+        129 | 137 | 145 | 153 | 161 | 169 | 177 | 185 => get_seg_prefix_ds(
+            *reg16.offset(BX as isize) as i32 + *reg16.offset(DI as isize) as i32 + read_imm16()?
+                & 65535i32,
+        ),
+        2 | 10 | 18 | 26 | 34 | 42 | 50 | 58 => get_seg_prefix_ss(
+            *reg16.offset(BP as isize) as i32 + *reg16.offset(SI as isize) as i32 & 65535i32,
+        ),
+        66 | 74 | 82 | 90 | 98 | 106 | 114 | 122 => get_seg_prefix_ss(
+            *reg16.offset(BP as isize) as i32 + *reg16.offset(SI as isize) as i32 + read_imm8s()?
+                & 65535i32,
+        ),
+        130 | 138 | 146 | 154 | 162 | 170 | 178 | 186 => get_seg_prefix_ss(
+            *reg16.offset(BP as isize) as i32 + *reg16.offset(SI as isize) as i32 + read_imm16()?
+                & 65535i32,
+        ),
+        3 | 11 | 19 | 27 | 35 | 43 | 51 | 59 => get_seg_prefix_ss(
+            *reg16.offset(BP as isize) as i32 + *reg16.offset(DI as isize) as i32 & 65535i32,
+        ),
+        67 | 75 | 83 | 91 | 99 | 107 | 115 | 123 => get_seg_prefix_ss(
+            *reg16.offset(BP as isize) as i32 + *reg16.offset(DI as isize) as i32 + read_imm8s()?
+                & 65535i32,
+        ),
+        131 | 139 | 147 | 155 | 163 | 171 | 179 | 187 => get_seg_prefix_ss(
+            *reg16.offset(BP as isize) as i32 + *reg16.offset(DI as isize) as i32 + read_imm16()?
+                & 65535i32,
+        ),
         4 | 12 | 20 | 28 | 36 | 44 | 52 | 60 => {
-            return get_seg_prefix_ds(*reg16.offset(SI as isize) as i32 & 65535i32)
+            get_seg_prefix_ds(*reg16.offset(SI as isize) as i32 & 65535i32)
         },
         68 | 76 | 84 | 92 | 100 | 108 | 116 | 124 => {
-            return get_seg_prefix_ds(*reg16.offset(SI as isize) as i32 + read_imm8s() & 65535i32)
+            get_seg_prefix_ds(*reg16.offset(SI as isize) as i32 + read_imm8s()? & 65535i32)
         },
         132 | 140 | 148 | 156 | 164 | 172 | 180 | 188 => {
-            return get_seg_prefix_ds(*reg16.offset(SI as isize) as i32 + read_imm16() & 65535i32)
+            get_seg_prefix_ds(*reg16.offset(SI as isize) as i32 + read_imm16()? & 65535i32)
         },
         5 | 13 | 21 | 29 | 37 | 45 | 53 | 61 => {
-            return get_seg_prefix_ds(*reg16.offset(DI as isize) as i32 & 65535i32)
+            get_seg_prefix_ds(*reg16.offset(DI as isize) as i32 & 65535i32)
         },
         69 | 77 | 85 | 93 | 101 | 109 | 117 | 125 => {
-            return get_seg_prefix_ds(*reg16.offset(DI as isize) as i32 + read_imm8s() & 65535i32)
+            get_seg_prefix_ds(*reg16.offset(DI as isize) as i32 + read_imm8s()? & 65535i32)
         },
         133 | 141 | 149 | 157 | 165 | 173 | 181 | 189 => {
-            return get_seg_prefix_ds(*reg16.offset(DI as isize) as i32 + read_imm16() & 65535i32)
+            get_seg_prefix_ds(*reg16.offset(DI as isize) as i32 + read_imm16()? & 65535i32)
         },
-        6 | 14 | 22 | 30 | 38 | 46 | 54 | 62 => return get_seg_prefix_ds(read_imm16()),
+        6 | 14 | 22 | 30 | 38 | 46 | 54 | 62 => get_seg_prefix_ds(read_imm16()?),
         70 | 78 | 86 | 94 | 102 | 110 | 118 | 126 => {
-            return get_seg_prefix_ss(*reg16.offset(BP as isize) as i32 + read_imm8s() & 65535i32)
+            get_seg_prefix_ss(*reg16.offset(BP as isize) as i32 + read_imm8s()? & 65535i32)
         },
         134 | 142 | 150 | 158 | 166 | 174 | 182 | 190 => {
-            return get_seg_prefix_ss(*reg16.offset(BP as isize) as i32 + read_imm16() & 65535i32)
+            get_seg_prefix_ss(*reg16.offset(BP as isize) as i32 + read_imm16()? & 65535i32)
         },
         7 | 15 | 23 | 31 | 39 | 47 | 55 | 63 => {
-            return get_seg_prefix_ds(*reg16.offset(BX as isize) as i32 & 65535i32)
+            get_seg_prefix_ds(*reg16.offset(BX as isize) as i32 & 65535i32)
         },
         71 | 79 | 87 | 95 | 103 | 111 | 119 | 127 => {
-            return get_seg_prefix_ds(*reg16.offset(BX as isize) as i32 + read_imm8s() & 65535i32)
+            get_seg_prefix_ds(*reg16.offset(BX as isize) as i32 + read_imm8s()? & 65535i32)
         },
         135 | 143 | 151 | 159 | 167 | 175 | 183 | 191 => {
-            return get_seg_prefix_ds(*reg16.offset(BX as isize) as i32 + read_imm16() & 65535i32)
+            get_seg_prefix_ds(*reg16.offset(BX as isize) as i32 + read_imm16()? & 65535i32)
         },
         _ => {
             dbg_assert!(0 != 0i32);
-            return 0i32;
+            0i32
         },
-    };
+    })
 }
 #[no_mangle]
-pub unsafe extern "C" fn resolve_modrm32(mut modrm_byte: i32) -> i32 {
+pub unsafe extern "C" fn resolve_modrm32_(mut modrm_byte: i32) -> Result<i32, ()> {
     let mut r: u8 = (modrm_byte & 7i32) as u8;
     dbg_assert!(modrm_byte < 192i32);
-    if r as i32 == 4i32 {
+    Ok(if r as i32 == 4i32 {
         if modrm_byte < 64i32 {
-            return resolve_sib(0 != 0i32);
+            resolve_sib(0 != 0i32)?
         }
         else {
-            return resolve_sib(0 != 1i32) + if modrm_byte < 128i32 {
-                read_imm8s()
+            resolve_sib(0 != 1i32)? + if modrm_byte < 128i32 {
+                read_imm8s()?
             }
             else {
-                read_imm32s()
-            };
+                read_imm32s()?
+            }
         }
     }
     else if r as i32 == 5i32 {
         if modrm_byte < 64i32 {
-            return get_seg_prefix_ds(read_imm32s());
+            get_seg_prefix_ds(read_imm32s()?)
         }
         else {
-            return get_seg_prefix_ss(
+            get_seg_prefix_ss(
                 *reg32s.offset(EBP as isize) + if modrm_byte < 128i32 {
-                    read_imm8s()
+                    read_imm8s()?
                 }
                 else {
-                    read_imm32s()
+                    read_imm32s()?
                 },
-            );
+            )
         }
     }
     else if modrm_byte < 64i32 {
-        return get_seg_prefix_ds(*reg32s.offset(r as isize));
+        get_seg_prefix_ds(*reg32s.offset(r as isize))
     }
     else {
-        return get_seg_prefix_ds(
+        get_seg_prefix_ds(
             *reg32s.offset(r as isize) + if modrm_byte < 128i32 {
-                read_imm8s()
+                read_imm8s()?
             }
             else {
-                read_imm32s()
+                read_imm32s()?
             },
-        );
-    };
+        )
+    })
 }
-unsafe extern "C" fn resolve_sib(mut mod_0: bool) -> i32 {
+unsafe extern "C" fn resolve_sib(mut mod_0: bool) -> Result<i32, ()> {
     let mut s: u8 = 0;
-    let mut sib_byte: u8 = read_imm8() as u8;
+    let mut sib_byte: u8 = read_imm8()? as u8;
     let mut r: u8 = (sib_byte as i32 & 7i32) as u8;
     let mut m: u8 = (sib_byte as i32 >> 3i32 & 7i32) as u8;
     let mut base: i32 = 0;
@@ -1042,7 +1001,7 @@ unsafe extern "C" fn resolve_sib(mut mod_0: bool) -> i32 {
             seg = SS
         }
         else {
-            base = read_imm32s();
+            base = read_imm32s()?;
             seg = DS
         }
     }
@@ -1058,7 +1017,7 @@ unsafe extern "C" fn resolve_sib(mut mod_0: bool) -> i32 {
         s = (sib_byte as i32 >> 6i32 & 3i32) as u8;
         offset = *reg32s.offset(m as isize) << s as i32
     }
-    return get_seg_prefix(seg) + base + offset;
+    Ok(get_seg_prefix(seg) + base + offset)
 }
 #[no_mangle]
 pub unsafe extern "C" fn MODRM_ENTRY() -> i32 { return 0i32; }
@@ -1067,77 +1026,63 @@ pub unsafe extern "C" fn MODRM_ENTRY16() -> i32 { return 0i32; }
 #[no_mangle]
 pub unsafe extern "C" fn MODRM_ENTRY32() -> i32 { return 0i32; }
 #[no_mangle]
-pub unsafe extern "C" fn resolve_modrm32_(mut modrm_byte: i32) -> i32 {
-    match modrm_byte {
-        0 | 8 | 16 | 24 | 32 | 40 | 48 | 56 => {
-            return get_seg_prefix_ds(*reg32s.offset(EAX as isize))
-        },
+pub unsafe extern "C" fn resolve_modrm32(mut modrm_byte: i32) -> Result<i32, ()> {
+    Ok(match modrm_byte {
+        0 | 8 | 16 | 24 | 32 | 40 | 48 | 56 => get_seg_prefix_ds(*reg32s.offset(EAX as isize)),
         64 | 72 | 80 | 88 | 96 | 104 | 112 | 120 => {
-            return get_seg_prefix_ds(*reg32s.offset(EAX as isize) + read_imm8s())
+            get_seg_prefix_ds(*reg32s.offset(EAX as isize) + read_imm8s()?)
         },
         128 | 136 | 144 | 152 | 160 | 168 | 176 | 184 => {
-            return get_seg_prefix_ds(*reg32s.offset(EAX as isize) + read_imm32s())
+            get_seg_prefix_ds(*reg32s.offset(EAX as isize) + read_imm32s()?)
         },
-        1 | 9 | 17 | 25 | 33 | 41 | 49 | 57 => {
-            return get_seg_prefix_ds(*reg32s.offset(ECX as isize))
-        },
+        1 | 9 | 17 | 25 | 33 | 41 | 49 | 57 => get_seg_prefix_ds(*reg32s.offset(ECX as isize)),
         65 | 73 | 81 | 89 | 97 | 105 | 113 | 121 => {
-            return get_seg_prefix_ds(*reg32s.offset(ECX as isize) + read_imm8s())
+            get_seg_prefix_ds(*reg32s.offset(ECX as isize) + read_imm8s()?)
         },
         129 | 137 | 145 | 153 | 161 | 169 | 177 | 185 => {
-            return get_seg_prefix_ds(*reg32s.offset(ECX as isize) + read_imm32s())
+            get_seg_prefix_ds(*reg32s.offset(ECX as isize) + read_imm32s()?)
         },
-        2 | 10 | 18 | 26 | 34 | 42 | 50 | 58 => {
-            return get_seg_prefix_ds(*reg32s.offset(EDX as isize))
-        },
+        2 | 10 | 18 | 26 | 34 | 42 | 50 | 58 => get_seg_prefix_ds(*reg32s.offset(EDX as isize)),
         66 | 74 | 82 | 90 | 98 | 106 | 114 | 122 => {
-            return get_seg_prefix_ds(*reg32s.offset(EDX as isize) + read_imm8s())
+            get_seg_prefix_ds(*reg32s.offset(EDX as isize) + read_imm8s()?)
         },
         130 | 138 | 146 | 154 | 162 | 170 | 178 | 186 => {
-            return get_seg_prefix_ds(*reg32s.offset(EDX as isize) + read_imm32s())
+            get_seg_prefix_ds(*reg32s.offset(EDX as isize) + read_imm32s()?)
         },
-        3 | 11 | 19 | 27 | 35 | 43 | 51 | 59 => {
-            return get_seg_prefix_ds(*reg32s.offset(EBX as isize))
-        },
+        3 | 11 | 19 | 27 | 35 | 43 | 51 | 59 => get_seg_prefix_ds(*reg32s.offset(EBX as isize)),
         67 | 75 | 83 | 91 | 99 | 107 | 115 | 123 => {
-            return get_seg_prefix_ds(*reg32s.offset(EBX as isize) + read_imm8s())
+            get_seg_prefix_ds(*reg32s.offset(EBX as isize) + read_imm8s()?)
         },
         131 | 139 | 147 | 155 | 163 | 171 | 179 | 187 => {
-            return get_seg_prefix_ds(*reg32s.offset(EBX as isize) + read_imm32s())
+            get_seg_prefix_ds(*reg32s.offset(EBX as isize) + read_imm32s()?)
         },
-        4 | 12 | 20 | 28 | 36 | 44 | 52 | 60 => return resolve_sib(0 != 0i32),
-        68 | 76 | 84 | 92 | 100 | 108 | 116 | 124 => return resolve_sib(0 != 1i32) + read_imm8s(),
-        132 | 140 | 148 | 156 | 164 | 172 | 180 | 188 => {
-            return resolve_sib(0 != 1i32) + read_imm32s()
-        },
-        5 | 13 | 21 | 29 | 37 | 45 | 53 | 61 => return get_seg_prefix_ds(read_imm32s()),
+        4 | 12 | 20 | 28 | 36 | 44 | 52 | 60 => resolve_sib(0 != 0i32)?,
+        68 | 76 | 84 | 92 | 100 | 108 | 116 | 124 => resolve_sib(0 != 1i32)? + read_imm8s()?,
+        132 | 140 | 148 | 156 | 164 | 172 | 180 | 188 => resolve_sib(0 != 1i32)? + read_imm32s()?,
+        5 | 13 | 21 | 29 | 37 | 45 | 53 | 61 => get_seg_prefix_ds(read_imm32s()?),
         69 | 77 | 85 | 93 | 101 | 109 | 117 | 125 => {
-            return get_seg_prefix_ss(*reg32s.offset(EBP as isize) + read_imm8s())
+            get_seg_prefix_ss(*reg32s.offset(EBP as isize) + read_imm8s()?)
         },
         133 | 141 | 149 | 157 | 165 | 173 | 181 | 189 => {
-            return get_seg_prefix_ss(*reg32s.offset(EBP as isize) + read_imm32s())
+            get_seg_prefix_ss(*reg32s.offset(EBP as isize) + read_imm32s()?)
         },
-        6 | 14 | 22 | 30 | 38 | 46 | 54 | 62 => {
-            return get_seg_prefix_ds(*reg32s.offset(ESI as isize))
-        },
+        6 | 14 | 22 | 30 | 38 | 46 | 54 | 62 => get_seg_prefix_ds(*reg32s.offset(ESI as isize)),
         70 | 78 | 86 | 94 | 102 | 110 | 118 | 126 => {
-            return get_seg_prefix_ds(*reg32s.offset(ESI as isize) + read_imm8s())
+            get_seg_prefix_ds(*reg32s.offset(ESI as isize) + read_imm8s()?)
         },
         134 | 142 | 150 | 158 | 166 | 174 | 182 | 190 => {
-            return get_seg_prefix_ds(*reg32s.offset(ESI as isize) + read_imm32s())
+            get_seg_prefix_ds(*reg32s.offset(ESI as isize) + read_imm32s()?)
         },
-        7 | 15 | 23 | 31 | 39 | 47 | 55 | 63 => {
-            return get_seg_prefix_ds(*reg32s.offset(EDI as isize))
-        },
+        7 | 15 | 23 | 31 | 39 | 47 | 55 | 63 => get_seg_prefix_ds(*reg32s.offset(EDI as isize)),
         71 | 79 | 87 | 95 | 103 | 111 | 119 | 127 => {
-            return get_seg_prefix_ds(*reg32s.offset(EDI as isize) + read_imm8s())
+            get_seg_prefix_ds(*reg32s.offset(EDI as isize) + read_imm8s()?)
         },
         135 | 143 | 151 | 159 | 167 | 175 | 183 | 191 => {
-            return get_seg_prefix_ds(*reg32s.offset(EDI as isize) + read_imm32s())
+            get_seg_prefix_ds(*reg32s.offset(EDI as isize) + read_imm32s()?)
         },
         _ => {
             dbg_assert!(0 != 0i32);
-            return 0i32;
+            0i32
         },
-    };
+    })
 }

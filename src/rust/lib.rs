@@ -8,9 +8,13 @@ extern crate quickcheck;
 #[macro_use]
 mod dbg;
 
+#[macro_use]
+mod paging;
+
 pub mod cpu2;
 
 pub mod c_api;
+pub mod js_api;
 
 mod analysis;
 mod codegen;

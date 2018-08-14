@@ -296,8 +296,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.trigger_np = this.v86oxide.exports["trigger_np"];
     this.trigger_ss = this.v86oxide.exports["trigger_ss"];
 
-    //this.do_many_cycles_unsafe = this.wm.exports["_do_many_cycles_unsafe"];
-    this.do_many_cycles_unsafe = this.v86oxide.exports["do_many_cycles_unsafe"];
+    this.do_many_cycles_native = this.v86oxide.exports["do_many_cycles_native"];
     this.cycle_internal = this.v86oxide.exports["cycle_internal"];
 
     this.read8 = this.v86oxide.exports["read8"];
@@ -308,27 +307,27 @@ CPU.prototype.wasm_patch = function(wm)
     this.write32 = this.v86oxide.exports["write32"];
     this.in_mapped_range = this.v86oxide.exports["in_mapped_range"];
 
-    this.push16 = this.v86oxide.exports["push16"];
-    this.push32 = this.v86oxide.exports["push32"];
-    this.pop16 = this.v86oxide.exports["pop16"];
-    this.pop32s = this.v86oxide.exports["pop32s"];
+    this.push16 = this.v86oxide.exports["push16_js"];
+    this.push32 = this.v86oxide.exports["push32_js"];
+    this.pop16 = this.v86oxide.exports["pop16_js"];
+    this.pop32s = this.v86oxide.exports["pop32s_js"];
 
     this.set_stack_reg = this.v86oxide.exports["set_stack_reg"];
 
-    this.translate_address_read = this.v86oxide.exports["translate_address_read"];
-    this.translate_address_system_read = this.v86oxide.exports["translate_address_system_read"];
-    this.translate_address_system_write = this.v86oxide.exports["translate_address_system_write"];
+    this.translate_address_read = this.v86oxide.exports["translate_address_read_js"];
+    this.translate_address_system_read = this.v86oxide.exports["translate_address_system_read_js"];
+    this.translate_address_system_write = this.v86oxide.exports["translate_address_system_write_js"];
 
     this.get_seg = this.v86oxide.exports["get_seg"];
     this.adjust_stack_reg = this.v86oxide.exports["adjust_stack_reg"];
     this.get_real_eip = this.v86oxide.exports["get_real_eip"];
     this.get_stack_pointer = this.v86oxide.exports["get_stack_pointer"];
 
-    this.writable_or_pagefault = this.v86oxide.exports["writable_or_pagefault"];
-    this.safe_write32 = this.v86oxide.exports["safe_write32"];
-    this.safe_read32s = this.v86oxide.exports["safe_read32s"];
-    this.safe_write16 = this.v86oxide.exports["safe_write16"];
-    this.safe_read16 = this.v86oxide.exports["safe_read16"];
+    this.writable_or_pagefault = this.v86oxide.exports["writable_or_pagefault_js"];
+    this.safe_write32 = this.v86oxide.exports["safe_write32_js"];
+    this.safe_read32s = this.v86oxide.exports["safe_read32s_js"];
+    this.safe_write16 = this.v86oxide.exports["safe_write16_js"];
+    this.safe_read16 = this.v86oxide.exports["safe_read16_js"];
 
     this.clear_tlb = this.v86oxide.exports["clear_tlb"];
     this.full_clear_tlb = this.v86oxide.exports["full_clear_tlb"];
@@ -596,8 +595,6 @@ CPU.prototype.reboot_internal = function()
 {
     this.reset();
     this.load_bios();
-
-    throw MAGIC_CPU_EXCEPTION;
 };
 
 CPU.prototype.reset = function()
@@ -1230,13 +1227,7 @@ CPU.prototype.do_many_cycles = function()
         var start_time = v86.microtick();
     }
 
-    try {
-        this.do_many_cycles_unsafe();
-    }
-    catch(e)
-    {
-        this.exception_cleanup(e);
-    }
+    this.do_many_cycles_native();
 
     if(ENABLE_PROFILER)
     {
@@ -1250,27 +1241,9 @@ CPU.prototype.do_many_cycles = function()
 /** @export */
 CPU.prototype.cycle = function()
 {
-    try {
-        // XXX: May do several cycles
-        this.cycle_internal();
-    }
-    catch(e)
-    {
-        this.exception_cleanup(e);
-    }
+    // XXX: May do several cycles
+    this.cycle_internal();
 };
-
-// Some functions must not be inlined, because then more code is in the
-// deoptimized try-catch block.
-// This trick is a bit ugly, but it works without further complication.
-if(typeof window !== "undefined")
-{
-    window["__no_inline_for_closure_compiler__"] = [
-        CPU.prototype.exception_cleanup,
-        CPU.prototype.do_many_cycles_unsafe,
-        CPU.prototype.do_many_cycles,
-    ];
-}
 
 var seen_code = {};
 var seen_code_uncompiled = {};
@@ -1752,7 +1725,10 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, ha
             var stack_space = (is_16 ? 2 : 4) * (3 + (has_error_code === true));
 
             // XXX: with current cpl or with cpl 0?
-            this.writable_or_pagefault(this.get_stack_pointer(-stack_space), stack_space);
+            if(!this.writable_or_pagefault(this.get_stack_pointer(-stack_space), stack_space))
+            {
+                return;
+            }
 
             // no exceptions below
         }
@@ -1821,10 +1797,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, ha
         {
             if((this.flags[0] & flag_interrupt) && !(old_flags & flag_interrupt))
             {
-                if(!this.page_fault[0]) // XXX
-                {
-                    this.handle_irqs();
-                }
+                this.handle_irqs();
             }
         }
     }
@@ -2316,13 +2289,21 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
         {
             if(this.is_osize_32())
             {
-                this.writable_or_pagefault(this.get_stack_pointer(-8), 8);
+                if(!this.writable_or_pagefault(this.get_stack_pointer(-8), 8))
+                {
+                    return;
+                }
+
                 this.push32(this.sreg[reg_cs]);
                 this.push32(this.get_real_eip());
             }
             else
             {
-                this.writable_or_pagefault(this.get_stack_pointer(-4), 4);
+                if(!this.writable_or_pagefault(this.get_stack_pointer(-4), 4))
+                {
+                    return;
+                }
+
                 this.push16(this.sreg[reg_cs]);
                 this.push16(this.get_real_eip());
             }
@@ -2460,15 +2441,17 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
                 }
                 if(ss_info.size)
                 {
-                    //try {
-                    this.writable_or_pagefault(ss_info.base + new_esp - stack_space | 0, stack_space); // , cs_info.dpl
-                    //} catch(e) { debugger; }
+                    if(this.writable_or_pagefault(ss_info.base + new_esp - stack_space | 0, stack_space)) // , cs_info.dpl
+                    {
+                        return;
+                    }
                 }
                 else
                 {
-                    //try {
-                    this.writable_or_pagefault(ss_info.base + (new_esp - stack_space & 0xFFFF) | 0, stack_space); // , cs_info.dpl
-                    //} catch(e) { debugger; }
+                    if(this.writable_or_pagefault(ss_info.base + (new_esp - stack_space & 0xFFFF) | 0, stack_space)) // , cs_info.dpl
+                    {
+                        return;
+                    }
                 }
 
                 var old_esp = this.reg32s[reg_esp];
@@ -2539,13 +2522,21 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
                 {
                     if(is_16)
                     {
-                        this.writable_or_pagefault(this.get_stack_pointer(-4), 4);
+                        if(!this.writable_or_pagefault(this.get_stack_pointer(-4), 4))
+                        {
+                            return;
+                        }
+
                         this.push16(this.sreg[reg_cs]);
                         this.push16(this.get_real_eip());
                     }
                     else
                     {
-                        this.writable_or_pagefault(this.get_stack_pointer(-8), 8);
+                        if(!this.writable_or_pagefault(this.get_stack_pointer(-8), 8))
+                        {
+                            return;
+                        }
+
                         this.push32(this.sreg[reg_cs]);
                         this.push32(this.get_real_eip());
                     }
@@ -2622,13 +2613,21 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
         {
             if(this.is_osize_32())
             {
-                this.writable_or_pagefault(this.get_stack_pointer(-8), 8);
+                if(!this.writable_or_pagefault(this.get_stack_pointer(-8), 8))
+                {
+                    return;
+                }
+
                 this.push32(this.sreg[reg_cs]);
                 this.push32(this.get_real_eip());
             }
             else
             {
-                this.writable_or_pagefault(this.get_stack_pointer(-4), 4);
+                if(!this.writable_or_pagefault(this.get_stack_pointer(-4), 4))
+                {
+                    return;
+                }
+
                 this.push16(this.sreg[reg_cs]);
                 this.push16(this.get_real_eip());
             }
@@ -2730,7 +2729,10 @@ CPU.prototype.do_task_switch = function(selector, error_code)
         old_eflags &= ~flag_nt;
     }
 
-    this.writable_or_pagefault(tsr_offset, 0x66);
+    if(this.writable_or_pagefault(tsr_offset, 0x66))
+    {
+        return;
+    }
 
     //this.safe_write32(tsr_offset + TSR_CR3, this.cr[3]);
 
@@ -2944,10 +2946,9 @@ CPU.prototype.pic_call_irq = function(int)
 
 CPU.prototype.handle_irqs = function()
 {
-    dbg_assert(!this.page_fault[0]);
     //dbg_assert(this.prefixes[0] === 0);
 
-    if((this.flags[0] & flag_interrupt) && !this.page_fault[0])
+    if((this.flags[0] & flag_interrupt))
     {
         if(this.devices.pic)
         {
@@ -3740,7 +3741,11 @@ CPU.prototype.enter16 = function(size, nesting_level)
     }
 
     // check if write to final stack pointer would case a page fault
-    this.writable_or_pagefault(ss + (frame_temp - size & ss_mask), 2);
+    if(!this.writable_or_pagefault(ss + (frame_temp - size & ss_mask), 2))
+    {
+        return;
+    }
+
     this.safe_write16(ss + (frame_temp & ss_mask) | 0, this.reg16[reg_bp]);
     this.reg16[reg_bp] = frame_temp;
     this.adjust_stack_reg(-size - 2);
@@ -3768,7 +3773,11 @@ CPU.prototype.enter32 = function(size, nesting_level)
     }
 
     // check if write to final stack pointer would case a page fault
-    this.writable_or_pagefault(ss + (frame_temp - size & ss_mask), 4);
+    if(!this.writable_or_pagefault(ss + (frame_temp - size & ss_mask), 4))
+    {
+        return;
+    }
+
     this.safe_write32(ss + (frame_temp & ss_mask) | 0, this.reg32s[reg_ebp]);
     this.reg32s[reg_ebp] = frame_temp;
     this.adjust_stack_reg(-size - 4);
