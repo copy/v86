@@ -1177,8 +1177,9 @@ const tests =
         ],
         start: () =>
         {
-            emulator.serial0_send("echo foobar > /mnt/file\n");
+            emulator.serial0_send("echo foobar > /mnt/fs3/file\n");
             emulator.serial0_send("mkdir /mnt/a/b/fs2/dir\n");
+            emulator.serial0_send("mkdir /mnt/fs3/fs4/fs5/otherdir\n");
             emulator.serial0_send("echo contents > /mnt/a/b/fs2/dir/child\n");
 
             // Using tail -f to keep 'file' open for modification in bg while it is being moved.
@@ -1187,35 +1188,58 @@ const tests =
             emulator.serial0_send("mkfifo /mnt/fs3/fifo_intermediate\n");
             emulator.serial0_send("tail -f /mnt/fs3/fifo > /mnt/fs3/fifo_intermediate &\n");
             emulator.serial0_send('echo "$!" > /mnt/tailpid\n');
-            emulator.serial0_send('{ sed "/EOF/q" < /mnt/fs3/fifo_intermediate && kill "$(cat /mnt/tailpid)"; } >> /mnt/file &\n');
+            emulator.serial0_send('{ sed "/EOF/q" < /mnt/fs3/fifo_intermediate && kill "$(cat /mnt/tailpid)"; } >> /mnt/fs3/file &\n');
 
             emulator.serial0_send("echo start-capture; \\\n");
             emulator.serial0_send("echo untouched > /mnt/fs3/fifo; \\\n");
 
-            emulator.serial0_send("{ mv /mnt/file /mnt/renamed && ");
-            emulator.serial0_send("  echo renamed > /mnt/fs3/fifo; }; \\\n");
+            // File from forwarder to non-forwarder. Divert forwarder file.
+            emulator.serial0_send("{ mv /mnt/fs3/file /mnt/file1 &&");
+            emulator.serial0_send("  echo file jump to root > /mnt/fs3/fifo; }; \\\n");
 
-            emulator.serial0_send("{ mv /mnt/renamed /mnt/fs3/file &&");
+            // File from non-forwarder to forwarder. Divert non-forwarder file.
+            emulator.serial0_send("{ mv /mnt/file1 /mnt/fs3/file2 &&");
             emulator.serial0_send("  echo file jump filesystems > /mnt/fs3/fifo; }; \\\n");
 
-            emulator.serial0_send("{ mv /mnt/fs3/file /mnt/a/b/fs2/dir/file && ");
-            emulator.serial0_send("  echo moved to dir > /mnt/fs3/fifo; }; \\\n");
+            // File rename within the same foreign filesystem. Divert non-forwarder file.
+            emulator.serial0_send("{ mv /mnt/fs3/file2 /mnt/fs3/file3 && ");
+            emulator.serial0_send("  echo file renamed > /mnt/fs3/fifo; }; \\\n");
 
-            emulator.serial0_send("{ mv /mnt/a/b/fs2/dir /mnt/fs3/fs4/fs5/dir && ");
+            // File from forwarder to forwarder under directory. Divert forwarder file.
+            emulator.serial0_send("{ mv /mnt/fs3/file3 /mnt/a/b/fs2/dir/file4 && ");
+            emulator.serial0_send("  echo file move to dir > /mnt/fs3/fifo; }; \\\n");
+
+            // Directory from forwarder to forwarder.
+            emulator.serial0_send("{ mv /mnt/a/b/fs2/dir /mnt/fs3/fs4/fs5/dir1 && ");
             emulator.serial0_send("  echo dir jump filesystems > /mnt/fs3/fifo; }; \\\n");
 
+            // Moving mountpoint across filesystems.
             emulator.serial0_send("{ mv /mnt/fs3/fs4 /mnt/a/b/fs2/fs4 2>/dev/null || ");
             emulator.serial0_send("  echo move mount point across - fails > /mnt/fs3/fifo; }; \\\n");
-
             emulator.serial0_send("{ mv /mnt/fs3/fs4/fs5 /mnt/fs5 2>/dev/null || ");
             emulator.serial0_send("  echo move mount point upwards - fails > /mnt/fs3/fifo; }; \\\n");
 
-            emulator.serial0_send("{ mv /mnt/fs3/fs4/fs5/dir /mnt/dir && ");
-            emulator.serial0_send("  echo jump to root > /mnt/fs3/fifo; }; \\\n");
+            // Directory move within the same foreign filesystem.
+            emulator.serial0_send("{ mv /mnt/fs3/fs4/fs5/dir1 /mnt/fs3/fs4/fs5/otherdir/dir2 && ");
+            emulator.serial0_send("  echo dir move > /mnt/fs3/fifo; }; \\\n");
+
+            // Directory from forwarder to non-forwarder. Divert forwarder directory.
+            emulator.serial0_send("{ mv /mnt/fs3/fs4/fs5/otherdir/dir2 /mnt/dir3 && ");
+            emulator.serial0_send("  echo dir jump to root > /mnt/fs3/fifo; }; \\\n");
+
+            // Directory from non-forwarder to forwarder. Divert non-forwarder directory.
+            emulator.serial0_send("{ mv /mnt/dir3 /mnt/fs3/fs4/dir4 && ");
+            emulator.serial0_send("  echo dir jump back > /mnt/fs3/fifo; }; \\\n");
+
+            // Moving empty file (treated differently when rewriting data.
+            emulator.serial0_send("touch /mnt/a/b/fs2/emptyfile; \\\n");
+            emulator.serial0_send("{ mv /mnt/a/b/fs2/emptyfile /mnt/fs3/fs4/dir4/emptyfile && ");
+            emulator.serial0_send("  echo move empty file > /mnt/fs3/fifo; }; \\\n");
+            emulator.serial0_send("cat /mnt/fs3/fs4/dir4/emptyfile; \\\n");
 
             emulator.serial0_send('printf "EOF\\n\\n" > /mnt/fs3/fifo & wait "$(cat /mnt/tailpid)" 2>/dev/null; \\\n');
-            emulator.serial0_send("cat /mnt/dir/file; \\\n");
-            emulator.serial0_send("cat /mnt/dir/child; \\\n");
+            emulator.serial0_send("cat /mnt/fs3/fs4/dir4/file4; \\\n");
+            emulator.serial0_send("cat /mnt/fs3/fs4/dir4/child; \\\n");
             emulator.serial0_send("find /mnt | sort; \\\n");
             emulator.serial0_send("echo done-move-mounted\n");
         },
@@ -1226,27 +1250,33 @@ const tests =
             assert_equal(capture,
                 "foobar\n" +
                 "untouched\n" +
-                "renamed\n" +
+                "file jump to root\n" +
                 "file jump filesystems\n" +
-                "moved to dir\n" +
+                "file renamed\n" +
+                "file move to dir\n" +
                 "dir jump filesystems\n" +
                 "move mount point across - fails\n" +
                 "move mount point upwards - fails\n" +
-                "jump to root\n" +
+                "dir move\n" +
+                "dir jump to root\n" +
+                "dir jump back\n" +
+                "move empty file\n" +
                 "EOF\n" +
                 "contents\n" +
                 "/mnt\n" +
                 "/mnt/a\n" +
                 "/mnt/a/b\n" +
                 "/mnt/a/b/fs2\n" +
-                "/mnt/dir\n" +
-                "/mnt/dir/child\n" +
-                "/mnt/dir/file\n" +
                 "/mnt/fs3\n" +
                 "/mnt/fs3/fifo\n" +
                 "/mnt/fs3/fifo_intermediate\n" +
                 "/mnt/fs3/fs4\n" +
+                "/mnt/fs3/fs4/dir4\n" +
+                "/mnt/fs3/fs4/dir4/child\n" +
+                "/mnt/fs3/fs4/dir4/emptyfile\n" +
+                "/mnt/fs3/fs4/dir4/file4\n" +
                 "/mnt/fs3/fs4/fs5\n" +
+                "/mnt/fs3/fs4/fs5/otherdir\n" +
                 "/mnt/tailpid\n");
             done();
         },
