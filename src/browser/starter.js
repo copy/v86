@@ -1093,12 +1093,13 @@ V86Starter.prototype.mount_fs = function(path, baseurl, basefs, callback)
         {
             callback(new FileNotFoundError());
         }
-        if(idx === -EEXIST)
+        else if(idx === -EEXIST)
         {
             callback(new FileExistsError());
         }
-        if(idx < 0)
+        else if(idx < 0)
         {
+            dbg_assert(false, "Unexpected error code: " + (-idx));
             callback(new Error("Failed to mount. Error number: " + (-idx)));
         }
         else
@@ -1222,7 +1223,7 @@ function FileExistsError(message)
 {
     this.message = message || "File already exists";
 }
-FileNotFoundError.prototype = Error.prototype;
+FileExistsError.prototype = Error.prototype;
 
 /**
  * @ignore
