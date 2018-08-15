@@ -1006,7 +1006,7 @@ pub unsafe extern "C" fn fpu_load_m80(mut addr: u32) -> Result<f64, ()> {
     else {
         c_comment!(("TODO: NaN, Infinity"));
         if 0 != 0i32 * 0i32 {
-            dbg_log_c!(("Load m80 TODO"));
+            dbg_log_c!("Load m80 TODO");
         }
         let mut double_int_view: f64_int = f64_int { u8_0: [0; 8] };
         double_int_view.u8_0[7usize] = (127i32 | sign << 7i32) as u8;
@@ -1202,7 +1202,7 @@ pub unsafe extern "C" fn fpu_fldenv(mut addr: i32) -> () {
         *fpu_dp_selector.offset(0isize) = safe_read16(addr + 24i32).unwrap()
     }
     else {
-        dbg_log_c!(("fldenv16"));
+        dbg_log_c!("fldenv16");
         fpu_unimpl();
     };
 }
@@ -1359,7 +1359,7 @@ pub unsafe extern "C" fn fpu_fstenv(mut addr: i32) -> () {
         safe_write16(addr + 24i32, *fpu_dp_selector.offset(0isize)).unwrap();
     }
     else {
-        dbg_log_c!(("fstenv16"));
+        dbg_log_c!("fstenv16");
         fpu_unimpl();
     };
 }

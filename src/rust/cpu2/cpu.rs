@@ -1613,7 +1613,7 @@ pub unsafe extern "C" fn trigger_pagefault(
 ) -> () {
     if 0 != 0i32 * 0i32 {
         dbg_log_c!(
-            ("page fault w=%d u=%d p=%d eip=%x cr2=%x"),
+            "page fault w=%d u=%d p=%d eip=%x cr2=%x",
             write as i32,
             user as i32,
             present as i32,
@@ -1624,7 +1624,7 @@ pub unsafe extern "C" fn trigger_pagefault(
     }
     if DEBUG {
         if must_not_fault {
-            dbg_log_c!(("Unexpected page fault"));
+            dbg_log_c!("Unexpected page fault");
             dbg_trace();
             dbg_assert!(0 != 0i32);
         }
@@ -1793,7 +1793,7 @@ pub unsafe extern "C" fn get_seg(mut segment: i32) -> i32 {
     if *protected_mode {
         if *segment_is_null.offset(segment as isize) {
             dbg_assert!(segment != CS && segment != SS);
-            dbg_log_c!(("#gp: Access null segment"));
+            dbg_log_c!("#gp: Access null segment");
             assert!(false);
             trigger_gp(0i32);
         }
@@ -1813,7 +1813,7 @@ pub unsafe extern "C" fn raise_exception_with_code(
     if DEBUG {
         if must_not_fault {
             dbg_log_c!(
-                ("Unexpected fault: 0x%x with code 0x%x"),
+                "Unexpected fault: 0x%x with code 0x%x",
                 interrupt_nr,
                 error_code
             );
@@ -1998,7 +1998,7 @@ pub static mut LOOP_COUNTER: i32 = unsafe { 20011i32 };
 //pub unsafe extern "C" fn raise_exception(mut interrupt_nr: i32) -> () {
 //    if DEBUG {
 //        if must_not_fault {
-//            dbg_log_c!(("Unexpected fault: 0x%x"), interrupt_nr);
+//            dbg_log_c!("Unexpected fault: 0x%x", interrupt_nr);
 //            dbg_trace();
 //            dbg_assert!(0 != 0i32);
 //        }
@@ -2026,7 +2026,7 @@ pub unsafe extern "C" fn trigger_de() -> () {
 pub unsafe extern "C" fn set_current_cpu_exception(mut n: i32) -> () { current_cpu_exception = n; }
 #[no_mangle]
 pub unsafe extern "C" fn trigger_ud() -> () {
-    dbg_log_c!(("#ud"));
+    dbg_log_c!("#ud");
     dbg_trace();
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_UD) {
@@ -2126,7 +2126,7 @@ pub unsafe extern "C" fn safe_read8(mut addr: i32) -> Result<i32, ()> {
 pub unsafe extern "C" fn assert_no_cpu_exception() -> () {
     return;
     if current_cpu_exception != -1i32 {
-        dbg_log_c!(("Expected no cpu exception, got %d"), current_cpu_exception);
+        dbg_log_c!("Expected no cpu exception, got %d", current_cpu_exception);
         dbg_trace();
         dbg_assert!(0 != 0i32);
     };
@@ -2208,6 +2208,7 @@ pub unsafe fn safe_read16_slow_jit(addr: i32) -> i32 {
             v
         },
         Err(()) => {
+            dbg_log!("page fault");
             *page_fault = true;
             -1
         },
@@ -2222,6 +2223,7 @@ pub unsafe fn safe_read32s_slow_jit(addr: i32) -> i32 {
             v
         },
         Err(()) => {
+            dbg_log!("page fault");
             *page_fault = true;
             -1
         },
@@ -2636,7 +2638,7 @@ pub unsafe extern "C" fn read_tsc() -> u64 {
             }
             else {
                 dbg_log_c!(
-                    ("XXX: Overshot tsc prev=%x:%x offset=%x:%x curr=%x:%x"),
+                    "XXX: Overshot tsc prev=%x:%x offset=%x:%x curr=%x:%x",
                     (rdtsc_last_value >> 32i32) as u32 as i32,
                     rdtsc_last_value as u32 as i32,
                     (rdtsc_imprecision_offset >> 32i32) as u32 as i32,

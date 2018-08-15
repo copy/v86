@@ -1456,12 +1456,12 @@ pub unsafe extern "C" fn instr_0F05() -> () { undefined_instruction(); }
 pub unsafe extern "C" fn instr_0F06() -> () {
     c_comment!(("clts"));
     if 0 != *cpl.offset(0isize) {
-        dbg_log_c!(("clts #gp"));
+        dbg_log_c!("clts #gp");
         trigger_gp_non_raising(0i32);
     }
     else {
         if 0 != 0i32 * 0i32 {
-            dbg_log_c!(("clts"));
+            dbg_log_c!("clts");
         }
         let ref mut fresh0 = *cr.offset(0isize);
         *fresh0 &= !CR0_TS
@@ -1477,7 +1477,7 @@ pub unsafe extern "C" fn instr_0F08() -> () {
 #[no_mangle]
 pub unsafe extern "C" fn instr_0F09() -> () {
     if 0 != *cpl.offset(0isize) {
-        dbg_log_c!(("wbinvd #gp"));
+        dbg_log_c!("wbinvd #gp");
         trigger_gp_non_raising(0i32);
     }
     else {
@@ -1847,7 +1847,7 @@ pub unsafe extern "C" fn instr_0F20(mut r: i32, mut creg: i32) -> () {
                 write_reg32(r, *cr.offset(4isize));
             },
             _ => {
-                dbg_log_c!(("%d"), creg);
+                dbg_log_c!("%d", creg);
                 undefined_instruction();
             },
         }
@@ -1863,7 +1863,7 @@ pub unsafe extern "C" fn instr_0F21(mut r: i32, mut dreg_index: i32) -> () {
     else {
         if dreg_index == 4i32 || dreg_index == 5i32 {
             if 0 != *cr.offset(4isize) & CR4_DE {
-                dbg_log_c!(("#ud mov dreg 4/5 with cr4.DE set"));
+                dbg_log_c!("#ud mov dreg 4/5 with cr4.DE set");
                 trigger_ud();
                 return;
             }
@@ -1875,7 +1875,7 @@ pub unsafe extern "C" fn instr_0F21(mut r: i32, mut dreg_index: i32) -> () {
         write_reg32(r, *dreg.offset(dreg_index as isize));
         if 0 != 0i32 * 0i32 {
             dbg_log_c!(
-                ("read dr%d: %x"),
+                "read dr%d: %x",
                 dreg_index,
                 *dreg.offset(dreg_index as isize)
             );
@@ -1895,17 +1895,17 @@ pub unsafe extern "C" fn instr_0F22(mut r: i32, mut creg: i32) -> () {
         match creg {
             0 => {
                 if 0 != 0i32 * 0i32 {
-                    dbg_log_c!(("cr0 <- %x"), data);
+                    dbg_log_c!("cr0 <- %x", data);
                 }
                 set_cr0(data);
             },
             2 => {
-                dbg_log_c!(("cr2 <- %x"), data);
+                dbg_log_c!("cr2 <- %x", data);
                 *cr.offset(2isize) = data
             },
             3 => {
                 if 0 != 0i32 * 0i32 {
-                    dbg_log_c!(("cr3 <- %x"), data);
+                    dbg_log_c!("cr3 <- %x", data);
                 }
                 data &= !4071i32;
                 dbg_assert!(data & 4095i32 == 0i32, ("TODO"));
@@ -1913,7 +1913,7 @@ pub unsafe extern "C" fn instr_0F22(mut r: i32, mut creg: i32) -> () {
                 clear_tlb();
             },
             4 => {
-                dbg_log_c!(("cr4 <- %d"), *cr.offset(4isize));
+                dbg_log_c!("cr4 <- %d", *cr.offset(4isize));
                 if 0 != data as u32
                     & ((1i32 << 11i32
                         | 1i32 << 12i32
@@ -1922,7 +1922,7 @@ pub unsafe extern "C" fn instr_0F22(mut r: i32, mut creg: i32) -> () {
                         | 1i32 << 19i32) as u32
                         | 4290772992u32)
                 {
-                    dbg_log_c!(("trigger_gp: Invalid cr4 bit"));
+                    dbg_log_c!("trigger_gp: Invalid cr4 bit");
                     trigger_gp_non_raising(0i32);
                     return;
                 }
@@ -1937,7 +1937,7 @@ pub unsafe extern "C" fn instr_0F22(mut r: i32, mut creg: i32) -> () {
                 }
             },
             _ => {
-                dbg_log_c!(("%d"), creg);
+                dbg_log_c!("%d", creg);
                 undefined_instruction();
             },
         }
@@ -1953,7 +1953,7 @@ pub unsafe extern "C" fn instr_0F23(mut r: i32, mut dreg_index: i32) -> () {
     else {
         if dreg_index == 4i32 || dreg_index == 5i32 {
             if 0 != *cr.offset(4isize) & CR4_DE {
-                dbg_log_c!(("#ud mov dreg 4/5 with cr4.DE set"));
+                dbg_log_c!("#ud mov dreg 4/5 with cr4.DE set");
                 trigger_ud();
                 return;
             }
@@ -1965,7 +1965,7 @@ pub unsafe extern "C" fn instr_0F23(mut r: i32, mut dreg_index: i32) -> () {
         *dreg.offset(dreg_index as isize) = read_reg32(r);
         if 0 != 0i32 * 0i32 {
             dbg_log_c!(
-                ("write dr%d: %x"),
+                "write dr%d: %x",
                 dreg_index,
                 *dreg.offset(dreg_index as isize)
             );
@@ -2126,7 +2126,7 @@ pub unsafe extern "C" fn instr_0F30() -> () {
         let mut low: i32 = *reg32s.offset(EAX as isize);
         let mut high: i32 = *reg32s.offset(EDX as isize);
         if index != IA32_SYSENTER_ESP {
-            dbg_log_c!(("wrmsr ecx=%x data=%x:%x"), index, high, low);
+            dbg_log_c!("wrmsr ecx=%x data=%x:%x", index, high, low);
         }
         if index == IA32_SYSENTER_CS {
             *sysenter_cs.offset(0isize) = low & 65535i32
@@ -2166,10 +2166,10 @@ pub unsafe extern "C" fn instr_0F30() -> () {
             }
             else if index == IA32_KERNEL_GS_BASE {
                 c_comment!(("Only used in 64 bit mode (by SWAPGS), but set by kvm-unit-test"));
-                dbg_log_c!(("GS Base written"));
+                dbg_log_c!("GS Base written");
             }
             else {
-                dbg_log_c!(("Unknown msr: %x"), index);
+                dbg_log_c!("Unknown msr: %x", index);
                 dbg_assert!(0 != 0i32);
             }
         }
@@ -2187,7 +2187,7 @@ pub unsafe extern "C" fn instr_0F31() -> () {
         *reg32s.offset(EDX as isize) = (tsc >> 32i32) as i32;
         if 0 != 0i32 * 0i32 {
             dbg_log_c!(
-                ("rdtsc  edx:eax=%x:%x"),
+                "rdtsc  edx:eax=%x:%x",
                 *reg32s.offset(EDX as isize),
                 *reg32s.offset(EAX as isize)
             );
@@ -2206,7 +2206,7 @@ pub unsafe extern "C" fn instr_0F32() -> () {
     }
     else {
         let mut index: i32 = *reg32s.offset(ECX as isize);
-        dbg_log_c!(("rdmsr ecx=%x"), index);
+        dbg_log_c!("rdmsr ecx=%x", index);
         let mut low: i32 = 0i32;
         let mut high: i32 = 0i32;
         if index == IA32_SYSENTER_CS {
@@ -2250,7 +2250,7 @@ pub unsafe extern "C" fn instr_0F32() -> () {
                             c_comment!(("netbsd"));
                         }
                         else if !(index == MSR_PKG_C2_RESIDENCY) {
-                            dbg_log_c!(("Unknown msr: %x"), index);
+                            dbg_log_c!("Unknown msr: %x", index);
                             dbg_assert!(0 != 0i32);
                         }
                     }
@@ -4503,7 +4503,7 @@ pub unsafe extern "C" fn instr_0FAE_2_mem(mut addr: i32) -> () {
     c_comment!(("ldmxcsr"));
     let mut new_mxcsr: i32 = return_on_pagefault!(safe_read32s(addr));
     if 0 != new_mxcsr & !MXCSR_MASK {
-        dbg_log_c!(("Invalid mxcsr bits: %x"), new_mxcsr & !MXCSR_MASK);
+        dbg_log_c!("Invalid mxcsr bits: %x", new_mxcsr & !MXCSR_MASK);
         dbg_assert!(0 != 0i32);
         trigger_gp_non_raising(0i32);
         return;
@@ -6936,7 +6936,7 @@ pub unsafe extern "C" fn instr_660FFE_mem(mut addr: i32, mut r: i32) -> () {
 #[no_mangle]
 pub unsafe extern "C" fn instr_0FFF() -> () {
     c_comment!(("Windows 98"));
-    dbg_log_c!(("#ud: 0F FF"));
+    dbg_log_c!("#ud: 0F FF");
     trigger_ud();
 }
 #[no_mangle]
