@@ -1075,11 +1075,11 @@ pub unsafe extern "C" fn push16_ss32_mem(mut addr: i32) -> Result<(), ()> {
 
 #[no_mangle]
 pub unsafe extern "C" fn push16_ss16_mem_jit(mut addr: i32) {
-    return_on_pagefault!(push16_ss16(addr))
+    return_on_pagefault!(push16_ss16_mem(addr))
 }
 #[no_mangle]
 pub unsafe extern "C" fn push16_ss32_mem_jit(mut addr: i32) {
-    return_on_pagefault!(push16_ss32(addr))
+    return_on_pagefault!(push16_ss32_mem(addr))
 }
 
 #[no_mangle]

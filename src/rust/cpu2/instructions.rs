@@ -3094,6 +3094,15 @@ pub unsafe extern "C" fn instr16_8F_0_mem(modrm_byte: i32) -> () {
         },
     }
 }
+
+#[no_mangle]
+pub unsafe fn instr16_8F_0_mem_jit(addr: i32) -> () {
+    adjust_stack_reg(-2i32);
+    let mut stack_value: i32 = return_on_pagefault!(safe_read16(get_stack_pointer(0i32)));
+    return_on_pagefault!(safe_write16(addr, stack_value));
+    adjust_stack_reg(2i32);
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn instr16_8F_0_reg(mut r: i32) -> () {
     write_reg16(r, return_on_pagefault!(pop16()));
@@ -3115,10 +3124,20 @@ pub unsafe extern "C" fn instr32_8F_0_mem(modrm_byte: i32) -> () {
         },
     }
 }
+
+#[no_mangle]
+pub unsafe fn instr32_8F_0_mem_jit(addr: i32) -> () {
+    adjust_stack_reg(-4i32);
+    let mut stack_value: i32 = return_on_pagefault!(safe_read32s(get_stack_pointer(0i32)));
+    return_on_pagefault!(safe_write32(addr, stack_value));
+    adjust_stack_reg(4i32);
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn instr32_8F_0_reg(mut r: i32) -> () {
     write_reg32(r, return_on_pagefault!(pop32s()));
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn instr_90() -> () {}
 #[no_mangle]

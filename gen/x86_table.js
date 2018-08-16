@@ -51,20 +51,21 @@ const encodings = [
     { opcode: 0x4E, nonfaulting: 1, os: 1, },
     { opcode: 0x4F, nonfaulting: 1, os: 1, },
 
-    { opcode: 0x50, custom: 1, os: 1, },
-    { opcode: 0x51, custom: 1, os: 1, },
-    { opcode: 0x52, custom: 1, os: 1, },
-    { opcode: 0x53, custom: 1, os: 1, },
-    { opcode: 0x54, custom: 1, os: 1, },
-    { opcode: 0x55, custom: 1, os: 1, },
-    { opcode: 0x56, custom: 1, os: 1, },
-    { opcode: 0x57, custom: 1, os: 1, },
+    // XXX: temporarily marked as block boundary until uses gen_push
+    { opcode: 0x50, custom: 1, os: 1, block_boundary: 1, },
+    { opcode: 0x51, custom: 1, os: 1, block_boundary: 1, },
+    { opcode: 0x52, custom: 1, os: 1, block_boundary: 1, },
+    { opcode: 0x53, custom: 1, os: 1, block_boundary: 1, },
+    { opcode: 0x54, custom: 1, os: 1, block_boundary: 1, },
+    { opcode: 0x55, custom: 1, os: 1, block_boundary: 1, },
+    { opcode: 0x56, custom: 1, os: 1, block_boundary: 1, },
+    { opcode: 0x57, custom: 1, os: 1, block_boundary: 1, },
 
     { opcode: 0x58, custom: 1, os: 1, },
     { opcode: 0x59, custom: 1, os: 1, },
     { opcode: 0x5A, custom: 1, os: 1, },
     { opcode: 0x5B, custom: 1, os: 1, },
-    { opcode: 0x5C, os: 1, },
+    { opcode: 0x5C, os: 1, block_boundary: 1 },
     { opcode: 0x5D, custom: 1, os: 1, },
     { opcode: 0x5E, custom: 1, os: 1, },
     { opcode: 0x5F, custom: 1, os: 1, },
@@ -78,9 +79,11 @@ const encodings = [
     { opcode: 0x66, prefix: 1, },
     { opcode: 0x67, prefix: 1, },
 
-    { opcode: 0x68, custom: 1, os: 1, imm1632: 1, },
+    // XXX: Temporary block boundary
+    { opcode: 0x68, custom: 1, os: 1, imm1632: 1, block_boundary: 1 },
     { opcode: 0x69, nonfaulting: 1, os: 1, e: 1, imm1632: 1, mask_flags: af, }, // zf?
-    { opcode: 0x6A, custom: 1, os: 1, imm8s: 1, },
+    // XXX: Temporary block boundary
+    { opcode: 0x6A, custom: 1, os: 1, imm8s: 1, block_boundary: 1, },
     { opcode: 0x6B, nonfaulting: 1, os: 1, e: 1, imm8s: 1, mask_flags: af, }, // zf?
 
     { opcode: 0x6C, block_boundary: 1, is_string: 1, skip: 1, },          // ins
@@ -131,10 +134,11 @@ const encodings = [
     { opcode: 0x9E, },
     { opcode: 0x9F, },
 
-    { opcode: 0xA0, immaddr: 1, },
-    { opcode: 0xA1, os: 1, immaddr: 1, },
-    { opcode: 0xA2, immaddr: 1, },
-    { opcode: 0xA3, os: 1, immaddr: 1, },
+    // XXX: temporarily marked as block boundary until uses gen_safe_{read,write}
+    { opcode: 0xA0, immaddr: 1, block_boundary: 1 },
+    { opcode: 0xA1, os: 1, immaddr: 1, block_boundary: 1 },
+    { opcode: 0xA2, immaddr: 1, block_boundary: 1 },
+    { opcode: 0xA3, os: 1, immaddr: 1, block_boundary: 1 },
 
     // string instructions aren't jumps, but they modify eip due to how they're implemented
     { opcode: 0xA4, block_boundary: 1, is_string: 1, },
@@ -181,11 +185,14 @@ const encodings = [
     { opcode: 0xC4, block_boundary: 1, os: 1, e: 1, skip: 1, }, // les
     { opcode: 0xC5, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lds
 
-    { opcode: 0xC6, e: 1, fixed_g: 0, nonfaulting: 1, imm8: 1, },
-    { opcode: 0xC7, custom: 1, os: 1, e: 1, fixed_g: 0, nonfaulting: 1, imm1632: 1, },
+    // XXX: Temporary block boundary
+    { opcode: 0xC6, e: 1, fixed_g: 0, imm8: 1, block_boundary: 1, },
+    { opcode: 0xC7, custom: 1, os: 1, e: 1, fixed_g: 0, imm1632: 1, block_boundary: 1, },
 
-    { opcode: 0xC8, os: 1, imm16: 1, extra_imm8: 1, }, // enter
-    { opcode: 0xC9, os: 1, skip: 1, }, // leave: requires valid ebp
+    // XXX: Temporary block boundary
+    { opcode: 0xC8, os: 1, imm16: 1, extra_imm8: 1, block_boundary: 1, }, // enter
+    { opcode: 0xC9, os: 1, skip: 1, block_boundary: 1, }, // leave: requires valid ebp
+
     { opcode: 0xCA, block_boundary: 1, no_next_instruction: 1, os: 1, imm16: 1, skip: 1, }, // retf
     { opcode: 0xCB, block_boundary: 1, no_next_instruction: 1, os: 1, skip: 1, },
     { opcode: 0xCC, block_boundary: 1, skip: 1, }, // int
@@ -196,7 +203,9 @@ const encodings = [
     { opcode: 0xD4, imm8: 1, block_boundary: 1, }, // aam, may trigger #de
     { opcode: 0xD5, nonfaulting: 1, imm8: 1, mask_flags: of | cf | af, },
     { opcode: 0xD6, nonfaulting: 1, },
-    { opcode: 0xD7, skip: 1, },
+
+    // XXX: Temporary block boundary
+    { opcode: 0xD7, skip: 1, block_boundary: 1, },
 
     // loop, jcxz, etc.
     // Conditional jumps, but condition code not supported by code generator
@@ -212,7 +221,8 @@ const encodings = [
     { opcode: 0xE6, block_boundary: 1, imm8: 1, skip: 1, }, // out
     { opcode: 0xE7, block_boundary: 1, os: 1, imm8: 1, skip: 1, },
 
-    { opcode: 0xE8, block_boundary: 1, jump_offset_imm: 1, os: 1, imm1632: 1, custom: 1, skip: 1, }, // call
+    //{ opcode: 0xE8, block_boundary: 1, jump_offset_imm: 1, os: 1, imm1632: 1, custom: 1, skip: 1, }, // call
+    { opcode: 0xE8, block_boundary: 1, os: 1, imm1632: 1, skip: 1, }, // call
     { opcode: 0xE9, block_boundary: 1, jump_offset_imm: 1, no_next_instruction: 1, os: 1, imm1632: 1, custom: 1, skip: 1, },
     { opcode: 0xEA, block_boundary: 1, no_next_instruction: 1, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, }, // jmpf
     { opcode: 0xEB, block_boundary: 1, jump_offset_imm: 1, no_next_instruction: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
@@ -386,11 +396,14 @@ const encodings = [
     { opcode: 0x0F9E, nonfaulting: 1, e: 1, },
     { opcode: 0x0F9F, nonfaulting: 1, e: 1, },
 
-    { opcode: 0x0FA0, os: 1, skip: 1, },
+    // XXX: Temporary block boundary
+    { opcode: 0x0FA0, os: 1, skip: 1, block_boundary: 1, },
     { opcode: 0x0FA1, os: 1, block_boundary: 1, skip: 1, }, // pop fs: block_boundary since it uses non-raising cpu exceptions
+
     { opcode: 0x0FA2, skip: 1, },
 
-    { opcode: 0x0FA8, os: 1, skip: 1, },
+    // XXX: Temporary block boundary
+    { opcode: 0x0FA8, os: 1, skip: 1, block_boundary: 1, },
     { opcode: 0x0FA9, os: 1, block_boundary: 1, skip: 1, }, // pop gs
 
     { opcode: 0x0FA3, os: 1, e: 1, only_reg: 1, }, // bt (can also index memory, but not supported by test right now)

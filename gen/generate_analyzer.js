@@ -217,7 +217,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
     const imm_read = gen_read_imm_call(encoding, size);
     const instruction_postfix = [];
 
-    if(encoding.block_boundary && !encoding.jump_offset_imm)
+    if(encoding.block_boundary && !encoding.jump_offset_imm || (!encoding.custom && encoding.e) || encoding.sse || encoding.task_switch_test)
     {
         instruction_postfix.push("analysis.ty = ::analysis::AnalysisType::BlockBoundary;");
     }

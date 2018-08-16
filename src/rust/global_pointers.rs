@@ -1,4 +1,5 @@
 pub const REG: u32 = 4;
+pub const PAGE_FAULT: u32 = 540;
 pub const INSTRUCTION_POINTER: u32 = 556;
 pub const PREVIOUS_IP: u32 = 560;
 pub const CR: u32 = 580;

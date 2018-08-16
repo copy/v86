@@ -1872,7 +1872,7 @@ pub unsafe extern "C" fn modrm_resolve(mut modrm_byte: i32) -> Result<i32, ()> {
 #[no_mangle]
 pub unsafe extern "C" fn cycle_internal() -> () {
     profiler_stat_increment(S_CYCLE_INTERNAL);
-    if false {
+    if true {
         let mut wasm_table_index: u16 = 0;
         let mut initial_tsc: i32 = 0;
         let mut initial_state: u16 = 0;
@@ -2367,12 +2367,18 @@ pub unsafe extern "C" fn safe_write32_slow(mut addr: i32, mut value: i32) -> Res
 
 #[no_mangle]
 pub unsafe fn safe_write16_slow_jit(addr: i32, value: i32) {
-    let _ = safe_write16_slow(addr, value);
+    match safe_write16_slow(addr, value) {
+        Ok(()) => *page_fault = false,
+        Err(()) => *page_fault = true,
+    }
 }
 
 #[no_mangle]
 pub unsafe fn safe_write32_slow_jit(addr: i32, value: i32) {
-    let _ = safe_write32_slow(addr, value);
+    match safe_write32_slow(addr, value) {
+        Ok(()) => *page_fault = false,
+        Err(()) => *page_fault = true,
+    }
 }
 
 #[no_mangle]

@@ -236,17 +236,26 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
     }
 
     // Pseudo:
-    // else { leave_on_stack(safe_read16_slow(address)); }
+    // else { leave_on_stack(safe_read*_slow(address)); if(page_fault) return }
     builder.instruction_body.else_();
     builder.instruction_body.get_local(&address_local);
     match bits {
         BitSize::WORD => {
-            gen_call_fn1_ret(builder, "safe_read16_slow");
+            gen_call_fn1_ret(builder, "safe_read16_slow_jit");
         },
         BitSize::DWORD => {
-            gen_call_fn1_ret(builder, "safe_read32s_slow");
+            gen_call_fn1_ret(builder, "safe_read32s_slow_jit");
         },
     }
+
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::PAGE_FAULT);
+
+    builder.instruction_body.if_void();
+    builder.instruction_body.return_();
+    builder.instruction_body.block_end();
+
     builder.instruction_body.block_end();
 
     builder.free_local(address_local);
@@ -332,18 +341,27 @@ fn gen_safe_write(
     }
 
     // Pseudo:
-    // else { safe_write16_slow(address, value); }
+    // else { safe_write*_slow(address, value); if(page_fault) return; }
     builder.instruction_body.else_();
     builder.instruction_body.get_local(&address_local);
     builder.instruction_body.get_local(&value_local);
     match bits {
         BitSize::WORD => {
-            gen_call_fn2(builder, "safe_write16_slow");
+            gen_call_fn2(builder, "safe_write16_slow_jit");
         },
         BitSize::DWORD => {
-            gen_call_fn2(builder, "safe_write32_slow");
+            gen_call_fn2(builder, "safe_write32_slow_jit");
         },
     }
+
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::PAGE_FAULT);
+
+    builder.instruction_body.if_void();
+    builder.instruction_body.return_();
+    builder.instruction_body.block_end();
+
     builder.instruction_body.block_end();
 }
 
