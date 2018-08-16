@@ -439,8 +439,7 @@ fn record_entry_point(ctx: &mut JitState, phys_address: u32) {
         .or_insert_with(|| {
             is_new = true;
             HashSet::new()
-        })
-        .insert(offset_in_page);
+        }).insert(offset_in_page);
 
     if is_new {
         cpu::tlb_set_has_code(page, true);
@@ -508,7 +507,8 @@ fn jit_find_basic_blocks(
                         ctx.cs_offset.wrapping_add(
                             (current_address
                                 .wrapping_sub(ctx.cs_offset)
-                                .wrapping_add(offset as u32)) & 0xFFFF,
+                                .wrapping_add(offset as u32))
+                                & 0xFFFF,
                         )
                     };
 
