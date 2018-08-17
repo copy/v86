@@ -696,3 +696,93 @@ pub fn gen_push16_ss32(ctx: &mut JitContext, imm: ImmVal) {
     ctx.builder.instruction_body.store_aligned_i32();
     ctx.builder.free_local(reg32_updated_local);
 }
+
+pub fn gen_push32_ss16(ctx: &mut JitContext, imm: ImmVal) {
+    match imm {
+        ImmVal::REG(r) => {
+            ctx.builder
+                .instruction_body
+                .load_aligned_i32(global_pointers::get_reg32_offset(r));
+        },
+        ImmVal::CONST(imm) => {
+            ctx.builder.instruction_body.push_i32(imm as i32);
+        },
+        ImmVal::MEM => {
+            gen_safe_read32(ctx);
+        },
+    };
+    let value_local = ctx.builder.set_new_local();
+
+    ctx.builder
+        .instruction_body
+        .load_aligned_u16(global_pointers::get_reg16_offset(regs::SP));
+    ctx.builder.instruction_body.push_i32(4);
+    ctx.builder.instruction_body.sub_i32();
+    ctx.builder.instruction_body.push_i32(0xFFFF);
+    ctx.builder.instruction_body.and_i32();
+    let new_sp_local = ctx.builder.tee_new_local();
+
+    if !ctx.cpu.has_flat_segmentation() {
+        ctx.builder
+            .instruction_body
+            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+        ctx.builder.instruction_body.add_i32();
+    }
+
+    let sp_local = ctx.builder.set_new_local();
+
+    gen_safe_write32(ctx, &sp_local, &value_local);
+    ctx.builder.free_local(value_local);
+    ctx.builder.free_local(sp_local);
+
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg16_offset(regs::SP) as i32);
+    ctx.builder.instruction_body.get_local(&new_sp_local);
+    ctx.builder.instruction_body.store_aligned_u16();
+    ctx.builder.free_local(new_sp_local);
+}
+
+pub fn gen_push32_ss32(ctx: &mut JitContext, imm: ImmVal) {
+    match imm {
+        ImmVal::REG(r) => {
+            ctx.builder
+                .instruction_body
+                .load_aligned_i32(global_pointers::get_reg32_offset(r));
+        },
+        ImmVal::CONST(imm) => {
+            ctx.builder.instruction_body.push_i32(imm as i32);
+        },
+        ImmVal::MEM => {
+            gen_safe_read32(ctx);
+        },
+    };
+    let value_local = ctx.builder.set_new_local();
+
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_reg32_offset(regs::ESP));
+    ctx.builder.instruction_body.push_i32(4);
+    ctx.builder.instruction_body.sub_i32();
+    let new_esp_local = ctx.builder.tee_new_local();
+
+    if !ctx.cpu.has_flat_segmentation() {
+        ctx.builder
+            .instruction_body
+            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+        ctx.builder.instruction_body.add_i32();
+    }
+
+    let sp_local = ctx.builder.set_new_local();
+
+    gen_safe_write32(ctx, &sp_local, &value_local);
+    ctx.builder.free_local(value_local);
+    ctx.builder.free_local(sp_local);
+
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg32_offset(regs::ESP) as i32);
+    ctx.builder.instruction_body.get_local(&new_esp_local);
+    ctx.builder.instruction_body.store_aligned_i32();
+    ctx.builder.free_local(new_esp_local);
+}

@@ -106,13 +106,12 @@ fn push16_reg_jit(ctx: &mut JitContext, r: u32) {
 }
 
 fn push32_reg_jit(ctx: &mut JitContext, r: u32) {
-    let name = if ctx.cpu.ssize_32() {
-        "push32_ss32"
+    if ctx.cpu.ssize_32() {
+        codegen::gen_push32_ss32(ctx, ImmVal::REG(r));
     }
     else {
-        "push32_ss16"
-    };
-    codegen::gen_fn1_reg32(ctx, name, r);
+        codegen::gen_push32_ss16(ctx, ImmVal::REG(r));
+    }
 }
 
 fn push16_imm_jit(ctx: &mut JitContext, imm: u32) {
@@ -125,13 +124,12 @@ fn push16_imm_jit(ctx: &mut JitContext, imm: u32) {
 }
 
 fn push32_imm_jit(ctx: &mut JitContext, imm: u32) {
-    let name = if ctx.cpu.ssize_32() {
-        "push32_ss32"
+    if ctx.cpu.ssize_32() {
+        codegen::gen_push32_ss32(ctx, ImmVal::CONST(imm));
     }
     else {
-        "push32_ss16"
-    };
-    codegen::gen_fn1_const(ctx, name, imm)
+        codegen::gen_push32_ss16(ctx, ImmVal::CONST(imm));
+    }
 }
 
 fn push16_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
@@ -146,13 +144,12 @@ fn push16_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
 
 fn push32_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    let name = if ctx.cpu.ssize_32() {
-        "push32_ss32_mem"
+    if ctx.cpu.ssize_32() {
+        codegen::gen_push32_ss32(ctx, ImmVal::MEM);
     }
     else {
-        "push32_ss16_mem"
-    };
-    codegen::gen_modrm_fn0(ctx, name)
+        codegen::gen_push32_ss16(ctx, ImmVal::MEM);
+    }
 }
 
 fn pop16_reg_jit(ctx: &mut JitContext, reg: u32) {
