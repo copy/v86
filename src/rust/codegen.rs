@@ -748,3 +748,120 @@ pub fn gen_push32_ss32(ctx: &mut JitContext, imm: ImmVal) {
     ctx.builder.instruction_body.store_aligned_i32();
     ctx.builder.free_local(new_esp_local);
 }
+
+fn gen_safe_read_write(
+    ctx: &mut JitContext,
+    bits: BitSize,
+    address_local: &WasmLocal,
+    fn_idx: u16,
+) {
+    let builder = &mut ctx.builder;
+
+    builder.instruction_body.get_local(address_local);
+
+    // Pseudo: base_on_stack = (uint32_t)address >> 12;
+    builder.instruction_body.push_i32(12);
+    builder.instruction_body.shr_u32();
+
+    // scale index
+    builder.instruction_body.push_i32(2);
+    builder.instruction_body.shl_i32();
+
+    // Pseudo: entry = tlb_data[base_on_stack];
+    builder
+        .instruction_body
+        .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
+    let entry_local = builder.tee_new_local();
+
+    // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
+    //                                   (address & 0xFFF) <= (0x1000 - (bitsize / 8));
+    builder.instruction_body.push_i32(
+        (0xFFF & !TLB_READONLY & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER }))
+            as i32,
+    );
+    builder.instruction_body.and_i32();
+
+    builder.instruction_body.push_i32(TLB_VALID as i32);
+    builder.instruction_body.eq_i32();
+
+    builder.instruction_body.get_local(&address_local);
+    builder.instruction_body.push_i32(0xFFF);
+    builder.instruction_body.and_i32();
+    builder
+        .instruction_body
+        .push_i32(0x1000 - if bits == BitSize::WORD { 2 } else { 4 });
+    builder.instruction_body.le_i32();
+
+    builder.instruction_body.and_i32();
+
+    // Pseudo:
+    // if(can_use_fast_path) leave_on_stack(mem8[entry & ~0xFFF ^ address]);
+    builder.instruction_body.if_i32();
+    builder.instruction_body.get_local(&entry_local);
+    builder.instruction_body.push_i32(!0xFFF);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.get_local(&address_local);
+    builder.instruction_body.xor_i32();
+
+    let phys_addr_local = builder.tee_new_local();
+
+    match bits {
+        BitSize::WORD => {
+            builder
+                .instruction_body
+                .load_unaligned_u16_from_stack(global_pointers::MEMORY);
+        },
+        BitSize::DWORD => {
+            builder
+                .instruction_body
+                .load_unaligned_i32_from_stack(global_pointers::MEMORY);
+        },
+    }
+
+    builder.free_local(entry_local);
+
+    builder.instruction_body.call_fn(fn_idx);
+
+    // now store the value on stack to phys_addr
+    builder.instruction_body.get_local(&phys_addr_local);
+    match bits {
+        BitSize::WORD => {
+            builder
+                .instruction_body
+                .store_unaligned_u16(global_pointers::MEMORY);
+        },
+        BitSize::DWORD => {
+            builder
+                .instruction_body
+                .store_unaligned_i32(global_pointers::MEMORY);
+        },
+    };
+    builder.free_local(phys_addr_local);
+
+    // Pseudo:
+    // else { safe_readXX_slow(address); fn(); safe_writeXX_slow(); }
+    builder.instruction_body.else_();
+    builder.instruction_body.get_local(&address_local);
+    match bits {
+        BitSize::WORD => {
+            gen_call_fn1_ret(builder, "safe_read16_slow");
+            builder.instruction_body.call_fn(fn_idx);
+            let new_val_local = builder.set_new_local();
+            builder.instruction_body.get_local(&address_local);
+            builder.instruction_body.get_local(&new_val_local);
+            gen_call_fn2(builder, "safe_write16_slow");
+            builder.free_local(new_val_local);
+        },
+        BitSize::DWORD => {
+            gen_call_fn1_ret(builder, "safe_read32s_slow");
+            builder.instruction_body.call_fn(fn_idx);
+            let new_val_local = builder.set_new_local();
+            builder.instruction_body.get_local(&address_local);
+            builder.instruction_body.get_local(&new_val_local);
+            gen_call_fn2(builder, "safe_write32_slow");
+            builder.free_local(new_val_local);
+        },
+    }
+
+    builder.instruction_body.block_end();
+}
