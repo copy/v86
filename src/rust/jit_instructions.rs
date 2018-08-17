@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use codegen;
+use cpu::ImmVal;
 use cpu_context::CpuContext;
 use global_pointers;
 use jit::JitContext;
@@ -96,13 +97,12 @@ pub fn instr_F3_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
 }
 
 fn push16_reg_jit(ctx: &mut JitContext, r: u32) {
-    let name = if ctx.cpu.ssize_32() {
-        "push16_ss32"
+    if ctx.cpu.ssize_32() {
+        codegen::gen_push16_ss32(ctx, ImmVal::REG(r));
     }
     else {
-        "push16_ss16"
-    };
-    codegen::gen_fn1_reg16(ctx, name, r);
+        codegen::gen_push16_ss16(ctx, ImmVal::REG(r));
+    }
 }
 
 fn push32_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -116,13 +116,12 @@ fn push32_reg_jit(ctx: &mut JitContext, r: u32) {
 }
 
 fn push16_imm_jit(ctx: &mut JitContext, imm: u32) {
-    let name = if ctx.cpu.ssize_32() {
-        "push16_ss32"
+    if ctx.cpu.ssize_32() {
+        codegen::gen_push16_ss32(ctx, ImmVal::CONST(imm));
     }
     else {
-        "push16_ss16"
-    };
-    codegen::gen_fn1_const(ctx, name, imm)
+        codegen::gen_push16_ss16(ctx, ImmVal::CONST(imm));
+    }
 }
 
 fn push32_imm_jit(ctx: &mut JitContext, imm: u32) {
@@ -137,13 +136,12 @@ fn push32_imm_jit(ctx: &mut JitContext, imm: u32) {
 
 fn push16_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    let name = if ctx.cpu.ssize_32() {
-        "push16_ss32_mem"
+    if ctx.cpu.ssize_32() {
+        codegen::gen_push16_ss32(ctx, ImmVal::MEM);
     }
     else {
-        "push16_ss16_mem"
-    };
-    codegen::gen_modrm_fn0(ctx, name)
+        codegen::gen_push16_ss16(ctx, ImmVal::MEM);
+    }
 }
 
 fn push32_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
