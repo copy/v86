@@ -156,28 +156,6 @@ pub fn gen_set_reg32_r(ctx: &mut JitContext, dest: u32, src: u32) {
     builder.instruction_body.store_aligned_i32();
 }
 
-pub fn gen_set_reg16_fn0(ctx: &mut JitContext, name: &str, reg: u32) {
-    // generates: reg16[reg] = fn()
-    let builder = &mut ctx.builder;
-    let fn_idx = builder.get_fn_idx(name, module_init::FN0_RET_TYPE_INDEX);
-    builder
-        .instruction_body
-        .push_i32(global_pointers::get_reg16_offset(reg) as i32);
-    builder.instruction_body.call_fn(fn_idx);
-    builder.instruction_body.store_aligned_u16();
-}
-
-pub fn gen_set_reg32s_fn0(ctx: &mut JitContext, name: &str, reg: u32) {
-    // generates: reg32s[reg] = fn()
-    let builder = &mut ctx.builder;
-    let fn_idx = builder.get_fn_idx(name, module_init::FN0_RET_TYPE_INDEX);
-    builder
-        .instruction_body
-        .push_i32(global_pointers::get_reg32_offset(reg) as i32);
-    builder.instruction_body.call_fn(fn_idx);
-    builder.instruction_body.store_aligned_i32();
-}
-
 pub fn gen_safe_read16(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::WORD) }
 pub fn gen_safe_read32(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::DWORD) }
 
@@ -362,22 +340,6 @@ fn gen_safe_write(
         },
     }
     builder.instruction_body.block_end();
-}
-
-pub fn gen_fn1_reg16(ctx: &mut JitContext, name: &str, r: u32) {
-    let fn_idx = ctx.builder.get_fn_idx(name, module_init::FN1_TYPE_INDEX);
-    ctx.builder
-        .instruction_body
-        .load_aligned_u16(global_pointers::get_reg16_offset(r));
-    ctx.builder.instruction_body.call_fn(fn_idx)
-}
-
-pub fn gen_fn1_reg32(ctx: &mut JitContext, name: &str, r: u32) {
-    let fn_idx = ctx.builder.get_fn_idx(name, module_init::FN1_TYPE_INDEX);
-    ctx.builder
-        .instruction_body
-        .load_aligned_i32(global_pointers::get_reg32_offset(r));
-    ctx.builder.instruction_body.call_fn(fn_idx)
 }
 
 pub fn gen_clear_prefixes(ctx: &mut JitContext) {
