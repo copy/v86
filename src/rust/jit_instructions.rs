@@ -153,21 +153,19 @@ fn push32_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
 }
 
 fn pop16_reg_jit(ctx: &mut JitContext, reg: u32) {
-    if ctx.cpu.ssize_32() {
-        codegen::gen_set_reg16_fn0(ctx, "pop16_ss32", reg);
-    }
-    else {
-        codegen::gen_set_reg16_fn0(ctx, "pop16_ss16", reg);
-    }
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg16_offset(reg) as i32);
+    codegen::gen_pop16(ctx);
+    ctx.builder.instruction_body.store_aligned_u16();
 }
 
 fn pop32_reg_jit(ctx: &mut JitContext, reg: u32) {
-    if ctx.cpu.ssize_32() {
-        codegen::gen_set_reg32s_fn0(ctx, "pop32s_ss32", reg);
-    }
-    else {
-        codegen::gen_set_reg32s_fn0(ctx, "pop32s_ss16", reg);
-    }
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg32_offset(reg) as i32);
+    codegen::gen_pop32s(ctx);
+    ctx.builder.instruction_body.store_aligned_i32();
 }
 
 pub fn instr16_50_jit(ctx: &mut JitContext) { push16_reg_jit(ctx, AX); }
