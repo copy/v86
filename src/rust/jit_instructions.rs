@@ -288,10 +288,22 @@ pub fn instr32_8F_0_reg_jit(ctx: &mut JitContext, r: u32) {
 }
 
 pub fn instr16_E8_jit(ctx: &mut JitContext, imm: u32) {
-    codegen::gen_fn1_const(ctx, "instr16_E8", imm);
+    codegen::gen_get_real_eip(ctx);
+    codegen::gen_push16(ctx, ImmVal::STACK);
+    codegen::gen_jmp_rel16(ctx, imm as u16);
 }
 pub fn instr32_E8_jit(ctx: &mut JitContext, imm: u32) {
-    codegen::gen_fn1_const(ctx, "instr32_E8", imm);
+    codegen::gen_get_real_eip(ctx);
+    codegen::gen_push32(ctx, ImmVal::STACK);
+    ctx.builder
+        .instruction_body
+        .push_i32(global_pointers::INSTRUCTION_POINTER as i32);
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    ctx.builder.instruction_body.push_i32(imm as i32);
+    ctx.builder.instruction_body.add_i32();
+    ctx.builder.instruction_body.store_aligned_i32();
 }
 
 pub fn instr16_E9_jit(ctx: &mut JitContext, imm: u32) { codegen::gen_jmp_rel16(ctx, imm as u16); }

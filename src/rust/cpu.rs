@@ -32,6 +32,7 @@ pub enum ImmVal {
     REG(u32),
     CONST(u32),
     MEM,
+    STACK,
 }
 
 pub fn read8(addr: u32) -> u8 { unsafe { unsafe_cpu::read8(addr) } }

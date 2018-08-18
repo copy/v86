@@ -594,6 +594,7 @@ fn gen_push16_ss(ctx: &mut JitContext, imm: ImmVal, bits: BitSize) {
             // NOTE: It's important that this match stays atop so gen_safe_read16 gets called early enough
             gen_safe_read16(ctx);
         },
+        ImmVal::STACK => { /* nothing to do */ },
     };
     let value_local = ctx.builder.set_new_local();
 
@@ -653,6 +654,7 @@ fn gen_push32_ss(ctx: &mut JitContext, imm: ImmVal, bits: BitSize) {
         ImmVal::MEM => {
             gen_safe_read32(ctx);
         },
+        ImmVal::STACK => { /* nothing to do */ },
     };
     let value_local = ctx.builder.set_new_local();
 
@@ -690,6 +692,13 @@ fn gen_push32_ss(ctx: &mut JitContext, imm: ImmVal, bits: BitSize) {
         BitSize::DWORD => ctx.builder.instruction_body.store_aligned_i32(),
     };
     ctx.builder.free_local(new_sp_local);
+}
+
+pub fn gen_get_real_eip(ctx: &mut JitContext) {
+    let instruction_body = &mut ctx.builder.instruction_body;
+    instruction_body.load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    instruction_body.load_aligned_i32(global_pointers::get_seg_offset(regs::CS));
+    instruction_body.sub_i32();
 }
 
 fn gen_safe_read_write(
