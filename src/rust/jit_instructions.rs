@@ -96,60 +96,17 @@ pub fn instr_F3_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
     jit_handle_prefix(ctx, instr_flags)
 }
 
-fn push16_reg_jit(ctx: &mut JitContext, r: u32) {
-    if ctx.cpu.ssize_32() {
-        codegen::gen_push16_ss32(ctx, ImmVal::REG(r));
-    }
-    else {
-        codegen::gen_push16_ss16(ctx, ImmVal::REG(r));
-    }
-}
-
-fn push32_reg_jit(ctx: &mut JitContext, r: u32) {
-    if ctx.cpu.ssize_32() {
-        codegen::gen_push32_ss32(ctx, ImmVal::REG(r));
-    }
-    else {
-        codegen::gen_push32_ss16(ctx, ImmVal::REG(r));
-    }
-}
-
-fn push16_imm_jit(ctx: &mut JitContext, imm: u32) {
-    if ctx.cpu.ssize_32() {
-        codegen::gen_push16_ss32(ctx, ImmVal::CONST(imm));
-    }
-    else {
-        codegen::gen_push16_ss16(ctx, ImmVal::CONST(imm));
-    }
-}
-
-fn push32_imm_jit(ctx: &mut JitContext, imm: u32) {
-    if ctx.cpu.ssize_32() {
-        codegen::gen_push32_ss32(ctx, ImmVal::CONST(imm));
-    }
-    else {
-        codegen::gen_push32_ss16(ctx, ImmVal::CONST(imm));
-    }
-}
-
+fn push16_reg_jit(ctx: &mut JitContext, r: u32) { codegen::gen_push16(ctx, ImmVal::REG(r)); }
+fn push32_reg_jit(ctx: &mut JitContext, r: u32) { codegen::gen_push32(ctx, ImmVal::REG(r)); }
+fn push16_imm_jit(ctx: &mut JitContext, imm: u32) { codegen::gen_push16(ctx, ImmVal::CONST(imm)); }
+fn push32_imm_jit(ctx: &mut JitContext, imm: u32) { codegen::gen_push32(ctx, ImmVal::CONST(imm)); }
 fn push16_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    if ctx.cpu.ssize_32() {
-        codegen::gen_push16_ss32(ctx, ImmVal::MEM);
-    }
-    else {
-        codegen::gen_push16_ss16(ctx, ImmVal::MEM);
-    }
+    codegen::gen_push16(ctx, ImmVal::MEM);
 }
-
 fn push32_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    if ctx.cpu.ssize_32() {
-        codegen::gen_push32_ss32(ctx, ImmVal::MEM);
-    }
-    else {
-        codegen::gen_push32_ss16(ctx, ImmVal::MEM);
-    }
+    codegen::gen_push32(ctx, ImmVal::MEM);
 }
 
 fn pop16_reg_jit(ctx: &mut JitContext, reg: u32) {

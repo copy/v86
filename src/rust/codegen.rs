@@ -571,7 +571,16 @@ pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
     ctx.builder.instruction_body.block_end();
 }
 
-pub fn gen_push16_ss16(ctx: &mut JitContext, imm: ImmVal) {
+pub fn gen_push16(ctx: &mut JitContext, imm: ImmVal) {
+    if ctx.cpu.ssize_32() {
+        gen_push16_ss(ctx, imm, BitSize::DWORD)
+    }
+    else {
+        gen_push16_ss(ctx, imm, BitSize::WORD)
+    }
+}
+
+fn gen_push16_ss(ctx: &mut JitContext, imm: ImmVal, bits: BitSize) {
     match imm {
         ImmVal::REG(r) => {
             ctx.builder
@@ -588,57 +597,19 @@ pub fn gen_push16_ss16(ctx: &mut JitContext, imm: ImmVal) {
     };
     let value_local = ctx.builder.set_new_local();
 
-    ctx.builder
-        .instruction_body
-        .load_aligned_i32(global_pointers::get_reg16_offset(regs::SP));
-    ctx.builder.instruction_body.push_i32(2);
-    ctx.builder.instruction_body.sub_i32();
-    let reg16_updated_local = ctx.builder.tee_new_local();
-    ctx.builder.instruction_body.push_i32(0xFFFF);
-    ctx.builder.instruction_body.and_i32();
-
-    if !ctx.cpu.has_flat_segmentation() {
-        ctx.builder
-            .instruction_body
-            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
-        ctx.builder.instruction_body.add_i32();
-    }
-
-    let sp_local = ctx.builder.set_new_local();
-    gen_safe_write16(ctx, &sp_local, &value_local);
-    ctx.builder.free_local(sp_local);
-    ctx.builder.free_local(value_local);
-    ctx.builder
-        .instruction_body
-        .push_i32(global_pointers::get_reg16_offset(regs::SP) as i32);
-    ctx.builder.instruction_body.get_local(&reg16_updated_local);
-    ctx.builder.instruction_body.store_aligned_u16();
-    ctx.builder.free_local(reg16_updated_local);
-}
-
-pub fn gen_push16_ss32(ctx: &mut JitContext, imm: ImmVal) {
-    match imm {
-        ImmVal::REG(r) => {
-            ctx.builder
-                .instruction_body
-                .load_aligned_u16(global_pointers::get_reg16_offset(r));
-        },
-        ImmVal::CONST(imm) => {
-            ctx.builder.instruction_body.push_i32(imm as i32);
-        },
-        ImmVal::MEM => {
-            // NOTE: It's important that this match stays atop so gen_safe_read16 gets called early enough
-            gen_safe_read16(ctx);
-        },
+    let sp_reg = match bits {
+        BitSize::WORD => global_pointers::get_reg16_offset(regs::SP),
+        BitSize::DWORD => global_pointers::get_reg32_offset(regs::ESP),
     };
-    let value_local = ctx.builder.set_new_local();
 
-    ctx.builder
-        .instruction_body
-        .load_aligned_i32(global_pointers::get_reg32_offset(regs::ESP));
+    ctx.builder.instruction_body.load_aligned_i32(sp_reg);
     ctx.builder.instruction_body.push_i32(2);
     ctx.builder.instruction_body.sub_i32();
-    let reg32_updated_local = ctx.builder.tee_new_local();
+    let reg_updated_local = ctx.builder.tee_new_local();
+    if bits == BitSize::WORD {
+        ctx.builder.instruction_body.push_i32(0xFFFF);
+        ctx.builder.instruction_body.and_i32();
+    }
 
     if !ctx.cpu.has_flat_segmentation() {
         ctx.builder
@@ -651,15 +622,25 @@ pub fn gen_push16_ss32(ctx: &mut JitContext, imm: ImmVal) {
     gen_safe_write16(ctx, &sp_local, &value_local);
     ctx.builder.free_local(sp_local);
     ctx.builder.free_local(value_local);
-    ctx.builder
-        .instruction_body
-        .push_i32(global_pointers::get_reg32_offset(regs::ESP) as i32);
-    ctx.builder.instruction_body.get_local(&reg32_updated_local);
-    ctx.builder.instruction_body.store_aligned_i32();
-    ctx.builder.free_local(reg32_updated_local);
+    ctx.builder.instruction_body.push_i32(sp_reg as i32);
+    ctx.builder.instruction_body.get_local(&reg_updated_local);
+    match bits {
+        BitSize::WORD => ctx.builder.instruction_body.store_aligned_u16(),
+        BitSize::DWORD => ctx.builder.instruction_body.store_aligned_i32(),
+    };
+    ctx.builder.free_local(reg_updated_local);
 }
 
-pub fn gen_push32_ss16(ctx: &mut JitContext, imm: ImmVal) {
+pub fn gen_push32(ctx: &mut JitContext, imm: ImmVal) {
+    if ctx.cpu.ssize_32() {
+        gen_push32_ss(ctx, imm, BitSize::DWORD)
+    }
+    else {
+        gen_push32_ss(ctx, imm, BitSize::WORD)
+    }
+}
+
+fn gen_push32_ss(ctx: &mut JitContext, imm: ImmVal, bits: BitSize) {
     match imm {
         ImmVal::REG(r) => {
             ctx.builder
@@ -675,13 +656,18 @@ pub fn gen_push32_ss16(ctx: &mut JitContext, imm: ImmVal) {
     };
     let value_local = ctx.builder.set_new_local();
 
-    ctx.builder
-        .instruction_body
-        .load_aligned_u16(global_pointers::get_reg16_offset(regs::SP));
+    let sp_reg = match bits {
+        BitSize::WORD => global_pointers::get_reg16_offset(regs::SP),
+        BitSize::DWORD => global_pointers::get_reg32_offset(regs::ESP),
+    };
+
+    ctx.builder.instruction_body.load_aligned_i32(sp_reg);
     ctx.builder.instruction_body.push_i32(4);
     ctx.builder.instruction_body.sub_i32();
-    ctx.builder.instruction_body.push_i32(0xFFFF);
-    ctx.builder.instruction_body.and_i32();
+    if bits == BitSize::WORD {
+        ctx.builder.instruction_body.push_i32(0xFFFF);
+        ctx.builder.instruction_body.and_i32();
+    }
     let new_sp_local = ctx.builder.tee_new_local();
 
     if !ctx.cpu.has_flat_segmentation() {
@@ -697,56 +683,13 @@ pub fn gen_push32_ss16(ctx: &mut JitContext, imm: ImmVal) {
     ctx.builder.free_local(value_local);
     ctx.builder.free_local(sp_local);
 
-    ctx.builder
-        .instruction_body
-        .push_i32(global_pointers::get_reg16_offset(regs::SP) as i32);
+    ctx.builder.instruction_body.push_i32(sp_reg as i32);
     ctx.builder.instruction_body.get_local(&new_sp_local);
-    ctx.builder.instruction_body.store_aligned_u16();
-    ctx.builder.free_local(new_sp_local);
-}
-
-pub fn gen_push32_ss32(ctx: &mut JitContext, imm: ImmVal) {
-    match imm {
-        ImmVal::REG(r) => {
-            ctx.builder
-                .instruction_body
-                .load_aligned_i32(global_pointers::get_reg32_offset(r));
-        },
-        ImmVal::CONST(imm) => {
-            ctx.builder.instruction_body.push_i32(imm as i32);
-        },
-        ImmVal::MEM => {
-            gen_safe_read32(ctx);
-        },
+    match bits {
+        BitSize::WORD => ctx.builder.instruction_body.store_aligned_u16(),
+        BitSize::DWORD => ctx.builder.instruction_body.store_aligned_i32(),
     };
-    let value_local = ctx.builder.set_new_local();
-
-    ctx.builder
-        .instruction_body
-        .load_aligned_i32(global_pointers::get_reg32_offset(regs::ESP));
-    ctx.builder.instruction_body.push_i32(4);
-    ctx.builder.instruction_body.sub_i32();
-    let new_esp_local = ctx.builder.tee_new_local();
-
-    if !ctx.cpu.has_flat_segmentation() {
-        ctx.builder
-            .instruction_body
-            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
-        ctx.builder.instruction_body.add_i32();
-    }
-
-    let sp_local = ctx.builder.set_new_local();
-
-    gen_safe_write32(ctx, &sp_local, &value_local);
-    ctx.builder.free_local(value_local);
-    ctx.builder.free_local(sp_local);
-
-    ctx.builder
-        .instruction_body
-        .push_i32(global_pointers::get_reg32_offset(regs::ESP) as i32);
-    ctx.builder.instruction_body.get_local(&new_esp_local);
-    ctx.builder.instruction_body.store_aligned_i32();
-    ctx.builder.free_local(new_esp_local);
+    ctx.builder.free_local(new_sp_local);
 }
 
 fn gen_safe_read_write(
