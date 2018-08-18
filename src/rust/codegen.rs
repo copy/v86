@@ -784,25 +784,18 @@ fn gen_safe_read_write(
     // Pseudo:
     // else { safe_readXX_slow(address); fn(); safe_writeXX_slow(); }
     builder.instruction_body.else_();
-    builder.instruction_body.get_local(&address_local);
+    builder.instruction_body.get_local(&address_local); // for writeXX's first arg
+    builder.instruction_body.get_local(&address_local); // for readXX's first arg
     match bits {
         BitSize::WORD => {
             gen_call_fn1_ret(builder, "safe_read16_slow");
             builder.instruction_body.call_fn(fn_idx);
-            let new_val_local = builder.set_new_local();
-            builder.instruction_body.get_local(&address_local);
-            builder.instruction_body.get_local(&new_val_local);
             gen_call_fn2(builder, "safe_write16_slow");
-            builder.free_local(new_val_local);
         },
         BitSize::DWORD => {
             gen_call_fn1_ret(builder, "safe_read32s_slow");
             builder.instruction_body.call_fn(fn_idx);
-            let new_val_local = builder.set_new_local();
-            builder.instruction_body.get_local(&address_local);
-            builder.instruction_body.get_local(&new_val_local);
             gen_call_fn2(builder, "safe_write32_slow");
-            builder.free_local(new_val_local);
         },
     }
 
