@@ -2164,7 +2164,9 @@ pub unsafe extern "C" fn safe_read32s(mut address: i32) -> Result<i32, ()> {
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut info_bits: i32 = entry & 4095i32 & !TLB_READONLY & !TLB_GLOBAL & !TLB_HAS_CODE;
     if info_bits == TLB_VALID && address & 4095i32 <= 4096i32 - 4i32 {
-        profiler_stat_increment(S_SAFE_READ32_FAST);
+        if false {
+            profiler_stat_increment(S_SAFE_READ32_FAST);
+        }
         c_comment!(("- not in memory mapped area"));
         c_comment!(("- can be accessed from any cpl"));
         let mut phys_address: u32 = (entry & !4095i32 ^ address) as u32;
@@ -2172,20 +2174,22 @@ pub unsafe extern "C" fn safe_read32s(mut address: i32) -> Result<i32, ()> {
         return Ok(*(mem8.offset(phys_address as isize) as *mut i32));
     }
     else {
-        if address & 4095i32 > 4096i32 - 4i32 {
-            profiler_stat_increment(S_SAFE_READ32_SLOW_PAGE_CROSSED);
-        }
-        else if info_bits & TLB_VALID == 0i32 {
-            profiler_stat_increment(S_SAFE_READ32_SLOW_NOT_VALID);
-        }
-        else if 0 != info_bits & TLB_NO_USER {
-            profiler_stat_increment(S_SAFE_READ32_SLOW_NOT_USER);
-        }
-        else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
-            profiler_stat_increment(S_SAFE_READ32_SLOW_IN_MAPPED_RANGE);
-        }
-        else {
-            dbg_assert!(0 != 0i32);
+        if false {
+            if address & 4095i32 > 4096i32 - 4i32 {
+                profiler_stat_increment(S_SAFE_READ32_SLOW_PAGE_CROSSED);
+            }
+            else if info_bits & TLB_VALID == 0i32 {
+                profiler_stat_increment(S_SAFE_READ32_SLOW_NOT_VALID);
+            }
+            else if 0 != info_bits & TLB_NO_USER {
+                profiler_stat_increment(S_SAFE_READ32_SLOW_NOT_USER);
+            }
+            else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
+                profiler_stat_increment(S_SAFE_READ32_SLOW_IN_MAPPED_RANGE);
+            }
+            else {
+                dbg_assert!(0 != 0i32);
+            }
         }
         return safe_read32s_slow(address);
     };
@@ -2314,7 +2318,9 @@ pub unsafe extern "C" fn safe_write32(mut address: i32, mut value: i32) -> Resul
         TLB_NO_USER
     };
     if info_bits == TLB_VALID && address & 4095i32 <= 4096i32 - 4i32 {
-        profiler_stat_increment(S_SAFE_WRITE32_FAST);
+        if false {
+            profiler_stat_increment(S_SAFE_WRITE32_FAST);
+        }
         c_comment!(("- allowed to write in user-mode"));
         c_comment!(("- not in memory mapped area"));
         c_comment!(("- does not contain code"));
@@ -2324,26 +2330,28 @@ pub unsafe extern "C" fn safe_write32(mut address: i32, mut value: i32) -> Resul
         *(mem8.offset(phys_address as isize) as *mut i32) = value;
     }
     else {
-        if address & 4095i32 > 4096i32 - 4i32 {
-            profiler_stat_increment(S_SAFE_WRITE32_SLOW_PAGE_CROSSED);
-        }
-        else if info_bits & TLB_VALID == 0i32 {
-            profiler_stat_increment(S_SAFE_WRITE32_SLOW_NOT_VALID);
-        }
-        else if 0 != info_bits & TLB_NO_USER {
-            profiler_stat_increment(S_SAFE_WRITE32_SLOW_NOT_USER);
-        }
-        else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
-            profiler_stat_increment(S_SAFE_WRITE32_SLOW_IN_MAPPED_RANGE);
-        }
-        else if 0 != info_bits & TLB_READONLY {
-            profiler_stat_increment(S_SAFE_WRITE32_SLOW_READ_ONLY);
-        }
-        else if 0 != info_bits & TLB_HAS_CODE {
-            profiler_stat_increment(S_SAFE_WRITE32_SLOW_HAS_CODE);
-        }
-        else {
-            dbg_assert!(0 != 0i32);
+        if false {
+            if address & 4095i32 > 4096i32 - 4i32 {
+                profiler_stat_increment(S_SAFE_WRITE32_SLOW_PAGE_CROSSED);
+            }
+            else if info_bits & TLB_VALID == 0i32 {
+                profiler_stat_increment(S_SAFE_WRITE32_SLOW_NOT_VALID);
+            }
+            else if 0 != info_bits & TLB_NO_USER {
+                profiler_stat_increment(S_SAFE_WRITE32_SLOW_NOT_USER);
+            }
+            else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
+                profiler_stat_increment(S_SAFE_WRITE32_SLOW_IN_MAPPED_RANGE);
+            }
+            else if 0 != info_bits & TLB_READONLY {
+                profiler_stat_increment(S_SAFE_WRITE32_SLOW_READ_ONLY);
+            }
+            else if 0 != info_bits & TLB_HAS_CODE {
+                profiler_stat_increment(S_SAFE_WRITE32_SLOW_HAS_CODE);
+            }
+            else {
+                dbg_assert!(0 != 0i32);
+            }
         }
         safe_write32_slow(address, value)?;
     };
