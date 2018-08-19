@@ -1,23 +1,6 @@
 use std::alloc;
 
 #[no_mangle]
-pub unsafe extern "C" fn run_instruction(opcode: u32) { ::gen::interpreter::run(opcode) }
-#[no_mangle]
-pub unsafe extern "C" fn run_instruction0f_16(opcode: u32) {
-    ::gen::interpreter0f_16::run(opcode as u8)
-}
-#[no_mangle]
-pub unsafe extern "C" fn run_instruction0f_32(opcode: u32) {
-    ::gen::interpreter0f_32::run(opcode as u8)
-}
-
-#[no_mangle]
-pub fn sqrt(x: f64) -> f64 { x.sqrt() }
-
-#[no_mangle]
-pub fn sqrtf(x: f32) -> f32 { x.sqrt() }
-
-#[no_mangle]
 pub fn call_indirect1(f: fn(u16), x: u16) { f(x); }
 
 extern "C" {

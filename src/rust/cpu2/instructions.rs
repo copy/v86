@@ -8,1411 +8,50 @@
 )]
 #![feature(extern_types, libc)]
 
-use cpu2::cpu::*;
-use cpu2::fpu::{fpu_load_m32, fpu_load_m64};
-use cpu2::misc_instr::{pop16, pop32s, push16, push32};
-
 extern "C" {
+    #[no_mangle]
+    fn switch_seg(seg: i32, value: i32) -> bool;
+    #[no_mangle]
+    fn lss16(x: i32, y: i32, z: i32);
+    #[no_mangle]
+    fn lss32(x: i32, y: i32, z: i32);
+    #[no_mangle]
+    fn enter16(size: i32, nesting_level: i32);
+    #[no_mangle]
+    fn enter32(size: i32, nesting_level: i32);
 
     #[no_mangle]
-    fn add8(x: i32, y: i32) -> i32;
+    fn popa16();
     #[no_mangle]
-    fn add16(x: i32, y: i32) -> i32;
+    fn popa32();
     #[no_mangle]
-    fn add32(x: i32, y: i32) -> i32;
+    fn arpl(seg: i32, r: i32) -> i32;
     #[no_mangle]
-    fn sub8(x: i32, y: i32) -> i32;
+    fn far_jump(eip: i32, selector: i32, is_call: bool);
     #[no_mangle]
-    fn sub16(x: i32, y: i32) -> i32;
+    fn far_return(eip: i32, selector: i32, stack_adjust: i32);
     #[no_mangle]
-    fn sub32(x: i32, y: i32) -> i32;
+    fn call_interrupt_vector(interrupt: i32, is_software: bool, has_error: bool, error: i32);
     #[no_mangle]
-    fn adc8(x: i32, y: i32) -> i32;
+    fn iret16();
     #[no_mangle]
-    fn adc16(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn adc32(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn sbb8(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn sbb16(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn sbb32(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn cmp8(x: i32, y: i32) -> ();
-    #[no_mangle]
-    fn cmp16(x: i32, y: i32) -> ();
-    #[no_mangle]
-    fn cmp32(x: i32, y: i32) -> ();
-    #[no_mangle]
-    fn inc8(x: i32) -> i32;
-    #[no_mangle]
-    fn inc16(x: i32) -> i32;
-    #[no_mangle]
-    fn inc32(x: i32) -> i32;
-    #[no_mangle]
-    fn dec8(x: i32) -> i32;
-    #[no_mangle]
-    fn dec16(x: i32) -> i32;
-    #[no_mangle]
-    fn dec32(x: i32) -> i32;
-    #[no_mangle]
-    fn neg8(x: i32) -> i32;
-    #[no_mangle]
-    fn neg16(x: i32) -> i32;
-    #[no_mangle]
-    fn neg32(x: i32) -> i32;
-    #[no_mangle]
-    fn mul8(source_operand: i32) -> ();
-    #[no_mangle]
-    fn imul8(source_operand: i32) -> ();
-    #[no_mangle]
-    fn mul16(source_operand: u32) -> ();
-    #[no_mangle]
-    fn imul16(source_operand: i32) -> ();
-    #[no_mangle]
-    fn imul_reg16(operand1: i32, operand2: i32) -> i32;
-    #[no_mangle]
-    fn mul32(source_operand: i32) -> ();
-    #[no_mangle]
-    fn imul32(source_operand: i32) -> ();
-    #[no_mangle]
-    fn imul_reg32(operand1: i32, operand2: i32) -> i32;
-    #[no_mangle]
-    fn bcd_daa() -> ();
-    #[no_mangle]
-    fn bcd_das() -> ();
-    #[no_mangle]
-    fn bcd_aad(imm8: i32) -> ();
-    #[no_mangle]
-    fn bcd_aam(imm8: i32) -> ();
-    #[no_mangle]
-    fn bcd_aaa() -> ();
-    #[no_mangle]
-    fn bcd_aas() -> ();
-    #[no_mangle]
-    fn and8(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn and16(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn and32(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn test8(x: i32, y: i32) -> ();
-    #[no_mangle]
-    fn test16(x: i32, y: i32) -> ();
-    #[no_mangle]
-    fn test32(x: i32, y: i32) -> ();
-    #[no_mangle]
-    fn or8(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn or16(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn or32(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn xor8(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn xor16(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn xor32(x: i32, y: i32) -> i32;
-    #[no_mangle]
-    fn rol8(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn rol16(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn rol32(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn rcl8(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn rcl16(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn rcl32(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn ror8(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn ror16(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn ror32(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn rcr8(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn rcr16(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn rcr32(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn div8(source_operand: u32) -> ();
-    #[no_mangle]
-    fn idiv8(source_operand: i32) -> ();
-    #[no_mangle]
-    fn div16(source_operand: u32) -> ();
-    #[no_mangle]
-    fn idiv16(source_operand: i32) -> ();
-    #[no_mangle]
-    fn div32(source_operand: u32) -> ();
-    #[no_mangle]
-    fn idiv32(source_operand: i32) -> ();
-    #[no_mangle]
-    fn shl8(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn shl16(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn shl32(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn shr8(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn shr16(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn shr32(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn sar8(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn sar16(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    fn sar32(dest_operand: i32, count: i32) -> i32;
-    #[no_mangle]
-    static FLAG_CARRY: i32;
-    #[no_mangle]
-    static FLAG_PARITY: i32;
-    #[no_mangle]
-    static FLAG_ADJUST: i32;
-    #[no_mangle]
-    static FLAG_ZERO: i32;
-    #[no_mangle]
-    static FLAG_SIGN: i32;
-    #[no_mangle]
-    static FLAG_TRAP: i32;
-    #[no_mangle]
-    static FLAG_INTERRUPT: i32;
-    #[no_mangle]
-    static FLAG_DIRECTION: i32;
-    #[no_mangle]
-    static FLAG_OVERFLOW: i32;
-    #[no_mangle]
-    static FLAG_IOPL: i32;
-    #[no_mangle]
-    static FLAG_NT: i32;
-    #[no_mangle]
-    static FLAG_RF: i32;
-    #[no_mangle]
-    static FLAG_VM: i32;
-    #[no_mangle]
-    static FLAG_AC: i32;
-    #[no_mangle]
-    static FLAG_VIF: i32;
-    #[no_mangle]
-    static FLAG_VIP: i32;
-    #[no_mangle]
-    static FLAG_ID: i32;
-    #[no_mangle]
-    static FLAGS_DEFAULT: i32;
-    #[no_mangle]
-    static FLAGS_MASK: i32;
-    #[no_mangle]
-    static FLAGS_ALL: i32;
-    #[no_mangle]
-    static OPSIZE_8: i32;
-    #[no_mangle]
-    static OPSIZE_16: i32;
-    #[no_mangle]
-    static OPSIZE_32: i32;
-    #[no_mangle]
-    static EAX: i32;
-    #[no_mangle]
-    static ECX: i32;
-    #[no_mangle]
-    static EDX: i32;
-    #[no_mangle]
-    static EBX: i32;
-    #[no_mangle]
-    static ESP: i32;
-    #[no_mangle]
-    static EBP: i32;
-    #[no_mangle]
-    static ESI: i32;
-    #[no_mangle]
-    static EDI: i32;
-    #[no_mangle]
-    static AX: i32;
-    #[no_mangle]
-    static CX: i32;
-    #[no_mangle]
-    static DX: i32;
-    #[no_mangle]
-    static BX: i32;
-    #[no_mangle]
-    static SP: i32;
-    #[no_mangle]
-    static BP: i32;
-    #[no_mangle]
-    static SI: i32;
-    #[no_mangle]
-    static DI: i32;
-    #[no_mangle]
-    static AL: i32;
-    #[no_mangle]
-    static CL: i32;
-    #[no_mangle]
-    static DL: i32;
-    #[no_mangle]
-    static BL: i32;
-    #[no_mangle]
-    static AH: i32;
-    #[no_mangle]
-    static CH: i32;
-    #[no_mangle]
-    static DH: i32;
-    #[no_mangle]
-    static BH: i32;
-    #[no_mangle]
-    static ES: i32;
-    #[no_mangle]
-    static CS: i32;
-    #[no_mangle]
-    static SS: i32;
-    #[no_mangle]
-    static DS: i32;
-    #[no_mangle]
-    static FS: i32;
-    #[no_mangle]
-    static GS: i32;
-    #[no_mangle]
-    static TR: i32;
-    #[no_mangle]
-    static LDTR: i32;
-    #[no_mangle]
-    static PAGE_TABLE_PRESENT_MASK: i32;
-    #[no_mangle]
-    static PAGE_TABLE_RW_MASK: i32;
-    #[no_mangle]
-    static PAGE_TABLE_USER_MASK: i32;
-    #[no_mangle]
-    static PAGE_TABLE_ACCESSED_MASK: i32;
-    #[no_mangle]
-    static PAGE_TABLE_DIRTY_MASK: i32;
-    #[no_mangle]
-    static PAGE_TABLE_PSE_MASK: i32;
-    #[no_mangle]
-    static PAGE_TABLE_GLOBAL_MASK: i32;
-    #[no_mangle]
-    static MMAP_BLOCK_BITS: i32;
-    #[no_mangle]
-    static MMAP_BLOCK_SIZE: i32;
-    #[no_mangle]
-    static CR0_PE: i32;
-    #[no_mangle]
-    static CR0_MP: i32;
-    #[no_mangle]
-    static CR0_EM: i32;
-    #[no_mangle]
-    static CR0_TS: i32;
-    #[no_mangle]
-    static CR0_ET: i32;
-    #[no_mangle]
-    static CR0_WP: i32;
-    #[no_mangle]
-    static CR0_NW: i32;
-    #[no_mangle]
-    static CR0_CD: i32;
-    #[no_mangle]
-    static CR0_PG: i32;
-    #[no_mangle]
-    static CR4_VME: i32;
-    #[no_mangle]
-    static CR4_PVI: i32;
-    #[no_mangle]
-    static CR4_TSD: i32;
-    #[no_mangle]
-    static CR4_PSE: i32;
-    #[no_mangle]
-    static CR4_DE: i32;
-    #[no_mangle]
-    static CR4_PAE: i32;
-    #[no_mangle]
-    static CR4_PGE: i32;
-    #[no_mangle]
-    static IA32_SYSENTER_CS: i32;
-    #[no_mangle]
-    static IA32_SYSENTER_ESP: i32;
-    #[no_mangle]
-    static IA32_SYSENTER_EIP: i32;
-    #[no_mangle]
-    static IA32_TIME_STAMP_COUNTER: i32;
-    #[no_mangle]
-    static IA32_PLATFORM_ID: i32;
-    #[no_mangle]
-    static IA32_APIC_BASE_MSR: i32;
-    #[no_mangle]
-    static IA32_BIOS_SIGN_ID: i32;
-    #[no_mangle]
-    static MSR_PLATFORM_INFO: i32;
-    #[no_mangle]
-    static MSR_MISC_FEATURE_ENABLES: i32;
-    #[no_mangle]
-    static IA32_MISC_ENABLE: i32;
-    #[no_mangle]
-    static IA32_RTIT_CTL: i32;
-    #[no_mangle]
-    static MSR_SMI_COUNT: i32;
-    #[no_mangle]
-    static IA32_MCG_CAP: i32;
-    #[no_mangle]
-    static IA32_KERNEL_GS_BASE: i32;
-    #[no_mangle]
-    static MSR_PKG_C2_RESIDENCY: i32;
-    #[no_mangle]
-    static IA32_APIC_BASE_BSP: i32;
-    #[no_mangle]
-    static IA32_APIC_BASE_EXTD: i32;
-    #[no_mangle]
-    static IA32_APIC_BASE_EN: i32;
-    #[no_mangle]
-    static APIC_ADDRESS: i32;
-    #[no_mangle]
-    static SEG_PREFIX_NONE: i32;
-    #[no_mangle]
-    static SEG_PREFIX_ZERO: i32;
-    #[no_mangle]
-    static PREFIX_MASK_REP: i32;
-    #[no_mangle]
-    static PREFIX_REPZ: i32;
-    #[no_mangle]
-    static PREFIX_REPNZ: i32;
-    #[no_mangle]
-    static PREFIX_MASK_SEGMENT: i32;
-    #[no_mangle]
-    static PREFIX_MASK_OPSIZE: i32;
-    #[no_mangle]
-    static PREFIX_MASK_ADDRSIZE: i32;
-    #[no_mangle]
-    static PREFIX_F2: i32;
-    #[no_mangle]
-    static PREFIX_F3: i32;
-    #[no_mangle]
-    static PREFIX_66: i32;
-    #[no_mangle]
-    static LOG_CPU: i32;
-    #[no_mangle]
-    static A20_MASK: i32;
-    #[no_mangle]
-    static A20_MASK16: i32;
-    #[no_mangle]
-    static A20_MASK32: i32;
-    #[no_mangle]
-    static MXCSR_MASK: i32;
-    #[no_mangle]
-    fn __fpclassifyl(_: f64) -> i32;
-    #[no_mangle]
-    fn atan2(_: f64, _: f64) -> f64;
-    #[no_mangle]
-    fn cos(_: f64) -> f64;
-    #[no_mangle]
-    fn fabs(_: f64) -> f64;
-    #[no_mangle]
-    fn fmod(_: f64, _: f64) -> f64;
-    #[no_mangle]
-    fn log(_: f64) -> f64;
-    #[no_mangle]
-    fn pow(_: f64, _: f64) -> f64;
-    #[no_mangle]
-    fn sin(_: f64) -> f64;
-    #[no_mangle]
-    fn sqrt(_: f64) -> f64;
-    #[no_mangle]
-    fn tan(_: f64) -> f64;
-    #[no_mangle]
-    fn trunc(_: f64) -> f64;
+    fn iret32();
 
     #[no_mangle]
-    fn dbg_log(m: *const i8) -> ();
+    fn handle_irqs();
     #[no_mangle]
-    fn dbg_log1(m: *const i8, x: i32) -> ();
-    #[no_mangle]
-    fn c_comment(m: *const i8) -> ();
-    #[no_mangle]
-    static mut mem8: *mut u8;
-    #[no_mangle]
-    static mut mem16: *mut u16;
-    #[no_mangle]
-    static mut mem32s: *mut i32;
-    #[no_mangle]
-    static mut jit_block_boundary: bool;
-    #[no_mangle]
-    static VALID_TLB_ENTRY_MAX: i32;
-    #[no_mangle]
-    static mut valid_tlb_entries: [i32; 10000];
-    #[no_mangle]
-    static mut valid_tlb_entries_count: i32;
-    #[no_mangle]
-    static TLB_VALID: i32;
-    #[no_mangle]
-    static TLB_READONLY: i32;
-    #[no_mangle]
-    static TLB_NO_USER: i32;
-    #[no_mangle]
-    static TLB_IN_MAPPED_RANGE: i32;
-    #[no_mangle]
-    static TLB_GLOBAL: i32;
-    #[no_mangle]
-    static TLB_HAS_CODE: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_DE: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_DB: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_NMI: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_BP: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_OF: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_BR: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_UD: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_NM: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_DF: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_TS: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_NP: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_SS: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_GP: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_PF: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_MF: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_AC: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_MC: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_XM: i32;
-    #[no_mangle]
-    static CPU_EXCEPTION_VE: i32;
-    #[no_mangle]
-    fn get_eflags() -> i32;
-    #[no_mangle]
-    fn is_asize_32() -> bool;
-    #[no_mangle]
-    fn get_seg_cs() -> i32;
-    #[no_mangle]
-    fn get_seg_ss() -> i32;
-    #[no_mangle]
-    fn get_seg_prefix(default_segment: i32) -> i32;
-    #[no_mangle]
-    fn get_seg_prefix_ds(offset: i32) -> i32;
-    #[no_mangle]
-    fn run_prefix_instruction() -> ();
-    #[no_mangle]
-    fn segment_prefix_op(seg: i32) -> ();
-    #[no_mangle]
-    fn trigger_ud() -> ();
-    #[no_mangle]
-    fn trigger_nm() -> ();
-    #[no_mangle]
-    fn trigger_gp_non_raising(code: i32) -> ();
-    #[no_mangle]
-    fn get_reg8_index(index: i32) -> i32;
-    #[no_mangle]
-    fn read_reg8(index: i32) -> i32;
-    #[no_mangle]
-    fn write_reg8(index: i32, value: i32) -> ();
-    #[no_mangle]
-    fn get_reg16_index(index: i32) -> i32;
-    #[no_mangle]
-    fn read_reg16(index: i32) -> i32;
-    #[no_mangle]
-    fn write_reg16(index: i32, value: i32) -> ();
-    #[no_mangle]
-    fn read_reg32(index: i32) -> i32;
-    #[no_mangle]
-    fn write_reg32(index: i32, value: i32) -> ();
-    #[no_mangle]
-    fn get_real_eip() -> i32;
-    #[no_mangle]
-    fn set_stack_reg(value: i32) -> ();
-    #[no_mangle]
-    fn vm86_mode() -> bool;
-    #[no_mangle]
-    fn getiopl() -> i32;
-    #[no_mangle]
-    static M_LOG2E: f64;
-    #[no_mangle]
-    static M_LN2: f64;
-    #[no_mangle]
-    static M_LN10: f64;
-    #[no_mangle]
-    static M_PI: f64;
-    #[no_mangle]
-    static FPU_C0: i32;
-    #[no_mangle]
-    static FPU_C1: i32;
-    #[no_mangle]
-    static FPU_C2: i32;
-    #[no_mangle]
-    static FPU_C3: i32;
-    #[no_mangle]
-    static FPU_RESULT_FLAGS: i32;
-    #[no_mangle]
-    static FPU_STACK_TOP: i32;
-    #[no_mangle]
-    fn fpu_get_st0() -> f64;
-    #[no_mangle]
-    fn fpu_get_sti(i: i32) -> f64;
-    #[no_mangle]
-    fn fpu_integer_round(f: f64) -> f64;
-    #[no_mangle]
-    fn fpu_fadd(target_index: i32, val: f64) -> ();
-    #[no_mangle]
-    fn fpu_fclex() -> ();
-    #[no_mangle]
-    fn fpu_fcmovcc(condition: bool, r: i32) -> ();
-    #[no_mangle]
-    fn fpu_fcom(y: f64) -> ();
-    #[no_mangle]
-    fn fpu_fcomi(r: i32) -> ();
-    #[no_mangle]
-    fn fpu_fcomip(r: i32) -> ();
-    #[no_mangle]
-    fn fpu_fcomp(val: f64) -> ();
-    #[no_mangle]
-    fn fpu_fdiv(target_index: i32, val: f64) -> ();
-    #[no_mangle]
-    fn fpu_fdivr(target_index: i32, val: f64) -> ();
-    #[no_mangle]
-    fn fpu_ffree(r: i32) -> ();
-    #[no_mangle]
-    fn fpu_fildm64(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_finit() -> ();
-    #[no_mangle]
-    fn fpu_fistm16(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fistm16p(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fistm32(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fistm32p(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fistm64p(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fldcw(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fldenv(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fldm32(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fldm64(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fldm80(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fmul(target_index: i32, val: f64) -> ();
-    #[no_mangle]
-    fn fpu_fnstsw_mem(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fnstsw_reg() -> ();
-    #[no_mangle]
-    fn fpu_fprem() -> ();
-    #[no_mangle]
-    fn fpu_frstor(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fsave(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fst(r: i32) -> ();
-    #[no_mangle]
-    fn fpu_fst80p(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fstcw(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fstenv(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fstm32(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fstm32p(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fstm64(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fstm64p(addr: i32) -> ();
-    #[no_mangle]
-    fn fpu_fstp(r: i32) -> ();
-    #[no_mangle]
-    fn fpu_fsub(target_index: i32, val: f64) -> ();
-    #[no_mangle]
-    fn fpu_fsubr(target_index: i32, val: f64) -> ();
-    #[no_mangle]
-    fn fpu_ftst(x: f64) -> ();
-    #[no_mangle]
-    fn fpu_fucom(r: i32) -> ();
-    #[no_mangle]
-    fn fpu_fucomi(r: i32) -> ();
-    #[no_mangle]
-    fn fpu_fucomip(r: i32) -> ();
-    #[no_mangle]
-    fn fpu_fucomp(r: i32) -> ();
-    #[no_mangle]
-    fn fpu_fucompp() -> ();
-    #[no_mangle]
-    fn fpu_fxam(x: f64) -> ();
-    #[no_mangle]
-    fn fpu_fxch(i: i32) -> ();
-    #[no_mangle]
-    fn fpu_fxtract() -> ();
-    #[no_mangle]
-    fn fpu_pop() -> ();
-    #[no_mangle]
-    fn fpu_push(x: f64) -> ();
-    #[no_mangle]
-    fn fwait() -> ();
-    #[no_mangle]
-    static reg8: *mut u8;
-    #[no_mangle]
-    static reg16: *mut u16;
-    #[no_mangle]
-    static reg8s: *mut i8;
-    #[no_mangle]
-    static reg16s: *mut i16;
-    #[no_mangle]
-    static reg32s: *mut i32;
-    #[no_mangle]
-    static last_op1: *mut i32;
-    #[no_mangle]
-    static last_op2: *mut i32;
-    #[no_mangle]
-    static last_op_size: *mut i32;
-    #[no_mangle]
-    static last_add_result: *mut i32;
-    #[no_mangle]
-    static last_result: *mut i32;
-    #[no_mangle]
-    static flags_changed: *mut i32;
-    #[no_mangle]
-    static flags: *mut i32;
-    #[no_mangle]
-    static page_fault: *mut bool;
-    #[no_mangle]
-    static a20_enabled: *mut bool;
-    #[no_mangle]
-    static instruction_pointer: *mut i32;
-    #[no_mangle]
-    static previous_ip: *mut i32;
-    #[no_mangle]
-    static idtr_size: *mut i32;
-    #[no_mangle]
-    static idtr_offset: *mut i32;
-    #[no_mangle]
-    static gdtr_size: *mut i32;
-    #[no_mangle]
-    static gdtr_offset: *mut i32;
-    #[no_mangle]
-    static cr: *mut i32;
-    #[no_mangle]
-    static cpl: *mut u8;
-    #[no_mangle]
-    static in_hlt: *mut bool;
-    #[no_mangle]
-    static last_virt_eip: *mut i32;
-    #[no_mangle]
-    static eip_phys: *mut i32;
-    #[no_mangle]
-    static last_virt_esp: *mut i32;
-    #[no_mangle]
-    static esp_phys: *mut i32;
-    #[no_mangle]
-    static sysenter_cs: *mut i32;
-    #[no_mangle]
-    static sysenter_esp: *mut i32;
-    #[no_mangle]
-    static sysenter_eip: *mut i32;
-    #[no_mangle]
-    static prefixes: *mut u8;
-    #[no_mangle]
-    static timestamp_counter: *mut u32;
-    #[no_mangle]
-    static sreg: *mut u16;
-    #[no_mangle]
-    static dreg: *mut i32;
-    #[no_mangle]
-    static fw_value: *mut i32;
-    #[no_mangle]
-    static segment_is_null: *mut bool;
-    #[no_mangle]
-    static segment_offsets: *mut i32;
-    #[no_mangle]
-    static segment_limits: *mut u32;
-    #[no_mangle]
-    static protected_mode: *mut bool;
-    #[no_mangle]
-    static is_32: *mut bool;
-    #[no_mangle]
-    static stack_size_32: *mut bool;
-    #[no_mangle]
-    static memory_size: *mut u32;
-    #[no_mangle]
-    static fpu_stack_empty: *mut i32;
-    #[no_mangle]
-    static mxcsr: *mut i32;
-    #[no_mangle]
-    static reg_xmm: *mut reg128;
-    #[no_mangle]
-    static current_tsc: *mut u64;
-    #[no_mangle]
-    static fpu_st: *mut f64;
-    #[no_mangle]
-    static fpu_st8: *mut u8;
-    #[no_mangle]
-    static fpu_st32: *mut i32;
-    #[no_mangle]
-    static fpu_stack_ptr: *mut u32;
-    #[no_mangle]
-    static fpu_control_word: *mut i32;
-    #[no_mangle]
-    static fpu_status_word: *mut i32;
-    #[no_mangle]
-    static fpu_opcode: *mut i32;
-    #[no_mangle]
-    static fpu_ip: *mut i32;
-    #[no_mangle]
-    static fpu_ip_selector: *mut i32;
-    #[no_mangle]
-    static fpu_dp: *mut i32;
-    #[no_mangle]
-    static fpu_dp_selector: *mut i32;
-    #[no_mangle]
-    static reg_mmx: *mut reg64;
-    #[no_mangle]
-    static opstats_buffer: *mut u32;
-    #[no_mangle]
-    static opstats_buffer_0f: *mut u32;
-    #[no_mangle]
-    static tlb_data: *mut i32;
-    #[no_mangle]
-    #[no_mangle]
-    #[no_mangle]
-    #[no_mangle]
-    fn adjust_stack_reg(adjustment: i32) -> ();
-    #[no_mangle]
-    fn get_stack_pointer(offset: i32) -> i32;
-    #[no_mangle]
-    fn switch_seg(_: i32, _: i32) -> bool;
-    #[no_mangle]
-    fn run_instruction0f_16(opcode: i32) -> ();
-    #[no_mangle]
-    fn run_instruction0f_32(opcode: i32) -> ();
-    #[no_mangle]
-    fn pusha16() -> ();
-    #[no_mangle]
-    fn pusha32() -> ();
-    #[no_mangle]
-    fn popa16() -> ();
-    #[no_mangle]
-    fn popa32() -> ();
-    #[no_mangle]
-    fn arpl(_: i32, _: i32) -> i32;
-    #[no_mangle]
-    fn insb_no_rep() -> ();
-    #[no_mangle]
-    fn insw_no_rep() -> ();
-    #[no_mangle]
-    fn insd_no_rep() -> ();
-    #[no_mangle]
-    fn outsb_no_rep() -> ();
-    #[no_mangle]
-    fn outsw_no_rep() -> ();
-    #[no_mangle]
-    fn outsd_no_rep() -> ();
-    #[no_mangle]
-    fn xchg8(data: i32, r8: i32) -> i32;
-    #[no_mangle]
-    fn xchg16(data: i32, r16: i32) -> i32;
-    #[no_mangle]
-    fn xchg32(data: i32, r32: i32) -> i32;
-    #[no_mangle]
-    fn xchg16r(r16: i32) -> ();
-    #[no_mangle]
-    fn xchg32r(r32: i32) -> ();
-    #[no_mangle]
-    fn far_jump(_: i32, _: i32, _: i32) -> ();
-    #[no_mangle]
-    fn handle_irqs() -> ();
-    #[no_mangle]
-    fn update_eflags(_: i32) -> ();
-    #[no_mangle]
-    fn movsb_no_rep() -> ();
-    #[no_mangle]
-    fn movsw_no_rep() -> ();
-    #[no_mangle]
-    fn movsd_no_rep() -> ();
-    #[no_mangle]
-    fn cmpsb_no_rep() -> ();
-    #[no_mangle]
-    fn cmpsw_no_rep() -> ();
-    #[no_mangle]
-    fn cmpsd_no_rep() -> ();
-    #[no_mangle]
-    fn stosb_no_rep() -> ();
-    #[no_mangle]
-    fn stosw_no_rep() -> ();
-    #[no_mangle]
-    fn stosd_no_rep() -> ();
-    #[no_mangle]
-    fn lodsb_no_rep() -> ();
-    #[no_mangle]
-    fn lodsw_no_rep() -> ();
-    #[no_mangle]
-    fn lodsd_no_rep() -> ();
-    #[no_mangle]
-    fn scasb_no_rep() -> ();
-    #[no_mangle]
-    fn scasw_no_rep() -> ();
-    #[no_mangle]
-    fn scasd_no_rep() -> ();
-    #[no_mangle]
-    fn lss16(_: i32, _: i32, _: i32) -> ();
-    #[no_mangle]
-    fn lss32(_: i32, _: i32, _: i32) -> ();
-    #[no_mangle]
-    fn enter16(_: i32, _: i32) -> ();
-    #[no_mangle]
-    fn enter32(_: i32, _: i32) -> ();
-    #[no_mangle]
-    fn far_return(_: i32, _: i32, _: i32) -> ();
-    #[no_mangle]
-    fn call_interrupt_vector(
-        interrupt_nr: i32,
-        is_software_int: bool,
-        has_error_code: bool,
-        error_code: i32,
-    ) -> ();
-    #[no_mangle]
-    fn getof() -> bool;
-    #[no_mangle]
-    fn iret16() -> ();
-    #[no_mangle]
-    fn iret32() -> ();
-    #[no_mangle]
-    fn getcf() -> bool;
-    #[no_mangle]
-    fn io_port_read8(_: i32) -> i32;
-    #[no_mangle]
-    fn test_privileges_for_io(_: i32, _: i32) -> bool;
-    #[no_mangle]
-    fn io_port_read16(_: i32) -> i32;
-    #[no_mangle]
-    fn io_port_read32(_: i32) -> i32;
-    #[no_mangle]
-    fn io_port_write8(_: i32, _: i32) -> ();
-    #[no_mangle]
-    fn io_port_write16(_: i32, _: i32) -> ();
-    #[no_mangle]
-    fn io_port_write32(_: i32, _: i32) -> ();
-    #[no_mangle]
-    fn jmp_rel16(rel16: i32) -> ();
-    #[no_mangle]
-    fn hlt_op() -> ();
-    #[no_mangle]
-    fn test_o() -> bool;
-    #[no_mangle]
-    fn test_b() -> bool;
-    #[no_mangle]
-    fn test_z() -> bool;
-    #[no_mangle]
-    fn test_s() -> bool;
-    #[no_mangle]
-    fn test_p() -> bool;
-    #[no_mangle]
-    fn test_be() -> bool;
-    #[no_mangle]
-    fn test_l() -> bool;
-    #[no_mangle]
-    fn test_le() -> bool;
-    #[no_mangle]
-    fn jmpcc16(condition: bool, imm16: i32) -> ();
-    #[no_mangle]
-    fn jmpcc32(condition: bool, imm32: i32) -> ();
-    #[no_mangle]
-    fn loope16(imm8s: i32) -> ();
-    #[no_mangle]
-    fn loopne16(imm8s: i32) -> ();
-    #[no_mangle]
-    fn loop16(imm8s: i32) -> ();
-    #[no_mangle]
-    fn jcxz16(imm8s: i32) -> ();
-    #[no_mangle]
-    fn loope32(imm8s: i32) -> ();
-    #[no_mangle]
-    fn loopne32(imm8s: i32) -> ();
-    #[no_mangle]
-    fn loop32(imm8s: i32) -> ();
-    #[no_mangle]
-    fn jcxz32(imm8s: i32) -> ();
-    #[no_mangle]
-    static mut profiler_stat_arr: [profiler_stat; 37];
-    #[no_mangle]
-    fn movsb_rep() -> ();
-    #[no_mangle]
-    fn movsw_rep() -> ();
-    #[no_mangle]
-    fn movsd_rep() -> ();
-    #[no_mangle]
-    fn cmpsb_rep(_: i32) -> ();
-    #[no_mangle]
-    fn cmpsw_rep(_: i32) -> ();
-    #[no_mangle]
-    fn cmpsd_rep(_: i32) -> ();
-    #[no_mangle]
-    fn stosb_rep() -> ();
-    #[no_mangle]
-    fn stosw_rep() -> ();
-    #[no_mangle]
-    fn stosd_rep() -> ();
-    #[no_mangle]
-    fn lodsb_rep() -> ();
-    #[no_mangle]
-    fn lodsw_rep() -> ();
-    #[no_mangle]
-    fn lodsd_rep() -> ();
-    #[no_mangle]
-    fn scasb_rep(_: i32) -> ();
-    #[no_mangle]
-    fn scasw_rep(_: i32) -> ();
-    #[no_mangle]
-    fn scasd_rep(_: i32) -> ();
-    #[no_mangle]
-    fn insb_rep() -> ();
-    #[no_mangle]
-    fn insw_rep() -> ();
-    #[no_mangle]
-    fn insd_rep() -> ();
-    #[no_mangle]
-    fn outsb_rep() -> ();
-    #[no_mangle]
-    fn outsw_rep() -> ();
-    #[no_mangle]
-    fn outsd_rep() -> ();
+    fn hlt_op();
 }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union unnamed {
-    __f: f32,
-    __i: u32,
-}
+use cpu2::arith::*;
+use cpu2::cpu::*;
+use cpu2::fpu::*;
+use cpu2::fpu::{fpu_load_m32, fpu_load_m64};
+use cpu2::global_pointers::*;
+use cpu2::misc_instr::*;
+use cpu2::misc_instr::{pop16, pop32s, push16, push32};
+use cpu2::string::*;
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub struct profiler_stat {
-    pub count: i32,
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union reg64 {
-    i8_0: [i8; 8],
-    i16_0: [i16; 4],
-    i32_0: [i32; 2],
-    i64_0: [i64; 1],
-    u8_0: [u8; 8],
-    u16_0: [u16; 4],
-    u32_0: [u32; 2],
-    u64_0: [u64; 1],
-    f32_0: [f32; 2],
-    f64_0: [f64; 1],
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union unnamed_0 {
-    __f: f64,
-    __i: u64,
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union reg128 {
-    i8_0: [i8; 16],
-    i16_0: [i16; 8],
-    i32_0: [i32; 4],
-    i64_0: [i64; 2],
-    u8_0: [u8; 16],
-    u16_0: [u16; 8],
-    u32_0: [u32; 4],
-    u64_0: [u64; 2],
-    f32_0: [f32; 4],
-    f64_0: [f64; 2],
-}
-
-unsafe extern "C" fn __FLOAT_BITS(mut __f: f32) -> u32 {
-    let mut __u: unnamed = unnamed { __f: 0. };
-    __u.__f = __f;
-    return __u.__i;
-}
-unsafe extern "C" fn __DOUBLE_BITS(mut __f: f64) -> u64 {
-    let mut __u: unnamed_0 = unnamed_0 { __f: 0. };
-    __u.__f = __f;
-    return __u.__i;
-}
-unsafe extern "C" fn __islessf(mut __x: f32, mut __y: f32) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f32>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x as f64) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y as f64) == 0i32) as i32
-    } && __x < __y) as i32;
-}
-unsafe extern "C" fn __isless(mut __x: f64, mut __y: f64) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x as f64) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y as f64) == 0i32) as i32
-    } && __x < __y) as i32;
-}
-unsafe extern "C" fn __islessl(mut __x: f64, mut __y: f64) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y) == 0i32) as i32
-    } && __x < __y) as i32;
-}
-unsafe extern "C" fn __islessequalf(mut __x: f32, mut __y: f32) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f32>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x as f64) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y as f64) == 0i32) as i32
-    } && __x <= __y) as i32;
-}
-unsafe extern "C" fn __islessequal(mut __x: f64, mut __y: f64) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x as f64) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y as f64) == 0i32) as i32
-    } && __x <= __y) as i32;
-}
-unsafe extern "C" fn __islessequall(mut __x: f64, mut __y: f64) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y) == 0i32) as i32
-    } && __x <= __y) as i32;
-}
-unsafe extern "C" fn __islessgreaterf(mut __x: f32, mut __y: f32) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f32>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x as f64) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y as f64) == 0i32) as i32
-    } && __x != __y) as i32;
-}
-unsafe extern "C" fn __islessgreater(mut __x: f64, mut __y: f64) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x as f64) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y as f64) == 0i32) as i32
-    } && __x != __y) as i32;
-}
-unsafe extern "C" fn __islessgreaterl(mut __x: f64, mut __y: f64) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y) == 0i32) as i32
-    } && __x != __y) as i32;
-}
-unsafe extern "C" fn __isgreaterf(mut __x: f32, mut __y: f32) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f32>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x as f64) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y as f64) == 0i32) as i32
-    } && __x > __y) as i32;
-}
-unsafe extern "C" fn __isgreater(mut __x: f64, mut __y: f64) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x as f64) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y as f64) == 0i32) as i32
-    } && __x > __y) as i32;
-}
-unsafe extern "C" fn __isgreaterl(mut __x: f64, mut __y: f64) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y) == 0i32) as i32
-    } && __x > __y) as i32;
-}
-unsafe extern "C" fn __isgreaterequalf(mut __x: f32, mut __y: f32) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f32>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x as f64) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f32>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y as f64) == 0i32) as i32
-    } && __x >= __y) as i32;
-}
-unsafe extern "C" fn __isgreaterequal(mut __x: f64, mut __y: f64) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x as f64) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y as f64) == 0i32) as i32
-    } && __x >= __y) as i32;
-}
-unsafe extern "C" fn __isgreaterequall(mut __x: f64, mut __y: f64) -> i32 {
-    return (0 == if 0 != if ::std::mem::size_of::<f64>() as u64
-        == ::std::mem::size_of::<f32>() as u64
-    {
-        (__FLOAT_BITS(__x as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__x as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__x) == 0i32) as i32
-    } {
-        1i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f32>() as u64 {
-        (__FLOAT_BITS(__y as f32) & 2147483647i32 as u32 > 2139095040i32 as u32) as i32
-    }
-    else if ::std::mem::size_of::<f64>() as u64 == ::std::mem::size_of::<f64>() as u64 {
-        (__DOUBLE_BITS(__y as f64) & 1u64.wrapping_neg() >> 1i32 > 2047u64 << 52i32) as i32
-    }
-    else {
-        (__fpclassifyl(__y) == 0i32) as i32
-    } && __x >= __y) as i32;
-}
 #[no_mangle]
 pub unsafe extern "C" fn instr_00_mem(mut addr: i32, mut r: i32) -> () {
     SAFE_READ_WRITE8!(___, addr, add8(___, read_reg8(r)));
@@ -3187,7 +1826,7 @@ pub unsafe extern "C" fn instr32_99() -> () {
 #[no_mangle]
 pub unsafe extern "C" fn instr16_9A(mut new_ip: i32, mut new_cs: i32) -> () {
     c_comment!(("callf"));
-    far_jump(new_ip, new_cs, 1i32);
+    far_jump(new_ip, new_cs, true);
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
 }
 #[no_mangle]
@@ -3197,7 +1836,7 @@ pub unsafe extern "C" fn instr32_9A(mut new_ip: i32, mut new_cs: i32) -> () {
             dbg_assert!(0 != 0i32);
         }
     }
-    far_jump(new_ip, new_cs, 1i32);
+    far_jump(new_ip, new_cs, true);
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
 }
 #[no_mangle]
@@ -4439,13 +3078,13 @@ pub unsafe extern "C" fn instr32_E9(mut imm32s: i32) -> () {
 #[no_mangle]
 pub unsafe extern "C" fn instr16_EA(mut new_ip: i32, mut cs: i32) -> () {
     c_comment!(("jmpf"));
-    far_jump(new_ip, cs, 0i32);
+    far_jump(new_ip, cs, false);
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
 }
 #[no_mangle]
 pub unsafe extern "C" fn instr32_EA(mut new_ip: i32, mut cs: i32) -> () {
     c_comment!(("jmpf"));
-    far_jump(new_ip, cs, 0i32);
+    far_jump(new_ip, cs, false);
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
 }
 #[no_mangle]
@@ -4938,7 +3577,7 @@ pub unsafe extern "C" fn instr16_FF_3_mem(mut addr: i32) -> () {
     c_comment!(("callf"));
     let mut new_ip: i32 = return_on_pagefault!(safe_read16(addr));
     let mut new_cs: i32 = return_on_pagefault!(safe_read16(addr + 2i32));
-    far_jump(new_ip, new_cs, 1i32);
+    far_jump(new_ip, new_cs, true);
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
 }
 #[no_mangle]
@@ -4967,7 +3606,7 @@ pub unsafe extern "C" fn instr16_FF_5_mem(mut addr: i32) -> () {
     c_comment!(("jmpf"));
     let mut new_ip: i32 = return_on_pagefault!(safe_read16(addr));
     let mut new_cs: i32 = return_on_pagefault!(safe_read16(addr + 2i32));
-    far_jump(new_ip, new_cs, 0i32);
+    far_jump(new_ip, new_cs, false);
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
 }
 #[no_mangle]
@@ -5031,7 +3670,7 @@ pub unsafe extern "C" fn instr32_FF_3_mem(mut addr: i32) -> () {
             dbg_assert!(0 != 0i32);
         }
     }
-    far_jump(new_ip, new_cs, 1i32);
+    far_jump(new_ip, new_cs, true);
     dbg_assert!(0 != is_asize_32() as i32 || new_ip < 65536i32);
 }
 #[no_mangle]
@@ -5065,7 +3704,7 @@ pub unsafe extern "C" fn instr32_FF_5_mem(mut addr: i32) -> () {
             dbg_assert!(0 != 0i32);
         }
     }
-    far_jump(new_ip, new_cs, 0i32);
+    far_jump(new_ip, new_cs, false);
     dbg_assert!(0 != is_asize_32() as i32 || new_ip < 65536i32);
 }
 #[no_mangle]
@@ -5350,7 +3989,7 @@ pub unsafe extern "C" fn instr_D9_4_reg(mut r: i32) -> () {
         },
         1 => {
             c_comment!(("fabs"));
-            *fpu_st.offset(*fpu_stack_ptr as isize) = fabs(st0)
+            *fpu_st.offset(*fpu_stack_ptr as isize) = st0.abs()
         },
         4 => {
             fpu_ftst(st0);
@@ -5411,19 +4050,19 @@ pub unsafe extern "C" fn instr_D9_6_reg(mut r: i32) -> () {
         1 => {
             c_comment!(("fyl2x"));
             *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(1i32 as u32) & 7i32 as u32) as isize) =
-                fpu_get_sti(1i32) * log(st0) / M_LN2;
+                fpu_get_sti(1i32) * st0.ln() / M_LN2;
             fpu_pop();
         },
         2 => {
             c_comment!(("fptan"));
-            *fpu_st.offset(*fpu_stack_ptr as isize) = tan(st0);
+            *fpu_st.offset(*fpu_stack_ptr as isize) = st0.tan();
             fpu_push(1i32 as f64);
             c_comment!(("no bug: push constant 1"));
         },
         3 => {
             c_comment!(("fpatan"));
             *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(1i32 as u32) & 7i32 as u32) as isize) =
-                atan2(fpu_get_sti(1i32), st0);
+                fpu_get_sti(1i32).atan2(st0);
             fpu_pop();
         },
         4 => {
@@ -5460,13 +4099,13 @@ pub unsafe extern "C" fn instr_D9_7_reg(mut r: i32) -> () {
         1 => {
             c_comment!(("fyl2xp1: y * log2(x+1) and pop"));
             *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(1i32 as u32) & 7i32 as u32) as isize) =
-                fpu_get_sti(1i32) * log(st0 + 1i32 as f64) / M_LN2;
+                fpu_get_sti(1i32) * (st0 + 1i32 as f64).ln() / M_LN2;
             fpu_pop();
         },
-        2 => *fpu_st.offset(*fpu_stack_ptr as isize) = sqrt(st0),
+        2 => *fpu_st.offset(*fpu_stack_ptr as isize) = st0.sqrt(),
         3 => {
-            *fpu_st.offset(*fpu_stack_ptr as isize) = sin(st0);
-            fpu_push(cos(st0));
+            *fpu_st.offset(*fpu_stack_ptr as isize) = st0.sin();
+            fpu_push(st0.cos());
         },
         4 => {
             c_comment!(("frndint"));
@@ -5477,8 +4116,8 @@ pub unsafe extern "C" fn instr_D9_7_reg(mut r: i32) -> () {
             *fpu_st.offset(*fpu_stack_ptr as isize) =
                 st0 * pow(2i32 as f64, trunc(fpu_get_sti(1i32)))
         },
-        6 => *fpu_st.offset(*fpu_stack_ptr as isize) = sin(st0),
-        7 => *fpu_st.offset(*fpu_stack_ptr as isize) = cos(st0),
+        6 => *fpu_st.offset(*fpu_stack_ptr as isize) = st0.sin(),
+        7 => *fpu_st.offset(*fpu_stack_ptr as isize) = st0.cos(),
         _ => {
             dbg_assert!(0 != 0i32);
         },

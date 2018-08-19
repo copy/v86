@@ -205,13 +205,9 @@ function V86Starter(options)
         "mmap_write32": function(addr, value) { return cpu.mmap_write32(addr, value); },
         "mmap_write128": function(addr, value0, value1, value2, value3) { return cpu.mmap_write128(addr, value0, value1, value2, value3); },
 
-        "int_log2": function(val) { return v86util.int_log2(val); },
-
         "popa16": function() { return cpu.popa16.apply(cpu, arguments); },
         "popa32": function() { return cpu.popa32.apply(cpu, arguments); },
         "arpl": function() { return cpu.arpl.apply(cpu, arguments); },
-
-        "bswap": function() { return cpu.bswap.apply(cpu, arguments); },
 
         "lar": function() { return cpu.lar.apply(cpu, arguments); },
         "lsl": function() { return cpu.lsl.apply(cpu, arguments); },
@@ -233,15 +229,6 @@ function V86Starter(options)
 
         "test_privileges_for_io": function() { return cpu.test_privileges_for_io.apply(cpu, arguments); },
 
-        "convert_f64_to_i32": function(f) {
-            // implemented here due to emscripten bug
-            if(!(f <= 0x7FFFFFFF && f >= -0x80000000))
-            {
-                f = 0x80000000 | 0;
-            }
-
-            return f | 0;
-        },
         "get_time": Date.now,
 
         "coverage_log": (fn_name_offset, num_blocks, visited_block) => {
@@ -249,10 +236,10 @@ function V86Starter(options)
         },
 
         // see https://github.com/kripken/emscripten/blob/incoming/src/library.js
-        "atan2": Math.atan2,
+        "Math_atan2": Math.atan2,
         "sin": Math.sin,
         "cos": Math.cos,
-        "tan": Math.tan,
+        "Math_tan": Math.tan,
         "trunc": Math.trunc,
         "fmod": (x, y) => x % y,
         "llvm_exp2_f64": (x) => Math.pow(2, x),
