@@ -6,7 +6,6 @@
     non_upper_case_globals,
     unused_mut
 )]
-#![feature(extern_types, libc)]
 
 extern "C" {
     #[no_mangle]

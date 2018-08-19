@@ -6,7 +6,6 @@
     non_upper_case_globals,
     unused_mut
 )]
-#![feature(extern_types, libc)]
 
 use cpu2::cpu::*;
 use cpu2::fpu::{fpu_load_m80, fpu_load_status_word, fpu_set_status_word, fpu_store_m80};

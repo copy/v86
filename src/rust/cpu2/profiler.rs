@@ -6,7 +6,6 @@
     non_upper_case_globals,
     unused_mut
 )]
-#![feature(extern_types, libc)]
 
 pub const S_SAFE_WRITE32_SLOW_NOT_VALID: stat_name = 22;
 pub const S_SAFE_WRITE32_SLOW_NOT_USER: stat_name = 23;
