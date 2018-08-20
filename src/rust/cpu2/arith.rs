@@ -15,11 +15,7 @@ use cpu2::misc_instr::{getaf, getcf};
 pub fn int_log2(x: i32) -> i32 { 31 - x.leading_zeros() as i32 }
 
 #[no_mangle]
-pub unsafe extern "C" fn add(
-    mut dest_operand: i32,
-    mut source_operand: i32,
-    mut op_size: i32,
-) -> i32 {
+pub unsafe fn add(mut dest_operand: i32, mut source_operand: i32, mut op_size: i32) -> i32 {
     *last_op1 = dest_operand;
     *last_op2 = source_operand;
     let mut res: i32 = dest_operand + source_operand;
@@ -30,11 +26,7 @@ pub unsafe extern "C" fn add(
     return res;
 }
 #[no_mangle]
-pub unsafe extern "C" fn adc(
-    mut dest_operand: i32,
-    mut source_operand: i32,
-    mut op_size: i32,
-) -> i32 {
+pub unsafe fn adc(mut dest_operand: i32, mut source_operand: i32, mut op_size: i32) -> i32 {
     let mut cf: i32 = getcf() as i32;
     *last_op1 = dest_operand;
     *last_op2 = source_operand;
@@ -46,11 +38,7 @@ pub unsafe extern "C" fn adc(
     return res;
 }
 #[no_mangle]
-pub unsafe extern "C" fn sub(
-    mut dest_operand: i32,
-    mut source_operand: i32,
-    mut op_size: i32,
-) -> i32 {
+pub unsafe fn sub(mut dest_operand: i32, mut source_operand: i32, mut op_size: i32) -> i32 {
     *last_add_result = dest_operand;
     *last_op2 = source_operand;
     let mut res: i32 = dest_operand - source_operand;
@@ -61,11 +49,7 @@ pub unsafe extern "C" fn sub(
     return res;
 }
 #[no_mangle]
-pub unsafe extern "C" fn sbb(
-    mut dest_operand: i32,
-    mut source_operand: i32,
-    mut op_size: i32,
-) -> i32 {
+pub unsafe fn sbb(mut dest_operand: i32, mut source_operand: i32, mut op_size: i32) -> i32 {
     let mut cf: i32 = getcf() as i32;
     *last_add_result = dest_operand;
     *last_op2 = source_operand;
@@ -77,37 +61,37 @@ pub unsafe extern "C" fn sbb(
     return res;
 }
 #[no_mangle]
-pub unsafe extern "C" fn add8(mut x: i32, mut y: i32) -> i32 { return add(x, y, OPSIZE_8); }
+pub unsafe fn add8(mut x: i32, mut y: i32) -> i32 { return add(x, y, OPSIZE_8); }
 #[no_mangle]
-pub unsafe extern "C" fn add16(mut x: i32, mut y: i32) -> i32 { return add(x, y, OPSIZE_16); }
+pub unsafe fn add16(mut x: i32, mut y: i32) -> i32 { return add(x, y, OPSIZE_16); }
 #[no_mangle]
-pub unsafe extern "C" fn add32(mut x: i32, mut y: i32) -> i32 { return add(x, y, OPSIZE_32); }
+pub unsafe fn add32(mut x: i32, mut y: i32) -> i32 { return add(x, y, OPSIZE_32); }
 #[no_mangle]
-pub unsafe extern "C" fn sub8(mut x: i32, mut y: i32) -> i32 { return sub(x, y, OPSIZE_8); }
+pub unsafe fn sub8(mut x: i32, mut y: i32) -> i32 { return sub(x, y, OPSIZE_8); }
 #[no_mangle]
-pub unsafe extern "C" fn sub16(mut x: i32, mut y: i32) -> i32 { return sub(x, y, OPSIZE_16); }
+pub unsafe fn sub16(mut x: i32, mut y: i32) -> i32 { return sub(x, y, OPSIZE_16); }
 #[no_mangle]
-pub unsafe extern "C" fn sub32(mut x: i32, mut y: i32) -> i32 { return sub(x, y, OPSIZE_32); }
+pub unsafe fn sub32(mut x: i32, mut y: i32) -> i32 { return sub(x, y, OPSIZE_32); }
 #[no_mangle]
-pub unsafe extern "C" fn adc8(mut x: i32, mut y: i32) -> i32 { return adc(x, y, OPSIZE_8); }
+pub unsafe fn adc8(mut x: i32, mut y: i32) -> i32 { return adc(x, y, OPSIZE_8); }
 #[no_mangle]
-pub unsafe extern "C" fn adc16(mut x: i32, mut y: i32) -> i32 { return adc(x, y, OPSIZE_16); }
+pub unsafe fn adc16(mut x: i32, mut y: i32) -> i32 { return adc(x, y, OPSIZE_16); }
 #[no_mangle]
-pub unsafe extern "C" fn adc32(mut x: i32, mut y: i32) -> i32 { return adc(x, y, OPSIZE_32); }
+pub unsafe fn adc32(mut x: i32, mut y: i32) -> i32 { return adc(x, y, OPSIZE_32); }
 #[no_mangle]
-pub unsafe extern "C" fn sbb8(mut x: i32, mut y: i32) -> i32 { return sbb(x, y, OPSIZE_8); }
+pub unsafe fn sbb8(mut x: i32, mut y: i32) -> i32 { return sbb(x, y, OPSIZE_8); }
 #[no_mangle]
-pub unsafe extern "C" fn sbb16(mut x: i32, mut y: i32) -> i32 { return sbb(x, y, OPSIZE_16); }
+pub unsafe fn sbb16(mut x: i32, mut y: i32) -> i32 { return sbb(x, y, OPSIZE_16); }
 #[no_mangle]
-pub unsafe extern "C" fn sbb32(mut x: i32, mut y: i32) -> i32 { return sbb(x, y, OPSIZE_32); }
+pub unsafe fn sbb32(mut x: i32, mut y: i32) -> i32 { return sbb(x, y, OPSIZE_32); }
 #[no_mangle]
-pub unsafe extern "C" fn cmp8(mut x: i32, mut y: i32) -> () { sub(x, y, OPSIZE_8); }
+pub unsafe fn cmp8(mut x: i32, mut y: i32) -> () { sub(x, y, OPSIZE_8); }
 #[no_mangle]
-pub unsafe extern "C" fn cmp16(mut x: i32, mut y: i32) -> () { sub(x, y, OPSIZE_16); }
+pub unsafe fn cmp16(mut x: i32, mut y: i32) -> () { sub(x, y, OPSIZE_16); }
 #[no_mangle]
-pub unsafe extern "C" fn cmp32(mut x: i32, mut y: i32) -> () { sub(x, y, OPSIZE_32); }
+pub unsafe fn cmp32(mut x: i32, mut y: i32) -> () { sub(x, y, OPSIZE_32); }
 #[no_mangle]
-pub unsafe extern "C" fn inc(mut dest_operand: i32, mut op_size: i32) -> i32 {
+pub unsafe fn inc(mut dest_operand: i32, mut op_size: i32) -> i32 {
     *flags = *flags & !1i32 | getcf() as i32;
     *last_op1 = dest_operand;
     *last_op2 = 1i32;
@@ -119,7 +103,7 @@ pub unsafe extern "C" fn inc(mut dest_operand: i32, mut op_size: i32) -> i32 {
     return res;
 }
 #[no_mangle]
-pub unsafe extern "C" fn dec(mut dest_operand: i32, mut op_size: i32) -> i32 {
+pub unsafe fn dec(mut dest_operand: i32, mut op_size: i32) -> i32 {
     *flags = *flags & !1i32 | getcf() as i32;
     *last_add_result = dest_operand;
     *last_op2 = 1i32;
@@ -131,19 +115,19 @@ pub unsafe extern "C" fn dec(mut dest_operand: i32, mut op_size: i32) -> i32 {
     return res;
 }
 #[no_mangle]
-pub unsafe extern "C" fn inc8(mut x: i32) -> i32 { return inc(x, OPSIZE_8); }
+pub unsafe fn inc8(mut x: i32) -> i32 { return inc(x, OPSIZE_8); }
 #[no_mangle]
-pub unsafe extern "C" fn inc16(mut x: i32) -> i32 { return inc(x, OPSIZE_16); }
+pub unsafe fn inc16(mut x: i32) -> i32 { return inc(x, OPSIZE_16); }
 #[no_mangle]
-pub unsafe extern "C" fn inc32(mut x: i32) -> i32 { return inc(x, OPSIZE_32); }
+pub unsafe fn inc32(mut x: i32) -> i32 { return inc(x, OPSIZE_32); }
 #[no_mangle]
-pub unsafe extern "C" fn dec8(mut x: i32) -> i32 { return dec(x, OPSIZE_8); }
+pub unsafe fn dec8(mut x: i32) -> i32 { return dec(x, OPSIZE_8); }
 #[no_mangle]
-pub unsafe extern "C" fn dec16(mut x: i32) -> i32 { return dec(x, OPSIZE_16); }
+pub unsafe fn dec16(mut x: i32) -> i32 { return dec(x, OPSIZE_16); }
 #[no_mangle]
-pub unsafe extern "C" fn dec32(mut x: i32) -> i32 { return dec(x, OPSIZE_32); }
+pub unsafe fn dec32(mut x: i32) -> i32 { return dec(x, OPSIZE_32); }
 #[no_mangle]
-pub unsafe extern "C" fn neg(mut dest_operand: i32, mut op_size: i32) -> i32 {
+pub unsafe fn neg(mut dest_operand: i32, mut op_size: i32) -> i32 {
     let mut res: i32 = -dest_operand;
     *last_result = res;
     *last_op1 = *last_result;
@@ -154,13 +138,13 @@ pub unsafe extern "C" fn neg(mut dest_operand: i32, mut op_size: i32) -> i32 {
     return res;
 }
 #[no_mangle]
-pub unsafe extern "C" fn neg8(mut x: i32) -> i32 { return neg(x, OPSIZE_8); }
+pub unsafe fn neg8(mut x: i32) -> i32 { return neg(x, OPSIZE_8); }
 #[no_mangle]
-pub unsafe extern "C" fn neg16(mut x: i32) -> i32 { return neg(x, OPSIZE_16); }
+pub unsafe fn neg16(mut x: i32) -> i32 { return neg(x, OPSIZE_16); }
 #[no_mangle]
-pub unsafe extern "C" fn neg32(mut x: i32) -> i32 { return neg(x, OPSIZE_32); }
+pub unsafe fn neg32(mut x: i32) -> i32 { return neg(x, OPSIZE_32); }
 #[no_mangle]
-pub unsafe extern "C" fn mul8(mut source_operand: i32) -> () {
+pub unsafe fn mul8(mut source_operand: i32) -> () {
     let mut result: i32 = source_operand * *reg8.offset(AL as isize) as i32;
     *reg16.offset(AX as isize) = result as u16;
     *last_result = result & 255i32;
@@ -174,7 +158,7 @@ pub unsafe extern "C" fn mul8(mut source_operand: i32) -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe extern "C" fn imul8(mut source_operand: i32) -> () {
+pub unsafe fn imul8(mut source_operand: i32) -> () {
     let mut result: i32 = source_operand * *reg8s.offset(AL as isize) as i32;
     *reg16.offset(AX as isize) = result as u16;
     *last_result = result & 255i32;
@@ -188,7 +172,7 @@ pub unsafe extern "C" fn imul8(mut source_operand: i32) -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe extern "C" fn mul16(mut source_operand: u32) -> () {
+pub unsafe fn mul16(mut source_operand: u32) -> () {
     let mut result: u32 = source_operand.wrapping_mul(*reg16.offset(AX as isize) as u32);
     let mut high_result: u32 = result >> 16i32;
     *reg16.offset(AX as isize) = result as u16;
@@ -204,7 +188,7 @@ pub unsafe extern "C" fn mul16(mut source_operand: u32) -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe extern "C" fn imul16(mut source_operand: i32) -> () {
+pub unsafe fn imul16(mut source_operand: i32) -> () {
     let mut result: i32 = source_operand * *reg16s.offset(AX as isize) as i32;
     *reg16.offset(AX as isize) = result as u16;
     *reg16.offset(DX as isize) = (result >> 16i32) as u16;
@@ -219,7 +203,7 @@ pub unsafe extern "C" fn imul16(mut source_operand: i32) -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe extern "C" fn imul_reg16(mut operand1: i32, mut operand2: i32) -> i32 {
+pub unsafe fn imul_reg16(mut operand1: i32, mut operand2: i32) -> i32 {
     dbg_assert!(operand1 < 32768i32 && operand1 >= -32768i32);
     dbg_assert!(operand2 < 32768i32 && operand2 >= -32768i32);
     let mut result: i32 = operand1 * operand2;
@@ -235,7 +219,7 @@ pub unsafe extern "C" fn imul_reg16(mut operand1: i32, mut operand2: i32) -> i32
     return result;
 }
 #[no_mangle]
-pub unsafe extern "C" fn mul32(mut source_operand: i32) -> () {
+pub unsafe fn mul32(mut source_operand: i32) -> () {
     let mut dest_operand: i32 = *reg32s.offset(EAX as isize);
     let mut result: u64 = (dest_operand as u32 as u64).wrapping_mul(source_operand as u32 as u64);
     let mut result_low: i32 = result as i32;
@@ -253,7 +237,7 @@ pub unsafe extern "C" fn mul32(mut source_operand: i32) -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe extern "C" fn imul32(mut source_operand: i32) -> () {
+pub unsafe fn imul32(mut source_operand: i32) -> () {
     let mut dest_operand: i32 = *reg32s.offset(EAX as isize);
     let mut result: i64 = dest_operand as i64 * source_operand as i64;
     let mut result_low: i32 = result as i32;
@@ -271,7 +255,7 @@ pub unsafe extern "C" fn imul32(mut source_operand: i32) -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe extern "C" fn imul_reg32(mut operand1: i32, mut operand2: i32) -> i32 {
+pub unsafe fn imul_reg32(mut operand1: i32, mut operand2: i32) -> i32 {
     let mut result: i64 = operand1 as i64 * operand2 as i64;
     let mut result_low: i32 = result as i32;
     let mut result_high: i32 = (result >> 32i32) as i32;
@@ -287,25 +271,25 @@ pub unsafe extern "C" fn imul_reg32(mut operand1: i32, mut operand2: i32) -> i32
     return result_low;
 }
 #[no_mangle]
-pub unsafe extern "C" fn xadd8(mut source_operand: i32, mut reg: i32) -> i32 {
+pub unsafe fn xadd8(mut source_operand: i32, mut reg: i32) -> i32 {
     let mut tmp: i32 = *reg8.offset(reg as isize) as i32;
     *reg8.offset(reg as isize) = source_operand as u8;
     return add(source_operand, tmp, OPSIZE_8);
 }
 #[no_mangle]
-pub unsafe extern "C" fn xadd16(mut source_operand: i32, mut reg: i32) -> i32 {
+pub unsafe fn xadd16(mut source_operand: i32, mut reg: i32) -> i32 {
     let mut tmp: i32 = *reg16.offset(reg as isize) as i32;
     *reg16.offset(reg as isize) = source_operand as u16;
     return add(source_operand, tmp, OPSIZE_16);
 }
 #[no_mangle]
-pub unsafe extern "C" fn xadd32(mut source_operand: i32, mut reg: i32) -> i32 {
+pub unsafe fn xadd32(mut source_operand: i32, mut reg: i32) -> i32 {
     let mut tmp: i32 = *reg32s.offset(reg as isize);
     *reg32s.offset(reg as isize) = source_operand;
     return add(source_operand, tmp, OPSIZE_32);
 }
 #[no_mangle]
-pub unsafe extern "C" fn bcd_daa() -> () {
+pub unsafe fn bcd_daa() -> () {
     let mut old_al: i32 = *reg8.offset(AL as isize) as i32;
     let mut old_cf: i32 = getcf() as i32;
     let mut old_af: i32 = getaf() as i32;
@@ -327,7 +311,7 @@ pub unsafe extern "C" fn bcd_daa() -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_ADJUST & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe extern "C" fn bcd_das() -> () {
+pub unsafe fn bcd_das() -> () {
     let mut old_al: i32 = *reg8.offset(AL as isize) as i32;
     let mut old_cf: i32 = getcf() as i32;
     *flags &= !1i32;
@@ -352,7 +336,7 @@ pub unsafe extern "C" fn bcd_das() -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_ADJUST & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe extern "C" fn bcd_aad(mut imm8: i32) -> () {
+pub unsafe fn bcd_aad(mut imm8: i32) -> () {
     let mut result: i32 =
         *reg8.offset(AL as isize) as i32 + *reg8.offset(AH as isize) as i32 * imm8;
     *last_result = result & 255i32;
@@ -365,7 +349,7 @@ pub unsafe extern "C" fn bcd_aad(mut imm8: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn bcd_aam(mut imm8: i32) -> () {
+pub unsafe fn bcd_aam(mut imm8: i32) -> () {
     c_comment!(("ascii adjust after multiplication"));
     if imm8 == 0i32 {
         trigger_de();
@@ -380,7 +364,7 @@ pub unsafe extern "C" fn bcd_aam(mut imm8: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn bcd_aaa() -> () {
+pub unsafe fn bcd_aaa() -> () {
     if *reg8.offset(AL as isize) as i32 & 15i32 > 9i32 || 0 != getaf() as i32 {
         let ref mut fresh4 = *reg16.offset(AX as isize);
         *fresh4 = (*fresh4 as i32 + 6i32) as u16;
@@ -396,7 +380,7 @@ pub unsafe extern "C" fn bcd_aaa() -> () {
     *flags_changed &= !FLAG_ADJUST & !1i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn bcd_aas() -> () {
+pub unsafe fn bcd_aas() -> () {
     if *reg8.offset(AL as isize) as i32 & 15i32 > 9i32 || 0 != getaf() as i32 {
         let ref mut fresh7 = *reg16.offset(AX as isize);
         *fresh7 = (*fresh7 as i32 - 6i32) as u16;
@@ -412,11 +396,7 @@ pub unsafe extern "C" fn bcd_aas() -> () {
     *flags_changed &= !FLAG_ADJUST & !1i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn and(
-    mut dest_operand: i32,
-    mut source_operand: i32,
-    mut op_size: i32,
-) -> i32 {
+pub unsafe fn and(mut dest_operand: i32, mut source_operand: i32, mut op_size: i32) -> i32 {
     *last_result = dest_operand & source_operand;
     *last_op_size = op_size;
     *flags &= !1i32 & !FLAG_OVERFLOW & !FLAG_ADJUST;
@@ -424,11 +404,7 @@ pub unsafe extern "C" fn and(
     return *last_result;
 }
 #[no_mangle]
-pub unsafe extern "C" fn or(
-    mut dest_operand: i32,
-    mut source_operand: i32,
-    mut op_size: i32,
-) -> i32 {
+pub unsafe fn or(mut dest_operand: i32, mut source_operand: i32, mut op_size: i32) -> i32 {
     *last_result = dest_operand | source_operand;
     *last_op_size = op_size;
     *flags &= !1i32 & !FLAG_OVERFLOW & !FLAG_ADJUST;
@@ -436,11 +412,7 @@ pub unsafe extern "C" fn or(
     return *last_result;
 }
 #[no_mangle]
-pub unsafe extern "C" fn xor(
-    mut dest_operand: i32,
-    mut source_operand: i32,
-    mut op_size: i32,
-) -> i32 {
+pub unsafe fn xor(mut dest_operand: i32, mut source_operand: i32, mut op_size: i32) -> i32 {
     *last_result = dest_operand ^ source_operand;
     *last_op_size = op_size;
     *flags &= !1i32 & !FLAG_OVERFLOW & !FLAG_ADJUST;
@@ -448,31 +420,31 @@ pub unsafe extern "C" fn xor(
     return *last_result;
 }
 #[no_mangle]
-pub unsafe extern "C" fn and8(mut x: i32, mut y: i32) -> i32 { return and(x, y, OPSIZE_8); }
+pub unsafe fn and8(mut x: i32, mut y: i32) -> i32 { return and(x, y, OPSIZE_8); }
 #[no_mangle]
-pub unsafe extern "C" fn and16(mut x: i32, mut y: i32) -> i32 { return and(x, y, OPSIZE_16); }
+pub unsafe fn and16(mut x: i32, mut y: i32) -> i32 { return and(x, y, OPSIZE_16); }
 #[no_mangle]
-pub unsafe extern "C" fn and32(mut x: i32, mut y: i32) -> i32 { return and(x, y, OPSIZE_32); }
+pub unsafe fn and32(mut x: i32, mut y: i32) -> i32 { return and(x, y, OPSIZE_32); }
 #[no_mangle]
-pub unsafe extern "C" fn test8(mut x: i32, mut y: i32) -> () { and(x, y, OPSIZE_8); }
+pub unsafe fn test8(mut x: i32, mut y: i32) -> () { and(x, y, OPSIZE_8); }
 #[no_mangle]
-pub unsafe extern "C" fn test16(mut x: i32, mut y: i32) -> () { and(x, y, OPSIZE_16); }
+pub unsafe fn test16(mut x: i32, mut y: i32) -> () { and(x, y, OPSIZE_16); }
 #[no_mangle]
-pub unsafe extern "C" fn test32(mut x: i32, mut y: i32) -> () { and(x, y, OPSIZE_32); }
+pub unsafe fn test32(mut x: i32, mut y: i32) -> () { and(x, y, OPSIZE_32); }
 #[no_mangle]
-pub unsafe extern "C" fn or8(mut x: i32, mut y: i32) -> i32 { return or(x, y, OPSIZE_8); }
+pub unsafe fn or8(mut x: i32, mut y: i32) -> i32 { return or(x, y, OPSIZE_8); }
 #[no_mangle]
-pub unsafe extern "C" fn or16(mut x: i32, mut y: i32) -> i32 { return or(x, y, OPSIZE_16); }
+pub unsafe fn or16(mut x: i32, mut y: i32) -> i32 { return or(x, y, OPSIZE_16); }
 #[no_mangle]
-pub unsafe extern "C" fn or32(mut x: i32, mut y: i32) -> i32 { return or(x, y, OPSIZE_32); }
+pub unsafe fn or32(mut x: i32, mut y: i32) -> i32 { return or(x, y, OPSIZE_32); }
 #[no_mangle]
-pub unsafe extern "C" fn xor8(mut x: i32, mut y: i32) -> i32 { return xor(x, y, OPSIZE_8); }
+pub unsafe fn xor8(mut x: i32, mut y: i32) -> i32 { return xor(x, y, OPSIZE_8); }
 #[no_mangle]
-pub unsafe extern "C" fn xor16(mut x: i32, mut y: i32) -> i32 { return xor(x, y, OPSIZE_16); }
+pub unsafe fn xor16(mut x: i32, mut y: i32) -> i32 { return xor(x, y, OPSIZE_16); }
 #[no_mangle]
-pub unsafe extern "C" fn xor32(mut x: i32, mut y: i32) -> i32 { return xor(x, y, OPSIZE_32); }
+pub unsafe fn xor32(mut x: i32, mut y: i32) -> i32 { return xor(x, y, OPSIZE_32); }
 #[no_mangle]
-pub unsafe extern "C" fn rol8(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn rol8(mut dest_operand: i32, mut count: i32) -> i32 {
     if 0 == count {
         return dest_operand;
     }
@@ -487,7 +459,7 @@ pub unsafe extern "C" fn rol8(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn rol16(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn rol16(mut dest_operand: i32, mut count: i32) -> i32 {
     if 0 == count {
         return dest_operand;
     }
@@ -502,7 +474,7 @@ pub unsafe extern "C" fn rol16(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn rol32(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn rol32(mut dest_operand: i32, mut count: i32) -> i32 {
     if 0 == count {
         return dest_operand;
     }
@@ -517,7 +489,7 @@ pub unsafe extern "C" fn rol32(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn rcl8(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn rcl8(mut dest_operand: i32, mut count: i32) -> i32 {
     count %= 9i32;
     if 0 == count {
         return dest_operand;
@@ -533,7 +505,7 @@ pub unsafe extern "C" fn rcl8(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn rcl16(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn rcl16(mut dest_operand: i32, mut count: i32) -> i32 {
     count %= 17i32;
     if 0 == count {
         return dest_operand;
@@ -550,7 +522,7 @@ pub unsafe extern "C" fn rcl16(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn rcl32(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn rcl32(mut dest_operand: i32, mut count: i32) -> i32 {
     if 0 == count {
         return dest_operand;
     }
@@ -567,7 +539,7 @@ pub unsafe extern "C" fn rcl32(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn ror8(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn ror8(mut dest_operand: i32, mut count: i32) -> i32 {
     if 0 == count {
         return dest_operand;
     }
@@ -582,7 +554,7 @@ pub unsafe extern "C" fn ror8(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn ror16(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn ror16(mut dest_operand: i32, mut count: i32) -> i32 {
     if 0 == count {
         return dest_operand;
     }
@@ -597,7 +569,7 @@ pub unsafe extern "C" fn ror16(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn ror32(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn ror32(mut dest_operand: i32, mut count: i32) -> i32 {
     if 0 == count {
         return dest_operand;
     }
@@ -612,7 +584,7 @@ pub unsafe extern "C" fn ror32(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn rcr8(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn rcr8(mut dest_operand: i32, mut count: i32) -> i32 {
     count %= 9i32;
     if 0 == count {
         return dest_operand;
@@ -628,7 +600,7 @@ pub unsafe extern "C" fn rcr8(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn rcr16(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn rcr16(mut dest_operand: i32, mut count: i32) -> i32 {
     count %= 17i32;
     if 0 == count {
         return dest_operand;
@@ -645,7 +617,7 @@ pub unsafe extern "C" fn rcr16(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn rcr32(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn rcr32(mut dest_operand: i32, mut count: i32) -> i32 {
     if 0 == count {
         return dest_operand;
     }
@@ -663,7 +635,7 @@ pub unsafe extern "C" fn rcr32(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn div8(mut source_operand: u32) -> () {
+pub unsafe fn div8(mut source_operand: u32) -> () {
     if source_operand == 0i32 as u32 {
         trigger_de();
         return;
@@ -682,7 +654,7 @@ pub unsafe extern "C" fn div8(mut source_operand: u32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn idiv8(mut source_operand: i32) -> () {
+pub unsafe fn idiv8(mut source_operand: i32) -> () {
     if source_operand == 0i32 {
         trigger_de();
         return;
@@ -701,7 +673,7 @@ pub unsafe extern "C" fn idiv8(mut source_operand: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn div16(mut source_operand: u32) -> () {
+pub unsafe fn div16(mut source_operand: u32) -> () {
     if source_operand == 0i32 as u32 {
         trigger_de();
         return;
@@ -722,7 +694,7 @@ pub unsafe extern "C" fn div16(mut source_operand: u32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn idiv16(mut source_operand: i32) -> () {
+pub unsafe fn idiv16(mut source_operand: i32) -> () {
     if source_operand == 0i32 {
         trigger_de();
         return;
@@ -742,7 +714,7 @@ pub unsafe extern "C" fn idiv16(mut source_operand: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn div32(mut source_operand: u32) -> () {
+pub unsafe fn div32(mut source_operand: u32) -> () {
     if source_operand == 0i32 as u32 {
         trigger_de();
         return;
@@ -765,7 +737,7 @@ pub unsafe extern "C" fn div32(mut source_operand: u32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn idiv32(mut source_operand: i32) -> () {
+pub unsafe fn idiv32(mut source_operand: i32) -> () {
     if source_operand == 0i32 {
         trigger_de();
         return;
@@ -796,7 +768,7 @@ pub unsafe extern "C" fn idiv32(mut source_operand: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn shl8(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn shl8(mut dest_operand: i32, mut count: i32) -> i32 {
     if count == 0i32 {
         return dest_operand;
     }
@@ -811,7 +783,7 @@ pub unsafe extern "C" fn shl8(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn shl16(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn shl16(mut dest_operand: i32, mut count: i32) -> i32 {
     if count == 0i32 {
         return dest_operand;
     }
@@ -826,7 +798,7 @@ pub unsafe extern "C" fn shl16(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn shl32(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn shl32(mut dest_operand: i32, mut count: i32) -> i32 {
     if count == 0i32 {
         return dest_operand;
     }
@@ -841,7 +813,7 @@ pub unsafe extern "C" fn shl32(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn shr8(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn shr8(mut dest_operand: i32, mut count: i32) -> i32 {
     if count == 0i32 {
         return dest_operand;
     }
@@ -856,7 +828,7 @@ pub unsafe extern "C" fn shr8(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn shr16(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn shr16(mut dest_operand: i32, mut count: i32) -> i32 {
     if count == 0i32 {
         return dest_operand;
     }
@@ -871,7 +843,7 @@ pub unsafe extern "C" fn shr16(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn shr32(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn shr32(mut dest_operand: i32, mut count: i32) -> i32 {
     if count == 0i32 {
         return dest_operand;
     }
@@ -886,7 +858,7 @@ pub unsafe extern "C" fn shr32(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn sar8(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn sar8(mut dest_operand: i32, mut count: i32) -> i32 {
     if count == 0i32 {
         return dest_operand;
     }
@@ -906,7 +878,7 @@ pub unsafe extern "C" fn sar8(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn sar16(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn sar16(mut dest_operand: i32, mut count: i32) -> i32 {
     if count == 0i32 {
         return dest_operand;
     }
@@ -925,7 +897,7 @@ pub unsafe extern "C" fn sar16(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn sar32(mut dest_operand: i32, mut count: i32) -> i32 {
+pub unsafe fn sar32(mut dest_operand: i32, mut count: i32) -> i32 {
     if count == 0i32 {
         return dest_operand;
     }
@@ -939,11 +911,7 @@ pub unsafe extern "C" fn sar32(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn shrd16(
-    mut dest_operand: i32,
-    mut source_operand: i32,
-    mut count: i32,
-) -> i32 {
+pub unsafe fn shrd16(mut dest_operand: i32, mut source_operand: i32, mut count: i32) -> i32 {
     if count == 0i32 {
         return dest_operand;
     }
@@ -963,11 +931,7 @@ pub unsafe extern "C" fn shrd16(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn shrd32(
-    mut dest_operand: i32,
-    mut source_operand: i32,
-    mut count: i32,
-) -> i32 {
+pub unsafe fn shrd32(mut dest_operand: i32, mut source_operand: i32, mut count: i32) -> i32 {
     if count == 0i32 {
         return dest_operand;
     }
@@ -983,11 +947,7 @@ pub unsafe extern "C" fn shrd32(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn shld16(
-    mut dest_operand: i32,
-    mut source_operand: i32,
-    mut count: i32,
-) -> i32 {
+pub unsafe fn shld16(mut dest_operand: i32, mut source_operand: i32, mut count: i32) -> i32 {
     if count == 0i32 {
         return dest_operand;
     }
@@ -1010,11 +970,7 @@ pub unsafe extern "C" fn shld16(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn shld32(
-    mut dest_operand: i32,
-    mut source_operand: i32,
-    mut count: i32,
-) -> i32 {
+pub unsafe fn shld32(mut dest_operand: i32, mut source_operand: i32, mut count: i32) -> i32 {
     if count == 0i32 {
         return dest_operand;
     }
@@ -1036,37 +992,37 @@ pub unsafe extern "C" fn shld32(
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn bt_reg(mut bit_base: i32, mut bit_offset: i32) -> () {
+pub unsafe fn bt_reg(mut bit_base: i32, mut bit_offset: i32) -> () {
     *flags = *flags & !1i32 | bit_base >> bit_offset & 1i32;
     *flags_changed &= !1i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn btc_reg(mut bit_base: i32, mut bit_offset: i32) -> i32 {
+pub unsafe fn btc_reg(mut bit_base: i32, mut bit_offset: i32) -> i32 {
     *flags = *flags & !1i32 | bit_base >> bit_offset & 1i32;
     *flags_changed &= !1i32;
     return bit_base ^ 1i32 << bit_offset;
 }
 #[no_mangle]
-pub unsafe extern "C" fn bts_reg(mut bit_base: i32, mut bit_offset: i32) -> i32 {
+pub unsafe fn bts_reg(mut bit_base: i32, mut bit_offset: i32) -> i32 {
     *flags = *flags & !1i32 | bit_base >> bit_offset & 1i32;
     *flags_changed &= !1i32;
     return bit_base | 1i32 << bit_offset;
 }
 #[no_mangle]
-pub unsafe extern "C" fn btr_reg(mut bit_base: i32, mut bit_offset: i32) -> i32 {
+pub unsafe fn btr_reg(mut bit_base: i32, mut bit_offset: i32) -> i32 {
     *flags = *flags & !1i32 | bit_base >> bit_offset & 1i32;
     *flags_changed &= !1i32;
     return bit_base & !(1i32 << bit_offset);
 }
 #[no_mangle]
-pub unsafe extern "C" fn bt_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
+pub unsafe fn bt_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
     let mut bit_base: i32 = return_on_pagefault!(safe_read8(virt_addr + (bit_offset >> 3i32)));
     bit_offset &= 7i32;
     *flags = *flags & !1i32 | bit_base >> bit_offset & 1i32;
     *flags_changed &= !1i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn btc_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
+pub unsafe fn btc_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
     let mut phys_addr: i32 =
         return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3i32))) as i32;
     let mut bit_base: i32 = read8(phys_addr as u32);
@@ -1076,7 +1032,7 @@ pub unsafe extern "C" fn btc_mem(mut virt_addr: i32, mut bit_offset: i32) -> () 
     write8(phys_addr as u32, bit_base ^ 1i32 << bit_offset);
 }
 #[no_mangle]
-pub unsafe extern "C" fn btr_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
+pub unsafe fn btr_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
     let mut phys_addr: i32 =
         return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3i32))) as i32;
     let mut bit_base: i32 = read8(phys_addr as u32);
@@ -1086,7 +1042,7 @@ pub unsafe extern "C" fn btr_mem(mut virt_addr: i32, mut bit_offset: i32) -> () 
     write8(phys_addr as u32, bit_base & !(1i32 << bit_offset));
 }
 #[no_mangle]
-pub unsafe extern "C" fn bts_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
+pub unsafe fn bts_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
     let mut phys_addr: i32 =
         return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3i32))) as i32;
     let mut bit_base: i32 = read8(phys_addr as u32);
@@ -1096,7 +1052,7 @@ pub unsafe extern "C" fn bts_mem(mut virt_addr: i32, mut bit_offset: i32) -> () 
     write8(phys_addr as u32, bit_base | 1i32 << bit_offset);
 }
 #[no_mangle]
-pub unsafe extern "C" fn bsf16(mut old: i32, mut bit_base: i32) -> i32 {
+pub unsafe fn bsf16(mut old: i32, mut bit_base: i32) -> i32 {
     *flags_changed = FLAGS_ALL & !FLAG_ZERO;
     *last_op_size = OPSIZE_16;
     if bit_base == 0i32 {
@@ -1112,7 +1068,7 @@ pub unsafe extern "C" fn bsf16(mut old: i32, mut bit_base: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn bsf32(mut old: i32, mut bit_base: i32) -> i32 {
+pub unsafe fn bsf32(mut old: i32, mut bit_base: i32) -> i32 {
     *flags_changed = FLAGS_ALL & !FLAG_ZERO;
     *last_op_size = OPSIZE_32;
     if bit_base == 0i32 {
@@ -1127,7 +1083,7 @@ pub unsafe extern "C" fn bsf32(mut old: i32, mut bit_base: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn bsr16(mut old: i32, mut bit_base: i32) -> i32 {
+pub unsafe fn bsr16(mut old: i32, mut bit_base: i32) -> i32 {
     *flags_changed = FLAGS_ALL & !FLAG_ZERO;
     *last_op_size = OPSIZE_16;
     if bit_base == 0i32 {
@@ -1142,7 +1098,7 @@ pub unsafe extern "C" fn bsr16(mut old: i32, mut bit_base: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn bsr32(mut old: i32, mut bit_base: i32) -> i32 {
+pub unsafe fn bsr32(mut old: i32, mut bit_base: i32) -> i32 {
     *flags_changed = FLAGS_ALL & !FLAG_ZERO;
     *last_op_size = OPSIZE_32;
     if bit_base == 0i32 {
@@ -1157,7 +1113,7 @@ pub unsafe extern "C" fn bsr32(mut old: i32, mut bit_base: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn popcnt(mut v: i32) -> i32 {
+pub unsafe fn popcnt(mut v: i32) -> i32 {
     *flags_changed = 0i32;
     *flags &= !FLAGS_ALL;
     if 0 != v {
@@ -1172,7 +1128,7 @@ pub unsafe extern "C" fn popcnt(mut v: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn saturate_sw_to_ub(mut v: u32) -> u32 {
+pub unsafe fn saturate_sw_to_ub(mut v: u32) -> u32 {
     dbg_assert!(v & 4294901760u32 == 0i32 as u32);
     let mut ret: u32 = v;
     if ret >= 32768i32 as u32 {
@@ -1185,7 +1141,7 @@ pub unsafe extern "C" fn saturate_sw_to_ub(mut v: u32) -> u32 {
     return ret;
 }
 #[no_mangle]
-pub unsafe extern "C" fn saturate_sw_to_sb(mut v: i32) -> i32 {
+pub unsafe fn saturate_sw_to_sb(mut v: i32) -> i32 {
     dbg_assert!(v as u32 & 4294901760u32 == 0i32 as u32);
     let mut ret: i32 = v;
     if ret > 65408i32 {
@@ -1201,7 +1157,7 @@ pub unsafe extern "C" fn saturate_sw_to_sb(mut v: i32) -> i32 {
     return ret;
 }
 #[no_mangle]
-pub unsafe extern "C" fn saturate_sd_to_sw(mut v: u32) -> u32 {
+pub unsafe fn saturate_sd_to_sw(mut v: u32) -> u32 {
     let mut ret: u32 = v;
     if ret > 4294934528u32 {
         ret = ret & 65535i32 as u32
@@ -1216,7 +1172,7 @@ pub unsafe extern "C" fn saturate_sd_to_sw(mut v: u32) -> u32 {
     return ret;
 }
 #[no_mangle]
-pub unsafe extern "C" fn saturate_sd_to_sb(mut v: u32) -> u32 {
+pub unsafe fn saturate_sd_to_sb(mut v: u32) -> u32 {
     let mut ret: u32 = v;
     if ret > 4294967168u32 {
         ret = ret & 255i32 as u32
@@ -1231,7 +1187,7 @@ pub unsafe extern "C" fn saturate_sd_to_sb(mut v: u32) -> u32 {
     return ret;
 }
 #[no_mangle]
-pub unsafe extern "C" fn saturate_sd_to_ub(mut v: i32) -> i32 {
+pub unsafe fn saturate_sd_to_ub(mut v: i32) -> i32 {
     let mut ret: i32 = v;
     if ret < 0i32 {
         ret = 0i32
@@ -1240,7 +1196,7 @@ pub unsafe extern "C" fn saturate_sd_to_ub(mut v: i32) -> i32 {
     return ret;
 }
 #[no_mangle]
-pub unsafe extern "C" fn saturate_ud_to_ub(mut v: u32) -> u32 {
+pub unsafe fn saturate_ud_to_ub(mut v: u32) -> u32 {
     let mut ret: u32 = v;
     if ret > 255i32 as u32 {
         ret = 255i32 as u32
@@ -1249,7 +1205,7 @@ pub unsafe extern "C" fn saturate_ud_to_ub(mut v: u32) -> u32 {
     return ret;
 }
 #[no_mangle]
-pub unsafe extern "C" fn saturate_uw(mut v: u32) -> i32 {
+pub unsafe fn saturate_uw(mut v: u32) -> i32 {
     let mut ret: u32 = v;
     if ret > 2147483647i32 as u32 {
         ret = 0i32 as u32

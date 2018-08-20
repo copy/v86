@@ -34,7 +34,7 @@ use cpu2::memory::{
 };
 
 #[no_mangle]
-pub unsafe extern "C" fn string_get_cycle_count(mut size: i32, mut address: i32) -> i32 {
+pub unsafe fn string_get_cycle_count(mut size: i32, mut address: i32) -> i32 {
     dbg_assert!(0 != size && size <= 4i32 && size >= -4i32);
     if size < 0i32 {
         size = -size;
@@ -46,17 +46,13 @@ pub unsafe extern "C" fn string_get_cycle_count(mut size: i32, mut address: i32)
     return 4096i32 - (address & 4095i32) >> shift;
 }
 #[no_mangle]
-pub unsafe extern "C" fn string_get_cycle_count2(
-    mut size: i32,
-    mut addr1: i32,
-    mut addr2: i32,
-) -> i32 {
+pub unsafe fn string_get_cycle_count2(mut size: i32, mut addr1: i32, mut addr2: i32) -> i32 {
     let mut c1: i32 = string_get_cycle_count(size, addr1);
     let mut c2: i32 = string_get_cycle_count(size, addr2);
     return if c1 < c2 { c1 } else { c2 };
 }
 #[no_mangle]
-pub unsafe extern "C" fn movsb_rep() -> () {
+pub unsafe fn movsb_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
@@ -101,7 +97,7 @@ pub unsafe extern "C" fn movsb_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn movsb_no_rep() -> () {
+pub unsafe fn movsb_no_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
@@ -115,7 +111,7 @@ pub unsafe extern "C" fn movsb_no_rep() -> () {
     add_reg_asize(ESI, size);
 }
 #[no_mangle]
-pub unsafe extern "C" fn movsw_rep() -> () {
+pub unsafe fn movsw_rep() -> () {
     let mut diff: i32 = 0;
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
@@ -185,7 +181,7 @@ pub unsafe extern "C" fn movsw_rep() -> () {
 #[no_mangle]
 pub static mut MAX_COUNT_PER_CYCLE: i32 = unsafe { 4096i32 };
 #[no_mangle]
-pub unsafe extern "C" fn movsw_no_rep() -> () {
+pub unsafe fn movsw_no_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
@@ -199,7 +195,7 @@ pub unsafe extern "C" fn movsw_no_rep() -> () {
     add_reg_asize(ESI, size);
 }
 #[no_mangle]
-pub unsafe extern "C" fn movsd_rep() -> () {
+pub unsafe fn movsd_rep() -> () {
     let mut diff: i32 = 0;
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
@@ -267,7 +263,7 @@ pub unsafe extern "C" fn movsd_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn movsd_no_rep() -> () {
+pub unsafe fn movsd_no_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
@@ -281,7 +277,7 @@ pub unsafe extern "C" fn movsd_no_rep() -> () {
     add_reg_asize(ESI, size);
 }
 #[no_mangle]
-pub unsafe extern "C" fn cmpsb_rep(mut prefix_flag: i32) -> () {
+pub unsafe fn cmpsb_rep(mut prefix_flag: i32) -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut data_src: i32 = 0;
@@ -331,7 +327,7 @@ pub unsafe extern "C" fn cmpsb_rep(mut prefix_flag: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn cmpsb_no_rep() -> () {
+pub unsafe fn cmpsb_no_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut data_src: i32 = 0;
@@ -349,7 +345,7 @@ pub unsafe extern "C" fn cmpsb_no_rep() -> () {
     cmp8(data_src, data_dest);
 }
 #[no_mangle]
-pub unsafe extern "C" fn cmpsw_rep(mut prefix_flag: i32) -> () {
+pub unsafe fn cmpsw_rep(mut prefix_flag: i32) -> () {
     let mut diff: i32 = 0;
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
@@ -424,7 +420,7 @@ pub unsafe extern "C" fn cmpsw_rep(mut prefix_flag: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn cmpsw_no_rep() -> () {
+pub unsafe fn cmpsw_no_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut data_src: i32 = 0;
@@ -442,7 +438,7 @@ pub unsafe extern "C" fn cmpsw_no_rep() -> () {
     cmp16(data_src, data_dest);
 }
 #[no_mangle]
-pub unsafe extern "C" fn cmpsd_rep(mut prefix_flag: i32) -> () {
+pub unsafe fn cmpsd_rep(mut prefix_flag: i32) -> () {
     let mut diff: i32 = 0;
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
@@ -517,7 +513,7 @@ pub unsafe extern "C" fn cmpsd_rep(mut prefix_flag: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn cmpsd_no_rep() -> () {
+pub unsafe fn cmpsd_no_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut data_src: i32 = 0;
@@ -535,7 +531,7 @@ pub unsafe extern "C" fn cmpsd_no_rep() -> () {
     cmp32(data_src, data_dest);
 }
 #[no_mangle]
-pub unsafe extern "C" fn stosb_rep() -> () {
+pub unsafe fn stosb_rep() -> () {
     let mut data: i32 = *reg8.offset(AL as isize) as i32;
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
@@ -577,7 +573,7 @@ pub unsafe extern "C" fn stosb_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn stosb_no_rep() -> () {
+pub unsafe fn stosb_no_rep() -> () {
     let mut data: i32 = *reg8.offset(AL as isize) as i32;
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
@@ -590,7 +586,7 @@ pub unsafe extern "C" fn stosb_no_rep() -> () {
     add_reg_asize(EDI, size);
 }
 #[no_mangle]
-pub unsafe extern "C" fn stosw_rep() -> () {
+pub unsafe fn stosw_rep() -> () {
     let mut diff: i32 = 0;
     let mut data: i32 = *reg16.offset(AX as isize) as i32;
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
@@ -652,7 +648,7 @@ pub unsafe extern "C" fn stosw_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn stosw_no_rep() -> () {
+pub unsafe fn stosw_no_rep() -> () {
     let mut data: i32 = *reg16.offset(AX as isize) as i32;
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
@@ -665,7 +661,7 @@ pub unsafe extern "C" fn stosw_no_rep() -> () {
     add_reg_asize(EDI, size);
 }
 #[no_mangle]
-pub unsafe extern "C" fn stosd_rep() -> () {
+pub unsafe fn stosd_rep() -> () {
     let mut diff: i32 = 0;
     let mut data: i32 = *reg32s.offset(EAX as isize);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
@@ -727,7 +723,7 @@ pub unsafe extern "C" fn stosd_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn stosd_no_rep() -> () {
+pub unsafe fn stosd_no_rep() -> () {
     let mut data: i32 = *reg32s.offset(EAX as isize);
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
@@ -740,7 +736,7 @@ pub unsafe extern "C" fn stosd_no_rep() -> () {
     add_reg_asize(EDI, size);
 }
 #[no_mangle]
-pub unsafe extern "C" fn lodsb_rep() -> () {
+pub unsafe fn lodsb_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
         -1i32
@@ -781,7 +777,7 @@ pub unsafe extern "C" fn lodsb_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn lodsb_no_rep() -> () {
+pub unsafe fn lodsb_no_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
         -1i32
@@ -793,7 +789,7 @@ pub unsafe extern "C" fn lodsb_no_rep() -> () {
     add_reg_asize(ESI, size);
 }
 #[no_mangle]
-pub unsafe extern "C" fn lodsw_rep() -> () {
+pub unsafe fn lodsw_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
         -2i32
@@ -827,7 +823,7 @@ pub unsafe extern "C" fn lodsw_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn lodsw_no_rep() -> () {
+pub unsafe fn lodsw_no_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
         -2i32
@@ -839,7 +835,7 @@ pub unsafe extern "C" fn lodsw_no_rep() -> () {
     add_reg_asize(ESI, size);
 }
 #[no_mangle]
-pub unsafe extern "C" fn lodsd_rep() -> () {
+pub unsafe fn lodsd_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
         -4i32
@@ -873,7 +869,7 @@ pub unsafe extern "C" fn lodsd_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn lodsd_no_rep() -> () {
+pub unsafe fn lodsd_no_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
         -4i32
@@ -885,7 +881,7 @@ pub unsafe extern "C" fn lodsd_no_rep() -> () {
     add_reg_asize(ESI, size);
 }
 #[no_mangle]
-pub unsafe extern "C" fn scasb_rep(mut prefix_flag: i32) -> () {
+pub unsafe fn scasb_rep(mut prefix_flag: i32) -> () {
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
         -1i32
@@ -930,7 +926,7 @@ pub unsafe extern "C" fn scasb_rep(mut prefix_flag: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn scasb_no_rep() -> () {
+pub unsafe fn scasb_no_rep() -> () {
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
         -1i32
@@ -945,7 +941,7 @@ pub unsafe extern "C" fn scasb_no_rep() -> () {
     cmp8(data_src, data_dest);
 }
 #[no_mangle]
-pub unsafe extern "C" fn scasw_rep(mut prefix_flag: i32) -> () {
+pub unsafe fn scasw_rep(mut prefix_flag: i32) -> () {
     let mut diff: i32 = 0;
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
@@ -1011,7 +1007,7 @@ pub unsafe extern "C" fn scasw_rep(mut prefix_flag: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn scasw_no_rep() -> () {
+pub unsafe fn scasw_no_rep() -> () {
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
         -2i32
@@ -1026,7 +1022,7 @@ pub unsafe extern "C" fn scasw_no_rep() -> () {
     cmp16(data_src, data_dest);
 }
 #[no_mangle]
-pub unsafe extern "C" fn scasd_rep(mut prefix_flag: i32) -> () {
+pub unsafe fn scasd_rep(mut prefix_flag: i32) -> () {
     let mut diff: i32 = 0;
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
@@ -1092,7 +1088,7 @@ pub unsafe extern "C" fn scasd_rep(mut prefix_flag: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn scasd_no_rep() -> () {
+pub unsafe fn scasd_no_rep() -> () {
     let mut dest: i32 = get_seg(ES) + get_reg_asize(EDI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION {
         -4i32
@@ -1107,7 +1103,7 @@ pub unsafe extern "C" fn scasd_no_rep() -> () {
     cmp32(data_src, data_dest);
 }
 #[no_mangle]
-pub unsafe extern "C" fn insb_rep() -> () {
+pub unsafe fn insb_rep() -> () {
     let mut port: i32 = *reg16.offset(DX as isize) as i32;
     if !test_privileges_for_io(port, 1i32) {
         return;
@@ -1155,7 +1151,7 @@ pub unsafe extern "C" fn insb_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn insb_no_rep() -> () {
+pub unsafe fn insb_no_rep() -> () {
     let mut port: i32 = *reg16.offset(DX as isize) as i32;
     if !test_privileges_for_io(port, 1i32) {
         return;
@@ -1175,7 +1171,7 @@ pub unsafe extern "C" fn insb_no_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn insw_rep() -> () {
+pub unsafe fn insw_rep() -> () {
     let mut diff: i32 = 0;
     let mut port: i32 = *reg16.offset(DX as isize) as i32;
     if !test_privileges_for_io(port, 2i32) {
@@ -1244,7 +1240,7 @@ pub unsafe extern "C" fn insw_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn insw_no_rep() -> () {
+pub unsafe fn insw_no_rep() -> () {
     let mut port: i32 = *reg16.offset(DX as isize) as i32;
     if !test_privileges_for_io(port, 2i32) {
         return;
@@ -1264,7 +1260,7 @@ pub unsafe extern "C" fn insw_no_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn insd_rep() -> () {
+pub unsafe fn insd_rep() -> () {
     let mut diff: i32 = 0;
     let mut port: i32 = *reg16.offset(DX as isize) as i32;
     if !test_privileges_for_io(port, 4i32) {
@@ -1333,7 +1329,7 @@ pub unsafe extern "C" fn insd_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn insd_no_rep() -> () {
+pub unsafe fn insd_no_rep() -> () {
     let mut port: i32 = *reg16.offset(DX as isize) as i32;
     if !test_privileges_for_io(port, 4i32) {
         return;
@@ -1353,7 +1349,7 @@ pub unsafe extern "C" fn insd_no_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn outsb_rep() -> () {
+pub unsafe fn outsb_rep() -> () {
     let mut port: i32 = *reg16.offset(DX as isize) as i32;
     if !test_privileges_for_io(port, 1i32) {
         return;
@@ -1401,7 +1397,7 @@ pub unsafe extern "C" fn outsb_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn outsb_no_rep() -> () {
+pub unsafe fn outsb_no_rep() -> () {
     let mut port: i32 = *reg16.offset(DX as isize) as i32;
     if !test_privileges_for_io(port, 1i32) {
         return;
@@ -1420,7 +1416,7 @@ pub unsafe extern "C" fn outsb_no_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn outsw_rep() -> () {
+pub unsafe fn outsw_rep() -> () {
     let mut diff: i32 = 0;
     let mut port: i32 = *reg16.offset(DX as isize) as i32;
     if !test_privileges_for_io(port, 2i32) {
@@ -1488,7 +1484,7 @@ pub unsafe extern "C" fn outsw_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn outsw_no_rep() -> () {
+pub unsafe fn outsw_no_rep() -> () {
     let mut port: i32 = *reg16.offset(DX as isize) as i32;
     if !test_privileges_for_io(port, 2i32) {
         return;
@@ -1507,7 +1503,7 @@ pub unsafe extern "C" fn outsw_no_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn outsd_rep() -> () {
+pub unsafe fn outsd_rep() -> () {
     let mut diff: i32 = 0;
     let mut port: i32 = *reg16.offset(DX as isize) as i32;
     if !test_privileges_for_io(port, 4i32) {
@@ -1575,7 +1571,7 @@ pub unsafe extern "C" fn outsd_rep() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn outsd_no_rep() -> () {
+pub unsafe fn outsd_no_rep() -> () {
     let mut port: i32 = *reg16.offset(DX as isize) as i32;
     if !test_privileges_for_io(port, 4i32) {
         return;

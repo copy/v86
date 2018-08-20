@@ -775,13 +775,13 @@ pub static mut CPU_EXCEPTION_VE: i32 = unsafe { 20i32 };
 //pub fn call_indirect1(f: fn(u16), x: u16) { f(x); }
 
 #[no_mangle]
-pub unsafe extern "C" fn after_block_boundary() -> () { jit_block_boundary = 0 != 1i32; }
+pub unsafe fn after_block_boundary() -> () { jit_block_boundary = 0 != 1i32; }
 #[no_mangle]
-pub unsafe extern "C" fn same_page(mut addr1: i32, mut addr2: i32) -> bool {
+pub unsafe fn same_page(mut addr1: i32, mut addr2: i32) -> bool {
     return addr1 & !4095i32 == addr2 & !4095i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_eflags() -> i32 {
+pub unsafe fn get_eflags() -> i32 {
     return *flags & !FLAGS_ALL
         | getcf() as i32
         | (getpf() as i32) << 2i32
@@ -791,7 +791,7 @@ pub unsafe extern "C" fn get_eflags() -> i32 {
         | (getof() as i32) << 11i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn translate_address_read(mut address: i32) -> Result<u32, ()> {
+pub unsafe fn translate_address_read(mut address: i32) -> Result<u32, ()> {
     let mut base: i32 = (address as u32 >> 12i32) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut user: bool = *cpl.offset(0isize) as i32 == 3i32;
@@ -803,7 +803,7 @@ pub unsafe extern "C" fn translate_address_read(mut address: i32) -> Result<u32,
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn do_page_translation(
+pub unsafe fn do_page_translation(
     mut addr: i32,
     mut for_writing: bool,
     mut user: bool,
@@ -986,7 +986,7 @@ pub unsafe extern "C" fn do_page_translation(
 #[no_mangle]
 pub static mut CHECK_TLB_INVARIANTS: bool = unsafe { 0 != 0i32 };
 #[no_mangle]
-pub unsafe extern "C" fn full_clear_tlb() -> () {
+pub unsafe fn full_clear_tlb() -> () {
     profiler_stat_increment(S_FULL_CLEAR_TLB);
     c_comment!(("clear tlb including global pages"));
     *last_virt_eip = -1i32;
@@ -1007,7 +1007,7 @@ pub unsafe extern "C" fn full_clear_tlb() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn clear_tlb() -> () {
+pub unsafe fn clear_tlb() -> () {
     profiler_stat_increment(S_CLEAR_TLB);
     c_comment!(("clear tlb excluding global pages"));
     *last_virt_eip = -1i32;
@@ -1041,11 +1041,7 @@ pub unsafe extern "C" fn clear_tlb() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn trigger_pagefault(
-    mut write: bool,
-    mut user: bool,
-    mut present: bool,
-) -> () {
+pub unsafe fn trigger_pagefault(mut write: bool, mut user: bool, mut present: bool) -> () {
     if 0 != 0i32 * 0i32 {
         dbg_log_c!(
             "page fault w=%d u=%d p=%d eip=%x cr2=%x",
@@ -1087,7 +1083,7 @@ pub static mut must_not_fault: bool = unsafe { 0 != 0i32 };
 #[no_mangle]
 pub static mut DEBUG: bool = unsafe { 0 != 1i32 };
 #[no_mangle]
-pub unsafe extern "C" fn translate_address_write(mut address: i32) -> Result<u32, ()> {
+pub unsafe fn translate_address_write(mut address: i32) -> Result<u32, ()> {
     let mut base: i32 = (address as u32 >> 12i32) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut user: bool = *cpl.offset(0isize) as i32 == 3i32;
@@ -1101,7 +1097,7 @@ pub unsafe extern "C" fn translate_address_write(mut address: i32) -> Result<u32
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn tlb_set_has_code(mut physical_page: u32, mut has_code: bool) -> () {
+pub unsafe fn tlb_set_has_code(mut physical_page: u32, mut has_code: bool) -> () {
     dbg_assert!(physical_page < (1i32 << 20i32) as u32);
     let mut i: i32 = 0i32;
     while i < valid_tlb_entries_count {
@@ -1123,7 +1119,7 @@ pub unsafe extern "C" fn tlb_set_has_code(mut physical_page: u32, mut has_code: 
     check_tlb_invariants();
 }
 #[no_mangle]
-pub unsafe extern "C" fn check_tlb_invariants() -> () {
+pub unsafe fn check_tlb_invariants() -> () {
     let mut physical_page: u32 = 0;
     let mut entry_has_code: bool = false;
     let mut has_code: bool = false;
@@ -1144,7 +1140,7 @@ pub unsafe extern "C" fn check_tlb_invariants() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn writable_or_pagefault(mut addr: i32, mut size: i32) -> Result<(), ()> {
+pub unsafe fn writable_or_pagefault(mut addr: i32, mut size: i32) -> Result<(), ()> {
     dbg_assert!(size < 4096i32);
     dbg_assert!(size > 0i32);
     if *cr.offset(0isize) & CR0_PG == 0i32 {
@@ -1171,7 +1167,7 @@ pub unsafe extern "C" fn writable_or_pagefault(mut addr: i32, mut size: i32) -> 
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_imm8() -> Result<i32, ()> {
+pub unsafe fn read_imm8() -> Result<i32, ()> {
     let mut eip: i32 = *instruction_pointer;
     if 0 != eip & !4095i32 ^ *last_virt_eip {
         *eip_phys = (translate_address_read(eip)? ^ eip as u32) as i32;
@@ -1183,11 +1179,9 @@ pub unsafe extern "C" fn read_imm8() -> Result<i32, ()> {
     return Ok(data8);
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_imm8s() -> Result<i32, ()> {
-    return Ok(read_imm8()? << 24i32 >> 24i32);
-}
+pub unsafe fn read_imm8s() -> Result<i32, ()> { return Ok(read_imm8()? << 24i32 >> 24i32); }
 #[no_mangle]
-pub unsafe extern "C" fn read_imm16() -> Result<i32, ()> {
+pub unsafe fn read_imm16() -> Result<i32, ()> {
     c_comment!(("Two checks in one comparison:"));
     c_comment!(("1. Did the high 20 bits of eip change"));
     c_comment!(("or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)"));
@@ -1201,7 +1195,7 @@ pub unsafe extern "C" fn read_imm16() -> Result<i32, ()> {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_imm32s() -> Result<i32, ()> {
+pub unsafe fn read_imm32s() -> Result<i32, ()> {
     c_comment!(("Analogue to the above comment"));
     if (*instruction_pointer ^ *last_virt_eip) as u32 > 4092i32 as u32 {
         return Ok(read_imm16()? | read_imm16()? << 16i32);
@@ -1213,16 +1207,16 @@ pub unsafe extern "C" fn read_imm32s() -> Result<i32, ()> {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn is_osize_32() -> bool {
+pub unsafe fn is_osize_32() -> bool {
     return *is_32 as i32 != (*prefixes as i32 & PREFIX_MASK_OPSIZE == PREFIX_MASK_OPSIZE) as i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn is_asize_32() -> bool {
+pub unsafe fn is_asize_32() -> bool {
     return *is_32 as i32
         != (*prefixes as i32 & PREFIX_MASK_ADDRSIZE == PREFIX_MASK_ADDRSIZE) as i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_seg(mut segment: i32) -> i32 {
+pub unsafe fn get_seg(mut segment: i32) -> i32 {
     dbg_assert!(segment >= 0i32 && segment < 8i32);
     c_comment!(("TODO: Remove protected_mode check"));
     if *protected_mode {
@@ -1236,15 +1230,12 @@ pub unsafe extern "C" fn get_seg(mut segment: i32) -> i32 {
     return *segment_offsets.offset(segment as isize);
 }
 #[no_mangle]
-pub unsafe extern "C" fn trigger_gp(mut code: i32) -> () {
+pub unsafe fn trigger_gp(mut code: i32) -> () {
     *instruction_pointer = *previous_ip;
     raise_exception_with_code(CPU_EXCEPTION_GP, code);
 }
 #[no_mangle]
-pub unsafe extern "C" fn raise_exception_with_code(
-    mut interrupt_nr: i32,
-    mut error_code: i32,
-) -> () {
+pub unsafe fn raise_exception_with_code(mut interrupt_nr: i32, mut error_code: i32) -> () {
     if DEBUG {
         if must_not_fault {
             dbg_log_c!(
@@ -1265,11 +1256,11 @@ pub unsafe extern "C" fn raise_exception_with_code(
     assert!(false);
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_seg_cs() -> i32 { return *segment_offsets.offset(CS as isize); }
+pub unsafe fn get_seg_cs() -> i32 { return *segment_offsets.offset(CS as isize); }
 #[no_mangle]
-pub unsafe extern "C" fn get_seg_ss() -> i32 { return *segment_offsets.offset(SS as isize); }
+pub unsafe fn get_seg_ss() -> i32 { return *segment_offsets.offset(SS as isize); }
 #[no_mangle]
-pub unsafe extern "C" fn get_seg_prefix(mut default_segment: i32) -> i32 {
+pub unsafe fn get_seg_prefix(mut default_segment: i32) -> i32 {
     let mut prefix: i32 = *prefixes as i32 & PREFIX_MASK_SEGMENT;
     if 0 != prefix {
         if prefix == SEG_PREFIX_ZERO {
@@ -1284,19 +1275,13 @@ pub unsafe extern "C" fn get_seg_prefix(mut default_segment: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_seg_prefix_ds(mut offset: i32) -> i32 {
-    return get_seg_prefix(DS) + offset;
-}
+pub unsafe fn get_seg_prefix_ds(mut offset: i32) -> i32 { return get_seg_prefix(DS) + offset; }
 #[no_mangle]
-pub unsafe extern "C" fn get_seg_prefix_ss(mut offset: i32) -> i32 {
-    return get_seg_prefix(SS) + offset;
-}
+pub unsafe fn get_seg_prefix_ss(mut offset: i32) -> i32 { return get_seg_prefix(SS) + offset; }
 #[no_mangle]
-pub unsafe extern "C" fn get_seg_prefix_cs(mut offset: i32) -> i32 {
-    return get_seg_prefix(CS) + offset;
-}
+pub unsafe fn get_seg_prefix_cs(mut offset: i32) -> i32 { return get_seg_prefix(CS) + offset; }
 #[no_mangle]
-pub unsafe extern "C" fn modrm_resolve(mut modrm_byte: i32) -> Result<i32, ()> {
+pub unsafe fn modrm_resolve(mut modrm_byte: i32) -> Result<i32, ()> {
     if is_asize_32() {
         resolve_modrm32(modrm_byte)
     }
@@ -1305,16 +1290,12 @@ pub unsafe extern "C" fn modrm_resolve(mut modrm_byte: i32) -> Result<i32, ()> {
     }
 }
 
-pub unsafe extern "C" fn run_instruction(opcode: i32) { ::gen::interpreter::run(opcode as u32) }
-pub unsafe extern "C" fn run_instruction0f_16(opcode: i32) {
-    ::gen::interpreter0f_16::run(opcode as u8)
-}
-pub unsafe extern "C" fn run_instruction0f_32(opcode: i32) {
-    ::gen::interpreter0f_32::run(opcode as u8)
-}
+pub unsafe fn run_instruction(opcode: i32) { ::gen::interpreter::run(opcode as u32) }
+pub unsafe fn run_instruction0f_16(opcode: i32) { ::gen::interpreter0f_16::run(opcode as u8) }
+pub unsafe fn run_instruction0f_32(opcode: i32) { ::gen::interpreter0f_32::run(opcode as u8) }
 
 #[no_mangle]
-pub unsafe extern "C" fn cycle_internal() -> () {
+pub unsafe fn cycle_internal() -> () {
     profiler_stat_increment(S_CYCLE_INTERNAL);
     if true {
         let mut wasm_table_index: u16 = 0;
@@ -1365,7 +1346,7 @@ pub unsafe extern "C" fn cycle_internal() -> () {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_phys_eip() -> Result<i32, ()> {
+pub unsafe fn get_phys_eip() -> Result<i32, ()> {
     let mut eip: i32 = *instruction_pointer;
     if 0 != eip & !4095i32 ^ *last_virt_eip {
         *eip_phys = (translate_address_read(eip)? ^ eip as u32) as i32;
@@ -1375,7 +1356,7 @@ pub unsafe extern "C" fn get_phys_eip() -> Result<i32, ()> {
     dbg_assert!(!in_mapped_range(phys_addr));
     return Ok(phys_addr as i32);
 }
-unsafe extern "C" fn jit_run_interpreted(mut phys_addr: i32) -> () {
+unsafe fn jit_run_interpreted(mut phys_addr: i32) -> () {
     profiler_stat_increment(S_RUN_INTERPRETED);
     jit_block_boundary = 0 != 0i32;
     dbg_assert!(!in_mapped_range(phys_addr as u32));
@@ -1396,38 +1377,38 @@ unsafe extern "C" fn jit_run_interpreted(mut phys_addr: i32) -> () {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn clear_current_cpu_exception() -> () { current_cpu_exception = -1i32; }
+pub unsafe fn clear_current_cpu_exception() -> () { current_cpu_exception = -1i32; }
 #[no_mangle]
 pub static mut current_cpu_exception: i32 = unsafe { -1i32 };
 #[no_mangle]
-pub unsafe extern "C" fn pack_current_state_flags() -> cached_state_flags {
+pub unsafe fn pack_current_state_flags() -> cached_state_flags {
     return ((*is_32 as i32) << 0i32
         | (*stack_size_32 as i32) << 1i32
         | ((*cpl as i32 == 3i32) as i32) << 2i32
         | (has_flat_segmentation() as i32) << 3i32) as cached_state_flags;
 }
 #[no_mangle]
-pub unsafe extern "C" fn has_flat_segmentation() -> bool {
+pub unsafe fn has_flat_segmentation() -> bool {
     c_comment!(("ss can\'t be null"));
     return *segment_offsets.offset(SS as isize) == 0i32
         && !*segment_is_null.offset(DS as isize)
         && *segment_offsets.offset(DS as isize) == 0i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn run_prefix_instruction() -> () {
+pub unsafe fn run_prefix_instruction() -> () {
     run_instruction(return_on_pagefault!(read_imm8()) | (is_osize_32() as i32) << 8i32);
 }
 #[no_mangle]
-pub unsafe extern "C" fn clear_prefixes() -> () { *prefixes = 0i32 as u8; }
+pub unsafe fn clear_prefixes() -> () { *prefixes = 0i32 as u8; }
 #[no_mangle]
-pub unsafe extern "C" fn segment_prefix_op(mut seg: i32) -> () {
+pub unsafe fn segment_prefix_op(mut seg: i32) -> () {
     dbg_assert!(seg <= 5i32);
     *prefixes = (*prefixes as i32 | seg + 1i32) as u8;
     run_prefix_instruction();
     *prefixes = 0i32 as u8;
 }
 #[no_mangle]
-pub unsafe extern "C" fn do_many_cycles_native() -> () {
+pub unsafe fn do_many_cycles_native() -> () {
     profiler_stat_increment(S_DO_MANY_CYCLES);
     let mut initial_timestamp_counter: u32 = *timestamp_counter;
     while (*timestamp_counter).wrapping_sub(initial_timestamp_counter) < LOOP_COUNTER as u32
@@ -1439,7 +1420,7 @@ pub unsafe extern "C" fn do_many_cycles_native() -> () {
 #[no_mangle]
 pub static mut LOOP_COUNTER: i32 = unsafe { 20011i32 };
 //#[no_mangle]
-//pub unsafe extern "C" fn raise_exception(mut interrupt_nr: i32) -> () {
+//pub unsafe fn raise_exception(mut interrupt_nr: i32) -> () {
 //    if DEBUG {
 //        if must_not_fault {
 //            dbg_log_c!("Unexpected fault: 0x%x", interrupt_nr);
@@ -1456,7 +1437,7 @@ pub static mut LOOP_COUNTER: i32 = unsafe { 20011i32 };
 //    throw_cpu_exception();
 //}
 #[no_mangle]
-pub unsafe extern "C" fn trigger_de() -> () {
+pub unsafe fn trigger_de() -> () {
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_DE) {
             return;
@@ -1467,9 +1448,9 @@ pub unsafe extern "C" fn trigger_de() -> () {
     set_current_cpu_exception(CPU_EXCEPTION_DE);
 }
 #[no_mangle]
-pub unsafe extern "C" fn set_current_cpu_exception(mut n: i32) -> () { current_cpu_exception = n; }
+pub unsafe fn set_current_cpu_exception(mut n: i32) -> () { current_cpu_exception = n; }
 #[no_mangle]
-pub unsafe extern "C" fn trigger_ud() -> () {
+pub unsafe fn trigger_ud() -> () {
     dbg_log_c!("#ud");
     dbg_trace();
     if DEBUG {
@@ -1482,7 +1463,7 @@ pub unsafe extern "C" fn trigger_ud() -> () {
     set_current_cpu_exception(CPU_EXCEPTION_UD);
 }
 #[no_mangle]
-pub unsafe extern "C" fn trigger_nm() -> () {
+pub unsafe fn trigger_nm() -> () {
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_NM) {
             return;
@@ -1493,7 +1474,7 @@ pub unsafe extern "C" fn trigger_nm() -> () {
     set_current_cpu_exception(CPU_EXCEPTION_NM);
 }
 #[no_mangle]
-pub unsafe extern "C" fn trigger_gp_non_raising(mut code: i32) -> () {
+pub unsafe fn trigger_gp_non_raising(mut code: i32) -> () {
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_GP) {
             return;
@@ -1504,13 +1485,13 @@ pub unsafe extern "C" fn trigger_gp_non_raising(mut code: i32) -> () {
     set_current_cpu_exception(CPU_EXCEPTION_GP);
 }
 #[no_mangle]
-pub unsafe extern "C" fn virt_boundary_read16(mut low: i32, mut high: i32) -> i32 {
+pub unsafe fn virt_boundary_read16(mut low: i32, mut high: i32) -> i32 {
     dbg_assert!(low & 4095i32 == 4095i32);
     dbg_assert!(high & 4095i32 == 0i32);
     return read8(low as u32) | read8(high as u32) << 8i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn virt_boundary_read32s(mut low: i32, mut high: i32) -> i32 {
+pub unsafe fn virt_boundary_read32s(mut low: i32, mut high: i32) -> i32 {
     dbg_assert!(low & 4095i32 >= 4093i32);
     dbg_assert!(high - 3i32 & 4095i32 == low & 4095i32);
     let mut mid: i32 = 0i32;
@@ -1531,14 +1512,14 @@ pub unsafe extern "C" fn virt_boundary_read32s(mut low: i32, mut high: i32) -> i
     return read8(low as u32) | mid << 8i32 | read8(high as u32) << 24i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn virt_boundary_write16(mut low: i32, mut high: i32, mut value: i32) -> () {
+pub unsafe fn virt_boundary_write16(mut low: i32, mut high: i32, mut value: i32) -> () {
     dbg_assert!(low & 4095i32 == 4095i32);
     dbg_assert!(high & 4095i32 == 0i32);
     write8(low as u32, value);
     write8(high as u32, value >> 8i32);
 }
 #[no_mangle]
-pub unsafe extern "C" fn virt_boundary_write32(mut low: i32, mut high: i32, mut value: i32) -> () {
+pub unsafe fn virt_boundary_write32(mut low: i32, mut high: i32, mut value: i32) -> () {
     dbg_assert!(low & 4095i32 >= 4093i32);
     dbg_assert!(high - 3i32 & 4095i32 == low & 4095i32);
     write8(low as u32, value);
@@ -1562,12 +1543,12 @@ pub unsafe extern "C" fn virt_boundary_write32(mut low: i32, mut high: i32, mut 
     write8(high as u32, value >> 24i32);
 }
 #[no_mangle]
-pub unsafe extern "C" fn safe_read8(mut addr: i32) -> Result<i32, ()> {
+pub unsafe fn safe_read8(mut addr: i32) -> Result<i32, ()> {
     assert_no_cpu_exception();
     return Ok(read8(translate_address_read(addr)?));
 }
 #[no_mangle]
-pub unsafe extern "C" fn assert_no_cpu_exception() -> () {
+pub unsafe fn assert_no_cpu_exception() -> () {
     return;
     if current_cpu_exception != -1i32 {
         dbg_log_c!("Expected no cpu exception, got %d", current_cpu_exception);
@@ -1576,7 +1557,7 @@ pub unsafe extern "C" fn assert_no_cpu_exception() -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn safe_read16(mut address: i32) -> Result<i32, ()> {
+pub unsafe fn safe_read16(mut address: i32) -> Result<i32, ()> {
     let mut base: i32 = (address as u32 >> 12i32) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut info_bits: i32 = entry & 4095i32 & !TLB_READONLY & !TLB_GLOBAL & !TLB_HAS_CODE;
@@ -1592,7 +1573,7 @@ pub unsafe extern "C" fn safe_read16(mut address: i32) -> Result<i32, ()> {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn safe_read16_slow(mut addr: i32) -> Result<i32, ()> {
+pub unsafe fn safe_read16_slow(mut addr: i32) -> Result<i32, ()> {
     assert_no_cpu_exception();
     if addr & 4095i32 == 4095i32 {
         return Ok(safe_read8(addr)? | safe_read8(addr + 1i32)? << 8i32);
@@ -1602,7 +1583,7 @@ pub unsafe extern "C" fn safe_read16_slow(mut addr: i32) -> Result<i32, ()> {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn safe_read32s(mut address: i32) -> Result<i32, ()> {
+pub unsafe fn safe_read32s(mut address: i32) -> Result<i32, ()> {
     assert_no_cpu_exception();
     let mut base: i32 = (address as u32 >> 12i32) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
@@ -1639,7 +1620,7 @@ pub unsafe extern "C" fn safe_read32s(mut address: i32) -> Result<i32, ()> {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn safe_read32s_slow(mut addr: i32) -> Result<i32, ()> {
+pub unsafe fn safe_read32s_slow(mut addr: i32) -> Result<i32, ()> {
     if addr & 4095i32 >= 4093i32 {
         return Ok(safe_read16(addr)? | safe_read16(addr + 2i32)? << 16i32);
     }
@@ -1679,7 +1660,7 @@ pub unsafe fn safe_read32s_slow_jit(addr: i32) -> i32 {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn safe_read64s(mut addr: i32) -> Result<reg64, ()> {
+pub unsafe fn safe_read64s(mut addr: i32) -> Result<reg64, ()> {
     let mut addr_phys: i32 = 0;
     assert_no_cpu_exception();
     let mut x: reg64 = reg64 { i8_0: [0; 8] };
@@ -1694,7 +1675,7 @@ pub unsafe extern "C" fn safe_read64s(mut addr: i32) -> Result<reg64, ()> {
     Ok(x)
 }
 #[no_mangle]
-pub unsafe extern "C" fn safe_read128s(mut addr: i32) -> Result<reg128, ()> {
+pub unsafe fn safe_read128s(mut addr: i32) -> Result<reg128, ()> {
     let mut addr_phys: i32 = 0;
     assert_no_cpu_exception();
     let mut x: reg128 = reg128 { i8_0: [0; 16] };
@@ -1709,13 +1690,13 @@ pub unsafe extern "C" fn safe_read128s(mut addr: i32) -> Result<reg128, ()> {
     Ok(x)
 }
 #[no_mangle]
-pub unsafe extern "C" fn safe_write8(mut addr: i32, mut value: i32) -> Result<(), ()> {
+pub unsafe fn safe_write8(mut addr: i32, mut value: i32) -> Result<(), ()> {
     assert_no_cpu_exception();
     write8(translate_address_write(addr)?, value);
     Ok(())
 }
 #[no_mangle]
-pub unsafe extern "C" fn safe_write16(mut address: i32, mut value: i32) -> Result<(), ()> {
+pub unsafe fn safe_write16(mut address: i32, mut value: i32) -> Result<(), ()> {
     let mut base: i32 = (address as u32 >> 12i32) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut info_bits: i32 = entry & 4095i32 & !TLB_GLOBAL;
@@ -1735,7 +1716,7 @@ pub unsafe extern "C" fn safe_write16(mut address: i32, mut value: i32) -> Resul
     Ok(())
 }
 #[no_mangle]
-pub unsafe extern "C" fn safe_write16_slow(mut addr: i32, mut value: i32) -> Result<(), ()> {
+pub unsafe fn safe_write16_slow(mut addr: i32, mut value: i32) -> Result<(), ()> {
     assert_no_cpu_exception();
     let mut phys_low: i32 = translate_address_write(addr)? as i32;
     if addr & 4095i32 == 4095i32 {
@@ -1751,7 +1732,7 @@ pub unsafe extern "C" fn safe_write16_slow(mut addr: i32, mut value: i32) -> Res
     Ok(())
 }
 #[no_mangle]
-pub unsafe extern "C" fn safe_write32(mut address: i32, mut value: i32) -> Result<(), ()> {
+pub unsafe fn safe_write32(mut address: i32, mut value: i32) -> Result<(), ()> {
     assert_no_cpu_exception();
     let mut base: i32 = (address as u32 >> 12i32) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
@@ -1802,7 +1783,7 @@ pub unsafe extern "C" fn safe_write32(mut address: i32, mut value: i32) -> Resul
     Ok(())
 }
 #[no_mangle]
-pub unsafe extern "C" fn safe_write32_slow(mut addr: i32, mut value: i32) -> Result<(), ()> {
+pub unsafe fn safe_write32_slow(mut addr: i32, mut value: i32) -> Result<(), ()> {
     let mut phys_low: i32 = translate_address_write(addr)? as i32;
     if addr & 4095i32 > 4096i32 - 4i32 {
         virt_boundary_write32(
@@ -1834,7 +1815,7 @@ pub unsafe fn safe_write32_slow_jit(addr: i32, value: i32) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn safe_write64(mut addr: i32, mut value: i64) -> Result<(), ()> {
+pub unsafe fn safe_write64(mut addr: i32, mut value: i64) -> Result<(), ()> {
     assert_no_cpu_exception();
     if addr & 4095i32 > 4096i32 - 8i32 {
         writable_or_pagefault(addr, 8i32)?;
@@ -1848,7 +1829,7 @@ pub unsafe extern "C" fn safe_write64(mut addr: i32, mut value: i64) -> Result<(
     Ok(())
 }
 #[no_mangle]
-pub unsafe extern "C" fn safe_write128(mut addr: i32, mut value: reg128) -> Result<(), ()> {
+pub unsafe fn safe_write128(mut addr: i32, mut value: reg128) -> Result<(), ()> {
     assert_no_cpu_exception();
     if addr & 4095i32 > 4096i32 - 16i32 {
         writable_or_pagefault(addr, 16i32)?;
@@ -1862,37 +1843,35 @@ pub unsafe extern "C" fn safe_write128(mut addr: i32, mut value: reg128) -> Resu
     Ok(())
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_reg8_index(mut index: i32) -> i32 {
+pub unsafe fn get_reg8_index(mut index: i32) -> i32 {
     return index << 2i32 & 12i32 | index >> 2i32 & 1i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_reg8(mut index: i32) -> i32 {
+pub unsafe fn read_reg8(mut index: i32) -> i32 {
     return *reg8.offset(get_reg8_index(index) as isize) as i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn write_reg8(mut index: i32, mut value: i32) -> () {
+pub unsafe fn write_reg8(mut index: i32, mut value: i32) -> () {
     *reg8.offset(get_reg8_index(index) as isize) = value as u8;
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_reg16_index(mut index: i32) -> i32 { return index << 1i32; }
+pub unsafe fn get_reg16_index(mut index: i32) -> i32 { return index << 1i32; }
 #[no_mangle]
-pub unsafe extern "C" fn read_reg16(mut index: i32) -> i32 {
+pub unsafe fn read_reg16(mut index: i32) -> i32 {
     return *reg16.offset(get_reg16_index(index) as isize) as i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn write_reg16(mut index: i32, mut value: i32) -> () {
+pub unsafe fn write_reg16(mut index: i32, mut value: i32) -> () {
     *reg16.offset(get_reg16_index(index) as isize) = value as u16;
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_reg32(mut index: i32) -> i32 {
-    return *reg32s.offset(index as isize);
-}
+pub unsafe fn read_reg32(mut index: i32) -> i32 { return *reg32s.offset(index as isize); }
 #[no_mangle]
-pub unsafe extern "C" fn write_reg32(mut index: i32, mut value: i32) -> () {
+pub unsafe fn write_reg32(mut index: i32, mut value: i32) -> () {
     *reg32s.offset(index as isize) = value;
 }
 #[no_mangle]
-pub unsafe extern "C" fn write_reg_osize(mut index: i32, mut value: i32) -> () {
+pub unsafe fn write_reg_osize(mut index: i32, mut value: i32) -> () {
     dbg_assert!(index >= 0i32 && index < 8i32);
     if is_osize_32() {
         write_reg32(index, value);
@@ -1902,68 +1881,62 @@ pub unsafe extern "C" fn write_reg_osize(mut index: i32, mut value: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_mmx32s(mut r: i32) -> i32 {
+pub unsafe fn read_mmx32s(mut r: i32) -> i32 {
     return (*reg_mmx.offset(r as isize)).u32_0[0usize] as i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_mmx64s(mut r: i32) -> reg64 { return *reg_mmx.offset(r as isize); }
+pub unsafe fn read_mmx64s(mut r: i32) -> reg64 { return *reg_mmx.offset(r as isize); }
 #[no_mangle]
-pub unsafe extern "C" fn write_mmx64(mut r: i32, mut low: i32, mut high: i32) -> () {
+pub unsafe fn write_mmx64(mut r: i32, mut low: i32, mut high: i32) -> () {
     (*reg_mmx.offset(r as isize)).u32_0[0usize] = low as u32;
     (*reg_mmx.offset(r as isize)).u32_0[1usize] = high as u32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn write_mmx_reg64(mut r: i32, mut data: reg64) -> () {
+pub unsafe fn write_mmx_reg64(mut r: i32, mut data: reg64) -> () {
     (*reg_mmx.offset(r as isize)).u64_0[0usize] = data.u64_0[0usize];
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_xmm_f32(mut r: i32) -> f32 {
+pub unsafe fn read_xmm_f32(mut r: i32) -> f32 {
     return (*reg_xmm.offset(r as isize)).f32_0[0usize];
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_xmm32(mut r: i32) -> i32 {
+pub unsafe fn read_xmm32(mut r: i32) -> i32 {
     return (*reg_xmm.offset(r as isize)).u32_0[0usize] as i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_xmm64s(mut r: i32) -> reg64 {
+pub unsafe fn read_xmm64s(mut r: i32) -> reg64 {
     let mut x: reg64 = reg64 { i8_0: [0; 8] };
     x.u64_0[0usize] = (*reg_xmm.offset(r as isize)).u64_0[0usize];
     return x;
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_xmm128s(mut r: i32) -> reg128 { return *reg_xmm.offset(r as isize); }
+pub unsafe fn read_xmm128s(mut r: i32) -> reg128 { return *reg_xmm.offset(r as isize); }
 #[no_mangle]
-pub unsafe extern "C" fn write_xmm_f32(mut r: i32, mut data: f32) -> () {
+pub unsafe fn write_xmm_f32(mut r: i32, mut data: f32) -> () {
     (*reg_xmm.offset(r as isize)).f32_0[0usize] = data;
 }
 #[no_mangle]
-pub unsafe extern "C" fn write_xmm32(mut r: i32, mut data: i32) -> () {
+pub unsafe fn write_xmm32(mut r: i32, mut data: i32) -> () {
     (*reg_xmm.offset(r as isize)).i32_0[0usize] = data;
 }
 #[no_mangle]
-pub unsafe extern "C" fn write_xmm64(mut r: i32, mut data: reg64) -> () {
+pub unsafe fn write_xmm64(mut r: i32, mut data: reg64) -> () {
     (*reg_xmm.offset(r as isize)).u64_0[0usize] = data.u64_0[0usize];
 }
 #[no_mangle]
-pub unsafe extern "C" fn write_xmm128(
-    mut r: i32,
-    mut i0: i32,
-    mut i1: i32,
-    mut i2: i32,
-    mut i3: i32,
-) -> () {
+pub unsafe fn write_xmm128(mut r: i32, mut i0: i32, mut i1: i32, mut i2: i32, mut i3: i32) -> () {
     let mut x: reg128 = reg128 {
         u32_0: [i0 as u32, i1 as u32, i2 as u32, i3 as u32],
     };
     *reg_xmm.offset(r as isize) = x;
 }
 #[no_mangle]
-pub unsafe extern "C" fn write_xmm_reg128(mut r: i32, mut data: reg128) -> () {
+pub unsafe fn write_xmm_reg128(mut r: i32, mut data: reg128) -> () {
     (*reg_xmm.offset(r as isize)).u64_0[0usize] = data.u64_0[0usize];
     (*reg_xmm.offset(r as isize)).u64_0[1usize] = data.u64_0[1usize];
 }
 #[no_mangle]
-pub unsafe extern "C" fn task_switch_test() -> bool {
+pub unsafe fn task_switch_test() -> bool {
     if 0 != *cr.offset(0isize) & (CR0_EM | CR0_TS) {
         trigger_nm();
         return 0 != 0i32;
@@ -1973,9 +1946,9 @@ pub unsafe extern "C" fn task_switch_test() -> bool {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn task_switch_test_void() -> () { task_switch_test(); }
+pub unsafe fn task_switch_test_void() -> () { task_switch_test(); }
 #[no_mangle]
-pub unsafe extern "C" fn task_switch_test_mmx() -> bool {
+pub unsafe fn task_switch_test_mmx() -> bool {
     if 0 != *cr & CR0_TS {
         trigger_nm();
         return 0 != 0i32;
@@ -1989,9 +1962,9 @@ pub unsafe extern "C" fn task_switch_test_mmx() -> bool {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn task_switch_test_mmx_void() -> () { task_switch_test_mmx(); }
+pub unsafe fn task_switch_test_mmx_void() -> () { task_switch_test_mmx(); }
 #[no_mangle]
-pub unsafe extern "C" fn read_moffs() -> Result<i32, ()> {
+pub unsafe fn read_moffs() -> Result<i32, ()> {
     c_comment!(("read 2 or 4 byte from ip, depending on address size attribute"));
     if is_asize_32() {
         read_imm32s()
@@ -2001,12 +1974,12 @@ pub unsafe extern "C" fn read_moffs() -> Result<i32, ()> {
     }
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_real_eip() -> i32 {
+pub unsafe fn get_real_eip() -> i32 {
     c_comment!(("Returns the \'real\' instruction pointer, without segment offset"));
     return *instruction_pointer - get_seg_cs();
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_stack_reg() -> i32 {
+pub unsafe fn get_stack_reg() -> i32 {
     if *stack_size_32 {
         return *reg32s.offset(ESP as isize);
     }
@@ -2015,7 +1988,7 @@ pub unsafe extern "C" fn get_stack_reg() -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn set_stack_reg(mut value: i32) -> () {
+pub unsafe fn set_stack_reg(mut value: i32) -> () {
     if *stack_size_32 {
         *reg32s.offset(ESP as isize) = value
     }
@@ -2024,7 +1997,7 @@ pub unsafe extern "C" fn set_stack_reg(mut value: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_reg_asize(mut reg: i32) -> i32 {
+pub unsafe fn get_reg_asize(mut reg: i32) -> i32 {
     dbg_assert!(reg == ECX || reg == ESI || reg == EDI);
     let mut r: i32 = *reg32s.offset(reg as isize);
     if is_asize_32() {
@@ -2035,7 +2008,7 @@ pub unsafe extern "C" fn get_reg_asize(mut reg: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn set_ecx_asize(mut value: i32) -> () {
+pub unsafe fn set_ecx_asize(mut value: i32) -> () {
     if is_asize_32() {
         *reg32s.offset(ECX as isize) = value
     }
@@ -2044,7 +2017,7 @@ pub unsafe extern "C" fn set_ecx_asize(mut value: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn add_reg_asize(mut reg: i32, mut value: i32) -> () {
+pub unsafe fn add_reg_asize(mut reg: i32, mut value: i32) -> () {
     dbg_assert!(reg == ECX || reg == ESI || reg == EDI);
     if is_asize_32() {
         let ref mut fresh2 = *reg32s.offset(reg as isize);
@@ -2056,7 +2029,7 @@ pub unsafe extern "C" fn add_reg_asize(mut reg: i32, mut value: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn decr_ecx_asize() -> i32 {
+pub unsafe fn decr_ecx_asize() -> i32 {
     return if 0 != is_asize_32() as i32 {
         let ref mut fresh4 = *reg32s.offset(ECX as isize);
         *fresh4 -= 1;
@@ -2069,13 +2042,13 @@ pub unsafe extern "C" fn decr_ecx_asize() -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn set_tsc(mut low: u32, mut high: u32) -> () {
+pub unsafe fn set_tsc(mut low: u32, mut high: u32) -> () {
     let mut new_value: u64 = low as u64 | (high as u64) << 32i32;
     let mut current_value: u64 = read_tsc();
     tsc_offset = current_value.wrapping_sub(new_value);
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_tsc() -> u64 {
+pub unsafe fn read_tsc() -> u64 {
     let mut n: f64 = microtick() * TSC_RATE;
     let mut value: u64 = (n as u64).wrapping_sub(tsc_offset);
     if 0 != 1i32 + 1i32 {
@@ -2120,11 +2093,11 @@ pub static mut tsc_offset: u64 = unsafe { 0i32 as u64 };
 #[no_mangle]
 pub static mut TSC_RATE: f64 = unsafe { (50i32 * 1000i32) as f64 };
 #[no_mangle]
-pub unsafe extern "C" fn vm86_mode() -> bool { return *flags & FLAG_VM == FLAG_VM; }
+pub unsafe fn vm86_mode() -> bool { return *flags & FLAG_VM == FLAG_VM; }
 #[no_mangle]
-pub unsafe extern "C" fn getiopl() -> i32 { return *flags >> 12i32 & 3i32; }
+pub unsafe fn getiopl() -> i32 { return *flags >> 12i32 & 3i32; }
 #[no_mangle]
-pub unsafe extern "C" fn get_opstats_buffer(mut index: i32) -> i32 {
+pub unsafe fn get_opstats_buffer(mut index: i32) -> i32 {
     dbg_assert!(index >= 0i32 && index < 512i32);
     if index < 256i32 {
         return *opstats_buffer.offset(index as isize) as i32;
@@ -2134,7 +2107,7 @@ pub unsafe extern "C" fn get_opstats_buffer(mut index: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn invlpg(mut addr: i32) -> () {
+pub unsafe fn invlpg(mut addr: i32) -> () {
     let mut page: i32 = (addr as u32 >> 12i32) as i32;
     c_comment!(("Note: Doesn\'t remove this page from valid_tlb_entries: This isn\'t"));
     c_comment!(("necessary, because when valid_tlb_entries grows too large, it will be"));
@@ -2145,7 +2118,7 @@ pub unsafe extern "C" fn invlpg(mut addr: i32) -> () {
     *last_virt_esp = -1i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn update_eflags(mut new_flags: i32) -> () {
+pub unsafe fn update_eflags(mut new_flags: i32) -> () {
     let mut dont_update: i32 = FLAG_RF | FLAG_VM | FLAG_VIP | FLAG_VIF;
     let mut clear: i32 = !FLAG_VIP & !FLAG_VIF & FLAGS_MASK;
     if 0 != *flags & FLAG_VM {
@@ -2174,7 +2147,7 @@ pub unsafe extern "C" fn update_eflags(mut new_flags: i32) -> () {
     *flags_changed = 0i32;
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_valid_tlb_entries_count() -> i32 {
+pub unsafe fn get_valid_tlb_entries_count() -> i32 {
     let mut result: i32 = 0i32;
     let mut i: i32 = 0i32;
     while i < valid_tlb_entries_count {
@@ -2188,7 +2161,7 @@ pub unsafe extern "C" fn get_valid_tlb_entries_count() -> i32 {
     return result;
 }
 #[no_mangle]
-pub unsafe extern "C" fn get_valid_global_tlb_entries_count() -> i32 {
+pub unsafe fn get_valid_global_tlb_entries_count() -> i32 {
     let mut result: i32 = 0i32;
     let mut i: i32 = 0i32;
     while i < valid_tlb_entries_count {
@@ -2202,7 +2175,7 @@ pub unsafe extern "C" fn get_valid_global_tlb_entries_count() -> i32 {
     return result;
 }
 #[no_mangle]
-pub unsafe extern "C" fn translate_address_system_read(mut address: i32) -> Result<u32, ()> {
+pub unsafe fn translate_address_system_read(mut address: i32) -> Result<u32, ()> {
     let mut base: i32 = (address as u32 >> 12i32) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     if 0 != entry & TLB_VALID {
@@ -2213,7 +2186,7 @@ pub unsafe extern "C" fn translate_address_system_read(mut address: i32) -> Resu
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn translate_address_system_write(mut address: i32) -> Result<u32, ()> {
+pub unsafe fn translate_address_system_write(mut address: i32) -> Result<u32, ()> {
     let mut base: i32 = (address as u32 >> 12i32) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     if entry & (TLB_VALID | TLB_READONLY) == TLB_VALID {
@@ -2224,7 +2197,7 @@ pub unsafe extern "C" fn translate_address_system_write(mut address: i32) -> Res
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn trigger_np(mut code: i32) -> () {
+pub unsafe fn trigger_np(mut code: i32) -> () {
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_NP) {
             return;
@@ -2235,7 +2208,7 @@ pub unsafe extern "C" fn trigger_np(mut code: i32) -> () {
     set_current_cpu_exception(CPU_EXCEPTION_NP);
 }
 #[no_mangle]
-pub unsafe extern "C" fn trigger_ss(mut code: i32) -> () {
+pub unsafe fn trigger_ss(mut code: i32) -> () {
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_SS) {
             return;
@@ -2246,4 +2219,4 @@ pub unsafe extern "C" fn trigger_ss(mut code: i32) -> () {
     set_current_cpu_exception(CPU_EXCEPTION_SS);
 }
 #[no_mangle]
-pub unsafe extern "C" fn store_current_tsc() -> () { *current_tsc = read_tsc(); }
+pub unsafe fn store_current_tsc() -> () { *current_tsc = read_tsc(); }

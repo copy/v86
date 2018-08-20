@@ -34,12 +34,12 @@ use cpu2::cpu::*;
 use cpu2::global_pointers::*;
 
 #[no_mangle]
-pub unsafe extern "C" fn in_mapped_range(mut addr: u32) -> bool {
+pub unsafe fn in_mapped_range(mut addr: u32) -> bool {
     return addr >= 655360i32 as u32 && addr < 786432i32 as u32 || addr >= *memory_size;
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn read8(mut addr: u32) -> i32 {
+pub unsafe fn read8(mut addr: u32) -> i32 {
     if 0 != USE_A20 as i32 && 0 != *a20_enabled as i32 {
         addr &= A20_MASK as u32
     }
@@ -53,7 +53,7 @@ pub unsafe extern "C" fn read8(mut addr: u32) -> i32 {
 #[no_mangle]
 pub static mut USE_A20: bool = unsafe { 0 != 0i32 };
 #[no_mangle]
-pub unsafe extern "C" fn read16(mut addr: u32) -> i32 {
+pub unsafe fn read16(mut addr: u32) -> i32 {
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK as u32
     }
@@ -65,7 +65,7 @@ pub unsafe extern "C" fn read16(mut addr: u32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_aligned16(mut addr: u32) -> i32 {
+pub unsafe fn read_aligned16(mut addr: u32) -> i32 {
     dbg_assert!(addr < 2147483648u32);
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK16 as u32
@@ -78,7 +78,7 @@ pub unsafe extern "C" fn read_aligned16(mut addr: u32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn read32s(mut addr: u32) -> i32 {
+pub unsafe fn read32s(mut addr: u32) -> i32 {
     if 0 != USE_A20 as i32 && 0 != *a20_enabled as i32 {
         addr &= A20_MASK as u32
     }
@@ -90,7 +90,7 @@ pub unsafe extern "C" fn read32s(mut addr: u32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn read64s(mut addr: u32) -> i64 {
+pub unsafe fn read64s(mut addr: u32) -> i64 {
     if 0 != USE_A20 as i32 && 0 != *a20_enabled as i32 {
         addr &= A20_MASK as u32
     }
@@ -103,7 +103,7 @@ pub unsafe extern "C" fn read64s(mut addr: u32) -> i64 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn read_aligned32(mut addr: u32) -> i32 {
+pub unsafe fn read_aligned32(mut addr: u32) -> i32 {
     dbg_assert!(addr < 1073741824i32 as u32);
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK32 as u32
@@ -116,7 +116,7 @@ pub unsafe extern "C" fn read_aligned32(mut addr: u32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn read128(mut addr: u32) -> reg128 {
+pub unsafe fn read128(mut addr: u32) -> reg128 {
     if 0 != USE_A20 as i32 && 0 != *a20_enabled as i32 {
         addr &= A20_MASK as u32
     }
@@ -136,7 +136,7 @@ pub unsafe extern "C" fn read128(mut addr: u32) -> reg128 {
     return value;
 }
 #[no_mangle]
-pub unsafe extern "C" fn write8(mut addr: u32, mut value: i32) -> () {
+pub unsafe fn write8(mut addr: u32, mut value: i32) -> () {
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK as u32
     }
@@ -149,7 +149,7 @@ pub unsafe extern "C" fn write8(mut addr: u32, mut value: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn write16(mut addr: u32, mut value: i32) -> () {
+pub unsafe fn write16(mut addr: u32, mut value: i32) -> () {
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK as u32
     }
@@ -162,7 +162,7 @@ pub unsafe extern "C" fn write16(mut addr: u32, mut value: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn write_aligned16(mut addr: u32, mut value: u32) -> () {
+pub unsafe fn write_aligned16(mut addr: u32, mut value: u32) -> () {
     dbg_assert!(addr < 2147483648u32);
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK16 as u32
@@ -177,7 +177,7 @@ pub unsafe extern "C" fn write_aligned16(mut addr: u32, mut value: u32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn write32(mut addr: u32, mut value: i32) -> () {
+pub unsafe fn write32(mut addr: u32, mut value: i32) -> () {
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK as u32
     }
@@ -190,7 +190,7 @@ pub unsafe extern "C" fn write32(mut addr: u32, mut value: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn write_aligned32(mut addr: u32, mut value: i32) -> () {
+pub unsafe fn write_aligned32(mut addr: u32, mut value: i32) -> () {
     dbg_assert!(addr < 1073741824i32 as u32);
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK32 as u32
@@ -205,7 +205,7 @@ pub unsafe extern "C" fn write_aligned32(mut addr: u32, mut value: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn write64(mut addr: u32, mut value: i64) -> () {
+pub unsafe fn write64(mut addr: u32, mut value: i64) -> () {
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK as u32
     }
@@ -222,7 +222,7 @@ pub unsafe extern "C" fn write64(mut addr: u32, mut value: i64) -> () {
     };
 }
 #[no_mangle]
-pub unsafe extern "C" fn write128(mut addr: u32, mut value: reg128) -> () {
+pub unsafe fn write128(mut addr: u32, mut value: reg128) -> () {
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK as u32
     }

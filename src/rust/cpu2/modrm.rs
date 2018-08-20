@@ -11,7 +11,7 @@ use cpu2::cpu::*;
 use cpu2::global_pointers::*;
 
 #[no_mangle]
-pub unsafe extern "C" fn resolve_modrm16(mut modrm_byte: i32) -> Result<i32, ()> {
+pub unsafe fn resolve_modrm16(mut modrm_byte: i32) -> Result<i32, ()> {
     Ok(match modrm_byte {
         0 | 8 | 16 | 24 | 32 | 40 | 48 | 56 => get_seg_prefix_ds(
             *reg16.offset(BX as isize) as i32 + *reg16.offset(SI as isize) as i32 & 65535i32,
@@ -98,7 +98,7 @@ pub unsafe extern "C" fn resolve_modrm16(mut modrm_byte: i32) -> Result<i32, ()>
     })
 }
 #[no_mangle]
-pub unsafe extern "C" fn resolve_modrm32_(mut modrm_byte: i32) -> Result<i32, ()> {
+pub unsafe fn resolve_modrm32_(mut modrm_byte: i32) -> Result<i32, ()> {
     let mut r: u8 = (modrm_byte & 7i32) as u8;
     dbg_assert!(modrm_byte < 192i32);
     Ok(if r as i32 == 4i32 {
@@ -143,7 +143,7 @@ pub unsafe extern "C" fn resolve_modrm32_(mut modrm_byte: i32) -> Result<i32, ()
         )
     })
 }
-unsafe extern "C" fn resolve_sib(mut mod_0: bool) -> Result<i32, ()> {
+unsafe fn resolve_sib(mut mod_0: bool) -> Result<i32, ()> {
     let mut s: u8 = 0;
     let mut sib_byte: u8 = read_imm8()? as u8;
     let mut r: u8 = (sib_byte as i32 & 7i32) as u8;
@@ -179,13 +179,13 @@ unsafe extern "C" fn resolve_sib(mut mod_0: bool) -> Result<i32, ()> {
     Ok(get_seg_prefix(seg) + base + offset)
 }
 #[no_mangle]
-pub unsafe extern "C" fn MODRM_ENTRY() -> i32 { return 0i32; }
+pub unsafe fn MODRM_ENTRY() -> i32 { return 0i32; }
 #[no_mangle]
-pub unsafe extern "C" fn MODRM_ENTRY16() -> i32 { return 0i32; }
+pub unsafe fn MODRM_ENTRY16() -> i32 { return 0i32; }
 #[no_mangle]
-pub unsafe extern "C" fn MODRM_ENTRY32() -> i32 { return 0i32; }
+pub unsafe fn MODRM_ENTRY32() -> i32 { return 0i32; }
 #[no_mangle]
-pub unsafe extern "C" fn resolve_modrm32(mut modrm_byte: i32) -> Result<i32, ()> {
+pub unsafe fn resolve_modrm32(mut modrm_byte: i32) -> Result<i32, ()> {
     Ok(match modrm_byte {
         0 | 8 | 16 | 24 | 32 | 40 | 48 | 56 => get_seg_prefix_ds(*reg32s.offset(EAX as isize)),
         64 | 72 | 80 | 88 | 96 | 104 | 112 | 120 => {
