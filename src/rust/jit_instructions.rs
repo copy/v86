@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
 
 use codegen;
-use cpu::ImmVal;
 use cpu_context::CpuContext;
 use global_pointers;
 use jit::JitContext;
@@ -96,17 +95,47 @@ pub fn instr_F3_jit(ctx: &mut JitContext, instr_flags: &mut u32) {
     jit_handle_prefix(ctx, instr_flags)
 }
 
-fn push16_reg_jit(ctx: &mut JitContext, r: u32) { codegen::gen_push16(ctx, ImmVal::REG(r)); }
-fn push32_reg_jit(ctx: &mut JitContext, r: u32) { codegen::gen_push32(ctx, ImmVal::REG(r)); }
-fn push16_imm_jit(ctx: &mut JitContext, imm: u32) { codegen::gen_push16(ctx, ImmVal::CONST(imm)); }
-fn push32_imm_jit(ctx: &mut JitContext, imm: u32) { codegen::gen_push32(ctx, ImmVal::CONST(imm)); }
+fn push16_reg_jit(ctx: &mut JitContext, r: u32) {
+    ctx.builder
+        .instruction_body
+        .load_aligned_u16(global_pointers::get_reg16_offset(r));
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_push16(ctx, &value_local);
+    ctx.builder.free_local(value_local);
+}
+fn push32_reg_jit(ctx: &mut JitContext, r: u32) {
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_reg32_offset(r));
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_push32(ctx, &value_local);
+    ctx.builder.free_local(value_local);
+}
+fn push16_imm_jit(ctx: &mut JitContext, imm: u32) {
+    ctx.builder.instruction_body.push_i32(imm as i32);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_push16(ctx, &value_local);
+    ctx.builder.free_local(value_local);
+}
+fn push32_imm_jit(ctx: &mut JitContext, imm: u32) {
+    ctx.builder.instruction_body.push_i32(imm as i32);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_push32(ctx, &value_local);
+    ctx.builder.free_local(value_local);
+}
 fn push16_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_push16(ctx, ImmVal::MEM);
+    codegen::gen_safe_read16(ctx);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_push16(ctx, &value_local);
+    ctx.builder.free_local(value_local);
 }
 fn push32_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_push32(ctx, ImmVal::MEM);
+    codegen::gen_safe_read32(ctx);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_push32(ctx, &value_local);
+    ctx.builder.free_local(value_local);
 }
 
 fn pop16_reg_jit(ctx: &mut JitContext, reg: u32) {
@@ -289,12 +318,16 @@ pub fn instr32_8F_0_reg_jit(ctx: &mut JitContext, r: u32) {
 
 pub fn instr16_E8_jit(ctx: &mut JitContext, imm: u32) {
     codegen::gen_get_real_eip(ctx);
-    codegen::gen_push16(ctx, ImmVal::STACK);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_push16(ctx, &value_local);
+    ctx.builder.free_local(value_local);
     codegen::gen_jmp_rel16(ctx, imm as u16);
 }
 pub fn instr32_E8_jit(ctx: &mut JitContext, imm: u32) {
     codegen::gen_get_real_eip(ctx);
-    codegen::gen_push32(ctx, ImmVal::STACK);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_push32(ctx, &value_local);
+    ctx.builder.free_local(value_local);
     ctx.builder
         .instruction_body
         .push_i32(global_pointers::INSTRUCTION_POINTER as i32);
