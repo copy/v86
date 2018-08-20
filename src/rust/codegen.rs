@@ -739,12 +739,12 @@ fn gen_safe_read_write(
         BitSize::WORD => {
             builder
                 .instruction_body
-                .load_unaligned_u16_from_stack(global_pointers::MEMORY);
+                .load_unaligned_u16_from_stack(unsafe { mem8 } as u32);
         },
         BitSize::DWORD => {
             builder
                 .instruction_body
-                .load_unaligned_i32_from_stack(global_pointers::MEMORY);
+                .load_unaligned_i32_from_stack(unsafe { mem8 } as u32);
         },
     }
 
@@ -758,12 +758,12 @@ fn gen_safe_read_write(
         BitSize::WORD => {
             builder
                 .instruction_body
-                .store_unaligned_u16(global_pointers::MEMORY);
+                .store_unaligned_u16(unsafe { mem8 } as u32);
         },
         BitSize::DWORD => {
             builder
                 .instruction_body
-                .store_unaligned_i32(global_pointers::MEMORY);
+                .store_unaligned_i32(unsafe { mem8 } as u32);
         },
     };
     builder.free_local(phys_addr_local);
