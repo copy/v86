@@ -22,30 +22,46 @@
         (block $B2
           (block $B3
             (block $B4
-              (br_table $B4 $B3 $B2 $B1
-                (get_local $p0)))
+              (block $B5
+                (br_table $B5 $B4 $B3 $B2 $B1
+                  (get_local $p0)))
+              (i32.store
+                (i32.const 560)
+                (i32.load
+                  (i32.const 556)))
+              (i32.store
+                (i32.const 556)
+                (i32.add
+                  (i32.load
+                    (i32.const 556))
+                  (i32.const 3)))
+              (call $e.instr32_83_7_reg
+                (i32.const 0)
+                (i32.const 5))
+              (i32.store
+                (i32.const 664)
+                (i32.add
+                  (i32.load
+                    (i32.const 664))
+                  (i32.const 1)))
+              (return))
             (i32.store
               (i32.const 560)
-              (i32.add
-                (i32.load
-                  (i32.const 556))
-                (i32.const 3)))
+              (i32.load
+                (i32.const 556)))
             (i32.store
               (i32.const 556)
               (i32.add
                 (i32.load
                   (i32.const 556))
-                (i32.const 5)))
-            (call $e.instr32_83_7_reg
-              (i32.const 0)
-              (i32.const 5))
+                (i32.const 2)))
             (i32.store
               (i32.const 664)
               (i32.add
                 (i32.load
                   (i32.const 664))
-                (i32.const 2)))
-            (if $I5
+                (i32.const 1)))
+            (if $I6
               (call $e.test_nle)
               (then
                 (i32.store
@@ -55,10 +71,10 @@
                       (i32.const 556))
                     (i32.const 1)))
                 (set_local $p0
-                  (i32.const 2)))
+                  (i32.const 3)))
               (else
                 (set_local $p0
-                  (i32.const 1))))
+                  (i32.const 2))))
             (br $L0))
           (call $e.instr32_41)
           (i32.store
@@ -74,7 +90,7 @@
                 (i32.const 664))
               (i32.const 1)))
           (set_local $p0
-            (i32.const 2))
+            (i32.const 3))
           (br $L0))
         (i32.store
           (i32.const 560)

@@ -7,7 +7,7 @@
   (type $t5 (func (param i32) (result i32)))
   (type $t6 (func (param i32 i32) (result i32)))
   (import "e" "get_seg" (func $e.get_seg (type $t5)))
-  (import "e" "safe_read32s_slow" (func $e.safe_read32s_slow (type $t5)))
+  (import "e" "safe_read32s_slow_jit" (func $e.safe_read32s_slow_jit (type $t5)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
   (import "e" "m" (memory $e.m 256))
   (func $f (export "f") (type $t1) (param $p0 i32)
@@ -49,15 +49,20 @@
                 (i32.const 4095))
               (i32.const 4092)))
           (then
-            (i32.load offset=8388608 align=1
+            (i32.load offset=20221952 align=1
               (i32.xor
                 (i32.and
                   (get_local $l2)
                   (i32.const -4096))
                 (get_local $l1))))
           (else
-            (call $e.safe_read32s_slow
-              (get_local $l1))))
+            (call $e.safe_read32s_slow_jit
+              (get_local $l1))
+            (if $I4
+              (i32.load
+                (i32.const 540))
+              (then
+                (return)))))
         (i32.store
           (i32.const 20)
           (i32.add
