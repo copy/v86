@@ -258,6 +258,10 @@ function V86Starter(options)
             const str = v86util.read_sized_string_from_mem(v86oxide.exports.memory, offset, len);
             dbg_log(str, LOG_CPU);
         },
+        "console_log_from_wasm": function(offset, len) {
+            const str = v86util.read_sized_string_from_mem(v86oxide.exports.memory, offset, len);
+            console.error(str);
+        },
         "codegen_finalize": (wasm_table_index, start, end, first_opcode, state_flags) => cpu.codegen_finalize(wasm_table_index, start, end, first_opcode, state_flags),
         "__indirect_function_table": wasm_table,
         "floor": Math.floor,

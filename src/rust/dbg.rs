@@ -9,6 +9,16 @@ macro_rules! dbg_log {
 }
 
 #[allow(unused_macros)]
+macro_rules! console_log {
+    ($fmt:expr) => {
+        println!($fmt);
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        println!($fmt, $($arg)*);
+    }
+}
+
+#[allow(unused_macros)]
 macro_rules! dbg_assert {
     ($($arg:tt)*) => {
         debug_assert!($($arg)*);
@@ -17,17 +27,34 @@ macro_rules! dbg_assert {
 
 #[cfg(target_arch = "wasm32")]
 #[allow(unused_macros)]
-macro_rules! dbg_log {
+macro_rules! console_log {
     ($fmt:expr) => {
         {
-            use ::util::{ DEBUG, _log_to_js_console };
-            if DEBUG { _log_to_js_console($fmt); }
+            use ::util::{ console_log_to_js_console };
+            console_log_to_js_console($fmt);
         }
     };
     ($fmt:expr, $($arg:tt)*) => {
         {
-            use ::util::{ DEBUG, _log_to_js_console };
-            if DEBUG { _log_to_js_console(format!($fmt, $($arg)*)); }
+            use ::util::{ console_log_to_js_console };
+            console_log_to_js_console(format!($fmt, $($arg)*));
+        }
+    };
+}
+
+#[cfg(target_arch = "wasm32")]
+#[allow(unused_macros)]
+macro_rules! dbg_log {
+    ($fmt:expr) => {
+        {
+            use ::util::{ DEBUG, log_to_js_console };
+            if DEBUG { log_to_js_console($fmt); }
+        }
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        {
+            use ::util::{ DEBUG, log_to_js_console };
+            if DEBUG { log_to_js_console(format!($fmt, $($arg)*)); }
         }
     };
 }
@@ -36,9 +63,9 @@ macro_rules! dbg_log {
 #[allow(unused_macros)]
 macro_rules! dbg_assert {
     ($cond:expr) => {{
-        use util::{_log_to_js_console, abort, DEBUG};
+        use util::{abort, log_to_js_console, DEBUG};
         if DEBUG && !$cond {
-            _log_to_js_console(format!(
+            log_to_js_console(format!(
                 "Assertion failed at {}:{}:{}: '{}'",
                 file!(),
                 line!(),
@@ -52,9 +79,9 @@ macro_rules! dbg_assert {
         }
     }};
     ($cond:expr, $desc:expr) => {{
-        use util::{_log_to_js_console, abort, DEBUG};
+        use util::{abort, log_to_js_console, DEBUG};
         if DEBUG && !$cond {
-            _log_to_js_console(format!(
+            log_to_js_console(format!(
                 "Assertion failed at {}:{}:{}: '{}' - '{}'",
                 file!(),
                 line!(),
