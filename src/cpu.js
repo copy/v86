@@ -286,66 +286,73 @@ CPU.prototype.create_jit_imports = function()
 
 CPU.prototype.wasm_patch = function(wm)
 {
-    this.getiopl = this.v86oxide.exports["getiopl"];
-    this.vm86_mode = this.v86oxide.exports["vm86_mode"];
-    this.get_eflags = this.v86oxide.exports["get_eflags"];
-    this.update_eflags = this.v86oxide.exports["update_eflags"];
+    const get_import = (name) =>
+    {
+        const f = this.v86oxide.exports[name];
+        console.assert(f, "Missing import: " + name);
+        return f;
+    };
 
-    this.trigger_gp_non_raising = this.v86oxide.exports["trigger_gp_non_raising"];
-    this.trigger_ud = this.v86oxide.exports["trigger_ud"];
-    this.trigger_np = this.v86oxide.exports["trigger_np"];
-    this.trigger_ss = this.v86oxide.exports["trigger_ss"];
+    this.getiopl = get_import("getiopl");
+    this.vm86_mode = get_import("vm86_mode");
+    this.get_eflags = get_import("get_eflags");
+    this.update_eflags = get_import("update_eflags");
 
-    this.do_many_cycles_native = this.v86oxide.exports["do_many_cycles_native"];
-    this.cycle_internal = this.v86oxide.exports["cycle_internal"];
+    this.trigger_gp_non_raising = get_import("trigger_gp_non_raising");
+    this.trigger_ud = get_import("trigger_ud");
+    this.trigger_np = get_import("trigger_np");
+    this.trigger_ss = get_import("trigger_ss");
 
-    this.read8 = this.v86oxide.exports["read8"];
-    this.read16 = this.v86oxide.exports["read16"];
-    this.read32s = this.v86oxide.exports["read32s"];
-    this.write8 = this.v86oxide.exports["write8"];
-    this.write16 = this.v86oxide.exports["write16"];
-    this.write32 = this.v86oxide.exports["write32"];
-    this.in_mapped_range = this.v86oxide.exports["in_mapped_range"];
+    this.do_many_cycles_native = get_import("do_many_cycles_native");
+    this.cycle_internal = get_import("cycle_internal");
 
-    this.push16 = this.v86oxide.exports["push16_js"];
-    this.push32 = this.v86oxide.exports["push32_js"];
-    this.pop16 = this.v86oxide.exports["pop16_js"];
-    this.pop32s = this.v86oxide.exports["pop32s_js"];
+    this.read8 = get_import("read8");
+    this.read16 = get_import("read16");
+    this.read32s = get_import("read32s");
+    this.write8 = get_import("write8");
+    this.write16 = get_import("write16");
+    this.write32 = get_import("write32");
+    this.in_mapped_range = get_import("in_mapped_range");
 
-    this.set_stack_reg = this.v86oxide.exports["set_stack_reg"];
+    this.push16 = get_import("push16_js");
+    this.push32 = get_import("push32_js");
+    this.pop16 = get_import("pop16_js");
+    this.pop32s = get_import("pop32s_js");
 
-    this.translate_address_read = this.v86oxide.exports["translate_address_read_js"];
-    this.translate_address_system_read = this.v86oxide.exports["translate_address_system_read_js"];
-    this.translate_address_system_write = this.v86oxide.exports["translate_address_system_write_js"];
+    this.set_stack_reg = get_import("set_stack_reg");
 
-    this.get_seg = this.v86oxide.exports["get_seg"];
-    this.adjust_stack_reg = this.v86oxide.exports["adjust_stack_reg"];
-    this.get_real_eip = this.v86oxide.exports["get_real_eip"];
-    this.get_stack_pointer = this.v86oxide.exports["get_stack_pointer"];
+    this.translate_address_read = get_import("translate_address_read_js");
+    this.translate_address_system_read = get_import("translate_address_system_read_js");
+    this.translate_address_system_write = get_import("translate_address_system_write_js");
 
-    this.writable_or_pagefault = this.v86oxide.exports["writable_or_pagefault_js"];
-    this.safe_write32 = this.v86oxide.exports["safe_write32_js"];
-    this.safe_read32s = this.v86oxide.exports["safe_read32s_js"];
-    this.safe_write16 = this.v86oxide.exports["safe_write16_js"];
-    this.safe_read16 = this.v86oxide.exports["safe_read16_js"];
+    this.get_seg = get_import("get_seg");
+    this.adjust_stack_reg = get_import("adjust_stack_reg");
+    this.get_real_eip = get_import("get_real_eip");
+    this.get_stack_pointer = get_import("get_stack_pointer");
 
-    this.clear_tlb = this.v86oxide.exports["clear_tlb"];
-    this.full_clear_tlb = this.v86oxide.exports["full_clear_tlb"];
+    this.writable_or_pagefault = get_import("writable_or_pagefault_js");
+    this.safe_write32 = get_import("safe_write32_js");
+    this.safe_read32s = get_import("safe_read32s_js");
+    this.safe_write16 = get_import("safe_write16_js");
+    this.safe_read16 = get_import("safe_read16_js");
 
-    this.set_tsc = this.v86oxide.exports["set_tsc"];
-    this.store_current_tsc = this.v86oxide.exports["store_current_tsc"];
+    this.clear_tlb = get_import("clear_tlb");
+    this.full_clear_tlb = get_import("full_clear_tlb");
 
-    this.pack_current_state_flags = this.v86oxide.exports["pack_current_state_flags"];
+    this.set_tsc = get_import("set_tsc");
+    this.store_current_tsc = get_import("store_current_tsc");
 
-    this.jit_force_generate_unsafe = this.v86oxide.exports["jit_force_generate_unsafe"];
-    this.jit_empty_cache = this.v86oxide.exports["jit_empty_cache"];
-    this.jit_dirty_cache = this.v86oxide.exports["jit_dirty_cache"];
-    this.codegen_finalize_finished = this.v86oxide.exports["codegen_finalize_finished"];
+    this.pack_current_state_flags = get_import("pack_current_state_flags");
 
-    this.jit_get_op_ptr = this.v86oxide.exports["jit_get_op_ptr"];
-    this.jit_get_op_len = this.v86oxide.exports["jit_get_op_len"];
+    this.jit_force_generate_unsafe = get_import("jit_force_generate_unsafe");
+    this.jit_empty_cache = get_import("jit_empty_cache");
+    this.jit_dirty_cache = get_import("jit_dirty_cache");
+    this.codegen_finalize_finished = get_import("codegen_finalize_finished");
 
-    this.allocate_memory = this.v86oxide.exports["allocate_memory"];
+    this.jit_get_op_ptr = get_import("jit_get_op_ptr");
+    this.jit_get_op_len = get_import("jit_get_op_len");
+
+    this.allocate_memory = get_import("allocate_memory");
 };
 
 CPU.prototype.jit_force_generate = function(addr)
