@@ -226,7 +226,7 @@ function gen_instruction_body_after_prefix(encodings, size)
 function gen_instruction_body_after_fixed_g(encoding, size)
 {
     const instruction_prefix = [];
-    const instruction_postfix = encoding.block_boundary ? ["after_block_boundary();"] : [];
+    const instruction_postfix = encoding.block_boundary || (!encoding.custom && encoding.e) || encoding.sse || encoding.task_switch_test ? ["after_block_boundary();"] : [];
 
     if(encoding.task_switch_test || encoding.sse)
     {
