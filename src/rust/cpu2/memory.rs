@@ -33,6 +33,8 @@ extern "C" {
 use cpu2::cpu::*;
 use cpu2::global_pointers::*;
 
+const USE_A20: bool = false;
+
 #[no_mangle]
 pub unsafe fn in_mapped_range(mut addr: u32) -> bool {
     return addr >= 655360i32 as u32 && addr < 786432i32 as u32 || addr >= *memory_size;
@@ -50,8 +52,6 @@ pub unsafe fn read8(mut addr: u32) -> i32 {
         return *mem8.offset(addr as isize) as i32;
     };
 }
-#[no_mangle]
-pub static mut USE_A20: bool = unsafe { 0 != 0i32 };
 #[no_mangle]
 pub unsafe fn read16(mut addr: u32) -> i32 {
     if 0 != USE_A20 as i32 && !*a20_enabled {

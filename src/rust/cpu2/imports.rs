@@ -5,11 +5,11 @@ pub fn call_indirect1(f: fn(u16), x: u16) { f(x); }
 
 extern "C" {
     #[no_mangle]
-    static mut mem8: *mut u8;
+    pub static mut mem8: *mut u8;
     #[no_mangle]
-    static mut mem16: *mut u16;
+    pub static mut mem16: *mut u16;
     #[no_mangle]
-    static mut mem32s: *mut i32;
+    pub static mut mem32s: *mut i32;
 }
 
 #[no_mangle]

@@ -35,26 +35,29 @@ pub union f32_int {
     f32_0: f32,
 }
 
-#[no_mangle]
-pub static mut M_LOG2E: f64 = unsafe { 1.4426950408889634f64 };
-#[no_mangle]
-pub static mut M_LN2: f64 = unsafe { 0.6931471805599453f64 };
-#[no_mangle]
-pub static mut M_LN10: f64 = unsafe { 2.302585092994046f64 };
-#[no_mangle]
-pub static mut M_PI: f64 = unsafe { 3.141592653589793f64 };
-#[no_mangle]
-pub static mut FPU_C0: i32 = unsafe { 256i32 };
-#[no_mangle]
-pub static mut FPU_C1: i32 = unsafe { 512i32 };
-#[no_mangle]
-pub static mut FPU_C2: i32 = unsafe { 1024i32 };
-#[no_mangle]
-pub static mut FPU_C3: i32 = unsafe { 16384i32 };
-#[no_mangle]
-pub static mut FPU_RESULT_FLAGS: i32 = unsafe { FPU_C0 | FPU_C1 | FPU_C2 | FPU_C3 };
-#[no_mangle]
-pub static mut FPU_STACK_TOP: i32 = unsafe { 14336i32 };
+pub const M_LOG2E: f64 = 1.4426950408889634f64;
+pub const M_LN2: f64 = 0.6931471805599453f64;
+pub const M_LN10: f64 = 2.302585092994046f64;
+pub const M_PI: f64 = 3.141592653589793f64;
+const FPU_C0: i32 = 256i32;
+pub const FPU_C1: i32 = 512i32;
+const FPU_C2: i32 = 1024i32;
+const FPU_C3: i32 = 16384i32;
+const FPU_RESULT_FLAGS: i32 = FPU_C0 | FPU_C1 | FPU_C2 | FPU_C3;
+const FPU_STACK_TOP: i32 = 14336i32;
+const INDEFINITE_NAN: f64 = ::std::f64::NAN;
+const FPU_EX_I: i32 = 1i32 << 0i32;
+const FPU_EX_SF: i32 = 1i32 << 6i32;
+const TWO_POW_63: f64 = 9223372036854775808u64 as f64;
+const FPU_PC: i32 = 3i32 << 8i32;
+const FPU_RC: i32 = 3i32 << 10i32;
+const FPU_IF: i32 = 1i32 << 12i32;
+const FPU_EX_P: i32 = 1i32 << 5i32;
+const FPU_EX_U: i32 = 1i32 << 4i32;
+const FPU_EX_O: i32 = 1i32 << 3i32;
+const FPU_EX_Z: i32 = 1i32 << 2i32;
+const FPU_EX_D: i32 = 1i32 << 1i32;
+
 #[no_mangle]
 pub unsafe fn fpu_get_st0() -> f64 {
     if 0 != *fpu_stack_empty >> *fpu_stack_ptr & 1i32 {
@@ -67,16 +70,10 @@ pub unsafe fn fpu_get_st0() -> f64 {
     };
 }
 #[no_mangle]
-pub static mut INDEFINITE_NAN: f64 = unsafe { ::std::f32::NAN as f64 };
-#[no_mangle]
 pub unsafe fn fpu_stack_fault() -> () {
     c_comment!(("TODO: Interrupt"));
     *fpu_status_word |= FPU_EX_SF | FPU_EX_I;
 }
-#[no_mangle]
-pub static mut FPU_EX_I: i32 = unsafe { 1i32 << 0i32 };
-#[no_mangle]
-pub static mut FPU_EX_SF: i32 = unsafe { 1i32 << 6i32 };
 #[no_mangle]
 pub unsafe fn fpu_get_sti(mut i: i32) -> f64 {
     dbg_assert!(i >= 0i32 && i < 8i32);
@@ -324,8 +321,6 @@ pub unsafe fn fpu_fistm64p(mut addr: i32) -> () {
     return_on_pagefault!(safe_write64(addr, value));
     fpu_pop();
 }
-#[no_mangle]
-pub static mut TWO_POW_63: f64 = unsafe { 9223372036854775808u64 as f64 };
 #[no_mangle]
 pub unsafe fn fpu_fldcw(mut addr: i32) -> () {
     let mut word: i32 = return_on_pagefault!(safe_read16(addr));
@@ -677,19 +672,3 @@ pub unsafe fn fpu_fxtract() -> () {
 pub unsafe fn fwait() -> () {
     c_comment!(("NOP unless FPU instructions run in parallel with CPU instructions"));
 }
-#[no_mangle]
-pub static mut FPU_PC: i32 = unsafe { 3i32 << 8i32 };
-#[no_mangle]
-pub static mut FPU_RC: i32 = unsafe { 3i32 << 10i32 };
-#[no_mangle]
-pub static mut FPU_IF: i32 = unsafe { 1i32 << 12i32 };
-#[no_mangle]
-pub static mut FPU_EX_P: i32 = unsafe { 1i32 << 5i32 };
-#[no_mangle]
-pub static mut FPU_EX_U: i32 = unsafe { 1i32 << 4i32 };
-#[no_mangle]
-pub static mut FPU_EX_O: i32 = unsafe { 1i32 << 3i32 };
-#[no_mangle]
-pub static mut FPU_EX_Z: i32 = unsafe { 1i32 << 2i32 };
-#[no_mangle]
-pub static mut FPU_EX_D: i32 = unsafe { 1i32 << 1i32 };

@@ -63,6 +63,9 @@ use cpu2::misc_instr::{
 };
 use cpu2::sse_instr::*;
 
+pub static mut apic_enabled: bool = false;
+const ENABLE_ACPI: bool = false;
+
 pub fn convert_f64_to_i32(x: f64) -> i32 { x as i32 }
 
 #[no_mangle]
@@ -1106,8 +1109,6 @@ pub unsafe fn instr_0F30() -> () {
     };
 }
 #[no_mangle]
-pub static mut apic_enabled: bool = unsafe { 0 != 0i32 };
-#[no_mangle]
 pub unsafe fn instr_0F31() -> () {
     c_comment!(("rdtsc - read timestamp counter"));
     if 0 == *cpl.offset(0isize) || 0 == *cr.offset(4isize) & CR4_TSD {
@@ -1191,8 +1192,6 @@ pub unsafe fn instr_0F32() -> () {
         return;
     };
 }
-#[no_mangle]
-pub static mut ENABLE_ACPI: bool = unsafe { 0 != 1i32 };
 #[no_mangle]
 pub unsafe fn instr_0F33() -> () {
     c_comment!(("rdpmc"));
@@ -5650,8 +5649,6 @@ pub unsafe fn instr_0FFF() -> () {
     dbg_log_c!("#ud: 0F FF");
     trigger_ud();
 }
-#[no_mangle]
-pub static mut CPU_LOG_VERBOSE: bool = unsafe { 0 != 0i32 };
 #[no_mangle]
 pub unsafe fn instr_F30F16() -> () { unimplemented_sse(); }
 #[no_mangle]

@@ -30,6 +30,7 @@ extern "C" {
 }
 
 use cpu2::global_pointers::*;
+pub use cpu2::imports::{mem16, mem32s, mem8};
 use cpu2::memory::{
     in_mapped_range, read128, read16, read32s, read64s, read8, read_aligned16, read_aligned32,
     write128, write16, write32, write64, write8, write_aligned32,
@@ -70,44 +71,25 @@ pub union reg128 {
     pub f64_0: [f64; 2],
 }
 
-#[no_mangle]
-pub static mut FLAG_CARRY: i32 = unsafe { 1i32 };
-#[no_mangle]
-pub static mut FLAG_PARITY: i32 = unsafe { 4i32 };
-#[no_mangle]
-pub static mut FLAG_ADJUST: i32 = unsafe { 16i32 };
-#[no_mangle]
-pub static mut FLAG_ZERO: i32 = unsafe { 64i32 };
-#[no_mangle]
-pub static mut FLAG_SIGN: i32 = unsafe { 128i32 };
-#[no_mangle]
-pub static mut FLAG_TRAP: i32 = unsafe { 256i32 };
-#[no_mangle]
-pub static mut FLAG_INTERRUPT: i32 = unsafe { 512i32 };
-#[no_mangle]
-pub static mut FLAG_DIRECTION: i32 = unsafe { 1024i32 };
-#[no_mangle]
-pub static mut FLAG_OVERFLOW: i32 = unsafe { 2048i32 };
-#[no_mangle]
-pub static mut FLAG_IOPL: i32 = unsafe { 1i32 << 12i32 | 1i32 << 13i32 };
-#[no_mangle]
-pub static mut FLAG_NT: i32 = unsafe { 1i32 << 14i32 };
-#[no_mangle]
-pub static mut FLAG_RF: i32 = unsafe { 1i32 << 16i32 };
-#[no_mangle]
-pub static mut FLAG_VM: i32 = unsafe { 1i32 << 17i32 };
-#[no_mangle]
-pub static mut FLAG_AC: i32 = unsafe { 1i32 << 18i32 };
-#[no_mangle]
-pub static mut FLAG_VIF: i32 = unsafe { 1i32 << 19i32 };
-#[no_mangle]
-pub static mut FLAG_VIP: i32 = unsafe { 1i32 << 20i32 };
-#[no_mangle]
-pub static mut FLAG_ID: i32 = unsafe { 1i32 << 21i32 };
-#[no_mangle]
-pub static mut FLAGS_DEFAULT: i32 = unsafe { 1i32 << 1i32 };
-#[no_mangle]
-pub static mut FLAGS_MASK: i32 = unsafe {
+pub const FLAG_CARRY: i32 = 1i32;
+pub const FLAG_PARITY: i32 = 4i32;
+pub const FLAG_ADJUST: i32 = 16i32;
+pub const FLAG_ZERO: i32 = 64i32;
+pub const FLAG_SIGN: i32 = 128i32;
+pub const FLAG_TRAP: i32 = 256i32;
+pub const FLAG_INTERRUPT: i32 = 512i32;
+pub const FLAG_DIRECTION: i32 = 1024i32;
+pub const FLAG_OVERFLOW: i32 = 2048i32;
+pub const FLAG_IOPL: i32 = 1i32 << 12i32 | 1i32 << 13i32;
+pub const FLAG_NT: i32 = 1i32 << 14i32;
+pub const FLAG_RF: i32 = 1i32 << 16i32;
+pub const FLAG_VM: i32 = 1i32 << 17i32;
+pub const FLAG_AC: i32 = 1i32 << 18i32;
+pub const FLAG_VIF: i32 = 1i32 << 19i32;
+pub const FLAG_VIP: i32 = 1i32 << 20i32;
+pub const FLAG_ID: i32 = 1i32 << 21i32;
+pub const FLAGS_DEFAULT: i32 = 1i32 << 1i32;
+pub const FLAGS_MASK: i32 = unsafe {
     FLAG_CARRY
         | FLAG_PARITY
         | FLAG_ADJUST
@@ -126,263 +108,144 @@ pub static mut FLAGS_MASK: i32 = unsafe {
         | FLAG_VIP
         | FLAG_ID
 };
-#[no_mangle]
-pub static mut FLAGS_ALL: i32 =
-    unsafe { FLAG_CARRY | FLAG_PARITY | FLAG_ADJUST | FLAG_ZERO | FLAG_SIGN | FLAG_OVERFLOW };
-#[no_mangle]
-pub static mut OPSIZE_8: i32 = unsafe { 7i32 };
-#[no_mangle]
-pub static mut OPSIZE_16: i32 = unsafe { 15i32 };
-#[no_mangle]
-pub static mut OPSIZE_32: i32 = unsafe { 31i32 };
-#[no_mangle]
-pub static mut EAX: i32 = unsafe { 0i32 };
-#[no_mangle]
-pub static mut ECX: i32 = unsafe { 1i32 };
-#[no_mangle]
-pub static mut EDX: i32 = unsafe { 2i32 };
-#[no_mangle]
-pub static mut EBX: i32 = unsafe { 3i32 };
-#[no_mangle]
-pub static mut ESP: i32 = unsafe { 4i32 };
-#[no_mangle]
-pub static mut EBP: i32 = unsafe { 5i32 };
-#[no_mangle]
-pub static mut ESI: i32 = unsafe { 6i32 };
-#[no_mangle]
-pub static mut EDI: i32 = unsafe { 7i32 };
-#[no_mangle]
-pub static mut AX: i32 = unsafe { 0i32 };
-#[no_mangle]
-pub static mut CX: i32 = unsafe { 2i32 };
-#[no_mangle]
-pub static mut DX: i32 = unsafe { 4i32 };
-#[no_mangle]
-pub static mut BX: i32 = unsafe { 6i32 };
-#[no_mangle]
-pub static mut SP: i32 = unsafe { 8i32 };
-#[no_mangle]
-pub static mut BP: i32 = unsafe { 10i32 };
-#[no_mangle]
-pub static mut SI: i32 = unsafe { 12i32 };
-#[no_mangle]
-pub static mut DI: i32 = unsafe { 14i32 };
-#[no_mangle]
-pub static mut AL: i32 = unsafe { 0i32 };
-#[no_mangle]
-pub static mut CL: i32 = unsafe { 4i32 };
-#[no_mangle]
-pub static mut DL: i32 = unsafe { 8i32 };
-#[no_mangle]
-pub static mut BL: i32 = unsafe { 12i32 };
-#[no_mangle]
-pub static mut AH: i32 = unsafe { 1i32 };
-#[no_mangle]
-pub static mut CH: i32 = unsafe { 5i32 };
-#[no_mangle]
-pub static mut DH: i32 = unsafe { 9i32 };
-#[no_mangle]
-pub static mut BH: i32 = unsafe { 13i32 };
-#[no_mangle]
-pub static mut ES: i32 = unsafe { 0i32 };
-#[no_mangle]
-pub static mut CS: i32 = unsafe { 1i32 };
-#[no_mangle]
-pub static mut SS: i32 = unsafe { 2i32 };
-#[no_mangle]
-pub static mut DS: i32 = unsafe { 3i32 };
-#[no_mangle]
-pub static mut FS: i32 = unsafe { 4i32 };
-#[no_mangle]
-pub static mut GS: i32 = unsafe { 5i32 };
-#[no_mangle]
-pub static mut TR: i32 = unsafe { 6i32 };
-#[no_mangle]
-pub static mut LDTR: i32 = unsafe { 7i32 };
-#[no_mangle]
-pub static mut PAGE_TABLE_PRESENT_MASK: i32 = unsafe { 1i32 << 0i32 };
-#[no_mangle]
-pub static mut PAGE_TABLE_RW_MASK: i32 = unsafe { 1i32 << 1i32 };
-#[no_mangle]
-pub static mut PAGE_TABLE_USER_MASK: i32 = unsafe { 1i32 << 2i32 };
-#[no_mangle]
-pub static mut PAGE_TABLE_ACCESSED_MASK: i32 = unsafe { 1i32 << 5i32 };
-#[no_mangle]
-pub static mut PAGE_TABLE_DIRTY_MASK: i32 = unsafe { 1i32 << 6i32 };
-#[no_mangle]
-pub static mut PAGE_TABLE_PSE_MASK: i32 = unsafe { 1i32 << 7i32 };
-#[no_mangle]
-pub static mut PAGE_TABLE_GLOBAL_MASK: i32 = unsafe { 1i32 << 8i32 };
-#[no_mangle]
-pub static mut MMAP_BLOCK_BITS: i32 = unsafe { 17i32 };
-#[no_mangle]
-pub static mut MMAP_BLOCK_SIZE: i32 = unsafe { 1i32 << MMAP_BLOCK_BITS };
-#[no_mangle]
-pub static mut CR0_PE: i32 = unsafe { 1i32 };
-#[no_mangle]
-pub static mut CR0_MP: i32 = unsafe { 1i32 << 1i32 };
-#[no_mangle]
-pub static mut CR0_EM: i32 = unsafe { 1i32 << 2i32 };
-#[no_mangle]
-pub static mut CR0_TS: i32 = unsafe { 1i32 << 3i32 };
-#[no_mangle]
-pub static mut CR0_ET: i32 = unsafe { 1i32 << 4i32 };
-#[no_mangle]
-pub static mut CR0_WP: i32 = unsafe { 1i32 << 16i32 };
-#[no_mangle]
-pub static mut CR0_NW: i32 = unsafe { 1i32 << 29i32 };
-#[no_mangle]
-pub static mut CR0_CD: i32 = unsafe { 1i32 << 30i32 };
-#[no_mangle]
-pub static mut CR0_PG: i32 = unsafe { 1i32 << 31i32 };
-#[no_mangle]
-pub static mut CR4_VME: i32 = unsafe { 1i32 };
-#[no_mangle]
-pub static mut CR4_PVI: i32 = unsafe { 1i32 << 1i32 };
-#[no_mangle]
-pub static mut CR4_TSD: i32 = unsafe { 1i32 << 2i32 };
-#[no_mangle]
-pub static mut CR4_PSE: i32 = unsafe { 1i32 << 4i32 };
-#[no_mangle]
-pub static mut CR4_DE: i32 = unsafe { 1i32 << 3i32 };
-#[no_mangle]
-pub static mut CR4_PAE: i32 = unsafe { 1i32 << 5i32 };
-#[no_mangle]
-pub static mut CR4_PGE: i32 = unsafe { 1i32 << 7i32 };
-#[no_mangle]
-pub static mut IA32_SYSENTER_CS: i32 = unsafe { 372i32 };
-#[no_mangle]
-pub static mut IA32_SYSENTER_ESP: i32 = unsafe { 373i32 };
-#[no_mangle]
-pub static mut IA32_SYSENTER_EIP: i32 = unsafe { 374i32 };
-#[no_mangle]
-pub static mut IA32_TIME_STAMP_COUNTER: i32 = unsafe { 16i32 };
-#[no_mangle]
-pub static mut IA32_PLATFORM_ID: i32 = unsafe { 23i32 };
-#[no_mangle]
-pub static mut IA32_APIC_BASE_MSR: i32 = unsafe { 27i32 };
-#[no_mangle]
-pub static mut IA32_BIOS_SIGN_ID: i32 = unsafe { 139i32 };
-#[no_mangle]
-pub static mut MSR_PLATFORM_INFO: i32 = unsafe { 206i32 };
-#[no_mangle]
-pub static mut MSR_MISC_FEATURE_ENABLES: i32 = unsafe { 320i32 };
-#[no_mangle]
-pub static mut IA32_MISC_ENABLE: i32 = unsafe { 416i32 };
-#[no_mangle]
-pub static mut IA32_RTIT_CTL: i32 = unsafe { 1392i32 };
-#[no_mangle]
-pub static mut MSR_SMI_COUNT: i32 = unsafe { 52i32 };
-#[no_mangle]
-pub static mut IA32_MCG_CAP: i32 = unsafe { 377i32 };
-#[no_mangle]
-pub static mut IA32_KERNEL_GS_BASE: i32 = unsafe { 3221225729u32 as i32 };
-#[no_mangle]
-pub static mut MSR_PKG_C2_RESIDENCY: i32 = unsafe { 1549i32 };
-#[no_mangle]
-pub static mut IA32_APIC_BASE_BSP: i32 = unsafe { 1i32 << 8i32 };
-#[no_mangle]
-pub static mut IA32_APIC_BASE_EXTD: i32 = unsafe { 1i32 << 10i32 };
-#[no_mangle]
-pub static mut IA32_APIC_BASE_EN: i32 = unsafe { 1i32 << 11i32 };
-#[no_mangle]
-pub static mut APIC_ADDRESS: i32 = unsafe { 4276092928u32 as i32 };
-#[no_mangle]
-pub static mut SEG_PREFIX_NONE: i32 = unsafe { -1i32 };
-#[no_mangle]
-pub static mut SEG_PREFIX_ZERO: i32 = unsafe { 7i32 };
-#[no_mangle]
-pub static mut PREFIX_MASK_REP: i32 = unsafe { 24i32 };
-#[no_mangle]
-pub static mut PREFIX_REPZ: i32 = unsafe { 8i32 };
-#[no_mangle]
-pub static mut PREFIX_REPNZ: i32 = unsafe { 16i32 };
-#[no_mangle]
-pub static mut PREFIX_MASK_SEGMENT: i32 = unsafe { 7i32 };
-#[no_mangle]
-pub static mut PREFIX_MASK_OPSIZE: i32 = unsafe { 32i32 };
-#[no_mangle]
-pub static mut PREFIX_MASK_ADDRSIZE: i32 = unsafe { 64i32 };
-#[no_mangle]
-pub static mut PREFIX_F2: i32 = unsafe { PREFIX_REPNZ };
-#[no_mangle]
-pub static mut PREFIX_F3: i32 = unsafe { PREFIX_REPZ };
-#[no_mangle]
-pub static mut PREFIX_66: i32 = unsafe { PREFIX_MASK_OPSIZE };
-#[no_mangle]
-pub static mut LOG_CPU: i32 = unsafe { 2i32 };
-#[no_mangle]
-pub static mut A20_MASK: i32 = unsafe { !(1i32 << 20i32) };
-#[no_mangle]
-pub static mut A20_MASK16: i32 = unsafe { !(1i32 << 20i32 - 1i32) };
-#[no_mangle]
-pub static mut A20_MASK32: i32 = unsafe { !(1i32 << 20i32 - 2i32) };
-#[no_mangle]
-pub static mut MXCSR_MASK: i32 = unsafe { 65535i32 & !(1i32 << 6i32) };
-#[no_mangle]
-pub static mut mem8: *mut u8 = unsafe { 0 as *const u8 as *mut u8 };
-#[no_mangle]
-pub static mut mem16: *mut u16 = unsafe { 0 as *const u16 as *mut u16 };
-#[no_mangle]
-pub static mut mem32s: *mut i32 = unsafe { 0 as *const i32 as *mut i32 };
-#[no_mangle]
-pub static mut jit_block_boundary: bool = unsafe { 0 != 0i32 };
-#[no_mangle]
-pub static mut VALID_TLB_ENTRY_MAX: i32 = unsafe { 10000i32 };
-#[no_mangle]
-pub static mut valid_tlb_entries: [i32; 10000] = unsafe { [0; 10000] };
-#[no_mangle]
-pub static mut valid_tlb_entries_count: i32 = unsafe { 0i32 };
-#[no_mangle]
-pub static mut TLB_VALID: i32 = unsafe { 1i32 << 0i32 };
-#[no_mangle]
-pub static mut TLB_READONLY: i32 = unsafe { 1i32 << 1i32 };
-#[no_mangle]
-pub static mut TLB_NO_USER: i32 = unsafe { 1i32 << 2i32 };
-#[no_mangle]
-pub static mut TLB_IN_MAPPED_RANGE: i32 = unsafe { 1i32 << 3i32 };
-#[no_mangle]
-pub static mut TLB_GLOBAL: i32 = unsafe { 1i32 << 4i32 };
-#[no_mangle]
-pub static mut TLB_HAS_CODE: i32 = unsafe { 1i32 << 5i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_DE: i32 = unsafe { 0i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_DB: i32 = unsafe { 1i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_NMI: i32 = unsafe { 2i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_BP: i32 = unsafe { 3i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_OF: i32 = unsafe { 4i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_BR: i32 = unsafe { 5i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_UD: i32 = unsafe { 6i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_NM: i32 = unsafe { 7i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_DF: i32 = unsafe { 8i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_TS: i32 = unsafe { 10i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_NP: i32 = unsafe { 11i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_SS: i32 = unsafe { 12i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_GP: i32 = unsafe { 13i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_PF: i32 = unsafe { 14i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_MF: i32 = unsafe { 16i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_AC: i32 = unsafe { 17i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_MC: i32 = unsafe { 18i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_XM: i32 = unsafe { 19i32 };
-#[no_mangle]
-pub static mut CPU_EXCEPTION_VE: i32 = unsafe { 20i32 };
+pub const FLAGS_ALL: i32 =
+    FLAG_CARRY | FLAG_PARITY | FLAG_ADJUST | FLAG_ZERO | FLAG_SIGN | FLAG_OVERFLOW;
+pub const OPSIZE_8: i32 = 7i32;
+pub const OPSIZE_16: i32 = 15i32;
+pub const OPSIZE_32: i32 = 31i32;
+pub const EAX: i32 = 0i32;
+pub const ECX: i32 = 1i32;
+pub const EDX: i32 = 2i32;
+pub const EBX: i32 = 3i32;
+pub const ESP: i32 = 4i32;
+pub const EBP: i32 = 5i32;
+pub const ESI: i32 = 6i32;
+pub const EDI: i32 = 7i32;
+pub const AX: i32 = 0i32;
+pub const CX: i32 = 2i32;
+pub const DX: i32 = 4i32;
+pub const BX: i32 = 6i32;
+pub const SP: i32 = 8i32;
+pub const BP: i32 = 10i32;
+pub const SI: i32 = 12i32;
+pub const DI: i32 = 14i32;
+pub const AL: i32 = 0i32;
+pub const CL: i32 = 4i32;
+pub const DL: i32 = 8i32;
+pub const BL: i32 = 12i32;
+pub const AH: i32 = 1i32;
+pub const CH: i32 = 5i32;
+pub const DH: i32 = 9i32;
+pub const BH: i32 = 13i32;
+pub const ES: i32 = 0i32;
+pub const CS: i32 = 1i32;
+pub const SS: i32 = 2i32;
+pub const DS: i32 = 3i32;
+pub const FS: i32 = 4i32;
+pub const GS: i32 = 5i32;
+pub const TR: i32 = 6i32;
+pub const LDTR: i32 = 7i32;
+pub const PAGE_TABLE_PRESENT_MASK: i32 = 1i32 << 0i32;
+pub const PAGE_TABLE_RW_MASK: i32 = 1i32 << 1i32;
+pub const PAGE_TABLE_USER_MASK: i32 = 1i32 << 2i32;
+pub const PAGE_TABLE_ACCESSED_MASK: i32 = 1i32 << 5i32;
+pub const PAGE_TABLE_DIRTY_MASK: i32 = 1i32 << 6i32;
+pub const PAGE_TABLE_PSE_MASK: i32 = 1i32 << 7i32;
+pub const PAGE_TABLE_GLOBAL_MASK: i32 = 1i32 << 8i32;
+pub const MMAP_BLOCK_BITS: i32 = 17i32;
+pub const MMAP_BLOCK_SIZE: i32 = 1i32 << MMAP_BLOCK_BITS;
+pub const CR0_PE: i32 = 1i32;
+pub const CR0_MP: i32 = 1i32 << 1i32;
+pub const CR0_EM: i32 = 1i32 << 2i32;
+pub const CR0_TS: i32 = 1i32 << 3i32;
+pub const CR0_ET: i32 = 1i32 << 4i32;
+pub const CR0_WP: i32 = 1i32 << 16i32;
+pub const CR0_NW: i32 = 1i32 << 29i32;
+pub const CR0_CD: i32 = 1i32 << 30i32;
+pub const CR0_PG: i32 = 1i32 << 31i32;
+pub const CR4_VME: i32 = 1i32;
+pub const CR4_PVI: i32 = 1i32 << 1i32;
+pub const CR4_TSD: i32 = 1i32 << 2i32;
+pub const CR4_PSE: i32 = 1i32 << 4i32;
+pub const CR4_DE: i32 = 1i32 << 3i32;
+pub const CR4_PAE: i32 = 1i32 << 5i32;
+pub const CR4_PGE: i32 = 1i32 << 7i32;
+pub const IA32_SYSENTER_CS: i32 = 372i32;
+pub const IA32_SYSENTER_ESP: i32 = 373i32;
+pub const IA32_SYSENTER_EIP: i32 = 374i32;
+pub const IA32_TIME_STAMP_COUNTER: i32 = 16i32;
+pub const IA32_PLATFORM_ID: i32 = 23i32;
+pub const IA32_APIC_BASE_MSR: i32 = 27i32;
+pub const IA32_BIOS_SIGN_ID: i32 = 139i32;
+pub const MSR_PLATFORM_INFO: i32 = 206i32;
+pub const MSR_MISC_FEATURE_ENABLES: i32 = 320i32;
+pub const IA32_MISC_ENABLE: i32 = 416i32;
+pub const IA32_RTIT_CTL: i32 = 1392i32;
+pub const MSR_SMI_COUNT: i32 = 52i32;
+pub const IA32_MCG_CAP: i32 = 377i32;
+pub const IA32_KERNEL_GS_BASE: i32 = 3221225729u32 as i32;
+pub const MSR_PKG_C2_RESIDENCY: i32 = 1549i32;
+pub const IA32_APIC_BASE_BSP: i32 = 1i32 << 8i32;
+pub const IA32_APIC_BASE_EXTD: i32 = 1i32 << 10i32;
+pub const IA32_APIC_BASE_EN: i32 = 1i32 << 11i32;
+pub const APIC_ADDRESS: i32 = 4276092928u32 as i32;
+pub const SEG_PREFIX_NONE: i32 = -1i32;
+pub const SEG_PREFIX_ZERO: i32 = 7i32;
+pub const PREFIX_MASK_REP: i32 = 24i32;
+pub const PREFIX_REPZ: i32 = 8i32;
+pub const PREFIX_REPNZ: i32 = 16i32;
+pub const PREFIX_MASK_SEGMENT: i32 = 7i32;
+pub const PREFIX_MASK_OPSIZE: i32 = 32i32;
+pub const PREFIX_MASK_ADDRSIZE: i32 = 64i32;
+pub const PREFIX_F2: i32 = PREFIX_REPNZ;
+pub const PREFIX_F3: i32 = PREFIX_REPZ;
+pub const PREFIX_66: i32 = PREFIX_MASK_OPSIZE;
+pub const LOG_CPU: i32 = 2i32;
+pub const A20_MASK: i32 = !(1i32 << 20i32);
+pub const A20_MASK16: i32 = !(1i32 << 20i32 - 1i32);
+pub const A20_MASK32: i32 = !(1i32 << 20i32 - 2i32);
+pub const MXCSR_MASK: i32 = 65535i32 & !(1i32 << 6i32);
+pub const VALID_TLB_ENTRY_MAX: i32 = 10000i32;
+pub const TLB_VALID: i32 = 1i32 << 0i32;
+pub const TLB_READONLY: i32 = 1i32 << 1i32;
+pub const TLB_NO_USER: i32 = 1i32 << 2i32;
+pub const TLB_IN_MAPPED_RANGE: i32 = 1i32 << 3i32;
+pub const TLB_GLOBAL: i32 = 1i32 << 4i32;
+pub const TLB_HAS_CODE: i32 = 1i32 << 5i32;
+pub const CPU_EXCEPTION_DE: i32 = 0i32;
+pub const CPU_EXCEPTION_DB: i32 = 1i32;
+pub const CPU_EXCEPTION_NMI: i32 = 2i32;
+pub const CPU_EXCEPTION_BP: i32 = 3i32;
+pub const CPU_EXCEPTION_OF: i32 = 4i32;
+pub const CPU_EXCEPTION_BR: i32 = 5i32;
+pub const CPU_EXCEPTION_UD: i32 = 6i32;
+pub const CPU_EXCEPTION_NM: i32 = 7i32;
+pub const CPU_EXCEPTION_DF: i32 = 8i32;
+pub const CPU_EXCEPTION_TS: i32 = 10i32;
+pub const CPU_EXCEPTION_NP: i32 = 11i32;
+pub const CPU_EXCEPTION_SS: i32 = 12i32;
+pub const CPU_EXCEPTION_GP: i32 = 13i32;
+pub const CPU_EXCEPTION_PF: i32 = 14i32;
+pub const CPU_EXCEPTION_MF: i32 = 16i32;
+pub const CPU_EXCEPTION_AC: i32 = 17i32;
+pub const CPU_EXCEPTION_MC: i32 = 18i32;
+pub const CPU_EXCEPTION_XM: i32 = 19i32;
+pub const CPU_EXCEPTION_VE: i32 = 20i32;
+pub const CHECK_TLB_INVARIANTS: bool = 0 != 0i32;
+pub const DEBUG: bool = 0 != 1i32;
+pub const LOOP_COUNTER: i32 = 20011i32;
+pub const TSC_RATE: f64 = (50i32 * 1000i32) as f64;
+
+pub static mut jit_block_boundary: bool = 0 != 0i32;
+
+pub static mut must_not_fault: bool = 0 != 0i32;
+pub static mut current_cpu_exception: i32 = -1i32;
+pub static mut rdtsc_imprecision_offset: u64 = 0i32 as u64;
+pub static mut rdtsc_last_value: u64 = 0i32 as u64;
+pub static mut tsc_offset: u64 = 0i32 as u64;
+
+pub static mut valid_tlb_entries: [i32; 10000] = [0; 10000];
+pub static mut valid_tlb_entries_count: i32 = 0i32;
 
 //pub fn call_indirect1(f: fn(u16), x: u16) { f(x); }
 
@@ -596,8 +459,6 @@ pub unsafe fn do_page_translation(
     return Ok(high);
 }
 #[no_mangle]
-pub static mut CHECK_TLB_INVARIANTS: bool = unsafe { 0 != 0i32 };
-#[no_mangle]
 pub unsafe fn full_clear_tlb() -> () {
     profiler_stat_increment(S_FULL_CLEAR_TLB);
     c_comment!(("clear tlb including global pages"));
@@ -690,10 +551,6 @@ pub unsafe fn trigger_pagefault(mut write: bool, mut user: bool, mut present: bo
     );
     //profiler_stat_increment(S_TRIGGER_CPU_EXCEPTION);
 }
-#[no_mangle]
-pub static mut must_not_fault: bool = unsafe { 0 != 0i32 };
-#[no_mangle]
-pub static mut DEBUG: bool = unsafe { 0 != 1i32 };
 #[no_mangle]
 pub unsafe fn translate_address_write(mut address: i32) -> Result<u32, ()> {
     let mut base: i32 = (address as u32 >> 12i32) as i32;
@@ -991,8 +848,6 @@ unsafe fn jit_run_interpreted(mut phys_addr: i32) -> () {
 #[no_mangle]
 pub unsafe fn clear_current_cpu_exception() -> () { current_cpu_exception = -1i32; }
 #[no_mangle]
-pub static mut current_cpu_exception: i32 = unsafe { -1i32 };
-#[no_mangle]
 pub unsafe fn pack_current_state_flags() -> cached_state_flags {
     return ((*is_32 as i32) << 0i32
         | (*stack_size_32 as i32) << 1i32
@@ -1029,8 +884,6 @@ pub unsafe fn do_many_cycles_native() -> () {
         cycle_internal();
     }
 }
-#[no_mangle]
-pub static mut LOOP_COUNTER: i32 = unsafe { 20011i32 };
 //#[no_mangle]
 //pub unsafe fn raise_exception(mut interrupt_nr: i32) -> () {
 //    if DEBUG {
@@ -1696,14 +1549,6 @@ pub unsafe fn read_tsc() -> u64 {
         return rdtsc_last_value.wrapping_add(rdtsc_imprecision_offset);
     };
 }
-#[no_mangle]
-pub static mut rdtsc_imprecision_offset: u64 = unsafe { 0i32 as u64 };
-#[no_mangle]
-pub static mut rdtsc_last_value: u64 = unsafe { 0i32 as u64 };
-#[no_mangle]
-pub static mut tsc_offset: u64 = unsafe { 0i32 as u64 };
-#[no_mangle]
-pub static mut TSC_RATE: f64 = unsafe { (50i32 * 1000i32) as f64 };
 #[no_mangle]
 pub unsafe fn vm86_mode() -> bool { return *flags & FLAG_VM == FLAG_VM; }
 #[no_mangle]

@@ -33,6 +33,8 @@ use cpu2::memory::{
     read8, read_aligned16, read_aligned32, write8, write_aligned16, write_aligned32,
 };
 
+const MAX_COUNT_PER_CYCLE: i32 = 4096i32;
+
 #[no_mangle]
 pub unsafe fn string_get_cycle_count(mut size: i32, mut address: i32) -> i32 {
     dbg_assert!(0 != size && size <= 4i32 && size >= -4i32);
@@ -178,8 +180,6 @@ pub unsafe fn movsw_rep() -> () {
         return;
     };
 }
-#[no_mangle]
-pub static mut MAX_COUNT_PER_CYCLE: i32 = unsafe { 4096i32 };
 #[no_mangle]
 pub unsafe fn movsw_no_rep() -> () {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
