@@ -356,7 +356,7 @@ fn gen_safe_write(
 
     builder
         .instruction_body
-        .load_aligned_i32(global_pointers::PAGE_FAULT);
+        .load_u8(global_pointers::PAGE_FAULT);
 
     builder.instruction_body.if_void();
     builder.instruction_body.return_();
