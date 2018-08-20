@@ -51,15 +51,14 @@ const encodings = [
     { opcode: 0x4E, nonfaulting: 1, os: 1, },
     { opcode: 0x4F, nonfaulting: 1, os: 1, },
 
-    // XXX: temporarily marked as block boundary until uses gen_push
-    { opcode: 0x50, custom: 1, os: 1, block_boundary: 1, },
-    { opcode: 0x51, custom: 1, os: 1, block_boundary: 1, },
-    { opcode: 0x52, custom: 1, os: 1, block_boundary: 1, },
-    { opcode: 0x53, custom: 1, os: 1, block_boundary: 1, },
-    { opcode: 0x54, custom: 1, os: 1, block_boundary: 1, },
-    { opcode: 0x55, custom: 1, os: 1, block_boundary: 1, },
-    { opcode: 0x56, custom: 1, os: 1, block_boundary: 1, },
-    { opcode: 0x57, custom: 1, os: 1, block_boundary: 1, },
+    { opcode: 0x50, custom: 1, os: 1 },
+    { opcode: 0x51, custom: 1, os: 1 },
+    { opcode: 0x52, custom: 1, os: 1 },
+    { opcode: 0x53, custom: 1, os: 1 },
+    { opcode: 0x54, custom: 1, os: 1 },
+    { opcode: 0x55, custom: 1, os: 1 },
+    { opcode: 0x56, custom: 1, os: 1 },
+    { opcode: 0x57, custom: 1, os: 1 },
 
     { opcode: 0x58, custom: 1, os: 1, },
     { opcode: 0x59, custom: 1, os: 1, },
@@ -79,11 +78,9 @@ const encodings = [
     { opcode: 0x66, prefix: 1, },
     { opcode: 0x67, prefix: 1, },
 
-    // XXX: Temporary block boundary
-    { opcode: 0x68, custom: 1, os: 1, imm1632: 1, block_boundary: 1 },
+    { opcode: 0x68, custom: 1, os: 1, imm1632: 1 },
     { opcode: 0x69, nonfaulting: 1, os: 1, e: 1, imm1632: 1, mask_flags: af, }, // zf?
-    // XXX: Temporary block boundary
-    { opcode: 0x6A, custom: 1, os: 1, imm8s: 1, block_boundary: 1, },
+    { opcode: 0x6A, custom: 1, os: 1, imm8s: 1 },
     { opcode: 0x6B, nonfaulting: 1, os: 1, e: 1, imm8s: 1, mask_flags: af, }, // zf?
 
     { opcode: 0x6C, block_boundary: 1, is_string: 1, skip: 1, },          // ins
@@ -221,8 +218,7 @@ const encodings = [
     { opcode: 0xE6, block_boundary: 1, imm8: 1, skip: 1, }, // out
     { opcode: 0xE7, block_boundary: 1, os: 1, imm8: 1, skip: 1, },
 
-    //{ opcode: 0xE8, block_boundary: 1, jump_offset_imm: 1, os: 1, imm1632: 1, custom: 1, skip: 1, }, // call
-    { opcode: 0xE8, block_boundary: 1, os: 1, imm1632: 1, skip: 1, }, // call
+    { opcode: 0xE8, block_boundary: 1, jump_offset_imm: 1, os: 1, imm1632: 1, custom: 1, skip: 1, }, // call
     { opcode: 0xE9, block_boundary: 1, jump_offset_imm: 1, no_next_instruction: 1, os: 1, imm1632: 1, custom: 1, skip: 1, },
     { opcode: 0xEA, block_boundary: 1, no_next_instruction: 1, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, }, // jmpf
     { opcode: 0xEB, block_boundary: 1, jump_offset_imm: 1, no_next_instruction: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
