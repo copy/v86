@@ -950,7 +950,9 @@ fn jit_generate_module(
                 // - All instructions that don't change eip
                 // - Unconditional jump
 
-                let next_bb_index = *basic_block_indices.get(&next_block_addr).expect("");
+                let next_bb_index = *basic_block_indices
+                    .get(&next_block_addr)
+                    .expect("basic_block_indices.get (Normal)");
 
                 // set state variable to next basic block
                 builder.instruction_body.push_i32(next_bb_index as i32);
@@ -997,7 +999,7 @@ fn jit_generate_module(
                 if let Some(next_block_branch_taken_addr) = next_block_branch_taken_addr {
                     let next_basic_block_branch_taken_index = *basic_block_indices
                         .get(&next_block_branch_taken_addr)
-                        .expect("");
+                        .expect("basic_block_indices.get (branch taken)");
 
                     builder
                         .instruction_body
@@ -1014,8 +1016,9 @@ fn jit_generate_module(
                 {
                     // Branch not taken
                     // TODO: Could use fall-through here
-                    let next_basic_block_index =
-                        *basic_block_indices.get(&next_block_addr).expect("");
+                    let next_basic_block_index = *basic_block_indices
+                        .get(&next_block_addr)
+                        .expect("basic_block_indices.get (branch not taken)");
 
                     builder
                         .instruction_body
