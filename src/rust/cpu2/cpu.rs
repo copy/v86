@@ -20,13 +20,6 @@ extern "C" {
     fn microtick() -> f64;
     #[no_mangle]
     fn call_indirect1(f: i32, x: u16);
-
-    #[no_mangle]
-    fn jit_page_has_code(addr: u32) -> bool;
-    #[no_mangle]
-    fn jit_find_cache_entry(addr: u32, flags: u8) -> u32;
-    #[no_mangle]
-    fn jit_increase_hotness_and_maybe_compile(phys_address: u32, cs_offset: u32, state_flags: u8);
 }
 
 use cpu2::global_pointers::*;
@@ -422,7 +415,7 @@ pub unsafe fn do_page_translation(
     let mut is_in_mapped_range: bool = in_mapped_range(high as u32);
     let mut physical_page: i32 = (high as u32 >> 12i32) as i32;
     let mut has_code: bool =
-        !is_in_mapped_range && 0 != jit_page_has_code(physical_page as u32) as i32;
+        !is_in_mapped_range && 0 != ::c_api::jit_page_has_code(physical_page as u32) as i32;
     let mut info_bits: i32 = TLB_VALID
         | if 0 != can_write as i32 {
             0i32
@@ -778,7 +771,7 @@ pub unsafe fn cycle_internal() -> () {
         *previous_ip = *instruction_pointer;
         let mut phys_addr: u32 = return_on_pagefault!(get_phys_eip()) as u32;
         let mut state_flags: cached_state_flags = pack_current_state_flags();
-        let mut entry: u32 = jit_find_cache_entry(phys_addr, state_flags);
+        let mut entry: u32 = ::c_api::jit_find_cache_entry(phys_addr, state_flags as u32);
         if 0 != entry {
             profiler_stat_increment(S_RUN_FROM_CACHE);
             initial_tsc = *timestamp_counter as i32;
@@ -799,7 +792,11 @@ pub unsafe fn cycle_internal() -> () {
                 dbg_assert!(!must_not_fault);
                 must_not_fault = 0 != 1i32
             }
-            jit_increase_hotness_and_maybe_compile(phys_addr, get_seg_cs() as u32, state_flags);
+            ::c_api::jit_increase_hotness_and_maybe_compile(
+                phys_addr,
+                get_seg_cs() as u32,
+                state_flags as u32,
+            );
             if DEBUG {
                 dbg_assert!(must_not_fault);
                 must_not_fault = 0 != 0i32
@@ -1179,7 +1176,7 @@ pub unsafe fn safe_write16(mut address: i32, mut value: i32) -> Result<(), ()> {
         c_comment!(("- can be accessed from any cpl"));
         c_comment!(("- does not contain code"));
         let mut phys_address: u32 = (entry & !4095i32 ^ address) as u32;
-        dbg_assert!(!jit_page_has_code(phys_address >> 12i32));
+        dbg_assert!(!::c_api::jit_page_has_code(phys_address >> 12i32));
         dbg_assert!(!in_mapped_range(phys_address));
         *(mem8.offset(phys_address as isize) as *mut u16) = value as u16;
     }
@@ -1223,7 +1220,7 @@ pub unsafe fn safe_write32(mut address: i32, mut value: i32) -> Result<(), ()> {
         c_comment!(("- not in memory mapped area"));
         c_comment!(("- does not contain code"));
         let mut phys_address: u32 = (entry & !4095i32 ^ address) as u32;
-        dbg_assert!(!jit_page_has_code(phys_address >> 12i32));
+        dbg_assert!(!::c_api::jit_page_has_code(phys_address >> 12i32));
         dbg_assert!(!in_mapped_range(phys_address));
         *(mem8.offset(phys_address as isize) as *mut i32) = value;
     }

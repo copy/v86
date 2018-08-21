@@ -344,7 +344,11 @@ CPU.prototype.wasm_patch = function(wm)
 
     this.pack_current_state_flags = get_import("pack_current_state_flags");
 
-    this.jit_force_generate_unsafe = get_import("jit_force_generate_unsafe");
+    if(DEBUG)
+    {
+        this.jit_force_generate_unsafe = get_import("jit_force_generate_unsafe");
+    }
+
     this.jit_empty_cache = get_import("jit_empty_cache");
     this.jit_dirty_cache = get_import("jit_dirty_cache");
     this.codegen_finalize_finished = get_import("codegen_finalize_finished");

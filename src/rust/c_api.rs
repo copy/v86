@@ -25,7 +25,6 @@ pub fn rust_setup() {
     }));
 }
 
-#[no_mangle]
 pub fn jit_find_cache_entry(phys_address: u32, state_flags: u32) -> u32 {
     let cached_code {
         wasm_table_index,
@@ -53,7 +52,6 @@ pub fn codegen_finalize_finished(
     )
 }
 
-#[no_mangle]
 pub fn jit_increase_hotness_and_maybe_compile(phys_address: u32, cs_offset: u32, state_flags: u32) {
     ::jit::jit_increase_hotness_and_maybe_compile(
         get_module(),
@@ -65,6 +63,7 @@ pub fn jit_increase_hotness_and_maybe_compile(phys_address: u32, cs_offset: u32,
 
 #[no_mangle]
 #[cfg(debug_assertions)]
+/// Called from JS
 pub fn jit_force_generate_unsafe(phys_addr: u32, cs_offset: u32, state_flags: u32) {
     ::jit::jit_force_generate_unsafe(
         get_module(),
@@ -75,19 +74,17 @@ pub fn jit_force_generate_unsafe(phys_addr: u32, cs_offset: u32, state_flags: u3
 }
 
 #[no_mangle]
+/// Called from JS
 pub fn jit_dirty_cache(start_addr: u32, end_addr: u32) {
     ::jit::jit_dirty_cache(get_module(), start_addr, end_addr);
 }
 
-#[no_mangle]
 pub fn jit_dirty_cache_small(start_addr: u32, end_addr: u32) {
     ::jit::jit_dirty_cache_small(get_module(), start_addr, end_addr);
 }
 
-#[no_mangle]
 pub fn jit_dirty_cache_single(addr: u32) { ::jit::jit_dirty_cache_single(get_module(), addr); }
 
-#[no_mangle]
 pub fn jit_page_has_code(page: u32) -> bool {
     ::jit::jit_page_has_code(get_module(), Page::page_of(page << 12))
 }
