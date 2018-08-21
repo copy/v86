@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use analysis::AnalysisType;
 use codegen;
@@ -346,7 +346,7 @@ enum BasicBlockType {
         next_block_addr: u32,
     },
     ConditionalJump {
-        next_block_addr: u32,
+        next_block_addr: Option<u32>,
         next_block_branch_taken_addr: Option<u32>,
         condition: u8,
         jump_offset: i32,
@@ -357,6 +357,7 @@ enum BasicBlockType {
 
 struct BasicBlock {
     addr: u32,
+    last_instruction_addr: u32,
     end_addr: u32,
     is_entry_block: bool,
     ty: BasicBlockType,
@@ -454,7 +455,7 @@ fn jit_find_basic_blocks(
     let mut to_visit_stack: Vec<u16> = entry_points.iter().cloned().collect();
     let mut marked_as_entry: HashSet<u16> = entry_points.clone();
     let page_high_bits = page.to_address();
-    let mut basic_blocks: HashMap<u32, BasicBlock> = HashMap::new();
+    let mut basic_blocks: BTreeMap<u32, BasicBlock> = BTreeMap::new();
     let mut requires_loop_limit = false;
 
     while let Some(to_visit_offset) = to_visit_stack.pop() {
@@ -462,20 +463,22 @@ fn jit_find_basic_blocks(
         if basic_blocks.contains_key(&to_visit) {
             continue;
         }
+        if is_near_end_of_page(to_visit) {
+            // Empty basic block, don't insert
+            profiler::stat_increment(stat::S_COMPILE_CUT_OFF_AT_END_OF_PAGE);
+            continue;
+        }
+
         let mut current_address = to_visit;
         let mut current_block = BasicBlock {
             addr: current_address,
+            last_instruction_addr: 0,
             end_addr: 0,
             ty: BasicBlockType::Exit,
             is_entry_block: false,
         };
         loop {
-            if is_near_end_of_page(current_address) {
-                // TODO: Don't insert this block if empty
-                current_block.end_addr = current_address;
-                profiler::stat_increment(stat::S_COMPILE_CUT_OFF_AT_END_OF_PAGE);
-                break;
-            }
+            let addr_before_instruction = current_address;
             let mut ctx = &mut CpuContext {
                 eip: current_address,
                 ..cpu
@@ -489,10 +492,13 @@ fn jit_find_basic_blocks(
                     dbg_assert!(has_next_instruction);
 
                     if basic_blocks.contains_key(&current_address) {
+                        current_block.last_instruction_addr = addr_before_instruction;
                         current_block.end_addr = current_address;
+                        dbg_assert!(!is_near_end_of_page(current_address));
                         current_block.ty = BasicBlockType::Normal {
                             next_block_addr: current_address,
                         };
+                        break;
                     }
                 },
                 AnalysisType::Jump {
@@ -520,7 +526,7 @@ fn jit_find_basic_blocks(
 
                         let next_block_branch_taken_addr;
 
-                        if Page::page_of(jump_target) == page {
+                        if Page::page_of(jump_target) == page && !is_near_end_of_page(jump_target) {
                             to_visit_stack.push(jump_target as u16 & 0xFFF);
 
                             next_block_branch_taken_addr = Some(jump_target);
@@ -536,14 +542,22 @@ fn jit_find_basic_blocks(
                             next_block_branch_taken_addr = None;
                         }
 
+                        let next_block_addr = if is_near_end_of_page(current_address) {
+                            None
+                        }
+                        else {
+                            Some(current_address)
+                        };
+
                         current_block.ty = BasicBlockType::ConditionalJump {
-                            next_block_addr: current_address,
+                            next_block_addr,
                             next_block_branch_taken_addr,
                             condition,
                             jump_offset: offset,
                             jump_offset_is_32: is_32,
                         };
 
+                        current_block.last_instruction_addr = addr_before_instruction;
                         current_block.end_addr = current_address;
 
                         break;
@@ -557,7 +571,7 @@ fn jit_find_basic_blocks(
                             to_visit_stack.push(current_address as u16 & 0xFFF);
                         }
 
-                        if Page::page_of(jump_target) == page {
+                        if Page::page_of(jump_target) == page && !is_near_end_of_page(jump_target) {
                             current_block.ty = BasicBlockType::Normal {
                                 next_block_addr: jump_target,
                             };
@@ -567,6 +581,7 @@ fn jit_find_basic_blocks(
                             current_block.ty = BasicBlockType::Exit;
                         }
 
+                        current_block.last_instruction_addr = addr_before_instruction;
                         current_block.end_addr = current_address;
 
                         break;
@@ -584,13 +599,42 @@ fn jit_find_basic_blocks(
                         to_visit_stack.push(current_address as u16 & 0xFFF);
                     }
 
+                    current_block.last_instruction_addr = addr_before_instruction;
                     current_block.end_addr = current_address;
                     break;
                 },
             }
+
+            if is_near_end_of_page(current_address) {
+                current_block.last_instruction_addr = addr_before_instruction;
+                current_block.end_addr = current_address;
+                profiler::stat_increment(stat::S_COMPILE_CUT_OFF_AT_END_OF_PAGE);
+                break;
+            }
         }
 
-        basic_blocks.insert(to_visit, current_block);
+        let previous_block = basic_blocks
+            .range(..current_block.addr)
+            .next_back()
+            .map(|(_, previous_block)| (previous_block.addr, previous_block.end_addr));
+
+        if let Some((start_addr, end_addr)) = previous_block {
+            if current_block.addr < end_addr {
+                // If this block overlaps with the previous block, re-analyze the previous block
+                let old_block = basic_blocks.remove(&start_addr);
+                dbg_assert!(old_block.is_some());
+                to_visit_stack.push(start_addr as u16 & 0xFFF);
+
+                // Note that this does not ensure the invariant that two consecutive blocks don't
+                // overlay. For that, we also need to check the following block.
+            }
+        }
+
+        dbg_assert!(current_block.addr < current_block.end_addr);
+        dbg_assert!(current_block.addr <= current_block.last_instruction_addr);
+        dbg_assert!(current_block.last_instruction_addr < current_block.end_addr);
+
+        basic_blocks.insert(current_block.addr, current_block);
     }
 
     for block in basic_blocks.values_mut() {
@@ -606,12 +650,19 @@ fn jit_find_basic_blocks(
 
     for i in 0..basic_blocks.len() - 1 {
         let next_block_addr = basic_blocks[i + 1].addr;
-        let block = &mut basic_blocks[i];
+        let next_block_end_addr = basic_blocks[i + 1].end_addr;
+        let next_block_is_entry = basic_blocks[i + 1].is_entry_block;
+        let block = &basic_blocks[i];
         if next_block_addr < block.end_addr {
-            block.ty = BasicBlockType::Normal { next_block_addr };
-            block.end_addr = next_block_addr;
-
-            // TODO: assert that the old type is equal to the type of the following block?
+            dbg_log!(
+                "Overlapping first=[from={:x} to={:x} is_entry={}] second=[from={:x} to={:x} is_entry={}]",
+                block.addr,
+                block.end_addr,
+                block.is_entry_block as u8,
+                next_block_addr,
+                next_block_end_addr,
+                next_block_is_entry as u8
+            );
         }
     }
 
@@ -927,16 +978,17 @@ fn jit_generate_module(
         // block end opcode and then the code for that block
         builder.instruction_body.block_end();
 
-        if block.addr == block.end_addr {
-            // Empty basic block, generate no code (for example, jump to block
-            // that is near end of page)
-            dbg_assert!(block.ty == BasicBlockType::Exit);
-        }
-        else {
-            builder.commit_instruction_body_to_cs();
-            jit_generate_basic_block(&mut cpu, builder, block.addr, block.end_addr);
-            builder.commit_instruction_body_to_cs();
-        }
+        dbg_assert!(block.addr < block.end_addr);
+
+        builder.commit_instruction_body_to_cs();
+        jit_generate_basic_block(
+            &mut cpu,
+            builder,
+            block.addr,
+            block.last_instruction_addr,
+            block.end_addr,
+        );
+        builder.commit_instruction_body_to_cs();
 
         let invalid_connection_to_next_block = block.end_addr != cpu.eip;
 
@@ -1013,7 +1065,7 @@ fn jit_generate_module(
 
                 builder.instruction_body.else_();
 
-                {
+                if let Some(next_block_addr) = next_block_addr {
                     // Branch not taken
                     // TODO: Could use fall-through here
                     let next_basic_block_index = *basic_block_indices
@@ -1024,6 +1076,10 @@ fn jit_generate_module(
                         .instruction_body
                         .push_i32(next_basic_block_index as i32);
                     builder.instruction_body.set_local(&gen_local_state);
+                }
+                else {
+                    // End of this page
+                    builder.instruction_body.return_();
                 }
 
                 builder.instruction_body.block_end();
@@ -1048,6 +1104,7 @@ fn jit_generate_basic_block(
     mut cpu: &mut CpuContext,
     builder: &mut WasmBuilder,
     start_addr: u32,
+    last_instruction_addr: u32,
     stop_addr: u32,
 ) {
     let mut len = 0;
@@ -1084,6 +1141,8 @@ fn jit_generate_basic_block(
 
         let instruction_length = end_eip - start_eip;
         was_block_boundary = instruction_flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG != 0;
+
+        dbg_assert!((end_eip == stop_addr) == (start_eip == last_instruction_addr));
 
         dbg_assert!(instruction_length < MAX_INSTRUCTION_LENGTH);
 
@@ -1136,6 +1195,7 @@ fn jit_generate_basic_block(
         if was_block_boundary || is_near_end_of_page(end_addr) || end_addr > stop_addr {
             dbg_log!("Overlapping basic blocks start={:x} expected_end={:x} end={:x} was_block_boundary={} near_end_of_page={}",
                      start_addr, stop_addr, end_addr, was_block_boundary, is_near_end_of_page(end_addr));
+            dbg_assert!(false);
             break;
         }
     }
