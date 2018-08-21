@@ -21,16 +21,7 @@ pub fn rust_setup() {
     use std::panic;
 
     panic::set_hook(Box::new(|panic_info| {
-        if let Some(location) = panic_info.location() {
-            console_log!(
-                "panic occurred in file '{}' at line {}",
-                location.file(),
-                location.line()
-            );
-        }
-        else {
-            console_log!("panic occurred but can't get location information...");
-        }
+        console_log!("{}", panic_info.to_string());
     }));
 }
 
