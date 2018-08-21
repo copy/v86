@@ -312,7 +312,8 @@ function gen_instruction_body_after_fixed_g(encoding, size)
                             reg_postfix
                         ),
                     },
-                }
+                },
+                instruction_postfix
             );
         }
         else

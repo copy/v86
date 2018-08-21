@@ -991,6 +991,7 @@ fn jit_generate_module(
         builder.commit_instruction_body_to_cs();
 
         let invalid_connection_to_next_block = block.end_addr != cpu.eip;
+        dbg_assert!(!invalid_connection_to_next_block);
 
         match (&block.ty, invalid_connection_to_next_block) {
             (_, true) | (BasicBlockType::Exit, _) => {
