@@ -1117,10 +1117,7 @@ pub unsafe fn popcnt(mut v: i32) -> i32 {
     *flags_changed = 0i32;
     *flags &= !FLAGS_ALL;
     if 0 != v {
-        c_comment!(("http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel"));
-        v = v - (v >> 1i32 & 1431655765i32);
-        v = (v & 858993459i32) + (v >> 2i32 & 858993459i32);
-        return (v + (v >> 4i32) & 252645135i32) * 16843009i32 >> 24i32;
+        return v.count_ones() as i32;
     }
     else {
         *flags |= FLAG_ZERO;
