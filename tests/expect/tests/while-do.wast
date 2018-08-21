@@ -34,15 +34,15 @@
                   (i32.load
                     (i32.const 556))
                   (i32.const 3)))
-              (call $e.instr32_83_7_reg
-                (i32.const 0)
-                (i32.const 10))
               (i32.store
                 (i32.const 664)
                 (i32.add
                   (i32.load
                     (i32.const 664))
                   (i32.const 1)))
+              (call $e.instr32_83_7_reg
+                (i32.const 0)
+                (i32.const 10))
               (return))
             (i32.store
               (i32.const 560)
@@ -75,6 +75,7 @@
                 (set_local $p0
                   (i32.const 2))))
             (br $L0))
+          (call $e.instr32_43)
           (i32.store
             (i32.const 560)
             (i32.add
@@ -87,19 +88,18 @@
               (i32.load
                 (i32.const 556))
               (i32.const 3)))
-          (call $e.instr32_43)
-          (i32.store
-            (i32.const 556)
-            (i32.add
-              (i32.load
-                (i32.const 556))
-              (i32.const -8)))
           (i32.store
             (i32.const 664)
             (i32.add
               (i32.load
                 (i32.const 664))
               (i32.const 2)))
+          (i32.store
+            (i32.const 556)
+            (i32.add
+              (i32.load
+                (i32.const 556))
+              (i32.const -8)))
           (set_local $p0
             (i32.const 0))
           (br $L0))
@@ -113,12 +113,12 @@
             (i32.load
               (i32.const 556))
             (i32.const 1)))
-        (call $e.instr_F4)
         (i32.store
           (i32.const 664)
           (i32.add
             (i32.load
               (i32.const 664))
             (i32.const 1)))
+        (call $e.instr_F4)
         (return))
       (unreachable))))

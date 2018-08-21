@@ -22,18 +22,6 @@
         (block $B2
           (br_table $B2 $B1
             (get_local $p0)))
-        (i32.store
-          (i32.const 560)
-          (i32.add
-            (i32.load
-              (i32.const 556))
-            (i32.const 28)))
-        (i32.store
-          (i32.const 556)
-          (i32.add
-            (i32.load
-              (i32.const 556))
-            (i32.const 29)))
         (call $e.instr32_B8
           (i32.const -889270259))
         (call $e.instr32_B9
@@ -58,12 +46,24 @@
           (i32.const 4)
           (i32.load
             (i32.const 8)))
-        (call $e.instr_F4)
+        (i32.store
+          (i32.const 560)
+          (i32.add
+            (i32.load
+              (i32.const 556))
+            (i32.const 28)))
+        (i32.store
+          (i32.const 556)
+          (i32.add
+            (i32.load
+              (i32.const 556))
+            (i32.const 29)))
         (i32.store
           (i32.const 664)
           (i32.add
             (i32.load
               (i32.const 664))
             (i32.const 9)))
+        (call $e.instr_F4)
         (return))
       (unreachable))))

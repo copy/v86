@@ -19,7 +19,6 @@ pub const WASM_TABLE_SIZE: u32 = 0x10000;
 pub const HASH_PRIME: u32 = 6151;
 
 pub const CHECK_JIT_CACHE_ARRAY_INVARIANTS: bool = false;
-pub const ENABLE_JIT_NONFAULTING_OPTIMZATION: bool = true;
 
 pub const JIT_MAX_ITERATIONS_PER_FUNCTION: u32 = 10000;
 
@@ -380,6 +379,7 @@ impl cached_code {
 pub struct JitContext<'a> {
     pub cpu: &'a mut CpuContext,
     pub builder: &'a mut WasmBuilder,
+    pub start_of_current_instruction: u32,
 }
 
 pub const JIT_INSTR_BLOCK_BOUNDARY_FLAG: u32 = 1 << 0;
@@ -643,16 +643,14 @@ fn jit_find_basic_blocks(
         }
     }
 
-    let mut basic_blocks: Vec<BasicBlock> =
-        basic_blocks.into_iter().map(|(_, block)| block).collect();
-
-    basic_blocks.sort_by_key(|block| block.addr);
+    let basic_blocks: Vec<BasicBlock> = basic_blocks.into_iter().map(|(_, block)| block).collect();
 
     for i in 0..basic_blocks.len() - 1 {
         let next_block_addr = basic_blocks[i + 1].addr;
         let next_block_end_addr = basic_blocks[i + 1].end_addr;
         let next_block_is_entry = basic_blocks[i + 1].is_entry_block;
         let block = &basic_blocks[i];
+        dbg_assert!(block.addr < next_block_addr);
         if next_block_addr < block.end_addr {
             dbg_log!(
                 "Overlapping first=[from={:x} to={:x} is_entry={}] second=[from={:x} to={:x} is_entry={}]",
@@ -1045,6 +1043,7 @@ fn jit_generate_module(
                     let ctx = &mut JitContext {
                         cpu: &mut cpu.clone(),
                         builder,
+                        start_of_current_instruction: 0,
                     };
                     codegen::gen_fn1_const(ctx, "jmp_rel16", jump_offset as u32);
                 }
@@ -1108,11 +1107,7 @@ fn jit_generate_basic_block(
     last_instruction_addr: u32,
     stop_addr: u32,
 ) {
-    let mut len = 0;
-
-    let mut end_addr;
-    let mut was_block_boundary;
-    let mut eip_delta = 0;
+    let mut count = 0;
 
     // First iteration of do-while assumes the caller confirms this condition
     dbg_assert!(!is_near_end_of_page(start_addr));
@@ -1123,6 +1118,19 @@ fn jit_generate_basic_block(
         if false {
             ::opstats::gen_opstats(builder, cpu::read32(cpu.eip));
         }
+
+        if cpu.eip == last_instruction_addr {
+            // Before the last instruction:
+            // - Set eip to *after* the instruction
+            // - Set previous_eip to *before* the instruction
+            builder.commit_instruction_body_to_cs();
+            codegen::gen_set_previous_eip_offset_from_eip(
+                builder,
+                last_instruction_addr - start_addr,
+            );
+            codegen::gen_increment_instruction_pointer(builder, stop_addr - start_addr);
+        }
+
         let start_eip = cpu.eip;
         let mut instruction_flags = 0;
         jit_instructions::jit_instruction(&mut cpu, builder, &mut instruction_flags);
@@ -1141,55 +1149,18 @@ fn jit_generate_basic_block(
         }
 
         let instruction_length = end_eip - start_eip;
-        was_block_boundary = instruction_flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG != 0;
+        let was_block_boundary = instruction_flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG != 0;
 
         dbg_assert!((end_eip == stop_addr) == (start_eip == last_instruction_addr));
-
         dbg_assert!(instruction_length < MAX_INSTRUCTION_LENGTH);
 
-        if ENABLE_JIT_NONFAULTING_OPTIMZATION {
-            // There are a few conditions to keep in mind to optimize the update of previous_ip and
-            // instruction_pointer:
-            // - previous_ip MUST be updated just before a faulting instruction
-            // - instruction_pointer MUST be updated before jump instructions (since they use the EIP
-            //   value for instruction logic)
-            // - Nonfaulting instructions don't need either to be updated
-            if was_block_boundary {
-                // prev_ip = eip + eip_delta, so that previous_ip points to the start of this instruction
-                codegen::gen_set_previous_eip_offset_from_eip(builder, eip_delta);
-
-                // eip += eip_delta + len(jump) so instruction logic uses the correct eip
-                codegen::gen_increment_instruction_pointer(builder, eip_delta + instruction_length);
-                builder.commit_instruction_body_to_cs();
-
-                eip_delta = 0;
-            }
-            else if instruction_flags & JIT_INSTR_NONFAULTING_FLAG == 0 {
-                // Faulting instruction
-
-                // prev_ip = eip + eip_delta, so that previous_ip points to the start of this instruction
-                codegen::gen_set_previous_eip_offset_from_eip(builder, eip_delta);
-                builder.commit_instruction_body_to_cs();
-
-                // Leave this instruction's length to be updated in the next batch, whatever it may be
-                eip_delta += instruction_length;
-            }
-            else {
-                // Non-faulting, so we skip setting previous_ip and simply queue the instruction length
-                // for whenever eip is updated next
-                profiler::stat_increment(stat::S_NONFAULTING_OPTIMIZATION);
-                eip_delta += instruction_length;
-            }
-        }
-        else {
-            codegen::gen_set_previous_eip(builder);
-            codegen::gen_increment_instruction_pointer(builder, instruction_length);
-            builder.commit_instruction_body_to_cs();
-        }
-        end_addr = cpu.eip;
-        len += 1;
+        let end_addr = cpu.eip;
+        count += 1;
 
         if end_addr == stop_addr {
+            // no page was crossed
+            dbg_assert!(Page::page_of(end_addr) == Page::page_of(start_addr));
+
             break;
         }
 
@@ -1201,18 +1172,7 @@ fn jit_generate_basic_block(
         }
     }
 
-    if ENABLE_JIT_NONFAULTING_OPTIMZATION {
-        // When the block ends in a non-jump instruction, we may have uncommitted updates still
-        if eip_delta > 0 {
-            builder.commit_instruction_body_to_cs();
-            codegen::gen_increment_instruction_pointer(builder, eip_delta);
-        }
-    }
-
-    codegen::gen_increment_timestamp_counter(builder, len);
-
-    // no page was crossed
-    dbg_assert!(Page::page_of(end_addr) == Page::page_of(start_addr));
+    codegen::gen_increment_timestamp_counter(builder, count);
 }
 
 pub fn jit_increase_hotness_and_maybe_compile(

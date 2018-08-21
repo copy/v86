@@ -21,12 +21,6 @@
         (block $B2
           (br_table $B2 $B1
             (get_local $p0)))
-        (i32.store
-          (i32.const 560)
-          (i32.add
-            (i32.load
-              (i32.const 556))
-            (i32.const 3)))
         (call $e.instr16_B8
           (i32.const 51966))
         (i32.store16
@@ -61,6 +55,14 @@
                     (i32.const -4096))
                   (get_local $l0))))
             (else
+              (i32.store
+                (i32.const 560)
+                (i32.or
+                  (i32.and
+                    (i32.load
+                      (i32.const 556))
+                    (i32.const -4096))
+                  (i32.const 3)))
               (call $e.safe_read16_slow_jit
                 (get_local $l0))
               (if $I4
@@ -68,12 +70,6 @@
                   (i32.const 540))
                 (then
                   (return))))))
-        (i32.store
-          (i32.const 560)
-          (i32.add
-            (i32.load
-              (i32.const 556))
-            (i32.const 7)))
         (i32.store16
           (i32.const 12)
           (if $I5 (result i32)
@@ -106,6 +102,14 @@
                     (i32.const -4096))
                   (get_local $l1))))
             (else
+              (i32.store
+                (i32.const 560)
+                (i32.or
+                  (i32.and
+                    (i32.load
+                      (i32.const 556))
+                    (i32.const -4096))
+                  (i32.const 7)))
               (call $e.safe_read16_slow_jit
                 (get_local $l1))
               (if $I6
@@ -113,12 +117,6 @@
                   (i32.const 540))
                 (then
                   (return))))))
-        (i32.store
-          (i32.const 560)
-          (i32.add
-            (i32.load
-              (i32.const 556))
-            (i32.const 19)))
         (i32.store16
           (i32.const 32)
           (i32.const 36))
@@ -166,6 +164,14 @@
                 (get_local $l0))
               (get_local $l1)))
           (else
+            (i32.store
+              (i32.const 560)
+              (i32.or
+                (i32.and
+                  (i32.load
+                    (i32.const 556))
+                  (i32.const -4096))
+                (i32.const 19)))
             (call $e.safe_write16_slow_jit
               (get_local $l0)
               (get_local $l1))
@@ -174,12 +180,6 @@
                 (i32.const 540))
               (then
                 (return)))))
-        (i32.store
-          (i32.const 560)
-          (i32.add
-            (i32.load
-              (i32.const 556))
-            (i32.const 21)))
         (set_local $l1
           (i32.add
             (i32.and
@@ -221,6 +221,14 @@
                 (get_local $l1))
               (get_local $l0)))
           (else
+            (i32.store
+              (i32.const 560)
+              (i32.or
+                (i32.and
+                  (i32.load
+                    (i32.const 556))
+                  (i32.const -4096))
+                (i32.const 21)))
             (call $e.safe_write16_slow_jit
               (get_local $l1)
               (get_local $l0))
@@ -229,18 +237,6 @@
                 (i32.const 540))
               (then
                 (return)))))
-        (i32.store
-          (i32.const 560)
-          (i32.add
-            (i32.load
-              (i32.const 556))
-            (i32.const 31)))
-        (i32.store
-          (i32.const 556)
-          (i32.add
-            (i32.load
-              (i32.const 556))
-            (i32.const 32)))
         (i32.store16
           (i32.const 8)
           (i32.load16_u
@@ -257,12 +253,24 @@
           (i32.const 4)
           (i32.load16_u
             (i32.const 8)))
-        (call $e.instr_F4)
+        (i32.store
+          (i32.const 560)
+          (i32.add
+            (i32.load
+              (i32.const 556))
+            (i32.const 31)))
+        (i32.store
+          (i32.const 556)
+          (i32.add
+            (i32.load
+              (i32.const 556))
+            (i32.const 32)))
         (i32.store
           (i32.const 664)
           (i32.add
             (i32.load
               (i32.const 664))
             (i32.const 12)))
+        (call $e.instr_F4)
         (return))
       (unreachable))))

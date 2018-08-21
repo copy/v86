@@ -31,6 +31,12 @@
               (i32.load
                 (i32.const 556))
               (i32.const 2)))
+          (i32.store
+            (i32.const 664)
+            (i32.add
+              (i32.load
+                (i32.const 664))
+              (i32.const 1)))
           (if $I4
             (i32.and
               (i32.load
@@ -41,12 +47,6 @@
               (return)))
           (call $e.instr_DE_0_reg
             (i32.const 1))
-          (i32.store
-            (i32.const 664)
-            (i32.add
-              (i32.load
-                (i32.const 664))
-              (i32.const 1)))
           (return))
         (i32.store
           (i32.const 560)
@@ -58,12 +58,12 @@
             (i32.load
               (i32.const 556))
             (i32.const 1)))
-        (call $e.instr_F4)
         (i32.store
           (i32.const 664)
           (i32.add
             (i32.load
               (i32.const 664))
             (i32.const 1)))
+        (call $e.instr_F4)
         (return))
       (unreachable))))

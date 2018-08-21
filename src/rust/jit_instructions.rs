@@ -16,7 +16,12 @@ use wasmgen::wasm_util::WasmBuf;
 
 pub fn jit_instruction(cpu: &mut CpuContext, builder: &mut WasmBuilder, instr_flags: &mut u32) {
     cpu.prefixes = 0;
-    let ctx = &mut JitContext { cpu, builder };
+    let start_of_current_instruction = cpu.eip;
+    let ctx = &mut JitContext {
+        cpu,
+        builder,
+        start_of_current_instruction,
+    };
     ::gen::jit::jit(
         ctx.cpu.read_imm8() as u32 | (ctx.cpu.osize_32() as u32) << 8,
         ctx,

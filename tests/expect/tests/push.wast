@@ -19,10 +19,6 @@
         (block $B2
           (br_table $B2 $B1
             (get_local $p0)))
-        (i32.store
-          (i32.const 560)
-          (i32.load
-            (i32.const 556)))
         (set_local $l0
           (i32.load
             (i32.const 4)))
@@ -62,6 +58,14 @@
                 (get_local $l2))
               (get_local $l0)))
           (else
+            (i32.store
+              (i32.const 560)
+              (i32.or
+                (i32.and
+                  (i32.load
+                    (i32.const 556))
+                  (i32.const -4096))
+                (i32.const 0)))
             (call $e.safe_write32_slow_jit
               (get_local $l2)
               (get_local $l0))
@@ -85,12 +89,12 @@
             (i32.load
               (i32.const 556))
             (i32.const 2)))
-        (call $e.instr_F4)
         (i32.store
           (i32.const 664)
           (i32.add
             (i32.load
               (i32.const 664))
             (i32.const 2)))
+        (call $e.instr_F4)
         (return))
       (unreachable))))

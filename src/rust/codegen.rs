@@ -236,8 +236,29 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
     }
 
     // Pseudo:
-    // else { leave_on_stack(safe_read*_slow(address)); if(page_fault) return }
+    // else {
+    //     *previous_ip = *instruction_pointer & ~0xFFF | start_of_instruction;
+    //     leave_on_stack(safe_read*_slow(address));
+    //     if(page_fault) return;
+    // }
     builder.instruction_body.else_();
+
+    builder
+        .instruction_body
+        .push_i32(global_pointers::PREVIOUS_IP as i32);
+
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    builder.instruction_body.push_i32(!0xFFF);
+    builder.instruction_body.and_i32();
+    builder
+        .instruction_body
+        .push_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
+    builder.instruction_body.or_i32();
+
+    builder.instruction_body.store_aligned_i32();
+
     builder.instruction_body.get_local(&address_local);
     match bits {
         BitSize::WORD => {
@@ -341,8 +362,29 @@ fn gen_safe_write(
     }
 
     // Pseudo:
-    // else { safe_write*_slow(address, value); if(page_fault) return; }
+    // else {
+    //     *previous_ip = *instruction_pointer & ~0xFFF | start_of_instruction;
+    //     safe_write*_slow(address, value);
+    //     if(page_fault) return;
+    // }
     builder.instruction_body.else_();
+
+    builder
+        .instruction_body
+        .push_i32(global_pointers::PREVIOUS_IP as i32);
+
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
+    builder.instruction_body.push_i32(!0xFFF);
+    builder.instruction_body.and_i32();
+    builder
+        .instruction_body
+        .push_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
+    builder.instruction_body.or_i32();
+
+    builder.instruction_body.store_aligned_i32();
+
     builder.instruction_body.get_local(&address_local);
     builder.instruction_body.get_local(&value_local);
     match bits {

@@ -30,18 +30,18 @@
               (i32.load
                 (i32.const 556))
               (i32.const 2)))
-          (call $e.instr32_FF_2_mem
-            (i32.add
-              (i32.load
-                (i32.const 4))
-              (call $e.get_seg
-                (i32.const 3))))
           (i32.store
             (i32.const 664)
             (i32.add
               (i32.load
                 (i32.const 664))
               (i32.const 1)))
+          (call $e.instr32_FF_2_mem
+            (i32.add
+              (i32.load
+                (i32.const 4))
+              (call $e.get_seg
+                (i32.const 3))))
           (return))
         (i32.store
           (i32.const 560)
@@ -53,12 +53,12 @@
             (i32.load
               (i32.const 556))
             (i32.const 1)))
-        (call $e.instr_F4)
         (i32.store
           (i32.const 664)
           (i32.add
             (i32.load
               (i32.const 664))
             (i32.const 1)))
+        (call $e.instr_F4)
         (return))
       (unreachable))))
