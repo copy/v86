@@ -97,8 +97,8 @@ const encodings = [
     { opcode: 0xF26F, block_boundary: 1, is_string: 1, os: 1, skip: 1, },
     { opcode: 0xF36F, block_boundary: 1, is_string: 1, os: 1, skip: 1, },
 
-    { opcode: 0x84, nonfaulting: 1, e: 1, },
-    { opcode: 0x85, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x84, nonfaulting: 1, custom: 1, e: 1, },
+    { opcode: 0x85, nonfaulting: 1, custom: 1, e: 1, os: 1, },
     { opcode: 0x86, nonfaulting: 1, e: 1, },
     { opcode: 0x87, nonfaulting: 1, os: 1, e: 1, },
     { opcode: 0x88, custom: 1, nonfaulting: 1, e: 1, },

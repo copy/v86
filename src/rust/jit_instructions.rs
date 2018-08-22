@@ -230,6 +230,45 @@ pub fn instr32_7E_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr16_7F_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr32_7F_jit(_ctx: &mut JitContext, _imm: u32) {}
 
+pub fn instr_84_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read8(ctx);
+    codegen::gen_get_reg8(ctx.builder, r);
+    codegen::gen_call_fn2(ctx.builder, "test8")
+}
+
+pub fn instr_84_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg8(ctx.builder, r1);
+    codegen::gen_get_reg8(ctx.builder, r2);
+    codegen::gen_call_fn2(ctx.builder, "test8")
+}
+
+pub fn instr16_85_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read16(ctx);
+    codegen::gen_get_reg16(ctx.builder, r);
+    codegen::gen_call_fn2(ctx.builder, "test16")
+}
+
+pub fn instr16_85_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg16(ctx.builder, r1);
+    codegen::gen_get_reg16(ctx.builder, r2);
+    codegen::gen_call_fn2(ctx.builder, "test16")
+}
+
+pub fn instr32_85_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read32(ctx);
+    codegen::gen_get_reg32(ctx.builder, r);
+    codegen::gen_call_fn2(ctx.builder, "test32")
+}
+
+pub fn instr32_85_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg32(ctx.builder, r1);
+    codegen::gen_get_reg32(ctx.builder, r2);
+    codegen::gen_call_fn2(ctx.builder, "test32")
+}
+
 pub fn instr_88_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
 
