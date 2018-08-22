@@ -63,7 +63,7 @@
             (call $e.safe_read32s_slow_jit
               (get_local $l1))
             (if $I4
-              (i32.load
+              (i32.load8_u
                 (i32.const 540))
               (then
                 (return)))))
