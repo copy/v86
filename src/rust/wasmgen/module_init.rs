@@ -395,18 +395,18 @@ mod tests {
         m.finish();
         m.reset();
 
-        m.code_section.push_i32(2);
+        m.code_section.const_i32(2);
 
         let baz_index = m.get_fn_idx("baz", FN1_RET_TYPE_INDEX);
         m.instruction_body.call_fn(baz_index);
         foo_index = m.get_fn_idx("foo", FN1_TYPE_INDEX);
         m.instruction_body.call_fn(foo_index);
 
-        m.code_section.push_i32(10);
+        m.code_section.const_i32(10);
         let local1 = m.alloc_local();
         m.code_section.tee_local(&local1); // local1 = 10
 
-        m.code_section.push_i32(20);
+        m.code_section.const_i32(20);
         m.code_section.add_i32();
         let local2 = m.alloc_local();
         m.code_section.tee_local(&local2); // local2 = 30
@@ -419,7 +419,7 @@ mod tests {
         m.free_local(local2);
         m.free_local(local3);
 
-        m.code_section.push_i32(30);
+        m.code_section.const_i32(30);
         m.code_section.ne_i32();
         m.code_section.if_void();
         m.code_section.unreachable();

@@ -1,3 +1,4 @@
+use codegen;
 use cpu_context::CpuContext;
 use jit::JitContext;
 use prefix::{PREFIX_MASK_SEGMENT, SEG_PREFIX_ZERO};
@@ -105,36 +106,30 @@ fn gen16_case(ctx: &mut JitContext, seg: u32, offset: Offset16, imm: Imm16) {
         Offset16::Zero => {
             ctx.builder
                 .instruction_body
-                .push_i32(immediate_value & 0xFFFF);
+                .const_i32(immediate_value & 0xFFFF);
         },
         Offset16::One(r) => {
-            ctx.builder
-                .instruction_body
-                .load_aligned_u16(::global_pointers::get_reg16_offset(r));
+            codegen::gen_get_reg16(ctx.builder, r);
 
             if immediate_value != 0 {
-                ctx.builder.instruction_body.push_i32(immediate_value);
+                ctx.builder.instruction_body.const_i32(immediate_value);
                 ctx.builder.instruction_body.add_i32();
 
-                ctx.builder.instruction_body.push_i32(0xFFFF);
+                ctx.builder.instruction_body.const_i32(0xFFFF);
                 ctx.builder.instruction_body.and_i32();
             }
         },
         Offset16::Two(r1, r2) => {
-            ctx.builder
-                .instruction_body
-                .load_aligned_u16(::global_pointers::get_reg16_offset(r1));
-            ctx.builder
-                .instruction_body
-                .load_aligned_u16(::global_pointers::get_reg16_offset(r2));
+            codegen::gen_get_reg16(ctx.builder, r1);
+            codegen::gen_get_reg16(ctx.builder, r2);
             ctx.builder.instruction_body.add_i32();
 
             if immediate_value != 0 {
-                ctx.builder.instruction_body.push_i32(immediate_value);
+                ctx.builder.instruction_body.const_i32(immediate_value);
                 ctx.builder.instruction_body.add_i32();
             }
 
-            ctx.builder.instruction_body.push_i32(0xFFFF);
+            ctx.builder.instruction_body.const_i32(0xFFFF);
             ctx.builder.instruction_body.and_i32();
         },
     }
@@ -200,7 +195,7 @@ fn gen32_case(ctx: &mut JitContext, seg: u32, offset: Offset, imm: Imm32) {
             };
 
             if immediate_value != 0 {
-                ctx.builder.instruction_body.push_i32(immediate_value);
+                ctx.builder.instruction_body.const_i32(immediate_value);
                 ctx.builder.instruction_body.add_i32();
             }
         },
@@ -210,11 +205,9 @@ fn gen32_case(ctx: &mut JitContext, seg: u32, offset: Offset, imm: Imm32) {
                 Imm32::Imm8 => ctx.cpu.read_imm8s() as i32,
                 Imm32::Imm32 => ctx.cpu.read_imm32() as i32,
             };
-            ctx.builder
-                .instruction_body
-                .load_aligned_i32(::global_pointers::get_reg32_offset(r));
+            codegen::gen_get_reg32(ctx.builder, r);
             if immediate_value != 0 {
-                ctx.builder.instruction_body.push_i32(immediate_value);
+                ctx.builder.instruction_body.const_i32(immediate_value);
                 ctx.builder.instruction_body.add_i32();
             }
             jit_add_seg_offset(ctx, seg);
@@ -225,7 +218,7 @@ fn gen32_case(ctx: &mut JitContext, seg: u32, offset: Offset, imm: Imm32) {
                 Imm32::Imm8 => ctx.cpu.read_imm8s() as i32,
                 Imm32::Imm32 => ctx.cpu.read_imm32() as i32,
             };
-            ctx.builder.instruction_body.push_i32(immediate_value);
+            ctx.builder.instruction_body.const_i32(immediate_value);
             jit_add_seg_offset(ctx, seg);
         },
     }
@@ -276,25 +269,22 @@ fn gen_sib(ctx: &mut JitContext, mod_is_nonzero: bool) {
 
     if r == 4 {
         seg = SS;
-        let base_addr = ::global_pointers::get_reg32_offset(ESP);
-        ctx.builder.instruction_body.load_aligned_i32(base_addr);
+        codegen::gen_get_reg32(ctx.builder, ESP);
     }
     else if r == 5 {
         if mod_is_nonzero {
             seg = SS;
-            let base_addr = ::global_pointers::get_reg32_offset(EBP);
-            ctx.builder.instruction_body.load_aligned_i32(base_addr);
+            codegen::gen_get_reg32(ctx.builder, EBP);
         }
         else {
             seg = DS;
             let base = ctx.cpu.read_imm32();
-            ctx.builder.instruction_body.push_i32(base as i32);
+            ctx.builder.instruction_body.const_i32(base as i32);
         }
     }
     else {
         seg = DS;
-        let base_addr = ::global_pointers::get_reg32_offset(r as u32);
-        ctx.builder.instruction_body.load_aligned_i32(base_addr);
+        codegen::gen_get_reg32(ctx.builder, r as u32);
     }
 
     jit_add_seg_offset(ctx, seg);
@@ -310,10 +300,8 @@ fn gen_sib(ctx: &mut JitContext, mod_is_nonzero: bool) {
 
     let s = sib_byte >> 6 & 3;
 
-    ctx.builder
-        .instruction_body
-        .load_aligned_i32(::global_pointers::get_reg32_offset(m as u32));
-    ctx.builder.instruction_body.push_i32(s as i32);
+    codegen::gen_get_reg32(ctx.builder, m as u32);
+    ctx.builder.instruction_body.const_i32(s as i32);
     ctx.builder.instruction_body.shl_i32();
 
     ctx.builder.instruction_body.add_i32();
@@ -336,7 +324,7 @@ fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
         return;
     }
 
-    ctx.builder.instruction_body.push_i32(seg as i32);
+    ctx.builder.instruction_body.const_i32(seg as i32);
     ctx.builder.instruction_body.call_fn(::jit::FN_GET_SEG_IDX);
     ctx.builder.instruction_body.add_i32();
 }

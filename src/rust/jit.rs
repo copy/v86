@@ -925,7 +925,7 @@ fn jit_generate_module(
     let gen_local_iteration_counter = if JIT_ALWAYS_USE_LOOP_SAFETY || requires_loop_limit {
         builder
             .instruction_body
-            .push_i32(JIT_MAX_ITERATIONS_PER_FUNCTION as i32);
+            .const_i32(JIT_MAX_ITERATIONS_PER_FUNCTION as i32);
         Some(builder.set_new_local())
     }
     else {
@@ -942,7 +942,7 @@ fn jit_generate_module(
         builder
             .instruction_body
             .get_local(gen_local_iteration_counter);
-        builder.instruction_body.push_i32(-1);
+        builder.instruction_body.const_i32(-1);
         builder.instruction_body.add_i32();
         builder
             .instruction_body
@@ -1006,7 +1006,7 @@ fn jit_generate_module(
                     .expect("basic_block_indices.get (Normal)");
 
                 // set state variable to next basic block
-                builder.instruction_body.push_i32(next_bb_index as i32);
+                builder.instruction_body.const_i32(next_bb_index as i32);
                 builder.instruction_body.set_local(&gen_local_state);
 
                 builder
@@ -1055,7 +1055,7 @@ fn jit_generate_module(
 
                     builder
                         .instruction_body
-                        .push_i32(next_basic_block_branch_taken_index as i32);
+                        .const_i32(next_basic_block_branch_taken_index as i32);
                     builder.instruction_body.set_local(&gen_local_state);
                 }
                 else {
@@ -1074,7 +1074,7 @@ fn jit_generate_module(
 
                     builder
                         .instruction_body
-                        .push_i32(next_basic_block_index as i32);
+                        .const_i32(next_basic_block_index as i32);
                     builder.instruction_body.set_local(&gen_local_state);
                 }
                 else {

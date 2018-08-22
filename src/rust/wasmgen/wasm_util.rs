@@ -7,11 +7,7 @@ pub trait WasmBuf {
     fn write_leb_u32(&mut self, v: u32);
     fn write_fixed_leb16_at_idx(&mut self, idx: usize, x: u16);
     fn write_fixed_leb32_at_idx(&mut self, idx: usize, x: u32);
-    fn push_i32(&mut self, v: i32);
-    fn load_aligned_u16(&mut self, addr: u32);
-    fn load_aligned_i32(&mut self, addr: u32);
-    fn store_aligned_u16(&mut self);
-    fn store_aligned_i32(&mut self);
+    fn const_i32(&mut self, v: i32);
     fn add_i32(&mut self);
     fn sub_i32(&mut self);
     fn and_i32(&mut self);
@@ -27,16 +23,24 @@ pub trait WasmBuf {
     fn if_i32(&mut self);
     fn block_i32(&mut self);
     fn xor_i32(&mut self);
+
+    fn load_u8(&mut self, addr: u32);
+    fn load_u8_from_stack(&mut self, byte_offset: u32);
+    fn load_aligned_u16(&mut self, addr: u32);
+    fn load_aligned_i32(&mut self, addr: u32);
     fn load_unaligned_i32_from_stack(&mut self, byte_offset: u32);
     fn load_unaligned_u16_from_stack(&mut self, byte_offset: u32);
     fn load_aligned_i32_from_stack(&mut self, byte_offset: u32);
-    fn load_u8(&mut self, addr: u32);
-    fn load_u8_from_stack(&mut self, byte_offset: u32);
-    fn store_unaligned_i32(&mut self, byte_offset: u32);
-    fn store_unaligned_u16(&mut self, byte_offset: u32);
+    fn load_aligned_u16_from_stack(&mut self, byte_offset: u32);
+
     fn store_u8(&mut self, byte_offset: u32);
-    fn shr_u32(&mut self);
-    fn shr_i32(&mut self);
+    fn store_aligned_u16(&mut self, byte_offset: u32);
+    fn store_aligned_i32(&mut self, byte_offset: u32);
+    fn store_unaligned_u16(&mut self, byte_offset: u32);
+    fn store_unaligned_i32(&mut self, byte_offset: u32);
+
+    fn shr_u_i32(&mut self);
+    fn shr_s_i32(&mut self);
     fn eqz_i32(&mut self);
     fn if_void(&mut self);
     fn else_(&mut self);
@@ -53,7 +57,6 @@ pub trait WasmBuf {
     fn unreachable(&mut self);
     fn increment_mem32(&mut self, addr: u32);
     fn increment_variable(&mut self, addr: u32, n: i32);
-    fn load_aligned_u16_from_stack(&mut self, byte_offset: u32);
 }
 
 impl WasmBuf for Vec<u8> {
@@ -69,7 +72,7 @@ impl WasmBuf for Vec<u8> {
         write_fixed_leb32_at_idx(self, idx, x)
     }
 
-    fn push_i32(&mut self, v: i32) {
+    fn const_i32(&mut self, v: i32) {
         self.push(op::OP_I32CONST);
         self.write_leb_i32(v);
     }
@@ -89,7 +92,7 @@ impl WasmBuf for Vec<u8> {
         // doesn't cause a failure in the generated code, but it will be much slower
         dbg_assert!((addr & 3) == 0);
 
-        self.push_i32(addr as i32);
+        self.const_i32(addr as i32);
         self.load_aligned_i32_from_stack(0);
     }
 
@@ -100,20 +103,8 @@ impl WasmBuf for Vec<u8> {
     }
 
     fn load_u8(&mut self, addr: u32) {
-        self.push_i32(addr as i32);
+        self.const_i32(addr as i32);
         self.load_u8_from_stack(0);
-    }
-
-    fn store_aligned_u16(&mut self) {
-        self.push(op::OP_I32STORE16);
-        self.push(op::MEM_ALIGN16);
-        self.push(0); // immediate offset
-    }
-
-    fn store_aligned_i32(&mut self) {
-        self.push(op::OP_I32STORE);
-        self.push(op::MEM_ALIGN32);
-        self.push(0); // immediate offset
     }
 
     fn add_i32(&mut self) { self.push(op::OP_I32ADD); }
@@ -175,11 +166,21 @@ impl WasmBuf for Vec<u8> {
         self.write_leb_u32(byte_offset);
     }
 
-    // XXX: Function naming should be consistent regarding both alignment and accepting an
-    // offset. Leaving as-is for the Rust port to cleanup
-    fn store_unaligned_i32(&mut self, byte_offset: u32) {
-        self.push(op::OP_I32STORE);
+    fn store_u8(&mut self, byte_offset: u32) {
+        self.push(op::OP_I32STORE8);
         self.push(op::MEM_NO_ALIGN);
+        self.write_leb_u32(byte_offset);
+    }
+
+    fn store_aligned_u16(&mut self, byte_offset: u32) {
+        self.push(op::OP_I32STORE16);
+        self.push(op::MEM_ALIGN16);
+        self.write_leb_u32(byte_offset);
+    }
+
+    fn store_aligned_i32(&mut self, byte_offset: u32) {
+        self.push(op::OP_I32STORE);
+        self.push(op::MEM_ALIGN32);
         self.write_leb_u32(byte_offset);
     }
 
@@ -189,15 +190,15 @@ impl WasmBuf for Vec<u8> {
         self.write_leb_u32(byte_offset);
     }
 
-    fn store_u8(&mut self, byte_offset: u32) {
-        self.push(op::OP_I32STORE8);
+    fn store_unaligned_i32(&mut self, byte_offset: u32) {
+        self.push(op::OP_I32STORE);
         self.push(op::MEM_NO_ALIGN);
         self.write_leb_u32(byte_offset);
     }
 
-    fn shr_u32(&mut self) { self.push(op::OP_I32SHRU); }
+    fn shr_u_i32(&mut self) { self.push(op::OP_I32SHRU); }
 
-    fn shr_i32(&mut self) { self.push(op::OP_I32SHRS); }
+    fn shr_s_i32(&mut self) { self.push(op::OP_I32SHRS); }
 
     fn eqz_i32(&mut self) { self.push(op::OP_I32EQZ); }
 
@@ -260,11 +261,11 @@ impl WasmBuf for Vec<u8> {
     fn increment_mem32(&mut self, addr: u32) { self.increment_variable(addr, 1) }
 
     fn increment_variable(&mut self, addr: u32, n: i32) {
-        self.push_i32(addr as i32);
+        self.const_i32(addr as i32);
         self.load_aligned_i32(addr);
-        self.push_i32(n);
+        self.const_i32(n);
         self.add_i32();
-        self.store_aligned_i32();
+        self.store_aligned_i32(0);
     }
 
     fn load_aligned_u16_from_stack(&mut self, byte_offset: u32) {
