@@ -1045,7 +1045,7 @@ fn jit_generate_module(
                         builder,
                         start_of_current_instruction: 0,
                     };
-                    codegen::gen_fn1_const(ctx, "jmp_rel16", jump_offset as u32);
+                    codegen::gen_jmp_rel16(ctx, jump_offset as u16);
                 }
 
                 if let Some(next_block_branch_taken_addr) = next_block_branch_taken_addr {
