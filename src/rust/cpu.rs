@@ -23,6 +23,7 @@ mod unsafe_cpu {
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum BitSize {
+    BYTE,
     WORD,
     DWORD,
 }

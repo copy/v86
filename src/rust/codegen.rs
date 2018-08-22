@@ -65,6 +65,14 @@ pub fn gen_increment_mem32(builder: &mut WasmBuilder, addr: u32) {
     builder.code_section.increment_mem32(addr)
 }
 
+/// sign-extend a byte value on the stack and leave it on the stack
+pub fn sign_extend_i8(builder: &mut WasmBuilder) {
+    builder.instruction_body.push_i32(24);
+    builder.instruction_body.shl_i32();
+    builder.instruction_body.push_i32(24);
+    builder.instruction_body.shr_i32();
+}
+
 pub fn gen_fn0_const(ctx: &mut JitContext, name: &str) {
     let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN0_TYPE_INDEX);
@@ -138,6 +146,17 @@ pub fn gen_modrm_fn2(ctx: &mut JitContext, name: &str, arg0: u32, arg1: u32) {
 
 pub fn gen_modrm_resolve(ctx: &mut JitContext, modrm_byte: u8) { modrm::gen(ctx, modrm_byte) }
 
+pub fn gen_set_reg8_r(ctx: &mut JitContext, dest: u32, src: u32) {
+    // generates: reg8[r_dest] = reg8[r_src]
+    let builder = &mut ctx.builder;
+    builder
+        .instruction_body
+        .push_i32(global_pointers::get_reg8_offset(dest) as i32);
+    builder
+        .instruction_body
+        .load_u8(global_pointers::get_reg8_offset(src));
+    builder.instruction_body.store_u8(0);
+}
 pub fn gen_set_reg16_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg16[r_dest] = reg16[r_src]
     let builder = &mut ctx.builder;
@@ -161,9 +180,13 @@ pub fn gen_set_reg32_r(ctx: &mut JitContext, dest: u32, src: u32) {
     builder.instruction_body.store_aligned_i32();
 }
 
+pub fn gen_safe_read8(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::BYTE) }
 pub fn gen_safe_read16(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::WORD) }
 pub fn gen_safe_read32(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::DWORD) }
 
+pub fn gen_safe_write8(ctx: &mut JitContext, address_local: &WasmLocal, value_local: &WasmLocal) {
+    gen_safe_write(ctx, BitSize::BYTE, address_local, value_local)
+}
 pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_local: &WasmLocal) {
     gen_safe_write(ctx, BitSize::WORD, address_local, value_local)
 }
@@ -193,7 +216,7 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
     let entry_local = builder.tee_new_local();
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
-    //                                   (address & 0xFFF) <= (0x1000 - (bitsize / 8));
+    //                                   (bitsize == 8 ? true : (address & 0xFFF) <= (0x1000 - (bitsize / 8)));
     builder.instruction_body.push_i32(
         (0xFFF & !TLB_READONLY & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER }))
             as i32,
@@ -203,15 +226,17 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
     builder.instruction_body.push_i32(TLB_VALID as i32);
     builder.instruction_body.eq_i32();
 
-    builder.instruction_body.get_local(&address_local);
-    builder.instruction_body.push_i32(0xFFF);
-    builder.instruction_body.and_i32();
-    builder
-        .instruction_body
-        .push_i32(0x1000 - if bits == BitSize::WORD { 2 } else { 4 });
-    builder.instruction_body.le_i32();
+    if bits != BitSize::BYTE {
+        builder.instruction_body.get_local(&address_local);
+        builder.instruction_body.push_i32(0xFFF);
+        builder.instruction_body.and_i32();
+        builder
+            .instruction_body
+            .push_i32(0x1000 - if bits == BitSize::WORD { 2 } else { 4 });
+        builder.instruction_body.le_i32();
 
-    builder.instruction_body.and_i32();
+        builder.instruction_body.and_i32();
+    }
 
     // Pseudo:
     // if(can_use_fast_path) leave_on_stack(mem8[entry & ~0xFFF ^ address]);
@@ -223,6 +248,11 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
     builder.instruction_body.xor_i32();
 
     match bits {
+        BitSize::BYTE => {
+            builder
+                .instruction_body
+                .load_u8_from_stack(unsafe { mem8 } as u32);
+        },
         BitSize::WORD => {
             builder
                 .instruction_body
@@ -261,6 +291,9 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
 
     builder.instruction_body.get_local(&address_local);
     match bits {
+        BitSize::BYTE => {
+            gen_call_fn1_ret(builder, "safe_read8_slow_jit");
+        },
         BitSize::WORD => {
             gen_call_fn1_ret(builder, "safe_read16_slow_jit");
         },
@@ -319,15 +352,17 @@ fn gen_safe_write(
     builder.instruction_body.push_i32(TLB_VALID as i32);
     builder.instruction_body.eq_i32();
 
-    builder.instruction_body.get_local(&address_local);
-    builder.instruction_body.push_i32(0xFFF);
-    builder.instruction_body.and_i32();
-    builder
-        .instruction_body
-        .push_i32(0x1000 - if bits == BitSize::WORD { 2 } else { 4 });
-    builder.instruction_body.le_i32();
+    if bits != BitSize::BYTE {
+        builder.instruction_body.get_local(&address_local);
+        builder.instruction_body.push_i32(0xFFF);
+        builder.instruction_body.and_i32();
+        builder
+            .instruction_body
+            .push_i32(0x1000 - if bits == BitSize::WORD { 2 } else { 4 });
+        builder.instruction_body.le_i32();
 
-    builder.instruction_body.and_i32();
+        builder.instruction_body.and_i32();
+    }
 
     // Pseudo:
     // if(can_use_fast_path)
@@ -349,6 +384,9 @@ fn gen_safe_write(
 
     builder.instruction_body.get_local(&value_local);
     match bits {
+        BitSize::BYTE => {
+            builder.instruction_body.store_u8(unsafe { mem8 } as u32);
+        },
         BitSize::WORD => {
             builder
                 .instruction_body
@@ -388,6 +426,9 @@ fn gen_safe_write(
     builder.instruction_body.get_local(&address_local);
     builder.instruction_body.get_local(&value_local);
     match bits {
+        BitSize::BYTE => {
+            gen_call_fn2(builder, "safe_write8_slow_jit");
+        },
         BitSize::WORD => {
             gen_call_fn2(builder, "safe_write16_slow_jit");
         },
@@ -778,6 +819,7 @@ fn gen_safe_read_write(
     let phys_addr_local = builder.tee_new_local();
 
     match bits {
+        BitSize::BYTE => {},
         BitSize::WORD => {
             builder
                 .instruction_body
@@ -797,6 +839,7 @@ fn gen_safe_read_write(
     // now store the value on stack to phys_addr
     builder.instruction_body.get_local(&phys_addr_local);
     match bits {
+        BitSize::BYTE => {},
         BitSize::WORD => {
             builder
                 .instruction_body
@@ -816,6 +859,7 @@ fn gen_safe_read_write(
     builder.instruction_body.get_local(&address_local); // for writeXX's first arg
     builder.instruction_body.get_local(&address_local); // for readXX's first arg
     match bits {
+        BitSize::BYTE => {},
         BitSize::WORD => {
             gen_call_fn1_ret(builder, "safe_read16_slow");
             builder.instruction_body.call_fn(fn_idx);

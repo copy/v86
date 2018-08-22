@@ -10,6 +10,10 @@ pub const OPSTATS_BUFFER: u32 = 0x1000;
 pub const OPSTATS_BUFFER_0F: u32 = 0x1400;
 pub const TLB_DATA: u32 = 0x400000;
 
+pub fn get_reg8_offset(r: u32) -> u32 {
+    dbg_assert!(r < 8);
+    REG + (r << 2 & 12 | r >> 2 & 1)
+}
 pub fn get_reg16_offset(r: u32) -> u32 {
     dbg_assert!(r < 8);
     REG + 4 * r

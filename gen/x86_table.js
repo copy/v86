@@ -101,9 +101,9 @@ const encodings = [
     { opcode: 0x85, nonfaulting: 1, os: 1, e: 1, },
     { opcode: 0x86, nonfaulting: 1, e: 1, },
     { opcode: 0x87, nonfaulting: 1, os: 1, e: 1, },
-    { opcode: 0x88, nonfaulting: 1, e: 1, },
+    { opcode: 0x88, custom: 1, nonfaulting: 1, e: 1, },
     { opcode: 0x89, custom: 1, nonfaulting: 1, os: 1, e: 1, },
-    { opcode: 0x8A, nonfaulting: 1, e: 1, },
+    { opcode: 0x8A, custom: 1, nonfaulting: 1, e: 1, },
     { opcode: 0x8B, custom: 1, nonfaulting: 1, os: 1, e: 1, },
 
     { opcode: 0x8C, block_boundary: 1, os: 1, e: 1, skip: 1, }, // mov reg, sreg: block_boundary as it can trigger #ud
@@ -447,7 +447,7 @@ const encodings = [
     { opcode: 0x0FB4, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lfs
     { opcode: 0x0FB5, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lgs
 
-    { opcode: 0x0FB6, nonfaulting: 1, os: 1, e: 1, }, // movzx
+    { opcode: 0x0FB6, nonfaulting: 1, os: 1, e: 1, custom: 1 }, // movzx
     { opcode: 0x0FB7, nonfaulting: 1, os: 1, e: 1, },
 
     { opcode: 0xF30FB8, os: 1, e: 1 }, // popcnt
@@ -455,7 +455,7 @@ const encodings = [
 
     { opcode: 0x0FB9, block_boundary: 1, }, // ud2
 
-    { opcode: 0x0FBE, nonfaulting: 1, os: 1, e: 1, }, // movsx
+    { opcode: 0x0FBE, nonfaulting: 1, os: 1, e: 1, custom: 1 }, // movsx
     { opcode: 0x0FBF, nonfaulting: 1, os: 1, e: 1, },
 
     { opcode: 0x0FC0, nonfaulting: 1, e: 1, }, // xadd

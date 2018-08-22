@@ -1101,6 +1101,20 @@ pub unsafe fn safe_read32s_slow(mut addr: i32) -> Result<i32, ()> {
 }
 
 #[no_mangle]
+pub unsafe fn safe_read8_slow_jit(addr: i32) -> i32 {
+    match safe_read8(addr) {
+        Ok(v) => {
+            *page_fault = false;
+            v
+        },
+        Err(()) => {
+            *page_fault = true;
+            -1
+        },
+    }
+}
+
+#[no_mangle]
 pub unsafe fn safe_read16_slow_jit(addr: i32) -> i32 {
     match safe_read16_slow(addr) {
         Ok(v) => {
@@ -1266,6 +1280,14 @@ pub unsafe fn safe_write32_slow(mut addr: i32, mut value: i32) -> Result<(), ()>
         write32(phys_low as u32, value);
     };
     Ok(())
+}
+
+#[no_mangle]
+pub unsafe fn safe_write8_slow_jit(addr: i32, value: i32) {
+    match safe_write8(addr, value) {
+        Ok(()) => *page_fault = false,
+        Err(()) => *page_fault = true,
+    }
 }
 
 #[no_mangle]
