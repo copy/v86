@@ -595,6 +595,26 @@ pub fn instr32_0FBE_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     ctx.builder.instruction_body.store_aligned_i32(0);
 }
 
+pub fn instr_C6_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
+    // reg8[r] = imm;
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg8_offset(r) as i32);
+    ctx.builder.instruction_body.const_i32(imm as i32);
+    ctx.builder.instruction_body.store_u8(0);
+}
+
+pub fn instr_C6_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    let imm = ctx.cpu.read_imm8();
+    ctx.builder.instruction_body.const_i32(imm as i32);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_safe_write8(ctx, &address_local, &value_local);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local(value_local);
+}
+
 pub fn instr16_C7_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     // reg16[r] = imm;
     ctx.builder

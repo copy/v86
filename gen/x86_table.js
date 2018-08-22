@@ -182,7 +182,7 @@ const encodings = [
     { opcode: 0xC4, block_boundary: 1, os: 1, e: 1, skip: 1, }, // les
     { opcode: 0xC5, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lds
 
-    { opcode: 0xC6, e: 1, fixed_g: 0, imm8: 1 },
+    { opcode: 0xC6, custom: 1, e: 1, fixed_g: 0, imm8: 1 },
     { opcode: 0xC7, custom: 1, os: 1, e: 1, fixed_g: 0, imm1632: 1 },
 
     // XXX: Temporary block boundary
