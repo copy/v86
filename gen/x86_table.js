@@ -16,6 +16,46 @@ const sf = 1 << 7;
 
 // os: the instruction behaves differently depending on the operand size
 const encodings = [
+    { opcode: 0x00, nonfaulting: 1, e: 1, },
+    { opcode: 0x01, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x02, nonfaulting: 1, custom: 1, e: 1, },
+    { opcode: 0x03, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+
+    { opcode: 0x08, nonfaulting: 1, e: 1, },
+    { opcode: 0x09, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x0A, nonfaulting: 1, custom: 1, e: 1, },
+    { opcode: 0x0B, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+
+    { opcode: 0x10, nonfaulting: 1, e: 1, },
+    { opcode: 0x11, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x12, nonfaulting: 1, custom: 1, e: 1, },
+    { opcode: 0x13, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+
+    { opcode: 0x18, nonfaulting: 1, e: 1, },
+    { opcode: 0x19, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x1A, nonfaulting: 1, custom: 1, e: 1, },
+    { opcode: 0x1B, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+
+    { opcode: 0x20, nonfaulting: 1, e: 1, },
+    { opcode: 0x21, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x22, nonfaulting: 1, custom: 1, e: 1, },
+    { opcode: 0x23, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+
+    { opcode: 0x28, nonfaulting: 1, e: 1, },
+    { opcode: 0x29, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x2A, nonfaulting: 1, custom: 1, e: 1, },
+    { opcode: 0x2B, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+
+    { opcode: 0x30, nonfaulting: 1, e: 1, },
+    { opcode: 0x31, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x32, nonfaulting: 1, custom: 1, e: 1, },
+    { opcode: 0x33, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+
+    { opcode: 0x38, nonfaulting: 1, custom: 1, e: 1, },
+    { opcode: 0x39, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+    { opcode: 0x3A, nonfaulting: 1, custom: 1, e: 1, },
+    { opcode: 0x3B, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+
     { opcode: 0x06, os: 1, skip: 1, },
     { opcode: 0x07, os: 1, skip: 1, block_boundary: 1, }, // pop es: block_boundary since it uses non-raising cpu exceptions
     { opcode: 0x0E, os: 1, skip: 1, },
@@ -786,10 +826,6 @@ const encodings = [
 for(let i = 0; i < 8; i++)
 {
     encodings.push.apply(encodings, [
-        { opcode: 0x00 | i << 3, nonfaulting: 1, e: 1, },
-        { opcode: 0x01 | i << 3, nonfaulting: 1, os: 1, e: 1, },
-        { opcode: 0x02 | i << 3, nonfaulting: 1, e: 1, },
-        { opcode: 0x03 | i << 3, nonfaulting: 1, os: 1, e: 1, },
         { opcode: 0x04 | i << 3, nonfaulting: 1, eax: 1, imm8: 1, },
         { opcode: 0x05 | i << 3, nonfaulting: 1, os: 1, eax: 1, imm1632: 1, },
 

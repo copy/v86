@@ -158,6 +158,191 @@ fn pop32_reg_jit(ctx: &mut JitContext, reg: u32) {
     ctx.builder.instruction_body.store_aligned_i32(0);
 }
 
+macro_rules! define_instruction_read8(
+    ($fn:expr, $name_mem:ident, $name_reg:ident) => (
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+            codegen::gen_modrm_resolve(ctx, modrm_byte);
+            codegen::gen_safe_read8(ctx);
+            codegen::gen_get_reg8(ctx.builder, r);
+            codegen::gen_call_fn2(ctx.builder, $fn)
+        }
+
+        pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
+            codegen::gen_get_reg8(ctx.builder, r1);
+            codegen::gen_get_reg8(ctx.builder, r2);
+            codegen::gen_call_fn2(ctx.builder, $fn)
+        }
+    )
+);
+
+macro_rules! define_instruction_read16(
+    ($fn:expr, $name_mem:ident, $name_reg:ident) => (
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+            codegen::gen_modrm_resolve(ctx, modrm_byte);
+            codegen::gen_safe_read16(ctx);
+            codegen::gen_get_reg16(ctx.builder, r);
+            codegen::gen_call_fn2(ctx.builder, $fn)
+        }
+
+        pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
+            codegen::gen_get_reg16(ctx.builder, r1);
+            codegen::gen_get_reg16(ctx.builder, r2);
+            codegen::gen_call_fn2(ctx.builder, $fn)
+        }
+    )
+);
+
+macro_rules! define_instruction_read32(
+    ($fn:expr, $name_mem:ident, $name_reg:ident) => (
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+            codegen::gen_modrm_resolve(ctx, modrm_byte);
+            codegen::gen_safe_read32(ctx);
+            codegen::gen_get_reg32(ctx.builder, r);
+            codegen::gen_call_fn2(ctx.builder, $fn)
+        }
+
+        pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
+            codegen::gen_get_reg32(ctx.builder, r1);
+            codegen::gen_get_reg32(ctx.builder, r2);
+            codegen::gen_call_fn2(ctx.builder, $fn)
+        }
+    )
+);
+
+macro_rules! define_instruction_write_reg8(
+    ($fn:expr, $name_mem:ident, $name_reg:ident) => (
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+            ctx.builder.instruction_body.const_i32(global_pointers::get_reg8_offset(r) as i32);
+            codegen::gen_get_reg8(ctx.builder, r);
+            codegen::gen_modrm_resolve(ctx, modrm_byte);
+            codegen::gen_safe_read8(ctx);
+            codegen::gen_call_fn2_ret(ctx.builder, $fn);
+            ctx.builder.instruction_body.store_u8(0);
+        }
+
+        pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
+            ctx.builder.instruction_body.const_i32(global_pointers::get_reg8_offset(r2) as i32);
+            codegen::gen_get_reg8(ctx.builder, r2);
+            codegen::gen_get_reg8(ctx.builder, r1);
+            codegen::gen_call_fn2_ret(ctx.builder, $fn);
+            ctx.builder.instruction_body.store_u8(0);
+        }
+    )
+);
+
+macro_rules! define_instruction_write_reg16(
+    ($fn:expr, $name_mem:ident, $name_reg:ident) => (
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+            ctx.builder.instruction_body.const_i32(global_pointers::get_reg16_offset(r) as i32);
+            codegen::gen_get_reg16(ctx.builder, r);
+            codegen::gen_modrm_resolve(ctx, modrm_byte);
+            codegen::gen_safe_read16(ctx);
+            codegen::gen_call_fn2_ret(ctx.builder, $fn);
+            ctx.builder.instruction_body.store_aligned_u16(0);
+        }
+
+        pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
+            ctx.builder.instruction_body.const_i32(global_pointers::get_reg16_offset(r2) as i32);
+            codegen::gen_get_reg16(ctx.builder, r2);
+            codegen::gen_get_reg16(ctx.builder, r1);
+            codegen::gen_call_fn2_ret(ctx.builder, $fn);
+            ctx.builder.instruction_body.store_aligned_u16(0);
+        }
+    )
+);
+
+macro_rules! define_instruction_write_reg32(
+    ($fn:expr, $name_mem:ident, $name_reg:ident) => (
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+            ctx.builder.instruction_body.const_i32(global_pointers::get_reg32_offset(r) as i32);
+            codegen::gen_get_reg32(ctx.builder, r);
+            codegen::gen_modrm_resolve(ctx, modrm_byte);
+            codegen::gen_safe_read32(ctx);
+            codegen::gen_call_fn2_ret(ctx.builder, $fn);
+            ctx.builder.instruction_body.store_aligned_i32(0);
+        }
+
+        pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
+            ctx.builder.instruction_body.const_i32(global_pointers::get_reg32_offset(r2) as i32);
+            codegen::gen_get_reg32(ctx.builder, r2);
+            codegen::gen_get_reg32(ctx.builder, r1);
+            codegen::gen_call_fn2_ret(ctx.builder, $fn);
+            ctx.builder.instruction_body.store_aligned_i32(0);
+        }
+    )
+);
+
+define_instruction_write_reg8!("add8", instr_02_mem_jit, instr_02_reg_jit);
+define_instruction_write_reg16!("add16", instr16_03_mem_jit, instr16_03_reg_jit);
+define_instruction_write_reg32!("add32", instr32_03_mem_jit, instr32_03_reg_jit);
+
+define_instruction_write_reg8!("or8", instr_0A_mem_jit, instr_0A_reg_jit);
+define_instruction_write_reg16!("or16", instr16_0B_mem_jit, instr16_0B_reg_jit);
+define_instruction_write_reg32!("or32", instr32_0B_mem_jit, instr32_0B_reg_jit);
+
+define_instruction_write_reg8!("adc8", instr_12_mem_jit, instr_12_reg_jit);
+define_instruction_write_reg16!("adc16", instr16_13_mem_jit, instr16_13_reg_jit);
+define_instruction_write_reg32!("adc32", instr32_13_mem_jit, instr32_13_reg_jit);
+
+define_instruction_write_reg8!("sbb8", instr_1A_mem_jit, instr_1A_reg_jit);
+define_instruction_write_reg16!("sbb16", instr16_1B_mem_jit, instr16_1B_reg_jit);
+define_instruction_write_reg32!("sbb32", instr32_1B_mem_jit, instr32_1B_reg_jit);
+
+define_instruction_write_reg8!("and8", instr_22_mem_jit, instr_22_reg_jit);
+define_instruction_write_reg16!("and16", instr16_23_mem_jit, instr16_23_reg_jit);
+define_instruction_write_reg32!("and32", instr32_23_mem_jit, instr32_23_reg_jit);
+
+define_instruction_write_reg8!("sub8", instr_2A_mem_jit, instr_2A_reg_jit);
+define_instruction_write_reg16!("sub16", instr16_2B_mem_jit, instr16_2B_reg_jit);
+define_instruction_write_reg32!("sub32", instr32_2B_mem_jit, instr32_2B_reg_jit);
+
+define_instruction_write_reg8!("xor8", instr_32_mem_jit, instr_32_reg_jit);
+define_instruction_write_reg16!("xor16", instr16_33_mem_jit, instr16_33_reg_jit);
+define_instruction_write_reg32!("xor32", instr32_33_mem_jit, instr32_33_reg_jit);
+
+define_instruction_read8!("cmp8", instr_38_mem_jit, instr_38_reg_jit);
+define_instruction_read16!("cmp16", instr16_39_mem_jit, instr16_39_reg_jit);
+define_instruction_read32!("cmp32", instr32_39_mem_jit, instr32_39_reg_jit);
+
+pub fn instr_3A_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_get_reg8(ctx.builder, r);
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read8(ctx);
+    codegen::gen_call_fn2(ctx.builder, "cmp8")
+}
+
+pub fn instr_3A_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg8(ctx.builder, r2);
+    codegen::gen_get_reg8(ctx.builder, r1);
+    codegen::gen_call_fn2(ctx.builder, "cmp8")
+}
+
+pub fn instr16_3B_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_get_reg16(ctx.builder, r);
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read16(ctx);
+    codegen::gen_call_fn2(ctx.builder, "cmp16")
+}
+
+pub fn instr16_3B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg16(ctx.builder, r2);
+    codegen::gen_get_reg16(ctx.builder, r1);
+    codegen::gen_call_fn2(ctx.builder, "cmp16")
+}
+
+pub fn instr32_3B_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    codegen::gen_get_reg32(ctx.builder, r);
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read32(ctx);
+    codegen::gen_call_fn2(ctx.builder, "cmp32")
+}
+
+pub fn instr32_3B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    codegen::gen_get_reg32(ctx.builder, r2);
+    codegen::gen_get_reg32(ctx.builder, r1);
+    codegen::gen_call_fn2(ctx.builder, "cmp32")
+}
+
 pub fn instr16_50_jit(ctx: &mut JitContext) { push16_reg_jit(ctx, AX); }
 pub fn instr32_50_jit(ctx: &mut JitContext) { push32_reg_jit(ctx, EAX); }
 pub fn instr16_51_jit(ctx: &mut JitContext) { push16_reg_jit(ctx, CX); }
@@ -230,44 +415,9 @@ pub fn instr32_7E_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr16_7F_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr32_7F_jit(_ctx: &mut JitContext, _imm: u32) {}
 
-pub fn instr_84_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_safe_read8(ctx);
-    codegen::gen_get_reg8(ctx.builder, r);
-    codegen::gen_call_fn2(ctx.builder, "test8")
-}
-
-pub fn instr_84_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
-    codegen::gen_get_reg8(ctx.builder, r1);
-    codegen::gen_get_reg8(ctx.builder, r2);
-    codegen::gen_call_fn2(ctx.builder, "test8")
-}
-
-pub fn instr16_85_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_safe_read16(ctx);
-    codegen::gen_get_reg16(ctx.builder, r);
-    codegen::gen_call_fn2(ctx.builder, "test16")
-}
-
-pub fn instr16_85_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
-    codegen::gen_get_reg16(ctx.builder, r1);
-    codegen::gen_get_reg16(ctx.builder, r2);
-    codegen::gen_call_fn2(ctx.builder, "test16")
-}
-
-pub fn instr32_85_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
-    codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_safe_read32(ctx);
-    codegen::gen_get_reg32(ctx.builder, r);
-    codegen::gen_call_fn2(ctx.builder, "test32")
-}
-
-pub fn instr32_85_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
-    codegen::gen_get_reg32(ctx.builder, r1);
-    codegen::gen_get_reg32(ctx.builder, r2);
-    codegen::gen_call_fn2(ctx.builder, "test32")
-}
+define_instruction_read8!("test8", instr_84_mem_jit, instr_84_reg_jit);
+define_instruction_read16!("test16", instr16_85_mem_jit, instr16_85_reg_jit);
+define_instruction_read32!("test32", instr32_85_mem_jit, instr32_85_reg_jit);
 
 pub fn instr_88_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);

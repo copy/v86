@@ -132,6 +132,12 @@ pub fn gen_call_fn2(builder: &mut WasmBuilder, name: &str) {
     builder.instruction_body.call_fn(fn_idx);
 }
 
+pub fn gen_call_fn2_ret(builder: &mut WasmBuilder, name: &str) {
+    // generates: fn( _, _ ) where _ must be left on the stack before calling this, and fn returns a value
+    let fn_idx = builder.get_fn_idx(name, module_init::FN2_RET_TYPE_INDEX);
+    builder.instruction_body.call_fn(fn_idx);
+}
+
 pub fn gen_fn3_const(ctx: &mut JitContext, name: &str, arg0: u32, arg1: u32, arg2: u32) {
     let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN3_TYPE_INDEX);
