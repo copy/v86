@@ -522,7 +522,7 @@ pub unsafe fn fpu_load_tag_word() -> i32 {
 }
 #[no_mangle]
 pub unsafe fn fpu_fst(mut r: i32) -> () {
-    *fpu_st.offset((*fpu_stack_ptr).wrapping_add(r as u32) as isize) = fpu_get_st0();
+    *fpu_st.offset((*fpu_stack_ptr).wrapping_add(r as u32) as isize & 7) = fpu_get_st0();
 }
 #[no_mangle]
 pub unsafe fn fpu_fst80p(mut addr: i32) -> () {
@@ -652,7 +652,7 @@ pub unsafe fn fpu_sign(mut i: i32) -> i32 {
 #[no_mangle]
 pub unsafe fn fpu_fxch(mut i: i32) -> () {
     let mut sti: f64 = fpu_get_sti(i);
-    *fpu_st.offset((*fpu_stack_ptr).wrapping_add(i as u32) as isize) = fpu_get_st0();
+    *fpu_st.offset((*fpu_stack_ptr).wrapping_add(i as u32) as isize & 7) = fpu_get_st0();
     *fpu_st.offset(*fpu_stack_ptr as isize) = sti;
 }
 #[no_mangle]
