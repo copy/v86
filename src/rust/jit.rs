@@ -24,7 +24,7 @@ pub const JIT_MAX_ITERATIONS_PER_FUNCTION: u32 = 10000;
 
 pub const JIT_ALWAYS_USE_LOOP_SAFETY: bool = false;
 
-pub const JIT_THRESHOLD: u32 = 2500;
+pub const JIT_THRESHOLD: u32 = 10 * 2500;
 
 const CONDITION_FUNCTIONS: [&str; 16] = [
     "test_o", "test_no", "test_b", "test_nb", "test_z", "test_nz", "test_be", "test_nbe", "test_s",
