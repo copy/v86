@@ -12,6 +12,7 @@ def main():
 
     # filter out args inserted by rustc
     TO_REMOVE = {
+        "--export-table",
         "--stack-first",
         "--strip-debug", # TODO: Make this configurable
     }
