@@ -49,15 +49,15 @@ pub enum stat {
     S_TLB_GLOBAL_FULL,
 }
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "profiler")]
 mod unsafe_extern {
     extern "C" {
         pub fn profiler_stat_increment(stat: ::profiler::stat);
     }
 }
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "profiler")]
 pub fn stat_increment(stat: stat) { unsafe { unsafe_extern::profiler_stat_increment(stat) } }
 
-#[cfg(not(debug_assertions))]
+#[cfg(not(feature = "profiler"))]
 pub fn stat_increment(_stat: stat) {}

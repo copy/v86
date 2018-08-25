@@ -6,6 +6,10 @@ publish = false
 [dev-dependencies]
 quickcheck = "0.6.2"
 
+[features]
+default = []
+profiler = []
+
 [lib]
 crate-type = ["cdylib"]
 path = "src/rust/lib.rs"

@@ -109,11 +109,18 @@ pub unsafe fn profiler_stat_increment(mut stat: stat_name) -> () {
 }
 #[no_mangle]
 pub unsafe fn profiler_stat_increment_by(mut stat: stat_name, mut by: i32) -> () {
-    profiler_stat_arr[stat as usize].count += by;
+    if cfg!(feature = "profiler") {
+        profiler_stat_arr[stat as usize].count += by;
+    }
 }
 #[no_mangle]
 pub unsafe fn profiler_stat_get(mut stat: stat_name) -> i32 {
-    return profiler_stat_arr[stat as usize].count;
+    if cfg!(feature = "profiler") {
+        profiler_stat_arr[stat as usize].count
+    }
+    else {
+        0
+    }
 }
 #[no_mangle]
 pub unsafe fn profiler_stat_increment_do_run() -> () { profiler_stat_increment(S_DO_RUN); }
