@@ -232,7 +232,6 @@ pub const TSC_RATE: f64 = (50i32 * 1000i32) as f64;
 pub static mut jit_block_boundary: bool = 0 != 0i32;
 
 pub static mut must_not_fault: bool = 0 != 0i32;
-pub static mut current_cpu_exception: i32 = -1i32;
 pub static mut rdtsc_imprecision_offset: u64 = 0i32 as u64;
 pub static mut rdtsc_last_value: u64 = 0i32 as u64;
 pub static mut tsc_offset: u64 = 0i32 as u64;
@@ -781,7 +780,6 @@ pub unsafe fn cycle_internal() -> () {
                 (wasm_table_index as u32).wrapping_add(256i32 as u32) as i32,
                 initial_state,
             );
-            clear_current_cpu_exception();
             profiler_stat_increment_by(
                 S_RUN_FROM_CACHE_STEPS,
                 (*timestamp_counter).wrapping_sub(initial_tsc as u32) as i32,
@@ -835,7 +833,6 @@ unsafe fn jit_run_interpreted(mut phys_addr: i32) -> () {
     *instruction_pointer += 1;
     *timestamp_counter = (*timestamp_counter).wrapping_add(1);
     run_instruction(opcode | (*is_32 as i32) << 8i32);
-    clear_current_cpu_exception();
     while !jit_block_boundary && 0 != same_page(*previous_ip, *instruction_pointer) as i32 {
         *previous_ip.offset(0isize) = *instruction_pointer.offset(0isize);
         *timestamp_counter = (*timestamp_counter).wrapping_add(1);
@@ -844,11 +841,8 @@ unsafe fn jit_run_interpreted(mut phys_addr: i32) -> () {
             logop(*previous_ip.offset(0isize), opcode_0);
         }
         run_instruction(opcode_0 | (*is_32 as i32) << 8i32);
-        clear_current_cpu_exception();
     }
 }
-
-pub unsafe fn clear_current_cpu_exception() -> () { current_cpu_exception = -1i32; }
 
 #[no_mangle]
 pub unsafe fn pack_current_state_flags() -> cached_state_flags {
@@ -914,10 +908,7 @@ pub unsafe fn trigger_de() -> () {
     }
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_DE, 0 != 0i32, 0 != 0i32, 0i32);
-    set_current_cpu_exception(CPU_EXCEPTION_DE);
 }
-
-pub unsafe fn set_current_cpu_exception(mut n: i32) -> () { current_cpu_exception = n; }
 
 #[no_mangle]
 pub unsafe fn trigger_ud() -> () {
@@ -930,7 +921,6 @@ pub unsafe fn trigger_ud() -> () {
     }
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_UD, 0 != 0i32, 0 != 0i32, 0i32);
-    set_current_cpu_exception(CPU_EXCEPTION_UD);
 }
 
 pub unsafe fn trigger_nm() -> () {
@@ -941,7 +931,6 @@ pub unsafe fn trigger_nm() -> () {
     }
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_NM, 0 != 0i32, 0 != 0i32, 0i32);
-    set_current_cpu_exception(CPU_EXCEPTION_NM);
 }
 
 #[no_mangle]
@@ -953,7 +942,6 @@ pub unsafe fn trigger_gp_non_raising(mut code: i32) -> () {
     }
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_GP, 0 != 0i32, 0 != 1i32, code);
-    set_current_cpu_exception(CPU_EXCEPTION_GP);
 }
 
 pub unsafe fn virt_boundary_read16(mut low: i32, mut high: i32) -> i32 {
@@ -1015,17 +1003,7 @@ pub unsafe fn virt_boundary_write32(mut low: i32, mut high: i32, mut value: i32)
 }
 
 pub unsafe fn safe_read8(mut addr: i32) -> Result<i32, ()> {
-    assert_no_cpu_exception();
     return Ok(read8(translate_address_read(addr)?));
-}
-
-pub unsafe fn assert_no_cpu_exception() -> () {
-    return;
-    if current_cpu_exception != -1i32 {
-        dbg_log_c!("Expected no cpu exception, got %d", current_cpu_exception);
-        dbg_trace();
-        dbg_assert!(0 != 0i32);
-    };
 }
 
 pub unsafe fn safe_read16(mut address: i32) -> Result<i32, ()> {
@@ -1045,7 +1023,6 @@ pub unsafe fn safe_read16(mut address: i32) -> Result<i32, ()> {
 }
 
 pub unsafe fn safe_read16_slow(mut addr: i32) -> Result<i32, ()> {
-    assert_no_cpu_exception();
     if addr & 4095i32 == 4095i32 {
         return Ok(safe_read8(addr)? | safe_read8(addr + 1i32)? << 8i32);
     }
@@ -1055,7 +1032,6 @@ pub unsafe fn safe_read16_slow(mut addr: i32) -> Result<i32, ()> {
 }
 
 pub unsafe fn safe_read32s(mut address: i32) -> Result<i32, ()> {
-    assert_no_cpu_exception();
     let mut base: i32 = (address as u32 >> 12i32) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut info_bits: i32 = entry & 4095i32 & !TLB_READONLY & !TLB_GLOBAL & !TLB_HAS_CODE;
@@ -1122,7 +1098,6 @@ pub unsafe fn safe_read16_slow_jit(addr: i32) -> i32 {
             v
         },
         Err(()) => {
-            dbg_log!("page fault");
             *page_fault = true;
             -1
         },
@@ -1137,7 +1112,6 @@ pub unsafe fn safe_read32s_slow_jit(addr: i32) -> i32 {
             v
         },
         Err(()) => {
-            dbg_log!("page fault");
             *page_fault = true;
             -1
         },
@@ -1146,7 +1120,6 @@ pub unsafe fn safe_read32s_slow_jit(addr: i32) -> i32 {
 
 pub unsafe fn safe_read64s(mut addr: i32) -> Result<reg64, ()> {
     let mut addr_phys: i32 = 0;
-    assert_no_cpu_exception();
     let mut x: reg64 = reg64 { i8_0: [0; 8] };
     if addr & 4095i32 > 4096i32 - 8i32 {
         x.u32_0[0usize] = safe_read32s(addr)? as u32;
@@ -1161,7 +1134,6 @@ pub unsafe fn safe_read64s(mut addr: i32) -> Result<reg64, ()> {
 
 pub unsafe fn safe_read128s(mut addr: i32) -> Result<reg128, ()> {
     let mut addr_phys: i32 = 0;
-    assert_no_cpu_exception();
     let mut x: reg128 = reg128 { i8_0: [0; 16] };
     if addr & 4095i32 > 4096i32 - 16i32 {
         x.u64_0[0usize] = safe_read64s(addr)?.u64_0[0usize];
@@ -1175,7 +1147,6 @@ pub unsafe fn safe_read128s(mut addr: i32) -> Result<reg128, ()> {
 }
 
 pub unsafe fn safe_write8(mut addr: i32, mut value: i32) -> Result<(), ()> {
-    assert_no_cpu_exception();
     write8(translate_address_write(addr)?, value);
     Ok(())
 }
@@ -1201,7 +1172,6 @@ pub unsafe fn safe_write16(mut address: i32, mut value: i32) -> Result<(), ()> {
 }
 
 pub unsafe fn safe_write16_slow(mut addr: i32, mut value: i32) -> Result<(), ()> {
-    assert_no_cpu_exception();
     let mut phys_low: i32 = translate_address_write(addr)? as i32;
     if addr & 4095i32 == 4095i32 {
         virt_boundary_write16(
@@ -1217,7 +1187,6 @@ pub unsafe fn safe_write16_slow(mut addr: i32, mut value: i32) -> Result<(), ()>
 }
 
 pub unsafe fn safe_write32(mut address: i32, mut value: i32) -> Result<(), ()> {
-    assert_no_cpu_exception();
     let mut base: i32 = (address as u32 >> 12i32) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut info_bits: i32 = entry & 4095i32 & !TLB_GLOBAL & !if *cpl as i32 == 3i32 {
@@ -1307,7 +1276,6 @@ pub unsafe fn safe_write32_slow_jit(addr: i32, value: i32) {
 }
 
 pub unsafe fn safe_write64(mut addr: i32, mut value: i64) -> Result<(), ()> {
-    assert_no_cpu_exception();
     if addr & 4095i32 > 4096i32 - 8i32 {
         writable_or_pagefault(addr, 8i32)?;
         safe_write32(addr, value as i32).unwrap();
@@ -1321,7 +1289,6 @@ pub unsafe fn safe_write64(mut addr: i32, mut value: i64) -> Result<(), ()> {
 }
 
 pub unsafe fn safe_write128(mut addr: i32, mut value: reg128) -> Result<(), ()> {
-    assert_no_cpu_exception();
     if addr & 4095i32 > 4096i32 - 16i32 {
         writable_or_pagefault(addr, 16i32)?;
         safe_write64(addr, value.u64_0[0usize] as i64).unwrap();
@@ -1700,7 +1667,6 @@ pub unsafe fn trigger_np(mut code: i32) -> () {
     }
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_NP, 0 != 0i32, 0 != 1i32, code);
-    set_current_cpu_exception(CPU_EXCEPTION_NP);
 }
 
 #[no_mangle]
@@ -1712,7 +1678,6 @@ pub unsafe fn trigger_ss(mut code: i32) -> () {
     }
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_SS, 0 != 0i32, 0 != 1i32, code);
-    set_current_cpu_exception(CPU_EXCEPTION_SS);
 }
 
 #[no_mangle]
