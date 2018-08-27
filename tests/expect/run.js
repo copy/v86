@@ -18,6 +18,8 @@ catch(e) {
     process.exit(1);
 }
 
+const TEST_NAME = process.env.TEST_NAME;
+
 const LOG_LEVEL = 0;
 
 const GIT_DIFF_FLAGS = ["--no-index", "--patience", "--color=always"];
@@ -39,7 +41,7 @@ function run_all()
             asm_file: path.join(TEST_DIR, name + ".asm"),
             executable_file: path.join(BUILD_DIR, name + ".bin"),
         };
-    });
+    }).filter(({ name }) => !TEST_NAME || name === TEST_NAME);
 
     next_test(0);
 
