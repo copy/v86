@@ -274,8 +274,8 @@ const encodings = [
     { opcode: 0xF4, block_boundary: 1, no_next_instruction: 1, skip: 1, }, // hlt
     { opcode: 0xF5, nonfaulting: 1, },
 
-    { opcode: 0xF6, e: 1, fixed_g: 0, nonfaulting: 1, imm8: 1, },
-    { opcode: 0xF6, e: 1, fixed_g: 1, nonfaulting: 1, imm8: 1, },
+    { opcode: 0xF6, e: 1, fixed_g: 0, nonfaulting: 1, imm8: 1, custom: 1 },
+    { opcode: 0xF6, e: 1, fixed_g: 1, nonfaulting: 1, imm8: 1, custom: 1 },
     { opcode: 0xF6, e: 1, fixed_g: 2, nonfaulting: 1, },
     { opcode: 0xF6, e: 1, fixed_g: 3, nonfaulting: 1, },
     { opcode: 0xF6, e: 1, fixed_g: 4, nonfaulting: 1, mask_flags: af | zf, },
@@ -283,8 +283,8 @@ const encodings = [
     { opcode: 0xF6, e: 1, fixed_g: 6, block_boundary: 1, }, // div/idiv: Not a block boundary, but doesn't use control flow exceptions
     { opcode: 0xF6, e: 1, fixed_g: 7, block_boundary: 1, },
 
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 0, nonfaulting: 1, imm1632: 1, },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 1, nonfaulting: 1, imm1632: 1, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 0, nonfaulting: 1, imm1632: 1, custom: 1 },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 1, nonfaulting: 1, imm1632: 1, custom: 1 },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 2, nonfaulting: 1, },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 3, nonfaulting: 1, },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 4, nonfaulting: 1, mask_flags: zf | af, },
@@ -303,8 +303,8 @@ const encodings = [
 
     { opcode: 0xFE, e: 1, fixed_g: 0, nonfaulting: 1, },
     { opcode: 0xFE, e: 1, fixed_g: 1, nonfaulting: 1, },
-    { opcode: 0xFF, os: 1, e: 1, fixed_g: 0, nonfaulting: 1, },
-    { opcode: 0xFF, os: 1, e: 1, fixed_g: 1, nonfaulting: 1, },
+    { opcode: 0xFF, os: 1, e: 1, fixed_g: 0, nonfaulting: 1, custom: 1, },
+    { opcode: 0xFF, os: 1, e: 1, fixed_g: 1, nonfaulting: 1, custom: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 2, block_boundary: 1, skip: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 3, block_boundary: 1, skip: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 4, block_boundary: 1, no_next_instruction: 1, skip: 1, },
