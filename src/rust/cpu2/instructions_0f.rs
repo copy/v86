@@ -3374,18 +3374,12 @@ pub unsafe fn instr_0FAE_7_mem(mut addr: i32) -> () {
 #[no_mangle]
 pub unsafe fn instr16_0FAF_mem(mut addr: i32, mut r: i32) -> () {
     let mut ____0: i32 = return_on_pagefault!(safe_read16(addr));
-    write_reg16(
-        r,
-        imul_reg16(read_reg16(r) << 16i32 >> 16i32, ____0 << 16i32 >> 16i32),
-    );
+    write_reg16(r, imul_reg16(read_reg16(r), ____0));
 }
 #[no_mangle]
 pub unsafe fn instr16_0FAF_reg(mut r1: i32, mut r: i32) -> () {
     let mut ____0: i32 = read_reg16(r1);
-    write_reg16(
-        r,
-        imul_reg16(read_reg16(r) << 16i32 >> 16i32, ____0 << 16i32 >> 16i32),
-    );
+    write_reg16(r, imul_reg16(read_reg16(r), ____0));
 }
 #[no_mangle]
 pub unsafe fn instr32_0FAF_mem(mut addr: i32, mut r: i32) -> () {

@@ -1005,20 +1005,11 @@ pub unsafe fn instr32_68(mut imm32: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_69_mem(mut addr: i32, mut r: i32, mut imm: i32) -> () {
-    write_reg16(
-        r,
-        imul_reg16(
-            return_on_pagefault!(safe_read16(addr)) << 16i32 >> 16i32,
-            imm << 16i32 >> 16i32,
-        ),
-    );
+    write_reg16(r, imul_reg16(return_on_pagefault!(safe_read16(addr)), imm));
 }
 #[no_mangle]
 pub unsafe fn instr16_69_reg(mut r1: i32, mut r: i32, mut imm: i32) -> () {
-    write_reg16(
-        r,
-        imul_reg16(read_reg16(r1) << 16i32 >> 16i32, imm << 16i32 >> 16i32),
-    );
+    write_reg16(r, imul_reg16(read_reg16(r1), imm));
 }
 #[no_mangle]
 pub unsafe fn instr32_69_mem(mut addr: i32, mut r: i32, mut imm: i32) -> () {
@@ -1038,17 +1029,11 @@ pub unsafe fn instr32_6A(mut imm8: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_6B_mem(mut addr: i32, mut r: i32, mut imm: i32) -> () {
-    write_reg16(
-        r,
-        imul_reg16(
-            return_on_pagefault!(safe_read16(addr)) << 16i32 >> 16i32,
-            imm,
-        ),
-    );
+    write_reg16(r, imul_reg16(return_on_pagefault!(safe_read16(addr)), imm));
 }
 #[no_mangle]
 pub unsafe fn instr16_6B_reg(mut r1: i32, mut r: i32, mut imm: i32) -> () {
-    write_reg16(r, imul_reg16(read_reg16(r1) << 16i32 >> 16i32, imm));
+    write_reg16(r, imul_reg16(read_reg16(r1), imm));
 }
 #[no_mangle]
 pub unsafe fn instr32_6B_mem(mut addr: i32, mut r: i32, mut imm: i32) -> () {

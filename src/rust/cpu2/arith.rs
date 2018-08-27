@@ -204,8 +204,8 @@ pub unsafe fn imul16(mut source_operand: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn imul_reg16(mut operand1: i32, mut operand2: i32) -> i32 {
-    dbg_assert!(operand1 < 32768i32 && operand1 >= -32768i32);
-    dbg_assert!(operand2 < 32768i32 && operand2 >= -32768i32);
+    operand1 = operand1 << 16 >> 16;
+    operand2 = operand2 << 16 >> 16;
     let mut result: i32 = operand1 * operand2;
     *last_result = result & 65535i32;
     *last_op_size = OPSIZE_16;
