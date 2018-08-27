@@ -228,8 +228,8 @@ pub const CPU_EXCEPTION_AC: i32 = 17i32;
 pub const CPU_EXCEPTION_MC: i32 = 18i32;
 pub const CPU_EXCEPTION_XM: i32 = 19i32;
 pub const CPU_EXCEPTION_VE: i32 = 20i32;
-pub const CHECK_TLB_INVARIANTS: bool = 0 != 0i32;
-pub const DEBUG: bool = 0 != 1i32;
+pub const CHECK_TLB_INVARIANTS: bool = false;
+pub const DEBUG: bool = cfg!(debug_assertions);
 pub const LOOP_COUNTER: i32 = 20011i32;
 pub const TSC_RATE: f64 = (50i32 * 1000i32) as f64;
 
