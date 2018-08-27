@@ -211,6 +211,12 @@ function disassemble_wasm(wasm)
         module.applyNames();
         return module.toText({ foldExprs: true, inlineExport: true });
     }
+    catch(e)
+    {
+        console.error("Error while running libwabt: " + e.toString());
+        console.error("Did you forget an ending hlt instruction?\n");
+        throw e;
+    }
     finally
     {
         module && module.destroy();
