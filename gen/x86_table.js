@@ -843,11 +843,11 @@ for(let i = 0; i < 8; i++)
         // note: overflow flag only undefined if shift is > 1
         // note: the adjust flag is undefined for shifts > 0 and unaffected by rotates
         { opcode: 0xC0, nonfaulting: 1, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, },
-        { opcode: 0xC1, nonfaulting: 1, os: 1, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, },
+        { opcode: 0xC1, nonfaulting: 1, os: 1, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, custom: 1, },
         { opcode: 0xD0, nonfaulting: 1, e: 1, fixed_g: i, mask_flags: af, },
-        { opcode: 0xD1, nonfaulting: 1, os: 1, e: 1, fixed_g: i, mask_flags: af, },
+        { opcode: 0xD1, nonfaulting: 1, os: 1, e: 1, fixed_g: i, mask_flags: af, custom: 1, },
         { opcode: 0xD2, nonfaulting: 1, e: 1, fixed_g: i, mask_flags: of | af, },
-        { opcode: 0xD3, nonfaulting: 1, os: 1, e: 1, fixed_g: i, mask_flags: of | af, },
+        { opcode: 0xD3, nonfaulting: 1, os: 1, e: 1, fixed_g: i, mask_flags: of | af, custom: 1, },
 
         { opcode: 0xD8, e: 1, fixed_g: i, skip: 1, task_switch_test: 1, },
         { opcode: 0xD9, e: 1, fixed_g: i, skip: 1, task_switch_test: 1, },
