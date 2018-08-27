@@ -3316,9 +3316,11 @@ pub unsafe fn instr_0FAE_2_reg(mut r: i32) -> () { unimplemented_sse(); }
 pub unsafe fn instr_0FAE_2_mem(mut addr: i32) -> () {
     c_comment!(("ldmxcsr"));
     let mut new_mxcsr: i32 = return_on_pagefault!(safe_read32s(addr));
+    if new_mxcsr & 1 << 6 != 0 {
+        dbg_log!("Warning: Unimplemented MXCSR bit: {:x}", new_mxcsr)
+    }
     if 0 != new_mxcsr & !MXCSR_MASK {
-        dbg_log_c!("Invalid mxcsr bits: %x", new_mxcsr & !MXCSR_MASK);
-        dbg_assert!(0 != 0i32);
+        dbg_log!("Invalid mxcsr bits: {:x}", new_mxcsr & !MXCSR_MASK);
         trigger_gp_non_raising(0i32);
         return;
     }
