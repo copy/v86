@@ -33,6 +33,10 @@ use cpu2::modrm::{resolve_modrm16, resolve_modrm32};
 use cpu2::profiler::*;
 use cpu2::profiler::{profiler_stat_increment, profiler_stat_increment_by};
 
+/// The offset for our generated functions in the wasm table. Every index less than this is
+/// reserved for rustc's indirect functions
+pub const WASM_TABLE_OFFSET: u32 = 1024;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub union reg64 {
@@ -777,7 +781,7 @@ pub unsafe fn cycle_internal() -> () {
             wasm_table_index = (entry & 65535i32 as u32) as u16;
             initial_state = (entry >> 16i32) as u16;
             call_indirect1(
-                (wasm_table_index as u32).wrapping_add(256i32 as u32) as i32,
+                (wasm_table_index as u32).wrapping_add(WASM_TABLE_OFFSET as u32) as i32,
                 initial_state,
             );
             profiler_stat_increment_by(

@@ -105,7 +105,7 @@ function V86Starter(options)
     //    }, this);
     //}
 
-    const wasm_table = new WebAssembly.Table({ element: "anyfunc", "initial": 0x10000 + 0x100 });
+    const wasm_table = new WebAssembly.Table({ element: "anyfunc", "initial": WASM_TABLE_SIZE + WASM_TABLE_OFFSET });
 
     var wasm_shared_funcs = {
         "__assert_fail": (condition, file, line, fun) => {

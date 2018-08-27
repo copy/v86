@@ -369,7 +369,7 @@ CPU.prototype.jit_force_generate = function(addr)
 CPU.prototype.jit_clear_func = function(index)
 {
     dbg_assert(index >= 0 && index < WASM_TABLE_SIZE);
-    this.wm.imports.env[WASM_EXPORT_TABLE_NAME + 0x100].set(index, null);
+    this.wm.imports.env[WASM_EXPORT_TABLE_NAME].set(index + WASM_TABLE_OFFSET, null);
 };
 
 CPU.prototype.get_state = function()
@@ -1318,7 +1318,7 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
             first_opcode, state_flags);
 
         // The following will throw if f isn't an exported function
-        this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(wasm_table_index + 0x100, f);
+        this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(wasm_table_index + WASM_TABLE_OFFSET, f);
 
         if(this.test_hook_did_finalize_wasm)
         {
@@ -1498,11 +1498,10 @@ CPU.prototype.jit_clear_cache = function()
     this.jit_empty_cache();
 
     const table = this.wm.exports[WASM_EXPORT_TABLE_NAME] || this.wm.imports["env"][WASM_EXPORT_TABLE_NAME];
-    const offset = 0x100;
 
     for(let i = 0; i < WASM_TABLE_SIZE; i++)
     {
-        table.set(offset + i, null);
+        table.set(WASM_TABLE_OFFSET + i, null);
     }
 };
 

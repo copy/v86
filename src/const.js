@@ -359,6 +359,9 @@ const P_RUN_INTERPRETED = 4;
 var WASM_TABLE_SIZE = 0x10000;
 
 /** @const */
+var WASM_TABLE_OFFSET = 1024;
+
+/** @const */
 var JIT_CACHE_ARRAY_SIZE = 0x40000;
 
 /** @const */
