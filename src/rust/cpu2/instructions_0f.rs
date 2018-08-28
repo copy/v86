@@ -3816,8 +3816,50 @@ pub unsafe fn instr_660FC5_reg(mut r1: i32, mut r2: i32, mut imm8: i32) -> () {
     let mut result: u32 = data.u16_0[index as usize] as u32;
     write_reg32(r2, result as i32);
 }
+
 #[no_mangle]
-pub unsafe fn instr_0FC6() -> () { unimplemented_sse(); }
+pub unsafe fn instr_0FC6(mut source: reg128, mut r: i32, mut imm8: i32) -> () {
+    c_comment!(("shufps xmm, xmm/mem128"));
+    c_comment!(("XXX: Aligned access or #gp"));
+    let mut destination: reg128 = read_xmm128s(r);
+    write_xmm128(
+        r,
+        destination.u32_0[(imm8 & 3i32) as usize] as i32,
+        destination.u32_0[(imm8 >> 2i32 & 3i32) as usize] as i32,
+        source.u32_0[(imm8 >> 4i32 & 3i32) as usize] as i32,
+        source.u32_0[(imm8 >> 6i32 & 3i32) as usize] as i32,
+    );
+}
+#[no_mangle]
+pub unsafe fn instr_0FC6_reg(mut r1: i32, mut r2: i32, mut imm: i32) -> () {
+    instr_0FC6(read_xmm128s(r1), r2, imm);
+}
+#[no_mangle]
+pub unsafe fn instr_0FC6_mem(mut addr: i32, mut r: i32, mut imm: i32) -> () {
+    instr_0FC6(return_on_pagefault!(safe_read128s(addr)), r, imm);
+}
+
+#[no_mangle]
+pub unsafe fn instr_660FC6(mut source: reg128, mut r: i32, mut imm8: i32) -> () {
+    c_comment!(("shufpd xmm, xmm/mem128"));
+    let mut destination: reg128 = read_xmm128s(r);
+    let mut result: reg128 = reg128 {
+        i64_0: [
+            destination.i64_0[imm8 as usize & 1],
+            source.i64_0[imm8 as usize >> 1 & 1],
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_660FC6_reg(mut r1: i32, mut r2: i32, mut imm: i32) -> () {
+    instr_660FC6(read_xmm128s(r1), r2, imm);
+}
+#[no_mangle]
+pub unsafe fn instr_660FC6_mem(mut addr: i32, mut r: i32, mut imm: i32) -> () {
+    instr_660FC6(return_on_pagefault!(safe_read128s(addr)), r, imm);
+}
+
 #[no_mangle]
 pub unsafe fn instr_0FC7_1_reg(mut r: i32) -> () { trigger_ud(); }
 #[no_mangle]
