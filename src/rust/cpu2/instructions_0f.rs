@@ -6295,10 +6295,133 @@ pub unsafe fn instr_F30F59_reg(mut r1: i32, mut r2: i32) -> () {
 pub unsafe fn instr_F30F59_mem(mut addr: i32, mut r: i32) -> () {
     instr_F30F59(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
 }
+
 #[no_mangle]
-pub unsafe fn instr_0F5A() -> () { unimplemented_sse(); }
+pub unsafe fn instr_0F5A(mut source: reg64, mut r: i32) -> () {
+    c_comment!(("cvtps2pd xmm1, xmm2/m64"));
+    let mut result: reg128 = reg128 {
+        f64_0: [source.f32_0[0] as f64, source.f32_0[1] as f64],
+    };
+    write_xmm_reg128(r, result);
+}
 #[no_mangle]
-pub unsafe fn instr_0F5B() -> () { unimplemented_sse(); }
+pub unsafe fn instr_0F5A_reg(mut r1: i32, mut r2: i32) -> () { instr_0F5A(read_xmm64s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F5A_mem(mut addr: i32, mut r: i32) -> () {
+    instr_0F5A(return_on_pagefault!(safe_read64s(addr)), r);
+}
+#[no_mangle]
+pub unsafe fn instr_660F5A(mut source: reg128, mut r: i32) -> () {
+    c_comment!(("cvtpd2ps xmm1, xmm2/m128"));
+    let mut result: reg128 = reg128 {
+        // XXX: These conversions are lossy and should round according to the round control
+        f32_0: [source.f64_0[0] as f32, source.f64_0[1] as f32, 0., 0.],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_660F5A_reg(mut r1: i32, mut r2: i32) -> () {
+    instr_660F5A(read_xmm128s(r1), r2);
+}
+#[no_mangle]
+pub unsafe fn instr_660F5A_mem(mut addr: i32, mut r: i32) -> () {
+    instr_660F5A(return_on_pagefault!(safe_read128s(addr)), r);
+}
+#[no_mangle]
+pub unsafe fn instr_F20F5A(mut source: reg64, mut r: i32) -> () {
+    c_comment!(("cvtsd2ss xmm1, xmm2/m64"));
+    // XXX: This conversions is lossy and should round according to the round control
+    write_xmm_f32(r, source.f64_0[0] as f32);
+}
+#[no_mangle]
+pub unsafe fn instr_F20F5A_reg(mut r1: i32, mut r2: i32) -> () {
+    instr_F20F5A(read_xmm64s(r1), r2);
+}
+#[no_mangle]
+pub unsafe fn instr_F20F5A_mem(mut addr: i32, mut r: i32) -> () {
+    instr_F20F5A(return_on_pagefault!(safe_read64s(addr)), r);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F5A(mut source: f32, mut r: i32) -> () {
+    c_comment!(("cvtss2sd xmm1, xmm2/m32"));
+    let mut result: reg64 = reg64 {
+        f64_0: [source as f64],
+    };
+    write_xmm64(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F5A_reg(mut r1: i32, mut r2: i32) -> () {
+    instr_F30F5A(read_xmm_f32(r1), r2);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F5A_mem(mut addr: i32, mut r: i32) -> () {
+    instr_F30F5A(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+}
+
+#[no_mangle]
+pub unsafe fn instr_0F5B(mut source: reg128, mut r: i32) -> () {
+    c_comment!(("cvtdq2ps xmm1, xmm2/m128"));
+    let mut result: reg128 = reg128 {
+        f32_0: [
+            // XXX: Precision exception
+            source.i32_0[0] as f32,
+            source.i32_0[1] as f32,
+            source.i32_0[2] as f32,
+            source.i32_0[3] as f32,
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_0F5B_reg(mut r1: i32, mut r2: i32) -> () { instr_0F5B(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F5B_mem(mut addr: i32, mut r: i32) -> () {
+    instr_0F5B(return_on_pagefault!(safe_read128s(addr)), r);
+}
+#[no_mangle]
+pub unsafe fn instr_660F5B(mut source: reg128, mut r: i32) -> () {
+    c_comment!(("cvtps2dq xmm1, xmm2/m128"));
+    let mut result = reg128 {
+        i32_0: [
+            // XXX: Precision exception
+            sse_convert_f32_to_i32(source.f32_0[0].round()),
+            sse_convert_f32_to_i32(source.f32_0[1].round()),
+            sse_convert_f32_to_i32(source.f32_0[2].round()),
+            sse_convert_f32_to_i32(source.f32_0[3].round()),
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_660F5B_reg(mut r1: i32, mut r2: i32) -> () {
+    instr_660F5B(read_xmm128s(r1), r2);
+}
+#[no_mangle]
+pub unsafe fn instr_660F5B_mem(mut addr: i32, mut r: i32) -> () {
+    instr_660F5B(return_on_pagefault!(safe_read128s(addr)), r);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F5B(mut source: reg128, mut r: i32) -> () {
+    c_comment!(("cvttps2dq xmm1, xmm2/m128"));
+    let mut result = reg128 {
+        i32_0: [
+            sse_convert_f32_to_i32(source.f32_0[0].trunc()),
+            sse_convert_f32_to_i32(source.f32_0[1].trunc()),
+            sse_convert_f32_to_i32(source.f32_0[2].trunc()),
+            sse_convert_f32_to_i32(source.f32_0[3].trunc()),
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F5B_reg(mut r1: i32, mut r2: i32) -> () {
+    instr_F30F5B(read_xmm128s(r1), r2);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F5B_mem(mut addr: i32, mut r: i32) -> () {
+    instr_F30F5B(return_on_pagefault!(safe_read128s(addr)), r);
+}
+
 #[no_mangle]
 pub unsafe fn instr_0F5C(mut source: reg128, mut r: i32) -> () {
     c_comment!(("subps xmm, xmm/mem128"));
