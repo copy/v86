@@ -1042,10 +1042,113 @@ pub unsafe fn instr_F30F2C(mut source: f32, mut r: i32) -> () { unimplemented_ss
 pub unsafe fn instr_F30F2C_reg(mut r1: i32, mut r2: i32) -> () {
     instr_F30F2C(read_xmm_f32(r1), r2);
 }
+
+pub unsafe fn instr_0F2E(source: f32, r: i32) {
+    // ucomiss xmm1, xmm2/m32
+    let destination = read_xmm_f32(r);
+    *flags_changed = 0;
+    *flags &= !FLAGS_ALL;
+    if destination == source {
+        *flags |= FLAG_ZERO
+    }
+    else if destination < source {
+        *flags |= FLAG_CARRY
+    }
+    else if destination > source {
+        // all flags cleared
+    }
+    else {
+        // TODO: Signal on SNaN
+        *flags |= FLAG_ZERO | FLAG_PARITY | FLAG_CARRY
+    }
+}
 #[no_mangle]
-pub unsafe fn instr_0F2E() -> () { unimplemented_sse(); }
+pub unsafe fn instr_0F2E_reg(r1: i32, r2: i32) -> () { instr_0F2E(read_xmm_f32(r1), r2) }
 #[no_mangle]
-pub unsafe fn instr_0F2F() -> () { unimplemented_sse(); }
+pub unsafe fn instr_0F2E_mem(addr: i32, r: i32) -> () {
+    instr_0F2E(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+}
+
+pub unsafe fn instr_660F2E(source: reg64, r: i32) {
+    // ucomisd xmm1, xmm2/m64
+    let destination = read_xmm64s(r).f64_0[0];
+    let source = source.f64_0[0];
+    *flags_changed = 0;
+    *flags &= !FLAGS_ALL;
+    if destination == source {
+        *flags |= FLAG_ZERO
+    }
+    else if destination < source {
+        *flags |= FLAG_CARRY
+    }
+    else if destination > source {
+        // all flags cleared
+    }
+    else {
+        // TODO: Signal on SNaN
+        *flags |= FLAG_ZERO | FLAG_PARITY | FLAG_CARRY
+    }
+}
+#[no_mangle]
+pub unsafe fn instr_660F2E_reg(r1: i32, r: i32) { instr_660F2E(read_xmm64s(r1), r); }
+#[no_mangle]
+pub unsafe fn instr_660F2E_mem(addr: i32, r: i32) {
+    instr_660F2E(return_on_pagefault!(safe_read64s(addr)), r)
+}
+
+pub unsafe fn instr_0F2F(source: f32, r: i32) {
+    // comiss xmm1, xmm2/m32
+    let destination = read_xmm_f32(r);
+    *flags_changed = 0;
+    *flags &= !FLAGS_ALL;
+    if destination == source {
+        *flags |= FLAG_ZERO
+    }
+    else if destination < source {
+        *flags |= FLAG_CARRY
+    }
+    else if destination > source {
+        // all flags cleared
+    }
+    else {
+        // TODO: Signal on SNaN or QNaN
+        *flags |= FLAG_ZERO | FLAG_PARITY | FLAG_CARRY
+    }
+}
+#[no_mangle]
+pub unsafe fn instr_0F2F_reg(r1: i32, r2: i32) -> () { instr_0F2F(read_xmm_f32(r1), r2) }
+#[no_mangle]
+pub unsafe fn instr_0F2F_mem(addr: i32, r: i32) -> () {
+    instr_0F2F(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+}
+
+pub unsafe fn instr_660F2F(source: reg64, r: i32) {
+    // comisd xmm1, xmm2/m64
+    let destination = read_xmm64s(r).f64_0[0];
+    let source = source.f64_0[0];
+    *flags_changed = 0;
+    *flags &= !FLAGS_ALL;
+    if destination == source {
+        *flags |= FLAG_ZERO
+    }
+    else if destination < source {
+        *flags |= FLAG_CARRY
+    }
+    else if destination > source {
+        // all flags cleared
+    }
+    else {
+        // TODO: Signal on SNaN or QNaN
+        *flags |= FLAG_ZERO | FLAG_PARITY | FLAG_CARRY
+    }
+}
+#[no_mangle]
+pub unsafe fn instr_660F2F_reg(r1: i32, r: i32) { instr_660F2F(read_xmm64s(r1), r); }
+#[no_mangle]
+pub unsafe fn instr_660F2F_mem(addr: i32, r: i32) {
+    instr_660F2F(return_on_pagefault!(safe_read64s(addr)), r)
+}
+
 #[no_mangle]
 pub unsafe fn instr_0F30() -> () {
     c_comment!(("wrmsr - write maschine specific register"));
@@ -2455,6 +2558,7 @@ pub unsafe fn instr_660F70_reg(mut r1: i32, mut r2: i32, mut imm: i32) -> () {
 pub unsafe fn instr_660F70_mem(mut addr: i32, mut r: i32, mut imm: i32) -> () {
     instr_660F70(return_on_pagefault!(safe_read128s(addr)), r, imm);
 }
+
 #[no_mangle]
 pub unsafe fn instr_F20F70(mut source: reg128, mut r: i32, mut imm8: i32) -> () {
     c_comment!(("pshuflw xmm, xmm/m128, imm8"));
