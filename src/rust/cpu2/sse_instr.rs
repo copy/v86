@@ -397,10 +397,23 @@ pub unsafe fn sse_max(mut x: f64, mut y: f64) -> f64 {
     c_comment!(("if both x and y are 0 or x is nan, y is returned"));
     return if x > y { x } else { y };
 }
+
+#[no_mangle]
+pub unsafe fn sse_convert_f32_to_i32(mut x: f32) -> i32 {
+    c_comment!(("TODO: Rounding modes"));
+    if x >= -2147483648.0 && x < 2147483648.0 {
+        return x as i64 as i32;
+    }
+    else {
+        c_comment!(("TODO: Signal"));
+        return 2147483648u32.wrapping_neg() as i32;
+    };
+}
+
 #[no_mangle]
 pub unsafe fn sse_convert_f64_to_i32(mut x: f64) -> i32 {
     c_comment!(("TODO: Rounding modes"));
-    if x >= 2147483648u32.wrapping_neg() as f64 && x < 2147483648u32 as f64 {
+    if x >= -2147483648.0 as f64 && x < 2147483648.0 as f64 {
         return x as i64 as i32;
     }
     else {

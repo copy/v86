@@ -984,24 +984,46 @@ pub unsafe fn instr_660F2B_mem(mut addr: i32, mut r: i32) -> () {
     c_comment!(("XXX: Aligned write or #gp"));
     mov_r_m128(addr, r);
 }
+
+#[no_mangle]
+pub unsafe fn instr_0F2C(mut source: reg64, mut r: i32) -> () {
+    // cvttps2pi mm, xmm/m64
+    let result = reg64 {
+        i32_0: [
+            sse_convert_f32_to_i32(source.f32_0[0].trunc()),
+            sse_convert_f32_to_i32(source.f32_0[1].trunc()),
+        ],
+    };
+    write_mmx_reg64(r, result);
+}
 #[no_mangle]
 pub unsafe fn instr_0F2C_mem(mut addr: i32, mut r: i32) -> () {
     instr_0F2C(return_on_pagefault!(safe_read64s(addr)), r);
 }
 #[no_mangle]
-pub unsafe fn instr_0F2C(mut source: reg64, mut r: i32) -> () { unimplemented_sse(); }
+pub unsafe fn instr_0F2C_reg(mut r1: i32, mut r2: i32) -> () { instr_0F2C(read_xmm64s(r1), r2); }
+
 #[no_mangle]
-pub unsafe fn instr_0F2C_reg(mut r1: i32, mut r2: i32) -> () { instr_0F2C(read_mmx64s(r1), r2); }
+pub unsafe fn instr_660F2C(mut source: reg128, mut r: i32) -> () {
+    // cvttpd2pi mm, xmm/m128
+    let result = reg64 {
+        // XXX: Check conversion
+        i32_0: [
+            sse_convert_f64_to_i32(source.f64_0[0]),
+            sse_convert_f64_to_i32(source.f64_0[1]),
+        ],
+    };
+    write_mmx_reg64(r, result);
+}
 #[no_mangle]
 pub unsafe fn instr_660F2C_mem(mut addr: i32, mut r: i32) -> () {
     instr_660F2C(return_on_pagefault!(safe_read128s(addr)), r);
 }
 #[no_mangle]
-pub unsafe fn instr_660F2C(mut source: reg128, mut r: i32) -> () { unimplemented_sse(); }
-#[no_mangle]
 pub unsafe fn instr_660F2C_reg(mut r1: i32, mut r2: i32) -> () {
     instr_660F2C(read_xmm128s(r1), r2);
 }
+
 #[no_mangle]
 pub unsafe fn instr_F20F2C(mut source: reg64, mut r: i32) -> () {
     let mut si: i32 = 0;
@@ -1032,12 +1054,16 @@ pub unsafe fn instr_F20F2C_reg(mut r1: i32, mut r2: i32) -> () {
 pub unsafe fn instr_F20F2C_mem(mut addr: i32, mut r: i32) -> () {
     instr_F20F2C(return_on_pagefault!(safe_read64s(addr)), r);
 }
+
+#[no_mangle]
+pub unsafe fn instr_F30F2C(source: f32, mut r: i32) -> () {
+    let result = source.trunc();
+    write_reg32(r, sse_convert_f32_to_i32(source));
+}
 #[no_mangle]
 pub unsafe fn instr_F30F2C_mem(mut addr: i32, mut r: i32) -> () {
     instr_F30F2C(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
 }
-#[no_mangle]
-pub unsafe fn instr_F30F2C(mut source: f32, mut r: i32) -> () { unimplemented_sse(); }
 #[no_mangle]
 pub unsafe fn instr_F30F2C_reg(mut r1: i32, mut r2: i32) -> () {
     instr_F30F2C(read_xmm_f32(r1), r2);
@@ -5874,16 +5900,36 @@ pub unsafe fn instr_F30F2A_reg(mut r1: i32, mut r2: i32) -> () { instr_F30F2A(re
 pub unsafe fn instr_F30F2A_mem(mut addr: i32, mut r: i32) -> () {
     instr_F30F2A(return_on_pagefault!(safe_read32s(addr)), r);
 }
+
 #[no_mangle]
-pub unsafe fn instr_0F2D(mut source: reg64, mut r: i32) -> () { unimplemented_sse(); }
+pub unsafe fn instr_0F2D(mut source: reg64, mut r: i32) -> () {
+    // cvtps2pi mm, xmm/m64
+    let result = reg64 {
+        i32_0: [
+            sse_convert_f32_to_i32(source.f32_0[0].round()),
+            sse_convert_f32_to_i32(source.f32_0[1].round()),
+        ],
+    };
+    write_mmx_reg64(r, result);
+}
 #[no_mangle]
-pub unsafe fn instr_0F2D_reg(mut r1: i32, mut r2: i32) -> () { instr_0F2D(read_mmx64s(r1), r2); }
+pub unsafe fn instr_0F2D_reg(mut r1: i32, mut r2: i32) -> () { instr_0F2D(read_xmm64s(r1), r2); }
 #[no_mangle]
 pub unsafe fn instr_0F2D_mem(mut addr: i32, mut r: i32) -> () {
     instr_0F2D(return_on_pagefault!(safe_read64s(addr)), r);
 }
+
 #[no_mangle]
-pub unsafe fn instr_660F2D(mut source: reg128, mut r: i32) -> () { unimplemented_sse(); }
+pub unsafe fn instr_660F2D(mut source: reg128, mut r: i32) -> () {
+    // cvtpd2pi mm, xmm/m128
+    let result = reg64 {
+        i32_0: [
+            sse_convert_f64_to_i32(source.f64_0[0].round()),
+            sse_convert_f64_to_i32(source.f64_0[1].round()),
+        ],
+    };
+    write_mmx_reg64(r, result);
+}
 #[no_mangle]
 pub unsafe fn instr_660F2D_reg(mut r1: i32, mut r2: i32) -> () {
     instr_660F2D(read_xmm128s(r1), r2);
@@ -5906,7 +5952,10 @@ pub unsafe fn instr_F20F2D_mem(mut addr: i32, mut r: i32) -> () {
     instr_F20F2D(return_on_pagefault!(safe_read64s(addr)), r);
 }
 #[no_mangle]
-pub unsafe fn instr_F30F2D(mut source: f32, mut r: i32) -> () { unimplemented_sse(); }
+pub unsafe fn instr_F30F2D(mut source: f32, mut r: i32) -> () {
+    // cvtss2si r32, xmm1/m32
+    write_reg32(r, sse_convert_f32_to_i32(source.round()));
+}
 #[no_mangle]
 pub unsafe fn instr_F30F2D_reg(mut r1: i32, mut r2: i32) -> () {
     instr_F30F2D(read_xmm_f32(r1), r2);
@@ -5915,6 +5964,7 @@ pub unsafe fn instr_F30F2D_reg(mut r1: i32, mut r2: i32) -> () {
 pub unsafe fn instr_F30F2D_mem(mut addr: i32, mut r: i32) -> () {
     instr_F30F2D(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
 }
+
 #[no_mangle]
 pub unsafe fn instr_0F51(mut source: reg128, mut r: i32) -> () {
     c_comment!(("sqrtps xmm, xmm/mem128"));
