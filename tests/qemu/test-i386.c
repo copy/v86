@@ -2586,6 +2586,7 @@ void test_fxsave(void)
 #if defined(__x86_64__)
         "movdqa %2, %%xmm15\n"
 #endif
+        " fninit\n"
         " fld1\n"
         " fld1\n"
         " fldz\n"
