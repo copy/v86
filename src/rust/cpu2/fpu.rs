@@ -360,7 +360,8 @@ pub unsafe fn fpu_set_tag_word(mut tag_word: i32) -> () {
     *fpu_stack_empty = 0i32;
     let mut i: i32 = 0i32;
     while i < 8i32 {
-        *fpu_stack_empty |= tag_word >> i & tag_word >> i + 1i32 & 1i32 << i;
+        let empty = tag_word >> (2 * i) & 3 == 3;
+        *fpu_stack_empty |= (empty as i32) << i;
         i += 1
     }
 }
