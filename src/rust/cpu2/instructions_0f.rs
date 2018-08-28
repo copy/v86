@@ -5688,7 +5688,10 @@ pub unsafe fn instr_0FFF() -> () {
     trigger_ud();
 }
 #[no_mangle]
-pub unsafe fn instr_F30F16() -> () { unimplemented_sse(); }
+pub unsafe fn instr_F30F16_reg(mut r1: i32, mut r2: i32) -> () { unimplemented_sse(); }
+#[no_mangle]
+pub unsafe fn instr_F30F16_mem(mut addr: i32, mut r: i32) -> () { unimplemented_sse(); }
+
 #[no_mangle]
 pub unsafe fn instr_0F19_reg(mut r1: i32, mut r2: i32) -> () {}
 #[no_mangle]
