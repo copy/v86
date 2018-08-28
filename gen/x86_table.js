@@ -767,9 +767,9 @@ const encodings = [
     { sse: 1, opcode: 0x0FE5, e: 1 },
     { sse: 1, opcode: 0x660FE5, e: 1 },
 
-    { sse: 1, opcode: 0x660FE6, e: 1, skip: 1, },
-    { sse: 1, opcode: 0xF20FE6, e: 1, skip: 1, },
-    { sse: 1, opcode: 0xF30FE6, e: 1, skip: 1, },
+    { sse: 1, opcode: 0x660FE6, e: 1 },
+    { sse: 1, opcode: 0xF20FE6, e: 1 },
+    { sse: 1, opcode: 0xF30FE6, e: 1 },
     { sse: 1, opcode: 0x0FE6, e: 1, block_boundary: 1, }, // ud
     { sse: 1, opcode: 0x0FE7, e: 1, reg_ud: 1 },
     { sse: 1, opcode: 0x660FE7, e: 1, reg_ud: 1, },

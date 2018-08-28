@@ -4883,22 +4883,78 @@ pub unsafe fn instr_660FE5_reg(mut r1: i32, mut r2: i32) -> () {
 pub unsafe fn instr_660FE5_mem(mut addr: i32, mut r: i32) -> () {
     instr_660FE5(return_on_pagefault!(safe_read128s(addr)), r);
 }
+
 #[no_mangle]
 pub unsafe fn instr_0FE6_mem(mut addr: i32, mut r: i32) -> () { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_0FE6_reg(mut r1: i32, mut r2: i32) -> () { trigger_ud(); }
+
 #[no_mangle]
-pub unsafe fn instr_660FE6_mem(mut addr: i32, mut r: i32) -> () { unimplemented_sse(); }
+pub unsafe fn instr_660FE6(mut source: reg128, mut r: i32) -> () {
+    // cvttpd2dq xmm1, xmm2/m128
+    let mut result = reg128 {
+        i32_0: [
+            sse_convert_f64_to_i32(source.f64_0[0].trunc()),
+            sse_convert_f64_to_i32(source.f64_0[1].trunc()),
+            0,
+            0,
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
 #[no_mangle]
-pub unsafe fn instr_660FE6_reg(mut r1: i32, mut r2: i32) -> () { unimplemented_sse(); }
+pub unsafe fn instr_660FE6_mem(mut addr: i32, mut r: i32) -> () {
+    instr_660FE6(return_on_pagefault!(safe_read128s(addr)), r);
+}
 #[no_mangle]
-pub unsafe fn instr_F20FE6_mem(mut addr: i32, mut r: i32) -> () { unimplemented_sse(); }
+pub unsafe fn instr_660FE6_reg(mut r1: i32, mut r2: i32) -> () {
+    instr_660FE6(read_xmm128s(r1), r2);
+}
+
 #[no_mangle]
-pub unsafe fn instr_F20FE6_reg(mut r1: i32, mut r2: i32) -> () { unimplemented_sse(); }
+pub unsafe fn instr_F20FE6(mut source: reg128, mut r: i32) -> () {
+    // cvtpd2dq xmm1, xmm2/m128
+    let mut result = reg128 {
+        i32_0: [
+            // XXX: Precision exception
+            sse_convert_f64_to_i32(source.f64_0[0].round()),
+            sse_convert_f64_to_i32(source.f64_0[1].round()),
+            0,
+            0,
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
 #[no_mangle]
-pub unsafe fn instr_F30FE6_mem(mut addr: i32, mut r: i32) -> () { unimplemented_sse(); }
+pub unsafe fn instr_F20FE6_mem(mut addr: i32, mut r: i32) -> () {
+    instr_F20FE6(return_on_pagefault!(safe_read128s(addr)), r);
+}
 #[no_mangle]
-pub unsafe fn instr_F30FE6_reg(mut r1: i32, mut r2: i32) -> () { unimplemented_sse(); }
+pub unsafe fn instr_F20FE6_reg(mut r1: i32, mut r2: i32) -> () {
+    instr_F20FE6(read_xmm128s(r1), r2);
+}
+
+#[no_mangle]
+pub unsafe fn instr_F30FE6(mut source: reg64, mut r: i32) -> () {
+    // cvtdq2pd xmm1, xmm2/m64
+    let mut result: reg128 = reg128 {
+        f64_0: [
+            // Note: Conversion never fails (i32 fits into f64)
+            source.i32_0[0] as f64,
+            source.i32_0[1] as f64,
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_F30FE6_mem(mut addr: i32, mut r: i32) -> () {
+    instr_F30FE6(return_on_pagefault!(safe_read64s(addr)), r);
+}
+#[no_mangle]
+pub unsafe fn instr_F30FE6_reg(mut r1: i32, mut r2: i32) -> () {
+    instr_F30FE6(read_xmm64s(r1), r2);
+}
+
 #[no_mangle]
 pub unsafe fn instr_0FE7_mem(mut addr: i32, mut r: i32) -> () {
     c_comment!(("movntq m64, mm"));
