@@ -406,7 +406,7 @@ pub unsafe fn fxrstor(mut addr: u32) -> () {
         *fpu_ip = safe_read16(addr.wrapping_add(12i32 as u32) as i32).unwrap();
         *fpu_dp = safe_read32s(addr.wrapping_add(16i32 as u32) as i32).unwrap();
         *fpu_dp_selector = safe_read16(addr.wrapping_add(20i32 as u32) as i32).unwrap();
-        *mxcsr = new_mxcsr;
+        set_mxcsr(new_mxcsr);
         let mut i: i32 = 0i32;
         while i < 8i32 {
             *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(i as u32) & 7i32 as u32) as isize) =

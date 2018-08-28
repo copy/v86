@@ -1408,6 +1408,35 @@ pub unsafe fn task_switch_test() -> bool {
     };
 }
 
+pub unsafe fn set_mxcsr(new_mxcsr: i32) {
+    dbg_assert!(new_mxcsr & !MXCSR_MASK == 0); // checked by caller
+
+    if new_mxcsr & 1 << 6 != 0 {
+        dbg_log!("Warning: Unimplemented MXCSR bit: Denormals Are Zero")
+    }
+    if new_mxcsr & 1 << 15 != 0 {
+        dbg_log!("Warning: Unimplemented MXCSR bit: Flush To Zero")
+    }
+
+    let rounding_mode = new_mxcsr >> 13 & 3;
+    if rounding_mode != 0 {
+        dbg_log!(
+            "Warning: Unimplemented MXCSR rounding mode: {}",
+            rounding_mode
+        )
+    }
+
+    let exception_mask = new_mxcsr >> 7 & 0b111111;
+    if exception_mask != 0x111111 {
+        dbg_log!(
+            "Warning: Unimplemented MXCSR exception mask: {:b}",
+            exception_mask
+        )
+    }
+
+    *mxcsr = new_mxcsr;
+}
+
 #[no_mangle]
 pub unsafe fn task_switch_test_void() -> () { task_switch_test(); }
 
