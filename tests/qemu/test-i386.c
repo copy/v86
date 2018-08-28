@@ -2491,12 +2491,10 @@ SSE_OP(a ## sd);
 
 void test_sse_comi(double a1, double b1)
 {
-    /*
     SSE_COMI(ucomiss, s);
     SSE_COMI(ucomisd, d);
     SSE_COMI(comiss, s);
     SSE_COMI(comisd, d);
-    */
 }
 
 #define CVT_OP_XMM(op)\
@@ -2741,9 +2739,8 @@ void test_sse(void)
     SSE_OP2(unpckhps);
     SSE_OP2(unpckhpd);
 
-    // TODO: These instructions pull in some other unimplemented instructions on v86
-    //SHUF_OP(shufps, 0x78);
-    //SHUF_OP(shufpd, 0x02);
+    SHUF_OP(shufps, 0x78);
+    SHUF_OP(shufpd, 0x02);
     SHUF_OP_MMX(pshufw, 0x78);
     SHUF_OP_MMX(pshufw, 0x02);
 
@@ -2861,8 +2858,15 @@ void test_sse(void)
         SSE_OPD(cmpord);
     }
 
+    // approximating instructions: Pick some nice round values
+    a.s[0] = 1024.0;
+    a.s[1] = 1.0 / 256.0;
+    b.s[0] = 1024.0;
+    b.s[1] = 1.0 / 256.0;
+    SSE_OPS(rsqrt);
+    SSE_OPS(rcp);
+
     /* float to float/int */
-    /*
     a.s[0] = 2.7;
     a.s[1] = 3.4;
     a.s[2] = 4;
@@ -2886,14 +2890,12 @@ void test_sse(void)
     CVT_OP_XMM2REG(cvttsd2si);
     CVT_OP_XMM(cvtpd2dq);
     CVT_OP_XMM(cvttpd2dq);
-    */
 
     /* sse/mmx moves */
     CVT_OP_XMM2MMX(movdq2q);
     CVT_OP_MMX2XMM(movq2dq);
 
     /* int to float */
-    /*
     a.l[0] = -6;
     a.l[1] = 2;
     a.l[2] = 100;
@@ -2904,7 +2906,6 @@ void test_sse(void)
     CVT_OP_REG2XMM(cvtsi2sd);
     CVT_OP_XMM(cvtdq2ps);
     CVT_OP_XMM(cvtdq2pd);
-    */
     /* XXX: test PNI insns */
 #if 0
     SSE_OP2(movshdup);
