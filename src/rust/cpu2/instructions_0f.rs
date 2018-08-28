@@ -66,8 +66,6 @@ use cpu2::sse_instr::*;
 pub static mut apic_enabled: bool = false;
 const ENABLE_ACPI: bool = false;
 
-pub fn convert_f64_to_i32(x: f64) -> i32 { x as i32 }
-
 #[no_mangle]
 pub unsafe fn instr_0F00_0_mem(mut addr: i32) -> () {
     c_comment!(("sldt"));
@@ -1026,25 +1024,8 @@ pub unsafe fn instr_660F2C_reg(mut r1: i32, mut r2: i32) -> () {
 
 #[no_mangle]
 pub unsafe fn instr_F20F2C(mut source: reg64, mut r: i32) -> () {
-    let mut si: i32 = 0;
     c_comment!(("cvttsd2si r32, xmm/m64"));
-    c_comment!(
-        ("emscripten bug causes this ported instruction to throw \'integer result unpresentable\'")
-    );
-    c_comment!(("https://github.com/kripken/emscripten/issues/5433"));
-    if 0 != 0i32 * 0i32 {
-        let mut f: f64 = source.f64_0[0usize];
-        if f <= 2147483647i32 as f64 && f >= 2147483648u32.wrapping_neg() as f64 {
-            si = f as i32;
-            write_reg32(r, si);
-        }
-        else {
-            write_reg32(r, 2147483648u32 as i32);
-        }
-    }
-    else {
-        write_reg32(r, convert_f64_to_i32(source.f64_0[0usize]));
-    };
+    write_reg32(r, sse_convert_f64_to_i32(source.f64_0[0usize]));
 }
 #[no_mangle]
 pub unsafe fn instr_F20F2C_reg(mut r1: i32, mut r2: i32) -> () {
@@ -5997,7 +5978,7 @@ pub unsafe fn instr_660F2D_mem(mut addr: i32, mut r: i32) -> () {
 #[no_mangle]
 pub unsafe fn instr_F20F2D(mut source: reg64, mut r: i32) -> () {
     c_comment!(("cvtsd2si r32, xmm/m64"));
-    write_reg32(r, sse_convert_f64_to_i32(source.f64_0[0usize]));
+    write_reg32(r, sse_convert_f64_to_i32(source.f64_0[0usize].round()));
 }
 #[no_mangle]
 pub unsafe fn instr_F20F2D_reg(mut r1: i32, mut r2: i32) -> () {
@@ -6151,6 +6132,7 @@ pub unsafe fn instr_F30F53_reg(mut r1: i32, mut r2: i32) -> () {
 pub unsafe fn instr_F30F53_mem(mut addr: i32, mut r: i32) -> () {
     instr_F30F53(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
 }
+
 #[no_mangle]
 pub unsafe fn instr_0F58(mut source: reg128, mut r: i32) -> () {
     c_comment!(("addps xmm, xmm/mem128"));
@@ -6223,6 +6205,7 @@ pub unsafe fn instr_F30F58_reg(mut r1: i32, mut r2: i32) -> () {
 pub unsafe fn instr_F30F58_mem(mut addr: i32, mut r: i32) -> () {
     instr_F30F58(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
 }
+
 #[no_mangle]
 pub unsafe fn instr_0F59(mut source: reg128, mut r: i32) -> () {
     c_comment!(("mulps xmm, xmm/mem128"));
