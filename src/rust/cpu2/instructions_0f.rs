@@ -5830,8 +5830,40 @@ pub unsafe fn instr_F30F51_reg(mut r1: i32, mut r2: i32) -> () {
 pub unsafe fn instr_F30F51_mem(mut addr: i32, mut r: i32) -> () {
     instr_F30F51(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
 }
+
 #[no_mangle]
-pub unsafe fn instr_0F52() -> () { unimplemented_sse(); }
+pub unsafe fn instr_0F52(mut source: reg128, mut r: i32) -> () {
+    c_comment!(("rcpps xmm1, xmm2/m128"));
+    let mut result: reg128 = reg128 {
+        f32_0: [
+            1i32 as f32 / source.f32_0[0usize].sqrt(),
+            1i32 as f32 / source.f32_0[1usize].sqrt(),
+            1i32 as f32 / source.f32_0[2usize].sqrt(),
+            1i32 as f32 / source.f32_0[3usize].sqrt(),
+        ],
+    };
+    write_xmm_reg128(r, result);
+}
+#[no_mangle]
+pub unsafe fn instr_0F52_reg(mut r1: i32, mut r2: i32) -> () { instr_0F52(read_xmm128s(r1), r2); }
+#[no_mangle]
+pub unsafe fn instr_0F52_mem(mut addr: i32, mut r: i32) -> () {
+    instr_0F52(return_on_pagefault!(safe_read128s(addr)), r);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F52(mut source: f32, mut r: i32) -> () {
+    c_comment!(("rsqrtss xmm1, xmm2/m32"));
+    write_xmm_f32(r, 1i32 as f32 / source.sqrt());
+}
+#[no_mangle]
+pub unsafe fn instr_F30F52_reg(mut r1: i32, mut r2: i32) -> () {
+    instr_F30F52(read_xmm_f32(r1), r2);
+}
+#[no_mangle]
+pub unsafe fn instr_F30F52_mem(mut addr: i32, mut r: i32) -> () {
+    instr_F30F52(return_on_pagefault!(fpu_load_m32(addr)) as f32, r);
+}
+
 #[no_mangle]
 pub unsafe fn instr_0F53(mut source: reg128, mut r: i32) -> () {
     c_comment!(("rcpps xmm, xmm/m128"));
