@@ -14,13 +14,8 @@ JIT_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_jit.js
 INTERPRETER_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_interpreter.js
 ANALYZER_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_analyzer.js
 
-# Enable manually and recompile v86-debug.wasm for coverage-enabled tests
-ifeq ($(ENABLE_COV), 1)
-CC_COVERAGE_FLAGS=--coverage -fprofile-instr-generate
-endif
-
-all: build/v86_all.js build/libv86.js build/v86.wasm build/v86oxide.wasm
-all-debug: build/libv86-debug.js build/v86-debug.wasm build/v86oxide-debug.wasm
+all: build/v86_all.js build/libv86.js build/v86oxide.wasm
+all-debug: build/libv86-debug.js build/v86oxide-debug.wasm
 browser: build/v86_all.js
 
 # Used for nodejs builds and in order to profile code.
@@ -86,19 +81,6 @@ CLOSURE_FLAGS=\
 TRANSPILE_ES6_FLAGS=\
 		--language_in ECMASCRIPT6_STRICT\
 		--language_out ECMASCRIPT5_STRICT\
-
-CC_FLAGS=\
-	        -std=c11 \
-		-Isrc/native/ \
-		-Wall -Wpedantic -Wextra \
-		-Wno-bitwise-op-parentheses -Wno-gnu-binary-literal \
-		-fcolor-diagnostics \
-		-fwrapv \
-		-g4 \
-		-s LEGALIZE_JS_FFI=0 \
-		-s "BINARYEN_TRAP_MODE='allow'" \
-		-s WASM=1 \
-		-s SIDE_MODULE=1
 
 CARGO_FLAGS=\
 		--target wasm32-unknown-unknown \
@@ -200,29 +182,6 @@ src/rust/gen/analyzer0f_16.rs: $(ANALYZER_DEPENDENCIES)
 src/rust/gen/analyzer0f_32.rs: $(ANALYZER_DEPENDENCIES)
 	./gen/generate_analyzer.js --output-dir build/ --table analyzer0f_32
 
-build/v86.wasm: src/native/*.c src/native/*.h src/native/profiler/* src/native/*.ll $(INSTRUCTION_TABLES)
-	mkdir -p build
-	-ls -lh build/v86.wasm
-	#emcc src/native/*.c src/native/profiler/*.c src/native/*.ll \
-	#	$(CC_FLAGS) \
-	#	-DDEBUG=false \
-	#	-DNDEBUG \
-	#	-O3 \
-	#	--llvm-opts 3 \
-	#	--llvm-lto 3 \
-	#	-o build/v86.wasm
-	ls -lh build/v86.wasm
-
-build/v86-debug.wasm: src/native/*.c src/native/*.h src/native/profiler/* src/native/*.ll $(INSTRUCTION_TABLES)
-	mkdir -p build/coverage
-	-ls -lh build/v86-debug.wasm
-	#emcc src/native/*.c src/native/profiler/*.c src/native/*.ll \
-	#	$(CC_FLAGS) \
-	#	$(CC_COVERAGE_FLAGS) \
-	#	-Os \
-	#	-o build/v86-debug.wasm
-	#ls -lh build/v86-debug.wasm
-
 build/v86oxide.wasm: $(RUST_FILES) Cargo.toml
 	mkdir -p build/
 	-ls -lh build/v86oxide.wasm
@@ -241,8 +200,6 @@ clean:
 	-rm build/libv86.js
 	-rm build/libv86-debug.js
 	-rm build/v86_all.js
-	-rm build/v86.wasm
-	-rm build/v86-debug.wasm
 	-rm build/v86oxide.wasm
 	-rm build/v86oxide-debug.wasm
 	-rm $(INSTRUCTION_TABLES)
@@ -340,9 +297,3 @@ build/libwabt.js:
 	wget -P build https://github.com/WebAssembly/wabt/archive/1.0.1.zip
 	unzip -j -d build/ build/1.0.1.zip wabt-1.0.1/demo/libwabt.js
 	rm build/1.0.1.zip
-
-clang-tidy:
-	clang-tidy \
-	     src/native/*.c src/native/*.h \
-	     src/native/profiler/*.c src/native/profiler/*.h \
-	     -- -I src/native/ -Wall -Wno-bitwise-op-parentheses -Wno-gnu-binary-literal
