@@ -88,7 +88,7 @@ const tests =
 
             const notfound3 = emulator.fs9p.SearchPath("a/d");
             assert_equal(notfound3.id, -1, "notfound3 a/d id");
-            assert_equal(emulator.fs9p.GetInode(notfound3.parentid).name, "a", "notfound3 a/d parent name");
+            assert_not_equal(notfound3.parentid, -1, "notfound3 a/d parent id");
             const idx_a = notfound3.parentid;
 
             const notfound4 = emulator.fs9p.SearchPath("a/d/e");
@@ -100,17 +100,17 @@ const tests =
             assert_equal(dir1.parentid, 0, "dir1 a parentid");
 
             const dir2 = emulator.fs9p.SearchPath("a/b/c");
-            assert_equal(emulator.fs9p.GetInode(dir2.id).name, "c", "dir2 a/b/c name");
-            assert_equal(emulator.fs9p.GetInode(dir2.parentid).name, "b", "dir2 a/b/c parent name");
+            assert_not_equal(dir2.id, -1, "dir2 a/b/c id");
+            assert_not_equal(dir2.parentid, -1, "dir2 a/b/c parentid");
             const idx_b = dir2.parentid;
             const idx_c = dir2.id;
 
             const file1 = emulator.fs9p.SearchPath("a/b/c/file1");
-            assert_equal(emulator.fs9p.GetInode(file1.id).name, "file1", "file1 a/b/c/file1 name");
+            assert_not_equal(file1.id, -1, "file1 a/b/c/file1 id");
             assert_equal(file1.parentid, idx_c, "file1 a/b/c/file1 parentid");
 
             const file2 = emulator.fs9p.SearchPath("file2");
-            assert_equal(emulator.fs9p.GetInode(file2.id).name, "file2", "file2 name");
+            assert_not_equal(file2.id, -1, "file2 id");
             assert_equal(file2.parentid, 0, "file2 parentid");
 
             const fwdpath1 = emulator.fs9p.SearchPath("x/fs2");
