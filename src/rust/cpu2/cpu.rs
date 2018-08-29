@@ -1,11 +1,4 @@
-#![allow(
-    dead_code,
-    mutable_transmutes,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-    unused_mut
-)]
+#![allow(mutable_transmutes, non_upper_case_globals, unused_mut)]
 
 extern "C" {
     #[no_mangle]
@@ -51,7 +44,7 @@ pub union reg64 {
     pub f32_0: [f32; 2],
     pub f64_0: [f64; 1],
 }
-pub type cached_state_flags = u8;
+pub type CachedStateFlags = u8;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -771,7 +764,7 @@ pub unsafe fn cycle_internal() -> () {
         let mut initial_state: u16 = 0;
         *previous_ip = *instruction_pointer;
         let mut phys_addr: u32 = return_on_pagefault!(get_phys_eip()) as u32;
-        let mut state_flags: cached_state_flags = pack_current_state_flags();
+        let mut state_flags: CachedStateFlags = pack_current_state_flags();
         let mut entry: u32 = ::c_api::jit_find_cache_entry(phys_addr, state_flags as u32);
         if 0 != entry {
             profiler_stat_increment(S_RUN_FROM_CACHE);
@@ -847,11 +840,11 @@ unsafe fn jit_run_interpreted(mut phys_addr: i32) -> () {
 }
 
 #[no_mangle]
-pub unsafe fn pack_current_state_flags() -> cached_state_flags {
+pub unsafe fn pack_current_state_flags() -> CachedStateFlags {
     return ((*is_32 as i32) << 0i32
         | (*stack_size_32 as i32) << 1i32
         | ((*cpl as i32 == 3i32) as i32) << 2i32
-        | (has_flat_segmentation() as i32) << 3i32) as cached_state_flags;
+        | (has_flat_segmentation() as i32) << 3i32) as CachedStateFlags;
 }
 
 pub unsafe fn has_flat_segmentation() -> bool {
