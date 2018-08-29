@@ -23,13 +23,3 @@ pub fn allocate_memory(size: u32) -> u32 {
     };
     ptr
 }
-
-macro_rules! dbg_log_c {
-    ($fmt:expr) => {{
-        dbg_log!($fmt);
-    }};
-    ($fmt:expr, $($arg:tt)*) => {{
-        // TODO: Arguments
-        dbg_log!($fmt);
-    }};
-}

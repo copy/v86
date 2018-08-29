@@ -952,12 +952,12 @@ pub unsafe fn instr32_61() -> () { popa32(); }
 #[no_mangle]
 pub unsafe fn instr_62_reg(mut r2: i32, mut r: i32) -> () {
     // bound
-    dbg_log_c!("Unimplemented BOUND instruction");
+    dbg_log!("Unimplemented BOUND instruction");
     dbg_assert!(0 != 0i32);
 }
 #[no_mangle]
 pub unsafe fn instr_62_mem(mut addr: i32, mut r: i32) -> () {
-    dbg_log_c!("Unimplemented BOUND instruction");
+    dbg_log!("Unimplemented BOUND instruction");
     dbg_assert!(0 != 0i32);
 }
 #[no_mangle]
@@ -1570,7 +1570,7 @@ pub unsafe fn instr32_8B_reg(mut r1: i32, mut r: i32) -> () {
 #[no_mangle]
 pub unsafe fn instr_8C_check_sreg(mut seg: i32) -> bool {
     if seg >= 6i32 {
-        dbg_log_c!("mov sreg #ud");
+        dbg_log!("mov sreg #ud");
         trigger_ud();
         return 0 != 0i32;
     }
@@ -1604,7 +1604,7 @@ pub unsafe fn instr32_8C_mem(mut addr: i32, mut seg: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_8D_reg(mut r: i32, mut r2: i32) -> () {
-    dbg_log_c!("lea #ud");
+    dbg_log!("lea #ud");
     trigger_ud();
 }
 #[no_mangle]
@@ -1618,7 +1618,7 @@ pub unsafe fn instr16_8D_mem(modrm_byte: i32, mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr32_8D_reg(mut r: i32, mut r2: i32) -> () {
-    dbg_log_c!("lea #ud");
+    dbg_log!("lea #ud");
     trigger_ud();
 }
 #[no_mangle]
@@ -1639,7 +1639,7 @@ pub unsafe fn instr_8E_helper(mut data: i32, mut mod_0: i32) -> () {
         }
     }
     else {
-        dbg_log_c!("mov sreg #ud");
+        dbg_log!("mov sreg #ud");
         trigger_ud();
     };
 }
@@ -1789,7 +1789,7 @@ pub unsafe fn instr16_9C() -> () {
     // pushf
     if 0 != *flags.offset(0isize) & FLAG_VM && getiopl() < 3i32 {
         dbg_assert!(*protected_mode);
-        dbg_log_c!("pushf #gp");
+        dbg_log!("pushf #gp");
         trigger_gp_non_raising(0i32);
     }
     else {
@@ -1802,7 +1802,7 @@ pub unsafe fn instr32_9C() -> () {
     if 0 != *flags.offset(0isize) & FLAG_VM && getiopl() < 3i32 {
         // trap to virtual 8086 monitor
         dbg_assert!(*protected_mode);
-        dbg_log_c!("pushf #gp");
+        dbg_log!("pushf #gp");
         trigger_gp_non_raising(0i32);
     }
     else {
@@ -1814,7 +1814,7 @@ pub unsafe fn instr32_9C() -> () {
 pub unsafe fn instr16_9D() -> () {
     // popf
     if 0 != *flags.offset(0isize) & FLAG_VM && getiopl() < 3i32 {
-        dbg_log_c!("popf #gp");
+        dbg_log!("popf #gp");
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -1834,7 +1834,7 @@ pub unsafe fn instr16_9D() -> () {
 pub unsafe fn instr32_9D() -> () {
     // popf
     if 0 != *flags.offset(0isize) & FLAG_VM && getiopl() < 3i32 {
-        dbg_log_c!("popf #gp");
+        dbg_log!("popf #gp");
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -2329,7 +2329,7 @@ pub unsafe fn instr32_CB() -> () {
 pub unsafe fn instr_CC() -> () {
     // INT3
     // TODO: inhibit iopl checks
-    dbg_log_c!("INT3");
+    dbg_log!("INT3");
     call_interrupt_vector(3i32, 0 != 1i32, 0 != 0i32, 0i32);
 }
 #[no_mangle]
@@ -2340,7 +2340,7 @@ pub unsafe fn instr_CD(mut imm8: i32) -> () {
 #[no_mangle]
 pub unsafe fn instr_CE() -> () {
     // INTO
-    dbg_log_c!("INTO");
+    dbg_log!("INTO");
     if getof() {
         // TODO: inhibit iopl checks
         call_interrupt_vector(CPU_EXCEPTION_OF, 0 != 1i32, 0 != 0i32, 0i32);
@@ -3071,7 +3071,7 @@ pub unsafe fn instr32_EF() -> () {
 pub unsafe fn instr_F0() -> () {
     // lock
     if 0 != 0i32 * 0i32 {
-        dbg_log_c!("lock");
+        dbg_log!("lock");
     }
     // TODO
     // This triggers UD when used with
@@ -3374,7 +3374,7 @@ pub unsafe fn instr_FA() -> () {
         *flags &= !FLAG_VIF
     }
     else {
-        dbg_log_c!("cli #gp");
+        dbg_log!("cli #gp");
         trigger_gp_non_raising(0i32);
     };
 }
@@ -3404,7 +3404,7 @@ pub unsafe fn instr_FB() -> () {
         *flags |= FLAG_VIF
     }
     else {
-        dbg_log_c!("sti #gp");
+        dbg_log!("sti #gp");
         trigger_gp_non_raising(0i32);
     };
 }
@@ -3474,7 +3474,7 @@ pub unsafe fn instr16_FF_2_reg(mut r1: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_3_reg(mut r: i32) -> () {
-    dbg_log_c!("callf #ud");
+    dbg_log!("callf #ud");
     trigger_ud();
 }
 #[no_mangle]
@@ -3503,7 +3503,7 @@ pub unsafe fn instr16_FF_4_reg(mut r1: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_5_reg(mut r: i32) -> () {
-    dbg_log_c!("jmpf #ud");
+    dbg_log!("jmpf #ud");
     trigger_ud();
 }
 #[no_mangle]
@@ -3562,7 +3562,7 @@ pub unsafe fn instr32_FF_2_reg(mut r1: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr32_FF_3_reg(mut r: i32) -> () {
-    dbg_log_c!("callf #ud");
+    dbg_log!("callf #ud");
     trigger_ud();
 }
 #[no_mangle]
@@ -3596,7 +3596,7 @@ pub unsafe fn instr32_FF_4_reg(mut r1: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr32_FF_5_reg(mut r: i32) -> () {
-    dbg_log_c!("jmpf #ud");
+    dbg_log!("jmpf #ud");
     trigger_ud();
 }
 #[no_mangle]
@@ -3862,7 +3862,7 @@ pub unsafe fn instr_D9_0_reg(mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_D9_1_mem(mut addr: i32) -> () {
-    dbg_log_c!("d9/1");
+    dbg_log!("d9/1");
     trigger_ud();
 }
 #[no_mangle]
@@ -3879,7 +3879,7 @@ pub unsafe fn instr_D9_2_reg(mut r: i32) -> () {
 pub unsafe fn instr_D9_3_mem(mut addr: i32) -> () { fpu_fstm32p(addr); }
 #[no_mangle]
 pub unsafe fn instr_D9_3_reg(mut r: i32) -> () {
-    dbg_log_c!("fstp1");
+    dbg_log!("fstp1");
     trigger_ud();
 }
 #[no_mangle]
@@ -3903,7 +3903,7 @@ pub unsafe fn instr_D9_4_reg(mut r: i32) -> () {
             fpu_fxam(st0);
         },
         _ => {
-            dbg_log_c!("%x", r);
+            dbg_log!("{:x}", r);
             trigger_ud();
         },
     };
@@ -3936,7 +3936,7 @@ pub unsafe fn instr_D9_5_reg(mut r: i32) -> () {
             fpu_push(0i32 as f64);
         },
         7 => {
-            dbg_log_c!("d9/5/7");
+            dbg_log!("d9/5/7");
             trigger_ud();
         },
         _ => {},
@@ -4180,7 +4180,7 @@ pub unsafe fn instr_DC_7_reg(mut r: i32) -> () { fpu_fdivr(r, fpu_get_sti(r)); }
 pub unsafe fn instr_DD_0_mem(mut addr: i32) -> () { fpu_fldm64(addr); }
 #[no_mangle]
 pub unsafe fn instr_DD_1_mem(mut addr: i32) -> () {
-    dbg_log_c!("fisttp");
+    dbg_log!("fisttp");
     trigger_ud();
 }
 #[no_mangle]
@@ -4191,7 +4191,7 @@ pub unsafe fn instr_DD_3_mem(mut addr: i32) -> () { fpu_fstm64p(addr); }
 pub unsafe fn instr_DD_4_mem(mut addr: i32) -> () { fpu_frstor(addr); }
 #[no_mangle]
 pub unsafe fn instr_DD_5_mem(mut addr: i32) -> () {
-    dbg_log_c!("dd/5");
+    dbg_log!("dd/5");
     trigger_ud();
 }
 #[no_mangle]
@@ -4292,7 +4292,7 @@ pub unsafe fn instr_DF_0_mem(mut addr: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_DF_1_mem(mut addr: i32) -> () {
-    dbg_log_c!("df/fisttp");
+    dbg_log!("df/fisttp");
     trigger_ud();
 }
 #[no_mangle]
@@ -4301,14 +4301,14 @@ pub unsafe fn instr_DF_2_mem(mut addr: i32) -> () { fpu_fistm16(addr); }
 pub unsafe fn instr_DF_3_mem(mut addr: i32) -> () { fpu_fistm16p(addr); }
 #[no_mangle]
 pub unsafe fn instr_DF_4_mem(mut addr: i32) -> () {
-    dbg_log_c!("fbld");
+    dbg_log!("fbld");
     trigger_ud();
 }
 #[no_mangle]
 pub unsafe fn instr_DF_5_mem(mut addr: i32) -> () { fpu_fildm64(addr); }
 #[no_mangle]
 pub unsafe fn instr_DF_6_mem(mut addr: i32) -> () {
-    dbg_log_c!("fbstp");
+    dbg_log!("fbstp");
     trigger_ud();
 }
 #[no_mangle]

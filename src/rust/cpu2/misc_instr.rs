@@ -380,7 +380,7 @@ pub unsafe fn fxrstor(mut addr: u32) -> () {
     ));
     let mut new_mxcsr: i32 = safe_read32s(addr.wrapping_add(24i32 as u32) as i32).unwrap();
     if 0 != new_mxcsr & !MXCSR_MASK {
-        dbg_log_c!("#gp Invalid mxcsr bits");
+        dbg_log!("#gp Invalid mxcsr bits");
         trigger_gp_non_raising(0i32);
         return;
     }
