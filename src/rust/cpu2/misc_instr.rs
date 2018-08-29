@@ -1,4 +1,4 @@
-#![allow(mutable_transmutes, unused_mut)]
+#![allow(unused_mut)]
 
 use cpu2::cpu::*;
 use cpu2::fpu::{fpu_load_m80, fpu_load_status_word, fpu_set_status_word, fpu_store_m80};

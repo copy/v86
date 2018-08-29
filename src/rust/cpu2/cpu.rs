@@ -1,4 +1,4 @@
-#![allow(mutable_transmutes, non_upper_case_globals, unused_mut)]
+#![allow(non_upper_case_globals, unused_mut)]
 
 extern "C" {
     #[no_mangle]

@@ -1,4 +1,4 @@
-#![allow(mutable_transmutes, unused_mut)]
+#![allow(unused_mut)]
 
 pub const S_SAFE_WRITE32_SLOW_NOT_VALID: StatName = 22;
 pub const S_SAFE_WRITE32_SLOW_NOT_USER: StatName = 23;

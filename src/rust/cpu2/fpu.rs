@@ -1,4 +1,4 @@
-#![allow(mutable_transmutes, unused_mut)]
+#![allow(unused_mut)]
 
 use cpu2::cpu::*;
 use cpu2::global_pointers::*;
