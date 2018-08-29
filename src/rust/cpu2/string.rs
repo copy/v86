@@ -23,7 +23,8 @@ use cpu2::arith::{cmp16, cmp32, cmp8};
 use cpu2::cpu::*;
 use cpu2::global_pointers::*;
 use cpu2::memory::{
-    read8, read_aligned16, read_aligned32, write8, write_aligned16, write_aligned32,
+    in_mapped_range, read8, read_aligned16, read_aligned32, write8, write8_no_mmap_or_dirty_check,
+    write_aligned16, write_aligned32, write_aligned32_no_mmap_or_dirty_check,
 };
 
 const MAX_COUNT_PER_CYCLE: i32 = 4096;
@@ -61,17 +62,35 @@ pub unsafe fn movsb_rep() {
         let mut cycle_counter: i32 = string_get_cycle_count2(size, src, dest);
         let mut phys_src: i32 = return_on_pagefault!(translate_address_read(src)) as i32;
         let mut phys_dest: i32 = return_on_pagefault!(translate_address_write(dest)) as i32;
-        loop {
-            write8(phys_dest as u32, read8(phys_src as u32));
-            phys_dest += size;
-            phys_src += size;
-            count -= 1;
-            cont = (count != 0) as i32;
-            if !(0 != cont && {
-                cycle_counter -= 1;
-                0 != cycle_counter
-            }) {
-                break;
+        if !in_mapped_range(phys_dest as u32) {
+            ::c_api::jit_dirty_cache_single(phys_dest as u32);
+            loop {
+                write8_no_mmap_or_dirty_check(phys_dest as u32, read8(phys_src as u32));
+                phys_dest += size;
+                phys_src += size;
+                count -= 1;
+                cont = (count != 0) as i32;
+                if !(0 != cont && {
+                    cycle_counter -= 1;
+                    0 != cycle_counter
+                }) {
+                    break;
+                }
+            }
+        }
+        else {
+            loop {
+                write8(phys_dest as u32, read8(phys_src as u32));
+                phys_dest += size;
+                phys_src += size;
+                count -= 1;
+                cont = (count != 0) as i32;
+                if !(0 != cont && {
+                    cycle_counter -= 1;
+                    0 != cycle_counter
+                }) {
+                    break;
+                }
             }
         }
         let mut diff: i32 = size * (start_count - count);
@@ -186,17 +205,38 @@ pub unsafe fn movsd_rep() {
             let mut phys_dest: i32 =
                 (return_on_pagefault!(translate_address_write(dest)) >> 2) as i32;
             cycle_counter = string_get_cycle_count2(size, src, dest);
-            loop {
-                write_aligned32(phys_dest as u32, read_aligned32(phys_src as u32));
-                phys_dest += single_size;
-                phys_src += single_size;
-                count -= 1;
-                cont = (count != 0) as i32;
-                if !(0 != cont && {
-                    cycle_counter -= 1;
-                    0 != cycle_counter
-                }) {
-                    break;
+            if !in_mapped_range((phys_dest << 2) as u32) {
+                ::c_api::jit_dirty_cache_single((phys_dest << 2) as u32);
+                loop {
+                    write_aligned32_no_mmap_or_dirty_check(
+                        phys_dest as u32,
+                        read_aligned32(phys_src as u32),
+                    );
+                    phys_dest += single_size;
+                    phys_src += single_size;
+                    count -= 1;
+                    cont = (count != 0) as i32;
+                    if !(0 != cont && {
+                        cycle_counter -= 1;
+                        0 != cycle_counter
+                    }) {
+                        break;
+                    }
+                }
+            }
+            else {
+                loop {
+                    write_aligned32(phys_dest as u32, read_aligned32(phys_src as u32));
+                    phys_dest += single_size;
+                    phys_src += single_size;
+                    count -= 1;
+                    cont = (count != 0) as i32;
+                    if !(0 != cont && {
+                        cycle_counter -= 1;
+                        0 != cycle_counter
+                    }) {
+                        break;
+                    }
                 }
             }
             diff = size * (start_count - count);
@@ -471,16 +511,33 @@ pub unsafe fn stosb_rep() {
         let mut start_count: i32 = count;
         let mut cycle_counter: i32 = string_get_cycle_count(size, dest);
         let mut phys_dest: i32 = return_on_pagefault!(translate_address_write(dest)) as i32;
-        loop {
-            write8(phys_dest as u32, data);
-            phys_dest += size;
-            count -= 1;
-            cont = (count != 0) as i32;
-            if !(0 != cont && {
-                cycle_counter -= 1;
-                0 != cycle_counter
-            }) {
-                break;
+        if !in_mapped_range(phys_dest as u32) {
+            ::c_api::jit_dirty_cache_single(phys_dest as u32);
+            loop {
+                write8_no_mmap_or_dirty_check(phys_dest as u32, data);
+                phys_dest += size;
+                count -= 1;
+                cont = (count != 0) as i32;
+                if !(0 != cont && {
+                    cycle_counter -= 1;
+                    0 != cycle_counter
+                }) {
+                    break;
+                }
+            }
+        }
+        else {
+            loop {
+                write8(phys_dest as u32, data);
+                phys_dest += size;
+                count -= 1;
+                cont = (count != 0) as i32;
+                if !(0 != cont && {
+                    cycle_counter -= 1;
+                    0 != cycle_counter
+                }) {
+                    break;
+                }
             }
         }
         let mut diff: i32 = size * (start_count - count);
@@ -586,16 +643,33 @@ pub unsafe fn stosd_rep() {
             let mut phys_dest: i32 =
                 (return_on_pagefault!(translate_address_write(dest)) >> 2) as i32;
             cycle_counter = string_get_cycle_count(size, dest);
-            loop {
-                write_aligned32(phys_dest as u32, data);
-                phys_dest += single_size;
-                count -= 1;
-                cont = (count != 0) as i32;
-                if !(0 != cont && {
-                    cycle_counter -= 1;
-                    0 != cycle_counter
-                }) {
-                    break;
+            if !in_mapped_range(phys_dest as u32) {
+                ::c_api::jit_dirty_cache_single((phys_dest << 2) as u32);
+                loop {
+                    write_aligned32_no_mmap_or_dirty_check(phys_dest as u32, data);
+                    phys_dest += single_size;
+                    count -= 1;
+                    cont = (count != 0) as i32;
+                    if !(0 != cont && {
+                        cycle_counter -= 1;
+                        0 != cycle_counter
+                    }) {
+                        break;
+                    }
+                }
+            }
+            else {
+                loop {
+                    write_aligned32(phys_dest as u32, data);
+                    phys_dest += single_size;
+                    count -= 1;
+                    cont = (count != 0) as i32;
+                    if !(0 != cont && {
+                        cycle_counter -= 1;
+                        0 != cycle_counter
+                    }) {
+                        break;
+                    }
                 }
             }
             diff = size * (start_count - count);

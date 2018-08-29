@@ -122,6 +122,7 @@ pub unsafe fn read128(mut addr: u32) -> reg128 {
     }
     return value;
 }
+
 #[no_mangle]
 pub unsafe fn write8(mut addr: u32, mut value: i32) {
     if 0 != USE_A20 as i32 && !*a20_enabled {
@@ -135,6 +136,11 @@ pub unsafe fn write8(mut addr: u32, mut value: i32) {
         *mem8.offset(addr as isize) = value as u8
     };
 }
+
+pub unsafe fn write8_no_mmap_or_dirty_check(addr: u32, value: i32) {
+    *mem8.offset(addr as isize) = value as u8
+}
+
 #[no_mangle]
 pub unsafe fn write16(mut addr: u32, mut value: i32) {
     if 0 != USE_A20 as i32 && !*a20_enabled {
@@ -176,6 +182,11 @@ pub unsafe fn write32(mut addr: u32, mut value: i32) {
         *(mem8.offset(addr as isize) as *mut i32) = value
     };
 }
+
+pub unsafe fn write_aligned32_no_mmap_or_dirty_check(addr: u32, value: i32) {
+    *mem32s.offset(addr as isize) = value
+}
+
 #[no_mangle]
 pub unsafe fn write_aligned32(mut addr: u32, mut value: i32) {
     dbg_assert!(addr < 1073741824 as u32);
