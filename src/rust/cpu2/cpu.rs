@@ -79,25 +79,23 @@ pub const FLAG_VIF: i32 = 1i32 << 19i32;
 pub const FLAG_VIP: i32 = 1i32 << 20i32;
 pub const FLAG_ID: i32 = 1i32 << 21i32;
 pub const FLAGS_DEFAULT: i32 = 1i32 << 1i32;
-pub const FLAGS_MASK: i32 = unsafe {
-    FLAG_CARRY
-        | FLAG_PARITY
-        | FLAG_ADJUST
-        | FLAG_ZERO
-        | FLAG_SIGN
-        | FLAG_TRAP
-        | FLAG_INTERRUPT
-        | FLAG_DIRECTION
-        | FLAG_OVERFLOW
-        | FLAG_IOPL
-        | FLAG_NT
-        | FLAG_RF
-        | FLAG_VM
-        | FLAG_AC
-        | FLAG_VIF
-        | FLAG_VIP
-        | FLAG_ID
-};
+pub const FLAGS_MASK: i32 = FLAG_CARRY
+    | FLAG_PARITY
+    | FLAG_ADJUST
+    | FLAG_ZERO
+    | FLAG_SIGN
+    | FLAG_TRAP
+    | FLAG_INTERRUPT
+    | FLAG_DIRECTION
+    | FLAG_OVERFLOW
+    | FLAG_IOPL
+    | FLAG_NT
+    | FLAG_RF
+    | FLAG_VM
+    | FLAG_AC
+    | FLAG_VIF
+    | FLAG_VIP
+    | FLAG_ID;
 pub const FLAGS_ALL: i32 =
     FLAG_CARRY | FLAG_PARITY | FLAG_ADJUST | FLAG_ZERO | FLAG_SIGN | FLAG_OVERFLOW;
 pub const OPSIZE_8: i32 = 7i32;

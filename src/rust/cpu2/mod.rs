@@ -1,4 +1,4 @@
-#![allow(unused_assignments, unused_variables, unused_unsafe)]
+#![allow(unused_assignments, unused_variables)]
 
 #[macro_use]
 pub mod imports;
