@@ -136,12 +136,12 @@ pub unsafe fn resolve_modrm32_(mut modrm_byte: i32) -> Result<i32, ()> {
     })
 }
 unsafe fn resolve_sib(mut mod_0: bool) -> Result<i32, ()> {
-    let mut s: u8 = 0;
+    let mut s;
     let mut sib_byte: u8 = read_imm8()? as u8;
     let mut r: u8 = (sib_byte as i32 & 7i32) as u8;
     let mut m: u8 = (sib_byte as i32 >> 3i32 & 7i32) as u8;
-    let mut base: i32 = 0;
-    let mut seg: i32 = 0;
+    let mut base;
+    let mut seg;
     if r as i32 == 4i32 {
         base = *reg32s.offset(ESP as isize);
         seg = SS
@@ -160,7 +160,7 @@ unsafe fn resolve_sib(mut mod_0: bool) -> Result<i32, ()> {
         base = *reg32s.offset(r as isize);
         seg = DS
     }
-    let mut offset: i32 = 0;
+    let mut offset;
     if m as i32 == 4i32 {
         offset = 0i32
     }

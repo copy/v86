@@ -271,10 +271,10 @@ pub unsafe fn do_page_translation(
     mut user: bool,
 ) -> Result<i32, ()> {
     let mut can_write: bool = 0 != 1i32;
-    let mut global: bool = false;
+    let mut global;
     let mut allow_user: bool = 0 != 1i32;
     let mut page: i32 = (addr as u32 >> 12i32) as i32;
-    let mut high: i32 = 0;
+    let mut high;
     if *cr & CR0_PG == 0i32 {
         // paging disabled
         high = (addr as u32 & 4294963200u32) as i32;
@@ -576,9 +576,6 @@ pub unsafe fn tlb_set_has_code(mut physical_page: u32, mut has_code: bool) -> ()
 
 #[no_mangle]
 pub unsafe fn check_tlb_invariants() -> () {
-    let mut physical_page: u32 = 0;
-    let mut entry_has_code: bool = false;
-    let mut has_code: bool = false;
     if !CHECK_TLB_INVARIANTS {
         return;
     }
@@ -755,18 +752,15 @@ pub unsafe fn run_instruction0f_32(opcode: i32) { ::gen::interpreter0f_32::run(o
 pub unsafe fn cycle_internal() -> () {
     profiler_stat_increment(S_CYCLE_INTERNAL);
     if true {
-        let mut wasm_table_index: u16 = 0;
-        let mut initial_tsc: i32 = 0;
-        let mut initial_state: u16 = 0;
         *previous_ip = *instruction_pointer;
         let mut phys_addr: u32 = return_on_pagefault!(get_phys_eip()) as u32;
         let mut state_flags: CachedStateFlags = pack_current_state_flags();
         let mut entry: u32 = ::c_api::jit_find_cache_entry(phys_addr, state_flags as u32);
         if 0 != entry {
             profiler_stat_increment(S_RUN_FROM_CACHE);
-            initial_tsc = *timestamp_counter as i32;
-            wasm_table_index = (entry & 65535i32 as u32) as u16;
-            initial_state = (entry >> 16i32) as u16;
+            let initial_tsc = *timestamp_counter as i32;
+            let wasm_table_index = (entry & 65535i32 as u32) as u16;
+            let initial_state = (entry >> 16i32) as u16;
             call_indirect1(
                 (wasm_table_index as u32).wrapping_add(WASM_TABLE_OFFSET as u32) as i32,
                 initial_state,
@@ -944,7 +938,7 @@ pub unsafe fn virt_boundary_read16(mut low: i32, mut high: i32) -> i32 {
 pub unsafe fn virt_boundary_read32s(mut low: i32, mut high: i32) -> i32 {
     dbg_assert!(low & 4095i32 >= 4093i32);
     dbg_assert!(high - 3i32 & 4095i32 == low & 4095i32);
-    let mut mid: i32 = 0i32;
+    let mut mid;
     if 0 != low & 1i32 {
         if 0 != low & 2i32 {
             // 0xFFF
@@ -1110,28 +1104,26 @@ pub unsafe fn safe_read32s_slow_jit(addr: i32) -> i32 {
 }
 
 pub unsafe fn safe_read64s(mut addr: i32) -> Result<reg64, ()> {
-    let mut addr_phys: i32 = 0;
     let mut x: reg64 = reg64 { i8_0: [0; 8] };
     if addr & 4095i32 > 4096i32 - 8i32 {
         x.u32_0[0usize] = safe_read32s(addr)? as u32;
         x.u32_0[1usize] = safe_read32s(addr + 4i32)? as u32
     }
     else {
-        addr_phys = translate_address_read(addr)? as i32;
+        let addr_phys = translate_address_read(addr)? as i32;
         x.u64_0[0usize] = read64s(addr_phys as u32) as u64
     }
     Ok(x)
 }
 
 pub unsafe fn safe_read128s(mut addr: i32) -> Result<reg128, ()> {
-    let mut addr_phys: i32 = 0;
     let mut x: reg128 = reg128 { i8_0: [0; 16] };
     if addr & 4095i32 > 4096i32 - 16i32 {
         x.u64_0[0usize] = safe_read64s(addr)?.u64_0[0usize];
         x.u64_0[1usize] = safe_read64s(addr + 8i32)?.u64_0[0usize]
     }
     else {
-        addr_phys = translate_address_read(addr)? as i32;
+        let addr_phys = translate_address_read(addr)? as i32;
         x = read128(addr_phys as u32)
     }
     Ok(x)

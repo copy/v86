@@ -1,5 +1,3 @@
-#![allow(unused_assignments, unused_variables)]
-
 #[macro_use]
 pub mod imports;
 

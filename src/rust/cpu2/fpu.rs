@@ -303,7 +303,7 @@ pub unsafe fn fpu_fistm32p(mut addr: i32) -> () {
 #[no_mangle]
 pub unsafe fn fpu_fistm64p(mut addr: i32) -> () {
     let mut st0: f64 = fpu_integer_round(fpu_get_st0());
-    let mut value: i64 = 0;
+    let mut value;
     if st0 < TWO_POW_63 && st0 >= -TWO_POW_63 {
         value = st0 as i64
     }
@@ -443,8 +443,8 @@ pub unsafe fn fpu_store_m80(mut addr: u32, mut n: f64) -> () {
     let mut sign: u8 = (double_int_view.u8_0[7usize] as i32 & 128i32) as u8;
     let mut exponent: i32 = (double_int_view.u8_0[7usize] as i32 & 127i32) << 4i32
         | double_int_view.u8_0[6usize] as i32 >> 4i32;
-    let mut low: i32 = 0;
-    let mut high: i32 = 0;
+    let mut low;
+    let mut high;
     if exponent == 2047i32 {
         // all bits set (NaN and infinity)
         exponent = 32767i32;

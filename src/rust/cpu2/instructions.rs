@@ -1,4 +1,9 @@
-#![allow(mutable_transmutes, non_snake_case, unused_mut)]
+#![allow(
+    mutable_transmutes,
+    non_snake_case,
+    unused_mut,
+    unused_variables,
+)]
 
 extern "C" {
     #[no_mangle]
