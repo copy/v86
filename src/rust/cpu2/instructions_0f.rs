@@ -401,8 +401,7 @@ pub unsafe fn instr_0F06() -> () {
         if 0 != 0i32 * 0i32 {
             dbg_log_c!("clts");
         }
-        let ref mut fresh0 = *cr.offset(0isize);
-        *fresh0 &= !CR0_TS
+        *cr.offset(0isize) &= !CR0_TS;
     };
 }
 #[no_mangle]
@@ -1314,8 +1313,7 @@ pub unsafe fn instr_0F34() -> () {
         return;
     }
     else {
-        let ref mut fresh1 = *flags.offset(0isize);
-        *fresh1 &= !FLAG_VM & !FLAG_INTERRUPT;
+        *flags.offset(0isize) &= !FLAG_VM & !FLAG_INTERRUPT;
         *instruction_pointer.offset(0isize) = *sysenter_eip.offset(0isize);
         *reg32s.offset(ESP as isize) = *sysenter_esp.offset(0isize);
         *sreg.offset(CS as isize) = seg as u16;
@@ -3975,21 +3973,18 @@ pub unsafe fn instr_0FC7_1_mem(mut addr: i32) -> () {
     let mut m64_low: i32 = return_on_pagefault!(safe_read32s(addr));
     let mut m64_high: i32 = return_on_pagefault!(safe_read32s(addr + 4i32));
     if *reg32s.offset(EAX as isize) == m64_low && *reg32s.offset(EDX as isize) == m64_high {
-        let ref mut fresh2 = *flags.offset(0isize);
-        *fresh2 |= FLAG_ZERO;
+        *flags.offset(0isize) |= FLAG_ZERO;
         safe_write32(addr, *reg32s.offset(EBX as isize)).unwrap();
         safe_write32(addr + 4i32, *reg32s.offset(ECX as isize)).unwrap();
     }
     else {
-        let ref mut fresh3 = *flags.offset(0isize);
-        *fresh3 &= !FLAG_ZERO;
+        *flags.offset(0isize) &= !FLAG_ZERO;
         *reg32s.offset(EAX as isize) = m64_low;
         *reg32s.offset(EDX as isize) = m64_high;
         safe_write32(addr, m64_low).unwrap();
         safe_write32(addr + 4i32, m64_high).unwrap();
     }
-    let ref mut fresh4 = *flags_changed.offset(0isize);
-    *fresh4 &= !FLAG_ZERO;
+    *flags_changed.offset(0isize) &= !FLAG_ZERO;
 }
 #[no_mangle]
 pub unsafe fn instr_0FC7_6_reg(mut r: i32) -> () {
@@ -4000,10 +3995,8 @@ pub unsafe fn instr_0FC7_6_reg(mut r: i32) -> () {
         rand = get_rand_int()
     }
     write_reg_osize(r, rand);
-    let ref mut fresh5 = *flags.offset(0isize);
-    *fresh5 &= !FLAGS_ALL;
-    let ref mut fresh6 = *flags.offset(0isize);
-    *fresh6 |= has_rand;
+    *flags.offset(0isize) &= !FLAGS_ALL;
+    *flags.offset(0isize) |= has_rand;
     *flags_changed.offset(0isize) = 0i32;
 }
 #[no_mangle]

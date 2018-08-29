@@ -385,9 +385,8 @@ pub unsafe fn do_page_translation(
             }
         }
         dbg_assert!(valid_tlb_entries_count < VALID_TLB_ENTRY_MAX);
-        let fresh0 = valid_tlb_entries_count;
-        valid_tlb_entries_count = valid_tlb_entries_count + 1;
-        valid_tlb_entries[fresh0 as usize] = page;
+        valid_tlb_entries[valid_tlb_entries_count as usize] = page;
+        valid_tlb_entries_count += 1;
     // TODO: Check that there are no duplicates in valid_tlb_entries
     // XXX: There will probably be duplicates due to invlpg deleting
     // entries from tlb_data but not from valid_tlb_entries
@@ -481,9 +480,8 @@ pub unsafe fn clear_tlb() -> () {
         let mut entry: i32 = *tlb_data.offset(page as isize);
         if 0 != entry & TLB_GLOBAL {
             // reinsert at the front
-            let fresh1 = global_page_offset;
-            global_page_offset = global_page_offset + 1;
-            valid_tlb_entries[fresh1 as usize] = page
+            valid_tlb_entries[global_page_offset as usize] = page;
+            global_page_offset += 1;
         }
         else {
             *tlb_data.offset(page as isize) = 0i32
@@ -1506,25 +1504,21 @@ pub unsafe fn set_ecx_asize(mut value: i32) -> () {
 pub unsafe fn add_reg_asize(mut reg: i32, mut value: i32) -> () {
     dbg_assert!(reg == ECX || reg == ESI || reg == EDI);
     if is_asize_32() {
-        let ref mut fresh2 = *reg32s.offset(reg as isize);
-        *fresh2 += value
+        *reg32s.offset(reg as isize) += value;
     }
     else {
-        let ref mut fresh3 = *reg16.offset((reg << 1i32) as isize);
-        *fresh3 = (*fresh3 as i32 + value) as u16
+        *reg16.offset((reg << 1i32) as isize) += value as u16;
     };
 }
 
 pub unsafe fn decr_ecx_asize() -> i32 {
     return if 0 != is_asize_32() as i32 {
-        let ref mut fresh4 = *reg32s.offset(ECX as isize);
-        *fresh4 -= 1;
-        *fresh4
+        *reg32s.offset(ECX as isize) -= 1;
+        *reg32s.offset(ECX as isize)
     }
     else {
-        let ref mut fresh5 = *reg16.offset(CX as isize);
-        *fresh5 = (*fresh5).wrapping_sub(1);
-        *fresh5 as i32
+        *reg16.offset(CX as isize) -= 1;
+        *reg16.offset(CX as isize) as i32
     };
 }
 

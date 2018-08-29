@@ -1849,8 +1849,7 @@ pub unsafe fn instr_9E() -> () {
     // sahf
     *flags.offset(0isize) = *flags.offset(0isize) & !255i32 | *reg8.offset(AH as isize) as i32;
     *flags.offset(0isize) = *flags.offset(0isize) & FLAGS_MASK | FLAGS_DEFAULT;
-    let ref mut fresh1 = *flags_changed.offset(0isize);
-    *fresh1 &= !255i32;
+    *flags_changed.offset(0isize) &= !255i32;
 }
 #[no_mangle]
 pub unsafe fn instr_9F() -> () {
@@ -3107,8 +3106,7 @@ pub unsafe fn instr_F4() -> () { hlt_op(); }
 pub unsafe fn instr_F5() -> () {
     // cmc
     *flags.offset(0isize) = (*flags.offset(0isize) | 1i32) ^ getcf() as i32;
-    let ref mut fresh2 = *flags_changed.offset(0isize);
-    *fresh2 &= !1i32;
+    *flags_changed.offset(0isize) &= !1i32;
 }
 #[no_mangle]
 pub unsafe fn instr_F6_0_mem(mut addr: i32, mut imm: i32) -> () {
@@ -3347,18 +3345,14 @@ pub unsafe fn instr32_F7_7_reg(mut r1: i32) -> () {
 #[no_mangle]
 pub unsafe fn instr_F8() -> () {
     // clc
-    let ref mut fresh3 = *flags.offset(0isize);
-    *fresh3 &= !FLAG_CARRY;
-    let ref mut fresh4 = *flags_changed.offset(0isize);
-    *fresh4 &= !1i32;
+    *flags.offset(0isize) &= !FLAG_CARRY;
+    *flags_changed.offset(0isize) &= !1i32;
 }
 #[no_mangle]
 pub unsafe fn instr_F9() -> () {
     // stc
-    let ref mut fresh5 = *flags.offset(0isize);
-    *fresh5 |= FLAG_CARRY;
-    let ref mut fresh6 = *flags_changed.offset(0isize);
-    *fresh6 &= !1i32;
+    *flags.offset(0isize) |= FLAG_CARRY;
+    *flags_changed.offset(0isize) &= !1i32;
 }
 #[no_mangle]
 pub unsafe fn instr_FA() -> () {
@@ -3369,8 +3363,7 @@ pub unsafe fn instr_FA() -> () {
     else {
         (getiopl() >= *cpl as i32) as i32
     } {
-        let ref mut fresh7 = *flags.offset(0isize);
-        *fresh7 &= !FLAG_INTERRUPT
+        *flags.offset(0isize) &= !FLAG_INTERRUPT;
     }
     else if 0 != 0i32 * 0i32 && getiopl() < 3i32 && 0 != if 0 != *flags & FLAG_VM {
         *cr.offset(4isize) & CR4_VME
@@ -3395,8 +3388,7 @@ pub unsafe fn instr_FB() -> () {
     else {
         (getiopl() >= *cpl as i32) as i32
     } {
-        let ref mut fresh8 = *flags.offset(0isize);
-        *fresh8 |= FLAG_INTERRUPT;
+        *flags.offset(0isize) |= FLAG_INTERRUPT;
         if old_if == 0i32 {
             handle_irqs();
         }
@@ -3419,14 +3411,12 @@ pub unsafe fn instr_FB() -> () {
 #[no_mangle]
 pub unsafe fn instr_FC() -> () {
     // cld
-    let ref mut fresh9 = *flags.offset(0isize);
-    *fresh9 &= !FLAG_DIRECTION;
+    *flags.offset(0isize) &= !FLAG_DIRECTION;
 }
 #[no_mangle]
 pub unsafe fn instr_FD() -> () {
     // std
-    let ref mut fresh10 = *flags.offset(0isize);
-    *fresh10 |= FLAG_DIRECTION;
+    *flags.offset(0isize) |= FLAG_DIRECTION;
 }
 #[no_mangle]
 pub unsafe fn instr_FE_0_mem(mut addr: i32) -> () {

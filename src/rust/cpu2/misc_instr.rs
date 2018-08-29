@@ -159,12 +159,10 @@ pub unsafe fn get_stack_pointer(mut offset: i32) -> i32 {
 #[no_mangle]
 pub unsafe fn adjust_stack_reg(mut adjustment: i32) -> () {
     if *stack_size_32 {
-        let ref mut fresh0 = *reg32s.offset(ESP as isize);
-        *fresh0 += adjustment
+        *reg32s.offset(ESP as isize) += adjustment;
     }
     else {
-        let ref mut fresh1 = *reg16.offset(SP as isize);
-        *fresh1 = (*fresh1 as i32 + adjustment) as u16
+        *reg16.offset(SP as isize) += adjustment as u16;
     };
 }
 
@@ -172,16 +170,14 @@ pub unsafe fn adjust_stack_reg(mut adjustment: i32) -> () {
 pub unsafe fn push16_ss16(mut imm16: i32) -> Result<(), ()> {
     let mut sp: i32 = get_seg_ss() + (*reg16.offset(SP as isize) as i32 - 2i32 & 65535i32);
     safe_write16(sp, imm16)?;
-    let ref mut fresh2 = *reg16.offset(SP as isize);
-    *fresh2 = (*fresh2 as i32 + -2i32) as u16;
+    *reg16.offset(SP as isize) -= 2;
     Ok(())
 }
 #[no_mangle]
 pub unsafe fn push16_ss32(mut imm16: i32) -> Result<(), ()> {
     let mut sp: i32 = get_seg_ss() + *reg32s.offset(ESP as isize) - 2i32;
     safe_write16(sp, imm16)?;
-    let ref mut fresh3 = *reg32s.offset(ESP as isize);
-    *fresh3 += -2i32;
+    *reg32s.offset(ESP as isize) -= 2;
     Ok(())
 }
 
@@ -262,16 +258,14 @@ pub unsafe fn pop16() -> Result<i32, ()> {
 pub unsafe fn pop16_ss16() -> Result<i32, ()> {
     let mut sp: i32 = get_seg_ss() + *reg16.offset(SP as isize) as i32;
     let mut result: i32 = safe_read16(sp)?;
-    let ref mut fresh4 = *reg16.offset(SP as isize);
-    *fresh4 = (*fresh4 as i32 + 2i32) as u16;
+    *reg16.offset(SP as isize) += 2;
     Ok(result)
 }
 #[no_mangle]
 pub unsafe fn pop16_ss32() -> Result<i32, ()> {
     let mut esp: i32 = get_seg_ss() + *reg32s.offset(ESP as isize);
     let mut result: i32 = safe_read16(esp)?;
-    let ref mut fresh5 = *reg32s.offset(ESP as isize);
-    *fresh5 += 2i32;
+    *reg32s.offset(ESP as isize) += 2;
     Ok(result)
 }
 #[no_mangle]

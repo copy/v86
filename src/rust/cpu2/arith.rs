@@ -288,13 +288,11 @@ pub unsafe fn bcd_daa() -> () {
     let mut old_af: i32 = getaf() as i32;
     *flags &= !1i32 & !FLAG_ADJUST;
     if old_al & 15i32 > 9i32 || 0 != old_af {
-        let ref mut fresh0 = *reg8.offset(AL as isize);
-        *fresh0 = (*fresh0 as i32 + 6i32) as u8;
+        *reg8.offset(AL as isize) += 6;
         *flags |= FLAG_ADJUST
     }
     if old_al > 153i32 || 0 != old_cf {
-        let ref mut fresh1 = *reg8.offset(AL as isize);
-        *fresh1 = (*fresh1 as i32 + 96i32) as u8;
+        *reg8.offset(AL as isize) += 96;
         *flags |= 1i32
     }
     *last_result = *reg8.offset(AL as isize) as i32;
@@ -309,8 +307,7 @@ pub unsafe fn bcd_das() -> () {
     let mut old_cf: i32 = getcf() as i32;
     *flags &= !1i32;
     if old_al & 15i32 > 9i32 || 0 != getaf() as i32 {
-        let ref mut fresh2 = *reg8.offset(AL as isize);
-        *fresh2 = (*fresh2 as i32 - 6i32) as u8;
+        *reg8.offset(AL as isize) -= 6;
         *flags |= FLAG_ADJUST;
         *flags = *flags & !1i32 | old_cf | (old_al < 6i32) as i32
     }
@@ -318,8 +315,7 @@ pub unsafe fn bcd_das() -> () {
         *flags &= !FLAG_ADJUST
     }
     if old_al > 153i32 || 0 != old_cf {
-        let ref mut fresh3 = *reg8.offset(AL as isize);
-        *fresh3 = (*fresh3 as i32 - 96i32) as u8;
+        *reg8.offset(AL as isize) -= 96;
         *flags |= 1i32
     }
     *last_result = *reg8.offset(AL as isize) as i32;
@@ -359,33 +355,27 @@ pub unsafe fn bcd_aam(mut imm8: i32) -> () {
 #[no_mangle]
 pub unsafe fn bcd_aaa() -> () {
     if *reg8.offset(AL as isize) as i32 & 15i32 > 9i32 || 0 != getaf() as i32 {
-        let ref mut fresh4 = *reg16.offset(AX as isize);
-        *fresh4 = (*fresh4 as i32 + 6i32) as u16;
-        let ref mut fresh5 = *reg8.offset(AH as isize);
-        *fresh5 = (*fresh5 as i32 + 1i32) as u8;
+        *reg16.offset(AX as isize) += 6;
+        *reg8.offset(AH as isize) += 1;
         *flags |= FLAG_ADJUST | 1i32
     }
     else {
         *flags &= !FLAG_ADJUST & !1i32
     }
-    let ref mut fresh6 = *reg8.offset(AL as isize);
-    *fresh6 = (*fresh6 as i32 & 15i32) as u8;
+    *reg8.offset(AL as isize) &= 15;
     *flags_changed &= !FLAG_ADJUST & !1i32;
 }
 #[no_mangle]
 pub unsafe fn bcd_aas() -> () {
     if *reg8.offset(AL as isize) as i32 & 15i32 > 9i32 || 0 != getaf() as i32 {
-        let ref mut fresh7 = *reg16.offset(AX as isize);
-        *fresh7 = (*fresh7 as i32 - 6i32) as u16;
-        let ref mut fresh8 = *reg8.offset(AH as isize);
-        *fresh8 = (*fresh8 as i32 - 1i32) as u8;
+        *reg16.offset(AX as isize) -= 6;
+        *reg8.offset(AH as isize) -= 1;
         *flags |= FLAG_ADJUST | 1i32
     }
     else {
         *flags &= !FLAG_ADJUST & !1i32
     }
-    let ref mut fresh9 = *reg8.offset(AL as isize);
-    *fresh9 = (*fresh9 as i32 & 15i32) as u8;
+    *reg8.offset(AL as isize) &= 15;
     *flags_changed &= !FLAG_ADJUST & !1i32;
 }
 #[no_mangle]
