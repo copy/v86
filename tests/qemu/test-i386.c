@@ -1675,16 +1675,26 @@ void test_misc(void)
 #endif
 }
 
-uint8_t str_buffer[4096];
+void byte_read(uint8_t* buffer, uint16_t offset, size_t num_bytes);
 
-#define TEST_STRING1(OP, size, DF, REP)\
+// 8 pages in every direction
+#define STR_BUFFER_SIZE (4096 * 16)
+uint8_t __attribute__((aligned (4096))) str_buffer[STR_BUFFER_SIZE];
+
+#define TEST_STRING1(OP, size_bytes, size, DF, REP, count, offset1, offset2)\
 {\
-    long esi, edi, eax, ecx, eflags;\
+    long esi, edi, eax, ecx, eflags, i;\
 \
-    esi = (long)(str_buffer + sizeof(str_buffer) / 2);\
-    edi = (long)(str_buffer + sizeof(str_buffer) / 2) + 16;\
+    for(i = 0; i < (count + 1) * size_bytes; i++)\
+        str_buffer[offset1 + i] = i + 0x56;\
+        str_buffer[offset1 - i - 1] = i + 0x97;\
+        str_buffer[offset2 + i] = i + 0xa5;\
+        str_buffer[offset2 - i - 1] = i + 0x3e;\
+\
+    esi = (long)(str_buffer + sizeof(str_buffer)/2 + offset1);\
+    edi = (long)(str_buffer + sizeof(str_buffer)/2 + offset2);\
     eax = i2l(0x12345678);\
-    ecx = 17;\
+    ecx = count;\
 \
     asm volatile ("push $0\n\t"\
                   "popf\n\t"\
@@ -1698,38 +1708,57 @@ uint8_t str_buffer[4096];
     printf("%-10s ESI=" FMTLX " EDI=" FMTLX " EAX=" FMTLX " ECX=" FMTLX " EFL=%04x\n",\
            REP #OP size, esi, edi, eax, ecx,\
            (int)(eflags & (CC_C | CC_P | CC_Z | CC_S | CC_O | CC_A)));\
+    byte_read(str_buffer, offset1, 16); \
+    if(count > 16) byte_read(str_buffer, offset1 + count * size_bytes - 16, 16);\
+    if(count > 16) byte_read(str_buffer, offset1 - count * size_bytes, 16);\
+    byte_read(str_buffer, offset2, 16); \
+    if(count > 16) byte_read(str_buffer, offset2 + count * size_bytes - 16, 16);\
+    if(count > 16) byte_read(str_buffer, offset2 - count * size_bytes, 16);\
 }
 
-#define TEST_STRING(OP, REP)\
-    TEST_STRING1(OP, "b", "", REP);\
-    TEST_STRING1(OP, "w", "", REP);\
-    TEST_STRING1(OP, "l", "", REP);\
-    X86_64_ONLY(TEST_STRING1(OP, "q", "", REP));\
-    TEST_STRING1(OP, "b", "std", REP);\
-    TEST_STRING1(OP, "w", "std", REP);\
-    TEST_STRING1(OP, "l", "std", REP);\
-    X86_64_ONLY(TEST_STRING1(OP, "q", "std", REP))
+#define TEST_STRING(OP, REP, count, offset1, offset2)\
+    TEST_STRING1(OP, 1, "b", "", REP, count, offset1, offset2);\
+    TEST_STRING1(OP, 2, "w", "", REP, count, offset1, offset2);\
+    TEST_STRING1(OP, 4, "l", "", REP, count, offset1, offset2);\
+    TEST_STRING1(OP, 1, "b", "std", REP, count, offset1, offset2);\
+    TEST_STRING1(OP, 2, "w", "std", REP, count, offset1, offset2);\
+    TEST_STRING1(OP, 4, "l", "std", REP, count, offset1, offset2);
 
 void test_string(void)
 {
-    int i;
-    for(i = 0;i < sizeof(str_buffer); i++)
-        str_buffer[i] = i + 0x56;
-   TEST_STRING(stos, "");
-   TEST_STRING(stos, "rep ");
-   TEST_STRING(lods, ""); /* to verify stos */
-   TEST_STRING(lods, "rep ");
-   TEST_STRING(movs, "");
-   TEST_STRING(movs, "rep ");
-   TEST_STRING(lods, ""); /* to verify stos */
+   TEST_STRING(stos, "", 17, 4096, 4096 + 64);
+   TEST_STRING(stos, "rep ", 17, 4096, 4096 + 64);
+
+   TEST_STRING(lods, "", 17, 4096, 4096 + 64);
+   TEST_STRING(lods, "rep ", 17, 4096, 4096 + 64);
+
+   TEST_STRING(movs, "", 17, 4096, 4096 + 64);
+   TEST_STRING(movs, "rep ", 17, 4096, 4096 + 64);
 
    /* XXX: better tests */
-   TEST_STRING(scas, "");
-   TEST_STRING(scas, "repz ");
-   TEST_STRING(scas, "repnz ");
-   TEST_STRING(cmps, "");
-   TEST_STRING(cmps, "repz ");
-   TEST_STRING(cmps, "repnz ");
+   TEST_STRING(scas, "", 17, 4096, 4096 + 64);
+   TEST_STRING(scas, "repz ", 17, 4096, 4096 + 64);
+   TEST_STRING(scas, "repnz ", 17, 4096, 4096 + 64);
+
+   TEST_STRING(cmps, "", 17, 4096, 4096 + 64);
+   TEST_STRING(cmps, "repz ", 17, 4096, 4096 + 64);
+   TEST_STRING(cmps, "repnz ", 17, 4096, 4096 + 64);
+
+   int counts[] = { 0, 1, 2, 3, 4095, 4096, 4097, 2047, 2048, 2049, 1023, 1024, 1025 };
+   int offsets[] = { 0, 1, 2, 3, 4095, 4096, 4097, 2047, 2048, 2049, 1023, 1024, 1025 };
+
+   for(int count = 0; count < sizeof(counts) / sizeof(int); count++)
+   {
+       for(int offset1 = 0; offset1 < sizeof(offsets) / sizeof(int); offset1++)
+       {
+           TEST_STRING(stos, "rep ", counts[count], offsets[offset1], offsets[offset1]);
+
+           for(int offset2 = 0; offset2 < sizeof(offsets) / sizeof(int); offset2++)
+           {
+               TEST_STRING(movs, "rep ", counts[count], offsets[offset1], offsets[offset2]);
+           }
+       }
+   }
 }
 
 #ifdef TEST_VM86
