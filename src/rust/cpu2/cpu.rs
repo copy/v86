@@ -236,7 +236,7 @@ pub static mut valid_tlb_entries_count: i32 = 0i32;
 
 //pub fn call_indirect1(f: fn(u16), x: u16) { f(x); }
 
-pub unsafe fn after_block_boundary() -> () { jit_block_boundary = 0 != 1i32; }
+pub unsafe fn after_block_boundary() { jit_block_boundary = 0 != 1i32; }
 
 pub unsafe fn same_page(mut addr1: i32, mut addr2: i32) -> bool {
     return addr1 & !4095i32 == addr2 & !4095i32;
@@ -444,7 +444,7 @@ pub unsafe fn do_page_translation(
 }
 
 #[no_mangle]
-pub unsafe fn full_clear_tlb() -> () {
+pub unsafe fn full_clear_tlb() {
     profiler_stat_increment(S_FULL_CLEAR_TLB);
     // clear tlb including global pages
     *last_virt_eip = -1i32;
@@ -466,7 +466,7 @@ pub unsafe fn full_clear_tlb() -> () {
 }
 
 #[no_mangle]
-pub unsafe fn clear_tlb() -> () {
+pub unsafe fn clear_tlb() {
     profiler_stat_increment(S_CLEAR_TLB);
     // clear tlb excluding global pages
     *last_virt_eip = -1i32;
@@ -499,7 +499,7 @@ pub unsafe fn clear_tlb() -> () {
     };
 }
 
-pub unsafe fn trigger_pagefault(mut write: bool, mut user: bool, mut present: bool) -> () {
+pub unsafe fn trigger_pagefault(mut write: bool, mut user: bool, mut present: bool) {
     if 0 != 0i32 * 0i32 {
         dbg_log!(
             "page fault w={} u={} p={} eip={:x} cr2={:x}",
@@ -552,7 +552,7 @@ pub unsafe fn translate_address_write(mut address: i32) -> Result<u32, ()> {
 }
 
 #[no_mangle]
-pub unsafe fn tlb_set_has_code(mut physical_page: u32, mut has_code: bool) -> () {
+pub unsafe fn tlb_set_has_code(mut physical_page: u32, mut has_code: bool) {
     dbg_assert!(physical_page < (1i32 << 20i32) as u32);
     let mut i: i32 = 0i32;
     while i < valid_tlb_entries_count {
@@ -575,7 +575,7 @@ pub unsafe fn tlb_set_has_code(mut physical_page: u32, mut has_code: bool) -> ()
 }
 
 #[no_mangle]
-pub unsafe fn check_tlb_invariants() -> () {
+pub unsafe fn check_tlb_invariants() {
     if !CHECK_TLB_INVARIANTS {
         return;
     }
@@ -684,12 +684,12 @@ pub unsafe fn get_seg(mut segment: i32) -> i32 {
     return *segment_offsets.offset(segment as isize);
 }
 
-pub unsafe fn trigger_gp(mut code: i32) -> () {
+pub unsafe fn trigger_gp(mut code: i32) {
     *instruction_pointer = *previous_ip;
     raise_exception_with_code(CPU_EXCEPTION_GP, code);
 }
 
-pub unsafe fn raise_exception_with_code(mut interrupt_nr: i32, mut error_code: i32) -> () {
+pub unsafe fn raise_exception_with_code(mut interrupt_nr: i32, mut error_code: i32) {
     if DEBUG {
         if must_not_fault {
             dbg_log!(
@@ -749,7 +749,7 @@ pub unsafe fn run_instruction0f_16(opcode: i32) { ::gen::interpreter0f_16::run(o
 pub unsafe fn run_instruction0f_32(opcode: i32) { ::gen::interpreter0f_32::run(opcode as u8) }
 
 #[no_mangle]
-pub unsafe fn cycle_internal() -> () {
+pub unsafe fn cycle_internal() {
     profiler_stat_increment(S_CYCLE_INTERNAL);
     if true {
         *previous_ip = *instruction_pointer;
@@ -810,7 +810,7 @@ pub unsafe fn get_phys_eip() -> Result<i32, ()> {
     dbg_assert!(!in_mapped_range(phys_addr));
     return Ok(phys_addr as i32);
 }
-unsafe fn jit_run_interpreted(mut phys_addr: i32) -> () {
+unsafe fn jit_run_interpreted(mut phys_addr: i32) {
     profiler_stat_increment(S_RUN_INTERPRETED);
     jit_block_boundary = 0 != 0i32;
     dbg_assert!(!in_mapped_range(phys_addr as u32));
@@ -844,13 +844,13 @@ pub unsafe fn has_flat_segmentation() -> bool {
         && *segment_offsets.offset(DS as isize) == 0i32;
 }
 
-pub unsafe fn run_prefix_instruction() -> () {
+pub unsafe fn run_prefix_instruction() {
     run_instruction(return_on_pagefault!(read_imm8()) | (is_osize_32() as i32) << 8i32);
 }
 
-pub unsafe fn clear_prefixes() -> () { *prefixes = 0i32 as u8; }
+pub unsafe fn clear_prefixes() { *prefixes = 0i32 as u8; }
 
-pub unsafe fn segment_prefix_op(mut seg: i32) -> () {
+pub unsafe fn segment_prefix_op(mut seg: i32) {
     dbg_assert!(seg <= 5i32);
     *prefixes = (*prefixes as i32 | seg + 1i32) as u8;
     run_prefix_instruction();
@@ -858,7 +858,7 @@ pub unsafe fn segment_prefix_op(mut seg: i32) -> () {
 }
 
 #[no_mangle]
-pub unsafe fn do_many_cycles_native() -> () {
+pub unsafe fn do_many_cycles_native() {
     profiler_stat_increment(S_DO_MANY_CYCLES);
     let mut initial_timestamp_counter: u32 = *timestamp_counter;
     while (*timestamp_counter).wrapping_sub(initial_timestamp_counter) < LOOP_COUNTER as u32
@@ -868,7 +868,7 @@ pub unsafe fn do_many_cycles_native() -> () {
     }
 }
 //#[no_mangle]
-//pub unsafe fn raise_exception(mut interrupt_nr: i32) -> () {
+//pub unsafe fn raise_exception(mut interrupt_nr: i32) {
 //    if DEBUG {
 //        if must_not_fault {
 //            dbg_log!("Unexpected fault: 0x{:x}", interrupt_nr);
@@ -885,7 +885,7 @@ pub unsafe fn do_many_cycles_native() -> () {
 //    throw_cpu_exception();
 //}
 
-pub unsafe fn trigger_de() -> () {
+pub unsafe fn trigger_de() {
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_DE) {
             return;
@@ -896,7 +896,7 @@ pub unsafe fn trigger_de() -> () {
 }
 
 #[no_mangle]
-pub unsafe fn trigger_ud() -> () {
+pub unsafe fn trigger_ud() {
     dbg_log!("#ud");
     dbg_trace();
     if DEBUG {
@@ -908,7 +908,7 @@ pub unsafe fn trigger_ud() -> () {
     call_interrupt_vector(CPU_EXCEPTION_UD, 0 != 0i32, 0 != 0i32, 0i32);
 }
 
-pub unsafe fn trigger_nm() -> () {
+pub unsafe fn trigger_nm() {
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_NM) {
             return;
@@ -919,7 +919,7 @@ pub unsafe fn trigger_nm() -> () {
 }
 
 #[no_mangle]
-pub unsafe fn trigger_gp_non_raising(mut code: i32) -> () {
+pub unsafe fn trigger_gp_non_raising(mut code: i32) {
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_GP) {
             return;
@@ -956,14 +956,14 @@ pub unsafe fn virt_boundary_read32s(mut low: i32, mut high: i32) -> i32 {
     return read8(low as u32) | mid << 8i32 | read8(high as u32) << 24i32;
 }
 
-pub unsafe fn virt_boundary_write16(mut low: i32, mut high: i32, mut value: i32) -> () {
+pub unsafe fn virt_boundary_write16(mut low: i32, mut high: i32, mut value: i32) {
     dbg_assert!(low & 4095i32 == 4095i32);
     dbg_assert!(high & 4095i32 == 0i32);
     write8(low as u32, value);
     write8(high as u32, value >> 8i32);
 }
 
-pub unsafe fn virt_boundary_write32(mut low: i32, mut high: i32, mut value: i32) -> () {
+pub unsafe fn virt_boundary_write32(mut low: i32, mut high: i32, mut value: i32) {
     dbg_assert!(low & 4095i32 >= 4093i32);
     dbg_assert!(high - 3i32 & 4095i32 == low & 4095i32);
     write8(low as u32, value);
@@ -1292,7 +1292,7 @@ pub unsafe fn read_reg8(mut index: i32) -> i32 {
     return *reg8.offset(get_reg8_index(index) as isize) as i32;
 }
 
-pub unsafe fn write_reg8(mut index: i32, mut value: i32) -> () {
+pub unsafe fn write_reg8(mut index: i32, mut value: i32) {
     *reg8.offset(get_reg8_index(index) as isize) = value as u8;
 }
 
@@ -1302,17 +1302,17 @@ pub unsafe fn read_reg16(mut index: i32) -> i32 {
     return *reg16.offset(get_reg16_index(index) as isize) as i32;
 }
 
-pub unsafe fn write_reg16(mut index: i32, mut value: i32) -> () {
+pub unsafe fn write_reg16(mut index: i32, mut value: i32) {
     *reg16.offset(get_reg16_index(index) as isize) = value as u16;
 }
 
 pub unsafe fn read_reg32(mut index: i32) -> i32 { return *reg32s.offset(index as isize); }
 
-pub unsafe fn write_reg32(mut index: i32, mut value: i32) -> () {
+pub unsafe fn write_reg32(mut index: i32, mut value: i32) {
     *reg32s.offset(index as isize) = value;
 }
 
-pub unsafe fn write_reg_osize(mut index: i32, mut value: i32) -> () {
+pub unsafe fn write_reg_osize(mut index: i32, mut value: i32) {
     dbg_assert!(index >= 0i32 && index < 8i32);
     if is_osize_32() {
         write_reg32(index, value);
@@ -1328,12 +1328,12 @@ pub unsafe fn read_mmx32s(mut r: i32) -> i32 {
 
 pub unsafe fn read_mmx64s(mut r: i32) -> reg64 { return *reg_mmx.offset(r as isize); }
 
-pub unsafe fn write_mmx64(mut r: i32, mut low: i32, mut high: i32) -> () {
+pub unsafe fn write_mmx64(mut r: i32, mut low: i32, mut high: i32) {
     (*reg_mmx.offset(r as isize)).u32_0[0usize] = low as u32;
     (*reg_mmx.offset(r as isize)).u32_0[1usize] = high as u32;
 }
 
-pub unsafe fn write_mmx_reg64(mut r: i32, mut data: reg64) -> () {
+pub unsafe fn write_mmx_reg64(mut r: i32, mut data: reg64) {
     (*reg_mmx.offset(r as isize)).u64_0[0usize] = data.u64_0[0usize];
 }
 
@@ -1353,26 +1353,26 @@ pub unsafe fn read_xmm64s(mut r: i32) -> reg64 {
 
 pub unsafe fn read_xmm128s(mut r: i32) -> reg128 { return *reg_xmm.offset(r as isize); }
 
-pub unsafe fn write_xmm_f32(mut r: i32, mut data: f32) -> () {
+pub unsafe fn write_xmm_f32(mut r: i32, mut data: f32) {
     (*reg_xmm.offset(r as isize)).f32_0[0usize] = data;
 }
 
-pub unsafe fn write_xmm32(mut r: i32, mut data: i32) -> () {
+pub unsafe fn write_xmm32(mut r: i32, mut data: i32) {
     (*reg_xmm.offset(r as isize)).i32_0[0usize] = data;
 }
 
-pub unsafe fn write_xmm64(mut r: i32, mut data: reg64) -> () {
+pub unsafe fn write_xmm64(mut r: i32, mut data: reg64) {
     (*reg_xmm.offset(r as isize)).u64_0[0usize] = data.u64_0[0usize];
 }
 
-pub unsafe fn write_xmm128(mut r: i32, mut i0: i32, mut i1: i32, mut i2: i32, mut i3: i32) -> () {
+pub unsafe fn write_xmm128(mut r: i32, mut i0: i32, mut i1: i32, mut i2: i32, mut i3: i32) {
     let mut x: reg128 = reg128 {
         u32_0: [i0 as u32, i1 as u32, i2 as u32, i3 as u32],
     };
     *reg_xmm.offset(r as isize) = x;
 }
 
-pub unsafe fn write_xmm_reg128(mut r: i32, mut data: reg128) -> () {
+pub unsafe fn write_xmm_reg128(mut r: i32, mut data: reg128) {
     (*reg_xmm.offset(r as isize)).u64_0[0usize] = data.u64_0[0usize];
     (*reg_xmm.offset(r as isize)).u64_0[1usize] = data.u64_0[1usize];
 }
@@ -1417,7 +1417,7 @@ pub unsafe fn set_mxcsr(new_mxcsr: i32) {
 }
 
 #[no_mangle]
-pub unsafe fn task_switch_test_void() -> () { task_switch_test(); }
+pub unsafe fn task_switch_test_void() { task_switch_test(); }
 
 pub unsafe fn task_switch_test_mmx() -> bool {
     if 0 != *cr & CR0_TS {
@@ -1434,7 +1434,7 @@ pub unsafe fn task_switch_test_mmx() -> bool {
 }
 
 #[no_mangle]
-pub unsafe fn task_switch_test_mmx_void() -> () { task_switch_test_mmx(); }
+pub unsafe fn task_switch_test_mmx_void() { task_switch_test_mmx(); }
 
 pub unsafe fn read_moffs() -> Result<i32, ()> {
     // read 2 or 4 byte from ip, depending on address size attribute
@@ -1462,7 +1462,7 @@ pub unsafe fn get_stack_reg() -> i32 {
 }
 
 #[no_mangle]
-pub unsafe fn set_stack_reg(mut value: i32) -> () {
+pub unsafe fn set_stack_reg(mut value: i32) {
     if *stack_size_32 {
         *reg32s.offset(ESP as isize) = value
     }
@@ -1482,7 +1482,7 @@ pub unsafe fn get_reg_asize(mut reg: i32) -> i32 {
     };
 }
 
-pub unsafe fn set_ecx_asize(mut value: i32) -> () {
+pub unsafe fn set_ecx_asize(mut value: i32) {
     if is_asize_32() {
         *reg32s.offset(ECX as isize) = value
     }
@@ -1491,7 +1491,7 @@ pub unsafe fn set_ecx_asize(mut value: i32) -> () {
     };
 }
 
-pub unsafe fn add_reg_asize(mut reg: i32, mut value: i32) -> () {
+pub unsafe fn add_reg_asize(mut reg: i32, mut value: i32) {
     dbg_assert!(reg == ECX || reg == ESI || reg == EDI);
     if is_asize_32() {
         *reg32s.offset(reg as isize) += value;
@@ -1513,7 +1513,7 @@ pub unsafe fn decr_ecx_asize() -> i32 {
 }
 
 #[no_mangle]
-pub unsafe fn set_tsc(mut low: u32, mut high: u32) -> () {
+pub unsafe fn set_tsc(mut low: u32, mut high: u32) {
     let mut new_value: u64 = low as u64 | (high as u64) << 32i32;
     let mut current_value: u64 = read_tsc();
     tsc_offset = current_value.wrapping_sub(new_value);
@@ -1573,7 +1573,7 @@ pub unsafe fn get_opstats_buffer(mut index: i32) -> i32 {
     };
 }
 
-pub unsafe fn invlpg(mut addr: i32) -> () {
+pub unsafe fn invlpg(mut addr: i32) {
     let mut page: i32 = (addr as u32 >> 12i32) as i32;
     // Note: Doesn't remove this page from valid_tlb_entries: This isn't
     // necessary, because when valid_tlb_entries grows too large, it will be
@@ -1585,7 +1585,7 @@ pub unsafe fn invlpg(mut addr: i32) -> () {
 }
 
 #[no_mangle]
-pub unsafe fn update_eflags(mut new_flags: i32) -> () {
+pub unsafe fn update_eflags(mut new_flags: i32) {
     let mut dont_update: i32 = FLAG_RF | FLAG_VM | FLAG_VIP | FLAG_VIF;
     let mut clear: i32 = !FLAG_VIP & !FLAG_VIF & FLAGS_MASK;
     if 0 != *flags & FLAG_VM {
@@ -1667,7 +1667,7 @@ pub unsafe fn translate_address_system_write(mut address: i32) -> Result<u32, ()
 }
 
 #[no_mangle]
-pub unsafe fn trigger_np(mut code: i32) -> () {
+pub unsafe fn trigger_np(mut code: i32) {
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_NP) {
             return;
@@ -1678,7 +1678,7 @@ pub unsafe fn trigger_np(mut code: i32) -> () {
 }
 
 #[no_mangle]
-pub unsafe fn trigger_ss(mut code: i32) -> () {
+pub unsafe fn trigger_ss(mut code: i32) {
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_SS) {
             return;
@@ -1689,4 +1689,4 @@ pub unsafe fn trigger_ss(mut code: i32) -> () {
 }
 
 #[no_mangle]
-pub unsafe fn store_current_tsc() -> () { *current_tsc = read_tsc(); }
+pub unsafe fn store_current_tsc() { *current_tsc = read_tsc(); }

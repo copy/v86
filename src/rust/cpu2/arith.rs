@@ -78,11 +78,11 @@ pub unsafe fn sbb16(mut x: i32, mut y: i32) -> i32 { return sbb(x, y, OPSIZE_16)
 #[no_mangle]
 pub unsafe fn sbb32(mut x: i32, mut y: i32) -> i32 { return sbb(x, y, OPSIZE_32); }
 #[no_mangle]
-pub unsafe fn cmp8(mut x: i32, mut y: i32) -> () { sub(x, y, OPSIZE_8); }
+pub unsafe fn cmp8(mut x: i32, mut y: i32) { sub(x, y, OPSIZE_8); }
 #[no_mangle]
-pub unsafe fn cmp16(mut x: i32, mut y: i32) -> () { sub(x, y, OPSIZE_16); }
+pub unsafe fn cmp16(mut x: i32, mut y: i32) { sub(x, y, OPSIZE_16); }
 #[no_mangle]
-pub unsafe fn cmp32(mut x: i32, mut y: i32) -> () { sub(x, y, OPSIZE_32); }
+pub unsafe fn cmp32(mut x: i32, mut y: i32) { sub(x, y, OPSIZE_32); }
 #[no_mangle]
 pub unsafe fn inc(mut dest_operand: i32, mut op_size: i32) -> i32 {
     *flags = *flags & !1i32 | getcf() as i32;
@@ -137,7 +137,7 @@ pub unsafe fn neg16(mut x: i32) -> i32 { return neg(x, OPSIZE_16); }
 #[no_mangle]
 pub unsafe fn neg32(mut x: i32) -> i32 { return neg(x, OPSIZE_32); }
 #[no_mangle]
-pub unsafe fn mul8(mut source_operand: i32) -> () {
+pub unsafe fn mul8(mut source_operand: i32) {
     let mut result: i32 = source_operand * *reg8.offset(AL as isize) as i32;
     *reg16.offset(AX as isize) = result as u16;
     *last_result = result & 255i32;
@@ -151,7 +151,7 @@ pub unsafe fn mul8(mut source_operand: i32) -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe fn imul8(mut source_operand: i32) -> () {
+pub unsafe fn imul8(mut source_operand: i32) {
     let mut result: i32 = source_operand * *reg8s.offset(AL as isize) as i32;
     *reg16.offset(AX as isize) = result as u16;
     *last_result = result & 255i32;
@@ -165,7 +165,7 @@ pub unsafe fn imul8(mut source_operand: i32) -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe fn mul16(mut source_operand: u32) -> () {
+pub unsafe fn mul16(mut source_operand: u32) {
     let mut result: u32 = source_operand.wrapping_mul(*reg16.offset(AX as isize) as u32);
     let mut high_result: u32 = result >> 16i32;
     *reg16.offset(AX as isize) = result as u16;
@@ -181,7 +181,7 @@ pub unsafe fn mul16(mut source_operand: u32) -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe fn imul16(mut source_operand: i32) -> () {
+pub unsafe fn imul16(mut source_operand: i32) {
     let mut result: i32 = source_operand * *reg16s.offset(AX as isize) as i32;
     *reg16.offset(AX as isize) = result as u16;
     *reg16.offset(DX as isize) = (result >> 16i32) as u16;
@@ -212,7 +212,7 @@ pub unsafe fn imul_reg16(mut operand1: i32, mut operand2: i32) -> i32 {
     return result;
 }
 #[no_mangle]
-pub unsafe fn mul32(mut source_operand: i32) -> () {
+pub unsafe fn mul32(mut source_operand: i32) {
     let mut dest_operand: i32 = *reg32s.offset(EAX as isize);
     let mut result: u64 = (dest_operand as u32 as u64).wrapping_mul(source_operand as u32 as u64);
     let mut result_low: i32 = result as i32;
@@ -230,7 +230,7 @@ pub unsafe fn mul32(mut source_operand: i32) -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe fn imul32(mut source_operand: i32) -> () {
+pub unsafe fn imul32(mut source_operand: i32) {
     let mut dest_operand: i32 = *reg32s.offset(EAX as isize);
     let mut result: i64 = dest_operand as i64 * source_operand as i64;
     let mut result_low: i32 = result as i32;
@@ -282,7 +282,7 @@ pub unsafe fn xadd32(mut source_operand: i32, mut reg: i32) -> i32 {
     return add(source_operand, tmp, OPSIZE_32);
 }
 #[no_mangle]
-pub unsafe fn bcd_daa() -> () {
+pub unsafe fn bcd_daa() {
     let mut old_al: i32 = *reg8.offset(AL as isize) as i32;
     let mut old_cf: i32 = getcf() as i32;
     let mut old_af: i32 = getaf() as i32;
@@ -302,7 +302,7 @@ pub unsafe fn bcd_daa() -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_ADJUST & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe fn bcd_das() -> () {
+pub unsafe fn bcd_das() {
     let mut old_al: i32 = *reg8.offset(AL as isize) as i32;
     let mut old_cf: i32 = getcf() as i32;
     *flags &= !1i32;
@@ -325,7 +325,7 @@ pub unsafe fn bcd_das() -> () {
     *flags_changed = FLAGS_ALL & !1i32 & !FLAG_ADJUST & !FLAG_OVERFLOW;
 }
 #[no_mangle]
-pub unsafe fn bcd_aad(mut imm8: i32) -> () {
+pub unsafe fn bcd_aad(mut imm8: i32) {
     let mut result: i32 =
         *reg8.offset(AL as isize) as i32 + *reg8.offset(AH as isize) as i32 * imm8;
     *last_result = result & 255i32;
@@ -338,7 +338,7 @@ pub unsafe fn bcd_aad(mut imm8: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn bcd_aam(mut imm8: i32) -> () {
+pub unsafe fn bcd_aam(mut imm8: i32) {
     // ascii adjust after multiplication
     if imm8 == 0i32 {
         trigger_de();
@@ -353,7 +353,7 @@ pub unsafe fn bcd_aam(mut imm8: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn bcd_aaa() -> () {
+pub unsafe fn bcd_aaa() {
     if *reg8.offset(AL as isize) as i32 & 15i32 > 9i32 || 0 != getaf() as i32 {
         *reg16.offset(AX as isize) += 6;
         *reg8.offset(AH as isize) += 1;
@@ -366,7 +366,7 @@ pub unsafe fn bcd_aaa() -> () {
     *flags_changed &= !FLAG_ADJUST & !1i32;
 }
 #[no_mangle]
-pub unsafe fn bcd_aas() -> () {
+pub unsafe fn bcd_aas() {
     if *reg8.offset(AL as isize) as i32 & 15i32 > 9i32 || 0 != getaf() as i32 {
         *reg16.offset(AX as isize) -= 6;
         *reg8.offset(AH as isize) -= 1;
@@ -409,11 +409,11 @@ pub unsafe fn and16(mut x: i32, mut y: i32) -> i32 { return and(x, y, OPSIZE_16)
 #[no_mangle]
 pub unsafe fn and32(mut x: i32, mut y: i32) -> i32 { return and(x, y, OPSIZE_32); }
 #[no_mangle]
-pub unsafe fn test8(mut x: i32, mut y: i32) -> () { and(x, y, OPSIZE_8); }
+pub unsafe fn test8(mut x: i32, mut y: i32) { and(x, y, OPSIZE_8); }
 #[no_mangle]
-pub unsafe fn test16(mut x: i32, mut y: i32) -> () { and(x, y, OPSIZE_16); }
+pub unsafe fn test16(mut x: i32, mut y: i32) { and(x, y, OPSIZE_16); }
 #[no_mangle]
-pub unsafe fn test32(mut x: i32, mut y: i32) -> () { and(x, y, OPSIZE_32); }
+pub unsafe fn test32(mut x: i32, mut y: i32) { and(x, y, OPSIZE_32); }
 #[no_mangle]
 pub unsafe fn or8(mut x: i32, mut y: i32) -> i32 { return or(x, y, OPSIZE_8); }
 #[no_mangle]
@@ -618,7 +618,7 @@ pub unsafe fn rcr32(mut dest_operand: i32, mut count: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe fn div8(mut source_operand: u32) -> () {
+pub unsafe fn div8(mut source_operand: u32) {
     if source_operand == 0i32 as u32 {
         trigger_de();
         return;
@@ -637,7 +637,7 @@ pub unsafe fn div8(mut source_operand: u32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn idiv8(mut source_operand: i32) -> () {
+pub unsafe fn idiv8(mut source_operand: i32) {
     if source_operand == 0i32 {
         trigger_de();
         return;
@@ -656,7 +656,7 @@ pub unsafe fn idiv8(mut source_operand: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn div16(mut source_operand: u32) -> () {
+pub unsafe fn div16(mut source_operand: u32) {
     if source_operand == 0i32 as u32 {
         trigger_de();
         return;
@@ -677,7 +677,7 @@ pub unsafe fn div16(mut source_operand: u32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn idiv16(mut source_operand: i32) -> () {
+pub unsafe fn idiv16(mut source_operand: i32) {
     if source_operand == 0i32 {
         trigger_de();
         return;
@@ -697,7 +697,7 @@ pub unsafe fn idiv16(mut source_operand: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn div32(mut source_operand: u32) -> () {
+pub unsafe fn div32(mut source_operand: u32) {
     if source_operand == 0i32 as u32 {
         trigger_de();
         return;
@@ -720,7 +720,7 @@ pub unsafe fn div32(mut source_operand: u32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn idiv32(mut source_operand: i32) -> () {
+pub unsafe fn idiv32(mut source_operand: i32) {
     if source_operand == 0i32 {
         trigger_de();
         return;
@@ -975,7 +975,7 @@ pub unsafe fn shld32(mut dest_operand: i32, mut source_operand: i32, mut count: 
     };
 }
 #[no_mangle]
-pub unsafe fn bt_reg(mut bit_base: i32, mut bit_offset: i32) -> () {
+pub unsafe fn bt_reg(mut bit_base: i32, mut bit_offset: i32) {
     *flags = *flags & !1i32 | bit_base >> bit_offset & 1i32;
     *flags_changed &= !1i32;
 }
@@ -998,14 +998,14 @@ pub unsafe fn btr_reg(mut bit_base: i32, mut bit_offset: i32) -> i32 {
     return bit_base & !(1i32 << bit_offset);
 }
 #[no_mangle]
-pub unsafe fn bt_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
+pub unsafe fn bt_mem(mut virt_addr: i32, mut bit_offset: i32) {
     let mut bit_base: i32 = return_on_pagefault!(safe_read8(virt_addr + (bit_offset >> 3i32)));
     bit_offset &= 7i32;
     *flags = *flags & !1i32 | bit_base >> bit_offset & 1i32;
     *flags_changed &= !1i32;
 }
 #[no_mangle]
-pub unsafe fn btc_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
+pub unsafe fn btc_mem(mut virt_addr: i32, mut bit_offset: i32) {
     let mut phys_addr: i32 =
         return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3i32))) as i32;
     let mut bit_base: i32 = read8(phys_addr as u32);
@@ -1015,7 +1015,7 @@ pub unsafe fn btc_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
     write8(phys_addr as u32, bit_base ^ 1i32 << bit_offset);
 }
 #[no_mangle]
-pub unsafe fn btr_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
+pub unsafe fn btr_mem(mut virt_addr: i32, mut bit_offset: i32) {
     let mut phys_addr: i32 =
         return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3i32))) as i32;
     let mut bit_base: i32 = read8(phys_addr as u32);
@@ -1025,7 +1025,7 @@ pub unsafe fn btr_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
     write8(phys_addr as u32, bit_base & !(1i32 << bit_offset));
 }
 #[no_mangle]
-pub unsafe fn bts_mem(mut virt_addr: i32, mut bit_offset: i32) -> () {
+pub unsafe fn bts_mem(mut virt_addr: i32, mut bit_offset: i32) {
     let mut phys_addr: i32 =
         return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3i32))) as i32;
     let mut bit_base: i32 = read8(phys_addr as u32);

@@ -98,51 +98,51 @@ pub unsafe fn test_nl() -> bool { return !test_l(); }
 #[no_mangle]
 pub unsafe fn test_nle() -> bool { return !test_le(); }
 #[no_mangle]
-pub unsafe fn jmp_rel16(mut rel16: i32) -> () {
+pub unsafe fn jmp_rel16(mut rel16: i32) {
     let mut cs_offset: i32 = get_seg_cs();
     // limit ip to 16 bit
     *instruction_pointer = cs_offset + (*instruction_pointer - cs_offset + rel16 & 65535i32);
 }
 #[no_mangle]
-pub unsafe fn jmpcc16(mut condition: bool, mut imm16: i32) -> () {
+pub unsafe fn jmpcc16(mut condition: bool, mut imm16: i32) {
     if condition {
         jmp_rel16(imm16);
     };
 }
 #[no_mangle]
-pub unsafe fn jmpcc32(mut condition: bool, mut imm32: i32) -> () {
+pub unsafe fn jmpcc32(mut condition: bool, mut imm32: i32) {
     if condition {
         *instruction_pointer += imm32
     };
 }
 #[no_mangle]
-pub unsafe fn loope16(mut imm8s: i32) -> () {
+pub unsafe fn loope16(mut imm8s: i32) {
     jmpcc16(0 != decr_ecx_asize() && 0 != getzf() as i32, imm8s);
 }
 #[no_mangle]
-pub unsafe fn loopne16(mut imm8s: i32) -> () { jmpcc16(0 != decr_ecx_asize() && !getzf(), imm8s); }
+pub unsafe fn loopne16(mut imm8s: i32) { jmpcc16(0 != decr_ecx_asize() && !getzf(), imm8s); }
 #[no_mangle]
-pub unsafe fn loop16(mut imm8s: i32) -> () { jmpcc16(0 != decr_ecx_asize(), imm8s); }
+pub unsafe fn loop16(mut imm8s: i32) { jmpcc16(0 != decr_ecx_asize(), imm8s); }
 #[no_mangle]
-pub unsafe fn jcxz16(mut imm8s: i32) -> () { jmpcc16(get_reg_asize(ECX) == 0i32, imm8s); }
+pub unsafe fn jcxz16(mut imm8s: i32) { jmpcc16(get_reg_asize(ECX) == 0i32, imm8s); }
 #[no_mangle]
-pub unsafe fn loope32(mut imm8s: i32) -> () {
+pub unsafe fn loope32(mut imm8s: i32) {
     jmpcc32(0 != decr_ecx_asize() && 0 != getzf() as i32, imm8s);
 }
 #[no_mangle]
-pub unsafe fn loopne32(mut imm8s: i32) -> () { jmpcc32(0 != decr_ecx_asize() && !getzf(), imm8s); }
+pub unsafe fn loopne32(mut imm8s: i32) { jmpcc32(0 != decr_ecx_asize() && !getzf(), imm8s); }
 #[no_mangle]
-pub unsafe fn loop32(mut imm8s: i32) -> () { jmpcc32(0 != decr_ecx_asize(), imm8s); }
+pub unsafe fn loop32(mut imm8s: i32) { jmpcc32(0 != decr_ecx_asize(), imm8s); }
 #[no_mangle]
-pub unsafe fn jcxz32(mut imm8s: i32) -> () { jmpcc32(get_reg_asize(ECX) == 0i32, imm8s); }
+pub unsafe fn jcxz32(mut imm8s: i32) { jmpcc32(get_reg_asize(ECX) == 0i32, imm8s); }
 #[no_mangle]
-pub unsafe fn cmovcc16(mut condition: bool, mut value: i32, mut r: i32) -> () {
+pub unsafe fn cmovcc16(mut condition: bool, mut value: i32, mut r: i32) {
     if condition {
         write_reg16(r, value);
     };
 }
 #[no_mangle]
-pub unsafe fn cmovcc32(mut condition: bool, mut value: i32, mut r: i32) -> () {
+pub unsafe fn cmovcc32(mut condition: bool, mut value: i32, mut r: i32) {
     if condition {
         write_reg32(r, value);
     };
@@ -157,7 +157,7 @@ pub unsafe fn get_stack_pointer(mut offset: i32) -> i32 {
     };
 }
 #[no_mangle]
-pub unsafe fn adjust_stack_reg(mut adjustment: i32) -> () {
+pub unsafe fn adjust_stack_reg(mut adjustment: i32) {
     if *stack_size_32 {
         *reg32s.offset(ESP as isize) += adjustment;
     }
@@ -292,7 +292,7 @@ pub unsafe fn pop32s_ss32() -> Result<i32, ()> {
     Ok(result)
 }
 #[no_mangle]
-pub unsafe fn pusha16() -> () {
+pub unsafe fn pusha16() {
     let mut temp: u16 = *reg16.offset(SP as isize);
     // make sure we don't get a pagefault after having
     // pushed several registers already
@@ -307,7 +307,7 @@ pub unsafe fn pusha16() -> () {
     push16(*reg16.offset(DI as isize) as i32).unwrap();
 }
 #[no_mangle]
-pub unsafe fn pusha32() -> () {
+pub unsafe fn pusha32() {
     let mut temp: i32 = *reg32s.offset(ESP as isize);
     return_on_pagefault!(writable_or_pagefault(get_stack_pointer(-32i32), 32i32));
     push32(*reg32s.offset(EAX as isize)).unwrap();
@@ -320,18 +320,18 @@ pub unsafe fn pusha32() -> () {
     push32(*reg32s.offset(EDI as isize)).unwrap();
 }
 #[no_mangle]
-pub unsafe fn setcc_reg(mut condition: bool, mut r: i32) -> () {
+pub unsafe fn setcc_reg(mut condition: bool, mut r: i32) {
     write_reg8(r, if 0 != condition as i32 { 1i32 } else { 0i32 });
 }
 #[no_mangle]
-pub unsafe fn setcc_mem(mut condition: bool, mut addr: i32) -> () {
+pub unsafe fn setcc_mem(mut condition: bool, mut addr: i32) {
     return_on_pagefault!(safe_write8(
         addr,
         if 0 != condition as i32 { 1i32 } else { 0i32 }
     ));
 }
 #[no_mangle]
-pub unsafe fn fxsave(mut addr: u32) -> () {
+pub unsafe fn fxsave(mut addr: u32) {
     return_on_pagefault!(writable_or_pagefault(addr as i32, 512i32));
     safe_write16(addr.wrapping_add(0i32 as u32) as i32, *fpu_control_word).unwrap();
     safe_write16(
@@ -372,7 +372,7 @@ pub unsafe fn fxsave(mut addr: u32) -> () {
     }
 }
 #[no_mangle]
-pub unsafe fn fxrstor(mut addr: u32) -> () {
+pub unsafe fn fxrstor(mut addr: u32) {
     // TODO: Add readable_or_pagefault
     return_on_pagefault!(translate_address_read(addr as i32));
     return_on_pagefault!(translate_address_read(
@@ -443,7 +443,7 @@ pub unsafe fn xchg16(mut data: i32, mut r16: i32) -> i32 {
     return tmp;
 }
 #[no_mangle]
-pub unsafe fn xchg16r(mut r16: i32) -> () {
+pub unsafe fn xchg16r(mut r16: i32) {
     let mut tmp: i32 = *reg16.offset(AX as isize) as i32;
     *reg16.offset(AX as isize) = *reg16.offset(r16 as isize);
     *reg16.offset(r16 as isize) = tmp as u16;
@@ -455,7 +455,7 @@ pub unsafe fn xchg32(mut data: i32, mut r32: i32) -> i32 {
     return tmp;
 }
 #[no_mangle]
-pub unsafe fn xchg32r(mut r32: i32) -> () {
+pub unsafe fn xchg32r(mut r32: i32) {
     let mut tmp: i32 = *reg32s.offset(EAX as isize);
     *reg32s.offset(EAX as isize) = *reg32s.offset(r32 as isize);
     *reg32s.offset(r32 as isize) = tmp;

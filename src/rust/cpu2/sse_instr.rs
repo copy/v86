@@ -3,36 +3,36 @@
 use cpu2::cpu::*;
 
 #[no_mangle]
-pub unsafe fn mov_r_m64(mut addr: i32, mut r: i32) -> () {
+pub unsafe fn mov_r_m64(mut addr: i32, mut r: i32) {
     // mov* m64, mm
     let mut data: reg64 = read_mmx64s(r);
     return_on_pagefault!(safe_write64(addr, data.u64_0[0usize] as i64));
 }
 #[no_mangle]
-pub unsafe fn movl_r128_m64(mut addr: i32, mut r: i32) -> () {
+pub unsafe fn movl_r128_m64(mut addr: i32, mut r: i32) {
     // mov* m64, xmm
     let mut data: reg64 = read_xmm64s(r);
     return_on_pagefault!(safe_write64(addr, data.u64_0[0usize] as i64));
 }
 #[no_mangle]
-pub unsafe fn mov_r_r128(mut r1: i32, mut r2: i32) -> () {
+pub unsafe fn mov_r_r128(mut r1: i32, mut r2: i32) {
     // mov* xmm, xmm
     let mut data: reg128 = read_xmm128s(r2);
     write_xmm_reg128(r1, data);
 }
 #[no_mangle]
-pub unsafe fn mov_r_m128(mut addr: i32, mut r: i32) -> () {
+pub unsafe fn mov_r_m128(mut addr: i32, mut r: i32) {
     // mov* m128, xmm
     let mut data: reg128 = read_xmm128s(r);
     return_on_pagefault!(safe_write128(addr, data));
 }
 #[no_mangle]
-pub unsafe fn mov_rm_r128(mut source: reg128, mut r: i32) -> () {
+pub unsafe fn mov_rm_r128(mut source: reg128, mut r: i32) {
     // mov* xmm, xmm/m128
     write_xmm_reg128(r, source);
 }
 #[no_mangle]
-pub unsafe fn movh_m64_r128(mut addr: i32, mut r: i32) -> () {
+pub unsafe fn movh_m64_r128(mut addr: i32, mut r: i32) {
     // movhp* xmm, m64
     let mut data: reg64 = return_on_pagefault!(safe_read64s(addr));
     let mut orig: reg128 = read_xmm128s(r);
@@ -45,13 +45,13 @@ pub unsafe fn movh_m64_r128(mut addr: i32, mut r: i32) -> () {
     );
 }
 #[no_mangle]
-pub unsafe fn movh_r128_m64(mut addr: i32, mut r: i32) -> () {
+pub unsafe fn movh_r128_m64(mut addr: i32, mut r: i32) {
     // movhp* m64, xmm
     let mut data: reg128 = read_xmm128s(r);
     return_on_pagefault!(safe_write64(addr, data.u64_0[1usize] as i64));
 }
 #[no_mangle]
-pub unsafe fn pand_r128(mut source: reg128, mut r: i32) -> () {
+pub unsafe fn pand_r128(mut source: reg128, mut r: i32) {
     // pand xmm, xmm/m128
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
@@ -63,7 +63,7 @@ pub unsafe fn pand_r128(mut source: reg128, mut r: i32) -> () {
     write_xmm_reg128(r, result);
 }
 #[no_mangle]
-pub unsafe fn pandn_r128(mut source: reg128, mut r: i32) -> () {
+pub unsafe fn pandn_r128(mut source: reg128, mut r: i32) {
     // pandn xmm, xmm/m128
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
@@ -75,7 +75,7 @@ pub unsafe fn pandn_r128(mut source: reg128, mut r: i32) -> () {
     write_xmm_reg128(r, result);
 }
 #[no_mangle]
-pub unsafe fn pxor_r128(mut source: reg128, mut r: i32) -> () {
+pub unsafe fn pxor_r128(mut source: reg128, mut r: i32) {
     // pxor xmm, xmm/m128
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
@@ -87,7 +87,7 @@ pub unsafe fn pxor_r128(mut source: reg128, mut r: i32) -> () {
     write_xmm_reg128(r, result);
 }
 #[no_mangle]
-pub unsafe fn por_r128(mut source: reg128, mut r: i32) -> () {
+pub unsafe fn por_r128(mut source: reg128, mut r: i32) {
     // por xmm, xmm/m128
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
@@ -99,7 +99,7 @@ pub unsafe fn por_r128(mut source: reg128, mut r: i32) -> () {
     write_xmm_reg128(r, result);
 }
 #[no_mangle]
-pub unsafe fn psrlw_r64(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psrlw_r64(mut r: i32, mut shift: u32) {
     // psrlw mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut dword0: i32 = 0i32;
@@ -113,7 +113,7 @@ pub unsafe fn psrlw_r64(mut r: i32, mut shift: u32) -> () {
     write_mmx64(r, dword0, dword1);
 }
 #[no_mangle]
-pub unsafe fn psraw_r64(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psraw_r64(mut r: i32, mut shift: u32) {
     // psraw mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut shift_clamped: i32 = (if shift > 15i32 as u32 {
@@ -129,7 +129,7 @@ pub unsafe fn psraw_r64(mut r: i32, mut shift: u32) -> () {
     write_mmx64(r, dword0, dword1);
 }
 #[no_mangle]
-pub unsafe fn psllw_r64(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psllw_r64(mut r: i32, mut shift: u32) {
     // psllw mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut dword0: i32 = 0i32;
@@ -143,7 +143,7 @@ pub unsafe fn psllw_r64(mut r: i32, mut shift: u32) -> () {
     write_mmx64(r, dword0, dword1);
 }
 #[no_mangle]
-pub unsafe fn psrld_r64(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psrld_r64(mut r: i32, mut shift: u32) {
     // psrld mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut dword0: i32 = 0i32;
@@ -155,7 +155,7 @@ pub unsafe fn psrld_r64(mut r: i32, mut shift: u32) -> () {
     write_mmx64(r, dword0, dword1);
 }
 #[no_mangle]
-pub unsafe fn psrad_r64(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psrad_r64(mut r: i32, mut shift: u32) {
     // psrad mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut shift_clamped: i32 = (if shift > 31i32 as u32 {
@@ -169,7 +169,7 @@ pub unsafe fn psrad_r64(mut r: i32, mut shift: u32) -> () {
     write_mmx64(r, dword0, dword1);
 }
 #[no_mangle]
-pub unsafe fn pslld_r64(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn pslld_r64(mut r: i32, mut shift: u32) {
     // pslld mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut dword0: i32 = 0i32;
@@ -181,7 +181,7 @@ pub unsafe fn pslld_r64(mut r: i32, mut shift: u32) -> () {
     write_mmx64(r, dword0, dword1);
 }
 #[no_mangle]
-pub unsafe fn psrlq_r64(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psrlq_r64(mut r: i32, mut shift: u32) {
     // psrlq mm, {shift}
     if shift == 0i32 as u32 {
         return;
@@ -199,7 +199,7 @@ pub unsafe fn psrlq_r64(mut r: i32, mut shift: u32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn psllq_r64(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psllq_r64(mut r: i32, mut shift: u32) {
     // psllq mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     if shift == 0i32 as u32 {
@@ -217,7 +217,7 @@ pub unsafe fn psllq_r64(mut r: i32, mut shift: u32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn psrlw_r128(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psrlw_r128(mut r: i32, mut shift: u32) {
     // psrlw xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut dword0: i32 = 0i32;
@@ -237,7 +237,7 @@ pub unsafe fn psrlw_r128(mut r: i32, mut shift: u32) -> () {
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 #[no_mangle]
-pub unsafe fn psraw_r128(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psraw_r128(mut r: i32, mut shift: u32) {
     // psraw xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut shift_clamped: i32 = (if shift > 15i32 as u32 {
@@ -257,7 +257,7 @@ pub unsafe fn psraw_r128(mut r: i32, mut shift: u32) -> () {
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 #[no_mangle]
-pub unsafe fn psllw_r128(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psllw_r128(mut r: i32, mut shift: u32) {
     // psllw xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut dword0: i32 = 0i32;
@@ -277,7 +277,7 @@ pub unsafe fn psllw_r128(mut r: i32, mut shift: u32) -> () {
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 #[no_mangle]
-pub unsafe fn psrld_r128(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psrld_r128(mut r: i32, mut shift: u32) {
     // psrld xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut dword0: i32 = 0i32;
@@ -293,7 +293,7 @@ pub unsafe fn psrld_r128(mut r: i32, mut shift: u32) -> () {
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 #[no_mangle]
-pub unsafe fn psrad_r128(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psrad_r128(mut r: i32, mut shift: u32) {
     // psrad xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut shift_clamped: i32 = (if shift > 31i32 as u32 {
@@ -309,7 +309,7 @@ pub unsafe fn psrad_r128(mut r: i32, mut shift: u32) -> () {
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 #[no_mangle]
-pub unsafe fn pslld_r128(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn pslld_r128(mut r: i32, mut shift: u32) {
     // pslld xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut dword0: i32 = 0i32;
@@ -325,7 +325,7 @@ pub unsafe fn pslld_r128(mut r: i32, mut shift: u32) -> () {
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 #[no_mangle]
-pub unsafe fn psrlq_r128(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psrlq_r128(mut r: i32, mut shift: u32) {
     // psrlq xmm, {shift}
     if shift == 0i32 as u32 {
         return;
@@ -344,7 +344,7 @@ pub unsafe fn psrlq_r128(mut r: i32, mut shift: u32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn psllq_r128(mut r: i32, mut shift: u32) -> () {
+pub unsafe fn psllq_r128(mut r: i32, mut shift: u32) {
     // psllq xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     if shift == 0i32 as u32 {

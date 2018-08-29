@@ -87,7 +87,7 @@ pub static mut profiler_stat_arr: [profiler_stat; 37] = [
     profiler_stat { count: 0 },
 ];
 #[no_mangle]
-pub unsafe fn profiler_init() -> () {
+pub unsafe fn profiler_init() {
     let mut i: u32 = 0i32 as u32;
     while i < (S_TLB_GLOBAL_FULL as i32 - S_COMPILE as i32 + 1i32) as u32 {
         profiler_stat_arr[i as usize].count = 0i32;
@@ -95,11 +95,11 @@ pub unsafe fn profiler_init() -> () {
     }
 }
 #[no_mangle]
-pub unsafe fn profiler_stat_increment(mut stat: StatName) -> () {
+pub unsafe fn profiler_stat_increment(mut stat: StatName) {
     profiler_stat_increment_by(stat, 1i32);
 }
 #[no_mangle]
-pub unsafe fn profiler_stat_increment_by(mut stat: StatName, mut by: i32) -> () {
+pub unsafe fn profiler_stat_increment_by(mut stat: StatName, mut by: i32) {
     if cfg!(feature = "profiler") {
         profiler_stat_arr[stat as usize].count += by;
     }
@@ -114,4 +114,4 @@ pub unsafe fn profiler_stat_get(mut stat: StatName) -> i32 {
     }
 }
 #[no_mangle]
-pub unsafe fn profiler_stat_increment_do_run() -> () { profiler_stat_increment(S_DO_RUN); }
+pub unsafe fn profiler_stat_increment_do_run() { profiler_stat_increment(S_DO_RUN); }

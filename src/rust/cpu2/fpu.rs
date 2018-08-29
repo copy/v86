@@ -63,7 +63,7 @@ pub unsafe fn fpu_get_st0() -> f64 {
     };
 }
 #[no_mangle]
-pub unsafe fn fpu_stack_fault() -> () {
+pub unsafe fn fpu_stack_fault() {
     // TODO: Interrupt
     *fpu_status_word |= FPU_EX_SF | FPU_EX_I;
 }
@@ -157,22 +157,22 @@ pub unsafe fn fpu_load_status_word() -> i32 {
     return ((*fpu_status_word & !(7i32 << 11i32)) as u32 | *fpu_stack_ptr << 11i32) as i32;
 }
 #[no_mangle]
-pub unsafe fn fpu_fadd(mut target_index: i32, mut val: f64) -> () {
+pub unsafe fn fpu_fadd(mut target_index: i32, mut val: f64) {
     let mut st0: f64 = fpu_get_st0();
     *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(target_index as u32) & 7i32 as u32) as isize) =
         st0 + val;
 }
 #[no_mangle]
-pub unsafe fn fpu_fclex() -> () { *fpu_status_word = 0i32; }
+pub unsafe fn fpu_fclex() { *fpu_status_word = 0i32; }
 #[no_mangle]
-pub unsafe fn fpu_fcmovcc(mut condition: bool, mut r: i32) -> () {
+pub unsafe fn fpu_fcmovcc(mut condition: bool, mut r: i32) {
     if condition {
         *fpu_st.offset(*fpu_stack_ptr as isize) = fpu_get_sti(r);
         *fpu_stack_empty &= !(1i32 << *fpu_stack_ptr)
     };
 }
 #[no_mangle]
-pub unsafe fn fpu_fcom(mut y: f64) -> () {
+pub unsafe fn fpu_fcom(mut y: f64) {
     let mut x: f64 = fpu_get_st0();
     *fpu_status_word &= !FPU_RESULT_FLAGS;
     if !(x > y) {
@@ -188,7 +188,7 @@ pub unsafe fn fpu_fcom(mut y: f64) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn fpu_fcomi(mut r: i32) -> () {
+pub unsafe fn fpu_fcomi(mut r: i32) {
     let mut y: f64 = fpu_get_sti(r);
     let mut x: f64 = *fpu_st.offset(*fpu_stack_ptr as isize);
     *flags_changed &= !(1i32 | FLAG_PARITY | FLAG_ZERO);
@@ -206,44 +206,44 @@ pub unsafe fn fpu_fcomi(mut r: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn fpu_fcomip(mut r: i32) -> () {
+pub unsafe fn fpu_fcomip(mut r: i32) {
     fpu_fcomi(r);
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe fn fpu_pop() -> () {
+pub unsafe fn fpu_pop() {
     *fpu_stack_empty |= 1i32 << *fpu_stack_ptr;
     *fpu_stack_ptr = (*fpu_stack_ptr).wrapping_add(1i32 as u32) & 7i32 as u32;
 }
 #[no_mangle]
-pub unsafe fn fpu_fcomp(mut val: f64) -> () {
+pub unsafe fn fpu_fcomp(mut val: f64) {
     fpu_fcom(val);
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe fn fpu_fdiv(mut target_index: i32, mut val: f64) -> () {
+pub unsafe fn fpu_fdiv(mut target_index: i32, mut val: f64) {
     let mut st0: f64 = fpu_get_st0();
     *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(target_index as u32) & 7i32 as u32) as isize) =
         st0 / val;
 }
 #[no_mangle]
-pub unsafe fn fpu_fdivr(mut target_index: i32, mut val: f64) -> () {
+pub unsafe fn fpu_fdivr(mut target_index: i32, mut val: f64) {
     let mut st0: f64 = fpu_get_st0();
     *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(target_index as u32) & 7i32 as u32) as isize) =
         val / st0;
 }
 #[no_mangle]
-pub unsafe fn fpu_ffree(mut r: i32) -> () {
+pub unsafe fn fpu_ffree(mut r: i32) {
     *fpu_stack_empty |= 1i32 << (*fpu_stack_ptr).wrapping_add(r as u32);
 }
 #[no_mangle]
-pub unsafe fn fpu_fildm64(mut addr: i32) -> () {
+pub unsafe fn fpu_fildm64(mut addr: i32) {
     let mut value: i64 = return_on_pagefault!(safe_read64s(addr)).i64_0[0usize];
     let mut m64: f64 = value as f64;
     fpu_push(m64);
 }
 #[no_mangle]
-pub unsafe fn fpu_push(mut x: f64) -> () {
+pub unsafe fn fpu_push(mut x: f64) {
     *fpu_stack_ptr = (*fpu_stack_ptr).wrapping_sub(1i32 as u32) & 7i32 as u32;
     if 0 != *fpu_stack_empty >> *fpu_stack_ptr & 1i32 {
         *fpu_status_word &= !FPU_C1;
@@ -257,7 +257,7 @@ pub unsafe fn fpu_push(mut x: f64) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn fpu_finit() -> () {
+pub unsafe fn fpu_finit() {
     *fpu_control_word = 895i32;
     *fpu_status_word = 0i32;
     *fpu_ip = 0i32;
@@ -267,7 +267,7 @@ pub unsafe fn fpu_finit() -> () {
     *fpu_stack_ptr = 0i32 as u32;
 }
 #[no_mangle]
-pub unsafe fn fpu_fistm16(mut addr: i32) -> () {
+pub unsafe fn fpu_fistm16(mut addr: i32) {
     let mut st0: f64 = fpu_integer_round(fpu_get_st0());
     if st0 <= 32767i32 as f64 && st0 >= -32768i32 as f64 {
         return_on_pagefault!(safe_write16(addr, st0 as i32));
@@ -278,14 +278,14 @@ pub unsafe fn fpu_fistm16(mut addr: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn fpu_invalid_arithmetic() -> () { *fpu_status_word |= FPU_EX_I; }
+pub unsafe fn fpu_invalid_arithmetic() { *fpu_status_word |= FPU_EX_I; }
 #[no_mangle]
-pub unsafe fn fpu_fistm16p(mut addr: i32) -> () {
+pub unsafe fn fpu_fistm16p(mut addr: i32) {
     fpu_fistm16(addr);
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe fn fpu_fistm32(mut addr: i32) -> () {
+pub unsafe fn fpu_fistm32(mut addr: i32) {
     let mut st0: f64 = fpu_integer_round(fpu_get_st0());
     let mut i: i32 = convert_f64_to_i32(st0);
     if i == 2147483648u32 as i32 {
@@ -296,12 +296,12 @@ pub unsafe fn fpu_fistm32(mut addr: i32) -> () {
     return_on_pagefault!(safe_write32(addr, i));
 }
 #[no_mangle]
-pub unsafe fn fpu_fistm32p(mut addr: i32) -> () {
+pub unsafe fn fpu_fistm32p(mut addr: i32) {
     fpu_fistm32(addr);
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe fn fpu_fistm64p(mut addr: i32) -> () {
+pub unsafe fn fpu_fistm64p(mut addr: i32) {
     let mut st0: f64 = fpu_integer_round(fpu_get_st0());
     let mut value;
     if st0 < TWO_POW_63 && st0 >= -TWO_POW_63 {
@@ -315,12 +315,12 @@ pub unsafe fn fpu_fistm64p(mut addr: i32) -> () {
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe fn fpu_fldcw(mut addr: i32) -> () {
+pub unsafe fn fpu_fldcw(mut addr: i32) {
     let mut word: i32 = return_on_pagefault!(safe_read16(addr));
     *fpu_control_word = word;
 }
 #[no_mangle]
-pub unsafe fn fpu_fldenv(mut addr: i32) -> () {
+pub unsafe fn fpu_fldenv(mut addr: i32) {
     if is_osize_32() {
         // TODO: Add readable_or_pagefault
         return_on_pagefault!(translate_address_read(addr));
@@ -340,7 +340,7 @@ pub unsafe fn fpu_fldenv(mut addr: i32) -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn fpu_unimpl() -> () {
+pub unsafe fn fpu_unimpl() {
     if DEBUG {
         dbg_assert!(0 != 0i32);
     }
@@ -349,7 +349,7 @@ pub unsafe fn fpu_unimpl() -> () {
     };
 }
 #[no_mangle]
-pub unsafe fn fpu_set_tag_word(mut tag_word: i32) -> () {
+pub unsafe fn fpu_set_tag_word(mut tag_word: i32) {
     *fpu_stack_empty = 0i32;
     let mut i: i32 = 0i32;
     while i < 8i32 {
@@ -359,36 +359,34 @@ pub unsafe fn fpu_set_tag_word(mut tag_word: i32) -> () {
     }
 }
 #[no_mangle]
-pub unsafe fn fpu_set_status_word(mut sw: i32) -> () {
+pub unsafe fn fpu_set_status_word(mut sw: i32) {
     *fpu_status_word = sw & !(7i32 << 11i32);
     *fpu_stack_ptr = (sw >> 11i32 & 7i32) as u32;
 }
 #[no_mangle]
-pub unsafe fn fpu_fldm32(mut addr: i32) -> () {
+pub unsafe fn fpu_fldm32(mut addr: i32) {
     fpu_push(return_on_pagefault!(safe_read32s(addr)) as f64);
 }
 #[no_mangle]
-pub unsafe fn fpu_fldm64(mut addr: i32) -> () {
-    fpu_push(return_on_pagefault!(fpu_load_m64(addr)));
-}
+pub unsafe fn fpu_fldm64(mut addr: i32) { fpu_push(return_on_pagefault!(fpu_load_m64(addr))); }
 #[no_mangle]
-pub unsafe fn fpu_fldm80(mut addr: i32) -> () {
+pub unsafe fn fpu_fldm80(mut addr: i32) {
     fpu_push(return_on_pagefault!(fpu_load_m80(addr as u32)));
 }
 #[no_mangle]
-pub unsafe fn fpu_fmul(mut target_index: i32, mut val: f64) -> () {
+pub unsafe fn fpu_fmul(mut target_index: i32, mut val: f64) {
     let mut st0: f64 = fpu_get_st0();
     *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(target_index as u32) & 7i32 as u32) as isize) =
         st0 * val;
 }
 #[no_mangle]
-pub unsafe fn fpu_fnstsw_mem(mut addr: i32) -> () {
+pub unsafe fn fpu_fnstsw_mem(mut addr: i32) {
     return_on_pagefault!(safe_write16(addr, fpu_load_status_word()));
 }
 #[no_mangle]
-pub unsafe fn fpu_fnstsw_reg() -> () { *reg16.offset(AX as isize) = fpu_load_status_word() as u16; }
+pub unsafe fn fpu_fnstsw_reg() { *reg16.offset(AX as isize) = fpu_load_status_word() as u16; }
 #[no_mangle]
-pub unsafe fn fpu_fprem() -> () {
+pub unsafe fn fpu_fprem() {
     // XXX: This implementation differs from the description in Intel's manuals
     let mut st0: f64 = fpu_get_st0();
     let mut st1: f64 = fpu_get_sti(1i32);
@@ -407,7 +405,7 @@ pub unsafe fn fpu_fprem() -> () {
     *fpu_status_word &= !FPU_C2;
 }
 #[no_mangle]
-pub unsafe fn fpu_frstor(mut addr: i32) -> () {
+pub unsafe fn fpu_frstor(mut addr: i32) {
     // TODO: Add readable_or_pagefault
     return_on_pagefault!(translate_address_read(addr));
     return_on_pagefault!(translate_address_read(addr + 28 + 8 * 10));
@@ -422,7 +420,7 @@ pub unsafe fn fpu_frstor(mut addr: i32) -> () {
     }
 }
 #[no_mangle]
-pub unsafe fn fpu_fsave(mut addr: i32) -> () {
+pub unsafe fn fpu_fsave(mut addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr, 108i32));
     fpu_fstenv(addr);
     addr += 28i32;
@@ -438,7 +436,7 @@ pub unsafe fn fpu_fsave(mut addr: i32) -> () {
     fpu_finit();
 }
 #[no_mangle]
-pub unsafe fn fpu_store_m80(mut addr: u32, mut n: f64) -> () {
+pub unsafe fn fpu_store_m80(mut addr: u32, mut n: f64) {
     let mut double_int_view: f64_int = f64_int { f64_0: n };
     let mut sign: u8 = (double_int_view.u8_0[7usize] as i32 & 128i32) as u8;
     let mut exponent: i32 = (double_int_view.u8_0[7usize] as i32 & 127i32) << 4i32
@@ -478,7 +476,7 @@ pub unsafe fn fpu_store_m80(mut addr: u32, mut n: f64) -> () {
     ).unwrap();
 }
 #[no_mangle]
-pub unsafe fn fpu_fstenv(mut addr: i32) -> () {
+pub unsafe fn fpu_fstenv(mut addr: i32) {
     if is_osize_32() {
         return_on_pagefault!(writable_or_pagefault(addr, 26i32));
         safe_write16(addr, *fpu_control_word).unwrap();
@@ -515,21 +513,21 @@ pub unsafe fn fpu_load_tag_word() -> i32 {
     return tag_word;
 }
 #[no_mangle]
-pub unsafe fn fpu_fst(mut r: i32) -> () {
+pub unsafe fn fpu_fst(mut r: i32) {
     *fpu_st.offset((*fpu_stack_ptr).wrapping_add(r as u32) as isize & 7) = fpu_get_st0();
 }
 #[no_mangle]
-pub unsafe fn fpu_fst80p(mut addr: i32) -> () {
+pub unsafe fn fpu_fst80p(mut addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr, 10i32));
     fpu_store_m80(addr as u32, fpu_get_st0());
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe fn fpu_fstcw(mut addr: i32) -> () {
+pub unsafe fn fpu_fstcw(mut addr: i32) {
     return_on_pagefault!(safe_write16(addr, *fpu_control_word));
 }
 #[no_mangle]
-pub unsafe fn fpu_fstm32(mut addr: i32) -> () {
+pub unsafe fn fpu_fstm32(mut addr: i32) {
     return_on_pagefault!(fpu_store_m32(addr, fpu_get_st0()));
 }
 #[no_mangle]
@@ -538,12 +536,12 @@ pub unsafe fn fpu_store_m32(mut addr: i32, mut x: f64) -> Result<(), ()> {
     safe_write32(addr, v.i32_0)
 }
 #[no_mangle]
-pub unsafe fn fpu_fstm32p(mut addr: i32) -> () {
+pub unsafe fn fpu_fstm32p(mut addr: i32) {
     fpu_fstm32(addr);
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe fn fpu_fstm64(mut addr: i32) -> () {
+pub unsafe fn fpu_fstm64(mut addr: i32) {
     return_on_pagefault!(fpu_store_m64(addr, fpu_get_st0()));
 }
 #[no_mangle]
@@ -552,29 +550,29 @@ pub unsafe fn fpu_store_m64(mut addr: i32, mut x: f64) -> Result<(), ()> {
     safe_write64(addr, v.u64_0[0usize] as i64)
 }
 #[no_mangle]
-pub unsafe fn fpu_fstm64p(mut addr: i32) -> () {
+pub unsafe fn fpu_fstm64p(mut addr: i32) {
     fpu_fstm64(addr);
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe fn fpu_fstp(mut r: i32) -> () {
+pub unsafe fn fpu_fstp(mut r: i32) {
     fpu_fst(r);
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe fn fpu_fsub(mut target_index: i32, mut val: f64) -> () {
+pub unsafe fn fpu_fsub(mut target_index: i32, mut val: f64) {
     let mut st0: f64 = fpu_get_st0();
     *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(target_index as u32) & 7i32 as u32) as isize) =
         st0 - val;
 }
 #[no_mangle]
-pub unsafe fn fpu_fsubr(mut target_index: i32, mut val: f64) -> () {
+pub unsafe fn fpu_fsubr(mut target_index: i32, mut val: f64) {
     let mut st0: f64 = fpu_get_st0();
     *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(target_index as u32) & 7i32 as u32) as isize) =
         val - st0;
 }
 #[no_mangle]
-pub unsafe fn fpu_ftst(mut x: f64) -> () {
+pub unsafe fn fpu_ftst(mut x: f64) {
     *fpu_status_word &= !FPU_RESULT_FLAGS;
     if x.is_nan() {
         *fpu_status_word |= FPU_C3 | FPU_C2 | FPU_C0
@@ -588,33 +586,33 @@ pub unsafe fn fpu_ftst(mut x: f64) -> () {
     // TODO: unordered (x is nan, etc)
 }
 #[no_mangle]
-pub unsafe fn fpu_fucom(mut r: i32) -> () {
+pub unsafe fn fpu_fucom(mut r: i32) {
     // TODO
     fpu_fcom(fpu_get_sti(r));
 }
 #[no_mangle]
-pub unsafe fn fpu_fucomi(mut r: i32) -> () {
+pub unsafe fn fpu_fucomi(mut r: i32) {
     // TODO
     fpu_fcomi(r);
 }
 #[no_mangle]
-pub unsafe fn fpu_fucomip(mut r: i32) -> () {
+pub unsafe fn fpu_fucomip(mut r: i32) {
     fpu_fucomi(r);
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe fn fpu_fucomp(mut r: i32) -> () {
+pub unsafe fn fpu_fucomp(mut r: i32) {
     fpu_fucom(r);
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe fn fpu_fucompp() -> () {
+pub unsafe fn fpu_fucompp() {
     fpu_fucom(1i32);
     fpu_pop();
     fpu_pop();
 }
 #[no_mangle]
-pub unsafe fn fpu_fxam(mut x: f64) -> () {
+pub unsafe fn fpu_fxam(mut x: f64) {
     *fpu_status_word &= !FPU_RESULT_FLAGS;
     *fpu_status_word |= fpu_sign(0i32) << 9i32;
     if 0 != *fpu_stack_empty >> *fpu_stack_ptr & 1i32 {
@@ -644,13 +642,13 @@ pub unsafe fn fpu_sign(mut i: i32) -> i32 {
         >> 7i32;
 }
 #[no_mangle]
-pub unsafe fn fpu_fxch(mut i: i32) -> () {
+pub unsafe fn fpu_fxch(mut i: i32) {
     let mut sti: f64 = fpu_get_sti(i);
     *fpu_st.offset((*fpu_stack_ptr).wrapping_add(i as u32) as isize & 7) = fpu_get_st0();
     *fpu_st.offset(*fpu_stack_ptr as isize) = sti;
 }
 #[no_mangle]
-pub unsafe fn fpu_fxtract() -> () {
+pub unsafe fn fpu_fxtract() {
     let mut double_int_view: f64_int = f64_int {
         f64_0: fpu_get_st0(),
     };
@@ -663,6 +661,6 @@ pub unsafe fn fpu_fxtract() -> () {
     fpu_push(double_int_view.f64_0);
 }
 #[no_mangle]
-pub unsafe fn fwait() -> () {
+pub unsafe fn fwait() {
     // NOP unless FPU instructions run in parallel with CPU instructions
 }
