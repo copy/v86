@@ -33,7 +33,3 @@ macro_rules! dbg_log_c {
         dbg_log!($fmt);
     }};
 }
-
-macro_rules! c_comment {
-    ($fmt:expr) => {{}};
-}

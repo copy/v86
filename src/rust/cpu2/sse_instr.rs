@@ -11,36 +11,36 @@ use cpu2::cpu::*;
 
 #[no_mangle]
 pub unsafe fn mov_r_m64(mut addr: i32, mut r: i32) -> () {
-    c_comment!(("mov* m64, mm"));
+    // mov* m64, mm
     let mut data: reg64 = read_mmx64s(r);
     return_on_pagefault!(safe_write64(addr, data.u64_0[0usize] as i64));
 }
 #[no_mangle]
 pub unsafe fn movl_r128_m64(mut addr: i32, mut r: i32) -> () {
-    c_comment!(("mov* m64, xmm"));
+    // mov* m64, xmm
     let mut data: reg64 = read_xmm64s(r);
     return_on_pagefault!(safe_write64(addr, data.u64_0[0usize] as i64));
 }
 #[no_mangle]
 pub unsafe fn mov_r_r128(mut r1: i32, mut r2: i32) -> () {
-    c_comment!(("mov* xmm, xmm"));
+    // mov* xmm, xmm
     let mut data: reg128 = read_xmm128s(r2);
     write_xmm_reg128(r1, data);
 }
 #[no_mangle]
 pub unsafe fn mov_r_m128(mut addr: i32, mut r: i32) -> () {
-    c_comment!(("mov* m128, xmm"));
+    // mov* m128, xmm
     let mut data: reg128 = read_xmm128s(r);
     return_on_pagefault!(safe_write128(addr, data));
 }
 #[no_mangle]
 pub unsafe fn mov_rm_r128(mut source: reg128, mut r: i32) -> () {
-    c_comment!(("mov* xmm, xmm/m128"));
+    // mov* xmm, xmm/m128
     write_xmm_reg128(r, source);
 }
 #[no_mangle]
 pub unsafe fn movh_m64_r128(mut addr: i32, mut r: i32) -> () {
-    c_comment!(("movhp* xmm, m64"));
+    // movhp* xmm, m64
     let mut data: reg64 = return_on_pagefault!(safe_read64s(addr));
     let mut orig: reg128 = read_xmm128s(r);
     write_xmm128(
@@ -53,14 +53,14 @@ pub unsafe fn movh_m64_r128(mut addr: i32, mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn movh_r128_m64(mut addr: i32, mut r: i32) -> () {
-    c_comment!(("movhp* m64, xmm"));
+    // movhp* m64, xmm
     let mut data: reg128 = read_xmm128s(r);
     return_on_pagefault!(safe_write64(addr, data.u64_0[1usize] as i64));
 }
 #[no_mangle]
 pub unsafe fn pand_r128(mut source: reg128, mut r: i32) -> () {
-    c_comment!(("pand xmm, xmm/m128"));
-    c_comment!(("XXX: Aligned access or #gp"));
+    // pand xmm, xmm/m128
+    // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 {
         i8_0: [0i32 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -71,8 +71,8 @@ pub unsafe fn pand_r128(mut source: reg128, mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn pandn_r128(mut source: reg128, mut r: i32) -> () {
-    c_comment!(("pandn xmm, xmm/m128"));
-    c_comment!(("XXX: Aligned access or #gp"));
+    // pandn xmm, xmm/m128
+    // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 {
         i8_0: [0i32 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -83,8 +83,8 @@ pub unsafe fn pandn_r128(mut source: reg128, mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn pxor_r128(mut source: reg128, mut r: i32) -> () {
-    c_comment!(("pxor xmm, xmm/m128"));
-    c_comment!(("XXX: Aligned access or #gp"));
+    // pxor xmm, xmm/m128
+    // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 {
         i8_0: [0i32 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -95,8 +95,8 @@ pub unsafe fn pxor_r128(mut source: reg128, mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn por_r128(mut source: reg128, mut r: i32) -> () {
-    c_comment!(("por xmm, xmm/m128"));
-    c_comment!(("XXX: Aligned access or #gp"));
+    // por xmm, xmm/m128
+    // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 {
         i8_0: [0i32 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -107,7 +107,7 @@ pub unsafe fn por_r128(mut source: reg128, mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psrlw_r64(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psrlw mm, {shift}"));
+    // psrlw mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut dword0: i32 = 0i32;
     let mut dword1: i32 = 0i32;
@@ -121,7 +121,7 @@ pub unsafe fn psrlw_r64(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psraw_r64(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psraw mm, {shift}"));
+    // psraw mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut shift_clamped: i32 = (if shift > 15i32 as u32 {
         16i32 as u32
@@ -137,7 +137,7 @@ pub unsafe fn psraw_r64(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psllw_r64(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psllw mm, {shift}"));
+    // psllw mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut dword0: i32 = 0i32;
     let mut dword1: i32 = 0i32;
@@ -151,7 +151,7 @@ pub unsafe fn psllw_r64(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psrld_r64(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psrld mm, {shift}"));
+    // psrld mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut dword0: i32 = 0i32;
     let mut dword1: i32 = 0i32;
@@ -163,7 +163,7 @@ pub unsafe fn psrld_r64(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psrad_r64(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psrad mm, {shift}"));
+    // psrad mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut shift_clamped: i32 = (if shift > 31i32 as u32 {
         31i32 as u32
@@ -177,7 +177,7 @@ pub unsafe fn psrad_r64(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn pslld_r64(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("pslld mm, {shift}"));
+    // pslld mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut dword0: i32 = 0i32;
     let mut dword1: i32 = 0i32;
@@ -189,7 +189,7 @@ pub unsafe fn pslld_r64(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psrlq_r64(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psrlq mm, {shift}"));
+    // psrlq mm, {shift}
     if shift == 0i32 as u32 {
         return;
     }
@@ -207,7 +207,7 @@ pub unsafe fn psrlq_r64(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psllq_r64(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psllq mm, {shift}"));
+    // psllq mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     if shift == 0i32 as u32 {
         return;
@@ -225,7 +225,7 @@ pub unsafe fn psllq_r64(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psrlw_r128(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psrlw xmm, {shift}"));
+    // psrlw xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut dword0: i32 = 0i32;
     let mut dword1: i32 = 0i32;
@@ -245,7 +245,7 @@ pub unsafe fn psrlw_r128(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psraw_r128(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psraw xmm, {shift}"));
+    // psraw xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut shift_clamped: i32 = (if shift > 15i32 as u32 {
         16i32 as u32
@@ -265,7 +265,7 @@ pub unsafe fn psraw_r128(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psllw_r128(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psllw xmm, {shift}"));
+    // psllw xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut dword0: i32 = 0i32;
     let mut dword1: i32 = 0i32;
@@ -285,7 +285,7 @@ pub unsafe fn psllw_r128(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psrld_r128(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psrld xmm, {shift}"));
+    // psrld xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut dword0: i32 = 0i32;
     let mut dword1: i32 = 0i32;
@@ -301,7 +301,7 @@ pub unsafe fn psrld_r128(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psrad_r128(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psrad xmm, {shift}"));
+    // psrad xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut shift_clamped: i32 = (if shift > 31i32 as u32 {
         31i32 as u32
@@ -317,7 +317,7 @@ pub unsafe fn psrad_r128(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn pslld_r128(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("pslld xmm, {shift}"));
+    // pslld xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut dword0: i32 = 0i32;
     let mut dword1: i32 = 0i32;
@@ -333,7 +333,7 @@ pub unsafe fn pslld_r128(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psrlq_r128(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psrlq xmm, {shift}"));
+    // psrlq xmm, {shift}
     if shift == 0i32 as u32 {
         return;
     }
@@ -352,7 +352,7 @@ pub unsafe fn psrlq_r128(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn psllq_r128(mut r: i32, mut shift: u32) -> () {
-    c_comment!(("psllq xmm, {shift}"));
+    // psllq xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     if shift == 0i32 as u32 {
         return;
@@ -371,7 +371,7 @@ pub unsafe fn psllq_r128(mut r: i32, mut shift: u32) -> () {
 }
 #[no_mangle]
 pub unsafe fn sse_comparison(mut op: i32, mut x: f64, mut y: f64) -> bool {
-    c_comment!(("TODO: Signaling"));
+    // TODO: Signaling
     match op & 7i32 {
         0 => return x == y,
         1 => return x < y,
@@ -389,35 +389,35 @@ pub unsafe fn sse_comparison(mut op: i32, mut x: f64, mut y: f64) -> bool {
 }
 #[no_mangle]
 pub unsafe fn sse_min(mut x: f64, mut y: f64) -> f64 {
-    c_comment!(("if both x and y are 0 or x is nan, y is returned"));
+    // if both x and y are 0 or x is nan, y is returned
     return if x < y { x } else { y };
 }
 #[no_mangle]
 pub unsafe fn sse_max(mut x: f64, mut y: f64) -> f64 {
-    c_comment!(("if both x and y are 0 or x is nan, y is returned"));
+    // if both x and y are 0 or x is nan, y is returned
     return if x > y { x } else { y };
 }
 
 #[no_mangle]
 pub unsafe fn sse_convert_f32_to_i32(mut x: f32) -> i32 {
-    c_comment!(("TODO: Rounding modes"));
+    // TODO: Rounding modes
     if x >= -2147483648.0 && x < 2147483648.0 {
         return x as i64 as i32;
     }
     else {
-        c_comment!(("TODO: Signal"));
+        // TODO: Signal
         return 2147483648u32.wrapping_neg() as i32;
     };
 }
 
 #[no_mangle]
 pub unsafe fn sse_convert_f64_to_i32(mut x: f64) -> i32 {
-    c_comment!(("TODO: Rounding modes"));
+    // TODO: Rounding modes
     if x >= -2147483648.0 as f64 && x < 2147483648.0 as f64 {
         return x as i64 as i32;
     }
     else {
-        c_comment!(("TODO: Signal"));
+        // TODO: Signal
         return 2147483648u32.wrapping_neg() as i32;
     };
 }

@@ -285,7 +285,7 @@ pub unsafe fn do_page_translation(
     let mut page: i32 = (addr as u32 >> 12i32) as i32;
     let mut high: i32 = 0;
     if *cr.offset(0isize) & CR0_PG == 0i32 {
-        c_comment!(("paging disabled"));
+        // paging disabled
         high = (addr as u32 & 4294963200u32) as i32;
         global = 0 != 0i32
     }
@@ -293,14 +293,14 @@ pub unsafe fn do_page_translation(
         let mut page_dir_addr: i32 =
             (*cr.offset(3isize) as u32 >> 2i32).wrapping_add((page >> 10i32) as u32) as i32;
         let mut page_dir_entry: i32 = read_aligned32(page_dir_addr as u32);
-        c_comment!(("XXX"));
+        // XXX
         let kernel_write_override: bool = !user && 0 == *cr.offset(0isize) & CR0_WP;
         if 0 == page_dir_entry & PAGE_TABLE_PRESENT_MASK {
-            c_comment!(("to do at this place:"));
-            c_comment!((""));
-            c_comment!(("- set cr2 = addr (which caused the page fault)"));
-            c_comment!((("- call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)")));
-            c_comment!(("- prevent execution of the function that triggered this call"));
+            // to do at this place:
+            //
+            // - set cr2 = addr (which caused the page fault)
+            // - call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)
+            // - prevent execution of the function that triggered this call
             *cr.offset(2isize) = addr;
             trigger_pagefault(for_writing, user, 0 != 0i32);
             return Err(());
@@ -316,15 +316,15 @@ pub unsafe fn do_page_translation(
         if page_dir_entry & PAGE_TABLE_USER_MASK == 0i32 {
             allow_user = 0 != 0i32;
             if user {
-                c_comment!(("Page Fault: page table accessed by non-supervisor"));
+                // Page Fault: page table accessed by non-supervisor
                 *cr.offset(2isize) = addr;
                 trigger_pagefault(for_writing, user, 0 != 1i32);
                 return Err(());
             }
         }
         if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && 0 != *cr.offset(4isize) & CR4_PSE {
-            c_comment!(("size bit is set"));
-            c_comment!(("set the accessed and dirty bits"));
+            // size bit is set
+            // set the accessed and dirty bits
             write_aligned32(
                 page_dir_addr as u32,
                 page_dir_entry | PAGE_TABLE_ACCESSED_MASK | if 0 != for_writing as i32 {
@@ -363,7 +363,7 @@ pub unsafe fn do_page_translation(
                     return Err(());
                 }
             }
-            c_comment!(("set the accessed and dirty bits"));
+            // set the accessed and dirty bits
             write_aligned32(
                 page_dir_addr as u32,
                 page_dir_entry | PAGE_TABLE_ACCESSED_MASK,
@@ -385,9 +385,7 @@ pub unsafe fn do_page_translation(
         if valid_tlb_entries_count == VALID_TLB_ENTRY_MAX {
             profiler_stat_increment(S_TLB_FULL);
             clear_tlb();
-            c_comment!(
-                ("also clear global entries if tlb is almost full after clearing non-global pages")
-            );
+            // also clear global entries if tlb is almost full after clearing non-global pages
             if valid_tlb_entries_count > VALID_TLB_ENTRY_MAX * 3i32 / 4i32 {
                 profiler_stat_increment(S_TLB_GLOBAL_FULL);
                 full_clear_tlb();
@@ -397,9 +395,9 @@ pub unsafe fn do_page_translation(
         let fresh0 = valid_tlb_entries_count;
         valid_tlb_entries_count = valid_tlb_entries_count + 1;
         valid_tlb_entries[fresh0 as usize] = page;
-        c_comment!(("TODO: Check that there are no duplicates in valid_tlb_entries"));
-        c_comment!(("XXX: There will probably be duplicates due to invlpg deleting"));
-        c_comment!(("entries from tlb_data but not from valid_tlb_entries"));
+    // TODO: Check that there are no duplicates in valid_tlb_entries
+    // XXX: There will probably be duplicates due to invlpg deleting
+    // entries from tlb_data but not from valid_tlb_entries
     }
     else if CHECK_TLB_INVARIANTS {
         let mut found: bool = 0 != 0i32;
@@ -458,7 +456,7 @@ pub unsafe fn do_page_translation(
 #[no_mangle]
 pub unsafe fn full_clear_tlb() -> () {
     profiler_stat_increment(S_FULL_CLEAR_TLB);
-    c_comment!(("clear tlb including global pages"));
+    // clear tlb including global pages
     *last_virt_eip = -1i32;
     *last_virt_esp = -1i32;
     let mut i: i32 = 0i32;
@@ -480,7 +478,7 @@ pub unsafe fn full_clear_tlb() -> () {
 #[no_mangle]
 pub unsafe fn clear_tlb() -> () {
     profiler_stat_increment(S_CLEAR_TLB);
-    c_comment!(("clear tlb excluding global pages"));
+    // clear tlb excluding global pages
     *last_virt_eip = -1i32;
     *last_virt_esp = -1i32;
     let mut global_page_offset: i32 = 0i32;
@@ -489,7 +487,7 @@ pub unsafe fn clear_tlb() -> () {
         let mut page: i32 = valid_tlb_entries[i as usize];
         let mut entry: i32 = *tlb_data.offset(page as isize);
         if 0 != entry & TLB_GLOBAL {
-            c_comment!(("reinsert at the front"));
+            // reinsert at the front
             let fresh1 = global_page_offset;
             global_page_offset = global_page_offset + 1;
             valid_tlb_entries[fresh1 as usize] = page
@@ -536,7 +534,7 @@ pub unsafe fn trigger_pagefault(mut write: bool, mut user: bool, mut present: bo
     //    dbg_trace();
     //    dbg_assert!(0 != 0i32);
     //}
-    c_comment!(("invalidate tlb entry"));
+    // invalidate tlb entry
     let mut page: i32 = (*cr.offset(2isize) as u32 >> 12i32) as i32;
     *tlb_data.offset(page as isize) = 0i32;
     *instruction_pointer = *previous_ip;
@@ -601,7 +599,7 @@ pub unsafe fn check_tlb_invariants() -> () {
             let mut page: i32 = valid_tlb_entries[i as usize];
             let mut entry: i32 = *tlb_data.offset(page as isize);
             if 0 == entry || 0 != entry & TLB_IN_MAPPED_RANGE {
-                c_comment!(("there\'s no code in mapped memory"));
+                // there's no code in mapped memory
             }
             i += 1
         }
@@ -627,7 +625,7 @@ pub unsafe fn writable_or_pagefault(mut addr: i32, mut size: i32) -> Result<(), 
         let mut next_page: i32 = ((addr + size - 1i32) as u32 >> 12i32) as i32;
         if page != next_page {
             dbg_assert!(next_page == page + 1i32);
-            c_comment!(("XXX: possibly out of bounds"));
+            // XXX: possibly out of bounds
             if *tlb_data.offset(next_page as isize) & mask != expect {
                 do_page_translation(next_page << 12i32, 0 != 1i32, user)?;
             }
@@ -651,9 +649,9 @@ pub unsafe fn read_imm8() -> Result<i32, ()> {
 pub unsafe fn read_imm8s() -> Result<i32, ()> { return Ok(read_imm8()? << 24i32 >> 24i32); }
 
 pub unsafe fn read_imm16() -> Result<i32, ()> {
-    c_comment!(("Two checks in one comparison:"));
-    c_comment!(("1. Did the high 20 bits of eip change"));
-    c_comment!(("or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)"));
+    // Two checks in one comparison:
+    // 1. Did the high 20 bits of eip change
+    // or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)
     if (*instruction_pointer ^ *last_virt_eip) as u32 > 4094i32 as u32 {
         return Ok(read_imm8()? | read_imm8()? << 8i32);
     }
@@ -665,7 +663,7 @@ pub unsafe fn read_imm16() -> Result<i32, ()> {
 }
 
 pub unsafe fn read_imm32s() -> Result<i32, ()> {
-    c_comment!(("Analogue to the above comment"));
+    // Analogue to the above comment
     if (*instruction_pointer ^ *last_virt_eip) as u32 > 4092i32 as u32 {
         return Ok(read_imm16()? | read_imm16()? << 16i32);
     }
@@ -688,7 +686,7 @@ pub unsafe fn is_asize_32() -> bool {
 #[no_mangle]
 pub unsafe fn get_seg(mut segment: i32) -> i32 {
     dbg_assert!(segment >= 0i32 && segment < 8i32);
-    c_comment!(("TODO: Remove protected_mode check"));
+    // TODO: Remove protected_mode check
     if *protected_mode {
         if *segment_is_null.offset(segment as isize) {
             dbg_assert!(segment != CS && segment != SS);
@@ -857,7 +855,7 @@ pub unsafe fn pack_current_state_flags() -> cached_state_flags {
 }
 
 pub unsafe fn has_flat_segmentation() -> bool {
-    c_comment!(("ss can\'t be null"));
+    // ss can't be null
     return *segment_offsets.offset(SS as isize) == 0i32
         && !*segment_is_null.offset(DS as isize)
         && *segment_offsets.offset(DS as isize) == 0i32;
@@ -960,16 +958,16 @@ pub unsafe fn virt_boundary_read32s(mut low: i32, mut high: i32) -> i32 {
     let mut mid: i32 = 0i32;
     if 0 != low & 1i32 {
         if 0 != low & 2i32 {
-            c_comment!(("0xFFF"));
+            // 0xFFF
             mid = read_aligned16((high - 2i32 >> 1i32) as u32)
         }
         else {
-            c_comment!(("0xFFD"));
+            // 0xFFD
             mid = read_aligned16((low + 1i32 >> 1i32) as u32)
         }
     }
     else {
-        c_comment!(("0xFFE"));
+        // 0xFFE
         mid = virt_boundary_read16(low + 1i32, high - 1i32)
     }
     return read8(low as u32) | mid << 8i32 | read8(high as u32) << 24i32;
@@ -988,18 +986,18 @@ pub unsafe fn virt_boundary_write32(mut low: i32, mut high: i32, mut value: i32)
     write8(low as u32, value);
     if 0 != low & 1i32 {
         if 0 != low & 2i32 {
-            c_comment!(("0xFFF"));
+            // 0xFFF
             write8((high - 2i32) as u32, value >> 8i32);
             write8((high - 1i32) as u32, value >> 16i32);
         }
         else {
-            c_comment!(("0xFFD"));
+            // 0xFFD
             write8((low + 1i32) as u32, value >> 8i32);
             write8((low + 2i32) as u32, value >> 16i32);
         }
     }
     else {
-        c_comment!(("0xFFE"));
+        // 0xFFE
         write8((low + 1i32) as u32, value >> 8i32);
         write8((high - 1i32) as u32, value >> 16i32);
     }
@@ -1015,8 +1013,8 @@ pub unsafe fn safe_read16(mut address: i32) -> Result<i32, ()> {
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut info_bits: i32 = entry & 4095i32 & !TLB_READONLY & !TLB_GLOBAL & !TLB_HAS_CODE;
     if info_bits == TLB_VALID && address & 4095i32 <= 4096i32 - 2i32 {
-        c_comment!(("- not in memory mapped area"));
-        c_comment!(("- can be accessed from any cpl"));
+        // - not in memory mapped area
+        // - can be accessed from any cpl
         let mut phys_address: u32 = (entry & !4095i32 ^ address) as u32;
         dbg_assert!(!in_mapped_range(phys_address));
         return Ok(*(mem8.offset(phys_address as isize) as *mut u16) as i32);
@@ -1043,8 +1041,8 @@ pub unsafe fn safe_read32s(mut address: i32) -> Result<i32, ()> {
         if false {
             profiler_stat_increment(S_SAFE_READ32_FAST);
         }
-        c_comment!(("- not in memory mapped area"));
-        c_comment!(("- can be accessed from any cpl"));
+        // - not in memory mapped area
+        // - can be accessed from any cpl
         let mut phys_address: u32 = (entry & !4095i32 ^ address) as u32;
         dbg_assert!(!in_mapped_range(phys_address));
         return Ok(*(mem8.offset(phys_address as isize) as *mut i32));
@@ -1160,10 +1158,10 @@ pub unsafe fn safe_write16(mut address: i32, mut value: i32) -> Result<(), ()> {
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut info_bits: i32 = entry & 4095i32 & !TLB_GLOBAL;
     if info_bits == TLB_VALID && address & 4095i32 <= 4096i32 - 2i32 {
-        c_comment!(("- allowed to write in user-mode"));
-        c_comment!(("- not in memory mapped area"));
-        c_comment!(("- can be accessed from any cpl"));
-        c_comment!(("- does not contain code"));
+        // - allowed to write in user-mode
+        // - not in memory mapped area
+        // - can be accessed from any cpl
+        // - does not contain code
         let mut phys_address: u32 = (entry & !4095i32 ^ address) as u32;
         dbg_assert!(!::c_api::jit_page_has_code(phys_address >> 12i32));
         dbg_assert!(!in_mapped_range(phys_address));
@@ -1203,9 +1201,9 @@ pub unsafe fn safe_write32(mut address: i32, mut value: i32) -> Result<(), ()> {
         if false {
             profiler_stat_increment(S_SAFE_WRITE32_FAST);
         }
-        c_comment!(("- allowed to write in user-mode"));
-        c_comment!(("- not in memory mapped area"));
-        c_comment!(("- does not contain code"));
+        // - allowed to write in user-mode
+        // - not in memory mapped area
+        // - does not contain code
         let mut phys_address: u32 = (entry & !4095i32 ^ address) as u32;
         dbg_assert!(!::c_api::jit_page_has_code(phys_address >> 12i32));
         dbg_assert!(!in_mapped_range(phys_address));
@@ -1458,7 +1456,7 @@ pub unsafe fn task_switch_test_mmx() -> bool {
 pub unsafe fn task_switch_test_mmx_void() -> () { task_switch_test_mmx(); }
 
 pub unsafe fn read_moffs() -> Result<i32, ()> {
-    c_comment!(("read 2 or 4 byte from ip, depending on address size attribute"));
+    // read 2 or 4 byte from ip, depending on address size attribute
     if is_asize_32() {
         read_imm32s()
     }
@@ -1469,7 +1467,7 @@ pub unsafe fn read_moffs() -> Result<i32, ()> {
 
 #[no_mangle]
 pub unsafe fn get_real_eip() -> i32 {
-    c_comment!(("Returns the \'real\' instruction pointer, without segment offset"));
+    // Returns the 'real' instruction pointer, without segment offset
     return *instruction_pointer - get_seg_cs();
 }
 
@@ -1552,7 +1550,7 @@ pub unsafe fn read_tsc() -> u64 {
     }
     else {
         if value == rdtsc_last_value {
-            c_comment!(("don\'t go past 1ms"));
+            // don't go past 1ms
             if (rdtsc_imprecision_offset as f64) < TSC_RATE {
                 rdtsc_imprecision_offset = rdtsc_imprecision_offset.wrapping_add(1)
             }
@@ -1574,7 +1572,7 @@ pub unsafe fn read_tsc() -> u64 {
                     value as u32 as i32
                 );
                 dbg_assert!(0 != 0i32);
-                c_comment!(("Keep current value until time catches up"));
+                // Keep current value until time catches up
             }
         }
         return rdtsc_last_value.wrapping_add(rdtsc_imprecision_offset);
@@ -1600,10 +1598,10 @@ pub unsafe fn get_opstats_buffer(mut index: i32) -> i32 {
 
 pub unsafe fn invlpg(mut addr: i32) -> () {
     let mut page: i32 = (addr as u32 >> 12i32) as i32;
-    c_comment!(("Note: Doesn\'t remove this page from valid_tlb_entries: This isn\'t"));
-    c_comment!(("necessary, because when valid_tlb_entries grows too large, it will be"));
-    c_comment!(("empties by calling clear_tlb, which removes this entry as it isn\'t global."));
-    c_comment!(("This however means that valid_tlb_entries can contain some invalid entries"));
+    // Note: Doesn't remove this page from valid_tlb_entries: This isn't
+    // necessary, because when valid_tlb_entries grows too large, it will be
+    // empties by calling clear_tlb, which removes this entry as it isn't global.
+    // This however means that valid_tlb_entries can contain some invalid entries
     *tlb_data.offset(page as isize) = 0i32;
     *last_virt_eip = -1i32;
     *last_virt_esp = -1i32;
@@ -1614,10 +1612,10 @@ pub unsafe fn update_eflags(mut new_flags: i32) -> () {
     let mut dont_update: i32 = FLAG_RF | FLAG_VM | FLAG_VIP | FLAG_VIF;
     let mut clear: i32 = !FLAG_VIP & !FLAG_VIF & FLAGS_MASK;
     if 0 != *flags & FLAG_VM {
-        c_comment!(("other case needs to be handled in popf or iret"));
+        // other case needs to be handled in popf or iret
         dbg_assert!(getiopl() == 3i32);
         dont_update |= FLAG_IOPL;
-        c_comment!(("don\'t clear vip or vif"));
+        // don't clear vip or vif
         clear |= FLAG_VIP | FLAG_VIF
     }
     else {
@@ -1625,12 +1623,12 @@ pub unsafe fn update_eflags(mut new_flags: i32) -> () {
             dbg_assert!(*cpl as i32 == 0i32);
         }
         if 0 != *cpl {
-            c_comment!(("cpl > 0"));
-            c_comment!(("cannot update iopl"));
+            // cpl > 0
+            // cannot update iopl
             dont_update |= FLAG_IOPL;
             if *cpl as i32 > getiopl() {
-                c_comment!(("cpl > iopl"));
-                c_comment!(("cannot update interrupt flag"));
+                // cpl > iopl
+                // cannot update interrupt flag
                 dont_update |= FLAG_INTERRUPT
             }
         }

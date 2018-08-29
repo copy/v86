@@ -350,7 +350,7 @@ pub unsafe fn bcd_aad(mut imm8: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn bcd_aam(mut imm8: i32) -> () {
-    c_comment!(("ascii adjust after multiplication"));
+    // ascii adjust after multiplication
     if imm8 == 0i32 {
         trigger_de();
     }
@@ -806,7 +806,7 @@ pub unsafe fn shl32(mut dest_operand: i32, mut count: i32) -> i32 {
         *last_result = dest_operand << count;
         *last_op_size = OPSIZE_32;
         *flags_changed = FLAGS_ALL & !1i32 & !FLAG_OVERFLOW;
-        c_comment!(("test this"));
+        // test this
         *flags = *flags & !1i32 & !FLAG_OVERFLOW | dest_operand >> 32i32 - count & 1i32;
         *flags |= (*flags & 1i32 ^ *last_result >> 31i32 & 1i32) << 11i32 & FLAG_OVERFLOW;
         return *last_result;
@@ -865,7 +865,7 @@ pub unsafe fn sar8(mut dest_operand: i32, mut count: i32) -> i32 {
     else {
         if count < 8i32 {
             *last_result = dest_operand << 24i32 >> count + 24i32;
-            c_comment!(("of is zero"));
+            // of is zero
             *flags = *flags & !1i32 & !FLAG_OVERFLOW | dest_operand >> count - 1i32 & 1i32
         }
         else {
@@ -1058,7 +1058,7 @@ pub unsafe fn bsf16(mut old: i32, mut bit_base: i32) -> i32 {
     if bit_base == 0i32 {
         *flags |= FLAG_ZERO;
         *last_result = bit_base;
-        c_comment!(("not defined in the docs, but value doesn\'t change on my intel machine"));
+        // not defined in the docs, but value doesn't change on my intel machine
         return old;
     }
     else {

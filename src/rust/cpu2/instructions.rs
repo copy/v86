@@ -958,7 +958,7 @@ pub unsafe fn instr16_61() -> () { popa16(); }
 pub unsafe fn instr32_61() -> () { popa32(); }
 #[no_mangle]
 pub unsafe fn instr_62_reg(mut r2: i32, mut r: i32) -> () {
-    c_comment!(("bound"));
+    // bound
     dbg_log_c!("Unimplemented BOUND instruction");
     dbg_assert!(0 != 0i32);
 }
@@ -982,14 +982,14 @@ pub unsafe fn instr_64() -> () { segment_prefix_op(FS); }
 pub unsafe fn instr_65() -> () { segment_prefix_op(GS); }
 #[no_mangle]
 pub unsafe fn instr_66() -> () {
-    c_comment!(("Operand-size override prefix"));
+    // Operand-size override prefix
     *prefixes = (*prefixes as i32 | PREFIX_MASK_OPSIZE) as u8;
     run_prefix_instruction();
     *prefixes = 0i32 as u8;
 }
 #[no_mangle]
 pub unsafe fn instr_67() -> () {
-    c_comment!(("Address-size override prefix"));
+    // Address-size override prefix
     dbg_assert!(is_asize_32() as i32 == *is_32 as i32);
     *prefixes = (*prefixes as i32 | PREFIX_MASK_ADDRSIZE) as u8;
     run_prefix_instruction();
@@ -1616,7 +1616,7 @@ pub unsafe fn instr16_8D_reg(mut r: i32, mut r2: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_8D_mem(modrm_byte: i32, mut r: i32) -> () {
-    c_comment!(("lea"));
+    // lea
     *prefixes = (*prefixes as i32 | SEG_PREFIX_ZERO) as u8;
     if let Ok(addr) = modrm_resolve(modrm_byte) {
         write_reg16(r, addr);
@@ -1630,8 +1630,8 @@ pub unsafe fn instr32_8D_reg(mut r: i32, mut r2: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr32_8D_mem(modrm_byte: i32, mut r: i32) -> () {
-    c_comment!(("lea"));
-    c_comment!(("override prefix, so modrm_resolve does not return the segment part"));
+    // lea
+    // override prefix, so modrm_resolve does not return the segment part
     *prefixes = (*prefixes as i32 | SEG_PREFIX_ZERO) as u8;
     if let Ok(addr) = modrm_resolve(modrm_byte) {
         write_reg32(r, addr);
@@ -1663,7 +1663,7 @@ pub unsafe fn instr_8E_reg(mut r1: i32, mut r: i32) -> () {
 
 #[no_mangle]
 pub unsafe fn instr16_8F_0_mem(modrm_byte: i32) -> () {
-    c_comment!(("pop"));
+    // pop
     // Update esp *before* resolving the address
     adjust_stack_reg(2i32);
     match modrm_resolve(modrm_byte) {
@@ -1765,7 +1765,7 @@ pub unsafe fn instr32_99() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_9A(mut new_ip: i32, mut new_cs: i32) -> () {
-    c_comment!(("callf"));
+    // callf
     far_jump(new_ip, new_cs, true);
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
 }
@@ -1781,10 +1781,10 @@ pub unsafe fn instr32_9A(mut new_ip: i32, mut new_cs: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_9B() -> () {
-    c_comment!(("fwait: check for pending fpu exceptions"));
+    // fwait: check for pending fpu exceptions
     if *cr.offset(0isize) & (CR0_MP | CR0_TS) == CR0_MP | CR0_TS {
-        c_comment!(("Note: Different from task_switch_test"));
-        c_comment!(("Triggers when TS and MP bits are set (EM bit is ignored)"));
+        // Note: Different from task_switch_test
+        // Triggers when TS and MP bits are set (EM bit is ignored)
         trigger_nm();
     }
     else {
@@ -1793,7 +1793,7 @@ pub unsafe fn instr_9B() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_9C() -> () {
-    c_comment!(("pushf"));
+    // pushf
     if 0 != *flags.offset(0isize) & FLAG_VM && getiopl() < 3i32 {
         dbg_assert!(*protected_mode);
         dbg_log_c!("pushf #gp");
@@ -1805,21 +1805,21 @@ pub unsafe fn instr16_9C() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr32_9C() -> () {
-    c_comment!(("pushf"));
+    // pushf
     if 0 != *flags.offset(0isize) & FLAG_VM && getiopl() < 3i32 {
-        c_comment!(("trap to virtual 8086 monitor"));
+        // trap to virtual 8086 monitor
         dbg_assert!(*protected_mode);
         dbg_log_c!("pushf #gp");
         trigger_gp_non_raising(0i32);
     }
     else {
-        c_comment!(("vm and rf flag are cleared in image stored on the stack"));
+        // vm and rf flag are cleared in image stored on the stack
         return_on_pagefault!(push32(get_eflags() & 16580607i32));
     };
 }
 #[no_mangle]
 pub unsafe fn instr16_9D() -> () {
-    c_comment!(("popf"));
+    // popf
     if 0 != *flags.offset(0isize) & FLAG_VM && getiopl() < 3i32 {
         dbg_log_c!("popf #gp");
         trigger_gp_non_raising(0i32);
@@ -1839,7 +1839,7 @@ pub unsafe fn instr16_9D() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr32_9D() -> () {
-    c_comment!(("popf"));
+    // popf
     if 0 != *flags.offset(0isize) & FLAG_VM && getiopl() < 3i32 {
         dbg_log_c!("popf #gp");
         trigger_gp_non_raising(0i32);
@@ -1853,7 +1853,7 @@ pub unsafe fn instr32_9D() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_9E() -> () {
-    c_comment!(("sahf"));
+    // sahf
     *flags.offset(0isize) = *flags.offset(0isize) & !255i32 | *reg8.offset(AH as isize) as i32;
     *flags.offset(0isize) = *flags.offset(0isize) & FLAGS_MASK | FLAGS_DEFAULT;
     let ref mut fresh1 = *flags_changed.offset(0isize);
@@ -1861,18 +1861,18 @@ pub unsafe fn instr_9E() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_9F() -> () {
-    c_comment!(("lahf"));
+    // lahf
     *reg8.offset(AH as isize) = get_eflags() as u8;
 }
 #[no_mangle]
 pub unsafe fn instr_A0(mut moffs: i32) -> () {
-    c_comment!(("mov"));
+    // mov
     let mut data: i32 = return_on_pagefault!(safe_read8(get_seg_prefix_ds(moffs)));
     *reg8.offset(AL as isize) = data as u8;
 }
 #[no_mangle]
 pub unsafe fn instr16_A1(mut moffs: i32) -> () {
-    c_comment!(("mov"));
+    // mov
     let mut data: i32 = return_on_pagefault!(safe_read16(get_seg_prefix_ds(moffs)));
     *reg16.offset(AX as isize) = data as u16;
 }
@@ -1883,7 +1883,7 @@ pub unsafe fn instr32_A1(mut moffs: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_A2(mut moffs: i32) -> () {
-    c_comment!(("mov"));
+    // mov
     return_on_pagefault!(safe_write8(
         get_seg_prefix_ds(moffs),
         *reg8.offset(AL as isize) as i32
@@ -1891,7 +1891,7 @@ pub unsafe fn instr_A2(mut moffs: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_A3(mut moffs: i32) -> () {
-    c_comment!(("mov"));
+    // mov
     return_on_pagefault!(safe_write16(
         get_seg_prefix_ds(moffs),
         *reg16.offset(AX as isize) as i32
@@ -2206,7 +2206,7 @@ pub unsafe fn instr32_C1_7_reg(mut r1: i32, mut imm: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_C2(mut imm16: i32) -> () {
-    c_comment!(("retn"));
+    // retn
     let mut cs: i32 = get_seg_cs();
     *instruction_pointer.offset(0isize) = cs + return_on_pagefault!(pop16());
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
@@ -2214,7 +2214,7 @@ pub unsafe fn instr16_C2(mut imm16: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr32_C2(mut imm16: i32) -> () {
-    c_comment!(("retn"));
+    // retn
     let mut cs: i32 = get_seg_cs();
     let mut ip: i32 = return_on_pagefault!(pop32s());
     dbg_assert!(0 != is_asize_32() as i32 || ip < 65536i32);
@@ -2223,13 +2223,13 @@ pub unsafe fn instr32_C2(mut imm16: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_C3() -> () {
-    c_comment!(("retn"));
+    // retn
     let mut cs: i32 = get_seg_cs();
     *instruction_pointer.offset(0isize) = cs + return_on_pagefault!(pop16());
 }
 #[no_mangle]
 pub unsafe fn instr32_C3() -> () {
-    c_comment!(("retn"));
+    // retn
     let mut cs: i32 = get_seg_cs();
     let mut ip: i32 = return_on_pagefault!(pop32s());
     dbg_assert!(0 != is_asize_32() as i32 || ip < 65536i32);
@@ -2279,7 +2279,7 @@ pub unsafe fn instr16_C8(mut size: i32, mut nesting: i32) -> () { enter16(size, 
 pub unsafe fn instr32_C8(mut size: i32, mut nesting: i32) -> () { enter32(size, nesting); }
 #[no_mangle]
 pub unsafe fn instr16_C9() -> () {
-    c_comment!(("leave"));
+    // leave
     let mut old_vbp: i32 = if 0 != *stack_size_32 as i32 {
         *reg32s.offset(EBP as isize)
     }
@@ -2304,14 +2304,14 @@ pub unsafe fn instr32_C9() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_CA(mut imm16: i32) -> () {
-    c_comment!(("retf"));
+    // retf
     let mut ip: i32 = return_on_pagefault!(safe_read16(get_stack_pointer(0i32)));
     let mut cs: i32 = return_on_pagefault!(safe_read16(get_stack_pointer(2i32)));
     far_return(ip, cs, imm16);
 }
 #[no_mangle]
 pub unsafe fn instr32_CA(mut imm16: i32) -> () {
-    c_comment!(("retf"));
+    // retf
     let mut ip: i32 = return_on_pagefault!(safe_read32s(get_stack_pointer(0i32)));
     let mut cs: i32 = return_on_pagefault!(safe_read32s(get_stack_pointer(4i32))) & 65535i32;
     far_return(ip, cs, imm16);
@@ -2319,7 +2319,7 @@ pub unsafe fn instr32_CA(mut imm16: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_CB() -> () {
-    c_comment!(("retf"));
+    // retf
     let mut ip: i32 = return_on_pagefault!(safe_read16(get_stack_pointer(0i32)));
     let mut cs: i32 = return_on_pagefault!(safe_read16(get_stack_pointer(2i32)));
     far_return(ip, cs, 0i32);
@@ -2327,7 +2327,7 @@ pub unsafe fn instr16_CB() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr32_CB() -> () {
-    c_comment!(("retf"));
+    // retf
     let mut ip: i32 = return_on_pagefault!(safe_read32s(get_stack_pointer(0i32)));
     let mut cs: i32 = return_on_pagefault!(safe_read32s(get_stack_pointer(4i32))) & 65535i32;
     far_return(ip, cs, 0i32);
@@ -2335,28 +2335,28 @@ pub unsafe fn instr32_CB() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_CC() -> () {
-    c_comment!(("INT3"));
-    c_comment!(("TODO: inhibit iopl checks"));
+    // INT3
+    // TODO: inhibit iopl checks
     dbg_log_c!("INT3");
     call_interrupt_vector(3i32, 0 != 1i32, 0 != 0i32, 0i32);
 }
 #[no_mangle]
 pub unsafe fn instr_CD(mut imm8: i32) -> () {
-    c_comment!(("INT"));
+    // INT
     call_interrupt_vector(imm8, 0 != 1i32, 0 != 0i32, 0i32);
 }
 #[no_mangle]
 pub unsafe fn instr_CE() -> () {
-    c_comment!(("INTO"));
+    // INTO
     dbg_log_c!("INTO");
     if getof() {
-        c_comment!(("TODO: inhibit iopl checks"));
+        // TODO: inhibit iopl checks
         call_interrupt_vector(CPU_EXCEPTION_OF, 0 != 1i32, 0 != 0i32, 0i32);
     };
 }
 #[no_mangle]
 pub unsafe fn instr16_CF() -> () {
-    c_comment!(("iret"));
+    // iret
     iret16();
 }
 #[no_mangle]
@@ -2895,12 +2895,12 @@ pub unsafe fn instr_D4(mut arg: i32) -> () { bcd_aam(arg); }
 pub unsafe fn instr_D5(mut arg: i32) -> () { bcd_aad(arg); }
 #[no_mangle]
 pub unsafe fn instr_D6() -> () {
-    c_comment!(("salc"));
+    // salc
     *reg8.offset(AL as isize) = -(getcf() as i32) as u8;
 }
 #[no_mangle]
 pub unsafe fn instr_D7() -> () {
-    c_comment!(("xlat"));
+    // xlat
     if is_asize_32() {
         *reg8.offset(AL as isize) = return_on_pagefault!(safe_read8(
             get_seg_prefix(DS) + *reg32s.offset(EBX as isize) + *reg8.offset(AL as isize) as i32,
@@ -2975,37 +2975,37 @@ pub unsafe fn instr32_E7(mut port: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_E8(mut imm16: i32) -> () {
-    c_comment!(("call"));
+    // call
     return_on_pagefault!(push16(get_real_eip()));
     jmp_rel16(imm16);
 }
 #[no_mangle]
 pub unsafe fn instr32_E8(mut imm32s: i32) -> () {
-    c_comment!(("call"));
+    // call
     return_on_pagefault!(push32(get_real_eip()));
     *instruction_pointer.offset(0isize) = *instruction_pointer.offset(0isize) + imm32s;
-    c_comment!(("dbg_assert!(is_asize_32() || get_real_eip() < 0x10000);"));
+    // dbg_assert!(is_asize_32() || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr16_E9(mut imm16: i32) -> () {
-    c_comment!(("jmp"));
+    // jmp
     jmp_rel16(imm16);
 }
 #[no_mangle]
 pub unsafe fn instr32_E9(mut imm32s: i32) -> () {
-    c_comment!(("jmp"));
+    // jmp
     *instruction_pointer.offset(0isize) = *instruction_pointer.offset(0isize) + imm32s;
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
 }
 #[no_mangle]
 pub unsafe fn instr16_EA(mut new_ip: i32, mut cs: i32) -> () {
-    c_comment!(("jmpf"));
+    // jmpf
     far_jump(new_ip, cs, false);
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
 }
 #[no_mangle]
 pub unsafe fn instr32_EA(mut new_ip: i32, mut cs: i32) -> () {
-    c_comment!(("jmpf"));
+    // jmpf
     far_jump(new_ip, cs, false);
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
 }
@@ -3077,24 +3077,24 @@ pub unsafe fn instr32_EF() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_F0() -> () {
-    c_comment!(("lock"));
+    // lock
     if 0 != 0i32 * 0i32 {
         dbg_log_c!("lock");
     }
-    c_comment!(("TODO"));
-    c_comment!(("This triggers UD when used with"));
-    c_comment!(("some instructions that don\'t write to memory"));
+    // TODO
+    // This triggers UD when used with
+    // some instructions that don't write to memory
     run_prefix_instruction();
 }
 #[no_mangle]
 pub unsafe fn instr_F1() -> () {
-    c_comment!(("INT1"));
-    c_comment!(("https://code.google.com/p/corkami/wiki/x86oddities#IceBP"));
+    // INT1
+    // https://code.google.com/p/corkami/wiki/x86oddities#IceBP
     dbg_assert!(0 != 0i32);
 }
 #[no_mangle]
 pub unsafe fn instr_F2() -> () {
-    c_comment!(("repnz"));
+    // repnz
     dbg_assert!(*prefixes as i32 & PREFIX_MASK_REP == 0i32);
     *prefixes = (*prefixes as i32 | PREFIX_REPNZ) as u8;
     run_prefix_instruction();
@@ -3102,7 +3102,7 @@ pub unsafe fn instr_F2() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_F3() -> () {
-    c_comment!(("repz"));
+    // repz
     dbg_assert!(*prefixes as i32 & PREFIX_MASK_REP == 0i32);
     *prefixes = (*prefixes as i32 | PREFIX_REPZ) as u8;
     run_prefix_instruction();
@@ -3112,7 +3112,7 @@ pub unsafe fn instr_F3() -> () {
 pub unsafe fn instr_F4() -> () { hlt_op(); }
 #[no_mangle]
 pub unsafe fn instr_F5() -> () {
-    c_comment!(("cmc"));
+    // cmc
     *flags.offset(0isize) = (*flags.offset(0isize) | 1i32) ^ getcf() as i32;
     let ref mut fresh2 = *flags_changed.offset(0isize);
     *fresh2 &= !1i32;
@@ -3353,7 +3353,7 @@ pub unsafe fn instr32_F7_7_reg(mut r1: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_F8() -> () {
-    c_comment!(("clc"));
+    // clc
     let ref mut fresh3 = *flags.offset(0isize);
     *fresh3 &= !FLAG_CARRY;
     let ref mut fresh4 = *flags_changed.offset(0isize);
@@ -3361,7 +3361,7 @@ pub unsafe fn instr_F8() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_F9() -> () {
-    c_comment!(("stc"));
+    // stc
     let ref mut fresh5 = *flags.offset(0isize);
     *fresh5 |= FLAG_CARRY;
     let ref mut fresh6 = *flags_changed.offset(0isize);
@@ -3369,7 +3369,7 @@ pub unsafe fn instr_F9() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_FA() -> () {
-    c_comment!(("cli"));
+    // cli
     if !*protected_mode || 0 != if 0 != *flags.offset(0isize) & FLAG_VM {
         (getiopl() == 3i32) as i32
     }
@@ -3394,7 +3394,7 @@ pub unsafe fn instr_FA() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_FB() -> () {
-    c_comment!(("sti"));
+    // sti
     let mut old_if: i32 = *flags.offset(0isize) & FLAG_INTERRUPT;
     if !*protected_mode || 0 != if 0 != *flags.offset(0isize) & FLAG_VM {
         (getiopl() == 3i32) as i32
@@ -3425,13 +3425,13 @@ pub unsafe fn instr_FB() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_FC() -> () {
-    c_comment!(("cld"));
+    // cld
     let ref mut fresh9 = *flags.offset(0isize);
     *fresh9 &= !FLAG_DIRECTION;
 }
 #[no_mangle]
 pub unsafe fn instr_FD() -> () {
-    c_comment!(("std"));
+    // std
     let ref mut fresh10 = *flags.offset(0isize);
     *fresh10 |= FLAG_DIRECTION;
 }
@@ -3473,7 +3473,7 @@ pub unsafe fn instr16_FF_1_reg(mut r1: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_2_helper(mut data: i32) -> () {
-    c_comment!(("call near"));
+    // call near
     let mut cs: i32 = get_seg_cs();
     return_on_pagefault!(push16(get_real_eip()));
     *instruction_pointer.offset(0isize) = cs + data;
@@ -3496,7 +3496,7 @@ pub unsafe fn instr16_FF_3_reg(mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_3_mem(mut addr: i32) -> () {
-    c_comment!(("callf"));
+    // callf
     let mut new_ip: i32 = return_on_pagefault!(safe_read16(addr));
     let mut new_cs: i32 = return_on_pagefault!(safe_read16(addr + 2i32));
     far_jump(new_ip, new_cs, true);
@@ -3504,7 +3504,7 @@ pub unsafe fn instr16_FF_3_mem(mut addr: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_4_helper(mut data: i32) -> () {
-    c_comment!(("jmp near"));
+    // jmp near
     *instruction_pointer.offset(0isize) = get_seg_cs() + data;
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
 }
@@ -3525,7 +3525,7 @@ pub unsafe fn instr16_FF_5_reg(mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_5_mem(mut addr: i32) -> () {
-    c_comment!(("jmpf"));
+    // jmpf
     let mut new_ip: i32 = return_on_pagefault!(safe_read16(addr));
     let mut new_cs: i32 = return_on_pagefault!(safe_read16(addr + 2i32));
     far_jump(new_ip, new_cs, false);
@@ -3561,7 +3561,7 @@ pub unsafe fn instr32_FF_1_reg(mut r1: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr32_FF_2_helper(mut data: i32) -> () {
-    c_comment!(("call near"));
+    // call near
     let mut cs: i32 = get_seg_cs();
     return_on_pagefault!(push32(get_real_eip()));
     dbg_assert!(0 != is_asize_32() as i32 || data < 65536i32);
@@ -3584,7 +3584,7 @@ pub unsafe fn instr32_FF_3_reg(mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr32_FF_3_mem(mut addr: i32) -> () {
-    c_comment!(("callf"));
+    // callf
     let mut new_ip: i32 = return_on_pagefault!(safe_read32s(addr));
     let mut new_cs: i32 = return_on_pagefault!(safe_read16(addr + 4i32));
     if !*protected_mode || 0 != vm86_mode() as i32 {
@@ -3597,7 +3597,7 @@ pub unsafe fn instr32_FF_3_mem(mut addr: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr32_FF_4_helper(mut data: i32) -> () {
-    c_comment!(("jmp near"));
+    // jmp near
     dbg_assert!(0 != is_asize_32() as i32 || data < 65536i32);
     *instruction_pointer.offset(0isize) = get_seg_cs() + data;
 }
@@ -3618,7 +3618,7 @@ pub unsafe fn instr32_FF_5_reg(mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr32_FF_5_mem(mut addr: i32) -> () {
-    c_comment!(("jmpf"));
+    // jmpf
     let mut new_ip: i32 = return_on_pagefault!(safe_read32s(addr));
     let mut new_cs: i32 = return_on_pagefault!(safe_read16(addr + 4i32));
     if !*protected_mode || 0 != vm86_mode() as i32 {
@@ -3906,11 +3906,11 @@ pub unsafe fn instr_D9_4_reg(mut r: i32) -> () {
     let mut st0: f64 = fpu_get_st0();
     match r {
         0 => {
-            c_comment!(("fchs"));
+            // fchs
             *fpu_st.offset(*fpu_stack_ptr as isize) = -st0
         },
         1 => {
-            c_comment!(("fabs"));
+            // fabs
             *fpu_st.offset(*fpu_stack_ptr as isize) = st0.abs()
         },
         4 => {
@@ -3929,7 +3929,7 @@ pub unsafe fn instr_D9_4_reg(mut r: i32) -> () {
 pub unsafe fn instr_D9_5_mem(mut addr: i32) -> () { fpu_fldcw(addr); }
 #[no_mangle]
 pub unsafe fn instr_D9_5_reg(mut r: i32) -> () {
-    c_comment!(("fld1/fldl2t/fldl2e/fldpi/fldlg2/fldln2/fldz"));
+    // fld1/fldl2t/fldl2e/fldpi/fldlg2/fldln2/fldz
     match r {
         0 => {
             fpu_push(1i32 as f64);
@@ -3966,23 +3966,23 @@ pub unsafe fn instr_D9_6_reg(mut r: i32) -> () {
     let mut st0: f64 = fpu_get_st0();
     match r {
         0 => {
-            c_comment!(("f2xm1"));
+            // f2xm1
             *fpu_st.offset(*fpu_stack_ptr as isize) = pow(2i32 as f64, st0) - 1i32 as f64
         },
         1 => {
-            c_comment!(("fyl2x"));
+            // fyl2x
             *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(1i32 as u32) & 7i32 as u32) as isize) =
                 fpu_get_sti(1i32) * st0.ln() / M_LN2;
             fpu_pop();
         },
         2 => {
-            c_comment!(("fptan"));
+            // fptan
             *fpu_st.offset(*fpu_stack_ptr as isize) = st0.tan();
             fpu_push(1i32 as f64);
-            c_comment!(("no bug: push constant 1"));
+            // no bug: push constant 1
         },
         3 => {
-            c_comment!(("fpatan"));
+            // fpatan
             *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(1i32 as u32) & 7i32 as u32) as isize) =
                 fpu_get_sti(1i32).atan2(st0);
             fpu_pop();
@@ -3991,16 +3991,16 @@ pub unsafe fn instr_D9_6_reg(mut r: i32) -> () {
             fpu_fxtract();
         },
         5 => {
-            c_comment!(("fprem1"));
+            // fprem1
             *fpu_st.offset(*fpu_stack_ptr as isize) = fmod(st0, fpu_get_sti(1i32))
         },
         6 => {
-            c_comment!(("fdecstp"));
+            // fdecstp
             *fpu_stack_ptr = (*fpu_stack_ptr).wrapping_sub(1i32 as u32) & 7i32 as u32;
             *fpu_status_word &= !FPU_C1
         },
         7 => {
-            c_comment!(("fincstp"));
+            // fincstp
             *fpu_stack_ptr = (*fpu_stack_ptr).wrapping_add(1i32 as u32) & 7i32 as u32;
             *fpu_status_word &= !FPU_C1
         },
@@ -4019,7 +4019,7 @@ pub unsafe fn instr_D9_7_reg(mut r: i32) -> () {
             fpu_fprem();
         },
         1 => {
-            c_comment!(("fyl2xp1: y * log2(x+1) and pop"));
+            // fyl2xp1: y * log2(x+1) and pop
             *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(1i32 as u32) & 7i32 as u32) as isize) =
                 fpu_get_sti(1i32) * (st0 + 1i32 as f64).ln() / M_LN2;
             fpu_pop();
@@ -4030,11 +4030,11 @@ pub unsafe fn instr_D9_7_reg(mut r: i32) -> () {
             fpu_push(st0.cos());
         },
         4 => {
-            c_comment!(("frndint"));
+            // frndint
             *fpu_st.offset(*fpu_stack_ptr as isize) = fpu_integer_round(st0)
         },
         5 => {
-            c_comment!(("fscale"));
+            // fscale
             *fpu_st.offset(*fpu_stack_ptr as isize) =
                 st0 * pow(2i32 as f64, trunc(fpu_get_sti(1i32)))
         },
@@ -4130,7 +4130,7 @@ pub unsafe fn instr_DB_4_reg(mut r: i32) -> () {
         fpu_finit();
     }
     else if r == 4i32 || r == 1i32 {
-        c_comment!(("fsetpm and fdisi; treated as nop"));
+        // fsetpm and fdisi; treated as nop
     }
     else if r == 2i32 {
         fpu_fclex();
@@ -4371,13 +4371,13 @@ pub unsafe fn instr32_E2(mut imm8s: i32) -> () { loop32(imm8s); }
 pub unsafe fn instr32_E3(mut imm8s: i32) -> () { jcxz32(imm8s); }
 #[no_mangle]
 pub unsafe fn instr16_EB(mut imm8: i32) -> () {
-    c_comment!(("jmp near"));
+    // jmp near
     jmp_rel16(imm8);
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
 }
 #[no_mangle]
 pub unsafe fn instr32_EB(mut imm8: i32) -> () {
-    c_comment!(("jmp near"));
+    // jmp near
     *instruction_pointer.offset(0isize) = *instruction_pointer.offset(0isize) + imm8;
     dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536i32);
 }

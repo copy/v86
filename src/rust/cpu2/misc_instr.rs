@@ -26,7 +26,7 @@ pub unsafe fn getcf() -> bool {
 #[no_mangle]
 pub unsafe fn getpf() -> bool {
     if 0 != *flags_changed & FLAG_PARITY {
-        c_comment!(("inverted lookup table"));
+        // inverted lookup table
         return 0
             != 38505i32 << 2i32 >> ((*last_result ^ *last_result >> 4i32) & 15i32) & FLAG_PARITY;
     }
@@ -107,7 +107,7 @@ pub unsafe fn test_nle() -> bool { return !test_le(); }
 #[no_mangle]
 pub unsafe fn jmp_rel16(mut rel16: i32) -> () {
     let mut cs_offset: i32 = get_seg_cs();
-    c_comment!(("limit ip to 16 bit"));
+    // limit ip to 16 bit
     *instruction_pointer = cs_offset + (*instruction_pointer - cs_offset + rel16 & 65535i32);
 }
 #[no_mangle]
@@ -307,8 +307,8 @@ pub unsafe fn pop32s_ss32() -> Result<i32, ()> {
 #[no_mangle]
 pub unsafe fn pusha16() -> () {
     let mut temp: u16 = *reg16.offset(SP as isize);
-    c_comment!(("make sure we don\'t get a pagefault after having"));
-    c_comment!(("pushed several registers already"));
+    // make sure we don't get a pagefault after having
+    // pushed several registers already
     return_on_pagefault!(writable_or_pagefault(get_stack_pointer(-16i32), 16i32));
     push16(*reg16.offset(AX as isize) as i32).unwrap();
     push16(*reg16.offset(CX as isize) as i32).unwrap();
@@ -371,9 +371,9 @@ pub unsafe fn fxsave(mut addr: u32) -> () {
         );
         i += 1
     }
-    c_comment!(("If the OSFXSR bit in control register CR4 is not set, the FXSAVE"));
-    c_comment!(("instruction may not save these registers. This behavior is"));
-    c_comment!(("implementation dependent."));
+    // If the OSFXSR bit in control register CR4 is not set, the FXSAVE
+    // instruction may not save these registers. This behavior is
+    // implementation dependent.
     let mut i_0: i32 = 0i32;
     while i_0 < 8i32 {
         safe_write128(

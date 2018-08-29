@@ -43,7 +43,7 @@ pub unsafe fn string_get_cycle_count(mut size: i32, mut address: i32) -> i32 {
         address = 4096i32 - address - size
     }
     dbg_assert!(address & size - 1i32 == 0i32);
-    c_comment!(("1 -> 0; 2 -> 1; 4 -> 2"));
+    // 1 -> 0; 2 -> 1; 4 -> 2
     let mut shift: i32 = size >> 1i32;
     return 4096i32 - (address & 4095i32) >> shift;
 }

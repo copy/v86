@@ -71,7 +71,7 @@ pub unsafe fn fpu_get_st0() -> f64 {
 }
 #[no_mangle]
 pub unsafe fn fpu_stack_fault() -> () {
-    c_comment!(("TODO: Interrupt"));
+    // TODO: Interrupt
     *fpu_status_word |= FPU_EX_SF | FPU_EX_I;
 }
 #[no_mangle]
@@ -90,9 +90,9 @@ pub unsafe fn fpu_get_sti(mut i: i32) -> f64 {
 #[no_mangle]
 pub unsafe fn fpu_integer_round(mut f: f64) -> f64 {
     let mut rc: i32 = *fpu_control_word >> 10i32 & 3i32;
-    c_comment!(("XXX: See https://en.wikipedia.org/wiki/C_mathematical_functions"));
+    // XXX: See https://en.wikipedia.org/wiki/C_mathematical_functions
     if rc == 0i32 {
-        c_comment!(("Round to nearest, or even if equidistant"));
+        // Round to nearest, or even if equidistant
         let mut rounded: f64 = round(f);
         let mut diff: f64 = rounded - f;
         if diff == 0.5f64 || diff == -0.5f64 {
@@ -101,7 +101,7 @@ pub unsafe fn fpu_integer_round(mut f: f64) -> f64 {
         return rounded;
     }
     else if rc == 1i32 || rc == 3i32 && f > 0i32 as f64 {
-        c_comment!(("rc=3 is truncate -> floor for positive numbers"));
+        // rc=3 is truncate -> floor for positive numbers
         return floor(f);
     }
     else {
@@ -130,23 +130,23 @@ pub unsafe fn fpu_load_m80(mut addr: u32) -> Result<f64, ()> {
     let mut sign: i32 = exponent >> 15i32;
     exponent &= !32768i32;
     if exponent == 0i32 {
-        c_comment!(("TODO: denormal numbers"));
+        // TODO: denormal numbers
         Ok(0i32 as f64)
     }
     else if exponent < 32767i32 {
         exponent -= 16383i32;
-        c_comment!(("Note: some bits might be lost at this point"));
+        // Note: some bits might be lost at this point
         let mut mantissa: f64 = low as f64 + 4294967296i64 as f64 * high as f64;
         if 0 != sign {
             mantissa = -mantissa
         }
-        c_comment!(("Simply compute the 64 bit floating point number."));
-        c_comment!(("An alternative write the mantissa, sign and exponent in the"));
-        c_comment!(("float64_byte and return float64[0]"));
+        // Simply compute the 64 bit floating point number.
+        // An alternative write the mantissa, sign and exponent in the
+        // float64_byte and return float64[0]
         Ok(mantissa * pow(2i32 as f64, (exponent - 63i32) as f64))
     }
     else {
-        c_comment!(("TODO: NaN, Infinity"));
+        // TODO: NaN, Infinity
         if 0 != 0i32 * 0i32 {
             dbg_log_c!("Load m80 TODO");
         }
@@ -296,8 +296,8 @@ pub unsafe fn fpu_fistm32(mut addr: i32) -> () {
     let mut st0: f64 = fpu_integer_round(fpu_get_st0());
     let mut i: i32 = convert_f64_to_i32(st0);
     if i == 2147483648u32 as i32 {
-        c_comment!(("XXX: Probably not correct if st0 == 0x80000000"));
-        c_comment!(("(input fits, but same value as error value)"));
+        // XXX: Probably not correct if st0 == 0x80000000
+        // (input fits, but same value as error value)
         fpu_invalid_arithmetic();
     }
     return_on_pagefault!(safe_write32(addr, i));
@@ -396,7 +396,7 @@ pub unsafe fn fpu_fnstsw_mem(mut addr: i32) -> () {
 pub unsafe fn fpu_fnstsw_reg() -> () { *reg16.offset(AX as isize) = fpu_load_status_word() as u16; }
 #[no_mangle]
 pub unsafe fn fpu_fprem() -> () {
-    c_comment!(("XXX: This implementation differs from the description in Intel\'s manuals"));
+    // XXX: This implementation differs from the description in Intel's manuals
     let mut st0: f64 = fpu_get_st0();
     let mut st1: f64 = fpu_get_sti(1i32);
     let mut fprem_quotient: i32 = convert_f64_to_i32(trunc(st0 / st1));
@@ -453,28 +453,28 @@ pub unsafe fn fpu_store_m80(mut addr: u32, mut n: f64) -> () {
     let mut low: i32 = 0;
     let mut high: i32 = 0;
     if exponent == 2047i32 {
-        c_comment!(("all bits set (NaN and infinity)"));
+        // all bits set (NaN and infinity)
         exponent = 32767i32;
         low = 0i32;
         high =
             (2147483648u32 | ((double_int_view.i32_0[1usize] & 524288i32) << 11i32) as u32) as i32
     }
     else if exponent == 0i32 {
-        c_comment!(("zero and denormal numbers"));
-        c_comment!(("Just assume zero for now"));
+        // zero and denormal numbers
+        // Just assume zero for now
         low = 0i32;
         high = 0i32
     }
     else {
         exponent += 16383i32 - 1023i32;
-        c_comment!(("does the mantissa need to be adjusted?"));
+        // does the mantissa need to be adjusted?
         low = double_int_view.i32_0[0usize] << 11i32;
         high = (2147483648u32
             | ((double_int_view.i32_0[1usize] & 1048575i32) << 11i32) as u32
             | double_int_view.i32_0[0usize] as u32 >> 21i32) as i32
     }
     dbg_assert!(exponent >= 0i32 && exponent < 32768i32);
-    c_comment!(("writable_or_pagefault must have checked called by the caller!"));
+    // writable_or_pagefault must have checked called by the caller!
     safe_write64(
         addr as i32,
         (low as u64 & 4294967295u32 as u64 | (high as u64) << 32i32) as i64,
@@ -592,16 +592,16 @@ pub unsafe fn fpu_ftst(mut x: f64) -> () {
     else if x < 0i32 as f64 {
         *fpu_status_word |= FPU_C0
     }
-    c_comment!(("TODO: unordered (x is nan, etc)"));
+    // TODO: unordered (x is nan, etc)
 }
 #[no_mangle]
 pub unsafe fn fpu_fucom(mut r: i32) -> () {
-    c_comment!(("TODO"));
+    // TODO
     fpu_fcom(fpu_get_sti(r));
 }
 #[no_mangle]
 pub unsafe fn fpu_fucomi(mut r: i32) -> () {
-    c_comment!(("TODO"));
+    // TODO
     fpu_fcomi(r);
 }
 #[no_mangle]
@@ -639,12 +639,12 @@ pub unsafe fn fpu_fxam(mut x: f64) -> () {
     else {
         *fpu_status_word |= FPU_C2
     }
-    c_comment!(("TODO:"));
-    c_comment!(("Unsupported, Denormal"));
+    // TODO:
+    // Unsupported, Denormal
 }
 #[no_mangle]
 pub unsafe fn fpu_sign(mut i: i32) -> i32 {
-    c_comment!(("sign of a number on the stack"));
+    // sign of a number on the stack
     return *fpu_st8.offset(
         (((*fpu_stack_ptr).wrapping_add(i as u32) & 7i32 as u32) << 3i32 | 7i32 as u32) as isize,
     ) as i32
@@ -671,5 +671,5 @@ pub unsafe fn fpu_fxtract() -> () {
 }
 #[no_mangle]
 pub unsafe fn fwait() -> () {
-    c_comment!(("NOP unless FPU instructions run in parallel with CPU instructions"));
+    // NOP unless FPU instructions run in parallel with CPU instructions
 }
