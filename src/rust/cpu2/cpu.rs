@@ -258,7 +258,7 @@ pub unsafe fn get_eflags() -> i32 {
 pub unsafe fn translate_address_read(mut address: i32) -> Result<u32, ()> {
     let mut base: i32 = (address as u32 >> 12i32) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
-    let mut user: bool = *cpl.offset(0isize) as i32 == 3i32;
+    let mut user: bool = *cpl as i32 == 3i32;
     if entry & (TLB_VALID | if 0 != user as i32 { TLB_NO_USER } else { 0i32 }) == TLB_VALID {
         return Ok((entry & !4095i32 ^ address) as u32);
     }
@@ -277,7 +277,7 @@ pub unsafe fn do_page_translation(
     let mut allow_user: bool = 0 != 1i32;
     let mut page: i32 = (addr as u32 >> 12i32) as i32;
     let mut high: i32 = 0;
-    if *cr.offset(0isize) & CR0_PG == 0i32 {
+    if *cr & CR0_PG == 0i32 {
         // paging disabled
         high = (addr as u32 & 4294963200u32) as i32;
         global = 0 != 0i32
@@ -287,7 +287,7 @@ pub unsafe fn do_page_translation(
             (*cr.offset(3isize) as u32 >> 2i32).wrapping_add((page >> 10i32) as u32) as i32;
         let mut page_dir_entry: i32 = read_aligned32(page_dir_addr as u32);
         // XXX
-        let kernel_write_override: bool = !user && 0 == *cr.offset(0isize) & CR0_WP;
+        let kernel_write_override: bool = !user && 0 == *cr & CR0_WP;
         if 0 == page_dir_entry & PAGE_TABLE_PRESENT_MASK {
             // to do at this place:
             //
@@ -542,7 +542,7 @@ pub unsafe fn trigger_pagefault(mut write: bool, mut user: bool, mut present: bo
 pub unsafe fn translate_address_write(mut address: i32) -> Result<u32, ()> {
     let mut base: i32 = (address as u32 >> 12i32) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
-    let mut user: bool = *cpl.offset(0isize) as i32 == 3i32;
+    let mut user: bool = *cpl as i32 == 3i32;
     if entry & (TLB_VALID | if 0 != user as i32 { TLB_NO_USER } else { 0i32 } | TLB_READONLY)
         == TLB_VALID
     {
@@ -601,11 +601,11 @@ pub unsafe fn check_tlb_invariants() -> () {
 pub unsafe fn writable_or_pagefault(mut addr: i32, mut size: i32) -> Result<(), ()> {
     dbg_assert!(size < 4096i32);
     dbg_assert!(size > 0i32);
-    if *cr.offset(0isize) & CR0_PG == 0i32 {
+    if *cr & CR0_PG == 0i32 {
         return Ok(());
     }
     else {
-        let mut user: bool = *cpl.offset(0isize) as i32 == 3i32;
+        let mut user: bool = *cpl as i32 == 3i32;
         let mut mask: i32 =
             TLB_READONLY | TLB_VALID | if 0 != user as i32 { TLB_NO_USER } else { 0i32 };
         let mut expect: i32 = TLB_VALID;
@@ -827,11 +827,11 @@ unsafe fn jit_run_interpreted(mut phys_addr: i32) -> () {
     *timestamp_counter = (*timestamp_counter).wrapping_add(1);
     run_instruction(opcode | (*is_32 as i32) << 8i32);
     while !jit_block_boundary && 0 != same_page(*previous_ip, *instruction_pointer) as i32 {
-        *previous_ip.offset(0isize) = *instruction_pointer.offset(0isize);
+        *previous_ip = *instruction_pointer;
         *timestamp_counter = (*timestamp_counter).wrapping_add(1);
         let mut opcode_0: i32 = return_on_pagefault!(read_imm8());
         if DEBUG {
-            logop(*previous_ip.offset(0isize), opcode_0);
+            logop(*previous_ip, opcode_0);
         }
         run_instruction(opcode_0 | (*is_32 as i32) << 8i32);
     }
@@ -870,7 +870,7 @@ pub unsafe fn do_many_cycles_native() -> () {
     profiler_stat_increment(S_DO_MANY_CYCLES);
     let mut initial_timestamp_counter: u32 = *timestamp_counter;
     while (*timestamp_counter).wrapping_sub(initial_timestamp_counter) < LOOP_COUNTER as u32
-        && !*in_hlt.offset(0isize)
+        && !*in_hlt
     {
         cycle_internal();
     }
@@ -1388,7 +1388,7 @@ pub unsafe fn write_xmm_reg128(mut r: i32, mut data: reg128) -> () {
 }
 
 pub unsafe fn task_switch_test() -> bool {
-    if 0 != *cr.offset(0isize) & (CR0_EM | CR0_TS) {
+    if 0 != *cr & (CR0_EM | CR0_TS) {
         trigger_nm();
         return 0 != 0i32;
     }

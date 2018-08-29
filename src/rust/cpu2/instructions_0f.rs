@@ -67,7 +67,7 @@ const ENABLE_ACPI: bool = false;
 #[no_mangle]
 pub unsafe fn instr_0F00_0_mem(mut addr: i32) -> () {
     // sldt
-    if !*protected_mode.offset(0isize) || 0 != vm86_mode() as i32 {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
         trigger_ud();
         return;
     }
@@ -78,7 +78,7 @@ pub unsafe fn instr_0F00_0_mem(mut addr: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_0_reg(mut r: i32) -> () {
-    if !*protected_mode.offset(0isize) || 0 != vm86_mode() as i32 {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
         trigger_ud();
         return;
     }
@@ -90,7 +90,7 @@ pub unsafe fn instr_0F00_0_reg(mut r: i32) -> () {
 #[no_mangle]
 pub unsafe fn instr_0F00_1_mem(mut addr: i32) -> () {
     // str
-    if !*protected_mode.offset(0isize) || 0 != vm86_mode() as i32 {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
         trigger_ud();
         return;
     }
@@ -101,7 +101,7 @@ pub unsafe fn instr_0F00_1_mem(mut addr: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_1_reg(mut r: i32) -> () {
-    if !*protected_mode.offset(0isize) || 0 != vm86_mode() as i32 {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
         trigger_ud();
         return;
     }
@@ -113,11 +113,11 @@ pub unsafe fn instr_0F00_1_reg(mut r: i32) -> () {
 #[no_mangle]
 pub unsafe fn instr_0F00_2_mem(mut addr: i32) -> () {
     // lldt
-    if !*protected_mode.offset(0isize) || 0 != vm86_mode() as i32 {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
         trigger_ud();
         return;
     }
-    else if 0 != *cpl.offset(0isize) {
+    else if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -128,11 +128,11 @@ pub unsafe fn instr_0F00_2_mem(mut addr: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_2_reg(mut r: i32) -> () {
-    if !*protected_mode.offset(0isize) || 0 != vm86_mode() as i32 {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
         trigger_ud();
         return;
     }
-    else if 0 != *cpl.offset(0isize) {
+    else if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -144,11 +144,11 @@ pub unsafe fn instr_0F00_2_reg(mut r: i32) -> () {
 #[no_mangle]
 pub unsafe fn instr_0F00_3_mem(mut addr: i32) -> () {
     // ltr
-    if !*protected_mode.offset(0isize) || 0 != vm86_mode() as i32 {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
         trigger_ud();
         return;
     }
-    else if 0 != *cpl.offset(0isize) {
+    else if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -159,11 +159,11 @@ pub unsafe fn instr_0F00_3_mem(mut addr: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_3_reg(mut r: i32) -> () {
-    if !*protected_mode.offset(0isize) || 0 != vm86_mode() as i32 {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
         trigger_ud();
         return;
     }
-    else if 0 != *cpl.offset(0isize) {
+    else if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -174,7 +174,7 @@ pub unsafe fn instr_0F00_3_reg(mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_4_mem(mut addr: i32) -> () {
-    if !*protected_mode.offset(0isize) || 0 != vm86_mode() as i32 {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
         trigger_ud();
         return;
     }
@@ -185,7 +185,7 @@ pub unsafe fn instr_0F00_4_mem(mut addr: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_4_reg(mut r: i32) -> () {
-    if !*protected_mode.offset(0isize) || 0 != vm86_mode() as i32 {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
         trigger_ud();
         return;
     }
@@ -196,7 +196,7 @@ pub unsafe fn instr_0F00_4_reg(mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_5_mem(mut addr: i32) -> () {
-    if !*protected_mode.offset(0isize) || 0 != vm86_mode() as i32 {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
         trigger_ud();
         return;
     }
@@ -207,7 +207,7 @@ pub unsafe fn instr_0F00_5_mem(mut addr: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F00_5_reg(mut r: i32) -> () {
-    if !*protected_mode.offset(0isize) || 0 != vm86_mode() as i32 {
+    if !*protected_mode || 0 != vm86_mode() as i32 {
         trigger_ud();
         return;
     }
@@ -228,8 +228,8 @@ pub unsafe fn instr_0F01_0_mem(mut addr: i32) -> () {
     else {
         16777215i32
     };
-    safe_write16(addr, *gdtr_size.offset(0isize)).unwrap();
-    safe_write32(addr + 2i32, *gdtr_offset.offset(0isize) & mask).unwrap();
+    safe_write16(addr, *gdtr_size).unwrap();
+    safe_write32(addr + 2i32, *gdtr_offset & mask).unwrap();
 }
 #[no_mangle]
 pub unsafe fn instr_0F01_1_reg(mut r: i32) -> () { trigger_ud(); }
@@ -243,15 +243,15 @@ pub unsafe fn instr_0F01_1_mem(mut addr: i32) -> () {
     else {
         16777215i32
     };
-    safe_write16(addr, *idtr_size.offset(0isize)).unwrap();
-    safe_write32(addr + 2i32, *idtr_offset.offset(0isize) & mask).unwrap();
+    safe_write16(addr, *idtr_size).unwrap();
+    safe_write32(addr + 2i32, *idtr_offset & mask).unwrap();
 }
 #[no_mangle]
 pub unsafe fn instr_0F01_2_reg(mut r: i32) -> () { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_0F01_2_mem(mut addr: i32) -> () {
     // lgdt
-    if 0 != *cpl.offset(0isize) {
+    if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -264,8 +264,8 @@ pub unsafe fn instr_0F01_2_mem(mut addr: i32) -> () {
         else {
             16777215i32
         };
-        *gdtr_size.offset(0isize) = size;
-        *gdtr_offset.offset(0isize) = offset & mask;
+        *gdtr_size = size;
+        *gdtr_offset = offset & mask;
         return;
     };
 }
@@ -274,7 +274,7 @@ pub unsafe fn instr_0F01_3_reg(mut r: i32) -> () { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_0F01_3_mem(mut addr: i32) -> () {
     // lidt
-    if 0 != *cpl.offset(0isize) {
+    if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -287,24 +287,24 @@ pub unsafe fn instr_0F01_3_mem(mut addr: i32) -> () {
         else {
             16777215i32
         };
-        *idtr_size.offset(0isize) = size;
-        *idtr_offset.offset(0isize) = offset & mask;
+        *idtr_size = size;
+        *idtr_offset = offset & mask;
         return;
     };
 }
 #[no_mangle]
 pub unsafe fn instr_0F01_4_reg(mut r: i32) -> () {
     // smsw
-    write_reg_osize(r, *cr.offset(0isize));
+    write_reg_osize(r, *cr);
 }
 #[no_mangle]
 pub unsafe fn instr_0F01_4_mem(mut addr: i32) -> () {
-    return_on_pagefault!(safe_write16(addr, *cr.offset(0isize) & 65535i32));
+    return_on_pagefault!(safe_write16(addr, *cr & 65535i32));
 }
 #[no_mangle]
 pub unsafe fn lmsw(mut new_cr0: i32) -> () {
-    new_cr0 = *cr.offset(0isize) & !15i32 | new_cr0 & 15i32;
-    if *protected_mode.offset(0isize) {
+    new_cr0 = *cr & !15i32 | new_cr0 & 15i32;
+    if *protected_mode {
         // lmsw cannot be used to switch back
         new_cr0 |= CR0_PE
     }
@@ -312,7 +312,7 @@ pub unsafe fn lmsw(mut new_cr0: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F01_6_reg(mut r: i32) -> () {
-    if 0 != *cpl.offset(0isize) {
+    if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -323,7 +323,7 @@ pub unsafe fn instr_0F01_6_reg(mut r: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F01_6_mem(mut addr: i32) -> () {
-    if 0 != *cpl.offset(0isize) {
+    if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -337,7 +337,7 @@ pub unsafe fn instr_0F01_7_reg(mut r: i32) -> () { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_0F01_7_mem(mut addr: i32) -> () {
     // invlpg
-    if 0 != *cpl.offset(0isize) {
+    if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -393,7 +393,7 @@ pub unsafe fn instr_0F05() -> () { undefined_instruction(); }
 #[no_mangle]
 pub unsafe fn instr_0F06() -> () {
     // clts
-    if 0 != *cpl.offset(0isize) {
+    if 0 != *cpl {
         dbg_log!("clts #gp");
         trigger_gp_non_raising(0i32);
     }
@@ -401,7 +401,7 @@ pub unsafe fn instr_0F06() -> () {
         if 0 != 0i32 * 0i32 {
             dbg_log!("clts");
         }
-        *cr.offset(0isize) &= !CR0_TS;
+        *cr &= !CR0_TS;
     };
 }
 #[no_mangle]
@@ -413,7 +413,7 @@ pub unsafe fn instr_0F08() -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F09() -> () {
-    if 0 != *cpl.offset(0isize) {
+    if 0 != *cpl {
         dbg_log!("wbinvd #gp");
         trigger_gp_non_raising(0i32);
     }
@@ -759,14 +759,14 @@ pub unsafe fn instr_0F1F_reg(mut r1: i32, mut r2: i32) -> () {}
 pub unsafe fn instr_0F1F_mem(mut addr: i32, mut r: i32) -> () {}
 #[no_mangle]
 pub unsafe fn instr_0F20(mut r: i32, mut creg: i32) -> () {
-    if 0 != *cpl.offset(0isize) {
+    if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
     else {
         match creg {
             0 => {
-                write_reg32(r, *cr.offset(0isize));
+                write_reg32(r, *cr);
             },
             2 => {
                 write_reg32(r, *cr.offset(2isize));
@@ -787,7 +787,7 @@ pub unsafe fn instr_0F20(mut r: i32, mut creg: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F21(mut r: i32, mut dreg_index: i32) -> () {
-    if 0 != *cpl.offset(0isize) {
+    if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -816,7 +816,7 @@ pub unsafe fn instr_0F21(mut r: i32, mut dreg_index: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F22(mut r: i32, mut creg: i32) -> () {
-    if 0 != *cpl.offset(0isize) {
+    if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -877,7 +877,7 @@ pub unsafe fn instr_0F22(mut r: i32, mut creg: i32) -> () {
 }
 #[no_mangle]
 pub unsafe fn instr_0F23(mut r: i32, mut dreg_index: i32) -> () {
-    if 0 != *cpl.offset(0isize) {
+    if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -1156,7 +1156,7 @@ pub unsafe fn instr_660F2F_mem(addr: i32, r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F30() -> () {
     // wrmsr - write maschine specific register
-    if 0 != *cpl.offset(0isize) {
+    if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -1168,13 +1168,13 @@ pub unsafe fn instr_0F30() -> () {
             dbg_log!("wrmsr ecx={:x} data={:x}:{:x}", index, high, low);
         }
         if index == IA32_SYSENTER_CS {
-            *sysenter_cs.offset(0isize) = low & 65535i32
+            *sysenter_cs = low & 65535i32
         }
         else if index == IA32_SYSENTER_EIP {
-            *sysenter_eip.offset(0isize) = low
+            *sysenter_eip = low
         }
         else if index == IA32_SYSENTER_ESP {
-            *sysenter_esp.offset(0isize) = low
+            *sysenter_esp = low
         }
         else if index == IA32_APIC_BASE_MSR {
             dbg_assert!(
@@ -1218,7 +1218,7 @@ pub unsafe fn instr_0F30() -> () {
 #[no_mangle]
 pub unsafe fn instr_0F31() -> () {
     // rdtsc - read timestamp counter
-    if 0 == *cpl.offset(0isize) || 0 == *cr.offset(4isize) & CR4_TSD {
+    if 0 == *cpl || 0 == *cr.offset(4isize) & CR4_TSD {
         let mut tsc: u64 = read_tsc();
         *reg32s.offset(EAX as isize) = tsc as i32;
         *reg32s.offset(EDX as isize) = (tsc >> 32i32) as i32;
@@ -1237,7 +1237,7 @@ pub unsafe fn instr_0F31() -> () {
 #[no_mangle]
 pub unsafe fn instr_0F32() -> () {
     // rdmsr - read maschine specific register
-    if 0 != *cpl.offset(0isize) {
+    if 0 != *cpl {
         trigger_gp_non_raising(0i32);
         return;
     }
@@ -1247,13 +1247,13 @@ pub unsafe fn instr_0F32() -> () {
         let mut low: i32 = 0i32;
         let mut high: i32 = 0i32;
         if index == IA32_SYSENTER_CS {
-            low = *sysenter_cs.offset(0isize)
+            low = *sysenter_cs
         }
         else if index == IA32_SYSENTER_EIP {
-            low = *sysenter_eip.offset(0isize)
+            low = *sysenter_eip
         }
         else if index == IA32_SYSENTER_ESP {
-            low = *sysenter_esp.offset(0isize)
+            low = *sysenter_esp
         }
         else if index == IA32_TIME_STAMP_COUNTER {
             let mut tsc: u64 = read_tsc();
@@ -1307,53 +1307,53 @@ pub unsafe fn instr_0F33() -> () {
 #[no_mangle]
 pub unsafe fn instr_0F34() -> () {
     // sysenter
-    let mut seg: i32 = *sysenter_cs.offset(0isize) & 65532i32;
-    if !*protected_mode.offset(0isize) || seg == 0i32 {
+    let mut seg: i32 = *sysenter_cs & 65532i32;
+    if !*protected_mode || seg == 0i32 {
         trigger_gp_non_raising(0i32);
         return;
     }
     else {
-        *flags.offset(0isize) &= !FLAG_VM & !FLAG_INTERRUPT;
-        *instruction_pointer.offset(0isize) = *sysenter_eip.offset(0isize);
-        *reg32s.offset(ESP as isize) = *sysenter_esp.offset(0isize);
+        *flags &= !FLAG_VM & !FLAG_INTERRUPT;
+        *instruction_pointer = *sysenter_eip;
+        *reg32s.offset(ESP as isize) = *sysenter_esp;
         *sreg.offset(CS as isize) = seg as u16;
         *segment_is_null.offset(CS as isize) = 0 != 0i32;
         *segment_limits.offset(CS as isize) = -1i32 as u32;
         *segment_offsets.offset(CS as isize) = 0i32;
         update_cs_size(true);
-        *cpl.offset(0isize) = 0i32 as u8;
+        *cpl = 0i32 as u8;
         cpl_changed();
         *sreg.offset(SS as isize) = (seg + 8i32) as u16;
         *segment_is_null.offset(SS as isize) = 0 != 0i32;
         *segment_limits.offset(SS as isize) = -1i32 as u32;
         *segment_offsets.offset(SS as isize) = 0i32;
-        *stack_size_32.offset(0isize) = 0 != 1i32;
+        *stack_size_32 = 0 != 1i32;
         return;
     };
 }
 #[no_mangle]
 pub unsafe fn instr_0F35() -> () {
     // sysexit
-    let mut seg: i32 = *sysenter_cs.offset(0isize) & 65532i32;
-    if !*protected_mode.offset(0isize) || 0 != *cpl.offset(0isize) as i32 || seg == 0i32 {
+    let mut seg: i32 = *sysenter_cs & 65532i32;
+    if !*protected_mode || 0 != *cpl as i32 || seg == 0i32 {
         trigger_gp_non_raising(0i32);
         return;
     }
     else {
-        *instruction_pointer.offset(0isize) = *reg32s.offset(EDX as isize);
+        *instruction_pointer = *reg32s.offset(EDX as isize);
         *reg32s.offset(ESP as isize) = *reg32s.offset(ECX as isize);
         *sreg.offset(CS as isize) = (seg + 16i32 | 3i32) as u16;
         *segment_is_null.offset(CS as isize) = 0 != 0i32;
         *segment_limits.offset(CS as isize) = -1i32 as u32;
         *segment_offsets.offset(CS as isize) = 0i32;
         update_cs_size(true);
-        *cpl.offset(0isize) = 3i32 as u8;
+        *cpl = 3i32 as u8;
         cpl_changed();
         *sreg.offset(SS as isize) = (seg + 24i32 | 3i32) as u16;
         *segment_is_null.offset(SS as isize) = 0 != 0i32;
         *segment_limits.offset(SS as isize) = -1i32 as u32;
         *segment_offsets.offset(SS as isize) = 0i32;
-        *stack_size_32.offset(0isize) = 0 != 1i32;
+        *stack_size_32 = 0 != 1i32;
         return;
     };
 }
@@ -3973,18 +3973,18 @@ pub unsafe fn instr_0FC7_1_mem(mut addr: i32) -> () {
     let mut m64_low: i32 = return_on_pagefault!(safe_read32s(addr));
     let mut m64_high: i32 = return_on_pagefault!(safe_read32s(addr + 4i32));
     if *reg32s.offset(EAX as isize) == m64_low && *reg32s.offset(EDX as isize) == m64_high {
-        *flags.offset(0isize) |= FLAG_ZERO;
+        *flags |= FLAG_ZERO;
         safe_write32(addr, *reg32s.offset(EBX as isize)).unwrap();
         safe_write32(addr + 4i32, *reg32s.offset(ECX as isize)).unwrap();
     }
     else {
-        *flags.offset(0isize) &= !FLAG_ZERO;
+        *flags &= !FLAG_ZERO;
         *reg32s.offset(EAX as isize) = m64_low;
         *reg32s.offset(EDX as isize) = m64_high;
         safe_write32(addr, m64_low).unwrap();
         safe_write32(addr + 4i32, m64_high).unwrap();
     }
-    *flags_changed.offset(0isize) &= !FLAG_ZERO;
+    *flags_changed &= !FLAG_ZERO;
 }
 #[no_mangle]
 pub unsafe fn instr_0FC7_6_reg(mut r: i32) -> () {
@@ -3995,9 +3995,9 @@ pub unsafe fn instr_0FC7_6_reg(mut r: i32) -> () {
         rand = get_rand_int()
     }
     write_reg_osize(r, rand);
-    *flags.offset(0isize) &= !FLAGS_ALL;
-    *flags.offset(0isize) |= has_rand;
-    *flags_changed.offset(0isize) = 0i32;
+    *flags &= !FLAGS_ALL;
+    *flags |= has_rand;
+    *flags_changed = 0i32;
 }
 #[no_mangle]
 pub unsafe fn instr_0FC7_6_mem(mut addr: i32) -> () { trigger_ud(); }

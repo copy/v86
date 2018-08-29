@@ -260,9 +260,9 @@ pub unsafe fn fpu_push(mut x: f64) -> () {
 pub unsafe fn fpu_finit() -> () {
     *fpu_control_word = 895i32;
     *fpu_status_word = 0i32;
-    *fpu_ip.offset(0isize) = 0i32;
-    *fpu_dp.offset(0isize) = 0i32;
-    *fpu_opcode.offset(0isize) = 0i32;
+    *fpu_ip = 0i32;
+    *fpu_dp = 0i32;
+    *fpu_opcode = 0i32;
     *fpu_stack_empty = 255i32;
     *fpu_stack_ptr = 0i32 as u32;
 }
@@ -328,11 +328,11 @@ pub unsafe fn fpu_fldenv(mut addr: i32) -> () {
         *fpu_control_word = safe_read16(addr).unwrap();
         fpu_set_status_word(safe_read16(addr + 4i32).unwrap());
         fpu_set_tag_word(safe_read16(addr + 8i32).unwrap());
-        *fpu_ip.offset(0isize) = safe_read32s(addr + 12i32).unwrap();
-        *fpu_ip_selector.offset(0isize) = safe_read16(addr + 16i32).unwrap();
-        *fpu_opcode.offset(0isize) = safe_read16(addr + 18i32).unwrap();
-        *fpu_dp.offset(0isize) = safe_read32s(addr + 20i32).unwrap();
-        *fpu_dp_selector.offset(0isize) = safe_read16(addr + 24i32).unwrap()
+        *fpu_ip = safe_read32s(addr + 12i32).unwrap();
+        *fpu_ip_selector = safe_read16(addr + 16i32).unwrap();
+        *fpu_opcode = safe_read16(addr + 18i32).unwrap();
+        *fpu_dp = safe_read32s(addr + 20i32).unwrap();
+        *fpu_dp_selector = safe_read16(addr + 24i32).unwrap()
     }
     else {
         dbg_log!("fldenv16");
@@ -484,11 +484,11 @@ pub unsafe fn fpu_fstenv(mut addr: i32) -> () {
         safe_write16(addr, *fpu_control_word).unwrap();
         safe_write16(addr + 4i32, fpu_load_status_word()).unwrap();
         safe_write16(addr + 8i32, fpu_load_tag_word()).unwrap();
-        safe_write32(addr + 12i32, *fpu_ip.offset(0isize)).unwrap();
-        safe_write16(addr + 16i32, *fpu_ip_selector.offset(0isize)).unwrap();
-        safe_write16(addr + 18i32, *fpu_opcode.offset(0isize)).unwrap();
-        safe_write32(addr + 20i32, *fpu_dp.offset(0isize)).unwrap();
-        safe_write16(addr + 24i32, *fpu_dp_selector.offset(0isize)).unwrap();
+        safe_write32(addr + 12i32, *fpu_ip).unwrap();
+        safe_write16(addr + 16i32, *fpu_ip_selector).unwrap();
+        safe_write16(addr + 18i32, *fpu_opcode).unwrap();
+        safe_write32(addr + 20i32, *fpu_dp).unwrap();
+        safe_write16(addr + 24i32, *fpu_dp_selector).unwrap();
     }
     else {
         dbg_log!("fstenv16");
