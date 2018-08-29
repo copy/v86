@@ -316,15 +316,18 @@ pub unsafe fn do_page_translation(
         if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && 0 != *cr.offset(4) & CR4_PSE {
             // size bit is set
             // set the accessed and dirty bits
-            write_aligned32(
-                page_dir_addr as u32,
-                page_dir_entry | PAGE_TABLE_ACCESSED_MASK | if 0 != for_writing as i32 {
-                    PAGE_TABLE_DIRTY_MASK
-                }
-                else {
-                    0
-                },
-            );
+
+            let new_page_dir_entry = page_dir_entry | PAGE_TABLE_ACCESSED_MASK | if for_writing {
+                PAGE_TABLE_DIRTY_MASK
+            }
+            else {
+                0
+            };
+
+            if page_dir_entry != new_page_dir_entry {
+                write_aligned32(page_dir_addr as u32, new_page_dir_entry);
+            }
+
             high = (page_dir_entry as u32 & 4290772992 | (addr & 4190208) as u32) as i32;
             global = page_dir_entry & PAGE_TABLE_GLOBAL_MASK == PAGE_TABLE_GLOBAL_MASK
         }
@@ -354,20 +357,24 @@ pub unsafe fn do_page_translation(
                     return Err(());
                 }
             }
-            // set the accessed and dirty bits
-            write_aligned32(
-                page_dir_addr as u32,
-                page_dir_entry | PAGE_TABLE_ACCESSED_MASK,
-            );
-            write_aligned32(
-                page_table_addr as u32,
-                page_table_entry | PAGE_TABLE_ACCESSED_MASK | if 0 != for_writing as i32 {
-                    PAGE_TABLE_DIRTY_MASK
-                }
-                else {
-                    0
-                },
-            );
+
+            // Set the accessed and dirty bits
+            // Note: dirty bit is only set on the page table entry
+            let new_page_dir_entry = page_dir_entry | PAGE_TABLE_ACCESSED_MASK;
+            if new_page_dir_entry != page_dir_entry {
+                write_aligned32(page_dir_addr as u32, new_page_dir_entry);
+            }
+            let new_page_table_entry = page_table_entry | PAGE_TABLE_ACCESSED_MASK | if for_writing
+            {
+                PAGE_TABLE_DIRTY_MASK
+            }
+            else {
+                0
+            };
+            if page_table_entry != new_page_table_entry {
+                write_aligned32(page_table_addr as u32, new_page_table_entry);
+            }
+
             high = (page_table_entry as u32 & 4294963200) as i32;
             global = page_table_entry & PAGE_TABLE_GLOBAL_MASK == PAGE_TABLE_GLOBAL_MASK
         }
