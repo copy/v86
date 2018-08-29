@@ -48,7 +48,7 @@ pub const S_SAFE_WRITE32_SLOW_IN_MAPPED_RANGE: StatName = 24;
 pub const S_NONFAULTING_OPTIMIZATION: StatName = 32;
 #[no_mangle]
 pub static mut profiler_stat_arr: [profiler_stat; 37] = [
-    profiler_stat { count: 0i32 },
+    profiler_stat { count: 0 },
     profiler_stat { count: 0 },
     profiler_stat { count: 0 },
     profiler_stat { count: 0 },
@@ -88,16 +88,14 @@ pub static mut profiler_stat_arr: [profiler_stat; 37] = [
 ];
 #[no_mangle]
 pub unsafe fn profiler_init() {
-    let mut i: u32 = 0i32 as u32;
-    while i < (S_TLB_GLOBAL_FULL as i32 - S_COMPILE as i32 + 1i32) as u32 {
-        profiler_stat_arr[i as usize].count = 0i32;
+    let mut i: u32 = 0 as u32;
+    while i < (S_TLB_GLOBAL_FULL as i32 - S_COMPILE as i32 + 1) as u32 {
+        profiler_stat_arr[i as usize].count = 0;
         i = i.wrapping_add(1)
     }
 }
 #[no_mangle]
-pub unsafe fn profiler_stat_increment(mut stat: StatName) {
-    profiler_stat_increment_by(stat, 1i32);
-}
+pub unsafe fn profiler_stat_increment(mut stat: StatName) { profiler_stat_increment_by(stat, 1); }
 #[no_mangle]
 pub unsafe fn profiler_stat_increment_by(mut stat: StatName, mut by: i32) {
     if cfg!(feature = "profiler") {
