@@ -1611,6 +1611,9 @@ pub unsafe fn update_eflags(mut new_flags: i32) {
 
 #[no_mangle]
 pub unsafe fn get_valid_tlb_entries_count() -> i32 {
+    if !cfg!(feature = "profiler") {
+        return 0;
+    }
     let mut result: i32 = 0;
     let mut i: i32 = 0;
     while i < valid_tlb_entries_count {
@@ -1626,6 +1629,9 @@ pub unsafe fn get_valid_tlb_entries_count() -> i32 {
 
 #[no_mangle]
 pub unsafe fn get_valid_global_tlb_entries_count() -> i32 {
+    if !cfg!(feature = "profiler") {
+        return 0;
+    }
     let mut result: i32 = 0;
     let mut i: i32 = 0;
     while i < valid_tlb_entries_count {
