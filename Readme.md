@@ -96,6 +96,7 @@ How to build, run and embed?
   usage, check out the [API](docs/api.md) and [examples](examples/).
 - A couple of disk images are provided for testing. You can check them out
   using `wget -P images/ https://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}`.
+- Check this guide if you're an iDiot 😉
 
 
 **Short summary:**
