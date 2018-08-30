@@ -192,7 +192,12 @@ pub const LOG_CPU: i32 = 2;
 pub const A20_MASK: i32 = !(1 << 20);
 pub const A20_MASK16: i32 = !(1 << 20 - 1);
 pub const A20_MASK32: i32 = !(1 << 20 - 2);
+
 pub const MXCSR_MASK: i32 = 0xffff;
+pub const MXCSR_FZ: i32 = 1 << 15;
+pub const MXCSR_DAZ: i32 = 1 << 6;
+pub const MXCSR_RC_SHIFT: i32 = 13;
+
 pub const VALID_TLB_ENTRY_MAX: i32 = 10000;
 pub const TLB_VALID: i32 = 1 << 0;
 pub const TLB_READONLY: i32 = 1 << 1;
@@ -1385,15 +1390,15 @@ pub unsafe fn task_switch_test() -> bool {
 pub unsafe fn set_mxcsr(new_mxcsr: i32) {
     dbg_assert!(new_mxcsr & !MXCSR_MASK == 0); // checked by caller
 
-    if new_mxcsr & 1 << 6 != 0 {
+    if *mxcsr & MXCSR_DAZ == 0 && new_mxcsr & MXCSR_DAZ != 0 {
         dbg_log!("Warning: Unimplemented MXCSR bit: Denormals Are Zero")
     }
-    if new_mxcsr & 1 << 15 != 0 {
+    if *mxcsr & MXCSR_FZ == 0 && new_mxcsr & MXCSR_FZ != 0 {
         dbg_log!("Warning: Unimplemented MXCSR bit: Flush To Zero")
     }
 
-    let rounding_mode = new_mxcsr >> 13 & 3;
-    if rounding_mode != 0 {
+    let rounding_mode = new_mxcsr >> MXCSR_RC_SHIFT & 3;
+    if *mxcsr >> MXCSR_RC_SHIFT & 3 == 0 && rounding_mode != 0 {
         dbg_log!(
             "Warning: Unimplemented MXCSR rounding mode: {}",
             rounding_mode
