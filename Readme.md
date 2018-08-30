@@ -95,8 +95,8 @@ How to build, run and embed?
 - If you only want to embed v86 in a webpage you can use libv86.js. For
   usage, check out the [API](docs/api.md) and [examples](examples/).
 - A couple of disk images are provided for testing. You can check them out
-  using `wget -P images/ https://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}`.
-
+  using `wget -P images/      https://copy.sh/v86/images/{linux.iso,linux3.iso,kolibri.img,windows101.img,os8.dsk,freedos722.img,openbsd.img}`.
+- Check [this guide](https://github.com/copy/v86/wiki/An-iDiot-guide-How-to-compile-v86), if it's too hard for you
 
 **Short summary:**
 
