@@ -36,13 +36,6 @@ pub fn gen_increment_instruction_pointer(builder: &mut WasmBuilder, n: u32) {
     cs.store_aligned_i32(0); // store it back in
 }
 
-pub fn gen_set_previous_eip(builder: &mut WasmBuilder) {
-    let cs = &mut builder.code_section;
-    cs.const_i32(global_pointers::PREVIOUS_IP as i32); // store address of previous ip
-    cs.load_aligned_i32(global_pointers::INSTRUCTION_POINTER); // load ip
-    cs.store_aligned_i32(0); // store it as previous ip
-}
-
 pub fn gen_relative_jump(builder: &mut WasmBuilder, n: i32) {
     // add n to instruction_pointer (without setting the offset as above)
     let instruction_body = &mut builder.instruction_body;

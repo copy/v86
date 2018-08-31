@@ -1338,10 +1338,6 @@ pub fn jit_dirty_cache_small(ctx: &mut JitState, start_addr: u32, end_addr: u32)
     }
 }
 
-pub fn jit_dirty_cache_single(ctx: &mut JitState, addr: u32) {
-    jit_dirty_page(ctx, Page::page_of(addr));
-}
-
 pub fn jit_empty_cache(ctx: &mut JitState) {
     jit_cache_array::clear();
 

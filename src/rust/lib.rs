@@ -2,7 +2,6 @@
 #![feature(extern_types)]
 
 #[cfg(test)]
-#[macro_use]
 extern crate quickcheck;
 
 #[macro_use]

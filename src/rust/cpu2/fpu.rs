@@ -37,19 +37,10 @@ pub const FPU_C1: i32 = 512;
 const FPU_C2: i32 = 1024;
 const FPU_C3: i32 = 16384;
 const FPU_RESULT_FLAGS: i32 = FPU_C0 | FPU_C1 | FPU_C2 | FPU_C3;
-const FPU_STACK_TOP: i32 = 14336;
 const INDEFINITE_NAN: f64 = ::std::f64::NAN;
 const FPU_EX_I: i32 = 1 << 0;
 const FPU_EX_SF: i32 = 1 << 6;
 const TWO_POW_63: f64 = 9223372036854775808u64 as f64;
-const FPU_PC: i32 = 3 << 8;
-const FPU_RC: i32 = 3 << 10;
-const FPU_IF: i32 = 1 << 12;
-const FPU_EX_P: i32 = 1 << 5;
-const FPU_EX_U: i32 = 1 << 4;
-const FPU_EX_O: i32 = 1 << 3;
-const FPU_EX_Z: i32 = 1 << 2;
-const FPU_EX_D: i32 = 1 << 1;
 
 #[no_mangle]
 pub unsafe fn fpu_get_st0() -> f64 {

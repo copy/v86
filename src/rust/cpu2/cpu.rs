@@ -849,6 +849,7 @@ pub unsafe fn pack_current_state_flags() -> CachedStateFlags {
         | (has_flat_segmentation() as i32) << 3) as CachedStateFlags;
 }
 
+#[no_mangle]
 pub unsafe fn has_flat_segmentation() -> bool {
     // ss can't be null
     return *segment_offsets.offset(SS as isize) == 0
