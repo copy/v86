@@ -366,19 +366,22 @@ const encodings = [
     { opcode: 0x0F30, skip: 1, block_boundary: 1, }, // wrmsr
     { opcode: 0x0F31, skip: 1, block_boundary: 1, }, // rdtsc
     { opcode: 0x0F32, skip: 1, block_boundary: 1, }, // rdmsr
-    { opcode: 0x0F33, skip: 1, }, // rdpmc
+    { opcode: 0x0F33, skip: 1, block_boundary: 1, }, // rdpmc
     { opcode: 0x0F34, skip: 1, block_boundary: 1, no_next_instruction: 1, }, // sysenter
     { opcode: 0x0F35, skip: 1, block_boundary: 1, no_next_instruction: 1, }, // sysexit
-    { opcode: 0x0F36, skip: 1, block_boundary: 1, },
-    { opcode: 0x0F37, skip: 1 },
-    { opcode: 0x0F38, skip: 1 },
-    { opcode: 0x0F39, skip: 1 },
-    { opcode: 0x0F3A, skip: 1 },
-    { opcode: 0x0F3B, skip: 1 },
-    { opcode: 0x0F3C, skip: 1 },
-    { opcode: 0x0F3D, skip: 1 },
-    { opcode: 0x0F3E, skip: 1 },
-    { opcode: 0x0F3F, skip: 1 },
+
+    { opcode: 0x0F36, skip: 1, block_boundary: 1, }, // ud
+    { opcode: 0x0F37, skip: 1, block_boundary: 1, }, // getsec
+
+    // sse3+
+    { opcode: 0x0F38, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F39, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F3A, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F3B, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F3C, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F3D, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F3E, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F3F, skip: 1, block_boundary: 1, },
 
     { opcode: 0x0F40, e: 1, os: 1, custom: 1, },
     { opcode: 0x0F41, e: 1, os: 1, custom: 1, },
@@ -523,8 +526,8 @@ const encodings = [
     { sse: 1, opcode: 0xF20F11, e: 1 },
     { sse: 1, opcode: 0x0F12, e: 1 },
     { sse: 1, opcode: 0x660F12, reg_ud: 1, e: 1 },
-    { sse: 1, opcode: 0xF20F12, e: 1, skip: 1, }, // sse3
-    { sse: 1, opcode: 0xF30F12, e: 1, skip: 1, }, // sse3
+    { sse: 1, opcode: 0xF20F12, e: 1, skip: 1, block_boundary: 1, }, // sse3
+    { sse: 1, opcode: 0xF30F12, e: 1, skip: 1, block_boundary: 1, }, // sse3
     { sse: 1, opcode: 0x0F13, reg_ud: 1, e: 1 },
     { sse: 1, opcode: 0x660F13, reg_ud: 1, e: 1 },
     { sse: 1, opcode: 0x0F14, e: 1 },
@@ -533,7 +536,7 @@ const encodings = [
     { sse: 1, opcode: 0x660F15, e: 1 },
     { sse: 1, opcode: 0x0F16, e: 1 },
     { sse: 1, opcode: 0x660F16, reg_ud: 1, e: 1 },
-    { sse: 1, opcode: 0xF30F16, skip: 1, e: 1 }, // sse3
+    { sse: 1, opcode: 0xF30F16, skip: 1, e: 1, block_boundary: 1, }, // sse3
     { sse: 1, opcode: 0x0F17, reg_ud: 1, e: 1 },
     { sse: 1, opcode: 0x660F17, reg_ud: 1, e: 1 },
 
@@ -692,13 +695,13 @@ const encodings = [
     { sse: 1, opcode: 0x0F77 },
 
     // vmx instructions
-    { opcode: 0x0F78, skip: 1 },
-    { opcode: 0x0F79, skip: 1 },
+    { opcode: 0x0F78, skip: 1, block_boundary: 1, },
+    { opcode: 0x0F79, skip: 1, block_boundary: 1, },
 
-    { opcode: 0x0F7A, skip: 1 }, // ud
-    { opcode: 0x0F7B, skip: 1 }, // ud
-    { sse: 1, opcode: 0x0F7C, skip: 1 }, // sse3
-    { sse: 1, opcode: 0x0F7D, skip: 1 }, // sse3
+    { opcode: 0x0F7A, skip: 1, block_boundary: 1, }, // ud
+    { opcode: 0x0F7B, skip: 1, block_boundary: 1, }, // ud
+    { sse: 1, opcode: 0x0F7C, skip: 1, block_boundary: 1, }, // sse3
+    { sse: 1, opcode: 0x0F7D, skip: 1, block_boundary: 1, }, // sse3
 
     { sse: 1, opcode: 0x0F7E, e: 1 },
     { sse: 1, opcode: 0x660F7E, e: 1 },
@@ -722,7 +725,7 @@ const encodings = [
     { sse: 1, opcode: 0x0FC6, e: 1, imm8: 1 },
     { sse: 1, opcode: 0x660FC6, e: 1, imm8: 1 },
 
-    { sse: 1, opcode: 0x0FD0, skip: 1, }, // sse3
+    { sse: 1, opcode: 0x0FD0, skip: 1, block_boundary: 1, }, // sse3
 
     { sse: 1, opcode: 0x0FD1, e: 1 },
     { sse: 1, opcode: 0x660FD1, e: 1 },
@@ -797,7 +800,7 @@ const encodings = [
     { sse: 1, opcode: 0x0FEF, e: 1 },
     { sse: 1, opcode: 0x660FEF, e: 1 },
 
-    { sse: 1, opcode: 0x0FF0, skip: 1, }, // sse3
+    { sse: 1, opcode: 0x0FF0, skip: 1, block_boundary: 1, }, // sse3
 
     { sse: 1, opcode: 0x0FF1, e: 1 },
     { sse: 1, opcode: 0x660FF1, e: 1 },
