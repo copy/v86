@@ -1289,7 +1289,7 @@ pub fn instr16_E8_jit(ctx: &mut JitContext, imm: u32) {
     let value_local = ctx.builder.set_new_local();
     codegen::gen_push16(ctx, &value_local);
     ctx.builder.free_local(value_local);
-    codegen::gen_jmp_rel16(ctx, imm as u16);
+    codegen::gen_jmp_rel16(ctx.builder, imm as u16);
 }
 pub fn instr32_E8_jit(ctx: &mut JitContext, imm: u32) {
     codegen::gen_get_real_eip(ctx);
@@ -1307,7 +1307,9 @@ pub fn instr32_E8_jit(ctx: &mut JitContext, imm: u32) {
     ctx.builder.instruction_body.store_aligned_i32(0);
 }
 
-pub fn instr16_E9_jit(ctx: &mut JitContext, imm: u32) { codegen::gen_jmp_rel16(ctx, imm as u16); }
+pub fn instr16_E9_jit(ctx: &mut JitContext, imm: u32) {
+    codegen::gen_jmp_rel16(ctx.builder, imm as u16);
+}
 pub fn instr32_E9_jit(ctx: &mut JitContext, imm: u32) {
     codegen::gen_relative_jump(ctx.builder, imm as i32);
 }
@@ -1588,7 +1590,7 @@ define_instruction_read_write_mem32!(
 );
 
 pub fn instr16_EB_jit(ctx: &mut JitContext, imm8: u32) {
-    codegen::gen_jmp_rel16(ctx, imm8 as u16);
+    codegen::gen_jmp_rel16(ctx.builder, imm8 as u16);
     // dbg_assert(is_asize_32() || get_real_eip() < 0x10000);
 }
 

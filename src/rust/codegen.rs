@@ -494,17 +494,15 @@ pub fn gen_add_prefix_bits(ctx: &mut JitContext, mask: u32) {
     instruction_body.store_aligned_i32(0);
 }
 
-pub fn gen_jmp_rel16(ctx: &mut JitContext, rel16: u16) {
+pub fn gen_jmp_rel16(builder: &mut WasmBuilder, rel16: u16) {
     let cs_offset_addr = global_pointers::get_seg_offset(regs::CS);
-    ctx.builder
-        .instruction_body
-        .load_aligned_i32(cs_offset_addr);
-    let local = ctx.builder.set_new_local();
+    builder.instruction_body.load_aligned_i32(cs_offset_addr);
+    let local = builder.set_new_local();
 
     // generate:
     // *instruction_pointer = cs_offset + ((*instruction_pointer - cs_offset + rel16) & 0xFFFF);
     {
-        let instruction_body = &mut ctx.builder.instruction_body;
+        let instruction_body = &mut builder.instruction_body;
 
         instruction_body.const_i32(global_pointers::INSTRUCTION_POINTER as i32);
 
@@ -523,7 +521,7 @@ pub fn gen_jmp_rel16(ctx: &mut JitContext, rel16: u16) {
 
         instruction_body.store_aligned_i32(0);
     }
-    ctx.builder.free_local(local);
+    builder.free_local(local);
 }
 
 pub fn gen_pop16_ss16(ctx: &mut JitContext) {

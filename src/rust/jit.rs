@@ -1035,13 +1035,7 @@ fn jit_generate_module(
                     codegen::gen_relative_jump(builder, jump_offset);
                 }
                 else {
-                    // TODO: Is this necessary?
-                    let ctx = &mut JitContext {
-                        cpu: &mut cpu.clone(),
-                        builder,
-                        start_of_current_instruction: 0,
-                    };
-                    codegen::gen_jmp_rel16(ctx, jump_offset as u16);
+                    codegen::gen_jmp_rel16(builder, jump_offset as u16);
                 }
 
                 if let Some(next_block_branch_taken_addr) = next_block_branch_taken_addr {
