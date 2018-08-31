@@ -1765,6 +1765,10 @@ pub unsafe fn instr16_9D() {
         if old_eflags & FLAG_INTERRUPT == 0 && *flags & FLAG_INTERRUPT != 0 {
             handle_irqs();
         }
+        if *flags & FLAG_TRAP != 0 {
+            dbg_log!("Not supported: trap flag");
+        }
+        *flags &= !FLAG_TRAP;
         return;
     };
 }
@@ -1782,6 +1786,10 @@ pub unsafe fn instr32_9D() {
         if old_eflags & FLAG_INTERRUPT == 0 && *flags & FLAG_INTERRUPT != 0 {
             handle_irqs();
         }
+        if *flags & FLAG_TRAP != 0 {
+            dbg_log!("Not supported: trap flag");
+        }
+        *flags &= !FLAG_TRAP;
         return;
     };
 }
