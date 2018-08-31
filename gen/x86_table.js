@@ -16,45 +16,45 @@ const sf = 1 << 7;
 
 // os: the instruction behaves differently depending on the operand size
 const encodings = [
-    { opcode: 0x00, nonfaulting: 1, e: 1, },
-    { opcode: 0x01, nonfaulting: 1, custom: 1, os: 1, e: 1, },
-    { opcode: 0x02, nonfaulting: 1, custom: 1, e: 1, },
-    { opcode: 0x03, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+    { opcode: 0x00, e: 1, },
+    { opcode: 0x01, custom: 1, os: 1, e: 1, },
+    { opcode: 0x02, custom: 1, e: 1, },
+    { opcode: 0x03, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x08, nonfaulting: 1, e: 1, },
-    { opcode: 0x09, nonfaulting: 1, custom: 1, os: 1, e: 1, },
-    { opcode: 0x0A, nonfaulting: 1, custom: 1, e: 1, },
-    { opcode: 0x0B, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+    { opcode: 0x08, e: 1, },
+    { opcode: 0x09, custom: 1, os: 1, e: 1, },
+    { opcode: 0x0A, custom: 1, e: 1, },
+    { opcode: 0x0B, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x10, nonfaulting: 1, e: 1, },
-    { opcode: 0x11, nonfaulting: 1, custom: 1, os: 1, e: 1, },
-    { opcode: 0x12, nonfaulting: 1, custom: 1, e: 1, },
-    { opcode: 0x13, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+    { opcode: 0x10, e: 1, },
+    { opcode: 0x11, custom: 1, os: 1, e: 1, },
+    { opcode: 0x12, custom: 1, e: 1, },
+    { opcode: 0x13, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x18, nonfaulting: 1, e: 1, },
-    { opcode: 0x19, nonfaulting: 1, custom: 1, os: 1, e: 1, },
-    { opcode: 0x1A, nonfaulting: 1, custom: 1, e: 1, },
-    { opcode: 0x1B, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+    { opcode: 0x18, e: 1, },
+    { opcode: 0x19, custom: 1, os: 1, e: 1, },
+    { opcode: 0x1A, custom: 1, e: 1, },
+    { opcode: 0x1B, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x20, nonfaulting: 1, e: 1, },
-    { opcode: 0x21, nonfaulting: 1, custom: 1, os: 1, e: 1, },
-    { opcode: 0x22, nonfaulting: 1, custom: 1, e: 1, },
-    { opcode: 0x23, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+    { opcode: 0x20, e: 1, },
+    { opcode: 0x21, custom: 1, os: 1, e: 1, },
+    { opcode: 0x22, custom: 1, e: 1, },
+    { opcode: 0x23, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x28, nonfaulting: 1, e: 1, },
-    { opcode: 0x29, nonfaulting: 1, custom: 1, os: 1, e: 1, },
-    { opcode: 0x2A, nonfaulting: 1, custom: 1, e: 1, },
-    { opcode: 0x2B, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+    { opcode: 0x28, e: 1, },
+    { opcode: 0x29, custom: 1, os: 1, e: 1, },
+    { opcode: 0x2A, custom: 1, e: 1, },
+    { opcode: 0x2B, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x30, nonfaulting: 1, e: 1, },
-    { opcode: 0x31, nonfaulting: 1, custom: 1, os: 1, e: 1, },
-    { opcode: 0x32, nonfaulting: 1, custom: 1, e: 1, },
-    { opcode: 0x33, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+    { opcode: 0x30, e: 1, },
+    { opcode: 0x31, custom: 1, os: 1, e: 1, },
+    { opcode: 0x32, custom: 1, e: 1, },
+    { opcode: 0x33, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x38, nonfaulting: 1, custom: 1, e: 1, },
-    { opcode: 0x39, nonfaulting: 1, custom: 1, os: 1, e: 1, },
-    { opcode: 0x3A, nonfaulting: 1, custom: 1, e: 1, },
-    { opcode: 0x3B, nonfaulting: 1, custom: 1, os: 1, e: 1, },
+    { opcode: 0x38, custom: 1, e: 1, },
+    { opcode: 0x39, custom: 1, os: 1, e: 1, },
+    { opcode: 0x3A, custom: 1, e: 1, },
+    { opcode: 0x3B, custom: 1, os: 1, e: 1, },
 
     { opcode: 0x06, os: 1, skip: 1, },
     { opcode: 0x07, os: 1, skip: 1, block_boundary: 1, }, // pop es: block_boundary since it uses non-raising cpu exceptions
@@ -65,31 +65,31 @@ const encodings = [
     { opcode: 0x1E, os: 1, skip: 1, },
     { opcode: 0x1F, block_boundary: 1, os: 1, skip: 1, }, // pop ds
     { opcode: 0x26, prefix: 1, },
-    { opcode: 0x27, nonfaulting: 1, mask_flags: of, },
+    { opcode: 0x27, mask_flags: of, },
     { opcode: 0x2E, prefix: 1, },
-    { opcode: 0x2F, nonfaulting: 1, mask_flags: of, },
+    { opcode: 0x2F, mask_flags: of, },
     { opcode: 0x36, prefix: 1, },
-    { opcode: 0x37, nonfaulting: 1, mask_flags: of | sf | pf | zf, },
+    { opcode: 0x37, mask_flags: of | sf | pf | zf, },
     { opcode: 0x3E, prefix: 1, },
-    { opcode: 0x3F, nonfaulting: 1, mask_flags: of | sf | pf | zf, },
+    { opcode: 0x3F, mask_flags: of | sf | pf | zf, },
 
-    { opcode: 0x40, nonfaulting: 1, os: 1, },
-    { opcode: 0x41, nonfaulting: 1, os: 1, },
-    { opcode: 0x42, nonfaulting: 1, os: 1, },
-    { opcode: 0x43, nonfaulting: 1, os: 1, },
-    { opcode: 0x44, nonfaulting: 1, os: 1, },
-    { opcode: 0x45, nonfaulting: 1, os: 1, },
-    { opcode: 0x46, nonfaulting: 1, os: 1, },
-    { opcode: 0x47, nonfaulting: 1, os: 1, },
+    { opcode: 0x40, os: 1, },
+    { opcode: 0x41, os: 1, },
+    { opcode: 0x42, os: 1, },
+    { opcode: 0x43, os: 1, },
+    { opcode: 0x44, os: 1, },
+    { opcode: 0x45, os: 1, },
+    { opcode: 0x46, os: 1, },
+    { opcode: 0x47, os: 1, },
 
-    { opcode: 0x48, nonfaulting: 1, os: 1, },
-    { opcode: 0x49, nonfaulting: 1, os: 1, },
-    { opcode: 0x4A, nonfaulting: 1, os: 1, },
-    { opcode: 0x4B, nonfaulting: 1, os: 1, },
-    { opcode: 0x4C, nonfaulting: 1, os: 1, },
-    { opcode: 0x4D, nonfaulting: 1, os: 1, },
-    { opcode: 0x4E, nonfaulting: 1, os: 1, },
-    { opcode: 0x4F, nonfaulting: 1, os: 1, },
+    { opcode: 0x48, os: 1, },
+    { opcode: 0x49, os: 1, },
+    { opcode: 0x4A, os: 1, },
+    { opcode: 0x4B, os: 1, },
+    { opcode: 0x4C, os: 1, },
+    { opcode: 0x4D, os: 1, },
+    { opcode: 0x4E, os: 1, },
+    { opcode: 0x4F, os: 1, },
 
     { opcode: 0x50, custom: 1, os: 1 },
     { opcode: 0x51, custom: 1, os: 1 },
@@ -119,9 +119,9 @@ const encodings = [
     { opcode: 0x67, prefix: 1, },
 
     { opcode: 0x68, custom: 1, os: 1, imm1632: 1 },
-    { opcode: 0x69, nonfaulting: 1, os: 1, e: 1, imm1632: 1, mask_flags: af, }, // zf?
+    { opcode: 0x69, os: 1, e: 1, imm1632: 1, mask_flags: af, }, // zf?
     { opcode: 0x6A, custom: 1, os: 1, imm8s: 1 },
-    { opcode: 0x6B, nonfaulting: 1, os: 1, e: 1, imm8s: 1, mask_flags: af, }, // zf?
+    { opcode: 0x6B, os: 1, e: 1, imm8s: 1, mask_flags: af, }, // zf?
 
     { opcode: 0x6C, block_boundary: 1, is_string: 1, skip: 1, },          // ins
     { opcode: 0xF26C, block_boundary: 1, is_string: 1, skip: 1, },
@@ -137,31 +137,31 @@ const encodings = [
     { opcode: 0xF26F, block_boundary: 1, is_string: 1, os: 1, skip: 1, },
     { opcode: 0xF36F, block_boundary: 1, is_string: 1, os: 1, skip: 1, },
 
-    { opcode: 0x84, nonfaulting: 1, custom: 1, e: 1, },
-    { opcode: 0x85, nonfaulting: 1, custom: 1, e: 1, os: 1, },
-    { opcode: 0x86, nonfaulting: 1, e: 1, },
-    { opcode: 0x87, nonfaulting: 1, os: 1, e: 1, },
-    { opcode: 0x88, custom: 1, nonfaulting: 1, e: 1, },
-    { opcode: 0x89, custom: 1, nonfaulting: 1, os: 1, e: 1, },
-    { opcode: 0x8A, custom: 1, nonfaulting: 1, e: 1, },
-    { opcode: 0x8B, custom: 1, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x84, custom: 1, e: 1, },
+    { opcode: 0x85, custom: 1, e: 1, os: 1, },
+    { opcode: 0x86, e: 1, },
+    { opcode: 0x87, os: 1, e: 1, },
+    { opcode: 0x88, custom: 1, e: 1, },
+    { opcode: 0x89, custom: 1, os: 1, e: 1, },
+    { opcode: 0x8A, custom: 1, e: 1, },
+    { opcode: 0x8B, custom: 1, os: 1, e: 1, },
 
     { opcode: 0x8C, block_boundary: 1, os: 1, e: 1, skip: 1, }, // mov reg, sreg: block_boundary as it can trigger #ud
-    { opcode: 0x8D, reg_ud: 1, memory_nonfaulting: 1, os: 1, e: 1, custom_modrm_resolve: 1, custom: 1, }, // lea
+    { opcode: 0x8D, reg_ud: 1, os: 1, e: 1, custom_modrm_resolve: 1, custom: 1, }, // lea
     { opcode: 0x8E, block_boundary: 1, e: 1, skip: 1, }, // mov sreg
     { opcode: 0x8F, os: 1, e: 1, fixed_g: 0, custom_modrm_resolve: 1, custom: 1, block_boundary: 1, }, // pop r/m
 
-    { opcode: 0x90, custom: 1, nonfaulting: 1, },
-    { opcode: 0x91, nonfaulting: 1, os: 1, },
-    { opcode: 0x92, nonfaulting: 1, os: 1, },
-    { opcode: 0x93, nonfaulting: 1, os: 1, },
-    { opcode: 0x94, nonfaulting: 1, os: 1, },
-    { opcode: 0x95, nonfaulting: 1, os: 1, },
-    { opcode: 0x96, nonfaulting: 1, os: 1, },
-    { opcode: 0x97, nonfaulting: 1, os: 1, },
+    { opcode: 0x90, custom: 1, },
+    { opcode: 0x91, os: 1, },
+    { opcode: 0x92, os: 1, },
+    { opcode: 0x93, os: 1, },
+    { opcode: 0x94, os: 1, },
+    { opcode: 0x95, os: 1, },
+    { opcode: 0x96, os: 1, },
+    { opcode: 0x97, os: 1, },
 
-    { opcode: 0x98, nonfaulting: 1, os: 1, },
-    { opcode: 0x99, nonfaulting: 1, os: 1, },
+    { opcode: 0x98, os: 1, },
+    { opcode: 0x99, os: 1, },
     { opcode: 0x9A, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, block_boundary: 1, }, // callf
     { opcode: 0x9B, skip: 1, }, // fwait: block_boundary since it uses non-raising cpu exceptions
     // pushf: block_boundary since it uses non-raising cpu exceptions
@@ -192,8 +192,8 @@ const encodings = [
     { opcode: 0xF2A7, block_boundary: 1, is_string: 1, os: 1, },
     { opcode: 0xF3A7, block_boundary: 1, is_string: 1, os: 1, },
 
-    { opcode: 0xA8, nonfaulting: 1, imm8: 1, },
-    { opcode: 0xA9, nonfaulting: 1, os: 1, imm1632: 1, },
+    { opcode: 0xA8, imm8: 1, },
+    { opcode: 0xA9, os: 1, imm1632: 1, },
 
     { opcode: 0xAA, block_boundary: 1, is_string: 1, },
     { opcode: 0xF2AA, block_boundary: 1, is_string: 1, },
@@ -237,8 +237,8 @@ const encodings = [
     { opcode: 0xCF, block_boundary: 1, no_next_instruction: 1, os: 1, skip: 1, }, // iret
 
     { opcode: 0xD4, imm8: 1, block_boundary: 1, }, // aam, may trigger #de
-    { opcode: 0xD5, nonfaulting: 1, imm8: 1, mask_flags: of | cf | af, },
-    { opcode: 0xD6, nonfaulting: 1, },
+    { opcode: 0xD5, imm8: 1, mask_flags: of | cf | af, },
+    { opcode: 0xD6, },
 
     // XXX: Temporary block boundary
     { opcode: 0xD7, skip: 1, block_boundary: 1, },
@@ -272,39 +272,39 @@ const encodings = [
     { opcode: 0xF2, prefix: 1, },
     { opcode: 0xF3, prefix: 1, },
     { opcode: 0xF4, block_boundary: 1, no_next_instruction: 1, skip: 1, }, // hlt
-    { opcode: 0xF5, nonfaulting: 1, },
+    { opcode: 0xF5, },
 
-    { opcode: 0xF6, e: 1, fixed_g: 0, nonfaulting: 1, imm8: 1, custom: 1 },
-    { opcode: 0xF6, e: 1, fixed_g: 1, nonfaulting: 1, imm8: 1, custom: 1 },
-    { opcode: 0xF6, e: 1, fixed_g: 2, nonfaulting: 1, },
-    { opcode: 0xF6, e: 1, fixed_g: 3, nonfaulting: 1, },
-    { opcode: 0xF6, e: 1, fixed_g: 4, nonfaulting: 1, mask_flags: af | zf, },
-    { opcode: 0xF6, e: 1, fixed_g: 5, nonfaulting: 1, mask_flags: af | zf, },
+    { opcode: 0xF6, e: 1, fixed_g: 0, imm8: 1, custom: 1 },
+    { opcode: 0xF6, e: 1, fixed_g: 1, imm8: 1, custom: 1 },
+    { opcode: 0xF6, e: 1, fixed_g: 2, },
+    { opcode: 0xF6, e: 1, fixed_g: 3, },
+    { opcode: 0xF6, e: 1, fixed_g: 4, mask_flags: af | zf, },
+    { opcode: 0xF6, e: 1, fixed_g: 5, mask_flags: af | zf, },
     { opcode: 0xF6, e: 1, fixed_g: 6, block_boundary: 1, }, // div/idiv: Not a block boundary, but doesn't use control flow exceptions
     { opcode: 0xF6, e: 1, fixed_g: 7, block_boundary: 1, },
 
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 0, nonfaulting: 1, imm1632: 1, custom: 1 },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 1, nonfaulting: 1, imm1632: 1, custom: 1 },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 2, nonfaulting: 1, },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 3, nonfaulting: 1, },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 4, nonfaulting: 1, mask_flags: zf | af, },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 5, nonfaulting: 1, mask_flags: zf | af, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 0, imm1632: 1, custom: 1 },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 1, imm1632: 1, custom: 1 },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 2, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 3, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 4, mask_flags: zf | af, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 5, mask_flags: zf | af, },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 6, block_boundary: 1, }, // div/idiv: Not a block boundary, but doesn't use control flow exceptions
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 7, block_boundary: 1, },
 
-    { opcode: 0xF8, nonfaulting: 1, },
-    { opcode: 0xF9, nonfaulting: 1, },
+    { opcode: 0xF8, },
+    { opcode: 0xF9, },
     // cli: block_boundary since it uses non-raising cpu exceptions
     { opcode: 0xFA, block_boundary: 1, skip: 1, },
     // sti: not a jump, but can cause a change in eip
     { opcode: 0xFB, block_boundary: 1, skip: 1, },
-    { opcode: 0xFC, nonfaulting: 1, },
-    { opcode: 0xFD, nonfaulting: 1, },
+    { opcode: 0xFC, },
+    { opcode: 0xFD, },
 
-    { opcode: 0xFE, e: 1, fixed_g: 0, nonfaulting: 1, },
-    { opcode: 0xFE, e: 1, fixed_g: 1, nonfaulting: 1, },
-    { opcode: 0xFF, os: 1, e: 1, fixed_g: 0, nonfaulting: 1, custom: 1, },
-    { opcode: 0xFF, os: 1, e: 1, fixed_g: 1, nonfaulting: 1, custom: 1, },
+    { opcode: 0xFE, e: 1, fixed_g: 0, },
+    { opcode: 0xFE, e: 1, fixed_g: 1, },
+    { opcode: 0xFF, os: 1, e: 1, fixed_g: 0, custom: 1, },
+    { opcode: 0xFF, os: 1, e: 1, fixed_g: 1, custom: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 2, block_boundary: 1, skip: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 3, block_boundary: 1, skip: 1, },
     { opcode: 0xFF, os: 1, e: 1, fixed_g: 4, block_boundary: 1, no_next_instruction: 1, skip: 1, },
@@ -380,22 +380,22 @@ const encodings = [
     { opcode: 0x0F3E, skip: 1 },
     { opcode: 0x0F3F, skip: 1 },
 
-    { opcode: 0x0F40, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F41, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F42, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F43, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F44, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F45, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F46, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F47, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F48, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F49, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F4A, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F4B, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F4C, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F4D, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F4E, nonfaulting: 1, e: 1, os: 1, custom: 1, },
-    { opcode: 0x0F4F, nonfaulting: 1, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F40, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F41, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F42, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F43, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F44, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F45, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F46, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F47, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F48, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F49, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F4A, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F4B, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F4C, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F4D, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F4E, e: 1, os: 1, custom: 1, },
+    { opcode: 0x0F4F, e: 1, os: 1, custom: 1, },
 
     { opcode: 0x0F80, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
     { opcode: 0x0F81, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
@@ -414,22 +414,22 @@ const encodings = [
     { opcode: 0x0F8E, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
     { opcode: 0x0F8F, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
 
-    { opcode: 0x0F90, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F91, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F92, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F93, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F94, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F95, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F96, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F97, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F98, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F99, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F9A, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F9B, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F9C, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F9D, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F9E, nonfaulting: 1, e: 1, custom: 1, },
-    { opcode: 0x0F9F, nonfaulting: 1, e: 1, custom: 1, },
+    { opcode: 0x0F90, e: 1, custom: 1, },
+    { opcode: 0x0F91, e: 1, custom: 1, },
+    { opcode: 0x0F92, e: 1, custom: 1, },
+    { opcode: 0x0F93, e: 1, custom: 1, },
+    { opcode: 0x0F94, e: 1, custom: 1, },
+    { opcode: 0x0F95, e: 1, custom: 1, },
+    { opcode: 0x0F96, e: 1, custom: 1, },
+    { opcode: 0x0F97, e: 1, custom: 1, },
+    { opcode: 0x0F98, e: 1, custom: 1, },
+    { opcode: 0x0F99, e: 1, custom: 1, },
+    { opcode: 0x0F9A, e: 1, custom: 1, },
+    { opcode: 0x0F9B, e: 1, custom: 1, },
+    { opcode: 0x0F9C, e: 1, custom: 1, },
+    { opcode: 0x0F9D, e: 1, custom: 1, },
+    { opcode: 0x0F9E, e: 1, custom: 1, },
+    { opcode: 0x0F9F, e: 1, custom: 1, },
 
     // XXX: Temporary block boundary
     { opcode: 0x0FA0, os: 1, skip: 1, block_boundary: 1, },
@@ -455,10 +455,10 @@ const encodings = [
     { opcode: 0x0FBD, os: 1, e: 1, mask_flags: af, },
 
     // note: overflow flag only undefined if shift is > 1
-    { opcode: 0x0FA4, nonfaulting: 1, os: 1, e: 1, imm8: 1, mask_flags: af | of, }, // shld
-    { opcode: 0x0FA5, nonfaulting: 1, os: 1, e: 1, mask_flags: af | of, },
-    { opcode: 0x0FAC, nonfaulting: 1, os: 1, e: 1, imm8: 1, mask_flags: af | of, },
-    { opcode: 0x0FAD, nonfaulting: 1, os: 1, e: 1, mask_flags: af | of, },
+    { opcode: 0x0FA4, os: 1, e: 1, imm8: 1, mask_flags: af | of, }, // shld
+    { opcode: 0x0FA5, os: 1, e: 1, mask_flags: af | of, },
+    { opcode: 0x0FAC, os: 1, e: 1, imm8: 1, mask_flags: af | of, },
+    { opcode: 0x0FAD, os: 1, e: 1, mask_flags: af | of, },
 
     { opcode: 0x0FA6, skip: 1, block_boundary: 1, }, // ud
     { opcode: 0x0FA7, skip: 1, block_boundary: 1, }, // ud
@@ -475,10 +475,10 @@ const encodings = [
     { opcode: 0x0FAE, e: 1, fixed_g: 6, skip: 1, block_boundary: 1, }, // mfence (reg, only 0), xsaveopt (mem, not implemented)
     { opcode: 0x0FAE, e: 1, fixed_g: 7, skip: 1, block_boundary: 1, }, // sfence (reg, only 0), clflush (mem)
 
-    { opcode: 0x0FAF, nonfaulting: 1, os: 1, e: 1, mask_flags: af | zf, custom: 1, }, // imul
+    { opcode: 0x0FAF, os: 1, e: 1, mask_flags: af | zf, custom: 1, }, // imul
 
-    { opcode: 0x0FB0, nonfaulting: 1, e: 1 }, // cmxchg
-    { opcode: 0x0FB1, nonfaulting: 1, os: 1, e: 1 },
+    { opcode: 0x0FB0, e: 1 }, // cmxchg
+    { opcode: 0x0FB1, os: 1, e: 1 },
     { opcode: 0x0FC7, e: 1, fixed_g: 1, reg_ud: 1, }, // cmpxchg8b (memory)
     { opcode: 0x0FC7, e: 1, fixed_g: 6, mem_ud: 1, skip: 1, }, // rdrand
 
@@ -486,28 +486,28 @@ const encodings = [
     { opcode: 0x0FB4, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lfs
     { opcode: 0x0FB5, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lgs
 
-    { opcode: 0x0FB6, nonfaulting: 1, os: 1, e: 1, custom: 1 }, // movzx
-    { opcode: 0x0FB7, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x0FB6, os: 1, e: 1, custom: 1 }, // movzx
+    { opcode: 0x0FB7, os: 1, e: 1, },
 
     { opcode: 0xF30FB8, os: 1, e: 1 }, // popcnt
     { opcode: 0x0FB8, os: 1, e: 1, block_boundary: 1, }, // ud
 
     { opcode: 0x0FB9, block_boundary: 1, }, // ud2
 
-    { opcode: 0x0FBE, nonfaulting: 1, os: 1, e: 1, custom: 1 }, // movsx
-    { opcode: 0x0FBF, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x0FBE, os: 1, e: 1, custom: 1 }, // movsx
+    { opcode: 0x0FBF, os: 1, e: 1, },
 
-    { opcode: 0x0FC0, nonfaulting: 1, e: 1, }, // xadd
-    { opcode: 0x0FC1, nonfaulting: 1, os: 1, e: 1, },
+    { opcode: 0x0FC0, e: 1, }, // xadd
+    { opcode: 0x0FC1, os: 1, e: 1, },
 
-    { opcode: 0x0FC8, nonfaulting: 1, }, // bswap
-    { opcode: 0x0FC9, nonfaulting: 1, },
-    { opcode: 0x0FCA, nonfaulting: 1, },
-    { opcode: 0x0FCB, nonfaulting: 1, },
-    { opcode: 0x0FCC, nonfaulting: 1, },
-    { opcode: 0x0FCD, nonfaulting: 1, },
-    { opcode: 0x0FCE, nonfaulting: 1, },
-    { opcode: 0x0FCF, nonfaulting: 1, },
+    { opcode: 0x0FC8, }, // bswap
+    { opcode: 0x0FC9, },
+    { opcode: 0x0FCA, },
+    { opcode: 0x0FCB, },
+    { opcode: 0x0FCC, },
+    { opcode: 0x0FCD, },
+    { opcode: 0x0FCE, },
+    { opcode: 0x0FCF, },
 
 
     // mmx, sse
@@ -837,28 +837,28 @@ const encodings = [
 for(let i = 0; i < 8; i++)
 {
     encodings.push.apply(encodings, [
-        { opcode: 0x04 | i << 3, nonfaulting: 1, eax: 1, imm8: 1, },
-        { opcode: 0x05 | i << 3, nonfaulting: 1, os: 1, eax: 1, imm1632: 1, },
+        { opcode: 0x04 | i << 3, eax: 1, imm8: 1, },
+        { opcode: 0x05 | i << 3, os: 1, eax: 1, imm1632: 1, },
 
         { opcode: 0x70 | i, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
         { opcode: 0x78 | i, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
 
-        { opcode: 0x80, nonfaulting: 1, e: 1, fixed_g: i, imm8: 1, },
-        { opcode: 0x81, nonfaulting: 1, os: 1, e: 1, fixed_g: i, imm1632: 1, custom: 1, },
-        { opcode: 0x82, nonfaulting: 1, e: 1, fixed_g: i, imm8: 1, },
-        { opcode: 0x83, nonfaulting: 1, os: 1, e: 1, fixed_g: i, imm8s: 1, custom: 1, },
+        { opcode: 0x80, e: 1, fixed_g: i, imm8: 1, },
+        { opcode: 0x81, os: 1, e: 1, fixed_g: i, imm1632: 1, custom: 1, },
+        { opcode: 0x82, e: 1, fixed_g: i, imm8: 1, },
+        { opcode: 0x83, os: 1, e: 1, fixed_g: i, imm8s: 1, custom: 1, },
 
-        { opcode: 0xB0 | i, nonfaulting: 1, imm8: 1, },
-        { opcode: 0xB8 | i, nonfaulting: 1, os: 1, imm1632: 1, },
+        { opcode: 0xB0 | i, imm8: 1, },
+        { opcode: 0xB8 | i, os: 1, imm1632: 1, },
 
         // note: overflow flag only undefined if shift is > 1
         // note: the adjust flag is undefined for shifts > 0 and unaffected by rotates
-        { opcode: 0xC0, nonfaulting: 1, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, },
-        { opcode: 0xC1, nonfaulting: 1, os: 1, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, custom: 1, },
-        { opcode: 0xD0, nonfaulting: 1, e: 1, fixed_g: i, mask_flags: af, },
-        { opcode: 0xD1, nonfaulting: 1, os: 1, e: 1, fixed_g: i, mask_flags: af, custom: 1, },
-        { opcode: 0xD2, nonfaulting: 1, e: 1, fixed_g: i, mask_flags: of | af, },
-        { opcode: 0xD3, nonfaulting: 1, os: 1, e: 1, fixed_g: i, mask_flags: of | af, custom: 1, },
+        { opcode: 0xC0, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, },
+        { opcode: 0xC1, os: 1, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, custom: 1, },
+        { opcode: 0xD0, e: 1, fixed_g: i, mask_flags: af, },
+        { opcode: 0xD1, os: 1, e: 1, fixed_g: i, mask_flags: af, custom: 1, },
+        { opcode: 0xD2, e: 1, fixed_g: i, mask_flags: of | af, },
+        { opcode: 0xD3, os: 1, e: 1, fixed_g: i, mask_flags: of | af, custom: 1, },
 
         { opcode: 0xD8, e: 1, fixed_g: i, skip: 1, task_switch_test: 1, },
         { opcode: 0xD9, e: 1, fixed_g: i, skip: 1, task_switch_test: 1, },
@@ -876,19 +876,5 @@ encodings.sort((e1, e2) => {
     let o2 = (e2.opcode & 0xFF00) === 0x0F00 ? e2.opcode & 0xFFFF : e2.opcode & 0xFF;
     return o1 - o2 || e1.fixed_g - e2.fixed_g;
 });
-
-function test_encodings()
-{
-    const invalid = encodings.find(e => e.nonfaulting && e.block_boundary);
-
-    if(invalid)
-    {
-        console.assert(
-            false,
-            "Unsupported: instruction cannot be both a block boundary and nonfaulting. Opcode: " + hex(invalid.opcode)
-        );
-    }
-}
-test_encodings();
 
 module.exports = Object.freeze(encodings.map(entry => Object.freeze(entry)));

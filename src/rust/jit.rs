@@ -383,7 +383,6 @@ pub struct JitContext<'a> {
 }
 
 pub const JIT_INSTR_BLOCK_BOUNDARY_FLAG: u32 = 1 << 0;
-pub const JIT_INSTR_NONFAULTING_FLAG: u32 = 1 << 1;
 
 pub const FN_GET_SEG_IDX: u16 = 0;
 

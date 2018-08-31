@@ -230,8 +230,6 @@ function gen_instruction_body_after_fixed_g(encoding, size)
         );
     }
 
-    const APPEND_NONFAULTING_FLAG = "*instr_flags |= ::jit::JIT_INSTR_NONFAULTING_FLAG;";
-
     const imm_read = gen_read_imm_call(encoding, size);
     const imm_read_bindings = [];
     if(imm_read)
@@ -243,8 +241,8 @@ function gen_instruction_body_after_fixed_g(encoding, size)
 
     if(encoding.e)
     {
-        const reg_postfix = encoding.nonfaulting ? [APPEND_NONFAULTING_FLAG] : [];
-        const mem_postfix = encoding.memory_nonfaulting ? [APPEND_NONFAULTING_FLAG] : [];
+        const reg_postfix = [];
+        const mem_postfix = [];
 
         if(encoding.mem_ud)
         {
@@ -362,16 +360,6 @@ function gen_instruction_body_after_fixed_g(encoding, size)
     {
         // custom, but not modrm
 
-        if(encoding.prefix)
-        {
-            console.assert(!encoding.nonfaulting, "Prefix instructions cannot be marked as nonfaulting.");
-        }
-
-        if(encoding.nonfaulting)
-        {
-            instruction_postfix.push(APPEND_NONFAULTING_FLAG);
-        }
-
         const args = ["ctx"];
 
         if(imm_read)
@@ -394,11 +382,6 @@ function gen_instruction_body_after_fixed_g(encoding, size)
     else
     {
         // instruction without modrm byte or prefix
-
-        if(encoding.nonfaulting)
-        {
-            instruction_postfix.push(APPEND_NONFAULTING_FLAG);
-        }
 
         const args = ["ctx", `"${instruction_name}"`];
 
