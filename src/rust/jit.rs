@@ -990,12 +990,12 @@ fn jit_generate_module(
         let invalid_connection_to_next_block = block.end_addr != cpu.eip;
         dbg_assert!(!invalid_connection_to_next_block);
 
-        match (&block.ty, invalid_connection_to_next_block) {
-            (_, true) | (BasicBlockType::Exit, _) => {
+        match &block.ty {
+            BasicBlockType::Exit => {
                 // Exit this function
                 builder.instruction_body.return_();
             },
-            (BasicBlockType::Normal { next_block_addr }, _) => {
+            BasicBlockType::Normal { next_block_addr } => {
                 // Unconditional jump to next basic block
                 // - All instructions that don't change eip
                 // - Unconditional jump
@@ -1012,16 +1012,13 @@ fn jit_generate_module(
                     .instruction_body
                     .br(basic_blocks.len() as u32 - i as u32); // to the loop
             },
-            (
-                &BasicBlockType::ConditionalJump {
-                    next_block_addr,
-                    next_block_branch_taken_addr,
-                    condition,
-                    jump_offset,
-                    jump_offset_is_32,
-                },
-                _,
-            ) => {
+            &BasicBlockType::ConditionalJump {
+                next_block_addr,
+                next_block_branch_taken_addr,
+                condition,
+                jump_offset,
+                jump_offset_is_32,
+            } => {
                 // Conditional jump to next basic block
                 // - jnz, jc, etc.
 
