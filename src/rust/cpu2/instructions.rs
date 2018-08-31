@@ -1760,12 +1760,9 @@ pub unsafe fn instr16_9D() {
         return;
     }
     else {
-        update_eflags(*flags.offset(0) & !65535 | return_on_pagefault!(pop16()));
-        if 0 != *flags.offset(0) & FLAG_TRAP {
-            let ref mut fresh0 = *flags.offset(0);
-            *fresh0 &= !FLAG_TRAP
-        }
-        else {
+        let old_eflags = *flags;
+        update_eflags(*flags & !65535 | return_on_pagefault!(pop16()));
+        if old_eflags & FLAG_INTERRUPT == 0 && *flags & FLAG_INTERRUPT != 0 {
             handle_irqs();
         }
         return;
@@ -1780,8 +1777,11 @@ pub unsafe fn instr32_9D() {
         return;
     }
     else {
+        let old_eflags = *flags;
         update_eflags(return_on_pagefault!(pop32s()));
-        handle_irqs();
+        if old_eflags & FLAG_INTERRUPT == 0 && *flags & FLAG_INTERRUPT != 0 {
+            handle_irqs();
+        }
         return;
     };
 }
