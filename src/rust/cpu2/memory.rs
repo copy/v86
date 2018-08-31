@@ -20,6 +20,7 @@ extern "C" {
 
 use cpu2::cpu::*;
 use cpu2::global_pointers::*;
+use page::Page;
 
 const USE_A20: bool = false;
 
@@ -132,7 +133,7 @@ pub unsafe fn write8(mut addr: u32, mut value: i32) {
         mmap_write8(addr, value);
     }
     else {
-        ::c_api::jit_dirty_cache_single(addr);
+        ::c_api::jit_dirty_page(Page::page_of(addr));
         *mem8.offset(addr as isize) = value as u8
     };
 }

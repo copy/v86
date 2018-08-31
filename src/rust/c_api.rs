@@ -83,7 +83,7 @@ pub fn jit_dirty_cache_small(start_addr: u32, end_addr: u32) {
     ::jit::jit_dirty_cache_small(get_module(), start_addr, end_addr);
 }
 
-pub fn jit_dirty_cache_single(addr: u32) { ::jit::jit_dirty_cache_single(get_module(), addr); }
+pub fn jit_dirty_page(page: Page) { ::jit::jit_dirty_page(get_module(), page); }
 
 pub fn jit_page_has_code(page: u32) -> bool {
     ::jit::jit_page_has_code(get_module(), Page::page_of(page << 12))
