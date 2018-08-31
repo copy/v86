@@ -977,7 +977,6 @@ fn jit_generate_module(
 
         dbg_assert!(block.addr < block.end_addr);
 
-        builder.commit_instruction_body_to_cs();
         jit_generate_basic_block(
             &mut cpu,
             builder,
@@ -985,7 +984,6 @@ fn jit_generate_module(
             block.last_instruction_addr,
             block.end_addr,
         );
-        builder.commit_instruction_body_to_cs();
 
         let invalid_connection_to_next_block = block.end_addr != cpu.eip;
         dbg_assert!(!invalid_connection_to_next_block);
@@ -1086,7 +1084,6 @@ fn jit_generate_module(
 
     builder.instruction_body.block_end(); // loop
 
-    builder.commit_instruction_body_to_cs();
     builder.finish();
 }
 
@@ -1113,7 +1110,6 @@ fn jit_generate_basic_block(
             // Before the last instruction:
             // - Set eip to *after* the instruction
             // - Set previous_eip to *before* the instruction
-            builder.commit_instruction_body_to_cs();
             codegen::gen_set_previous_eip_offset_from_eip(
                 builder,
                 last_instruction_addr - start_addr,

@@ -265,12 +265,12 @@
             (i32.load
               (i32.const 556))
             (i32.const 32)))
+        (call $e.instr_F4)
         (i32.store
           (i32.const 664)
           (i32.add
             (i32.load
               (i32.const 664))
             (i32.const 12)))
-        (call $e.instr_F4)
         (return))
       (unreachable))))

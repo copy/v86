@@ -22,7 +22,6 @@ pub const NR_FN_TYPE_INDEXES: u8 = 7;
 
 pub struct WasmBuilder {
     pub output: Vec<u8>,
-    pub code_section: Vec<u8>,
     pub instruction_body: Vec<u8>,
 
     idx_import_table_size: usize, // for rewriting once finished
@@ -48,7 +47,6 @@ impl WasmBuilder {
     pub fn new() -> Self {
         WasmBuilder {
             output: Vec::with_capacity(256),
-            code_section: Vec::with_capacity(256),
             instruction_body: Vec::with_capacity(256),
 
             idx_import_table_size: 0,
@@ -86,7 +84,6 @@ impl WasmBuilder {
         self.output.drain(self.initial_static_size..);
         self.set_import_table_size(2);
         self.set_import_count(0);
-        self.code_section.clear();
         self.instruction_body.clear();
         self.free_locals.clear();
         self.local_count = 0;
@@ -120,7 +117,7 @@ impl WasmBuilder {
         self.output.push(self.local_count);
         self.output.push(op::TYPE_I32);
 
-        self.output.append(&mut self.code_section);
+        self.output.append(&mut self.instruction_body);
 
         self.output.push(op::OP_END);
 
@@ -325,10 +322,6 @@ impl WasmBuilder {
 
     pub fn get_op_len(&self) -> u32 { self.output.len() as u32 }
 
-    pub fn commit_instruction_body_to_cs(&mut self) {
-        self.code_section.append(&mut self.instruction_body);
-    }
-
     #[must_use = "local allocated but not used"]
     fn alloc_local(&mut self) -> WasmLocal {
         match self.free_locals.pop() {
@@ -385,31 +378,31 @@ mod tests {
         m.init();
 
         let mut foo_index = m.get_fn_idx("foo", FN0_TYPE_INDEX);
-        m.code_section.call_fn(foo_index);
+        m.instruction_body.call_fn(foo_index);
 
         let bar_index = m.get_fn_idx("bar", FN0_TYPE_INDEX);
-        m.code_section.call_fn(bar_index);
+        m.instruction_body.call_fn(bar_index);
 
         let _ = m.alloc_local(); // for ensuring that reset clears previous locals
 
         m.finish();
         m.reset();
 
-        m.code_section.const_i32(2);
+        m.instruction_body.const_i32(2);
 
         let baz_index = m.get_fn_idx("baz", FN1_RET_TYPE_INDEX);
         m.instruction_body.call_fn(baz_index);
         foo_index = m.get_fn_idx("foo", FN1_TYPE_INDEX);
         m.instruction_body.call_fn(foo_index);
 
-        m.code_section.const_i32(10);
+        m.instruction_body.const_i32(10);
         let local1 = m.alloc_local();
-        m.code_section.tee_local(&local1); // local1 = 10
+        m.instruction_body.tee_local(&local1); // local1 = 10
 
-        m.code_section.const_i32(20);
-        m.code_section.add_i32();
+        m.instruction_body.const_i32(20);
+        m.instruction_body.add_i32();
         let local2 = m.alloc_local();
-        m.code_section.tee_local(&local2); // local2 = 30
+        m.instruction_body.tee_local(&local2); // local2 = 30
 
         m.free_local(local1);
 
@@ -419,13 +412,11 @@ mod tests {
         m.free_local(local2);
         m.free_local(local3);
 
-        m.code_section.const_i32(30);
-        m.code_section.ne_i32();
-        m.code_section.if_void();
-        m.code_section.unreachable();
-        m.code_section.block_end();
-
-        m.commit_instruction_body_to_cs();
+        m.instruction_body.const_i32(30);
+        m.instruction_body.ne_i32();
+        m.instruction_body.if_void();
+        m.instruction_body.unreachable();
+        m.instruction_body.block_end();
 
         m.finish();
 

@@ -14,7 +14,7 @@ extern "C" {
 }
 
 pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
-    let cs = &mut builder.code_section;
+    let cs = &mut builder.instruction_body;
     cs.const_i32(global_pointers::PREVIOUS_IP as i32); // store address of previous ip
     cs.load_aligned_i32(global_pointers::INSTRUCTION_POINTER); // load ip
     if n != 0 {
@@ -25,7 +25,7 @@ pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
 }
 
 pub fn gen_increment_instruction_pointer(builder: &mut WasmBuilder, n: u32) {
-    let cs = &mut builder.code_section;
+    let cs = &mut builder.instruction_body;
     cs.const_i32(global_pointers::INSTRUCTION_POINTER as i32); // store address of ip
 
     cs.load_aligned_i32(global_pointers::INSTRUCTION_POINTER); // load ip
@@ -47,7 +47,9 @@ pub fn gen_relative_jump(builder: &mut WasmBuilder, n: i32) {
 }
 
 pub fn gen_increment_variable(builder: &mut WasmBuilder, variable_address: u32, n: i32) {
-    builder.code_section.increment_variable(variable_address, n);
+    builder
+        .instruction_body
+        .increment_variable(variable_address, n);
 }
 
 pub fn gen_increment_timestamp_counter(builder: &mut WasmBuilder, n: i32) {
@@ -55,7 +57,7 @@ pub fn gen_increment_timestamp_counter(builder: &mut WasmBuilder, n: i32) {
 }
 
 pub fn gen_increment_mem32(builder: &mut WasmBuilder, addr: u32) {
-    builder.code_section.increment_mem32(addr)
+    builder.instruction_body.increment_mem32(addr)
 }
 
 pub fn gen_get_reg8(builder: &mut WasmBuilder, r: u32) {

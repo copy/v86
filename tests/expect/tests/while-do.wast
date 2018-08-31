@@ -74,17 +74,17 @@
                 (i32.const 556))
               (i32.const 3)))
           (i32.store
-            (i32.const 664)
-            (i32.add
-              (i32.load
-                (i32.const 664))
-              (i32.const 2)))
-          (i32.store
             (i32.const 556)
             (i32.add
               (i32.load
                 (i32.const 556))
               (i32.const -8)))
+          (i32.store
+            (i32.const 664)
+            (i32.add
+              (i32.load
+                (i32.const 664))
+              (i32.const 2)))
           (set_local $p0
             (i32.const 0))
           (br $L0))
@@ -98,12 +98,12 @@
             (i32.load
               (i32.const 556))
             (i32.const 1)))
+        (call $e.instr_F4)
         (i32.store
           (i32.const 664)
           (i32.add
             (i32.load
               (i32.const 664))
             (i32.const 1)))
-        (call $e.instr_F4)
         (return))
       (unreachable))))
