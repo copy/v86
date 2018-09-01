@@ -7,8 +7,8 @@ extern "C" {
     fn cpu_exception_hook(interrupt: i32) -> bool;
     #[no_mangle]
     fn dbg_trace();
-    #[no_mangle]
-    fn logop(addr: i32, op: i32);
+    //#[no_mangle]
+    //fn logop(addr: i32, op: i32);
     #[no_mangle]
     fn microtick() -> f64;
     #[no_mangle]
@@ -807,8 +807,8 @@ pub unsafe fn cycle_internal() {
     }
     else {
         *previous_ip = *instruction_pointer;
-        *timestamp_counter += 1;
         let opcode = return_on_pagefault!(read_imm8());
+        *timestamp_counter += 1;
         run_instruction(opcode | (*is_32 as i32) << 8);
     }
 }
@@ -831,16 +831,36 @@ unsafe fn jit_run_interpreted(mut phys_addr: i32) {
     jit_block_boundary = false;
     let opcode = *mem8.offset(phys_addr as isize) as i32;
     *instruction_pointer += 1;
-    *timestamp_counter = (*timestamp_counter).wrapping_add(1);
+    *timestamp_counter += 1;
     run_instruction(opcode | (*is_32 as i32) << 8);
+
     while !jit_block_boundary && 0 != same_page(*previous_ip, *instruction_pointer) as i32 {
         *previous_ip = *instruction_pointer;
-        *timestamp_counter = (*timestamp_counter).wrapping_add(1);
-        let mut opcode_0: i32 = return_on_pagefault!(read_imm8());
+        let opcode = return_on_pagefault!(read_imm8());
+
         if DEBUG {
-            logop(*previous_ip, opcode_0);
+            let phys_addr = return_on_pagefault!(get_phys_eip()) as u32;
+            let state_flags: CachedStateFlags = pack_current_state_flags();
+            let entry = ::c_api::jit_find_cache_entry(phys_addr, state_flags as u32);
+
+            if entry != 0 {
+                profiler::stat_increment(S_RUN_INTERPRETED_MISSED_COMPILED_ENTRY);
+                //dbg_log!(
+                //    "missed entry point at {:x} prev_opcode={:x} opcode={:x}",
+                //    phys_addr,
+                //    prev_opcode,
+                //    opcode
+                //);
+            }
         }
-        run_instruction(opcode_0 | (*is_32 as i32) << 8);
+
+        *timestamp_counter += 1;
+
+        //if DEBUG {
+        //    logop(*previous_ip, opcode_0);
+        //}
+
+        run_instruction(opcode | (*is_32 as i32) << 8);
     }
 }
 

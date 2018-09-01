@@ -25,6 +25,7 @@ const print_stats = {
             "RUN_INTERPRETED_PENDING",
             "RUN_INTERPRETED_NEAR_END_OF_PAGE",
             "RUN_INTERPRETED_DIFFERENT_STATE",
+            "RUN_INTERPRETED_MISSED_COMPILED_ENTRY",
             "RUN_INTERPRETED_STEPS",
             "RUN_FROM_CACHE",
             "RUN_FROM_CACHE_STEPS",
