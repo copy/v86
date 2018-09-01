@@ -75,6 +75,7 @@ const print_stats = {
         text += "TLB_ENTRIES=" + tlb_entries + " (" + global_tlb_entries + " global, " + nonglobal_tlb_entries + " non-global)\n";
         text += "CACHE_UNUSED=" + cpu.v86oxide.exports["jit_unused_cache_stat"]() + "\n";
         text += "WASM_TABLE_FREE=" + cpu.v86oxide.exports["jit_get_wasm_table_index_free_list_count"]() + "\n";
+        text += "FLAT_SEGMENTS=" + cpu.v86oxide.exports["has_flat_segmentation"]() + "\n";
 
         text += "do_many_cycles avg: " + do_many_cycles_total / do_many_cycles_count + "\n";
 
