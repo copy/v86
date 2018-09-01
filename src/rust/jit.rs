@@ -695,6 +695,8 @@ fn create_cache_entry(ctx: &mut JitState, entry: jit_cache_array::Entry) {
             dbg_assert!(old_entry.wasm_table_index != 0);
 
             if old_entry.wasm_table_index == entry.wasm_table_index {
+                profiler::stat_increment(stat::S_INVALIDATE_SINGLE_ENTRY_CACHE_FULL);
+
                 dbg_assert!(old_entry.pending);
                 dbg_assert!(Page::page_of(old_entry.start_addr) == Page::page_of(phys_addr));
 
@@ -710,6 +712,8 @@ fn create_cache_entry(ctx: &mut JitState, entry: jit_cache_array::Entry) {
                 old_entry.start_addr = 0;
             }
             else {
+                profiler::stat_increment(stat::S_INVALIDATE_MODULE_CACHE_FULL);
+
                 let old_wasm_table_index = old_entry.wasm_table_index;
                 let old_page = Page::page_of(old_entry.start_addr);
 
@@ -1257,11 +1261,14 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
             entry.wasm_table_index = 0;
 
             if entry.pending {
+                dbg_assert!(!index_to_free.contains(&wasm_table_index));
+
                 entry.pending = false;
 
                 index_to_pending_free.insert(wasm_table_index);
             }
             else {
+                dbg_assert!(!index_to_pending_free.contains(&wasm_table_index));
                 index_to_free.insert(wasm_table_index);
             }
 
@@ -1272,6 +1279,11 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
                 break;
             }
         }
+
+        profiler::stat_increment_by(
+            stat::S_INVALIDATE_MODULE,
+            index_to_pending_free.len() as u32 + index_to_free.len() as u32,
+        );
 
         for index in index_to_free.iter().cloned() {
             free_wasm_table_index(ctx, index)
