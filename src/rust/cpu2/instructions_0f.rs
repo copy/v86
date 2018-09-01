@@ -3297,11 +3297,11 @@ pub unsafe fn instr32_0FAD_reg(mut r1: i32, mut r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0FAE_0_reg(mut r: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr_0FAE_0_mem(mut addr: i32) { fxsave(addr as u32); }
+pub unsafe fn instr_0FAE_0_mem(mut addr: i32) { fxsave(addr); }
 #[no_mangle]
 pub unsafe fn instr_0FAE_1_reg(mut r: i32) { trigger_ud(); }
 #[no_mangle]
-pub unsafe fn instr_0FAE_1_mem(mut addr: i32) { fxrstor(addr as u32); }
+pub unsafe fn instr_0FAE_1_mem(mut addr: i32) { fxrstor(addr); }
 #[no_mangle]
 pub unsafe fn instr_0FAE_2_reg(mut r: i32) { unimplemented_sse(); }
 #[no_mangle]

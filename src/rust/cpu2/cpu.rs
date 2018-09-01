@@ -813,7 +813,7 @@ pub unsafe fn cycle_internal() {
     }
 }
 
-pub unsafe fn get_phys_eip() -> Result<i32, ()> {
+pub unsafe fn get_phys_eip() -> Result<u32, ()> {
     let mut eip: i32 = *instruction_pointer;
     if 0 != eip & !4095 ^ *last_virt_eip {
         *eip_phys = (translate_address_read(eip)? ^ eip as u32) as i32;
@@ -821,7 +821,7 @@ pub unsafe fn get_phys_eip() -> Result<i32, ()> {
     }
     let mut phys_addr: u32 = (*eip_phys ^ eip) as u32;
     dbg_assert!(!in_mapped_range(phys_addr));
-    return Ok(phys_addr as i32);
+    return Ok(phys_addr);
 }
 
 unsafe fn jit_run_interpreted(mut phys_addr: i32) {
@@ -965,13 +965,13 @@ pub unsafe fn trigger_gp_non_raising(mut code: i32) {
     call_interrupt_vector(CPU_EXCEPTION_GP, 0 != 0, 0 != 1, code);
 }
 
-pub unsafe fn virt_boundary_read16(mut low: i32, mut high: i32) -> i32 {
+pub unsafe fn virt_boundary_read16(mut low: u32, mut high: u32) -> i32 {
     dbg_assert!(low & 4095 == 4095);
     dbg_assert!(high & 4095 == 0);
     return read8(low as u32) | read8(high as u32) << 8;
 }
 
-pub unsafe fn virt_boundary_read32s(mut low: i32, mut high: i32) -> i32 {
+pub unsafe fn virt_boundary_read32s(mut low: u32, mut high: u32) -> i32 {
     dbg_assert!(low & 4095 >= 4093);
     dbg_assert!(high - 3 & 4095 == low & 4095);
     let mut mid;
@@ -992,14 +992,14 @@ pub unsafe fn virt_boundary_read32s(mut low: i32, mut high: i32) -> i32 {
     return read8(low as u32) | mid << 8 | read8(high as u32) << 24;
 }
 
-pub unsafe fn virt_boundary_write16(mut low: i32, mut high: i32, mut value: i32) {
+pub unsafe fn virt_boundary_write16(mut low: u32, mut high: u32, mut value: i32) {
     dbg_assert!(low & 4095 == 4095);
     dbg_assert!(high & 4095 == 0);
     write8(low as u32, value);
     write8(high as u32, value >> 8);
 }
 
-pub unsafe fn virt_boundary_write32(mut low: i32, mut high: i32, mut value: i32) {
+pub unsafe fn virt_boundary_write32(mut low: u32, mut high: u32, mut value: i32) {
     dbg_assert!(low & 4095 >= 4093);
     dbg_assert!(high - 3 & 4095 == low & 4095);
     write8(low as u32, value);
@@ -1146,8 +1146,8 @@ pub unsafe fn safe_read64s(mut addr: i32) -> Result<reg64, ()> {
         x.u32_0[1] = safe_read32s(addr + 4)? as u32
     }
     else {
-        let addr_phys = translate_address_read(addr)? as i32;
-        x.u64_0[0] = read64s(addr_phys as u32) as u64
+        let addr_phys = translate_address_read(addr)?;
+        x.u64_0[0] = read64s(addr_phys) as u64
     }
     Ok(x)
 }
@@ -1159,8 +1159,8 @@ pub unsafe fn safe_read128s(mut addr: i32) -> Result<reg128, ()> {
         x.u64_0[1] = safe_read64s(addr + 8)?.u64_0[0]
     }
     else {
-        let addr_phys = translate_address_read(addr)? as i32;
-        x = read128(addr_phys as u32)
+        let addr_phys = translate_address_read(addr)?;
+        x = read128(addr_phys)
     }
     Ok(x)
 }
@@ -1191,9 +1191,9 @@ pub unsafe fn safe_write16(mut address: i32, mut value: i32) -> Result<(), ()> {
 }
 
 pub unsafe fn safe_write16_slow(mut addr: i32, mut value: i32) -> Result<(), ()> {
-    let mut phys_low: i32 = translate_address_write(addr)? as i32;
+    let mut phys_low = translate_address_write(addr)?;
     if addr & 4095 == 4095 {
-        virt_boundary_write16(phys_low, translate_address_write(addr + 1)? as i32, value);
+        virt_boundary_write16(phys_low, translate_address_write(addr + 1)?, value);
     }
     else {
         write16(phys_low as u32, value);
@@ -1248,11 +1248,11 @@ pub unsafe fn safe_write32(mut address: i32, mut value: i32) -> Result<(), ()> {
 }
 
 pub unsafe fn safe_write32_slow(mut addr: i32, mut value: i32) -> Result<(), ()> {
-    let mut phys_low: i32 = translate_address_write(addr)? as i32;
+    let mut phys_low = translate_address_write(addr)?;
     if addr & 4095 > 4096 - 4 {
         virt_boundary_write32(
             phys_low,
-            (translate_address_write(addr + 3 & !3)? | (addr + 3 & 3) as u32) as i32,
+            translate_address_write(addr + 3 & !3)? | (addr as u32 + 3 & 3),
             value,
         );
     }
@@ -1293,8 +1293,8 @@ pub unsafe fn safe_write64(mut addr: i32, mut value: i64) -> Result<(), ()> {
         safe_write32(addr + 4, (value >> 32) as i32).unwrap();
     }
     else {
-        let mut phys: i32 = translate_address_write(addr)? as i32;
-        write64(phys as u32, value);
+        let mut phys = translate_address_write(addr)?;
+        write64(phys, value);
     };
     Ok(())
 }
@@ -1306,8 +1306,8 @@ pub unsafe fn safe_write128(mut addr: i32, mut value: reg128) -> Result<(), ()> 
         safe_write64(addr + 8, value.u64_0[1] as i64).unwrap();
     }
     else {
-        let mut phys: i32 = translate_address_write(addr)? as i32;
-        write128(phys as u32, value);
+        let mut phys = translate_address_write(addr)?;
+        write128(phys, value);
     };
     Ok(())
 }

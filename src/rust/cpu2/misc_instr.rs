@@ -327,23 +327,23 @@ pub unsafe fn setcc_mem(mut condition: bool, mut addr: i32) {
     return_on_pagefault!(safe_write8(addr, if 0 != condition as i32 { 1 } else { 0 }));
 }
 #[no_mangle]
-pub unsafe fn fxsave(mut addr: u32) {
+pub unsafe fn fxsave(mut addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr as i32, 512));
-    safe_write16(addr.wrapping_add(0 as u32) as i32, *fpu_control_word).unwrap();
-    safe_write16(addr.wrapping_add(2 as u32) as i32, fpu_load_status_word()).unwrap();
-    safe_write8(addr.wrapping_add(4 as u32) as i32, !*fpu_stack_empty & 255).unwrap();
-    safe_write16(addr.wrapping_add(6 as u32) as i32, *fpu_opcode).unwrap();
-    safe_write32(addr.wrapping_add(8 as u32) as i32, *fpu_ip).unwrap();
-    safe_write16(addr.wrapping_add(12 as u32) as i32, *fpu_ip_selector).unwrap();
-    safe_write32(addr.wrapping_add(16 as u32) as i32, *fpu_dp).unwrap();
-    safe_write16(addr.wrapping_add(20 as u32) as i32, *fpu_dp_selector).unwrap();
-    safe_write32(addr.wrapping_add(24 as u32) as i32, *mxcsr).unwrap();
-    safe_write32(addr.wrapping_add(28 as u32) as i32, MXCSR_MASK).unwrap();
+    safe_write16(addr.wrapping_add(0) as i32, *fpu_control_word).unwrap();
+    safe_write16(addr.wrapping_add(2) as i32, fpu_load_status_word()).unwrap();
+    safe_write8(addr.wrapping_add(4) as i32, !*fpu_stack_empty & 255).unwrap();
+    safe_write16(addr.wrapping_add(6) as i32, *fpu_opcode).unwrap();
+    safe_write32(addr.wrapping_add(8) as i32, *fpu_ip).unwrap();
+    safe_write16(addr.wrapping_add(12) as i32, *fpu_ip_selector).unwrap();
+    safe_write32(addr.wrapping_add(16) as i32, *fpu_dp).unwrap();
+    safe_write16(addr.wrapping_add(20) as i32, *fpu_dp_selector).unwrap();
+    safe_write32(addr.wrapping_add(24) as i32, *mxcsr).unwrap();
+    safe_write32(addr.wrapping_add(28) as i32, MXCSR_MASK).unwrap();
     let mut i: i32 = 0;
     while i < 8 {
         fpu_store_m80(
-            addr.wrapping_add(32 as u32).wrapping_add((i << 4) as u32),
-            *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(i as u32) & 7 as u32) as isize),
+            addr.wrapping_add(32).wrapping_add(i << 4),
+            *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(i as u32) & 7) as isize),
         );
         i += 1
     }
@@ -353,61 +353,60 @@ pub unsafe fn fxsave(mut addr: u32) {
     let mut i_0: i32 = 0;
     while i_0 < 8 {
         safe_write128(
-            addr.wrapping_add(160 as u32)
-                .wrapping_add((i_0 << 4) as u32) as i32,
+            addr.wrapping_add(160).wrapping_add(i_0 << 4) as i32,
             *reg_xmm.offset(i_0 as isize),
         ).unwrap();
         i_0 += 1
     }
 }
 #[no_mangle]
-pub unsafe fn fxrstor(mut addr: u32) {
+pub unsafe fn fxrstor(mut addr: i32) {
     // TODO: Add readable_or_pagefault
-    return_on_pagefault!(translate_address_read(addr as i32));
-    return_on_pagefault!(translate_address_read(addr.wrapping_add(511 as u32) as i32));
-    let mut new_mxcsr: i32 = safe_read32s(addr.wrapping_add(24 as u32) as i32).unwrap();
+    return_on_pagefault!(translate_address_read(addr));
+    return_on_pagefault!(translate_address_read(addr.wrapping_add(511)));
+    let mut new_mxcsr: i32 = safe_read32s(addr.wrapping_add(24) as i32).unwrap();
     if 0 != new_mxcsr & !MXCSR_MASK {
         dbg_log!("#gp Invalid mxcsr bits");
         trigger_gp_non_raising(0);
         return;
     }
     else {
-        *fpu_control_word = safe_read16(addr.wrapping_add(0 as u32) as i32).unwrap();
-        fpu_set_status_word(safe_read16(addr.wrapping_add(2 as u32) as i32).unwrap());
-        *fpu_stack_empty = !safe_read8(addr.wrapping_add(4 as u32) as i32).unwrap() & 255;
-        *fpu_opcode = safe_read16(addr.wrapping_add(6 as u32) as i32).unwrap();
-        *fpu_ip = safe_read32s(addr.wrapping_add(8 as u32) as i32).unwrap();
-        *fpu_ip = safe_read16(addr.wrapping_add(12 as u32) as i32).unwrap();
-        *fpu_dp = safe_read32s(addr.wrapping_add(16 as u32) as i32).unwrap();
-        *fpu_dp_selector = safe_read16(addr.wrapping_add(20 as u32) as i32).unwrap();
+        *fpu_control_word = safe_read16(addr.wrapping_add(0) as i32).unwrap();
+        fpu_set_status_word(safe_read16(addr.wrapping_add(2) as i32).unwrap());
+        *fpu_stack_empty = !safe_read8(addr.wrapping_add(4) as i32).unwrap() & 255;
+        *fpu_opcode = safe_read16(addr.wrapping_add(6) as i32).unwrap();
+        *fpu_ip = safe_read32s(addr.wrapping_add(8) as i32).unwrap();
+        *fpu_ip = safe_read16(addr.wrapping_add(12) as i32).unwrap();
+        *fpu_dp = safe_read32s(addr.wrapping_add(16) as i32).unwrap();
+        *fpu_dp_selector = safe_read16(addr.wrapping_add(20) as i32).unwrap();
         set_mxcsr(new_mxcsr);
         let mut i: i32 = 0;
         while i < 8 {
             *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(i as u32) & 7 as u32) as isize) =
-                fpu_load_m80(addr.wrapping_add(32 as u32).wrapping_add((i << 4) as u32)).unwrap();
+                fpu_load_m80(addr.wrapping_add(32).wrapping_add(i << 4)).unwrap();
             i += 1
         }
         let mut i_0: i32 = 0;
         while i_0 < 8 {
             (*reg_xmm.offset(i_0 as isize)).u32_0[0] = safe_read32s(
-                addr.wrapping_add(160 as u32)
-                    .wrapping_add((i_0 << 4) as u32)
-                    .wrapping_add(0 as u32) as i32,
+                addr.wrapping_add(160)
+                    .wrapping_add(i_0 << 4)
+                    .wrapping_add(0),
             ).unwrap() as u32;
             (*reg_xmm.offset(i_0 as isize)).u32_0[1] = safe_read32s(
-                addr.wrapping_add(160 as u32)
-                    .wrapping_add((i_0 << 4) as u32)
-                    .wrapping_add(4 as u32) as i32,
+                addr.wrapping_add(160)
+                    .wrapping_add(i_0 << 4)
+                    .wrapping_add(4) as i32,
             ).unwrap() as u32;
             (*reg_xmm.offset(i_0 as isize)).u32_0[2] = safe_read32s(
-                addr.wrapping_add(160 as u32)
-                    .wrapping_add((i_0 << 4) as u32)
-                    .wrapping_add(8 as u32) as i32,
+                addr.wrapping_add(160)
+                    .wrapping_add(i_0 << 4)
+                    .wrapping_add(8) as i32,
             ).unwrap() as u32;
             (*reg_xmm.offset(i_0 as isize)).u32_0[3] = safe_read32s(
-                addr.wrapping_add(160 as u32)
-                    .wrapping_add((i_0 << 4) as u32)
-                    .wrapping_add(12 as u32) as i32,
+                addr.wrapping_add(160)
+                    .wrapping_add(i_0 << 4)
+                    .wrapping_add(12) as i32,
             ).unwrap() as u32;
             i_0 += 1
         }

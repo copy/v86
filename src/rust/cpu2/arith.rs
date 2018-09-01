@@ -996,33 +996,33 @@ pub unsafe fn bt_mem(mut virt_addr: i32, mut bit_offset: i32) {
 }
 #[no_mangle]
 pub unsafe fn btc_mem(mut virt_addr: i32, mut bit_offset: i32) {
-    let mut phys_addr: i32 =
-        return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3))) as i32;
-    let mut bit_base: i32 = read8(phys_addr as u32);
+    let mut phys_addr =
+        return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3)));
+    let mut bit_base: i32 = read8(phys_addr);
     bit_offset &= 7;
     *flags = *flags & !1 | bit_base >> bit_offset & 1;
     *flags_changed &= !1;
-    write8(phys_addr as u32, bit_base ^ 1 << bit_offset);
+    write8(phys_addr, bit_base ^ 1 << bit_offset);
 }
 #[no_mangle]
 pub unsafe fn btr_mem(mut virt_addr: i32, mut bit_offset: i32) {
-    let mut phys_addr: i32 =
-        return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3))) as i32;
-    let mut bit_base: i32 = read8(phys_addr as u32);
+    let mut phys_addr =
+        return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3)));
+    let mut bit_base: i32 = read8(phys_addr);
     bit_offset &= 7;
     *flags = *flags & !1 | bit_base >> bit_offset & 1;
     *flags_changed &= !1;
-    write8(phys_addr as u32, bit_base & !(1 << bit_offset));
+    write8(phys_addr, bit_base & !(1 << bit_offset));
 }
 #[no_mangle]
 pub unsafe fn bts_mem(mut virt_addr: i32, mut bit_offset: i32) {
-    let mut phys_addr: i32 =
-        return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3))) as i32;
-    let mut bit_base: i32 = read8(phys_addr as u32);
+    let mut phys_addr =
+        return_on_pagefault!(translate_address_write(virt_addr + (bit_offset >> 3)));
+    let mut bit_base: i32 = read8(phys_addr);
     bit_offset &= 7;
     *flags = *flags & !1 | bit_base >> bit_offset & 1;
     *flags_changed &= !1;
-    write8(phys_addr as u32, bit_base | 1 << bit_offset);
+    write8(phys_addr, bit_base | 1 << bit_offset);
 }
 #[no_mangle]
 pub unsafe fn bsf16(mut old: i32, mut bit_base: i32) -> i32 {

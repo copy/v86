@@ -106,11 +106,11 @@ pub unsafe fn fpu_load_m64(mut addr: i32) -> Result<f64, ()> {
     Ok(v.f64_0)
 }
 #[no_mangle]
-pub unsafe fn fpu_load_m80(mut addr: u32) -> Result<f64, ()> {
+pub unsafe fn fpu_load_m80(mut addr: i32) -> Result<f64, ()> {
     let mut value: u64 = safe_read64s(addr as i32)?.u64_0[0];
     let mut low: u32 = value as u32;
     let mut high: u32 = (value >> 32) as u32;
-    let mut exponent: i32 = safe_read16(addr.wrapping_add(8 as u32) as i32)?;
+    let mut exponent: i32 = safe_read16(addr.wrapping_add(8) as i32)?;
     let mut sign: i32 = exponent >> 15;
     exponent &= !32768;
     if exponent == 0 {
@@ -361,9 +361,7 @@ pub unsafe fn fpu_fldm32(mut addr: i32) {
 #[no_mangle]
 pub unsafe fn fpu_fldm64(mut addr: i32) { fpu_push(return_on_pagefault!(fpu_load_m64(addr))); }
 #[no_mangle]
-pub unsafe fn fpu_fldm80(mut addr: i32) {
-    fpu_push(return_on_pagefault!(fpu_load_m80(addr as u32)));
-}
+pub unsafe fn fpu_fldm80(mut addr: i32) { fpu_push(return_on_pagefault!(fpu_load_m80(addr))); }
 #[no_mangle]
 pub unsafe fn fpu_fmul(mut target_index: i32, mut val: f64) {
     let mut st0: f64 = fpu_get_st0();
@@ -405,7 +403,7 @@ pub unsafe fn fpu_frstor(mut addr: i32) {
     let mut i: i32 = 0;
     while i < 8 {
         *fpu_st.offset(((i as u32).wrapping_add(*fpu_stack_ptr) & 7 as u32) as isize) =
-            fpu_load_m80(addr as u32).unwrap();
+            fpu_load_m80(addr).unwrap();
         addr += 10;
         i += 1
     }
@@ -418,8 +416,8 @@ pub unsafe fn fpu_fsave(mut addr: i32) {
     let mut i: i32 = 0;
     while i < 8 {
         fpu_store_m80(
-            addr as u32,
-            *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(i as u32) & 7 as u32) as isize),
+            addr,
+            *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(i as u32) & 7) as isize),
         );
         addr += 10;
         i += 1
@@ -427,7 +425,7 @@ pub unsafe fn fpu_fsave(mut addr: i32) {
     fpu_finit();
 }
 #[no_mangle]
-pub unsafe fn fpu_store_m80(mut addr: u32, mut n: f64) {
+pub unsafe fn fpu_store_m80(mut addr: i32, mut n: f64) {
     let mut double_int_view: f64_int = f64_int { f64_0: n };
     let mut sign: u8 = (double_int_view.u8_0[7] as i32 & 128) as u8;
     let mut exponent: i32 =
@@ -460,10 +458,7 @@ pub unsafe fn fpu_store_m80(mut addr: u32, mut n: f64) {
         addr as i32,
         (low as u64 & 4294967295 as u64 | (high as u64) << 32) as i64,
     ).unwrap();
-    safe_write16(
-        addr.wrapping_add(8 as u32) as i32,
-        (sign as i32) << 8 | exponent,
-    ).unwrap();
+    safe_write16(addr.wrapping_add(8) as i32, (sign as i32) << 8 | exponent).unwrap();
 }
 #[no_mangle]
 pub unsafe fn fpu_fstenv(mut addr: i32) {
@@ -509,7 +504,7 @@ pub unsafe fn fpu_fst(mut r: i32) {
 #[no_mangle]
 pub unsafe fn fpu_fst80p(mut addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr, 10));
-    fpu_store_m80(addr as u32, fpu_get_st0());
+    fpu_store_m80(addr, fpu_get_st0());
     fpu_pop();
 }
 #[no_mangle]

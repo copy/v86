@@ -20,7 +20,6 @@ macro_rules! SAFE_READ_WRITE16 {
                 *page_fault = true;
             },
             Ok(phys_addr) => {
-                let phys_addr = phys_addr as i32;
                 if phys_addr & 0xFFF == 0xFFF {
                     match translate_address_write($addr + 1) {
                         Err(()) => {
@@ -28,7 +27,6 @@ macro_rules! SAFE_READ_WRITE16 {
                         },
                         Ok(phys_addr_high) => {
                             *page_fault = false;
-                            let phys_addr_high = phys_addr_high as i32;
                             let $value = virt_boundary_read16(phys_addr, phys_addr_high);
                             virt_boundary_write16(phys_addr, phys_addr_high, $instruction);
                         },
@@ -36,8 +34,8 @@ macro_rules! SAFE_READ_WRITE16 {
                 }
                 else {
                     *page_fault = false;
-                    let $value = read16(phys_addr as u32);
-                    write16(phys_addr as u32, $instruction);
+                    let $value = read16(phys_addr);
+                    write16(phys_addr, $instruction);
                 }
             },
         }
@@ -59,13 +57,9 @@ macro_rules! SAFE_READ_WRITE32 {
                         },
                         Ok(phys_addr_high) => {
                             *page_fault = false;
-                            let phys_addr_high = phys_addr_high as i32 | $addr + 3 & 3;
-                            let $value = virt_boundary_read32s(phys_addr as i32, phys_addr_high);
-                            virt_boundary_write32(
-                                phys_addr as i32,
-                                phys_addr_high as i32,
-                                $instruction,
-                            );
+                            let phys_addr_high = phys_addr_high | ($addr as u32) + 3 & 3;
+                            let $value = virt_boundary_read32s(phys_addr, phys_addr_high);
+                            virt_boundary_write32(phys_addr, phys_addr_high, $instruction);
                         },
                     }
                 }
