@@ -1286,55 +1286,34 @@ const tests =
         mounts:
         [
             { path: "/fs1a" },
-            { path: "/fs1a/fs2a" },
-            { path: "/fs1a/fs2a/fs3" },
-            { path: "/fs1a/fs2b" },
+            { path: "/fs1a/fs2" },
             { path: "/fs1b" },
         ],
         start: () =>
         {
-            emulator.serial0_send("echo foobar > /mnt/fs1a/fs2a/file\n");
+            emulator.serial0_send("echo foobar > /mnt/fs1a/file\n");
 
             emulator.serial0_send("echo start-capture;\\\n");
 
-            emulator.serial0_send("ln /mnt/fs1a/fs2a/file /mnt/link-root;\\\n");
-            emulator.serial0_send("echo link at root fs >> /mnt/link-root;\\\n");
-            emulator.serial0_send("rm /mnt/link-root;\\\n");
+            emulator.serial0_send("{ ln /mnt/fs1a/file /mnt/fs1a/fs2/link-child 2>/dev/null || \n");
+            emulator.serial0_send("  echo link at child fs - fails >> /mnt/fs1a/file; };\\\n");
 
-            emulator.serial0_send("{ ln /mnt/fs1a/fs2a/file /mnt/fs1a/fs2a/fs3/link-child 2>/dev/null || \n");
-            emulator.serial0_send("  echo link at child fs - fails >> /mnt/fs1a/fs2a/file; };\\\n");
+            emulator.serial0_send("{ ln /mnt/fs1a/file /mnt/link-parent 2>/dev/null || \n");
+            emulator.serial0_send("  echo link at parent fs - fails >> /mnt/fs1a/file; };\\\n");
 
-            emulator.serial0_send("ln /mnt/fs1a/fs2a/file /mnt/fs1a/fs2a/link;\\\n");
-            emulator.serial0_send("echo link at common fs >> /mnt/fs1a/fs2a/link;\\\n");
+            emulator.serial0_send("ln /mnt/fs1a/file /mnt/fs1a/link;\\\n");
+            emulator.serial0_send("echo link at common fs >> /mnt/fs1a/link;\\\n");
 
-            emulator.serial0_send("mv /mnt/fs1a/fs2a/link /mnt/fs1a/fs2a/link-renamed;\\\n");
-            emulator.serial0_send("echo rename >> /mnt/fs1a/fs2a/link-renamed;\\\n");
+            emulator.serial0_send("mv /mnt/fs1a/link /mnt/fs1a/link2;\\\n");
+            emulator.serial0_send("echo rename >> /mnt/fs1a/link2;\\\n");
 
-            emulator.serial0_send("mv /mnt/fs1a/fs2a/link-renamed /mnt/link2;\\\n");
-            emulator.serial0_send("echo jump to root >> /mnt/link2;\\\n");
+            emulator.serial0_send("{ mv /mnt/fs1a/link2 /mnt/link3 2>/dev/null || \n");
+            emulator.serial0_send("  echo jump to parent - fails >> /mnt/fs1a/link2; };\\\n");
 
-            emulator.serial0_send("{ mv /mnt/link2 /mnt/fs1b/link3 2>/dev/null || \n");
-            emulator.serial0_send("  echo jump outside 1 - fails >> /mnt/link2; };\\\n");
+            emulator.serial0_send("{ mv /mnt/fs1a/link2 /mnt/fs1b/link3 2>/dev/null || \n");
+            emulator.serial0_send("  echo jump outside - fails >> /mnt/fs1a/link2; };\\\n");
 
-            emulator.serial0_send("mv /mnt/link2 /mnt/fs1a/link4;\\\n");
-            emulator.serial0_send("echo jump back one level >> /mnt/fs1a/link4;\\\n");
-
-            emulator.serial0_send("mv /mnt/fs1a/link4 /mnt/link5;\\\n");
-            emulator.serial0_send("echo jump to root >> /mnt/link5;\\\n");
-
-            emulator.serial0_send("{ mv /mnt/link5 /mnt/fs1a/fs2b/link6 2>/dev/null || \n");
-            emulator.serial0_send("  echo jump outside 2 - fails >> /mnt/link5; };\\\n");
-
-            emulator.serial0_send("{ mv /mnt/link5 /mnt/fs1a/fs2a/fs3/link7 2>/dev/null || \n");
-            emulator.serial0_send("  echo jump beyond - fails >> /mnt/link5; };\\\n");
-
-            emulator.serial0_send("mv /mnt/link5 /mnt/fs1a/fs2a/link8;\\\n");
-            emulator.serial0_send("echo jump back two levels >> /mnt/fs1a/fs2a/link8;\\\n");
-
-            emulator.serial0_send("{ mv /mnt/fs1a/fs2a/link8 /mnt/fs1a/fs2a/fs3/link9 2>/dev/null || \n");
-            emulator.serial0_send("  echo jump up - fails >> /mnt/fs1a/fs2a/link8; };\\\n");
-
-            emulator.serial0_send("cat /mnt/fs1a/fs2a/file;\\\n");
+            emulator.serial0_send("cat /mnt/fs1a/file;\\\n");
             emulator.serial0_send("echo done-hard-links-mounted\n");
         },
         capture_trigger: "start-capture",
@@ -1343,18 +1322,12 @@ const tests =
         {
             assert_equal(capture,
                 "foobar\n" +
-                "link at root fs\n" +
                 "link at child fs - fails\n" +
+                "link at parent fs - fails\n" +
                 "link at common fs\n" +
                 "rename\n" +
-                "jump to root\n" +
-                "jump outside 1 - fails\n" +
-                "jump back one level\n" +
-                "jump to root\n" +
-                "jump outside 2 - fails\n" +
-                "jump beyond - fails\n" +
-                "jump back two levels\n" +
-                "jump up - fails\n");
+                "jump to parent - fails\n" +
+                "jump outside - fails\n");
             done();
         },
     },
