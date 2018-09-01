@@ -50,7 +50,6 @@ const print_stats = {
             "INVALIDATE_CACHE_ENTRY",
             "INVALIDATE_MODULE_CACHE_FULL",
             "INVALIDATE_SINGLE_ENTRY_CACHE_FULL",
-            "NONFAULTING_OPTIMIZATION",
             "CLEAR_TLB",
             "FULL_CLEAR_TLB",
             "TLB_FULL",
