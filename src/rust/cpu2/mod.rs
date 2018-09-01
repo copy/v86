@@ -13,6 +13,5 @@ pub mod instructions_0f;
 pub mod memory;
 pub mod misc_instr;
 pub mod modrm;
-pub mod profiler;
 pub mod sse_instr;
 pub mod string;

@@ -1,5 +1,4 @@
-#[repr(C)]
-#[allow(non_camel_case_types, dead_code)]
+#[allow(dead_code, non_camel_case_types)]
 pub enum stat {
     S_COMPILE,
     S_COMPILE_SUCCESS,
@@ -49,15 +48,35 @@ pub enum stat {
     S_TLB_GLOBAL_FULL,
 }
 
-#[cfg(feature = "profiler")]
-mod unsafe_extern {
-    extern "C" {
-        pub fn profiler_stat_increment(stat: ::profiler::stat);
+#[no_mangle]
+pub static mut stat_array: [u32; 100] = [0; 100];
+
+pub fn stat_increment(stat: stat) { stat_increment_by(stat, 1); }
+
+pub fn stat_increment_by(stat: stat, by: u32) {
+    if cfg!(feature = "profiler") {
+        unsafe { stat_array[stat as usize] += by }
     }
 }
 
-#[cfg(feature = "profiler")]
-pub fn stat_increment(stat: stat) { unsafe { unsafe_extern::profiler_stat_increment(stat) } }
+#[no_mangle]
+pub fn profiler_init() {
+    unsafe {
+        for x in stat_array.iter_mut() {
+            *x = 0
+        }
+    }
+}
 
-#[cfg(not(feature = "profiler"))]
-pub fn stat_increment(_stat: stat) {}
+#[no_mangle]
+pub fn profiler_stat_get(stat: stat) -> u32 {
+    if cfg!(feature = "profiler") {
+        unsafe { stat_array[stat as usize] }
+    }
+    else {
+        0
+    }
+}
+
+#[no_mangle]
+pub fn profiler_stat_increment_do_run() { stat_increment(stat::S_DO_RUN); }

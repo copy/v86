@@ -14,6 +14,7 @@ pub mod cpu2;
 
 pub mod c_api;
 pub mod js_api;
+pub mod profiler;
 
 mod analysis;
 mod codegen;
@@ -29,7 +30,6 @@ mod modrm;
 mod opstats;
 mod page;
 mod prefix;
-mod profiler;
 mod regs;
 mod state_flags;
 mod tlb;

@@ -23,8 +23,8 @@ use cpu2::memory::{
 };
 use cpu2::misc_instr::{getaf, getcf, getof, getpf, getsf, getzf};
 use cpu2::modrm::{resolve_modrm16, resolve_modrm32};
-use cpu2::profiler::*;
-use cpu2::profiler::{profiler_stat_increment, profiler_stat_increment_by};
+use profiler;
+use profiler::stat::*;
 
 /// The offset for our generated functions in the wasm table. Every index less than this is
 /// reserved for rustc's indirect functions
@@ -386,11 +386,11 @@ pub unsafe fn do_page_translation(
     }
     if *tlb_data.offset(page as isize) == 0 {
         if valid_tlb_entries_count == VALID_TLB_ENTRY_MAX {
-            profiler_stat_increment(S_TLB_FULL);
+            profiler::stat_increment(S_TLB_FULL);
             clear_tlb();
             // also clear global entries if tlb is almost full after clearing non-global pages
             if valid_tlb_entries_count > VALID_TLB_ENTRY_MAX * 3 / 4 {
-                profiler_stat_increment(S_TLB_GLOBAL_FULL);
+                profiler::stat_increment(S_TLB_GLOBAL_FULL);
                 full_clear_tlb();
             }
         }
@@ -457,7 +457,7 @@ pub unsafe fn do_page_translation(
 
 #[no_mangle]
 pub unsafe fn full_clear_tlb() {
-    profiler_stat_increment(S_FULL_CLEAR_TLB);
+    profiler::stat_increment(S_FULL_CLEAR_TLB);
     // clear tlb including global pages
     *last_virt_eip = -1;
     *last_virt_esp = -1;
@@ -479,7 +479,7 @@ pub unsafe fn full_clear_tlb() {
 
 #[no_mangle]
 pub unsafe fn clear_tlb() {
-    profiler_stat_increment(S_CLEAR_TLB);
+    profiler::stat_increment(S_CLEAR_TLB);
     // clear tlb excluding global pages
     *last_virt_eip = -1;
     *last_virt_esp = -1;
@@ -546,7 +546,7 @@ pub unsafe fn trigger_pagefault(mut write: bool, mut user: bool, mut present: bo
         0 != 1,
         (user as i32) << 2 | (write as i32) << 1 | present as i32,
     );
-    //profiler_stat_increment(S_TRIGGER_CPU_EXCEPTION);
+    //profiler::stat_increment(S_TRIGGER_CPU_EXCEPTION);
 }
 
 pub unsafe fn translate_address_write(mut address: i32) -> Result<u32, ()> {
@@ -717,7 +717,7 @@ pub unsafe fn raise_exception_with_code(mut interrupt_nr: i32, mut error_code: i
             return;
         }
     }
-    profiler_stat_increment(S_TRIGGER_CPU_EXCEPTION);
+    profiler::stat_increment(S_TRIGGER_CPU_EXCEPTION);
     call_interrupt_vector(interrupt_nr, 0 != 0, 0 != 1, error_code);
     assert!(false);
 }
@@ -762,14 +762,15 @@ pub unsafe fn run_instruction0f_32(opcode: i32) { ::gen::interpreter0f_32::run(o
 
 #[no_mangle]
 pub unsafe fn cycle_internal() {
-    profiler_stat_increment(S_CYCLE_INTERNAL);
+    profiler::stat_increment(S_CYCLE_INTERNAL);
     if true {
         *previous_ip = *instruction_pointer;
         let mut phys_addr: u32 = return_on_pagefault!(get_phys_eip()) as u32;
         let mut state_flags: CachedStateFlags = pack_current_state_flags();
         let mut entry: u32 = ::c_api::jit_find_cache_entry(phys_addr, state_flags as u32);
+
         if 0 != entry {
-            profiler_stat_increment(S_RUN_FROM_CACHE);
+            profiler::stat_increment(S_RUN_FROM_CACHE);
             let initial_tsc = *timestamp_counter as i32;
             let wasm_table_index = (entry & 65535 as u32) as u16;
             let initial_state = (entry >> 16) as u16;
@@ -777,9 +778,9 @@ pub unsafe fn cycle_internal() {
                 (wasm_table_index as u32).wrapping_add(WASM_TABLE_OFFSET as u32) as i32,
                 initial_state,
             );
-            profiler_stat_increment_by(
+            profiler::stat_increment_by(
                 S_RUN_FROM_CACHE_STEPS,
-                (*timestamp_counter).wrapping_sub(initial_tsc as u32) as i32,
+                (*timestamp_counter).wrapping_sub(initial_tsc as u32),
             );
         }
         else {
@@ -796,11 +797,11 @@ pub unsafe fn cycle_internal() {
                 dbg_assert!(must_not_fault);
                 must_not_fault = 0 != 0
             }
-            let mut initial_tsc_0: i32 = *timestamp_counter as i32;
+            let mut initial_tsc: i32 = *timestamp_counter as i32;
             jit_run_interpreted(phys_addr as i32);
-            profiler_stat_increment_by(
+            profiler::stat_increment_by(
                 S_RUN_INTERPRETED_STEPS,
-                (*timestamp_counter).wrapping_sub(initial_tsc_0 as u32) as i32,
+                (*timestamp_counter).wrapping_sub(initial_tsc as u32),
             );
         };
     }
@@ -822,11 +823,13 @@ pub unsafe fn get_phys_eip() -> Result<i32, ()> {
     dbg_assert!(!in_mapped_range(phys_addr));
     return Ok(phys_addr as i32);
 }
+
 unsafe fn jit_run_interpreted(mut phys_addr: i32) {
-    profiler_stat_increment(S_RUN_INTERPRETED);
-    jit_block_boundary = 0 != 0;
+    profiler::stat_increment(S_RUN_INTERPRETED);
     dbg_assert!(!in_mapped_range(phys_addr as u32));
-    let mut opcode: i32 = *mem8.offset(phys_addr as isize) as i32;
+
+    jit_block_boundary = false;
+    let opcode = *mem8.offset(phys_addr as isize) as i32;
     *instruction_pointer += 1;
     *timestamp_counter = (*timestamp_counter).wrapping_add(1);
     run_instruction(opcode | (*is_32 as i32) << 8);
@@ -872,7 +875,7 @@ pub unsafe fn segment_prefix_op(mut seg: i32) {
 
 #[no_mangle]
 pub unsafe fn do_many_cycles_native() {
-    profiler_stat_increment(S_DO_MANY_CYCLES);
+    profiler::stat_increment(S_DO_MANY_CYCLES);
     let mut initial_timestamp_counter: u32 = *timestamp_counter;
     while (*timestamp_counter).wrapping_sub(initial_timestamp_counter) < LOOP_COUNTER as u32
         && !*in_hlt
@@ -893,7 +896,7 @@ pub unsafe fn do_many_cycles_native() {
 //            return;
 //        }
 //    }
-//    profiler_stat_increment(S_TRIGGER_CPU_EXCEPTION);
+//    profiler::stat_increment(S_TRIGGER_CPU_EXCEPTION);
 //    call_interrupt_vector(interrupt_nr, 0 != 0, 0 != 0, 0);
 //    throw_cpu_exception();
 //}
@@ -1035,7 +1038,7 @@ pub unsafe fn safe_read32s(mut address: i32) -> Result<i32, ()> {
     let mut info_bits: i32 = entry & 4095 & !TLB_READONLY & !TLB_GLOBAL & !TLB_HAS_CODE;
     if info_bits == TLB_VALID && address & 4095 <= 4096 - 4 {
         if false {
-            profiler_stat_increment(S_SAFE_READ32_FAST);
+            profiler::stat_increment(S_SAFE_READ32_FAST);
         }
         // - not in memory mapped area
         // - can be accessed from any cpl
@@ -1046,16 +1049,16 @@ pub unsafe fn safe_read32s(mut address: i32) -> Result<i32, ()> {
     else {
         if false {
             if address & 4095 > 4096 - 4 {
-                profiler_stat_increment(S_SAFE_READ32_SLOW_PAGE_CROSSED);
+                profiler::stat_increment(S_SAFE_READ32_SLOW_PAGE_CROSSED);
             }
             else if info_bits & TLB_VALID == 0 {
-                profiler_stat_increment(S_SAFE_READ32_SLOW_NOT_VALID);
+                profiler::stat_increment(S_SAFE_READ32_SLOW_NOT_VALID);
             }
             else if 0 != info_bits & TLB_NO_USER {
-                profiler_stat_increment(S_SAFE_READ32_SLOW_NOT_USER);
+                profiler::stat_increment(S_SAFE_READ32_SLOW_NOT_USER);
             }
             else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
-                profiler_stat_increment(S_SAFE_READ32_SLOW_IN_MAPPED_RANGE);
+                profiler::stat_increment(S_SAFE_READ32_SLOW_IN_MAPPED_RANGE);
             }
             else {
                 dbg_assert!(0 != 0);
@@ -1185,7 +1188,7 @@ pub unsafe fn safe_write32(mut address: i32, mut value: i32) -> Result<(), ()> {
         entry & 4095 & !TLB_GLOBAL & !if *cpl as i32 == 3 { 0 } else { TLB_NO_USER };
     if info_bits == TLB_VALID && address & 4095 <= 4096 - 4 {
         if false {
-            profiler_stat_increment(S_SAFE_WRITE32_FAST);
+            profiler::stat_increment(S_SAFE_WRITE32_FAST);
         }
         // - allowed to write in user-mode
         // - not in memory mapped area
@@ -1198,22 +1201,22 @@ pub unsafe fn safe_write32(mut address: i32, mut value: i32) -> Result<(), ()> {
     else {
         if false {
             if address & 4095 > 4096 - 4 {
-                profiler_stat_increment(S_SAFE_WRITE32_SLOW_PAGE_CROSSED);
+                profiler::stat_increment(S_SAFE_WRITE32_SLOW_PAGE_CROSSED);
             }
             else if info_bits & TLB_VALID == 0 {
-                profiler_stat_increment(S_SAFE_WRITE32_SLOW_NOT_VALID);
+                profiler::stat_increment(S_SAFE_WRITE32_SLOW_NOT_VALID);
             }
             else if 0 != info_bits & TLB_NO_USER {
-                profiler_stat_increment(S_SAFE_WRITE32_SLOW_NOT_USER);
+                profiler::stat_increment(S_SAFE_WRITE32_SLOW_NOT_USER);
             }
             else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
-                profiler_stat_increment(S_SAFE_WRITE32_SLOW_IN_MAPPED_RANGE);
+                profiler::stat_increment(S_SAFE_WRITE32_SLOW_IN_MAPPED_RANGE);
             }
             else if 0 != info_bits & TLB_READONLY {
-                profiler_stat_increment(S_SAFE_WRITE32_SLOW_READ_ONLY);
+                profiler::stat_increment(S_SAFE_WRITE32_SLOW_READ_ONLY);
             }
             else if 0 != info_bits & TLB_HAS_CODE {
-                profiler_stat_increment(S_SAFE_WRITE32_SLOW_HAS_CODE);
+                profiler::stat_increment(S_SAFE_WRITE32_SLOW_HAS_CODE);
             }
             else {
                 dbg_assert!(0 != 0);
