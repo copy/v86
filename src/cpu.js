@@ -2964,17 +2964,24 @@ CPU.prototype.handle_irqs = function()
 {
     //dbg_assert(this.prefixes[0] === 0);
 
-    if((this.flags[0] & flag_interrupt))
+    if(this.flags[0] & flag_interrupt)
     {
-        if(this.devices.pic)
-        {
-            this.devices.pic.acknowledge_irq();
-        }
+        this.pic_acknowledge();
+    }
+};
 
-        if(this.devices.apic)
-        {
-            this.devices.apic.acknowledge_irq();
-        }
+CPU.prototype.pic_acknowledge = function()
+{
+    dbg_assert(this.flags[0] & flag_interrupt);
+
+    if(this.devices.pic)
+    {
+        this.devices.pic.acknowledge_irq();
+    }
+
+    if(this.devices.apic)
+    {
+        this.devices.apic.acknowledge_irq();
     }
 };
 

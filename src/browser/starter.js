@@ -188,7 +188,7 @@ function V86Starter(options)
         "switch_seg": function(reg, selector) { return cpu.switch_seg(reg, selector); },
         "iret16": function() { return cpu.iret16(); },
         "iret32": function() { return cpu.iret32(); },
-        "handle_irqs": function() { return cpu.handle_irqs(); },
+        "pic_acknowledge": function() { cpu.pic_acknowledge(); },
 
         "io_port_read8": function(addr) { return cpu.io.port_read8(addr); },
         "io_port_read16": function(addr) { return cpu.io.port_read16(addr); },

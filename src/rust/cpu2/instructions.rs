@@ -30,8 +30,6 @@ extern "C" {
     fn iret32();
 
     #[no_mangle]
-    fn handle_irqs();
-    #[no_mangle]
     fn hlt_op();
 }
 

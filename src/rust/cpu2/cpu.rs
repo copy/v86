@@ -13,6 +13,8 @@ extern "C" {
     fn microtick() -> f64;
     #[no_mangle]
     fn call_indirect1(f: i32, x: u16);
+    #[no_mangle]
+    fn pic_acknowledge();
 }
 
 use cpu2::global_pointers::*;
@@ -1720,3 +1722,9 @@ pub unsafe fn trigger_ss(mut code: i32) {
 
 #[no_mangle]
 pub unsafe fn store_current_tsc() { *current_tsc = read_tsc(); }
+
+pub unsafe fn handle_irqs() {
+    if *flags & FLAG_INTERRUPT != 0 {
+        pic_acknowledge()
+    }
+}
