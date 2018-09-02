@@ -408,25 +408,83 @@ const tests =
         ],
         start: () =>
         {
-            emulator.serial0_send("ln /mnt/target /mnt/link\n");
-            emulator.serial0_send("echo foo >> /mnt/link\n");
+            // Helper script that prints filename followed by nlinks.
+            emulator.serial0_send('cat << "EOF" > /mnt/nlinks\n');
+            emulator.serial0_send('#!/bin/sh\n');
+            emulator.serial0_send(`ls -dli $@ | awk '{ print "'$@' "$3 }'\n`);
+            emulator.serial0_send("EOF\n");
+            emulator.serial0_send("chmod +x /mnt/nlinks\n");
 
-            emulator.serial0_send("echo start-capture;");
+            // Check nlinks before mkdir.
+            emulator.serial0_send("/mnt/nlinks /mnt | tee -a /mnt/target\n");
 
-            // "foo" should be added to the target.
-            emulator.serial0_send("cat /mnt/target;");
+            emulator.serial0_send("mkdir /mnt/dir\n");
+            emulator.serial0_send("echo other > /mnt/target2\n");
 
-            // Both should have the same inode number
-            emulator.serial0_send("test /mnt/target -ef /mnt/link && echo same-inode;");
+            // Check nlinks after mkdir.
+            emulator.serial0_send("/mnt/nlinks /mnt | tee -a /mnt/target\n");
+            emulator.serial0_send("/mnt/nlinks /mnt/dir | tee -a /mnt/target\n");
+            emulator.serial0_send("/mnt/nlinks /mnt/target | tee -a /mnt/target\n");
 
-            // File should still exist after one is renamed.
-            emulator.serial0_send("mv /mnt/target /mnt/renamed;");
-            emulator.serial0_send("echo bar >> /mnt/renamed;");
-            emulator.serial0_send("cat /mnt/link;");
+            // Create hard links.
+            emulator.serial0_send("ln /mnt/target /mnt/link1\n");
+            emulator.serial0_send("ln /mnt/link1 /mnt/dir/link2\n");
+            emulator.serial0_send("ln /mnt/dir/link2 /mnt/dir/link3\n");
+            emulator.serial0_send("ln /mnt/target2 /mnt/link-other\n");
 
-            // File should still exist after one of the names are unlinked.
-            emulator.serial0_send("rm /mnt/renamed;");
-            emulator.serial0_send("cat /mnt/link;");
+            // Test inode numbers.
+            emulator.serial0_send("{ test /mnt/target -ef /mnt/link1 && \n");
+            emulator.serial0_send("  test /mnt/link1 -ef /mnt/dir/link2 && \n");
+            emulator.serial0_send("  test /mnt/target -ef /mnt/dir/link3 && \n");
+            emulator.serial0_send("  echo same inode | tee -a /mnt/target; }\n");
+            emulator.serial0_send("{ test /mnt/link-other -ef /mnt/dir/link3 || \n");
+            emulator.serial0_send("  echo different inode | tee -a /mnt/link1; }\n");
+
+            // Check nlinks after hard links.
+            emulator.serial0_send("/mnt/nlinks /mnt | tee -a /mnt/dir/link2\n");
+            emulator.serial0_send("/mnt/nlinks /mnt/dir | tee -a /mnt/dir/link2\n");
+            emulator.serial0_send("/mnt/nlinks /mnt/target | tee -a /mnt/dir/link2\n");
+            emulator.serial0_send("/mnt/nlinks /mnt/dir/link2 | tee -a /mnt/dir/link2\n");
+            emulator.serial0_send("/mnt/nlinks /mnt/target2 | tee -a /mnt/dir/link2\n");
+            emulator.serial0_send("/mnt/nlinks /mnt/link-other | tee -a /mnt/dir/link2\n");
+
+            // Movement and unlink.
+            emulator.serial0_send("mv /mnt/link1 /mnt/link1-renamed\n");
+            emulator.serial0_send("echo renamed | tee -a /mnt/link1-renamed\n");
+            emulator.serial0_send("mv /mnt/dir/link2 /mnt/link2-moved\n");
+            emulator.serial0_send("echo moved | tee -a /mnt/link2-moved\n");
+            emulator.serial0_send("rm /mnt/target\n");
+            emulator.serial0_send("echo unlinked original | tee -a /mnt/dir/link3\n");
+
+            // Test inode numbers after movement and unlinking.
+            emulator.serial0_send("{ test /mnt/link1-renamed -ef /mnt/link2-moved && \n");
+            emulator.serial0_send("  test /mnt/link2-moved -ef /mnt/dir/link3 && \n");
+            emulator.serial0_send("  echo same inode after mv | tee -a /mnt/link1-renamed; }\n");
+
+            // Check nlinks after movement and unlinking.
+            emulator.serial0_send("/mnt/nlinks /mnt | tee -a /mnt/link2-moved\n");
+            emulator.serial0_send("/mnt/nlinks /mnt/dir | tee -a /mnt/link2-moved\n");
+            emulator.serial0_send("/mnt/nlinks /mnt/link1-renamed | tee -a /mnt/link2-moved\n");
+
+            emulator.serial0_send("echo start-capture;\\\n");
+
+            // Unlink the rest and output the above messages.
+            emulator.serial0_send("rm /mnt/link1-renamed;\\\n");
+            emulator.serial0_send("echo unlinked link1 >> /mnt/link2-moved;\\\n");
+            emulator.serial0_send("/mnt/nlinks /mnt/link2-moved >> /mnt/link2-moved;\\\n");
+            emulator.serial0_send("rm /mnt/link2-moved;\\\n");
+            emulator.serial0_send("echo unlinked link2 >> /mnt/dir/link3;\\\n");
+            emulator.serial0_send("/mnt/nlinks /mnt/dir/link3 >> /mnt/dir/link3;\\\n");
+            emulator.serial0_send("cat /mnt/dir/link3;\\\n");
+            emulator.serial0_send("rm /mnt/dir/link3;\\\n");
+
+            // Verify nlinks of directories after unlinking hardlinks.
+            emulator.serial0_send("/mnt/nlinks /mnt;\\\n");
+            emulator.serial0_send("/mnt/nlinks /mnt/dir;\\\n");
+
+            // Verify nlinks of root directory after subdirectory is unlinked.
+            emulator.serial0_send("rmdir /mnt/dir;\\\n");
+            emulator.serial0_send("/mnt/nlinks /mnt;\\\n");
 
             emulator.serial0_send("echo done-hard-links\n");
         },
@@ -435,10 +493,33 @@ const tests =
         end: (capture, done) =>
         {
             assert_equal(capture,
-                test_file_small_string + "foo\n" +
-                "same-inode\n" +
-                test_file_small_string + "foo\nbar\n" +
-                test_file_small_string + "foo\nbar\n");
+                test_file_small_string +
+                "/mnt 2\n" +
+                "/mnt 3\n" +
+                "/mnt/dir 2\n" +
+                "/mnt/target 1\n" +
+                "same inode\n" +
+                "different inode\n" +
+                "/mnt 3\n" +
+                "/mnt/dir 2\n" +
+                "/mnt/target 4\n" +
+                "/mnt/dir/link2 4\n" +
+                "/mnt/target2 2\n" +
+                "/mnt/link-other 2\n" +
+                "renamed\n" +
+                "moved\n" +
+                "unlinked original\n" +
+                "same inode after mv\n" +
+                "/mnt 3\n" +
+                "/mnt/dir 2\n" +
+                "/mnt/link1-renamed 3\n" +
+                "unlinked link1\n" +
+                "/mnt/link2-moved 2\n" +
+                "unlinked link2\n" +
+                "/mnt/dir/link3 1\n" +
+                "/mnt 3\n" +
+                "/mnt/dir 2\n" +
+                "/mnt 2\n");
             done();
         },
     },
