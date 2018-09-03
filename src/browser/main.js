@@ -271,6 +271,26 @@
                 name: "Windows",
             },
             {
+                id: "debian",
+                state: {
+                    "url": "images/debian-state-base.bin",
+                },
+                name: "Debian",
+                memory_size: 512 * 1024 * 1024,
+                vga_memory_size: 8 * 1024 * 1024,
+                hda: {
+                    "url": "<NULL>",
+                    "size": 5,
+                    "async": true,
+                },
+                filesystem: {
+                    "basefs": {
+                        "url": HOST + "images/debian-base-fs.json",
+                    },
+                    "baseurl": HOST + "images/debian-9p-rootfs-flat/",
+                },
+            },
+            {
                 id: "linux26",
                 cdrom: {
                     "url": HOST + "images/linux.iso",
