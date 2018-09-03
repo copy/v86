@@ -148,7 +148,7 @@
                                 (i32.const 3))))
                           (i32.const 12))
                         (i32.const 2))))
-                  (i32.const 4073))
+                  (i32.const 4041))
                 (i32.const 1))
               (i32.le_s
                 (i32.and
@@ -198,7 +198,7 @@
                                 (i32.const 3))))
                           (i32.const 12))
                         (i32.const 2))))
-                  (i32.const 4073))
+                  (i32.const 4041))
                 (i32.const 1))
               (i32.le_s
                 (i32.and

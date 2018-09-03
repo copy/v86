@@ -3,7 +3,7 @@ use global_pointers;
 use jit::JitContext;
 use modrm;
 use regs;
-use tlb::{TLB_GLOBAL, TLB_NO_USER, TLB_READONLY, TLB_VALID};
+use tlb::{TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID};
 use wasmgen::module_init;
 use wasmgen::module_init::{WasmBuilder, WasmLocal};
 use wasmgen::wasm_util::WasmBuf;
@@ -251,11 +251,15 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
         .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
     let entry_local = builder.tee_new_local();
 
-    // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
-    //                                   (bitsize == 8 ? true : (address & 0xFFF) <= (0x1000 - (bitsize / 8)));
+    // Pseudo: bool can_use_fast_path =
+    //    (entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~TLB_HAS_CODE & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
+    //    (bitsize == 8 ? true : (address & 0xFFF) <= (0x1000 - (bitsize / 8)));
     builder.instruction_body.const_i32(
-        (0xFFF & !TLB_READONLY & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER }))
-            as i32,
+        (0xFFF
+            & !TLB_READONLY
+            & !TLB_GLOBAL
+            & !TLB_HAS_CODE
+            & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER })) as i32,
     );
     builder.instruction_body.and_i32();
 
