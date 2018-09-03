@@ -490,7 +490,7 @@ const encodings = [
     { opcode: 0x0FB5, block_boundary: 1, os: 1, e: 1, skip: 1, }, // lgs
 
     { opcode: 0x0FB6, os: 1, e: 1, custom: 1 }, // movzx
-    { opcode: 0x0FB7, os: 1, e: 1, },
+    { opcode: 0x0FB7, os: 1, e: 1, custom: 1 },
 
     { opcode: 0xF30FB8, os: 1, e: 1 }, // popcnt
     { opcode: 0x0FB8, os: 1, e: 1, block_boundary: 1, }, // ud
