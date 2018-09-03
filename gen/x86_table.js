@@ -498,7 +498,7 @@ const encodings = [
     { opcode: 0x0FB9, block_boundary: 1, }, // ud2
 
     { opcode: 0x0FBE, os: 1, e: 1, custom: 1 }, // movsx
-    { opcode: 0x0FBF, os: 1, e: 1, },
+    { opcode: 0x0FBF, os: 1, e: 1, custom: 1 },
 
     { opcode: 0x0FC0, e: 1, }, // xadd
     { opcode: 0x0FC1, os: 1, e: 1, },

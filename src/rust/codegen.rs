@@ -89,6 +89,14 @@ pub fn sign_extend_i8(builder: &mut WasmBuilder) {
     builder.instruction_body.shr_s_i32();
 }
 
+/// sign-extend a two byte value on the stack and leave it on the stack
+pub fn sign_extend_i16(builder: &mut WasmBuilder) {
+    builder.instruction_body.const_i32(16);
+    builder.instruction_body.shl_i32();
+    builder.instruction_body.const_i32(16);
+    builder.instruction_body.shr_s_i32();
+}
+
 pub fn gen_fn0_const(ctx: &mut JitContext, name: &str) {
     let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN0_TYPE_INDEX);

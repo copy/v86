@@ -1865,6 +1865,42 @@ pub fn instr32_0FBE_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     ctx.builder.instruction_body.store_aligned_i32(0);
 }
 
+pub fn instr16_0FBF_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg16_offset(r2) as i32);
+    codegen::gen_get_reg16(ctx.builder, r1);
+    codegen::sign_extend_i16(ctx.builder);
+    ctx.builder.instruction_body.store_aligned_u16(0);
+}
+pub fn instr16_0FBF_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg16_offset(r) as i32);
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read16(ctx);
+    codegen::sign_extend_i16(ctx.builder);
+    ctx.builder.instruction_body.store_aligned_u16(0);
+}
+
+pub fn instr32_0FBF_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg32_offset(r2) as i32);
+    codegen::gen_get_reg16(ctx.builder, r1);
+    codegen::sign_extend_i16(ctx.builder);
+    ctx.builder.instruction_body.store_aligned_i32(0);
+}
+pub fn instr32_0FBF_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg32_offset(r) as i32);
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read16(ctx);
+    codegen::sign_extend_i16(ctx.builder);
+    ctx.builder.instruction_body.store_aligned_i32(0);
+}
+
 pub fn instr_C6_0_reg_jit(ctx: &mut JitContext, r: u32, imm: u32) {
     // reg8[r] = imm;
     ctx.builder
