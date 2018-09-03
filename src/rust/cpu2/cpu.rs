@@ -27,6 +27,7 @@ use cpu2::misc_instr::{getaf, getcf, getof, getpf, getsf, getzf};
 use cpu2::modrm::{resolve_modrm16, resolve_modrm32};
 use profiler;
 use profiler::stat::*;
+use std::convert::From;
 
 /// The offset for our generated functions in the wasm table. Every index less than this is
 /// reserved for rustc's indirect functions
@@ -240,6 +241,77 @@ pub static mut tsc_offset: u64 = 0 as u64;
 
 pub static mut valid_tlb_entries: [i32; 10000] = [0; 10000];
 pub static mut valid_tlb_entries_count: i32 = 0;
+
+pub struct SegmentSelector {
+    rpl: u8,
+    is_gdt: bool,
+    descriptor_offset: u16,
+}
+
+impl From<i32> for SegmentSelector {
+    fn from(sel: i32) -> SegmentSelector {
+        dbg_assert!(sel >= 0 && sel < 0x10000);
+        SegmentSelector {
+            rpl: (sel & 3) as u8,
+            is_gdt: (sel & 4) == 0,
+            descriptor_offset: (sel & !7) as u16,
+        }
+    }
+}
+
+impl SegmentSelector {
+    pub fn get_original(&self) -> i32 {
+        ((self.rpl as i32) | (!self.is_gdt as i32) << 2 | (self.descriptor_offset as i32)) as i32
+    }
+    pub fn is_null(&self) -> bool { self.is_gdt && self.descriptor_offset == 0 }
+    pub unsafe fn is_valid(&self) -> bool {
+        self.descriptor_offset <= if self.is_gdt {
+            *gdtr_size as u16
+        }
+        else {
+            *segment_limits.offset(LDTR as isize) as u16
+        }
+    }
+}
+
+pub struct SegmentDescriptor {
+    base: i32,
+    limit: u32,
+    type_attr: u8,
+    flags: u8,
+}
+
+impl From<u64> for SegmentDescriptor {
+    fn from(raw: u64) -> SegmentDescriptor {
+        SegmentDescriptor {
+            base: ((raw >> 16) & 0xffff | (raw & 0xff_00000000) >> 16 | (raw >> 56 << 24)) as i32,
+            limit: (raw & 0xffff | ((raw >> 48) & 0xf) << 16) as u32,
+            type_attr: ((raw >> 40) & 0xff) as u8,
+            flags: (raw >> 48 >> 4) as u8,
+        }
+    }
+}
+
+impl SegmentDescriptor {
+    pub fn is_system(&self) -> bool { self.type_attr & 0x10 == 0 }
+    pub fn is_rw(&self) -> bool { self.type_attr & 2 == 2 }
+    pub fn is_dc(&self) -> bool { self.type_attr & 4 == 4 }
+    pub fn is_executable(&self) -> bool { self.type_attr & 8 == 8 }
+    pub fn is_present(&self) -> bool { self.type_attr & 0x80 == 0x80 }
+    pub fn is_writable(&self) -> bool { self.is_rw() && !self.is_executable() }
+    pub fn is_readable(&self) -> bool { self.is_rw() || !self.is_executable() }
+    pub fn is_conforming_executable(&self) -> bool { self.is_dc() && self.is_executable() }
+    pub fn get_dpl(&self) -> u8 { (self.type_attr >> 5) & 3 }
+    pub fn is_32(&self) -> bool { self.flags & 4 == 4 }
+    pub fn get_effective_limit(&self) -> u32 {
+        if self.flags & 8 == 8 {
+            self.limit << 12 | 0xFFF
+        }
+        else {
+            self.limit
+        }
+    }
+}
 
 //pub fn call_indirect1(f: fn(u16), x: u16) { f(x); }
 
@@ -681,6 +753,136 @@ pub unsafe fn is_osize_32() -> bool {
 pub unsafe fn is_asize_32() -> bool {
     return *is_32 as i32
         != (*prefixes as i32 & PREFIX_MASK_ADDRSIZE == PREFIX_MASK_ADDRSIZE) as i32;
+}
+
+pub unsafe fn lookup_segment_selector(
+    selector: i32,
+) -> Result<(SegmentDescriptor, SegmentSelector), ()> {
+    let selector = SegmentSelector::from(selector);
+    if selector.is_null() || !selector.is_valid() {
+        // XXX: The descriptor isn't required if the selector is invalid, so here's a stub
+        return Ok((
+            SegmentDescriptor {
+                base: 0,
+                limit: 0,
+                type_attr: 0,
+                flags: 0,
+            },
+            selector,
+        ));
+    }
+
+    let mut table_offset: u32 = selector.descriptor_offset as u32 + if selector.is_gdt {
+        *gdtr_offset as u32
+    }
+    else {
+        *segment_offsets.offset(LDTR as isize) as u32
+    };
+
+    if *cr & CR0_PG != 0 {
+        table_offset = translate_address_system_read(table_offset as i32)?;
+    }
+
+    let raw: u64 = read64s(table_offset) as u64;
+    let descriptor = SegmentDescriptor::from(raw);
+
+    Ok((descriptor, selector))
+}
+
+pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
+    dbg_assert!(reg >= 0 && reg <= 5);
+    dbg_assert!(selector_raw >= 0 && selector_raw < 0x10000);
+
+    if !*protected_mode || vm86_mode() {
+        *sreg.offset(reg as isize) = selector_raw as u16;
+        *segment_is_null.offset(reg as isize) = false;
+        *segment_offsets.offset(reg as isize) = selector_raw << 4;
+
+        if reg == SS {
+            *stack_size_32 = false;
+        }
+        return true;
+    }
+
+    let (descriptor, selector) = match lookup_segment_selector(selector_raw) {
+        Ok((a, b)) => (a, b),
+        Err(()) => {
+            // XXX: Currently, only for #pf, but we could trigger the #gp's due to null or invalid
+            // selectors here too, if lookup returned error-codes.
+            return false;
+        },
+    };
+
+    if reg == SS {
+        if selector.is_null() {
+            dbg_log!("#GP for loading 0 in SS sel={:x}", selector_raw);
+            trigger_gp_non_raising(0);
+            return false;
+        }
+
+        if !selector.is_valid()
+            || descriptor.is_system()
+            || selector.rpl != *cpl
+            || !descriptor.is_writable()
+            || descriptor.get_dpl() != *cpl
+        {
+            dbg_log!("#GP for loading invalid in SS sel={:x}", selector_raw);
+            trigger_gp_non_raising(selector_raw & !3);
+            return false;
+        }
+
+        if !descriptor.is_present() {
+            dbg_log!("#SS for loading non-present in SS sel={:x}", selector_raw);
+            trigger_ss(selector_raw & !3);
+            return false;
+        }
+
+        *stack_size_32 = descriptor.is_32();
+    }
+    else if reg == CS {
+        // handled by switch_cs_real_mode, far_return or far_jump
+        dbg_assert!(false);
+    }
+    else {
+        // es, ds, fs, gs
+        if selector.is_null() {
+            *sreg.offset(reg as isize) = selector_raw as u16;
+            *segment_is_null.offset(reg as isize) = true;
+            return true;
+        }
+
+        if !selector.is_valid()
+            || descriptor.is_system()
+            || !descriptor.is_readable()
+            || (!descriptor.is_conforming_executable()
+                && (selector.rpl > descriptor.get_dpl() || *cpl > descriptor.get_dpl()))
+        {
+            dbg_log!(
+                "#GP for loading invalid in seg {} sel={:x}",
+                reg,
+                selector_raw,
+            );
+            trigger_gp_non_raising(selector_raw & !3);
+            return false;
+        }
+
+        if !descriptor.is_present() {
+            dbg_log!(
+                "#NP for loading not-present in seg {} sel={:x}",
+                reg,
+                selector_raw,
+            );
+            trigger_np(selector_raw & !3);
+            return false;
+        }
+    }
+
+    *segment_is_null.offset(reg as isize) = false;
+    *segment_limits.offset(reg as isize) = descriptor.get_effective_limit();
+    *segment_offsets.offset(reg as isize) = descriptor.base;
+    *sreg.offset(reg as isize) = selector_raw as u16;
+
+    true
 }
 
 #[no_mangle]

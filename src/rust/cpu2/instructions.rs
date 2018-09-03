@@ -2,8 +2,6 @@
 
 extern "C" {
     #[no_mangle]
-    fn switch_seg(seg: i32, value: i32) -> bool;
-    #[no_mangle]
     fn lss16(x: i32, y: i32, z: i32);
     #[no_mangle]
     fn lss32(x: i32, y: i32, z: i32);
