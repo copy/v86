@@ -1060,7 +1060,7 @@ pub unsafe fn safe_read32s(mut address: i32) -> Result<i32, ()> {
     let mut info_bits: i32 = entry & 4095 & !TLB_READONLY & !TLB_GLOBAL & !TLB_HAS_CODE;
     if info_bits == TLB_VALID && address & 4095 <= 4096 - 4 {
         if false {
-            profiler::stat_increment(S_SAFE_READ32_FAST);
+            profiler::stat_increment(S_SAFE_READ_FAST);
         }
         // - not in memory mapped area
         // - can be accessed from any cpl
@@ -1071,16 +1071,16 @@ pub unsafe fn safe_read32s(mut address: i32) -> Result<i32, ()> {
     else {
         if false {
             if address & 4095 > 4096 - 4 {
-                profiler::stat_increment(S_SAFE_READ32_SLOW_PAGE_CROSSED);
+                profiler::stat_increment(S_SAFE_READ_SLOW_PAGE_CROSSED);
             }
             else if info_bits & TLB_VALID == 0 {
-                profiler::stat_increment(S_SAFE_READ32_SLOW_NOT_VALID);
+                profiler::stat_increment(S_SAFE_READ_SLOW_NOT_VALID);
             }
             else if 0 != info_bits & TLB_NO_USER {
-                profiler::stat_increment(S_SAFE_READ32_SLOW_NOT_USER);
+                profiler::stat_increment(S_SAFE_READ_SLOW_NOT_USER);
             }
             else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
-                profiler::stat_increment(S_SAFE_READ32_SLOW_IN_MAPPED_RANGE);
+                profiler::stat_increment(S_SAFE_READ_SLOW_IN_MAPPED_RANGE);
             }
             else {
                 dbg_assert!(0 != 0);
@@ -1088,6 +1088,48 @@ pub unsafe fn safe_read32s(mut address: i32) -> Result<i32, ()> {
         }
         return safe_read32s_slow(address);
     };
+}
+
+#[no_mangle]
+#[cfg(feature = "profiler")]
+pub fn report_safe_read_jit_slow(address: u32, entry: i32) {
+    if entry & TLB_VALID == 0 {
+        profiler::stat_increment(S_SAFE_READ_SLOW_NOT_VALID);
+    }
+    else if entry & TLB_IN_MAPPED_RANGE != 0 {
+        profiler::stat_increment(S_SAFE_READ_SLOW_IN_MAPPED_RANGE);
+    }
+    else if address & 0xFFF > 0x1000 - 4 {
+        profiler::stat_increment(S_SAFE_READ_SLOW_PAGE_CROSSED);
+    }
+    else {
+        // NOT_USER is not possible since gen_safe_read generates a mask for cpl0
+        dbg_assert!(false);
+    }
+}
+
+#[no_mangle]
+#[cfg(feature = "profiler")]
+pub fn report_safe_write_jit_slow(address: u32, entry: i32) {
+    if entry & TLB_VALID == 0 {
+        profiler::stat_increment(S_SAFE_WRITE_SLOW_NOT_VALID);
+    }
+    else if entry & TLB_IN_MAPPED_RANGE != 0 {
+        profiler::stat_increment(S_SAFE_WRITE_SLOW_IN_MAPPED_RANGE);
+    }
+    else if entry & TLB_HAS_CODE != 0 {
+        profiler::stat_increment(S_SAFE_WRITE_SLOW_HAS_CODE);
+    }
+    else if entry & TLB_READONLY != 0 {
+        profiler::stat_increment(S_SAFE_WRITE_SLOW_READ_ONLY);
+    }
+    else if address & 0xFFF > 0x1000 - 4 {
+        profiler::stat_increment(S_SAFE_WRITE_SLOW_PAGE_CROSSED);
+    }
+    else {
+        // NOT_USER is not possible since gen_safe_write generates a mask for for cpl0
+        dbg_assert!(false);
+    }
 }
 
 pub unsafe fn safe_read32s_slow(mut addr: i32) -> Result<i32, ()> {
@@ -1210,7 +1252,7 @@ pub unsafe fn safe_write32(mut address: i32, mut value: i32) -> Result<(), ()> {
         entry & 4095 & !TLB_GLOBAL & !if *cpl as i32 == 3 { 0 } else { TLB_NO_USER };
     if info_bits == TLB_VALID && address & 4095 <= 4096 - 4 {
         if false {
-            profiler::stat_increment(S_SAFE_WRITE32_FAST);
+            profiler::stat_increment(S_SAFE_WRITE_FAST);
         }
         // - allowed to write in user-mode
         // - not in memory mapped area
@@ -1223,22 +1265,22 @@ pub unsafe fn safe_write32(mut address: i32, mut value: i32) -> Result<(), ()> {
     else {
         if false {
             if address & 4095 > 4096 - 4 {
-                profiler::stat_increment(S_SAFE_WRITE32_SLOW_PAGE_CROSSED);
+                profiler::stat_increment(S_SAFE_WRITE_SLOW_PAGE_CROSSED);
             }
             else if info_bits & TLB_VALID == 0 {
-                profiler::stat_increment(S_SAFE_WRITE32_SLOW_NOT_VALID);
+                profiler::stat_increment(S_SAFE_WRITE_SLOW_NOT_VALID);
             }
             else if 0 != info_bits & TLB_NO_USER {
-                profiler::stat_increment(S_SAFE_WRITE32_SLOW_NOT_USER);
+                profiler::stat_increment(S_SAFE_WRITE_SLOW_NOT_USER);
             }
             else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
-                profiler::stat_increment(S_SAFE_WRITE32_SLOW_IN_MAPPED_RANGE);
+                profiler::stat_increment(S_SAFE_WRITE_SLOW_IN_MAPPED_RANGE);
             }
             else if 0 != info_bits & TLB_READONLY {
-                profiler::stat_increment(S_SAFE_WRITE32_SLOW_READ_ONLY);
+                profiler::stat_increment(S_SAFE_WRITE_SLOW_READ_ONLY);
             }
             else if 0 != info_bits & TLB_HAS_CODE {
-                profiler::stat_increment(S_SAFE_WRITE32_SLOW_HAS_CODE);
+                profiler::stat_increment(S_SAFE_WRITE_SLOW_HAS_CODE);
             }
             else {
                 dbg_assert!(0 != 0);

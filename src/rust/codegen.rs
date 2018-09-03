@@ -2,6 +2,7 @@ use cpu::BitSize;
 use global_pointers;
 use jit::JitContext;
 use modrm;
+use profiler;
 use regs;
 use tlb::{TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID};
 use wasmgen::module_init;
@@ -281,6 +282,11 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
     // Pseudo:
     // if(can_use_fast_path) leave_on_stack(mem8[entry & ~0xFFF ^ address]);
     builder.instruction_body.if_i32();
+
+    if cfg!(feature = "profiler") {
+        gen_profiler_stat_increment(builder, profiler::stat::S_SAFE_READ_FAST);
+    }
+
     builder.instruction_body.get_local(&entry_local);
     builder.instruction_body.const_i32(!0xFFF);
     builder.instruction_body.and_i32();
@@ -312,6 +318,12 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
     //     if(page_fault) return;
     // }
     builder.instruction_body.else_();
+
+    if cfg!(feature = "profiler") {
+        builder.instruction_body.get_local(&address_local);
+        builder.instruction_body.get_local(&entry_local);
+        gen_call_fn2(builder, "report_safe_read_jit_slow");
+    }
 
     builder
         .instruction_body
@@ -410,13 +422,15 @@ fn gen_safe_write(
     //     phys_addr = entry & ~0xFFF ^ address;
     builder.instruction_body.if_void();
 
+    if cfg!(feature = "profiler") {
+        gen_profiler_stat_increment(builder, profiler::stat::S_SAFE_WRITE_FAST);
+    }
+
     builder.instruction_body.get_local(&entry_local);
     builder.instruction_body.const_i32(!0xFFF);
     builder.instruction_body.and_i32();
     builder.instruction_body.get_local(&address_local);
     builder.instruction_body.xor_i32();
-
-    builder.free_local(entry_local);
 
     // Pseudo:
     //     /* continued within can_use_fast_path branch */
@@ -446,6 +460,12 @@ fn gen_safe_write(
     //     if(page_fault) return;
     // }
     builder.instruction_body.else_();
+
+    if cfg!(feature = "profiler") {
+        builder.instruction_body.get_local(&address_local);
+        builder.instruction_body.get_local(&entry_local);
+        gen_call_fn2(builder, "report_safe_write_jit_slow");
+    }
 
     builder
         .instruction_body
@@ -486,6 +506,8 @@ fn gen_safe_write(
     builder.instruction_body.block_end();
 
     builder.instruction_body.block_end();
+
+    builder.free_local(entry_local);
 }
 
 pub fn gen_clear_prefixes(ctx: &mut JitContext) {
@@ -840,6 +862,11 @@ pub fn gen_safe_read_write(
     // Pseudo:
     // if(can_use_fast_path) leave_on_stack(mem8[entry & ~0xFFF ^ address]);
     ctx.builder.instruction_body.if_void();
+
+    if cfg!(feature = "profiler") {
+        gen_profiler_stat_increment(ctx.builder, profiler::stat::S_SAFE_WRITE_FAST);
+    }
+
     ctx.builder.instruction_body.get_local(&entry_local);
     ctx.builder.instruction_body.const_i32(!0xFFF);
     ctx.builder.instruction_body.and_i32();
@@ -863,8 +890,6 @@ pub fn gen_safe_read_write(
                 .load_unaligned_i32_from_stack(unsafe { mem8 } as u32);
         },
     }
-
-    ctx.builder.free_local(entry_local);
 
     f(ctx);
 
@@ -890,6 +915,12 @@ pub fn gen_safe_read_write(
     //     if(page_fault) return;
     // }
     ctx.builder.instruction_body.else_();
+
+    if cfg!(feature = "profiler") {
+        ctx.builder.instruction_body.get_local(&address_local);
+        ctx.builder.instruction_body.get_local(&entry_local);
+        gen_call_fn2(ctx.builder, "report_safe_write_jit_slow");
+    }
 
     ctx.builder
         .instruction_body
@@ -920,4 +951,11 @@ pub fn gen_safe_read_write(
     ctx.builder.instruction_body.block_end();
 
     ctx.builder.instruction_body.block_end();
+
+    ctx.builder.free_local(entry_local);
+}
+
+pub fn gen_profiler_stat_increment(builder: &mut WasmBuilder, stat: profiler::stat) {
+    let addr = unsafe { profiler::stat_array.as_mut_ptr().offset(stat as isize) } as u32;
+    gen_increment_variable(builder, addr, 1)
 }
