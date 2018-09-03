@@ -1,10 +1,10 @@
 use cpu::BitSize;
+use cpu2::cpu::{TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID};
 use global_pointers;
 use jit::JitContext;
 use modrm;
 use profiler;
 use regs;
-use tlb::{TLB_GLOBAL, TLB_HAS_CODE, TLB_NO_USER, TLB_READONLY, TLB_VALID};
 use wasmgen::module_init;
 use wasmgen::module_init::{WasmBuilder, WasmLocal};
 use wasmgen::wasm_util::WasmBuf;

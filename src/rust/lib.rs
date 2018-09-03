@@ -32,6 +32,5 @@ mod page;
 mod prefix;
 mod regs;
 mod state_flags;
-mod tlb;
 mod util;
 mod wasmgen;
