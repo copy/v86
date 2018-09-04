@@ -786,8 +786,8 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
         return true;
     }
 
-    let (descriptor, selector) = match lookup_segment_selector(selector_raw) {
-        Ok(result) => match result {
+    let (descriptor, selector) =
+        match return_on_pagefault!(lookup_segment_selector(selector_raw), false) {
             Ok((desc, sel)) => (desc, sel),
             Err(selector_unusable) => {
                 // The selector couldn't be used to fetch a descriptor, so we handle all of those
@@ -818,12 +818,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
                 dbg_assert!(false);
                 return false;
             },
-        },
-        Err(()) => {
-            // Page-fault was already triggered, so we just bubble up here
-            return false;
-        },
-    };
+        };
 
     if reg == SS {
         if descriptor.is_system()
@@ -911,16 +906,18 @@ pub unsafe fn test_privileges_for_io(port: i32, size: i32) -> bool {
         if tsr_size >= 0x67 {
             dbg_assert!(tsr_offset + 0x64 + 2 & 0xFFF < 0xFFF);
 
-            let iomap_base = read16(return_false_on_pagefault!(translate_address_system_read(
-                tsr_offset + 0x64 + 2
-            )));
+            let iomap_base = read16(return_on_pagefault!(
+                translate_address_system_read(tsr_offset + 0x64 + 2),
+                false
+            ));
             let high_port = port + size - 1;
 
             if tsr_size >= (iomap_base + (high_port >> 3)) as u32 {
                 let mask = ((1 << size) - 1) << (port & 7);
-                let addr = return_false_on_pagefault!(translate_address_system_read(
-                    tsr_offset + iomap_base + (port >> 3)
-                ));
+                let addr = return_on_pagefault!(
+                    translate_address_system_read(tsr_offset + iomap_base + (port >> 3)),
+                    false
+                );
                 let port_info = if mask & 0xFF00 != 0 {
                     read16(addr)
                 }
