@@ -84,6 +84,8 @@ extern int32_t* const fpu_dp_selector;
 
 extern union reg64* const reg_mmx; // length 64
 
+extern bool* const tss_size_32;
+
 // gap
 
 extern uint32_t* const opstats_buffer; // length 0x400

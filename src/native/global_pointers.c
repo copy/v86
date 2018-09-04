@@ -82,6 +82,8 @@ int32_t* const fpu_dp_selector = (int32_t* const) 1060;
 
 union reg64* const reg_mmx = (union reg64* const) 1064; // length 64
 
+extern bool* const tss_size_32 = (bool* const) 1128;
+
 // gap
 
 uint32_t* const opstats_buffer = (uint32_t* const) 0x1000; // length 0x400

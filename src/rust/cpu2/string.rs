@@ -2,9 +2,6 @@
 
 extern "C" {
     #[no_mangle]
-    pub fn test_privileges_for_io(port: i32, size: i32) -> bool;
-
-    #[no_mangle]
     pub fn io_port_read8(port: i32) -> i32;
     #[no_mangle]
     pub fn io_port_read16(port: i32) -> i32;

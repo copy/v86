@@ -226,8 +226,6 @@ function V86Starter(options)
         "enter16": function() { return cpu.enter16.apply(cpu, arguments); },
         "enter32": function() { return cpu.enter32.apply(cpu, arguments); },
 
-        "test_privileges_for_io": function() { return cpu.test_privileges_for_io.apply(cpu, arguments); },
-
         "get_time": Date.now,
 
         "coverage_log": (fn_name_offset, num_blocks, visited_block) => {

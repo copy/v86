@@ -63,7 +63,7 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     if(false) Object.defineProperty(this, "gdtr_size", { get: () => { return new Int32Array(memory.buffer, 572, 1); } });
     if(false) Object.defineProperty(this, "gdtr_offset", { get: () => { return new Int32Array(memory.buffer, 576, 1); } });
 
-    this.tss_size_32 = false;
+    this.tss_size_32 = v86util.view(Int32Array, memory, 1128, 1);
 
     /*
      * whether or not a page fault occured
@@ -440,7 +440,7 @@ CPU.prototype.get_state = function()
 
     state[63] = this.devices.ioapic;
 
-    state[64] = this.tss_size_32;
+    state[64] = this.tss_size_32[0];
 
     state[65] = this.reg_mmxs;
     state[66] = this.reg_xmm32s;
@@ -530,7 +530,7 @@ CPU.prototype.set_state = function(state)
 
     this.devices.ioapic = state[63];
 
-    this.tss_size_32 = state[64];
+    this.tss_size_32[0] = state[64];
 
     this.reg_mmxs.set(state[65]);
     this.reg_xmm32s.set(state[66]);
@@ -1631,7 +1631,7 @@ CPU.prototype.call_interrupt_vector = function(interrupt_nr, is_software_int, ha
             //this.debug.dump_regs();
             var tss_stack_addr = this.get_tss_stack_addr(info.dpl);
 
-            if(this.tss_size_32)
+            if(this.tss_size_32[0])
             {
                 var new_esp = this.read32s(tss_stack_addr);
                 var new_ss = this.read16(tss_stack_addr + 4 | 0);
@@ -2413,7 +2413,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
                 dbg_log("more privilege call gate is_16=" + is_16 + " from=" + this.cpl[0] + " to=" + cs_info.dpl);
                 var tss_stack_addr = this.get_tss_stack_addr(cs_info.dpl);
 
-                if(this.tss_size_32)
+                if(this.tss_size_32[0])
                 {
                     var new_esp = this.read32s(tss_stack_addr);
                     var new_ss = this.read16(tss_stack_addr + 4 | 0);
@@ -2669,7 +2669,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
 
 CPU.prototype.get_tss_stack_addr = function(dpl)
 {
-    if(this.tss_size_32)
+    if(this.tss_size_32[0])
     {
         var tss_stack_addr = (dpl << 3) + 4 | 0;
 
@@ -2705,7 +2705,7 @@ CPU.prototype.get_tss_stack_addr = function(dpl)
 
 CPU.prototype.do_task_switch = function(selector, error_code)
 {
-    dbg_assert(this.tss_size_32, "TODO");
+    dbg_assert(this.tss_size_32[0], "TODO");
 
     dbg_log("do_task_switch sel=" + h(selector), LOG_CPU);
     var descriptor = this.lookup_segment_selector(selector);
@@ -3010,53 +3010,6 @@ CPU.prototype.device_lower_irq = function(i)
     {
         this.devices.ioapic.clear_irq(i);
     }
-};
-
-CPU.prototype.test_privileges_for_io = function(port, size)
-{
-    if(this.protected_mode[0] && (this.cpl[0] > this.getiopl() || (this.flags[0] & flag_vm)))
-    {
-        if(!this.tss_size_32)
-        {
-            dbg_log("#GP for port io, 16-bit TSS  port=" + h(port) + " size=" + size, LOG_CPU);
-            CPU_LOG_VERBOSE && this.debug.dump_state();
-            this.trigger_gp_non_raising(0);
-            return false;
-        }
-
-        var tsr_size = this.segment_limits[reg_tr];
-        var tsr_offset = this.segment_offsets[reg_tr];
-
-        if(tsr_size >= 0x67)
-        {
-            dbg_assert((tsr_offset + 0x64 + 2 & 0xFFF) < 0xFFF);
-
-            var iomap_base = this.read16(this.translate_address_system_read(tsr_offset + 0x64 + 2 | 0)),
-                high_port = port + size - 1 | 0;
-
-            if(tsr_size >= (iomap_base + (high_port >> 3) | 0))
-            {
-                var mask = ((1 << size) - 1) << (port & 7),
-                    addr = this.translate_address_system_read(tsr_offset + iomap_base + (port >> 3) | 0),
-                    port_info = (mask & 0xFF00) ?
-                        this.read16(addr) : this.read8(addr);
-
-                dbg_assert((addr & 0xFFF) < 0xFFF);
-
-                if(!(port_info & mask))
-                {
-                    return true;
-                }
-            }
-        }
-
-        dbg_log("#GP for port io  port=" + h(port) + " size=" + size, LOG_CPU);
-        CPU_LOG_VERBOSE && this.debug.dump_state();
-        this.trigger_gp_non_raising(0);
-        return false;
-    }
-
-    return true;
 };
 
 CPU.prototype.cpuid = function()
@@ -3491,7 +3444,7 @@ CPU.prototype.load_tr = function(selector)
         throw this.debug.unimpl("#NT handler");
     }
 
-    this.tss_size_32 = info.type === 9;
+    this.tss_size_32[0] = info.type === 9;
     this.segment_offsets[reg_tr] = info.base;
     this.segment_limits[reg_tr] = info.effective_limit;
     this.sreg[reg_tr] = selector;

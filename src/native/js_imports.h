@@ -51,7 +51,6 @@ extern void update_eflags(int32_t);
 extern bool switch_seg(int32_t, int32_t);
 extern void lss16(int32_t, int32_t, int32_t);
 extern void lss32(int32_t, int32_t, int32_t);
-extern bool test_privileges_for_io(int32_t, int32_t);
 extern int32_t io_port_read8(int32_t);
 extern int32_t io_port_read16(int32_t);
 extern int32_t io_port_read32(int32_t);

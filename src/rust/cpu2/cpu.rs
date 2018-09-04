@@ -897,6 +897,53 @@ pub unsafe fn get_seg(mut segment: i32) -> i32 {
     return *segment_offsets.offset(segment as isize);
 }
 
+pub unsafe fn test_privileges_for_io(port: i32, size: i32) -> bool {
+    if *protected_mode && (*cpl > getiopl() as u8 || (*flags & FLAG_VM != 0)) {
+        if !*tss_size_32 {
+            dbg_log!("#GP for port io, 16-bit TSS  port={:x} size={}", port, size);
+            trigger_gp_non_raising(0);
+            return false;
+        }
+
+        let tsr_size = *segment_limits.offset(TR as isize);
+        let tsr_offset = *segment_offsets.offset(TR as isize);
+
+        if tsr_size >= 0x67 {
+            dbg_assert!(tsr_offset + 0x64 + 2 & 0xFFF < 0xFFF);
+
+            let iomap_base = read16(return_false_on_pagefault!(translate_address_system_read(
+                tsr_offset + 0x64 + 2
+            )));
+            let high_port = port + size - 1;
+
+            if tsr_size >= (iomap_base + (high_port >> 3)) as u32 {
+                let mask = ((1 << size) - 1) << (port & 7);
+                let addr = return_false_on_pagefault!(translate_address_system_read(
+                    tsr_offset + iomap_base + (port >> 3)
+                ));
+                let port_info = if mask & 0xFF00 != 0 {
+                    read16(addr)
+                }
+                else {
+                    read8(addr)
+                };
+
+                dbg_assert!(addr & 0xFFF < 0xFFF);
+
+                if port_info & mask == 0 {
+                    return true;
+                }
+            }
+        }
+
+        dbg_log!("#GP for port io  port={:x} size={}", port, size);
+        trigger_gp_non_raising(0);
+        return false;
+    }
+
+    return true;
+}
+
 pub unsafe fn trigger_gp(mut code: i32) {
     *instruction_pointer = *previous_ip;
     raise_exception_with_code(CPU_EXCEPTION_GP, code);
