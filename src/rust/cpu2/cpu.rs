@@ -264,14 +264,12 @@ impl SegmentSelector {
         ((self.rpl as i32) | (!self.is_gdt as i32) << 2 | (self.descriptor_offset as i32)) as i32
     }
     pub fn is_null(&self) -> bool { self.is_gdt && self.descriptor_offset == 0 }
-    pub unsafe fn is_valid(&self) -> bool {
-        self.descriptor_offset <= if self.is_gdt {
-            *gdtr_size as u16
-        }
-        else {
-            *segment_limits.offset(LDTR as isize) as u16
-        }
-    }
+}
+
+// Used to indicate early that the selector cannot be used to fetch a descriptor
+pub struct SelectorNullOrInvalid {
+    is_null: bool,
+    is_invalid: bool,
 }
 
 pub struct SegmentDescriptor {
@@ -755,21 +753,25 @@ pub unsafe fn is_asize_32() -> bool {
         != (*prefixes as i32 & PREFIX_MASK_ADDRSIZE == PREFIX_MASK_ADDRSIZE) as i32;
 }
 
+// XXX: This should be made more readable up the chain
+type PageFault = ();
+
 pub unsafe fn lookup_segment_selector(
     selector: i32,
-) -> Result<(SegmentDescriptor, SegmentSelector), ()> {
+) -> Result<Result<(SegmentDescriptor, SegmentSelector), SelectorNullOrInvalid>, PageFault> {
     let selector = SegmentSelector::from(selector);
-    if selector.is_null() || !selector.is_valid() {
-        // XXX: The descriptor isn't required if the selector is invalid, so here's a stub
-        return Ok((
-            SegmentDescriptor {
-                base: 0,
-                limit: 0,
-                type_attr: 0,
-                flags: 0,
-            },
-            selector,
-        ));
+    let selector_unusable = SelectorNullOrInvalid {
+        is_null: selector.is_null(),
+        is_invalid: selector.descriptor_offset > if selector.is_gdt {
+            *gdtr_size as u16
+        }
+        else {
+            *segment_limits.offset(LDTR as isize) as u16
+        },
+    };
+
+    if selector_unusable.is_null || selector_unusable.is_invalid {
+        return Ok(Err(selector_unusable));
     }
 
     let mut table_offset: u32 = selector.descriptor_offset as u32 + if selector.is_gdt {
@@ -786,7 +788,7 @@ pub unsafe fn lookup_segment_selector(
     let raw: u64 = read64s(table_offset) as u64;
     let descriptor = SegmentDescriptor::from(raw);
 
-    Ok((descriptor, selector))
+    Ok(Ok((descriptor, selector)))
 }
 
 pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
@@ -805,23 +807,47 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
     }
 
     let (descriptor, selector) = match lookup_segment_selector(selector_raw) {
-        Ok((a, b)) => (a, b),
+        Ok(result) => match result {
+            Ok((desc, sel)) => (desc, sel),
+            Err(selector_unusable) => {
+                // The selector couldn't be used to fetch a descriptor, so we handle all of those
+                // cases
+                if selector_unusable.is_null {
+                    if reg == SS {
+                        dbg_log!("#GP for loading 0 in SS sel={:x}", selector_raw);
+                        trigger_gp_non_raising(0);
+                        return false;
+                    }
+                    else if reg != CS {
+                        // es, ds, fs, gs
+                        *sreg.offset(reg as isize) = selector_raw as u16;
+                        *segment_is_null.offset(reg as isize) = true;
+                        return true;
+                    }
+                }
+
+                if selector_unusable.is_invalid {
+                    dbg_log!(
+                        "#GP for loading invalid in seg={} sel={:x}",
+                        reg,
+                        selector_raw
+                    );
+                    trigger_gp_non_raising(selector_raw & !3);
+                    return false;
+                }
+
+                dbg_assert!(false);
+                return false;
+            },
+        },
         Err(()) => {
-            // XXX: Currently, only for #pf, but we could trigger the #gp's due to null or invalid
-            // selectors here too, if lookup returned error-codes.
+            // Page-fault was already triggered, so we just bubble up here
             return false;
         },
     };
 
     if reg == SS {
-        if selector.is_null() {
-            dbg_log!("#GP for loading 0 in SS sel={:x}", selector_raw);
-            trigger_gp_non_raising(0);
-            return false;
-        }
-
-        if !selector.is_valid()
-            || descriptor.is_system()
+        if descriptor.is_system()
             || selector.rpl != *cpl
             || !descriptor.is_writable()
             || descriptor.get_dpl() != *cpl
@@ -844,15 +870,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
         dbg_assert!(false);
     }
     else {
-        // es, ds, fs, gs
-        if selector.is_null() {
-            *sreg.offset(reg as isize) = selector_raw as u16;
-            *segment_is_null.offset(reg as isize) = true;
-            return true;
-        }
-
-        if !selector.is_valid()
-            || descriptor.is_system()
+        if descriptor.is_system()
             || !descriptor.is_readable()
             || (!descriptor.is_conforming_executable()
                 && (selector.rpl > descriptor.get_dpl() || *cpl > descriptor.get_dpl()))
