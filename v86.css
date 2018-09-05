@@ -45,9 +45,7 @@
 }
 body {
     background-color: #111;
-    color: #fff;
-    line-height: 1.5;
-    padding: 10px;
+    /*padding: 10px;*/
     font-family: sans-serif;
 }
 a {
@@ -96,4 +94,9 @@ a img {
 }
 .screenshots a {
     text-decoration: none;
+}
+
+/* Bootstrap 4 edit */
+.btn{
+    margin: 5px;
 }
