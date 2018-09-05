@@ -244,27 +244,15 @@ pub static mut valid_tlb_entries: [i32; 10000] = [0; 10000];
 pub static mut valid_tlb_entries_count: i32 = 0;
 
 pub struct SegmentSelector {
-    rpl: u8,
-    is_gdt: bool,
-    descriptor_offset: u16,
-}
-
-impl From<i32> for SegmentSelector {
-    fn from(sel: i32) -> SegmentSelector {
-        dbg_assert!(sel >= 0 && sel < 0x10000);
-        SegmentSelector {
-            rpl: (sel & 3) as u8,
-            is_gdt: (sel & 4) == 0,
-            descriptor_offset: (sel & !7) as u16,
-        }
-    }
+    raw: u16,
 }
 
 impl SegmentSelector {
-    pub fn get_original(&self) -> i32 {
-        ((self.rpl as i32) | (!self.is_gdt as i32) << 2 | (self.descriptor_offset as i32)) as i32
-    }
-    pub fn is_null(&self) -> bool { self.is_gdt && self.descriptor_offset == 0 }
+    pub fn rpl(&self) -> u8 { (self.raw & 3) as u8 }
+    pub fn is_gdt(&self) -> bool { (self.raw & 4) == 0 }
+    pub fn descriptor_offset(&self) -> u16 { (self.raw & !7) as u16 }
+
+    pub fn is_null(&self) -> bool { self.is_gdt() && self.descriptor_offset() == 0 }
 }
 
 // Used to indicate early that the selector cannot be used to fetch a descriptor
@@ -758,8 +746,10 @@ pub unsafe fn is_asize_32() -> bool {
 pub unsafe fn lookup_segment_selector(
     selector: i32,
 ) -> OrPageFault<Result<(SegmentDescriptor, SegmentSelector), SelectorNullOrInvalid>> {
-    let selector = SegmentSelector::from(selector);
-    let selector_invalid = selector.descriptor_offset > if selector.is_gdt {
+    let selector = SegmentSelector {
+        raw: selector as u16,
+    };
+    let selector_invalid = selector.descriptor_offset() > if selector.is_gdt() {
         *gdtr_size as u16
     }
     else {
@@ -773,7 +763,7 @@ pub unsafe fn lookup_segment_selector(
         return Ok(Err(SelectorNullOrInvalid::IsInvalid));
     }
 
-    let mut table_offset: u32 = selector.descriptor_offset as u32 + if selector.is_gdt {
+    let mut table_offset: u32 = selector.descriptor_offset() as u32 + if selector.is_gdt() {
         *gdtr_offset as u32
     }
     else {
@@ -846,7 +836,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
 
     if reg == SS {
         if descriptor.is_system()
-            || selector.rpl != *cpl
+            || selector.rpl() != *cpl
             || !descriptor.is_writable()
             || descriptor.get_dpl() != *cpl
         {
@@ -871,7 +861,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
         if descriptor.is_system()
             || !descriptor.is_readable()
             || (!descriptor.is_conforming_executable()
-                && (selector.rpl > descriptor.get_dpl() || *cpl > descriptor.get_dpl()))
+                && (selector.rpl() > descriptor.get_dpl() || *cpl > descriptor.get_dpl()))
         {
             dbg_log!(
                 "#GP for loading invalid in seg {} sel={:x}",
