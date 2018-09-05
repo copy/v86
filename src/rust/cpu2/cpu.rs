@@ -268,9 +268,10 @@ impl SegmentSelector {
 }
 
 // Used to indicate early that the selector cannot be used to fetch a descriptor
-pub struct SelectorNullOrInvalid {
-    is_null: bool,
-    is_invalid: bool,
+#[derive(PartialEq)]
+pub enum SelectorNullOrInvalid {
+    IsNull,
+    IsInvalid,
 }
 
 pub struct SegmentDescriptor {
@@ -758,18 +759,18 @@ pub unsafe fn lookup_segment_selector(
     selector: i32,
 ) -> OrPageFault<Result<(SegmentDescriptor, SegmentSelector), SelectorNullOrInvalid>> {
     let selector = SegmentSelector::from(selector);
-    let selector_unusable = SelectorNullOrInvalid {
-        is_null: selector.is_null(),
-        is_invalid: selector.descriptor_offset > if selector.is_gdt {
-            *gdtr_size as u16
-        }
-        else {
-            *segment_limits.offset(LDTR as isize) as u16
-        },
+    let selector_invalid = selector.descriptor_offset > if selector.is_gdt {
+        *gdtr_size as u16
+    }
+    else {
+        *segment_limits.offset(LDTR as isize) as u16
     };
 
-    if selector_unusable.is_null || selector_unusable.is_invalid {
-        return Ok(Err(selector_unusable));
+    if selector.is_null() {
+        return Ok(Err(SelectorNullOrInvalid::IsNull));
+    }
+    else if selector_invalid {
+        return Ok(Err(SelectorNullOrInvalid::IsInvalid));
     }
 
     let mut table_offset: u32 = selector.descriptor_offset as u32 + if selector.is_gdt {
@@ -810,7 +811,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
             Err(selector_unusable) => {
                 // The selector couldn't be used to fetch a descriptor, so we handle all of those
                 // cases
-                if selector_unusable.is_null {
+                if selector_unusable == SelectorNullOrInvalid::IsNull {
                     if reg == SS {
                         dbg_log!("#GP for loading 0 in SS sel={:x}", selector_raw);
                         trigger_gp_non_raising(0);
@@ -823,8 +824,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
                         return true;
                     }
                 }
-
-                if selector_unusable.is_invalid {
+                else if selector_unusable == SelectorNullOrInvalid::IsInvalid {
                     dbg_log!(
                         "#GP for loading invalid in seg={} sel={:x}",
                         reg,
