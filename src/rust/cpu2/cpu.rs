@@ -25,6 +25,7 @@ use cpu2::memory::{
 };
 use cpu2::misc_instr::{getaf, getcf, getof, getpf, getsf, getzf};
 use cpu2::modrm::{resolve_modrm16, resolve_modrm32};
+use paging::OrPageFault;
 use profiler;
 use profiler::stat::*;
 use std::convert::From;
@@ -330,7 +331,7 @@ pub unsafe fn get_eflags() -> i32 {
         | (getof() as i32) << 11;
 }
 
-pub unsafe fn translate_address_read(mut address: i32) -> Result<u32, ()> {
+pub unsafe fn translate_address_read(mut address: i32) -> OrPageFault<u32> {
     let mut base: i32 = (address as u32 >> 12) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut user: bool = *cpl as i32 == 3;
@@ -346,7 +347,7 @@ pub unsafe fn do_page_translation(
     mut addr: i32,
     mut for_writing: bool,
     mut user: bool,
-) -> Result<i32, ()> {
+) -> OrPageFault<i32> {
     let mut can_write: bool = 0 != 1;
     let mut global;
     let mut allow_user: bool = 0 != 1;
@@ -621,7 +622,7 @@ pub unsafe fn trigger_pagefault(mut write: bool, mut user: bool, mut present: bo
     //profiler::stat_increment(S_TRIGGER_CPU_EXCEPTION);
 }
 
-pub unsafe fn translate_address_write(mut address: i32) -> Result<u32, ()> {
+pub unsafe fn translate_address_write(mut address: i32) -> OrPageFault<u32> {
     let mut base: i32 = (address as u32 >> 12) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut user: bool = *cpl as i32 == 3;
@@ -677,7 +678,7 @@ pub unsafe fn check_tlb_invariants() {
     };
 }
 
-pub unsafe fn writable_or_pagefault(mut addr: i32, mut size: i32) -> Result<(), ()> {
+pub unsafe fn writable_or_pagefault(mut addr: i32, mut size: i32) -> OrPageFault<()> {
     dbg_assert!(size < 4096);
     dbg_assert!(size > 0);
     if *cr & CR0_PG == 0 {
@@ -704,7 +705,7 @@ pub unsafe fn writable_or_pagefault(mut addr: i32, mut size: i32) -> Result<(), 
     };
 }
 
-pub unsafe fn read_imm8() -> Result<i32, ()> {
+pub unsafe fn read_imm8() -> OrPageFault<i32> {
     let mut eip: i32 = *instruction_pointer;
     if 0 != eip & !4095 ^ *last_virt_eip {
         *eip_phys = (translate_address_read(eip)? ^ eip as u32) as i32;
@@ -716,9 +717,9 @@ pub unsafe fn read_imm8() -> Result<i32, ()> {
     return Ok(data8);
 }
 
-pub unsafe fn read_imm8s() -> Result<i32, ()> { return Ok(read_imm8()? << 24 >> 24); }
+pub unsafe fn read_imm8s() -> OrPageFault<i32> { return Ok(read_imm8()? << 24 >> 24); }
 
-pub unsafe fn read_imm16() -> Result<i32, ()> {
+pub unsafe fn read_imm16() -> OrPageFault<i32> {
     // Two checks in one comparison:
     // 1. Did the high 20 bits of eip change
     // or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)
@@ -732,7 +733,7 @@ pub unsafe fn read_imm16() -> Result<i32, ()> {
     };
 }
 
-pub unsafe fn read_imm32s() -> Result<i32, ()> {
+pub unsafe fn read_imm32s() -> OrPageFault<i32> {
     // Analogue to the above comment
     if (*instruction_pointer ^ *last_virt_eip) as u32 > 4092 as u32 {
         return Ok(read_imm16()? | read_imm16()? << 16);
@@ -753,12 +754,9 @@ pub unsafe fn is_asize_32() -> bool {
         != (*prefixes as i32 & PREFIX_MASK_ADDRSIZE == PREFIX_MASK_ADDRSIZE) as i32;
 }
 
-// XXX: This should be made more readable up the chain
-type PageFault = ();
-
 pub unsafe fn lookup_segment_selector(
     selector: i32,
-) -> Result<Result<(SegmentDescriptor, SegmentSelector), SelectorNullOrInvalid>, PageFault> {
+) -> OrPageFault<Result<(SegmentDescriptor, SegmentSelector), SelectorNullOrInvalid>> {
     let selector = SegmentSelector::from(selector);
     let selector_unusable = SelectorNullOrInvalid {
         is_null: selector.is_null(),
@@ -969,7 +967,7 @@ pub unsafe fn get_seg_prefix_ss(mut offset: i32) -> i32 { return get_seg_prefix(
 
 pub unsafe fn get_seg_prefix_cs(mut offset: i32) -> i32 { return get_seg_prefix(CS) + offset; }
 
-pub unsafe fn modrm_resolve(mut modrm_byte: i32) -> Result<i32, ()> {
+pub unsafe fn modrm_resolve(mut modrm_byte: i32) -> OrPageFault<i32> {
     if is_asize_32() {
         resolve_modrm32(modrm_byte)
     }
@@ -1035,7 +1033,7 @@ pub unsafe fn cycle_internal() {
     }
 }
 
-pub unsafe fn get_phys_eip() -> Result<u32, ()> {
+pub unsafe fn get_phys_eip() -> OrPageFault<u32> {
     let mut eip: i32 = *instruction_pointer;
     if 0 != eip & !4095 ^ *last_virt_eip {
         *eip_phys = (translate_address_read(eip)? ^ eip as u32) as i32;
@@ -1245,11 +1243,11 @@ pub unsafe fn virt_boundary_write32(mut low: u32, mut high: u32, mut value: i32)
     write8(high as u32, value >> 24);
 }
 
-pub unsafe fn safe_read8(mut addr: i32) -> Result<i32, ()> {
+pub unsafe fn safe_read8(mut addr: i32) -> OrPageFault<i32> {
     return Ok(read8(translate_address_read(addr)?));
 }
 
-pub unsafe fn safe_read16(mut address: i32) -> Result<i32, ()> {
+pub unsafe fn safe_read16(mut address: i32) -> OrPageFault<i32> {
     let mut base: i32 = (address as u32 >> 12) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut info_bits: i32 = entry & 4095 & !TLB_READONLY & !TLB_GLOBAL & !TLB_HAS_CODE;
@@ -1265,7 +1263,7 @@ pub unsafe fn safe_read16(mut address: i32) -> Result<i32, ()> {
     };
 }
 
-pub unsafe fn safe_read16_slow(mut addr: i32) -> Result<i32, ()> {
+pub unsafe fn safe_read16_slow(mut addr: i32) -> OrPageFault<i32> {
     if addr & 4095 == 4095 {
         return Ok(safe_read8(addr)? | safe_read8(addr + 1)? << 8);
     }
@@ -1274,7 +1272,7 @@ pub unsafe fn safe_read16_slow(mut addr: i32) -> Result<i32, ()> {
     };
 }
 
-pub unsafe fn safe_read32s(mut address: i32) -> Result<i32, ()> {
+pub unsafe fn safe_read32s(mut address: i32) -> OrPageFault<i32> {
     let mut base: i32 = (address as u32 >> 12) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut info_bits: i32 = entry & 4095 & !TLB_READONLY & !TLB_GLOBAL & !TLB_HAS_CODE;
@@ -1352,7 +1350,7 @@ pub fn report_safe_write_jit_slow(address: u32, entry: i32) {
     }
 }
 
-pub unsafe fn safe_read32s_slow(mut addr: i32) -> Result<i32, ()> {
+pub unsafe fn safe_read32s_slow(mut addr: i32) -> OrPageFault<i32> {
     if addr & 4095 >= 4093 {
         return Ok(safe_read16(addr)? | safe_read16(addr + 2)? << 16);
     }
@@ -1403,7 +1401,7 @@ pub unsafe fn safe_read32s_slow_jit(addr: i32) -> i32 {
     }
 }
 
-pub unsafe fn safe_read64s(mut addr: i32) -> Result<reg64, ()> {
+pub unsafe fn safe_read64s(mut addr: i32) -> OrPageFault<reg64> {
     let mut x: reg64 = reg64 { i8_0: [0; 8] };
     if addr & 4095 > 4096 - 8 {
         x.u32_0[0] = safe_read32s(addr)? as u32;
@@ -1416,7 +1414,7 @@ pub unsafe fn safe_read64s(mut addr: i32) -> Result<reg64, ()> {
     Ok(x)
 }
 
-pub unsafe fn safe_read128s(mut addr: i32) -> Result<reg128, ()> {
+pub unsafe fn safe_read128s(mut addr: i32) -> OrPageFault<reg128> {
     let mut x: reg128 = reg128 { i8_0: [0; 16] };
     if addr & 4095 > 4096 - 16 {
         x.u64_0[0] = safe_read64s(addr)?.u64_0[0];
@@ -1429,12 +1427,12 @@ pub unsafe fn safe_read128s(mut addr: i32) -> Result<reg128, ()> {
     Ok(x)
 }
 
-pub unsafe fn safe_write8(mut addr: i32, mut value: i32) -> Result<(), ()> {
+pub unsafe fn safe_write8(mut addr: i32, mut value: i32) -> OrPageFault<()> {
     write8(translate_address_write(addr)?, value);
     Ok(())
 }
 
-pub unsafe fn safe_write16(mut address: i32, mut value: i32) -> Result<(), ()> {
+pub unsafe fn safe_write16(mut address: i32, mut value: i32) -> OrPageFault<()> {
     let mut base: i32 = (address as u32 >> 12) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut info_bits: i32 = entry & 4095 & !TLB_GLOBAL;
@@ -1454,7 +1452,7 @@ pub unsafe fn safe_write16(mut address: i32, mut value: i32) -> Result<(), ()> {
     Ok(())
 }
 
-pub unsafe fn safe_write16_slow(mut addr: i32, mut value: i32) -> Result<(), ()> {
+pub unsafe fn safe_write16_slow(mut addr: i32, mut value: i32) -> OrPageFault<()> {
     let mut phys_low = translate_address_write(addr)?;
     if addr & 4095 == 4095 {
         virt_boundary_write16(phys_low, translate_address_write(addr + 1)?, value);
@@ -1465,7 +1463,7 @@ pub unsafe fn safe_write16_slow(mut addr: i32, mut value: i32) -> Result<(), ()>
     Ok(())
 }
 
-pub unsafe fn safe_write32(mut address: i32, mut value: i32) -> Result<(), ()> {
+pub unsafe fn safe_write32(mut address: i32, mut value: i32) -> OrPageFault<()> {
     let mut base: i32 = (address as u32 >> 12) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     let mut info_bits: i32 =
@@ -1511,7 +1509,7 @@ pub unsafe fn safe_write32(mut address: i32, mut value: i32) -> Result<(), ()> {
     Ok(())
 }
 
-pub unsafe fn safe_write32_slow(mut addr: i32, mut value: i32) -> Result<(), ()> {
+pub unsafe fn safe_write32_slow(mut addr: i32, mut value: i32) -> OrPageFault<()> {
     let mut phys_low = translate_address_write(addr)?;
     if addr & 4095 > 4096 - 4 {
         virt_boundary_write32(
@@ -1550,7 +1548,7 @@ pub unsafe fn safe_write32_slow_jit(addr: i32, value: i32) {
     }
 }
 
-pub unsafe fn safe_write64(mut addr: i32, mut value: i64) -> Result<(), ()> {
+pub unsafe fn safe_write64(mut addr: i32, mut value: i64) -> OrPageFault<()> {
     if addr & 4095 > 4096 - 8 {
         writable_or_pagefault(addr, 8)?;
         safe_write32(addr, value as i32).unwrap();
@@ -1563,7 +1561,7 @@ pub unsafe fn safe_write64(mut addr: i32, mut value: i64) -> Result<(), ()> {
     Ok(())
 }
 
-pub unsafe fn safe_write128(mut addr: i32, mut value: reg128) -> Result<(), ()> {
+pub unsafe fn safe_write128(mut addr: i32, mut value: reg128) -> OrPageFault<()> {
     if addr & 4095 > 4096 - 16 {
         writable_or_pagefault(addr, 16)?;
         safe_write64(addr, value.u64_0[0] as i64).unwrap();
@@ -1724,7 +1722,7 @@ pub unsafe fn task_switch_test_mmx() -> bool {
 #[no_mangle]
 pub unsafe fn task_switch_test_mmx_void() { task_switch_test_mmx(); }
 
-pub unsafe fn read_moffs() -> Result<i32, ()> {
+pub unsafe fn read_moffs() -> OrPageFault<i32> {
     // read 2 or 4 byte from ip, depending on address size attribute
     if is_asize_32() {
         read_imm32s()
@@ -1938,7 +1936,7 @@ pub unsafe fn get_valid_global_tlb_entries_count() -> i32 {
     return result;
 }
 
-pub unsafe fn translate_address_system_read(mut address: i32) -> Result<u32, ()> {
+pub unsafe fn translate_address_system_read(mut address: i32) -> OrPageFault<u32> {
     let mut base: i32 = (address as u32 >> 12) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     if 0 != entry & TLB_VALID {
@@ -1949,7 +1947,7 @@ pub unsafe fn translate_address_system_read(mut address: i32) -> Result<u32, ()>
     };
 }
 
-pub unsafe fn translate_address_system_write(mut address: i32) -> Result<u32, ()> {
+pub unsafe fn translate_address_system_write(mut address: i32) -> OrPageFault<u32> {
     let mut base: i32 = (address as u32 >> 12) as i32;
     let mut entry: i32 = *tlb_data.offset(base as isize);
     if entry & (TLB_VALID | TLB_READONLY) == TLB_VALID {

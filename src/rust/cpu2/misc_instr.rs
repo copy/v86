@@ -3,6 +3,7 @@
 use cpu2::cpu::*;
 use cpu2::fpu::{fpu_load_m80, fpu_load_status_word, fpu_set_status_word, fpu_store_m80};
 use cpu2::global_pointers::*;
+use paging::OrPageFault;
 
 #[no_mangle]
 pub unsafe fn getcf() -> bool {
@@ -166,14 +167,14 @@ pub unsafe fn adjust_stack_reg(mut adjustment: i32) {
 }
 
 #[no_mangle]
-pub unsafe fn push16_ss16(mut imm16: i32) -> Result<(), ()> {
+pub unsafe fn push16_ss16(mut imm16: i32) -> OrPageFault<()> {
     let mut sp: i32 = get_seg_ss() + (*reg16.offset(SP as isize) as i32 - 2 & 65535);
     safe_write16(sp, imm16)?;
     *reg16.offset(SP as isize) -= 2;
     Ok(())
 }
 #[no_mangle]
-pub unsafe fn push16_ss32(mut imm16: i32) -> Result<(), ()> {
+pub unsafe fn push16_ss32(mut imm16: i32) -> OrPageFault<()> {
     let mut sp: i32 = get_seg_ss() + *reg32s.offset(ESP as isize) - 2;
     safe_write16(sp, imm16)?;
     *reg32s.offset(ESP as isize) -= 2;
@@ -186,9 +187,9 @@ pub unsafe fn push16_ss16_jit(mut imm16: i32) { return_on_pagefault!(push16_ss16
 pub unsafe fn push16_ss32_jit(mut imm16: i32) { return_on_pagefault!(push16_ss32(imm16)) }
 
 #[no_mangle]
-pub unsafe fn push16_ss16_mem(mut addr: i32) -> Result<(), ()> { push16_ss16(safe_read16(addr)?) }
+pub unsafe fn push16_ss16_mem(mut addr: i32) -> OrPageFault<()> { push16_ss16(safe_read16(addr)?) }
 #[no_mangle]
-pub unsafe fn push16_ss32_mem(mut addr: i32) -> Result<(), ()> { push16_ss32(safe_read16(addr)?) }
+pub unsafe fn push16_ss32_mem(mut addr: i32) -> OrPageFault<()> { push16_ss32(safe_read16(addr)?) }
 
 #[no_mangle]
 pub unsafe fn push16_ss16_mem_jit(mut addr: i32) { return_on_pagefault!(push16_ss16_mem(addr)) }
@@ -196,7 +197,7 @@ pub unsafe fn push16_ss16_mem_jit(mut addr: i32) { return_on_pagefault!(push16_s
 pub unsafe fn push16_ss32_mem_jit(mut addr: i32) { return_on_pagefault!(push16_ss32_mem(addr)) }
 
 #[no_mangle]
-pub unsafe fn push16(mut imm16: i32) -> Result<(), ()> {
+pub unsafe fn push16(mut imm16: i32) -> OrPageFault<()> {
     if *stack_size_32 {
         push16_ss32(imm16)
     }
@@ -206,14 +207,14 @@ pub unsafe fn push16(mut imm16: i32) -> Result<(), ()> {
 }
 
 #[no_mangle]
-pub unsafe fn push32_ss16(mut imm32: i32) -> Result<(), ()> {
+pub unsafe fn push32_ss16(mut imm32: i32) -> OrPageFault<()> {
     let mut new_sp: i32 = *reg16.offset(SP as isize) as i32 - 4 & 65535;
     safe_write32(get_seg_ss() + new_sp, imm32)?;
     *reg16.offset(SP as isize) = new_sp as u16;
     Ok(())
 }
 #[no_mangle]
-pub unsafe fn push32_ss32(mut imm32: i32) -> Result<(), ()> {
+pub unsafe fn push32_ss32(mut imm32: i32) -> OrPageFault<()> {
     let mut new_esp: i32 = *reg32s.offset(ESP as isize) - 4;
     safe_write32(get_seg_ss() + new_esp, imm32)?;
     *reg32s.offset(ESP as isize) = new_esp;
@@ -226,9 +227,9 @@ pub unsafe fn push32_ss16_jit(mut imm32: i32) { return_on_pagefault!(push32_ss16
 pub unsafe fn push32_ss32_jit(mut imm32: i32) { return_on_pagefault!(push32_ss32(imm32)) }
 
 #[no_mangle]
-pub unsafe fn push32_ss16_mem(mut addr: i32) -> Result<(), ()> { push32_ss16(safe_read32s(addr)?) }
+pub unsafe fn push32_ss16_mem(mut addr: i32) -> OrPageFault<()> { push32_ss16(safe_read32s(addr)?) }
 #[no_mangle]
-pub unsafe fn push32_ss32_mem(mut addr: i32) -> Result<(), ()> { push32_ss32(safe_read32s(addr)?) }
+pub unsafe fn push32_ss32_mem(mut addr: i32) -> OrPageFault<()> { push32_ss32(safe_read32s(addr)?) }
 
 #[no_mangle]
 pub unsafe fn push32_ss16_mem_jit(mut addr: i32) { return_on_pagefault!(push32_ss16_mem(addr)) }
@@ -236,7 +237,7 @@ pub unsafe fn push32_ss16_mem_jit(mut addr: i32) { return_on_pagefault!(push32_s
 pub unsafe fn push32_ss32_mem_jit(mut addr: i32) { return_on_pagefault!(push32_ss32_mem(addr)) }
 
 #[no_mangle]
-pub unsafe fn push32(mut imm32: i32) -> Result<(), ()> {
+pub unsafe fn push32(mut imm32: i32) -> OrPageFault<()> {
     if *stack_size_32 {
         push32_ss32(imm32)
     }
@@ -245,7 +246,7 @@ pub unsafe fn push32(mut imm32: i32) -> Result<(), ()> {
     }
 }
 #[no_mangle]
-pub unsafe fn pop16() -> Result<i32, ()> {
+pub unsafe fn pop16() -> OrPageFault<i32> {
     if *stack_size_32 {
         pop16_ss32()
     }
@@ -254,21 +255,21 @@ pub unsafe fn pop16() -> Result<i32, ()> {
     }
 }
 #[no_mangle]
-pub unsafe fn pop16_ss16() -> Result<i32, ()> {
+pub unsafe fn pop16_ss16() -> OrPageFault<i32> {
     let mut sp: i32 = get_seg_ss() + *reg16.offset(SP as isize) as i32;
     let mut result: i32 = safe_read16(sp)?;
     *reg16.offset(SP as isize) += 2;
     Ok(result)
 }
 #[no_mangle]
-pub unsafe fn pop16_ss32() -> Result<i32, ()> {
+pub unsafe fn pop16_ss32() -> OrPageFault<i32> {
     let mut esp: i32 = get_seg_ss() + *reg32s.offset(ESP as isize);
     let mut result: i32 = safe_read16(esp)?;
     *reg32s.offset(ESP as isize) += 2;
     Ok(result)
 }
 #[no_mangle]
-pub unsafe fn pop32s() -> Result<i32, ()> {
+pub unsafe fn pop32s() -> OrPageFault<i32> {
     if *stack_size_32 {
         pop32s_ss32()
     }
@@ -277,14 +278,14 @@ pub unsafe fn pop32s() -> Result<i32, ()> {
     }
 }
 #[no_mangle]
-pub unsafe fn pop32s_ss16() -> Result<i32, ()> {
+pub unsafe fn pop32s_ss16() -> OrPageFault<i32> {
     let mut sp: i32 = *reg16.offset(SP as isize) as i32;
     let mut result: i32 = safe_read32s(get_seg_ss() + sp)?;
     *reg16.offset(SP as isize) = (sp + 4) as u16;
     Ok(result)
 }
 #[no_mangle]
-pub unsafe fn pop32s_ss32() -> Result<i32, ()> {
+pub unsafe fn pop32s_ss32() -> OrPageFault<i32> {
     let mut esp: i32 = *reg32s.offset(ESP as isize);
     let mut result: i32 = safe_read32s(get_seg_ss() + esp)?;
     *reg32s.offset(ESP as isize) = esp + 4;

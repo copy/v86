@@ -2,6 +2,7 @@
 
 use cpu2::cpu::*;
 use cpu2::global_pointers::*;
+use paging::OrPageFault;
 
 pub fn round(x: f64) -> f64 { x.round() }
 pub fn floor(x: f64) -> f64 { x.floor() }
@@ -93,20 +94,20 @@ pub unsafe fn fpu_integer_round(mut f: f64) -> f64 {
     };
 }
 #[no_mangle]
-pub unsafe fn fpu_load_m32(mut addr: i32) -> Result<f64, ()> {
+pub unsafe fn fpu_load_m32(mut addr: i32) -> OrPageFault<f64> {
     let mut v: f32_int = f32_int {
         i32_0: safe_read32s(addr)?,
     };
     Ok(v.f32_0 as f64)
 }
 #[no_mangle]
-pub unsafe fn fpu_load_m64(mut addr: i32) -> Result<f64, ()> {
+pub unsafe fn fpu_load_m64(mut addr: i32) -> OrPageFault<f64> {
     let mut value: u64 = safe_read64s(addr)?.u64_0[0];
     let mut v: f64_int = f64_int { u64_0: [value] };
     Ok(v.f64_0)
 }
 #[no_mangle]
-pub unsafe fn fpu_load_m80(mut addr: i32) -> Result<f64, ()> {
+pub unsafe fn fpu_load_m80(mut addr: i32) -> OrPageFault<f64> {
     let mut value: u64 = safe_read64s(addr as i32)?.u64_0[0];
     let mut low: u32 = value as u32;
     let mut high: u32 = (value >> 32) as u32;
@@ -516,7 +517,7 @@ pub unsafe fn fpu_fstm32(mut addr: i32) {
     return_on_pagefault!(fpu_store_m32(addr, fpu_get_st0()));
 }
 #[no_mangle]
-pub unsafe fn fpu_store_m32(mut addr: i32, mut x: f64) -> Result<(), ()> {
+pub unsafe fn fpu_store_m32(mut addr: i32, mut x: f64) -> OrPageFault<()> {
     let mut v: f32_int = f32_int { f32_0: x as f32 };
     safe_write32(addr, v.i32_0)
 }
@@ -530,7 +531,7 @@ pub unsafe fn fpu_fstm64(mut addr: i32) {
     return_on_pagefault!(fpu_store_m64(addr, fpu_get_st0()));
 }
 #[no_mangle]
-pub unsafe fn fpu_store_m64(mut addr: i32, mut x: f64) -> Result<(), ()> {
+pub unsafe fn fpu_store_m64(mut addr: i32, mut x: f64) -> OrPageFault<()> {
     let mut v: f64_int = f64_int { f64_0: x };
     safe_write64(addr, v.u64_0[0] as i64)
 }
