@@ -742,33 +742,31 @@ pub unsafe fn lookup_segment_selector(
     let selector = SegmentSelector {
         raw: selector as u16,
     };
-    let selector_invalid = selector.descriptor_offset() > if selector.is_gdt() {
-        *gdtr_size as u16
-    }
-    else {
-        *segment_limits.offset(LDTR as isize) as u16
-    };
 
     if selector.is_null() {
         return Ok(Err(SelectorNullOrInvalid::IsNull));
     }
-    else if selector_invalid {
+
+    let (table_offset, table_limit) = if selector.is_gdt() {
+        (*gdtr_offset as u32, *gdtr_size as u16)
+    }
+    else {
+        (
+            *segment_offsets.offset(LDTR as isize) as u32,
+            *segment_limits.offset(LDTR as isize) as u16,
+        )
+    };
+
+    if selector.descriptor_offset() > table_limit {
         return Ok(Err(SelectorNullOrInvalid::IsInvalid));
     }
 
-    let mut table_offset: u32 = selector.descriptor_offset() as u32 + if selector.is_gdt() {
-        *gdtr_offset as u32
-    }
-    else {
-        *segment_offsets.offset(LDTR as isize) as u32
+    let descriptor_address =
+        translate_address_system_read(selector.descriptor_offset() as i32 + table_offset as i32)?;
+
+    let descriptor = SegmentDescriptor {
+        raw: read64s(descriptor_address) as u64,
     };
-
-    if *cr & CR0_PG != 0 {
-        table_offset = translate_address_system_read(table_offset as i32)?;
-    }
-
-    let raw: u64 = read64s(table_offset) as u64;
-    let descriptor = SegmentDescriptor { raw };
 
     Ok(Ok((descriptor, selector)))
 }
