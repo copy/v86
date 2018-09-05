@@ -265,7 +265,7 @@ pub enum SelectorNullOrInvalid {
 pub struct SegmentDescriptor {
     base: i32,
     limit: u32,
-    type_attr: u8,
+    access_byte: u8,
     flags: u8,
 }
 
@@ -274,22 +274,22 @@ impl From<u64> for SegmentDescriptor {
         SegmentDescriptor {
             base: ((raw >> 16) & 0xffff | (raw & 0xff_00000000) >> 16 | (raw >> 56 << 24)) as i32,
             limit: (raw & 0xffff | ((raw >> 48) & 0xf) << 16) as u32,
-            type_attr: ((raw >> 40) & 0xff) as u8,
+            access_byte: ((raw >> 40) & 0xff) as u8,
             flags: (raw >> 48 >> 4) as u8,
         }
     }
 }
 
 impl SegmentDescriptor {
-    pub fn is_system(&self) -> bool { self.type_attr & 0x10 == 0 }
-    pub fn is_rw(&self) -> bool { self.type_attr & 2 == 2 }
-    pub fn is_dc(&self) -> bool { self.type_attr & 4 == 4 }
-    pub fn is_executable(&self) -> bool { self.type_attr & 8 == 8 }
-    pub fn is_present(&self) -> bool { self.type_attr & 0x80 == 0x80 }
+    pub fn is_system(&self) -> bool { self.access_byte & 0x10 == 0 }
+    pub fn is_rw(&self) -> bool { self.access_byte & 2 == 2 }
+    pub fn is_dc(&self) -> bool { self.access_byte & 4 == 4 }
+    pub fn is_executable(&self) -> bool { self.access_byte & 8 == 8 }
+    pub fn is_present(&self) -> bool { self.access_byte & 0x80 == 0x80 }
     pub fn is_writable(&self) -> bool { self.is_rw() && !self.is_executable() }
     pub fn is_readable(&self) -> bool { self.is_rw() || !self.is_executable() }
     pub fn is_conforming_executable(&self) -> bool { self.is_dc() && self.is_executable() }
-    pub fn get_dpl(&self) -> u8 { (self.type_attr >> 5) & 3 }
+    pub fn get_dpl(&self) -> u8 { (self.access_byte >> 5) & 3 }
     pub fn is_32(&self) -> bool { self.flags & 4 == 4 }
     pub fn get_effective_limit(&self) -> u32 {
         if self.flags & 8 == 8 {
