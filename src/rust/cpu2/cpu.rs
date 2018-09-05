@@ -289,9 +289,9 @@ impl SegmentDescriptor {
     pub fn is_writable(&self) -> bool { self.is_rw() && !self.is_executable() }
     pub fn is_readable(&self) -> bool { self.is_rw() || !self.is_executable() }
     pub fn is_conforming_executable(&self) -> bool { self.is_dc() && self.is_executable() }
-    pub fn get_dpl(&self) -> u8 { (self.access_byte >> 5) & 3 }
+    pub fn dpl(&self) -> u8 { (self.access_byte >> 5) & 3 }
     pub fn is_32(&self) -> bool { self.flags & 4 == 4 }
-    pub fn get_effective_limit(&self) -> u32 {
+    pub fn effective_limit(&self) -> u32 {
         if self.flags & 8 == 8 {
             self.limit << 12 | 0xFFF
         }
@@ -838,7 +838,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
         if descriptor.is_system()
             || selector.rpl() != *cpl
             || !descriptor.is_writable()
-            || descriptor.get_dpl() != *cpl
+            || descriptor.dpl() != *cpl
         {
             dbg_log!("#GP for loading invalid in SS sel={:x}", selector_raw);
             trigger_gp_non_raising(selector_raw & !3);
@@ -861,7 +861,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
         if descriptor.is_system()
             || !descriptor.is_readable()
             || (!descriptor.is_conforming_executable()
-                && (selector.rpl() > descriptor.get_dpl() || *cpl > descriptor.get_dpl()))
+                && (selector.rpl() > descriptor.dpl() || *cpl > descriptor.dpl()))
         {
             dbg_log!(
                 "#GP for loading invalid in seg {} sel={:x}",
@@ -884,7 +884,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
     }
 
     *segment_is_null.offset(reg as isize) = false;
-    *segment_limits.offset(reg as isize) = descriptor.get_effective_limit();
+    *segment_limits.offset(reg as isize) = descriptor.effective_limit();
     *segment_offsets.offset(reg as isize) = descriptor.base;
     *sreg.offset(reg as isize) = selector_raw as u16;
 
