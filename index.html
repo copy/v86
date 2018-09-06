@@ -96,69 +96,63 @@
 							<b>Setup</b>
 						</div>
 						<div class="card-body">
-							<table>
-								<tr>
-									<td width="350">CD image</td>
-									<td>
-										<input type="file" id="cd_image" class="form-control-file">
-									</td>
-								</tr>
-		
-								<tr>
-									<td>Floppy disk image</td>
-									<td><input type="file" id="floppy_image" class="form-control-file"></td>
-								</tr>
-		
-								<tr>
-									<td>Hard drive disk image</td>
-									<td><input type="file" id="hd_image" class="form-control-file"></td>
-								</tr>
-		
-								<!--
-								<tr>
-									<td>Multiboot kernel image (experimental)</td>
-									<td><input type="file" id="multiboot_image"><br></td>
-								</tr>
-								-->
-		
-		
-								<tr>
-									<td colspan="2"><small><small>Disk images are not uploaded to the server</small></small><hr></td>
-								</tr>
-		
-								<tr>
-									<td>Memory size</td>
-									<td class="form-inline">
-										<input id="memory_size" type="number" value="128" min="16" max="2048" step="16" class="form-control">&nbsp&nbsp MB<br>
-									</td>
-								</tr>
-		
-								<tr>
-									<td>Video Memory size</td>
-									<td class="form-inline">
-										<input id="video_memory_size" type="number" value="8" min="1" max="128" step="1" class="form-control">&nbsp&nbsp MB<br>
-									</td>
-								</tr>
-		
-								<tr>
-									<td colspan="2"><hr></td>
-								</tr>
-		
-								<tr>
-									<td>Boot order</td>
-									<td>
-										<select id="boot_order" class="form-control">
-											<option value="213">CD / Floppy / Hard Disk</option>
-											<option value="123">CD / Hard Disk / Floppy</option>
-											<option value="231">Floppy / CD / Hard Disk</option>
-											<option value="321">Floppy / Hard Disk / CD</option>
-											<option value="312">Hard Disk / Floppy / CD</option>
-											<option value="132">Hard Disk / CD / Floppy</option>
-										</select>
-									</td>
-								</tr>
-							</table>
-		
+							<div class="row">
+								<div class="col-lg-6">CD image</div>
+								<div class="col-lg-6">
+									<input type="file" id="cd_image" class="form-control-file">
+								</div>
+							</div>
+							<div class="row">
+								<div class="col-lg-6">Floppy disk image</div>
+								<div class="col-lg-6">
+									<input type="file" id="floppy_image" class="form-control-file">
+								</div>
+							</div>
+							<div class="row">
+								<div class="col-lg-6">Hard drive disk image</div>
+								<div class="col-lg-6">
+									<input type="file" id="hd_image" class="form-control-file">
+								</div>
+							</div>
+							<!--
+							<div class="row">
+								<div class="col-lg-6">Multiboot kernel image (experimental)</div>
+								<div class="col-lg-6">
+									<input type="file" id="multiboot_image">
+								</div>
+							</div>
+							-->
+							<div class="row">
+								<div class="col-lg-6"><small><small>Disk images are not uploaded to the server</small></small></div>
+								<div class="col-lg-6"></div>
+							</div>
+							<hr />
+							<div class="row">
+								<div class="col-lg-6">Memory size</div>
+								<div class="col-lg-6 form-inline">
+									<input id="memory_size" type="number" value="128" min="16" max="2048" step="16" class="form-control">&nbsp&nbsp MB<br>
+								</div>
+							</div>
+							<div class="row">
+								<div class="col-lg-6">Video Memory size</div>
+								<div class="col-lg-6 form-inline">
+									<input id="video_memory_size" type="number" value="8" min="1" max="128" step="1" class="form-control">&nbsp&nbsp MB<br>
+								</div>
+							</div>
+							<hr />
+							<div class="row">
+								<div class="col-lg-6">Boot order</div>
+								<div class="col-lg-6">
+									<select id="boot_order" class="form-control">
+										<option value="213">CD / Floppy / Hard Disk</option>
+										<option value="123">CD / Hard Disk / Floppy</option>
+										<option value="231">Floppy / CD / Hard Disk</option>
+										<option value="321">Floppy / Hard Disk / CD</option>
+										<option value="312">Hard Disk / Floppy / CD</option>
+										<option value="132">Hard Disk / CD / Floppy</option>
+									</select>
+								</div>
+							</div>
 							<br>
 							<button class="btn btn-outline-light" id="start_emulation">Start Emulation</button>
 						</div>
