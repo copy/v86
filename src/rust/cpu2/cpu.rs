@@ -899,16 +899,12 @@ pub unsafe fn set_cr0(cr0: i32) {
     if cr0 & CR0_AM != 0 {
         dbg_log!("Warning: Unimplemented: cr0 alignment mask");
     }
-
     if (cr0 & (CR0_PE | CR0_PG)) == CR0_PG {
         panic!("cannot load PG without PE");
     }
 
     let old_cr0 = *cr;
-
     *cr = cr0;
-
-    // TODO: Consider have_fpu and CR0_EM emulation set
     *cr |= CR0_ET;
 
     if old_cr0 & (CR0_PG | CR0_WP) != cr0 & (CR0_PG | CR0_WP) {
@@ -926,8 +922,6 @@ pub unsafe fn cpl_changed() {
 pub unsafe fn update_cs_size(new_size: bool) {
     if *is_32 != new_size {
         *is_32 = new_size;
-        // TODO:
-        // update_operand_size();
     }
 }
 
