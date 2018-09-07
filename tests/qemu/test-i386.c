@@ -2341,7 +2341,7 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
 #define SSE_OP2(op)\
 {\
     int i;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     a.q[1] = test_values[2*i][1];\
     b.q[0] = test_values[2*i+1][0];\
@@ -2353,7 +2353,7 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
 #define MMX_OP2(op)\
 {\
     int i;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     b.q[0] = test_values[2*i+1][0];\
     asm volatile (#op " %2, %0" : "=y" (r.q[0]) : "0" (a.q[0]), "y" (b.q[0]));\
@@ -2370,7 +2370,7 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
 #define SHUF_OP_MMX(op, ib)\
 {\
     int i;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     b.q[0] = test_values[2*i+1][0];\
     asm volatile (#op " $" #ib ", %2, %0" : "=y" (r.q[0]) : "0" (a.q[0]), "y" (b.q[0])); \
@@ -2401,7 +2401,7 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
 #define PSHUF_OP(op, ib)\
 {\
     int i;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     a.q[1] = test_values[2*i][1];\
     asm volatile (#op " $" #ib ", %1, %0" : "=x" (r.dq) : "x" (a.dq));\
@@ -2417,7 +2417,7 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
 #define SHIFT_IM_MMX(op, ib)                        \
 {\
     int i;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     asm volatile (#op " $" #ib ", %0" : "=y" (r.q[0]) : "0" (a.q[0]));\
     printf("%-9s: a=" FMT64X " ib=%02x r=" FMT64X "\n",\
@@ -2431,7 +2431,7 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
 #define SHIFT_IM(op, ib)\
 {\
     int i;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     a.q[1] = test_values[2*i][1];\
     asm volatile (#op " $" #ib ", %0" : "=x" (r.dq) : "0" (a.dq));\
@@ -2443,30 +2443,33 @@ static uint64_t __attribute__((aligned(16))) test_values[4][2] = {
     }\
 }
 
-// To use mm0-7 registers instead of xmm registers
-#define SHIFT_OP_MMX(op, ib)\
+#define SHIFT_REG_MMX(op, ib)\
 {\
     int i;\
-    SHIFT_IM_MMX(op, ib);\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     b.q[0] = ib;\
     asm volatile (#op " %2, %0" : "=y" (r.q[0]) : "0" (a.q[0]), "y" (b.q[0]));\
-    printf("%-9s: a=" FMT64X " b=" FMT64X " ib=%02x r=" FMT64X "\n",\
+    printf("%-9s: a=" FMT64X " b=" FMT64X " ib=%02llx r=" FMT64X "\n",\
            #op,\
            a.q[0],\
            b.q[0],\
-           ib,\
+           (uint64_t)ib,\
            r.q[0]);\
     }\
 }
 
-#define SHIFT_OP(op, ib)\
-SHIFT_OP_MMX(op, ib)\
+// To use mm0-7 registers instead of xmm registers
+#define SHIFT_OP_MMX(op, ib)\
+{\
+    SHIFT_IM_MMX(op, ib);\
+    SHIFT_REG_MMX(op, ib);\
+}
+
+#define SHIFT_REG(op, ib)\
 {\
     int i;\
-    SHIFT_IM(op, ib);\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     a.q[1] = test_values[2*i][1];\
     b.q[0] = ib;\
@@ -2480,10 +2483,18 @@ SHIFT_OP_MMX(op, ib)\
     }\
 }
 
+
+#define SHIFT_OP(op, ib)\
+{\
+    SHIFT_OP_MMX(op, ib)\
+    SHIFT_IM(op, ib);\
+    SHIFT_REG(op, ib);\
+}
+
 #define MOVMSK(op)\
 {\
     int i, reg;\
-    for(i=0;i<2;i++) {\
+    for(i=0;i<sizeof(test_values)/sizeof(uint64_t)/4;i++) {\
     a.q[0] = test_values[2*i][0];\
     a.q[1] = test_values[2*i][1];\
     asm volatile (#op " %1, %0" : "=r" (reg) : "x" (a.dq));\
@@ -2780,29 +2791,45 @@ void test_sse(void)
     SHIFT_OP(psrlw, 0);
     SHIFT_OP(psrlw, 7);
     SHIFT_OP(psrlw, 16);
+    SHIFT_REG(psrlw, 0x100000000);
+    SHIFT_REG_MMX(psrlw, 0x100000000);
     SHIFT_OP(psraw, 0);
     SHIFT_OP(psraw, 7);
     SHIFT_OP(psraw, 16);
+    SHIFT_REG(psraw, 0x100000000);
+    SHIFT_REG_MMX(psraw, 0x100000000);
     SHIFT_OP(psllw, 0);
     SHIFT_OP(psllw, 7);
     SHIFT_OP(psllw, 16);
+    SHIFT_REG(psllw, 0x100000000);
+    SHIFT_REG_MMX(psllw, 0x100000000);
 
     SHIFT_OP(psrld, 0);
     SHIFT_OP(psrld, 7);
     SHIFT_OP(psrld, 32);
+    SHIFT_REG(psrld, 0x100000000);
+    SHIFT_REG_MMX(psrld, 0x100000000);
     SHIFT_OP(psrad, 0);
     SHIFT_OP(psrad, 7);
     SHIFT_OP(psrad, 32);
+    SHIFT_REG(psrad, 0x100000000);
+    SHIFT_REG_MMX(psrad, 0x100000000);
     SHIFT_OP(pslld, 0);
     SHIFT_OP(pslld, 7);
     SHIFT_OP(pslld, 32);
+    SHIFT_REG(pslld, 0x100000000);
+    SHIFT_REG_MMX(pslld, 0x100000000);
 
     SHIFT_OP(psrlq, 0);
     SHIFT_OP(psrlq, 7);
     SHIFT_OP(psrlq, 32);
+    SHIFT_REG(psrlq, 0x100000000);
+    SHIFT_REG_MMX(psrlq, 0x100000000);
     SHIFT_OP(psllq, 0);
     SHIFT_OP(psllq, 7);
     SHIFT_OP(psllq, 32);
+    SHIFT_REG(psllq, 0x100000000);
+    SHIFT_REG_MMX(psllq, 0x100000000);
 
     // byte-wise shifts
     SHIFT_IM(psrldq, 0);
