@@ -21,8 +21,6 @@ extern "C" {
     #[no_mangle]
     fn cpuid();
     #[no_mangle]
-    fn cpl_changed();
-    #[no_mangle]
     fn update_cs_size(cs_size: bool);
     #[no_mangle]
     fn set_cr0(cr0: i32);

@@ -892,6 +892,11 @@ pub unsafe fn get_seg(mut segment: i32) -> i32 {
     return *segment_offsets.offset(segment as isize);
 }
 
+pub unsafe fn cpl_changed() {
+    *last_virt_eip = -1;
+    *last_virt_esp = -1;
+}
+
 pub unsafe fn test_privileges_for_io(port: i32, size: i32) -> bool {
     if *protected_mode && (*cpl > getiopl() as u8 || (*flags & FLAG_VM != 0)) {
         if !*tss_size_32 {
