@@ -303,8 +303,15 @@ macro_rules! define_instruction_write_reg32(
     )
 );
 
+macro_rules! mask_imm(
+    ($imm:expr, imm8_5bits) => { $imm & 31 };
+    ($imm:expr, imm8s) => { $imm };
+    ($imm:expr, imm16) => { $imm };
+    ($imm:expr, imm32) => { $imm };
+);
+
 macro_rules! make_imm_read(
-    ($ctx:expr, imm8) => { $ctx.cpu.read_imm8() };
+    ($ctx:expr, imm8_5bits) => { $ctx.cpu.read_imm8() & 31 };
     ($ctx:expr, imm8s) => { $ctx.cpu.read_imm8s() };
     ($ctx:expr, imm16) => { $ctx.cpu.read_imm16() };
     ($ctx:expr, imm32) => { $ctx.cpu.read_imm32() };
@@ -418,6 +425,7 @@ macro_rules! define_instruction_read_write_mem16(
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, imm: u32) {
+            let imm = mask_imm!(imm, $imm);
             ctx.builder.instruction_body.const_i32(global_pointers::get_reg16_offset(r1) as i32);
             codegen::gen_get_reg16(ctx.builder, r1);
             ctx.builder.instruction_body.const_i32(imm as i32);
@@ -535,6 +543,7 @@ macro_rules! define_instruction_read_write_mem32(
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, imm: u32) {
+            let imm = mask_imm!(imm, $imm);
             ctx.builder.instruction_body.const_i32(global_pointers::get_reg32_offset(r1) as i32);
             codegen::gen_get_reg32(ctx.builder, r1);
             ctx.builder.instruction_body.const_i32(imm as i32);
@@ -1169,14 +1178,14 @@ define_instruction_read_write_mem16!(
     "instr16_C1_0_mem",
     instr16_C1_0_mem_jit,
     instr16_C1_0_reg_jit,
-    imm8
+    imm8_5bits
 );
 define_instruction_read_write_mem32!(
     "rol32",
     "instr32_C1_0_mem",
     instr32_C1_0_mem_jit,
     instr32_C1_0_reg_jit,
-    imm8
+    imm8_5bits
 );
 
 define_instruction_read_write_mem16!(
@@ -1184,14 +1193,14 @@ define_instruction_read_write_mem16!(
     "instr16_C1_1_mem",
     instr16_C1_1_mem_jit,
     instr16_C1_1_reg_jit,
-    imm8
+    imm8_5bits
 );
 define_instruction_read_write_mem32!(
     "ror32",
     "instr32_C1_1_mem",
     instr32_C1_1_mem_jit,
     instr32_C1_1_reg_jit,
-    imm8
+    imm8_5bits
 );
 
 define_instruction_read_write_mem16!(
@@ -1199,14 +1208,14 @@ define_instruction_read_write_mem16!(
     "instr16_C1_2_mem",
     instr16_C1_2_mem_jit,
     instr16_C1_2_reg_jit,
-    imm8
+    imm8_5bits
 );
 define_instruction_read_write_mem32!(
     "rcl32",
     "instr32_C1_2_mem",
     instr32_C1_2_mem_jit,
     instr32_C1_2_reg_jit,
-    imm8
+    imm8_5bits
 );
 
 define_instruction_read_write_mem16!(
@@ -1214,14 +1223,14 @@ define_instruction_read_write_mem16!(
     "instr16_C1_3_mem",
     instr16_C1_3_mem_jit,
     instr16_C1_3_reg_jit,
-    imm8
+    imm8_5bits
 );
 define_instruction_read_write_mem32!(
     "rcr32",
     "instr32_C1_3_mem",
     instr32_C1_3_mem_jit,
     instr32_C1_3_reg_jit,
-    imm8
+    imm8_5bits
 );
 
 define_instruction_read_write_mem16!(
@@ -1229,14 +1238,14 @@ define_instruction_read_write_mem16!(
     "instr16_C1_4_mem",
     instr16_C1_4_mem_jit,
     instr16_C1_4_reg_jit,
-    imm8
+    imm8_5bits
 );
 define_instruction_read_write_mem32!(
     "shl32",
     "instr32_C1_4_mem",
     instr32_C1_4_mem_jit,
     instr32_C1_4_reg_jit,
-    imm8
+    imm8_5bits
 );
 
 define_instruction_read_write_mem16!(
@@ -1244,14 +1253,14 @@ define_instruction_read_write_mem16!(
     "instr16_C1_5_mem",
     instr16_C1_5_mem_jit,
     instr16_C1_5_reg_jit,
-    imm8
+    imm8_5bits
 );
 define_instruction_read_write_mem32!(
     "shr32",
     "instr32_C1_5_mem",
     instr32_C1_5_mem_jit,
     instr32_C1_5_reg_jit,
-    imm8
+    imm8_5bits
 );
 
 define_instruction_read_write_mem16!(
@@ -1259,14 +1268,14 @@ define_instruction_read_write_mem16!(
     "instr16_C1_6_mem",
     instr16_C1_6_mem_jit,
     instr16_C1_6_reg_jit,
-    imm8
+    imm8_5bits
 );
 define_instruction_read_write_mem32!(
     "shl32",
     "instr32_C1_6_mem",
     instr32_C1_6_mem_jit,
     instr32_C1_6_reg_jit,
-    imm8
+    imm8_5bits
 );
 
 define_instruction_read_write_mem16!(
@@ -1274,14 +1283,14 @@ define_instruction_read_write_mem16!(
     "instr16_C1_7_mem",
     instr16_C1_7_mem_jit,
     instr16_C1_7_reg_jit,
-    imm8
+    imm8_5bits
 );
 define_instruction_read_write_mem32!(
     "sar32",
     "instr32_C1_7_mem",
     instr32_C1_7_mem_jit,
     instr32_C1_7_reg_jit,
-    imm8
+    imm8_5bits
 );
 
 pub fn instr16_E8_jit(ctx: &mut JitContext, imm: u32) {

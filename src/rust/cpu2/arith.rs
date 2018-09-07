@@ -426,8 +426,10 @@ pub unsafe fn xor8(mut x: i32, mut y: i32) -> i32 { return xor(x, y, OPSIZE_8); 
 pub unsafe fn xor16(mut x: i32, mut y: i32) -> i32 { return xor(x, y, OPSIZE_16); }
 #[no_mangle]
 pub unsafe fn xor32(mut x: i32, mut y: i32) -> i32 { return xor(x, y, OPSIZE_32); }
+
 #[no_mangle]
 pub unsafe fn rol8(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if 0 == count {
         return dest_operand;
     }
@@ -443,6 +445,7 @@ pub unsafe fn rol8(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn rol16(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if 0 == count {
         return dest_operand;
     }
@@ -458,6 +461,7 @@ pub unsafe fn rol16(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn rol32(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if 0 == count {
         return dest_operand;
     }
@@ -473,6 +477,7 @@ pub unsafe fn rol32(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn rcl8(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     count %= 9;
     if 0 == count {
         return dest_operand;
@@ -489,6 +494,7 @@ pub unsafe fn rcl8(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn rcl16(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     count %= 17;
     if 0 == count {
         return dest_operand;
@@ -505,6 +511,7 @@ pub unsafe fn rcl16(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn rcl32(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if 0 == count {
         return dest_operand;
     }
@@ -522,6 +529,7 @@ pub unsafe fn rcl32(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn ror8(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if 0 == count {
         return dest_operand;
     }
@@ -537,6 +545,7 @@ pub unsafe fn ror8(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn ror16(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if 0 == count {
         return dest_operand;
     }
@@ -552,6 +561,7 @@ pub unsafe fn ror16(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn ror32(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if 0 == count {
         return dest_operand;
     }
@@ -567,6 +577,7 @@ pub unsafe fn ror32(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn rcr8(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     count %= 9;
     if 0 == count {
         return dest_operand;
@@ -583,6 +594,7 @@ pub unsafe fn rcr8(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn rcr16(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     count %= 17;
     if 0 == count {
         return dest_operand;
@@ -599,6 +611,7 @@ pub unsafe fn rcr16(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn rcr32(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if 0 == count {
         return dest_operand;
     }
@@ -634,6 +647,7 @@ pub unsafe fn div8(mut source_operand: u32) {
         return;
     };
 }
+
 #[no_mangle]
 pub unsafe fn idiv8(mut source_operand: i32) {
     if source_operand == 0 {
@@ -745,8 +759,10 @@ pub unsafe fn idiv32(mut source_operand: i32) {
         }
     };
 }
+
 #[no_mangle]
 pub unsafe fn shl8(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
         return dest_operand;
     }
@@ -762,6 +778,7 @@ pub unsafe fn shl8(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn shl16(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
         return dest_operand;
     }
@@ -777,6 +794,7 @@ pub unsafe fn shl16(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn shl32(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
         return dest_operand;
     }
@@ -792,6 +810,7 @@ pub unsafe fn shl32(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn shr8(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
         return dest_operand;
     }
@@ -807,6 +826,7 @@ pub unsafe fn shr8(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn shr16(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
         return dest_operand;
     }
@@ -822,6 +842,7 @@ pub unsafe fn shr16(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn shr32(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
         return dest_operand;
     }
@@ -837,6 +858,7 @@ pub unsafe fn shr32(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn sar8(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
         return dest_operand;
     }
@@ -857,6 +879,7 @@ pub unsafe fn sar8(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn sar16(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
         return dest_operand;
     }
@@ -876,6 +899,7 @@ pub unsafe fn sar16(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn sar32(mut dest_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
         return dest_operand;
     }
@@ -888,8 +912,10 @@ pub unsafe fn sar32(mut dest_operand: i32, mut count: i32) -> i32 {
         return *last_result;
     };
 }
+
 #[no_mangle]
 pub unsafe fn shrd16(mut dest_operand: i32, mut source_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
         return dest_operand;
     }
@@ -910,6 +936,7 @@ pub unsafe fn shrd16(mut dest_operand: i32, mut source_operand: i32, mut count: 
 }
 #[no_mangle]
 pub unsafe fn shrd32(mut dest_operand: i32, mut source_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
         return dest_operand;
     }
@@ -925,6 +952,7 @@ pub unsafe fn shrd32(mut dest_operand: i32, mut source_operand: i32, mut count: 
 }
 #[no_mangle]
 pub unsafe fn shld16(mut dest_operand: i32, mut source_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
         return dest_operand;
     }
@@ -946,6 +974,7 @@ pub unsafe fn shld16(mut dest_operand: i32, mut source_operand: i32, mut count: 
 }
 #[no_mangle]
 pub unsafe fn shld32(mut dest_operand: i32, mut source_operand: i32, mut count: i32) -> i32 {
+    dbg_assert!(count >= 0 && count < 32);
     if count == 0 {
         return dest_operand;
     }
@@ -964,6 +993,7 @@ pub unsafe fn shld32(mut dest_operand: i32, mut source_operand: i32, mut count: 
         return *last_result;
     };
 }
+
 #[no_mangle]
 pub unsafe fn bt_reg(mut bit_base: i32, mut bit_offset: i32) {
     *flags = *flags & !1 | bit_base >> bit_offset & 1;
