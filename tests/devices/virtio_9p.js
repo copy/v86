@@ -997,6 +997,98 @@ const tests =
                 "lock-shared-3\n" +
                 "lock-exclusive-3\n");
 
+            const idx = emulator.fs9p.Search(0, "file");
+
+            const P9_LOCK_TYPE_RDLCK = 0;
+            const P9_LOCK_TYPE_WRLCK = 1;
+            const P9_LOCK_TYPE_UNLCK = 2;
+            const P9_LOCK_SUCCESS = 0;
+            const P9_LOCK_BLOCKED = 1;
+            const CLIENT_ID = "under test";
+
+            function test_getlock(num, type, pos, proc_id, locked)
+            {
+                const lock = emulator.fs9p.DescribeLock(type, pos, 1, proc_id, CLIENT_ID);
+                const ret = emulator.fs9p.GetLock(idx, lock, 0);
+                assert_equal(ret !== null, locked,
+                    `getlock ${num}: type=${type}, pos=${pos}, proc_id=${proc_id}. Wrong state:`);
+            }
+
+            function test_lock(num, type, start, length, proc_id, status, lock_state)
+            {
+                console.log(`    Lock ${num}: type=${type}, start=${start}, length=${length} ` +
+                    ` proc_id=${proc_id}, expected state=${lock_state}`);
+
+                const lock = emulator.fs9p.DescribeLock(type, start, length, proc_id, CLIENT_ID);
+                assert_equal(emulator.fs9p.Lock(idx, lock, 0), status, "Wrong status:");
+
+                for(const [i, state] of [...lock_state].entries())
+                {
+                    switch(state)
+                    {
+                        case "1":
+                            test_getlock(num, P9_LOCK_TYPE_WRLCK, i, 1, false);
+                            test_getlock(num, P9_LOCK_TYPE_RDLCK, i, 2, false);
+                            test_getlock(num, P9_LOCK_TYPE_WRLCK, i, 2, true);
+                            break;
+                        case "2":
+                            test_getlock(num, P9_LOCK_TYPE_WRLCK, i, 2, false);
+                            test_getlock(num, P9_LOCK_TYPE_RDLCK, i, 1, false);
+                            test_getlock(num, P9_LOCK_TYPE_WRLCK, i, 1, true);
+                            break;
+                        case "3":
+                            test_getlock(num, P9_LOCK_TYPE_RDLCK, i, 1, false);
+                            test_getlock(num, P9_LOCK_TYPE_WRLCK, i, 1, true);
+                            test_getlock(num, P9_LOCK_TYPE_RDLCK, i, 2, false);
+                            test_getlock(num, P9_LOCK_TYPE_WRLCK, i, 2, true);
+                            break;
+                        case "e":
+                            test_getlock(num, P9_LOCK_TYPE_RDLCK, i, 1, false);
+                            test_getlock(num, P9_LOCK_TYPE_RDLCK, i, 2, true);
+                            break;
+                        case "E":
+                            test_getlock(num, P9_LOCK_TYPE_RDLCK, i, 1, true);
+                            test_getlock(num, P9_LOCK_TYPE_RDLCK, i, 2, false);
+                            break;
+                        case "-":
+                            test_getlock(num, P9_LOCK_TYPE_WRLCK, i, 1, false);
+                            test_getlock(num, P9_LOCK_TYPE_WRLCK, i, 2, false);
+                            break;
+                    }
+                }
+            }
+
+            // Key:
+            // 1/2/3 = shared lock by process 1/2/both
+            // e/E   = exclusive lock by process 1/2
+            // -     = no locks
+            test_lock(0, P9_LOCK_TYPE_RDLCK, 0, 1, 1, P9_LOCK_SUCCESS, "1-------"); // First lock.
+            test_lock(1, P9_LOCK_TYPE_RDLCK, 0, 2, 1, P9_LOCK_SUCCESS, "11------"); // Replace.
+            test_lock(2, P9_LOCK_TYPE_RDLCK, 1, 1, 2, P9_LOCK_SUCCESS, "13------");
+            test_lock(3, P9_LOCK_TYPE_RDLCK, 2, 2, 1, P9_LOCK_SUCCESS, "1311----"); // Skip. Merge before.
+            test_lock(4, P9_LOCK_TYPE_WRLCK, 0, 1, 1, P9_LOCK_SUCCESS, "e311----"); // Shrink left.
+            test_lock(5, P9_LOCK_TYPE_WRLCK, 1, 1, 1, P9_LOCK_BLOCKED, "e311----");
+            test_lock(6, P9_LOCK_TYPE_UNLCK, 0, 4, 1, P9_LOCK_SUCCESS, "-2------"); // Delete.
+            test_lock(7, P9_LOCK_TYPE_WRLCK, 1, 2, 1, P9_LOCK_BLOCKED, "-2------");
+            test_lock(8, P9_LOCK_TYPE_UNLCK, 1, 3, 2, P9_LOCK_SUCCESS, "--------"); // Delete.
+            test_lock(9, P9_LOCK_TYPE_WRLCK, 1, 1, 1, P9_LOCK_SUCCESS, "-e------");
+            test_lock(10, P9_LOCK_TYPE_RDLCK, 3, 3, 1, P9_LOCK_SUCCESS, "-e-111--"); // Skip.
+            test_lock(11, P9_LOCK_TYPE_RDLCK, 2, 1, 2, P9_LOCK_SUCCESS, "-e2111--"); // Skip past.
+            test_lock(12, P9_LOCK_TYPE_UNLCK, 2, 1, 2, P9_LOCK_SUCCESS, "-e-111--"); // Delete.
+            test_lock(13, P9_LOCK_TYPE_WRLCK, 0, 1, 1, P9_LOCK_SUCCESS, "ee-111--");
+            test_lock(14, P9_LOCK_TYPE_WRLCK, 1, 4, 1, P9_LOCK_SUCCESS, "eeeee1--"); // Merge before. Shrink both ways.
+            test_lock(15, P9_LOCK_TYPE_WRLCK, 1, 2, 2, P9_LOCK_BLOCKED, "eeeee1--");
+            test_lock(16, P9_LOCK_TYPE_RDLCK, 4, 5, 2, P9_LOCK_BLOCKED, "eeeee1--");
+            test_lock(17, P9_LOCK_TYPE_RDLCK, 5, 0, 2, P9_LOCK_SUCCESS, "eeeee322");
+            test_lock(18, P9_LOCK_TYPE_UNLCK, 0, 0, 1, P9_LOCK_SUCCESS, "-----222"); // Replace.
+            test_lock(19, P9_LOCK_TYPE_RDLCK, 4, 0, 2, P9_LOCK_SUCCESS, "----2222"); // Replace.
+            test_lock(20, P9_LOCK_TYPE_WRLCK, 2, 0, 2, P9_LOCK_SUCCESS, "--EEEEEE"); // Replace.
+            test_lock(21, P9_LOCK_TYPE_WRLCK, 0, 1, 2, P9_LOCK_SUCCESS, "E-EEEEEE");
+            test_lock(22, P9_LOCK_TYPE_WRLCK, 1, 3, 2, P9_LOCK_SUCCESS, "EEEEEEEE"); // Merge both. Shrink left.
+            test_lock(23, P9_LOCK_TYPE_RDLCK, 3, 4, 2, P9_LOCK_SUCCESS, "EEE2222E"); // Split.
+            test_lock(24, P9_LOCK_TYPE_RDLCK, 1, 2, 2, P9_LOCK_SUCCESS, "E222222E"); // Merge after. Shrink right.
+            test_lock(25, P9_LOCK_TYPE_RDLCK, 2, 3, 2, P9_LOCK_SUCCESS, "E222222E"); // No-op.
+
             done();
         },
     },
