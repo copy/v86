@@ -958,6 +958,49 @@ const tests =
         },
     },
     {
+        name: "File Locks",
+        timeout: 60,
+        start: () =>
+        {
+            emulator.serial0_send("touch /mnt/file\n");
+            emulator.serial0_send("mkfifo /mnt/fifo1\n");
+            emulator.serial0_send("mkfifo /mnt/fifo2\n");
+
+            emulator.serial0_send("flock -s /mnt/file -c 'cat /mnt/fifo1 >> /mnt/file' &\n");
+            emulator.serial0_send("flock -s /mnt/file -c 'echo lock-shared-2 >> /mnt/file' \n");
+            emulator.serial0_send("echo lock-shared-1 > /mnt/fifo1\n");
+
+            emulator.serial0_send("flock -x /mnt/file -c 'cat /mnt/fifo1 >> /mnt/file' &\n");
+            emulator.serial0_send("flock -x /mnt/file -c 'echo lock-exclusive-2 >> /mnt/file' &\n");
+            emulator.serial0_send("echo lock-exclusive-1 > /mnt/fifo1\n");
+
+            emulator.serial0_send("flock -s /mnt/file -c 'cat /mnt/fifo1 >> /mnt/file' &\n");
+            emulator.serial0_send("flock -s /mnt/file -c 'cat /mnt/fifo2 >> /mnt/file' &\n");
+            emulator.serial0_send("flock -x /mnt/file -c 'echo lock-exclusive-3 >> /mnt/file' &\n");
+            emulator.serial0_send("echo lock-shared-4 > /mnt/fifo2\n");
+            emulator.serial0_send("echo lock-shared-3 > /mnt/fifo1\n");
+
+            emulator.serial0_send("echo start-capture;\\\n");
+            emulator.serial0_send("cat /mnt/file;\\\n");
+            emulator.serial0_send("echo done-locks\n");
+        },
+        capture_trigger: "start-capture",
+        end_trigger: "done-locks",
+        end: (capture, done) =>
+        {
+            assert_equal(capture,
+                "lock-shared-2\n" +
+                "lock-shared-1\n" +
+                "lock-exclusive-1\n" +
+                "lock-exclusive-2\n" +
+                "lock-shared-4\n" +
+                "lock-shared-3\n" +
+                "lock-exclusive-3\n");
+
+            done();
+        },
+    },
+    {
         name: "Stress Files",
         timeout: 360,
         start: () =>
