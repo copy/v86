@@ -2,7 +2,7 @@ use cpu2::cpu::{
     safe_read16, safe_read32s, safe_write16, safe_write32, translate_address_read,
     translate_address_system_read, translate_address_system_write, writable_or_pagefault,
 };
-use cpu2::misc_instr::{pop16, pop32s, push16, push32};
+use cpu2::misc_instr::{push16, push32};
 
 #[no_mangle]
 pub unsafe fn safe_read16_js(addr: i32) -> i32 { safe_read16(addr).unwrap() }
@@ -35,9 +35,3 @@ pub unsafe fn push16_js(value: i32) { push16(value).unwrap() }
 
 #[no_mangle]
 pub unsafe fn push32_js(value: i32) { push32(value).unwrap() }
-
-#[no_mangle]
-pub unsafe fn pop16_js() -> i32 { pop16().unwrap() }
-
-#[no_mangle]
-pub unsafe fn pop32s_js() -> i32 { pop32s().unwrap() }

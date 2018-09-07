@@ -40,8 +40,6 @@ extern void mmap_write128(uint32_t, int32_t, int32_t, int32_t, int32_t);
 extern void mmap_write16(uint32_t, int32_t);
 extern void mmap_write32(uint32_t, int32_t);
 extern void mmap_write8(uint32_t, int32_t);
-extern void popa16(void);
-extern void popa32(void);
 extern void undefined_instruction(void);
 extern void unimplemented_sse(void);
 extern void update_eflags(int32_t);

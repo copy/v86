@@ -316,8 +316,6 @@ CPU.prototype.wasm_patch = function(wm)
 
     this.push16 = get_import("push16_js");
     this.push32 = get_import("push32_js");
-    this.pop16 = get_import("pop16_js");
-    this.pop32s = get_import("pop32s_js");
 
     this.set_stack_reg = get_import("set_stack_reg");
 
@@ -3609,36 +3607,6 @@ CPU.prototype.is_osize_32 = function()
 CPU.prototype.is_asize_32 = function()
 {
     return Boolean(this.is_32[0]) !== ((this.prefixes[0] & PREFIX_MASK_ADDRSIZE) === PREFIX_MASK_ADDRSIZE);
-};
-
-CPU.prototype.popa16 = function()
-{
-    this.translate_address_read(this.get_stack_pointer(0));
-    this.translate_address_read(this.get_stack_pointer(15));
-
-    this.reg16[reg_di] = this.pop16();
-    this.reg16[reg_si] = this.pop16();
-    this.reg16[reg_bp] = this.pop16();
-    this.adjust_stack_reg(2);
-    this.reg16[reg_bx] = this.pop16();
-    this.reg16[reg_dx] = this.pop16();
-    this.reg16[reg_cx] = this.pop16();
-    this.reg16[reg_ax] = this.pop16();
-};
-
-CPU.prototype.popa32 = function()
-{
-    this.translate_address_read(this.get_stack_pointer(0));
-    this.translate_address_read(this.get_stack_pointer(31));
-
-    this.reg32s[reg_edi] = this.pop32s();
-    this.reg32s[reg_esi] = this.pop32s();
-    this.reg32s[reg_ebp] = this.pop32s();
-    this.adjust_stack_reg(4);
-    this.reg32s[reg_ebx] = this.pop32s();
-    this.reg32s[reg_edx] = this.pop32s();
-    this.reg32s[reg_ecx] = this.pop32s();
-    this.reg32s[reg_eax] = this.pop32s();
 };
 
 CPU.prototype.lss16 = function(addr, reg, seg)

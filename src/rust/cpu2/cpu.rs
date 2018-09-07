@@ -23,7 +23,9 @@ use cpu2::memory::{
     in_mapped_range, read128, read16, read32s, read64s, read8, read_aligned16, read_aligned32,
     write128, write16, write32, write64, write8, write_aligned32,
 };
-use cpu2::misc_instr::{getaf, getcf, getof, getpf, getsf, getzf};
+use cpu2::misc_instr::{
+    adjust_stack_reg, get_stack_pointer, getaf, getcf, getof, getpf, getsf, getzf, pop16, pop32s,
+};
 use cpu2::modrm::{resolve_modrm16, resolve_modrm32};
 use paging::OrPageFault;
 use profiler;
@@ -976,6 +978,34 @@ pub unsafe fn test_privileges_for_io(port: i32, size: i32) -> bool {
     }
 
     return true;
+}
+
+pub unsafe fn popa16() {
+    return_on_pagefault!(translate_address_read(get_stack_pointer(0)));
+    return_on_pagefault!(translate_address_read(get_stack_pointer(15)));
+
+    *reg16.offset(DI as isize) = pop16().unwrap() as u16;
+    *reg16.offset(SI as isize) = pop16().unwrap() as u16;
+    *reg16.offset(BP as isize) = pop16().unwrap() as u16;
+    adjust_stack_reg(2);
+    *reg16.offset(BX as isize) = pop16().unwrap() as u16;
+    *reg16.offset(DX as isize) = pop16().unwrap() as u16;
+    *reg16.offset(CX as isize) = pop16().unwrap() as u16;
+    *reg16.offset(AX as isize) = pop16().unwrap() as u16;
+}
+
+pub unsafe fn popa32() {
+    return_on_pagefault!(translate_address_read(get_stack_pointer(0)));
+    return_on_pagefault!(translate_address_read(get_stack_pointer(31)));
+
+    *reg32s.offset(EDI as isize) = pop32s().unwrap();
+    *reg32s.offset(ESI as isize) = pop32s().unwrap();
+    *reg32s.offset(EBP as isize) = pop32s().unwrap();
+    adjust_stack_reg(4);
+    *reg32s.offset(EBX as isize) = pop32s().unwrap();
+    *reg32s.offset(EDX as isize) = pop32s().unwrap();
+    *reg32s.offset(ECX as isize) = pop32s().unwrap();
+    *reg32s.offset(EAX as isize) = pop32s().unwrap();
 }
 
 pub unsafe fn trigger_gp(mut code: i32) {

@@ -11,10 +11,6 @@ extern "C" {
     fn enter32(size: i32, nesting_level: i32);
 
     #[no_mangle]
-    fn popa16();
-    #[no_mangle]
-    fn popa32();
-    #[no_mangle]
     fn arpl(seg: i32, r: i32) -> i32;
     #[no_mangle]
     fn far_jump(eip: i32, selector: i32, is_call: bool);

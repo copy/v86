@@ -204,8 +204,6 @@ function V86Starter(options)
         "mmap_write32": function(addr, value) { return cpu.mmap_write32(addr, value); },
         "mmap_write128": function(addr, value0, value1, value2, value3) { return cpu.mmap_write128(addr, value0, value1, value2, value3); },
 
-        "popa16": function() { return cpu.popa16.apply(cpu, arguments); },
-        "popa32": function() { return cpu.popa32.apply(cpu, arguments); },
         "arpl": function() { return cpu.arpl.apply(cpu, arguments); },
 
         "lar": function() { return cpu.lar.apply(cpu, arguments); },
