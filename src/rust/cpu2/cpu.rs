@@ -921,6 +921,14 @@ pub unsafe fn cpl_changed() {
     *last_virt_esp = -1;
 }
 
+pub unsafe fn update_cs_size(new_size: bool) {
+    if *is_32 != new_size {
+        *is_32 = new_size;
+        // TODO:
+        // update_operand_size();
+    }
+}
+
 pub unsafe fn test_privileges_for_io(port: i32, size: i32) -> bool {
     if *protected_mode && (*cpl > getiopl() as u8 || (*flags & FLAG_VM != 0)) {
         if !*tss_size_32 {
