@@ -151,6 +151,7 @@ pub const CR0_EM: i32 = 1 << 2;
 pub const CR0_TS: i32 = 1 << 3;
 pub const CR0_ET: i32 = 1 << 4;
 pub const CR0_WP: i32 = 1 << 16;
+pub const CR0_AM: i32 = 1 << 18;
 pub const CR0_NW: i32 = 1 << 29;
 pub const CR0_CD: i32 = 1 << 30;
 pub const CR0_PG: i32 = 1 << 31;
@@ -890,6 +891,29 @@ pub unsafe fn get_seg(mut segment: i32) -> i32 {
         }
     }
     return *segment_offsets.offset(segment as isize);
+}
+
+pub unsafe fn set_cr0(cr0: i32) {
+    if cr0 & CR0_AM != 0 {
+        dbg_log!("Warning: Unimplemented: cr0 alignment mask");
+    }
+
+    if (cr0 & (CR0_PE | CR0_PG)) == CR0_PG {
+        panic!("cannot load PG without PE");
+    }
+
+    let old_cr0 = *cr;
+
+    *cr = cr0;
+
+    // TODO: Consider have_fpu and CR0_EM emulation set
+    *cr |= CR0_ET;
+
+    if old_cr0 & (CR0_PG | CR0_WP) != cr0 & (CR0_PG | CR0_WP) {
+        full_clear_tlb();
+    }
+
+    *protected_mode = (*cr & CR0_PE) == CR0_PE;
 }
 
 pub unsafe fn cpl_changed() {

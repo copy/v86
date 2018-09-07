@@ -1453,40 +1453,6 @@ CPU.prototype.run_hardware_timers = function(now)
     }
 };
 
-CPU.prototype.set_cr0 = function(cr0)
-{
-    //dbg_log("cr0 = " + h(this.cr[0] >>> 0), LOG_CPU);
-
-    if(cr0 & CR0_AM)
-    {
-        dbg_log("Warning: Unimplemented: cr0 alignment mask", LOG_CPU);
-    }
-
-    if((cr0 & (CR0_PE | CR0_PG)) === CR0_PG)
-    {
-        // cannot load PG without PE
-        throw this.debug.unimpl("#GP handler");
-    }
-
-    const old_cr0 = this.cr[0];
-
-    this.cr[0] = cr0;
-
-    //if(!have_fpu)
-    //{
-    //    // if there's no FPU, keep emulation set
-    //    this.cr[0] |= CR0_EM;
-    //}
-    this.cr[0] |= CR0_ET;
-
-    if((old_cr0 & (CR0_PG | CR0_WP)) !== (cr0 & (CR0_PG | CR0_WP)))
-    {
-        this.full_clear_tlb();
-    }
-
-    this.protected_mode[0] = +((this.cr[0] & CR0_PE) === CR0_PE);
-};
-
 CPU.prototype.cpl_changed = function()
 {
     this.last_virt_eip[0] = -1;

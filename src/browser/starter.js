@@ -213,7 +213,6 @@ function V86Starter(options)
         "verw": function() { return cpu.verw.apply(cpu, arguments); },
         "verr": function() { return cpu.verr.apply(cpu, arguments); },
 
-        "set_cr0": function() { return cpu.set_cr0.apply(cpu, arguments); },
         "update_cs_size": function() { return cpu.update_cs_size.apply(cpu, arguments); },
         "cpuid": function() { return cpu.cpuid.apply(cpu, arguments); },
 

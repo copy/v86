@@ -23,8 +23,6 @@ extern "C" {
     #[no_mangle]
     fn update_cs_size(cs_size: bool);
     #[no_mangle]
-    fn set_cr0(cr0: i32);
-    #[no_mangle]
     fn lsl(r: i32, v: i32) -> i32;
     #[no_mangle]
     fn lar(r: i32, v: i32) -> i32;

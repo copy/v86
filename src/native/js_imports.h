@@ -21,11 +21,9 @@ extern int32_t lsl(int32_t, int32_t);
 extern int32_t mmap_read16(uint32_t);
 extern int32_t mmap_read32(uint32_t);
 extern int32_t mmap_read8(uint32_t);
-extern int32_t set_cr0(int32_t);
 extern int32_t verr(int32_t);
 extern int32_t verw(int32_t);
 
-extern void cpl_changed(void);
 extern void cpuid(void);
 extern void enter16(int32_t, int32_t);
 extern void enter32(int32_t, int32_t);
