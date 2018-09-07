@@ -408,23 +408,21 @@ const tests =
         ],
         start: () =>
         {
-            // Helper script that prints filename followed by nlinks.
-            emulator.serial0_send('cat << "EOF" > /mnt/nlinks\n');
-            emulator.serial0_send('#!/bin/sh\n');
-            emulator.serial0_send(`ls -dli $@ | awk '{ print "'$@' "$3 }'\n`);
-            emulator.serial0_send("EOF\n");
-            emulator.serial0_send("chmod +x /mnt/nlinks\n");
+            // Helper that prints filename followed by nlinks.
+            emulator.serial0_send("nlinks() {\n");
+            emulator.serial0_send(`  ls -dli $@ | awk '{ print "'$@' "$3 }'\n`);
+            emulator.serial0_send("}\n");
 
             // Check nlinks before mkdir.
-            emulator.serial0_send("/mnt/nlinks /mnt | tee -a /mnt/target\n");
+            emulator.serial0_send("nlinks /mnt | tee -a /mnt/target\n");
 
             emulator.serial0_send("mkdir /mnt/dir\n");
             emulator.serial0_send("echo other > /mnt/target2\n");
 
             // Check nlinks after mkdir.
-            emulator.serial0_send("/mnt/nlinks /mnt | tee -a /mnt/target\n");
-            emulator.serial0_send("/mnt/nlinks /mnt/dir | tee -a /mnt/target\n");
-            emulator.serial0_send("/mnt/nlinks /mnt/target | tee -a /mnt/target\n");
+            emulator.serial0_send("nlinks /mnt | tee -a /mnt/target\n");
+            emulator.serial0_send("nlinks /mnt/dir | tee -a /mnt/target\n");
+            emulator.serial0_send("nlinks /mnt/target | tee -a /mnt/target\n");
 
             // Create hard links.
             emulator.serial0_send("ln /mnt/target /mnt/link1\n");
@@ -441,12 +439,12 @@ const tests =
             emulator.serial0_send("  echo different inode | tee -a /mnt/link1; }\n");
 
             // Check nlinks after hard links.
-            emulator.serial0_send("/mnt/nlinks /mnt | tee -a /mnt/dir/link2\n");
-            emulator.serial0_send("/mnt/nlinks /mnt/dir | tee -a /mnt/dir/link2\n");
-            emulator.serial0_send("/mnt/nlinks /mnt/target | tee -a /mnt/dir/link2\n");
-            emulator.serial0_send("/mnt/nlinks /mnt/dir/link2 | tee -a /mnt/dir/link2\n");
-            emulator.serial0_send("/mnt/nlinks /mnt/target2 | tee -a /mnt/dir/link2\n");
-            emulator.serial0_send("/mnt/nlinks /mnt/link-other | tee -a /mnt/dir/link2\n");
+            emulator.serial0_send("nlinks /mnt | tee -a /mnt/dir/link2\n");
+            emulator.serial0_send("nlinks /mnt/dir | tee -a /mnt/dir/link2\n");
+            emulator.serial0_send("nlinks /mnt/target | tee -a /mnt/dir/link2\n");
+            emulator.serial0_send("nlinks /mnt/dir/link2 | tee -a /mnt/dir/link2\n");
+            emulator.serial0_send("nlinks /mnt/target2 | tee -a /mnt/dir/link2\n");
+            emulator.serial0_send("nlinks /mnt/link-other | tee -a /mnt/dir/link2\n");
 
             // Movement and unlink.
             emulator.serial0_send("mv /mnt/link1 /mnt/link1-renamed\n");
@@ -462,29 +460,29 @@ const tests =
             emulator.serial0_send("  echo same inode after mv | tee -a /mnt/link1-renamed; }\n");
 
             // Check nlinks after movement and unlinking.
-            emulator.serial0_send("/mnt/nlinks /mnt | tee -a /mnt/link2-moved\n");
-            emulator.serial0_send("/mnt/nlinks /mnt/dir | tee -a /mnt/link2-moved\n");
-            emulator.serial0_send("/mnt/nlinks /mnt/link1-renamed | tee -a /mnt/link2-moved\n");
+            emulator.serial0_send("nlinks /mnt | tee -a /mnt/link2-moved\n");
+            emulator.serial0_send("nlinks /mnt/dir | tee -a /mnt/link2-moved\n");
+            emulator.serial0_send("nlinks /mnt/link1-renamed | tee -a /mnt/link2-moved\n");
 
             emulator.serial0_send("echo start-capture;\\\n");
 
             // Unlink the rest and output the above messages.
             emulator.serial0_send("rm /mnt/link1-renamed;\\\n");
             emulator.serial0_send("echo unlinked link1 >> /mnt/link2-moved;\\\n");
-            emulator.serial0_send("/mnt/nlinks /mnt/link2-moved >> /mnt/link2-moved;\\\n");
+            emulator.serial0_send("nlinks /mnt/link2-moved >> /mnt/link2-moved;\\\n");
             emulator.serial0_send("rm /mnt/link2-moved;\\\n");
             emulator.serial0_send("echo unlinked link2 >> /mnt/dir/link3;\\\n");
-            emulator.serial0_send("/mnt/nlinks /mnt/dir/link3 >> /mnt/dir/link3;\\\n");
+            emulator.serial0_send("nlinks /mnt/dir/link3 >> /mnt/dir/link3;\\\n");
             emulator.serial0_send("cat /mnt/dir/link3;\\\n");
             emulator.serial0_send("rm /mnt/dir/link3;\\\n");
 
             // Verify nlinks of directories after unlinking hardlinks.
-            emulator.serial0_send("/mnt/nlinks /mnt;\\\n");
-            emulator.serial0_send("/mnt/nlinks /mnt/dir;\\\n");
+            emulator.serial0_send("nlinks /mnt;\\\n");
+            emulator.serial0_send("nlinks /mnt/dir;\\\n");
 
             // Verify nlinks of root directory after subdirectory is unlinked.
             emulator.serial0_send("rmdir /mnt/dir;\\\n");
-            emulator.serial0_send("/mnt/nlinks /mnt;\\\n");
+            emulator.serial0_send("nlinks /mnt;\\\n");
 
             emulator.serial0_send("echo done-hard-links\n");
         },
