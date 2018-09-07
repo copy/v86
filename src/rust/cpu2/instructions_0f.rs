@@ -1887,7 +1887,7 @@ pub unsafe fn instr_0F62_mem(mut addr: i32, mut r: i32) {
     instr_0F62(return_on_pagefault!(safe_read32s(addr)), r);
 }
 #[no_mangle]
-pub unsafe fn instr_660F62(mut source: reg128, mut r: i32) {
+pub unsafe fn instr_660F62(mut source: reg64, mut r: i32) {
     // punpckldq xmm, xmm/m128
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
@@ -1900,10 +1900,10 @@ pub unsafe fn instr_660F62(mut source: reg128, mut r: i32) {
     );
 }
 #[no_mangle]
-pub unsafe fn instr_660F62_reg(mut r1: i32, mut r2: i32) { instr_660F62(read_xmm128s(r1), r2); }
+pub unsafe fn instr_660F62_reg(mut r1: i32, mut r2: i32) { instr_660F62(read_xmm64s(r1), r2); }
 #[no_mangle]
 pub unsafe fn instr_660F62_mem(mut addr: i32, mut r: i32) {
-    instr_660F62(return_on_pagefault!(safe_read128s(addr)), r);
+    instr_660F62(return_on_pagefault!(safe_read64s(addr)), r);
 }
 #[no_mangle]
 pub unsafe fn instr_0F63(mut source: reg64, mut r: i32) {
@@ -2534,17 +2534,17 @@ pub unsafe fn instr_0F71_6_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_0F71_2_reg(mut r: i32, mut imm8: i32) {
     // psrlw mm, imm8
-    psrlw_r64(r, imm8 as u32);
+    psrlw_r64(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_0F71_4_reg(mut r: i32, mut imm8: i32) {
     // psraw mm, imm8
-    psraw_r64(r, imm8 as u32);
+    psraw_r64(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_0F71_6_reg(mut r: i32, mut imm8: i32) {
     // psllw mm, imm8
-    psllw_r64(r, imm8 as u32);
+    psllw_r64(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_660F71_2_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
@@ -2555,17 +2555,17 @@ pub unsafe fn instr_660F71_6_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_660F71_2_reg(mut r: i32, mut imm8: i32) {
     // psrlw xmm, imm8
-    psrlw_r128(r, imm8 as u32);
+    psrlw_r128(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_660F71_4_reg(mut r: i32, mut imm8: i32) {
     // psraw xmm, imm8
-    psraw_r128(r, imm8 as u32);
+    psraw_r128(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_660F71_6_reg(mut r: i32, mut imm8: i32) {
     // psllw xmm, imm8
-    psllw_r128(r, imm8 as u32);
+    psllw_r128(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_0F72_2_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
@@ -2576,17 +2576,17 @@ pub unsafe fn instr_0F72_6_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_0F72_2_reg(mut r: i32, mut imm8: i32) {
     // psrld mm, imm8
-    psrld_r64(r, imm8 as u32);
+    psrld_r64(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_0F72_4_reg(mut r: i32, mut imm8: i32) {
     // psrad mm, imm8
-    psrad_r64(r, imm8 as u32);
+    psrad_r64(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_0F72_6_reg(mut r: i32, mut imm8: i32) {
     // pslld mm, imm8
-    pslld_r64(r, imm8 as u32);
+    pslld_r64(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_660F72_2_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
@@ -2597,17 +2597,17 @@ pub unsafe fn instr_660F72_6_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_660F72_2_reg(mut r: i32, mut imm8: i32) {
     // psrld xmm, imm8
-    psrld_r128(r, imm8 as u32);
+    psrld_r128(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_660F72_4_reg(mut r: i32, mut imm8: i32) {
     // psrad xmm, imm8
-    psrad_r128(r, imm8 as u32);
+    psrad_r128(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_660F72_6_reg(mut r: i32, mut imm8: i32) {
     // pslld xmm, imm8
-    pslld_r128(r, imm8 as u32);
+    pslld_r128(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_0F73_2_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
@@ -2616,12 +2616,12 @@ pub unsafe fn instr_0F73_6_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_0F73_2_reg(mut r: i32, mut imm8: i32) {
     // psrlq mm, imm8
-    psrlq_r64(r, imm8 as u32);
+    psrlq_r64(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_0F73_6_reg(mut r: i32, mut imm8: i32) {
     // psllq mm, imm8
-    psllq_r64(r, imm8 as u32);
+    psllq_r64(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_660F73_2_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
@@ -2634,7 +2634,7 @@ pub unsafe fn instr_660F73_7_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_660F73_2_reg(mut r: i32, mut imm8: i32) {
     // psrlq xmm, imm8
-    psrlq_r128(r, imm8 as u32);
+    psrlq_r128(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_660F73_3_reg(mut r: i32, mut imm8: i32) {
@@ -2664,7 +2664,7 @@ pub unsafe fn instr_660F73_3_reg(mut r: i32, mut imm8: i32) {
 #[no_mangle]
 pub unsafe fn instr_660F73_6_reg(mut r: i32, mut imm8: i32) {
     // psllq xmm, imm8
-    psllq_r128(r, imm8 as u32);
+    psllq_r128(r, imm8 as u64);
 }
 #[no_mangle]
 pub unsafe fn instr_660F73_7_reg(mut r: i32, mut imm8: i32) {
@@ -3889,7 +3889,7 @@ pub unsafe fn instr_0FD0() { unimplemented_sse(); }
 #[no_mangle]
 pub unsafe fn instr_0FD1(mut source: reg64, mut r: i32) {
     // psrlw mm, mm/m64
-    psrlw_r64(r, source.u32_0[0]);
+    psrlw_r64(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_0FD1_reg(mut r1: i32, mut r2: i32) { instr_0FD1(read_mmx64s(r1), r2); }
@@ -3901,7 +3901,7 @@ pub unsafe fn instr_0FD1_mem(mut addr: i32, mut r: i32) {
 pub unsafe fn instr_660FD1(mut source: reg128, mut r: i32) {
     // psrlw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    psrlw_r128(r, source.u32_0[0]);
+    psrlw_r128(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_660FD1_reg(mut r1: i32, mut r2: i32) { instr_660FD1(read_xmm128s(r1), r2); }
@@ -3912,7 +3912,7 @@ pub unsafe fn instr_660FD1_mem(mut addr: i32, mut r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0FD2(mut source: reg64, mut r: i32) {
     // psrld mm, mm/m64
-    psrld_r64(r, source.u32_0[0]);
+    psrld_r64(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_0FD2_reg(mut r1: i32, mut r2: i32) { instr_0FD2(read_mmx64s(r1), r2); }
@@ -3924,7 +3924,7 @@ pub unsafe fn instr_0FD2_mem(mut addr: i32, mut r: i32) {
 pub unsafe fn instr_660FD2(mut source: reg128, mut r: i32) {
     // psrld xmm, xmm/m128
     // XXX: Aligned access or #gp
-    psrld_r128(r, source.u32_0[0]);
+    psrld_r128(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_660FD2_reg(mut r1: i32, mut r2: i32) { instr_660FD2(read_xmm128s(r1), r2); }
@@ -3935,7 +3935,7 @@ pub unsafe fn instr_660FD2_mem(mut addr: i32, mut r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0FD3(mut source: reg64, mut r: i32) {
     // psrlq mm, mm/m64
-    psrlq_r64(r, source.u32_0[0]);
+    psrlq_r64(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_0FD3_reg(mut r1: i32, mut r2: i32) { instr_0FD3(read_mmx64s(r1), r2); }
@@ -3946,7 +3946,7 @@ pub unsafe fn instr_0FD3_mem(mut addr: i32, mut r: i32) {
 #[no_mangle]
 pub unsafe fn instr_660FD3(mut source: reg128, mut r: i32) {
     // psrlq xmm, mm/m64
-    psrlq_r128(r, source.u32_0[0]);
+    psrlq_r128(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_660FD3_reg(mut r1: i32, mut r2: i32) { instr_660FD3(read_xmm128s(r1), r2); }
@@ -4459,7 +4459,7 @@ pub unsafe fn instr_660FE0_mem(mut addr: i32, mut r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0FE1(mut source: reg64, mut r: i32) {
     // psraw mm, mm/m64
-    psraw_r64(r, source.u32_0[0]);
+    psraw_r64(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_0FE1_reg(mut r1: i32, mut r2: i32) { instr_0FE1(read_mmx64s(r1), r2); }
@@ -4471,7 +4471,7 @@ pub unsafe fn instr_0FE1_mem(mut addr: i32, mut r: i32) {
 pub unsafe fn instr_660FE1(mut source: reg128, mut r: i32) {
     // psraw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    psraw_r128(r, source.u32_0[0]);
+    psraw_r128(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_660FE1_reg(mut r1: i32, mut r2: i32) { instr_660FE1(read_xmm128s(r1), r2); }
@@ -4482,7 +4482,7 @@ pub unsafe fn instr_660FE1_mem(mut addr: i32, mut r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0FE2(mut source: reg64, mut r: i32) {
     // psrad mm, mm/m64
-    psrad_r64(r, source.u32_0[0]);
+    psrad_r64(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_0FE2_reg(mut r1: i32, mut r2: i32) { instr_0FE2(read_mmx64s(r1), r2); }
@@ -4494,7 +4494,7 @@ pub unsafe fn instr_0FE2_mem(mut addr: i32, mut r: i32) {
 pub unsafe fn instr_660FE2(mut source: reg128, mut r: i32) {
     // psrad xmm, xmm/m128
     // XXX: Aligned access or #gp
-    psrad_r128(r, source.u32_0[0]);
+    psrad_r128(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_660FE2_reg(mut r1: i32, mut r2: i32) { instr_660FE2(read_xmm128s(r1), r2); }
@@ -5064,7 +5064,7 @@ pub unsafe fn instr_0FF0() { unimplemented_sse(); }
 #[no_mangle]
 pub unsafe fn instr_0FF1(mut source: reg64, mut r: i32) {
     // psllw mm, mm/m64
-    psllw_r64(r, source.u32_0[0]);
+    psllw_r64(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_0FF1_reg(mut r1: i32, mut r2: i32) { instr_0FF1(read_mmx64s(r1), r2); }
@@ -5076,7 +5076,7 @@ pub unsafe fn instr_0FF1_mem(mut addr: i32, mut r: i32) {
 pub unsafe fn instr_660FF1(mut source: reg128, mut r: i32) {
     // psllw xmm, xmm/m128
     // XXX: Aligned access or #gp
-    psllw_r128(r, source.u32_0[0]);
+    psllw_r128(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_660FF1_reg(mut r1: i32, mut r2: i32) { instr_660FF1(read_xmm128s(r1), r2); }
@@ -5087,7 +5087,7 @@ pub unsafe fn instr_660FF1_mem(mut addr: i32, mut r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0FF2(mut source: reg64, mut r: i32) {
     // pslld mm, mm/m64
-    pslld_r64(r, source.u32_0[0]);
+    pslld_r64(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_0FF2_reg(mut r1: i32, mut r2: i32) { instr_0FF2(read_mmx64s(r1), r2); }
@@ -5099,7 +5099,7 @@ pub unsafe fn instr_0FF2_mem(mut addr: i32, mut r: i32) {
 pub unsafe fn instr_660FF2(mut source: reg128, mut r: i32) {
     // pslld xmm, xmm/m128
     // XXX: Aligned access or #gp
-    pslld_r128(r, source.u32_0[0]);
+    pslld_r128(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_660FF2_reg(mut r1: i32, mut r2: i32) { instr_660FF2(read_xmm128s(r1), r2); }
@@ -5110,7 +5110,7 @@ pub unsafe fn instr_660FF2_mem(mut addr: i32, mut r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0FF3(mut source: reg64, mut r: i32) {
     // psllq mm, mm/m64
-    psllq_r64(r, source.u32_0[0]);
+    psllq_r64(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_0FF3_reg(mut r1: i32, mut r2: i32) { instr_0FF3(read_mmx64s(r1), r2); }
@@ -5122,7 +5122,7 @@ pub unsafe fn instr_0FF3_mem(mut addr: i32, mut r: i32) {
 pub unsafe fn instr_660FF3(mut source: reg128, mut r: i32) {
     // psllq xmm, xmm/m128
     // XXX: Aligned access or #gp
-    psllq_r128(r, source.u32_0[0]);
+    psllq_r128(r, source.u64_0[0]);
 }
 #[no_mangle]
 pub unsafe fn instr_660FF3_reg(mut r1: i32, mut r2: i32) { instr_660FF3(read_xmm128s(r1), r2); }

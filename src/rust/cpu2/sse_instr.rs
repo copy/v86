@@ -99,22 +99,22 @@ pub unsafe fn por_r128(mut source: reg128, mut r: i32) {
     write_xmm_reg128(r, result);
 }
 #[no_mangle]
-pub unsafe fn psrlw_r64(mut r: i32, mut shift: u32) {
+pub unsafe fn psrlw_r64(mut r: i32, mut shift: u64) {
     // psrlw mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut dword0: i32 = 0;
     let mut dword1: i32 = 0;
-    if shift <= 15 as u32 {
+    if shift <= 15 {
         dword0 = destination.u16_0[0] as i32 >> shift | destination.u16_0[1] as i32 >> shift << 16;
         dword1 = destination.u16_0[2] as i32 >> shift | destination.u16_0[3] as i32 >> shift << 16
     }
     write_mmx64(r, dword0, dword1);
 }
 #[no_mangle]
-pub unsafe fn psraw_r64(mut r: i32, mut shift: u32) {
+pub unsafe fn psraw_r64(mut r: i32, mut shift: u64) {
     // psraw mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
-    let mut shift_clamped: i32 = (if shift > 15 as u32 { 16 as u32 } else { shift }) as i32;
+    let mut shift_clamped: i32 = (if shift > 15 { 16 } else { shift }) as i32;
     let mut dword0: i32 = destination.i16_0[0] as i32 >> shift_clamped & 65535
         | destination.i16_0[1] as i32 >> shift_clamped << 16;
     let mut dword1: i32 = destination.i16_0[2] as i32 >> shift_clamped & 65535
@@ -122,12 +122,12 @@ pub unsafe fn psraw_r64(mut r: i32, mut shift: u32) {
     write_mmx64(r, dword0, dword1);
 }
 #[no_mangle]
-pub unsafe fn psllw_r64(mut r: i32, mut shift: u32) {
+pub unsafe fn psllw_r64(mut r: i32, mut shift: u64) {
     // psllw mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut dword0: i32 = 0;
     let mut dword1: i32 = 0;
-    if shift <= 15 as u32 {
+    if shift <= 15 {
         dword0 = (destination.u16_0[0] as i32) << shift & 65535
             | (destination.u16_0[1] as i32) << shift << 16;
         dword1 = (destination.u16_0[2] as i32) << shift & 65535
@@ -136,42 +136,42 @@ pub unsafe fn psllw_r64(mut r: i32, mut shift: u32) {
     write_mmx64(r, dword0, dword1);
 }
 #[no_mangle]
-pub unsafe fn psrld_r64(mut r: i32, mut shift: u32) {
+pub unsafe fn psrld_r64(mut r: i32, mut shift: u64) {
     // psrld mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut dword0: i32 = 0;
     let mut dword1: i32 = 0;
-    if shift <= 31 as u32 {
+    if shift <= 31 {
         dword0 = (destination.u32_0[0] >> shift) as i32;
         dword1 = (destination.u32_0[1] >> shift) as i32
     }
     write_mmx64(r, dword0, dword1);
 }
 #[no_mangle]
-pub unsafe fn psrad_r64(mut r: i32, mut shift: u32) {
+pub unsafe fn psrad_r64(mut r: i32, mut shift: u64) {
     // psrad mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
-    let mut shift_clamped: i32 = (if shift > 31 as u32 { 31 as u32 } else { shift }) as i32;
+    let mut shift_clamped: i32 = (if shift > 31 { 31 } else { shift }) as i32;
     let mut dword0: i32 = destination.i32_0[0] >> shift_clamped;
     let mut dword1: i32 = destination.i32_0[1] >> shift_clamped;
     write_mmx64(r, dword0, dword1);
 }
 #[no_mangle]
-pub unsafe fn pslld_r64(mut r: i32, mut shift: u32) {
+pub unsafe fn pslld_r64(mut r: i32, mut shift: u64) {
     // pslld mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
     let mut dword0: i32 = 0;
     let mut dword1: i32 = 0;
-    if shift <= 31 as u32 {
+    if shift <= 31 {
         dword0 = destination.i32_0[0] << shift;
         dword1 = destination.i32_0[1] << shift
     }
     write_mmx64(r, dword0, dword1);
 }
 #[no_mangle]
-pub unsafe fn psrlq_r64(mut r: i32, mut shift: u32) {
+pub unsafe fn psrlq_r64(mut r: i32, mut shift: u64) {
     // psrlq mm, {shift}
-    if shift == 0 as u32 {
+    if shift == 0 {
         return;
     }
     else {
@@ -179,7 +179,7 @@ pub unsafe fn psrlq_r64(mut r: i32, mut shift: u32) {
         let mut result: reg64 = reg64 {
             i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0],
         };
-        if shift <= 63 as u32 {
+        if shift <= 63 {
             result.u64_0[0] = destination.u64_0[0] >> shift
         }
         write_mmx_reg64(r, result);
@@ -187,17 +187,17 @@ pub unsafe fn psrlq_r64(mut r: i32, mut shift: u32) {
     };
 }
 #[no_mangle]
-pub unsafe fn psllq_r64(mut r: i32, mut shift: u32) {
+pub unsafe fn psllq_r64(mut r: i32, mut shift: u64) {
     // psllq mm, {shift}
     let mut destination: reg64 = read_mmx64s(r);
-    if shift == 0 as u32 {
+    if shift == 0 {
         return;
     }
     else {
         let mut result: reg64 = reg64 {
             i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0],
         };
-        if shift <= 63 as u32 {
+        if shift <= 63 {
             result.u64_0[0] = destination.u64_0[0] << shift
         }
         write_mmx_reg64(r, result);
@@ -205,14 +205,14 @@ pub unsafe fn psllq_r64(mut r: i32, mut shift: u32) {
     };
 }
 #[no_mangle]
-pub unsafe fn psrlw_r128(mut r: i32, mut shift: u32) {
+pub unsafe fn psrlw_r128(mut r: i32, mut shift: u64) {
     // psrlw xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut dword0: i32 = 0;
     let mut dword1: i32 = 0;
     let mut dword2: i32 = 0;
     let mut dword3: i32 = 0;
-    if shift <= 15 as u32 {
+    if shift <= 15 {
         dword0 = destination.u16_0[0] as i32 >> shift | destination.u16_0[1] as i32 >> shift << 16;
         dword1 = destination.u16_0[2] as i32 >> shift | destination.u16_0[3] as i32 >> shift << 16;
         dword2 = destination.u16_0[4] as i32 >> shift | destination.u16_0[5] as i32 >> shift << 16;
@@ -221,10 +221,10 @@ pub unsafe fn psrlw_r128(mut r: i32, mut shift: u32) {
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 #[no_mangle]
-pub unsafe fn psraw_r128(mut r: i32, mut shift: u32) {
+pub unsafe fn psraw_r128(mut r: i32, mut shift: u64) {
     // psraw xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
-    let mut shift_clamped: i32 = (if shift > 15 as u32 { 16 as u32 } else { shift }) as i32;
+    let mut shift_clamped: i32 = (if shift > 15 { 16 as u32 } else { shift as u32 }) as i32;
     let mut dword0: i32 = destination.i16_0[0] as i32 >> shift_clamped & 65535
         | destination.i16_0[1] as i32 >> shift_clamped << 16;
     let mut dword1: i32 = destination.i16_0[2] as i32 >> shift_clamped & 65535
@@ -236,14 +236,14 @@ pub unsafe fn psraw_r128(mut r: i32, mut shift: u32) {
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 #[no_mangle]
-pub unsafe fn psllw_r128(mut r: i32, mut shift: u32) {
+pub unsafe fn psllw_r128(mut r: i32, mut shift: u64) {
     // psllw xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut dword0: i32 = 0;
     let mut dword1: i32 = 0;
     let mut dword2: i32 = 0;
     let mut dword3: i32 = 0;
-    if shift <= 15 as u32 {
+    if shift <= 15 {
         dword0 = (destination.u16_0[0] as i32) << shift & 65535
             | (destination.u16_0[1] as i32) << shift << 16;
         dword1 = (destination.u16_0[2] as i32) << shift & 65535
@@ -256,14 +256,14 @@ pub unsafe fn psllw_r128(mut r: i32, mut shift: u32) {
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 #[no_mangle]
-pub unsafe fn psrld_r128(mut r: i32, mut shift: u32) {
+pub unsafe fn psrld_r128(mut r: i32, mut shift: u64) {
     // psrld xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut dword0: i32 = 0;
     let mut dword1: i32 = 0;
     let mut dword2: i32 = 0;
     let mut dword3: i32 = 0;
-    if shift <= 31 as u32 {
+    if shift <= 31 {
         dword0 = (destination.u32_0[0] >> shift) as i32;
         dword1 = (destination.u32_0[1] >> shift) as i32;
         dword2 = (destination.u32_0[2] >> shift) as i32;
@@ -272,10 +272,10 @@ pub unsafe fn psrld_r128(mut r: i32, mut shift: u32) {
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 #[no_mangle]
-pub unsafe fn psrad_r128(mut r: i32, mut shift: u32) {
+pub unsafe fn psrad_r128(mut r: i32, mut shift: u64) {
     // psrad xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
-    let mut shift_clamped: i32 = (if shift > 31 as u32 { 31 as u32 } else { shift }) as i32;
+    let mut shift_clamped: i32 = (if shift > 31 { 31 } else { shift }) as i32;
     let mut dword0: i32 = destination.i32_0[0] >> shift_clamped;
     let mut dword1: i32 = destination.i32_0[1] >> shift_clamped;
     let mut dword2: i32 = destination.i32_0[2] >> shift_clamped;
@@ -283,14 +283,14 @@ pub unsafe fn psrad_r128(mut r: i32, mut shift: u32) {
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 #[no_mangle]
-pub unsafe fn pslld_r128(mut r: i32, mut shift: u32) {
+pub unsafe fn pslld_r128(mut r: i32, mut shift: u64) {
     // pslld xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
     let mut dword0: i32 = 0;
     let mut dword1: i32 = 0;
     let mut dword2: i32 = 0;
     let mut dword3: i32 = 0;
-    if shift <= 31 as u32 {
+    if shift <= 31 {
         dword0 = destination.i32_0[0] << shift;
         dword1 = destination.i32_0[1] << shift;
         dword2 = destination.i32_0[2] << shift;
@@ -299,9 +299,9 @@ pub unsafe fn pslld_r128(mut r: i32, mut shift: u32) {
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
 #[no_mangle]
-pub unsafe fn psrlq_r128(mut r: i32, mut shift: u32) {
+pub unsafe fn psrlq_r128(mut r: i32, mut shift: u64) {
     // psrlq xmm, {shift}
-    if shift == 0 as u32 {
+    if shift == 0 {
         return;
     }
     else {
@@ -309,7 +309,7 @@ pub unsafe fn psrlq_r128(mut r: i32, mut shift: u32) {
         let mut result: reg128 = reg128 {
             i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         };
-        if shift <= 63 as u32 {
+        if shift <= 63 {
             result.u64_0[0] = destination.u64_0[0] >> shift;
             result.u64_0[1] = destination.u64_0[1] >> shift
         }
@@ -318,17 +318,17 @@ pub unsafe fn psrlq_r128(mut r: i32, mut shift: u32) {
     };
 }
 #[no_mangle]
-pub unsafe fn psllq_r128(mut r: i32, mut shift: u32) {
+pub unsafe fn psllq_r128(mut r: i32, mut shift: u64) {
     // psllq xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
-    if shift == 0 as u32 {
+    if shift == 0 {
         return;
     }
     else {
         let mut result: reg128 = reg128 {
             i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         };
-        if shift <= 63 as u32 {
+        if shift <= 63 {
             result.u64_0[0] = destination.u64_0[0] << shift;
             result.u64_0[1] = destination.u64_0[1] << shift
         }
