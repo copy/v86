@@ -961,18 +961,21 @@ const tests =
         start: () =>
         {
             emulator.serial0_send("touch /mnt/file\n");
+            emulator.serial0_send("touch /mnt/logs\n");
             emulator.serial0_send("mkfifo /mnt/fifo1\n");
             emulator.serial0_send("mkfifo /mnt/fifo2\n");
 
             emulator.serial0_send("flock -s /mnt/file -c 'cat /mnt/fifo1 >> /mnt/file' &\n");
             emulator.serial0_send("flock -s /mnt/file -c 'echo lock-shared-2 >> /mnt/file' \n");
+            emulator.serial0_send("flock -xn /mnt/file -c 'echo lock unblocked! >> /mnt/logs' \n");
             emulator.serial0_send("echo lock-shared-1 > /mnt/fifo1\n");
 
             emulator.serial0_send("flock -x /mnt/file -c 'cat /mnt/fifo1 >> /mnt/file' &\n");
             emulator.serial0_send("flock -x /mnt/file -c 'echo lock-exclusive-2 >> /mnt/file' &\n");
+            emulator.serial0_send("flock -sn /mnt/file -c 'echo lock unblocked! >> /mnt/logs' \n");
             emulator.serial0_send("echo lock-exclusive-1 > /mnt/fifo1\n");
 
-            emulator.serial0_send("flock -s /mnt/file -c 'cat /mnt/fifo1 >> /mnt/file' &\n");
+            emulator.serial0_send("flock -sn /mnt/file -c 'cat /mnt/fifo1 >> /mnt/file' &\n");
             emulator.serial0_send("flock -s /mnt/file -c 'cat /mnt/fifo2 >> /mnt/file' &\n");
             emulator.serial0_send("flock -x /mnt/file -c 'echo lock-exclusive-3 >> /mnt/file' &\n");
             emulator.serial0_send("echo lock-shared-4 > /mnt/fifo2\n");
@@ -980,6 +983,7 @@ const tests =
 
             emulator.serial0_send("echo start-capture;\\\n");
             emulator.serial0_send("cat /mnt/file;\\\n");
+            emulator.serial0_send("cat /mnt/logs;\\\n");
             emulator.serial0_send("echo done-locks\n");
         },
         capture_trigger: "start-capture",
