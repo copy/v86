@@ -1060,6 +1060,7 @@ const tests =
             // 1/2/3 = shared lock by process 1/2/both
             // e/E   = exclusive lock by process 1/2
             // -     = no locks
+            const I = Infinity;
             test_lock(0, P9_LOCK_TYPE_RDLCK, 0, 1, 1, P9_LOCK_SUCCESS, "1-------"); // First lock.
             test_lock(1, P9_LOCK_TYPE_RDLCK, 0, 2, 1, P9_LOCK_SUCCESS, "11------"); // Replace.
             test_lock(2, P9_LOCK_TYPE_RDLCK, 1, 1, 2, P9_LOCK_SUCCESS, "13------");
@@ -1077,10 +1078,10 @@ const tests =
             test_lock(14, P9_LOCK_TYPE_WRLCK, 1, 4, 1, P9_LOCK_SUCCESS, "eeeee1--"); // Merge before. Shrink both ways.
             test_lock(15, P9_LOCK_TYPE_WRLCK, 1, 2, 2, P9_LOCK_BLOCKED, "eeeee1--");
             test_lock(16, P9_LOCK_TYPE_RDLCK, 4, 5, 2, P9_LOCK_BLOCKED, "eeeee1--");
-            test_lock(17, P9_LOCK_TYPE_RDLCK, 5, 0, 2, P9_LOCK_SUCCESS, "eeeee322");
-            test_lock(18, P9_LOCK_TYPE_UNLCK, 0, 0, 1, P9_LOCK_SUCCESS, "-----222"); // Replace.
-            test_lock(19, P9_LOCK_TYPE_RDLCK, 4, 0, 2, P9_LOCK_SUCCESS, "----2222"); // Replace.
-            test_lock(20, P9_LOCK_TYPE_WRLCK, 2, 0, 2, P9_LOCK_SUCCESS, "--EEEEEE"); // Replace.
+            test_lock(17, P9_LOCK_TYPE_RDLCK, 5, I, 2, P9_LOCK_SUCCESS, "eeeee322");
+            test_lock(18, P9_LOCK_TYPE_UNLCK, 0, I, 1, P9_LOCK_SUCCESS, "-----222"); // Replace.
+            test_lock(19, P9_LOCK_TYPE_RDLCK, 4, I, 2, P9_LOCK_SUCCESS, "----2222"); // Replace.
+            test_lock(20, P9_LOCK_TYPE_WRLCK, 2, I, 2, P9_LOCK_SUCCESS, "--EEEEEE"); // Replace.
             test_lock(21, P9_LOCK_TYPE_WRLCK, 0, 1, 2, P9_LOCK_SUCCESS, "E-EEEEEE");
             test_lock(22, P9_LOCK_TYPE_WRLCK, 1, 3, 2, P9_LOCK_SUCCESS, "EEEEEEEE"); // Merge both. Shrink left.
             test_lock(23, P9_LOCK_TYPE_RDLCK, 3, 4, 2, P9_LOCK_SUCCESS, "EEE2222E"); // Split.
