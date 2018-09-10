@@ -17,6 +17,7 @@ extern "C" {
     fn pic_acknowledge();
 }
 
+use cpu2::fpu::fpu_set_tag_word;
 use cpu2::global_pointers::*;
 pub use cpu2::imports::{mem16, mem32s, mem8};
 use cpu2::memory::{
@@ -1749,6 +1750,14 @@ pub unsafe fn write_xmm128(mut r: i32, mut i0: i32, mut i1: i32, mut i2: i32, mu
 pub unsafe fn write_xmm_reg128(mut r: i32, mut data: reg128) {
     (*reg_xmm.offset(r as isize)).u64_0[0] = data.u64_0[0];
     (*reg_xmm.offset(r as isize)).u64_0[1] = data.u64_0[1];
+}
+
+/// Set the fpu tag word to valid and the top-of-stack to 0 on mmx instructions
+pub fn transition_fpu_to_mmx() {
+    unsafe {
+        fpu_set_tag_word(0);
+        *fpu_stack_ptr = 0;
+    }
 }
 
 pub unsafe fn task_switch_test() -> bool {

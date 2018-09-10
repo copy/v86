@@ -7,6 +7,7 @@ pub unsafe fn mov_r_m64(mut addr: i32, mut r: i32) {
     // mov* m64, mm
     let mut data: reg64 = read_mmx64s(r);
     return_on_pagefault!(safe_write64(addr, data.u64_0[0] as i64));
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn movl_r128_m64(mut addr: i32, mut r: i32) {
@@ -109,6 +110,7 @@ pub unsafe fn psrlw_r64(mut r: i32, mut shift: u64) {
         dword1 = destination.u16_0[2] as i32 >> shift | destination.u16_0[3] as i32 >> shift << 16
     }
     write_mmx64(r, dword0, dword1);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn psraw_r64(mut r: i32, mut shift: u64) {
@@ -120,6 +122,7 @@ pub unsafe fn psraw_r64(mut r: i32, mut shift: u64) {
     let mut dword1: i32 = destination.i16_0[2] as i32 >> shift_clamped & 65535
         | destination.i16_0[3] as i32 >> shift_clamped << 16;
     write_mmx64(r, dword0, dword1);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn psllw_r64(mut r: i32, mut shift: u64) {
@@ -134,6 +137,7 @@ pub unsafe fn psllw_r64(mut r: i32, mut shift: u64) {
             | (destination.u16_0[3] as i32) << shift << 16
     }
     write_mmx64(r, dword0, dword1);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn psrld_r64(mut r: i32, mut shift: u64) {
@@ -146,6 +150,7 @@ pub unsafe fn psrld_r64(mut r: i32, mut shift: u64) {
         dword1 = (destination.u32_0[1] >> shift) as i32
     }
     write_mmx64(r, dword0, dword1);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn psrad_r64(mut r: i32, mut shift: u64) {
@@ -155,6 +160,7 @@ pub unsafe fn psrad_r64(mut r: i32, mut shift: u64) {
     let mut dword0: i32 = destination.i32_0[0] >> shift_clamped;
     let mut dword1: i32 = destination.i32_0[1] >> shift_clamped;
     write_mmx64(r, dword0, dword1);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn pslld_r64(mut r: i32, mut shift: u64) {
@@ -167,6 +173,7 @@ pub unsafe fn pslld_r64(mut r: i32, mut shift: u64) {
         dword1 = destination.i32_0[1] << shift
     }
     write_mmx64(r, dword0, dword1);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn psrlq_r64(mut r: i32, mut shift: u64) {
@@ -183,6 +190,7 @@ pub unsafe fn psrlq_r64(mut r: i32, mut shift: u64) {
             result.u64_0[0] = destination.u64_0[0] >> shift
         }
         write_mmx_reg64(r, result);
+        transition_fpu_to_mmx();
         return;
     };
 }
@@ -201,6 +209,7 @@ pub unsafe fn psllq_r64(mut r: i32, mut shift: u64) {
             result.u64_0[0] = destination.u64_0[0] << shift
         }
         write_mmx_reg64(r, result);
+        transition_fpu_to_mmx();
         return;
     };
 }

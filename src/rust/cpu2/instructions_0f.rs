@@ -963,6 +963,7 @@ pub unsafe fn instr_0F2C(mut source: reg64, mut r: i32) {
         ],
     };
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F2C_mem(mut addr: i32, mut r: i32) {
@@ -982,6 +983,7 @@ pub unsafe fn instr_660F2C(mut source: reg128, mut r: i32) {
         ],
     };
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_660F2C_mem(mut addr: i32, mut r: i32) {
@@ -1799,6 +1801,7 @@ pub unsafe fn instr_0F60(mut source: i32, mut r: i32) {
     let mut low: i32 = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let mut high: i32 = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F60_reg(mut r1: i32, mut r2: i32) { instr_0F60(read_mmx32s(r1), r2); }
@@ -1848,6 +1851,7 @@ pub unsafe fn instr_0F61(mut source: i32, mut r: i32) {
     let mut low: i32 = word0 | word1 << 16;
     let mut high: i32 = word2 | word3 << 16;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F61_reg(mut r1: i32, mut r2: i32) { instr_0F61(read_mmx32s(r1), r2); }
@@ -1879,6 +1883,7 @@ pub unsafe fn instr_0F62(mut source: i32, mut r: i32) {
     // punpckldq mm, mm/m32
     let mut destination: reg64 = read_mmx64s(r);
     write_mmx64(r, destination.u32_0[0] as i32, source);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F62_reg(mut r1: i32, mut r2: i32) { instr_0F62(read_mmx32s(r1), r2); }
@@ -1918,6 +1923,7 @@ pub unsafe fn instr_0F63(mut source: reg64, mut r: i32) {
         | saturate_sw_to_sb(source.u16_0[2] as i32) << 16
         | saturate_sw_to_sb(source.u16_0[3] as i32) << 24;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F63_reg(mut r1: i32, mut r2: i32) { instr_0F63(read_mmx64s(r1), r2); }
@@ -1973,6 +1979,7 @@ pub unsafe fn instr_0F64(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F64_reg(mut r1: i32, mut r2: i32) { instr_0F64(read_mmx64s(r1), r2); }
@@ -2038,6 +2045,7 @@ pub unsafe fn instr_0F65(mut source: reg64, mut r: i32) {
     let mut low: i32 = word0 | word1 << 16;
     let mut high: i32 = word2 | word3 << 16;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F65_reg(mut r1: i32, mut r2: i32) { instr_0F65(read_mmx64s(r1), r2); }
@@ -2089,6 +2097,7 @@ pub unsafe fn instr_0F66(mut source: reg64, mut r: i32) {
         0
     };
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F66_reg(mut r1: i32, mut r2: i32) { instr_0F66(read_mmx64s(r1), r2); }
@@ -2148,6 +2157,7 @@ pub unsafe fn instr_0F67(mut source: reg64, mut r: i32) {
         | saturate_sw_to_ub(source.u16_0[2] as u32) << 16
         | saturate_sw_to_ub(source.u16_0[3] as u32) << 24;
     write_mmx64(r, low as i32, high as i32);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F67_reg(mut r1: i32, mut r2: i32) { instr_0F67(read_mmx64s(r1), r2); }
@@ -2190,6 +2200,7 @@ pub unsafe fn instr_0F68(mut source: reg64, mut r: i32) {
     let mut low: i32 = byte0 | byte1 << 8 | byte2 << 16 | byte3 << 24;
     let mut high: i32 = byte4 | byte5 << 8 | byte6 << 16 | byte7 << 24;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F68_reg(mut r1: i32, mut r2: i32) { instr_0F68(read_mmx64s(r1), r2); }
@@ -2239,6 +2250,7 @@ pub unsafe fn instr_0F69(mut source: reg64, mut r: i32) {
     let mut low: i32 = word0 | word1 << 16;
     let mut high: i32 = word2 | word3 << 16;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F69_reg(mut r1: i32, mut r2: i32) { instr_0F69(read_mmx64s(r1), r2); }
@@ -2268,6 +2280,7 @@ pub unsafe fn instr_0F6A(mut source: reg64, mut r: i32) {
     // punpckhdq mm, mm/m64
     let mut destination: reg64 = read_mmx64s(r);
     write_mmx64(r, destination.u32_0[1] as i32, source.u32_0[1] as i32);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F6A_reg(mut r1: i32, mut r2: i32) { instr_0F6A(read_mmx64s(r1), r2); }
@@ -2303,6 +2316,7 @@ pub unsafe fn instr_0F6B(mut source: reg64, mut r: i32) {
     let mut high: i32 =
         (saturate_sd_to_sw(source.u32_0[0]) | saturate_sd_to_sw(source.u32_0[1]) << 16) as i32;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F6B_reg(mut r1: i32, mut r2: i32) { instr_0F6B(read_mmx64s(r1), r2); }
@@ -2381,6 +2395,7 @@ pub unsafe fn instr_660F6D_mem(mut addr: i32, mut r: i32) {
 pub unsafe fn instr_0F6E(mut source: i32, mut r: i32) {
     // movd mm, r/m32
     write_mmx64(r, source, 0);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F6E_reg(mut r1: i32, mut r2: i32) { instr_0F6E(read_reg32(r1), r2); }
@@ -2403,6 +2418,7 @@ pub unsafe fn instr_660F6E_mem(mut addr: i32, mut r: i32) {
 pub unsafe fn instr_0F6F(mut source: reg64, mut r: i32) {
     // movq mm, mm/m64
     write_mmx64(r, source.u32_0[0] as i32, source.u32_0[1] as i32);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F6F_reg(mut r1: i32, mut r2: i32) { instr_0F6F(read_mmx64s(r1), r2); }
@@ -2451,6 +2467,7 @@ pub unsafe fn instr_0F70(mut source: reg64, mut r: i32, mut imm8: i32) {
         source.u32_0[(word3_shift >> 1) as usize] >> ((word3_shift & 1 as u32) << 4);
     let mut high: i32 = (word2 | word3 << 16) as i32;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F70_reg(mut r1: i32, mut r2: i32, mut imm: i32) {
@@ -2710,6 +2727,7 @@ pub unsafe fn instr_0F74(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F74_reg(mut r1: i32, mut r2: i32) { instr_0F74(read_mmx64s(r1), r2); }
@@ -2773,6 +2791,7 @@ pub unsafe fn instr_0F75(mut source: reg64, mut r: i32) {
     let mut low: i32 = word0 | word1 << 16;
     let mut high: i32 = word2 | word3 << 16;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F75_reg(mut r1: i32, mut r2: i32) { instr_0F75(read_mmx64s(r1), r2); }
@@ -2822,6 +2841,7 @@ pub unsafe fn instr_0F76(mut source: reg64, mut r: i32) {
         0
     };
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F76_reg(mut r1: i32, mut r2: i32) { instr_0F76(read_mmx64s(r1), r2); }
@@ -2889,6 +2909,7 @@ pub unsafe fn instr_0F7D() { unimplemented_sse(); }
 pub unsafe fn instr_0F7E(mut r: i32) -> i32 {
     // movd r/m32, mm
     let mut data: reg64 = read_mmx64s(r);
+    transition_fpu_to_mmx();
     return data.u32_0[0] as i32;
 }
 #[no_mangle]
@@ -2931,6 +2952,7 @@ pub unsafe fn instr_0F7F_reg(mut r1: i32, mut r2: i32) {
     // movq mm/m64, mm
     let mut data: reg64 = read_mmx64s(r2);
     write_mmx64(r1, data.u32_0[0] as i32, data.u32_0[1] as i32);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_660F7F_mem(mut addr: i32, mut r: i32) {
@@ -3742,6 +3764,7 @@ pub unsafe fn instr_0FC4(mut source: i32, mut r: i32, mut imm8: i32) {
     let mut index: u32 = (imm8 & 3) as u32;
     destination.u16_0[index as usize] = (source & 65535) as u16;
     write_mmx_reg64(r, destination);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FC4_reg(mut r1: i32, mut r2: i32, mut imm: i32) {
@@ -3776,6 +3799,7 @@ pub unsafe fn instr_0FC5_reg(mut r1: i32, mut r2: i32, mut imm8: i32) {
     let mut index: u32 = (imm8 & 3) as u32;
     let mut result: u32 = data.u16_0[index as usize] as u32;
     write_reg32(r2, result as i32);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_660FC5_mem(mut addr: i32, mut r: i32, mut imm8: i32) { trigger_ud(); }
@@ -3961,6 +3985,7 @@ pub unsafe fn instr_0FD4(mut source: reg64, mut r: i32) {
     destination.u64_0[0] =
         (destination.u64_0[0] as u64).wrapping_add(source.u64_0[0]) as u64 as u64;
     write_mmx_reg64(r, destination);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FD4_reg(mut r1: i32, mut r2: i32) { instr_0FD4(read_mmx64s(r1), r2); }
@@ -3996,6 +4021,7 @@ pub unsafe fn instr_0FD5(mut source: reg64, mut r: i32) {
     let mut low: i32 = word0 | word1 << 16;
     let mut high: i32 = word2 | word3 << 16;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FD5_reg(mut r1: i32, mut r2: i32) { instr_0FD5(read_mmx64s(r1), r2); }
@@ -4048,6 +4074,7 @@ pub unsafe fn instr_F20FD6_reg(mut r1: i32, mut r2: i32) {
     // movdq2q mm, xmm
     let mut source: reg128 = read_xmm128s(r1);
     write_mmx64(r2, source.u32_0[0] as i32, source.u32_0[1] as i32);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_F30FD6_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
@@ -4056,6 +4083,7 @@ pub unsafe fn instr_F30FD6_reg(mut r1: i32, mut r2: i32) {
     // movq2dq xmm, mm
     let mut source: reg64 = read_mmx64s(r1);
     write_xmm128(r2, source.u32_0[0] as i32, source.u32_0[1] as i32, 0, 0);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FD7_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
@@ -4072,6 +4100,7 @@ pub unsafe fn instr_0FD7_reg(mut r1: i32, mut r2: i32) {
         | x.u8_0[6] as i32 >> 7 << 6
         | x.u8_0[7] as i32 >> 7 << 7) as u32;
     write_reg32(r2, result as i32);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_660FD7_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
@@ -4112,6 +4141,7 @@ pub unsafe fn instr_0FD8(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FD8_reg(mut r1: i32, mut r2: i32) { instr_0FD8(read_mmx64s(r1), r2); }
@@ -4150,6 +4180,7 @@ pub unsafe fn instr_0FD9(mut source: reg64, mut r: i32) {
     let mut low: i32 = word0 | word1 << 16;
     let mut high: i32 = word2 | word3 << 16;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FD9_reg(mut r1: i32, mut r2: i32) { instr_0FD9(read_mmx64s(r1), r2); }
@@ -4194,6 +4225,7 @@ pub unsafe fn instr_0FDA(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FDA_reg(mut r1: i32, mut r2: i32) { instr_0FDA(read_mmx64s(r1), r2); }
@@ -4235,6 +4267,7 @@ pub unsafe fn instr_0FDB(mut source: reg64, mut r: i32) {
     };
     result.u64_0[0] = source.u64_0[0] & destination.u64_0[0];
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FDB_reg(mut r1: i32, mut r2: i32) { instr_0FDB(read_mmx64s(r1), r2); }
@@ -4269,6 +4302,7 @@ pub unsafe fn instr_0FDC(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FDC_reg(mut r1: i32, mut r2: i32) { instr_0FDC(read_mmx64s(r1), r2); }
@@ -4308,6 +4342,7 @@ pub unsafe fn instr_0FDD(mut source: reg64, mut r: i32) {
     let mut low: i32 = word0 | word1 << 16;
     let mut high: i32 = word2 | word3 << 16;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FDD_reg(mut r1: i32, mut r2: i32) { instr_0FDD(read_mmx64s(r1), r2); }
@@ -4355,6 +4390,7 @@ pub unsafe fn instr_0FDE(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FDE_reg(mut r1: i32, mut r2: i32) { instr_0FDE(read_mmx64s(r1), r2); }
@@ -4396,6 +4432,7 @@ pub unsafe fn instr_0FDF(mut source: reg64, mut r: i32) {
     };
     result.u64_0[0] = source.u64_0[0] & !destination.u64_0[0];
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FDF_reg(mut r1: i32, mut r2: i32) { instr_0FDF(read_mmx64s(r1), r2); }
@@ -4429,6 +4466,7 @@ pub unsafe fn instr_0FE0(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FE0_reg(mut r1: i32, mut r2: i32) { instr_0FE0(read_mmx64s(r1), r2); }
@@ -4511,6 +4549,7 @@ pub unsafe fn instr_0FE3(mut source: reg64, mut r: i32) {
     destination.u16_0[2] = (destination.u16_0[2] as i32 + source.u16_0[2] as i32 + 1 >> 1) as u16;
     destination.u16_0[3] = (destination.u16_0[3] as i32 + source.u16_0[3] as i32 + 1 >> 1) as u16;
     write_mmx_reg64(r, destination);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FE3_reg(mut r1: i32, mut r2: i32) { instr_0FE3(read_mmx64s(r1), r2); }
@@ -4552,6 +4591,7 @@ pub unsafe fn instr_0FE4(mut source: reg64, mut r: i32) {
             | (source.u16_0[3] as i32 * destination.u16_0[3] as i32) as u32 & 4294901760)
             as i32,
     );
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FE4_reg(mut r1: i32, mut r2: i32) { instr_0FE4(read_mmx64s(r1), r2); }
@@ -4601,6 +4641,7 @@ pub unsafe fn instr_0FE5(mut source: reg64, mut r: i32) {
     let mut low: i32 = (word0 | word1 << 16) as i32;
     let mut high: i32 = (word2 | word3 << 16) as i32;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FE5_reg(mut r1: i32, mut r2: i32) { instr_0FE5(read_mmx64s(r1), r2); }
@@ -4732,6 +4773,7 @@ pub unsafe fn instr_0FE8(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FE8_reg(mut r1: i32, mut r2: i32) { instr_0FE8(read_mmx64s(r1), r2); }
@@ -4775,6 +4817,7 @@ pub unsafe fn instr_0FE9(mut source: reg64, mut r: i32) {
     let mut low: i32 = word0 | word1 << 16;
     let mut high: i32 = word2 | word3 << 16;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FE9_reg(mut r1: i32, mut r2: i32) { instr_0FE9(read_mmx64s(r1), r2); }
@@ -4828,6 +4871,7 @@ pub unsafe fn instr_0FEA(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FEA_reg(mut r1: i32, mut r2: i32) { instr_0FEA(read_mmx64s(r1), r2); }
@@ -4869,6 +4913,7 @@ pub unsafe fn instr_0FEB(mut source: reg64, mut r: i32) {
     };
     result.u64_0[0] = source.u64_0[0] | destination.u64_0[0];
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FEB_reg(mut r1: i32, mut r2: i32) { instr_0FEB(read_mmx64s(r1), r2); }
@@ -4903,6 +4948,7 @@ pub unsafe fn instr_0FEC(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FEC_reg(mut r1: i32, mut r2: i32) { instr_0FEC(read_mmx64s(r1), r2); }
@@ -4946,6 +4992,7 @@ pub unsafe fn instr_0FED(mut source: reg64, mut r: i32) {
     let mut low: i32 = word0 | word1 << 16;
     let mut high: i32 = word2 | word3 << 16;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FED_reg(mut r1: i32, mut r2: i32) { instr_0FED(read_mmx64s(r1), r2); }
@@ -4999,6 +5046,7 @@ pub unsafe fn instr_0FEE(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FEE_reg(mut r1: i32, mut r2: i32) { instr_0FEE(read_mmx64s(r1), r2); }
@@ -5040,6 +5088,7 @@ pub unsafe fn instr_0FEF(mut source: reg64, mut r: i32) {
     };
     result.u64_0[0] = source.u64_0[0] ^ destination.u64_0[0];
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FEF_reg(mut r1: i32, mut r2: i32) { instr_0FEF(read_mmx64s(r1), r2); }
@@ -5136,6 +5185,7 @@ pub unsafe fn instr_0FF4(mut source: reg64, mut r: i32) {
     let mut destination: reg64 = read_mmx64s(r);
     destination.u64_0[0] = (source.u32_0[0] as u64).wrapping_mul(destination.u32_0[0] as u64);
     write_mmx_reg64(r, destination);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FF4_reg(mut r1: i32, mut r2: i32) { instr_0FF4(read_mmx64s(r1), r2); }
@@ -5169,6 +5219,7 @@ pub unsafe fn instr_0FF5(mut source: reg64, mut r: i32) {
     let mut low: i32 = mul0 + mul1;
     let mut high: i32 = mul2 + mul3;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FF5_reg(mut r1: i32, mut r2: i32) { instr_0FF5(read_mmx64s(r1), r2); }
@@ -5210,6 +5261,7 @@ pub unsafe fn instr_0FF6(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx64(r, sum as i32, 0);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FF6_reg(mut r1: i32, mut r2: i32) { instr_0FF6(read_mmx64s(r1), r2); }
@@ -5263,6 +5315,7 @@ pub unsafe fn instr_0FF7_reg(mut r1: i32, mut r2: i32) {
         }
         i = i.wrapping_add(1)
     }
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_660FF7_mem(mut addr: i32, mut r: i32) { trigger_ud(); }
@@ -5298,6 +5351,7 @@ pub unsafe fn instr_0FF8(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FF8_reg(mut r1: i32, mut r2: i32) { instr_0FF8(read_mmx64s(r1), r2); }
@@ -5340,6 +5394,7 @@ pub unsafe fn instr_0FF9(mut source: reg64, mut r: i32) {
         ((destination.u16_0[3] as u32).wrapping_sub(source.u16_0[3] as u32) & 65535 as u32) as i32;
     let mut high: i32 = word2 | word3 << 16;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FF9_reg(mut r1: i32, mut r2: i32) { instr_0FF9(read_mmx64s(r1), r2); }
@@ -5378,6 +5433,7 @@ pub unsafe fn instr_0FFA(mut source: reg64, mut r: i32) {
         destination.u32_0[0].wrapping_sub(source.u32_0[0]) as i32,
         destination.u32_0[1].wrapping_sub(source.u32_0[1]) as i32,
     );
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FFA_reg(mut r1: i32, mut r2: i32) { instr_0FFA(read_mmx64s(r1), r2); }
@@ -5410,6 +5466,7 @@ pub unsafe fn instr_0FFB(mut source: reg64, mut r: i32) {
     let mut destination: reg64 = read_mmx64s(r);
     destination.u64_0[0] = destination.u64_0[0].wrapping_sub(source.u64_0[0]);
     write_mmx_reg64(r, destination);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FFB_reg(mut r1: i32, mut r2: i32) { instr_0FFB(read_mmx64s(r1), r2); }
@@ -5446,6 +5503,7 @@ pub unsafe fn instr_0FFC(mut source: reg64, mut r: i32) {
         i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FFC_reg(mut r1: i32, mut r2: i32) { instr_0FFC(read_mmx64s(r1), r2); }
@@ -5486,6 +5544,7 @@ pub unsafe fn instr_0FFD(mut source: reg64, mut r: i32) {
     let mut word3: i32 = destination.u16_0[3] as i32 + source.u16_0[3] as i32 & 65535;
     let mut high: i32 = word2 | word3 << 16;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FFD_reg(mut r1: i32, mut r2: i32) { instr_0FFD(read_mmx64s(r1), r2); }
@@ -5522,6 +5581,7 @@ pub unsafe fn instr_0FFE(mut source: reg64, mut r: i32) {
     let mut low: i32 = destination.u32_0[0].wrapping_add(source.u32_0[0]) as i32;
     let mut high: i32 = destination.u32_0[1].wrapping_add(source.u32_0[1]) as i32;
     write_mmx64(r, low, high);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0FFE_reg(mut r1: i32, mut r2: i32) { instr_0FFE(read_mmx64s(r1), r2); }
@@ -5576,12 +5636,12 @@ pub unsafe fn instr_0F1E_mem(mut addr: i32, mut r: i32) {}
 #[no_mangle]
 pub unsafe fn instr_0F2A(mut source: reg64, mut r: i32) {
     // cvtpi2ps xmm, mm/m64
-    // XXX: The non-memory variant causes a transition from x87 FPU to MMX technology operation
     // Note: Casts here can fail
     let mut result: reg64 = reg64 {
         f32_0: [source.i32_0[0] as f32, source.i32_0[1] as f32],
     };
     write_xmm64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F2A_reg(mut r1: i32, mut r2: i32) { instr_0F2A(read_mmx64s(r1), r2); }
@@ -5592,12 +5652,12 @@ pub unsafe fn instr_0F2A_mem(mut addr: i32, mut r: i32) {
 #[no_mangle]
 pub unsafe fn instr_660F2A(mut source: reg64, mut r: i32) {
     // cvtpi2pd xmm, xmm/m64
-    // XXX: The non-memory variant causes a transition from x87 FPU to MMX technology operation
     // These casts can't fail
     let mut result: reg128 = reg128 {
         f64_0: [source.i32_0[0] as f64, source.i32_0[1] as f64],
     };
     write_xmm_reg128(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_660F2A_reg(mut r1: i32, mut r2: i32) { instr_660F2A(read_mmx64s(r1), r2); }
@@ -5644,6 +5704,7 @@ pub unsafe fn instr_0F2D(mut source: reg64, mut r: i32) {
         ],
     };
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_0F2D_reg(mut r1: i32, mut r2: i32) { instr_0F2D(read_xmm64s(r1), r2); }
@@ -5662,6 +5723,7 @@ pub unsafe fn instr_660F2D(mut source: reg128, mut r: i32) {
         ],
     };
     write_mmx_reg64(r, result);
+    transition_fpu_to_mmx();
 }
 #[no_mangle]
 pub unsafe fn instr_660F2D_reg(mut r1: i32, mut r2: i32) { instr_660F2D(read_xmm128s(r1), r2); }
