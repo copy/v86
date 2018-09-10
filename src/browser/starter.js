@@ -131,9 +131,6 @@ function V86Starter(options)
 
             dbg_assert(false);
         },
-        "throw_cpu_exception": () => {
-            throw MAGIC_CPU_EXCEPTION;
-        },
         "cpu_exception_hook": (n) => {
             return this["cpu_exception_hook"] && this["cpu_exception_hook"](n);
         },

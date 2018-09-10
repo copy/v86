@@ -167,15 +167,6 @@ var
     /** @const */
     MMAP_BLOCK_SIZE = 1 << MMAP_BLOCK_BITS;
 
-
-/** @const */
-var MEM_PAGE_WRITTEN = 1;
-
-
-/** @const */
-var MAGIC_CPU_EXCEPTION = 0xDEADBEE;
-
-
 var
     /** @const */
     REPEAT_STRING_PREFIX_NONE = 0,

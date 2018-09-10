@@ -577,29 +577,6 @@ CPU.prototype.main_run = function()
     return 0;
 };
 
-CPU.prototype.exception_cleanup = function(e)
-{
-    if(e === MAGIC_CPU_EXCEPTION)
-    {
-        // A legit CPU exception (for instance, a page fault happened)
-        // call_interrupt_vector has already been called at this point,
-        // so we just need to reset some state
-
-        this.page_fault[0] = 0;
-
-        // restore state from prefixes
-        this.prefixes[0] = 0;
-    }
-    else
-    {
-        console.log(e);
-        console.log(e.stack);
-        //var e = new Error(e.message);
-        //Error.captureStackTrace && Error.captureStackTrace(e);
-        throw e;
-    }
-};
-
 CPU.prototype.reboot_internal = function()
 {
     this.reset();
