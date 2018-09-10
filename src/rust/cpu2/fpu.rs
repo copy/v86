@@ -14,23 +14,6 @@ pub fn convert_f64_to_i32(x: f64) -> i32 { x as i32 }
 pub fn trunc(x: f64) -> f64 { x.trunc() }
 pub fn fmod(x: f64, y: f64) -> f64 { x % y }
 
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union f64_int {
-    u8_0: [u8; 8],
-    i32_0: [i32; 2],
-    u64_0: [u64; 1],
-    f64_0: f64,
-}
-
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub union f32_int {
-    u8_0: [u8; 4],
-    i32_0: i32,
-    f32_0: f32,
-}
-
 pub const M_LOG2E: f64 = 1.4426950408889634f64;
 pub const M_LN2: f64 = 0.6931471805599453f64;
 pub const M_LN10: f64 = 2.302585092994046f64;
@@ -44,6 +27,44 @@ const INDEFINITE_NAN: f64 = ::std::f64::NAN;
 const FPU_EX_I: i32 = 1 << 0;
 const FPU_EX_SF: i32 = 1 << 6;
 const TWO_POW_63: f64 = 9223372036854775808u64 as f64;
+
+const F64_MANTISSA_MASK: u64 = (1 << 52) - 1;
+const F64_EXPONENT_MASK: u16 = 0x7FF;
+const F64_EXPONENT_NAN_INF: u16 = 0x7FF;
+const F64_SIGN_SHIFT: u32 = 63;
+const F64_EXPONENT_SHIFT: u32 = 52;
+const F64_EXPONENT_BIAS: u16 = 0x3FF;
+
+const F80_EXPONENT_MASK: u16 = 0x7FFF;
+const F80_EXPONENT_NAN_INF: u16 = 0x7FFF;
+const F80_EXPONENT_BIAS: u16 = 0x3FFF;
+
+pub struct FloatParts {
+    sign: bool,
+    exponent: u16,
+    mantissa: u64,
+}
+
+impl FloatParts {
+    pub fn to_f64(&self) -> f64 {
+        dbg_assert!(self.exponent <= F64_EXPONENT_MASK);
+        dbg_assert!(self.mantissa <= F64_MANTISSA_MASK);
+        let d = (self.sign as u64) << F64_SIGN_SHIFT
+            | (self.exponent as u64) << F64_EXPONENT_SHIFT
+            | self.mantissa;
+        let f: f64 = unsafe { transmute(d) };
+        f
+    }
+
+    pub fn of_f64(f: f64) -> FloatParts {
+        let d: u64 = unsafe { transmute(f) };
+        FloatParts {
+            sign: d >> F64_SIGN_SHIFT == 1,
+            exponent: (d >> F64_EXPONENT_SHIFT) as u16 & F64_EXPONENT_MASK,
+            mantissa: d & F64_MANTISSA_MASK,
+        }
+    }
+}
 
 pub fn fpu_write_st(index: i32, value: f64) {
     dbg_assert!(index >= 0 && index < 8);
@@ -105,79 +126,98 @@ pub unsafe fn fpu_integer_round(mut f: f64) -> f64 {
 }
 #[no_mangle]
 pub unsafe fn fpu_load_m32(mut addr: i32) -> OrPageFault<f64> {
-    let mut v: f32_int = f32_int {
-        i32_0: safe_read32s(addr)?,
-    };
-    Ok(v.f32_0 as f64)
+    let v: f32 = transmute(safe_read32s(addr)?);
+    Ok(v as f64)
 }
 #[no_mangle]
 pub unsafe fn fpu_load_m64(mut addr: i32) -> OrPageFault<f64> {
     let mut value: u64 = safe_read64s(addr)?.u64_0[0];
-    let mut v: f64_int = f64_int { u64_0: [value] };
-    Ok(v.f64_0)
+    let f: f64 = transmute(value);
+    Ok(f)
 }
 
 #[no_mangle]
 pub unsafe fn fpu_load_m80(mut addr: i32) -> OrPageFault<f64> {
     let mut value: u64 = safe_read64s(addr as i32)?.u64_0[0];
     let mut exponent: i32 = safe_read16(addr.wrapping_add(8) as i32)?;
-    let f = fpu_i80_to_f64((value, exponent as u16));
+    let f = fpu_f80_to_f64((value, exponent as u16));
     Ok(f)
 }
 
-pub unsafe fn fpu_i80_to_f64(i: (u64, u16)) -> f64 {
-    let mut value: u64 = i.0;
-    let mut low: u32 = value as u32;
-    let mut high: u32 = (value >> 32) as u32;
-    let mut exponent = i.1 as i32;
-    let mut sign = exponent >> 15;
-    exponent &= !32768;
+pub unsafe fn fpu_f80_to_f64(i: (u64, u16)) -> f64 {
+    let mantissa: u64 = i.0;
+    let exponent = i.1 & F80_EXPONENT_MASK;
+    let sign = i.1 >> 15 == 1;
+
     if exponent == 0 {
-        let d: u64 = (sign as u64) << 63 | (high as u64) << 20 | (low as u64) >> 12;
+        // Denormal number
+        // A few bits of precision lost and "integer part" bit ignored
+        let d: u64 = (sign as u64) << F64_SIGN_SHIFT | (mantissa >> 11 & F64_MANTISSA_MASK);
         let f: f64 = transmute(d);
         f
     }
-    else if exponent < 32767 {
-        exponent -= 16383;
+    else if exponent < F80_EXPONENT_NAN_INF {
+        let biased_exponent = exponent as i32 - F80_EXPONENT_BIAS as i32;
         // Note: some bits might be lost at this point
-        let mut mantissa: f64 = low as f64 + 4294967296i64 as f64 * high as f64;
-        if 0 != sign {
+        let mut mantissa = mantissa as f64;
+        if sign {
             mantissa = -mantissa
         }
         // Simply compute the 64 bit floating point number.
         // An alternative write the mantissa, sign and exponent in the
         // float64_byte and return float64[0]
-        mantissa * pow(2 as f64, (exponent - 63) as f64)
+        mantissa * pow(2.0, biased_exponent as f64 - 63.0)
     }
     else {
-        // TODO: NaN, Infinity
-        if 0 != 0 * 0 {
-            dbg_log!("Load m80 TODO");
-        }
-        let mut double_int_view: f64_int = f64_int { u8_0: [0; 8] };
-        double_int_view.u8_0[7] = (127 | sign << 7) as u8;
-        double_int_view.u8_0[6] = (240 as u32 | high >> 30 << 3 & 8 as u32) as u8;
-        double_int_view.u8_0[5] = 0 as u8;
-        double_int_view.u8_0[4] = 0 as u8;
-        double_int_view.i32_0[0] = 0;
-        double_int_view.f64_0
+        // NaN, Infinity
+        // Note: 11 bits of the NaN payload lost and "integer part" bit ignored
+        let mantissa = (mantissa >> 11) & F64_MANTISSA_MASK;
+        let f = FloatParts {
+            sign,
+            exponent: F64_EXPONENT_NAN_INF,
+            mantissa,
+        };
+        f.to_f64()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{f64_int, fpu_f64_to_i80, fpu_i80_to_f64};
+    use super::{fpu_f64_to_f80, fpu_f80_to_f64, FloatParts, F64_EXPONENT_NAN_INF};
+    use std::mem::transmute;
+
+    fn test_f80_f64_conversion(d: u64) -> bool {
+        let f = unsafe { transmute(d) };
+        let f2 = unsafe { fpu_f80_to_f64(fpu_f64_to_f80(f)) };
+        let d2: u64 = unsafe { transmute(f2) };
+        d == d2
+    }
+
     quickcheck! {
-        fn i80_f64_conversion(d: u64) -> bool {
-            let double_int_view = f64_int { u64_0: [d] };
-            let f = unsafe { double_int_view.f64_0 };
-            unsafe { f == fpu_i80_to_f64(fpu_f64_to_i80(f)) }
+        fn f80_f64_conversion(d: u64) -> bool {
+            test_f80_f64_conversion(d)
+        }
+
+        fn f80_f64_conversion_nan_inf(d: u64) -> bool {
+            let f = unsafe { transmute(d) };
+            let mut parts = FloatParts::of_f64(f);
+            parts.exponent = F64_EXPONENT_NAN_INF;
+            let d: u64 = unsafe { transmute(parts.to_f64()) };
+            test_f80_f64_conversion(d)
+        }
+
+        fn f80_f64_conversion_denormal(d: u64) -> bool {
+            let f = unsafe { transmute(d) };
+            let mut parts = FloatParts::of_f64(f);
+            parts.exponent = 0;
+            let d: u64 = unsafe { transmute(parts.to_f64()) };
+            test_f80_f64_conversion(d)
         }
     }
 
     #[test]
-    fn more_i80_f64_conversions() {
-        assert_eq!(unsafe { fpu_f64_to_i80(0.) }, (0, 0));
+    fn more_f80_f64_conversions() {
+        assert_eq!(unsafe { fpu_f64_to_f80(0.) }, (0, 0));
     }
 }
 
@@ -467,42 +507,40 @@ pub unsafe fn fpu_fsave(mut addr: i32) {
 
 #[no_mangle]
 pub unsafe fn fpu_store_m80(mut addr: i32, mut n: f64) {
-    let (value, exponent) = fpu_f64_to_i80(n);
+    let (value, exponent) = fpu_f64_to_f80(n);
     // writable_or_pagefault must have checked called by the caller!
     safe_write64(addr, value as i64).unwrap();
     safe_write16(addr + 8, exponent as i32).unwrap();
 }
 
-pub unsafe fn fpu_f64_to_i80(f: f64) -> (u64, u16) {
-    let mut double_int_view: f64_int = f64_int { f64_0: f };
-    let mut sign: u8 = double_int_view.u8_0[7] >> 7;
-    let mut exponent: i32 =
-        (double_int_view.u8_0[7] as i32 & 127) << 4 | double_int_view.u8_0[6] as i32 >> 4;
-    let mantissa = double_int_view.u64_0[0] & ((1 << 52) - 1);
-    let mut low;
-    let mut high;
-    if exponent == 2047 {
+pub unsafe fn fpu_f64_to_f80(f: f64) -> (u64, u16) {
+    let f = FloatParts::of_f64(f);
+
+    let mut exponent;
+
+    // This bit is implicit (doesn't exist) in f32 and f64.
+    // See https://en.wikipedia.org/wiki/Extended_precision#x86_extended_precision_format for normal values for this bit
+    let mut integer_part;
+
+    if f.exponent == F64_EXPONENT_NAN_INF {
         // all bits set (NaN and infinity)
-        exponent = 32767;
-        low = 0;
-        high = (2147483648 | ((double_int_view.i32_0[1] & 524288) << 11) as u32) as i32
+        exponent = F80_EXPONENT_NAN_INF;
+        integer_part = 1;
     }
-    else if exponent == 0 {
+    else if f.exponent == 0 {
         // zero and denormal numbers
-        return (mantissa << 12, (sign as u16) << 15);
+        exponent = 0;
+        integer_part = 0;
     }
     else {
-        exponent += 16383 - 1023;
-        // does the mantissa need to be adjusted?
-        low = double_int_view.i32_0[0] << 11;
-        high = (2147483648
-            | ((double_int_view.i32_0[1] & 1048575) << 11) as u32
-            | double_int_view.i32_0[0] as u32 >> 21) as i32
+        exponent = f.exponent + F80_EXPONENT_BIAS - F64_EXPONENT_BIAS;
+        integer_part = 1;
     }
-    dbg_assert!(exponent >= 0 && exponent < 32768);
+
+    dbg_assert!(exponent < 0x8000);
     (
-        (low as u64 & 4294967295 as u64 | (high as u64) << 32) as u64,
-        ((sign as i32) << 15 | exponent) as u16,
+        integer_part << 63 | f.mantissa << 11,
+        (f.sign as u16) << 15 | exponent,
     )
 }
 
@@ -561,8 +599,8 @@ pub unsafe fn fpu_fstm32(mut addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn fpu_store_m32(mut addr: i32, mut x: f64) -> OrPageFault<()> {
-    let mut v: f32_int = f32_int { f32_0: x as f32 };
-    safe_write32(addr, v.i32_0)
+    let v = transmute(x as f32);
+    safe_write32(addr, v)
 }
 #[no_mangle]
 pub unsafe fn fpu_fstm32p(mut addr: i32) {
@@ -575,8 +613,8 @@ pub unsafe fn fpu_fstm64(mut addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn fpu_store_m64(mut addr: i32, mut x: f64) -> OrPageFault<()> {
-    let mut v: f64_int = f64_int { f64_0: x };
-    safe_write64(addr, v.u64_0[0] as i64)
+    let v: i64 = transmute(x);
+    safe_write64(addr, v)
 }
 #[no_mangle]
 pub unsafe fn fpu_fstm64p(mut addr: i32) {
@@ -676,16 +714,13 @@ pub unsafe fn fpu_fxch(mut i: i32) {
 }
 #[no_mangle]
 pub unsafe fn fpu_fxtract() {
-    let mut double_int_view: f64_int = f64_int {
-        f64_0: fpu_get_st0(),
-    };
-    let mut exponent: f64 = (((double_int_view.u8_0[7] as i32 & 127) << 4
-        | double_int_view.u8_0[6] as i32 >> 4)
-        - 1023) as f64;
-    double_int_view.u8_0[7] = (63 | double_int_view.u8_0[7] as i32 & 128) as u8;
-    double_int_view.u8_0[6] = (double_int_view.u8_0[6] as i32 | 240) as u8;
-    fpu_write_st(*fpu_stack_ptr as i32, exponent);
-    fpu_push(double_int_view.f64_0);
+    let mut f = FloatParts::of_f64(fpu_get_st0());
+    fpu_write_st(
+        *fpu_stack_ptr as i32,
+        f.exponent as f64 - F64_EXPONENT_BIAS as f64,
+    );
+    f.exponent = 0x7FF;
+    fpu_push(f.to_f64());
 }
 #[no_mangle]
 pub unsafe fn fwait() {
