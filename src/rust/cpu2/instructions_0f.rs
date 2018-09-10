@@ -824,7 +824,7 @@ pub unsafe fn instr_0F22(mut r: i32, mut creg: i32) {
                 clear_tlb();
             },
             4 => {
-                dbg_log!("cr4 <- {}", *cr.offset(4));
+                dbg_log!("cr4 <- {:x}", *cr.offset(4));
                 if 0 != data as u32
                     & ((1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19) as u32 | 4290772992)
                 {
