@@ -340,14 +340,23 @@ pub unsafe fn fxsave(mut addr: i32) {
     safe_write16(addr.wrapping_add(20) as i32, *fpu_dp_selector).unwrap();
     safe_write32(addr.wrapping_add(24) as i32, *mxcsr).unwrap();
     safe_write32(addr.wrapping_add(28) as i32, MXCSR_MASK).unwrap();
+
     let mut i: i32 = 0;
     while i < 8 {
-        fpu_store_m80(
-            addr.wrapping_add(32).wrapping_add(i << 4),
-            *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(i as u32) & 7) as isize),
-        );
+        let reg_index = i + *fpu_stack_ptr as i32 & 7;
+        if *fxsave_store_fpu_mask & 1 << reg_index != 0 {
+            fpu_store_m80(addr + 32 + (i << 4), *fpu_st.offset(reg_index as isize));
+        }
+        else {
+            safe_write64(
+                addr + 32 + (i << 4),
+                (*reg_mmx.offset(reg_index as isize)).i64_0[0],
+            ).unwrap();
+            safe_write64(addr + 32 + (i << 4) | 8, 0).unwrap();
+        }
         i += 1
     }
+
     // If the OSFXSR bit in control register CR4 is not set, the FXSAVE
     // instruction may not save these registers. This behavior is
     // implementation dependent.
@@ -381,12 +390,21 @@ pub unsafe fn fxrstor(mut addr: i32) {
         *fpu_dp = safe_read32s(addr.wrapping_add(16) as i32).unwrap();
         *fpu_dp_selector = safe_read16(addr.wrapping_add(20) as i32).unwrap();
         set_mxcsr(new_mxcsr);
+
         let mut i: i32 = 0;
         while i < 8 {
-            *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(i as u32) & 7 as u32) as isize) =
+            let reg_index = *fpu_stack_ptr as i32 + i & 7;
+            *fpu_st.offset(reg_index as isize) =
                 fpu_load_m80(addr.wrapping_add(32).wrapping_add(i << 4)).unwrap();
+            *reg_mmx.offset(reg_index as isize) =
+                safe_read64s(addr.wrapping_add(32).wrapping_add(i << 4)).unwrap();
             i += 1
         }
+
+        // Mark values as coming from the fpu: xmm registers fit into x87 registers, but not the
+        // other way around
+        *fxsave_store_fpu_mask = 0xff;
+
         let mut i_0: i32 = 0;
         while i_0 < 8 {
             (*reg_xmm.offset(i_0 as isize)).u32_0[0] = safe_read32s(

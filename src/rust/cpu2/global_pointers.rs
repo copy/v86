@@ -61,6 +61,7 @@ pub const fpu_dp: *mut i32 = 1056 as *mut i32;
 pub const fpu_dp_selector: *mut i32 = 1060 as *mut i32;
 pub const reg_mmx: *mut reg64 = 1064 as *mut reg64;
 pub const tss_size_32: *mut bool = 1128 as *mut bool;
+pub const fxsave_store_fpu_mask: *mut u8 = 1132 as *mut u8;
 pub const opstats_buffer: *mut u32 = 4096 as *mut u32;
 pub const opstats_buffer_0f: *mut u32 = 5120 as *mut u32;
 pub const tlb_data: *mut i32 = 0x400000 as *mut i32;

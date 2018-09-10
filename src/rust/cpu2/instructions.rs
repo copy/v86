@@ -30,7 +30,7 @@ extern "C" {
 use cpu2::arith::*;
 use cpu2::cpu::*;
 use cpu2::fpu::*;
-use cpu2::fpu::{fpu_load_m32, fpu_load_m64};
+use cpu2::fpu::{fpu_load_m32, fpu_load_m64, fpu_write_st};
 use cpu2::global_pointers::*;
 use cpu2::misc_instr::*;
 use cpu2::misc_instr::{pop16, pop32s, push16, push32};
@@ -3730,11 +3730,11 @@ pub unsafe fn instr_D9_4_reg(mut r: i32) {
     match r {
         0 => {
             // fchs
-            *fpu_st.offset(*fpu_stack_ptr as isize) = -st0
+            fpu_write_st(*fpu_stack_ptr as i32, -st0);
         },
         1 => {
             // fabs
-            *fpu_st.offset(*fpu_stack_ptr as isize) = st0.abs()
+            fpu_write_st(*fpu_stack_ptr as i32, st0.abs());
         },
         4 => {
             fpu_ftst(st0);
@@ -3790,24 +3790,25 @@ pub unsafe fn instr_D9_6_reg(mut r: i32) {
     match r {
         0 => {
             // f2xm1
-            *fpu_st.offset(*fpu_stack_ptr as isize) = pow(2 as f64, st0) - 1 as f64
+            fpu_write_st(*fpu_stack_ptr as i32, pow(2 as f64, st0) - 1 as f64)
         },
         1 => {
             // fyl2x
-            *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(1 as u32) & 7 as u32) as isize) =
-                fpu_get_sti(1) * st0.ln() / M_LN2;
+            fpu_write_st(
+                *fpu_stack_ptr as i32 + 1 & 7,
+                fpu_get_sti(1) * st0.ln() / M_LN2,
+            );
             fpu_pop();
         },
         2 => {
             // fptan
-            *fpu_st.offset(*fpu_stack_ptr as isize) = st0.tan();
-            fpu_push(1 as f64);
+            fpu_write_st(*fpu_stack_ptr as i32, st0.tan());
             // no bug: push constant 1
+            fpu_push(1 as f64);
         },
         3 => {
             // fpatan
-            *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(1 as u32) & 7 as u32) as isize) =
-                fpu_get_sti(1).atan2(st0);
+            fpu_write_st(*fpu_stack_ptr as i32 + 1 & 7, fpu_get_sti(1).atan2(st0));
             fpu_pop();
         },
         4 => {
@@ -3815,7 +3816,7 @@ pub unsafe fn instr_D9_6_reg(mut r: i32) {
         },
         5 => {
             // fprem1
-            *fpu_st.offset(*fpu_stack_ptr as isize) = fmod(st0, fpu_get_sti(1))
+            fpu_write_st(*fpu_stack_ptr as i32, fmod(st0, fpu_get_sti(1)));
         },
         6 => {
             // fdecstp
@@ -3843,25 +3844,26 @@ pub unsafe fn instr_D9_7_reg(mut r: i32) {
         },
         1 => {
             // fyl2xp1: y * log2(x+1) and pop
-            *fpu_st.offset(((*fpu_stack_ptr).wrapping_add(1 as u32) & 7 as u32) as isize) =
-                fpu_get_sti(1) * (st0 + 1 as f64).ln() / M_LN2;
+            let y = fpu_get_sti(1) * (st0 + 1 as f64).ln() / M_LN2;
+            fpu_write_st(*fpu_stack_ptr as i32 + 1 & 7, y);
             fpu_pop();
         },
-        2 => *fpu_st.offset(*fpu_stack_ptr as isize) = st0.sqrt(),
+        2 => fpu_write_st(*fpu_stack_ptr as i32, st0.sqrt()),
         3 => {
-            *fpu_st.offset(*fpu_stack_ptr as isize) = st0.sin();
+            fpu_write_st(*fpu_stack_ptr as i32, st0.sin());
             fpu_push(st0.cos());
         },
         4 => {
             // frndint
-            *fpu_st.offset(*fpu_stack_ptr as isize) = fpu_integer_round(st0)
+            fpu_write_st(*fpu_stack_ptr as i32, fpu_integer_round(st0));
         },
         5 => {
             // fscale
-            *fpu_st.offset(*fpu_stack_ptr as isize) = st0 * pow(2 as f64, trunc(fpu_get_sti(1)))
+            let y = st0 * pow(2 as f64, trunc(fpu_get_sti(1)));
+            fpu_write_st(*fpu_stack_ptr as i32, y);
         },
-        6 => *fpu_st.offset(*fpu_stack_ptr as isize) = st0.sin(),
-        7 => *fpu_st.offset(*fpu_stack_ptr as isize) = st0.cos(),
+        6 => fpu_write_st(*fpu_stack_ptr as i32, st0.sin()),
+        7 => fpu_write_st(*fpu_stack_ptr as i32, st0.cos()),
         _ => {
             dbg_assert!(0 != 0);
         },

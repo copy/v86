@@ -1706,11 +1706,13 @@ pub unsafe fn read_mmx32s(mut r: i32) -> i32 {
 pub unsafe fn read_mmx64s(mut r: i32) -> reg64 { return *reg_mmx.offset(r as isize); }
 
 pub unsafe fn write_mmx64(mut r: i32, mut low: i32, mut high: i32) {
+    *fxsave_store_fpu_mask &= !(1 << r);
     (*reg_mmx.offset(r as isize)).u32_0[0] = low as u32;
     (*reg_mmx.offset(r as isize)).u32_0[1] = high as u32;
 }
 
 pub unsafe fn write_mmx_reg64(mut r: i32, mut data: reg64) {
+    *fxsave_store_fpu_mask &= !(1 << r);
     (*reg_mmx.offset(r as isize)).u64_0[0] = data.u64_0[0];
 }
 
