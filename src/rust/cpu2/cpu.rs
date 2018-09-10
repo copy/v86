@@ -164,6 +164,8 @@ pub const CR4_PSE: i32 = 1 << 4;
 pub const CR4_DE: i32 = 1 << 3;
 pub const CR4_PAE: i32 = 1 << 5;
 pub const CR4_PGE: i32 = 1 << 7;
+pub const CR4_OSFXSR: i32 = 1 << 9;
+pub const CR4_OSXMMEXCPT: i32 = 1 << 10;
 pub const IA32_SYSENTER_CS: i32 = 372;
 pub const IA32_SYSENTER_ESP: i32 = 373;
 pub const IA32_SYSENTER_EIP: i32 = 374;
@@ -1792,6 +1794,9 @@ pub unsafe fn set_mxcsr(new_mxcsr: i32) {
 pub unsafe fn task_switch_test_void() { task_switch_test(); }
 
 pub unsafe fn task_switch_test_mmx() -> bool {
+    if *cr.offset(4) & CR4_OSFXSR == 0 {
+        dbg_log!("Warning: Unimplemented task switch test with cr4.osfxsr=0");
+    }
     if 0 != *cr & CR0_TS {
         trigger_nm();
         return 0 != 0;
