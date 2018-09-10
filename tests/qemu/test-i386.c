@@ -2790,32 +2790,42 @@ void test_sse(void)
 
     SHIFT_OP(psrlw, 0);
     SHIFT_OP(psrlw, 7);
+    SHIFT_OP(psrlw, 15);
     SHIFT_OP(psrlw, 16);
     SHIFT_REG(psrlw, 0x100000000);
     SHIFT_REG_MMX(psrlw, 0x100000000);
+
     SHIFT_OP(psraw, 0);
     SHIFT_OP(psraw, 7);
+    SHIFT_OP(psraw, 15);
     SHIFT_OP(psraw, 16);
     SHIFT_REG(psraw, 0x100000000);
     SHIFT_REG_MMX(psraw, 0x100000000);
+
     SHIFT_OP(psllw, 0);
     SHIFT_OP(psllw, 7);
+    SHIFT_OP(psllw, 15);
     SHIFT_OP(psllw, 16);
     SHIFT_REG(psllw, 0x100000000);
     SHIFT_REG_MMX(psllw, 0x100000000);
 
     SHIFT_OP(psrld, 0);
     SHIFT_OP(psrld, 7);
+    SHIFT_OP(psrld, 31);
     SHIFT_OP(psrld, 32);
     SHIFT_REG(psrld, 0x100000000);
     SHIFT_REG_MMX(psrld, 0x100000000);
+
     SHIFT_OP(psrad, 0);
     SHIFT_OP(psrad, 7);
+    SHIFT_OP(psrad, 31);
     SHIFT_OP(psrad, 32);
     SHIFT_REG(psrad, 0x100000000);
     SHIFT_REG_MMX(psrad, 0x100000000);
+
     SHIFT_OP(pslld, 0);
     SHIFT_OP(pslld, 7);
+    SHIFT_OP(pslld, 31);
     SHIFT_OP(pslld, 32);
     SHIFT_REG(pslld, 0x100000000);
     SHIFT_REG_MMX(pslld, 0x100000000);
@@ -2823,22 +2833,34 @@ void test_sse(void)
     SHIFT_OP(psrlq, 0);
     SHIFT_OP(psrlq, 7);
     SHIFT_OP(psrlq, 32);
+    SHIFT_OP(psrlq, 63);
+    SHIFT_OP(psrlq, 64);
     SHIFT_REG(psrlq, 0x100000000);
     SHIFT_REG_MMX(psrlq, 0x100000000);
+
     SHIFT_OP(psllq, 0);
     SHIFT_OP(psllq, 7);
     SHIFT_OP(psllq, 32);
+    SHIFT_OP(psllq, 63);
+    SHIFT_OP(psllq, 64);
     SHIFT_REG(psllq, 0x100000000);
     SHIFT_REG_MMX(psllq, 0x100000000);
 
     // byte-wise shifts
     SHIFT_IM(psrldq, 0);
+    SHIFT_IM(psrldq, 1);
     SHIFT_IM(psrldq, 7);
+    SHIFT_IM(psrldq, 8);
     SHIFT_IM(psrldq, 11);
+    SHIFT_IM(psrldq, 15);
     SHIFT_IM(psrldq, 16);
-    SHIFT_IM(pslldq, 7);
+
     SHIFT_IM(pslldq, 0);
+    SHIFT_IM(pslldq, 1);
+    SHIFT_IM(pslldq, 7);
+    SHIFT_IM(pslldq, 8);
     SHIFT_IM(pslldq, 11);
+    SHIFT_IM(pslldq, 15);
     SHIFT_IM(pslldq, 16);
 
     MOVMSK(movmskps);
