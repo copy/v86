@@ -1,5 +1,7 @@
 #![allow(unused_mut)]
 
+use std::mem::transmute;
+
 use cpu2::cpu::*;
 use cpu2::global_pointers::*;
 use paging::OrPageFault;
@@ -106,17 +108,26 @@ pub unsafe fn fpu_load_m64(mut addr: i32) -> OrPageFault<f64> {
     let mut v: f64_int = f64_int { u64_0: [value] };
     Ok(v.f64_0)
 }
+
 #[no_mangle]
 pub unsafe fn fpu_load_m80(mut addr: i32) -> OrPageFault<f64> {
     let mut value: u64 = safe_read64s(addr as i32)?.u64_0[0];
+    let mut exponent: i32 = safe_read16(addr.wrapping_add(8) as i32)?;
+    let f = fpu_i80_to_f64((value, exponent as u16));
+    Ok(f)
+}
+
+pub unsafe fn fpu_i80_to_f64(i: (u64, u16)) -> f64 {
+    let mut value: u64 = i.0;
     let mut low: u32 = value as u32;
     let mut high: u32 = (value >> 32) as u32;
-    let mut exponent: i32 = safe_read16(addr.wrapping_add(8) as i32)?;
-    let mut sign: i32 = exponent >> 15;
+    let mut exponent = i.1 as i32;
+    let mut sign = exponent >> 15;
     exponent &= !32768;
     if exponent == 0 {
-        // TODO: denormal numbers
-        Ok(0 as f64)
+        let d: u64 = (sign as u64) << 63 | (high as u64) << 20 | (low as u64) >> 12;
+        let f: f64 = transmute(d);
+        f
     }
     else if exponent < 32767 {
         exponent -= 16383;
@@ -128,7 +139,7 @@ pub unsafe fn fpu_load_m80(mut addr: i32) -> OrPageFault<f64> {
         // Simply compute the 64 bit floating point number.
         // An alternative write the mantissa, sign and exponent in the
         // float64_byte and return float64[0]
-        Ok(mantissa * pow(2 as f64, (exponent - 63) as f64))
+        mantissa * pow(2 as f64, (exponent - 63) as f64)
     }
     else {
         // TODO: NaN, Infinity
@@ -141,9 +152,27 @@ pub unsafe fn fpu_load_m80(mut addr: i32) -> OrPageFault<f64> {
         double_int_view.u8_0[5] = 0 as u8;
         double_int_view.u8_0[4] = 0 as u8;
         double_int_view.i32_0[0] = 0;
-        Ok(double_int_view.f64_0)
+        double_int_view.f64_0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{f64_int, fpu_f64_to_i80, fpu_i80_to_f64};
+    quickcheck! {
+        fn i80_f64_conversion(d: u64) -> bool {
+            let double_int_view = f64_int { u64_0: [d] };
+            let f = unsafe { double_int_view.f64_0 };
+            unsafe { f == fpu_i80_to_f64(fpu_f64_to_i80(f)) }
+        }
+    }
+
+    #[test]
+    fn more_i80_f64_conversions() {
+        assert_eq!(unsafe { fpu_f64_to_i80(0.) }, (0, 0));
+    }
+}
+
 #[no_mangle]
 pub unsafe fn fpu_load_status_word() -> i32 {
     return ((*fpu_status_word & !(7 << 11)) as u32 | *fpu_stack_ptr << 11) as i32;
@@ -425,12 +454,21 @@ pub unsafe fn fpu_fsave(mut addr: i32) {
     }
     fpu_finit();
 }
+
 #[no_mangle]
 pub unsafe fn fpu_store_m80(mut addr: i32, mut n: f64) {
-    let mut double_int_view: f64_int = f64_int { f64_0: n };
-    let mut sign: u8 = (double_int_view.u8_0[7] as i32 & 128) as u8;
+    let (value, exponent) = fpu_f64_to_i80(n);
+    // writable_or_pagefault must have checked called by the caller!
+    safe_write64(addr, value as i64).unwrap();
+    safe_write16(addr + 8, exponent as i32).unwrap();
+}
+
+pub unsafe fn fpu_f64_to_i80(f: f64) -> (u64, u16) {
+    let mut double_int_view: f64_int = f64_int { f64_0: f };
+    let mut sign: u8 = double_int_view.u8_0[7] >> 7;
     let mut exponent: i32 =
         (double_int_view.u8_0[7] as i32 & 127) << 4 | double_int_view.u8_0[6] as i32 >> 4;
+    let mantissa = double_int_view.u64_0[0] & ((1 << 52) - 1);
     let mut low;
     let mut high;
     if exponent == 2047 {
@@ -441,9 +479,7 @@ pub unsafe fn fpu_store_m80(mut addr: i32, mut n: f64) {
     }
     else if exponent == 0 {
         // zero and denormal numbers
-        // Just assume zero for now
-        low = 0;
-        high = 0
+        return (mantissa << 12, (sign as u16) << 15);
     }
     else {
         exponent += 16383 - 1023;
@@ -454,13 +490,12 @@ pub unsafe fn fpu_store_m80(mut addr: i32, mut n: f64) {
             | double_int_view.i32_0[0] as u32 >> 21) as i32
     }
     dbg_assert!(exponent >= 0 && exponent < 32768);
-    // writable_or_pagefault must have checked called by the caller!
-    safe_write64(
-        addr as i32,
-        (low as u64 & 4294967295 as u64 | (high as u64) << 32) as i64,
-    ).unwrap();
-    safe_write16(addr.wrapping_add(8) as i32, (sign as i32) << 8 | exponent).unwrap();
+    (
+        (low as u64 & 4294967295 as u64 | (high as u64) << 32) as u64,
+        ((sign as i32) << 15 | exponent) as u16,
+    )
 }
+
 #[no_mangle]
 pub unsafe fn fpu_fstenv(mut addr: i32) {
     if is_osize_32() {

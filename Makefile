@@ -272,6 +272,9 @@ rust-test: $(RUST_FILES)
 	env RUST_BACKTRACE=full RUST_TEST_THREADS=1 RUSTFLAGS="-D warnings" cargo +nightly test -- --nocapture
 	./tests/rust/verify-wasmgen-dummy-output.js
 
+rust-test-intensive:
+	QUICKCHECK_TESTS=100000000 make rust-test
+
 api-tests: all-debug
 	./tests/api/state.js
 
