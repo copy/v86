@@ -2874,6 +2874,8 @@ void test_sse(void)
         asm volatile("ldmxcsr %0" : : "m" (mxcsr));
     }
 
+    asm volatile ("emms");
+
     test_sse_comi(2, -1);
     test_sse_comi(2, 2);
     test_sse_comi(2, 3);
