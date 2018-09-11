@@ -1,5 +1,3 @@
-#![allow(unused_mut)]
-
 extern "C" {
     #[no_mangle]
     fn mmap_read8(addr: u32) -> i32;
@@ -25,7 +23,7 @@ use page::Page;
 const USE_A20: bool = false;
 
 #[no_mangle]
-pub unsafe fn in_mapped_range(mut addr: u32) -> bool {
+pub unsafe fn in_mapped_range(addr: u32) -> bool {
     return addr >= 655360 as u32 && addr < 786432 as u32 || addr >= *memory_size;
 }
 
@@ -125,7 +123,7 @@ pub unsafe fn read128(mut addr: u32) -> reg128 {
 }
 
 #[no_mangle]
-pub unsafe fn write8(mut addr: u32, mut value: i32) {
+pub unsafe fn write8(mut addr: u32, value: i32) {
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK as u32
     }
@@ -143,7 +141,7 @@ pub unsafe fn write8_no_mmap_or_dirty_check(addr: u32, value: i32) {
 }
 
 #[no_mangle]
-pub unsafe fn write16(mut addr: u32, mut value: i32) {
+pub unsafe fn write16(mut addr: u32, value: i32) {
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK as u32
     }
@@ -156,12 +154,12 @@ pub unsafe fn write16(mut addr: u32, mut value: i32) {
     };
 }
 #[no_mangle]
-pub unsafe fn write_aligned16(mut addr: u32, mut value: u32) {
+pub unsafe fn write_aligned16(mut addr: u32, value: u32) {
     dbg_assert!(addr < 2147483648);
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK16 as u32
     }
-    let mut phys_addr: u32 = addr << 1;
+    let phys_addr: u32 = addr << 1;
     if in_mapped_range(phys_addr) {
         mmap_write16(phys_addr, value as i32);
     }
@@ -171,7 +169,7 @@ pub unsafe fn write_aligned16(mut addr: u32, mut value: u32) {
     };
 }
 #[no_mangle]
-pub unsafe fn write32(mut addr: u32, mut value: i32) {
+pub unsafe fn write32(mut addr: u32, value: i32) {
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK as u32
     }
@@ -189,12 +187,12 @@ pub unsafe fn write_aligned32_no_mmap_or_dirty_check(addr: u32, value: i32) {
 }
 
 #[no_mangle]
-pub unsafe fn write_aligned32(mut addr: u32, mut value: i32) {
+pub unsafe fn write_aligned32(mut addr: u32, value: i32) {
     dbg_assert!(addr < 1073741824 as u32);
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK32 as u32
     }
-    let mut phys_addr: u32 = addr << 2;
+    let phys_addr: u32 = addr << 2;
     if in_mapped_range(phys_addr) {
         mmap_write32(phys_addr, value);
     }
@@ -204,7 +202,7 @@ pub unsafe fn write_aligned32(mut addr: u32, mut value: i32) {
     };
 }
 #[no_mangle]
-pub unsafe fn write64(mut addr: u32, mut value: i64) {
+pub unsafe fn write64(mut addr: u32, value: i64) {
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK as u32
     }
@@ -221,7 +219,7 @@ pub unsafe fn write64(mut addr: u32, mut value: i64) {
     };
 }
 #[no_mangle]
-pub unsafe fn write128(mut addr: u32, mut value: reg128) {
+pub unsafe fn write128(mut addr: u32, value: reg128) {
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK as u32
     }

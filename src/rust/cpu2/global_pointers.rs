@@ -1,4 +1,4 @@
-#![allow(non_upper_case_globals, unused_mut)]
+#![allow(non_upper_case_globals)]
 
 use cpu2::cpu::{reg128, reg64};
 

@@ -1,10 +1,8 @@
-#![allow(unused_mut)]
-
 use cpu2::cpu::*;
 use cpu2::global_pointers::*;
 use paging::OrPageFault;
 
-pub unsafe fn resolve_modrm16(mut modrm_byte: i32) -> OrPageFault<i32> {
+pub unsafe fn resolve_modrm16(modrm_byte: i32) -> OrPageFault<i32> {
     Ok(match modrm_byte {
         0 | 8 | 16 | 24 | 32 | 40 | 48 | 56 => get_seg_prefix_ds(
             *reg16.offset(BX as isize) as i32 + *reg16.offset(SI as isize) as i32 & 65535,
@@ -91,8 +89,8 @@ pub unsafe fn resolve_modrm16(mut modrm_byte: i32) -> OrPageFault<i32> {
     })
 }
 
-pub unsafe fn resolve_modrm32_(mut modrm_byte: i32) -> OrPageFault<i32> {
-    let mut r: u8 = (modrm_byte & 7) as u8;
+pub unsafe fn resolve_modrm32_(modrm_byte: i32) -> OrPageFault<i32> {
+    let r: u8 = (modrm_byte & 7) as u8;
     dbg_assert!(modrm_byte < 192);
     Ok(if r as i32 == 4 {
         if modrm_byte < 64 {
@@ -136,13 +134,13 @@ pub unsafe fn resolve_modrm32_(mut modrm_byte: i32) -> OrPageFault<i32> {
         )
     })
 }
-unsafe fn resolve_sib(mut mod_0: bool) -> OrPageFault<i32> {
-    let mut s;
-    let mut sib_byte: u8 = read_imm8()? as u8;
-    let mut r: u8 = (sib_byte as i32 & 7) as u8;
-    let mut m: u8 = (sib_byte as i32 >> 3 & 7) as u8;
-    let mut base;
-    let mut seg;
+unsafe fn resolve_sib(mod_0: bool) -> OrPageFault<i32> {
+    let s;
+    let sib_byte: u8 = read_imm8()? as u8;
+    let r: u8 = (sib_byte as i32 & 7) as u8;
+    let m: u8 = (sib_byte as i32 >> 3 & 7) as u8;
+    let base;
+    let seg;
     if r as i32 == 4 {
         base = *reg32s.offset(ESP as isize);
         seg = SS
@@ -161,7 +159,7 @@ unsafe fn resolve_sib(mut mod_0: bool) -> OrPageFault<i32> {
         base = *reg32s.offset(r as isize);
         seg = DS
     }
-    let mut offset;
+    let offset;
     if m as i32 == 4 {
         offset = 0
     }
@@ -172,7 +170,7 @@ unsafe fn resolve_sib(mut mod_0: bool) -> OrPageFault<i32> {
     Ok(get_seg_prefix(seg) + base + offset)
 }
 
-pub unsafe fn resolve_modrm32(mut modrm_byte: i32) -> OrPageFault<i32> {
+pub unsafe fn resolve_modrm32(modrm_byte: i32) -> OrPageFault<i32> {
     Ok(match modrm_byte {
         0 | 8 | 16 | 24 | 32 | 40 | 48 | 56 => get_seg_prefix_ds(*reg32s.offset(EAX as isize)),
         64 | 72 | 80 | 88 | 96 | 104 | 112 | 120 => {
