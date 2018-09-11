@@ -30,12 +30,12 @@ pub unsafe fn string_get_cycle_count(mut size: i32, mut address: i32) -> i32 {
     dbg_assert!(0 != size && size <= 4 && size >= -4);
     if size < 0 {
         size = -size;
-        address = 4096 - address - size
+        address = 0x1000 - address - size
     }
     dbg_assert!(address & size - 1 == 0);
     // 1 -> 0; 2 -> 1; 4 -> 2
     let shift: i32 = size >> 1;
-    return 4096 - (address & 4095) >> shift;
+    return 0x1000 - (address & 0xFFF) >> shift;
 }
 #[no_mangle]
 pub unsafe fn string_get_cycle_count2(size: i32, addr1: i32, addr2: i32) -> i32 {

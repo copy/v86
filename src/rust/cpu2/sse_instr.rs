@@ -115,9 +115,9 @@ pub unsafe fn psraw_r64(r: i32, shift: u64) {
     // psraw mm, {shift}
     let destination: reg64 = read_mmx64s(r);
     let shift_clamped: i32 = (if shift > 15 { 16 } else { shift }) as i32;
-    let dword0: i32 = destination.i16_0[0] as i32 >> shift_clamped & 65535
+    let dword0: i32 = destination.i16_0[0] as i32 >> shift_clamped & 0xFFFF
         | destination.i16_0[1] as i32 >> shift_clamped << 16;
-    let dword1: i32 = destination.i16_0[2] as i32 >> shift_clamped & 65535
+    let dword1: i32 = destination.i16_0[2] as i32 >> shift_clamped & 0xFFFF
         | destination.i16_0[3] as i32 >> shift_clamped << 16;
     write_mmx64(r, dword0, dword1);
     transition_fpu_to_mmx();
@@ -129,9 +129,9 @@ pub unsafe fn psllw_r64(r: i32, shift: u64) {
     let mut dword0: i32 = 0;
     let mut dword1: i32 = 0;
     if shift <= 15 {
-        dword0 = (destination.u16_0[0] as i32) << shift & 65535
+        dword0 = (destination.u16_0[0] as i32) << shift & 0xFFFF
             | (destination.u16_0[1] as i32) << shift << 16;
-        dword1 = (destination.u16_0[2] as i32) << shift & 65535
+        dword1 = (destination.u16_0[2] as i32) << shift & 0xFFFF
             | (destination.u16_0[3] as i32) << shift << 16
     }
     write_mmx64(r, dword0, dword1);
@@ -232,13 +232,13 @@ pub unsafe fn psraw_r128(r: i32, shift: u64) {
     // psraw xmm, {shift}
     let destination: reg128 = read_xmm128s(r);
     let shift_clamped: i32 = (if shift > 15 { 16 } else { shift as u32 }) as i32;
-    let dword0: i32 = destination.i16_0[0] as i32 >> shift_clamped & 65535
+    let dword0: i32 = destination.i16_0[0] as i32 >> shift_clamped & 0xFFFF
         | destination.i16_0[1] as i32 >> shift_clamped << 16;
-    let dword1: i32 = destination.i16_0[2] as i32 >> shift_clamped & 65535
+    let dword1: i32 = destination.i16_0[2] as i32 >> shift_clamped & 0xFFFF
         | destination.i16_0[3] as i32 >> shift_clamped << 16;
-    let dword2: i32 = destination.i16_0[4] as i32 >> shift_clamped & 65535
+    let dword2: i32 = destination.i16_0[4] as i32 >> shift_clamped & 0xFFFF
         | destination.i16_0[5] as i32 >> shift_clamped << 16;
-    let dword3: i32 = destination.i16_0[6] as i32 >> shift_clamped & 65535
+    let dword3: i32 = destination.i16_0[6] as i32 >> shift_clamped & 0xFFFF
         | destination.i16_0[7] as i32 >> shift_clamped << 16;
     write_xmm128(r, dword0, dword1, dword2, dword3);
 }
@@ -251,13 +251,13 @@ pub unsafe fn psllw_r128(r: i32, shift: u64) {
     let mut dword2: i32 = 0;
     let mut dword3: i32 = 0;
     if shift <= 15 {
-        dword0 = (destination.u16_0[0] as i32) << shift & 65535
+        dword0 = (destination.u16_0[0] as i32) << shift & 0xFFFF
             | (destination.u16_0[1] as i32) << shift << 16;
-        dword1 = (destination.u16_0[2] as i32) << shift & 65535
+        dword1 = (destination.u16_0[2] as i32) << shift & 0xFFFF
             | (destination.u16_0[3] as i32) << shift << 16;
-        dword2 = (destination.u16_0[4] as i32) << shift & 65535
+        dword2 = (destination.u16_0[4] as i32) << shift & 0xFFFF
             | (destination.u16_0[5] as i32) << shift << 16;
-        dword3 = (destination.u16_0[6] as i32) << shift & 65535
+        dword3 = (destination.u16_0[6] as i32) << shift & 0xFFFF
             | (destination.u16_0[7] as i32) << shift << 16
     }
     write_xmm128(r, dword0, dword1, dword2, dword3);

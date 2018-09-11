@@ -127,7 +127,7 @@ pub unsafe fn instr16_07() {
 pub unsafe fn instr32_07() {
     if !switch_seg(
         ES,
-        return_on_pagefault!(safe_read32s(get_stack_pointer(0))) & 65535,
+        return_on_pagefault!(safe_read32s(get_stack_pointer(0))) & 0xFFFF,
     ) {
         return;
     }
@@ -308,7 +308,7 @@ pub unsafe fn instr16_17() {
 pub unsafe fn instr32_17() {
     if !switch_seg(
         SS,
-        return_on_pagefault!(safe_read32s(get_stack_pointer(0))) & 65535,
+        return_on_pagefault!(safe_read32s(get_stack_pointer(0))) & 0xFFFF,
     ) {
         return;
     }
@@ -408,7 +408,7 @@ pub unsafe fn instr16_1F() {
 pub unsafe fn instr32_1F() {
     if !switch_seg(
         DS,
-        return_on_pagefault!(safe_read32s(get_stack_pointer(0))) & 65535,
+        return_on_pagefault!(safe_read32s(get_stack_pointer(0))) & 0xFFFF,
     ) {
         return;
     }
@@ -1693,17 +1693,17 @@ pub unsafe fn instr32_99() { *reg32s.offset(EDX as isize) = *reg32s.offset(EAX a
 pub unsafe fn instr16_9A(new_ip: i32, new_cs: i32) {
     // callf
     far_jump(new_ip, new_cs, true);
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr32_9A(new_ip: i32, new_cs: i32) {
     if !*protected_mode || 0 != vm86_mode() as i32 {
-        if 0 != new_ip as u32 & 4294901760 {
+        if 0 != new_ip as u32 & 0xFFFF0000 {
             dbg_assert!(0 != 0);
         }
     }
     far_jump(new_ip, new_cs, true);
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr_9B() {
@@ -1740,7 +1740,7 @@ pub unsafe fn instr32_9C() {
     }
     else {
         // vm and rf flag are cleared in image stored on the stack
-        return_on_pagefault!(push32(get_eflags() & 16580607));
+        return_on_pagefault!(push32(get_eflags() & 0xFCFFFF));
     };
 }
 #[no_mangle]
@@ -1753,7 +1753,7 @@ pub unsafe fn instr16_9D() {
     }
     else {
         let old_eflags = *flags;
-        update_eflags(*flags & !65535 | return_on_pagefault!(pop16()));
+        update_eflags(*flags & !0xFFFF | return_on_pagefault!(pop16()));
         if old_eflags & FLAG_INTERRUPT == 0 && *flags & FLAG_INTERRUPT != 0 {
             handle_irqs();
         }
@@ -2142,7 +2142,7 @@ pub unsafe fn instr16_C2(imm16: i32) {
     // retn
     let cs: i32 = get_seg_cs();
     *instruction_pointer = cs + return_on_pagefault!(pop16());
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
     adjust_stack_reg(imm16);
 }
 #[no_mangle]
@@ -2150,7 +2150,7 @@ pub unsafe fn instr32_C2(imm16: i32) {
     // retn
     let cs: i32 = get_seg_cs();
     let ip: i32 = return_on_pagefault!(pop32s());
-    dbg_assert!(0 != is_asize_32() as i32 || ip < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || ip < 0x10000);
     *instruction_pointer = cs + ip;
     adjust_stack_reg(imm16);
 }
@@ -2165,7 +2165,7 @@ pub unsafe fn instr32_C3() {
     // retn
     let cs: i32 = get_seg_cs();
     let ip: i32 = return_on_pagefault!(pop32s());
-    dbg_assert!(0 != is_asize_32() as i32 || ip < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || ip < 0x10000);
     *instruction_pointer = cs + ip;
 }
 #[no_mangle]
@@ -2242,9 +2242,9 @@ pub unsafe fn instr16_CA(imm16: i32) {
 pub unsafe fn instr32_CA(imm16: i32) {
     // retf
     let ip: i32 = return_on_pagefault!(safe_read32s(get_stack_pointer(0)));
-    let cs: i32 = return_on_pagefault!(safe_read32s(get_stack_pointer(4))) & 65535;
+    let cs: i32 = return_on_pagefault!(safe_read32s(get_stack_pointer(4))) & 0xFFFF;
     far_return(ip, cs, imm16);
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr16_CB() {
@@ -2252,15 +2252,15 @@ pub unsafe fn instr16_CB() {
     let ip: i32 = return_on_pagefault!(safe_read16(get_stack_pointer(0)));
     let cs: i32 = return_on_pagefault!(safe_read16(get_stack_pointer(2)));
     far_return(ip, cs, 0);
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr32_CB() {
     // retf
     let ip: i32 = return_on_pagefault!(safe_read32s(get_stack_pointer(0)));
-    let cs: i32 = return_on_pagefault!(safe_read32s(get_stack_pointer(4))) & 65535;
+    let cs: i32 = return_on_pagefault!(safe_read32s(get_stack_pointer(4))) & 0xFFFF;
     far_return(ip, cs, 0);
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr_CC() {
@@ -2742,7 +2742,7 @@ pub unsafe fn instr_D7() {
     else {
         *reg8.offset(AL as isize) = return_on_pagefault!(safe_read8(
             get_seg_prefix(DS)
-                + (*reg16.offset(BX as isize) as i32 + *reg8.offset(AL as isize) as i32 & 65535),
+                + (*reg16.offset(BX as isize) as i32 + *reg8.offset(AL as isize) as i32 & 0xFFFF),
         )) as u8
     };
 }
@@ -2828,19 +2828,19 @@ pub unsafe fn instr16_E9(imm16: i32) {
 pub unsafe fn instr32_E9(imm32s: i32) {
     // jmp
     *instruction_pointer = *instruction_pointer + imm32s;
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr16_EA(new_ip: i32, cs: i32) {
     // jmpf
     far_jump(new_ip, cs, false);
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr32_EA(new_ip: i32, cs: i32) {
     // jmpf
     far_jump(new_ip, cs, false);
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr_EC() {
@@ -3300,7 +3300,7 @@ pub unsafe fn instr16_FF_2_helper(data: i32) {
     let cs: i32 = get_seg_cs();
     return_on_pagefault!(push16(get_real_eip()));
     *instruction_pointer = cs + data;
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_2_mem(addr: i32) {
@@ -3323,13 +3323,13 @@ pub unsafe fn instr16_FF_3_mem(addr: i32) {
     let new_ip: i32 = return_on_pagefault!(safe_read16(addr));
     let new_cs: i32 = return_on_pagefault!(safe_read16(addr + 2));
     far_jump(new_ip, new_cs, true);
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_4_helper(data: i32) {
     // jmp near
     *instruction_pointer = get_seg_cs() + data;
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_4_mem(addr: i32) {
@@ -3352,7 +3352,7 @@ pub unsafe fn instr16_FF_5_mem(addr: i32) {
     let new_ip: i32 = return_on_pagefault!(safe_read16(addr));
     let new_cs: i32 = return_on_pagefault!(safe_read16(addr + 2));
     far_jump(new_ip, new_cs, false);
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr16_FF_6_mem(addr: i32) {
@@ -3387,7 +3387,7 @@ pub unsafe fn instr32_FF_2_helper(data: i32) {
     // call near
     let cs: i32 = get_seg_cs();
     return_on_pagefault!(push32(get_real_eip()));
-    dbg_assert!(0 != is_asize_32() as i32 || data < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || data < 0x10000);
     *instruction_pointer = cs + data;
 }
 #[no_mangle]
@@ -3411,17 +3411,17 @@ pub unsafe fn instr32_FF_3_mem(addr: i32) {
     let new_ip: i32 = return_on_pagefault!(safe_read32s(addr));
     let new_cs: i32 = return_on_pagefault!(safe_read16(addr + 4));
     if !*protected_mode || 0 != vm86_mode() as i32 {
-        if 0 != new_ip as u32 & 4294901760 {
+        if 0 != new_ip as u32 & 0xFFFF0000 {
             dbg_assert!(0 != 0);
         }
     }
     far_jump(new_ip, new_cs, true);
-    dbg_assert!(0 != is_asize_32() as i32 || new_ip < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || new_ip < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr32_FF_4_helper(data: i32) {
     // jmp near
-    dbg_assert!(0 != is_asize_32() as i32 || data < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || data < 0x10000);
     *instruction_pointer = get_seg_cs() + data;
 }
 #[no_mangle]
@@ -3445,12 +3445,12 @@ pub unsafe fn instr32_FF_5_mem(addr: i32) {
     let new_ip: i32 = return_on_pagefault!(safe_read32s(addr));
     let new_cs: i32 = return_on_pagefault!(safe_read16(addr + 4));
     if !*protected_mode || 0 != vm86_mode() as i32 {
-        if 0 != new_ip as u32 & 4294901760 {
+        if 0 != new_ip as u32 & 0xFFFF0000 {
             dbg_assert!(0 != 0);
         }
     }
     far_jump(new_ip, new_cs, false);
-    dbg_assert!(0 != is_asize_32() as i32 || new_ip < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || new_ip < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr32_FF_6_mem(addr: i32) {
@@ -4181,11 +4181,11 @@ pub unsafe fn instr32_E3(imm8s: i32) { jcxz32(imm8s); }
 pub unsafe fn instr16_EB(imm8: i32) {
     // jmp near
     jmp_rel16(imm8);
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }
 #[no_mangle]
 pub unsafe fn instr32_EB(imm8: i32) {
     // jmp near
     *instruction_pointer = *instruction_pointer + imm8;
-    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 65536);
+    dbg_assert!(0 != is_asize_32() as i32 || get_real_eip() < 0x10000);
 }

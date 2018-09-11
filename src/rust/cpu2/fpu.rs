@@ -16,15 +16,15 @@ pub const M_LOG2E: f64 = 1.4426950408889634f64;
 pub const M_LN2: f64 = 0.6931471805599453f64;
 pub const M_LN10: f64 = 2.302585092994046f64;
 pub const M_PI: f64 = 3.141592653589793f64;
-const FPU_C0: i32 = 256;
-pub const FPU_C1: i32 = 512;
-const FPU_C2: i32 = 1024;
-const FPU_C3: i32 = 16384;
+const FPU_C0: i32 = 0x100;
+pub const FPU_C1: i32 = 0x200;
+const FPU_C2: i32 = 0x400;
+const FPU_C3: i32 = 0x4000;
 const FPU_RESULT_FLAGS: i32 = FPU_C0 | FPU_C1 | FPU_C2 | FPU_C3;
 const INDEFINITE_NAN: f64 = ::std::f64::NAN;
 const FPU_EX_I: i32 = 1 << 0;
 const FPU_EX_SF: i32 = 1 << 6;
-const TWO_POW_63: f64 = 9223372036854775808u64 as f64;
+const TWO_POW_63: f64 = 0x8000000000000000u64 as f64;
 
 const F64_MANTISSA_MASK: u64 = (1 << 52) - 1;
 const F64_EXPONENT_MASK: u16 = 0x7FF;
@@ -372,7 +372,7 @@ pub unsafe fn fpu_fistm64p(addr: i32) {
         value = st0 as i64
     }
     else {
-        value = 9223372036854775808u64 as i64;
+        value = -0x80000000_00000000;
         fpu_invalid_arithmetic();
     }
     return_on_pagefault!(safe_write64(addr, value));

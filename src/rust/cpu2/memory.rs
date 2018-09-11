@@ -24,7 +24,7 @@ const USE_A20: bool = false;
 
 #[no_mangle]
 pub unsafe fn in_mapped_range(addr: u32) -> bool {
-    return addr >= 655360 as u32 && addr < 786432 as u32 || addr >= *memory_size;
+    return addr >= 0xA0000 && addr < 0xC0000 || addr >= *memory_size;
 }
 
 #[no_mangle]
@@ -53,7 +53,7 @@ pub unsafe fn read16(mut addr: u32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn read_aligned16(mut addr: u32) -> i32 {
-    dbg_assert!(addr < 2147483648);
+    dbg_assert!(addr < 0x80000000);
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK16 as u32
     }
@@ -90,7 +90,7 @@ pub unsafe fn read64s(mut addr: u32) -> i64 {
 }
 #[no_mangle]
 pub unsafe fn read_aligned32(mut addr: u32) -> i32 {
-    dbg_assert!(addr < 1073741824 as u32);
+    dbg_assert!(addr < 0x40000000 as u32);
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK32 as u32
     }
@@ -155,7 +155,7 @@ pub unsafe fn write16(mut addr: u32, value: i32) {
 }
 #[no_mangle]
 pub unsafe fn write_aligned16(mut addr: u32, value: u32) {
-    dbg_assert!(addr < 2147483648);
+    dbg_assert!(addr < 0x80000000);
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK16 as u32
     }
@@ -188,7 +188,7 @@ pub unsafe fn write_aligned32_no_mmap_or_dirty_check(addr: u32, value: i32) {
 
 #[no_mangle]
 pub unsafe fn write_aligned32(mut addr: u32, value: i32) {
-    dbg_assert!(addr < 1073741824 as u32);
+    dbg_assert!(addr < 0x40000000 as u32);
     if 0 != USE_A20 as i32 && !*a20_enabled {
         addr &= A20_MASK32 as u32
     }
@@ -209,7 +209,7 @@ pub unsafe fn write64(mut addr: u32, value: i64) {
     if in_mapped_range(addr) {
         mmap_write32(
             addr.wrapping_add(0 as u32),
-            (value & 4294967295 as i64) as i32,
+            (value & 0xFFFFFFFF as i64) as i32,
         );
         mmap_write32(addr.wrapping_add(4 as u32), (value >> 32) as i32);
     }

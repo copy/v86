@@ -168,7 +168,7 @@ pub unsafe fn mul16(source_operand: u32) {
     let high_result: u32 = result >> 16;
     *reg16.offset(AX as isize) = result as u16;
     *reg16.offset(DX as isize) = high_result as u16;
-    *last_result = (result & 65535) as i32;
+    *last_result = (result & 0xFFFF) as i32;
     *last_op_size = OPSIZE_16;
     if high_result == 0 {
         *flags &= !1 & !FLAG_OVERFLOW
@@ -183,7 +183,7 @@ pub unsafe fn imul16(source_operand: i32) {
     let result: i32 = source_operand * *reg16s.offset(AX as isize) as i32;
     *reg16.offset(AX as isize) = result as u16;
     *reg16.offset(DX as isize) = (result >> 16) as u16;
-    *last_result = result & 65535;
+    *last_result = result & 0xFFFF;
     *last_op_size = OPSIZE_16;
     if result > 32767 || result < -32768 {
         *flags |= 1 | FLAG_OVERFLOW
@@ -198,7 +198,7 @@ pub unsafe fn imul_reg16(mut operand1: i32, mut operand2: i32) -> i32 {
     operand1 = operand1 << 16 >> 16;
     operand2 = operand2 << 16 >> 16;
     let result: i32 = operand1 * operand2;
-    *last_result = result & 65535;
+    *last_result = result & 0xFFFF;
     *last_op_size = OPSIZE_16;
     if result > 32767 || result < -32768 {
         *flags |= 1 | FLAG_OVERFLOW
@@ -330,7 +330,7 @@ pub unsafe fn bcd_aad(imm8: i32) {
     *last_op_size = OPSIZE_8;
     *flags_changed = FLAGS_ALL & !1 & !FLAG_ADJUST & !FLAG_OVERFLOW;
     *flags &= !1 & !FLAG_ADJUST & !FLAG_OVERFLOW;
-    if result > 65535 {
+    if result > 0xFFFF {
         *flags |= 1
     };
 }
@@ -674,7 +674,7 @@ pub unsafe fn div16(source_operand: u32) {
         let target_operand: u32 =
             (*reg16.offset(AX as isize) as i32 | (*reg16.offset(DX as isize) as i32) << 16) as u32;
         let result: u32 = target_operand.wrapping_div(source_operand);
-        if result >= 65536 {
+        if result >= 0x10000 {
             trigger_de();
         }
         else {
@@ -737,13 +737,13 @@ pub unsafe fn idiv32(source_operand: i32) {
         let target_low: u32 = *reg32s.offset(EAX as isize) as u32;
         let target_high: u32 = *reg32s.offset(EDX as isize) as u32;
         let target_operand: i64 = ((target_high as u64) << 32 | target_low as u64) as i64;
-        if source_operand == -1 && target_operand == (-1 - 9223372036854775807i64) as i64 {
+        if source_operand == -1 && target_operand == -0x80000000_00000000 as i64 {
             trigger_de();
             return;
         }
         else {
             let result: i64 = target_operand / source_operand as i64;
-            if result < (-1 - 2147483647) as i64 || result > 2147483647 {
+            if result < -0x80000000 || result > 0x7FFFFFFF {
                 trigger_de();
                 return;
             }
@@ -1154,9 +1154,9 @@ pub unsafe fn saturate_sw_to_sb(v: i32) -> i32 {
 pub unsafe fn saturate_sd_to_sw(v: u32) -> u32 {
     let mut ret: u32 = v;
     if ret > 4294934528 {
-        ret = ret & 65535
+        ret = ret & 0xFFFF
     }
-    else if ret > 2147483647 {
+    else if ret > 0x7FFFFFFF {
         ret = 32768
     }
     else if ret > 32767 {
@@ -1171,7 +1171,7 @@ pub unsafe fn saturate_sd_to_sb(v: u32) -> u32 {
     if ret > 4294967168 {
         ret = ret & 255
     }
-    else if ret > 2147483647 {
+    else if ret > 0x7FFFFFFF {
         ret = 128
     }
     else if ret > 127 {
@@ -1201,11 +1201,11 @@ pub unsafe fn saturate_ud_to_ub(v: u32) -> u32 {
 #[no_mangle]
 pub unsafe fn saturate_uw(v: u32) -> i32 {
     let mut ret: u32 = v;
-    if ret > 2147483647 {
+    if ret > 0x7FFFFFFF {
         ret = 0
     }
-    else if ret > 65535 {
-        ret = 65535
+    else if ret > 0xFFFF {
+        ret = 0xFFFF
     }
     dbg_assert!(ret & 4294901760 == 0);
     return ret as i32;

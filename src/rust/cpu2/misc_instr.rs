@@ -19,7 +19,7 @@ pub unsafe fn getcf() -> bool {
 pub unsafe fn getpf() -> bool {
     if 0 != *flags_changed & FLAG_PARITY {
         // inverted lookup table
-        return 0 != 38505 << 2 >> ((*last_result ^ *last_result >> 4) & 15) & FLAG_PARITY;
+        return 0 != 0x9669 << 2 >> ((*last_result ^ *last_result >> 4) & 15) & FLAG_PARITY;
     }
     else {
         return 0 != *flags & FLAG_PARITY;
@@ -99,7 +99,7 @@ pub unsafe fn test_nle() -> bool { return !test_le(); }
 pub unsafe fn jmp_rel16(rel16: i32) {
     let cs_offset: i32 = get_seg_cs();
     // limit ip to 16 bit
-    *instruction_pointer = cs_offset + (*instruction_pointer - cs_offset + rel16 & 65535);
+    *instruction_pointer = cs_offset + (*instruction_pointer - cs_offset + rel16 & 0xFFFF);
 }
 #[no_mangle]
 pub unsafe fn jmpcc16(condition: bool, imm16: i32) {
@@ -147,7 +147,7 @@ pub unsafe fn get_stack_pointer(offset: i32) -> i32 {
         return get_seg_ss() + *reg32s.offset(ESP as isize) + offset;
     }
     else {
-        return get_seg_ss() + (*reg16.offset(SP as isize) as i32 + offset & 65535);
+        return get_seg_ss() + (*reg16.offset(SP as isize) as i32 + offset & 0xFFFF);
     };
 }
 #[no_mangle]
@@ -162,7 +162,7 @@ pub unsafe fn adjust_stack_reg(adjustment: i32) {
 
 #[no_mangle]
 pub unsafe fn push16_ss16(imm16: i32) -> OrPageFault<()> {
-    let sp: i32 = get_seg_ss() + (*reg16.offset(SP as isize) as i32 - 2 & 65535);
+    let sp: i32 = get_seg_ss() + (*reg16.offset(SP as isize) as i32 - 2 & 0xFFFF);
     safe_write16(sp, imm16)?;
     *reg16.offset(SP as isize) -= 2;
     Ok(())
@@ -202,7 +202,7 @@ pub unsafe fn push16(imm16: i32) -> OrPageFault<()> {
 
 #[no_mangle]
 pub unsafe fn push32_ss16(imm32: i32) -> OrPageFault<()> {
-    let new_sp: i32 = *reg16.offset(SP as isize) as i32 - 4 & 65535;
+    let new_sp: i32 = *reg16.offset(SP as isize) as i32 - 4 & 0xFFFF;
     safe_write32(get_seg_ss() + new_sp, imm32)?;
     *reg16.offset(SP as isize) = new_sp as u16;
     Ok(())
