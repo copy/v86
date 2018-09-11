@@ -915,7 +915,7 @@ pub unsafe fn instr_66() {
     // Operand-size override prefix
     *prefixes = (*prefixes as i32 | PREFIX_MASK_OPSIZE) as u8;
     run_prefix_instruction();
-    *prefixes = 0 as u8;
+    *prefixes = 0;
 }
 #[no_mangle]
 pub unsafe fn instr_67() {
@@ -923,7 +923,7 @@ pub unsafe fn instr_67() {
     dbg_assert!(is_asize_32() as i32 == *is_32 as i32);
     *prefixes = (*prefixes as i32 | PREFIX_MASK_ADDRSIZE) as u8;
     run_prefix_instruction();
-    *prefixes = 0 as u8;
+    *prefixes = 0;
 }
 #[no_mangle]
 pub unsafe fn instr16_68(mut imm16: i32) {
@@ -1551,7 +1551,7 @@ pub unsafe fn instr16_8D_mem(modrm_byte: i32, mut r: i32) {
     if let Ok(addr) = modrm_resolve(modrm_byte) {
         write_reg16(r, addr);
     }
-    *prefixes = 0 as u8;
+    *prefixes = 0;
 }
 #[no_mangle]
 pub unsafe fn instr32_8D_reg(mut r: i32, mut r2: i32) {
@@ -1566,7 +1566,7 @@ pub unsafe fn instr32_8D_mem(modrm_byte: i32, mut r: i32) {
     if let Ok(addr) = modrm_resolve(modrm_byte) {
         write_reg32(r, addr);
     }
-    *prefixes = 0 as u8;
+    *prefixes = 0;
 }
 #[no_mangle]
 pub unsafe fn instr_8E_helper(mut data: i32, mut mod_0: i32) {
@@ -2931,7 +2931,7 @@ pub unsafe fn instr_F2() {
     dbg_assert!(*prefixes as i32 & PREFIX_MASK_REP == 0);
     *prefixes = (*prefixes as i32 | PREFIX_REPNZ) as u8;
     run_prefix_instruction();
-    *prefixes = 0 as u8;
+    *prefixes = 0;
 }
 #[no_mangle]
 pub unsafe fn instr_F3() {
@@ -2939,7 +2939,7 @@ pub unsafe fn instr_F3() {
     dbg_assert!(*prefixes as i32 & PREFIX_MASK_REP == 0);
     *prefixes = (*prefixes as i32 | PREFIX_REPZ) as u8;
     run_prefix_instruction();
-    *prefixes = 0 as u8;
+    *prefixes = 0;
 }
 #[no_mangle]
 pub unsafe fn instr_F4() { hlt_op(); }
@@ -3755,7 +3755,7 @@ pub unsafe fn instr_D9_5_reg(mut r: i32) {
     // fld1/fldl2t/fldl2e/fldpi/fldlg2/fldln2/fldz
     match r {
         0 => {
-            fpu_push(1 as f64);
+            fpu_push(1.0);
         },
         1 => {
             fpu_push(M_LN10 / M_LN2);
@@ -3773,7 +3773,7 @@ pub unsafe fn instr_D9_5_reg(mut r: i32) {
             fpu_push(M_LN2);
         },
         6 => {
-            fpu_push(0 as f64);
+            fpu_push(0.0);
         },
         7 => {
             dbg_log!("d9/5/7");
@@ -3790,7 +3790,7 @@ pub unsafe fn instr_D9_6_reg(mut r: i32) {
     match r {
         0 => {
             // f2xm1
-            fpu_write_st(*fpu_stack_ptr as i32, pow(2 as f64, st0) - 1 as f64)
+            fpu_write_st(*fpu_stack_ptr as i32, pow(2.0, st0) - 1.0)
         },
         1 => {
             // fyl2x
@@ -3804,7 +3804,7 @@ pub unsafe fn instr_D9_6_reg(mut r: i32) {
             // fptan
             fpu_write_st(*fpu_stack_ptr as i32, st0.tan());
             // no bug: push constant 1
-            fpu_push(1 as f64);
+            fpu_push(1.0);
         },
         3 => {
             // fpatan
@@ -3820,12 +3820,12 @@ pub unsafe fn instr_D9_6_reg(mut r: i32) {
         },
         6 => {
             // fdecstp
-            *fpu_stack_ptr = (*fpu_stack_ptr).wrapping_sub(1 as u32) & 7 as u32;
+            *fpu_stack_ptr = (*fpu_stack_ptr).wrapping_sub(1) & 7;
             *fpu_status_word &= !FPU_C1
         },
         7 => {
             // fincstp
-            *fpu_stack_ptr = (*fpu_stack_ptr).wrapping_add(1 as u32) & 7 as u32;
+            *fpu_stack_ptr = (*fpu_stack_ptr).wrapping_add(1) & 7;
             *fpu_status_word &= !FPU_C1
         },
         _ => {
@@ -3844,7 +3844,7 @@ pub unsafe fn instr_D9_7_reg(mut r: i32) {
         },
         1 => {
             // fyl2xp1: y * log2(x+1) and pop
-            let y = fpu_get_sti(1) * (st0 + 1 as f64).ln() / M_LN2;
+            let y = fpu_get_sti(1) * (st0 + 1.0).ln() / M_LN2;
             fpu_write_st(*fpu_stack_ptr as i32 + 1 & 7, y);
             fpu_pop();
         },
@@ -3859,7 +3859,7 @@ pub unsafe fn instr_D9_7_reg(mut r: i32) {
         },
         5 => {
             // fscale
-            let y = st0 * pow(2 as f64, trunc(fpu_get_sti(1)));
+            let y = st0 * pow(2.0, trunc(fpu_get_sti(1)));
             fpu_write_st(*fpu_stack_ptr as i32, y);
         },
         6 => fpu_write_st(*fpu_stack_ptr as i32, st0.sin()),

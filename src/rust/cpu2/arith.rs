@@ -170,9 +170,9 @@ pub unsafe fn mul16(mut source_operand: u32) {
     let mut high_result: u32 = result >> 16;
     *reg16.offset(AX as isize) = result as u16;
     *reg16.offset(DX as isize) = high_result as u16;
-    *last_result = (result & 65535 as u32) as i32;
+    *last_result = (result & 65535) as i32;
     *last_op_size = OPSIZE_16;
-    if high_result == 0 as u32 {
+    if high_result == 0 {
         *flags &= !1 & !FLAG_OVERFLOW
     }
     else {
@@ -521,8 +521,8 @@ pub unsafe fn rcl32(mut dest_operand: i32, mut count: i32) -> i32 {
             result = (result as u32 | dest_operand as u32 >> 33 - count) as i32
         }
         *flags_changed &= !1 & !FLAG_OVERFLOW;
-        *flags = ((*flags & !1 & !FLAG_OVERFLOW) as u32
-            | dest_operand as u32 >> 32 - count & 1 as u32) as i32;
+        *flags =
+            ((*flags & !1 & !FLAG_OVERFLOW) as u32 | dest_operand as u32 >> 32 - count & 1) as i32;
         *flags |= (*flags << 11 ^ result >> 20) & FLAG_OVERFLOW;
         return result;
     };
@@ -630,7 +630,7 @@ pub unsafe fn rcr32(mut dest_operand: i32, mut count: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn div8(mut source_operand: u32) {
-    if source_operand == 0 as u32 {
+    if source_operand == 0 {
         trigger_de();
         return;
     }
@@ -669,7 +669,7 @@ pub unsafe fn idiv8(mut source_operand: i32) {
 }
 #[no_mangle]
 pub unsafe fn div16(mut source_operand: u32) {
-    if source_operand == 0 as u32 {
+    if source_operand == 0 {
         trigger_de();
         return;
     }
@@ -677,7 +677,7 @@ pub unsafe fn div16(mut source_operand: u32) {
         let mut target_operand: u32 =
             (*reg16.offset(AX as isize) as i32 | (*reg16.offset(DX as isize) as i32) << 16) as u32;
         let mut result: u32 = target_operand.wrapping_div(source_operand);
-        if result >= 65536 as u32 {
+        if result >= 65536 {
             trigger_de();
         }
         else {
@@ -709,7 +709,7 @@ pub unsafe fn idiv16(mut source_operand: i32) {
 }
 #[no_mangle]
 pub unsafe fn div32(mut source_operand: u32) {
-    if source_operand == 0 as u32 {
+    if source_operand == 0 {
         trigger_de();
         return;
     }
@@ -718,7 +718,7 @@ pub unsafe fn div32(mut source_operand: u32) {
         let mut target_high: u32 = *reg32s.offset(EDX as isize) as u32;
         let mut target_operand: u64 = (target_high as u64) << 32 | target_low as u64;
         let mut result: u64 = target_operand.wrapping_div(source_operand as u64);
-        if result > 4294967295 as u64 {
+        if result > 4294967295 {
             trigger_de();
             return;
         }
@@ -740,13 +740,13 @@ pub unsafe fn idiv32(mut source_operand: i32) {
         let mut target_low: u32 = *reg32s.offset(EAX as isize) as u32;
         let mut target_high: u32 = *reg32s.offset(EDX as isize) as u32;
         let mut target_operand: i64 = ((target_high as u64) << 32 | target_low as u64) as i64;
-        if source_operand == -1 && target_operand == (-1 as i64 - 9223372036854775807i64) as i64 {
+        if source_operand == -1 && target_operand == (-1 - 9223372036854775807i64) as i64 {
             trigger_de();
             return;
         }
         else {
             let mut result: i64 = target_operand / source_operand as i64;
-            if result < (-1 - 2147483647) as i64 || result > 2147483647 as i64 {
+            if result < (-1 - 2147483647) as i64 || result > 2147483647 {
                 trigger_de();
                 return;
             }
@@ -851,7 +851,7 @@ pub unsafe fn shr32(mut dest_operand: i32, mut count: i32) -> i32 {
         *last_op_size = OPSIZE_32;
         *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW;
         *flags = ((*flags & !1 & !FLAG_OVERFLOW) as u32
-            | dest_operand as u32 >> count - 1 & 1 as u32
+            | dest_operand as u32 >> count - 1 & 1
             | (dest_operand >> 20 & FLAG_OVERFLOW) as u32) as i32;
         return *last_result;
     };
@@ -907,8 +907,8 @@ pub unsafe fn sar32(mut dest_operand: i32, mut count: i32) -> i32 {
         *last_result = dest_operand >> count;
         *last_op_size = OPSIZE_32;
         *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW;
-        *flags = ((*flags & !1 & !FLAG_OVERFLOW) as u32
-            | dest_operand as u32 >> count - 1 & 1 as u32) as i32;
+        *flags =
+            ((*flags & !1 & !FLAG_OVERFLOW) as u32 | dest_operand as u32 >> count - 1 & 1) as i32;
         return *last_result;
     };
 }
@@ -945,7 +945,7 @@ pub unsafe fn shrd32(mut dest_operand: i32, mut source_operand: i32, mut count: 
             (dest_operand as u32 >> count | (source_operand << 32 - count) as u32) as i32;
         *last_op_size = OPSIZE_32;
         *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW;
-        *flags = ((*flags & !1) as u32 | dest_operand as u32 >> count - 1 & 1 as u32) as i32;
+        *flags = ((*flags & !1) as u32 | dest_operand as u32 >> count - 1 & 1) as i32;
         *flags = *flags & !FLAG_OVERFLOW | (*last_result ^ dest_operand) >> 20 & FLAG_OVERFLOW;
         return *last_result;
     };
@@ -960,11 +960,11 @@ pub unsafe fn shld16(mut dest_operand: i32, mut source_operand: i32, mut count: 
         if count <= 16 {
             *last_result =
                 ((dest_operand << count) as u32 | source_operand as u32 >> 16 - count) as i32;
-            *flags = ((*flags & !1) as u32 | dest_operand as u32 >> 16 - count & 1 as u32) as i32
+            *flags = ((*flags & !1) as u32 | dest_operand as u32 >> 16 - count & 1) as i32
         }
         else {
             *last_result = dest_operand >> 32 - count | source_operand << count - 16;
-            *flags = ((*flags & !1) as u32 | source_operand as u32 >> 32 - count & 1 as u32) as i32
+            *flags = ((*flags & !1) as u32 | source_operand as u32 >> 32 - count & 1) as i32
         }
         *last_op_size = OPSIZE_16;
         *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW;
@@ -983,7 +983,7 @@ pub unsafe fn shld32(mut dest_operand: i32, mut source_operand: i32, mut count: 
             ((dest_operand << count) as u32 | source_operand as u32 >> 32 - count) as i32;
         *last_op_size = OPSIZE_32;
         *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW;
-        *flags = ((*flags & !1) as u32 | dest_operand as u32 >> 32 - count & 1 as u32) as i32;
+        *flags = ((*flags & !1) as u32 | dest_operand as u32 >> 32 - count & 1) as i32;
         if count == 1 {
             *flags = *flags & !FLAG_OVERFLOW | (*flags & 1 ^ *last_result >> 31 & 1) << 11
         }
@@ -1129,20 +1129,20 @@ pub unsafe fn popcnt(mut v: i32) -> i32 {
 }
 #[no_mangle]
 pub unsafe fn saturate_sw_to_ub(mut v: u32) -> u32 {
-    dbg_assert!(v & 4294901760 == 0 as u32);
+    dbg_assert!(v & 4294901760 == 0);
     let mut ret: u32 = v;
-    if ret >= 32768 as u32 {
-        ret = 0 as u32
+    if ret >= 32768 {
+        ret = 0
     }
-    else if ret > 255 as u32 {
-        ret = 255 as u32
+    else if ret > 255 {
+        ret = 255
     }
-    dbg_assert!(ret & 4294967040 == 0 as u32);
+    dbg_assert!(ret & 4294967040 == 0);
     return ret;
 }
 #[no_mangle]
 pub unsafe fn saturate_sw_to_sb(mut v: i32) -> i32 {
-    dbg_assert!(v as u32 & 4294901760 == 0 as u32);
+    dbg_assert!(v as u32 & 4294901760 == 0);
     let mut ret: i32 = v;
     if ret > 65408 {
         ret = ret & 255
@@ -1153,37 +1153,37 @@ pub unsafe fn saturate_sw_to_sb(mut v: i32) -> i32 {
     else if ret > 127 {
         ret = 127
     }
-    dbg_assert!(ret as u32 & 4294967040 == 0 as u32);
+    dbg_assert!(ret as u32 & 4294967040 == 0);
     return ret;
 }
 #[no_mangle]
 pub unsafe fn saturate_sd_to_sw(mut v: u32) -> u32 {
     let mut ret: u32 = v;
     if ret > 4294934528 {
-        ret = ret & 65535 as u32
+        ret = ret & 65535
     }
-    else if ret > 2147483647 as u32 {
-        ret = 32768 as u32
+    else if ret > 2147483647 {
+        ret = 32768
     }
-    else if ret > 32767 as u32 {
-        ret = 32767 as u32
+    else if ret > 32767 {
+        ret = 32767
     }
-    dbg_assert!(ret & 4294901760 == 0 as u32);
+    dbg_assert!(ret & 4294901760 == 0);
     return ret;
 }
 #[no_mangle]
 pub unsafe fn saturate_sd_to_sb(mut v: u32) -> u32 {
     let mut ret: u32 = v;
     if ret > 4294967168 {
-        ret = ret & 255 as u32
+        ret = ret & 255
     }
-    else if ret > 2147483647 as u32 {
-        ret = 128 as u32
+    else if ret > 2147483647 {
+        ret = 128
     }
-    else if ret > 127 as u32 {
-        ret = 127 as u32
+    else if ret > 127 {
+        ret = 127
     }
-    dbg_assert!(ret & 4294967040 == 0 as u32);
+    dbg_assert!(ret & 4294967040 == 0);
     return ret;
 }
 #[no_mangle]
@@ -1192,27 +1192,27 @@ pub unsafe fn saturate_sd_to_ub(mut v: i32) -> i32 {
     if ret < 0 {
         ret = 0
     }
-    dbg_assert!(ret as u32 & 4294967040 == 0 as u32);
+    dbg_assert!(ret as u32 & 4294967040 == 0);
     return ret;
 }
 #[no_mangle]
 pub unsafe fn saturate_ud_to_ub(mut v: u32) -> u32 {
     let mut ret: u32 = v;
-    if ret > 255 as u32 {
-        ret = 255 as u32
+    if ret > 255 {
+        ret = 255
     }
-    dbg_assert!(ret & 4294967040 == 0 as u32);
+    dbg_assert!(ret & 4294967040 == 0);
     return ret;
 }
 #[no_mangle]
 pub unsafe fn saturate_uw(mut v: u32) -> i32 {
     let mut ret: u32 = v;
-    if ret > 2147483647 as u32 {
-        ret = 0 as u32
+    if ret > 2147483647 {
+        ret = 0
     }
-    else if ret > 65535 as u32 {
-        ret = 65535 as u32
+    else if ret > 65535 {
+        ret = 65535
     }
-    dbg_assert!(ret & 4294901760 == 0 as u32);
+    dbg_assert!(ret & 4294901760 == 0);
     return ret as i32;
 }

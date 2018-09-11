@@ -752,7 +752,7 @@ pub unsafe fn lodsw_rep() {
     let mut src: i32 = get_seg_prefix(DS) + get_reg_asize(ESI);
     let mut size: i32 = if 0 != *flags & FLAG_DIRECTION { -2 } else { 2 };
     let mut count: u32 = get_reg_asize(ECX) as u32;
-    if count == 0 as u32 {
+    if count == 0 {
         return;
     }
     else {

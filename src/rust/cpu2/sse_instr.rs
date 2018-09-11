@@ -233,7 +233,7 @@ pub unsafe fn psrlw_r128(mut r: i32, mut shift: u64) {
 pub unsafe fn psraw_r128(mut r: i32, mut shift: u64) {
     // psraw xmm, {shift}
     let mut destination: reg128 = read_xmm128s(r);
-    let mut shift_clamped: i32 = (if shift > 15 { 16 as u32 } else { shift as u32 }) as i32;
+    let mut shift_clamped: i32 = (if shift > 15 { 16 } else { shift as u32 }) as i32;
     let mut dword0: i32 = destination.i16_0[0] as i32 >> shift_clamped & 65535
         | destination.i16_0[1] as i32 >> shift_clamped << 16;
     let mut dword1: i32 = destination.i16_0[2] as i32 >> shift_clamped & 65535
@@ -389,7 +389,7 @@ pub unsafe fn sse_convert_f32_to_i32(mut x: f32) -> i32 {
 #[no_mangle]
 pub unsafe fn sse_convert_f64_to_i32(mut x: f64) -> i32 {
     // TODO: Rounding modes
-    if x >= -2147483648.0 as f64 && x < 2147483648.0 as f64 {
+    if x >= -2147483648.0 && x < 2147483648.0 {
         return x as i64 as i32;
     }
     else {

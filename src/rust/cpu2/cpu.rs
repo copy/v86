@@ -241,9 +241,9 @@ pub const TSC_RATE: f64 = (50 * 1000) as f64;
 pub static mut jit_block_boundary: bool = 0 != 0;
 
 pub static mut must_not_fault: bool = 0 != 0;
-pub static mut rdtsc_imprecision_offset: u64 = 0 as u64;
-pub static mut rdtsc_last_value: u64 = 0 as u64;
-pub static mut tsc_offset: u64 = 0 as u64;
+pub static mut rdtsc_imprecision_offset: u64 = 0;
+pub static mut rdtsc_last_value: u64 = 0;
+pub static mut tsc_offset: u64 = 0;
 
 pub static mut valid_tlb_entries: [i32; 10000] = [0; 10000];
 pub static mut valid_tlb_entries_count: i32 = 0;
@@ -694,7 +694,7 @@ pub unsafe fn read_imm16() -> OrPageFault<i32> {
     // Two checks in one comparison:
     // 1. Did the high 20 bits of eip change
     // or 2. Are the low 12 bits of eip 0xFFF (and this read crosses a page boundary)
-    if (*instruction_pointer ^ *last_virt_eip) as u32 > 4094 as u32 {
+    if (*instruction_pointer ^ *last_virt_eip) as u32 > 4094 {
         return Ok(read_imm8()? | read_imm8()? << 8);
     }
     else {
@@ -706,7 +706,7 @@ pub unsafe fn read_imm16() -> OrPageFault<i32> {
 
 pub unsafe fn read_imm32s() -> OrPageFault<i32> {
     // Analogue to the above comment
-    if (*instruction_pointer ^ *last_virt_eip) as u32 > 4092 as u32 {
+    if (*instruction_pointer ^ *last_virt_eip) as u32 > 4092 {
         return Ok(read_imm16()? | read_imm16()? << 16);
     }
     else {
@@ -1064,7 +1064,7 @@ pub unsafe fn cycle_internal() {
         if 0 != entry {
             profiler::stat_increment(S_RUN_FROM_CACHE);
             let initial_tsc = *timestamp_counter as i32;
-            let wasm_table_index = (entry & 65535 as u32) as u16;
+            let wasm_table_index = (entry & 65535) as u16;
             let initial_state = (entry >> 16) as u16;
             call_indirect1(
                 (wasm_table_index as u32).wrapping_add(WASM_TABLE_OFFSET as u32) as i32,
@@ -1176,13 +1176,13 @@ pub unsafe fn run_prefix_instruction() {
     run_instruction(return_on_pagefault!(read_imm8()) | (is_osize_32() as i32) << 8);
 }
 
-pub unsafe fn clear_prefixes() { *prefixes = 0 as u8; }
+pub unsafe fn clear_prefixes() { *prefixes = 0 }
 
 pub unsafe fn segment_prefix_op(mut seg: i32) {
     dbg_assert!(seg <= 5);
     *prefixes = (*prefixes as i32 | seg + 1) as u8;
     run_prefix_instruction();
-    *prefixes = 0 as u8;
+    *prefixes = 0
 }
 
 #[no_mangle]
@@ -1907,7 +1907,7 @@ pub unsafe fn read_tsc() -> u64 {
             let mut previous_value: u64 = rdtsc_last_value.wrapping_add(rdtsc_imprecision_offset);
             if previous_value <= value {
                 rdtsc_last_value = value;
-                rdtsc_imprecision_offset = 0 as u64
+                rdtsc_imprecision_offset = 0
             }
             else {
                 dbg_log!(
