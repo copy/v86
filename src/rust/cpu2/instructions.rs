@@ -890,12 +890,12 @@ pub unsafe fn instr32_61() { popa32(); }
 pub unsafe fn instr_62_reg(r2: i32, r: i32) {
     // bound
     dbg_log!("Unimplemented BOUND instruction");
-    dbg_assert!(0 != 0);
+    dbg_assert!(false);
 }
 #[no_mangle]
 pub unsafe fn instr_62_mem(addr: i32, r: i32) {
     dbg_log!("Unimplemented BOUND instruction");
-    dbg_assert!(0 != 0);
+    dbg_assert!(false);
 }
 #[no_mangle]
 pub unsafe fn instr_63_mem(addr: i32, r: i32) {
@@ -1509,10 +1509,10 @@ pub unsafe fn instr_8C_check_sreg(seg: i32) -> bool {
     if seg >= 6 {
         dbg_log!("mov sreg #ud");
         trigger_ud();
-        return 0 != 0;
+        return false;
     }
     else {
-        return 0 != 1;
+        return true;
     };
 }
 #[no_mangle]
@@ -1699,7 +1699,7 @@ pub unsafe fn instr16_9A(new_ip: i32, new_cs: i32) {
 pub unsafe fn instr32_9A(new_ip: i32, new_cs: i32) {
     if !*protected_mode || 0 != vm86_mode() as i32 {
         if 0 != new_ip as u32 & 0xFFFF0000 {
-            dbg_assert!(0 != 0);
+            dbg_assert!(false);
         }
     }
     far_jump(new_ip, new_cs, true);
@@ -2267,12 +2267,12 @@ pub unsafe fn instr_CC() {
     // INT3
     // TODO: inhibit iopl checks
     dbg_log!("INT3");
-    call_interrupt_vector(3, 0 != 1, 0 != 0, 0);
+    call_interrupt_vector(3, true, false, 0);
 }
 #[no_mangle]
 pub unsafe fn instr_CD(imm8: i32) {
     // INT
-    call_interrupt_vector(imm8, 0 != 1, 0 != 0, 0);
+    call_interrupt_vector(imm8, true, false, 0);
 }
 #[no_mangle]
 pub unsafe fn instr_CE() {
@@ -2280,7 +2280,7 @@ pub unsafe fn instr_CE() {
     dbg_log!("INTO");
     if getof() {
         // TODO: inhibit iopl checks
-        call_interrupt_vector(CPU_EXCEPTION_OF, 0 != 1, 0 != 0, 0);
+        call_interrupt_vector(CPU_EXCEPTION_OF, true, false, 0);
     };
 }
 #[no_mangle]
@@ -2911,7 +2911,7 @@ pub unsafe fn instr32_EF() {
 #[no_mangle]
 pub unsafe fn instr_F0() {
     // lock
-    if 0 != 0 * 0 {
+    if false {
         dbg_log!("lock");
     }
     // TODO
@@ -2923,7 +2923,7 @@ pub unsafe fn instr_F0() {
 pub unsafe fn instr_F1() {
     // INT1
     // https://code.google.com/p/corkami/wiki/x86oddities#IceBP
-    dbg_assert!(0 != 0);
+    dbg_assert!(false);
 }
 #[no_mangle]
 pub unsafe fn instr_F2() {
@@ -3206,7 +3206,7 @@ pub unsafe fn instr_FA() {
     } {
         *flags &= !FLAG_INTERRUPT;
     }
-    else if 0 != 0 * 0 && getiopl() < 3 && 0 != if 0 != *flags & FLAG_VM {
+    else if false && getiopl() < 3 && 0 != if 0 != *flags & FLAG_VM {
         *cr.offset(4) & CR4_VME
     }
     else {
@@ -3234,8 +3234,7 @@ pub unsafe fn instr_FB() {
             handle_irqs();
         }
     }
-    else if 0 != 0 * 0 && getiopl() < 3 && *flags & FLAG_VIP == 0 && 0 != if 0 != *flags & FLAG_VM
-    {
+    else if false && getiopl() < 3 && *flags & FLAG_VIP == 0 && 0 != if 0 != *flags & FLAG_VM {
         *cr.offset(4) & CR4_VME
     }
     else {
@@ -3412,7 +3411,7 @@ pub unsafe fn instr32_FF_3_mem(addr: i32) {
     let new_cs: i32 = return_on_pagefault!(safe_read16(addr + 4));
     if !*protected_mode || 0 != vm86_mode() as i32 {
         if 0 != new_ip as u32 & 0xFFFF0000 {
-            dbg_assert!(0 != 0);
+            dbg_assert!(false);
         }
     }
     far_jump(new_ip, new_cs, true);
@@ -3446,7 +3445,7 @@ pub unsafe fn instr32_FF_5_mem(addr: i32) {
     let new_cs: i32 = return_on_pagefault!(safe_read16(addr + 4));
     if !*protected_mode || 0 != vm86_mode() as i32 {
         if 0 != new_ip as u32 & 0xFFFF0000 {
-            dbg_assert!(0 != 0);
+            dbg_assert!(false);
         }
     }
     far_jump(new_ip, new_cs, false);
@@ -3829,7 +3828,7 @@ pub unsafe fn instr_D9_6_reg(r: i32) {
             *fpu_status_word &= !FPU_C1
         },
         _ => {
-            dbg_assert!(0 != 0);
+            dbg_assert!(false);
         },
     };
 }
@@ -3865,7 +3864,7 @@ pub unsafe fn instr_D9_7_reg(r: i32) {
         6 => fpu_write_st(*fpu_stack_ptr as i32, st0.sin()),
         7 => fpu_write_st(*fpu_stack_ptr as i32, st0.cos()),
         _ => {
-            dbg_assert!(0 != 0);
+            dbg_assert!(false);
         },
     };
 }

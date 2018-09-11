@@ -385,7 +385,7 @@ pub unsafe fn instr_0F06() {
         trigger_gp_non_raising(0);
     }
     else {
-        if 0 != 0 * 0 {
+        if false {
             dbg_log!("clts");
         }
         *cr &= !CR0_TS;
@@ -779,7 +779,7 @@ pub unsafe fn instr_0F21(r: i32, mut dreg_index: i32) {
             }
         }
         write_reg32(r, *dreg.offset(dreg_index as isize));
-        if 0 != 0 * 0 {
+        if false {
             dbg_log!(
                 "read dr{}: {:x}",
                 dreg_index,
@@ -800,7 +800,7 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
         // mov cr, addr
         match creg {
             0 => {
-                if 0 != 0 * 0 {
+                if false {
                     dbg_log!("cr0 <- {:x}", data);
                 }
                 set_cr0(data);
@@ -810,7 +810,7 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
                 *cr.offset(2) = data
             },
             3 => {
-                if 0 != 0 * 0 {
+                if false {
                     dbg_log!("cr3 <- {:x}", data);
                 }
                 data &= !0b111111100111;
@@ -833,7 +833,7 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
                     }
                     *cr.offset(4) = data;
                     if 0 != *cr.offset(4) & CR4_PAE {
-                        dbg_assert!(0 != 0);
+                        dbg_assert!(false);
                     }
                 }
             },
@@ -864,7 +864,7 @@ pub unsafe fn instr_0F23(r: i32, mut dreg_index: i32) {
             }
         }
         *dreg.offset(dreg_index as isize) = read_reg32(r);
-        if 0 != 0 * 0 {
+        if false {
             dbg_log!(
                 "write dr{}: {:x}",
                 dreg_index,
@@ -1173,7 +1173,7 @@ pub unsafe fn instr_0F30() {
             }
             else {
                 dbg_log!("Unknown msr: {:x}", index);
-                dbg_assert!(0 != 0);
+                dbg_assert!(false);
             }
         }
         return;
@@ -1186,7 +1186,7 @@ pub unsafe fn instr_0F31() {
         let tsc: u64 = read_tsc();
         *reg32s.offset(EAX as isize) = tsc as i32;
         *reg32s.offset(EDX as isize) = (tsc >> 32) as i32;
-        if 0 != 0 * 0 {
+        if false {
             dbg_log!(
                 "rdtsc  edx:eax={:x}:{:x}",
                 *reg32s.offset(EDX as isize),
@@ -1252,7 +1252,7 @@ pub unsafe fn instr_0F32() {
                         }
                         else if !(index == MSR_PKG_C2_RESIDENCY) {
                             dbg_log!("Unknown msr: {:x}", index);
-                            dbg_assert!(0 != 0);
+                            dbg_assert!(false);
                         }
                     }
                 }
@@ -1281,17 +1281,17 @@ pub unsafe fn instr_0F34() {
         *instruction_pointer = *sysenter_eip;
         *reg32s.offset(ESP as isize) = *sysenter_esp;
         *sreg.offset(CS as isize) = seg as u16;
-        *segment_is_null.offset(CS as isize) = 0 != 0;
+        *segment_is_null.offset(CS as isize) = false;
         *segment_limits.offset(CS as isize) = -1i32 as u32;
         *segment_offsets.offset(CS as isize) = 0;
         update_cs_size(true);
         *cpl = 0;
         cpl_changed();
         *sreg.offset(SS as isize) = (seg + 8) as u16;
-        *segment_is_null.offset(SS as isize) = 0 != 0;
+        *segment_is_null.offset(SS as isize) = false;
         *segment_limits.offset(SS as isize) = -1i32 as u32;
         *segment_offsets.offset(SS as isize) = 0;
-        *stack_size_32 = 0 != 1;
+        *stack_size_32 = true;
         return;
     };
 }
@@ -1307,17 +1307,17 @@ pub unsafe fn instr_0F35() {
         *instruction_pointer = *reg32s.offset(EDX as isize);
         *reg32s.offset(ESP as isize) = *reg32s.offset(ECX as isize);
         *sreg.offset(CS as isize) = (seg + 16 | 3) as u16;
-        *segment_is_null.offset(CS as isize) = 0 != 0;
+        *segment_is_null.offset(CS as isize) = false;
         *segment_limits.offset(CS as isize) = -1i32 as u32;
         *segment_offsets.offset(CS as isize) = 0;
         update_cs_size(true);
         *cpl = 3;
         cpl_changed();
         *sreg.offset(SS as isize) = (seg + 24 | 3) as u16;
-        *segment_is_null.offset(SS as isize) = 0 != 0;
+        *segment_is_null.offset(SS as isize) = false;
         *segment_limits.offset(SS as isize) = -1i32 as u32;
         *segment_offsets.offset(SS as isize) = 0;
-        *stack_size_32 = 0 != 1;
+        *stack_size_32 = true;
         return;
     };
 }

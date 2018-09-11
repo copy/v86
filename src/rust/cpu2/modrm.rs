@@ -83,7 +83,7 @@ pub unsafe fn resolve_modrm16(modrm_byte: i32) -> OrPageFault<i32> {
             get_seg_prefix_ds(*reg16.offset(BX as isize) as i32 + read_imm16()? & 0xFFFF)
         },
         _ => {
-            dbg_assert!(0 != 0);
+            dbg_assert!(false);
             0
         },
     })
@@ -94,10 +94,10 @@ pub unsafe fn resolve_modrm32_(modrm_byte: i32) -> OrPageFault<i32> {
     dbg_assert!(modrm_byte < 192);
     Ok(if r as i32 == 4 {
         if modrm_byte < 64 {
-            resolve_sib(0 != 0)?
+            resolve_sib(false)?
         }
         else {
-            resolve_sib(0 != 1)? + if modrm_byte < 128 {
+            resolve_sib(true)? + if modrm_byte < 128 {
                 read_imm8s()?
             }
             else {
@@ -200,9 +200,9 @@ pub unsafe fn resolve_modrm32(modrm_byte: i32) -> OrPageFault<i32> {
         131 | 139 | 147 | 155 | 163 | 171 | 179 | 187 => {
             get_seg_prefix_ds(*reg32s.offset(EBX as isize) + read_imm32s()?)
         },
-        4 | 12 | 20 | 28 | 36 | 44 | 52 | 60 => resolve_sib(0 != 0)?,
-        68 | 76 | 84 | 92 | 100 | 108 | 116 | 124 => resolve_sib(0 != 1)? + read_imm8s()?,
-        132 | 140 | 148 | 156 | 164 | 172 | 180 | 188 => resolve_sib(0 != 1)? + read_imm32s()?,
+        4 | 12 | 20 | 28 | 36 | 44 | 52 | 60 => resolve_sib(false)?,
+        68 | 76 | 84 | 92 | 100 | 108 | 116 | 124 => resolve_sib(true)? + read_imm8s()?,
+        132 | 140 | 148 | 156 | 164 | 172 | 180 | 188 => resolve_sib(true)? + read_imm32s()?,
         5 | 13 | 21 | 29 | 37 | 45 | 53 | 61 => get_seg_prefix_ds(read_imm32s()?),
         69 | 77 | 85 | 93 | 101 | 109 | 117 | 125 => {
             get_seg_prefix_ss(*reg32s.offset(EBP as isize) + read_imm8s()?)
@@ -225,7 +225,7 @@ pub unsafe fn resolve_modrm32(modrm_byte: i32) -> OrPageFault<i32> {
             get_seg_prefix_ds(*reg32s.offset(EDI as isize) + read_imm32s()?)
         },
         _ => {
-            dbg_assert!(0 != 0);
+            dbg_assert!(false);
             0
         },
     })

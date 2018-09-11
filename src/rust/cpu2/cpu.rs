@@ -238,9 +238,9 @@ pub const DEBUG: bool = cfg!(debug_assertions);
 pub const LOOP_COUNTER: i32 = 20011;
 pub const TSC_RATE: f64 = (50 * 1000) as f64;
 
-pub static mut jit_block_boundary: bool = 0 != 0;
+pub static mut jit_block_boundary: bool = false;
 
-pub static mut must_not_fault: bool = 0 != 0;
+pub static mut must_not_fault: bool = false;
 pub static mut rdtsc_imprecision_offset: u64 = 0;
 pub static mut rdtsc_last_value: u64 = 0;
 pub static mut tsc_offset: u64 = 0;
@@ -302,7 +302,7 @@ impl SegmentDescriptor {
 
 //pub fn call_indirect1(f: fn(u16), x: u16) { f(x); }
 
-pub unsafe fn after_block_boundary() { jit_block_boundary = 0 != 1; }
+pub unsafe fn after_block_boundary() { jit_block_boundary = true; }
 
 pub unsafe fn same_page(addr1: i32, addr2: i32) -> bool { return addr1 & !0xFFF == addr2 & !0xFFF; }
 
@@ -325,20 +325,20 @@ pub unsafe fn translate_address_read(address: i32) -> OrPageFault<u32> {
         return Ok((entry & !0xFFF ^ address) as u32);
     }
     else {
-        return Ok((do_page_translation(address, 0 != 0, user)? | address & 0xFFF) as u32);
+        return Ok((do_page_translation(address, false, user)? | address & 0xFFF) as u32);
     };
 }
 
 pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> OrPageFault<i32> {
-    let mut can_write: bool = 0 != 1;
+    let mut can_write: bool = true;
     let global;
-    let mut allow_user: bool = 0 != 1;
+    let mut allow_user: bool = true;
     let page: i32 = (addr as u32 >> 12) as i32;
     let high;
     if *cr & CR0_PG == 0 {
         // paging disabled
         high = (addr as u32 & 0xFFFFF000) as i32;
-        global = 0 != 0
+        global = false
     }
     else {
         let page_dir_addr: i32 =
@@ -353,23 +353,23 @@ pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> O
             // - call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)
             // - prevent execution of the function that triggered this call
             *cr.offset(2) = addr;
-            trigger_pagefault(for_writing, user, 0 != 0);
+            trigger_pagefault(for_writing, user, false);
             return Err(());
         }
         if page_dir_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override {
-            can_write = 0 != 0;
+            can_write = false;
             if for_writing {
                 *cr.offset(2) = addr;
-                trigger_pagefault(for_writing, user, 0 != 1);
+                trigger_pagefault(for_writing, user, true);
                 return Err(());
             }
         }
         if page_dir_entry & PAGE_TABLE_USER_MASK == 0 {
-            allow_user = 0 != 0;
+            allow_user = false;
             if user {
                 // Page Fault: page table accessed by non-supervisor
                 *cr.offset(2) = addr;
-                trigger_pagefault(for_writing, user, 0 != 1);
+                trigger_pagefault(for_writing, user, true);
                 return Err(());
             }
         }
@@ -397,22 +397,22 @@ pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> O
             let page_table_entry: i32 = read_aligned32(page_table_addr as u32);
             if page_table_entry & PAGE_TABLE_PRESENT_MASK == 0 {
                 *cr.offset(2) = addr;
-                trigger_pagefault(for_writing, user, 0 != 0);
+                trigger_pagefault(for_writing, user, false);
                 return Err(());
             }
             if page_table_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override {
-                can_write = 0 != 0;
+                can_write = false;
                 if for_writing {
                     *cr.offset(2) = addr;
-                    trigger_pagefault(for_writing, user, 0 != 1);
+                    trigger_pagefault(for_writing, user, true);
                     return Err(());
                 }
             }
             if page_table_entry & PAGE_TABLE_USER_MASK == 0 {
-                allow_user = 0 != 0;
+                allow_user = false;
                 if user {
                     *cr.offset(2) = addr;
-                    trigger_pagefault(for_writing, user, 0 != 1);
+                    trigger_pagefault(for_writing, user, true);
                     return Err(());
                 }
             }
@@ -456,10 +456,10 @@ pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> O
     // entries from tlb_data but not from valid_tlb_entries
     }
     else if CHECK_TLB_INVARIANTS {
-        let mut found: bool = 0 != 0;
+        let mut found: bool = false;
         for i in 0..valid_tlb_entries_count {
             if valid_tlb_entries[i as usize] == page {
-                found = 0 != 1;
+                found = true;
                 break;
             }
         }
@@ -553,7 +553,7 @@ pub unsafe fn clear_tlb() {
 }
 
 pub unsafe fn trigger_pagefault(write: bool, user: bool, present: bool) {
-    if 0 != 0 * 0 {
+    if false {
         dbg_log!(
             "page fault w={} u={} p={} eip={:x} cr2={:x}",
             write as i32,
@@ -568,23 +568,23 @@ pub unsafe fn trigger_pagefault(write: bool, user: bool, present: bool) {
         if must_not_fault {
             dbg_log!("Unexpected page fault");
             dbg_trace();
-            dbg_assert!(0 != 0);
+            dbg_assert!(false);
         }
     }
     //if *page_fault {
     //    dbg_log!(("double fault"));
     //    dbg_trace();
-    //    dbg_assert!(0 != 0);
+    //    dbg_assert!(false);
     //}
     // invalidate tlb entry
     let page: i32 = (*cr.offset(2) as u32 >> 12) as i32;
     *tlb_data.offset(page as isize) = 0;
     *instruction_pointer = *previous_ip;
-    //*page_fault = 0 != 1;
+    //*page_fault = true;
     call_interrupt_vector(
         CPU_EXCEPTION_PF,
-        0 != 0,
-        0 != 1,
+        false,
+        true,
         (user as i32) << 2 | (write as i32) << 1 | present as i32,
     );
     //profiler::stat_increment(S_TRIGGER_CPU_EXCEPTION);
@@ -600,7 +600,7 @@ pub unsafe fn translate_address_write(address: i32) -> OrPageFault<u32> {
         return Ok((entry & !0xFFF ^ address) as u32);
     }
     else {
-        return Ok((do_page_translation(address, 0 != 1, user)? | address & 0xFFF) as u32);
+        return Ok((do_page_translation(address, true, user)? | address & 0xFFF) as u32);
     };
 }
 
@@ -654,14 +654,14 @@ pub unsafe fn writable_or_pagefault(addr: i32, size: i32) -> OrPageFault<()> {
         let expect: i32 = TLB_VALID;
         let page: i32 = (addr as u32 >> 12) as i32;
         if *tlb_data.offset(page as isize) & mask != expect {
-            do_page_translation(addr, 0 != 1, user)?;
+            do_page_translation(addr, true, user)?;
         }
         let next_page: i32 = ((addr + size - 1) as u32 >> 12) as i32;
         if page != next_page {
             dbg_assert!(next_page == page + 1);
             // XXX: possibly out of bounds
             if *tlb_data.offset(next_page as isize) & mask != expect {
-                do_page_translation(next_page << 12, 0 != 1, user)?;
+                do_page_translation(next_page << 12, true, user)?;
             }
         }
         return Ok(());
@@ -994,7 +994,7 @@ pub unsafe fn raise_exception_with_code(interrupt_nr: i32, error_code: i32) {
                 error_code
             );
             dbg_trace();
-            dbg_assert!(0 != 0);
+            dbg_assert!(false);
         }
         if cpu_exception_hook(interrupt_nr) {
             assert!(false);
@@ -1002,7 +1002,7 @@ pub unsafe fn raise_exception_with_code(interrupt_nr: i32, error_code: i32) {
         }
     }
     profiler::stat_increment(S_TRIGGER_CPU_EXCEPTION);
-    call_interrupt_vector(interrupt_nr, 0 != 0, 0 != 1, error_code);
+    call_interrupt_vector(interrupt_nr, false, true, error_code);
     assert!(false);
 }
 
@@ -1070,7 +1070,7 @@ pub unsafe fn cycle_internal() {
         else {
             if DEBUG {
                 dbg_assert!(!must_not_fault);
-                must_not_fault = 0 != 1
+                must_not_fault = true
             }
             ::c_api::jit_increase_hotness_and_maybe_compile(
                 phys_addr,
@@ -1079,7 +1079,7 @@ pub unsafe fn cycle_internal() {
             );
             if DEBUG {
                 dbg_assert!(must_not_fault);
-                must_not_fault = 0 != 0
+                must_not_fault = false
             }
             let initial_tsc: i32 = *timestamp_counter as i32;
             jit_run_interpreted(phys_addr as i32);
@@ -1193,7 +1193,7 @@ pub unsafe fn do_many_cycles_native() {
 //        if must_not_fault {
 //            dbg_log!("Unexpected fault: 0x{:x}", interrupt_nr);
 //            dbg_trace();
-//            dbg_assert!(0 != 0);
+//            dbg_assert!(false);
 //        }
 //        if cpu_exception_hook(interrupt_nr) {
 //            throw_cpu_exception();
@@ -1201,7 +1201,7 @@ pub unsafe fn do_many_cycles_native() {
 //        }
 //    }
 //    profiler::stat_increment(S_TRIGGER_CPU_EXCEPTION);
-//    call_interrupt_vector(interrupt_nr, 0 != 0, 0 != 0, 0);
+//    call_interrupt_vector(interrupt_nr, false, false, 0);
 //    throw_cpu_exception();
 //}
 
@@ -1212,7 +1212,7 @@ pub unsafe fn trigger_de() {
         }
     }
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(CPU_EXCEPTION_DE, 0 != 0, 0 != 0, 0);
+    call_interrupt_vector(CPU_EXCEPTION_DE, false, false, 0);
 }
 
 #[no_mangle]
@@ -1225,7 +1225,7 @@ pub unsafe fn trigger_ud() {
         }
     }
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(CPU_EXCEPTION_UD, 0 != 0, 0 != 0, 0);
+    call_interrupt_vector(CPU_EXCEPTION_UD, false, false, 0);
 }
 
 pub unsafe fn trigger_nm() {
@@ -1235,7 +1235,7 @@ pub unsafe fn trigger_nm() {
         }
     }
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(CPU_EXCEPTION_NM, 0 != 0, 0 != 0, 0);
+    call_interrupt_vector(CPU_EXCEPTION_NM, false, false, 0);
 }
 
 #[no_mangle]
@@ -1246,7 +1246,7 @@ pub unsafe fn trigger_gp_non_raising(code: i32) {
         }
     }
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(CPU_EXCEPTION_GP, 0 != 0, 0 != 1, code);
+    call_interrupt_vector(CPU_EXCEPTION_GP, false, true, code);
 }
 
 pub unsafe fn virt_boundary_read16(low: u32, high: u32) -> i32 {
@@ -1365,7 +1365,7 @@ pub unsafe fn safe_read32s(address: i32) -> OrPageFault<i32> {
                 profiler::stat_increment(S_SAFE_READ_SLOW_IN_MAPPED_RANGE);
             }
             else {
-                dbg_assert!(0 != 0);
+                dbg_assert!(false);
             }
         }
         return safe_read32s_slow(address);
@@ -1565,7 +1565,7 @@ pub unsafe fn safe_write32(address: i32, value: i32) -> OrPageFault<()> {
                 profiler::stat_increment(S_SAFE_WRITE_SLOW_HAS_CODE);
             }
             else {
-                dbg_assert!(0 != 0);
+                dbg_assert!(false);
             }
         }
         safe_write32_slow(address, value)?;
@@ -1730,10 +1730,10 @@ pub fn transition_fpu_to_mmx() {
 pub unsafe fn task_switch_test() -> bool {
     if 0 != *cr & (CR0_EM | CR0_TS) {
         trigger_nm();
-        return 0 != 0;
+        return false;
     }
     else {
-        return 0 != 1;
+        return true;
     };
 }
 
@@ -1775,14 +1775,14 @@ pub unsafe fn task_switch_test_mmx() -> bool {
     }
     if 0 != *cr & CR0_EM {
         trigger_ud();
-        return 0 != 0;
+        return false;
     }
     else if 0 != *cr & CR0_TS {
         trigger_nm();
-        return 0 != 0;
+        return false;
     }
     else {
-        return 0 != 1;
+        return true;
     };
 }
 
@@ -1875,7 +1875,7 @@ pub unsafe fn set_tsc(low: u32, high: u32) {
 pub unsafe fn read_tsc() -> u64 {
     let n: f64 = microtick() * TSC_RATE;
     let value: u64 = (n as u64).wrapping_sub(tsc_offset);
-    if 0 != 1 + 1 {
+    if true {
         return value;
     }
     else {
@@ -1901,7 +1901,7 @@ pub unsafe fn read_tsc() -> u64 {
                     (value >> 32) as u32 as i32,
                     value as u32 as i32
                 );
-                dbg_assert!(0 != 0);
+                dbg_assert!(false);
                 // Keep current value until time catches up
             }
         }
@@ -2006,7 +2006,7 @@ pub unsafe fn translate_address_system_read(address: i32) -> OrPageFault<u32> {
         return Ok((entry & !0xFFF ^ address) as u32);
     }
     else {
-        return Ok((do_page_translation(address, 0 != 0, 0 != 0)? | address & 0xFFF) as u32);
+        return Ok((do_page_translation(address, false, false)? | address & 0xFFF) as u32);
     };
 }
 
@@ -2017,7 +2017,7 @@ pub unsafe fn translate_address_system_write(address: i32) -> OrPageFault<u32> {
         return Ok((entry & !0xFFF ^ address) as u32);
     }
     else {
-        return Ok((do_page_translation(address, 0 != 1, 0 != 0)? | address & 0xFFF) as u32);
+        return Ok((do_page_translation(address, true, false)? | address & 0xFFF) as u32);
     };
 }
 
@@ -2029,7 +2029,7 @@ pub unsafe fn trigger_np(code: i32) {
         }
     }
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(CPU_EXCEPTION_NP, 0 != 0, 0 != 1, code);
+    call_interrupt_vector(CPU_EXCEPTION_NP, false, true, code);
 }
 
 #[no_mangle]
@@ -2040,7 +2040,7 @@ pub unsafe fn trigger_ss(code: i32) {
         }
     }
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(CPU_EXCEPTION_SS, 0 != 0, 0 != 1, code);
+    call_interrupt_vector(CPU_EXCEPTION_SS, false, true, code);
 }
 
 #[no_mangle]

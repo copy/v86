@@ -406,7 +406,7 @@ pub unsafe fn fpu_fldenv(addr: i32) {
 #[no_mangle]
 pub unsafe fn fpu_unimpl() {
     if DEBUG {
-        dbg_assert!(0 != 0);
+        dbg_assert!(false);
     }
     else {
         trigger_ud();
