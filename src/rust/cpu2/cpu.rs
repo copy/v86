@@ -464,14 +464,10 @@ pub unsafe fn do_page_translation(
     }
     else if CHECK_TLB_INVARIANTS {
         let mut found: bool = 0 != 0;
-        let mut i: i32 = 0;
-        while i < valid_tlb_entries_count {
+        for i in 0..valid_tlb_entries_count {
             if valid_tlb_entries[i as usize] == page {
                 found = 0 != 1;
                 break;
-            }
-            else {
-                i += 1
             }
         }
         dbg_assert!(found);
@@ -522,18 +518,14 @@ pub unsafe fn full_clear_tlb() {
     // clear tlb including global pages
     *last_virt_eip = -1;
     *last_virt_esp = -1;
-    let mut i: i32 = 0;
-    while i < valid_tlb_entries_count {
+    for i in 0..valid_tlb_entries_count {
         let mut page: i32 = valid_tlb_entries[i as usize];
         *tlb_data.offset(page as isize) = 0;
-        i += 1
     }
     valid_tlb_entries_count = 0;
     if CHECK_TLB_INVARIANTS {
-        let mut i_0: i32 = 0;
-        while i_0 < 1048576 {
-            dbg_assert!(*tlb_data.offset(i_0 as isize) == 0);
-            i_0 += 1
+        for i in 0..1048576 {
+            dbg_assert!(*tlb_data.offset(i as isize) == 0);
         }
     };
 }
@@ -545,8 +537,7 @@ pub unsafe fn clear_tlb() {
     *last_virt_eip = -1;
     *last_virt_esp = -1;
     let mut global_page_offset: i32 = 0;
-    let mut i: i32 = 0;
-    while i < valid_tlb_entries_count {
+    for i in 0..valid_tlb_entries_count {
         let mut page: i32 = valid_tlb_entries[i as usize];
         let mut entry: i32 = *tlb_data.offset(page as isize);
         if 0 != entry & TLB_GLOBAL {
@@ -557,17 +548,13 @@ pub unsafe fn clear_tlb() {
         else {
             *tlb_data.offset(page as isize) = 0
         }
-        i += 1
     }
     valid_tlb_entries_count = global_page_offset;
     if CHECK_TLB_INVARIANTS {
-        let mut i_0: i32 = 0;
-        while i_0 < 1048576 {
+        for i in 0..1048576 {
             dbg_assert!(
-                *tlb_data.offset(i_0 as isize) == 0
-                    || 0 != *tlb_data.offset(i_0 as isize) & TLB_GLOBAL
+                *tlb_data.offset(i as isize) == 0 || 0 != *tlb_data.offset(i as isize) & TLB_GLOBAL
             );
-            i_0 += 1
         }
     };
 }
@@ -627,8 +614,7 @@ pub unsafe fn translate_address_write(mut address: i32) -> OrPageFault<u32> {
 #[no_mangle]
 pub unsafe fn tlb_set_has_code(mut physical_page: u32, mut has_code: bool) {
     dbg_assert!(physical_page < (1 << 20) as u32);
-    let mut i: i32 = 0;
-    while i < valid_tlb_entries_count {
+    for i in 0..valid_tlb_entries_count {
         let mut page: i32 = valid_tlb_entries[i as usize];
         let mut entry: i32 = *tlb_data.offset(page as isize);
         if 0 != entry {
@@ -642,7 +628,6 @@ pub unsafe fn tlb_set_has_code(mut physical_page: u32, mut has_code: bool) {
                 }
             }
         }
-        i += 1
     }
     check_tlb_invariants();
 }
@@ -653,14 +638,12 @@ pub unsafe fn check_tlb_invariants() {
         return;
     }
     else {
-        let mut i: i32 = 0;
-        while i < valid_tlb_entries_count {
+        for i in 0..valid_tlb_entries_count {
             let mut page: i32 = valid_tlb_entries[i as usize];
             let mut entry: i32 = *tlb_data.offset(page as isize);
             if 0 == entry || 0 != entry & TLB_IN_MAPPED_RANGE {
                 // there's no code in mapped memory
             }
-            i += 1
         }
         return;
     };
@@ -2008,14 +1991,12 @@ pub unsafe fn get_valid_tlb_entries_count() -> i32 {
         return 0;
     }
     let mut result: i32 = 0;
-    let mut i: i32 = 0;
-    while i < valid_tlb_entries_count {
+    for i in 0..valid_tlb_entries_count {
         let mut page: i32 = valid_tlb_entries[i as usize];
         let mut entry: i32 = *tlb_data.offset(page as isize);
         if 0 != entry {
             result += 1
         }
-        i += 1
     }
     return result;
 }
@@ -2026,14 +2007,12 @@ pub unsafe fn get_valid_global_tlb_entries_count() -> i32 {
         return 0;
     }
     let mut result: i32 = 0;
-    let mut i: i32 = 0;
-    while i < valid_tlb_entries_count {
+    for i in 0..valid_tlb_entries_count {
         let mut page: i32 = valid_tlb_entries[i as usize];
         let mut entry: i32 = *tlb_data.offset(page as isize);
         if 0 != entry & TLB_GLOBAL {
             result += 1
         }
-        i += 1
     }
     return result;
 }

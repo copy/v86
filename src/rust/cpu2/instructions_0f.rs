@@ -1967,8 +1967,7 @@ pub unsafe fn instr_0F64(mut source: reg64, mut r: i32) {
     let mut result: reg64 = reg64 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.u8_0[i as usize] =
             (if destination.i8_0[i as usize] as i32 > source.i8_0[i as usize] as i32 {
                 255
@@ -1976,7 +1975,6 @@ pub unsafe fn instr_0F64(mut source: reg64, mut r: i32) {
             else {
                 0
             }) as u8;
-        i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
     transition_fpu_to_mmx();
@@ -1995,8 +1993,7 @@ pub unsafe fn instr_660F64(mut source: reg128, mut r: i32) {
     let mut result: reg128 = reg128 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: i32 = 0;
-    while i < 16 {
+    for i in 0..16 {
         result.i8_0[i as usize] =
             (if destination.i8_0[i as usize] as i32 > source.i8_0[i as usize] as i32 {
                 255
@@ -2004,7 +2001,6 @@ pub unsafe fn instr_660F64(mut source: reg128, mut r: i32) {
             else {
                 0
             }) as i8;
-        i += 1
     }
     write_xmm_reg128(r, result);
 }
@@ -2061,8 +2057,7 @@ pub unsafe fn instr_660F65(mut source: reg128, mut r: i32) {
     let mut result: reg128 = reg128 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: i32 = 0;
-    while i < 8 {
+    for i in 0..8 {
         result.u16_0[i as usize] =
             (if destination.i16_0[i as usize] as i32 > source.i16_0[i as usize] as i32 {
                 65535
@@ -2070,7 +2065,6 @@ pub unsafe fn instr_660F65(mut source: reg128, mut r: i32) {
             else {
                 0
             }) as u16;
-        i += 1
     }
     write_xmm_reg128(r, result);
 }
@@ -2171,11 +2165,9 @@ pub unsafe fn instr_660F67(mut source: reg128, mut r: i32) {
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 { i8_0: [0; 16] };
-    let mut i: i32 = 0;
-    while i < 8 {
+    for i in 0..8 {
         result.u8_0[i as usize] = saturate_sw_to_ub(destination.u16_0[i as usize] as u32) as u8;
         result.u8_0[(i | 8) as usize] = saturate_sw_to_ub(source.u16_0[i as usize] as u32) as u8;
-        i += 1
     }
     write_xmm_reg128(r, result);
 }
@@ -2715,8 +2707,7 @@ pub unsafe fn instr_0F74(mut source: reg64, mut r: i32) {
     let mut result: reg64 = reg64 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.u8_0[i as usize] =
             (if destination.i8_0[i as usize] as i32 == source.i8_0[i as usize] as i32 {
                 255
@@ -2724,7 +2715,6 @@ pub unsafe fn instr_0F74(mut source: reg64, mut r: i32) {
             else {
                 0
             }) as u8;
-        i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
     transition_fpu_to_mmx();
@@ -2741,8 +2731,7 @@ pub unsafe fn instr_660F74(mut source: reg128, mut r: i32) {
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 { i8_0: [0; 16] };
-    let mut i: i32 = 0;
-    while i < 16 {
+    for i in 0..16 {
         result.u8_0[i as usize] =
             (if source.u8_0[i as usize] as i32 == destination.u8_0[i as usize] as i32 {
                 255
@@ -2750,7 +2739,6 @@ pub unsafe fn instr_660F74(mut source: reg128, mut r: i32) {
             else {
                 0
             }) as u8;
-        i += 1
     }
     write_xmm_reg128(r, result);
 }
@@ -2805,8 +2793,7 @@ pub unsafe fn instr_660F75(mut source: reg128, mut r: i32) {
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 { i8_0: [0; 16] };
-    let mut i: i32 = 0;
-    while i < 8 {
+    for i in 0..8 {
         result.u16_0[i as usize] =
             (if source.u16_0[i as usize] as i32 == destination.u16_0[i as usize] as i32 {
                 65535
@@ -2814,7 +2801,6 @@ pub unsafe fn instr_660F75(mut source: reg128, mut r: i32) {
             else {
                 0
             }) as u16;
-        i += 1
     }
     write_xmm_reg128(r, result);
 }
@@ -4133,12 +4119,10 @@ pub unsafe fn instr_0FD8(mut source: reg64, mut r: i32) {
     let mut result: reg64 = reg64 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.u8_0[i as usize] =
             saturate_sd_to_ub(destination.u8_0[i as usize] as i32 - source.u8_0[i as usize] as i32)
                 as u8;
-        i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
     transition_fpu_to_mmx();
@@ -4154,12 +4138,10 @@ pub unsafe fn instr_660FD8(mut source: reg128, mut r: i32) {
     // psubusb xmm, xmm/m128
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 { i8_0: [0; 16] };
-    let mut i: u32 = 0 as u32;
-    while i < 16 as u32 {
+    for i in 0..16 {
         result.u8_0[i as usize] =
             saturate_sd_to_ub(destination.u8_0[i as usize] as i32 - source.u8_0[i as usize] as i32)
                 as u8;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }
@@ -4193,12 +4175,10 @@ pub unsafe fn instr_660FD9(mut source: reg128, mut r: i32) {
     // psubusw xmm, xmm/m128
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 { i8_0: [0; 16] };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.u16_0[i as usize] = saturate_uw(
             (destination.u16_0[i as usize] as i32 - source.u16_0[i as usize] as i32) as u32,
         ) as u16;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }
@@ -4213,8 +4193,7 @@ pub unsafe fn instr_0FDA(mut source: reg64, mut r: i32) {
     // pminub mm, mm/m64
     let mut destination: reg64 = read_mmx64s(r);
     let mut result: reg64 = reg64 { i8_0: [0; 8] };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.u8_0[i as usize] =
             (if (source.u8_0[i as usize] as i32) < destination.u8_0[i as usize] as i32 {
                 source.u8_0[i as usize] as i32
@@ -4222,7 +4201,6 @@ pub unsafe fn instr_0FDA(mut source: reg64, mut r: i32) {
             else {
                 destination.u8_0[i as usize] as i32
             }) as u8;
-        i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
     transition_fpu_to_mmx();
@@ -4239,8 +4217,7 @@ pub unsafe fn instr_660FDA(mut source: reg128, mut r: i32) {
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 { i8_0: [0; 16] };
-    let mut i: u32 = 0 as u32;
-    while i < 16 as u32 {
+    for i in 0..16 {
         result.u8_0[i as usize] =
             (if (source.u8_0[i as usize] as i32) < destination.u8_0[i as usize] as i32 {
                 source.u8_0[i as usize] as i32
@@ -4248,7 +4225,6 @@ pub unsafe fn instr_660FDA(mut source: reg128, mut r: i32) {
             else {
                 destination.u8_0[i as usize] as i32
             }) as u8;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }
@@ -4294,12 +4270,10 @@ pub unsafe fn instr_0FDC(mut source: reg64, mut r: i32) {
     let mut result: reg64 = reg64 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.u8_0[i as usize] = saturate_ud_to_ub(
             (destination.u8_0[i as usize] as i32 + source.u8_0[i as usize] as i32) as u32,
         ) as u8;
-        i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
     transition_fpu_to_mmx();
@@ -4316,12 +4290,10 @@ pub unsafe fn instr_660FDC(mut source: reg128, mut r: i32) {
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 { i8_0: [0; 16] };
-    let mut i: u32 = 0 as u32;
-    while i < 16 as u32 {
+    for i in 0..16 {
         result.u8_0[i as usize] = saturate_ud_to_ub(
             (source.u8_0[i as usize] as i32 + destination.u8_0[i as usize] as i32) as u32,
         ) as u8;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }
@@ -4378,8 +4350,7 @@ pub unsafe fn instr_0FDE(mut source: reg64, mut r: i32) {
     // pmaxub mm, mm/m64
     let mut destination: reg64 = read_mmx64s(r);
     let mut result: reg64 = reg64 { i8_0: [0; 8] };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.u8_0[i as usize] =
             (if source.u8_0[i as usize] as i32 > destination.u8_0[i as usize] as i32 {
                 source.u8_0[i as usize] as i32
@@ -4387,7 +4358,6 @@ pub unsafe fn instr_0FDE(mut source: reg64, mut r: i32) {
             else {
                 destination.u8_0[i as usize] as i32
             }) as u8;
-        i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
     transition_fpu_to_mmx();
@@ -4404,8 +4374,7 @@ pub unsafe fn instr_660FDE(mut source: reg128, mut r: i32) {
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 { i8_0: [0; 16] };
-    let mut i: u32 = 0 as u32;
-    while i < 16 as u32 {
+    for i in 0..16 {
         result.u8_0[i as usize] =
             (if source.u8_0[i as usize] as i32 > destination.u8_0[i as usize] as i32 {
                 source.u8_0[i as usize] as i32
@@ -4413,7 +4382,6 @@ pub unsafe fn instr_660FDE(mut source: reg128, mut r: i32) {
             else {
                 destination.u8_0[i as usize] as i32
             }) as u8;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }
@@ -4459,11 +4427,9 @@ pub unsafe fn instr_0FE0(mut source: reg64, mut r: i32) {
     let mut result: reg64 = reg64 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.u8_0[i as usize] =
             (destination.u8_0[i as usize] as i32 + source.u8_0[i as usize] as i32 + 1 >> 1) as u8;
-        i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
     transition_fpu_to_mmx();
@@ -4480,11 +4446,9 @@ pub unsafe fn instr_660FE0(mut source: reg128, mut r: i32) {
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 { i8_0: [0; 16] };
-    let mut i: u32 = 0 as u32;
-    while i < 16 as u32 {
+    for i in 0..16 {
         result.u8_0[i as usize] =
             (destination.u8_0[i as usize] as i32 + source.u8_0[i as usize] as i32 + 1 >> 1) as u8;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }
@@ -4765,12 +4729,10 @@ pub unsafe fn instr_0FE8(mut source: reg64, mut r: i32) {
     let mut result: reg64 = reg64 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.u8_0[i as usize] = saturate_sd_to_sb(
             (destination.i8_0[i as usize] as i32 - source.i8_0[i as usize] as i32) as u32,
         ) as u8;
-        i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
     transition_fpu_to_mmx();
@@ -4787,12 +4749,10 @@ pub unsafe fn instr_660FE8(mut source: reg128, mut r: i32) {
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 { i8_0: [0; 16] };
-    let mut i: u32 = 0 as u32;
-    while i < 16 as u32 {
+    for i in 0..16 {
         result.i8_0[i as usize] = saturate_sd_to_sb(
             (destination.i8_0[i as usize] as i32 - source.i8_0[i as usize] as i32) as u32,
         ) as i8;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }
@@ -4859,8 +4819,7 @@ pub unsafe fn instr_0FEA(mut source: reg64, mut r: i32) {
     // pminsw mm, mm/m64
     let mut destination: reg64 = read_mmx64s(r);
     let mut result: reg64 = reg64 { i8_0: [0; 8] };
-    let mut i: u32 = 0 as u32;
-    while i < 4 as u32 {
+    for i in 0..4 {
         result.i16_0[i as usize] =
             (if (destination.i16_0[i as usize] as i32) < source.i16_0[i as usize] as i32 {
                 destination.i16_0[i as usize] as i32
@@ -4868,7 +4827,6 @@ pub unsafe fn instr_0FEA(mut source: reg64, mut r: i32) {
             else {
                 source.i16_0[i as usize] as i32
             }) as i16;
-        i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
     transition_fpu_to_mmx();
@@ -4885,8 +4843,7 @@ pub unsafe fn instr_660FEA(mut source: reg128, mut r: i32) {
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 { i8_0: [0; 16] };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.i16_0[i as usize] =
             (if (destination.i16_0[i as usize] as i32) < source.i16_0[i as usize] as i32 {
                 destination.i16_0[i as usize] as i32
@@ -4894,7 +4851,6 @@ pub unsafe fn instr_660FEA(mut source: reg128, mut r: i32) {
             else {
                 source.i16_0[i as usize] as i32
             }) as i16;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }
@@ -4940,12 +4896,10 @@ pub unsafe fn instr_0FEC(mut source: reg64, mut r: i32) {
     let mut result: reg64 = reg64 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.u8_0[i as usize] = saturate_sd_to_sb(
             (destination.i8_0[i as usize] as i32 + source.i8_0[i as usize] as i32) as u32,
         ) as u8;
-        i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
     transition_fpu_to_mmx();
@@ -4962,12 +4916,10 @@ pub unsafe fn instr_660FEC(mut source: reg128, mut r: i32) {
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 { i8_0: [0; 16] };
-    let mut i: u32 = 0 as u32;
-    while i < 16 as u32 {
+    for i in 0..16 {
         result.i8_0[i as usize] = saturate_sd_to_sb(
             (destination.i8_0[i as usize] as i32 + source.i8_0[i as usize] as i32) as u32,
         ) as i8;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }
@@ -5034,8 +4986,7 @@ pub unsafe fn instr_0FEE(mut source: reg64, mut r: i32) {
     // pmaxsw mm, mm/m64
     let mut destination: reg64 = read_mmx64s(r);
     let mut result: reg64 = reg64 { i8_0: [0; 8] };
-    let mut i: u32 = 0 as u32;
-    while i < 4 as u32 {
+    for i in 0..4 {
         result.i16_0[i as usize] =
             (if destination.i16_0[i as usize] as i32 >= source.i16_0[i as usize] as i32 {
                 destination.i16_0[i as usize] as i32
@@ -5043,7 +4994,6 @@ pub unsafe fn instr_0FEE(mut source: reg64, mut r: i32) {
             else {
                 source.i16_0[i as usize] as i32
             }) as i16;
-        i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
     transition_fpu_to_mmx();
@@ -5060,8 +5010,7 @@ pub unsafe fn instr_660FEE(mut source: reg128, mut r: i32) {
     // XXX: Aligned access or #gp
     let mut destination: reg128 = read_xmm128s(r);
     let mut result: reg128 = reg128 { i8_0: [0; 16] };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.i16_0[i as usize] =
             (if destination.i16_0[i as usize] as i32 >= source.i16_0[i as usize] as i32 {
                 destination.i16_0[i as usize] as i32
@@ -5069,7 +5018,6 @@ pub unsafe fn instr_660FEE(mut source: reg128, mut r: i32) {
             else {
                 source.i16_0[i as usize] as i32
             }) as i16;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }
@@ -5253,12 +5201,10 @@ pub unsafe fn instr_0FF6(mut source: reg64, mut r: i32) {
     // psadbw mm, mm/m64
     let mut destination: reg64 = read_mmx64s(r);
     let mut sum: u32 = 0 as u32;
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         sum = (sum as u32).wrapping_add(
             (destination.u8_0[i as usize] as i32 - source.u8_0[i as usize] as i32).abs() as u32,
         ) as u32 as u32;
-        i = i.wrapping_add(1)
     }
     write_mmx64(r, sum as i32, 0);
     transition_fpu_to_mmx();
@@ -5276,17 +5222,14 @@ pub unsafe fn instr_660FF6(mut source: reg128, mut r: i32) {
     let mut destination: reg128 = read_xmm128s(r);
     let mut sum0: u32 = 0 as u32;
     let mut sum1: u32 = 0 as u32;
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         sum0 = (sum0 as u32).wrapping_add(
             (destination.u8_0[i as usize] as i32 - source.u8_0[i as usize] as i32).abs() as u32,
         ) as u32 as u32;
         sum1 = (sum1 as u32).wrapping_add(
-            (destination.u8_0[i.wrapping_add(8 as u32) as usize] as i32
-                - source.u8_0[i.wrapping_add(8 as u32) as usize] as i32)
-                .abs() as u32,
+            (destination.u8_0[i + 8 as usize] as i32 - source.u8_0[i + 8 as usize] as i32).abs()
+                as u32,
         ) as u32 as u32;
-        i = i.wrapping_add(1)
     }
     write_xmm128(r, sum0 as i32, 0, sum1 as i32, 0);
 }
@@ -5305,15 +5248,13 @@ pub unsafe fn instr_0FF7_reg(mut r1: i32, mut r2: i32) {
     let mut mask: reg64 = read_mmx64s(r1);
     let mut addr: i32 = get_seg_prefix(DS) + get_reg_asize(EDI);
     return_on_pagefault!(writable_or_pagefault(addr, 8));
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         if 0 != mask.u8_0[i as usize] as i32 & 128 {
             safe_write8(
                 (addr as u32).wrapping_add(i) as i32,
                 source.u8_0[i as usize] as i32,
             ).unwrap();
         }
-        i = i.wrapping_add(1)
     }
     transition_fpu_to_mmx();
 }
@@ -5326,15 +5267,13 @@ pub unsafe fn instr_660FF7_reg(mut r1: i32, mut r2: i32) {
     let mut mask: reg128 = read_xmm128s(r1);
     let mut addr: i32 = get_seg_prefix(DS) + get_reg_asize(EDI);
     return_on_pagefault!(writable_or_pagefault(addr, 16));
-    let mut i: u32 = 0 as u32;
-    while i < 16 as u32 {
+    for i in 0..16 {
         if 0 != mask.u8_0[i as usize] as i32 & 128 {
             safe_write8(
                 (addr as u32).wrapping_add(i) as i32,
                 source.u8_0[i as usize] as i32,
             ).unwrap();
         }
-        i = i.wrapping_add(1)
     }
 }
 #[no_mangle]
@@ -5344,11 +5283,9 @@ pub unsafe fn instr_0FF8(mut source: reg64, mut r: i32) {
     let mut result: reg64 = reg64 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.u8_0[i as usize] =
             (destination.i8_0[i as usize] as i32 - source.i8_0[i as usize] as i32 & 255) as u8;
-        i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
     transition_fpu_to_mmx();
@@ -5367,11 +5304,9 @@ pub unsafe fn instr_660FF8(mut source: reg128, mut r: i32) {
     let mut result: reg128 = reg128 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: u32 = 0 as u32;
-    while i < 16 as u32 {
+    for i in 0..16 {
         result.i8_0[i as usize] =
             (destination.i8_0[i as usize] as i32 - source.i8_0[i as usize] as i32 & 255) as i8;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }
@@ -5410,11 +5345,9 @@ pub unsafe fn instr_660FF9(mut source: reg128, mut r: i32) {
     let mut result: reg128 = reg128 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.i16_0[i as usize] =
             (destination.i16_0[i as usize] as i32 - source.i16_0[i as usize] as i32 & 65535) as i16;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }
@@ -5496,11 +5429,9 @@ pub unsafe fn instr_0FFC(mut source: reg64, mut r: i32) {
     let mut result: reg64 = reg64 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.u8_0[i as usize] =
             (destination.u8_0[i as usize] as i32 + source.u8_0[i as usize] as i32 & 255) as u8;
-        i = i.wrapping_add(1)
     }
     write_mmx_reg64(r, result);
     transition_fpu_to_mmx();
@@ -5519,11 +5450,9 @@ pub unsafe fn instr_660FFC(mut source: reg128, mut r: i32) {
     let mut result: reg128 = reg128 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: u32 = 0 as u32;
-    while i < 16 as u32 {
+    for i in 0..16 {
         result.u8_0[i as usize] =
             (destination.u8_0[i as usize] as i32 + source.u8_0[i as usize] as i32 & 255) as u8;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }
@@ -5560,11 +5489,9 @@ pub unsafe fn instr_660FFD(mut source: reg128, mut r: i32) {
     let mut result: reg128 = reg128 {
         i8_0: [0 as i8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     };
-    let mut i: u32 = 0 as u32;
-    while i < 8 as u32 {
+    for i in 0..8 {
         result.u16_0[i as usize] =
             (destination.u16_0[i as usize] as i32 + source.u16_0[i as usize] as i32 & 65535) as u16;
-        i = i.wrapping_add(1)
     }
     write_xmm_reg128(r, result);
 }

@@ -417,11 +417,9 @@ pub unsafe fn fpu_unimpl() {
 #[no_mangle]
 pub unsafe fn fpu_set_tag_word(mut tag_word: i32) {
     *fpu_stack_empty = 0;
-    let mut i: i32 = 0;
-    while i < 8 {
+    for i in 0..8 {
         let empty = tag_word >> (2 * i) & 3 == 3;
         *fpu_stack_empty |= (empty as i32) << i;
-        i += 1
     }
 }
 #[no_mangle]
@@ -474,13 +472,11 @@ pub unsafe fn fpu_frstor(mut addr: i32) {
     return_on_pagefault!(translate_address_read(addr + 28 + 8 * 10));
     fpu_fldenv(addr);
     addr += 28;
-    let mut i: i32 = 0;
-    while i < 8 {
+    for i in 0..8 {
         let reg_index = *fpu_stack_ptr as i32 + i & 7;
         *fpu_st.offset(reg_index as isize) = fpu_load_m80(addr).unwrap();
         *reg_mmx.offset(reg_index as isize) = safe_read64s(addr).unwrap();
         addr += 10;
-        i += 1
     }
 
     *fxsave_store_fpu_mask = 0xff;
@@ -490,8 +486,7 @@ pub unsafe fn fpu_fsave(mut addr: i32) {
     return_on_pagefault!(writable_or_pagefault(addr, 108));
     fpu_fstenv(addr);
     addr += 28;
-    let mut i: i32 = 0;
-    while i < 8 {
+    for i in 0..8 {
         let reg_index = i + *fpu_stack_ptr as i32 & 7;
         if *fxsave_store_fpu_mask & 1 << reg_index != 0 {
             fpu_store_m80(addr, *fpu_st.offset(reg_index as isize));
@@ -500,7 +495,6 @@ pub unsafe fn fpu_fsave(mut addr: i32) {
             safe_write64(addr, (*reg_mmx.offset(reg_index as isize)).i64_0[0]).unwrap();
         }
         addr += 10;
-        i += 1
     }
     fpu_finit();
 }
@@ -565,8 +559,7 @@ pub unsafe fn fpu_fstenv(mut addr: i32) {
 #[no_mangle]
 pub unsafe fn fpu_load_tag_word() -> i32 {
     let mut tag_word: i32 = 0;
-    let mut i: i32 = 0;
-    while i < 8 {
+    for i in 0..8 {
         let mut value: f64 = *fpu_st.offset(i as isize);
         if 0 != *fpu_stack_empty >> i & 1 {
             tag_word |= 3 << (i << 1)
@@ -577,7 +570,6 @@ pub unsafe fn fpu_load_tag_word() -> i32 {
         else if !value.is_finite() {
             tag_word |= 2 << (i << 1)
         }
-        i += 1
     }
     return tag_word;
 }
