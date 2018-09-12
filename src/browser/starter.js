@@ -252,6 +252,7 @@ function V86Starter(options)
             console.error(str);
         },
         "codegen_finalize": (wasm_table_index, start, end, first_opcode, state_flags) => cpu.codegen_finalize(wasm_table_index, start, end, first_opcode, state_flags),
+        "jit_clear_func": (wasm_table_index) => cpu.jit_clear_func(wasm_table_index),
         "__indirect_function_table": wasm_table,
         "floor": Math.floor,
         "ceil": Math.ceil,

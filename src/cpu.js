@@ -367,7 +367,7 @@ CPU.prototype.jit_force_generate = function(addr)
 CPU.prototype.jit_clear_func = function(index)
 {
     dbg_assert(index >= 0 && index < WASM_TABLE_SIZE);
-    this.wm.imports.env[WASM_EXPORT_TABLE_NAME].set(index + WASM_TABLE_OFFSET, null);
+    this.wm.imports["env"][WASM_EXPORT_TABLE_NAME].set(index + WASM_TABLE_OFFSET, null);
 };
 
 CPU.prototype.get_state = function()

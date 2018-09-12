@@ -1173,13 +1173,11 @@ fn free_wasm_table_index(ctx: &mut JitState, wasm_table_index: u16) {
     if CHECK_JIT_CACHE_ARRAY_INVARIANTS {
         dbg_assert!(!ctx.wasm_table_index_free_list.contains(&wasm_table_index));
     }
-    ctx.wasm_table_index_free_list.push(wasm_table_index)
+    ctx.wasm_table_index_free_list.push(wasm_table_index);
 
-    // It is not strictly necessary to clear the function, but it will fail
-    // more predictably if we accidentally use the function
-    // XXX: This fails in Chromium:
-    //   RangeError: WebAssembly.Table.set(): Modifying existing entry in table not supported.
-    //jit_clear_func(wasm_table_index);
+    // It is not strictly necessary to clear the function, but it will fail more predictably if we
+    // accidentally use the function and may garbage collect unused modules earlier
+    cpu::jit_clear_func(wasm_table_index);
 }
 
 /// Remove all entries with the given wasm_table_index in page

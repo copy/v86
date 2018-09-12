@@ -18,6 +18,7 @@ mod unsafe_cpu {
             first_opcode: u32,
             state_flags: u32,
         );
+        pub fn jit_clear_func(wasm_table_index: u16);
     }
 }
 
@@ -54,4 +55,8 @@ pub fn codegen_finalize(
             state_flags.to_u32(),
         )
     }
+}
+
+pub fn jit_clear_func(wasm_table_index: u16) {
+    unsafe { unsafe_cpu::jit_clear_func(wasm_table_index) }
 }
