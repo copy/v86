@@ -29,7 +29,6 @@ const print_stats = {
             "RUN_INTERPRETED_STEPS",
             "RUN_FROM_CACHE",
             "RUN_FROM_CACHE_STEPS",
-            "TRIGGER_CPU_EXCEPTION",
             "SAFE_READ_FAST",
             "SAFE_READ_SLOW_PAGE_CROSSED",
             "SAFE_READ_SLOW_NOT_VALID",

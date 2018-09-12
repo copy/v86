@@ -587,7 +587,6 @@ pub unsafe fn trigger_pagefault(write: bool, user: bool, present: bool) {
         true,
         (user as i32) << 2 | (write as i32) << 1 | present as i32,
     );
-    //profiler::stat_increment(S_TRIGGER_CPU_EXCEPTION);
 }
 
 pub unsafe fn translate_address_write(address: i32) -> OrPageFault<u32> {
@@ -867,7 +866,7 @@ pub unsafe fn get_seg(segment: i32) -> i32 {
             dbg_assert!(segment != CS && segment != SS);
             dbg_log!("#gp: Access null segment");
             assert!(false);
-            trigger_gp(0);
+            //trigger_gp(0); // TODO
         }
     }
     return *segment_offsets.offset(segment as isize);
@@ -978,32 +977,6 @@ pub unsafe fn popa32() {
     *reg32s.offset(EDX as isize) = pop32s().unwrap();
     *reg32s.offset(ECX as isize) = pop32s().unwrap();
     *reg32s.offset(EAX as isize) = pop32s().unwrap();
-}
-
-pub unsafe fn trigger_gp(code: i32) {
-    *instruction_pointer = *previous_ip;
-    raise_exception_with_code(CPU_EXCEPTION_GP, code);
-}
-
-pub unsafe fn raise_exception_with_code(interrupt_nr: i32, error_code: i32) {
-    if DEBUG {
-        if must_not_fault {
-            dbg_log!(
-                "Unexpected fault: 0x{:x} with code 0x{:x}",
-                interrupt_nr,
-                error_code
-            );
-            dbg_trace();
-            dbg_assert!(false);
-        }
-        if cpu_exception_hook(interrupt_nr) {
-            assert!(false);
-            return;
-        }
-    }
-    profiler::stat_increment(S_TRIGGER_CPU_EXCEPTION);
-    call_interrupt_vector(interrupt_nr, false, true, error_code);
-    assert!(false);
 }
 
 pub unsafe fn get_seg_cs() -> i32 { return *segment_offsets.offset(CS as isize); }
@@ -1187,23 +1160,6 @@ pub unsafe fn do_many_cycles_native() {
         cycle_internal();
     }
 }
-//#[no_mangle]
-//pub unsafe fn raise_exception(interrupt_nr: i32) {
-//    if DEBUG {
-//        if must_not_fault {
-//            dbg_log!("Unexpected fault: 0x{:x}", interrupt_nr);
-//            dbg_trace();
-//            dbg_assert!(false);
-//        }
-//        if cpu_exception_hook(interrupt_nr) {
-//            throw_cpu_exception();
-//            return;
-//        }
-//    }
-//    profiler::stat_increment(S_TRIGGER_CPU_EXCEPTION);
-//    call_interrupt_vector(interrupt_nr, false, false, 0);
-//    throw_cpu_exception();
-//}
 
 pub unsafe fn trigger_de() {
     if DEBUG {
