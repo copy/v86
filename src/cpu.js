@@ -218,6 +218,8 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     this.reg_mmx8s = v86util.view(Int8Array, this.reg_mmxs.buffer, 1064, 64);
     this.reg_mmx8 = v86util.view(Uint8Array, this.reg_mmxs.buffer, 1064, 64);
 
+    this.fxsave_store_fpu_mask = v86util.view(Uint8Array, memory, 1132, 1);
+
     this.reg_xmm32s = v86util.view(Int32Array, memory, 828, 8 * 4);
 
     this.mxcsr = v86util.view(Int32Array, memory, 824, 1);
@@ -453,6 +455,8 @@ CPU.prototype.get_state = function()
     state[74] = this.fpu_dp_selector[0];
     state[75] = this.fpu_opcode[0];
 
+    state[76] = this.fxsave_store_fpu_mask;
+
     return state;
 };
 
@@ -542,6 +546,8 @@ CPU.prototype.set_state = function(state)
     this.fpu_dp[0] = state[73];
     this.fpu_dp_selector[0] = state[74];
     this.fpu_opcode[0] = state[75];
+
+    this.fxsave_store_fpu_mask = state[76];
 
     this.full_clear_tlb();
 
