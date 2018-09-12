@@ -50,11 +50,11 @@ pub enum stat {
 }
 
 #[no_mangle]
-pub static mut stat_array: [u32; 100] = [0; 100];
+pub static mut stat_array: [u64; 100] = [0; 100];
 
 pub fn stat_increment(stat: stat) { stat_increment_by(stat, 1); }
 
-pub fn stat_increment_by(stat: stat, by: u32) {
+pub fn stat_increment_by(stat: stat, by: u64) {
     if cfg!(feature = "profiler") {
         unsafe { stat_array[stat as usize] += by }
     }
@@ -70,12 +70,12 @@ pub fn profiler_init() {
 }
 
 #[no_mangle]
-pub fn profiler_stat_get(stat: stat) -> u32 {
+pub fn profiler_stat_get(stat: stat) -> f64 {
     if cfg!(feature = "profiler") {
-        unsafe { stat_array[stat as usize] }
+        unsafe { stat_array[stat as usize] as f64 }
     }
     else {
-        0
+        0.0
     }
 }
 

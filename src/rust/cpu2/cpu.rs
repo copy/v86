@@ -1028,7 +1028,7 @@ pub unsafe fn cycle_internal() {
 
         if 0 != entry {
             profiler::stat_increment(S_RUN_FROM_CACHE);
-            let initial_tsc = *timestamp_counter as i32;
+            let initial_tsc = *timestamp_counter;
             let wasm_table_index = (entry & 0xFFFF) as u16;
             let initial_state = (entry >> 16) as u16;
             call_indirect1(
@@ -1037,7 +1037,7 @@ pub unsafe fn cycle_internal() {
             );
             profiler::stat_increment_by(
                 S_RUN_FROM_CACHE_STEPS,
-                (*timestamp_counter).wrapping_sub(initial_tsc as u32),
+                (*timestamp_counter - initial_tsc) as u64,
             );
         }
         else {
@@ -1054,11 +1054,11 @@ pub unsafe fn cycle_internal() {
                 dbg_assert!(must_not_fault);
                 must_not_fault = false
             }
-            let initial_tsc: i32 = *timestamp_counter as i32;
+            let initial_tsc = *timestamp_counter;
             jit_run_interpreted(phys_addr as i32);
             profiler::stat_increment_by(
                 S_RUN_INTERPRETED_STEPS,
-                (*timestamp_counter).wrapping_sub(initial_tsc as u32),
+                (*timestamp_counter - initial_tsc) as u64,
             );
         };
     }

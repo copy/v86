@@ -1280,7 +1280,7 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
 
         profiler::stat_increment_by(
             stat::S_INVALIDATE_MODULE,
-            index_to_pending_free.len() as u32 + index_to_free.len() as u32,
+            index_to_pending_free.len() as u64 + index_to_free.len() as u64,
         );
 
         for index in index_to_free.iter().cloned() {
