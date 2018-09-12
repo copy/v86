@@ -1808,12 +1808,12 @@ pub unsafe fn task_switch_test_mmx() -> bool {
     if *cr.offset(4) & CR4_OSFXSR == 0 {
         dbg_log!("Warning: Unimplemented task switch test with cr4.osfxsr=0");
     }
-    if 0 != *cr & CR0_TS {
-        trigger_nm();
+    if 0 != *cr & CR0_EM {
+        trigger_ud();
         return 0 != 0;
     }
-    else if 0 != *cr & CR0_EM {
-        trigger_ud();
+    else if 0 != *cr & CR0_TS {
+        trigger_nm();
         return 0 != 0;
     }
     else {
