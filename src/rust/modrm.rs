@@ -311,7 +311,7 @@ fn can_optimize_get_seg(ctx: &mut JitContext, segment: u32) -> bool {
     (segment == DS || segment == SS) && ctx.cpu.has_flat_segmentation()
 }
 
-fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
+pub fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
     let prefix = ctx.cpu.prefixes & PREFIX_MASK_SEGMENT;
     let seg = if prefix != 0 {
         prefix - 1

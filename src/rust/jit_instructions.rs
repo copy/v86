@@ -6,6 +6,7 @@ use cpu_context::CpuContext;
 use global_pointers;
 use jit::JitContext;
 use modrm;
+use modrm::jit_add_seg_offset;
 use prefix::SEG_PREFIX_ZERO;
 use prefix::{PREFIX_66, PREFIX_67, PREFIX_F2, PREFIX_F3};
 use regs;
@@ -1997,6 +1998,65 @@ pub fn instr32_0F8E_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr32_0F8F_jit(_ctx: &mut JitContext, _imm: u32) {}
 
 pub fn instr_90_jit(_ctx: &mut JitContext) {}
+
+pub fn instr_A0_jit(ctx: &mut JitContext, immaddr: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg8_offset(regs::AL) as i32);
+    ctx.builder.instruction_body.const_i32(immaddr as i32);
+    jit_add_seg_offset(ctx, regs::DS);
+    codegen::gen_safe_read8(ctx);
+    ctx.builder.instruction_body.store_u8(0);
+}
+pub fn instr16_A1_jit(ctx: &mut JitContext, immaddr: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg16_offset(regs::AX) as i32);
+    ctx.builder.instruction_body.const_i32(immaddr as i32);
+    jit_add_seg_offset(ctx, regs::DS);
+    codegen::gen_safe_read16(ctx);
+    ctx.builder.instruction_body.store_aligned_u16(0);
+}
+pub fn instr32_A1_jit(ctx: &mut JitContext, immaddr: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg32_offset(regs::EAX) as i32);
+    ctx.builder.instruction_body.const_i32(immaddr as i32);
+    jit_add_seg_offset(ctx, regs::DS);
+    codegen::gen_safe_read32(ctx);
+    ctx.builder.instruction_body.store_aligned_i32(0);
+}
+
+pub fn instr_A2_jit(ctx: &mut JitContext, immaddr: u32) {
+    ctx.builder.instruction_body.const_i32(immaddr as i32);
+    jit_add_seg_offset(ctx, regs::DS);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_get_reg8(ctx.builder, regs::AL);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_safe_write8(ctx, &address_local, &value_local);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local(value_local);
+}
+pub fn instr16_A3_jit(ctx: &mut JitContext, immaddr: u32) {
+    ctx.builder.instruction_body.const_i32(immaddr as i32);
+    jit_add_seg_offset(ctx, regs::DS);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_get_reg16(ctx.builder, regs::AX);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_safe_write16(ctx, &address_local, &value_local);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local(value_local);
+}
+pub fn instr32_A3_jit(ctx: &mut JitContext, immaddr: u32) {
+    ctx.builder.instruction_body.const_i32(immaddr as i32);
+    jit_add_seg_offset(ctx, regs::DS);
+    let address_local = ctx.builder.set_new_local();
+    codegen::gen_get_reg32(ctx.builder, regs::EAX);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_safe_write32(ctx, &address_local, &value_local);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local(value_local);
+}
 
 pub fn instr_0F19_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
     modrm::skip(ctx.cpu, modrm_byte);

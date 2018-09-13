@@ -171,11 +171,10 @@ const encodings = [
     { opcode: 0x9E, },
     { opcode: 0x9F, },
 
-    // XXX: temporarily marked as block boundary until uses gen_safe_{read,write}
-    { opcode: 0xA0, immaddr: 1, block_boundary: 1 },
-    { opcode: 0xA1, os: 1, immaddr: 1, block_boundary: 1 },
-    { opcode: 0xA2, immaddr: 1, block_boundary: 1 },
-    { opcode: 0xA3, os: 1, immaddr: 1, block_boundary: 1 },
+    { opcode: 0xA0, custom: 1, immaddr: 1 },
+    { opcode: 0xA1, custom: 1, os: 1, immaddr: 1 },
+    { opcode: 0xA2, custom: 1, immaddr: 1 },
+    { opcode: 0xA3, custom: 1, os: 1, immaddr: 1 },
 
     // string instructions aren't jumps, but they modify eip due to how they're implemented
     { opcode: 0xA4, block_boundary: 1, is_string: 1, },
