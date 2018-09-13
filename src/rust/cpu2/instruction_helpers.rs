@@ -3,8 +3,9 @@ macro_rules! SAFE_READ_WRITE8 {
         use cpu2::cpu::translate_address_write;
         use cpu2::memory::{read8, write8};
         match translate_address_write($addr) {
-            Err(()) => {},
+            Err(()) => *page_fault = true,
             Ok(phys_addr) => {
+                *page_fault = false;
                 let $value = read8(phys_addr);
                 write8(phys_addr, $instruction);
             },

@@ -849,15 +849,16 @@ pub fn gen_safe_read_write(
     ctx.builder.instruction_body.const_i32(TLB_VALID as i32);
     ctx.builder.instruction_body.eq_i32();
 
-    ctx.builder.instruction_body.get_local(&address_local);
-    ctx.builder.instruction_body.const_i32(0xFFF);
-    ctx.builder.instruction_body.and_i32();
-    ctx.builder
-        .instruction_body
-        .const_i32(0x1000 - if bits == BitSize::WORD { 2 } else { 4 });
-    ctx.builder.instruction_body.le_i32();
-
-    ctx.builder.instruction_body.and_i32();
+    if bits != BitSize::BYTE {
+        ctx.builder.instruction_body.get_local(&address_local);
+        ctx.builder.instruction_body.const_i32(0xFFF);
+        ctx.builder.instruction_body.and_i32();
+        ctx.builder
+            .instruction_body
+            .const_i32(0x1000 - if bits == BitSize::WORD { 2 } else { 4 });
+        ctx.builder.instruction_body.le_i32();
+        ctx.builder.instruction_body.and_i32();
+    }
 
     // Pseudo:
     // if(can_use_fast_path) leave_on_stack(mem8[entry & ~0xFFF ^ address]);
@@ -878,7 +879,11 @@ pub fn gen_safe_read_write(
     ctx.builder.instruction_body.get_local(&phys_addr_local);
 
     match bits {
-        BitSize::BYTE => {},
+        BitSize::BYTE => {
+            ctx.builder
+                .instruction_body
+                .load_u8_from_stack(unsafe { mem8 } as u32);
+        },
         BitSize::WORD => {
             ctx.builder
                 .instruction_body
@@ -894,7 +899,11 @@ pub fn gen_safe_read_write(
     f(ctx);
 
     match bits {
-        BitSize::BYTE => {},
+        BitSize::BYTE => {
+            ctx.builder
+                .instruction_body
+                .store_u8(unsafe { mem8 } as u32);
+        },
         BitSize::WORD => {
             ctx.builder
                 .instruction_body

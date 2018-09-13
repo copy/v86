@@ -16,37 +16,37 @@ const sf = 1 << 7;
 
 // os: the instruction behaves differently depending on the operand size
 const encodings = [
-    { opcode: 0x00, e: 1, },
+    { opcode: 0x00, custom: 1, e: 1, },
     { opcode: 0x01, custom: 1, os: 1, e: 1, },
     { opcode: 0x02, custom: 1, e: 1, },
     { opcode: 0x03, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x08, e: 1, },
+    { opcode: 0x08, custom: 1, e: 1, },
     { opcode: 0x09, custom: 1, os: 1, e: 1, },
     { opcode: 0x0A, custom: 1, e: 1, },
     { opcode: 0x0B, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x10, e: 1, },
+    { opcode: 0x10, custom: 1, e: 1, },
     { opcode: 0x11, custom: 1, os: 1, e: 1, },
     { opcode: 0x12, custom: 1, e: 1, },
     { opcode: 0x13, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x18, e: 1, },
+    { opcode: 0x18, custom: 1, e: 1, },
     { opcode: 0x19, custom: 1, os: 1, e: 1, },
     { opcode: 0x1A, custom: 1, e: 1, },
     { opcode: 0x1B, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x20, e: 1, },
+    { opcode: 0x20, custom: 1, e: 1, },
     { opcode: 0x21, custom: 1, os: 1, e: 1, },
     { opcode: 0x22, custom: 1, e: 1, },
     { opcode: 0x23, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x28, e: 1, },
+    { opcode: 0x28, custom: 1, e: 1, },
     { opcode: 0x29, custom: 1, os: 1, e: 1, },
     { opcode: 0x2A, custom: 1, e: 1, },
     { opcode: 0x2B, custom: 1, os: 1, e: 1, },
 
-    { opcode: 0x30, e: 1, },
+    { opcode: 0x30, custom: 1, e: 1, },
     { opcode: 0x31, custom: 1, os: 1, e: 1, },
     { opcode: 0x32, custom: 1, e: 1, },
     { opcode: 0x33, custom: 1, os: 1, e: 1, },
