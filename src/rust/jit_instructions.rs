@@ -883,6 +883,90 @@ pub fn instr32_68_jit(ctx: &mut JitContext, imm32: u32) { push32_imm_jit(ctx, im
 pub fn instr16_6A_jit(ctx: &mut JitContext, imm16: u32) { push16_imm_jit(ctx, imm16) }
 pub fn instr32_6A_jit(ctx: &mut JitContext, imm32: u32) { push32_imm_jit(ctx, imm32) }
 
+pub fn instr16_69_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg16_offset(r) as i32);
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read16(ctx);
+    let imm16 = ctx.cpu.read_imm16();
+    ctx.builder.instruction_body.const_i32(imm16 as i32);
+    codegen::gen_call_fn2_ret(ctx.builder, "imul_reg16");
+    ctx.builder.instruction_body.store_aligned_u16(0);
+}
+pub fn instr16_69_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm16: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg16_offset(r2) as i32);
+    codegen::gen_get_reg16(ctx.builder, r1);
+    ctx.builder.instruction_body.const_i32(imm16 as i32);
+    codegen::gen_call_fn2_ret(ctx.builder, "imul_reg16");
+    ctx.builder.instruction_body.store_aligned_u16(0);
+}
+
+pub fn instr32_69_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg32_offset(r) as i32);
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read32(ctx);
+    let imm32 = ctx.cpu.read_imm32();
+    ctx.builder.instruction_body.const_i32(imm32 as i32);
+    codegen::gen_call_fn2_ret(ctx.builder, "imul_reg32");
+    ctx.builder.instruction_body.store_aligned_i32(0);
+}
+pub fn instr32_69_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm32: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg32_offset(r2) as i32);
+    codegen::gen_get_reg32(ctx.builder, r1);
+    ctx.builder.instruction_body.const_i32(imm32 as i32);
+    codegen::gen_call_fn2_ret(ctx.builder, "imul_reg32");
+    ctx.builder.instruction_body.store_aligned_i32(0);
+}
+
+pub fn instr16_6B_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg16_offset(r) as i32);
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read16(ctx);
+    let imm8s = ctx.cpu.read_imm8s();
+    ctx.builder.instruction_body.const_i32(imm8s as i32);
+    codegen::gen_call_fn2_ret(ctx.builder, "imul_reg16");
+    ctx.builder.instruction_body.store_aligned_u16(0);
+}
+pub fn instr16_6B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8s: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg16_offset(r2) as i32);
+    codegen::gen_get_reg16(ctx.builder, r1);
+    ctx.builder.instruction_body.const_i32(imm8s as i32);
+    codegen::gen_call_fn2_ret(ctx.builder, "imul_reg16");
+    ctx.builder.instruction_body.store_aligned_u16(0);
+}
+
+pub fn instr32_6B_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg32_offset(r) as i32);
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read32(ctx);
+    let imm8s = ctx.cpu.read_imm8s();
+    ctx.builder.instruction_body.const_i32(imm8s as i32);
+    codegen::gen_call_fn2_ret(ctx.builder, "imul_reg32");
+    ctx.builder.instruction_body.store_aligned_i32(0);
+}
+pub fn instr32_6B_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32, imm8s: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg32_offset(r2) as i32);
+    codegen::gen_get_reg32(ctx.builder, r1);
+    ctx.builder.instruction_body.const_i32(imm8s as i32);
+    codegen::gen_call_fn2_ret(ctx.builder, "imul_reg32");
+    ctx.builder.instruction_body.store_aligned_i32(0);
+}
+
 // Code for conditional jumps is generated automatically by the basic block codegen
 pub fn instr16_70_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr32_70_jit(_ctx: &mut JitContext, _imm: u32) {}

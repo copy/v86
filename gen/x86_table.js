@@ -119,9 +119,9 @@ const encodings = [
     { opcode: 0x67, prefix: 1, },
 
     { opcode: 0x68, custom: 1, os: 1, imm1632: 1 },
-    { opcode: 0x69, os: 1, e: 1, imm1632: 1, mask_flags: af, }, // zf?
+    { opcode: 0x69, os: 1, e: 1, custom: 1, imm1632: 1, mask_flags: af, }, // zf?
     { opcode: 0x6A, custom: 1, os: 1, imm8s: 1 },
-    { opcode: 0x6B, os: 1, e: 1, imm8s: 1, mask_flags: af, }, // zf?
+    { opcode: 0x6B, os: 1, e: 1, custom: 1, imm8s: 1, mask_flags: af, }, // zf?
 
     { opcode: 0x6C, block_boundary: 1, is_string: 1, skip: 1, },          // ins
     { opcode: 0xF26C, block_boundary: 1, is_string: 1, skip: 1, },
