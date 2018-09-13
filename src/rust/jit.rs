@@ -391,25 +391,27 @@ fn jit_hot_hash_page(page: Page) -> u32 { page.to_u32() % HASH_PRIME }
 fn is_near_end_of_page(address: u32) -> bool { address & 0xFFF >= 0x1000 - MAX_INSTRUCTION_LENGTH }
 
 pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) -> cached_code {
+    if is_near_end_of_page(phys_address) {
+        profiler::stat_increment(stat::S_RUN_INTERPRETED_NEAR_END_OF_PAGE);
+    }
+
+    let mut run_interpreted_reason = None;
+
     for i in 0..CODE_CACHE_SEARCH_SIZE {
         let index = (phys_address + i) & jit_cache_array::MASK;
         let entry = jit_cache_array::get_unchecked(index);
 
-        #[cfg(debug_assertions)]
-        {
-            if entry.start_addr == phys_address {
-                if entry.pending {
-                    profiler::stat_increment(stat::S_RUN_INTERPRETED_PENDING)
-                }
-                if entry.state_flags != state_flags {
-                    profiler::stat_increment(stat::S_RUN_INTERPRETED_DIFFERENT_STATE)
-                }
+        if entry.start_addr == phys_address {
+            if entry.pending {
+                run_interpreted_reason = Some(stat::S_RUN_INTERPRETED_PENDING)
             }
+            if entry.state_flags != state_flags {
+                run_interpreted_reason = Some(stat::S_RUN_INTERPRETED_DIFFERENT_STATE)
+            }
+        }
 
-            if is_near_end_of_page(phys_address) {
-                dbg_assert!(entry.start_addr != phys_address);
-                profiler::stat_increment(stat::S_RUN_INTERPRETED_NEAR_END_OF_PAGE);
-            }
+        if is_near_end_of_page(phys_address) {
+            dbg_assert!(entry.start_addr != phys_address);
         }
 
         if !entry.pending && entry.start_addr == phys_address && entry.state_flags == state_flags {
@@ -422,6 +424,10 @@ pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) ->
                 initial_state: entry.initial_state,
             };
         }
+    }
+
+    if let Some(reason) = run_interpreted_reason {
+        profiler::stat_increment(reason);
     }
 
     cached_code::NONE
