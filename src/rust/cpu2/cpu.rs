@@ -579,6 +579,7 @@ pub unsafe fn trigger_pagefault(write: bool, user: bool, present: bool) {
     // invalidate tlb entry
     let page: i32 = (*cr.offset(2) as u32 >> 12) as i32;
     *tlb_data.offset(page as isize) = 0;
+    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     //*page_fault = true;
     call_interrupt_vector(
@@ -1031,10 +1032,12 @@ pub unsafe fn cycle_internal() {
             let initial_tsc = *timestamp_counter;
             let wasm_table_index = (entry & 0xFFFF) as u16;
             let initial_state = (entry >> 16) as u16;
+            dbg_assert!(*prefixes == 0);
             call_indirect1(
                 (wasm_table_index as u32).wrapping_add(WASM_TABLE_OFFSET as u32) as i32,
                 initial_state,
             );
+            dbg_assert!(*prefixes == 0);
             profiler::stat_increment_by(
                 S_RUN_FROM_CACHE_STEPS,
                 (*timestamp_counter - initial_tsc) as u64,
@@ -1066,7 +1069,9 @@ pub unsafe fn cycle_internal() {
         *previous_ip = *instruction_pointer;
         let opcode = return_on_pagefault!(read_imm8());
         *timestamp_counter += 1;
+        dbg_assert!(*prefixes == 0);
         run_instruction(opcode | (*is_32 as i32) << 8);
+        dbg_assert!(*prefixes == 0);
     }
 }
 
@@ -1089,7 +1094,9 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
     let opcode = *mem8.offset(phys_addr as isize) as i32;
     *instruction_pointer += 1;
     *timestamp_counter += 1;
+    dbg_assert!(*prefixes == 0);
     run_instruction(opcode | (*is_32 as i32) << 8);
+    dbg_assert!(*prefixes == 0);
 
     while !jit_block_boundary && 0 != same_page(*previous_ip, *instruction_pointer) as i32 {
         *previous_ip = *instruction_pointer;
@@ -1117,7 +1124,9 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
         //    logop(*previous_ip, opcode_0);
         //}
 
+        dbg_assert!(*prefixes == 0);
         run_instruction(opcode | (*is_32 as i32) << 8);
+        dbg_assert!(*prefixes == 0);
     }
 }
 
@@ -1167,6 +1176,7 @@ pub unsafe fn trigger_de() {
             return;
         }
     }
+    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_DE, false, false, 0);
 }
@@ -1180,6 +1190,7 @@ pub unsafe fn trigger_ud() {
             return;
         }
     }
+    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_UD, false, false, 0);
 }
@@ -1190,6 +1201,7 @@ pub unsafe fn trigger_nm() {
             return;
         }
     }
+    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_NM, false, false, 0);
 }
@@ -1201,6 +1213,7 @@ pub unsafe fn trigger_gp_non_raising(code: i32) {
             return;
         }
     }
+    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_GP, false, true, code);
 }
@@ -1989,6 +2002,7 @@ pub unsafe fn trigger_np(code: i32) {
             return;
         }
     }
+    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_NP, false, true, code);
 }
@@ -2000,6 +2014,7 @@ pub unsafe fn trigger_ss(code: i32) {
             return;
         }
     }
+    *prefixes = 0;
     *instruction_pointer = *previous_ip;
     call_interrupt_vector(CPU_EXCEPTION_SS, false, true, code);
 }
