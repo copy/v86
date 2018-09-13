@@ -173,7 +173,22 @@ macro_rules! define_instruction_read8(
             codegen::gen_get_reg8(ctx.builder, r2);
             codegen::gen_call_fn2(ctx.builder, $fn)
         }
-    )
+    );
+
+    ($fn:expr, $name_mem:ident, $name_reg:ident, $imm:ident) => (
+        pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8) {
+            codegen::gen_modrm_resolve(ctx, modrm_byte);
+            codegen::gen_safe_read8(ctx);
+            ctx.builder.instruction_body.const_i32(make_imm_read!(ctx, $imm) as i32);
+            codegen::gen_call_fn2(ctx.builder, $fn)
+        }
+
+        pub fn $name_reg(ctx: &mut JitContext, r1: u32, imm: u32) {
+            codegen::gen_get_reg8(ctx.builder, r1);
+            ctx.builder.instruction_body.const_i32(imm as i32);
+            codegen::gen_call_fn2(ctx.builder, $fn)
+        }
+    );
 );
 
 macro_rules! define_instruction_read16(
@@ -305,6 +320,7 @@ macro_rules! define_instruction_write_reg32(
 
 macro_rules! mask_imm(
     ($imm:expr, imm8_5bits) => { $imm & 31 };
+    ($imm:expr, imm8) => { $imm };
     ($imm:expr, imm8s) => { $imm };
     ($imm:expr, imm16) => { $imm };
     ($imm:expr, imm32) => { $imm };
@@ -312,6 +328,7 @@ macro_rules! mask_imm(
 
 macro_rules! make_imm_read(
     ($ctx:expr, imm8_5bits) => { $ctx.cpu.read_imm8() & 31 };
+    ($ctx:expr, imm8) => { $ctx.cpu.read_imm8() };
     ($ctx:expr, imm8s) => { $ctx.cpu.read_imm8s() };
     ($ctx:expr, imm16) => { $ctx.cpu.read_imm16() };
     ($ctx:expr, imm32) => { $ctx.cpu.read_imm32() };
@@ -900,6 +917,56 @@ pub fn instr32_7E_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr16_7F_jit(_ctx: &mut JitContext, _imm: u32) {}
 pub fn instr32_7F_jit(_ctx: &mut JitContext, _imm: u32) {}
 
+define_instruction_read_write_mem8!(
+    "add8",
+    "instr_80_0_mem",
+    instr_80_0_mem_jit,
+    instr_80_0_reg_jit,
+    imm8
+);
+define_instruction_read_write_mem8!(
+    "or8",
+    "instr_80_1_mem",
+    instr_80_1_mem_jit,
+    instr_80_1_reg_jit,
+    imm8
+);
+define_instruction_read_write_mem8!(
+    "adc8",
+    "instr_80_2_mem",
+    instr_80_2_mem_jit,
+    instr_80_2_reg_jit,
+    imm8
+);
+define_instruction_read_write_mem8!(
+    "sbb8",
+    "instr_80_3_mem",
+    instr_80_3_mem_jit,
+    instr_80_3_reg_jit,
+    imm8
+);
+define_instruction_read_write_mem8!(
+    "and8",
+    "instr_80_4_mem",
+    instr_80_4_mem_jit,
+    instr_80_4_reg_jit,
+    imm8
+);
+define_instruction_read_write_mem8!(
+    "sub8",
+    "instr_80_5_mem",
+    instr_80_5_mem_jit,
+    instr_80_5_reg_jit,
+    imm8
+);
+define_instruction_read_write_mem8!(
+    "xor8",
+    "instr_80_6_mem",
+    instr_80_6_mem_jit,
+    instr_80_6_reg_jit,
+    imm8
+);
+
 define_instruction_read_write_mem16!(
     "add16",
     "instr16_81_0_mem",
@@ -1110,6 +1177,7 @@ define_instruction_read_write_mem32!(
     imm8s
 );
 
+define_instruction_read8!("cmp8", instr_80_7_mem_jit, instr_80_7_reg_jit, imm8);
 define_instruction_read16!("cmp16", instr16_81_7_mem_jit, instr16_81_7_reg_jit, imm16);
 define_instruction_read32!("cmp32", instr32_81_7_mem_jit, instr32_81_7_reg_jit, imm32);
 

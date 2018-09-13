@@ -846,7 +846,7 @@ for(let i = 0; i < 8; i++)
         { opcode: 0x70 | i, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
         { opcode: 0x78 | i, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
 
-        { opcode: 0x80, e: 1, fixed_g: i, imm8: 1, },
+        { opcode: 0x80, e: 1, fixed_g: i, imm8: 1, custom: 1, },
         { opcode: 0x81, os: 1, e: 1, fixed_g: i, imm1632: 1, custom: 1, },
         { opcode: 0x82, e: 1, fixed_g: i, imm8: 1, },
         { opcode: 0x83, os: 1, e: 1, fixed_g: i, imm8s: 1, custom: 1, },
