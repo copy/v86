@@ -1337,11 +1337,14 @@ pub fn report_safe_read_jit_slow(address: u32, entry: i32) {
     else if entry & TLB_IN_MAPPED_RANGE != 0 {
         profiler::stat_increment(S_SAFE_READ_SLOW_IN_MAPPED_RANGE);
     }
+    else if entry & TLB_NO_USER != 0 {
+        profiler::stat_increment(S_SAFE_READ_SLOW_NOT_USER);
+    }
     else if address & 0xFFF > 0x1000 - 4 {
         profiler::stat_increment(S_SAFE_READ_SLOW_PAGE_CROSSED);
     }
     else {
-        // NOT_USER is not possible since gen_safe_read generates a mask for cpl0
+        dbg_log!("Unexpected entry bit: {:x} (read at {:x})", entry, address);
         dbg_assert!(false);
     }
 }
@@ -1361,11 +1364,13 @@ pub fn report_safe_write_jit_slow(address: u32, entry: i32) {
     else if entry & TLB_READONLY != 0 {
         profiler::stat_increment(S_SAFE_WRITE_SLOW_READ_ONLY);
     }
+    else if entry & TLB_NO_USER != 0 {
+        profiler::stat_increment(S_SAFE_WRITE_SLOW_NOT_USER);
+    }
     else if address & 0xFFF > 0x1000 - 4 {
         profiler::stat_increment(S_SAFE_WRITE_SLOW_PAGE_CROSSED);
     }
     else {
-        // NOT_USER is not possible since gen_safe_write generates a mask for for cpl0
         dbg_assert!(false);
     }
 }
