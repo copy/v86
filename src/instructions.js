@@ -4665,7 +4665,68 @@ t[0xF3] = cpu => {
     cpu.write_mmx64s(low, high);
 };
 
-t[0xF4] = cpu => { cpu.unimplemented_sse(); };
+/**
+ * Multiply two unsigned integer doubleword
+ * @param {Uint8Array} x doubleword x
+ * @param {Uint8Array} y doubleword y
+ */
+function mulud (x, y) {
+    let dword = new Uint32Array(7);
+
+    dword[0] =                    x[0] * y[0];
+    dword[1] = (dword[0] >>> 8) + x[0] * y[1] + x[1] * y[0];
+    dword[2] = (dword[1] >>> 8) + x[0] * y[2] + x[1] * y[1] + x[2] * y[0];
+    dword[3] = (dword[2] >>> 8) + x[0] * y[3] + x[1] * y[2] + x[2] * y[1] + x[3] * y[0];
+    dword[4] = (dword[3] >>> 8) + x[1] * y[3] + x[2] * y[2] + x[3] * y[1];
+    dword[5] = (dword[4] >>> 8) + x[2] * y[3] + x[3] * y[2];
+    dword[6] = (dword[5] >>> 8) + x[3] * y[3];
+
+    let result32 = new Uint32Array(2);
+    result32[0] = (dword[0] & 0xFF) | (dword[1] & 0xFF) << 8 | (dword[2] & 0xFF) << 16 | (dword[3] & 0xFF) << 24;
+    result32[1] = (dword[4] & 0xFF) | (dword[5] & 0xFF) << 8 | (dword[6]) << 16;
+    return result32;
+}
+
+t[0xF4] = cpu => {
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // pmuludq xmm1, xmm2/m128
+        let source = cpu.read_xmm_mem128s();
+        let destination = cpu.read_xmm128s();
+
+        let source8_low = new Uint8Array(source.buffer,0,4);
+        let dest8_low = new Uint8Array(destination.buffer,0,4);
+        let source8_high = new Uint8Array(source.buffer,8,4);
+        let dest8_high = new Uint8Array(destination.buffer,8,4);
+
+        let result8_low = mulud(dest8_low,source8_low);
+        let result8_high = mulud(dest8_high,source8_high);
+
+        cpu.write_xmm128s(
+            result8_low[0],
+            result8_low[1],
+            result8_high[0],
+            result8_high[1]
+        );
+    }
+    else
+    {
+        // pmuludq mm1, mm2/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+        let source64s = cpu.read_mmx_mem64s();
+        let source8 = new Uint8Array(source64s.buffer,0,4);
+        let destination64s = cpu.read_mmx64s();
+        let destination8 = new Uint8Array(destination64s.buffer,0,4);
+
+        let result32 = mulud(destination8,source8);
+
+        cpu.write_mmx64s(result32[0], result32[1]);
+    }
+};
 
 t[0xF5] = cpu => {
     // pmaddwd mm, mm/m64
