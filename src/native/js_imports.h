@@ -54,6 +54,5 @@ extern void io_port_write16(int32_t, int32_t);
 extern void io_port_write32(int32_t, int32_t);
 extern int32_t convert_f64_to_i32(double_t);
 extern void jit_clear_func(int32_t index);
-extern void call_interrupt_vector(int32_t interrupt_nr, bool is_software_int, bool has_error_code, int32_t error_code);
 extern void throw_cpu_exception(void);
 extern double_t microtick(void);

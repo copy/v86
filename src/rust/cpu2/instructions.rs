@@ -17,8 +17,6 @@ extern "C" {
     #[no_mangle]
     fn far_return(eip: i32, selector: i32, stack_adjust: i32);
     #[no_mangle]
-    fn call_interrupt_vector(interrupt: i32, is_software: bool, has_error: bool, error: i32);
-    #[no_mangle]
     fn iret16();
     #[no_mangle]
     fn iret32();

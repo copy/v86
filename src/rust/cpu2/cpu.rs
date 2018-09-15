@@ -2,9 +2,13 @@
 
 extern "C" {
     #[no_mangle]
-    fn call_interrupt_vector(interrupt: i32, is_software: bool, has_error: bool, error: i32);
-    #[no_mangle]
     fn cpu_exception_hook(interrupt: i32) -> bool;
+    #[no_mangle]
+    fn do_task_switch(selector: i32, error_code: i32);
+    #[no_mangle]
+    fn get_tss_stack_addr(dpl: u8) -> u32;
+    #[no_mangle]
+    fn switch_cs_real_mode(selector: i32);
     #[no_mangle]
     fn dbg_trace();
     //#[no_mangle]
@@ -26,6 +30,7 @@ use cpu2::memory::{
 };
 use cpu2::misc_instr::{
     adjust_stack_reg, get_stack_pointer, getaf, getcf, getof, getpf, getsf, getzf, pop16, pop32s,
+    push16, push32,
 };
 use cpu2::modrm::{resolve_modrm16, resolve_modrm32};
 use page::Page;
@@ -336,6 +341,335 @@ impl SegmentDescriptor {
         else {
             self.limit()
         }
+    }
+}
+
+pub struct InterruptDescriptor {
+    raw: u64,
+}
+
+impl InterruptDescriptor {
+    pub fn offset(&self) -> i32 { (self.raw & 0xffff | self.raw >> 32 & 0xffff0000) as i32 }
+    pub fn selector(&self) -> u16 { (self.raw >> 16 & 0xffff) as u16 }
+    pub fn access_byte(&self) -> u8 { (self.raw >> 40 & 0xff) as u8 }
+    pub fn dpl(&self) -> u8 { (self.access_byte() >> 5 & 3) as u8 }
+    pub fn gate_type(&self) -> u8 { self.access_byte() & 31 }
+    pub fn is_32(&self) -> bool { self.access_byte() & 8 == 8 }
+    pub fn is_present(&self) -> bool { self.access_byte() & 0x80 == 0x80 }
+
+    const TASK_GATE: u8 = 0b101;
+    const TRAP_GATE: u8 = 0b111;
+}
+
+#[no_mangle]
+pub unsafe fn call_interrupt_vector(
+    interrupt_nr: i32,
+    is_software_int: bool,
+    has_error_code: bool,
+    error_code: i32,
+) {
+    // we have to leave hlt_loop at some point, this is a
+    // good place to do it
+    *in_hlt = false;
+
+    if *protected_mode {
+        if vm86_mode() && *cr.offset(4) & CR4_VME != 0 {
+            panic!("Unimplemented: VME");
+        }
+
+        if vm86_mode() && is_software_int && getiopl() < 3 {
+            dbg_log!("call_interrupt_vector #GP. vm86 && software int && iopl < 3");
+            dbg_trace();
+            trigger_gp_non_raising(0);
+            return;
+        }
+
+        if interrupt_nr << 3 | 7 > *idtr_size {
+            dbg_log!("interrupt_nr={:x} idtr_size={:x}", interrupt_nr, *idtr_size);
+            dbg_trace();
+            panic!("Unimplemented: #GP handler");
+        }
+
+        let descriptor_address = return_on_pagefault!(translate_address_system_read(
+            *idtr_offset + (interrupt_nr << 3)
+        ));
+
+        let descriptor = InterruptDescriptor {
+            raw: read64s(descriptor_address) as u64,
+        };
+
+        let mut offset = descriptor.offset();
+        let selector = descriptor.selector() as i32;
+        let dpl = descriptor.dpl();
+        let gate_type = descriptor.gate_type();
+
+        if !descriptor.is_present() {
+            // present bit not set
+            panic!("Unimplemented: #NP handler");
+        }
+
+        if is_software_int && dpl < *cpl {
+            dbg_log!("#gp software interrupt ({:x}) and dpl < cpl", interrupt_nr);
+            dbg_trace();
+            trigger_gp_non_raising(interrupt_nr << 3 | 2);
+            return;
+        }
+
+        if gate_type == InterruptDescriptor::TASK_GATE {
+            // task gate
+            dbg_log!(
+                "interrupt to task gate: int={:x} sel={:x} dpl={}",
+                interrupt_nr,
+                selector,
+                dpl
+            );
+            dbg_trace();
+
+            do_task_switch(selector, error_code);
+            return;
+        }
+
+        if gate_type & !1 & !8 != 6 {
+            // invalid gate_type
+            dbg_trace();
+            dbg_log!("invalid gate_type: 0b{:b}", gate_type);
+            dbg_log!(
+                "addr={:x} offset={:x} selector={:x}",
+                descriptor_address,
+                offset,
+                selector
+            );
+            panic!("Unimplemented: #GP handler");
+        }
+
+        let is_trap = gate_type & 7 == InterruptDescriptor::TRAP_GATE;
+        let is_16 = !descriptor.is_32();
+
+        let cs_segment_descriptor = match return_on_pagefault!(lookup_segment_selector(selector)) {
+            Ok((desc, _)) => desc,
+            Err(selector_unusable) => match selector_unusable {
+                SelectorNullOrInvalid::IsNull => {
+                    dbg_log!("is null");
+                    panic!("Unimplemented: #GP handler");
+                },
+                SelectorNullOrInvalid::IsInvalid => {
+                    dbg_log!("is invalid");
+                    panic!("Unimplemented: #GP handler (error code)");
+                },
+            },
+        };
+
+        dbg_assert!(offset as u32 <= cs_segment_descriptor.effective_limit());
+
+        if !cs_segment_descriptor.is_executable() || cs_segment_descriptor.dpl() > *cpl {
+            dbg_log!("not exec");
+            panic!("Unimplemented: #GP handler");
+        }
+        if !cs_segment_descriptor.is_present() {
+            // kvm-unit-test
+            dbg_log!("not present");
+            trigger_np(interrupt_nr << 3 | 2);
+            return;
+        }
+
+        let old_flags = get_eflags();
+
+        if !cs_segment_descriptor.is_dc() && cs_segment_descriptor.dpl() < *cpl {
+            // inter privilege level interrupt
+            // interrupt from vm86 mode
+
+            if old_flags & FLAG_VM != 0 && cs_segment_descriptor.dpl() == 0 {
+                panic!("Unimplemented: #GP handler for non-0 cs segment dpl when in vm86 mode");
+            }
+
+            let tss_stack_addr = get_tss_stack_addr(cs_segment_descriptor.dpl());
+
+            let new_esp = read32s(tss_stack_addr);
+            let new_ss = read16(tss_stack_addr + if *tss_size_32 { 4 } else { 2 });
+            let (ss_segment_descriptor, ss_segment_selector) =
+                match return_on_pagefault!(lookup_segment_selector(new_ss)) {
+                    Ok((desc, sel)) => (desc, sel),
+                    Err(_) => {
+                        panic!("Unimplemented: #TS handler");
+                    },
+                };
+
+            // Disabled: Incorrect handling of direction bit
+            // See http://css.csail.mit.edu/6.858/2014/readings/i386/s06_03.htm
+            //if !((new_esp >>> 0) <= ss_segment_descriptor.effective_limit())
+            //    debugger;
+            //dbg_assert!((new_esp >>> 0) <= ss_segment_descriptor.effective_limit());
+            dbg_assert!(!ss_segment_descriptor.is_system() && ss_segment_descriptor.is_writable());
+
+            if ss_segment_selector.rpl() != cs_segment_descriptor.dpl() {
+                panic!("Unimplemented: #TS handler");
+            }
+            if ss_segment_descriptor.dpl() != cs_segment_descriptor.dpl()
+                || !ss_segment_descriptor.is_rw()
+            {
+                panic!("Unimplemented: #TS handler");
+            }
+            if !ss_segment_descriptor.is_present() {
+                panic!("Unimplemented: #TS handler");
+            }
+
+            let old_esp = *reg32s.offset(ESP as isize);
+            let old_ss = *sreg.offset(SS as isize) as i32;
+
+            let error_code_space = if has_error_code == true { 1 } else { 0 };
+            let vm86_space = if (old_flags & FLAG_VM) == FLAG_VM {
+                1
+            }
+            else {
+                0
+            };
+            let bytes_per_arg = if is_16 { 2 } else { 4 };
+
+            let stack_space = bytes_per_arg * (5 + error_code_space + 4 * vm86_space);
+            let new_stack_pointer = ss_segment_descriptor.base() + if ss_segment_descriptor.is_32()
+            {
+                new_esp - stack_space
+            }
+            else {
+                new_esp - stack_space & 0xFFFF
+            };
+
+            return_on_pagefault!(translate_address_system_write(new_stack_pointer));
+            return_on_pagefault!(translate_address_system_write(
+                ss_segment_descriptor.base() + new_esp - 1
+            ));
+
+            *cpl = cs_segment_descriptor.dpl();
+            cpl_changed();
+
+            update_cs_size(cs_segment_descriptor.is_32());
+
+            *flags &= !FLAG_VM & !FLAG_RF;
+
+            if !switch_seg(SS, new_ss) {
+                dbg_assert!(false);
+            } // XXX
+            set_stack_reg(new_esp);
+
+            if old_flags & FLAG_VM != 0 {
+                if is_16 {
+                    dbg_assert!(false);
+                }
+                else {
+                    push32(*sreg.offset(GS as isize) as i32).unwrap();
+                    push32(*sreg.offset(FS as isize) as i32).unwrap();
+                    push32(*sreg.offset(DS as isize) as i32).unwrap();
+                    push32(*sreg.offset(ES as isize) as i32).unwrap();
+                }
+            }
+
+            if is_16 {
+                push16(old_ss).unwrap();
+                push16(old_esp).unwrap();
+            }
+            else {
+                push32(old_ss).unwrap();
+                push32(old_esp).unwrap();
+            }
+        }
+        else if cs_segment_descriptor.is_dc() || cs_segment_descriptor.dpl() == *cpl {
+            // intra privilege level interrupt
+
+            //dbg_log!("Intra privilege interrupt gate=" + h(selector, 4) + ":" + h(offset >>> 0, 8) +
+            //        " trap=" + is_trap + " 16bit=" + is_16 +
+            //        " cpl=" + *cpl + " dpl=" + segment_descriptor.dpl() + " conforming=" + +segment_descriptor.dc_bit(), );
+            //debug.dump_regs_short();
+
+            if *flags & FLAG_VM != 0 {
+                dbg_assert!(false, "check error code");
+                trigger_gp_non_raising(selector & !3);
+                return;
+            }
+
+            let bytes_per_arg = if is_16 { 2 } else { 4 };
+            let error_code_space = if has_error_code == true { 1 } else { 0 };
+
+            let stack_space = bytes_per_arg * (3 + error_code_space);
+
+            // XXX: with current cpl or with cpl 0?
+            return_on_pagefault!(writable_or_pagefault(
+                get_stack_pointer(-stack_space),
+                stack_space
+            ));
+
+        // no exceptions below
+        }
+        else {
+            panic!("Unimplemented: #GP handler");
+        }
+
+        if is_16 {
+            push16(old_flags).unwrap();
+            push16(*sreg.offset(CS as isize) as i32).unwrap();
+            push16(get_real_eip()).unwrap();
+
+            if has_error_code == true {
+                push16(error_code).unwrap();
+            }
+
+            offset &= 0xFFFF;
+        }
+        else {
+            push32(old_flags).unwrap();
+            push32(*sreg.offset(CS as isize) as i32).unwrap();
+            push32(get_real_eip()).unwrap();
+
+            if has_error_code == true {
+                push32(error_code).unwrap();
+            }
+        }
+
+        if old_flags & FLAG_VM != 0 {
+            if !switch_seg(GS, 0) || !switch_seg(FS, 0) || !switch_seg(DS, 0) || !switch_seg(ES, 0)
+            {
+                // can't fail
+                dbg_assert!(false);
+            }
+        }
+
+        *sreg.offset(CS as isize) = (selector as u16) & !3 | *cpl as u16;
+        dbg_assert!((*sreg.offset(CS as isize) & 3) == *cpl as u16);
+
+        update_cs_size(cs_segment_descriptor.is_32());
+
+        *segment_limits.offset(CS as isize) = cs_segment_descriptor.effective_limit();
+        *segment_offsets.offset(CS as isize) = cs_segment_descriptor.base();
+
+        *instruction_pointer = get_seg(CS) + offset;
+
+        *flags &= !FLAG_NT & !FLAG_VM & !FLAG_RF & !FLAG_TRAP;
+
+        if !is_trap {
+            // clear int flag for interrupt gates
+            *flags &= !FLAG_INTERRUPT;
+        }
+        else {
+            if *flags & FLAG_INTERRUPT != 0 && old_flags & FLAG_INTERRUPT == 0 {
+                handle_irqs();
+            }
+        }
+    }
+    else {
+        // call 4 byte cs:ip interrupt vector from ivt at cpu.memory 0
+
+        let index = (interrupt_nr << 2) as u32;
+        let new_ip = read16(index);
+        let new_cs = read16(index + 2);
+
+        // push flags, cs:ip
+        push16(get_eflags()).unwrap();
+        push16(*sreg.offset(CS as isize) as i32).unwrap();
+        push16(get_real_eip()).unwrap();
+
+        *flags &= !FLAG_INTERRUPT;
+
+        switch_cs_real_mode(new_cs);
+        *instruction_pointer = get_seg(CS) + new_ip;
     }
 }
 

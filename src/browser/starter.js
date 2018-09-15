@@ -177,9 +177,6 @@ function V86Starter(options)
             return dest;
         },
 
-        "call_interrupt_vector": function(interrupt_nr, is_software_int, has_error_code, error_code) {
-            cpu.call_interrupt_vector(interrupt_nr, is_software_int, !!has_error_code, error_code);
-        },
         "far_jump": function(eip, selector, is_call) { return cpu.far_jump(eip, selector, !!is_call); },
         "far_return": function(eip, selector, stack_adjust) { return cpu.far_return(eip, selector, stack_adjust); },
         "iret16": function() { return cpu.iret16(); },
@@ -258,6 +255,10 @@ function V86Starter(options)
         "ceil": Math.ceil,
         "fabs": Math.abs,
         "abs": Math.abs,
+
+        "do_task_switch": (selector, error_code) => cpu.do_task_switch(selector, error_code),
+        "get_tss_stack_addr": (dpl) => cpu.get_tss_stack_addr(dpl),
+        "switch_cs_real_mode": (selector) => cpu.switch_cs_real_mode(selector),
     };
 
     const wasm_globals = {
