@@ -4665,7 +4665,38 @@ t[0xF3] = cpu => {
     cpu.write_mmx64s(low, high);
 };
 
-t[0xF4] = cpu => { cpu.unimplemented_sse(); };
+t[0xF4] = cpu => {
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == PREFIX_66)
+    {
+        // pmuludq xmm1, xmm2/m128
+        let source = cpu.read_xmm_mem128s();
+        let destination = cpu.read_xmm128s();
+
+        let result_low = cpu.do_mul32(destination[0],source[0]);
+        let result_high = cpu.do_mul32(destination[2],source[2]);
+
+        cpu.write_xmm128s(
+            result_low[0],
+            result_low[1],
+            result_high[0],
+            result_high[1]
+        );
+    }
+    else
+    {
+        // pmuludq mm1, mm2/m64
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
+        let source64s = cpu.read_mmx_mem64s();
+        let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+
+        let result = cpu.do_mul32(destination_low,source64s[0])
+
+        cpu.write_mmx64s(result[0], result[1]);
+    }
+};
 
 t[0xF5] = cpu => {
     // pmaddwd mm, mm/m64
