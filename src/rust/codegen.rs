@@ -98,8 +98,7 @@ pub fn sign_extend_i16(builder: &mut WasmBuilder) {
     builder.instruction_body.shr_s_i32();
 }
 
-pub fn gen_fn0_const(ctx: &mut JitContext, name: &str) {
-    let builder = &mut ctx.builder;
+pub fn gen_fn0_const(builder: &mut WasmBuilder, name: &str) {
     let fn_idx = builder.get_fn_idx(name, module_init::FN0_TYPE_INDEX);
     builder.instruction_body.call_fn(fn_idx);
 }
@@ -109,8 +108,7 @@ pub fn gen_fn0_const_ret(builder: &mut WasmBuilder, name: &str) {
     builder.instruction_body.call_fn(fn_idx);
 }
 
-pub fn gen_fn1_const(ctx: &mut JitContext, name: &str, arg0: u32) {
-    let builder = &mut ctx.builder;
+pub fn gen_fn1_const(builder: &mut WasmBuilder, name: &str, arg0: u32) {
     let fn_idx = builder.get_fn_idx(name, module_init::FN1_TYPE_INDEX);
     builder.instruction_body.const_i32(arg0 as i32);
     builder.instruction_body.call_fn(fn_idx);
@@ -122,8 +120,7 @@ pub fn gen_call_fn1_ret(builder: &mut WasmBuilder, name: &str) {
     builder.instruction_body.call_fn(fn_idx);
 }
 
-pub fn gen_fn2_const(ctx: &mut JitContext, name: &str, arg0: u32, arg1: u32) {
-    let builder = &mut ctx.builder;
+pub fn gen_fn2_const(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32) {
     let fn_idx = builder.get_fn_idx(name, module_init::FN2_TYPE_INDEX);
     builder.instruction_body.const_i32(arg0 as i32);
     builder.instruction_body.const_i32(arg1 as i32);
@@ -148,14 +145,12 @@ pub fn gen_call_fn2_ret(builder: &mut WasmBuilder, name: &str) {
     builder.instruction_body.call_fn(fn_idx);
 }
 
-pub fn gen_call_fn3(ctx: &mut JitContext, name: &str) {
-    let builder = &mut ctx.builder;
+pub fn gen_call_fn3(builder: &mut WasmBuilder, name: &str) {
     let fn_idx = builder.get_fn_idx(name, module_init::FN3_TYPE_INDEX);
     builder.instruction_body.call_fn(fn_idx);
 }
 
-pub fn gen_fn3_const(ctx: &mut JitContext, name: &str, arg0: u32, arg1: u32, arg2: u32) {
-    let builder = &mut ctx.builder;
+pub fn gen_fn3_const(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32, arg2: u32) {
     let fn_idx = builder.get_fn_idx(name, module_init::FN3_TYPE_INDEX);
     builder.instruction_body.const_i32(arg0 as i32);
     builder.instruction_body.const_i32(arg1 as i32);
@@ -163,24 +158,21 @@ pub fn gen_fn3_const(ctx: &mut JitContext, name: &str, arg0: u32, arg1: u32, arg
     builder.instruction_body.call_fn(fn_idx);
 }
 
-pub fn gen_modrm_fn0(ctx: &mut JitContext, name: &str) {
+pub fn gen_modrm_fn0(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _ )
-    let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN1_TYPE_INDEX);
     builder.instruction_body.call_fn(fn_idx);
 }
 
-pub fn gen_modrm_fn1(ctx: &mut JitContext, name: &str, arg0: u32) {
+pub fn gen_modrm_fn1(builder: &mut WasmBuilder, name: &str, arg0: u32) {
     // generates: fn( _, arg0 )
-    let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN2_TYPE_INDEX);
     builder.instruction_body.const_i32(arg0 as i32);
     builder.instruction_body.call_fn(fn_idx);
 }
 
-pub fn gen_modrm_fn2(ctx: &mut JitContext, name: &str, arg0: u32, arg1: u32) {
+pub fn gen_modrm_fn2(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32) {
     // generates: fn( _, arg0, arg1 )
-    let builder = &mut ctx.builder;
     let fn_idx = builder.get_fn_idx(name, module_init::FN3_TYPE_INDEX);
     builder.instruction_body.const_i32(arg0 as i32);
     builder.instruction_body.const_i32(arg1 as i32);
@@ -694,7 +686,6 @@ pub fn gen_pop32s(ctx: &mut JitContext) {
 
 pub fn gen_task_switch_test(ctx: &mut JitContext) {
     // generate if(cr[0] & (CR0_EM | CR0_TS)) { task_switch_test_void(); return; }
-
     let cr0_offset = global_pointers::get_creg_offset(0);
 
     ctx.builder.instruction_body.load_aligned_i32(cr0_offset);
@@ -705,7 +696,8 @@ pub fn gen_task_switch_test(ctx: &mut JitContext) {
 
     ctx.builder.instruction_body.if_void();
 
-    gen_fn0_const(ctx, "task_switch_test_void");
+    gen_fn0_const(ctx.builder, "task_switch_test_void");
+
     ctx.builder.instruction_body.return_();
 
     ctx.builder.instruction_body.block_end();
@@ -723,7 +715,8 @@ pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
 
     ctx.builder.instruction_body.if_void();
 
-    gen_fn0_const(ctx, "task_switch_test_mmx_void");
+    gen_fn0_const(ctx.builder, "task_switch_test_mmx_void");
+
     ctx.builder.instruction_body.return_();
 
     ctx.builder.instruction_body.block_end();

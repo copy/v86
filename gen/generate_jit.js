@@ -199,7 +199,7 @@ function gen_instruction_body_after_prefix(encodings, size)
 
                 default_case: {
                     body: [].concat(
-                        gen_call(`::codegen::gen_fn0_const`, ["ctx", '"trigger_ud"']),
+                        gen_call(`::codegen::gen_fn0_const`, ["ctx.builder", '"trigger_ud"']),
                         "*instr_flags |= ::jit::JIT_INSTR_BLOCK_BOUNDARY_FLAG;"
                     ),
                 }
@@ -264,7 +264,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
 
             // Has modrm byte, but the 2 mod bits are ignored and both
             // operands are always registers (0f20-0f24)
-            const args = ["ctx", `"${instruction_name}"`, "(modrm_byte & 7) as u32", "(modrm_byte >> 3 & 7) as u32"];
+            const args = ["ctx.builder", `"${instruction_name}"`, "(modrm_byte & 7) as u32", "(modrm_byte >> 3 & 7) as u32"];
 
             return [].concat(
                 instruction_prefix,
@@ -316,8 +316,8 @@ function gen_instruction_body_after_fixed_g(encoding, size)
         }
         else
         {
-            const mem_args = ["ctx", `"${instruction_name}_mem"`];
-            const reg_args = ["ctx", `"${instruction_name}_reg"`, "(modrm_byte & 7) as u32"];
+            const mem_args = ["ctx.builder", `"${instruction_name}_mem"`];
+            const reg_args = ["ctx.builder", `"${instruction_name}_reg"`, "(modrm_byte & 7) as u32"];
 
             if(encoding.fixed_g === undefined)
             {
@@ -383,7 +383,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
     {
         // instruction without modrm byte or prefix
 
-        const args = ["ctx", `"${instruction_name}"`];
+        const args = ["ctx.builder", `"${instruction_name}"`];
 
         if(imm_read)
         {
