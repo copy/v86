@@ -1,4 +1,4 @@
-#log, #runtime_infos, #serial, #filesystem_panel, #debug_panel {
+#log, #serial {
     font-family: DejaVu Sans Mono, monospace;
     font-size: 13px;
     border: 1px solid #333;
@@ -6,20 +6,10 @@
     padding: 4px;
     color: #fff;
 }
-#runtime_infos, #filesystem_panel {
-    float: left;
-    width: 250px;
-    margin-bottom: 7px;
-    margin-right: 7px;
-    padding-bottom: 7px;
-}
+
 #log {
     height: 100px;
     width: 550px;
-}
-#debug_panel {
-    white-space: pre;
-    float: left;
 }
 #serial {
     margin: 0px;

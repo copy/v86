@@ -158,11 +158,29 @@
 				</div>
 			</div>
 
-			<div id="runtime_options" class="row" style="display: none">
+			<div class="card-body text-white bg-dark mb-3" style="display: none" id="loading"></div>
+
+			<div class="row">
 				<div class="col-lg-12">
 					<div class="card text-white bg-dark mb-3">
 						<div class="card-header">
-							<b>Actions</b>
+							<b>Debug</b>
+						</div>
+						<div class="card-body">
+							<p id="log_levels" class="form-inline"></p>
+							<p id="debug_infos"></p>
+							<hr style="border-color: white;">
+							<p id="debug_panel" style="display: none"></p>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="row">
+				<div class="col-lg-9">
+					<div class="card text-white bg-dark mb-3" id="runtime_options" style="display: none">
+						<div class="card-header">
+							<b>actions</b>
 						</div>
 						<div class="card-body">
 							<input type="button" class="btn btn-sm btn-outline-light" value="Step" id="step">
@@ -216,90 +234,80 @@
 							</label>
 						</div>
 					</div>
-				</div>
-			</div>
-
-			<div class="card-body text-white bg-dark mb-3" style="display: none" id="loading"></div>
-		
-
-			<div class="row">
-				<div class="col-lg-12">
-					<div class="card text-white bg-dark mb-3">
-						<div class="card-header">
-							<b>Debug</b>
+					<div id="screen_container" style="display: none">
+						<div id="screen"></div>
+						<canvas id="vga"></canvas>
+						<div style="position: absolute; top: 0; z-index: 10">
+							<textarea class="phone_keyboard"></textarea>
 						</div>
+					</div>
+				</div>
+				<div class="col-md-3">
+					<div class="card text-white bg-dark " id="runtime_infos" style="display: none">
 						<div class="card-body">
-							<p id="log_levels"></p>
-							<p id="debug_infos"></p>
-							<p id="debug_panel" style="display: none"></p>
+							Running: <span id="running_time">0s</span> <br>
+							Speed: <span id="speed">0</span>kIPS<br>
+							Avg speed: <span id="avg_speed">0</span>kIPS<br>
+							<br>
+							<div id="info_storage" style="display: none">
+								<b>IDE device (HDA or CDROM)</b><br>
+								Sectors read: <span id="info_storage_sectors_read">0</span><br>
+								Bytes read: <span id="info_storage_bytes_read">0</span><br>
+								Sectors written: <span id="info_storage_sectors_written">0</span><br>
+								Bytes written: <span id="info_storage_bytes_written">0</span><br>
+								Status: <span id="info_storage_status"></span><br>
+								<br>
+							</div>
+							<div id="info_filesystem" style="display: none">
+								<b>9p Filesystem</b><br>
+								Bytes read: <span id="info_filesystem_bytes_read">0</span><br>
+								Bytes written: <span id="info_filesystem_bytes_written">0</span><br>
+								Last file: <span id="info_filesystem_last_file" style="word-wrap: break-word"></span><br>
+								Status: <span id="info_filesystem_status"></span><br>
+								<br>
+							</div>
+							<div id="info_network" style="display: none">
+								<b>Network</b><br>
+								Bytes received: <span id="info_network_bytes_received">0</span><br>
+								Bytes transmitted: <span id="info_network_bytes_transmitted">0</span><br>
+								<br>
+							</div>
+							<b>VGA</b><br>
+							Mode: <span id="info_vga_mode"></span><br>
+							Resolution: <span id="info_res">-</span><br>
+							BPP: <span id="info_bpp">-</span><br>
+							<br>
+							Mouse: <span id="info_mouse_enabled">No</span><br>
+							<!-- Keyboard: <span id="info_keyboard_enabled">-</span><br> -->
+
+							<div id="description"></div>
+
+							<br />
+							<div id="filesystem_panel" style="display: none">
+								<label title="Files will appear in / of the 9p filesystem">
+									Send files to emulator<br>
+									<input type="file" id="filesystem_send_file" multiple>
+								</label>
+								<br><br>
+								<label>
+									Get file from emulator<br>
+									<input type="text" class="form-control" id="filesystem_get_file" placeholder="Absolute path">
+								</label>
+							</div>
 						</div>
 					</div>
 				</div>
 			</div>
+			<br />
 
-			<div id="screen_container" style="display: none">
-				<div id="screen"></div>
-				<canvas id="vga"></canvas>
-
-				<div style="position: absolute; top: 0; z-index: 10">
-					<textarea class="phone_keyboard"></textarea>
-				</div>
+			<div class="row">
+				<textarea class="col-lg-12" spellcheck="false" rows="12" id="serial" style="display:none">This is the serial console. Whatever you type or paste here will be sent to COM1.
+In Linux it can be accessed with `cat /dev/ttyS0`</textarea>
 			</div>
 
-			<div id="runtime_infos" style="display: none">
-				Running: <span id="running_time">0s</span> <br>
-				Speed: <span id="speed">0</span>kIPS<br>
-				Avg speed: <span id="avg_speed">0</span>kIPS<br>
-				<br>
-				<div id="info_storage" style="display: none">
-					<b>IDE device (HDA or CDROM)</b><br>
-					Sectors read: <span id="info_storage_sectors_read">0</span><br>
-					Bytes read: <span id="info_storage_bytes_read">0</span><br>
-					Sectors written: <span id="info_storage_sectors_written">0</span><br>
-					Bytes written: <span id="info_storage_bytes_written">0</span><br>
-					Status: <span id="info_storage_status"></span><br>
-					<br>
-				</div>
-				<div id="info_filesystem" style="display: none">
-					<b>9p Filesystem</b><br>
-					Bytes read: <span id="info_filesystem_bytes_read">0</span><br>
-					Bytes written: <span id="info_filesystem_bytes_written">0</span><br>
-					Last file: <span id="info_filesystem_last_file" style="word-wrap: break-word"></span><br>
-					Status: <span id="info_filesystem_status"></span><br>
-					<br>
-				</div>
-				<div id="info_network" style="display: none">
-					<b>Network</b><br>
-					Bytes received: <span id="info_network_bytes_received">0</span><br>
-					Bytes transmitted: <span id="info_network_bytes_transmitted">0</span><br>
-					<br>
-				</div>
-				<b>VGA</b><br>
-				Mode: <span id="info_vga_mode"></span><br>
-				Resolution: <span id="info_res">-</span><br>
-				BPP: <span id="info_bpp">-</span><br>
-				<br>
-				Mouse: <span id="info_mouse_enabled">No</span><br>
-				<!-- Keyboard: <span id="info_keyboard_enabled">-</span><br> -->
+			<div class="row">
+				<textarea readonly id="log" style="display:none"></textarea>
 			</div>
-
-			<div id="filesystem_panel" style="display: none">
-				<label>
-					Send files to emulator<br>
-					<input type="file" id="filesystem_send_file" multiple>
-				</label>
-				<br><br>
-				<label>
-					Get file from emulator<br>
-					<input type="text" id="filesystem_get_file" placeholder="Absolute path">
-				</label>
-			</div>
-
-			<br style="clear:both"><br>
-
-			<textarea readonly id="log" style="display:none"></textarea>
-
-			<textarea spellcheck="false" cols="40" rows="12" id="serial" style="display:none"></textarea>
 		</div>
 	</body>
 </html>
