@@ -351,6 +351,7 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
         .load_u8(global_pointers::PAGE_FAULT);
 
     builder.instruction_body.if_void();
+    gen_debug_track_jit_exit(builder, ctx.start_of_current_instruction);
     builder.instruction_body.return_();
     builder.instruction_body.block_end();
 
@@ -494,6 +495,7 @@ fn gen_safe_write(
         .load_u8(global_pointers::PAGE_FAULT);
 
     builder.instruction_body.if_void();
+    gen_debug_track_jit_exit(builder, ctx.start_of_current_instruction);
     builder.instruction_body.return_();
     builder.instruction_body.block_end();
 
@@ -698,6 +700,7 @@ pub fn gen_task_switch_test(ctx: &mut JitContext) {
 
     gen_fn0_const(ctx.builder, "task_switch_test_void");
 
+    gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     ctx.builder.instruction_body.return_();
 
     ctx.builder.instruction_body.block_end();
@@ -717,6 +720,7 @@ pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
 
     gen_fn0_const(ctx.builder, "task_switch_test_mmx_void");
 
+    gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     ctx.builder.instruction_body.return_();
 
     ctx.builder.instruction_body.block_end();
@@ -949,6 +953,7 @@ pub fn gen_safe_read_write(
         .load_u8(global_pointers::PAGE_FAULT);
 
     ctx.builder.instruction_body.if_void();
+    gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     ctx.builder.instruction_body.return_();
     ctx.builder.instruction_body.block_end();
 
@@ -960,4 +965,10 @@ pub fn gen_safe_read_write(
 pub fn gen_profiler_stat_increment(builder: &mut WasmBuilder, stat: profiler::stat) {
     let addr = unsafe { profiler::stat_array.as_mut_ptr().offset(stat as isize) } as u32;
     gen_increment_variable(builder, addr, 1)
+}
+
+pub fn gen_debug_track_jit_exit(builder: &mut WasmBuilder, address: u32) {
+    if cfg!(feature = "profiler") {
+        gen_fn1_const(builder, "track_jit_exit", address);
+    }
 }

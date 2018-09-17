@@ -67,6 +67,8 @@ pub union reg128 {
     pub f64_0: [f64; 2],
 }
 
+pub const CHECK_MISSED_ENTRY_POINTS: bool = false;
+
 pub const FLAG_CARRY: i32 = 1;
 pub const FLAG_PARITY: i32 = 4;
 pub const FLAG_ADJUST: i32 = 16;
@@ -248,6 +250,41 @@ pub static mut tsc_offset: u64 = 0;
 pub static mut valid_tlb_entries: [i32; 10000] = [0; 10000];
 pub static mut valid_tlb_entries_count: i32 = 0;
 
+pub enum LastJump {
+    Interrupt {
+        phys_addr: u32,
+        int: u8,
+        software: bool,
+        error: Option<u32>,
+    },
+    Compiled {
+        phys_addr: u32,
+    },
+    Interpreted {
+        phys_addr: u32,
+    },
+    None,
+}
+impl LastJump {
+    pub fn phys_address(&self) -> Option<u32> {
+        match self {
+            LastJump::Interrupt { phys_addr, .. } => Some(*phys_addr),
+            LastJump::Compiled { phys_addr } => Some(*phys_addr),
+            LastJump::Interpreted { phys_addr } => Some(*phys_addr),
+            LastJump::None => None,
+        }
+    }
+    pub fn name(&self) -> &'static str {
+        match self {
+            LastJump::Interrupt { .. } => "interrupt",
+            LastJump::Compiled { .. } => "compiled",
+            LastJump::Interpreted { .. } => "interpreted",
+            LastJump::None => "none",
+        }
+    }
+}
+pub static mut debug_last_jump: LastJump = LastJump::None;
+
 pub struct SegmentSelector {
     raw: u16,
 }
@@ -303,6 +340,13 @@ impl SegmentDescriptor {
 //pub fn call_indirect1(f: fn(u16), x: u16) { f(x); }
 
 pub unsafe fn after_block_boundary() { jit_block_boundary = true; }
+
+#[no_mangle]
+pub fn track_jit_exit(phys_addr: u32) {
+    unsafe {
+        debug_last_jump = LastJump::Compiled { phys_addr };
+    }
+}
 
 pub unsafe fn same_page(addr1: i32, addr2: i32) -> bool { return addr1 & !0xFFF == addr2 & !0xFFF; }
 
@@ -1044,6 +1088,13 @@ pub unsafe fn cycle_internal() {
             );
         }
         else {
+            #[cfg(feature = "profiler")]
+            {
+                if CHECK_MISSED_ENTRY_POINTS {
+                    ::jit::check_missed_entry_points(phys_addr, state_flags as u32);
+                }
+            }
+
             if DEBUG {
                 dbg_assert!(!must_not_fault);
                 must_not_fault = true
@@ -1090,6 +1141,12 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
     profiler::stat_increment(S_RUN_INTERPRETED);
     dbg_assert!(!in_mapped_range(phys_addr as u32));
 
+    if cfg!(debug_assertions) {
+        debug_last_jump = LastJump::Interpreted {
+            phys_addr: phys_addr as u32,
+        };
+    }
+
     jit_block_boundary = false;
     let opcode = *mem8.offset(phys_addr as isize) as i32;
     *instruction_pointer += 1;
@@ -1102,13 +1159,13 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
         *previous_ip = *instruction_pointer;
         let opcode = return_on_pagefault!(read_imm8());
 
-        if DEBUG {
+        if CHECK_MISSED_ENTRY_POINTS {
             let phys_addr = return_on_pagefault!(get_phys_eip()) as u32;
             let state_flags: CachedStateFlags = pack_current_state_flags();
             let entry = ::c_api::jit_find_cache_entry(phys_addr, state_flags as u32);
 
             if entry != 0 {
-                profiler::stat_increment(S_RUN_INTERPRETED_MISSED_COMPILED_ENTRY);
+                profiler::stat_increment(S_RUN_INTERPRETED_MISSED_COMPILED_ENTRY_RUN_INTERPRETED);
                 //dbg_log!(
                 //    "missed entry point at {:x} prev_opcode={:x} opcode={:x}",
                 //    phys_addr,
@@ -1116,6 +1173,12 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
                 //    opcode
                 //);
             }
+        }
+
+        if cfg!(debug_assertions) {
+            debug_last_jump = LastJump::Interpreted {
+                phys_addr: phys_addr as u32,
+            };
         }
 
         *timestamp_counter += 1;

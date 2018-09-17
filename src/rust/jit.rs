@@ -49,7 +49,7 @@ mod jit_cache_array {
     pub struct Entry {
         pub start_addr: u32,
 
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, feature = "profiler"))]
         pub len: u32,
 
         #[cfg(debug_assertions)]
@@ -82,7 +82,7 @@ mod jit_cache_array {
                 state_flags,
                 pending,
 
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "profiler"))]
                 len: 0,
 
                 #[cfg(debug_assertions)]
@@ -116,7 +116,7 @@ mod jit_cache_array {
         state_flags: CachedStateFlags::EMPTY,
         pending: false,
 
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, feature = "profiler"))]
         len: 0,
         #[cfg(debug_assertions)]
         opcode: 0,
@@ -131,7 +131,7 @@ mod jit_cache_array {
         state_flags: CachedStateFlags::EMPTY,
         pending: false,
 
-        #[cfg(debug_assertions)]
+        #[cfg(any(debug_assertions, feature = "profiler"))]
         len: 0,
         #[cfg(debug_assertions)]
         opcode: 0,
@@ -817,9 +817,13 @@ fn jit_analyze_and_generate(
                     true,
                 );
 
-                #[cfg(debug_assertions)]
+                #[cfg(any(debug_assertions, feature = "profiler"))]
                 {
                     entry.len = block.end_addr - block.addr;
+                }
+
+                #[cfg(debug_assertions)]
+                {
                     entry.opcode = cpu::read32(block.addr);
                 }
 
@@ -963,6 +967,7 @@ fn jit_generate_module(
             .get_local(gen_local_iteration_counter);
         builder.instruction_body.eqz_i32();
         builder.instruction_body.if_void();
+        codegen::gen_debug_track_jit_exit(builder, 0);
         builder.instruction_body.return_();
         builder.instruction_body.block_end();
     }
@@ -1001,6 +1006,7 @@ fn jit_generate_module(
         match &block.ty {
             BasicBlockType::Exit => {
                 // Exit this function
+                codegen::gen_debug_track_jit_exit(builder, block.last_instruction_addr);
                 builder.instruction_body.return_();
             },
             BasicBlockType::Normal { next_block_addr } => {
@@ -1058,6 +1064,7 @@ fn jit_generate_module(
                 }
                 else {
                     // Jump to different page
+                    codegen::gen_debug_track_jit_exit(builder, block.last_instruction_addr);
                     builder.instruction_body.return_();
                 }
 
@@ -1077,6 +1084,7 @@ fn jit_generate_module(
                 }
                 else {
                     // End of this page
+                    codegen::gen_debug_track_jit_exit(builder, block.last_instruction_addr);
                     builder.instruction_body.return_();
                 }
 
@@ -1377,3 +1385,53 @@ pub fn jit_get_wasm_table_index_free_list_count(ctx: &JitState) -> u32 {
 
 pub fn jit_get_op_len(ctx: &JitState) -> u32 { ctx.wasm_builder.get_op_len() }
 pub fn jit_get_op_ptr(ctx: &JitState) -> *const u8 { ctx.wasm_builder.get_op_ptr() }
+
+#[cfg(feature = "profiler")]
+pub fn check_missed_entry_points(phys_address: u32, state_flags: u32) {
+    let state_flags = CachedStateFlags::of_u32(state_flags);
+    let page = Page::page_of(phys_address);
+
+    for i in page.to_address()..page.to_address() + 4096 {
+        // No need to check [CODE_CACHE_SEARCH_SIZE] entries here as we look at consecutive
+        // addresses anyway
+        let index = i & jit_cache_array::MASK;
+        let entry = jit_cache_array::get_unchecked(index);
+
+        if !entry.pending
+            && entry.state_flags == state_flags
+            && phys_address >= entry.start_addr
+            && phys_address < entry.start_addr + entry.len
+        {
+            profiler::stat_increment(stat::S_RUN_INTERPRETED_MISSED_COMPILED_ENTRY_LOOKUP);
+
+            let last_jump_type = unsafe { cpu2::cpu::debug_last_jump.name() };
+            let last_jump_addr = unsafe { cpu2::cpu::debug_last_jump.phys_address() }.unwrap_or(0);
+            let last_jump_opcode = if last_jump_addr != 0 {
+                cpu::read32(last_jump_addr)
+            }
+            else {
+                0
+            };
+
+            let opcode = cpu::read32(phys_address);
+            dbg_log!(
+                "Compiled exists, but no entry point, \
+                 start={:x} end={:x} phys_addr={:x} opcode={:02x} {:02x} {:02x} {:02x}. \
+                 Last jump at {:x} ({}) opcode={:02x} {:02x} {:02x} {:02x}",
+                entry.start_addr,
+                entry.start_addr + entry.len,
+                phys_address,
+                opcode & 0xFF,
+                opcode >> 8 & 0xFF,
+                opcode >> 16 & 0xFF,
+                opcode >> 16 & 0xFF,
+                last_jump_addr,
+                last_jump_type,
+                last_jump_opcode & 0xFF,
+                last_jump_opcode >> 8 & 0xFF,
+                last_jump_opcode >> 16 & 0xFF,
+                last_jump_opcode >> 16 & 0xFF,
+            );
+        }
+    }
+}
