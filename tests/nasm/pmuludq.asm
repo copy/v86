@@ -37,4 +37,7 @@ qword1:
 	pshufd     xmm1, xmm1, 0
 	pmuludq    xmm1, xmm1
 
+	movd	   xmm2, [dword4]
+	pmuludq    xmm2, xmm1
+
 %include "footer.inc"
