@@ -1121,7 +1121,9 @@ fn jit_generate_basic_block(
 
     loop {
         if false {
-            ::opstats::gen_opstats(builder, cpu::read32(cpu.eip));
+            let instruction = cpu::read32(cpu.eip);
+            ::opstats::gen_opstats(builder, instruction);
+            ::opstats::record_opstat_compiled(instruction);
         }
 
         if cpu.eip == last_instruction_addr {

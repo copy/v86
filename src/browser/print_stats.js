@@ -157,25 +157,25 @@ const print_stats = {
 
     print_instruction_counts: function(cpu)
     {
+        return print_stats.print_instruction_counts_offset(cpu, 0) + "\n\n" +
+            print_stats.print_instruction_counts_offset(cpu, 0x200);
+    },
+
+    print_instruction_counts_offset: function(cpu, offset)
+    {
         let text = "";
 
         const counts = [];
 
         for(let i = 0; i < 0x100; i++)
         {
-            const count = cpu.v86oxide.exports["get_opstats_buffer"](i) / 1000 | 0;
+            const count = cpu.v86oxide.exports["get_opstats_buffer"](i + offset);
             counts.push([i, count]);
 
-            const count_0f = cpu.v86oxide.exports["get_opstats_buffer"](i + 0x100) / 1000 | 0;
+            const count_0f = cpu.v86oxide.exports["get_opstats_buffer"](i + 0x100 + offset);
             counts.push([0x0f00 | i, count_0f]);
         }
 
-        const max_count = Math.max.apply(Math,
-            counts.map(([_, count]) => count)
-        );
-        const pad_length = String(max_count).length;
-
-        text += "Instruction counts (in 1000):\n";
         let total = 0;
         const prefixes = new Set([
             0x26, 0x2E, 0x36, 0x3E,
@@ -186,18 +186,29 @@ const print_stats = {
         {
             total += i < 0x100 && !prefixes.has(i) ? count : 0;
         }
-        text += "Total: " + total + "\n";
 
         if(total === 0)
         {
             return "";
         }
 
+        text += "------------------\n";
+        text += "Total: " + total + "\n";
+
+        const factor = total > 1e7 ? 1000 : 1;
+
+        const max_count = Math.max.apply(Math,
+            counts.map(([_, count]) => Math.round(count / factor))
+        );
+        const pad_length = String(max_count).length;
+
+        text += `Instruction counts (in ${factor}):\n`;
+
         for(let [i, count] of counts)
         {
             if((i & 0xFF00) === 0)
             {
-                text += h(i, 2).slice(2) + ":" + v86util.pads(count, pad_length);
+                text += h(i, 2).slice(2) + ":" + v86util.pads(Math.round(count / factor), pad_length);
 
                 if(i % 16 == 15)
                     text += "\n";
@@ -207,13 +218,13 @@ const print_stats = {
         }
 
         text += "\n";
-        text += "Instruction counts (0f, in 1000):\n";
+        text += `Instruction counts (0f, in ${factor}):\n`;
 
         for(let [i, count] of counts)
         {
             if((i & 0xFF00) === 0x0F00)
             {
-                text += h(i & 0xFF, 2).slice(2) + ":" + v86util.pads(count, pad_length);
+                text += h(i & 0xFF, 2).slice(2) + ":" + v86util.pads(Math.round(count / factor), pad_length);
 
                 if(i % 16 == 15)
                     text += "\n";

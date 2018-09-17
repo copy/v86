@@ -1954,13 +1954,19 @@ pub unsafe fn getiopl() -> i32 { return *flags >> 12 & 3; }
 
 #[no_mangle]
 pub unsafe fn get_opstats_buffer(index: i32) -> i32 {
-    dbg_assert!(index >= 0 && index < 512);
-    if index < 256 {
+    dbg_assert!(index >= 0 && index < 0x400);
+    if index < 0x100 {
         return *opstats_buffer.offset(index as isize) as i32;
     }
+    else if index < 0x200 {
+        return *opstats_buffer_0f.offset((index - 0x100) as isize) as i32;
+    }
+    else if index < 0x300 {
+        return *opstats_compiled_buffer.offset((index - 0x200) as isize) as i32;
+    }
     else {
-        return *opstats_buffer_0f.offset((index - 256) as isize) as i32;
-    };
+        return *opstats_compiled_buffer_0f.offset((index - 0x300) as isize) as i32;
+    }
 }
 
 pub unsafe fn invlpg(addr: i32) {
