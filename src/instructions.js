@@ -4675,15 +4675,15 @@ t[0xF4] = cpu => {
         let source = cpu.read_xmm_mem128s();
         let destination = cpu.read_xmm128s();
 
-        let result_low = cpu.do_mul32(destination[0],source[0]);
-        let result_high = cpu.do_mul32(destination[2],source[2]);
+        let i = (cpu.modrm_byte >> 3 & 7) << 2;
 
-        cpu.write_xmm128s(
-            result_low[0],
-            result_low[1],
-            result_high[0],
-            result_high[1]
-        );
+        let result = cpu.do_mul32(destination[0] , source[0]);
+        cpu.reg_xmm32s[i] = result[0];
+        cpu.reg_xmm32s[i + 1] = result[1];
+
+        result = cpu.do_mul32(destination[2] , source[2]);
+        cpu.reg_xmm32s[i + 2] = result[0];
+        cpu.reg_xmm32s[i + 3] = result[1];
     }
     else
     {
