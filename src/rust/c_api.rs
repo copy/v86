@@ -8,7 +8,7 @@ use state_flags::CachedStateFlags;
 static mut MODULE_PTR: NonNull<JitState> =
     unsafe { NonNull::new_unchecked(mem::align_of::<JitState>() as *mut _) };
 
-fn get_module<'a>() -> &'a mut JitState { unsafe { MODULE_PTR.as_mut() } }
+pub fn get_module<'a>() -> &'a mut JitState { unsafe { MODULE_PTR.as_mut() } }
 
 #[no_mangle]
 /// Called from JS, not C
@@ -52,12 +52,18 @@ pub fn codegen_finalize_finished(
     )
 }
 
-pub fn jit_increase_hotness_and_maybe_compile(phys_address: u32, cs_offset: u32, state_flags: u32) {
+pub fn jit_increase_hotness_and_maybe_compile(
+    phys_address: u32,
+    cs_offset: u32,
+    state_flags: u32,
+    hotness: u32,
+) {
     ::jit::jit_increase_hotness_and_maybe_compile(
         get_module(),
         phys_address,
         cs_offset,
         CachedStateFlags::of_u32(state_flags),
+        hotness,
     )
 }
 

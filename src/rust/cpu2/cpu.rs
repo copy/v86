@@ -68,6 +68,7 @@ pub union reg128 {
 }
 
 pub const CHECK_MISSED_ENTRY_POINTS: bool = false;
+pub const INTERPRETER_ITERATION_LIMIT: u32 = 1000;
 
 pub const FLAG_CARRY: i32 = 1;
 pub const FLAG_PARITY: i32 = 4;
@@ -1088,6 +1089,8 @@ pub unsafe fn cycle_internal() {
             );
         }
         else {
+            ::jit::record_entry_point(::c_api::get_module(), phys_addr);
+
             #[cfg(feature = "profiler")]
             {
                 if CHECK_MISSED_ENTRY_POINTS {
@@ -1099,17 +1102,20 @@ pub unsafe fn cycle_internal() {
                 dbg_assert!(!must_not_fault);
                 must_not_fault = true
             }
-            ::c_api::jit_increase_hotness_and_maybe_compile(
-                phys_addr,
-                get_seg_cs() as u32,
-                state_flags as u32,
-            );
             if DEBUG {
                 dbg_assert!(must_not_fault);
                 must_not_fault = false
             }
             let initial_tsc = *timestamp_counter;
             jit_run_interpreted(phys_addr as i32);
+
+            ::c_api::jit_increase_hotness_and_maybe_compile(
+                phys_addr,
+                get_seg_cs() as u32,
+                state_flags as u32,
+                *timestamp_counter - initial_tsc,
+            );
+
             profiler::stat_increment_by(
                 S_RUN_INTERPRETED_STEPS,
                 (*timestamp_counter - initial_tsc) as u64,
@@ -1118,6 +1124,7 @@ pub unsafe fn cycle_internal() {
     }
     else {
         *previous_ip = *instruction_pointer;
+
         let opcode = return_on_pagefault!(read_imm8());
         *timestamp_counter += 1;
         dbg_assert!(*prefixes == 0);
@@ -1155,7 +1162,15 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
     run_instruction(opcode | (*is_32 as i32) << 8);
     dbg_assert!(*prefixes == 0);
 
-    while !jit_block_boundary && 0 != same_page(*previous_ip, *instruction_pointer) as i32 {
+    // We need to limit the number of iterations here as jumps within the same page are not counted
+    // as block boundaries for the interpreter (as they don't create an entry point and don't need
+    // a check if the jump target may have compiled code)
+    let mut i = 0;
+
+    while !jit_block_boundary
+        && same_page(*previous_ip, *instruction_pointer)
+        && i < INTERPRETER_ITERATION_LIMIT
+    {
         *previous_ip = *instruction_pointer;
         let opcode = return_on_pagefault!(read_imm8());
 
@@ -1190,6 +1205,8 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
         dbg_assert!(*prefixes == 0);
         run_instruction(opcode | (*is_32 as i32) << 8);
         dbg_assert!(*prefixes == 0);
+
+        i += 1;
     }
 }
 

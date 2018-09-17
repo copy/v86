@@ -11,8 +11,38 @@ const af = 1 << 4;
 const pf = 1 << 2;
 const sf = 1 << 7;
 
-// TODO:
-// - describe which registers are written and read
+// === Types of instructions
+//
+// create entry | check for compiled code | instruction
+// -------------+-------------------------+-----------------------------------------------------------
+//      1       |        optional         | pop ds (may change cpu state)
+//              |                         | trigger_ud, div (exception that doesn't generate conditional return from BB)
+//              |                         | port io, popf, sti (may call interrupt or continue at next instruction)
+//              |                         | hlt
+// -------------+-------------------------+-----------------------------------------------------------
+//      1       |            1            | call [eax], jmp [eax], int, iret, ret, jmpf, callf, sysenter, sysexit
+//              |                         | Special case: normal instruction with fallthough to next page
+//              |                         | Special case: after execution of compiled code
+//              |                         | -> may create redundant entry points depending on last instruction?
+// -------------+-------------------------+-----------------------------------------------------------
+//      1       |            0            | rep movs, rep lods, rep stos, rep cmps, rep scas
+//              |                         | -> Executed as follows:
+//              |                         |   - Upto including the first call in compiled mode
+//              |                         |   - Back to main loop and repeated in interpreted mode (as entry point is after instruction, not on)
+//              |                         |   - When finished entry pointer *after* instruction is hit and execution continues in compiled mode
+// -------------+-------------------------+-----------------------------------------------------------
+//      0       |        optional         | jmp foo, jnz foo
+//              |                         | (foo is in the same page as the instruction)
+// -------------+-------------------------+-----------------------------------------------------------
+//      1       |            1            | call foo
+//              |                         | (foo is in the same page as the instruction)
+//              |                         | -> The entry point is not created for jumps within
+//              |                         |    this page, but speculatively for calls from
+//              |                         |    other pages to the function in this page
+// -------------+-------------------------+-----------------------------------------------------------
+//      1       |            1            | call foo, jmp foo, jnz foo
+//              |                         | (foo is in a different page than the instruction)
+
 
 // os: the instruction behaves differently depending on the operand size
 const encodings = [
@@ -177,6 +207,7 @@ const encodings = [
     { opcode: 0xA3, custom: 1, os: 1, immaddr: 1 },
 
     // string instructions aren't jumps, but they modify eip due to how they're implemented
+    // TODO: The block_boundary on the non-rep instructions can be removed once they're custom
     { opcode: 0xA4, block_boundary: 1, is_string: 1, },
     { opcode: 0xF2A4, block_boundary: 1, is_string: 1, },
     { opcode: 0xF3A4, block_boundary: 1, is_string: 1, },
@@ -257,9 +288,9 @@ const encodings = [
     { opcode: 0xE7, block_boundary: 1, os: 1, imm8: 1, skip: 1, },
 
     { opcode: 0xE8, block_boundary: 1, jump_offset_imm: 1, os: 1, imm1632: 1, custom: 1, skip: 1, }, // call
-    { opcode: 0xE9, block_boundary: 1, jump_offset_imm: 1, no_next_instruction: 1, os: 1, imm1632: 1, custom: 1, skip: 1, },
+    { opcode: 0xE9, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, no_next_instruction: 1, os: 1, imm1632: 1, custom: 1, skip: 1, },
     { opcode: 0xEA, block_boundary: 1, no_next_instruction: 1, os: 1, imm1632: 1, extra_imm16: 1, skip: 1, }, // jmpf
-    { opcode: 0xEB, block_boundary: 1, jump_offset_imm: 1, no_next_instruction: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
+    { opcode: 0xEB, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, no_next_instruction: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
 
     { opcode: 0xEC, block_boundary: 1, skip: 1, }, // in
     { opcode: 0xED, block_boundary: 1, os: 1, skip: 1, },
@@ -399,22 +430,22 @@ const encodings = [
     { opcode: 0x0F4E, e: 1, os: 1, custom: 1, },
     { opcode: 0x0F4F, e: 1, os: 1, custom: 1, },
 
-    { opcode: 0x0F80, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F81, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F82, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F83, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F84, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F85, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F86, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F87, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F88, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F89, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F8A, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F8B, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F8C, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F8D, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F8E, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
-    { opcode: 0x0F8F, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F80, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F81, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F82, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F83, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F84, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F85, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F86, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F87, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F88, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F89, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F8A, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F8B, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F8C, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F8D, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F8E, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
+    { opcode: 0x0F8F, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, imm1632: 1, os: 1, custom: 1, skip: 1, },
 
     { opcode: 0x0F90, e: 1, custom: 1, },
     { opcode: 0x0F91, e: 1, custom: 1, },
@@ -842,8 +873,8 @@ for(let i = 0; i < 8; i++)
         { opcode: 0x04 | i << 3, eax: 1, imm8: 1, },
         { opcode: 0x05 | i << 3, os: 1, eax: 1, imm1632: 1, },
 
-        { opcode: 0x70 | i, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
-        { opcode: 0x78 | i, block_boundary: 1, jump_offset_imm: 1, conditional_jump: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
+        { opcode: 0x70 | i, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
+        { opcode: 0x78 | i, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
 
         { opcode: 0x80, e: 1, fixed_g: i, imm8: 1, custom: 1, },
         { opcode: 0x81, os: 1, e: 1, fixed_g: i, imm1632: 1, custom: 1, },

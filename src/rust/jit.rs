@@ -22,9 +22,9 @@ pub const CHECK_JIT_CACHE_ARRAY_INVARIANTS: bool = false;
 
 pub const JIT_MAX_ITERATIONS_PER_FUNCTION: u32 = 10000;
 
-pub const JIT_ALWAYS_USE_LOOP_SAFETY: bool = false;
+pub const JIT_ALWAYS_USE_LOOP_SAFETY: bool = true;
 
-pub const JIT_THRESHOLD: u32 = 10 * 2500;
+pub const JIT_THRESHOLD: u32 = 8 * 10000;
 
 const CONDITION_FUNCTIONS: [&str; 16] = [
     "test_o", "test_no", "test_b", "test_nb", "test_z", "test_nz", "test_be", "test_nbe", "test_s",
@@ -433,7 +433,7 @@ pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) ->
     cached_code::NONE
 }
 
-fn record_entry_point(ctx: &mut JitState, phys_address: u32) {
+pub fn record_entry_point(ctx: &mut JitState, phys_address: u32) {
     if is_near_end_of_page(phys_address) {
         return;
     }
@@ -1174,11 +1174,11 @@ pub fn jit_increase_hotness_and_maybe_compile(
     phys_address: u32,
     cs_offset: u32,
     state_flags: CachedStateFlags,
+    hotness: u32,
 ) {
-    record_entry_point(ctx, phys_address);
     let page = Page::page_of(phys_address);
     let address_hash = jit_hot_hash_page(page) as usize;
-    ctx.hot_code_addresses[address_hash] += 1;
+    ctx.hot_code_addresses[address_hash] += hotness;
     if ctx.hot_code_addresses[address_hash] >= JIT_THRESHOLD {
         ctx.hot_code_addresses[address_hash] = 0;
         jit_analyze_and_generate(ctx, page, cs_offset, state_flags)
