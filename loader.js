@@ -44,7 +44,7 @@
 
     function load_next()
     {
-        var s = to_load.shift();
+        let s = to_load.shift();
 
         if(!s)
         {
@@ -54,6 +54,11 @@
         var script = document.createElement("script");
         script.src = s;
         script.onload = load_next;
+        script.onerror = function() {
+            dbg_log("Warning: trying to ignore script " + s + ", which failed to load");
+
+            load_next();
+        };
         document.head.appendChild(script);
     }
 })();
