@@ -28,6 +28,7 @@ use cpu2::misc_instr::{
     adjust_stack_reg, get_stack_pointer, getaf, getcf, getof, getpf, getsf, getzf, pop16, pop32s,
 };
 use cpu2::modrm::{resolve_modrm16, resolve_modrm32};
+use page::Page;
 use paging::OrPageFault;
 use profiler;
 use profiler::stat::*;
@@ -348,8 +349,6 @@ pub fn track_jit_exit(phys_addr: u32) {
         debug_last_jump = LastJump::Compiled { phys_addr };
     }
 }
-
-pub unsafe fn same_page(addr1: i32, addr2: i32) -> bool { return addr1 & !0xFFF == addr2 & !0xFFF; }
 
 #[no_mangle]
 pub unsafe fn get_eflags() -> i32 {
@@ -1168,7 +1167,7 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
     let mut i = 0;
 
     while !jit_block_boundary
-        && same_page(*previous_ip, *instruction_pointer)
+        && Page::page_of(*previous_ip as u32) == Page::page_of(*instruction_pointer as u32)
         && i < INTERPRETER_ITERATION_LIMIT
     {
         *previous_ip = *instruction_pointer;
