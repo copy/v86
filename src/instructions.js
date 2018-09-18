@@ -2101,7 +2101,27 @@ t[0x2A] = cpu => {
     float32[1] = data[1] ;
     cpu.write_xmm64(res32[0], res32[1]);
  };
-t[0x2B] = cpu => { cpu.unimplemented_sse(); };
+t[0x2B] = cpu => { 
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+    if((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === PREFIX_66)
+    {
+        // movntpd m128, xmm	
+        let data = cpu.read_xmm128s();
+        dbg_assert(cpu.modrm_byte < 0xC0);
+        let addr = cpu.modrm_resolve(cpu.modrm_byte);
+        cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
+    }
+    else
+    {
+        // movntps m128, xmm
+        dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
+        let data = cpu.read_xmm128s();
+        dbg_assert(cpu.modrm_byte < 0xC0);
+        let addr = cpu.modrm_resolve(cpu.modrm_byte);
+        cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
+    }
+ };
 t[0x2C] = cpu => { cpu.unimplemented_sse(); };
 t[0x2D] = cpu => { cpu.unimplemented_sse(); };
 t[0x2E] = cpu => { cpu.unimplemented_sse(); };
