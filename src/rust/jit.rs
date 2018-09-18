@@ -1389,8 +1389,7 @@ pub fn jit_get_op_len(ctx: &JitState) -> u32 { ctx.wasm_builder.get_op_len() }
 pub fn jit_get_op_ptr(ctx: &JitState) -> *const u8 { ctx.wasm_builder.get_op_ptr() }
 
 #[cfg(feature = "profiler")]
-pub fn check_missed_entry_points(phys_address: u32, state_flags: u32) {
-    let state_flags = CachedStateFlags::of_u32(state_flags);
+pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlags) {
     let page = Page::page_of(phys_address);
 
     for i in page.to_address()..page.to_address() + 4096 {

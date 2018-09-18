@@ -25,11 +25,11 @@ pub fn rust_setup() {
     }));
 }
 
-pub fn jit_find_cache_entry(phys_address: u32, state_flags: u32) -> u32 {
+pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) -> u32 {
     let cached_code {
         wasm_table_index,
         initial_state,
-    } = ::jit::jit_find_cache_entry(phys_address, CachedStateFlags::of_u32(state_flags));
+    } = ::jit::jit_find_cache_entry(phys_address, state_flags);
     wasm_table_index as u32 | (initial_state as u32) << 16
 }
 
@@ -55,14 +55,14 @@ pub fn codegen_finalize_finished(
 pub fn jit_increase_hotness_and_maybe_compile(
     phys_address: u32,
     cs_offset: u32,
-    state_flags: u32,
+    state_flags: CachedStateFlags,
     hotness: u32,
 ) {
     ::jit::jit_increase_hotness_and_maybe_compile(
         get_module(),
         phys_address,
         cs_offset,
-        CachedStateFlags::of_u32(state_flags),
+        state_flags,
         hotness,
     )
 }

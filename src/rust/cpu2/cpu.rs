@@ -32,6 +32,7 @@ use page::Page;
 use paging::OrPageFault;
 use profiler;
 use profiler::stat::*;
+use state_flags::CachedStateFlags;
 
 /// The offset for our generated functions in the wasm table. Every index less than this is
 /// reserved for rustc's indirect functions
@@ -51,7 +52,6 @@ pub union reg64 {
     pub f32_0: [f32; 2],
     pub f64_0: [f64; 1],
 }
-pub type CachedStateFlags = u8;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -1068,8 +1068,8 @@ pub unsafe fn cycle_internal() {
     if true {
         *previous_ip = *instruction_pointer;
         let phys_addr: u32 = return_on_pagefault!(get_phys_eip()) as u32;
-        let state_flags: CachedStateFlags = pack_current_state_flags();
-        let entry: u32 = ::c_api::jit_find_cache_entry(phys_addr, state_flags as u32);
+        let state_flags = pack_current_state_flags();
+        let entry: u32 = ::c_api::jit_find_cache_entry(phys_addr, state_flags);
 
         if 0 != entry {
             profiler::stat_increment(S_RUN_FROM_CACHE);
@@ -1093,7 +1093,7 @@ pub unsafe fn cycle_internal() {
             #[cfg(feature = "profiler")]
             {
                 if CHECK_MISSED_ENTRY_POINTS {
-                    ::jit::check_missed_entry_points(phys_addr, state_flags as u32);
+                    ::jit::check_missed_entry_points(phys_addr, state_flags);
                 }
             }
 
@@ -1111,7 +1111,7 @@ pub unsafe fn cycle_internal() {
             ::c_api::jit_increase_hotness_and_maybe_compile(
                 phys_addr,
                 get_seg_cs() as u32,
-                state_flags as u32,
+                state_flags,
                 *timestamp_counter - initial_tsc,
             );
 
@@ -1175,8 +1175,8 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
 
         if CHECK_MISSED_ENTRY_POINTS {
             let phys_addr = return_on_pagefault!(get_phys_eip()) as u32;
-            let state_flags: CachedStateFlags = pack_current_state_flags();
-            let entry = ::c_api::jit_find_cache_entry(phys_addr, state_flags as u32);
+            let state_flags = pack_current_state_flags();
+            let entry = ::c_api::jit_find_cache_entry(phys_addr, state_flags);
 
             if entry != 0 {
                 profiler::stat_increment(S_RUN_INTERPRETED_MISSED_COMPILED_ENTRY_RUN_INTERPRETED);
@@ -1211,10 +1211,12 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
 
 #[no_mangle]
 pub unsafe fn pack_current_state_flags() -> CachedStateFlags {
-    return ((*is_32 as i32) << 0
-        | (*stack_size_32 as i32) << 1
-        | ((*cpl as i32 == 3) as i32) << 2
-        | (has_flat_segmentation() as i32) << 3) as CachedStateFlags;
+    return CachedStateFlags::of_u32(
+        (*is_32 as u32) << 0
+            | (*stack_size_32 as u32) << 1
+            | ((*cpl as i32 == 3) as u32) << 2
+            | (has_flat_segmentation() as u32) << 3,
+    );
 }
 
 #[no_mangle]
