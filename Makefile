@@ -76,11 +76,8 @@ CLOSURE_FLAGS=\
 		--jscomp_error visibility\
 		--use_types_for_optimization\
 		--summary_detail_level 3\
-		--language_in ECMASCRIPT5_STRICT
-
-TRANSPILE_ES6_FLAGS=\
-		--language_in ECMASCRIPT6_STRICT\
-		--language_out ECMASCRIPT5_STRICT\
+		--language_in ECMASCRIPT_2017\
+		--language_out ECMASCRIPT_2017
 
 CARGO_FLAGS=\
 		--target wasm32-unknown-unknown \
@@ -117,7 +114,6 @@ build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 		$(CLOSURE_SOURCE_MAP)\
 		$(CLOSURE_FLAGS)\
 		--compilation_level ADVANCED\
-		$(TRANSPILE_ES6_FLAGS)\
 		--js $(CORE_FILES)\
 		--js $(LIB_FILES)\
 		--js $(BROWSER_FILES)\
@@ -136,7 +132,6 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--define=DEBUG=false\
 		$(CLOSURE_FLAGS)\
 		--compilation_level SIMPLE\
-		$(TRANSPILE_ES6_FLAGS)\
 		--output_wrapper ';(function(){%output%}).call(this);'\
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
@@ -151,7 +146,6 @@ build/libv86-debug.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		$(CLOSURE_FLAGS)\
 		$(CLOSURE_READABLE)\
 		--compilation_level SIMPLE\
-		$(TRANSPILE_ES6_FLAGS)\
 		--output_wrapper ';(function(){%output%}).call(this);'\
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
