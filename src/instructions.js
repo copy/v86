@@ -2089,7 +2089,18 @@ t[0x29] = cpu => {
         cpu.safe_write128(addr, data[0], data[1], data[2], data[3]);
     }
 };
-t[0x2A] = cpu => { cpu.unimplemented_sse(); };
+t[0x2A] = cpu => { 
+    // cvtpi2ps xmm, mm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+    let data = cpu.read_mmx_mem64s();
+    let float32 = new Float32Array(2) ;
+    let res32 = new Uint32Array(float32.buffer) ;
+    float32[0] = data[0] ;
+    float32[1] = data[1] ;
+    cpu.write_xmm64(res32[0], res32[1]);
+ };
 t[0x2B] = cpu => { cpu.unimplemented_sse(); };
 t[0x2C] = cpu => { cpu.unimplemented_sse(); };
 t[0x2D] = cpu => { cpu.unimplemented_sse(); };
