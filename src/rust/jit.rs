@@ -392,7 +392,7 @@ fn is_near_end_of_page(address: u32) -> bool { address & 0xFFF >= 0x1000 - MAX_I
 
 pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) -> cached_code {
     if is_near_end_of_page(phys_address) {
-        profiler::stat_increment(stat::S_RUN_INTERPRETED_NEAR_END_OF_PAGE);
+        profiler::stat_increment(stat::RUN_INTERPRETED_NEAR_END_OF_PAGE);
     }
 
     let mut run_interpreted_reason = None;
@@ -403,10 +403,10 @@ pub fn jit_find_cache_entry(phys_address: u32, state_flags: CachedStateFlags) ->
 
         if entry.start_addr == phys_address {
             if entry.pending {
-                run_interpreted_reason = Some(stat::S_RUN_INTERPRETED_PENDING)
+                run_interpreted_reason = Some(stat::RUN_INTERPRETED_PENDING)
             }
             if entry.state_flags != state_flags {
-                run_interpreted_reason = Some(stat::S_RUN_INTERPRETED_DIFFERENT_STATE)
+                run_interpreted_reason = Some(stat::RUN_INTERPRETED_DIFFERENT_STATE)
             }
         }
 
@@ -470,7 +470,7 @@ fn jit_find_basic_blocks(
         }
         if is_near_end_of_page(to_visit) {
             // Empty basic block, don't insert
-            profiler::stat_increment(stat::S_COMPILE_CUT_OFF_AT_END_OF_PAGE);
+            profiler::stat_increment(stat::COMPILE_CUT_OFF_AT_END_OF_PAGE);
             continue;
         }
 
@@ -613,7 +613,7 @@ fn jit_find_basic_blocks(
             if is_near_end_of_page(current_address) {
                 current_block.last_instruction_addr = addr_before_instruction;
                 current_block.end_addr = current_address;
-                profiler::stat_increment(stat::S_COMPILE_CUT_OFF_AT_END_OF_PAGE);
+                profiler::stat_increment(stat::COMPILE_CUT_OFF_AT_END_OF_PAGE);
                 break;
             }
         }
@@ -689,7 +689,7 @@ fn create_cache_entry(ctx: &mut JitState, entry: jit_cache_array::Entry) {
     let found_entry_index = match found_entry_index {
         Some(i) => i,
         None => {
-            profiler::stat_increment(stat::S_CACHE_MISMATCH);
+            profiler::stat_increment(stat::CACHE_MISMATCH);
 
             // no free slots, overwrite the first one
             let found_entry_index = phys_addr & jit_cache_array::MASK;
@@ -701,7 +701,7 @@ fn create_cache_entry(ctx: &mut JitState, entry: jit_cache_array::Entry) {
             dbg_assert!(old_entry.wasm_table_index != 0);
 
             if old_entry.wasm_table_index == entry.wasm_table_index {
-                profiler::stat_increment(stat::S_INVALIDATE_SINGLE_ENTRY_CACHE_FULL);
+                profiler::stat_increment(stat::INVALIDATE_SINGLE_ENTRY_CACHE_FULL);
 
                 dbg_assert!(old_entry.pending);
                 dbg_assert!(Page::page_of(old_entry.start_addr) == Page::page_of(phys_addr));
@@ -718,7 +718,7 @@ fn create_cache_entry(ctx: &mut JitState, entry: jit_cache_array::Entry) {
                 old_entry.start_addr = 0;
             }
             else {
-                profiler::stat_increment(stat::S_INVALIDATE_MODULE_CACHE_FULL);
+                profiler::stat_increment(stat::INVALIDATE_MODULE_CACHE_FULL);
 
                 let old_wasm_table_index = old_entry.wasm_table_index;
                 let old_page = Page::page_of(old_entry.start_addr);
@@ -760,7 +760,7 @@ fn jit_analyze_and_generate(
     cs_offset: u32,
     state_flags: CachedStateFlags,
 ) {
-    profiler::stat_increment(stat::S_COMPILE);
+    profiler::stat_increment(stat::COMPILE);
 
     let entry_points = ctx.entry_points.remove(&page);
     let cpu = CpuContext {
@@ -801,7 +801,7 @@ fn jit_analyze_and_generate(
         let mut entry_point_count = 0;
 
         for (i, block) in basic_blocks.iter().enumerate() {
-            profiler::stat_increment(stat::S_COMPILE_BASIC_BLOCK);
+            profiler::stat_increment(stat::COMPILE_BASIC_BLOCK);
 
             if block.is_entry_block && block.addr != block.end_addr {
                 dbg_assert!(block.addr != 0);
@@ -830,7 +830,7 @@ fn jit_analyze_and_generate(
                 create_cache_entry(ctx, entry);
 
                 entry_point_count += 1;
-                profiler::stat_increment(stat::S_COMPILE_ENTRY_POINT);
+                profiler::stat_increment(stat::COMPILE_ENTRY_POINT);
             }
         }
 
@@ -854,7 +854,7 @@ fn jit_analyze_and_generate(
             state_flags,
         );
 
-        profiler::stat_increment(stat::S_COMPILE_SUCCESS);
+        profiler::stat_increment(stat::COMPILE_SUCCESS);
     }
     else {
         //dbg_log("No basic blocks, not generating code");
@@ -949,7 +949,7 @@ fn jit_generate_module(
     builder.instruction_body.loop_void();
 
     if let Some(gen_local_iteration_counter) = gen_local_iteration_counter.as_ref() {
-        profiler::stat_increment(stat::S_COMPILE_WITH_LOOP_SAFETY);
+        profiler::stat_increment(stat::COMPILE_WITH_LOOP_SAFETY);
 
         // decrement max_iterations
         builder
@@ -1259,10 +1259,10 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
         let mut index_to_pending_free = HashSet::new();
 
         jit_cache_array::set_page_index(page, None);
-        profiler::stat_increment(stat::S_INVALIDATE_PAGE);
+        profiler::stat_increment(stat::INVALIDATE_PAGE);
 
         loop {
-            profiler::stat_increment(stat::S_INVALIDATE_CACHE_ENTRY);
+            profiler::stat_increment(stat::INVALIDATE_CACHE_ENTRY);
             let entry = jit_cache_array::get_mut(cache_array_index);
             let wasm_table_index = entry.wasm_table_index;
 
@@ -1295,7 +1295,7 @@ pub fn jit_dirty_page(ctx: &mut JitState, page: Page) {
         }
 
         profiler::stat_increment_by(
-            stat::S_INVALIDATE_MODULE,
+            stat::INVALIDATE_MODULE,
             index_to_pending_free.len() as u64 + index_to_free.len() as u64,
         );
 
@@ -1403,7 +1403,7 @@ pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlag
             && phys_address >= entry.start_addr
             && phys_address < entry.start_addr + entry.len
         {
-            profiler::stat_increment(stat::S_RUN_INTERPRETED_MISSED_COMPILED_ENTRY_LOOKUP);
+            profiler::stat_increment(stat::RUN_INTERPRETED_MISSED_COMPILED_ENTRY_LOOKUP);
 
             let last_jump_type = unsafe { cpu2::cpu::debug_last_jump.name() };
             let last_jump_addr = unsafe { cpu2::cpu::debug_last_jump.phys_address() }.unwrap_or(0);

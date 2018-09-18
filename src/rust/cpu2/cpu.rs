@@ -484,11 +484,11 @@ pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> O
     }
     if *tlb_data.offset(page as isize) == 0 {
         if valid_tlb_entries_count == VALID_TLB_ENTRY_MAX {
-            profiler::stat_increment(S_TLB_FULL);
+            profiler::stat_increment(TLB_FULL);
             clear_tlb();
             // also clear global entries if tlb is almost full after clearing non-global pages
             if valid_tlb_entries_count > VALID_TLB_ENTRY_MAX * 3 / 4 {
-                profiler::stat_increment(S_TLB_GLOBAL_FULL);
+                profiler::stat_increment(TLB_GLOBAL_FULL);
                 full_clear_tlb();
             }
         }
@@ -551,7 +551,7 @@ pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> O
 
 #[no_mangle]
 pub unsafe fn full_clear_tlb() {
-    profiler::stat_increment(S_FULL_CLEAR_TLB);
+    profiler::stat_increment(FULL_CLEAR_TLB);
     // clear tlb including global pages
     *last_virt_eip = -1;
     *last_virt_esp = -1;
@@ -569,7 +569,7 @@ pub unsafe fn full_clear_tlb() {
 
 #[no_mangle]
 pub unsafe fn clear_tlb() {
-    profiler::stat_increment(S_CLEAR_TLB);
+    profiler::stat_increment(CLEAR_TLB);
     // clear tlb excluding global pages
     *last_virt_eip = -1;
     *last_virt_esp = -1;
@@ -1064,7 +1064,7 @@ pub unsafe fn run_instruction0f_32(opcode: i32) { ::gen::interpreter0f_32::run(o
 
 #[no_mangle]
 pub unsafe fn cycle_internal() {
-    profiler::stat_increment(S_CYCLE_INTERNAL);
+    profiler::stat_increment(CYCLE_INTERNAL);
     if true {
         *previous_ip = *instruction_pointer;
         let phys_addr: u32 = return_on_pagefault!(get_phys_eip()) as u32;
@@ -1072,7 +1072,7 @@ pub unsafe fn cycle_internal() {
         let entry: u32 = ::c_api::jit_find_cache_entry(phys_addr, state_flags);
 
         if 0 != entry {
-            profiler::stat_increment(S_RUN_FROM_CACHE);
+            profiler::stat_increment(RUN_FROM_CACHE);
             let initial_tsc = *timestamp_counter;
             let wasm_table_index = (entry & 0xFFFF) as u16;
             let initial_state = (entry >> 16) as u16;
@@ -1083,7 +1083,7 @@ pub unsafe fn cycle_internal() {
             );
             dbg_assert!(*prefixes == 0);
             profiler::stat_increment_by(
-                S_RUN_FROM_CACHE_STEPS,
+                RUN_FROM_CACHE_STEPS,
                 (*timestamp_counter - initial_tsc) as u64,
             );
         }
@@ -1116,7 +1116,7 @@ pub unsafe fn cycle_internal() {
             );
 
             profiler::stat_increment_by(
-                S_RUN_INTERPRETED_STEPS,
+                RUN_INTERPRETED_STEPS,
                 (*timestamp_counter - initial_tsc) as u64,
             );
         };
@@ -1144,7 +1144,7 @@ pub unsafe fn get_phys_eip() -> OrPageFault<u32> {
 }
 
 unsafe fn jit_run_interpreted(phys_addr: i32) {
-    profiler::stat_increment(S_RUN_INTERPRETED);
+    profiler::stat_increment(RUN_INTERPRETED);
     dbg_assert!(!in_mapped_range(phys_addr as u32));
 
     if cfg!(debug_assertions) {
@@ -1179,7 +1179,7 @@ unsafe fn jit_run_interpreted(phys_addr: i32) {
             let entry = ::c_api::jit_find_cache_entry(phys_addr, state_flags);
 
             if entry != 0 {
-                profiler::stat_increment(S_RUN_INTERPRETED_MISSED_COMPILED_ENTRY_RUN_INTERPRETED);
+                profiler::stat_increment(RUN_INTERPRETED_MISSED_COMPILED_ENTRY_RUN_INTERPRETED);
                 //dbg_log!(
                 //    "missed entry point at {:x} prev_opcode={:x} opcode={:x}",
                 //    phys_addr,
@@ -1242,7 +1242,7 @@ pub unsafe fn segment_prefix_op(seg: i32) {
 
 #[no_mangle]
 pub unsafe fn do_many_cycles_native() {
-    profiler::stat_increment(S_DO_MANY_CYCLES);
+    profiler::stat_increment(DO_MANY_CYCLES);
     let initial_timestamp_counter: u32 = *timestamp_counter;
     while (*timestamp_counter).wrapping_sub(initial_timestamp_counter) < LOOP_COUNTER as u32
         && !*in_hlt
@@ -1392,7 +1392,7 @@ pub unsafe fn safe_read32s(address: i32) -> OrPageFault<i32> {
     let info_bits: i32 = entry & 0xFFF & !TLB_READONLY & !TLB_GLOBAL & !TLB_HAS_CODE;
     if info_bits == TLB_VALID && address & 0xFFF <= 0x1000 - 4 {
         if false {
-            profiler::stat_increment(S_SAFE_READ_FAST);
+            profiler::stat_increment(SAFE_READ_FAST);
         }
         // - not in memory mapped area
         // - can be accessed from any cpl
@@ -1403,16 +1403,16 @@ pub unsafe fn safe_read32s(address: i32) -> OrPageFault<i32> {
     else {
         if false {
             if address & 0xFFF > 0x1000 - 4 {
-                profiler::stat_increment(S_SAFE_READ_SLOW_PAGE_CROSSED);
+                profiler::stat_increment(SAFE_READ_SLOW_PAGE_CROSSED);
             }
             else if info_bits & TLB_VALID == 0 {
-                profiler::stat_increment(S_SAFE_READ_SLOW_NOT_VALID);
+                profiler::stat_increment(SAFE_READ_SLOW_NOT_VALID);
             }
             else if 0 != info_bits & TLB_NO_USER {
-                profiler::stat_increment(S_SAFE_READ_SLOW_NOT_USER);
+                profiler::stat_increment(SAFE_READ_SLOW_NOT_USER);
             }
             else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
-                profiler::stat_increment(S_SAFE_READ_SLOW_IN_MAPPED_RANGE);
+                profiler::stat_increment(SAFE_READ_SLOW_IN_MAPPED_RANGE);
             }
             else {
                 dbg_assert!(false);
@@ -1426,16 +1426,16 @@ pub unsafe fn safe_read32s(address: i32) -> OrPageFault<i32> {
 #[cfg(feature = "profiler")]
 pub fn report_safe_read_jit_slow(address: u32, entry: i32) {
     if entry & TLB_VALID == 0 {
-        profiler::stat_increment(S_SAFE_READ_SLOW_NOT_VALID);
+        profiler::stat_increment(SAFE_READ_SLOW_NOT_VALID);
     }
     else if entry & TLB_IN_MAPPED_RANGE != 0 {
-        profiler::stat_increment(S_SAFE_READ_SLOW_IN_MAPPED_RANGE);
+        profiler::stat_increment(SAFE_READ_SLOW_IN_MAPPED_RANGE);
     }
     else if entry & TLB_NO_USER != 0 {
-        profiler::stat_increment(S_SAFE_READ_SLOW_NOT_USER);
+        profiler::stat_increment(SAFE_READ_SLOW_NOT_USER);
     }
     else if address & 0xFFF > 0x1000 - 4 {
-        profiler::stat_increment(S_SAFE_READ_SLOW_PAGE_CROSSED);
+        profiler::stat_increment(SAFE_READ_SLOW_PAGE_CROSSED);
     }
     else {
         dbg_log!("Unexpected entry bit: {:x} (read at {:x})", entry, address);
@@ -1447,22 +1447,22 @@ pub fn report_safe_read_jit_slow(address: u32, entry: i32) {
 #[cfg(feature = "profiler")]
 pub fn report_safe_write_jit_slow(address: u32, entry: i32) {
     if entry & TLB_VALID == 0 {
-        profiler::stat_increment(S_SAFE_WRITE_SLOW_NOT_VALID);
+        profiler::stat_increment(SAFE_WRITE_SLOW_NOT_VALID);
     }
     else if entry & TLB_IN_MAPPED_RANGE != 0 {
-        profiler::stat_increment(S_SAFE_WRITE_SLOW_IN_MAPPED_RANGE);
+        profiler::stat_increment(SAFE_WRITE_SLOW_IN_MAPPED_RANGE);
     }
     else if entry & TLB_HAS_CODE != 0 {
-        profiler::stat_increment(S_SAFE_WRITE_SLOW_HAS_CODE);
+        profiler::stat_increment(SAFE_WRITE_SLOW_HAS_CODE);
     }
     else if entry & TLB_READONLY != 0 {
-        profiler::stat_increment(S_SAFE_WRITE_SLOW_READ_ONLY);
+        profiler::stat_increment(SAFE_WRITE_SLOW_READ_ONLY);
     }
     else if entry & TLB_NO_USER != 0 {
-        profiler::stat_increment(S_SAFE_WRITE_SLOW_NOT_USER);
+        profiler::stat_increment(SAFE_WRITE_SLOW_NOT_USER);
     }
     else if address & 0xFFF > 0x1000 - 4 {
-        profiler::stat_increment(S_SAFE_WRITE_SLOW_PAGE_CROSSED);
+        profiler::stat_increment(SAFE_WRITE_SLOW_PAGE_CROSSED);
     }
     else {
         dbg_assert!(false);
@@ -1589,7 +1589,7 @@ pub unsafe fn safe_write32(address: i32, value: i32) -> OrPageFault<()> {
         entry & 0xFFF & !TLB_GLOBAL & !if *cpl as i32 == 3 { 0 } else { TLB_NO_USER };
     if info_bits == TLB_VALID && address & 0xFFF <= 0x1000 - 4 {
         if false {
-            profiler::stat_increment(S_SAFE_WRITE_FAST);
+            profiler::stat_increment(SAFE_WRITE_FAST);
         }
         // - allowed to write in user-mode
         // - not in memory mapped area
@@ -1602,22 +1602,22 @@ pub unsafe fn safe_write32(address: i32, value: i32) -> OrPageFault<()> {
     else {
         if false {
             if address & 0xFFF > 0x1000 - 4 {
-                profiler::stat_increment(S_SAFE_WRITE_SLOW_PAGE_CROSSED);
+                profiler::stat_increment(SAFE_WRITE_SLOW_PAGE_CROSSED);
             }
             else if info_bits & TLB_VALID == 0 {
-                profiler::stat_increment(S_SAFE_WRITE_SLOW_NOT_VALID);
+                profiler::stat_increment(SAFE_WRITE_SLOW_NOT_VALID);
             }
             else if 0 != info_bits & TLB_NO_USER {
-                profiler::stat_increment(S_SAFE_WRITE_SLOW_NOT_USER);
+                profiler::stat_increment(SAFE_WRITE_SLOW_NOT_USER);
             }
             else if 0 != info_bits & TLB_IN_MAPPED_RANGE {
-                profiler::stat_increment(S_SAFE_WRITE_SLOW_IN_MAPPED_RANGE);
+                profiler::stat_increment(SAFE_WRITE_SLOW_IN_MAPPED_RANGE);
             }
             else if 0 != info_bits & TLB_READONLY {
-                profiler::stat_increment(S_SAFE_WRITE_SLOW_READ_ONLY);
+                profiler::stat_increment(SAFE_WRITE_SLOW_READ_ONLY);
             }
             else if 0 != info_bits & TLB_HAS_CODE {
-                profiler::stat_increment(S_SAFE_WRITE_SLOW_HAS_CODE);
+                profiler::stat_increment(SAFE_WRITE_SLOW_HAS_CODE);
             }
             else {
                 dbg_assert!(false);

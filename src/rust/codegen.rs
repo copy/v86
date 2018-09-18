@@ -276,7 +276,7 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
     builder.instruction_body.if_i32();
 
     if cfg!(feature = "profiler") {
-        gen_profiler_stat_increment(builder, profiler::stat::S_SAFE_READ_FAST);
+        gen_profiler_stat_increment(builder, profiler::stat::SAFE_READ_FAST);
     }
 
     builder.instruction_body.get_local(&entry_local);
@@ -416,7 +416,7 @@ fn gen_safe_write(
     builder.instruction_body.if_void();
 
     if cfg!(feature = "profiler") {
-        gen_profiler_stat_increment(builder, profiler::stat::S_SAFE_WRITE_FAST);
+        gen_profiler_stat_increment(builder, profiler::stat::SAFE_WRITE_FAST);
     }
 
     builder.instruction_body.get_local(&entry_local);
@@ -862,7 +862,7 @@ pub fn gen_safe_read_write(
     ctx.builder.instruction_body.if_void();
 
     if cfg!(feature = "profiler") {
-        gen_profiler_stat_increment(ctx.builder, profiler::stat::S_SAFE_WRITE_FAST);
+        gen_profiler_stat_increment(ctx.builder, profiler::stat::SAFE_WRITE_FAST);
     }
 
     ctx.builder.instruction_body.get_local(&entry_local);
