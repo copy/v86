@@ -223,6 +223,7 @@ pub const TLB_NO_USER: i32 = 1 << 2;
 pub const TLB_IN_MAPPED_RANGE: i32 = 1 << 3;
 pub const TLB_GLOBAL: i32 = 1 << 4;
 pub const TLB_HAS_CODE: i32 = 1 << 5;
+pub const IVT_SIZE: u32 = 0x400;
 pub const CPU_EXCEPTION_DE: i32 = 0;
 pub const CPU_EXCEPTION_DB: i32 = 1;
 pub const CPU_EXCEPTION_NMI: i32 = 2;
@@ -551,6 +552,7 @@ pub unsafe fn call_interrupt_vector(
             } // XXX
             set_stack_reg(new_esp);
 
+            // XXX: #SS if stack would cross stack limit
             if old_flags & FLAG_VM != 0 {
                 if is_16 {
                     dbg_assert!(false);
@@ -603,6 +605,7 @@ pub unsafe fn call_interrupt_vector(
             panic!("Unimplemented: #GP handler");
         }
 
+        // XXX: #SS if stack would cross stack limit
         if is_16 {
             push16(old_flags).unwrap();
             push16(*sreg.offset(CS as isize) as i32).unwrap();
@@ -661,12 +664,19 @@ pub unsafe fn call_interrupt_vector(
         let new_ip = read16(index);
         let new_cs = read16(index + 2);
 
+        dbg_assert!(
+            index | 3 <= IVT_SIZE,
+            "Unimplemented: #GP for interrupt number out of IVT bounds"
+        );
+
+        // XXX: #SS if stack would cross stack limit
+
         // push flags, cs:ip
         push16(get_eflags()).unwrap();
         push16(*sreg.offset(CS as isize) as i32).unwrap();
         push16(get_real_eip()).unwrap();
 
-        *flags &= !FLAG_INTERRUPT;
+        *flags &= !FLAG_INTERRUPT & !FLAG_AC & !FLAG_TRAP;
 
         switch_cs_real_mode(new_cs);
         *instruction_pointer = get_seg(CS) + new_ip;
