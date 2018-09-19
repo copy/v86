@@ -4,7 +4,7 @@ extern "C" {
     #[no_mangle]
     fn cpu_exception_hook(interrupt: i32) -> bool;
     #[no_mangle]
-    fn do_task_switch(selector: i32, error_code: i32);
+    fn do_task_switch(selector: i32, has_error_code: bool, error_code: i32);
     #[no_mangle]
     fn get_tss_stack_addr(dpl: u8) -> u32;
     #[no_mangle]
@@ -370,12 +370,28 @@ impl InterruptDescriptor {
 }
 
 #[no_mangle]
-pub unsafe fn call_interrupt_vector(
+pub unsafe fn call_interrupt_vector_js(
     interrupt_nr: i32,
     is_software_int: bool,
     has_error_code: bool,
     error_code: i32,
 ) {
+    let ec = if has_error_code {
+        Some(error_code)
+    }
+    else {
+        None
+    };
+    call_interrupt_vector(interrupt_nr, is_software_int, ec);
+}
+
+pub unsafe fn call_interrupt_vector(
+    interrupt_nr: i32,
+    is_software_int: bool,
+    error_code: Option<i32>,
+) {
+    let has_error_code = error_code.is_some();
+
     // we have to leave hlt_loop at some point, this is a
     // good place to do it
     *in_hlt = false;
@@ -431,7 +447,7 @@ pub unsafe fn call_interrupt_vector(
             );
             dbg_trace();
 
-            do_task_switch(selector, error_code);
+            do_task_switch(selector, has_error_code, error_code.unwrap_or(0));
             return;
         }
 
@@ -525,7 +541,7 @@ pub unsafe fn call_interrupt_vector(
             let old_esp = *reg32s.offset(ESP as isize);
             let old_ss = *sreg.offset(SS as isize) as i32;
 
-            let error_code_space = if has_error_code == true { 1 } else { 0 };
+            let error_code_space = if has_error_code { 1 } else { 0 };
             let vm86_space = if (old_flags & FLAG_VM) == FLAG_VM {
                 4
             }
@@ -600,7 +616,7 @@ pub unsafe fn call_interrupt_vector(
             }
 
             let bytes_per_arg = if descriptor.is_32() { 4 } else { 2 };
-            let error_code_space = if has_error_code == true { 1 } else { 0 };
+            let error_code_space = if has_error_code { 1 } else { 0 };
 
             let stack_space = bytes_per_arg * (3 + error_code_space);
 
@@ -622,8 +638,8 @@ pub unsafe fn call_interrupt_vector(
             push32(*sreg.offset(CS as isize) as i32).unwrap();
             push32(get_real_eip()).unwrap();
 
-            if has_error_code == true {
-                push32(error_code).unwrap();
+            if let Some(ec) = error_code {
+                push32(ec).unwrap();
             }
         }
         else {
@@ -631,8 +647,8 @@ pub unsafe fn call_interrupt_vector(
             push16(*sreg.offset(CS as isize) as i32).unwrap();
             push16(get_real_eip()).unwrap();
 
-            if has_error_code == true {
-                push16(error_code).unwrap();
+            if let Some(ec) = error_code {
+                push16(ec).unwrap();
             }
 
             offset &= 0xFFFF;
@@ -984,8 +1000,7 @@ pub unsafe fn trigger_pagefault(write: bool, user: bool, present: bool) {
     call_interrupt_vector(
         CPU_EXCEPTION_PF,
         false,
-        true,
-        (user as i32) << 2 | (write as i32) << 1 | present as i32,
+        Some((user as i32) << 2 | (write as i32) << 1 | present as i32),
     );
 }
 
@@ -1610,7 +1625,7 @@ pub unsafe fn trigger_de() {
     }
     *prefixes = 0;
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(CPU_EXCEPTION_DE, false, false, 0);
+    call_interrupt_vector(CPU_EXCEPTION_DE, false, None);
 }
 
 #[no_mangle]
@@ -1624,7 +1639,7 @@ pub unsafe fn trigger_ud() {
     }
     *prefixes = 0;
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(CPU_EXCEPTION_UD, false, false, 0);
+    call_interrupt_vector(CPU_EXCEPTION_UD, false, None);
 }
 
 pub unsafe fn trigger_nm() {
@@ -1635,7 +1650,7 @@ pub unsafe fn trigger_nm() {
     }
     *prefixes = 0;
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(CPU_EXCEPTION_NM, false, false, 0);
+    call_interrupt_vector(CPU_EXCEPTION_NM, false, None);
 }
 
 #[no_mangle]
@@ -1647,7 +1662,7 @@ pub unsafe fn trigger_gp_non_raising(code: i32) {
     }
     *prefixes = 0;
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(CPU_EXCEPTION_GP, false, true, code);
+    call_interrupt_vector(CPU_EXCEPTION_GP, false, Some(code));
 }
 
 pub unsafe fn virt_boundary_read16(low: u32, high: u32) -> i32 {
@@ -2442,7 +2457,7 @@ pub unsafe fn trigger_np(code: i32) {
     }
     *prefixes = 0;
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(CPU_EXCEPTION_NP, false, true, code);
+    call_interrupt_vector(CPU_EXCEPTION_NP, false, Some(code));
 }
 
 #[no_mangle]
@@ -2454,7 +2469,7 @@ pub unsafe fn trigger_ss(code: i32) {
     }
     *prefixes = 0;
     *instruction_pointer = *previous_ip;
-    call_interrupt_vector(CPU_EXCEPTION_SS, false, true, code);
+    call_interrupt_vector(CPU_EXCEPTION_SS, false, Some(code));
 }
 
 #[no_mangle]

@@ -2265,12 +2265,12 @@ pub unsafe fn instr_CC() {
     // INT3
     // TODO: inhibit iopl checks
     dbg_log!("INT3");
-    call_interrupt_vector(3, true, false, 0);
+    call_interrupt_vector(3, true, None);
 }
 #[no_mangle]
 pub unsafe fn instr_CD(imm8: i32) {
     // INT
-    call_interrupt_vector(imm8, true, false, 0);
+    call_interrupt_vector(imm8, true, None);
 }
 #[no_mangle]
 pub unsafe fn instr_CE() {
@@ -2278,7 +2278,7 @@ pub unsafe fn instr_CE() {
     dbg_log!("INTO");
     if getof() {
         // TODO: inhibit iopl checks
-        call_interrupt_vector(CPU_EXCEPTION_OF, true, false, 0);
+        call_interrupt_vector(CPU_EXCEPTION_OF, true, None);
     };
 }
 #[no_mangle]

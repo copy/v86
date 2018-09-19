@@ -305,7 +305,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.trigger_np = get_import("trigger_np");
     this.trigger_ss = get_import("trigger_ss");
 
-    this.call_interrupt_vector = get_import("call_interrupt_vector");
+    this.call_interrupt_vector = get_import("call_interrupt_vector_js");
 
     this.do_many_cycles_native = get_import("do_many_cycles_native");
     this.cycle_internal = get_import("cycle_internal");
@@ -2317,7 +2317,7 @@ CPU.prototype.get_tss_stack_addr = function(dpl)
     return tss_stack_addr;
 };
 
-CPU.prototype.do_task_switch = function(selector, error_code)
+CPU.prototype.do_task_switch = function(selector, has_error_code, error_code)
 {
     dbg_assert(this.tss_size_32[0], "TODO");
 
@@ -2523,7 +2523,7 @@ CPU.prototype.do_task_switch = function(selector, error_code)
 
     this.cr[0] |= CR0_TS;
 
-    if(error_code !== false)
+    if(has_error_code !== false)
     {
         if(tss_is_16)
         {

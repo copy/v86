@@ -256,7 +256,9 @@ function V86Starter(options)
         "fabs": Math.abs,
         "abs": Math.abs,
 
-        "do_task_switch": (selector, error_code) => cpu.do_task_switch(selector, error_code),
+        "do_task_switch": (selector, has_error_code, error_code) => {
+            cpu.do_task_switch(selector, has_error_code, error_code);
+        },
         // XXX: Port to Rust
         "get_tss_stack_addr": (dpl) => cpu.get_tss_stack_addr(dpl),
         "switch_cs_real_mode": (selector) => cpu.switch_cs_real_mode(selector),
