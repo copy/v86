@@ -298,6 +298,7 @@ pub struct SegmentSelector {
 }
 
 impl SegmentSelector {
+    pub fn of_u16(raw: u16) -> SegmentSelector { SegmentSelector { raw } }
     pub fn rpl(&self) -> u8 { (self.raw & 3) as u8 }
     pub fn is_gdt(&self) -> bool { (self.raw & 4) == 0 }
     pub fn descriptor_offset(&self) -> u16 { (self.raw & !7) as u16 }
@@ -317,6 +318,7 @@ pub struct SegmentDescriptor {
 }
 
 impl SegmentDescriptor {
+    pub fn of_u64(raw: u64) -> SegmentDescriptor { SegmentDescriptor { raw } }
     pub fn base(&self) -> i32 {
         ((self.raw >> 16) & 0xffff | (self.raw & 0xff_00000000) >> 16 | (self.raw >> 56 << 24))
             as i32
@@ -350,6 +352,7 @@ pub struct InterruptDescriptor {
 }
 
 impl InterruptDescriptor {
+    pub fn of_u64(raw: u64) -> InterruptDescriptor { InterruptDescriptor { raw } }
     pub fn offset(&self) -> i32 { (self.raw & 0xffff | self.raw >> 32 & 0xffff0000) as i32 }
     pub fn selector(&self) -> u16 { (self.raw >> 16 & 0xffff) as u16 }
     pub fn access_byte(&self) -> u8 { (self.raw >> 40 & 0xff) as u8 }
@@ -396,9 +399,7 @@ pub unsafe fn call_interrupt_vector(
             *idtr_offset + (interrupt_nr << 3)
         ));
 
-        let descriptor = InterruptDescriptor {
-            raw: read64s(descriptor_address) as u64,
-        };
+        let descriptor = InterruptDescriptor::of_u64(read64s(descriptor_address) as u64);
 
         let mut offset = descriptor.offset();
         let selector = descriptor.selector() as i32;
@@ -1119,9 +1120,7 @@ pub unsafe fn is_asize_32() -> bool {
 pub unsafe fn lookup_segment_selector(
     selector: i32,
 ) -> OrPageFault<Result<(SegmentDescriptor, SegmentSelector), SelectorNullOrInvalid>> {
-    let selector = SegmentSelector {
-        raw: selector as u16,
-    };
+    let selector = SegmentSelector::of_u16(selector as u16);
 
     if selector.is_null() {
         return Ok(Err(SelectorNullOrInvalid::IsNull));
@@ -1144,9 +1143,7 @@ pub unsafe fn lookup_segment_selector(
     let descriptor_address =
         translate_address_system_read(selector.descriptor_offset() as i32 + table_offset as i32)?;
 
-    let descriptor = SegmentDescriptor {
-        raw: read64s(descriptor_address) as u64,
-    };
+    let descriptor = SegmentDescriptor::of_u64(read64s(descriptor_address) as u64);
 
     Ok(Ok((descriptor, selector)))
 }
