@@ -390,8 +390,6 @@ pub unsafe fn call_interrupt_vector(
     is_software_int: bool,
     error_code: Option<i32>,
 ) {
-    let has_error_code = error_code.is_some();
-
     // we have to leave hlt_loop at some point, this is a
     // good place to do it
     *in_hlt = false;
@@ -447,7 +445,7 @@ pub unsafe fn call_interrupt_vector(
             );
             dbg_trace();
 
-            do_task_switch(selector, has_error_code, error_code.unwrap_or(0));
+            do_task_switch(selector, error_code.is_some(), error_code.unwrap_or(0));
             return;
         }
 
@@ -541,7 +539,7 @@ pub unsafe fn call_interrupt_vector(
             let old_esp = *reg32s.offset(ESP as isize);
             let old_ss = *sreg.offset(SS as isize) as i32;
 
-            let error_code_space = if has_error_code { 1 } else { 0 };
+            let error_code_space = if error_code.is_some() { 1 } else { 0 };
             let vm86_space = if (old_flags & FLAG_VM) == FLAG_VM {
                 4
             }
@@ -616,7 +614,7 @@ pub unsafe fn call_interrupt_vector(
             }
 
             let bytes_per_arg = if descriptor.is_32() { 4 } else { 2 };
-            let error_code_space = if has_error_code { 1 } else { 0 };
+            let error_code_space = if error_code.is_some() { 1 } else { 0 };
 
             let stack_space = bytes_per_arg * (3 + error_code_space);
 
