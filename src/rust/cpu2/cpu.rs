@@ -354,11 +354,12 @@ impl InterruptDescriptor {
     pub fn selector(&self) -> u16 { (self.raw >> 16 & 0xffff) as u16 }
     pub fn access_byte(&self) -> u8 { (self.raw >> 40 & 0xff) as u8 }
     pub fn dpl(&self) -> u8 { (self.access_byte() >> 5 & 3) as u8 }
-    pub fn gate_type(&self) -> u8 { self.access_byte() & 31 }
+    pub fn gate_type(&self) -> u8 { self.access_byte() & 7 }
     pub fn is_32(&self) -> bool { self.access_byte() & 8 == 8 }
     pub fn is_present(&self) -> bool { self.access_byte() & 0x80 == 0x80 }
 
     const TASK_GATE: u8 = 0b101;
+    const INTERRUPT_GATE: u8 = 0b110;
     const TRAP_GATE: u8 = 0b111;
 }
 
@@ -430,7 +431,12 @@ pub unsafe fn call_interrupt_vector(
             return;
         }
 
-        if gate_type & !1 & !8 != 6 {
+        let is_trap = gate_type == InterruptDescriptor::TRAP_GATE;
+        let is_valid_type = is_trap || gate_type == InterruptDescriptor::INTERRUPT_GATE;
+        let reserved_zeroes_are_valid =
+            descriptor.raw >> 36 & 7 == 0 && descriptor.access_byte() & 16 == 0;
+
+        if !is_valid_type || !reserved_zeroes_are_valid {
             // invalid gate_type
             dbg_trace();
             dbg_log!("invalid gate_type: 0b{:b}", gate_type);
@@ -443,7 +449,6 @@ pub unsafe fn call_interrupt_vector(
             panic!("Unimplemented: #GP handler");
         }
 
-        let is_trap = gate_type & 7 == InterruptDescriptor::TRAP_GATE;
         let is_16 = !descriptor.is_32();
 
         let cs_segment_descriptor = match return_on_pagefault!(lookup_segment_selector(selector)) {
