@@ -1149,6 +1149,8 @@ V86Starter.prototype.mount_fs = function(path, baseurl, basefs, callback)
  */
 V86Starter.prototype.create_file = function(file, data, callback)
 {
+    callback = callback || function() {};
+
     var fs = this.fs9p;
 
     if(!fs)
@@ -1165,21 +1167,14 @@ V86Starter.prototype.create_file = function(file, data, callback)
 
     if(!not_found)
     {
-        fs.CreateBinaryFile(filename, parent_id, data);
+        fs.CreateBinaryFile(filename, parent_id, data)
+            .then(() => callback(null));
     }
-
-    if(callback)
+    else
     {
         setTimeout(function()
         {
-            if(not_found)
-            {
-                callback(new FileNotFoundError());
-            }
-            else
-            {
-                callback(null);
-            }
+            callback(new FileNotFoundError());
         }, 0);
     }
 };
@@ -1216,16 +1211,17 @@ V86Starter.prototype.read_file = function(file, callback)
             function()
             {
                 const size = fs.GetInode(id).size;
-                const data = fs.Read(id, 0, size);
-
-                if(data)
+                fs.Read(id, 0, size).then(data =>
                 {
-                    callback(null, data);
-                }
-                else
-                {
-                    callback(new FileNotFoundError(), null);
-                }
+                    if(data)
+                    {
+                        callback(null, data);
+                    }
+                    else
+                    {
+                        callback(new FileNotFoundError(), null);
+                    }
+                });
             }
         );
     }
