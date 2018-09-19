@@ -438,14 +438,17 @@ pub unsafe fn call_interrupt_vector(
 
         if !is_valid_type || !reserved_zeroes_are_valid {
             // invalid gate_type
-            dbg_trace();
-            dbg_log!("invalid gate_type: 0b{:b}", gate_type);
+            dbg_log!(
+                "gate type invalid or reserved 0s violated. gate_type=0b{:b}",
+                gate_type
+            );
             dbg_log!(
                 "addr={:x} offset={:x} selector={:x}",
                 descriptor_address,
                 offset,
                 selector
             );
+            dbg_trace();
             panic!("Unimplemented: #GP handler");
         }
 
@@ -524,14 +527,14 @@ pub unsafe fn call_interrupt_vector(
 
             let error_code_space = if has_error_code == true { 1 } else { 0 };
             let vm86_space = if (old_flags & FLAG_VM) == FLAG_VM {
-                1
+                4
             }
             else {
                 0
             };
             let bytes_per_arg = if is_16 { 2 } else { 4 };
 
-            let stack_space = bytes_per_arg * (5 + error_code_space + 4 * vm86_space);
+            let stack_space = bytes_per_arg * (5 + error_code_space + vm86_space);
             let new_stack_pointer = ss_segment_descriptor.base() + if ss_segment_descriptor.is_32()
             {
                 new_esp - stack_space
@@ -545,6 +548,7 @@ pub unsafe fn call_interrupt_vector(
                 ss_segment_descriptor.base() + new_esp - 1
             ));
 
+            // no exceptions below
             *cpl = cs_segment_descriptor.dpl();
             cpl_changed();
 
@@ -553,11 +557,13 @@ pub unsafe fn call_interrupt_vector(
             *flags &= !FLAG_VM & !FLAG_RF;
 
             if !switch_seg(SS, new_ss) {
+                // XXX
                 dbg_assert!(false);
-            } // XXX
+            }
             set_stack_reg(new_esp);
 
             // XXX: #SS if stack would cross stack limit
+
             if old_flags & FLAG_VM != 0 {
                 if is_16 {
                     dbg_assert!(false);
