@@ -13,8 +13,6 @@
  */
 function NetworkAdapter(url, bus)
 {
-    this.send_data = function(x) {};
-
     this.bus = bus;
     this.socket = undefined;
 
@@ -131,5 +129,18 @@ NetworkAdapter.prototype.send = function(data)
     else
     {
         this.socket.send(data);
+    }
+};
+
+NetworkAdapter.prototype.change_proxy = function(url)
+{
+    this.url = url;
+
+    if(this.socket)
+    {
+        this.socket.onclose = function() {};
+        this.socket.onerror = function() {};
+        this.socket.close();
+        this.socket = undefined;
     }
 };
