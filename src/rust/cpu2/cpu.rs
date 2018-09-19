@@ -360,6 +360,9 @@ impl InterruptDescriptor {
     pub fn gate_type(&self) -> u8 { self.access_byte() & 7 }
     pub fn is_32(&self) -> bool { self.access_byte() & 8 == 8 }
     pub fn is_present(&self) -> bool { self.access_byte() & 0x80 == 0x80 }
+    pub fn reserved_zeros_are_valid(&self) -> bool {
+        self.raw >> 36 & 7 == 0 && self.access_byte() & 16 == 0
+    }
 
     const TASK_GATE: u8 = 0b101;
     const INTERRUPT_GATE: u8 = 0b110;
@@ -432,12 +435,10 @@ pub unsafe fn call_interrupt_vector(
             return;
         }
 
-        let is_trap = gate_type == InterruptDescriptor::TRAP_GATE;
-        let is_valid_type = is_trap || gate_type == InterruptDescriptor::INTERRUPT_GATE;
-        let reserved_zeroes_are_valid =
-            descriptor.raw >> 36 & 7 == 0 && descriptor.access_byte() & 16 == 0;
+        let is_valid_type = gate_type == InterruptDescriptor::TRAP_GATE
+            || gate_type == InterruptDescriptor::INTERRUPT_GATE;
 
-        if !is_valid_type || !reserved_zeroes_are_valid {
+        if !is_valid_type || !descriptor.reserved_zeros_are_valid() {
             // invalid gate_type
             dbg_log!(
                 "gate type invalid or reserved 0s violated. gate_type=0b{:b}",
@@ -452,8 +453,6 @@ pub unsafe fn call_interrupt_vector(
             dbg_trace();
             panic!("Unimplemented: #GP handler");
         }
-
-        let is_16 = !descriptor.is_32();
 
         let cs_segment_descriptor = match return_on_pagefault!(lookup_segment_selector(selector)) {
             Ok((desc, _)) => desc,
@@ -533,7 +532,7 @@ pub unsafe fn call_interrupt_vector(
             else {
                 0
             };
-            let bytes_per_arg = if is_16 { 2 } else { 4 };
+            let bytes_per_arg = if descriptor.is_32() { 4 } else { 2 };
 
             let stack_space = bytes_per_arg * (5 + error_code_space + vm86_space);
             let new_stack_pointer = ss_segment_descriptor.base() + if ss_segment_descriptor.is_32()
@@ -566,7 +565,7 @@ pub unsafe fn call_interrupt_vector(
             // XXX: #SS if stack would cross stack limit
 
             if old_flags & FLAG_VM != 0 {
-                if is_16 {
+                if !descriptor.is_32() {
                     dbg_assert!(false);
                 }
                 else {
@@ -577,20 +576,20 @@ pub unsafe fn call_interrupt_vector(
                 }
             }
 
-            if is_16 {
-                push16(old_ss).unwrap();
-                push16(old_esp).unwrap();
-            }
-            else {
+            if descriptor.is_32() {
                 push32(old_ss).unwrap();
                 push32(old_esp).unwrap();
+            }
+            else {
+                push16(old_ss).unwrap();
+                push16(old_esp).unwrap();
             }
         }
         else if cs_segment_descriptor.is_dc() || cs_segment_descriptor.dpl() == *cpl {
             // intra privilege level interrupt
 
             //dbg_log!("Intra privilege interrupt gate=" + h(selector, 4) + ":" + h(offset >>> 0, 8) +
-            //        " trap=" + is_trap + " 16bit=" + is_16 +
+            //        " gate_type=" + gate_type + " 16bit=" + descriptor.is_32() +
             //        " cpl=" + *cpl + " dpl=" + segment_descriptor.dpl() + " conforming=" + +segment_descriptor.dc_bit(), );
             //debug.dump_regs_short();
 
@@ -600,7 +599,7 @@ pub unsafe fn call_interrupt_vector(
                 return;
             }
 
-            let bytes_per_arg = if is_16 { 2 } else { 4 };
+            let bytes_per_arg = if descriptor.is_32() { 4 } else { 2 };
             let error_code_space = if has_error_code == true { 1 } else { 0 };
 
             let stack_space = bytes_per_arg * (3 + error_code_space);
@@ -618,7 +617,16 @@ pub unsafe fn call_interrupt_vector(
         }
 
         // XXX: #SS if stack would cross stack limit
-        if is_16 {
+        if descriptor.is_32() {
+            push32(old_flags).unwrap();
+            push32(*sreg.offset(CS as isize) as i32).unwrap();
+            push32(get_real_eip()).unwrap();
+
+            if has_error_code == true {
+                push32(error_code).unwrap();
+            }
+        }
+        else {
             push16(old_flags).unwrap();
             push16(*sreg.offset(CS as isize) as i32).unwrap();
             push16(get_real_eip()).unwrap();
@@ -628,15 +636,6 @@ pub unsafe fn call_interrupt_vector(
             }
 
             offset &= 0xFFFF;
-        }
-        else {
-            push32(old_flags).unwrap();
-            push32(*sreg.offset(CS as isize) as i32).unwrap();
-            push32(get_real_eip()).unwrap();
-
-            if has_error_code == true {
-                push32(error_code).unwrap();
-            }
         }
 
         if old_flags & FLAG_VM != 0 {
@@ -659,7 +658,7 @@ pub unsafe fn call_interrupt_vector(
 
         *flags &= !FLAG_NT & !FLAG_VM & !FLAG_RF & !FLAG_TRAP;
 
-        if !is_trap {
+        if gate_type == InterruptDescriptor::INTERRUPT_GATE {
             // clear int flag for interrupt gates
             *flags &= !FLAG_INTERRUPT;
         }
