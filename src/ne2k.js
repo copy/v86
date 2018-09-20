@@ -160,7 +160,7 @@ function Ne2k(cpu, bus)
             return;
         }
 
-        if((data_byte | 0x18) && this.rcnt === 0)
+        if((data_byte & 0x18) && this.rcnt === 0)
         {
             this.do_interrupt(ENISR_RDC);
         }
@@ -699,7 +699,7 @@ Ne2k.prototype.receive = function(data)
 
         var cut = this.memory.length - data_start;
         this.memory.set(data.subarray(0, cut), data_start);
-        this.memory.set(data.subarray(cut), START_RX_PAGE);
+        this.memory.set(data.subarray(cut), this.pstart << 8);
         dbg_log("rcv cut=" + h(cut), LOG_NET);
     }
     else
