@@ -311,3 +311,10 @@ PIT.prototype.port43_write = function(reg_byte)
     this.counter_mode[i] = mode;
     this.counter_read_mode[i] = read_mode;
 };
+
+PIT.prototype.dump = function()
+{
+    const reload = this.counter_reload[0];
+    const time = (reload || 0x10000) / OSCILLATOR_FREQ;
+    dbg_log("counter0 ticks every " + time + "ms (reload=" + reload + ")");
+};
