@@ -2190,7 +2190,39 @@ t[0x2D] = cpu => {
     cpu.write_mmx64s(low, high);
 };
 
-t[0x2E] = cpu => { cpu.unimplemented_sse(); };
+t[0x2E] = cpu => {
+    // ucomiss xmm1, xmm2/m32
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    let source = cpu.read_xmm128s();
+    let dest = cpu.read_xmm_mem128s();
+    let source1 = new Float32Array(source.buffer);
+    let source2 = new Float32Array(dest.buffer);
+
+    let x = source1[0];
+    let y = source2[0];
+
+    cpu.flags_changed &= ~(1 | flag_parity | flag_zero);
+    cpu.flags &= ~(1 | flag_parity | flag_zero);
+
+    if(x > y)
+    {
+    }
+    else if(y > x)
+    {
+        cpu.flags |= 1;
+    }
+    else if(x === y)
+    {
+        cpu.flags |= flag_zero;
+    }
+    else
+    {
+        cpu.flags |= 1 | flag_parity | flag_zero;
+    }
+};
 t[0x2F] = cpu => { cpu.unimplemented_sse(); };
 
 // wrmsr
