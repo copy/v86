@@ -1627,3 +1627,32 @@ CPU.prototype.saturate_uw = function(v)
     dbg_assert(v >= 0);
     return v > 0xFFFF ? 0xFFFF : v;
 };
+
+CPU.prototype.integer_round = function(f)
+{
+    var rc = this.mxcsr >> 13 & 3;
+
+    if(rc === 0)
+    {
+        // Round to nearest, or even if equidistant
+        var rounded = Math.round(f);
+
+        if(rounded - f === 0.5 && (rounded % 2))
+        {
+            // Special case: Math.round rounds to positive infinity
+            // if equidistant
+            rounded--;
+        }
+
+        return rounded;
+    }
+        // rc=3 is truncate -> floor for positive numbers
+    else if(rc === 1 || (rc === 3 && f > 0))
+    {
+        return Math.floor(f);
+    }
+    else
+    {
+        return Math.ceil(f);
+    }
+}
