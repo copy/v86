@@ -2155,7 +2155,41 @@ t[0x2C] = cpu => {
 
     cpu.write_mmx64s(low, high);
 };
-t[0x2D] = cpu => { cpu.unimplemented_sse(); };
+
+t[0x2D] = cpu => {
+    // cvtps2pi mm, xmm/m64
+    dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) === 0);
+    cpu.task_switch_test_mmx();
+    cpu.read_modrm_byte();
+
+    let data = cpu.read_xmm_mem64s();
+    let float32 = new Float32Array(data.buffer);
+    let low = 0;
+    let high = 0;
+
+    var res0 = cpu.integer_round(float32[0]);
+    if(res0 <= 0x7FFFFFFF && res0 >= -0x80000000)
+    {
+        low = res0;
+    }
+    else
+    {
+        low = 0x80000000|0;
+    }
+
+    var res1 = cpu.integer_round(float32[1]);
+    if(res1 <= 0x7FFFFFFF && res1 >= -0x80000000)
+    {
+        high = res1;
+    }
+    else
+    {
+        high = 0x80000000|0;
+    }
+
+    cpu.write_mmx64s(low, high);
+};
+
 t[0x2E] = cpu => { cpu.unimplemented_sse(); };
 t[0x2F] = cpu => { cpu.unimplemented_sse(); };
 
