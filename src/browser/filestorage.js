@@ -182,13 +182,7 @@ IndexedDBFileStorage.prototype.load_from_server = function(sha256sum)
         v86util.load_file(this.baseurl + sha256sum, { done: buffer =>
         {
             const data = new Uint8Array(buffer);
-            const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readwrite");
-            const store = transaction.objectStore(INDEXEDDB_STORAGE_STORE);
-            const request = store.put({
-                [INDEXEDDB_STORAGE_KEYPATH]: sha256sum,
-                [INDEXEDDB_STORAGE_VALUEPATH]: data,
-            });
-            request.onsuccess = event => resolve(data);
+            this.set(sha256sum, data).then(() => resolve(data));
         }});
     });
 };
