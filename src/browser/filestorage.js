@@ -3,6 +3,8 @@
 const INDEXEDDB_STORAGE_VERSION = 1;
 const INDEXEDDB_STORAGE_NAME = "IndexedDBFileStorage";
 const INDEXEDDB_STORAGE_STORE = "Store";
+const INDEXEDDB_STORAGE_KEYPATH = "sha256sum";
+const INDEXEDDB_STORAGE_VALUEPATH = "data";
 
 /** @interface */
 function FileStorage() {}
@@ -131,7 +133,7 @@ function IndexedDBFileStorage(baseurl)
         open_request.onupgradeneeded = event =>
         {
             const db = open_request.result;
-            db.createObjectStore(INDEXEDDB_STORAGE_STORE, { keyPath: "sha256sum" });
+            db.createObjectStore(INDEXEDDB_STORAGE_STORE, { keyPath: INDEXEDDB_STORAGE_KEYPATH });
         };
 
         open_request.onsuccess = event =>
@@ -182,7 +184,10 @@ IndexedDBFileStorage.prototype.load_from_server = function(sha256sum)
             const data = new Uint8Array(buffer);
             const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readwrite");
             const store = transaction.objectStore(INDEXEDDB_STORAGE_STORE);
-            const request = store.put({ sha256sum, data });
+            const request = store.put({
+                [INDEXEDDB_STORAGE_KEYPATH]: sha256sum,
+                [INDEXEDDB_STORAGE_VALUEPATH]: data,
+            });
             request.onsuccess = event => resolve(data);
         }});
     });
@@ -241,7 +246,10 @@ IndexedDBFileStorage.prototype.set = function(sha256sum, data)
     {
         const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readwrite");
         const store = transaction.objectStore(INDEXEDDB_STORAGE_STORE);
-        const request = store.put({ sha256sum, data });
+        const request = store.put({
+            [INDEXEDDB_STORAGE_KEYPATH]: sha256sum,
+            [INDEXEDDB_STORAGE_VALUEPATH]: data,
+        });
         request.onsuccess = event => resolve();
     });
 };
