@@ -565,7 +565,7 @@ function V86Starter(options)
         var fs_url = options["filesystem"]["basefs"];
         var base_url = options["filesystem"]["baseurl"];
 
-        this.fs9p = new FS(base_url);
+        this.fs9p = new FS(new MemoryFileStorage(base_url));
         settings.fs9p = this.fs9p;
 
         if(fs_url)
@@ -1099,7 +1099,7 @@ V86Starter.prototype.serial0_send = function(data)
  */
 V86Starter.prototype.mount_fs = function(path, baseurl, basefs, callback)
 {
-    const newfs = new FS(baseurl, this.fs9p.qidcounter);
+    const newfs = new FS(new MemoryFileStorage(base_url), this.fs9p.qidcounter);
     const mount = () =>
     {
         const idx = this.fs9p.Mount(path, newfs);
