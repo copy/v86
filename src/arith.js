@@ -1646,7 +1646,7 @@ CPU.prototype.integer_round = function(f)
 
         return rounded;
     }
-        // rc=3 is truncate -> floor for positive numbers
+    // rc=3 is truncate -> floor for positive numbers
     else if(rc === 1 || (rc === 3 && f > 0))
     {
         return Math.floor(f);
