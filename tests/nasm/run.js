@@ -187,7 +187,7 @@ else {
                 }
                 json_index++;
             }
-            
+
             for (let i = 0; i < evaluated_xmm32s.length; i++) {
                 if (evaluated_xmm32s[i] !== test.fixture_array[json_index]) {
                     individual_failures.push({
