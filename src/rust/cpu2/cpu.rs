@@ -384,33 +384,22 @@ pub unsafe fn call_interrupt_vector_js(
 }
 
 pub unsafe fn get_tss_stack_addr(dpl: u8) -> OrPageFault<u32> {
-    let mut tss_stack_addr: u32;
-
-    if *tss_size_32 {
-        tss_stack_addr = ((dpl << 3) + 4) as u32;
-
-        if tss_stack_addr + 5 > *segment_limits.offset(TR as isize) {
-            panic!("#TS handler");
-        }
-
-        tss_stack_addr = tss_stack_addr + *segment_offsets.offset(TR as isize) as u32;
-
-        dbg_assert!(tss_stack_addr & 0xFFF <= 0x1000 - 6);
+    let (tss_stack_offset, page_boundary) = if *tss_size_32 {
+        (((dpl << 3) + 4) as u32, 0x1000 - 6)
     }
     else {
-        tss_stack_addr = ((dpl << 2) + 2) as u32;
+        (((dpl << 2) + 2) as u32, 0x1000 - 4)
+    };
 
-        if tss_stack_addr + 5 > *segment_limits.offset(TR as isize) {
-            panic!("#TS handler");
-        }
-
-        tss_stack_addr = tss_stack_addr + *segment_offsets.offset(TR as isize) as u32;
-        dbg_assert!(tss_stack_addr & 0xFFF <= 0x1000 - 4);
+    if tss_stack_offset + 5 > *segment_limits.offset(TR as isize) {
+        panic!("#TS handler");
     }
 
-    tss_stack_addr = translate_address_system_read(tss_stack_addr as i32)?;
+    let tss_stack_addr = *segment_offsets.offset(TR as isize) as u32 + tss_stack_offset;
 
-    Ok(tss_stack_addr)
+    dbg_assert!(tss_stack_addr & 0xFFF <= page_boundary);
+
+    Ok(translate_address_system_read(tss_stack_addr as i32)?)
 }
 
 pub unsafe fn call_interrupt_vector(
