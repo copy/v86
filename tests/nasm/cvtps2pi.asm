@@ -11,7 +11,7 @@ float1low:
 float1high:
 	dd	-2147483130.0
 mxcsr:
-	dd 0
+	dd	0
 
 ; Set mxcsr regiter rouding bits
 %macro  setRoundingBits 1
@@ -20,9 +20,9 @@ mxcsr:
 	and 		ah, 0x9F
 	or			ah, %1
 	mov			[mxcsr], eax
-    ldmxcsr     [mxcsr]
-%endmacro 
-    
+	ldmxcsr		[mxcsr]
+%endmacro
+
 %include "header.inc"
 
 	setRoundingBits 0x00 ; Round to nearest
@@ -34,7 +34,7 @@ mxcsr:
 	setRoundingBits 0x40 ; Round up
 	cvtps2pi	mm2, [float0low]
 	cvtps2pi	mm6, [float1low]
-	setRoundingBits 0x60 ; Round toward zero 
+	setRoundingBits 0x60 ; Round toward zero
 	cvtps2pi	mm3, [float0low]
 	cvtps2pi	mm7, [float1low]
 
