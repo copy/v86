@@ -1628,10 +1628,8 @@ CPU.prototype.saturate_uw = function(v)
     return v > 0xFFFF ? 0xFFFF : v;
 };
 
-CPU.prototype.integer_round = function(f)
+CPU.prototype.integer_round = function(f, rc)
 {
-    var rc = this.mxcsr >> 13 & 3;
-
     if(rc === 0)
     {
         // Round to nearest, or even if equidistant
