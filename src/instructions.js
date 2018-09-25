@@ -2166,8 +2166,9 @@ t[0x2D] = cpu => {
     let float32 = new Float32Array(data.buffer);
     let low = 0;
     let high = 0;
+    var rc = cpu.mxcsr >> 13 & 3;
 
-    var res0 = cpu.integer_round(float32[0]);
+    var res0 = cpu.integer_round(float32[0], rc);
     if(res0 <= 0x7FFFFFFF && res0 >= -0x80000000)
     {
         low = res0;
@@ -2177,7 +2178,7 @@ t[0x2D] = cpu => {
         low = 0x80000000|0;
     }
 
-    var res1 = cpu.integer_round(float32[1]);
+    var res1 = cpu.integer_round(float32[1], rc);
     if(res1 <= 0x7FFFFFFF && res1 >= -0x80000000)
     {
         high = res1;
