@@ -6,8 +6,6 @@ extern "C" {
     #[no_mangle]
     fn do_task_switch(selector: i32, has_error_code: bool, error_code: i32);
     #[no_mangle]
-    fn get_tss_stack_addr(dpl: u8) -> u32;
-    #[no_mangle]
     fn switch_cs_real_mode(selector: i32);
     #[no_mangle]
     fn dbg_trace();
@@ -385,6 +383,36 @@ pub unsafe fn call_interrupt_vector_js(
     call_interrupt_vector(interrupt_nr, is_software_int, ec);
 }
 
+pub unsafe fn get_tss_stack_addr(dpl: u8) -> OrPageFault<u32> {
+    let mut tss_stack_addr: u32;
+
+    if *tss_size_32 {
+        tss_stack_addr = ((dpl << 3) + 4) as u32;
+
+        if tss_stack_addr + 5 > *segment_limits.offset(TR as isize) {
+            panic!("#TS handler");
+        }
+
+        tss_stack_addr = tss_stack_addr + *segment_offsets.offset(TR as isize) as u32;
+
+        dbg_assert!(tss_stack_addr & 0xFFF <= 0x1000 - 6);
+    }
+    else {
+        tss_stack_addr = ((dpl << 2) + 2) as u32;
+
+        if tss_stack_addr + 5 > *segment_limits.offset(TR as isize) {
+            panic!("#TS handler");
+        }
+
+        tss_stack_addr = tss_stack_addr + *segment_offsets.offset(TR as isize) as u32;
+        dbg_assert!(tss_stack_addr & 0xFFF <= 0x1000 - 4);
+    }
+
+    tss_stack_addr = translate_address_system_read(tss_stack_addr as i32)?;
+
+    Ok(tss_stack_addr)
+}
+
 pub unsafe fn call_interrupt_vector(
     interrupt_nr: i32,
     is_software_int: bool,
@@ -505,7 +533,8 @@ pub unsafe fn call_interrupt_vector(
                 panic!("Unimplemented: #GP handler for non-0 cs segment dpl when in vm86 mode");
             }
 
-            let tss_stack_addr = get_tss_stack_addr(cs_segment_descriptor.dpl());
+            let tss_stack_addr =
+                return_on_pagefault!(get_tss_stack_addr(cs_segment_descriptor.dpl()));
 
             let new_esp = read32s(tss_stack_addr);
             let new_ss = read16(tss_stack_addr + if *tss_size_32 { 4 } else { 2 });

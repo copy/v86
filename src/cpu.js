@@ -306,6 +306,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.trigger_ss = get_import("trigger_ss");
 
     this.call_interrupt_vector = get_import("call_interrupt_vector_js");
+    this.get_tss_stack_addr = get_import("get_tss_stack_addr_js");
 
     this.do_many_cycles_native = get_import("do_many_cycles_native");
     this.cycle_internal = get_import("cycle_internal");
@@ -2279,42 +2280,6 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
 
     //dbg_log("far " + ["jump", "call"][+is_call] + " to:", LOG_CPU)
     CPU_LOG_VERBOSE && this.debug.dump_state("far " + ["jump", "call"][+is_call] + " end");
-};
-
-CPU.prototype.get_tss_stack_addr = function(dpl)
-{
-    if(this.tss_size_32[0])
-    {
-        var tss_stack_addr = (dpl << 3) + 4 | 0;
-
-        if((tss_stack_addr + 5 | 0) > this.segment_limits[reg_tr])
-        {
-            throw this.debug.unimpl("#TS handler");
-        }
-
-        tss_stack_addr = tss_stack_addr + this.segment_offsets[reg_tr] | 0;
-
-        dbg_assert((tss_stack_addr & 0xFFF) <= 0x1000 - 6);
-    }
-    else
-    {
-        var tss_stack_addr = (dpl << 2) + 2 | 0;
-
-        if((tss_stack_addr + 5 | 0) > this.segment_limits[reg_tr])
-        {
-            throw this.debug.unimpl("#TS handler");
-        }
-
-        tss_stack_addr = tss_stack_addr + this.segment_offsets[reg_tr] | 0;
-        dbg_assert((tss_stack_addr & 0xFFF) <= 0x1000 - 4);
-    }
-
-    if(this.cr[0] & CR0_PG)
-    {
-        tss_stack_addr = this.translate_address_system_read(tss_stack_addr);
-    }
-
-    return tss_stack_addr;
 };
 
 CPU.prototype.do_task_switch = function(selector, has_error_code, error_code)
