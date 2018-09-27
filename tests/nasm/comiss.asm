@@ -3,9 +3,9 @@ global _start
 section .data
 	align 16
 controlword:
-	dw 0
+	dw	0
 dwordmxcsr:
-	dw 0
+	dw	0
 dword0:
 	dd	1000.0
 dword1:
@@ -17,7 +17,7 @@ dwSNaN:
 dwQNaN:
 	dd	__QNaN__
 maskEFLAGS:
-	dd  0x45
+	dd	0x45
 
 ; Moves EFLAGS into specified register
 %macro moveflags 1
@@ -31,13 +31,13 @@ maskEFLAGS:
 
 	movd		xmm0, [dword0]
 	; Equal
-	ucomiss		xmm0, [dword0]
+	comiss		xmm0, [dword0]
 	moveflags	mm0				; [ZF] = 100000
 	; Less than
-	ucomiss		xmm0, [dword1]
+	comiss		xmm0, [dword1]
 	moveflags	mm1				; [CF] = 000001
 	; Greater than
-	ucomiss		xmm0, [dword2]
+	comiss		xmm0, [dword2]
 	moveflags	mm2				; [] = 000000
 
 	; Unordered: Quiet NaN
@@ -49,7 +49,7 @@ maskEFLAGS:
 	movd		mm4, [dwordmxcsr]
 
 	; Unordered: Signaling NaN
-	movd		xmm1, [dwSNaN]
+	movd		xmm1,[dwSNaN]
 	ucomiss		xmm0, xmm1
 	moveflags	mm5				; [ZF][PF][CF] = 100101
 	; Check #I exception

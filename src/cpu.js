@@ -10,6 +10,21 @@ var CPU_LOG_VERBOSE = false;
 // http://ref.x86asm.net/geek32.html
 
 
+// exception bits in the MXCSR Register
+var
+    /** @const */
+    CPU_EX_P = 1 << 5,
+    /** @const */
+    CPU_EX_U = 1 << 4,
+    /** @const */
+    CPU_EX_O = 1 << 3,
+    /** @const */
+    CPU_EX_Z = 1 << 2,
+    /** @const */
+    CPU_EX_D = 1 << 1,
+    /** @const */
+    CPU_EX_I = 1 << 0;
+
 /** @constructor */
 function CPU(bus)
 {
@@ -4759,6 +4774,20 @@ CPU.prototype.add_reg_asize = function(reg, value)
 CPU.prototype.decr_ecx_asize = function()
 {
     return this.is_asize_32() ? --this.reg32s[reg_ecx] : --this.reg16[reg_cx];
+};
+
+CPU.prototype.invalid_arithmatic = function()
+{
+    this.mxcsr |= CPU_EX_I;
+};
+
+CPU.prototype.is_SNaN32 = function(value)
+{
+    let exponent = (value >>> 23) & 0xFF;
+    let most_significand = (value >>> 22) & 1;
+    let less_significand = (value >>> 0) & 0x3FFFFF;
+
+    return exponent === 0xFF && most_significand === 0 && less_significand > 0;
 };
 
 // Closure Compiler's way of exporting
