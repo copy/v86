@@ -7,24 +7,24 @@ const INDEXEDDB_STORAGE_KEYPATH = "sha256sum";
 const INDEXEDDB_STORAGE_VALUEPATH = "data";
 
 /** @interface */
-function FileStorage() {}
+function FileStorageInterface() {}
 
 /**
  * @param {string} sha256sum
  * @return {!Promise<Uint8Array>}
  */
-FileStorage.prototype.get = function(sha256sum) {};
+FileStorageInterface.prototype.get = function(sha256sum) {};
 
 /**
  * @param {string} sha256sum
  * @param {!Uint8Array} data
  * @return {!Promise}
  */
-FileStorage.prototype.set = function(sha256sum, buffer) {};
+FileStorageInterface.prototype.set = function(sha256sum, buffer) {};
 
 /**
  * @constructor
- * @implements {FileStorage}
+ * @implements {FileStorageInterface}
  * @param {string=} baseurl
  */
 function MemoryFileStorage(baseurl)
@@ -101,7 +101,7 @@ MemoryFileStorage.prototype.set = function(sha256sum, buffer)
 
 /**
  * @constructor
- * @implements {FileStorage}
+ * @implements {FileStorageInterface}
  * @param {string=} baseurl
  */
 function IndexedDBFileStorage(baseurl)

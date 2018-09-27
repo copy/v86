@@ -448,10 +448,10 @@ V86Starter.prototype.continue_init = function(emulator, options)
         var fs_url = options["filesystem"]["basefs"];
         var base_url = options["filesystem"]["baseurl"];
 
-        const fileStorage = typeof indexedDB === "undefined" ?
+        const file_storage = typeof indexedDB === "undefined" ?
             new MemoryFileStorage(base_url) :
             new IndexedDBFileStorage(base_url);
-        this.fs9p = new FS(fileStorage);
+        this.fs9p = new FS(file_storage);
         settings.fs9p = this.fs9p;
 
         if(fs_url)
@@ -1048,10 +1048,10 @@ V86Starter.prototype.serial0_send = function(data)
  */
 V86Starter.prototype.mount_fs = function(path, baseurl, basefs, callback)
 {
-    const fileStorage = typeof indexedDB === "undefined" ?
+    const file_storage = typeof indexedDB === "undefined" ?
         new MemoryFileStorage(baseurl) :
         new IndexedDBFileStorage(baseurl);
-    const newfs = new FS(fileStorage, this.fs9p.qidcounter);
+    const newfs = new FS(file_storage, this.fs9p.qidcounter);
     const mount = () =>
     {
         const idx = this.fs9p.Mount(path, newfs);
