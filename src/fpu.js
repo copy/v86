@@ -412,7 +412,6 @@ FPU.prototype.fxtract = function()
 FPU.prototype.integer_round = function(f)
 {
     var rc = this.control_word >> 10 & 3;
-    
     return this.cpu.integer_round(f, rc);
 }
 
