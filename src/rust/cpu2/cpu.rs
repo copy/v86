@@ -6,8 +6,6 @@ extern "C" {
     #[no_mangle]
     fn do_task_switch(selector: i32, has_error_code: bool, error_code: i32);
     #[no_mangle]
-    fn switch_cs_real_mode(selector: i32);
-    #[no_mangle]
     fn dbg_trace();
     //#[no_mangle]
     //fn logop(addr: i32, op: i32);
@@ -379,6 +377,15 @@ pub unsafe fn call_interrupt_vector_js(
         None
     };
     call_interrupt_vector(interrupt_nr, is_software_int, ec);
+}
+
+#[no_mangle]
+pub unsafe fn switch_cs_real_mode(selector: i32) {
+    dbg_assert!(!*protected_mode || vm86_mode());
+
+    *sreg.offset(CS as isize) = selector as u16;
+    *segment_is_null.offset(CS as isize) = false;
+    *segment_offsets.offset(CS as isize) = selector << 4;
 }
 
 pub unsafe fn get_tss_stack_addr(dpl: u8) -> OrPageFault<u32> {

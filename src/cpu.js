@@ -307,6 +307,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.trigger_np = get_import("trigger_np");
     this.trigger_ss = get_import("trigger_ss");
 
+    this.switch_cs_real_mode = get_import("switch_cs_real_mode");
     this.call_interrupt_vector = get_import("call_interrupt_vector_js");
     this.get_tss_stack_addr = get_import("get_tss_stack_addr_js");
 
@@ -1836,15 +1837,6 @@ CPU.prototype.iret = function(is_16)
     CPU_LOG_VERBOSE && this.debug.dump_state("iret" + (is_16 ? "16" : "32") + " end");
 
     this.handle_irqs();
-};
-
-CPU.prototype.switch_cs_real_mode = function(selector)
-{
-    dbg_assert(!this.protected_mode[0] || this.vm86_mode());
-
-    this.sreg[reg_cs] = selector;
-    this.segment_is_null[reg_cs] = 0;
-    this.segment_offsets[reg_cs] = selector << 4;
 };
 
 CPU.prototype.far_return = function(eip, selector, stack_adjust)

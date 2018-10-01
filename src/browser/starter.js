@@ -184,8 +184,6 @@ function V86Starter(options)
         "do_task_switch": (selector, has_error_code, error_code) => {
             cpu.do_task_switch(selector, has_error_code, error_code);
         },
-        // XXX: Port to Rust
-        "switch_cs_real_mode": (selector) => cpu.switch_cs_real_mode(selector),
 
         "__indirect_function_table": wasm_table,
     };
