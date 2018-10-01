@@ -43,7 +43,7 @@ mod jit_cache_array {
     const NO_NEXT_ENTRY: u32 = 0xffff_ffff;
 
     pub const SIZE: u32 = 0x40000;
-    pub const MASK: u32 = (SIZE - 1);
+    pub const MASK: u32 = SIZE - 1;
 
     #[derive(Copy, Clone)]
     pub struct Entry {

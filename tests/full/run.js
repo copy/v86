@@ -225,7 +225,7 @@ if(cluster.isMaster)
         {
             name: "Windows 3.0",
             skip_if_disk_image_missing: true,
-            timeout: 5 * 60,
+            timeout: 10 * 60,
             cdrom: root_path + "/../v86-images/os/Win30.iso",
             expected_texts: [
                 "Press any key to continue",

@@ -287,7 +287,6 @@ else {
         // XXX: On gdb execution is stopped at this point. On v86 we
         // currently don't have this ability, so we record the exception
         // and continue execution
-        console.log("recorded", exception);
         recorded_exceptions.push(exception);
         return true;
     };

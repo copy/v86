@@ -10,7 +10,7 @@
 var DEBUG = true;
 
 /** @const
- * Also needs to be set in config.h
+ * Also needs to be set in cargo.toml
  */
 var ENABLE_PROFILER = false;
 

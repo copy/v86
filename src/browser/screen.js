@@ -505,5 +505,3 @@ function ScreenAdapter(screen_container, bus)
 
     this.init();
 }
-
-
