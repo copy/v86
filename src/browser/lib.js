@@ -18,141 +18,19 @@ var ASYNC_SAFE = false;
     v86util.AsyncFileBuffer = AsyncFileBuffer;
     v86util.SyncFileBuffer = SyncFileBuffer;
 
-    /**
-     * Decode a buffer into an unsigned LEB-128 integer
-     * @param {Uint8Array} view Byte-stream of encoded integer
-     * @param {number=} max_bits Maximum number of bits that are represented; see
-     *     https://github.com/WebAssembly/design/blob/master/BinaryEncoding.md#varuintn
-     */
-    v86util.decode_leb128_u = function(view, max_bits=256)
-    {
-        dbg_assert(view instanceof Uint8Array);
-
-        const result = {
-            value: 0,
-            next_index: 0,
-        };
-        let shift = 0;
-        const max_bytes = Math.ceil(max_bits / 7);
-
-        while(result.next_index < view.length && result.next_index < max_bytes)
-        {
-            let byte = view[result.next_index++];
-            result.value |= (byte & 127) << shift;
-            if((byte & 128) === 0)
-            {
-                break;
-            }
-            shift += 7;
-        }
-        return result;
-    };
-
-    v86util.decode_dylink = function(module)
-    {
-        // Details on dylink section:
-        // https://github.com/WebAssembly/tool-conventions/blob/master/DynamicLinking.md
-        const dylink_sections = WebAssembly.Module.customSections(module, "dylink");
-        dbg_assert(dylink_sections && dylink_sections.length === 1);
-        const dylink_section = dylink_sections[0];
-        const view = new Uint8Array(dylink_section);
-        const { value: memory_size, next_index: table_size_start } =
-                v86util.decode_leb128_u(view, 32);
-        const table_size = v86util.decode_leb128_u(view.subarray(table_size_start), 32).value;
-
-        return {
-            memory_size,
-            table_size,
-        };
-    };
-
     // Reads len characters at offset from Memory object mem as a JS string
     v86util.read_sized_string_from_mem = function read_sized_string_from_mem(mem, offset, len)
     {
         return String.fromCharCode(...new Uint8Array(mem.buffer, offset, len));
     };
 
-    //XXX: figure out a better way to handle dylink issue than duplicating above function
-    v86util.minimal_load_wasm = function minimal_load_wasm(filename, imports, cb)
+    v86util.load_wasm = function load_wasm(filename, imports, cb)
     {
         function load_cb(bytes)
         {
             WebAssembly
                 .instantiate(bytes, imports)
                 .then(function({ instance }) {
-                    cb({
-                        memory: imports["env"]["memory"],
-                        exports: instance["exports"],
-                        instance,
-                        imports,
-                        filename,
-                    });
-                });
-        }
-        v86util.load_file(filename, { done: load_cb });
-    };
-
-    /**
-     * Fetches, compiles, and instantiates a wasm file
-     * @param {string} filename
-     * @param {Object} imports Object used for WebAssembly module's imports
-     * @param {number} memory_size Bytes of memory the module wants for itself, excluding the space
-     *     the dylink section requests.
-     * @param {number} table_size Number of table entries the module wants for itself, excluding
-     *     what the dylink section requests.
-     * @param {function(Object)} cb Callback function that receives custom object with instance, memory,
-     *     exported functions, imports, and the filename.
-     */
-    v86util.load_wasm = function load_wasm(filename, imports, memory_size, table_size, cb)
-    {
-        dbg_assert(memory_size > 0);
-        dbg_assert(typeof imports["env"] === "object");
-
-        function load_cb(buffer)
-        {
-            WebAssembly.compile(buffer)
-                .then(module => {
-                    const dylink = v86util.decode_dylink(module);
-                    let total_mem_pages = Math.ceil(
-                        (dylink.memory_size + memory_size) / WASM_PAGE_SIZE
-                    );
-
-                    // emscripten seems to require a minimum of 256 pages (16 MB)
-                    total_mem_pages = Math.max(256, total_mem_pages);
-
-                    try
-                    {
-                        imports["env"]["memory"] = new WebAssembly.Memory({
-                            "initial": total_mem_pages,
-                            "maximum": total_mem_pages,
-                        });
-                    }
-                    catch(e)
-                    {
-                        console.error(
-                            "Failed to allocate WASM memory of %d pages",
-                            total_mem_pages
-                        );
-                        throw e;
-                    }
-                    imports["env"]["memoryBase"] = memory_size;
-
-                    // XXX: Emscripten forces EMULATED_FUNCTION_POINTERS when
-                    //      using SIDE_MODULE=1, which we use. Newer versions of emscripten add
-                    //      all exported functions to the WebAssembly.Table, so we need extra space
-                    //      here
-                    const EXTRA_TABLE_SPACE_FOR_EMULATED_FP = 10000;
-
-                    imports["env"][WASM_EXPORT_TABLE_NAME] = new WebAssembly.Table({
-                        "initial": dylink.table_size + table_size + EXTRA_TABLE_SPACE_FOR_EMULATED_FP,
-                        "element": "anyfunc",
-                    });
-                    imports["env"]["tableBase"] = table_size;
-
-                    return WebAssembly.instantiate(module, imports)
-                        .then(instance => ({ instance, module }));
-                })
-                .then(({ instance, module }) => {
                     cb({
                         memory: imports["env"]["memory"],
                         exports: instance["exports"],

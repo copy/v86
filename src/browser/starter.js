@@ -89,92 +89,30 @@ function V86Starter(options)
 
     this.cpu_is_running = false;
 
-    var bus = Bus.create();
-    var adapter_bus = this.bus = bus[0];
+    const bus = Bus.create();
+    const adapter_bus = this.bus = bus[0];
     this.emulator_bus = bus[1];
-    var emulator;
-    var cpu;
-    var v86oxide;
-    const coverage_logger = new CoverageLogger();
 
-    //if(coverage_logger.ENABLED)
-    //{
-    //    this.bus.register("emulator-stopped", function()
-    //    {
-    //        coverage_logger.dump_to_files();
-    //    }, this);
-    //}
+    var cpu;
+    var wasm_memory;
 
     const wasm_table = new WebAssembly.Table({ element: "anyfunc", "initial": WASM_TABLE_SIZE + WASM_TABLE_OFFSET });
 
-    var wasm_shared_funcs = {
-        "__assert_fail": (condition, file, line, fun) => {
-            const memory = new Uint8Array(v86oxide.exports.memory.buffer);
-
-            function read_string(memory, offset)
-            {
-                memory = memory.subarray(offset);
-
-                const zero = memory.indexOf(0);
-                if(zero !== -1)
-                {
-                    memory = memory.subarray(0, zero);
-                }
-                return String.fromCharCode.apply(String, memory);
-            }
-
-            console.error("Assertion Failed: '%s' at %s:%d in %s",
-                read_string(memory, condition),
-                read_string(memory, file),
-                line,
-                read_string(memory, fun));
-
-            dbg_assert(false);
-        },
+    const wasm_shared_funcs = {
         "cpu_exception_hook": (n) => {
             return this["cpu_exception_hook"] && this["cpu_exception_hook"](n);
         },
         "hlt_op": function() { return cpu.hlt_op(); },
         "abort": function() { dbg_assert(false); },
-        "_dbg_trace": function() { return dbg_trace(); },
         "logop": function(eip, op) { return cpu.debug.logop(eip, op); },
         "undefined_instruction": function() { return cpu.undefined_instruction.apply(cpu, arguments); },
         "unimplemented_sse": function() { return cpu.unimplemented_sse(); },
         "microtick": v86.microtick,
         "get_rand_int": function() { return v86util.get_rand_int(); },
         "has_rand_int": function() { return v86util.has_rand_int(); },
-        "dbg_log": function(string_offset)
-        {
-        },
-        "dbg_log1": function(string_offset)
-        {
-        },
-        "dbg_log2": function(string_offset)
-        {
-        },
-        "dbg_log3": function(string_offset)
-        {
-        },
-        "dbg_log5": function(string_offset)
-        {
-        },
         "dbg_trace": function()
         {
             dbg_trace();
-        },
-        //"printf": function(format_string_offset, stack_top) {
-        //    dbg_assert(arguments.length === 2);
-        //    dbg_log_wasm(v86oxide.exports.memory.buffer, format_string_offset, stack_top);
-        //},
-        "memcpy_large": function(dest, source, length) {
-            const mem8 = new Uint8Array(v86oxide.exports.memory.buffer);
-            mem8.set(mem8.subarray(source, source + length), dest);
-            return dest;
-        },
-        "memcpy": function(dest, source, length) {
-            const mem8 = new Uint8Array(v86oxide.exports.memory.buffer);
-            mem8.set(mem8.subarray(source, source + length), dest);
-            return dest;
         },
 
         "far_jump": function(eip, selector, is_call) { return cpu.far_jump(eip, selector, !!is_call); },
@@ -193,10 +131,12 @@ function V86Starter(options)
         "mmap_read8": function(addr) { return cpu.mmap_read8(addr); },
         "mmap_read16": function(addr) { return cpu.mmap_read16(addr); },
         "mmap_read32": function(addr) { return cpu.mmap_read32(addr); },
-        "mmap_write8": function(addr, value) { return cpu.mmap_write8(addr, value); },
-        "mmap_write16": function(addr, value) { return cpu.mmap_write16(addr, value); },
-        "mmap_write32": function(addr, value) { return cpu.mmap_write32(addr, value); },
-        "mmap_write128": function(addr, value0, value1, value2, value3) { return cpu.mmap_write128(addr, value0, value1, value2, value3); },
+        "mmap_write8": function(addr, value) { cpu.mmap_write8(addr, value); },
+        "mmap_write16": function(addr, value) { cpu.mmap_write16(addr, value); },
+        "mmap_write32": function(addr, value) { cpu.mmap_write32(addr, value); },
+        "mmap_write128": function(addr, value0, value1, value2, value3) {
+            cpu.mmap_write128(addr, value0, value1, value2, value3);
+        },
 
         "arpl": function() { return cpu.arpl.apply(cpu, arguments); },
 
@@ -215,137 +155,69 @@ function V86Starter(options)
         "enter16": function() { return cpu.enter16.apply(cpu, arguments); },
         "enter32": function() { return cpu.enter32.apply(cpu, arguments); },
 
-        "get_time": Date.now,
-
-        "coverage_log": (fn_name_offset, num_blocks, visited_block) => {
-            //coverage_logger.log(fn_name_offset, num_blocks, visited_block);
-        },
-
-        // see https://github.com/kripken/emscripten/blob/incoming/src/library.js
         "Math_atan2": Math.atan2,
-        "sin": Math.sin,
-        "cos": Math.cos,
         "Math_tan": Math.tan,
-        "trunc": Math.trunc,
-        "fmod": (x, y) => x % y,
-        "llvm_exp2_f64": (x) => Math.pow(2, x),
-        "log": Math.log,
-        "round": Math.round,
+        // https://github.com/rust-lang/rust/blob/56e46255b39058725d25e74200e03c0c70a0d0d3/src/etc/wasm32-shim.js#L105-L117
         "ldexp": function(x, exp) {
             return x * Math.pow(2, exp);
         },
-        "llvm_round_f64": function(d) {
-            d = +d;
-            return d >= +0 ? +Math.floor(d + 0.5) : +Math.ceil(d - 0.5);
-        },
-        "llvm_trunc_f64": Math.trunc,
 
         "log_from_wasm": function(offset, len) {
-            const str = v86util.read_sized_string_from_mem(v86oxide.exports.memory, offset, len);
+            const str = v86util.read_sized_string_from_mem(wasm_memory, offset, len);
             dbg_log(str, LOG_CPU);
         },
         "console_log_from_wasm": function(offset, len) {
-            const str = v86util.read_sized_string_from_mem(v86oxide.exports.memory, offset, len);
+            const str = v86util.read_sized_string_from_mem(wasm_memory, offset, len);
             console.error(str);
         },
-        "codegen_finalize": (wasm_table_index, start, end, first_opcode, state_flags) => cpu.codegen_finalize(wasm_table_index, start, end, first_opcode, state_flags),
-        "jit_clear_func": (wasm_table_index) => cpu.jit_clear_func(wasm_table_index),
-        "__indirect_function_table": wasm_table,
-        "floor": Math.floor,
-        "ceil": Math.ceil,
-        "fabs": Math.abs,
-        "abs": Math.abs,
 
+        "codegen_finalize": (wasm_table_index, start, end, first_opcode, state_flags) => {
+            cpu.codegen_finalize(wasm_table_index, start, end, first_opcode, state_flags);
+        },
+        "jit_clear_func": (wasm_table_index) => cpu.jit_clear_func(wasm_table_index),
         "do_task_switch": (selector, has_error_code, error_code) => {
             cpu.do_task_switch(selector, has_error_code, error_code);
         },
         // XXX: Port to Rust
         "switch_cs_real_mode": (selector) => cpu.switch_cs_real_mode(selector),
+
+        "__indirect_function_table": wasm_table,
     };
 
-    const wasm_globals = {
-        "Infinity": Infinity,
-        "NaN": NaN,
-    };
-
-    //const v86oxide_mem = new WebAssembly.Memory({ "initial": 250 });
-    //const v86oxide_externs = {
-    //    "memory": v86oxide_mem,
-    //    "read8": addr => cpu.read8(addr),
-    //    "read16": addr => cpu.read16(addr),
-    //    "read32": addr => cpu.read32s(addr),
-    //    "tlb_set_has_code": (page, has_code) => cpu.wm.exports["_tlb_set_has_code"](page, has_code),
-    //    "check_tlb_invariants": () => cpu.wm.exports["_check_tlb_invariants"](),
-    //    "profiler_stat_increment": (name) => cpu.wm.exports["_profiler_stat_increment"](name),
-    //};
-
-    let wasm_file = DEBUG ? "v86-debug.wasm" : "v86.wasm";
     let v86oxide_bin = DEBUG ? "v86oxide-debug.wasm" : "v86oxide.wasm";
 
-    if(typeof window === "undefined" && typeof __dirname === "string")
+    if(options["oxide_path"])
     {
-        wasm_file = __dirname + "/" + wasm_file;
+        v86oxide_bin = options["oxide_path"];
+    }
+    else if(typeof window === "undefined" && typeof __dirname === "string")
+    {
         v86oxide_bin = __dirname + "/" + v86oxide_bin;
     }
     else
     {
-        wasm_file = "build/" + wasm_file;
         v86oxide_bin = "build/" + v86oxide_bin;
     }
 
-    const v86oxide_exports = [
-        // For C:
-        "jit_get_entry_pending",
-        "jit_get_entry_address",
-        "jit_get_entry_length",
-        "jit_unused_cache_stat",
-        "jit_dirty_cache_single",
-        "jit_dirty_cache_small",
-        "jit_page_has_code",
-        "jit_increase_hotness_and_maybe_compile",
-        "jit_find_cache_entry",
+    v86util.load_wasm(
+        v86oxide_bin,
+        { "env": wasm_shared_funcs },
+        v86oxide => {
+            v86oxide.exports["rust_setup"]();
 
-        // For JS:
-        "jit_empty_cache",
-        "codegen_finalize_finished",
-        "rust_setup",
-        "jit_dirty_cache",
-    ];
+            wasm_memory = v86oxide.exports.memory;
 
-    v86util.minimal_load_wasm(v86oxide_bin, { "env": wasm_shared_funcs }, (v86oxide_) => {
-        v86oxide = v86oxide_;
-        //for(const fn_name of v86oxide_exports)
-        //{
-        //    dbg_assert(typeof v86oxide.exports[fn_name] === "function", `Function ${fn_name} not found in v86oxide exports`);
-        //    wasm_shared_funcs[`_${fn_name}`] = v86oxide.exports[fn_name];
-        //}
-        v86oxide.exports["rust_setup"]();
+            const wm = v86oxide;
 
-        //v86oxide.exports[WASM_EXPORT_TABLE_NAME].grow(WASM_TABLE_SIZE);
+            const emulator = this.v86 = new v86(this.emulator_bus, wm, v86oxide);
+            cpu = emulator.cpu;
 
-        const wm = v86oxide;
+            this.continue_init(emulator, options);
+    });
+}
 
-        //mem = v86oxide.exports.memory.buffer;
-        //mem8 = new Uint8Array(mem);
-        emulator = this.v86 = new v86(this.emulator_bus, wm, v86oxide, coverage_logger);
-        cpu = emulator.cpu;
-
-    //XXX: fix indentation break
-
-    //v86util.load_wasm(
-    //    wasm_file,
-    //    { "env": wasm_shared_funcs, "global" : wasm_globals },
-    //    options["memory_size"] + GUEST_MEMORY_START,
-    //    WASM_TABLE_SIZE,
-    //    wm => {
-    //        mem = wm.memory.buffer;
-    //        mem8 = new Uint8Array(mem);
-    //        wm.instance.exports["__post_instantiate"]();
-    //        coverage_logger.init(wm);
-    //        emulator = this.v86 = new v86(this.emulator_bus, wm, v86oxide, coverage_logger);
-    //        cpu = emulator.cpu;
-
-    // XXX: Leaving unindented to minimize diff; still a part of the cb to load_wasm!
+V86Starter.prototype.continue_init = function(emulator, options)
+{
     this.bus.register("emulator-stopped", function()
     {
         this.cpu_is_running = false;
@@ -376,31 +248,31 @@ function V86Starter(options)
 
     if(options["network_relay_url"])
     {
-        this.network_adapter = new NetworkAdapter(options["network_relay_url"], adapter_bus);
+        this.network_adapter = new NetworkAdapter(options["network_relay_url"], this.bus);
         settings.enable_ne2k = true;
     }
 
     if(!options["disable_keyboard"])
     {
-        this.keyboard_adapter = new KeyboardAdapter(adapter_bus);
+        this.keyboard_adapter = new KeyboardAdapter(this.bus);
     }
     if(!options["disable_mouse"])
     {
-        this.mouse_adapter = new MouseAdapter(adapter_bus, options["screen_container"]);
+        this.mouse_adapter = new MouseAdapter(this.bus, options["screen_container"]);
     }
 
     if(options["screen_container"])
     {
-        this.screen_adapter = new ScreenAdapter(options["screen_container"], adapter_bus);
+        this.screen_adapter = new ScreenAdapter(options["screen_container"], this.bus);
     }
     else if(options["screen_dummy"])
     {
-        this.screen_adapter = new DummyScreenAdapter(adapter_bus);
+        this.screen_adapter = new DummyScreenAdapter(this.bus);
     }
 
     if(options["serial_container"])
     {
-        this.serial_adapter = new SerialAdapter(options["serial_container"], adapter_bus);
+        this.serial_adapter = new SerialAdapter(options["serial_container"], this.bus);
     }
 
     // ugly, but required for closure compiler compilation
@@ -691,10 +563,7 @@ function V86Starter(options)
             }.bind(this), 0);
         }.bind(this), 0);
     }
-
-    //});
-    });
-}
+};
 
 /**
  * Start emulation. Do nothing if emulator is running already. Can be
