@@ -527,17 +527,13 @@ var ASYNC_SAFE = false;
 
     AsyncXHRBuffer.prototype.get_written_blocks = function()
     {
-        var count = 0;
-        for(var _ in this.loaded_blocks)
-        {
-            count++;
-        }
+        var count = Object.keys(this.loaded_blocks).length;
 
         var buffer = new Uint8Array(count * this.block_size);
         var indices = [];
 
         var i = 0;
-        for(var index in this.loaded_blocks)
+        for(var index of Object.keys(this.loaded_blocks))
         {
             var block = this.loaded_blocks[index];
             dbg_assert(block.length === this.block_size);
@@ -562,7 +558,7 @@ var ASYNC_SAFE = false;
         const state = [];
 
         const loaded_blocks = [];
-        for(let [index, block] in Object.values(this.loaded_blocks))
+        for(let [index, block] of Object.values(this.loaded_blocks))
         {
             dbg_assert(isFinite(+index));
             loaded_blocks.push([+index, block]);
@@ -575,7 +571,7 @@ var ASYNC_SAFE = false;
     {
         const loaded_blocks = state[0];
         this.loaded_blocks = Object.create(null);
-        for(let [index, block] of loaded_blocks)
+        for(let [index, block] of Object.values(loaded_blocks))
         {
             this.loaded_blocks[index] = block;
         }

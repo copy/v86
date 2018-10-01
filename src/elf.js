@@ -104,7 +104,7 @@ function read_elf(buffer)
 
     if(DEBUG)
     {
-        for(let key in header)
+        for(let key of Object.keys(header))
         {
             dbg_log(key + ": 0x" + header[key].toString(16));
         }
