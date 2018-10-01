@@ -358,9 +358,7 @@ impl InterruptDescriptor {
     pub fn gate_type(&self) -> u8 { self.access_byte() & 7 }
     pub fn is_32(&self) -> bool { self.access_byte() & 8 == 8 }
     pub fn is_present(&self) -> bool { self.access_byte() & 0x80 == 0x80 }
-    pub fn reserved_zeros_are_valid(&self) -> bool {
-        self.raw >> 36 & 7 == 0 && self.access_byte() & 16 == 0
-    }
+    pub fn reserved_zeros_are_valid(&self) -> bool { self.access_byte() & 16 == 0 }
 
     const TASK_GATE: u8 = 0b101;
     const INTERRUPT_GATE: u8 = 0b110;
@@ -472,8 +470,9 @@ pub unsafe fn call_interrupt_vector(
         if !is_valid_type || !descriptor.reserved_zeros_are_valid() {
             // invalid gate_type
             dbg_log!(
-                "gate type invalid or reserved 0s violated. gate_type=0b{:b}",
-                gate_type
+                "gate type invalid or reserved 0s violated. gate_type=0b{:b} raw={:b}",
+                gate_type,
+                descriptor.raw
             );
             dbg_log!(
                 "addr={:x} offset={:x} selector={:x}",
@@ -518,7 +517,7 @@ pub unsafe fn call_interrupt_vector(
             // inter privilege level interrupt
             // interrupt from vm86 mode
 
-            if old_flags & FLAG_VM != 0 && cs_segment_descriptor.dpl() == 0 {
+            if old_flags & FLAG_VM != 0 && cs_segment_descriptor.dpl() != 0 {
                 panic!("Unimplemented: #GP handler for non-0 cs segment dpl when in vm86 mode");
             }
 
