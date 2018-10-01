@@ -1034,8 +1034,8 @@ pub unsafe fn translate_address_write(address: i32) -> OrPageFault<u32> {
 }
 
 #[no_mangle]
-pub unsafe fn tlb_set_has_code(physical_page: u32, has_code: bool) {
-    dbg_assert!(physical_page < (1 << 20) as u32);
+pub unsafe fn tlb_set_has_code(physical_page: Page, has_code: bool) {
+    let physical_page = physical_page.to_u32();
     for i in 0..valid_tlb_entries_count {
         let page: i32 = valid_tlb_entries[i as usize];
         let entry: i32 = *tlb_data.offset(page as isize);
