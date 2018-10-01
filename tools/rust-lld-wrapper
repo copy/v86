@@ -10,13 +10,19 @@ from os import path
 def main():
     args = sys.argv[1:]
 
+    strip_debug = "--v86-strip-debug" in args
+
     # filter out args inserted by rustc
     TO_REMOVE = {
         "--export-table",
         "--stack-first",
-        "--strip-debug", # TODO: Make this configurable
+        "--strip-debug",
+        "--v86-strip-debug",
     }
     args = list(filter(lambda arg: arg not in TO_REMOVE, args))
+
+    if strip_debug:
+        args += ["--strip-debug"]
 
     lld = find_rust_lld()
 
