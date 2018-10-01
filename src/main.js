@@ -179,6 +179,11 @@ if(typeof performance === "object" && performance.now)
 {
     v86.microtick = performance.now.bind(performance);
 }
+else if(typeof require === "function")
+{
+    const { performance } = require("perf_hooks");
+    v86.microtick = performance.now.bind(performance);
+}
 else if(typeof process === "object" && process.hrtime)
 {
     v86.microtick = function()
