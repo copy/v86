@@ -1,17 +1,32 @@
-[![Join the chat at https://gitter.im/copy/v86](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/copy/v86?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
-
-Demos
+Building
 -
 
-- [Windows 98](https://copy.sh/v86/?profile=windows98)
-- [Linux](https://copy.sh/v86/?profile=linux26)
-- [Linux 3](https://copy.sh/v86/?profile=linux3)
-- [KolibriOS](https://copy.sh/v86/?profile=kolibrios)
-- [FreeDOS](https://copy.sh/v86/?profile=freedos)
-- [Windows 1.01](https://copy.sh/v86/?profile=windows1)
-- [Archlinux](https://copy.sh/v86/?profile=archlinux)
+See `docker/test-image/Dockerfile` for a full setup on Debian.
 
+You need:
+
+- java
+- gcc, make, libc-i386
+- nasm, gdb and qemu (for running tests)
+- rust-nightly with the wasm32-unknown-unknown target
+- nodejs (a latest version is required, 10.11.0 is known to be working)
+
+Run `make all-debug` to build the debug build (at `debug.html`).
+Run `make all` to build the optimized build (at `index.html`).
+
+Testing
+-
+
+Run all tests: `make jshint rustfmt kvm-unit-test nasmtests nasmtests-force-jit expect-tests jitpagingtests qemutests rust-test tests`
+
+Creating a Linux image for use in v86
+-
+
+See `docker/debian-full/Readme.md`.
+
+
+Below is the readme of the open-source version of v86 (not everything applies)
+=
 
 API examples
 -
