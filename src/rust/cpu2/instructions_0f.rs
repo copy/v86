@@ -5216,7 +5216,8 @@ pub unsafe fn instr_0FF7_reg(r1: i32, r2: i32) {
             safe_write8(
                 (addr as u32).wrapping_add(i) as i32,
                 source.u8_0[i as usize] as i32,
-            ).unwrap();
+            )
+            .unwrap();
         }
     }
     transition_fpu_to_mmx();
@@ -5235,7 +5236,8 @@ pub unsafe fn instr_660FF7_reg(r1: i32, r2: i32) {
             safe_write8(
                 (addr as u32).wrapping_add(i) as i32,
                 source.u8_0[i as usize] as i32,
-            ).unwrap();
+            )
+            .unwrap();
         }
     }
 }

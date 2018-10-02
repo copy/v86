@@ -344,7 +344,8 @@ pub unsafe fn fxsave(addr: i32) {
             safe_write64(
                 addr + 32 + (i << 4),
                 (*reg_mmx.offset(reg_index as isize)).i64_0[0],
-            ).unwrap();
+            )
+            .unwrap();
             safe_write64(addr + 32 + (i << 4) | 8, 0).unwrap();
         }
     }
@@ -356,7 +357,8 @@ pub unsafe fn fxsave(addr: i32) {
         safe_write128(
             addr.wrapping_add(160).wrapping_add(i << 4) as i32,
             *reg_xmm.offset(i as isize),
-        ).unwrap();
+        )
+        .unwrap();
     }
 }
 #[no_mangle]

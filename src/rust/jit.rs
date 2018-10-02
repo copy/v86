@@ -445,7 +445,8 @@ pub fn record_entry_point(ctx: &mut JitState, phys_address: u32) {
         .or_insert_with(|| {
             is_new = true;
             HashSet::new()
-        }).insert(offset_in_page);
+        })
+        .insert(offset_in_page);
 
     if is_new {
         cpu::tlb_set_has_code(page, true);
