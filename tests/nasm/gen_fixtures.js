@@ -120,7 +120,7 @@ for(let i = 0; i < nr_of_cpus; i++)
         console.log(CYAN_FMT, "[DEBUG]", "gdb", gdb_args.join(" "));
     }
 
-    if(SYNC_GDB_EXECUTION)
+    if(SYNC_GDB_EXECUTION || nr_of_cpus === 1)
     {
         const { status: code } = spawnSync("gdb", gdb_args);
         on_proc_close(code, i);
