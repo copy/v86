@@ -3,7 +3,7 @@
 
 session.menuFile: ~/.fluxbox/menu
 session.keyFile: ~/.fluxbox/keys
-session.styleFile: ~/.fluxbox/styles/Clearlooks
+#session.styleFile: ~/.fluxbox/styles/Clearlooks
 session.screen0.rootCommand: fbsetroot -solid black
 
 
