@@ -297,7 +297,7 @@ V86Starter.prototype.continue_init = function(emulator, options)
                 break;
 
             case "multiboot":
-                settings.multiboot = this.disk_images["multiboot"] = buffer;
+                settings.multiboot = this.disk_images["multiboot"] = buffer.buffer;
                 break;
 
             case "bios":

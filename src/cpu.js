@@ -860,8 +860,7 @@ CPU.prototype.init = function(settings, device_bus)
 
     if(settings.multiboot)
     {
-        dbg_assert(settings.multiboot.buffer);
-        this.load_multiboot(settings.multiboot.buffer);
+        this.load_multiboot(settings.multiboot);
     }
 
     if(DEBUG)
