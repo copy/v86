@@ -278,11 +278,25 @@
                 name: "Debian",
                 memory_size: 512 * 1024 * 1024,
                 vga_memory_size: 8 * 1024 * 1024,
-                hda: {
-                    "url": "<NULL>",
-                    "size": 5,
-                    "async": true,
+                filesystem: {
+                    "basefs": {
+                        "url": HOST + "images/debian-base-fs.json",
+                    },
+                    "baseurl": HOST + "images/debian-9p-rootfs-flat/",
                 },
+            },
+            {
+                id: "debian-boot",
+                name: "Debian",
+                memory_size: 512 * 1024 * 1024,
+                bzimage: {
+                    "url": "images/debian-9p-rootfs/vmlinuz",
+                },
+                initrd: {
+                    "url": "images/debian-9p-rootfs/initrd.img",
+                },
+                cmdline: "rw init=/bin/systemd root=host9p console=ttyS0 spectre_v2=off pti=off",
+                vga_memory_size: 8 * 1024 * 1024,
                 filesystem: {
                     "basefs": {
                         "url": HOST + "images/debian-base-fs.json",

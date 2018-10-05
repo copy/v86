@@ -23,11 +23,17 @@ process.stdin.setEncoding("utf8");
 var emulator = new V86({
     bios: { url: path.join(V86_ROOT, "/bios/seabios.bin") },
     vga_bios: { url: path.join(V86_ROOT, "/bios/vgabios.bin") },
-    hda: { url: path.join(V86_ROOT, "/images/debian-9p-boot.img"), async: true, },
     autostart: true,
     memory_size: 512 * 1024 * 1024,
     vga_memory_size: 8 * 1024 * 1024,
     network_relay_url: "<UNUSED>",
+    bzimage: {
+        url: path.join(V86_ROOT, "/images/debian-9p-rootfs/vmlinuz"),
+    },
+    initrd: {
+        url: path.join(V86_ROOT, "/images/debian-9p-rootfs/initrd.img"),
+    },
+    cmdline: "rw init=/bin/systemd root=host9p console=ttyS0 spectre_v2=off pti=off",
     filesystem: {
         basefs: {
             url: path.join(V86_ROOT, "/images/debian-base-fs.json"),
