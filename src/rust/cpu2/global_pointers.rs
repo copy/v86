@@ -36,7 +36,7 @@ pub const prefixes: *mut u8 = 648 as *mut u8;
 pub const timestamp_counter: *mut u32 = 664 as *mut u32;
 pub const sreg: *mut u16 = 668 as *mut u16;
 pub const dreg: *mut i32 = 684 as *mut i32;
-pub const fw_value: *mut i32 = 720 as *mut i32;
+
 pub const segment_is_null: *mut bool = 724 as *mut bool;
 pub const segment_offsets: *mut i32 = 736 as *mut i32;
 pub const segment_limits: *mut u32 = 768 as *mut u32;

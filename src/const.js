@@ -304,9 +304,21 @@ var IA32_APIC_BASE_EN = 1 << 11;
 /** @const */ var TSR_LDT = 0x60;
 
 
+// https://github.com/qemu/seabios/blob/14221cd86eadba82255fdc55ed174d401c7a0a04/src/fw/paravirt.c#L205-L219
+
 /** @const */ var FW_CFG_SIGNATURE = 0x00;
+/** @const */ var FW_CFG_ID = 0x01;
 /** @const */ var FW_CFG_RAM_SIZE = 0x03;
 /** @const */ var FW_CFG_NB_CPUS = 0x05;
+/** @const */ var FW_CFG_MAX_CPUS = 0x0F;
+/** @const */ var FW_CFG_NUMA = 0x0D;
+/** @const */ var FW_CFG_FILE_DIR = 0x19;
+
+/** @const */ var FW_CFG_CUSTOM_START = 0x8000;
+// This value is specific to v86, choosen to hopefully not collide with other indexes
+/** @const */ var FW_CFG_FILE_START = 0xC000;
+
+/** @const */ var FW_CFG_SIGNATURE_QEMU = 0x554D4551;
 
 
 /** @const */

@@ -231,7 +231,9 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     // debug registers
     this.dreg = v86util.view(Int32Array, memory, 684, 8);
 
-    this.fw_value = v86util.view(Int32Array, memory, 720, 1);
+    this.fw_value = [];
+    this.fw_pointer = 0;
+    this.option_roms = [];
 
     this.io = undefined;
 
@@ -439,7 +441,7 @@ CPU.prototype.get_state = function()
     state[60] = this.devices.pic;
 
     state[61] = this.a20_enabled[0];
-    state[62] = this.fw_value[0];
+    state[62] = this.fw_value;
 
     state[63] = this.devices.ioapic;
 
@@ -531,7 +533,7 @@ CPU.prototype.set_state = function(state)
     this.devices.pic = state[60];
 
     this.a20_enabled[0] = state[61];
-    this.fw_value[0] = state[62];
+    this.fw_value[0] = state;
 
     this.devices.ioapic = state[63];
 
@@ -676,7 +678,7 @@ CPU.prototype.reset = function()
         this.devices.virtio.reset();
     }
 
-    this.fw_value[0] = 0;
+    this.fw_value = [];
 
     this.jit_clear_cache();
 };
@@ -756,32 +758,107 @@ CPU.prototype.init = function(settings, device_bus)
     io.register_read(0x511, this, function()
     {
         // bios config port (used by seabios and kvm-unit-test)
-        let result = this.fw_value[0] & 0xFF;
-        this.fw_value[0] >>>= 8;
-        return result;
+        if(this.fw_pointer < this.fw_value.length)
+        {
+            return this.fw_value[this.fw_pointer++];
+        }
+        else
+        {
+            dbg_assert(false, "config port: Read past value");
+            return 0;
+        }
     });
     io.register_write(0x510, this, undefined, function(value)
     {
         dbg_log("bios config port, index=" + h(value));
 
+        function i32(x)
+        {
+            return new Uint8Array(new Int32Array([x]).buffer);
+        }
+
+        function i64(x0, x1)
+        {
+            return new Uint8Array(new Int32Array([x0, x1]).buffer);
+        }
+
+        function to_be16(x)
+        {
+            return x >> 8 | x << 8 & 0xFF00;
+        }
+
+        function to_be32(x)
+        {
+            return x << 24 | x << 8 & 0xFF0000 | x >> 8 & 0xFF00 | x >>> 24;
+        }
+
+        this.fw_pointer = 0;
+
         if(value === FW_CFG_SIGNATURE)
         {
-            // We could pretend to be QEMU here to control certain options in
-            // seabios, but for now this isn't needed
-            this.fw_value[0] = 0xfab0fab0|0;
+            // Pretend to be qemu (for seabios)
+            this.fw_value = i32(FW_CFG_SIGNATURE_QEMU);
+        }
+        else if(value === FW_CFG_ID)
+        {
+            this.fw_value = i32(0);
         }
         else if(value === FW_CFG_RAM_SIZE)
         {
-            this.fw_value[0] = this.memory_size[0];
+            this.fw_value = i32(this.memory_size[0]);
         }
         else if(value === FW_CFG_NB_CPUS)
         {
-            this.fw_value[0] = 1;
+            this.fw_value = i32(1);
+        }
+        else if(value === FW_CFG_MAX_CPUS)
+        {
+            this.fw_value = i32(1);
+        }
+        else if(value === FW_CFG_NUMA)
+        {
+            this.fw_value = i64(0);
+        }
+        else if(value === FW_CFG_FILE_DIR)
+        {
+            const buffer_size = 4 + 64 * this.option_roms.length;
+            const buffer32 = new Int32Array(buffer_size);
+            const buffer8 = new Uint8Array(buffer32.buffer);
+
+            buffer32[0] = to_be32(this.option_roms.length);
+
+            for(let i = 0; i < this.option_roms.length; i++)
+            {
+                const { name, data } = this.option_roms[i];
+                const file_struct_ptr = 4 + 64 * i;
+
+                dbg_assert(FW_CFG_FILE_START + i < 0x10000);
+                buffer32[file_struct_ptr + 0 >> 2] = to_be32(data.length);
+                buffer32[file_struct_ptr + 4 >> 2] = to_be16(FW_CFG_FILE_START + i);
+
+                dbg_assert(name.length < 64 - 8);
+
+                for(let j = 0; j < name.length; j++)
+                {
+                    buffer8[file_struct_ptr + 8 + j] = name.charCodeAt(j);
+                }
+            }
+
+            this.fw_value = buffer8;
+        }
+        else if(value >= FW_CFG_CUSTOM_START && value < FW_CFG_FILE_START)
+        {
+            this.fw_value = i32(0);
+        }
+        else if(value >= FW_CFG_FILE_START && value - FW_CFG_FILE_START < this.option_roms.length)
+        {
+            const i = value - FW_CFG_FILE_START;
+            this.fw_value = this.option_roms[i].data;
         }
         else
         {
             dbg_assert(false, "Unimplemented fw index: " + h(value));
-            this.fw_value[0] = 0;
+            this.fw_value = i32(0);
         }
     });
 
