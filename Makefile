@@ -95,7 +95,7 @@ CORE_FILES=const.js config.js io.js main.js lib.js coverage.js ide.js pci.js flo
 	   memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js hpet.js acpi.js apic.js ioapic.js \
 	   state.js ne2k.js virtio.js bus.js log.js \
 	   cpu.js debug.js \
-	   elf.js
+	   elf.js kernel.js
 LIB_FILES=9p.js filesystem.js jor1k.js marshall.js utf8.js
 BROWSER_FILES=screen.js \
 		  keyboard.js mouse.js serial.js \

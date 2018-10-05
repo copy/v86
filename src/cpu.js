@@ -533,7 +533,7 @@ CPU.prototype.set_state = function(state)
     this.devices.pic = state[60];
 
     this.a20_enabled[0] = state[61];
-    this.fw_value[0] = state;
+    this.fw_value = state[62];
 
     this.devices.ioapic = state[63];
 
@@ -736,6 +736,17 @@ CPU.prototype.init = function(settings, device_bus)
 
     this.load_bios();
 
+    if(settings.bzimage)
+    {
+        dbg_assert(settings.cmdline);
+        const { option_rom } = load_kernel(this.mem8, settings.bzimage, settings.initrd, settings.cmdline);
+
+        if(option_rom)
+        {
+            this.option_roms.push(option_rom);
+        }
+    }
+
     var a20_byte = 0;
 
     io.register_read(0xB3, this, function()
@@ -770,6 +781,9 @@ CPU.prototype.init = function(settings, device_bus)
     });
     io.register_write(0x510, this, undefined, function(value)
     {
+        // https://wiki.osdev.org/QEMU_fw_cfg
+        // https://github.com/qemu/qemu/blob/master/docs/specs/fw_cfg.txt
+
         dbg_log("bios config port, index=" + h(value));
 
         function i32(x)

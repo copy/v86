@@ -8,7 +8,7 @@
         "const.js config.js log.js lib.js coverage.js cpu.js debug.js " +
         "io.js main.js ide.js pci.js floppy.js " +
         "memory.js dma.js pit.js vga.js ps2.js pic.js rtc.js uart.js acpi.js apic.js ioapic.js hpet.js " +
-        "ne2k.js state.js virtio.js bus.js elf.js";
+        "ne2k.js state.js virtio.js bus.js elf.js kernel.js";
 
     var BROWSER_FILES = "main.js screen.js keyboard.js mouse.js serial.js lib.js network.js starter.js worker_bus.js print_stats.js filestorage.js";
     var LIB_FILES = "";

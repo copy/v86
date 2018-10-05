@@ -545,6 +545,9 @@
             settings.cdrom = infos.cdrom;
             settings.hda = infos.hda;
             settings.multiboot = infos.multiboot;
+            settings.bzimage = infos.bzimage;
+            settings.initrd = infos.initrd;
+            settings.cmdline = infos.cmdline;
 
             settings.memory_size = infos.memory_size;
             settings.vga_memory_size = infos.vga_memory_size;
@@ -767,6 +770,9 @@
             "cdrom": settings.cdrom,
 
             "multiboot": settings.multiboot,
+            "bzimage": settings.bzimage,
+            "initrd": settings.initrd,
+            "cmdline": settings.cmdline,
 
             "initial_state": settings.initial_state,
             "filesystem": settings.filesystem || {},

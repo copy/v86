@@ -245,6 +245,7 @@ V86Starter.prototype.continue_init = function(emulator, options)
     settings.boot_order = options["boot_order"] || 0x213;
     settings.fda = undefined;
     settings.fdb = undefined;
+    settings.cmdline = options["cmdline"];
 
     if(options["network_relay_url"])
     {
@@ -299,6 +300,12 @@ V86Starter.prototype.continue_init = function(emulator, options)
             case "multiboot":
                 settings.multiboot = this.disk_images["multiboot"] = buffer.buffer;
                 break;
+            case "bzimage":
+                settings.bzimage = this.disk_images["bzimage"] = buffer.buffer;
+                break;
+            case "initrd":
+                settings.initrd = this.disk_images["initrd"] = buffer.buffer;
+                break;
 
             case "bios":
                 settings.bios = buffer.buffer;
@@ -345,7 +352,8 @@ V86Starter.prototype.continue_init = function(emulator, options)
         };
 
         if(name === "bios" || name === "vga_bios" ||
-            name === "initial_state" || name === "multiboot")
+            name === "initial_state" || name === "multiboot" ||
+            name === "bzimage" || name === "initrd")
         {
             // Ignore async for these because they must be availabe before boot.
             // This should make result.buffer available after the object is loaded
@@ -425,6 +433,7 @@ V86Starter.prototype.continue_init = function(emulator, options)
         "bios", "vga_bios",
         "cdrom", "hda", "hdb", "fda", "fdb",
         "initial_state", "multiboot",
+        "bzimage", "initrd",
     ];
 
     for(var i = 0; i < image_names.length; i++)
