@@ -27,6 +27,12 @@
  * - `hda Object` (No hard drive) - First hard disk, see below.
  * - `fda Object` (No floppy disk) - First floppy disk, see below.
  * - `cdrom Object` (No CD) - See below.
+ *
+ * - `bzimage Object` - A Linux kernel image to boot (only bzimage format), see below.
+ * - `initrd Object` - A Linux ramdisk image, see below.
+ * - `bzimage_initrd_from_filesystem boolean` - Automatically fetch bzimage and
+ *    initrd from the specified `filesystem`.
+ *
  * - `initial_state Object` (Normal boot) - An initial state to load, see
  *   [`restore_state`](#restore_statearraybuffer-state) and below.
  *
@@ -542,36 +548,95 @@ V86Starter.prototype.continue_init = function(emulator, options)
         //    settings.memory_size = 0;
         //}
 
-        this.bus.send("cpu-init", settings);
-
-        setTimeout(function()
+        if(settings.fs9p && settings.fs9p_json)
         {
-            if(settings.fs9p && settings.fs9p_json)
+            settings.fs9p.OnJSONLoaded(settings.fs9p_json);
+
+            if(options["bzimage_initrd_from_filesystem"])
             {
-                settings.fs9p.OnJSONLoaded(settings.fs9p_json);
+                const { bzimage, initrd } = this.get_bzimage_initrd_from_filesystem(settings.fs9p);
+
+                dbg_log("Found bzimage: " + bzimage + " and initrd: " + initrd);
+
+                Promise.all([
+                    settings.fs9p.read_file(initrd),
+                    settings.fs9p.read_file(bzimage),
+                ]).then(([initrd, bzimage]) => {
+                    put_on_settings.call(this, "initrd", new SyncBuffer(initrd.buffer));
+                    put_on_settings.call(this, "bzimage", new SyncBuffer(bzimage.buffer));
+                    finish.call(this);
+                });
+            }
+            else
+            {
+                finish.call(this);
+            }
+        }
+        else
+        {
+            console.assert(
+                !options["bzimage_initrd_from_filesystem"],
+                "bzimage_initrd_from_filesystem: Requires a filesystem");
+            finish.call(this);
+        }
+
+        function finish()
+        {
+            this.bus.send("cpu-init", settings);
+
+            if(settings.initial_state)
+            {
+                emulator.restore_state(settings.initial_state);
+
+                // The GC can't free settings, since it is referenced from
+                // several closures. This isn't needed anymore, so we delete it
+                // here
+                settings.initial_state = undefined;
             }
 
-            setTimeout(function()
+            if(options["autostart"])
             {
-                if(settings.initial_state)
-                {
-                    emulator.restore_state(settings.initial_state);
+                this.bus.send("cpu-run");
+            }
 
-                    // The GC can't free settings, since it is referenced from
-                    // several closures. This isn't needed anymore, so we delete it
-                    // here
-                    settings.initial_state = undefined;
-                }
-
-                if(options["autostart"])
-                {
-                    this.bus.send("cpu-run");
-                }
-
-                this.emulator_bus.send("emulator-loaded");
-            }.bind(this), 0);
-        }.bind(this), 0);
+            this.emulator_bus.send("emulator-loaded");
+        }
     }
+};
+
+V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
+{
+    const root = (filesystem.read_dir("/") || []).map(x => "/" + x);
+    const boot = (filesystem.read_dir("/boot/") || []).map(x => "/boot/" + x);
+
+    let initrd;
+    let bzimage;
+
+    for(let f of [].concat(root, boot))
+    {
+        const old = /old/.test(f) || /fallback/.test(f);
+        const is_bzimage = /vmlinuz/.test(f);
+        const is_initrd = /initrd/.test(f) || /initramfs/.test(f);
+
+        if(is_bzimage && (!bzimage || !old))
+        {
+            bzimage = f;
+        }
+
+        if(is_initrd && (!initrd || !old))
+        {
+            initrd = f;
+        }
+    }
+
+    if(!initrd || !bzimage)
+    {
+        console.log("Failed to find bzimage or initrd in filesystem. Files:");
+        console.log(root.join(" "));
+        console.log(boot.join(" "));
+    }
+
+    return { initrd, bzimage };
 };
 
 /**

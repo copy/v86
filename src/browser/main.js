@@ -289,12 +289,7 @@
                 id: "debian-boot",
                 name: "Debian",
                 memory_size: 512 * 1024 * 1024,
-                bzimage: {
-                    "url": "images/debian-9p-rootfs/vmlinuz",
-                },
-                initrd: {
-                    "url": "images/debian-9p-rootfs/initrd.img",
-                },
+                bzimage_initrd_from_filesystem: true,
                 cmdline: "rw init=/bin/systemd root=host9p console=ttyS0 spectre_v2=off pti=off",
                 vga_memory_size: 8 * 1024 * 1024,
                 filesystem: {
@@ -562,6 +557,7 @@
             settings.bzimage = infos.bzimage;
             settings.initrd = infos.initrd;
             settings.cmdline = infos.cmdline;
+            settings.bzimage_initrd_from_filesystem = infos.bzimage_initrd_from_filesystem;
 
             settings.memory_size = infos.memory_size;
             settings.vga_memory_size = infos.vga_memory_size;
@@ -787,6 +783,7 @@
             "bzimage": settings.bzimage,
             "initrd": settings.initrd,
             "cmdline": settings.cmdline,
+            "bzimage_initrd_from_filesystem": settings.bzimage_initrd_from_filesystem,
 
             "initial_state": settings.initial_state,
             "filesystem": settings.filesystem || {},
