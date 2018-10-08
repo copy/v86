@@ -9,7 +9,8 @@ const { spawn, spawnSync } = require("child_process");
 const DEBUG = process.env.DEBUG || false;
 // Maximum number of gdb processes to spawn in parallel
 const MAX_PARALLEL_PROCS = +process.env.MAX_PARALLEL_PROCS || 32;
-const SYNC_GDB_EXECUTION = process.env.SYNC_GDB_EXECUTION || false;
+// Default to true for now. It's slower, but async execution occasionally gets stuck
+const SYNC_GDB_EXECUTION = process.env.SYNC_GDB_EXECUTION || true;
 
 // Usage: console.log(CYAN_FMT, "This shows up in cyan!")
 const CYAN_FMT = "\x1b[36m%s\x1b[0m";
