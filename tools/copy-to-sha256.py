@@ -6,14 +6,18 @@ import stat
 import argparse
 import hashlib
 import shutil
+import tarfile
+
 
 def hash_file(filename):
-    h = hashlib.sha256()
     with open(filename, "rb", buffering=0) as f:
-        for b in iter(lambda: f.read(128 * 1024), b""):
-            h.update(b)
-    return h.hexdigest()
+        return hash_fileobj(f)
 
+def hash_fileobj(f):
+    h = hashlib.sha256()
+    for b in iter(lambda: f.read(128*1024), b""):
+        h.update(b)
+    return h.hexdigest()
 
 def main():
     logging.basicConfig(format="%(message)s")
@@ -30,6 +34,17 @@ def main():
     from_path = os.path.normpath(args.from_path)
     to_path = os.path.normpath(args.to_path)
 
+    try:
+        tar = tarfile.open(from_path, "r")
+    except IsADirectoryError:
+        tar = None
+
+    if tar:
+        handle_tar(logger, tar, to_path)
+    else:
+        handle_dir(logger, path, to_path)
+
+def handle_dir(logger, from_path, to_path):
     def onerror(oserror):
         logger.warning(oserror)
 
@@ -55,6 +70,23 @@ def main():
             else:
                 logger.info("cp {} {}".format(absname, to_abs))
                 shutil.copyfile(absname, to_abs)
+
+def handle_tar(logger, tar, to_path):
+    for member in tar.getmembers():
+        if member.isfile() or member.islnk():
+            f = tar.extractfile(member)
+            sha256 = hash_fileobj(f)
+
+            to_abs = os.path.join(to_path, sha256)
+
+            if os.path.exists(to_abs):
+                logger.info("Exists, skipped {}".format(to_abs))
+            else:
+                logger.info("Extracted {}".format(to_abs))
+                to_file = open(to_abs, "wb")
+                f.seek(0)
+                shutil.copyfileobj(f, to_file)
+
 
 if __name__ == "__main__":
     main()

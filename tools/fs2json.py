@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+# Note:
+# - Hardlinks are copied
+# - The size of symlinks and directories is meaningless, it depends on whatever
+#   the filesystem/tar file reports
+
 import argparse
 import json
 import os
@@ -8,6 +13,7 @@ import sys
 import itertools
 import logging
 import hashlib
+import tarfile
 
 VERSION = 3
 
@@ -26,12 +32,14 @@ IDX_SHA256 = 6
 
 
 def hash_file(filename):
-    h = hashlib.sha256()
     with open(filename, "rb", buffering=0) as f:
-        for b in iter(lambda : f.read(128*1024), b""):
-            h.update(b)
-    return h.hexdigest()
+        return hash_fileobj(f)
 
+def hash_fileobj(f):
+    h = hashlib.sha256()
+    for b in iter(lambda: f.read(128*1024), b""):
+        h.update(b)
+    return h.hexdigest()
 
 def main():
     logging.basicConfig(format="%(message)s")
@@ -53,14 +61,46 @@ def main():
                       help="File to write to (defaults to stdout)",
                       default=sys.stdout)
     args.add_argument("path",
-                      metavar="path",
-                      help="Base path to include in JSON")
+                      metavar="path-or-tar",
+                      help="Base path or tar file to include in JSON")
 
     args = args.parse_args()
 
     path = os.path.normpath(args.path)
+
+    try:
+        tar = tarfile.open(path, "r")
+    except IsADirectoryError:
+        tar = None
+
+    if tar:
+        (root, total_size) = handle_tar(logger, tar)
+    else:
+        (root, total_size) = handle_dir(logger, path, args.exclude)
+
+    if False:
+        # normalize the order of children, useful to debug differences between
+        # the tar and filesystem reader
+        def sort_children(children):
+            for c in children:
+                if isinstance(c[IDX_TARGET], list):
+                    sort_children(c[IDX_TARGET])
+            children.sort()
+
+        sort_children(root)
+
+    result = {
+        "fsroot": root,
+        "version": VERSION,
+        "size": total_size,
+    }
+
+    logger.info("Creating json ...")
+    json.dump(result, args.out, check_circular=False, separators=(',', ':'))
+
+def handle_dir(logger, path, exclude):
     path = path + "/"
-    exclude = args.exclude or []
+    exclude = exclude or []
     exclude = [os.path.join("/", os.path.normpath(p)) for p in exclude]
     exclude = set(exclude)
 
@@ -72,11 +112,7 @@ def main():
     prevpath = []
 
     mainroot = []
-    result = {
-        "fsroot": mainroot,
-        "version": VERSION,
-        "size": 0,
-    }
+    total_size = 0
     rootstack = [mainroot]
 
     def make_node(st, name):
@@ -90,7 +126,8 @@ def main():
         obj[IDX_UID] = st.st_uid
         obj[IDX_GID] = st.st_gid
 
-        result["size"] += st.st_size
+        nonlocal total_size
+        total_size += st.st_size
 
         # Missing:
         #     int(st.st_atime),
@@ -116,7 +153,7 @@ def main():
                 break
             depth += 1
 
-        for name in prevpath[depth:]:
+        for _name in prevpath[depth:]:
             rootstack.pop()
 
         oldroot = rootstack[-1]
@@ -162,9 +199,54 @@ def main():
 
         prevpath = pathparts
 
-    logger.info("Creating json ...")
+    return (mainroot, total_size)
 
-    json.dump(result, args.out, check_circular=False, separators=(',', ':'))
+def handle_tar(logger, tar):
+    mainroot = []
+    total_size = 0
+
+    for member in tar.getmembers():
+        parts = member.name.split("/")
+        name = parts.pop()
+
+        dir = mainroot
+
+        for p in parts:
+            for c in dir:
+                if c[IDX_NAME] == p:
+                    dir = c[IDX_TARGET]
+
+        obj = [None] * 7
+        obj[IDX_NAME] = name
+        obj[IDX_SIZE] = member.size
+        obj[IDX_MTIME] = member.mtime
+        obj[IDX_MODE] = member.mode
+        obj[IDX_UID] = member.uid
+        obj[IDX_GID] = member.gid
+
+        if member.isfile() or member.islnk():
+            f = tar.extractfile(member)
+            obj[IDX_SHA256] = hash_fileobj(f)
+            if member.islnk():
+                # fix size for hard links
+                f.seek(0, os.SEEK_END)
+                obj[IDX_SIZE] = int(f.tell())
+        elif member.isdir():
+            obj[IDX_TARGET] = []
+        elif member.issym():
+            obj[IDX_TARGET] = member.linkname
+        else:
+            logger.error("Unsupported type: {} ({})".format(member.type, name))
+
+        total_size += obj[IDX_SIZE]
+
+        while obj[-1] is None:
+            obj.pop()
+
+        dir.append(obj)
+
+    return mainroot, total_size
+
 
 if __name__ == "__main__":
     main()
