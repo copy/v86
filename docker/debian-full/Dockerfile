@@ -18,7 +18,11 @@ RUN apt-get update && \
         winbind cabextract \
         dhcpcd5 \
         wget curl \
+        net-tools netcat \
+        wmctrl xdotool \
+        mesa-utils libgl1-mesa-dri \
     && \
+    touch /root/.Xdefaults && \
     echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen \
     locale-gen \
     chsh -s /bin/bash && \
@@ -31,6 +35,7 @@ RUN apt-get update && \
     systemctl disable systemd-timesyncd.service && \
     systemctl disable apt-daily.timer && \
     systemctl disable apt-daily-upgrade.timer && \
+    systemctl disable dhcpcd.service && \
     echo "tmpfs /tmp tmpfs nodev,nosuid 0 0" >> /etc/fstab
 
 COPY getty-noclear.conf getty-override.conf /etc/systemd/system/getty@tty1.service.d/
