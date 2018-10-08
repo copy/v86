@@ -550,7 +550,14 @@ V86Starter.prototype.continue_init = function(emulator, options)
 
         if(settings.fs9p && settings.fs9p_json)
         {
-            settings.fs9p.OnJSONLoaded(settings.fs9p_json);
+            if(!settings.initial_state)
+            {
+                settings.fs9p.OnJSONLoaded(settings.fs9p_json);
+            }
+            else
+            {
+                dbg_log("Filesystem basefs ignored: Overridden by state image");
+            }
 
             if(options["bzimage_initrd_from_filesystem"])
             {
