@@ -552,7 +552,7 @@ V86Starter.prototype.continue_init = function(emulator, options)
         {
             if(!settings.initial_state)
             {
-                settings.fs9p.OnJSONLoaded(settings.fs9p_json);
+                settings.fs9p.load_from_json(settings.fs9p_json);
             }
             else
             {
@@ -1084,8 +1084,7 @@ V86Starter.prototype.mount_fs = function(path, baseurl, basefs, callback)
     if(baseurl)
     {
         dbg_assert(typeof basefs === "string", "Filesystem: basefs must be a JSON string");
-        newfs.OnJSONLoaded(basefs);
-        newfs.OnLoaded = mount;
+        newfs.load_from_json(basefs, () => mount());
     }
     else
     {

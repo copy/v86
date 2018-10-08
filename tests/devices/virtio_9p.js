@@ -1652,11 +1652,7 @@ function reload_fsjson()
     if(tests[test_num].use_fsjson)
     {
         console.log("    Reloading files from json");
-        emulator.fs9p.OnJSONLoaded(testfsjson);
-        emulator.fs9p.OnLoaded = () =>
-        {
-            do_mounts();
-        };
+        emulator.fs9p.load_from_json(testfsjson, () => do_mounts());
     }
     else
     {
