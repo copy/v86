@@ -1145,35 +1145,16 @@ V86Starter.prototype.read_file = function(file, callback)
         return;
     }
 
-    var path_infos = fs.SearchPath(file);
-    var id = path_infos.id;
-
-    if(id === -1)
-    {
-        callback(new FileNotFoundError(), null);
-    }
-    else
-    {
-        fs.OpenInode(id, undefined);
-        fs.AddEvent(
-            id,
-            function()
-            {
-                const size = fs.GetInode(id).size;
-                fs.Read(id, 0, size).then(data =>
-                {
-                    if(data)
-                    {
-                        callback(null, data);
-                    }
-                    else
-                    {
-                        callback(new FileNotFoundError(), null);
-                    }
-                });
-            }
-        );
-    }
+    fs.read_file(file).then((result) => {
+        if(result)
+        {
+            callback(null, result);
+        }
+        else
+        {
+            callback(new FileNotFoundError(), null);
+        }
+    });
 };
 
 /**
