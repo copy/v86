@@ -317,7 +317,7 @@ V86Starter.prototype.continue_init = function(emulator, options)
                 settings.initial_state = buffer.buffer;
                 break;
             case "fs9p_json":
-                settings.fs9p_json = buffer.buffer;
+                settings.fs9p_json = buffer;
                 break;
             default:
                 dbg_assert(false, name);
@@ -501,7 +501,7 @@ V86Starter.prototype.continue_init = function(emulator, options)
             v86util.load_file(f.url, {
                 done: function(result)
                 {
-                    put_on_settings.call(this, f.name, new SyncBuffer(result));
+                    put_on_settings.call(this, f.name, f.as_text ? result : new SyncBuffer(result));
                     cont(index + 1);
                 }.bind(this),
                 progress: function progress(e)

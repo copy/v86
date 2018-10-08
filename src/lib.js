@@ -114,6 +114,8 @@ else
  */
 function SyncBuffer(buffer)
 {
+    dbg_assert(buffer instanceof ArrayBuffer);
+
     this.buffer = buffer;
     this.byteLength = buffer.byteLength;
     this.onload = undefined;
