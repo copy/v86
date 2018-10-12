@@ -16,7 +16,7 @@ try
 }
 catch(e)
 {
-    console.error("Failed to import build/libv86.js. Run `make build/libv86.js first.");
+    console.error("Failed to import build/libv86-debug.js. Run `make build/libv86-debug.js first.");
     process.exit(1);
 }
 
