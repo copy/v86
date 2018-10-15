@@ -5,7 +5,7 @@ process.on("unhandledRejection", exn => { throw exn; });
 const V86 = require("../../build/libv86-debug.js").V86;
 const fs = require("fs");
 
-const testfsjson = JSON.stringify(require('./testfs.json'));
+const testfsjson = require("./testfs.json");
 const SHOW_LOGS = false;
 
 function log_pass(msg, ...args)

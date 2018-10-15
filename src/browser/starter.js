@@ -475,7 +475,7 @@ V86Starter.prototype.continue_init = function(emulator, options)
                 name: "fs9p_json",
                 url: fs_url,
                 size: size,
-                as_text: true,
+                as_json: true,
             });
         }
     }
@@ -507,7 +507,7 @@ V86Starter.prototype.continue_init = function(emulator, options)
             v86util.load_file(f.url, {
                 done: function(result)
                 {
-                    put_on_settings.call(this, f.name, f.as_text ? result : new SyncBuffer(result));
+                    put_on_settings.call(this, f.name, f.as_json ? result : new SyncBuffer(result));
                     cont(index + 1);
                 }.bind(this),
                 progress: function progress(e)
@@ -534,7 +534,7 @@ V86Starter.prototype.continue_init = function(emulator, options)
                         });
                     }
                 },
-                as_text: f.as_text,
+                as_json: f.as_json,
             });
         }
     }.bind(this);
@@ -1083,7 +1083,7 @@ V86Starter.prototype.mount_fs = function(path, baseurl, basefs, callback)
     };
     if(baseurl)
     {
-        dbg_assert(typeof basefs === "string", "Filesystem: basefs must be a JSON string");
+        dbg_assert(typeof basefs === "object", "Filesystem: basefs must be a JSON object");
         newfs.load_from_json(basefs, () => mount());
     }
     else

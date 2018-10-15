@@ -53,7 +53,15 @@ var ASYNC_SAFE = false;
 
         http.open(options.method || "get", filename, true);
 
-        if(!options.as_text)
+        if(options.as_text)
+        {
+            // the default
+        }
+        else if(options.as_json)
+        {
+            http.responseType = "json";
+        }
+        else
         {
             http.responseType = "arraybuffer";
         }
