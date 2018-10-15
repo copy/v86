@@ -27,19 +27,13 @@ var emulator = new V86({
     memory_size: 512 * 1024 * 1024,
     vga_memory_size: 8 * 1024 * 1024,
     network_relay_url: "<UNUSED>",
-    bzimage: {
-        url: path.join(V86_ROOT, "/images/debian-9p-rootfs/vmlinuz"),
-    },
-    initrd: {
-        url: path.join(V86_ROOT, "/images/debian-9p-rootfs/initrd.img"),
-    },
+    bzimage_initrd_from_filesystem: true,
     cmdline: "rw init=/bin/systemd root=host9p console=ttyS0 spectre_v2=off pti=off",
     filesystem: {
         basefs: {
             url: path.join(V86_ROOT, "/images/debian-base-fs.json"),
         },
         baseurl: path.join(V86_ROOT, "/images/debian-9p-rootfs-flat/"),
-        //baseurl: path.join(V86_ROOT, "/images/debian-9p-rootfs/"),
     },
     screen_dummy: true,
 });
