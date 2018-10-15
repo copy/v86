@@ -16,6 +16,7 @@ docker export "$CONTAINER_NAME" > "$OUT_ROOTFS_TAR"
 $(dirname "$0")/../../tools/fs2json.py --out "$OUT_FSJSON" "$OUT_ROOTFS_TAR"
 
 # Note: Not deleting old files here
+mkdir -p "$OUT_ROOTFS_FLAT"
 $(dirname "$0")/../../tools/copy-to-sha256.py "$OUT_ROOTFS_TAR" "$OUT_ROOTFS_FLAT"
 
 echo "$OUT_ROOTFS_TAR", "$OUT_ROOTFS_FLAT" and "$OUT_FSJSON" created.
