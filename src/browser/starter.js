@@ -621,9 +621,9 @@ V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
 
     for(let f of [].concat(root, boot))
     {
-        const old = /old/.test(f) || /fallback/.test(f);
-        const is_bzimage = /vmlinuz/.test(f);
-        const is_initrd = /initrd/.test(f) || /initramfs/.test(f);
+        const old = /old/i.test(f) || /fallback/i.test(f);
+        const is_bzimage = /vmlinuz/i.test(f) || /bzimage/i.test(f);
+        const is_initrd = /initrd/i.test(f) || /initramfs/i.test(f);
 
         if(is_bzimage && (!bzimage || !old))
         {
