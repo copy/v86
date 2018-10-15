@@ -82,6 +82,7 @@ emulator.add_listener("serial0-output-char", function(c)
                                 if(e) throw e;
                                 console.error("Saved as " + OUTPUT_FILE);
                                 emulator.stop();
+                                setTimeout(() => process.exit(0), 5000);
                             });
                     });
             }, 5000);
