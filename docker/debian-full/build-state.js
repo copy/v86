@@ -6,7 +6,7 @@ const path = require("path");
 // TODO:
 // - Timeout
 
-console.log("Don't forget to run make build/libv86.js before running this script");
+console.log("Don't forget to run `make all` before running this script");
 
 var fs = require("fs");
 var V86 = require("./../../build/libv86.js").V86;
