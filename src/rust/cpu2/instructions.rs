@@ -16,10 +16,6 @@ extern "C" {
     fn far_jump(eip: i32, selector: i32, is_call: bool);
     #[no_mangle]
     fn far_return(eip: i32, selector: i32, stack_adjust: i32);
-    #[no_mangle]
-    fn iret16();
-    #[no_mangle]
-    fn iret32();
 
     #[no_mangle]
     fn hlt_op();

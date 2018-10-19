@@ -407,6 +407,273 @@ pub unsafe fn get_tss_stack_addr(dpl: u8) -> OrPageFault<u32> {
     Ok(translate_address_system_read(tss_stack_addr as i32)?)
 }
 
+pub unsafe fn iret16() { iret(true); }
+pub unsafe fn iret32() { iret(false); }
+
+pub unsafe fn iret(is_16: bool) {
+    if vm86_mode() && getiopl() < 3 {
+        // vm86 mode, iopl != 3
+        dbg_log!("#gp iret vm86 mode, iopl != 3");
+        trigger_gp_non_raising(0);
+        return;
+    }
+
+    let (new_eip, new_cs, mut new_flags) = if is_16 {
+        (
+            return_on_pagefault!(safe_read16(get_stack_pointer(0))),
+            return_on_pagefault!(safe_read16(get_stack_pointer(2))),
+            return_on_pagefault!(safe_read16(get_stack_pointer(4))),
+        )
+    }
+    else {
+        (
+            return_on_pagefault!(safe_read32s(get_stack_pointer(0))),
+            return_on_pagefault!(safe_read16(get_stack_pointer(4))),
+            return_on_pagefault!(safe_read32s(get_stack_pointer(8))),
+        )
+    };
+
+    if !*protected_mode || (vm86_mode() && getiopl() == 3) {
+        if new_eip as u32 & 0xFFFF0000 != 0 {
+            panic!("#GP handler");
+        }
+
+        switch_cs_real_mode(new_cs);
+        *instruction_pointer = get_seg(CS) + new_eip;
+
+        if is_16 {
+            update_eflags(new_flags | *flags & !0xFFFF);
+            adjust_stack_reg(3 * 2);
+        }
+        else {
+            update_eflags(new_flags);
+            adjust_stack_reg(3 * 4);
+        }
+
+        handle_irqs();
+        return;
+    }
+
+    dbg_assert!(!vm86_mode());
+
+    if *flags & FLAG_NT != 0 {
+        if DEBUG {
+            panic!("NT");
+        }
+        trigger_gp_non_raising(0);
+        return;
+    }
+
+    if new_flags & FLAG_VM != 0 {
+        if *cpl == 0 {
+            // return to virtual 8086 mode
+
+            // vm86 cannot be set in 16 bit flag
+            dbg_assert!(!is_16);
+
+            dbg_assert!((new_eip & !0xFFFF) == 0);
+
+            let temp_esp = return_on_pagefault!(safe_read32s(get_stack_pointer(12)));
+            let temp_ss = return_on_pagefault!(safe_read16(get_stack_pointer(16)));
+
+            let new_es = return_on_pagefault!(safe_read16(get_stack_pointer(20)));
+            let new_ds = return_on_pagefault!(safe_read16(get_stack_pointer(24)));
+            let new_fs = return_on_pagefault!(safe_read16(get_stack_pointer(28)));
+            let new_gs = return_on_pagefault!(safe_read16(get_stack_pointer(32)));
+
+            // no exceptions below
+
+            update_eflags(new_flags);
+            *flags |= FLAG_VM;
+
+            switch_cs_real_mode(new_cs);
+            *instruction_pointer = get_seg(CS) + (new_eip & 0xFFFF);
+
+            if !switch_seg(ES, new_es)
+                || !switch_seg(DS, new_ds)
+                || !switch_seg(FS, new_fs)
+                || !switch_seg(GS, new_gs)
+            {
+                // XXX: Should be checked before side effects
+                dbg_assert!(false);
+            }
+
+            adjust_stack_reg(9 * 4); // 9 dwords: eip, cs, flags, esp, ss, es, ds, fs, gs
+
+            *reg32s.offset(ESP as isize) = temp_esp;
+            if !switch_seg(SS, temp_ss) {
+                // XXX
+                dbg_assert!(false);
+            }
+
+            *cpl = 3;
+            cpl_changed();
+
+            update_cs_size(false);
+
+            // iret end
+            return;
+        }
+        else {
+            dbg_log!("vm86 flag ignored because cpl != 0");
+            new_flags &= !FLAG_VM;
+        }
+    }
+
+    // protected mode return
+
+    let (cs_descriptor, cs_selector) = match return_on_pagefault!(lookup_segment_selector(new_cs)) {
+        Ok((desc, sel)) => (desc, sel),
+        Err(selector_unusable) => match selector_unusable {
+            SelectorNullOrInvalid::IsNull => {
+                panic!("Unimplemented: CS selector is null");
+            },
+            SelectorNullOrInvalid::IsInvalid => {
+                panic!("Unimplemented: CS selector is invalid");
+            },
+        },
+    };
+
+    dbg_assert!(new_eip as u32 <= cs_descriptor.effective_limit());
+
+    if !cs_descriptor.is_present() {
+        panic!("not present");
+    }
+    if !cs_descriptor.is_executable() {
+        panic!("not exec");
+    }
+    if cs_selector.rpl() < *cpl {
+        panic!("rpl < cpl");
+    }
+    if cs_descriptor.is_dc() && cs_descriptor.dpl() > cs_selector.rpl() {
+        panic!("conforming and dpl > rpl");
+    }
+
+    if !cs_descriptor.is_dc() && cs_selector.rpl() != cs_descriptor.dpl() {
+        dbg_log!(
+            "#gp iret: non-conforming cs and rpl != dpl, dpl={} rpl={}",
+            cs_descriptor.dpl(),
+            cs_selector.rpl()
+        );
+        trigger_gp_non_raising(new_cs & !3);
+        return;
+    }
+
+    if cs_selector.rpl() > *cpl {
+        // outer privilege return
+        let (temp_esp, temp_ss) = if is_16 {
+            (
+                return_on_pagefault!(safe_read16(get_stack_pointer(6))),
+                return_on_pagefault!(safe_read16(get_stack_pointer(8))),
+            )
+        }
+        else {
+            (
+                return_on_pagefault!(safe_read32s(get_stack_pointer(12))),
+                return_on_pagefault!(safe_read16(get_stack_pointer(16))),
+            )
+        };
+
+        let (ss_descriptor, ss_selector) =
+            match return_on_pagefault!(lookup_segment_selector(temp_ss)) {
+                Ok((desc, sel)) => (desc, sel),
+                Err(selector_unusable) => match selector_unusable {
+                    SelectorNullOrInvalid::IsNull => {
+                        dbg_log!("#GP for loading 0 in SS sel={:x}", temp_ss);
+                        dbg_trace();
+                        trigger_gp_non_raising(0);
+                        return;
+                    },
+                    SelectorNullOrInvalid::IsInvalid => {
+                        dbg_log!("#GP for loading invalid in SS sel={:x}", temp_ss);
+                        trigger_gp_non_raising(temp_ss & !3);
+                        return;
+                    },
+                },
+            };
+        let new_cpl = cs_selector.rpl();
+
+        if ss_descriptor.is_system()
+            || ss_selector.rpl() != new_cpl
+            || !ss_descriptor.is_writable()
+            || ss_descriptor.dpl() != new_cpl
+        {
+            dbg_log!("#GP for loading invalid in SS sel={:x}", temp_ss);
+            dbg_trace();
+            trigger_gp_non_raising(temp_ss & !3);
+            return;
+        }
+
+        if !ss_descriptor.is_present() {
+            dbg_log!("#SS for loading non-present in SS sel={:x}", temp_ss);
+            dbg_trace();
+            trigger_ss(temp_ss & !3);
+            return;
+        }
+
+        // no exceptions below
+
+        if is_16 {
+            update_eflags(new_flags | *flags & !0xFFFF);
+        }
+        else {
+            update_eflags(new_flags);
+        }
+
+        *cpl = cs_selector.rpl();
+        cpl_changed();
+
+        if !switch_seg(SS, temp_ss) {
+            // XXX
+            dbg_assert!(false);
+        }
+
+        set_stack_reg(temp_esp);
+
+        if *cpl == 0 {
+            *flags = *flags & !FLAG_VIF & !FLAG_VIP | (new_flags & (FLAG_VIF | FLAG_VIP));
+        }
+
+    // XXX: Set segment to 0 if it's not usable in the new cpl
+    // XXX: Use cached segment information
+    // ...
+    }
+    else if cs_selector.rpl() == *cpl {
+        // same privilege return
+        // no exceptions below
+        if is_16 {
+            adjust_stack_reg(3 * 2);
+            update_eflags(new_flags | *flags & !0xFFFF);
+        }
+        else {
+            adjust_stack_reg(3 * 4);
+            update_eflags(new_flags);
+        }
+
+        // update vip and vif, which are not changed by update_eflags
+        if *cpl == 0 {
+            *flags = *flags & !FLAG_VIF & !FLAG_VIP | (new_flags & (FLAG_VIF | FLAG_VIP));
+        }
+    }
+    else {
+        dbg_assert!(false);
+    }
+
+    *sreg.offset(CS as isize) = new_cs as u16;
+    dbg_assert!((new_cs & 3) == *cpl as i32);
+
+    update_cs_size(cs_descriptor.is_32());
+
+    *segment_limits.offset(CS as isize) = cs_descriptor.effective_limit();
+    *segment_offsets.offset(CS as isize) = cs_descriptor.base();
+
+    *instruction_pointer = new_eip + get_seg(CS);
+
+    // iret end
+
+    handle_irqs();
+}
+
 pub unsafe fn call_interrupt_vector(
     interrupt_nr: i32,
     is_software_int: bool,
