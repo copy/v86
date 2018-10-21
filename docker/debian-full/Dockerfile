@@ -46,6 +46,7 @@ COPY logind.conf /etc/systemd/logind.conf
 #COPY xinitrc /root/.xinitrc
 COPY xorg.conf /etc/X11/
 COPY fluxbox /root/.fluxbox
+COPY networking.sh /root/
 
 COPY boot-9p /etc/initramfs-tools/scripts/boot-9p
 
