@@ -446,7 +446,12 @@ pub unsafe fn iret(is_16: bool) {
             adjust_stack_reg(3 * 2);
         }
         else {
-            update_eflags(new_flags);
+            if !*protected_mode {
+                update_eflags((new_flags & 0x257FD5) | (*flags & 0x1A0000));
+            }
+            else {
+                update_eflags(new_flags);
+            }
             adjust_stack_reg(3 * 4);
         }
 
@@ -630,7 +635,7 @@ pub unsafe fn iret(is_16: bool) {
 
         set_stack_reg(temp_esp);
 
-        if *cpl == 0 {
+        if *cpl == 0 && !is_16 {
             *flags = *flags & !FLAG_VIF & !FLAG_VIP | (new_flags & (FLAG_VIF | FLAG_VIP));
         }
 
@@ -651,7 +656,7 @@ pub unsafe fn iret(is_16: bool) {
         }
 
         // update vip and vif, which are not changed by update_eflags
-        if *cpl == 0 {
+        if *cpl == 0 && !is_16 {
             *flags = *flags & !FLAG_VIF & !FLAG_VIP | (new_flags & (FLAG_VIF | FLAG_VIP));
         }
     }
