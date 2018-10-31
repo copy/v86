@@ -336,3 +336,45 @@ CircularQueue.prototype.set = function(new_data)
     this.data = new_data;
     this.index = 0;
 };
+
+/**
+ * A simple 1d bitmap
+ */
+v86util.Bitmap = function(length_or_buffer)
+{
+    if(typeof length_or_buffer === "number")
+    {
+        this.view = new Uint8Array(length_or_buffer + 7 >> 3);
+    }
+    else if(length_or_buffer instanceof ArrayBuffer)
+    {
+        this.view = new Uint8Array(length_or_buffer);
+    }
+    else
+    {
+        console.assert(false);
+    }
+};
+
+v86util.Bitmap.prototype.set = function(index, value)
+{
+    const bit_index = index & 7;
+    const byte_index = index >> 3;
+    const bit_mask = 1 << bit_index;
+
+    this.view[byte_index] =
+        value ? this.view[byte_index] | bit_mask : this.view[byte_index] & ~bit_mask;
+};
+
+v86util.Bitmap.prototype.get = function(index)
+{
+    const bit_index = index & 7;
+    const byte_index = index >> 3;
+
+    return this.view[byte_index] >> bit_index & 1;
+};
+
+v86util.Bitmap.prototype.get_buffer = function()
+{
+    return this.view.buffer;
+};

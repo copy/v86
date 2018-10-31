@@ -419,7 +419,6 @@ CPU.prototype.get_state = function()
     state[39] = this.reg32s;
     state[40] = this.sreg;
     state[41] = this.dreg;
-    state[42] = this.mem8;
 
     this.store_current_tsc();
     state[43] = this.current_tsc;
@@ -463,12 +462,22 @@ CPU.prototype.get_state = function()
 
     state[76] = this.fxsave_store_fpu_mask;
 
+    const { packed_memory, bitmap } = this.pack_memory();
+    state[77] = packed_memory;
+    state[78] = new Uint8Array(bitmap.get_buffer());
+
     return state;
 };
 
 CPU.prototype.set_state = function(state)
 {
     this.memory_size[0] = state[0];
+
+    if(this.mem8.length !== this.memory_size[0])
+    {
+        console.warn("Note: Memory size mismatch. we=" + this.mem8.length + " state=" + this.memory_size[0]);
+    }
+
     this.segment_is_null.set(state[1]);
     this.segment_offsets.set(state[2]);
     this.segment_limits.set(state[3]);
@@ -507,12 +516,6 @@ CPU.prototype.set_state = function(state)
     this.reg32s.set(state[39]);
     this.sreg.set(state[40]);
     this.dreg.set(state[41]);
-
-    if(this.mem8.length !== state[42].length)
-    {
-        console.warn("Note: Memory size mismatch. we=" + this.mem8.length + " state=" + state[42].length);
-    }
-    this.mem8.set(state[42]);
 
     this.set_tsc(state[43][0], state[43][1]);
 
@@ -555,11 +558,77 @@ CPU.prototype.set_state = function(state)
 
     this.fxsave_store_fpu_mask = state[76];
 
+    const bitmap = new v86util.Bitmap(state[78].buffer);
+    const packed_memory = state[77];
+    this.unpack_memory(bitmap, packed_memory);
+
     this.full_clear_tlb();
 
     this.update_operand_size();
 };
 
+CPU.prototype.pack_memory = function()
+{
+    dbg_assert((this.mem8.length & 0xFFF) === 0);
+
+    const page_count = this.mem8.length >> 12;
+    const nonzero_pages = [];
+
+    for(let page = 0; page < page_count; page++)
+    {
+        const offset = page << 12;
+        const view = this.mem32s.subarray(offset >> 2, offset + 0x1000 >> 2);
+        let is_zero = true;
+
+        for(let i = 0; i < view.length; i++)
+        {
+            if(view[i] !== 0)
+            {
+                is_zero = false;
+                break;
+            }
+        }
+
+        if(!is_zero)
+        {
+            nonzero_pages.push(page);
+        }
+    }
+
+    const bitmap = new v86util.Bitmap(page_count);
+    const packed_memory = new Uint8Array(nonzero_pages.length << 12);
+
+    for(let [i, page] of nonzero_pages.entries())
+    {
+        bitmap.set(page, 1);
+
+        const offset = page << 12;
+        const page_contents = this.mem8.subarray(offset, offset + 0x1000);
+        packed_memory.set(page_contents, i << 12);
+    }
+
+    return { bitmap, packed_memory };
+};
+
+CPU.prototype.unpack_memory = function(bitmap, packed_memory)
+{
+    // TODO: Skip zeroing memory if the memory has just been allocated
+    this.mem8.fill(0);
+
+    const page_count = this.memory_size[0] >> 12;
+    let packed_page = 0;
+
+    for(let page = 0; page < page_count; page++)
+    {
+        if(bitmap.get(page))
+        {
+            let offset = packed_page << 12;
+            let view = packed_memory.subarray(offset, offset + 0x1000);
+            this.mem8.set(view, page << 12);
+            packed_page++;
+        }
+    }
+};
 
 /**
  * @return {number} time in ms until this method should becalled again
