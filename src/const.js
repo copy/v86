@@ -346,17 +346,6 @@ var PREFIX_66 = PREFIX_MASK_OPSIZE; // alias
 /** @const */
 var MXCSR_MASK = (0xFFFF & ~(1 << 6));
 
-/** @const */
-const P_IDLE = 0;
-/** @const */
-const P_DO_MANY_CYCLES = 1;
-/** @const */
-const P_GEN_INSTR = 2;
-/** @const */
-const P_RUN_FROM_CACHE = 3;
-/** @const */
-const P_RUN_INTERPRETED = 4;
-
 
 /** @const */
 var WASM_TABLE_SIZE = 0x10000;
