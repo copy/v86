@@ -19,6 +19,7 @@ var SCREEN_FILE = "/tmp/screen_debian_full.txt";
 process.stdin.setRawMode(true);
 process.stdin.resume();
 process.stdin.setEncoding("utf8");
+process.stdin.on("data", handle_key);
 
 var emulator = new V86({
     bios: { url: path.join(V86_ROOT, "/bios/seabios.bin") },
@@ -42,19 +43,6 @@ console.log("Now booting, please stand by ...");
 
 var boot_start = Date.now();
 var serial_text = "";
-
-process.stdin.on("data", function(c)
-{
-    if(c === "\u0003")
-    {
-        // ctrl c
-        process.exit();
-    }
-    else
-    {
-        emulator.serial0_send(c);
-    }
-});
 
 emulator.add_listener("serial0-output-char", function(c)
 {
@@ -81,18 +69,28 @@ emulator.add_listener("serial0-output-char", function(c)
                             {
                                 if(e) throw e;
                                 console.error("Saved as " + OUTPUT_FILE);
-                                emulator.stop();
-                                setTimeout(() => process.exit(0), 5000);
+                                stop();
                             });
                     });
             }, 5000);
     }
 });
 
-//function save_screen()
-//{
-//    var screen = emulator.screen_adapter.get_text_screen();
-//    fs.writeFile(SCREEN_FILE, screen.join("\n"), function(e) { if(e) throw e; });
-//}
-//
-//setInterval(save_screen, 1000);
+function handle_key(c)
+{
+    if(c === "\u0003")
+    {
+        // ctrl c
+        stop();
+    }
+    else
+    {
+        emulator.serial0_send(c);
+    }
+}
+
+function stop()
+{
+    emulator.stop();
+    process.stdin.pause();
+}
