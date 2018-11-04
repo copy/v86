@@ -927,6 +927,7 @@ const tests =
     {
         name: "Report All Security Capabilities",
         timeout: 60,
+        allow_failure: true,
         start: () =>
         {
             emulator.serial0_send("touch /mnt/file\n");
