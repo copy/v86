@@ -21,13 +21,11 @@ function CPU(bus, wm, v86oxide, coverage_logger)
 
     const memory = v86oxide.instance.exports.memory;
 
-    if(false) Object.defineProperty(this, "memory_size", { get: () => { return new Uint32Array(memory.buffer, 812, 1); } });
     this.memory_size = v86util.view(Uint32Array, memory, 812, 1);
 
     // Note: Currently unused (degrades performance and not required by any OS
     //       that we support)
     this.a20_enabled = v86util.view(Int32Array, memory, 552, 1);
-    if(false) Object.defineProperty(this, "a20_enabled", { get: () => { return new Int32Array(memory.buffer, 552, 1); } });
     this.a20_enabled[0] = +true;
 
     this.mem8 = new Uint8Array(0);
@@ -35,24 +33,16 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     this.mem32s = new Int32Array(this.mem8.buffer);
 
     this.segment_is_null = v86util.view(Uint8Array, memory, 724, 8);
-    if(false) Object.defineProperty(this, "segment_is_null", { get: () => { return new Uint8Array(memory.buffer, 724, 8); } });
-
     this.segment_offsets = v86util.view(Int32Array, memory, 736, 8);
-    if(false) Object.defineProperty(this, "segment_offsets", { get: () => { return new Int32Array(memory.buffer, 736, 8); } });
-
     this.segment_limits = v86util.view(Uint32Array, memory, 768, 8);
-    if(false) Object.defineProperty(this, "segment_limits", { get: () => { return new Uint32Array(memory.buffer, 768, 8); } });
 
     /**
      * Wheter or not in protected mode
      */
     this.protected_mode = v86util.view(Int32Array, memory, 800, 1);
-    if(false) Object.defineProperty(this, "protected_mode", { get: () => { return new Int32Array(memory.buffer, 800, 1); } });
 
     this.idtr_size = v86util.view(Int32Array, memory, 564, 1);
     this.idtr_offset = v86util.view(Int32Array, memory, 568, 1);
-    if(false) Object.defineProperty(this, "idtr_size", { get: () => { return new Int32Array(memory.buffer, 564, 1); } });
-    if(false) Object.defineProperty(this, "idtr_offset", { get: () => { return new Int32Array(memory.buffer, 568, 1); } });
 
     /**
      * global descriptor table register
@@ -60,19 +50,14 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     this.gdtr_size = v86util.view(Int32Array, memory, 572, 1);
     this.gdtr_offset = v86util.view(Int32Array, memory, 576, 1);
 
-    if(false) Object.defineProperty(this, "gdtr_size", { get: () => { return new Int32Array(memory.buffer, 572, 1); } });
-    if(false) Object.defineProperty(this, "gdtr_offset", { get: () => { return new Int32Array(memory.buffer, 576, 1); } });
-
     this.tss_size_32 = v86util.view(Int32Array, memory, 1128, 1);
 
     /*
      * whether or not a page fault occured
      */
     this.page_fault = v86util.view(Uint32Array, memory, 540, 8);
-    if(false) Object.defineProperty(this, "page_fault", { get: () => { return new Uint32Array(memory.buffer, 540, 8); } });
 
     this.cr = v86util.view(Int32Array, memory, 580, 8);
-    if(false) Object.defineProperty(this, "cr", { get: () => { return new Int32Array(memory.buffer, 580, 8); } });
 
     /** @type {number} */
     this.cr[0] = 0;
@@ -85,27 +70,21 @@ function CPU(bus, wm, v86oxide, coverage_logger)
 
     // current privilege level
     this.cpl = v86util.view(Int32Array, memory, 612, 1);
-    if(false) Object.defineProperty(this, "cpl", { get: () => { return new Int32Array(memory.buffer, 612, 1); } });
 
     // current operand/address size
     this.is_32 = v86util.view(Int32Array, memory, 804, 1);
-    if(false) Object.defineProperty(this, "is_32", { get: () => { return new Int32Array(memory.buffer, 804, 1); } });
 
     this.stack_size_32 = v86util.view(Int32Array, memory, 808, 1);
-    if(false) Object.defineProperty(this, "stack_size_32", { get: () => { return new Int32Array(memory.buffer, 808, 1); } });
 
     /**
      * Was the last instruction a hlt?
      */
     this.in_hlt = v86util.view(Uint8Array, memory, 616, 1);
-    if(false) Object.defineProperty(this, "in_hlt", { get: () => { return new Uint8Array(memory.buffer, 616, 1); } });
 
     this.last_virt_eip = v86util.view(Int32Array, memory, 620, 1);
-
     this.eip_phys = v86util.view(Int32Array, memory, 624, 1);
 
     this.last_virt_esp = v86util.view(Int32Array, memory, 628, 1);
-
     this.esp_phys = v86util.view(Int32Array, memory, 632, 1);
 
 
@@ -116,33 +95,24 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     this.sysenter_eip = v86util.view(Int32Array, memory, 644, 1);
 
     this.prefixes = v86util.view(Int32Array, memory, 648, 1);
-    if(false) Object.defineProperty(this, "prefixes", { get: () => { return new Int32Array(memory.buffer, 648, 1); } });
 
     this.flags = v86util.view(Int32Array, memory, 536, 1);
-    if(false) Object.defineProperty(this, "flags", { get: () => { return new Int32Array(memory.buffer, 536, 1); } });
 
     /**
      * bitmap of flags which are not updated in the flags variable
      * changed by arithmetic instructions, so only relevant to arithmetic flags
      */
     this.flags_changed = v86util.view(Int32Array, memory, 532, 1);
-    if(false) Object.defineProperty(this, "flags_changed", { get: () => { return new Int32Array(memory.buffer, 532, 1); } });
 
     /**
      * the last 2 operators and the result and size of the last arithmetic operation
      */
     this.last_op1 = v86util.view(Int32Array, memory, 512, 1);
-    if(false) Object.defineProperty(this, "last_op1", { get: () => { return new Int32Array(memory.buffer, 512, 1); } });
     this.last_op2 = v86util.view(Int32Array, memory, 516, 1);
-    if(false) Object.defineProperty(this, "last_op2", { get: () => { return new Int32Array(memory.buffer, 516, 1); } });
     this.last_op_size = v86util.view(Int32Array, memory, 520, 1);
-    if(false) Object.defineProperty(this, "last_op_size", { get: () => { return new Int32Array(memory.buffer, 520, 1); } });
 
     this.last_add_result = v86util.view(Int32Array, memory, 524, 1);
-    if(false) Object.defineProperty(this, "last_add_result", { get: () => { return new Int32Array(memory.buffer, 524, 1); } });
-
     this.last_result = v86util.view(Int32Array, memory, 528, 1);
-    if(false) Object.defineProperty(this, "last_result", { get: () => { return new Int32Array(memory.buffer, 528, 1); } });
 
     this.current_tsc = v86util.view(Uint32Array, memory, 956, 2); // 64 bit
 
@@ -150,10 +120,7 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     this.devices = {};
 
     this.instruction_pointer = v86util.view(Int32Array, memory, 556, 1);
-    if(false) Object.defineProperty(this, "instruction_pointer", { get: () => { return new Int32Array(memory.buffer, 556, 1); } });
-
     this.previous_ip = v86util.view(Int32Array, memory, 560, 1);
-    if(false) Object.defineProperty(this, "previous_ip", { get: () => { return new Int32Array(memory.buffer, 560, 1); } });
 
     this.apic_enabled = true;
 
@@ -172,7 +139,6 @@ function CPU(bus, wm, v86oxide, coverage_logger)
         vga: null,
     };
 
-    if(false) Object.defineProperty(this, "timestamp_counter", { get: () => { return new Int32Array(memory.buffer, 664, 1); } });
     this.timestamp_counter = v86util.view(Uint32Array, memory, 664, 1);
 
     // registers
@@ -182,12 +148,6 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     this.reg16 = v86util.view(Uint16Array, memory, 4, 16);
     this.reg8s = v86util.view(Int8Array, memory, 4, 32);
     this.reg8 = v86util.view(Uint8Array, memory, 4, 32);
-    if(false) Object.defineProperty(this, "reg32s", { get: () => { return new Int32Array(memory.buffer, 4, 8); } });
-    if(false) Object.defineProperty(this, "reg32", { get: () => { return new Uint32Array(memory.buffer, 4, 8); } });
-    if(false) Object.defineProperty(this, "reg16s", { get: () => { return new Int16Array(memory.buffer, 4, 16); } });
-    if(false) Object.defineProperty(this, "reg16", { get: () => { return new Uint16Array(memory.buffer, 4, 16); } });
-    if(false) Object.defineProperty(this, "reg8s", { get: () => { return new Int8Array(memory.buffer, 4, 32); } });
-    if(false) Object.defineProperty(this, "reg8", { get: () => { return new Uint8Array(memory.buffer, 4, 32); } });
 
     // Why no Float80Array :-(
     this.fpu_st = v86util.view(Float64Array, memory, 968, 8);
@@ -226,7 +186,6 @@ function CPU(bus, wm, v86oxide, coverage_logger)
 
     // segment registers, tr and ldtr
     this.sreg = v86util.view(Uint16Array, memory, 668, 8);
-    if(false) Object.defineProperty(this, "sreg", { get: () => { return new Uint16Array(memory.buffer, 668, 8); } });
 
     // debug registers
     this.dreg = v86util.view(Int32Array, memory, 684, 8);
@@ -1412,7 +1371,6 @@ var seen_code_uncompiled = {};
 CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_opcode, state_flags)
 {
     dbg_assert(wasm_table_index >= 0 && wasm_table_index < WASM_TABLE_SIZE);
-    //dbg_log("finalize");
     const code = this.wasmgen_get_module_code();
 
     if(DEBUG)
@@ -1421,7 +1379,9 @@ CPU.prototype.codegen_finalize = function(wasm_table_index, start, end, first_op
         {
             this.debug.dump_wasm(code);
 
-            if(false)
+            const DUMP_ASSEMBLY = false;
+
+            if(DUMP_ASSEMBLY)
             {
                 if((start ^ end) & ~0xFFF)
                 {
