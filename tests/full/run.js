@@ -229,6 +229,21 @@ if(cluster.isMaster)
             expect_mouse_registered: true,
         },
         {
+            name: "Linux 4 with bzImage from filesystem",
+            bzimage_initrd_from_filesystem: true,
+            filesystem: {
+                basefs: "./images/integration-test-fs/fs.json",
+                baseurl: "./images/integration-test-fs/flat/",
+            },
+            cmdline: "auto",
+            timeout: 200,
+            expected_texts: [
+                "~%",
+                "Files send via emulator appear in",
+            ],
+            expect_mouse_registered: true,
+        },
+        {
             name: "OpenBSD",
             fda: root_path + "/images/openbsd.img",
             timeout: 180,
@@ -461,7 +476,7 @@ function run_test(test, done)
 {
     console.log("Starting test: %s", test.name);
 
-    let image = test.fda || test.hda || test.cdrom || test.bzimage;
+    let image = test.fda || test.hda || test.cdrom || test.bzimage || test.filesystem.basefs;
     console.assert(image, "Bootable drive expected");
 
     if(!fs.existsSync(image))
@@ -518,13 +533,18 @@ function run_test(test, done)
     }
     if(test.hda)
     {
-        settings.hda = { url: test.hda, async: true, };
+        settings.hda = { url: test.hda, async: true };
     }
     if(test.bzimage)
     {
-        settings.bzimage = { url: test.bzimage, async: true, };
+        settings.bzimage = { url: test.bzimage };
+    }
+    if(test.filesystem)
+    {
+        settings.filesystem = test.filesystem;
     }
     settings.cmdline = test.cmdline;
+    settings.bzimage_initrd_from_filesystem = test.bzimage_initrd_from_filesystem;
 
     if(test.expected_texts)
     {
