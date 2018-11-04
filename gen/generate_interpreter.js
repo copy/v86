@@ -210,7 +210,7 @@ function gen_instruction_body_after_prefix(encodings, size)
 
                 default_case: {
                     body: [
-                        "assert!(false);",
+                        `if DEBUG { panic!("Bad instruction at {:x}", *instruction_pointer); }`,
                         "trigger_ud();",
                     ],
                 }
