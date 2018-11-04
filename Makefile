@@ -275,6 +275,7 @@ rust-test-intensive:
 	QUICKCHECK_TESTS=100000000 make rust-test
 
 api-tests: all-debug
+	./tests/api/clean-shutdown.js
 	./tests/api/state.js
 
 covreport:
