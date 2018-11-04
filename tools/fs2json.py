@@ -30,6 +30,9 @@ IDX_GID = 5
 IDX_TARGET = 6
 IDX_SHA256 = 6
 
+S_IFLNK = 0xA000
+S_IFREG = 0x8000
+S_IFDIR = 0x4000
 
 def hash_file(filename):
     with open(filename, "rb", buffering=0) as f:
@@ -225,6 +228,7 @@ def handle_tar(logger, tar):
         obj[IDX_GID] = member.gid
 
         if member.isfile() or member.islnk():
+            obj[IDX_MODE] |= S_IFREG
             f = tar.extractfile(member)
             obj[IDX_SHA256] = hash_fileobj(f)
             if member.islnk():
@@ -232,8 +236,10 @@ def handle_tar(logger, tar):
                 f.seek(0, os.SEEK_END)
                 obj[IDX_SIZE] = int(f.tell())
         elif member.isdir():
+            obj[IDX_MODE] |= S_IFDIR
             obj[IDX_TARGET] = []
         elif member.issym():
+            obj[IDX_MODE] |= S_IFLNK
             obj[IDX_TARGET] = member.linkname
         else:
             logger.error("Unsupported type: {} ({})".format(member.type, name))
