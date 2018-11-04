@@ -1190,7 +1190,8 @@ VirtQueue.prototype.flush_replies = function()
             has_passed = used_event < new_idx || old_idx <= used_event;
         }
 
-        if(has_passed)
+        // Commented out: Workaround for sometimes loading from the filesystem hangs and the emulator stays idle
+        //if(has_passed)
         {
             this.virtio.raise_irq(VIRTIO_ISR_QUEUE);
         }
