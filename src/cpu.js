@@ -2386,7 +2386,8 @@ CPU.prototype.undefined_instruction = function()
 
 CPU.prototype.unimplemented_sse = function()
 {
-    dbg_log("No SSE", LOG_CPU);
+    const opcode = this.safe_read32s(this.previous_ip[0]);
+    console.log("No SSE: " + h(opcode & 0xFF) + " " + h(opcode >> 8 & 0xFF) + " " + h(opcode >> 16 & 0xFF), LOG_CPU);
     dbg_assert(false);
     this.trigger_ud();
 };
