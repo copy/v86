@@ -218,7 +218,6 @@ if(cluster.isMaster)
         },
         {
             name: "Linux 4 bzImage",
-            skip_if_disk_image_missing: true,
             bzimage: root_path + "/images/bzImage",
             cmdline: "auto",
             timeout: 200,
