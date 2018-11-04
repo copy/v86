@@ -1322,12 +1322,7 @@ CPU.prototype.do_run = function()
 
         if(this.in_hlt[0])
         {
-            let t = this.hlt_loop();
-
-            if(this.in_hlt[0])
-            {
-                return t;
-            }
+            return;
         }
 
         now = v86.microtick();
@@ -2336,6 +2331,11 @@ CPU.prototype.hlt_op = function()
 
     // get out of here and into hlt_loop
     this.in_hlt[0] = +true;
+
+    // Try an hlt loop right now: This will run timer interrupts, and if one is
+    // due it will immediately call call_interrupt_vector and continue
+    // execution without an unnecessary cycle through do_run
+    this.hlt_loop();
 };
 
 CPU.prototype.undefined_instruction = function()
