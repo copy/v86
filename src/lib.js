@@ -339,6 +339,7 @@ CircularQueue.prototype.set = function(new_data)
 
 /**
  * A simple 1d bitmap
+ * @constructor
  */
 v86util.Bitmap = function(length_or_buffer)
 {
