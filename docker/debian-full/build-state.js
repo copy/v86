@@ -43,6 +43,7 @@ console.log("Now booting, please stand by ...");
 
 var boot_start = Date.now();
 var serial_text = "";
+let booted = false;
 
 emulator.add_listener("serial0-output-char", function(c)
 {
@@ -50,11 +51,13 @@ emulator.add_listener("serial0-output-char", function(c)
 
     serial_text += c;
 
-    if(serial_text.endsWith("root@localhost:~# "))
+    if(!booted && serial_text.endsWith("root@localhost:~# "))
     {
         console.error("\nBooted in %d", (Date.now() - boot_start) / 1000);
+        booted = true;
 
-        // wait a few seconds as the serial console finishes faster than the screen terminal
+        // sync and drop caches: Makes it safer to change the filesystem as fewer files are rendered
+        emulator.serial0_send("sync;echo 3 >/proc/sys/vm/drop_caches\n");
 
         setTimeout(function ()
             {
@@ -72,7 +75,7 @@ emulator.add_listener("serial0-output-char", function(c)
                                 stop();
                             });
                     });
-            }, 5000);
+            }, 10 * 1000);
     }
 });
 
