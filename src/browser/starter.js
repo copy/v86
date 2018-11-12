@@ -218,7 +218,7 @@ function V86Starter(options)
     });
 }
 
-V86Starter.prototype.continue_init = function(emulator, options)
+V86Starter.prototype.continue_init = async function(emulator, options) // jshint ignore:line
 {
     this.bus.register("emulator-stopped", function()
     {
@@ -448,11 +448,20 @@ V86Starter.prototype.continue_init = function(emulator, options)
         var fs_url = options["filesystem"]["basefs"];
         var base_url = options["filesystem"]["baseurl"];
 
-        const file_storage = typeof indexedDB === "undefined" ?
-            new MemoryFileStorage(base_url) :
-            new IndexedDBFileStorage(base_url);
-        this.fs9p = new FS(file_storage);
-        settings.fs9p = this.fs9p;
+        const IdealFileStorage = base_url ? ServerIndexedDBFileStorage : IndexedDBFileStorage;
+        const FallbackFileStorage = base_url ? ServerMemoryFileStorage : MemoryFileStorage;
+        let file_storage;
+        try
+        {
+            file_storage = await IdealFileStorage.try_create(base_url); // jshint ignore:line
+        }
+        catch(e)
+        {
+            dbg_log("Initializing IndexedDBFileStorage failed due to Error: " + e);
+            dbg_log("Falling back to MemoryFileStorage instead.");
+            file_storage = new FallbackFileStorage(base_url);
+        }
+        settings.fs9p = this.fs9p = new FS(file_storage);
 
         if(fs_url)
         {
@@ -605,7 +614,7 @@ V86Starter.prototype.continue_init = function(emulator, options)
             this.emulator_bus.send("emulator-loaded");
         }
     }
-};
+}; // jshint ignore:line
 
 V86Starter.prototype.get_bzimage_initrd_from_filesystem = function(filesystem)
 {
@@ -1046,11 +1055,21 @@ V86Starter.prototype.serial0_send = function(data)
  * @param {function(Object)=} callback
  * @export
  */
-V86Starter.prototype.mount_fs = function(path, baseurl, basefs, callback)
+V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback) // jshint ignore:line
 {
-    const file_storage = typeof indexedDB === "undefined" ?
-        new MemoryFileStorage(baseurl) :
-        new IndexedDBFileStorage(baseurl);
+    const IdealFileStorage = baseurl ? ServerIndexedDBFileStorage : IndexedDBFileStorage;
+    const FallbackFileStorage = baseurl ? ServerMemoryFileStorage : MemoryFileStorage;
+    let file_storage;
+    try
+    {
+        file_storage = await IdealFileStorage.try_create(baseurl); // jshint ignore:line
+    }
+    catch(e)
+    {
+        dbg_log("Initializing IndexedDBFileStorage failed due to Error: " + e);
+        dbg_log("Falling back to MemoryFileStorage instead.");
+        file_storage = new FallbackFileStorage(baseurl);
+    }
     const newfs = new FS(file_storage, this.fs9p.qidcounter);
     const mount = () =>
     {
@@ -1086,7 +1105,7 @@ V86Starter.prototype.mount_fs = function(path, baseurl, basefs, callback)
     {
         mount();
     }
-};
+}; // jshint ignore:line
 
 /**
  * Write to a file in the 9p filesystem. Nothing happens if no filesystem has
