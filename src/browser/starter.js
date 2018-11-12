@@ -448,18 +448,20 @@ V86Starter.prototype.continue_init = async function(emulator, options) // jshint
         var fs_url = options["filesystem"]["basefs"];
         var base_url = options["filesystem"]["baseurl"];
 
-        const IdealFileStorage = base_url ? ServerIndexedDBFileStorage : IndexedDBFileStorage;
-        const FallbackFileStorage = base_url ? ServerMemoryFileStorage : MemoryFileStorage;
         let file_storage;
         try
         {
-            file_storage = await IdealFileStorage.try_create(base_url); // jshint ignore:line
+            file_storage = await IndexedDBFileStorage.try_create(); // jshint ignore:line
         }
         catch(e)
         {
             dbg_log("Initializing IndexedDBFileStorage failed due to Error: " + e);
             dbg_log("Falling back to MemoryFileStorage instead.");
-            file_storage = new FallbackFileStorage(base_url);
+            file_storage = new MemoryFileStorage();
+        }
+        if (base_url)
+        {
+            file_storage = new ServerFileStorageWrapper(file_storage, base_url);
         }
         settings.fs9p = this.fs9p = new FS(file_storage);
 
@@ -1057,18 +1059,20 @@ V86Starter.prototype.serial0_send = function(data)
  */
 V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback) // jshint ignore:line
 {
-    const IdealFileStorage = baseurl ? ServerIndexedDBFileStorage : IndexedDBFileStorage;
-    const FallbackFileStorage = baseurl ? ServerMemoryFileStorage : MemoryFileStorage;
     let file_storage;
     try
     {
-        file_storage = await IdealFileStorage.try_create(baseurl); // jshint ignore:line
+        file_storage = await IndexedDBFileStorage.try_create(); // jshint ignore:line
     }
     catch(e)
     {
         dbg_log("Initializing IndexedDBFileStorage failed due to Error: " + e);
         dbg_log("Falling back to MemoryFileStorage instead.");
-        file_storage = new FallbackFileStorage(baseurl);
+        file_storage = new MemoryFileStorage();
+    }
+    if(baseurl)
+    {
+        file_storage = new ServerFileStorageWrapper(file_storage, baseurl);
     }
     const newfs = new FS(file_storage, this.fs9p.qidcounter);
     const mount = () =>

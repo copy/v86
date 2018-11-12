@@ -190,13 +190,14 @@ IndexedDBFileStorage.prototype.set = function(sha256sum, data)
 /**
  * @constructor
  * @implements {FileStorageInterface}
+ * @param {FileStorageInterface} file_storage
  * @param {string} baseurl
  */
-function ServerMemoryFileStorage(baseurl)
+function ServerFileStorageWrapper(file_storage, baseurl)
 {
     dbg_assert(baseurl, "ServerMemoryFileStorage: baseurl should not be empty");
 
-    this.empty_storage = new MemoryFileStorage();
+    this.storage = file_storage;
     this.baseurl = baseurl;
 }
 
@@ -205,7 +206,7 @@ function ServerMemoryFileStorage(baseurl)
  * @param {string} sha256sum
  * @return {!Promise<Uint8Array>}
  */
-ServerMemoryFileStorage.prototype.load_from_server = function(sha256sum)
+ServerFileStorageWrapper.prototype.load_from_server = function(sha256sum)
 {
     return new Promise((resolve, reject) =>
     {
@@ -221,9 +222,9 @@ ServerMemoryFileStorage.prototype.load_from_server = function(sha256sum)
  * @param {string} sha256sum
  * @return {Uint8Array}
  */
-ServerMemoryFileStorage.prototype.get = async function(sha256sum) // jshint ignore:line
+ServerFileStorageWrapper.prototype.get = async function(sha256sum) // jshint ignore:line
 {
-    const data = await this.empty_storage.get(sha256sum); // jshint ignore:line
+    const data = await this.storage.get(sha256sum); // jshint ignore:line
     if(!data)
     {
         return await this.load_from_server(sha256sum); // jshint ignore:line
@@ -235,75 +236,7 @@ ServerMemoryFileStorage.prototype.get = async function(sha256sum) // jshint igno
  * @param {string} sha256sum
  * @param {!Uint8Array} data
  */
-ServerMemoryFileStorage.prototype.set = async function(sha256sum, data) // jshint ignore:line
+ServerFileStorageWrapper.prototype.set = async function(sha256sum, data) // jshint ignore:line
 {
-    await this.empty_storage.set(sha256sum, data); // jshint ignore:line
-}; // jshint ignore:line
-
-/**
- * @constructor
- * @implements {FileStorageInterface}
- * @param {string} baseurl
- */
-function ServerIndexedDBFileStorage(baseurl)
-{
-    dbg_assert(baseurl, "ServerIndexedDBFileStorage: baseurl should not be empty");
-
-    this.empty_storage = new IndexedDBFileStorage();
-    this.baseurl = baseurl;
-}
-
-/**
- * @param {string} baseurl
- * @return {IndexedDBFileStorage}
- */
-ServerIndexedDBFileStorage.try_create = async function(baseurl) // jshint ignore:line
-{
-    if(typeof window === "undefined" || !window.indexedDB)
-    {
-        throw new Error("IndexedDB is not available");
-    }
-    const file_storage = new ServerIndexedDBFileStorage(baseurl);
-    await file_storage.empty_storage.init(); // jshint ignore:line
-    return file_storage;
-}; // jshint ignore:line
-
-/**
- * @private
- * @param {string} sha256sum
- * @return {!Promise<Uint8Array>}
- */
-ServerIndexedDBFileStorage.prototype.load_from_server = function(sha256sum)
-{
-    return new Promise((resolve, reject) =>
-    {
-        v86util.load_file(this.baseurl + sha256sum, { done: buffer =>
-        {
-            const data = new Uint8Array(buffer);
-            this.set(sha256sum, data).then(() => resolve(data));
-        }});
-    });
-};
-
-/**
- * @param {string} sha256sum
- * @return {Uint8Array}
- */
-ServerIndexedDBFileStorage.prototype.get = async function(sha256sum) // jshint ignore:line
-{
-    const data = await this.empty_storage.get(sha256sum); // jshint ignore:line
-    if(!data)
-    {
-        return await this.load_from_server(sha256sum); // jshint ignore:line
-    }
-    return data;
-}; // jshint ignore:line
-
-/**
- * @param {string} sha256sum
- * @param {!Uint8Array} data
- */
-ServerIndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint ignore:line
-{
-    await this.empty_storage.set(sha256sum, data); // jshint ignore:line
+    await this.storage.set(sha256sum, data); // jshint ignore:line
 }; // jshint ignore:line
