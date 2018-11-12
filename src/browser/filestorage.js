@@ -41,7 +41,7 @@ function MemoryFileStorage()
  */
 MemoryFileStorage.prototype.get = async function(sha256sum) // jshint ignore:line
 {
-    dbg_assert(sha256sum !== "", "MemoryFileStorage get: sha256sum should not be an empty string");
+    dbg_assert(sha256sum, "MemoryFileStorage get: sha256sum should be a non-empty string");
     return this.filedata.get(sha256sum);
 }; // jshint ignore:line
 
@@ -51,7 +51,7 @@ MemoryFileStorage.prototype.get = async function(sha256sum) // jshint ignore:lin
  */
 MemoryFileStorage.prototype.set = async function(sha256sum, buffer) // jshint ignore:line
 {
-    dbg_assert(sha256sum !== "", "MemoryFileStorage set: sha256sum should not be an empty string");
+    dbg_assert(sha256sum, "MemoryFileStorage set: sha256sum should be a non-empty string");
     this.filedata.set(sha256sum, buffer);
 }; // jshint ignore:line
 
@@ -61,7 +61,8 @@ MemoryFileStorage.prototype.set = async function(sha256sum, buffer) // jshint ig
  */
 function IndexedDBFileStorage()
 {
-    dbg_assert(window.indexedDB, "IndexedDBFileStorage - indexedDB not available.");
+    dbg_assert(typeof window !== "undefined" && window.indexedDB,
+        "IndexedDBFileStorage - indexedDB not available.");
     this.db = null;
 }
 
@@ -78,7 +79,7 @@ IndexedDBFileStorage.try_create = async function() // jshint ignore:line
 
 IndexedDBFileStorage.prototype.init = function()
 {
-    dbg_assert(!this.db, "IndexedDBFileStorage init: Database already intiialised");
+    dbg_assert(!this.db, "IndexedDBFileStorage init: Database already intiialized");
 
     return new Promise((resolve, reject) =>
     {
@@ -134,8 +135,8 @@ IndexedDBFileStorage.prototype.init = function()
  */
 IndexedDBFileStorage.prototype.get = function(sha256sum)
 {
-    dbg_assert(this.db, "IndexedDBFileStorage get: Database is not initialised");
-    dbg_assert(sha256sum !== "", "IndexedDBFileStorage get: sha256sum should not be an empty string");
+    dbg_assert(this.db, "IndexedDBFileStorage get: Database is not initialized");
+    dbg_assert(sha256sum, "IndexedDBFileStorage get: sha256sum should be a non-empty string");
 
     return new Promise((resolve, reject) =>
     {
@@ -166,8 +167,8 @@ IndexedDBFileStorage.prototype.get = function(sha256sum)
  */
 IndexedDBFileStorage.prototype.set = function(sha256sum, data)
 {
-    dbg_assert(this.db, "IndexedDBFileStorage set: Database is not initialised");
-    dbg_assert(sha256sum !== "", "IndexedDBFileStorage set: sha256sum should not be an empty string");
+    dbg_assert(this.db, "IndexedDBFileStorage set: Database is not initialized");
+    dbg_assert(sha256sum, "IndexedDBFileStorage set: sha256sum should be a non-empty string");
 
     return new Promise((resolve, reject) =>
     {
