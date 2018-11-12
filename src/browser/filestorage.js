@@ -64,6 +64,7 @@ function IndexedDBFileStorage()
     dbg_assert(typeof window !== "undefined" && window.indexedDB,
         "IndexedDBFileStorage - indexedDB not available.");
     this.db = null;
+    this.initializing = false;
 }
 
 IndexedDBFileStorage.try_create = async function() // jshint ignore:line
@@ -80,6 +81,8 @@ IndexedDBFileStorage.try_create = async function() // jshint ignore:line
 IndexedDBFileStorage.prototype.init = function()
 {
     dbg_assert(!this.db, "IndexedDBFileStorage init: Database already intiialized");
+    dbg_assert(!this.initializing, "IndexedDBFileStorage init: Database already intiializing");
+    this.initializing = true;
 
     return new Promise((resolve, reject) =>
     {
@@ -94,6 +97,7 @@ IndexedDBFileStorage.prototype.init = function()
         {
             dbg_log("Error opening IndexedDB! Are you in private browsing mode? Error:", LOG_9P);
             dbg_log(open_request.error, LOG_9P);
+            this.initializing = false;
             reject();
         };
 
@@ -105,6 +109,7 @@ IndexedDBFileStorage.prototype.init = function()
 
         open_request.onsuccess = event =>
         {
+            this.initializing = false;
             this.db = open_request.result;
             this.db.onabort = event =>
             {
