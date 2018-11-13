@@ -1,8 +1,8 @@
 "use strict";
 
 const INDEXEDDB_STORAGE_VERSION = 1;
-const INDEXEDDB_STORAGE_NAME = "IndexedDBFileStorage";
-const INDEXEDDB_STORAGE_STORE = "Store";
+const INDEXEDDB_STORAGE_NAME = "v86-filesystem-storage";
+const INDEXEDDB_STORAGE_STORE = "store";
 const INDEXEDDB_STORAGE_KEYPATH = "sha256sum";
 const INDEXEDDB_STORAGE_VALUEPATH = "data";
 
