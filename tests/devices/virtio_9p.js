@@ -7,6 +7,7 @@ const fs = require("fs");
 
 const testfsjson = require("./testfs.json");
 const SHOW_LOGS = false;
+const STOP_ON_FIRST_FAILURE = false;
 
 function log_pass(msg, ...args)
 {
@@ -1807,6 +1808,11 @@ function report_test()
         else
         {
             log_fail("Test #%d failed: %s", test_num, tests[test_num].name);
+
+            if(STOP_ON_FIRST_FAILURE)
+            {
+                finish_tests();
+            }
         }
         test_has_failed = false;
     }
