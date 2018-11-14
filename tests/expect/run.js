@@ -75,6 +75,25 @@ function readline()
     return line;
 }
 
+// Remove parts that may not be stable between multiple runs
+function normalise_wast(wast)
+{
+    wast = wast.replace(/offset=(\d+)/g, function(match, offset)
+        {
+            offset = Number(offset);
+
+            if(offset >= 8388608)
+            {
+                return "offset={normalised output}";
+            }
+            else
+            {
+                return match;
+            }
+        });
+    return wast;
+}
+
 function run_test({ name, executable_file, expect_file, actual_file, actual_wasm, asm_file }, onfinished)
 {
     const emulator = new V86({
@@ -98,7 +117,7 @@ function run_test({ name, executable_file, expect_file, actual_file, actual_wasm
 
             cpu.test_hook_did_generate_wasm = function(wasm)
             {
-                const wast = disassemble_wasm(wasm);
+                const wast = normalise_wast(disassemble_wasm(wasm));
 
                 clearTimeout(hook_not_called_timeout);
                 fs.writeFileSync(actual_file, wast);

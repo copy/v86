@@ -56,7 +56,7 @@
                 (i32.const 4095))
               (i32.const 4092)))
           (then
-            (i32.load offset=20221952 align=1
+            (i32.load offset={normalised output} align=1
               (i32.xor
                 (i32.and
                   (get_local $l3)

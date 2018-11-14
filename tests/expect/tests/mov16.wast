@@ -59,7 +59,7 @@
                   (i32.const 4095))
                 (i32.const 4094)))
             (then
-              (i32.load16_u offset=20221952 align=1
+              (i32.load16_u offset={normalised output} align=1
                 (i32.xor
                   (i32.and
                     (get_local $l2)
@@ -106,7 +106,7 @@
                   (i32.const 4095))
                 (i32.const 4094)))
             (then
-              (i32.load16_u offset=20221952 align=1
+              (i32.load16_u offset={normalised output} align=1
                 (i32.xor
                   (i32.and
                     (get_local $l1)
@@ -167,7 +167,7 @@
                 (i32.const 4095))
               (i32.const 4094)))
           (then
-            (i32.store16 offset=20221952 align=1
+            (i32.store16 offset={normalised output} align=1
               (i32.xor
                 (i32.and
                   (get_local $l3)
@@ -224,7 +224,7 @@
                 (i32.const 4095))
               (i32.const 4094)))
           (then
-            (i32.store16 offset=20221952 align=1
+            (i32.store16 offset={normalised output} align=1
               (i32.xor
                 (i32.and
                   (get_local $l3)
