@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::iter::FromIterator;
 
 use analysis::AnalysisType;
 use codegen;
@@ -326,10 +327,14 @@ pub struct JitState {
 impl JitState {
     pub fn create_and_initialise() -> JitState {
         let mut wasm_builder = WasmBuilder::new();
+        jit_cache_array::clear();
         wasm_builder.init();
+
+        // don't assign 0 (XXX: Check)
+        let wasm_table_indices = 1..=(WASM_TABLE_SIZE - 1) as u16;
         let mut c = JitState {
             hot_code_addresses: [0; HASH_PRIME as usize],
-            wasm_table_index_free_list: vec![],
+            wasm_table_index_free_list: Vec::from_iter(wasm_table_indices),
             wasm_table_index_pending_free: vec![],
             entry_points: HashMap::new(),
             wasm_builder,
@@ -784,12 +789,28 @@ fn jit_analyze_and_generate(
         //    );
         //}
 
-        jit_generate_module(
-            &basic_blocks,
-            requires_loop_limit,
-            cpu.clone(),
-            &mut ctx.wasm_builder,
-        );
+        if ctx.wasm_table_index_free_list.is_empty() {
+            dbg_log!(
+                "wasm_table_index_free_list empty ({} pending_free), clearing cache",
+                ctx.wasm_table_index_pending_free.len(),
+            );
+
+            // When no free slots are available, delete all cached modules. We could increase the
+            // size of the table, but this way the initial size acts as an upper bound for the
+            // number of wasm modules that we generate, which we want anyway to avoid getting our
+            // tab killed by browsers due to memory constraints.
+            cpu::jit_clear_cache();
+
+            dbg_log!(
+                "after jit_clear_cache: {} pending_free {} free",
+                ctx.wasm_table_index_pending_free.len(),
+                ctx.wasm_table_index_free_list.len(),
+            );
+
+            // This assertion can fail if all entries are pending (not possible unless
+            // WASM_TABLE_SIZE is set very low)
+            dbg_assert!(!ctx.wasm_table_index_free_list.is_empty());
+        }
 
         // allocate an index in the wasm table
         let wasm_table_index = ctx
@@ -797,6 +818,13 @@ fn jit_analyze_and_generate(
             .pop()
             .expect("allocate wasm table index");
         dbg_assert!(wasm_table_index != 0);
+
+        jit_generate_module(
+            &basic_blocks,
+            requires_loop_limit,
+            cpu.clone(),
+            &mut ctx.wasm_builder,
+        );
 
         // create entries for each basic block that is marked as an entry point
         let mut entry_point_count = 0;
@@ -1352,16 +1380,10 @@ pub fn jit_dirty_cache_small(ctx: &mut JitState, start_addr: u32, end_addr: u32)
 }
 
 pub fn jit_empty_cache(ctx: &mut JitState) {
-    jit_cache_array::clear();
-
     ctx.entry_points.clear();
 
-    ctx.wasm_table_index_pending_free.clear();
-    ctx.wasm_table_index_free_list.clear();
-
-    for i in 0..0xFFFF {
-        // don't assign 0 (XXX: Check)
-        ctx.wasm_table_index_free_list.push(i as u16 + 1);
+    for page_index in 0..0x100000 {
+        jit_dirty_page(ctx, Page::page_of(page_index << 12))
     }
 }
 
