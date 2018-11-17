@@ -141,14 +141,14 @@ IndexedDBFileStorage.prototype.init = function()
 };
 
 /**
+ * @param {IDBTransaction} transaction
  * @param {string} key
  * @return {!Promise<Object>}
  */
-IndexedDBFileStorage.prototype.db_get = function(key)
+IndexedDBFileStorage.prototype.db_get = function(transaction, key)
 {
     return new Promise((resolve, reject) =>
     {
-        const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readonly");
         const store = transaction.objectStore(INDEXEDDB_STORAGE_STORE);
         const request = store.get(key);
         request.onsuccess = event => resolve(request.result);
@@ -156,14 +156,14 @@ IndexedDBFileStorage.prototype.db_get = function(key)
 };
 
 /**
+ * @param {IDBTransaction} transaction
  * @param {Object} value
  * @return {!Promise}
  */
-IndexedDBFileStorage.prototype.db_set = function(value)
+IndexedDBFileStorage.prototype.db_set = function(transaction, value)
 {
     return new Promise((resolve, reject) =>
     {
-        const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readwrite");
         const store = transaction.objectStore(INDEXEDDB_STORAGE_STORE);
         const request = store.put(value);
         request.onsuccess = event => resolve();
@@ -171,7 +171,6 @@ IndexedDBFileStorage.prototype.db_set = function(value)
 };
 
 /**
- * TODO: Convert this into a single atomic transaction.
  * @param {string} sha256sum
  * @return {!Uint8Array}
  */
@@ -179,6 +178,8 @@ IndexedDBFileStorage.prototype.get = async function(sha256sum) // jshint ignore:
 {
     dbg_assert(this.db, "IndexedDBFileStorage get: Database is not initialized");
     dbg_assert(sha256sum, "IndexedDBFileStorage get: sha256sum should be a non-empty string");
+
+    const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readonly");
 
     const entry = await this.db_get(sha256sum); // jshint ignore:line
 
@@ -207,7 +208,7 @@ IndexedDBFileStorage.prototype.get = async function(sha256sum) // jshint ignore:
     for(let i = 0, offset = base_data.length; i < extra_block_count; i++, offset += block_size)
     {
         const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, i);
-        const block_entry = await this.db_get(block_key); // jshint ignore:line
+        const block_entry = await this.db_get(transaction, block_key); // jshint ignore:line
 
         dbg_assert(block_entry, `IndexedDBFileStorage get: Missing entry for block-${i}`);
 
@@ -232,12 +233,14 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
     dbg_assert(this.db, "IndexedDBFileStorage set: Database is not initialized");
     dbg_assert(sha256sum, "IndexedDBFileStorage set: sha256sum should be a non-empty string");
 
+    const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readwrite");
+
     const extra_block_count = Math.ceil(
         (data.length - INDEXEDDB_STORAGE_CHUNKING_THRESHOLD) /
         INDEXEDDB_STORAGE_BLOCKSIZE
     );
 
-    await this.db_set({ // jshint ignore:line
+    await this.db_set(transaction, { // jshint ignore:line
         [INDEXEDDB_STORAGE_KEY_PATH]: sha256sum,
         [INDEXEDDB_STORAGE_DATA_PATH]: data.subarray(0, INDEXEDDB_STORAGE_CHUNKING_THRESHOLD),
         [INDEXEDDB_STORAGE_BLOCKSIZE_PATH]: INDEXEDDB_STORAGE_BLOCKSIZE,
@@ -250,7 +253,7 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
     {
         const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, i);
         const block_data = data.subarray(offset, offset + INDEXEDDB_STORAGE_BLOCKSIZE);
-        await this.db_set({ //jshint ignore:line
+        await this.db_set(transaction, { //jshint ignore:line
             [INDEXEDDB_STORAGE_KEY_PATH]: block_key,
             [INDEXEDDB_STORAGE_DATA_PATH]: block_data,
         });
