@@ -3,8 +3,14 @@
 const INDEXEDDB_STORAGE_VERSION = 1;
 const INDEXEDDB_STORAGE_NAME = "v86-filesystem-storage";
 const INDEXEDDB_STORAGE_STORE = "store";
-const INDEXEDDB_STORAGE_KEYPATH = "sha256sum";
-const INDEXEDDB_STORAGE_VALUEPATH = "data";
+const INDEXEDDB_STORAGE_KEY_PATH = "sha256sum";
+const INDEXEDDB_STORAGE_DATA_PATH = "data";
+const INDEXEDDB_STORAGE_EXTRABLOCKCOUNT_PATH = "extra-block-count";
+const INDEXEDDB_STORAGE_BLOCKSIZE_PATH = "block-size";
+const INDEXEDDB_STORAGE_TOTALSIZE_PATH = "total-size";
+const INDEXEDDB_STORAGE_GET_BLOCK_KEY = (sha256sum, block_number) => `${sha256sum}-${block_number}`;
+const INDEXEDDB_STORAGE_CHUNKING_THRESHOLD = 4096;
+const INDEXEDDB_STORAGE_BLOCKSIZE = 4096;
 
 /** @interface */
 function FileStorageInterface() {}
@@ -104,7 +110,7 @@ IndexedDBFileStorage.prototype.init = function()
         open_request.onupgradeneeded = event =>
         {
             const db = open_request.result;
-            db.createObjectStore(INDEXEDDB_STORAGE_STORE, { keyPath: INDEXEDDB_STORAGE_KEYPATH });
+            db.createObjectStore(INDEXEDDB_STORAGE_STORE, { keyPath: INDEXEDDB_STORAGE_KEY_PATH });
         };
 
         open_request.onsuccess = event =>
@@ -135,57 +141,121 @@ IndexedDBFileStorage.prototype.init = function()
 };
 
 /**
- * @param {string} sha256sum
- * @return {!Promise<Uint8Array>}
+ * @param {string} key
+ * @return {!Promise<Object>}
  */
-IndexedDBFileStorage.prototype.get = function(sha256sum)
+IndexedDBFileStorage.prototype.db_get = function(key)
 {
-    dbg_assert(this.db, "IndexedDBFileStorage get: Database is not initialized");
-    dbg_assert(sha256sum, "IndexedDBFileStorage get: sha256sum should be a non-empty string");
-
     return new Promise((resolve, reject) =>
     {
         const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readonly");
         const store = transaction.objectStore(INDEXEDDB_STORAGE_STORE);
-        const request = store.get(sha256sum);
-        request.onsuccess = event =>
-        {
-            dbg_assert(!request.result || request.result.data instanceof Uint8Array,
-                "IndexedDBFileStorage get: invalid entry format: " + request.result);
-
-            if(request.result && request.result.data instanceof Uint8Array)
-            {
-                resolve(request.result.data);
-            }
-            else
-            {
-                resolve(null);
-            }
-        };
+        const request = store.get(key);
+        request.onsuccess = event => resolve(request.result);
     });
 };
 
 /**
- * @param {string} sha256sum
- * @param {!Uint8Array} data
+ * @param {Object} value
  * @return {!Promise}
  */
-IndexedDBFileStorage.prototype.set = function(sha256sum, data)
+IndexedDBFileStorage.prototype.db_set = function(value)
 {
-    dbg_assert(this.db, "IndexedDBFileStorage set: Database is not initialized");
-    dbg_assert(sha256sum, "IndexedDBFileStorage set: sha256sum should be a non-empty string");
-
     return new Promise((resolve, reject) =>
     {
         const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readwrite");
         const store = transaction.objectStore(INDEXEDDB_STORAGE_STORE);
-        const request = store.put({
-            [INDEXEDDB_STORAGE_KEYPATH]: sha256sum,
-            [INDEXEDDB_STORAGE_VALUEPATH]: data,
-        });
+        const request = store.put(value);
         request.onsuccess = event => resolve();
     });
 };
+
+/**
+ * TODO: Convert this into a single atomic transaction.
+ * @param {string} sha256sum
+ * @return {!Uint8Array}
+ */
+IndexedDBFileStorage.prototype.get = async function(sha256sum) // jshint ignore:line
+{
+    dbg_assert(this.db, "IndexedDBFileStorage get: Database is not initialized");
+    dbg_assert(sha256sum, "IndexedDBFileStorage get: sha256sum should be a non-empty string");
+
+    const entry = await this.db_get(sha256sum); // jshint ignore:line
+
+    if(!entry)
+    {
+        return null;
+    }
+
+    const base_data = entry[INDEXEDDB_STORAGE_DATA_PATH];
+    const extra_block_count = entry[INDEXEDDB_STORAGE_EXTRABLOCKCOUNT_PATH];
+    const block_size = entry[INDEXEDDB_STORAGE_BLOCKSIZE_PATH];
+    const total_size = entry[INDEXEDDB_STORAGE_TOTALSIZE_PATH];
+
+    dbg_assert(base_data instanceof Uint8Array,
+        `IndexedDBFileStorage get: Invalid base entry without the data Uint8Array field: ${base_data}`);
+    dbg_assert(Number.isInteger(extra_block_count),
+        `IndexedDBFileStorage get: Invalid base entry with non-integer block_count: ${extra_block_count}`);
+    dbg_assert(Number.isInteger(block_size),
+        `IndexedDBFileStorage get: Invalid base entry with non-integer block_size: ${block_size}`);
+    dbg_assert(Number.isInteger(total_size) && total_size >= base_data.length,
+        `IndexedDBFileStorage get: Invalid base entry with invalid total_size: ${total_size}`);
+
+    const file_data = new Uint8Array(total_size);
+    file_data.set(base_data);
+
+    for(let i = 0, offset = base_data.length; i < extra_block_count; i++, offset += block_size)
+    {
+        const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, i);
+        const block_entry = await this.db_get(block_key); // jshint ignore:line
+
+        dbg_assert(block_entry, `IndexedDBFileStorage get: Missing entry for block-${i}`);
+
+        const block_data = block_entry[INDEXEDDB_STORAGE_DATA_PATH];
+        dbg_assert(block_data instanceof Uint8Array,
+            `IndexedDBFileStorage get: Entry for block-${i} without Uint8Array data field: ${block_data}`);
+
+        file_data.set(block_data, offset);
+    }
+
+    return file_data;
+}; // jshint ignore:line
+
+/**
+ * XXX: When shrinking a large file, the old blocks aren't deleted. This is ok for now with the
+ * current scheme of keeping IndexedDB contents read-only.
+ * @param {string} sha256sum
+ * @param {!Uint8Array} data
+ */
+IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint ignore:line
+{
+    dbg_assert(this.db, "IndexedDBFileStorage set: Database is not initialized");
+    dbg_assert(sha256sum, "IndexedDBFileStorage set: sha256sum should be a non-empty string");
+
+    const extra_block_count = Math.ceil(
+        (data.length - INDEXEDDB_STORAGE_CHUNKING_THRESHOLD) /
+        INDEXEDDB_STORAGE_BLOCKSIZE
+    );
+
+    await this.db_set({ // jshint ignore:line
+        [INDEXEDDB_STORAGE_KEY_PATH]: sha256sum,
+        [INDEXEDDB_STORAGE_DATA_PATH]: data.subarray(0, INDEXEDDB_STORAGE_CHUNKING_THRESHOLD),
+        [INDEXEDDB_STORAGE_BLOCKSIZE_PATH]: INDEXEDDB_STORAGE_BLOCKSIZE,
+        [INDEXEDDB_STORAGE_TOTALSIZE_PATH]: data.length,
+        [INDEXEDDB_STORAGE_EXTRABLOCKCOUNT_PATH]: extra_block_count,
+    });
+
+    let offset = INDEXEDDB_STORAGE_CHUNKING_THRESHOLD;
+    for(let i = 0; offset < data.length; i++, offset += INDEXEDDB_STORAGE_BLOCKSIZE)
+    {
+        const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, i);
+        const block_data = data.subarray(offset, offset + INDEXEDDB_STORAGE_BLOCKSIZE);
+        await this.db_set({ //jshint ignore:line
+            [INDEXEDDB_STORAGE_KEY_PATH]: block_key,
+            [INDEXEDDB_STORAGE_DATA_PATH]: block_data,
+        });
+    }
+}; // jshint ignore:line
 
 /**
  * @constructor
