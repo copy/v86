@@ -307,7 +307,6 @@ function ServerFileStorageWrapper(file_storage, baseurl)
 }
 
 /**
- * @private
  * @param {string} sha256sum
  * @return {!Promise<Uint8Array>}
  */
