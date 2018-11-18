@@ -32,6 +32,13 @@ FileStorageInterface.prototype.read = function(sha256sum, offset, count) {};
 FileStorageInterface.prototype.set = function(sha256sum, data) {};
 
 /**
+ * Call this when the file won't be used soon, e.g. when a file closes or when this immutable
+ * version is already out of date. It is used to help prevent accumulation of unused files in
+ * memory in the long run for some FileStorage mediums.
+ */
+FileStorageInterface.prototype.can_uncache = function(sha256sum) {};
+
+/**
  * @constructor
  * @implements {FileStorageInterface}
  */
@@ -74,6 +81,14 @@ MemoryFileStorage.prototype.set = async function(sha256sum, data) // jshint igno
 
     this.filedata.set(sha256sum, data);
 }; // jshint ignore:line
+
+/**
+ * @param {string} sha256sum
+ */
+MemoryFileStorage.prototype.can_uncache = function(sha256sum)
+{
+    this.filedata.delete(sha256sum);
+};
 
 /**
  * Use IndexedDBFileStorage.try_create() instead.
@@ -293,6 +308,14 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
 }; // jshint ignore:line
 
 /**
+ * @param {string} sha256sum
+ */
+IndexedDBFileStorage.prototype.can_uncache = function(sha256sum)
+{
+    // No-op.
+};
+
+/**
  * @constructor
  * @implements {FileStorageInterface}
  * @param {FileStorageInterface} file_storage
@@ -347,3 +370,11 @@ ServerFileStorageWrapper.prototype.set = async function(sha256sum, data) // jshi
 {
     return await this.storage.set(sha256sum, data); // jshint ignore:line
 }; // jshint ignore:line
+
+/**
+ * @param {string} sha256sum
+ */
+ServerFileStorageWrapper.prototype.can_uncache = function(sha256sum)
+{
+    this.storage.can_uncache(sha256sum);
+};
