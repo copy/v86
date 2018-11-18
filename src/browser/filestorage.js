@@ -59,7 +59,7 @@ function MemoryFileStorage()
  */
 MemoryFileStorage.prototype.read = async function(sha256sum, offset, count) // jshint ignore:line
 {
-    dbg_assert(sha256sum, "MemoryFileStorage get: sha256sum should be a non-empty string");
+    dbg_assert(sha256sum, "MemoryFileStorage read: sha256sum should be a non-empty string");
     const data = this.filedata.get(sha256sum);
 
     if(!data)
@@ -138,7 +138,7 @@ IndexedDBFileStorage.prototype.init = function()
             dbg_log("Error opening IndexedDB! Are you in private browsing mode? Error:", LOG_9P);
             dbg_log(open_request.error, LOG_9P);
             this.initializing = false;
-            reject();
+            reject(open_request.error);
         };
 
         open_request.onupgradeneeded = event =>
@@ -159,15 +159,17 @@ IndexedDBFileStorage.prototype.init = function()
             {
                 dbg_assert(false, "IndexedDBFileStorage: connection closed unexpectedly");
             };
-            this.db.onerror = error =>
+            this.db.onerror = event =>
             {
-                dbg_assert(false,  "IndexedDBFileStorage: unexpected error: " + error);
+                const error = event.originalTarget.error;
+                dbg_log("IndexedDBFileStorage: unexpected error: " + error, LOG_9P);
+                throw error;
             };
             this.db.onversionchange = event =>
             {
-                // TODO: double check this message
-                dbg_log("Warning: another v86 instance is trying to open IndexedDB database but " +
-                    "is blocked by this current v86 instance.", LOG_9P);
+                dbg_log("Caution: Another v86 instance might be trying to upgrade the IndexedDB " +
+                    "database to a newer version, or a request has been issued to delete the " +
+                    "database, but is blocked by this current v86 instance ", LOG_9P);
             };
             resolve();
         };
@@ -214,10 +216,17 @@ IndexedDBFileStorage.prototype.db_set = function(transaction, value)
  */
 IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) // jshint ignore:line
 {
-    dbg_assert(this.db, "IndexedDBFileStorage get: Database is not initialized");
-    dbg_assert(sha256sum, "IndexedDBFileStorage get: sha256sum should be a non-empty string");
+    dbg_assert(this.db, "IndexedDBFileStorage read: Database is not initialized");
+    dbg_assert(sha256sum, "IndexedDBFileStorage read: sha256sum should be a non-empty string");
 
     const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readonly");
+    transaction.onerror = event =>
+    {
+        const error = event.originalTarget.error;
+        dbg_log(`IndexedDBFileStorage read: Error with transaction: ${error}`, LOG_9P);
+        throw error;
+    };
+
     const entry = await this.db_get(transaction, sha256sum); // jshint ignore:line
 
     if(!entry)
@@ -230,11 +239,11 @@ IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) /
     const total_size = entry[INDEXEDDB_STORAGE_TOTALSIZE_PATH];
 
     dbg_assert(base_data instanceof Uint8Array,
-        `IndexedDBFileStorage get: Invalid base entry without the data Uint8Array field: ${base_data}`);
+        `IndexedDBFileStorage read: Invalid base entry without the data Uint8Array field: ${base_data}`);
     dbg_assert(Number.isInteger(extra_block_count),
-        `IndexedDBFileStorage get: Invalid base entry with non-integer block_count: ${extra_block_count}`);
+        `IndexedDBFileStorage read: Invalid base entry with non-integer block_count: ${extra_block_count}`);
     dbg_assert(Number.isInteger(total_size) && total_size >= base_data.length,
-        `IndexedDBFileStorage get: Invalid base entry with invalid total_size: ${total_size}`);
+        `IndexedDBFileStorage read: Invalid base entry with invalid total_size: ${total_size}`);
 
     const read_data = new Uint8Array(count);
     let read_count = 0;
@@ -256,11 +265,11 @@ IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) /
         const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, block_number);
         const block_entry = await this.db_get(transaction, block_key); // jshint ignore:line
 
-        dbg_assert(block_entry, `IndexedDBFileStorage get: Missing entry for block-${block_number}`);
+        dbg_assert(block_entry, `IndexedDBFileStorage read: Missing entry for block-${block_number}`);
 
         const block_data = block_entry[INDEXEDDB_STORAGE_DATA_PATH];
         dbg_assert(block_data instanceof Uint8Array,
-            `IndexedDBFileStorage get: Entry for block-${block_number} without Uint8Array data field: ${block_data}`);
+            `IndexedDBFileStorage read: Entry for block-${block_number} without Uint8Array data field: ${block_data}`);
 
         const chunk_start = offset + read_count - block_offset;
         const chunk_end = offset + count - block_offset;
@@ -282,6 +291,12 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
     dbg_assert(sha256sum, "IndexedDBFileStorage set: sha256sum should be a non-empty string");
 
     const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readwrite");
+    transaction.onerror = event =>
+    {
+        const error = event.originalTarget.error;
+        dbg_log(`IndexedDBFileStorage set: Error with transaction: ${error}`, LOG_9P);
+        throw error;
+    };
 
     const extra_block_count = Math.ceil(
         (data.length - INDEXEDDB_STORAGE_CHUNKING_THRESHOLD) /
