@@ -15,6 +15,7 @@ const INDEXEDDB_STORAGE_BLOCKSIZE = 4096;
 function FileStorageInterface() {}
 
 /**
+ * Read a portion of a file.
  * @param {string} sha256sum
  * @param {number} offset
  * @param {number} count
@@ -23,18 +24,12 @@ function FileStorageInterface() {}
 FileStorageInterface.prototype.read = function(sha256sum, offset, count) {};
 
 /**
+ * Add a read-only file to the filestorage.
  * @param {string} sha256sum
- * @param {number} offset
- * @param {!Uint8Array} buffer
- * @return {!Promise<number>} Promise to the new file size as file may have grown.
+ * @param {!Uint8Array} data
+ * @return {!Promise}
  */
-FileStorageInterface.prototype.write = function(sha256sum, offset, buffer) {};
-
-/**
- * @param {string} sha256sum
- * @param {number} length
- */
-FileStorageInterface.prototype.change_size = function(sha256sum, length) {};
+FileStorageInterface.prototype.set = function(sha256sum, data) {};
 
 /**
  * @constructor
@@ -70,36 +65,19 @@ MemoryFileStorage.prototype.read = async function(sha256sum, offset, count) // j
 
 /**
  * @param {string} sha256sum
- * @param {number} offset
  * @param {!Uint8Array} data
- * @return {number} New file size as file may have grown after writing.
  */
-MemoryFileStorage.prototype.write = async function(sha256sum, offset, buffer) // jshint ignore:line
+MemoryFileStorage.prototype.set = async function(sha256sum, data) // jshint ignore:line
 {
     dbg_assert(sha256sum, "MemoryFileStorage set: sha256sum should be a non-empty string");
+    dbg_assert(!this.filedata.has(sha256sum), "MemoryFileStorage set: Storage should be read-only");
 
-    const needed_size = offset + buffer.length;
-    let data = this.filedata.get(sha256sum);
-
-    if(!data)
-    {
-        data = new Uint8Array(needed_size);
-    }
-
-    if(data.length < needed_size)
-    {
-        const old_data = data;
-        data = new Uint8Array(needed_size);
-        data.set(old_data);
-    }
-
-    data.set(buffer, offset);
     this.filedata.set(sha256sum, data);
-
-    return data.length;
 }; // jshint ignore:line
 
 /**
+ * Use IndexedDBFileStorage.try_create() instead.
+ * @private
  * @constructor
  * @implements {FileStorageInterface}
  */
@@ -122,6 +100,9 @@ IndexedDBFileStorage.try_create = async function() // jshint ignore:line
     return file_storage;
 }; // jshint ignore:line
 
+/**
+ * @private
+ */
 IndexedDBFileStorage.prototype.init = function()
 {
     dbg_assert(!this.db, "IndexedDBFileStorage init: Database already intiialized");
@@ -179,6 +160,7 @@ IndexedDBFileStorage.prototype.init = function()
 };
 
 /**
+ * @private
  * @param {IDBTransaction} transaction
  * @param {string} key
  * @return {!Promise<Object>}
@@ -194,6 +176,7 @@ IndexedDBFileStorage.prototype.db_get = function(transaction, key)
 };
 
 /**
+ * @private
  * @param {IDBTransaction} transaction
  * @param {Object} value
  * @return {!Promise}
@@ -276,95 +259,37 @@ IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) /
 
 /**
  * @param {string} sha256sum
- * @param {number} offset
- * @param {!Uint8Array} write_data
- * @return {number} New file size
+ * @param {!Uint8Array} data
  */
-IndexedDBFileStorage.prototype.write = async function(sha256sum, offset, write_data) // jshint ignore:line
+IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint ignore:line
 {
     dbg_assert(this.db, "IndexedDBFileStorage set: Database is not initialized");
     dbg_assert(sha256sum, "IndexedDBFileStorage set: sha256sum should be a non-empty string");
 
     const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readwrite");
-    const entry = await this.db_get(sha256sum); // jshint ignore:line
 
-    let old_extra_block_count = 0;
-    let old_total_size = 0;
-    let base_data = null;
-    if(entry)
-    {
-        base_data = entry[INDEXEDDB_STORAGE_DATA_PATH];
-        old_extra_block_count = entry[INDEXEDDB_STORAGE_EXTRABLOCKCOUNT_PATH];
-        old_total_size = entry[INDEXEDDB_STORAGE_TOTALSIZE_PATH];
-    }
-
-    const needed_size = offset + write_data.length;
-    const new_total_size = Math.max(old_total_size, needed_size);
-
-    let write_count = 0;
-
-    if(offset < INDEXEDDB_STORAGE_CHUNKING_THRESHOLD)
-    {
-        const chunk = write_data.subarray(0, INDEXEDDB_STORAGE_CHUNKING_THRESHOLD - offset);
-        const chunk_end = chunk.length + offset;
-        if(!base_data || base_data.length < chunk_end)
-        {
-            const old_base_data = base_data;
-            base_data = new Uint8Array(chunk_end);
-            if(old_base_data) base_data.set(old_base_data);
-        }
-        base_data.set(chunk, offset);
-        write_count += chunk.length;
-    }
-
-    let block_number = Math.floor(
-        (offset + write_count - base_data.length) /
+    const extra_block_count = Math.ceil(
+        (data.length - INDEXEDDB_STORAGE_CHUNKING_THRESHOLD) /
         INDEXEDDB_STORAGE_BLOCKSIZE
     );
-    for(; write_count < write_data.length; block_number++)
+
+    await this.db_set(transaction, { // jshint ignore:line
+        [INDEXEDDB_STORAGE_KEY_PATH]: sha256sum,
+        [INDEXEDDB_STORAGE_DATA_PATH]: data.subarray(0, INDEXEDDB_STORAGE_CHUNKING_THRESHOLD),
+        [INDEXEDDB_STORAGE_TOTALSIZE_PATH]: data.length,
+        [INDEXEDDB_STORAGE_EXTRABLOCKCOUNT_PATH]: extra_block_count,
+    });
+
+    let offset = INDEXEDDB_STORAGE_CHUNKING_THRESHOLD;
+    for(let i = 0; offset < data.length; i++, offset += INDEXEDDB_STORAGE_BLOCKSIZE)
     {
-        const block_offset = base_data.length + block_number * INDEXEDDB_STORAGE_BLOCKSIZE;
-        const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, block_number);
-
-        const chunk_start = offset + write_count - block_offset;
-        const chunk_writable = INDEXEDDB_STORAGE_BLOCKSIZE - chunk_start;
-        const write_remaining = write_data.length - write_count;
-        const chunk = write_data.subarray(write_count, Math.min(chunk_writable, write_remaining));
-
-        let block_data = chunk;
-
-        if(chunk.length !== INDEXEDDB_STORAGE_BLOCKSIZE)
-        {
-            // Chunk to be written does not fully replace the current block.
-
-            const block_entry = await this.db_get(transaction, block_key); // jshint ignore:line
-
-            block_data = block_entry ?
-                block_entry[INDEXEDDB_STORAGE_DATA_PATH] :
-                new Uint8Array(INDEXEDDB_STORAGE_BLOCKSIZE);
-
-            dbg_assert(block_data instanceof Uint8Array,
-                `IndexedDBFileStorage get: Entry for block-${block_number} without Uint8Array data field: ${block_data}`);
-
-            block_data.set(chunk, chunk_start);
-        }
-
+        const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, i);
+        const block_data = data.subarray(offset, offset + INDEXEDDB_STORAGE_BLOCKSIZE);
         await this.db_set(transaction, { //jshint ignore:line
             [INDEXEDDB_STORAGE_KEY_PATH]: block_key,
             [INDEXEDDB_STORAGE_DATA_PATH]: block_data,
         });
     }
-
-    const new_extra_block_count = Math.max(old_extra_block_count, block_number);
-
-    await this.db_set(transaction, { // jshint ignore:line
-        [INDEXEDDB_STORAGE_KEY_PATH]: sha256sum,
-        [INDEXEDDB_STORAGE_DATA_PATH]: base_data,
-        [INDEXEDDB_STORAGE_TOTALSIZE_PATH]: new_total_size,
-        [INDEXEDDB_STORAGE_EXTRABLOCKCOUNT_PATH]: new_extra_block_count,
-    });
-
-    return new_total_size;
 }; // jshint ignore:line
 
 /**
@@ -393,7 +318,7 @@ ServerFileStorageWrapper.prototype.load_from_server = function(sha256sum)
         v86util.load_file(this.baseurl + sha256sum, { done: buffer =>
         {
             const data = new Uint8Array(buffer);
-            this.write(sha256sum, 0, data).then(() => resolve(data));
+            this.set(sha256sum, data).then(() => resolve(data));
         }});
     });
 };
@@ -417,11 +342,9 @@ ServerFileStorageWrapper.prototype.read = async function(sha256sum, offset, coun
 
 /**
  * @param {string} sha256sum
- * @param {number} offset
  * @param {!Uint8Array} data
- * @return {number} New file size
  */
-ServerFileStorageWrapper.prototype.write = async function(sha256sum, offset, data) // jshint ignore:line
+ServerFileStorageWrapper.prototype.set = async function(sha256sum, data) // jshint ignore:line
 {
-    return await this.storage.write(sha256sum, offset, data); // jshint ignore:line
+    return await this.storage.set(sha256sum, data); // jshint ignore:line
 }; // jshint ignore:line
