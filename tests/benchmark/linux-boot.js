@@ -1,17 +1,44 @@
 #!/usr/bin/env node
 "use strict";
 
-var V86 = require("../../build/libv86.js").V86;
-var fs = require("fs");
-const LOG_SERIAL = false;
+const V86 = require("../../build/libv86.js").V86;
+const print_stats = require("../../build/libv86.js").print_stats;
+const fs = require("fs");
+const path = require("path");
+const V86_ROOT = path.join(__dirname, "../..");
 
-var emulator = new V86({
-    bios: { url: __dirname + "/../../bios/seabios.bin" },
-    vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
-    cdrom: { url: __dirname + "/../../images/linux3.iso" },
-    autostart: true,
-    memory_size: 32 * 1024 * 1024,
-});
+const LOG_SERIAL = true;
+
+if(false)
+{
+    var emulator = new V86({
+        bios: { url: __dirname + "/../../bios/seabios.bin" },
+        vga_bios: { url: __dirname + "/../../bios/vgabios.bin" },
+        cdrom: { url: __dirname + "/../../images/linux3.iso" },
+        autostart: true,
+        memory_size: 32 * 1024 * 1024,
+    });
+}
+else
+{
+    var emulator = new V86({
+        bios: { url: path.join(V86_ROOT, "/bios/seabios.bin") },
+        vga_bios: { url: path.join(V86_ROOT, "/bios/vgabios.bin") },
+        autostart: true,
+        memory_size: 512 * 1024 * 1024,
+        vga_memory_size: 8 * 1024 * 1024,
+        network_relay_url: "<UNUSED>",
+        bzimage_initrd_from_filesystem: true,
+        cmdline: "rw init=/bin/systemd root=host9p console=ttyS0 spectre_v2=off pti=off",
+        filesystem: {
+            basefs: {
+                url: path.join(V86_ROOT, "/images/debian-base-fs.json"),
+            },
+            baseurl: path.join(V86_ROOT, "/images/debian-9p-rootfs-flat/"),
+        },
+        screen_dummy: true,
+    });
+}
 
 emulator.bus.register("emulator-started", function()
 {
@@ -19,27 +46,16 @@ emulator.bus.register("emulator-started", function()
     start_time = Date.now();
 });
 
-var line = "";
+var serial_text = "";
 var start_time;
 
-emulator.add_listener("serial0-output-char", function(chr)
+emulator.add_listener("serial0-output-char", function(c)
 {
-    if(chr < " " && chr !== "\n" && chr !== "\t" || chr > "~")
-    {
-        return;
-    }
+    if(LOG_SERIAL) process.stdout.write(c);
 
-    if(chr === "\n")
-    {
-        if(LOG_SERIAL) console.error("Serial: %s", line);
-        line = "";
-    }
-    else
-    {
-        line += chr;
-    }
+    serial_text += c;
 
-    if(line.endsWith("~% "))
+    if(serial_text.endsWith("~% ") || serial_text.endsWith("root@localhost:~# "))
     {
         const end_time = Date.now();
         const elapsed = end_time - start_time;
@@ -47,27 +63,6 @@ emulator.add_listener("serial0-output-char", function(chr)
         emulator.stop();
 
         const cpu = emulator.v86.cpu;
-        const stat_names = [
-            "COMPILE",
-            "COMPILE_SUCCESS",
-            "RUN_INTERPRETED",
-            "RUN_FROM_CACHE",
-            "CACHE_MISMATCH",
-            "NONFAULTING_OPTIMIZATION",
-            "CLEAR_TLB",
-            "FULL_CLEAR_TLB",
-            "TLB_FULL",
-            "TLB_GLOBAL_FULL",
-        ];
-        let text = "";
-
-        for(let i = 0; i < stat_names.length; i++)
-        {
-            let stat = cpu.wm.exports["_profiler_stat_get"](i);
-            stat = stat > 9999 ? Math.round(stat / 1000) + "k" : stat;
-            text += stat_names[i] + "=" + stat + " ";
-        }
-
-        console.log(text);
+        console.log(print_stats.stats_to_string(cpu));
     }
 });

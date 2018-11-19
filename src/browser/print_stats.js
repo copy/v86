@@ -245,3 +245,8 @@ const print_stats = {
         return text;
     },
 };
+
+if(typeof module !== "undefined" && typeof module.exports !== "undefined")
+{
+    module.exports["print_stats"] = print_stats;
+}
