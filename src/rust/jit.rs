@@ -801,6 +801,8 @@ fn jit_analyze_and_generate(
             // tab killed by browsers due to memory constraints.
             cpu::jit_clear_cache();
 
+            profiler::stat_increment(stat::INVALIDATE_ALL_MODULES_NO_FREE_WASM_INDICES);
+
             dbg_log!(
                 "after jit_clear_cache: {} pending_free {} free",
                 ctx.wasm_table_index_pending_free.len(),

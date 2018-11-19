@@ -45,6 +45,7 @@ const print_stats = {
             "DO_RUN",
             "DO_MANY_CYCLES",
             "CYCLE_INTERNAL",
+            "INVALIDATE_ALL_MODULES_NO_FREE_WASM_INDICES",
             "INVALIDATE_PAGE",
             "INVALIDATE_MODULE",
             "INVALIDATE_CACHE_ENTRY",
