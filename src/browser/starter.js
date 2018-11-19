@@ -448,17 +448,9 @@ V86Starter.prototype.continue_init = async function(emulator, options) // jshint
         var fs_url = options["filesystem"]["basefs"];
         var base_url = options["filesystem"]["baseurl"];
 
-        let file_storage;
-        try
-        {
-            file_storage = await IndexedDBFileStorage.try_create(); // jshint ignore:line
-        }
-        catch(e)
-        {
-            dbg_log("Initializing IndexedDBFileStorage failed due to Error: " + e);
-            dbg_log("Falling back to MemoryFileStorage instead.");
-            file_storage = new MemoryFileStorage();
-        }
+        let file_storage = typeof window === "undefined" || !window.indexedDB ?
+            new MemoryFileStorage() :
+            await IndexedDBFileStorage.try_create(); // jshint ignore:line
         if (base_url)
         {
             file_storage = new ServerFileStorageWrapper(file_storage, base_url);
@@ -1059,17 +1051,9 @@ V86Starter.prototype.serial0_send = function(data)
  */
 V86Starter.prototype.mount_fs = async function(path, baseurl, basefs, callback) // jshint ignore:line
 {
-    let file_storage;
-    try
-    {
-        file_storage = await IndexedDBFileStorage.try_create(); // jshint ignore:line
-    }
-    catch(e)
-    {
-        dbg_log("Initializing IndexedDBFileStorage failed due to Error: " + e);
-        dbg_log("Falling back to MemoryFileStorage instead.");
-        file_storage = new MemoryFileStorage();
-    }
+    let file_storage = typeof window === "undefined" || !window.indexedDB ?
+        new MemoryFileStorage() :
+        await IndexedDBFileStorage.try_create(); // jshint ignore:line
     if(baseurl)
     {
         file_storage = new ServerFileStorageWrapper(file_storage, baseurl);
