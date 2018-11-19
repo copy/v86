@@ -36,7 +36,7 @@ FileStorageInterface.prototype.set = function(sha256sum, data) {};
  * version is already out of date. It is used to help prevent accumulation of unused files in
  * memory in the long run for some FileStorage mediums.
  */
-FileStorageInterface.prototype.can_uncache = function(sha256sum) {};
+FileStorageInterface.prototype.uncache = function(sha256sum) {};
 
 /**
  * @constructor
@@ -85,7 +85,7 @@ MemoryFileStorage.prototype.set = async function(sha256sum, data) // jshint igno
 /**
  * @param {string} sha256sum
  */
-MemoryFileStorage.prototype.can_uncache = function(sha256sum)
+MemoryFileStorage.prototype.uncache = function(sha256sum)
 {
     this.filedata.delete(sha256sum);
 };
@@ -315,7 +315,7 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
 /**
  * @param {string} sha256sum
  */
-IndexedDBFileStorage.prototype.can_uncache = function(sha256sum)
+IndexedDBFileStorage.prototype.uncache = function(sha256sum)
 {
     // No-op.
 };
@@ -379,7 +379,7 @@ ServerFileStorageWrapper.prototype.set = async function(sha256sum, data) // jshi
 /**
  * @param {string} sha256sum
  */
-ServerFileStorageWrapper.prototype.can_uncache = function(sha256sum)
+ServerFileStorageWrapper.prototype.uncache = function(sha256sum)
 {
-    this.storage.can_uncache(sha256sum);
+    this.storage.uncache(sha256sum);
 };
