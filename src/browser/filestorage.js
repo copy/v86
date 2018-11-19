@@ -236,6 +236,12 @@ IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) /
     dbg_assert(Number.isInteger(total_size) && total_size >= base_data.length,
         `IndexedDBFileStorage read: Invalid base entry with invalid total_size: ${total_size}`);
 
+    if(extra_block_count === 0 || offset + count <= base_data.length)
+    {
+        // Avoid additional allocation and copying for smaller files.
+        return base_data.subarray(offset, offset + count);
+    }
+
     const read_data = new Uint8Array(count);
     let read_count = 0;
 
