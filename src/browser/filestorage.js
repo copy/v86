@@ -389,3 +389,7 @@ ServerFileStorageWrapper.prototype.uncache = function(sha256sum)
 {
     this.storage.uncache(sha256sum);
 };
+
+module.exports["MemoryFileStorage"] = MemoryFileStorage;
+module.exports["IndexedDBFileStorage"] = IndexedDBFileStorage;
+module.exports["ServerFileStorageWrapper"] = ServerFileStorageWrapper;
