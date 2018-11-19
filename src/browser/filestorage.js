@@ -170,15 +170,14 @@ IndexedDBFileStorage.init_db = function()
 
 /**
  * @private
- * @param {IDBTransaction} transaction
+ * @param {IDBObjectStore} store
  * @param {string} key
  * @return {!Promise<Object>}
  */
-IndexedDBFileStorage.prototype.db_get = function(transaction, key)
+IndexedDBFileStorage.prototype.db_get = function(store, key)
 {
     return new Promise((resolve, reject) =>
     {
-        const store = transaction.objectStore(INDEXEDDB_STORAGE_STORE);
         const request = store.get(key);
         request.onsuccess = event => resolve(request.result);
     });
@@ -186,15 +185,14 @@ IndexedDBFileStorage.prototype.db_get = function(transaction, key)
 
 /**
  * @private
- * @param {IDBTransaction} transaction
+ * @param {IDBObjectStore} store
  * @param {Object} value
  * @return {!Promise}
  */
-IndexedDBFileStorage.prototype.db_set = function(transaction, value)
+IndexedDBFileStorage.prototype.db_set = function(store, value)
 {
     return new Promise((resolve, reject) =>
     {
-        const store = transaction.objectStore(INDEXEDDB_STORAGE_STORE);
         const request = store.put(value);
         request.onsuccess = event => resolve();
     });
@@ -217,8 +215,9 @@ IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) /
         dbg_log(`IndexedDBFileStorage read: Error with transaction: ${error}`, LOG_9P);
         throw error;
     };
+    const store = transaction.objectStore(INDEXEDDB_STORAGE_STORE);
 
-    const entry = await this.db_get(transaction, sha256sum); // jshint ignore:line
+    const entry = await this.db_get(store, sha256sum); // jshint ignore:line
 
     if(!entry)
     {
@@ -260,7 +259,7 @@ IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) /
     {
         const block_offset = base_data.length + block_number * INDEXEDDB_STORAGE_BLOCKSIZE;
         const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, block_number);
-        const block_entry = await this.db_get(transaction, block_key); // jshint ignore:line
+        const block_entry = await this.db_get(store, block_key); // jshint ignore:line
 
         dbg_assert(block_entry, `IndexedDBFileStorage read: Missing entry for block-${block_number}`);
 
@@ -293,13 +292,14 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
         dbg_log(`IndexedDBFileStorage set: Error with transaction: ${error}`, LOG_9P);
         throw error;
     };
+    const store = transaction.objectStore(INDEXEDDB_STORAGE_STORE);
 
     const extra_block_count = Math.ceil(
         (data.length - INDEXEDDB_STORAGE_CHUNKING_THRESHOLD) /
         INDEXEDDB_STORAGE_BLOCKSIZE
     );
 
-    await this.db_set(transaction, { // jshint ignore:line
+    await this.db_set(store, { // jshint ignore:line
         [INDEXEDDB_STORAGE_KEY_PATH]: sha256sum,
         [INDEXEDDB_STORAGE_DATA_PATH]: data.subarray(0, INDEXEDDB_STORAGE_CHUNKING_THRESHOLD),
         [INDEXEDDB_STORAGE_TOTALSIZE_PATH]: data.length,
@@ -311,7 +311,7 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
     {
         const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, i);
         const block_data = data.subarray(offset, offset + INDEXEDDB_STORAGE_BLOCKSIZE);
-        await this.db_set(transaction, { //jshint ignore:line
+        await this.db_set(store, { //jshint ignore:line
             [INDEXEDDB_STORAGE_KEY_PATH]: block_key,
             [INDEXEDDB_STORAGE_DATA_PATH]: block_data,
         });
