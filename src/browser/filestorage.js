@@ -94,14 +94,12 @@ MemoryFileStorage.prototype.can_uncache = function(sha256sum)
  * Use IndexedDBFileStorage.try_create() instead.
  * @private
  * @constructor
+ * @param {!IDBDatabase} db The IndexedDB database opened via init_db().
  * @implements {FileStorageInterface}
  */
-function IndexedDBFileStorage()
+function IndexedDBFileStorage(db)
 {
-    dbg_assert(typeof window !== "undefined" && window.indexedDB,
-        "IndexedDBFileStorage - indexedDB not available.");
-    this.db = null;
-    this.initializing = false;
+    this.db = db;
 }
 
 IndexedDBFileStorage.try_create = async function() // jshint ignore:line
@@ -110,20 +108,16 @@ IndexedDBFileStorage.try_create = async function() // jshint ignore:line
     {
         throw new Error("IndexedDB is not available");
     }
-    const file_storage = new IndexedDBFileStorage();
-    await file_storage.init(); // jshint ignore:line
+    const db = await IndexedDBFileStorage.init_db(); // jshint ignore:line
+    const file_storage = new IndexedDBFileStorage(db);
     return file_storage;
 }; // jshint ignore:line
 
 /**
- * @private
+ * @return {!Promise<IDBDatabase>}
  */
-IndexedDBFileStorage.prototype.init = function()
+IndexedDBFileStorage.init_db = function()
 {
-    dbg_assert(!this.db, "IndexedDBFileStorage init: Database already intiialized");
-    dbg_assert(!this.initializing, "IndexedDBFileStorage init: Database already intiializing");
-    this.initializing = true;
-
     return new Promise((resolve, reject) =>
     {
         const open_request = indexedDB.open(INDEXEDDB_STORAGE_NAME, INDEXEDDB_STORAGE_VERSION);
@@ -137,7 +131,6 @@ IndexedDBFileStorage.prototype.init = function()
         {
             dbg_log("Error opening IndexedDB! Are you in private browsing mode? Error:", LOG_9P);
             dbg_log(open_request.error, LOG_9P);
-            this.initializing = false;
             reject(open_request.error);
         };
 
@@ -149,29 +142,28 @@ IndexedDBFileStorage.prototype.init = function()
 
         open_request.onsuccess = event =>
         {
-            this.initializing = false;
-            this.db = open_request.result;
-            this.db.onabort = event =>
+            const db = open_request.result;
+            db.onabort = event =>
             {
                 dbg_assert(false, "IndexedDBFileStorage: transaction aborted unexpectedly");
             };
-            this.db.onclose = event =>
+            db.onclose = event =>
             {
                 dbg_assert(false, "IndexedDBFileStorage: connection closed unexpectedly");
             };
-            this.db.onerror = event =>
+            db.onerror = event =>
             {
                 const error = event.originalTarget.error;
                 dbg_log("IndexedDBFileStorage: unexpected error: " + error, LOG_9P);
                 throw error;
             };
-            this.db.onversionchange = event =>
+            db.onversionchange = event =>
             {
                 dbg_log("Caution: Another v86 instance might be trying to upgrade the IndexedDB " +
                     "database to a newer version, or a request has been issued to delete the " +
                     "database, but is blocked by this current v86 instance ", LOG_9P);
             };
-            resolve();
+            resolve(db);
         };
     });
 };
@@ -216,7 +208,6 @@ IndexedDBFileStorage.prototype.db_set = function(transaction, value)
  */
 IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) // jshint ignore:line
 {
-    dbg_assert(this.db, "IndexedDBFileStorage read: Database is not initialized");
     dbg_assert(sha256sum, "IndexedDBFileStorage read: sha256sum should be a non-empty string");
 
     const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readonly");
@@ -287,7 +278,6 @@ IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) /
  */
 IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint ignore:line
 {
-    dbg_assert(this.db, "IndexedDBFileStorage set: Database is not initialized");
     dbg_assert(sha256sum, "IndexedDBFileStorage set: sha256sum should be a non-empty string");
 
     const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readwrite");
