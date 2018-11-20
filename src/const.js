@@ -346,9 +346,9 @@ var PREFIX_66 = PREFIX_MASK_OPSIZE; // alias
 /** @const */
 var MXCSR_MASK = (0xFFFF & ~(1 << 6));
 
-
+// See same constant in jit.rs
 /** @const */
-var WASM_TABLE_SIZE = 0x10000;
+var WASM_TABLE_SIZE = 900;
 
 /** @const */
 var WASM_TABLE_OFFSET = 1024;

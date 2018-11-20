@@ -15,7 +15,7 @@ use wasmgen::module_init;
 use wasmgen::module_init::WasmBuilder;
 use wasmgen::wasm_util::WasmBuf;
 
-pub const WASM_TABLE_SIZE: u32 = 0x10000;
+pub const WASM_TABLE_SIZE: u32 = 900;
 
 pub const HASH_PRIME: u32 = 6151;
 
@@ -25,7 +25,7 @@ pub const JIT_MAX_ITERATIONS_PER_FUNCTION: u32 = 10000;
 
 pub const JIT_ALWAYS_USE_LOOP_SAFETY: bool = true;
 
-pub const JIT_THRESHOLD: u32 = 8 * 10000;
+pub const JIT_THRESHOLD: u32 = 200 * 1000;
 
 const CONDITION_FUNCTIONS: [&str; 16] = [
     "test_o", "test_no", "test_b", "test_nb", "test_z", "test_nz", "test_be", "test_nbe", "test_s",
