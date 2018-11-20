@@ -6,13 +6,14 @@ process.on("unhandledRejection", exn => { throw exn; });
 var TIMEOUT_EXTRA_FACTOR = +process.env.TIMEOUT_EXTRA_FACTOR || 1;
 var MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 4;
 var TEST_NAME = process.env.TEST_NAME;
+const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
 const VERBOSE = false;
 const RUN_SLOW_TESTS = false;
 
 try
 {
-    var V86 = require("../../build/libv86-debug.js").V86;
+    var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
 }
 catch(e)
 {

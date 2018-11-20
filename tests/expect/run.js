@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 "use strict";
 
+const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+
 const fs = require("fs");
 const path = require("path");
-const process = require("process");
 const { spawnSync } = require("child_process");
 
 const libwabt = require("../../build/libwabt.js");
 
 try {
-    var V86 = require("../../build/libv86-debug.js").V86;
+    var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
 }
 catch(e) {
     console.error(e);

@@ -23,6 +23,7 @@ const cluster = require("cluster");
 const MAX_PARALLEL_TESTS = +process.env.MAX_PARALLEL_TESTS || 99;
 const TEST_NAME = process.env.TEST_NAME;
 const SINGLE_TEST_TIMEOUT = 10000;
+const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
 
 const TEST_DIR = __dirname + "/build/";
 const DONE_MSG = "DONE";
@@ -33,7 +34,7 @@ const FORCE_JIT = process.argv.includes("--force-jit");
 const MASK_ARITH = 1 | 1 << 2 | 1 << 4 | 1 << 6 | 1 << 7 | 1 << 11;
 
 try {
-    var V86 = require("../../build/libv86-debug.js").V86;
+    var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
 }
 catch(e) {
     console.error(e);

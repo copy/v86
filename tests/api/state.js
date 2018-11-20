@@ -3,7 +3,9 @@
 
 process.on("unhandledRejection", exn => { throw exn; });
 
-var V86 = require("../../build/libv86-debug.js").V86;
+const TEST_RELEASE_BUILD = +process.env.TEST_RELEASE_BUILD;
+
+var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
 var fs = require("fs");
 
 const config_async_cdrom = {
