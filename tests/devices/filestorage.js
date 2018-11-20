@@ -2,7 +2,7 @@
 "use strict";
 
 process.on("unhandledRejection", exn => { throw exn; });
-const util = require('util');
+const util = require("util");
 const { MemoryFileStorage, IndexedDBFileStorage } = require("../../build/libv86-debug.js");
 
 const MAX_TESTFILE_SIZE = 16384;

@@ -451,7 +451,7 @@ V86Starter.prototype.continue_init = async function(emulator, options) // jshint
         let file_storage = typeof window === "undefined" || !window.indexedDB ?
             new MemoryFileStorage() :
             await IndexedDBFileStorage.try_create(); // jshint ignore:line
-        if (base_url)
+        if(base_url)
         {
             file_storage = new ServerFileStorageWrapper(file_storage, base_url);
         }
