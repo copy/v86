@@ -390,6 +390,23 @@ ServerFileStorageWrapper.prototype.uncache = function(sha256sum)
     this.storage.uncache(sha256sum);
 };
 
-module.exports["MemoryFileStorage"] = MemoryFileStorage;
-module.exports["IndexedDBFileStorage"] = IndexedDBFileStorage;
-module.exports["ServerFileStorageWrapper"] = ServerFileStorageWrapper;
+// Closure Compiler's way of exporting
+if(typeof window !== "undefined")
+{
+    window["MemoryFileStorage"] = MemoryFileStorage;
+    window["IndexedDBFileStorage"] = IndexedDBFileStorage;
+    window["ServerFileStorageWrapper"] = ServerFileStorageWrapper;
+}
+else if(typeof module !== "undefined" && typeof module.exports !== "undefined")
+{
+    module.exports["MemoryFileStorage"] = MemoryFileStorage;
+    module.exports["IndexedDBFileStorage"] = IndexedDBFileStorage;
+    module.exports["ServerFileStorageWrapper"] = ServerFileStorageWrapper;
+}
+else if(typeof importScripts === "function")
+{
+    // web worker
+    self["MemoryFileStorage"] = MemoryFileStorage;
+    self["IndexedDBFileStorage"] = IndexedDBFileStorage;
+    self["ServerFileStorageWrapper"] = ServerFileStorageWrapper;
+}
