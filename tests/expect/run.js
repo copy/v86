@@ -22,6 +22,7 @@ catch(e) {
 const TEST_NAME = process.env.TEST_NAME;
 
 const LOG_LEVEL = 0;
+const V86OXIDE_GLOBAL_BASE = 8388608;
 
 const GIT_DIFF_FLAGS = ["--no-index", "--patience", "--color=always"];
 
@@ -83,7 +84,7 @@ function normalise_wast(wast)
         {
             offset = Number(offset);
 
-            if(offset >= 8388608)
+            if(offset >= V86OXIDE_GLOBAL_BASE)
             {
                 return "offset={normalised output}";
             }
