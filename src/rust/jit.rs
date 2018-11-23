@@ -1430,8 +1430,9 @@ pub fn check_missed_entry_points(phys_address: u32, state_flags: CachedStateFlag
         {
             profiler::stat_increment(stat::RUN_INTERPRETED_MISSED_COMPILED_ENTRY_LOOKUP);
 
-            let last_jump_type = unsafe { cpu2::cpu::debug_last_jump.name() };
-            let last_jump_addr = unsafe { cpu2::cpu::debug_last_jump.phys_address() }.unwrap_or(0);
+            let last_jump_type = unsafe { ::cpu2::cpu::debug_last_jump.name() };
+            let last_jump_addr =
+                unsafe { ::cpu2::cpu::debug_last_jump.phys_address() }.unwrap_or(0);
             let last_jump_opcode = if last_jump_addr != 0 {
                 cpu::read32(last_jump_addr)
             }
