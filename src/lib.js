@@ -94,6 +94,20 @@ if(typeof window !== "undefined" && window.crypto && window.crypto.getRandomValu
         return rand_data[0];
     };
 }
+else if(typeof require !== "undefined")
+{
+    const crypto = require("crypto");
+
+    v86util.has_rand_int = function()
+    {
+        return true;
+    };
+
+    v86util.get_rand_int = function()
+    {
+        return new Int32Array(crypto.randomBytes(4));
+    };
+}
 else
 {
     v86util.has_rand_int = function()
