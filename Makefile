@@ -14,9 +14,9 @@ JIT_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_jit.js
 INTERPRETER_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_interpreter.js
 ANALYZER_DEPENDENCIES=$(GEN_DEPENDENCIES) gen/generate_analyzer.js
 
-STRIP_DEBUG=
-ifeq ($(strip_debug),true)
-STRIP_DEBUG=--v86-strip-debug
+STRIP_DEBUG_FLAG=
+ifeq ($(STRIP_DEBUG),true)
+STRIP_DEBUG_FLAG=--v86-strip-debug
 endif
 
 all: build/v86_all.js build/libv86.js build/v86oxide.wasm
@@ -88,7 +88,7 @@ CARGO_FLAGS=\
 		--target wasm32-unknown-unknown \
 		-- \
 		-C linker=tools/rust-lld-wrapper \
-		-C link-args="--import-table --global-base=8388608 $(STRIP_DEBUG)" \
+		-C link-args="--import-table --global-base=8388608 $(STRIP_DEBUG_FLAG)" \
 		--verbose
 
 CORE_FILES=const.js config.js io.js main.js lib.js coverage.js ide.js pci.js floppy.js \
