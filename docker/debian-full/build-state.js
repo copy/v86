@@ -14,7 +14,6 @@ var V86 = require("./../../build/libv86.js").V86;
 const V86_ROOT = path.join(__dirname, "../..");
 
 var OUTPUT_FILE = path.join(V86_ROOT, "images/debian-state-base.bin");
-var SCREEN_FILE = "/tmp/screen_debian_full.txt";
 
 process.stdin.setRawMode(true);
 process.stdin.resume();
