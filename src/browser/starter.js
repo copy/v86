@@ -115,7 +115,6 @@ function V86Starter(options)
         "unimplemented_sse": function() { return cpu.unimplemented_sse(); },
         "microtick": v86.microtick,
         "get_rand_int": function() { return v86util.get_rand_int(); },
-        "has_rand_int": function() { return v86util.has_rand_int(); },
         "dbg_trace": function()
         {
             dbg_trace();

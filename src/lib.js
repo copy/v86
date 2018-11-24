@@ -83,11 +83,6 @@ if(typeof window !== "undefined" && window.crypto && window.crypto.getRandomValu
 {
     let rand_data = new Int32Array(1);
 
-    v86util.has_rand_int = function()
-    {
-        return true;
-    };
-
     v86util.get_rand_int = function()
     {
         window.crypto.getRandomValues(rand_data);
@@ -98,11 +93,6 @@ else if(typeof require !== "undefined")
 {
     const crypto = require("crypto");
 
-    v86util.has_rand_int = function()
-    {
-        return true;
-    };
-
     v86util.get_rand_int = function()
     {
         return new Int32Array(crypto.randomBytes(4));
@@ -110,15 +100,7 @@ else if(typeof require !== "undefined")
 }
 else
 {
-    v86util.has_rand_int = function()
-    {
-        return false;
-    };
-
-    v86util.get_rand_int = function()
-    {
-        console.assert(false);
-    };
+    dbg_assert(false, "Unsupported platform: No cryptographic random values");
 }
 
 

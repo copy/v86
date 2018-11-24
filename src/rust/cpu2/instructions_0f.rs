@@ -12,8 +12,6 @@ extern "C" {
     #[no_mangle]
     fn get_rand_int() -> i32;
     #[no_mangle]
-    fn has_rand_int() -> bool;
-    #[no_mangle]
     fn cpuid();
     #[no_mangle]
     fn lsl(r: i32, v: i32) -> i32;
@@ -3838,14 +3836,10 @@ pub unsafe fn instr_0FC7_1_mem(addr: i32) {
 #[no_mangle]
 pub unsafe fn instr_0FC7_6_reg(r: i32) {
     // rdrand
-    let has_rand: i32 = has_rand_int() as i32;
-    let mut rand: i32 = 0;
-    if 0 != has_rand {
-        rand = get_rand_int()
-    }
+    let rand = get_rand_int();
     write_reg_osize(r, rand);
     *flags &= !FLAGS_ALL;
-    *flags |= has_rand;
+    *flags |= 1;
     *flags_changed = 0;
 }
 #[no_mangle]
