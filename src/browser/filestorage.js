@@ -184,21 +184,6 @@ IndexedDBFileStorage.prototype.db_get = function(store, key)
 };
 
 /**
- * @private
- * @param {IDBObjectStore} store
- * @param {Object} value
- * @return {!Promise}
- */
-IndexedDBFileStorage.prototype.db_set = function(store, value)
-{
-    return new Promise((resolve, reject) =>
-    {
-        const request = store.put(value);
-        request.onsuccess = event => resolve();
-    });
-};
-
-/**
  * @param {string} sha256sum
  * @param {number} offset
  * @param {number} count
@@ -299,7 +284,7 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
         INDEXEDDB_STORAGE_BLOCKSIZE
     );
 
-    await this.db_set(store, { // jshint ignore:line
+    store.put({ // jshint ignore:line
         [INDEXEDDB_STORAGE_KEY_PATH]: sha256sum,
         // Note: Without cloning, the entire backing ArrayBuffer is serialized into the database.
         [INDEXEDDB_STORAGE_DATA_PATH]: data.slice(0, INDEXEDDB_STORAGE_CHUNKING_THRESHOLD),
@@ -313,11 +298,15 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
         const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, i);
         // Note: Without cloning, the entire backing ArrayBuffer is serialized into the database.
         const block_data = data.slice(offset, offset + INDEXEDDB_STORAGE_BLOCKSIZE);
-        await this.db_set(store, { //jshint ignore:line
+        store.put({ //jshint ignore:line
             [INDEXEDDB_STORAGE_KEY_PATH]: block_key,
             [INDEXEDDB_STORAGE_DATA_PATH]: block_data,
         });
     }
+
+    await new Promise((resolve, reject) => { // jshint ignore:line
+        transaction.oncomplete = event => resolve();
+    });
 }; // jshint ignore:line
 
 /**
