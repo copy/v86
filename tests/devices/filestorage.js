@@ -95,15 +95,15 @@ async function test_with_file(oracle, iut, key, file_data) // jshint ignore:line
     await iut.set(key, file_data); // jshint ignore:line
 
     // Some boundary values.
-    if(!await test_read(oracle, iut, key, 0, 0)) return; // jshint ignore:line
-    if(!await test_read(oracle, iut, key, 0, 1)) return; // jshint ignore:line
-    if(!await test_read(oracle, iut, key, 0, 4096)) return; // jshint ignore:line
-    if(!await test_read(oracle, iut, key, 0, 4097)) return; // jshint ignore:line
-    if(!await test_read(oracle, iut, key, 4095, 2)) return; // jshint ignore:line
-    if(!await test_read(oracle, iut, key, 4096, 1)) return; // jshint ignore:line
-    if(!await test_read(oracle, iut, key, 4096, 4096)) return; // jshint ignore:line
-    if(!await test_read(oracle, iut, key, 4097, 1)) return; // jshint ignore:line
-    if(!await test_read(oracle, iut, key, 4097, 4095)) return; // jshint ignore:line
+    if(!await test_read(oracle, iut, key, 0, 0)) return false; // jshint ignore:line
+    if(!await test_read(oracle, iut, key, 0, 1)) return false; // jshint ignore:line
+    if(!await test_read(oracle, iut, key, 0, 4096)) return false; // jshint ignore:line
+    if(!await test_read(oracle, iut, key, 0, 4097)) return false; // jshint ignore:line
+    if(!await test_read(oracle, iut, key, 4095, 2)) return false; // jshint ignore:line
+    if(!await test_read(oracle, iut, key, 4096, 1)) return false; // jshint ignore:line
+    if(!await test_read(oracle, iut, key, 4096, 4096)) return false; // jshint ignore:line
+    if(!await test_read(oracle, iut, key, 4097, 1)) return false; // jshint ignore:line
+    if(!await test_read(oracle, iut, key, 4097, 4095)) return false; // jshint ignore:line
 
     // Random ranges.
     for(let i = 0; i < NUMBER_OF_TESTREADS; i++)
@@ -129,19 +129,20 @@ async function test_start() // jshint ignore:line
     // Implementation under test with chunking.
     const iut = new IndexedDBFileStorage(mock_indexeddb());
 
-    if(!await test_with_file(oracle, iut, "empty", new Uint8Array(0))) return; // jshint ignore:line
-    if(!await test_with_file(oracle, iut, "single", new Uint8Array(1).map(v => Math.random() * 0xFF))) return; // jshint ignore:line
-    if(!await test_with_file(oracle, iut, "1block", new Uint8Array(4096).map(v => Math.random() * 0xFF))) return; // jshint ignore:line
+    if(!await test_with_file(oracle, iut, "empty", new Uint8Array(0))) return false; // jshint ignore:line
+    if(!await test_with_file(oracle, iut, "single", new Uint8Array(1).map(v => Math.random() * 0xFF))) return false; // jshint ignore:line
+    if(!await test_with_file(oracle, iut, "1block", new Uint8Array(4096).map(v => Math.random() * 0xFF))) return false; // jshint ignore:line
 
     for(let i = 0; i < NUMBER_OF_TESTFILES; i++)
     {
         const size = Math.floor(Math.random() * MAX_TESTFILE_SIZE);
         const file_data = new Uint8Array(size).map(v => Math.random() * 0xFF);
         const pass = await test_with_file(oracle, iut, i.toString(), file_data); // jshint ignore:line
-        if(!pass) return;
+        if(!pass) return false;
     }
 
     log_pass("All tests passed!");
+    return true;
 }
 
-test_start();
+test_start().then(pass => pass || process.exit(1));
