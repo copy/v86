@@ -58,25 +58,65 @@ function mock_indexeddb()
     const db = new Map();
     return {
         transaction(store_name, mode) {
-            return {
+            const transaction = {
                 objectStore(store_name) {
                     return {
                         get(key) {
+                            assert_transaction_active(`get ${key}`);
                             const result = db.get(key);
                             const request = { result };
-                            setTimeout(() => request.onsuccess(), 0);
+                            mock_request_completion(request);
                             return request;
                         },
                         put(value) {
+                            assert_transaction_active(`put ${value}`);
                             const key = value["sha256sum"];
                             db.set(key, value);
                             const request = {};
-                            setTimeout(() => request.onsuccess(), 0);
+                            mock_request_completion(request);
                             return request;
                         },
                     };
                 },
             };
+
+            let completed = false;
+            let pending_requests = 0;
+
+            function assert_transaction_active(verb)
+            {
+                if(completed)
+                {
+                    log_fail(`Attempted to ${verb} after transaction expired`);
+                    process.exit(1);
+                }
+            }
+            function mock_request_completion(request)
+            {
+                pending_requests++;
+                setTimeout(() =>
+                {
+                    pending_requests--;
+
+                    setTimeout(() =>
+                    {
+                        if(!pending_requests)
+                        {
+                            completed = true;
+                            if(transaction.oncomplete)
+                            {
+                                transaction.oncomplete();
+                            }
+                        }
+                    }, 0);
+
+                    if(request.onsuccess)
+                    {
+                        request.onsuccess();
+                    }
+                }, 0);
+            }
+            return transaction;
         },
     };
 }
