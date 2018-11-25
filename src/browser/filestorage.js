@@ -153,7 +153,7 @@ IndexedDBFileStorage.init_db = function()
             };
             db.onerror = event =>
             {
-                const error = event.originalTarget.error;
+                const error = event.target.error;
                 dbg_log("IndexedDBFileStorage: unexpected error: " + error, LOG_9P);
                 throw error;
             };
@@ -196,7 +196,7 @@ IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) /
     const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readonly");
     transaction.onerror = event =>
     {
-        const error = event.originalTarget.error;
+        const error = event.target.error;
         dbg_log(`IndexedDBFileStorage read: Error with transaction: ${error}`, LOG_9P);
         throw error;
     };
@@ -273,7 +273,7 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
     const transaction = this.db.transaction(INDEXEDDB_STORAGE_STORE, "readwrite");
     transaction.onerror = event =>
     {
-        const error = event.originalTarget.error;
+        const error = event.target.error;
         dbg_log(`IndexedDBFileStorage set: Error with transaction: ${error}`, LOG_9P);
         throw error;
     };
