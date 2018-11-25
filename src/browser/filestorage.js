@@ -301,7 +301,8 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
 
     await this.db_set(store, { // jshint ignore:line
         [INDEXEDDB_STORAGE_KEY_PATH]: sha256sum,
-        [INDEXEDDB_STORAGE_DATA_PATH]: data.subarray(0, INDEXEDDB_STORAGE_CHUNKING_THRESHOLD),
+        // Note: Without cloning, the entire backing ArrayBuffer is serialized into the database.
+        [INDEXEDDB_STORAGE_DATA_PATH]: data.slice(0, INDEXEDDB_STORAGE_CHUNKING_THRESHOLD),
         [INDEXEDDB_STORAGE_TOTALSIZE_PATH]: data.length,
         [INDEXEDDB_STORAGE_EXTRABLOCKCOUNT_PATH]: extra_block_count,
     });
@@ -310,7 +311,8 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
     for(let i = 0; offset < data.length; i++, offset += INDEXEDDB_STORAGE_BLOCKSIZE)
     {
         const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, i);
-        const block_data = data.subarray(offset, offset + INDEXEDDB_STORAGE_BLOCKSIZE);
+        // Note: Without cloning, the entire backing ArrayBuffer is serialized into the database.
+        const block_data = data.slice(offset, offset + INDEXEDDB_STORAGE_BLOCKSIZE);
         await this.db_set(store, { //jshint ignore:line
             [INDEXEDDB_STORAGE_KEY_PATH]: block_key,
             [INDEXEDDB_STORAGE_DATA_PATH]: block_data,
