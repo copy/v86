@@ -264,9 +264,9 @@ IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) /
 
 /**
  * @param {string} sha256sum
- * @param {!Uint8Array} data
+ * @param {!Promise<Uint8Array>} data
  */
-IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint ignore:line
+IndexedDBFileStorage.prototype.set = function(sha256sum, data)
 {
     dbg_assert(sha256sum, "IndexedDBFileStorage set: sha256sum should be a non-empty string");
 
@@ -284,7 +284,7 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
         INDEXEDDB_STORAGE_BLOCKSIZE
     );
 
-    store.put({ // jshint ignore:line
+    store.put({
         [INDEXEDDB_STORAGE_KEY_PATH]: sha256sum,
         // Note: Without cloning, the entire backing ArrayBuffer is serialized into the database.
         [INDEXEDDB_STORAGE_DATA_PATH]: data.slice(0, INDEXEDDB_STORAGE_CHUNKING_THRESHOLD),
@@ -298,16 +298,16 @@ IndexedDBFileStorage.prototype.set = async function(sha256sum, data) // jshint i
         const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, i);
         // Note: Without cloning, the entire backing ArrayBuffer is serialized into the database.
         const block_data = data.slice(offset, offset + INDEXEDDB_STORAGE_BLOCKSIZE);
-        store.put({ //jshint ignore:line
+        store.put({
             [INDEXEDDB_STORAGE_KEY_PATH]: block_key,
             [INDEXEDDB_STORAGE_DATA_PATH]: block_data,
         });
     }
 
-    await new Promise((resolve, reject) => { // jshint ignore:line
+    return new Promise((resolve, reject) => {
         transaction.oncomplete = event => resolve();
     });
-}; // jshint ignore:line
+};
 
 /**
  * @param {string} sha256sum
