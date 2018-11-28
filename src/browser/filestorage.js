@@ -130,7 +130,7 @@ IndexedDBFileStorage.init_db = function()
         open_request.onerror = event =>
         {
             dbg_log("Error opening IndexedDB! Are you in private browsing mode? Error:", LOG_9P);
-            dbg_log(open_request.error, LOG_9P);
+            dbg_log(open_request.error.toString(), LOG_9P);
             reject(open_request.error);
         };
 
