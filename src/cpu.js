@@ -860,7 +860,7 @@ CPU.prototype.init = function(settings, device_bus)
         }
         else if(value === FW_CFG_NUMA)
         {
-            this.fw_value = i64(0);
+            this.fw_value = i64(0, 0);
         }
         else if(value === FW_CFG_FILE_DIR)
         {

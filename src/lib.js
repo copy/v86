@@ -91,6 +91,7 @@ if(typeof window !== "undefined" && window.crypto && window.crypto.getRandomValu
 }
 else if(typeof require !== "undefined")
 {
+    /** @type {{ randomBytes: Function }} */
     const crypto = require("crypto");
 
     v86util.get_rand_int = function()
