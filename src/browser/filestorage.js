@@ -55,7 +55,7 @@ function MemoryFileStorage()
  * @param {string} sha256sum
  * @param {number} offset
  * @param {number} count
- * @return {!Uint8Array} null if file does not exist.
+ * @return {!Promise<Uint8Array>} null if file does not exist.
  */
 MemoryFileStorage.prototype.read = async function(sha256sum, offset, count) // jshint ignore:line
 {
@@ -114,7 +114,7 @@ IndexedDBFileStorage.try_create = async function() // jshint ignore:line
 }; // jshint ignore:line
 
 /**
- * @return {!Promise<IDBDatabase>}
+ * @return {!Promise<!IDBDatabase>}
  */
 IndexedDBFileStorage.init_db = function()
 {
@@ -187,7 +187,7 @@ IndexedDBFileStorage.prototype.db_get = function(store, key)
  * @param {string} sha256sum
  * @param {number} offset
  * @param {number} count
- * @return {!Uint8Array} null if file does not exist.
+ * @return {!Promise<Uint8Array>} null if file does not exist.
  */
 IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) // jshint ignore:line
 {
@@ -264,7 +264,7 @@ IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) /
 
 /**
  * @param {string} sha256sum
- * @param {!Promise<Uint8Array>} data
+ * @param {!Uint8Array} data
  */
 IndexedDBFileStorage.prototype.set = function(sha256sum, data)
 {
@@ -351,7 +351,7 @@ ServerFileStorageWrapper.prototype.load_from_server = function(sha256sum)
  * @param {string} sha256sum
  * @param {number} offset
  * @param {number} count
- * @return {Uint8Array}
+ * @return {!Promise<Uint8Array>}
  */
 ServerFileStorageWrapper.prototype.read = async function(sha256sum, offset, count) // jshint ignore:line
 {
