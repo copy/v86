@@ -53,11 +53,7 @@ var ASYNC_SAFE = false;
 
         http.open(options.method || "get", filename, true);
 
-        if(options.as_text)
-        {
-            // the default
-        }
-        else if(options.as_json)
+        if(options.as_json)
         {
             http.responseType = "json";
         }
@@ -116,7 +112,7 @@ var ASYNC_SAFE = false;
 
         if(options.range)
         {
-            dbg_assert(!options.as_text && !options.as_json);
+            dbg_assert(!options.as_json);
 
             fs["open"](filename, "r", (err, fd) =>
             {
@@ -141,7 +137,7 @@ var ASYNC_SAFE = false;
         else
         {
             var o = {
-                encoding: options.as_text || options.as_json ? "utf-8" : null,
+                encoding: options.as_json ? "utf-8" : null,
             };
 
             fs["readFile"](filename, o, function(err, data)
@@ -154,10 +150,7 @@ var ASYNC_SAFE = false;
                 {
                     var result = data;
 
-                    if(options.as_text)
-                    {
-                    }
-                    else if(options.as_json)
+                    if(options.as_json)
                     {
                         result = JSON.parse(result);
                     }
