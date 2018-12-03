@@ -273,6 +273,78 @@ const encodings = [
     // XXX: Temporary block boundary
     { opcode: 0xD7, skip: 1, block_boundary: 1, },
 
+    { opcode: 0xD8, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 5, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, },
+
+    { opcode: 0xD9, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD9, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD9, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD9, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD9, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // fldenv (only memory). TODO: Make reg variant non-block-boundary
+    { opcode: 0xD9, e: 1, fixed_g: 5, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD9, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, skip: 1, }, // fstenv (mem), fprem (reg)
+    { opcode: 0xD9, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, only_mem: 1, }, // fprem
+
+    { opcode: 0xDA, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDA, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDA, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDA, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDA, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDA, e: 1, fixed_g: 5, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDA, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDA, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, },
+
+    { opcode: 0xDB, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDB, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, }, // unimplemented: fisttp (sse3)
+    { opcode: 0xDB, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDB, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDB, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDB, e: 1, fixed_g: 5, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDB, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDB, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, },
+
+    { opcode: 0xDC, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 5, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, },
+
+    { opcode: 0xDD, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDD, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, }, // XXX: Test should fail
+    { opcode: 0xDD, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDD, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDD, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, }, // frstor
+    { opcode: 0xDD, e: 1, fixed_g: 5, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDD, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, }, // fsave
+    { opcode: 0xDD, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, },
+
+    { opcode: 0xDE, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDE, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDE, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDE, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDE, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDE, e: 1, fixed_g: 5, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDE, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDE, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, },
+
+    { opcode: 0xDF, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1 },
+    { opcode: 0xDF, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // unimplemented: fisttp (sse3)
+    { opcode: 0xDF, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1 },
+    { opcode: 0xDF, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1 },
+    { opcode: 0xDF, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // mem exists, but not implemented
+    { opcode: 0xDF, e: 1, fixed_g: 5, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDF, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // mem exists, but not implemented
+    { opcode: 0xDF, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, },
+
     // loop, jcxz, etc.
     // Conditional jumps, but condition code not supported by code generator
     // (these are never generated by modern compilers)
@@ -722,7 +794,7 @@ const encodings = [
     { sse: 1, opcode: 0x660F75, e: 1, },
     { sse: 1, opcode: 0x0F76, e: 1, },
     { sse: 1, opcode: 0x660F76, e: 1, },
-    { sse: 1, opcode: 0x0F77 },
+    { sse: 1, opcode: 0x0F77, skip: 1 }, // emms (skip as it breaks gdb printing of float registers)
 
     // vmx instructions
     { opcode: 0x0F78, skip: 1, block_boundary: 1, },
@@ -892,15 +964,6 @@ for(let i = 0; i < 8; i++)
         { opcode: 0xD1, os: 1, e: 1, fixed_g: i, mask_flags: af, custom: 1, },
         { opcode: 0xD2, e: 1, fixed_g: i, mask_flags: of | af, },
         { opcode: 0xD3, os: 1, e: 1, fixed_g: i, mask_flags: of | af, custom: 1, },
-
-        { opcode: 0xD8, e: 1, fixed_g: i, skip: 1, task_switch_test: 1, },
-        { opcode: 0xD9, e: 1, fixed_g: i, skip: 1, task_switch_test: 1, },
-        { opcode: 0xDA, e: 1, fixed_g: i, skip: 1, task_switch_test: 1, },
-        { opcode: 0xDB, e: 1, fixed_g: i, skip: 1, task_switch_test: 1, },
-        { opcode: 0xDC, e: 1, fixed_g: i, skip: 1, task_switch_test: 1, },
-        { opcode: 0xDD, e: 1, fixed_g: i, skip: 1, task_switch_test: 1, },
-        { opcode: 0xDE, e: 1, fixed_g: i, skip: 1, task_switch_test: 1, },
-        { opcode: 0xDF, e: 1, fixed_g: i, skip: 1, task_switch_test: 1, },
     ]);
 }
 

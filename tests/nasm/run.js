@@ -31,7 +31,16 @@ const TERMINATE_MSG = "DONE";
 
 const FORCE_JIT = process.argv.includes("--force-jit");
 
+// alternative representation for infinity for json
+const JSON_POS_INFINITY = "+INFINITY";
+const JSON_NEG_INFINITY = "-INFINITY";
+const JSON_POS_NAN = "+NAN";
+const JSON_NEG_NAN = "-NAN";
+
 const MASK_ARITH = 1 | 1 << 2 | 1 << 4 | 1 << 6 | 1 << 7 | 1 << 11;
+const FPU_TAG_ALL_INVALID = 0xAAAA;
+const FPU_STATUS_MASK = 0xFFFF & ~(1 << 9 | 1 << 5 | 1 << 3); // bits that are not correctly implemented by v86
+const FP_COMPARISON_SIGNIFICANT_DIGITS = 7;
 
 try {
     var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;
@@ -41,6 +50,39 @@ catch(e) {
     console.error("Failed to import build/libv86-debug.js. Run " +
                   "`make build/libv86-debug.js` first.");
     process.exit(1);
+}
+
+function float_equal(x, y)
+{
+    console.assert(typeof x === "number");
+    console.assert(typeof y === "number");
+
+    if(x === Infinity && y === Infinity || x === -Infinity && y === -Infinity || isNaN(x) && isNaN(y))
+    {
+        return true;
+    }
+
+    const epsilon = Math.pow(10, -FP_COMPARISON_SIGNIFICANT_DIGITS);
+    return Math.abs(x - y) < epsilon;
+}
+
+function format_value(v)
+{
+    if(typeof v === "number")
+    {
+        if((v >>> 0) !== v)
+        {
+            return String(v);
+        }
+        else
+        {
+            return "0x" + (v >>> 0).toString(16);
+        }
+    }
+    else
+    {
+        return String(v);
+    }
 }
 
 if(cluster.isMaster)
@@ -67,7 +109,13 @@ if(cluster.isMaster)
             throw new Error("Test was killed during execution by gdb: " + name + "\n" + fixture_text);
         }
 
-        const json_regex = /---BEGIN JSON---([\s\[\]\w":\-,]*)---END JSON---/;
+        fixture_text = fixture_text.toString()
+            .replace(/-inf\b/g, JSON.stringify(JSON_NEG_INFINITY))
+            .replace(/\binf\b/g, JSON.stringify(JSON_POS_INFINITY))
+            .replace(/-nan\b/g, JSON.stringify(JSON_NEG_NAN))
+            .replace(/\bnan\b/g, JSON.stringify(JSON_POS_NAN));
+
+        const json_regex = /---BEGIN JSON---([\s\[\]\.\+\w":\-,]*)---END JSON---/;
         const regex_match = json_regex.exec(fixture_text);
         if (!regex_match || regex_match.length < 2) {
             throw new Error("Could not find JSON in fixture text: " + fixture_text + "\nTest: " + name);
@@ -180,15 +228,9 @@ if(cluster.isMaster)
                 console.error("\n[-] %s:", test_failure.img_name);
 
                 test_failure.failures.forEach(function(failure) {
-                    function format_value(v) {
-                        if(typeof v === "number")
-                            return "0x" + (v >>> 0).toString(16);
-                        else
-                            return String(v);
-                    }
                     console.error("\n\t" + failure.name);
-                    console.error("\tActual:   " + format_value(failure.actual));
-                    console.error("\tExpected: " + format_value(failure.expected));
+                    console.error("\tActual:   " + failure.actual);
+                    console.error("\tExpected: " + failure.expected);
                 });
             });
             process.exit(1);
@@ -300,23 +342,36 @@ else {
         emulator.stop();
         var cpu = emulator.v86.cpu;
 
-        const filename = TEST_DIR + current_test.img_name;
+        const evaluated_fpu_regs = new Float64Array(8).map((_, i) => cpu.fpu_st[i + cpu.fpu_stack_ptr[0] & 7]);
         const evaluated_mmxs = cpu.reg_mmxs;
         const evaluated_xmms = cpu.reg_xmm32s;
-        const esp = cpu.reg32s[4];
         const evaluated_memory = new Int32Array(cpu.mem8.slice(0x120000 - 16 * 4, 0x120000).buffer);
+        const evaluated_fpu_tag = cpu.fpu_load_tag_word();
+        const evaluated_fpu_status = cpu.fpu_load_status_word() & FPU_STATUS_MASK;
+
         let individual_failures = [];
 
         console.assert(current_test.fixture.array || current_test.fixture.exception);
+
+        const FLOAT_TRANSLATION = {
+            [JSON_POS_INFINITY]: Infinity,
+            [JSON_NEG_INFINITY]: -Infinity,
+            [JSON_POS_NAN]: NaN,
+            [JSON_NEG_NAN]: NaN, // XXX: Ignore sign of NaN
+        };
 
         if(current_test.fixture.array)
         {
             let offset = 0;
             const expected_reg32s = current_test.fixture.array.slice(offset, offset += 8);
+            const expected_fpu_regs =
+                current_test.fixture.array.slice(offset, offset += 8) .map(x => x in FLOAT_TRANSLATION ? FLOAT_TRANSLATION[x] : x);
             const expected_mmx_registers = current_test.fixture.array.slice(offset, offset += 16);
             const expected_xmm_registers = current_test.fixture.array.slice(offset, offset += 32);
             const expected_memory = current_test.fixture.array.slice(offset, offset += 16);
-            const expected_eflags = current_test.fixture.array[offset] & MASK_ARITH;
+            const expected_eflags = current_test.fixture.array[offset++] & MASK_ARITH;
+            const fpu_tag = current_test.fixture.array[offset++];
+            const fpu_status = current_test.fixture.array[offset++] & FPU_STATUS_MASK;
 
             for (let i = 0; i < cpu.reg32s.length; i++) {
                 let reg = cpu.reg32s[i];
@@ -329,13 +384,38 @@ else {
                 }
             }
 
-            for (let i = 0; i < evaluated_mmxs.length; i++) {
-                if (evaluated_mmxs[i] !== expected_mmx_registers[i]) {
+            if(fpu_tag !== FPU_TAG_ALL_INVALID)
+            {
+                for (let i = 0; i < evaluated_fpu_regs.length; i++) {
+                    if (expected_fpu_regs[i] !== "invalid" &&
+                            !float_equal(evaluated_fpu_regs[i], expected_fpu_regs[i])) {
+                        individual_failures.push({
+                            name: "st" + i,
+                            expected: expected_fpu_regs[i],
+                            actual: evaluated_fpu_regs[i],
+                        });
+                    }
+                }
+
+                if(fpu_status !== evaluated_fpu_status)
+                {
                     individual_failures.push({
-                        name: "mm" + (i >> 1) + ".int32[" + (i & 1) + "] (cpu.reg_mmx[" + i + "])",
-                        expected: expected_mmx_registers[i],
-                        actual: evaluated_mmxs[i],
+                        name: "fpu status word",
+                        expected: fpu_status,
+                        actual: evaluated_fpu_status,
                     });
+                }
+            }
+            else
+            {
+                for (let i = 0; i < evaluated_mmxs.length; i++) {
+                    if (evaluated_mmxs[i] !== expected_mmx_registers[i]) {
+                        individual_failures.push({
+                            name: "mm" + (i >> 1) + ".int32[" + (i & 1) + "] (cpu.reg_mmx[" + i + "])",
+                            expected: expected_mmx_registers[i],
+                            actual: evaluated_mmxs[i],
+                        });
+                    }
                 }
             }
 
@@ -378,6 +458,14 @@ else {
                 expected: current_test.fixture.exception,
             });
         }
+
+        individual_failures = individual_failures.map(({ name, actual, expected }) => {
+            return {
+                name,
+                actual: format_value(actual),
+                expected: format_value(expected),
+            };
+        });
 
         recorded_exceptions = [];
 

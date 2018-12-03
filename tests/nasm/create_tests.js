@@ -188,7 +188,7 @@ function create_nasm(op, config)
         codes.push("mov " + reg + ", " + rand);
     }
 
-    if(true) // generate random mmx registers
+    if(!op.is_fpu) // generate random mmx registers
     {
         codes.push("sub esp, 8");
         for(let i = 0; i < 8; i++)
@@ -197,6 +197,25 @@ function create_nasm(op, config)
             codes.push("mov dword [esp + 4], " + op_rand.next());
             codes.push("movq mm" + i + ", [esp]");
         }
+        codes.push("add esp, 8");
+    }
+    else // generate random fpu registers
+    {
+        codes.push("finit");
+        codes.push("sub esp, 8");
+
+        for(let i = 0; i < 8; i++)
+        {
+            codes.push("mov dword [esp], " + op_rand.next());
+            codes.push("mov dword [esp + 4], " + op_rand.next());
+            codes.push("fld qword [esp]");
+        }
+
+        for(let i = 0; i < 4; i++) // half full stack
+        {
+            codes.push("fstp qword [esp]");
+        }
+
         codes.push("add esp, 8");
     }
 
@@ -294,24 +313,21 @@ function create_nasm(op, config)
                 g = op.fixed_g;
             }
 
-            let e;
-            let sib;
-
             if(config.mem)
             {
-                e = 0x04; // [esp]
-                sib = 0x24;
+                const e = 0x04; // [esp]
+                const sib = 0x24;
+
+                codes.push("db " + (e | g << 3));
+                codes.push("db " + sib);
             }
             else // op.only_mem
             {
-                e = 0xc2; // edx
-                sib = "<invalid>";
-            }
-
-            codes.push("db " + (e | g << 3));
-            if(e < 0xC0)
-            {
-                codes.push("db " + sib);
+                const es = op.is_fpu ? [0, 1, 2, 3, 4, 5, 6, 7] : [
+                    2 // edx
+                ];
+                const modrm_bytes = es.map(e => "db " + (0xC0 | g << 3 | e));
+                codes.push(modrm_bytes);
             }
         }
     }

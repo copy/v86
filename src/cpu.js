@@ -290,6 +290,9 @@ CPU.prototype.wasm_patch = function(wm)
 
     this.set_stack_reg = get_import("set_stack_reg");
 
+    this.fpu_load_tag_word = get_import("fpu_load_tag_word");
+    this.fpu_load_status_word = get_import("fpu_load_status_word");
+
     this.translate_address_read = get_import("translate_address_read_js");
     this.translate_address_system_read = get_import("translate_address_system_read_js");
     this.translate_address_system_write = get_import("translate_address_system_write_js");
