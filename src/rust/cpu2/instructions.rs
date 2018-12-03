@@ -3605,95 +3605,41 @@ pub unsafe fn instr32_F2AF() { scasd_rep(PREFIX_F2); }
 pub unsafe fn instr32_F3AF() { scasd_rep(PREFIX_F3); }
 
 #[no_mangle]
-pub unsafe fn instr_D8_0_mem(addr: i32) {
-    let ____0: f64 = return_on_pagefault!(fpu_load_m32(addr));
-    fpu_fadd(0, ____0);
-}
+pub unsafe fn instr_D8_0_mem(addr: i32) { fpu_fadd(0, return_on_pagefault!(fpu_load_m32(addr))); }
 #[no_mangle]
-pub unsafe fn instr_D8_0_reg(r: i32) {
-    let ____0: f64 = fpu_get_sti(r);
-    fpu_fadd(0, ____0);
-}
+pub unsafe fn instr_D8_0_reg(r: i32) { fpu_fadd(0, fpu_get_sti(r)); }
 #[no_mangle]
-pub unsafe fn instr_D8_1_mem(addr: i32) {
-    let ____0: f64 = return_on_pagefault!(fpu_load_m32(addr));
-    fpu_fmul(0, ____0);
-}
+pub unsafe fn instr_D8_1_mem(addr: i32) { fpu_fmul(0, return_on_pagefault!(fpu_load_m32(addr))); }
 #[no_mangle]
-pub unsafe fn instr_D8_1_reg(r: i32) {
-    let ____0: f64 = fpu_get_sti(r);
-    fpu_fmul(0, ____0);
-}
+pub unsafe fn instr_D8_1_reg(r: i32) { fpu_fmul(0, fpu_get_sti(r)); }
 #[no_mangle]
-pub unsafe fn instr_D8_2_mem(addr: i32) {
-    let ____0: f64 = return_on_pagefault!(fpu_load_m32(addr));
-    fpu_fcom(____0);
-}
+pub unsafe fn instr_D8_2_mem(addr: i32) { fpu_fcom(return_on_pagefault!(fpu_load_m32(addr))); }
 #[no_mangle]
-pub unsafe fn instr_D8_2_reg(r: i32) {
-    let ____0: f64 = fpu_get_sti(r);
-    fpu_fcom(____0);
-}
+pub unsafe fn instr_D8_2_reg(r: i32) { fpu_fcom(fpu_get_sti(r)); }
 #[no_mangle]
-pub unsafe fn instr_D8_3_mem(addr: i32) {
-    let ____0: f64 = return_on_pagefault!(fpu_load_m32(addr));
-    fpu_fcomp(____0);
-}
+pub unsafe fn instr_D8_3_mem(addr: i32) { fpu_fcomp(return_on_pagefault!(fpu_load_m32(addr))); }
 #[no_mangle]
-pub unsafe fn instr_D8_3_reg(r: i32) {
-    let ____0: f64 = fpu_get_sti(r);
-    fpu_fcomp(____0);
-}
+pub unsafe fn instr_D8_3_reg(r: i32) { fpu_fcomp(fpu_get_sti(r)); }
 #[no_mangle]
-pub unsafe fn instr_D8_4_mem(addr: i32) {
-    let ____0: f64 = return_on_pagefault!(fpu_load_m32(addr));
-    fpu_fsub(0, ____0);
-}
+pub unsafe fn instr_D8_4_mem(addr: i32) { fpu_fsub(0, return_on_pagefault!(fpu_load_m32(addr))); }
 #[no_mangle]
-pub unsafe fn instr_D8_4_reg(r: i32) {
-    let ____0: f64 = fpu_get_sti(r);
-    fpu_fsub(0, ____0);
-}
+pub unsafe fn instr_D8_4_reg(r: i32) { fpu_fsub(0, fpu_get_sti(r)); }
 #[no_mangle]
-pub unsafe fn instr_D8_5_mem(addr: i32) {
-    let ____0: f64 = return_on_pagefault!(fpu_load_m32(addr));
-    fpu_fsubr(0, ____0);
-}
+pub unsafe fn instr_D8_5_mem(addr: i32) { fpu_fsubr(0, return_on_pagefault!(fpu_load_m32(addr))); }
 #[no_mangle]
-pub unsafe fn instr_D8_5_reg(r: i32) {
-    let ____0: f64 = fpu_get_sti(r);
-    fpu_fsubr(0, ____0);
-}
+pub unsafe fn instr_D8_5_reg(r: i32) { fpu_fsubr(0, fpu_get_sti(r)); }
 #[no_mangle]
-pub unsafe fn instr_D8_6_mem(addr: i32) {
-    let ____0: f64 = return_on_pagefault!(fpu_load_m32(addr));
-    fpu_fdiv(0, ____0);
-}
+pub unsafe fn instr_D8_6_mem(addr: i32) { fpu_fdiv(0, return_on_pagefault!(fpu_load_m32(addr))); }
 #[no_mangle]
-pub unsafe fn instr_D8_6_reg(r: i32) {
-    let ____0: f64 = fpu_get_sti(r);
-    fpu_fdiv(0, ____0);
-}
+pub unsafe fn instr_D8_6_reg(r: i32) { fpu_fdiv(0, fpu_get_sti(r)); }
 #[no_mangle]
-pub unsafe fn instr_D8_7_mem(addr: i32) {
-    let ____0: f64 = return_on_pagefault!(fpu_load_m32(addr));
-    fpu_fdivr(0, ____0);
-}
+pub unsafe fn instr_D8_7_mem(addr: i32) { fpu_fdivr(0, return_on_pagefault!(fpu_load_m32(addr))); }
 #[no_mangle]
-pub unsafe fn instr_D8_7_reg(r: i32) {
-    let ____0: f64 = fpu_get_sti(r);
-    fpu_fdivr(0, ____0);
-}
+pub unsafe fn instr_D8_7_reg(r: i32) { fpu_fdivr(0, fpu_get_sti(r)); }
 #[no_mangle]
-pub unsafe fn instr_D9_0_mem(addr: i32) {
-    let ____0: f64 = return_on_pagefault!(fpu_load_m32(addr));
-    fpu_push(____0);
-}
+pub unsafe fn instr_D9_0_mem(addr: i32) { fpu_push(return_on_pagefault!(fpu_load_m32(addr))); }
 #[no_mangle]
-pub unsafe fn instr_D9_0_reg(r: i32) {
-    let ____0: f64 = fpu_get_sti(r);
-    fpu_push(____0);
-}
+pub unsafe fn instr_D9_0_reg(r: i32) { fpu_push(fpu_get_sti(r)); }
 #[no_mangle]
 pub unsafe fn instr_D9_1_mem(addr: i32) {
     dbg_log!("d9/1");
