@@ -45,6 +45,7 @@ pub trait WasmBuf {
     fn reinterpret_i32_as_f32(&mut self);
     fn reinterpret_i64_as_f64(&mut self);
     fn promote_f32_to_f64(&mut self);
+    fn convert_i32_to_f64(&mut self);
 
     fn shr_u_i32(&mut self);
     fn shr_s_i32(&mut self);
@@ -223,6 +224,7 @@ impl WasmBuf for Vec<u8> {
     fn reinterpret_i32_as_f32(&mut self) { self.push(op::OP_F32REINTERPRETI32); }
     fn reinterpret_i64_as_f64(&mut self) { self.push(op::OP_F64REINTERPRETI64); }
     fn promote_f32_to_f64(&mut self) { self.push(op::OP_F64PROMOTEF32); }
+    fn convert_i32_to_f64(&mut self) { self.push(op::OP_F64CONVERTSI32); }
 
     fn shr_u_i32(&mut self) { self.push(op::OP_I32SHRU); }
 
