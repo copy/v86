@@ -309,14 +309,14 @@ const encodings = [
     { opcode: 0xDB, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDB, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, },
 
-    { opcode: 0xDC, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDC, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDC, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDC, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDC, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDC, e: 1, fixed_g: 5, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDC, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDC, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 1, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 4, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 5, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 6, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDC, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDD, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDD, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, }, // XXX: Test should fail

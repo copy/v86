@@ -1029,6 +1029,11 @@ pub fn gen_fpu_load_m32(ctx: &mut JitContext) {
     ctx.builder.instruction_body.promote_f32_to_f64();
 }
 
+pub fn gen_fpu_load_m64(ctx: &mut JitContext) {
+    gen_safe_read64(ctx);
+    ctx.builder.instruction_body.reinterpret_i64_as_f64();
+}
+
 pub fn gen_profiler_stat_increment(builder: &mut WasmBuilder, stat: profiler::stat) {
     let addr = unsafe { profiler::stat_array.as_mut_ptr().offset(stat as isize) } as u32;
     gen_increment_variable(builder, addr, 1)
