@@ -3603,6 +3603,7 @@ pub unsafe fn instr16_F3AF() { scasw_rep(PREFIX_F3); }
 pub unsafe fn instr32_F2AF() { scasd_rep(PREFIX_F2); }
 #[no_mangle]
 pub unsafe fn instr32_F3AF() { scasd_rep(PREFIX_F3); }
+
 #[no_mangle]
 pub unsafe fn instr_D8_0_mem(addr: i32) {
     let ____0: f64 = return_on_pagefault!(fpu_load_m32(addr));
@@ -3711,10 +3712,7 @@ pub unsafe fn instr_D9_2_reg(r: i32) {
 #[no_mangle]
 pub unsafe fn instr_D9_3_mem(addr: i32) { fpu_fstm32p(addr); }
 #[no_mangle]
-pub unsafe fn instr_D9_3_reg(r: i32) {
-    dbg_log!("fstp1");
-    trigger_ud();
-}
+pub unsafe fn instr_D9_3_reg(r: i32) { fpu_fstp(r) }
 #[no_mangle]
 pub unsafe fn instr_D9_4_mem(addr: i32) { fpu_fldenv(addr); }
 #[no_mangle]
@@ -3783,10 +3781,18 @@ pub unsafe fn instr_D9_6_reg(r: i32) {
     match r {
         0 => {
             // f2xm1
-            fpu_write_st(*fpu_stack_ptr as i32, pow(2.0, st0) - 1.0)
+            let mut r = pow(2.0, st0) - 1.0;
+            if r == -1.0 {
+                // Intel ...
+                r = -3.475818901301751e+184
+            }
+            fpu_write_st(*fpu_stack_ptr as i32, r)
         },
         1 => {
             // fyl2x
+            if st0 < 0.0 {
+                fpu_invalid_arithmetic();
+            }
             fpu_write_st(
                 *fpu_stack_ptr as i32 + 1 & 7,
                 fpu_get_sti(1) * st0.ln() / M_LN2,
@@ -3795,9 +3801,15 @@ pub unsafe fn instr_D9_6_reg(r: i32) {
         },
         2 => {
             // fptan
-            fpu_write_st(*fpu_stack_ptr as i32, st0.tan());
-            // no bug: push constant 1
-            fpu_push(1.0);
+            if pow(-2.0, 63.0) < st0 && st0 < pow(2.0, 63.0) {
+                fpu_write_st(*fpu_stack_ptr as i32, st0.tan());
+                // no bug: push constant 1
+                fpu_push(1.0);
+                *fpu_status_word &= !FPU_C2;
+            }
+            else {
+                *fpu_status_word |= FPU_C2;
+            }
         },
         3 => {
             // fpatan
@@ -3809,7 +3821,7 @@ pub unsafe fn instr_D9_6_reg(r: i32) {
         },
         5 => {
             // fprem1
-            fpu_write_st(*fpu_stack_ptr as i32, fmod(st0, fpu_get_sti(1)));
+            fpu_fprem(true);
         },
         6 => {
             // fdecstp
@@ -3833,7 +3845,8 @@ pub unsafe fn instr_D9_7_reg(r: i32) {
     let st0: f64 = fpu_get_st0();
     match r {
         0 => {
-            fpu_fprem();
+            // fprem
+            fpu_fprem(false);
         },
         1 => {
             // fyl2xp1: y * log2(x+1) and pop
@@ -3841,10 +3854,22 @@ pub unsafe fn instr_D9_7_reg(r: i32) {
             fpu_write_st(*fpu_stack_ptr as i32 + 1 & 7, y);
             fpu_pop();
         },
-        2 => fpu_write_st(*fpu_stack_ptr as i32, st0.sqrt()),
+        2 => {
+            if st0 < 0.0 {
+                fpu_invalid_arithmetic();
+            }
+            fpu_write_st(*fpu_stack_ptr as i32, st0.sqrt())
+        },
         3 => {
-            fpu_write_st(*fpu_stack_ptr as i32, st0.sin());
-            fpu_push(st0.cos());
+            // fsincos
+            if pow(-2.0, 63.0) < st0 && st0 < pow(2.0, 63.0) {
+                fpu_write_st(*fpu_stack_ptr as i32, st0.sin());
+                fpu_push(st0.cos());
+                *fpu_status_word &= !FPU_C2;
+            }
+            else {
+                *fpu_status_word |= FPU_C2;
+            }
         },
         4 => {
             // frndint
@@ -3855,8 +3880,24 @@ pub unsafe fn instr_D9_7_reg(r: i32) {
             let y = st0 * pow(2.0, trunc(fpu_get_sti(1)));
             fpu_write_st(*fpu_stack_ptr as i32, y);
         },
-        6 => fpu_write_st(*fpu_stack_ptr as i32, st0.sin()),
-        7 => fpu_write_st(*fpu_stack_ptr as i32, st0.cos()),
+        6 => {
+            if pow(-2.0, 63.0) < st0 && st0 < pow(2.0, 63.0) {
+                fpu_write_st(*fpu_stack_ptr as i32, st0.sin());
+                *fpu_status_word &= !FPU_C2;
+            }
+            else {
+                *fpu_status_word |= FPU_C2;
+            }
+        },
+        7 => {
+            if pow(-2.0, 63.0) < st0 && st0 < pow(2.0, 63.0) {
+                fpu_write_st(*fpu_stack_ptr as i32, st0.cos());
+                *fpu_status_word &= !FPU_C2;
+            }
+            else {
+                *fpu_status_word |= FPU_C2;
+            }
+        },
         _ => {
             dbg_assert!(false);
         },
@@ -3920,7 +3961,10 @@ pub unsafe fn instr_DA_7_reg(r: i32) { trigger_ud(); }
 #[no_mangle]
 pub unsafe fn instr_DB_0_mem(addr: i32) { fpu_fldm32(addr); }
 #[no_mangle]
-pub unsafe fn instr_DB_1_mem(addr: i32) { trigger_ud(); }
+pub unsafe fn instr_DB_1_mem(addr: i32) {
+    dbg_log!("fisttp");
+    fpu_unimpl();
+}
 #[no_mangle]
 pub unsafe fn instr_DB_2_mem(addr: i32) { fpu_fistm32(addr); }
 #[no_mangle]
@@ -3946,8 +3990,8 @@ pub unsafe fn instr_DB_4_reg(r: i32) {
     if r == 3 {
         fpu_finit();
     }
-    else if r == 4 || r == 1 {
-        // fsetpm and fdisi; treated as nop
+    else if r == 4 || r == 1 || r == 0 {
+        // fsetpm, fdisi, fneni; treated as nop
     }
     else if r == 2 {
         fpu_fclex();
@@ -3999,7 +4043,7 @@ pub unsafe fn instr_DD_0_mem(addr: i32) { fpu_fldm64(addr); }
 #[no_mangle]
 pub unsafe fn instr_DD_1_mem(addr: i32) {
     dbg_log!("fisttp");
-    trigger_ud();
+    fpu_unimpl();
 }
 #[no_mangle]
 pub unsafe fn instr_DD_2_mem(addr: i32) { fpu_fstm64(addr); }
@@ -4019,7 +4063,7 @@ pub unsafe fn instr_DD_7_mem(addr: i32) { fpu_fnstsw_mem(addr); }
 #[no_mangle]
 pub unsafe fn instr_DD_0_reg(r: i32) { fpu_ffree(r); }
 #[no_mangle]
-pub unsafe fn instr_DD_1_reg(r: i32) { trigger_ud(); }
+pub unsafe fn instr_DD_1_reg(r: i32) { fpu_fxch(r) }
 #[no_mangle]
 pub unsafe fn instr_DD_2_reg(r: i32) { fpu_fst(r); }
 #[no_mangle]
@@ -4081,8 +4125,13 @@ pub unsafe fn instr_DE_2_reg(r: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_DE_3_reg(r: i32) {
-    fpu_fcomp(fpu_get_sti(r));
-    fpu_pop();
+    if r == 1 {
+        fpu_fcomp(fpu_get_sti(r));
+        fpu_pop();
+    }
+    else {
+        trigger_ud();
+    }
 }
 #[no_mangle]
 pub unsafe fn instr_DE_4_reg(r: i32) {
@@ -4110,8 +4159,8 @@ pub unsafe fn instr_DF_0_mem(addr: i32) {
 }
 #[no_mangle]
 pub unsafe fn instr_DF_1_mem(addr: i32) {
-    dbg_log!("df/fisttp");
-    trigger_ud();
+    dbg_log!("fisttp");
+    fpu_unimpl();
 }
 #[no_mangle]
 pub unsafe fn instr_DF_2_mem(addr: i32) { fpu_fistm16(addr); }
@@ -4120,25 +4169,29 @@ pub unsafe fn instr_DF_3_mem(addr: i32) { fpu_fistm16p(addr); }
 #[no_mangle]
 pub unsafe fn instr_DF_4_mem(addr: i32) {
     dbg_log!("fbld");
-    trigger_ud();
+    fpu_unimpl();
 }
 #[no_mangle]
 pub unsafe fn instr_DF_5_mem(addr: i32) { fpu_fildm64(addr); }
 #[no_mangle]
 pub unsafe fn instr_DF_6_mem(addr: i32) {
     dbg_log!("fbstp");
-    trigger_ud();
+    fpu_unimpl();
 }
 #[no_mangle]
 pub unsafe fn instr_DF_7_mem(addr: i32) { fpu_fistm64p(addr); }
 #[no_mangle]
-pub unsafe fn instr_DF_0_reg(r: i32) { trigger_ud(); }
+
+pub unsafe fn instr_DF_0_reg(r: i32) {
+    fpu_ffree(r);
+    fpu_pop();
+}
 #[no_mangle]
-pub unsafe fn instr_DF_1_reg(r: i32) { trigger_ud(); }
+pub unsafe fn instr_DF_1_reg(r: i32) { fpu_fxch(r) }
 #[no_mangle]
-pub unsafe fn instr_DF_2_reg(r: i32) { trigger_ud(); }
+pub unsafe fn instr_DF_2_reg(r: i32) { fpu_fstp(r); }
 #[no_mangle]
-pub unsafe fn instr_DF_3_reg(r: i32) { trigger_ud(); }
+pub unsafe fn instr_DF_3_reg(r: i32) { fpu_fstp(r); }
 #[no_mangle]
 pub unsafe fn instr_DF_4_reg(r: i32) {
     if r == 0 {
@@ -4154,6 +4207,7 @@ pub unsafe fn instr_DF_5_reg(r: i32) { fpu_fucomip(r); }
 pub unsafe fn instr_DF_6_reg(r: i32) { fpu_fcomip(r); }
 #[no_mangle]
 pub unsafe fn instr_DF_7_reg(r: i32) { trigger_ud(); }
+
 #[no_mangle]
 pub unsafe fn instr16_E0(imm8s: i32) { loopne16(imm8s); }
 #[no_mangle]

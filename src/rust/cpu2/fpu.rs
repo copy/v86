@@ -18,7 +18,7 @@ pub const M_LN10: f64 = 2.302585092994046f64;
 pub const M_PI: f64 = 3.141592653589793f64;
 const FPU_C0: i32 = 0x100;
 pub const FPU_C1: i32 = 0x200;
-const FPU_C2: i32 = 0x400;
+pub const FPU_C2: i32 = 0x400;
 const FPU_C3: i32 = 0x4000;
 const FPU_RESULT_FLAGS: i32 = FPU_C0 | FPU_C1 | FPU_C2 | FPU_C3;
 const INDEFINITE_NAN: f64 = ::std::f64::NAN;
@@ -88,6 +88,14 @@ pub unsafe fn fpu_stack_fault() {
     // TODO: Interrupt
     *fpu_status_word |= FPU_EX_SF | FPU_EX_I;
 }
+
+#[no_mangle]
+pub unsafe fn fpu_sti_empty(mut i: i32) -> bool {
+    dbg_assert!(i >= 0 && i < 8);
+    i = ((i as u32).wrapping_add(*fpu_stack_ptr) & 7) as i32;
+    return 0 != *fpu_stack_empty >> i & 1;
+}
+
 #[no_mangle]
 pub unsafe fn fpu_get_sti(mut i: i32) -> f64 {
     dbg_assert!(i >= 0 && i < 8);
@@ -232,10 +240,18 @@ pub unsafe fn fpu_fadd(target_index: i32, val: f64) {
 pub unsafe fn fpu_fclex() { *fpu_status_word = 0; }
 #[no_mangle]
 pub unsafe fn fpu_fcmovcc(condition: bool, r: i32) {
-    if condition {
-        fpu_write_st(*fpu_stack_ptr as i32, fpu_get_sti(r));
-        *fpu_stack_empty &= !(1 << *fpu_stack_ptr)
-    };
+    // outside of the condition is correct: A stack fault happens even if the condition is not
+    // fulfilled
+    let x = fpu_get_sti(r);
+    if fpu_sti_empty(r) {
+        fpu_write_st(*fpu_stack_ptr as i32, INDEFINITE_NAN)
+    }
+    else {
+        if condition {
+            fpu_write_st(*fpu_stack_ptr as i32, x);
+            *fpu_stack_empty &= !(1 << *fpu_stack_ptr)
+        };
+    }
 }
 #[no_mangle]
 pub unsafe fn fpu_fcom(y: f64) {
@@ -257,8 +273,8 @@ pub unsafe fn fpu_fcom(y: f64) {
 pub unsafe fn fpu_fcomi(r: i32) {
     let y: f64 = fpu_get_sti(r);
     let x: f64 = *fpu_st.offset(*fpu_stack_ptr as isize);
-    *flags_changed &= !(1 | FLAG_PARITY | FLAG_ZERO);
-    *flags &= !(1 | FLAG_PARITY | FLAG_ZERO);
+    *flags_changed &= !(1 | FLAG_PARITY | FLAG_ZERO | FLAG_ADJUST | FLAG_SIGN | FLAG_OVERFLOW);
+    *flags &= !(1 | FLAG_PARITY | FLAG_ZERO | FLAG_ADJUST | FLAG_SIGN | FLAG_OVERFLOW);
     if !(x > y) {
         if y > x {
             *flags |= 1
@@ -443,23 +459,52 @@ pub unsafe fn fpu_fnstsw_mem(addr: i32) {
 #[no_mangle]
 pub unsafe fn fpu_fnstsw_reg() { *reg16.offset(AX as isize) = fpu_load_status_word() as u16; }
 #[no_mangle]
-pub unsafe fn fpu_fprem() {
-    // XXX: This implementation differs from the description in Intel's manuals
+pub unsafe fn fpu_fprem(ieee: bool) {
+    // false: Faster, passes qemutests
+    // true: Slower, passes nasmtests
+    let intel_compatibility = false;
+
     let st0: f64 = fpu_get_st0();
     let st1: f64 = fpu_get_sti(1);
-    let fprem_quotient: i32 = convert_f64_to_i32(trunc(st0 / st1));
-    fpu_write_st(*fpu_stack_ptr as i32, fmod(st0, st1));
-    *fpu_status_word &= !(FPU_C0 | FPU_C1 | FPU_C3);
-    if 0 != fprem_quotient & 1 {
-        *fpu_status_word |= FPU_C1
+    let exp0 = st0.log2();
+    let exp1 = st1.log2();
+    let d = (exp0 - exp1).abs();
+    if !intel_compatibility || d < 64.0 {
+        let fprem_quotient: i32 = convert_f64_to_i32(if ieee {
+            round(st0 / st1)
+        }
+        else {
+            trunc(st0 / st1)
+        });
+        fpu_write_st(*fpu_stack_ptr as i32, fmod(st0, st1));
+        *fpu_status_word &= !(FPU_C0 | FPU_C1 | FPU_C3);
+        if 0 != fprem_quotient & 1 {
+            *fpu_status_word |= FPU_C1
+        }
+        if 0 != fprem_quotient & 1 << 1 {
+            *fpu_status_word |= FPU_C3
+        }
+        if 0 != fprem_quotient & 1 << 2 {
+            *fpu_status_word |= FPU_C0
+        }
+        *fpu_status_word &= !FPU_C2;
     }
-    if 0 != fprem_quotient & 1 << 1 {
-        *fpu_status_word |= FPU_C3
+    else {
+        let n = 32.0;
+        let fprem_quotient: i32 = convert_f64_to_i32(
+            if ieee {
+                round(st0 / st1)
+            }
+            else {
+                trunc(st0 / st1)
+            } / pow(2.0, d - n),
+        );
+        fpu_write_st(
+            *fpu_stack_ptr as i32,
+            st0 - st1 * (fprem_quotient as f64) * pow(2.0, d - n),
+        );
+        *fpu_status_word |= FPU_C2;
     }
-    if 0 != fprem_quotient & 1 << 2 {
-        *fpu_status_word |= FPU_C0
-    }
-    *fpu_status_word &= !FPU_C2;
 }
 #[no_mangle]
 pub unsafe fn fpu_frstor(mut addr: i32) {
