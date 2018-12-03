@@ -23,6 +23,17 @@ pub enum BitSize {
     BYTE,
     WORD,
     DWORD,
+    QWORD,
+}
+impl BitSize {
+    pub fn bytes(&self) -> u32 {
+        match self {
+            BitSize::BYTE => 1,
+            BitSize::WORD => 2,
+            BitSize::DWORD => 4,
+            BitSize::QWORD => 8,
+        }
+    }
 }
 
 pub fn read8(addr: u32) -> u8 { unsafe { cpu2::memory::read8(addr) as u8 } }

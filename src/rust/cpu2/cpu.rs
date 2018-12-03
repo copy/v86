@@ -2193,6 +2193,20 @@ pub unsafe fn safe_read64s(addr: i32) -> OrPageFault<reg64> {
     Ok(x)
 }
 
+#[no_mangle]
+pub unsafe fn safe_read64s_slow_jit(addr: i32) -> i64 {
+    match safe_read64s(addr) {
+        Ok(v) => {
+            *page_fault = false;
+            v.i64_0[0]
+        },
+        Err(()) => {
+            *page_fault = true;
+            0
+        },
+    }
+}
+
 pub unsafe fn safe_read128s(addr: i32) -> OrPageFault<reg128> {
     let mut x: reg128 = reg128 { i8_0: [0; 16] };
     if addr & 0xFFF > 0x1000 - 16 {
@@ -2338,6 +2352,14 @@ pub unsafe fn safe_write64(addr: i32, value: i64) -> OrPageFault<()> {
         write64(phys, value);
     };
     Ok(())
+}
+
+#[no_mangle]
+pub unsafe fn safe_write64_slow_jit(addr: i32, value: i64) {
+    match safe_write64(addr, value) {
+        Ok(()) => *page_fault = false,
+        Err(()) => *page_fault = true,
+    }
 }
 
 pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {

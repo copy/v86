@@ -21,6 +21,7 @@ pub trait WasmBuf {
     fn ge_i32(&mut self);
     fn gt_i32(&mut self);
     fn if_i32(&mut self);
+    fn if_i64(&mut self);
     fn block_i32(&mut self);
     fn xor_i32(&mut self);
 
@@ -28,6 +29,7 @@ pub trait WasmBuf {
     fn load_u8_from_stack(&mut self, byte_offset: u32);
     fn load_aligned_u16(&mut self, addr: u32);
     fn load_aligned_i32(&mut self, addr: u32);
+    fn load_unaligned_i64_from_stack(&mut self, byte_offset: u32);
     fn load_unaligned_i32_from_stack(&mut self, byte_offset: u32);
     fn load_unaligned_u16_from_stack(&mut self, byte_offset: u32);
     fn load_aligned_i32_from_stack(&mut self, byte_offset: u32);
@@ -38,6 +40,7 @@ pub trait WasmBuf {
     fn store_aligned_i32(&mut self, byte_offset: u32);
     fn store_unaligned_u16(&mut self, byte_offset: u32);
     fn store_unaligned_i32(&mut self, byte_offset: u32);
+    fn store_unaligned_i64(&mut self, byte_offset: u32);
 
     fn reinterpret_i32_as_f32(&mut self);
     fn reinterpret_i64_as_f64(&mut self);
@@ -145,6 +148,10 @@ impl WasmBuf for Vec<u8> {
         self.push(op::OP_IF);
         self.push(op::TYPE_I32);
     }
+    fn if_i64(&mut self) {
+        self.push(op::OP_IF);
+        self.push(op::TYPE_I64);
+    }
 
     fn block_i32(&mut self) {
         self.push(op::OP_BLOCK);
@@ -152,6 +159,12 @@ impl WasmBuf for Vec<u8> {
     }
 
     fn xor_i32(&mut self) { self.push(op::OP_I32XOR); }
+
+    fn load_unaligned_i64_from_stack(&mut self, byte_offset: u32) {
+        self.push(op::OP_I64LOAD);
+        self.push(op::MEM_NO_ALIGN);
+        self.write_leb_u32(byte_offset);
+    }
 
     fn load_unaligned_i32_from_stack(&mut self, byte_offset: u32) {
         self.push(op::OP_I32LOAD);
@@ -197,6 +210,12 @@ impl WasmBuf for Vec<u8> {
 
     fn store_unaligned_i32(&mut self, byte_offset: u32) {
         self.push(op::OP_I32STORE);
+        self.push(op::MEM_NO_ALIGN);
+        self.write_leb_u32(byte_offset);
+    }
+
+    fn store_unaligned_i64(&mut self, byte_offset: u32) {
+        self.push(op::OP_I64STORE);
         self.push(op::MEM_NO_ALIGN);
         self.write_leb_u32(byte_offset);
     }
