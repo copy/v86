@@ -153,7 +153,7 @@ function CPU(bus, wm, v86oxide, coverage_logger)
     this.fpu_st = v86util.view(Float64Array, memory, 968, 8);
 
     this.fpu_stack_empty = v86util.view(Int32Array, memory, 816, 1);
-    this.fpu_stack_empty[0] = 0xff;
+    this.fpu_stack_empty[0] = 0xFF;
     this.fpu_stack_ptr = v86util.view(Uint32Array, memory, 1032, 1);
     this.fpu_stack_ptr[0] = 0;
 
@@ -647,15 +647,20 @@ CPU.prototype.reset = function()
     this.sreg.fill(0);
     this.dreg.fill(0);
 
-    for(let i = 0; i < this.reg_mmxs.length; i++)
-    {
-        this.reg_mmxs[i] = 0;
-    }
+    this.fpu_st.fill(0);
+    this.fpu_stack_empty[0] = 0xFF;
+    this.fpu_stack_ptr[0] = 0;
+    this.fpu_control_word[0] = 0x37F;
+    this.fpu_status_word[0] = 0;
+    this.fpu_ip[0] = 0;
+    this.fpu_ip_selector[0] = 0;
+    this.fpu_opcode[0] = 0;
+    this.fpu_dp[0] = 0;
+    this.fpu_dp_selector[0] = 0;
 
-    for(let i = 0; i < this.reg_xmm32s.length; i++)
-    {
-        this.reg_xmm32s[i] = 0;
-    }
+    this.reg_mmxs.fill(0);
+    this.reg_xmm32s.fill(0);
+
     this.mxcsr[0] = 0x1F80;
 
     this.full_clear_tlb();
