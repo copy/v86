@@ -214,7 +214,7 @@ IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) /
     const total_size = entry[INDEXEDDB_STORAGE_TOTALSIZE_PATH];
 
     dbg_assert(base_data instanceof Uint8Array,
-        `IndexedDBFileStorage read: Invalid base entry without the data Uint8Array field: ${base_data}`);
+        `IndexedDBFileStorage read: Invalid base entry without the data Uint8Array field: ${base_data.constructor}`);
     dbg_assert(Number.isInteger(extra_block_count),
         `IndexedDBFileStorage read: Invalid base entry with non-integer block_count: ${extra_block_count}`);
     dbg_assert(Number.isInteger(total_size) && total_size >= base_data.length,
@@ -250,7 +250,7 @@ IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) /
 
         const block_data = block_entry[INDEXEDDB_STORAGE_DATA_PATH];
         dbg_assert(block_data instanceof Uint8Array,
-            `IndexedDBFileStorage read: Entry for block-${block_number} without Uint8Array data field: ${block_data}`);
+            `IndexedDBFileStorage read: Entry for block-${block_number} without Uint8Array data field: ${block_data.constructor}`);
 
         const chunk_start = offset + read_count - block_offset;
         const chunk_end = offset + count - block_offset;
