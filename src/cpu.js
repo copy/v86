@@ -249,9 +249,13 @@ CPU.prototype.create_jit_imports = function()
 
 CPU.prototype.wasm_patch = function(wm)
 {
+    const get_optional_import = (name) => {
+        return this.v86oxide.exports[name];
+    };
+
     const get_import = (name) =>
     {
-        const f = this.v86oxide.exports[name];
+        const f = get_optional_import(name);
         console.assert(f, "Missing import: " + name);
         return f;
     };
@@ -311,7 +315,7 @@ CPU.prototype.wasm_patch = function(wm)
 
     if(DEBUG)
     {
-        this.jit_force_generate_unsafe = get_import("jit_force_generate_unsafe");
+        this.jit_force_generate_unsafe = get_optional_import("jit_force_generate_unsafe");
     }
 
     this.jit_empty_cache = get_import("jit_empty_cache");
@@ -326,6 +330,12 @@ CPU.prototype.wasm_patch = function(wm)
 
 CPU.prototype.jit_force_generate = function(addr)
 {
+    if(!this.jit_force_generate_unsafe)
+    {
+        dbg_assert(false, "Not supported in this wasm build: jit_force_generate_unsafe");
+        return;
+    }
+
     const cs_offset = this.get_seg(reg_cs);
     const state_flags = this.pack_current_state_flags();
     this.jit_force_generate_unsafe(addr, cs_offset, state_flags);
