@@ -273,14 +273,14 @@ const encodings = [
     // XXX: Temporary block boundary
     { opcode: 0xD7, skip: 1, block_boundary: 1, },
 
-    { opcode: 0xD8, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xD8, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xD8, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xD8, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xD8, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xD8, e: 1, fixed_g: 5, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xD8, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xD8, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 1, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 4, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 5, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 6, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD8, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xD9, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xD9, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, },

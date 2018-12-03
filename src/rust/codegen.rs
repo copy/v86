@@ -120,6 +120,12 @@ pub fn gen_call_fn1_ret(builder: &mut WasmBuilder, name: &str) {
     builder.instruction_body.call_fn(fn_idx);
 }
 
+pub fn gen_call_fn1_ret_f64(builder: &mut WasmBuilder, name: &str) {
+    // generates: fn( _ ) where _ must be left on the stack before calling this, and fn returns a value
+    let fn_idx = builder.get_fn_idx(name, module_init::FN1_RET_F64_TYPE_INDEX);
+    builder.instruction_body.call_fn(fn_idx);
+}
+
 pub fn gen_fn2_const(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32) {
     let fn_idx = builder.get_fn_idx(name, module_init::FN2_TYPE_INDEX);
     builder.instruction_body.const_i32(arg0 as i32);
@@ -136,6 +142,18 @@ pub fn gen_call_fn1(builder: &mut WasmBuilder, name: &str) {
 pub fn gen_call_fn2(builder: &mut WasmBuilder, name: &str) {
     // generates: fn( _, _ ) where _ must be left on the stack before calling this
     let fn_idx = builder.get_fn_idx(name, module_init::FN2_TYPE_INDEX);
+    builder.instruction_body.call_fn(fn_idx);
+}
+
+pub fn gen_call_fn2_i32_f64(builder: &mut WasmBuilder, name: &str) {
+    // generates: fn( _, _ ) where _ must be left on the stack before calling this
+    let fn_idx = builder.get_fn_idx(name, module_init::FN2_I32_F64_TYPE_INDEX);
+    builder.instruction_body.call_fn(fn_idx);
+}
+
+pub fn gen_call_fn1_f64(builder: &mut WasmBuilder, name: &str) {
+    // generates: fn( _, _ ) where _ must be left on the stack before calling this
+    let fn_idx = builder.get_fn_idx(name, module_init::FN1_F64_TYPE_INDEX);
     builder.instruction_body.call_fn(fn_idx);
 }
 
@@ -960,6 +978,17 @@ pub fn gen_safe_read_write(
     ctx.builder.instruction_body.block_end();
 
     ctx.builder.free_local(entry_local);
+}
+
+pub fn gen_fpu_get_sti(ctx: &mut JitContext, i: u32) {
+    ctx.builder.instruction_body.const_i32(i as i32);
+    gen_call_fn1_ret_f64(ctx.builder, "fpu_get_sti");
+}
+
+pub fn gen_fpu_load_m32(ctx: &mut JitContext) {
+    gen_safe_read32(ctx);
+    ctx.builder.instruction_body.reinterpret_i32_as_f32();
+    ctx.builder.instruction_body.promote_f32_to_f64();
 }
 
 pub fn gen_profiler_stat_increment(builder: &mut WasmBuilder, stat: profiler::stat) {
