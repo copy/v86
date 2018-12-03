@@ -1,5 +1,6 @@
 "use strict";
 
+const NE2K_LOG_VERBOSE = false;
 
 /** @const */ var E8390_CMD = 0x00; /* The command register (for all pages) */
 
@@ -558,9 +559,12 @@ Ne2k.prototype.update_irq = function()
 
 Ne2k.prototype.data_port_write = function(data_byte)
 {
-    dbg_log("Write data port: data=" + h(data_byte & 0xFF, 2) +
-                            " rsar=" + h(this.rsar, 4) +
-                            " rcnt=" + h(this.rcnt, 4), LOG_NET);
+    if(NE2K_LOG_VERBOSE)
+    {
+        dbg_log("Write data port: data=" + h(data_byte & 0xFF, 2) +
+                                " rsar=" + h(this.rsar, 4) +
+                                " rcnt=" + h(this.rcnt, 4), LOG_NET);
+    }
 
     if(this.rsar > 0x10 && this.rsar < (START_PAGE << 8))
     {
@@ -604,9 +608,12 @@ Ne2k.prototype.data_port_read = function()
 {
     var data = this.memory[this.rsar++];
 
-    dbg_log("Read data port: data=" + h(data, 2) +
-                           " rsar=" + h(this.rsar - 1, 4) +
-                           " rcnt=" + h(this.rcnt, 4), LOG_NET);
+    if(NE2K_LOG_VERBOSE)
+    {
+        dbg_log("Read data port: data=" + h(data, 2) +
+                               " rsar=" + h(this.rsar - 1, 4) +
+                               " rcnt=" + h(this.rcnt, 4), LOG_NET);
+    }
     this.rcnt--;
 
     if(this.rsar >= (this.pstop << 8))
