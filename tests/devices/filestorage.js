@@ -161,8 +161,19 @@ async function test_with_file(oracle, iut, key, file_data) // jshint ignore:line
     return true;
 }
 
+function on_unexpected_exit(exit_code)
+{
+    if(exit_code === 0)
+    {
+        log_fail("Event loop unexpectedly empty.");
+        process.exit(1);
+    }
+}
+
 async function test_start() // jshint ignore:line
 {
+    process.on("exit", on_unexpected_exit);
+
     // Test oracle without chunking.
     const oracle = new MemoryFileStorage();
 
@@ -182,6 +193,7 @@ async function test_start() // jshint ignore:line
     }
 
     log_pass("All tests passed!");
+    process.removeListener("exit", on_unexpected_exit);
     return true;
 }
 
