@@ -68,6 +68,13 @@ function mock_indexeddb()
                             mock_request_completion(request);
                             return request;
                         },
+                        count(key) {
+                            assert_transaction_active(`get ${key}`);
+                            const result = db.get(key) ? 1 : 0;
+                            const request = { result };
+                            mock_request_completion(request);
+                            return request;
+                        },
                         put(value) {
                             assert_transaction_active(`put ${value}`);
                             const key = value["sha256sum"];
@@ -77,6 +84,9 @@ function mock_indexeddb()
                             return request;
                         },
                     };
+                },
+                abort() {
+                    // No-op.
                 },
             };
 
