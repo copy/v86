@@ -1917,6 +1917,26 @@ pub fn instr_D8_7_reg_jit(ctx: &mut JitContext, r: u32) {
     instr_group_D8_reg_jit(ctx, r, "fpu_fdivr")
 }
 
+pub fn instr_D9_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_fpu_load_m32(ctx);
+    codegen::gen_call_fn1_f64(ctx.builder, "fpu_push");
+}
+pub fn instr_D9_0_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_fpu_get_sti(ctx, r);
+    codegen::gen_call_fn1_f64(ctx.builder, "fpu_push");
+}
+
+pub fn instr_DB_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read32(ctx);
+    ctx.builder.instruction_body.convert_i32_to_f64();
+    codegen::gen_call_fn1_f64(ctx.builder, "fpu_push");
+}
+pub fn instr_DB_0_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_fn1_const(ctx.builder, "instr_DB_0_reg", r);
+}
+
 fn instr_group_DC_mem_jit(ctx: &mut JitContext, modrm_byte: u8, op: &str) {
     ctx.builder.instruction_body.const_i32(0);
     codegen::gen_modrm_resolve(ctx, modrm_byte);
@@ -1982,6 +2002,15 @@ pub fn instr_DC_7_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
 }
 pub fn instr_DC_7_reg_jit(ctx: &mut JitContext, r: u32) {
     instr_group_DC_reg_jit(ctx, r, "fpu_fdivr")
+}
+
+pub fn instr_DD_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_fpu_load_m64(ctx);
+    codegen::gen_call_fn1_f64(ctx.builder, "fpu_push");
+}
+pub fn instr_DD_0_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_fn1_const(ctx.builder, "fpu_ffree", r);
 }
 
 fn instr_group_DE_mem_jit(ctx: &mut JitContext, modrm_byte: u8, op: &str) {
@@ -2063,6 +2092,16 @@ pub fn instr_DE_7_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
 }
 pub fn instr_DE_7_reg_jit(ctx: &mut JitContext, r: u32) {
     instr_group_DE_reg_jit(ctx, r, "fpu_fdivr")
+}
+
+pub fn instr_DF_5_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read64(ctx);
+    ctx.builder.instruction_body.convert_i64_to_f64();
+    codegen::gen_call_fn1_f64(ctx.builder, "fpu_push");
+}
+pub fn instr_DF_5_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_fn1_const(ctx.builder, "fpu_fucomip", r);
 }
 
 pub fn instr16_EB_jit(ctx: &mut JitContext, imm8: u32) {
