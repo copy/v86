@@ -1,14 +1,12 @@
 "use strict";
 
-const INDEXEDDB_STORAGE_VERSION = 1;
+const INDEXEDDB_STORAGE_VERSION = 2;
 const INDEXEDDB_STORAGE_NAME = "v86-filesystem-storage";
 const INDEXEDDB_STORAGE_STORE = "store";
 const INDEXEDDB_STORAGE_KEY_PATH = "sha256sum";
 const INDEXEDDB_STORAGE_DATA_PATH = "data";
-const INDEXEDDB_STORAGE_EXTRABLOCKCOUNT_PATH = "extra-block-count";
-const INDEXEDDB_STORAGE_TOTALSIZE_PATH = "total-size";
-const INDEXEDDB_STORAGE_GET_BLOCK_KEY = (sha256sum, block_number) => `${sha256sum}-${block_number}`;
-const INDEXEDDB_STORAGE_CHUNKING_THRESHOLD = 4096;
+const INDEXEDDB_STORAGE_GET_BLOCK_KEY = (sha256sum, block_number) =>
+    block_number === 0 ?  sha256sum : `${sha256sum}-${block_number - 1}`;
 const INDEXEDDB_STORAGE_BLOCKSIZE = 4096;
 
 /** @interface */
@@ -134,10 +132,20 @@ IndexedDBFileStorage.init_db = function()
             reject(open_request.error);
         };
 
+        /** @suppress{uselessCode} */
         open_request.onupgradeneeded = event =>
         {
             const db = open_request.result;
-            db.createObjectStore(INDEXEDDB_STORAGE_STORE, { keyPath: INDEXEDDB_STORAGE_KEY_PATH });
+            if(event.oldVersion < 1)
+            {
+                // Initial version.
+                db.createObjectStore(INDEXEDDB_STORAGE_STORE, { keyPath: INDEXEDDB_STORAGE_KEY_PATH });
+            }
+            if(event.oldVersion < 2)
+            {
+                // Version 2 removes total_size and extra_block_count from the base entries.
+                // No changes needed, but new files written are not backwards compatible.
+            }
         };
 
         open_request.onsuccess = event =>
@@ -171,15 +179,15 @@ IndexedDBFileStorage.init_db = function()
 /**
  * @private
  * @param {IDBObjectStore} store
- * @param {string} key
- * @return {!Promise<Object>}
+ * @param {string} sha256sum
+ * @return {!Promise<boolean>}
  */
-IndexedDBFileStorage.prototype.db_get = function(store, key)
+IndexedDBFileStorage.prototype.db_has_file = function(store, sha256sum)
 {
     return new Promise((resolve, reject) =>
     {
-        const request = store.get(key);
-        request.onsuccess = event => resolve(request.result);
+        const request = store.count(sha256sum);
+        request.onsuccess = event => resolve(/** @type {number} **/ (request.result) > 0);
     });
 };
 
@@ -189,7 +197,7 @@ IndexedDBFileStorage.prototype.db_get = function(store, key)
  * @param {number} count
  * @return {!Promise<Uint8Array>} null if file does not exist.
  */
-IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) // jshint ignore:line
+IndexedDBFileStorage.prototype.read = function(sha256sum, offset, count)
 {
     dbg_assert(sha256sum, "IndexedDBFileStorage read: sha256sum should be a non-empty string");
 
@@ -202,65 +210,80 @@ IndexedDBFileStorage.prototype.read = async function(sha256sum, offset, count) /
     };
     const store = transaction.objectStore(INDEXEDDB_STORAGE_STORE);
 
-    const entry = await this.db_get(store, sha256sum); // jshint ignore:line
+    const block_number_start = Math.floor(offset / INDEXEDDB_STORAGE_BLOCKSIZE);
+    const block_number_end = count > 0 ?
+        Math.floor((offset + count - 1) / INDEXEDDB_STORAGE_BLOCKSIZE) :
+        block_number_start;
 
-    if(!entry)
-    {
-        return null;
-    }
-
-    const base_data = entry[INDEXEDDB_STORAGE_DATA_PATH];
-    const extra_block_count = entry[INDEXEDDB_STORAGE_EXTRABLOCKCOUNT_PATH];
-    const total_size = entry[INDEXEDDB_STORAGE_TOTALSIZE_PATH];
-
-    dbg_assert(base_data instanceof Uint8Array,
-        `IndexedDBFileStorage read: Invalid base entry without the data Uint8Array field: ${base_data.constructor}`);
-    dbg_assert(Number.isInteger(extra_block_count),
-        `IndexedDBFileStorage read: Invalid base entry with non-integer block_count: ${extra_block_count}`);
-    dbg_assert(Number.isInteger(total_size) && total_size >= base_data.length,
-        `IndexedDBFileStorage read: Invalid base entry with invalid total_size: ${total_size}`);
-
-    if(extra_block_count === 0 || offset + count <= base_data.length)
-    {
-        // Avoid additional allocation and copying for smaller files.
-        return base_data.subarray(offset, offset + count);
-    }
-
-    const read_data = new Uint8Array(count);
+    // Allocate only when the read spans more than one block.
+    const is_single_read = block_number_start === block_number_end;
+    const read_data = is_single_read ?  null : new Uint8Array(count);
     let read_count = 0;
 
-    if(offset < base_data.length)
+    return new Promise((resolve, reject) =>
     {
-        const chunk = base_data.subarray(offset, offset + count);
-        read_data.set(chunk);
-        read_count += chunk.length;
-    }
+        for(let block_number = block_number_start; block_number <= block_number_end; block_number++)
+        {
+            const block_offset = block_number * INDEXEDDB_STORAGE_BLOCKSIZE;
+            const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, block_number);
+            const block_request = store.get(block_key);
+            block_request.onsuccess = async event => // jshint ignore:line
+            {
+                const block_entry = block_request.result;
 
-    let block_number = Math.floor(
-        (offset + read_count - base_data.length) /
-        INDEXEDDB_STORAGE_BLOCKSIZE
-    );
-    for(; read_count < count && block_number < extra_block_count; block_number++)
-    {
-        const block_offset = base_data.length + block_number * INDEXEDDB_STORAGE_BLOCKSIZE;
-        const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, block_number);
-        const block_entry = await this.db_get(store, block_key); // jshint ignore:line
+                if(!block_entry)
+                {
+                    // If the first requested block doesn't exist, then the remaining blocks
+                    // cannot exist.
+                    if(block_number === block_number_start)
+                    {
+                        const file_is_nonexistent =
+                            block_number_start === 0 ||
+                            !await this.db_has_file(store, sha256sum); // jshint ignore:line
 
-        dbg_assert(block_entry, `IndexedDBFileStorage read: Missing entry for block-${block_number}`);
+                        if(file_is_nonexistent)
+                        {
+                            // Not aborting transaction here because:
+                            //  - Abort is treated like an error,
+                            //  - AbortError sometimes indicate a different error we want to notice,
+                            //  - Most read calls only read a single block anyway.
+                            resolve(null);
+                        }
+                        else if(is_single_read)
+                        {
+                            // File exists but the read was out-of-range.
+                            resolve(new Uint8Array(0));
+                        }
+                    }
+                    return;
+                }
 
-        const block_data = block_entry[INDEXEDDB_STORAGE_DATA_PATH];
-        dbg_assert(block_data instanceof Uint8Array,
-            `IndexedDBFileStorage read: Entry for block-${block_number} without Uint8Array data field: ${block_data.constructor}`);
+                const block_data = block_entry[INDEXEDDB_STORAGE_DATA_PATH];
+                dbg_assert(block_data instanceof Uint8Array, "IndexedDBFileStorage read: " +
+                    `Entry for block-${block_number} without Uint8Array data field.`);
 
-        const chunk_start = offset + read_count - block_offset;
-        const chunk_end = offset + count - block_offset;
-        const chunk = block_data.subarray(chunk_start, chunk_end);
-        read_data.set(chunk, read_count);
-        read_count += chunk.length;
-    }
+                const chunk_start = Math.max(0, offset - block_offset);
+                const chunk_end = offset + count - block_offset;
+                const chunk = block_data.subarray(chunk_start, chunk_end);
 
-    return read_data.subarray(0, read_count);
-}; // jshint ignore:line
+                if(is_single_read)
+                {
+                    resolve(chunk);
+                }
+                else
+                {
+                    read_data.set(chunk, block_offset + chunk_start - offset);
+                    read_count += chunk.length;
+                }
+            };
+        }
+
+        if(!is_single_read)
+        {
+            transaction.oncomplete = event => resolve(read_data.subarray(0, read_count));
+        }
+    });
+};
 
 /**
  * @param {string} sha256sum
@@ -279,21 +302,10 @@ IndexedDBFileStorage.prototype.set = function(sha256sum, data)
     };
     const store = transaction.objectStore(INDEXEDDB_STORAGE_STORE);
 
-    const extra_block_count = Math.ceil(
-        (data.length - INDEXEDDB_STORAGE_CHUNKING_THRESHOLD) /
-        INDEXEDDB_STORAGE_BLOCKSIZE
-    );
+    // Ensure at least a single entry is added for empty files.
+    const offset_upper_bound = data.length || 1;
 
-    store.put({
-        [INDEXEDDB_STORAGE_KEY_PATH]: sha256sum,
-        // Note: Without cloning, the entire backing ArrayBuffer is serialized into the database.
-        [INDEXEDDB_STORAGE_DATA_PATH]: data.slice(0, INDEXEDDB_STORAGE_CHUNKING_THRESHOLD),
-        [INDEXEDDB_STORAGE_TOTALSIZE_PATH]: data.length,
-        [INDEXEDDB_STORAGE_EXTRABLOCKCOUNT_PATH]: extra_block_count,
-    });
-
-    let offset = INDEXEDDB_STORAGE_CHUNKING_THRESHOLD;
-    for(let i = 0; offset < data.length; i++, offset += INDEXEDDB_STORAGE_BLOCKSIZE)
+    for(let i = 0, offset = 0; offset < offset_upper_bound; i++, offset += INDEXEDDB_STORAGE_BLOCKSIZE)
     {
         const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, i);
         // Note: Without cloning, the entire backing ArrayBuffer is serialized into the database.
