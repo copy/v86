@@ -27,6 +27,8 @@ pub const FN1_F64_TYPE_INDEX: u8 = 9;
 
 pub const NR_FN_TYPE_INDEXES: u8 = 10;
 
+pub const WASM_MODULE_ARGUMENT_COUNT: u8 = 1;
+
 pub struct WasmBuilder {
     pub output: Vec<u8>,
     pub instruction_body: Vec<u8>,
@@ -40,13 +42,19 @@ pub struct WasmBuilder {
 
     initial_static_size: usize, // size of module after initialization, rest is drained on reset
 
-    free_locals: Vec<WasmLocal>,
+    free_locals_i32: Vec<WasmLocal>,
+    free_locals_i64: Vec<WasmLocalI64>,
     local_count: u8,
     pub arg_local_initial_state: WasmLocal,
 }
 
 pub struct WasmLocal(u8);
 impl WasmLocal {
+    pub fn idx(&self) -> u8 { self.0 }
+}
+
+pub struct WasmLocalI64(u8);
+impl WasmLocalI64 {
     pub fn idx(&self) -> u8 { self.0 }
 }
 
@@ -65,8 +73,9 @@ impl WasmBuilder {
 
             initial_static_size: 0,
 
-            free_locals: Vec::with_capacity(8),
-            local_count: 1, // for the argument
+            free_locals_i32: Vec::with_capacity(8),
+            free_locals_i64: Vec::with_capacity(8),
+            local_count: 0,
             arg_local_initial_state: WasmLocal(0),
         }
     }
@@ -92,7 +101,8 @@ impl WasmBuilder {
         self.set_import_table_size(2);
         self.set_import_count(0);
         self.instruction_body.clear();
-        self.free_locals.clear();
+        self.free_locals_i32.clear();
+        self.free_locals_i64.clear();
         self.local_count = 0;
     }
 
@@ -119,10 +129,42 @@ impl WasmBuilder {
         self.output.push(0);
         self.output.push(0);
 
-        self.output.push(1); // count of local blocks
-        dbg_assert!(self.local_count < 128);
-        self.output.push(self.local_count);
-        self.output.push(op::TYPE_I32);
+        dbg_assert!(
+            self.local_count as usize == self.free_locals_i32.len() + self.free_locals_i64.len(),
+            "All locals should have been freed"
+        );
+
+        let free_locals_i32 = &self.free_locals_i32;
+        let free_locals_i64 = &self.free_locals_i64;
+
+        let locals = (0..self.local_count).map(|i| {
+            let local_index = WASM_MODULE_ARGUMENT_COUNT + i;
+            if free_locals_i64.iter().any(|v| v.idx() == local_index) {
+                op::TYPE_I64
+            }
+            else {
+                dbg_assert!(free_locals_i32.iter().any(|v| v.idx() == local_index));
+                op::TYPE_I32
+            }
+        });
+        let mut groups = vec![];
+        for local_type in locals {
+            if let Some(last) = groups.last_mut() {
+                let (last_type, last_count) = *last;
+                if last_type == local_type {
+                    *last = (local_type, last_count + 1);
+                    continue;
+                }
+            }
+            groups.push((local_type, 1));
+        }
+        dbg_assert!(groups.len() < 128);
+        self.output.push(groups.len().safe_to_u8());
+        for (local_type, count) in groups {
+            dbg_assert!(count < 128);
+            self.output.push(count);
+            self.output.push(local_type);
+        }
 
         self.output.append(&mut self.instruction_body);
 
@@ -351,10 +393,10 @@ impl WasmBuilder {
 
     #[must_use = "local allocated but not used"]
     fn alloc_local(&mut self) -> WasmLocal {
-        match self.free_locals.pop() {
+        match self.free_locals_i32.pop() {
             Some(local) => local,
             None => {
-                let new_idx = self.local_count;
+                let new_idx = self.local_count + WASM_MODULE_ARGUMENT_COUNT;
                 self.local_count += 1;
                 WasmLocal(new_idx)
             },
@@ -362,8 +404,11 @@ impl WasmBuilder {
     }
 
     pub fn free_local(&mut self, local: WasmLocal) {
-        dbg_assert!(local.0 < self.local_count);
-        self.free_locals.push(local)
+        dbg_assert!(
+            (WASM_MODULE_ARGUMENT_COUNT..self.local_count + WASM_MODULE_ARGUMENT_COUNT)
+                .contains(&local.0)
+        );
+        self.free_locals_i32.push(local)
     }
 
     #[must_use = "local allocated but not used"]
@@ -378,6 +423,34 @@ impl WasmBuilder {
     pub fn tee_new_local(&mut self) -> WasmLocal {
         let local = self.alloc_local();
         self.instruction_body.push(op::OP_TEELOCAL);
+        self.instruction_body.push(local.idx());
+        local
+    }
+
+    #[must_use = "local allocated but not used"]
+    fn alloc_local_i64(&mut self) -> WasmLocalI64 {
+        match self.free_locals_i64.pop() {
+            Some(local) => local,
+            None => {
+                let new_idx = self.local_count + WASM_MODULE_ARGUMENT_COUNT;
+                self.local_count += 1;
+                WasmLocalI64(new_idx)
+            },
+        }
+    }
+
+    pub fn free_local_i64(&mut self, local: WasmLocalI64) {
+        dbg_assert!(
+            (WASM_MODULE_ARGUMENT_COUNT..self.local_count + WASM_MODULE_ARGUMENT_COUNT)
+                .contains(&local.0)
+        );
+        self.free_locals_i64.push(local)
+    }
+
+    #[must_use = "local allocated but not used"]
+    pub fn set_new_local_i64(&mut self) -> WasmLocalI64 {
+        let local = self.alloc_local_i64();
+        self.instruction_body.push(op::OP_SETLOCAL);
         self.instruction_body.push(local.idx());
         local
     }
@@ -410,7 +483,8 @@ mod tests {
         let bar_index = m.get_fn_idx("bar", FN0_TYPE_INDEX);
         m.instruction_body.call_fn(bar_index);
 
-        let _ = m.alloc_local(); // for ensuring that reset clears previous locals
+        let local0 = m.alloc_local(); // for ensuring that reset clears previous locals
+        m.free_local(local0);
 
         m.finish();
         m.reset();
@@ -434,7 +508,7 @@ mod tests {
         m.free_local(local1);
 
         let local3 = m.alloc_local();
-        assert_eq!(local3.idx(), 0);
+        assert_eq!(local3.idx(), WASM_MODULE_ARGUMENT_COUNT);
 
         m.free_local(local2);
         m.free_local(local3);

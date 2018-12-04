@@ -1,5 +1,5 @@
 use leb::{write_fixed_leb16_at_idx, write_fixed_leb32_at_idx, write_leb_i32, write_leb_u32};
-use wasmgen::module_init::WasmLocal;
+use wasmgen::module_init::{WasmLocal, WasmLocalI64};
 use wasmgen::wasm_opcodes as op;
 
 pub trait WasmBuf {
@@ -56,6 +56,7 @@ pub trait WasmBuf {
     fn brtable_and_cases(&mut self, cases_count: u32);
     fn br(&mut self, depth: u32);
     fn get_local(&mut self, local: &WasmLocal);
+    fn get_local_i64(&mut self, local: &WasmLocalI64);
     fn set_local(&mut self, local: &WasmLocal);
     fn tee_local(&mut self, local: &WasmLocal);
     fn unreachable(&mut self);
@@ -250,6 +251,11 @@ impl WasmBuf for Vec<u8> {
     }
 
     fn get_local(&mut self, local: &WasmLocal) {
+        self.push(op::OP_GETLOCAL);
+        self.push(local.idx());
+    }
+
+    fn get_local_i64(&mut self, local: &WasmLocalI64) {
         self.push(op::OP_GETLOCAL);
         self.push(local.idx());
     }
