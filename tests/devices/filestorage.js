@@ -57,25 +57,30 @@ function mock_indexeddb()
 {
     const db = new Map();
     return {
-        transaction(store_name, mode) {
+        transaction(store_name, mode)
+        {
             const transaction = {
-                objectStore(store_name) {
+                objectStore(store_name)
+                {
                     return {
-                        get(key) {
+                        get(key)
+                        {
                             assert_transaction_active(`get ${key}`);
                             const result = db.get(key);
                             const request = { result };
                             mock_request_completion(request);
                             return request;
                         },
-                        count(key) {
+                        count(key)
+                        {
                             assert_transaction_active(`get ${key}`);
                             const result = db.get(key) ? 1 : 0;
                             const request = { result };
                             mock_request_completion(request);
                             return request;
                         },
-                        put(value) {
+                        put(value)
+                        {
                             assert_transaction_active(`put ${value}`);
                             const key = value["sha256sum"];
                             db.set(key, value);
@@ -85,7 +90,8 @@ function mock_indexeddb()
                         },
                     };
                 },
-                abort() {
+                abort()
+                {
                     // No-op.
                 },
             };
