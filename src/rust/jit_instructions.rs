@@ -2435,6 +2435,8 @@ macro_rules! define_setcc(
             ctx.builder.instruction_body.ne_i32();
             let value_local = ctx.builder.set_new_local();
             codegen::gen_safe_write8(ctx, &address_local, &value_local);
+            ctx.builder.free_local(address_local);
+            ctx.builder.free_local(value_local);
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, _r2: u32) {

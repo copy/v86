@@ -1133,6 +1133,11 @@ fn jit_generate_module(
 
     builder.instruction_body.block_end(); // loop
 
+    builder.free_local(gen_local_state);
+    if let Some(local) = gen_local_iteration_counter {
+        builder.free_local(local);
+    }
+
     builder.finish();
 }
 
