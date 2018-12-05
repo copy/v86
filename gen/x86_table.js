@@ -284,9 +284,9 @@ const encodings = [
 
     { opcode: 0xD9, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xD9, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xD9, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xD9, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xD9, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // fldenv (only memory). TODO: Make reg variant non-block-boundary
+    { opcode: 0xD9, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1, only_mem: 1 }, // skipped: #ud not supported by nasmtests in compiled code
+    { opcode: 0xD9, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xD9, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // fldenv
     { opcode: 0xD9, e: 1, fixed_g: 5, custom: 0, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xD9, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, skip: 1, }, // fstenv (mem), fprem (reg)
     { opcode: 0xD9, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, only_mem: 1, }, // fprem
@@ -302,8 +302,8 @@ const encodings = [
 
     { opcode: 0xDB, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDB, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, }, // unimplemented: fisttp (sse3)
-    { opcode: 0xDB, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDB, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDB, e: 1, fixed_g: 2, custom: 2, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDB, e: 1, fixed_g: 3, custom: 2, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDB, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDB, e: 1, fixed_g: 5, custom: 0, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDB, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, },
@@ -319,9 +319,9 @@ const encodings = [
     { opcode: 0xDC, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, },
 
     { opcode: 0xDD, e: 1, fixed_g: 0, custom: 1, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDD, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, }, // XXX: Test should fail
-    { opcode: 0xDD, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDD, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDD, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, },
+    { opcode: 0xDD, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDD, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDD, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, }, // frstor
     { opcode: 0xDD, e: 1, fixed_g: 5, custom: 0, is_fpu: 1, task_switch_test: 1, },
     { opcode: 0xDD, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1, }, // fsave
@@ -338,12 +338,12 @@ const encodings = [
 
     { opcode: 0xDF, e: 1, fixed_g: 0, custom: 0, is_fpu: 1, task_switch_test: 1 },
     { opcode: 0xDF, e: 1, fixed_g: 1, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // unimplemented: fisttp (sse3)
-    { opcode: 0xDF, e: 1, fixed_g: 2, custom: 0, is_fpu: 1, task_switch_test: 1 },
-    { opcode: 0xDF, e: 1, fixed_g: 3, custom: 0, is_fpu: 1, task_switch_test: 1 },
-    { opcode: 0xDF, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // mem exists, but not implemented
+    { opcode: 0xDF, e: 1, fixed_g: 2, custom: 1, is_fpu: 1, task_switch_test: 1 },
+    { opcode: 0xDF, e: 1, fixed_g: 3, custom: 1, is_fpu: 1, task_switch_test: 1 },
+    { opcode: 0xDF, e: 1, fixed_g: 4, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // unimplemented: Binary Coded Decimals
     { opcode: 0xDF, e: 1, fixed_g: 5, custom: 1, is_fpu: 1, task_switch_test: 1, },
-    { opcode: 0xDF, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // mem exists, but not implemented
-    { opcode: 0xDF, e: 1, fixed_g: 7, custom: 0, is_fpu: 1, task_switch_test: 1, },
+    { opcode: 0xDF, e: 1, fixed_g: 6, custom: 0, is_fpu: 1, task_switch_test: 1, only_reg: 1 }, // unimplemented: Binary Coded Decimals
+    { opcode: 0xDF, e: 1, fixed_g: 7, custom: 1, is_fpu: 1, task_switch_test: 1, only_mem: 1 }, // skipped: #ud not supported by nasmtests in compiled code
 
     // loop, jcxz, etc.
     // Conditional jumps, but condition code not supported by code generator

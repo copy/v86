@@ -43,8 +43,11 @@ pub trait WasmBuf {
     fn store_unaligned_i64(&mut self, byte_offset: u32);
 
     fn reinterpret_i32_as_f32(&mut self);
+    fn reinterpret_f32_as_i32(&mut self);
     fn reinterpret_i64_as_f64(&mut self);
+    fn reinterpret_f64_as_i64(&mut self);
     fn promote_f32_to_f64(&mut self);
+    fn demote_f64_to_f32(&mut self);
     fn convert_i32_to_f64(&mut self);
     fn convert_i64_to_f64(&mut self);
 
@@ -223,8 +226,11 @@ impl WasmBuf for Vec<u8> {
     }
 
     fn reinterpret_i32_as_f32(&mut self) { self.push(op::OP_F32REINTERPRETI32); }
+    fn reinterpret_f32_as_i32(&mut self) { self.push(op::OP_I32REINTERPRETF32); }
     fn reinterpret_i64_as_f64(&mut self) { self.push(op::OP_F64REINTERPRETI64); }
+    fn reinterpret_f64_as_i64(&mut self) { self.push(op::OP_I64REINTERPRETF64); }
     fn promote_f32_to_f64(&mut self) { self.push(op::OP_F64PROMOTEF32); }
+    fn demote_f64_to_f32(&mut self) { self.push(op::OP_F32DEMOTEF64); }
     fn convert_i32_to_f64(&mut self) { self.push(op::OP_F64CONVERTSI32); }
     fn convert_i64_to_f64(&mut self) { self.push(op::OP_F64CONVERTSI64); }
 

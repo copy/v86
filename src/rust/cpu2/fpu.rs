@@ -346,54 +346,72 @@ pub unsafe fn fpu_finit() {
     *fpu_stack_empty = 255;
     *fpu_stack_ptr = 0;
 }
+
 #[no_mangle]
-pub unsafe fn fpu_fistm16(addr: i32) {
-    let st0: f64 = fpu_integer_round(fpu_get_st0());
+pub unsafe fn fpu_invalid_arithmetic() { *fpu_status_word |= FPU_EX_I; }
+
+#[no_mangle]
+pub unsafe fn fpu_convert_to_i16(f: f64) -> i16 {
+    let st0: f64 = fpu_integer_round(f);
     if st0 <= 32767.0 && st0 >= -32768.0 {
-        return_on_pagefault!(safe_write16(addr, st0 as i32));
+        st0 as i16
     }
     else {
         fpu_invalid_arithmetic();
-        return_on_pagefault!(safe_write16(addr, 32768));
-    };
+        -0x8000
+    }
 }
 #[no_mangle]
-pub unsafe fn fpu_invalid_arithmetic() { *fpu_status_word |= FPU_EX_I; }
+pub unsafe fn fpu_fistm16(addr: i32) {
+    let v = fpu_convert_to_i16(fpu_get_st0());
+    return_on_pagefault!(safe_write16(addr, v as i32));
+}
 #[no_mangle]
 pub unsafe fn fpu_fistm16p(addr: i32) {
     fpu_fistm16(addr);
     fpu_pop();
 }
+
 #[no_mangle]
-pub unsafe fn fpu_fistm32(addr: i32) {
-    let st0: f64 = fpu_integer_round(fpu_get_st0());
-    let i: i32 = convert_f64_to_i32(st0);
+pub unsafe fn fpu_convert_to_i32(f: f64) -> i32 {
+    let st0 = fpu_integer_round(f);
+    let i = convert_f64_to_i32(st0);
     if i == -0x80000000 {
         // XXX: Probably not correct if st0 == 0x80000000
         // (input fits, but same value as error value)
         fpu_invalid_arithmetic();
     }
-    return_on_pagefault!(safe_write32(addr, i));
+    i
+}
+#[no_mangle]
+pub unsafe fn fpu_fistm32(addr: i32) {
+    let v = fpu_convert_to_i32(fpu_get_st0());
+    return_on_pagefault!(safe_write32(addr, v));
 }
 #[no_mangle]
 pub unsafe fn fpu_fistm32p(addr: i32) {
     fpu_fistm32(addr);
     fpu_pop();
 }
+
 #[no_mangle]
-pub unsafe fn fpu_fistm64p(addr: i32) {
-    let st0: f64 = fpu_integer_round(fpu_get_st0());
-    let value;
+pub unsafe fn fpu_convert_to_i64(f: f64) -> i64 {
+    let st0: f64 = fpu_integer_round(f);
     if st0 < TWO_POW_63 && st0 >= -TWO_POW_63 {
-        value = st0 as i64
+        st0 as i64
     }
     else {
-        value = -0x80000000_00000000;
         fpu_invalid_arithmetic();
+        -0x80000000_00000000
     }
-    return_on_pagefault!(safe_write64(addr, value));
+}
+#[no_mangle]
+pub unsafe fn fpu_fistm64p(addr: i32) {
+    let v = fpu_convert_to_i64(fpu_get_st0());
+    return_on_pagefault!(safe_write64(addr, v));
     fpu_pop();
 }
+
 #[no_mangle]
 pub unsafe fn fpu_fldcw(addr: i32) {
     let word: i32 = return_on_pagefault!(safe_read16(addr));
