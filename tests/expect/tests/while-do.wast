@@ -6,6 +6,13 @@
   (type $t4 (func (result i32)))
   (type $t5 (func (param i32) (result i32)))
   (type $t6 (func (param i32 i32) (result i32)))
+  (type $t7 (func (param i32) (result f64)))
+  (type $t8 (func (param i32 f64)))
+  (type $t9 (func (param f64)))
+  (type $t10 (func (param i32) (result i64)))
+  (type $t11 (func (param i32 i64)))
+  (type $t12 (func (param f64) (result i32)))
+  (type $t13 (func (param f64) (result i64)))
   (import "e" "get_seg" (func $e.get_seg (type $t5)))
   (import "e" "cmp32" (func $e.cmp32 (type $t2)))
   (import "e" "test_z" (func $e.test_z (type $t4)))
@@ -14,18 +21,18 @@
   (import "e" "m" (memory $e.m 256))
   (func $f (export "f") (type $t1) (param $p0 i32)
     (local $l0 i32) (local $l1 i32)
-    (set_local $p0
-      (get_local $p0))
     (set_local $l0
+      (get_local $p0))
+    (set_local $l1
       (i32.const 10000))
     (loop $L0
-      (set_local $l0
+      (set_local $l1
         (i32.add
-          (get_local $l0)
+          (get_local $l1)
           (i32.const -1)))
       (if $I1
         (i32.eqz
-          (get_local $l0))
+          (get_local $l1))
         (then
           (return)))
       (block $B2
@@ -33,7 +40,7 @@
           (block $B4
             (block $B5
               (br_table $B5 $B4 $B3 $B2
-                (get_local $p0)))
+                (get_local $l0)))
             (call $e.cmp32
               (i32.load
                 (i32.const 4))
@@ -65,10 +72,10 @@
                     (i32.load
                       (i32.const 556))
                     (i32.const 3)))
-                (set_local $p0
+                (set_local $l0
                   (i32.const 2)))
               (else
-                (set_local $p0
+                (set_local $l0
                   (i32.const 1))))
             (br $L0))
           (call $e.instr32_43)
@@ -96,7 +103,7 @@
               (i32.load
                 (i32.const 664))
               (i32.const 2)))
-          (set_local $p0
+          (set_local $l0
             (i32.const 0))
           (br $L0))
         (i32.store
