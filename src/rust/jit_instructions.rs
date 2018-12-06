@@ -1959,6 +1959,36 @@ pub fn instr_D9_3_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_fn1_const(ctx.builder, "fpu_fstp", r);
 }
 
+pub fn instr_D9_5_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::FPU_CONTROL_WORD as i32);
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read16(ctx);
+    ctx.builder.instruction_body.store_aligned_u16(0);
+}
+pub fn instr_D9_5_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_fn1_const(ctx.builder, "instr_D9_5_reg", r);
+}
+pub fn instr_D9_7_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::FPU_CONTROL_WORD as i32);
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::FPU_CONTROL_WORD as i32);
+    ctx.builder.instruction_body.load_aligned_u16_from_stack(0);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_safe_write16(ctx, &address_local, &value_local);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local(value_local);
+}
+pub fn instr_D9_7_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_fn1_const(ctx.builder, "instr_D9_7_reg", r);
+}
+
 pub fn instr_DB_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     codegen::gen_safe_read32(ctx);

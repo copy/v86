@@ -8,6 +8,7 @@ pub const TIMESTAMP_COUNTER: u32 = 664;
 pub const SEGMENT_OFFSETS: u32 = 736;
 pub const OPSTATS_BUFFER: u32 = 0x1000;
 pub const OPSTATS_BUFFER_0F: u32 = 0x1400;
+pub const FPU_CONTROL_WORD: u32 = 1036;
 pub const TLB_DATA: u32 = 0x400000;
 
 pub fn get_reg8_offset(r: u32) -> u32 {
