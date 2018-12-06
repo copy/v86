@@ -2375,7 +2375,7 @@ pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
     Ok(())
 }
 
-pub unsafe fn get_reg8_index(index: i32) -> i32 { return index << 2 & 12 | index >> 2 & 1; }
+pub fn get_reg8_index(index: i32) -> i32 { return index << 2 & 12 | index >> 2 & 1; }
 
 pub unsafe fn read_reg8(index: i32) -> i32 {
     return *reg8.offset(get_reg8_index(index) as isize) as i32;
@@ -2385,7 +2385,7 @@ pub unsafe fn write_reg8(index: i32, value: i32) {
     *reg8.offset(get_reg8_index(index) as isize) = value as u8;
 }
 
-pub unsafe fn get_reg16_index(index: i32) -> i32 { return index << 1; }
+pub fn get_reg16_index(index: i32) -> i32 { return index << 1; }
 
 pub unsafe fn read_reg16(index: i32) -> i32 {
     return *reg16.offset(get_reg16_index(index) as isize) as i32;

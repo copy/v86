@@ -192,6 +192,11 @@ pub fn gen_call_fn3(builder: &mut WasmBuilder, name: &str) {
     builder.instruction_body.call_fn(fn_idx);
 }
 
+pub fn gen_call_fn3_ret(builder: &mut WasmBuilder, name: &str) {
+    let fn_idx = builder.get_fn_idx(name, module_init::FN3_RET_TYPE_INDEX);
+    builder.instruction_body.call_fn(fn_idx);
+}
+
 pub fn gen_fn3_const(builder: &mut WasmBuilder, name: &str, arg0: u32, arg1: u32, arg2: u32) {
     let fn_idx = builder.get_fn_idx(name, module_init::FN3_TYPE_INDEX);
     builder.instruction_body.const_i32(arg0 as i32);

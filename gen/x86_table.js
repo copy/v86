@@ -388,10 +388,10 @@ const encodings = [
 
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 0, imm1632: 1, custom: 1 },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 1, imm1632: 1, custom: 1 },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 2, },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 3, },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 4, mask_flags: zf | af, },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 5, mask_flags: zf | af, },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 2, custom: 1 },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 3, custom: 1 },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 4, mask_flags: zf | af, custom: 1 },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 5, mask_flags: zf | af, custom: 1 },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 6, block_boundary: 1, }, // div/idiv: Not a block boundary, but doesn't use control flow exceptions
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 7, block_boundary: 1, },
 
@@ -561,10 +561,10 @@ const encodings = [
     { opcode: 0x0FBD, os: 1, e: 1, mask_flags: af, },
 
     // note: overflow flag only undefined if shift is > 1
-    { opcode: 0x0FA4, os: 1, e: 1, imm8: 1, mask_flags: af | of, }, // shld
-    { opcode: 0x0FA5, os: 1, e: 1, mask_flags: af | of, },
-    { opcode: 0x0FAC, os: 1, e: 1, imm8: 1, mask_flags: af | of, },
-    { opcode: 0x0FAD, os: 1, e: 1, mask_flags: af | of, },
+    { opcode: 0x0FA4, os: 1, e: 1, custom: 1, imm8: 1, mask_flags: af | of, }, // shld
+    { opcode: 0x0FA5, os: 1, e: 1, custom: 1, mask_flags: af | of, },
+    { opcode: 0x0FAC, os: 1, e: 1, custom: 1, imm8: 1, mask_flags: af | of, },
+    { opcode: 0x0FAD, os: 1, e: 1, custom: 1, mask_flags: af | of, },
 
     { opcode: 0x0FA6, skip: 1, block_boundary: 1, }, // ud
     { opcode: 0x0FA7, skip: 1, block_boundary: 1, }, // ud
@@ -604,7 +604,7 @@ const encodings = [
     { opcode: 0x0FBF, os: 1, e: 1, custom: 1 },
 
     { opcode: 0x0FC0, e: 1, }, // xadd
-    { opcode: 0x0FC1, os: 1, e: 1, },
+    { opcode: 0x0FC1, os: 1, e: 1, custom: 1 },
 
     { opcode: 0x0FC8, }, // bswap
     { opcode: 0x0FC9, },
@@ -959,7 +959,7 @@ for(let i = 0; i < 8; i++)
 
         // note: overflow flag only undefined if shift is > 1
         // note: the adjust flag is undefined for shifts > 0 and unaffected by rotates
-        { opcode: 0xC0, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, },
+        { opcode: 0xC0, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, custom: 1, },
         { opcode: 0xC1, os: 1, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, custom: 1, },
         { opcode: 0xD0, e: 1, fixed_g: i, mask_flags: af, },
         { opcode: 0xD1, os: 1, e: 1, fixed_g: i, mask_flags: af, custom: 1, },

@@ -117,6 +117,14 @@ pub unsafe fn dec8(x: i32) -> i32 { return dec(x, OPSIZE_8); }
 pub unsafe fn dec16(x: i32) -> i32 { return dec(x, OPSIZE_16); }
 #[no_mangle]
 pub unsafe fn dec32(x: i32) -> i32 { return dec(x, OPSIZE_32); }
+
+#[no_mangle]
+pub unsafe fn not8(x: i32) -> i32 { return !x; }
+#[no_mangle]
+pub unsafe fn not16(x: i32) -> i32 { return !x; }
+#[no_mangle]
+pub unsafe fn not32(x: i32) -> i32 { return !x; }
+
 #[no_mangle]
 pub unsafe fn neg(dest_operand: i32, op_size: i32) -> i32 {
     let res: i32 = -dest_operand;
@@ -134,6 +142,7 @@ pub unsafe fn neg8(x: i32) -> i32 { return neg(x, OPSIZE_8); }
 pub unsafe fn neg16(x: i32) -> i32 { return neg(x, OPSIZE_16); }
 #[no_mangle]
 pub unsafe fn neg32(x: i32) -> i32 { return neg(x, OPSIZE_32); }
+
 #[no_mangle]
 pub unsafe fn mul8(source_operand: i32) {
     let result: i32 = source_operand * *reg8.offset(AL as isize) as i32;

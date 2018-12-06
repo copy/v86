@@ -33,7 +33,10 @@ pub const FN1_F64_RET_I32_TYPE_INDEX: u8 = 12;
 #[allow(dead_code)]
 pub const FN1_F64_RET_I64_TYPE_INDEX: u8 = 13;
 
-pub const NR_FN_TYPE_INDEXES: u8 = 14;
+#[allow(dead_code)]
+pub const FN3_RET_TYPE_INDEX: u8 = 14;
+
+pub const NR_FN_TYPE_INDEXES: u8 = 15;
 
 pub const WASM_MODULE_ARGUMENT_COUNT: u8 = 1;
 
@@ -293,6 +296,15 @@ impl WasmBuilder {
         self.output.push(op::TYPE_F64);
         self.output.push(1);
         self.output.push(op::TYPE_I64);
+
+        // FN3_RET
+        self.output.push(op::TYPE_FUNC);
+        self.output.push(3);
+        self.output.push(op::TYPE_I32);
+        self.output.push(op::TYPE_I32);
+        self.output.push(op::TYPE_I32);
+        self.output.push(1);
+        self.output.push(op::TYPE_I32);
 
         let new_len = self.output.len();
         let size = (new_len - 1) - idx_section_size;
