@@ -24,6 +24,7 @@ pub enum BitSize {
     WORD,
     DWORD,
     QWORD,
+    DQWORD,
 }
 impl BitSize {
     pub fn bytes(&self) -> u32 {
@@ -32,6 +33,7 @@ impl BitSize {
             BitSize::WORD => 2,
             BitSize::DWORD => 4,
             BitSize::QWORD => 8,
+            BitSize::DQWORD => 16,
         }
     }
 }

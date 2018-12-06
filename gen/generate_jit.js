@@ -216,7 +216,7 @@ function gen_instruction_body_after_fixed_g(encoding, size)
 {
     const instruction_postfix = [];
 
-    if(encoding.block_boundary || (!encoding.custom && encoding.e) || encoding.sse)
+    if(encoding.block_boundary || (!encoding.custom && encoding.e))
     {
         instruction_postfix.push("*instr_flags |= ::jit::JIT_INSTR_BLOCK_BOUNDARY_FLAG;");
     }

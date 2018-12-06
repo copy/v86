@@ -3236,3 +3236,35 @@ define_setcc!("test_l", instr_0F9C_mem_jit, instr_0F9C_reg_jit);
 define_setcc!("test_nl", instr_0F9D_mem_jit, instr_0F9D_reg_jit);
 define_setcc!("test_le", instr_0F9E_mem_jit, instr_0F9E_reg_jit);
 define_setcc!("test_nle", instr_0F9F_mem_jit, instr_0F9F_reg_jit);
+
+pub fn instr_0F29_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    // XXX: Aligned write or #gp
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let address_local = ctx.builder.set_new_local();
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg_xmm_low_offset(r) as i32);
+    ctx.builder.instruction_body.load_aligned_i64_from_stack(0);
+    let value_local_low = ctx.builder.set_new_local_i64();
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg_xmm_high_offset(r) as i32);
+    ctx.builder.instruction_body.load_aligned_i64_from_stack(0);
+    let value_local_high = ctx.builder.set_new_local_i64();
+    codegen::gen_safe_write128(ctx, &address_local, &value_local_low, &value_local_high);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local_i64(value_local_low);
+    ctx.builder.free_local_i64(value_local_high);
+}
+pub fn instr_0F29_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder.instruction_body.const_i32(r1 as i32);
+    ctx.builder.instruction_body.const_i32(r2 as i32);
+    codegen::gen_call_fn2(ctx.builder, "instr_0F29_reg")
+}
+
+pub fn instr_660F7F_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    instr_0F29_mem_jit(ctx, modrm_byte, r);
+}
+pub fn instr_660F7F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    instr_0F29_reg_jit(ctx, r1, r2)
+}

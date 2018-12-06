@@ -32,6 +32,7 @@ pub trait WasmBuf {
     fn load_unaligned_i64_from_stack(&mut self, byte_offset: u32);
     fn load_unaligned_i32_from_stack(&mut self, byte_offset: u32);
     fn load_unaligned_u16_from_stack(&mut self, byte_offset: u32);
+    fn load_aligned_i64_from_stack(&mut self, byte_offset: u32);
     fn load_aligned_i32_from_stack(&mut self, byte_offset: u32);
     fn load_aligned_u16_from_stack(&mut self, byte_offset: u32);
 
@@ -180,6 +181,12 @@ impl WasmBuf for Vec<u8> {
     fn load_unaligned_u16_from_stack(&mut self, byte_offset: u32) {
         self.push(op::OP_I32LOAD16U);
         self.push(op::MEM_NO_ALIGN);
+        self.write_leb_u32(byte_offset);
+    }
+
+    fn load_aligned_i64_from_stack(&mut self, byte_offset: u32) {
+        self.push(op::OP_I64LOAD);
+        self.push(op::MEM_ALIGN64);
         self.write_leb_u32(byte_offset);
     }
 

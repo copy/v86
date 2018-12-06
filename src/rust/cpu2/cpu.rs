@@ -2094,7 +2094,7 @@ pub fn report_safe_read_jit_slow(address: u32, entry: i32) {
     else if entry & TLB_NO_USER != 0 {
         profiler::stat_increment(SAFE_READ_SLOW_NOT_USER);
     }
-    else if address & 0xFFF > 0x1000 - 4 {
+    else if address & 0xFFF > 0x1000 - 16 {
         profiler::stat_increment(SAFE_READ_SLOW_PAGE_CROSSED);
     }
     else {
@@ -2121,7 +2121,7 @@ pub fn report_safe_write_jit_slow(address: u32, entry: i32) {
     else if entry & TLB_NO_USER != 0 {
         profiler::stat_increment(SAFE_WRITE_SLOW_NOT_USER);
     }
-    else if address & 0xFFF > 0x1000 - 4 {
+    else if address & 0xFFF > 0x1000 - 16 {
         profiler::stat_increment(SAFE_WRITE_SLOW_PAGE_CROSSED);
     }
     else {
@@ -2373,6 +2373,19 @@ pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
         write128(phys, value);
     };
     Ok(())
+}
+
+#[no_mangle]
+pub unsafe fn safe_write128_slow_jit(addr: i32, value_low: i64, value_high: i64) {
+    match safe_write128(
+        addr,
+        reg128 {
+            i64_0: [value_low, value_high],
+        },
+    ) {
+        Ok(()) => *page_fault = false,
+        Err(()) => *page_fault = true,
+    }
 }
 
 pub fn get_reg8_index(index: i32) -> i32 { return index << 2 & 12 | index >> 2 & 1; }

@@ -192,6 +192,12 @@ pub fn gen_call_fn3(builder: &mut WasmBuilder, name: &str) {
     builder.instruction_body.call_fn(fn_idx);
 }
 
+pub fn gen_call_fn3_i32_i64_i64(builder: &mut WasmBuilder, name: &str) {
+    // generates: fn( _, _ ) where _ must be left on the stack before calling this
+    let fn_idx = builder.get_fn_idx(name, module_init::FN3_I32_I64_I64_TYPE_INDEX);
+    builder.instruction_body.call_fn(fn_idx);
+}
+
 pub fn gen_call_fn3_ret(builder: &mut WasmBuilder, name: &str) {
     let fn_idx = builder.get_fn_idx(name, module_init::FN3_RET_TYPE_INDEX);
     builder.instruction_body.call_fn(fn_idx);
@@ -262,9 +268,10 @@ pub fn gen_safe_read32(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::DWORD
 pub fn gen_safe_read64(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::QWORD) }
 
 // only used internally for gen_safe_write
-enum I32OrI64Local<'a> {
+enum GenSafeWriteValue<'a> {
     I32(&'a WasmLocal),
     I64(&'a WasmLocalI64),
+    TwoI64s(&'a WasmLocalI64, &'a WasmLocalI64),
 }
 
 pub fn gen_safe_write8(ctx: &mut JitContext, address_local: &WasmLocal, value_local: &WasmLocal) {
@@ -272,7 +279,7 @@ pub fn gen_safe_write8(ctx: &mut JitContext, address_local: &WasmLocal, value_lo
         ctx,
         BitSize::BYTE,
         address_local,
-        I32OrI64Local::I32(value_local),
+        GenSafeWriteValue::I32(value_local),
     )
 }
 pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_local: &WasmLocal) {
@@ -280,7 +287,7 @@ pub fn gen_safe_write16(ctx: &mut JitContext, address_local: &WasmLocal, value_l
         ctx,
         BitSize::WORD,
         address_local,
-        I32OrI64Local::I32(value_local),
+        GenSafeWriteValue::I32(value_local),
     )
 }
 pub fn gen_safe_write32(ctx: &mut JitContext, address_local: &WasmLocal, value_local: &WasmLocal) {
@@ -288,7 +295,7 @@ pub fn gen_safe_write32(ctx: &mut JitContext, address_local: &WasmLocal, value_l
         ctx,
         BitSize::DWORD,
         address_local,
-        I32OrI64Local::I32(value_local),
+        GenSafeWriteValue::I32(value_local),
     )
 }
 pub fn gen_safe_write64(
@@ -300,7 +307,21 @@ pub fn gen_safe_write64(
         ctx,
         BitSize::QWORD,
         address_local,
-        I32OrI64Local::I64(value_local),
+        GenSafeWriteValue::I64(value_local),
+    )
+}
+
+pub fn gen_safe_write128(
+    ctx: &mut JitContext,
+    address_local: &WasmLocal,
+    value_local_low: &WasmLocalI64,
+    value_local_high: &WasmLocalI64,
+) {
+    gen_safe_write(
+        ctx,
+        BitSize::DQWORD,
+        address_local,
+        GenSafeWriteValue::TwoI64s(value_local_low, value_local_high),
     )
 }
 
@@ -392,6 +413,9 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
                 .instruction_body
                 .load_unaligned_i64_from_stack(unsafe { mem8 } as u32);
         },
+        BitSize::DQWORD => {
+            assert!(false); // TODO
+        },
     }
 
     // Pseudo:
@@ -438,6 +462,9 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize) {
         BitSize::QWORD => {
             gen_call_fn1_ret_i64(builder, "safe_read64s_slow_jit");
         },
+        BitSize::DQWORD => {
+            assert!(false); // TODO
+        },
     }
 
     builder
@@ -459,7 +486,7 @@ fn gen_safe_write(
     ctx: &mut JitContext,
     bits: BitSize,
     address_local: &WasmLocal,
-    value_local: I32OrI64Local,
+    value_local: GenSafeWriteValue,
 ) {
     // Generates safe_writeXX' fast-path inline, bailing to safe_writeXX_slow if necessary.
 
@@ -524,8 +551,24 @@ fn gen_safe_write(
     //     mem8[phys_addr] = value;
 
     match value_local {
-        I32OrI64Local::I32(local) => builder.instruction_body.get_local(local),
-        I32OrI64Local::I64(local) => builder.instruction_body.get_local_i64(local),
+        GenSafeWriteValue::I32(local) => builder.instruction_body.get_local(local),
+        GenSafeWriteValue::I64(local) => builder.instruction_body.get_local_i64(local),
+        GenSafeWriteValue::TwoI64s(local1, local2) => {
+            assert!(bits == BitSize::DQWORD);
+
+            let virt_address_local = builder.tee_new_local();
+            builder.instruction_body.get_local_i64(local1);
+            builder
+                .instruction_body
+                .store_unaligned_i64(unsafe { mem8 } as u32);
+
+            builder.instruction_body.get_local(&virt_address_local);
+            builder.instruction_body.get_local_i64(local2);
+            builder
+                .instruction_body
+                .store_unaligned_i64(unsafe { mem8 } as u32 + 8);
+            builder.free_local(virt_address_local);
+        },
     }
     match bits {
         BitSize::BYTE => {
@@ -546,6 +589,7 @@ fn gen_safe_write(
                 .instruction_body
                 .store_unaligned_i64(unsafe { mem8 } as u32);
         },
+        BitSize::DQWORD => {}, // handled above
     }
 
     // Pseudo:
@@ -580,8 +624,12 @@ fn gen_safe_write(
 
     builder.instruction_body.get_local(&address_local);
     match value_local {
-        I32OrI64Local::I32(local) => builder.instruction_body.get_local(local),
-        I32OrI64Local::I64(local) => builder.instruction_body.get_local_i64(local),
+        GenSafeWriteValue::I32(local) => builder.instruction_body.get_local(local),
+        GenSafeWriteValue::I64(local) => builder.instruction_body.get_local_i64(local),
+        GenSafeWriteValue::TwoI64s(local1, local2) => {
+            builder.instruction_body.get_local_i64(local1);
+            builder.instruction_body.get_local_i64(local2)
+        },
     }
     match bits {
         BitSize::BYTE => {
@@ -595,6 +643,9 @@ fn gen_safe_write(
         },
         BitSize::QWORD => {
             gen_call_fn2_i32_i64(builder, "safe_write64_slow_jit");
+        },
+        BitSize::DQWORD => {
+            gen_call_fn3_i32_i64_i64(builder, "safe_write128_slow_jit");
         },
     }
 
@@ -999,7 +1050,8 @@ pub fn gen_safe_read_write(
                 .instruction_body
                 .load_unaligned_i32_from_stack(unsafe { mem8 } as u32);
         },
-        BitSize::QWORD => assert!(false), // not used
+        BitSize::QWORD => assert!(false),  // not used
+        BitSize::DQWORD => assert!(false), // not used
     }
 
     f(ctx);
@@ -1020,7 +1072,8 @@ pub fn gen_safe_read_write(
                 .instruction_body
                 .store_unaligned_i32(unsafe { mem8 } as u32);
         },
-        BitSize::QWORD => assert!(false), // not used
+        BitSize::QWORD => assert!(false),  // not used
+        BitSize::DQWORD => assert!(false), // not used
     };
     ctx.builder.free_local(phys_addr_local);
 
