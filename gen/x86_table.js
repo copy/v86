@@ -448,7 +448,7 @@ const encodings = [
     { opcode: 0x0F0E, skip: 1, block_boundary: 1, },
     { opcode: 0x0F0F, skip: 1, block_boundary: 1, },
 
-    { opcode: 0x0F18, e: 1, },
+    { opcode: 0x0F18, e: 1, custom: 1 },
     { opcode: 0x0F19, non_faulting: 1, custom: 1, e: 1, },
     { opcode: 0x0F1A, skip: 1, block_boundary: 1, },
     { opcode: 0x0F1B, skip: 1, block_boundary: 1, },

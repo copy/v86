@@ -2765,6 +2765,11 @@ pub fn instr32_A3_jit(ctx: &mut JitContext, immaddr: u32) {
     ctx.builder.free_local(value_local);
 }
 
+pub fn instr_0F18_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
+    modrm::skip(ctx.cpu, modrm_byte);
+}
+pub fn instr_0F18_reg_jit(_ctx: &mut JitContext, _r1: u32, _r2: u32) {}
+
 pub fn instr_0F19_mem_jit(ctx: &mut JitContext, modrm_byte: u8, _reg: u32) {
     modrm::skip(ctx.cpu, modrm_byte);
 }
