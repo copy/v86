@@ -13,6 +13,8 @@
   (type $t11 (func (param i32 i64)))
   (type $t12 (func (param f64) (result i32)))
   (type $t13 (func (param f64) (result i64)))
+  (type $t14 (func (param i32 i32 i32) (result i32)))
+  (type $t15 (func (param i32 i64 i64)))
   (import "e" "get_seg" (func $e.get_seg (type $t5)))
   (import "e" "cmp32" (func $e.cmp32 (type $t2)))
   (import "e" "test_nle" (func $e.test_nle (type $t4)))
