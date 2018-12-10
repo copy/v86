@@ -364,22 +364,6 @@ impl InterruptDescriptor {
 }
 
 #[no_mangle]
-pub unsafe fn call_interrupt_vector_js(
-    interrupt_nr: i32,
-    is_software_int: bool,
-    has_error_code: bool,
-    error_code: i32,
-) {
-    let ec = if has_error_code {
-        Some(error_code)
-    }
-    else {
-        None
-    };
-    call_interrupt_vector(interrupt_nr, is_software_int, ec);
-}
-
-#[no_mangle]
 pub unsafe fn switch_cs_real_mode(selector: i32) {
     dbg_assert!(!*protected_mode || vm86_mode());
 
@@ -2808,4 +2792,10 @@ pub unsafe fn handle_irqs() {
     if *flags & FLAG_INTERRUPT != 0 {
         pic_acknowledge()
     }
+}
+
+#[no_mangle]
+pub unsafe fn pic_call_irq(interrupt_nr: i32) {
+    *previous_ip = *instruction_pointer; // XXX: What if called after instruction (port IO)
+    call_interrupt_vector(interrupt_nr, false, None);
 }

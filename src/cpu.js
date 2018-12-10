@@ -271,7 +271,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.trigger_ss = get_import("trigger_ss");
 
     this.switch_cs_real_mode = get_import("switch_cs_real_mode");
-    this.call_interrupt_vector = get_import("call_interrupt_vector_js");
+    this.pic_call_irq = get_import("pic_call_irq");
     this.get_tss_stack_addr = get_import("get_tss_stack_addr_js");
 
     this.do_many_cycles_native = get_import("do_many_cycles_native");
@@ -2368,12 +2368,6 @@ CPU.prototype.unimplemented_sse = function()
     console.log("No SSE: " + h(opcode & 0xFF) + " " + h(opcode >> 8 & 0xFF) + " " + h(opcode >> 16 & 0xFF), LOG_CPU);
     dbg_assert(false);
     this.trigger_ud();
-};
-
-CPU.prototype.pic_call_irq = function(int)
-{
-    this.previous_ip[0] = this.instruction_pointer[0]; // XXX: What if called after instruction (port IO)
-    this.call_interrupt_vector(int, false, false, 0);
 };
 
 CPU.prototype.handle_irqs = function()
