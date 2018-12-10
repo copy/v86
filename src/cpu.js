@@ -263,6 +263,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.getiopl = get_import("getiopl");
     this.vm86_mode = get_import("vm86_mode");
     this.get_eflags = get_import("get_eflags");
+    this.get_eflags_no_arith = get_import("get_eflags_no_arith");
     this.update_eflags = get_import("update_eflags");
 
     this.trigger_gp_non_raising = get_import("trigger_gp_non_raising");
@@ -1534,7 +1535,7 @@ CPU.prototype.dbg_assert = function(x)
 
 CPU.prototype.hlt_loop = function()
 {
-    if(this.flags[0] & flag_interrupt)
+    if(this.get_eflags_no_arith() & flag_interrupt)
     {
         //dbg_log("In HLT loop", LOG_CPU);
 
@@ -2341,7 +2342,7 @@ CPU.prototype.hlt_op = function()
         return;
     }
 
-    if((this.flags[0] & flag_interrupt) === 0)
+    if((this.get_eflags_no_arith() & flag_interrupt) === 0)
     {
         // execution can never resume (until NMIs are supported)
         this.bus.send("cpu-event-halt");
@@ -2374,7 +2375,7 @@ CPU.prototype.handle_irqs = function()
 {
     //dbg_assert(this.prefixes[0] === 0);
 
-    if(this.flags[0] & flag_interrupt)
+    if(this.get_eflags_no_arith() & flag_interrupt)
     {
         this.pic_acknowledge();
     }
@@ -2382,7 +2383,7 @@ CPU.prototype.handle_irqs = function()
 
 CPU.prototype.pic_acknowledge = function()
 {
-    dbg_assert(this.flags[0] & flag_interrupt);
+    dbg_assert(this.get_eflags_no_arith() & flag_interrupt);
 
     if(this.devices.pic)
     {

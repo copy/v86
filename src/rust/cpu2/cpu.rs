@@ -1010,6 +1010,9 @@ pub unsafe fn get_eflags() -> i32 {
         | (getof() as i32) << 11;
 }
 
+#[no_mangle]
+pub unsafe fn get_eflags_no_arith() -> i32 { return *flags; }
+
 pub unsafe fn translate_address_read(address: i32) -> OrPageFault<u32> {
     let base: i32 = (address as u32 >> 12) as i32;
     let entry: i32 = *tlb_data.offset(base as isize);
