@@ -2204,6 +2204,19 @@ pub unsafe fn safe_read128s(addr: i32) -> OrPageFault<reg128> {
     Ok(x)
 }
 
+#[no_mangle]
+pub unsafe fn safe_read128s_slow_jit(addr: i32, where_to_write: u32) {
+    match safe_read128s(addr) {
+        Ok(v) => {
+            *page_fault = false;
+            *(where_to_write as *mut reg128) = v;
+        },
+        Err(()) => {
+            *page_fault = true;
+        },
+    }
+}
+
 pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
     write8(translate_address_write(addr)?, value);
     Ok(())
