@@ -146,9 +146,16 @@ async function test_read(oracle, iut, key, offset, count) // jshint ignore:line
 
 async function test_with_file(oracle, iut, key, file_data) // jshint ignore:line
 {
-    console.log("Testing file with size: %d", file_data.length);
-    await oracle.set(key, file_data); // jshint ignore:line
-    await iut.set(key, file_data); // jshint ignore:line
+    if(file_data)
+    {
+        console.log("Testing file with size: %d", file_data.length);
+        await oracle.set(key, file_data); // jshint ignore:line
+        await iut.set(key, file_data); // jshint ignore:line
+    }
+    else
+    {
+        console.log("Testing nonexistent file");
+    }
 
     // Some boundary values.
     if(!await test_read(oracle, iut, key, 0, 0)) return false; // jshint ignore:line
@@ -196,6 +203,7 @@ async function test_start() // jshint ignore:line
     // Implementation under test with chunking.
     const iut = new IndexedDBFileStorage(mock_indexeddb());
 
+    if(!await test_with_file(oracle, iut, "nonexistent")) return false; // jshint ignore:line
     if(!await test_with_file(oracle, iut, "empty", new Uint8Array(0))) return false; // jshint ignore:line
     if(!await test_with_file(oracle, iut, "single", new Uint8Array(1).map(v => Math.random() * 0xFF))) return false; // jshint ignore:line
     if(!await test_with_file(oracle, iut, "1block", new Uint8Array(4096).map(v => Math.random() * 0xFF))) return false; // jshint ignore:line
