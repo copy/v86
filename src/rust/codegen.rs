@@ -1178,6 +1178,7 @@ pub fn gen_fpu_load_m64(ctx: &mut JitContext) {
 
 pub fn gen_trigger_ud(ctx: &mut JitContext) {
     gen_fn0_const(ctx.builder, "trigger_ud");
+    gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     ctx.builder.instruction_body.return_();
 }
 

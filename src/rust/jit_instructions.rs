@@ -2194,6 +2194,7 @@ pub fn instr_D9_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     codegen::gen_call_fn1(ctx.builder, "fpu_fldenv");
     // XXX: generated because fldenv might page-fault, but doesn't generate a proper block boundary
+    codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     ctx.builder.instruction_body.return_();
 }
 pub fn instr_D9_4_reg_jit(ctx: &mut JitContext, r: u32) {
@@ -2273,6 +2274,7 @@ pub fn instr_DB_5_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     codegen::gen_call_fn1(ctx.builder, "fpu_fldm80");
     // XXX: generated because fpu_fldm80 might page-fault, but doesn't generate a proper block boundary
+    codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     ctx.builder.instruction_body.return_();
 }
 pub fn instr_DB_5_reg_jit(ctx: &mut JitContext, r: u32) {
