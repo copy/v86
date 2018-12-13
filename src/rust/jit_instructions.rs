@@ -3178,7 +3178,7 @@ define_instruction_write_reg32!("imul_reg32", instr32_0FAF_mem_jit, instr32_0FAF
 macro_rules! define_cmovcc16(
     ($cond:expr, $name_mem:ident, $name_reg:ident) => (
         pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
-            codegen::gen_fn0_const_ret(ctx.builder, $cond);
+            codegen::gen_condition_fn(ctx.builder, $cond);
             codegen::gen_modrm_resolve(ctx, modrm_byte);
             codegen::gen_safe_read16(ctx);
             ctx.builder.instruction_body.const_i32(r as i32);
@@ -3186,7 +3186,7 @@ macro_rules! define_cmovcc16(
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
-            codegen::gen_fn0_const_ret(ctx.builder, $cond);
+            codegen::gen_condition_fn(ctx.builder, $cond);
             codegen::gen_get_reg16(ctx.builder, r1);
             ctx.builder.instruction_body.const_i32(r2 as i32);
             codegen::gen_call_fn3(ctx.builder, "cmovcc16")
@@ -3197,7 +3197,7 @@ macro_rules! define_cmovcc16(
 macro_rules! define_cmovcc32(
     ($cond:expr, $name_mem:ident, $name_reg:ident) => (
         pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
-            codegen::gen_fn0_const_ret(ctx.builder, $cond);
+            codegen::gen_condition_fn(&mut ctx.builder, $cond);
             codegen::gen_modrm_resolve(ctx, modrm_byte);
             codegen::gen_safe_read32(ctx);
             ctx.builder.instruction_body.const_i32(r as i32);
@@ -3205,7 +3205,7 @@ macro_rules! define_cmovcc32(
         }
 
         pub fn $name_reg(ctx: &mut JitContext, r1: u32, r2: u32) {
-            codegen::gen_fn0_const_ret(ctx.builder, $cond);
+            codegen::gen_condition_fn(&mut ctx.builder, $cond);
             codegen::gen_get_reg32(ctx.builder, r1);
             ctx.builder.instruction_body.const_i32(r2 as i32);
             codegen::gen_call_fn3(ctx.builder, "cmovcc32")
@@ -3213,48 +3213,48 @@ macro_rules! define_cmovcc32(
     );
 );
 
-define_cmovcc16!("test_o", instr16_0F40_mem_jit, instr16_0F40_reg_jit);
-define_cmovcc16!("test_no", instr16_0F41_mem_jit, instr16_0F41_reg_jit);
-define_cmovcc16!("test_b", instr16_0F42_mem_jit, instr16_0F42_reg_jit);
-define_cmovcc16!("test_nb", instr16_0F43_mem_jit, instr16_0F43_reg_jit);
-define_cmovcc16!("test_z", instr16_0F44_mem_jit, instr16_0F44_reg_jit);
-define_cmovcc16!("test_nz", instr16_0F45_mem_jit, instr16_0F45_reg_jit);
-define_cmovcc16!("test_be", instr16_0F46_mem_jit, instr16_0F46_reg_jit);
-define_cmovcc16!("test_nbe", instr16_0F47_mem_jit, instr16_0F47_reg_jit);
+define_cmovcc16!(0x0, instr16_0F40_mem_jit, instr16_0F40_reg_jit);
+define_cmovcc16!(0x1, instr16_0F41_mem_jit, instr16_0F41_reg_jit);
+define_cmovcc16!(0x2, instr16_0F42_mem_jit, instr16_0F42_reg_jit);
+define_cmovcc16!(0x3, instr16_0F43_mem_jit, instr16_0F43_reg_jit);
+define_cmovcc16!(0x4, instr16_0F44_mem_jit, instr16_0F44_reg_jit);
+define_cmovcc16!(0x5, instr16_0F45_mem_jit, instr16_0F45_reg_jit);
+define_cmovcc16!(0x6, instr16_0F46_mem_jit, instr16_0F46_reg_jit);
+define_cmovcc16!(0x7, instr16_0F47_mem_jit, instr16_0F47_reg_jit);
 
-define_cmovcc16!("test_s", instr16_0F48_mem_jit, instr16_0F48_reg_jit);
-define_cmovcc16!("test_ns", instr16_0F49_mem_jit, instr16_0F49_reg_jit);
-define_cmovcc16!("test_p", instr16_0F4A_mem_jit, instr16_0F4A_reg_jit);
-define_cmovcc16!("test_np", instr16_0F4B_mem_jit, instr16_0F4B_reg_jit);
-define_cmovcc16!("test_l", instr16_0F4C_mem_jit, instr16_0F4C_reg_jit);
-define_cmovcc16!("test_nl", instr16_0F4D_mem_jit, instr16_0F4D_reg_jit);
-define_cmovcc16!("test_le", instr16_0F4E_mem_jit, instr16_0F4E_reg_jit);
-define_cmovcc16!("test_nle", instr16_0F4F_mem_jit, instr16_0F4F_reg_jit);
+define_cmovcc16!(0x8, instr16_0F48_mem_jit, instr16_0F48_reg_jit);
+define_cmovcc16!(0x9, instr16_0F49_mem_jit, instr16_0F49_reg_jit);
+define_cmovcc16!(0xA, instr16_0F4A_mem_jit, instr16_0F4A_reg_jit);
+define_cmovcc16!(0xB, instr16_0F4B_mem_jit, instr16_0F4B_reg_jit);
+define_cmovcc16!(0xC, instr16_0F4C_mem_jit, instr16_0F4C_reg_jit);
+define_cmovcc16!(0xD, instr16_0F4D_mem_jit, instr16_0F4D_reg_jit);
+define_cmovcc16!(0xE, instr16_0F4E_mem_jit, instr16_0F4E_reg_jit);
+define_cmovcc16!(0xF, instr16_0F4F_mem_jit, instr16_0F4F_reg_jit);
 
-define_cmovcc32!("test_o", instr32_0F40_mem_jit, instr32_0F40_reg_jit);
-define_cmovcc32!("test_no", instr32_0F41_mem_jit, instr32_0F41_reg_jit);
-define_cmovcc32!("test_b", instr32_0F42_mem_jit, instr32_0F42_reg_jit);
-define_cmovcc32!("test_nb", instr32_0F43_mem_jit, instr32_0F43_reg_jit);
-define_cmovcc32!("test_z", instr32_0F44_mem_jit, instr32_0F44_reg_jit);
-define_cmovcc32!("test_nz", instr32_0F45_mem_jit, instr32_0F45_reg_jit);
-define_cmovcc32!("test_be", instr32_0F46_mem_jit, instr32_0F46_reg_jit);
-define_cmovcc32!("test_nbe", instr32_0F47_mem_jit, instr32_0F47_reg_jit);
+define_cmovcc32!(0x0, instr32_0F40_mem_jit, instr32_0F40_reg_jit);
+define_cmovcc32!(0x1, instr32_0F41_mem_jit, instr32_0F41_reg_jit);
+define_cmovcc32!(0x2, instr32_0F42_mem_jit, instr32_0F42_reg_jit);
+define_cmovcc32!(0x3, instr32_0F43_mem_jit, instr32_0F43_reg_jit);
+define_cmovcc32!(0x4, instr32_0F44_mem_jit, instr32_0F44_reg_jit);
+define_cmovcc32!(0x5, instr32_0F45_mem_jit, instr32_0F45_reg_jit);
+define_cmovcc32!(0x6, instr32_0F46_mem_jit, instr32_0F46_reg_jit);
+define_cmovcc32!(0x7, instr32_0F47_mem_jit, instr32_0F47_reg_jit);
 
-define_cmovcc32!("test_s", instr32_0F48_mem_jit, instr32_0F48_reg_jit);
-define_cmovcc32!("test_ns", instr32_0F49_mem_jit, instr32_0F49_reg_jit);
-define_cmovcc32!("test_p", instr32_0F4A_mem_jit, instr32_0F4A_reg_jit);
-define_cmovcc32!("test_np", instr32_0F4B_mem_jit, instr32_0F4B_reg_jit);
-define_cmovcc32!("test_l", instr32_0F4C_mem_jit, instr32_0F4C_reg_jit);
-define_cmovcc32!("test_nl", instr32_0F4D_mem_jit, instr32_0F4D_reg_jit);
-define_cmovcc32!("test_le", instr32_0F4E_mem_jit, instr32_0F4E_reg_jit);
-define_cmovcc32!("test_nle", instr32_0F4F_mem_jit, instr32_0F4F_reg_jit);
+define_cmovcc32!(0x8, instr32_0F48_mem_jit, instr32_0F48_reg_jit);
+define_cmovcc32!(0x9, instr32_0F49_mem_jit, instr32_0F49_reg_jit);
+define_cmovcc32!(0xA, instr32_0F4A_mem_jit, instr32_0F4A_reg_jit);
+define_cmovcc32!(0xB, instr32_0F4B_mem_jit, instr32_0F4B_reg_jit);
+define_cmovcc32!(0xC, instr32_0F4C_mem_jit, instr32_0F4C_reg_jit);
+define_cmovcc32!(0xD, instr32_0F4D_mem_jit, instr32_0F4D_reg_jit);
+define_cmovcc32!(0xE, instr32_0F4E_mem_jit, instr32_0F4E_reg_jit);
+define_cmovcc32!(0xF, instr32_0F4F_mem_jit, instr32_0F4F_reg_jit);
 
 macro_rules! define_setcc(
     ($cond:expr, $name_mem:ident, $name_reg:ident) => (
         pub fn $name_mem(ctx: &mut JitContext, modrm_byte: u8, _r: u32) {
             codegen::gen_modrm_resolve(ctx, modrm_byte);
             let address_local = ctx.builder.set_new_local();
-            codegen::gen_fn0_const_ret(ctx.builder, $cond);
+            codegen::gen_condition_fn(&mut ctx.builder, $cond);
             ctx.builder.instruction_body.const_i32(0);
             ctx.builder.instruction_body.ne_i32();
             let value_local = ctx.builder.set_new_local();
@@ -3267,7 +3267,7 @@ macro_rules! define_setcc(
             ctx.builder
                 .instruction_body
                 .const_i32(global_pointers::get_reg8_offset(r1) as i32);
-            codegen::gen_fn0_const_ret(ctx.builder, $cond);
+            codegen::gen_condition_fn(&mut ctx.builder, $cond);
             ctx.builder.instruction_body.const_i32(0);
             ctx.builder.instruction_body.ne_i32();
             ctx.builder.instruction_body.store_u8(0);
@@ -3275,23 +3275,23 @@ macro_rules! define_setcc(
     );
 );
 
-define_setcc!("test_o", instr_0F90_mem_jit, instr_0F90_reg_jit);
-define_setcc!("test_no", instr_0F91_mem_jit, instr_0F91_reg_jit);
-define_setcc!("test_b", instr_0F92_mem_jit, instr_0F92_reg_jit);
-define_setcc!("test_nb", instr_0F93_mem_jit, instr_0F93_reg_jit);
-define_setcc!("test_z", instr_0F94_mem_jit, instr_0F94_reg_jit);
-define_setcc!("test_nz", instr_0F95_mem_jit, instr_0F95_reg_jit);
-define_setcc!("test_be", instr_0F96_mem_jit, instr_0F96_reg_jit);
-define_setcc!("test_nbe", instr_0F97_mem_jit, instr_0F97_reg_jit);
+define_setcc!(0x0, instr_0F90_mem_jit, instr_0F90_reg_jit);
+define_setcc!(0x1, instr_0F91_mem_jit, instr_0F91_reg_jit);
+define_setcc!(0x2, instr_0F92_mem_jit, instr_0F92_reg_jit);
+define_setcc!(0x3, instr_0F93_mem_jit, instr_0F93_reg_jit);
+define_setcc!(0x4, instr_0F94_mem_jit, instr_0F94_reg_jit);
+define_setcc!(0x5, instr_0F95_mem_jit, instr_0F95_reg_jit);
+define_setcc!(0x6, instr_0F96_mem_jit, instr_0F96_reg_jit);
+define_setcc!(0x7, instr_0F97_mem_jit, instr_0F97_reg_jit);
 
-define_setcc!("test_s", instr_0F98_mem_jit, instr_0F98_reg_jit);
-define_setcc!("test_ns", instr_0F99_mem_jit, instr_0F99_reg_jit);
-define_setcc!("test_p", instr_0F9A_mem_jit, instr_0F9A_reg_jit);
-define_setcc!("test_np", instr_0F9B_mem_jit, instr_0F9B_reg_jit);
-define_setcc!("test_l", instr_0F9C_mem_jit, instr_0F9C_reg_jit);
-define_setcc!("test_nl", instr_0F9D_mem_jit, instr_0F9D_reg_jit);
-define_setcc!("test_le", instr_0F9E_mem_jit, instr_0F9E_reg_jit);
-define_setcc!("test_nle", instr_0F9F_mem_jit, instr_0F9F_reg_jit);
+define_setcc!(0x8, instr_0F98_mem_jit, instr_0F98_reg_jit);
+define_setcc!(0x9, instr_0F99_mem_jit, instr_0F99_reg_jit);
+define_setcc!(0xA, instr_0F9A_mem_jit, instr_0F9A_reg_jit);
+define_setcc!(0xB, instr_0F9B_mem_jit, instr_0F9B_reg_jit);
+define_setcc!(0xC, instr_0F9C_mem_jit, instr_0F9C_reg_jit);
+define_setcc!(0xD, instr_0F9D_mem_jit, instr_0F9D_reg_jit);
+define_setcc!(0xE, instr_0F9E_mem_jit, instr_0F9E_reg_jit);
+define_setcc!(0xF, instr_0F9F_mem_jit, instr_0F9F_reg_jit);
 
 pub fn instr_0F29_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     // XXX: Aligned write or #gp

@@ -27,11 +27,6 @@ pub const JIT_ALWAYS_USE_LOOP_SAFETY: bool = true;
 
 pub const JIT_THRESHOLD: u32 = 200 * 1000;
 
-const CONDITION_FUNCTIONS: [&str; 16] = [
-    "test_o", "test_no", "test_b", "test_nb", "test_z", "test_nz", "test_be", "test_nbe", "test_s",
-    "test_ns", "test_p", "test_np", "test_l", "test_nl", "test_le", "test_nle",
-];
-
 const CODE_CACHE_SEARCH_SIZE: u32 = 8;
 const MAX_INSTRUCTION_LENGTH: u32 = 16;
 
@@ -1067,11 +1062,7 @@ fn jit_generate_module(
                 // Conditional jump to next basic block
                 // - jnz, jc, etc.
 
-                dbg_assert!(condition < 16);
-                let condition = CONDITION_FUNCTIONS[condition as usize];
-
-                codegen::gen_fn0_const_ret(builder, condition);
-
+                codegen::gen_condition_fn(builder, condition);
                 builder.instruction_body.if_void();
 
                 // Branch taken

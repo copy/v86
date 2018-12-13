@@ -14,6 +14,11 @@ extern "C" {
     static mut mem8: *mut u8;
 }
 
+const CONDITION_FUNCTIONS: [&str; 16] = [
+    "test_o", "test_no", "test_b", "test_nb", "test_z", "test_nz", "test_be", "test_nbe", "test_s",
+    "test_ns", "test_p", "test_np", "test_l", "test_nl", "test_le", "test_nle",
+];
+
 pub fn gen_set_previous_eip_offset_from_eip(builder: &mut WasmBuilder, n: u32) {
     let cs = &mut builder.instruction_body;
     cs.const_i32(global_pointers::PREVIOUS_IP as i32); // store address of previous ip
@@ -1174,6 +1179,12 @@ pub fn gen_fpu_load_m64(ctx: &mut JitContext) {
 pub fn gen_trigger_ud(ctx: &mut JitContext) {
     gen_fn0_const(ctx.builder, "trigger_ud");
     ctx.builder.instruction_body.return_();
+}
+
+pub fn gen_condition_fn(builder: &mut WasmBuilder, condition: u8) {
+    dbg_assert!(condition < 16);
+    let condition_name = CONDITION_FUNCTIONS[condition as usize];
+    gen_fn0_const_ret(builder, condition_name);
 }
 
 pub fn gen_profiler_stat_increment(builder: &mut WasmBuilder, stat: profiler::stat) {
