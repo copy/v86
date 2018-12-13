@@ -954,8 +954,8 @@ for(let i = 0; i < 8; i++)
         { opcode: 0x82, e: 1, fixed_g: i, imm8: 1, },
         { opcode: 0x83, os: 1, e: 1, fixed_g: i, imm8s: 1, custom: 1, },
 
-        { opcode: 0xB0 | i, imm8: 1, },
-        { opcode: 0xB8 | i, os: 1, imm1632: 1, },
+        { opcode: 0xB0 | i, custom: 1, imm8: 1, },
+        { opcode: 0xB8 | i, custom: 1, os: 1, imm1632: 1, },
 
         // note: overflow flag only undefined if shift is > 1
         // note: the adjust flag is undefined for shifts > 0 and unaffected by rotates

@@ -1724,6 +1724,57 @@ pub fn instr32_C3_jit(ctx: &mut JitContext) {
     ctx.builder.instruction_body.store_aligned_i32(0);
 }
 
+pub fn gen_mov_reg8_imm(ctx: &mut JitContext, r: u32, imm: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg8_offset(r) as i32);
+    ctx.builder.instruction_body.const_i32(imm as i32);
+    ctx.builder.instruction_body.store_u8(0);
+}
+
+pub fn instr_B0_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg8_imm(ctx, 0, imm) }
+pub fn instr_B1_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg8_imm(ctx, 1, imm) }
+pub fn instr_B2_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg8_imm(ctx, 2, imm) }
+pub fn instr_B3_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg8_imm(ctx, 3, imm) }
+pub fn instr_B4_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg8_imm(ctx, 4, imm) }
+pub fn instr_B5_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg8_imm(ctx, 5, imm) }
+pub fn instr_B6_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg8_imm(ctx, 6, imm) }
+pub fn instr_B7_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg8_imm(ctx, 7, imm) }
+
+pub fn gen_mov_reg16_imm(ctx: &mut JitContext, r: u32, imm: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg16_offset(r) as i32);
+    ctx.builder.instruction_body.const_i32(imm as i32);
+    ctx.builder.instruction_body.store_aligned_u16(0);
+}
+
+pub fn instr16_B8_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg16_imm(ctx, 0, imm) }
+pub fn instr16_B9_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg16_imm(ctx, 1, imm) }
+pub fn instr16_BA_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg16_imm(ctx, 2, imm) }
+pub fn instr16_BB_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg16_imm(ctx, 3, imm) }
+pub fn instr16_BC_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg16_imm(ctx, 4, imm) }
+pub fn instr16_BD_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg16_imm(ctx, 5, imm) }
+pub fn instr16_BE_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg16_imm(ctx, 6, imm) }
+pub fn instr16_BF_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg16_imm(ctx, 7, imm) }
+
+pub fn gen_mov_reg32_imm(ctx: &mut JitContext, r: u32, imm: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::get_reg32_offset(r) as i32);
+    ctx.builder.instruction_body.const_i32(imm as i32);
+    ctx.builder.instruction_body.store_aligned_i32(0);
+}
+
+pub fn instr32_B8_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg32_imm(ctx, 0, imm) }
+pub fn instr32_B9_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg32_imm(ctx, 1, imm) }
+pub fn instr32_BA_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg32_imm(ctx, 2, imm) }
+pub fn instr32_BB_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg32_imm(ctx, 3, imm) }
+pub fn instr32_BC_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg32_imm(ctx, 4, imm) }
+pub fn instr32_BD_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg32_imm(ctx, 5, imm) }
+pub fn instr32_BE_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg32_imm(ctx, 6, imm) }
+pub fn instr32_BF_jit(ctx: &mut JitContext, imm: u32) { gen_mov_reg32_imm(ctx, 7, imm) }
+
 define_instruction_read_write_mem8!(
     "rol8",
     "instr_C0_0_mem",

@@ -1867,54 +1867,32 @@ pub unsafe fn instr_AE() { scasb_no_rep(); }
 pub unsafe fn instr16_AF() { scasw_no_rep(); }
 #[no_mangle]
 pub unsafe fn instr32_AF() { scasd_no_rep(); }
-#[no_mangle]
+
 pub unsafe fn instr_B0(imm8: i32) { *reg8.offset(AL as isize) = imm8 as u8; }
-#[no_mangle]
 pub unsafe fn instr_B1(imm8: i32) { *reg8.offset(CL as isize) = imm8 as u8; }
-#[no_mangle]
 pub unsafe fn instr_B2(imm8: i32) { *reg8.offset(DL as isize) = imm8 as u8; }
-#[no_mangle]
 pub unsafe fn instr_B3(imm8: i32) { *reg8.offset(BL as isize) = imm8 as u8; }
-#[no_mangle]
 pub unsafe fn instr_B4(imm8: i32) { *reg8.offset(AH as isize) = imm8 as u8; }
-#[no_mangle]
 pub unsafe fn instr_B5(imm8: i32) { *reg8.offset(CH as isize) = imm8 as u8; }
-#[no_mangle]
 pub unsafe fn instr_B6(imm8: i32) { *reg8.offset(DH as isize) = imm8 as u8; }
-#[no_mangle]
 pub unsafe fn instr_B7(imm8: i32) { *reg8.offset(BH as isize) = imm8 as u8; }
-#[no_mangle]
 pub unsafe fn instr16_B8(imm: i32) { *reg16.offset(AX as isize) = imm as u16; }
-#[no_mangle]
 pub unsafe fn instr32_B8(imm: i32) { *reg32s.offset(EAX as isize) = imm; }
-#[no_mangle]
 pub unsafe fn instr16_B9(imm: i32) { *reg16.offset(CX as isize) = imm as u16; }
-#[no_mangle]
 pub unsafe fn instr32_B9(imm: i32) { *reg32s.offset(ECX as isize) = imm; }
-#[no_mangle]
 pub unsafe fn instr16_BA(imm: i32) { *reg16.offset(DX as isize) = imm as u16; }
-#[no_mangle]
 pub unsafe fn instr32_BA(imm: i32) { *reg32s.offset(EDX as isize) = imm; }
-#[no_mangle]
 pub unsafe fn instr16_BB(imm: i32) { *reg16.offset(BX as isize) = imm as u16; }
-#[no_mangle]
 pub unsafe fn instr32_BB(imm: i32) { *reg32s.offset(EBX as isize) = imm; }
-#[no_mangle]
 pub unsafe fn instr16_BC(imm: i32) { *reg16.offset(SP as isize) = imm as u16; }
-#[no_mangle]
 pub unsafe fn instr32_BC(imm: i32) { *reg32s.offset(ESP as isize) = imm; }
-#[no_mangle]
 pub unsafe fn instr16_BD(imm: i32) { *reg16.offset(BP as isize) = imm as u16; }
-#[no_mangle]
 pub unsafe fn instr32_BD(imm: i32) { *reg32s.offset(EBP as isize) = imm; }
-#[no_mangle]
 pub unsafe fn instr16_BE(imm: i32) { *reg16.offset(SI as isize) = imm as u16; }
-#[no_mangle]
 pub unsafe fn instr32_BE(imm: i32) { *reg32s.offset(ESI as isize) = imm; }
-#[no_mangle]
 pub unsafe fn instr16_BF(imm: i32) { *reg16.offset(DI as isize) = imm as u16; }
-#[no_mangle]
 pub unsafe fn instr32_BF(imm: i32) { *reg32s.offset(EDI as isize) = imm; }
+
 #[no_mangle]
 pub unsafe fn instr_C0_0_mem(addr: i32, imm: i32) {
     SAFE_READ_WRITE8!(___, addr, rol8(___, imm & 31));
