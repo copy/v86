@@ -96,42 +96,60 @@ function mock_indexeddb()
                 },
             };
 
-            let completed = false;
+            let is_active = true;
             let pending_requests = 0;
+            let pending_callbacks = 1;
 
             function assert_transaction_active(verb)
             {
-                if(completed)
+                if(!is_active)
                 {
-                    log_fail(`Attempted to ${verb} after transaction expired`);
+                    log_fail(`Attempted to ${verb} when transaction is inactive`);
                     process.exit(1);
                 }
             }
             function mock_request_completion(request)
             {
                 pending_requests++;
-                setTimeout(() =>
+                setImmediate(() =>
                 {
                     pending_requests--;
+                    pending_callbacks++;
 
-                    setTimeout(() =>
-                    {
-                        if(!pending_requests)
-                        {
-                            completed = true;
-                            if(transaction.oncomplete)
-                            {
-                                transaction.oncomplete();
-                            }
-                        }
-                    }, 0);
+                    // Transaction is active during onsuccess callback and during its microtasks.
+                    is_active = true;
+
+                    // Queue before the onsuccess callback queues any other macrotask.
+                    queue_transaction_deactivate();
 
                     if(request.onsuccess)
                     {
                         request.onsuccess();
                     }
-                }, 0);
+                });
             }
+            function queue_transaction_deactivate()
+            {
+                // Deactivate transaction only after all microtasks (e.g. promise callbacks) have
+                // been completed.
+                setImmediate(() =>
+                {
+                    is_active = false;
+                    pending_callbacks--;
+
+                    // Complete transaction when it can no longer become active.
+                    if(!pending_requests && !pending_callbacks)
+                    {
+                        if(transaction.oncomplete)
+                        {
+                            transaction.oncomplete();
+                        }
+                    }
+                });
+            }
+
+            queue_transaction_deactivate();
+
             return transaction;
         },
     };
