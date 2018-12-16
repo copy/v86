@@ -215,72 +215,111 @@ IndexedDBFileStorage.prototype.read = function(sha256sum, offset, count)
         Math.floor((offset + count - 1) / INDEXEDDB_STORAGE_BLOCKSIZE) :
         block_number_start;
 
-    // Allocate only when the read spans more than one block.
-    const is_single_read = block_number_start === block_number_end;
-    const read_data = is_single_read ?  null : new Uint8Array(count);
-    let read_count = 0;
-
     return new Promise((resolve, reject) =>
     {
-        for(let block_number = block_number_start; block_number <= block_number_end; block_number++)
+        if(block_number_end === 0)
         {
-            const block_offset = block_number * INDEXEDDB_STORAGE_BLOCKSIZE;
-            const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, block_number);
+            // Only first block to be read.
+
+            const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, 0);
             const block_request = store.get(block_key);
             block_request.onsuccess = async event => // jshint ignore:line
             {
                 const block_entry = block_request.result;
-
                 if(!block_entry)
                 {
-                    // If the first requested block doesn't exist, then the remaining blocks
-                    // cannot exist.
-                    if(block_number === block_number_start)
-                    {
-                        const file_is_nonexistent =
-                            block_number_start === 0 ||
-                            !await this.db_has_file(store, sha256sum); // jshint ignore:line
+                    resolve(null);
+                    return;
+                }
+                const block_data = block_entry[INDEXEDDB_STORAGE_DATA_PATH];
+                dbg_assert(block_data instanceof Uint8Array, "IndexedDBFileStorage read: " +
+                    `Entry for block-0 without Uint8Array data field.`);
+                const chunk = block_data.subarray(offset, offset + count);
+                resolve(chunk);
+            };
+        }
+        else if(block_number_start === block_number_end)
+        {
+            // Only one block to be read.
 
-                        if(file_is_nonexistent)
-                        {
-                            // Not aborting transaction here because:
-                            //  - Abort is treated like an error,
-                            //  - AbortError sometimes indicate a different error we want to notice,
-                            //  - Most read calls only read a single block anyway.
-                            resolve(null);
-                        }
-                        else if(is_single_read)
-                        {
-                            // File exists but the read was out-of-range.
-                            resolve(new Uint8Array(0));
-                        }
+            const block_offset = block_number_start * INDEXEDDB_STORAGE_BLOCKSIZE;
+            const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, block_number_start);
+            const block_request = store.get(block_key);
+            block_request.onsuccess = async event => // jshint ignore:line
+            {
+                const block_entry = block_request.result;
+                if(!block_entry)
+                {
+                    if(!await this.db_has_file(store, sha256sum)) // jshint ignore:line
+                    {
+                        resolve(null);
+                    }
+                    else // jshint ignore:line
+                    {
+                        resolve(new Uint8Array(0));
                     }
                     return;
                 }
-
                 const block_data = block_entry[INDEXEDDB_STORAGE_DATA_PATH];
                 dbg_assert(block_data instanceof Uint8Array, "IndexedDBFileStorage read: " +
-                    `Entry for block-${block_number} without Uint8Array data field.`);
-
+                    `Entry for block-${block_number_start} without Uint8Array data field.`);
                 const chunk_start = Math.max(0, offset - block_offset);
                 const chunk_end = offset + count - block_offset;
                 const chunk = block_data.subarray(chunk_start, chunk_end);
-
-                if(is_single_read)
-                {
-                    resolve(chunk);
-                }
-                else
-                {
-                    read_data.set(chunk, block_offset + chunk_start - offset);
-                    read_count += chunk.length;
-                }
+                resolve(chunk);
             };
         }
-
-        if(!is_single_read)
+        else
         {
-            transaction.oncomplete = event => resolve(read_data.subarray(0, read_count));
+            // Multiple blocks to be read.
+
+            const read_data = new Uint8Array(count);
+            let read_count = 0;
+            for(let block_number = block_number_start; block_number <= block_number_end; block_number++)
+            {
+                const block_offset = block_number * INDEXEDDB_STORAGE_BLOCKSIZE;
+                const block_key = INDEXEDDB_STORAGE_GET_BLOCK_KEY(sha256sum, block_number);
+                const block_request = store.get(block_key);
+                block_request.onsuccess = async event => // jshint ignore:line
+                {
+                    const block_entry = block_request.result;
+
+                    if(!block_entry)
+                    {
+                        // If the first requested block doesn't exist, then the remaining blocks
+                        // cannot exist.
+                        if(block_number === block_number_start)
+                        {
+                            if(!await this.db_has_file(store, sha256sum)) // jshint ignore:line
+                            {
+                                // Not aborting transaction here because:
+                                //  - Abort is treated like an error,
+                                //  - AbortError sometimes indicate a different error we want to notice,
+                                //  - Most read calls only read a single block anyway.
+                                resolve(null);
+                            }
+                        }
+
+                        return;
+                    }
+
+                    const block_data = block_entry[INDEXEDDB_STORAGE_DATA_PATH];
+                    dbg_assert(block_data instanceof Uint8Array, "IndexedDBFileStorage read: " +
+                        `Entry for block-${block_number} without Uint8Array data field.`);
+
+                    const chunk_start = Math.max(0, offset - block_offset);
+                    const chunk_end = offset + count - block_offset;
+                    const chunk = block_data.subarray(chunk_start, chunk_end);
+
+                    read_data.set(chunk, block_offset + chunk_start - offset);
+                    read_count += chunk.length;
+                };
+            }
+
+            transaction.oncomplete = event =>
+            {
+                resolve(read_data.subarray(0, read_count));
+            };
         }
     });
 };
