@@ -51,6 +51,8 @@ const print_stats = {
             "INVALIDATE_CACHE_ENTRY",
             "INVALIDATE_MODULE_CACHE_FULL",
             "INVALIDATE_SINGLE_ENTRY_CACHE_FULL",
+            "RUN_FROM_CACHE_EXIT_SAME_PAGE",
+            "RUN_FROM_CACHE_EXIT_DIFFERENT_PAGE",
             "CLEAR_TLB",
             "FULL_CLEAR_TLB",
             "TLB_FULL",

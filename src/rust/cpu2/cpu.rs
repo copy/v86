@@ -1733,6 +1733,13 @@ pub unsafe fn cycle_internal() {
                 RUN_FROM_CACHE_STEPS,
                 (*timestamp_counter - initial_tsc) as u64,
             );
+
+            if Page::page_of(*previous_ip as u32) == Page::page_of(*instruction_pointer as u32) {
+                profiler::stat_increment(RUN_FROM_CACHE_EXIT_SAME_PAGE);
+            }
+            else {
+                profiler::stat_increment(RUN_FROM_CACHE_EXIT_DIFFERENT_PAGE);
+            }
         }
         else {
             ::jit::record_entry_point(::c_api::get_module(), phys_addr);
