@@ -15,8 +15,6 @@
   (type $t13 (func (param f64) (result i64)))
   (type $t14 (func (param i32 i32 i32) (result i32)))
   (type $t15 (func (param i32 i64 i64)))
-  (import "e" "get_seg" (func $e.get_seg (type $t5)))
-  (import "e" "instr16_B8" (func $e.instr16_B8 (type $t1)))
   (import "e" "safe_read16_slow_jit" (func $e.safe_read16_slow_jit (type $t5)))
   (import "e" "safe_write16_slow_jit" (func $e.safe_write16_slow_jit (type $t2)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
@@ -41,7 +39,8 @@
         (block $B3
           (br_table $B3 $B2
             (get_local $l0)))
-        (call $e.instr16_B8
+        (i32.store16
+          (i32.const 4)
           (i32.const 51966))
         (i32.store16
           (i32.const 8)
@@ -56,8 +55,8 @@
                           (tee_local $l2
                             (i32.add
                               (i32.const 32)
-                              (call $e.get_seg
-                                (i32.const 3))))
+                              (i32.load
+                                (i32.const 748))))
                           (i32.const 12))
                         (i32.const 2))))
                   (i32.const 4041))
@@ -103,8 +102,8 @@
                           (tee_local $l3
                             (i32.add
                               (i32.const 36)
-                              (call $e.get_seg
-                                (i32.const 3))))
+                              (i32.load
+                                (i32.const 748))))
                           (i32.const 12))
                         (i32.const 2))))
                   (i32.const 4041))
@@ -152,8 +151,8 @@
                 (i32.load16_u
                   (i32.const 32)))
               (i32.const 65535))
-            (call $e.get_seg
-              (i32.const 3))))
+            (i32.load
+              (i32.const 748))))
         (set_local $l3
           (i32.load16_u
             (i32.const 4)))
@@ -209,8 +208,8 @@
                 (i32.load16_u
                   (i32.const 28)))
               (i32.const 65535))
-            (call $e.get_seg
-              (i32.const 3))))
+            (i32.load
+              (i32.const 748))))
         (set_local $l2
           (i32.load16_u
             (i32.const 8)))

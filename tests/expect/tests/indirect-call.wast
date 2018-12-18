@@ -15,7 +15,6 @@
   (type $t13 (func (param f64) (result i64)))
   (type $t14 (func (param i32 i32 i32) (result i32)))
   (type $t15 (func (param i32 i64 i64)))
-  (import "e" "get_seg" (func $e.get_seg (type $t5)))
   (import "e" "instr32_FF_2_mem" (func $e.instr32_FF_2_mem (type $t1)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
   (import "e" "m" (memory $e.m 256))
@@ -54,8 +53,8 @@
             (i32.add
               (i32.load
                 (i32.const 4))
-              (call $e.get_seg
-                (i32.const 3))))
+              (i32.load
+                (i32.const 748))))
           (i32.store
             (i32.const 664)
             (i32.add

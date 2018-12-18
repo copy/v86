@@ -15,11 +15,6 @@
   (type $t13 (func (param f64) (result i64)))
   (type $t14 (func (param i32 i32 i32) (result i32)))
   (type $t15 (func (param i32 i64 i64)))
-  (import "e" "get_seg" (func $e.get_seg (type $t5)))
-  (import "e" "instr32_B8" (func $e.instr32_B8 (type $t1)))
-  (import "e" "instr32_B9" (func $e.instr32_B9 (type $t1)))
-  (import "e" "instr32_BA" (func $e.instr32_BA (type $t1)))
-  (import "e" "instr32_BB" (func $e.instr32_BB (type $t1)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
   (import "e" "m" (memory $e.m 256))
   (func $f (export "f") (type $t1) (param $p0 i32)
@@ -42,13 +37,17 @@
         (block $B3
           (br_table $B3 $B2
             (get_local $l0)))
-        (call $e.instr32_B8
+        (i32.store
+          (i32.const 4)
           (i32.const -889270259))
-        (call $e.instr32_B9
+        (i32.store
+          (i32.const 8)
           (i32.const -1091583778))
-        (call $e.instr32_BA
+        (i32.store
+          (i32.const 12)
           (i32.const 0))
-        (call $e.instr32_BB
+        (i32.store
+          (i32.const 16)
           (i32.const 0))
         (i32.store
           (i32.const 8)
