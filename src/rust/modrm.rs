@@ -1,5 +1,6 @@
 use codegen;
 use cpu_context::CpuContext;
+use global_pointers;
 use jit::JitContext;
 use prefix::{PREFIX_MASK_SEGMENT, SEG_PREFIX_ZERO};
 use regs::{BP, BX, DI, SI};
@@ -324,7 +325,8 @@ pub fn jit_add_seg_offset(ctx: &mut JitContext, default_segment: u32) {
         return;
     }
 
-    ctx.builder.instruction_body.const_i32(seg as i32);
-    ctx.builder.instruction_body.call_fn(::jit::FN_GET_SEG_IDX);
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_seg_offset(seg));
     ctx.builder.instruction_body.add_i32();
 }

@@ -11,7 +11,6 @@ use profiler;
 use profiler::stat;
 use state_flags::CachedStateFlags;
 use util::SafeToU16;
-use wasmgen::module_init;
 use wasmgen::module_init::WasmBuilder;
 use wasmgen::wasm_util::WasmBuf;
 
@@ -383,8 +382,6 @@ pub struct JitContext<'a> {
 }
 
 pub const JIT_INSTR_BLOCK_BOUNDARY_FLAG: u32 = 1 << 0;
-
-pub const FN_GET_SEG_IDX: u16 = 0;
 
 fn jit_hot_hash_page(page: Page) -> u32 { page.to_u32() % HASH_PRIME }
 
@@ -944,9 +941,6 @@ fn jit_generate_module(
     builder: &mut WasmBuilder,
 ) {
     builder.reset();
-
-    let fn_get_seg_idx = builder.get_fn_idx("get_seg", module_init::FN1_RET_TYPE_INDEX);
-    dbg_assert!(fn_get_seg_idx == FN_GET_SEG_IDX);
 
     let basic_block_indices: HashMap<u32, u32> = basic_blocks
         .iter()
