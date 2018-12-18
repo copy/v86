@@ -222,8 +222,8 @@ const encodings = [
     { opcode: 0xF2A7, block_boundary: 1, is_string: 1, os: 1, },
     { opcode: 0xF3A7, block_boundary: 1, is_string: 1, os: 1, },
 
-    { opcode: 0xA8, imm8: 1, },
-    { opcode: 0xA9, os: 1, imm1632: 1, },
+    { opcode: 0xA8, custom: 1, imm8: 1, },
+    { opcode: 0xA9, custom: 1, os: 1, imm1632: 1, },
 
     { opcode: 0xAA, block_boundary: 1, is_string: 1, },
     { opcode: 0xF2AA, block_boundary: 1, is_string: 1, },
@@ -943,8 +943,8 @@ const encodings = [
 for(let i = 0; i < 8; i++)
 {
     encodings.push.apply(encodings, [
-        { opcode: 0x04 | i << 3, eax: 1, imm8: 1, },
-        { opcode: 0x05 | i << 3, os: 1, eax: 1, imm1632: 1, },
+        { opcode: 0x04 | i << 3, custom: 1, imm8: 1, },
+        { opcode: 0x05 | i << 3, custom: 1, os: 1, imm1632: 1, },
 
         { opcode: 0x70 | i, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
         { opcode: 0x78 | i, block_boundary: 1, no_block_boundary_in_interpreted: 1, jump_offset_imm: 1, conditional_jump: 1, os: 1, imm8s: 1, custom: 1, skip: 1, },
