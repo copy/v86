@@ -786,7 +786,7 @@ CPU.prototype.debug_init = function()
             }
             else
             {
-                wabt = window.wabt;
+                wabt = new window.WabtModule;
             }
 
             if(wabt === undefined)

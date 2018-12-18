@@ -7,7 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
 
-const libwabt = require("../../build/libwabt.js");
+const libwabt = require("../../build/libwabt.js")();
 
 try {
     var V86 = require(`../../build/${TEST_RELEASE_BUILD ? "libv86" : "libv86-debug"}.js`).V86;

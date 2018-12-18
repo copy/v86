@@ -23,7 +23,7 @@ var WebAssembly = {
 };
 WebAssembly.Module.customSections = function(module, section) {};
 
-var wabt = {
+var WabtModule = {
     readWasm: function(buf, opt) {},
     generateNames: function() {},
     applyNames: function() {},

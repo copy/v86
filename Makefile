@@ -304,6 +304,6 @@ build/capstone-x86.min.js:
 
 build/libwabt.js:
 	mkdir -p build
-	wget -P build https://github.com/WebAssembly/wabt/archive/1.0.1.zip
-	unzip -j -d build/ build/1.0.1.zip wabt-1.0.1/demo/libwabt.js
-	rm build/1.0.1.zip
+	wget -P build https://github.com/WebAssembly/wabt/archive/1.0.6.zip
+	unzip -j -d build/ build/1.0.6.zip wabt-1.0.6/demo/libwabt.js
+	rm build/1.0.6.zip
