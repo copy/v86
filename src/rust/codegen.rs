@@ -880,6 +880,27 @@ pub fn gen_pop32s(ctx: &mut JitContext) {
     }
 }
 
+pub fn gen_adjust_stack_reg(ctx: &mut JitContext, offset: u32) {
+    if ctx.cpu.ssize_32() {
+        ctx.builder
+            .instruction_body
+            .const_i32(global_pointers::get_reg32_offset(regs::ESP) as i32);
+        gen_get_reg32(ctx.builder, regs::ESP);
+        ctx.builder.instruction_body.const_i32(offset as i32);
+        ctx.builder.instruction_body.add_i32();
+        ctx.builder.instruction_body.store_aligned_i32(0);
+    }
+    else {
+        ctx.builder
+            .instruction_body
+            .const_i32(global_pointers::get_reg16_offset(regs::SP) as i32);
+        gen_get_reg16(ctx.builder, regs::SP);
+        ctx.builder.instruction_body.const_i32(offset as i32);
+        ctx.builder.instruction_body.add_i32();
+        ctx.builder.instruction_body.store_aligned_u16(0);
+    }
+}
+
 pub fn gen_task_switch_test(ctx: &mut JitContext) {
     // generate if(cr[0] & (CR0_EM | CR0_TS)) { task_switch_test_void(); return; }
     let cr0_offset = global_pointers::get_creg_offset(0);

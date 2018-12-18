@@ -246,7 +246,7 @@ const encodings = [
     { opcode: 0xF2AF, block_boundary: 1, is_string: 1, os: 1, },
     { opcode: 0xF3AF, block_boundary: 1, is_string: 1, os: 1, },
 
-    { opcode: 0xC2, block_boundary: 1, no_next_instruction: 1, os: 1, imm16: 1, skip: 1, }, // ret
+    { opcode: 0xC2, custom: 1, block_boundary: 1, no_next_instruction: 1, os: 1, imm16: 1, skip: 1, }, // ret
     { opcode: 0xC3, custom: 1, block_boundary: 1, no_next_instruction: 1, os: 1, skip: 1, },
 
     { opcode: 0xC4, block_boundary: 1, os: 1, e: 1, skip: 1, }, // les

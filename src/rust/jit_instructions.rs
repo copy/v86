@@ -1802,6 +1802,31 @@ pub fn instr32_E9_jit(ctx: &mut JitContext, imm: u32) {
     codegen::gen_relative_jump(ctx.builder, imm as i32);
 }
 
+pub fn instr16_C2_jit(ctx: &mut JitContext, imm16: u32) {
+    let cs_addr = global_pointers::get_seg_offset(CS);
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::INSTRUCTION_POINTER as i32);
+    ctx.builder.instruction_body.load_aligned_i32(cs_addr);
+    codegen::gen_pop16(ctx);
+    codegen::gen_adjust_stack_reg(ctx, imm16);
+    ctx.builder.instruction_body.add_i32();
+    ctx.builder.instruction_body.store_aligned_i32(0);
+}
+
+pub fn instr32_C2_jit(ctx: &mut JitContext, imm16: u32) {
+    ctx.builder
+        .instruction_body
+        .const_i32(global_pointers::INSTRUCTION_POINTER as i32);
+    ctx.builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::get_seg_offset(CS));
+    codegen::gen_pop32s(ctx);
+    codegen::gen_adjust_stack_reg(ctx, imm16);
+    ctx.builder.instruction_body.add_i32();
+    ctx.builder.instruction_body.store_aligned_i32(0);
+}
+
 pub fn instr16_C3_jit(ctx: &mut JitContext) {
     let cs_addr = global_pointers::get_seg_offset(CS);
 
