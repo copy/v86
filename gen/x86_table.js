@@ -257,7 +257,7 @@ const encodings = [
 
     // XXX: Temporary block boundary
     { opcode: 0xC8, os: 1, imm16: 1, extra_imm8: 1, block_boundary: 1, }, // enter
-    { opcode: 0xC9, os: 1, skip: 1, block_boundary: 1, }, // leave: requires valid ebp
+    { opcode: 0xC9, custom: 1, os: 1, skip: 1 }, // leave
 
     { opcode: 0xCA, block_boundary: 1, no_next_instruction: 1, os: 1, imm16: 1, skip: 1, }, // retf
     { opcode: 0xCB, block_boundary: 1, no_next_instruction: 1, os: 1, skip: 1, },

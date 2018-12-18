@@ -901,6 +901,71 @@ pub fn gen_adjust_stack_reg(ctx: &mut JitContext, offset: u32) {
     }
 }
 
+pub fn gen_leave(ctx: &mut JitContext, os32: bool) {
+    // [e]bp = safe_read{16,32}([e]bp)
+    if os32 {
+        ctx.builder
+            .instruction_body
+            .const_i32(global_pointers::get_reg32_offset(regs::EBP) as i32);
+    }
+    else {
+        ctx.builder
+            .instruction_body
+            .const_i32(global_pointers::get_reg16_offset(regs::BP) as i32);
+    }
+
+    if ctx.cpu.ssize_32() {
+        gen_get_reg32(ctx.builder, regs::EBP);
+    }
+    else {
+        gen_get_reg16(ctx.builder, regs::BP);
+    }
+
+    let old_vbp = ctx.builder.tee_new_local();
+
+    if !ctx.cpu.has_flat_segmentation() {
+        ctx.builder
+            .instruction_body
+            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+        ctx.builder.instruction_body.add_i32();
+    }
+    if os32 {
+        gen_safe_read32(ctx);
+        ctx.builder.instruction_body.store_aligned_i32(0);
+    }
+    else {
+        gen_safe_read16(ctx);
+        ctx.builder.instruction_body.store_aligned_u16(0);
+    }
+
+    // [e]sp = [e]bp + (os32 ? 4 : 2)
+
+    if ctx.cpu.ssize_32() {
+        ctx.builder
+            .instruction_body
+            .const_i32(global_pointers::get_reg32_offset(regs::ESP) as i32);
+        ctx.builder.instruction_body.get_local(&old_vbp);
+        ctx.builder
+            .instruction_body
+            .const_i32(if os32 { 4 } else { 2 });
+        ctx.builder.instruction_body.add_i32();
+        ctx.builder.instruction_body.store_aligned_i32(0);
+    }
+    else {
+        ctx.builder
+            .instruction_body
+            .const_i32(global_pointers::get_reg16_offset(regs::SP) as i32);
+        ctx.builder.instruction_body.get_local(&old_vbp);
+        ctx.builder
+            .instruction_body
+            .const_i32(if os32 { 4 } else { 2 });
+        ctx.builder.instruction_body.add_i32();
+        ctx.builder.instruction_body.store_aligned_u16(0);
+    }
+
+    ctx.builder.free_local(old_vbp);
+}
+
 pub fn gen_task_switch_test(ctx: &mut JitContext) {
     // generate if(cr[0] & (CR0_EM | CR0_TS)) { task_switch_test_void(); return; }
     let cr0_offset = global_pointers::get_creg_offset(0);

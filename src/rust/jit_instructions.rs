@@ -1862,6 +1862,9 @@ pub fn instr32_C3_jit(ctx: &mut JitContext) {
     ctx.builder.instruction_body.store_aligned_i32(0);
 }
 
+pub fn instr16_C9_jit(ctx: &mut JitContext) { codegen::gen_leave(ctx, false); }
+pub fn instr32_C9_jit(ctx: &mut JitContext) { codegen::gen_leave(ctx, true); }
+
 pub fn gen_mov_reg8_imm(ctx: &mut JitContext, r: u32, imm: u32) {
     ctx.builder
         .instruction_body
