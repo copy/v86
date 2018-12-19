@@ -110,7 +110,7 @@ fn gen16_case(ctx: &mut JitContext, seg: u32, offset: Offset16, imm: Imm16) {
                 .const_i32(immediate_value & 0xFFFF);
         },
         Offset16::One(r) => {
-            codegen::gen_get_reg16(ctx.builder, r);
+            codegen::gen_get_reg16(ctx, r);
 
             if immediate_value != 0 {
                 ctx.builder.instruction_body.const_i32(immediate_value);
@@ -121,8 +121,8 @@ fn gen16_case(ctx: &mut JitContext, seg: u32, offset: Offset16, imm: Imm16) {
             }
         },
         Offset16::Two(r1, r2) => {
-            codegen::gen_get_reg16(ctx.builder, r1);
-            codegen::gen_get_reg16(ctx.builder, r2);
+            codegen::gen_get_reg16(ctx, r1);
+            codegen::gen_get_reg16(ctx, r2);
             ctx.builder.instruction_body.add_i32();
 
             if immediate_value != 0 {
@@ -206,7 +206,7 @@ fn gen32_case(ctx: &mut JitContext, seg: u32, offset: Offset, imm: Imm32) {
                 Imm32::Imm8 => ctx.cpu.read_imm8s() as i32,
                 Imm32::Imm32 => ctx.cpu.read_imm32() as i32,
             };
-            codegen::gen_get_reg32(ctx.builder, r);
+            codegen::gen_get_reg32(ctx, r);
             if immediate_value != 0 {
                 ctx.builder.instruction_body.const_i32(immediate_value);
                 ctx.builder.instruction_body.add_i32();
@@ -270,12 +270,12 @@ fn gen_sib(ctx: &mut JitContext, mod_is_nonzero: bool) {
 
     if r == 4 {
         seg = SS;
-        codegen::gen_get_reg32(ctx.builder, ESP);
+        codegen::gen_get_reg32(ctx, ESP);
     }
     else if r == 5 {
         if mod_is_nonzero {
             seg = SS;
-            codegen::gen_get_reg32(ctx.builder, EBP);
+            codegen::gen_get_reg32(ctx, EBP);
         }
         else {
             seg = DS;
@@ -285,7 +285,7 @@ fn gen_sib(ctx: &mut JitContext, mod_is_nonzero: bool) {
     }
     else {
         seg = DS;
-        codegen::gen_get_reg32(ctx.builder, r as u32);
+        codegen::gen_get_reg32(ctx, r as u32);
     }
 
     jit_add_seg_offset(ctx, seg);
@@ -301,7 +301,7 @@ fn gen_sib(ctx: &mut JitContext, mod_is_nonzero: bool) {
 
     let s = sib_byte >> 6 & 3;
 
-    codegen::gen_get_reg32(ctx.builder, m as u32);
+    codegen::gen_get_reg32(ctx, m as u32);
     ctx.builder.instruction_body.const_i32(s as i32);
     ctx.builder.instruction_body.shl_i32();
 

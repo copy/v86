@@ -66,25 +66,25 @@ pub fn gen_increment_mem32(builder: &mut WasmBuilder, addr: u32) {
     builder.instruction_body.increment_mem32(addr)
 }
 
-pub fn gen_get_reg8(builder: &mut WasmBuilder, r: u32) {
-    builder
+pub fn gen_get_reg8(ctx: &mut JitContext, r: u32) {
+    ctx.builder
         .instruction_body
         .const_i32(global_pointers::get_reg8_offset(r) as i32);
-    builder.instruction_body.load_u8_from_stack(0);
+    ctx.builder.instruction_body.load_u8_from_stack(0);
 }
 
-pub fn gen_get_reg16(builder: &mut WasmBuilder, r: u32) {
-    builder
+pub fn gen_get_reg16(ctx: &mut JitContext, r: u32) {
+    ctx.builder
         .instruction_body
         .const_i32(global_pointers::get_reg16_offset(r) as i32);
-    builder.instruction_body.load_aligned_u16_from_stack(0);
+    ctx.builder.instruction_body.load_aligned_u16_from_stack(0);
 }
 
-pub fn gen_get_reg32(builder: &mut WasmBuilder, r: u32) {
-    builder
+pub fn gen_get_reg32(ctx: &mut JitContext, r: u32) {
+    ctx.builder
         .instruction_body
         .const_i32(global_pointers::get_reg32_offset(r) as i32);
-    builder.instruction_body.load_aligned_i32_from_stack(0);
+    ctx.builder.instruction_body.load_aligned_i32_from_stack(0);
 }
 
 /// sign-extend a byte value on the stack and leave it on the stack
@@ -241,30 +241,27 @@ pub fn gen_modrm_resolve(ctx: &mut JitContext, modrm_byte: u8) { modrm::gen(ctx,
 
 pub fn gen_set_reg8_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg8[r_dest] = reg8[r_src]
-    let builder = &mut ctx.builder;
-    builder
+    ctx.builder
         .instruction_body
         .const_i32(global_pointers::get_reg8_offset(dest) as i32);
-    gen_get_reg8(builder, src);
-    builder.instruction_body.store_u8(0);
+    gen_get_reg8(ctx, src);
+    ctx.builder.instruction_body.store_u8(0);
 }
 pub fn gen_set_reg16_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg16[r_dest] = reg16[r_src]
-    let builder = &mut ctx.builder;
-    builder
+    ctx.builder
         .instruction_body
         .const_i32(global_pointers::get_reg16_offset(dest) as i32);
-    gen_get_reg16(builder, src);
-    builder.instruction_body.store_aligned_u16(0);
+    gen_get_reg16(ctx, src);
+    ctx.builder.instruction_body.store_aligned_u16(0);
 }
 pub fn gen_set_reg32_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg32s[r_dest] = reg32s[r_src]
-    let builder = &mut ctx.builder;
-    builder
+    ctx.builder
         .instruction_body
         .const_i32(global_pointers::get_reg32_offset(dest) as i32);
-    gen_get_reg32(builder, src);
-    builder.instruction_body.store_aligned_i32(0);
+    gen_get_reg32(ctx, src);
+    ctx.builder.instruction_body.store_aligned_i32(0);
 }
 
 pub fn gen_safe_read8(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::BYTE, None) }
@@ -750,7 +747,7 @@ pub fn gen_jmp_rel16(builder: &mut WasmBuilder, rel16: u16) {
 
 pub fn gen_pop16_ss16(ctx: &mut JitContext) {
     // sp = segment_offsets[SS] + reg16[SP] (or just reg16[SP] if has_flat_segmentation)
-    gen_get_reg16(ctx.builder, regs::SP);
+    gen_get_reg16(ctx, regs::SP);
     let sp_local = ctx.builder.tee_new_local();
 
     if !ctx.cpu.has_flat_segmentation() {
@@ -779,7 +776,7 @@ pub fn gen_pop16_ss16(ctx: &mut JitContext) {
 
 pub fn gen_pop16_ss32(ctx: &mut JitContext) {
     // esp = segment_offsets[SS] + reg32s[ESP] (or just reg32s[ESP] if has_flat_segmentation)
-    gen_get_reg32(ctx.builder, regs::ESP);
+    gen_get_reg32(ctx, regs::ESP);
     let esp_local = ctx.builder.tee_new_local();
 
     if !ctx.cpu.has_flat_segmentation() {
@@ -816,7 +813,7 @@ pub fn gen_pop16(ctx: &mut JitContext) {
 
 pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
     // sp = reg16[SP]
-    gen_get_reg16(ctx.builder, regs::SP);
+    gen_get_reg16(ctx, regs::SP);
     let local_sp = ctx.builder.tee_new_local();
 
     // result = safe_read32s(segment_offsets[SS] + sp) (or just sp if has_flat_segmentation)
@@ -845,7 +842,7 @@ pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
 
 pub fn gen_pop32s_ss32(ctx: &mut JitContext) {
     // esp = reg32s[ESP]
-    gen_get_reg32(ctx.builder, regs::ESP);
+    gen_get_reg32(ctx, regs::ESP);
     let local_esp = ctx.builder.tee_new_local();
 
     // result = safe_read32s(segment_offsets[SS] + esp) (or just esp if has_flat_segmentation)
@@ -885,7 +882,7 @@ pub fn gen_adjust_stack_reg(ctx: &mut JitContext, offset: u32) {
         ctx.builder
             .instruction_body
             .const_i32(global_pointers::get_reg32_offset(regs::ESP) as i32);
-        gen_get_reg32(ctx.builder, regs::ESP);
+        gen_get_reg32(ctx, regs::ESP);
         ctx.builder.instruction_body.const_i32(offset as i32);
         ctx.builder.instruction_body.add_i32();
         ctx.builder.instruction_body.store_aligned_i32(0);
@@ -894,7 +891,7 @@ pub fn gen_adjust_stack_reg(ctx: &mut JitContext, offset: u32) {
         ctx.builder
             .instruction_body
             .const_i32(global_pointers::get_reg16_offset(regs::SP) as i32);
-        gen_get_reg16(ctx.builder, regs::SP);
+        gen_get_reg16(ctx, regs::SP);
         ctx.builder.instruction_body.const_i32(offset as i32);
         ctx.builder.instruction_body.add_i32();
         ctx.builder.instruction_body.store_aligned_u16(0);
@@ -915,10 +912,10 @@ pub fn gen_leave(ctx: &mut JitContext, os32: bool) {
     }
 
     if ctx.cpu.ssize_32() {
-        gen_get_reg32(ctx.builder, regs::EBP);
+        gen_get_reg32(ctx, regs::EBP);
     }
     else {
-        gen_get_reg16(ctx.builder, regs::BP);
+        gen_get_reg16(ctx, regs::BP);
     }
 
     let old_vbp = ctx.builder.tee_new_local();
@@ -1008,11 +1005,11 @@ pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
 
 pub fn gen_push16(ctx: &mut JitContext, value_local: &WasmLocal) {
     let sp_reg = if ctx.cpu.ssize_32() {
-        gen_get_reg32(ctx.builder, regs::ESP);
+        gen_get_reg32(ctx, regs::ESP);
         global_pointers::get_reg32_offset(regs::ESP)
     }
     else {
-        gen_get_reg16(ctx.builder, regs::SP);
+        gen_get_reg16(ctx, regs::SP);
         global_pointers::get_reg16_offset(regs::SP)
     };
 
@@ -1047,11 +1044,11 @@ pub fn gen_push16(ctx: &mut JitContext, value_local: &WasmLocal) {
 
 pub fn gen_push32(ctx: &mut JitContext, value_local: &WasmLocal) {
     let sp_reg = if ctx.cpu.ssize_32() {
-        gen_get_reg32(ctx.builder, regs::ESP);
+        gen_get_reg32(ctx, regs::ESP);
         global_pointers::get_reg32_offset(regs::ESP)
     }
     else {
-        gen_get_reg16(ctx.builder, regs::SP);
+        gen_get_reg16(ctx, regs::SP);
         global_pointers::get_reg16_offset(regs::SP)
     };
 
