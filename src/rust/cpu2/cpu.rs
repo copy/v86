@@ -1267,6 +1267,7 @@ pub unsafe fn trigger_pagefault(write: bool, user: bool, present: bool) {
             dbg_assert!(false);
         }
     }
+    profiler::stat_increment(PAGE_FAULT);
     //if *page_fault {
     //    dbg_log!(("double fault"));
     //    dbg_trace();

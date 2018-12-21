@@ -857,6 +857,11 @@ fn jit_analyze_and_generate(
             }
         }
 
+        profiler::stat_increment_by(
+            stat::COMPILE_WASM_TOTAL_BYTES,
+            ::c_api::jit_get_op_len() as u64,
+        );
+
         dbg_assert!(entry_point_count > 0);
 
         cpu::tlb_set_has_code(page, true);
