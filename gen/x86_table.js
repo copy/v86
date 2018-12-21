@@ -134,7 +134,7 @@ const encodings = [
     { opcode: 0x59, custom: 1, os: 1, },
     { opcode: 0x5A, custom: 1, os: 1, },
     { opcode: 0x5B, custom: 1, os: 1, },
-    { opcode: 0x5C, os: 1, block_boundary: 1 },
+    { opcode: 0x5C, custom: 1, os: 1, },
     { opcode: 0x5D, custom: 1, os: 1, },
     { opcode: 0x5E, custom: 1, os: 1, },
     { opcode: 0x5F, custom: 1, os: 1, },
