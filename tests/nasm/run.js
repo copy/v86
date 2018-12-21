@@ -70,7 +70,7 @@ function format_value(v)
 {
     if(typeof v === "number")
     {
-        if((v >>> 0) !== v)
+        if((v >>> 0) !== v && (v | 0) !== v)
         {
             return String(v);
         }
