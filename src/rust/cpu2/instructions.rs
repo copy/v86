@@ -1605,14 +1605,6 @@ pub unsafe fn instr16_8F_0_mem(modrm_byte: i32) {
 }
 
 #[no_mangle]
-pub unsafe fn instr16_8F_0_mem_jit(addr: i32) {
-    adjust_stack_reg(-2);
-    let stack_value: i32 = return_on_pagefault!(safe_read16(get_stack_pointer(0)));
-    return_on_pagefault!(safe_write16(addr, stack_value));
-    adjust_stack_reg(2);
-}
-
-#[no_mangle]
 pub unsafe fn instr16_8F_0_reg(r: i32) { write_reg16(r, return_on_pagefault!(pop16())); }
 #[no_mangle]
 pub unsafe fn instr32_8F_0_mem(modrm_byte: i32) {
@@ -1630,14 +1622,6 @@ pub unsafe fn instr32_8F_0_mem(modrm_byte: i32) {
             adjust_stack_reg(4);
         },
     }
-}
-
-#[no_mangle]
-pub unsafe fn instr32_8F_0_mem_jit(addr: i32) {
-    adjust_stack_reg(-4);
-    let stack_value: i32 = return_on_pagefault!(safe_read32s(get_stack_pointer(0)));
-    return_on_pagefault!(safe_write32(addr, stack_value));
-    adjust_stack_reg(4);
 }
 
 #[no_mangle]

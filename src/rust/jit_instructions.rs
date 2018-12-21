@@ -1623,35 +1623,48 @@ pub fn instr32_8D_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {
 }
 
 pub fn instr16_8F_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::get_reg16_offset(regs::SP) as i32);
-    codegen::gen_get_reg16(ctx, regs::SP);
-    ctx.builder.instruction_body.const_i32(2);
-    ctx.builder.instruction_body.add_i32();
-    ctx.builder.instruction_body.store_aligned_u16(0);
+    // before gen_modrm_resolve, update esp to the new value
+    codegen::gen_adjust_stack_reg(ctx, 2);
 
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_modrm_fn0(ctx.builder, "instr16_8F_0_mem_jit");
+    let address_local = ctx.builder.set_new_local();
+
+    // pop takes care of updating esp, so undo the previous change
+    codegen::gen_adjust_stack_reg(ctx, (-2i32) as u32);
+    codegen::gen_pop16(ctx);
+    let value_local = ctx.builder.set_new_local();
+
+    // undo the esp change of pop, as safe_write16 can fail
+    codegen::gen_adjust_stack_reg(ctx, (-2i32) as u32);
+
+    codegen::gen_safe_write16(ctx, &address_local, &value_local);
+
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local(value_local);
+
+    // finally, actually update esp
+    codegen::gen_adjust_stack_reg(ctx, 2);
 }
-pub fn instr16_8F_0_reg_jit(ctx: &mut JitContext, r: u32) {
-    codegen::gen_fn1_const(ctx.builder, "instr16_8F_0_reg", r);
-}
+pub fn instr16_8F_0_reg_jit(ctx: &mut JitContext, r: u32) { pop16_reg_jit(ctx, r); }
 pub fn instr32_8F_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::get_reg32_offset(regs::ESP) as i32);
-    codegen::gen_get_reg32(ctx, regs::ESP);
-    ctx.builder.instruction_body.const_i32(4);
-    ctx.builder.instruction_body.add_i32();
-    ctx.builder.instruction_body.store_aligned_i32(0);
+    codegen::gen_adjust_stack_reg(ctx, 4);
 
     codegen::gen_modrm_resolve(ctx, modrm_byte);
-    codegen::gen_modrm_fn0(ctx.builder, "instr32_8F_0_mem_jit");
+    let address_local = ctx.builder.set_new_local();
+
+    codegen::gen_adjust_stack_reg(ctx, (-4i32) as u32);
+    codegen::gen_pop32s(ctx);
+    let value_local = ctx.builder.set_new_local();
+    codegen::gen_adjust_stack_reg(ctx, (-4i32) as u32);
+
+    codegen::gen_safe_write32(ctx, &address_local, &value_local);
+
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local(value_local);
+
+    codegen::gen_adjust_stack_reg(ctx, 4);
 }
-pub fn instr32_8F_0_reg_jit(ctx: &mut JitContext, r: u32) {
-    codegen::gen_fn1_const(ctx.builder, "instr32_8F_0_reg", r);
-}
+pub fn instr32_8F_0_reg_jit(ctx: &mut JitContext, r: u32) { pop32_reg_jit(ctx, r); }
 
 define_instruction_read_write_mem16!(
     "rol16",
