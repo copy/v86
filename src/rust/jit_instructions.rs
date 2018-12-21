@@ -1614,12 +1614,12 @@ pub fn instr32_8D_mem_jit(ctx: &mut JitContext, modrm_byte: u8, reg: u32) {
     ctx.builder.instruction_body.store_aligned_i32(0);
 }
 
-pub fn instr16_8D_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
-    codegen::gen_fn2_const(ctx.builder, "instr16_8D_reg", r1, r2);
+pub fn instr16_8D_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {
+    codegen::gen_trigger_ud(ctx);
 }
 
-pub fn instr32_8D_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
-    codegen::gen_fn2_const(ctx.builder, "instr32_8D_reg", r1, r2);
+pub fn instr32_8D_reg_jit(ctx: &mut JitContext, _r1: u32, _r2: u32) {
+    codegen::gen_trigger_ud(ctx);
 }
 
 pub fn instr16_8F_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
