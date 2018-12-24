@@ -1139,7 +1139,7 @@ pub fn gen_safe_read_write(
     ctx.builder.instruction_body.if_void();
 
     if cfg!(feature = "profiler") {
-        gen_profiler_stat_increment(ctx.builder, profiler::stat::SAFE_WRITE_FAST);
+        gen_profiler_stat_increment(ctx.builder, profiler::stat::SAFE_READ_WRITE_FAST);
     }
 
     ctx.builder.instruction_body.get_local(&entry_local);
@@ -1206,7 +1206,7 @@ pub fn gen_safe_read_write(
     if cfg!(feature = "profiler") {
         ctx.builder.instruction_body.get_local(&address_local);
         ctx.builder.instruction_body.get_local(&entry_local);
-        gen_call_fn2(ctx.builder, "report_safe_write_jit_slow");
+        gen_call_fn2(ctx.builder, "report_safe_read_write_jit_slow");
     }
 
     ctx.builder

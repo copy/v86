@@ -2124,6 +2124,32 @@ pub fn report_safe_write_jit_slow(address: u32, entry: i32) {
     }
 }
 
+#[no_mangle]
+#[cfg(feature = "profiler")]
+pub fn report_safe_read_write_jit_slow(address: u32, entry: i32) {
+    if entry & TLB_VALID == 0 {
+        profiler::stat_increment(SAFE_READ_WRITE_SLOW_NOT_VALID);
+    }
+    else if entry & TLB_IN_MAPPED_RANGE != 0 {
+        profiler::stat_increment(SAFE_READ_WRITE_SLOW_IN_MAPPED_RANGE);
+    }
+    else if entry & TLB_HAS_CODE != 0 {
+        profiler::stat_increment(SAFE_READ_WRITE_SLOW_HAS_CODE);
+    }
+    else if entry & TLB_READONLY != 0 {
+        profiler::stat_increment(SAFE_READ_WRITE_SLOW_READ_ONLY);
+    }
+    else if entry & TLB_NO_USER != 0 {
+        profiler::stat_increment(SAFE_READ_WRITE_SLOW_NOT_USER);
+    }
+    else if address & 0xFFF > 0x1000 - 16 {
+        profiler::stat_increment(SAFE_READ_WRITE_SLOW_PAGE_CROSSED);
+    }
+    else {
+        dbg_assert!(false);
+    }
+}
+
 pub unsafe fn safe_read32s_slow(addr: i32) -> OrPageFault<i32> {
     if addr & 0xFFF >= 0xFFD {
         return Ok(safe_read16(addr)? | safe_read16(addr + 2)? << 16);
