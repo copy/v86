@@ -1051,6 +1051,64 @@ pub fn instr32_3D_jit(ctx: &mut JitContext, imm32: u32) {
     codegen::gen_call_fn2(ctx.builder, "cmp32");
 }
 
+fn gen_inc16(ctx: &mut JitContext, r: u32) {
+    codegen::gen_get_reg16(ctx, r);
+    codegen::gen_call_fn1_ret(ctx.builder, "inc16");
+    codegen::gen_set_reg16(ctx, r);
+}
+
+fn gen_inc32(ctx: &mut JitContext, r: u32) {
+    codegen::gen_get_reg32(ctx, r);
+    codegen::gen_call_fn1_ret(ctx.builder, "inc32");
+    codegen::gen_set_reg32(ctx, r);
+}
+
+fn gen_dec16(ctx: &mut JitContext, r: u32) {
+    codegen::gen_get_reg16(ctx, r);
+    codegen::gen_call_fn1_ret(ctx.builder, "dec16");
+    codegen::gen_set_reg16(ctx, r);
+}
+
+fn gen_dec32(ctx: &mut JitContext, r: u32) {
+    codegen::gen_get_reg32(ctx, r);
+    codegen::gen_call_fn1_ret(ctx.builder, "dec32");
+    codegen::gen_set_reg32(ctx, r);
+}
+
+pub fn instr16_40_jit(ctx: &mut JitContext) { gen_inc16(ctx, AX); }
+pub fn instr32_40_jit(ctx: &mut JitContext) { gen_inc32(ctx, EAX); }
+pub fn instr16_41_jit(ctx: &mut JitContext) { gen_inc16(ctx, CX); }
+pub fn instr32_41_jit(ctx: &mut JitContext) { gen_inc32(ctx, ECX); }
+pub fn instr16_42_jit(ctx: &mut JitContext) { gen_inc16(ctx, DX); }
+pub fn instr32_42_jit(ctx: &mut JitContext) { gen_inc32(ctx, EDX); }
+pub fn instr16_43_jit(ctx: &mut JitContext) { gen_inc16(ctx, BX); }
+pub fn instr32_43_jit(ctx: &mut JitContext) { gen_inc32(ctx, EBX); }
+pub fn instr16_44_jit(ctx: &mut JitContext) { gen_inc16(ctx, SP); }
+pub fn instr32_44_jit(ctx: &mut JitContext) { gen_inc32(ctx, ESP); }
+pub fn instr16_45_jit(ctx: &mut JitContext) { gen_inc16(ctx, BP); }
+pub fn instr32_45_jit(ctx: &mut JitContext) { gen_inc32(ctx, EBP); }
+pub fn instr16_46_jit(ctx: &mut JitContext) { gen_inc16(ctx, SI); }
+pub fn instr32_46_jit(ctx: &mut JitContext) { gen_inc32(ctx, ESI); }
+pub fn instr16_47_jit(ctx: &mut JitContext) { gen_inc16(ctx, DI); }
+pub fn instr32_47_jit(ctx: &mut JitContext) { gen_inc32(ctx, EDI); }
+
+pub fn instr16_48_jit(ctx: &mut JitContext) { gen_dec16(ctx, AX); }
+pub fn instr32_48_jit(ctx: &mut JitContext) { gen_dec32(ctx, EAX); }
+pub fn instr16_49_jit(ctx: &mut JitContext) { gen_dec16(ctx, CX); }
+pub fn instr32_49_jit(ctx: &mut JitContext) { gen_dec32(ctx, ECX); }
+pub fn instr16_4A_jit(ctx: &mut JitContext) { gen_dec16(ctx, DX); }
+pub fn instr32_4A_jit(ctx: &mut JitContext) { gen_dec32(ctx, EDX); }
+pub fn instr16_4B_jit(ctx: &mut JitContext) { gen_dec16(ctx, BX); }
+pub fn instr32_4B_jit(ctx: &mut JitContext) { gen_dec32(ctx, EBX); }
+pub fn instr16_4C_jit(ctx: &mut JitContext) { gen_dec16(ctx, SP); }
+pub fn instr32_4C_jit(ctx: &mut JitContext) { gen_dec32(ctx, ESP); }
+pub fn instr16_4D_jit(ctx: &mut JitContext) { gen_dec16(ctx, BP); }
+pub fn instr32_4D_jit(ctx: &mut JitContext) { gen_dec32(ctx, EBP); }
+pub fn instr16_4E_jit(ctx: &mut JitContext) { gen_dec16(ctx, SI); }
+pub fn instr32_4E_jit(ctx: &mut JitContext) { gen_dec32(ctx, ESI); }
+pub fn instr16_4F_jit(ctx: &mut JitContext) { gen_dec16(ctx, DI); }
+pub fn instr32_4F_jit(ctx: &mut JitContext) { gen_dec32(ctx, EDI); }
+
 pub fn instr16_50_jit(ctx: &mut JitContext) { push16_reg_jit(ctx, AX); }
 pub fn instr32_50_jit(ctx: &mut JitContext) { push32_reg_jit(ctx, EAX); }
 pub fn instr16_51_jit(ctx: &mut JitContext) { push16_reg_jit(ctx, CX); }
