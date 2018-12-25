@@ -1018,14 +1018,31 @@ pub unsafe fn translate_address_read(address: i32) -> OrPageFault<u32> {
     let entry: i32 = *tlb_data.offset(base as isize);
     let user: bool = *cpl as i32 == 3;
     if entry & (TLB_VALID | if 0 != user as i32 { TLB_NO_USER } else { 0 }) == TLB_VALID {
-        return Ok((entry & !0xFFF ^ address) as u32);
+        Ok((entry & !0xFFF ^ address) as u32)
     }
     else {
-        return Ok((do_page_translation(address, false, user)? | address & 0xFFF) as u32);
-    };
+        Ok((do_page_translation(address, false, user)? | address & 0xFFF) as u32)
+    }
+}
+
+pub struct PageFault {
+    addr: i32,
+    for_writing: bool,
+    user: bool,
+    present: bool,
 }
 
 pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> OrPageFault<i32> {
+    match do_page_walk(addr, for_writing, user) {
+        Ok(phys_addr) => Ok(phys_addr),
+        Err(pagefault) => {
+            trigger_pagefault(pagefault);
+            Err(())
+        },
+    }
+}
+
+pub unsafe fn do_page_walk(addr: i32, for_writing: bool, user: bool) -> Result<i32, PageFault> {
     let mut can_write: bool = true;
     let global;
     let mut allow_user: bool = true;
@@ -1048,25 +1065,34 @@ pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> O
             // - set cr2 = addr (which caused the page fault)
             // - call_interrupt_vector  with id 14, error code 0-7 (requires information if read or write)
             // - prevent execution of the function that triggered this call
-            *cr.offset(2) = addr;
-            trigger_pagefault(for_writing, user, false);
-            return Err(());
+            return Err(PageFault {
+                addr,
+                for_writing,
+                user,
+                present: false,
+            });
         }
         if page_dir_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override {
             can_write = false;
             if for_writing {
-                *cr.offset(2) = addr;
-                trigger_pagefault(for_writing, user, true);
-                return Err(());
+                return Err(PageFault {
+                    addr,
+                    for_writing,
+                    user,
+                    present: true,
+                });
             }
         }
         if page_dir_entry & PAGE_TABLE_USER_MASK == 0 {
             allow_user = false;
             if user {
                 // Page Fault: page table accessed by non-supervisor
-                *cr.offset(2) = addr;
-                trigger_pagefault(for_writing, user, true);
-                return Err(());
+                return Err(PageFault {
+                    addr,
+                    for_writing,
+                    user,
+                    present: true,
+                });
             }
         }
         if 0 != page_dir_entry & PAGE_TABLE_PSE_MASK && 0 != *cr.offset(4) & CR4_PSE {
@@ -1092,24 +1118,33 @@ pub unsafe fn do_page_translation(addr: i32, for_writing: bool, user: bool) -> O
                 .wrapping_add((page & 1023) as u32) as i32;
             let page_table_entry: i32 = read_aligned32(page_table_addr as u32);
             if page_table_entry & PAGE_TABLE_PRESENT_MASK == 0 {
-                *cr.offset(2) = addr;
-                trigger_pagefault(for_writing, user, false);
-                return Err(());
+                return Err(PageFault {
+                    addr,
+                    for_writing,
+                    user,
+                    present: false,
+                });
             }
             if page_table_entry & PAGE_TABLE_RW_MASK == 0 && !kernel_write_override {
                 can_write = false;
                 if for_writing {
-                    *cr.offset(2) = addr;
-                    trigger_pagefault(for_writing, user, true);
-                    return Err(());
+                    return Err(PageFault {
+                        addr,
+                        for_writing,
+                        user,
+                        present: true,
+                    });
                 }
             }
             if page_table_entry & PAGE_TABLE_USER_MASK == 0 {
                 allow_user = false;
                 if user {
-                    *cr.offset(2) = addr;
-                    trigger_pagefault(for_writing, user, true);
-                    return Err(());
+                    return Err(PageFault {
+                        addr,
+                        for_writing,
+                        user,
+                        present: true,
+                    });
                 }
             }
 
@@ -1248,7 +1283,12 @@ pub unsafe fn clear_tlb() {
     };
 }
 
-pub unsafe fn trigger_pagefault(write: bool, user: bool, present: bool) {
+pub unsafe fn trigger_pagefault(fault: PageFault) {
+    let write = fault.for_writing;
+    let addr = fault.addr;
+    let present = fault.present;
+    let user = fault.user;
+
     if false {
         dbg_log!(
             "page fault w={} u={} p={} eip={:x} cr2={:x}",
@@ -1256,7 +1296,7 @@ pub unsafe fn trigger_pagefault(write: bool, user: bool, present: bool) {
             user as i32,
             present as i32,
             *previous_ip,
-            *cr.offset(2)
+            addr
         );
         dbg_trace();
     }
@@ -1274,7 +1314,8 @@ pub unsafe fn trigger_pagefault(write: bool, user: bool, present: bool) {
     //    dbg_assert!(false);
     //}
     // invalidate tlb entry
-    let page: i32 = (*cr.offset(2) as u32 >> 12) as i32;
+    *cr.offset(2) = addr;
+    let page = ((addr as u32) >> 12) as i32;
     *tlb_data.offset(page as isize) = 0;
     *prefixes = 0;
     *instruction_pointer = *previous_ip;
