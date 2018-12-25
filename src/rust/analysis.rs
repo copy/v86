@@ -18,12 +18,14 @@ pub enum AnalysisType {
 pub struct Analysis {
     pub no_next_instruction: bool,
     pub ty: AnalysisType,
+    pub unguarded_register: bool,
 }
 
 pub fn analyze_step(mut cpu: &mut CpuContext) -> Analysis {
     let mut analysis = Analysis {
         no_next_instruction: false,
         ty: AnalysisType::Normal,
+        unguarded_register: false,
     };
     cpu.prefixes = 0;
     let opcode = cpu.read_imm8() as u32 | (cpu.osize_32() as u32) << 8;

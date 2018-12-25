@@ -5,13 +5,14 @@ use analysis::AnalysisType;
 use codegen;
 use cpu;
 use cpu_context::CpuContext;
+use global_pointers;
 use jit_instructions;
 use page::Page;
 use profiler;
 use profiler::stat;
 use state_flags::CachedStateFlags;
 use util::SafeToU16;
-use wasmgen::module_init::WasmBuilder;
+use wasmgen::module_init::{WasmBuilder, WasmLocal};
 use wasmgen::wasm_util::WasmBuf;
 
 pub const WASM_TABLE_SIZE: u32 = 900;
@@ -378,6 +379,7 @@ impl cached_code {
 pub struct JitContext<'a> {
     pub cpu: &'a mut CpuContext,
     pub builder: &'a mut WasmBuilder,
+    pub register_locals: &'a mut Vec<WasmLocal>,
     pub start_of_current_instruction: u32,
 }
 
@@ -970,69 +972,83 @@ fn jit_generate_module(
         None
     };
 
+    let mut register_locals = (0..8)
+        .map(|i| {
+            builder
+                .instruction_body
+                .const_i32(global_pointers::get_reg32_offset(i) as i32);
+            builder.instruction_body.load_aligned_i32_from_stack(0);
+            let local = builder.set_new_local();
+            local
+        })
+        .collect();
+
+    let ctx = &mut JitContext {
+        cpu: &mut cpu,
+        builder,
+        register_locals: &mut register_locals,
+        start_of_current_instruction: 0,
+    };
+
     // main state machine loop
-    builder.instruction_body.loop_void();
+    ctx.builder.instruction_body.loop_void();
 
     if let Some(gen_local_iteration_counter) = gen_local_iteration_counter.as_ref() {
         profiler::stat_increment(stat::COMPILE_WITH_LOOP_SAFETY);
 
         // decrement max_iterations
-        builder
+        ctx.builder
             .instruction_body
             .get_local(gen_local_iteration_counter);
-        builder.instruction_body.const_i32(-1);
-        builder.instruction_body.add_i32();
-        builder
+        ctx.builder.instruction_body.const_i32(-1);
+        ctx.builder.instruction_body.add_i32();
+        ctx.builder
             .instruction_body
             .set_local(gen_local_iteration_counter);
 
         // if max_iterations == 0: return
-        builder
+        ctx.builder
             .instruction_body
             .get_local(gen_local_iteration_counter);
-        builder.instruction_body.eqz_i32();
-        builder.instruction_body.if_void();
-        codegen::gen_debug_track_jit_exit(builder, 0);
-        builder.instruction_body.return_();
-        builder.instruction_body.block_end();
+        ctx.builder.instruction_body.eqz_i32();
+        ctx.builder.instruction_body.if_void();
+        codegen::gen_debug_track_jit_exit(ctx.builder, 0);
+        codegen::gen_move_registers_from_locals_to_memory(ctx);
+        ctx.builder.instruction_body.return_();
+        ctx.builder.instruction_body.block_end();
     }
 
-    builder.instruction_body.block_void(); // for the default case
+    ctx.builder.instruction_body.block_void(); // for the default case
 
     // generate the opening blocks for the cases
 
     for _ in 0..basic_blocks.len() {
-        builder.instruction_body.block_void();
+        ctx.builder.instruction_body.block_void();
     }
 
-    builder.instruction_body.get_local(&gen_local_state);
-    builder
+    ctx.builder.instruction_body.get_local(&gen_local_state);
+    ctx.builder
         .instruction_body
         .brtable_and_cases(basic_blocks.len() as u32);
 
     for (i, block) in basic_blocks.iter().enumerate() {
         // Case [i] will jump after the [i]th block, so we first generate the
         // block end opcode and then the code for that block
-        builder.instruction_body.block_end();
+        ctx.builder.instruction_body.block_end();
 
         dbg_assert!(block.addr < block.end_addr);
 
-        jit_generate_basic_block(
-            &mut cpu,
-            builder,
-            block.addr,
-            block.last_instruction_addr,
-            block.end_addr,
-        );
+        jit_generate_basic_block(ctx, block.addr, block.last_instruction_addr, block.end_addr);
 
-        let invalid_connection_to_next_block = block.end_addr != cpu.eip;
+        let invalid_connection_to_next_block = block.end_addr != ctx.cpu.eip;
         dbg_assert!(!invalid_connection_to_next_block);
 
         match &block.ty {
             BasicBlockType::Exit => {
                 // Exit this function
-                codegen::gen_debug_track_jit_exit(builder, block.last_instruction_addr);
-                builder.instruction_body.return_();
+                codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
+                codegen::gen_move_registers_from_locals_to_memory(ctx);
+                ctx.builder.instruction_body.return_();
             },
             BasicBlockType::Normal { next_block_addr } => {
                 // Unconditional jump to next basic block
@@ -1044,10 +1060,10 @@ fn jit_generate_module(
                     .expect("basic_block_indices.get (Normal)");
 
                 // set state variable to next basic block
-                builder.instruction_body.const_i32(next_bb_index as i32);
-                builder.instruction_body.set_local(&gen_local_state);
+                ctx.builder.instruction_body.const_i32(next_bb_index as i32);
+                ctx.builder.instruction_body.set_local(&gen_local_state);
 
-                builder
+                ctx.builder
                     .instruction_body
                     .br(basic_blocks.len() as u32 - i as u32); // to the loop
             },
@@ -1061,16 +1077,16 @@ fn jit_generate_module(
                 // Conditional jump to next basic block
                 // - jnz, jc, etc.
 
-                codegen::gen_condition_fn(builder, condition);
-                builder.instruction_body.if_void();
+                codegen::gen_condition_fn(ctx.builder, condition);
+                ctx.builder.instruction_body.if_void();
 
                 // Branch taken
 
                 if jump_offset_is_32 {
-                    codegen::gen_relative_jump(builder, jump_offset);
+                    codegen::gen_relative_jump(ctx.builder, jump_offset);
                 }
                 else {
-                    codegen::gen_jmp_rel16(builder, jump_offset as u16);
+                    codegen::gen_jmp_rel16(ctx.builder, jump_offset as u16);
                 }
 
                 if let Some(next_block_branch_taken_addr) = next_block_branch_taken_addr {
@@ -1078,18 +1094,19 @@ fn jit_generate_module(
                         .get(&next_block_branch_taken_addr)
                         .expect("basic_block_indices.get (branch taken)");
 
-                    builder
+                    ctx.builder
                         .instruction_body
                         .const_i32(next_basic_block_branch_taken_index as i32);
-                    builder.instruction_body.set_local(&gen_local_state);
+                    ctx.builder.instruction_body.set_local(&gen_local_state);
                 }
                 else {
                     // Jump to different page
-                    codegen::gen_debug_track_jit_exit(builder, block.last_instruction_addr);
-                    builder.instruction_body.return_();
+                    codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
+                    codegen::gen_move_registers_from_locals_to_memory(ctx);
+                    ctx.builder.instruction_body.return_();
                 }
 
-                builder.instruction_body.else_();
+                ctx.builder.instruction_body.else_();
 
                 if let Some(next_block_addr) = next_block_addr {
                     // Branch not taken
@@ -1098,42 +1115,46 @@ fn jit_generate_module(
                         .get(&next_block_addr)
                         .expect("basic_block_indices.get (branch not taken)");
 
-                    builder
+                    ctx.builder
                         .instruction_body
                         .const_i32(next_basic_block_index as i32);
-                    builder.instruction_body.set_local(&gen_local_state);
+                    ctx.builder.instruction_body.set_local(&gen_local_state);
                 }
                 else {
                     // End of this page
-                    codegen::gen_debug_track_jit_exit(builder, block.last_instruction_addr);
-                    builder.instruction_body.return_();
+                    codegen::gen_debug_track_jit_exit(ctx.builder, block.last_instruction_addr);
+                    codegen::gen_move_registers_from_locals_to_memory(ctx);
+                    ctx.builder.instruction_body.return_();
                 }
 
-                builder.instruction_body.block_end();
+                ctx.builder.instruction_body.block_end();
 
-                builder
+                ctx.builder
                     .instruction_body
                     .br(basic_blocks.len() as u32 - i as u32); // to the loop
             },
         }
     }
 
-    builder.instruction_body.block_end(); // default case
-    builder.instruction_body.unreachable();
+    ctx.builder.instruction_body.block_end(); // default case
+    ctx.builder.instruction_body.unreachable();
 
-    builder.instruction_body.block_end(); // loop
+    ctx.builder.instruction_body.block_end(); // loop
 
-    builder.free_local(gen_local_state);
+    ctx.builder.free_local(gen_local_state);
     if let Some(local) = gen_local_iteration_counter {
-        builder.free_local(local);
+        ctx.builder.free_local(local);
     }
 
-    builder.finish();
+    for local in ctx.register_locals.drain(..) {
+        ctx.builder.free_local(local);
+    }
+
+    ctx.builder.finish();
 }
 
 fn jit_generate_basic_block(
-    mut cpu: &mut CpuContext,
-    builder: &mut WasmBuilder,
+    ctx: &mut JitContext,
     start_addr: u32,
     last_instruction_addr: u32,
     stop_addr: u32,
@@ -1143,30 +1164,31 @@ fn jit_generate_basic_block(
     // First iteration of do-while assumes the caller confirms this condition
     dbg_assert!(!is_near_end_of_page(start_addr));
 
-    cpu.eip = start_addr;
+    ctx.cpu.eip = start_addr;
 
     loop {
-        if false {
-            let instruction = cpu::read32(cpu.eip);
-            ::opstats::gen_opstats(builder, instruction);
+        if cfg!(feature = "profiler") {
+            let instruction = cpu::read32(ctx.cpu.eip);
+            ::opstats::gen_opstats(ctx.builder, instruction);
             ::opstats::record_opstat_compiled(instruction);
         }
 
-        if cpu.eip == last_instruction_addr {
+        if ctx.cpu.eip == last_instruction_addr {
             // Before the last instruction:
             // - Set eip to *after* the instruction
             // - Set previous_eip to *before* the instruction
             codegen::gen_set_previous_eip_offset_from_eip(
-                builder,
+                ctx.builder,
                 last_instruction_addr - start_addr,
             );
-            codegen::gen_increment_instruction_pointer(builder, stop_addr - start_addr);
+            codegen::gen_increment_instruction_pointer(ctx.builder, stop_addr - start_addr);
         }
 
-        let start_eip = cpu.eip;
+        ctx.start_of_current_instruction = ctx.cpu.eip;
+        let start_eip = ctx.cpu.eip;
         let mut instruction_flags = 0;
-        jit_instructions::jit_instruction(&mut cpu, builder, &mut instruction_flags);
-        let end_eip = cpu.eip;
+        jit_instructions::jit_instruction(ctx, &mut instruction_flags);
+        let end_eip = ctx.cpu.eip;
 
         let instruction_length = end_eip - start_eip;
         let was_block_boundary = instruction_flags & JIT_INSTR_BLOCK_BOUNDARY_FLAG != 0;
@@ -1174,7 +1196,7 @@ fn jit_generate_basic_block(
         dbg_assert!((end_eip == stop_addr) == (start_eip == last_instruction_addr));
         dbg_assert!(instruction_length < MAX_INSTRUCTION_LENGTH);
 
-        let end_addr = cpu.eip;
+        let end_addr = ctx.cpu.eip;
         count += 1;
 
         if end_addr == stop_addr {
@@ -1192,7 +1214,7 @@ fn jit_generate_basic_block(
         }
     }
 
-    codegen::gen_increment_timestamp_counter(builder, count);
+    codegen::gen_increment_timestamp_counter(ctx.builder, count);
 }
 
 pub fn jit_increase_hotness_and_maybe_compile(

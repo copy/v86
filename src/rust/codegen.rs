@@ -67,24 +67,103 @@ pub fn gen_increment_mem32(builder: &mut WasmBuilder, addr: u32) {
 }
 
 pub fn gen_get_reg8(ctx: &mut JitContext, r: u32) {
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::get_reg8_offset(r) as i32);
-    ctx.builder.instruction_body.load_u8_from_stack(0);
+    match r {
+        regs::AL | regs::CL | regs::DL | regs::BL => {
+            ctx.builder
+                .instruction_body
+                .get_local(&ctx.register_locals[r as usize]);
+            ctx.builder.instruction_body.const_i32(0xFF);
+            ctx.builder.instruction_body.and_i32();
+        },
+        regs::AH | regs::CH | regs::DH | regs::BH => {
+            ctx.builder
+                .instruction_body
+                .get_local(&ctx.register_locals[(r - 4) as usize]);
+            ctx.builder.instruction_body.const_i32(8);
+            ctx.builder.instruction_body.shr_u_i32();
+            ctx.builder.instruction_body.const_i32(0xFF);
+            ctx.builder.instruction_body.and_i32();
+        },
+        _ => assert!(false),
+    }
 }
 
 pub fn gen_get_reg16(ctx: &mut JitContext, r: u32) {
     ctx.builder
         .instruction_body
-        .const_i32(global_pointers::get_reg16_offset(r) as i32);
-    ctx.builder.instruction_body.load_aligned_u16_from_stack(0);
+        .get_local(&ctx.register_locals[r as usize]);
+    ctx.builder.instruction_body.const_i32(0xFFFF);
+    ctx.builder.instruction_body.and_i32();
 }
 
 pub fn gen_get_reg32(ctx: &mut JitContext, r: u32) {
     ctx.builder
         .instruction_body
-        .const_i32(global_pointers::get_reg32_offset(r) as i32);
-    ctx.builder.instruction_body.load_aligned_i32_from_stack(0);
+        .get_local(&ctx.register_locals[r as usize]);
+}
+
+pub fn gen_set_reg8(ctx: &mut JitContext, r: u32) {
+    match r {
+        regs::AL | regs::CL | regs::DL | regs::BL => {
+            // reg32[r] = stack_value & 0xFF | reg32[r] & ~0xFF
+            ctx.builder.instruction_body.const_i32(0xFF);
+            ctx.builder.instruction_body.and_i32();
+
+            ctx.builder
+                .instruction_body
+                .get_local(&ctx.register_locals[r as usize]);
+            ctx.builder.instruction_body.const_i32(!0xFF);
+            ctx.builder.instruction_body.and_i32();
+
+            ctx.builder.instruction_body.or_i32();
+            ctx.builder
+                .instruction_body
+                .set_local(&ctx.register_locals[r as usize]);
+        },
+        regs::AH | regs::CH | regs::DH | regs::BH => {
+            // reg32[r] = stack_value << 8 & 0xFF00 | reg32[r] & ~0xFF00
+            ctx.builder.instruction_body.const_i32(8);
+            ctx.builder.instruction_body.shl_i32();
+            ctx.builder.instruction_body.const_i32(0xFF00);
+            ctx.builder.instruction_body.and_i32();
+
+            ctx.builder
+                .instruction_body
+                .get_local(&ctx.register_locals[(r - 4) as usize]);
+            ctx.builder.instruction_body.const_i32(!0xFF00);
+            ctx.builder.instruction_body.and_i32();
+
+            ctx.builder.instruction_body.or_i32();
+            ctx.builder
+                .instruction_body
+                .set_local(&ctx.register_locals[(r - 4) as usize]);
+        },
+        _ => assert!(false),
+    }
+}
+
+pub fn gen_set_reg16(ctx: &mut JitContext, r: u32) {
+    // reg32[r] = v & 0xFFFF | reg32[r] & ~0xFFFF
+
+    ctx.builder.instruction_body.const_i32(0xFFFF);
+    ctx.builder.instruction_body.and_i32();
+
+    ctx.builder
+        .instruction_body
+        .get_local(&ctx.register_locals[r as usize]);
+    ctx.builder.instruction_body.const_i32(!0xFFFF);
+    ctx.builder.instruction_body.and_i32();
+
+    ctx.builder.instruction_body.or_i32();
+    ctx.builder
+        .instruction_body
+        .set_local(&ctx.register_locals[r as usize]);
+}
+
+pub fn gen_set_reg32(ctx: &mut JitContext, r: u32) {
+    ctx.builder
+        .instruction_body
+        .set_local(&ctx.register_locals[r as usize]);
 }
 
 /// sign-extend a byte value on the stack and leave it on the stack
@@ -241,27 +320,18 @@ pub fn gen_modrm_resolve(ctx: &mut JitContext, modrm_byte: u8) { modrm::gen(ctx,
 
 pub fn gen_set_reg8_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg8[r_dest] = reg8[r_src]
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::get_reg8_offset(dest) as i32);
     gen_get_reg8(ctx, src);
-    ctx.builder.instruction_body.store_u8(0);
+    gen_set_reg8(ctx, dest);
 }
 pub fn gen_set_reg16_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg16[r_dest] = reg16[r_src]
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::get_reg16_offset(dest) as i32);
     gen_get_reg16(ctx, src);
-    ctx.builder.instruction_body.store_aligned_u16(0);
+    gen_set_reg16(ctx, dest);
 }
 pub fn gen_set_reg32_r(ctx: &mut JitContext, dest: u32, src: u32) {
     // generates: reg32s[r_dest] = reg32s[r_src]
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::get_reg32_offset(dest) as i32);
     gen_get_reg32(ctx, src);
-    ctx.builder.instruction_body.store_aligned_i32(0);
+    gen_set_reg32(ctx, dest);
 }
 
 pub fn gen_safe_read8(ctx: &mut JitContext) { gen_safe_read(ctx, BitSize::BYTE, None) }
@@ -333,117 +403,118 @@ pub fn gen_safe_write128(
 fn gen_safe_read(ctx: &mut JitContext, bits: BitSize, where_to_write: Option<u32>) {
     // Assumes virtual address has been pushed to the stack, and generates safe_readXX's fast-path
     // inline, bailing to safe_readXX_slow if necessary
-    let builder = &mut ctx.builder;
 
-    let address_local = builder.tee_new_local();
+    let address_local = ctx.builder.tee_new_local();
 
     // Pseudo: base_on_stack = (uint32_t)address >> 12;
-    builder.instruction_body.const_i32(12);
-    builder.instruction_body.shr_u_i32();
+    ctx.builder.instruction_body.const_i32(12);
+    ctx.builder.instruction_body.shr_u_i32();
 
     // scale index
-    builder.instruction_body.const_i32(2);
-    builder.instruction_body.shl_i32();
+    ctx.builder.instruction_body.const_i32(2);
+    ctx.builder.instruction_body.shl_i32();
 
     // Pseudo: entry = tlb_data[base_on_stack];
-    builder
+    ctx.builder
         .instruction_body
         .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
-    let entry_local = builder.tee_new_local();
+    let entry_local = ctx.builder.tee_new_local();
 
     // Pseudo: bool can_use_fast_path =
     //    (entry & 0xFFF & ~TLB_READONLY & ~TLB_GLOBAL & ~TLB_HAS_CODE & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
     //    (bitsize == 8 ? true : (address & 0xFFF) <= (0x1000 - (bitsize / 8)));
-    builder.instruction_body.const_i32(
+    ctx.builder.instruction_body.const_i32(
         (0xFFF
             & !TLB_READONLY
             & !TLB_GLOBAL
             & !TLB_HAS_CODE
             & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER })) as i32,
     );
-    builder.instruction_body.and_i32();
+    ctx.builder.instruction_body.and_i32();
 
-    builder.instruction_body.const_i32(TLB_VALID as i32);
-    builder.instruction_body.eq_i32();
+    ctx.builder.instruction_body.const_i32(TLB_VALID as i32);
+    ctx.builder.instruction_body.eq_i32();
 
     if bits != BitSize::BYTE {
-        builder.instruction_body.get_local(&address_local);
-        builder.instruction_body.const_i32(0xFFF);
-        builder.instruction_body.and_i32();
-        builder
+        ctx.builder.instruction_body.get_local(&address_local);
+        ctx.builder.instruction_body.const_i32(0xFFF);
+        ctx.builder.instruction_body.and_i32();
+        ctx.builder
             .instruction_body
             .const_i32(0x1000 - bits.bytes() as i32);
-        builder.instruction_body.le_i32();
+        ctx.builder.instruction_body.le_i32();
 
-        builder.instruction_body.and_i32();
+        ctx.builder.instruction_body.and_i32();
     }
 
     // Pseudo:
     // if(can_use_fast_path) leave_on_stack(mem8[entry & ~0xFFF ^ address]);
     if bits == BitSize::DQWORD {
-        builder.instruction_body.if_void();
+        ctx.builder.instruction_body.if_void();
     }
     else if bits == BitSize::QWORD {
-        builder.instruction_body.if_i64();
+        ctx.builder.instruction_body.if_i64();
     }
     else {
-        builder.instruction_body.if_i32();
+        ctx.builder.instruction_body.if_i32();
     }
 
     if cfg!(feature = "profiler") {
-        gen_profiler_stat_increment(builder, profiler::stat::SAFE_READ_FAST);
+        gen_profiler_stat_increment(ctx.builder, profiler::stat::SAFE_READ_FAST);
     }
 
-    builder.instruction_body.get_local(&entry_local);
-    builder.instruction_body.const_i32(!0xFFF);
-    builder.instruction_body.and_i32();
-    builder.instruction_body.get_local(&address_local);
-    builder.instruction_body.xor_i32();
+    ctx.builder.instruction_body.get_local(&entry_local);
+    ctx.builder.instruction_body.const_i32(!0xFFF);
+    ctx.builder.instruction_body.and_i32();
+    ctx.builder.instruction_body.get_local(&address_local);
+    ctx.builder.instruction_body.xor_i32();
 
     // where_to_write is only used by dqword
     dbg_assert!((where_to_write != None) == (bits == BitSize::DQWORD));
 
     match bits {
         BitSize::BYTE => {
-            builder
+            ctx.builder
                 .instruction_body
                 .load_u8_from_stack(unsafe { mem8 } as u32);
         },
         BitSize::WORD => {
-            builder
+            ctx.builder
                 .instruction_body
                 .load_unaligned_u16_from_stack(unsafe { mem8 } as u32);
         },
         BitSize::DWORD => {
-            builder
+            ctx.builder
                 .instruction_body
                 .load_unaligned_i32_from_stack(unsafe { mem8 } as u32);
         },
         BitSize::QWORD => {
-            builder
+            ctx.builder
                 .instruction_body
                 .load_unaligned_i64_from_stack(unsafe { mem8 } as u32);
         },
         BitSize::DQWORD => {
             let where_to_write = where_to_write.unwrap();
-            let virt_address_local = builder.set_new_local();
-            builder.instruction_body.const_i32(0);
-            builder.instruction_body.get_local(&virt_address_local);
-            builder
+            let virt_address_local = ctx.builder.set_new_local();
+            ctx.builder.instruction_body.const_i32(0);
+            ctx.builder.instruction_body.get_local(&virt_address_local);
+            ctx.builder
                 .instruction_body
                 .load_unaligned_i64_from_stack(unsafe { mem8 } as u32);
-            builder.instruction_body.store_unaligned_i64(where_to_write);
+            ctx.builder
+                .instruction_body
+                .store_unaligned_i64(where_to_write);
 
-            builder.instruction_body.const_i32(0);
-            builder.instruction_body.get_local(&virt_address_local);
-            builder
+            ctx.builder.instruction_body.const_i32(0);
+            ctx.builder.instruction_body.get_local(&virt_address_local);
+            ctx.builder
                 .instruction_body
                 .load_unaligned_i64_from_stack(unsafe { mem8 } as u32 + 8);
-            builder
+            ctx.builder
                 .instruction_body
                 .store_unaligned_i64(where_to_write + 8);
 
-            builder.free_local(virt_address_local);
+            ctx.builder.free_local(virt_address_local);
         },
     }
 
@@ -453,65 +524,68 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize, where_to_write: Option<u32
     //     leave_on_stack(safe_read*_slow(address));
     //     if(page_fault) return;
     // }
-    builder.instruction_body.else_();
+    ctx.builder.instruction_body.else_();
 
     if cfg!(feature = "profiler") {
-        builder.instruction_body.get_local(&address_local);
-        builder.instruction_body.get_local(&entry_local);
-        gen_call_fn2(builder, "report_safe_read_jit_slow");
+        ctx.builder.instruction_body.get_local(&address_local);
+        ctx.builder.instruction_body.get_local(&entry_local);
+        gen_call_fn2(ctx.builder, "report_safe_read_jit_slow");
     }
 
-    builder
+    ctx.builder
         .instruction_body
         .const_i32(global_pointers::PREVIOUS_IP as i32);
 
-    builder
+    ctx.builder
         .instruction_body
         .load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
-    builder.instruction_body.const_i32(!0xFFF);
-    builder.instruction_body.and_i32();
-    builder
+    ctx.builder.instruction_body.const_i32(!0xFFF);
+    ctx.builder.instruction_body.and_i32();
+    ctx.builder
         .instruction_body
         .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
-    builder.instruction_body.or_i32();
+    ctx.builder.instruction_body.or_i32();
 
-    builder.instruction_body.store_aligned_i32(0);
+    ctx.builder.instruction_body.store_aligned_i32(0);
 
-    builder.instruction_body.get_local(&address_local);
+    ctx.builder.instruction_body.get_local(&address_local);
+    gen_move_registers_from_locals_to_memory(ctx);
     match bits {
         BitSize::BYTE => {
-            gen_call_fn1_ret(builder, "safe_read8_slow_jit");
+            gen_call_fn1_ret(ctx.builder, "safe_read8_slow_jit");
         },
         BitSize::WORD => {
-            gen_call_fn1_ret(builder, "safe_read16_slow_jit");
+            gen_call_fn1_ret(ctx.builder, "safe_read16_slow_jit");
         },
         BitSize::DWORD => {
-            gen_call_fn1_ret(builder, "safe_read32s_slow_jit");
+            gen_call_fn1_ret(ctx.builder, "safe_read32s_slow_jit");
         },
         BitSize::QWORD => {
-            gen_call_fn1_ret_i64(builder, "safe_read64s_slow_jit");
+            gen_call_fn1_ret_i64(ctx.builder, "safe_read64s_slow_jit");
         },
         BitSize::DQWORD => {
-            builder
+            ctx.builder
                 .instruction_body
                 .const_i32(where_to_write.unwrap() as i32);
-            gen_call_fn2(builder, "safe_read128s_slow_jit");
+            gen_call_fn2(ctx.builder, "safe_read128s_slow_jit");
         },
     }
+    gen_move_registers_from_memory_to_locals(ctx);
 
-    builder
+    ctx.builder
         .instruction_body
         .load_u8(global_pointers::PAGE_FAULT);
 
-    builder.instruction_body.if_void();
-    gen_debug_track_jit_exit(builder, ctx.start_of_current_instruction);
-    builder.instruction_body.return_();
-    builder.instruction_body.block_end();
+    ctx.builder.instruction_body.if_void();
+    gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    gen_move_registers_from_locals_to_memory(ctx);
+    ctx.builder.instruction_body.return_();
+    ctx.builder.instruction_body.block_end();
 
-    builder.instruction_body.block_end();
+    ctx.builder.instruction_body.block_end();
 
-    builder.free_local(address_local);
-    builder.free_local(entry_local);
+    ctx.builder.free_local(address_local);
+    ctx.builder.free_local(entry_local);
 }
 
 fn gen_safe_write(
@@ -522,102 +596,102 @@ fn gen_safe_write(
 ) {
     // Generates safe_writeXX' fast-path inline, bailing to safe_writeXX_slow if necessary.
 
-    let builder = &mut ctx.builder;
-
-    builder.instruction_body.get_local(&address_local);
+    ctx.builder.instruction_body.get_local(&address_local);
 
     // Pseudo: base_on_stack = (uint32_t)address >> 12;
-    builder.instruction_body.const_i32(12);
-    builder.instruction_body.shr_u_i32();
+    ctx.builder.instruction_body.const_i32(12);
+    ctx.builder.instruction_body.shr_u_i32();
 
     // scale index
-    builder.instruction_body.const_i32(2);
-    builder.instruction_body.shl_i32();
+    ctx.builder.instruction_body.const_i32(2);
+    ctx.builder.instruction_body.shl_i32();
 
     // Pseudo: entry = tlb_data[base_on_stack];
-    builder
+    ctx.builder
         .instruction_body
         .load_aligned_i32_from_stack(global_pointers::TLB_DATA);
-    let entry_local = builder.tee_new_local();
+    let entry_local = ctx.builder.tee_new_local();
 
     // Pseudo: bool can_use_fast_path = (entry & 0xFFF & ~TLB_GLOBAL & ~(cpl == 3 ? 0 : TLB_NO_USER) == TLB_VALID &&
     //                                   (address & 0xFFF) <= (0x1000 - bitsize / 8));
-    builder
+    ctx.builder
         .instruction_body
         .const_i32((0xFFF & !TLB_GLOBAL & !(if ctx.cpu.cpl3() { 0 } else { TLB_NO_USER })) as i32);
-    builder.instruction_body.and_i32();
+    ctx.builder.instruction_body.and_i32();
 
-    builder.instruction_body.const_i32(TLB_VALID as i32);
-    builder.instruction_body.eq_i32();
+    ctx.builder.instruction_body.const_i32(TLB_VALID as i32);
+    ctx.builder.instruction_body.eq_i32();
 
     if bits != BitSize::BYTE {
-        builder.instruction_body.get_local(&address_local);
-        builder.instruction_body.const_i32(0xFFF);
-        builder.instruction_body.and_i32();
-        builder
+        ctx.builder.instruction_body.get_local(&address_local);
+        ctx.builder.instruction_body.const_i32(0xFFF);
+        ctx.builder.instruction_body.and_i32();
+        ctx.builder
             .instruction_body
             .const_i32(0x1000 - bits.bytes() as i32);
-        builder.instruction_body.le_i32();
+        ctx.builder.instruction_body.le_i32();
 
-        builder.instruction_body.and_i32();
+        ctx.builder.instruction_body.and_i32();
     }
 
     // Pseudo:
     // if(can_use_fast_path)
     // {
     //     phys_addr = entry & ~0xFFF ^ address;
-    builder.instruction_body.if_void();
+    ctx.builder.instruction_body.if_void();
 
     if cfg!(feature = "profiler") {
-        gen_profiler_stat_increment(builder, profiler::stat::SAFE_WRITE_FAST);
+        gen_profiler_stat_increment(ctx.builder, profiler::stat::SAFE_WRITE_FAST);
     }
 
-    builder.instruction_body.get_local(&entry_local);
-    builder.instruction_body.const_i32(!0xFFF);
-    builder.instruction_body.and_i32();
-    builder.instruction_body.get_local(&address_local);
-    builder.instruction_body.xor_i32();
+    ctx.builder.instruction_body.get_local(&entry_local);
+    ctx.builder.instruction_body.const_i32(!0xFFF);
+    ctx.builder.instruction_body.and_i32();
+    ctx.builder.instruction_body.get_local(&address_local);
+    ctx.builder.instruction_body.xor_i32();
 
     // Pseudo:
     //     /* continued within can_use_fast_path branch */
     //     mem8[phys_addr] = value;
 
     match value_local {
-        GenSafeWriteValue::I32(local) => builder.instruction_body.get_local(local),
-        GenSafeWriteValue::I64(local) => builder.instruction_body.get_local_i64(local),
+        GenSafeWriteValue::I32(local) => ctx.builder.instruction_body.get_local(local),
+        GenSafeWriteValue::I64(local) => ctx.builder.instruction_body.get_local_i64(local),
         GenSafeWriteValue::TwoI64s(local1, local2) => {
             assert!(bits == BitSize::DQWORD);
 
-            let virt_address_local = builder.tee_new_local();
-            builder.instruction_body.get_local_i64(local1);
-            builder
+            let virt_address_local = ctx.builder.tee_new_local();
+            ctx.builder.instruction_body.get_local_i64(local1);
+            ctx.builder
                 .instruction_body
                 .store_unaligned_i64(unsafe { mem8 } as u32);
 
-            builder.instruction_body.get_local(&virt_address_local);
-            builder.instruction_body.get_local_i64(local2);
-            builder
+            ctx.builder.instruction_body.get_local(&virt_address_local);
+            ctx.builder.instruction_body.get_local_i64(local2);
+            ctx.builder
                 .instruction_body
                 .store_unaligned_i64(unsafe { mem8 } as u32 + 8);
-            builder.free_local(virt_address_local);
+            ctx.builder.free_local(virt_address_local);
         },
     }
     match bits {
         BitSize::BYTE => {
-            builder.instruction_body.store_u8(unsafe { mem8 } as u32);
+            ctx.builder
+                .instruction_body
+                .store_u8(unsafe { mem8 } as u32);
         },
         BitSize::WORD => {
-            builder
+            ctx.builder
                 .instruction_body
                 .store_unaligned_u16(unsafe { mem8 } as u32);
         },
         BitSize::DWORD => {
-            builder
+            ctx.builder
                 .instruction_body
                 .store_unaligned_i32(unsafe { mem8 } as u32);
         },
         BitSize::QWORD => {
-            builder
+            ctx.builder
                 .instruction_body
                 .store_unaligned_i64(unsafe { mem8 } as u32);
         },
@@ -630,69 +704,72 @@ fn gen_safe_write(
     //     safe_write*_slow(address, value);
     //     if(page_fault) return;
     // }
-    builder.instruction_body.else_();
+    ctx.builder.instruction_body.else_();
 
     if cfg!(feature = "profiler") {
-        builder.instruction_body.get_local(&address_local);
-        builder.instruction_body.get_local(&entry_local);
-        gen_call_fn2(builder, "report_safe_write_jit_slow");
+        ctx.builder.instruction_body.get_local(&address_local);
+        ctx.builder.instruction_body.get_local(&entry_local);
+        gen_call_fn2(ctx.builder, "report_safe_write_jit_slow");
     }
 
-    builder
+    ctx.builder
         .instruction_body
         .const_i32(global_pointers::PREVIOUS_IP as i32);
 
-    builder
+    ctx.builder
         .instruction_body
         .load_aligned_i32(global_pointers::INSTRUCTION_POINTER);
-    builder.instruction_body.const_i32(!0xFFF);
-    builder.instruction_body.and_i32();
-    builder
+    ctx.builder.instruction_body.const_i32(!0xFFF);
+    ctx.builder.instruction_body.and_i32();
+    ctx.builder
         .instruction_body
         .const_i32(ctx.start_of_current_instruction as i32 & 0xFFF);
-    builder.instruction_body.or_i32();
+    ctx.builder.instruction_body.or_i32();
 
-    builder.instruction_body.store_aligned_i32(0);
+    ctx.builder.instruction_body.store_aligned_i32(0);
 
-    builder.instruction_body.get_local(&address_local);
+    ctx.builder.instruction_body.get_local(&address_local);
     match value_local {
-        GenSafeWriteValue::I32(local) => builder.instruction_body.get_local(local),
-        GenSafeWriteValue::I64(local) => builder.instruction_body.get_local_i64(local),
+        GenSafeWriteValue::I32(local) => ctx.builder.instruction_body.get_local(local),
+        GenSafeWriteValue::I64(local) => ctx.builder.instruction_body.get_local_i64(local),
         GenSafeWriteValue::TwoI64s(local1, local2) => {
-            builder.instruction_body.get_local_i64(local1);
-            builder.instruction_body.get_local_i64(local2)
+            ctx.builder.instruction_body.get_local_i64(local1);
+            ctx.builder.instruction_body.get_local_i64(local2)
         },
     }
+    gen_move_registers_from_locals_to_memory(ctx);
     match bits {
         BitSize::BYTE => {
-            gen_call_fn2(builder, "safe_write8_slow_jit");
+            gen_call_fn2(ctx.builder, "safe_write8_slow_jit");
         },
         BitSize::WORD => {
-            gen_call_fn2(builder, "safe_write16_slow_jit");
+            gen_call_fn2(ctx.builder, "safe_write16_slow_jit");
         },
         BitSize::DWORD => {
-            gen_call_fn2(builder, "safe_write32_slow_jit");
+            gen_call_fn2(ctx.builder, "safe_write32_slow_jit");
         },
         BitSize::QWORD => {
-            gen_call_fn2_i32_i64(builder, "safe_write64_slow_jit");
+            gen_call_fn2_i32_i64(ctx.builder, "safe_write64_slow_jit");
         },
         BitSize::DQWORD => {
-            gen_call_fn3_i32_i64_i64(builder, "safe_write128_slow_jit");
+            gen_call_fn3_i32_i64_i64(ctx.builder, "safe_write128_slow_jit");
         },
     }
+    gen_move_registers_from_memory_to_locals(ctx);
 
-    builder
+    ctx.builder
         .instruction_body
         .load_u8(global_pointers::PAGE_FAULT);
 
-    builder.instruction_body.if_void();
-    gen_debug_track_jit_exit(builder, ctx.start_of_current_instruction);
-    builder.instruction_body.return_();
-    builder.instruction_body.block_end();
+    ctx.builder.instruction_body.if_void();
+    gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    gen_move_registers_from_locals_to_memory(ctx);
+    ctx.builder.instruction_body.return_();
+    ctx.builder.instruction_body.block_end();
 
-    builder.instruction_body.block_end();
+    ctx.builder.instruction_body.block_end();
 
-    builder.free_local(entry_local);
+    ctx.builder.free_local(entry_local);
 }
 
 pub fn gen_clear_prefixes(ctx: &mut JitContext) {
@@ -761,13 +838,10 @@ pub fn gen_pop16_ss16(ctx: &mut JitContext) {
     gen_safe_read16(ctx);
 
     // reg16[SP] += 2;
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::get_reg16_offset(regs::SP) as i32);
     ctx.builder.instruction_body.get_local(&sp_local);
     ctx.builder.instruction_body.const_i32(2);
     ctx.builder.instruction_body.add_i32();
-    ctx.builder.instruction_body.store_aligned_u16(0);
+    gen_set_reg16(ctx, regs::SP);
 
     ctx.builder.free_local(sp_local);
 
@@ -790,13 +864,10 @@ pub fn gen_pop16_ss32(ctx: &mut JitContext) {
     gen_safe_read16(ctx);
 
     // reg32s[ESP] += 2;
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::get_reg32_offset(regs::ESP) as i32);
     ctx.builder.instruction_body.get_local(&esp_local);
     ctx.builder.instruction_body.const_i32(2);
     ctx.builder.instruction_body.add_i32();
-    ctx.builder.instruction_body.store_aligned_i32(0);
+    gen_set_reg32(ctx, regs::ESP);
     ctx.builder.free_local(esp_local);
 
     // return value is already on stack
@@ -827,13 +898,10 @@ pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
     gen_safe_read32(ctx);
 
     // reg16[SP] = sp + 4;
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::get_reg16_offset(regs::SP) as i32);
     ctx.builder.instruction_body.get_local(&local_sp);
     ctx.builder.instruction_body.const_i32(4);
     ctx.builder.instruction_body.add_i32();
-    ctx.builder.instruction_body.store_aligned_u16(0);
+    gen_set_reg16(ctx, regs::SP);
 
     ctx.builder.free_local(local_sp);
 
@@ -855,13 +923,10 @@ pub fn gen_pop32s_ss32(ctx: &mut JitContext) {
     gen_safe_read32(ctx);
 
     // reg32s[ESP] = esp + 4;
-    ctx.builder
-        .instruction_body
-        .const_i32(global_pointers::get_reg32_offset(regs::ESP) as i32);
     ctx.builder.instruction_body.get_local(&local_esp);
     ctx.builder.instruction_body.const_i32(4);
     ctx.builder.instruction_body.add_i32();
-    ctx.builder.instruction_body.store_aligned_i32(0);
+    gen_set_reg32(ctx, regs::ESP);
 
     ctx.builder.free_local(local_esp);
 
@@ -879,37 +944,21 @@ pub fn gen_pop32s(ctx: &mut JitContext) {
 
 pub fn gen_adjust_stack_reg(ctx: &mut JitContext, offset: u32) {
     if ctx.cpu.ssize_32() {
-        ctx.builder
-            .instruction_body
-            .const_i32(global_pointers::get_reg32_offset(regs::ESP) as i32);
         gen_get_reg32(ctx, regs::ESP);
         ctx.builder.instruction_body.const_i32(offset as i32);
         ctx.builder.instruction_body.add_i32();
-        ctx.builder.instruction_body.store_aligned_i32(0);
+        gen_set_reg32(ctx, regs::ESP);
     }
     else {
-        ctx.builder
-            .instruction_body
-            .const_i32(global_pointers::get_reg16_offset(regs::SP) as i32);
         gen_get_reg16(ctx, regs::SP);
         ctx.builder.instruction_body.const_i32(offset as i32);
         ctx.builder.instruction_body.add_i32();
-        ctx.builder.instruction_body.store_aligned_u16(0);
+        gen_set_reg16(ctx, regs::SP);
     }
 }
 
 pub fn gen_leave(ctx: &mut JitContext, os32: bool) {
     // [e]bp = safe_read{16,32}([e]bp)
-    if os32 {
-        ctx.builder
-            .instruction_body
-            .const_i32(global_pointers::get_reg32_offset(regs::EBP) as i32);
-    }
-    else {
-        ctx.builder
-            .instruction_body
-            .const_i32(global_pointers::get_reg16_offset(regs::BP) as i32);
-    }
 
     if ctx.cpu.ssize_32() {
         gen_get_reg32(ctx, regs::EBP);
@@ -928,36 +977,30 @@ pub fn gen_leave(ctx: &mut JitContext, os32: bool) {
     }
     if os32 {
         gen_safe_read32(ctx);
-        ctx.builder.instruction_body.store_aligned_i32(0);
+        gen_set_reg32(ctx, regs::EBP);
     }
     else {
         gen_safe_read16(ctx);
-        ctx.builder.instruction_body.store_aligned_u16(0);
+        gen_set_reg16(ctx, regs::BP);
     }
 
     // [e]sp = [e]bp + (os32 ? 4 : 2)
 
     if ctx.cpu.ssize_32() {
-        ctx.builder
-            .instruction_body
-            .const_i32(global_pointers::get_reg32_offset(regs::ESP) as i32);
         ctx.builder.instruction_body.get_local(&old_vbp);
         ctx.builder
             .instruction_body
             .const_i32(if os32 { 4 } else { 2 });
         ctx.builder.instruction_body.add_i32();
-        ctx.builder.instruction_body.store_aligned_i32(0);
+        gen_set_reg32(ctx, regs::ESP);
     }
     else {
-        ctx.builder
-            .instruction_body
-            .const_i32(global_pointers::get_reg16_offset(regs::SP) as i32);
         ctx.builder.instruction_body.get_local(&old_vbp);
         ctx.builder
             .instruction_body
             .const_i32(if os32 { 4 } else { 2 });
         ctx.builder.instruction_body.add_i32();
-        ctx.builder.instruction_body.store_aligned_u16(0);
+        gen_set_reg16(ctx, regs::SP);
     }
 
     ctx.builder.free_local(old_vbp);
@@ -975,6 +1018,7 @@ pub fn gen_task_switch_test(ctx: &mut JitContext) {
 
     ctx.builder.instruction_body.if_void();
 
+    gen_move_registers_from_locals_to_memory(ctx);
     gen_fn0_const(ctx.builder, "task_switch_test_void");
 
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
@@ -995,6 +1039,7 @@ pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
 
     ctx.builder.instruction_body.if_void();
 
+    gen_move_registers_from_locals_to_memory(ctx);
     gen_fn0_const(ctx.builder, "task_switch_test_mmx_void");
 
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
@@ -1004,13 +1049,11 @@ pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
 }
 
 pub fn gen_push16(ctx: &mut JitContext, value_local: &WasmLocal) {
-    let sp_reg = if ctx.cpu.ssize_32() {
+    if ctx.cpu.ssize_32() {
         gen_get_reg32(ctx, regs::ESP);
-        global_pointers::get_reg32_offset(regs::ESP)
     }
     else {
         gen_get_reg16(ctx, regs::SP);
-        global_pointers::get_reg16_offset(regs::SP)
     };
 
     ctx.builder.instruction_body.const_i32(2);
@@ -1031,25 +1074,22 @@ pub fn gen_push16(ctx: &mut JitContext, value_local: &WasmLocal) {
     let sp_local = ctx.builder.set_new_local();
     gen_safe_write16(ctx, &sp_local, &value_local);
     ctx.builder.free_local(sp_local);
-    ctx.builder.instruction_body.const_i32(sp_reg as i32);
     ctx.builder.instruction_body.get_local(&reg_updated_local);
     if ctx.cpu.ssize_32() {
-        ctx.builder.instruction_body.store_aligned_i32(0)
+        gen_set_reg32(ctx, regs::ESP);
     }
     else {
-        ctx.builder.instruction_body.store_aligned_u16(0)
+        gen_set_reg16(ctx, regs::SP);
     };
     ctx.builder.free_local(reg_updated_local);
 }
 
 pub fn gen_push32(ctx: &mut JitContext, value_local: &WasmLocal) {
-    let sp_reg = if ctx.cpu.ssize_32() {
+    if ctx.cpu.ssize_32() {
         gen_get_reg32(ctx, regs::ESP);
-        global_pointers::get_reg32_offset(regs::ESP)
     }
     else {
         gen_get_reg16(ctx, regs::SP);
-        global_pointers::get_reg16_offset(regs::SP)
     };
 
     ctx.builder.instruction_body.const_i32(4);
@@ -1072,13 +1112,12 @@ pub fn gen_push32(ctx: &mut JitContext, value_local: &WasmLocal) {
     gen_safe_write32(ctx, &sp_local, &value_local);
     ctx.builder.free_local(sp_local);
 
-    ctx.builder.instruction_body.const_i32(sp_reg as i32);
     ctx.builder.instruction_body.get_local(&new_sp_local);
     if ctx.cpu.ssize_32() {
-        ctx.builder.instruction_body.store_aligned_i32(0)
+        gen_set_reg32(ctx, regs::ESP);
     }
     else {
-        ctx.builder.instruction_body.store_aligned_u16(0)
+        gen_set_reg16(ctx, regs::SP);
     };
     ctx.builder.free_local(new_sp_local);
 }
@@ -1235,6 +1274,7 @@ pub fn gen_safe_read_write(
 
     ctx.builder.instruction_body.if_void();
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    gen_move_registers_from_locals_to_memory(ctx);
     ctx.builder.instruction_body.return_();
     ctx.builder.instruction_body.block_end();
 
@@ -1260,6 +1300,7 @@ pub fn gen_fpu_load_m64(ctx: &mut JitContext) {
 }
 
 pub fn gen_trigger_ud(ctx: &mut JitContext) {
+    gen_move_registers_from_locals_to_memory(ctx);
     gen_fn0_const(ctx.builder, "trigger_ud");
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     ctx.builder.instruction_body.return_();
@@ -1269,6 +1310,31 @@ pub fn gen_condition_fn(builder: &mut WasmBuilder, condition: u8) {
     dbg_assert!(condition < 16);
     let condition_name = CONDITION_FUNCTIONS[condition as usize];
     gen_fn0_const_ret(builder, condition_name);
+}
+
+pub fn gen_move_registers_from_locals_to_memory(ctx: &mut JitContext) {
+    let instruction = ::cpu::read32(ctx.start_of_current_instruction);
+
+    for i in 0..8 {
+        ctx.builder
+            .instruction_body
+            .const_i32(global_pointers::get_reg32_offset(i as u32) as i32);
+        ctx.builder
+            .instruction_body
+            .get_local(&ctx.register_locals[i]);
+        ctx.builder.instruction_body.store_aligned_i32(0);
+    }
+}
+pub fn gen_move_registers_from_memory_to_locals(ctx: &mut JitContext) {
+    for i in 0..8 {
+        ctx.builder
+            .instruction_body
+            .const_i32(global_pointers::get_reg32_offset(i as u32) as i32);
+        ctx.builder.instruction_body.load_aligned_i32_from_stack(0);
+        ctx.builder
+            .instruction_body
+            .set_local(&ctx.register_locals[i]);
+    }
 }
 
 pub fn gen_profiler_stat_increment(builder: &mut WasmBuilder, stat: profiler::stat) {

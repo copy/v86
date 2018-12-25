@@ -239,6 +239,23 @@ function gen_instruction_body_after_fixed_g(encoding, size)
 
     const instruction_name = make_instruction_name(encoding, size);
 
+    if(!encoding.prefix)
+    {
+        if(encoding.custom && !encoding.unguarded_register || encoding.no_register)
+        {
+        }
+        else
+        {
+            instruction_prefix.push(
+                gen_call("::codegen::gen_move_registers_from_locals_to_memory", ["ctx"])
+            );
+            instruction_postfix.push(
+                gen_call("::codegen::gen_move_registers_from_memory_to_locals", ["ctx"])
+            );
+
+        }
+    }
+
     if(encoding.e)
     {
         const reg_postfix = [];
