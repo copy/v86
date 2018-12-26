@@ -769,7 +769,7 @@ pub unsafe fn fpu_fxtract() {
         *fpu_stack_ptr as i32,
         f.exponent as f64 - F64_EXPONENT_BIAS as f64,
     );
-    f.exponent = 0x7FF;
+    f.exponent = 0x3FF;
     fpu_push(f.to_f64());
 }
 #[no_mangle]
