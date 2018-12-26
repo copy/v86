@@ -521,8 +521,8 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize, where_to_write: Option<u32
     // Pseudo:
     // else {
     //     *previous_ip = *instruction_pointer & ~0xFFF | start_of_instruction;
-    //     leave_on_stack(safe_read*_slow(address));
-    //     if(page_fault) return;
+    //     leave_on_stack(safe_read*_slow_jit(address));
+    //     if(page_fault) { trigger_pagefault_end_jit(); return; }
     // }
     ctx.builder.instruction_body.else_();
 
@@ -549,7 +549,6 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize, where_to_write: Option<u32
     ctx.builder.instruction_body.store_aligned_i32(0);
 
     ctx.builder.instruction_body.get_local(&address_local);
-    gen_move_registers_from_locals_to_memory(ctx);
     match bits {
         BitSize::BYTE => {
             gen_call_fn1_ret(ctx.builder, "safe_read8_slow_jit");
@@ -570,7 +569,6 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize, where_to_write: Option<u32
             gen_call_fn2(ctx.builder, "safe_read128s_slow_jit");
         },
     }
-    gen_move_registers_from_memory_to_locals(ctx);
 
     ctx.builder
         .instruction_body
@@ -702,8 +700,8 @@ fn gen_safe_write(
     // Pseudo:
     // else {
     //     *previous_ip = *instruction_pointer & ~0xFFF | start_of_instruction;
-    //     safe_write*_slow(address, value);
-    //     if(page_fault) return;
+    //     safe_write*_slow_jit(address, value);
+    //     if(page_fault) { trigger_pagefault_end_jit(); return; }
     // }
     ctx.builder.instruction_body.else_();
 
@@ -738,7 +736,6 @@ fn gen_safe_write(
             ctx.builder.instruction_body.get_local_i64(local2)
         },
     }
-    gen_move_registers_from_locals_to_memory(ctx);
     match bits {
         BitSize::BYTE => {
             gen_call_fn2(ctx.builder, "safe_write8_slow_jit");
@@ -756,7 +753,6 @@ fn gen_safe_write(
             gen_call_fn3_i32_i64_i64(ctx.builder, "safe_write128_slow_jit");
         },
     }
-    gen_move_registers_from_memory_to_locals(ctx);
 
     ctx.builder
         .instruction_body

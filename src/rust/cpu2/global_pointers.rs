@@ -15,6 +15,7 @@ pub const last_result: *mut i32 = 528 as *mut i32;
 pub const flags_changed: *mut i32 = 532 as *mut i32;
 pub const flags: *mut i32 = 536 as *mut i32;
 pub const page_fault: *mut bool = 540 as *mut bool;
+pub const page_fault_error_code: *mut i32 = 544 as *mut i32;
 pub const a20_enabled: *mut bool = 552 as *mut bool;
 pub const instruction_pointer: *mut i32 = 556 as *mut i32;
 pub const previous_ip: *mut i32 = 560 as *mut i32;
