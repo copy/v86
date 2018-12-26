@@ -103,7 +103,7 @@ pub unsafe fn instr_0F00_2_mem(addr: i32) {
         return;
     }
     else if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -118,7 +118,7 @@ pub unsafe fn instr_0F00_2_reg(r: i32) {
         return;
     }
     else if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -134,7 +134,7 @@ pub unsafe fn instr_0F00_3_mem(addr: i32) {
         return;
     }
     else if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -149,7 +149,7 @@ pub unsafe fn instr_0F00_3_reg(r: i32) {
         return;
     }
     else if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -237,7 +237,7 @@ pub unsafe fn instr_0F01_2_reg(r: i32) { trigger_ud(); }
 pub unsafe fn instr_0F01_2_mem(addr: i32) {
     // lgdt
     if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -260,7 +260,7 @@ pub unsafe fn instr_0F01_3_reg(r: i32) { trigger_ud(); }
 pub unsafe fn instr_0F01_3_mem(addr: i32) {
     // lidt
     if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -298,7 +298,7 @@ pub unsafe fn lmsw(mut new_cr0: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F01_6_reg(r: i32) {
     if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -309,7 +309,7 @@ pub unsafe fn instr_0F01_6_reg(r: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F01_6_mem(addr: i32) {
     if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -323,7 +323,7 @@ pub unsafe fn instr_0F01_7_reg(r: i32) { trigger_ud(); }
 pub unsafe fn instr_0F01_7_mem(addr: i32) {
     // invlpg
     if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -380,7 +380,7 @@ pub unsafe fn instr_0F06() {
     // clts
     if 0 != *cpl {
         dbg_log!("clts #gp");
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
     }
     else {
         if false {
@@ -400,7 +400,7 @@ pub unsafe fn instr_0F08() {
 pub unsafe fn instr_0F09() {
     if 0 != *cpl {
         dbg_log!("wbinvd #gp");
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
     }
     else {
         // wbinvd
@@ -733,7 +733,7 @@ pub unsafe fn instr_0F1F_mem(addr: i32, r: i32) {}
 #[no_mangle]
 pub unsafe fn instr_0F20(r: i32, creg: i32) {
     if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -761,7 +761,7 @@ pub unsafe fn instr_0F20(r: i32, creg: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F21(r: i32, mut dreg_index: i32) {
     if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -790,7 +790,7 @@ pub unsafe fn instr_0F21(r: i32, mut dreg_index: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F22(r: i32, creg: i32) {
     if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -822,7 +822,7 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
                     & ((1 << 11 | 1 << 12 | 1 << 15 | 1 << 16 | 1 << 19) as u32 | 0xFFC00000)
                 {
                     dbg_log!("trigger_gp: Invalid cr4 bit");
-                    trigger_gp_non_raising(0);
+                    trigger_gp(0);
                     return;
                 }
                 else {
@@ -846,7 +846,7 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
 #[no_mangle]
 pub unsafe fn instr_0F23(r: i32, mut dreg_index: i32) {
     if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -1119,7 +1119,7 @@ pub unsafe fn instr_660F2F_mem(addr: i32, r: i32) {
 pub unsafe fn instr_0F30() {
     // wrmsr - write maschine specific register
     if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -1193,14 +1193,14 @@ pub unsafe fn instr_0F31() {
         }
     }
     else {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
     };
 }
 #[no_mangle]
 pub unsafe fn instr_0F32() {
     // rdmsr - read maschine specific register
     if 0 != *cpl {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -1271,7 +1271,7 @@ pub unsafe fn instr_0F34() {
     // sysenter
     let seg: i32 = *sysenter_cs & 0xFFFC;
     if !*protected_mode || seg == 0 {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -1298,7 +1298,7 @@ pub unsafe fn instr_0F35() {
     // sysexit
     let seg: i32 = *sysenter_cs & 0xFFFC;
     if !*protected_mode || 0 != *cpl as i32 || seg == 0 {
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -3288,7 +3288,7 @@ pub unsafe fn instr_0FAE_2_mem(addr: i32) {
     let new_mxcsr: i32 = return_on_pagefault!(safe_read32s(addr));
     if 0 != new_mxcsr & !MXCSR_MASK {
         dbg_log!("Invalid mxcsr bits: {:x}", new_mxcsr & !MXCSR_MASK);
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {

@@ -1701,7 +1701,7 @@ pub unsafe fn instr16_9C() {
     if 0 != *flags & FLAG_VM && getiopl() < 3 {
         dbg_assert!(*protected_mode);
         dbg_log!("pushf #gp");
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
     }
     else {
         return_on_pagefault!(push16(get_eflags()));
@@ -1714,7 +1714,7 @@ pub unsafe fn instr32_9C() {
         // trap to virtual 8086 monitor
         dbg_assert!(*protected_mode);
         dbg_log!("pushf #gp");
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
     }
     else {
         // vm and rf flag are cleared in image stored on the stack
@@ -1726,7 +1726,7 @@ pub unsafe fn instr16_9D() {
     // popf
     if 0 != *flags & FLAG_VM && getiopl() < 3 {
         dbg_log!("popf #gp");
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -1747,7 +1747,7 @@ pub unsafe fn instr32_9D() {
     // popf
     if 0 != *flags & FLAG_VM && getiopl() < 3 {
         dbg_log!("popf #gp");
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
     else {
@@ -3172,7 +3172,7 @@ pub unsafe fn instr_FA() {
     }
     else {
         dbg_log!("cli #gp");
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
     };
 }
 #[no_mangle]
@@ -3200,7 +3200,7 @@ pub unsafe fn instr_FB() {
     }
     else {
         dbg_log!("sti #gp");
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
     };
 }
 #[no_mangle]

@@ -398,7 +398,7 @@ pub unsafe fn iret(is_16: bool) {
     if vm86_mode() && getiopl() < 3 {
         // vm86 mode, iopl != 3
         dbg_log!("#gp iret vm86 mode, iopl != 3");
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
 
@@ -449,7 +449,7 @@ pub unsafe fn iret(is_16: bool) {
         if DEBUG {
             panic!("NT");
         }
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return;
     }
 
@@ -544,7 +544,7 @@ pub unsafe fn iret(is_16: bool) {
             cs_descriptor.dpl(),
             cs_selector.rpl()
         );
-        trigger_gp_non_raising(new_cs & !3);
+        trigger_gp(new_cs & !3);
         return;
     }
 
@@ -570,12 +570,12 @@ pub unsafe fn iret(is_16: bool) {
                     SelectorNullOrInvalid::IsNull => {
                         dbg_log!("#GP for loading 0 in SS sel={:x}", temp_ss);
                         dbg_trace();
-                        trigger_gp_non_raising(0);
+                        trigger_gp(0);
                         return;
                     },
                     SelectorNullOrInvalid::IsInvalid => {
                         dbg_log!("#GP for loading invalid in SS sel={:x}", temp_ss);
-                        trigger_gp_non_raising(temp_ss & !3);
+                        trigger_gp(temp_ss & !3);
                         return;
                     },
                 },
@@ -589,7 +589,7 @@ pub unsafe fn iret(is_16: bool) {
         {
             dbg_log!("#GP for loading invalid in SS sel={:x}", temp_ss);
             dbg_trace();
-            trigger_gp_non_raising(temp_ss & !3);
+            trigger_gp(temp_ss & !3);
             return;
         }
 
@@ -680,7 +680,7 @@ pub unsafe fn call_interrupt_vector(
         if vm86_mode() && is_software_int && getiopl() < 3 {
             dbg_log!("call_interrupt_vector #GP. vm86 && software int && iopl < 3");
             dbg_trace();
-            trigger_gp_non_raising(0);
+            trigger_gp(0);
             return;
         }
 
@@ -709,7 +709,7 @@ pub unsafe fn call_interrupt_vector(
         if is_software_int && dpl < *cpl {
             dbg_log!("#gp software interrupt ({:x}) and dpl < cpl", interrupt_nr);
             dbg_trace();
-            trigger_gp_non_raising(interrupt_nr << 3 | 2);
+            trigger_gp(interrupt_nr << 3 | 2);
             return;
         }
 
@@ -889,7 +889,7 @@ pub unsafe fn call_interrupt_vector(
 
             if *flags & FLAG_VM != 0 {
                 dbg_assert!(false, "check error code");
-                trigger_gp_non_raising(selector & !3);
+                trigger_gp(selector & !3);
                 return;
             }
 
@@ -1633,7 +1633,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
                 if selector_unusable == SelectorNullOrInvalid::IsNull {
                     if reg == SS {
                         dbg_log!("#GP for loading 0 in SS sel={:x}", selector_raw);
-                        trigger_gp_non_raising(0);
+                        trigger_gp(0);
                         return false;
                     }
                     else if reg != CS {
@@ -1649,7 +1649,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
                         reg,
                         selector_raw
                     );
-                    trigger_gp_non_raising(selector_raw & !3);
+                    trigger_gp(selector_raw & !3);
                     return false;
                 }
 
@@ -1665,7 +1665,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
             || descriptor.dpl() != *cpl
         {
             dbg_log!("#GP for loading invalid in SS sel={:x}", selector_raw);
-            trigger_gp_non_raising(selector_raw & !3);
+            trigger_gp(selector_raw & !3);
             return false;
         }
 
@@ -1692,7 +1692,7 @@ pub unsafe fn switch_seg(reg: i32, selector_raw: i32) -> bool {
                 reg,
                 selector_raw,
             );
-            trigger_gp_non_raising(selector_raw & !3);
+            trigger_gp(selector_raw & !3);
             return false;
         }
 
@@ -1764,7 +1764,7 @@ pub unsafe fn test_privileges_for_io(port: i32, size: i32) -> bool {
     if *protected_mode && (*cpl > getiopl() as u8 || (*flags & FLAG_VM != 0)) {
         if !*tss_size_32 {
             dbg_log!("#GP for port io, 16-bit TSS  port={:x} size={}", port, size);
-            trigger_gp_non_raising(0);
+            trigger_gp(0);
             return false;
         }
 
@@ -1802,7 +1802,7 @@ pub unsafe fn test_privileges_for_io(port: i32, size: i32) -> bool {
         }
 
         dbg_log!("#GP for port io  port={:x} size={}", port, size);
-        trigger_gp_non_raising(0);
+        trigger_gp(0);
         return false;
     }
 
@@ -2108,7 +2108,7 @@ pub unsafe fn trigger_nm() {
 }
 
 #[no_mangle]
-pub unsafe fn trigger_gp_non_raising(code: i32) {
+pub unsafe fn trigger_gp(code: i32) {
     if DEBUG {
         if cpu_exception_hook(CPU_EXCEPTION_GP) {
             return;

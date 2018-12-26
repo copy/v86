@@ -266,7 +266,7 @@ CPU.prototype.wasm_patch = function(wm)
     this.get_eflags_no_arith = get_import("get_eflags_no_arith");
     this.update_eflags = get_import("update_eflags");
 
-    this.trigger_gp_non_raising = get_import("trigger_gp_non_raising");
+    this.trigger_gp = get_import("trigger_gp");
     this.trigger_ud = get_import("trigger_ud");
     this.trigger_np = get_import("trigger_np");
     this.trigger_ss = get_import("trigger_ss");
@@ -1615,49 +1615,49 @@ CPU.prototype.far_return = function(eip, selector, stack_adjust)
     if(info.is_null)
     {
         dbg_log("null cs", LOG_CPU);
-        this.trigger_gp_non_raising(0);
+        this.trigger_gp(0);
         return;
     }
 
     if(!info.is_valid)
     {
         dbg_log("invalid cs: " + h(selector), LOG_CPU);
-        this.trigger_gp_non_raising(selector & ~3);
+        this.trigger_gp(selector & ~3);
         return;
     }
 
     if(info.is_system)
     {
         dbg_assert(false, "is system in far return");
-        this.trigger_gp_non_raising(selector & ~3);
+        this.trigger_gp(selector & ~3);
         return;
     }
 
     if(!info.is_executable)
     {
         dbg_log("non-executable cs: " + h(selector), LOG_CPU);
-        this.trigger_gp_non_raising(selector & ~3);
+        this.trigger_gp(selector & ~3);
         return;
     }
 
     if(info.rpl < this.cpl[0])
     {
         dbg_log("cs rpl < cpl: " + h(selector), LOG_CPU);
-        this.trigger_gp_non_raising(selector & ~3);
+        this.trigger_gp(selector & ~3);
         return;
     }
 
     if(info.dc_bit && info.dpl > info.rpl)
     {
         dbg_log("cs conforming and dpl > rpl: " + h(selector), LOG_CPU);
-        this.trigger_gp_non_raising(selector & ~3);
+        this.trigger_gp(selector & ~3);
         return;
     }
 
     if(!info.dc_bit && info.dpl !== info.rpl)
     {
         dbg_log("cs non-conforming and dpl != rpl: " + h(selector), LOG_CPU);
-        this.trigger_gp_non_raising(selector & ~3);
+        this.trigger_gp(selector & ~3);
         return;
     }
 
@@ -1781,14 +1781,14 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
     if(info.is_null)
     {
         dbg_log("#gp null cs", LOG_CPU);
-        this.trigger_gp_non_raising(0);
+        this.trigger_gp(0);
         return;
     }
 
     if(!info.is_valid)
     {
         dbg_log("#gp invalid cs: " + h(selector), LOG_CPU);
-        this.trigger_gp_non_raising(selector & ~3);
+        this.trigger_gp(selector & ~3);
         return;
     }
 
@@ -1806,7 +1806,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             if(info.dpl < this.cpl[0] || info.dpl < info.rpl)
             {
                 dbg_log("#gp cs gate dpl < cpl or dpl < rpl: " + h(selector), LOG_CPU);
-                this.trigger_gp_non_raising(selector & ~3);
+                this.trigger_gp(selector & ~3);
                 return;
             }
 
@@ -1823,28 +1823,28 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             if(cs_info.is_null)
             {
                 dbg_log("#gp null cs", LOG_CPU);
-                this.trigger_gp_non_raising(0);
+                this.trigger_gp(0);
                 return;
             }
 
             if(!cs_info.is_valid)
             {
                 dbg_log("#gp invalid cs: " + h(cs_selector), LOG_CPU);
-                this.trigger_gp_non_raising(cs_selector & ~3);
+                this.trigger_gp(cs_selector & ~3);
                 return;
             }
 
             if(!cs_info.is_executable)
             {
                 dbg_log("#gp non-executable cs: " + h(cs_selector), LOG_CPU);
-                this.trigger_gp_non_raising(cs_selector & ~3);
+                this.trigger_gp(cs_selector & ~3);
                 return;
             }
 
             if(cs_info.dpl > this.cpl[0])
             {
                 dbg_log("#gp dpl > cpl: " + h(cs_selector), LOG_CPU);
-                this.trigger_gp_non_raising(cs_selector & ~3);
+                this.trigger_gp(cs_selector & ~3);
                 return;
             }
 
@@ -2038,7 +2038,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
         if(!info.is_executable)
         {
             dbg_log("#gp non-executable cs: " + h(selector), LOG_CPU);
-            this.trigger_gp_non_raising(selector & ~3);
+            this.trigger_gp(selector & ~3);
             return;
         }
 
@@ -2048,7 +2048,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             if(info.dpl > this.cpl[0])
             {
                 dbg_log("#gp cs dpl > cpl: " + h(selector), LOG_CPU);
-                this.trigger_gp_non_raising(selector & ~3);
+                this.trigger_gp(selector & ~3);
                 return;
             }
         }
@@ -2059,7 +2059,7 @@ CPU.prototype.far_jump = function(eip, selector, is_call)
             if(info.rpl > this.cpl[0] || info.dpl !== this.cpl[0])
             {
                 dbg_log("#gp cs rpl > cpl or dpl != cpl: " + h(selector), LOG_CPU);
-                this.trigger_gp_non_raising(selector & ~3);
+                this.trigger_gp(selector & ~3);
                 return;
             }
         }
@@ -2338,7 +2338,7 @@ CPU.prototype.hlt_op = function()
     if(this.cpl[0])
     {
         dbg_log("#gp hlt with cpl != 0", LOG_CPU);
-        this.trigger_gp_non_raising(0);
+        this.trigger_gp(0);
         return;
     }
 
@@ -2739,7 +2739,7 @@ CPU.prototype.switch_seg = function(reg, selector)
         {
             dbg_log("#GP for loading 0 in SS sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
-            this.trigger_gp_non_raising(0);
+            this.trigger_gp(0);
             return false;
         }
 
@@ -2751,7 +2751,7 @@ CPU.prototype.switch_seg = function(reg, selector)
         {
             dbg_log("#GP for loading invalid in SS sel=" + h(selector, 4), LOG_CPU);
             dbg_trace(LOG_CPU);
-            this.trigger_gp_non_raising(selector & ~3);
+            this.trigger_gp(selector & ~3);
             return false;
         }
 
@@ -2792,7 +2792,7 @@ CPU.prototype.switch_seg = function(reg, selector)
             this.debug.dump_state();
             this.debug.dump_regs();
             dbg_trace(LOG_CPU);
-            this.trigger_gp_non_raising(selector & ~3);
+            this.trigger_gp(selector & ~3);
             return false;
         }
 
