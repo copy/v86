@@ -3698,14 +3698,7 @@ pub unsafe fn instr_D9_6_reg(r: i32) {
         },
         1 => {
             // fyl2x
-            if st0 < 0.0 {
-                fpu_invalid_arithmetic();
-            }
-            fpu_write_st(
-                *fpu_stack_ptr as i32 + 1 & 7,
-                fpu_get_sti(1) * st0.ln() / M_LN2,
-            );
-            fpu_pop();
+            fpu_fyl2x();
         },
         2 => {
             // fptan

@@ -3,6 +3,7 @@ use std::mem::transmute;
 use cpu2::cpu::*;
 use cpu2::global_pointers::*;
 use paging::OrPageFault;
+use std::f64;
 
 pub fn round(x: f64) -> f64 { x.round() }
 pub fn floor(x: f64) -> f64 { x.floor() }
@@ -23,6 +24,7 @@ const FPU_C3: i32 = 0x4000;
 const FPU_RESULT_FLAGS: i32 = FPU_C0 | FPU_C1 | FPU_C2 | FPU_C3;
 const INDEFINITE_NAN: f64 = ::std::f64::NAN;
 const FPU_EX_I: i32 = 1 << 0;
+const FPU_EX_Z: i32 = 1 << 2;
 const FPU_EX_SF: i32 = 1 << 6;
 const TWO_POW_63: f64 = 0x8000000000000000u64 as f64;
 
@@ -87,6 +89,12 @@ pub unsafe fn fpu_get_st0() -> f64 {
 pub unsafe fn fpu_stack_fault() {
     // TODO: Interrupt
     *fpu_status_word |= FPU_EX_SF | FPU_EX_I;
+}
+
+#[no_mangle]
+pub unsafe fn fpu_zero_fault() {
+    // TODO: Interrupt
+    *fpu_status_word |= FPU_EX_Z;
 }
 
 #[no_mangle]
@@ -305,11 +313,17 @@ pub unsafe fn fpu_fcomp(val: f64) {
 #[no_mangle]
 pub unsafe fn fpu_fdiv(target_index: i32, val: f64) {
     let st0: f64 = fpu_get_st0();
+    if val == 0.0 {
+        fpu_zero_fault();
+    }
     fpu_write_st(*fpu_stack_ptr as i32 + target_index & 7, st0 / val);
 }
 #[no_mangle]
 pub unsafe fn fpu_fdivr(target_index: i32, val: f64) {
     let st0: f64 = fpu_get_st0();
+    if st0 == 0.0 {
+        fpu_zero_fault();
+    }
     fpu_write_st(*fpu_stack_ptr as i32 + target_index & 7, val / st0);
 }
 #[no_mangle]
@@ -762,15 +776,37 @@ pub unsafe fn fpu_fxch(i: i32) {
     fpu_write_st(*fpu_stack_ptr as i32 + i & 7, fpu_get_st0());
     fpu_write_st(*fpu_stack_ptr as i32, sti);
 }
+pub unsafe fn fpu_fyl2x() {
+    let st0 = fpu_get_st0();
+    if st0 < 0.0 {
+        fpu_invalid_arithmetic();
+    }
+    else if st0 == 0.0 {
+        fpu_zero_fault();
+    }
+    fpu_write_st(
+        *fpu_stack_ptr as i32 + 1 & 7,
+        fpu_get_sti(1) * st0.ln() / M_LN2,
+    );
+    fpu_pop();
+}
 #[no_mangle]
 pub unsafe fn fpu_fxtract() {
-    let mut f = FloatParts::of_f64(fpu_get_st0());
-    fpu_write_st(
-        *fpu_stack_ptr as i32,
-        f.exponent as f64 - F64_EXPONENT_BIAS as f64,
-    );
-    f.exponent = 0x3FF;
-    fpu_push(f.to_f64());
+    let st0 = fpu_get_st0();
+    if st0 == 0.0 {
+        fpu_zero_fault();
+        fpu_write_st(*fpu_stack_ptr as i32, f64::NEG_INFINITY);
+        fpu_push(st0);
+    }
+    else {
+        let mut f = FloatParts::of_f64(st0);
+        fpu_write_st(
+            *fpu_stack_ptr as i32,
+            f.exponent as f64 - F64_EXPONENT_BIAS as f64,
+        );
+        f.exponent = 0x3FF;
+        fpu_push(f.to_f64());
+    }
 }
 #[no_mangle]
 pub unsafe fn fwait() {
