@@ -578,8 +578,9 @@ fn gen_safe_read(ctx: &mut JitContext, bits: BitSize, where_to_write: Option<u32
 
     ctx.builder.instruction_body.if_void();
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-    gen_move_registers_from_locals_to_memory(ctx);
-    ctx.builder.instruction_body.return_();
+    // -2 for the exit-with-pagefault block, +2 for leaving the two nested ifs from this function
+    let br_offset = ctx.current_brtable_depth - 2 + 2;
+    ctx.builder.instruction_body.br(br_offset);
     ctx.builder.instruction_body.block_end();
 
     ctx.builder.instruction_body.block_end();
@@ -763,8 +764,9 @@ fn gen_safe_write(
 
     ctx.builder.instruction_body.if_void();
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
-    gen_move_registers_from_locals_to_memory(ctx);
-    ctx.builder.instruction_body.return_();
+    // -2 for the exit-with-pagefault block, +2 for leaving the two nested ifs from this function
+    let br_offset = ctx.current_brtable_depth - 2 + 2;
+    ctx.builder.instruction_body.br(br_offset);
     ctx.builder.instruction_body.block_end();
 
     ctx.builder.instruction_body.block_end();

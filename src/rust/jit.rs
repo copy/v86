@@ -381,6 +381,7 @@ pub struct JitContext<'a> {
     pub builder: &'a mut WasmBuilder,
     pub register_locals: &'a mut Vec<WasmLocal>,
     pub start_of_current_instruction: u32,
+    pub current_brtable_depth: u32,
 }
 
 pub const JIT_INSTR_BLOCK_BOUNDARY_FLAG: u32 = 1 << 0;
@@ -988,6 +989,7 @@ fn jit_generate_module(
         builder,
         register_locals: &mut register_locals,
         start_of_current_instruction: 0,
+        current_brtable_depth: 0,
     };
 
     // main state machine loop
@@ -1020,6 +1022,8 @@ fn jit_generate_module(
 
     ctx.builder.instruction_body.block_void(); // for the default case
 
+    ctx.builder.instruction_body.block_void(); // for the exit-with-pagefault case
+
     // generate the opening blocks for the cases
 
     for _ in 0..basic_blocks.len() {
@@ -1029,12 +1033,14 @@ fn jit_generate_module(
     ctx.builder.instruction_body.get_local(&gen_local_state);
     ctx.builder
         .instruction_body
-        .brtable_and_cases(basic_blocks.len() as u32);
+        .brtable_and_cases(basic_blocks.len() as u32 + 1); // plus one for the exit-with-pagefault case
 
     for (i, block) in basic_blocks.iter().enumerate() {
         // Case [i] will jump after the [i]th block, so we first generate the
         // block end opcode and then the code for that block
         ctx.builder.instruction_body.block_end();
+
+        ctx.current_brtable_depth = basic_blocks.len() as u32 + 1 - i as u32;
 
         dbg_assert!(block.addr < block.end_addr);
 
@@ -1063,9 +1069,7 @@ fn jit_generate_module(
                 ctx.builder.instruction_body.const_i32(next_bb_index as i32);
                 ctx.builder.instruction_body.set_local(&gen_local_state);
 
-                ctx.builder
-                    .instruction_body
-                    .br(basic_blocks.len() as u32 - i as u32); // to the loop
+                ctx.builder.instruction_body.br(ctx.current_brtable_depth); // to the loop
             },
             &BasicBlockType::ConditionalJump {
                 next_block_addr,
@@ -1131,9 +1135,16 @@ fn jit_generate_module(
 
                 ctx.builder
                     .instruction_body
-                    .br(basic_blocks.len() as u32 - i as u32); // to the loop
+                    .br(basic_blocks.len() as u32 + 1 - i as u32); // to the loop
             },
         }
+    }
+
+    {
+        // exit-with-pagefault case
+        ctx.builder.instruction_body.block_end();
+        codegen::gen_move_registers_from_locals_to_memory(ctx);
+        ctx.builder.instruction_body.return_();
     }
 
     ctx.builder.instruction_body.block_end(); // default case
