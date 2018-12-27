@@ -812,7 +812,7 @@ pub unsafe fn instr_0F22(r: i32, creg: i32) {
                     dbg_log!("cr3 <- {:x}", data);
                 }
                 data &= !0b111111100111;
-                dbg_assert!(data & 0xFFF == 0, ("TODO"));
+                dbg_assert!(data & 0xFFF == 0, "TODO");
                 *cr.offset(3) = data;
                 clear_tlb();
             },
@@ -1149,7 +1149,7 @@ pub unsafe fn instr_0F30() {
                 address == APIC_ADDRESS,
                 ("Changing APIC address not supported")
             );
-            dbg_assert!(low & IA32_APIC_BASE_EXTD == 0, ("x2apic not supported"));
+            dbg_assert!(low & IA32_APIC_BASE_EXTD == 0, "x2apic not supported");
             apic_enabled = low & IA32_APIC_BASE_EN == IA32_APIC_BASE_EN
         }
         else if index == IA32_TIME_STAMP_COUNTER {
@@ -3313,7 +3313,7 @@ pub unsafe fn instr_0FAE_4_mem(addr: i32) {
 #[no_mangle]
 pub unsafe fn instr_0FAE_5_reg(r: i32) {
     // lfence
-    dbg_assert!(r == 0, ("Unexpected lfence encoding"));
+    dbg_assert!(r == 0, "Unexpected lfence encoding");
 }
 #[no_mangle]
 pub unsafe fn instr_0FAE_5_mem(addr: i32) {
@@ -3323,7 +3323,7 @@ pub unsafe fn instr_0FAE_5_mem(addr: i32) {
 #[no_mangle]
 pub unsafe fn instr_0FAE_6_reg(r: i32) {
     // mfence
-    dbg_assert!(r == 0, ("Unexpected mfence encoding"));
+    dbg_assert!(r == 0, "Unexpected mfence encoding");
 }
 #[no_mangle]
 pub unsafe fn instr_0FAE_6_mem(addr: i32) {
@@ -3333,7 +3333,7 @@ pub unsafe fn instr_0FAE_6_mem(addr: i32) {
 #[no_mangle]
 pub unsafe fn instr_0FAE_7_reg(r: i32) {
     // sfence
-    dbg_assert!(r == 0, ("Unexpected sfence encoding"));
+    dbg_assert!(r == 0, "Unexpected sfence encoding");
 }
 #[no_mangle]
 pub unsafe fn instr_0FAE_7_mem(addr: i32) {
