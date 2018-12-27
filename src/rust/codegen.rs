@@ -1009,6 +1009,7 @@ pub fn gen_task_switch_test(ctx: &mut JitContext) {
     gen_fn0_const(ctx.builder, "task_switch_test_void");
 
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
 
     ctx.builder.instruction_body.block_end();
@@ -1030,6 +1031,7 @@ pub fn gen_task_switch_test_mmx(ctx: &mut JitContext) {
     gen_fn0_const(ctx.builder, "task_switch_test_mmx_void");
 
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
 
     ctx.builder.instruction_body.block_end();
@@ -1285,6 +1287,7 @@ pub fn gen_safe_read_write(
     ctx.builder.instruction_body.if_void();
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
     gen_move_registers_from_locals_to_memory(ctx);
+    gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
     ctx.builder.instruction_body.block_end();
 
@@ -1313,6 +1316,7 @@ pub fn gen_trigger_ud(ctx: &mut JitContext) {
     gen_move_registers_from_locals_to_memory(ctx);
     gen_fn0_const(ctx.builder, "trigger_ud");
     gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    gen_clear_prefixes(ctx);
     ctx.builder.instruction_body.return_();
 }
 

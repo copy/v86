@@ -1145,6 +1145,7 @@ fn jit_generate_module(
         ctx.builder.instruction_body.block_end();
         codegen::gen_move_registers_from_locals_to_memory(ctx);
         codegen::gen_fn0_const(ctx.builder, "trigger_pagefault_end_jit");
+        codegen::gen_clear_prefixes(ctx);
         ctx.builder.instruction_body.return_();
     }
 
