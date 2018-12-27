@@ -823,7 +823,6 @@ pub fn gen_jmp_rel16(builder: &mut WasmBuilder, rel16: u16) {
 pub fn gen_pop16_ss16(ctx: &mut JitContext) {
     // sp = segment_offsets[SS] + reg16[SP] (or just reg16[SP] if has_flat_segmentation)
     gen_get_reg16(ctx, regs::SP);
-    let sp_local = ctx.builder.tee_new_local();
 
     if !ctx.cpu.has_flat_segmentation() {
         ctx.builder
@@ -836,12 +835,10 @@ pub fn gen_pop16_ss16(ctx: &mut JitContext) {
     gen_safe_read16(ctx);
 
     // reg16[SP] += 2;
-    ctx.builder.instruction_body.get_local(&sp_local);
+    gen_get_reg16(ctx, regs::SP);
     ctx.builder.instruction_body.const_i32(2);
     ctx.builder.instruction_body.add_i32();
     gen_set_reg16(ctx, regs::SP);
-
-    ctx.builder.free_local(sp_local);
 
     // return value is already on stack
 }
@@ -849,7 +846,6 @@ pub fn gen_pop16_ss16(ctx: &mut JitContext) {
 pub fn gen_pop16_ss32(ctx: &mut JitContext) {
     // esp = segment_offsets[SS] + reg32s[ESP] (or just reg32s[ESP] if has_flat_segmentation)
     gen_get_reg32(ctx, regs::ESP);
-    let esp_local = ctx.builder.tee_new_local();
 
     if !ctx.cpu.has_flat_segmentation() {
         ctx.builder
@@ -862,11 +858,10 @@ pub fn gen_pop16_ss32(ctx: &mut JitContext) {
     gen_safe_read16(ctx);
 
     // reg32s[ESP] += 2;
-    ctx.builder.instruction_body.get_local(&esp_local);
+    gen_get_reg32(ctx, regs::ESP);
     ctx.builder.instruction_body.const_i32(2);
     ctx.builder.instruction_body.add_i32();
     gen_set_reg32(ctx, regs::ESP);
-    ctx.builder.free_local(esp_local);
 
     // return value is already on stack
 }
@@ -883,7 +878,6 @@ pub fn gen_pop16(ctx: &mut JitContext) {
 pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
     // sp = reg16[SP]
     gen_get_reg16(ctx, regs::SP);
-    let local_sp = ctx.builder.tee_new_local();
 
     // result = safe_read32s(segment_offsets[SS] + sp) (or just sp if has_flat_segmentation)
     if !ctx.cpu.has_flat_segmentation() {
@@ -896,12 +890,10 @@ pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
     gen_safe_read32(ctx);
 
     // reg16[SP] = sp + 4;
-    ctx.builder.instruction_body.get_local(&local_sp);
+    gen_get_reg16(ctx, regs::SP);
     ctx.builder.instruction_body.const_i32(4);
     ctx.builder.instruction_body.add_i32();
     gen_set_reg16(ctx, regs::SP);
-
-    ctx.builder.free_local(local_sp);
 
     // return value is already on stack
 }
@@ -909,7 +901,6 @@ pub fn gen_pop32s_ss16(ctx: &mut JitContext) {
 pub fn gen_pop32s_ss32(ctx: &mut JitContext) {
     // esp = reg32s[ESP]
     gen_get_reg32(ctx, regs::ESP);
-    let local_esp = ctx.builder.tee_new_local();
 
     // result = safe_read32s(segment_offsets[SS] + esp) (or just esp if has_flat_segmentation)
     if !ctx.cpu.has_flat_segmentation() {
@@ -921,12 +912,10 @@ pub fn gen_pop32s_ss32(ctx: &mut JitContext) {
     gen_safe_read32(ctx);
 
     // reg32s[ESP] = esp + 4;
-    ctx.builder.instruction_body.get_local(&local_esp);
+    gen_get_reg32(ctx, regs::ESP);
     ctx.builder.instruction_body.const_i32(4);
     ctx.builder.instruction_body.add_i32();
     gen_set_reg32(ctx, regs::ESP);
-
-    ctx.builder.free_local(local_esp);
 
     // return value is already on stack
 }
@@ -1056,23 +1045,35 @@ pub fn gen_push16(ctx: &mut JitContext, value_local: &WasmLocal) {
 
     ctx.builder.instruction_body.const_i32(2);
     ctx.builder.instruction_body.sub_i32();
-    let reg_updated_local = ctx.builder.tee_new_local();
-    if !ctx.cpu.ssize_32() {
-        ctx.builder.instruction_body.const_i32(0xFFFF);
-        ctx.builder.instruction_body.and_i32();
-    }
 
-    if !ctx.cpu.has_flat_segmentation() {
-        ctx.builder
-            .instruction_body
-            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
-        ctx.builder.instruction_body.add_i32();
-    }
+    let reg_updated_local = if !ctx.cpu.ssize_32() || !ctx.cpu.has_flat_segmentation() {
+        let reg_updated_local = ctx.builder.tee_new_local();
+        if !ctx.cpu.ssize_32() {
+            ctx.builder.instruction_body.const_i32(0xFFFF);
+            ctx.builder.instruction_body.and_i32();
+        }
 
-    let sp_local = ctx.builder.set_new_local();
-    gen_safe_write16(ctx, &sp_local, &value_local);
-    ctx.builder.free_local(sp_local);
-    ctx.builder.instruction_body.get_local(&reg_updated_local);
+        if !ctx.cpu.has_flat_segmentation() {
+            ctx.builder
+                .instruction_body
+                .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+            ctx.builder.instruction_body.add_i32();
+        }
+
+        let sp_local = ctx.builder.set_new_local();
+        gen_safe_write16(ctx, &sp_local, &value_local);
+        ctx.builder.free_local(sp_local);
+
+        ctx.builder.instruction_body.get_local(&reg_updated_local);
+        reg_updated_local
+    }
+    else {
+        // short path: The address written to is equal to ESP/SP minus two
+        let reg_updated_local = ctx.builder.tee_new_local();
+        gen_safe_write16(ctx, &reg_updated_local, &value_local);
+        reg_updated_local
+    };
+
     if ctx.cpu.ssize_32() {
         gen_set_reg32(ctx, regs::ESP);
     }
@@ -1092,25 +1093,36 @@ pub fn gen_push32(ctx: &mut JitContext, value_local: &WasmLocal) {
 
     ctx.builder.instruction_body.const_i32(4);
     ctx.builder.instruction_body.sub_i32();
-    if !ctx.cpu.ssize_32() {
-        ctx.builder.instruction_body.const_i32(0xFFFF);
-        ctx.builder.instruction_body.and_i32();
+
+    let new_sp_local = if !ctx.cpu.ssize_32() || !ctx.cpu.has_flat_segmentation() {
+        let new_sp_local = ctx.builder.tee_new_local();
+        if !ctx.cpu.ssize_32() {
+            ctx.builder.instruction_body.const_i32(0xFFFF);
+            ctx.builder.instruction_body.and_i32();
+        }
+
+        if !ctx.cpu.has_flat_segmentation() {
+            ctx.builder
+                .instruction_body
+                .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
+            ctx.builder.instruction_body.add_i32();
+        }
+
+        let sp_local = ctx.builder.set_new_local();
+
+        gen_safe_write32(ctx, &sp_local, &value_local);
+        ctx.builder.free_local(sp_local);
+
+        ctx.builder.instruction_body.get_local(&new_sp_local);
+        new_sp_local
     }
-    let new_sp_local = ctx.builder.tee_new_local();
+    else {
+        // short path: The address written to is equal to ESP/SP minus four
+        let new_sp_local = ctx.builder.tee_new_local();
+        gen_safe_write32(ctx, &new_sp_local, &value_local);
+        new_sp_local
+    };
 
-    if !ctx.cpu.has_flat_segmentation() {
-        ctx.builder
-            .instruction_body
-            .load_aligned_i32(global_pointers::get_seg_offset(regs::SS));
-        ctx.builder.instruction_body.add_i32();
-    }
-
-    let sp_local = ctx.builder.set_new_local();
-
-    gen_safe_write32(ctx, &sp_local, &value_local);
-    ctx.builder.free_local(sp_local);
-
-    ctx.builder.instruction_body.get_local(&new_sp_local);
     if ctx.cpu.ssize_32() {
         gen_set_reg32(ctx, regs::ESP);
     }
