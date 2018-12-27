@@ -176,19 +176,9 @@ pub unsafe fn push16_ss32(imm16: i32) -> OrPageFault<()> {
 }
 
 #[no_mangle]
-pub unsafe fn push16_ss16_jit(imm16: i32) { return_on_pagefault!(push16_ss16(imm16)) }
-#[no_mangle]
-pub unsafe fn push16_ss32_jit(imm16: i32) { return_on_pagefault!(push16_ss32(imm16)) }
-
-#[no_mangle]
 pub unsafe fn push16_ss16_mem(addr: i32) -> OrPageFault<()> { push16_ss16(safe_read16(addr)?) }
 #[no_mangle]
 pub unsafe fn push16_ss32_mem(addr: i32) -> OrPageFault<()> { push16_ss32(safe_read16(addr)?) }
-
-#[no_mangle]
-pub unsafe fn push16_ss16_mem_jit(addr: i32) { return_on_pagefault!(push16_ss16_mem(addr)) }
-#[no_mangle]
-pub unsafe fn push16_ss32_mem_jit(addr: i32) { return_on_pagefault!(push16_ss32_mem(addr)) }
 
 #[no_mangle]
 pub unsafe fn push16(imm16: i32) -> OrPageFault<()> {
@@ -216,19 +206,9 @@ pub unsafe fn push32_ss32(imm32: i32) -> OrPageFault<()> {
 }
 
 #[no_mangle]
-pub unsafe fn push32_ss16_jit(imm32: i32) { return_on_pagefault!(push32_ss16(imm32)) }
-#[no_mangle]
-pub unsafe fn push32_ss32_jit(imm32: i32) { return_on_pagefault!(push32_ss32(imm32)) }
-
-#[no_mangle]
 pub unsafe fn push32_ss16_mem(addr: i32) -> OrPageFault<()> { push32_ss16(safe_read32s(addr)?) }
 #[no_mangle]
 pub unsafe fn push32_ss32_mem(addr: i32) -> OrPageFault<()> { push32_ss32(safe_read32s(addr)?) }
-
-#[no_mangle]
-pub unsafe fn push32_ss16_mem_jit(addr: i32) { return_on_pagefault!(push32_ss16_mem(addr)) }
-#[no_mangle]
-pub unsafe fn push32_ss32_mem_jit(addr: i32) { return_on_pagefault!(push32_ss32_mem(addr)) }
 
 #[no_mangle]
 pub unsafe fn push32(imm32: i32) -> OrPageFault<()> {
