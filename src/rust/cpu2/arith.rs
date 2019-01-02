@@ -724,7 +724,7 @@ pub unsafe fn div32(source_operand: u32) {
         let target_high: u32 = *reg32s.offset(EDX as isize) as u32;
         let target_operand: u64 = (target_high as u64) << 32 | target_low as u64;
         let result: u64 = target_operand.wrapping_div(source_operand as u64);
-        if result > 4294967295 {
+        if result > 0xFFFFFFFF {
             trigger_de();
             return;
         }
