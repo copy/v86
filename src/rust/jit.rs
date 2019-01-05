@@ -510,8 +510,10 @@ fn jit_find_basic_blocks(
                 AnalysisType::Jump {
                     offset,
                     is_32,
-                    condition,
+                    condition: Some(condition),
                 } => {
+                    // conditional jump: continue at next and continue at jump target
+
                     let jump_target = if is_32 {
                         current_address.wrapping_add(offset as u32)
                     }
@@ -524,74 +526,86 @@ fn jit_find_basic_blocks(
                         )
                     };
 
-                    if let Some(condition) = condition {
-                        // conditional jump: continue at next and continue at jump target
+                    dbg_assert!(has_next_instruction);
+                    to_visit_stack.push(current_address as u16 & 0xFFF);
 
-                        dbg_assert!(has_next_instruction);
-                        to_visit_stack.push(current_address as u16 & 0xFFF);
+                    let next_block_branch_taken_addr;
 
-                        let next_block_branch_taken_addr;
+                    if Page::page_of(jump_target) == page && !is_near_end_of_page(jump_target) {
+                        to_visit_stack.push(jump_target as u16 & 0xFFF);
 
-                        if Page::page_of(jump_target) == page && !is_near_end_of_page(jump_target) {
-                            to_visit_stack.push(jump_target as u16 & 0xFFF);
+                        next_block_branch_taken_addr = Some(jump_target);
 
-                            next_block_branch_taken_addr = Some(jump_target);
-
-                            // Very simple heuristic for "infinite loops": This
-                            // detects Linux's "calibrating delay loop"
-                            if jump_target == current_block.addr {
-                                dbg_log!("Basic block looping back to front");
-                                requires_loop_limit = true;
-                            }
+                        // Very simple heuristic for "infinite loops": This
+                        // detects Linux's "calibrating delay loop"
+                        if jump_target == current_block.addr {
+                            dbg_log!("Basic block looping back to front");
+                            requires_loop_limit = true;
                         }
-                        else {
-                            next_block_branch_taken_addr = None;
-                        }
-
-                        let next_block_addr = if is_near_end_of_page(current_address) {
-                            None
-                        }
-                        else {
-                            Some(current_address)
-                        };
-
-                        current_block.ty = BasicBlockType::ConditionalJump {
-                            next_block_addr,
-                            next_block_branch_taken_addr,
-                            condition,
-                            jump_offset: offset,
-                            jump_offset_is_32: is_32,
-                        };
-
-                        current_block.last_instruction_addr = addr_before_instruction;
-                        current_block.end_addr = current_address;
-
-                        break;
                     }
                     else {
-                        // non-conditional jump: continue at jump target
-
-                        if has_next_instruction {
-                            // Execution will eventually come back to the next instruction (CALL)
-                            marked_as_entry.insert(current_address as u16 & 0xFFF);
-                            to_visit_stack.push(current_address as u16 & 0xFFF);
-                        }
-
-                        if Page::page_of(jump_target) == page && !is_near_end_of_page(jump_target) {
-                            current_block.ty = BasicBlockType::Normal {
-                                next_block_addr: jump_target,
-                            };
-                            to_visit_stack.push(jump_target as u16 & 0xFFF);
-                        }
-                        else {
-                            current_block.ty = BasicBlockType::Exit;
-                        }
-
-                        current_block.last_instruction_addr = addr_before_instruction;
-                        current_block.end_addr = current_address;
-
-                        break;
+                        next_block_branch_taken_addr = None;
                     }
+
+                    let next_block_addr = if is_near_end_of_page(current_address) {
+                        None
+                    }
+                    else {
+                        Some(current_address)
+                    };
+
+                    current_block.ty = BasicBlockType::ConditionalJump {
+                        next_block_addr,
+                        next_block_branch_taken_addr,
+                        condition,
+                        jump_offset: offset,
+                        jump_offset_is_32: is_32,
+                    };
+
+                    current_block.last_instruction_addr = addr_before_instruction;
+                    current_block.end_addr = current_address;
+
+                    break;
+                },
+                AnalysisType::Jump {
+                    offset,
+                    is_32,
+                    condition: None,
+                } => {
+                    // non-conditional jump: continue at jump target
+
+                    let jump_target = if is_32 {
+                        current_address.wrapping_add(offset as u32)
+                    }
+                    else {
+                        ctx.cs_offset.wrapping_add(
+                            (current_address
+                                .wrapping_sub(ctx.cs_offset)
+                                .wrapping_add(offset as u32))
+                                & 0xFFFF,
+                        )
+                    };
+
+                    if has_next_instruction {
+                        // Execution will eventually come back to the next instruction (CALL)
+                        marked_as_entry.insert(current_address as u16 & 0xFFF);
+                        to_visit_stack.push(current_address as u16 & 0xFFF);
+                    }
+
+                    if Page::page_of(jump_target) == page && !is_near_end_of_page(jump_target) {
+                        current_block.ty = BasicBlockType::Normal {
+                            next_block_addr: jump_target,
+                        };
+                        to_visit_stack.push(jump_target as u16 & 0xFFF);
+                    }
+                    else {
+                        current_block.ty = BasicBlockType::Exit;
+                    }
+
+                    current_block.last_instruction_addr = addr_before_instruction;
+                    current_block.end_addr = current_address;
+
+                    break;
                 },
                 AnalysisType::BlockBoundary => {
                     // a block boundary but not a jump, get out
