@@ -693,9 +693,15 @@ fn create_cache_entry(ctx: &mut JitState, entry: jit_cache_array::Entry) {
 
     for i in 0..CODE_CACHE_SEARCH_SIZE {
         let addr_index = (phys_addr + i) & jit_cache_array::MASK;
-        let entry = jit_cache_array::get(addr_index);
+        let existing_entry = jit_cache_array::get(addr_index);
 
-        if entry.start_addr == 0 {
+        if existing_entry.start_addr == entry.start_addr
+            && existing_entry.state_flags == entry.state_flags
+        {
+            profiler::stat_increment(stat::COMPILE_DUPLICATE_ENTRY);
+        }
+
+        if existing_entry.start_addr == 0 {
             found_entry_index = Some(addr_index);
             break;
         }

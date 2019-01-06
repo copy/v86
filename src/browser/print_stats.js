@@ -20,6 +20,7 @@ const print_stats = {
             "COMPILE_WITH_LOOP_SAFETY",
             "COMPILE_BASIC_BLOCK",
             "COMPILE_ENTRY_POINT",
+            "COMPILE_DUPLICATE_ENTRY",
             "COMPILE_WASM_TOTAL_BYTES",
             "CACHE_MISMATCH",
             "RUN_INTERPRETED",
