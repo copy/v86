@@ -2,6 +2,7 @@
 
 use codegen;
 use cpu::BitSize;
+use cpu2::cpu::{FLAGS_ALL, FLAG_OVERFLOW, OPSIZE_32};
 use global_pointers;
 use jit::JitContext;
 use modrm;
@@ -750,6 +751,36 @@ macro_rules! define_instruction_read_write_mem32(
         }
     );
 );
+
+fn gen_mul32(ctx: &mut JitContext) {
+    ctx.builder.instruction_body.extend_unsigned_i32_to_i64();
+
+    codegen::gen_get_reg32(ctx, regs::EAX);
+    ctx.builder.instruction_body.extend_unsigned_i32_to_i64();
+    ctx.builder.instruction_body.mul_i64();
+
+    let result = ctx.builder.tee_new_local_i64();
+    ctx.builder.instruction_body.const_i64(32);
+    ctx.builder.instruction_body.shr_u_i64();
+    ctx.builder.instruction_body.wrap_i64_to_i32();
+    codegen::gen_set_reg32(ctx, regs::EDX);
+
+    ctx.builder.instruction_body.get_local_i64(&result);
+    ctx.builder.free_local_i64(result);
+    ctx.builder.instruction_body.wrap_i64_to_i32();
+    codegen::gen_set_reg32(ctx, regs::EAX);
+
+    codegen::gen_get_reg32(ctx, regs::EDX);
+    ctx.builder.instruction_body.if_void();
+    codegen::gen_set_flags_bits(ctx.builder, 1 | FLAG_OVERFLOW);
+    ctx.builder.instruction_body.else_();
+    codegen::gen_clear_flags_bits(ctx.builder, 1 | FLAG_OVERFLOW);
+    ctx.builder.instruction_body.block_end();
+
+    codegen::gen_set_last_result(ctx.builder, &ctx.register_locals[regs::EAX as usize]);
+    codegen::gen_set_last_op_size(ctx.builder, OPSIZE_32);
+    codegen::gen_set_flags_changed(ctx.builder, FLAGS_ALL & !1 & !FLAG_OVERFLOW);
+}
 
 define_instruction_read_write_mem8!(
     "add8",
@@ -2789,41 +2820,53 @@ define_instruction_read_write_mem32!(
 pub fn instr16_F7_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     codegen::gen_safe_read16(ctx);
-    codegen::gen_call_fn1(ctx.builder, "mul16")
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    codegen::gen_call_fn1(ctx.builder, "mul16");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
 }
 pub fn instr16_F7_4_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_get_reg16(ctx, r);
-    codegen::gen_call_fn1(ctx.builder, "mul16")
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    codegen::gen_call_fn1(ctx.builder, "mul16");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
 }
 pub fn instr32_F7_4_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     codegen::gen_safe_read32(ctx);
-    codegen::gen_call_fn1(ctx.builder, "mul32")
+    gen_mul32(ctx);
 }
 pub fn instr32_F7_4_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_get_reg32(ctx, r);
-    codegen::gen_call_fn1(ctx.builder, "mul32")
+    gen_mul32(ctx);
 }
 
 pub fn instr16_F7_5_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     codegen::gen_safe_read16(ctx);
     codegen::sign_extend_i16(ctx.builder);
-    codegen::gen_call_fn1(ctx.builder, "imul16")
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    codegen::gen_call_fn1(ctx.builder, "imul16");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
 }
 pub fn instr16_F7_5_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_get_reg16(ctx, r);
     codegen::sign_extend_i16(ctx.builder);
-    codegen::gen_call_fn1(ctx.builder, "imul16")
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    codegen::gen_call_fn1(ctx.builder, "imul16");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
 }
 pub fn instr32_F7_5_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     codegen::gen_safe_read32(ctx);
-    codegen::gen_call_fn1(ctx.builder, "imul32")
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    codegen::gen_call_fn1(ctx.builder, "imul32");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
 }
 pub fn instr32_F7_5_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_get_reg32(ctx, r);
-    codegen::gen_call_fn1(ctx.builder, "imul32")
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    codegen::gen_call_fn1(ctx.builder, "imul32");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
 }
 
 define_instruction_read_write_mem16!(

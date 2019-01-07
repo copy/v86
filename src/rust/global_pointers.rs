@@ -1,4 +1,8 @@
 pub const REG: u32 = 4;
+pub const LAST_OP_SIZE: u32 = 520;
+pub const LAST_RESULT: u32 = 528;
+pub const FLAGS_CHANGED: u32 = 532;
+pub const FLAGS: u32 = 536;
 pub const PAGE_FAULT: u32 = 540;
 pub const INSTRUCTION_POINTER: u32 = 556;
 pub const PREVIOUS_IP: u32 = 560;

@@ -8,11 +8,13 @@ pub trait WasmBuf {
     fn write_fixed_leb16_at_idx(&mut self, idx: usize, x: u16);
     fn write_fixed_leb32_at_idx(&mut self, idx: usize, x: u32);
     fn const_i32(&mut self, v: i32);
+    fn const_i64(&mut self, v: i64);
     fn add_i32(&mut self);
     fn sub_i32(&mut self);
     fn and_i32(&mut self);
     fn or_i32(&mut self);
     fn shl_i32(&mut self);
+    fn mul_i64(&mut self);
     fn call_fn(&mut self, fn_idx: u16);
     fn eq_i32(&mut self);
     fn ne_i32(&mut self);
@@ -51,9 +53,12 @@ pub trait WasmBuf {
     fn demote_f64_to_f32(&mut self);
     fn convert_i32_to_f64(&mut self);
     fn convert_i64_to_f64(&mut self);
+    fn extend_unsigned_i32_to_i64(&mut self);
+    fn wrap_i64_to_i32(&mut self);
 
     fn shr_u_i32(&mut self);
     fn shr_s_i32(&mut self);
+    fn shr_u_i64(&mut self);
     fn eqz_i32(&mut self);
     fn if_void(&mut self);
     fn else_(&mut self);
@@ -89,6 +94,11 @@ impl WasmBuf for Vec<u8> {
     fn const_i32(&mut self, v: i32) {
         self.push(op::OP_I32CONST);
         self.write_leb_i32(v);
+    }
+
+    fn const_i64(&mut self, v: i64) {
+        self.push(op::OP_I64CONST);
+        self.write_leb_i32(v as i32); // XXX
     }
 
     fn load_aligned_u16(&mut self, addr: u32) {
@@ -129,6 +139,8 @@ impl WasmBuf for Vec<u8> {
     fn or_i32(&mut self) { self.push(op::OP_I32OR); }
 
     fn shl_i32(&mut self) { self.push(op::OP_I32SHL); }
+
+    fn mul_i64(&mut self) { self.push(op::OP_I64MUL); }
 
     fn call_fn(&mut self, fn_idx: u16) {
         self.push(op::OP_CALL);
@@ -240,8 +252,11 @@ impl WasmBuf for Vec<u8> {
     fn demote_f64_to_f32(&mut self) { self.push(op::OP_F32DEMOTEF64); }
     fn convert_i32_to_f64(&mut self) { self.push(op::OP_F64CONVERTSI32); }
     fn convert_i64_to_f64(&mut self) { self.push(op::OP_F64CONVERTSI64); }
+    fn extend_unsigned_i32_to_i64(&mut self) { self.push(op::OP_I64EXTENDUI32); }
+    fn wrap_i64_to_i32(&mut self) { self.push(op::OP_I32WRAPI64); }
 
     fn shr_u_i32(&mut self) { self.push(op::OP_I32SHRU); }
+    fn shr_u_i64(&mut self) { self.push(op::OP_I64SHRU); }
 
     fn shr_s_i32(&mut self) { self.push(op::OP_I32SHRS); }
 

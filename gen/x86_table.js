@@ -390,8 +390,8 @@ const encodings = [
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 1, imm1632: 1, custom: 1 },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 2, custom: 1 },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 3, custom: 1 },
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 4, mask_flags: zf | af, custom: 0, unguarded_register: 1 }, // XXX: Put custom back
-    { opcode: 0xF7, os: 1, e: 1, fixed_g: 5, mask_flags: zf | af, custom: 0, unguarded_register: 1 }, // XXX: Put custom back
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 4, mask_flags: zf | af, custom: 1 },
+    { opcode: 0xF7, os: 1, e: 1, fixed_g: 5, mask_flags: zf | af, custom: 1 },
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 6, block_boundary: 1, }, // div/idiv: Not a block boundary, but doesn't use control flow exceptions
     { opcode: 0xF7, os: 1, e: 1, fixed_g: 7, block_boundary: 1, },
 

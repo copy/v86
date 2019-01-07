@@ -1296,6 +1296,53 @@ pub fn gen_safe_read_write(
     ctx.builder.free_local(entry_local);
 }
 
+pub fn gen_set_last_result(builder: &mut WasmBuilder, source: &WasmLocal) {
+    builder
+        .instruction_body
+        .const_i32(global_pointers::LAST_RESULT as i32);
+    builder.instruction_body.get_local(&source);
+    builder.instruction_body.store_aligned_i32(0);
+}
+
+pub fn gen_set_last_op_size(builder: &mut WasmBuilder, value: i32) {
+    builder
+        .instruction_body
+        .const_i32(global_pointers::LAST_OP_SIZE as i32);
+    builder.instruction_body.const_i32(value);
+    builder.instruction_body.store_aligned_i32(0);
+}
+
+pub fn gen_set_flags_changed(builder: &mut WasmBuilder, value: i32) {
+    builder
+        .instruction_body
+        .const_i32(global_pointers::FLAGS_CHANGED as i32);
+    builder.instruction_body.const_i32(value);
+    builder.instruction_body.store_aligned_i32(0);
+}
+
+pub fn gen_set_flags_bits(builder: &mut WasmBuilder, bits_to_set: i32) {
+    builder
+        .instruction_body
+        .const_i32(global_pointers::FLAGS as i32);
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::FLAGS);
+    builder.instruction_body.const_i32(bits_to_set);
+    builder.instruction_body.or_i32();
+    builder.instruction_body.store_aligned_i32(0);
+}
+
+pub fn gen_clear_flags_bits(builder: &mut WasmBuilder, bits_to_clear: i32) {
+    builder
+        .instruction_body
+        .const_i32(global_pointers::FLAGS as i32);
+    builder
+        .instruction_body
+        .load_aligned_i32(global_pointers::FLAGS);
+    builder.instruction_body.const_i32(!bits_to_clear);
+    builder.instruction_body.and_i32();
+    builder.instruction_body.store_aligned_i32(0);
+}
 pub fn gen_fpu_get_sti(ctx: &mut JitContext, i: u32) {
     ctx.builder.instruction_body.const_i32(i as i32);
     gen_call_fn1_ret_f64(ctx.builder, "fpu_get_sti");

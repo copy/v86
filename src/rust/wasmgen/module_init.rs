@@ -512,6 +512,14 @@ impl WasmBuilder {
         self.instruction_body.push(local.idx());
         local
     }
+
+    #[must_use = "local allocated but not used"]
+    pub fn tee_new_local_i64(&mut self) -> WasmLocalI64 {
+        let local = self.alloc_local_i64();
+        self.instruction_body.push(op::OP_TEELOCAL);
+        self.instruction_body.push(local.idx());
+        local
+    }
 }
 
 #[cfg(test)]
