@@ -3691,6 +3691,24 @@ pub fn instr_0F29_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_call_fn2(ctx.builder, "instr_0F29_reg")
 }
 
+pub fn instr_660F29_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    instr_0F29_mem_jit(ctx, modrm_byte, r);
+}
+pub fn instr_660F29_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    instr_0F29_reg_jit(ctx, r1, r2)
+}
+
+pub fn instr_660F6F_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    // XXX: Aligned read or #gp
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    let dest = global_pointers::get_reg_xmm_low_offset(r);
+    codegen::gen_safe_read128(ctx, dest);
+}
+pub fn instr_660F6F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    ctx.builder.instruction_body.const_i32(r1 as i32);
+    ctx.builder.instruction_body.const_i32(r2 as i32);
+    codegen::gen_call_fn2(ctx.builder, "instr_660F6F_reg")
+}
 pub fn instr_F30F6F_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let dest = global_pointers::get_reg_xmm_low_offset(r);
@@ -3706,5 +3724,11 @@ pub fn instr_660F7F_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
     instr_0F29_mem_jit(ctx, modrm_byte, r);
 }
 pub fn instr_660F7F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
+    instr_0F29_reg_jit(ctx, r1, r2)
+}
+pub fn instr_F30F7F_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
+    instr_0F29_mem_jit(ctx, modrm_byte, r);
+}
+pub fn instr_F30F7F_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     instr_0F29_reg_jit(ctx, r1, r2)
 }
