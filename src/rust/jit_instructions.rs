@@ -2423,6 +2423,20 @@ pub fn instr_D9_5_reg_jit(ctx: &mut JitContext, r: u32) {
     // XXX: May call trigger_ud
     codegen::gen_fn1_const(ctx.builder, "instr_D9_5_reg", r);
 }
+
+pub fn instr_D9_6_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    // XXX: generated because fpu_fstenv might page-fault, but doesn't generate a proper block boundary
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
+    codegen::gen_call_fn1(ctx.builder, "fpu_fstenv");
+    codegen::gen_debug_track_jit_exit(ctx.builder, ctx.start_of_current_instruction);
+    codegen::gen_clear_prefixes(ctx);
+    ctx.builder.instruction_body.return_();
+}
+pub fn instr_D9_6_reg_jit(ctx: &mut JitContext, r: u32) {
+    codegen::gen_fn1_const(ctx.builder, "instr_D9_6_reg", r);
+}
+
 pub fn instr_D9_7_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
     codegen::gen_modrm_resolve(ctx, modrm_byte);
     let address_local = ctx.builder.set_new_local();
@@ -2440,6 +2454,22 @@ pub fn instr_D9_7_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
 }
 pub fn instr_D9_7_reg_jit(ctx: &mut JitContext, r: u32) {
     codegen::gen_fn1_const(ctx.builder, "instr_D9_7_reg", r);
+}
+
+pub fn instr_DA_5_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
+    ctx.builder.instruction_body.const_i32(0);
+    codegen::gen_modrm_resolve(ctx, modrm_byte);
+    codegen::gen_safe_read32(ctx);
+    ctx.builder.instruction_body.convert_i32_to_f64();
+    codegen::gen_call_fn2_i32_f64(ctx.builder, "fpu_fsubr")
+}
+pub fn instr_DA_5_reg_jit(ctx: &mut JitContext, r: u32) {
+    if r == 1 {
+        codegen::gen_fn0_const(ctx.builder, "fpu_fucompp");
+    }
+    else {
+        codegen::gen_trigger_ud(ctx);
+    };
 }
 
 pub fn instr_DB_0_mem_jit(ctx: &mut JitContext, modrm_byte: u8) {
