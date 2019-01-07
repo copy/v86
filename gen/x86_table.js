@@ -604,7 +604,7 @@ const encodings = [
     { opcode: 0x0FBF, os: 1, e: 1, custom: 1 },
 
     { opcode: 0x0FC0, e: 1, }, // xadd
-    { opcode: 0x0FC1, os: 1, e: 1, custom: 0, unguarded_register: 1 }, // XXX: Add custom back
+    { opcode: 0x0FC1, os: 1, e: 1, custom: 1 },
 
     { opcode: 0x0FC8, }, // bswap
     { opcode: 0x0FC9, },

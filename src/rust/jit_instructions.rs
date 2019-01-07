@@ -13,6 +13,7 @@ use regs;
 use regs::{AX, BP, BX, CX, DI, DX, SI, SP};
 use regs::{CS, DS, ES, FS, GS, SS};
 use regs::{EAX, EBP, EBX, ECX, EDI, EDX, ESI, ESP};
+use wasmgen::module_init::WasmBuilder;
 use wasmgen::wasm_util::WasmBuf;
 
 pub fn jit_instruction(ctx: &mut JitContext, instr_flags: &mut u32) {
@@ -751,6 +752,46 @@ macro_rules! define_instruction_read_write_mem32(
         }
     );
 );
+
+pub fn gen_add32(builder: &mut WasmBuilder) {
+    let source_operand = builder.set_new_local();
+    let dest_operand = builder.set_new_local();
+
+    builder.instruction_body.get_local(&dest_operand);
+    builder.instruction_body.get_local(&source_operand);
+    builder.instruction_body.add_i32();
+    let result = builder.set_new_local();
+
+    codegen::gen_set_last_op1(builder, &dest_operand);
+    codegen::gen_set_last_op2(builder, &source_operand);
+    codegen::gen_set_last_add_result(builder, &result);
+    codegen::gen_set_last_result(builder, &result);
+    codegen::gen_set_last_op_size(builder, OPSIZE_32);
+    codegen::gen_set_flags_changed(builder, FLAGS_ALL);
+
+    // leave result on stack
+    builder.instruction_body.get_local(&result);
+
+    builder.free_local(dest_operand);
+    builder.free_local(source_operand);
+    builder.free_local(result);
+}
+
+fn gen_xadd32(ctx: &mut JitContext, r: u32) {
+    let source = ctx.builder.set_new_local();
+    codegen::gen_get_reg32(ctx, r);
+    let tmp = ctx.builder.set_new_local();
+
+    ctx.builder.instruction_body.get_local(&source);
+    codegen::gen_set_reg32(ctx, r);
+
+    ctx.builder.instruction_body.get_local(&source);
+    ctx.builder.instruction_body.get_local(&tmp);
+    gen_add32(ctx.builder);
+
+    ctx.builder.free_local(source);
+    ctx.builder.free_local(tmp);
+}
 
 fn gen_mul32(ctx: &mut JitContext) {
     ctx.builder.instruction_body.extend_unsigned_i32_to_i64();
@@ -3203,12 +3244,12 @@ pub fn instr16_0FC1_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
             ctx.builder
                 .instruction_body
                 .const_i32(::cpu2::cpu::get_reg16_index(r as i32));
+            codegen::gen_move_registers_from_locals_to_memory(ctx);
             codegen::gen_call_fn2_ret(ctx.builder, "xadd16");
+            codegen::gen_move_registers_from_memory_to_locals(ctx);
         },
         &|ref mut ctx| {
-            ctx.builder
-                .instruction_body
-                .const_i32(::cpu2::cpu::get_reg16_index(r as i32));
+            ctx.builder.instruction_body.const_i32(r as i32);
             codegen::gen_move_registers_from_locals_to_memory(ctx);
             codegen::gen_call_fn2(ctx.builder, "instr16_0FC1_mem");
             codegen::gen_move_registers_from_memory_to_locals(ctx);
@@ -3221,7 +3262,9 @@ pub fn instr16_0FC1_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     ctx.builder
         .instruction_body
         .const_i32(::cpu2::cpu::get_reg16_index(r2 as i32));
+    codegen::gen_move_registers_from_locals_to_memory(ctx);
     codegen::gen_call_fn2_ret(ctx.builder, "xadd16");
+    codegen::gen_move_registers_from_memory_to_locals(ctx);
     codegen::gen_set_reg16(ctx, r1);
 }
 
@@ -3233,8 +3276,7 @@ pub fn instr32_0FC1_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
         BitSize::DWORD,
         &address_local,
         &|ref mut ctx| {
-            ctx.builder.instruction_body.const_i32(r as i32);
-            codegen::gen_call_fn2_ret(ctx.builder, "xadd32");
+            gen_xadd32(ctx, r);
         },
         &|ref mut ctx| {
             ctx.builder.instruction_body.const_i32(r as i32);
@@ -3247,8 +3289,7 @@ pub fn instr32_0FC1_mem_jit(ctx: &mut JitContext, modrm_byte: u8, r: u32) {
 }
 pub fn instr32_0FC1_reg_jit(ctx: &mut JitContext, r1: u32, r2: u32) {
     codegen::gen_get_reg32(ctx, r1);
-    ctx.builder.instruction_body.const_i32(r2 as i32);
-    codegen::gen_call_fn2_ret(ctx.builder, "xadd32");
+    gen_xadd32(ctx, r2);
     codegen::gen_set_reg32(ctx, r1);
 }
 

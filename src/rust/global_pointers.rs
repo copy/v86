@@ -1,5 +1,8 @@
 pub const REG: u32 = 4;
+pub const LAST_OP1: u32 = 512;
+pub const LAST_OP2: u32 = 516;
 pub const LAST_OP_SIZE: u32 = 520;
+pub const LAST_ADD_RESULT: u32 = 524;
 pub const LAST_RESULT: u32 = 528;
 pub const FLAGS_CHANGED: u32 = 532;
 pub const FLAGS: u32 = 536;

@@ -1296,6 +1296,30 @@ pub fn gen_safe_read_write(
     ctx.builder.free_local(entry_local);
 }
 
+pub fn gen_set_last_op1(builder: &mut WasmBuilder, source: &WasmLocal) {
+    builder
+        .instruction_body
+        .const_i32(global_pointers::LAST_OP1 as i32);
+    builder.instruction_body.get_local(&source);
+    builder.instruction_body.store_aligned_i32(0);
+}
+
+pub fn gen_set_last_op2(builder: &mut WasmBuilder, source: &WasmLocal) {
+    builder
+        .instruction_body
+        .const_i32(global_pointers::LAST_OP2 as i32);
+    builder.instruction_body.get_local(&source);
+    builder.instruction_body.store_aligned_i32(0);
+}
+
+pub fn gen_set_last_add_result(builder: &mut WasmBuilder, source: &WasmLocal) {
+    builder
+        .instruction_body
+        .const_i32(global_pointers::LAST_ADD_RESULT as i32);
+    builder.instruction_body.get_local(&source);
+    builder.instruction_body.store_aligned_i32(0);
+}
+
 pub fn gen_set_last_result(builder: &mut WasmBuilder, source: &WasmLocal) {
     builder
         .instruction_body
