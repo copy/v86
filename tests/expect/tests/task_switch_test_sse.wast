@@ -18,13 +18,38 @@
   (import "e" "task_switch_test_mmx_void" (func $e.task_switch_test_mmx_void (type $t0)))
   (import "e" "instr_660F54_reg" (func $e.instr_660F54_reg (type $t2)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
+  (import "e" "trigger_pagefault_end_jit" (func $e.trigger_pagefault_end_jit (type $t0)))
   (import "e" "m" (memory $e.m 256))
   (func $f (export "f") (type $t1) (param $p0 i32)
-    (local $l0 i32) (local $l1 i32)
+    (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32) (local $l5 i32) (local $l6 i32) (local $l7 i32) (local $l8 i32) (local $l9 i32)
     (set_local $l0
       (get_local $p0))
     (set_local $l1
       (i32.const 10000))
+    (set_local $l2
+      (i32.load
+        (i32.const 4)))
+    (set_local $l3
+      (i32.load
+        (i32.const 8)))
+    (set_local $l4
+      (i32.load
+        (i32.const 12)))
+    (set_local $l5
+      (i32.load
+        (i32.const 16)))
+    (set_local $l6
+      (i32.load
+        (i32.const 20)))
+    (set_local $l7
+      (i32.load
+        (i32.const 24)))
+    (set_local $l8
+      (i32.load
+        (i32.const 28)))
+    (set_local $l9
+      (i32.load
+        (i32.const 32)))
     (loop $L0
       (set_local $l1
         (i32.add
@@ -34,12 +59,173 @@
         (i32.eqz
           (get_local $l1))
         (then
+          (i32.store
+            (i32.const 4)
+            (get_local $l2))
+          (i32.store
+            (i32.const 8)
+            (get_local $l3))
+          (i32.store
+            (i32.const 12)
+            (get_local $l4))
+          (i32.store
+            (i32.const 16)
+            (get_local $l5))
+          (i32.store
+            (i32.const 20)
+            (get_local $l6))
+          (i32.store
+            (i32.const 24)
+            (get_local $l7))
+          (i32.store
+            (i32.const 28)
+            (get_local $l8))
+          (i32.store
+            (i32.const 32)
+            (get_local $l9))
           (return)))
       (block $B2
         (block $B3
           (block $B4
-            (br_table $B4 $B3 $B2
-              (get_local $l0)))
+            (block $B5
+              (br_table $B5 $B4 $B3 $B2
+                (get_local $l0)))
+            (i32.store
+              (i32.const 560)
+              (i32.load
+                (i32.const 556)))
+            (i32.store
+              (i32.const 556)
+              (i32.add
+                (i32.load
+                  (i32.const 556))
+                (i32.const 4)))
+            (i32.store
+              (i32.const 648)
+              (i32.or
+                (i32.load
+                  (i32.const 648))
+                (i32.const 32)))
+            (if $I6
+              (i32.and
+                (i32.load
+                  (i32.const 580))
+                (i32.const 12))
+              (then
+                (i32.store
+                  (i32.const 4)
+                  (get_local $l2))
+                (i32.store
+                  (i32.const 8)
+                  (get_local $l3))
+                (i32.store
+                  (i32.const 12)
+                  (get_local $l4))
+                (i32.store
+                  (i32.const 16)
+                  (get_local $l5))
+                (i32.store
+                  (i32.const 20)
+                  (get_local $l6))
+                (i32.store
+                  (i32.const 24)
+                  (get_local $l7))
+                (i32.store
+                  (i32.const 28)
+                  (get_local $l8))
+                (i32.store
+                  (i32.const 32)
+                  (get_local $l9))
+                (call $e.task_switch_test_mmx_void)
+                (i32.store
+                  (i32.const 648)
+                  (i32.const 0))
+                (return)))
+            (i32.store
+              (i32.const 4)
+              (get_local $l2))
+            (i32.store
+              (i32.const 8)
+              (get_local $l3))
+            (i32.store
+              (i32.const 12)
+              (get_local $l4))
+            (i32.store
+              (i32.const 16)
+              (get_local $l5))
+            (i32.store
+              (i32.const 20)
+              (get_local $l6))
+            (i32.store
+              (i32.const 24)
+              (get_local $l7))
+            (i32.store
+              (i32.const 28)
+              (get_local $l8))
+            (i32.store
+              (i32.const 32)
+              (get_local $l9))
+            (call $e.instr_660F54_reg
+              (i32.const 1)
+              (i32.const 0))
+            (set_local $l2
+              (i32.load
+                (i32.const 4)))
+            (set_local $l3
+              (i32.load
+                (i32.const 8)))
+            (set_local $l4
+              (i32.load
+                (i32.const 12)))
+            (set_local $l5
+              (i32.load
+                (i32.const 16)))
+            (set_local $l6
+              (i32.load
+                (i32.const 20)))
+            (set_local $l7
+              (i32.load
+                (i32.const 24)))
+            (set_local $l8
+              (i32.load
+                (i32.const 28)))
+            (set_local $l9
+              (i32.load
+                (i32.const 32)))
+            (i32.store
+              (i32.const 648)
+              (i32.const 0))
+            (i32.store
+              (i32.const 664)
+              (i32.add
+                (i32.load
+                  (i32.const 664))
+                (i32.const 1)))
+            (i32.store
+              (i32.const 4)
+              (get_local $l2))
+            (i32.store
+              (i32.const 8)
+              (get_local $l3))
+            (i32.store
+              (i32.const 12)
+              (get_local $l4))
+            (i32.store
+              (i32.const 16)
+              (get_local $l5))
+            (i32.store
+              (i32.const 20)
+              (get_local $l6))
+            (i32.store
+              (i32.const 24)
+              (get_local $l7))
+            (i32.store
+              (i32.const 28)
+              (get_local $l8))
+            (i32.store
+              (i32.const 32)
+              (get_local $l9))
+            (return))
           (i32.store
             (i32.const 560)
             (i32.load
@@ -49,50 +235,114 @@
             (i32.add
               (i32.load
                 (i32.const 556))
+              (i32.const 1)))
+          (i32.store
+            (i32.const 4)
+            (get_local $l2))
+          (i32.store
+            (i32.const 8)
+            (get_local $l3))
+          (i32.store
+            (i32.const 12)
+            (get_local $l4))
+          (i32.store
+            (i32.const 16)
+            (get_local $l5))
+          (i32.store
+            (i32.const 20)
+            (get_local $l6))
+          (i32.store
+            (i32.const 24)
+            (get_local $l7))
+          (i32.store
+            (i32.const 28)
+            (get_local $l8))
+          (i32.store
+            (i32.const 32)
+            (get_local $l9))
+          (call $e.instr_F4)
+          (set_local $l2
+            (i32.load
               (i32.const 4)))
-          (i32.store
-            (i32.const 648)
-            (i32.or
-              (i32.load
-                (i32.const 648))
+          (set_local $l3
+            (i32.load
+              (i32.const 8)))
+          (set_local $l4
+            (i32.load
+              (i32.const 12)))
+          (set_local $l5
+            (i32.load
+              (i32.const 16)))
+          (set_local $l6
+            (i32.load
+              (i32.const 20)))
+          (set_local $l7
+            (i32.load
+              (i32.const 24)))
+          (set_local $l8
+            (i32.load
+              (i32.const 28)))
+          (set_local $l9
+            (i32.load
               (i32.const 32)))
-          (if $I5
-            (i32.and
-              (i32.load
-                (i32.const 580))
-              (i32.const 12))
-            (then
-              (call $e.task_switch_test_mmx_void)
-              (return)))
-          (call $e.instr_660F54_reg
-            (i32.const 1)
-            (i32.const 0))
-          (i32.store
-            (i32.const 648)
-            (i32.const 0))
           (i32.store
             (i32.const 664)
             (i32.add
               (i32.load
                 (i32.const 664))
               (i32.const 1)))
+          (i32.store
+            (i32.const 4)
+            (get_local $l2))
+          (i32.store
+            (i32.const 8)
+            (get_local $l3))
+          (i32.store
+            (i32.const 12)
+            (get_local $l4))
+          (i32.store
+            (i32.const 16)
+            (get_local $l5))
+          (i32.store
+            (i32.const 20)
+            (get_local $l6))
+          (i32.store
+            (i32.const 24)
+            (get_local $l7))
+          (i32.store
+            (i32.const 28)
+            (get_local $l8))
+          (i32.store
+            (i32.const 32)
+            (get_local $l9))
           (return))
         (i32.store
-          (i32.const 560)
-          (i32.load
-            (i32.const 556)))
+          (i32.const 4)
+          (get_local $l2))
         (i32.store
-          (i32.const 556)
-          (i32.add
-            (i32.load
-              (i32.const 556))
-            (i32.const 1)))
-        (call $e.instr_F4)
+          (i32.const 8)
+          (get_local $l3))
         (i32.store
-          (i32.const 664)
-          (i32.add
-            (i32.load
-              (i32.const 664))
-            (i32.const 1)))
+          (i32.const 12)
+          (get_local $l4))
+        (i32.store
+          (i32.const 16)
+          (get_local $l5))
+        (i32.store
+          (i32.const 20)
+          (get_local $l6))
+        (i32.store
+          (i32.const 24)
+          (get_local $l7))
+        (i32.store
+          (i32.const 28)
+          (get_local $l8))
+        (i32.store
+          (i32.const 32)
+          (get_local $l9))
+        (call $e.trigger_pagefault_end_jit)
+        (i32.store
+          (i32.const 648)
+          (i32.const 0))
         (return))
       (unreachable))))

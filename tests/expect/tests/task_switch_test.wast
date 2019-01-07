@@ -20,13 +20,38 @@
   (import "e" "fpu_fadd" (func $e.fpu_fadd (type $t8)))
   (import "e" "fpu_pop" (func $e.fpu_pop (type $t0)))
   (import "e" "instr_F4" (func $e.instr_F4 (type $t0)))
+  (import "e" "trigger_pagefault_end_jit" (func $e.trigger_pagefault_end_jit (type $t0)))
   (import "e" "m" (memory $e.m 256))
   (func $f (export "f") (type $t1) (param $p0 i32)
-    (local $l0 i32) (local $l1 i32)
+    (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32) (local $l5 i32) (local $l6 i32) (local $l7 i32) (local $l8 i32) (local $l9 i32)
     (set_local $l0
       (get_local $p0))
     (set_local $l1
       (i32.const 10000))
+    (set_local $l2
+      (i32.load
+        (i32.const 4)))
+    (set_local $l3
+      (i32.load
+        (i32.const 8)))
+    (set_local $l4
+      (i32.load
+        (i32.const 12)))
+    (set_local $l5
+      (i32.load
+        (i32.const 16)))
+    (set_local $l6
+      (i32.load
+        (i32.const 20)))
+    (set_local $l7
+      (i32.load
+        (i32.const 24)))
+    (set_local $l8
+      (i32.load
+        (i32.const 28)))
+    (set_local $l9
+      (i32.load
+        (i32.const 32)))
     (loop $L0
       (set_local $l1
         (i32.add
@@ -36,42 +61,195 @@
         (i32.eqz
           (get_local $l1))
         (then
+          (i32.store
+            (i32.const 4)
+            (get_local $l2))
+          (i32.store
+            (i32.const 8)
+            (get_local $l3))
+          (i32.store
+            (i32.const 12)
+            (get_local $l4))
+          (i32.store
+            (i32.const 16)
+            (get_local $l5))
+          (i32.store
+            (i32.const 20)
+            (get_local $l6))
+          (i32.store
+            (i32.const 24)
+            (get_local $l7))
+          (i32.store
+            (i32.const 28)
+            (get_local $l8))
+          (i32.store
+            (i32.const 32)
+            (get_local $l9))
           (return)))
       (block $B2
         (block $B3
-          (br_table $B3 $B2
-            (get_local $l0)))
-        (if $I4
-          (i32.and
+          (block $B4
+            (br_table $B4 $B3 $B2
+              (get_local $l0)))
+          (if $I5
+            (i32.and
+              (i32.load
+                (i32.const 580))
+              (i32.const 12))
+            (then
+              (i32.store
+                (i32.const 4)
+                (get_local $l2))
+              (i32.store
+                (i32.const 8)
+                (get_local $l3))
+              (i32.store
+                (i32.const 12)
+                (get_local $l4))
+              (i32.store
+                (i32.const 16)
+                (get_local $l5))
+              (i32.store
+                (i32.const 20)
+                (get_local $l6))
+              (i32.store
+                (i32.const 24)
+                (get_local $l7))
+              (i32.store
+                (i32.const 28)
+                (get_local $l8))
+              (i32.store
+                (i32.const 32)
+                (get_local $l9))
+              (call $e.task_switch_test_void)
+              (i32.store
+                (i32.const 648)
+                (i32.const 0))
+              (return)))
+          (call $e.fpu_fadd
+            (i32.const 1)
+            (call $e.fpu_get_sti
+              (i32.const 1)))
+          (call $e.fpu_pop)
+          (i32.store
+            (i32.const 560)
+            (i32.add
+              (i32.load
+                (i32.const 556))
+              (i32.const 2)))
+          (i32.store
+            (i32.const 556)
+            (i32.add
+              (i32.load
+                (i32.const 556))
+              (i32.const 3)))
+          (i32.store
+            (i32.const 4)
+            (get_local $l2))
+          (i32.store
+            (i32.const 8)
+            (get_local $l3))
+          (i32.store
+            (i32.const 12)
+            (get_local $l4))
+          (i32.store
+            (i32.const 16)
+            (get_local $l5))
+          (i32.store
+            (i32.const 20)
+            (get_local $l6))
+          (i32.store
+            (i32.const 24)
+            (get_local $l7))
+          (i32.store
+            (i32.const 28)
+            (get_local $l8))
+          (i32.store
+            (i32.const 32)
+            (get_local $l9))
+          (call $e.instr_F4)
+          (set_local $l2
             (i32.load
-              (i32.const 580))
-            (i32.const 12))
-          (then
-            (call $e.task_switch_test_void)
-            (return)))
-        (call $e.fpu_fadd
-          (i32.const 1)
-          (call $e.fpu_get_sti
-            (i32.const 1)))
-        (call $e.fpu_pop)
+              (i32.const 4)))
+          (set_local $l3
+            (i32.load
+              (i32.const 8)))
+          (set_local $l4
+            (i32.load
+              (i32.const 12)))
+          (set_local $l5
+            (i32.load
+              (i32.const 16)))
+          (set_local $l6
+            (i32.load
+              (i32.const 20)))
+          (set_local $l7
+            (i32.load
+              (i32.const 24)))
+          (set_local $l8
+            (i32.load
+              (i32.const 28)))
+          (set_local $l9
+            (i32.load
+              (i32.const 32)))
+          (i32.store
+            (i32.const 664)
+            (i32.add
+              (i32.load
+                (i32.const 664))
+              (i32.const 2)))
+          (i32.store
+            (i32.const 4)
+            (get_local $l2))
+          (i32.store
+            (i32.const 8)
+            (get_local $l3))
+          (i32.store
+            (i32.const 12)
+            (get_local $l4))
+          (i32.store
+            (i32.const 16)
+            (get_local $l5))
+          (i32.store
+            (i32.const 20)
+            (get_local $l6))
+          (i32.store
+            (i32.const 24)
+            (get_local $l7))
+          (i32.store
+            (i32.const 28)
+            (get_local $l8))
+          (i32.store
+            (i32.const 32)
+            (get_local $l9))
+          (return))
         (i32.store
-          (i32.const 560)
-          (i32.add
-            (i32.load
-              (i32.const 556))
-            (i32.const 2)))
+          (i32.const 4)
+          (get_local $l2))
         (i32.store
-          (i32.const 556)
-          (i32.add
-            (i32.load
-              (i32.const 556))
-            (i32.const 3)))
-        (call $e.instr_F4)
+          (i32.const 8)
+          (get_local $l3))
         (i32.store
-          (i32.const 664)
-          (i32.add
-            (i32.load
-              (i32.const 664))
-            (i32.const 2)))
+          (i32.const 12)
+          (get_local $l4))
+        (i32.store
+          (i32.const 16)
+          (get_local $l5))
+        (i32.store
+          (i32.const 20)
+          (get_local $l6))
+        (i32.store
+          (i32.const 24)
+          (get_local $l7))
+        (i32.store
+          (i32.const 28)
+          (get_local $l8))
+        (i32.store
+          (i32.const 32)
+          (get_local $l9))
+        (call $e.trigger_pagefault_end_jit)
+        (i32.store
+          (i32.const 648)
+          (i32.const 0))
         (return))
       (unreachable))))
