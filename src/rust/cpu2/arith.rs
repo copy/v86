@@ -1,7 +1,7 @@
 use cpu2::cpu::*;
 use cpu2::global_pointers::*;
 use cpu2::memory::{read8, write8};
-use cpu2::misc_instr::{getaf, getcf};
+use cpu2::misc_instr::{getaf, getcf, getzf};
 
 pub fn int_log2(x: i32) -> i32 { 31 - x.leading_zeros() as i32 }
 
@@ -270,6 +270,7 @@ pub unsafe fn imul_reg32(operand1: i32, operand2: i32) -> i32 {
     *flags_changed = FLAGS_ALL & !1 & !FLAG_OVERFLOW;
     return result_low;
 }
+
 #[no_mangle]
 pub unsafe fn xadd8(source_operand: i32, reg: i32) -> i32 {
     let tmp: i32 = *reg8.offset(reg as isize) as i32;
@@ -288,6 +289,41 @@ pub unsafe fn xadd32(source_operand: i32, reg: i32) -> i32 {
     *reg32s.offset(reg as isize) = source_operand;
     return add(source_operand, tmp, OPSIZE_32);
 }
+
+#[no_mangle]
+pub unsafe fn cmpxchg8(data: i32, r: i32) -> i32 {
+    cmp8(*reg8.offset(AL as isize) as i32, data);
+    if getzf() {
+        read_reg8(r)
+    }
+    else {
+        *reg8.offset(AL as isize) = data as u8;
+        data
+    }
+}
+#[no_mangle]
+pub unsafe fn cmpxchg16(data: i32, r: i32) -> i32 {
+    cmp16(*reg16.offset(AX as isize) as i32, data);
+    if getzf() {
+        read_reg16(r)
+    }
+    else {
+        *reg16.offset(AX as isize) = data as u16;
+        data
+    }
+}
+#[no_mangle]
+pub unsafe fn cmpxchg32(data: i32, r: i32) -> i32 {
+    cmp32(*reg32s.offset(EAX as isize), data);
+    if getzf() {
+        read_reg32(r)
+    }
+    else {
+        *reg32s.offset(EAX as isize) = data;
+        data
+    }
+}
+
 #[no_mangle]
 pub unsafe fn bcd_daa() {
     let old_al: i32 = *reg8.offset(AL as isize) as i32;

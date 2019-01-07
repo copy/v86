@@ -29,20 +29,21 @@ extern "C" {
 
 use cpu2::arith::{
     bsf16, bsf32, bsr16, bsr32, bt_mem, bt_reg, btc_mem, btc_reg, btr_mem, btr_reg, bts_mem,
-    bts_reg, popcnt, shld16, shld32, shrd16, shrd32, xadd16, xadd32, xadd8,
+    bts_reg, cmpxchg16, cmpxchg32, cmpxchg8, popcnt, shld16, shld32, shrd16, shrd32, xadd16,
+    xadd32, xadd8,
 };
 use cpu2::arith::{
-    cmp16, cmp32, cmp8, imul_reg16, imul_reg32, saturate_sd_to_sb, saturate_sd_to_sw,
-    saturate_sd_to_ub, saturate_sw_to_sb, saturate_sw_to_ub, saturate_ud_to_ub, saturate_uw,
+    imul_reg16, imul_reg32, saturate_sd_to_sb, saturate_sd_to_sw, saturate_sd_to_ub,
+    saturate_sw_to_sb, saturate_sw_to_ub, saturate_ud_to_ub, saturate_uw,
 };
 use cpu2::cpu::*;
 use cpu2::fpu::fpu_load_m32;
 use cpu2::fpu::fpu_set_tag_word;
 use cpu2::global_pointers::*;
 use cpu2::misc_instr::{
-    adjust_stack_reg, bswap, cmovcc16, cmovcc32, fxrstor, fxsave, get_stack_pointer, getzf,
-    jmpcc16, jmpcc32, push16, push32, setcc_mem, setcc_reg, test_b, test_be, test_l, test_le,
-    test_o, test_p, test_s, test_z,
+    adjust_stack_reg, bswap, cmovcc16, cmovcc32, fxrstor, fxsave, get_stack_pointer, jmpcc16,
+    jmpcc32, push16, push32, setcc_mem, setcc_reg, test_b, test_be, test_l, test_le, test_o,
+    test_p, test_s, test_z,
 };
 use cpu2::sse_instr::*;
 
@@ -3360,84 +3361,26 @@ pub unsafe fn instr32_0FAF_reg(r1: i32, r: i32) {
     let ____0: i32 = read_reg32(r1);
     write_reg32(r, imul_reg32(read_reg32(r), ____0));
 }
+
 #[no_mangle]
-pub unsafe fn instr_0FB0_reg(r1: i32, r2: i32) {
-    // cmpxchg8
-    let data: i32 = read_reg8(r1);
-    cmp8(*reg8.offset(AL as isize) as i32, data);
-    if getzf() {
-        write_reg8(r1, read_reg8(r2));
-    }
-    else {
-        *reg8.offset(AL as isize) = data as u8
-    };
-}
+pub unsafe fn instr_0FB0_reg(r1: i32, r2: i32) { write_reg8(r1, cmpxchg8(read_reg8(r1), r2)); }
 #[no_mangle]
 pub unsafe fn instr_0FB0_mem(addr: i32, r: i32) {
-    // cmpxchg8
-    return_on_pagefault!(writable_or_pagefault(addr, 1));
-    let data: i32 = return_on_pagefault!(safe_read8(addr));
-    cmp8(*reg8.offset(AL as isize) as i32, data);
-    if getzf() {
-        safe_write8(addr, read_reg8(r)).unwrap();
-    }
-    else {
-        safe_write8(addr, data).unwrap();
-        *reg8.offset(AL as isize) = data as u8
-    };
+    SAFE_READ_WRITE8!(___, addr, cmpxchg8(___, r));
 }
 #[no_mangle]
-pub unsafe fn instr16_0FB1_reg(r1: i32, r2: i32) {
-    // cmpxchg16
-    let data: i32 = read_reg16(r1);
-    cmp16(*reg16.offset(AX as isize) as i32, data);
-    if getzf() {
-        write_reg16(r1, read_reg16(r2));
-    }
-    else {
-        *reg16.offset(AX as isize) = data as u16
-    };
-}
+pub unsafe fn instr16_0FB1_reg(r1: i32, r2: i32) { write_reg16(r1, cmpxchg16(read_reg16(r1), r2)); }
 #[no_mangle]
 pub unsafe fn instr16_0FB1_mem(addr: i32, r: i32) {
-    // cmpxchg16
-    return_on_pagefault!(writable_or_pagefault(addr, 2));
-    let data: i32 = return_on_pagefault!(safe_read16(addr));
-    cmp16(*reg16.offset(AX as isize) as i32, data);
-    if getzf() {
-        safe_write16(addr, read_reg16(r)).unwrap();
-    }
-    else {
-        safe_write16(addr, data).unwrap();
-        *reg16.offset(AX as isize) = data as u16
-    };
+    SAFE_READ_WRITE16!(___, addr, cmpxchg16(___, r));
 }
 #[no_mangle]
-pub unsafe fn instr32_0FB1_reg(r1: i32, r2: i32) {
-    // cmpxchg32
-    let data: i32 = read_reg32(r1);
-    cmp32(*reg32s.offset(EAX as isize), data);
-    if getzf() {
-        write_reg32(r1, read_reg32(r2));
-    }
-    else {
-        *reg32s.offset(EAX as isize) = data
-    };
-}
+pub unsafe fn instr32_0FB1_reg(r1: i32, r2: i32) { write_reg32(r1, cmpxchg32(read_reg32(r1), r2)); }
 #[no_mangle]
 pub unsafe fn instr32_0FB1_mem(addr: i32, r: i32) {
-    // cmpxchg32
-    return_on_pagefault!(writable_or_pagefault(addr, 4));
-    let data: i32 = return_on_pagefault!(safe_read32s(addr));
-    cmp32(*reg32s.offset(EAX as isize), data);
-    if getzf() {
-        safe_write32(addr, read_reg32(r)).unwrap();
-    }
-    else {
-        safe_write32(addr, data).unwrap();
-        *reg32s.offset(EAX as isize) = data
-    };
+    SAFE_READ_WRITE32!(___, addr, cmpxchg32(___, r));
 }
+
 #[no_mangle]
 pub unsafe fn instr16_0FB2_reg(unused: i32, unused2: i32) { trigger_ud(); }
 #[no_mangle]
