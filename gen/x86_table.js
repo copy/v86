@@ -961,9 +961,9 @@ for(let i = 0; i < 8; i++)
         // note: the adjust flag is undefined for shifts > 0 and unaffected by rotates
         { opcode: 0xC0, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, custom: 1, },
         { opcode: 0xC1, os: 1, e: 1, fixed_g: i, imm8: 1, mask_flags: of | af, custom: 1, },
-        { opcode: 0xD0, e: 1, fixed_g: i, mask_flags: af, },
+        { opcode: 0xD0, e: 1, fixed_g: i, mask_flags: af, custom: 1 },
         { opcode: 0xD1, os: 1, e: 1, fixed_g: i, mask_flags: af, custom: 1, },
-        { opcode: 0xD2, e: 1, fixed_g: i, mask_flags: of | af, },
+        { opcode: 0xD2, e: 1, fixed_g: i, mask_flags: of | af, custom: 1 },
         { opcode: 0xD3, os: 1, e: 1, fixed_g: i, mask_flags: of | af, custom: 1, },
     ]);
 }
