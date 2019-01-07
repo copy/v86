@@ -12,14 +12,6 @@ pub const REG_XMM: u32 = 828;
 pub const FPU_CONTROL_WORD: u32 = 1036;
 pub const TLB_DATA: u32 = 0x400000;
 
-pub fn get_reg8_offset(r: u32) -> u32 {
-    dbg_assert!(r < 8);
-    REG + (r << 2 & 12 | r >> 2 & 1)
-}
-pub fn get_reg16_offset(r: u32) -> u32 {
-    dbg_assert!(r < 8);
-    REG + 4 * r
-}
 pub fn get_reg32_offset(r: u32) -> u32 {
     dbg_assert!(r < 8);
     REG + 4 * r

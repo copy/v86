@@ -1327,8 +1327,6 @@ pub fn gen_condition_fn(builder: &mut WasmBuilder, condition: u8) {
 }
 
 pub fn gen_move_registers_from_locals_to_memory(ctx: &mut JitContext) {
-    let instruction = ::cpu::read32(ctx.start_of_current_instruction);
-
     for i in 0..8 {
         ctx.builder
             .instruction_body
