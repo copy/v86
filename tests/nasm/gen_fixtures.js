@@ -29,6 +29,7 @@ const GDB_DEFAULT_ARGS = [
     "--eval-command=catch signal SIGFPE",
     "--eval-command=catch signal SIGILL",
     "--eval-command=catch signal SIGSEGV",
+    "--eval-command=catch signal SIGBUS",
 ];
 
 /* Split up an array into semi-evenly sized chunks */

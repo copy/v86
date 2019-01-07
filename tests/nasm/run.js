@@ -104,6 +104,11 @@ if(cluster.isMaster)
             return { exception: "GP", };
         }
 
+        if(fixture_text.includes("(signal SIGBUS)"))
+        {
+            return { exception: "PF", };
+        }
+
         if(fixture_text.includes("Program received signal") || fixture_text.includes("SIGILL"))
         {
             throw new Error("Test was killed during execution by gdb: " + name + "\n" + fixture_text);
