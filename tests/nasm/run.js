@@ -308,6 +308,8 @@ else {
 
     emulator.cpu_exception_hook = function(n)
     {
+        emulator.v86.cpu.timestamp_counter[0] += 100000; // always make progress
+
         if(waiting_to_receive_next_test)
         {
             return true;
@@ -331,11 +333,21 @@ else {
         // currently don't have this ability, so we record the exception
         // and continue execution
         recorded_exceptions.push(exception);
+        finish_test();
         return true;
     };
 
     emulator.bus.register("cpu-event-halt", function() {
-        console.assert(!waiting_to_receive_next_test);
+        finish_test();
+    });
+
+    function finish_test()
+    {
+        if(waiting_to_receive_next_test)
+        {
+            return;
+        }
+
         waiting_to_receive_next_test = true;
         clearTimeout(test_timeout);
 
@@ -478,7 +490,7 @@ else {
         else {
             process.send(DONE_MSG);
         }
-    });
+    }
 
     cluster.worker.on("message", function(message) {
         if(message === TERMINATE_MSG)
