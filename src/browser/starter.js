@@ -828,6 +828,20 @@ V86Starter.prototype.serial0_send = function(data)
 };
 
 /**
+ * Send bytes to a serial port (to be received by the emulated PC).
+ *
+ * @param {Uint8Array} data
+ * @export
+ */
+V86Starter.prototype.serial_send_bytes = function(serial, data)
+{
+    for(var i = 0; i < data.length; i++)
+    {
+        this.bus.send("serial" + serial + "-input", data[i]);
+    }
+};
+
+/**
  * Write to a file in the 9p filesystem. Nothing happens if no filesystem has
  * been initialized. First argument to the callback is an error object if
  * something went wrong and null otherwise.
