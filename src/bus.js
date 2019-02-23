@@ -7,11 +7,11 @@ function BusConnector()
 {
     this.listeners = {};
     this.pair = undefined;
-};
+}
 
 /**
  * @param {string} name
- * @param {function(*=)} fn
+ * @param {function(?)} fn
  * @param {Object} this_value
  */
 BusConnector.prototype.register = function(name, fn, this_value)
@@ -46,7 +46,7 @@ BusConnector.prototype.unregister = function(name, fn)
 
     this.listeners[name] = listeners.filter(function(l)
     {
-        return l.fn !== fn
+        return l.fn !== fn;
     });
 };
 
