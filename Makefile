@@ -137,7 +137,7 @@ clean:
 	$(MAKE) -C $(NASM_TEST_DIR) clean
 
 run:
-	python2 -m SimpleHTTPServer 2> /dev/null
+	python3 -m http.server 2> /dev/null
 	#sleep 1
 	#$(BROWSER) http://localhost:8000/index.html &
 
