@@ -69,26 +69,28 @@ function UART(cpu, port, bus)
 
     this.current_line = [];
 
-    switch(port) {
-      case 0x3F8:
-        this.com = 0;
-        this.irq = 4;
-        break;
-      case 0x2F8:
-        this.com = 1;
-        this.irq = 3;
-        break;
-      case 0x3E8:
-        this.com = 2;
-        this.irq = 4;
-        break;
-      case 0x2E8:
-        this.com = 3;
-        this.irq = 3;
-        break;
-      default:
-        dbg_log("Invalid port: " + h(port), LOG_SERIAL);
-        return;
+    switch(port)
+    {
+        case 0x3F8:
+            this.com = 0;
+            this.irq = 4;
+            break;
+        case 0x2F8:
+            this.com = 1;
+            this.irq = 3;
+            break;
+        case 0x3E8:
+            this.com = 2;
+            this.irq = 4;
+            break;
+        case 0x2E8:
+            this.com = 3;
+            this.irq = 3;
+            break;
+        default:
+            dbg_log("Invalid serial port: " + h(port), LOG_SERIAL);
+            this.com = 0;
+            this.irq = 4;
     }
 
     this.bus.register("serial" + this.com + "-input", function(data)

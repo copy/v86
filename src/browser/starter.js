@@ -121,6 +121,9 @@ function V86Starter(options)
     settings.fastboot = options["fastboot"] || false;
     settings.fda = undefined;
     settings.fdb = undefined;
+    settings.uart1 = options["uart1"] || false;
+    settings.uart2 = options["uart2"] || false;
+    settings.uart3 = options["uart3"] || false;
 
     if(options["network_relay_url"])
     {

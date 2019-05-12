@@ -333,7 +333,7 @@ CPU.prototype.get_state = function()
     state[51] = this.devices.hpet;
     state[52] = this.devices.vga;
     state[53] = this.devices.ps2;
-    state[54] = this.devices.uart;
+    state[54] = this.devices.uart0;
     state[55] = this.devices.fdc;
     state[56] = this.devices.cdrom;
     state[57] = this.devices.hda;
@@ -413,7 +413,7 @@ CPU.prototype.set_state = function(state)
     this.devices.hpet = state[51];
     this.devices.vga = state[52];
     this.devices.ps2 = state[53];
-    this.devices.uart = state[54];
+    this.devices.uart0 = state[54];
     this.devices.fdc = state[55];
     this.devices.cdrom = state[56];
     this.devices.hda = state[57];
@@ -740,10 +740,20 @@ CPU.prototype.init = function(settings, device_bus)
 
         this.devices.ps2 = new PS2(this, device_bus);
 
-        this.devices.uart = new UART(this, 0x3F8, device_bus);
-        this.devices.uart1 = new UART(this, 0x2F8, device_bus);
-        this.devices.uart2 = new UART(this, 0x3E8, device_bus);
-        this.devices.uart3 = new UART(this, 0x2E8, device_bus);
+        this.devices.uart0 = new UART(this, 0x3F8, device_bus);
+
+        if(settings.uart1)
+        {
+            this.devices.uart1 = new UART(this, 0x2F8, device_bus);
+        }
+        if(settings.uart2)
+        {
+            this.devices.uart2 = new UART(this, 0x3E8, device_bus);
+        }
+        if(settings.uart3)
+        {
+            this.devices.uart3 = new UART(this, 0x3E8, device_bus);
+        }
 
         this.devices.fdc = new FloppyController(this, settings.fda, settings.fdb);
 
