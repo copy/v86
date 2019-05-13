@@ -275,53 +275,20 @@ CPU.prototype.imul_reg16 = function(operand1, operand2)
     return result;
 }
 
-CPU.prototype.do_mul32 = function(a, b)
-{
-    var a00 = a & 0xFFFF;
-    var a16 = a >>> 16;
-    var b00 = b & 0xFFFF;
-    var b16 = b >>> 16;
-    var low_result = a00 * b00;
-    var mid = (low_result >>> 16) + (a16 * b00 | 0) | 0;
-    var high_result = mid >>> 16;
-    mid = (mid & 0xFFFF) + (a00 * b16 | 0) | 0;
-    this.mul32_result[0] = (mid << 16) | low_result & 0xFFFF;
-    this.mul32_result[1] = ((mid >>> 16) + (a16 * b16 | 0) | 0) + high_result | 0;
-    return this.mul32_result;
-};
-
-CPU.prototype.do_imul32 = function(a, b)
-{
-    var is_neg = false;
-    if(a < 0) {
-        is_neg = true;
-        a = -a | 0;
-    }
-    if(b < 0) {
-        is_neg = !is_neg;
-        b = -b | 0;
-    }
-    var result = this.do_mul32(a, b);
-    if(is_neg) {
-        result[0] = -result[0] | 0;
-        result[1] = ~result[1] + !result[0] | 0;
-    }
-    return result;
-}
-
 CPU.prototype.mul32 = function(source_operand)
 {
     var dest_operand = this.reg32s[reg_eax];
 
-    var result = this.do_mul32(dest_operand, source_operand);
+    var lo = v86util.imul(dest_operand, source_operand);
+    var hi = v86util.imul_high(dest_operand >>> 0, source_operand >>> 0);
 
-    this.reg32s[reg_eax] = result[0];
-    this.reg32s[reg_edx] = result[1];
+    this.reg32s[reg_eax] = lo;
+    this.reg32s[reg_edx] = hi;
 
-    this.last_result = result[0];
+    this.last_result = lo;
     this.last_op_size = OPSIZE_32;
 
-    if(result[1] === 0)
+    if(hi === 0)
     {
         this.flags &= ~1 & ~flag_overflow;
     }
@@ -341,15 +308,16 @@ CPU.prototype.imul32 = function(source_operand)
 
     var dest_operand = this.reg32s[reg_eax];
 
-    var result = this.do_imul32(dest_operand, source_operand);
+    var lo = v86util.imul(dest_operand, source_operand);
+    var hi = v86util.imul_high(dest_operand, source_operand);
 
-    this.reg32s[reg_eax] = result[0];
-    this.reg32s[reg_edx] = result[1];
+    this.reg32s[reg_eax] = lo;
+    this.reg32s[reg_edx] = hi;
 
-    this.last_result = result[0];
+    this.last_result = lo;
     this.last_op_size = OPSIZE_32;
 
-    if(result[1] === (result[0] >> 31))
+    if(hi === (lo >> 31))
     {
         this.flags &= ~1 & ~flag_overflow;
     }
@@ -373,12 +341,13 @@ CPU.prototype.imul_reg32 = function(operand1, operand2)
     dbg_assert(operand1 < 0x80000000 && operand1 >= -0x80000000);
     dbg_assert(operand2 < 0x80000000 && operand2 >= -0x80000000);
 
-    var result = this.do_imul32(operand1, operand2);
+    var lo = v86util.imul(operand1, operand2);
+    var hi = Math.floor((operand1 | 0) * (operand2 | 0) / 0x100000000);
 
-    this.last_result = result[0];
+    this.last_result = lo;
     this.last_op_size = OPSIZE_32;
 
-    if(result[1] === (result[0] >> 31))
+    if(hi === (lo >> 31))
     {
         this.flags &= ~1 & ~flag_overflow;
     }
@@ -388,7 +357,7 @@ CPU.prototype.imul_reg32 = function(operand1, operand2)
     }
     this.flags_changed = flags_all & ~1 & ~flag_overflow;
 
-    return result[0];
+    return lo;
 
     //console.log(operand + " * " + source_operand);
     //console.log("= " + this.reg32[reg]);
