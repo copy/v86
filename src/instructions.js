@@ -4841,24 +4841,24 @@ t[0xF4] = cpu => {
 
         let i = (cpu.modrm_byte >> 3 & 7) << 2;
 
-        let result = cpu.do_mul32(destination[0] , source[0]);
-        cpu.reg_xmm32s[i] = result[0];
-        cpu.reg_xmm32s[i + 1] = result[1];
+        let d = destination[0];
+        let s = source[0];
+        cpu.reg_xmm32s[i] = v86util.imul(d, s);
+        cpu.reg_xmm32s[i + 1] = v86util.imul_high(d >>> 0, s >>> 0);
 
-        result = cpu.do_mul32(destination[2] , source[2]);
-        cpu.reg_xmm32s[i + 2] = result[0];
-        cpu.reg_xmm32s[i + 3] = result[1];
+        d = destination[2];
+        s = source[2];
+        cpu.reg_xmm32s[i + 2] = v86util.imul(d, s);
+        cpu.reg_xmm32s[i + 3] = v86util.imul_high(d >>> 0, s >>> 0);
     }
     else
     {
         // pmuludq mm1, mm2/m64
         dbg_assert((cpu.prefixes & (PREFIX_MASK_REP | PREFIX_MASK_OPSIZE)) == 0);
-        let source64s = cpu.read_mmx_mem64s();
-        let destination_low = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
+        let s = cpu.read_mmx_mem64s()[0];
+        let d = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
 
-        let result = cpu.do_mul32(destination_low,source64s[0])
-
-        cpu.write_mmx64s(result[0], result[1]);
+        cpu.write_mmx64s(v86util.imul(d, s), v86util.imul_high(d >>> 0, s >>> 0));
     }
 };
 
