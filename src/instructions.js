@@ -4841,15 +4841,10 @@ t[0xF4] = cpu => {
 
         let i = (cpu.modrm_byte >> 3 & 7) << 2;
 
-        let d = destination[0];
-        let s = source[0];
-        cpu.reg_xmm32s[i] = v86util.imul(d, s);
-        cpu.reg_xmm32s[i + 1] = v86util.imul_high(d >>> 0, s >>> 0);
-
-        d = destination[2];
-        s = source[2];
-        cpu.reg_xmm32s[i + 2] = v86util.imul(d, s);
-        cpu.reg_xmm32s[i + 3] = v86util.imul_high(d >>> 0, s >>> 0);
+        cpu.reg_xmm32s[i] = v86util.mul_low(destination[0], source[0]);
+        cpu.reg_xmm32s[i + 1] = v86util.mul_high(destination[0], source[0]);
+        cpu.reg_xmm32s[i + 2] = v86util.mul_low(destination[2], source[2]);
+        cpu.reg_xmm32s[i + 3] = v86util.mul_high(destination[2], source[2]);
     }
     else
     {
@@ -4858,7 +4853,7 @@ t[0xF4] = cpu => {
         let s = cpu.read_mmx_mem64s()[0];
         let d = cpu.reg_mmxs[2 * (cpu.modrm_byte >> 3 & 7)];
 
-        cpu.write_mmx64s(v86util.imul(d, s), v86util.imul_high(d >>> 0, s >>> 0));
+        cpu.write_mmx64s(v86util.mul_low(d, s), v86util.mul_high(d, s));
     }
 };
 

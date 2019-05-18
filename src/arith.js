@@ -279,8 +279,8 @@ CPU.prototype.mul32 = function(source_operand)
 {
     var dest_operand = this.reg32s[reg_eax];
 
-    var lo = v86util.imul(dest_operand, source_operand);
-    var hi = v86util.imul_high(dest_operand >>> 0, source_operand >>> 0);
+    var lo = v86util.mul_low(dest_operand, source_operand);
+    var hi = v86util.mul_high(dest_operand, source_operand);
 
     this.reg32s[reg_eax] = lo;
     this.reg32s[reg_edx] = hi;
@@ -308,7 +308,7 @@ CPU.prototype.imul32 = function(source_operand)
 
     var dest_operand = this.reg32s[reg_eax];
 
-    var lo = v86util.imul(dest_operand, source_operand);
+    var lo = v86util.imul_low(dest_operand, source_operand);
     var hi = v86util.imul_high(dest_operand, source_operand);
 
     this.reg32s[reg_eax] = lo;
@@ -341,8 +341,8 @@ CPU.prototype.imul_reg32 = function(operand1, operand2)
     dbg_assert(operand1 < 0x80000000 && operand1 >= -0x80000000);
     dbg_assert(operand2 < 0x80000000 && operand2 >= -0x80000000);
 
-    var lo = v86util.imul(operand1, operand2);
-    var hi = Math.floor((operand1 | 0) * (operand2 | 0) / 0x100000000);
+    var lo = v86util.imul_low(operand1, operand2);
+    var hi = v86util.imul_high(operand1, operand2);
 
     this.last_result = lo;
     this.last_op_size = OPSIZE_32;
