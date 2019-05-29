@@ -459,7 +459,11 @@ V86Starter.prototype.stop = function()
  */
 V86Starter.prototype.destroy = function()
 {
+    this.network_adapter.destroy();
     this.keyboard_adapter.destroy();
+    this.mouse_adapter.destroy();
+    this.screen_adapter.destroy();
+    this.serial_adapter.destroy();
 };
 
 /**
