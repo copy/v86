@@ -299,7 +299,7 @@ function KeyboardAdapter(bus)
         if(e.target)
         {
             // className shouldn't be hardcoded here
-            return e.target.className === "phone_keyboard" ||
+            return e.target.className.includes("phone_keyboard") ||
                 (e.target.nodeName !== "INPUT" && e.target.nodeName !== "TEXTAREA");
         }
         else
