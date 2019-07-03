@@ -16,7 +16,7 @@ function SpeakerAdapter(bus)
     {
         return;
     }
-    if(!window.AudioContext && !window.webkitAudioContext)
+    if(!window.AudioContext && !window["webkitAudioContext"])
     {
         console.warn("Web browser doesn't support Web Audio API");
         return;
@@ -28,7 +28,7 @@ function SpeakerAdapter(bus)
     this.bus = bus;
 
     /** @const */
-    this.audio_context = new (window.AudioContext || window.webkitAudioContext)();
+    this.audio_context = new (window.AudioContext || window["webkitAudioContext"])();
 
     /** @const */
     this.mixer = new SpeakerMixer(bus, this.audio_context);
