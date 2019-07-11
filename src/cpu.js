@@ -1149,18 +1149,6 @@ CPU.prototype.do_many_cycles_unsafe = function()
     }
 };
 
-// Some functions must not be inlined, because then more code is in the
-// deoptimized try-catch block.
-// This trick is a bit ugly, but it works without further complication.
-if(typeof window !== "undefined")
-{
-    window["__no_inline_for_closure_compiler__"] = [
-        CPU.prototype.exception_cleanup,
-        CPU.prototype.do_many_cycles_unsafe,
-        CPU.prototype.do_many_cycles,
-    ];
-}
-
 /** @const */
 var PROFILING = false;
 
