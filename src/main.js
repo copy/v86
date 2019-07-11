@@ -60,6 +60,11 @@ v86.prototype.stop = function()
     }
 };
 
+v86.prototype.destroy = function()
+{
+    this.unregister_tick();
+};
+
 v86.prototype.restart = function()
 {
     this.cpu.reset();
@@ -82,6 +87,9 @@ if(typeof setImmediate !== "undefined")
 
     /** @this {v86} */
     var register_tick = function() {};
+
+    /** @this {v86} */
+    var unregister_tick = function() {};
 }
 else if(typeof window !== "undefined" && typeof postMessage !== "undefined")
 {
@@ -98,16 +106,27 @@ else if(typeof window !== "undefined" && typeof postMessage !== "undefined")
         window.postMessage(MAGIC_POST_MESSAGE, "*");
     };
 
+    let tick;
+
     /** @this {v86} */
     register_tick = function()
     {
-        window.addEventListener("message", (e) =>
+        tick = e =>
         {
             if(e.source === window && e.data === MAGIC_POST_MESSAGE)
             {
                 this.do_tick();
             }
-        }, false);
+        };
+
+        window.addEventListener("message", tick, false);
+    };
+
+    /** @this {v86} */
+    unregister_tick = function()
+    {
+        window.removeEventListener("message", tick);
+        tick = null;
     };
 }
 else
@@ -120,10 +139,14 @@ else
 
     /** @this {v86} */
     register_tick = function() {};
+
+    /** @this {v86} */
+    unregister_tick = function() {};
 }
 
 v86.prototype.fast_next_tick = fast_next_tick;
 v86.prototype.register_tick = register_tick;
+v86.prototype.unregister_tick = unregister_tick;
 
 if(typeof document !== "undefined" && typeof document.hidden === "boolean")
 {
