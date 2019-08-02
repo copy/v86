@@ -11,9 +11,6 @@
     /** @const */
     var ON_HTTPS = location.protocol === "https:";
 
-    /** @const */
-    var OTHER_HOST = ON_LOCALHOST ? "" : ON_HTTPS ? "//j.copy.sh:8443/" : "//j.copy.sh:8880/";
-
     /**
      * @return {Object.<string, string>}
      */
@@ -353,8 +350,7 @@
                     "size": 142815292,
                 },
                 hda: {
-                    "url": ON_LOCALHOST ? "../v86-images/os/freebsd3.img" :
-                                          OTHER_HOST + "images/freebsd3.img",
+                    "url": HOST + "images/freebsd3.img",
                     "size": 17179869184,
                     "async": true,
                 },
