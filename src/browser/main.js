@@ -8,9 +8,6 @@
     /** @const */
     var HOST = ON_LOCALHOST ? "" : "//i.copy.sh/";
 
-    /** @const */
-    var ON_HTTPS = location.protocol === "https:";
-
     /**
      * @return {Object.<string, string>}
      */
@@ -268,7 +265,7 @@
             {
                 id: "kolibrios",
                 fda: {
-                    "url": (ON_LOCALHOST || ON_HTTPS) ?
+                    "url": ON_LOCALHOST ?
                             "images/kolibri.img" :
                             "//builds.kolibrios.org/eng/data/data/kolibri.img",
                     "size": 1474560,
