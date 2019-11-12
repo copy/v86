@@ -86,6 +86,7 @@ window.onload = function()
 // Implement bash string escaping.
 function bashEscape(arg)
 {
+    arg = arg.replace(/\t+/g, "");
     return "'" + arg.replace(/'+/g, function (val) {
         return "'" + val.replace(/'/g, "\\'") + "'";
     }) + "'";
