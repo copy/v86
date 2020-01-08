@@ -103,8 +103,8 @@ build/v86_all.js: $(CLOSURE) src/*.js src/browser/*.js lib/*.js
 		--compilation_level ADVANCED\
 		$(TRANSPILE_ES6_FLAGS)\
 		--js $(CORE_FILES)\
-		--js $(LIB_FILES)\
 		--js $(BROWSER_FILES)\
+		--js $(LIB_FILES)
 		--js src/browser/main.js
 
 	echo '//# sourceMappingURL=v86_all.js.map' >> build/v86_all.js
