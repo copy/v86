@@ -2324,7 +2324,8 @@ t[0x30] = cpu => {
             break;
 
         default:
-            dbg_assert(false, "Unknown msr: " + h(index >>> 0, 8));
+            dbg_log("Unknown msr: " + h(index >>> 0, 8));
+            cpu.trigger_gp(0);
     }
 };
 
@@ -2421,7 +2422,8 @@ t[0x32] = cpu => {
             break;
 
         default:
-            dbg_assert(false, "Unknown msr: " + h(index >>> 0, 8));
+            dbg_log("Unknown msr: " + h(index >>> 0, 8));
+            cpu.trigger_gp(0);
     }
 
     cpu.reg32s[reg_eax] = low;
