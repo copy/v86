@@ -15,15 +15,6 @@ env:
     - TEST_SUITE=integration-acpi
     - TEST_SUITE=unit-qemu
     - TEST_SUITE=nasm
-    - TEST_SUITE=build
 matrix:
   allow_failures:
     - env: TEST_SUITE=unit-qemu
-deploy:
-  provider: pages
-  skip_cleanup: true
-  keep_history: true
-  on:
-    condition: $TEST_SUITE = build
-  github_token: $GH_TOKEN
-  local_dir: build
