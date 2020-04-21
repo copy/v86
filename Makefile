@@ -155,10 +155,10 @@ update_version:
 
 
 $(CLOSURE):
-	wget -P $(CLOSURE_DIR) https://dl.google.com/closure-compiler/compiler-latest.zip
-	unzip -d closure-compiler $(CLOSURE_DIR)/compiler-latest.zip \*.jar
+	wget -P $(CLOSURE_DIR) https://dl.google.com/closure-compiler/compiler-20190709.zip
+	unzip -d closure-compiler $(CLOSURE_DIR)/compiler-20190709.zip \*.jar
 	mv $(CLOSURE_DIR)/*.jar $(CLOSURE)
-	rm $(CLOSURE_DIR)/compiler-latest.zip
+	rm $(CLOSURE_DIR)/compiler-20190709.zip
 
 tests: build/libv86.js
 	./tests/full/run.js
