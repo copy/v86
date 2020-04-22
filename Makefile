@@ -119,6 +119,7 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js_output_file build/libv86.js\
 		--define=DEBUG=false\
 		--define=ENABLE_ACPI=$(ACPI)\
+		$(CLOSURE_SOURCE_MAP)\
 		$(CLOSURE_FLAGS)\
 		--compilation_level SIMPLE\
 		$(TRANSPILE_ES6_FLAGS)\
@@ -126,6 +127,8 @@ build/libv86.js: $(CLOSURE) src/*.js lib/*.js src/browser/*.js
 		--js $(CORE_FILES)\
 		--js $(BROWSER_FILES)\
 		--js $(LIB_FILES)
+
+	echo '//# sourceMappingURL=libv86.js.map' >> build/libv86.js
 
 	ls -lh build/libv86.js
 
