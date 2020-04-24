@@ -23,3 +23,4 @@ jobs:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           files: |
             build/*.js
+            build/*.js.map
